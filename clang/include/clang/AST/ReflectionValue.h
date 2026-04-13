@@ -15,7 +15,7 @@ namespace clang {
 
 enum class ReflectionKind {
   Null = 0, Type, Object, Value, Declaration, Template, Namespace,
-  Parameter, BaseSpecifier, DataMemberSpec, Annotation, Attribute,
+  Parameter, BaseSpecifier, DataMemberSpec, Annotation, Attribute, Identifier,
 };
 
 } // namespace clang

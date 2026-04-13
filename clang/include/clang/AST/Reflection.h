@@ -13,6 +13,8 @@
 
 #include "clang/AST/ReflectionValue.h"
 #include "clang/AST/TypeBase.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include <optional>
 #include <string>
@@ -21,6 +23,30 @@ namespace clang {
 
 class APValue;
 class CXXBaseSpecifier;
+
+class Token;
+
+/// \\brief Representation of a captured token sequence from ^^{ ... }.
+/// Essentially an ArrayRef<Token> allocated in the ASTContext.
+struct TokenSequenceData : public ArrayRef<Token> {
+  TokenSequenceData() = default;
+  TokenSequenceData(const Token *Data, size_t Length)
+      : ArrayRef<Token>(Data, Length) {}
+};
+
+/// Allocate token sequence storage in the ASTContext. Empty sequences are
+/// represented with an empty array.
+TokenSequenceData CreateTokenSequenceData(ASTContext &Ctx,
+                                          ArrayRef<Token> Tokens);
+
+TokenSequenceData CreateTokenSequenceData(ASTContext &Ctx,
+                                          ArrayRef<Token> Tokens1,
+                                          ArrayRef<Token> Tokens2);
+
+/// Allocate an empty token sequence in the ASTContext.
+inline TokenSequenceData CreateEmptyTokenSequenceData(ASTContext &Ctx) {
+  return CreateTokenSequenceData(Ctx, {});
+}
 
 /// Description of a hypothetical data member used by `define_class`.
 struct TagDataMemberSpec {

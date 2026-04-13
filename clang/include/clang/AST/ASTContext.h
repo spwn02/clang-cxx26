@@ -1323,7 +1323,7 @@ public:
   CanQualType Float16Ty; // C11 extension ISO/IEC TS 18661-3
   CanQualType Float32Ty, Float64Ty; // C++23 std::float32_t/std::float64_t
   CanQualType VoidPtrTy, NullPtrTy;
-  CanQualType MetaInfoTy;
+  CanQualType MetaInfoTy, TokenSequenceTy;
   CanQualType DependentTy, OverloadTy, BoundMemberTy, UnresolvedTemplateTy,
       UnknownAnyTy;
   CanQualType BuiltinFnTy;

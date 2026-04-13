@@ -2486,6 +2486,7 @@ ConstantEmitter::tryEmitPrivate(const APValue &Value, QualType DestType,
         llvm::StructType::get(Complex[0]->getType(), Complex[1]->getType());
     return llvm::ConstantStruct::get(STy, Complex);
   }
+  case APValue::TokenSequence:
   case APValue::Reflection: {
     // Null reflections have a runtime representation. Use the same zero
     // representation as value-initialization, including in aggregates.
