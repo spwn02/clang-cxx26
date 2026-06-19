@@ -1925,7 +1925,13 @@ bool get_ith_base_of(APValue &Result, ASTContext &C, MetaActions &Meta,
 
     if (auto cxxRecordDecl = dyn_cast_or_null<CXXRecordDecl>(typeDecl)) {
       Meta.EnsureInstantiated(typeDecl, Range);
-      if (isIncompleteInReflectionContext(C, RV.getReflectedType()))
+      // A class that is currently being defined is incomplete, but its bases
+      // are already known (the base-clause precedes the member-specification),
+      // so base introspection is allowed mid-definition in C++29 (token
+      // sequence injection, P4380). A type incomplete for any other reason
+      // cannot be introspected.
+      if (isIncompleteInReflectionContext(C, RV.getReflectedType()) &&
+          !(C.getLangOpts().CPlusPlus29 && cxxRecordDecl->isBeingDefined()))
         return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
             << 0 << 0 << Range;
 
@@ -2059,18 +2065,28 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     if (!Meta.EnsureInstantiated(typeDecl, Range))
       return true;
 
-    if (isIncompleteInReflectionContext(C, QT))
-      return Meta.ThrowMetaException(Range.getBegin(),
-                                     "invalid reflection operand");
-      // NOTE(CXX26): Uncomment to allow 'members_of' within member
-      // specification.
-      /*
-      if (auto *TD = dyn_cast<TagDecl>(typeDecl); !TD || !TD->isBeingDefined())
-        return true;
-      */
+    // A class that is currently being defined (e.g. when 'members_of' is called
+    // from a consteval block within the class's member-specification) is
+    // incomplete. In C++29 (token sequence injection, P4380) the members
+    // declared so far can be introspected so that members can be injected
+    // conditioned on the members already present; a type that is incomplete
+    // for any other reason is ill-formed.
+    bool BeingDefined = false;
+    if (isIncompleteInReflectionContext(C, QT)) {
+      auto *TD = dyn_cast<TagDecl>(typeDecl);
+      if (!C.getLangOpts().CPlusPlus29 || !TD || !TD->isBeingDefined())
+        return Meta.ThrowMetaException(Range.getBegin(),
+                                       "invalid reflection operand");
+      BeingDefined = true;
+    }
 
-    if (auto *CXXRD = dyn_cast<CXXRecordDecl>(typeDecl))
-      Meta.EnsureDeclarationOfImplicitMembers(CXXRD);
+    // Don't force-declare implicit special members while the class is still
+    // being defined: whether they exist / are deleted depends on the complete
+    // member-specification, which isn't available yet. Only the explicitly
+    // declared members so far are introspectable in that case.
+    if (!BeingDefined)
+      if (auto *CXXRD = dyn_cast<CXXRecordDecl>(typeDecl))
+        Meta.EnsureDeclarationOfImplicitMembers(CXXRD);
 
     DeclContext *declContext = dyn_cast<DeclContext>(typeDecl);
     assert(declContext && "no DeclContext?");
@@ -6686,10 +6702,10 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
     if (!NamingCls)
       NamingCls = DC;
 
-    if (DC && DC->isBeingDefined())
-      return Diagnoser(Range.getBegin(),
-                       diag::metafn_access_query_class_being_defined)
-          << DC << Range;
+    // A member declared while its class is still being defined already has a
+    // fixed access specifier, and the class's bases are known, so accessibility
+    // can be computed. This lets 'members_of' work mid-definition (e.g. from a
+    // consteval block injecting members based on those already present).
     return false;
   };
 
@@ -6762,7 +6778,9 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
     QualType BaseTy = BaseSpec->getType();
 
     CXXRecordDecl *DerivedDecl = BaseSpec->getDerived();
-    if (DerivedDecl->isBeingDefined())
+    // The base-clause is complete once the class is being defined, so the
+    // base's access specifier is known; C++29 (P4380) allows the query then.
+    if (DerivedDecl->isBeingDefined() && !C.getLangOpts().CPlusPlus29)
       return Diagnoser(Range.getBegin(),
                        diag::metafn_access_query_class_being_defined)
           << DerivedDecl << Range;
