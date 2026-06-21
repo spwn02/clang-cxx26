@@ -1924,16 +1924,21 @@ bool get_ith_base_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     Decl *typeDecl = findTypeDecl(QT);
 
     if (auto cxxRecordDecl = dyn_cast_or_null<CXXRecordDecl>(typeDecl)) {
-      Meta.EnsureInstantiated(typeDecl, Range);
       // A class that is currently being defined is incomplete, but its bases
       // are already known (the base-clause precedes the member-specification),
       // so base introspection is allowed mid-definition in C++29 (token
-      // sequence injection, P4380). A type incomplete for any other reason
-      // cannot be introspected.
-      if (isIncompleteInReflectionContext(C, RV.getReflectedType()) &&
-          !(C.getLangOpts().CPlusPlus29 && cxxRecordDecl->isBeingDefined()))
-        return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
-            << 0 << 0 << Range;
+      // sequence injection, P4380). Do not (re-)instantiate it in that case:
+      // it is already being instantiated, and instantiating its member
+      // definitions requires the complete type. A type incomplete for any
+      // other reason cannot be introspected.
+      bool BeingDefined =
+          C.getLangOpts().CPlusPlus29 && cxxRecordDecl->isBeingDefined();
+      if (!BeingDefined) {
+        if (isIncompleteInReflectionContext(C, RV.getReflectedType()))
+          return Diagnoser(Range.getBegin(),
+                           diag::metafn_cannot_introspect_type)
+              << 0 << 0 << Range;
+      }
 
       auto numBases = cxxRecordDecl->getNumBases();
       if (idx >= numBases)
@@ -2062,9 +2067,6 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       return Meta.ThrowMetaException(Range.getBegin(),
                                      "invalid reflection operand");
 
-    if (!Meta.EnsureInstantiated(typeDecl, Range))
-      return true;
-
     // A class that is currently being defined (e.g. when 'members_of' is called
     // from a consteval block within the class's member-specification) is
     // incomplete. In C++29 (token sequence injection, P4380) the members
@@ -2078,15 +2080,27 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
         return Meta.ThrowMetaException(Range.getBegin(),
                                        "invalid reflection operand");
       BeingDefined = true;
-    }
 
-    // Don't force-declare implicit special members while the class is still
-    // being defined: whether they exist / are deleted depends on the complete
-    // member-specification, which isn't available yet. Only the explicitly
-    // declared members so far are introspectable in that case.
-    if (!BeingDefined)
+    if (!BeingDefined) {
+      // Only complete the type when it is *not* already mid-definition.
+      // Instantiating a class-template specialization (and its member
+      // definitions) requires the complete type; doing so for a specialization
+      // that is currently being instantiated would re-enter instantiation and
+      // try to instantiate members whose signatures reference the still
+      // incomplete type. A type that is incomplete for any other reason is
+      // ill-formed here.
+      if (!Meta.EnsureInstantiated(typeDecl, Range))
+        return true;
+
+      if (QT->isIncompleteType())
+        return true;
+
+      // Don't force-declare implicit special members while the class is still
+      // being defined: whether they exist / are deleted depends on the complete
+      // member-specification, which isn't available yet.
       if (auto *CXXRD = dyn_cast<CXXRecordDecl>(typeDecl))
         Meta.EnsureDeclarationOfImplicitMembers(CXXRD);
+    }
 
     DeclContext *declContext = dyn_cast<DeclContext>(typeDecl);
     assert(declContext && "no DeclContext?");

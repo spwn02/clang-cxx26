@@ -28,6 +28,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Frontend/OpenMP/OMPContext.h"
 #include "llvm/Support/SaveAndRestore.h"
+#include <memory>
 #include <optional>
 #include <stack>
 
@@ -2923,6 +2924,7 @@ private:
     ParsingClass(Decl *TagOrTemplate, bool TopLevelClass, bool IsInterface)
         : TopLevelClass(TopLevelClass), IsInterface(IsInterface),
           TagOrTemplate(TagOrTemplate) {}
+    ~ParsingClass();
 
     /// Whether this is a "top-level" class, meaning that it is
     /// not nested within another class.
@@ -8105,6 +8107,16 @@ private:
   /// each batch and any further injections produced by parsing them, until
   /// no injections remain.
   void DrainPendingTokenInjections();
+
+  /// Members injected into a class that was still being defined (e.g. a
+  /// class template specialization mid-instantiation) have their late-parsed
+  /// portions parsed lazily: declarations are added immediately, but default
+  /// arguments, member initializers, and bodies are deferred via these
+  /// stashed ParsingClass objects until the class becomes complete.
+  SmallVector<std::unique_ptr<ParsingClass>, 2> DeferredInjectedClasses;
+  static void DeferredInjectedDefsCallback(void *P, const Decl *ForClass,
+                                          bool ShouldParse);
+  void ProcessDeferredInjectedDecls(const Decl *ForClass, bool ShouldParse);
 
   /// We've parsed something that could plausibly be intended to be a template
   /// name (\p LHS) followed by a '<' token, and the following code can't
