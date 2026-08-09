@@ -2083,6 +2083,9 @@ enum StmtCode {
 
   // contracts
   STMT_CXX_CONTRACT,
+  // do-expressions
+  EXPR_DO,
+  STMT_DO_RETURN,
 
   // FixedPointLiteral
   EXPR_FIXEDPOINT_LITERAL,

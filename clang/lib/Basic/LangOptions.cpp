@@ -129,6 +129,8 @@ void LangOptions::setLangDefaults(LangOptions &Opts, Language Lang,
   Opts.Reflection = Opts.ParameterReflection = Opts.AnnotationAttributes =
       Opts.ExpansionStatements = Opts.Contracts = Std.isCPlusPlus26();
   Opts.CPlusPlus29 = Std.isCPlusPlus29();
+  // P2806 ext: do-expressions are a C++29 feature.
+  Opts.DoExpressions = Std.isCPlusPlus29();
   Opts.GNUMode = Std.isGNUMode();
   Opts.GNUCVersion = 0;
   Opts.HexFloats = Std.hasHexFloats();

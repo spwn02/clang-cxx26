@@ -19540,6 +19540,12 @@ void Sema::ActOnCXXEnterDeclInitializer(Scope *S, Decl *D) {
       Ctx, D, ExpressionEvaluationContextRecord::EK_VariableInit);
   if (Ctx == ExpressionEvaluationContext::ImmediateFunctionContext)
     ExprEvalContexts.back().IsSynthesizedConstexprVarInitContext = true;
+
+  // Propagate the lifetime extending context flag from the parent so that
+  // temporaries created in the initializer of a variable inside a
+  // do-expression init statement can be lifetime extended.
+  currentEvaluationContext().InLifetimeExtendingContext =
+      parentEvaluationContext().InLifetimeExtendingContext;
 }
 
 void Sema::ActOnCXXExitDeclInitializer(Scope *S, Decl *D) {
