@@ -128,6 +128,7 @@ void LangOptions::setLangDefaults(LangOptions &Opts, Language Lang,
   // and contracts.
   Opts.Reflection = Opts.ParameterReflection = Opts.AnnotationAttributes =
       Opts.ExpansionStatements = Opts.Contracts = Std.isCPlusPlus26();
+  Opts.CPlusPlus29 = Std.isCPlusPlus29();
   Opts.GNUMode = Std.isGNUMode();
   Opts.GNUCVersion = 0;
   Opts.HexFloats = Std.hasHexFloats();
@@ -259,7 +260,9 @@ std::optional<uint32_t> LangOptions::getCPlusPlusLangStd() const {
     return std::nullopt;
 
   LangStandard::Kind Std;
-  if (CPlusPlus26)
+  if (CPlusPlus29)
+    Std = LangStandard::lang_cxx29;
+  else if (CPlusPlus26)
     Std = LangStandard::lang_cxx26;
   else if (CPlusPlus23)
     Std = LangStandard::lang_cxx23;
