@@ -4003,10 +4003,7 @@ static const DeclContext *skipExpansionStmts(const DeclContext *DC) {
 }
 
 static bool isSyntheticDoExprDeclContext(const DeclContext *DC) {
-  const auto *FD = dyn_cast<FunctionDecl>(skipExpansionStmts(DC));
-  return FD && FD->isImplicit() && !FD->getIdentifier() &&
-         FD->getLexicalDeclContext() &&
-         FD->getLexicalDeclContext()->isFileContext();
+  return isDoExprBodyContext(skipExpansionStmts(DC));
 }
 
 // For a declaration-time read in a lambda body, there is no live call frame
