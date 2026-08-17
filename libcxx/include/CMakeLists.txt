@@ -737,6 +737,7 @@ set(files
   __ranges/view_interface.h
   __ranges/views.h
   __ranges/zip_view.h
+  __rcu/rcu.h
   __split_buffer
   __std_mbstate_t.h
   __stop_token/atomic_unique_lock.h
