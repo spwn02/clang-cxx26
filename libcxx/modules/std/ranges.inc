@@ -132,6 +132,16 @@ export namespace std {
     } // namespace views
 #endif // _LIBCPP_STD_VER >= 23
 
+#if _LIBCPP_STD_VER >= 26
+    using std::ranges::as_input_view;
+    using std::ranges::cache_latest_view;
+
+    namespace views {
+      using std::ranges::views::as_input;
+      using std::ranges::views::cache_latest;
+    }
+#endif
+
 #if _LIBCPP_HAS_LOCALIZATION
     // [range.istream], istream view
     using std::ranges::basic_istream_view;
