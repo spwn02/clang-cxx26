@@ -14,8 +14,11 @@
 #include <__memory/allocator_traits.h>
 #include <__utility/forward.h>
 #include <__utility/in_place.h>
+#include <__type_traits/is_base_of.h>
+#include <__type_traits/is_constructible.h>
+#include <__type_traits/is_same.h>
+#include <__type_traits/remove_cvref.h>
 #include <__utility/move.h>
-#include <type_traits>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header

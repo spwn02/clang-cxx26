@@ -795,7 +795,6 @@ memory cstring
 memory initializer_list
 memory limits
 memory tuple
-memory type_traits
 memory typeinfo
 memory version
 memory_resource cerrno

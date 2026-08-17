@@ -16,9 +16,11 @@
 #include <__utility/forward.h>
 #include <__utility/in_place.h>
 #include <__utility/move.h>
+#include <__type_traits/is_constructible.h>
+#include <__type_traits/is_same.h>
+#include <__type_traits/remove_cvref.h>
 #include <compare>
 #include <initializer_list>
-#include <type_traits>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -181,11 +183,16 @@ public:
     return *__x <=> *__y;
   }
 
+  // Precondition: !__x.valueless_after_move(). There is no value-preserving
+  // way to compare a value-less indirect against a bare value, so unlike the
+  // indirect-vs-indirect overloads above (which can fall back to comparing
+  // "is valueless"), this is only well-defined when __x owns a value.
   template <class _Up>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const indirect& __x, const _Up& __v) {
-    return !__x.valueless_after_move() && *__x == __v;
+    return *__x == __v;
   }
 
+  // Precondition: !__x.valueless_after_move(). See operator== above.
   template <class _Up>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator<=>(const indirect& __x, const _Up& __v) {
     return *__x <=> __v;
