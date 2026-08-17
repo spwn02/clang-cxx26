@@ -287,7 +287,6 @@ bool JSONTransport::readStandardMessage(std::string &JSON) {
     InMirror << llvm::StringRef(&JSON[Pos], Read);
     clearerr(In); // If we're done, the error was transient. If we're not done,
                   // either it was transient or we'll see it again on retry.
-    Pos += Read;
   }
   return true;
 }

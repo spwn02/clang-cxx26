@@ -132,6 +132,22 @@ Notification exit: null
   EXPECT_EQ(trim(inputMirror()), trim(input()));
 }
 
+TEST_F(JSONTransportTest, StandardLargeMessage) {
+  std::string Params(8192, 'x');
+  std::string JSON =
+      R"({"jsonrpc":"2.0","method":"large","params":")" + Params +
+      R"("})";
+  std::string Input = "Content-Length: " + std::to_string(JSON.size()) +
+                      "\r\n\r\n" + JSON;
+  auto T = transport(Input, /*Pretty=*/false, JSONStreamStyle::Standard);
+  Echo E(*T);
+  auto Err = T->loop(E);
+  EXPECT_TRUE(bool(Err));
+  consumeError(std::move(Err));
+  EXPECT_EQ(E.log(), "Notification large: \"" + Params + "\"\n");
+  EXPECT_EQ(inputMirror(), input());
+}
+
 // Runs an Echo session using the "delimited" input and pretty-printed output
 // that we use in lit tests.
 TEST_F(JSONTransportTest, DelimitedPretty) {
