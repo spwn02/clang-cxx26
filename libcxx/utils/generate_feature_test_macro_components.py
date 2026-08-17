@@ -1157,7 +1157,6 @@ feature_test_macros = [
             "headers": [
                 "rcu"  # TODO verify this entry since the paper was underspecified.
             ],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_reference_from_temporary",

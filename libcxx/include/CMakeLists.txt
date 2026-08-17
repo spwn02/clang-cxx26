@@ -1047,6 +1047,7 @@ set(files
   random
   ranges
   ratio
+  rcu
   regex
   scoped_allocator
   semaphore

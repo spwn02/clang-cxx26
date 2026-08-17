@@ -878,6 +878,14 @@ ranges version
 ratio climits
 ratio cstdint
 ratio version
+rcu cerrno
+rcu climits
+rcu cstdint
+rcu cstring
+rcu ctime
+rcu limits
+rcu ratio
+rcu version
 regex array
 regex cctype
 regex cerrno

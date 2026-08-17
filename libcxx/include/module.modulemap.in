@@ -1957,6 +1957,13 @@ module std [system] {
     export *
   }
 
+  module rcu {
+    private header "__rcu/rcu.h"
+
+    header "rcu"
+    export *
+  }
+
   module regex {
     header "regex"
     export *
