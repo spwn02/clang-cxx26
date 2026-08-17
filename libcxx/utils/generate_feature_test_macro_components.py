@@ -349,7 +349,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_constexpr_complex",
-            "values": {"c++20": 201711},
+            "values": {"c++20": 201711, "c++26": 202306},
             "headers": ["complex"],
         },
         {
@@ -711,9 +711,13 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_hazard_pointer",
             "values": {"c++26": 202306},  # P2530R3 Hazard Pointers for C++26
-            "headers": [
-                "hazard_pointer"  # TODO verify this entry since the paper was underspecified.
-            ],
+            "headers": ["hazard_pointer"],
+        },
+        {
+            "name": "__cpp_lib_hive",
+            "values": {"c++26": 202502},  # P0447R28 Introduction of std::hive to the standard library
+            "headers": ["hive"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_hypot",
@@ -879,7 +883,6 @@ feature_test_macros = [
                 "c++26": 202311  # P1673 A free function linear algebra interface based on the BLAS
             },
             "headers": ["linalg"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_list_remove_return_type",
@@ -1167,9 +1170,7 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_rcu",
             "values": {"c++26": 202306},  # P2545R4 Read-Copy Update (RCU)
-            "headers": [
-                "rcu"  # TODO verify this entry since the paper was underspecified.
-            ],
+            "headers": ["rcu"],
         },
         {
             "name": "__cpp_lib_reference_from_temporary",
