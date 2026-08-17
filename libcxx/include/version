@@ -355,7 +355,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_logical_traits                       201510L
 # define __cpp_lib_make_from_tuple                      201606L
 # define __cpp_lib_map_try_emplace                      201411L
-// # define __cpp_lib_math_special_functions               201603L
+# define __cpp_lib_math_special_functions               201603L
 # if _LIBCPP_AVAILABILITY_HAS_PMR
 #   define __cpp_lib_memory_resource                    201603L
 # endif

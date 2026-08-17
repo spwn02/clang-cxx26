@@ -920,7 +920,6 @@ feature_test_macros = [
             "name": "__cpp_lib_math_special_functions",
             "values": {"c++17": 201603},
             "headers": ["cmath"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_mdspan",

@@ -2560,17 +2560,11 @@
 #    error "__cpp_lib_math_constants should not be defined before c++20"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should be defined in c++17"
-#    endif
-#    if __cpp_lib_math_special_functions != 201603L
-#      error "__cpp_lib_math_special_functions should have the value 201603L in c++17"
-#    endif
-#  else
-#    ifdef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_math_special_functions
+#    error "__cpp_lib_math_special_functions should be defined in c++17"
+#  endif
+#  if __cpp_lib_math_special_functions != 201603L
+#    error "__cpp_lib_math_special_functions should have the value 201603L in c++17"
 #  endif
 
 #  ifdef __cpp_lib_mdspan
@@ -3927,17 +3921,11 @@
 #    error "__cpp_lib_math_constants should have the value 201907L in c++20"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should be defined in c++20"
-#    endif
-#    if __cpp_lib_math_special_functions != 201603L
-#      error "__cpp_lib_math_special_functions should have the value 201603L in c++20"
-#    endif
-#  else
-#    ifdef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_math_special_functions
+#    error "__cpp_lib_math_special_functions should be defined in c++20"
+#  endif
+#  if __cpp_lib_math_special_functions != 201603L
+#    error "__cpp_lib_math_special_functions should have the value 201603L in c++20"
 #  endif
 
 #  ifdef __cpp_lib_mdspan
@@ -5447,17 +5435,11 @@
 #    error "__cpp_lib_math_constants should have the value 201907L in c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should be defined in c++23"
-#    endif
-#    if __cpp_lib_math_special_functions != 201603L
-#      error "__cpp_lib_math_special_functions should have the value 201603L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_math_special_functions
+#    error "__cpp_lib_math_special_functions should be defined in c++23"
+#  endif
+#  if __cpp_lib_math_special_functions != 201603L
+#    error "__cpp_lib_math_special_functions should have the value 201603L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_mdspan
@@ -7342,17 +7324,11 @@
 #    error "__cpp_lib_math_constants should have the value 201907L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should be defined in c++26"
-#    endif
-#    if __cpp_lib_math_special_functions != 201603L
-#      error "__cpp_lib_math_special_functions should have the value 201603L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_math_special_functions
+#    error "__cpp_lib_math_special_functions should be defined in c++26"
+#  endif
+#  if __cpp_lib_math_special_functions != 201603L
+#    error "__cpp_lib_math_special_functions should have the value 201603L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_mdspan

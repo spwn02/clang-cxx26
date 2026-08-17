@@ -160,17 +160,94 @@ floating_point asinh (arithmetic x);
 float          asinhf(float x);
 long double    asinhl(long double x);
 
+double         assoc_laguerre(unsigned n, unsigned m, double x);           // C++17
+float          assoc_laguerre(unsigned n, unsigned m, float x);            // C++17
+long double    assoc_laguerre(unsigned n, unsigned m, long double x);      // C++17
+float          assoc_laguerref(unsigned n, unsigned m, float x);           // C++17
+long double    assoc_laguerrel(unsigned n, unsigned m, long double x);     // C++17
+template <class Integer>
+double         assoc_laguerre(unsigned n, unsigned m, Integer x);          // C++17
+
+double         assoc_legendre(unsigned l, unsigned m, double x);           // C++17
+float          assoc_legendre(unsigned l, unsigned m, float x);            // C++17
+long double    assoc_legendre(unsigned l, unsigned m, long double x);      // C++17
+float          assoc_legendref(unsigned l, unsigned m, float x);           // C++17
+long double    assoc_legendrel(unsigned l, unsigned m, long double x);     // C++17
+template <class Integer>
+double         assoc_legendre(unsigned l, unsigned m, Integer x);          // C++17
+
 floating_point atanh (arithmetic x);
 float          atanhf(float x);
 long double    atanhl(long double x);
+
+template <class Arg1, class Arg2>
+floating_point beta(Arg1 x, Arg2 y);                              // C++17
+float          betaf(float x, float y);                           // C++17
+long double    betal(long double x, long double y);               // C++17
 
 floating_point cbrt (arithmetic x);
 float          cbrtf(float x);
 long double    cbrtl(long double x);
 
+double         comp_ellint_1(double k);                            // C++17
+float          comp_ellint_1(float k);                             // C++17
+long double    comp_ellint_1(long double k);                       // C++17
+float          comp_ellint_1f(float k);                            // C++17
+long double    comp_ellint_1l(long double k);                      // C++17
+template <class Integer>
+double         comp_ellint_1(Integer k);                           // C++17
+
+double         comp_ellint_2(double k);                            // C++17
+float          comp_ellint_2(float k);                             // C++17
+long double    comp_ellint_2(long double k);                       // C++17
+float          comp_ellint_2f(float k);                            // C++17
+long double    comp_ellint_2l(long double k);                      // C++17
+template <class Integer>
+double         comp_ellint_2(Integer k);                           // C++17
+
+template <class Arg1, class Arg2>
+floating_point comp_ellint_3(Arg1 k, Arg2 nu);                     // C++17
+float          comp_ellint_3f(float k, float nu);                  // C++17
+long double    comp_ellint_3l(long double k, long double nu);      // C++17
+
 floating_point copysign (arithmetic x, arithmetic y);
 float          copysignf(float x, float y);
 long double    copysignl(long double x, long double y);
+
+template <class Arg1, class Arg2>
+floating_point cyl_bessel_i(Arg1 nu, Arg2 x);                      // C++17
+float          cyl_bessel_if(float nu, float x);                   // C++17
+long double    cyl_bessel_il(long double nu, long double x);       // C++17
+
+template <class Arg1, class Arg2>
+floating_point cyl_bessel_j(Arg1 nu, Arg2 x);                      // C++17
+float          cyl_bessel_jf(float nu, float x);                   // C++17
+long double    cyl_bessel_jl(long double nu, long double x);       // C++17
+
+template <class Arg1, class Arg2>
+floating_point cyl_bessel_k(Arg1 nu, Arg2 x);                      // C++17
+float          cyl_bessel_kf(float nu, float x);                   // C++17
+long double    cyl_bessel_kl(long double nu, long double x);       // C++17
+
+template <class Arg1, class Arg2>
+floating_point cyl_neumann(Arg1 nu, Arg2 x);                       // C++17
+float          cyl_neumannf(float nu, float x);                    // C++17
+long double    cyl_neumannl(long double nu, long double x);        // C++17
+
+template <class Arg1, class Arg2>
+floating_point ellint_1(Arg1 k, Arg2 phi);                         // C++17
+float          ellint_1f(float k, float phi);                      // C++17
+long double    ellint_1l(long double k, long double phi);          // C++17
+
+template <class Arg1, class Arg2>
+floating_point ellint_2(Arg1 k, Arg2 phi);                         // C++17
+float          ellint_2f(float k, float phi);                      // C++17
+long double    ellint_2l(long double k, long double phi);          // C++17
+
+template <class Arg1, class Arg2, class Arg3>
+floating_point ellint_3(Arg1 k, Arg2 nu, Arg3 phi);                 // C++17
+float          ellint_3f(float k, float nu, float phi);            // C++17
+long double    ellint_3l(long double k, long double nu, long double phi); // C++17
 
 floating_point erf (arithmetic x);
 float          erff(float x);
@@ -183,6 +260,10 @@ long double    erfcl(long double x);
 floating_point exp2 (arithmetic x);
 float          exp2f(float x);
 long double    exp2l(long double x);
+
+floating_point expint (arithmetic x);                             // C++17
+float          expintf(float x);                                  // C++17
+long double    expintl(long double x);                            // C++17
 
 floating_point expm1 (arithmetic x);
 float          expm1f(float x);
@@ -223,6 +304,22 @@ long double  hypot(long double x, long double y, long double z); // C++17
 int ilogb (arithmetic x);
 int ilogbf(float x);
 int ilogbl(long double x);
+
+double         laguerre(unsigned n, double x);                    // C++17
+float          laguerre(unsigned n, float x);                     // C++17
+long double    laguerre(unsigned n, long double x);                // C++17
+float          laguerref(unsigned n, float x);                    // C++17
+long double    laguerrel(unsigned n, long double x);               // C++17
+template <class Integer>
+double         laguerre(unsigned n, Integer x);                   // C++17
+
+double         legendre(unsigned l, double x);                    // C++17
+float          legendre(unsigned l, float x);                     // C++17
+long double    legendre(unsigned l, long double x);                // C++17
+float          legendref(unsigned l, float x);                    // C++17
+long double    legendrel(unsigned l, long double x);               // C++17
+template <class Integer>
+double         legendre(unsigned l, Integer x);                   // C++17
 
 floating_point lgamma (arithmetic x);
 float          lgammaf(float x);
@@ -280,6 +377,10 @@ floating_point remquo (arithmetic x, arithmetic y, int* pquo);
 float          remquof(float x, float y, int* pquo);
 long double    remquol(long double x, long double y, int* pquo);
 
+floating_point riemann_zeta (arithmetic x);                       // C++17
+float          riemann_zetaf(float x);                            // C++17
+long double    riemann_zetal(long double x);                      // C++17
+
 floating_point rint (arithmetic x);
 float          rintf(float x);
 long double    rintl(long double x);
@@ -295,6 +396,30 @@ long double    scalblnl(long double x, long ex);
 floating_point scalbn (arithmetic x, int ex);
 float          scalbnf(float x, int ex);
 long double    scalbnl(long double x, int ex);
+
+double         sph_legendre(unsigned l, unsigned m, double theta);            // C++17
+float          sph_legendre(unsigned l, unsigned m, float theta);             // C++17
+long double    sph_legendre(unsigned l, unsigned m, long double theta);       // C++17
+float          sph_legendref(unsigned l, unsigned m, float theta);            // C++17
+long double    sph_legendrel(unsigned l, unsigned m, long double theta);      // C++17
+template <class Integer>
+double         sph_legendre(unsigned l, unsigned m, Integer theta);           // C++17
+
+double         sph_bessel(unsigned n, double x);                              // C++17
+float          sph_bessel(unsigned n, float x);                               // C++17
+long double    sph_bessel(unsigned n, long double x);                         // C++17
+float          sph_besself(unsigned n, float x);                              // C++17
+long double    sph_bessell(unsigned n, long double x);                        // C++17
+template <class Integer>
+double         sph_bessel(unsigned n, Integer x);                             // C++17
+
+double         sph_neumann(unsigned n, double x);                             // C++17
+float          sph_neumann(unsigned n, float x);                              // C++17
+long double    sph_neumann(unsigned n, long double x);                        // C++17
+float          sph_neumannf(unsigned n, float x);                             // C++17
+long double    sph_neumannl(unsigned n, long double x);                       // C++17
+template <class Integer>
+double         sph_neumann(unsigned n, Integer x);                            // C++17
 
 floating_point tgamma (arithmetic x);
 float          tgammaf(float x);
@@ -569,6 +694,97 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bool __constexpr_isinf(_A1 __lcpp_x) _NO
 template <class _A1, __enable_if_t<!is_floating_point<_A1>::value, int> = 0>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bool __constexpr_isinf(_A1 __lcpp_x) _NOEXCEPT {
   return std::isinf(__lcpp_x);
+}
+
+template <class _A1, __enable_if_t<is_floating_point<_A1>::value, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bool __constexpr_isnan(_A1 __lcpp_x) _NOEXCEPT {
+#  if __has_builtin(__builtin_isnan)
+  return __builtin_isnan(__lcpp_x);
+#  else
+  return isnan(__lcpp_x);
+#  endif
+}
+
+template <class _A1, __enable_if_t<!is_floating_point<_A1>::value, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bool __constexpr_isnan(_A1 __lcpp_x) _NOEXCEPT {
+  return std::isnan(__lcpp_x);
+}
+
+template <class _A1, __enable_if_t<is_floating_point<_A1>::value, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bool __constexpr_isfinite(_A1 __lcpp_x) _NOEXCEPT {
+#  if __has_builtin(__builtin_isfinite)
+  return __builtin_isfinite(__lcpp_x);
+#  else
+  return isfinite(__lcpp_x);
+#  endif
+}
+
+template <class _A1, __enable_if_t<!is_floating_point<_A1>::value, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bool __constexpr_isfinite(_A1 __lcpp_x) _NOEXCEPT {
+  return std::isfinite(__lcpp_x);
+}
+
+template <class _A1, __enable_if_t<is_floating_point<_A1>::value, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bool __constexpr_signbit(_A1 __lcpp_x) _NOEXCEPT {
+#  if __has_builtin(__builtin_signbit)
+  return __builtin_signbit(__lcpp_x);
+#  else
+  return signbit(__lcpp_x);
+#  endif
+}
+
+template <class _A1, __enable_if_t<!is_floating_point<_A1>::value, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bool __constexpr_signbit(_A1 __lcpp_x) _NOEXCEPT {
+  return std::signbit(__lcpp_x);
+}
+
+template <class _A1, __enable_if_t<is_floating_point<_A1>::value, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _A1 __constexpr_copysign(_A1 __lcpp_x, _A1 __lcpp_y) _NOEXCEPT {
+  // __builtin_copysign's parameter type is `double`, so a `float`/`long double` argument must be
+  // dispatched to the size-suffixed variant to avoid an implicit narrowing/widening conversion.
+  if constexpr (is_same<_A1, float>::value) {
+#  if __has_builtin(__builtin_copysignf)
+    return __builtin_copysignf(__lcpp_x, __lcpp_y);
+#  else
+    return copysignf(__lcpp_x, __lcpp_y);
+#  endif
+  } else if constexpr (is_same<_A1, long double>::value) {
+#  if __has_builtin(__builtin_copysignl)
+    return __builtin_copysignl(__lcpp_x, __lcpp_y);
+#  else
+    return copysignl(__lcpp_x, __lcpp_y);
+#  endif
+  } else {
+#  if __has_builtin(__builtin_copysign)
+    return __builtin_copysign(__lcpp_x, __lcpp_y);
+#  else
+    return copysign(__lcpp_x, __lcpp_y);
+#  endif
+  }
+}
+
+template <class _A1, __enable_if_t<is_floating_point<_A1>::value, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _A1 __constexpr_fabs(_A1 __lcpp_x) _NOEXCEPT {
+  // Same rationale as __constexpr_copysign above: __builtin_fabs takes a `double` parameter.
+  if constexpr (is_same<_A1, float>::value) {
+#  if __has_builtin(__builtin_fabsf)
+    return __builtin_fabsf(__lcpp_x);
+#  else
+    return fabsf(__lcpp_x);
+#  endif
+  } else if constexpr (is_same<_A1, long double>::value) {
+#  if __has_builtin(__builtin_fabsl)
+    return __builtin_fabsl(__lcpp_x);
+#  else
+    return fabsl(__lcpp_x);
+#  endif
+  } else {
+#  if __has_builtin(__builtin_fabs)
+    return __builtin_fabs(__lcpp_x);
+#  else
+    return fabs(__lcpp_x);
+#  endif
+  }
 }
 
 #  if _LIBCPP_STD_VER >= 20

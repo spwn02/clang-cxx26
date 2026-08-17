@@ -60,6 +60,13 @@ Libc++ pursuits reasonable results by choosing the same formulas as for indices 
 E.g.,
 
 - ``std::hermite(unsigned n, T x)`` for ``n >= 128``
+- ``std::laguerre(unsigned n, T x)`` and ``std::assoc_laguerre(unsigned n, unsigned m, T x)`` for ``n >= 128``
+- ``std::legendre(unsigned l, T x)`` and ``std::assoc_legendre(unsigned l, unsigned m, T x)`` for ``l >= 128``
+
+Additionally, ``std::comp_ellint_1(T k)``, ``std::comp_ellint_2(T k)``, ``std::comp_ellint_3(T k, T nu)``,
+and their incomplete counterparts return a quiet NaN, rather than an infinity, when ``k`` sits exactly
+on the domain boundary (``k == +-1``): the Carlson symmetric-form evaluation used internally has no
+well-defined limit there.
 
 
 `[stringbuf.cons] <http://eel.is/c++draft/stringbuf.cons>`_ Whether sequence pointers are initialized to null pointers

@@ -71,17 +71,11 @@
 #    error "__cpp_lib_interpolate should not be defined before c++20"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should be defined in c++17"
-#    endif
-#    if __cpp_lib_math_special_functions != 201603L
-#      error "__cpp_lib_math_special_functions should have the value 201603L in c++17"
-#    endif
-#  else
-#    ifdef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_math_special_functions
+#    error "__cpp_lib_math_special_functions should be defined in c++17"
+#  endif
+#  if __cpp_lib_math_special_functions != 201603L
+#    error "__cpp_lib_math_special_functions should have the value 201603L in c++17"
 #  endif
 
 #elif TEST_STD_VER == 20
@@ -104,17 +98,11 @@
 #    error "__cpp_lib_interpolate should have the value 201902L in c++20"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should be defined in c++20"
-#    endif
-#    if __cpp_lib_math_special_functions != 201603L
-#      error "__cpp_lib_math_special_functions should have the value 201603L in c++20"
-#    endif
-#  else
-#    ifdef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_math_special_functions
+#    error "__cpp_lib_math_special_functions should be defined in c++20"
+#  endif
+#  if __cpp_lib_math_special_functions != 201603L
+#    error "__cpp_lib_math_special_functions should have the value 201603L in c++20"
 #  endif
 
 #elif TEST_STD_VER == 23
@@ -146,17 +134,11 @@
 #    error "__cpp_lib_interpolate should have the value 201902L in c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should be defined in c++23"
-#    endif
-#    if __cpp_lib_math_special_functions != 201603L
-#      error "__cpp_lib_math_special_functions should have the value 201603L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_math_special_functions
+#    error "__cpp_lib_math_special_functions should be defined in c++23"
+#  endif
+#  if __cpp_lib_math_special_functions != 201603L
+#    error "__cpp_lib_math_special_functions should have the value 201603L in c++23"
 #  endif
 
 #elif TEST_STD_VER > 23
@@ -188,17 +170,11 @@
 #    error "__cpp_lib_interpolate should have the value 201902L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should be defined in c++26"
-#    endif
-#    if __cpp_lib_math_special_functions != 201603L
-#      error "__cpp_lib_math_special_functions should have the value 201603L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_math_special_functions
-#      error "__cpp_lib_math_special_functions should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_math_special_functions
+#    error "__cpp_lib_math_special_functions should be defined in c++26"
+#  endif
+#  if __cpp_lib_math_special_functions != 201603L
+#    error "__cpp_lib_math_special_functions should have the value 201603L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23
