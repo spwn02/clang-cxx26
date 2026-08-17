@@ -52,6 +52,10 @@
 #    error "__cpp_lib_enable_shared_from_this should not be defined before c++17"
 #  endif
 
+#  ifdef __cpp_lib_indirect
+#    error "__cpp_lib_indirect should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_is_sufficiently_aligned
 #    error "__cpp_lib_is_sufficiently_aligned should not be defined before c++26"
 #  endif
@@ -62,6 +66,10 @@
 
 #  ifdef __cpp_lib_out_ptr
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_polymorphic
+#    error "__cpp_lib_polymorphic should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_ranges
@@ -130,6 +138,10 @@
 #    error "__cpp_lib_enable_shared_from_this should not be defined before c++17"
 #  endif
 
+#  ifdef __cpp_lib_indirect
+#    error "__cpp_lib_indirect should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_is_sufficiently_aligned
 #    error "__cpp_lib_is_sufficiently_aligned should not be defined before c++26"
 #  endif
@@ -143,6 +155,10 @@
 
 #  ifdef __cpp_lib_out_ptr
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_polymorphic
+#    error "__cpp_lib_polymorphic should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_ranges
@@ -223,6 +239,10 @@
 #    error "__cpp_lib_enable_shared_from_this should have the value 201603L in c++17"
 #  endif
 
+#  ifdef __cpp_lib_indirect
+#    error "__cpp_lib_indirect should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_is_sufficiently_aligned
 #    error "__cpp_lib_is_sufficiently_aligned should not be defined before c++26"
 #  endif
@@ -236,6 +256,10 @@
 
 #  ifdef __cpp_lib_out_ptr
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_polymorphic
+#    error "__cpp_lib_polymorphic should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_ranges
@@ -337,6 +361,10 @@
 #    error "__cpp_lib_enable_shared_from_this should have the value 201603L in c++20"
 #  endif
 
+#  ifdef __cpp_lib_indirect
+#    error "__cpp_lib_indirect should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_is_sufficiently_aligned
 #    error "__cpp_lib_is_sufficiently_aligned should not be defined before c++26"
 #  endif
@@ -350,6 +378,10 @@
 
 #  ifdef __cpp_lib_out_ptr
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_polymorphic
+#    error "__cpp_lib_polymorphic should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_ranges
@@ -463,6 +495,10 @@
 #    error "__cpp_lib_enable_shared_from_this should have the value 201603L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_indirect
+#    error "__cpp_lib_indirect should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_is_sufficiently_aligned
 #    error "__cpp_lib_is_sufficiently_aligned should not be defined before c++26"
 #  endif
@@ -479,6 +515,10 @@
 #  endif
 #  if __cpp_lib_out_ptr != 202106L
 #    error "__cpp_lib_out_ptr should have the value 202106L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_polymorphic
+#    error "__cpp_lib_polymorphic should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_ranges
@@ -592,6 +632,13 @@
 #    error "__cpp_lib_enable_shared_from_this should have the value 201603L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_indirect
+#    error "__cpp_lib_indirect should be defined in c++26"
+#  endif
+#  if __cpp_lib_indirect != 202502L
+#    error "__cpp_lib_indirect should have the value 202502L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_is_sufficiently_aligned
 #    error "__cpp_lib_is_sufficiently_aligned should be defined in c++26"
 #  endif
@@ -611,6 +658,13 @@
 #  endif
 #  if __cpp_lib_out_ptr != 202311L
 #    error "__cpp_lib_out_ptr should have the value 202311L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_polymorphic
+#    error "__cpp_lib_polymorphic should be defined in c++26"
+#  endif
+#  if __cpp_lib_polymorphic != 202502L
+#    error "__cpp_lib_polymorphic should have the value 202502L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_ranges

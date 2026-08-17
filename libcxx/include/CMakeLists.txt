@@ -575,11 +575,13 @@ set(files
   __memory/construct_at.h
   __memory/destroy.h
   __memory/destruct_n.h
+  __memory/indirect.h
   __memory/inout_ptr.h
   __memory/is_sufficiently_aligned.h
   __memory/noexcept_move_assign_container.h
   __memory/out_ptr.h
   __memory/pointer_traits.h
+  __memory/polymorphic.h
   __memory/ranges_construct_at.h
   __memory/ranges_destroy.h
   __memory/ranges_uninitialized_algorithms.h

@@ -21,6 +21,15 @@ export namespace std {
   using std::is_sufficiently_aligned;
 #endif
 
+#if _LIBCPP_STD_VER >= 26
+  // [indirect], class template indirect
+  using std::indirect;
+  using std::hash;
+
+  // [polymorphic], class template polymorphic
+  using std::polymorphic;
+#endif
+
   // [obj.lifetime], explicit lifetime management
   //  using std::start_lifetime_as;
   //  using std::start_lifetime_as_array;
