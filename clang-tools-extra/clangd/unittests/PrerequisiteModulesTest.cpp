@@ -198,6 +198,21 @@ void use() {
   EXPECT_TRUE(NonModularInfo->canReuse(*Invocation, FS.view(TestDir)));
 }
 
+TEST_F(PrerequisiteModulesTests, BuildSystemProvidedModules) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.ExtraClangFlags.push_back("-fmodule-file=M=/tmp/M.pcm");
+  CDB.addFile("Use.cpp", "import M;\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+
+  EXPECT_TRUE(Info);
+  EXPECT_EQ(CDB.getGlobalScanningCount(), 0u);
+  HeaderSearchOptions HSOpts;
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.empty());
+}
+
 TEST_F(PrerequisiteModulesTests, ModuleWithoutDepTest) {
   MockDirectoryCompilationDatabase CDB(TestDir, FS);
 

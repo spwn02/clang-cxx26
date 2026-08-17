@@ -527,6 +527,16 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
 std::unique_ptr<PrerequisiteModules>
 ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
                                             const ThreadsafeFS &TFS) {
+  // Build systems may provide all module mappings directly. In that case the
+  // compiler invocation already knows which BMIs to use, and rebuilding them
+  // after globally scanning the project is both redundant and expensive.
+  if (auto Cmd = Impl->getCDB().getCompileCommand(File)) {
+    if (llvm::any_of(Cmd->CommandLine, [](llvm::StringRef Arg) {
+          return Arg.starts_with("-fmodule-file=");
+        }))
+      return std::make_unique<ReusablePrerequisiteModules>();
+  }
+
   std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File);
   if (!MDB) {
     elog("Failed to get Project Modules information for {0}", File);
