@@ -135,10 +135,12 @@ export namespace std {
 #if _LIBCPP_STD_VER >= 26
     using std::ranges::as_input_view;
     using std::ranges::cache_latest_view;
+    using std::ranges::concat_view;
 
     namespace views {
       using std::ranges::views::as_input;
       using std::ranges::views::cache_latest;
+      using std::ranges::views::concat;
     }
 #endif
 
