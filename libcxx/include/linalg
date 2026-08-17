@@ -1,0 +1,3150 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_LINALG
+#define _LIBCPP_LINALG
+
+#include <__config>
+
+#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#  pragma GCC system_header
+#endif
+
+#if _LIBCPP_STD_VER >= 26
+
+#  include <__type_traits/is_execution_policy.h>
+#  include <array>
+#  include <cmath>
+#  include <complex>
+#  include <concepts>
+#  include <functional>
+#  include <limits>
+#  include <mdspan>
+#  include <type_traits>
+#  include <utility>
+
+_LIBCPP_PUSH_MACROS
+#  include <__undef_macros>
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+
+namespace linalg {
+#  define _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_ElementType, _Extents, _Layout, _Accessor)                         \
+    static_assert(is_assignable_v<typename mdspan<_ElementType, _Extents, _Layout, _Accessor>::reference, _ElementType>, \
+                  "linalg output mdspan must be writable")
+#  define _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_Extents, _Layout)                                                  \
+    static_assert(_Layout::template mapping<_Extents>::is_always_unique(),                                           \
+                  "linalg output mdspan mapping must always be unique")
+
+namespace __detail {
+
+template <class _Tp>
+struct __is_std_complex : false_type {};
+
+template <class _Tp>
+struct __is_std_complex<complex<_Tp>> : true_type {};
+
+template <class _Tp>
+inline constexpr bool __is_std_complex_v = __is_std_complex<remove_cv_t<_Tp>>::value;
+
+template <class _LeftExtents, size_t _LeftDimension, class _RightExtents, size_t _RightDimension>
+consteval bool __static_extents_match() {
+  return _LeftExtents::static_extent(_LeftDimension) == dynamic_extent ||
+         _RightExtents::static_extent(_RightDimension) == dynamic_extent ||
+         _LeftExtents::static_extent(_LeftDimension) == _RightExtents::static_extent(_RightDimension);
+}
+
+template <class _LeftExtents, class _RightExtents>
+consteval bool __static_extents_match() {
+  if constexpr (_LeftExtents::rank() != _RightExtents::rank()) {
+    return false;
+  } else {
+    for (size_t __i = 0; __i != _LeftExtents::rank(); ++__i)
+      if (_LeftExtents::static_extent(__i) != dynamic_extent && _RightExtents::static_extent(__i) != dynamic_extent &&
+          _LeftExtents::static_extent(__i) != _RightExtents::static_extent(__i))
+        return false;
+    return true;
+  }
+}
+
+// This deleted overload ensures that lookup finds only an ADL customization.
+template <class _Tp>
+void conj(const _Tp&) = delete;
+
+template <class _Tp>
+concept __has_adl_conj =
+    !is_arithmetic_v<remove_cvref_t<_Tp>> && requires(_Tp&& __value) { conj(std::forward<_Tp>(__value)); };
+
+template <class _Tp>
+constexpr auto __conj_if_needed(_Tp&& __value) {
+  if constexpr (__has_adl_conj<_Tp>)
+    return conj(std::forward<_Tp>(__value));
+  else
+    return std::forward<_Tp>(__value);
+}
+
+// These deleted overloads ensure that lookup finds only ADL customizations.
+template <class _Tp>
+void abs(const _Tp&) = delete;
+
+template <class _Tp>
+void real(const _Tp&) = delete;
+
+template <class _Tp>
+concept __has_adl_real =
+    !is_arithmetic_v<remove_cvref_t<_Tp>> && requires(_Tp&& __value) { real(std::forward<_Tp>(__value)); };
+
+template <class _Tp>
+constexpr auto __real_if_needed(_Tp&& __value) {
+  if constexpr (__has_adl_real<_Tp>)
+    return real(std::forward<_Tp>(__value));
+  else
+    return std::forward<_Tp>(__value);
+}
+
+template <class _Tp>
+void imag(const _Tp&) = delete;
+
+template <class _Tp>
+concept __has_adl_imag =
+    !is_arithmetic_v<remove_cvref_t<_Tp>> && requires(_Tp&& __value) { imag(std::forward<_Tp>(__value)); };
+
+template <class _Tp>
+constexpr auto __imag_if_needed(_Tp&& __value) {
+  if constexpr (__has_adl_imag<_Tp>)
+    return imag(std::forward<_Tp>(__value));
+  else
+    return remove_cvref_t<_Tp>{};
+}
+
+template <class _Tp>
+constexpr auto __abs_if_needed(_Tp&& __value) {
+  if constexpr (is_unsigned_v<remove_cvref_t<_Tp>>) {
+    return std::forward<_Tp>(__value);
+  } else {
+    using std::abs;
+    return abs(std::forward<_Tp>(__value));
+  }
+}
+
+template <class _Tp>
+constexpr auto __blas_abs(_Tp&& __value) {
+  if constexpr (__has_adl_real<_Tp> || __has_adl_imag<_Tp>) {
+    return __abs_if_needed(__real_if_needed(__value)) + __abs_if_needed(__imag_if_needed(__value));
+  } else {
+    return __abs_if_needed(std::forward<_Tp>(__value));
+  }
+}
+
+// Execution policies permit an implementation to fall back to serial execution.
+// Keep element accesses in a noexcept boundary, as required for policy algorithms.
+template <class _Function>
+constexpr decltype(auto) __serial_execution(_Function&& __function) noexcept {
+  return std::forward<_Function>(__function)();
+}
+
+} // namespace __detail
+
+struct upper_triangle_t {
+  explicit upper_triangle_t() = default;
+};
+struct lower_triangle_t {
+  explicit lower_triangle_t() = default;
+};
+struct implicit_unit_diagonal_t {
+  explicit implicit_unit_diagonal_t() = default;
+};
+struct explicit_diagonal_t {
+  explicit explicit_diagonal_t() = default;
+};
+struct column_major_t {
+  explicit column_major_t() = default;
+};
+struct row_major_t {
+  explicit row_major_t() = default;
+};
+
+inline constexpr upper_triangle_t upper_triangle{};
+inline constexpr lower_triangle_t lower_triangle{};
+inline constexpr implicit_unit_diagonal_t implicit_unit_diagonal{};
+inline constexpr explicit_diagonal_t explicit_diagonal{};
+inline constexpr column_major_t column_major{};
+inline constexpr row_major_t row_major{};
+
+namespace __detail {
+template <class _Tp>
+concept __triangle_tag =
+    same_as<remove_cvref_t<_Tp>, upper_triangle_t> || same_as<remove_cvref_t<_Tp>, lower_triangle_t>;
+
+template <class _Tp>
+concept __diagonal_tag =
+    same_as<remove_cvref_t<_Tp>, implicit_unit_diagonal_t> || same_as<remove_cvref_t<_Tp>, explicit_diagonal_t>;
+
+template <class _Tp>
+concept __storage_order_tag = same_as<remove_cvref_t<_Tp>, column_major_t> || same_as<remove_cvref_t<_Tp>, row_major_t>;
+} // namespace __detail
+
+template <class _Triangle, class _StorageOrder>
+class layout_blas_packed {
+  static_assert(__detail::__triangle_tag<_Triangle>, "layout_blas_packed requires an upper or lower triangle tag");
+  static_assert(__detail::__storage_order_tag<_StorageOrder>,
+                "layout_blas_packed requires a row or column major storage order tag");
+
+public:
+  using triangle_type      = _Triangle;
+  using storage_order_type = _StorageOrder;
+
+  template <class _Extents>
+  class mapping {
+    static_assert(__mdspan_detail::__is_extents<_Extents>::value,
+                  "layout_blas_packed::mapping template argument must be a specialization of extents");
+    static_assert(_Extents::rank() == 2, "layout_blas_packed::mapping requires rank-two extents");
+    static_assert(__detail::__static_extents_match<_Extents, 0, _Extents, 1>(),
+                  "layout_blas_packed::mapping requires square static extents");
+
+    // required_span_size() is __size * (__size + 1) / 2. Checking the full
+    // product __size * (__size + 1) for overflow is stricter than the standard
+    // requires: for a narrow index_type the halved result can be representable
+    // while the intermediate product is not. Exactly one of __size and
+    // __size + 1 is even, so fold the division in before multiplying.
+    _LIBCPP_HIDE_FROM_ABI static constexpr bool __span_size_is_representable(typename _Extents::index_type __size) {
+      using _Index = typename _Extents::index_type;
+      _Index __half;
+      _Index __other;
+      if (__size % _Index(2) == _Index(0)) {
+        // __size is even, so __size != the maximum value and __size + 1 cannot
+        // overflow.
+        __half  = static_cast<_Index>(__size / _Index(2));
+        __other = static_cast<_Index>(__size + _Index(1));
+      } else {
+        // (__size + 1) / 2 == __size / 2 + 1 for odd __size, computed without
+        // forming __size + 1.
+        __half  = static_cast<_Index>(__size / _Index(2) + _Index(1));
+        __other = __size;
+      }
+      _Index __product;
+      return !__builtin_mul_overflow(__half, __other, std::addressof(__product));
+    }
+
+    static_assert(_Extents::rank_dynamic() > 0 || __span_size_is_representable(_Extents::static_extent(0)),
+                  "layout_blas_packed::mapping required span size must be representable as index_type");
+
+  public:
+    using extents_type = _Extents;
+    using index_type   = typename extents_type::index_type;
+    using size_type    = typename extents_type::size_type;
+    using rank_type    = typename extents_type::rank_type;
+    using layout_type  = layout_blas_packed;
+
+    _LIBCPP_HIDE_FROM_ABI constexpr mapping() noexcept               = default;
+    _LIBCPP_HIDE_FROM_ABI constexpr mapping(const mapping&) noexcept = default;
+    _LIBCPP_HIDE_FROM_ABI constexpr mapping(const extents_type& __extents) noexcept : __extents_(__extents) {
+      _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
+          __extents.extent(0) == __extents.extent(1), "layout_blas_packed::mapping requires square extents");
+      _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
+          __span_size_is_representable(__extents.extent(0)),
+          "layout_blas_packed::mapping required span size is not representable as index_type");
+    }
+
+    template <class _OtherExtents>
+      requires is_constructible_v<extents_type, _OtherExtents>
+    _LIBCPP_HIDE_FROM_ABI constexpr explicit(!is_convertible_v<_OtherExtents, extents_type>)
+        mapping(const mapping<_OtherExtents>& __other) noexcept
+        : mapping(extents_type(__other.extents())) {}
+
+    _LIBCPP_HIDE_FROM_ABI constexpr mapping& operator=(const mapping&) noexcept = default;
+
+    _LIBCPP_HIDE_FROM_ABI constexpr const extents_type& extents() const noexcept { return __extents_; }
+
+    _LIBCPP_HIDE_FROM_ABI constexpr index_type required_span_size() const noexcept {
+      return __extents_.extent(0) * (__extents_.extent(0) + index_type(1)) / index_type(2);
+    }
+
+    template <class _Index0, class _Index1>
+      requires is_convertible_v<_Index0, index_type> && is_convertible_v<_Index1, index_type> &&
+               is_nothrow_constructible_v<index_type, _Index0> && is_nothrow_constructible_v<index_type, _Index1>
+    _LIBCPP_HIDE_FROM_ABI constexpr index_type operator()(_Index0 __ind0, _Index1 __ind1) const noexcept {
+      index_type __i = static_cast<index_type>(__ind0);
+      index_type __j = static_cast<index_type>(__ind1);
+      _LIBCPP_ASSERT_UNCATEGORIZED(__mdspan_detail::__is_multidimensional_index_in(__extents_, __i, __j),
+                                   "layout_blas_packed::mapping: out of bounds indexing");
+      if (__i > __j) {
+        const index_type __tmp = __i;
+        __i                    = __j;
+        __j                    = __tmp;
+      }
+      if constexpr ((same_as<_StorageOrder, column_major_t> && same_as<_Triangle, upper_triangle_t>) ||
+                    (same_as<_StorageOrder, row_major_t> && same_as<_Triangle, lower_triangle_t>))
+        return __i + __j * (__j + index_type(1)) / index_type(2);
+      else
+        return __j + __extents_.extent(0) * __i - __i * (__i + index_type(1)) / index_type(2);
+    }
+
+    _LIBCPP_HIDE_FROM_ABI static constexpr bool is_always_unique() noexcept {
+      return (_Extents::static_extent(0) != dynamic_extent && _Extents::static_extent(0) < 2) ||
+             (_Extents::static_extent(1) != dynamic_extent && _Extents::static_extent(1) < 2);
+    }
+    _LIBCPP_HIDE_FROM_ABI static constexpr bool is_always_exhaustive() noexcept { return true; }
+    _LIBCPP_HIDE_FROM_ABI static constexpr bool is_always_strided() noexcept { return is_always_unique(); }
+    _LIBCPP_HIDE_FROM_ABI constexpr bool is_unique() const noexcept { return __extents_.extent(0) < 2; }
+    _LIBCPP_HIDE_FROM_ABI constexpr bool is_exhaustive() const noexcept { return true; }
+    _LIBCPP_HIDE_FROM_ABI constexpr bool is_strided() const noexcept { return is_unique(); }
+    _LIBCPP_HIDE_FROM_ABI constexpr index_type stride([[maybe_unused]] rank_type __rank) const noexcept {
+      _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
+          is_strided() && __rank < 2, "layout_blas_packed::mapping::stride(): mapping is not strided");
+      return index_type(1);
+    }
+
+    template <class _OtherExtents>
+      requires(_OtherExtents::rank() == 2)
+    _LIBCPP_HIDE_FROM_ABI friend constexpr bool
+    operator==(const mapping& __left, const mapping<_OtherExtents>& __right) noexcept {
+      return __left.extents() == __right.extents();
+    }
+
+  private:
+    _LIBCPP_NO_UNIQUE_ADDRESS extents_type __extents_{};
+  };
+};
+
+template <class _Layout>
+class layout_transpose {
+public:
+  using nested_layout_type = _Layout;
+
+  template <class _Extents>
+  class mapping {
+    static_assert(__mdspan_detail::__is_extents<_Extents>::value,
+                  "layout_transpose::mapping template argument must be a specialization of extents");
+    static_assert(_Extents::rank() == 2, "layout_transpose::mapping requires rank-two extents");
+
+    using __nested_extents =
+        extents<typename _Extents::index_type, _Extents::static_extent(1), _Extents::static_extent(0)>;
+    using __nested_mapping = typename _Layout::template mapping<__nested_extents>;
+
+  public:
+    using extents_type        = _Extents;
+    using index_type          = typename extents_type::index_type;
+    using size_type           = typename extents_type::size_type;
+    using rank_type           = typename extents_type::rank_type;
+    using layout_type         = layout_transpose;
+    using nested_mapping_type = __nested_mapping;
+
+    _LIBCPP_HIDE_FROM_ABI constexpr explicit mapping(const nested_mapping_type& __mapping)
+        : __nested_mapping_(__mapping), __extents_(__mapping.extents().extent(1), __mapping.extents().extent(0)) {}
+
+    _LIBCPP_HIDE_FROM_ABI constexpr const extents_type& extents() const noexcept { return __extents_; }
+    _LIBCPP_HIDE_FROM_ABI constexpr index_type required_span_size() const noexcept {
+      return __nested_mapping_.required_span_size();
+    }
+    template <class _Index0, class _Index1>
+      requires requires(const nested_mapping_type& __mapping, _Index0 __ind0, _Index1 __ind1) {
+        __mapping(__ind1, __ind0);
+      }
+    _LIBCPP_HIDE_FROM_ABI constexpr index_type operator()(_Index0 __ind0, _Index1 __ind1) const
+        noexcept(noexcept(__nested_mapping_(__ind1, __ind0))) {
+      return __nested_mapping_(__ind1, __ind0);
+    }
+    _LIBCPP_HIDE_FROM_ABI constexpr const nested_mapping_type& nested_mapping() const noexcept {
+      return __nested_mapping_;
+    }
+
+    _LIBCPP_HIDE_FROM_ABI static constexpr bool is_always_unique() noexcept {
+      return nested_mapping_type::is_always_unique();
+    }
+    _LIBCPP_HIDE_FROM_ABI static constexpr bool is_always_exhaustive() noexcept {
+      return nested_mapping_type::is_always_exhaustive();
+    }
+    _LIBCPP_HIDE_FROM_ABI static constexpr bool is_always_strided() noexcept {
+      return nested_mapping_type::is_always_strided();
+    }
+    _LIBCPP_HIDE_FROM_ABI constexpr bool is_unique() const noexcept { return __nested_mapping_.is_unique(); }
+    _LIBCPP_HIDE_FROM_ABI constexpr bool is_exhaustive() const noexcept { return __nested_mapping_.is_exhaustive(); }
+    _LIBCPP_HIDE_FROM_ABI constexpr bool is_strided() const noexcept { return __nested_mapping_.is_strided(); }
+    _LIBCPP_HIDE_FROM_ABI constexpr index_type stride(rank_type __rank) const noexcept {
+      _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
+          is_strided() && __rank < 2, "layout_transpose::mapping::stride(): mapping is not strided");
+      return __nested_mapping_.stride(__rank == 0 ? 1 : 0);
+    }
+
+  private:
+    _LIBCPP_NO_UNIQUE_ADDRESS nested_mapping_type __nested_mapping_;
+    _LIBCPP_NO_UNIQUE_ADDRESS extents_type __extents_;
+  };
+};
+
+namespace __detail {
+template <class _Layout>
+struct __is_layout_blas_packed : false_type {};
+template <class _Triangle, class _StorageOrder>
+struct __is_layout_blas_packed<layout_blas_packed<_Triangle, _StorageOrder>> : true_type {};
+template <class _Layout>
+inline constexpr bool __is_layout_blas_packed_v = __is_layout_blas_packed<_Layout>::value;
+
+template <class _Layout, class _Triangle>
+struct __packed_triangle_matches : true_type {};
+template <class _PackedTriangle, class _StorageOrder, class _Triangle>
+struct __packed_triangle_matches<layout_blas_packed<_PackedTriangle, _StorageOrder>, _Triangle>
+    : bool_constant<same_as<_PackedTriangle, remove_cvref_t<_Triangle>>> {};
+template <class _Layout, class _Triangle>
+inline constexpr bool __packed_triangle_matches_v = __packed_triangle_matches<_Layout, _Triangle>::value;
+
+template <class _Layout>
+struct __is_layout_transpose : false_type {};
+template <class _NestedLayout>
+struct __is_layout_transpose<layout_transpose<_NestedLayout>> : true_type {
+  using type = _NestedLayout;
+};
+template <class _Layout>
+inline constexpr bool __is_layout_transpose_v = __is_layout_transpose<_Layout>::value;
+
+template <class _Extents>
+using __transpose_extents_t =
+    extents<typename _Extents::index_type, _Extents::static_extent(1), _Extents::static_extent(0)>;
+} // namespace __detail
+
+template <class _ScalingFactor, class _NestedAccessor>
+class scaled_accessor {
+public:
+  using offset_policy = scaled_accessor<_ScalingFactor, typename _NestedAccessor::offset_policy>;
+  using element_type =
+      const remove_cvref_t<decltype(declval<_ScalingFactor>() * declval<typename _NestedAccessor::element_type>())>;
+  // [linalg.scaled.scaledaccessor]: reference is the non-const element type;
+  // access() returns a prvalue, so the const would be observable in decltype.
+  using reference        = remove_const_t<element_type>;
+  using data_handle_type = typename _NestedAccessor::data_handle_type;
+
+  static_assert(semiregular<_ScalingFactor>, "scaled_accessor requires a semiregular scaling factor");
+  static_assert(!is_reference_v<element_type>, "scaled_accessor element_type must not be a reference");
+  static_assert(copy_constructible<reference>, "scaled_accessor reference must be copy constructible");
+
+  constexpr scaled_accessor()
+    requires default_initializable<_ScalingFactor> && default_initializable<_NestedAccessor>
+  = default;
+
+  constexpr scaled_accessor(const _ScalingFactor& __factor, const _NestedAccessor& __accessor)
+      : __factor_(__factor), __accessor_(__accessor) {}
+
+  template <class _OtherNestedAccessor>
+    requires constructible_from<_NestedAccessor, const _OtherNestedAccessor&>
+  constexpr explicit(!is_convertible_v<_OtherNestedAccessor, _NestedAccessor>)
+      scaled_accessor(const scaled_accessor<_ScalingFactor, _OtherNestedAccessor>& __other)
+      : __factor_(__other.scaling_factor()), __accessor_(__other.nested_accessor()) {}
+
+  constexpr reference access(data_handle_type __handle, size_t __index) const {
+    return __factor_ * __accessor_.access(__handle, __index);
+  }
+
+  constexpr typename offset_policy::data_handle_type offset(data_handle_type __handle, size_t __index) const {
+    return __accessor_.offset(__handle, __index);
+  }
+
+  [[nodiscard]] constexpr const _ScalingFactor& scaling_factor() const noexcept { return __factor_; }
+  [[nodiscard]] constexpr const _NestedAccessor& nested_accessor() const noexcept { return __accessor_; }
+
+private:
+  _ScalingFactor __factor_{};
+  _NestedAccessor __accessor_{};
+};
+
+template <class _ScalingFactor, class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr auto scaled(_ScalingFactor __factor, mdspan<_ElementType, _Extents, _Layout, _Accessor> __view) {
+  using _AccessorType = scaled_accessor<_ScalingFactor, _Accessor>;
+  using _Element      = typename _AccessorType::element_type;
+  return mdspan<_Element, _Extents, _Layout, _AccessorType>(
+      __view.data_handle(), __view.mapping(), _AccessorType{std::move(__factor), __view.accessor()});
+}
+
+template <class _NestedAccessor>
+class conjugated_accessor {
+public:
+  using offset_policy = conjugated_accessor<typename _NestedAccessor::offset_policy>;
+  using element_type =
+      const remove_cvref_t<decltype(__detail::__conj_if_needed(declval<typename _NestedAccessor::element_type>()))>;
+  // [linalg.conj.conjugatedaccessor]: as for scaled_accessor, reference drops
+  // the const.
+  using reference        = remove_const_t<element_type>;
+  using data_handle_type = typename _NestedAccessor::data_handle_type;
+
+  static_assert(!is_reference_v<element_type>, "conjugated_accessor element_type must not be a reference");
+  static_assert(copy_constructible<reference>, "conjugated_accessor reference must be copy constructible");
+
+  constexpr conjugated_accessor()
+    requires default_initializable<_NestedAccessor>
+  = default;
+  // Not explicit: [linalg.conj.conjugatedaccessor] declares this converting
+  // constructor without the explicit specifier.
+  constexpr conjugated_accessor(const _NestedAccessor& __accessor) : __accessor_(__accessor) {}
+
+  template <class _OtherNestedAccessor>
+    requires constructible_from<_NestedAccessor, const _OtherNestedAccessor&>
+  constexpr explicit(!is_convertible_v<_OtherNestedAccessor, _NestedAccessor>)
+      conjugated_accessor(const conjugated_accessor<_OtherNestedAccessor>& __other)
+      : __accessor_(__other.nested_accessor()) {}
+
+  constexpr reference access(data_handle_type __handle, size_t __index) const {
+    return __detail::__conj_if_needed(__accessor_.access(__handle, __index));
+  }
+
+  constexpr typename offset_policy::data_handle_type offset(data_handle_type __handle, size_t __index) const {
+    return __accessor_.offset(__handle, __index);
+  }
+
+  [[nodiscard]] constexpr const _NestedAccessor& nested_accessor() const noexcept { return __accessor_; }
+
+private:
+  _NestedAccessor __accessor_{};
+};
+
+namespace __detail {
+template <class _Accessor>
+struct __conjugated_accessor_or_self {
+  using type = conjugated_accessor<_Accessor>;
+};
+
+template <class _Accessor>
+inline constexpr bool __is_conjugated_accessor_v = false;
+
+template <class _NestedAccessor>
+struct __conjugated_accessor_or_self<conjugated_accessor<_NestedAccessor>> {
+  using type = _NestedAccessor;
+};
+
+template <class _NestedAccessor>
+inline constexpr bool __is_conjugated_accessor_v<conjugated_accessor<_NestedAccessor>> = true;
+} // namespace __detail
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr auto conjugated(mdspan<_ElementType, _Extents, _Layout, _Accessor> __view) {
+  using _AccessorType = typename __detail::__conjugated_accessor_or_self<_Accessor>::type;
+  using _Element      = typename _AccessorType::element_type;
+
+  if constexpr (__detail::__is_conjugated_accessor_v<_Accessor>) {
+    return mdspan<_Element, _Extents, _Layout, _AccessorType>(
+        __view.data_handle(), __view.mapping(), __view.accessor().nested_accessor());
+  } else {
+    return mdspan<_Element, _Extents, _Layout, _AccessorType>(
+        __view.data_handle(), __view.mapping(), _AccessorType{__view.accessor()});
+  }
+}
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr auto transposed(mdspan<_ElementType, _Extents, _Layout, _Accessor> __view) {
+  static_assert(_Extents::rank() == 2, "linalg::transposed requires a rank-two mdspan");
+
+  using _ExtentsType = __detail::__transpose_extents_t<_Extents>;
+  const _ExtentsType __extents{__view.extent(1), __view.extent(0)};
+
+  if constexpr (same_as<_Layout, layout_left>) {
+    using _Result = mdspan<_ElementType, _ExtentsType, layout_right, _Accessor>;
+    return _Result{
+        __view.data_handle(), typename layout_right::template mapping<_ExtentsType>{__extents}, __view.accessor()};
+  } else if constexpr (same_as<_Layout, layout_right>) {
+    using _Result = mdspan<_ElementType, _ExtentsType, layout_left, _Accessor>;
+    return _Result{
+        __view.data_handle(), typename layout_left::template mapping<_ExtentsType>{__extents}, __view.accessor()};
+  } else if constexpr (same_as<_Layout, layout_stride>) {
+    using _Mapping = typename layout_stride::template mapping<_ExtentsType>;
+    using _Result  = mdspan<_ElementType, _ExtentsType, layout_stride, _Accessor>;
+    const array<typename _Extents::index_type, 2> __strides{__view.mapping().stride(1), __view.mapping().stride(0)};
+    return _Result{__view.data_handle(), _Mapping{__extents, __strides}, __view.accessor()};
+  } else if constexpr (__detail::__is_layout_blas_packed_v<_Layout>) {
+    using _Triangle =
+        conditional_t<same_as<typename _Layout::triangle_type, upper_triangle_t>, lower_triangle_t, upper_triangle_t>;
+    using _StorageOrder =
+        conditional_t<same_as<typename _Layout::storage_order_type, column_major_t>, row_major_t, column_major_t>;
+    using _ReturnLayout = layout_blas_packed<_Triangle, _StorageOrder>;
+    using _Result       = mdspan<_ElementType, _ExtentsType, _ReturnLayout, _Accessor>;
+    return _Result{
+        __view.data_handle(), typename _ReturnLayout::template mapping<_ExtentsType>{__extents}, __view.accessor()};
+  } else if constexpr (__detail::__is_layout_transpose_v<_Layout>) {
+    using _ReturnLayout = typename __detail::__is_layout_transpose<_Layout>::type;
+    using _Result       = mdspan<_ElementType, _ExtentsType, _ReturnLayout, _Accessor>;
+    return _Result{__view.data_handle(), __view.mapping().nested_mapping(), __view.accessor()};
+  } else {
+    using _ReturnLayout = layout_transpose<_Layout>;
+    using _Mapping      = typename _ReturnLayout::template mapping<_ExtentsType>;
+    using _Result       = mdspan<_ElementType, _ExtentsType, _ReturnLayout, _Accessor>;
+    return _Result{__view.data_handle(), _Mapping{__view.mapping()}, __view.accessor()};
+  }
+}
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr auto conjugate_transposed(mdspan<_ElementType, _Extents, _Layout, _Accessor> __view) {
+  return conjugated(transposed(__view));
+}
+
+template <class _ElementType,
+          class _Extents,
+          class _Layout,
+          class _Accessor,
+          class _OutputElementType,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor>
+constexpr void copy(mdspan<_ElementType, _Extents, _Layout, _Accessor> __in_span,
+                     mdspan<_OutputElementType, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElementType, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_Extents::rank() == _OutputExtents::rank() && _Extents::rank() <= 2,
+                "linalg::copy requires matching rank-zero, rank-one, or rank-two mdspans");
+  static_assert(
+      __detail::__static_extents_match<_Extents, _OutputExtents>(), "linalg::copy requires matching static extents");
+  if constexpr (_Extents::rank() == 0)
+    __out_span[] = __in_span[];
+  else if constexpr (_Extents::rank() == 1)
+    for (size_t __i = 0; __i != __in_span.extent(0); ++__i)
+      __out_span[__i] = __in_span[__i];
+  else
+    for (size_t __i = 0; __i != __in_span.extent(0); ++__i)
+      for (size_t __j = 0; __j != __in_span.extent(1); ++__j)
+        __out_span[__i, __j] = __in_span[__i, __j];
+}
+
+template <class _Scalar, class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr void scale(_Scalar __alpha, mdspan<_ElementType, _Extents, _Layout, _Accessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_ElementType, _Extents, _Layout, _Accessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_Extents, _Layout);
+  static_assert(_Extents::rank() <= 2, "linalg::scale requires a rank-zero, rank-one, or rank-two mdspan");
+  if constexpr (_Extents::rank() == 0)
+    __out_span[] = __alpha * __out_span[];
+  else if constexpr (_Extents::rank() == 1)
+    for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
+      __out_span[__i] = __alpha * __out_span[__i];
+  else
+    for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
+      for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
+        __out_span[__i, __j] = __alpha * __out_span[__i, __j];
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor>
+constexpr void add(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+                    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+                    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_LeftExtents::rank() == _RightExtents::rank() && _RightExtents::rank() == _OutputExtents::rank() &&
+                    _OutputExtents::rank() <= 2,
+                "linalg::add requires matching rank-zero, rank-one, or rank-two mdspans");
+  // possibly-addable checks every pair, not a chain through one operand: with
+  // a dynamic extent on the left, left~right and left~output can both hold
+  // while right and output are statically incompatible.
+  static_assert(__detail::__static_extents_match<_LeftExtents, _RightExtents>() &&
+                    __detail::__static_extents_match<_LeftExtents, _OutputExtents>() &&
+                    __detail::__static_extents_match<_RightExtents, _OutputExtents>(),
+                "linalg::add requires matching static extents");
+  if constexpr (_OutputExtents::rank() == 0)
+    __out_span[] = __left[] + __right[];
+  else if constexpr (_OutputExtents::rank() == 1)
+    for (size_t __i = 0; __i != __left.extent(0); ++__i)
+      __out_span[__i] = __left[__i] + __right[__i];
+  else
+    for (size_t __i = 0; __i != __left.extent(0); ++__i)
+      for (size_t __j = 0; __j != __left.extent(1); ++__j)
+        __out_span[__i, __j] = __left[__i, __j] + __right[__i, __j];
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor>
+constexpr auto dot(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+                   mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+                   auto __init) {
+  static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1, "linalg::dot requires rank-one mdspans");
+  static_assert(
+      __detail::__static_extents_match<_LeftExtents, _RightExtents>(), "linalg::dot requires matching static extents");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i)
+    __init += __left[__i] * __right[__i];
+  return __init;
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor>
+constexpr auto dot(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+                   mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right) {
+  using _Result = decltype(__left[0] * __right[0]);
+  return dot(__left, __right, _Result{});
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor>
+constexpr auto dotc(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+                    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+                    auto __init) {
+  return dot(conjugated(__left), __right, __init);
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor>
+constexpr auto dotc(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+                    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right) {
+  using _Result = decltype(__detail::__conj_if_needed(__left[0]) * __right[0]);
+  return dotc(__left, __right, _Result{});
+}
+
+// [linalg.algs.blas1.nrm2] specifies the return type as Scalar, the type of
+// init, so the square root has to be converted back rather than returned as
+// whatever sqrt() happens to produce.
+template <class _ElementType, class _Extents, class _Layout, class _Accessor, class _Scalar>
+constexpr _Scalar vector_two_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector, _Scalar __init) {
+  static_assert(_Extents::rank() == 1, "linalg::vector_two_norm requires a rank-one mdspan");
+  auto __sum = __detail::__abs_if_needed(__init) * __detail::__abs_if_needed(__init);
+  for (size_t __i = 0; __i != __vector.extent(0); ++__i) {
+    const auto __value = __detail::__abs_if_needed(__vector[__i]);
+    __sum += __value * __value;
+  }
+  using std::sqrt;
+  return static_cast<_Scalar>(sqrt(__sum));
+}
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr auto vector_two_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector) {
+  using _Result = decltype(__detail::__abs_if_needed(__vector[0]) * __detail::__abs_if_needed(__vector[0]));
+  return vector_two_norm(__vector, _Result{});
+}
+
+template <class _Scalar>
+struct sum_of_squares_result {
+  _Scalar scaling_factor;
+  _Scalar scaled_sum_of_squares;
+};
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor, class _Scalar>
+constexpr sum_of_squares_result<_Scalar> vector_sum_of_squares(
+    mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector, sum_of_squares_result<_Scalar> __init) {
+  static_assert(_Extents::rank() == 1, "linalg::vector_sum_of_squares requires a rank-one mdspan");
+  for (size_t __i = 0; __i != __vector.extent(0); ++__i) {
+    const _Scalar __value = __detail::__abs_if_needed(__vector[__i]);
+    if (__value != _Scalar{}) {
+      if (__init.scaling_factor < __value) {
+        const _Scalar __ratio = __init.scaling_factor / __value;
+        __init.scaled_sum_of_squares = _Scalar(1) + __init.scaled_sum_of_squares * __ratio * __ratio;
+        __init.scaling_factor         = __value;
+      } else {
+        const _Scalar __ratio = __value / __init.scaling_factor;
+        __init.scaled_sum_of_squares += __ratio * __ratio;
+      }
+    }
+  }
+  return __init;
+}
+
+template <class _Real>
+struct setup_givens_rotation_result {
+  _Real c;
+  _Real s;
+  _Real r;
+};
+
+template <class _Real>
+struct setup_givens_rotation_result<complex<_Real>> {
+  _Real c;
+  complex<_Real> s;
+  complex<_Real> r;
+};
+
+template <class _Real>
+  requires(!__detail::__is_std_complex_v<_Real>)
+auto setup_givens_rotation(_Real __a, _Real __b) noexcept {
+  using std::sqrt;
+  const _Real __r = sqrt(__a * __a + __b * __b);
+  if (__r == _Real{})
+    return setup_givens_rotation_result<_Real>{_Real(1), _Real{}, _Real{}};
+  return setup_givens_rotation_result<_Real>{__a / __r, __b / __r, __r};
+}
+
+template <class _Real>
+auto setup_givens_rotation(complex<_Real> __a, complex<_Real> __b) noexcept {
+  using std::abs;
+  using std::sqrt;
+  const _Real __norm = sqrt(abs(__a) * abs(__a) + abs(__b) * abs(__b));
+  if (__norm == _Real{})
+    return setup_givens_rotation_result<complex<_Real>>{_Real(1), complex<_Real>{}, complex<_Real>{}};
+  if (abs(__a) == _Real{})
+    return setup_givens_rotation_result<complex<_Real>>{_Real{}, conj(__b) / __norm, complex<_Real>{__norm}};
+  const complex<_Real> __alpha = __a / abs(__a);
+  return setup_givens_rotation_result<complex<_Real>>{
+      abs(__a) / __norm, __alpha * conj(__b) / __norm, __alpha * __norm};
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _Real,
+          class _Sine>
+constexpr void apply_givens_rotation(
+    mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+    _Real __c,
+    _Sine __s) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor);
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_RightElement, _RightExtents, _RightLayout, _RightAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_LeftExtents, _LeftLayout);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_RightExtents, _RightLayout);
+  static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1,
+                "linalg::apply_givens_rotation requires rank-one mdspans");
+  static_assert(__detail::__static_extents_match<_LeftExtents, _RightExtents>(),
+                "linalg::apply_givens_rotation requires matching static extents");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i) {
+    const auto __left_value  = __left[__i];
+    const auto __right_value = __right[__i];
+    __left[__i]              = __c * __left_value + __s * __right_value;
+    __right[__i]             = -__detail::__conj_if_needed(__s) * __left_value + __c * __right_value;
+  }
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor>
+constexpr void swap_elements(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+                              mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor);
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_RightElement, _RightExtents, _RightLayout, _RightAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_LeftExtents, _LeftLayout);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_RightExtents, _RightLayout);
+  static_assert(_LeftExtents::rank() == _RightExtents::rank() && _LeftExtents::rank() <= 2,
+                "linalg::swap_elements requires matching rank-zero, rank-one, or rank-two mdspans");
+  static_assert(__detail::__static_extents_match<_LeftExtents, _RightExtents>(),
+                "linalg::swap_elements requires matching static extents");
+  if constexpr (_LeftExtents::rank() == 0)
+    swap(__left[], __right[]);
+  else if constexpr (_LeftExtents::rank() == 1)
+    for (size_t __i = 0; __i != __left.extent(0); ++__i)
+      swap(__left[__i], __right[__i]);
+  else
+    for (size_t __i = 0; __i != __left.extent(0); ++__i)
+      for (size_t __j = 0; __j != __left.extent(1); ++__j)
+        swap(__left[__i, __j], __right[__i, __j]);
+}
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr auto vector_abs_sum(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector, auto __init) {
+  static_assert(_Extents::rank() == 1, "linalg::vector_abs_sum requires a rank-one mdspan");
+  for (size_t __i = 0; __i != __vector.extent(0); ++__i)
+    __init += __detail::__blas_abs(__vector[__i]);
+  return __init;
+}
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr auto vector_abs_sum(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector) {
+  using _Result = decltype(__detail::__blas_abs(__vector[0]));
+  return vector_abs_sum(__vector, _Result{});
+}
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr typename mdspan<_ElementType, _Extents, _Layout, _Accessor>::size_type
+vector_idx_abs_max(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector) {
+  static_assert(_Extents::rank() == 1, "linalg::vector_idx_abs_max requires a rank-one mdspan");
+  using _Size = typename mdspan<_ElementType, _Extents, _Layout, _Accessor>::size_type;
+  if (__vector.extent(0) == 0)
+    return numeric_limits<_Size>::max();
+  _Size __result{};
+  auto __maximum = __detail::__blas_abs(__vector[0]);
+  for (_Size __i = 1; __i != __vector.extent(0); ++__i) {
+    const auto __value = __detail::__blas_abs(__vector[__i]);
+    if (__maximum < __value) {
+      __maximum = __value;
+      __result  = __i;
+    }
+  }
+  return __result;
+}
+
+// As with vector_two_norm, [linalg.algs.blas1.matfrobnorm] fixes the return
+// type to Scalar rather than the type of the sqrt() result.
+template <class _ElementType, class _Extents, class _Layout, class _Accessor, class _Scalar>
+constexpr _Scalar matrix_frob_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix, _Scalar __init) {
+  static_assert(_Extents::rank() == 2, "linalg::matrix_frob_norm requires a rank-two mdspan");
+  auto __sum = __detail::__abs_if_needed(__init) * __detail::__abs_if_needed(__init);
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i)
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+      const auto __value = __detail::__abs_if_needed(__matrix[__i, __j]);
+      __sum += __value * __value;
+    }
+  using std::sqrt;
+  return static_cast<_Scalar>(sqrt(__sum));
+}
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr auto matrix_frob_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix) {
+  using _Result =
+      decltype(__detail::__abs_if_needed(__matrix[0, 0]) * __detail::__abs_if_needed(__matrix[0, 0]));
+  return matrix_frob_norm(__matrix, _Result{});
+}
+
+// Returns Scalar exactly; `__init + __maximum` would integer-promote for
+// narrow scalar types such as short.
+template <class _ElementType, class _Extents, class _Layout, class _Accessor, class _Scalar>
+constexpr _Scalar matrix_one_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix, _Scalar __init) {
+  static_assert(_Extents::rank() == 2, "linalg::matrix_one_norm requires a rank-two mdspan");
+  auto __maximum = _Scalar{};
+  for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+    auto __sum = _Scalar{};
+    for (size_t __i = 0; __i != __matrix.extent(0); ++__i)
+      __sum += __detail::__abs_if_needed(__matrix[__i, __j]);
+    if (__maximum < __sum)
+      __maximum = __sum;
+  }
+  return static_cast<_Scalar>(__init + __maximum);
+}
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr auto matrix_one_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix) {
+  using _Result = decltype(__detail::__abs_if_needed(__matrix[0, 0]));
+  return matrix_one_norm(__matrix, _Result{});
+}
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor, class _Scalar>
+constexpr _Scalar matrix_inf_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix, _Scalar __init) {
+  static_assert(_Extents::rank() == 2, "linalg::matrix_inf_norm requires a rank-two mdspan");
+  auto __maximum = _Scalar{};
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i) {
+    auto __sum = _Scalar{};
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j)
+      __sum += __detail::__abs_if_needed(__matrix[__i, __j]);
+    if (__maximum < __sum)
+      __maximum = __sum;
+  }
+  return static_cast<_Scalar>(__init + __maximum);
+}
+
+template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+constexpr auto matrix_inf_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix) {
+  using _Result = decltype(__detail::__abs_if_needed(__matrix[0, 0]));
+  return matrix_inf_norm(__matrix, _Result{});
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor>
+constexpr void matrix_vector_product(mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+                                      mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
+                                      mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _OutputExtents::rank() == 1,
+                "linalg::matrix_vector_product requires a matrix and two vectors");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 1, _VectorExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>(),
+                "linalg::matrix_vector_product requires compatible static extents");
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i) {
+    decltype(__matrix[0, 0] * __vector[0]) __sum{};
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j)
+      __sum += __matrix[__i, __j] * __vector[__j];
+    __out_span[__i] = __sum;
+  }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor>
+constexpr void matrix_vector_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _AddExtents::rank() == 1 &&
+                    _OutputExtents::rank() == 1,
+                "linalg::matrix_vector_product requires a matrix and three vectors");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 1, _VectorExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _AddExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+                    // possibly-addable requires the addend/output pair directly.
+                    __detail::__static_extents_match<_AddExtents, 0, _OutputExtents, 0>(),
+                "linalg::matrix_vector_product requires compatible static extents");
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i) {
+    decltype(__matrix[0, 0] * __vector[0] + __add[0]) __sum = __add[__i];
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j)
+      __sum += __matrix[__i, __j] * __vector[__j];
+    __out_span[__i] = __sum;
+  }
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor>
+constexpr void matrix_product(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+                               mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+                               mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_LeftExtents::rank() == 2 && _RightExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_LeftExtents, 1, _RightExtents, 0>() &&
+                    __detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_RightExtents, 1, _OutputExtents, 1>(),
+                "linalg::matrix_product requires compatible static extents");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i)
+    for (size_t __j = 0; __j != __right.extent(1); ++__j) {
+      decltype(__left[0, 0] * __right[0, 0]) __sum{};
+      for (size_t __k = 0; __k != __left.extent(1); ++__k)
+        __sum += __left[__i, __k] * __right[__k, __j];
+      __out_span[__i, __j] = __sum;
+    }
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor>
+constexpr void
+matrix_product(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+               mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+               mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+               mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_LeftExtents::rank() == 2 && _RightExtents::rank() == 2 && _AddExtents::rank() == 2 &&
+                    _OutputExtents::rank() == 2,
+                "linalg::matrix_product requires four matrices");
+  static_assert(
+      __detail::__static_extents_match<_LeftExtents, 1, _RightExtents, 0>() &&
+          __detail::__static_extents_match<_LeftExtents, 0, _AddExtents, 0>() &&
+          __detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+          __detail::__static_extents_match<_RightExtents, 1, _AddExtents, 1>() &&
+          __detail::__static_extents_match<_RightExtents, 1, _OutputExtents, 1>() &&
+          // possibly-addable<E, E, C> compares the addend and output directly;
+          // a dynamic extent on the left or right would otherwise hide a
+          // mismatch between them.
+          __detail::__static_extents_match<_AddExtents, _OutputExtents>(),
+      "linalg::matrix_product requires compatible static extents");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i)
+    for (size_t __j = 0; __j != __right.extent(1); ++__j) {
+      decltype(__left[0, 0] * __right[0, 0] + __add[0, 0]) __sum = __add[__i, __j];
+      for (size_t __k = 0; __k != __left.extent(1); ++__k)
+        __sum += __left[__i, __k] * __right[__k, __j];
+      __out_span[__i, __j] = __sum;
+    }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle,
+          class _Diagonal>
+constexpr void triangular_matrix_vector_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __in_span,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _OutputExtents::rank() == 1,
+                "linalg::triangular_matrix_vector_product requires a matrix and two vectors");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _VectorExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>(),
+                "linalg::triangular_matrix_vector_product requires compatible static extents");
+  static_assert(
+      __detail::__triangle_tag<_Triangle>, "linalg::triangular_matrix_vector_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_vector_product requires a packed matrix matching the triangle tag");
+  static_assert(
+      __detail::__diagonal_tag<_Diagonal>, "linalg::triangular_matrix_vector_product requires a diagonal tag");
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i) {
+    decltype(__matrix[0, 0] * __in_span[0]) __sum{};
+    const size_t __begin = same_as<_Triangle, upper_triangle_t> ? __i : 0;
+    const size_t __end   = same_as<_Triangle, upper_triangle_t> ? __matrix.extent(1) : __i + 1;
+    for (size_t __j = __begin; __j != __end; ++__j) {
+      if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>) {
+        if (__i == __j) {
+          __sum += __in_span[__j];
+          continue;
+        }
+      }
+      __sum += __matrix[__i, __j] * __in_span[__j];
+    }
+    __out_span[__i] = __sum;
+  }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle,
+          class _Diagonal>
+constexpr void triangular_matrix_vector_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __in_span,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  static_assert(
+      _MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _AddExtents::rank() == 1 &&
+          _OutputExtents::rank() == 1 && __detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+          __detail::__static_extents_match<_MatrixExtents, 1, _VectorExtents, 0>() &&
+          __detail::__static_extents_match<_MatrixExtents, 0, _AddExtents, 0>() &&
+          __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+          // possibly-addable requires the addend/output pair directly; a
+          // dynamic matrix extent would otherwise let a mismatch through.
+          __detail::__static_extents_match<_AddExtents, 0, _OutputExtents, 0>(),
+      "linalg::triangular_matrix_vector_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle> && __detail::__diagonal_tag<_Diagonal>,
+                "linalg::triangular_matrix_vector_product requires valid tags");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_vector_product requires a packed matrix matching the triangle tag");
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i) {
+    decltype(__matrix[0, 0] * __in_span[0] + __add[0]) __sum = __add[__i];
+    const size_t __begin                                   = same_as<_Triangle, upper_triangle_t> ? __i : 0;
+    const size_t __end = same_as<_Triangle, upper_triangle_t> ? __matrix.extent(1) : __i + 1;
+    for (size_t __j = __begin; __j != __end; ++__j)
+      if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>) {
+        if (__i == __j)
+          __sum += __in_span[__j];
+        else
+          __sum += __matrix[__i, __j] * __in_span[__j];
+      } else
+        __sum += __matrix[__i, __j] * __in_span[__j];
+    __out_span[__i] = __sum;
+  }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _Triangle,
+          class _Diagonal>
+constexpr void triangular_matrix_vector_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __io_span) {
+  static_assert(_MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _VectorExtents, 0>(),
+                "linalg::triangular_matrix_vector_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle> && __detail::__diagonal_tag<_Diagonal>,
+                "linalg::triangular_matrix_vector_product requires valid tags");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_vector_product requires a packed matrix matching the triangle tag");
+  const size_t __size = __matrix.extent(0);
+  for (size_t __step = 0; __step != __size; ++__step) {
+    const size_t __i = same_as<_Triangle, upper_triangle_t> ? __step : __size - __step - 1;
+    decltype(__matrix[0, 0] * __io_span[0]) __sum{};
+    const size_t __begin = same_as<_Triangle, upper_triangle_t> ? __i : 0;
+    const size_t __end   = same_as<_Triangle, upper_triangle_t> ? __size : __i + 1;
+    for (size_t __j = __begin; __j != __end; ++__j)
+      if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>) {
+        if (__i == __j)
+          __sum += __io_span[__j];
+        else
+          __sum += __matrix[__i, __j] * __io_span[__j];
+      } else
+        __sum += __matrix[__i, __j] * __io_span[__j];
+    __io_span[__i] = __sum;
+  }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_vector_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _OutputExtents::rank() == 1,
+                "linalg::symmetric_matrix_vector_product requires a matrix and two vectors");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _VectorExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>(),
+                "linalg::symmetric_matrix_vector_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_vector_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::symmetric_matrix_vector_product requires a packed matrix matching the triangle tag");
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i) {
+    decltype(__matrix[0, 0] * __vector[0]) __sum{};
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+      const bool __stored = same_as<_Triangle, upper_triangle_t> ? __i <= __j : __i >= __j;
+      __sum += (__stored ? __matrix[__i, __j] : __matrix[__j, __i]) * __vector[__j];
+    }
+    __out_span[__i] = __sum;
+  }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_vector_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(
+      _MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _AddExtents::rank() == 1 &&
+          _OutputExtents::rank() == 1 && __detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+          __detail::__static_extents_match<_MatrixExtents, 1, _VectorExtents, 0>() &&
+          __detail::__static_extents_match<_MatrixExtents, 0, _AddExtents, 0>() &&
+          __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+          // possibly-addable requires the addend/output pair directly; a
+          // dynamic matrix extent would otherwise let a mismatch through.
+          __detail::__static_extents_match<_AddExtents, 0, _OutputExtents, 0>(),
+      "linalg::symmetric_matrix_vector_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_vector_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::symmetric_matrix_vector_product requires a packed matrix matching the triangle tag");
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i) {
+    decltype(__matrix[0, 0] * __vector[0] + __add[0]) __sum = __add[__i];
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+      const bool __stored = same_as<_Triangle, upper_triangle_t> ? __i <= __j : __i >= __j;
+      __sum += (__stored ? __matrix[__i, __j] : __matrix[__j, __i]) * __vector[__j];
+    }
+    __out_span[__i] = __sum;
+  }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_vector_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _OutputExtents::rank() == 1,
+                "linalg::hermitian_matrix_vector_product requires a matrix and two vectors");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _VectorExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>(),
+                "linalg::hermitian_matrix_vector_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_vector_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::hermitian_matrix_vector_product requires a packed matrix matching the triangle tag");
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i) {
+    decltype(__matrix[0, 0] * __vector[0]) __sum{};
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+      const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __i <= __j : __i >= __j;
+      const auto __element = __stored ? __matrix[__i, __j] : __detail::__conj_if_needed(__matrix[__j, __i]);
+      __sum += __element * __vector[__j];
+    }
+    __out_span[__i] = __sum;
+  }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_vector_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(
+      _MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _AddExtents::rank() == 1 &&
+          _OutputExtents::rank() == 1 && __detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+          __detail::__static_extents_match<_MatrixExtents, 1, _VectorExtents, 0>() &&
+          __detail::__static_extents_match<_MatrixExtents, 0, _AddExtents, 0>() &&
+          __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+          // possibly-addable requires the addend/output pair directly; a
+          // dynamic matrix extent would otherwise let a mismatch through.
+          __detail::__static_extents_match<_AddExtents, 0, _OutputExtents, 0>(),
+      "linalg::hermitian_matrix_vector_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_vector_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::hermitian_matrix_vector_product requires a packed matrix matching the triangle tag");
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i) {
+    decltype(__matrix[0, 0] * __vector[0] + __add[0]) __sum = __add[__i];
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+      const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __i <= __j : __i >= __j;
+      const auto __element = __stored ? __matrix[__i, __j] : __detail::__conj_if_needed(__matrix[__j, __i]);
+      __sum += __element * __vector[__j];
+    }
+    __out_span[__i] = __sum;
+  }
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor>
+constexpr void matrix_rank_1_update(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+                                     mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+                                     mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _OutputExtents::rank() == 2,
+                "linalg::matrix_rank_1_update requires two vectors and a matrix");
+  static_assert(__detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_RightExtents, 0, _OutputExtents, 1>(),
+                "linalg::matrix_rank_1_update requires compatible static extents");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i)
+    for (size_t __j = 0; __j != __right.extent(0); ++__j)
+      // [linalg.algs.blas2.rank1]: A is out-matrix, so this computes A = x*y^T,
+      // overwriting A. The updating form takes a separate E.
+      __out_span[__i, __j] = __left[__i] * __right[__j];
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor>
+constexpr void matrix_rank_1_update_c(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+                                       mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+                                       mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _OutputExtents::rank() == 2,
+                "linalg::matrix_rank_1_update_c requires two vectors and a matrix");
+  static_assert(__detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_RightExtents, 0, _OutputExtents, 1>(),
+                "linalg::matrix_rank_1_update_c requires compatible static extents");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i)
+    for (size_t __j = 0; __j != __right.extent(0); ++__j)
+      // [linalg.algs.blas2.rank1]: A = x*conj(y)^T, overwriting A.
+      __out_span[__i, __j] = __left[__i] * __detail::__conj_if_needed(__right[__j]);
+}
+
+// Updating forms: A = E + x*y^T and A = E + x*conj(y)^T. As elsewhere, the
+// addend is read before the matching output element is written so that A may
+// alias E.
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor>
+constexpr void matrix_rank_1_update(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+                                     mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+                                     mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+                                     mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _AddExtents::rank() == 2 &&
+                    _OutputExtents::rank() == 2,
+                "linalg::matrix_rank_1_update requires two vectors and two matrices");
+  static_assert(__detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_RightExtents, 0, _OutputExtents, 1>() &&
+                    __detail::__static_extents_match<_AddExtents, _OutputExtents>(),
+                "linalg::matrix_rank_1_update requires compatible static extents");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i)
+    for (size_t __j = 0; __j != __right.extent(0); ++__j)
+      __out_span[__i, __j] = __add[__i, __j] + __left[__i] * __right[__j];
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor>
+constexpr void matrix_rank_1_update_c(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+                                       mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+                                       mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+                                       mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _AddExtents::rank() == 2 &&
+                    _OutputExtents::rank() == 2,
+                "linalg::matrix_rank_1_update_c requires two vectors and two matrices");
+  static_assert(__detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_RightExtents, 0, _OutputExtents, 1>() &&
+                    __detail::__static_extents_match<_AddExtents, _OutputExtents>(),
+                "linalg::matrix_rank_1_update_c requires compatible static extents");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i)
+    for (size_t __j = 0; __j != __right.extent(0); ++__j)
+      __out_span[__i, __j] = __add[__i, __j] + __left[__i] * __detail::__conj_if_needed(__right[__j]);
+}
+
+template <class _Scalar,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_rank_1_update(
+    _Scalar __alpha,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_VectorExtents::rank() == 1 && _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_rank_1_update requires a vector and a matrix");
+  static_assert(__detail::__static_extents_match<_VectorExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_rank_1_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_rank_1_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::symmetric_matrix_rank_1_update requires a packed output matching the triangle tag");
+  for (size_t __i = 0; __i != __vector.extent(0); ++__i)
+    for (size_t __j = 0; __j != __vector.extent(0); ++__j)
+      // [linalg.algs.blas2.rank1]: the output is possibly-packed-out-matrix, so
+      // the overload without E computes A = alpha*x*x^T, overwriting A rather
+      // than accumulating into it.
+      if constexpr (same_as<_Triangle, upper_triangle_t>) {
+        if (__i <= __j)
+          __out_span[__i, __j] = __alpha * __vector[__i] * __vector[__j];
+      } else if (__i >= __j)
+        __out_span[__i, __j] = __alpha * __vector[__i] * __vector[__j];
+}
+
+template <class _Scalar,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_rank_1_update(
+    _Scalar __alpha,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_VectorExtents::rank() == 1 && _AddExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_rank_1_update requires a vector and two matrices");
+  static_assert(__detail::__static_extents_match<_VectorExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_AddExtents, _OutputExtents>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_rank_1_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_rank_1_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
+                    __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::symmetric_matrix_rank_1_update requires packed matrices matching the triangle tag");
+  for (size_t __i = 0; __i != __vector.extent(0); ++__i)
+    for (size_t __j = 0; __j != __vector.extent(0); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) || (same_as<_Triangle, lower_triangle_t> && __i >= __j))
+        __out_span[__i, __j] = __add[__i, __j] + __alpha * __vector[__i] * __vector[__j];
+}
+
+template <class _Scalar,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_rank_1_update(
+    _Scalar __alpha,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_VectorExtents::rank() == 1 && _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_rank_1_update requires a vector and a matrix");
+  static_assert(__detail::__static_extents_match<_VectorExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_rank_1_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_rank_1_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::hermitian_matrix_rank_1_update requires a packed output matching the triangle tag");
+  for (size_t __i = 0; __i != __vector.extent(0); ++__i)
+    for (size_t __j = 0; __j != __vector.extent(0); ++__j)
+      // [linalg.algs.blas2.rank1]: A = alpha*x*x^H, overwriting A.
+      if constexpr (same_as<_Triangle, upper_triangle_t>) {
+        if (__i <= __j)
+          __out_span[__i, __j] = __alpha * __vector[__i] * __detail::__conj_if_needed(__vector[__j]);
+      } else if (__i >= __j)
+        __out_span[__i, __j] = __alpha * __vector[__i] * __detail::__conj_if_needed(__vector[__j]);
+}
+
+template <class _Scalar,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_rank_1_update(
+    _Scalar __alpha,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_VectorExtents::rank() == 1 && _AddExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_rank_1_update requires a vector and two matrices");
+  static_assert(__detail::__static_extents_match<_VectorExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_AddExtents, _OutputExtents>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_rank_1_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_rank_1_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
+                    __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::hermitian_matrix_rank_1_update requires packed matrices matching the triangle tag");
+  for (size_t __i = 0; __i != __vector.extent(0); ++__i)
+    for (size_t __j = 0; __j != __vector.extent(0); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) || (same_as<_Triangle, lower_triangle_t> && __i >= __j))
+        __out_span[__i, __j] = __add[__i, __j] + __alpha * __vector[__i] * __detail::__conj_if_needed(__vector[__j]);
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OtherExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::symmetric_matrix_product requires a packed matrix matching the triangle tag");
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i)
+    for (size_t __j = 0; __j != __other.extent(1); ++__j) {
+      decltype(__matrix[0, 0] * __other[0, 0]) __sum{};
+      for (size_t __k = 0; __k != __matrix.extent(1); ++__k) {
+        const bool __stored = same_as<_Triangle, upper_triangle_t> ? __i <= __k : __i >= __k;
+        __sum += (__stored ? __matrix[__i, __k] : __matrix[__k, __i]) * __other[__k, __j];
+      }
+      __out_span[__i, __j] = __sum;
+    }
+}
+
+template <class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_product(
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_OtherExtents::rank() == 2 && _MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _MatrixExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::symmetric_matrix_product requires a packed matrix matching the triangle tag");
+  for (size_t __i = 0; __i != __other.extent(0); ++__i)
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+      decltype(__other[0, 0] * __matrix[0, 0]) __sum{};
+      for (size_t __k = 0; __k != __matrix.extent(0); ++__k) {
+        const bool __stored = same_as<_Triangle, upper_triangle_t> ? __k <= __j : __k >= __j;
+        __sum += __other[__i, __k] * (__stored ? __matrix[__k, __j] : __matrix[__j, __k]);
+      }
+      __out_span[__i, __j] = __sum;
+    }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OtherExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::hermitian_matrix_product requires a packed matrix matching the triangle tag");
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i)
+    for (size_t __j = 0; __j != __other.extent(1); ++__j) {
+      decltype(__matrix[0, 0] * __other[0, 0]) __sum{};
+      for (size_t __k = 0; __k != __matrix.extent(1); ++__k) {
+        const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __i <= __k : __i >= __k;
+        const auto __element = __stored ? __matrix[__i, __k] : __detail::__conj_if_needed(__matrix[__k, __i]);
+        __sum += __element * __other[__k, __j];
+      }
+      __out_span[__i, __j] = __sum;
+    }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OtherExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_product requires compatible static extents");
+  static_assert(_AddExtents::rank() == 2 && __detail::__static_extents_match<_AddExtents, _OutputExtents>(),
+                "linalg::symmetric_matrix_product requires addend and output with matching static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::symmetric_matrix_product requires a packed matrix matching the triangle tag");
+  // [linalg.algs.blas3.xxmm] permits C to alias E, so each addend element has
+  // to be read before the matching output element is written. Computing the
+  // product first and adding the addend afterwards would double-count when the
+  // two alias.
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i)
+    for (size_t __j = 0; __j != __other.extent(1); ++__j) {
+      decltype(__matrix[0, 0] * __other[0, 0]) __sum{};
+      for (size_t __k = 0; __k != __matrix.extent(1); ++__k) {
+        const bool __stored = same_as<_Triangle, upper_triangle_t> ? __i <= __k : __i >= __k;
+        __sum += (__stored ? __matrix[__i, __k] : __matrix[__k, __i]) * __other[__k, __j];
+      }
+      __out_span[__i, __j] = __add[__i, __j] + __sum;
+    }
+}
+
+template <class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_product(
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_OtherExtents::rank() == 2 && _MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _MatrixExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_product requires compatible static extents");
+  static_assert(_AddExtents::rank() == 2 && __detail::__static_extents_match<_AddExtents, _OutputExtents>(),
+                "linalg::symmetric_matrix_product requires addend and output with matching static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::symmetric_matrix_product requires a packed matrix matching the triangle tag");
+  // See the addend-aliasing note on the overload above.
+  for (size_t __i = 0; __i != __other.extent(0); ++__i)
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+      decltype(__other[0, 0] * __matrix[0, 0]) __sum{};
+      for (size_t __k = 0; __k != __matrix.extent(0); ++__k) {
+        const bool __stored = same_as<_Triangle, upper_triangle_t> ? __k <= __j : __k >= __j;
+        __sum += __other[__i, __k] * (__stored ? __matrix[__k, __j] : __matrix[__j, __k]);
+      }
+      __out_span[__i, __j] = __add[__i, __j] + __sum;
+    }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OtherExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_product requires compatible static extents");
+  static_assert(_AddExtents::rank() == 2 && __detail::__static_extents_match<_AddExtents, _OutputExtents>(),
+                "linalg::hermitian_matrix_product requires addend and output with matching static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::hermitian_matrix_product requires a packed matrix matching the triangle tag");
+  // See the addend-aliasing note on symmetric_matrix_product: C may alias E.
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i)
+    for (size_t __j = 0; __j != __other.extent(1); ++__j) {
+      decltype(__matrix[0, 0] * __other[0, 0]) __sum{};
+      for (size_t __k = 0; __k != __matrix.extent(1); ++__k) {
+        const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __i <= __k : __i >= __k;
+        const auto __element = __stored ? __matrix[__i, __k] : __detail::__conj_if_needed(__matrix[__k, __i]);
+        __sum += __element * __other[__k, __j];
+      }
+      __out_span[__i, __j] = __add[__i, __j] + __sum;
+    }
+}
+
+template <class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_product(
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_OtherExtents::rank() == 2 && _MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _MatrixExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_product requires compatible static extents");
+  static_assert(_AddExtents::rank() == 2 && __detail::__static_extents_match<_AddExtents, _OutputExtents>(),
+                "linalg::hermitian_matrix_product requires addend and output with matching static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::hermitian_matrix_product requires a packed matrix matching the triangle tag");
+  // See the addend-aliasing note on symmetric_matrix_product: C may alias E.
+  for (size_t __i = 0; __i != __other.extent(0); ++__i)
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+      decltype(__other[0, 0] * __matrix[0, 0]) __sum{};
+      for (size_t __k = 0; __k != __matrix.extent(0); ++__k) {
+        const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __k <= __j : __k >= __j;
+        const auto __element = __stored ? __matrix[__k, __j] : __detail::__conj_if_needed(__matrix[__j, __k]);
+        __sum += __other[__i, __k] * __element;
+      }
+      __out_span[__i, __j] = __add[__i, __j] + __sum;
+    }
+}
+
+template <class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_product(
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_OtherExtents::rank() == 2 && _MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _MatrixExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::hermitian_matrix_product requires a packed matrix matching the triangle tag");
+  for (size_t __i = 0; __i != __other.extent(0); ++__i)
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+      decltype(__other[0, 0] * __matrix[0, 0]) __sum{};
+      for (size_t __k = 0; __k != __matrix.extent(0); ++__k) {
+        const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __k <= __j : __k >= __j;
+        const auto __element = __stored ? __matrix[__k, __j] : __detail::__conj_if_needed(__matrix[__j, __k]);
+        __sum += __other[__i, __k] * __element;
+      }
+      __out_span[__i, __j] = __sum;
+    }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle,
+          class _Diagonal>
+constexpr void triangular_matrix_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::triangular_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OtherExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _OutputExtents, 1>(),
+                "linalg::triangular_matrix_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::triangular_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_product requires a packed matrix matching the triangle tag");
+  static_assert(__detail::__diagonal_tag<_Diagonal>, "linalg::triangular_matrix_product requires a diagonal tag");
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i)
+    for (size_t __j = 0; __j != __other.extent(1); ++__j) {
+      decltype(__matrix[0, 0] * __other[0, 0]) __sum{};
+      const size_t __begin = same_as<_Triangle, upper_triangle_t> ? __i : 0;
+      const size_t __end   = same_as<_Triangle, upper_triangle_t> ? __matrix.extent(1) : __i + 1;
+      for (size_t __k = __begin; __k != __end; ++__k)
+        if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>) {
+          if (__i == __k)
+            __sum += __other[__k, __j];
+          else
+            __sum += __matrix[__i, __k] * __other[__k, __j];
+        } else
+          __sum += __matrix[__i, __k] * __other[__k, __j];
+      __out_span[__i, __j] = __sum;
+    }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle,
+          class _Diagonal>
+constexpr void triangular_matrix_left_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::triangular_matrix_left_product requires two matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>(),
+                "linalg::triangular_matrix_left_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::triangular_matrix_left_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_left_product requires a packed matrix matching the triangle tag");
+  static_assert(__detail::__diagonal_tag<_Diagonal>, "linalg::triangular_matrix_left_product requires a diagonal tag");
+  const size_t __size = __matrix.extent(0);
+  for (size_t __row = 0; __row != __size; ++__row) {
+    const size_t __i = same_as<_Triangle, lower_triangle_t> ? __size - __row - 1 : __row;
+    for (size_t __j = 0; __j != __out_span.extent(1); ++__j) {
+      decltype(__matrix[0, 0] * __out_span[0, 0]) __sum{};
+      const size_t __begin = same_as<_Triangle, upper_triangle_t> ? __i : 0;
+      const size_t __end   = same_as<_Triangle, upper_triangle_t> ? __size : __i + 1;
+      for (size_t __k = __begin; __k != __end; ++__k)
+        if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>) {
+          if (__i == __k)
+            __sum += __out_span[__k, __j];
+          else
+            __sum += __matrix[__i, __k] * __out_span[__k, __j];
+        } else
+          __sum += __matrix[__i, __k] * __out_span[__k, __j];
+      __out_span[__i, __j] = __sum;
+    }
+  }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle,
+          class _Diagonal>
+constexpr void triangular_matrix_right_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::triangular_matrix_right_product requires two matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OutputExtents, 1>(),
+                "linalg::triangular_matrix_right_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::triangular_matrix_right_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_right_product requires a packed matrix matching the triangle tag");
+  static_assert(__detail::__diagonal_tag<_Diagonal>, "linalg::triangular_matrix_right_product requires a diagonal tag");
+  const size_t __size = __matrix.extent(0);
+  for (size_t __column = 0; __column != __size; ++__column) {
+    const size_t __j = same_as<_Triangle, upper_triangle_t> ? __size - __column - 1 : __column;
+    for (size_t __i = 0; __i != __out_span.extent(0); ++__i) {
+      decltype(__out_span[0, 0] * __matrix[0, 0]) __sum{};
+      const size_t __begin = same_as<_Triangle, upper_triangle_t> ? 0 : __j;
+      const size_t __end   = same_as<_Triangle, upper_triangle_t> ? __j + 1 : __size;
+      for (size_t __k = __begin; __k != __end; ++__k)
+        if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>) {
+          if (__k == __j)
+            __sum += __out_span[__i, __k];
+          else
+            __sum += __out_span[__i, __k] * __matrix[__k, __j];
+        } else
+          __sum += __out_span[__i, __k] * __matrix[__k, __j];
+      __out_span[__i, __j] = __sum;
+    }
+  }
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_rank_2_update(
+    mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_rank_2_update requires two vectors and a matrix");
+  static_assert(__detail::__static_extents_match<_LeftExtents, _RightExtents>() &&
+                    __detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_rank_2_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_rank_2_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::symmetric_matrix_rank_2_update requires a packed output matching the triangle tag");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i)
+    for (size_t __j = 0; __j != __right.extent(0); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) || (same_as<_Triangle, lower_triangle_t> && __i >= __j))
+        // [linalg.algs.blas2.rank2]: A = x*y^T + y*x^T, overwriting A.
+        __out_span[__i, __j] = __left[__i] * __right[__j] + __right[__i] * __left[__j];
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_rank_2_update(
+    mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _AddExtents::rank() == 2 &&
+                    _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_rank_2_update requires two vectors and two matrices");
+  static_assert(__detail::__static_extents_match<_LeftExtents, _RightExtents>() &&
+                    __detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_AddExtents, _OutputExtents>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_rank_2_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_rank_2_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
+                    __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::symmetric_matrix_rank_2_update requires packed matrices matching the triangle tag");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i)
+    for (size_t __j = 0; __j != __right.extent(0); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) || (same_as<_Triangle, lower_triangle_t> && __i >= __j))
+        __out_span[__i, __j] = __add[__i, __j] + __left[__i] * __right[__j] + __right[__i] * __left[__j];
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_rank_2_update(
+    mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_rank_2_update requires two vectors and a matrix");
+  static_assert(__detail::__static_extents_match<_LeftExtents, _RightExtents>() &&
+                    __detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_rank_2_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_rank_2_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::hermitian_matrix_rank_2_update requires a packed output matching the triangle tag");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i)
+    for (size_t __j = 0; __j != __right.extent(0); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) || (same_as<_Triangle, lower_triangle_t> && __i >= __j))
+        // [linalg.algs.blas2.rank2]: A = x*y^H + y*x^H, overwriting A.
+        __out_span[__i, __j] = __left[__i] * __detail::__conj_if_needed(__right[__j]) +
+                             __right[__i] * __detail::__conj_if_needed(__left[__j]);
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_rank_2_update(
+    mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _AddExtents::rank() == 2 &&
+                    _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_rank_2_update requires two vectors and two matrices");
+  static_assert(__detail::__static_extents_match<_LeftExtents, _RightExtents>() &&
+                    __detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_AddExtents, _OutputExtents>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_rank_2_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_rank_2_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
+                    __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::hermitian_matrix_rank_2_update requires packed matrices matching the triangle tag");
+  for (size_t __i = 0; __i != __left.extent(0); ++__i)
+    for (size_t __j = 0; __j != __right.extent(0); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) || (same_as<_Triangle, lower_triangle_t> && __i >= __j))
+        __out_span[__i, __j] = __add[__i, __j] + __left[__i] * __detail::__conj_if_needed(__right[__j]) +
+                             __right[__i] * __detail::__conj_if_needed(__left[__j]);
+}
+
+template <class _Scalar,
+          class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_rank_k_update(
+    _Scalar __alpha,
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_rank_k_update requires two matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_rank_k_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_rank_k_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::symmetric_matrix_rank_k_update requires a packed output matching the triangle tag");
+  for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
+    for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) ||
+          (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
+        decltype(__alpha * __matrix[0, 0] * __matrix[0, 0]) __sum{};
+        for (size_t __k = 0; __k != __matrix.extent(1); ++__k)
+          __sum += __alpha * __matrix[__i, __k] * __matrix[__j, __k];
+        // [linalg.algs.blas3.rankk]: the overload without E computes
+        // C = alpha*A*A^T, overwriting C rather than accumulating into it.
+        __out_span[__i, __j] = __sum;
+      }
+}
+
+template <class _Scalar,
+          class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_rank_k_update(
+    _Scalar __alpha,
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  static_assert(_MatrixExtents::rank() == 2 && _AddExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_rank_k_update requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_AddExtents, _OutputExtents>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_rank_k_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_rank_k_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
+                    __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::symmetric_matrix_rank_k_update requires packed matrices matching the triangle tag");
+  for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
+    for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) ||
+          (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
+        decltype(__alpha * __matrix[0, 0] * __matrix[0, 0]) __sum{};
+        for (size_t __k = 0; __k != __matrix.extent(1); ++__k)
+          __sum += __alpha * __matrix[__i, __k] * __matrix[__j, __k];
+        __out_span[__i, __j] = __add[__i, __j] + __sum;
+      }
+}
+
+template <class _Scalar,
+          class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_rank_k_update(
+    _Scalar __alpha,
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_rank_k_update requires two matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_rank_k_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_rank_k_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::hermitian_matrix_rank_k_update requires a packed output matching the triangle tag");
+  for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
+    for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) ||
+          (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
+        decltype(__alpha * __matrix[0, 0] * __matrix[0, 0]) __sum{};
+        for (size_t __k = 0; __k != __matrix.extent(1); ++__k)
+          __sum += __alpha * __matrix[__i, __k] * __detail::__conj_if_needed(__matrix[__j, __k]);
+        // [linalg.algs.blas3.rankk]: C = alpha*A*A^H, overwriting C.
+        __out_span[__i, __j] = __sum;
+      }
+}
+
+template <class _Scalar,
+          class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_rank_k_update(
+    _Scalar __alpha,
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  static_assert(_MatrixExtents::rank() == 2 && _AddExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_rank_k_update requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_AddExtents, _OutputExtents>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_rank_k_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_rank_k_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
+                    __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::hermitian_matrix_rank_k_update requires packed matrices matching the triangle tag");
+  for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
+    for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) ||
+          (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
+        decltype(__alpha * __matrix[0, 0] * __matrix[0, 0]) __sum{};
+        for (size_t __k = 0; __k != __matrix.extent(1); ++__k)
+          __sum += __alpha * __matrix[__i, __k] * __detail::__conj_if_needed(__matrix[__j, __k]);
+        __out_span[__i, __j] = __add[__i, __j] + __sum;
+      }
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_rank_2k_update(
+    mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_LeftExtents::rank() == 2 && _RightExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_rank_2k_update requires three matrices");
+  static_assert(__detail::__static_extents_match<_LeftExtents, _RightExtents>() &&
+                    __detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_rank_2k_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_rank_2k_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::symmetric_matrix_rank_2k_update requires a packed output matching the triangle tag");
+  for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
+    for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) ||
+          (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
+        decltype(__left[0, 0] * __right[0, 0]) __sum{};
+        for (size_t __k = 0; __k != __left.extent(1); ++__k)
+          __sum += __left[__i, __k] * __right[__j, __k] + __right[__i, __k] * __left[__j, __k];
+        // [linalg.algs.blas3.rank2k]: the overload without E computes
+        // C = A*B^T + B*A^T, overwriting C.
+        __out_span[__i, __j] = __sum;
+      }
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void symmetric_matrix_rank_2k_update(
+    mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_LeftExtents::rank() == 2 && _RightExtents::rank() == 2 && _AddExtents::rank() == 2 &&
+                    _OutputExtents::rank() == 2,
+                "linalg::symmetric_matrix_rank_2k_update requires four matrices");
+  static_assert(__detail::__static_extents_match<_LeftExtents, _RightExtents>() &&
+                    __detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_AddExtents, _OutputExtents>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::symmetric_matrix_rank_2k_update requires compatible static extents");
+  static_assert(
+      __detail::__triangle_tag<_Triangle>, "linalg::symmetric_matrix_rank_2k_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
+                    __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::symmetric_matrix_rank_2k_update requires packed matrices matching the triangle tag");
+  for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
+    for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) ||
+          (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
+        decltype(__left[0, 0] * __right[0, 0]) __sum{};
+        for (size_t __k = 0; __k != __left.extent(1); ++__k)
+          __sum += __left[__i, __k] * __right[__j, __k] + __right[__i, __k] * __left[__j, __k];
+        __out_span[__i, __j] = __add[__i, __j] + __sum;
+      }
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_rank_2k_update(
+    mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_LeftExtents::rank() == 2 && _RightExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_rank_2k_update requires three matrices");
+  static_assert(__detail::__static_extents_match<_LeftExtents, _RightExtents>() &&
+                    __detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_rank_2k_update requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_rank_2k_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::hermitian_matrix_rank_2k_update requires a packed output matching the triangle tag");
+  for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
+    for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) ||
+          (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
+        decltype(__left[0, 0] * __right[0, 0]) __sum{};
+        for (size_t __k = 0; __k != __left.extent(1); ++__k)
+          __sum += __left[__i, __k] * __detail::__conj_if_needed(__right[__j, __k]) +
+                   __right[__i, __k] * __detail::__conj_if_needed(__left[__j, __k]);
+        // [linalg.algs.blas3.rank2k]: C = A*B^H + B*A^H, overwriting C.
+        __out_span[__i, __j] = __sum;
+      }
+}
+
+template <class _LeftElement,
+          class _LeftExtents,
+          class _LeftLayout,
+          class _LeftAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle>
+constexpr void hermitian_matrix_rank_2k_update(
+    mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
+    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
+    _Triangle) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  static_assert(_LeftExtents::rank() == 2 && _RightExtents::rank() == 2 && _AddExtents::rank() == 2 &&
+                    _OutputExtents::rank() == 2,
+                "linalg::hermitian_matrix_rank_2k_update requires four matrices");
+  static_assert(__detail::__static_extents_match<_LeftExtents, _RightExtents>() &&
+                    __detail::__static_extents_match<_LeftExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_AddExtents, _OutputExtents>() &&
+                    __detail::__static_extents_match<_OutputExtents, 0, _OutputExtents, 1>(),
+                "linalg::hermitian_matrix_rank_2k_update requires compatible static extents");
+  static_assert(
+      __detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_rank_2k_update requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
+                    __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
+                "linalg::hermitian_matrix_rank_2k_update requires packed matrices matching the triangle tag");
+  for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
+    for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) ||
+          (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
+        decltype(__left[0, 0] * __right[0, 0]) __sum{};
+        for (size_t __k = 0; __k != __left.extent(1); ++__k)
+          __sum += __left[__i, __k] * __detail::__conj_if_needed(__right[__j, __k]) +
+                   __right[__i, __k] * __detail::__conj_if_needed(__left[__j, __k]);
+        __out_span[__i, __j] = __add[__i, __j] + __sum;
+      }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle,
+          class _Diagonal,
+          class _Divide = divides<>>
+constexpr void triangular_matrix_matrix_left_solve(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __rhs,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __solution,
+    _Divide __divide = {}) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _RightExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::triangular_matrix_matrix_left_solve requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _RightExtents, 0>() &&
+                    __detail::__static_extents_match<_RightExtents, _OutputExtents>(),
+                "linalg::triangular_matrix_matrix_left_solve requires compatible static extents");
+  static_assert(
+      __detail::__triangle_tag<_Triangle>, "linalg::triangular_matrix_matrix_left_solve requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_matrix_left_solve requires a packed matrix matching the triangle tag");
+  static_assert(
+      __detail::__diagonal_tag<_Diagonal>, "linalg::triangular_matrix_matrix_left_solve requires a diagonal tag");
+  const size_t __size = __matrix.extent(0);
+  for (size_t __j = 0; __j != __rhs.extent(1); ++__j)
+    for (size_t __step = 0; __step != __size; ++__step) {
+      const size_t __i = same_as<_Triangle, lower_triangle_t> ? __step : __size - __step - 1;
+      decltype(__rhs[0, 0] - __matrix[0, 0] * __solution[0, 0]) __value = __rhs[__i, __j];
+      if constexpr (same_as<_Triangle, lower_triangle_t>)
+        for (size_t __k = 0; __k != __i; ++__k)
+          __value -= __matrix[__i, __k] * __solution[__k, __j];
+      else
+        for (size_t __k = __i + 1; __k != __size; ++__k)
+          __value -= __matrix[__i, __k] * __solution[__k, __j];
+      if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>)
+        __solution[__i, __j] = __value;
+      else
+        __solution[__i, __j] = __divide(__value, __matrix[__i, __i]);
+    }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _InOutElement,
+          class _InOutExtents,
+          class _InOutLayout,
+          class _InOutAccessor,
+          class _Triangle,
+          class _Diagonal,
+          class _Divide = divides<>>
+constexpr void triangular_matrix_matrix_left_solve(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle __triangle,
+    _Diagonal __diagonal,
+    mdspan<_InOutElement, _InOutExtents, _InOutLayout, _InOutAccessor> __io_span,
+    _Divide __divide = {}) {
+  triangular_matrix_matrix_left_solve(__matrix, __triangle, __diagonal, __io_span, __io_span, __divide);
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _RightElement,
+          class _RightExtents,
+          class _RightLayout,
+          class _RightAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle,
+          class _Diagonal,
+          class _Divide = divides<>>
+constexpr void triangular_matrix_matrix_right_solve(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __rhs,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __solution,
+    _Divide __divide = {}) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _RightExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::triangular_matrix_matrix_right_solve requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _RightExtents, 1>() &&
+                    __detail::__static_extents_match<_RightExtents, _OutputExtents>(),
+                "linalg::triangular_matrix_matrix_right_solve requires compatible static extents");
+  static_assert(
+      __detail::__triangle_tag<_Triangle>, "linalg::triangular_matrix_matrix_right_solve requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_matrix_right_solve requires a packed matrix matching the triangle tag");
+  static_assert(
+      __detail::__diagonal_tag<_Diagonal>, "linalg::triangular_matrix_matrix_right_solve requires a diagonal tag");
+  const size_t __size = __matrix.extent(0);
+  for (size_t __i = 0; __i != __rhs.extent(0); ++__i)
+    for (size_t __step = 0; __step != __size; ++__step) {
+      const size_t __j = same_as<_Triangle, upper_triangle_t> ? __step : __size - __step - 1;
+      decltype(__rhs[0, 0] - __solution[0, 0] * __matrix[0, 0]) __value = __rhs[__i, __j];
+      if constexpr (same_as<_Triangle, upper_triangle_t>)
+        for (size_t __k = 0; __k != __j; ++__k)
+          __value -= __solution[__i, __k] * __matrix[__k, __j];
+      else
+        for (size_t __k = __j + 1; __k != __size; ++__k)
+          __value -= __solution[__i, __k] * __matrix[__k, __j];
+      if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>)
+        __solution[__i, __j] = __value;
+      else
+        __solution[__i, __j] = __divide(__value, __matrix[__j, __j]);
+    }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _InOutElement,
+          class _InOutExtents,
+          class _InOutLayout,
+          class _InOutAccessor,
+          class _Triangle,
+          class _Diagonal,
+          class _Divide = divides<>>
+constexpr void triangular_matrix_matrix_right_solve(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle __triangle,
+    _Diagonal __diagonal,
+    mdspan<_InOutElement, _InOutExtents, _InOutLayout, _InOutAccessor> __io_span,
+    _Divide __divide = {}) {
+  triangular_matrix_matrix_right_solve(__matrix, __triangle, __diagonal, __io_span, __io_span, __divide);
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle,
+          class _Diagonal>
+constexpr void triangular_matrix_product(
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::triangular_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _MatrixExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OutputExtents, 1>(),
+                "linalg::triangular_matrix_product requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::triangular_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_product requires a packed matrix matching the triangle tag");
+  static_assert(__detail::__diagonal_tag<_Diagonal>, "linalg::triangular_matrix_product requires a diagonal tag");
+  for (size_t __i = 0; __i != __other.extent(0); ++__i)
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+      decltype(__other[0, 0] * __matrix[0, 0]) __sum{};
+      const size_t __begin = same_as<_Triangle, upper_triangle_t> ? 0 : __j;
+      const size_t __end   = same_as<_Triangle, upper_triangle_t> ? __j + 1 : __matrix.extent(0);
+      for (size_t __k = __begin; __k != __end; ++__k)
+        if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>) {
+          if (__k == __j)
+            __sum += __other[__i, __k];
+          else
+            __sum += __other[__i, __k] * __matrix[__k, __j];
+        } else
+          __sum += __other[__i, __k] * __matrix[__k, __j];
+      __out_span[__i, __j] = __sum;
+    }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle,
+          class _Diagonal>
+constexpr void triangular_matrix_product(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::triangular_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OtherExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _OutputExtents, 1>(),
+                "linalg::triangular_matrix_product requires compatible static extents");
+  static_assert(_AddExtents::rank() == 2 && __detail::__static_extents_match<_AddExtents, _OutputExtents>(),
+                "linalg::triangular_matrix_product requires addend and output with matching static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::triangular_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_product requires a packed matrix matching the triangle tag");
+  static_assert(__detail::__diagonal_tag<_Diagonal>, "linalg::triangular_matrix_product requires a diagonal tag");
+  // See the addend-aliasing note on symmetric_matrix_product: C may alias E.
+  for (size_t __i = 0; __i != __matrix.extent(0); ++__i)
+    for (size_t __j = 0; __j != __other.extent(1); ++__j) {
+      decltype(__matrix[0, 0] * __other[0, 0]) __sum{};
+      const size_t __begin = same_as<_Triangle, upper_triangle_t> ? __i : 0;
+      const size_t __end   = same_as<_Triangle, upper_triangle_t> ? __matrix.extent(1) : __i + 1;
+      for (size_t __k = __begin; __k != __end; ++__k)
+        if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>) {
+          if (__i == __k)
+            __sum += __other[__k, __j];
+          else
+            __sum += __matrix[__i, __k] * __other[__k, __j];
+        } else
+          __sum += __matrix[__i, __k] * __other[__k, __j];
+      __out_span[__i, __j] = __add[__i, __j] + __sum;
+    }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _OtherElement,
+          class _OtherExtents,
+          class _OtherLayout,
+          class _OtherAccessor,
+          class _AddElement,
+          class _AddExtents,
+          class _AddLayout,
+          class _AddAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle,
+          class _Diagonal>
+constexpr void triangular_matrix_product(
+    mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
+                "linalg::triangular_matrix_product requires three matrices");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_OtherExtents, 1, _MatrixExtents, 0>() &&
+                    __detail::__static_extents_match<_OtherExtents, 0, _OutputExtents, 0>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 1, _OutputExtents, 1>(),
+                "linalg::triangular_matrix_product requires compatible static extents");
+  static_assert(_AddExtents::rank() == 2 && __detail::__static_extents_match<_AddExtents, _OutputExtents>(),
+                "linalg::triangular_matrix_product requires addend and output with matching static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::triangular_matrix_product requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_product requires a packed matrix matching the triangle tag");
+  static_assert(__detail::__diagonal_tag<_Diagonal>, "linalg::triangular_matrix_product requires a diagonal tag");
+  // See the addend-aliasing note on symmetric_matrix_product: C may alias E.
+  for (size_t __i = 0; __i != __other.extent(0); ++__i)
+    for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
+      decltype(__other[0, 0] * __matrix[0, 0]) __sum{};
+      const size_t __begin = same_as<_Triangle, upper_triangle_t> ? 0 : __j;
+      const size_t __end   = same_as<_Triangle, upper_triangle_t> ? __j + 1 : __matrix.extent(0);
+      for (size_t __k = __begin; __k != __end; ++__k)
+        if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>) {
+          if (__k == __j)
+            __sum += __other[__i, __k];
+          else
+            __sum += __other[__i, __k] * __matrix[__k, __j];
+        } else
+          __sum += __other[__i, __k] * __matrix[__k, __j];
+      __out_span[__i, __j] = __add[__i, __j] + __sum;
+    }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _OutputElement,
+          class _OutputExtents,
+          class _OutputLayout,
+          class _OutputAccessor,
+          class _Triangle,
+          class _Diagonal,
+          class _Divide = divides<>>
+constexpr void triangular_matrix_vector_solve(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle,
+    _Diagonal,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __rhs,
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __solution,
+    _Divide __divide = {}) {
+  _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
+  _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
+  static_assert(_MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _OutputExtents::rank() == 1,
+                "linalg::triangular_matrix_vector_solve requires a matrix and two vectors");
+  static_assert(__detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
+                    __detail::__static_extents_match<_MatrixExtents, 0, _VectorExtents, 0>() &&
+                    __detail::__static_extents_match<_VectorExtents, _OutputExtents>(),
+                "linalg::triangular_matrix_vector_solve requires compatible static extents");
+  static_assert(__detail::__triangle_tag<_Triangle>, "linalg::triangular_matrix_vector_solve requires a triangle tag");
+  static_assert(__detail::__packed_triangle_matches_v<_MatrixLayout, _Triangle>,
+                "linalg::triangular_matrix_vector_solve requires a packed matrix matching the triangle tag");
+  static_assert(__detail::__diagonal_tag<_Diagonal>, "linalg::triangular_matrix_vector_solve requires a diagonal tag");
+  const size_t __size = __matrix.extent(0);
+  if constexpr (same_as<_Triangle, lower_triangle_t>) {
+    for (size_t __i = 0; __i != __size; ++__i) {
+      decltype(__rhs[0] - __matrix[0, 0] * __solution[0]) __value = __rhs[__i];
+      for (size_t __j = 0; __j != __i; ++__j)
+        __value -= __matrix[__i, __j] * __solution[__j];
+      if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>)
+        __solution[__i] = __value;
+      else
+        __solution[__i] = __divide(__value, __matrix[__i, __i]);
+    }
+  } else {
+    for (size_t __i = __size; __i-- != 0;) {
+      decltype(__rhs[0] - __matrix[0, 0] * __solution[0]) __value = __rhs[__i];
+      for (size_t __j = __i + 1; __j != __size; ++__j)
+        __value -= __matrix[__i, __j] * __solution[__j];
+      if constexpr (same_as<_Diagonal, implicit_unit_diagonal_t>)
+        __solution[__i] = __value;
+      else
+        __solution[__i] = __divide(__value, __matrix[__i, __i]);
+    }
+  }
+}
+
+template <class _MatrixElement,
+          class _MatrixExtents,
+          class _MatrixLayout,
+          class _MatrixAccessor,
+          class _VectorElement,
+          class _VectorExtents,
+          class _VectorLayout,
+          class _VectorAccessor,
+          class _Triangle,
+          class _Diagonal,
+          class _Divide = divides<>>
+constexpr void triangular_matrix_vector_solve(
+    mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
+    _Triangle __triangle,
+    _Diagonal __diagonal,
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __io_span,
+    _Divide __divide = {}) {
+  triangular_matrix_vector_solve(__matrix, __triangle, __diagonal, __io_span, __io_span, __divide);
+}
+
+// All execution-policy overloads currently use the permitted serial fallback.
+// The constraint prevents them from overlapping the sequential overloads.
+#  define _LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(_Name)                                                              \
+    template <class _ExecutionPolicy, class... _Args>                                                                  \
+      requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>                                                 \
+    constexpr decltype(auto) _Name(_ExecutionPolicy&&, _Args&&... __args) {                                            \
+      return __detail::__serial_execution([&]() -> decltype(auto) { return _Name(std::forward<_Args>(__args)...); });  \
+    }
+
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(apply_givens_rotation)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(swap_elements)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(scale)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(copy)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(add)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(dot)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(dotc)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(vector_two_norm)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(vector_sum_of_squares)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(vector_abs_sum)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(vector_idx_abs_max)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(matrix_frob_norm)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(matrix_one_norm)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(matrix_inf_norm)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(matrix_vector_product)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(symmetric_matrix_vector_product)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(hermitian_matrix_vector_product)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(triangular_matrix_vector_product)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(triangular_matrix_vector_solve)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(matrix_rank_1_update)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(matrix_rank_1_update_c)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(symmetric_matrix_rank_1_update)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(hermitian_matrix_rank_1_update)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(symmetric_matrix_rank_2_update)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(hermitian_matrix_rank_2_update)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(matrix_product)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(symmetric_matrix_product)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(hermitian_matrix_product)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(triangular_matrix_product)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(triangular_matrix_left_product)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(triangular_matrix_right_product)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(symmetric_matrix_rank_k_update)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(hermitian_matrix_rank_k_update)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(symmetric_matrix_rank_2k_update)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(hermitian_matrix_rank_2k_update)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(triangular_matrix_matrix_left_solve)
+_LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD(triangular_matrix_matrix_right_solve)
+
+#  undef _LIBCPP_LINALG_EXECUTION_POLICY_OVERLOAD
+#  undef _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING
+#  undef _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN
+
+} // namespace linalg
+
+_LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
+
+#endif // _LIBCPP_STD_VER >= 26
+
+#endif // _LIBCPP_LINALG

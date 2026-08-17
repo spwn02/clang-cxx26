@@ -21,7 +21,7 @@
 "`P2641R4 <https://wg21.link/P2641R4>`__","Checking if a ``union`` alternative is active","2023-06 (Varna)","","",""
 "`P1759R6 <https://wg21.link/P1759R6>`__","Native handles and file streams","2023-06 (Varna)","|Complete|","18",""
 "`P2697R1 <https://wg21.link/P2697R1>`__","Interfacing ``bitset`` with ``string_view``","2023-06 (Varna)","|Complete|","18",""
-"`P1383R2 <https://wg21.link/P1383R2>`__","More ``constexpr`` for ``<cmath>`` and ``<complex>``","2023-06 (Varna)","","",""
+"`P1383R2 <https://wg21.link/P1383R2>`__","More ``constexpr`` for ``<cmath>`` and ``<complex>``","2023-06 (Varna)","|Partial|","","``<complex>`` done (``__cpp_lib_constexpr_complex`` 202306L); ``<cmath>``/``<cstdlib>`` scalar functions not yet (``__cpp_lib_constexpr_cmath`` unimplemented)."
 "`P2734R0 <https://wg21.link/P2734R0>`__","Adding the new SI prefixes","2023-06 (Varna)","|Complete|","17",""
 "`P2548R6 <https://wg21.link/P2548R6>`__","``copyable_function``","2023-06 (Varna)","","",""
 "`P2714R1 <https://wg21.link/P2714R1>`__","Bind front and back to NTTP callables","2023-06 (Varna)","|Partial|","20",""

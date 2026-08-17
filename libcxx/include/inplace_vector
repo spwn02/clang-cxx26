@@ -1,0 +1,403 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Experimental C++26 std::inplace_vector implementation for the Bloomberg libc++ fork.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_INPLACE_VECTOR
+#define _LIBCPP_INPLACE_VECTOR
+
+#include <__compare/synth_three_way.h>
+#include <__config>
+#include <algorithm>
+#include <compare>
+#include <cstddef>
+#include <initializer_list>
+#include <iterator>
+#include <new>
+#include <stdexcept>
+#include <type_traits>
+#include <utility>
+
+#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#  pragma GCC system_header
+#endif
+
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+
+template <class _Tp, size_t Capacity>
+class inplace_vector {
+public:
+  using value_type             = _Tp;
+  using size_type               = size_t;
+  using difference_type         = ptrdiff_t;
+  using reference               = value_type&;
+  using const_reference         = const value_type&;
+  using pointer                 = value_type*;
+  using const_pointer           = const value_type*;
+  using iterator                = value_type*;
+  using const_iterator          = const value_type*;
+  using reverse_iterator        = std::reverse_iterator<iterator>;
+  using const_reverse_iterator  = std::reverse_iterator<const_iterator>;
+
+  inplace_vector() noexcept = default;
+
+  explicit inplace_vector(size_type __n) { __append_default(__n); }
+
+  inplace_vector(size_type __n, const _Tp& __value) { __append_fill(__n, __value); }
+
+  template <class InputIt, class = decltype(*std::declval<InputIt&>(), void())>
+  inplace_vector(InputIt __first, InputIt __last) {
+    for (; __first != __last; ++__first)
+      emplace_back(*__first);
+  }
+
+  inplace_vector(std::initializer_list<_Tp> __il)
+      : inplace_vector(__il.begin(), __il.end()) {}
+
+  inplace_vector(const inplace_vector& __other) { __append_copy(__other); }
+
+  inplace_vector(inplace_vector&& __other) noexcept(is_nothrow_move_constructible_v<_Tp>) {
+    __append_move(__other);
+  }
+
+  ~inplace_vector() { clear(); }
+
+  auto operator=(const inplace_vector& __other) -> inplace_vector& {
+    if (this != std::addressof(__other))
+      assign(__other.begin(), __other.end());
+    return *this;
+  }
+
+  auto operator=(inplace_vector&& __other) noexcept(
+      is_nothrow_move_constructible_v<_Tp> && is_nothrow_move_assignable_v<_Tp>) -> inplace_vector& {
+    if (this == std::addressof(__other))
+      return *this;
+    clear();
+    __append_move(__other);
+    return *this;
+  }
+
+  auto operator=(std::initializer_list<_Tp> __il) -> inplace_vector& {
+    assign(__il.begin(), __il.end());
+    return *this;
+  }
+
+  template <class InputIt, class = decltype(*std::declval<InputIt&>(), void())>
+  void assign(InputIt __first, InputIt __last) {
+    clear();
+    for (; __first != __last; ++__first)
+      emplace_back(*__first);
+  }
+
+  void assign(size_type __n, const _Tp& __value) {
+    clear();
+    __append_fill(__n, __value);
+  }
+
+  void assign(std::initializer_list<_Tp> __il) { assign(__il.begin(), __il.end()); }
+
+  // element access
+
+  [[nodiscard]] auto at(size_type __i) -> reference {
+    if (__i >= size_)
+      std::__throw_out_of_range("inplace_vector::at");
+    return data()[__i];
+  }
+  [[nodiscard]] auto at(size_type __i) const -> const_reference {
+    if (__i >= size_)
+      std::__throw_out_of_range("inplace_vector::at");
+    return data()[__i];
+  }
+
+  [[nodiscard]] auto operator[](size_type __i) -> reference { return data()[__i]; }
+  [[nodiscard]] auto operator[](size_type __i) const -> const_reference { return data()[__i]; }
+
+  [[nodiscard]] auto front() -> reference { return data()[0]; }
+  [[nodiscard]] auto front() const -> const_reference { return data()[0]; }
+  [[nodiscard]] auto back() -> reference { return data()[size_ - 1]; }
+  [[nodiscard]] auto back() const -> const_reference { return data()[size_ - 1]; }
+
+  [[nodiscard]] auto data() noexcept -> _Tp* { return std::launder(reinterpret_cast<_Tp*>(storage_)); }
+  [[nodiscard]] auto data() const noexcept -> const _Tp* {
+    return std::launder(reinterpret_cast<const _Tp*>(storage_));
+  }
+
+  // iterators
+
+  [[nodiscard]] auto begin() noexcept -> iterator { return data(); }
+  [[nodiscard]] auto end() noexcept -> iterator { return data() + size_; }
+  [[nodiscard]] auto begin() const noexcept -> const_iterator { return data(); }
+  [[nodiscard]] auto end() const noexcept -> const_iterator { return data() + size_; }
+  [[nodiscard]] auto cbegin() const noexcept -> const_iterator { return data(); }
+  [[nodiscard]] auto cend() const noexcept -> const_iterator { return data() + size_; }
+
+  [[nodiscard]] auto rbegin() noexcept -> reverse_iterator { return reverse_iterator(end()); }
+  [[nodiscard]] auto rend() noexcept -> reverse_iterator { return reverse_iterator(begin()); }
+  [[nodiscard]] auto rbegin() const noexcept -> const_reverse_iterator {
+    return const_reverse_iterator(end());
+  }
+  [[nodiscard]] auto rend() const noexcept -> const_reverse_iterator {
+    return const_reverse_iterator(begin());
+  }
+  [[nodiscard]] auto crbegin() const noexcept -> const_reverse_iterator { return rbegin(); }
+  [[nodiscard]] auto crend() const noexcept -> const_reverse_iterator { return rend(); }
+
+  // capacity
+
+  [[nodiscard]] auto empty() const noexcept -> bool { return size_ == 0; }
+  [[nodiscard]] auto size() const noexcept -> size_type { return size_; }
+  [[nodiscard]] static constexpr auto max_size() noexcept -> size_type { return Capacity; }
+  [[nodiscard]] static constexpr auto capacity() noexcept -> size_type { return Capacity; }
+
+  void resize(size_type __sz) {
+    if (__sz > Capacity)
+      std::__throw_bad_alloc();
+    if (__sz < size_) {
+      while (size_ > __sz)
+        pop_back();
+    } else {
+      __append_default(__sz - size_);
+    }
+  }
+
+  void resize(size_type __sz, const _Tp& __value) {
+    if (__sz > Capacity)
+      std::__throw_bad_alloc();
+    if (__sz < size_) {
+      while (size_ > __sz)
+        pop_back();
+    } else {
+      __append_fill(__sz - size_, __value);
+    }
+  }
+
+  void reserve(size_type __n) {
+    if (__n > Capacity)
+      std::__throw_bad_alloc();
+  }
+
+  void shrink_to_fit() noexcept {}
+
+  // modifiers
+
+  auto try_push_back(const _Tp& __value) -> pointer {
+    if (size_ >= Capacity)
+      return nullptr;
+    ::new (static_cast<void*>(data() + size_)) _Tp(__value);
+    return data() + size_++;
+  }
+
+  auto try_push_back(_Tp&& __value) -> pointer {
+    if (size_ >= Capacity)
+      return nullptr;
+    ::new (static_cast<void*>(data() + size_)) _Tp(std::move(__value));
+    return data() + size_++;
+  }
+
+  template <class... _Args>
+  auto try_emplace_back(_Args&&... __args) -> pointer {
+    if (size_ >= Capacity)
+      return nullptr;
+    ::new (static_cast<void*>(data() + size_)) _Tp(std::forward<_Args>(__args)...);
+    return data() + size_++;
+  }
+
+  auto push_back(const _Tp& __value) -> reference {
+    auto* __p = try_push_back(__value);
+    if (__p == nullptr)
+      std::__throw_bad_alloc();
+    return *__p;
+  }
+
+  auto push_back(_Tp&& __value) -> reference {
+    auto* __p = try_push_back(std::move(__value));
+    if (__p == nullptr)
+      std::__throw_bad_alloc();
+    return *__p;
+  }
+
+  template <class... _Args>
+  auto emplace_back(_Args&&... __args) -> reference {
+    auto* __p = try_emplace_back(std::forward<_Args>(__args)...);
+    if (__p == nullptr)
+      std::__throw_bad_alloc();
+    return *__p;
+  }
+
+  auto unchecked_push_back(const _Tp& __value) -> reference {
+    ::new (static_cast<void*>(data() + size_)) _Tp(__value);
+    return data()[size_++];
+  }
+
+  auto unchecked_push_back(_Tp&& __value) -> reference {
+    ::new (static_cast<void*>(data() + size_)) _Tp(std::move(__value));
+    return data()[size_++];
+  }
+
+  template <class... _Args>
+  auto unchecked_emplace_back(_Args&&... __args) -> reference {
+    ::new (static_cast<void*>(data() + size_)) _Tp(std::forward<_Args>(__args)...);
+    return data()[size_++];
+  }
+
+  void pop_back() {
+    --size_;
+    data()[size_].~_Tp();
+  }
+
+  auto insert(const_iterator __pos, const _Tp& __value) -> iterator { return emplace(__pos, __value); }
+  auto insert(const_iterator __pos, _Tp&& __value) -> iterator { return emplace(__pos, std::move(__value)); }
+
+  auto insert(const_iterator __pos, size_type __n, const _Tp& __value) -> iterator {
+    size_type __idx = static_cast<size_type>(__pos - cbegin());
+    if (size_ + __n > Capacity)
+      std::__throw_bad_alloc();
+    for (size_type __i = 0; __i < __n; ++__i)
+      unchecked_push_back(__value);
+    std::rotate(data() + __idx, data() + size_ - __n, data() + size_);
+    return data() + __idx;
+  }
+
+  template <class InputIt, class = decltype(*std::declval<InputIt&>(), void())>
+  auto insert(const_iterator __pos, InputIt __first, InputIt __last) -> iterator {
+    size_type __idx = static_cast<size_type>(__pos - cbegin());
+    size_type __old_size = size_;
+    for (; __first != __last; ++__first)
+      emplace_back(*__first);
+    std::rotate(data() + __idx, data() + __old_size, data() + size_);
+    return data() + __idx;
+  }
+
+  auto insert(const_iterator __pos, std::initializer_list<_Tp> __il) -> iterator {
+    return insert(__pos, __il.begin(), __il.end());
+  }
+
+  template <class... _Args>
+  auto emplace(const_iterator __pos, _Args&&... __args) -> iterator {
+    size_type __idx = static_cast<size_type>(__pos - cbegin());
+    if (size_ >= Capacity)
+      std::__throw_bad_alloc();
+    if (__idx == size_) {
+      unchecked_emplace_back(std::forward<_Args>(__args)...);
+      return data() + __idx;
+    }
+    unchecked_push_back(std::move(data()[size_ - 1]));
+    for (size_type __i = size_ - 1; __i > __idx; --__i)
+      data()[__i] = std::move(data()[__i - 1]);
+    data()[__idx] = _Tp(std::forward<_Args>(__args)...);
+    return data() + __idx;
+  }
+
+  auto erase(const_iterator __pos) -> iterator {
+    size_type __idx = static_cast<size_type>(__pos - cbegin());
+    for (size_type __i = __idx; __i + 1 < size_; ++__i)
+      data()[__i] = std::move(data()[__i + 1]);
+    pop_back();
+    return data() + __idx;
+  }
+
+  auto erase(const_iterator __first, const_iterator __last) -> iterator {
+    size_type __idx = static_cast<size_type>(__first - cbegin());
+    size_type __n   = static_cast<size_type>(__last - __first);
+    for (size_type __i = __idx; __i + __n < size_; ++__i)
+      data()[__i] = std::move(data()[__i + __n]);
+    for (size_type __i = 0; __i < __n; ++__i)
+      pop_back();
+    return data() + __idx;
+  }
+
+  void clear() noexcept {
+    while (size_ != 0)
+      pop_back();
+  }
+
+  void swap(inplace_vector& __other) noexcept(is_nothrow_swappable_v<_Tp> && is_nothrow_move_constructible_v<_Tp>) {
+    size_type __this_original  = size_;
+    size_type __other_original = __other.size_;
+    size_type __common         = std::min(size_, __other.size_);
+    for (size_type __i = 0; __i < __common; ++__i) {
+      using std::swap;
+      swap(data()[__i], __other.data()[__i]);
+    }
+    if (size_ > __other.size_) {
+      for (size_type __i = __common; __i < size_; ++__i) {
+        __other.unchecked_push_back(std::move(data()[__i]));
+        data()[__i].~_Tp();
+      }
+    } else if (__other.size_ > size_) {
+      for (size_type __i = __common; __i < __other.size_; ++__i) {
+        unchecked_push_back(std::move(__other.data()[__i]));
+        __other.data()[__i].~_Tp();
+      }
+    }
+    size_        = __other_original;
+    __other.size_ = __this_original;
+  }
+
+  friend void swap(inplace_vector& __x, inplace_vector& __y) noexcept(noexcept(__x.swap(__y))) { __x.swap(__y); }
+
+  [[nodiscard]] friend auto operator==(const inplace_vector& __x, const inplace_vector& __y) -> bool {
+    return std::equal(__x.begin(), __x.end(), __y.begin(), __y.end());
+  }
+
+  [[nodiscard]] friend auto operator<=>(const inplace_vector& __x, const inplace_vector& __y) {
+    return std::lexicographical_compare_three_way(
+        __x.begin(), __x.end(), __y.begin(), __y.end(), std::__synth_three_way);
+  }
+
+private:
+  void __append_default(size_type __n) {
+    if (size_ + __n > Capacity)
+      std::__throw_bad_alloc();
+    for (size_type __i = 0; __i < __n; ++__i)
+      unchecked_emplace_back();
+  }
+
+  void __append_fill(size_type __n, const _Tp& __value) {
+    if (size_ + __n > Capacity)
+      std::__throw_bad_alloc();
+    for (size_type __i = 0; __i < __n; ++__i)
+      unchecked_push_back(__value);
+  }
+
+  void __append_copy(const inplace_vector& __other) {
+    for (size_type __i = 0; __i < __other.size_; ++__i)
+      unchecked_push_back(__other.data()[__i]);
+  }
+
+  void __append_move(inplace_vector& __other) {
+    for (size_type __i = 0; __i < __other.size_; ++__i)
+      unchecked_push_back(std::move(__other.data()[__i]));
+  }
+
+  alignas(_Tp) unsigned char storage_[Capacity == 0 ? 1 : Capacity * sizeof(_Tp)];
+  size_type size_ = 0;
+};
+
+template <class _Tp, size_t Capacity, class _Up = _Tp>
+auto erase(inplace_vector<_Tp, Capacity>& __c, const _Up& __value) -> typename inplace_vector<_Tp, Capacity>::size_type {
+  auto __it = std::remove(__c.begin(), __c.end(), __value);
+  auto __r  = static_cast<typename inplace_vector<_Tp, Capacity>::size_type>(__c.end() - __it);
+  __c.erase(__it, __c.end());
+  return __r;
+}
+
+template <class _Tp, size_t Capacity, class Predicate>
+auto erase_if(inplace_vector<_Tp, Capacity>& __c, Predicate __pred) ->
+    typename inplace_vector<_Tp, Capacity>::size_type {
+  auto __it = std::remove_if(__c.begin(), __c.end(), __pred);
+  auto __r  = static_cast<typename inplace_vector<_Tp, Capacity>::size_type>(__c.end() - __it);
+  __c.erase(__it, __c.end());
+  return __r;
+}
+
+_LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
+
+#endif // _LIBCPP_INPLACE_VECTOR

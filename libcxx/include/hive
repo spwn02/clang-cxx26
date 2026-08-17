@@ -1,0 +1,104 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Experimental C++26 std::hive implementation for the Bloomberg libc++ fork.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_HIVE
+#define _LIBCPP_HIVE
+
+#include <__config>
+#include <initializer_list>
+#include <iterator>
+#include <list>
+#include <memory>
+#include <type_traits>
+#include <utility>
+
+#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#  pragma GCC system_header
+#endif
+
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+
+template <class _Tp, class Allocator = allocator<_Tp>> class hive {
+  static_assert(is_same_v<_Tp, typename Allocator::value_type>,
+                "Allocator::value_type must match hive::value_type");
+
+  using storage_type = list<_Tp, Allocator>;
+
+public:
+  using value_type = _Tp;
+  using allocator_type = Allocator;
+  using size_type = typename storage_type::size_type;
+  using difference_type = typename storage_type::difference_type;
+  using reference = value_type &;
+  using const_reference = const value_type &;
+  using pointer = typename allocator_traits<Allocator>::pointer;
+  using const_pointer = typename allocator_traits<Allocator>::const_pointer;
+  using iterator = typename storage_type::iterator;
+  using const_iterator = typename storage_type::const_iterator;
+  using reverse_iterator = typename storage_type::reverse_iterator;
+  using const_reverse_iterator = typename storage_type::const_reverse_iterator;
+
+  hive() = default;
+  explicit hive(const Allocator &alloc) : storage_(alloc) {}
+  explicit hive(size_type count, const Allocator &alloc = Allocator())
+      : storage_(count, _Tp(), alloc) {}
+  hive(size_type count, const _Tp &value, const Allocator &alloc = Allocator())
+      : storage_(count, value, alloc) {}
+
+  template <class InputIt>
+  hive(InputIt first, InputIt last, const Allocator &alloc = Allocator())
+      : storage_(first, last, alloc) {}
+  hive(initializer_list<_Tp> init, const Allocator &alloc = Allocator())
+      : storage_(init, alloc) {}
+
+  auto get_allocator() const noexcept -> allocator_type { return storage_.get_allocator(); }
+  auto begin() noexcept -> iterator { return storage_.begin(); }
+  auto begin() const noexcept -> const_iterator { return storage_.begin(); }
+  auto end() noexcept -> iterator { return storage_.end(); }
+  auto end() const noexcept -> const_iterator { return storage_.end(); }
+  auto cbegin() const noexcept -> const_iterator { return storage_.cbegin(); }
+  auto cend() const noexcept -> const_iterator { return storage_.cend(); }
+  auto rbegin() noexcept -> reverse_iterator { return storage_.rbegin(); }
+  auto rbegin() const noexcept -> const_reverse_iterator { return storage_.rbegin(); }
+  auto rend() noexcept -> reverse_iterator { return storage_.rend(); }
+  auto rend() const noexcept -> const_reverse_iterator { return storage_.rend(); }
+  auto empty() const noexcept -> bool { return storage_.empty(); }
+  auto size() const noexcept -> size_type { return storage_.size(); }
+  auto max_size() const noexcept -> size_type { return storage_.max_size(); }
+  void clear() noexcept { storage_.clear(); }
+
+  auto insert(const _Tp &value) -> iterator { storage_.push_back(value); return prev(end()); }
+  auto insert(_Tp &&value) -> iterator { storage_.push_back(move(value)); return prev(end()); }
+  template <class... _Args> auto emplace(_Args &&...args) -> iterator {
+    storage_.emplace_back(forward<_Args>(args)...);
+    return prev(end());
+  }
+  auto erase(const_iterator pos) -> iterator { return storage_.erase(pos); }
+  auto erase(const_iterator first, const_iterator last) -> iterator { return storage_.erase(first, last); }
+  void swap(hive &other) noexcept(noexcept(storage_.swap(other.storage_))) { storage_.swap(other.storage_); }
+  friend auto operator==(const hive &, const hive &) -> bool = default;
+
+private:
+  storage_type storage_;
+};
+
+template <class InputIt, class Allocator = allocator<iter_value_t<InputIt>>>
+hive(InputIt, InputIt, Allocator = Allocator()) -> hive<iter_value_t<InputIt>, Allocator>;
+
+template <class _Tp, class Allocator>
+void swap(hive<_Tp, Allocator> &lhs, hive<_Tp, Allocator> &rhs) noexcept(noexcept(lhs.swap(rhs))) {
+  lhs.swap(rhs);
+}
+
+_LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
+
+#endif // _LIBCPP_HIVE
