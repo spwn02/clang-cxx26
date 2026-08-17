@@ -1,0 +1,123 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Experimental C++26 scope guards for the Bloomberg libc++ fork.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_SCOPE
+#define _LIBCPP_SCOPE
+
+#include <__config>
+#include <exception>
+#include <type_traits>
+#include <utility>
+
+#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#  pragma GCC system_header
+#endif
+
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+
+template <class _EF>
+class scope_exit {
+public:
+  explicit scope_exit(_EF __exit_function) noexcept(is_nothrow_move_constructible_v<_EF>)
+      : __exit_function_(std::move(__exit_function)) {}
+
+  scope_exit(scope_exit&& __other) noexcept(is_nothrow_move_constructible_v<_EF>)
+      : __exit_function_(std::move(__other.__exit_function_)), __active_(__other.__active_) {
+    __other.release();
+  }
+
+  scope_exit(const scope_exit&) = delete;
+  scope_exit& operator=(const scope_exit&) = delete;
+  scope_exit& operator=(scope_exit&&) = delete;
+
+  ~scope_exit() noexcept(noexcept(__exit_function_())) {
+    if (__active_)
+      __exit_function_();
+  }
+
+  void release() noexcept { __active_ = false; }
+
+private:
+  _EF __exit_function_;
+  bool __active_ = true;
+};
+
+template <class _EF>
+scope_exit(_EF) -> scope_exit<_EF>;
+
+template <class _EF>
+class scope_fail {
+public:
+  explicit scope_fail(_EF __exit_function) noexcept(is_nothrow_move_constructible_v<_EF>)
+      : __exit_function_(std::move(__exit_function)), __uncaught_(uncaught_exceptions()) {}
+
+  scope_fail(scope_fail&& __other) noexcept(is_nothrow_move_constructible_v<_EF>)
+      : __exit_function_(std::move(__other.__exit_function_)),
+        __uncaught_(__other.__uncaught_), __active_(__other.__active_) {
+    __other.release();
+  }
+
+  scope_fail(const scope_fail&) = delete;
+  scope_fail& operator=(const scope_fail&) = delete;
+  scope_fail& operator=(scope_fail&&) = delete;
+
+  ~scope_fail() noexcept(noexcept(__exit_function_())) {
+    if (__active_ && uncaught_exceptions() > __uncaught_)
+      __exit_function_();
+  }
+
+  void release() noexcept { __active_ = false; }
+
+private:
+  _EF __exit_function_;
+  int __uncaught_ = 0;
+  bool __active_ = true;
+};
+
+template <class _EF>
+scope_fail(_EF) -> scope_fail<_EF>;
+
+template <class _EF>
+class scope_success {
+public:
+  explicit scope_success(_EF __exit_function) noexcept(is_nothrow_move_constructible_v<_EF>)
+      : __exit_function_(std::move(__exit_function)), __uncaught_(uncaught_exceptions()) {}
+
+  scope_success(scope_success&& __other) noexcept(is_nothrow_move_constructible_v<_EF>)
+      : __exit_function_(std::move(__other.__exit_function_)),
+        __uncaught_(__other.__uncaught_), __active_(__other.__active_) {
+    __other.release();
+  }
+
+  scope_success(const scope_success&) = delete;
+  scope_success& operator=(const scope_success&) = delete;
+  scope_success& operator=(scope_success&&) = delete;
+
+  ~scope_success() noexcept(noexcept(__exit_function_())) {
+    if (__active_ && uncaught_exceptions() <= __uncaught_)
+      __exit_function_();
+  }
+
+  void release() noexcept { __active_ = false; }
+
+private:
+  _EF __exit_function_;
+  int __uncaught_ = 0;
+  bool __active_ = true;
+};
+
+template <class _EF>
+scope_success(_EF) -> scope_success<_EF>;
+
+_LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
+
+#endif // _LIBCPP_SCOPE

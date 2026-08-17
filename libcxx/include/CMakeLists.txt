@@ -1050,6 +1050,7 @@ set(files
   ratio
   rcu
   regex
+  scope
   scoped_allocator
   semaphore
   set

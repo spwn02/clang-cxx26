@@ -1974,6 +1974,11 @@ module std [system] {
     export *
   }
 
+  module scope {
+    header "scope"
+    export *
+  }
+
   module scoped_allocator {
     header "scoped_allocator"
     export *
