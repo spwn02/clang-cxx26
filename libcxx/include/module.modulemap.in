@@ -1232,6 +1232,11 @@ module std [system] {
     export *
   }
 
+  module debugging {
+    header "debugging"
+    export *
+  }
+
   module exception {
     module exception          { header "__exception/exception.h" }
     module exception_ptr      { header "__exception/exception_ptr.h" }
