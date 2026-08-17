@@ -98,8 +98,8 @@
 #  ifndef __cpp_lib_constexpr_complex
 #    error "__cpp_lib_constexpr_complex should be defined in c++26"
 #  endif
-#  if __cpp_lib_constexpr_complex != 201711L
-#    error "__cpp_lib_constexpr_complex should have the value 201711L in c++26"
+#  if __cpp_lib_constexpr_complex != 202306L
+#    error "__cpp_lib_constexpr_complex should have the value 202306L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23
