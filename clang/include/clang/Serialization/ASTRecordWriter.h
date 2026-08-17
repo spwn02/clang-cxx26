@@ -355,6 +355,8 @@ public:
 
   void AddOpenACCRoutineDeclAttr(const OpenACCRoutineDeclAttr *A);
 
+  void AddCXX26AnnotationAttr(const CXX26AnnotationAttr *A);
+
   /// Emit a string.
   void AddString(StringRef Str) {
     return Writer->AddString(Str, *Record);

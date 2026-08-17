@@ -2604,8 +2604,15 @@ TemplateInstantiator::TransformCXXReflectExpr(CXXReflectExpr *E) {
             getSema().BuildCXXReflectExpr(E->getOperatorLoc(), Result.get()));
   }
 
-  if (E->getReflection().isReflectedDecl()) {
-    Decl *D = E->getReflection().getReflectedDecl();
+  if (E->getReflection().isReflectedDecl() ||
+      E->getReflection().isReflectedParameter()) {
+    // A reflection of a ParmVarDecl surfaces as ReflectionKind::Parameter
+    // rather than ReflectionKind::Declaration (see Sema::BuildCXXReflectExpr),
+    // but it still needs the same non-type-template-parameter-pack and
+    // function-parameter-pack handling below, since ParmVarDecl is a VarDecl.
+    Decl *D = E->getReflection().isReflectedDecl()
+                  ? E->getReflection().getReflectedDecl()
+                  : E->getReflection().getReflectedParameter();
 
     // Handle references to non-type template parameters and non-type template
     // parameter packs.

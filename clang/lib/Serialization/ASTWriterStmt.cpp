@@ -550,8 +550,10 @@ void ASTStmtWriter::VisitCXXExpansionStmt(CXXExpansionStmt *S) {
   Record.AddStmt(S->getSizeExpr());
   Record.AddStmt(S->getBody());
 
-  Record.writeUInt32(S->getNumInstantiations());
-  for (size_t k = 0; k < S->getNumInstantiations(); ++k)
+  const unsigned NumInstantiations =
+      S->hasDependentSize() ? 0 : S->getNumInstantiations();
+  Record.writeUInt32(NumInstantiations);
+  for (size_t k = 0; k < NumInstantiations; ++k)
     Record.AddStmt(S->getInstantiation(k));
 }
 

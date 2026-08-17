@@ -1008,6 +1008,7 @@ def AnnotateType : TypeAttr {
 def CXX26Annotation : InheritableParamAttr {
   let Spellings = [];
   let Args = [ExprArgument<"Arg">];
+  let HasCustomSerialization = 1;
   let AdditionalMembers = [{
 private:
   APValue Value;

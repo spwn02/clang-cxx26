@@ -1305,6 +1305,14 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
   ReflectionKind RK = ReflectionKind::Declaration;
   if (isa<TranslationUnitDecl, NamespaceDecl, NamespaceAliasDecl>(D))
     RK = ReflectionKind::Namespace;
+  else if (isa<ParmVarDecl>(D))
+    // Keep this in sync with 'makeReflection' in ExprConstantMeta.cpp: a
+    // function parameter must reflect as 'Parameter', never as 'Declaration'.
+    // Otherwise rebuilding a reflection (as TreeTransform does when it
+    // synthesizes an expansion statement body) silently rewrites it into a
+    // reflection of a different kind, which then compares unequal to the
+    // reflection 'parameters_of' produced for the same parameter.
+    RK = ReflectionKind::Parameter;
   else if (isa<UsingShadowDecl>(D)) {
     if (!getLangOpts().EntityProxyReflection) {
       Diag(OperandLoc, diag::err_reflect_using_declarator);

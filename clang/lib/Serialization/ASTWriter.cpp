@@ -8971,3 +8971,8 @@ void ASTRecordWriter::AddOpenACCRoutineDeclAttr(
   writeUInt32(A->Clauses.size());
   writeOpenACCClauseList(A->Clauses);
 }
+
+void ASTRecordWriter::AddCXX26AnnotationAttr(const CXX26AnnotationAttr *A) {
+  AddAPValue(A->getValue());
+  AddSourceLocation(A->getEqLoc());
+}

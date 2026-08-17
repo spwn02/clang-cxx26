@@ -119,6 +119,12 @@ class CollectUnexpandedParameterPacksVisitor
         ValueDecl *VD = E->getReflection().getReflectedDecl();
         if (VD->isParameterPack())
           addUnexpanded(VD, E->getExprLoc());
+      } else if (E->getReflection().isReflectedParameter()) {
+        // A reflection of a ParmVarDecl surfaces as ReflectionKind::Parameter
+        // rather than ReflectionKind::Declaration (see Sema::BuildCXXReflectExpr).
+        ValueDecl *VD = E->getReflection().getReflectedParameter();
+        if (VD->isParameterPack())
+          addUnexpanded(VD, E->getExprLoc());
       } else if (E->getReflection().isReflectedTemplate()) {
         TemplateName TName = E->getReflection().getReflectedTemplate();
         if (TName.containsUnexpandedParameterPack()) {

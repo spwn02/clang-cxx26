@@ -288,6 +288,8 @@ public:
 
   void readOpenACCRoutineDeclAttr(OpenACCRoutineDeclAttr *A);
 
+  void readCXX26AnnotationAttr(CXX26AnnotationAttr *A);
+
   /// Read a source location, advancing Idx.
   SourceLocation readSourceLocation() {
     return Reader->ReadSourceLocation(*F, Record, Idx);

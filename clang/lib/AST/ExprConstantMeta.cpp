@@ -32,6 +32,7 @@
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Sema/ParsedAttr.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
@@ -4445,9 +4446,14 @@ bool has_automatic_storage_duration(APValue &Result, ASTContext &C,
     return true;
 
   bool result = false;
-  if (RV.isReflectedDecl())
+  if (RV.isReflectedDecl()) {
     if (const auto *VD = dyn_cast<VarDecl>(RV.getReflectedDecl()))
       result = VD->getStorageDuration() == SD_Automatic;
+  } else if (RV.isReflectedParameter()) {
+    // A function parameter reflects as ReflectionKind::Parameter, never as
+    // ReflectionKind::Declaration, so it does not reach the branch above.
+    result = RV.getReflectedParameter()->getStorageDuration() == SD_Automatic;
+  }
 
   return SetAndSucceed(Result, makeBool(C, result));
 }
@@ -6646,6 +6652,24 @@ bool get_ith_annotation_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   assert(ResultTy == C.MetaInfoTy);
 
   auto findAnnotation = [&](Decl *D, size_t idx, APValue Sentinel) {
+    if (auto *PVD = dyn_cast_or_null<ParmVarDecl>(D)) {
+      const unsigned ParamIdx = PVD->getFunctionScopeIndex();
+      FunctionDecl *FD = cast<FunctionDecl>(PVD->getDeclContext());
+      llvm::SmallPtrSet<ParmVarDecl *, 4> Seen;
+
+      for (FD = FD->getMostRecentDecl(); FD; FD = FD->getPreviousDecl()) {
+        PVD = FD->getParamDecl(ParamIdx);
+        if (!Seen.insert(PVD).second)
+          continue;
+        for (const Attr *A : PVD->attrs())
+          if (const auto *Annotation = dyn_cast<CXX26AnnotationAttr>(A);
+              Annotation && !Annotation->isInherited())
+            if (idx-- == 0)
+              return makeReflection(const_cast<CXX26AnnotationAttr *>(Annotation));
+      }
+      return Sentinel;
+    }
+
     D = D ? D->getMostRecentDecl() : D;
 
     while (D) {
@@ -6696,6 +6720,9 @@ bool get_ith_annotation_of(APValue &Result, ASTContext &C, MetaActions &Meta,
 
     return SetAndSucceed(Result, findAnnotation(D, idx, Sentinel));
   }
+  case ReflectionKind::Parameter:
+    return SetAndSucceed(Result,
+                         findAnnotation(RV.getReflectedParameter(), idx, Sentinel));
   // Disallow reflecting annotations of unspecialized templates, as they might
   // contain a dependent name.
   case ReflectionKind::Template: /*{
@@ -6707,7 +6734,6 @@ bool get_ith_annotation_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::BaseSpecifier:
-  case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
   case ReflectionKind::Attribute:

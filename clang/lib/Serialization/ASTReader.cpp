@@ -12986,6 +12986,11 @@ void ASTRecordReader::readOpenACCRoutineDeclAttr(OpenACCRoutineDeclAttr *A) {
   readOpenACCClauseList(A->Clauses);
 }
 
+void ASTRecordReader::readCXX26AnnotationAttr(CXX26AnnotationAttr *A) {
+  A->setValue(readAPValue());
+  A->setEqLoc(readSourceLocation());
+}
+
 static unsigned getStableHashForModuleName(StringRef PrimaryModuleName) {
   // TODO: Maybe it is better to check PrimaryModuleName is a valid
   // module name?

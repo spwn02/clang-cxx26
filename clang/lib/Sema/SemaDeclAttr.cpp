@@ -2198,7 +2198,8 @@ static void handleCXX2CAnnotation(Sema &S, Decl *D, const ParsedAttr &AL) {
       CE = CopyResult.get();
     } else {
       ExprResult RVExprResult = S.DefaultLvalueConversion(AL.getArgAsExpr(0));
-      assert(!RVExprResult.isInvalid() && RVExprResult.get());
+      if (RVExprResult.isInvalid() || !RVExprResult.get())
+        return;
 
       CE = RVExprResult.get();
     }
