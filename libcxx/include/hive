@@ -3,12 +3,24 @@
 //
 // Experimental C++26 std::hive implementation for the Bloomberg libc++ fork.
 //
+// NOTE: this is a partial implementation. The real P0447R28 hive is backed
+// by fixed-size memory blocks with a skipfield tracking erased slots so that
+// erasure/insertion can reuse freed storage without touching unrelated
+// elements; that skipfield algorithm is not implemented here. Instead this
+// version is backed by std::list, which gives correct iterator/reference
+// stability across insert/erase (hive's core guarantee) but none of hive's
+// memory-reuse or block-capacity behavior. Concretely unsupported as a
+// result: capacity()/reserve()/trim_capacity()/reshape() (no distinct
+// capacity concept over size() here) and get_iterator(pointer) (would
+// require reaching into list's node representation).
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef _LIBCPP_HIVE
 #define _LIBCPP_HIVE
 
 #include <__config>
+#include <algorithm>
 #include <initializer_list>
 #include <iterator>
 #include <list>
@@ -69,6 +81,8 @@ public:
   auto rbegin() const noexcept -> const_reverse_iterator { return storage_.rbegin(); }
   auto rend() noexcept -> reverse_iterator { return storage_.rend(); }
   auto rend() const noexcept -> const_reverse_iterator { return storage_.rend(); }
+  auto crbegin() const noexcept -> const_reverse_iterator { return storage_.crbegin(); }
+  auto crend() const noexcept -> const_reverse_iterator { return storage_.crend(); }
   auto empty() const noexcept -> bool { return storage_.empty(); }
   auto size() const noexcept -> size_type { return storage_.size(); }
   auto max_size() const noexcept -> size_type { return storage_.max_size(); }
@@ -76,14 +90,42 @@ public:
 
   auto insert(const _Tp &value) -> iterator { storage_.push_back(value); return prev(end()); }
   auto insert(_Tp &&value) -> iterator { storage_.push_back(move(value)); return prev(end()); }
+
+  template <class InputIt>
+  void insert(InputIt first, InputIt last) {
+    for (; first != last; ++first)
+      insert(*first);
+  }
+  void insert(initializer_list<_Tp> il) { insert(il.begin(), il.end()); }
+
   template <class... _Args> auto emplace(_Args &&...args) -> iterator {
     storage_.emplace_back(forward<_Args>(args)...);
     return prev(end());
   }
+
+  void assign(size_type count, const _Tp &value) { storage_.assign(count, value); }
+  template <class InputIt> void assign(InputIt first, InputIt last) { storage_.assign(first, last); }
+  void assign(initializer_list<_Tp> il) { storage_.assign(il); }
+
   auto erase(const_iterator pos) -> iterator { return storage_.erase(pos); }
   auto erase(const_iterator first, const_iterator last) -> iterator { return storage_.erase(first, last); }
   void swap(hive &other) noexcept(noexcept(storage_.swap(other.storage_))) { storage_.swap(other.storage_); }
-  friend auto operator==(const hive &, const hive &) -> bool = default;
+
+  // Element order between two hives is unspecified (implementations are
+  // free to reuse erased slots in any order), so equality compares as
+  // multisets rather than sequences.
+  friend auto operator==(const hive &__x, const hive &__y) -> bool {
+    return __x.size() == __y.size() && std::is_permutation(__x.begin(), __x.end(), __y.begin());
+  }
+
+  void splice(hive &other) noexcept { storage_.splice(storage_.end(), other.storage_); }
+  void splice(hive &&other) noexcept { storage_.splice(storage_.end(), other.storage_); }
+
+  void sort() { storage_.sort(); }
+  template <class Compare> void sort(Compare comp) { storage_.sort(comp); }
+
+  auto unique() -> size_type { return storage_.unique(); }
+  template <class BinaryPredicate> auto unique(BinaryPredicate pred) -> size_type { return storage_.unique(pred); }
 
 private:
   storage_type storage_;
