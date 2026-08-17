@@ -38,6 +38,7 @@ set(LIBCXX_MODULE_STD_SOURCES
   std/cwchar.inc
   std/cwctype.inc
   std/deque.inc
+  std/debugging.inc
   std/exception.inc
   std/execution.inc
   std/expected.inc
@@ -78,8 +79,10 @@ set(LIBCXX_MODULE_STD_SOURCES
   std/ranges.inc
   std/ratio.inc
   std/rcu.inc
+  std/simd.inc
   std/regex.inc
   std/scoped_allocator.inc
+  std/scope.inc
   std/semaphore.inc
   std/set.inc
   std/shared_mutex.inc

@@ -13,6 +13,7 @@
 
 module;
 
+#define _LIBCPP_BUILDING_STD_MODULE 1
 #include <__config>
 
 // The headers of Table 24: C++ library headers [tab:headers.cpp]
@@ -55,6 +56,7 @@ module;
 #include <cuchar>
 #include <cwchar>
 #include <cwctype>
+#include <debugging>
 #include <deque>
 #include <exception>
 #include <execution>
@@ -67,6 +69,7 @@ module;
 #include <fstream>
 #include <functional>
 #include <future>
+#include <hazard_pointer>
 #include <initializer_list>
 #include <iomanip>
 #include <ios>
@@ -94,11 +97,14 @@ module;
 #include <random>
 #include <ranges>
 #include <ratio>
+#include <rcu>
 #include <regex>
+#include <scope>
 #include <scoped_allocator>
 #include <semaphore>
 #include <set>
 #include <shared_mutex>
+#include <simd>
 #include <source_location>
 #include <span>
 #include <sstream>
@@ -111,6 +117,7 @@ module;
 #include <strstream>
 #include <syncstream>
 #include <system_error>
+#include <text_encoding>
 #include <thread>
 #include <tuple>
 #include <type_traits>
@@ -133,24 +140,15 @@ module;
 // into thinking that libc++ provides the header.
 //
 #ifndef _WIN32
-#  if __has_include(<debugging>)
-#    error "please update the header information for <debugging> in headers_not_available in utils/libcxx/header_information.py"
-#  endif // __has_include(<debugging>)
 #  if __has_include(<generator>)
 #    error "please update the header information for <generator> in headers_not_available in utils/libcxx/header_information.py"
 #  endif // __has_include(<generator>)
-#  if __has_include(<hazard_pointer>)
-#    error "please update the header information for <hazard_pointer> in headers_not_available in utils/libcxx/header_information.py"
-#  endif // __has_include(<hazard_pointer>)
 #  if __has_include(<inplace_vector>)
 #    error "please update the header information for <inplace_vector> in headers_not_available in utils/libcxx/header_information.py"
 #  endif // __has_include(<inplace_vector>)
 #  if __has_include(<linalg>)
 #    error "please update the header information for <linalg> in headers_not_available in utils/libcxx/header_information.py"
 #  endif // __has_include(<linalg>)
-#  if __has_include(<rcu>)
-#    error "please update the header information for <rcu> in headers_not_available in utils/libcxx/header_information.py"
-#  endif // __has_include(<rcu>)
 #  if __has_include(<spanstream>)
 #    error "please update the header information for <spanstream> in headers_not_available in utils/libcxx/header_information.py"
 #  endif // __has_include(<spanstream>)
@@ -160,10 +158,9 @@ module;
 #  if __has_include(<stdfloat>)
 #    error "please update the header information for <stdfloat> in headers_not_available in utils/libcxx/header_information.py"
 #  endif // __has_include(<stdfloat>)
-#  if __has_include(<text_encoding>)
-#    error "please update the header information for <text_encoding> in headers_not_available in utils/libcxx/header_information.py"
-#  endif // __has_include(<text_encoding>)
 #endif // _WIN32
+
+#undef _LIBCPP_BUILDING_STD_MODULE
 
 export module std;
 

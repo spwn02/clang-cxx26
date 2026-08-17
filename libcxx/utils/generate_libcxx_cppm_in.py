@@ -31,6 +31,7 @@ def write_file(module):
 
 module;
 
+#define _LIBCPP_BUILDING_STD_MODULE 1
 #include <__config>
 
 // The headers of Table 24: C++ library headers [tab:headers.cpp]
@@ -73,6 +74,8 @@ module;
 
         module_cpp_in.write(
             f"""#endif // _WIN32
+
+#undef _LIBCPP_BUILDING_STD_MODULE
 
 export module {module};
 {'export import std;' if module == 'std.compat' else ''}
