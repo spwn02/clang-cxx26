@@ -1040,7 +1040,10 @@ set(files
   fstream
   functional
   future
+  hazard_pointer
+  hive
   initializer_list
+  inplace_vector
   inttypes.h
   iomanip
   ios
@@ -1050,6 +1053,7 @@ set(files
   iterator
   latch
   limits
+  linalg
   list
   locale
   map

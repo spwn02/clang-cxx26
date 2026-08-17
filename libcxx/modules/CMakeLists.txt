@@ -52,7 +52,9 @@ set(LIBCXX_MODULE_STD_SOURCES
   std/future.inc
   std/generator.inc
   std/hazard_pointer.inc
+  std/hive.inc
   std/initializer_list.inc
+  std/inplace_vector.inc
   std/iomanip.inc
   std/ios.inc
   std/iosfwd.inc
@@ -61,8 +63,10 @@ set(LIBCXX_MODULE_STD_SOURCES
   std/iterator.inc
   std/latch.inc
   std/limits.inc
+  std/linalg.inc
   std/list.inc
   std/locale.inc
+  std/meta.inc
   std/map.inc
   std/mdspan.inc
   std/memory.inc

@@ -1462,6 +1462,45 @@ module std [system] {
     export *
   }
 
+  module hive {
+    header "hive"
+    export *
+  }
+
+  module rcu {
+    private header "__rcu/rcu.h"
+
+    header "rcu"
+    export *
+  }
+
+  module simd {
+    private header "__simd/abi.h"
+    private header "__simd/algorithms.h"
+    private header "__simd/basic_mask.h"
+    private header "__simd/basic_vec.h"
+    private header "__simd/bit.h"
+    private header "__simd/complex.h"
+    private header "__simd/concepts.h"
+    private header "__simd/creation.h"
+    private header "__simd/flags.h"
+    private header "__simd/iterator.h"
+    private header "__simd/loadstore.h"
+    private header "__simd/math.h"
+    private header "__simd/permute.h"
+    private header "__simd/reductions.h"
+    private header "__simd/traits.h"
+    private header "__simd/vectorizable.h"
+
+    header "simd"
+    export *
+  }
+
+  module inplace_vector {
+    header "inplace_vector"
+    export *
+  }
+
   module initializer_list {
     header "initializer_list"
     export *
@@ -1563,6 +1602,11 @@ module std [system] {
 
   module latch {
     header "latch"
+    export *
+  }
+
+  module linalg {
+    header "linalg"
     export *
   }
 
@@ -1966,13 +2010,6 @@ module std [system] {
     export *
   }
 
-  module rcu {
-    private header "__rcu/rcu.h"
-
-    header "rcu"
-    export *
-  }
-
   module regex {
     header "regex"
     export *
@@ -2001,28 +2038,6 @@ module std [system] {
 
   module shared_mutex {
     header "shared_mutex"
-    export *
-  }
-
-  module simd {
-    private header "__simd/abi.h"
-    private header "__simd/algorithms.h"
-    private header "__simd/basic_mask.h"
-    private header "__simd/basic_vec.h"
-    private header "__simd/bit.h"
-    private header "__simd/complex.h"
-    private header "__simd/concepts.h"
-    private header "__simd/creation.h"
-    private header "__simd/flags.h"
-    private header "__simd/iterator.h"
-    private header "__simd/loadstore.h"
-    private header "__simd/math.h"
-    private header "__simd/permute.h"
-    private header "__simd/reductions.h"
-    private header "__simd/traits.h"
-    private header "__simd/vectorizable.h"
-
-    header "simd"
     export *
   }
 
