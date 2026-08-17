@@ -137,6 +137,12 @@ concept viewable_range =
       (is_lvalue_reference_v<_Tp> ||
        (movable<remove_reference_t<_Tp>> && !__is_std_initializer_list<remove_cvref_t<_Tp>>))));
 
+#  if _LIBCPP_STD_VER >= 26
+template <class _Tp>
+concept approximately_sized_range = range<_Tp> &&
+    (sized_range<_Tp> || requires(_Tp& __t) { ranges::reserve_hint(__t); });
+#  endif
+
 #  if _LIBCPP_STD_VER >= 23
 
 template <class... _Rs>

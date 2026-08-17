@@ -1119,6 +1119,11 @@ feature_test_macros = [
             "headers": ["ranges"],
         },
         {
+            "name": "__cpp_lib_ranges_reserve_hint",
+            "values": {"c++26": 202502},
+            "headers": ["ranges"],
+        },
+        {
             "name": "__cpp_lib_ranges_slide",
             "values": {"c++23": 202202},
             "headers": ["ranges"],

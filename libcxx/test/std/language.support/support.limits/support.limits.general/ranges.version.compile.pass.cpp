@@ -56,6 +56,10 @@
 #    error "__cpp_lib_ranges_repeat should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_reserve_hint
+#    error "__cpp_lib_ranges_reserve_hint should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_slide
 #    error "__cpp_lib_ranges_slide should not be defined before c++23"
 #  endif
@@ -106,6 +110,10 @@
 #    error "__cpp_lib_ranges_repeat should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_reserve_hint
+#    error "__cpp_lib_ranges_reserve_hint should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_slide
 #    error "__cpp_lib_ranges_slide should not be defined before c++23"
 #  endif
@@ -154,6 +162,10 @@
 
 #  ifdef __cpp_lib_ranges_repeat
 #    error "__cpp_lib_ranges_repeat should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_ranges_reserve_hint
+#    error "__cpp_lib_ranges_reserve_hint should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_ranges_slide
@@ -207,6 +219,10 @@
 
 #  ifdef __cpp_lib_ranges_repeat
 #    error "__cpp_lib_ranges_repeat should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_ranges_reserve_hint
+#    error "__cpp_lib_ranges_reserve_hint should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_ranges_slide
@@ -290,6 +306,10 @@
 #  endif
 #  if __cpp_lib_ranges_repeat != 202207L
 #    error "__cpp_lib_ranges_repeat should have the value 202207L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_ranges_reserve_hint
+#    error "__cpp_lib_ranges_reserve_hint should not be defined before c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)
@@ -412,6 +432,13 @@
 #  endif
 #  if __cpp_lib_ranges_repeat != 202207L
 #    error "__cpp_lib_ranges_repeat should have the value 202207L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_ranges_reserve_hint
+#    error "__cpp_lib_ranges_reserve_hint should be defined in c++26"
+#  endif
+#  if __cpp_lib_ranges_reserve_hint != 202502L
+#    error "__cpp_lib_ranges_reserve_hint should have the value 202502L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)

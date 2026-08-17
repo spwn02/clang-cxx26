@@ -45,6 +45,10 @@ export namespace std {
     using std::ranges::range_size_t;
     using std::ranges::range_value_t;
     using std::ranges::sentinel_t;
+#if _LIBCPP_STD_VER >= 26
+    using std::ranges::approximately_sized_range;
+    using std::ranges::reserve_hint;
+#endif
 
     // [range.sized], sized ranges
     using std::ranges::disable_sized_range;

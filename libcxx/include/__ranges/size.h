@@ -131,6 +131,50 @@ inline constexpr auto ssize = __ssize::__fn{};
 } // namespace __cpo
 } // namespace ranges
 
+#if _LIBCPP_STD_VER >= 26
+namespace ranges {
+namespace __reserve_hint {
+void reserve_hint() = delete;
+
+template <class _Tp>
+concept __sized = requires(_Tp&& __t) { ranges::size(__t); };
+
+template <class _Tp>
+concept __member = requires(_Tp&& __t) { { __t.reserve_hint() } -> __integer_like; };
+
+template <class _Tp>
+concept __adl = __class_or_enum<remove_cvref_t<_Tp>> && requires(_Tp&& __t) {
+  { reserve_hint(__t) } -> __integer_like;
+};
+
+struct __fn {
+  template <class _Tp>
+    requires __sized<_Tp>
+  constexpr integral auto operator()(_Tp&& __t) const noexcept(noexcept(ranges::size(__t))) {
+    return ranges::size(__t);
+  }
+
+  template <class _Tp>
+    requires(!__sized<_Tp> && __member<_Tp>)
+  constexpr __integer_like auto operator()(_Tp&& __t) const noexcept(noexcept(__t.reserve_hint())) {
+    return __t.reserve_hint();
+  }
+
+  template <class _Tp>
+    requires(!__sized<_Tp> && !__member<_Tp> && __adl<_Tp>)
+  constexpr __integer_like auto operator()(_Tp&& __t) const noexcept(noexcept(reserve_hint(__t))) {
+    return reserve_hint(__t);
+  }
+};
+} // namespace __reserve_hint
+
+inline namespace __cpo {
+inline constexpr auto reserve_hint = __reserve_hint::__fn{};
+}
+
+} // namespace ranges
+#endif // _LIBCPP_STD_VER >= 26
+
 #endif // _LIBCPP_STD_VER >= 20
 
 _LIBCPP_END_NAMESPACE_STD
