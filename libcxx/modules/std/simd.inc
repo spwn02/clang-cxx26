@@ -1,0 +1,145 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+export namespace std::simd {
+#if _LIBCPP_STD_VER >= 26
+  using std::simd::abs;
+  using std::simd::acos;
+  using std::simd::acosh;
+  using std::simd::alignment;
+  using std::simd::alignment_v;
+  using std::simd::all_of;
+  using std::simd::any_of;
+  using std::simd::arg;
+  using std::simd::asin;
+  using std::simd::asinh;
+  using std::simd::atan;
+  using std::simd::atan2;
+  using std::simd::atanh;
+  using std::simd::basic_mask;
+  using std::simd::basic_vec;
+  using std::simd::bit_ceil;
+  using std::simd::bit_floor;
+  using std::simd::bit_width;
+  using std::simd::byteswap;
+  using std::simd::cat;
+  using std::simd::cbrt;
+  using std::simd::ceil;
+  using std::simd::chunk;
+  using std::simd::clamp;
+  using std::simd::compress;
+  using std::simd::conj;
+  using std::simd::copysign;
+  using std::simd::cos;
+  using std::simd::cosh;
+  using std::simd::countl_one;
+  using std::simd::countl_zero;
+  using std::simd::countr_one;
+  using std::simd::countr_zero;
+  using std::simd::erf;
+  using std::simd::erfc;
+  using std::simd::exp;
+  using std::simd::exp2;
+  using std::simd::expand;
+  using std::simd::expm1;
+  using std::simd::fabs;
+  using std::simd::fdim;
+  using std::simd::flag_aligned;
+  using std::simd::flag_convert;
+  using std::simd::flag_default;
+  using std::simd::flag_overaligned;
+  using std::simd::flags;
+  using std::simd::floor;
+  using std::simd::fma;
+  using std::simd::fmax;
+  using std::simd::fmin;
+  using std::simd::fmod;
+  using std::simd::fpclassify;
+  using std::simd::frexp;
+  using std::simd::has_single_bit;
+  using std::simd::hypot;
+  using std::simd::ilogb;
+  using std::simd::imag;
+  using std::simd::isfinite;
+  using std::simd::isgreater;
+  using std::simd::isgreaterequal;
+  using std::simd::isinf;
+  using std::simd::isless;
+  using std::simd::islessequal;
+  using std::simd::islessgreater;
+  using std::simd::isnan;
+  using std::simd::isnormal;
+  using std::simd::isunordered;
+  using std::simd::ldexp;
+  using std::simd::lerp;
+  using std::simd::lgamma;
+  using std::simd::llrint;
+  using std::simd::llround;
+  using std::simd::log;
+  using std::simd::log10;
+  using std::simd::log1p;
+  using std::simd::log2;
+  using std::simd::logb;
+  using std::simd::lrint;
+  using std::simd::lround;
+  using std::simd::mask;
+  using std::simd::max;
+  using std::simd::min;
+  using std::simd::minmax;
+  using std::simd::modf;
+  using std::simd::nearbyint;
+  using std::simd::nextafter;
+  using std::simd::none_of;
+  using std::simd::norm;
+  using std::simd::partial_gather_from;
+  using std::simd::partial_load;
+  using std::simd::partial_scatter_to;
+  using std::simd::partial_store;
+  using std::simd::permute;
+  using std::simd::polar;
+  using std::simd::popcount;
+  using std::simd::pow;
+  using std::simd::proj;
+  using std::simd::real;
+  using std::simd::rebind;
+  using std::simd::rebind_t;
+  using std::simd::reduce;
+  using std::simd::reduce_count;
+  using std::simd::reduce_max;
+  using std::simd::reduce_max_index;
+  using std::simd::reduce_min;
+  using std::simd::reduce_min_index;
+  using std::simd::remainder;
+  using std::simd::remquo;
+  using std::simd::resize;
+  using std::simd::resize_t;
+  using std::simd::rint;
+  using std::simd::rotl;
+  using std::simd::rotr;
+  using std::simd::round;
+  using std::simd::scalbln;
+  using std::simd::scalbn;
+  using std::simd::select;
+  using std::simd::signbit;
+  using std::simd::sin;
+  using std::simd::sinh;
+  using std::simd::sqrt;
+  using std::simd::tan;
+  using std::simd::tanh;
+  using std::simd::tgamma;
+  using std::simd::trunc;
+  using std::simd::unchecked_gather_from;
+  using std::simd::unchecked_load;
+  using std::simd::unchecked_scatter_to;
+  using std::simd::unchecked_store;
+  using std::simd::uninit_element;
+  using std::simd::vec;
+  using std::simd::zero_element;
+#endif // _LIBCPP_STD_VER >= 26
+} // namespace std::simd

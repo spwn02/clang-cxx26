@@ -2004,6 +2004,28 @@ module std [system] {
     export *
   }
 
+  module simd {
+    private header "__simd/abi.h"
+    private header "__simd/algorithms.h"
+    private header "__simd/basic_mask.h"
+    private header "__simd/basic_vec.h"
+    private header "__simd/bit.h"
+    private header "__simd/complex.h"
+    private header "__simd/concepts.h"
+    private header "__simd/creation.h"
+    private header "__simd/flags.h"
+    private header "__simd/iterator.h"
+    private header "__simd/loadstore.h"
+    private header "__simd/math.h"
+    private header "__simd/permute.h"
+    private header "__simd/reductions.h"
+    private header "__simd/traits.h"
+    private header "__simd/vectorizable.h"
+
+    header "simd"
+    export *
+  }
+
   module source_location {
     header "source_location"
     export *

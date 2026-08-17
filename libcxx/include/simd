@@ -1,0 +1,154 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_SIMD
+#define _LIBCPP_SIMD
+
+#include <__config>
+
+#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#  pragma GCC system_header
+#endif
+
+// [simd], listed in dependency order. See the audit at
+// https://claude.ai/code/artifact/ec199a8d-5630-4a21-a780-1b5aef8322ad for the clause-by-clause
+// conformance notes behind this header set.
+//
+// TRAP: __simd/simd.h (the old monolithic prototype) and these headers both declare
+// simd::basic_vec with different default template arguments -- never include both in one TU. That
+// file has been retired; this is the only <simd> implementation now.
+#include <__simd/vectorizable.h>
+#include <__simd/abi.h>
+#include <__simd/concepts.h>
+#include <__simd/traits.h>
+#include <__simd/flags.h>
+#include <__simd/iterator.h>
+#include <__simd/basic_mask.h>
+#include <__simd/basic_vec.h>
+#include <__simd/math.h>
+#include <__simd/bit.h>
+#include <__simd/algorithms.h>
+#include <__simd/reductions.h>
+#include <__simd/creation.h>
+#include <__simd/permute.h>
+#include <__simd/loadstore.h>
+#include <__simd/complex.h>
+
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+
+#if _LIBCPP_STD_VER >= 26
+
+// [simd.syn]: element-wise overloads of existing std:: names also live in namespace std, found by
+// ordinary lookup/ADL alongside their scalar counterparts. Names with no existing std:: counterpart
+// (select, permute, chunk, cat, reduce*, all_of/any_of/none_of and the other mask reductions,
+// compress/expand/gather/scatter, partial_*/unchecked_* load-store) are simd::-only by design and
+// are deliberately not re-exported here.
+using simd::abs;
+using simd::acos;
+using simd::acosh;
+using simd::arg;
+using simd::asin;
+using simd::asinh;
+using simd::atan;
+using simd::atan2;
+using simd::atanh;
+using simd::bit_ceil;
+using simd::bit_floor;
+using simd::bit_width;
+using simd::byteswap;
+using simd::cbrt;
+using simd::ceil;
+using simd::clamp;
+using simd::conj;
+using simd::copysign;
+using simd::cos;
+using simd::cosh;
+using simd::countl_one;
+using simd::countl_zero;
+using simd::countr_one;
+using simd::countr_zero;
+using simd::erf;
+using simd::erfc;
+using simd::exp;
+using simd::exp2;
+using simd::expm1;
+using simd::fabs;
+using simd::fdim;
+using simd::floor;
+using simd::fma;
+using simd::fmax;
+using simd::fmin;
+using simd::fmod;
+using simd::fpclassify;
+using simd::frexp;
+using simd::has_single_bit;
+using simd::hypot;
+using simd::ilogb;
+using simd::imag;
+using simd::isfinite;
+using simd::isgreater;
+using simd::isgreaterequal;
+using simd::isinf;
+using simd::isless;
+using simd::islessequal;
+using simd::islessgreater;
+using simd::isnan;
+using simd::isnormal;
+using simd::isunordered;
+using simd::ldexp;
+using simd::lerp;
+using simd::lgamma;
+using simd::llrint;
+using simd::llround;
+using simd::log;
+using simd::log10;
+using simd::log1p;
+using simd::log2;
+using simd::logb;
+using simd::lrint;
+using simd::lround;
+using simd::max;
+using simd::min;
+using simd::minmax;
+using simd::modf;
+using simd::nearbyint;
+using simd::nextafter;
+using simd::norm;
+using simd::polar;
+using simd::popcount;
+using simd::pow;
+using simd::proj;
+using simd::real;
+using simd::remainder;
+using simd::remquo;
+using simd::rint;
+using simd::rotl;
+using simd::rotr;
+using simd::round;
+using simd::scalbln;
+using simd::scalbn;
+using simd::signbit;
+using simd::sin;
+using simd::sinh;
+using simd::sqrt;
+using simd::tan;
+using simd::tanh;
+using simd::tgamma;
+using simd::trunc;
+
+#endif // _LIBCPP_STD_VER >= 26
+
+_LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
+
+#endif // _LIBCPP_SIMD

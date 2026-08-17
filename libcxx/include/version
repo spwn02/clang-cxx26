@@ -232,6 +232,9 @@ __cpp_lib_shared_ptr_arrays                             201707L <memory>
 __cpp_lib_shared_ptr_weak_type                          201606L <memory>
 __cpp_lib_shared_timed_mutex                            201402L <shared_mutex>
 __cpp_lib_shift                                         201806L <algorithm>
+__cpp_lib_simd                                          202603L <simd>
+__cpp_lib_simd_complex                                  202502L <simd>
+__cpp_lib_simd_permutations                             202506L <simd>
 __cpp_lib_smart_ptr_for_overwrite                       202002L <memory>
 __cpp_lib_smart_ptr_owner_equality                      202306L <memory>
 __cpp_lib_source_location                               201907L <source_location>
@@ -597,6 +600,9 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_reference_wrapper                    202403L
 # define __cpp_lib_saturation_arithmetic                202311L
 // # define __cpp_lib_senders                              202406L
+# define __cpp_lib_simd                                 202603L
+# define __cpp_lib_simd_complex                         202502L
+# define __cpp_lib_simd_permutations                    202506L
 // # define __cpp_lib_smart_ptr_owner_equality             202306L
 # define __cpp_lib_span_at                              202311L
 # define __cpp_lib_span_initializer_list                202311L

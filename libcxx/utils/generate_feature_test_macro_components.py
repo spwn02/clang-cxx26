@@ -1258,6 +1258,21 @@ feature_test_macros = [
             "headers": ["algorithm"],
         },
         {
+            "name": "__cpp_lib_simd",
+            "values": {"c++26": 202603},  # P1928R15 std::simd -- merge data-parallel types from the Parallelism TS 2
+            "headers": ["simd"],
+        },
+        {
+            "name": "__cpp_lib_simd_complex",
+            "values": {"c++26": 202502},  # P2663R7 Interleaved complex values support in std::simd
+            "headers": ["simd"],
+        },
+        {
+            "name": "__cpp_lib_simd_permutations",
+            "values": {"c++26": 202506},  # P2664R7 static/dynamic simd permutations
+            "headers": ["simd"],
+        },
+        {
             "name": "__cpp_lib_smart_ptr_for_overwrite",
             "values": {"c++20": 202002},
             "headers": ["memory"],

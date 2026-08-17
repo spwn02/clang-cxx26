@@ -738,6 +738,22 @@ set(files
   __ranges/views.h
   __ranges/zip_view.h
   __rcu/rcu.h
+  __simd/abi.h
+  __simd/algorithms.h
+  __simd/basic_mask.h
+  __simd/basic_vec.h
+  __simd/bit.h
+  __simd/complex.h
+  __simd/concepts.h
+  __simd/creation.h
+  __simd/flags.h
+  __simd/iterator.h
+  __simd/loadstore.h
+  __simd/math.h
+  __simd/permute.h
+  __simd/reductions.h
+  __simd/traits.h
+  __simd/vectorizable.h
   __split_buffer
   __std_mbstate_t.h
   __stop_token/atomic_unique_lock.h
@@ -1060,6 +1076,7 @@ set(files
   semaphore
   set
   shared_mutex
+  simd
   source_location
   span
   sstream

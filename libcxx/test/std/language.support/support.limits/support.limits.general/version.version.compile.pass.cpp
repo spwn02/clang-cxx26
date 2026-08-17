@@ -760,6 +760,18 @@
 #    error "__cpp_lib_smart_ptr_for_overwrite should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_simd
+#    error "__cpp_lib_simd should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_complex
+#    error "__cpp_lib_simd_complex should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_permutations
+#    error "__cpp_lib_simd_permutations should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_smart_ptr_owner_equality
 #    error "__cpp_lib_smart_ptr_owner_equality should not be defined before c++26"
 #  endif
@@ -1705,6 +1717,18 @@
 
 #  ifdef __cpp_lib_smart_ptr_for_overwrite
 #    error "__cpp_lib_smart_ptr_for_overwrite should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_simd
+#    error "__cpp_lib_simd should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_complex
+#    error "__cpp_lib_simd_complex should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_permutations
+#    error "__cpp_lib_simd_permutations should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_smart_ptr_owner_equality
@@ -2838,6 +2862,18 @@
 
 #  ifdef __cpp_lib_smart_ptr_for_overwrite
 #    error "__cpp_lib_smart_ptr_for_overwrite should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_simd
+#    error "__cpp_lib_simd should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_complex
+#    error "__cpp_lib_simd_complex should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_permutations
+#    error "__cpp_lib_simd_permutations should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_smart_ptr_owner_equality
@@ -4226,6 +4262,18 @@
 #  endif
 #  if __cpp_lib_smart_ptr_for_overwrite != 202002L
 #    error "__cpp_lib_smart_ptr_for_overwrite should have the value 202002L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_simd
+#    error "__cpp_lib_simd should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_complex
+#    error "__cpp_lib_simd_complex should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_permutations
+#    error "__cpp_lib_simd_permutations should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_smart_ptr_owner_equality
@@ -5833,6 +5881,18 @@
 #  endif
 #  if __cpp_lib_smart_ptr_for_overwrite != 202002L
 #    error "__cpp_lib_smart_ptr_for_overwrite should have the value 202002L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_simd
+#    error "__cpp_lib_simd should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_complex
+#    error "__cpp_lib_simd_complex should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_permutations
+#    error "__cpp_lib_simd_permutations should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_smart_ptr_owner_equality
@@ -7770,6 +7830,27 @@
 #  endif
 #  if __cpp_lib_smart_ptr_for_overwrite != 202002L
 #    error "__cpp_lib_smart_ptr_for_overwrite should have the value 202002L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_simd
+#    error "__cpp_lib_simd should be defined in c++26"
+#  endif
+#  if __cpp_lib_simd != 202603L
+#    error "__cpp_lib_simd should have the value 202603L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_simd_complex
+#    error "__cpp_lib_simd_complex should be defined in c++26"
+#  endif
+#  if __cpp_lib_simd_complex != 202502L
+#    error "__cpp_lib_simd_complex should have the value 202502L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_simd_permutations
+#    error "__cpp_lib_simd_permutations should be defined in c++26"
+#  endif
+#  if __cpp_lib_simd_permutations != 202506L
+#    error "__cpp_lib_simd_permutations should have the value 202506L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)
