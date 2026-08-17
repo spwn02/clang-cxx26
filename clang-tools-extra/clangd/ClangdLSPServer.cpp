@@ -753,10 +753,6 @@ void ClangdLSPServer::onDocumentDidChange(
   std::string NewCode(*Code);
   for (const auto &Change : Params.contentChanges) {
     if (auto Err = applyChange(NewCode, Change)) {
-      // If this fails, we are most likely going to be not in sync anymore with
-      // the client.  It is better to remove the draft and let further
-      // operations fail rather than giving wrong results.
-      Server->removeDocument(File);
       elog("Failed to update {0}: {1}", File, std::move(Err));
       return;
     }
