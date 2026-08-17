@@ -467,6 +467,7 @@ set(files
   __fwd/variant.h
   __fwd/vector.h
   __hash_table
+  __hazard_pointer/hazard_pointer.h
   __ios/fpos.h
   __iterator/access.h
   __iterator/advance.h

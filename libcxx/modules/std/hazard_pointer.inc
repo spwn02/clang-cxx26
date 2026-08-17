@@ -8,8 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 export namespace std {
-#if 0
-#  if _LIBCPP_STD_VER >= 23
+#if _LIBCPP_STD_VER >= 26
   // 4.1.3, class template hazard_pointer_obj_base
   using std::hazard_pointer_obj_base;
   // 4.1.4, class hazard_pointer
@@ -18,6 +17,5 @@ export namespace std {
   using std::make_hazard_pointer;
   // 4.1.6, Hazard pointer swap
   using std::swap;
-#  endif // _LIBCPP_STD_VER >= 23
-#endif
+#endif // _LIBCPP_STD_VER >= 26
 } // namespace std
