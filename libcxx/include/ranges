@@ -440,6 +440,9 @@ namespace std {
 #    include <__ranges/repeat_view.h>
 #    include <__ranges/to.h>
 #    include <__ranges/zip_view.h>
+#    if !defined(_LIBCPP_BUILDING_STD_MODULE)
+#      include <__ranges/enumerate_view.h>
+#    endif
 #  endif
 
 #  if _LIBCPP_STD_VER >= 26

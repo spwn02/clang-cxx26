@@ -307,6 +307,16 @@ export namespace std {
 
     namespace views {
       using std::ranges::views::zip;
+
+      struct enumerate_fn : range_adaptor_closure<enumerate_fn> {
+        template <viewable_range _Range>
+        constexpr auto operator()(_Range&& range) const
+            noexcept(noexcept(zip(iota(size_t{0}), std::forward<_Range>(range)))) {
+          return zip(iota(size_t{0}), std::forward<_Range>(range));
+        }
+      };
+
+      inline constexpr enumerate_fn enumerate{};
     } // namespace views
 #endif // _LIBCPP_STD_VER >= 23
 

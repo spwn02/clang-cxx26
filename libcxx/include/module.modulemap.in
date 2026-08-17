@@ -1860,6 +1860,7 @@ module std [system] {
     private header "__ranges/as_input_view.h"
     private header "__ranges/cache_latest_view.h"
     private header "__ranges/concat_view.h"
+    private header "__ranges/enumerate_view.h"
     module access                         { header "__ranges/access.h" }
     module all                            { header "__ranges/all.h" }
     module as_rvalue_view                 { header "__ranges/as_rvalue_view.h" }
