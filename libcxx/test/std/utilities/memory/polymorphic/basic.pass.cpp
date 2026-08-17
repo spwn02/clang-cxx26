@@ -17,6 +17,7 @@
 #include <memory>
 #include <cassert>
 #include <utility>
+#include <vector>
 
 #include "test_macros.h"
 
@@ -47,10 +48,46 @@ int main(int, char**) {
   }
 
   {
-    std::polymorphic<int> p(7);
-    assert(*p == 7);
+    // The forwarding and in_place_type_t constructors require
+    // derived_from<U, T>; for a non-class T like int, is_base_of_v<int,int>
+    // is false (is_base_of requires class types), so polymorphic<int> can
+    // only be default-constructed, not constructed from a bare int -- this
+    // matches the standard's intent that polymorphic exists for class
+    // hierarchies, not scalars.
+    std::polymorphic<int> p; // default ctor: requires T default- and copy-constructible
+    assert(*p == 0);
     *p = 8;
     assert(*p == 8);
+  }
+
+  {
+    // in_place_type_t + initializer_list constructor.
+    struct Holder : Base {
+      std::vector<int> data;
+      Holder(std::initializer_list<int> il) : data(il) {}
+      int f() const override { return static_cast<int>(data.size()); }
+    };
+    std::polymorphic<Base> p(std::in_place_type<Holder>, {1, 2, 3, 4});
+    assert(p->f() == 4);
+  }
+
+  {
+    // Allocator-extended construction.
+    std::allocator<int> alloc;
+    std::polymorphic<Base> p(std::allocator_arg, alloc, std::in_place_type<Derived>, 3);
+    assert(p->f() == 3 && p.get_allocator() == alloc);
+
+    std::polymorphic<Base> p2(std::allocator_arg, alloc, p);
+    assert(p2->f() == 3);
+  }
+
+  {
+    std::polymorphic<Base> a(std::in_place_type<Derived>, 1);
+    std::polymorphic<Base> b(std::in_place_type<Derived>, 2);
+    a.swap(b);
+    assert(a->f() == 2 && b->f() == 1);
+    swap(a, b);
+    assert(a->f() == 1 && b->f() == 2);
   }
 
   return 0;

@@ -1,8 +1,9 @@
 // -*- C++ -*-
 //===----------------------------------------------------------------------===//
 //
-// Experimental C++26 std::indirect implementation for the Bloomberg libc++ fork.
+// std::indirect implementation for the Bloomberg libc++ fork.
 // P3019R14: indirect and polymorphic: Vocabulary Types for Composite Class Design.
+// Adopted into the C++26 working draft at the 2025-02 Hagenberg meeting.
 //
 //===----------------------------------------------------------------------===//
 
@@ -13,12 +14,15 @@
 #include <__functional/hash.h>
 #include <__memory/allocator.h>
 #include <__memory/allocator_traits.h>
+#include <__type_traits/is_array.h>
+#include <__type_traits/is_assignable.h>
+#include <__type_traits/is_constructible.h>
+#include <__type_traits/is_object.h>
+#include <__type_traits/is_same.h>
+#include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
 #include <__utility/in_place.h>
 #include <__utility/move.h>
-#include <__type_traits/is_constructible.h>
-#include <__type_traits/is_same.h>
-#include <__type_traits/remove_cvref.h>
 #include <compare>
 #include <initializer_list>
 
@@ -37,31 +41,40 @@ template <class _Tp, class _Allocator = allocator<_Tp>>
 class indirect {
   using _AllocTraits = allocator_traits<_Allocator>;
 
+  static_assert(is_same_v<typename _AllocTraits::value_type, _Tp>,
+                "allocator_traits<Allocator>::value_type must be the same type as T");
+  static_assert(is_object_v<_Tp> && !is_array_v<_Tp> && !is_same_v<_Tp, in_place_t> && !__is_inplace_type<_Tp>::value &&
+                    !is_const_v<_Tp> && !is_volatile_v<_Tp>,
+                "T must be a non-array object type that is not in_place_t, a specialization of in_place_type_t, "
+                "or cv-qualified");
+
 public:
   using value_type     = _Tp;
   using allocator_type = _Allocator;
   using pointer         = typename _AllocTraits::pointer;
   using const_pointer   = typename _AllocTraits::const_pointer;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr indirect()
-    requires is_default_constructible_v<_Tp> && is_default_constructible_v<_Allocator>
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect()
+    requires is_default_constructible_v<_Allocator>
   {
+    static_assert(is_default_constructible_v<_Tp>, "T must be default-constructible");
     __ptr_ = __make(alloc_);
   }
 
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit indirect(allocator_arg_t, const _Allocator& __a)
-    requires is_default_constructible_v<_Tp>
-      : alloc_(__a) {
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(allocator_arg_t, const _Allocator& __a) : alloc_(__a) {
+    static_assert(is_default_constructible_v<_Tp>, "T must be default-constructible");
     __ptr_ = __make(alloc_);
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr indirect(const indirect& __other)
       : alloc_(_AllocTraits::select_on_container_copy_construction(__other.alloc_)) {
+    static_assert(is_copy_constructible_v<_Tp>, "T must be copy-constructible");
     __ptr_ = __other.valueless_after_move() ? nullptr : __make(alloc_, *__other);
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr indirect(allocator_arg_t, const _Allocator& __a, const indirect& __other)
       : alloc_(__a) {
+    static_assert(is_copy_constructible_v<_Tp>, "T must be copy-constructible");
     __ptr_ = __other.valueless_after_move() ? nullptr : __make(alloc_, *__other);
   }
 
@@ -80,68 +93,111 @@ public:
       __other.__ptr_ = nullptr;
     } else {
       __ptr_ = __make(alloc_, std::move(*__other));
+      __other.__reset();
     }
   }
 
   template <class _Up = _Tp>
     requires(!is_same_v<remove_cvref_t<_Up>, indirect> && !is_same_v<remove_cvref_t<_Up>, in_place_t> &&
-             is_constructible_v<_Tp, _Up>)
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit indirect(_Up&& __u) {
+             is_constructible_v<_Tp, _Up> && is_default_constructible_v<_Allocator>)
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(_Up&& __u) {
     __ptr_ = __make(alloc_, std::forward<_Up>(__u));
   }
 
   template <class _Up = _Tp>
-    requires is_constructible_v<_Tp, _Up>
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit indirect(allocator_arg_t, const _Allocator& __a, _Up&& __u) : alloc_(__a) {
+    requires(!is_same_v<remove_cvref_t<_Up>, indirect> && !is_same_v<remove_cvref_t<_Up>, in_place_t> &&
+             is_constructible_v<_Tp, _Up>)
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(allocator_arg_t, const _Allocator& __a, _Up&& __u) : alloc_(__a) {
     __ptr_ = __make(alloc_, std::forward<_Up>(__u));
   }
 
   template <class... _Us>
-    requires is_constructible_v<_Tp, _Us...>
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit indirect(in_place_t, _Us&&... __us) {
+    requires(is_constructible_v<_Tp, _Us...> && is_default_constructible_v<_Allocator>)
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(in_place_t, _Us&&... __us) {
     __ptr_ = __make(alloc_, std::forward<_Us>(__us)...);
   }
 
   template <class... _Us>
     requires is_constructible_v<_Tp, _Us...>
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit indirect(allocator_arg_t, const _Allocator& __a, in_place_t, _Us&&... __us)
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(allocator_arg_t, const _Allocator& __a, in_place_t, _Us&&... __us)
       : alloc_(__a) {
     __ptr_ = __make(alloc_, std::forward<_Us>(__us)...);
+  }
+
+  template <class _Ip, class... _Us>
+    requires(is_constructible_v<_Tp, initializer_list<_Ip>&, _Us...> && is_default_constructible_v<_Allocator>)
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(in_place_t, initializer_list<_Ip> __il, _Us&&... __us) {
+    __ptr_ = __make(alloc_, __il, std::forward<_Us>(__us)...);
+  }
+
+  template <class _Ip, class... _Us>
+    requires is_constructible_v<_Tp, initializer_list<_Ip>&, _Us...>
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(
+      allocator_arg_t, const _Allocator& __a, in_place_t, initializer_list<_Ip> __il, _Us&&... __us)
+      : alloc_(__a) {
+    __ptr_ = __make(alloc_, __il, std::forward<_Us>(__us)...);
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr ~indirect() { __reset(); }
 
   _LIBCPP_HIDE_FROM_ABI constexpr indirect& operator=(const indirect& __other) {
-    if (this == std::addressof(__other))
+    static_assert(is_copy_assignable_v<_Tp> && is_copy_constructible_v<_Tp>,
+                  "T must be copy-assignable and copy-constructible");
+    if (std::addressof(__other) == this)
       return *this;
+    const bool __needs_updating = _AllocTraits::propagate_on_container_copy_assignment::value;
     if (__other.valueless_after_move()) {
       __reset();
+    } else if (alloc_ == __other.alloc_ && !valueless_after_move()) {
+      **this = *__other;
     } else {
-      pointer __new_ptr = __make(_AllocTraits::propagate_on_container_copy_assignment::value ? __other.alloc_ : alloc_, *__other);
+      _Allocator& __src_alloc = __needs_updating ? const_cast<_Allocator&>(__other.alloc_) : alloc_;
+      pointer __new_ptr        = __make(__src_alloc, *__other);
       __reset();
-      if constexpr (_AllocTraits::propagate_on_container_copy_assignment::value)
-        alloc_ = __other.alloc_;
       __ptr_ = __new_ptr;
     }
+    if (__needs_updating)
+      alloc_ = __other.alloc_;
     return *this;
   }
 
+  // The adopted wording's Mandates clause for this overload literally reads
+  // "is_copy_constructible_t<T>" (not _v<T>, and not is_move_constructible),
+  // which looks like an editorial slip -- this function never copies T, only
+  // moves or swaps it. We deliberately do not enforce that as a static_assert:
+  // doing so would reject valid, useful instantiations like
+  // indirect<unique_ptr<int>> that are copy-constructible-in-neither-sense
+  // but perfectly fine to move-assign.
   _LIBCPP_HIDE_FROM_ABI constexpr indirect& operator=(indirect&& __other) noexcept(
       _AllocTraits::propagate_on_container_move_assignment::value || _AllocTraits::is_always_equal::value) {
-    if (this == std::addressof(__other))
+    if (std::addressof(__other) == this)
       return *this;
-    __reset();
-    if constexpr (_AllocTraits::propagate_on_container_move_assignment::value)
-      alloc_ = std::move(__other.alloc_);
+    const bool __needs_updating = _AllocTraits::propagate_on_container_move_assignment::value;
     if (__other.valueless_after_move()) {
-      __ptr_ = nullptr;
+      __reset();
     } else if (alloc_ == __other.alloc_) {
-      __ptr_         = __other.__ptr_;
-      __other.__ptr_ = nullptr;
+      using std::swap;
+      swap(__ptr_, __other.__ptr_);
+      __other.__reset();
     } else {
-      __ptr_ = __make(alloc_, std::move(*__other));
+      _Allocator& __src_alloc = __needs_updating ? __other.alloc_ : alloc_;
+      pointer __new_ptr        = __make(__src_alloc, std::move(*__other));
+      __reset();
+      __ptr_ = __new_ptr;
       __other.__reset();
     }
+    if (__needs_updating)
+      alloc_ = std::move(__other.alloc_);
+    return *this;
+  }
+
+  template <class _Up = _Tp>
+    requires(!is_same_v<remove_cvref_t<_Up>, indirect> && is_constructible_v<_Tp, _Up> && is_assignable_v<_Tp&, _Up>)
+  _LIBCPP_HIDE_FROM_ABI constexpr indirect& operator=(_Up&& __u) {
+    if (valueless_after_move())
+      __ptr_ = __make(alloc_, std::forward<_Up>(__u));
+    else
+      **this = std::forward<_Up>(__u);
     return *this;
   }
 
@@ -170,32 +226,34 @@ public:
   }
 
   template <class _Up, class _AA>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const indirect& __x, const indirect<_Up, _AA>& __y) {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr bool
+  operator==(const indirect& __x, const indirect<_Up, _AA>& __y) noexcept(noexcept(*__x == *__y)) {
     if (__x.valueless_after_move() || __y.valueless_after_move())
       return __x.valueless_after_move() == __y.valueless_after_move();
     return *__x == *__y;
   }
 
   template <class _Up, class _AA>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator<=>(const indirect& __x, const indirect<_Up, _AA>& __y) {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr auto
+  operator<=>(const indirect& __x, const indirect<_Up, _AA>& __y) {
     if (__x.valueless_after_move() || __y.valueless_after_move())
       return !__x.valueless_after_move() <=> !__y.valueless_after_move();
-    return *__x <=> *__y;
+    return std::__synth_three_way(*__x, *__y);
   }
 
-  // Precondition: !__x.valueless_after_move(). There is no value-preserving
-  // way to compare a value-less indirect against a bare value, so unlike the
-  // indirect-vs-indirect overloads above (which can fall back to comparing
-  // "is valueless"), this is only well-defined when __x owns a value.
   template <class _Up>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const indirect& __x, const _Up& __v) {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const indirect& __x, const _Up& __v) noexcept(
+      noexcept(*__x == __v)) {
+    if (__x.valueless_after_move())
+      return false;
     return *__x == __v;
   }
 
-  // Precondition: !__x.valueless_after_move(). See operator== above.
   template <class _Up>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator<=>(const indirect& __x, const _Up& __v) {
-    return *__x <=> __v;
+    if (__x.valueless_after_move())
+      return strong_ordering::less;
+    return std::__synth_three_way(*__x, __v);
   }
 
 private:
@@ -228,8 +286,7 @@ indirect(allocator_arg_t, _Allocator, _Value)
 template <class _Tp, class _Allocator>
   requires __has_enabled_hash<_Tp>::value
 struct hash<indirect<_Tp, _Allocator>> {
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI size_t operator()(const indirect<_Tp, _Allocator>& __i) const
-      noexcept(noexcept(hash<remove_const_t<_Tp>>()(*__i))) {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI size_t operator()(const indirect<_Tp, _Allocator>& __i) const {
     return __i.valueless_after_move() ? static_cast<size_t>(-1) : hash<remove_const_t<_Tp>>()(*__i);
   }
 };
