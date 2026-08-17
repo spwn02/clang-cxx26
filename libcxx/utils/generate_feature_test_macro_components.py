@@ -738,7 +738,6 @@ feature_test_macros = [
             "name": "__cpp_lib_inplace_vector",
             "values": {"c++26": 202406},  # P0843R14 inplace_vector
             "headers": ["inplace_vector"],
-            "unimplemented": True,  # constexpr only works for trivially-constructible/destructible T; from_range_t and *_range members are missing
         },
         {
             "name": "__cpp_lib_int_pow2",

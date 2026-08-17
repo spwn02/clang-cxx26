@@ -1,7 +1,8 @@
 // -*- C++ -*-
 //===----------------------------------------------------------------------===//
 //
-// Experimental C++26 std::inplace_vector implementation for the Bloomberg libc++ fork.
+// std::inplace_vector implementation for the Bloomberg libc++ fork.
+// P0843R14, plus LWG 4122, 4147, 4151, 4396 as adopted into the C++26 working draft.
 //
 //===----------------------------------------------------------------------===//
 
@@ -10,7 +11,11 @@
 
 #include <__compare/synth_three_way.h>
 #include <__config>
+#include <__iterator/distance.h>
 #include <__memory/construct_at.h>
+#include <__ranges/container_compatible_range.h>
+#include <__ranges/dangling.h>
+#include <__ranges/from_range.h>
 #include <algorithm>
 #include <compare>
 #include <cstddef>
@@ -30,17 +35,20 @@ _LIBCPP_PUSH_MACROS
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-// Storage for inplace_vector<T, N>. When T is trivially default-constructible
-// and trivially destructible, a plain array is used: this keeps the whole
-// container usable in constant expressions, since forming pointers into it
-// never requires a reinterpret_cast (banned in constant evaluation). For
-// other T, we fall back to raw bytes activated via placement-new; this path
-// works at runtime but, because of the reinterpret_cast in __get(), cannot
-// be constant-evaluated -- there is no portable way to get a real contiguous
-// T* into lazily-activated storage inside a constant expression without
-// giving up the "no dynamic allocation" property that makes inplace_vector
-// worth having in the first place.
-template <class _Tp, size_t _Cap, bool = is_trivially_default_constructible_v<_Tp> && is_trivially_destructible_v<_Tp>>
+#if _LIBCPP_STD_VER >= 26
+
+// Storage for inplace_vector<T, N>, N > 0. If is_trivial_v<T> is true, a
+// plain array is used: forming/advancing pointers into it never needs a
+// reinterpret_cast (banned in constant evaluation), so the whole container
+// stays usable in constant expressions -- this is exactly the condition the
+// standard imposes on when inplace_vector's member functions must be
+// constexpr-usable ([containers.sequences.inplace.vector.overview]p4). For
+// any other T, we fall back to raw bytes activated via placement-new; this
+// works at runtime but not in a constant expression, for the same reason
+// (there's no portable way to get a real contiguous T* into lazily-activated
+// storage inside a constant expression without dynamic allocation, which
+// would defeat the point of an in-place container).
+template <class _Tp, size_t _Cap, bool = is_trivially_copyable_v<_Tp> && is_trivially_default_constructible_v<_Tp>>
 struct __inplace_vector_storage {
   alignas(_Tp) unsigned char __data_[_Cap == 0 ? 1 : _Cap * sizeof(_Tp)];
 
@@ -50,6 +58,12 @@ struct __inplace_vector_storage {
   _LIBCPP_HIDE_FROM_ABI constexpr auto __get() const noexcept -> const _Tp* {
     return std::launder(reinterpret_cast<const _Tp*>(__data_));
   }
+
+  template <class... _Args>
+  _LIBCPP_HIDE_FROM_ABI constexpr void __construct(_Tp* __p, _Args&&... __args) {
+    std::construct_at(__p, std::forward<_Args>(__args)...);
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr void __destroy(_Tp* __p) { std::destroy_at(__p); }
 };
 
 template <class _Tp, size_t _Cap>
@@ -58,10 +72,200 @@ struct __inplace_vector_storage<_Tp, _Cap, true> {
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto __get() noexcept -> _Tp* { return __data_; }
   _LIBCPP_HIDE_FROM_ABI constexpr auto __get() const noexcept -> const _Tp* { return __data_; }
+
+  // Every element of __data_ is already alive (value-initialized above) for
+  // the lifetime of the storage, so "constructing" an element here is just
+  // an assignment, never a placement-new -- construct_at would end and
+  // restart that slot's object lifetime, which for a handful of elements
+  // while others are left untouched confuses constant-expression evaluators
+  // into treating the whole array as only partially initialized.
+  template <class... _Args>
+  _LIBCPP_HIDE_FROM_ABI constexpr void __construct(_Tp* __p, _Args&&... __args) {
+    *__p = _Tp(std::forward<_Args>(__args)...);
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr void __destroy(_Tp*) {}
 };
 
+// [containers.sequences.inplace.vector.overview]p3: the destructor, copy/move
+// constructors, and copy/move assignment operators are each individually
+// trivial when the corresponding operation on T is trivial (with copy/move
+// assignment additionally requiring T to be trivially destructible). This is
+// implemented as a chain of CRTP-free base classes, one per special member,
+// mirroring how libc++ implements the same requirement for optional/variant
+// (see __optional_destruct_base et al. in <optional>): each layer either
+// `= default`s the operation it's responsible for (when the trait holds) or
+// gives it a custom body (when it doesn't), and always `= default`s every
+// *other* special member so the next layer up is free to override it without
+// the two overrides interfering.
+template <class _Tp, size_t _Cap, bool = is_trivially_destructible_v<_Tp>>
+struct __inplace_vector_destruct_base {
+  __inplace_vector_storage<_Tp, _Cap> __storage_;
+  size_t __size_ = 0;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr auto __data() noexcept -> _Tp* { return __storage_.__get(); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto __data() const noexcept -> const _Tp* { return __storage_.__get(); }
+
+  template <class... _Args>
+  _LIBCPP_HIDE_FROM_ABI constexpr void __construct_elem(_Tp* __p, _Args&&... __args) {
+    __storage_.__construct(__p, std::forward<_Args>(__args)...);
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr void __destroy_elem(_Tp* __p) { __storage_.__destroy(__p); }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr void __destroy_all() noexcept { __size_ = 0; }
+};
+
+template <class _Tp, size_t _Cap>
+struct __inplace_vector_destruct_base<_Tp, _Cap, false> {
+  __inplace_vector_storage<_Tp, _Cap> __storage_;
+  size_t __size_ = 0;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr auto __data() noexcept -> _Tp* { return __storage_.__get(); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto __data() const noexcept -> const _Tp* { return __storage_.__get(); }
+
+  template <class... _Args>
+  _LIBCPP_HIDE_FROM_ABI constexpr void __construct_elem(_Tp* __p, _Args&&... __args) {
+    __storage_.__construct(__p, std::forward<_Args>(__args)...);
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr void __destroy_elem(_Tp* __p) { __storage_.__destroy(__p); }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr void __destroy_all() noexcept {
+    while (__size_ != 0) {
+      --__size_;
+      __destroy_elem(__data() + __size_);
+    }
+  }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr ~__inplace_vector_destruct_base() { __destroy_all(); }
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_destruct_base()                                          = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_destruct_base(const __inplace_vector_destruct_base&)      = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_destruct_base(__inplace_vector_destruct_base&&)           = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_destruct_base& operator=(const __inplace_vector_destruct_base&) =
+      default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_destruct_base& operator=(__inplace_vector_destruct_base&&) =
+      default;
+};
+
+template <class _Tp, size_t _Cap, bool = is_trivially_copy_constructible_v<_Tp>>
+struct __inplace_vector_copy_base : __inplace_vector_destruct_base<_Tp, _Cap> {};
+
+template <class _Tp, size_t _Cap>
+struct __inplace_vector_copy_base<_Tp, _Cap, false> : __inplace_vector_destruct_base<_Tp, _Cap> {
+  using __base = __inplace_vector_destruct_base<_Tp, _Cap>;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_copy_base() = default;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_copy_base(const __inplace_vector_copy_base& __other) {
+    for (size_t __i = 0; __i < __other.__size_; ++__i)
+      std::construct_at(this->__data() + __i, __other.__data()[__i]);
+    this->__size_ = __other.__size_;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_copy_base(__inplace_vector_copy_base&&)                 = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_copy_base& operator=(const __inplace_vector_copy_base&) = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_copy_base& operator=(__inplace_vector_copy_base&&)      = default;
+};
+
+template <class _Tp, size_t _Cap, bool = is_trivially_move_constructible_v<_Tp>>
+struct __inplace_vector_move_base : __inplace_vector_copy_base<_Tp, _Cap> {};
+
+template <class _Tp, size_t _Cap>
+struct __inplace_vector_move_base<_Tp, _Cap, false> : __inplace_vector_copy_base<_Tp, _Cap> {
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_move_base()                                       = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_move_base(const __inplace_vector_move_base&)       = default;
+
+  // A moved-from inplace_vector of non-trivially-movable T is left in a
+  // valid-but-unspecified state; we leave __other's size and its elements'
+  // moved-from values in place rather than clearing it, which is simpler and
+  // just as conforming (the elements are still live objects that __other's
+  // own destructor will clean up normally).
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_move_base(__inplace_vector_move_base&& __other) noexcept(
+      is_nothrow_move_constructible_v<_Tp>) {
+    for (size_t __i = 0; __i < __other.__size_; ++__i)
+      std::construct_at(this->__data() + __i, std::move(__other.__data()[__i]));
+    this->__size_ = __other.__size_;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_move_base& operator=(const __inplace_vector_move_base&) = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_move_base& operator=(__inplace_vector_move_base&&)      = default;
+};
+
+template <class _Tp,
+          size_t _Cap,
+          bool = is_trivially_destructible_v<_Tp> && is_trivially_copy_constructible_v<_Tp> &&
+                 is_trivially_copy_assignable_v<_Tp>>
+struct __inplace_vector_copy_assign_base : __inplace_vector_move_base<_Tp, _Cap> {};
+
+template <class _Tp, size_t _Cap>
+struct __inplace_vector_copy_assign_base<_Tp, _Cap, false> : __inplace_vector_move_base<_Tp, _Cap> {
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_copy_assign_base()                                     = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_copy_assign_base(const __inplace_vector_copy_assign_base&) =
+      default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_copy_assign_base(__inplace_vector_copy_assign_base&&) = default;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_copy_assign_base&
+  operator=(const __inplace_vector_copy_assign_base& __other) {
+    if (this == std::addressof(__other))
+      return *this;
+    size_t __common = std::min(this->__size_, __other.__size_);
+    for (size_t __i = 0; __i < __common; ++__i)
+      this->__data()[__i] = __other.__data()[__i];
+    if (this->__size_ > __other.__size_) {
+      for (size_t __i = __other.__size_; __i < this->__size_; ++__i)
+        std::destroy_at(this->__data() + __i);
+    } else {
+      for (size_t __i = this->__size_; __i < __other.__size_; ++__i)
+        std::construct_at(this->__data() + __i, __other.__data()[__i]);
+    }
+    this->__size_ = __other.__size_;
+    return *this;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_copy_assign_base& operator=(__inplace_vector_copy_assign_base&&) =
+      default;
+};
+
+template <class _Tp,
+          size_t _Cap,
+          bool = is_trivially_destructible_v<_Tp> && is_trivially_move_constructible_v<_Tp> &&
+                 is_trivially_move_assignable_v<_Tp>>
+struct __inplace_vector_move_assign_base : __inplace_vector_copy_assign_base<_Tp, _Cap> {};
+
+template <class _Tp, size_t _Cap>
+struct __inplace_vector_move_assign_base<_Tp, _Cap, false> : __inplace_vector_copy_assign_base<_Tp, _Cap> {
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_move_assign_base()                                     = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_move_assign_base(const __inplace_vector_move_assign_base&) =
+      default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_move_assign_base(__inplace_vector_move_assign_base&&) = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_move_assign_base&
+  operator=(const __inplace_vector_move_assign_base&) = default;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_move_assign_base&
+  operator=(__inplace_vector_move_assign_base&& __other) noexcept(
+      is_nothrow_move_assignable_v<_Tp> && is_nothrow_move_constructible_v<_Tp>) {
+    if (this == std::addressof(__other))
+      return *this;
+    size_t __common = std::min(this->__size_, __other.__size_);
+    for (size_t __i = 0; __i < __common; ++__i)
+      this->__data()[__i] = std::move(__other.__data()[__i]);
+    if (this->__size_ > __other.__size_) {
+      for (size_t __i = __other.__size_; __i < this->__size_; ++__i)
+        std::destroy_at(this->__data() + __i);
+    } else {
+      for (size_t __i = this->__size_; __i < __other.__size_; ++__i)
+        std::construct_at(this->__data() + __i, std::move(__other.__data()[__i]));
+    }
+    this->__size_ = __other.__size_;
+    return *this;
+  }
+};
+
+template <class _Tp, size_t _Cap>
+using __inplace_vector_base = __inplace_vector_move_assign_base<_Tp, _Cap>;
+
 template <class _Tp, size_t Capacity>
-class inplace_vector {
+class inplace_vector : private __inplace_vector_base<_Tp, Capacity> {
+  using __base = __inplace_vector_base<_Tp, Capacity>;
+
 public:
   using value_type             = _Tp;
   using size_type               = size_t;
@@ -81,48 +285,47 @@ public:
 
   constexpr inplace_vector(size_type __n, const _Tp& __value) { __append_fill(__n, __value); }
 
-  template <class InputIt, class = decltype(*std::declval<InputIt&>(), void())>
-  constexpr inplace_vector(InputIt __first, InputIt __last) {
+  template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
+  constexpr inplace_vector(_InputIt __first, _InputIt __last) {
     for (; __first != __last; ++__first)
       emplace_back(*__first);
   }
 
-  constexpr inplace_vector(std::initializer_list<_Tp> __il)
-      : inplace_vector(__il.begin(), __il.end()) {}
-
-  constexpr inplace_vector(const inplace_vector& __other) { __append_copy(__other); }
-
-  constexpr inplace_vector(inplace_vector&& __other) noexcept(is_nothrow_move_constructible_v<_Tp>) {
-    __append_move(__other);
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  constexpr inplace_vector(from_range_t, _Range&& __rg) {
+    // LWG 4396: if ranges::size(rg) is usable in a constant expression, a
+    // range too large for our fixed capacity must be a compile error, not a
+    // runtime bad_alloc.
+    if constexpr (requires { requires ranges::size(__rg) >= 0; }) {
+      static_assert(ranges::size(__rg) <= Capacity, "inplace_vector(from_range_t, R&&): range too large for capacity");
+    }
+    __append_range(std::forward<_Range>(__rg));
   }
 
-  constexpr ~inplace_vector() { clear(); }
+  constexpr inplace_vector(const inplace_vector&)            = default;
+  constexpr inplace_vector(inplace_vector&&)                 = default;
+  constexpr inplace_vector& operator=(const inplace_vector&) = default;
+  constexpr inplace_vector& operator=(inplace_vector&&)      = default;
+  constexpr ~inplace_vector()                                = default;
 
-  constexpr auto operator=(const inplace_vector& __other) -> inplace_vector& {
-    if (this != std::addressof(__other))
-      assign(__other.begin(), __other.end());
-    return *this;
-  }
-
-  constexpr auto operator=(inplace_vector&& __other) noexcept(
-      is_nothrow_move_constructible_v<_Tp> && is_nothrow_move_assignable_v<_Tp>) -> inplace_vector& {
-    if (this == std::addressof(__other))
-      return *this;
-    clear();
-    __append_move(__other);
-    return *this;
-  }
+  constexpr inplace_vector(std::initializer_list<_Tp> __il) : inplace_vector(__il.begin(), __il.end()) {}
 
   constexpr auto operator=(std::initializer_list<_Tp> __il) -> inplace_vector& {
     assign(__il.begin(), __il.end());
     return *this;
   }
 
-  template <class InputIt, class = decltype(*std::declval<InputIt&>(), void())>
-  constexpr void assign(InputIt __first, InputIt __last) {
+  template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
+  constexpr void assign(_InputIt __first, _InputIt __last) {
     clear();
     for (; __first != __last; ++__first)
       emplace_back(*__first);
+  }
+
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  constexpr void assign_range(_Range&& __rg) {
+    clear();
+    __append_range(std::forward<_Range>(__rg));
   }
 
   constexpr void assign(size_type __n, const _Tp& __value) {
@@ -135,12 +338,12 @@ public:
   // element access
 
   [[nodiscard]] constexpr auto at(size_type __i) -> reference {
-    if (__i >= size_)
+    if (__i >= size())
       std::__throw_out_of_range("inplace_vector::at");
     return data()[__i];
   }
   [[nodiscard]] constexpr auto at(size_type __i) const -> const_reference {
-    if (__i >= size_)
+    if (__i >= size())
       std::__throw_out_of_range("inplace_vector::at");
     return data()[__i];
   }
@@ -150,20 +353,22 @@ public:
 
   [[nodiscard]] constexpr auto front() -> reference { return data()[0]; }
   [[nodiscard]] constexpr auto front() const -> const_reference { return data()[0]; }
-  [[nodiscard]] constexpr auto back() -> reference { return data()[size_ - 1]; }
-  [[nodiscard]] constexpr auto back() const -> const_reference { return data()[size_ - 1]; }
+  [[nodiscard]] constexpr auto back() -> reference { return data()[size() - 1]; }
+  [[nodiscard]] constexpr auto back() const -> const_reference { return data()[size() - 1]; }
 
-  [[nodiscard]] constexpr auto data() noexcept -> _Tp* { return storage_.__get(); }
-  [[nodiscard]] constexpr auto data() const noexcept -> const _Tp* { return storage_.__get(); }
+  // data(): "A pointer such that [data(), data() + size()) is a valid range.
+  // For a non-empty inplace_vector, data() == addressof(front())."
+  [[nodiscard]] constexpr auto data() noexcept -> _Tp* { return this->__data(); }
+  [[nodiscard]] constexpr auto data() const noexcept -> const _Tp* { return this->__data(); }
 
   // iterators
 
   [[nodiscard]] constexpr auto begin() noexcept -> iterator { return data(); }
-  [[nodiscard]] constexpr auto end() noexcept -> iterator { return data() + size_; }
+  [[nodiscard]] constexpr auto end() noexcept -> iterator { return data() + size(); }
   [[nodiscard]] constexpr auto begin() const noexcept -> const_iterator { return data(); }
-  [[nodiscard]] constexpr auto end() const noexcept -> const_iterator { return data() + size_; }
+  [[nodiscard]] constexpr auto end() const noexcept -> const_iterator { return data() + size(); }
   [[nodiscard]] constexpr auto cbegin() const noexcept -> const_iterator { return data(); }
-  [[nodiscard]] constexpr auto cend() const noexcept -> const_iterator { return data() + size_; }
+  [[nodiscard]] constexpr auto cend() const noexcept -> const_iterator { return data() + size(); }
 
   [[nodiscard]] constexpr auto rbegin() noexcept -> reverse_iterator { return reverse_iterator(end()); }
   [[nodiscard]] constexpr auto rend() noexcept -> reverse_iterator { return reverse_iterator(begin()); }
@@ -178,62 +383,76 @@ public:
 
   // capacity
 
-  [[nodiscard]] constexpr auto empty() const noexcept -> bool { return size_ == 0; }
-  [[nodiscard]] constexpr auto size() const noexcept -> size_type { return size_; }
+  [[nodiscard]] constexpr auto empty() const noexcept -> bool { return size() == 0; }
+  [[nodiscard]] constexpr auto size() const noexcept -> size_type { return this->__size_; }
   [[nodiscard]] static constexpr auto max_size() noexcept -> size_type { return Capacity; }
   [[nodiscard]] static constexpr auto capacity() noexcept -> size_type { return Capacity; }
 
   constexpr void resize(size_type __sz) {
     if (__sz > Capacity)
       std::__throw_bad_alloc();
-    if (__sz < size_) {
-      while (size_ > __sz)
+    if (__sz < size()) {
+      while (size() > __sz)
         pop_back();
     } else {
-      __append_default(__sz - size_);
+      __append_default(__sz - size());
     }
   }
 
   constexpr void resize(size_type __sz, const _Tp& __value) {
     if (__sz > Capacity)
       std::__throw_bad_alloc();
-    if (__sz < size_) {
-      while (size_ > __sz)
+    if (__sz < size()) {
+      while (size() > __sz)
         pop_back();
     } else {
-      __append_fill(__sz - size_, __value);
+      __append_fill(__sz - size(), __value);
     }
   }
 
-  constexpr void reserve(size_type __n) {
+  // reserve/shrink_to_fit are static: there is no notion of extra capacity
+  // to request or release beyond the fixed Capacity itself.
+  static constexpr void reserve(size_type __n) {
     if (__n > Capacity)
       std::__throw_bad_alloc();
   }
 
-  constexpr void shrink_to_fit() noexcept {}
+  static constexpr void shrink_to_fit() noexcept {}
 
   // modifiers
 
   constexpr auto try_push_back(const _Tp& __value) -> pointer {
-    if (size_ >= Capacity)
+    if (size() >= Capacity)
       return nullptr;
-    std::construct_at(data() + size_, __value);
-    return data() + size_++;
+    this->__construct_elem(data() + size(), __value);
+    ++this->__size_;
+    return data() + size() - 1;
   }
 
   constexpr auto try_push_back(_Tp&& __value) -> pointer {
-    if (size_ >= Capacity)
+    if (size() >= Capacity)
       return nullptr;
-    std::construct_at(data() + size_, std::move(__value));
-    return data() + size_++;
+    this->__construct_elem(data() + size(), std::move(__value));
+    ++this->__size_;
+    return data() + size() - 1;
   }
 
   template <class... _Args>
   constexpr auto try_emplace_back(_Args&&... __args) -> pointer {
-    if (size_ >= Capacity)
+    if (size() >= Capacity)
       return nullptr;
-    std::construct_at(data() + size_, std::forward<_Args>(__args)...);
-    return data() + size_++;
+    this->__construct_elem(data() + size(), std::forward<_Args>(__args)...);
+    ++this->__size_;
+    return data() + size() - 1;
+  }
+
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  constexpr auto try_append_range(_Range&& __rg) -> ranges::borrowed_iterator_t<_Range> {
+    auto __first = ranges::begin(__rg);
+    auto __last  = ranges::end(__rg);
+    for (; __first != __last && size() < Capacity; ++__first)
+      unchecked_push_back(*__first);
+    return __first;
   }
 
   constexpr auto push_back(const _Tp& __value) -> reference {
@@ -258,25 +477,35 @@ public:
     return *__p;
   }
 
-  constexpr auto unchecked_push_back(const _Tp& __value) -> reference {
-    std::construct_at(data() + size_, __value);
-    return data()[size_++];
+  // Deliberately does not forward to try_append_range: its return type is
+  // ranges::borrowed_iterator_t<_Range>, which is ranges::dangling for a
+  // non-borrowed rvalue range (e.g. a temporary std::array) -- comparing
+  // that against a fresh ranges::end(__rg) doesn't typecheck. __rg is still
+  // alive for the whole body here regardless, so we just re-derive
+  // begin/end directly instead of reusing try_append_range's result.
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  constexpr void append_range(_Range&& __rg) {
+    for (auto&& __v : __rg) {
+      if (size() >= Capacity)
+        std::__throw_bad_alloc();
+      unchecked_push_back(std::forward<decltype(__v)>(__v));
+    }
   }
 
-  constexpr auto unchecked_push_back(_Tp&& __value) -> reference {
-    std::construct_at(data() + size_, std::move(__value));
-    return data()[size_++];
-  }
+  // Preconditions: size() < capacity(). Equivalent to *try_push_back(...)/
+  // *try_emplace_back(...); the precondition is exactly what makes that
+  // dereference always valid.
+  constexpr auto unchecked_push_back(const _Tp& __value) -> reference { return *try_push_back(__value); }
+  constexpr auto unchecked_push_back(_Tp&& __value) -> reference { return *try_push_back(std::move(__value)); }
 
   template <class... _Args>
   constexpr auto unchecked_emplace_back(_Args&&... __args) -> reference {
-    std::construct_at(data() + size_, std::forward<_Args>(__args)...);
-    return data()[size_++];
+    return *try_emplace_back(std::forward<_Args>(__args)...);
   }
 
   constexpr void pop_back() {
-    --size_;
-    std::destroy_at(data() + size_);
+    --this->__size_;
+    this->__destroy_elem(data() + size());
   }
 
   constexpr auto insert(const_iterator __pos, const _Tp& __value) -> iterator { return emplace(__pos, __value); }
@@ -284,21 +513,31 @@ public:
 
   constexpr auto insert(const_iterator __pos, size_type __n, const _Tp& __value) -> iterator {
     size_type __idx = static_cast<size_type>(__pos - cbegin());
-    if (size_ + __n > Capacity)
+    if (size() + __n > Capacity)
       std::__throw_bad_alloc();
     for (size_type __i = 0; __i < __n; ++__i)
       unchecked_push_back(__value);
-    std::rotate(data() + __idx, data() + size_ - __n, data() + size_);
+    std::rotate(data() + __idx, data() + size() - __n, data() + size());
     return data() + __idx;
   }
 
-  template <class InputIt, class = decltype(*std::declval<InputIt&>(), void())>
-  constexpr auto insert(const_iterator __pos, InputIt __first, InputIt __last) -> iterator {
-    size_type __idx = static_cast<size_type>(__pos - cbegin());
-    size_type __old_size = size_;
+  template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
+  constexpr auto insert(const_iterator __pos, _InputIt __first, _InputIt __last) -> iterator {
+    size_type __idx      = static_cast<size_type>(__pos - cbegin());
+    size_type __old_size = size();
     for (; __first != __last; ++__first)
       emplace_back(*__first);
-    std::rotate(data() + __idx, data() + __old_size, data() + size_);
+    std::rotate(data() + __idx, data() + __old_size, data() + size());
+    return data() + __idx;
+  }
+
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  constexpr auto insert_range(const_iterator __pos, _Range&& __rg) -> iterator {
+    size_type __idx      = static_cast<size_type>(__pos - cbegin());
+    size_type __old_size = size();
+    for (auto&& __v : __rg)
+      emplace_back(std::forward<decltype(__v)>(__v));
+    std::rotate(data() + __idx, data() + __old_size, data() + size());
     return data() + __idx;
   }
 
@@ -306,17 +545,20 @@ public:
     return insert(__pos, __il.begin(), __il.end());
   }
 
+  // Preconditions (LWG 4147): T is Cpp17MoveInsertable and Cpp17MoveAssignable
+  // (in addition to being Cpp17EmplaceConstructible from args), since a
+  // mid-sequence emplace shifts every trailing element down by one.
   template <class... _Args>
   constexpr auto emplace(const_iterator __pos, _Args&&... __args) -> iterator {
     size_type __idx = static_cast<size_type>(__pos - cbegin());
-    if (size_ >= Capacity)
+    if (size() >= Capacity)
       std::__throw_bad_alloc();
-    if (__idx == size_) {
+    if (__idx == size()) {
       unchecked_emplace_back(std::forward<_Args>(__args)...);
       return data() + __idx;
     }
-    unchecked_push_back(std::move(data()[size_ - 1]));
-    for (size_type __i = size_ - 1; __i > __idx; --__i)
+    unchecked_push_back(std::move(data()[size() - 1]));
+    for (size_type __i = size() - 1; __i > __idx; --__i)
       data()[__i] = std::move(data()[__i - 1]);
     data()[__idx] = _Tp(std::forward<_Args>(__args)...);
     return data() + __idx;
@@ -324,7 +566,7 @@ public:
 
   constexpr auto erase(const_iterator __pos) -> iterator {
     size_type __idx = static_cast<size_type>(__pos - cbegin());
-    for (size_type __i = __idx; __i + 1 < size_; ++__i)
+    for (size_type __i = __idx; __i + 1 < size(); ++__i)
       data()[__i] = std::move(data()[__i + 1]);
     pop_back();
     return data() + __idx;
@@ -333,40 +575,41 @@ public:
   constexpr auto erase(const_iterator __first, const_iterator __last) -> iterator {
     size_type __idx = static_cast<size_type>(__first - cbegin());
     size_type __n   = static_cast<size_type>(__last - __first);
-    for (size_type __i = __idx; __i + __n < size_; ++__i)
+    for (size_type __i = __idx; __i + __n < size(); ++__i)
       data()[__i] = std::move(data()[__i + __n]);
     for (size_type __i = 0; __i < __n; ++__i)
       pop_back();
     return data() + __idx;
   }
 
-  constexpr void clear() noexcept {
-    while (size_ != 0)
-      pop_back();
-  }
+  constexpr void clear() noexcept { this->__destroy_all(); }
 
+  // Preconditions (LWG 4151): T is Cpp17MoveConstructible, and for each
+  // n < min(size(), x.size()), (*this)[n] is swappable with x[n].
   constexpr void swap(inplace_vector& __other) noexcept(
-      is_nothrow_swappable_v<_Tp> && is_nothrow_move_constructible_v<_Tp>) {
-    size_type __this_original  = size_;
-    size_type __other_original = __other.size_;
-    size_type __common         = std::min(size_, __other.size_);
+      Capacity == 0 || (is_nothrow_swappable_v<_Tp> && is_nothrow_move_constructible_v<_Tp>)) {
+    size_type __this_original  = size();
+    size_type __other_original = __other.size();
+    size_type __common         = std::min(size(), __other.size());
     for (size_type __i = 0; __i < __common; ++__i) {
       using std::swap;
       swap(data()[__i], __other.data()[__i]);
     }
-    if (size_ > __other.size_) {
-      for (size_type __i = __common; __i < size_; ++__i) {
+    if (size() > __other.size()) {
+      for (size_type __i = __common; __i < size(); ++__i) {
         __other.unchecked_push_back(std::move(data()[__i]));
-        std::destroy_at(data() + __i);
       }
-    } else if (__other.size_ > size_) {
-      for (size_type __i = __common; __i < __other.size_; ++__i) {
+      for (size_type __i = __common; __i < size(); ++__i)
+        this->__destroy_elem(data() + __i);
+    } else if (__other.size() > size()) {
+      for (size_type __i = __common; __i < __other.size(); ++__i) {
         unchecked_push_back(std::move(__other.data()[__i]));
-        std::destroy_at(__other.data() + __i);
       }
+      for (size_type __i = __common; __i < __other.size(); ++__i)
+        __other.__destroy_elem(__other.data() + __i);
     }
-    size_        = __other_original;
-    __other.size_ = __this_original;
+    this->__size_  = __other_original;
+    __other.__size_ = __this_original;
   }
 
   friend constexpr void swap(inplace_vector& __x, inplace_vector& __y) noexcept(noexcept(__x.swap(__y))) {
@@ -377,38 +620,199 @@ public:
     return std::equal(__x.begin(), __x.end(), __y.begin(), __y.end());
   }
 
-  [[nodiscard]] friend constexpr auto operator<=>(const inplace_vector& __x, const inplace_vector& __y) {
+  // LWG 4122: a non-template friend with a fixed synth-three-way-result<T>
+  // return type hard-errors (rather than dropping out of overload
+  // resolution) when T has no viable three-way comparison. Use a deduced
+  // return type behind a requires-clause instead, exactly as the adopted
+  // resolution specifies.
+  [[nodiscard]] friend constexpr auto operator<=>(const inplace_vector& __x, const inplace_vector& __y)
+    requires requires(const _Tp __t) { std::__synth_three_way(__t, __t); }
+  {
     return std::lexicographical_compare_three_way(
         __x.begin(), __x.end(), __y.begin(), __y.end(), std::__synth_three_way);
   }
 
 private:
   constexpr void __append_default(size_type __n) {
-    if (size_ + __n > Capacity)
+    if (size() + __n > Capacity)
       std::__throw_bad_alloc();
     for (size_type __i = 0; __i < __n; ++__i)
       unchecked_emplace_back();
   }
 
   constexpr void __append_fill(size_type __n, const _Tp& __value) {
-    if (size_ + __n > Capacity)
+    if (size() + __n > Capacity)
       std::__throw_bad_alloc();
     for (size_type __i = 0; __i < __n; ++__i)
       unchecked_push_back(__value);
   }
 
-  constexpr void __append_copy(const inplace_vector& __other) {
-    for (size_type __i = 0; __i < __other.size_; ++__i)
-      unchecked_push_back(__other.data()[__i]);
+  template <class _Range>
+  constexpr void __append_range(_Range&& __rg) {
+    for (auto&& __v : __rg)
+      emplace_back(std::forward<decltype(__v)>(__v));
+  }
+};
+
+// [containers.sequences.inplace.vector.overview]p3: "If N is zero, then IV
+// is both trivial and empty." A trivial class can't have a data member with
+// a default member initializer (that alone makes the implicit default
+// constructor non-trivial), so N == 0 needs its own specialization rather
+// than just parameterizing the Capacity==0 case through the general storage
+// machinery above -- there is genuinely no state to store, since size() is
+// always 0 and no element can ever be constructed.
+template <class _Tp>
+class inplace_vector<_Tp, 0> {
+public:
+  using value_type             = _Tp;
+  using size_type               = size_t;
+  using difference_type         = ptrdiff_t;
+  using reference               = value_type&;
+  using const_reference         = const value_type&;
+  using pointer                 = value_type*;
+  using const_pointer           = const value_type*;
+  using iterator                = value_type*;
+  using const_iterator          = const value_type*;
+  using reverse_iterator        = std::reverse_iterator<iterator>;
+  using const_reverse_iterator  = std::reverse_iterator<const_iterator>;
+
+  constexpr inplace_vector() noexcept = default;
+
+  constexpr explicit inplace_vector(size_type __n) {
+    if (__n > 0)
+      std::__throw_bad_alloc();
   }
 
-  constexpr void __append_move(inplace_vector& __other) {
-    for (size_type __i = 0; __i < __other.size_; ++__i)
-      unchecked_push_back(std::move(__other.data()[__i]));
+  constexpr inplace_vector(size_type __n, const _Tp&) {
+    if (__n > 0)
+      std::__throw_bad_alloc();
   }
 
-  __inplace_vector_storage<_Tp, Capacity> storage_;
-  size_type size_ = 0;
+  template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
+  constexpr inplace_vector(_InputIt __first, _InputIt __last) {
+    if (__first != __last)
+      std::__throw_bad_alloc();
+  }
+
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  constexpr inplace_vector(from_range_t, _Range&& __rg) {
+    if (ranges::begin(__rg) != ranges::end(__rg))
+      std::__throw_bad_alloc();
+  }
+
+  constexpr inplace_vector(std::initializer_list<_Tp> __il) {
+    if (__il.size() > 0)
+      std::__throw_bad_alloc();
+  }
+
+  [[nodiscard]] constexpr auto data() noexcept -> _Tp* { return nullptr; }
+  [[nodiscard]] constexpr auto data() const noexcept -> const _Tp* { return nullptr; }
+
+  [[nodiscard]] constexpr auto begin() noexcept -> iterator { return nullptr; }
+  [[nodiscard]] constexpr auto end() noexcept -> iterator { return nullptr; }
+  [[nodiscard]] constexpr auto begin() const noexcept -> const_iterator { return nullptr; }
+  [[nodiscard]] constexpr auto end() const noexcept -> const_iterator { return nullptr; }
+  [[nodiscard]] constexpr auto cbegin() const noexcept -> const_iterator { return nullptr; }
+  [[nodiscard]] constexpr auto cend() const noexcept -> const_iterator { return nullptr; }
+  [[nodiscard]] constexpr auto rbegin() noexcept -> reverse_iterator { return reverse_iterator(end()); }
+  [[nodiscard]] constexpr auto rend() noexcept -> reverse_iterator { return reverse_iterator(begin()); }
+  [[nodiscard]] constexpr auto rbegin() const noexcept -> const_reverse_iterator {
+    return const_reverse_iterator(end());
+  }
+  [[nodiscard]] constexpr auto rend() const noexcept -> const_reverse_iterator {
+    return const_reverse_iterator(begin());
+  }
+  [[nodiscard]] constexpr auto crbegin() const noexcept -> const_reverse_iterator { return rbegin(); }
+  [[nodiscard]] constexpr auto crend() const noexcept -> const_reverse_iterator { return rend(); }
+
+  [[nodiscard]] constexpr auto empty() const noexcept -> bool { return true; }
+  [[nodiscard]] constexpr auto size() const noexcept -> size_type { return 0; }
+  [[nodiscard]] static constexpr auto max_size() noexcept -> size_type { return 0; }
+  [[nodiscard]] static constexpr auto capacity() noexcept -> size_type { return 0; }
+
+  constexpr void resize(size_type __sz) {
+    if (__sz > 0)
+      std::__throw_bad_alloc();
+  }
+  constexpr void resize(size_type __sz, const _Tp&) {
+    if (__sz > 0)
+      std::__throw_bad_alloc();
+  }
+  static constexpr void reserve(size_type __n) {
+    if (__n > 0)
+      std::__throw_bad_alloc();
+  }
+  static constexpr void shrink_to_fit() noexcept {}
+
+  constexpr auto try_push_back(const _Tp&) -> pointer { return nullptr; }
+  constexpr auto try_push_back(_Tp&&) -> pointer { return nullptr; }
+  template <class... _Args>
+  constexpr auto try_emplace_back(_Args&&...) -> pointer {
+    return nullptr;
+  }
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  constexpr auto try_append_range(_Range&& __rg) -> ranges::borrowed_iterator_t<_Range> {
+    return ranges::begin(__rg);
+  }
+
+  constexpr auto push_back(const _Tp&) -> reference {
+    std::__throw_bad_alloc();
+  }
+  constexpr auto push_back(_Tp&&) -> reference {
+    std::__throw_bad_alloc();
+  }
+  template <class... _Args>
+  constexpr auto emplace_back(_Args&&...) -> reference {
+    std::__throw_bad_alloc();
+  }
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  constexpr void append_range(_Range&& __rg) {
+    if (ranges::begin(__rg) != ranges::end(__rg))
+      std::__throw_bad_alloc();
+  }
+
+  constexpr void pop_back() { /* precondition size() < capacity() is never satisfiable; UB to call */ }
+
+  constexpr auto insert(const_iterator, const _Tp&) -> iterator { std::__throw_bad_alloc(); }
+  constexpr auto insert(const_iterator, _Tp&&) -> iterator { std::__throw_bad_alloc(); }
+  constexpr auto insert(const_iterator, size_type __n, const _Tp&) -> iterator {
+    if (__n > 0)
+      std::__throw_bad_alloc();
+    return end();
+  }
+  template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
+  constexpr auto insert(const_iterator, _InputIt __first, _InputIt __last) -> iterator {
+    if (__first != __last)
+      std::__throw_bad_alloc();
+    return end();
+  }
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  constexpr auto insert_range(const_iterator, _Range&& __rg) -> iterator {
+    if (ranges::begin(__rg) != ranges::end(__rg))
+      std::__throw_bad_alloc();
+    return end();
+  }
+  constexpr auto insert(const_iterator, std::initializer_list<_Tp> __il) -> iterator {
+    if (__il.size() > 0)
+      std::__throw_bad_alloc();
+    return end();
+  }
+  template <class... _Args>
+  constexpr auto emplace(const_iterator, _Args&&...) -> iterator {
+    std::__throw_bad_alloc();
+  }
+
+  constexpr auto erase(const_iterator __pos) -> iterator { return __pos; }
+  constexpr auto erase(const_iterator __first, const_iterator) -> iterator { return __first; }
+
+  constexpr void clear() noexcept {}
+  constexpr void swap(inplace_vector&) noexcept {}
+  friend constexpr void swap(inplace_vector&, inplace_vector&) noexcept {}
+
+  [[nodiscard]] friend constexpr auto operator==(const inplace_vector&, const inplace_vector&) -> bool { return true; }
+  [[nodiscard]] friend constexpr auto operator<=>(const inplace_vector&, const inplace_vector&) -> strong_ordering {
+    return strong_ordering::equal;
+  }
 };
 
 template <class _Tp, size_t Capacity, class _Up = _Tp>
@@ -428,6 +832,12 @@ constexpr auto erase_if(inplace_vector<_Tp, Capacity>& __c, Predicate __pred) ->
   __c.erase(__it, __c.end());
   return __r;
 }
+
+// No deduction guides: unlike the other containers, there is no case in
+// which the capacity (a non-type template parameter) could be deduced from
+// the initializer.
+
+#endif // _LIBCPP_STD_VER >= 26
 
 _LIBCPP_END_NAMESPACE_STD
 
