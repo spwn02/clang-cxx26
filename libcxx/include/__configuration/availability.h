@@ -17,6 +17,10 @@
 #  pragma GCC system_header
 #endif
 
+// Controls whether the implementation for text_encoding::environment() is available.
+#define _LIBCPP_AVAILABILITY_HAS_TEXT_ENCODING_ENVIRONMENT 1
+#define _LIBCPP_AVAILABILITY_TEXT_ENCODING_ENVIRONMENT
+
 // Libc++ is shipped by various vendors. In particular, it is used as a system
 // library on macOS, iOS and other Apple platforms. In order for users to be
 // able to compile a binary that is intended to be deployed to an older version
