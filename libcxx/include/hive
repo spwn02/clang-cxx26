@@ -1,18 +1,47 @@
 // -*- C++ -*-
 //===----------------------------------------------------------------------===//
 //
-// Experimental C++26 std::hive implementation for the Bloomberg libc++ fork.
+// std::hive implementation for the Bloomberg libc++ fork.
+// P0447R28 as adopted into the C++26 working draft (2025-02 Hagenberg),
+// including the post-R28 wording fixes applied by LWG before adoption
+// (corrected deduction guides, is_within_hard_limits, "erroneous behavior"
+// wording for out-of-limits hive_limits).
 //
-// NOTE: this is a partial implementation. The real P0447R28 hive is backed
-// by fixed-size memory blocks with a skipfield tracking erased slots so that
-// erasure/insertion can reuse freed storage without touching unrelated
-// elements; that skipfield algorithm is not implemented here. Instead this
-// version is backed by std::list, which gives correct iterator/reference
-// stability across insert/erase (hive's core guarantee) but none of hive's
-// memory-reuse or block-capacity behavior. Concretely unsupported as a
-// result: capacity()/reserve()/trim_capacity()/reshape() (no distinct
-// capacity concept over size() here) and get_iterator(pointer) (would
-// require reaching into list's node representation).
+// Storage model: a doubly-linked list of fixed-capacity "groups". Each group
+// owns four parallel allocations: the element block itself, a skipfield
+// (jump-counting erased-run encoding used to skip over erased slots during
+// iteration in O(1) amortized), and two free-list link arrays used to keep an
+// O(1) doubly-linked list of erased runs ("skipblocks") per group, so that
+// insertion can always find reusable storage without scanning.
+//
+// This deliberately differs from the reference implementation (plf::hive) in
+// one respect: the free-list links there are written into the storage of the
+// erased elements themselves (safe, since nothing else is live there) to
+// avoid extra allocations. Here they live in their own __free_prev_/
+// __free_next_ arrays instead. That costs extra memory per group (two more
+// unsigned-sized arrays) but sidesteps needing sizeof(T) >= 2*sizeof(unsigned)
+// and alignment reasoning for arbitrary T, which is worth the tradeoff for a
+// from-scratch implementation. The skipfield encoding is also simplified
+// relative to the classic "every node in a run stores its distance to the
+// run's end" scheme: only the two boundary nodes of each erased run
+// (its front and back) are kept accurate; interior nodes are left stale/
+// unused. This is sufficient because iterators only ever *land* on a run's
+// front (advancing into it) or back (retreating into it) -- interior
+// positions are never read during normal traversal -- and it's what makes
+// both traversal and erase-time run-merging O(1) regardless of run length:
+// merging two runs only ever touches the (at most three) newly-relevant
+// boundary positions, never a whole run's worth of nodes. Using the
+// classic same-value-throughout encoding instead would make repeatedly
+// erasing adjacent elements one at a time degrade to O(n) per call as the
+// run grows, which is incompatible with the standard's per-call erase
+// complexity ("linear in the number of elements erased" -- i.e. O(1) for a
+// single-element erase).
+//
+// Not implemented, or implemented as an honest simplification: constexpr
+// (the paper explicitly declines to require it, citing the same
+// pervasive-reinterpret_cast concerns as here); the small-block-size /
+// bitset-based storage variant for very small sizeof(T) (Appendix I of the
+// paper) -- ordinary skipfield storage is used uniformly instead.
 //
 //===----------------------------------------------------------------------===//
 
@@ -20,13 +49,22 @@
 #define _LIBCPP_HIVE
 
 #include <__config>
+#include <__iterator/iterator_traits.h>
+#include <__memory/allocator.h>
+#include <__memory/allocator_traits.h>
+#include <__ranges/container_compatible_range.h>
+#include <__ranges/from_range.h>
 #include <algorithm>
+#include <compare>
+#include <cstddef>
+#include <functional>
 #include <initializer_list>
-#include <iterator>
-#include <list>
-#include <memory>
+#include <limits>
+#include <new>
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -37,107 +75,930 @@ _LIBCPP_PUSH_MACROS
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-template <class _Tp, class Allocator = allocator<_Tp>> class hive {
-  static_assert(is_same_v<_Tp, typename Allocator::value_type>,
-                "Allocator::value_type must match hive::value_type");
+#if _LIBCPP_STD_VER >= 26
 
-  using storage_type = list<_Tp, Allocator>;
-
-public:
-  using value_type = _Tp;
-  using allocator_type = Allocator;
-  using size_type = typename storage_type::size_type;
-  using difference_type = typename storage_type::difference_type;
-  using reference = value_type &;
-  using const_reference = const value_type &;
-  using pointer = typename allocator_traits<Allocator>::pointer;
-  using const_pointer = typename allocator_traits<Allocator>::const_pointer;
-  using iterator = typename storage_type::iterator;
-  using const_iterator = typename storage_type::const_iterator;
-  using reverse_iterator = typename storage_type::reverse_iterator;
-  using const_reverse_iterator = typename storage_type::const_reverse_iterator;
-
-  hive() = default;
-  explicit hive(const Allocator &alloc) : storage_(alloc) {}
-  explicit hive(size_type count, const Allocator &alloc = Allocator())
-      : storage_(count, _Tp(), alloc) {}
-  hive(size_type count, const _Tp &value, const Allocator &alloc = Allocator())
-      : storage_(count, value, alloc) {}
-
-  template <class InputIt>
-  hive(InputIt first, InputIt last, const Allocator &alloc = Allocator())
-      : storage_(first, last, alloc) {}
-  hive(initializer_list<_Tp> init, const Allocator &alloc = Allocator())
-      : storage_(init, alloc) {}
-
-  auto get_allocator() const noexcept -> allocator_type { return storage_.get_allocator(); }
-  auto begin() noexcept -> iterator { return storage_.begin(); }
-  auto begin() const noexcept -> const_iterator { return storage_.begin(); }
-  auto end() noexcept -> iterator { return storage_.end(); }
-  auto end() const noexcept -> const_iterator { return storage_.end(); }
-  auto cbegin() const noexcept -> const_iterator { return storage_.cbegin(); }
-  auto cend() const noexcept -> const_iterator { return storage_.cend(); }
-  auto rbegin() noexcept -> reverse_iterator { return storage_.rbegin(); }
-  auto rbegin() const noexcept -> const_reverse_iterator { return storage_.rbegin(); }
-  auto rend() noexcept -> reverse_iterator { return storage_.rend(); }
-  auto rend() const noexcept -> const_reverse_iterator { return storage_.rend(); }
-  auto crbegin() const noexcept -> const_reverse_iterator { return storage_.crbegin(); }
-  auto crend() const noexcept -> const_reverse_iterator { return storage_.crend(); }
-  auto empty() const noexcept -> bool { return storage_.empty(); }
-  auto size() const noexcept -> size_type { return storage_.size(); }
-  auto max_size() const noexcept -> size_type { return storage_.max_size(); }
-  void clear() noexcept { storage_.clear(); }
-
-  auto insert(const _Tp &value) -> iterator { storage_.push_back(value); return prev(end()); }
-  auto insert(_Tp &&value) -> iterator { storage_.push_back(move(value)); return prev(end()); }
-
-  template <class InputIt>
-  void insert(InputIt first, InputIt last) {
-    for (; first != last; ++first)
-      insert(*first);
-  }
-  void insert(initializer_list<_Tp> il) { insert(il.begin(), il.end()); }
-
-  template <class... _Args> auto emplace(_Args &&...args) -> iterator {
-    storage_.emplace_back(forward<_Args>(args)...);
-    return prev(end());
-  }
-
-  void assign(size_type count, const _Tp &value) { storage_.assign(count, value); }
-  template <class InputIt> void assign(InputIt first, InputIt last) { storage_.assign(first, last); }
-  void assign(initializer_list<_Tp> il) { storage_.assign(il); }
-
-  auto erase(const_iterator pos) -> iterator { return storage_.erase(pos); }
-  auto erase(const_iterator first, const_iterator last) -> iterator { return storage_.erase(first, last); }
-  void swap(hive &other) noexcept(noexcept(storage_.swap(other.storage_))) { storage_.swap(other.storage_); }
-
-  // Element order between two hives is unspecified (implementations are
-  // free to reuse erased slots in any order), so equality compares as
-  // multisets rather than sequences.
-  friend auto operator==(const hive &__x, const hive &__y) -> bool {
-    return __x.size() == __y.size() && std::is_permutation(__x.begin(), __x.end(), __y.begin());
-  }
-
-  void splice(hive &other) noexcept { storage_.splice(storage_.end(), other.storage_); }
-  void splice(hive &&other) noexcept { storage_.splice(storage_.end(), other.storage_); }
-
-  void sort() { storage_.sort(); }
-  template <class Compare> void sort(Compare comp) { storage_.sort(comp); }
-
-  auto unique() -> size_type { return storage_.unique(); }
-  template <class BinaryPredicate> auto unique(BinaryPredicate pred) -> size_type { return storage_.unique(pred); }
-
-private:
-  storage_type storage_;
+struct hive_limits {
+  size_t min;
+  size_t max;
+  _LIBCPP_HIDE_FROM_ABI constexpr hive_limits(size_t __minimum, size_t __maximum) noexcept
+      : min(__minimum), max(__maximum) {}
 };
 
-template <class InputIt, class Allocator = allocator<iter_value_t<InputIt>>>
-hive(InputIt, InputIt, Allocator = Allocator()) -> hive<iter_value_t<InputIt>, Allocator>;
+template <class _Tp, class _Allocator>
+struct __hive_group {
+  using __link_type = unsigned;
+  static constexpr __link_type __sentinel = static_cast<__link_type>(-1);
 
-template <class _Tp, class Allocator>
-void swap(hive<_Tp, Allocator> &lhs, hive<_Tp, Allocator> &rhs) noexcept(noexcept(lhs.swap(rhs))) {
-  lhs.swap(rhs);
+  _Tp* __elements_          = nullptr;
+  __link_type* __skipfield_ = nullptr; // length __capacity_ + 1; __skipfield_[__capacity_] is a 0 sentinel
+  __link_type* __free_prev_ = nullptr; // length __capacity_; meaningful only at skipblock front indices
+  __link_type* __free_next_ = nullptr; // length __capacity_; meaningful only at skipblock front indices
+  size_t __capacity_         = 0;
+  size_t __size_             = 0; // live element count
+  __link_type __free_head_  = __sentinel;
+  size_t __group_number_     = 0;
+
+  __hive_group* __next_        = nullptr;
+  __hive_group* __prev_        = nullptr;
+  __hive_group* __next_erased_ = nullptr;
+  __hive_group* __prev_erased_ = nullptr;
+
+  _LIBCPP_HIDE_FROM_ABI bool __has_erasures() const noexcept { return __free_head_ != __sentinel; }
+  _LIBCPP_HIDE_FROM_ABI bool __is_full() const noexcept { return __size_ == __capacity_; }
+  _LIBCPP_HIDE_FROM_ABI bool __group_empty() const noexcept { return __size_ == 0; }
+
+  // Unlinks the skipblock whose front is __old_front from the free list and
+  // reinserts an equivalent node at __new_front with the same neighbors --
+  // used when a skipblock's front index moves (shrinking from the front on
+  // reuse, or absorbing a left-adjacent run on erase).
+  _LIBCPP_HIDE_FROM_ABI void __relink_free_block(__link_type __old_front, __link_type __new_front) {
+    __link_type __p = __free_prev_[__old_front];
+    __link_type __n = __free_next_[__old_front];
+    __free_prev_[__new_front] = __p;
+    __free_next_[__new_front] = __n;
+    if (__p == __sentinel)
+      __free_head_ = __new_front;
+    else
+      __free_next_[__p] = __new_front;
+    if (__n != __sentinel)
+      __free_prev_[__n] = __new_front;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void __unlink_free_block(__link_type __front) {
+    __link_type __p = __free_prev_[__front];
+    __link_type __n = __free_next_[__front];
+    if (__p == __sentinel)
+      __free_head_ = __n;
+    else
+      __free_next_[__p] = __n;
+    if (__n != __sentinel)
+      __free_prev_[__n] = __p;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void __push_free_block(__link_type __front) {
+    __free_prev_[__front] = __sentinel;
+    __free_next_[__front] = __free_head_;
+    if (__free_head_ != __sentinel)
+      __free_prev_[__free_head_] = __front;
+    __free_head_ = __front;
+  }
+};
+
+template <class _Tp, class _Allocator, bool _IsConst>
+class __hive_iterator {
+public:
+  using iterator_concept = bidirectional_iterator_tag;
+  using iterator_category = bidirectional_iterator_tag;
+  using value_type        = _Tp;
+  using difference_type   = ptrdiff_t;
+  using pointer            = conditional_t<_IsConst, const _Tp*, _Tp*>;
+  using reference          = conditional_t<_IsConst, const _Tp&, _Tp&>;
+
+private:
+  using __group_type = __hive_group<_Tp, _Allocator>;
+  using __link_type   = typename __group_type::__link_type;
+
+  __group_type* __group_ = nullptr;
+  _Tp* __ptr_             = nullptr;
+
+  template <class, class>
+  friend class hive;
+  template <class, class, bool>
+  friend class __hive_iterator;
+
+  _LIBCPP_HIDE_FROM_ABI __hive_iterator(__group_type* __g, _Tp* __p) noexcept : __group_(__g), __ptr_(__p) {}
+
+  _LIBCPP_HIDE_FROM_ABI __link_type __index() const noexcept {
+    return static_cast<__link_type>(__ptr_ - __group_->__elements_);
+  }
+
+public:
+  _LIBCPP_HIDE_FROM_ABI __hive_iterator() noexcept = default;
+
+  template <bool _OtherConst, class = enable_if_t<_IsConst && !_OtherConst>>
+  _LIBCPP_HIDE_FROM_ABI __hive_iterator(const __hive_iterator<_Tp, _Allocator, _OtherConst>& __other) noexcept
+      : __group_(__other.__group_), __ptr_(__other.__ptr_) {}
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI reference operator*() const noexcept { return *__ptr_; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI pointer operator->() const noexcept { return __ptr_; }
+
+  // end() is represented as (last active group, elements_ + capacity_) --
+  // not a null group -- specifically so that operator-- can decrement into
+  // it without needing a back-pointer to the container. See the comment on
+  // hive::end().
+  _LIBCPP_HIDE_FROM_ABI __hive_iterator& operator++() noexcept {
+    __link_type __i = __index() + 1;
+    ++__ptr_;
+    if (__i < __group_->__capacity_) {
+      __link_type __skip = __group_->__skipfield_[__i];
+      if (__skip != 0) {
+        __ptr_ += __skip;
+        __i += __skip;
+      }
+    }
+    if (__i < __group_->__capacity_)
+      return *this;
+    // __ptr_ == __group_->__elements_ + __group_->__capacity_ here. If
+    // there's a next group, move into it; otherwise this group is the tail
+    // and we're now sitting at end().
+    if (__group_->__next_ != nullptr) {
+      __group_          = __group_->__next_;
+      __ptr_            = __group_->__elements_;
+      __link_type __skip = __group_->__skipfield_[0];
+      if (__skip != 0)
+        __ptr_ += __skip;
+    }
+    return *this;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI __hive_iterator operator++(int) noexcept {
+    __hive_iterator __tmp = *this;
+    ++*this;
+    return __tmp;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI __hive_iterator& operator--() noexcept {
+    if (__ptr_ == __group_->__elements_) {
+      __group_ = __group_->__prev_;
+      __ptr_   = __group_->__elements_ + __group_->__capacity_;
+    }
+    --__ptr_;
+    __link_type __i    = __index();
+    __link_type __skip = __group_->__skipfield_[__i];
+    if (__skip != 0) {
+      if (__skip <= __i) {
+        // The run's front is still within this group; jump to one before it.
+        __ptr_ -= __skip;
+      } else {
+        // The run reaches this group's own index 0, so the previous live
+        // element is in the previous group. An active group is never fully
+        // erased, so that group's last slot's run (if any) cannot itself
+        // reach *that* group's start -- at most one more jump is needed,
+        // never further recursion.
+        __group_            = __group_->__prev_;
+        __link_type __last = static_cast<__link_type>(__group_->__capacity_ - 1);
+        __ptr_              = __group_->__elements_ + __last;
+        __link_type __skip2 = __group_->__skipfield_[__last];
+        if (__skip2 != 0)
+          __ptr_ -= __skip2;
+      }
+    }
+    return *this;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI __hive_iterator operator--(int) noexcept {
+    __hive_iterator __tmp = *this;
+    --*this;
+    return __tmp;
+  }
+
+  template <bool _OC>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool operator==(const __hive_iterator<_Tp, _Allocator, _OC>& __other) const noexcept {
+    return __ptr_ == __other.__ptr_;
+  }
+
+  template <bool _OC>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI strong_ordering
+  operator<=>(const __hive_iterator<_Tp, _Allocator, _OC>& __other) const noexcept {
+    if (__group_ == __other.__group_)
+      return __ptr_ <=> __other.__ptr_;
+    size_t __gl = __group_ == nullptr ? SIZE_MAX : __group_->__group_number_;
+    size_t __gr = __other.__group_ == nullptr ? SIZE_MAX : __other.__group_->__group_number_;
+    return __gl <=> __gr;
+  }
+};
+
+template <class _Tp, class _Allocator = allocator<_Tp>>
+class hive {
+  using _AllocTraits = allocator_traits<_Allocator>;
+  using __group_type  = __hive_group<_Tp, _Allocator>;
+  using __link_type    = typename __group_type::__link_type;
+  using __group_alloc  = typename _AllocTraits::template rebind_alloc<__group_type>;
+  using __link_alloc   = typename _AllocTraits::template rebind_alloc<__link_type>;
+
+  static_assert(is_same_v<typename _AllocTraits::value_type, _Tp>,
+                "allocator_traits<Allocator>::value_type must be the same type as T");
+
+public:
+  using value_type      = _Tp;
+  using allocator_type  = _Allocator;
+  using pointer          = typename _AllocTraits::pointer;
+  using const_pointer    = typename _AllocTraits::const_pointer;
+  using reference        = value_type&;
+  using const_reference  = const value_type&;
+  using size_type        = size_t;
+  using difference_type  = ptrdiff_t;
+  using iterator                = __hive_iterator<_Tp, _Allocator, false>;
+  using const_iterator          = __hive_iterator<_Tp, _Allocator, true>;
+  using reverse_iterator        = std::reverse_iterator<iterator>;
+  using const_reverse_iterator  = std::reverse_iterator<const_iterator>;
+
+  _LIBCPP_HIDE_FROM_ABI hive() noexcept(noexcept(_Allocator())) : hive(_Allocator()) {}
+  _LIBCPP_HIDE_FROM_ABI explicit hive(const _Allocator& __a) noexcept : __alloc_(__a) {}
+  _LIBCPP_HIDE_FROM_ABI explicit hive(hive_limits __limits) : hive(__limits, _Allocator()) {}
+  _LIBCPP_HIDE_FROM_ABI hive(hive_limits __limits, const _Allocator& __a) : __alloc_(__a), __limits_(__limits) {}
+
+  _LIBCPP_HIDE_FROM_ABI explicit hive(size_type __n, const _Allocator& __a = _Allocator()) : __alloc_(__a) {
+    for (size_type __i = 0; __i < __n; ++__i)
+      emplace();
+  }
+  _LIBCPP_HIDE_FROM_ABI hive(size_type __n, hive_limits __limits, const _Allocator& __a = _Allocator())
+      : __alloc_(__a), __limits_(__limits) {
+    for (size_type __i = 0; __i < __n; ++__i)
+      emplace();
+  }
+  _LIBCPP_HIDE_FROM_ABI hive(size_type __n, const _Tp& __value, const _Allocator& __a = _Allocator()) : __alloc_(__a) {
+    for (size_type __i = 0; __i < __n; ++__i)
+      emplace(__value);
+  }
+  _LIBCPP_HIDE_FROM_ABI hive(size_type __n, const _Tp& __value, hive_limits __limits, const _Allocator& __a = _Allocator())
+      : __alloc_(__a), __limits_(__limits) {
+    for (size_type __i = 0; __i < __n; ++__i)
+      emplace(__value);
+  }
+
+  template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
+  _LIBCPP_HIDE_FROM_ABI hive(_InputIt __first, _InputIt __last, const _Allocator& __a = _Allocator()) : __alloc_(__a) {
+    for (; __first != __last; ++__first)
+      emplace(*__first);
+  }
+  template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
+  _LIBCPP_HIDE_FROM_ABI hive(_InputIt __first, _InputIt __last, hive_limits __limits, const _Allocator& __a = _Allocator())
+      : __alloc_(__a), __limits_(__limits) {
+    for (; __first != __last; ++__first)
+      emplace(*__first);
+  }
+
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  _LIBCPP_HIDE_FROM_ABI hive(from_range_t, _Range&& __rg, const _Allocator& __a = _Allocator()) : __alloc_(__a) {
+    for (auto&& __v : __rg)
+      emplace(std::forward<decltype(__v)>(__v));
+  }
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  _LIBCPP_HIDE_FROM_ABI hive(from_range_t, _Range&& __rg, hive_limits __limits, const _Allocator& __a = _Allocator())
+      : __alloc_(__a), __limits_(__limits) {
+    for (auto&& __v : __rg)
+      emplace(std::forward<decltype(__v)>(__v));
+  }
+
+  _LIBCPP_HIDE_FROM_ABI hive(const hive& __other)
+      : __alloc_(_AllocTraits::select_on_container_copy_construction(__other.__alloc_)), __limits_(__other.__limits_) {
+    for (const auto& __v : __other)
+      emplace(__v);
+  }
+  _LIBCPP_HIDE_FROM_ABI hive(const hive& __other, const type_identity_t<_Allocator>& __a)
+      : __alloc_(__a), __limits_(__other.__limits_) {
+    for (const auto& __v : __other)
+      emplace(__v);
+  }
+
+  _LIBCPP_HIDE_FROM_ABI hive(hive&& __other) noexcept
+      : __alloc_(std::move(__other.__alloc_)),
+        __limits_(__other.__limits_),
+        __head_(__other.__head_),
+        __tail_(__other.__tail_),
+        __reserved_(__other.__reserved_),
+        __erased_head_(__other.__erased_head_),
+        __size_(__other.__size_),
+        __next_group_number_(__other.__next_group_number_) {
+    __other.__head_ = __other.__tail_ = __other.__reserved_ = __other.__erased_head_ = nullptr;
+    __other.__size_                                                                  = 0;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI hive(hive&& __other, const type_identity_t<_Allocator>& __a) : __alloc_(__a), __limits_(__other.__limits_) {
+    if (__alloc_ == __other.__alloc_) {
+      __head_              = __other.__head_;
+      __tail_              = __other.__tail_;
+      __reserved_          = __other.__reserved_;
+      __erased_head_       = __other.__erased_head_;
+      __size_              = __other.__size_;
+      __next_group_number_ = __other.__next_group_number_;
+      __other.__head_ = __other.__tail_ = __other.__reserved_ = __other.__erased_head_ = nullptr;
+      __other.__size_                                                                  = 0;
+    } else {
+      for (auto& __v : __other)
+        emplace(std::move(__v));
+      __other.clear();
+    }
+  }
+
+  _LIBCPP_HIDE_FROM_ABI hive(initializer_list<_Tp> __il, const _Allocator& __a = _Allocator()) : hive(__il.begin(), __il.end(), __a) {}
+  _LIBCPP_HIDE_FROM_ABI hive(initializer_list<_Tp> __il, hive_limits __limits, const _Allocator& __a = _Allocator())
+      : hive(__il.begin(), __il.end(), __limits, __a) {}
+
+  _LIBCPP_HIDE_FROM_ABI ~hive() { __clear_and_deallocate_all(); }
+
+  _LIBCPP_HIDE_FROM_ABI hive& operator=(const hive& __other) {
+    if (this == std::addressof(__other))
+      return *this;
+    clear();
+    if constexpr (_AllocTraits::propagate_on_container_copy_assignment::value)
+      __alloc_ = __other.__alloc_;
+    for (const auto& __v : __other)
+      emplace(__v);
+    return *this;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI hive& operator=(hive&& __other) noexcept(
+      _AllocTraits::propagate_on_container_move_assignment::value || _AllocTraits::is_always_equal::value) {
+    if (this == std::addressof(__other))
+      return *this;
+    __clear_and_deallocate_all();
+    if constexpr (_AllocTraits::propagate_on_container_move_assignment::value) {
+      __alloc_ = std::move(__other.__alloc_);
+    }
+    if (_AllocTraits::propagate_on_container_move_assignment::value || __alloc_ == __other.__alloc_) {
+      __limits_             = __other.__limits_;
+      __head_               = __other.__head_;
+      __tail_               = __other.__tail_;
+      __reserved_           = __other.__reserved_;
+      __erased_head_        = __other.__erased_head_;
+      __size_               = __other.__size_;
+      __next_group_number_  = __other.__next_group_number_;
+      __other.__head_ = __other.__tail_ = __other.__reserved_ = __other.__erased_head_ = nullptr;
+      __other.__size_                                                                  = 0;
+    } else {
+      for (auto& __v : __other)
+        emplace(std::move(__v));
+      __other.clear();
+    }
+    return *this;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI hive& operator=(initializer_list<_Tp> __il) {
+    assign(__il.begin(), __il.end());
+    return *this;
+  }
+
+  template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
+  _LIBCPP_HIDE_FROM_ABI void assign(_InputIt __first, _InputIt __last) {
+    clear();
+    for (; __first != __last; ++__first)
+      emplace(*__first);
+  }
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  _LIBCPP_HIDE_FROM_ABI void assign_range(_Range&& __rg) {
+    clear();
+    for (auto&& __v : __rg)
+      emplace(std::forward<decltype(__v)>(__v));
+  }
+  _LIBCPP_HIDE_FROM_ABI void assign(size_type __n, const _Tp& __t) {
+    clear();
+    for (size_type __i = 0; __i < __n; ++__i)
+      emplace(__t);
+  }
+  _LIBCPP_HIDE_FROM_ABI void assign(initializer_list<_Tp> __il) { assign(__il.begin(), __il.end()); }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI allocator_type get_allocator() const noexcept { return __alloc_; }
+
+  // iterators
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI iterator begin() noexcept { return __begin_impl<iterator>(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_iterator begin() const noexcept { return __begin_impl<const_iterator>(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_iterator cbegin() const noexcept { return begin(); }
+  // Represented as one-past the tail group (not a null group) so that
+  // operator-- can decrement into it: hive_iterator carries no back-pointer
+  // to the container, so end() needs to be reachable purely from its own
+  // (group, ptr) state.
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI iterator end() noexcept {
+    return __tail_ == nullptr ? iterator(nullptr, nullptr) : iterator(__tail_, __tail_->__elements_ + __tail_->__capacity_);
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_iterator end() const noexcept {
+    return __tail_ == nullptr ? const_iterator(nullptr, nullptr)
+                               : const_iterator(__tail_, __tail_->__elements_ + __tail_->__capacity_);
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_iterator cend() const noexcept { return end(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_reverse_iterator crbegin() const noexcept { return rbegin(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_reverse_iterator crend() const noexcept { return rend(); }
+
+  // capacity
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool empty() const noexcept { return __size_ == 0; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI size_type size() const noexcept { return __size_; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI size_type max_size() const noexcept {
+    return _AllocTraits::max_size(__alloc_);
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI size_type capacity() const noexcept { return __capacity_; }
+
+  _LIBCPP_HIDE_FROM_ABI void reserve(size_type __n) {
+    if (__n > max_size())
+      std::__throw_length_error("hive::reserve");
+    while (capacity() < __n)
+      __push_reserved(__allocate_group(__next_group_capacity()));
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void shrink_to_fit() {
+    // Deallocate reserved (empty, never-active) blocks; consolidating
+    // partially-full active blocks is a valid but not required extension we
+    // skip for simplicity -- capacity() may still exceed size() afterward.
+    trim_capacity();
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void trim_capacity() noexcept {
+    while (__reserved_ != nullptr) {
+      __group_type* __g = __reserved_;
+      __reserved_        = __g->__next_;
+      __deallocate_group(__g);
+    }
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void trim_capacity(size_type __n) noexcept {
+    while (__reserved_ != nullptr && capacity() > __n) {
+      __group_type* __g = __reserved_;
+      __reserved_        = __g->__next_;
+      __deallocate_group(__g);
+    }
+  }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI hive_limits block_capacity_limits() const noexcept { return __limits_; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static hive_limits block_capacity_default_limits() noexcept { return {8, 8192}; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static hive_limits block_capacity_hard_limits() noexcept {
+    return {1, static_cast<size_t>(__group_type::__sentinel) - 1};
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static bool is_within_hard_limits(hive_limits __lim) noexcept {
+    hive_limits __hl = block_capacity_hard_limits();
+    return __hl.min <= __lim.min && __lim.min <= __lim.max && __lim.max <= __hl.max;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void reshape(hive_limits __limits) {
+    __limits_ = __limits;
+    // Migrate any active block whose capacity falls outside the new limits.
+    __group_type* __g = __head_;
+    while (__g != nullptr) {
+      __group_type* __next = __g->__next_;
+      if (__g->__capacity_ < __limits.min || __g->__capacity_ > __limits.max) {
+        for (__link_type __i = 0; __i < __g->__capacity_; ++__i) {
+          if (__g->__skipfield_[__i] == 0) {
+            emplace(std::move(__g->__elements_[__i]));
+            _AllocTraits::destroy(__alloc_, std::addressof(__g->__elements_[__i]));
+          }
+        }
+        // emplace() above already incremented __size_ once per migrated
+        // element (for the new copies); undo the resulting double-count now
+        // that the old ones have been destroyed too.
+        __size_ -= __g->__size_;
+        __unlink_active(__g);
+        __deallocate_group(__g);
+      }
+      __g = __next;
+    }
+  }
+
+  // modifiers
+
+  template <class... _Args>
+  _LIBCPP_HIDE_FROM_ABI iterator emplace(_Args&&... __args) {
+    // Every group with any available space -- whether from genuine erasure
+    // or because it was just allocated/reused and never filled -- is kept
+    // registered with a nonempty free list (see __reset_group_free_list):
+    // a brand-new group starts as one big free skipblock spanning its whole
+    // capacity. This means insertion never needs a separate "append past
+    // size_" path; it always consumes from the free list uniformly.
+    __group_type* __g = __find_or_make_group_with_space();
+    __link_type __idx      = __g->__free_head_;
+    __link_type __run_len = __g->__skipfield_[__idx];
+    if (__run_len == 1) {
+      __g->__unlink_free_block(__idx);
+      if (!__g->__has_erasures())
+        __unlink_erased(__g);
+    } else {
+      __link_type __new_front       = __idx + 1;
+      __g->__skipfield_[__new_front] = __run_len - 1;
+      __link_type __back             = __idx + __run_len - 1;
+      __g->__skipfield_[__back]      = __run_len - 1;
+      __g->__relink_free_block(__idx, __new_front);
+    }
+    __g->__skipfield_[__idx] = 0;
+    _AllocTraits::construct(__alloc_, std::addressof(__g->__elements_[__idx]), std::forward<_Args>(__args)...);
+    ++__g->__size_;
+    ++__size_;
+    return iterator(__g, __g->__elements_ + __idx);
+  }
+
+  template <class... _Args>
+  _LIBCPP_HIDE_FROM_ABI iterator emplace_hint(const_iterator, _Args&&... __args) {
+    return emplace(std::forward<_Args>(__args)...);
+  }
+
+  _LIBCPP_HIDE_FROM_ABI iterator insert(const _Tp& __x) { return emplace(__x); }
+  _LIBCPP_HIDE_FROM_ABI iterator insert(_Tp&& __x) { return emplace(std::move(__x)); }
+  _LIBCPP_HIDE_FROM_ABI iterator insert(const_iterator, const _Tp& __x) { return emplace(__x); }
+  _LIBCPP_HIDE_FROM_ABI iterator insert(const_iterator, _Tp&& __x) { return emplace(std::move(__x)); }
+  _LIBCPP_HIDE_FROM_ABI void insert(initializer_list<_Tp> __il) { insert(__il.begin(), __il.end()); }
+  _LIBCPP_HIDE_FROM_ABI void insert(size_type __n, const _Tp& __x) {
+    for (size_type __i = 0; __i < __n; ++__i)
+      emplace(__x);
+  }
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  _LIBCPP_HIDE_FROM_ABI void insert_range(_Range&& __rg) {
+    for (auto&& __v : __rg)
+      emplace(std::forward<decltype(__v)>(__v));
+  }
+  template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
+  _LIBCPP_HIDE_FROM_ABI void insert(_InputIt __first, _InputIt __last) {
+    for (; __first != __last; ++__first)
+      emplace(*__first);
+  }
+
+  _LIBCPP_HIDE_FROM_ABI iterator erase(const_iterator __pos) {
+    __group_type* __g = __pos.__group_;
+    __link_type __idx  = static_cast<__link_type>(__pos.__ptr_ - __g->__elements_);
+
+    _AllocTraits::destroy(__alloc_, std::addressof(__g->__elements_[__idx]));
+    --__g->__size_;
+    --__size_;
+
+    bool __erased_left  = __idx > 0 && __g->__skipfield_[__idx - 1] != 0;
+    bool __erased_right = __idx + 1 < __g->__capacity_ && __g->__skipfield_[__idx + 1] != 0;
+
+    if (!__erased_left && !__erased_right) {
+      __g->__skipfield_[__idx] = 1;
+      if (!__g->__has_erasures())
+        __link_erased(__g);
+      __g->__push_free_block(__idx);
+    } else if (__erased_left && !__erased_right) {
+      __link_type __left_len = __g->__skipfield_[__idx - 1]; // accurate: idx-1 is a run's back
+      __link_type __front    = __idx - __left_len;
+      __link_type __new_len  = __left_len + 1;
+      __g->__skipfield_[__front] = __new_len;
+      __g->__skipfield_[__idx]   = __new_len;
+      // front index unchanged -> free-list linkage for this skipblock stays valid.
+    } else if (!__erased_left && __erased_right) {
+      __link_type __right_len = __g->__skipfield_[__idx + 1]; // accurate: idx+1 is a run's front
+      __link_type __new_len   = __right_len + 1;
+      __link_type __back       = __idx + __right_len;
+      __g->__skipfield_[__idx]  = __new_len;
+      __g->__skipfield_[__back] = __new_len;
+      __g->__relink_free_block(__idx + 1, __idx);
+    } else {
+      __link_type __left_len  = __g->__skipfield_[__idx - 1];
+      __link_type __right_len = __g->__skipfield_[__idx + 1];
+      __link_type __front      = __idx - __left_len;
+      __link_type __back        = __idx + __right_len;
+      __link_type __new_len    = __left_len + 1 + __right_len;
+      __g->__skipfield_[__front] = __new_len;
+      __g->__skipfield_[__back]  = __new_len;
+      __g->__unlink_free_block(__idx + 1); // right skipblock's identity is absorbed into the left one
+    }
+
+    if (__g->__group_empty()) {
+      // __g is about to be retired to the reserved list, so its __next_
+      // pointer is about to stop meaning "next active group" -- capture
+      // where iteration should continue *before* unlinking, then compute
+      // the result iterator fresh from that, rather than incrementing an
+      // iterator still rooted in __g (which would leave a stale __group_
+      // that no longer compares equal to a freshly computed end()).
+      __group_type* __next_active = __g->__next_;
+      if (__g->__has_erasures())
+        __unlink_erased(__g);
+      __unlink_active(__g);
+      __push_reserved(__g);
+      if (__next_active == nullptr)
+        return end();
+      _Tp* __p            = __next_active->__elements_;
+      __link_type __skip = __next_active->__skipfield_[0];
+      if (__skip != 0)
+        __p += __skip;
+      return iterator(__next_active, __p);
+    }
+
+    iterator __result = iterator(__g, __g->__elements_ + __idx);
+    ++__result;
+    return __result;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI iterator erase(const_iterator __first, const_iterator __last) {
+    while (__first != __last)
+      __first = erase(__first);
+    if (__first.__group_ == nullptr)
+      return end();
+    return iterator(__first.__group_, __first.__ptr_);
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void swap(hive& __other) noexcept(
+      _AllocTraits::propagate_on_container_swap::value || _AllocTraits::is_always_equal::value) {
+    using std::swap;
+    if constexpr (_AllocTraits::propagate_on_container_swap::value)
+      swap(__alloc_, __other.__alloc_);
+    swap(__limits_, __other.__limits_);
+    swap(__head_, __other.__head_);
+    swap(__tail_, __other.__tail_);
+    swap(__reserved_, __other.__reserved_);
+    swap(__erased_head_, __other.__erased_head_);
+    swap(__size_, __other.__size_);
+    swap(__next_group_number_, __other.__next_group_number_);
+  }
+  _LIBCPP_HIDE_FROM_ABI friend void swap(hive& __x, hive& __y) noexcept(noexcept(__x.swap(__y))) { __x.swap(__y); }
+
+  _LIBCPP_HIDE_FROM_ABI void clear() noexcept {
+    __group_type* __g = __head_;
+    while (__g != nullptr) {
+      __group_type* __next = __g->__next_;
+      for (__link_type __i = 0; __i < __g->__capacity_; ++__i) {
+        if (__g->__skipfield_[__i] == 0)
+          _AllocTraits::destroy(__alloc_, std::addressof(__g->__elements_[__i]));
+      }
+      __g->__size_ = 0;
+      __g->__next_erased_ = __g->__prev_erased_ = nullptr;
+      __push_reserved(__g);
+      __g = __next;
+    }
+    __head_ = __tail_ = __erased_head_ = nullptr;
+    __size_             = 0;
+  }
+
+  // hive is explicitly not equality-comparable ([hive.overview]p6): its
+  // element order is unspecified (implementations reuse erased slots in
+  // whatever order is convenient), so there is no operator== or operator<=>.
+
+  // [hive.operations]
+
+  _LIBCPP_HIDE_FROM_ABI void splice(hive& __x) {
+    if (std::addressof(__x) == this)
+      return; // erroneous behavior; no effects
+    if (!(get_allocator() == __x.get_allocator()))
+      std::__throw_runtime_error("hive::splice: allocators must compare equal");
+    __group_type* __g = __x.__head_;
+    while (__g != nullptr) {
+      if (__g->__capacity_ < __limits_.min || __g->__capacity_ > __limits_.max)
+        std::__throw_length_error("hive::splice: incompatible block_capacity_limits");
+      __g = __g->__next_;
+    }
+    __g = __x.__head_;
+    while (__g != nullptr) {
+      __group_type* __next = __g->__next_;
+      __g->__group_number_  = __next_group_number_++;
+      __link_active(__g);
+      if (__g->__has_erasures())
+        __link_erased(__g);
+      __g = __next;
+    }
+    __size_ += __x.__size_;
+    __x.__head_ = __x.__tail_ = __x.__erased_head_ = nullptr;
+    __x.__size_                                     = 0;
+  }
+  _LIBCPP_HIDE_FROM_ABI void splice(hive&& __x) { splice(__x); }
+
+  template <class _BinaryPredicate = equal_to<_Tp>>
+  _LIBCPP_HIDE_FROM_ABI size_type unique(_BinaryPredicate __pred = _BinaryPredicate()) {
+    if (empty())
+      return 0;
+    size_type __removed = 0;
+    iterator __prev      = begin();
+    iterator __it        = __prev;
+    ++__it;
+    while (__it != end()) {
+      if (__pred(*__it, *__prev)) {
+        __it = erase(__it);
+        ++__removed;
+      } else {
+        __prev = __it;
+        ++__it;
+      }
+    }
+    return __removed;
+  }
+
+  template <class _Compare = less<_Tp>>
+  _LIBCPP_HIDE_FROM_ABI void sort(_Compare __comp = _Compare()) {
+    // May allocate and may invalidate all iterators/pointers/references,
+    // including end() -- permitted (not required to be more conservative)
+    // by [hive.operations]. Simplest correct approach: pull everything into
+    // a contiguous buffer, sort it, and reassign values back in place
+    // (element addresses are preserved; only values move), then no
+    // insert/erase bookkeeping is needed at all.
+    vector<reference_wrapper<_Tp>> __refs;
+    __refs.reserve(size());
+    for (auto& __v : *this)
+      __refs.push_back(__v);
+    vector<_Tp> __vals(begin(), end());
+    std::sort(__vals.begin(), __vals.end(), __comp);
+    for (size_type __i = 0; __i < __vals.size(); ++__i)
+      __refs[__i].get() = std::move(__vals[__i]);
+  }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI iterator get_iterator(const_pointer __p) noexcept {
+    return __get_iterator_impl<iterator>(__p);
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_iterator get_iterator(const_pointer __p) const noexcept {
+    return __get_iterator_impl<const_iterator>(__p);
+  }
+
+private:
+  template <class _It>
+  _LIBCPP_HIDE_FROM_ABI _It __begin_impl() const noexcept {
+    __group_type* __g = __head_;
+    while (__g != nullptr && __g->__group_empty())
+      __g = __g->__next_;
+    if (__g == nullptr)
+      return _It(nullptr, nullptr);
+    _Tp* __p            = __g->__elements_;
+    __link_type __skip = __g->__skipfield_[0];
+    if (__skip != 0)
+      __p += __skip;
+    return _It(__g, __p);
+  }
+
+  template <class _It>
+  _LIBCPP_HIDE_FROM_ABI _It __get_iterator_impl(const_pointer __p) const noexcept {
+    _Tp* __raw = const_cast<_Tp*>(std::to_address(__p));
+    for (__group_type* __g = __head_; __g != nullptr; __g = __g->__next_) {
+      if (__raw >= __g->__elements_ && __raw < __g->__elements_ + __g->__capacity_)
+        return _It(__g, __raw);
+    }
+    return _It(nullptr, nullptr);
+  }
+
+  // Doubling growth based on total capacity so far (across active and
+  // reserved blocks combined), so repeated reserve() calls grow correctly
+  // even though reserve()'d blocks don't become __tail_.
+  _LIBCPP_HIDE_FROM_ABI size_type __next_group_capacity() const noexcept {
+    size_type __c = __capacity_ == 0 ? __limits_.min : __capacity_ * 2;
+    if (__c < __limits_.min)
+      __c = __limits_.min;
+    if (__c > __limits_.max)
+      __c = __limits_.max;
+    return __c;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI __group_type* __find_or_make_group_with_space() {
+    // Every non-full group is kept registered in __erased_head_ (see
+    // __reset_group_free_list), so there's no need to separately special-case
+    // "the tail group happens to still have room."
+    if (__erased_head_ != nullptr)
+      return __erased_head_;
+    if (__reserved_ != nullptr) {
+      __group_type* __g = __reserved_;
+      __reserved_         = __g->__next_;
+      __link_active(__g);
+      __link_erased(__g);
+      return __g;
+    }
+    return __append_group(__next_group_capacity());
+  }
+
+  // A group with any available space -- whether newly allocated, freshly
+  // reused from the reserved list, or just cleared -- is represented as one
+  // big free skipblock spanning its entire capacity, exactly like an
+  // ordinary erased run. This lets emplace()'s free-list-consuming logic
+  // handle "give me the next available slot" uniformly, with no separate
+  // "append past the current size" code path.
+  _LIBCPP_HIDE_FROM_ABI void __reset_group_free_list(__group_type* __g) noexcept {
+    if (__g->__capacity_ == 0) {
+      __g->__free_head_ = __group_type::__sentinel;
+      return;
+    }
+    __g->__skipfield_[0]                    = static_cast<__link_type>(__g->__capacity_);
+    __g->__skipfield_[__g->__capacity_ - 1] = static_cast<__link_type>(__g->__capacity_);
+    __g->__free_head_                        = 0;
+    __g->__free_prev_[0]                    = __group_type::__sentinel;
+    __g->__free_next_[0]                    = __group_type::__sentinel;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI __group_type* __allocate_group(size_type __capacity) {
+    __group_alloc __ga(__alloc_);
+    __group_type* __g = allocator_traits<__group_alloc>::allocate(__ga, 1);
+    allocator_traits<__group_alloc>::construct(__ga, __g);
+    __link_alloc __la(__alloc_);
+    __g->__elements_  = _AllocTraits::allocate(__alloc_, __capacity);
+    __g->__skipfield_ = allocator_traits<__link_alloc>::allocate(__la, __capacity + 1);
+    __g->__free_prev_ = allocator_traits<__link_alloc>::allocate(__la, __capacity == 0 ? 1 : __capacity);
+    __g->__free_next_ = allocator_traits<__link_alloc>::allocate(__la, __capacity == 0 ? 1 : __capacity);
+    __g->__capacity_  = __capacity;
+    for (size_type __i = 0; __i <= __capacity; ++__i)
+      __g->__skipfield_[__i] = 0;
+    __reset_group_free_list(__g);
+    __capacity_ += __capacity;
+    return __g;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void __deallocate_group(__group_type* __g) noexcept {
+    __capacity_ -= __g->__capacity_;
+    __link_alloc __la(__alloc_);
+    if (__g->__capacity_ > 0)
+      _AllocTraits::deallocate(__alloc_, __g->__elements_, __g->__capacity_);
+    allocator_traits<__link_alloc>::deallocate(__la, __g->__skipfield_, __g->__capacity_ + 1);
+    allocator_traits<__link_alloc>::deallocate(__la, __g->__free_prev_, __g->__capacity_ == 0 ? 1 : __g->__capacity_);
+    allocator_traits<__link_alloc>::deallocate(__la, __g->__free_next_, __g->__capacity_ == 0 ? 1 : __g->__capacity_);
+    __group_alloc __ga(__alloc_);
+    allocator_traits<__group_alloc>::destroy(__ga, __g);
+    allocator_traits<__group_alloc>::deallocate(__ga, __g, 1);
+  }
+
+  _LIBCPP_HIDE_FROM_ABI __group_type* __append_group(size_type __capacity) {
+    __group_type* __g   = __allocate_group(__capacity);
+    __g->__group_number_ = __next_group_number_++;
+    __link_active(__g);
+    __link_erased(__g);
+    return __g;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void __link_active(__group_type* __g) noexcept {
+    __g->__prev_ = __tail_;
+    __g->__next_ = nullptr;
+    if (__tail_ != nullptr)
+      __tail_->__next_ = __g;
+    else
+      __head_ = __g;
+    __tail_ = __g;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void __unlink_active(__group_type* __g) noexcept {
+    if (__g->__prev_ != nullptr)
+      __g->__prev_->__next_ = __g->__next_;
+    else
+      __head_ = __g->__next_;
+    if (__g->__next_ != nullptr)
+      __g->__next_->__prev_ = __g->__prev_;
+    else
+      __tail_ = __g->__prev_;
+    __g->__prev_ = __g->__next_ = nullptr;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void __link_erased(__group_type* __g) noexcept {
+    __g->__next_erased_ = __erased_head_;
+    __g->__prev_erased_ = nullptr;
+    if (__erased_head_ != nullptr)
+      __erased_head_->__prev_erased_ = __g;
+    __erased_head_ = __g;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void __unlink_erased(__group_type* __g) noexcept {
+    if (__g->__prev_erased_ != nullptr)
+      __g->__prev_erased_->__next_erased_ = __g->__next_erased_;
+    else
+      __erased_head_ = __g->__next_erased_;
+    if (__g->__next_erased_ != nullptr)
+      __g->__next_erased_->__prev_erased_ = __g->__prev_erased_;
+    __g->__next_erased_ = __g->__prev_erased_ = nullptr;
+  }
+
+  // A group entering the reserved list is always made to look like a
+  // freshly allocated one (one big free skipblock, size_ == 0) regardless of
+  // how it got here, so __find_or_make_group_with_space's reserved-reuse
+  // path never has to distinguish "freshly allocated" from "recycled".
+  _LIBCPP_HIDE_FROM_ABI void __push_reserved(__group_type* __g) noexcept {
+    __reset_group_free_list(__g);
+    __g->__next_ = __reserved_;
+    __reserved_   = __g;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void __clear_and_deallocate_all() noexcept {
+    clear();
+    trim_capacity();
+  }
+
+  [[no_unique_address]] _Allocator __alloc_{};
+  hive_limits __limits_ = block_capacity_default_limits();
+  __group_type* __head_ = nullptr;
+  __group_type* __tail_ = nullptr;
+  __group_type* __reserved_ = nullptr;
+  __group_type* __erased_head_ = nullptr;
+  size_type __size_     = 0;
+  size_type __capacity_ = 0;
+  size_type __next_group_number_ = 0;
+};
+
+template <class _InputIt, class _Allocator = allocator<typename iterator_traits<_InputIt>::value_type>>
+hive(_InputIt, _InputIt, _Allocator = _Allocator()) -> hive<typename iterator_traits<_InputIt>::value_type, _Allocator>;
+
+template <class _InputIt, class _Allocator = allocator<typename iterator_traits<_InputIt>::value_type>>
+hive(_InputIt, _InputIt, hive_limits, _Allocator = _Allocator())
+    -> hive<typename iterator_traits<_InputIt>::value_type, _Allocator>;
+
+template <ranges::input_range _Range, class _Allocator = allocator<ranges::range_value_t<_Range>>>
+hive(from_range_t, _Range&&, _Allocator = _Allocator()) -> hive<ranges::range_value_t<_Range>, _Allocator>;
+
+template <ranges::input_range _Range, class _Allocator = allocator<ranges::range_value_t<_Range>>>
+hive(from_range_t, _Range&&, hive_limits, _Allocator = _Allocator()) -> hive<ranges::range_value_t<_Range>, _Allocator>;
+
+template <class _Tp, class _Allocator, class _Up = _Tp>
+_LIBCPP_HIDE_FROM_ABI typename hive<_Tp, _Allocator>::size_type erase(hive<_Tp, _Allocator>& __c, const _Up& __value) {
+  return erase_if(__c, [&__value](const _Tp& __v) { return __v == __value; });
 }
+
+template <class _Tp, class _Allocator, class _Predicate>
+_LIBCPP_HIDE_FROM_ABI typename hive<_Tp, _Allocator>::size_type erase_if(hive<_Tp, _Allocator>& __c, _Predicate __pred) {
+  typename hive<_Tp, _Allocator>::size_type __r = 0;
+  for (auto __it = __c.begin(); __it != __c.end();) {
+    if (__pred(*__it)) {
+      __it = __c.erase(__it);
+      ++__r;
+    } else {
+      ++__it;
+    }
+  }
+  return __r;
+}
+
+// std::pmr::hive (an alias for hive<T, polymorphic_allocator<T>>) is not
+// yet provided here to avoid pulling in <memory_resource> from this header.
+
+#endif // _LIBCPP_STD_VER >= 26
 
 _LIBCPP_END_NAMESPACE_STD
 

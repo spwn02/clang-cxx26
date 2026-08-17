@@ -50,17 +50,11 @@
 
 #elif TEST_STD_VER > 23
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_hive
-#      error "__cpp_lib_hive should be defined in c++26"
-#    endif
-#    if __cpp_lib_hive != 202502L
-#      error "__cpp_lib_hive should have the value 202502L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_hive
-#      error "__cpp_lib_hive should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_hive
+#    error "__cpp_lib_hive should be defined in c++26"
+#  endif
+#  if __cpp_lib_hive != 202502L
+#    error "__cpp_lib_hive should have the value 202502L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

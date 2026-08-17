@@ -717,7 +717,6 @@ feature_test_macros = [
             "name": "__cpp_lib_hive",
             "values": {"c++26": 202502},  # P0447R28 Introduction of std::hive to the standard library
             "headers": ["hive"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_hypot",
