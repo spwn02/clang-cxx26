@@ -193,6 +193,8 @@ namespace std {
 #  include <__fwd/functional.h>
 #  include <__memory/addressof.h>
 #  include <__memory/construct_at.h>
+#  include <__ranges/enable_borrowed_range.h>
+#  include <__ranges/enable_view.h>
 #  include <__tuple/sfinae_helpers.h>
 #  include <__type_traits/add_pointer.h>
 #  include <__type_traits/conditional.h>
@@ -210,6 +212,7 @@ namespace std {
 #  include <__type_traits/is_nothrow_constructible.h>
 #  include <__type_traits/is_object.h>
 #  include <__type_traits/is_reference.h>
+#  include <__type_traits/reference_constructs_from_temporary.h>
 #  include <__type_traits/is_replaceable.h>
 #  include <__type_traits/is_same.h>
 #  include <__type_traits/is_scalar.h>
@@ -791,6 +794,27 @@ public:
     }
   }
 
+#    if _LIBCPP_STD_VER >= 26
+  // [optional.iterators]: a plain pointer already models contiguous_iterator
+  // and meets the constexpr-iterator requirements, so it needs no wrapper.
+  // begin() is either an address into the (single-element) contained-value
+  // storage or, when disengaged, a null "past-the-end" value; end() is
+  // always begin() advanced by has_value(), collapsing to the same null
+  // value in the disengaged case (adding 0 to a null pointer is well-defined
+  // since P2166).
+  using iterator       = add_pointer_t<value_type>;
+  using const_iterator = add_pointer_t<value_type const>;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr iterator begin() noexcept {
+    return this->has_value() ? std::addressof(this->__get()) : nullptr;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr const_iterator begin() const noexcept {
+    return this->has_value() ? std::addressof(this->__get()) : nullptr;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr iterator end() noexcept { return begin() + this->has_value(); }
+  _LIBCPP_HIDE_FROM_ABI constexpr const_iterator end() const noexcept { return begin() + this->has_value(); }
+#    endif // _LIBCPP_STD_VER >= 26
+
   _LIBCPP_HIDE_FROM_ABI constexpr add_pointer_t<value_type const> operator->() const noexcept {
     _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(this->has_value(), "optional operator-> called on a disengaged value");
     return std::addressof(this->__get());
@@ -981,6 +1005,237 @@ public:
 
 template <class _Tp>
 optional(_Tp) -> optional<_Tp>;
+
+#    if _LIBCPP_STD_VER >= 26
+
+// [optional.optional.ref]: partial specialization of optional for lvalue
+// reference types (P2988R11). Only ever holds a pointer to the referent (or
+// null), so it's trivially copyable regardless of T -- there is no owned
+// storage to move/destroy, unlike the primary template.
+//
+// [[gsl::Pointer]] overrides Sema::inferGslOwnerPointerAttribute, which
+// hardcodes every class literally named "optional" in namespace std --
+// this partial specialization included, since the inference matches on
+// name only -- as a gsl::Owner. That's right for the primary template
+// (operator* returns a reference into storage the optional itself owns)
+// and wrong here (operator* returns a reference to the referent, which
+// outlives this wrapper): left un-overridden, the dangling-reference
+// checker treats every `auto r = f(); ...; return *r;` on an
+// optional<T&>, including try_push_back's own documented usage pattern,
+// as returning a dangling reference into a local -- a false positive on
+// working code, not a real bug (verified: the equivalent pattern with a
+// hand-rolled type in this same position, not named "optional", never
+// triggers the warning).
+template <class _Tp>
+class [[gsl::Pointer]] optional<_Tp&> {
+public:
+  using value_type = _Tp;
+  using iterator    = add_pointer_t<_Tp>;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr optional() noexcept                = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr optional(nullopt_t) noexcept : optional() {}
+  _LIBCPP_HIDE_FROM_ABI constexpr optional(const optional&) noexcept = default;
+
+  template <class _Arg>
+    requires(is_constructible_v<_Tp&, _Arg> && !reference_constructs_from_temporary_v<_Tp&, _Arg>)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit optional(in_place_t, _Arg&& __arg) {
+    __convert_ref_init_val(std::forward<_Arg>(__arg));
+  }
+
+#      if _LIBCPP_STD_VER >= 23
+  // Shared with the primary template's transform(): lets transform() build a
+  // reference-typed result in place via invoke(f, ...), the same way it
+  // already does for value-typed results, without requiring the invoke
+  // result to be movable.
+  template <class _Tag,
+            class _Fp,
+            class... _Args,
+            enable_if_t<_IsSame<_Tag, __optional_construct_from_invoke_tag>::value, int> = 0>
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit optional(_Tag, _Fp&& __f, _Args&&... __args) {
+    __convert_ref_init_val(std::invoke(std::forward<_Fp>(__f), std::forward<_Args>(__args)...));
+  }
+#      endif // _LIBCPP_STD_VER >= 23
+
+  // optional(U&&): constrained per [optional.ref.ctor]/3; deleted rather
+  // than removed from overload resolution when U would only bind by
+  // materializing a temporary, per the Remarks there -- a dangling
+  // reference is a clear error at the call site, not a silent fallback to
+  // some other overload.
+  template <class _Up = _Tp>
+    requires(_IsNotSame<remove_cvref_t<_Up>, optional>::value && _IsNotSame<remove_cvref_t<_Up>, in_place_t>::value &&
+             is_constructible_v<_Tp&, _Up> && !reference_constructs_from_temporary_v<_Tp&, _Up>)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit(!is_convertible_v<_Up, _Tp&>)
+  optional(_Up&& __u) noexcept(is_nothrow_constructible_v<_Tp&, _Up>) {
+    __convert_ref_init_val(std::forward<_Up>(__u));
+  }
+  template <class _Up = _Tp>
+    requires(_IsNotSame<remove_cvref_t<_Up>, optional>::value && _IsNotSame<remove_cvref_t<_Up>, in_place_t>::value &&
+             is_constructible_v<_Tp&, _Up> && reference_constructs_from_temporary_v<_Tp&, _Up>)
+  optional(_Up&&) = delete;
+
+  template <class _Up>
+    requires(_IsNotSame<remove_cv_t<_Tp>, optional<_Up>>::value && _IsNotSame<_Tp&, _Up>::value &&
+             is_constructible_v<_Tp&, _Up&> && !reference_constructs_from_temporary_v<_Tp&, _Up&>)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit(!is_convertible_v<_Up&, _Tp&>)
+  optional(optional<_Up>& __rhs) noexcept(is_nothrow_constructible_v<_Tp&, _Up&>) {
+    if (__rhs.has_value())
+      __convert_ref_init_val(*__rhs);
+  }
+  template <class _Up>
+    requires(_IsNotSame<remove_cv_t<_Tp>, optional<_Up>>::value && _IsNotSame<_Tp&, _Up>::value &&
+             is_constructible_v<_Tp&, _Up&> && reference_constructs_from_temporary_v<_Tp&, _Up&>)
+  optional(optional<_Up>&) = delete;
+
+  template <class _Up>
+    requires(_IsNotSame<remove_cv_t<_Tp>, optional<_Up>>::value && _IsNotSame<_Tp&, _Up>::value &&
+             is_constructible_v<_Tp&, const _Up&> && !reference_constructs_from_temporary_v<_Tp&, const _Up&>)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit(!is_convertible_v<const _Up&, _Tp&>)
+  optional(const optional<_Up>& __rhs) noexcept(is_nothrow_constructible_v<_Tp&, const _Up&>) {
+    if (__rhs.has_value())
+      __convert_ref_init_val(*__rhs);
+  }
+  template <class _Up>
+    requires(_IsNotSame<remove_cv_t<_Tp>, optional<_Up>>::value && _IsNotSame<_Tp&, _Up>::value &&
+             is_constructible_v<_Tp&, const _Up&> && reference_constructs_from_temporary_v<_Tp&, const _Up&>)
+  optional(const optional<_Up>&) = delete;
+
+  template <class _Up>
+    requires(_IsNotSame<remove_cv_t<_Tp>, optional<_Up>>::value && _IsNotSame<_Tp&, _Up>::value &&
+             is_constructible_v<_Tp&, _Up> && !reference_constructs_from_temporary_v<_Tp&, _Up>)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit(!is_convertible_v<_Up, _Tp&>)
+  optional(optional<_Up>&& __rhs) noexcept(is_nothrow_constructible_v<_Tp&, _Up>) {
+    if (__rhs.has_value())
+      __convert_ref_init_val(std::move(*__rhs));
+  }
+  template <class _Up>
+    requires(_IsNotSame<remove_cv_t<_Tp>, optional<_Up>>::value && _IsNotSame<_Tp&, _Up>::value &&
+             is_constructible_v<_Tp&, _Up> && reference_constructs_from_temporary_v<_Tp&, _Up>)
+  optional(optional<_Up>&&) = delete;
+
+  template <class _Up>
+    requires(_IsNotSame<remove_cv_t<_Tp>, optional<_Up>>::value && _IsNotSame<_Tp&, _Up>::value &&
+             is_constructible_v<_Tp&, const _Up> && !reference_constructs_from_temporary_v<_Tp&, const _Up>)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit(!is_convertible_v<const _Up, _Tp&>)
+  optional(const optional<_Up>&& __rhs) noexcept(is_nothrow_constructible_v<_Tp&, const _Up>) {
+    if (__rhs.has_value())
+      __convert_ref_init_val(std::move(*__rhs));
+  }
+  template <class _Up>
+    requires(_IsNotSame<remove_cv_t<_Tp>, optional<_Up>>::value && _IsNotSame<_Tp&, _Up>::value &&
+             is_constructible_v<_Tp&, const _Up> && reference_constructs_from_temporary_v<_Tp&, const _Up>)
+  optional(const optional<_Up>&&) = delete;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr ~optional() = default;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr optional& operator=(nullopt_t) noexcept {
+    __val_ = nullptr;
+    return *this;
+  }
+  // [optional.ref.assign] specifies no operator=(U&&): assigning a bare
+  // value (`opt = x;`) goes through this copy-assign, via the U&&
+  // converting constructor materializing a temporary optional<T&> first.
+  // That's a real, standard-mandated path, not a workaround -- but on this
+  // compiler it can trip -Wdangling-assignment-gsl (a false positive; the
+  // temporary optional<T&> doesn't own x, only points at it, so its
+  // end-of-full-expression destruction doesn't invalidate the pointer being
+  // copied out of it). If it does, prefer .emplace(x), which assigns
+  // directly without materializing an intermediate optional<T&>.
+  _LIBCPP_HIDE_FROM_ABI constexpr optional& operator=(const optional&) noexcept = default;
+
+  template <class _Up = _Tp>
+    requires(is_constructible_v<_Tp&, _Up> && !reference_constructs_from_temporary_v<_Tp&, _Up>)
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp& emplace(_Up&& __u) noexcept(is_nothrow_constructible_v<_Tp&, _Up>) {
+    __convert_ref_init_val(std::forward<_Up>(__u));
+    return *__val_;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr void swap(optional& __rhs) noexcept { std::swap(__val_, __rhs.__val_); }
+
+  // [optional.ref.iterators]. As with the primary template, a plain pointer
+  // already satisfies every requirement asked of this type, so it needs no
+  // wrapper. (This simplification also provides begin()/end() when T is an
+  // array of unknown bound, a case the standard doesn't require support for;
+  // that's a strict superset of the required surface, not a conformance gap.)
+  _LIBCPP_HIDE_FROM_ABI constexpr auto begin() const noexcept { return __val_; }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto end() const noexcept { return __val_ + has_value(); }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp* operator->() const noexcept {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(has_value(), "optional operator-> called on a disengaged value");
+    return __val_;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp& operator*() const noexcept {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(has_value(), "optional operator* called on a disengaged value");
+    return *__val_;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit operator bool() const noexcept { return __val_ != nullptr; }
+  _LIBCPP_HIDE_FROM_ABI constexpr bool has_value() const noexcept { return __val_ != nullptr; }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp& value() const {
+    if (!has_value())
+      std::__throw_bad_optional_access();
+    return *__val_;
+  }
+
+  template <class _Up = remove_cv_t<_Tp>>
+  _LIBCPP_HIDE_FROM_ABI constexpr remove_cv_t<_Tp> value_or(_Up&& __u) const {
+    static_assert(is_constructible_v<remove_cv_t<_Tp>, _Tp&>, "optional<T&>::value_or: T must be copy constructible");
+    static_assert(is_convertible_v<_Up, remove_cv_t<_Tp>>, "optional<T&>::value_or: U must be convertible to T");
+    return has_value() ? *__val_ : static_cast<remove_cv_t<_Tp>>(std::forward<_Up>(__u));
+  }
+
+  template <class _Func>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto and_then(_Func&& __f) const {
+    using _Up = invoke_result_t<_Func, _Tp&>;
+    static_assert(__is_std_optional<remove_cvref_t<_Up>>::value,
+                  "Result of f(*val) must be a specialization of std::optional");
+    if (has_value())
+      return std::invoke(std::forward<_Func>(__f), *__val_);
+    return remove_cvref_t<_Up>();
+  }
+
+  template <class _Func>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto transform(_Func&& __f) const {
+    using _Up = remove_cv_t<invoke_result_t<_Func, _Tp&>>;
+    static_assert(!is_array_v<_Up>, "Result of f(*val) should not be an Array");
+    static_assert(!is_same_v<_Up, in_place_t>, "Result of f(*val) should not be std::in_place_t");
+    static_assert(!is_same_v<_Up, nullopt_t>, "Result of f(*val) should not be std::nullopt_t");
+    static_assert(is_object_v<_Up> || is_reference_v<_Up>, "Result of f(*val) should be an object or reference type");
+    if (has_value())
+      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), *__val_);
+    return optional<_Up>();
+  }
+
+  template <invocable _Func>
+  _LIBCPP_HIDE_FROM_ABI constexpr optional or_else(_Func&& __f) const {
+    static_assert(is_same_v<remove_cvref_t<invoke_result_t<_Func>>, optional>,
+                  "Result of f() should be the same type as this optional");
+    if (has_value())
+      return *this;
+    return std::forward<_Func>(__f)();
+  }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr void reset() noexcept { __val_ = nullptr; }
+
+private:
+  _Tp* __val_ = nullptr;
+
+  template <class _Up>
+  _LIBCPP_HIDE_FROM_ABI constexpr void __convert_ref_init_val(_Up&& __u) {
+    _Tp& __r(std::forward<_Up>(__u));
+    __val_ = std::addressof(__r);
+  }
+
+  template <class _Up>
+  friend class optional;
+};
+
+template <class _Tp>
+inline constexpr bool ranges::enable_borrowed_range<optional<_Tp&>> = true;
+
+#    endif // _LIBCPP_STD_VER >= 26
+
+template <class _Tp>
+inline constexpr bool ranges::enable_view<optional<_Tp>> = true;
 
 // Comparisons between optionals
 template <

@@ -117,3 +117,5 @@
 "`P0447R28 <https://wg21.link/P0447R28>`__","Introduction of ``std::hive`` to the standard library","2025-02 (Hagenberg)","|Complete|","",""
 "`P3019R14 <https://wg21.link/P3019R14>`__","``indirect`` and ``polymorphic``: Vocabulary Types for Composite Class Design","2025-02 (Hagenberg)","|Complete|","",""
 "","","","","",""
+"`P2988R11 <https://wg21.link/P2988R11>`__","``std::optional<T&>``","2025-06 (Sofia)","|Complete|","","Includes the shared [optional.iterators] range support added to the primary (non-reference) ``optional<T>`` by the same paper."
+"","","","","",""
