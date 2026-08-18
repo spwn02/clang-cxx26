@@ -17,6 +17,31 @@
 #include <cassert>
 #include <vector>
 #include <algorithm>
+#include <cstddef>
+#include <memory>
+#include <type_traits>
+
+// [hive.overview]p5: "The maximum hard limit shall be no larger than
+// std::allocator_traits<Allocator>::max_size()." A stub allocator with a
+// deliberately tiny max_size() is the only way to observe that
+// block_capacity_hard_limits() actually respects this -- with the default
+// allocator, the structural (unsigned __link_type) ceiling is always the
+// smaller of the two, so that path alone can't distinguish "clamped
+// correctly" from "not clamped at all".
+template <class T>
+struct SmallMaxSizeAlloc {
+  using value_type = T;
+  SmallMaxSizeAlloc() = default;
+  template <class U>
+  SmallMaxSizeAlloc(const SmallMaxSizeAlloc<U>&) {}
+  T* allocate(std::size_t n) { return std::allocator<T>().allocate(n); }
+  void deallocate(T* p, std::size_t n) { std::allocator<T>().deallocate(p, n); }
+  static constexpr std::size_t max_size() noexcept { return 100; }
+  template <class U>
+  bool operator==(const SmallMaxSizeAlloc<U>&) const {
+    return true;
+  }
+};
 
 int main(int, char**) {
   {
@@ -110,6 +135,20 @@ int main(int, char**) {
     h.reserve(200);
     h.trim_capacity(50);
     assert(h.capacity() <= 200);
+  }
+
+  {
+    // block_capacity_hard_limits() must clamp to the allocator's max_size().
+    auto hard = std::hive<int, SmallMaxSizeAlloc<int>>::block_capacity_hard_limits();
+    assert(hard.max <= 100);
+    static_assert(std::is_same_v<decltype(hard.max), size_t>);
+
+    // With the default allocator, max_size() is astronomically larger than
+    // the structural (unsigned __link_type) ceiling, so the hard max should
+    // be governed by that structural limit, not clamped down to something
+    // small.
+    auto normal_hard = std::hive<int>::block_capacity_hard_limits();
+    assert(normal_hard.max > 1000000);
   }
 
   return 0;

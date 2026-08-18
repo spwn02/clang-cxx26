@@ -23,8 +23,11 @@
 
 namespace {
 struct Base {
-  virtual ~Base()       = default;
-  virtual int f() const = 0;
+  Base()                       = default;
+  Base(const Base&)            = default;
+  Base& operator=(const Base&) = default;
+  virtual ~Base()              = default;
+  virtual int f() const        = 0;
 };
 struct Derived : Base {
   int value;

@@ -37,11 +37,27 @@
 // complexity ("linear in the number of elements erased" -- i.e. O(1) for a
 // single-element erase).
 //
-// Not implemented, or implemented as an honest simplification: constexpr
-// (the paper explicitly declines to require it, citing the same
-// pervasive-reinterpret_cast concerns as here); the small-block-size /
-// bitset-based storage variant for very small sizeof(T) (Appendix I of the
-// paper) -- ordinary skipfield storage is used uniformly instead.
+// constexpr: the standard requires it only on a narrow surface -- the four
+// "trivial" constructors (default, allocator-only, limits-only,
+// limits-and-allocator) and the four capacity-limit query functions
+// (block_capacity_limits, block_capacity_default_limits,
+// block_capacity_hard_limits, is_within_hard_limits) -- all implemented
+// here to match. The destructor is deliberately NOT required to be
+// constexpr ([hive.overview]'s synopsis omits it), which makes hive<T> a
+// non-literal type overall: no constexpr hive<T> variable can be formed
+// and no full construct-then-destroy hive lifecycle can complete inside a
+// constant expression, even though the constructor calls themselves are
+// constexpr-qualified. This is not a bug or a gap to "fix" by also making
+// ~hive() constexpr -- doing so would cascade into requiring
+// clear()/trim_capacity()/__deallocate_group() and constexpr-compatible
+// group storage generally, none of which the standard asks for.
+//
+// Appendix I of the paper -- an alternative small-block-size / bitset-based
+// storage variant for very small sizeof(T) -- is explicitly non-normative
+// (informative implementation guidance); ordinary skipfield storage is used
+// uniformly here instead, which the paper's own design-decisions section
+// confirms is a conforming choice (storage strategy is unconstrained by the
+// normative wording beyond the stated complexity guarantees).
 //
 //===----------------------------------------------------------------------===//
 
@@ -53,6 +69,7 @@
 #include <__iterator/move_iterator.h>
 #include <__memory/allocator.h>
 #include <__memory/allocator_traits.h>
+#include <__memory_resource/polymorphic_allocator.h>
 #include <__ranges/container_compatible_range.h>
 #include <__ranges/from_range.h>
 #include <algorithm>
@@ -294,10 +311,10 @@ public:
   using reverse_iterator        = std::reverse_iterator<iterator>;
   using const_reverse_iterator  = std::reverse_iterator<const_iterator>;
 
-  _LIBCPP_HIDE_FROM_ABI hive() noexcept(noexcept(_Allocator())) : hive(_Allocator()) {}
-  _LIBCPP_HIDE_FROM_ABI explicit hive(const _Allocator& __a) noexcept : __alloc_(__a) {}
-  _LIBCPP_HIDE_FROM_ABI explicit hive(hive_limits __limits) : hive(__limits, _Allocator()) {}
-  _LIBCPP_HIDE_FROM_ABI hive(hive_limits __limits, const _Allocator& __a) : __alloc_(__a), __limits_(__limits) {}
+  _LIBCPP_HIDE_FROM_ABI constexpr hive() noexcept(noexcept(_Allocator())) : hive(_Allocator()) {}
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit hive(const _Allocator& __a) noexcept : __alloc_(__a) {}
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit hive(hive_limits __limits) : hive(__limits, _Allocator()) {}
+  _LIBCPP_HIDE_FROM_ABI constexpr hive(hive_limits __limits, const _Allocator& __a) : __alloc_(__a), __limits_(__limits) {}
 
   _LIBCPP_HIDE_FROM_ABI explicit hive(size_type __n, const _Allocator& __a = _Allocator()) : __alloc_(__a) {
     for (size_type __i = 0; __i < __n; ++__i)
@@ -361,8 +378,8 @@ public:
         __reserved_(__other.__reserved_),
         __erased_head_(__other.__erased_head_),
         __size_(__other.__size_),
-        __next_group_number_(__other.__next_group_number_),
-        __capacity_(__other.__capacity_) {
+        __capacity_(__other.__capacity_),
+        __next_group_number_(__other.__next_group_number_) {
     __other.__head_ = __other.__tail_ = __other.__reserved_ = __other.__erased_head_ = nullptr;
     __other.__size_                                                                  = 0;
     __other.__capacity_                                                              = 0;
@@ -521,12 +538,21 @@ public:
     }
   }
 
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI hive_limits block_capacity_limits() const noexcept { return __limits_; }
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static hive_limits block_capacity_default_limits() noexcept { return {8, 8192}; }
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static hive_limits block_capacity_hard_limits() noexcept {
-    return {1, static_cast<size_t>(__group_type::__sentinel) - 1};
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr hive_limits block_capacity_limits() const noexcept { return __limits_; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static constexpr hive_limits block_capacity_default_limits() noexcept {
+    return {8, 8192};
   }
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static bool is_within_hard_limits(hive_limits __lim) noexcept {
+  // [hive.overview]p5: "The maximum hard limit shall be no larger than
+  // std::allocator_traits<Allocator>::max_size()." __group_type::__sentinel
+  // is also a hard structural ceiling (group capacities are stored in
+  // unsigned __link_type fields), so the true hard max is whichever of the
+  // two is smaller.
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static constexpr hive_limits block_capacity_hard_limits() noexcept {
+    size_t __structural_max = static_cast<size_t>(__group_type::__sentinel) - 1;
+    size_t __alloc_max      = _AllocTraits::max_size(_Allocator());
+    return {1, __structural_max < __alloc_max ? __structural_max : __alloc_max};
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static constexpr bool is_within_hard_limits(hive_limits __lim) noexcept {
     hive_limits __hl = block_capacity_hard_limits();
     return __hl.min <= __lim.min && __lim.min <= __lim.max && __lim.max <= __hl.max;
   }
@@ -1087,12 +1113,18 @@ _LIBCPP_HIDE_FROM_ABI typename hive<_Tp, _Allocator>::size_type erase_if(hive<_T
   return __r;
 }
 
-// std::pmr::hive (an alias for hive<T, polymorphic_allocator<T>>) is not
-// yet provided here to avoid pulling in <memory_resource> from this header.
-
 #endif // _LIBCPP_STD_VER >= 26
 
 _LIBCPP_END_NAMESPACE_STD
+
+#if _LIBCPP_STD_VER >= 26
+_LIBCPP_BEGIN_NAMESPACE_STD
+namespace pmr {
+template <class _Tp>
+using hive _LIBCPP_AVAILABILITY_PMR = std::hive<_Tp, polymorphic_allocator<_Tp>>;
+} // namespace pmr
+_LIBCPP_END_NAMESPACE_STD
+#endif
 
 _LIBCPP_POP_MACROS
 
