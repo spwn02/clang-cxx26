@@ -42,12 +42,16 @@ int main(int, char**) {
   {
     IV v;
     assert(v.empty());
-    v.push_back(1);
+    auto __r = v.try_push_back(1);
+    assert(__r.has_value() && *__r == 1 && &*__r == &v.back());
     v.push_back(2);
     v.push_back(3);
     v.push_back(4);
     assert(v.size() == 4);
-    assert(v.try_push_back(5) == nullptr);
+    // try_push_back returns optional<reference>: engaged with the new
+    // element on success, disengaged (not comparable to nullptr) on
+    // capacity overflow.
+    assert(!v.try_push_back(5).has_value());
 
     bool threw = false;
     try {

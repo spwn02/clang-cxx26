@@ -22,6 +22,7 @@
 #include <initializer_list>
 #include <iterator>
 #include <new>
+#include <optional>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -421,68 +422,53 @@ public:
 
   // modifiers
 
-  constexpr auto try_push_back(const _Tp& __value) -> pointer {
+  constexpr auto try_push_back(const _Tp& __value) -> optional<reference> {
     if (size() >= Capacity)
-      return nullptr;
+      return nullopt;
     this->__construct_elem(data() + size(), __value);
     ++this->__size_;
-    return data() + size() - 1;
+    return data()[size() - 1];
   }
 
-  constexpr auto try_push_back(_Tp&& __value) -> pointer {
+  constexpr auto try_push_back(_Tp&& __value) -> optional<reference> {
     if (size() >= Capacity)
-      return nullptr;
+      return nullopt;
     this->__construct_elem(data() + size(), std::move(__value));
     ++this->__size_;
-    return data() + size() - 1;
+    return data()[size() - 1];
   }
 
   template <class... _Args>
-  constexpr auto try_emplace_back(_Args&&... __args) -> pointer {
+  constexpr auto try_emplace_back(_Args&&... __args) -> optional<reference> {
     if (size() >= Capacity)
-      return nullptr;
+      return nullopt;
     this->__construct_elem(data() + size(), std::forward<_Args>(__args)...);
     ++this->__size_;
-    return data() + size() - 1;
-  }
-
-  template <_ContainerCompatibleRange<_Tp> _Range>
-  constexpr auto try_append_range(_Range&& __rg) -> ranges::borrowed_iterator_t<_Range> {
-    auto __first = ranges::begin(__rg);
-    auto __last  = ranges::end(__rg);
-    for (; __first != __last && size() < Capacity; ++__first)
-      unchecked_push_back(*__first);
-    return __first;
+    return data()[size() - 1];
   }
 
   constexpr auto push_back(const _Tp& __value) -> reference {
-    auto* __p = try_push_back(__value);
-    if (__p == nullptr)
+    auto __r = try_push_back(__value);
+    if (!__r)
       std::__throw_bad_alloc();
-    return *__p;
+    return *__r;
   }
 
   constexpr auto push_back(_Tp&& __value) -> reference {
-    auto* __p = try_push_back(std::move(__value));
-    if (__p == nullptr)
+    auto __r = try_push_back(std::move(__value));
+    if (!__r)
       std::__throw_bad_alloc();
-    return *__p;
+    return *__r;
   }
 
   template <class... _Args>
   constexpr auto emplace_back(_Args&&... __args) -> reference {
-    auto* __p = try_emplace_back(std::forward<_Args>(__args)...);
-    if (__p == nullptr)
+    auto __r = try_emplace_back(std::forward<_Args>(__args)...);
+    if (!__r)
       std::__throw_bad_alloc();
-    return *__p;
+    return *__r;
   }
 
-  // Deliberately does not forward to try_append_range: its return type is
-  // ranges::borrowed_iterator_t<_Range>, which is ranges::dangling for a
-  // non-borrowed rvalue range (e.g. a temporary std::array) -- comparing
-  // that against a fresh ranges::end(__rg) doesn't typecheck. __rg is still
-  // alive for the whole body here regardless, so we just re-derive
-  // begin/end directly instead of reusing try_append_range's result.
   template <_ContainerCompatibleRange<_Tp> _Range>
   constexpr void append_range(_Range&& __rg) {
     for (auto&& __v : __rg) {
@@ -494,13 +480,24 @@ public:
 
   // Preconditions: size() < capacity(). Equivalent to *try_push_back(...)/
   // *try_emplace_back(...); the precondition is exactly what makes that
-  // dereference always valid.
-  constexpr auto unchecked_push_back(const _Tp& __value) -> reference { return *try_push_back(__value); }
-  constexpr auto unchecked_push_back(_Tp&& __value) -> reference { return *try_push_back(std::move(__value)); }
+  // dereference always valid. Binds the optional<reference> to a name first
+  // rather than dereferencing the call result inline: the referent lives in
+  // this container's storage, not in the temporary optional itself, but
+  // dereferencing a temporary inline still trips -Wreturn-stack-address's
+  // conservative pattern match for "reference into a temporary".
+  constexpr auto unchecked_push_back(const _Tp& __value) -> reference {
+    auto __r = try_push_back(__value);
+    return *__r;
+  }
+  constexpr auto unchecked_push_back(_Tp&& __value) -> reference {
+    auto __r = try_push_back(std::move(__value));
+    return *__r;
+  }
 
   template <class... _Args>
   constexpr auto unchecked_emplace_back(_Args&&... __args) -> reference {
-    return *try_emplace_back(std::forward<_Args>(__args)...);
+    auto __r = try_emplace_back(std::forward<_Args>(__args)...);
+    return *__r;
   }
 
   constexpr void pop_back() {
@@ -557,10 +554,20 @@ public:
       unchecked_emplace_back(std::forward<_Args>(__args)...);
       return data() + __idx;
     }
+    // Construct the new value before touching the container at all: per the
+    // sequence-container exception guarantee, a throw from anything other
+    // than T's own copy/move constructor or assignment must leave the
+    // container with no effects, and constructing directly from __args (as
+    // opposed to a plain copy/move of an existing element) is exactly that
+    // "anything other than" case. Once __tmp exists, the shift below only
+    // ever throws via T's move constructor/assignment, which the guarantee
+    // explicitly permits to leave the container in a valid but unspecified
+    // state.
+    _Tp __tmp(std::forward<_Args>(__args)...);
     unchecked_push_back(std::move(data()[size() - 1]));
     for (size_type __i = size() - 1; __i > __idx; --__i)
       data()[__i] = std::move(data()[__i - 1]);
-    data()[__idx] = _Tp(std::forward<_Args>(__args)...);
+    data()[__idx] = std::move(__tmp);
     return data() + __idx;
   }
 
@@ -705,6 +712,54 @@ public:
       std::__throw_bad_alloc();
   }
 
+  constexpr auto operator=(std::initializer_list<_Tp> __il) -> inplace_vector& {
+    assign(__il);
+    return *this;
+  }
+
+  template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
+  constexpr void assign(_InputIt __first, _InputIt __last) {
+    if (__first != __last)
+      std::__throw_bad_alloc();
+  }
+
+  template <_ContainerCompatibleRange<_Tp> _Range>
+  constexpr void assign_range(_Range&& __rg) {
+    if (ranges::begin(__rg) != ranges::end(__rg))
+      std::__throw_bad_alloc();
+  }
+
+  constexpr void assign(size_type __n, const _Tp&) {
+    if (__n > 0)
+      std::__throw_bad_alloc();
+  }
+
+  constexpr void assign(std::initializer_list<_Tp> __il) {
+    if (__il.size() > 0)
+      std::__throw_bad_alloc();
+  }
+
+  // element access
+  //
+  // No valid index or dereferenceable position ever exists (size() is always
+  // 0), so every one of these has an unsatisfiable precondition and calling
+  // it is UB, exactly as calling front()/back()/operator[] on an empty
+  // vector is UB -- at() is the sole exception, since its behavior on an
+  // invalid index is specified (throw), not left as a precondition.
+
+  [[nodiscard]] constexpr auto at(size_type) -> reference { std::__throw_out_of_range("inplace_vector::at"); }
+  [[nodiscard]] constexpr auto at(size_type) const -> const_reference {
+    std::__throw_out_of_range("inplace_vector::at");
+  }
+
+  [[nodiscard]] constexpr auto operator[](size_type) -> reference { return *data(); }
+  [[nodiscard]] constexpr auto operator[](size_type) const -> const_reference { return *data(); }
+
+  [[nodiscard]] constexpr auto front() -> reference { return *data(); }
+  [[nodiscard]] constexpr auto front() const -> const_reference { return *data(); }
+  [[nodiscard]] constexpr auto back() -> reference { return *data(); }
+  [[nodiscard]] constexpr auto back() const -> const_reference { return *data(); }
+
   [[nodiscard]] constexpr auto data() noexcept -> _Tp* { return nullptr; }
   [[nodiscard]] constexpr auto data() const noexcept -> const _Tp* { return nullptr; }
 
@@ -744,15 +799,11 @@ public:
   }
   static constexpr void shrink_to_fit() noexcept {}
 
-  constexpr auto try_push_back(const _Tp&) -> pointer { return nullptr; }
-  constexpr auto try_push_back(_Tp&&) -> pointer { return nullptr; }
+  constexpr auto try_push_back(const _Tp&) -> optional<reference> { return nullopt; }
+  constexpr auto try_push_back(_Tp&&) -> optional<reference> { return nullopt; }
   template <class... _Args>
-  constexpr auto try_emplace_back(_Args&&...) -> pointer {
-    return nullptr;
-  }
-  template <_ContainerCompatibleRange<_Tp> _Range>
-  constexpr auto try_append_range(_Range&& __rg) -> ranges::borrowed_iterator_t<_Range> {
-    return ranges::begin(__rg);
+  constexpr auto try_emplace_back(_Args&&...) -> optional<reference> {
+    return nullopt;
   }
 
   constexpr auto push_back(const _Tp&) -> reference {
@@ -769,6 +820,21 @@ public:
   constexpr void append_range(_Range&& __rg) {
     if (ranges::begin(__rg) != ranges::end(__rg))
       std::__throw_bad_alloc();
+  }
+
+  // Preconditions: size() < capacity(), never satisfiable; UB to call.
+  constexpr auto unchecked_push_back(const _Tp& __value) -> reference {
+    auto __r = try_push_back(__value);
+    return *__r;
+  }
+  constexpr auto unchecked_push_back(_Tp&& __value) -> reference {
+    auto __r = try_push_back(std::move(__value));
+    return *__r;
+  }
+  template <class... _Args>
+  constexpr auto unchecked_emplace_back(_Args&&... __args) -> reference {
+    auto __r = try_emplace_back(std::forward<_Args>(__args)...);
+    return *__r;
   }
 
   constexpr void pop_back() { /* precondition size() < capacity() is never satisfiable; UB to call */ }
@@ -802,8 +868,11 @@ public:
     std::__throw_bad_alloc();
   }
 
-  constexpr auto erase(const_iterator __pos) -> iterator { return __pos; }
-  constexpr auto erase(const_iterator __first, const_iterator) -> iterator { return __first; }
+  // Preconditions require __pos (resp. [__first, __last)) to be within
+  // [begin(), end()); since begin() == end() == nullptr always, the only
+  // conforming argument is end() itself, so the result is always end().
+  constexpr auto erase(const_iterator) -> iterator { return end(); }
+  constexpr auto erase(const_iterator, const_iterator) -> iterator { return end(); }
 
   constexpr void clear() noexcept {}
   constexpr void swap(inplace_vector&) noexcept {}
