@@ -19,6 +19,8 @@
 #include <cassert>
 #include <vector>
 #include <algorithm>
+#include <memory>
+#include <string>
 
 template <class T, class Alloc>
 std::vector<T> sorted_contents(const std::hive<T, Alloc>& h) {
@@ -58,6 +60,47 @@ int main(int, char**) {
     assert(n == 1);
     assert(h.size() == 3);
     assert((sorted_contents(h) == std::vector<int>{3, 4, 5}));
+  }
+
+  {
+    // Destructor and move-assign, on a sparsely-filled large-capacity group
+    // with a non-trivial element type: both route through
+    // __clear_and_deallocate_all(), which delegates to clear() -- this is
+    // the same never-constructed-destructor hazard clear() itself had (see
+    // modifiers.pass.cpp), just reached without an explicit clear() call.
+    {
+      std::hive<std::string> h(std::hive_limits(64, 64));
+      for (int i = 0; i < 20; ++i)
+        h.insert(std::to_string(i));
+      // destructor runs here, on a group with a long never-used free run.
+    }
+    {
+      std::hive<std::string> b(std::hive_limits(64, 64));
+      for (int i = 0; i < 20; ++i)
+        b.insert(std::to_string(i));
+      std::hive<std::string> a;
+      a.insert("placeholder");
+      b = std::move(a); // destroys b's old sparse contents via move-assign
+      assert(b.size() == 1 && *b.begin() == "placeholder");
+    }
+  }
+
+  {
+    // sort() must work on a move-only type (Cpp17MoveInsertable /
+    // MoveAssignable / Swappable, not CopyConstructible) -- the entire
+    // reason it was rewritten to build its scratch buffer via move_iterator
+    // instead of copying from the hive's iterators.
+    std::hive<std::unique_ptr<int>> h;
+    h.emplace(std::make_unique<int>(5));
+    h.emplace(std::make_unique<int>(2));
+    h.emplace(std::make_unique<int>(4));
+    h.emplace(std::make_unique<int>(1));
+    h.emplace(std::make_unique<int>(3));
+    h.sort([](const std::unique_ptr<int>& a, const std::unique_ptr<int>& b) { return *a < *b; });
+    std::vector<int> vals;
+    for (auto& p : h)
+      vals.push_back(*p);
+    assert((vals == std::vector<int>{1, 2, 3, 4, 5}));
   }
 
   {

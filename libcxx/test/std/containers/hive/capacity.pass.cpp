@@ -38,11 +38,24 @@ int main(int, char**) {
   }
 
   {
-    std::hive<int> h;
+    std::hive<int> h(std::hive_limits(4, 4));
     for (int i = 0; i < 20; ++i)
       h.insert(i);
+    // Fragment before shrinking: erase every other element so shrink_to_fit
+    // has to deallocate partially-empty groups, not just trim a clean tail.
+    for (auto it = h.begin(); it != h.end();) {
+      if (*it % 2 == 0)
+        it = h.erase(it);
+      else
+        ++it;
+    }
     h.shrink_to_fit();
-    assert(h.size() == 20);
+    assert(h.size() == 10);
+    assert(h.capacity() >= h.size());
+    std::vector<int> vals(h.begin(), h.end());
+    std::sort(vals.begin(), vals.end());
+    std::vector<int> expected{1, 3, 5, 7, 9, 11, 13, 15, 17, 19};
+    assert(vals == expected);
   }
 
   {
@@ -61,11 +74,34 @@ int main(int, char**) {
     h.reshape(std::hive_limits(64, 64));
     assert(h.block_capacity_limits().min == 64);
     assert(h.size() == 20); // reshape must not lose or duplicate elements
+    assert(h.capacity() >= h.size());
 
     std::vector<int> vals(h.begin(), h.end());
     std::sort(vals.begin(), vals.end());
     for (int i = 0; i < 20; ++i)
       assert(vals[i] == i);
+
+    // Large -> small, on a hive fragmented by prior erasures (reshape
+    // migrates via emplace() per element, so it depends on free-list
+    // state -- untested by a small->large reshape on a freshly-built hive).
+    for (auto it = h.begin(); it != h.end();) {
+      if (*it % 3 == 0)
+        it = h.erase(it);
+      else
+        ++it;
+    }
+    size_t size_before_shrink_reshape = h.size();
+    h.reshape(std::hive_limits(4, 4));
+    assert(h.block_capacity_limits().min == 4);
+    assert(h.size() == size_before_shrink_reshape);
+    assert(h.capacity() >= h.size());
+    std::vector<int> vals2(h.begin(), h.end());
+    std::sort(vals2.begin(), vals2.end());
+    std::vector<int> expected2;
+    for (int i = 0; i < 20; ++i)
+      if (i % 3 != 0)
+        expected2.push_back(i);
+    assert(vals2 == expected2);
   }
 
   {

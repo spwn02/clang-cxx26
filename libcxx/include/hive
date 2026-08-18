@@ -50,6 +50,7 @@
 
 #include <__config>
 #include <__iterator/iterator_traits.h>
+#include <__iterator/move_iterator.h>
 #include <__memory/allocator.h>
 #include <__memory/allocator_traits.h>
 #include <__ranges/container_compatible_range.h>
@@ -360,9 +361,11 @@ public:
         __reserved_(__other.__reserved_),
         __erased_head_(__other.__erased_head_),
         __size_(__other.__size_),
-        __next_group_number_(__other.__next_group_number_) {
+        __next_group_number_(__other.__next_group_number_),
+        __capacity_(__other.__capacity_) {
     __other.__head_ = __other.__tail_ = __other.__reserved_ = __other.__erased_head_ = nullptr;
     __other.__size_                                                                  = 0;
+    __other.__capacity_                                                              = 0;
   }
 
   _LIBCPP_HIDE_FROM_ABI hive(hive&& __other, const type_identity_t<_Allocator>& __a) : __alloc_(__a), __limits_(__other.__limits_) {
@@ -373,8 +376,10 @@ public:
       __erased_head_       = __other.__erased_head_;
       __size_              = __other.__size_;
       __next_group_number_ = __other.__next_group_number_;
+      __capacity_          = __other.__capacity_;
       __other.__head_ = __other.__tail_ = __other.__reserved_ = __other.__erased_head_ = nullptr;
       __other.__size_                                                                  = 0;
+      __other.__capacity_                                                              = 0;
     } else {
       for (auto& __v : __other)
         emplace(std::move(__v));
@@ -415,8 +420,10 @@ public:
       __erased_head_        = __other.__erased_head_;
       __size_               = __other.__size_;
       __next_group_number_  = __other.__next_group_number_;
+      __capacity_           = __other.__capacity_;
       __other.__head_ = __other.__tail_ = __other.__reserved_ = __other.__erased_head_ = nullptr;
       __other.__size_                                                                  = 0;
+      __other.__capacity_                                                              = 0;
     } else {
       for (auto& __v : __other)
         emplace(std::move(__v));
@@ -526,25 +533,43 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI void reshape(hive_limits __limits) {
     __limits_ = __limits;
-    // Migrate any active block whose capacity falls outside the new limits.
-    __group_type* __g = __head_;
+    // Two passes: first unlink every out-of-range group from the active and
+    // erased-groups lists (chaining them together via their own now-unused
+    // __next_ pointers), *then* migrate their elements via emplace(). Doing
+    // this in one pass is unsound: emplace() consumes space via
+    // __find_or_make_group_with_space(), which is happy to reuse any group
+    // still registered as having room -- including the very group currently
+    // being migrated (if it had pre-existing free slots from erasures
+    // before this reshape) or another not-yet-visited out-of-range group.
+    // A migrated element placed there either gets re-migrated on a later
+    // loop iteration, or -- if placed into an index already passed over --
+    // is silently dropped when that group is deallocated below, since
+    // nothing will have observed it as needing migration.
+    __group_type* __to_migrate = nullptr;
+    __group_type* __g          = __head_;
     while (__g != nullptr) {
       __group_type* __next = __g->__next_;
       if (__g->__capacity_ < __limits.min || __g->__capacity_ > __limits.max) {
-        for (__link_type __i = 0; __i < __g->__capacity_; ++__i) {
-          if (__g->__skipfield_[__i] == 0) {
-            emplace(std::move(__g->__elements_[__i]));
-            _AllocTraits::destroy(__alloc_, std::addressof(__g->__elements_[__i]));
-          }
-        }
-        // emplace() above already incremented __size_ once per migrated
-        // element (for the new copies); undo the resulting double-count now
-        // that the old ones have been destroyed too.
-        __size_ -= __g->__size_;
+        if (__g->__has_erasures())
+          __unlink_erased(__g);
         __unlink_active(__g);
-        __deallocate_group(__g);
+        __g->__next_ = __to_migrate;
+        __to_migrate = __g;
       }
       __g = __next;
+    }
+    while (__to_migrate != nullptr) {
+      __group_type* __next = __to_migrate->__next_;
+      __for_each_live_index(__to_migrate, [this, __to_migrate](__link_type __i) {
+        emplace(std::move(__to_migrate->__elements_[__i]));
+        _AllocTraits::destroy(__alloc_, std::addressof(__to_migrate->__elements_[__i]));
+      });
+      // emplace() above already incremented __size_ once per migrated
+      // element (for the new copies); undo the resulting double-count now
+      // that the old ones have been destroyed too.
+      __size_ -= __to_migrate->__size_;
+      __deallocate_group(__to_migrate);
+      __to_migrate = __next;
     }
   }
 
@@ -614,12 +639,20 @@ public:
 
     bool __erased_left  = __idx > 0 && __g->__skipfield_[__idx - 1] != 0;
     bool __erased_right = __idx + 1 < __g->__capacity_ && __g->__skipfield_[__idx + 1] != 0;
+    // Index of the first slot after the (possibly just-merged) erased run --
+    // computed here directly rather than by calling operator++ on an
+    // iterator sitting at __idx: operator++ assumes it starts from a *live*
+    // slot and looks one slot ahead to decide how far to jump, which
+    // double-counts the jump when __idx itself is mid-run (i.e. whenever
+    // this erasure merges with an already-free run to its right).
+    __link_type __next_idx;
 
     if (!__erased_left && !__erased_right) {
       __g->__skipfield_[__idx] = 1;
       if (!__g->__has_erasures())
         __link_erased(__g);
       __g->__push_free_block(__idx);
+      __next_idx = __idx + 1;
     } else if (__erased_left && !__erased_right) {
       __link_type __left_len = __g->__skipfield_[__idx - 1]; // accurate: idx-1 is a run's back
       __link_type __front    = __idx - __left_len;
@@ -627,6 +660,7 @@ public:
       __g->__skipfield_[__front] = __new_len;
       __g->__skipfield_[__idx]   = __new_len;
       // front index unchanged -> free-list linkage for this skipblock stays valid.
+      __next_idx = __idx + 1;
     } else if (!__erased_left && __erased_right) {
       __link_type __right_len = __g->__skipfield_[__idx + 1]; // accurate: idx+1 is a run's front
       __link_type __new_len   = __right_len + 1;
@@ -634,6 +668,7 @@ public:
       __g->__skipfield_[__idx]  = __new_len;
       __g->__skipfield_[__back] = __new_len;
       __g->__relink_free_block(__idx + 1, __idx);
+      __next_idx = __back + 1;
     } else {
       __link_type __left_len  = __g->__skipfield_[__idx - 1];
       __link_type __right_len = __g->__skipfield_[__idx + 1];
@@ -643,6 +678,7 @@ public:
       __g->__skipfield_[__front] = __new_len;
       __g->__skipfield_[__back]  = __new_len;
       __g->__unlink_free_block(__idx + 1); // right skipblock's identity is absorbed into the left one
+      __next_idx = __back + 1;
     }
 
     if (__g->__group_empty()) {
@@ -666,17 +702,39 @@ public:
       return iterator(__next_active, __p);
     }
 
-    iterator __result = iterator(__g, __g->__elements_ + __idx);
-    ++__result;
-    return __result;
+    if (__next_idx < __g->__capacity_)
+      return iterator(__g, __g->__elements_ + __next_idx);
+    if (__g->__next_ != nullptr) {
+      __group_type* __next_group = __g->__next_;
+      _Tp* __p                   = __next_group->__elements_;
+      __link_type __skip         = __next_group->__skipfield_[0];
+      if (__skip != 0)
+        __p += __skip;
+      return iterator(__next_group, __p);
+    }
+    return iterator(__g, __g->__elements_ + __g->__capacity_);
   }
 
   _LIBCPP_HIDE_FROM_ABI iterator erase(const_iterator __first, const_iterator __last) {
-    while (__first != __last)
-      __first = erase(__first);
-    if (__first.__group_ == nullptr)
-      return end();
-    return iterator(__first.__group_, __first.__ptr_);
+    // end() is computed from __tail_, which shifts whenever the tail group
+    // is fully erased and retired. A __last captured once at the start of
+    // this loop goes stale the instant that happens (it keeps pointing at
+    // the *old* tail's boundary, which erase(pos) will never hand back
+    // again once __tail_ has moved on) -- so when the caller's __last
+    // denotes end(), re-evaluate end() fresh on every iteration instead of
+    // comparing against the stale snapshot. When __last denotes a real,
+    // still-live element instead, its group is never touched by this loop
+    // (only positions strictly before it are erased), so it stays valid
+    // throughout and a plain equality loop is correct.
+    iterator __it(__first.__group_, __first.__ptr_);
+    if (__last == end()) {
+      while (__it != end())
+        __it = erase(__it);
+      return __it;
+    }
+    while (__it.__group_ != nullptr && __it != __last)
+      __it = erase(__it);
+    return iterator(__last.__group_, __last.__ptr_);
   }
 
   _LIBCPP_HIDE_FROM_ABI void swap(hive& __other) noexcept(
@@ -691,6 +749,7 @@ public:
     swap(__erased_head_, __other.__erased_head_);
     swap(__size_, __other.__size_);
     swap(__next_group_number_, __other.__next_group_number_);
+    swap(__capacity_, __other.__capacity_);
   }
   _LIBCPP_HIDE_FROM_ABI friend void swap(hive& __x, hive& __y) noexcept(noexcept(__x.swap(__y))) { __x.swap(__y); }
 
@@ -698,10 +757,9 @@ public:
     __group_type* __g = __head_;
     while (__g != nullptr) {
       __group_type* __next = __g->__next_;
-      for (__link_type __i = 0; __i < __g->__capacity_; ++__i) {
-        if (__g->__skipfield_[__i] == 0)
-          _AllocTraits::destroy(__alloc_, std::addressof(__g->__elements_[__i]));
-      }
+      __for_each_live_index(__g, [this, __g](__link_type __i) {
+        _AllocTraits::destroy(__alloc_, std::addressof(__g->__elements_[__i]));
+      });
       __g->__size_ = 0;
       __g->__next_erased_ = __g->__prev_erased_ = nullptr;
       __push_reserved(__g);
@@ -729,8 +787,10 @@ public:
       __g = __g->__next_;
     }
     __g = __x.__head_;
+    size_type __moved_capacity = 0;
     while (__g != nullptr) {
       __group_type* __next = __g->__next_;
+      __moved_capacity += __g->__capacity_;
       __g->__group_number_  = __next_group_number_++;
       __link_active(__g);
       if (__g->__has_erasures())
@@ -738,6 +798,8 @@ public:
       __g = __next;
     }
     __size_ += __x.__size_;
+    __capacity_ += __moved_capacity;
+    __x.__capacity_ -= __moved_capacity;
     __x.__head_ = __x.__tail_ = __x.__erased_head_ = nullptr;
     __x.__size_                                     = 0;
   }
@@ -775,7 +837,9 @@ public:
     __refs.reserve(size());
     for (auto& __v : *this)
       __refs.push_back(__v);
-    vector<_Tp> __vals(begin(), end());
+    std::move_iterator<iterator> __mb(begin());
+    std::move_iterator<iterator> __me(end());
+    vector<_Tp> __vals(__mb, __me);
     std::sort(__vals.begin(), __vals.end(), __comp);
     for (size_type __i = 0; __i < __vals.size(); ++__i)
       __refs[__i].get() = std::move(__vals[__i]);
@@ -839,6 +903,34 @@ private:
       return __g;
     }
     return __append_group(__next_group_capacity());
+  }
+
+  // Visits the index of every live slot in __g, in ascending order, calling
+  // __f(__link_type) for each. This must NOT be done by raw-scanning
+  // `skipfield_[i] == 0` across the whole capacity: only the front and back
+  // of each erased run are guaranteed accurate under this encoding (see the
+  // file-level comment), so an untouched interior slot of a free run of
+  // length >= 3 reads as 0 -- indistinguishable from "live" -- purely
+  // because __allocate_group zero-fills the whole skipfield up front and
+  // nothing ever writes that interior position. This walks the group the
+  // same way operator++ does: jump via skipfield only when landing exactly
+  // on a run's front.
+  template <class _Func>
+  _LIBCPP_HIDE_FROM_ABI static void __for_each_live_index(__group_type* __g, _Func __f) {
+    __link_type __i     = 0;
+    __link_type __skip0 = __g->__skipfield_[0];
+    if (__skip0 != 0)
+      __i = __skip0;
+    while (__i < __g->__capacity_) {
+      __f(__i);
+      __link_type __next_i = static_cast<__link_type>(__i + 1);
+      if (__next_i < __g->__capacity_) {
+        __link_type __skip = __g->__skipfield_[__next_i];
+        if (__skip != 0)
+          __next_i = static_cast<__link_type>(__next_i + __skip);
+      }
+      __i = __next_i;
+    }
   }
 
   // A group with any available space -- whether newly allocated, freshly
