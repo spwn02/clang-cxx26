@@ -524,6 +524,7 @@ hive cstdint
 hive cstdio
 hive cstdlib
 hive cstring
+hive ctime
 hive cwchar
 hive cwctype
 hive functional
@@ -532,6 +533,7 @@ hive iosfwd
 hive limits
 hive new
 hive optional
+hive ratio
 hive stdexcept
 hive string
 hive string_view
@@ -552,6 +554,7 @@ inplace_vector cstddef
 inplace_vector cstdint
 inplace_vector cstdio
 inplace_vector cstring
+inplace_vector ctime
 inplace_vector cwchar
 inplace_vector cwctype
 inplace_vector initializer_list
@@ -559,7 +562,10 @@ inplace_vector iosfwd
 inplace_vector iterator
 inplace_vector limits
 inplace_vector new
+inplace_vector optional
+inplace_vector ratio
 inplace_vector stdexcept
+inplace_vector tuple
 inplace_vector type_traits
 inplace_vector utility
 inplace_vector variant
