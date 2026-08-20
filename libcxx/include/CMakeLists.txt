@@ -417,6 +417,9 @@ set(files
   __functional/boyer_moore_searcher.h
   __functional/compose.h
   __functional/default_searcher.h
+  __functional/copyable_function.h
+  __functional/copyable_function_common.h
+  __functional/copyable_function_impl.h
   __functional/function.h
   __functional/function_ref.h
   __functional/function_ref_common.h

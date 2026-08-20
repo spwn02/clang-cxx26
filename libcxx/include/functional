@@ -521,6 +521,41 @@ namespace ranges {
   struct less_equal;
 }
 
+// [func.wrap.copy], copyable wrapper                                 // since C++26
+template<class... S> class copyable_function; // not defined
+
+// Each specialization below stands for the cross product of cv (const or
+// empty), ref (&, &&, or empty), and noex (true or false).
+template<class R, class... ArgTypes>
+class copyable_function<R(ArgTypes...) cv ref noexcept(noex)> {
+public:
+  using result_type = R;
+
+  copyable_function() noexcept;
+  copyable_function(nullptr_t) noexcept;
+  copyable_function(const copyable_function&);
+  copyable_function(copyable_function&&) noexcept;
+  template<class F> copyable_function(F&&);
+  template<class T, class... Args>
+    explicit copyable_function(in_place_type_t<T>, Args&&...);
+  template<class T, class U, class... Args>
+    explicit copyable_function(in_place_type_t<T>, initializer_list<U>, Args&&...);
+
+  copyable_function& operator=(const copyable_function&);
+  copyable_function& operator=(copyable_function&&);
+  copyable_function& operator=(nullptr_t) noexcept;
+  template<class F> copyable_function& operator=(F&&);
+
+  ~copyable_function();
+
+  explicit operator bool() const noexcept;
+  R operator()(ArgTypes...) cv ref noexcept(noex);
+
+  void swap(copyable_function&) noexcept;
+  friend void swap(copyable_function&, copyable_function&) noexcept;
+  friend bool operator==(const copyable_function&, nullptr_t) noexcept;
+};
+
 // [func.wrap.ref], class template function_ref                       // since C++26
 template<auto V> struct nontype_t {
   explicit nontype_t() = default;
@@ -600,6 +635,7 @@ POLICY:  For non-variadic implementations, the number of arguments is limited
 #  endif
 
 #  if _LIBCPP_STD_VER >= 26
+#    include <__functional/copyable_function.h>
 #    include <__functional/function_ref.h>
 #  endif
 

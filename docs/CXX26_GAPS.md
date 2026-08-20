@@ -141,12 +141,38 @@ Good starting point after Tier 0.
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
 | [x] | P0792R14 | `function_ref` | Non-owning callable wrapper — done 2026-08-20 |
-| [ ] | P2548R6 | `copyable_function` | Owning type-erased callable, pairs with function_ref |
+| [x] | P2548R6 | `copyable_function` | Owning type-erased callable — done 2026-08-20 |
 | [ ] | P2363R5 | Heterogeneous lookup, remaining associative container overloads | Extends existing partial heterogeneous-lookup support |
 | [ ] | P1901R2 | `weak_ptr` as unordered associative container key | Small, self-contained |
 | [~] | P2944R3 | `reference_wrapper` comparisons | Partial — blocked on `optional`/`tuple` equality changes from P2165R4; check if P2988R11 work unblocked this |
 | [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | `<complex>` done; scalar math functions remain |
 | [ ] | P3168R2 | `std::optional` range support | **Verify scope overlap with P2988R11 first** — range support for non-reference `optional<T>` may already be substantially covered; this may be a CSV-status-only fix plus a small test-coverage gap, not a fresh implementation |
+
+**Known issue found while implementing `copyable_function` (not fixed — pre-existing,
+affects `move_only_function` too, out of scope for this contract):**
+`move_only_function`'s and `copyable_function`'s "unwrap another
+instance instead of double-wrapping" constructor optimization
+(`__is_move_only_function_v<_StoredFunc>` / `__is_copyable_function_v<_StoredFunc>`
+branches in `__functional/{move_only,copyable}_function_impl.h`) directly assigns
+the source object's `__vtable_` pointer into `*this`'s `__vtable_` field.
+The vtable struct type is parameterized on `<_BufferT, _ReturnT, _ArgTypes...>`
+only (not cv/ref/noexcept, which is why the optimization works at all across
+qualifier-only conversions), but if the source and target specializations have
+genuinely different `_ReturnT`/`_ArgTypes...` — e.g.
+`move_only_function<long(short)> dst{some_move_only_function<int(int)>}`, invocable
+because `short`→`int` and `int`→`long` both convert implicitly — the two vtable
+pointer types are incompatible and the assignment is a hard compile error inside
+`if constexpr`, not a graceful SFINAE fallback to double-wrapping. Confirmed by
+direct repro against `move_only_function` during this session (removed after
+confirming). **Fixed for `copyable_function`** (nested `if constexpr` checks
+`is_same_v<decltype(__func.__vtable_), const _VTable*>` before taking the unwrap
+path, falling through to `__construct` — i.e. double-wrapping — otherwise; see
+`libcxx/test/std/utilities/function.objects/func.wrap/func.wrap.copy/basic.pass.cpp`'s
+"Genuinely different signature" case). **`move_only_function` still has the bug**
+— apply the same nested-`if-constexpr` fix there if picked up; low priority since
+the triggering pattern (converting between wrappers of different-but-convertible
+signatures via the generic constructor, as opposed to same-signature
+qualifier-only conversions) is rare in practice.
 
 ### Tier 2 — Major standalone subsystems (large, phase separately)
 
@@ -313,3 +339,74 @@ blocked, what's next. Do not remove old entries.
   session: `copyable_function` (P2548R6)** — same Tier 1 pairing, owning
   counterpart to `function_ref`; can likely reuse `move_only_function`'s
   vtable/small-buffer machinery more directly than `function_ref` could.
+- **2026-08-20 (fourth entry)**: Implemented P2548R6 `copyable_function`. New
+  `libcxx/include/__functional/copyable_function{,_common,_impl}.h`, modeled
+  directly on `move_only_function`'s file split and macro-generation shape
+  (same 6 cv×ref include passes, noexcept deduced from the abominable
+  function type). Extracted the exact wording from the paper's PDF (the HTML
+  redirect from `wg21.link` 404s for this one; fetched the PDF via WebFetch,
+  then read it with the `Read` tool's PDF support). Differences from
+  `move_only_function`: adds a `__clone_` vtable slot (copy-constructs the
+  held object into fresh storage — heap or inline, `__small_buffer` needed
+  no changes since `__construct`/`__alloc` already work for any
+  constructible type regardless of triviality) and a copy constructor/copy
+  assignment (copy-and-swap, matching the paper's `Effects: Equivalent to:
+  copyable_function(f).swap(*this)` wording verbatim — including that
+  neither assignment operator is marked `noexcept` in the synopsis, unlike
+  `move_only_function`'s move-assign, which surprised me enough to
+  double-check the source rather than "fix" it). Folded the paper's
+  `is_copy_constructible_v<VT>` Mandates into each constructor's
+  `requires`-clause, matching how this codebase already folds
+  `is_constructible_v` into `move_only_function`'s constraints rather than a
+  separate Mandates `static_assert`.
+
+  Advisor review before commit caught a real bug in the "avoid
+  double-wrapping when constructing from another `copyable_function`"
+  optimization (mirrors `move_only_function`'s own
+  `__is_move_only_function_v` branch): naively assigning the source's
+  `__vtable_` pointer type-checks fine for same-signature
+  cv/ref/noexcept-only conversions (the vtable struct isn't parameterized on
+  those), but hard-errors inside `if constexpr` — not a graceful SFINAE
+  fallback — for a genuinely different signature that's still invocable via
+  implicit conversions (e.g. `copyable_function<long(short)>` constructed
+  from a `copyable_function<int(int)>`), which the standard requires to
+  compile via double-wrapping. Fixed with a nested `if constexpr
+  is_same_v<decltype(__func.__vtable_), const _VTable*>` gate that falls
+  through to `__construct` (double-wrap) when the vtable types don't match;
+  a top-level `&&` doesn't work here since `decltype(__func.__vtable_)` is
+  ill-formed (hard error, not SFINAE) when `_StoredFunc` isn't a
+  `copyable_function` specialization at all. Verified the fix with both the
+  same-signature qualifier-only case (still takes the fast unwrap path —
+  confirmed via a `CopyCounting` copy-counter probe showing exactly one
+  copy) and the differing-signature case (now compiles and runs correctly
+  via double-wrap) in the new test. **Confirmed by direct repro that
+  `move_only_function` has the identical latent defect** (documented under
+  Tier 1 above, in the CSV-adjacent notes) — not fixed there, out of scope
+  for this session, but the exact same one-line nested-`if-constexpr` fix
+  would apply if picked up.
+
+  Registered the three new headers in `libcxx/include/CMakeLists.txt`;
+  updated the `functional` synopsis (`copyable_function` class template,
+  placed per the paper's synopsis diff — right after `move_only_function`,
+  before `function_ref`); flipped `__cpp_lib_copyable_function`'s
+  `unimplemented` off and regenerated `version`/`FeatureTestMacroTable.rst`/
+  the two `*.version.compile.pass.cpp` tests via `libcxx-generate-files`;
+  added the C++26-guarded export to `libcxx/modules/std/functional.inc`;
+  marked P2548R6 Complete in `Cxx2cPapers.csv`. New test:
+  `libcxx/test/std/utilities/function.objects/func.wrap/func.wrap.copy/basic.pass.cpp`
+  — covers SBO and heap-fallback storage, copy ctor/assign independence
+  (via a copy-counting probe), move ctor/assign, `nullptr` reset,
+  const-qualified and both ref-qualified (`const&`, `&&`) specializations,
+  `noexcept` specialization, both `in_place_type_t` constructors (including
+  the `initializer_list` overload), function-pointer construction,
+  conversion from `std::function` (double-wrap, unoptimized but
+  conforming), and both unwrap-optimization cases described above. Full
+  `function.objects` suite (173 tests) green: 163 passed, 9 unsupported
+  (unrelated feature gating), 1 pre-existing unrelated xfail. Both Tier 1
+  callable-wrapper papers (`function_ref`, `copyable_function`) are now
+  done. **Next session: pick a remaining Tier 1 item** — `P2363R5`
+  (heterogeneous lookup remaining overloads), `P1901R2` (`weak_ptr` as
+  unordered map/set key), or the two partial items (`P2944R3`
+  `reference_wrapper` comparisons, `P1383R2` `constexpr` `<cmath>`) — or
+  make a call on the `move_only_function` vtable-mismatch bug noted above
+  if callable-wrapper maintenance takes priority over new Tier 1 work.

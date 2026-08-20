@@ -459,7 +459,6 @@ feature_test_macros = [
             "name": "__cpp_lib_copyable_function",
             "values": {"c++26": 202306},  # P2548R6 copyable_function
             "headers": ["functional"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_coroutine",
