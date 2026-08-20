@@ -180,6 +180,12 @@ export namespace std {
   // [util.smartptr.ownerless], class template owner_less
   using std::owner_less;
 
+#if _LIBCPP_STD_VER >= 26
+  // [util.smartptr.owner], class owner_hash, owner_equal
+  using std::owner_equal;
+  using std::owner_hash;
+#endif
+
   // [util.smartptr.enab], class template enable_shared_from_this
   using std::enable_shared_from_this;
 

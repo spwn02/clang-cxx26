@@ -657,6 +657,20 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI bool __owner_equivalent(const shared_ptr& __p) const { return __cntrl_ == __p.__cntrl_; }
 
+#if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI size_t owner_hash() const _NOEXCEPT { return hash<__shared_weak_count*>()(__cntrl_); }
+
+  template <class _Up>
+  _LIBCPP_HIDE_FROM_ABI bool owner_equal(shared_ptr<_Up> const& __p) const _NOEXCEPT {
+    return __cntrl_ == __p.__cntrl_;
+  }
+
+  template <class _Up>
+  _LIBCPP_HIDE_FROM_ABI bool owner_equal(weak_ptr<_Up> const& __p) const _NOEXCEPT {
+    return __cntrl_ == __p.__cntrl_;
+  }
+#endif // _LIBCPP_STD_VER >= 26
+
 #if _LIBCPP_STD_VER >= 17
   _LIBCPP_HIDE_FROM_ABI __add_lvalue_reference_t<element_type> operator[](ptrdiff_t __i) const {
     static_assert(is_array<_Tp>::value, "std::shared_ptr<T>::operator[] is only valid when T is an array type.");
@@ -1265,6 +1279,20 @@ public:
     return __cntrl_ < __r.__cntrl_;
   }
 
+#if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI size_t owner_hash() const _NOEXCEPT { return hash<__shared_weak_count*>()(__cntrl_); }
+
+  template <class _Up>
+  _LIBCPP_HIDE_FROM_ABI bool owner_equal(shared_ptr<_Up> const& __r) const _NOEXCEPT {
+    return __cntrl_ == __r.__cntrl_;
+  }
+
+  template <class _Up>
+  _LIBCPP_HIDE_FROM_ABI bool owner_equal(weak_ptr<_Up> const& __r) const _NOEXCEPT {
+    return __cntrl_ == __r.__cntrl_;
+  }
+#endif // _LIBCPP_STD_VER >= 26
+
   template <class _Up>
   friend class weak_ptr;
   template <class _Up>
@@ -1433,6 +1461,42 @@ struct owner_less<void> {
   typedef void is_transparent;
 };
 #endif
+
+#if _LIBCPP_STD_VER >= 26
+struct owner_hash {
+  template <class _Tp>
+  _LIBCPP_HIDE_FROM_ABI size_t operator()(shared_ptr<_Tp> const& __p) const _NOEXCEPT {
+    return __p.owner_hash();
+  }
+  template <class _Tp>
+  _LIBCPP_HIDE_FROM_ABI size_t operator()(weak_ptr<_Tp> const& __p) const _NOEXCEPT {
+    return __p.owner_hash();
+  }
+
+  using is_transparent = void;
+};
+
+struct owner_equal {
+  template <class _Tp, class _Up>
+  _LIBCPP_HIDE_FROM_ABI bool operator()(shared_ptr<_Tp> const& __x, shared_ptr<_Up> const& __y) const _NOEXCEPT {
+    return __x.owner_equal(__y);
+  }
+  template <class _Tp, class _Up>
+  _LIBCPP_HIDE_FROM_ABI bool operator()(shared_ptr<_Tp> const& __x, weak_ptr<_Up> const& __y) const _NOEXCEPT {
+    return __x.owner_equal(__y);
+  }
+  template <class _Tp, class _Up>
+  _LIBCPP_HIDE_FROM_ABI bool operator()(weak_ptr<_Tp> const& __x, shared_ptr<_Up> const& __y) const _NOEXCEPT {
+    return __x.owner_equal(__y);
+  }
+  template <class _Tp, class _Up>
+  _LIBCPP_HIDE_FROM_ABI bool operator()(weak_ptr<_Tp> const& __x, weak_ptr<_Up> const& __y) const _NOEXCEPT {
+    return __x.owner_equal(__y);
+  }
+
+  using is_transparent = void;
+};
+#endif // _LIBCPP_STD_VER >= 26
 
 template <class _Tp>
 class enable_shared_from_this {

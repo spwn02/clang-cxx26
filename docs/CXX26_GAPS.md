@@ -143,7 +143,7 @@ Good starting point after Tier 0.
 | [x] | P0792R14 | `function_ref` | Non-owning callable wrapper — done 2026-08-20 |
 | [x] | P2548R6 | `copyable_function` | Owning type-erased callable — done 2026-08-20 |
 | [ ] | P2363R5 | Heterogeneous lookup, remaining associative container overloads | Extends existing partial heterogeneous-lookup support |
-| [ ] | P1901R2 | `weak_ptr` as unordered associative container key | Small, self-contained |
+| [x] | P1901R2 | `weak_ptr` as unordered associative container key | Done 2026-08-20 |
 | [~] | P2944R3 | `reference_wrapper` comparisons | Partial — blocked on `optional`/`tuple` equality changes from P2165R4; check if P2988R11 work unblocked this |
 | [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | `<complex>` done; scalar math functions remain |
 | [ ] | P3168R2 | `std::optional` range support | **Verify scope overlap with P2988R11 first** — range support for non-reference `optional<T>` may already be substantially covered; this may be a CSV-status-only fix plus a small test-coverage gap, not a fresh implementation |
@@ -410,3 +410,64 @@ blocked, what's next. Do not remove old entries.
   `reference_wrapper` comparisons, `P1383R2` `constexpr` `<cmath>`) — or
   make a call on the `move_only_function` vtable-mismatch bug noted above
   if callable-wrapper maintenance takes priority over new Tier 1 work.
+- **2026-08-20 (fifth entry)**: Implemented P1901R2 (`weak_ptr` as unordered
+  associative container key). Fetched the paper's wording via WebFetch
+  (`wg21.link/P1901R2` redirects to the open-std HTML). Contrary to what the
+  paper title suggests, it does **not** add a `std::hash<weak_ptr<T>>`
+  specialization — `weak_ptr` still isn't directly usable as a bare
+  `unordered_map`/`unordered_set` key. Instead it adds owner-based-identity
+  member functions (`owner_hash()`, `owner_equal()`) to both `shared_ptr`
+  and `weak_ptr`, plus two free transparent function-object structs
+  (`owner_hash`, `owner_equal`) meant to be passed explicitly as the
+  container's `Hash`/`KeyEqual` template arguments — e.g.
+  `unordered_set<weak_ptr<T>, owner_hash, owner_equal>` — enabling
+  heterogeneous `shared_ptr`/`weak_ptr` lookup the same way `owner_less`
+  already enables it for ordered containers. Implementation reused the
+  existing `__cntrl_` (`__shared_weak_count*`) identity field that
+  `owner_before`/`__owner_equivalent` already compare on
+  (`libcxx/include/__memory/shared_ptr.h`): `owner_hash()` is
+  `hash<__shared_weak_count*>()(__cntrl_)`, `owner_equal()` is the same
+  `__cntrl_ ==` comparison `__owner_equivalent` already did (just exposed
+  publicly, templated on the argument's element type, and given the
+  standard's name). The two free structs are thin dispatchers to the new
+  member functions, mirroring `owner_less`'s existing placement and shape.
+  Added `#include <__functional/hash.h>` for `hash<T*>`; advisor review
+  caught that this was redundant (`__memory/unique_ptr.h`, already included,
+  pulls it in for `hash<unique_ptr>`), so removed it — verified no
+  transitive-include-graph shift via `transitive_includes.gen.py` and
+  `module_std.gen.py` (125/126 pass, unchanged). Also caught by advisor: an
+  initial test asserted `owner_hash()` returns *different* values for
+  distinct control blocks — not a standard guarantee (only "equal owner
+  implies equal hash" is required; collisions are permitted) — removed
+  those assertions, keeping only the guaranteed equal-hash-for-equal-owner
+  checks. Updated: `<memory>` synopsis (both class synopses plus new
+  `owner_hash`/`owner_equal` struct synopses, placed after
+  `owner_less<void>` per the paper). Flipped
+  `__cpp_lib_smart_ptr_owner_equality`'s `unimplemented` off
+  (`generate_feature_test_macro_components.py`) and regenerated
+  `version`/`FeatureTestMacroTable.rst`/the two
+  `*.version.compile.pass.cpp` tests via `libcxx-generate-files`. Added the
+  C++26-guarded `owner_hash`/`owner_equal` exports to
+  `libcxx/modules/std/memory.inc`. Marked P1901R2 Complete in
+  `Cxx2cPapers.csv`. New tests: `owner_hash.pass.cpp`/`owner_equal.pass.cpp`
+  in both `util.smartptr.shared.obs` and `util.smartptr.weak.obs` (member
+  functions), plus a new `util.smartptr.owner/` directory (sibling to
+  `util.smartptr.ownerless/`) with `owner_hash.pass.cpp`/
+  `owner_equal.pass.cpp` for the free structs, including a heterogeneous
+  `unordered_map`/`unordered_set` lookup case (`shared_ptr` key, `weak_ptr`
+  lookup) in each. Full `util.smartptr` suite (111 tests) green: 109
+  passed, 2 unsupported (unrelated). Ran the pre-existing
+  `clang_modules_include.gen.py` header-modules suite as a caution after
+  advisor flagged the untested module surface; confirmed via `git stash`
+  that its 122/143 failures (including a `memory.compile.pass.cpp` failure
+  citing this session's `owner_hash()`) are **pre-existing and unrelated**
+  — the same file fails to build the Clang header module at baseline too,
+  for independent reasons (e.g. `__memory/indirect.h`'s `remove_const_t`
+  visibility). Not investigated further — that whole suite is already
+  broken independent of any Tier 1 library work and is out of scope for
+  this contract. **Next session: pick a remaining Tier 1 item** —
+  `P2363R5` (heterogeneous lookup remaining overloads), or the two partial
+  items (`P2944R3` `reference_wrapper` comparisons, `P1383R2` `constexpr`
+  `<cmath>`) — or investigate the pre-existing `clang_modules_include.gen.py`
+  breakage (122/143 failing at baseline, unrelated to any tracked Tier
+  work) if header-modules infrastructure maintenance takes priority.
