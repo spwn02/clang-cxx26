@@ -182,10 +182,145 @@ than being tackled as a single commit.
 
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
-| [ ] | P2300R10 | `std::execution` (sender/receiver) | Largest single item in scope. New `<execution>` header, many customization points, interacts with coroutines. Break into sub-milestones (schedulers → senders → algorithms → queries) before starting; do not attempt as one commit. |
-| [ ] | P3325R5 | Execution environment utility | Depends on P2300R10 landing first |
-| [ ] | P3396R1 | `std::execution` wording fixes | Depends on P2300R10 landing first |
+| [~] | P2300R10 | `std::execution` (sender/receiver) | In progress 2026-08-20 — see dedicated sub-plan below. Scope confirmed to collapse with P3325R5/P3396R1 into one effort (merged draft wording); do not attempt as one commit. |
+| [~] | P3325R5 | Execution environment utility | Folded into the P2300R10 sub-plan below (its content is `[exec.envs]`/`prop`+`env`, M1) — tracked/flipped together with P2300R10, not separately |
+| [~] | P3396R1 | `std::execution` wording fixes | No separable content — already merged into current draft wording used by the sub-plan below; flips to Complete alongside P2300R10 at M6, not separately implemented |
 | [!] | P2900R14 | Contracts | **Deferred** — see Scope section above |
+
+### Tier 2 Sub-Plan: P2300R10 `std::execution` (sender/receiver)
+
+Started 2026-08-20. This is a **multi-session effort** — do not read a
+partially-done milestone below as abandoned work; check this section's
+status markers and the Session Log for where to pick up.
+
+**Scope collapse (verified via `eel.is/c++draft/exec`, clause 33):** the
+current draft's `[exec]` clause is the *merged* wording — it already
+incorporates P3396R1's wording fixes and P3325R5's `prop`/`env`
+utility additions. Treat all three CSV rows (P2300R10, P3325R5, P3396R1)
+as **one implementation effort**; flip all three to `|Complete|` together
+when M6 lands, not separately.
+
+**Explicitly out of scope (separate, untracked papers merged into the same
+draft clause after P2300R10 landed — do not implement here):**
+- `[exec.coro.util]` 33.13.3–33.13.6: `execution::affine`,
+  `execution::inline_scheduler`, `execution::task_scheduler`,
+  `execution::task` — this is P3552, a distinct paper with no CSV row.
+- `[exec.scope]` 33.14: execution scope / counting-scope utilities — P3149
+  and related async-scope papers, no CSV row.
+- `[exec.par.scheduler]` / `[exec.parschedrepl]` 33.15–33.16: parallel
+  scheduler and `parallel_scheduler_replacement` — P3481 and related, no
+  CSV row.
+
+In scope: `[exec.queryable]`, `[exec.async.ops]`, `[execution.syn]`,
+`[exec.queries]` (all of 33.5), `[exec.sched]`, `[exec.recv]`,
+`[exec.opstate]`, `[exec.snd]` (all of 33.9, factories through consumers),
+`[exec.cmplsig]`, `[exec.envs]` (`prop`/`env`, this is the P3325R5 part),
+`[exec.ctx]` (`run_loop`), and only the first two coroutine-utility
+clauses `[exec.as.awaitable]`/`[exec.with.awaitable.senders]` (33.13.1–2 —
+these are P2300R10 core, unlike the `task`-family clauses after them).
+
+**Structural constraint — verified by reading `libcxx/include/execution`
+in full:** the existing C++17 PSTL execution-policy content
+(`execution::seq`/`par`/`par_unseq`/`unseq`, `is_execution_policy`) is
+guarded inside `#if _LIBCPP_HAS_EXPERIMENTAL_PSTL && _LIBCPP_STD_VER >= 17`
+... `#endif`, and shares `namespace std::execution` with what P2300 adds.
+New content must **not** go inside that guard (it would silently vanish
+on any build without experimental PSTL enabled). Plan: new exposition
+headers under `libcxx/include/__execution/`, included from the existing
+`<execution>` top-level header inside a **separate**
+`#if _LIBCPP_STD_VER >= 26` block, sharing the same `namespace
+std::execution` but independently guarded. `libcxx/modules/std/execution.inc`
+already exists (for the PSTL policies, under `_LIBCPP_ENABLE_EXPERIMENTAL`)
+— add a second, independently-guarded C++26 export block there per
+milestone, not a new file.
+
+**Customization model — confirmed no precedent in this repo
+(`grep -r tag_invoke libcxx/include` → empty):** R10 customization is
+**member-function/member-typedef based**, not `tag_invoke`:
+`sndr.connect(rcvr)`, `rcvr.set_value(...)`/`set_error`/`set_stopped`,
+`env.query(q)`, `sndr.transform_env(...)`/`sndr.transform_sender(...)`
+(domain-based customization). Each CPO must be hand-built as an
+exposition-only niebloid/function-object type per `[exec.queryable.concept]`
+`[exec.snd.expos]` etc., not adapted from any existing tag_invoke-shaped
+code. `libcxx/include/__ranges/access.h` (the `ranges::begin` niebloid) is
+this repo's closest existing style precedent for the CPO-as-hidden-`__fn`-
+struct-with-`inline constexpr` pattern — reuse that shape, not tag_invoke.
+
+**`<stop_token>` dependency:** `stoppable_token`, `stoppable_token_for`,
+`unstoppable_token`, `never_stop_token` concepts, and
+`inplace_stop_token`/`inplace_stop_source`/`inplace_stop_callback` are new
+C++26 additions to `<stop_token>` introduced alongside P2300 — **not
+present in this repo yet** (confirmed empty grep for
+`stoppable_token`/`never_stop_token` in `__stop_token/stop_token.h`).
+Note existing `stop_token`/`stop_source` (the allocating, type-erased
+C++20 versions) are entirely guarded on `_LIBCPP_STD_VER >= 20 &&
+_LIBCPP_HAS_THREADS` — check independently during M1 whether the new
+concepts (generic, no allocation) and `inplace_stop_source` (spin-lock via
+atomics, no OS thread primitives) actually need `_LIBCPP_HAS_THREADS` or
+just atomics; don't copy the guard mechanically without checking.
+
+**Milestone order (foundation-first, not the "schedulers → senders →
+algorithms → queries" order originally sketched at the top of this
+document — queries/environments and stop-token concepts are load-bearing
+for everything downstream, and `schedule()` itself returns a sender so
+schedulers can't come before sender concepts exist):**
+
+- [~] **M1** — Queries & environments foundation: `queryable` concept,
+  exposition query-object machinery, `forwarding_query`, `get_env`/
+  `env_of_t`, `get_allocator`, `get_stop_token`, `prop`/`env` class
+  templates (the P3325R5 part), plus the `<stop_token>` additions above
+  (`stoppable_token` family, `inplace_stop_token`/`source`/`callback`).
+  No sender/receiver concepts yet — this milestone is pure queryable
+  infrastructure, testable via `static_assert`/concept checks alone.
+- [ ] **M2** — Core concepts: `completion_signatures`,
+  `get_completion_signatures`, `receiver`/`operation_state`/`sender`/
+  `sender_in` concepts, `connect`/`start`, `default_domain`/
+  `indeterminate_domain`/`transform_sender`/`apply_sender`.
+- [ ] **M3** — First real senders: `just`/`just_error`/`just_stopped`,
+  `read_env`, `schedule` (scheduler concept is exercised here for the
+  first time via a trivial scheduler, not defined as its own milestone).
+- [ ] **M4** — `run_loop` + `this_thread::sync_wait`/
+  `sync_wait_with_variant`. **Vertical-slice checkpoint**: get
+  `just(42) | then([](int i){ return i+1; }) | sync_wait()` compiling and
+  running correctly end-to-end before fanning out to M5 — this is the
+  earliest point real behavioral (non-`static_assert`-only) tests become
+  possible, and it validates the domain/`transform_sender`/receiver-CPO
+  shape from M2–M3 before 15+ more adaptors get built on top of it. `then`
+  itself (needs only `set_value`/`connect`, no `let_*` machinery) rides
+  along with this checkpoint even though it's formally listed under M5.
+- [ ] **M5** — Remaining sender adaptors: `upon_error`/`upon_stopped`,
+  `let_value`/`let_error`/`let_stopped`, `starts_on`/`continues_on`/`on`/
+  `schedule_from`, `when_all`/`when_all_with_variant`, `into_variant`,
+  `stopped_as_optional`/`stopped_as_error`, `write_env`, `unstoppable`,
+  `bulk`/`bulk_chunked`/`bulk_unchunked`. (`associate`/`spawn`/
+  `spawn_future` are part of the execution-scope paper family — reassess
+  whether they're actually P2300R10-original or scope-family additions
+  when this milestone starts; exclude if the latter, per the scope-collapse
+  note above.)
+- [ ] **M6** — Coroutine integration: `as_awaitable`,
+  `with_awaitable_senders`. Flip `__cpp_lib_senders` `unimplemented: False`
+  and all three CSV rows to `|Complete|` **only here** — it's a single
+  all-or-nothing `202406` value; flipping it at any earlier milestone
+  would make conforming user code detect a feature surface that isn't
+  fully there yet.
+
+**Threading & build-matrix notes for later milestones (recorded now so
+they don't get discovered late):**
+- M4's `run_loop`/`sync_wait` need real thread synchronization primitives
+  → gate new tests with `test_suite_guard`/`libcxx_guard` on
+  `_LIBCPP_HAS_THREADS`, matching the existing `stop_token`/`semaphore`
+  pattern. Decide explicitly at M4 what a no-threads C++26 build exposes
+  from `<execution>` (concepts/`just`/`then`/single-threaded composition
+  presumably still work; `run_loop`/`sync_wait` presumably don't).
+- `<execution>` in C++26 mode will newly pull in `<coroutine>`, `<tuple>`,
+  `<variant>`, `<optional>`, `<stop_token>`, and threading headers —
+  expect `transitive_includes.gen.py`/`module_std.gen.py` diffs to be
+  larger than anything regenerated so far in this contract. Run and check
+  both after **every** milestone, not just at the end.
+
+**FTM discipline:** `Cxx2cPapers.csv` rows for P2300R10/P3325R5/P3396R1
+set to `|In Progress|` as of this sub-plan (2026-08-20); do not touch
+`__cpp_lib_senders`'s `unimplemented` flag until M6.
 
 ### Tier 3 — Ranges, mdspan/linalg, format completions
 
