@@ -21,5 +21,23 @@ export namespace std {
 
   // [stopcallback], class template stop_­callback
   using std::stop_callback;
+
+#  if _LIBCPP_STD_VER >= 26
+  // [stoptoken.concepts]
+  using std::stoppable_token;
+  using std::unstoppable_token;
+
+  // [stoptoken.never], class never_stop_token
+  using std::never_stop_token;
+
+  // [stopsource.inplace], class inplace_stop_source
+  using std::inplace_stop_source;
+
+  // [stoptoken.inplace], class inplace_stop_token
+  using std::inplace_stop_token;
+
+  // [stopcallback.inplace], class template inplace_stop_callback
+  using std::inplace_stop_callback;
+#  endif // _LIBCPP_STD_VER >= 26
 #endif // _LIBCPP_HAS_THREADS
 } // namespace std

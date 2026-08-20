@@ -347,7 +347,9 @@ set(files
   __exception/terminate.h
   __execution/env.h
   __execution/forwarding_query.h
+  __execution/get_allocator.h
   __execution/get_env.h
+  __execution/get_stop_token.h
   __execution/queryable.h
   __expected/bad_expected_access.h
   __expected/expected.h
@@ -769,12 +771,17 @@ set(files
   __split_buffer
   __std_mbstate_t.h
   __stop_token/atomic_unique_lock.h
+  __stop_token/inplace_stop_callback.h
+  __stop_token/inplace_stop_source.h
+  __stop_token/inplace_stop_token.h
   __stop_token/intrusive_list_view.h
   __stop_token/intrusive_shared_ptr.h
+  __stop_token/never_stop_token.h
   __stop_token/stop_callback.h
   __stop_token/stop_source.h
   __stop_token/stop_state.h
   __stop_token/stop_token.h
+  __stop_token/stoppable_token.h
   __string/char_traits.h
   __string/constexpr_c_functions.h
   __string/extern_template_lists.h

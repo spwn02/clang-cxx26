@@ -160,7 +160,9 @@ _LIBCPP_END_NAMESPACE_STD
 #  if _LIBCPP_STD_VER >= 26
 #    include <__execution/env.h>
 #    include <__execution/forwarding_query.h>
+#    include <__execution/get_allocator.h>
 #    include <__execution/get_env.h>
+#    include <__execution/get_stop_token.h>
 #    include <__execution/queryable.h>
 #  endif // _LIBCPP_STD_VER >= 26
 

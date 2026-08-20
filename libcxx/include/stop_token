@@ -29,6 +29,25 @@ namespace std {
   template<class Callback>
     class stop_callback;
 
+  // [stoptoken.concepts]
+  template<class Token>
+    concept stoppable_token = ...;
+  template<class Token>
+    concept unstoppable_token = ...;
+
+  // [stoptoken.never], class never_stop_token
+  class never_stop_token;
+
+  // [stopsource.inplace], class inplace_stop_source
+  class inplace_stop_source;
+
+  // [stoptoken.inplace], class inplace_stop_token
+  class inplace_stop_token;
+
+  // [stopcallback.inplace], class template inplace_stop_callback
+  template<class Callback>
+    class inplace_stop_callback;
+
 */
 
 #if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
@@ -42,6 +61,14 @@ namespace std {
 #      include <__stop_token/stop_callback.h>
 #      include <__stop_token/stop_source.h>
 #      include <__stop_token/stop_token.h>
+#    endif
+
+#    if _LIBCPP_STD_VER >= 26
+#      include <__stop_token/inplace_stop_callback.h>
+#      include <__stop_token/inplace_stop_source.h>
+#      include <__stop_token/inplace_stop_token.h>
+#      include <__stop_token/never_stop_token.h>
+#      include <__stop_token/stoppable_token.h>
 #    endif
 
 #    include <version>

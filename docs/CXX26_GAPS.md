@@ -265,26 +265,74 @@ document — queries/environments and stop-token concepts are load-bearing
 for everything downstream, and `schedule()` itself returns a sender so
 schedulers can't come before sender concepts exist):**
 
-- [~] **M1** — Queries & environments foundation: `queryable` concept,
+- [x] **M1** — Queries & environments foundation: `queryable` concept,
   exposition query-object machinery, `forwarding_query`, `get_env`/
   `env_of_t`, `get_allocator`, `get_stop_token`, `prop`/`env` class
   templates (the P3325R5 part), plus the `<stop_token>` additions above
   (`stoppable_token` family, `inplace_stop_token`/`source`/`callback`).
   No sender/receiver concepts yet — this milestone is pure queryable
   infrastructure, testable via `static_assert`/concept checks alone.
-  **Landed 2026-08-20**: `__queryable` concept, `forwarding_query_t`/
-  `forwarding_query`, `prop<Query, Value>`, `env<Envs...>`, `get_env_t`/
-  `get_env`/`env_of_t` — new `libcxx/include/__execution/{queryable,
-  forwarding_query,env,get_env}.h`, included from `<execution>` in the
-  independently-guarded `_LIBCPP_STD_VER >= 26` block per the structural
-  constraint above. Tests under `libcxx/test/std/execution/{exec.queries/
-  exec.fwd.env,exec.queries/exec.get.env,exec.envs/exec.prop,exec.envs/
-  exec.env}/`. **Deferred to a follow-up M1 session**: `get_allocator`,
-  `get_stop_token`, and everything in the `<stop_token>` dependency
-  paragraph above (`stoppable_token` family, `inplace_stop_token`/
-  `source`/`callback`) — these need more careful, separately-verified
-  wording work (concurrency semantics for `inplace_stop_source`) than the
-  pure-queryable pieces landed this session; not started yet.
+  **Landed 2026-08-20 (two sessions)**: first session —`__queryable`
+  concept, `forwarding_query_t`/`forwarding_query`, `prop<Query, Value>`,
+  `env<Envs...>`, `get_env_t`/`get_env`/`env_of_t` — new
+  `libcxx/include/__execution/{queryable,forwarding_query,env,get_env}.h`,
+  included from `<execution>` in the independently-guarded
+  `_LIBCPP_STD_VER >= 26` block per the structural constraint above. Tests
+  under `libcxx/test/std/execution/{exec.queries/exec.fwd.env,exec.queries/
+  exec.get.env,exec.envs/exec.prop,exec.envs/exec.env}/`. Second session
+  (same day) — the rest of M1: `get_allocator`/`get_allocator_t` (new
+  `libcxx/include/__execution/get_allocator.h`, with an exposition-only
+  `__simple_allocator` concept per [allocator.requirements.general]) and
+  `get_stop_token`/`get_stop_token_t` (new
+  `libcxx/include/__execution/get_stop_token.h`), plus the `<stop_token>`
+  additions they depend on: `stoppable_token`/`unstoppable_token` concepts
+  (new `libcxx/include/__stop_token/stoppable_token.h`), `never_stop_token`
+  (new `.../never_stop_token.h`), and `inplace_stop_source`/
+  `inplace_stop_token`/`inplace_stop_callback` (new `.../inplace_stop_
+  {source,token,callback}.h`). Reused the existing `__stop_state`/
+  `__stop_callback_base`/`__atomic_unique_lock`/`__intrusive_list_view`
+  machinery that already backs `stop_source`/`stop_token`/`stop_callback`
+  rather than reimplementing the callback-registration race from scratch —
+  `inplace_stop_source` holds a `__stop_state` by value (`mutable`, so
+  callback (de)registration can mutate it through the `const
+  inplace_stop_source*` that `inplace_stop_token`/`inplace_stop_callback`
+  store) instead of going through `__intrusive_shared_ptr`, since
+  "in-place" tokens are non-owning references with no allocation or
+  ref-counting — the source object itself must outlive every token/callback
+  referring to it, which is stated as a header comment (not "safe
+  regardless of outstanding tokens/callbacks" — that would be wrong).
+  Caught before it shipped: `inplace_stop_source`'s constructor must call
+  `__state_.__increment_stop_source_counter()` (mirroring `stop_source`'s
+  constructor) even though "in-place" sources aren't ref-counted — skipping
+  it would leave `__stop_state`'s internal source-counter at 0 forever, and
+  `__add_callback` unconditionally gives up (treating it as a "no
+  stop-source exists" state) whenever that counter is 0, so every
+  `inplace_stop_callback` registration would silently no-op. Also retrofit
+  `template<class Fn> using callback_type = stop_callback<Fn>;` onto the
+  existing C++20 `stop_token` class (guarded `_LIBCPP_STD_VER >= 26`) —
+  verified against `eel.is/c++draft/stoptoken` (not inferred purely from
+  the concept failing to compile) that the C++26 draft's `stop_token`
+  synopsis actually adds this, needed so `stop_token` itself still models
+  the new `stoppable_token` concept. Advisor caught two availability-marker
+  gaps invisible in this environment's `libcpp-has-no-availability-markup`
+  build (would break Apple-platform builds otherwise): `inplace_stop_
+  callback`'s class itself needed `_LIBCPP_AVAILABILITY_SYNC` (its
+  ctor/dtor call `__stop_state` methods that carry the marker, matching
+  how `stop_callback` is marked — it was only on the deduction guide,
+  which doesn't cover the class), and the `stop_callback` forward
+  declaration added to `stop_token.h` needed the same marker as its real
+  definition; added `// XFAIL: availability-synchronization_library-missing`
+  to the new tests that exercise availability-marked code, matching the
+  existing `stopsource/*.pass.cpp` convention. Tests: `libcxx/test/std/
+  execution/exec.queries/{exec.get.allocator,exec.get.stop.token}/`, and
+  `libcxx/test/std/thread/thread.stoptoken/{stoppable_token→stoptoken.
+  concepts,stoptoken.never,stopsource.inplace,stoptoken.inplace,
+  stopcallback.inplace}/`. Full `execution/` + `thread/` suites green
+  (351/354, matching the pre-existing 3-unsupported baseline) after both
+  sessions; `transitive_includes.gen.py`/`module_std.gen.py` clean
+  (125/126, unchanged); verified `<execution>`'s C++26 content compiles
+  and works with `-std=c++26` and no `-D_LIBCPP_ENABLE_EXPERIMENTAL` (the
+  no-PSTL path the structural separation exists for) both times.
 
   **Load-bearing compiler-behavior finding, discovered empirically this
   session and reproduced independently against both this fork's Clang and
@@ -856,3 +904,31 @@ blocked, what's next. Do not remove old entries.
   `inplace_stop_token`/`inplace_stop_source`/`inplace_stop_callback` in
   `<stop_token>`) before moving to M2's `sender`/`receiver`/
   `operation_state` concepts.
+- **2026-08-20 (Tier 2, M1 completion)**: Finished the deferred remainder
+  of M1 — `get_allocator`, `get_stop_token`, and the `<stop_token>`
+  additions they depend on (`stoppable_token`/`unstoppable_token`
+  concepts, `never_stop_token`, `inplace_stop_source`/`inplace_stop_
+  token`/`inplace_stop_callback`). Full details are inline under M1's
+  entry in the sub-plan above rather than duplicated here. Headline
+  points: reused this repo's existing `__stop_state`/`__atomic_unique_
+  lock`/`__intrusive_list_view` machinery (already backing `stop_source`/
+  `stop_token`/`stop_callback`) for `inplace_stop_source` instead of
+  reimplementing the callback-registration race, which turned a
+  genuinely tricky concurrency problem into a much smaller
+  wire-it-together session; caught (before shipping) that skipping
+  `__stop_state`'s source-counter increment in `inplace_stop_source`'s
+  constructor would have silently broken every callback registration;
+  and retrofit `stop_token` with a `callback_type` member alias
+  (verified against the actual C++26 draft, not inferred) so the
+  pre-existing C++20 class keeps modeling the new `stoppable_token`
+  concept. Advisor caught two availability-marker gaps invisible in this
+  environment's build config (`libcpp-has-no-availability-markup`) that
+  would have broken Apple-platform builds — both fixed. **All of M1 is
+  now complete.** `libcxx/test/std/execution/` (10 tests) and
+  `libcxx/test/std/thread/` (354 tests) both fully green; no regressions.
+  **Next session: M2** — `completion_signatures`, `get_completion_
+  signatures`, `receiver`/`operation_state`/`sender`/`sender_in`
+  concepts, `connect`/`start`, `default_domain`/`indeterminate_domain`/
+  `transform_sender`/`apply_sender`. Read M1's `requires{}`
+  eager-evaluation finding (in the sub-plan above) before writing any of
+  M2's CPOs — it applies directly to `sender`/`receiver` concept checks.

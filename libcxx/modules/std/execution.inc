@@ -52,5 +52,15 @@ export namespace std::execution {
   using std::execution::env_of_t;
   using std::execution::get_env_t;
   using std::execution::get_env;
+
+  // [exec.get.allocator]
+  using std::execution::get_allocator_t;
+  using std::execution::get_allocator;
+
+  // [exec.get.stop.token]
+#if _LIBCPP_HAS_THREADS
+  using std::execution::get_stop_token_t;
+  using std::execution::get_stop_token;
+#endif
 } // namespace std::execution
 #endif // _LIBCPP_STD_VER >= 26

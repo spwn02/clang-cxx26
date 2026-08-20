@@ -22,8 +22,19 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_THREADS
 
+#  if _LIBCPP_STD_VER >= 26
+template <class _Callback>
+class _LIBCPP_AVAILABILITY_SYNC stop_callback;
+#  endif
+
 class _LIBCPP_AVAILABILITY_SYNC stop_token {
 public:
+#  if _LIBCPP_STD_VER >= 26
+  // [stoptoken.concepts]: retrofits `stop_token` to model `stoppable_token`, added by P2300.
+  template <class _Fn>
+  using callback_type = stop_callback<_Fn>;
+#  endif
+
   _LIBCPP_HIDE_FROM_ABI stop_token() noexcept = default;
 
   _LIBCPP_HIDE_FROM_ABI stop_token(const stop_token&) noexcept            = default;
