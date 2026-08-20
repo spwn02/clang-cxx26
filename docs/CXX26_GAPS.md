@@ -146,7 +146,7 @@ Good starting point after Tier 0.
 | [x] | P1901R2 | `weak_ptr` as unordered associative container key | Done 2026-08-20 |
 | [~] | P2944R3 | `reference_wrapper` comparisons | Partial — blocked on `optional`/`tuple` equality changes from P2165R4; check if P2988R11 work unblocked this |
 | [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | `<complex>` done; scalar math functions remain |
-| [ ] | P3168R2 | `std::optional` range support | **Verify scope overlap with P2988R11 first** — range support for non-reference `optional<T>` may already be substantially covered; this may be a CSV-status-only fix plus a small test-coverage gap, not a fresh implementation |
+| [x] | P3168R2 | `std::optional` range support | Done 2026-08-20 — implementation was already complete via P2988R11; added missing test coverage |
 
 **Known issue found while implementing `copyable_function` (not fixed — pre-existing,
 affects `move_only_function` too, out of scope for this contract):**
@@ -581,3 +581,45 @@ blocked, what's next. Do not remove old entries.
   scoping the work; this is probably larger than a single session, touches
   many files in `libcxx/include/__math/`, and was flagged as such rather
   than started).
+
+- **2026-08-20 (fourth entry)**: Closed the flagged `P3168R2` scope-check
+  item. Verified the suspicion directly: `libcxx/include/optional`
+  already defines `begin()`/`end()`/`iterator`/`const_iterator` for both
+  the primary `optional<T>` (guarded `#if _LIBCPP_STD_VER >= 26`) and the
+  `optional<T&>` partial specialization, plus
+  `ranges::enable_view<optional<_Tp>> = true` (covers both specializations,
+  since `_Tp` can itself be a reference type — no separate declaration
+  needed for `optional<T&>`) and
+  `ranges::enable_borrowed_range<optional<_Tp&>> = true` (reference-only,
+  correctly excluding the owning primary template). `<version>`'s
+  `__cpp_lib_optional_range_support` is `202406L`, not `unimplemented` —
+  all landed as part of the P2988R11 (`optional<T&>`) session, confirming
+  this was purely a leftover status/test-coverage gap, not fresh
+  implementation work. What was actually missing: zero test coverage
+  beyond the feature-test-macro checks in `optional.version.compile.pass.cpp`
+  — no test exercised `begin`/`end` behavior or verified the range/view/
+  borrowed_range concepts. Added
+  `libcxx/test/std/utilities/optional/optional.iterators/begin_end.pass.cpp`
+  (disengaged/engaged behavior for both specializations, iterator
+  mutation reaching the contained/referenced object, `constexpr`-ness,
+  interop with `std::ranges::begin`/`end`/`distance` and range-based
+  `for`) and
+  `.../optional.iterators/range_concept_conformance.compile.pass.cpp`
+  (`static_assert`s that `optional<T>`/`optional<T&>` and their `const`
+  forms model `contiguous_range`/`sized_range`/`common_range`/`view`, and
+  that only `optional<T&>` additionally models `borrowed_range`). Both
+  pass under the real `libcxx-lit` run (bare llvm-lit / the sandbox's
+  background static-analysis channel both falsely flag this file with
+  "no member `begin`" / "no member `ranges`" errors — same known false-
+  positive pattern as prior sessions, since neither uses `-std=c++26`;
+  confirmed via the wrapper instead). `libcxx-generate-files` produced no
+  diff (macro state was already correct). Flipped `P3168R2` to
+  `|Complete|` in `Cxx2cPapers.csv` and `[x]` in this document. **Tier 1
+  is now fully done except the two genuine partials**: `P2944R3`
+  (`reference_wrapper` comparisons — blocked on extending P2165R4's
+  `optional`/`tuple` equality changes) and `P1383R2` (`constexpr`
+  `<cmath>` scalars — needs a Clang builtin-support check before scoping,
+  likely multi-session). **Next session: either pick up one of those two
+  partials, or move to Tier 2** (`P2300R10` `std::execution` — largest
+  remaining item, needs its own sub-plan per the Scope section — or
+  `P2900R14` Contracts, deferred).
