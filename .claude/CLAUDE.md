@@ -50,12 +50,19 @@ libcxx/utils/libcxx-lit build-libcxx -sv libcxx/test/std/experimental/reflection
 # Full libc++ suite
 ninja -C build-libcxx check-cxx
 
-# Clang reflection tests — currently BLOCKED. build-nyx was configured with
-# LLVM_INCLUDE_TESTS=OFF; there is no check-clang target and no lit config
-# generated for clang/test/ at all. To unblock:
-#   cmake -S llvm -B build-nyx -DLLVM_INCLUDE_TESTS=ON && ninja -C build-nyx
-# See docs/CXX26_GAPS.md Tier 0 for details.
+# Clang reflection tests (e.g., reflect expressions, splices, operator precedence)
+./build-nyx/bin/llvm-lit clang/test/Reflection/ -v
+
+# Single test
+./build-nyx/bin/llvm-lit clang/test/Reflection/splice-types.cpp -v
+
+# Full clang test suite
+ninja -C build-nyx check-clang
 ```
+
+Note: `clang/test/Reflection/splice-exprs.cpp` currently fails (line 23
+expected-error not seen) — a pre-existing regression unrelated to any
+in-progress work, tracked in `docs/CXX26_GAPS.md` Tier 0. Not yet fixed.
 
 ## P2996 Features & Flags
 

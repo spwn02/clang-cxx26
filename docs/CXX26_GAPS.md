@@ -35,27 +35,40 @@ once the tiers below are substantially complete. Do not start on it as part
 of routine gap-closing work without an explicit decision to open that
 project.
 
-## Tier 0 — Blocking prerequisite (must do first)
+## Tier 0 — Blocking prerequisite (must do first) — DONE 2026-08-20
 
-`build-nyx` was configured with `LLVM_INCLUDE_TESTS=OFF`. There is currently
+`build-nyx` was configured with `LLVM_INCLUDE_TESTS=OFF`. There was
 **no `check-clang` ninja target and no `clang/test/` lit config generated at
-all** — any clang-side (language feature) work in this document is
-untestable until this is fixed. This does not block `libcxx/`-side work.
+all** — any clang-side (language feature) work in this document was
+untestable until this was fixed. This never blocked `libcxx/`-side work.
 
-- [ ] Reconfigure `build-nyx` with `-DLLVM_INCLUDE_TESTS=ON`, reusing the
-      existing cache (do not pass other flags — CMake will keep them from
-      `CMakeCache.txt`):
+- [x] Reconfigure `build-nyx`. **Correction to the original plan**:
+      `-DLLVM_INCLUDE_TESTS=ON` alone is not enough — `CLANG_INCLUDE_TESTS`
+      is a separate cached CMake option that only defaults from
+      `LLVM_INCLUDE_TESTS` on a fresh configure; once cached `OFF` it stays
+      `OFF` regardless of `LLVM_INCLUDE_TESTS`. Both flags are required:
       ```bash
-      cmake -S llvm -B build-nyx -DLLVM_INCLUDE_TESTS=ON
+      cmake -S llvm -B build-nyx -DLLVM_INCLUDE_TESTS=ON -DCLANG_INCLUDE_TESTS=ON
       ninja -C build-nyx
       ```
-- [ ] Verify: `ninja -C build-nyx -t targets | grep '^check-clang$'` succeeds
-      and `build-nyx/bin/llvm-lit clang/test/Sema -v` runs (not a config
-      error).
+- [x] Verified: `check-clang` target now exists
+      (`build-nyx/tools/clang/test/CMakeFiles/check-clang`), and
+      `build-nyx/bin/llvm-lit clang/test/Sema/return.c -v` passes.
 - Note: `LLVM_ENABLE_ASSERTIONS=OFF` in this tree — tests tagged
-  `REQUIRES: asserts` will be silently skipped once enabled. Consider
-  whether to also flip this on; not required to unblock testing, but some
-  language-feature tests assume assertion-build diagnostics.
+  `REQUIRES: asserts` will be silently skipped. Left as-is; flip on later
+  if a specific gap's tests need assertion-build diagnostics.
+
+**Known issue discovered while verifying (out of scope for this
+contract — reflection regression, not a C++26 conformance gap):**
+`clang/test/Reflection/splice-exprs.cpp` fails
+(`build-nyx/bin/llvm-lit clang/test/Reflection/ -v` → 15/16 pass). Line 23
+expects an `expected-error` diagnostic ("not derived from") that no longer
+fires. Reproducible in isolation, not a parallelism/flake artifact. This
+predates this contract and was invisible only because `check-clang` was
+never runnable before today. Not fixed here — tracked as a known issue for
+whoever picks up reflection-side maintenance; **do not confuse with the
+Tier 1–6 items below**, which are new C++26 facilities, not regressions in
+existing P2996 support.
 
 ## Build & Test Reference
 
@@ -78,7 +91,7 @@ ninja -C build-libcxx check-cxx
 # staleness automatically — run this and `git diff` to check:
 ninja -C build-libcxx libcxx-generate-files
 
-# Single/full clang test — BLOCKED until Tier 0 is done.
+# Single/full clang test — unblocked as of 2026-08-20 (Tier 0).
 build-nyx/bin/llvm-lit <path> -v
 ninja -C build-nyx check-clang
 ```
@@ -250,3 +263,17 @@ blocked, what's next. Do not remove old entries.
   language-feature work has been verified testable. Verified libcxx testing
   requires `libcxx/utils/libcxx-lit`, not bare `llvm-lit`, to avoid stale
   staged headers. No implementation work started yet.
+- **2026-08-20 (same day, second entry)**: Completed Tier 0. Reconfigured
+  `build-nyx` with both `-DLLVM_INCLUDE_TESTS=ON` and
+  `-DCLANG_INCLUDE_TESTS=ON` (the latter was the actual missing piece —
+  it's a separately-cached option, not purely derived from
+  `LLVM_INCLUDE_TESTS`). Rebuilt; `check-clang` target confirmed present;
+  `llvm-lit` runs cleanly on `clang/test/Sema/return.c`. Also ran the full
+  `clang/test/Reflection/` suite as a smoke test (not part of Tier 0's
+  requirements, but cheap and worth doing while test infra was fresh):
+  15/16 pass, one pre-existing regression found (`splice-exprs.cpp`,
+  documented under Tier 0 as a known issue, not fixed — out of scope for
+  this contract). **Next session: pick a Tier 1 item** (recommend
+  `function_ref` (P0792R14) or `copyable_function` (P2548R6) — both
+  self-contained, no cross-tier dependencies) or make a call on the
+  `splice-exprs.cpp` regression if reflection maintenance takes priority.
