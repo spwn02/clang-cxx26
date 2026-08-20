@@ -345,6 +345,10 @@ set(files
   __exception/nested_exception.h
   __exception/operations.h
   __exception/terminate.h
+  __execution/env.h
+  __execution/forwarding_query.h
+  __execution/get_env.h
+  __execution/queryable.h
   __expected/bad_expected_access.h
   __expected/expected.h
   __expected/unexpect.h

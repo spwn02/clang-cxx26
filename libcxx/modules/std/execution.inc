@@ -34,3 +34,23 @@ export namespace std::execution {
   using std::execution::unseq;
 } // namespace std::execution
 #endif // _LIBCPP_ENABLE_EXPERIMENTAL
+
+#if _LIBCPP_STD_VER >= 26
+export namespace std::execution {
+  // [exec.queryable]
+  // `__queryable` is exposition-only, not exported.
+
+  // [exec.fwd.env]
+  using std::execution::forwarding_query_t;
+  using std::execution::forwarding_query;
+
+  // [exec.prop], [exec.env]
+  using std::execution::env;
+  using std::execution::prop;
+
+  // [exec.get.env]
+  using std::execution::env_of_t;
+  using std::execution::get_env_t;
+  using std::execution::get_env;
+} // namespace std::execution
+#endif // _LIBCPP_STD_VER >= 26

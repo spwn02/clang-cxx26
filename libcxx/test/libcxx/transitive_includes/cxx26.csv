@@ -254,6 +254,10 @@ exception cstdint
 exception cstdlib
 exception typeinfo
 exception version
+execution compare
+execution cstdint
+execution limits
+execution tuple
 execution version
 expected cstdint
 expected initializer_list

@@ -272,6 +272,53 @@ schedulers can't come before sender concepts exist):**
   (`stoppable_token` family, `inplace_stop_token`/`source`/`callback`).
   No sender/receiver concepts yet — this milestone is pure queryable
   infrastructure, testable via `static_assert`/concept checks alone.
+  **Landed 2026-08-20**: `__queryable` concept, `forwarding_query_t`/
+  `forwarding_query`, `prop<Query, Value>`, `env<Envs...>`, `get_env_t`/
+  `get_env`/`env_of_t` — new `libcxx/include/__execution/{queryable,
+  forwarding_query,env,get_env}.h`, included from `<execution>` in the
+  independently-guarded `_LIBCPP_STD_VER >= 26` block per the structural
+  constraint above. Tests under `libcxx/test/std/execution/{exec.queries/
+  exec.fwd.env,exec.queries/exec.get.env,exec.envs/exec.prop,exec.envs/
+  exec.env}/`. **Deferred to a follow-up M1 session**: `get_allocator`,
+  `get_stop_token`, and everything in the `<stop_token>` dependency
+  paragraph above (`stoppable_token` family, `inplace_stop_token`/
+  `source`/`callback`) — these need more careful, separately-verified
+  wording work (concurrency semantics for `inplace_stop_source`) than the
+  pure-queryable pieces landed this session; not started yet.
+
+  **Load-bearing compiler-behavior finding, discovered empirically this
+  session and reproduced independently against both this fork's Clang and
+  stock upstream Clang 22 / GCC 16 (so it's not fork-specific) — record
+  this before writing any more CPOs against this pattern:** a
+  `requires { obj.method(args); }` **simple-requirement is evaluated
+  eagerly, not as a substitution-failure-is-fine probe, whenever `obj`'s
+  type and `args`' types are concrete (non-dependent) at that point** —
+  e.g. checking a local variable's method directly from a `static_assert`
+  in a plain function. If `method` exists but is a constrained template
+  whose sole viable candidate gets removed by constraint-checking, this is
+  a **hard compile error**, not a silent `false`, in both Clang and GCC —
+  confirmed with `requires`-clauses, fold-expression `requires`-clauses,
+  and classic `enable_if`-on-return-type SFINAE alike (all three behave
+  identically here). The construct only behaves as a soft, SFINAE-style
+  probe when the checked entities are genuinely dependent — i.e., the
+  requires-expression's *own* parameter list must be substituted from an
+  enclosing *template's* parameters (see `env.h`'s `__has_query` concept
+  for the working pattern, and the `CanQuery` helper added to
+  `env.pass.cpp` for how to write assertions against it). This affects
+  every CPO built for the rest of this sub-plan (M2's `connect`/`sender`/
+  `receiver` concepts, all of M3–M6) — write `requires{}` checks against
+  a template's own parameters, never against concrete/already-resolved
+  local objects, or downstream code that legitimately needs to probe "is
+  this call well-formed" (as most exec CPOs do) will hard-error instead of
+  falling back.
+
+  Separately, also discovered and fixed: a function's **noexcept-specifier
+  is not protected by SFINAE** the way a trailing requires-clause is
+  (exception specifications are evaluated when forming the function's type
+  for overload resolution, which is outside the "immediate context") — see
+  the `_Idx == sizeof...(_Envs)` guard in `env::__query_is_noexcept`, and
+  the regression test for it in `env.pass.cpp` (`CanQuery<env<prop<QueryA,
+  int>>, QueryB>` must itself stay well-formed).
 - [ ] **M2** — Core concepts: `completion_signatures`,
   `get_completion_signatures`, `receiver`/`operation_state`/`sender`/
   `sender_in` concepts, `connect`/`start`, `default_domain`/
@@ -758,3 +805,54 @@ blocked, what's next. Do not remove old entries.
   partials, or move to Tier 2** (`P2300R10` `std::execution` — largest
   remaining item, needs its own sub-plan per the Scope section — or
   `P2900R14` Contracts, deferred).
+- **2026-08-20 (Tier 2 kickoff)**: Started Tier 2 (`P2300R10` `std::execution`),
+  per user request to move to Tier 2. This is a **multi-session effort** —
+  see the dedicated sub-plan under Tier 2 above for full scope, milestone
+  breakdown, and structural findings; do not read a partially-done
+  milestone as abandoned. Surveyed `eel.is/c++draft/exec` to scope and
+  order the work; set `P2300R10`/`P3325R5`/`P3396R1` to `|In Progress|` in
+  `Cxx2cPapers.csv` and committed the sub-plan on its own before any code.
+  Then implemented the first slice of **M1**: `__queryable` concept,
+  `forwarding_query`, `prop<Query, Value>`, `env<Envs...>`, `get_env`/
+  `env_of_t` — new `libcxx/include/__execution/` headers, wired into
+  `<execution>` in a separate C++26-guarded block outside the existing
+  PSTL execution-policy guard (verified that structural separation was
+  necessary before writing any code). `get_allocator`/`get_stop_token`/
+  the `stoppable_token` concept family/`inplace_stop_token` are the
+  explicitly deferred remainder of M1 — not started.
+
+  Along the way, discovered (and documented in the sub-plan, since it's
+  load-bearing for every future milestone) that `requires { obj.method(); }`
+  hard-errors instead of evaluating `false` when `obj`/its arguments are
+  concrete rather than genuinely template-dependent, reproduced
+  independently against stock upstream Clang 22 and GCC 16 (not a
+  fork-specific bug) — this shaped both `env.h`'s implementation (the
+  `_Idx == sizeof...(_Envs)` guards, needed because noexcept-specifiers
+  aren't SFINAE-protected either) and how its tests had to be written (the
+  `CanQuery` concept helper in `env.pass.cpp`, routing every "this query is
+  unsupported" assertion through a template parameter rather than a
+  concrete local variable). Advisor caught two real bugs before commit:
+  aggregate-breaking `-Wdeprecated-copy` from deleting `operator=` without
+  a user-declared copy constructor (fixed by making `prop`'s/`env`'s data
+  members `const`, which implicitly deletes assignment without an explicit
+  declaration and keeps `prop` an aggregate per its synopsis), and the
+  noexcept-specifier SFINAE gap above.
+
+  New tests (all passing under `libcxx-lit`, `libcxx/test/std/execution/`
+  now 4/4 green): `exec.queries/exec.fwd.env/forwarding_query.pass.cpp`,
+  `exec.queries/exec.get.env/get_env.pass.cpp`,
+  `exec.envs/exec.prop/prop.pass.cpp`, `exec.envs/exec.env/env.pass.cpp`.
+  Added the new headers to `libcxx/include/CMakeLists.txt`, a C++26-guarded
+  export block to `libcxx/modules/std/execution.inc`, and updated
+  `libcxx/test/libcxx/transitive_includes/cxx26.csv` (`execution` now also
+  transitively pulls `compare`/`cstdint`/`limits`/`tuple` in C++26 mode) —
+  `transitive_includes.gen.py` and `module_std.gen.py` both clean
+  afterward (125/126 and 126/126 respectively, matching this repo's
+  existing 1 pre-existing unsupported baseline). Left
+  `__cpp_lib_senders`'s `unimplemented` flag untouched per the sub-plan's
+  FTM discipline (only flips at M6). **Next session: finish M1**
+  (`get_allocator`, `get_stop_token`, `stoppable_token`/
+  `stoppable_token_for`/`unstoppable_token`/`never_stop_token`,
+  `inplace_stop_token`/`inplace_stop_source`/`inplace_stop_callback` in
+  `<stop_token>`) before moving to M2's `sender`/`receiver`/
+  `operation_state` concepts.
