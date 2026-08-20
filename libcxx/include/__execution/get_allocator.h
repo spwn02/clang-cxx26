@@ -24,8 +24,6 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26
 
-namespace execution {
-
 // [allocator.requirements.general]'s exposition-only `simple-allocator`: the minimal
 // allocator interface `get_allocator`'s Mandates require of a query's result.
 template <class _Alloc>
@@ -36,6 +34,7 @@ concept __simple_allocator =
     } && copy_constructible<_Alloc> && equality_comparable<_Alloc>;
 
 // [exec.get.allocator]
+// Declared directly in namespace std (not std::execution) per [execution.syn].
 struct get_allocator_t : forwarding_query_t {
   template <class _Env>
     requires requires(const _Env& __env, const get_allocator_t& __self) {
@@ -47,8 +46,6 @@ struct get_allocator_t : forwarding_query_t {
 };
 
 inline constexpr get_allocator_t get_allocator{};
-
-} // namespace execution
 
 #endif // _LIBCPP_STD_VER >= 26
 

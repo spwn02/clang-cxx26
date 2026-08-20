@@ -20,16 +20,14 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26
 
-namespace execution {
-
 // [exec.queryable]
-// Exposition-only: a queryable object is any destructible type. The interesting
-// requirements (which queries are supported, constness, equality-preservation)
-// are semantic, checked ad hoc by each query's own constraints, not encoded here.
+// Exposition-only, declared directly in namespace std (not std::execution) per
+// the synopsis in [execution.syn]. A queryable object is any destructible type;
+// the interesting requirements (which queries are supported, constness,
+// equality-preservation) are semantic, checked ad hoc by each query's own
+// constraints, not encoded here.
 template <class _Tp>
 concept __queryable = destructible<_Tp>;
-
-} // namespace execution
 
 #endif // _LIBCPP_STD_VER >= 26
 

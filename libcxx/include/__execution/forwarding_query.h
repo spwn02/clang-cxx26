@@ -21,9 +21,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26
 
-namespace execution {
-
 // [exec.fwd.env]
+// Declared directly in namespace std (not std::execution) per [execution.syn].
 // A query `q` is a "forwarding query" if, when an environment adaptor combines several
 // queryable objects into one, `q` should be looked up in the *inner* environment rather
 // than answered by the adaptor itself. Query CPOs that want to be forwarding queries
@@ -43,8 +42,6 @@ struct forwarding_query_t {
 };
 
 inline constexpr forwarding_query_t forwarding_query{};
-
-} // namespace execution
 
 #endif // _LIBCPP_STD_VER >= 26
 

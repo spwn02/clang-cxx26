@@ -367,10 +367,89 @@ schedulers can't come before sender concepts exist):**
   the `_Idx == sizeof...(_Envs)` guard in `env::__query_is_noexcept`, and
   the regression test for it in `env.pass.cpp` (`CanQuery<env<prop<QueryA,
   int>>, QueryB>` must itself stay well-formed).
-- [ ] **M2** — Core concepts: `completion_signatures`,
-  `get_completion_signatures`, `receiver`/`operation_state`/`sender`/
-  `sender_in` concepts, `connect`/`start`, `default_domain`/
-  `indeterminate_domain`/`transform_sender`/`apply_sender`.
+
+  **M1 correction, landed 2026-08-20 (same day, before M2 started):** the
+  original M1 implementation put `forwarding_query_t`/`forwarding_query`,
+  `get_allocator_t`/`get_allocator`, `get_stop_token_t`/`get_stop_token`, and
+  the exposition-only `queryable` concept inside `namespace std::execution`.
+  Cross-checking `eel.is/c++draft/execution.syn` directly (via `curl` +
+  Python tag-strip, not WebFetch's summarizer — see process rule below)
+  showed these are declared in plain `namespace std`, not `std::execution` —
+  confirmed independently by the raw P2300R10 paper text too, which is the
+  one point the two sources agree on. Fixed by moving all four out of the
+  `namespace execution { ... }` wrapper in `__execution/{queryable,
+  forwarding_query,get_allocator,get_stop_token}.h` (they're declared
+  directly under `_LIBCPP_BEGIN_NAMESPACE_STD` now); `get_env`/`env_of_t`
+  and `prop`/`env` correctly stay in `std::execution` per the same synopsis.
+  Also added `stop_token_of_t<T>` (declared alongside `get_stop_token` in
+  `namespace std` per the synopsis; not implemented in the original M1
+  pass). Updated the 4 affected M1 tests (qualification + `using namespace
+  std::execution;` → `using namespace std;` where those names were being
+  brought in unqualified) and `libcxx/modules/std/execution.inc` (split into
+  a `std` export block for the four moved names plus `stop_token_of_t`, and
+  a separate `std::execution` block for `env`/`prop`/`get_env`/`env_of_t`).
+  All 11 affected tests re-verified green; `libcxx-generate-files` clean
+  (no unrelated diffs).
+
+  **Process rule, established while researching M2 and worth keeping for
+  M3–M6:** WebFetch's AI-summarized answers proved unreliable for this
+  material — wrong namespaces, wrong tag names (`receiver_t` vs. the actual
+  `receiver_tag`), wrong CPO shapes, and at least one invented declaration
+  presented as real. The reliable method: `curl -s -A "Mozilla/5.0"
+  https://eel.is/c++draft/<clause>` (or the P2300R10 paper HTML at
+  `https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2300r10.html`
+  for prose/algorithm-body wording only — see below), then strip tags with a
+  short inline `python3 -c "import re,html; ..."` and grep/read the raw
+  text. **eel.is (the current merged working draft) wins over the R10 paper
+  on what exists and what things are named** — confirmed by direct
+  contradiction: R10 has `empty_env`/`receiver_t`/`sender_t`/
+  `operation_state_t`; the current draft has neither `empty_env` (verified
+  absent from `execution.syn` — `env<>` is the actual default everywhere,
+  matching what M1 already implemented) nor `*_t`-suffixed tags (it's
+  `receiver_tag`/`sender_tag`/`operation_state_tag`/`scheduler_tag`). Use
+  the R10 paper only for wording of algorithm bodies where eel.is says "see
+  below" — re-check every name against the current synopsis before typing
+  it, since the draft has moved substantially past R10 (it now also
+  contains entities belonging to separate, explicitly out-of-scope papers:
+  `task_scheduler`/`affine` (P3149), `associate`/`spawn_future`,
+  `bulk_chunked`/`bulk_unchunked`, `indeterminate_domain`,
+  `get_start_scheduler`/`get_delegation_scheduler`/`get_completion_domain`/
+  `get_await_completion_adaptor`, `inline_scheduler`, `with_error` — do not
+  implement these; the scope rule is "implement an entity only if something
+  in the P2300R10+P3325R5+P3396R1 surface actually names it").
+
+- [ ] **M2** — Core concepts, split like M1 (foundation sub-slice first,
+  domain-dispatch sub-slice second):
+  - **M2a** (no domain dependency): `completion-signature` concept,
+    `completion_signatures<Fns...>`, `valid-completion-signatures`,
+    `set_value`/`set_error`/`set_stopped` CPOs, `receiver_tag`, `receiver`/
+    `receiver-of` concepts, `operation_state_tag`, `operation_state`
+    concept, `start` CPO, `sender_tag`, `enable_sender`/`sender`/
+    `sender_in` concepts (`sender_in<Sndr, class... Env>` is variadic;
+    `Env = env<>` defaults appear on `value_types_of_t`/`error_types_of_t`/
+    `sends_stopped` instead), `sender-to`, `type-list`/`decayed-tuple`/
+    `variant-or-empty` exposition helpers, `value_types_of_t`/
+    `error_types_of_t`/`sends_stopped`, `tag_of_t`. Deliberately decide
+    (don't discover in M5) whether `get_completion_signatures`/
+    `dependent_sender` throwing `dependent_sender_error` for a dependent
+    sender is in scope here — check `[exec.getcomplsigs]` before writing
+    the consteval function template
+    (`template<class Sndr, class... Env> consteval auto
+    get_completion_signatures() -> valid-completion-signatures auto;` —
+    note this is a **consteval function template**, not a CPO object taking
+    `(sndr, env)`, contra an earlier WebFetch-based guess).
+  - **M2b** (domain dispatch): `get_domain`/`get_scheduler`/
+    `get_completion_scheduler<CPO>` queries, `default_domain`,
+    `transform_sender` (verify arity against `[exec.snd.transform]` before
+    implementing — the current synopsis shows a **2-arg, no-domain** form
+    `transform_sender(Sndr&&, const Env&)`, which may mean domain dispatch
+    moved inside the function body rather than being a 3-arg CPO like R10
+    had), `apply_sender` (still `Domain dom` first per the synopsis),
+    `connect`/`connect_result_t`. Don't shortcut `connect` to bare member
+    dispatch — it won't need rewriting in M5 if done properly here.
+  Fetch `[exec.snd.transform]`, `[exec.getcomplsigs]`, `[exec.cmplsig]`,
+  and `[exec.snd]` as raw HTML (per the process rule above) before writing
+  M2a code.
 - [ ] **M3** — First real senders: `just`/`just_error`/`just_stopped`,
   `read_env`, `schedule` (scheduler concept is exercised here for the
   first time via a trivial scheduler, not defined as its own milestone).
@@ -932,3 +1011,33 @@ blocked, what's next. Do not remove old entries.
   `transform_sender`/`apply_sender`. Read M1's `requires{}`
   eager-evaluation finding (in the sub-plan above) before writing any of
   M2's CPOs — it applies directly to `sender`/`receiver` concept checks.
+- **2026-08-20 (Tier 2, M1 namespace correction + M2 research)**: Before
+  starting M2, cross-checked M1's shipped code against
+  `eel.is/c++draft/execution.syn` fetched directly via `curl` + Python
+  tag-strip (abandoned WebFetch's summarizer after it returned wrong
+  namespaces/names/CPO shapes and at least one fabricated declaration for
+  `[exec.connect]`/`[exec.snd.transform]`). Found and fixed a real M1 bug:
+  `forwarding_query`, `get_allocator`, `get_stop_token`, and the
+  exposition-only `queryable` concept belong in plain `namespace std`, not
+  `std::execution` — moved all four, added the previously-missing
+  `stop_token_of_t`, updated 4 tests and `execution.inc`'s export block, all
+  green. Also resolved an open question from the previous session: the
+  current draft has no `empty_env` (R10 had it; the draft's actual default
+  is `env<>`, matching what M1 already implemented — nothing to change
+  there), and tag names are `receiver_tag`/`sender_tag`/
+  `operation_state_tag`/`scheduler_tag`, not R10's `receiver_t`/`sender_t`/
+  `operation_state_t` — corrected in the M2 plan below. Established the
+  process rule (eel.is beats the R10 paper on names; R10 paper only for
+  algorithm-body wording) and confirmed the current draft carries several
+  out-of-scope papers' entities in the same synopsis (`task_scheduler`,
+  `affine`, `associate`/`spawn_future`, `bulk_chunked`/`bulk_unchunked`,
+  `indeterminate_domain`, `get_start_scheduler`/`get_delegation_scheduler`)
+  — scope rule: implement only what the P2300R10+P3325R5+P3396R1 surface
+  actually names. Re-split M2 into M2a (completion_signatures/receiver/
+  operation_state/sender concepts, no domain dependency) and M2b
+  (get_domain/get_scheduler/default_domain/transform_sender/apply_sender/
+  connect) — see the sub-plan above for full detail. No M2 code written
+  yet; full details and the exact fetch commands are recorded inline in the
+  sub-plan above so the next session doesn't re-derive any of this.
+  **Next session: M2a**, starting with fetching `[exec.cmplsig]` and
+  `[exec.snd]` as raw HTML.

@@ -13,6 +13,8 @@
 #include <__execution/forwarding_query.h>
 #include <__stop_token/never_stop_token.h>
 #include <__stop_token/stoppable_token.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/declval.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -22,9 +24,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_THREADS
 
-namespace execution {
-
 // [exec.get.stop.token]
+// Declared directly in namespace std (not std::execution) per [execution.syn].
 struct get_stop_token_t : forwarding_query_t {
   template <class _Env>
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept {
@@ -42,7 +43,8 @@ struct get_stop_token_t : forwarding_query_t {
 
 inline constexpr get_stop_token_t get_stop_token{};
 
-} // namespace execution
+template <class _Tp>
+using stop_token_of_t = remove_cvref_t<decltype(get_stop_token(std::declval<_Tp>()))>;
 
 #endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_THREADS
 

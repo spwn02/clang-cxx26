@@ -22,7 +22,7 @@
 #include <type_traits>
 
 struct HasAllocator {
-  std::allocator<int> query(std::execution::get_allocator_t) const noexcept { return {}; }
+  std::allocator<int> query(std::get_allocator_t) const noexcept { return {}; }
 };
 
 struct NoAllocator {};
@@ -31,7 +31,7 @@ template <class Q, class Env>
 concept CanGetAllocator = requires(const Env& e, Q q) { q(e); };
 
 int main(int, char**) {
-  using namespace std::execution;
+  using namespace std;
 
   static_assert(forwarding_query(get_allocator));
 

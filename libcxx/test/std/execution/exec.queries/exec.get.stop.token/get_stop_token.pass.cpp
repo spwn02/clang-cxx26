@@ -23,14 +23,14 @@
 #include <type_traits>
 
 struct HasStopToken {
-  std::inplace_stop_token query(std::execution::get_stop_token_t) const noexcept { return __token_; }
+  std::inplace_stop_token query(std::get_stop_token_t) const noexcept { return __token_; }
   std::inplace_stop_token __token_;
 };
 
 struct NoStopToken {};
 
 int main(int, char**) {
-  using namespace std::execution;
+  using namespace std;
 
   static_assert(forwarding_query(get_stop_token));
 

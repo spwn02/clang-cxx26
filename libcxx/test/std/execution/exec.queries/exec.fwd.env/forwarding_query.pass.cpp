@@ -20,26 +20,26 @@
 #include <execution>
 
 // Opts in via inheritance from forwarding_query_t.
-struct ForwardingByInheritance : std::execution::forwarding_query_t {};
+struct ForwardingByInheritance : std::forwarding_query_t {};
 
 // Opts in (and can override) via a member `query(forwarding_query_t)`.
 struct ForwardsTrueByMember {
-  constexpr bool query(std::execution::forwarding_query_t) const noexcept { return true; }
+  constexpr bool query(std::forwarding_query_t) const noexcept { return true; }
 };
 
 struct ForwardsFalseByMember {
-  constexpr bool query(std::execution::forwarding_query_t) const noexcept { return false; }
+  constexpr bool query(std::forwarding_query_t) const noexcept { return false; }
 };
 
 // The member form takes precedence over inheritance.
-struct OverridesInheritance : std::execution::forwarding_query_t {
-  constexpr bool query(std::execution::forwarding_query_t) const noexcept { return false; }
+struct OverridesInheritance : std::forwarding_query_t {
+  constexpr bool query(std::forwarding_query_t) const noexcept { return false; }
 };
 
 struct NotForwarding {};
 
 constexpr bool test() {
-  using namespace std::execution;
+  using namespace std;
 
   assert(forwarding_query(ForwardingByInheritance{}));
   assert(forwarding_query(ForwardsTrueByMember{}));
