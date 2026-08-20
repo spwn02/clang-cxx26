@@ -98,6 +98,13 @@ export namespace std {
   // [func.wrap.move], move only wrapper
   using std::move_only_function;
 
+#if _LIBCPP_STD_VER >= 26
+  // [func.wrap.ref], class template function_ref
+  using std::nontype_t;
+  using std::nontype;
+  using std::function_ref;
+#endif
+
   // [func.search], searchers
   using std::default_searcher;
 

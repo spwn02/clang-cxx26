@@ -140,7 +140,7 @@ Good starting point after Tier 0.
 
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
-| [ ] | P0792R14 | `function_ref` | Non-owning callable wrapper, widely requested |
+| [x] | P0792R14 | `function_ref` | Non-owning callable wrapper — done 2026-08-20 |
 | [ ] | P2548R6 | `copyable_function` | Owning type-erased callable, pairs with function_ref |
 | [ ] | P2363R5 | Heterogeneous lookup, remaining associative container overloads | Extends existing partial heterogeneous-lookup support |
 | [ ] | P1901R2 | `weak_ptr` as unordered associative container key | Small, self-contained |
@@ -277,3 +277,39 @@ blocked, what's next. Do not remove old entries.
   `function_ref` (P0792R14) or `copyable_function` (P2548R6) — both
   self-contained, no cross-tier dependencies) or make a call on the
   `splice-exprs.cpp` regression if reflection maintenance takes priority.
+- **2026-08-20 (third entry)**: Implemented P0792R14 `function_ref`. New
+  `libcxx/include/__functional/function_ref{,_common,_impl}.h`, modeled on
+  `move_only_function`'s macro-generation trick (deducing the `noexcept`
+  bool template parameter from the abominable function type's
+  exception-specifier) but simpler: only a `cv` axis (no ref-qualifiers, per
+  [func.wrap.ref]). Added `nontype_t`/`nontype` alongside it (same header,
+  same paper). Non-owning storage is an exposition-only
+  `__function_ref_bound_entity` union (void* object pointer / generic
+  function pointer via `reinterpret_cast`), with accessor choice
+  (`__get_object` vs. `__get_function`) matched to how each constructor
+  stored the value — this matters for the generic `F&&` constructor, which
+  can bind an actual function *lvalue* (not just a pointer) and must read
+  back through the function-pointer union member in that case. Caught by
+  the advisor before commit: the deleted `operator=(T)` template was
+  initially unconstrained, silently breaking the standard's carve-outs
+  (assigning a function pointer, or a `nontype_t` value, must still work
+  through the converting constructor + defaulted copy-assignment; only
+  genuinely-unrelated `T` should be deleted to block the dangling-temporary
+  footgun) — fixed with a `requires` clause using a new `__is_nontype_t_v`
+  trait, and added a `constexpr` global `function_ref` test to exercise the
+  bound-entity void* round-trip under constant evaluation (operator() itself
+  is intentionally not `constexpr` per the synopsis). Registered the three
+  new headers in `libcxx/include/CMakeLists.txt` (missing this is why the
+  first lit run failed with a stale-staged-install "file not found" — new
+  headers aren't installed until added there). Updated: `functional`
+  synopsis, `__cpp_lib_function_ref` (flipped `unimplemented` off in
+  `generate_feature_test_macro_components.py`, regenerated `version` +
+  `FeatureTestMacroTable.rst` + the two `*.version.compile.pass.cpp` tests
+  via `libcxx-generate-files`), `libcxx/modules/std/functional.inc` (C++26
+  guarded block), `Cxx2cPapers.csv` (P0792R14 → Complete). New test:
+  `libcxx/test/std/utilities/function.objects/func.wrap/func.wrap.ref/basic.pass.cpp`.
+  Full `function.objects` suite (172 tests) green after the fix: 162 passed,
+  9 unsupported (unrelated feature gating), 1 pre-existing xfail. **Next
+  session: `copyable_function` (P2548R6)** — same Tier 1 pairing, owning
+  counterpart to `function_ref`; can likely reuse `move_only_function`'s
+  vtable/small-buffer machinery more directly than `function_ref` could.
