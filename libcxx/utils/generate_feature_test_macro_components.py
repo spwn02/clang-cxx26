@@ -160,7 +160,6 @@ feature_test_macros = [
                 "c++26": 202306  # P2363R5 Extending associative containers with the remaining heterogeneous overloads
             },
             "headers": ["map", "set", "unordered_map", "unordered_set"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_assume_aligned",

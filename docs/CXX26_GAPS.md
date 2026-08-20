@@ -142,7 +142,7 @@ Good starting point after Tier 0.
 |---|---|---|---|
 | [x] | P0792R14 | `function_ref` | Non-owning callable wrapper — done 2026-08-20 |
 | [x] | P2548R6 | `copyable_function` | Owning type-erased callable — done 2026-08-20 |
-| [ ] | P2363R5 | Heterogeneous lookup, remaining associative container overloads | Extends existing partial heterogeneous-lookup support |
+| [x] | P2363R5 | Heterogeneous lookup, remaining associative container overloads | Done 2026-08-20 |
 | [x] | P1901R2 | `weak_ptr` as unordered associative container key | Done 2026-08-20 |
 | [~] | P2944R3 | `reference_wrapper` comparisons | Partial — blocked on `optional`/`tuple` equality changes from P2165R4; check if P2988R11 work unblocked this |
 | [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | `<complex>` done; scalar math functions remain |
@@ -471,3 +471,113 @@ blocked, what's next. Do not remove old entries.
   `<cmath>`) — or investigate the pre-existing `clang_modules_include.gen.py`
   breakage (122/143 failing at baseline, unrelated to any tracked Tier
   work) if header-modules infrastructure maintenance takes priority.
+- **2026-08-20 (sixth entry)**: Implemented P2363R5 (remaining heterogeneous
+  associative-container overloads). Confirmed via WebFetch against
+  `eel.is/c++draft` (the paper's own HTML doesn't carry the wording — that
+  lives in the referenced P2077R2/prior heterogeneous-lookup papers, so the
+  actual signatures had to come from the current draft standard) that scope
+  is: `map`/`unordered_map` gain heterogeneous `try_emplace`,
+  `insert_or_assign` (both with and without a hint), `operator[]`, and
+  `at`; `set`/`unordered_set` gain heterogeneous `insert` (with and without
+  hint); all four unordered containers (`unordered_map`,
+  `unordered_multimap`, `unordered_set`, `unordered_multiset`) gain
+  heterogeneous `bucket`. Explicitly **not** in scope: `multimap`/
+  `multiset` get nothing under this paper (confirmed by fetching
+  `multiset.overview` directly — no heterogeneous `insert` there) and the
+  FTM's `headers` list in the generator only names `map`/`set`/
+  `unordered_map`/`unordered_set` (multimap/multiset share headers with
+  their unique counterparts, so this is consistent). Erase/extract
+  heterogeneous overloads are a **different**, separately-gated FTM
+  (`__cpp_lib_associative_heterogeneous_erasure`, P2077R2, C++23) that is
+  still `unimplemented: True` in this repo's generator — left untouched,
+  out of scope for this paper and not tracked in this C++26 gap document.
+
+  Pre-implementation blocking check (per advisor): verified
+  `__tree::__emplace_unique_key_args`/`__emplace_hint_unique_key_args` and
+  `__hash_table::__emplace_unique_key_args` are **already** templated on
+  the search-key type (`template <class _Key, class... _Args>`), with the
+  actual search (`__find_equal`/`hash_function()(__k)` +
+  `key_eq()(...)`) also already generic — i.e., the internal emplace
+  machinery already supported heterogeneous search transparently (same
+  path `find`/`count`/etc. use); no plumbing changes were needed, only the
+  new public-facing overloads. This turned what could have been a
+  multi-session plumbing project into a single mechanical (if large)
+  fan-out session, confirmed empirically before writing the 20+ new
+  overloads.
+
+  Added, each guarded `#if _LIBCPP_STD_VER >= 26` and constrained on
+  `__is_transparent_v<_Compare, _K2>` (ordered) or
+  `__is_transparent_v<hasher, _K2> && __is_transparent_v<key_equal, _K2>`
+  (unordered): `map`/`unordered_map`'s `try_emplace`/`insert_or_assign`
+  non-hint overloads additionally exclude `is_convertible_v<_K2&&,
+  const_iterator>`/`is_convertible_v<_K2&&, iterator>` (per the standard's
+  Constraints, to disambiguate a 2-arg call from the 2-arg hint overload);
+  `set`/`unordered_set`'s hint `insert` excludes the same pair (to
+  disambiguate from the 2-iterator range-insert overload); non-hint
+  `insert`/`insert_or_assign`/`operator[]`/`at`/`bucket` need no such
+  exclusion (arity alone disambiguates, verified by writing out the
+  argument counts rather than trusting a lossy WebFetch summarizer, which
+  also incorrectly annotated every function `constexpr` on the same
+  eel.is page — a live example of why the summarizer needed
+  cross-checking here). `operator[](K&&)`/`at(const K&)` are defined
+  inline in terms of `try_emplace`/`__tree_.__find_equal`/`find`,
+  mirroring the standard's own Effects wording
+  (`try_emplace(std::forward<K>(x)).first->second`) rather than
+  duplicating tree-search logic. Added `#include
+  <__type_traits/is_convertible.h>` to all four headers; ran
+  `transitive_includes.gen.py`/`module_std.gen.py` after — 125/126 pass
+  (1 pre-existing unsupported), unchanged from baseline, confirming
+  `is_convertible` was already transitively reachable so the explicit
+  include didn't shift the graph.
+
+  Verified incrementally per advisor's guidance: implemented and tested
+  `map` alone first (lit-testable via `libcxx-lit`, not raw
+  `clang++` — a raw invocation hits the `__config_site` staged-header trap
+  CLAUDE.md warns about) before fanning out to `set`/`unordered_map`/
+  `unordered_set`/`unordered_multimap`/`unordered_multiset`. Note: this
+  session's sandbox runs a background static-analysis pass (surfaced as
+  `<new-diagnostics>` system reminders) that flagged every new heterogeneous
+  call site as "no matching member function" — cross-checked against the
+  real `libcxx-lit` compile line and confirmed the false positives are from
+  that checker running without `-std=c++26`/the libc++-specific defines
+  (so the new `_LIBCPP_STD_VER >= 26`-guarded overloads are invisible to
+  it); the actual lit-driven compiles all passed. Worth remembering for
+  future sessions: don't trust that diagnostic channel for anything gated
+  behind a std-version or libc++-internal macro — always confirm via a
+  real `libcxx-lit` run.
+
+  New tests (12 files, all passing under the real `libcxx-lit` run, full
+  `containers/associative` + `containers/unord` suites re-run clean
+  afterward: 783 passed / 2 unsupported, no regressions):
+  `map/map.modifiers/try_emplace_transparent.pass.cpp`,
+  `map/map.modifiers/insert_or_assign_transparent.pass.cpp`,
+  `map/map.access/element_access_transparent.pass.cpp` (operator[]/at),
+  `set/insert_transparent.pass.cpp`,
+  `unord.map/unord.map.modifiers/try_emplace.transparent.pass.cpp`,
+  `unord.map/unord.map.modifiers/insert_or_assign.transparent.pass.cpp`,
+  `unord.map/element_access.transparent.pass.cpp`,
+  `unord.map/bucket.transparent.pass.cpp`,
+  `unord.multimap/bucket.transparent.pass.cpp`,
+  `unord.set/insert.transparent.pass.cpp`,
+  `unord.set/bucket.transparent.pass.cpp`,
+  `unord.multiset/bucket.transparent.pass.cpp`. Flipped
+  `__cpp_lib_associative_heterogeneous_insertion`'s `unimplemented` off
+  and regenerated `version`/`FeatureTestMacroTable.rst`/the five
+  `*.version.compile.pass.cpp` tests via `libcxx-generate-files`. Marked
+  P2363R5 Complete in `Cxx2cPapers.csv`. All of Tier 1's originally-listed
+  callable-wrapper and heterogeneous-lookup items are now done except the
+  two partials. **Next session: pick a remaining Tier 1 item** —
+  `P2944R3` (`reference_wrapper` comparisons, blocked on `optional`/
+  `tuple` P2165R4 equality changes — note P2165R4 is itself a *C++23*
+  paper only partially done in this repo, scoped to `zip_view`; extending
+  it to `optional`/`tuple` comparisons is a real, possibly nontrivial
+  sub-task, not just a status-flip) or `P1383R2` (`constexpr` `<cmath>`
+  scalar functions — **scope check done this session**: the generator's
+  `__cpp_lib_constexpr_cmath` entry only has a `c++23` value with
+  `unimplemented: True` and no C++26 bump at all, meaning *zero* `<cmath>`
+  functions are `constexpr` in this repo currently — likely relies on
+  Clang's constexpr-evaluator support for `__builtin_<math>` intrinsics,
+  which should be checked for availability in this Clang version before
+  scoping the work; this is probably larger than a single session, touches
+  many files in `libcxx/include/__math/`, and was flagged as such rather
+  than started).

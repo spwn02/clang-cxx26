@@ -11,7 +11,7 @@
 "`P2198R7 <https://wg21.link/P2198R7>`__","Freestanding Feature-Test Macros and Implementation-Defined Extensions","2023-06 (Varna)","","",""
 "`P2338R4 <https://wg21.link/P2338R4>`__","Freestanding Library: Character primitives and the C library","2023-06 (Varna)","","",""
 "`P2013R5 <https://wg21.link/P2013R5>`__","Freestanding Language: Optional ``::operator new``","2023-06 (Varna)","","",""
-"`P2363R5 <https://wg21.link/P2363R5>`__","Extending associative containers with the remaining heterogeneous overloads","2023-06 (Varna)","","",""
+"`P2363R5 <https://wg21.link/P2363R5>`__","Extending associative containers with the remaining heterogeneous overloads","2023-06 (Varna)","|Complete|","",""
 "`P1901R2 <https://wg21.link/P1901R2>`__","Enabling the Use of ``weak_ptr`` as Keys in Unordered Associative Containers","2023-06 (Varna)","|Complete|","",""
 "`P1885R12 <https://wg21.link/P1885R12>`__","Naming Text Encodings to Demystify Them","2023-06 (Varna)","","",""
 "`P0792R14 <https://wg21.link/P0792R14>`__","``function_ref``: a type-erased callable reference","2023-06 (Varna)","|Complete|","",""

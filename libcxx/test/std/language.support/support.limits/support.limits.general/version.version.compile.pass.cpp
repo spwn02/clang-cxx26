@@ -6337,17 +6337,11 @@
 #    endif
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_associative_heterogeneous_insertion
-#      error "__cpp_lib_associative_heterogeneous_insertion should be defined in c++26"
-#    endif
-#    if __cpp_lib_associative_heterogeneous_insertion != 202306L
-#      error "__cpp_lib_associative_heterogeneous_insertion should have the value 202306L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_associative_heterogeneous_insertion
-#      error "__cpp_lib_associative_heterogeneous_insertion should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_associative_heterogeneous_insertion
+#    error "__cpp_lib_associative_heterogeneous_insertion should be defined in c++26"
+#  endif
+#  if __cpp_lib_associative_heterogeneous_insertion != 202306L
+#    error "__cpp_lib_associative_heterogeneous_insertion should have the value 202306L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_assume_aligned
