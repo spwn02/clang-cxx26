@@ -345,12 +345,20 @@ set(files
   __exception/nested_exception.h
   __exception/operations.h
   __exception/terminate.h
+  __execution/completion_functions.h
+  __execution/completion_signatures.h
+  __execution/connect.h
+  __execution/domain.h
   __execution/env.h
   __execution/forwarding_query.h
   __execution/get_allocator.h
+  __execution/get_completion_signatures.h
   __execution/get_env.h
   __execution/get_stop_token.h
+  __execution/operation_state.h
   __execution/queryable.h
+  __execution/receiver.h
+  __execution/sender.h
   __expected/bad_expected_access.h
   __expected/expected.h
   __expected/unexpect.h

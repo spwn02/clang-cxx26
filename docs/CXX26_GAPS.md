@@ -418,38 +418,163 @@ schedulers can't come before sender concepts exist):**
   implement these; the scope rule is "implement an entity only if something
   in the P2300R10+P3325R5+P3396R1 surface actually names it").
 
-- [ ] **M2** — Core concepts, split like M1 (foundation sub-slice first,
-  domain-dispatch sub-slice second):
-  - **M2a** (no domain dependency): `completion-signature` concept,
-    `completion_signatures<Fns...>`, `valid-completion-signatures`,
-    `set_value`/`set_error`/`set_stopped` CPOs, `receiver_tag`, `receiver`/
-    `receiver-of` concepts, `operation_state_tag`, `operation_state`
-    concept, `start` CPO, `sender_tag`, `enable_sender`/`sender`/
-    `sender_in` concepts (`sender_in<Sndr, class... Env>` is variadic;
-    `Env = env<>` defaults appear on `value_types_of_t`/`error_types_of_t`/
-    `sends_stopped` instead), `sender-to`, `type-list`/`decayed-tuple`/
-    `variant-or-empty` exposition helpers, `value_types_of_t`/
-    `error_types_of_t`/`sends_stopped`, `tag_of_t`. Deliberately decide
-    (don't discover in M5) whether `get_completion_signatures`/
-    `dependent_sender` throwing `dependent_sender_error` for a dependent
-    sender is in scope here — check `[exec.getcomplsigs]` before writing
-    the consteval function template
-    (`template<class Sndr, class... Env> consteval auto
-    get_completion_signatures() -> valid-completion-signatures auto;` —
-    note this is a **consteval function template**, not a CPO object taking
-    `(sndr, env)`, contra an earlier WebFetch-based guess).
-  - **M2b** (domain dispatch): `get_domain`/`get_scheduler`/
-    `get_completion_scheduler<CPO>` queries, `default_domain`,
-    `transform_sender` (verify arity against `[exec.snd.transform]` before
-    implementing — the current synopsis shows a **2-arg, no-domain** form
-    `transform_sender(Sndr&&, const Env&)`, which may mean domain dispatch
-    moved inside the function body rather than being a 3-arg CPO like R10
-    had), `apply_sender` (still `Domain dom` first per the synopsis),
-    `connect`/`connect_result_t`. Don't shortcut `connect` to bare member
-    dispatch — it won't need rewriting in M5 if done properly here.
-  Fetch `[exec.snd.transform]`, `[exec.getcomplsigs]`, `[exec.cmplsig]`,
-  and `[exec.snd]` as raw HTML (per the process rule above) before writing
-  M2a code.
+- [x] **M2** — Core concepts, split like M1 (foundation sub-slice first,
+  domain-dispatch sub-slice second). **Landed 2026-08-20.**
+
+  **M2a** (`__execution/{completion_functions,completion_signatures,
+  receiver,operation_state,sender,get_completion_signatures}.h`):
+  `set_value`/`set_error`/`set_stopped` CPOs (ill-formed on lvalue/const-
+  rvalue receiver, matching [exec.set.value]/[exec.set.error]/
+  [exec.set.stopped]); `completion-signature` concept and
+  `completion_signatures<Fns...>` (bare marker class -- `count-of`/
+  `for-each` are themselves dash-named exposition-only helpers not
+  referenced by anything else in scope, so not implemented); the full
+  `gather-signatures`/META-APPLY/`indirect-meta-apply` machinery, transcribed
+  literally (the indirection is load-bearing for non-variadic Tuple/Variant
+  arguments, not decoration); `receiver_tag`/`receiver`/`valid-completion-
+  for`/`has-completions`/`receiver_of`; `operation_state_tag`/
+  `operation_state`/`start_t`/`start`; `sender_tag`/`is-sender`/`sender`/
+  `tag_of_t` (via a real structured-binding pack, `auto&& [tag, data,
+  ...children] = sndr` -- confirmed this fork's Clang supports P1061
+  structured-binding packs); `dependent_sender_error : exception {}`;
+  `get_completion_signatures<Sndr, Env...>()`/`completion_signatures_of_t`/
+  `sender_in`; `value_types_of_t`/`error_types_of_t`/`sends_stopped` (with
+  `__decayed_tuple`/`__variant_or_empty`/`__empty_variant` per
+  [execution.syn]'s own prose definition of variant-or-empty, deduping via
+  a `type_list`-based fold).
+
+  **M2b** (`__execution/{domain,connect}.h`): `get_completion_domain_t`
+  (declared with no `operator()` -- see deviations below); `default_domain`
+  (`transform_sender`/`apply_sender` static members); `get_domain_t`/
+  `get_domain`; the free `transform_sender`/`apply_sender` CPOs including
+  the real `transform-recurse` fixed-point algorithm; `connect_t`/`connect`/
+  `connect_result_t`; the exposition-only `sender-to` concept.
+
+  Corrections to the M2 plan recorded below, discovered while implementing:
+  tag types are `receiver_tag`/`operation_state_tag`/`sender_tag`/
+  `scheduler_tag` in the *current* draft (not R10's `receiver_t`/etc., which
+  the M1-correction commit's namespace fix already established eel.is wins
+  on); `sender_in<Sndr, class... Env>` is genuinely variadic (0 or 1) as
+  planned; `receiver` **does** require `is_nothrow_move_constructible_v`
+  (an earlier note claimed otherwise -- wrong, corrected against the actual
+  [exec.recv.concepts] fetch); `transform_sender`'s free-function form is
+  confirmed 2-arg/no-domain (`transform_sender(Sndr&&, const Env&)`) with
+  domain resolution happening inside the body via `get_domain`/
+  `completion-domain`, not a 3-arg domain-first CPO.
+
+  **Five deliberate, documented deviations from the letter of the spec**
+  (each has an in-code comment at its exact location; recorded here too so
+  a later session doesn't have to re-derive the reasoning):
+  1. **`enable-sender`'s awaitable disjunct is omitted** (`__execution/
+     sender.h`): `enable-sender = is-sender<Sndr> || is-awaitable<Sndr,
+     env-promise<env<>>>`. The awaitable half needs the GET-AWAITER/
+     `env-promise`/`with-await-transform` coroutine-integration machinery
+     that's M6's whole job; every sender through at least M5 declares
+     `sender_concept = sender_tag`, so `is-sender` always short-circuits
+     true and the second disjunct is dead code until M6, where adding it
+     back is a one-line change.
+  2. **`dependent_sender`/`is-dependent-sender-helper` are not
+     implemented**, and `get_completion_signatures` never throws
+     `dependent_sender_error` for a genuinely dependent sender (one whose
+     signatures can only be known once connected to a real environment).
+     Root cause: [exec.getcomplsigs]'s Effects requires throwing an
+     exception from a `consteval` function (`is-dependent-sender-helper`'s
+     function-try-block, P3068 constexpr-exceptions), which this Clang does
+     not support -- verified empirically:
+     `consteval bool f() try { throw E{}; return false; } catch (E&) {
+     return true; } static_assert(f());` fails to be a constant expression.
+     Consequence: a sender with no viable `get_completion_signatures`
+     dispatch simply has `sender_in` be false (soft), rather than
+     `dependent_sender` being true. Tracked as **compiler-blocked**, not
+     scope-excluded -- revisit if/when this fork gains constexpr-exception
+     support. The repro above is the regression test for "has this been
+     fixed yet."
+  3. **`get_completion_domain`/`get_scheduler`-driven domain resolution is
+     not implemented** (`__execution/domain.h`): `get_completion_domain_t`
+     is declared with *no* `operator()`, purely so `completion-domain(s)`'s
+     `requires{}` probe inside `transform_sender` is a soft SFINAE failure
+     (not a hard "no such name in namespace" error) rather than needing a
+     forward-declaration my own team would have to keep exception-spec-
+     synchronized with a later real definition. `get_domain`'s branch (2.2)
+     (deriving the domain from a scheduler's completion domain) is likewise
+     unimplemented. Both fall back to `default_domain` unconditionally,
+     which is correct for every sender/env in scope through M5 (none
+     provide a completion scheduler). `operator()` lands with real
+     schedulers.
+  4. **`default_domain::transform_sender`'s tag-dispatch branch always
+     takes the "otherwise" path** (`static_cast<Sndr>(forward<Sndr>(sndr))`,
+     never `tag_of_t<Sndr>().transform_sender(...)`). This is the most
+     interesting finding of the session: computing `tag_of_t<Sndr>` inside
+     a `requires{ tag_of_t<Sndr>()...; }` probe **hard-errors instead of
+     evaluating false** for a `Sndr` that doesn't decompose into at least
+     (tag, data) -- confirmed empirically. Root cause: `tag_of_t` is a
+     `decltype(auto)`-deduced alias over a *separate* helper function
+     (`__sender_tag_of`) containing the actual structured-binding
+     declaration; deducing that `auto` return type requires instantiating
+     the helper's *body*, and body-instantiation errors are outside the
+     "immediate context" of substitution that SFINAE covers -- unlike a
+     substitution failure in a signature/return-type position, this is a
+     genuinely hard error, empirically reproduced (a `void`-returning probe
+     function does *not* trigger this, since its call's well-formedness
+     never needs the body instantiated -- but a `void`-returning probe also
+     can't accurately detect decomposability, so it doesn't help either).
+     This is a second, structurally distinct instance of the M1
+     eager-evaluation family of pitfalls -- "body instantiation triggered
+     by return-type deduction is not immediate context," not "requires{}
+     eagerly evaluates concrete entities" -- but has the same practical
+     consequence (write code that's dependent-context-safe or it hard-
+     errors instead of degrading). Since nothing in scope through M5
+     defines a per-tag `.transform_sender` member (the branch this dispatch
+     exists for), this deviation currently changes no observable behavior;
+     revisit if a sender ever needs per-tag domain customization, using
+     either an aggregate-member-count SFINAE trick or (cleaner) redesigning
+     `__sender_tag_of` to make the "does this decompose" question checkable
+     without instantiating a body.
+  5. **`connect` only implements the member-`connect` dispatch** (branch
+     6.1 of [exec.connect]'s Effects); the `connect-awaitable` fallback
+     (branch 6.2, for senders that are awaitables but don't define a member
+     `connect`) needs the same GET-AWAITER machinery as deviation 1 and is
+     deferred to M6. Every sender connected through at least M5 defines a
+     member `connect`, so this is unexercised, not incorrect.
+
+  Also: `[exec.recv.concepts]`'s `valid-completion-for` is specified via a
+  concept spelled `callable<Tag, remove_cvref_t<Rcvr>, Args...>` that does
+  not appear defined anywhere in `<concepts>` or `[exec]` (grepped both);
+  `invocable` is used as the closest standard equivalent (checking that
+  `Tag{}(rcvr, args...)` is a valid call) -- noted in `__execution/
+  receiver.h`.
+
+  **New tests** (all passing under `libcxx-lit`, 52/52 in `execution/` +
+  `thread.stoptoken/`): `exec.recv/exec.recv.concepts/receiver.pass.cpp`,
+  `exec.opstate/exec.opstate.start/operation_state.pass.cpp`,
+  `exec.snd/exec.snd.concepts/sender.pass.cpp` (includes a 3-member
+  tag/data/child decomposition check, not just 2-member),
+  `exec.getcomplsigs/get_completion_signatures.pass.cpp`,
+  `exec.cmplsig/completion_signatures.pass.cpp`,
+  `exec.domain.default/default_domain.pass.cpp`,
+  `exec.snd.transform/transform_sender.pass.cpp`,
+  `exec.snd.apply/apply_sender.pass.cpp`, `exec.connect/connect.pass.cpp`.
+  Registered the 8 new headers in `CMakeLists.txt` and `<execution>`'s
+  `_LIBCPP_STD_VER >= 26` include block; extended `libcxx/modules/std/
+  execution.inc`'s export block; updated `transitive_includes/cxx26.csv`
+  (execution now transitively pulls in cstdlib/cstring/exception/
+  initializer_list/typeinfo/variant, from `<exception>`/`<variant>`
+  themselves and glibc's `<cstring>`/`<cstdlib>` chain). `module_std.gen.py`
+  and `transitive_includes.gen.py` both clean. Full `execution/` +
+  `thread.stoptoken/` suites green; did not run the full `check-cxx`
+  (blocked early by a pre-existing, unrelated `std.cppm`/`reflection_v2`
+  module-build failure -- confirmed pre-existing via `git stash` on this
+  commit's changes, unaffected either way, nothing to do with `<execution>`
+  or reflection).
+
+  **Next session: M3** — `just`/`just_error`/`just_stopped`, `read_env`,
+  `schedule`. Note `read_env`'s zero-Env `get_completion_signatures` case is
+  exactly the "genuinely dependent sender" scenario from deviation 2 above
+  -- decide deliberately there (rather than rediscovering it) whether
+  `read_env`'s completion signatures can be computed without invoking the
+  now-missing `dependent_sender_error`-throwing path, or whether it needs
+  its own workaround.
+
 - [ ] **M3** — First real senders: `just`/`just_error`/`just_stopped`,
   `read_env`, `schedule` (scheduler concept is exercised here for the
   first time via a trivial scheduler, not defined as its own milestone).
@@ -1041,3 +1166,23 @@ blocked, what's next. Do not remove old entries.
   sub-plan above so the next session doesn't re-derive any of this.
   **Next session: M2a**, starting with fetching `[exec.cmplsig]` and
   `[exec.snd]` as raw HTML.
+- **2026-08-20 (Tier 2, M2 landed)**: Implemented M2a (completion_signatures/
+  gather-signatures, set_value/set_error/set_stopped, receiver/receiver_of,
+  operation_state/start, sender/tag_of_t, get_completion_signatures/
+  sender_in/completion_signatures_of_t, value_types_of_t/error_types_of_t/
+  sends_stopped) and M2b (default_domain/get_domain, transform_sender/
+  apply_sender, connect) in one session, in 8 new headers. Five deliberate,
+  documented deviations from strict conformance (enable-sender's awaitable
+  disjunct, dependent_sender/dependent_sender_error's throw path, get_domain
+  branch 2.2/get_completion_domain's operator(), default_domain::
+  transform_sender's tag-dispatch branch, connect's connect-awaitable
+  fallback) — all traced to either M6 coroutine-integration machinery not
+  existing yet, or this Clang lacking P3068 constexpr exceptions (verified
+  empirically), or a newly-discovered structured-binding/SFINAE hard-error
+  interaction distinct from M1's eager-requires{} finding. Full details,
+  each deviation's exact reasoning, and the regression-test repro for the
+  constexpr-exceptions gap are recorded in M2's own entry above — read it
+  before M3, since M3's `read_env` directly exercises the dependent-sender
+  deviation. 52/52 new + existing execution/thread.stoptoken tests green;
+  module_std.gen.py/transitive_includes.gen.py clean. **Next session: M3**
+  — just/just_error/just_stopped, read_env, schedule.

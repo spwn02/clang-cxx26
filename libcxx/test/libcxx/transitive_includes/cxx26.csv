@@ -256,8 +256,14 @@ exception typeinfo
 exception version
 execution compare
 execution cstdint
+execution cstdlib
+execution cstring
+execution exception
+execution initializer_list
 execution limits
 execution tuple
+execution typeinfo
+execution variant
 execution version
 expected cstdint
 expected initializer_list

@@ -65,5 +65,60 @@ export namespace std::execution {
   using std::execution::env_of_t;
   using std::execution::get_env_t;
   using std::execution::get_env;
+
+  // [exec.set.value], [exec.set.error], [exec.set.stopped]
+  using std::execution::set_error;
+  using std::execution::set_error_t;
+  using std::execution::set_stopped;
+  using std::execution::set_stopped_t;
+  using std::execution::set_value;
+  using std::execution::set_value_t;
+
+  // [exec.cmplsig]
+  using std::execution::completion_signatures;
+
+  // [exec.recv.concepts]
+  using std::execution::receiver;
+  using std::execution::receiver_of;
+  using std::execution::receiver_tag;
+
+  // [exec.opstate.general], [exec.opstate.start]
+  using std::execution::operation_state;
+  using std::execution::operation_state_tag;
+  using std::execution::start;
+  using std::execution::start_t;
+
+  // [exec.snd.concepts]
+  using std::execution::enable_sender;
+  using std::execution::sender;
+  using std::execution::sender_tag;
+  using std::execution::tag_of_t;
+
+  // [exec.getcomplsigs]
+  using std::execution::completion_signatures_of_t;
+  using std::execution::get_completion_signatures;
+  using std::execution::sender_in;
+
+  // [exec.cmplsig]: value_types_of_t/error_types_of_t/sends_stopped
+  using std::execution::error_types_of_t;
+  using std::execution::sends_stopped;
+  using std::execution::value_types_of_t;
+
+  // [exec.domain.default], [exec.get.domain]
+  using std::execution::default_domain;
+  using std::execution::get_domain;
+  using std::execution::get_domain_t;
+
+  // [exec.snd.transform], [exec.snd.apply]
+  using std::execution::apply_sender;
+  using std::execution::transform_sender;
+
+  // [exec.connect]
+  using std::execution::connect;
+  using std::execution::connect_result_t;
+  using std::execution::connect_t;
+
+  // [exec.async.ops]
+  using std::execution::dependent_sender_error;
 } // namespace std::execution
 #endif // _LIBCPP_STD_VER >= 26
