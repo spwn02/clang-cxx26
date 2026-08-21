@@ -575,9 +575,10 @@ schedulers can't come before sender concepts exist):**
   now-missing `dependent_sender_error`-throwing path, or whether it needs
   its own workaround.
 
-- [ ] **M3** — First real senders: `just`/`just_error`/`just_stopped`,
+- [x] **M3** — First real senders: `just`/`just_error`/`just_stopped`,
   `read_env`, `schedule` (scheduler concept is exercised here for the
   first time via a trivial scheduler, not defined as its own milestone).
+  **Landed 2026-08-21.**
 - [ ] **M4** — `run_loop` + `this_thread::sync_wait`/
   `sync_wait_with_variant`. **Vertical-slice checkpoint**: get
   `just(42) | then([](int i){ return i+1; }) | sync_wait()` compiling and
@@ -1186,3 +1187,115 @@ blocked, what's next. Do not remove old entries.
   deviation. 52/52 new + existing execution/thread.stoptoken tests green;
   module_std.gen.py/transitive_includes.gen.py clean. **Next session: M3**
   — just/just_error/just_stopped, read_env, schedule.
+- **2026-08-21 (Tier 2, M3 landed)**: Implemented M3 in 6 new headers
+  (`__execution/{movable_value,get_forward_progress_guarantee,schedule,
+  scheduler,just,read_env}.h`): `__movable_value` (namespace std, per
+  [exec.general]); `forward_progress_guarantee` enum + `get_forward_
+  progress_guarantee_t`/`get_forward_progress_guarantee`; `schedule_t`/
+  `schedule`; `scheduler_tag`/`scheduler`/`schedule_result_t`; `just_t`/
+  `just_error_t`/`just_stopped_t`/`just`/`just_error`/`just_stopped`;
+  `__read_env_t` (read_env's type is unspecified in [execution.syn])/
+  `read_env`.
+
+  **Architecture decision (confirmed with advisor before writing code):**
+  the *current* draft (fetched fresh via eel.is, not re-derived from the
+  R10 paper or M1/M2's notes) has moved to a generic `basic-sender`/
+  `impls-for`/`default-impls`/`basic-operation`/`basic-receiver`/
+  `make-sender` engine ([exec.snd.expos]) that every sender factory and
+  adaptor from here through M5 is meant to plug into via `impls-for<Tag>`
+  specializations. Did **not** build this engine: its failure path
+  (`basic-sender::get_completion_signatures`, [exec.snd.expos]p47) relies
+  on `throw unspecified-exception()` from a `consteval` function — the
+  exact P3068 constexpr-exceptions gap already found compiler-blocked at
+  M2 (deviation 2) — and the exposition text is even internally
+  inconsistent in this revision (p43's `impls-for<Tag>::get-attrs` is
+  never declared by p35's `impls-for`/`default-impls`). Continued M1/M2's
+  precedent instead: each M3 sender is a hand-written aggregate with
+  public `tag`/`data` members (matching the `product-type`/structured-
+  binding-decomposable shape `tag_of_t` already expects), its own
+  `connect` member, and its own `get_completion_signatures` static
+  member. Revisit factoring into a shared engine at M4, once `then`
+  supplies the first adaptor with a child sender to design against.
+
+  **New compiler-limitation finding (distinct from M1's eager-`requires{}`
+  and M2's body-instantiation-outside-immediate-context findings):** a
+  `static_assert(!requires(T t) { some_cpo(t); })`, where `some_cpo` is a
+  global CPO object and the constrained call to its sole `operator()`
+  candidate fails due to unsatisfied template constraints, **hard-errors**
+  on this fork's Clang instead of the requires-expression quietly
+  evaluating to `false` — reproduced in isolation with a two-line
+  unrelated repro (`inline constexpr Foo foo{};` with one constrained
+  `operator()`; `static_assert(!requires(NoBar n) { foo(n); })` fails to
+  compile, "no matching function for call to object of type 'const
+  Foo'"). Wrapping the identical check in a named `concept` (`template
+  <class T> concept has_foo = requires(T t) { foo(t); }; static_assert(
+  !has_foo<NoBar>);`) works around it — confirmed both in isolation and
+  in `get_forward_progress_guarantee.pass.cpp`'s negative test. Root cause
+  not fully isolated (unlike M1/M2's findings, no consteval-exception or
+  body-instantiation angle identified yet); flagging here so a future
+  session investigating unrelated `static_assert(!requires{...})`
+  failures checks this pattern first, and always prefer a named concept
+  over an inline anonymous `requires(...) {...}` passed directly to
+  `static_assert` for "this call must be ill-formed" checks in this repo
+  going forward. Does not affect any library code (`scheduler.h`'s
+  `scheduler` concept — a named concept — hits the identical CPO-call-
+  inside-requires shape correctly for its own `NoGuaranteeScheduler`
+  negative test).
+
+  **Two more findings surfaced while ordering just.h:**
+  1. `get_forward_progress_guarantee_t`'s own trailing requires-clause
+     cannot construct `get_forward_progress_guarantee_t{}` (needs the
+     class complete; a member function template's requires-clause is not
+     a complete-class context the way a function *body* is) — used `*this`
+     instead, and a requires-expression hypothetical parameter of the same
+     reference type for the SFINAE probe. Same root cause independently
+     also broke `just_stopped_t::operator()() -> __just_sndr<just_stopped_t>`
+     (a **non-template** member function, so — unlike `just_t`'s and
+     `just_error_t`'s templated `operator()`s — its return type is needed
+     eagerly, deferred only to `just_stopped_t`'s own closing brace, not to
+     first call): fixed by moving `__just_sndr`'s *full* definition before
+     the `just_t`/`just_error_t`/`just_stopped_t` struct definitions
+     (forward-declaring the three tag types earlier, since `__just_opstate`
+     and `__just_sndr` — both templates — only need them declared, not
+     complete, for `same_as<_Tag, just_t>`-style comparisons).
+  2. `get_forward_progress_guarantee`/`schedule_t` deliberately avoid
+     depending on the `scheduler` concept even though the draft phrases
+     both in terms of it ([exec.get.fwd.progress]p2, "ill-formed unless Sch
+     satisfies scheduler") — `scheduler`'s own requires-clause calls both
+     of them, which would make the definitions mutually recursive.
+     Constrained each directly on its own underlying syntax instead (documented
+     inline in both headers).
+
+  Also confirmed, contrary to a plausible-sounding first guess: `<execution>`'s
+  transitive-includes CSV row needed **no changes** for M3 (`transitive_includes.
+  gen.py` passed 125/125 clean on the first try) — `<tuple>`/`<exception>`, the
+  only new standard headers M3's sources use, were already pulled in
+  transitively by M2's `get_completion_signatures.h`.
+
+  **New tests** (all passing under `libcxx-lit`; full `execution/` suite now
+  20/20 green, `thread.stoptoken/` still 37/37, no regressions):
+  `exec.queries/exec.get.fwd.progress/get_forward_progress_guarantee.pass.cpp`,
+  `exec.sched/scheduler.pass.cpp`, `exec.factories/exec.schedule/
+  schedule.pass.cpp`, `exec.factories/exec.just/just.pass.cpp` (real runtime
+  behavioral asserts via manual `connect`+`start`, not just `static_assert` —
+  the earliest point in this sub-plan that's been possible), `exec.factories/
+  exec.read.env/read_env.pass.cpp` (also behavioral; plus `static_assert`s
+  confirming `sender<read_env(...)>` is true but `sender_in` with no Env is
+  false — the "dependent-sender-as-soft-failure" deviation from M2 exercised
+  for real for the first time). Registered the 6 new headers in
+  `CMakeLists.txt` and `<execution>`'s `_LIBCPP_STD_VER >= 26` include block;
+  extended `libcxx/modules/std/execution.inc`'s export block.
+  `module_std.gen.py` 125/126 (same pre-existing 1-unsupported baseline as
+  M2), `transitive_includes.gen.py` 125/125 clean. Did not run full
+  `check-cxx` (same pre-existing, unrelated `std.cppm`/`reflection_v2`
+  module-build failure noted at M2, confirmed still unrelated to
+  `<execution>`). **Next session: M4** — `run_loop` +
+  `this_thread::sync_wait`/`sync_wait_with_variant`, plus `then` (rides
+  along per the sub-plan's vertical-slice checkpoint). Get
+  `just(42) | then([](int i){ return i+1; }) | sync_wait()` compiling and
+  running end-to-end before fanning out to M5. Decide explicitly there
+  whether `run_loop`/`sync_wait` should be gated on `_LIBCPP_HAS_THREADS`
+  (per the sub-plan's threading note above) and, if a shared `impls-for`-
+  style engine is worth factoring out now that `then` gives a second
+  (non-childless) sender to design against — re-read this session's
+  "Architecture decision" note above first.

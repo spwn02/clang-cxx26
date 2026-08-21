@@ -354,10 +354,16 @@ set(files
   __execution/get_allocator.h
   __execution/get_completion_signatures.h
   __execution/get_env.h
+  __execution/get_forward_progress_guarantee.h
   __execution/get_stop_token.h
+  __execution/just.h
+  __execution/movable_value.h
   __execution/operation_state.h
   __execution/queryable.h
+  __execution/read_env.h
   __execution/receiver.h
+  __execution/schedule.h
+  __execution/scheduler.h
   __execution/sender.h
   __expected/bad_expected_access.h
   __expected/expected.h

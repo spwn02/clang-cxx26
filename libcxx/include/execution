@@ -167,10 +167,16 @@ _LIBCPP_END_NAMESPACE_STD
 #    include <__execution/get_allocator.h>
 #    include <__execution/get_completion_signatures.h>
 #    include <__execution/get_env.h>
+#    include <__execution/get_forward_progress_guarantee.h>
 #    include <__execution/get_stop_token.h>
+#    include <__execution/just.h>
+#    include <__execution/movable_value.h>
 #    include <__execution/operation_state.h>
 #    include <__execution/queryable.h>
+#    include <__execution/read_env.h>
 #    include <__execution/receiver.h>
+#    include <__execution/schedule.h>
+#    include <__execution/scheduler.h>
 #    include <__execution/sender.h>
 #  endif // _LIBCPP_STD_VER >= 26
 

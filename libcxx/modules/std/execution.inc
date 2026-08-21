@@ -120,5 +120,31 @@ export namespace std::execution {
 
   // [exec.async.ops]
   using std::execution::dependent_sender_error;
+
+  // [exec.get.fwd.progress]
+  using std::execution::forward_progress_guarantee;
+  using std::execution::get_forward_progress_guarantee;
+  using std::execution::get_forward_progress_guarantee_t;
+
+  // [exec.sched]
+  using std::execution::scheduler;
+  using std::execution::scheduler_tag;
+
+  // [exec.schedule]
+  using std::execution::schedule;
+  using std::execution::schedule_t;
+  using std::execution::schedule_result_t;
+
+  // [exec.just]
+  using std::execution::just;
+  using std::execution::just_error;
+  using std::execution::just_error_t;
+  using std::execution::just_stopped;
+  using std::execution::just_stopped_t;
+  using std::execution::just_t;
+
+  // [exec.read.env]
+  // read_env's type is unspecified per [execution.syn]; only the CPO object itself is exported.
+  using std::execution::read_env;
 } // namespace std::execution
 #endif // _LIBCPP_STD_VER >= 26
