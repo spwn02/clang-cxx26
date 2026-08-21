@@ -66,6 +66,16 @@ int main(int, char**) {
     }
     assert(caught);
   }
+  // operator|(closure, closure) -- composing two closures into one before ever piping a
+  // sender through them ([exec.adapt.general]p4's `sender auto s = views::foo | views::bar`-
+  // style composition). The chained-pipe test above is left-associative (two separate
+  // sender-pipe-closure applications), so it never exercises this overload on its own.
+  {
+    auto c = then([](int i) { return i * 2; }) | then([](int i) { return i + 1; });
+    auto r = std::this_thread::sync_wait(just(10) | c);
+    assert(r.has_value());
+    assert(std::get<0>(*r) == 21);
+  }
   // then's completion signatures: a nothrow fn adds no error completion; a potentially-
   // throwing fn adds set_error_t(exception_ptr).
   {

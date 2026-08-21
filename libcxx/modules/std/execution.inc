@@ -159,7 +159,9 @@ export namespace std::execution {
   using std::execution::get_start_scheduler_t;
 
   // [exec.run.loop]
+#if _LIBCPP_HAS_THREADS
   using std::execution::run_loop;
+#endif
 
   // [exec.adapt.obj]
   using std::execution::operator|;
@@ -170,8 +172,10 @@ export namespace std::execution {
   using std::execution::then_t;
 } // namespace std::execution
 
+#if _LIBCPP_HAS_THREADS
 export namespace std::this_thread {
   // [exec.sync.wait]
   using std::this_thread::sync_wait;
 } // namespace std::this_thread
+#endif // _LIBCPP_HAS_THREADS
 #endif // _LIBCPP_STD_VER >= 26

@@ -1478,6 +1478,36 @@ blocked, what's next. Do not remove old entries.
   `execution` rows regenerated (first real change since M1, from
   `sync_wait.h` pulling in `<system_error>`/`<optional>`).
   `Cxx2cPapers.csv` untouched (still `|In Progress|`, per plan — flips
-  only at M6). **Next session: M5** — start with `upon_error`/
-  `upon_stopped` (cheap, reuses this session's `then` machinery almost
-  unchanged), then work through the rest of the M5 adaptor list.
+  only at M6).
+- **2026-08-21 (third entry)**: Post-M4 review caught and fixed two real
+  bugs before they shipped further. (1) `execution.inc`'s export block
+  named `run_loop` and `std::this_thread::sync_wait` unconditionally, but
+  both headers self-guard on `_LIBCPP_HAS_THREADS` — a no-threads module
+  build would have failed to resolve those `using` declarations. Wrapped
+  both in `#if _LIBCPP_HAS_THREADS`/`#endif`, matching the file's existing
+  `get_stop_token` guard right above. Verified two ways: preprocessing
+  `execution.inc` directly with `_LIBCPP_HAS_THREADS` forced to 0/1 (confirms
+  the guard actually strips the right lines), and compiling real TUs against
+  a staged-header copy with `__config_site`'s `_LIBCPP_HAS_THREADS` patched
+  to 0 (confirms `then`/`just`/`get_scheduler` still work and `run_loop`/
+  `sync_wait` correctly fail to resolve). Did not stand up a full no-threads
+  *runtime* build tree (expensive; the two checks above exercise the actual
+  guard logic without it). (2) `run_loop::run()` read-then-wrote `__state_`
+  (the `starting`→`running` transition) without holding `__mtx_`, racing
+  against `finish()`'s locked write from another thread — a real violation
+  of [exec.run.loop.members]p7's data-race-freedom Remark, since cross-
+  thread push/run is `run_loop`'s entire reason to exist. Fixed with a
+  `lock_guard` around the transition. Added a genuine cross-thread test to
+  `run_loop.pass.cpp` (producer thread pushes + finishes while the main
+  thread blocks in `run()`) — every prior test pushed work before calling
+  `run()`, so none exercised the blocking `__pop_front` wait or the race.
+  Also added an `operator|(closure, closure)` composition test to
+  `then.pass.cpp` (`then(f) | then(g)` composed before ever piping a sender
+  through it) — the existing chained-pipe test is left-associative and only
+  ever exercised the sender-pipe-closure overload, never this one; every M5
+  adaptor depends on both overloads working. All fixes re-verified:
+  `execution/` + `thread.stoptoken/` 63/63, `module_std.gen.py`/
+  `transitive_includes.gen.py` 125/126 (same baseline). **Next session:
+  M5** — start with `upon_error`/`upon_stopped` (cheap, reuses `then`'s
+  machinery almost unchanged), then work through the rest of the M5
+  adaptor list.

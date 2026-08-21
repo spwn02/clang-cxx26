@@ -217,8 +217,11 @@ public:
 
   // [exec.run.loop.members]p5-7.
   _LIBCPP_HIDE_FROM_ABI void run() noexcept {
-    if (__state_ == __starting) {
-      __state_ = __running;
+    {
+      lock_guard<mutex> __lock(__mtx_);
+      if (__state_ == __starting) {
+        __state_ = __running;
+      }
     }
     while (__run_loop_opstate_base* __op = __pop_front()) {
       __op->__execute();

@@ -15,6 +15,7 @@
 
 #include <cassert>
 #include <execution>
+#include <thread>
 #include <type_traits>
 #include <utility>
 
@@ -57,6 +58,37 @@ int main(int, char**) {
     assert((get_completion_scheduler<set_value_t>(get_env(schedule(sch))) == sch));
     loop.finish();
     loop.run();
+  }
+  {
+    // Cross-thread use: run() blocks on the empty queue (exercising __pop_front's
+    // condition_variable wait) until another thread pushes work and finishes the loop --
+    // the actual scenario run_loop exists for ([exec.run.loop.members]p1's "blocks until").
+    run_loop loop;
+    bool ran = false;
+
+    struct rcvr {
+      using receiver_concept = receiver_tag;
+      bool* ran;
+      void set_value() && noexcept {
+        *ran = true;
+      }
+      void set_stopped() && noexcept { assert(false); }
+      auto get_env() const noexcept { return env<>{}; }
+    };
+
+    // op must outlive both threads -- kept in this scope, not inside the producer's
+    // lambda -- since [exec.async.ops] requires the operation state stay alive until it
+    // completes, and execute() runs on the run()-thread, not the producer thread.
+    auto sndr = schedule(loop.get_scheduler());
+    auto op   = connect(std::move(sndr), rcvr{&ran});
+
+    std::thread producer([&] {
+      start(op);
+      loop.finish();
+    });
+    loop.run();
+    producer.join();
+    assert(ran);
   }
   return 0;
 }
