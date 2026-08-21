@@ -579,15 +579,173 @@ schedulers can't come before sender concepts exist):**
   `read_env`, `schedule` (scheduler concept is exercised here for the
   first time via a trivial scheduler, not defined as its own milestone).
   **Landed 2026-08-21.**
-- [ ] **M4** — `run_loop` + `this_thread::sync_wait`/
-  `sync_wait_with_variant`. **Vertical-slice checkpoint**: get
-  `just(42) | then([](int i){ return i+1; }) | sync_wait()` compiling and
-  running correctly end-to-end before fanning out to M5 — this is the
-  earliest point real behavioral (non-`static_assert`-only) tests become
-  possible, and it validates the domain/`transform_sender`/receiver-CPO
-  shape from M2–M3 before 15+ more adaptors get built on top of it. `then`
-  itself (needs only `set_value`/`connect`, no `let_*` machinery) rides
-  along with this checkpoint even though it's formally listed under M5.
+- [x] **M4** — `run_loop` + `this_thread::sync_wait` (`sync_wait_with_variant`
+  deferred, see below) + `then` (rode along per the original plan). **Landed
+  2026-08-21.** Vertical-slice checkpoint confirmed working end-to-end:
+  `sync_wait(just(42) | then([](int i){ return i+1; }))` (see note below on
+  why it's `sync_wait(...)`, not a trailing `| sync_wait()`).
+
+  **Scope correction caught before implementation started:** the checkpoint
+  expression as originally written above, `... | sync_wait()`, doesn't
+  parse — `sync_wait` is a sender *consumer*
+  ([exec.sync.wait]: `this_thread::sync_wait(sndr)` →
+  `apply_sender(Domain(), sync_wait, sndr)`), not a pipeable sender adaptor
+  object; there is no nullary `sync_wait()` producing a closure. Corrected to
+  `sync_wait(just(42) | then(f))` — a plain function call wrapping the piped
+  sender chain, not part of the pipe itself.
+
+  **`run_loop`** (`__execution/run_loop.h`): `run-loop-scheduler`/
+  `run-loop-sender`/`run-loop-opstate<Rcvr>` hand-written per
+  [exec.run.loop] (mutex + `condition_variable`-backed intrusive queue, not
+  an aggregate — a class with a pure virtual function can't be one, so
+  `run-loop-opstate-base` gained a small constructor). One clause-text
+  literalism not followed: [exec.run.loop.types]p10.2 writes
+  `get_stop_token(REC(o))` applied directly to the receiver, but
+  `get_stop_token` ([exec.get.stop.token]) is defined only in terms of a
+  queryable *environment*; implemented as `get_stop_token(get_env(REC(o)))`,
+  matching how every other stop-token consumption in the draft is actually
+  spelled — documented inline at the point of use, not treated as a new
+  compiler-limitation finding.
+
+  **Query CPOs** (`__execution/get_scheduler.h`): `get_scheduler_t`,
+  `get_start_scheduler_t`, `get_delegation_scheduler_t`, and (needed by all
+  three) `get_completion_scheduler_t<Cpo>` — implements both
+  [exec.get.compl.sched] branches (5.1's TRY-QUERY+RECURSE-QUERY chain, not
+  just 5.2's `auto(q)` fallback the original plan sketched): `get_scheduler`
+  itself routes *through* `get_completion_scheduler`, and `run_loop`'s own
+  self-consistency requirement
+  (`get_completion_scheduler<C>(get_env(schedule(sch))) == sch` with an
+  *empty* envs pack) only typechecks via branch 5.1, not 5.2 — confirmed
+  both branches are actually exercised by real code in this milestone, not
+  speculative completeness. `get_completion_domain` was deliberately left
+  alone (still no `operator()`, per the M2 deviation) — sync_wait's own
+  `Domain` resolution reuses the existing `execution::__completion_domain`
+  soft-fallback helper from `<__execution/domain.h>` rather than calling
+  `get_completion_domain` directly, so the M2 deviation's noexcept
+  assumptions there stay valid.
+
+  **`this_thread::sync_wait`** (`__execution/sync_wait.h`): `sync-wait-env`/
+  `-state`/`-receiver` per [exec.sync.wait], dispatched through
+  `default_domain::apply_sender` (already built at M2) via a member
+  `sync_wait_t::apply_sender`. `AS-EXCEPT-PTR` ([exec.general]p8) is
+  implemented locally in this header (its only consumer so far) rather than
+  factored out. **`sync_wait_with_variant` is not implemented**: its
+  `apply_sender` is specified directly in terms of `into_variant`
+  ([exec.sync.wait.var]p3: `sync_wait(into_variant(sndr))`), an M5 sender
+  adaptor — pulling it forward into M4 was explicitly rejected rather than
+  silently skipped. Revisit once M5 lands `into_variant`.
+
+  **Pipeable closures** (`__execution/sender_adaptor_closure.h`, new for
+  this milestone — M1–M3 built only factories, no adaptors yet):
+  `sender_adaptor_closure<D>` CRTP base + the two `operator|` overloads
+  (`sndr | c` ≡ `c(sndr)`; `c | d` composes), modeled directly on
+  `<__ranges/range_adaptor.h>`'s `range_adaptor_closure`/
+  `__range_adaptor_closure` split (substituting "is a sender" for "is a
+  range" as the disqualifying case) — this is the shared foundation every
+  M5 adaptor's single-argument partial-application form rides on, not
+  `then`-specific.
+
+  **`then`** (`__execution/then.h`): hand-written aggregate sender (own
+  `connect`/`get_completion_signatures`), matching the M1–M3 precedent of
+  not routing through the draft's `basic-sender`/`impls-for` engine — same
+  P3068 constexpr-exceptions blocker as before (`then`'s own `check-types`
+  needs `throw unspecified-exception()` from a `consteval` function).
+  `upon_error`/`upon_stopped` — the same `then-cpo` mechanism generalized to
+  intercept `set_error`/`set_stopped` instead of `set_value` — were **not**
+  built here despite sharing an exposition family with `then` in the
+  standard; scoped to M5 per the tracker's original split, not
+  speculatively generalized for. FWD-ENV ([exec.snd.expos]p4, needed by
+  every single-child adaptor's `get_env`/receiver-environment per
+  [exec.adapt.general]p3.2/3.4) is new this milestone too
+  (`__execution/fwd_env.h`) — stores its wrapped env *by value*, not by
+  reference like the standard's exposition sketch might suggest, since
+  `FWD-ENV(get_env(rcvr))` is typically constructed from a temporary
+  returned by `get_env` and a reference member would dangle past the
+  full-expression that creates it.
+
+  **Three new compiler-behavior/language findings from this session, distinct
+  from M1–M3's:**
+  1. A bare CPO call as the *first* operand of a `requires`-clause,
+     immediately followed by `&&`, mis-parses on this fork's Clang: `requires
+     std::forwarding_query(_Tag()) && requires(...) {...}` treats
+     `std::forwarding_query` alone (type `const forwarding_query_t`) as the
+     whole atomic constraint, leaving `(_Tag())` to dangle. Parenthesizing
+     the call (`requires (std::forwarding_query(_Tag())) && requires(...)
+     {...}`) fixes it — confirmed in isolation with a two-line repro
+     independent of any execution-library code. Existing call sites of this
+     `requires EXPR && requires(...) {...}` shape (e.g. `connect.h`'s
+     `sender<_Sndr> && receiver<_Rcvr> && requires(...)`) were unaffected
+     because their leading operands are *concept* checks, not calls — the
+     parser doesn't stumble there. Only affected `<__execution/fwd_env.h>`;
+     no other code in the tree used this exact shape.
+  2. Forming a function type by substituting `void` into a template
+     parameter used as a parameter type — e.g. `set_value_t(_ResultT)` with
+     `_ResultT = void` — is a hard "argument may not have 'void' type"
+     error, *unlike* the literal, unsubstituted source spelling `F(void)`
+     (the standard C++ "no parameters" idiom), which is fine. This bit
+     `then`'s completion-signature transform (mapping a void-returning `fn`
+     to a datum-less `set_value_t()`): picking between `set_value_t()` and
+     `set_value_t(_ResultT)` via `__conditional_t`/`conditional_t` doesn't
+     help, since both branches are eagerly *formed* as types regardless of
+     which is selected. Fixed with a `_ResultT`-specialized helper template
+     (a `void` explicit specialization that never substitutes `void` into
+     the primary template's `F(_ResultT)`) rather than a runtime/constexpr
+     choice between two pre-formed types — the general pattern for "a
+     function type whose parameter might be void" anywhere else in this
+     sub-plan (M5's `upon_error`/`upon_stopped` will need the identical
+     shape).
+  3. Both a partial specialization and a full/explicit specialization of a
+     member class template, declared *inside* the enclosing (still-open)
+     class template's own body — as opposed to at namespace scope after the
+     enclosing template closes, which is the textbook-safe location —
+     compile and behave correctly on this fork's Clang (confirmed in
+     isolation for both cases). Used throughout `then.h`'s
+     `__then_sig_transform<_Fn>` (nested `__one<_Sig>`/`__dedup<_List>`/
+     `__to_completion_signatures<_List>` specializations, and the
+     `__then_value_sig<_ResultT>`/`<void>` pair from finding 2, all declared
+     in-class). Not verified against the standard's letter one way or the
+     other; flagging so a future session hitting an in-class member-template
+     specialization that *doesn't* compile knows this fork's behavior here
+     was empirically checked, not assumed.
+
+  **New tests** (all passing under `libcxx-lit`; `execution/` suite now
+  63/63 green including the new files, `thread.stoptoken/` still 37/37, no
+  regressions): `exec.ctx/run_loop.pass.cpp` (behavioral: schedule/connect/
+  start/finish/run, plus the `get_completion_scheduler` round-trip identity
+  from [exec.run.loop.types]p5/p8.2), `exec.consumers/exec.sync.wait/
+  sync_wait.pass.cpp` (all three completion paths — value/error/stopped —
+  the latter two via small hand-written senders since neither
+  `just_error(...)` nor `just_stopped()` alone has a value completion,
+  which sync_wait's own Mandates require), `exec.queries/{exec.get.scheduler,
+  exec.get.start.scheduler,exec.get.delegation.scheduler}/*.pass.cpp`,
+  `exec.adapt/exec.then/then.pass.cpp` (the checkpoint expression itself,
+  call-syntax equivalence, multi-datum/void-returning `fn`, pipe chaining,
+  the throwing-`fn`-rethrows-through-sync_wait path, and both branches of
+  the nothrow-vs-potentially-throwing completion-signature transform).
+  Registered all 6 new headers in `CMakeLists.txt`, `<execution>`'s
+  `_LIBCPP_STD_VER >= 26` include block (`get_scheduler.h`/`run_loop.h`
+  gated internally on `_LIBCPP_HAS_THREADS`, matching `get_stop_token.h`'s
+  existing pattern — not the whole file excluded from the include list),
+  and `libcxx/modules/std/execution.inc`'s export block (including a new
+  `export namespace std::this_thread { using std::this_thread::sync_wait;
+  }` block, and an explicit `using std::execution::operator|;` — needed
+  separately from the class exports per `range_adaptor_closure`'s own
+  `ranges.inc` precedent). `transitive_includes/cxx26.csv`'s `execution`
+  rows needed real changes this time (first since M1) —
+  `sync_wait.h`'s `<system_error>`/`<optional>` pull in
+  `cctype`/`cerrno`/`climits`/`cstddef`/`cstdio`/`ctime`/`cwchar`/`cwctype`/
+  `iosfwd`/`optional`/`ratio`/`stdexcept`/`string`/`string_view`/
+  `system_error` transitively; regenerated from the actual preprocessor
+  trace, not hand-edited. `module_std.gen.py`/`transitive_includes.gen.py`
+  125/126 (same pre-existing 1-unsupported baseline as M2/M3).
+  `Cxx2cPapers.csv` intentionally untouched (stays `|In Progress|` per the
+  sub-plan's FTM discipline — `__cpp_lib_senders` only flips at M6).
+
+  **Next session: M5** — remaining sender adaptors (`upon_error`/
+  `upon_stopped` first and cheaply, reusing this milestone's `then`
+  machinery almost unchanged; then the rest per the list below). Re-read
+  this session's three findings above before writing more completion-
+  signature-transform or in-class-specialization code.
 - [ ] **M5** — Remaining sender adaptors: `upon_error`/`upon_stopped`,
   `let_value`/`let_error`/`let_stopped`, `starts_on`/`continues_on`/`on`/
   `schedule_from`, `when_all`/`when_all_with_variant`, `into_variant`,
@@ -1299,3 +1457,27 @@ blocked, what's next. Do not remove old entries.
   style engine is worth factoring out now that `then` gives a second
   (non-childless) sender to design against — re-read this session's
   "Architecture decision" note above first.
+- **2026-08-21 (second entry)**: Completed M4: `run_loop`, `this_thread::
+  sync_wait`, and `then` (`sync_wait_with_variant`, `upon_error`,
+  `upon_stopped` explicitly deferred — see the M4 entry above for why).
+  Vertical-slice checkpoint confirmed: `sync_wait(just(42) | then([](int
+  i){ return i+1; }))` compiles and runs correctly end-to-end (note the
+  checkpoint is a plain function call around the piped chain, not a
+  trailing `| sync_wait()` — sync_wait is a consumer, not a pipeable
+  adaptor; caught before implementation started). New headers:
+  `get_scheduler.h`, `run_loop.h`, `sync_wait.h`, `sender_adaptor_closure.h`
+  (new pipeable-closure foundation every M5 adaptor will reuse), `then.h`,
+  `fwd_env.h`. Three new compiler-behavior/language findings recorded in
+  the M4 entry above (a `requires CALL(...) && requires(...) {...}`
+  mis-parse needing extra parens; `F(_ResultT)` with `_ResultT=void`
+  hard-erroring on substitution unlike literal source `F(void)`; in-class
+  member-template specializations working fine on this fork's Clang).
+  `execution/` suite 63/63 green, `thread.stoptoken/` 37/37, no
+  regressions; `module_std.gen.py`/`transitive_includes.gen.py` 125/126
+  (same pre-existing baseline); `transitive_includes/cxx26.csv`'s
+  `execution` rows regenerated (first real change since M1, from
+  `sync_wait.h` pulling in `<system_error>`/`<optional>`).
+  `Cxx2cPapers.csv` untouched (still `|In Progress|`, per plan — flips
+  only at M6). **Next session: M5** — start with `upon_error`/
+  `upon_stopped` (cheap, reuses this session's `then` machinery almost
+  unchanged), then work through the rest of the M5 adaptor list.

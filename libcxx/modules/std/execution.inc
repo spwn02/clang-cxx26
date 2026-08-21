@@ -146,5 +146,32 @@ export namespace std::execution {
   // [exec.read.env]
   // read_env's type is unspecified per [execution.syn]; only the CPO object itself is exported.
   using std::execution::read_env;
+
+  // [exec.get.scheduler], [exec.get.start.scheduler], [exec.get.delegation.scheduler],
+  // [exec.get.compl.sched]
+  using std::execution::get_completion_scheduler;
+  using std::execution::get_completion_scheduler_t;
+  using std::execution::get_delegation_scheduler;
+  using std::execution::get_delegation_scheduler_t;
+  using std::execution::get_scheduler;
+  using std::execution::get_scheduler_t;
+  using std::execution::get_start_scheduler;
+  using std::execution::get_start_scheduler_t;
+
+  // [exec.run.loop]
+  using std::execution::run_loop;
+
+  // [exec.adapt.obj]
+  using std::execution::operator|;
+  using std::execution::sender_adaptor_closure;
+
+  // [exec.then]
+  using std::execution::then;
+  using std::execution::then_t;
 } // namespace std::execution
+
+export namespace std::this_thread {
+  // [exec.sync.wait]
+  using std::this_thread::sync_wait;
+} // namespace std::this_thread
 #endif // _LIBCPP_STD_VER >= 26

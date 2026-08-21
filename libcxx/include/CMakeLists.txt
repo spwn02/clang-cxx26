@@ -351,10 +351,12 @@ set(files
   __execution/domain.h
   __execution/env.h
   __execution/forwarding_query.h
+  __execution/fwd_env.h
   __execution/get_allocator.h
   __execution/get_completion_signatures.h
   __execution/get_env.h
   __execution/get_forward_progress_guarantee.h
+  __execution/get_scheduler.h
   __execution/get_stop_token.h
   __execution/just.h
   __execution/movable_value.h
@@ -362,9 +364,13 @@ set(files
   __execution/queryable.h
   __execution/read_env.h
   __execution/receiver.h
+  __execution/run_loop.h
   __execution/schedule.h
   __execution/scheduler.h
   __execution/sender.h
+  __execution/sender_adaptor_closure.h
+  __execution/sync_wait.h
+  __execution/then.h
   __expected/bad_expected_access.h
   __expected/expected.h
   __expected/unexpect.h
