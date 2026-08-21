@@ -359,6 +359,7 @@ set(files
   __execution/get_scheduler.h
   __execution/get_stop_token.h
   __execution/just.h
+  __execution/let.h
   __execution/movable_value.h
   __execution/operation_state.h
   __execution/queryable.h

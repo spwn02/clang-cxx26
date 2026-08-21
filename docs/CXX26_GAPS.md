@@ -747,14 +747,131 @@ schedulers can't come before sender concepts exist):**
   this session's three findings above before writing more completion-
   signature-transform or in-class-specialization code.
 - [~] **M5** — Remaining sender adaptors: `upon_error`/`upon_stopped` **done
-  2026-08-21**, `let_value`/`let_error`/`let_stopped`, `starts_on`/
-  `continues_on`/`on`/`schedule_from`, `when_all`/`when_all_with_variant`,
-  `into_variant`, `stopped_as_optional`/`stopped_as_error`, `write_env`,
-  `unstoppable`, `bulk`/`bulk_chunked`/`bulk_unchunked`. (`associate`/
-  `spawn`/`spawn_future` are part of the execution-scope paper family —
-  reassess whether they're actually P2300R10-original or scope-family
-  additions when this milestone starts; exclude if the latter, per the
-  scope-collapse note above.)
+  2026-08-21**, `let_value`/`let_error`/`let_stopped` **done 2026-08-21**,
+  `starts_on`/`continues_on`/`on`/`schedule_from`, `when_all`/
+  `when_all_with_variant`, `into_variant`, `stopped_as_optional`/
+  `stopped_as_error`, `write_env`, `unstoppable`, `bulk`/`bulk_chunked`/
+  `bulk_unchunked`. (`associate`/`spawn`/`spawn_future` are part of the
+  execution-scope paper family — reassess whether they're actually
+  P2300R10-original or scope-family additions when this milestone starts;
+  exclude if the latter, per the scope-collapse note above.)
+
+  **`let_value`/`let_error`/`let_stopped`, landed 2026-08-21:** the first
+  M5 adaptor that's genuinely more than "invoke fn, complete synchronously"
+  (`then`/`upon_error`/`upon_stopped`'s shared shape) — [exec.let]'s `fn`
+  returns a *new sender* that must be connected and started, so the
+  overall operation's completion depends on that continuation's async
+  completion, not on `fn`'s return value directly. New
+  `libcxx/include/__execution/let.h` (one file for all three CPOs, mirroring
+  `then.h`'s and `just.h`'s existing one-clause-one-file convention), hand-
+  adapting the standard's exposition-only `let-state` (not routed through
+  impls-for/basic-sender, same as every other adaptor here) with a real
+  `variant`-backed operation state: `args_variant_t`/`ops_variant_t`
+  ([exec.let]p12/p13) sized to every completion signature the child might
+  produce for the intercepted tag, built by reusing
+  `<__execution/get_completion_signatures.h>`'s existing `__gather_signatures`/
+  `__decayed_tuple`/`__dedup_type_list_t` exposition machinery (already
+  built for `value_types_of_t`/`error_types_of_t`) rather than
+  reimplementing signature-gathering a third time.
+
+  **Deliberate simplification (documented at length in let.h itself):**
+  [exec.let]p2's three-branch `let-env` (giving the continuation sender an
+  environment tied to the child's completion scheduler/domain) always takes
+  the unconditionally-well-formed third branch, `env<>{}` — branch 2.2
+  (domain) needs `MAKE-ENV`/a real `get_completion_domain` body, neither of
+  which exist yet (M2 deviation); branch 2.1 (scheduler) is *not* similarly
+  blocked — `SCHED-ENV(sched)` is just `prop<get_scheduler_t, Sched>` (M1)
+  layered on `get_completion_scheduler_t` (M4) — but nothing in
+  `let_value`/`let_error`/`let_stopped`'s own contract needs it, so it's
+  left for whoever picks up `continues_on`/`on`/`schedule_from` later in
+  this same milestone (those *do* need scheduler affinity to be
+  meaningful). With `let-env` always `env<>{}`, the standard's `receiver2`
+  (the receiver connecting the continuation sender) collapses exactly onto
+  `<__execution/fwd_env.h>`'s existing `FWD-ENV(get_env(rcvr))` — reused
+  directly as `__let_cont_rcvr`, not reimplemented.
+
+  **Real engineering hazard, caught and fixed before the smoke test first
+  compiled:** the standard's own `let-state::receiver` (the receiver
+  connecting the *original* child sender) stores **both** a `let-state&`
+  *and* its own direct `Rcvr&` member — not just the former. This isn't
+  redundant. `connect_result_t<Sndr, receiver>` is computed *inside*
+  `let-state`'s own body, while `let-state` (⇒ this fork's
+  `__let_opstate`) is still incomplete; `<__execution/connect.h>`'s own
+  `connect_t`/`__connect_impl` chain has an `auto`-returning (not trailing-
+  decltype) link partway through it, which means checking `connect`'s
+  constraints doesn't stay in an unevaluated/signature-only context the
+  way a naive reading of "SFINAE probe" suggests — it actually compiles
+  the receiver's `get_env()` *body* right then. A first attempt routed
+  `__let_child_rcvr::get_env()` through `__state_->__rcvr_` (reaching into
+  the enclosing, still-incomplete opstate) and hit exactly this: "member
+  access into incomplete type" from deep inside `sync_wait`'s constraint-
+  checking, confirming the failure mode empirically rather than taking the
+  standard's two-member shape on faith. Fixed by giving
+  `__let_child_rcvr` its own `_Rcvr&` member (constructed alongside the
+  `_OpState*`), matching the standard exactly — `get_env()` then only
+  touches this receiver's own already-complete member, no dependency on
+  `_OpState` at all. **Lesson for later M5 adaptors that connect a child
+  sender from inside their own operation state** (most of the rest of this
+  milestone's list): if the standard's own exposition type stores a
+  reference that looks redundant with something reachable through a
+  back-pointer, don't simplify it away — it's very likely load-bearing for
+  this exact incomplete-type-during-constraint-checking issue, not
+  accidental duplication.
+
+  **Runtime exception handling deliberately doesn't mirror the static
+  signature computation:** `__let_opstate::__intercept` *unconditionally*
+  wraps args-construction + `fn` invocation + `connect`-ing the
+  continuation in `try`/`catch`, unlike `then.h`'s nothrow fast path —
+  because connecting the continuation can also throw, and no sender's
+  `connect()` in this tree is declared `noexcept` (checked: `just.h`,
+  `then.h`, `read_env.h`, `run_loop.h` — none), so a static nothrow check
+  here would almost never take the fast path anyway, and would be a real
+  soundness gap for a future sender whose `connect()` genuinely throws.
+  `get_completion_signatures` (via `__let_sig_transform`) still uses the
+  `then`-style static nothrow check (args + fn only, *not* connect) to
+  decide whether to advertise `set_error_t(exception_ptr)` — advisor-
+  reviewed: sound in this tree specifically because no in-tree sender's
+  `connect()` can throw when that check says nothrow, so runtime is
+  strictly *more* permissive than what's statically advertised, never the
+  reverse (documented inline in `let.h` as the load-bearing reason, not
+  asserted as a general truth).
+
+  **Also needed:** `emplace-from` ([exec.let]p10's own exposition helper),
+  ported directly as `__emplace_from<Fn>` — operation states are neither
+  movable nor copyable (`__let_opstate` explicitly deletes its copy ctor,
+  matching `__just_opstate`'s existing precedent), so
+  `variant::emplace<T>(...)`/`variant(in_place_type_t<T>, ...)` cannot
+  construct one in place from a factory call returning `T` by value
+  (forwarding-reference parameter materialization defeats guaranteed copy
+  elision); a wrapper type with `operator T() &&` calling the factory
+  sidesteps it, since direct-init from a prvalue of the *same* type *is*
+  covered by mandatory elision.
+
+  New tests: `exec.adapt/exec.let/{let_value,let_error,let_stopped}.pass.cpp`
+  — payoff case (continuation sender's *own* async completion reaches the
+  outer receiver, including a value-to-error transition for `let_value`
+  exercised via a hand-rolled `maybe_errors_sndr`, matching
+  `sync_wait.pass.cpp`'s own established pattern for testing completions
+  `sync_wait` itself couldn't reach directly), call/pipe syntax
+  equivalence, the absent-intercepted-completion no-op case, a throwing-fn
+  path, and the nothrow/throwing completion-signature-transform branches.
+  `execution/` suite 28/28 → 31/31 (3 new), `thread.stoptoken/` unaffected,
+  `module_std.gen.py`/`transitive_includes.gen.py` 125/126 (pre-existing
+  1-unsupported baseline, no diff from the new header despite pulling in
+  `<variant>`/`<tuple>` — both already transitively reachable from
+  `<execution>`), `libcxx-generate-files` clean. Registration: new header
+  in `CMakeLists.txt` and `<execution>`'s `_LIBCPP_STD_VER >= 26` include
+  block (both needed, unlike M5's `upon_error`/`upon_stopped` entry), plus
+  `execution.inc`. `Cxx2cPapers.csv` untouched (flips at M6 only).
+
+  **Next session: continue M5** — `starts_on`/`continues_on`/`on`/
+  `schedule_from` next (the scheduler-affinity family this session's
+  skipped `let-env` branch 2.1 was flagged for), or `when_all`/
+  `into_variant`/`stopped_as_optional`/`stopped_as_error`/`write_env`/
+  `unstoppable`/`bulk*` if scheduler plumbing isn't the priority. Re-read
+  this session's "real engineering hazard" note above before writing any
+  more adaptor that connects a child sender from inside its own operation
+  state — it applies to most of what's left on the M5 list.
 
   **`upon_error`/`upon_stopped`, landed 2026-08-21:** [exec.then] is a
   single clause covering `then`/`upon_error`/`upon_stopped` together (same
@@ -1608,3 +1725,39 @@ blocked, what's next. Do not remove old entries.
   subclause; expect it to need real "connect a child operation state
   dynamically" plumbing, unlike the intercept-and-complete shape `then`/
   `upon_error`/`upon_stopped` shared.
+- **2026-08-21 (fifth entry)**: Continued M5: implemented `let_value`/
+  `let_error`/`let_stopped`. New `libcxx/include/__execution/let.h`
+  (one file, all three CPOs, per-clause convention), hand-adapting the
+  standard's `let-state` with a real `variant`-backed operation state
+  (reusing `get_completion_signatures.h`'s existing `__gather_signatures`/
+  `__decayed_tuple`/`__dedup_type_list_t` rather than rebuilding
+  signature-gathering). `let-env` always takes the `env<>{}` fallback
+  branch (documented deviation; branch 2.1/SCHED-ENV is cheap from
+  existing M1/M4 pieces and flagged for `continues_on`/`on`/
+  `schedule_from` later in this milestone, not blocked). Hit and fixed a
+  real incomplete-type trap: `connect_result_t<Sndr, ChildRcvr>`, computed
+  inside the still-incomplete opstate, transitively compiles `ChildRcvr::
+  get_env()`'s body (an `auto`-returning, non-trailing-decltype link
+  inside `<__execution/connect.h>` forces this) — fixed by giving the
+  child receiver its own direct `Rcvr&` member instead of reaching through
+  a back-pointer to the opstate, matching the standard's own (initially
+  taken-on-faith, then empirically justified) two-member `receiver` shape.
+  Ported `emplace-from` ([exec.let]p10) as `__emplace_from<Fn>` to
+  construct non-movable operation states in place inside the variants.
+  New tests `exec.adapt/exec.let/{let_value,let_error,let_stopped}.pass.cpp`,
+  including a hand-rolled `maybe_errors_sndr` (matching `sync_wait.pass.cpp`'s
+  own established pattern) to exercise a continuation completing with an
+  error rather than a value. `execution/` 28/28 → 31/31,
+  `module_std.gen.py`/`transitive_includes.gen.py` 125/126 (no diff
+  despite the new header), `libcxx-generate-files` clean. Full
+  registration this time (new header ⇒ `CMakeLists.txt` +
+  `<execution>`'s include block + `execution.inc`), unlike the previous
+  `upon_error`/`upon_stopped` entry. `Cxx2cPapers.csv` untouched. **Next
+  session: continue M5** — `starts_on`/`continues_on`/`on`/`schedule_from`
+  (the scheduler-affinity family, natural next target given this
+  session's `let-env` branch-2.1 note) or the remaining adaptors
+  (`when_all`/`into_variant`/`stopped_as_optional`/`stopped_as_error`/
+  `write_env`/`unstoppable`/`bulk*`) if scheduler plumbing isn't the
+  priority. Re-read this session's incomplete-type note before writing
+  any adaptor that connects a child sender from inside its own operation
+  state.

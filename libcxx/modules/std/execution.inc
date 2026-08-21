@@ -174,6 +174,14 @@ export namespace std::execution {
   using std::execution::upon_error_t;
   using std::execution::upon_stopped;
   using std::execution::upon_stopped_t;
+
+  // [exec.let]
+  using std::execution::let_error;
+  using std::execution::let_error_t;
+  using std::execution::let_stopped;
+  using std::execution::let_stopped_t;
+  using std::execution::let_value;
+  using std::execution::let_value_t;
 } // namespace std::execution
 
 #if _LIBCPP_HAS_THREADS

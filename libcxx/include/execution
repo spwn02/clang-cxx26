@@ -172,6 +172,7 @@ _LIBCPP_END_NAMESPACE_STD
 #    include <__execution/get_scheduler.h>
 #    include <__execution/get_stop_token.h>
 #    include <__execution/just.h>
+#    include <__execution/let.h>
 #    include <__execution/movable_value.h>
 #    include <__execution/operation_state.h>
 #    include <__execution/queryable.h>
