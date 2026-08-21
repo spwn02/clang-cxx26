@@ -170,6 +170,10 @@ export namespace std::execution {
   // [exec.then]
   using std::execution::then;
   using std::execution::then_t;
+  using std::execution::upon_error;
+  using std::execution::upon_error_t;
+  using std::execution::upon_stopped;
+  using std::execution::upon_stopped_t;
 } // namespace std::execution
 
 #if _LIBCPP_HAS_THREADS

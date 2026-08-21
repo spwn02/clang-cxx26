@@ -746,15 +746,92 @@ schedulers can't come before sender concepts exist):**
   machinery almost unchanged; then the rest per the list below). Re-read
   this session's three findings above before writing more completion-
   signature-transform or in-class-specialization code.
-- [ ] **M5** — Remaining sender adaptors: `upon_error`/`upon_stopped`,
-  `let_value`/`let_error`/`let_stopped`, `starts_on`/`continues_on`/`on`/
-  `schedule_from`, `when_all`/`when_all_with_variant`, `into_variant`,
-  `stopped_as_optional`/`stopped_as_error`, `write_env`, `unstoppable`,
-  `bulk`/`bulk_chunked`/`bulk_unchunked`. (`associate`/`spawn`/
-  `spawn_future` are part of the execution-scope paper family — reassess
-  whether they're actually P2300R10-original or scope-family additions
-  when this milestone starts; exclude if the latter, per the scope-collapse
-  note above.)
+- [~] **M5** — Remaining sender adaptors: `upon_error`/`upon_stopped` **done
+  2026-08-21**, `let_value`/`let_error`/`let_stopped`, `starts_on`/
+  `continues_on`/`on`/`schedule_from`, `when_all`/`when_all_with_variant`,
+  `into_variant`, `stopped_as_optional`/`stopped_as_error`, `write_env`,
+  `unstoppable`, `bulk`/`bulk_chunked`/`bulk_unchunked`. (`associate`/
+  `spawn`/`spawn_future` are part of the execution-scope paper family —
+  reassess whether they're actually P2300R10-original or scope-family
+  additions when this milestone starts; exclude if the latter, per the
+  scope-collapse note above.)
+
+  **`upon_error`/`upon_stopped`, landed 2026-08-21:** [exec.then] is a
+  single clause covering `then`/`upon_error`/`upon_stopped` together (same
+  "intercept one completion tag, invoke `fn`, complete with the result as a
+  value" mechanism, parameterized on which tag — [exec.then]p4's
+  `set-cpo`), so generalized `<__execution/then.h>` in place rather than
+  adding two near-duplicate files — mirrors `<__execution/just.h>`'s
+  existing `_Tag`-templated shape (`just_t`/`just_error_t`/`just_stopped_t`
+  sharing one `__just_sndr<_Tag, ...>`), which turned out to be the exact
+  precedent to follow: `__then_sndr`/`__then_rcvr`/`__then_sig_transform`
+  are now templated on `_Tag` (`then_t`/`upon_error_t`/`upon_stopped_t`)
+  instead of hardcoded to `then_t`, dispatching with `if constexpr
+  (same_as<_Tag, ...>)` in the receiver (matching `__just_opstate::start`'s
+  style) and a derived `__then_set_cpo_t<_Tag>` alias (which completion-
+  function tag `_Tag` intercepts) feeding the same `__one<_SetCpo(_Args...)>`
+  partial-specialization pattern the original `then`-only version already
+  used, just with `_SetCpo` promoted from a hardcoded `set_value_t` to an
+  explicit template parameter — advisor flagged this explicit-parameter
+  form over deriving `_SetCpo` from a member-typedef indirection inside the
+  transform, since the former is structurally identical to the
+  already-proven-working pattern rather than introducing a new dependent-
+  alias-in-specialization-pattern shape. Also dissolved with this refactor:
+  the original file's `then_t`-must-be-complete-before-`__then_sndr`
+  ordering constraint (documented at length in a comment at the top of the
+  pre-refactor file) no longer applies once `tag` is typed on a generic
+  `_Tag` template parameter rather than the concrete `then_t` — the comment
+  was deleted rather than left describing a constraint that no longer
+  exists. Three CPO structs' near-identical two-arg `operator()` bodies
+  factored through a shared `__then_make_sndr<_Tag>(sndr, fn)` helper; the
+  one-arg pipeable-closure overload (`bind_back` + `__pipeable`) is small
+  enough to duplicate three ways rather than factor.
+
+  Only registration edit needed was `libcxx/modules/std/execution.inc`
+  (four new `using` exports under the existing `// [exec.then]` block) —
+  no new header file means no `CMakeLists.txt` entry, no `<execution>`
+  include-block change, and (confirmed by rerunning
+  `transitive_includes.gen.py`) no `transitive_includes/cxx26.csv` diff;
+  much smaller registration surface than M4's new-header milestones.
+
+  New tests: `exec.adapt/exec.then/{upon_error,upon_stopped}.pass.cpp`
+  (existing `exec.then` directory, since all three CPOs are one clause) —
+  each covers the payoff case (turning an absent-in-`just`/`just_stopped`
+  completion into a value completion via `sync_wait`, without needing a
+  hand-written sender the way M4's `sync_wait.pass.cpp` did for the error/
+  stopped paths), call-syntax vs. pipe-syntax equivalence, void-returning
+  `fn`, the "absent intercepted completion" no-op case (`fn` never invoked,
+  signature passes through unchanged — confirms the non-matching `__one`
+  partial specialization is simply never instantiated), a throwing-`fn`
+  path through `sync_wait`'s exception, and both nothrow/potentially-
+  throwing completion-signature-transform branches. `upon_error.pass.cpp`
+  additionally covers a dedup-collision case (`just | then(throwing) |
+  upon_error(...)`: child contributes `set_value_t(int) +
+  set_error_t(exception_ptr)`; `upon_error` consumes the error into
+  `set_value_t(int)` and re-adds `set_error_t(exception_ptr)` because its
+  own `fn` can throw too) — exercises intercept + passthrough + dedup
+  simultaneously, which nothing in `then.pass.cpp` alone does. Caught one
+  real test bug before it was a real bug: the dedup-collision case's sender
+  was stored in a local `auto sndr = ...` and passed to `sync_wait(sndr)`
+  as an lvalue — `__then_sndr::connect` is `&&`-qualified (senders are
+  single-use), so this fails to compile; fixed with `sync_wait(std::move(sndr))`.
+  `then.pass.cpp` itself re-verified unchanged and still green (the
+  refactor's regression guard). `execution/` suite 28/28 green (26
+  pre-existing + 2 new), `thread.stoptoken/` still passing, no
+  regressions; `module_std.gen.py`/`transitive_includes.gen.py` 125/126
+  (same pre-existing 1-unsupported baseline); `libcxx-generate-files`
+  produced no diff (expected — no FTM/header-list changes this session).
+  `Cxx2cPapers.csv` untouched (still `|In Progress|`, flips only at M6 per
+  the sub-plan's FTM discipline).
+
+  **Next session: continue M5** — `let_value`/`let_error`/`let_stopped`
+  next (the standard's next `[exec.adapt]` subclause after `[exec.then]`);
+  re-read the M1 eager-`requires{}`-evaluation finding and the M4
+  compiler-behavior findings before writing more completion-signature-
+  transform or receiver code, since `let_*`'s "connect a sender-returning
+  continuation and splice its operation state in" shape is more involved
+  than `then`/`upon_error`/`upon_stopped`'s "just invoke `fn` and complete"
+  shape.
 - [ ] **M6** — Coroutine integration: `as_awaitable`,
   `with_awaitable_senders`. Flip `__cpp_lib_senders` `unimplemented: False`
   and all three CSV rows to `|Complete|` **only here** — it's a single
@@ -1511,3 +1588,23 @@ blocked, what's next. Do not remove old entries.
   M5** — start with `upon_error`/`upon_stopped` (cheap, reuses `then`'s
   machinery almost unchanged), then work through the rest of the M5
   adaptor list.
+- **2026-08-21 (fourth entry)**: Started M5. Implemented `upon_error`/
+  `upon_stopped` by generalizing `<__execution/then.h>` in place (all three
+  are one standard clause) onto `just.h`'s `_Tag`-templated precedent,
+  rather than adding near-duplicate files. See the M5 entry above for full
+  detail: `__then_sndr`/`__then_rcvr`/`__then_sig_transform` now take
+  `_Tag` (`then_t`/`upon_error_t`/`upon_stopped_t`) as a template parameter
+  and dispatch with `if constexpr (same_as<_Tag, ...>)`; advisor-reviewed
+  design choice (`_SetCpo` as an explicit template parameter, not derived
+  via a member-typedef indirection) landed without issue. New tests
+  `exec.adapt/exec.then/{upon_error,upon_stopped}.pass.cpp`; caught and
+  fixed one test bug (`sync_wait` needs an rvalue sender — a locally-named
+  sender must be `std::move`d in). `execution/` 28/28,
+  `module_std.gen.py`/`transitive_includes.gen.py` 125/126, no
+  `libcxx-generate-files` diff. Only registration touch was
+  `execution.inc` (no new header ⇒ no CMakeLists/transitive-includes
+  changes) — smaller surface than M4. `Cxx2cPapers.csv` untouched. **Next
+  session: `let_value`/`let_error`/`let_stopped`** — the next `[exec.adapt]`
+  subclause; expect it to need real "connect a child operation state
+  dynamically" plumbing, unlike the intercept-and-complete shape `then`/
+  `upon_error`/`upon_stopped` shared.
