@@ -22,11 +22,19 @@ p2996-2026.08.22.2
 
 A published identifier is immutable. Never move an existing snapshot tag or replace its release assets. If the bytes or source revision change, publish a new identifier.
 
-Manual non-publishing preflight builds use:
+Non-publishing preflight artifacts use:
 
 ```text
 p2996-dev-<commit>
 ```
+
+They are triggered by disposable tags named:
+
+```text
+p2996-preflight-<name>
+```
+
+The trigger tag name is not the artifact identity. A preflight always packages the tagged commit as `p2996-dev-<commit>`.
 
 ## Initial platform
 
@@ -156,7 +164,22 @@ Fine-grained language/library feature probing belongs to T4.
 
 The GitHub workflow `.github/workflows/reference-toolchain-snapshot.yml` has two modes.
 
-`workflow_dispatch` builds a preflight artifact only. It does not create a release.
+A `p2996-preflight-*` tag builds and validates a temporary preflight artifact only.
+It does not create a GitHub release. Preflight tags may be deleted after the run.
+
+For example:
+
+```bash
+git tag p2996-preflight-t3
+git push origin p2996-preflight-t3
+```
+
+After the workflow has started, the disposable trigger tag can be removed:
+
+```bash
+git push origin :refs/tags/p2996-preflight-t3
+git tag -d p2996-preflight-t3
+```
 
 Pushing an annotated `p2996-YYYY.MM.DD[.N]` tag builds the same artifact and creates a GitHub prerelease after validation. The workflow refuses lightweight tags, tags whose commit is not in `p2996` history, and release identifiers that already have a GitHub release.
 
