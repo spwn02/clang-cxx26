@@ -748,8 +748,10 @@ schedulers can't come before sender concepts exist):**
   signature-transform or in-class-specialization code.
 - [~] **M5** — Remaining sender adaptors: `upon_error`/`upon_stopped` **done
   2026-08-21**, `let_value`/`let_error`/`let_stopped` **done 2026-08-21**,
-  `starts_on`/`continues_on`/`on`/`schedule_from`, `when_all`/
-  `when_all_with_variant`, `into_variant`, `stopped_as_optional`/
+  `schedule_from`/`continues_on`/`starts_on` **done 2026-08-22**, `on`
+  **done 2026-08-22 for the 2-arg `on(sch, sndr)` form only — the 3-arg
+  pipeable-closure form `on(sndr, sch, closure)` is not yet implemented**,
+  `when_all`/`when_all_with_variant`, `into_variant`, `stopped_as_optional`/
   `stopped_as_error`, `write_env`, `unstoppable`, `bulk`/`bulk_chunked`/
   `bulk_unchunked`. (`associate`/`spawn`/`spawn_future` are part of the
   execution-scope paper family — reassess whether they're actually
@@ -1761,3 +1763,180 @@ blocked, what's next. Do not remove old entries.
   priority. Re-read this session's incomplete-type note before writing
   any adaptor that connects a child sender from inside its own operation
   state.
+- **2026-08-22**: Continued M5: implemented `schedule_from`/`continues_on`/
+  `starts_on`, and `on` (2-arg `on(sch, sndr)` form only — see below).
+  New `libcxx/include/__execution/{schedule_from,continues_on,starts_on,
+  on}.h`.
+
+  **`schedule_from`** ([exec.schedule.from]): the standard's own clause
+  defines *no* impls-for/connect/completion-signature algorithm at all —
+  its entire behavior is domain-based customization, [Note 1]: "used by
+  schedulers to control how to transition off of their schedulers'
+  associated execution contexts". Since `default_domain::transform_sender`
+  on this fork always takes the identity branch (documented in
+  `domain.h` from M2), `schedule_from(sndr)` is unconditionally
+  identity-forwarding here — same completion signatures and attributes as
+  `sndr`, `connect()` relays straight through. Still a real, distinctly-
+  typed sender (not literally `return sndr;`) so `continues_on` can wrap
+  its input in one per [exec.continues.on]p3's literal wording, rather
+  than collapsing the wrapper away as a second deviation stacked on the
+  first.
+
+  **`continues_on`** ([exec.continues.on]) — the actual new engineering
+  this session: unlike every prior M5 adaptor's single-child shape, its
+  opstate owns *two* connected child operations simultaneously (the input
+  sender, started first; `schedule(sch)`, connected up front but started
+  only once the input completes) — a hand-adaptation of the standard's own
+  `state-type`/`receiver-type`/`get-state`/`complete`. Applied the M1
+  eager-`requires{}` and M5 `let.h` incomplete-type findings directly:
+  both new receiver types (`__continues_on_sched_rcvr`,
+  `__continues_on_child_rcvr`) store a direct `_Rcvr&` for `get_env()`
+  (not reached through the opstate pointer), since `connect_result_t<...>`
+  for both child operations is computed inside the still-incomplete
+  opstate.
+
+  **Real, empirically-discovered bug, not merely a design choice — record
+  before writing another adaptor whose receiver captures *every*
+  completion tag into a type-dependent variant (as opposed to
+  intercepting exactly one, the way `then`/`let_value` do):**
+  `<__execution/run_loop.h>`'s `__run_loop_opstate::__execute()` decides
+  at *runtime* whether to call `set_value()` or `set_stopped()` on its
+  receiver, but the dispatch is a plain `if`, not `if constexpr` — so
+  *both* branches must be well-formed at *compile time* for whatever
+  receiver type ends up connected to `schedule(sch)`, regardless of
+  whether the environment's stop token could ever actually report
+  `stop_requested()` (i.e. regardless of what `unstoppable_token` says,
+  and regardless of what the sender's own advertised completion
+  signatures say). `then.h`/`let.h` never hit this because their
+  "completion tag not intercepted" branches are a type-independent direct
+  forward (`execution::set_stopped(std::move(__rcvr_))`), always
+  well-formed no matter what. `continues_on`'s child receiver intercepts
+  *every* tag (that's the whole point — capture-and-replay whichever one
+  fires) by emplacing into `__async_result_t`, a variant sized only for
+  the tag/arg combinations the child sender's own completion signatures
+  actually advertise — so when a forced-but-statically-unreachable
+  `set_stopped()` call (originating from `run_loop`'s unconditional `if`,
+  and propagating outward through a chain of otherwise-trivial
+  direct-forwarding receivers in `on`'s composition, which is where this
+  was actually caught — a standalone `continues_on(sch, sndr)` never
+  reaches a second run_loop-backed hop) reaches a child sender that never
+  advertises `set_stopped_t()` (e.g. `just`/`just(42)`), `tuple<set_stopped_t>`
+  isn't a variant alternative and the `emplace` hard-errors. Confirmed
+  this isn't fork-specific bad reasoning: the standard's own
+  `impls-for<continues_on_t>::complete` lambda has no `requires
+  callable<Tag, Rcvr, Args...>` guard either (unlike `default-impls::complete`,
+  which does) — a fully-conforming implementation using the real
+  `basic-sender`/`connect-all` machinery avoids this because the
+  *generated* per-child receiver only ever has overloads matching that
+  child's own advertised signatures (so `complete<set_stopped_t>` is
+  simply never instantiated for a child that doesn't advertise it) — a
+  guarantee this fork's hand-written, non-generic receivers don't get for
+  free. Fix: `__on_child_complete<Tag>` now probes
+  `requires { __async_result_.emplace<tuple<Tag, decay_t<Args>...>>(...); }`
+  via `if constexpr` and, when the tag/arg combination isn't representable
+  (provably unreachable at runtime for the case that actually triggered
+  this — `unstoppable_token<never_stop_token>` is true, so
+  `__execute()`'s stopped branch never *executes*, only *compiles*),
+  skips the scheduling hop and completes directly instead of hard-erroring
+  the whole translation unit. `variant::emplace<T>`'s own SFINAE-friendly
+  default template argument (a substitution failure in
+  `__find_unambiguous_index_sfinae<T,...>::value` when `T` isn't an
+  alternative) makes this `requires{}` probe a soft, per-instantiation
+  check rather than a hard error, matching the `__try_query`-style split
+  used elsewhere in this sub-plan for the same reason.
+
+  Completion-signature derivation (hand-derived, not the standard's
+  operational "completion operations potentially evaluated as a result of
+  `op.start()`" spec style, matching every prior adaptor in this
+  sub-plan): each child signature `Tag(Args...)` replays as
+  `Tag(decay_t<Args>...)`, plus `set_error_t(exception_ptr)` *per
+  signature* if that signature isn't statically nothrow-decay-copyable
+  (mirrors `then.h`'s own TRY-SET-VALUE pattern) — unioned with
+  `schedule(sch)`'s own signatures minus its `set_value_t()` (which only
+  triggers the internal redispatch, never propagates as-is). The internal
+  storage variant (`__async_result_t`) separately follows
+  [exec.continues.on]p9's literal formula: `tuple<Tag, decay_t<Args>...>`
+  per child signature (tag included, unlike `let.h`'s tag-less
+  `__decayed_tuple` — continues_on captures *any* of value/error/stopped
+  and must remember which one fired), plus a single shared
+  `tuple<set_error_t, exception_ptr>` alternative gated on whether *any*
+  signature (not each individually) might fail to decay-copy nothrow —
+  the standard's own storage-efficiency simplification, distinct from the
+  per-signature check driving the advertised signature set above.
+
+  **`starts_on`** ([exec.starts.on]): per p4, `starts_on(sch, sndr)` is
+  expression-equivalent to a sender whose *own* `transform_sender` (fired
+  via domain dispatch) rewrites it to
+  `let_value(continues_on(just(), sch), [sndr]() mutable { return
+  std::move(sndr); })`. Since domain dispatch never fires on this fork
+  (same `default_domain` identity-branch deviation as `schedule_from`
+  above), a `starts_on_t`-tagged sender built the usual way would be
+  dead on arrival — so this computes the *rewrite's result* directly, at
+  CPO-call time, rather than building an intermediate sender nothing
+  would ever transform. **Deviation, same class as `let.h`'s let-env 2.3
+  fallback:** the result's `tag_of_t` is `let_value_t`'s own tag, not
+  `starts_on_t`; `sender_for<decltype(starts_on(...)), starts_on_t>` is
+  false. Nothing in scope through M5 inspects `tag_of_t`/`sender-for` on
+  a `starts_on` result. No new opstate/sender class needed at all — the
+  whole file is one CPO struct.
+
+  **`on`** ([exec.on]) — **only the `on(sch, sndr)` 2-arg form
+  implemented; the pipeable-closure 3-arg form (`on(sndr, sch, closure)`,
+  [exec.on]p1.2) and the argument-disambiguation rules that let a single
+  2-arg call resolve to either form (p2.1–2.3) are deferred** — a
+  deliberate scope cut (flagged in advance as the likely one) to land a
+  complete, tested `on(sch, sndr)` rather than a half-wired overload set.
+  Unlike `starts_on`, `on` genuinely needs a real sender/opstate rather
+  than a pure call-time composition: [exec.on]p6's transform_sender body
+  needs `get_start_scheduler(env)`, which isn't available until connect
+  time (env comes from the real receiver) — so `__on_sndr::connect()`
+  calls `execution::get_start_scheduler(execution::get_env(rcvr))`
+  directly (matching [exec.on]p7's literal operational wording, which has
+  no `call-with-default` fallback either) and builds
+  `continues_on(starts_on(sch, sndr), orig_sch)` right there, forwarding
+  the real receiver into it unchanged (no intermediate FWD-ENV-wrapping
+  receiver, unlike every single-child adaptor elsewhere in this sub-plan
+  — there's nothing generic to wrap since `on`'s own behavior is entirely
+  this one composition). `get_completion_signatures` mirrors the same
+  composition at the type level via `declval`.
+
+  Tests: new `exec.adapt/{exec.schedule.from,exec.continues.on,
+  exec.starts.on,exec.on}/*.pass.cpp`. `continues_on`'s and `starts_on`'s
+  tests deliberately avoid threads — `run_loop::start()` + `finish()` +
+  `run()` in that order drains a single-threaded queue synchronously
+  (matching `exec.ctx/run_loop.pass.cpp`'s own first test block), and for
+  `on`'s test specifically, using the *same* `run_loop` for both the
+  "start on" and "resume on" schedulers means the second scheduling hop
+  (queued mid-drain, from inside the first hop's own `execute()` call
+  stack) is picked up by the same `run()` call before it returns — no
+  producer thread needed, confirmed empirically by running the test, not
+  just reasoned through. `continues_on.pass.cpp` also exercises error
+  passthrough (not just value) with a hand-written always-errors sender,
+  matching `let_value.pass.cpp`'s own `maybe_errors_sndr` precedent.
+  Caught one *test* bug before it was real: a local (in-function) class
+  with an abbreviated-function-template member (`void set_error(auto&&)`)
+  is ill-formed — `[class.local]`: local classes may not have member
+  templates — fixed by using a concrete `std::exception_ptr` parameter in
+  every test receiver's `set_error`, matching what these compositions can
+  actually produce.
+
+  `execution/` + `thread.stoptoken/` 72/72 green (68 pre-existing + 4
+  new), `module_std.gen.py`/`transitive_includes.gen.py` 125/126 (same
+  pre-existing 1-unsupported baseline, no diff despite the four new
+  headers), `libcxx-generate-files` clean. Full registration for all four
+  (new headers ⇒ `CMakeLists.txt` + `<execution>`'s include block +
+  `execution.inc`). `Cxx2cPapers.csv` untouched (flips at M6 only).
+
+  **Next session: continue M5** — `on`'s pipeable-closure 3-arg form
+  (`on(sndr, sch, closure)`) is the most natural immediate follow-up
+  (same file, same composition family, and the disambiguation rules in
+  [exec.on]p2.1–2.3 are worth getting right in one sitting rather than
+  returning to them cold) — or the remaining adaptors (`when_all`/
+  `into_variant`/`stopped_as_optional`/`stopped_as_error`/`write_env`/
+  `unstoppable`/`bulk*`) if closing out `on` isn't the priority.
+  `write_env`/`unstoppable` are now unblocked and genuinely small (both
+  are one-clause "expression-equivalent to X" definitions with no new
+  opstate) — a good pairing for a short session. Before writing any more
+  adaptors whose receiver captures more than one completion tag into a
+  type-dependent variant, re-read this session's run_loop-forced-
+  set_stopped() finding above; it's not `continues_on`-specific.

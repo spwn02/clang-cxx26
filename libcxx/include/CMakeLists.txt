@@ -348,6 +348,7 @@ set(files
   __execution/completion_functions.h
   __execution/completion_signatures.h
   __execution/connect.h
+  __execution/continues_on.h
   __execution/domain.h
   __execution/env.h
   __execution/forwarding_query.h
@@ -361,15 +362,18 @@ set(files
   __execution/just.h
   __execution/let.h
   __execution/movable_value.h
+  __execution/on.h
   __execution/operation_state.h
   __execution/queryable.h
   __execution/read_env.h
   __execution/receiver.h
   __execution/run_loop.h
   __execution/schedule.h
+  __execution/schedule_from.h
   __execution/scheduler.h
   __execution/sender.h
   __execution/sender_adaptor_closure.h
+  __execution/starts_on.h
   __execution/sync_wait.h
   __execution/then.h
   __expected/bad_expected_access.h

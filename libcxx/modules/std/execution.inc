@@ -182,6 +182,22 @@ export namespace std::execution {
   using std::execution::let_stopped_t;
   using std::execution::let_value;
   using std::execution::let_value_t;
+
+  // [exec.schedule.from]
+  using std::execution::schedule_from;
+  using std::execution::schedule_from_t;
+
+  // [exec.starts.on]
+  using std::execution::starts_on;
+  using std::execution::starts_on_t;
+
+  // [exec.continues.on]
+  using std::execution::continues_on;
+  using std::execution::continues_on_t;
+
+  // [exec.on]
+  using std::execution::on;
+  using std::execution::on_t;
 } // namespace std::execution
 
 #if _LIBCPP_HAS_THREADS

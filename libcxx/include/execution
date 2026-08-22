@@ -161,6 +161,7 @@ _LIBCPP_END_NAMESPACE_STD
 #    include <__execution/completion_functions.h>
 #    include <__execution/completion_signatures.h>
 #    include <__execution/connect.h>
+#    include <__execution/continues_on.h>
 #    include <__execution/domain.h>
 #    include <__execution/env.h>
 #    include <__execution/forwarding_query.h>
@@ -174,15 +175,18 @@ _LIBCPP_END_NAMESPACE_STD
 #    include <__execution/just.h>
 #    include <__execution/let.h>
 #    include <__execution/movable_value.h>
+#    include <__execution/on.h>
 #    include <__execution/operation_state.h>
 #    include <__execution/queryable.h>
 #    include <__execution/read_env.h>
 #    include <__execution/receiver.h>
 #    include <__execution/run_loop.h>
 #    include <__execution/schedule.h>
+#    include <__execution/schedule_from.h>
 #    include <__execution/scheduler.h>
 #    include <__execution/sender.h>
 #    include <__execution/sender_adaptor_closure.h>
+#    include <__execution/starts_on.h>
 #    include <__execution/sync_wait.h>
 #    include <__execution/then.h>
 #  endif // _LIBCPP_STD_VER >= 26
