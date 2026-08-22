@@ -201,13 +201,15 @@ void test_P1361() {
 // The paper hasn't been voted in so currently all formatters are disabled.
 // Note the paper has been abandoned, the types are kept since other papers may
 // introduce these formatters.
+//
+// std::filesystem::path was one of these types, but is now formattable as of
+// C++26 via the unrelated, accepted P2845R8 -- see test_P2845 below.
 template <class CharT>
 void test_P1636() {
   assert_is_not_formattable<std::basic_streambuf<CharT>, CharT>();
   assert_is_not_formattable<std::bitset<42>, CharT>();
   assert_is_not_formattable<std::complex<double>, CharT>();
   assert_is_not_formattable<std::error_code, CharT>();
-  assert_is_not_formattable<std::filesystem::path, CharT>();
   assert_is_not_formattable<std::shared_ptr<int>, CharT>();
 #ifndef TEST_HAS_NO_LOCALIZATION
   if constexpr (!std::same_as<CharT, int>) // sub_match only works with proper character types
@@ -217,6 +219,20 @@ void test_P1636() {
   assert_is_formattable<std::thread::id, CharT>();
 #endif
   assert_is_not_formattable<std::unique_ptr<int>, CharT>();
+}
+
+// Tests for P2845R8 Formatting of std::filesystem::path
+template <class CharT>
+void test_P2845() {
+#if TEST_STD_VER >= 26
+  // formatter<path, charT> is only defined for charT in {char, wchar_t}, same as every other formatter.
+  if constexpr (std::same_as<CharT, char> || std::same_as<CharT, wchar_t>)
+    assert_is_formattable<std::filesystem::path, CharT>();
+  else
+    assert_is_not_formattable<std::filesystem::path, CharT>();
+#else  // TEST_STD_VER >= 26
+  assert_is_not_formattable<std::filesystem::path, CharT>();
+#endif // TEST_STD_VER >= 26
 }
 
 template <class CharT, class Vector>
@@ -432,6 +448,7 @@ void test() {
   test_P0645<CharT>();
   test_P1361<CharT>();
   test_P1636<CharT>();
+  test_P2845<CharT>();
   test_P2286<CharT>();
   test_LWG3631<CharT>();
   test_LWG3944();

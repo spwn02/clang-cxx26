@@ -163,17 +163,11 @@
 #    endif
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_format_path
-#      error "__cpp_lib_format_path should be defined in c++26"
-#    endif
-#    if __cpp_lib_format_path != 202403L
-#      error "__cpp_lib_format_path should have the value 202403L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_format_path
-#      error "__cpp_lib_format_path should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_format_path
+#    error "__cpp_lib_format_path should be defined in c++26"
+#  endif
+#  if __cpp_lib_format_path != 202403L
+#    error "__cpp_lib_format_path should have the value 202403L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

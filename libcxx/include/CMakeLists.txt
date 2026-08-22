@@ -400,6 +400,7 @@ set(files
   __filesystem/filesystem_error.h
   __filesystem/operations.h
   __filesystem/path.h
+  __filesystem/path_format.h
   __filesystem/path_iterator.h
   __filesystem/perm_options.h
   __filesystem/perms.h
