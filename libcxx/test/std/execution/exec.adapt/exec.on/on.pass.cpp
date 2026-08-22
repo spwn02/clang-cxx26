@@ -23,6 +23,13 @@
 
 using namespace std::execution;
 
+// [exec.on]p2.2/p2.3: on(sch, x) must be ill-formed when x is neither a sender nor a pipeable
+// sender adaptor closure object -- confirms the two 2-arg overloads (__on_sndr's sender-constrained
+// form and the partial-application closure-constrained form) don't jointly accept more than the
+// wording allows, which is exactly what the header comment's "falls out for free from sender and
+// __sender_adaptor_closure_object being mutually exclusive" claim depends on.
+static_assert(!std::is_invocable_v<on_t, decltype(std::declval<run_loop&>().get_scheduler()), int>);
+
 int main(int, char**) {
   // on(sch, sndr) starts sndr on sch, then (on completion) transfers back to whatever scheduler
   // was in effect when the on-sender itself was started. Using *two distinct* run_loops here
@@ -113,12 +120,39 @@ int main(int, char**) {
     assert(completed);
     assert(value == 42);
   }
-  // on(sch, closure) (2 args, closure not a sender) is the partial-application form of the above:
-  // sndr | on(sch, closure) must equal on(sndr, sch, closure). Reuses the same two-loop
-  // discrimination, condensed into a single drain-until-done loop since the exact number of hops
-  // isn't the point of this particular test -- call-vs-pipe equivalence is.
+  // Completion signatures for the 3-arg form: __on2_sndr::get_completion_signatures reconstructs
+  // the connect()-time composition (continues_on(closure(continues_on(child, sch)), orig_sch)) at
+  // the type level via a chain of declval/decltype -- this pins that reconstruction against the
+  // runtime path exercised above, rather than leaving it checked only implicitly (any valid-but-
+  // wrong signature set here would still satisfy connect()'s Mandates and go unnoticed otherwise).
+  // then's fn (`[] { return 42; }`) is a non-noexcept lambda, so set_error_t(exception_ptr) is
+  // expected alongside set_value_t(int).
   {
     run_loop loop_orig, loop_b;
+    static_assert(std::is_same_v<
+                   completion_signatures_of_t<decltype(on(schedule(loop_orig.get_scheduler()),
+                                                           loop_b.get_scheduler(),
+                                                           then([] { return 42; }))),
+                                               env<>>,
+                   completion_signatures<set_value_t(int), set_error_t(std::exception_ptr)>>);
+  }
+  // on(sch, closure) (2 args, closure not a sender) is the partial-application form of the above:
+  // sndr | on(sch, closure) must equal on(sndr, sch, closure) -- argument for argument, not just
+  // "eventually completes with the same value". A runtime drain can't tell those apart: every hop,
+  // on either loop, gets drained on every iteration of the polling loop below regardless of which
+  // scheduler it actually landed on, so a `bind_back` that captured (sch, closure) in the wrong
+  // order (e.g. producing on(sndr, closure, sch) or similar) could still complete with the right
+  // value. What actually discriminates that is a type identity between the two spellings; the two
+  // on(...) calls must reference the very same closure *value* (not two separately-written lambdas,
+  // which are distinct closure types) for the comparison to be meaningful, hence hoisting it into a
+  // named variable first.
+  {
+    run_loop loop_orig, loop_b;
+    auto closure = then([] { return 42; });
+    static_assert(
+        std::is_same_v<decltype(schedule(loop_orig.get_scheduler()) | on(loop_b.get_scheduler(), closure)),
+                       decltype(on(schedule(loop_orig.get_scheduler()), loop_b.get_scheduler(), closure))>);
+
     int value      = -1;
     bool completed = false;
 
@@ -135,7 +169,7 @@ int main(int, char**) {
       auto get_env() const noexcept { return env<>{}; }
     };
 
-    auto op = connect(schedule(loop_orig.get_scheduler()) | on(loop_b.get_scheduler(), then([] { return 42; })),
+    auto op = connect(schedule(loop_orig.get_scheduler()) | on(loop_b.get_scheduler(), closure),
                        rcvr{&value, &completed});
     start(op);
     // finish() must be called again before *every* run(), not just once up front: once a loop's
