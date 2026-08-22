@@ -16,8 +16,11 @@
 //   concept stoppable_token = ...;
 // template<class Token>
 //   concept unstoppable_token = ...;
+// template<class T, class CallbackFn>
+//   using stop_callback_for_t = T::template callback_type<CallbackFn>;
 
 #include <stop_token>
+#include <type_traits>
 
 struct NotAToken {};
 
@@ -47,5 +50,10 @@ static_assert(std::unstoppable_token<std::never_stop_token>);
 static_assert(!std::unstoppable_token<std::stop_token>);
 static_assert(!std::unstoppable_token<std::inplace_stop_token>);
 static_assert(!std::unstoppable_token<NotAToken>);
+
+static_assert(std::is_same_v<std::stop_callback_for_t<std::inplace_stop_token, int>,
+                              std::inplace_stop_callback<int>>);
+static_assert(std::is_same_v<std::stop_callback_for_t<std::stop_token, int>, std::stop_callback<int>>);
+static_assert(std::is_same_v<std::stop_callback_for_t<MinimalToken, int>, MinimalToken::callback_type<int>>);
 
 int main(int, char**) { return 0; }

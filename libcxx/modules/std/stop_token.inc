@@ -26,6 +26,7 @@ export namespace std {
   // [stoptoken.concepts]
   using std::stoppable_token;
   using std::unstoppable_token;
+  using std::stop_callback_for_t;
 
   // [stoptoken.never], class never_stop_token
   using std::never_stop_token;

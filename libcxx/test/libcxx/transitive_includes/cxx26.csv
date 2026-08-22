@@ -254,6 +254,7 @@ exception cstdint
 exception cstdlib
 exception typeinfo
 exception version
+execution atomic
 execution cctype
 execution cerrno
 execution climits

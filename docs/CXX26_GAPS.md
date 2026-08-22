@@ -753,8 +753,9 @@ schedulers can't come before sender concepts exist):**
   `on(sndr, sch, closure)`, and the 2-arg partial-application form
   `on(sch, closure)`), `write_env`/`unstoppable` **done 2026-08-22**,
   `stopped_as_optional`/`stopped_as_error` **done 2026-08-22**,
-  `into_variant` **done 2026-08-22**.
-  `when_all`/`when_all_with_variant`, `bulk`/`bulk_chunked`/
+  `into_variant` **done 2026-08-22**, `when_all` **done 2026-08-22**
+  (`when_all_with_variant` deliberately deferred to a follow-up — see below).
+  `when_all_with_variant`, `bulk`/`bulk_chunked`/
   `bulk_unchunked` remain. (`associate`/`spawn`/`spawn_future` are part of the
   execution-scope paper family — reassess whether they're actually
   P2300R10-original or scope-family additions when this milestone starts;
@@ -2360,3 +2361,128 @@ blocked, what's next. Do not remove old entries.
   operation-state shape (N child operation states, synchronized completion
   via an atomic counter or similar) to need real new machinery, not a
   reuse of any existing one-child adaptor's shape.
+- **2026-08-22 (Tier 2, M5 continued — when_all)**: Implemented `[exec.when.all]`
+  (new `libcxx/include/__execution/when_all.h`, ~500 lines) — `when_all` only;
+  `when_all_with_variant` (a pure call-time composition,
+  `when_all(into_variant(sndrs)...)`, per p18/p19) deliberately deferred to a
+  follow-up commit on the advisor's recommendation, to get a working
+  checkpoint landed first given the size of this milestone. Also added
+  `stop_callback_for_t<T, CallbackFn>` (new alias in
+  `libcxx/include/__stop_token/stoppable_token.h`, exported from
+  `<stop_token>`/`stop_token.inc`) — a real M1 gap discovered while scoping
+  this session: `[thread.stoptoken.syn]` declares it alongside
+  `stoppable_token`/`unstoppable_token` (confirmed via the `curl`+strip
+  process against `eel.is/c++draft/thread.stoptoken.syn`), but M1's original
+  pass only added the two concepts. Needed here for `__when_all_state`'s
+  `on_stop` member (`optional<stop_callback_for_t<stop_token_of_t<Env>,
+  __when_all_on_stop_request>>`). Added test coverage to the existing
+  `stoptoken.concepts/concepts.pass.cpp` rather than a new file (same header,
+  same clause).
+
+  **Design, confirmed with the advisor before writing code:** `values_tuple`/
+  `errors_variant`/the value completion signature are all computed by
+  classifying each child's own `completion_signatures` via ordinary partial
+  specialization on the *always-well-formed* shape gathered by
+  `value_types_of_t<..., __decayed_tuple, type_list>` (0, 1, or N elements,
+  never ill-formed regardless of arity) — never by naming
+  `value_types_of_t<..., optional>` directly (`optional` takes exactly one
+  type argument; a child with 0 or 2+ set_value shapes makes that formation
+  hard-error, not SFINAE-fail, deep inside `__gather_signatures_impl`'s
+  implicit instantiation, the same "gather into something always
+  well-formed, then pattern-match" lesson `__single_sender_value_type`
+  already established). Both 0-shape and 2+-shape children collapse into the
+  *same* "otherwise tuple<>" fallback per [exec.when.all]p13's literal
+  wording — check-types' Mandates-diagnostic for the 2+ case specifically is
+  not implemented (same P3068 gap as every other adaptor).
+
+  **`copy-fail`** ([exec.when.all]p12) scans every child's *both* value and
+  error datums for nothrow-decay-copyability, independent of the
+  all-single-value classification above — confirmed necessary (not just
+  simpler) by re-reading p12/p17 together: TRY-EMPLACE-ERROR's own fallback
+  assumes `exception_ptr` is always a valid `errors_variant` alternative
+  whenever an error datum's own decay-copy might throw, which only holds if
+  copy-fail's scan covers error datums too, not just the ones feeding
+  `values_tuple`.
+
+  **Real engineering hazard, caught empirically (first full build attempt
+  failed exactly here):** constructing `tuple<OpState_1, ..., OpState_N>`
+  directly from N `execution::connect(...)` calls passed through tuple's own
+  variadic `(_Up&&... u)` constructor defeats guaranteed copy elision --
+  materializing each `connect()` call's prvalue result through a forwarding-
+  reference parameter -- and every operation state in this tree (matching
+  `__just_opstate`/`__let_opstate`) has copy/move explicitly deleted, so this
+  is a hard compile error, not a silent extra copy. Exact same hazard
+  `<__execution/let.h>`'s `__emplace_from` already documents at length for
+  `variant::emplace<T>(...)`; fixed with a local `__when_all_emplace_from`
+  wrapper (identical shape: `operator T() &&` calling a factory closure) so
+  the *wrapper* -- cheap and trivially movable -- is what passes through
+  tuple's constructor hops, and the actual non-movable `OpState` is only
+  produced at the final direct-initialization step, which mandatory elision
+  does cover. Confirms the pattern generalizes beyond `variant::emplace` to
+  any "construct N non-movable objects from N factory calls" site.
+
+  **Per-child receiver** (`__when_all_rcvr<Index, State, Rcvr>`) stores
+  direct pointers to `State`/`Rcvr` (both already-complete, ordinary types at
+  the point children are connected), not a pointer back to the enclosing
+  `__when_all_opstate` class template -- deliberately avoiding the
+  incomplete-type-during-constraint-checking hazard `<__execution/let.h>`'s
+  own "real engineering hazard" note (M5, previous entries) warns about for
+  exactly this shape.
+
+  **when-all-env** (`__when_all_env<Env>`, [exec.when.all]p5-7): modeled
+  directly on `<__execution/fwd_env.h>`'s FWD-ENV query-forwarding shape,
+  with `get_stop_token` intercepted ahead of the generic forward (answering
+  with this operation's own `inplace_stop_source`'s token, not whatever the
+  outer environment would otherwise answer) -- this is the actual mechanism
+  by which requesting stop on one child's error/stopped completion reaches
+  every other still-running child's environment.
+
+  **Verified under a genuine multi-child stopped/error case, not just the
+  sequential happy path** (per the advisor's explicit ask): the new test's
+  last case uses a hand-rolled `error_sndr` (completes `set_error(99)`
+  synchronously on `start()`) alongside a `stop_check_sndr` that records,
+  via a caller-owned `bool*`, whether `get_stop_token(get_env(rcvr))` already
+  reports `stop_requested()` at the moment *it* starts -- since `when_all`
+  starts every child unconditionally via a fold expression
+  (`(execution::start(ops), ...)`, no short-circuit), and both complete
+  synchronously, `error_sndr` (declared first) fully completes -- including
+  requesting stop on the shared `inplace_stop_source` -- before
+  `stop_check_sndr`'s own `start()` runs; the test asserts the flag came
+  back `true`, directly confirming the propagation path works end-to-end,
+  not just that the types compile.
+
+  New test: `exec.adapt/exec.when.all/when_all.pass.cpp` -- value-datum
+  concatenation across two children (`when_all(just(1,2), just(3.5))` →
+  `tuple(1,2,3.5)`, both at runtime via `sync_wait` and statically via a
+  `completion_signatures_of_t` assert), the zero-shape collapse case
+  (`when_all(just_stopped(), just(1))` → stopped, no value, completion
+  signature `<set_value_t(), set_stopped_t()>`), a no-error/no-stopped-
+  capable case showing copy-fail correctly stays `none-such` (no
+  `set_error_t(exception_ptr)` advertised when every datum is trivially
+  nothrow-copyable), and the error+stop-propagation case above. `execution/`
+  suite 40/40 → 41/41 green, `thread.stoptoken/` 37/37 → 37/37 (same count,
+  new assertions added to an existing file), 78/78 total, no regressions.
+  `libcxx-generate-files` clean (no FTM change -- `__cpp_lib_senders` stays
+  gated to M6). `transitive_includes/cxx26.csv` needed one real addition
+  this time (first since M4): `execution` now also transitively pulls in
+  `atomic` (from `<__stop_token/inplace_stop_source.h>`'s/`__when_all_state`'s
+  own `atomic<size_t>`/`atomic<disposition>` members) -- confirmed via the
+  actual preprocessor trace (`transitive_includes.gen.py`'s diff output), not
+  guessed; `module_std.gen.py`/`transitive_includes.gen.py` both 125/126
+  after the fix (same pre-existing 1-unsupported baseline). Registered the
+  new header in `CMakeLists.txt`, `<execution>`'s M5 include block, and
+  `libcxx/modules/std/execution.inc` (both `when_all`/`when_all_t` exported,
+  guarded `#if _LIBCPP_HAS_THREADS` matching `unstoppable`'s own precedent,
+  since `when_all.h` itself is gated `_LIBCPP_STD_VER >= 26 &&
+  _LIBCPP_HAS_THREADS` — it uses `inplace_stop_source` unconditionally, same
+  as `get_stop_token.h`). `Cxx2cPapers.csv` untouched (flips at M6 only).
+
+  **Next session: `when_all_with_variant`** — should be small (pure
+  call-time composition over `when_all`+`into_variant`, both now landed; no
+  new sender/receiver/state machinery expected, matching
+  `stopped_as_error`'s/`starts_on`'s own call-time-composition precedent
+  rather than `stopped_as_optional`'s/`into_variant`'s/this session's
+  hand-rolled-sender precedent). After that, only
+  `bulk`/`bulk_chunked`/`bulk_unchunked` remain in M5 — read `[exec.bulk]`
+  fresh via the `curl` process rule before starting; unscoped in detail so
+  far this sub-plan.

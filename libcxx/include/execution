@@ -193,6 +193,7 @@ _LIBCPP_END_NAMESPACE_STD
 #    include <__execution/sync_wait.h>
 #    include <__execution/then.h>
 #    include <__execution/unstoppable.h>
+#    include <__execution/when_all.h>
 #    include <__execution/write_env.h>
 #  endif // _LIBCPP_STD_VER >= 26
 

@@ -220,6 +220,12 @@ export namespace std::execution {
   // [exec.into.variant]
   using std::execution::into_variant;
   using std::execution::into_variant_t;
+
+#if _LIBCPP_HAS_THREADS
+  // [exec.when.all]
+  using std::execution::when_all;
+  using std::execution::when_all_t;
+#endif
 } // namespace std::execution
 
 #if _LIBCPP_HAS_THREADS

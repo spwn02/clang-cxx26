@@ -34,6 +34,8 @@ namespace std {
     concept stoppable_token = ...;
   template<class Token>
     concept unstoppable_token = ...;
+  template<class T, class CallbackFn>
+    using stop_callback_for_t = T::template callback_type<CallbackFn>;
 
   // [stoptoken.never], class never_stop_token
   class never_stop_token;

@@ -43,6 +43,14 @@ concept unstoppable_token =
       requires bool_constant<!__token.stop_possible()>::value;
     };
 
+// [thread.stoptoken.syn]: stop_callback_for_t<T, CallbackFn> is T::callback_type<CallbackFn> --
+// the concrete stop-callback type a given stoppable_token uses, parameterized on the callback
+// function object's type. Declared alongside stoppable_token/unstoppable_token per the
+// synopsis (all three live in plain namespace std, not std::execution) rather than in its own
+// header, since it has no machinery of its own beyond the alias.
+template <class _Token, class _CallbackFn>
+using stop_callback_for_t = typename _Token::template callback_type<_CallbackFn>;
+
 #endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_THREADS
 
 _LIBCPP_END_NAMESPACE_STD
