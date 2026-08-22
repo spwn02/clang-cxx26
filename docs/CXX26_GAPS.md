@@ -1074,13 +1074,75 @@ in an ambiguous state.
   (P2542R8) was the one exception, already solid. Full `ranges/` suite green
   (453/454, 1 pre-existing unsupported) plus `transitive_includes.gen.py`
   and `support.limits.general/` (208/208) both times.
-- **mdspan/linalg block** (P2630R4, P2642R6, P3355R1, P3050R2, P1673R13) —
-  **not started.** `P1673R13` (BLAS-based linear algebra interface) is
-  large enough to warrant its own sub-plan the way P2300R10 got one; don't
-  start the mdspan block by picking off the small items first without
-  first assessing whether P1673R13 needs that treatment.
-- **format/print block** (P2587R3, P2757R3, P3107R5, P2845R8, P3235R3) —
-  **not started**, separate session.
+- **mdspan/linalg block, split 2026-08-22 per the gate above:**
+  - **mdspan proper** (P2630R4 `submdspan`, P2642R6 padded layouts, P3355R1)
+    — **not started, confirmed from-scratch.** `libcxx/include/__mdspan/`
+    has only `layout_left.h`/`layout_right.h`/`layout_stride.h`/
+    `extents.h`/`aligned_accessor.h`/`mdspan.h`; no `submdspan` free
+    function, `submdspan_mapping`, or `layout_left_padded`/
+    `layout_right_padded` anywhere in the tree. Matches the FTM: the
+    generator's `__cpp_lib_submdspan` entry is `unimplemented: True` with
+    the C++26 padded-layout value line literally commented out. This is a
+    real from-scratch implementation project, not a conformance pass —
+    scope it as its own session.
+  - **linalg** (P1673R13, P3050R2) — **P1673R13 assessed, not a from-
+    scratch project; P3050R2 done 2026-08-22.** `libcxx/include/linalg`
+    is 3150 lines with 14 pre-existing test files (`algorithms.pass.cpp`,
+    `triangular_solves.pass.cpp`, `rank_updates.pass.cpp`,
+    `structured_algorithms.pass.cpp`, etc., 17 tests total) that were
+    **already passing before this session touched anything** — this is
+    the opposite of the ranges block's "scaffolded but untested" trap.
+    `__cpp_lib_linalg` is also already live in `<version>` (no
+    `unimplemented` flag) despite the CSV row being blank, so the
+    blank status is very likely stale bookkeeping, not an accurate
+    "not started". Confirming that needs a real audit against the
+    paper's full wording/API surface — not done this session, don't
+    assume Complete without doing it — but whoever picks this up next
+    should start from "probably mostly done, verify the gaps" rather
+    than "implement from scratch". P3050R2 (a small, independently-
+    scoped DR-shaped fix to `linalg::conjugated`) was completed as part
+    of this assessment once the fix was understood; see its row below.
+- **format/print block, worked partially 2026-08-22:**
+  - P2845R8 (`formatter<path, charT>`) and P2587R3 (`to_string`/
+    `to_wstring` float overloads) — both **Complete**, see rows below.
+  - P2757R3 (type-checking format args) — **assessed, not completable
+    this session, same shape as Tier 1's P1383R2 finding.** `Cxx2cPapers.
+    csv`'s existing P2637R3 row (inherited from upstream, not written
+    this session) already states outright: "Change of `__cpp_lib_format`
+    is blocked by P2419R2." Confirmed independently: P2419R2 ("Clarify
+    handling of encodings in localized formatting of chrono types") is a
+    *C++23* paper (`Cxx23Papers.csv`), still blank/unstarted, not tracked
+    anywhere in this Tier list. `__cpp_lib_format`'s C++26 bump is a
+    single cumulative value shared across P2510R3 (formatting pointers,
+    already `|Complete|`, LLVM 17), P2757R3 itself, P2637R3 (member
+    `visit`, already `|Complete|`), and P2918R2 (runtime format strings
+    II, already `|Complete|`) — meaning even though P2757R3's own scope
+    might be implementable, the shared macro can't advance past it
+    without P2419R2 also landing, and P2419R2 isn't scoped or started.
+    Don't attempt P2757R3 in isolation next time without first doing
+    P2419R2 (itself untracked — add it to a future C++23-gap pass) or
+    deciding to split `__cpp_lib_format`'s single value into something
+    finer-grained (nonstandard, would need real justification).
+  - P3107R5 / P3235R3 (`std::print` efficiency) — **assessed, out of
+    scope for this session, deserves a dedicated implementation session
+    of its own.** These are pure implementation-strategy papers with no
+    new API surface — "Complete" can only mean a structural claim
+    (writes through to the stream instead of materializing a `string`
+    first), not an observable-output test. Checked the actual mechanism:
+    `libcxx/include/__ostream/print.h`'s `__print::__vprint_nonunicode`
+    does `string __str = std::vformat(__fmt, __args); ...; fwrite(__str.
+    data(), ...)` — it fully materializes the formatted string before
+    writing, exactly the pattern P3107R5 exists to eliminate. Fixing
+    this means redesigning the internals around an output iterator that
+    writes through to the `FILE*` incrementally (and P3235R3 adds
+    per-type fast paths on top of that), which is a real redesign of
+    `__vprint_nonunicode`/`__vprint_unicode_posix`/
+    `__vprint_unicode_windows`, not a conformance-test pass. `__cpp_lib_
+    print`'s C++26 bump lines for both papers (202403, 202406) are
+    commented out in the generator, consistent with this. Record the
+    "verify mechanism, not just output" criterion for whoever takes this
+    on, so a future session doesn't write tests that pass trivially
+    against the unoptimized path.
 
 **Correction found this session, worth recording before the next person
 trusts a paper's own title:** P3137R3's paper title is `views::to_input`,
@@ -1096,16 +1158,16 @@ back to `to_input` based on the paper title alone.
 | [x] | P3138R5 | `views::cache_latest` | Complete 2026-08-22 — scaffolded but untested; fixed missing `_LIBCPP_HIDE_FROM_ABI` throughout, a wrongly-added `enable_borrowed_range` specialization, and two private constructors missing `constexpr` |
 | [x] | P3137R3 | `views::to_input` (adopted as `views::as_input`) | Complete 2026-08-22 — same conformance-pass fixes as P3138R5 (missing `_LIBCPP_HIDE_FROM_ABI`, wrong `enable_borrowed_range` specialization) |
 | [x] | P2846R6 | `reserve_hint` | Complete 2026-08-22 — CPO/concept were already scaffolded but untested; added tests, fixed a `_LIBCPP_HIDE_FROM_ABI` gap and `ranges::to` using `sized_range`/`ranges::size` instead of `approximately_sized_range`/`ranges::reserve_hint` |
-| [ ] | P2630R4 | `submdspan` | |
-| [ ] | P2642R6 | Padded `mdspan` layouts | |
+| [ ] | P2630R4 | `submdspan` | Confirmed from-scratch, no scaffolding in-tree — see mdspan/linalg block note |
+| [ ] | P2642R6 | Padded `mdspan` layouts | Confirmed from-scratch |
 | [ ] | P3355R1 | `submdspan` C++26 fixes | Depends on P2630R4 |
-| [ ] | P3050R2 | `linalg::conjugated` optimization | |
-| [ ] | P1673R13 | BLAS-based linear algebra interface | Large; consider its own sub-plan like Tier 2 items if scope proves big once started |
-| [ ] | P2587R3 | `to_string` or not `to_string` | |
-| [ ] | P2757R3 | Type-checking format args | |
-| [ ] | P3107R5 | Efficient `std::print` implementation | |
-| [ ] | P2845R8 | `std::filesystem::path` formatting | |
-| [ ] | P3235R3 | `std::print` faster/leaner for more types | |
+| [x] | P3050R2 | `linalg::conjugated` optimization | Complete 2026-08-22 — `conjugated()` always wrapped in `conjugated_accessor` even for arithmetic/no-`conj(E)` element types; now returns the argument unchanged for those (reuses the existing `__has_adl_conj` trait). No FTM of its own. |
+| [ ] | P1673R13 | BLAS-based linear algebra interface | Assessed 2026-08-22, not a from-scratch project — 3150-line implementation with 17 pre-existing passing tests; CSV status is likely stale, not accurate. Needs a real audit against the paper's wording before flipping, not assumed — see mdspan/linalg block note |
+| [x] | P2587R3 | `to_string` or not `to_string` | Complete 2026-08-22 — float/double/long double overloads used `sprintf("%f", ...)` (fixed 6 decimals); now `format("{}", val)` per wording, shortest round-trip. Integer overloads already matched via `to_chars`, untouched |
+| [ ] | P2757R3 | Type-checking format args | Assessed 2026-08-22, blocked — shared `__cpp_lib_format` bump can't advance without C++23's P2419R2 (untracked, unstarted) also landing — see format/print block note |
+| [ ] | P3107R5 | Efficient `std::print` implementation | Assessed 2026-08-22 — confirmed `__vprint_nonunicode` materializes a full `string` before writing, the exact thing this paper eliminates; real redesign, deserves its own session — see format/print block note |
+| [x] | P2845R8 | `std::filesystem::path` formatting | Complete 2026-08-22 — new `formatter<path, charT>` in `__filesystem/path_format.h`, path-format-spec grammar (fill-and-align, width, `?`, `g`) |
+| [ ] | P3235R3 | `std::print` faster/leaner for more types | Assessed 2026-08-22, same redesign as P3107R5 above, bundle with it |
 
 ### Tier 4 — Atomics
 
@@ -3164,3 +3226,103 @@ blocked, what's next. Do not remove old entries.
   (assess whether P1673R13 needs a P2300R10-style dedicated sub-plan before
   starting) or format/print block — both per the split recorded at the top
   of the Tier 3 section, not started this session.
+
+- **2026-08-22 (later same day, third entry): mdspan/linalg gate assessed,
+  format/print block worked partially.** Continuation of the same day's
+  Tier 3 work. Ran the mdspan/linalg gate the ranges-block note called for
+  before picking off small items: `submdspan`/padded layouts (P2630R4/
+  P2642R6/P3355R1) are confirmed genuinely from-scratch (no scaffolding at
+  all in `__mdspan/`), but `<linalg>` (P1673R13) turned out to already be a
+  3150-line implementation with 17 pre-existing *passing* tests — the
+  opposite of what the ranges block found, and a caution against assuming
+  "blank CSV status" always means "untested scaffolding": here it much more
+  likely means stale bookkeeping. Didn't flip P1673R13 without auditing it
+  properly (out of scope this session), but landed the one paper in that
+  block precise enough to do safely: **P3050R2** (`linalg::conjugated`
+  no-op for noncomplex element types) — `conjugated()` was unconditionally
+  wrapping in `conjugated_accessor` even for `int`/`double` or types with no
+  ADL `conj()`; fixed by reusing the existing `__has_adl_conj` trait (which
+  already computed exactly this condition for `conjugated_accessor`'s own
+  `element_type`) as the top-level branch condition. No FTM of its own
+  (folds into `__cpp_lib_linalg`'s existing value), so this was a CSV flip
+  plus two new test cases, not a macro flip.
+
+  On the format/print block, landed the two independently-scoped items and
+  found the other two genuinely blocked/out-of-scope rather than forcing
+  them:
+  - **P2845R8** (`formatter<filesystem::path, charT>`) — new `__filesystem/
+    path_format.h`, following the `__thread/formatter.h` precedent for
+    where a type's formatter specialization lives. Implements the
+    path-format-spec grammar (`fill-and-align width ? g`, per
+    `[fs.path.fmtr]`, fetched from eel.is directly) by reusing the
+    existing `__fields_fill_align_width` parser for the common prefix and
+    hand-parsing the trailing `?`/`g` (which don't fit the shared parser's
+    single-type-char model — confirmed by reading `__parse_type` in
+    `parser_std_format_spec.h` before assuming a shared-parser fields-flag
+    would work). Required registering the new header in **both**
+    `CMakeLists.txt` and `module.modulemap.in` — missing either broke the
+    staged/module build with a `file not found`, not something a header-
+    only smoke test would have caught. Also had to fix
+    `concept.formattable.compile.pass.cpp`, which explicitly asserted
+    `path` was *not* formattable under the (unrelated, abandoned) P1636
+    test group — moved that assertion out into its own `test_P2845`
+    function gated on `TEST_STD_VER >= 26`.
+  - **P2587R3** (`to_string`/`to_wstring` float overloads) — wording is
+    `Returns: format("{}", val)` verbatim (fetched from eel.is, then cross-
+    checked against the paper itself since eel.is showed an unrelated
+    `constexpr` addition on the integer overloads from a different, untracked
+    paper — did not touch that, out of scope). Old behavior was `sprintf(...,
+    "%f", val)`, always six fixed decimals; new behavior is the shortest
+    round-trip representation. This is a real *behavior* change (existing
+    tests asserted the old `"0.000000"`-style output), exactly the risk the
+    advisor flagged going in. Rewrote `libcxx/src/string.cpp`'s six float/
+    double/long-double overloads in terms of `std::format`, and deleted the
+    `as_string`/`initial_string<S>`/`get_swprintf` sprintf-plumbing that only
+    those six functions used (confirmed via grep before deleting — nothing
+    else in the file referenced them). Integer overloads were already
+    `to_chars`-based and already matched the new wording's observable output,
+    so left untouched rather than rewritten for wording-purity alone.
+  - **P2757R3** (type-checking format args) — assessed, not attempted.
+    `__cpp_lib_format`'s C++26 bump is one cumulative value shared with
+    P2510R3/P2637R3/P2918R2 (all already `|Complete|`), but the *existing*
+    upstream-inherited P2637R3 CSV note already says the shared macro's bump
+    is blocked by P2419R2, a still-unstarted *C++23* paper not tracked
+    anywhere in this Tier list. Same shape as Tier 1's P1383R2 finding
+    (undone prerequisite outside this tier's own scope) — recorded rather
+    than attempted in isolation.
+  - **P3107R5 / P3235R3** (`std::print` efficiency) — assessed, not
+    attempted. Read `__print::__vprint_nonunicode` in `__ostream/print.h`
+    directly: it does `string __str = std::vformat(...)` then `fwrite`,
+    i.e. fully materializes the formatted output before writing — exactly
+    what P3107R5 exists to eliminate. This is a real internals redesign
+    (output iterator writing through to the `FILE*` incrementally, plus
+    P3235R3's per-type fast paths on top), not a conformance-test pass;
+    recorded the "verify mechanism via reading the internals, not just
+    observable `std::print` output" criterion so a future session doesn't
+    write tests that pass trivially against the unoptimized path.
+
+  Verified after each commit: targeted suites all green — `filesystems/`
+  (all pass), `utilities/format/` (262 then 345 tests as the FTM flips
+  landed, all pass, including fixing the one pre-existing
+  `concept.formattable` regression from adding the path formatter),
+  `strings/string.conversions/` (10/10), `numerics/linalg/` (17/17, both
+  before and after the P3050R2 fix), `support.limits.general/` (unchanged
+  count, all pass), `transitive_includes.gen.py`/`module_std.gen.py`
+  (126/126, no drift). A background full `check-cxx` run separately hit a
+  pre-existing, unrelated reflection-module (`std.cppm`/P2996) failure
+  before timing out — not caused by this session's changes (none of them
+  touch reflection), and the narrower `module_std.gen.py` run covering the
+  same generated module content passed cleanly, so treated as inconclusive
+  noise rather than a regression signal.
+
+  **Format/print block: 2 of 5 papers Complete, 1 blocked on an untracked
+  C++23 prerequisite, 2 assessed and scoped out as a dedicated future
+  session.** mdspan/linalg block: 1 of 5 papers Complete (P3050R2),
+  P1673R13 reassessed as likely-mostly-done-but-unaudited rather than
+  not-started, mdspan proper (P2630R4/P2642R6/P3355R1) confirmed as a real
+  from-scratch project for a future session. Next: either the mdspan-
+  proper from-scratch implementation, a proper P1673R13 audit against its
+  full wording (don't just flip the CSV on the strength of "tests already
+  pass"), the P3107R5/P3235R3 `std::print` internals redesign, or move to
+  Tier 4 (atomics) — all independent starting points, no forced ordering
+  between them.
