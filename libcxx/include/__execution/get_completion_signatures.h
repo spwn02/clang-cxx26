@@ -17,10 +17,8 @@
 #include <__execution/env.h>
 #include <__execution/queryable.h>
 #include <__execution/sender.h>
-#include <__type_traits/conditional.h>
 #include <__type_traits/decay.h>
 #include <__type_traits/is_same.h>
-#include <__type_traits/is_void.h>
 #include <__type_traits/remove_reference.h>
 #include <__type_traits/type_identity.h>
 #include <__utility/declval.h>
@@ -64,8 +62,20 @@ concept __has_member_get_completion_signatures = requires {
 };
 
 // [exec.snd.concepts]: SET-VALUE-SIG(T) -- set_value_t() if T is void, otherwise set_value_t(T).
+// Partial specialization rather than conditional_t<is_void_v<_T>, set_value_t(), set_value_t(_T)>:
+// conditional_t requires both alternatives to be well-formed types before picking one, and
+// set_value_t(void) is ill-formed ("argument may not have 'void' type") regardless of which
+// branch would ultimately be selected.
 template <class _T>
-using __set_value_sig_t = conditional_t<is_void_v<_T>, set_value_t(), set_value_t(_T)>;
+struct __set_value_sig {
+  using type = set_value_t(_T);
+};
+template <>
+struct __set_value_sig<void> {
+  using type = set_value_t();
+};
+template <class _T>
+using __set_value_sig_t = typename __set_value_sig<_T>::type;
 
 // [exec.getcomplsigs]: NewSndr is Sndr if sizeof...(Env) == 0; otherwise
 // decltype(transform_sender(declval<Sndr>(), declval<Env>()...)).
