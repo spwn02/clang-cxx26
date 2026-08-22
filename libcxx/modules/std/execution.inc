@@ -221,6 +221,14 @@ export namespace std::execution {
   using std::execution::into_variant;
   using std::execution::into_variant_t;
 
+  // [exec.bulk]
+  using std::execution::bulk;
+  using std::execution::bulk_t;
+  using std::execution::bulk_chunked;
+  using std::execution::bulk_chunked_t;
+  using std::execution::bulk_unchunked;
+  using std::execution::bulk_unchunked_t;
+
 #if _LIBCPP_HAS_THREADS
   // [exec.when.all]
   using std::execution::when_all;

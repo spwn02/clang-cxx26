@@ -746,7 +746,7 @@ schedulers can't come before sender concepts exist):**
   machinery almost unchanged; then the rest per the list below). Re-read
   this session's three findings above before writing more completion-
   signature-transform or in-class-specialization code.
-- [~] **M5** — Remaining sender adaptors: `upon_error`/`upon_stopped` **done
+- [x] **M5** — Remaining sender adaptors: `upon_error`/`upon_stopped` **done
   2026-08-21**, `let_value`/`let_error`/`let_stopped` **done 2026-08-21**,
   `schedule_from`/`continues_on`/`starts_on` **done 2026-08-22**, `on`
   **done 2026-08-22, all forms** (2-arg `on(sch, sndr)`, 3-arg
@@ -754,8 +754,10 @@ schedulers can't come before sender concepts exist):**
   `on(sch, closure)`), `write_env`/`unstoppable` **done 2026-08-22**,
   `stopped_as_optional`/`stopped_as_error` **done 2026-08-22**,
   `into_variant` **done 2026-08-22**, `when_all` **done 2026-08-22**,
-  `when_all_with_variant` **done 2026-08-22**. Only
-  `bulk`/`bulk_chunked`/`bulk_unchunked` remain. (`associate`/`spawn`/
+  `when_all_with_variant` **done 2026-08-22**,
+  `bulk`/`bulk_chunked`/`bulk_unchunked` **done 2026-08-22**.
+  **M5 is complete — only M6 remains in this sub-plan.**
+  (`associate`/`spawn`/
   `spawn_future` are part of the
   execution-scope paper family — reassess whether they're actually
   P2300R10-original or scope-family additions when this milestone starts;
@@ -2524,3 +2526,109 @@ blocked, what's next. Do not remove old entries.
   `P3396R1` all flip to `|Complete|` together. **Next session:** read
   `[exec.bulk]` fresh via the `curl` process rule (not yet scoped in detail
   this sub-plan) before starting `bulk`/`bulk_chunked`/`bulk_unchunked`.
+- **2026-08-22 (Tier 2, M5 complete — bulk/bulk_chunked/bulk_unchunked)**:
+  Implemented `[exec.bulk]` (new `libcxx/include/__execution/bulk.h`,
+  ~370 lines) — the last M5 item. `bulk_chunked`/`bulk_unchunked` are
+  hand-rolled one-child adaptors (own connect()/get_completion_signatures(),
+  per the M3 precedent); `bulk` is a pure call-time composition over
+  `bulk_chunked` (matching `when_all_with_variant`'s/`stopped_as_error`'s
+  established shape — the standard's own `bulk.transform_sender(...)`
+  domain-dispatch mechanism is exactly the branch
+  `<__execution/domain.h>`'s M2 deviation 4 permanently disables in this
+  fork). `bulk_chunked`'s own default behavior — invoking `f` exactly once
+  with the *whole* `[0, shape)` range — isn't a fork-specific simplification;
+  it's literally what `[exec.bulk]p5`'s own `impls-for<bulk_chunked_t>`
+  reference lambda does (`f(Shape(0), shape, args...)`, unconditionally,
+  no chunking loop of its own) — there's no parallel-scheduler machinery in
+  scope through M5 to make bulk_chunked actually invoke `f` more than once
+  per completion, so this fork's `Policy` parameter is accepted (and
+  Mandates-checked via `is_execution_policy_v`) but not yet exploited for
+  parallelism, consistent with `[exec.par.scheduler]`/
+  `parallel_scheduler_replacement` being explicitly out of scope for this
+  whole sub-plan (see the Tier 2 scope-collapse note above).
+
+  `Policy` storage ([exec.bulk]p3's own rule, not simplified): every
+  concrete execution policy this fork ships (`execution::seq`/`par`/
+  `par_unseq`/`unseq`, under `_LIBCPP_HAS_EXPERIMENTAL_PSTL` in
+  `<execution>`) explicitly deletes its copy constructor, so `__bulk_data`
+  stores `Policy` by value only if `copy_constructible`, else `const
+  Policy&` — in practice always the reference branch, safe because every
+  real policy is an `inline constexpr`, static-duration singleton.
+
+  **Two real bugs caught and fixed during this session, both self-inflicted
+  (not compiler limitations) but both instances of the same "ternary
+  operands aren't SFINAE-protected the way if-constexpr branches are"
+  mistake:**
+  1. The pipe-form (3-arg) overloads' first attempt used
+     `std::__bind_back(*this, policy, shape, f)` — `__bind_back` decay-copies
+     every bound argument, and decay-copying a deleted-copy-ctor `Policy`
+     hard-errors immediately. Fixed by writing a custom closure instead,
+     but the *first* fix attempt used a lambda init-capture
+     `[__policy = __bulk_policy_storage_t<_Policy>(...)]`, which still
+     failed: init-capture always deduces the captured member's type via
+     `auto`, degrading a reference-typed initializer to a value — so it
+     tried to *copy* the policy into that auto-deduced value member anyway.
+     Final fix: capture one whole `__bulk_data` object by value instead
+     (its `policy` member has an *explicitly declared* type, never
+     auto-deduced, so copying the enclosing struct just copies the
+     reference, correctly rebinding rather than attempting to copy the
+     referent).
+  2. `__bulk_sig_transform`'s and `__bulk_rcvr::set_value`'s nothrow checks
+     both originally used `_Chunked ? is_nothrow_invocable_v<Func&, Shape,
+     Shape, Args&...> : is_nothrow_invocable_v<Func&, Shape, Args&...>` —
+     a ternary, not `if constexpr`. A ternary's *untaken* operand is not
+     SFINAE-protected; both are substituted regardless of the condition's
+     value. For `bulk_t`'s own `new_f` (a *generic* lambda whose `auto&...
+     vs` parameter silently absorbs a mismatched argument count instead of
+     failing to match), `is_nothrow_invocable_v` needs to instantiate the
+     lambda's body to deduce its `auto` return type before it can answer
+     the trait at all — and evaluating the *wrong*-arity operand
+     instantiated `new_f`'s body with `vs` bound to the wrong split of
+     arguments, calling the user's original two-argument callback with
+     only one argument inside that body: a hard compile error from body
+     instantiation, not a graceful SFINAE failure. Confirmed by an actual
+     build failure (not just reasoning) on the `bulk_t` pipe-form test.
+     Fixed by dispatching through an ordinary class-template partial
+     specialization on `_Chunked` instead (`__bulk_nothrow_invocable`) — the
+     untaken specialization's body is never instantiated at all, unlike a
+     ternary's untaken operand. Same "immediate context" pitfall family
+     recorded repeatedly elsewhere in this sub-plan (M1, M2 deviation 4),
+     but self-inflicted here, not a compiler limitation being worked
+     around.
+
+  New test: `exec.adapt/exec.bulk/bulk.pass.cpp` (gated `UNSUPPORTED:
+  libcpp-has-no-incomplete-pstl`, matching the existing PSTL test
+  convention, since `execution::seq` etc. only exist under
+  `_LIBCPP_HAS_EXPERIMENTAL_PSTL`) — covers `bulk_unchunked` (per-index
+  invocation order and mutation visibility), `bulk_chunked` (single-chunk
+  `[0, shape)` invocation), `bulk` (same per-index semantics as
+  `bulk_unchunked`, reached through `bulk_chunked`'s machinery), call/pipe
+  syntax equivalence, and a completion-signatures static assert (the
+  child's `set_value_t(int)` passing through unchanged, plus the added
+  `set_error_t(exception_ptr)` since a capturing lambda is never statically
+  nothrow-invocable here). `execution/` suite 42/42 → 43/43 green,
+  `thread.stoptoken/` unaffected, 80/80 total. `libcxx-generate-files`
+  clean (no FTM change — `__cpp_lib_senders` stays gated to M6);
+  `module_std.gen.py`/`transitive_includes.gen.py` both 125/126 (same
+  pre-existing 1-unsupported baseline, unchanged — no new transitive
+  includes). Registered the new header in `CMakeLists.txt`, `<execution>`'s
+  M5 include block, and `libcxx/modules/std/execution.inc` (all six names —
+  `bulk`/`bulk_t`, `bulk_chunked`/`bulk_chunked_t`,
+  `bulk_unchunked`/`bulk_unchunked_t` — exported, per `[execution.syn]`
+  naming all three types outright). `Cxx2cPapers.csv` untouched (flips at
+  M6 only).
+
+  **M5 is now complete.** Every sender factory, query, and adaptor in this
+  sub-plan's scope (see the Tier 2 sub-plan's own scope list near the top)
+  is implemented. **Only M6 remains**: coroutine integration
+  (`as_awaitable`, `with_awaitable_senders`) — the M2 deviation 1 "awaitable
+  disjunct omitted from enable-sender" and deviation 5 "connect-awaitable
+  fallback not implemented" both get resolved there. Once M6 lands, flip
+  `__cpp_lib_senders`'s `unimplemented` off and all three CSV rows
+  (`P2300R10`/`P3325R5`/`P3396R1`) to `|Complete|` together, per this
+  sub-plan's FTM discipline recorded at its start. **Next session: start
+  M6** — re-read the M2 deviation notes (1 and 5) before starting, and the
+  M1 process rule about verifying eel.is over any paper/summarizer text,
+  since the coroutine-integration clauses (`[exec.as.awaitable]`,
+  `[exec.with.awaitable.senders]`) haven't been fetched/scoped yet this
+  sub-plan.

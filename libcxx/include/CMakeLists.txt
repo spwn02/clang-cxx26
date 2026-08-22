@@ -345,6 +345,7 @@ set(files
   __exception/nested_exception.h
   __exception/operations.h
   __exception/terminate.h
+  __execution/bulk.h
   __execution/completion_functions.h
   __execution/completion_signatures.h
   __execution/connect.h
