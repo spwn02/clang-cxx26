@@ -435,7 +435,6 @@ feature_test_macros = [
                 "c++26": 202411,  # P3379R0: Constrain std::expected equality operators
             },
             "headers": ["expected", "optional", "tuple", "utility", "variant"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_containers_ranges",
