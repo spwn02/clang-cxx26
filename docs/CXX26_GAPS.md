@@ -3095,3 +3095,72 @@ blocked, what's next. Do not remove old entries.
   session: move to Tier 3** (ranges/mdspan/format completions) or revisit
   the deferred Contracts (P2900R14) project per an explicit decision, per
   the Scope section's guidance.
+
+- **2026-08-22 (Tier 3, ranges block — begun and completed in one
+  session):** Split Tier 3 into three sub-blocks per the note in that
+  section (ranges / mdspan+linalg / format+print) before starting, same
+  shape as Tier 2's sub-plan. Worked the ranges block only: P2542R8
+  (`views::concat`), P3138R5 (`views::cache_latest`), P3137R3
+  (`views::as_input` — adopted name, not the paper's own `to_input` title),
+  P2846R6 (`reserve_hint`). All four landed `|Complete|`, three commits
+  (`438c01bb5bd2`, `b554dce17c8e`, `762c07926a39`).
+
+  All four already had header scaffolding in-tree from a 2026-08-17 session
+  (commits `d24292bc702a`, `5def9eee4a08`) but zero test coverage, and three
+  of the four FTMs were already live in `<version>` with a blank CSV status
+  — i.e. this fork was advertising conformance for `cache_latest`,
+  `reserve_hint`, and `as_input` that had never actually been checked.
+  Advisor's framing going in (don't pattern-match to the P2944R3
+  "already-implemented, just flip the flag" case from Tier 1 — that one was
+  safe because the code was inherited from upstream LLVM; this scaffolding
+  was this fork's own untested code) was correct: writing real conformance
+  tests surfaced concrete bugs in 3 of the 4 papers, not just missing CSV
+  bookkeeping:
+
+  - **P2846R6**: `ranges::reserve_hint`'s CPO (`__ranges/size.h`) was
+    missing `_LIBCPP_HIDE_FROM_ABI` on all three overloads (every sibling
+    CPO in the same file has it) — an ABI-export gap. Separately,
+    `ranges::to` (`__ranges/to.h`) still gated its `reserve()` call on
+    `sized_range`/`ranges::size`, not `approximately_sized_range`/
+    `ranges::reserve_hint` as `[range.utility.conv.to]` normatively
+    requires (confirmed against eel.is directly) — a range exposing only
+    `reserve_hint()` silently got no pre-reservation at all. Fixed
+    version-gated (C++26 path only; reserve_hint doesn't exist pre-C++26).
+  - **P3138R5 / P3137R3**: both `cache_latest_view.h` and `as_input_view.h`
+    had **zero** `_LIBCPP_HIDE_FROM_ABI` anywhere in either file (vs. 44 in
+    the sibling `concat_view.h` scaffolding) — the same ABI-export gap at
+    file scope. Both also wrongly specialized
+    `enable_borrowed_range<...View<V>> = enable_borrowed_range<V>`; neither
+    paper's wording specializes it at all (confirmed against eel.is) — for
+    `cache_latest_view` in particular this isn't just a wording nicety,
+    since its iterator holds a pointer back to the parent view for the
+    cache, so a "borrowed" iterator would genuinely dangle.
+    `cache_latest_view`'s private iterator/sentinel constructors were also
+    missing `constexpr` (caught immediately by a `static_assert` on the new
+    test — begin()/end() weren't usable in constant expressions at all).
+  - **P2542R8**: the one exception — already solid (HIDE_FROM_ABI
+    throughout, no incorrect borrowed-range specialization). Only needed
+    tests and the FTM flip.
+
+  New test coverage: `range.access/reserve_hint.pass.cpp`,
+  `range.approximately.sized/approximately_sized_range.compile.pass.cpp`
+  (using `forward_iterator`-based ranges rather than raw pointers, since a
+  raw-pointer range is accidentally `sized_sentinel_for` and defeats the
+  "non-sized" test cases), a new block in the existing
+  `range.utility.conv/to.pass.cpp` fixture, `range.cache.latest/
+  cache_latest.pass.cpp` (proves memoization via a call-counting input
+  range), `range.as.input/as_input.pass.cpp` (proves the `views::all`
+  passthrough condition is exactly `input_range && !common_range &&
+  !forward_range`, not just "is a forward_range" — a common-but-input-only
+  custom range still gets wrapped), `range.concat/concat.pass.cpp`
+  (random-access/bidirectional/forward degradation, non-common trailing
+  range via `default_sentinel_t`, heterogeneous `common_reference`
+  resolution, 3-range concatenation, CTAD). Full `ranges/` suite green
+  (453/454, 1 pre-existing unsupported) plus `transitive_includes.gen.py`
+  and `support.limits.general/` (208/208), checked after each of the three
+  commits.
+
+  **Ranges block of Tier 3 is fully closed.** Next: mdspan/linalg block
+  (assess whether P1673R13 needs a P2300R10-style dedicated sub-plan before
+  starting) or format/print block — both per the split recorded at the top
+  of the Tier 3 section, not started this session.
