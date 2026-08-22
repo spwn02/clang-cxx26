@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    name: Linux x86_64
+    name: Build & package Linux x86_64
     runs-on: ubuntu-22.04
     timeout-minutes: 240
     outputs:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Resolve snapshot metadata
         id: metadata
@@ -64,12 +64,12 @@ jobs:
               exit 1
             fi
 
-            elif [[ "$trigger_tag" =~ ^p2996-preflight-[A-Za-z0-9._-]+$ ]]; then
-              snapshot="p2996-dev-${revision:0:12}"
-              publish=false
-            else
-              echo "Unsupported reference-toolchain tag: $trigger_tag" >&2
-              exit 1
+          elif [[ "$trigger_tag" =~ ^p2996-preflight-[A-Za-z0-9._-]+$ ]]; then
+            snapshot="p2996-dev-${revision:0:12}"
+            publish=false
+          else
+            echo "Unsupported reference-toolchain tag: $trigger_tag" >&2
+            exit 1
           fi
 
           echo "snapshot=$snapshot" >> "$GITHUB_OUTPUT"
@@ -77,23 +77,96 @@ jobs:
           echo "source-date-epoch=$source_date_epoch" >> "$GITHUB_OUTPUT"
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
 
+      - name: Compute compiler source fingerprint
+        id: fingerprint
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          source_fingerprint="$(
+            {
+              for path in \
+                llvm \
+                clang \
+                lld \
+                libcxx \
+                libcxxabi \
+                libunwind \
+                runtimes \
+                cmake \
+                third-party \
+                pstl
+              do
+                if git cat-file -e "HEAD:${path}" 2>/dev/null; then
+                  printf '%s %s\n' \
+                    "$path" \
+                    "$(git rev-parse "HEAD:${path}")"
+                fi
+              done
+            } | sha256sum | cut -d' ' -f1
+          )"
+
+          echo "source=$source_fingerprint" >> "$GITHUB_OUTPUT"
+
       - name: Install build dependencies
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install --yes ninja-build zstd
+          sudo apt-get install --yes ccache ninja-build zstd
 
           python3 -m pip install --user "cmake==4.4.2"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      - name: Restore staged reference toolchain
+        id: stage-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/p2996-stage
+          key: p2996-stage-linux-x86_64-v1-${{ steps.fingerprint.outputs.source }}-${{ hashFiles('p2996/toolchain/build-linux-x86_64.sh') }}
+
+      - name: Restore compiler object cache
+        id: compiler-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/p2996-ccache
+          key: p2996-ccache-linux-x86_64-v1-${{ hashFiles('p2996/toolchain/build-linux-x86_64.sh') }}-${{ steps.fingerprint.outputs.source }}
+          restore-keys: |
+            p2996-ccache-linux-x86_64-v1-${{ hashFiles('p2996/toolchain/build-linux-x86_64.sh') }}-
+
       - name: Build reference toolchain
+        if: steps.stage-cache.outputs.cache-hit != 'true'
         shell: bash
+        env:
+          P2996_COMPILER_LAUNCHER: ccache
+          CCACHE_DIR: ${{ runner.temp }}/p2996-ccache
+          CCACHE_BASEDIR: ${{ github.workspace }}
+          CCACHE_COMPILERCHECK: content
+          CCACHE_MAXSIZE: 3G
         run: |
           set -euo pipefail
+          mkdir -p "$CCACHE_DIR"
+          ccache --zero-stats
+
           p2996/toolchain/build-linux-x86_64.sh \
             "$RUNNER_TEMP/p2996-stage" \
             "$RUNNER_TEMP/p2996-build"
+
+          ccache --show-stats
+
+      - name: Save staged reference toolchain
+        if: steps.stage-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/p2996-stage
+          key: ${{ steps.stage-cache.outputs.cache-primary-key }}
+
+      - name: Save compiler object cache
+        if: steps.stage-cache.outputs.cache-hit != 'true' && steps.compiler-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/p2996-ccache
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
 
       - name: Package snapshot
         shell: bash
@@ -106,12 +179,49 @@ jobs:
             --revision "${{ steps.metadata.outputs.revision }}" \
             --source-date-epoch "${{ steps.metadata.outputs.source-date-epoch }}"
 
+      - name: Upload preflight snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-toolchain-${{ steps.metadata.outputs.snapshot }}
+          path: ${{ runner.temp }}/p2996-dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  verify:
+    name: Verify relocated Linux x86_64
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install verification dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes ninja-build zstd
+
+          python3 -m pip install --user "cmake==4.4.2"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Download candidate snapshot
+        uses: actions/download-artifact@v4
+        with:
+          name: reference-toolchain-${{ needs.build.outputs.snapshot }}
+          path: dist
+
       - name: Verify relocated package
         shell: bash
         run: |
           set -euo pipefail
 
-          archive="$(find "$RUNNER_TEMP/p2996-dist" -maxdepth 1 -name '*.tar.zst' -print -quit)"
+          archive="$(find dist -maxdepth 1 -name '*.tar.zst' -print -quit)"
           test -n "$archive"
 
           mkdir -p "$RUNNER_TEMP/p2996-verify"
@@ -142,18 +252,9 @@ jobs:
           cmake --build "$RUNNER_TEMP/p2996-smoke-build"
           "$RUNNER_TEMP/p2996-smoke-build/P2996ReferenceToolchainSmoke"
 
-      - name: Upload preflight artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: reference-toolchain-${{ steps.metadata.outputs.snapshot }}
-          path: ${{ runner.temp }}/p2996-dist/*
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
-
   publish:
     name: Publish immutable snapshot
-    needs: build
+    needs: [build, verify]
     if: needs.build.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     permissions:

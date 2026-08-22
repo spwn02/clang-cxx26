@@ -26,17 +26,22 @@ endif()
 
 # Linux Clang otherwise defaults to libstdc++. Keep the snapshot's matching
 # libc++ explicit even though the compiler is built with libc++ as its default.
-string(APPEND CMAKE_CXX_FLAGS_INIT " -stdlib=libc++")
+#
+# The current p2996 fork still gates the complete reflection implementation
+# behind -freflection-latest. A reference-toolchain snapshot represents that
+# complete C++26 mode, so select it here rather than requiring every consumer
+# project to know about a fork-specific implementation flag.
+string(APPEND CMAKE_CXX_FLAGS_INIT " -stdlib=libc++ -freflection-latest")
 string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT " -fuse-ld=lld")
 string(APPEND CMAKE_SHARED_LINKER_FLAGS_INIT " -fuse-ld=lld")
 string(APPEND CMAKE_MODULE_LINKER_FLAGS_INIT " -fuse-ld=lld")
 
 set(CMAKE_BUILD_RPATH "@P2996_BUILD_RPATH@")
 
-# CMake 4.4 still requires the experimental import-std gate to be enabled
-# before C++ language discovery. A project may also set this itself.
-if(CMAKE_VERSION VERSION_LESS 4.5
-   AND NOT DEFINED CMAKE_EXPERIMENTAL_CXX_IMPORT_STD)
+# CMake 4.4 still requires the experimental import-std gate to be enabled before
+# C++ language discovery. A project may also set this itself.
+if(CMAKE_VERSION VERSION_LESS 4.5 AND NOT DEFINED
+                                      CMAKE_EXPERIMENTAL_CXX_IMPORT_STD)
   set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD
       "f35a9ac6-8463-4d38-8eec-5d6008153e7d"
       CACHE STRING "CMake 4.4 import-std experimental gate")

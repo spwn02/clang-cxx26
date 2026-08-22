@@ -63,7 +63,7 @@ libc++ standard-module sources and libc++.modules.json
 
 The compiler and runtimes are built from the same source revision. libc++, libc++abi, and libunwind are configured through `LLVM_ENABLE_RUNTIMES`, so they are built by the just-built compiler rather than by an unrelated host compiler.
 
-The installed Clang defaults to libc++ and lld on Linux. The packaged CMake toolchain file also makes those choices explicit.
+The installed Clang defaults to libc++ and lld on Linux. The packaged CMake toolchain file also makes those choices explicit and enables `-freflection-latest`, which is the current fork-specific switch for the complete reflection implementation used by the reference C++26 mode.
 
 ## Build locally
 
@@ -127,6 +127,8 @@ cmake \
 
 The toolchain file is relocatable and derives all paths from its own installed location.
 
+It also enables the current reference-fork reflection mode automatically. Consumer CMake projects should target standardized C++26 source semantics rather than repeat `-freflection-latest` themselves merely to select the reference implementation.
+
 ## Package metadata
 
 Each release contains:
@@ -159,6 +161,43 @@ T3 performs a packaging smoke test after extracting the archive into a new locat
 - a small C++26 program can build and execute.
 
 Fine-grained language/library feature probing belongs to T4.
+
+## CI persistence and caching
+
+The snapshot workflow separates expensive production from validation:
+
+```text
+build + install
+      |
+      +--> persistent staged-toolchain cache
+      |
+      v
+package
+      |
+      +--> Actions candidate artifact
+      |
+      v
+separate relocation/smoke verification job
+      |
+      v
+publish, for dated snapshot tags only
+```
+
+The packaged candidate is uploaded before verification begins. A failed smoke
+test therefore does not discard the already-built snapshot.
+
+The installed compiler/runtime stage is also cached independently of packaging
+and workflow files. Its key is derived from the compiler/runtime source trees
+and the toolchain build recipe. Changes only to packaging, activation,
+verification, documentation, or the generated CMake toolchain integration can
+reuse the staged compiler without rebuilding LLVM.
+
+When compiler/runtime source actually changes, the workflow additionally uses
+a bounded `ccache` object cache to reduce recompilation cost.
+
+GitHub Actions caches are best-effort and may eventually be evicted. The
+candidate Actions artifact is retained for 14 days. Published dated snapshots
+remain the immutable long-term distribution mechanism.
 
 ## Publishing
 
