@@ -56,6 +56,12 @@
 //     integral
 //         fetch_xor(integral op, memory_order m = memory_order_seq_cst) volatile;
 //     integral fetch_xor(integral op, memory_order m = memory_order_seq_cst);
+//     integral
+//         fetch_max(integral op, memory_order m = memory_order_seq_cst) volatile;  // since C++26
+//     integral fetch_max(integral op, memory_order m = memory_order_seq_cst);      // since C++26
+//     integral
+//         fetch_min(integral op, memory_order m = memory_order_seq_cst) volatile;  // since C++26
+//     integral fetch_min(integral op, memory_order m = memory_order_seq_cst);      // since C++26
 //
 //     atomic() = default;
 //     constexpr atomic(integral desr);
@@ -153,6 +159,18 @@ do_test()
     assert(obj == T(7));
     assert((obj ^= T(0xF)) == T(8));
     assert(obj == T(8));
+
+#if TEST_STD_VER >= 26
+    obj = T(5);
+    assert(obj.fetch_max(T(3)) == T(5));
+    assert(obj == T(5));
+    assert(obj.fetch_max(T(9)) == T(5));
+    assert(obj == T(9));
+    assert(obj.fetch_min(T(9)) == T(9));
+    assert(obj == T(9));
+    assert(obj.fetch_min(T(2)) == T(9));
+    assert(obj == T(2));
+#endif
 
     {
         TEST_ALIGNAS_TYPE(A) char storage[sizeof(A)] = {23};

@@ -184,6 +184,20 @@ struct __atomic_base<_Tp, true> : public __atomic_base<_Tp, false> {
   _LIBCPP_HIDE_FROM_ABI _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT {
     return std::__cxx_atomic_fetch_xor(std::addressof(this->__a_), __op, __m);
   }
+#if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_max(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT {
+    return std::__cxx_atomic_fetch_max(std::addressof(this->__a_), __op, __m);
+  }
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_max(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT {
+    return std::__cxx_atomic_fetch_max(std::addressof(this->__a_), __op, __m);
+  }
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_min(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT {
+    return std::__cxx_atomic_fetch_min(std::addressof(this->__a_), __op, __m);
+  }
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_min(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT {
+    return std::__cxx_atomic_fetch_min(std::addressof(this->__a_), __op, __m);
+  }
+#endif // _LIBCPP_STD_VER >= 26
 
   _LIBCPP_HIDE_FROM_ABI _Tp operator++(int) volatile _NOEXCEPT { return fetch_add(_Tp(1)); }
   _LIBCPP_HIDE_FROM_ABI _Tp operator++(int) _NOEXCEPT { return fetch_add(_Tp(1)); }
@@ -397,6 +411,42 @@ private:
     return __rmw_op(std::forward<_This>(__self), __operand, __m, __minus, __builtin_op);
   }
 
+#  if _LIBCPP_STD_VER >= 26
+  // As if by fmaximum_num/fminimum_num: unlike a plain `<`-based max/min, NaN never propagates into the
+  // stored value. If both operands are NaN, or exactly one is, an unspecified NaN value (either operand)
+  // is stored, matching [atomics.types.float]'s "unspecified which" wording.
+  _LIBCPP_HIDE_FROM_ABI static _Tp __maximum_num(_Tp __a, _Tp __b) {
+    if (__builtin_isnan(__a))
+      return __b;
+    if (__builtin_isnan(__b))
+      return __a;
+    return __a < __b ? __b : __a;
+  }
+  _LIBCPP_HIDE_FROM_ABI static _Tp __minimum_num(_Tp __a, _Tp __b) {
+    if (__builtin_isnan(__a))
+      return __b;
+    if (__builtin_isnan(__b))
+      return __a;
+    return __b < __a ? __b : __a;
+  }
+
+  template <class _This>
+  _LIBCPP_HIDE_FROM_ABI static _Tp __fetch_max(_This&& __self, _Tp __operand, memory_order __m) {
+    auto __builtin_op = [](auto __a, auto __builtin_operand, auto __order) {
+      return std::__cxx_atomic_fetch_max(__a, __builtin_operand, __order);
+    };
+    return __rmw_op(std::forward<_This>(__self), __operand, __m, __maximum_num, __builtin_op);
+  }
+
+  template <class _This>
+  _LIBCPP_HIDE_FROM_ABI static _Tp __fetch_min(_This&& __self, _Tp __operand, memory_order __m) {
+    auto __builtin_op = [](auto __a, auto __builtin_operand, auto __order) {
+      return std::__cxx_atomic_fetch_min(__a, __builtin_operand, __order);
+    };
+    return __rmw_op(std::forward<_This>(__self), __operand, __m, __minimum_num, __builtin_op);
+  }
+#  endif // _LIBCPP_STD_VER >= 26
+
 public:
   using __base _LIBCPP_NODEBUG = __atomic_base<_Tp>;
   using value_type             = _Tp;
@@ -439,6 +489,28 @@ public:
   _LIBCPP_HIDE_FROM_ABI _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept {
     return __fetch_sub(*this, __op, __m);
   }
+
+#  if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_max(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept
+    requires __base::is_always_lock_free
+  {
+    return __fetch_max(*this, __op, __m);
+  }
+
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_max(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept {
+    return __fetch_max(*this, __op, __m);
+  }
+
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_min(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept
+    requires __base::is_always_lock_free
+  {
+    return __fetch_min(*this, __op, __m);
+  }
+
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_min(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept {
+    return __fetch_min(*this, __op, __m);
+  }
+#  endif // _LIBCPP_STD_VER >= 26
 
   _LIBCPP_HIDE_FROM_ABI _Tp operator+=(_Tp __op) volatile noexcept
     requires __base::is_always_lock_free
@@ -824,6 +896,64 @@ _LIBCPP_HIDE_FROM_ABI _Tp
 atomic_fetch_xor_explicit(atomic<_Tp>* __o, typename atomic<_Tp>::value_type __op, memory_order __m) _NOEXCEPT {
   return __o->fetch_xor(__op, __m);
 }
+
+#if _LIBCPP_STD_VER >= 26
+
+// atomic_fetch_max
+
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI _Tp
+atomic_fetch_max(volatile atomic<_Tp>* __o, typename atomic<_Tp>::value_type __op) _NOEXCEPT {
+  return __o->fetch_max(__op);
+}
+
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI _Tp atomic_fetch_max(atomic<_Tp>* __o, typename atomic<_Tp>::value_type __op) _NOEXCEPT {
+  return __o->fetch_max(__op);
+}
+
+// atomic_fetch_max_explicit
+
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI _Tp atomic_fetch_max_explicit(
+    volatile atomic<_Tp>* __o, typename atomic<_Tp>::value_type __op, memory_order __m) _NOEXCEPT {
+  return __o->fetch_max(__op, __m);
+}
+
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI _Tp
+atomic_fetch_max_explicit(atomic<_Tp>* __o, typename atomic<_Tp>::value_type __op, memory_order __m) _NOEXCEPT {
+  return __o->fetch_max(__op, __m);
+}
+
+// atomic_fetch_min
+
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI _Tp
+atomic_fetch_min(volatile atomic<_Tp>* __o, typename atomic<_Tp>::value_type __op) _NOEXCEPT {
+  return __o->fetch_min(__op);
+}
+
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI _Tp atomic_fetch_min(atomic<_Tp>* __o, typename atomic<_Tp>::value_type __op) _NOEXCEPT {
+  return __o->fetch_min(__op);
+}
+
+// atomic_fetch_min_explicit
+
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI _Tp atomic_fetch_min_explicit(
+    volatile atomic<_Tp>* __o, typename atomic<_Tp>::value_type __op, memory_order __m) _NOEXCEPT {
+  return __o->fetch_min(__op, __m);
+}
+
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI _Tp
+atomic_fetch_min_explicit(atomic<_Tp>* __o, typename atomic<_Tp>::value_type __op, memory_order __m) _NOEXCEPT {
+  return __o->fetch_min(__op, __m);
+}
+
+#endif // _LIBCPP_STD_VER >= 26
 
 _LIBCPP_END_NAMESPACE_STD
 

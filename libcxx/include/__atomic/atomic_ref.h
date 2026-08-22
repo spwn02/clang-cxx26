@@ -290,6 +290,14 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
   _LIBCPP_HIDE_FROM_ABI _Tp fetch_xor(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
     return __atomic_fetch_xor(this->__ptr_, __arg, std::__to_gcc_order(__order));
   }
+#  if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_max(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+    return __atomic_fetch_max(this->__ptr_, __arg, std::__to_gcc_order(__order));
+  }
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_min(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+    return __atomic_fetch_min(this->__ptr_, __arg, std::__to_gcc_order(__order));
+  }
+#  endif // _LIBCPP_STD_VER >= 26
 
   _LIBCPP_HIDE_FROM_ABI _Tp operator++(int) const noexcept { return fetch_add(_Tp(1)); }
   _LIBCPP_HIDE_FROM_ABI _Tp operator--(int) const noexcept { return fetch_sub(_Tp(1)); }
@@ -337,6 +345,43 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
     }
     return __old;
   }
+
+#  if _LIBCPP_STD_VER >= 26
+  // As if by fmaximum_num/fminimum_num: unlike a plain `<`-based max/min, NaN never propagates into the
+  // stored value. If both operands are NaN, or exactly one is, an unspecified NaN value (either operand)
+  // is stored, matching [atomics.ref.float]'s "unspecified which" wording.
+  _LIBCPP_HIDE_FROM_ABI static _Tp __maximum_num(_Tp __a, _Tp __b) {
+    if (__builtin_isnan(__a))
+      return __b;
+    if (__builtin_isnan(__b))
+      return __a;
+    return __a < __b ? __b : __a;
+  }
+  _LIBCPP_HIDE_FROM_ABI static _Tp __minimum_num(_Tp __a, _Tp __b) {
+    if (__builtin_isnan(__a))
+      return __b;
+    if (__builtin_isnan(__b))
+      return __a;
+    return __b < __a ? __b : __a;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_max(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+    _Tp __old = this->load(memory_order_relaxed);
+    _Tp __new = __maximum_num(__old, __arg);
+    while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
+      __new = __maximum_num(__old, __arg);
+    }
+    return __old;
+  }
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_min(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+    _Tp __old = this->load(memory_order_relaxed);
+    _Tp __new = __minimum_num(__old, __arg);
+    while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
+      __new = __minimum_num(__old, __arg);
+    }
+    return __old;
+  }
+#  endif // _LIBCPP_STD_VER >= 26
 
   _LIBCPP_HIDE_FROM_ABI _Tp operator+=(_Tp __arg) const noexcept { return fetch_add(__arg) + __arg; }
   _LIBCPP_HIDE_FROM_ABI _Tp operator-=(_Tp __arg) const noexcept { return fetch_sub(__arg) - __arg; }
