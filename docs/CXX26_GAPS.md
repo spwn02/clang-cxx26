@@ -749,8 +749,9 @@ schedulers can't come before sender concepts exist):**
 - [~] **M5** — Remaining sender adaptors: `upon_error`/`upon_stopped` **done
   2026-08-21**, `let_value`/`let_error`/`let_stopped` **done 2026-08-21**,
   `schedule_from`/`continues_on`/`starts_on` **done 2026-08-22**, `on`
-  **done 2026-08-22 for the 2-arg `on(sch, sndr)` form only — the 3-arg
-  pipeable-closure form `on(sndr, sch, closure)` is not yet implemented**,
+  **done 2026-08-22, all forms** (2-arg `on(sch, sndr)`, 3-arg
+  `on(sndr, sch, closure)`, and the 2-arg partial-application form
+  `on(sch, closure)`),
   `when_all`/`when_all_with_variant`, `into_variant`, `stopped_as_optional`/
   `stopped_as_error`, `write_env`, `unstoppable`, `bulk`/`bulk_chunked`/
   `bulk_unchunked`. (`associate`/`spawn`/`spawn_future` are part of the
@@ -1953,16 +1954,93 @@ blocked, what's next. Do not remove old entries.
   headers ⇒ `CMakeLists.txt` + `<execution>`'s include block +
   `execution.inc`). `Cxx2cPapers.csv` untouched (flips at M6 only).
 
-  **Next session: continue M5** — `on`'s pipeable-closure 3-arg form
-  (`on(sndr, sch, closure)`) is the most natural immediate follow-up
-  (same file, same composition family, and the disambiguation rules in
-  [exec.on]p2.1–2.3 are worth getting right in one sitting rather than
-  returning to them cold) — or the remaining adaptors (`when_all`/
-  `into_variant`/`stopped_as_optional`/`stopped_as_error`/`write_env`/
-  `unstoppable`/`bulk*`) if closing out `on` isn't the priority.
-  `write_env`/`unstoppable` are now unblocked and genuinely small (both
+- **2026-08-22 (second entry)**: Finished `on` — added the 3-arg
+  pipeable-closure form (`on(sndr, sch, closure)`, [exec.on]p1.2/p4/p8)
+  and its 2-arg partial-application form (`on(sch, closure)`, so
+  `sndr | on(sch, closure)` equals `on(sndr, sch, closure)`, matching
+  every other pipeable adaptor's single-arg-overload convention but with
+  two bound arguments via `std::__bind_back` instead of one). New
+  `__on2_sndr<_Tag, _Sndr, _Sch, _Closure>` in `<__execution/on.h>`,
+  same `tag`/`data`/`child` shape as `__on_sndr` (`data` here is
+  `tuple<_Sch, _Closure>`, matching [exec.on]p4's literal
+  `product-type{sch, closure}`). `connect()` computes
+  `get_completion_scheduler<set_value_t>(get_env(child), get_env(rcvr))`
+  directly (matching [exec.on]p8.1's literal wording, no
+  `call-with-default` fallback — same established pattern as the 2-arg
+  form's `get_start_scheduler` lookup) and builds
+  `continues_on(closure(continues_on(child, sch)), orig_sch)` right there;
+  `get_completion_scheduler` must be looked up from `sndr`'s own
+  environment *before* `sndr` is moved into `continues_on`, so it's its
+  own statement rather than inlined into the `return`, where argument
+  evaluation order would be unspecified. Disambiguating the 2-arg
+  overload set (`on(sch, sndr)` vs. `on(sch, closure)`) needed no extra
+  machinery: `sender` and `__sender_adaptor_closure_object`
+  (`<__execution/sender_adaptor_closure.h>`) are already mutually
+  exclusive by construction, so ordinary overload-constraint SFINAE
+  reproduces [exec.on]p2.2/p2.3's exclusion for free.
+
+  **Mandate discovered while writing the test, not obvious from the
+  wording alone:** `on(sndr, sch, closure)` genuinely requires `sndr`'s
+  own attributes to answer `get_completion_scheduler<set_value_t>`
+  directly — a bare `just(42)` does *not* satisfy this (its env is
+  `env<>`, which answers nothing), and `get_completion_scheduler_t`'s own
+  fallback path (`static_assert(scheduler<_Q>, ...)`) would fail loudly
+  for it. This is semantically correct, not a bug: the whole point of the
+  3-arg form is "remember the scheduler `sndr` completes on", which is
+  only meaningful for a sender that actually carries scheduler affinity.
+  `schedule(some_run_loop.get_scheduler())` is the one sender in this
+  fork's `execution/` subsystem whose env answers this query
+  ([exec.run.loop.types]p5), so it's what the test uses as `sndr`.
+
+  **Real, empirically-caught test bug — a genuine deadlock, not a
+  reasoning error caught before running anything:** the first draft of
+  both new test blocks called `run_loop::run()` a second time on an
+  already-fully-drained loop without calling `finish()` again first, and
+  the resulting binary hung forever (caught by literally running it, with
+  a hard `timeout`, after the built-in review process's "would this
+  actually work" reasoning said it should be fine). Root cause:
+  `__pop_front()`'s wait predicate only unblocks on `state == __finishing`;
+  the moment a loop's queue empties, it downgrades state to the *distinct*
+  `__finished` value, and nothing except another `finish()` call moves it
+  back to `__finishing`. So a loop that has already drained to empty once
+  needs `finish()` called again before it can be safely `run()` a second
+  time, even though the *item itself* is already sitting in the queue by
+  then. Fixed by re-`finish()`-ing before every subsequent `run()` call
+  (including, for the polling-loop version of the pipe-syntax test,
+  inside the loop body itself, on every iteration — calling `finish()` on
+  an already-empty loop is a harmless no-op, so this is always safe
+  regardless of which loop actually has pending work that iteration).
+  This is a genuine trap in `run_loop`'s own API (present since M4,
+  unrelated to `on` or `continues_on`'s own logic) that any future
+  multi-hop, multi-`run()`-call test against the same loop should watch
+  for — record here since this is the first test in the sub-plan to
+  actually call `run()` more than once per loop.
+
+  Tests: extended `exec.adapt/exec.on/on.pass.cpp` with the 3-arg direct
+  call (three-phase drain across two distinct `run_loop`s, discriminating
+  each hop the same way the 2-arg form's test does) and the 2-arg
+  pipe-equivalence form (drain-until-done polling loop). Verified by
+  actually running the compiled binary with a `timeout` wrapper before
+  trusting the reasoning, both while broken (confirmed the hang) and
+  after the fix (confirmed it completes). `execution/` +
+  `thread.stoptoken/` + `module_std.gen.py`/`transitive_includes.gen.py`
+  197/198 green (unchanged baseline), `libcxx-generate-files` clean, no
+  `-D_LIBCPP_ENABLE_EXPERIMENTAL` compile also re-verified for the
+  updated `on.h`. No new header ⇒ no `CMakeLists.txt`/`<execution>`
+  changes needed, only `on.h` and its test changed. `Cxx2cPapers.csv`
+  untouched.
+
+  **`on` is now fully implemented — M5's scheduler-affinity family
+  (`schedule_from`/`continues_on`/`starts_on`/`on`) is complete. Next
+  session: continue M5** with the remaining adaptors (`when_all`/
+  `when_all_with_variant`/`into_variant`/`stopped_as_optional`/
+  `stopped_as_error`/`write_env`/`unstoppable`/`bulk`/`bulk_chunked`/
+  `bulk_unchunked`). `write_env`/`unstoppable` are genuinely small (both
   are one-clause "expression-equivalent to X" definitions with no new
   opstate) — a good pairing for a short session. Before writing any more
   adaptors whose receiver captures more than one completion tag into a
-  type-dependent variant, re-read this session's run_loop-forced-
-  set_stopped() finding above; it's not `continues_on`-specific.
+  type-dependent variant, re-read this file's run_loop-forced-
+  set_stopped() finding (first M5 entry, 2026-08-22); it's not
+  `continues_on`-specific. And before writing any test that calls
+  `run_loop::run()` more than once on the same loop, re-read this
+  entry's `finish()`-must-be-re-armed finding.

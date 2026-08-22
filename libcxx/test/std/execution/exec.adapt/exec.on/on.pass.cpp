@@ -16,10 +16,6 @@
 //   inline constexpr on_t on{};
 // }
 
-// Only the on(sch, sndr) form ([exec.on]p1.1) is implemented -- see <__execution/on.h>'s own
-// top comment and docs/CXX26_GAPS.md's session log for the pipeable-closure form
-// (on(sndr, sch, closure), [exec.on]p1.2), deferred to a future session.
-
 #include <cassert>
 #include <execution>
 #include <type_traits>
@@ -69,6 +65,92 @@ int main(int, char**) {
     loop_b.finish();
     loop_b.run();
     assert(completed);
+    assert(value == 42);
+  }
+  // on(sndr, sch, closure): upon sndr's completion, transfer to sch, run closure there, then
+  // transfer back to wherever sndr completed. Deliberately uses two distinct run_loops for the
+  // same reason as the on(sch, sndr) test above -- loop_orig (where sndr itself completes, via
+  // schedule_from(sndr)) and loop_b (sch, where closure runs) must stay observably distinct.
+  // sndr must be schedule(some_scheduler) specifically (not e.g. just(1)): [exec.on]p8.1's
+  // get_completion_scheduler<set_value_t>(get_env(sndr), get_env(rcvr)) needs sndr's own
+  // attributes to actually answer that query -- run-loop-scheduler's sender is the one sender in
+  // this fork's execution/ subsystem that does ([exec.run.loop.types]p5).
+  {
+    run_loop loop_orig, loop_b;
+    int value      = -1;
+    bool completed = false;
+
+    struct rcvr {
+      using receiver_concept = receiver_tag;
+      int* value;
+      bool* completed;
+      void set_value(int v) && noexcept {
+        *value     = v;
+        *completed = true;
+      }
+      void set_error(std::exception_ptr) && noexcept { assert(false); }
+      void set_stopped() && noexcept { assert(false); }
+      auto get_env() const noexcept { return env<>{}; }
+    };
+
+    auto op = connect(on(schedule(loop_orig.get_scheduler()), loop_b.get_scheduler(), then([] { return 42; })),
+                       rcvr{&value, &completed});
+    start(op);
+    assert(!completed);
+    loop_orig.finish();
+    loop_orig.run();
+    assert(!completed); // sndr completed, but the "run closure on sch" hop is queued on loop_b.
+    loop_b.finish();
+    loop_b.run();
+    assert(!completed); // closure ran on loop_b, but the transfer-back hop is queued on loop_orig.
+    // A drained-to-empty run_loop's __pop_front() only unblocks on state == finishing, and run()
+    // downgrades that to a *different* enum value (finished) the moment the queue empties -- so a
+    // second run() call needs its own finish() first, even though the queue already holds the item
+    // pushed by loop_b's cascade above (an empirically-caught deadlock, not a hypothetical one: the
+    // first draft of this test hung here without the second finish()).
+    loop_orig.finish();
+    loop_orig.run();
+    assert(completed);
+    assert(value == 42);
+  }
+  // on(sch, closure) (2 args, closure not a sender) is the partial-application form of the above:
+  // sndr | on(sch, closure) must equal on(sndr, sch, closure). Reuses the same two-loop
+  // discrimination, condensed into a single drain-until-done loop since the exact number of hops
+  // isn't the point of this particular test -- call-vs-pipe equivalence is.
+  {
+    run_loop loop_orig, loop_b;
+    int value      = -1;
+    bool completed = false;
+
+    struct rcvr {
+      using receiver_concept = receiver_tag;
+      int* value;
+      bool* completed;
+      void set_value(int v) && noexcept {
+        *value     = v;
+        *completed = true;
+      }
+      void set_error(std::exception_ptr) && noexcept { assert(false); }
+      void set_stopped() && noexcept { assert(false); }
+      auto get_env() const noexcept { return env<>{}; }
+    };
+
+    auto op = connect(schedule(loop_orig.get_scheduler()) | on(loop_b.get_scheduler(), then([] { return 42; })),
+                       rcvr{&value, &completed});
+    start(op);
+    // finish() must be called again before *every* run(), not just once up front: once a loop's
+    // queue empties, __pop_front() downgrades its state from finishing to a distinct finished
+    // value, and only finishing (not finished) unblocks the "is there more work" wait -- a stale
+    // finished state hangs the next run() call forever even when new work has since been queued.
+    // Calling finish() on an already-empty, already-finished loop is a harmless no-op, so doing it
+    // unconditionally on every iteration is always safe here, regardless of which loop (if either)
+    // actually has pending work this time around.
+    while (!completed) {
+      loop_orig.finish();
+      loop_orig.run();
+      loop_b.finish();
+      loop_b.run();
+    }
     assert(value == 42);
   }
   return 0;
