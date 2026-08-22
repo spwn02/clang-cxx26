@@ -1057,6 +1057,34 @@ extending that commit.
 
 ### Tier 3 — Ranges, mdspan/linalg, format completions
 
+Started 2026-08-22. Same shape as Tier 2: split into independent sub-blocks
+rather than one 14-item sweep, so a session boundary doesn't leave the tier
+in an ambiguous state.
+
+- **Ranges block** (P2542R8, P3138R5, P3137R3, P2846R6) — worked this
+  session. All four already had headers in-tree from an earlier scaffolding
+  pass (commits `d24292bc702a`, `5def9eee4a08`, both 2026-08-17), but zero
+  test coverage, and two (`__cpp_lib_ranges_cache_latest`,
+  `__cpp_lib_ranges_reserve_hint`) had their feature-test macros already
+  live in `<version>` with a blank CSV status — i.e. advertising conformance
+  that had never been checked. Treated as a conformance pass + test-writing
+  block, not bookkeeping.
+- **mdspan/linalg block** (P2630R4, P2642R6, P3355R1, P3050R2, P1673R13) —
+  **not started.** `P1673R13` (BLAS-based linear algebra interface) is
+  large enough to warrant its own sub-plan the way P2300R10 got one; don't
+  start the mdspan block by picking off the small items first without
+  first assessing whether P1673R13 needs that treatment.
+- **format/print block** (P2587R3, P2757R3, P3107R5, P2845R8, P3235R3) —
+  **not started**, separate session.
+
+**Correction found this session, worth recording before the next person
+trusts a paper's own title:** P3137R3's paper title is `views::to_input`,
+but WG21 wording review renamed the adopted feature to `views::as_input`
+(`__cpp_lib_ranges_as_input`, confirmed against `eel.is/c++draft/version.syn`
+directly, not the paper). This fork's scaffolding (`as_input_view`,
+`views::as_input`) already used the *correct* final name — do not "fix" it
+back to `to_input` based on the paper title alone.
+
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
 | [ ] | P2542R8 | `views::concat` | |

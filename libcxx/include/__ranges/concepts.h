@@ -139,8 +139,7 @@ concept viewable_range =
 
 #  if _LIBCPP_STD_VER >= 26
 template <class _Tp>
-concept approximately_sized_range = range<_Tp> &&
-    (sized_range<_Tp> || requires(_Tp& __t) { ranges::reserve_hint(__t); });
+concept approximately_sized_range = range<_Tp> && requires(_Tp& __t) { ranges::reserve_hint(__t); };
 #  endif
 
 #  if _LIBCPP_STD_VER >= 23

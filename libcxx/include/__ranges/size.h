@@ -150,19 +150,22 @@ concept __adl = __class_or_enum<remove_cvref_t<_Tp>> && requires(_Tp&& __t) {
 struct __fn {
   template <class _Tp>
     requires __sized<_Tp>
-  constexpr integral auto operator()(_Tp&& __t) const noexcept(noexcept(ranges::size(__t))) {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr integral auto operator()(_Tp&& __t) const
+      noexcept(noexcept(ranges::size(__t))) {
     return ranges::size(__t);
   }
 
   template <class _Tp>
     requires(!__sized<_Tp> && __member<_Tp>)
-  constexpr __integer_like auto operator()(_Tp&& __t) const noexcept(noexcept(__t.reserve_hint())) {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __integer_like auto operator()(_Tp&& __t) const
+      noexcept(noexcept(__t.reserve_hint())) {
     return __t.reserve_hint();
   }
 
   template <class _Tp>
     requires(!__sized<_Tp> && !__member<_Tp> && __adl<_Tp>)
-  constexpr __integer_like auto operator()(_Tp&& __t) const noexcept(noexcept(reserve_hint(__t))) {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __integer_like auto operator()(_Tp&& __t) const
+      noexcept(noexcept(reserve_hint(__t))) {
     return reserve_hint(__t);
   }
 };

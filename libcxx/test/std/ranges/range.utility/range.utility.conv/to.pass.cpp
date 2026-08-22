@@ -187,6 +187,27 @@ struct Reservable : Fallback {
 };
 LIBCPP_STATIC_ASSERT(std::ranges::__reservable_container<Reservable<>>);
 
+#if TEST_STD_VER >= 26
+// Not a `sized_range` (no `size()` at all) -- only exposes `reserve_hint()`, so it's `approximately_sized_range`
+// but not `sized_range`. Exercises the P2846R6 (`reserve_hint`) branch of `ranges::to`'s case 4, distinct from the
+// plain `sized_range` branch that `MaybeSizedRange` exercises above.
+template <bool HasReserveHint>
+struct MaybeReserveHintRange {
+  int x = 0;
+  constexpr forward_iterator<int*> begin() { return forward_iterator<int*>(&x); }
+  constexpr forward_iterator<int*> end() { return begin(); }
+
+  constexpr std::size_t reserve_hint() const
+  requires HasReserveHint {
+    return 0;
+  }
+};
+static_assert(!std::ranges::sized_range<MaybeReserveHintRange<true>>);
+static_assert(!std::ranges::sized_range<MaybeReserveHintRange<false>>);
+static_assert(std::ranges::approximately_sized_range<MaybeReserveHintRange<true>>);
+static_assert(!std::ranges::approximately_sized_range<MaybeReserveHintRange<false>>);
+#endif
+
 constexpr void test_constraints() {
   { // Case 1 -- construct directly from the range.
     { // (range)
@@ -305,6 +326,20 @@ constexpr void test_constraints() {
       auto result = std::ranges::to<C>(MaybeSizedRange<true>());
       assert(!result.reserve_called);
     }
+
+#if TEST_STD_VER >= 26
+    { // approximately_sized_range via `reserve_hint()`, not `sized_range` -- P2846R6.
+      using C = Reservable<>;
+      auto result = std::ranges::to<C>(MaybeReserveHintRange<true>());
+      assert(result.reserve_called);
+    }
+
+    { // !approximately_sized_range (no `size()`, no `reserve_hint()`)
+      using C = Reservable<>;
+      auto result = std::ranges::to<C>(MaybeReserveHintRange<false>());
+      assert(!result.reserve_called);
+    }
+#endif
   }
 }
 
