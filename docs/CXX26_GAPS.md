@@ -1061,14 +1061,19 @@ Started 2026-08-22. Same shape as Tier 2: split into independent sub-blocks
 rather than one 14-item sweep, so a session boundary doesn't leave the tier
 in an ambiguous state.
 
-- **Ranges block** (P2542R8, P3138R5, P3137R3, P2846R6) — worked this
-  session. All four already had headers in-tree from an earlier scaffolding
-  pass (commits `d24292bc702a`, `5def9eee4a08`, both 2026-08-17), but zero
-  test coverage, and two (`__cpp_lib_ranges_cache_latest`,
-  `__cpp_lib_ranges_reserve_hint`) had their feature-test macros already
-  live in `<version>` with a blank CSV status — i.e. advertising conformance
-  that had never been checked. Treated as a conformance pass + test-writing
-  block, not bookkeeping.
+- **Ranges block** (P2542R8, P3138R5, P3137R3, P2846R6) — **done
+  2026-08-22, all four Complete.** All four already had headers in-tree from
+  an earlier scaffolding pass (commits `d24292bc702a`, `5def9eee4a08`, both
+  2026-08-17), but zero test coverage, and three
+  (`__cpp_lib_ranges_cache_latest`, `__cpp_lib_ranges_reserve_hint`,
+  `__cpp_lib_ranges_as_input`) had their feature-test macros already live in
+  `<version>` with a blank CSV status — i.e. advertising conformance that
+  had never been checked. Treated as a conformance pass + test-writing
+  block, not bookkeeping — real bugs turned up in 3 of the 4 (see each
+  paper's row below and the two commits landing this block); `views::concat`
+  (P2542R8) was the one exception, already solid. Full `ranges/` suite green
+  (453/454, 1 pre-existing unsupported) plus `transitive_includes.gen.py`
+  and `support.limits.general/` (208/208) both times.
 - **mdspan/linalg block** (P2630R4, P2642R6, P3355R1, P3050R2, P1673R13) —
   **not started.** `P1673R13` (BLAS-based linear algebra interface) is
   large enough to warrant its own sub-plan the way P2300R10 got one; don't
@@ -1087,7 +1092,7 @@ back to `to_input` based on the paper title alone.
 
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
-| [ ] | P2542R8 | `views::concat` | |
+| [x] | P2542R8 | `views::concat` | Complete 2026-08-22 — scaffolded implementation was already solid (unlike the other three in this block, it already had `_LIBCPP_HIDE_FROM_ABI` throughout and no wrong `enable_borrowed_range`); added tests and flipped the FTM, no header bugs found |
 | [x] | P3138R5 | `views::cache_latest` | Complete 2026-08-22 — scaffolded but untested; fixed missing `_LIBCPP_HIDE_FROM_ABI` throughout, a wrongly-added `enable_borrowed_range` specialization, and two private constructors missing `constexpr` |
 | [x] | P3137R3 | `views::to_input` (adopted as `views::as_input`) | Complete 2026-08-22 — same conformance-pass fixes as P3138R5 (missing `_LIBCPP_HIDE_FROM_ABI`, wrong `enable_borrowed_range` specialization) |
 | [x] | P2846R6 | `reserve_hint` | Complete 2026-08-22 — CPO/concept were already scaffolded but untested; added tests, fixed a `_LIBCPP_HIDE_FROM_ABI` gap and `ranges::to` using `sized_range`/`ranges::size` instead of `approximately_sized_range`/`ranges::reserve_hint` |
