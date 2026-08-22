@@ -1,5 +1,7 @@
 import std;
 
+static_assert(
+    std::meta::reflection_range<std::vector<std::meta::info>&>);
 static_assert(std::meta::is_integral_type(^^int));
 static_assert(std::meta::is_reference_type(^^int &));
 static_assert(std::meta::is_same_type(^^int, ^^int));

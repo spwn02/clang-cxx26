@@ -444,9 +444,10 @@ using info = decltype(^^int);
 
 template <typename R>
 concept reflection_range =
-  ranges::input_range<R> &&
-  same_as<ranges::range_value_t<R>, info> &&
-  same_as<remove_cvref_t<ranges::range_reference_t<R>>, info>;
+  same_as<remove_cvref_t<R>, vector<info>> ||
+  (ranges::input_range<R> &&
+   same_as<ranges::range_value_t<R>, info> &&
+   same_as<remove_cvref_t<ranges::range_reference_t<R>>, info>);
 
 enum class AttributeNamespace {
   None,
@@ -1016,11 +1017,14 @@ consteval auto can_substitute(info templ, initializer_list<info> args) -> bool {
 template <reflection_range R = initializer_list<info>>
 consteval auto can_substitute(info templ, R &&args) -> bool {
   info sub;
-  if constexpr (ranges::contiguous_range<R>) {
+  if constexpr (same_as<remove_cvref_t<R>, vector<info>>) {
+    sub = __metafunction(detail::__metafn_substitute, templ,
+                         args.data(), args.size(), false);
+  } else if constexpr (ranges::contiguous_range<R>) {
     sub = __metafunction(detail::__metafn_substitute, templ,
                          ranges::data(args), ranges::size(args), false);
   } else {
-    vector vargs(from_range, args);
+    vector<info> vargs(ranges::begin(args), ranges::end(args));
     sub = __metafunction(detail::__metafn_substitute, templ,
                          vargs.data(), vargs.size(), false);
   }
@@ -1039,11 +1043,14 @@ consteval auto substitute(info templ, initializer_list<info> args) -> info {
 
 template <reflection_range R = initializer_list<info>>
 consteval auto substitute(info templ, R &&args) -> info {
-  if constexpr (ranges::contiguous_range<R>) {
+  if constexpr (same_as<remove_cvref_t<R>, vector<info>>) {
+    return __metafunction(detail::__metafn_substitute, templ,
+                          args.data(), args.size(), true);
+  } else if constexpr (ranges::contiguous_range<R>) {
     return __metafunction(detail::__metafn_substitute, templ,
                           ranges::data(args), ranges::size(args), true);
   } else {
-    vector vargs(from_range, args);
+    vector<info> vargs(ranges::begin(args), ranges::end(args));
     return __metafunction(detail::__metafn_substitute, templ, vargs.data(),
                           vargs.size(), true);
   }
@@ -1701,7 +1708,7 @@ consteval auto is_scoped_enum_type(info r) -> bool {
 
 template <reflection_range R = initializer_list<info>>
 consteval auto is_constructible_type(info type, R &&type_args) {
-  vector<info> args(from_range, type_args);
+  vector<info> args(ranges::begin(type_args), ranges::end(type_args));
   args.insert(args.begin(), type);
 
   return extract<bool>(substitute(^^is_constructible_v, args));
@@ -1745,7 +1752,7 @@ consteval auto is_destructible_type(info r) -> bool {
 
 template <reflection_range R = initializer_list<info>>
 consteval auto is_trivially_constructible_type(info type, R &&type_args) {
-  vector<info> args(from_range, type_args);
+  vector<info> args(ranges::begin(type_args), ranges::end(type_args));
   args.insert(args.begin(), type);
 
   return extract<bool>(substitute(^^is_trivially_constructible_v, args));
@@ -1784,7 +1791,7 @@ consteval auto is_trivially_destructible_type(info r) -> bool {
 
 template <reflection_range R = initializer_list<info>>
 consteval auto is_nothrow_constructible_type(info type, R &&type_args) {
-  vector<info> args(from_range, type_args);
+  vector<info> args(ranges::begin(type_args), ranges::end(type_args));
   args.insert(args.begin(), type);
 
   return extract<bool>(substitute(^^is_nothrow_constructible_v, args));
@@ -1888,7 +1895,7 @@ consteval auto is_nothrow_convertible_type(info r, info s) -> bool {
 
 template <reflection_range R = initializer_list<info>>
 consteval auto is_invocable_type(info type, R &&args) {
-  vector<info> targs(from_range, args);
+  vector<info> targs(ranges::begin(args), ranges::end(args));
   targs.insert(targs.begin(), type);
 
   return extract<bool>(substitute(^^is_invocable_v, targs));
@@ -1896,7 +1903,7 @@ consteval auto is_invocable_type(info type, R &&args) {
 
 template <reflection_range R = initializer_list<info>>
 consteval auto is_invocable_r_type(info result, info type, R &&args) {
-  vector<info> targs(from_range, args);
+  vector<info> targs(ranges::begin(args), ranges::end(args));
   targs.insert(targs.begin(), type);
   targs.insert(targs.begin(), result);
 
@@ -1905,7 +1912,7 @@ consteval auto is_invocable_r_type(info result, info type, R &&args) {
 
 template <reflection_range R = initializer_list<info>>
 consteval auto is_nothrow_invocable_type(info type, R &&args) {
-  vector<info> targs(from_range, args);
+  vector<info> targs(ranges::begin(args), ranges::end(args));
   targs.insert(targs.begin(), type);
 
   return extract<bool>(substitute(^^is_nothrow_invocable_v, targs));
@@ -1914,7 +1921,7 @@ consteval auto is_nothrow_invocable_type(info type, R &&args) {
 template <reflection_range R = initializer_list<info>>
 consteval auto is_nothrow_invocable_r_type(info result, info type,
                                            R &&args) {
-  vector<info> targs(from_range, args);
+  vector<info> targs(ranges::begin(args), ranges::end(args));
   targs.insert(targs.begin(), type);
   targs.insert(targs.begin(), result);
 
@@ -2024,7 +2031,7 @@ consteval auto underlying_type(info type) -> info {
 
 template <reflection_range R = initializer_list<info>>
 consteval auto invoke_result(info type, R &&args) -> info {
-  vector<info> targs(from_range, args);
+  vector<info> targs(ranges::begin(args), ranges::end(args));
   targs.insert(targs.begin(), type);
 
   return detail::__underlying_entity_of(substitute(^^invoke_result_t, targs));
@@ -2315,7 +2322,7 @@ consteval auto reflect_invoke(info target, R &&args) -> info {
                           static_cast<info *>(nullptr), 0,
                           ranges::data(args), ranges::size(args));
   } else {
-    vector vargs(from_range, args);
+    vector<info> vargs(ranges::begin(args), ranges::end(args));
     return __metafunction(detail::__metafn_reflect_invoke, target,
                           static_cast<info *>(nullptr), 0,
                           vargs.data(), vargs.size());
@@ -2331,19 +2338,19 @@ consteval auto reflect_invoke(info target, R1 &&targs, R2 &&args) -> info {
                             ranges::data(targs), ranges::size(targs),
                             ranges::data(args), ranges::size(args));
     } else {
-      vector vargs(from_range, args);
+      vector<info> vargs(ranges::begin(args), ranges::end(args));
       return __metafunction(detail::__metafn_reflect_invoke, target,
                             ranges::data(targs), ranges::size(targs),
                             vargs.data(), vargs.size());
     }
   } else {
-    vector vtargs(from_range, targs);
+    vector<info> vtargs(ranges::begin(targs), ranges::end(targs));
     if constexpr (ranges::contiguous_range<R2>) {
       return __metafunction(detail::__metafn_reflect_invoke, target,
                             vtargs.data(), vtargs.size(),
                             ranges::data(args), ranges::size(args));
     } else {
-      vector vargs(from_range, args);
+      vector<info> vargs(ranges::begin(args), ranges::end(args));
       return __metafunction(detail::__metafn_reflect_invoke, target,
                             vtargs.data(), vtargs.size(),
                             vargs.data(), vargs.size());
@@ -2530,7 +2537,7 @@ consteval auto define_aggregate(info class_type, R &&members) -> info {
     return __metafunction(detail::__metafn_define_aggregate, class_type,
                           ranges::size(members), ranges::data(members));
   } else {
-    vector vmembers(from_range, members);
+    vector<info> vmembers(ranges::begin(members), ranges::end(members));
     return __metafunction(detail::__metafn_define_aggregate, class_type,
                           vmembers.size(), vmembers.data());
   }
