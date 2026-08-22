@@ -172,36 +172,71 @@ standard module cannot consume the reflection-enabled `<meta>` implementation.
 The snapshot workflow separates expensive production from validation:
 
 ```text
-build + install
+exact staged-toolchain artifact?
       |
-      +--> persistent staged-toolchain cache
+      +-- yes --> restore installed compiler/runtime stage
       |
-      v
-package
-      |
-      +--> Actions candidate artifact
-      |
-      v
-separate relocation/smoke verification job
-      |
-      v
-publish, for dated snapshot tags only
+      `-- no --> restore latest rolling ccache artifact
+                    |
+                    v
+               build + install
+                    |
+                    +--> persist exact staged-toolchain artifact
+                    |
+                    `--> persist updated rolling ccache artifact
+                              |
+                              v
+                           package
+                              |
+                              +--> candidate artifact
+                              |
+                              v
+                  separate relocation/smoke verification
+                              |
+                              v
+                  publish dated snapshots only
 ```
 
 The packaged candidate is uploaded before verification begins. A failed smoke
 test therefore does not discard the already-built snapshot.
 
-The installed compiler/runtime stage is also cached independently of packaging
-and workflow files. Its key is derived from the compiler/runtime source trees
-and the toolchain build recipe. Changes only to packaging, activation,
-verification, documentation, or the generated CMake toolchain integration can
-reuse the staged compiler without rebuilding LLVM.
+GitHub Actions dependency caches are deliberately not used for the reusable
+toolchain state. Cache visibility is scoped by branch/tag ref, so a cache
+created by `p2996-preflight-a` cannot be restored by
+`p2996-preflight-b`. Disposable preflight tags therefore make the ordinary
+Actions cache service unsuitable for this workflow.
 
-When compiler/runtime source actually changes, the workflow additionally uses
-a bounded `ccache` object cache to reduce recompilation cost.
+Instead, the workflow uses repository-level Actions artifacts as a
+content-addressed build store:
 
-GitHub Actions caches are best-effort and may eventually be evicted. The
-candidate Actions artifact is retained for 14 days. Published dated snapshots
+```text
+p2996-stage-linux-x86_64-v2-<source-fingerprint>-<recipe-fingerprint>
+p2996-ccache-linux-x86_64-v2
+```
+
+The staged-toolchain artifact is exact. Its fingerprint is derived from the
+compiler/runtime source trees plus the toolchain build recipe. Changes only to
+packaging, activation, verification, documentation, or the generated CMake
+toolchain integration reuse the installed stage without rebuilding LLVM.
+
+The ccache artifact is intentionally *not* keyed by the source revision. ccache
+performs its own content/dependency validation, so a source edit can reuse all
+unaffected object compilations. This is what makes a change to one libc++ header
+different from a cold compiler rebuild: the exact installed stage is rebuilt,
+but unrelated compiler objects are served from the rolling compiler cache.
+
+Artifacts are repository-level and can be located and downloaded across
+different preflight/release tag runs, avoiding the tag-scope restriction of the
+Actions cache service.
+
+During migration from the original cache implementation, the workflow retains
+a restore-only legacy `actions/cache` bridge. Reusing the same disposable
+preflight tag name once lets an existing tag-scoped stage/ccache entry be
+imported and republished as repository-level artifacts. New reusable state is
+not written back to the tag-scoped cache service.
+
+Exact staged-toolchain artifacts are retained for 30 days, rolling compiler
+cache artifacts and candidate snapshots for 14 days. Published dated snapshots
 remain the immutable long-term distribution mechanism.
 
 ## Publishing

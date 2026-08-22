@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: reference-toolchain-${{ github.ref }}
@@ -24,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -107,6 +108,7 @@ jobs:
           )"
 
           echo "source=$source_fingerprint" >> "$GITHUB_OUTPUT"
+          echo "recipe=${{ hashFiles('p2996/toolchain/build-linux-x86_64.sh') }}" >> "$GITHUB_OUTPUT"
 
       - name: Install build dependencies
         shell: bash
@@ -118,24 +120,114 @@ jobs:
           python3 -m pip install --user "cmake==4.4.2"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      - name: Find reusable build artifacts
+        id: reusable
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAGE_NAME: p2996-stage-linux-x86_64-v2-${{ steps.fingerprint.outputs.source }}-${{ steps.fingerprint.outputs.recipe }}
+          CCACHE_NAME: p2996-ccache-linux-x86_64-v2
+        run: |
+          set -euo pipefail
+
+          find_latest_artifact() {
+            local name="$1"
+            gh api \
+              -X GET \
+              "/repos/${GITHUB_REPOSITORY}/actions/artifacts" \
+              -f "name=${name}" \
+              -f "per_page=100" \
+              --jq '
+                [.artifacts[]
+                  | select(.expired == false)
+                  | select(.workflow_run.id != '"${GITHUB_RUN_ID}"')]
+                | sort_by(.created_at)
+                | reverse
+                | .[0].id // empty
+              '
+          }
+
+          stage_id="$(find_latest_artifact "$STAGE_NAME")"
+          ccache_id="$(find_latest_artifact "$CCACHE_NAME")"
+
+          if [[ -n "$stage_id" ]]; then
+            echo "Found reusable staged toolchain artifact: $stage_id"
+            echo "stage-hit=true" >> "$GITHUB_OUTPUT"
+            echo "stage-id=$stage_id" >> "$GITHUB_OUTPUT"
+          else
+            echo "No exact staged toolchain artifact found."
+            echo "stage-hit=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ -n "$ccache_id" ]]; then
+            echo "Found reusable rolling ccache artifact: $ccache_id"
+            echo "ccache-hit=true" >> "$GITHUB_OUTPUT"
+            echo "ccache-id=$ccache_id" >> "$GITHUB_OUTPUT"
+          else
+            echo "No rolling ccache artifact found."
+            echo "ccache-hit=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download staged reference toolchain
+        if: steps.reusable.outputs.stage-hit == 'true'
+        uses: actions/download-artifact@v7
+        with:
+          artifact-ids: ${{ steps.reusable.outputs.stage-id }}
+          path: ${{ runner.temp }}/p2996-stage-artifact
+          github-token: ${{ github.token }}
+
       - name: Restore staged reference toolchain
-        id: stage-cache
-        uses: actions/cache/restore@v4
+        if: steps.reusable.outputs.stage-hit == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p2996-stage"
+          tar --use-compress-program=unzstd \
+            -xf "$RUNNER_TEMP/p2996-stage-artifact/p2996-stage.tar.zst" \
+            -C "$RUNNER_TEMP/p2996-stage"
+
+      # Migration bridge from the original tag-scoped cache design. Reusing
+      # the same disposable preflight tag once lets us import its old cache and
+      # republish it into the repository-level artifact store below.
+      - name: Restore legacy tag-scoped staged cache
+        id: legacy-stage
+        if: steps.reusable.outputs.stage-hit != 'true'
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/p2996-stage
-          key: p2996-stage-linux-x86_64-v1-${{ steps.fingerprint.outputs.source }}-${{ hashFiles('p2996/toolchain/build-linux-x86_64.sh') }}
+          key: p2996-stage-linux-x86_64-v1-${{ steps.fingerprint.outputs.source }}-${{ steps.fingerprint.outputs.recipe }}
 
-      - name: Restore compiler object cache
-        id: compiler-cache
-        uses: actions/cache/restore@v4
+      - name: Download rolling compiler cache
+        if: steps.reusable.outputs.ccache-hit == 'true'
+        uses: actions/download-artifact@v7
+        with:
+          artifact-ids: ${{ steps.reusable.outputs.ccache-id }}
+          path: ${{ runner.temp }}/p2996-ccache-artifact
+          github-token: ${{ github.token }}
+
+      - name: Restore rolling compiler cache
+        if: steps.reusable.outputs.ccache-hit == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p2996-ccache"
+          tar --use-compress-program=unzstd \
+            -xf "$RUNNER_TEMP/p2996-ccache-artifact/p2996-ccache.tar.zst" \
+            -C "$RUNNER_TEMP/p2996-ccache"
+
+      - name: Restore legacy tag-scoped compiler cache
+        id: legacy-ccache
+        if: steps.reusable.outputs.ccache-hit != 'true'
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/p2996-ccache
-          key: p2996-ccache-linux-x86_64-v1-${{ hashFiles('p2996/toolchain/build-linux-x86_64.sh') }}-${{ steps.fingerprint.outputs.source }}
+          key: p2996-ccache-linux-x86_64-v1-${{ steps.fingerprint.outputs.recipe }}-${{ steps.fingerprint.outputs.source }}
           restore-keys: |
-            p2996-ccache-linux-x86_64-v1-${{ hashFiles('p2996/toolchain/build-linux-x86_64.sh') }}-
+            p2996-ccache-linux-x86_64-v1-${{ steps.fingerprint.outputs.recipe }}-
 
       - name: Build reference toolchain
-        if: steps.stage-cache.outputs.cache-hit != 'true'
+        id: toolchain-build
+        if: steps.reusable.outputs.stage-hit != 'true' && steps.legacy-stage.outputs.cache-hit != 'true'
         shell: bash
         env:
           P2996_COMPILER_LAUNCHER: ccache
@@ -154,19 +246,60 @@ jobs:
 
           ccache --show-stats
 
-      - name: Save staged reference toolchain
-        if: steps.stage-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/p2996-stage
-          key: ${{ steps.stage-cache.outputs.cache-primary-key }}
+      - name: Archive staged reference toolchain
+        if: steps.reusable.outputs.stage-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p2996-stage-upload"
+          tar \
+            --sort=name \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            -C "$RUNNER_TEMP/p2996-stage" \
+            -cf - . \
+            | zstd -10 -T0 -o "$RUNNER_TEMP/p2996-stage-upload/p2996-stage.tar.zst"
 
-      - name: Save compiler object cache
-        if: steps.stage-cache.outputs.cache-hit != 'true' && steps.compiler-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+      - name: Persist staged reference toolchain
+        if: steps.reusable.outputs.stage-hit != 'true'
+        uses: actions/upload-artifact@v6
         with:
-          path: ${{ runner.temp }}/p2996-ccache
-          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+          name: p2996-stage-linux-x86_64-v2-${{ steps.fingerprint.outputs.source }}-${{ steps.fingerprint.outputs.recipe }}
+          path: ${{ runner.temp }}/p2996-stage-upload/p2996-stage.tar.zst
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - name: Archive rolling compiler cache
+        if: (steps.reusable.outputs.ccache-hit != 'true' && steps.legacy-ccache.outputs.cache-hit == 'true') || steps.toolchain-build.outcome == 'success'
+        shell: bash
+        env:
+          CCACHE_DIR: ${{ runner.temp }}/p2996-ccache
+        run: |
+          set -euo pipefail
+          ccache --cleanup
+          ccache --show-stats
+
+          mkdir -p "$RUNNER_TEMP/p2996-ccache-upload"
+          tar \
+            --sort=name \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            -C "$RUNNER_TEMP/p2996-ccache" \
+            -cf - . \
+            | zstd -6 -T0 -o "$RUNNER_TEMP/p2996-ccache-upload/p2996-ccache.tar.zst"
+
+      - name: Persist rolling compiler cache
+        if: (steps.reusable.outputs.ccache-hit != 'true' && steps.legacy-ccache.outputs.cache-hit == 'true') || steps.toolchain-build.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: p2996-ccache-linux-x86_64-v2
+          path: ${{ runner.temp }}/p2996-ccache-upload/p2996-ccache.tar.zst
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
 
       - name: Package snapshot
         shell: bash
@@ -180,7 +313,7 @@ jobs:
             --source-date-epoch "${{ steps.metadata.outputs.source-date-epoch }}"
 
       - name: Upload preflight snapshot
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: reference-toolchain-${{ steps.metadata.outputs.snapshot }}
           path: ${{ runner.temp }}/p2996-dist/*
@@ -196,7 +329,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -211,7 +344,7 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Download candidate snapshot
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: reference-toolchain-${{ needs.build.outputs.snapshot }}
           path: dist
@@ -262,7 +395,7 @@ jobs:
 
     steps:
       - name: Checkout tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -278,7 +411,7 @@ jobs:
           fi
 
       - name: Download validated snapshot
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: reference-toolchain-${{ needs.build.outputs.snapshot }}
           path: dist
@@ -311,4 +444,3 @@ jobs:
             --title "Reference toolchain ${{ needs.build.outputs.snapshot }}" \
             --notes-file release-notes.md \
             dist/*
-
