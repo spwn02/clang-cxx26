@@ -145,8 +145,63 @@ Good starting point after Tier 0.
 | [x] | P2363R5 | Heterogeneous lookup, remaining associative container overloads | Done 2026-08-20 |
 | [x] | P1901R2 | `weak_ptr` as unordered associative container key | Done 2026-08-20 |
 | [x] | P2944R3 | `reference_wrapper` comparisons | Done 2026-08-22 — all Constraints (`pair`/`tuple`/`optional`/`variant`/`reference_wrapper`) were already implemented (mostly inherited from upstream commits); only the shared `__cpp_lib_constrained_equality` FTM flag and CSV status needed flipping |
-| [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | `<complex>` done; scalar math functions remain |
+| [!] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | **Compiler-blocked** 2026-08-22 — `<complex>` done; scalar math functions need constexpr-evaluator support this Clang doesn't have. See notes below. |
 | [x] | P3168R2 | `std::optional` range support | Done 2026-08-20 — implementation was already complete via P2988R11; added missing test coverage |
+
+**P1383R2 scalar `<cmath>`/`<cstdlib>` — compiler-blocked, found 2026-08-22 (not
+implemented, not scope-excluded):** probed this fork's constant evaluator
+directly rather than guessing from the generator's `unimplemented` flag alone
+(the flag only proves nobody's flipped it, not that the compiler can't). Repro
+(compile with `build-nyx/bin/clang++ -std=c++26`):
+
+```cpp
+static_assert(__builtin_fabs(-1.0) == 1.0);          // OK
+static_assert(__builtin_fmin(1.0, 2.0) == 1.0);      // OK
+static_assert(__builtin_sqrt(4.0) == 2.0);           // error: not a constant expression
+static_assert(__builtin_floor(1.5) == 1.0);          // error: not a constant expression
+static_assert(__builtin_pow(2.0, 3.0) == 8.0);       // error: not a constant expression
+```
+
+Confirmed by grepping `clang/lib/AST/ExprConstant.cpp` for `Builtin::BI__builtin_`
+cases directly (not inferred from the static_assert failures alone): this
+fork's evaluator implements exactly `fabs`/`copysign`/`fmax`/`fmin`/
+`fmaximum_num`/`fminimum_num`/`nan`/`nans` (floating) and `abs`/`labs`/`llabs`
+(integer) — nothing else. `sqrt`/`pow`/`floor`/`ceil`/`trunc`/`round`/`fmod`/
+`exp`/`log`/every trig function have **no case at all**, not a
+disabled/guarded one. Line 15957's own `// FIXME: Builtin::BI__builtin_powi`
+comment is upstream's own marker that this area is known-incomplete — this is
+upstream LLVM's gap, not something introduced by this fork's reflection work.
+
+**Do not attempt to close this by extending `ExprConstant.cpp`** — beyond the
+sheer size (dozens of transcendental/rounding functions, each needing
+correctly-rounded semantics matching the Cpp17 math-function requirements),
+this file's neighborhood is exactly where this fork's own reflection
+evaluator (`ExprConstantMeta.cpp`) lives; adding an unrelated upstream feature
+here creates permanent rebase friction against a file this fork's actual
+purpose depends on. A pure-library fallback (hand-rolled constexpr algorithms
+for e.g. `floor`/`ceil`/`trunc`, dispatched via
+`__builtin_is_constant_evaluated()`) is also not worth starting: **
+`__cpp_lib_constexpr_cmath` is a single all-or-nothing macro** — implementing
+a subset changes no observable status (CSV stays Partial, FTM stays
+unimplemented) since the paper requires the whole surface area.
+
+**Also blocked behind an undone C++23 prerequisite**, same shape as the
+P2944R3/P2165R4 finding above: the generator's `__cpp_lib_constexpr_cmath`
+entry has *only* a `c++23` value (P0533R9's own number) with `unimplemented:
+True` — no C++26 bump exists yet for P1383R2's own value. `Cxx23Papers.csv`
+confirms P0533R9 itself is only `|In Progress|` (just `isfinite`/`isinf`/
+`isnan`/`isnormal`, which need no builtin folding at all — pure bit
+manipulation on the float representation). So P1383R2 is a C++26 row sitting
+on top of an incomplete C++23 row, tracked in a different CSV entirely — a
+future session should not start P1383R2 thinking it's one paper deep.
+
+**Tracked as compiler-blocked, not scope-excluded** — the repro above is the
+regression test for "has this been fixed yet" (deliberately not landed as a
+lit test: an assertion that a compiler limitation exists needs `XFAIL` and
+would misfire confusingly, not usefully, once someone actually fixes the
+evaluator). Revisit if this fork's Clang ever gains upstream's missing
+builtin-folding support, or if P0533R9's own classification-function scope
+expands first.
 
 **Known issue found while implementing `copyable_function` (not fixed — pre-existing,
 affects `move_only_function` too, out of scope for this contract):**
@@ -2927,3 +2982,83 @@ blocked, what's next. Do not remove old entries.
   `|Complete|`, `__cpp_lib_senders` is live, and M1–M6c are all `[x]`
   above. Next session should return to the Tier list for the next
   gap-closing target rather than this sub-plan.
+
+- **2026-08-22 (Tier 1, closing both partials)**: Per user request, closed
+  out Tier 1's two remaining partial items.
+
+  **P2944R3 (`reference_wrapper` comparisons) — now `[x]` Complete.**
+  Investigation found the entire technical scope was already implemented:
+  `reference_wrapper`'s own comparisons, plus the drive-by Mandates→
+  Constraints changes for `pair`/`tuple`/`variant` (all inherited from
+  upstream LLVM commits — `#136672`, `#141396`, `#145677`, none authored in
+  this fork), and `optional`'s relops (which have used `enable_if_t<
+  is_convertible_v<...>>` SFINAE since the original N4606 implementation,
+  predating this paper entirely — never actually "Mandates" in this
+  codebase). `expected` was already `|Complete|` via the separate P3379R0
+  row. Fetched P2944R3's actual wording diff directly (not the CSV note,
+  which had drifted) to confirm scope: only `==`/`<=>` on same-type
+  `pair`/`tuple`/`optional`/`variant` overloads, nothing about the
+  heterogeneous `tuple`-like comparison overloads visible in the current
+  eel.is draft — those belong to the separate C++23 paper P2165R4
+  (`Cxx23Papers.csv`, still `|Partial|` there), which the previous
+  session's CSV note had conflated with this paper's own scope. Confirmed
+  via advisor consultation before trusting the header-reading alone. Only
+  actual work needed: drop `__cpp_lib_constrained_equality`'s
+  `unimplemented: True` in `generate_feature_test_macro_components.py`
+  (the FTM covers 5 headers — `expected`/`optional`/`tuple`/`utility`/
+  `variant` — so the flip regenerates 6 `*.version.compile.pass.cpp`
+  files, not 1, matching the M6c CSV-flip precedent) and rewrite the CSV
+  note to state the P2165R4 divergence explicitly rather than leaving it
+  looking like unfinished work. Verified pre- and post-flip: full
+  `tuple`/`variant`/`pairs`/`optional`/`expected`/`refwrap`/
+  `support.limits.general` suites green both times (509/514, 5
+  pre-existing unsupported), `module_std.gen.py`/
+  `transitive_includes.gen.py` 125/126 unchanged. Added missing test
+  coverage advisor flagged: `optional`'s relops had no negative-SFINAE
+  test at all (unlike `tuple`/`variant`, which got dedicated coverage from
+  their own upstream commits) and no coverage of `optional<T&>` (this
+  fork's own P2988R11 extension, added after P2944R3 originally landed
+  upstream) specifically — new
+  `optional.relops/types.compile.pass.cpp` confirms both specializations
+  SFINAE away softly for a `NonComparable` contained/referenced type.
+  Landed as its own commit, ahead of P1383R2.
+
+  **P1383R2 (`constexpr` `<cmath>`/`<cstdlib>`) — now `[!]` compiler-
+  blocked, not completable this session.** Probed this fork's constant
+  evaluator directly rather than guessing: `static_assert(__builtin_sqrt(
+  4.0) == 2.0)` and similar for `pow`/`floor`/`ceil`/`fmod`/`exp`/`log`/
+  every trig function all fail "not a constant expression"; only `fabs`/
+  `fmin`/`fmax`/`copysign`/`nan`/integer `abs`/`labs`/`llabs` fold.
+  Confirmed by grepping `clang/lib/AST/ExprConstant.cpp` directly for
+  `Builtin::BI__builtin_` cases — the missing functions have no case at
+  all, not a disabled one; line 15957's own `// FIXME:
+  Builtin::BI__builtin_powi` comment is upstream's marker that this is
+  known-incomplete upstream work, not a fork regression. Full reasoning,
+  the repro, and why neither remediation path (extending `ExprConstant.cpp`
+  — rebase-risk against the file this fork's own reflection evaluator
+  lives next to; or a partial library-only fallback — `__cpp_lib_
+  constexpr_cmath` is one all-or-nothing macro, so a subset changes no
+  status) is worth attempting are recorded at length under Tier 1's table
+  above. Also discovered: this is gated behind an *undone C++23
+  prerequisite*, same shape as the P2165R4 finding above — the
+  generator's `__cpp_lib_constexpr_cmath` entry has only a `c++23` value
+  (P0533R9's own number, `unimplemented: True`), and `Cxx23Papers.csv`
+  confirms P0533R9 itself is only `|In Progress|` (just the
+  classification functions `isfinite`/`isinf`/`isnan`/`isnormal`, which
+  need no builtin folding). Rewrote the `Cxx2cPapers.csv` note to state
+  the compiler blocker and the P0533R9 dependency explicitly. No lit test
+  added (a compiler-limitation assertion needs `XFAIL` and would misfire
+  confusingly, not usefully, once someone fixes the evaluator) — the repro
+  in this file is the "has this been fixed yet" check for a future
+  session. Landed as its own commit (tracker-only, no code change).
+
+  **Tier 1 is now 8 of 9 items complete, 1 (P1383R2) compiler-blocked.**
+  This is as far as Tier 1 can be honestly closed without either
+  upstream Clang gaining constexpr-evaluator support for the missing
+  `<cmath>` builtins, or a decision to hand-write a full constexpr
+  numerical-algorithm library for every affected function (large,
+  numerically risky, and — per the all-or-nothing FTM — wouldn't even
+  change status until every function in scope were done). **Next
+  session: move to Tier 3** (ranges/mdspan/format completions) or revisit
+  the deferred Contracts (P2900R14) project per an explicit decision, per
+  the Scope section's guidance.
