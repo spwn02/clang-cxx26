@@ -82,26 +82,30 @@ void test_unsigned() {
   }
 }
 
+// [string.conversions]/9-10: to_wstring(val) returns format(L"{}", val), the
+// shortest round-trip representation, not the historical swprintf(L"%f", val)
+// fixed six-decimal output. P2587R3.
 template <class T>
 void test_float() {
   {
     std::wstring s = std::to_wstring(T(0));
-    assert(s.size() == 8);
-    assert(s[s.size()] == 0);
-    assert(s == L"0.000000");
+    assert(s == L"0");
   }
   {
     std::wstring s = std::to_wstring(T(12345));
-    assert(s.size() == 12);
-    assert(s[s.size()] == 0);
-    assert(s == L"12345.000000");
+    assert(s == L"12345");
   }
   {
     std::wstring s = std::to_wstring(T(-12345));
-    assert(s.size() == 13);
-    assert(s[s.size()] == 0);
-    assert(s == L"-12345.000000");
+    assert(s == L"-12345");
   }
+  {
+    std::wstring s = std::to_wstring(T(1) / T(4));
+    assert(s == L"0.25");
+  }
+  assert(std::to_wstring(std::numeric_limits<T>::infinity()) == L"inf");
+  assert(std::to_wstring(-std::numeric_limits<T>::infinity()) == L"-inf");
+  assert(std::to_wstring(std::numeric_limits<T>::quiet_NaN()) == L"nan");
 }
 
 int main(int, char**) {

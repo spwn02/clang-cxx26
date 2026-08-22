@@ -80,26 +80,30 @@ void test_unsigned() {
   }
 }
 
+// [string.conversions]/9-10: to_string(val) returns format("{}", val), the
+// shortest round-trip representation, not the historical sprintf("%f", val)
+// fixed six-decimal output. P2587R3.
 template <class T>
 void test_float() {
   {
     std::string s = std::to_string(T(0));
-    assert(s.size() == 8);
-    assert(s[s.size()] == 0);
-    assert(s == "0.000000");
+    assert(s == "0");
   }
   {
     std::string s = std::to_string(T(12345));
-    assert(s.size() == 12);
-    assert(s[s.size()] == 0);
-    assert(s == "12345.000000");
+    assert(s == "12345");
   }
   {
     std::string s = std::to_string(T(-12345));
-    assert(s.size() == 13);
-    assert(s[s.size()] == 0);
-    assert(s == "-12345.000000");
+    assert(s == "-12345");
   }
+  {
+    std::string s = std::to_string(T(1) / T(4));
+    assert(s == "0.25");
+  }
+  assert(std::to_string(std::numeric_limits<T>::infinity()) == "inf");
+  assert(std::to_string(-std::numeric_limits<T>::infinity()) == "-inf");
+  assert(std::to_string(std::numeric_limits<T>::quiet_NaN()) == "nan");
 }
 
 int main(int, char**) {

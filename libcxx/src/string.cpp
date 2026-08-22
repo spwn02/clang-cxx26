@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <charconv>
 #include <cstdlib>
+#include <format>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -287,61 +288,6 @@ long double stold(const wstring& str, size_t* idx) { return as_float<long double
 
 namespace {
 
-// as_string
-
-template <typename S, typename P, typename V >
-inline S as_string(P sprintf_like, S s, const typename S::value_type* fmt, V a) {
-  typedef typename S::size_type size_type;
-  size_type available = s.size();
-  while (true) {
-    int status = sprintf_like(&s[0], available + 1, fmt, a);
-    if (status >= 0) {
-      size_type used = static_cast<size_type>(status);
-      if (used <= available) {
-        s.resize(used);
-        break;
-      }
-      available = used; // Assume this is advice of how much space we need.
-    } else
-      available = available * 2 + 1;
-    s.resize(available);
-  }
-  return s;
-}
-
-template <class S>
-struct initial_string;
-
-template <>
-struct initial_string<string> {
-  string operator()() const {
-    string s;
-    s.resize(s.capacity());
-    return s;
-  }
-};
-
-#if _LIBCPP_HAS_WIDE_CHARACTERS
-template <>
-struct initial_string<wstring> {
-  wstring operator()() const {
-    wstring s(20, wchar_t());
-    s.resize(s.capacity());
-    return s;
-  }
-};
-
-typedef int (*wide_printf)(wchar_t* __restrict, size_t, const wchar_t* __restrict, ...);
-
-inline wide_printf get_swprintf() {
-#  ifndef _LIBCPP_MSVCRT
-  return swprintf;
-#  else
-  return static_cast<int(__cdecl*)(wchar_t* __restrict, size_t, const wchar_t* __restrict, ...)>(_snwprintf);
-#  endif
-}
-#endif // _LIBCPP_HAS_WIDE_CHARACTERS
-
 template <typename S, typename V>
 S i_to_string(V v) {
   //  numeric_limits::digits10 returns value less on 1 than desired for unsigned numbers.
@@ -372,14 +318,15 @@ wstring to_wstring(unsigned long val) { return i_to_string<wstring>(val); }
 wstring to_wstring(unsigned long long val) { return i_to_string<wstring>(val); }
 #endif
 
-string to_string(float val) { return as_string(snprintf, initial_string< string>()(), "%f", val); }
-string to_string(double val) { return as_string(snprintf, initial_string< string>()(), "%f", val); }
-string to_string(long double val) { return as_string(snprintf, initial_string< string>()(), "%Lf", val); }
+// [string.conversions]/9-10: Returns: format("{}", val).
+string to_string(float val) { return std::format("{}", val); }
+string to_string(double val) { return std::format("{}", val); }
+string to_string(long double val) { return std::format("{}", val); }
 
 #if _LIBCPP_HAS_WIDE_CHARACTERS
-wstring to_wstring(float val) { return as_string(get_swprintf(), initial_string<wstring>()(), L"%f", val); }
-wstring to_wstring(double val) { return as_string(get_swprintf(), initial_string<wstring>()(), L"%f", val); }
-wstring to_wstring(long double val) { return as_string(get_swprintf(), initial_string<wstring>()(), L"%Lf", val); }
+wstring to_wstring(float val) { return std::format(L"{}", val); }
+wstring to_wstring(double val) { return std::format(L"{}", val); }
+wstring to_wstring(long double val) { return std::format(L"{}", val); }
 #endif
 
 _LIBCPP_END_NAMESPACE_STD
