@@ -13,6 +13,8 @@
 #include <__concepts/derived_from.h>
 #include <__concepts/movable.h>
 #include <__config>
+#include <__execution/awaitable.h>
+#include <__execution/env.h>
 #include <__execution/get_env.h>
 #include <__execution/queryable.h>
 #include <__type_traits/remove_cvref.h>
@@ -35,13 +37,11 @@ struct sender_tag {};
 template <class _Sndr>
 concept __is_sender = derived_from<typename _Sndr::sender_concept, sender_tag>;
 
-// [exec.snd.concepts]p enable-sender is `is-sender<Sndr> || is-awaitable<Sndr,
-// env-promise<env<>>>`; the awaitable disjunct needs the coroutine-integration machinery
-// (GET-AWAITER/env-promise) that lands in M6. Every sender type through at least M5
-// declares `using sender_concept = sender_tag;`, so the awaitable branch is dead code
-// until then -- adding it later is a one-line change to this alias.
+// [exec.snd.concepts]p enable-sender: is-sender<Sndr> || is-awaitable<Sndr,
+// env-promise<env<>>>. __is_awaitable's own SFINAE-safety (see awaitable.h) keeps this from
+// hard-erroring on ordinary non-sender, non-awaitable types.
 template <class _Sndr>
-inline constexpr bool enable_sender = __is_sender<_Sndr>;
+inline constexpr bool enable_sender = __is_sender<_Sndr> || __is_awaitable<_Sndr, __env_promise<env<>>>;
 
 template <class _Sndr>
 concept sender = enable_sender<remove_cvref_t<_Sndr>> && requires(const remove_cvref_t<_Sndr>& __sndr) {
