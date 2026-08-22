@@ -2781,3 +2781,56 @@ blocked, what's next. Do not remove old entries.
   is still green, flip `__cpp_lib_senders`'s `unimplemented` off and all
   three CSV rows (`P2300R10`/`P3325R5`/`P3396R1`) to `|Complete|`
   together — the last remaining step in this Tier 2 sub-plan.
+
+- **2026-08-22 (Tier 2, M6 continued — M6c-1 awaitable completion-signatures fallback)**:
+  Discovered, while starting M6c, that the two-file plan above was
+  incomplete: `get_completion_signatures.h`'s M2-era comment ("a sender
+  with no viable get_completion_signatures dispatch, and that isn't
+  itself awaitable, once M6 adds that") had already flagged a third
+  retrofit — `[exec.getcomplsigs]` branch (3.3), the awaitable fallback
+  for computing completion signatures. Confirmed via eel.is this is a
+  *prerequisite* for the other two, not a peer: `enable_sender`'s
+  awaitable disjunct makes an awaitable a `sender`, but `sender_in`
+  additionally requires `get_completion_signatures` to be viable — without
+  (3.3), `connect_t`'s own Mandates `static_assert(sender_in<...>)` would
+  fire first, making `connect-awaitable` unreachable through the public
+  CPO regardless of M6c's other two changes.
+
+  Implemented (3.3) alone in this commit:
+  `completion_signatures<SET-VALUE-SIG(await-result-type<NewSndr,
+  env-promise<Env>...>), set_error_t(exception_ptr), set_stopped_t()>`,
+  reached only when neither existing member-`get_completion_signatures`
+  branch is viable. `SET-VALUE-SIG(T)` is `set_value_t()` for void `T`,
+  else `set_value_t(T)` (no tuple-unwrapping — confirmed via
+  `[exec.snd.concepts]`, simpler than a first guess). Hit one real bug
+  making this a genuinely necessary fix rather than a mechanical port:
+  `__await_result_type<NewSndr, __env_promise<Env>...>` doesn't compile
+  when `__await_result_type`'s second parameter is defaulted rather than
+  a true pack — "pack expansion used as argument for non-pack parameter"
+  — even though the pack here only ever holds 0 or 1 elements. Fixed by
+  making `__await_result_type` itself fully variadic (matching
+  `__is_awaitable`'s existing shape), selecting between `__get_awaiter`'s
+  one- and two-argument overloads based on the pack being empty or not;
+  this is a source-compatible change for M6a/M6b's existing explicit
+  1-arg/2-arg call sites.
+
+  Landed alone, ahead of the `sender.h`/`connect.h` retrofits, since this
+  branch is reachable by nothing currently in the tree (both existing
+  branches already cover every sender in scope) — the safest of the three
+  changes to verify in isolation, and it also caught the regression
+  early: an initial version without the `__await_result_type` fix broke
+  45 of 83 tests suite-wide (every file that transitively includes
+  `get_completion_signatures.h`, i.e. nearly everything), confirming the
+  advisor's warning that this disjunct sits on a hot path. Full
+  `execution/`+`thread.stoptoken/` suite (83 tests) and
+  `libcxx-generate-files` both pass, clean, after the fix.
+  `Cxx2cPapers.csv` still untouched.
+
+  **Next session: M6c-2 and M6c-3** — `enable_sender`'s awaitable
+  disjunct in `sender.h`, then `connect-awaitable` in `connect.h` plus an
+  end-to-end test that actually connects a bare (non-sender) awaitable
+  through `execution::connect` and runs it to completion. Land each in
+  its own commit; run the full suite after each. Only after M6c-3's test
+  demonstrates `connect-awaitable` actually working does the
+  `__cpp_lib_senders`/CSV flip happen — M6c-1 and M6c-2 are type-level
+  only.
