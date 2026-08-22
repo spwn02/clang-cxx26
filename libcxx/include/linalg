@@ -521,13 +521,18 @@ inline constexpr bool __is_conjugated_accessor_v<conjugated_accessor<_NestedAcce
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>
 constexpr auto conjugated(mdspan<_ElementType, _Extents, _Layout, _Accessor> __view) {
-  using _AccessorType = typename __detail::__conjugated_accessor_or_self<_Accessor>::type;
-  using _Element      = typename _AccessorType::element_type;
-
   if constexpr (__detail::__is_conjugated_accessor_v<_Accessor>) {
+    using _AccessorType = typename __detail::__conjugated_accessor_or_self<_Accessor>::type;
+    using _Element      = typename _AccessorType::element_type;
     return mdspan<_Element, _Extents, _Layout, _AccessorType>(
         __view.data_handle(), __view.mapping(), __view.accessor().nested_accessor());
+  } else if constexpr (!__detail::__has_adl_conj<_ElementType>) {
+    // P3050R2: conjugation is a no-op for element types that are arithmetic, or for
+    // which conj(E) isn't a valid expression -- don't wrap in a conjugated_accessor.
+    return __view;
   } else {
+    using _AccessorType = conjugated_accessor<_Accessor>;
+    using _Element      = typename _AccessorType::element_type;
     return mdspan<_Element, _Extents, _Layout, _AccessorType>(
         __view.data_handle(), __view.mapping(), _AccessorType{__view.accessor()});
   }

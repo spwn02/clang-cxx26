@@ -26,6 +26,13 @@ struct number {
 };
 } // namespace adl_complex
 
+// A non-arithmetic type for which conj(E) isn't a valid expression. P3050R2
+// case (2.3): conjugated() must return its argument unchanged for this type.
+struct no_conj_type {
+  int value;
+  friend constexpr bool operator==(no_conj_type, no_conj_type) = default;
+};
+
 struct offset_accessor {
   using offset_policy    = std::default_accessor<const int>;
   using element_type     = int;
@@ -50,6 +57,21 @@ constexpr bool test() {
   std::mdspan complex_vector(complex_data, 2);
   auto conjugated = std::linalg::conjugated(complex_vector);
   if (conjugated[0] != std::complex<double>(1.0, -2.0) || conjugated[1] != std::complex<double>(-3.0, -4.0))
+    return false;
+
+  // P3050R2 (2.2): conjugation is a no-op for arithmetic element types, so
+  // conjugated() must return the argument unchanged, not wrapped.
+  auto arithmetic_conjugated = std::linalg::conjugated(vector);
+  ASSERT_SAME_TYPE(decltype(arithmetic_conjugated), decltype(vector));
+  if (arithmetic_conjugated[0] != vector[0] || arithmetic_conjugated[2] != vector[2])
+    return false;
+
+  // P3050R2 (2.3): same, for a non-arithmetic type with no conj(E).
+  no_conj_type no_conj_data[] = {{1}, {2}};
+  std::mdspan no_conj_vector(no_conj_data, 2);
+  auto no_conj_conjugated = std::linalg::conjugated(no_conj_vector);
+  ASSERT_SAME_TYPE(decltype(no_conj_conjugated), decltype(no_conj_vector));
+  if (no_conj_conjugated[0] != no_conj_vector[0] || no_conj_conjugated[1] != no_conj_vector[1])
     return false;
 
   adl_complex::number adl_complex_data[] = {{1, 2}, {-3, 4}};
