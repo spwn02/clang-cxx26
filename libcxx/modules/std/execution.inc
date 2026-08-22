@@ -225,6 +225,8 @@ export namespace std::execution {
   // [exec.when.all]
   using std::execution::when_all;
   using std::execution::when_all_t;
+  using std::execution::when_all_with_variant;
+  using std::execution::when_all_with_variant_t;
 #endif
 } // namespace std::execution
 

@@ -17,6 +17,7 @@
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
 #include <__execution/get_stop_token.h>
+#include <__execution/into_variant.h>
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
 #include <__execution/sender.h>
@@ -614,6 +615,29 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto when_all_t::operator()(_Sndrs&&... __sndrs)
     -> __when_all_sndr<remove_cvref_t<_Sndrs>...> {
   return __when_all_sndr<remove_cvref_t<_Sndrs>...>{{}, tuple<remove_cvref_t<_Sndrs>...>(std::forward<_Sndrs>(__sndrs)...)};
 }
+
+// [exec.when.all]p18/p19: when_all_with_variant(sndrs...) is expression-equivalent to
+// make-sender(when_all_with_variant, {}, sndrs...), whose transform_sender is specified as
+// `when_all(into_variant(sndrs)...)`. The standard's own mechanism for reaching that
+// transform_sender -- domain-based per-tag dispatch, `tag_of_t<Sndr>().transform_sender(...)`
+// -- is exactly the branch <__execution/domain.h>'s M2 deviation 4 permanently disables in
+// this fork (`default_domain::transform_sender` always takes the "otherwise" static_cast
+// path, never calling tag_of_t). So, like <__execution/stopped_as_error.h>'s/
+// <__execution/starts_on.h>'s own compositions, this is computed directly at CPO-call time --
+// `operator()` returns `when_all(into_variant(sndrs)...)`'s own concrete sender type outright,
+// rather than producing a distinct when_all_with_variant_t-tagged sender that would rely on a
+// transform_sender indirection this fork never fires. Same tag_of_t deviation as those two
+// files: the result's tag_of_t is when_all_t's, not when_all_with_variant_t's; nothing in
+// scope through M5 inspects tag_of_t/sender-for on a when_all_with_variant result.
+struct when_all_with_variant_t {
+  template <sender... _Sndrs>
+    requires(sizeof...(_Sndrs) > 0)
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndrs&&... __sndrs) const {
+    return execution::when_all(execution::into_variant(std::forward<_Sndrs>(__sndrs))...);
+  }
+};
+
+inline constexpr when_all_with_variant_t when_all_with_variant{};
 
 } // namespace execution
 

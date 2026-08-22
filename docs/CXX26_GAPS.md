@@ -753,10 +753,10 @@ schedulers can't come before sender concepts exist):**
   `on(sndr, sch, closure)`, and the 2-arg partial-application form
   `on(sch, closure)`), `write_env`/`unstoppable` **done 2026-08-22**,
   `stopped_as_optional`/`stopped_as_error` **done 2026-08-22**,
-  `into_variant` **done 2026-08-22**, `when_all` **done 2026-08-22**
-  (`when_all_with_variant` deliberately deferred to a follow-up — see below).
-  `when_all_with_variant`, `bulk`/`bulk_chunked`/
-  `bulk_unchunked` remain. (`associate`/`spawn`/`spawn_future` are part of the
+  `into_variant` **done 2026-08-22**, `when_all` **done 2026-08-22**,
+  `when_all_with_variant` **done 2026-08-22**. Only
+  `bulk`/`bulk_chunked`/`bulk_unchunked` remain. (`associate`/`spawn`/
+  `spawn_future` are part of the
   execution-scope paper family — reassess whether they're actually
   P2300R10-original or scope-family additions when this milestone starts;
   exclude if the latter, per the scope-collapse note above.)
@@ -2486,3 +2486,41 @@ blocked, what's next. Do not remove old entries.
   `bulk`/`bulk_chunked`/`bulk_unchunked` remain in M5 — read `[exec.bulk]`
   fresh via the `curl` process rule before starting; unscoped in detail so
   far this sub-plan.
+- **2026-08-22 (Tier 2, M5 continued — when_all_with_variant)**: Implemented
+  `[exec.when.all]`'s second CPO (added to the existing
+  `libcxx/include/__execution/when_all.h`, same clause as `when_all`).
+  Confirmed the prediction from the previous entry: this needed no new
+  sender/receiver/state machinery at all. `operator()` returns
+  `when_all(into_variant(sndrs)...)`'s own concrete type directly, matching
+  `stopped_as_error_t`'s/`starts_on_t`'s established call-time-composition
+  shape — not the standard's literal `make-sender(when_all_with_variant, {},
+  sndrs...)` + domain-based `transform_sender` customization, which would
+  rely on `tag_of_t<Sndr>().transform_sender(...)` actually firing, and
+  `<__execution/domain.h>`'s M2 deviation 4 permanently disables exactly that
+  branch in `default_domain::transform_sender` on this fork (always takes
+  the "otherwise" static_cast path). Same `tag_of_t`/`sender_for` deviation
+  as `stopped_as_error`/`starts_on`: the result's tag is `when_all_t`'s, not
+  `when_all_with_variant_t`'s — undocumented anywhere new, just the third
+  instance of an already-recorded pattern.
+
+  New test: `exec.adapt/exec.when.all/when_all_with_variant.pass.cpp` —
+  confirms `when_all_with_variant(just(1,2), just(3.5))` produces
+  `tuple(variant<tuple<int,int>>(tuple(1,2)), variant<tuple<double>>(tuple(3.5)))`
+  via `sync_wait`, plus the matching `completion_signatures_of_t` static
+  assert. `execution/` suite 41/41 → 42/42 green, `thread.stoptoken/`
+  unaffected, 79/79 total. `libcxx-generate-files` clean; no new header, so
+  `module_std.gen.py`/`transitive_includes.gen.py` needed no changes either
+  (confirmed by rerunning both — still 125/126, unchanged). Registration:
+  `libcxx/modules/std/execution.inc` only (both `when_all_with_variant`/
+  `when_all_with_variant_t` exported, under the existing `#if
+  _LIBCPP_HAS_THREADS` `[exec.when.all]` block) — no `CMakeLists.txt` or
+  `<execution>` include-list change, since no new file. `Cxx2cPapers.csv`
+  untouched (flips at M6 only).
+
+  **M5 is now down to exactly one item: `bulk`/`bulk_chunked`/
+  `bulk_unchunked`.** Once that lands, M5 is complete and M6 (coroutine
+  integration: `as_awaitable`, `with_awaitable_senders`) is the only
+  remaining milestone before `__cpp_lib_senders`/`P2300R10`/`P3325R5`/
+  `P3396R1` all flip to `|Complete|` together. **Next session:** read
+  `[exec.bulk]` fresh via the `curl` process rule (not yet scoped in detail
+  this sub-plan) before starting `bulk`/`bulk_chunked`/`bulk_unchunked`.
