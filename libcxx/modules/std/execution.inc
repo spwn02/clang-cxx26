@@ -216,6 +216,10 @@ export namespace std::execution {
 #if _LIBCPP_HAS_THREADS
   using std::execution::unstoppable;
 #endif
+
+  // [exec.into.variant]
+  using std::execution::into_variant;
+  using std::execution::into_variant_t;
 } // namespace std::execution
 
 #if _LIBCPP_HAS_THREADS

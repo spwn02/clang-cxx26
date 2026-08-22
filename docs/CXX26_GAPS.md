@@ -751,10 +751,11 @@ schedulers can't come before sender concepts exist):**
   `schedule_from`/`continues_on`/`starts_on` **done 2026-08-22**, `on`
   **done 2026-08-22, all forms** (2-arg `on(sch, sndr)`, 3-arg
   `on(sndr, sch, closure)`, and the 2-arg partial-application form
-  `on(sch, closure)`),
-  `when_all`/`when_all_with_variant`, `into_variant`, `stopped_as_optional`/
-  `stopped_as_error`, `write_env`, `unstoppable`, `bulk`/`bulk_chunked`/
-  `bulk_unchunked`. (`associate`/`spawn`/`spawn_future` are part of the
+  `on(sch, closure)`), `write_env`/`unstoppable` **done 2026-08-22**,
+  `stopped_as_optional`/`stopped_as_error` **done 2026-08-22**,
+  `into_variant` **done 2026-08-22**.
+  `when_all`/`when_all_with_variant`, `bulk`/`bulk_chunked`/
+  `bulk_unchunked` remain. (`associate`/`spawn`/`spawn_future` are part of the
   execution-scope paper family — reassess whether they're actually
   P2300R10-original or scope-family additions when this milestone starts;
   exclude if the latter, per the scope-collapse note above.)
@@ -2286,3 +2287,76 @@ blocked, what's next. Do not remove old entries.
   there. `bulk`/`bulk_chunked`/`bulk_unchunked` haven't been scoped in
   detail yet this sub-plan; read `[exec.bulk]` fresh via the `curl`
   process rule before starting.
+- **2026-08-22 (Tier 2, M5 continued — into_variant)**: Implemented
+  `[exec.into.variant]` (new `libcxx/include/__execution/into_variant.h`).
+  `into_variant(sndr)` maps every `set_value_t(Args...)` completion into one
+  combined `set_value_t(V)`, where `V` is `value_types_of_t<child, Env>`
+  called with its *default* Tuple/Variant arguments
+  (`__decayed_tuple`/`__variant_or_empty`) — this is exactly the standard's
+  own `V`, so no new gathering machinery was needed, just reusing
+  `<__execution/get_completion_signatures.h>`'s existing alias directly.
+  `set_error_t`/`set_stopped_t` completions pass through unchanged. Same
+  "V depends on Env, not known until connect()/get_completion_signatures()"
+  shape as `stopped_as_optional` (previous session) — hand-rolled sender
+  type, not a call-time composition, `V` pinned independently in both
+  `connect()` (from `env_of_t<Rcvr>`) and `get_completion_signatures()`
+  (from `_Env`).
+
+  Completion-signature transform (`__into_variant_signatures`) follows
+  `<__execution/then.h>`'s/`<__execution/let.h>`'s established
+  `__one<_Sig>`-partial-specialization-plus-`__concat_type_lists` shape, but
+  simpler: no dedup needed, since `set_value_t` signatures are dropped
+  outright (each subsumed by the single prepended `set_value_t(V)`) rather
+  than remapped-and-deduped. The receiver (`__into_variant_rcvr`) converts
+  `Args...` to `V` via a two-step `__decayed_tuple<Args...>` →
+  `V`-converting-constructor, matching `[exec.into.variant]p6`'s
+  `variant_type(decayed-tuple<Args...>{args...})` verbatim; TRY-SET-VALUE
+  semantics hand-written (try/catch → `set_error(current_exception())`),
+  matching every prior adaptor's convention since this fork has no shared
+  TRY-SET-VALUE macro.
+
+  Hit the same class-completeness ordering constraint
+  `<__execution/stopped_as_optional.h>`/`<__execution/write_env.h>` already
+  document: `__into_variant_sndr`'s non-dependent `into_variant_t tag`
+  member needs `into_variant_t` complete at the sndr class's own definition
+  point, but `into_variant_t::operator()`'s body needs `__into_variant_sndr`
+  complete too — broken by declaring `into_variant_t` in full first
+  (`operator()` only declared, trailing-return-type-only reference to the
+  not-yet-complete sndr type, which is fine), defining
+  `__into_variant_sndr` in full second, then defining
+  `into_variant_t::operator()`'s body out-of-line last. First attempt got
+  this backwards (sndr class first, referencing an incomplete
+  forward-declared `into_variant_t` as a by-value member) and would not
+  have compiled had it not been caught by rereading the two existing
+  files' own ordering comments before writing the test.
+
+  New test: `exec.adapt/exec.into.variant/into_variant.pass.cpp`, with a
+  hand-rolled `multi_value_sndr` (two distinct value-completion shapes —
+  `set_value_t(int)` and `set_value_t(double, char)` — plus an error and a
+  stopped completion, runtime-switchable) since no existing factory
+  advertises more than one value shape at once. Covers both variant
+  alternatives via `sync_wait`, error passthrough (caught as a rethrown
+  `int` through `sync_wait`'s `AS-EXCEPT-PTR`), stopped passthrough, call-
+  vs-pipe-syntax equivalence, the full completion-signatures static-assert
+  (two value shapes collapsing into one `set_value_t(variant<...>)` plus the
+  untouched `set_error_t`/`set_stopped_t`), and a zero-value-completion
+  sender (`just_stopped()`) still typechecking as `sender_in` (its `V` is
+  `__empty_variant`, never actually constructed). `execution/` suite
+  39/39 → 40/40 green; `thread.stoptoken/` unaffected; `libcxx-generate-files`
+  clean (no FTM change — `__cpp_lib_senders` stays gated to M6);
+  `module_std.gen.py`/`transitive_includes.gen.py` 125/126 (same
+  pre-existing 1-unsupported baseline, unchanged — no new transitive
+  includes). Registered the new header in `CMakeLists.txt`, `<execution>`'s
+  M5 include block, and `libcxx/modules/std/execution.inc` (both CPO and
+  `_t` type exported — `[execution.syn]` names `into_variant_t` outright,
+  same as `stopped_as_optional_t`/`stopped_as_error_t`).
+
+  **Next session: continue M5** — only `when_all`/`when_all_with_variant`
+  and `bulk`/`bulk_chunked`/`bulk_unchunked` remain. `when_all` is the
+  first genuinely multi-child adaptor in this sub-plan (every adaptor
+  through this session has had exactly one child sender) — budget extra
+  time for it per the prior session's own flag; read `[exec.when.all]`
+  fresh via the `curl` process rule before starting, and expect the
+  operation-state shape (N child operation states, synchronized completion
+  via an atomic counter or similar) to need real new machinery, not a
+  reuse of any existing one-child adaptor's shape.
