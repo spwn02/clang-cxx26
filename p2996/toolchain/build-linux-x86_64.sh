@@ -14,8 +14,9 @@ jobs="${P2996_BUILD_JOBS:-$(nproc)}"
 
 rm -rf "${install_prefix}" "${build_dir}"
 
-runtime_components="cxx;cxxabi;unwind;cxx-modules"
-distribution_components="clang;clang-resource-headers;clang-scan-deps;lld;llvm-ar;${runtime_components}"
+runtime_components="cxx;cxxabi;unwind"
+runtime_distribution_components="cxx-modules"
+distribution_components="clang;clang-resource-headers;clang-scan-deps;lld;llvm-ar;${runtime_components};${runtime_distribution_components}"
 
 "${cmake_bin}" \
   -S "${repo_root}/llvm" \
@@ -56,7 +57,7 @@ distribution_components="clang;clang-resource-headers;clang-scan-deps;lld;llvm-a
   -DLIBUNWIND_ENABLE_SHARED=ON \
   -DLIBUNWIND_ENABLE_STATIC=ON \
   -DLIBUNWIND_INCLUDE_TESTS=OFF \
-  -DLLVM_RUNTIME_DISTRIBUTION_COMPONENTS="${runtime_components}" \
+  -DLLVM_RUNTIME_DISTRIBUTION_COMPONENTS="${runtime_distribution_components}" \
   -DLLVM_DISTRIBUTION_COMPONENTS="${distribution_components}"
 
 "${cmake_bin}" --build "${build_dir}" --target distribution --parallel "${jobs}"

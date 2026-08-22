@@ -38,10 +38,13 @@ jobs:
           source_date_epoch="$(git show -s --format=%ct HEAD)"
           trigger_tag="$GITHUB_REF_NAME"
 
-          git fetch origin p2996:refs/remotes/origin/p2996
+          git fetch --depth=1 origin p2996:refs/remotes/origin/p2996
+          p2996_tip="$(git rev-parse refs/remotes/origin/p2996)"
 
-          if ! git merge-base --is-ancestor "$revision" refs/remotes/origin/p2996; then
-            echo "Snapshot commit is not part of p2996 history." >&2
+          if [[ "$revision" != "$p2996_tip" ]]; then
+            echo "Reference-toolchain tags must point at the current p2996 tip." >&2
+            echo "tagged revision: $revision" >&2
+            echo "p2996 tip:       $p2996_tip" >&2
             exit 1
           fi
 
@@ -160,7 +163,7 @@ jobs:
       - name: Checkout tag
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Refuse existing release
         shell: bash

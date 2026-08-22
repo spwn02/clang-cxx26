@@ -174,7 +174,7 @@ git tag p2996-preflight-t3
 git push origin p2996-preflight-t3
 ```
 
-After the workflow has started, the disposable trigger tag can be removed:
+After the workflow has completed, the disposable trigger tag can be removed:
 
 ```bash
 git push origin :refs/tags/p2996-preflight-t3
