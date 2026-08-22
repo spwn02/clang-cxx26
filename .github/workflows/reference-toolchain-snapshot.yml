@@ -39,7 +39,7 @@ jobs:
           source_date_epoch="$(git show -s --format=%ct HEAD)"
           trigger_tag="$GITHUB_REF_NAME"
 
-          git fetch --depth=1 origin p2996:refs/remotes/origin/p2996
+          git fetch --no-tags --depth=1 origin p2996:refs/remotes/origin/p2996
           p2996_tip="$(git rev-parse refs/remotes/origin/p2996)"
 
           if [[ "$revision" != "$p2996_tip" ]]; then
@@ -52,6 +52,9 @@ jobs:
           if [[ "$trigger_tag" =~ ^p2996-[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$ ]]; then
             snapshot="$trigger_tag"
             publish=true
+
+            git fetch --force --no-tags --depth=1 origin \
+              "refs/tags/${trigger_tag}:refs/tags/${trigger_tag}"
 
             if [[ "$(git cat-file -t "refs/tags/$trigger_tag")" != "tag" ]]; then
               echo "Published reference snapshots require an annotated Git tag." >&2
