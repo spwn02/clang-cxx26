@@ -193,7 +193,10 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_atomic_ref",
-            "values": {"c++20": 201806},
+            "values": {
+                "c++20": 201806,
+                "c++26": 202603,  # P2835R7: Expose std::atomic_ref's object address
+            },
             "headers": ["atomic"],
         },
         {
