@@ -76,8 +76,10 @@ consteval auto nonstatic_data_members_of(info class_type,
 consteval auto enumerators_of(info enum_type) -> vector<info>;
 
 // substitute
+consteval auto can_substitute(info templ, initializer_list<info> args) -> bool;
 template <reflection_range R = initializer_list<info>>
   consteval auto can_substitute(info templ, R &&args) -> bool;
+consteval auto substitute(info templ, initializer_list<info> args) -> info;
 template <reflection_range R = initializer_list<info>>
   consteval auto substitute(info templ, R &&args) -> info;
 
@@ -996,6 +998,21 @@ consteval auto is_data_member_spec(info r) -> bool {
 }
 
 // Returns whether 'templ' substituted with 'args' forms a valid template-id.
+//
+// Keep an explicit initializer_list overload in addition to the generic range
+// overload. Braced initializer lists do not reliably satisfy constrained
+// forwarding-range deduction in the current reflection implementation, while
+// the P2996-facing API and the type-trait wrappers below intentionally use
+// calls such as substitute(^^is_same_v, {lhs, rhs}).
+consteval auto can_substitute(info templ, initializer_list<info> args) -> bool {
+  const info sub = __metafunction(detail::__metafn_substitute,
+                                  templ,
+                                  args.begin(),
+                                  args.size(),
+                                  false);
+  return sub != info{};
+}
+
 template <reflection_range R = initializer_list<info>>
 consteval auto can_substitute(info templ, R &&args) -> bool {
   info sub;
@@ -1012,6 +1029,14 @@ consteval auto can_substitute(info templ, R &&args) -> bool {
 
 // Returns a reflection representing the template instantiation of the entity
 // reflected by 'templ' with the entities reflected by 'args'.
+consteval auto substitute(info templ, initializer_list<info> args) -> info {
+  return __metafunction(detail::__metafn_substitute,
+                        templ,
+                        args.begin(),
+                        args.size(),
+                        true);
+}
+
 template <reflection_range R = initializer_list<info>>
 consteval auto substitute(info templ, R &&args) -> info {
   if constexpr (ranges::contiguous_range<R>) {

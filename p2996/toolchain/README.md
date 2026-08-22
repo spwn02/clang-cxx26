@@ -162,6 +162,11 @@ T3 performs a packaging smoke test after extracting the archive into a new locat
 
 Fine-grained language/library feature probing belongs to T4.
 
+The T3 relocation smoke test nevertheless exercises a minimal reflection path
+through `import std`, including libc++'s reflected type-trait wrappers. This is
+intentional: the reference snapshot is not considered usable if its packaged
+standard module cannot consume the reflection-enabled `<meta>` implementation.
+
 ## CI persistence and caching
 
 The snapshot workflow separates expensive production from validation:
