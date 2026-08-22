@@ -1,0 +1,46 @@
+# Generated as part of an immutable clang-p2996 reference-toolchain snapshot.
+# This file is relocatable with the snapshot directory.
+
+cmake_path(GET CMAKE_CURRENT_LIST_DIR PARENT_PATH _p2996_share_dir)
+cmake_path(GET _p2996_share_dir PARENT_PATH _p2996_root)
+cmake_path(NORMAL_PATH _p2996_root)
+
+set(CMAKE_C_COMPILER
+    "${_p2996_root}/bin/clang"
+    CACHE FILEPATH "clang-p2996 C compiler")
+set(CMAKE_CXX_COMPILER
+    "${_p2996_root}/bin/clang++"
+    CACHE FILEPATH "clang-p2996 C++ compiler")
+
+if(EXISTS "${_p2996_root}/bin/llvm-ar")
+  set(CMAKE_AR
+      "${_p2996_root}/bin/llvm-ar"
+      CACHE FILEPATH "clang-p2996 archiver")
+endif()
+
+if(EXISTS "${_p2996_root}/bin/llvm-ranlib")
+  set(CMAKE_RANLIB
+      "${_p2996_root}/bin/llvm-ranlib"
+      CACHE FILEPATH "clang-p2996 ranlib")
+endif()
+
+# Linux Clang otherwise defaults to libstdc++. Keep the snapshot's matching
+# libc++ explicit even though the compiler is built with libc++ as its default.
+string(APPEND CMAKE_CXX_FLAGS_INIT " -stdlib=libc++")
+string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT " -fuse-ld=lld")
+string(APPEND CMAKE_SHARED_LINKER_FLAGS_INIT " -fuse-ld=lld")
+string(APPEND CMAKE_MODULE_LINKER_FLAGS_INIT " -fuse-ld=lld")
+
+set(CMAKE_BUILD_RPATH "@P2996_BUILD_RPATH@")
+
+# CMake 4.4 still requires the experimental import-std gate to be enabled
+# before C++ language discovery. A project may also set this itself.
+if(CMAKE_VERSION VERSION_LESS 4.5
+   AND NOT DEFINED CMAKE_EXPERIMENTAL_CXX_IMPORT_STD)
+  set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD
+      "f35a9ac6-8463-4d38-8eec-5d6008153e7d"
+      CACHE STRING "CMake 4.4 import-std experimental gate")
+endif()
+
+unset(_p2996_share_dir)
+unset(_p2996_root)

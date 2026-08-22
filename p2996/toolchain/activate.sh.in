@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Source this file; do not execute it.
+
+_p2996_root="$(
+  cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." >/dev/null 2>&1
+  pwd -P
+)"
+
+export P2996_TOOLCHAIN_ROOT="${_p2996_root}"
+export P2996_CMAKE_TOOLCHAIN_FILE="${_p2996_root}/share/clang-p2996/toolchain.cmake"
+
+export CC="${_p2996_root}/bin/clang"
+export CXX="${_p2996_root}/bin/clang++"
+export PATH="${_p2996_root}/bin:${PATH}"
+
+_p2996_library_path="@P2996_LIBRARY_PATH@"
+if [[ -n "${LD_LIBRARY_PATH:-}" ]]; then
+  export LD_LIBRARY_PATH="${_p2996_library_path}:${LD_LIBRARY_PATH}"
+else
+  export LD_LIBRARY_PATH="${_p2996_library_path}"
+fi
+
+unset _p2996_library_path
+unset _p2996_root
