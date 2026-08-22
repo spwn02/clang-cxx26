@@ -189,6 +189,8 @@ _LIBCPP_END_NAMESPACE_STD
 #    include <__execution/starts_on.h>
 #    include <__execution/sync_wait.h>
 #    include <__execution/then.h>
+#    include <__execution/unstoppable.h>
+#    include <__execution/write_env.h>
 #  endif // _LIBCPP_STD_VER >= 26
 
 #  if !defined(_LIBCPP_REMOVE_TRANSITIVE_INCLUDES) && _LIBCPP_STD_VER <= 20

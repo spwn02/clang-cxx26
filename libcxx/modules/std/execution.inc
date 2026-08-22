@@ -198,6 +198,16 @@ export namespace std::execution {
   // [exec.on]
   using std::execution::on;
   using std::execution::on_t;
+
+  // [exec.write.env]
+  // write_env's type is unspecified per [execution.syn]; only the CPO object itself is exported.
+  using std::execution::write_env;
+
+  // [exec.unstoppable]
+  // unstoppable's type is unspecified per [execution.syn]; only the CPO object itself is exported.
+#if _LIBCPP_HAS_THREADS
+  using std::execution::unstoppable;
+#endif
 } // namespace std::execution
 
 #if _LIBCPP_HAS_THREADS

@@ -2044,3 +2044,152 @@ blocked, what's next. Do not remove old entries.
   `continues_on`-specific. And before writing any test that calls
   `run_loop::run()` more than once on the same loop, re-read this
   entry's `finish()`-must-be-re-armed finding.
+- **2026-08-22 (third entry)**: Implemented `write_env`/`unstoppable`
+  (new `<__execution/write_env.h>`, `<__execution/unstoppable.h>`).
+  `write_env`'s `impls-for<write-env-t>::join-env(state, env)`
+  ([exec.write.env]p4: `e.query(q)` is `state.query(q)` if valid, else
+  `env.query(q)`) needed no new queryable-combinator type — it's exactly
+  `execution::env<_Envs...>`'s existing first-match-wins forwarding
+  (`<__execution/env.h>`), so `__write_env_join(state, env)` is just
+  `execution::env(state, env)`. `unstoppable(sndr)` is literally
+  `write_env(sndr, prop(get_stop_token, never_stop_token{}))`
+  ([exec.unstoppable]p2) — the whole file is a four-line CPO plus a
+  paragraph of ordering/threading commentary.
+
+  **Pipe-form question, resolved with a concrete control case, not just
+  reasoning:** neither clause says "denotes a pipeable sender adaptor
+  object" (the phrase [exec.then]/[exec.on]/[exec.let] use to grant the
+  `adaptor(args...)` partial-application overload per
+  [exec.adapt.obj]p4-5) — only "is a customization point object". Read
+  in isolation, [exec.adapt.obj]p4's *definition* ("a customization
+  point object that accepts a sender as its first argument and returns
+  a sender") looks like it could auto-grant the classification to
+  anything shaped that way, which would make `write_env`/`unstoppable`
+  pipeable regardless of the missing phrase. Settled by checking
+  [exec.schedule.from]p1 (already implemented, `<__execution/
+  schedule_from.h>`, no pipe support): it uses the *identical*
+  "denotes a customization point object" phrasing for a single-
+  argument, sender-first CPO that would trivially satisfy p4's shape
+  and would therefore have to be unconditionally pipeable if the shape
+  alone were sufficient (p4's last sentence: a one-argument pipeable
+  sender adaptor object *is* a pipeable sender adaptor closure object,
+  no partial application even needed) — and it isn't implemented that
+  way. So p4 defines the *term*; a clause's own "denotes a pipeable
+  sender adaptor object" is the actual per-CPO grant. `write_env`/
+  `unstoppable` are therefore call-only: no `write_env(env)` closure,
+  no `sndr | write_env(env)`, no `sndr | unstoppable`. Full reasoning
+  and the `schedule_from` control case are recorded in
+  `<__execution/write_env.h>`'s header comment (long — read it before
+  re-litigating this for a future adaptor).
+
+  **Real pre-existing bug found and fixed, one layer down:**
+  [exec.unstoppable]p2's own canonical implementation
+  (`write_env(sndr, prop(get_stop_token, never_stop_token{}))`) didn't
+  compile against this fork's `get_stop_token_t`
+  (`<__execution/get_stop_token.h>`). Root cause: `prop::query()` is
+  specified ([exec.prop]) to return `const ValueType&` (a genuine
+  reference, not a decayed copy), but `get_stop_token_t::operator()`'s
+  Mandates check was `static_assert(stoppable_token<decltype(__env.query(*this))>,
+  ...)` — no `remove_cvref_t`, so for any env answering via `prop` this
+  checked `stoppable_token<const T&>`, which is *unconditionally false*
+  (`stoppable_token` requires `copyable`, which requires
+  `movable`/`is_object_v`, false for every reference type). That would
+  make `prop(get_stop_token, tok)` permanently unusable, contradicting
+  the standard's own canonical `unstoppable` composition — so this was
+  a bug in `get_stop_token_t`, not in `prop` or in this session's new
+  code. Fixed with one `remove_cvref_t` (matches the `auto`, not
+  `decltype(auto)`, return type on the same function, which already
+  decays the same way in the actual `return` statement — only the
+  static_assert had the mismatch). This is a **separate commit** from
+  the `write_env`/`unstoppable` addition, since it changes a shared
+  query CPO used by `run_loop`, `sync_wait`, and every future stop-
+  token-aware adaptor.
+
+  Grepped `__execution/*.h` for the same missing-decay shape
+  (`static_assert` / `{ expr } -> Concept` checking a query's result
+  type without stripping references) to see whether this is one bug or
+  a class of them: `get_completion_scheduler_t`/`get_scheduler_t`
+  (`get_scheduler.h`) are **not** affected — they deduce a template
+  parameter from a by-value-ish `const _Q&` function parameter rather
+  than taking `decltype` of a call expression, so reference-ness is
+  already stripped by deduction. `get_allocator_t` (`get_allocator.h`)
+  and `get_forward_progress_guarantee_t`
+  (`get_forward_progress_guarantee.h`) **are** structurally the same
+  shape as the `get_stop_token_t` bug (`{ __env.query(__self) } ->
+  Concept`, with `__simple_allocator`/`same_as<forward_progress_
+  guarantee>` as the concept) — both would plausibly break the same
+  way if ever answered via `prop(get_allocator, some_alloc)` or
+  `prop(get_forward_progress_guarantee, guarantee)`, since `copyable`/
+  `__simple_allocator`'s `copy_constructible` both bottom out in the
+  same `is_object_v` requirement. **Not fixed this session** (out of
+  scope, unconfirmed by an actual failing test) — flagged for whoever
+  next touches either of those two files.
+
+  **Test-writing trap, worth remembering for any future test that uses
+  `read_env` as a probe child:** a query object with an unconstrained
+  `const auto&` parameter and a *fixed* (non-deduced) return type
+  makes `read_env`'s own `get_completion_signatures` constraint
+  (`requires { { _Query()(__env) }; requires !is_void_v<...>; }`)
+  vacuously true for *any* env, including one that doesn't actually
+  answer the query — forming the call never needs the body
+  (`env.query(...)`) to compile, only *invoking* it would fail, and
+  `get_completion_signatures` only ever does `decltype(...)`/
+  `noexcept(...)` on the call (both unevaluated contexts). First hit
+  while trying to write a negative (`!sender_in`) check for
+  `write_env`'s joined-environment `get_completion_signatures` formula
+  ([exec.write.env]p5) using the same permissive query object the
+  positive/runtime checks used. Fix pattern used in
+  `write_env.pass.cpp`: keep the permissive query object (`get_value_t`)
+  for runtime tests, and add a *second*, genuinely constrained caller
+  (`read_value_t`, `requires requires(const _Env& e) { e.query(get_value); }`)
+  purely for the type-level discrimination checks — referencing the
+  already-complete `get_value` object rather than constructing a fresh
+  `get_value_t{}` inside its own class's constraint (which would need
+  `get_value_t` complete at a point inside its own definition).
+
+  Also hit, unrelated to the above: `__write_env_sndr`'s `tag` member
+  is `__write_env_t tag;` — a *non-dependent* by-value field naming the
+  CPO's own type directly (write_env has only one CPO, unlike
+  then/on/schedule_from's `_Tag`-templated senders). A non-dependent
+  by-value member must be a complete type at the point its enclosing
+  class *template* is defined, not deferred to instantiation the way a
+  dependent member would be — so `__write_env_t` had to be fully
+  defined *before* `__write_env_sndr` in the header (matching
+  `<__execution/read_env.h>`'s existing ordering, for the same reason).
+
+  Tests: new `exec.adapt/{exec.write.env,exec.unstoppable}/*.pass.cpp`.
+  `write_env.pass.cpp` covers: state-overrides-outer-env priority,
+  fallback-to-outer-env when state doesn't answer, sender-level
+  attributes coming from the child only (not the written env), the
+  no-partial-application-form static_assert, and three joined-env
+  `get_completion_signatures` static_asserts (state-answers,
+  neither-answers ⇒ `!sender_in`, only-outer-answers-via-fallback).
+  `unstoppable.pass.cpp` covers: the child seeing `never_stop_token`
+  regardless of the outer receiver's own (real, stoppable)
+  `inplace_stop_token`, plus a completion-signatures cross-check
+  against `write_env` directly, tying [exec.unstoppable]p2's
+  expression-equivalence to the implementation.
+
+  `execution/` + `thread.stoptoken/` 74/74 green,
+  `module_std.gen.py`/`transitive_includes.gen.py` 125/126 (same
+  pre-existing 1-unsupported baseline, no diff despite the two new
+  headers), `libcxx-generate-files` clean (no feature-test-macro
+  change — `__cpp_lib_senders` stays gated to M6), no
+  `-D_LIBCPP_ENABLE_EXPERIMENTAL` compile re-verified for both new
+  headers. New headers registered in `CMakeLists.txt`,
+  `<execution>`'s M5 include block, and the C++26-guarded exports in
+  `libcxx/modules/std/execution.inc` (`unstoppable`'s export gated on
+  `_LIBCPP_HAS_THREADS`, matching `get_stop_token.h`'s own gating).
+  `Cxx2cPapers.csv` untouched (flips at M6 only).
+
+  **Next session: continue M5** with the remaining adaptors
+  (`when_all`/`when_all_with_variant`/`into_variant`/
+  `stopped_as_optional`/`stopped_as_error`/`bulk`/`bulk_chunked`/
+  `bulk_unchunked`). `stopped_as_optional`/`stopped_as_error` are
+  single-child, single-completion-tag-rewrite adaptors similar in
+  shape to `then`/`upon_error` — likely the next good small pairing.
+  `when_all`/`when_all_with_variant` are the first *multi*-child
+  adaptors in this sub-plan (M3/M4 and M5 so far have all been single-
+  or dual-child) and will need real new machinery for joining multiple
+  child operation states and completion-signature sets — budget more
+  time for that one than for the others.

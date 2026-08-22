@@ -376,6 +376,8 @@ set(files
   __execution/starts_on.h
   __execution/sync_wait.h
   __execution/then.h
+  __execution/unstoppable.h
+  __execution/write_env.h
   __expected/bad_expected_access.h
   __expected/expected.h
   __expected/unexpect.h
