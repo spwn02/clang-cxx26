@@ -1088,9 +1088,9 @@ back to `to_input` based on the paper title alone.
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
 | [ ] | P2542R8 | `views::concat` | |
-| [ ] | P3138R5 | `views::cache_latest` | |
-| [ ] | P3137R3 | `views::to_input` | |
-| [ ] | P2846R6 | `reserve_hint` | |
+| [x] | P3138R5 | `views::cache_latest` | Complete 2026-08-22 — scaffolded but untested; fixed missing `_LIBCPP_HIDE_FROM_ABI` throughout, a wrongly-added `enable_borrowed_range` specialization, and two private constructors missing `constexpr` |
+| [x] | P3137R3 | `views::to_input` (adopted as `views::as_input`) | Complete 2026-08-22 — same conformance-pass fixes as P3138R5 (missing `_LIBCPP_HIDE_FROM_ABI`, wrong `enable_borrowed_range` specialization) |
+| [x] | P2846R6 | `reserve_hint` | Complete 2026-08-22 — CPO/concept were already scaffolded but untested; added tests, fixed a `_LIBCPP_HIDE_FROM_ABI` gap and `ranges::to` using `sized_range`/`ranges::size` instead of `approximately_sized_range`/`ranges::reserve_hint` |
 | [ ] | P2630R4 | `submdspan` | |
 | [ ] | P2642R6 | Padded `mdspan` layouts | |
 | [ ] | P3355R1 | `submdspan` C++26 fixes | Depends on P2630R4 |

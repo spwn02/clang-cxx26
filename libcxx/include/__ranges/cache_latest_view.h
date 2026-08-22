@@ -42,13 +42,13 @@ class cache_latest_view : public view_interface<cache_latest_view<_View>> {
 
 public:
   cache_latest_view() requires default_initializable<_View> = default;
-  constexpr explicit cache_latest_view(_View __base) : __base_(std::move(__base)) {}
-  constexpr _View base() const& requires copy_constructible<_View> { return __base_; }
-  constexpr _View base() && { return std::move(__base_); }
-  constexpr auto begin() { return __iterator(*this); }
-  constexpr auto end() { return __sentinel(*this); }
-  constexpr auto size() requires sized_range<_View> { return ranges::size(__base_); }
-  constexpr auto size() const requires sized_range<const _View> { return ranges::size(__base_); }
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit cache_latest_view(_View __base) : __base_(std::move(__base)) {}
+  _LIBCPP_HIDE_FROM_ABI constexpr _View base() const& requires copy_constructible<_View> { return __base_; }
+  _LIBCPP_HIDE_FROM_ABI constexpr _View base() && { return std::move(__base_); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto begin() { return __iterator(*this); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto end() { return __sentinel(*this); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto size() requires sized_range<_View> { return ranges::size(__base_); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto size() const requires sized_range<const _View> { return ranges::size(__base_); }
 
 private:
   friend class __iterator;
@@ -63,7 +63,7 @@ template <input_range _View>
 class cache_latest_view<_View>::__iterator {
   cache_latest_view* __parent_;
   iterator_t<_View> __current_;
-  explicit __iterator(cache_latest_view& __parent)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __iterator(cache_latest_view& __parent)
       : __parent_(std::addressof(__parent)), __current_(ranges::begin(__parent.__base_)) {}
   friend class cache_latest_view;
 
@@ -73,9 +73,9 @@ public:
   using iterator_concept = input_iterator_tag;
   __iterator(__iterator&&) = default;
   __iterator& operator=(__iterator&&) = default;
-  constexpr iterator_t<_View> base() && { return std::move(__current_); }
-  constexpr const iterator_t<_View>& base() const& noexcept { return __current_; }
-  constexpr range_reference_t<_View>& operator*() const {
+  _LIBCPP_HIDE_FROM_ABI constexpr iterator_t<_View> base() && { return std::move(__current_); }
+  _LIBCPP_HIDE_FROM_ABI constexpr const iterator_t<_View>& base() const& noexcept { return __current_; }
+  _LIBCPP_HIDE_FROM_ABI constexpr range_reference_t<_View>& operator*() const {
     if constexpr (is_reference_v<range_reference_t<_View>>) {
       if (!__parent_->__cache_.__has_value())
         __parent_->__cache_.__emplace(std::addressof(*__current_));
@@ -86,11 +86,11 @@ public:
       return *__parent_->__cache_;
     }
   }
-  constexpr __iterator& operator++() { __parent_->__cache_ = {}; ++__current_; return *this; }
-  constexpr void operator++(int) { ++*this; }
-  friend constexpr range_rvalue_reference_t<_View> iter_move(const __iterator& __it)
+  _LIBCPP_HIDE_FROM_ABI constexpr __iterator& operator++() { __parent_->__cache_ = {}; ++__current_; return *this; }
+  _LIBCPP_HIDE_FROM_ABI constexpr void operator++(int) { ++*this; }
+  friend _LIBCPP_HIDE_FROM_ABI constexpr range_rvalue_reference_t<_View> iter_move(const __iterator& __it)
       noexcept(noexcept(ranges::iter_move(__it.__current_))) { return ranges::iter_move(__it.__current_); }
-  friend constexpr void iter_swap(const __iterator& __x, const __iterator& __y)
+  friend _LIBCPP_HIDE_FROM_ABI constexpr void iter_swap(const __iterator& __x, const __iterator& __y)
       noexcept(noexcept(ranges::iter_swap(__x.__current_, __y.__current_)))
       requires indirectly_swappable<iterator_t<_View>> { ranges::iter_swap(__x.__current_, __y.__current_); }
 };
@@ -99,27 +99,25 @@ template <input_range _View>
   requires view<_View>
 class cache_latest_view<_View>::__sentinel {
   sentinel_t<_View> __end_ = sentinel_t<_View>();
-  explicit __sentinel(cache_latest_view& __parent) : __end_(ranges::end(__parent.__base_)) {}
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __sentinel(cache_latest_view& __parent)
+      : __end_(ranges::end(__parent.__base_)) {}
   friend class cache_latest_view;
 public:
   __sentinel() = default;
-  constexpr sentinel_t<_View> base() const { return __end_; }
-  friend constexpr bool operator==(const __iterator& __it, const __sentinel& __sent) {
+  _LIBCPP_HIDE_FROM_ABI constexpr sentinel_t<_View> base() const { return __end_; }
+  friend _LIBCPP_HIDE_FROM_ABI constexpr bool operator==(const __iterator& __it, const __sentinel& __sent) {
     return __it.__current_ == __sent.__end_;
   }
-  friend constexpr range_difference_t<_View> operator-(const __iterator& __it, const __sentinel& __sent)
+  friend _LIBCPP_HIDE_FROM_ABI constexpr range_difference_t<_View> operator-(const __iterator& __it, const __sentinel& __sent)
       requires sized_sentinel_for<sentinel_t<_View>, iterator_t<_View>> { return __it.__current_ - __sent.__end_; }
-  friend constexpr range_difference_t<_View> operator-(const __sentinel& __sent, const __iterator& __it)
+  friend _LIBCPP_HIDE_FROM_ABI constexpr range_difference_t<_View> operator-(const __sentinel& __sent, const __iterator& __it)
       requires sized_sentinel_for<sentinel_t<_View>, iterator_t<_View>> { return __sent.__end_ - __it.__current_; }
 };
-
-template <class _View>
-inline constexpr bool enable_borrowed_range<cache_latest_view<_View>> = enable_borrowed_range<_View>;
 
 namespace views {
 struct __cache_latest_fn : range_adaptor_closure<__cache_latest_fn> {
   template <viewable_range _Range>
-  constexpr auto operator()(_Range&& __range) const { return cache_latest_view(std::forward<_Range>(__range)); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const { return cache_latest_view(std::forward<_Range>(__range)); }
 };
 inline constexpr __cache_latest_fn cache_latest{};
 } // namespace views
