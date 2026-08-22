@@ -97,11 +97,16 @@ concept __is_awaitable = requires(_Cp (*__fc)() noexcept, _Promise&... __p) {
   { execution::__get_awaiter(__fc(), __p...) } -> __is_awaiter<_Promise...>;
 };
 
-// [exec.awaitable]p4: await-result-type<C, Promise> and await-result-type<C>, unified via a
-// defaulted second parameter -- __get_awaiter(c, __exec_none_such&) and __get_awaiter(c) are
-// equivalent by construction (the latter simply supplies its own none-such internally).
-template <class _Cp, class _Promise = __exec_none_such>
-using __await_result_type = decltype(execution::__get_awaiter(std::declval<_Cp>(), std::declval<_Promise&>()).await_resume());
+// [exec.awaitable]p4: await-result-type<C, Promise> and await-result-type<C>, unified as a
+// variadic alias (rather than a defaulted second parameter) so callers can pack-expand a
+// possibly-empty Env pack directly into the Promise slot, matching __is_awaitable's own
+// shape (e.g. get_completion_signatures.h's `__await_result_type<Sndr, __env_promise<Env>...>`
+// for a zero-or-one-element Env pack) -- a pack expansion cannot target a non-pack (even
+// defaulted) template parameter. Selects between __get_awaiter's one- and two-argument
+// overloads based on whether the Promise pack is empty, exactly like __is_awaitable.
+template <class _Cp, class... _Promise>
+using __await_result_type =
+    decltype(execution::__get_awaiter(std::declval<_Cp>(), std::declval<_Promise&>()...).await_resume());
 
 // [exec.awaitable]p5: with-await-transform.
 template <class _Tp, class _Promise>

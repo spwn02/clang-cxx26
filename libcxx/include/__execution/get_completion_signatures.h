@@ -11,13 +11,16 @@
 
 #include <__concepts/same_as.h>
 #include <__config>
+#include <__execution/awaitable.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/domain.h>
 #include <__execution/env.h>
 #include <__execution/queryable.h>
 #include <__execution/sender.h>
+#include <__type_traits/conditional.h>
 #include <__type_traits/decay.h>
 #include <__type_traits/is_same.h>
+#include <__type_traits/is_void.h>
 #include <__type_traits/remove_reference.h>
 #include <__type_traits/type_identity.h>
 #include <__utility/declval.h>
@@ -60,6 +63,10 @@ concept __has_member_get_completion_signatures = requires {
   { remove_reference_t<_Sndr>::template get_completion_signatures<_Sndr, _Env...>() } -> __valid_completion_signatures;
 };
 
+// [exec.snd.concepts]: SET-VALUE-SIG(T) -- set_value_t() if T is void, otherwise set_value_t(T).
+template <class _T>
+using __set_value_sig_t = conditional_t<is_void_v<_T>, set_value_t(), set_value_t(_T)>;
+
 // [exec.getcomplsigs]: NewSndr is Sndr if sizeof...(Env) == 0; otherwise
 // decltype(transform_sender(declval<Sndr>(), declval<Env>()...)).
 template <class _Sndr>
@@ -71,17 +78,29 @@ _LIBCPP_HIDE_FROM_ABI auto __get_compl_sigs_new_sndr()
 template <class _Sndr, class... _Env>
 using __get_compl_sigs_new_sndr_t = decltype(execution::__get_compl_sigs_new_sndr<_Sndr, _Env...>());
 
+// [exec.getcomplsigs] (3.3): the awaitable fallback, reached only when neither member
+// get_completion_signatures overload above is viable -- this disjunct is therefore only
+// ever *evaluated* (never short-circuited away) for types that are already known not to be
+// library-provided senders, so __is_awaitable's own SFINAE-safety (see awaitable.h) is what
+// keeps this from hard-erroring on ordinary non-sender, non-awaitable types.
+template <class _Sndr, class... _Env>
+concept __get_compl_sigs_awaitable_fallback = __is_awaitable<_Sndr, __env_promise<_Env>...>;
+
 // [exec.getcomplsigs]
 template <class _Sndr, class... _Env>
   requires(sizeof...(_Env) <= 1) &&
           (__has_member_get_completion_signatures<__get_compl_sigs_new_sndr_t<_Sndr, _Env...>, _Env...> ||
-           __has_member_get_completion_signatures<__get_compl_sigs_new_sndr_t<_Sndr, _Env...>>)
+           __has_member_get_completion_signatures<__get_compl_sigs_new_sndr_t<_Sndr, _Env...>> ||
+           __get_compl_sigs_awaitable_fallback<__get_compl_sigs_new_sndr_t<_Sndr, _Env...>, _Env...>)
 consteval __valid_completion_signatures auto get_completion_signatures() {
   using _NewSndr = __get_compl_sigs_new_sndr_t<_Sndr, _Env...>;
   if constexpr (__has_member_get_completion_signatures<_NewSndr, _Env...>) {
     return remove_reference_t<_NewSndr>::template get_completion_signatures<_NewSndr, _Env...>();
-  } else {
+  } else if constexpr (__has_member_get_completion_signatures<_NewSndr>) {
     return remove_reference_t<_NewSndr>::template get_completion_signatures<_NewSndr>();
+  } else {
+    using _V = __await_result_type<_NewSndr, __env_promise<_Env>...>;
+    return completion_signatures<__set_value_sig_t<_V>, set_error_t(exception_ptr), set_stopped_t()>{};
   }
 }
 
