@@ -1171,13 +1171,19 @@ back to `to_input` based on the paper title alone.
 
 ### Tier 4 — Atomics
 
+Started and mostly worked 2026-08-23. Ran the same assessment-gate discipline
+as Tier 3 before touching code — see session log entry below for what it
+found (in particular, P0493R5's fetch_max/fetch_min were a pure library gap:
+the compiler side, `__c11_atomic_fetch_max/min` and its `atomicrmw fmax/
+fmin` lowering, was already fully in place).
+
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
-| [ ] | P0493R5 | Atomic min/max | |
-| [ ] | P2835R7 | `atomic_ref` object address exposure | |
-| [ ] | P3323R1 | cv-qualified types in `atomic`/`atomic_ref` | |
-| [ ] | P3309R3 | `constexpr atomic`/`atomic_ref` | |
-| [ ] | P2869R4 | Remove deprecated `shared_ptr` atomic access APIs | Removal, not addition — low complexity |
+| [x] | P0493R5 | Atomic min/max | Complete 2026-08-23 — `fetch_max`/`fetch_min` added to `atomic<Integral>`, `atomic<Floating-point>`, `atomic_ref<Integral>`, `atomic_ref<Floating-point>`, plus the `atomic_fetch_max(_explicit)`/`atomic_fetch_min(_explicit)` free functions. Integral routes through the pre-existing `__c11_atomic_fetch_max/min`/`__atomic_fetch_max/min` compiler builtins (single `atomicrmw`, no CAS loop); floating-point follows `fmaximum_num`/`fminimum_num` NaN semantics via the same CAS-loop fallback pattern `fetch_add`/`fetch_sub` already used for the fp80-long-double case |
+| [x] | P2835R7 | `atomic_ref` object address exposure | Complete 2026-08-23 — `constexpr T* address() const noexcept` added to `__atomic_ref_base<T>` (inherited by every specialization). Per the paper itself the return type is `T*`, not the `COPYCV(T,void)*` shown on eel.is — that form comes from a later merge (likely P3323R1-adjacent wording polish), not this paper; don't "fix" this back if a future session compares against the live draft |
+| [ ] | P3323R1 | cv-qualified types in `atomic`/`atomic_ref` | Assessed 2026-08-23, not attempted — see session log. Two real blockers, not scope-timidity: (1) eel.is is post-P3309R3-merge, so its `atomic_ref` synopsis has an extra converting constructor this paper does not add (confirmed against the paper's own wording diff) and marks everything `constexpr` — can't be copied directly, every signature needs hand reconciliation against the paper text; (2) the conformant signatures use `value_type` (`remove_cv_t<T>`) for store/load/exchange/compare_exchange parameters, but `__atomic_ref_base`'s internal `__compare_exchange`/`__clear_padding` helpers are typed on `T*` itself — for `atomic_ref<volatile T>` this is a real type mismatch, not just a `requires`-clause gap, so a conformant implementation needs those internals re-threaded first. What *is* already confirmed safe: specialization selection still works unchanged (`std::integral<const int>` is satisfied, so `atomic_ref<const int>` already picks the integral specialization), and `atomic_ref<T* const>` naturally falls through to the primary (non-pointer) template rather than needing special-casing, since `T* const` doesn't match the `atomic_ref<_Tp*>` partial-specialization pattern |
+| [ ] | P3309R3 | `constexpr atomic`/`atomic_ref` | Assessed 2026-08-23 — **does not need a clang change**, the paper's own implementation strategy is an `if consteval` sequential fallback in the library, same shape as e.g. `allocator<T>::allocate`'s existing `__libcpp_is_constant_evaluated()` branch. But it touches every RMW/wait/notify path across `atomic.h`, `atomic_ref.h`, `support/c11.h`, `support/gcc.h`, and `atomic_sync.h` — a real redesign, not a conformance pass. Dedicated session |
+| [x] | P2869R4 | Remove deprecated `shared_ptr` atomic access APIs | Complete 2026-08-23 — the tracker's own "low complexity" label undersold this: these functions had never been given `_LIBCPP_DEPRECATED_IN_CXX20` in this fork despite the standard deprecating them since C++20 ([depr.util.smartptr.shared.atomic]), so the work was adding that plus the `_LIBCPP_ENABLE_CXX26_REMOVED_SHARED_PTR_ATOMICS` escape-hatch gate (same pattern as allocator/string/codecvt/strstream) plus updating 11 existing test files with the escape-hatch flag, not a bare deletion. `__sp_mut`/`__get_sp_mut` stay unconditional — implementation plumbing, not part of the removed public surface. Verified empty via `grep -rn "std::atomic_load\|atomic_store\|atomic_exchange\|atomic_compare_exchange" libcxx/src libcxx/test` (excluding the shared_ptr test dir itself) that no other in-tree code calls the now-deprecated overloads under `-Werror` |
 
 ### Tier 5 — Freestanding completeness
 
@@ -1236,7 +1242,7 @@ tiers as makes sense.
 | [ ] | P2843R3 | Preprocessing is never undefined | |
 | [ ] | P3533R2 | `constexpr` virtual inheritance | |
 | [ ] | P3074R7 | Trivial unions | Library-adjacent — coordinate with libcxx if relevant containers change |
-| [ ] | P3475R2 | Defang and deprecate `memory_order::consume` | Coordinate with Tier 4 atomics work |
+| [ ] | P3475R2 | Defang and deprecate `memory_order::consume` | Coordinate with Tier 4 atomics work — the 2026-08-23 Tier 4 session did not touch `memory_order.h`, so this is still fully deferred, not partially covered |
 | [ ] | P1967R14 | `#embed` | |
 | [!] | P1494R5 | Partial program correctness | Research-flavored, open-ended scope — consider deferring alongside Contracts once its actual scope is assessed |
 
@@ -3326,3 +3332,51 @@ blocked, what's next. Do not remove old entries.
   pass"), the P3107R5/P3235R3 `std::print` internals redesign, or move to
   Tier 4 (atomics) — all independent starting points, no forced ordering
   between them.
+
+- **2026-08-23: Tier 4 (atomics) started, 3 of 5 papers Complete.** Ran
+  the assessment gate across all five papers before touching code (per
+  the advisor's push-back going in — Tier 4's Notes column was completely
+  empty, unlike Tier 3 where the gate was partly pre-run). Landed
+  **P0493R5** (atomic min/max), **P2835R7** (`atomic_ref::address()`),
+  and **P2869R4** (remove deprecated `shared_ptr` atomic access APIs) as
+  three separate commits; see their Tier 4 rows above for what each
+  actually involved. The standout finding: P0493R5 looked like it might
+  need clang changes (the tier's biggest open risk per the advisor), but
+  reading `Builtins.td`/`SemaChecking.cpp`/`CGAtomic.cpp` directly showed
+  `__c11_atomic_fetch_max/min` and their `atomicrmw fmax/fmin` lowering
+  were already fully implemented in this fork's clang — a pure libc++
+  header gap, not a compiler gap. Worth remembering next time a paper
+  looks compiler-adjacent: check the builtin/codegen layer before assuming
+  it's out of scope.
+
+  **P3323R1** (cv-qualified `atomic`/`atomic_ref`) and **P3309R3**
+  (`constexpr atomic`/`atomic_ref`) were assessed, not attempted — both
+  real blockers, not scope-timidity, recorded in detail in their Tier 4
+  rows. Short version: P3323R1's `eel.is` synopsis is post-P3309R3-merge
+  (has a converting constructor the paper itself doesn't add, confirmed
+  by fetching the paper text directly rather than trusting the draft), and
+  its conformant `value_type`-typed signatures collide with
+  `__atomic_ref_base`'s internal `T*`-typed `__compare_exchange`/
+  `__clear_padding` helpers for `atomic_ref<volatile T>` — a real
+  internals-threading problem, not something a `requires` clause papers
+  over. P3309R3 doesn't need a clang change (the paper's own strategy is
+  an `if consteval` library-side fallback) but touches every RMW/wait/
+  notify path across five files — a dedicated session, same shape as
+  Tier 3's `std::print` redesign finding.
+
+  Verified: full `atomics/` + `utilities/memory/` + `thread/` +
+  `support.limits.general/` + `libcxx/atomics/` suites (803 tests) all
+  green both before commits (baseline) and after all three; confirmed via
+  targeted compile check that `std::atomic_load(&shared_ptr)` etc. now
+  hard-error under plain C++26 and compile clean with the escape-hatch
+  macro; grepped the whole tree for any other in-tree caller of the newly
+  gated `shared_ptr` atomic functions (none, so the `-Werror`-under-test
+  build stays clean); `libcxx-generate-files` + `git diff` clean with no
+  drift left unstaged. One concurrent-writer note: another process was
+  committing to this same working tree mid-session (`ae2dfc5b1ce0`, a
+  reflection-range fix, plus a `.github/workflows/` edit) — never
+  reverted or touched, staged this session's work by explicit path each
+  time, waited out one `index.lock` collision rather than removing it.
+  Next: P3323R1 (internals re-thread first), P3309R3 (five-file RMW
+  redesign), or Tier 5/6 — independent starting points, no forced
+  ordering.
