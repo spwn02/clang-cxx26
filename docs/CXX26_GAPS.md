@@ -182,9 +182,9 @@ than being tackled as a single commit.
 
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
-| [~] | P2300R10 | `std::execution` (sender/receiver) | In progress 2026-08-20 — see dedicated sub-plan below. Scope confirmed to collapse with P3325R5/P3396R1 into one effort (merged draft wording); do not attempt as one commit. |
-| [~] | P3325R5 | Execution environment utility | Folded into the P2300R10 sub-plan below (its content is `[exec.envs]`/`prop`+`env`, M1) — tracked/flipped together with P2300R10, not separately |
-| [~] | P3396R1 | `std::execution` wording fixes | No separable content — already merged into current draft wording used by the sub-plan below; flips to Complete alongside P2300R10 at M6, not separately implemented |
+| [x] | P2300R10 | `std::execution` (sender/receiver) | Complete 2026-08-22 — see dedicated sub-plan below. Scope confirmed to collapse with P3325R5/P3396R1 into one effort (merged draft wording); landed across M1–M6c. |
+| [x] | P3325R5 | Execution environment utility | Folded into the P2300R10 sub-plan below (its content is `[exec.envs]`/`prop`+`env`, M1) — flipped together with P2300R10 |
+| [x] | P3396R1 | `std::execution` wording fixes | No separable content — already merged into current draft wording used by the sub-plan below; flipped to Complete alongside P2300R10 at M6c, not separately implemented |
 | [!] | P2900R14 | Contracts | **Deferred** — see Scope section above |
 
 ### Tier 2 Sub-Plan: P2300R10 `std::execution` (sender/receiver)
@@ -956,22 +956,24 @@ schedulers can't come before sender concepts exist):**
   continuation and splice its operation state in" shape is more involved
   than `then`/`upon_error`/`upon_stopped`'s "just invoke `fn` and complete"
   shape.
-- [~] **M6** — Coroutine integration: `as_awaitable`,
-  `with_awaitable_senders`. Flip `__cpp_lib_senders` `unimplemented: False`
-  and all three CSV rows to `|Complete|` **only here** — it's a single
-  all-or-nothing `202406` value; flipping it at any earlier milestone
-  would make conforming user code detect a feature surface that isn't
-  fully there yet.
+- [x] **M6** — Coroutine integration: `as_awaitable`,
+  `with_awaitable_senders`. `__cpp_lib_senders`'s `unimplemented` flag
+  dropped and all three CSV rows flipped to `|Complete|` in the M6c-3
+  follow-up commit — it's a single all-or-nothing `202406` value, held
+  back until every M6c retrofit landed so conforming user code wouldn't
+  detect a feature surface that wasn't fully there yet.
   - [x] M6a: `[exec.awaitable]` foundation (`GET-AWAITER`, `is-awaiter`,
     `is-awaitable`, `await-suspend-result`, `await-result-type`,
     `with-await-transform`, `env-promise`) — private, no public surface.
   - [x] M6b: `as_awaitable`, `with_awaitable_senders` — public surface,
     exported.
-  - [ ] M6c: retrofit `enable-sender`'s awaitable disjunct
+  - [x] M6c: retrofit `enable-sender`'s awaitable disjunct
     (`sender.h`) and `connect`'s `connect-awaitable` fallback
-    (`connect.h`) — resolves M2 deviations 1 and 5. **Land last and
-    separately**: both touch the instantiation path of every test in
-    `execution/`, so a regression needs a clean, isolated bisect point.
+    (`connect.h`) — resolves M2 deviations 1 and 5. Landed as three
+    separate commits: M6c-1 (`get_completion_signatures`'s awaitable
+    fallback), M6c-2 (`enable-sender`'s disjunct), M6c-3
+    (`connect-awaitable` itself, plus a real `__set_value_sig_t` bug
+    found and fixed along the way — see Session Log).
     Only after M6c lands does the CSV flip happen.
 
 **Threading & build-matrix notes for later milestones (recorded now so
@@ -989,8 +991,14 @@ they don't get discovered late):**
   both after **every** milestone, not just at the end.
 
 **FTM discipline:** `Cxx2cPapers.csv` rows for P2300R10/P3325R5/P3396R1
-set to `|In Progress|` as of this sub-plan (2026-08-20); do not touch
-`__cpp_lib_senders`'s `unimplemented` flag until M6.
+were `|In Progress|` from this sub-plan's start (2026-08-20) until M6c
+closed on 2026-08-22, when all three flipped to `|Complete|` and
+`__cpp_lib_senders`'s `unimplemented` flag was dropped together, in one
+commit. That flip regenerates files outside `execution/` (`libcxx/include/
+version`, `libcxx/test/std/language.support/support.limits/
+support.limits.general/{version,execution}.version.compile.pass.cpp`) —
+run those tests too, not just `execution/`, when reproducing or
+extending that commit.
 
 ### Tier 3 — Ranges, mdspan/linalg, format completions
 
@@ -2834,3 +2842,88 @@ blocked, what's next. Do not remove old entries.
   demonstrates `connect-awaitable` actually working does the
   `__cpp_lib_senders`/CSV flip happen — M6c-1 and M6c-2 are type-level
   only.
+
+- **2026-08-22 (Tier 2, M6 closed — M6c-2, a real `__set_value_sig_t`
+  bug, M6c-3, and the CSV/FTM flip)**: Finished M6c and closed Tier 2's
+  P2300R10 sub-plan, in four commits.
+
+  **M6c-2** (`sender.h`): one-line retrofit exactly as M6c-1's own
+  header comment anticipated — `enable_sender<_Sndr> = __is_sender<_Sndr>
+  || __is_awaitable<_Sndr, __env_promise<env<>>>`. Added `awaitable.h`/
+  `env.h` includes (no cycle — neither includes `sender.h`). Full suite
+  still 83/83, `libcxx-generate-files` clean.
+
+  **`__set_value_sig_t` bug** (its own commit, ahead of M6c-3): while
+  writing M6c-3's test with a *void*-returning bare awaitable, hit a
+  hard error inside `sender_in`'s own `requires` check —
+  `__set_value_sig_t<void>` doesn't SFINAE away, it hard-errors.
+  Root cause: `conditional_t<is_void_v<_T>, set_value_t(), set_value_t(_T)>`
+  requires *both* alternatives to be well-formed types before picking
+  one, and `set_value_t(void)` is ill-formed regardless of which branch
+  wins — the same "non-immediate-context SFINAE trap" class as M6c-1's
+  `__await_result_type` bug, just one alias template over. M6c-1's own
+  83/83-green suite never instantiated this alias with `_T = void`, so
+  it shipped unnoticed. Fixed with an explicit `__set_value_sig<void>`
+  partial specialization instead of `conditional_t`, which never forms
+  the ill-formed alternative. Dropped the now-dead `conditional_t`/
+  `is_void_v` includes. This is the *second* time on this milestone that
+  a green suite concealed a fallback branch nothing in-tree reached —
+  worth remembering for any future fallback-branch work in this area:
+  a passing suite only covers what it actually instantiates.
+
+  **M6c-3** (`connect.h`): ported `connect-awaitable-promise`,
+  `operation-state-task`, and `suspend-complete` from `[exec.connect]`p3–5
+  close to verbatim (renamed to this fork's `__`-prefixed convention).
+  The `Sigs`/`__set_value_sig_t` and `__with_await_transform` machinery
+  slotted in unchanged from M6c-1/M6a. One design deviation from a naive
+  if-constexpr port: `connect_t::operator()`'s single `noexcept(noexcept(...))`
+  needs exactly one well-formed expression to name, and computing it from
+  `__connect_impl` alone (as pre-M6c-3 code did) would hard-error once a
+  *second*, `__connect_impl`-nonviable branch exists — so the (6.1)/(6.2)
+  dispatch is two overloads of a new `__connect_dispatch`, distinguished
+  by a `requires(!__connect_impl-viable)` constraint on the fallback
+  overload, rather than an if-constexpr inside one function. Each
+  overload's own trailing decltype/noexcept-specifier is then only ever
+  substituted when that overload is the one actually selected.
+
+  New test `exec.connect/connect.awaitable.pass.cpp` connects a bare,
+  non-sender awaitable (no `sender_concept`, no member `.connect()`, a
+  `sender` only via M6c-2's disjunct) through `execution::connect` and
+  drives it to completion via `start()`, covering value (`int` and
+  `void` await-result — the latter is what surfaced the
+  `__set_value_sig_t` bug above), an exception thrown from
+  `await_resume` delivered as `set_error(exception_ptr)`, and
+  `unhandled_stopped()` delivering `set_stopped()`. The advisor caught,
+  before this landed, that the first draft exercised only
+  value/void/error — `unhandled_stopped()` is a real member function of
+  a class template and instantiates only on use, so it had never once
+  been compiled. Adding the stopped case surfaced a *test* bug (not a
+  library bug): reusing the `int`-valued `MyReceiver` for a
+  `void`-returning `StoppedAwaitable` fails `connect-awaitable`'s own
+  `receiver_of<DR, Sigs>` Mandate, because `Sigs`'s value channel is
+  computed structurally from the await-expression's static result type
+  regardless of which branch actually runs at runtime — fixed by giving
+  `StoppedAwaitable::await_resume()` an `int` return type that matches
+  `MyReceiver`, even though `unhandled_stopped()` means it's never
+  actually reached. Full `execution/`+`thread.stoptoken/` suite is now
+  84/84 (up from 83).
+
+  **CSV/FTM flip** (its own commit, last): dropped
+  `__cpp_lib_senders`'s `unimplemented: True` in
+  `generate_feature_test_macro_components.py` and flipped all three
+  `libcxx/docs/Status/Cxx2cPapers.csv` rows (`P2300R10`/`P3325R5`/
+  `P3396R1`) to `|Complete|`. `libcxx-generate-files` regenerated
+  `libcxx/include/version`, `FeatureTestMacroTable.rst`, and the two
+  generated `support.limits.general/{version,execution}.version.compile.pass.cpp`
+  tests — files outside `execution/` that no earlier M6 commit's test
+  run touched (the advisor flagged this ahead of time: earlier commits'
+  three-directory lit invocation wouldn't see this fallout). Ran
+  `execution/` + `thread.stoptoken/` + `libcxx/execution/` +
+  `support.limits.general/` together for this commit (167 tests, all
+  green); `libcxx-generate-files` re-run afterward produces no further
+  diff (idempotent).
+
+  **Tier 2's P2300R10 sub-plan is now closed.** All three CSV rows are
+  `|Complete|`, `__cpp_lib_senders` is live, and M1–M6c are all `[x]`
+  above. Next session should return to the Tier list for the next
+  gap-closing target rather than this sub-plan.

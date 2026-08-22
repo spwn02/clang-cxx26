@@ -110,17 +110,11 @@
 #    endif
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_senders
-#      error "__cpp_lib_senders should be defined in c++26"
-#    endif
-#    if __cpp_lib_senders != 202406L
-#      error "__cpp_lib_senders should have the value 202406L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_senders
-#      error "__cpp_lib_senders should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_senders
+#    error "__cpp_lib_senders should be defined in c++26"
+#  endif
+#  if __cpp_lib_senders != 202406L
+#    error "__cpp_lib_senders should have the value 202406L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

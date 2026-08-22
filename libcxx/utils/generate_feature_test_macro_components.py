@@ -1231,7 +1231,6 @@ feature_test_macros = [
             "name": "__cpp_lib_senders",
             "values": {"c++26": 202406},  # P2300R10 std::execution
             "headers": ["execution"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_shared_mutex",
