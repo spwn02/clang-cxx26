@@ -24,14 +24,13 @@ if(EXISTS "${_p2996_root}/bin/llvm-ranlib")
       CACHE FILEPATH "clang-p2996 ranlib")
 endif()
 
-# Linux Clang otherwise defaults to libstdc++. Keep the snapshot's matching
-# libc++ explicit even though the compiler is built with libc++ as its default.
-#
-# The current p2996 fork still gates the complete reflection implementation
-# behind -freflection-latest. A reference-toolchain snapshot represents that
-# complete C++26 mode, so select it here rather than requiring every consumer
-# project to know about a fork-specific implementation flag.
-string(APPEND CMAKE_CXX_FLAGS_INIT " -stdlib=libc++ -freflection-latest")
+# A reference snapshot models the fork's complete C++26 mode. Keep the
+# language mode explicit at the toolchain boundary so CMake's synthetic
+# standard-library module target is compiled with the same mode as consumers.
+# Linux Clang otherwise defaults to libstdc++, and the current p2996 fork still
+# gates the complete reflection implementation behind -freflection-latest.
+string(APPEND CMAKE_CXX_FLAGS_INIT
+       " -std=c++26 -stdlib=libc++ -freflection-latest")
 string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT " -fuse-ld=lld")
 string(APPEND CMAKE_SHARED_LINKER_FLAGS_INIT " -fuse-ld=lld")
 string(APPEND CMAKE_MODULE_LINKER_FLAGS_INIT " -fuse-ld=lld")

@@ -8,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 export namespace std {
-#if _LIBCPP_STD_VER >= 26
   using std::hive_limits;
 
   // [hive], class template hive
@@ -23,5 +22,4 @@ export namespace std {
   namespace pmr {
     using std::pmr::hive;
   }
-#endif // _LIBCPP_STD_VER >= 26
 } // namespace std
