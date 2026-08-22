@@ -38,25 +38,6 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_THREADS
 
-namespace execution {
-
-// [exec.general]p8: AS-EXCEPT-PTR(err). Not put in a shared header of its own since
-// sync_wait's set_error is its only consumer so far in this sub-plan -- generalize (matching
-// the "build only what's needed" precedent already established for FWD-ENV-style helpers)
-// once a second consumer needs it.
-template <class _Err>
-_LIBCPP_HIDE_FROM_ABI exception_ptr __as_except_ptr(_Err&& __err) {
-  if constexpr (is_same_v<decay_t<_Err>, exception_ptr>) {
-    return std::forward<_Err>(__err);
-  } else if constexpr (is_same_v<decay_t<_Err>, error_code>) {
-    return make_exception_ptr(system_error(std::forward<_Err>(__err)));
-  } else {
-    return make_exception_ptr(std::forward<_Err>(__err));
-  }
-}
-
-} // namespace execution
-
 namespace this_thread {
 
 // [exec.sync.wait]p2: sync-wait-env.

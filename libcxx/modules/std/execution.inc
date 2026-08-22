@@ -236,6 +236,13 @@ export namespace std::execution {
   using std::execution::when_all_with_variant;
   using std::execution::when_all_with_variant_t;
 #endif
+
+  // [exec.as.awaitable]
+  using std::execution::as_awaitable;
+  using std::execution::as_awaitable_t;
+
+  // [exec.with.awaitable.senders]
+  using std::execution::with_awaitable_senders;
 } // namespace std::execution
 
 #if _LIBCPP_HAS_THREADS

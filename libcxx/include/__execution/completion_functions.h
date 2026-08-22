@@ -10,9 +10,13 @@
 #define _LIBCPP___EXECUTION_COMPLETION_FUNCTIONS_H
 
 #include <__config>
+#include <__type_traits/decay.h>
 #include <__type_traits/is_const.h>
 #include <__type_traits/is_reference.h>
+#include <__type_traits/is_same.h>
 #include <__utility/forward.h>
+#include <exception>
+#include <system_error>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -23,6 +27,20 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #if _LIBCPP_STD_VER >= 26
 
 namespace execution {
+
+// [exec.general]p8: AS-EXCEPT-PTR(err). Shared by sync_wait's set_error and
+// as_awaitable's sender-awaitable::awaitable-receiver::set_error -- both normalize an
+// arbitrary error datum to exception_ptr the same way.
+template <class _Err>
+_LIBCPP_HIDE_FROM_ABI exception_ptr __as_except_ptr(_Err&& __err) {
+  if constexpr (is_same_v<decay_t<_Err>, exception_ptr>) {
+    return std::forward<_Err>(__err);
+  } else if constexpr (is_same_v<decay_t<_Err>, error_code>) {
+    return make_exception_ptr(system_error(std::forward<_Err>(__err)));
+  } else {
+    return make_exception_ptr(std::forward<_Err>(__err));
+  }
+}
 
 // [exec.set.value], [exec.set.error], [exec.set.stopped]
 // Each of set_value(rcvr, vs...)/set_error(rcvr, err)/set_stopped(rcvr) is ill-formed

@@ -158,6 +158,7 @@ _LIBCPP_END_NAMESPACE_STD
 // [exec], std::execution (P2300R10) — independently guarded from the PSTL execution
 // policies above: this must stay available regardless of _LIBCPP_HAS_EXPERIMENTAL_PSTL.
 #  if _LIBCPP_STD_VER >= 26
+#    include <__execution/as_awaitable.h>
 #    include <__execution/awaitable.h>
 #    include <__execution/bulk.h>
 #    include <__execution/completion_functions.h>
@@ -196,6 +197,7 @@ _LIBCPP_END_NAMESPACE_STD
 #    include <__execution/then.h>
 #    include <__execution/unstoppable.h>
 #    include <__execution/when_all.h>
+#    include <__execution/with_awaitable_senders.h>
 #    include <__execution/write_env.h>
 #  endif // _LIBCPP_STD_VER >= 26
 

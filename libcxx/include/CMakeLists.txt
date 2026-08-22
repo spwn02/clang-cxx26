@@ -345,6 +345,7 @@ set(files
   __exception/nested_exception.h
   __exception/operations.h
   __exception/terminate.h
+  __execution/as_awaitable.h
   __execution/awaitable.h
   __execution/bulk.h
   __execution/completion_functions.h
@@ -383,6 +384,7 @@ set(files
   __execution/then.h
   __execution/unstoppable.h
   __execution/when_all.h
+  __execution/with_awaitable_senders.h
   __execution/write_env.h
   __expected/bad_expected_access.h
   __expected/expected.h

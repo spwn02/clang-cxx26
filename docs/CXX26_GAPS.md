@@ -956,12 +956,23 @@ schedulers can't come before sender concepts exist):**
   continuation and splice its operation state in" shape is more involved
   than `then`/`upon_error`/`upon_stopped`'s "just invoke `fn` and complete"
   shape.
-- [ ] **M6** — Coroutine integration: `as_awaitable`,
+- [~] **M6** — Coroutine integration: `as_awaitable`,
   `with_awaitable_senders`. Flip `__cpp_lib_senders` `unimplemented: False`
   and all three CSV rows to `|Complete|` **only here** — it's a single
   all-or-nothing `202406` value; flipping it at any earlier milestone
   would make conforming user code detect a feature surface that isn't
   fully there yet.
+  - [x] M6a: `[exec.awaitable]` foundation (`GET-AWAITER`, `is-awaiter`,
+    `is-awaitable`, `await-suspend-result`, `await-result-type`,
+    `with-await-transform`, `env-promise`) — private, no public surface.
+  - [x] M6b: `as_awaitable`, `with_awaitable_senders` — public surface,
+    exported.
+  - [ ] M6c: retrofit `enable-sender`'s awaitable disjunct
+    (`sender.h`) and `connect`'s `connect-awaitable` fallback
+    (`connect.h`) — resolves M2 deviations 1 and 5. **Land last and
+    separately**: both touch the instantiation path of every test in
+    `execution/`, so a regression needs a clean, isolated bisect point.
+    Only after M6c lands does the CSV flip happen.
 
 **Threading & build-matrix notes for later milestones (recorded now so
 they don't get discovered late):**
@@ -2632,3 +2643,141 @@ blocked, what's next. Do not remove old entries.
   since the coroutine-integration clauses (`[exec.as.awaitable]`,
   `[exec.with.awaitable.senders]`) haven't been fetched/scoped yet this
   sub-plan.
+
+- **2026-08-22 (Tier 2, M6 started — M6a `[exec.awaitable]` foundation)**:
+  Fetched and read `[exec.awaitable]`, `[exec.as.awaitable]`, and
+  `[exec.with.awaitable.senders]` in full via the eel.is process rule.
+  Confirmed scope: only 33.13.1-2 (`as_awaitable`,
+  `with_awaitable_senders`) are in this sub-plan; 33.13.3-6 (`affine`,
+  `inline_scheduler`, `task_scheduler`, `task`) belong to the separate
+  P3552 paper, matching what this file already recorded. Also confirmed
+  `[exec.awaitable]` (which defines `GET-AWAITER`/`is-awaiter`/
+  `is-awaitable`/`env-promise`/etc.) is itself 33.9.4, under [exec.snd] —
+  foundational sender machinery, not part of [exec.coro.util] — which is
+  why `enable-sender`'s awaitable disjunct (M2 deviation 1) depends on it.
+
+  Split M6 into three commits on advisor's recommendation, since the
+  pieces have different risk profiles and two retrofit files
+  (`sender.h`/`connect.h`) sit on the instantiation path of every test in
+  `execution/`:
+  - **M6a** (this entry): the exposition-only foundation, new file
+    `libcxx/include/__execution/awaitable.h` — no public surface, touches
+    nothing existing. Implements `GET-AWAITER` as two overloads of
+    `__get_awaiter` (one/two-argument forms, matching the standard's own
+    overload split) that simulate the compiler's own await-expression
+    transformation: try the promise's `await_transform` first, then member
+    `operator co_await`, then free `operator co_await`, then identity.
+    Plus `__await_suspend_result`, `__is_awaiter`, `__is_awaitable`,
+    `__await_result_type`, `__with_await_transform`, `__env_promise`.
+
+  One deliberate divergence, called out in a comment at the point of use:
+  the standard's `await_transform`-lookup step is "if this search is
+  performed and finds at least one declaration, `a = p.await_transform(c)`"
+  — meaning a promise declaring *some* `await_transform` member that isn't
+  callable with this particular `c` should be a hard error, not a
+  fallback to `a = c`. `requires{ p.await_transform(c); }` can't
+  distinguish "no such member" from "member exists but unusable here";
+  this implementation accepts that divergence rather than reproducing
+  member-lookup fidelity — the same class of approximation already
+  accepted for `__valid_completion_for` in `receiver.h`.
+
+  Tested via `libcxx/test/libcxx/execution/awaitable.pass.cpp`, which
+  includes the private header directly and exercises it with hand-written
+  awaiter/promise types (no senders involved) — there's no public surface
+  yet to test from `test/std`, matching the established `test/libcxx`
+  precedent for exposition-only utilities (e.g. `__utility/no_destroy.h`'s
+  own test). `libcxx-generate-files` clean (no FTM change — still gated at
+  M6c); full `execution/`+`thread.stoptoken/` suite (81 tests) and the
+  transitive-includes generator (125/125) both pass with no diff. New
+  header registered in `CMakeLists.txt` and `<execution>`'s M6 include
+  block (no `execution.inc` export — nothing here is public).
+  `Cxx2cPapers.csv` untouched.
+
+  **Next session: M6b** — `as_awaitable`, `with_awaitable_senders`, per
+  the split above.
+
+- **2026-08-22 (Tier 2, M6 continued — M6b `as_awaitable`/`with_awaitable_senders`)**:
+  Implemented `libcxx/include/__execution/as_awaitable.h`
+  (`__sender_awaitable`/`__awaitable_receiver`, `as_awaitable_t`) and
+  `libcxx/include/__execution/with_awaitable_senders.h`
+  (`with_awaitable_senders<Promise>`) — both public surface, both
+  exported from `libcxx/modules/std/execution.inc`.
+
+  `__sender_awaitable<Sndr, Promise>` follows this sub-plan's usual
+  receiver shape (mirrors `sync_wait.h`'s `__sync_wait_receiver`): a
+  `variant<monostate, result-type, exception_ptr>` result slot plus a
+  `connect_result_t<Sndr, __awaitable_receiver>` operation state,
+  constructed by direct member-initialization from a single `connect(...)`
+  call — no `__emplace_from`-style elision wrapper needed here (unlike
+  `when_all.h`'s N-way tuple case) since this is a single direct-init, not
+  routed through an intermediate forwarding-reference constructor.
+  `__awaitable_receiver::set_error` reuses `AS-EXCEPT-PTR`, which is now
+  shared (moved from `sync_wait.h`, unconditionally available, into
+  `completion_functions.h`) rather than duplicated — the "generalize once
+  a second consumer needs it" note left on that helper when it was first
+  written (M4) predicted exactly this.
+
+  `as_awaitable_t`'s dispatch implements (7.1) member `.as_awaitable(p)`,
+  (7.3) already-directly-awaitable passthrough (via the one-argument
+  `GET-AWAITER`, independent of `Promise`'s own `await_transform`), (7.4)
+  sender wrapping via `__sender_awaitable`, (7.5) identity fallback.
+  Branch (7.2) is omitted: it and (8.1) both route through
+  `get_await_completion_adaptor`/`adapt-for-await-completion`, which are
+  out of scope (no scheduler in this fork customizes a completion
+  adaptor); with `adapt-for-await-completion(s)` always taking the (8.2)
+  fallback (`s` unchanged), (7.2)'s condition becomes identical to
+  (7.1)'s own condition on the same object, so it can never fire when
+  (7.1) doesn't. The exposition-only `awaitable-sender<Sndr, Promise>`
+  concept is also not implemented: it is never cited by (7.1)-(7.5)'s own
+  dispatch conditions, only by the block introducing `sender-awaitable`,
+  so skipping it costs only diagnostic quality (a `Promise` lacking
+  `unhandled_stopped()` now surfaces as a hard error inside
+  `__awaitable_receiver::set_stopped()`'s body, only when actually
+  ODR-used — i.e. only when a sender that can complete with `set_stopped`
+  is really awaited — rather than being SFINAE'd out earlier).
+
+  `with_awaitable_senders<Promise>` is a direct, mostly mechanical port of
+  the standard text, with the exposition-only private members renamed
+  `__continuation_`/`__stopped_handler_` (the standard's own text reuses
+  the bare name `continuation` for both the private data member and its
+  public accessor, which is exposition shorthand, not literal C++).
+
+  Tested via two new `test/std` files (public surface, so real coroutines
+  this time, not private-header access): `exec.coro.util/exec.as.awaitable/
+  as_awaitable.pass.cpp` drives a minimal hand-rolled promise (its own
+  `await_transform` calling `as_awaitable` directly, not through
+  `with_awaitable_senders`) through value/chained-adaptor/error paths;
+  `exec.coro.util/exec.with.awaitable.senders/with_awaitable_senders.pass.cpp`
+  exercises the inherited path plus `set_continuation`/`continuation()`/
+  `unhandled_stopped()` end to end using two real coroutines (a `Task`
+  co-awaiting `just_stopped()`, wired via `set_continuation` to a second
+  `Sink` coroutine whose own `unhandled_stopped()` records that it fired
+  and returns `noop_coroutine()` — deliberately avoiding ever exercising
+  the *default* stopped-handler, which calls `std::terminate()`). Confirms
+  the standard's own note that the awaiting coroutine is never resumed
+  past the `co_await` point when stopped: `t.h.done()` is false after the
+  stopped path runs.
+
+  Both new tests pass; full `execution/`+`thread.stoptoken/`+
+  `libcxx/execution/` suite is now 83/83 (up from 81, the two new `test/std`
+  files). `libcxx-generate-files` clean; transitive-includes generator
+  still 125/125, no diff (both new headers are only reachable via
+  `<execution>`, already included there). New headers registered in
+  `CMakeLists.txt`, `<execution>`'s M6 include block, and
+  `libcxx/modules/std/execution.inc` (`as_awaitable`/`as_awaitable_t`,
+  `with_awaitable_senders`). `Cxx2cPapers.csv` still untouched — M6c (the
+  `enable-sender`/`connect` retrofits) remains before the CSV flip.
+
+  **Next session: M6c** — retrofit `enable-sender`'s awaitable disjunct
+  in `sender.h` (`is-sender<Sndr> || is-awaitable<Sndr,
+  env-promise<env<>>>`) and `connect`'s `connect-awaitable` fallback in
+  `connect.h`, per the M2 deviation notes. Land both in their own commit,
+  separate from any other change, and run the full `execution/` suite
+  before and after: per the advisor's guidance when M6 was scoped, this
+  is the check that discriminates whether the awaitable disjunct is
+  escaping its intended domain (e.g. `static_assert(!sender<int>)` and
+  similar existing negative cases in `exec.snd.concepts/sender.pass.cpp`
+  must still hold and must not hard-error). Once M6c lands and the suite
+  is still green, flip `__cpp_lib_senders`'s `unimplemented` off and all
+  three CSV rows (`P2300R10`/`P3325R5`/`P3396R1`) to `|Complete|`
+  together — the last remaining step in this Tier 2 sub-plan.
