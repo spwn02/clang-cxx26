@@ -29,13 +29,15 @@ using namespace std::execution;
 
 int main(int, char**) {
   // on(sch, sndr) starts sndr on sch, then (on completion) transfers back to whatever scheduler
-  // was in effect when the on-sender itself was started -- here both are the same run_loop, so
-  // the whole chain drains from a single finish()+run() with no threads involved: starting the
-  // operation queues *one* item (starts_on's own scheduling hop); draining it cascades through
-  // continues_on's internal redispatch, which queues a *second* item (the "transfer back" hop)
-  // on the very same loop mid-drain, which the same run() call picks up before returning.
+  // was in effect when the on-sender itself was started. Using *two distinct* run_loops here
+  // (rather than one loop for both) is the discriminating part of this test: it's the only way
+  // to actually observe [exec.on]p7.3's "transfer back to the remembered scheduler" hop, rather
+  // than merely observing that *some* scheduling happened. Draining loop_a alone must cascade
+  // sndr's completion through starts_on/continues_on but must *not* yet reach the outer
+  // receiver -- the second hop is still queued on loop_b, untouched -- confirming the result
+  // genuinely lands on orig_sch (loop_b) rather than staying on sch (loop_a).
   {
-    run_loop loop;
+    run_loop loop_a, loop_b;
     int value      = -1;
     bool completed = false;
 
@@ -58,11 +60,14 @@ int main(int, char**) {
       auto get_env() const noexcept { return on_env{loop}; }
     };
 
-    auto op = connect(on(loop.get_scheduler(), just(42)), rcvr{&value, &completed, &loop});
+    auto op = connect(on(loop_a.get_scheduler(), just(42)), rcvr{&value, &completed, &loop_b});
     start(op);
     assert(!completed);
-    loop.finish();
-    loop.run();
+    loop_a.finish();
+    loop_a.run();
+    assert(!completed); // sndr ran on loop_a, but the transfer-back hop is still queued on loop_b.
+    loop_b.finish();
+    loop_b.run();
     assert(completed);
     assert(value == 42);
   }

@@ -1920,11 +1920,37 @@ blocked, what's next. Do not remove old entries.
   every test receiver's `set_error`, matching what these compositions can
   actually produce.
 
-  `execution/` + `thread.stoptoken/` 72/72 green (68 pre-existing + 4
-  new), `module_std.gen.py`/`transitive_includes.gen.py` 125/126 (same
-  pre-existing 1-unsupported baseline, no diff despite the four new
-  headers), `libcxx-generate-files` clean. Full registration for all four
-  (new headers ⇒ `CMakeLists.txt` + `<execution>`'s include block +
+  Advisor caught two real coverage gaps before this was called done,
+  both fixed in a same-day follow-up: (1) `on.pass.cpp`'s original test
+  used the *same* `run_loop` for both `sch` and `orig_sch`, which made
+  [exec.on]p7.3's "transfer back to the remembered scheduler" hop
+  unobservable — a `connect()` that dropped the `continues_on(...,
+  orig_sch)` wrapper entirely and just ran `starts_on(sch, sndr)` would
+  have passed the same test. Fixed with *two* distinct run_loops and an
+  `assert(!completed)` after draining only the first one — the
+  discriminating assertion that actually depends on the second hop
+  landing on the second loop. (2) Every completion-signature test used an
+  env that falls through `get_stop_token` to `never_stop_token`
+  (`env<>`, `on_env`), so `__continues_on_sched_gather`'s "keep
+  non-`set_value_t` sched signatures" union branch — the whole reason
+  `continues_on`'s signature computation unions in anything from
+  `schedule(sch)` at all — was dead code as far as the test suite could
+  tell. Added a `stop_env` (answers `get_stop_token` with a real
+  `inplace_stop_token`) static_assert confirming
+  `continues_on(just(1), sch)`'s signatures include `set_stopped_t()` in
+  the stoppable case. Both fixes re-verified green empirically (not just
+  reasoned through) before landing. Also ran the no-
+  `_LIBCPP_ENABLE_EXPERIMENTAL` compile check every prior M5 session
+  ran (the lit suite itself always passes `-D_LIBCPP_ENABLE_EXPERIMENTAL`,
+  so it doesn't exercise this path) — `<execution>` plus all four new
+  CPOs compile clean under plain `-std=c++26` with no experimental
+  define.
+
+  `execution/` + `thread.stoptoken/` + `module_std.gen.py`/
+  `transitive_includes.gen.py` 197/198 green (same pre-existing
+  1-unsupported baseline, no diff despite the four new headers),
+  `libcxx-generate-files` clean. Full registration for all four (new
+  headers ⇒ `CMakeLists.txt` + `<execution>`'s include block +
   `execution.inc`). `Cxx2cPapers.csv` untouched (flips at M6 only).
 
   **Next session: continue M5** — `on`'s pipeable-closure 3-arg form

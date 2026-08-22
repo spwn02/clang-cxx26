@@ -19,6 +19,7 @@
 #include <cassert>
 #include <execution>
 #include <stdexcept>
+#include <stop_token>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -114,6 +115,22 @@ int main(int, char**) {
     run_loop loop;
     static_assert(std::is_same_v<completion_signatures_of_t<decltype(continues_on(just(1), loop.get_scheduler())), env<>>,
                                   completion_signatures<set_value_t(int)>>);
+  }
+  // Completion signatures, stoppable-token case: with an env that answers get_stop_token with a
+  // genuinely stoppable token, run-loop-scheduler's own sender *does* advertise set_stopped_t()
+  // ([exec.run.loop.types]p6), which must union into continues_on's own advertised signatures
+  // (__continues_on_sched_gather's "keep non-set_value_t sched signatures" branch) -- otherwise
+  // untested by every other case in this file, which all use env<>/on_env and so only ever
+  // exercise the unstoppable_token branch.
+  {
+    struct stop_env {
+      std::inplace_stop_token tok;
+      auto query(std::get_stop_token_t) const noexcept { return tok; }
+    };
+    run_loop loop;
+    static_assert(
+        std::is_same_v<completion_signatures_of_t<decltype(continues_on(just(1), loop.get_scheduler())), stop_env>,
+                       completion_signatures<set_value_t(int), set_stopped_t()>>);
   }
   return 0;
 }
