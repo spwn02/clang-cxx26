@@ -143,26 +143,34 @@ jobs:
                   | select(.workflow_run.id != '"${GITHUB_RUN_ID}"')]
                 | sort_by(.created_at)
                 | reverse
-                | .[0].id // empty
+                | .[0]
+                | if . == null
+                  then empty
+                  else [.id, .workflow_run.id] | @tsv
+                  end
               '
           }
 
-          stage_id="$(find_latest_artifact "$STAGE_NAME")"
-          ccache_id="$(find_latest_artifact "$CCACHE_NAME")"
+          stage_artifact="$(find_latest_artifact "$STAGE_NAME")"
+          ccache_artifact="$(find_latest_artifact "$CCACHE_NAME")"
 
-          if [[ -n "$stage_id" ]]; then
-            echo "Found reusable staged toolchain artifact: $stage_id"
+          if [[ -n "$stage_artifact" ]]; then
+            IFS=$'\t' read -r stage_id stage_run_id <<< "$stage_artifact"
+            echo "Found reusable staged toolchain artifact: $stage_id from run $stage_run_id"
             echo "stage-hit=true" >> "$GITHUB_OUTPUT"
             echo "stage-id=$stage_id" >> "$GITHUB_OUTPUT"
+            echo "stage-run-id=$stage_run_id" >> "$GITHUB_OUTPUT"
           else
             echo "No exact staged toolchain artifact found."
             echo "stage-hit=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if [[ -n "$ccache_id" ]]; then
-            echo "Found reusable rolling ccache artifact: $ccache_id"
+          if [[ -n "$ccache_artifact" ]]; then
+            IFS=$'\t' read -r ccache_id ccache_run_id <<< "$ccache_artifact"
+            echo "Found reusable rolling ccache artifact: $ccache_id from run $ccache_run_id"
             echo "ccache-hit=true" >> "$GITHUB_OUTPUT"
             echo "ccache-id=$ccache_id" >> "$GITHUB_OUTPUT"
+            echo "ccache-run-id=$ccache_run_id" >> "$GITHUB_OUTPUT"
           else
             echo "No rolling ccache artifact found."
             echo "ccache-hit=false" >> "$GITHUB_OUTPUT"
@@ -175,6 +183,8 @@ jobs:
           artifact-ids: ${{ steps.reusable.outputs.stage-id }}
           path: ${{ runner.temp }}/p2996-stage-artifact
           github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.reusable.outputs.stage-run-id }}
 
       - name: Restore staged reference toolchain
         if: steps.reusable.outputs.stage-hit == 'true'
@@ -204,6 +214,8 @@ jobs:
           artifact-ids: ${{ steps.reusable.outputs.ccache-id }}
           path: ${{ runner.temp }}/p2996-ccache-artifact
           github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.reusable.outputs.ccache-run-id }}
 
       - name: Restore rolling compiler cache
         if: steps.reusable.outputs.ccache-hit == 'true'
