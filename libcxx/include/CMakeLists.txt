@@ -374,6 +374,8 @@ set(files
   __execution/sender.h
   __execution/sender_adaptor_closure.h
   __execution/starts_on.h
+  __execution/stopped_as_error.h
+  __execution/stopped_as_optional.h
   __execution/sync_wait.h
   __execution/then.h
   __execution/unstoppable.h

@@ -203,6 +203,14 @@ export namespace std::execution {
   // write_env's type is unspecified per [execution.syn]; only the CPO object itself is exported.
   using std::execution::write_env;
 
+  // [exec.stopped.opt]
+  using std::execution::stopped_as_optional;
+  using std::execution::stopped_as_optional_t;
+
+  // [exec.stopped.err]
+  using std::execution::stopped_as_error;
+  using std::execution::stopped_as_error_t;
+
   // [exec.unstoppable]
   // unstoppable's type is unspecified per [execution.syn]; only the CPO object itself is exported.
 #if _LIBCPP_HAS_THREADS

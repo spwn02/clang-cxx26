@@ -2193,3 +2193,96 @@ blocked, what's next. Do not remove old entries.
   or dual-child) and will need real new machinery for joining multiple
   child operation states and completion-signature sets — budget more
   time for that one than for the others.
+
+- **2026-08-22 (Tier 2, M5 continued — stopped_as_optional/stopped_as_error)**:
+  Implemented `[exec.stopped.opt]`/`[exec.stopped.err]` (new
+  `libcxx/include/__execution/{stopped_as_optional,stopped_as_error}.h`).
+  `stopped_as_error(sndr, err)` is a pure call-time composition (like
+  `starts_on`/`on`): `let_stopped(sndr, [err]() mutable noexcept(...) {
+  return just_error(std::move(err)); })`, expression-equivalence verbatim,
+  no new sender type needed since its result doesn't depend on Env.
+  `stopped_as_optional(sndr)` is not: [exec.stopped.opt]p3's
+  transform_sender body needs `V = single-sender-value-type<child, Env>`
+  to build both `let_stopped(then(child, [](Ts...){ return
+  optional<V>(in_place, ts...); }), []{ return just(optional<V>()); })`
+  branches with a *matching* V, and Env isn't known until connect()/
+  get_completion_signatures() see a real receiver/queried environment —
+  so (unlike every other composed-at-call-time M5 adaptor so far) this
+  needed its own hand-rolled `__stopped_as_optional_sndr<Sndr>`, pinning V
+  once Env is available and building the composed sender against it in
+  both connect() (from `env_of_t<Rcvr>`) and get_completion_signatures()
+  (from the `_Env` template parameter) — same "not routed through
+  impls-for/make-sender" precedent as every other M5 adaptor. Also added
+  `single-sender-value-type`/the exposition-only `single-sender` concept
+  to `<__execution/get_completion_signatures.h>` (`__single_sender_value_type`/
+  `__single_sender`) as shared machinery, since both this and (per M5's
+  remaining list) `bulk`/`into_variant` need it.
+
+  **Compiler-behavior finding, worth remembering for any future gather-
+  signatures-style trait:** the standard's own single-sender-value-type
+  (2.1) alternative is `gather-signatures<set_value_t, CS, decay_t,
+  type_identity_t>` — `decay_t<Args...>` applied per-signature, which is
+  ill-formed whenever a signature's arity isn't exactly one. The first
+  implementation attempt used this literally (via an overload-priority
+  `int`/`long`/`...` SFINAE dispatch, expecting the ill-formed
+  `decay_t<>`/`decay_t<A,B>` to just drop that candidate) and it does
+  *not* SFINAE away — it's a **hard compile error**. Reason: forming
+  `decay_t<Args...>` happens inside `__gather_one`'s implicit
+  class-template instantiation (`<__execution/completion_signatures.h>`),
+  not in the immediate context of the outer alias-template substitution
+  being probed — so the "immediate context only" SFINAE rule doesn't
+  cover it, the same way M1's `requires{}`-on-concrete-objects finding
+  didn't. Confirmed by an actual `libcxx-lit` build failure (not just
+  reasoning), showing the error nested ~13 frames deep through
+  `__gather_signatures_impl`/`__gather_one`/`__meta_apply`. Fixed by
+  computing entirely through `__decayed_tuple` (always well-formed, any
+  arity) and gathering into a `type_list` of one tuple per signature,
+  then extracting the final answer via ordinary (genuinely SFINAE-safe)
+  partial specialization on that `type_list`'s shape
+  (`__single_sender_value_type_impl`) — never calling anything ill-formed
+  at any arity. Generalize: prefer "gather into something always
+  well-formed, then pattern-match the shape" over "gather directly with
+  the possibly-ill-formed target trait" whenever a gather-signatures
+  `_Tuple`/`_Variant` argument might not accept every arity/count it
+  could see.
+
+  A second, unrelated hazard surfaced only by this session's own tests
+  (not fixed — flagged for whoever next touches `sync_wait`):
+  `<__execution/sync_wait.h>`'s own `__sync_wait_result_type` computes
+  `value_types_of_t<Sndr, Env, __decayed_tuple, type_identity_t>`
+  directly — the exact same `type_identity_t`-applied-to-a-gathered-list
+  shape, hitting the exact same hard-error-not-SFINAE landmine whenever
+  `sync_wait` is called on a sender with zero set_value completions at
+  all (e.g. `sync_wait(stopped_as_error(just_stopped(), err))` alone,
+  before this session's tests were adjusted to route through a
+  value-carrying test sender instead). Pre-existing, not introduced this
+  session; `sync_wait`'s own Mandates already require a single-sender in
+  principle, so this should eventually reuse
+  `__single_sender_value_type` above rather than recomputing the same
+  fragile shape inline — not done here since it's out of scope for a
+  stopped_as_optional/stopped_as_error session and no existing test
+  exercised the gap.
+
+  Tests: new `exec.adapt/{exec.stopped.opt,exec.stopped.err}/*.pass.cpp`,
+  each with a small hand-rolled `value_or_stopped_sndr` (single set_value
+  + set_stopped completion, runtime-switchable) to exercise both branches
+  through `sync_wait` without hitting the `sync_wait` landmine above.
+  Full `execution/` suite 39/39 green (up from 37 — the two new files);
+  `libcxx-generate-files` clean (no feature-test-macro change —
+  `__cpp_lib_senders` stays gated to M6). New headers registered in
+  `CMakeLists.txt`, `<execution>`'s M5 include block, and
+  `libcxx/modules/std/execution.inc` (both CPO and `_t` type exported,
+  unlike `write_env`/`unstoppable` — [execution.syn] names
+  `stopped_as_optional_t`/`stopped_as_error_t` outright).
+
+  **Next session: continue M5** with the remaining adaptors (`when_all`/
+  `when_all_with_variant`/`into_variant`/`bulk`/`bulk_chunked`/
+  `bulk_unchunked`). `into_variant` is probably the next good small one
+  (single-child, and `sync_wait_with_variant`'s own still-unimplemented
+  M4 stub — docs/CXX26_GAPS.md's M4 entry — is specified directly in
+  terms of it, so landing it also unblocks that). `when_all`/
+  `when_all_with_variant` remain the first genuinely multi-child
+  adaptors — see the previous session's note; still budget extra time
+  there. `bulk`/`bulk_chunked`/`bulk_unchunked` haven't been scoped in
+  detail yet this sub-plan; read `[exec.bulk]` fresh via the `curl`
+  process rule before starting.

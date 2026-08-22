@@ -19,6 +19,7 @@
 #include <__type_traits/decay.h>
 #include <__type_traits/is_same.h>
 #include <__type_traits/remove_reference.h>
+#include <__type_traits/type_identity.h>
 #include <__utility/declval.h>
 #include <exception>
 #include <tuple>
@@ -156,6 +157,57 @@ template <class _Sndr, class _Env = env<>>
   requires sender_in<_Sndr, _Env>
 inline constexpr bool sends_stopped =
     !same_as<type_list<>, __gather_signatures<set_stopped_t, completion_signatures_of_t<_Sndr, _Env>, type_list, type_list>>;
+
+// [exec.snd.expos]: single-sender-value-type<Sndr, Env> is the first of three alternatives that's
+// well-formed: (1) gather-signatures<set_value_t, CS, decay_t, type_identity_t> -- exactly one
+// set_value completion, with exactly one datum; (2) void, if every set_value completion (gathered via
+// tuple/variant) has zero datums; (3) gather-signatures<set_value_t, CS, decayed-tuple, type_identity_t>
+// -- exactly one set_value completion shape, tupled.
+//
+// Implemented against `value_types_of_t<Sndr, Env, __decayed_tuple, type_list>` -- a
+// `type_list` of one decayed-tuple per set_value completion signature, always well-formed
+// since __decayed_tuple (unlike decay_t) accepts any arity -- rather than gathering directly
+// with `decay_t`/`type_identity_t` the way the standard's own (2.1) alternative literally
+// spells it. `decay_t<Args...>` is ill-formed whenever a signature's arity isn't exactly one,
+// and forming it happens *inside* __gather_one's implicit class-template instantiation
+// (<__execution/completion_signatures.h>), not in the immediate context of any surrounding
+// alias-template substitution -- so that failure is a hard error, not a SFINAE-droppable one
+// (confirmed empirically: it turns out the "immediate context" pitfall this sub-plan's M1
+// session flagged for `requires{}` simple-requirements on concrete objects also bites plain
+// implicit class-template instantiation the same way, not just that one construct). Working
+// entirely off the always-well-formed decayed-tuple gathering sidesteps this: every branch
+// below forms its result via ordinary (SFINAE-safe) partial-specialization matching instead.
+template <class _List>
+struct __single_sender_value_type_impl {}; // more than one set_value shape: ill-formed, (2.4).
+
+template <>
+struct __single_sender_value_type_impl<type_list<>> {
+  using type = void; // no set_value completion at all: (2.2)'s variant<> case.
+};
+
+template <class... _Args>
+struct __single_sender_value_type_impl<type_list<tuple<_Args...>>> {
+  using type = tuple<_Args...>; // (2.3): the single completion's decayed-tuple shape.
+};
+
+template <>
+struct __single_sender_value_type_impl<type_list<tuple<>>> {
+  using type = void; // (2.2)'s variant<tuple<>> case: the single completion has zero datums.
+};
+
+template <class _Arg>
+struct __single_sender_value_type_impl<type_list<tuple<_Arg>>> {
+  using type = _Arg; // (2.1): the single completion's single datum, unwrapped.
+};
+
+template <class _Sndr, class _Env = env<>>
+  requires sender_in<_Sndr, _Env>
+using __single_sender_value_type =
+    typename __single_sender_value_type_impl<value_types_of_t<_Sndr, _Env, __decayed_tuple, type_list>>::type;
+
+// [exec.snd.expos]: the exposition-only single-sender concept.
+template <class _Sndr, class _Env = env<>>
+concept __single_sender = sender_in<_Sndr, _Env> && requires { typename __single_sender_value_type<_Sndr, _Env>; };
 
 } // namespace execution
 

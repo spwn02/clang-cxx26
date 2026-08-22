@@ -187,6 +187,8 @@ _LIBCPP_END_NAMESPACE_STD
 #    include <__execution/sender.h>
 #    include <__execution/sender_adaptor_closure.h>
 #    include <__execution/starts_on.h>
+#    include <__execution/stopped_as_error.h>
+#    include <__execution/stopped_as_optional.h>
 #    include <__execution/sync_wait.h>
 #    include <__execution/then.h>
 #    include <__execution/unstoppable.h>
