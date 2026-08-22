@@ -8,10 +8,12 @@
 //===----------------------------------------------------------------------===//
 
 export namespace std {
+#if _LIBCPP_STD_VER >= 26
   // [inplace.vector], class template inplace_vector
   using std::inplace_vector;
 
   // [inplace.vector.erasure], erasure
   using std::erase;
   using std::erase_if;
+#endif // _LIBCPP_STD_VER >= 26
 } // namespace std
