@@ -6,6 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+// UNSUPPORTED: c++26
+// P0952R2 (implemented under C++26) replaces this formula; see
+// generate_canonical.p0952.pass.cpp for the C++26 semantics.
+
 // <random>
 
 // template<class RealType, size_t bits, class URNG>

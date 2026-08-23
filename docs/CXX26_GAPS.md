@@ -1489,7 +1489,7 @@ to `|Complete|`.
 | [x] | P1885R12 | `text_encoding` naming |
 | [x] | P2862R1 | `text_encoding::name()` should never return null |
 | [x] | P2641R4 | Checking if a `union` alternative is active |
-| [ ] | P0952R2 | New spec for `std::generate_canonical` |
+| [x] | P0952R2 | New spec for `std::generate_canonical` |
 | [ ] | P2836R1 | `basic_const_iterator` convertibility |
 | [ ] | P2264R7 | User-friendly `assert()` for C and C++ |
 | [ ] | P2248R8 | List-initialization for algorithms |
@@ -4141,3 +4141,133 @@ blocked, what's next. Do not remove old entries.
   iterator → pointer conversion), or fixing the three now-documented
   pre-existing `__execution/*.h` modulemap gaps, are the next
   self-contained candidates — none assessed in depth yet.
+
+- **2026-08-23 (third session)**: Implemented P0952R2 (new spec for
+  `std::generate_canonical`). This turned out to be substantially bigger
+  than a typical Tier 6 pickup — flagged as such by the advisor going in —
+  because the pre-C++26 formula in `libcxx/include/__random/
+  generate_canonical.h` isn't a status/test-coverage gap like several
+  recent Tier 6 items; it's a materially different, non-uniform algorithm
+  (`k = ceil(digits / floor_log2(R))`, no rejection sampling, can return
+  exactly `1.0`) that the paper replaces with rejection sampling against
+  the exact integer formula in [rand.util.canonical] (`k` = smallest
+  integer with `R^k >= r^d`, `x = floor(R^k / r^d)`, retry until
+  `S < x*r^d`, return `floor(S/x)/r^d`).
+
+  **Gated the new algorithm behind `_LIBCPP_STD_VER >= 26`** (advisor's
+  call, made before writing any code) rather than replacing the old
+  formula unconditionally: this is a C++26 paper per `Cxx2cPapers.csv`,
+  and an unconditional swap would silently change `uniform_real_
+  distribution`/`exponential_distribution` output for every C++11–23 user
+  of this repo (both call `generate_canonical` internally). The old
+  algorithm survives verbatim in an `#else` branch; the pre-existing test
+  (which hardcodes the old formula's exact output) got `// UNSUPPORTED:
+  c++26` added and otherwise untouched, and a new file,
+  `generate_canonical.p0952r2.pass.cpp` (`// UNSUPPORTED: c++03 .. c++23`),
+  covers the new algorithm.
+
+  Two correctness traps, both surfaced by the advisor before coding:
+  (1) `R = g.max() - g.min() + 1` overflows in the URNG's native
+  `result_type` for any generator whose range spans it fully (e.g.
+  `mt19937_64`, range exactly `2^64`) — fixed by computing `R` in a type
+  wide enough that `+1` can't wrap (`__uint128_t` when
+  `_LIBCPP_HAS_INT128`, else `unsigned long long`), rather than
+  reproducing the dispatch-based avoidance libstdc++ uses (a
+  power-of-two-range special case). (2) `digits == 0`: the wording gives
+  `r^0 == 1`, so `k` (smallest integer with `R^k >= 1`) is `0` — zero
+  invocations of `g`, result trivially `0`, with no rejection loop at all.
+  Verified this reading against the fetched wording before coding it
+  (`generate_canonical<F, 0>` in the old test asserted one draw happened —
+  that assumption doesn't survive into the new algorithm) and covered it
+  explicitly in the new test (checks both the `0` result and, by reading
+  the engine's next output afterward, that no draw was consumed).
+
+  **Scoped the intermediate-precision limit rather than replicating
+  libstdc++'s chunked >128-bit fallback** (`__generate_canonical_any`'s
+  `else` branch in `random.tcc`, which does windowed 128-bit-safe
+  multiply-accumulate to support `R^k` that doesn't fit in 128 bits) —
+  but got the *shape* of the limit wrong on the first pass, caught by
+  advisor review before commit: an initial version asserted the loose
+  bound `bits(R) + d <= 127` (derived from `R^(k-1) < r^d` ⟹
+  `R^k < R * r^d`), which is a valid upper bound on `R^k` but is loosest
+  exactly where the true `R^k` is *smallest* — a large, e.g.
+  full-width-power-of-two `R` makes `k` tiny. Concretely, `long double`
+  (`digits == 64` on this fork's x86-64 target) combined with
+  `mt19937_64` (`R == 2^64`) hits `bits(R) + d == 128`, failing that
+  bound, even though the real computation is trivial: `k == 1`,
+  `R^k == 2^64`, fits `__uint128_t` with headroom to spare. That bound
+  would have hard-errored on an entirely ordinary
+  `uniform_real_distribution<long double>` + `mt19937_64` program.
+  Replaced with a `constexpr` immediately-invoked lambda that computes
+  the *actual* `k` and `R^k` at compile time (both `R` and `r^d` are
+  already compile-time constants) with a standard pre-multiply overflow
+  check (`__rk > ~_UInt(0) / __rp`) instead of an approximated bound, and
+  `static_assert`s on that computed `__fits` flag. This accepts every
+  instantiation the arithmetic genuinely supports and only rejects the
+  cases that would actually overflow — still narrow and still documented
+  as an out-of-scope, this-session deviation (no chunked >128-bit
+  fallback), just no longer over-broad. Added `long double` (with
+  `mt19937_64`, the discriminating combination above) to the `[0, 1)`
+  range sweep, plus a `uniform_real_distribution<long double>` case
+  exercising the real call path a user hits.
+
+  **Found and routed around a live, previously-uncovered bug in
+  `<__random/log2.h>`'s `__uint128_t` specialization of `__log2_imp`**
+  while computing that `static_assert`'s bound: its `?:` expression
+  `(_Xp >> 64) ? (64 + __log2_imp<unsigned long long, (_Xp >> 64), 63>::
+  value) : __log2_imp<unsigned long long, _Xp, 63>::value` unconditionally
+  instantiates *both* branches (a `?:` is not `if constexpr` — both
+  operands must be type-checked regardless of which one's value is
+  actually selected), and the untaken `unsigned long long` branch is
+  instantiated with the *unshifted*, full-width `_Xp` — so any `_Xp >=
+  2^64` (exactly the `R == 2^64` case from `mt19937_64` this session hit
+  first) fails to narrow at compile time even though that branch is never
+  the one whose value is used. This utility is also used by
+  `independent_bits_engine`/`uniform_int_distribution`, but only ever
+  with values that fit in 64 bits in existing call sites, so the bug was
+  latent and untriggered before this session. **Not fixed** — out of
+  scope for this paper, and fixing `__log2_imp` correctly needs its own
+  focused pass (the fix likely means masking `_Xp` to the low 64 bits
+  before the untaken-branch instantiation, or restructuring away from the
+  eager-`?:` pattern entirely, mirroring the `if constexpr`-vs-`requires{}`
+  eager-evaluation lesson from the M1 `std::execution` session).
+  `generate_canonical.h` routes around it entirely with a small
+  self-contained `constexpr` loop (`__log2_floor`, a local lambda) instead
+  of reusing `__log2<>`. Flagging `<__random/log2.h>`'s `__uint128_t`
+  branch as a known, reproducible, still-open bug for whoever next touches
+  `independent_bits_engine`/`uniform_int_distribution` with a genuinely
+  128-bit-magnitude range.
+
+  New test `generate_canonical.p0952r2.pass.cpp`: the `digits == 0` case
+  above; a scripted small-range (`R == 3`, non-power-of-two) custom URNG
+  that forces one rejected attempt before an accepted one and checks both
+  the total draw count and the accepted result exactly (the only
+  rejecting input for `digits == 2` against `R == 3` is the draw pair
+  `(2, 2)`, worked out by hand from the formula); a power-of-two-range
+  (`R == 4`) sanity check confirming single-attempt exactness per
+  [rand.util.canonical] Note 1; boundary-value cases (`digits-1`,
+  `digits`, `digits+1`) against `minstd_rand0`'s real, well-known output
+  sequence, cross-checked with an independent Python reimplementation of
+  the formula rather than hand-derived by inspection; and a
+  range-membership sweep (`[0, 1)`, 1000 iterations) against both
+  `mt19937_64` (the `R == 2^64` overflow-trap case) and `minstd_rand0`
+  (the large-`k`, many-draws-per-attempt case) for both `float` and
+  `double`. Full `libcxx/test/std/numerics/rand/` suite green (492 tests:
+  491 passed, 1 unsupported — the pre-C++26 test file, correctly excluded
+  at this build's default `c++26` mode); manually re-ran the pre-C++26
+  test file at `c++17`/`c++20`/`c++23` via `--param std=` to confirm it's
+  untouched by the gating (`c++17` hit a pre-existing, unrelated failure —
+  `<optional>`'s `enable_view` reaching an unguarded `ranges::` reference
+  via a `<numeric>`/pstl-backend include chain — confirmed via `git
+  stash` to reproduce identically at baseline, not caused by this
+  session). `libcxx-generate-files` produced no diff, confirmed correct
+  in advance: P0952R2 carries no feature-test macro (grepped
+  `generate_feature_test_macro_components.py`, no entry). Flipped
+  `Cxx2cPapers.csv`'s P0952R2 row to `|Complete|` and this document's
+  Tier 6 checklist entry to `[x]`.
+
+  **Next session**: P3349R1 (contiguous iterator → pointer conversion),
+  the three pre-existing `__execution/*.h` modulemap gaps, or the newly
+  found `<__random/log2.h>` `__uint128_t` bug (independent of any single
+  paper — worth a standalone fix-and-regression-test session given it's
+  now a documented, reproducible latent bug) are the next candidates.

@@ -33,7 +33,7 @@
 "`P2905R2 <https://wg21.link/P2905R2>`__","Runtime format strings","2023-11 (Kona)","|Complete|","18",""
 "`P2918R2 <https://wg21.link/P2918R2>`__","Runtime format strings II","2023-11 (Kona)","|Complete|","18",""
 "`P2909R4 <https://wg21.link/P2909R4>`__","Fix formatting of code units as integers (Dude, where’s my ``char``?)","2023-11 (Kona)","|Complete|","18",""
-"`P0952R2 <https://wg21.link/P0952R2>`__","A new specification for ``std::generate_canonical``","2023-11 (Kona)","","",""
+"`P0952R2 <https://wg21.link/P0952R2>`__","A new specification for ``std::generate_canonical``","2023-11 (Kona)","|Complete|","",""
 "`P2447R6 <https://wg21.link/P2447R6>`__","``std::span`` over an initializer list","2023-11 (Kona)","|Complete|","18",""
 "`P2821R5 <https://wg21.link/P2821R5>`__","``span.at()``","2023-11 (Kona)","|Complete|","18",""
 "`P2868R3 <https://wg21.link/P2868R3>`__","Remove Deprecated ``std::allocator`` Typedef From C++26","2023-11 (Kona)","|Complete|","18",""
