@@ -10,6 +10,7 @@
 #define _LIBCPP___EXECUTION_RECEIVER_H
 
 #include <__concepts/constructible.h>
+#include <__concepts/derived_from.h>
 #include <__concepts/invocable.h>
 #include <__concepts/movable.h>
 #include <__concepts/same_as.h>

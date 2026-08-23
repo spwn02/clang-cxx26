@@ -972,6 +972,10 @@ module std [system] {
       header "__chrono/gps_clock.h"
       export std.chrono.time_point
     }
+    module hash {
+      header "__chrono/hash.h"
+      export * // dependent specializations elsewhere (e.g. leap_second's) need this header's size_t use visible too
+    }
     module hh_mm_ss                   { header "__chrono/hh_mm_ss.h" }
     module high_resolution_clock {
       header "__chrono/high_resolution_clock.h"
@@ -1252,6 +1256,58 @@ module std [system] {
   }
 
   module execution {
+    // [exec], std::execution (P2300R10) submodules. Each header pulls in
+    // symbols from several tightly-coupled siblings (e.g. completion_functions'
+    // set_value_t/set_error_t are used throughout), so — matching this file's
+    // existing `allocator`/`unique_temporary_buffer`/`high_resolution_clock`
+    // precedent for the same shape of problem (see their own TODOs referencing
+    // https://github.com/llvm/llvm-project/issues/120108) — every submodule here
+    // re-exports everything it imports rather than hand-enumerating each
+    // cross-header symbol, since the latter was verified (see this file's own
+    // history) to under-export and produce "declaration must be imported"
+    // errors under a real `-fmodules` build.
+    module as_awaitable                   { header "__execution/as_awaitable.h" export * }
+    module awaitable                      { header "__execution/awaitable.h" export * }
+    module bulk                           { header "__execution/bulk.h" export * }
+    module completion_functions           { header "__execution/completion_functions.h" export * }
+    module completion_signatures          { header "__execution/completion_signatures.h" export * }
+    module connect                        { header "__execution/connect.h" export * }
+    module continues_on                   { header "__execution/continues_on.h" export * }
+    module domain                         { header "__execution/domain.h" export * }
+    module env                            { header "__execution/env.h" export * }
+    module forwarding_query               { header "__execution/forwarding_query.h" export * }
+    module fwd_env                        { header "__execution/fwd_env.h" export * }
+    module get_allocator                  { header "__execution/get_allocator.h" export * }
+    module get_completion_signatures      { header "__execution/get_completion_signatures.h" export * }
+    module get_env                        { header "__execution/get_env.h" export * }
+    module get_forward_progress_guarantee { header "__execution/get_forward_progress_guarantee.h" export * }
+    module get_scheduler                  { header "__execution/get_scheduler.h" export * }
+    module get_stop_token                 { header "__execution/get_stop_token.h" export * }
+    module into_variant                   { header "__execution/into_variant.h" export * }
+    module just                           { header "__execution/just.h" export * }
+    module let                            { header "__execution/let.h" export * }
+    module movable_value                  { header "__execution/movable_value.h" export * }
+    module on                             { header "__execution/on.h" export * }
+    module operation_state                { header "__execution/operation_state.h" export * }
+    module queryable                      { header "__execution/queryable.h" export * }
+    module read_env                       { header "__execution/read_env.h" export * }
+    module receiver                       { header "__execution/receiver.h" export * }
+    module run_loop                       { header "__execution/run_loop.h" export * }
+    module schedule                       { header "__execution/schedule.h" export * }
+    module schedule_from                  { header "__execution/schedule_from.h" export * }
+    module scheduler                      { header "__execution/scheduler.h" export * }
+    module sender                         { header "__execution/sender.h" export * }
+    module sender_adaptor_closure         { header "__execution/sender_adaptor_closure.h" export * }
+    module starts_on                      { header "__execution/starts_on.h" export * }
+    module stopped_as_error               { header "__execution/stopped_as_error.h" export * }
+    module stopped_as_optional            { header "__execution/stopped_as_optional.h" export * }
+    module sync_wait                      { header "__execution/sync_wait.h" export * }
+    module then                           { header "__execution/then.h" export * }
+    module unstoppable                    { header "__execution/unstoppable.h" export * }
+    module when_all                       { header "__execution/when_all.h" export * }
+    module with_awaitable_senders         { header "__execution/with_awaitable_senders.h" export * }
+    module write_env                      { header "__execution/write_env.h" export * }
+
     header "execution"
     export *
   }
@@ -1419,8 +1475,14 @@ module std [system] {
       header "__functional/compose.h"
       export std.functional.perfect_forward // inherited from and using its operators
     }
+    module copyable_function             { header "__functional/copyable_function.h" }
+    module copyable_function_common      { header "__functional/copyable_function_common.h" }
+    module copyable_function_impl        { textual header "__functional/copyable_function_impl.h" }
     module default_searcher             { header "__functional/default_searcher.h" }
     module function                     { header "__functional/function.h" }
+    module function_ref                 { header "__functional/function_ref.h" }
+    module function_ref_common          { header "__functional/function_ref_common.h" }
+    module function_ref_impl            { textual header "__functional/function_ref_impl.h" }
     module hash                         { header "__functional/hash.h" }
     module identity                     { header "__functional/identity.h" }
     module invoke                       { header "__functional/invoke.h" }
@@ -1700,11 +1762,19 @@ module std [system] {
     module destroy                            { header "__memory/destroy.h" }
     module destruct_n                         { header "__memory/destruct_n.h" }
     module fwd                                { header "__fwd/memory.h" }
+    module indirect {
+      header "__memory/indirect.h"
+      export * // strong_ordering/allocator_arg_t appear in public signatures
+    }
     module inout_ptr                          { header "__memory/inout_ptr.h" }
     module is_sufficiently_aligned            { header "__memory/is_sufficiently_aligned.h" }
     module noexcept_move_assign_container     { header "__memory/noexcept_move_assign_container.h" }
     module out_ptr                            { header "__memory/out_ptr.h" }
     module pointer_traits                     { header "__memory/pointer_traits.h" }
+    module polymorphic {
+      header "__memory/polymorphic.h"
+      export * // allocator_arg_t appears in several constructor signatures
+    }
     module ranges_construct_at                { header "__memory/ranges_construct_at.h" }
     module ranges_destroy                     { header "__memory/ranges_destroy.h" }
     module ranges_uninitialized_algorithms {
@@ -2078,12 +2148,17 @@ module std [system] {
 
   module stop_token {
     module atomic_unique_lock     { header "__stop_token/atomic_unique_lock.h" }
+    module inplace_stop_callback  { header "__stop_token/inplace_stop_callback.h" }
+    module inplace_stop_source    { header "__stop_token/inplace_stop_source.h" }
+    module inplace_stop_token     { header "__stop_token/inplace_stop_token.h" }
     module intrusive_list_view    { header "__stop_token/intrusive_list_view.h" }
     module intrusive_shared_ptr   { header "__stop_token/intrusive_shared_ptr.h" }
+    module never_stop_token       { header "__stop_token/never_stop_token.h" }
     module stop_callback          { header "__stop_token/stop_callback.h" }
     module stop_source            { header "__stop_token/stop_source.h" }
     module stop_state             { header "__stop_token/stop_state.h" }
     module stop_token             { header "__stop_token/stop_token.h" }
+    module stoppable_token        { header "__stop_token/stoppable_token.h" }
 
     header "stop_token"
     export *

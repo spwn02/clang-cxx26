@@ -17,6 +17,7 @@
 #include <__cstddef/ptrdiff_t.h>
 #include <__exception/exception.h>
 #include <__functional/binary_function.h>
+#include <__functional/hash.h>
 #include <__functional/operations.h>
 #include <__functional/reference_wrapper.h>
 #include <__fwd/ostream.h>

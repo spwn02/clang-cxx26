@@ -4271,3 +4271,101 @@ blocked, what's next. Do not remove old entries.
   found `<__random/log2.h>` `__uint128_t` bug (independent of any single
   paper — worth a standalone fix-and-regression-test session given it's
   now a documented, reproducible latent bug) are the next candidates.
+
+- **2026-08-23 (fourth session)**: Picked up the `__execution/*.h`
+  modulemap gap. **The "three headers" figure from the last session was a
+  partial read** — actually 55 headers were missing from
+  `libcxx/include/module.modulemap.in`, confirmed by running
+  `headers_in_modulemap.sh.py`'s own check directly (39 `__execution/*.h`,
+  5 `__stop_token/*.h`, 6 `__functional/*.h` from the copyable_function/
+  function_ref work, 2 `__memory/*.h` from the P3508R0 session's
+  `indirect`/`polymorphic`, 1 `__chrono/hash.h` — this session's own
+  P2592R3 work registered that header in `CMakeLists.txt` but not the
+  modulemap; **adding a header needs both, every time**). Added all 55,
+  alphabetically within each existing submodule block, `textual header`
+  for the two X-macro-repeated-inclusion headers
+  (`function_ref_impl.h`/`copyable_function_impl.h`, matching
+  `move_only_function_impl.h`'s existing precedent).
+
+  **`headers_in_modulemap.sh.py` is a substring check on the source `.in`
+  file, not a validity check** (advisor caught this before any real
+  verification work) — it goes green the instant the path text is present,
+  before anything compiles. Real verification needed a `-fmodules` build.
+  That build surfaced two classes of finding:
+
+  1. **The 39 `__execution/*.h` submodules are far more tightly
+     interdependent than `chrono`/`functional`'s existing per-header
+     blocks** (e.g. `completion_functions.h`'s `set_value_t`/`set_error_t`
+     are used throughout the other 38 files) — naive per-header exports
+     (hand-tracing `tuple`/`variant`/`optional`/`atomic`/`coroutine_handle`
+     usage into `export std.X` lines) produced cascading "declaration must
+     be imported" errors. Fixed by giving all 41 `execution` submodules
+     `export *`, matching this same file's existing `allocator`/
+     `unique_temporary_buffer`/`high_resolution_clock` precedent for
+     exactly this shape of problem (their own comments cite
+     https://github.com/llvm/llvm-project/issues/120108). Also applied to
+     the new `chrono.hash`/`memory.indirect`/`memory.polymorphic` entries
+     for consistency, since their hand-picked exports couldn't be
+     independently validated either (see next point) — better to match
+     the established workaround than leave narrowly-scoped exports that
+     look verified but aren't.
+
+  2. **The `-fmodules` build cannot currently be driven to completion at
+     all, independent of anything in this session.** `module std [system]`
+     is one monolithic top-level Clang module wrapping the *entire*
+     library; building it the first time compiles every `header` line in
+     the file as one synthetic TU (`<module-includes>`), so a single
+     `#include <execution>` under `-fmodules` transitively surfaced
+     unrelated pre-existing bugs in `hive`, `inplace_vector`, and (this
+     session's own) `__memory/indirect.h`/`polymorphic.h` (missing
+     `#include <__memory/allocator_arg_t.h>` for a type used in public
+     constructor signatures — fixed via `export *` as above, not
+     independently verified beyond that the compile error moved past that
+     point) — all "worked by textual accident" bugs, same shape as the
+     `zoned_time.h` finding from the P2592R3 session. **Measured the actual
+     scale via `libcxx/test/libcxx/clang_modules_include.gen.py`, which
+     exercises this same path per top-level header: 20 passed / 122 failed
+     / 1 unsupported out of 143, and — checked via `git stash` before and
+     after this session's changes — this ratio is byte-for-byte identical
+     with or without this session's modulemap additions.** This is a
+     pre-existing, undocumented-until-now condition affecting the large
+     majority of the library, not something this session introduced or
+     regressed. Making it pass is its own project, sized like the
+     `std::execution` sub-plan (M1–M6) above — **not a Tier 6 pickup** —
+     and is out of scope here.
+
+  Two real, independent bugs found and fixed along the way, both the same
+  "declaration visible only by textual-inclusion-order accident" shape:
+  `__execution/receiver.h` used the `derived_from` concept without
+  including `<__concepts/derived_from.h>` (added); `__memory/shared_ptr.h`
+  used `hash<_Tp*>` (in `owner_hash()`) without including
+  `<__functional/hash.h>` (added). Kept both — genuinely correct
+  independent of modules — but verified the `shared_ptr.h` one carefully
+  before keeping it, since advisor flagged it as the single riskiest line
+  in the diff for `<memory>`'s transitive-include set (one of the most
+  widely-pulled headers in the tree): reran
+  `libcxx/test/libcxx/transitive_includes.gen.py` after the change — 125/125
+  passed, no drift, confirmed `__functional/hash.h` was already reachable
+  transitively through some other already-included header, so this fix
+  adds no new top-level transitive include.
+
+  Verification actually run, given the `-fmodules` build itself can't
+  finish: `headers_in_modulemap.sh.py` (1/1, mechanical check now green);
+  full default-mode (non-modules) sweep of `libcxx/test/std/execution/`,
+  `libcxx/test/std/time/`, `libcxx/test/std/utilities/memory/`,
+  `libcxx/test/std/thread/thread.stoptoken/`,
+  `libcxx/test/std/utilities/function.objects/` (925/925, no failures);
+  `libcxx/test/std/containers/sequences/vector`,
+  `libcxx/test/std/strings/basic.string`,
+  `libcxx/test/std/containers/sequences/deque` plus
+  `libcxx/test/libcxx/module_std.gen.py` (393/393) as the `shared_ptr.h`
+  blast-radius check; `transitive_includes.gen.py` (125/125) as above.
+
+  **Next session**: the `hive`/`inplace_vector`/wider modules-build
+  breakage (122/143 failing, confirmed pre-existing and undocumented until
+  this session — candidates for a dedicated, `std::execution`-sub-plan-sized
+  effort, not Tier 6); P3349R1 (contiguous iterator → pointer conversion —
+  confirmed this session to be a pure "permission, not requirement" DR with
+  no FTM, so likely just a CSV-flip-and-note once someone confirms
+  `__unwrap_iter`'s existing memmove-style optimizations satisfy it); or
+  the `<__random/log2.h>` `__uint128_t` bug from two sessions ago.
