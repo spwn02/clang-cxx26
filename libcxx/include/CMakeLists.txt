@@ -1144,7 +1144,9 @@ set(files
   sstream
   stack
   stdatomic.h
+  stdbit.h
   stdbool.h
+  stdckdint.h
   stddef.h
   stdexcept
   stdio.h

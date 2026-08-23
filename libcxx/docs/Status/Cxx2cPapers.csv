@@ -89,7 +89,7 @@
 "`P3323R1 <https://wg21.link/P3323R1>`__","cv-qualified types in ``atomic`` and ``atomic_ref``","2024-11 (Wrocław)","|Complete|","21",""
 "`P3508R0 <https://wg21.link/P3508R0>`__","Wording for ""constexpr for specialized memory algorithms""","2024-11 (Wrocław)","|Complete|","",""
 "`P3369R0 <https://wg21.link/P3369R0>`__","constexpr for ``uninitialized_default_construct``","2024-11 (Wrocław)","|Complete|","",""
-"`P3370R1 <https://wg21.link/P3370R1>`__","Add new library headers from C23","2024-11 (Wrocław)","","",""
+"`P3370R1 <https://wg21.link/P3370R1>`__","Add new library headers from C23","2024-11 (Wrocław)","|Complete|","",""
 "`P3309R3 <https://wg21.link/P3309R3>`__","constexpr ``atomic`` and ``atomic_ref``","2024-11 (Wrocław)","|Partial|","21","``atomic<T>`` constexpr is scoped to scalar ``T`` (class-typed ``T`` needs a clang-side constexpr extension for ``__c11_atomic_load``/etc. on class-typed ``_Atomic`` that this compiler doesn't have); ``atomic_ref<T>`` store/load/exchange work for any trivially copyable ``T``. ``atomic_flag`` is entirely out of scope (making the shared wait/notify templates constexpr breaks its declaration-order-dependent trait specialization). See ``docs/CXX26_GAPS.md`` Tier 4 for the full writeup."
 "`P1928R15 <https://wg21.link/P1928R15>`__","``std::simd`` — merge data-parallel types from the Parallelism TS 2","2024-11 (Wrocław)","|In Progress|","",""
 "`P3325R5 <https://wg21.link/P3325R5>`__","A Utility for Creating Execution Environments","2024-11 (Wrocław)","|Complete|","",""

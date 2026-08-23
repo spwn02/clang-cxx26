@@ -1619,7 +1619,7 @@ changes for any of the three — none of them flip status this session.
 | [ ] | P3222R0 | Transposed special cases for P2642 mdspan layouts |
 | [x] | P3508R0 | Wording for constexpr specialized memory algorithms |
 | [x] | P3369R0 | `constexpr` for `uninitialized_default_construct` |
-| [ ] | P3370R1 | New library headers from C23 |
+| [x] | P3370R1 | New library headers from C23 | Complete 2026-08-23 — see Session Log |
 | [x] | P3349R1 | Converting contiguous iterators to pointers |
 | [!] | P3378R2 | `constexpr` exception types | **Session-sized** — library-side ABI restructure, not compiler-blocked (see block below) |
 | [ ] | P3471R4 | Standard Library Hardening |
@@ -4644,3 +4644,74 @@ blocked, what's next. Do not remove old entries.
   (Standard Library Hardening) — any of these is a reasonable next pickup,
   unassessed rather than confirmed-small, so scope-check each before
   committing to an implementation the way this session did.
+
+- **2026-08-23 (eighth session)**: Implemented P3370R1 (new C23 library
+  headers `<stdbit.h>`/`<stdckdint.h>`), the best-scoped of the six
+  candidates the prior session left unassessed. No FTM: confirmed via grep
+  that `generate_feature_test_macro_components.py` has no `__cpp_lib_*` row
+  for this paper at all — it uses its own `__STDC_VERSION_STDBIT_H__`/
+  `__STDC_VERSION_STDCKDINT_H__` macros instead. Every primitive it needs
+  was already in the tree (`<stdbit.h>`'s 14 function families wrap
+  `std::countl_zero`/`countl_one`/`countr_zero`/`countr_one`/`popcount`/
+  `has_single_bit`/`bit_width`/`bit_floor`/`bit_ceil`; `<stdckdint.h>`'s
+  three templates wrap `__builtin_add_overflow`/`sub_overflow`/
+  `mul_overflow`, already used in `__charconv/traits.h`/`__mdspan/*.h`) —
+  ruling out the P1383R2 compiler-blocked failure mode before starting.
+
+  Used the system's installed GCC 16 libstdc++ (`/usr/include/c++/16/
+  stdbit.h`, `stdckdint.h`) as a reference implementation of this exact
+  paper rather than re-deriving the 14 functions' edge-case semantics from
+  scratch. Confirmed via the paper's actual wording (fetched from
+  open-std.org) that declarations belong at global scope, not `std::` —
+  matching libstdc++'s shape and this fork's `stdatomic.h` precedent, but
+  written directly at global scope (no internal namespace) since there's no
+  `<cstdbit>`/`<cstdckdint>` std-namespace counterpart to reflect. Used this
+  fork's own `std::__unsigned_integer`/`std::__signed_or_unsigned_integer`
+  concepts as template constraints (matching `__bit/*.h`'s existing style)
+  rather than libstdc++'s `static_assert` form. Matched libstdc++'s choice
+  to leave every function non-`constexpr`, confirmed deliberate (not an
+  omission) via a failing `static_assert` probe. Checked `<mdspan>`/
+  `<expected>` (no `__cxx03/` mirror) against `stdatomic.h`/`stdbool.h`
+  (have one) to confirm the frozen-cxx03 split only applies to headers that
+  predate C++11 — `<stdbit.h>`/`<stdckdint.h>` correctly get no mirror.
+
+  **Found and fixed a real bug in the reference implementation before it
+  could be copied in**: libstdc++'s `stdc_bit_ceil` computes
+  `constexpr T msb = T(1) << (digits - 1); return (value & msb) ? 0 :
+  bit_ceil(value);` — using "top bit set" as the not-representable test.
+  That's wrong at the boundary: `msb` itself (e.g. `0x80` for
+  `unsigned char`) is a valid, representable power of two, but has its top
+  bit set, so this formula wrongly maps `stdc_bit_ceil_uc(0x80)` to `0`
+  instead of `0x80`. Verified this is a genuine libstdc++ bug, not a
+  misunderstanding of the paper's semantics, by cross-checking against
+  glibc's C `<stdbit.h>` (the actual C23 reference, compiled with
+  `gcc -std=c23`): `stdc_bit_ceil_uc(0x80)` correctly returns `0x80` there.
+  Fixed by changing the guard to `value > msb` (only values strictly
+  greater than the largest representable power of two are non-representable);
+  added boundary-case asserts (`0x80`/`0x81` for `unsigned char`, and the
+  generic-template equivalent for every tested width) to both new test
+  files so a future regression here would be caught. Also verified no
+  macro collision between `<stdbit.h>`'s unconditional `__STDC_ENDIAN_*`
+  `#define`s and `<bit>`/`<endian.h>` by compiling all four headers
+  together under `-Werror` (advisor-suggested check; clean).
+
+  New: `libcxx/include/stdbit.h`, `libcxx/include/stdckdint.h`, registered
+  in `libcxx/include/CMakeLists.txt` and as `[system]` modules in
+  `libcxx/include/module.modulemap.in` (outside `module std {}`, matching
+  `stdatomic.h`/`stdbool.h`). New tests: `libcxx/test/std/numerics/
+  stdbit.h.pass.cpp`, `libcxx/test/std/numerics/stdckdint.h.pass.cpp`. No
+  `.version.compile.pass.cpp` (no FTM to generate one from; confirmed
+  `libcxx-generate-files` produces no diff). Full `libcxx/test/std/
+  numerics/` sweep: 939/941 passed (2 pre-existing unsupported,
+  unrelated); `transitive_includes.gen.py`, `module_std.gen.py`,
+  `headers_in_modulemap.sh.py` all green. `Cxx2cPapers.csv` P3370R1 row
+  flipped to `|Complete|`; Tier 6 table checkbox flipped alongside it.
+
+  **Next session**: five unassessed Tier 6 rows remain — P2264R7
+  (user-friendly `assert()`), P2248R8 + P3217R0 (list-initialization for
+  algorithms + `find_last` addendum), P1068R11 (vector API for RNG),
+  P3222R0 (transposed mdspan layouts, blocked on the mdspan/submdspan work
+  in Tier 3 not having started), P3471R4 (Standard Library Hardening,
+  likely session-sized on its own given its breadth). P1068R11 is probably
+  the next-best-scoped pick using the same lens as this session (library-
+  only, no compiler dependency) — scope-check it first rather than assume.
