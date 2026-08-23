@@ -22,6 +22,7 @@ endif()
 add_executable(P2996ReferenceToolchainSmoke main.cxx)
 
 target_compile_features(P2996ReferenceToolchainSmoke PRIVATE cxx_std_26)
+target_compile_options(P2996ReferenceToolchainSmoke PRIVATE -Wall -Wextra -Wpedantic -Werror)
 
 set_target_properties(
   P2996ReferenceToolchainSmoke
