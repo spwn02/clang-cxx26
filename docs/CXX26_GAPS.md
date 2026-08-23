@@ -1182,7 +1182,7 @@ fmin` lowering, was already fully in place).
 | [x] | P0493R5 | Atomic min/max | Complete 2026-08-23 — `fetch_max`/`fetch_min` added to `atomic<Integral>`, `atomic<Floating-point>`, `atomic_ref<Integral>`, `atomic_ref<Floating-point>`, plus the `atomic_fetch_max(_explicit)`/`atomic_fetch_min(_explicit)` free functions. Integral routes through the pre-existing `__c11_atomic_fetch_max/min`/`__atomic_fetch_max/min` compiler builtins (single `atomicrmw`, no CAS loop); floating-point follows `fmaximum_num`/`fminimum_num` NaN semantics via the same CAS-loop fallback pattern `fetch_add`/`fetch_sub` already used for the fp80-long-double case |
 | [x] | P2835R7 | `atomic_ref` object address exposure | Complete 2026-08-23 — `constexpr T* address() const noexcept` added to `__atomic_ref_base<T>` (inherited by every specialization). Per the paper itself the return type is `T*`, not the `COPYCV(T,void)*` shown on eel.is — that form comes from a later merge (likely P3323R1-adjacent wording polish), not this paper; don't "fix" this back if a future session compares against the live draft |
 | [ ] | P3323R1 | cv-qualified types in `atomic`/`atomic_ref` | Assessed 2026-08-23, not attempted — see session log. Two real blockers, not scope-timidity: (1) eel.is is post-P3309R3-merge, so its `atomic_ref` synopsis has an extra converting constructor this paper does not add (confirmed against the paper's own wording diff) and marks everything `constexpr` — can't be copied directly, every signature needs hand reconciliation against the paper text; (2) the conformant signatures use `value_type` (`remove_cv_t<T>`) for store/load/exchange/compare_exchange parameters, but `__atomic_ref_base`'s internal `__compare_exchange`/`__clear_padding` helpers are typed on `T*` itself — for `atomic_ref<volatile T>` this is a real type mismatch, not just a `requires`-clause gap, so a conformant implementation needs those internals re-threaded first. What *is* already confirmed safe: specialization selection still works unchanged (`std::integral<const int>` is satisfied, so `atomic_ref<const int>` already picks the integral specialization), and `atomic_ref<T* const>` naturally falls through to the primary (non-pointer) template rather than needing special-casing, since `T* const` doesn't match the `atomic_ref<_Tp*>` partial-specialization pattern |
-| [ ] | P3309R3 | `constexpr atomic`/`atomic_ref` | Assessed 2026-08-23 — **does not need a clang change**, the paper's own implementation strategy is an `if consteval` sequential fallback in the library, same shape as e.g. `allocator<T>::allocate`'s existing `__libcpp_is_constant_evaluated()` branch. But it touches every RMW/wait/notify path across `atomic.h`, `atomic_ref.h`, `support/c11.h`, `support/gcc.h`, and `atomic_sync.h` — a real redesign, not a conformance pass. Dedicated session |
+| [x] | P3309R3 | `constexpr atomic`/`atomic_ref` | Complete 2026-08-23 for the paper's core surface, with two deliberate, documented scope cuts — see session log. `atomic<T>`'s storage is `_Atomic(T)`; none of `__c11_atomic_*`/`__atomic_*` are constexpr-evaluable in this compiler (confirmed by direct probe, not inferred from the "does not need a clang change" note in this row's prior assessment — that was the paper's own claim, not an audit), so the consteval branches (support/c11.h) read/write `__a_value` directly. That direct read only type-checks when T is scalar (`_Atomic(ClassType)` has no implicit conversion back to `ClassType`), so **`atomic<T>` constexpr is scoped to scalar T** (int, bool, pointer, floating-point incl. fp80 `long double` on this target, which exercises the separate CAS-loop path in `__rmw_op`) — arbitrary trivially-copyable class T stays non-constexpr, a real compiler gap, not scope-timidity. `atomic_ref<T>` has a different storage model (plain `T*`, no `_Atomic` qualification) so its `store`/`load`/`exchange`/`operator=` consteval branches (`*__ptr_` direct access) work for **any** trivially copyable T, including class types; only `compare_exchange_weak/strong` and `wait` stay scalar-gated, since they compare via `==` (unlike the bytewise `__atomic_compare_exchange`/`__clear_padding`/memcmp machinery used at runtime, which needs no such operator and isn't constexpr-usable itself). **`atomic_flag` is explicitly NOT covered** — its `wait()` calls `std::__atomic_wait` before `__atomic_waitable_traits<atomic_flag>`'s specialization is declared later in the same header (atomic_flag.h), relying on that call's *body* not being instantiated until end-of-TU; making the shared `__atomic_wait`/`__atomic_notify_one`/`__atomic_notify_all` templates (atomic_sync.h) `constexpr` breaks that — Clang instantiates constexpr function templates eagerly — producing "explicit specialization after instantiation" errors. Fixed by keeping those shared atomic_sync.h templates non-constexpr and inlining the consteval wait/notify logic locally into `atomic<T>`/`atomic_ref<T>`'s own `wait()`/`notify_one()`/`notify_all()` (calling `this->load()` directly) instead of routing through them — `atomic_flag`'s own wait/notify were left untouched rather than risk restructuring its declaration order. The `gcc.h` backend (dead code in this fork — clang always selects `c11.h`) was not touched, so a hypothetical GCC build would advertise `__cpp_lib_constexpr_atomic` without honoring it; recorded rather than fixed, same shape as the P0493R5 row's compiler-layer scoping. FTM: `__cpp_lib_constexpr_atomic` (202411L, *not* `__cpp_lib_atomic_constexpr` — that name came from the paper's own R3 text, "location TBD by LEWG"; verified against eel.is's actual `<version>` synopsis before adding) |
 | [x] | P2869R4 | Remove deprecated `shared_ptr` atomic access APIs | Complete 2026-08-23 — the tracker's own "low complexity" label undersold this: these functions had never been given `_LIBCPP_DEPRECATED_IN_CXX20` in this fork despite the standard deprecating them since C++20 ([depr.util.smartptr.shared.atomic]), so the work was adding that plus the `_LIBCPP_ENABLE_CXX26_REMOVED_SHARED_PTR_ATOMICS` escape-hatch gate (same pattern as allocator/string/codecvt/strstream) plus updating 11 existing test files with the escape-hatch flag, not a bare deletion. `__sp_mut`/`__get_sp_mut` stay unconditional — implementation plumbing, not part of the removed public surface. Verified empty via `grep -rn "std::atomic_load\|atomic_store\|atomic_exchange\|atomic_compare_exchange" libcxx/src libcxx/test` (excluding the shared_ptr test dir itself) that no other in-tree code calls the now-deprecated overloads under `-Werror` |
 
 ### Tier 5 — Freestanding completeness
@@ -3380,3 +3380,103 @@ blocked, what's next. Do not remove old entries.
   Next: P3323R1 (internals re-thread first), P3309R3 (five-file RMW
   redesign), or Tier 5/6 — independent starting points, no forced
   ordering.
+
+- **2026-08-23 (Tier 4, P3309R3 landed): `constexpr atomic`/`atomic_ref`,
+  scoped to scalar `atomic<T>` + all-T `atomic_ref<T>` store/load/exchange.**
+  The prior entry's "does not need a clang change" line was the paper's own
+  claim, not an audit of this fork — re-derived it from scratch this
+  session via three direct compile probes (see row for what each found):
+  (1) none of `__c11_atomic_*`/`__atomic_*` are constexpr-evaluable here,
+  confirming the `if consteval` direct-storage-access strategy is
+  mandatory, not optional; (2) `_Atomic(T)` only implicitly converts back
+  to `T` for scalar `T` (a real, compiler-level restriction, not a libc++
+  choice) — the reason `atomic<T>`'s consteval reads are scalar-only, while
+  `atomic_ref<T>` (plain `T*` storage, no `_Atomic` wrapping at all) has no
+  such restriction and got store/load/exchange for arbitrary trivially
+  copyable `T`; (3) `__builtin_bit_cast` also rejects `_Atomic(T)` as "not
+  trivially copyable" even for `T=int`, ruling out that route entirely.
+  Landed as one commit spanning `support/c11.h` (the shared consteval
+  primitives, gated `is_scalar_v<_Tp>`, including a NaN-aware
+  `fetch_max`/`fetch_min` helper duplicated from `<atomic>`'s own since
+  this is the single call site reached by both the integral
+  direct-RMW-builtin path and the floating-point CAS-loop-via-`__rmw_op`
+  path), `atomic.h`, `atomic_ref.h`, `<atomic>`'s and `<atomic_ref>`'s
+  free-function wrappers, and the FTM. Hit and fixed one real regression
+  along the way, not caught until
+  actually running the suite (not by reasoning about the design): marking
+  the *shared* `atomic_sync.h` `__atomic_wait`/`__atomic_notify_one/all`
+  templates `constexpr` broke `atomic_flag` — its `wait()` (atomic_flag.h)
+  calls `std::__atomic_wait` textually *before*
+  `__atomic_waitable_traits<atomic_flag>`'s specialization is declared
+  later in the same header, which only worked because an ordinary function
+  template's body-instantiation is deferred past that point; a `constexpr`
+  template gets instantiated eagerly instead, so it hit the still-primary
+  (deleted) trait and produced "explicit specialization after
+  instantiation" errors when the real specialization was reached. Fixed by
+  reverting `atomic_sync.h` to byte-identical-with-HEAD (confirmed via
+  `git diff`) and inlining the consteval wait/notify-one/notify-all logic
+  directly into `atomic<T>`/`atomic_ref<T>`'s own member functions instead
+  (calling `this->load()` directly, no `__atomic_waitable_traits` needed
+  there) — `atomic_flag` itself was left completely untouched rather than
+  risk restructuring its declaration order for a type the paper doesn't
+  even name.
+
+  **Two deliberate, documented scope cuts, not oversights:** (1)
+  `atomic<T>` for non-scalar trivially-copyable class `T` stays
+  non-constexpr — a real compiler gap (no way to read `_Atomic(ClassType)`
+  at compile time with this compiler's current capabilities), not
+  something a future *library* session can close alone; would need a
+  clang-side constexpr extension for `__c11_atomic_load` (or equivalent)
+  on class-typed `_Atomic`. (2) `atomic_flag` is entirely out of scope,
+  for the declaration-ordering reason above. Both are called out plainly
+  in the row rather than silently absorbed into a "Complete" claim that
+  overstates what landed — matches this tracker's established practice
+  (e.g. P2835R7's `T*`-vs-`COPYCV` caveat, P0493R5's compiler-layer note).
+
+  Added `libcxx/test/std/atomics/atomics.types.generic/constexpr.pass.cpp`
+  (int, bool, pointer, `double`, and `long double` — the last specifically
+  to exercise the CAS-loop path, since fp80 extended precision on this
+  target's `long double` makes `__has_rmw_builtin()` false, unlike
+  `double` — plus a `test_free_functions()` static_assert hitting every
+  free `atomic_*`/`atomic_*_explicit` wrapper including the
+  `__enable_if_t<is_integral...>`-constrained `fetch_and/or/xor` family, a
+  compile-time `fetch_max`/`fetch_min` NaN-propagation check against
+  `<atomic>`'s own `__maximum_num`/`__minimum_num` semantics since c11.h's
+  copy of that logic isn't otherwise linked to it, and a non-constexpr
+  `test_class_type_still_compiles()` regression check that `atomic<T>` for
+  a non-scalar class `T` still compiles and runs normally at runtime — the
+  `if constexpr (is_scalar_v<_Tp>)` gating must not break that) and
+  `libcxx/test/std/atomics/atomics.ref/constexpr.pass.cpp` (scalar
+  `int`/pointer plus a `TrivialPoint` class type exercising the
+  store/load/exchange-only class-T path). Verified: both new tests pass
+  under both the default hardening mode and (critically —
+  `_LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN` compiles to `((void)0)` under
+  the default `none` mode, so the default run alone never actually
+  compiled the `atomic_ref` constructors' guarded
+  `reinterpret_cast<uintptr_t>` alignment check) `--param
+  hardening_mode=extensive`, which maps that macro to a real assertion
+  that evaluates its argument — confirming the
+  `__libcpp_is_constant_evaluated()` guard added around it is genuinely
+  load-bearing, not inert; full `atomics/` suite green both before (127,
+  re-baselined fresh at session start since the tree had moved since the
+  last run) and after (129 — 127 plus the two new files), including
+  `atomic_flag`'s existing tests, confirming the regression above is
+  actually fixed and not just removed from the diff; `utilities/memory/` +
+  `thread/` + `support.limits.general/` (650 tests) green;
+  `transitive_includes.gen.py` (125 tests, covers the new
+  `is_scalar.h`/`is_floating_point.h`/`is_constant_evaluated.h` includes)
+  green; `atomic.version.compile.pass.cpp`/`version.version.compile.pass.cpp`
+  (the FTM-specific tests) green; `libcxx-generate-files` + `git diff`
+  clean, no drift left unstaged; `clang-format --style=file` applied to
+  all three touched headers and both new test files before the final
+  verification pass. FTM:
+  `__cpp_lib_constexpr_atomic` = `202411L` — verified the name against
+  eel.is's actual `<version>` synopsis rather than trusting the paper
+  text's own "`__cpp_lib_atomic_constexpr`, location TBD by LEWG" (wrong
+  name, would have been a real bug). `gcc.h` (this fork's dead
+  GCC-atomics backend — clang always selects `c11.h`) was not touched, so
+  a hypothetical GCC build would advertise the FTM without honoring it;
+  recorded as a stated scope limit rather than fixed, same shape as the
+  P0493R5 row. Next: P3323R1 (`atomic`/`atomic_ref` cv-qualification —
+  needs `__atomic_ref_base` internals re-threaded first, per its row), or
+  Tier 5/6 — independent starting points.

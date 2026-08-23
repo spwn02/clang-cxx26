@@ -176,6 +176,10 @@
 #    error "__cpp_lib_constexpr_algorithms should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_bitset
 #    error "__cpp_lib_constexpr_bitset should not be defined before c++23"
 #  endif
@@ -1106,6 +1110,10 @@
 
 #  ifdef __cpp_lib_constexpr_algorithms
 #    error "__cpp_lib_constexpr_algorithms should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_bitset
@@ -2140,6 +2148,10 @@
 
 #  ifdef __cpp_lib_constexpr_algorithms
 #    error "__cpp_lib_constexpr_algorithms should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_bitset
@@ -3402,6 +3414,10 @@
 #  endif
 #  if __cpp_lib_constexpr_algorithms != 201806L
 #    error "__cpp_lib_constexpr_algorithms should have the value 201806L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_bitset
@@ -4877,6 +4893,10 @@
 #  endif
 #  if __cpp_lib_constexpr_algorithms != 201806L
 #    error "__cpp_lib_constexpr_algorithms should have the value 201806L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_bitset
@@ -6562,6 +6582,13 @@
 #  endif
 #  if __cpp_lib_constexpr_algorithms != 202306L
 #    error "__cpp_lib_constexpr_algorithms should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_atomic != 202411L
+#    error "__cpp_lib_constexpr_atomic should have the value 202411L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_bitset

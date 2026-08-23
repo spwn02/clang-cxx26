@@ -333,6 +333,11 @@ feature_test_macros = [
             "headers": ["algorithm", "utility"],
         },
         {
+            "name": "__cpp_lib_constexpr_atomic",
+            "values": {"c++26": 202411},  # P3309R3: constexpr atomic and atomic_ref
+            "headers": ["atomic"],
+        },
+        {
             "name": "__cpp_lib_constexpr_bitset",
             "values": {"c++23": 202207},
             "headers": ["bitset"],

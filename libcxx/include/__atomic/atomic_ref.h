@@ -29,6 +29,8 @@
 #include <__cstddef/ptrdiff_t.h>
 #include <__memory/addressof.h>
 #include <__type_traits/has_unique_object_representation.h>
+#include <__type_traits/is_constant_evaluated.h>
+#include <__type_traits/is_scalar.h>
 #include <__type_traits/is_trivially_copyable.h>
 #include <cstdint>
 #include <cstring>
@@ -123,21 +125,33 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI bool is_lock_free() const noexcept { return __atomic_is_lock_free(sizeof(_Tp), __ptr_); }
 
-  _LIBCPP_HIDE_FROM_ABI void store(_Tp __desired, memory_order __order = memory_order::seq_cst) const noexcept
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
+  store(_Tp __desired, memory_order __order = memory_order::seq_cst) const noexcept
       _LIBCPP_CHECK_STORE_MEMORY_ORDER(__order) {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      *__ptr_ = __desired;
+      return;
+    }
+#  endif
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
         __order == memory_order::relaxed || __order == memory_order::release || __order == memory_order::seq_cst,
         "atomic_ref: memory order argument to atomic store operation is invalid");
     __atomic_store(__ptr_, __clear_padding(__desired), std::__to_gcc_order(__order));
   }
 
-  _LIBCPP_HIDE_FROM_ABI _Tp operator=(_Tp __desired) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator=(_Tp __desired) const noexcept {
     store(__desired);
     return __desired;
   }
 
-  _LIBCPP_HIDE_FROM_ABI _Tp load(memory_order __order = memory_order::seq_cst) const noexcept
-      _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__order) {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
+  load(memory_order __order = memory_order::seq_cst) const noexcept _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__order) {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      return *__ptr_;
+    }
+#  endif
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
         __order == memory_order::relaxed || __order == memory_order::consume || __order == memory_order::acquire ||
             __order == memory_order::seq_cst,
@@ -148,18 +162,42 @@ public:
     return *__ret;
   }
 
-  _LIBCPP_HIDE_FROM_ABI operator _Tp() const noexcept { return load(); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 operator _Tp() const noexcept { return load(); }
 
-  _LIBCPP_HIDE_FROM_ABI _Tp exchange(_Tp __desired, memory_order __order = memory_order::seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
+  exchange(_Tp __desired, memory_order __order = memory_order::seq_cst) const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      _Tp __old = *__ptr_;
+      *__ptr_   = __desired;
+      return __old;
+    }
+#  endif
     alignas(_Tp) byte __mem[sizeof(_Tp)];
     auto* __ret = reinterpret_cast<_Tp*>(__mem);
     __atomic_exchange(__ptr_, __clear_padding(__desired), __ret, std::__to_gcc_order(__order));
     return *__ret;
   }
 
-  _LIBCPP_HIDE_FROM_ABI bool
+  // The consteval branches below are gated on is_scalar_v<_Tp>: they compare via `==`, which
+  // -- unlike __compare_exchange's bytewise __atomic_compare_exchange/__clear_padding/memcmp
+  // machinery below (none of which is usable in a constant expression) -- requires an equality
+  // comparison to exist, so this doesn't extend to arbitrary trivially copyable class types.
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool
   compare_exchange_weak(_Tp& __expected, _Tp __desired, memory_order __success, memory_order __failure) const noexcept
       _LIBCPP_CHECK_EXCHANGE_MEMORY_ORDER(__success, __failure) {
+#  if _LIBCPP_STD_VER >= 26
+    if constexpr (is_scalar_v<_Tp>) {
+      if consteval {
+        if (*__ptr_ == __expected) {
+          *__ptr_ = __desired;
+          return true;
+        }
+        __expected = *__ptr_;
+        return false;
+      }
+    }
+#  endif
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
         __failure == memory_order::relaxed || __failure == memory_order::consume ||
             __failure == memory_order::acquire || __failure == memory_order::seq_cst,
@@ -172,9 +210,21 @@ public:
         std::__to_gcc_order(__success),
         std::__to_gcc_order(__failure));
   }
-  _LIBCPP_HIDE_FROM_ABI bool
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool
   compare_exchange_strong(_Tp& __expected, _Tp __desired, memory_order __success, memory_order __failure) const noexcept
       _LIBCPP_CHECK_EXCHANGE_MEMORY_ORDER(__success, __failure) {
+#  if _LIBCPP_STD_VER >= 26
+    if constexpr (is_scalar_v<_Tp>) {
+      if consteval {
+        if (*__ptr_ == __expected) {
+          *__ptr_ = __desired;
+          return true;
+        }
+        __expected = *__ptr_;
+        return false;
+      }
+    }
+#  endif
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
         __failure == memory_order::relaxed || __failure == memory_order::consume ||
             __failure == memory_order::acquire || __failure == memory_order::seq_cst,
@@ -188,8 +238,20 @@ public:
         std::__to_gcc_order(__failure));
   }
 
-  _LIBCPP_HIDE_FROM_ABI bool
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool
   compare_exchange_weak(_Tp& __expected, _Tp __desired, memory_order __order = memory_order::seq_cst) const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if constexpr (is_scalar_v<_Tp>) {
+      if consteval {
+        if (*__ptr_ == __expected) {
+          *__ptr_ = __desired;
+          return true;
+        }
+        __expected = *__ptr_;
+        return false;
+      }
+    }
+#  endif
     return __compare_exchange(
         __ptr_,
         std::addressof(__expected),
@@ -198,8 +260,20 @@ public:
         std::__to_gcc_order(__order),
         std::__to_gcc_failure_order(__order));
   }
-  _LIBCPP_HIDE_FROM_ABI bool
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool
   compare_exchange_strong(_Tp& __expected, _Tp __desired, memory_order __order = memory_order::seq_cst) const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if constexpr (is_scalar_v<_Tp>) {
+      if consteval {
+        if (*__ptr_ == __expected) {
+          *__ptr_ = __desired;
+          return true;
+        }
+        __expected = *__ptr_;
+        return false;
+      }
+    }
+#  endif
     return __compare_exchange(
         __ptr_,
         std::addressof(__expected),
@@ -209,16 +283,44 @@ public:
         std::__to_gcc_failure_order(__order));
   }
 
-  _LIBCPP_HIDE_FROM_ABI void wait(_Tp __old, memory_order __order = memory_order::seq_cst) const noexcept
+  // The consteval branch below calls this->load() directly instead of going through
+  // std::__atomic_wait (kept non-constexpr, like atomic.h's wait() -- see its comment: Clang
+  // eagerly instantiates constexpr function templates, which is incompatible with
+  // atomic_flag.h's fragile pre-specialization use of the shared std::__atomic_wait).
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
+  wait(_Tp __old, memory_order __order = memory_order::seq_cst) const noexcept
       _LIBCPP_CHECK_WAIT_MEMORY_ORDER(__order) {
+#  if _LIBCPP_STD_VER >= 26
+    if constexpr (is_scalar_v<_Tp>) {
+      if consteval {
+        while (this->load(__order) == __old) {
+        }
+        return;
+      }
+    }
+#  endif
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
         __order == memory_order::relaxed || __order == memory_order::consume || __order == memory_order::acquire ||
             __order == memory_order::seq_cst,
         "atomic_ref: memory order argument to atomic wait operation is invalid");
     std::__atomic_wait(*this, __old, __order);
   }
-  _LIBCPP_HIDE_FROM_ABI void notify_one() const noexcept { std::__atomic_notify_one(*this); }
-  _LIBCPP_HIDE_FROM_ABI void notify_all() const noexcept { std::__atomic_notify_all(*this); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_one() const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      return; // no-op: constant evaluation is single-threaded, so nothing can be waiting.
+    }
+#  endif
+    std::__atomic_notify_one(*this);
+  }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_all() const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      return; // no-op: constant evaluation is single-threaded, so nothing can be waiting.
+    }
+#  endif
+    std::__atomic_notify_all(*this);
+  }
 
 #  if _LIBCPP_STD_VER >= 26
   _LIBCPP_HIDE_FROM_ABI constexpr _Tp* address() const noexcept { return __ptr_; }
@@ -228,7 +330,7 @@ protected:
   using _Aligned_Tp [[__gnu__::__aligned__(required_alignment), __gnu__::__nodebug__]] = _Tp;
   _Aligned_Tp* __ptr_;
 
-  _LIBCPP_HIDE_FROM_ABI __atomic_ref_base(_Tp& __obj) : __ptr_(std::addressof(__obj)) {}
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 __atomic_ref_base(_Tp& __obj) : __ptr_(std::addressof(__obj)) {}
 };
 
 template <class _Tp>
@@ -247,15 +349,24 @@ struct atomic_ref : public __atomic_ref_base<_Tp> {
 
   using __base _LIBCPP_NODEBUG = __atomic_ref_base<_Tp>;
 
-  _LIBCPP_HIDE_FROM_ABI explicit atomic_ref(_Tp& __obj) : __base(__obj) {
-    _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
-        reinterpret_cast<uintptr_t>(std::addressof(__obj)) % __base::required_alignment == 0,
-        "atomic_ref ctor: referenced object must be aligned to required_alignment");
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 explicit atomic_ref(_Tp& __obj) : __base(__obj) {
+    // The alignment check below reinterpret_casts the referenced object's address to check its
+    // low bits, which isn't usable in a constant expression -- but it's also unnecessary there:
+    // the constant evaluator already guarantees `__obj` is a real, fully-aligned object of type
+    // `_Tp`, so there's nothing an alignment precondition check could catch at compile time.
+#  if _LIBCPP_STD_VER >= 26
+    if (!__libcpp_is_constant_evaluated())
+#  endif
+      _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
+          reinterpret_cast<uintptr_t>(std::addressof(__obj)) % __base::required_alignment == 0,
+          "atomic_ref ctor: referenced object must be aligned to required_alignment");
   }
 
   _LIBCPP_HIDE_FROM_ABI atomic_ref(const atomic_ref&) noexcept = default;
 
-  _LIBCPP_HIDE_FROM_ABI _Tp operator=(_Tp __desired) const noexcept { return __base::operator=(__desired); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator=(_Tp __desired) const noexcept {
+    return __base::operator=(__desired);
+  }
 
   atomic_ref& operator=(const atomic_ref&) = delete;
 };
@@ -267,51 +378,124 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
 
   using difference_type = __base::value_type;
 
-  _LIBCPP_HIDE_FROM_ABI explicit atomic_ref(_Tp& __obj) : __base(__obj) {
-    _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
-        reinterpret_cast<uintptr_t>(std::addressof(__obj)) % __base::required_alignment == 0,
-        "atomic_ref ctor: referenced object must be aligned to required_alignment");
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 explicit atomic_ref(_Tp& __obj) : __base(__obj) {
+    // The alignment check below reinterpret_casts the referenced object's address to check its
+    // low bits, which isn't usable in a constant expression -- but it's also unnecessary there:
+    // the constant evaluator already guarantees `__obj` is a real, fully-aligned object of type
+    // `_Tp`, so there's nothing an alignment precondition check could catch at compile time.
+#  if _LIBCPP_STD_VER >= 26
+    if (!__libcpp_is_constant_evaluated())
+#  endif
+      _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
+          reinterpret_cast<uintptr_t>(std::addressof(__obj)) % __base::required_alignment == 0,
+          "atomic_ref ctor: referenced object must be aligned to required_alignment");
   }
 
   _LIBCPP_HIDE_FROM_ABI atomic_ref(const atomic_ref&) noexcept = default;
 
-  _LIBCPP_HIDE_FROM_ABI _Tp operator=(_Tp __desired) const noexcept { return __base::operator=(__desired); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator=(_Tp __desired) const noexcept {
+    return __base::operator=(__desired);
+  }
 
   atomic_ref& operator=(const atomic_ref&) = delete;
 
-  _LIBCPP_HIDE_FROM_ABI _Tp fetch_add(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
+  fetch_add(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      _Tp __old     = *this->__ptr_;
+      *this->__ptr_ = static_cast<_Tp>(__old + __arg);
+      return __old;
+    }
+#  endif
     return __atomic_fetch_add(this->__ptr_, __arg, std::__to_gcc_order(__order));
   }
-  _LIBCPP_HIDE_FROM_ABI _Tp fetch_sub(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
+  fetch_sub(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      _Tp __old     = *this->__ptr_;
+      *this->__ptr_ = static_cast<_Tp>(__old - __arg);
+      return __old;
+    }
+#  endif
     return __atomic_fetch_sub(this->__ptr_, __arg, std::__to_gcc_order(__order));
   }
-  _LIBCPP_HIDE_FROM_ABI _Tp fetch_and(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
+  fetch_and(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      _Tp __old     = *this->__ptr_;
+      *this->__ptr_ = static_cast<_Tp>(__old & __arg);
+      return __old;
+    }
+#  endif
     return __atomic_fetch_and(this->__ptr_, __arg, std::__to_gcc_order(__order));
   }
-  _LIBCPP_HIDE_FROM_ABI _Tp fetch_or(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
+  fetch_or(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      _Tp __old     = *this->__ptr_;
+      *this->__ptr_ = static_cast<_Tp>(__old | __arg);
+      return __old;
+    }
+#  endif
     return __atomic_fetch_or(this->__ptr_, __arg, std::__to_gcc_order(__order));
   }
-  _LIBCPP_HIDE_FROM_ABI _Tp fetch_xor(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
+  fetch_xor(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      _Tp __old     = *this->__ptr_;
+      *this->__ptr_ = static_cast<_Tp>(__old ^ __arg);
+      return __old;
+    }
+#  endif
     return __atomic_fetch_xor(this->__ptr_, __arg, std::__to_gcc_order(__order));
   }
 #  if _LIBCPP_STD_VER >= 26
-  _LIBCPP_HIDE_FROM_ABI _Tp fetch_max(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp fetch_max(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+    if consteval {
+      _Tp __old     = *this->__ptr_;
+      *this->__ptr_ = __old < __arg ? __arg : __old;
+      return __old;
+    }
     return __atomic_fetch_max(this->__ptr_, __arg, std::__to_gcc_order(__order));
   }
-  _LIBCPP_HIDE_FROM_ABI _Tp fetch_min(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp fetch_min(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+    if consteval {
+      _Tp __old     = *this->__ptr_;
+      *this->__ptr_ = __arg < __old ? __arg : __old;
+      return __old;
+    }
     return __atomic_fetch_min(this->__ptr_, __arg, std::__to_gcc_order(__order));
   }
 #  endif // _LIBCPP_STD_VER >= 26
 
-  _LIBCPP_HIDE_FROM_ABI _Tp operator++(int) const noexcept { return fetch_add(_Tp(1)); }
-  _LIBCPP_HIDE_FROM_ABI _Tp operator--(int) const noexcept { return fetch_sub(_Tp(1)); }
-  _LIBCPP_HIDE_FROM_ABI _Tp operator++() const noexcept { return fetch_add(_Tp(1)) + _Tp(1); }
-  _LIBCPP_HIDE_FROM_ABI _Tp operator--() const noexcept { return fetch_sub(_Tp(1)) - _Tp(1); }
-  _LIBCPP_HIDE_FROM_ABI _Tp operator+=(_Tp __arg) const noexcept { return fetch_add(__arg) + __arg; }
-  _LIBCPP_HIDE_FROM_ABI _Tp operator-=(_Tp __arg) const noexcept { return fetch_sub(__arg) - __arg; }
-  _LIBCPP_HIDE_FROM_ABI _Tp operator&=(_Tp __arg) const noexcept { return fetch_and(__arg) & __arg; }
-  _LIBCPP_HIDE_FROM_ABI _Tp operator|=(_Tp __arg) const noexcept { return fetch_or(__arg) | __arg; }
-  _LIBCPP_HIDE_FROM_ABI _Tp operator^=(_Tp __arg) const noexcept { return fetch_xor(__arg) ^ __arg; }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator++(int) const noexcept { return fetch_add(_Tp(1)); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator--(int) const noexcept { return fetch_sub(_Tp(1)); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator++() const noexcept {
+    return fetch_add(_Tp(1)) + _Tp(1);
+  }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator--() const noexcept {
+    return fetch_sub(_Tp(1)) - _Tp(1);
+  }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator+=(_Tp __arg) const noexcept {
+    return fetch_add(__arg) + __arg;
+  }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator-=(_Tp __arg) const noexcept {
+    return fetch_sub(__arg) - __arg;
+  }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator&=(_Tp __arg) const noexcept {
+    return fetch_and(__arg) & __arg;
+  }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator|=(_Tp __arg) const noexcept {
+    return fetch_or(__arg) | __arg;
+  }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator^=(_Tp __arg) const noexcept {
+    return fetch_xor(__arg) ^ __arg;
+  }
 };
 
 template <class _Tp>
@@ -321,19 +505,29 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
 
   using difference_type = __base::value_type;
 
-  _LIBCPP_HIDE_FROM_ABI explicit atomic_ref(_Tp& __obj) : __base(__obj) {
-    _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
-        reinterpret_cast<uintptr_t>(std::addressof(__obj)) % __base::required_alignment == 0,
-        "atomic_ref ctor: referenced object must be aligned to required_alignment");
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 explicit atomic_ref(_Tp& __obj) : __base(__obj) {
+    // The alignment check below reinterpret_casts the referenced object's address to check its
+    // low bits, which isn't usable in a constant expression -- but it's also unnecessary there:
+    // the constant evaluator already guarantees `__obj` is a real, fully-aligned object of type
+    // `_Tp`, so there's nothing an alignment precondition check could catch at compile time.
+#  if _LIBCPP_STD_VER >= 26
+    if (!__libcpp_is_constant_evaluated())
+#  endif
+      _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
+          reinterpret_cast<uintptr_t>(std::addressof(__obj)) % __base::required_alignment == 0,
+          "atomic_ref ctor: referenced object must be aligned to required_alignment");
   }
 
   _LIBCPP_HIDE_FROM_ABI atomic_ref(const atomic_ref&) noexcept = default;
 
-  _LIBCPP_HIDE_FROM_ABI _Tp operator=(_Tp __desired) const noexcept { return __base::operator=(__desired); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator=(_Tp __desired) const noexcept {
+    return __base::operator=(__desired);
+  }
 
   atomic_ref& operator=(const atomic_ref&) = delete;
 
-  _LIBCPP_HIDE_FROM_ABI _Tp fetch_add(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
+  fetch_add(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
     _Tp __old = this->load(memory_order_relaxed);
     _Tp __new = __old + __arg;
     while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
@@ -341,7 +535,8 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
     }
     return __old;
   }
-  _LIBCPP_HIDE_FROM_ABI _Tp fetch_sub(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
+  fetch_sub(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
     _Tp __old = this->load(memory_order_relaxed);
     _Tp __new = __old - __arg;
     while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
@@ -354,14 +549,14 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
   // As if by fmaximum_num/fminimum_num: unlike a plain `<`-based max/min, NaN never propagates into the
   // stored value. If both operands are NaN, or exactly one is, an unspecified NaN value (either operand)
   // is stored, matching [atomics.ref.float]'s "unspecified which" wording.
-  _LIBCPP_HIDE_FROM_ABI static _Tp __maximum_num(_Tp __a, _Tp __b) {
+  _LIBCPP_HIDE_FROM_ABI static constexpr _Tp __maximum_num(_Tp __a, _Tp __b) {
     if (__builtin_isnan(__a))
       return __b;
     if (__builtin_isnan(__b))
       return __a;
     return __a < __b ? __b : __a;
   }
-  _LIBCPP_HIDE_FROM_ABI static _Tp __minimum_num(_Tp __a, _Tp __b) {
+  _LIBCPP_HIDE_FROM_ABI static constexpr _Tp __minimum_num(_Tp __a, _Tp __b) {
     if (__builtin_isnan(__a))
       return __b;
     if (__builtin_isnan(__b))
@@ -369,7 +564,7 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
     return __b < __a ? __b : __a;
   }
 
-  _LIBCPP_HIDE_FROM_ABI _Tp fetch_max(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp fetch_max(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
     _Tp __old = this->load(memory_order_relaxed);
     _Tp __new = __maximum_num(__old, __arg);
     while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
@@ -377,7 +572,7 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
     }
     return __old;
   }
-  _LIBCPP_HIDE_FROM_ABI _Tp fetch_min(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp fetch_min(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
     _Tp __old = this->load(memory_order_relaxed);
     _Tp __new = __minimum_num(__old, __arg);
     while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
@@ -387,8 +582,12 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
   }
 #  endif // _LIBCPP_STD_VER >= 26
 
-  _LIBCPP_HIDE_FROM_ABI _Tp operator+=(_Tp __arg) const noexcept { return fetch_add(__arg) + __arg; }
-  _LIBCPP_HIDE_FROM_ABI _Tp operator-=(_Tp __arg) const noexcept { return fetch_sub(__arg) - __arg; }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator+=(_Tp __arg) const noexcept {
+    return fetch_add(__arg) + __arg;
+  }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp operator-=(_Tp __arg) const noexcept {
+    return fetch_sub(__arg) - __arg;
+  }
 };
 
 template <class _Tp>
@@ -397,25 +596,47 @@ struct atomic_ref<_Tp*> : public __atomic_ref_base<_Tp*> {
 
   using difference_type = ptrdiff_t;
 
-  _LIBCPP_HIDE_FROM_ABI explicit atomic_ref(_Tp*& __ptr) : __base(__ptr) {}
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 explicit atomic_ref(_Tp*& __ptr) : __base(__ptr) {}
 
-  _LIBCPP_HIDE_FROM_ABI _Tp* operator=(_Tp* __desired) const noexcept { return __base::operator=(__desired); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp* operator=(_Tp* __desired) const noexcept {
+    return __base::operator=(__desired);
+  }
 
   atomic_ref& operator=(const atomic_ref&) = delete;
 
-  _LIBCPP_HIDE_FROM_ABI _Tp* fetch_add(ptrdiff_t __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp*
+  fetch_add(ptrdiff_t __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      _Tp* __old    = *this->__ptr_;
+      *this->__ptr_ = __old + __arg;
+      return __old;
+    }
+#  endif
     return __atomic_fetch_add(this->__ptr_, __arg * sizeof(_Tp), std::__to_gcc_order(__order));
   }
-  _LIBCPP_HIDE_FROM_ABI _Tp* fetch_sub(ptrdiff_t __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp*
+  fetch_sub(ptrdiff_t __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      _Tp* __old    = *this->__ptr_;
+      *this->__ptr_ = __old - __arg;
+      return __old;
+    }
+#  endif
     return __atomic_fetch_sub(this->__ptr_, __arg * sizeof(_Tp), std::__to_gcc_order(__order));
   }
 
-  _LIBCPP_HIDE_FROM_ABI _Tp* operator++(int) const noexcept { return fetch_add(1); }
-  _LIBCPP_HIDE_FROM_ABI _Tp* operator--(int) const noexcept { return fetch_sub(1); }
-  _LIBCPP_HIDE_FROM_ABI _Tp* operator++() const noexcept { return fetch_add(1) + 1; }
-  _LIBCPP_HIDE_FROM_ABI _Tp* operator--() const noexcept { return fetch_sub(1) - 1; }
-  _LIBCPP_HIDE_FROM_ABI _Tp* operator+=(ptrdiff_t __arg) const noexcept { return fetch_add(__arg) + __arg; }
-  _LIBCPP_HIDE_FROM_ABI _Tp* operator-=(ptrdiff_t __arg) const noexcept { return fetch_sub(__arg) - __arg; }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp* operator++(int) const noexcept { return fetch_add(1); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp* operator--(int) const noexcept { return fetch_sub(1); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp* operator++() const noexcept { return fetch_add(1) + 1; }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp* operator--() const noexcept { return fetch_sub(1) - 1; }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp* operator+=(ptrdiff_t __arg) const noexcept {
+    return fetch_add(__arg) + __arg;
+  }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp* operator-=(ptrdiff_t __arg) const noexcept {
+    return fetch_sub(__arg) - __arg;
+  }
 };
 
 _LIBCPP_CTAD_SUPPORTED_FOR_TYPE(atomic_ref);

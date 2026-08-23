@@ -60,6 +60,10 @@
 #    error "__cpp_lib_char8_t should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 14
 
 #  ifdef __cpp_lib_atomic_flag_test
@@ -100,6 +104,10 @@
 
 #  ifdef __cpp_lib_char8_t
 #    error "__cpp_lib_char8_t should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 17
@@ -145,6 +153,10 @@
 
 #  ifdef __cpp_lib_char8_t
 #    error "__cpp_lib_char8_t should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 20
@@ -234,6 +246,10 @@
 #    endif
 #  endif
 
+#  ifdef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 23
 
 #  ifndef __cpp_lib_atomic_flag_test
@@ -319,6 +335,10 @@
 #    ifdef __cpp_lib_char8_t
 #      error "__cpp_lib_char8_t should not be defined when the requirement 'defined(__cpp_char8_t)' is not met!"
 #    endif
+#  endif
+
+#  ifdef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER > 23
@@ -409,6 +429,13 @@
 #    ifdef __cpp_lib_char8_t
 #      error "__cpp_lib_char8_t should not be defined when the requirement 'defined(__cpp_char8_t)' is not met!"
 #    endif
+#  endif
+
+#  ifndef __cpp_lib_constexpr_atomic
+#    error "__cpp_lib_constexpr_atomic should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_atomic != 202411L
+#    error "__cpp_lib_constexpr_atomic should have the value 202411L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23
