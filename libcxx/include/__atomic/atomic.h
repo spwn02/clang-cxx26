@@ -26,6 +26,7 @@
 #include <__type_traits/is_scalar.h>
 #include <__type_traits/is_trivially_copyable.h>
 #include <__type_traits/remove_const.h>
+#include <__type_traits/remove_cv.h>
 #include <__type_traits/remove_pointer.h>
 #include <__type_traits/remove_volatile.h>
 #include <__utility/forward.h>
@@ -304,6 +305,9 @@ template <typename _Tp>
 struct __check_atomic_mandates {
   using type _LIBCPP_NODEBUG = _Tp;
   static_assert(is_trivially_copyable<_Tp>::value, "std::atomic<T> requires that 'T' be a trivially copyable type");
+  // P3323R1: atomic<volatile int> is served by volatile atomic<int> instead -- std::atomic<T> itself is
+  // restricted to cv-unqualified T.
+  static_assert(is_same<_Tp, __remove_cv_t<_Tp> >::value, "std::atomic<T> requires that 'T' be cv-unqualified");
 };
 
 template <class _Tp>
@@ -405,7 +409,7 @@ struct __atomic_waitable_traits<atomic<_Tp> > : __atomic_waitable_traits<__atomi
 #if _LIBCPP_STD_VER >= 20
 template <class _Tp>
   requires is_floating_point_v<_Tp>
-struct atomic<_Tp> : __atomic_base<_Tp> {
+struct atomic<_Tp> : __atomic_base<typename __check_atomic_mandates<_Tp>::type> {
 private:
   _LIBCPP_HIDE_FROM_ABI static constexpr bool __is_fp80_long_double() {
     // Only x87-fp80 long double has 64-bit mantissa
