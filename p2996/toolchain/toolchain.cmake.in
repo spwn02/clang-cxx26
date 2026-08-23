@@ -29,11 +29,27 @@ endif()
 # standard-library module target is compiled with the same mode as consumers.
 # Linux Clang otherwise defaults to libstdc++, and the current p2996 fork still
 # gates the complete reflection implementation behind -freflection-latest.
-string(APPEND CMAKE_CXX_FLAGS_INIT
-       " -std=c++26 -stdlib=libc++ -freflection-latest")
-string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT " -fuse-ld=lld")
-string(APPEND CMAKE_SHARED_LINKER_FLAGS_INIT " -fuse-ld=lld")
-string(APPEND CMAKE_MODULE_LINKER_FLAGS_INIT " -fuse-ld=lld")
+#
+# CMake may evaluate a toolchain file more than once while enabling languages.
+# Append each flag only when it is not already present so repeated evaluation
+# cannot duplicate the reference-mode command line.
+foreach(_p2996_cxx_flag IN ITEMS -std=c++26 -stdlib=libc++ -freflection-latest)
+  string(FIND " ${CMAKE_CXX_FLAGS_INIT} " " ${_p2996_cxx_flag} "
+              _p2996_flag_index)
+  if(_p2996_flag_index EQUAL -1)
+    string(APPEND CMAKE_CXX_FLAGS_INIT " ${_p2996_cxx_flag}")
+  endif()
+endforeach()
+
+foreach(_p2996_linker_flags_var IN ITEMS CMAKE_EXE_LINKER_FLAGS_INIT
+                                          CMAKE_SHARED_LINKER_FLAGS_INIT
+                                          CMAKE_MODULE_LINKER_FLAGS_INIT)
+  string(FIND " ${${_p2996_linker_flags_var}} " " -fuse-ld=lld "
+              _p2996_flag_index)
+  if(_p2996_flag_index EQUAL -1)
+    string(APPEND ${_p2996_linker_flags_var} " -fuse-ld=lld")
+  endif()
+endforeach()
 
 set(CMAKE_BUILD_RPATH "@P2996_BUILD_RPATH@")
 
@@ -46,5 +62,8 @@ if(CMAKE_VERSION VERSION_LESS 4.5 AND NOT DEFINED
       CACHE STRING "CMake 4.4 import-std experimental gate")
 endif()
 
+unset(_p2996_flag_index)
+unset(_p2996_linker_flags_var)
+unset(_p2996_cxx_flag)
 unset(_p2996_share_dir)
 unset(_p2996_root)
