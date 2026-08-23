@@ -1542,27 +1542,86 @@ from the `generate_canonical` session **was investigated and retracted**
 narrative below — it doesn't reproduce; no fix needed) — no longer a
 candidate. Pick fresh from the Tier 6 table above.
 
-| Status | Paper | Feature |
-|---|---|---|
+**P2836R1, P2075R6, P3378R2 — three assessed, done 2026-08-23 (seventh
+session), none implemented.** Picked P2836R1 as the fresh Tier 6 candidate
+after the log2.h retraction; before implementing, checked whether the
+tree had anything to convert. It doesn't: `grep -rl "basic_const_iterator"
+libcxx/include/` returns nothing. P2836R1 only adds two converting
+operators to an *existing* `basic_const_iterator<Iterator>` — but that
+type, `const_iterator<I>`, `as_const_view`, and the `ranges::cbegin`/`cend`
+fix are all P2278R4 (C++23, tracked in `Cxx23Papers.csv`, not this
+document's C++26 tier list at all), and P2278R4 itself is unimplemented:
+`generate_feature_test_macro_components.py`'s `__cpp_lib_ranges_as_const`
+entry carries `"unimplemented": True`, with P2836R1's own `202311` DR bump
+sitting commented out directly beneath the `202207` (P2278R4) value,
+confirming the dependency in the generator's own data. Tier 6's "small,
+independent items" framing doesn't hold for this row — it's gated on a
+from-scratch C++23 ranges feature this document doesn't otherwise track.
+Not implementing either paper this session; flagged both so a future
+session scopes P2278R4 deliberately (as its own block, sized like the
+`mdspan`/`submdspan` or BLAS items) rather than someone reaching for
+P2836R1 expecting a two-operator patch.
+
+Checked P2075R6 (Philox engine) next, since it was also flagged `[ ]` and
+untouched: same shape, `__cpp_lib_philox_engine` is `"unimplemented":
+True` in the generator, and `grep -rln "philox" -i libcxx/include/__random/`
+returns nothing — a full counter-based RNG engine implemented from the
+paper's wording, not a conformance pass over existing scaffolding. Also
+not small; also not attempted.
+
+Checked P3378R2 (`constexpr` exception types) third. Its own motivating
+example (catching a `constexpr`-thrown `std::out_of_range` during constant
+evaluation) depends on P3068 (throw-expressions usable in constant
+expressions) — probed directly with a minimal `throw 42;` inside a
+`constexpr` function, independent of any libc++ header: hard error
+(`subexpression not valid in a constant expression`), confirming this
+Clang has no P3068 support at all (no relevant flag found via `--help` or
+in `clang/include/clang/Basic/LangOptions.def`). **But that alone doesn't
+make this row `[!]`-compiler-blocked in the P1383R2 sense** — advisor
+caught that the paper's actual normative content (adding `constexpr` to
+`<stdexcept>`'s constructors/`what()`/destructors) doesn't itself require
+`throw`-in-`constexpr` to work; only the paper's *motivating scenario*
+does. Ran the narrower discriminator directly: `constexpr
+std::out_of_range e("msg"); static_assert(std::string_view(e.what()) ==
+"msg");` (no `throw` anywhere) — still a hard error, but a different one:
+`non-constexpr constructor 'out_of_range' cannot be used in a constant
+expression`, pointing at `stdexcept:165`'s plain (non-`constexpr`)
+constructor. That's a **library** gap, not a compiler one. The real blocker
+is the restructuring the paper's own "libc++" section describes: `logic_
+error`/`runtime_error`'s reference-counted-string storage (atomic refcount,
+`reinterpret_cast`-accessed `_Rep_base`, allocated in a `.cpp`) isn't
+`constexpr`-compatible and would need to fall back to a plain copy during
+constant evaluation; the `what()`/dtor implementations currently live in
+`.cpp` files and moving them to headers drops the symbols libc++.so/
+libc++abi.so currently export, needing explicit compatibility symbols; and
+`<stdexcept>`'s `std::string`-taking constructors create a `<stdexcept>`/
+`<string>` circular-include problem the paper says must be resolved by
+reordering. Three real, independent, ABI-sensitive changes — session-sized
+on its own, matching the `P3107R5`/`P3235R3` "needs its own session" shape
+from the format/print block, not a Tier 6 pickup. Not implemented. No CSV
+changes for any of the three — none of them flip status this session.
+
+| Status | Paper | Feature | Notes |
+|---|---|---|---|
 | [x] | P2592R3 | Hashing support for `std::chrono` value classes |
 | [x] | P1885R12 | `text_encoding` naming |
 | [x] | P2862R1 | `text_encoding::name()` should never return null |
 | [x] | P2641R4 | Checking if a `union` alternative is active |
 | [x] | P0952R2 | New spec for `std::generate_canonical` |
-| [ ] | P2836R1 | `basic_const_iterator` convertibility |
+| [!] | P2836R1 | `basic_const_iterator` convertibility | **Not small** — depends on unimplemented P2278R4 (see block below) |
 | [ ] | P2264R7 | User-friendly `assert()` for C and C++ |
 | [ ] | P2248R8 | List-initialization for algorithms |
 | [ ] | P3217R0 | `find_last` addendum to P2248R8 |
 | [x] | P2546R5 | Debugging Support (`<debugging>`, not its own CSV-tracked row here) |
 | [x] | P2810R4 | `is_debugger_present`, `is_replaceable` |
 | [ ] | P1068R11 | Vector API for RNG |
-| [ ] | P2075R6 | Philox RNG engine |
+| [!] | P2075R6 | Philox RNG engine | **Not small** — from-scratch engine, `unimplemented: True`, no scaffold (see block below) |
 | [ ] | P3222R0 | Transposed special cases for P2642 mdspan layouts |
 | [x] | P3508R0 | Wording for constexpr specialized memory algorithms |
 | [x] | P3369R0 | `constexpr` for `uninitialized_default_construct` |
 | [ ] | P3370R1 | New library headers from C23 |
 | [x] | P3349R1 | Converting contiguous iterators to pointers |
-| [ ] | P3378R2 | `constexpr` exception types |
+| [!] | P3378R2 | `constexpr` exception types | **Session-sized** — library-side ABI restructure, not compiler-blocked (see block below) |
 | [ ] | P3471R4 | Standard Library Hardening |
 
 ### Language-side gaps (clang/, blocked on Tier 0)
@@ -4540,3 +4599,48 @@ blocked, what's next. Do not remove old entries.
   Tier 6 table, or scope the `hive`/`inplace_vector`/modules-build breakage
   (122/143 failing under `-fmodules`, confirmed pre-existing, `std::execution`-
   sub-plan-sized) as its own dedicated effort.
+
+- **2026-08-23 (seventh session)**: Assessed three Tier 6 rows, implemented
+  none — all three turned out bigger than the tier implies, and recording
+  that (so the next session doesn't reach for any of them expecting a small
+  patch) is the deliverable. **P2836R1** (`basic_const_iterator`
+  convertibility): the type it modifies doesn't exist in the tree at all —
+  it's gated on P2278R4 (C++23, `Cxx23Papers.csv`, not tracked in this
+  document's tier list), confirmed via `generate_feature_test_macro_
+  components.py`'s `__cpp_lib_ranges_as_const` entry (`"unimplemented":
+  True`, with P2836R1's own `202311` DR value already commented out
+  directly beneath P2278R4's `202207`). **P2075R6** (Philox engine): same
+  `"unimplemented": True` shape, no scaffold anywhere under
+  `libcxx/include/__random/` — a full counter-based engine from the paper's
+  wording, not a conformance pass. **P3378R2** (`constexpr` exception
+  types): confirmed this Clang has no P3068 (`throw`-in-`constexpr`)
+  support via a standalone `throw 42;` probe (hard error, no relevant flag
+  found), but advisor caught that this alone doesn't make the row
+  compiler-blocked in the P1383R2 sense — the paper's actual normative
+  surface (constexpr constructors/`what()`/dtors) doesn't require `throw`
+  support itself, only its motivating example does. Ran the narrower
+  discriminator (`constexpr std::out_of_range e("msg"); static_assert(...)`,
+  no `throw`) separately: still fails, but on `stdexcept:165`'s plain
+  non-`constexpr` constructor — a **library** gap. The real blocker is
+  three independent ABI-sensitive restructures the paper's own text
+  describes (non-`constexpr`-compatible refcounted-string storage in
+  `logic_error`/`runtime_error`; moving `.cpp`-defined `what()`/dtors into
+  headers without dropping libc++.so/libc++abi.so's existing exported
+  symbols; resolving `<stdexcept>`'s circular include on `<string>`) —
+  session-sized on its own, not a Tier 6 pickup. Tier 6 table: all three
+  rows marked `[!]` with inline notes pointing at the narrative block above
+  (`P2836R1`/`P2075R6`: "not small"; `P3378R2`: "session-sized, not
+  compiler-blocked"); table header gained a `Notes` column to hold them,
+  matching the Tier 1/2/3 tables' existing shape. No CSV changes — nothing
+  here flips a tracked status.
+
+  **Next session**: no small Tier 6 item confirmed ready as of this
+  session — the three checked this session and the `<__random/log2.h>`
+  candidate from the last are all closed out (implemented, retracted, or
+  reclassified as bigger). Remaining unchecked Tier 6 rows not yet assessed:
+  P2264R7 (user-friendly `assert()`), P2248R8 + P3217R0 (list-initialization
+  for algorithms + `find_last` addendum), P1068R11 (vector API for RNG),
+  P3222R0 (transposed mdspan layouts), P3370R1 (new C23 headers), P3471R4
+  (Standard Library Hardening) — any of these is a reasonable next pickup,
+  unassessed rather than confirmed-small, so scope-check each before
+  committing to an implementation the way this session did.
