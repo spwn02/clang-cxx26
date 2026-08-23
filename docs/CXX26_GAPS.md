@@ -1249,6 +1249,42 @@ unrelated. Full `text/` suite green (7/7 including the pre-existing
 version test); `Cxx2cPapers.csv` P1885R12 and P2862R1 rows flipped to
 `|Complete|`.
 
+**Advisor review before the flip caught three real gaps in the first test
+pass, all fixed in a follow-up commit:** (1) the hash test's only
+equal-encoding pair (`ASCII`/`US-ASCII`) both had `mib() != other`, so it
+couldn't exercise `[unord.hash]`'s equal-implies-equal-hash requirement
+for the `operator==` "both `other`, compare by `comp-name`" branch
+([text.encoding.cmp]p1) — a pair like `TE("UTF-8-Bogus")`/
+`TE("u.t.f-8-bogus")` (both resolve to `other`, comp-name-equal, distinct
+`__name_` bytes) is the one case that could actually catch a hash
+implementation that only hashes `mib_`. Added it. (2) `literal()`'s test
+only checked it compiled (`(void)lit`), which can't distinguish the real
+`__clang_literal_encoding__`-driven branch from the `#else` fallback
+(default-constructed, `mib() == unknown`) — confirmed via `-dM -E` that
+this compiler defines `__clang_literal_encoding__` as `"UTF-8"`, so
+strengthened to `static_assert(TE::literal().mib() == ID::UTF8)`. (3)
+checked `__cpp_lib_text_encoding`/the class both survive compiling
+*without* `-D_LIBCPP_ENABLE_EXPERIMENTAL` (lit always passes that flag, so
+the suite alone can't prove the header isn't silently gated behind it) —
+confirmed clean via a standalone compile+run, consistent with the header
+having no `_LIBCPP_ENABLE_EXPERIMENTAL` guard of its own. **Did not**
+apply the fourth suggestion (an `XFAIL: availability-<feature>-missing`
+matching the `stopsource` precedent for `_LIBCPP_AVAILABILITY_SYNC`) —
+checked `_LIBCPP_AVAILABILITY_TEXT_ENCODING_ENVIRONMENT` in
+`__configuration/availability.h` first rather than pattern-matching
+blindly, and unlike `_LIBCPP_AVAILABILITY_SYNC`
+(`_LIBCPP_INTRODUCED_IN_LLVM_11_ATTRIBUTE`), this macro is defined as
+**unconditionally empty** — no per-platform value exists anywhere in the
+tree, so there is no real availability attribute on `environment()`/
+`environment_is()` to gate a test against yet, on any target. No matching
+`availability-*-missing` Lit feature exists in `features.py` either.
+Recorded here so a future session wiring up real Apple-platform
+availability for this facility knows to add both the attribute and the
+test guard together, not just one. Re-verified full `text/` suite (5/5)
+under both default and `--param hardening_mode=extensive`, plus
+`transitive_includes.gen.py`/`module_std.gen.py` (125/126, unchanged
+baseline) after these fixes.
+
 | Status | Paper | Feature |
 |---|---|---|
 | [ ] | P2592R3 | Hashing support for `std::chrono` value classes |

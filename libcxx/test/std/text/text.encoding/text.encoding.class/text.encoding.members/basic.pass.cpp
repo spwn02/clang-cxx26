@@ -131,9 +131,12 @@ int main(int, char**) {
   testCompNameExamples();
   static_assert(testCompNameExamples());
 
-  // literal() is consteval.
+  // literal() is consteval and (per p12) returns a text_encoding representing
+  // the ordinary character literal encoding -- confirm it isn't just the
+  // #else fallback's default-constructed (mib() == unknown) stub. This
+  // compiler defines __clang_literal_encoding__ as "UTF-8".
   constexpr TE lit = TE::literal();
-  (void)lit;
+  static_assert(lit.mib() == ID::UTF8);
 
   return 0;
 }

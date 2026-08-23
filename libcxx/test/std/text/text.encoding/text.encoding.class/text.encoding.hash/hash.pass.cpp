@@ -32,10 +32,22 @@ int main(int, char**) {
   assert(a == b);
   assert(h(a) == h(b));
 
+  // Equal text_encoding objects whose mib() is `other` compare via comp-name
+  // on the stored name, not by mib_ alone ([text.encoding.cmp]p1) -- so this
+  // pair must also hash equal, even though their `name_` bytes differ.
+  TE c("UTF-8-Bogus");
+  TE d("u.t.f-8-bogus");
+  assert(c.mib() == ID::other);
+  assert(d.mib() == ID::other);
+  assert(c == d);
+  assert(h(c) == h(d));
+
   // Usable as a key in unordered associative containers.
   std::unordered_set<TE> s;
   s.insert(a);
   assert(s.contains(b));
+  s.insert(c);
+  assert(s.contains(d));
 
   return 0;
 }
