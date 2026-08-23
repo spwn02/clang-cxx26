@@ -748,6 +748,39 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
     return __atomic_fetch_sub(this->__ptr_, __arg * sizeof(__pointee), std::__to_gcc_order(__order));
   }
 
+#  if _LIBCPP_STD_VER >= 26
+  // Unlike fetch_add/fetch_sub, __atomic_fetch_max/__atomic_fetch_min's ArithAllows is AOEVT_FP only
+  // (see SemaChecking.cpp's IsAllowedValueType) -- the compiler builtin rejects pointer operands for
+  // these two operations specifically, so this can't route through __atomic_fetch_max/min like the
+  // integral specialization does. [atomics.ref.pointer] specifies the computation "as if by max and
+  // min algorithms, with the object value and the first parameter as the arguments", i.e. plain
+  // operator<, not a NaN-aware comparison -- so a CAS loop with std::max/std::min's own tie-breaking
+  // (returns the first argument on equality) suffices, with no helper needed for a three-way NaN case
+  // the way the floating-point specialization needs one.
+  _LIBCPP_HIDE_FROM_ABI constexpr value_type
+  fetch_max(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept
+    requires(!is_const_v<_Tp>)
+  {
+    value_type __old = this->load(memory_order_relaxed);
+    value_type __new = __old < __arg ? __arg : __old;
+    while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
+      __new = __old < __arg ? __arg : __old;
+    }
+    return __old;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr value_type
+  fetch_min(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept
+    requires(!is_const_v<_Tp>)
+  {
+    value_type __old = this->load(memory_order_relaxed);
+    value_type __new = __arg < __old ? __arg : __old;
+    while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
+      __new = __arg < __old ? __arg : __old;
+    }
+    return __old;
+  }
+#  endif // _LIBCPP_STD_VER >= 26
+
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type operator++(int) const noexcept
     requires(!is_const_v<_Tp>)
   {

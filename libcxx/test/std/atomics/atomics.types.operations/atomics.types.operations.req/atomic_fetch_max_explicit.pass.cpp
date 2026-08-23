@@ -52,10 +52,39 @@ struct TestFn {
   }
 };
 
+template <class T>
+void testp() {
+  {
+    typedef std::atomic<T> A;
+    typedef typename std::remove_pointer<T>::type X;
+    X a[3] = {};
+    A t(&a[0]);
+    assert(std::atomic_fetch_max_explicit(&t, &a[2], std::memory_order_seq_cst) == &a[0]);
+    assert(t == &a[2]);
+    assert(std::atomic_fetch_max_explicit(&t, &a[1], std::memory_order_seq_cst) == &a[2]);
+    assert(t == &a[2]);
+    ASSERT_NOEXCEPT(std::atomic_fetch_max_explicit(&t, &a[0], std::memory_order_relaxed));
+  }
+  {
+    typedef std::atomic<T> A;
+    typedef typename std::remove_pointer<T>::type X;
+    X a[3] = {};
+    volatile A t(&a[0]);
+    assert(std::atomic_fetch_max_explicit(&t, &a[2], std::memory_order_seq_cst) == &a[0]);
+    assert(t == &a[2]);
+    assert(std::atomic_fetch_max_explicit(&t, &a[1], std::memory_order_seq_cst) == &a[2]);
+    assert(t == &a[2]);
+    ASSERT_NOEXCEPT(std::atomic_fetch_max_explicit(&t, &a[0], std::memory_order_relaxed));
+  }
+}
+
 int main(int, char**) {
   TestEachIntegralType<TestFn>()();
   TestFn<float>()();
   TestFn<double>()();
+
+  testp<int*>();
+  testp<const int*>();
 
   return 0;
 }

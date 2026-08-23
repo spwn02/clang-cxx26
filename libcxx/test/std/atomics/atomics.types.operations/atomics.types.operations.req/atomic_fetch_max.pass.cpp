@@ -50,10 +50,39 @@ struct TestFn {
   }
 };
 
+template <class T>
+void testp() {
+  {
+    typedef std::atomic<T> A;
+    typedef typename std::remove_pointer<T>::type X;
+    X a[3] = {};
+    A t(&a[0]);
+    assert(std::atomic_fetch_max(&t, &a[2]) == &a[0]);
+    assert(t == &a[2]);
+    assert(std::atomic_fetch_max(&t, &a[1]) == &a[2]);
+    assert(t == &a[2]);
+    ASSERT_NOEXCEPT(std::atomic_fetch_max(&t, &a[0]));
+  }
+  {
+    typedef std::atomic<T> A;
+    typedef typename std::remove_pointer<T>::type X;
+    X a[3] = {};
+    volatile A t(&a[0]);
+    assert(std::atomic_fetch_max(&t, &a[2]) == &a[0]);
+    assert(t == &a[2]);
+    assert(std::atomic_fetch_max(&t, &a[1]) == &a[2]);
+    assert(t == &a[2]);
+    ASSERT_NOEXCEPT(std::atomic_fetch_max(&t, &a[0]));
+  }
+}
+
 int main(int, char**) {
   TestEachIntegralType<TestFn>()();
   TestFn<float>()();
   TestFn<double>()();
+
+  testp<int*>();
+  testp<const int*>();
 
   return 0;
 }

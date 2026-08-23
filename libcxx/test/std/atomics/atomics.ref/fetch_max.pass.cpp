@@ -11,6 +11,7 @@
 
 // integral-type fetch_max(integral-type, memory_order = memory_order::seq_cst) const noexcept;
 // floating-point-type fetch_max(floating-point-type, memory_order = memory_order::seq_cst) const noexcept;
+// T* fetch_max(T*, memory_order = memory_order::seq_cst) const noexcept;
 
 #include <atomic>
 #include <cassert>
@@ -38,8 +39,7 @@ struct TestDoesNotHaveFetchMax {
 template <typename T>
 struct TestFetchMax {
   void operator()() const {
-    static_assert(std::is_arithmetic_v<T>);
-    {
+    if constexpr (std::is_arithmetic_v<T>) {
       T x(T(5));
       std::atomic_ref<T> const a(x);
 
@@ -56,22 +56,42 @@ struct TestFetchMax {
         assert(x == T(9));
         ASSERT_NOEXCEPT(a.fetch_max(T(0), std::memory_order_relaxed));
       }
-    }
 
-    if constexpr (std::is_floating_point_v<T>) {
-      // NaN: never propagates into the stored value if the other operand isn't NaN.
-      const T nan = std::numeric_limits<T>::quiet_NaN();
-      {
-        T x(T(3.1));
-        std::atomic_ref<T> const a(x);
-        assert(a.fetch_max(nan) == T(3.1));
-        assert(x == T(3.1));
+      if constexpr (std::is_floating_point_v<T>) {
+        // NaN: never propagates into the stored value if the other operand isn't NaN.
+        const T nan = std::numeric_limits<T>::quiet_NaN();
+        {
+          T y(T(3.1));
+          std::atomic_ref<T> const b(y);
+          assert(b.fetch_max(nan) == T(3.1));
+          assert(y == T(3.1));
+        }
+        {
+          T y(nan);
+          std::atomic_ref<T> const b(y);
+          assert(std::isnan(b.fetch_max(T(3.1))));
+          assert(y == T(3.1));
+        }
       }
+    } else {
+      static_assert(std::is_pointer_v<T>);
+      using U = std::remove_pointer_t<T>;
+      U t[9] = {};
+      T p{&t[5]};
+      std::atomic_ref<T> const a(p);
+
       {
-        T x(nan);
-        std::atomic_ref<T> const a(x);
-        assert(std::isnan(a.fetch_max(T(3.1))));
-        assert(x == T(3.1));
+        std::same_as<T> decltype(auto) y = a.fetch_max(&t[3]);
+        assert(y == &t[5]);
+        assert(a == &t[5]);
+        ASSERT_NOEXCEPT(a.fetch_max(&t[0]));
+      }
+
+      {
+        std::same_as<T> decltype(auto) y = a.fetch_max(&t[7], std::memory_order_relaxed);
+        assert(y == &t[5]);
+        assert(a == &t[7]);
+        ASSERT_NOEXCEPT(a.fetch_max(&t[0], std::memory_order_relaxed));
       }
     }
 
@@ -108,8 +128,9 @@ int main(int, char**) {
   TestFetchMax<float>()();
   TestFetchMax<double>()();
 
+  TestEachPointerType<TestFetchMax>()();
+
   TestDoesNotHaveFetchMax<bool>()();
-  TestEachPointerType<TestDoesNotHaveFetchMax>()();
   TestDoesNotHaveFetchMax<UserAtomicType>()();
   TestDoesNotHaveFetchMax<LargeUserAtomicType>()();
 

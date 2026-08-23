@@ -194,6 +194,10 @@ void test() {
   int* expected = &i;
   assert(apv.compare_exchange_strong(expected, &i + 1));
   assert(pv == &i + 1);
+  assert(apv.fetch_max(&i) == &i + 1);
+  assert(pv == &i + 1);
+  assert(apv.fetch_min(&i + 1) == &i + 1);
+  assert(pv == &i + 1);
   --apv;
   assert(pv == &i);
 }

@@ -1179,7 +1179,7 @@ fmin` lowering, was already fully in place).
 
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
-| [x] | P0493R5 | Atomic min/max | Partial — flagged 2026-08-23 (during P3323R1 work), not fixed. `fetch_max`/`fetch_min` added to `atomic<Integral>`, `atomic<Floating-point>`, `atomic_ref<Integral>`, `atomic_ref<Floating-point>`, plus the `atomic_fetch_max(_explicit)`/`atomic_fetch_min(_explicit)` free functions. Integral routes through the pre-existing `__c11_atomic_fetch_max/min`/`__atomic_fetch_max/min` compiler builtins (single `atomicrmw`, no CAS loop); floating-point follows `fmaximum_num`/`fminimum_num` NaN semantics via the same CAS-loop fallback pattern `fetch_add`/`fetch_sub` already used for the fp80-long-double case. **`atomic_ref<T*>::fetch_max`/`fetch_min` were never added at all** — missed originally, and this row was wrongly marked `\|Complete\|` over that gap until the P3323R1 session's [atomics.ref.pointer] wording read confirmed they're real standard surface (`T* fetch_max(T*, memory_order = seq_cst) const noexcept;` etc., unaffected by that paper, which only retypes `T*` to `value_type` there). Not a builtin-routing fix like the integral case: confirmed via `clang/lib/Sema/SemaChecking.cpp`'s `IsAllowedValueType` that `__atomic_fetch_max`/`__atomic_fetch_min`'s `ArithAllows` is `AOEVT_FP` only (no `AOEVT_Pointer`) — the compiler builtin itself rejects pointer types for these two operations specifically (unlike `fetch_add`/`fetch_sub`, which do allow `AOEVT_Pointer`), so a conformant `atomic_ref<T*>::fetch_max`/`fetch_min` needs the same manual CAS-loop pattern already used for floating-point, not a one-line builtin call — real implementation work, deliberately left for a future session rather than folded into P3323R1's cv-qualification scope |
+| [x] | P0493R5 | Atomic min/max | Complete 2026-08-23. `fetch_max`/`fetch_min` added to `atomic<Integral>`, `atomic<Floating-point>`, `atomic_ref<Integral>`, `atomic_ref<Floating-point>`, plus the `atomic_fetch_max(_explicit)`/`atomic_fetch_min(_explicit)` free functions. Integral routes through the pre-existing `__c11_atomic_fetch_max/min`/`__atomic_fetch_max/min` compiler builtins (single `atomicrmw`, no CAS loop); floating-point follows `fmaximum_num`/`fminimum_num` NaN semantics via the same CAS-loop fallback pattern `fetch_add`/`fetch_sub` already used for the fp80-long-double case. **Both `atomic<T*>::fetch_max`/`fetch_min` and `atomic_ref<T*>::fetch_max`/`fetch_min`** were missed originally (this row was wrongly marked `\|Complete\|` over the `atomic_ref<T*>` half of that gap until the P3323R1 session's [atomics.ref.pointer] wording read caught it, and the `atomic<T*>` half — confirmed real via [atomics.types.pointer]'s own synopsis, `T* fetch_max(T*, memory_order = seq_cst) volatile noexcept;` etc. — went unnoticed until an advisor review of the `atomic_ref<T*>`-only fix pushed back on reusing this same tracker as the authority for a `\|Complete\|` flip a second time) — **both now implemented via a manual CAS loop** (`libcxx/include/__atomic/atomic_ref.h`'s and `libcxx/include/__atomic/atomic.h`'s pointer specializations), since `clang/lib/Sema/SemaChecking.cpp`'s `IsAllowedValueType` gives `__atomic_fetch_max`/`__atomic_fetch_min`'s `ArithAllows` as `AOEVT_FP` only (no `AOEVT_Pointer`) — the compiler builtin rejects pointer operands for these two operations specifically (unlike `fetch_add`/`fetch_sub`, which do allow `AOEVT_Pointer`). Both sections' wording (confirmed against eel.is) specifies the computation "as if by max and min algorithms... with the object value and the first parameter as the arguments" — i.e. plain `operator<` via `std::max`/`std::min`'s own tie-breaking (first argument wins on equality), not a NaN-aware comparison, so each loop body is a single ternary (`__old < __arg ? __arg : __old` for max, `__arg < __old ? __arg : __old` for min) with no helper function needed, unlike the floating-point specializations' three-branch NaN-aware `__maximum_num`/`__minimum_num`. `atomic<T*>` needed its own copy of the loop (not shared with `atomic_ref<T*>`'s): `is_integral<_Tp*>` is false, so `atomic<_Tp*>` never inherits from the integral `__atomic_base<_Tp, true>` base and instead implements `fetch_add`/`fetch_sub` directly, so `fetch_max`/`fetch_min` were added right alongside them, as both volatile and constexpr-under-C++26 overloads. Tests: extended `atomics.ref/fetch_max.pass.cpp`/`fetch_min.pass.cpp` from `is_arithmetic_v<T>`-only to also cover `TestEachPointerType` (`int*`, `const int*`), replacing the old `TestDoesNotHaveFetchMax/Min<T*>` static-assert coverage; `fetch_min`'s existing acquire-release/seq-cst thread tests needed their `x.store(T(100), ...)` sentinel-before-fetch_min hack (to force the CAS loop to actually lower the value, since the two racing threads' `old_val`/`new_val` are naturally increasing) generalized to `x.store(new_val + 1, ...)` — works for both arithmetic and pointer T, since forming (not dereferencing) one-past-the-end of the shared 2-element test array is well-defined and compares greater than both `make_value<T>(0)`/`make_value<T>(1)`; extended `atomics.types.generic/pointer.compile.pass.cpp`'s synopsis/exercised-API and the four `atomics.types.operations.req/atomic_fetch_max(_explicit)`/`atomic_fetch_min(_explicit)` free-function test files with a `testp<T>()` pointer case each, mirroring `atomic_fetch_add.pass.cpp`'s own existing `testp<T>()`; extended both `atomics.ref/constexpr.pass.cpp`'s and `atomics.types.generic/constexpr.pass.cpp`'s existing `test_pointer()` functions with a fetch_max/fetch_min round trip verified against a standalone compile probe; extended `atomics.ref/cv_qualified.pass.cpp`'s `int* volatile` read/write block with the same. Full `atomics/` suite green (131 tests, 1 pre-existing unsupported — same count throughout, all additions were to existing test files). `Cxx2cPapers.csv` flipped to `\|Complete\|` |
 | [x] | P2835R7 | `atomic_ref` object address exposure | Complete 2026-08-23 — `constexpr T* address() const noexcept` added to `__atomic_ref_base<T>` (inherited by every specialization). Per the paper itself the return type is `T*`, not the `COPYCV(T,void)*` shown on eel.is — that form comes from a later merge (likely P3323R1-adjacent wording polish), not this paper; don't "fix" this back if a future session compares against the live draft |
 | [x] | P3323R1 | cv-qualified types in `atomic`/`atomic_ref` | Complete 2026-08-23 — see session log. Fetched the paper's own wording diff directly (`www.open-std.org/.../p3323r1.html`) rather than trusting eel.is, which resolved the prior session's "extra converting constructor" concern: that constructor is not in this paper at all (it's P3309R3-adjacent, unrelated). `atomic<T>`: added `same_as<T, remove_cv_t<T>>` to `__check_atomic_mandates`'s static_assert, and routed the floating-point partial specialization through that same check too (it previously bypassed it entirely, since `is_floating_point_v<const double>` is true — `atomic<const double>` would otherwise have silently skipped the mandate). `atomic_ref<T>`: `__atomic_ref_base<T>::value_type = remove_cv_t<T>`; `__ptr_` keeps `T`'s cv-qualification (so a `const T*`/`volatile T*` is what's actually passed to the atomic builtins and what the compiler enforces constness against), while the internal `__clear_padding`/`__compare_exchange` scratch-buffer helpers were re-typed from `T`/`T*` to `value_type`/`value_type*` — the exact internals re-threading the prior session flagged as required, now done. `store`/`operator=`/`exchange`/`compare_exchange_weak`/`compare_exchange_strong`/`notify_one`/`notify_all` gained `requires(!is_const_v<T>)`; `load`/`operator value_type()`/`wait` stay unconstrained, matching the paper's Constraints elements exactly. Added a class-scope `static_assert(is_always_lock_free \|\| !is_volatile_v<T>, ...)` in `__atomic_ref_base` (inherited by every specialization). **Found and fixed a latent bug exposed by this paper's own wording, not present before cv-support existed**: the integral specialization's bool-exclusion (`!same_as<bool, T>`) only ever excluded exactly `bool`, not `const bool`/`volatile bool` — since `same_as<bool, const bool>` is false, `atomic_ref<const bool>` was wrongly routing to the integral specialization (picking up `fetch_add` etc. that `atomic_ref<bool>` shouldn't have) instead of the primary template Note 1 requires. The paper's own diff makes this explicit ("except cv bool", not just "except bool"), confirming it's this paper's scope, not a separate fix; changed the exclusion to `!same_as<bool, remove_cv_t<T>>`.
 
@@ -3614,3 +3614,125 @@ blocked, what's next. Do not remove old entries.
   `atomic_ref<T*>::fetch_max`/`fetch_min` CAS-loop addition just found, or
   the larger Tier 3 follow-ups (mdspan-proper, P1673R13 audit, `std::print`
   internals redesign) — independent starting points, no forced ordering.
+
+- **2026-08-23 (Tier 4, P0493R5 closed): `atomic_ref<T*>::fetch_max`/
+  `fetch_min` CAS-loop addition.** Closed the gap the previous P3323R1
+  session flagged: added `fetch_max`/`fetch_min` to the pointer
+  specialization in `libcxx/include/__atomic/atomic_ref.h`, right after
+  `fetch_sub` and gated the same as the floating-point specialization's
+  (`#if _LIBCPP_STD_VER >= 26`). Confirmed via `clang/lib/Sema/
+  SemaChecking.cpp`'s `IsAllowedValueType` that `__atomic_fetch_max`/
+  `__atomic_fetch_min`'s `ArithAllows` really is `AOEVT_FP` only (no
+  `AOEVT_Pointer`), so — unlike the integral specialization, which routes
+  straight through the builtin — this needed a manual CAS loop, same
+  shape as `fetch_add`/`fetch_sub`'s existing `load` + `compare_exchange_
+  weak` pattern in that struct. Fetched the current eel.is
+  [atomics.ref.pointer] wording before writing the comparison: the
+  computation is "as if by max and min algorithms... with the object
+  value and the first parameter as the arguments" — i.e. `std::max`/
+  `std::min`'s own `operator<`-based tie-breaking (first argument wins on
+  equality), not NaN-aware like the floating-point specialization's
+  `__maximum_num`/`__minimum_num` — so the loop body is a single ternary
+  each (`__old < __arg ? __arg : __old` for max, `__arg < __old ? __arg :
+  __old` for min), no helper function needed.
+
+  Extended `atomics.ref/fetch_max.pass.cpp` and `fetch_min.pass.cpp`
+  (previously `is_arithmetic_v<T>`-only, asserting pointer types did
+  *not* have these members via `TestDoesNotHaveFetchMax/Min`) to cover
+  `TestEachPointerType` (`int*`, `const int*`) with a real read/write
+  sequence mirroring `fetch_add.pass.cpp`'s existing pointer branch (a
+  9-element array, indices exercised via `&t[n]`). One real snag:
+  `fetch_min`'s pre-existing acquire-release/seq-cst thread tests
+  synchronize by racing `old_val`→`new_val` (both derived from
+  `make_value<T>(0)`/`make_value<T>(1)`, an *increasing* pair for both
+  arithmetic and pointer T, since they come from the same 2-element
+  array by ascending index) and relied on a `x.store(T(100), relaxed)`
+  sentinel before the `fetch_min` call to force the CAS loop to actually
+  lower the value — `T(100)` doesn't compile for pointer T. Generalized
+  to `x.store(new_val + 1, relaxed)`, which works for both: forming (not
+  dereferencing) one-past-the-end of the shared test array is
+  well-defined and compares greater than both `make_value` outputs,
+  exactly like the arithmetic literal did. Verified this is still a
+  meaningful test (not just "make it compile") by confirming the
+  fetch_min pass/fail path is actually exercised — the loop must observe
+  the sentinel and correctly select the smaller `new_val`, not just
+  happen to already equal it.
+
+  Called the advisor before flipping the CSV to `|Complete|`, since the
+  tracker had already carried a wrong `|Complete|` for this exact paper
+  once before (until the P3323R1 session's wording read caught the
+  `atomic_ref<T*>` gap). The advisor pushed back on reusing that same
+  tracker as the authority again and asked whether plain `atomic<T*>` —
+  not just `atomic_ref<T*>` — has `fetch_max`/`fetch_min` in the
+  standard. It does: fetching the raw synopsis for
+  `https://eel.is/c++draft/atomics.types.pointer` shows `T* fetch_max(T*,
+  memory_order = seq_cst) volatile noexcept;`/`fetch_min` declared right
+  alongside `fetch_add`/`fetch_sub` (that section's synopsis also lists
+  `store_add`/`store_sub`/`store_max`/`store_min` — void-returning
+  variants that are *not* part of P0493R5, judging by the mismatched
+  naming and the fact they don't appear in [atomics.ref.pointer]'s
+  synopsis either; left untouched as out of scope, presumably a later,
+  not-yet-C++26 paper the live draft has already picked up). This was a
+  second, larger instance of the exact gap this row already had: nobody
+  had checked plain `atomic<T*>` either.
+
+  Fixed the same way: `libcxx/include/__atomic/atomic.h`'s `atomic<_Tp*>`
+  specialization (`_Tp*` here isn't routed through the integral
+  `__atomic_base<_Tp, true>` base at all — `is_integral<_Tp*>` is false,
+  so it lands in the generic `false` base with no `fetch_add`/`fetch_max`
+  of its own, and `atomic<_Tp*>` implements `fetch_add`/`fetch_sub`
+  directly against `__cxx_atomic_fetch_add`/`sub`) got `fetch_max`/
+  `fetch_min` added right after `fetch_sub`, both volatile and
+  constexpr-under-C++26 overloads, as a CAS loop over the inherited
+  `load`/`compare_exchange_weak` (same builtin-rejects-pointers
+  constraint, confirmed against the same `IsAllowedValueType` check).
+  Verified the constexpr overload works stand-alone with a small
+  probe (`static_assert` calling `fetch_max` on a `constexpr`-evaluated
+  `atomic<int*>`) before touching any test file, since the class-template
+  member-instantiation laziness that let the *floating-point* `fetch_max`
+  silently coexist with `atomic<T*>` doing nothing for pointers (never
+  instantiated unless called) meant a plain compile of the header proved
+  nothing either way.
+
+  Test surface for the `atomic<T*>` side: `atomics.types.generic/
+  pointer.compile.pass.cpp`'s synopsis comment and exercised-API `test()`
+  function gained `fetch_max`/`fetch_min` lines (`#if TEST_STD_VER >= 26`
+  guarded, matching the paper's actual availability); the four free
+  function test files (`atomic_fetch_max(_explicit).pass.cpp`,
+  `atomic_fetch_min(_explicit).pass.cpp`, all under `atomics.types.
+  operations.req/`) each gained a `testp<T>()` pointer overload mirroring
+  the existing `atomic_fetch_add.pass.cpp`/`_explicit.pass.cpp`'s own
+  `testp<T>()` pattern exactly (a 3-element array, `int*`/`const int*`
+  instantiations, non-volatile and volatile variants) — these free
+  functions needed no header change themselves, since they're already
+  templated generically on the atomic's value_type and just forward to
+  `->fetch_max`/`fetch_min`. Also extended `atomics.types.generic/
+  constexpr.pass.cpp`'s existing `test_pointer()` (which already covered
+  `fetch_add`/`fetch_sub` under `constexpr`) with a self-contained
+  fetch_max/fetch_min round trip, verified against a standalone compile
+  probe first rather than inferred from the analogous `atomic_ref` case.
+
+  Advisor's other two findings, both addressed: (1) the constexpr path
+  for the *`atomic_ref<T*>`* loop itself was unverified — `atomics.ref/
+  constexpr.pass.cpp`'s existing `test_pointer()` (which already covers
+  `fetch_add`/`fetch_sub`) got a `fetch_max`/`fetch_min` round trip added
+  and confirmed passing; (2) `atomics.ref/cv_qualified.pass.cpp`'s
+  `int* volatile` read/write block, which already exercises
+  `fetch_add`/`fetch_sub`/`compare_exchange_strong` under the paper's
+  `is_const_v<T>`-gated Constraints, got a matching `fetch_max`/
+  `fetch_min` round trip so the newly-added members are covered by the
+  same cv-qualification check as everything else in that block.
+
+  Full `atomics/` suite green (131 tests, 1 pre-existing unsupported,
+  same count as before — all additions were to existing test files, no
+  new ones needed); `libcxx-generate-files` clean, no drift. Flipped
+  `Cxx2cPapers.csv`'s P0493R5 row from `|Partial|` to `|Complete|` — this
+  time covering both the `atomic<T*>` and `atomic_ref<T*>` pointer gaps,
+  not just the one the row's text had previously named. All five Tier 4
+  papers (P0493R5, P2835R7, P2869R4, P3309R3, P3323R1) are now either
+  `|Complete|` or `|Partial|` with an accurately-scoped reason (only
+  P3309R3 remains `|Partial|`, for its documented scalar-only constexpr
+  scope — a real compiler gap, not something this session touched). Tier
+  4 is now fully closed out. Next: Tier 5/6, or the larger Tier 3
+  follow-ups (mdspan-proper, P1673R13 audit, `std::print` internals
+  redesign) — independent starting points, no forced ordering.

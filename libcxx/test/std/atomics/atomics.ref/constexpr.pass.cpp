@@ -100,6 +100,10 @@ constexpr bool test_pointer() {
     return false;
   if (a.fetch_sub(1) != &arr[2] || a.load() != &arr[1])
     return false;
+  if (a.fetch_max(&arr[2]) != &arr[1] || a.load() != &arr[2])
+    return false;
+  if (a.fetch_min(&arr[0]) != &arr[2] || a.load() != &arr[0])
+    return false;
 
   return true;
 }

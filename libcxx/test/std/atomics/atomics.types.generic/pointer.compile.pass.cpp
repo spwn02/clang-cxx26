@@ -56,6 +56,10 @@
 //    T* fetch_add(ptrdiff_t, memory_order = memory_order::seq_cst) noexcept;
 //    T* fetch_sub(ptrdiff_t, memory_order = memory_order::seq_cst) volatile noexcept;
 //    T* fetch_sub(ptrdiff_t, memory_order = memory_order::seq_cst) noexcept;
+//    T* fetch_max(T*, memory_order = memory_order::seq_cst) volatile noexcept;
+//    T* fetch_max(T*, memory_order = memory_order::seq_cst) noexcept;
+//    T* fetch_min(T*, memory_order = memory_order::seq_cst) volatile noexcept;
+//    T* fetch_min(T*, memory_order = memory_order::seq_cst) noexcept;
 //
 //    T* operator++(int) volatile noexcept;
 //    T* operator++(int) noexcept;
@@ -120,6 +124,10 @@ void test() {
 
   TEST_IGNORE_NODISCARD a.fetch_add(0);
   TEST_IGNORE_NODISCARD a.fetch_sub(0);
+#if TEST_STD_VER >= 26
+  TEST_IGNORE_NODISCARD a.fetch_max(v);
+  TEST_IGNORE_NODISCARD a.fetch_min(v);
+#endif
 
   TEST_IGNORE_NODISCARD a++;
   TEST_IGNORE_NODISCARD a--;

@@ -53,7 +53,7 @@
 "`P3107R5 <https://wg21.link/P3107R5>`__","Permit an efficient implementation of ``std::print``","2024-03 (Tokyo)","","",""
 "`P3142R0 <https://wg21.link/P3142R0>`__","Printing Blank Lines with ``println``","2024-03 (Tokyo)","|Complete|","19","Implemented as a DR against C++23. (MSVC STL and libstdc++ will do the same.)"
 "`P2845R8 <https://wg21.link/P2845R8>`__","Formatting of ``std::filesystem::path``","2024-03 (Tokyo)","|Complete|","",""
-"`P0493R5 <https://wg21.link/P0493R5>`__","Atomic minimum/maximum","2024-03 (Tokyo)","|Partial|","21","``atomic_ref<T*>::fetch_max``/``fetch_min`` not implemented -- the compiler's ``__atomic_fetch_max``/``__atomic_fetch_min`` builtins reject pointer types, so this needs a CAS-loop fallback like the floating-point path, not a builtin call. See ``docs/CXX26_GAPS.md`` Tier 4 for detail."
+"`P0493R5 <https://wg21.link/P0493R5>`__","Atomic minimum/maximum","2024-03 (Tokyo)","|Complete|","21",""
 "`P2542R8 <https://wg21.link/P2542R8>`__","``views::concat``","2024-03 (Tokyo)","|Complete|","",""
 "`P2591R5 <https://wg21.link/P2591R5>`__","Concatenation of strings and string views","2024-03 (Tokyo)","|Complete|","19",""
 "`P2248R8 <https://wg21.link/P2248R8>`__","Enabling list-initialization for algorithms","2024-03 (Tokyo)","","",""

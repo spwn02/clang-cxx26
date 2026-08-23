@@ -11,6 +11,7 @@
 
 // integral-type fetch_min(integral-type, memory_order = memory_order::seq_cst) const noexcept;
 // floating-point-type fetch_min(floating-point-type, memory_order = memory_order::seq_cst) const noexcept;
+// T* fetch_min(T*, memory_order = memory_order::seq_cst) const noexcept;
 
 #include <atomic>
 #include <cassert>
@@ -38,8 +39,7 @@ struct TestDoesNotHaveFetchMin {
 template <typename T>
 struct TestFetchMin {
   void operator()() const {
-    static_assert(std::is_arithmetic_v<T>);
-    {
+    if constexpr (std::is_arithmetic_v<T>) {
       T x(T(5));
       std::atomic_ref<T> const a(x);
 
@@ -56,22 +56,42 @@ struct TestFetchMin {
         assert(x == T(3));
         ASSERT_NOEXCEPT(a.fetch_min(T(0), std::memory_order_relaxed));
       }
-    }
 
-    if constexpr (std::is_floating_point_v<T>) {
-      // NaN: never propagates into the stored value if the other operand isn't NaN.
-      const T nan = std::numeric_limits<T>::quiet_NaN();
-      {
-        T x(T(3.1));
-        std::atomic_ref<T> const a(x);
-        assert(a.fetch_min(nan) == T(3.1));
-        assert(x == T(3.1));
+      if constexpr (std::is_floating_point_v<T>) {
+        // NaN: never propagates into the stored value if the other operand isn't NaN.
+        const T nan = std::numeric_limits<T>::quiet_NaN();
+        {
+          T y(T(3.1));
+          std::atomic_ref<T> const b(y);
+          assert(b.fetch_min(nan) == T(3.1));
+          assert(y == T(3.1));
+        }
+        {
+          T y(nan);
+          std::atomic_ref<T> const b(y);
+          assert(std::isnan(b.fetch_min(T(3.1))));
+          assert(y == T(3.1));
+        }
       }
+    } else {
+      static_assert(std::is_pointer_v<T>);
+      using U = std::remove_pointer_t<T>;
+      U t[9] = {};
+      T p{&t[5]};
+      std::atomic_ref<T> const a(p);
+
       {
-        T x(nan);
-        std::atomic_ref<T> const a(x);
-        assert(std::isnan(a.fetch_min(T(3.1))));
-        assert(x == T(3.1));
+        std::same_as<T> decltype(auto) y = a.fetch_min(&t[7]);
+        assert(y == &t[5]);
+        assert(a == &t[5]);
+        ASSERT_NOEXCEPT(a.fetch_min(&t[0]));
+      }
+
+      {
+        std::same_as<T> decltype(auto) y = a.fetch_min(&t[3], std::memory_order_relaxed);
+        assert(y == &t[5]);
+        assert(a == &t[3]);
+        ASSERT_NOEXCEPT(a.fetch_min(&t[0], std::memory_order_relaxed));
       }
     }
 
@@ -79,7 +99,9 @@ struct TestFetchMin {
     {
       auto fetch_min = [](std::atomic_ref<T> const& x, T old_val, T new_val) {
         (void)old_val;
-        x.store(T(100), std::memory_order::relaxed);
+        // A sentinel guaranteed greater than both old_val and new_val (works for both arithmetic
+        // and pointer T -- one past new_val is a legal pointer to form/compare, just not deref).
+        x.store(new_val + 1, std::memory_order::relaxed);
         x.fetch_min(new_val, std::memory_order::release);
       };
       auto load = [](std::atomic_ref<T> const& x) { return x.load(std::memory_order::acquire); };
@@ -90,12 +112,12 @@ struct TestFetchMin {
     {
       auto fetch_min_no_arg = [](std::atomic_ref<T> const& x, T old_val, T new_val) {
         (void)old_val;
-        x.store(T(100), std::memory_order::relaxed);
+        x.store(new_val + 1, std::memory_order::relaxed);
         x.fetch_min(new_val);
       };
       auto fetch_min_with_order = [](std::atomic_ref<T> const& x, T old_val, T new_val) {
         (void)old_val;
-        x.store(T(100), std::memory_order::relaxed);
+        x.store(new_val + 1, std::memory_order::relaxed);
         x.fetch_min(new_val, std::memory_order::seq_cst);
       };
       auto load = [](std::atomic_ref<T> const& x) { return x.load(); };
@@ -111,8 +133,9 @@ int main(int, char**) {
   TestFetchMin<float>()();
   TestFetchMin<double>()();
 
+  TestEachPointerType<TestFetchMin>()();
+
   TestDoesNotHaveFetchMin<bool>()();
-  TestEachPointerType<TestDoesNotHaveFetchMin>()();
   TestDoesNotHaveFetchMin<UserAtomicType>()();
   TestDoesNotHaveFetchMin<LargeUserAtomicType>()();
 
