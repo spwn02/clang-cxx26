@@ -24,6 +24,22 @@ if(EXISTS "${_p2996_root}/bin/llvm-ranlib")
       CACHE FILEPATH "clang-p2996 ranlib")
 endif()
 
+# libc++'s standard-module interface units are implementation sources, not
+# consumer sources. CMake's synthetic import-std target may inherit a
+# consumer's warning policy (including -Werror), so keep diagnostics emitted
+# while compiling the packaged standard-library modules isolated here at the
+# toolchain boundary. Actual compiler errors are unaffected.
+set(_p2996_std_module_sources
+    "${_p2996_root}/share/libc++/v1/std.cppm"
+    "${_p2996_root}/share/libc++/v1/std.compat.cppm")
+foreach(_p2996_std_module_source IN LISTS _p2996_std_module_sources)
+  if(EXISTS "${_p2996_std_module_source}")
+    set_source_files_properties(
+      "${_p2996_std_module_source}"
+      PROPERTIES COMPILE_OPTIONS "-Wno-everything")
+  endif()
+endforeach()
+
 # A reference snapshot models the fork's complete C++26 mode. Keep the
 # language mode explicit at the toolchain boundary so CMake's synthetic
 # standard-library module target is compiled with the same mode as consumers.
@@ -65,5 +81,7 @@ endif()
 unset(_p2996_flag_index)
 unset(_p2996_linker_flags_var)
 unset(_p2996_cxx_flag)
+unset(_p2996_std_module_source)
+unset(_p2996_std_module_sources)
 unset(_p2996_share_dir)
 unset(_p2996_root)
