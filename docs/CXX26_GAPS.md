@@ -1285,9 +1285,106 @@ under both default and `--param hardening_mode=extensive`, plus
 `transitive_includes.gen.py`/`module_std.gen.py` (125/126, unchanged
 baseline) after these fixes.
 
+**P2592R3, done 2026-08-23 — genuinely from-scratch (confirmed via `grep -rn
+"struct hash" libcxx/include/__chrono/` returning nothing before this
+session), unlike the two conformance-pass items above.** Fetched
+`[time.syn]`/`[time.hash]` from eel.is (raw `curl` + tag-strip, per the
+established process rule) to get the exact list of 18 specializations:
+`hash<duration<Rep,Period>>` (enabled iff `hash<Rep>` enabled),
+`hash<time_point<Clock,Duration>>` (enabled iff `hash<Duration>` enabled),
+14 unconditionally-enabled calendar types (`day`, `month`, `year`,
+`weekday`, `weekday_indexed`, `weekday_last`, `month_day`,
+`month_day_last`, `month_weekday`, `month_weekday_last`, `year_month`,
+`year_month_day`, `year_month_day_last`, `year_month_weekday`,
+`year_month_weekday_last`), plus `hash<zoned_time<Duration,TimeZonePtr>>`
+(enabled iff both `hash<Duration>` and `hash<TimeZonePtr>` enabled) and
+`hash<leap_second>` (unconditional) which live behind the TZDB
+experimental gate. New `libcxx/include/__chrono/hash.h` holds the 16
+non-TZDB specializations (included unconditionally right after
+`__chrono/exception.h` in the top-level `<chrono>` header — safe because
+`day.h`/`month.h`/etc. self-guard their content to `_LIBCPP_STD_VER>=20`
+already, so including them from `hash.h` regardless of caller context is a
+no-op outside C++20); the two TZDB-gated ones were added directly inside
+`__chrono/leap_second.h` and `__chrono/zoned_time.h` (matching those
+files' own `_LIBCPP_HAS_EXPERIMENTAL_TZDB` gate) rather than fighting a
+conditional-include shape for a single specialization each. All 16 use
+the existing `std::__hash_combine(size_t, size_t)` helper (already used by
+`variant`'s hash, at `__functional/hash.h:332`) to combine per-field
+hashes computed via each type's public accessors (`.month()`, `.day()`,
+`.weekday_indexed()`, etc.) — no friend access or private-member reads
+needed. `duration`/`time_point`/`zoned_time` reuse the `__enable_hash_helper<Type,
+Keys...>` conditional-SFINAE pattern `optional`'s hash already established
+(`hash<__enable_hash_helper<optional<_Tp>, remove_const_t<_Tp>>>` at
+`optional:1527`) rather than inventing a new one. Verified [time.hash]p3's
+Note 1 ("meet Cpp17Hash even when `k.ok()` is false") holds by
+construction, since every specialization hashes raw field values with no
+validity branch. Flipped the generator's `__cpp_lib_chrono` C++26 value
+(`202306`, previously commented out pending exactly this paper) and ran
+`libcxx-generate-files` — 9-file diff, all directly related (`<version>`,
+`FeatureTestMacroTable.rst`, `CMakeLists.txt` registering the new header,
+both affected `*.version.compile.pass.cpp` tests, the generator script,
+the 3 header edits). New tests: `libcxx/test/std/time/time.syn/
+hash.pass.cpp` (all 16 non-TZDB specializations, using the existing
+`test_hash_enabled<Key>()`/`poisoned_hash_helper.h` idiom already
+established by `optional`'s own hash tests rather than inventing bespoke
+Cpp17Hash-requirement assertions — some calendar types like
+`month_weekday`/`year_month_day_last` aren't default-constructible, so
+those calls pass an explicit key), plus TZDB-gated
+`time.zone.leap/hash.pass.cpp` and `time.zone.zonedtime.
+time.zone.zonedtime.nonmembers/hash.pass.cpp` (both `XFAIL: libcpp-has-no-
+experimental-tzdb` / `XFAIL: availability-tzdb-missing`, matching the
+existing `leap_seconds.pass.cpp` convention; `leap_second` test objects
+built via the existing `test_chrono_leap_second.h` support header's
+`test_leap_second_create`, since the standard doesn't specify a public
+constructor). Confirmed (standalone compile+run, not just lit's
+always-on `-D_LIBCPP_ENABLE_EXPERIMENTAL`) that the 16 non-TZDB
+specializations compile and run without the experimental flag — matches
+the discipline established in the text_encoding follow-up commit. Full
+`time/` suite green (611 tests, matching pre-existing unsupported count);
+`transitive_includes.gen.py`/`module_std.gen.py` (125/126, unchanged
+baseline); the three new test files also verified under `--param
+hardening_mode=extensive`. `Cxx2cPapers.csv` P2592R3 row flipped to
+`|Complete|`.
+
+**Advisor review before the flip caught two real bugs and one test gap,
+all fixed before committing:** (1) `__chrono/zoned_time.h` used
+`hash<_Duration>` in its `hash<zoned_time<...>>` specialization's
+constraint and body without including `__chrono/hash.h` (only
+`<__functional/hash.h>`, for the primary template) — it happened to work
+today only because the top-level `<chrono>` header includes `hash.h`
+before the tzdb block, so `__has_enabled_hash<_Duration>` was already
+true by the time `zoned_time.h`'s own specialization was parsed. If
+`zoned_time.h` were ever reached first (e.g. a different include order,
+or the header used standalone), the constraint would have silently
+evaluated false and the specialization would vanish with no diagnostic —
+exactly the "SFINAE eats a real bug" failure mode this sub-plan's own M1
+findings warned about. Added the missing include. (2) Every test written
+was a positive case; nothing verified the "enabled iff" half of
+[time.hash]p1/p2 actually gates on `hash<Rep>`/`hash<Duration>` rather
+than being unconditionally enabled. Added `testDisabled()` to
+`hash.pass.cpp` using the existing `test_hash_disabled<Key>()` idiom
+(from the same `poisoned_hash_helper.h` used above) against
+`duration<Class>`/`time_point<system_clock, duration<Class>>`, where
+`Class` is that header's existing empty-struct-with-no-hash-
+specialization — confirmed the `__enable_hash_helper` SFINAE is actually
+load-bearing, not decorative. (3) `leap_second`'s test only used
+same-date/same-value pairs; since `operator==` compares solely `date()`
+(not `value()`, which the class also stores), nothing would have caught
+a hash that folded in `value()`. Added a same-date/different-value pair
+that must be both `==` and hash-equal — the same "does the equal-hash-
+equal pair actually exercise the discriminating branch" gap the
+text_encoding follow-up commit caught for `operator==`'s "both `other`"
+case. Also verified `__cpp_lib_chrono`'s `202306` value directly against
+`eel.is/c++draft/version.syn` (not just the generator's own comment)
+before trusting it, per the P3309R3-session rule established after that
+paper's `__cpp_lib_constexpr_atomic` name mixup — confirmed single value,
+no missing intermediate. Re-verified full `time/` suite (444/444) and
+the three new/changed test files under `--param
+hardening_mode=extensive` after all three fixes.
+
 | Status | Paper | Feature |
 |---|---|---|
-| [ ] | P2592R3 | Hashing support for `std::chrono` value classes |
+| [x] | P2592R3 | Hashing support for `std::chrono` value classes |
 | [x] | P1885R12 | `text_encoding` naming |
 | [x] | P2862R1 | `text_encoding::name()` should never return null |
 | [x] | P2641R4 | Checking if a `union` alternative is active |
