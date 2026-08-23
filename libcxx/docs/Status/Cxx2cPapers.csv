@@ -103,7 +103,7 @@
 "`P2786R13 <https://wg21.link/P2786R13>`__","Trivial Relocatability For C++26","2025-02 (Hagenberg)","","",""
 "`P3137R3 <https://wg21.link/P3137R3>`__","``views::to_input``","2025-02 (Hagenberg)","|Complete|","","Adopted feature is named ``views::as_input``/``__cpp_lib_ranges_as_input`` per eel.is/c++draft/version.syn -- the paper's own title (``to_input``) didn't survive wording review; implemented under the correct final name"
 "`P0472R3 <https://wg21.link/P0472R3>`__","Put ``std::monostate`` in ``<utility>``","2025-02 (Hagenberg)","|Complete|","21",""
-"`P3349R1 <https://wg21.link/P3349R1>`__","Converting contiguous iterators to pointers","2025-02 (Hagenberg)","","",""
+"`P3349R1 <https://wg21.link/P3349R1>`__","Converting contiguous iterators to pointers","2025-02 (Hagenberg)","|Nothing To Do|","","Grants permission (not a requirement) to lower contiguous ranges to pointers; libc++'s existing ``__unwrap_iter``/``__unwrap_range`` memmove-style optimizations already advance the *original* iterator (not just a derived pointer) before lowering, satisfying R1's checked-iterator constraint."
 "`P3372R3 <https://wg21.link/P3372R3>`__","constexpr containers and adaptors","2025-02 (Hagenberg)","|In Progress|","",""
 "`P3378R2 <https://wg21.link/P3378R2>`__","constexpr exception types","2025-02 (Hagenberg)","","",""
 "`P3441R2 <https://wg21.link/P3441R2>`__","Rename ``simd_split`` to ``simd_chunk``","2025-02 (Hagenberg)","|In Progress|","",""

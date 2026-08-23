@@ -1483,6 +1483,64 @@ weren't covered by the `utilities/memory/` sweep above (different
 top-level test path). `Cxx2cPapers.csv` P3369R0 and P3508R0 rows flipped
 to `|Complete|`.
 
+**P3349R1 (contiguous iterator → pointer conversion), done 2026-08-23 —
+`|Nothing To Do|`, confirmed empirically rather than assumed.** Fetched the
+paper directly (`curl -A "Mozilla/5.0"` + tag-strip, per the established
+process rule): this is a *core*-wording addition to
+[iterator.requirements.general], not a library clause, and grants pure
+permission — implementations *may* replace `[i, s)` with
+`[to_address(i), to_address(i + ranges::distance(i, s)))` for a
+`contiguous_iterator` `i`, they aren't required to. No FTM (confirmed via
+`grep -n "contiguous\|to_address" generate_feature_test_macro_components.py`
+— the one hit, `__cpp_lib_to_address`, is the unrelated pre-existing C++20
+macro for `std::to_address` itself) and `libcxx-generate-files` produced no
+diff, as expected. The R1 revision (over R0) adds one real constraint: the
+library must perform the advance-by-`n` on the *original* iterator (`i +
+ranges::distance(i, s)`, or `i + n` for a counted range) rather than only
+computing an offset from `to_address(i)`, so that a "checked" iterator that
+throws/asserts/calls a violation handler on an out-of-bounds advance still
+gets a chance to do so before the algorithm drops to raw-pointer operation.
+
+Traced this constraint through libc++'s existing lowering path rather than
+trusting the "it probably already does this" assumption from two sessions
+ago. `__unwrap_range_impl::__unwrap` (`libcxx/include/__algorithm/
+unwrap_range.h:37-42`) computes `ranges::next(__first, __sent)` — advancing
+the *original* iterator type — before calling `__unwrap_iter` (which then
+calls `to_address`) on both endpoints; `copy_n`'s random-access overload
+(`libcxx/include/__algorithm/copy_n.h:55`) computes `__first +
+difference_type(__n)` on the original iterator before ever calling
+`std::copy`. Wrote a standalone ~90-line probe (not committed — no FTM, no
+behavior change, nothing for a lit test to assert per advisor review, so no
+test file added) defining a `contiguous_iterator` whose `operator++`/
+`operator+=` increments a static counter, then ran it through `std::copy`
+and `std::copy_n` on an 8-element range: `std::copy` recorded exactly 1
+advance call (not 8), `std::copy_n` recorded 2 (one from `copy_n`'s own `+
+n`, one from `copy`'s internal `unwrap_range`) — confirming both that the
+pointer-lowering optimization is genuinely active (not just present in the
+header but dead code) and that every advance happens through the original
+iterator's own arithmetic operators, exactly the shape R1 requires for a
+checked iterator to get its chance to fire. Result: `|Nothing To Do|`, not
+`|Complete|` — advisor caught this distinction before the edit; the paper
+changes what's *permitted*, and libc++ was already exercising that
+permission before this paper existed to grant it.
+
+**Recorded, not fixed, since it's orthogonal to this paper's disposition**:
+`unwrap_iter.h:43`'s existing `// TODO(hardening): make sure that the
+following unwrapping doesn't unexpectedly turn hardened iterators into raw
+pointers` flags a real, still-open concern in exactly this area — whether
+`_LIBCPP_HARDENING_MODE` bounds-checked iterators lose their checks when
+unwrapped to a raw pointer mid-algorithm. That TODO is about whether
+libc++'s *own* hardened iterators are among the "checked iterators" R1
+protects, which is a separate question from whether the permission-granting
+wording itself needs any library change (it doesn't). Left as-is; a future
+hardening-mode session should read `unwrap_iter.h:43` before touching this
+area again. `Cxx2cPapers.csv` P3349R1 row flipped to `|Nothing To Do|`.
+
+**Next session**: the `<__random/log2.h>` `__uint128_t` bug (from the
+`generate_canonical` session, still open, independent and well-scoped) is
+the last remaining small Tier 6 candidate from prior "next session" notes;
+otherwise pick fresh from the Tier 6 table above.
+
 | Status | Paper | Feature |
 |---|---|---|
 | [x] | P2592R3 | Hashing support for `std::chrono` value classes |
@@ -1502,7 +1560,7 @@ to `|Complete|`.
 | [x] | P3508R0 | Wording for constexpr specialized memory algorithms |
 | [x] | P3369R0 | `constexpr` for `uninitialized_default_construct` |
 | [ ] | P3370R1 | New library headers from C23 |
-| [ ] | P3349R1 | Converting contiguous iterators to pointers |
+| [x] | P3349R1 | Converting contiguous iterators to pointers |
 | [ ] | P3378R2 | `constexpr` exception types |
 | [ ] | P3471R4 | Standard Library Hardening |
 
@@ -4369,3 +4427,36 @@ blocked, what's next. Do not remove old entries.
   no FTM, so likely just a CSV-flip-and-note once someone confirms
   `__unwrap_iter`'s existing memmove-style optimizations satisfy it); or
   the `<__random/log2.h>` `__uint128_t` bug from two sessions ago.
+
+- **2026-08-23 (fifth session)**: Closed P3349R1. Confirmed via direct
+  paper fetch that it's core wording (not library), grants permission only
+  (implementations *may* lower `contiguous_iterator` ranges to pointer
+  ranges, not required to), carries no FTM, and `libcxx-generate-files`
+  produces no diff — the `|Nothing To Do|` shape, not `|Complete|` (advisor
+  caught the wrong badge before the edit). Didn't just trust the prior
+  session's "probably satisfies it" note: traced `__unwrap_range_impl`
+  (`unwrap_range.h:37-42`, advances via `ranges::next` on the *original*
+  iterator before `to_address`) and `copy_n`'s random-access overload
+  (`copy_n.h:55`, `__first + difference_type(__n)` on the original iterator
+  before delegating to `copy`) by hand, then wrote a standalone,
+  uncommitted probe — a `contiguous_iterator` instrumented to count
+  `operator++`/`operator+=` calls — and measured `std::copy`/`std::copy_n`
+  over an 8-element range doing 1 and 2 advance calls respectively, not 8:
+  empirical confirmation that libc++'s memmove-style lowering already
+  advances through the original iterator's own arithmetic (giving a
+  checked/throwing iterator its chance to fire) rather than skipping
+  straight to raw-pointer math, exactly R1's constraint over R0. No test
+  file added (advisor: no FTM, no behavior change, nothing for lit to
+  assert). Recorded but left untouched: `unwrap_iter.h:43`'s pre-existing
+  `TODO(hardening)` about hardened iterators losing checks when unwrapped —
+  a real open question, but about libc++'s own hardening story, orthogonal
+  to whether this paper needs a library change. `Cxx2cPapers.csv` P3349R1
+  row flipped to `|Nothing To Do|`; Tier 6 table checkbox and a narrative
+  block added.
+
+  **Next session**: the `<__random/log2.h>` `__uint128_t` bug
+  (`independent_bits_engine`/`uniform_int_distribution`-adjacent, from the
+  `generate_canonical` session, still open and well-scoped) is the last
+  carried-over candidate; otherwise pick fresh from the Tier 6 table, or
+  scope the `hive`/`inplace_vector`/modules-build breakage as its own
+  dedicated effort per the note above.
