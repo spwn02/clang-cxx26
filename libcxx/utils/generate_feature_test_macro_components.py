@@ -473,8 +473,7 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_debugging",
             "values": {
-                "c++26": 202311, # P2546R5 Debugging Support
-                # "c++26": 202403, # P2810R4: is_debugger_present is_replaceable
+                "c++26": 202403, # P2810R4: is_debugger_present is_replaceable
             },
             "headers": ["debugging"],
         },

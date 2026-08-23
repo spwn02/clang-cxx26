@@ -1494,7 +1494,8 @@ to `|Complete|`.
 | [ ] | P2264R7 | User-friendly `assert()` for C and C++ |
 | [ ] | P2248R8 | List-initialization for algorithms |
 | [ ] | P3217R0 | `find_last` addendum to P2248R8 |
-| [ ] | P2810R4 | `is_debugger_present`, `is_replaceable` |
+| [x] | P2546R5 | Debugging Support (`<debugging>`, not its own CSV-tracked row here) |
+| [x] | P2810R4 | `is_debugger_present`, `is_replaceable` |
 | [ ] | P1068R11 | Vector API for RNG |
 | [ ] | P2075R6 | Philox RNG engine |
 | [ ] | P3222R0 | Transposed special cases for P2642 mdspan layouts |
@@ -4035,3 +4036,108 @@ blocked, what's next. Do not remove old entries.
   to-pointer conversion look like the next small, self-contained
   candidates from a first pass) or start Tier 5's freestanding sweep —
   neither assessed in depth yet, no forced ordering.
+
+- **2026-08-23 (second session)**: Assessed P2836R1 first (`basic_const_iterator`
+  convertibility) — **blocked, not a small item**: `grep -rn
+  "basic_const_iterator" libcxx/include/ libcxx/test/` returns nothing. The
+  base facility (P2278R4, `basic_const_iterator`/`as_const_view`/`cbegin`
+  changes — a C++23 paper with no row anywhere in `Cxx2cPapers.csv`, since
+  this CSV only tracks C++26 papers) is entirely unimplemented, so P2836R1's
+  DR against it has nothing to patch. Skipped; a future session that wants
+  this needs to scope it as its own multi-file `<ranges>`/`<iterator>`
+  effort, not a Tier 6 pickup.
+
+  Implemented **P2546R5** (`<debugging>`: `is_debugger_present`,
+  `breakpoint`, `breakpoint_if_debugging`) **+ P2810R4** (is_debugger_present
+  should be replaceable) together, same shape as the text_encoding
+  combination: the CSV had P2810R4 as the only Tier 6 row for this facility,
+  but P2546R5 itself (the header's base content) had never been marked
+  `|Complete|` either despite `libcxx/include/debugging` already existing —
+  and per [debugging.utility]p5, P2810R4 isn't a documentation-only DR here:
+  it requires `is_debugger_present` to actually be link-time replaceable,
+  which the prior `_LIBCPP_HIDE_FROM_ABI inline` definition structurally
+  could not be (inline functions get baked into every call site; a user's
+  out-of-line redefinition in another TU is simply ignored). Zero test
+  coverage existed for any of the three functions beforehand (only the
+  `debugging.version.compile.pass.cpp` FTM check) — same "scaffolded but
+  untested" shape this tracker keeps finding.
+
+  **Two build-specific pitfalls, both caught by advisor review before
+  writing any code, worth recording since neither is obvious from reading
+  the existing replaceable-function precedent (`<new>`'s `operator new`)
+  alone:** (1) `_LIBCPP_BEGIN_NAMESPACE_STD` is the *versioned* inline
+  namespace (`std::__1`) — leaving `is_debugger_present` in that block would
+  mangle it as `std::__1::is_debugger_present`, a different symbol than the
+  `std::is_debugger_present` a user's replacement defines; the two would
+  silently coexist with the user's version never called. Fixed by declaring
+  it via `_LIBCPP_BEGIN_UNVERSIONED_NAMESPACE_STD`, matching
+  `__new/new_handler.h`'s `set_new_handler`/`get_new_handler` (confirmed via
+  `nm -D` on the built `.so`: `_ZSt19is_debugger_presentv`, no `__1`, no ABI
+  tag). (2) `libcxx/src` compiles at a fixed `-std=c++23`
+  (`libcxx/CMakeLists.txt:502`, `CXX_STANDARD 23`) regardless of the
+  `_LIBCPP_STD_VER` a *user's* program is compiled at — so a `.cpp` giving
+  the out-of-line definition can't simply `#include <debugging>` and expect
+  to see the declaration, since the whole header (and hence the
+  `_LIBCPP_OVERRIDABLE_FUNC_VIS` visibility attribute it carries) sits
+  behind `#if _LIBCPP_STD_VER >= 26`. No existing C++26-only free function
+  in this repo had an out-of-line library definition yet to copy (grepped
+  `_LIBCPP_STD_VER >= 26` across `libcxx/src/` — zero hits), so there was no
+  precedent to lift directly. Fixed by carving the single-line declaration
+  into a new internal header, `libcxx/include/__debugging/
+  is_debugger_present.h`, that carries no `_LIBCPP_STD_VER` gate of its own
+  (matching how other internal headers, e.g. `__memory/aligned_alloc.h`,
+  gate on feature macros rather than std-version) — `<debugging>` includes
+  it from inside its own `>= 26` block as before, and the new
+  `libcxx/src/debugging.cpp` includes it directly, unconditionally, the
+  same way `libcxx/src/new.cpp` reaches straight for `<__memory/
+  aligned_alloc.h>` instead of the public `<new>`. This sidesteps the
+  std-version mismatch entirely rather than fighting it.
+
+  Verified the fix empirically rather than by ABI reasoning alone, per
+  advisor's suggested before/after: wrote a replacement-function test
+  (`bool std::is_debugger_present() noexcept { return true; }` in a
+  separate TU, dynamically linked against `libc++.so`) and confirmed it
+  **fails to compile** against the pre-change tree (`git stash`'d
+  momentarily) with `error: redefinition of 'is_debugger_present'` pointing
+  at the old inline header definition, then confirmed it **passes** once
+  the fix is applied — this is the only evidence that actually settles
+  replaceability, since a successful build alone doesn't prove a user's
+  definition wins at link time. `breakpoint()`/`breakpoint_if_debugging()`
+  stay `_LIBCPP_HIDE_FROM_ABI inline` in the versioned namespace as before —
+  per the freshly-fetched `[debugging.utility]` wording, only
+  `is_debugger_present` carries the "Remarks: This function is replaceable"
+  clause.
+
+  New tests under `libcxx/test/std/diagnostics/debugging/debugging.utility/`
+  (`is_debugger_present.pass.cpp`, `breakpoint_if_debugging.pass.cpp`,
+  `is_debugger_present.replaceable.pass.cpp`) — matching advisor's hygiene
+  note, `breakpoint()` itself is never called (it traps), and
+  `breakpoint_if_debugging()` is only exercised guarded behind
+  `if (!is_debugger_present())`, avoiding a spurious SIGTRAP under any
+  ptrace-based test runner. Registered the new header
+  (`libcxx/include/CMakeLists.txt`) and source
+  (`libcxx/src/CMakeLists.txt`) file, added a `debugging` submodule entry
+  for the new internal header to `module.modulemap.in` (required by
+  `libcxx/test/libcxx/headers_in_modulemap.sh.py`, which otherwise flagged
+  it missing — that same test run also surfaced three **pre-existing,
+  unrelated** missing-from-modulemap headers from the earlier
+  `std::execution` M6 work, `__execution/{sender,connect,
+  get_completion_signatures}.h`; not fixed here, out of scope, flagging for
+  a future session). Flipped `__cpp_lib_debugging` from `202311L` to
+  `202403L` (the generator already had the P2810R4 value written in as a
+  commented-out alternative from an earlier session, confirmed correct
+  against eel.is `[version.syn]`'s live value directly rather than trusted
+  blindly) and ran `libcxx-generate-files` — clean 5-file diff
+  (`<version>`, `FeatureTestMacroTable.rst`, the generator script, both
+  affected `*.version.compile.pass.cpp` tests). Confirmed (standalone
+  compile+run, not just lit's always-on `-D_LIBCPP_ENABLE_EXPERIMENTAL`)
+  that both functions work without the experimental flag. Full new test
+  directory (5/5) and the two affected version tests green;
+  `transitive_includes.gen.py`/`module_std.gen.py` (125/126, unchanged
+  baseline, no drift from the new internal header). `Cxx2cPapers.csv`
+  P2546R5 and P2810R4 rows flipped to `|Complete|`.
+
+  **Next session**: P0952R2 (`generate_canonical`), P3349R1 (contiguous
+  iterator → pointer conversion), or fixing the three now-documented
+  pre-existing `__execution/*.h` modulemap gaps, are the next
+  self-contained candidates — none assessed in depth yet.

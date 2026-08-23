@@ -1234,6 +1234,8 @@ module std [system] {
   }
 
   module debugging {
+    module is_debugger_present { header "__debugging/is_debugger_present.h" }
+
     header "debugging"
     export *
   }

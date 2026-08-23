@@ -6767,8 +6767,8 @@
 #  ifndef __cpp_lib_debugging
 #    error "__cpp_lib_debugging should be defined in c++26"
 #  endif
-#  if __cpp_lib_debugging != 202311L
-#    error "__cpp_lib_debugging should have the value 202311L in c++26"
+#  if __cpp_lib_debugging != 202403L
+#    error "__cpp_lib_debugging should have the value 202403L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)
