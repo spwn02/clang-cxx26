@@ -1208,7 +1208,7 @@ Pick these up opportunistically; no particular ordering within the tier.
 | [ ] | P2592R3 | Hashing support for `std::chrono` value classes |
 | [ ] | P1885R12 | `text_encoding` naming |
 | [ ] | P2862R1 | `text_encoding::name()` should never return null |
-| [ ] | P2641R4 | Checking if a `union` alternative is active |
+| [x] | P2641R4 | Checking if a `union` alternative is active |
 | [ ] | P0952R2 | New spec for `std::generate_canonical` |
 | [ ] | P2836R1 | `basic_const_iterator` convertibility |
 | [ ] | P2264R7 | User-friendly `assert()` for C and C++ |
@@ -3480,3 +3480,94 @@ blocked, what's next. Do not remove old entries.
   P0493R5 row. Next: P3323R1 (`atomic`/`atomic_ref` cv-qualification —
   needs `__atomic_ref_base` internals re-threaded first, per its row), or
   Tier 5/6 — independent starting points.
+
+- **2026-08-23: Tier 6, P2641R4 (`std::is_within_lifetime`) landed.**
+  Assessed first per the established gate: `__builtin_is_within_lifetime`
+  and its Sema/`ExprConstant.cpp` support already existed in full in this
+  fork's clang (`clang/test/SemaCXX/builtin-is-within-lifetime.cpp` passes
+  unmodified) — a pure library gap, not compiler work. New
+  `libcxx/include/__type_traits/is_within_lifetime.h`:
+  `template<class T> requires (!is_function_v<T>) consteval bool
+  is_within_lifetime(const T* p) noexcept`, gated `_LIBCPP_STD_VER >= 26 &&
+  __has_builtin(__builtin_is_within_lifetime)`, wired into `<type_traits>`,
+  `CMakeLists.txt`, `module.modulemap.in`, and the FTM generator
+  (`libcxx_guard`/`test_suite_guard` both set, mirroring the
+  `is_virtual_base_of` row already in the generator).
+
+  **Signature reconciliation, not guessed:** eel.is's current
+  `[meta.const.eval]` shows a *different*, two-parameter signature
+  (`template<class U = void, class T> consteval bool
+  is_within_lifetime(const T* p)`, Mandates on `static_cast<const volatile
+  U*>(p)`) — fetched twice independently, consistent both times. Traced
+  this to LWG4138 ("`is_within_lifetime` should mandate `is_object`"),
+  confirmed via the actual issue page: **Status "Ready", not yet WP** —
+  i.e. LWG-approved but not yet voted into the working paper this fork
+  should track as "current C++26". Went with the original P2641R4
+  single-parameter signature instead, for two independent reasons, not
+  just "paper text wins": (1) it's what the paper itself specifies
+  (`template<class T> consteval bool is_within_lifetime(const T*)
+  noexcept`), and (2) it's what this fork's *own compiler* was actually
+  built against — `clang/test/SemaCXX/builtin-is-within-lifetime.cpp`
+  hand-rolls exactly `template<typename T> requires (!is_function_v<T>)
+  consteval bool is_within_lifetime(const T* p)` as `#std-definition` and
+  asserts diagnostics like `call to consteval function
+  'std::is_within_lifetime<int>'` and (for an explicit function-type
+  argument) `constraints not satisfied ... because
+  '!is_function_v<void ()>' evaluated to false` — single template
+  parameter, requires-clause not Mandates-static_assert. Implementing
+  LWG4138's `U`-parameter form now would satisfy neither: it doesn't match
+  the paper this row tracks, and it doesn't match what the compiler's own
+  test suite was written against. **Not a full write-off** — noted here so
+  a future session doesn't have to re-derive it: if LWG4138 is later voted
+  in, it's a distinct, separate follow-up (same shape as P3323R1 being
+  kept separate from P3309R3 in Tier 4), not a silent addition to this
+  paper's scope.
+
+  **Load-bearing compiler-behavior finding, confirmed by direct probing,
+  not inferred from the wording alone:** per [meta.const.eval]'s Remarks
+  ("...unless p points to an object usable in constant expressions or
+  whose complete object's lifetime began within E"), *E* is scoped to a
+  **consteval (immediate-function) invocation boundary**, not merely "any
+  manifestly-constant-evaluated expression". A plain `constexpr` helper
+  function with a local variable, called only via `static_assert(helper())`,
+  fails with "read of non-const variable ... is not allowed in a constant
+  expression" when it calls `is_within_lifetime` on that local — even
+  though the enclosing `static_assert` is itself unquestionably a constant
+  expression. Declaring the helper `consteval` instead (matching every
+  helper function in the upstream `builtin-is-within-lifetime.cpp` test)
+  fixes it. Confirmed with a minimal two-line repro compiled directly
+  (`constexpr` helper fails, `consteval` helper of the same shape
+  succeeds) before writing this into the test file, not assumed from the
+  first failure. All four `consteval` helpers in the new pass test
+  document this reasoning inline as a comment so it isn't rediscovered the
+  hard way again.
+
+  Also found and fixed in passing, unrelated to this paper's own scope:
+  **four already-landed Tier 4 papers (P0493R5, P2835R7, P2869R4, P3309R3)
+  never got their `Cxx2cPapers.csv` Status/`First released version`
+  columns flipped**, despite root `CLAUDE.md`'s explicit "every commit
+  that changes implementation status must update the CSV row in the same
+  commit" convention and despite this tracker's own Tier 4 table already
+  marking them `[x]` — confirmed via `git show <commit> --
+  .../Cxx2cPapers.csv` on each of their four landing commits that none
+  touched the CSV at all. Backfilled in a separate housekeeping commit
+  (not folded into this paper's own commit, to keep history scoped): three
+  (P0493R5, P2835R7, P2869R4) flipped to `|Complete|`; **P3309R3 flipped to
+  `|Partial|`**, not `|Complete|` — its own Tier 4 row documents two
+  deliberate scope cuts (class-typed `atomic<T>` stays non-constexpr,
+  `atomic_flag` entirely excluded), and this tracker's established
+  practice is that scope cuts get called out in the row rather than
+  absorbed into an overstated `|Complete|`, so the backfill preserves that
+  distinction instead of flattening it. A future session diffing the CSV
+  against this tracker for accuracy would otherwise have hit four false
+  negatives and, had P3309R3 been marked blindly `|Complete|`, one false
+  positive too.
+
+  Verified: new `meta.const.eval/` suite (4/4: `is_constant_evaluated.*`
+  plus the two new `is_within_lifetime.*` files) green;
+  `utilities/utility/` + `language.support/support.limits/
+  support.limits.general/` (257 tests) green; `transitive_includes.gen.py`
+  + `module_std.gen.py` (126, 125 passed/1 unsupported, matching the
+  established baseline) green; `libcxx-generate-files` + `git diff` clean,
+  no drift left unstaged. Next: any other Tier 5/6 item, or Tier 4's
+  P3323R1 — independent starting points, no forced ordering.
