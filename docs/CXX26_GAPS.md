@@ -1536,10 +1536,11 @@ wording itself needs any library change (it doesn't). Left as-is; a future
 hardening-mode session should read `unwrap_iter.h:43` before touching this
 area again. `Cxx2cPapers.csv` P3349R1 row flipped to `|Nothing To Do|`.
 
-**Next session**: the `<__random/log2.h>` `__uint128_t` bug (from the
-`generate_canonical` session, still open, independent and well-scoped) is
-the last remaining small Tier 6 candidate from prior "next session" notes;
-otherwise pick fresh from the Tier 6 table above.
+**Next session**: the `<__random/log2.h>` `__uint128_t` "bug" carried over
+from the `generate_canonical` session **was investigated and retracted**
+(see the correction dated 2026-08-23 in the `generate_canonical`/Tier 6
+narrative below — it doesn't reproduce; no fix needed) — no longer a
+candidate. Pick fresh from the Tier 6 table above.
 
 | Status | Paper | Feature |
 |---|---|---|
@@ -4296,6 +4297,44 @@ blocked, what's next. Do not remove old entries.
   `independent_bits_engine`/`uniform_int_distribution` with a genuinely
   128-bit-magnitude range.
 
+  **Correction (2026-08-23, sixth session): this "known, reproducible, still-
+  open bug" claim does not reproduce and is retracted.** Picked up as the
+  queued Tier 6 candidate; before touching `log2.h`, reconstructed the exact
+  failure this note describes rather than trusting the "probably still
+  broken" framing. Four escalating probes, all against the unchanged
+  `build-nyx/bin/clang` binary and unchanged `log2.h` (confirmed via `git log
+  -1 -- libcxx/include/__random/log2.h`, last touched 2024-10-31, long before
+  this fork's own sessions) that this note itself was written against:
+  `std::__log2<__uint128_t, __uint128_t(1) << 64>::value` (the exact `R ==
+  2^64` case named above) compiles clean and yields `64`; the same with `<<
+  100` (forcing the branch that keeps genuine high bits) yields `100`; the
+  literal call shape from the pre-fix `generate_canonical` formula —
+  `constexpr __uint128_t __rp = static_cast<__uint128_t>(mt19937_64::max()) -
+  static_cast<__uint128_t>(mt19937_64::min()) + __uint128_t(1); __log2<
+  __uint128_t, __rp>::value` — also compiles clean and yields `64`; and the
+  two real call sites named above as latent risks,
+  `independent_bits_engine<mt19937_64, 100, unsigned __int128>` and
+  `uniform_int_distribution<unsigned __int128>`, both compile and run
+  correctly end-to-end. `-Wnarrowing`/`-Wc++11-narrowing` produce no
+  diagnostic on any of these. The `?:`-both-branches-instantiated structural
+  observation in the note above is accurate (that part isn't wrong), but the
+  predicted consequence — the untaken branch's narrowing conversion of `_Xp`
+  to `unsigned long long` failing to compile — doesn't happen: this Clang
+  silently truncates the discarded branch's template argument instead of
+  diagnosing it as narrowing, and since only the taken branch's `::value` is
+  ever read, the final result is correct in every case tried. Not chasing
+  whether that truncate-instead-of-diagnose behavior is itself
+  standard-conformant per `[temp.arg.nontype]`/`[expr.const]`'s narrowing
+  rules — that's a Clang frontend question independent of this paper's scope
+  and doesn't change what's observable here. **No fix applied**: there is no
+  reproducing defect to fix, and speculatively restructuring a header shared
+  by `independent_bits_engine`/`uniform_int_distribution` on the strength of
+  a claim that didn't hold up would be exactly the unmotivated-change risk
+  this document's own conventions warn against. `generate_canonical.h`'s
+  `__log2_floor` workaround is unaffected by this correction — it remains
+  correct, self-contained code, simply no longer justified by "routing
+  around a known bug." Leaving `<__random/log2.h>` untouched.
+
   New test `generate_canonical.p0952r2.pass.cpp`: the `digits == 0` case
   above; a scripted small-range (`R == 3`, non-power-of-two) custom URNG
   that forces one rejected attempt before an accepted one and checks both
@@ -4460,3 +4499,44 @@ blocked, what's next. Do not remove old entries.
   carried-over candidate; otherwise pick fresh from the Tier 6 table, or
   scope the `hive`/`inplace_vector`/modules-build breakage as its own
   dedicated effort per the note above.
+
+- **2026-08-23 (sixth session)**: Picked up the carried-over
+  `<__random/log2.h>` `__uint128_t` candidate — and retracted it, rather
+  than implementing the fix its own description already prescribed. Before
+  touching the header, reconstructed the exact failure the prior session's
+  note described: a `?:` in `__log2_imp<__uint128_t, _Xp, _Rp>` eagerly
+  instantiates both branches, and the untaken branch narrows the full-width
+  `_Xp` to `unsigned long long` as a non-type template argument. Four
+  probes against the unchanged `build-nyx/bin/clang` and unchanged
+  `log2.h` (verified via `git log -1 -- libcxx/include/__random/log2.h`:
+  last touched 2024-10-31, well before this fork existed) — a direct
+  `__log2<__uint128_t, 2^64>` and `2^100` call, the literal
+  `constexpr`-variable call shape from `generate_canonical`'s pre-fix
+  formula, and the two real call sites the note flagged as latent risks
+  (`independent_bits_engine<mt19937_64, 100, unsigned __int128>`,
+  `uniform_int_distribution<unsigned __int128>`) — all compiled cleanly
+  (including under `-Wnarrowing -Wc++11-narrowing`) and produced correct
+  results. The structural observation (both `?:` branches get instantiated)
+  holds, but the predicted consequence doesn't: this Clang truncates the
+  discarded branch's argument silently instead of diagnosing it as
+  narrowing, and since only the taken branch's `::value` is ever read, the
+  final answer is unaffected. Not chasing whether that's itself
+  standards-conformant per `[temp.arg.nontype]` — orthogonal to this
+  fork's C++26-conformance scope. **No fix applied** — there's no
+  reproducing defect, and speculatively restructuring a header shared by
+  two other facilities on the strength of a claim that didn't hold up would
+  be its own unmotivated-change risk. Amended the `generate_canonical`
+  session's Tier 6 narrative in place with a dated correction (this
+  repo's first such retraction — no prior precedent existed to match, so
+  marked explicitly as "Correction" rather than silently edited) rather
+  than deleting the original text, so the reasoning trail (what was
+  claimed, what was actually tested, what was found) stays intact for
+  anyone who lands on the original claim first. `generate_canonical.h`'s
+  `__log2_floor` local workaround is untouched and still correct — just no
+  longer justified by "routing around a known bug." No CSV/checklist change
+  (nothing here was ever a tracked paper).
+
+  **Next session**: no carried-over candidate remains. Pick fresh from the
+  Tier 6 table, or scope the `hive`/`inplace_vector`/modules-build breakage
+  (122/143 failing under `-fmodules`, confirmed pre-existing, `std::execution`-
+  sub-plan-sized) as its own dedicated effort.
