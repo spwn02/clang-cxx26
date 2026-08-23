@@ -621,8 +621,8 @@
 #  ifndef __cpp_lib_constexpr_memory
 #    error "__cpp_lib_constexpr_memory should be defined in c++26"
 #  endif
-#  if __cpp_lib_constexpr_memory != 202202L
-#    error "__cpp_lib_constexpr_memory should have the value 202202L in c++26"
+#  if __cpp_lib_constexpr_memory != 202506L
+#    error "__cpp_lib_constexpr_memory should have the value 202506L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_enable_shared_from_this

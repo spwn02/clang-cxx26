@@ -385,7 +385,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_constexpr_memory",
-            "values": {"c++20": 201811, "c++23": 202202},
+            "values": {"c++20": 201811, "c++23": 202202, "c++26": 202506},  # P3369R0/P3508R0
             "headers": ["memory"],
         },
         {

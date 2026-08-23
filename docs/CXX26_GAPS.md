@@ -1382,6 +1382,107 @@ no missing intermediate. Re-verified full `time/` suite (444/444) and
 the three new/changed test files under `--param
 hardening_mode=extensive` after all three fixes.
 
+**P3369R0 + P3508R0 (constexpr specialized `<memory>` algorithms), done
+2026-08-23 — bigger than a Tier 6 "small item," treated as its own block.**
+P3369R0's own narrow scope (`uninitialized_default_construct`/`_n`) turned
+out to sit inside P3508R0's much larger DR wording (all of
+`[specialized.algorithms]`: `uninitialized_copy(_n)`,
+`uninitialized_move(_n)`, `uninitialized_fill(_n)`,
+`uninitialized_default_construct(_n)`, `uninitialized_value_construct(_n)`,
+and every one of their `ranges::` CPO equivalents in
+`__memory/ranges_uninitialized_algorithms.h`) — confirmed by grepping the
+whole family in `libcxx/include/__memory/{uninitialized_algorithms.h,
+ranges_uninitialized_algorithms.h}` and finding **zero** `constexpr`
+anywhere in either file, not just on the one function P3369R0 names.
+Implemented the full P3508R0 scope in one pass rather than leaving
+P3369R0 "|Complete|, P3508R0 still open" — same shape, same fix.
+
+**First checked whether this was actually compiler-blocked, since Tier 1/3
+already found two "single all-or-nothing FTM sitting on a real compiler
+gap" cases (P1383R2, P2757R3) with this exact same shape.** A naive probe —
+`::new (voidify(buf)) T()` reusing a stack `unsigned char[]` array's
+storage inside a `constexpr` function — hard-errors ("placement new would
+change type of storage"), which looked like the same P2747R2
+(`__cpp_lib_constexpr_new`) compiler gap at first. **It isn't**: that
+failure is specific to reusing a *declared object's* storage for a
+different type, an unrelated core-language restriction. Retested against
+storage obtained via `std::allocator<T>::allocate` (the actual, intended
+use pattern — matching how `vector`/`basic_string` already do C++20
+constexpr construction) and both `std::construct_at`/`destroy_at` *and*
+raw `::new (voidify(*it)) T` compile and evaluate correctly in a
+`static_assert`. Confirmed with a standalone probe before touching any
+header. This means the gap was a real, implementable library omission,
+not a compiler limitation — worth recording precisely so a future
+P2747R2-adjacent investigation doesn't rediscover the same false trail.
+
+**Mechanical fix**: added `_LIBCPP_CONSTEXPR_SINCE_CXX26` to all 20
+functions in `uninitialized_algorithms.h` (10 public + 10
+`__`-prefixed implementation helpers) and all 15 `operator()` overloads
+across the 10 CPO structs in `ranges_uninitialized_algorithms.h` (via a
+scripted regex pass, then `clang-format -i` to fix line wrapping — hand
+-verified the diff was exactly the intended 35 insertions, nothing
+reflowed unexpectedly). No other logic changes; `std::destroy`/`destroy_n`
+underneath were already `_LIBCPP_CONSTEXPR_SINCE_CXX20` from a prior
+session, so nothing needed touching there.
+
+**Test strategy note, since the existing runtime tests in this directory
+use a `char[]` stack buffer via `alignas(T) char pool[...]`** (the classic
+pre-C++20 "manual placement new" idiom) **— exactly the storage pattern
+confirmed above as NOT constexpr-usable.** Rather than rewrite ~18
+existing runtime test files to go through an allocator (large, unrelated
+diff, real risk of breaking the exception-safety/counted-construction
+tests they already cover well), added 6 new,
+narrowly-scoped `constexpr_uninitialized_*.pass.cpp` files (one per
+sibling directory: `uninitialized.construct.default`,
+`uninitialized.construct.value`, `uninitialized.fill`,
+`uninitialized.fill.n`, `uninitialized.copy`, `uninitialized.move`),
+matching this directory's own existing `constexpr_addressof.pass.cpp`
+naming precedent. Each file exercises both the classic and `ranges::`
+forms (iterator-pair and range overloads, `_n` where it exists) through a
+shared `with_allocated<T>(n, fn)` helper that allocates via
+`std::allocator<T>`, runs `fn`, then `destroy`s and deallocates — the only
+storage-acquisition shape confirmed to actually constexpr-evaluate.
+Verified all 6 both as standalone `static_assert`-driven compiles (against
+freshly-rebuilt `cxx-test-depends` staged headers — bare compiles against
+a stale staged install would have silently tested pre-edit headers, per
+the wrapper's own warning in root `CLAUDE.md`) and through the real
+`libcxx-lit` harness. Full `specialized.algorithms/` suite green (38/38,
+32 pre-existing + 6 new); broader `utilities/memory/` +
+`containers/sequences/vector/` + `strings/basic.string/` +
+`containers/sequences/deque/` sweep green (609/609, unchanged unsupported
+baseline) to catch any container internals relying on the touched
+algorithms; all 6 new files also verified under `--param
+hardening_mode=extensive`.
+
+**FTM value verification, flagged by advisor review before commit — worth
+recording the resolution, not just the value.** `__cpp_lib_constexpr_memory`
+had no C++26 entry in the generator at all (only `c++20`/`c++23`); fetched
+`eel.is/c++draft/version.syn` directly and found `202506L`. The advisor
+correctly flagged that `202506` (Sofia, June 2025) doesn't match either
+paper's own CSV "Meeting" column (`2024-11`, Wrocław) — the exact shape of
+this fork's own P2757R3/P1383R2 "don't trust an FTM value without
+checking what it actually covers" rule, applied from the opposite
+direction (over-claiming instead of under-claiming). Investigated rather
+than assumed: grepped the CSV for any other `2025-06`-dated paper that
+could plausibly own this bump (only hit was P2988R11, `optional<T&>`,
+unrelated to `<memory>` constexpr-ness) and fetched P3508R0's own paper
+text directly (no FTM value stated in the paper itself — LWG assigns FTM
+values during wording adoption, not paper authors). **Resolved by
+precedent already in this exact CSV**: `P2835R7`'s own row (also
+`2024-11 Wrocław`) already carries `__cpp_lib_atomic_ref`'s C++26 value of
+`202603` (March 2026) — a paper's presentation meeting and its wording's
+actual adoption-into-draft meeting are tracked separately by WG21 and
+routinely differ by multiple cycles; this fork already accepted that gap
+for P2835R7 in an earlier session. No second candidate paper exists for
+`202506`, and the live draft's `[specialized.algorithms]` wording (already
+directly fetched during this session, see above) is exactly this
+implementation's scope. Kept `202506`. Re-ran the two directly-affected
+version tests (`memory.version.compile.pass.cpp`,
+`version.version.compile.pass.cpp`) after resolving this, since they
+weren't covered by the `utilities/memory/` sweep above (different
+top-level test path). `Cxx2cPapers.csv` P3369R0 and P3508R0 rows flipped
+to `|Complete|`.
+
 | Status | Paper | Feature |
 |---|---|---|
 | [x] | P2592R3 | Hashing support for `std::chrono` value classes |
@@ -1397,8 +1498,8 @@ hardening_mode=extensive` after all three fixes.
 | [ ] | P1068R11 | Vector API for RNG |
 | [ ] | P2075R6 | Philox RNG engine |
 | [ ] | P3222R0 | Transposed special cases for P2642 mdspan layouts |
-| [ ] | P3508R0 | Wording for constexpr specialized memory algorithms |
-| [ ] | P3369R0 | `constexpr` for `uninitialized_default_construct` |
+| [x] | P3508R0 | Wording for constexpr specialized memory algorithms |
+| [x] | P3369R0 | `constexpr` for `uninitialized_default_construct` |
 | [ ] | P3370R1 | New library headers from C23 |
 | [ ] | P3349R1 | Converting contiguous iterators to pointers |
 | [ ] | P3378R2 | `constexpr` exception types |
@@ -3909,3 +4010,28 @@ blocked, what's next. Do not remove old entries.
   4 is now fully closed out. Next: Tier 5/6, or the larger Tier 3
   follow-ups (mdspan-proper, P1673R13 audit, `std::print` internals
   redesign) — independent starting points, no forced ordering.
+
+- **2026-08-23 (Tier 5/6 session)**: Started Tier 5/6. Closed four papers
+  across three commits: P1885R12 + P2862R1 (`text_encoding` conformance
+  pass — implementation was already complete and correct, just untested
+  and carrying a stale generator `unimplemented` flag, same shape as
+  Tier 3's ranges block), P2592R3 (hashing support for `std::chrono`
+  value classes — genuinely from-scratch, all 18 `[time.hash]`
+  specializations), and P3369R0 + P3508R0 together (constexpr for the
+  whole `[specialized.algorithms]` family — P3369R0's narrow scope
+  turned out to be a strict subset of P3508R0's, so implemented both at
+  once; confirmed via a standalone probe that this was a real, fixable
+  library gap and not a compiler limitation, unlike the two
+  already-documented Tier 1/3 compiler-blocked cases it superficially
+  resembled). Advisor review caught real, fixable issues before every
+  CSV flip in this session (a missing include that made a `zoned_time`
+  hash specialization work only by include-order accident, two missing
+  discriminating test cases, and an FTM-value sanity check) — see each
+  paper's own note above for specifics. Assessed but did not implement:
+  the remaining Tier 5 freestanding papers and most of Tier 6 are still
+  open. Next: continue down Tier 6's small items (P2836R1
+  `basic_const_iterator`, P0952R2 `generate_canonical`, P2810R4
+  `is_debugger_present`/`is_replaceable`, P3349R1 contiguous-iterator-
+  to-pointer conversion look like the next small, self-contained
+  candidates from a first pass) or start Tier 5's freestanding sweep —
+  neither assessed in depth yet, no forced ordering.
