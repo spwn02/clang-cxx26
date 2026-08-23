@@ -1209,11 +1209,51 @@ Lower priority (niche embedded/kernel audience), but self-contained.
 
 Pick these up opportunistically; no particular ordering within the tier.
 
+**`text_encoding` block (P1885R12 + P2862R1), done 2026-08-23:** same
+"scaffolded but untested" shape as Tier 3's ranges block. `libcxx/include/
+text_encoding` was already an 831-line, fully-worked implementation
+(IANA charset table, `comp-name` alias-matching algorithm, `aliases_view`,
+`environment()`/`environment_is()`, `hash<text_encoding>`) with the FTM
+already live and correct in `<version>` (`202306L`) — but the generator's
+own `unimplemented: True` flag was still set (same trap as before: the
+flag only proves nobody flipped it, not that the code doesn't exist), and
+there was **zero test coverage** beyond the version-macro compile check.
+Audited the implementation against the raw eel.is `[text.encoding]`
+wording (`curl -A "Mozilla/5.0"` + tag-strip, not WebFetch, per the Tier 2
+process rule) member-by-member — postconditions of both constructors, the
+`[text.encoding.general]p6` round-trip invariant, the `comp-name` worked
+examples, `aliases_view`'s range/duplicate-freedom guarantees, and the
+`operator==` "both `other`" special case — found no bugs, everything
+matches. **P2862R1 needed no code change at all**: `name()` returns a
+pointer into a fixed `char __name_[max_name_length + 1]` member array,
+which is structurally non-null in every code path (default-constructed,
+`id::unknown`, `id::other`) — the paper's own fix was already the
+implementation's only possible shape. New tests under `libcxx/test/std/
+text/text.encoding/text.encoding.class/{text.encoding.members/{basic,
+environment}.pass.cpp, text.encoding.cmp/equal.pass.cpp,
+text.encoding.aliases/aliases.pass.cpp, text.encoding.hash/hash.pass.cpp}`
+(5 files, mirroring the draft's own subclause breakdown). One snag worth
+recording: `std::strlen`/`std::strcmp` are **not constexpr** in this
+libc++ (they resolve to the C library's non-constexpr symbols, not a
+constexpr-foldable builtin), so using them inside a function under
+`static_assert` fails with "non-constexpr function cannot be used in a
+constant expression" — since `text_encoding` itself is fully `constexpr`,
+tests exercising it at compile time need `std::string_view`'s
+`empty()`/`operator==` instead (both are constexpr wrappers over the same
+operation). `environment.pass.cpp` is `UNSUPPORTED: no-localization`
+(runtime-only, calls the real `environment()`). Flipped generator's
+`unimplemented` flag off and ran `libcxx-generate-files` — 5-file diff
+(`<version>`, `FeatureTestMacroTable.rst`, both affected
+`*.version.compile.pass.cpp` tests, the generator script itself), nothing
+unrelated. Full `text/` suite green (7/7 including the pre-existing
+version test); `Cxx2cPapers.csv` P1885R12 and P2862R1 rows flipped to
+`|Complete|`.
+
 | Status | Paper | Feature |
 |---|---|---|
 | [ ] | P2592R3 | Hashing support for `std::chrono` value classes |
-| [ ] | P1885R12 | `text_encoding` naming |
-| [ ] | P2862R1 | `text_encoding::name()` should never return null |
+| [x] | P1885R12 | `text_encoding` naming |
+| [x] | P2862R1 | `text_encoding::name()` should never return null |
 | [x] | P2641R4 | Checking if a `union` alternative is active |
 | [ ] | P0952R2 | New spec for `std::generate_canonical` |
 | [ ] | P2836R1 | `basic_const_iterator` convertibility |
