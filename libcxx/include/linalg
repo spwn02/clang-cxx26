@@ -1526,7 +1526,11 @@ constexpr void hermitian_matrix_vector_product(
     decltype(__matrix[0, 0] * __vector[0]) __sum{};
     for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
       const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __i <= __j : __i >= __j;
-      const auto __element = __stored ? __matrix[__i, __j] : __detail::__conj_if_needed(__matrix[__j, __i]);
+      // [linalg.general]: a diagonal access (i == j) of a hermitian-tagged
+      // matrix parameter uses real-if-needed, not the raw element.
+      const auto __element = __i == __j    ? __detail::__real_if_needed(__matrix[__i, __j])
+                            : __stored ? __matrix[__i, __j]
+                                       : __detail::__conj_if_needed(__matrix[__j, __i]);
       __sum += __element * __vector[__j];
     }
     __out_span[__i] = __sum;
@@ -1580,7 +1584,11 @@ constexpr void hermitian_matrix_vector_product(
     decltype(__matrix[0, 0] * __vector[0] + __add[0]) __sum = __add[__i];
     for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
       const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __i <= __j : __i >= __j;
-      const auto __element = __stored ? __matrix[__i, __j] : __detail::__conj_if_needed(__matrix[__j, __i]);
+      // [linalg.general]: a diagonal access (i == j) of a hermitian-tagged
+      // matrix parameter uses real-if-needed, not the raw element.
+      const auto __element = __i == __j    ? __detail::__real_if_needed(__matrix[__i, __j])
+                            : __stored ? __matrix[__i, __j]
+                                       : __detail::__conj_if_needed(__matrix[__j, __i]);
       __sum += __element * __vector[__j];
     }
     __out_span[__i] = __sum;
@@ -2033,7 +2041,11 @@ constexpr void hermitian_matrix_product(
       decltype(__matrix[0, 0] * __other[0, 0]) __sum{};
       for (size_t __k = 0; __k != __matrix.extent(1); ++__k) {
         const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __i <= __k : __i >= __k;
-        const auto __element = __stored ? __matrix[__i, __k] : __detail::__conj_if_needed(__matrix[__k, __i]);
+        // [linalg.general]: a diagonal access (i == k) of a hermitian-tagged
+        // matrix parameter uses real-if-needed, not the raw element.
+        const auto __element = __i == __k    ? __detail::__real_if_needed(__matrix[__i, __k])
+                              : __stored ? __matrix[__i, __k]
+                                         : __detail::__conj_if_needed(__matrix[__k, __i]);
         __sum += __element * __other[__k, __j];
       }
       __out_span[__i, __j] = __sum;
@@ -2196,7 +2208,11 @@ constexpr void hermitian_matrix_product(
       decltype(__matrix[0, 0] * __other[0, 0]) __sum{};
       for (size_t __k = 0; __k != __matrix.extent(1); ++__k) {
         const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __i <= __k : __i >= __k;
-        const auto __element = __stored ? __matrix[__i, __k] : __detail::__conj_if_needed(__matrix[__k, __i]);
+        // [linalg.general]: a diagonal access (i == k) of a hermitian-tagged
+        // matrix parameter uses real-if-needed, not the raw element.
+        const auto __element = __i == __k    ? __detail::__real_if_needed(__matrix[__i, __k])
+                              : __stored ? __matrix[__i, __k]
+                                         : __detail::__conj_if_needed(__matrix[__k, __i]);
         __sum += __element * __other[__k, __j];
       }
       __out_span[__i, __j] = __add[__i, __j] + __sum;
@@ -2250,7 +2266,11 @@ constexpr void hermitian_matrix_product(
       decltype(__other[0, 0] * __matrix[0, 0]) __sum{};
       for (size_t __k = 0; __k != __matrix.extent(0); ++__k) {
         const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __k <= __j : __k >= __j;
-        const auto __element = __stored ? __matrix[__k, __j] : __detail::__conj_if_needed(__matrix[__j, __k]);
+        // [linalg.general]: a diagonal access (k == j) of a hermitian-tagged
+        // matrix parameter uses real-if-needed, not the raw element.
+        const auto __element = __k == __j    ? __detail::__real_if_needed(__matrix[__k, __j])
+                              : __stored ? __matrix[__k, __j]
+                                         : __detail::__conj_if_needed(__matrix[__j, __k]);
         __sum += __other[__i, __k] * __element;
       }
       __out_span[__i, __j] = __add[__i, __j] + __sum;
@@ -2295,7 +2315,11 @@ constexpr void hermitian_matrix_product(
       decltype(__other[0, 0] * __matrix[0, 0]) __sum{};
       for (size_t __k = 0; __k != __matrix.extent(0); ++__k) {
         const bool __stored  = same_as<_Triangle, upper_triangle_t> ? __k <= __j : __k >= __j;
-        const auto __element = __stored ? __matrix[__k, __j] : __detail::__conj_if_needed(__matrix[__j, __k]);
+        // [linalg.general]: a diagonal access (k == j) of a hermitian-tagged
+        // matrix parameter uses real-if-needed, not the raw element.
+        const auto __element = __k == __j    ? __detail::__real_if_needed(__matrix[__k, __j])
+                              : __stored ? __matrix[__k, __j]
+                                         : __detail::__conj_if_needed(__matrix[__j, __k]);
         __sum += __other[__i, __k] * __element;
       }
       __out_span[__i, __j] = __sum;

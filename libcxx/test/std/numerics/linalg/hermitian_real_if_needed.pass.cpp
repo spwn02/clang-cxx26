@@ -18,11 +18,19 @@
 //  - for every "updating" (E-taking) hermitian_matrix_rank_{1,2,k,2k}_update
 //    overload, a *diagonal* access of E uses real-if-needed(E[i, i]); other
 //    accesses of E use E[i, j] unchanged.
-// This wasn't exercised by rank_updates.pass.cpp, whose alpha and E diagonal
-// entries all already happened to be real. These checks use inputs with a
-// genuinely nonzero imaginary part in exactly those two spots, so a
-// regression (dropping either real-if-needed) shows up as a nonzero
-// imaginary part on a Hermitian matrix's diagonal.
+// [linalg.general] paragraph 4 states the same diagonal rule generally, for
+// *any* function reading through a triangle-tagged, hermitian-named matrix
+// parameter -- not just the rank-update family's E. That covers
+// hermitian_matrix_vector_product (reading its Hermitian matrix argument)
+// and hermitian_matrix_product/[linalg.algs.blas3.xxmm] (reading whichever
+// argument is the Hermitian factor), which have the identical
+// stored-vs-conjugated-vs-diagonal branch as the rank updates' E parameter.
+// This wasn't exercised by rank_updates.pass.cpp or the other existing
+// linalg tests, whose alpha and matrix diagonal entries all already
+// happened to be real. These checks use inputs with a genuinely nonzero
+// imaginary part in exactly those spots, so a regression (dropping a
+// real-if-needed) shows up as a nonzero imaginary part on a Hermitian
+// matrix's diagonal, or on a value derived by reading it.
 
 #include <linalg>
 
@@ -112,6 +120,49 @@ int main(int, char**) {
     std::mdspan c(c_data, 2, 2);
     std::linalg::hermitian_matrix_rank_2k_update(left, right, e, c, std::linalg::lower_triangle);
     if (c[0, 0] != complex(7, 0) || c[1, 0] != complex(1, 3) || c[1, 1] != complex(10, 0))
+      return 1;
+  }
+
+  // hermitian_matrix_vector_product: the general [linalg.general] rule, not
+  // the rank-update-specific one. The Hermitian matrix's diagonal has a
+  // nonzero imaginary part.
+  {
+    complex a_data[] = {{3, 5}, {}, {2, 1}, {4, -2}};
+    std::mdspan a(a_data, 2, 2);
+    int x_data[] = {1, 2};
+    std::mdspan x(x_data, 2);
+    complex y_data[] = {{}, {}};
+    std::mdspan y(y_data, 2);
+    std::linalg::hermitian_matrix_vector_product(a, std::linalg::lower_triangle, x, y);
+    if (y[0] != complex(7, -2) || y[1] != complex(10, 1))
+      return 1;
+  }
+
+  // hermitian_matrix_product, Hermitian factor on the left: same general
+  // rule, applied where the matrix precedes t rather than the vector case.
+  {
+    complex a_data[] = {{3, 5}, {}, {2, 1}, {4, -2}};
+    std::mdspan a(a_data, 2, 2);
+    int b_data[] = {1, 2};
+    std::mdspan b(b_data, 2, 1);
+    complex c_data[] = {{}, {}};
+    std::mdspan c(c_data, 2, 1);
+    std::linalg::hermitian_matrix_product(a, std::linalg::lower_triangle, b, c);
+    if (c[0, 0] != complex(7, -2) || c[1, 0] != complex(10, 1))
+      return 1;
+  }
+
+  // hermitian_matrix_product, Hermitian factor on the right: the matrix
+  // parameter still precedes t even though it's not the first parameter.
+  {
+    int other_data[] = {1, 2};
+    std::mdspan other(other_data, 1, 2);
+    complex m_data[] = {{3, 5}, {}, {2, 1}, {4, -2}};
+    std::mdspan m(m_data, 2, 2);
+    complex c_data[] = {{}, {}};
+    std::mdspan c(c_data, 1, 2);
+    std::linalg::hermitian_matrix_product(other, m, std::linalg::lower_triangle, c);
+    if (c[0, 0] != complex(7, 2) || c[0, 1] != complex(10, -1))
       return 1;
   }
 

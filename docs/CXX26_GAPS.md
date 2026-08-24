@@ -5549,6 +5549,41 @@ blocked, what's next. Do not remove old entries.
   (P3222R0 → P2642R6 → `std::constant_wrapper`) instead of an
   unidentified gap.
 
+  **Advisor-prompted verification, same session, before calling this
+  done.** Two gaps in the above: (1) confirmed item (2)
+  (overwriting-not-accumulating) by reading, not just spot-checking,
+  every non-`E` overload of symmetric/hermitian rank-1/2/k/2k — all
+  correct, no further changes needed. (2) `__real_if_needed` had zero
+  call sites in the header outside `__blas_abs` before this session's
+  6 fixes, which was itself a signal worth following further:
+  `grep -n "real-if-needed" ` against the cached full `[linalg]` draft
+  text (`linalg_full.txt` from the mdspan-blocker investigation)
+  turned up a paragraph in `[linalg.general]` (¶4) that the
+  rank-update-specific ones I'd already read are actually
+  *restatements* of — the general rule applies to *any* function
+  reading through a triangle-tagged, `hermitian`-named matrix
+  parameter, not just the rank-update family's `E`. That covers
+  `hermitian_matrix_vector_product` (both overloads) and all four
+  `hermitian_matrix_product`/`[linalg.algs.blas3.xxmm]` overloads
+  (whichever argument is the Hermitian factor) — each had the exact
+  same `__stored ? raw : conj_if_needed(...)` ternary, missing the
+  diagonal case, as the rank-update `E` parameter had. Fixed those 6
+  call sites the same way (diagonal → `real_if_needed`, matching the
+  general rule's `real-if-needed(m[i, i])`). Verified against a
+  scratch binary before trusting the lit test (same discipline as the
+  first `hermitian_real_if_needed.pass.cpp` bug), then added 3 more
+  cases to that file — one per distinct index-pair shape
+  (`(i, j)`/vector, `(i, k)`/left-factor, `(k, j)`/right-factor) —
+  rather than one per identical overload, since the two members of
+  each `replace_all` pair are byte-identical in the fixed expression
+  and differ only in unrelated addend/loop-bound code. Full
+  `linalg/` suite (19/19) and `numerics/` suite (942/944, 2
+  pre-existing unsupported) both green after this follow-up. This is
+  exactly the kind of gap a mechanical name-set diff or an SFINAE
+  pass cannot find — only reading the actual wording clause and
+  grepping for what's unused catches it — worth remembering next time
+  a helper function in this header shows near-zero usage.
+
   **Next session**: either (a) attempt the prose audit this session
   skipped (budget for real per-function wording comparison, not a
   mechanical sweep — same caution this tracker has given every
