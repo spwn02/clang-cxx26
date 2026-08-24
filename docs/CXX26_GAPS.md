@@ -1609,7 +1609,7 @@ changes for any of the three — none of them flip status this session.
 | [x] | P2641R4 | Checking if a `union` alternative is active |
 | [x] | P0952R2 | New spec for `std::generate_canonical` |
 | [!] | P2836R1 | `basic_const_iterator` convertibility | **Not small** — depends on unimplemented P2278R4 (see block below) |
-| [ ] | P2264R7 | User-friendly `assert()` for C and C++ |
+| [x] | P2264R7 | User-friendly `assert()` for C and C++ | Nothing To Do 2026-08-24 — see Session Log |
 | [ ] | P2248R8 | List-initialization for algorithms |
 | [ ] | P3217R0 | `find_last` addendum to P2248R8 |
 | [x] | P2546R5 | Debugging Support (`<debugging>`, not its own CSV-tracked row here) |
@@ -4834,3 +4834,86 @@ blocked, what's next. Do not remove old entries.
   scoped rather than large ABI or from-scratch-engine work), but confirm
   before implementing rather than assuming, per this tier's established
   pattern.
+
+- **2026-08-24 (tenth session)**: Checked P2264R7 (user-friendly variadic
+  `assert()`). **Nothing to do**: libc++'s `<cassert>` never defines
+  `assert` itself — its own comment says so directly (`// <assert.h> is not
+  provided by libc++`) — it just forwards to the platform's `<assert.h>`.
+  The paper's entire normative surface is the `assert` macro definition,
+  which is therefore the C library's responsibility, not libc++'s. Verified
+  transitively satisfied rather than just assumed: grepped the system's
+  glibc 2.44 `/usr/include/assert.h` and found it already guards a
+  `#if __ASSERT_VARIADIC` variadic definition for C++/GNU-extension builds;
+  confirmed empirically by compiling `assert(std::is_same<int,int>::value)`
+  (a comma-containing expression with no extra parens — the paper's whole
+  point) with `-fsyntax-only` against this fork's `clang-nyx`/libc++
+  headers — compiles clean. Same shape as the `P3349R1` precedent: marked
+  `|Nothing To Do|` in `Cxx2cPapers.csv` with a Notes-column rationale
+  rather than `|Complete|`, since libc++ contributes zero lines to
+  satisfying this paper. No FTM exists for this paper (confirmed via grep
+  of `generate_feature_test_macro_components.py` — none), so no `version`
+  regeneration needed. Tier 6 table checkbox flipped alongside it.
+
+  Also scope-checked P2248R8 (list-initialization for algorithms) +
+  P3217R0 (its `find_last` addendum) using the actual wording (fetched the
+  paper's raw HTML via `curl` rather than trusting `WebFetch`'s summarizer
+  model a second time — the first summary of P1068R11 earlier in this
+  effort had already proven capable of inventing a plausible-but-wrong API
+  shape; a `WebFetch` retry on this paper produced a similar artifact,
+  flattening `<del>`/`<ins>` diff markup into single garbled signatures
+  with duplicate template parameters). The real technique: add a defaulted
+  template type parameter (`projected_value_t<I, Proj>` for
+  projection-aware `ranges::` algorithms, plain
+  `iterator_traits<It>::value_type` for classic non-range algorithms)
+  so a braced-init-list argument — which is a non-deduced context against a
+  bare template parameter — falls through to the default instead of
+  failing to deduce. ~69 signature touch-points across `<algorithm>`,
+  `<numeric>`-adjacent range algorithms, and 5 container `erase()` free
+  functions (`<string>`/`<vector>`/`<deque>`/`<list>`/`<forward_list>`),
+  confirmed via the paper's own itemized table — objectively larger than
+  every other single-session Tier 6 pickup so far, but advisor pushed back
+  on deferring wholesale: the real question is whether libc++'s current
+  declared parameter order already matches the paper's pre-diff text, not
+  the raw touch-point count. Checked directly: it does **not**, for every
+  `ranges::` site inspected. `ranges_find.h` declares `<_Iter, _Sent, _Tp,
+  _Proj = identity>` (paper's new order: `_Proj` before `_Tp`, which gets
+  the default). `ranges_fill.h` declares `<_Type, output_iterator<const
+  _Type&> _Iter, _Sent>` — `_Type` **first**, using itself to constrain the
+  iterator's constrained-parameter shorthand; the paper's version puts the
+  iterator/sentinel first and moves the `output_iterator<...>` constraint
+  into a trailing `requires`-clause so `_Type` can move last and get a
+  default. `ranges_replace.h` and `ranges_lower_bound.h` show the same
+  pattern (value type(s) declared before `_Proj`/`_Comp`, not after). So
+  every `ranges::` algorithm site needs individual restructuring — not a
+  literal transcription of the paper's diff — which is genuinely
+  session-sized (and P3217R0's `find_last` family inherits the same
+  hazard). **Not started this session** — left `unimplemented: True` on
+  `__cpp_lib_default_template_type_for_algorithm_values` and both CSV rows
+  unflipped, so a future session picks this up as a clean, correctly-scoped
+  unit rather than a half-migrated one.
+
+  The other three slices carry no reordering risk (no `_Proj`/`_Comp`
+  parameter to jump over) and are queued as the concrete next pickup:
+  (1) add `projected_value_t<I, Proj>` as a new alias in `<iterator>`
+  (needed by the `ranges::` slice too, so doing it now isn't wasted); (2)
+  append `class U = T`-shaped defaults to the 5 `erase()` free functions;
+  (3) append `class T = typename iterator_traits<It>::value_type`-shaped
+  defaults to the classic non-range algorithm signatures (`fill`, `find`,
+  `count`, `search_n`, `replace`, `replace_if`, `remove`, `remove_copy`,
+  `replace_copy_if`, `lower_bound`, `upper_bound`, `equal_range`,
+  `binary_search` — no `Proj` involved, so nothing to reorder). Per
+  `Cxx2cPapers.csv`'s existing `|Partial|` convention (used for
+  `P1383R2`/`P2714R1`/`P3309R3`), this paper should land as `|Partial|`
+  once slices 1–3 are done, not flipped to `|Complete|` until the
+  `ranges::`/`find_last` slice also lands.
+
+  **Next session**: implement projected_value_t + the 5 erase() defaults +
+  the non-range algorithm defaults (slices 1–3 above) for P2248R8, mark
+  `|Partial|` in the CSV, leave the FTM `unimplemented: True`. The
+  `ranges::`/`find_last` reordering slice (P2248R8's remainder + P3217R0)
+  is its own follow-up — budget real per-site care, not a mechanical
+  sweep, and note the FTM spans 7 headers so flipping it eventually
+  regenerates 7 header-specific `.version.compile.pass.cpp` files plus
+  `version.version.compile.pass.cpp`. P3222R0 (still blocked on Tier 3
+  mdspan work) and P3471R4 (Standard Library Hardening, unassessed) remain
+  the other two open Tier 6 rows.

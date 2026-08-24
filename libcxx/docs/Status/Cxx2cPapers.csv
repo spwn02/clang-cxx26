@@ -43,7 +43,7 @@
 "`P2937R0 <https://wg21.link/P2937R0>`__","Freestanding: Remove ``strtok``","2023-11 (Kona)","","",""
 "`P2833R2 <https://wg21.link/P2833R2>`__","Freestanding Library: inout expected span","2023-11 (Kona)","","",""
 "`P2836R1 <https://wg21.link/P2836R1>`__","``std::basic_const_iterator`` should follow its underlying type's convertibility","2023-11 (Kona)","","",""
-"`P2264R7 <https://wg21.link/P2264R7>`__","Make ``assert()`` macro user friendly for C and C++","2023-11 (Kona)","","",""
+"`P2264R7 <https://wg21.link/P2264R7>`__","Make ``assert()`` macro user friendly for C and C++","2023-11 (Kona)","|Nothing To Do|","","libc++'s ``<cassert>`` never defines ``assert`` itself -- it forwards to the platform's ``<assert.h>``, per the header's own comment (``<assert.h> is not provided by libc++``). This paper's variadic-macro requirement is satisfied transitively by the system C library; confirmed against glibc 2.44's ``/usr/include/assert.h`` (already guarded ``#if __ASSERT_VARIADIC`` for C++/GNU-extension builds) and by compiling a comma-containing ``assert(std::is_same<int,int>::value)`` with no extra parens."
 "`P1673R13 <https://wg21.link/P1673R13>`__","A free function linear algebra interface based on the BLAS","2023-11 (Kona)","","",""
 "","","","","",""
 "`P2875R4 <https://wg21.link/P2875R4>`__","Undeprecate ``polymorphic_allocator::destroy`` for C++26","2024-03 (Tokyo)","|Complete|","15",""
