@@ -11,14 +11,15 @@
 /// \file
 /// C Language Family Type Representation
 ///
-/// This file defines the clang::Type interface and subclasses, used to
-/// represent types for languages in the C family.
+/// This file defines some inline methods for clang::Type which depend on
+/// Decl.h, avoiding a circular dependency.
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_AST_TYPE_H
 #define LLVM_CLANG_AST_TYPE_H
 
+<<<<<<< HEAD
 #include "clang/AST/DependenceFlags.h"
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/SpliceSpecifier.h"
@@ -61,29 +62,25 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+=======
+#include "clang/AST/Decl.h"
+#include "clang/AST/DeclCXX.h"
+#include "clang/AST/TypeBase.h" // IWYU pragma: export
+>>>>>>> refs/tags/llvmorg-22.1.8
 
 namespace clang {
 
-class BTFTypeTagAttr;
-class ExtQuals;
-class QualType;
-class ConceptDecl;
-class ValueDecl;
-class TagDecl;
-class TemplateParameterList;
-class Type;
-class Attr;
-
-enum {
-  TypeAlignmentInBits = 4,
-  TypeAlignment = 1 << TypeAlignmentInBits
-};
-
-namespace serialization {
-  template <class T> class AbstractTypeReader;
-  template <class T> class AbstractTypeWriter;
+inline CXXRecordDecl *Type::getAsCXXRecordDecl() const {
+  const auto *TT = dyn_cast<TagType>(CanonicalType);
+  if (!isa_and_present<RecordType, InjectedClassNameType>(TT))
+    return nullptr;
+  auto *TD = TT->getDecl();
+  if (isa<RecordType>(TT) && !isa<CXXRecordDecl>(TD))
+    return nullptr;
+  return cast<CXXRecordDecl>(TD)->getDefinitionOrSelf();
 }
 
+<<<<<<< HEAD
 } // namespace clang
 
 namespace llvm {
@@ -7777,77 +7774,32 @@ public:
 
 inline QualType *ObjCObjectType::getTypeArgStorage() {
   return reinterpret_cast<QualType *>(static_cast<ObjCObjectTypeImpl*>(this)+1);
+=======
+inline CXXRecordDecl *Type::castAsCXXRecordDecl() const {
+  const auto *TT = cast<TagType>(CanonicalType);
+  return cast<CXXRecordDecl>(TT->getDecl())->getDefinitionOrSelf();
+>>>>>>> refs/tags/llvmorg-22.1.8
 }
 
-inline ObjCProtocolDecl **ObjCObjectType::getProtocolStorageImpl() {
-    return reinterpret_cast<ObjCProtocolDecl**>(
-             getTypeArgStorage() + ObjCObjectTypeBits.NumTypeArgs);
+inline RecordDecl *Type::getAsRecordDecl() const {
+  const auto *TT = dyn_cast<TagType>(CanonicalType);
+  if (!isa_and_present<RecordType, InjectedClassNameType>(TT))
+    return nullptr;
+  return cast<RecordDecl>(TT->getDecl())->getDefinitionOrSelf();
 }
 
-inline ObjCProtocolDecl **ObjCTypeParamType::getProtocolStorageImpl() {
-    return reinterpret_cast<ObjCProtocolDecl**>(
-             static_cast<ObjCTypeParamType*>(this)+1);
+inline RecordDecl *Type::castAsRecordDecl() const {
+  const auto *TT = cast<TagType>(CanonicalType);
+  return cast<RecordDecl>(TT->getDecl())->getDefinitionOrSelf();
 }
 
-/// Interfaces are the core concept in Objective-C for object oriented design.
-/// They basically correspond to C++ classes.  There are two kinds of interface
-/// types: normal interfaces like `NSString`, and qualified interfaces, which
-/// are qualified with a protocol list like `NSString<NSCopyable, NSAmazing>`.
-///
-/// ObjCInterfaceType guarantees the following properties when considered
-/// as a subtype of its superclass, ObjCObjectType:
-///   - There are no protocol qualifiers.  To reinforce this, code which
-///     tries to invoke the protocol methods via an ObjCInterfaceType will
-///     fail to compile.
-///   - It is its own base type.  That is, if T is an ObjCInterfaceType*,
-///     T->getBaseType() == QualType(T, 0).
-class ObjCInterfaceType : public ObjCObjectType {
-  friend class ASTContext; // ASTContext creates these.
-  friend class ASTReader;
-  template <class T> friend class serialization::AbstractTypeReader;
-
-  ObjCInterfaceDecl *Decl;
-
-  ObjCInterfaceType(const ObjCInterfaceDecl *D)
-      : ObjCObjectType(Nonce_ObjCInterface),
-        Decl(const_cast<ObjCInterfaceDecl*>(D)) {}
-
-public:
-  /// Get the declaration of this interface.
-  ObjCInterfaceDecl *getDecl() const;
-
-  bool isSugared() const { return false; }
-  QualType desugar() const { return QualType(this, 0); }
-
-  static bool classof(const Type *T) {
-    return T->getTypeClass() == ObjCInterface;
-  }
-
-  // Nonsense to "hide" certain members of ObjCObjectType within this
-  // class.  People asking for protocols on an ObjCInterfaceType are
-  // not going to get what they want: ObjCInterfaceTypes are
-  // guaranteed to have no protocols.
-  enum {
-    qual_iterator,
-    qual_begin,
-    qual_end,
-    getNumProtocols,
-    getProtocol
-  };
-};
-
-inline ObjCInterfaceDecl *ObjCObjectType::getInterface() const {
-  QualType baseType = getBaseType();
-  while (const auto *ObjT = baseType->getAs<ObjCObjectType>()) {
-    if (const auto *T = dyn_cast<ObjCInterfaceType>(ObjT))
-      return T->getDecl();
-
-    baseType = ObjT->getBaseType();
-  }
-
+inline EnumDecl *Type::getAsEnumDecl() const {
+  if (const auto *TT = dyn_cast<EnumType>(CanonicalType))
+    return TT->getDecl()->getDefinitionOrSelf();
   return nullptr;
 }
 
+<<<<<<< HEAD
 /// Represents a pointer to an Objective C object.
 ///
 /// These are constructed from pointer declarators when the pointee type is
@@ -8210,141 +8162,20 @@ inline SplitQualType SplitQualType::getSingleStepDesugaredType() const {
     Ty->getLocallyUnqualifiedSingleStepDesugaredType().split();
   desugar.Quals.addConsistentQualifiers(Quals);
   return desugar;
+=======
+inline EnumDecl *Type::castAsEnumDecl() const {
+  return cast<EnumType>(CanonicalType)->getDecl()->getDefinitionOrSelf();
+>>>>>>> refs/tags/llvmorg-22.1.8
 }
 
-inline const Type *QualType::getTypePtr() const {
-  return getCommonPtr()->BaseType;
+inline TagDecl *Type::getAsTagDecl() const {
+  if (const auto *TT = dyn_cast<TagType>(CanonicalType))
+    return TT->getDecl()->getDefinitionOrSelf();
+  return nullptr;
 }
 
-inline const Type *QualType::getTypePtrOrNull() const {
-  return (isNull() ? nullptr : getCommonPtr()->BaseType);
-}
-
-inline bool QualType::isReferenceable() const {
-  // C++ [defns.referenceable]
-  //   type that is either an object type, a function type that does not have
-  //   cv-qualifiers or a ref-qualifier, or a reference type.
-  const Type &Self = **this;
-  if (Self.isObjectType() || Self.isReferenceType())
-    return true;
-  if (const auto *F = Self.getAs<FunctionProtoType>())
-    return F->getMethodQuals().empty() && F->getRefQualifier() == RQ_None;
-
-  return false;
-}
-
-inline SplitQualType QualType::split() const {
-  if (!hasLocalNonFastQualifiers())
-    return SplitQualType(getTypePtrUnsafe(),
-                         Qualifiers::fromFastMask(getLocalFastQualifiers()));
-
-  const ExtQuals *eq = getExtQualsUnsafe();
-  Qualifiers qs = eq->getQualifiers();
-  qs.addFastQualifiers(getLocalFastQualifiers());
-  return SplitQualType(eq->getBaseType(), qs);
-}
-
-inline Qualifiers QualType::getLocalQualifiers() const {
-  Qualifiers Quals;
-  if (hasLocalNonFastQualifiers())
-    Quals = getExtQualsUnsafe()->getQualifiers();
-  Quals.addFastQualifiers(getLocalFastQualifiers());
-  return Quals;
-}
-
-inline Qualifiers QualType::getQualifiers() const {
-  Qualifiers quals = getCommonPtr()->CanonicalType.getLocalQualifiers();
-  quals.addFastQualifiers(getLocalFastQualifiers());
-  return quals;
-}
-
-inline unsigned QualType::getCVRQualifiers() const {
-  unsigned cvr = getCommonPtr()->CanonicalType.getLocalCVRQualifiers();
-  cvr |= getLocalCVRQualifiers();
-  return cvr;
-}
-
-inline QualType QualType::getCanonicalType() const {
-  QualType canon = getCommonPtr()->CanonicalType;
-  return canon.withFastQualifiers(getLocalFastQualifiers());
-}
-
-inline bool QualType::isCanonical() const {
-  return getTypePtr()->isCanonicalUnqualified();
-}
-
-inline bool QualType::isCanonicalAsParam() const {
-  if (!isCanonical()) return false;
-  if (hasLocalQualifiers()) return false;
-
-  const Type *T = getTypePtr();
-  if (T->isVariablyModifiedType() && T->hasSizedVLAType())
-    return false;
-
-  return !isa<FunctionType>(T) &&
-         (!isa<ArrayType>(T) || isa<ArrayParameterType>(T));
-}
-
-inline bool QualType::isConstQualified() const {
-  return isLocalConstQualified() ||
-         getCommonPtr()->CanonicalType.isLocalConstQualified();
-}
-
-inline bool QualType::isRestrictQualified() const {
-  return isLocalRestrictQualified() ||
-         getCommonPtr()->CanonicalType.isLocalRestrictQualified();
-}
-
-
-inline bool QualType::isVolatileQualified() const {
-  return isLocalVolatileQualified() ||
-         getCommonPtr()->CanonicalType.isLocalVolatileQualified();
-}
-
-inline bool QualType::hasQualifiers() const {
-  return hasLocalQualifiers() ||
-         getCommonPtr()->CanonicalType.hasLocalQualifiers();
-}
-
-inline QualType QualType::getUnqualifiedType() const {
-  if (!getTypePtr()->getCanonicalTypeInternal().hasLocalQualifiers())
-    return QualType(getTypePtr(), 0);
-
-  return QualType(getSplitUnqualifiedTypeImpl(*this).Ty, 0);
-}
-
-inline SplitQualType QualType::getSplitUnqualifiedType() const {
-  if (!getTypePtr()->getCanonicalTypeInternal().hasLocalQualifiers())
-    return split();
-
-  return getSplitUnqualifiedTypeImpl(*this);
-}
-
-inline void QualType::removeLocalConst() {
-  removeLocalFastQualifiers(Qualifiers::Const);
-}
-
-inline void QualType::removeLocalRestrict() {
-  removeLocalFastQualifiers(Qualifiers::Restrict);
-}
-
-inline void QualType::removeLocalVolatile() {
-  removeLocalFastQualifiers(Qualifiers::Volatile);
-}
-
-/// Check if this type has any address space qualifier.
-inline bool QualType::hasAddressSpace() const {
-  return getQualifiers().hasAddressSpace();
-}
-
-/// Return the address space of this type.
-inline LangAS QualType::getAddressSpace() const {
-  return getQualifiers().getAddressSpace();
-}
-
-/// Return the gc attribute of this type.
-inline Qualifiers::GC QualType::getObjCGCAttr() const {
-  return getQualifiers().getObjCGCAttr();
+inline TagDecl *Type::castAsTagDecl() const {
+  return cast<TagType>(CanonicalType)->getDecl()->getDefinitionOrSelf();
 }
 
 inline bool QualType::hasNonTrivialToPrimitiveDefaultInitializeCUnion() const {
@@ -8365,6 +8196,7 @@ inline bool QualType::hasNonTrivialToPrimitiveCopyCUnion() const {
   return false;
 }
 
+<<<<<<< HEAD
 inline FunctionType::ExtInfo getFunctionExtInfo(const Type &t) {
   if (const auto *PT = t.getAs<PointerType>()) {
     if (const auto *FT = PT->getPointeeType()->getAs<FunctionType>())
@@ -9176,6 +9008,8 @@ inline FunctionEffectsRef FunctionEffectsRef::get(QualType QT) {
   return {};
 }
 
+=======
+>>>>>>> refs/tags/llvmorg-22.1.8
 } // namespace clang
 
 #endif // LLVM_CLANG_AST_TYPE_H

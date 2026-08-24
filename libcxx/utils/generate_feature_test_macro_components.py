@@ -14,7 +14,7 @@ from typing import (
 )
 import functools
 import json
-from libcxx.header_information import module_c_headers, module_headers, header_restrictions, headers_not_available, libcxx_root
+from libcxx.header_information import headers_not_available
 
 
 def get_libcxx_paths():
@@ -160,6 +160,7 @@ feature_test_macros = [
                 "c++26": 202306  # P2363R5 Extending associative containers with the remaining heterogeneous overloads
             },
             "headers": ["map", "set", "unordered_map", "unordered_set"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_assume_aligned",
@@ -190,12 +191,13 @@ feature_test_macros = [
             "name": "__cpp_lib_atomic_min_max",
             "values": {"c++26": 202403}, # P0493R5: Atomic minimum/maximum
             "headers": ["atomic"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_atomic_ref",
             "values": {
                 "c++20": 201806,
-                "c++26": 202603,  # P2835R7: Expose std::atomic_ref's object address
+                "c++26": 202411,  # P2835R7: Expose std::atomic_ref 's object address
             },
             "headers": ["atomic"],
         },
@@ -214,15 +216,13 @@ feature_test_macros = [
             "name": "__cpp_lib_atomic_wait",
             "values": {"c++20": 201907},
             "headers": ["atomic"],
-            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_SYNC",
-            "libcxx_guard": "_LIBCPP_AVAILABILITY_HAS_SYNC",
         },
         {
             "name": "__cpp_lib_barrier",
             "values": {"c++20": 201907},
             "headers": ["barrier"],
-            "test_suite_guard": "!defined(_LIBCPP_VERSION) || (_LIBCPP_HAS_THREADS && _LIBCPP_AVAILABILITY_HAS_SYNC)",
-            "libcxx_guard": "_LIBCPP_HAS_THREADS && _LIBCPP_AVAILABILITY_HAS_SYNC",
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS",
+            "libcxx_guard": "_LIBCPP_HAS_THREADS",
         },
         {
             "name": "__cpp_lib_bind_back",
@@ -300,7 +300,7 @@ feature_test_macros = [
             "name": "__cpp_lib_chrono",
             "values": {
                 "c++17": 201611,
-                "c++26": 202306,  # P2592R3 Hashing support for std::chrono value classes
+                # "c++26": 202306, # P2592R3 Hashing support for std::chrono value classes
             },
             "headers": ["chrono"],
         },
@@ -315,13 +315,23 @@ feature_test_macros = [
             "headers": ["algorithm"],
         },
         {
+            "name": "__cpp_lib_common_reference",
+            "values": {"c++20": 202302},
+            "headers": ["type_traits"],
+        },
+        {
+            "name": "__cpp_lib_common_reference_wrapper",
+            "values": {"c++20": 202302},
+            "headers": ["functional"],
+        },
+        {
             "name": "__cpp_lib_complex_udls",
             "values": {"c++14": 201309},
             "headers": ["complex"],
         },
         {
             "name": "__cpp_lib_concepts",
-            "values": {"c++20": 202002},
+            "values": {"c++20": 202207},
             "headers": ["concepts"],
         },
         {
@@ -331,11 +341,6 @@ feature_test_macros = [
                 "c++26": 202306,
             },
             "headers": ["algorithm", "utility"],
-        },
-        {
-            "name": "__cpp_lib_constexpr_atomic",
-            "values": {"c++26": 202411},  # P3309R3: constexpr atomic and atomic_ref
-            "headers": ["atomic"],
         },
         {
             "name": "__cpp_lib_constexpr_bitset",
@@ -355,13 +360,23 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_constexpr_complex",
-            "values": {"c++20": 201711, "c++26": 202306},
+            "values": {"c++20": 201711},
             "headers": ["complex"],
         },
         {
             "name": "__cpp_lib_constexpr_dynamic_alloc",
             "values": {"c++20": 201907},
             "headers": ["memory"],
+        },
+        {
+            "name": "__cpp_lib_constexpr_flat_map",
+            "values": {"c++26": 202502},
+            "headers": ["flat_map"],
+        },
+        {
+            "name": "__cpp_lib_constexpr_flat_set",
+            "values": {"c++26": 202502},
+            "headers": ["flat_set"],
         },
         {
             "name": "__cpp_lib_constexpr_forward_list",
@@ -385,7 +400,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_constexpr_memory",
-            "values": {"c++20": 201811, "c++23": 202202, "c++26": 202506},  # P3369R0/P3508R0
+            "values": {"c++20": 201811, "c++23": 202202},
             "headers": ["memory"],
         },
         {
@@ -438,7 +453,6 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_constrained_equality",
             "values": {
-                # "c++26": 202403,  # P2944R3: Comparisons for reference_wrapper
                 "c++26": 202411,  # P3379R0: Constrain std::expected equality operators
             },
             "headers": ["expected", "optional", "tuple", "utility", "variant"],
@@ -464,6 +478,7 @@ feature_test_macros = [
             "name": "__cpp_lib_copyable_function",
             "values": {"c++26": 202306},  # P2548R6 copyable_function
             "headers": ["functional"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_coroutine",
@@ -473,14 +488,17 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_debugging",
             "values": {
-                "c++26": 202403, # P2810R4: is_debugger_present is_replaceable
+                "c++26": 202311, # P2546R5 Debugging Support
+                # "c++26": 202403, # P2810R4: is_debugger_present is_replaceable
             },
             "headers": ["debugging"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_default_template_type_for_algorithm_values",
             "values": {"c++26": 202403}, # P2248R8: Enabling list-initialization for algorithms
             "headers": ["algorithm", "deque", "forward_list", "list", "ranges", "string", "vector"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_destroying_delete",
@@ -534,17 +552,17 @@ feature_test_macros = [
             "name": "__cpp_lib_filesystem",
             "values": {"c++17": 201703},
             "headers": ["filesystem"],
-            "test_suite_guard": "!defined(_LIBCPP_VERSION) || (_LIBCPP_HAS_FILESYSTEM && _LIBCPP_AVAILABILITY_HAS_FILESYSTEM_LIBRARY)",
-            "libcxx_guard": "_LIBCPP_HAS_FILESYSTEM && _LIBCPP_AVAILABILITY_HAS_FILESYSTEM_LIBRARY",
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_FILESYSTEM",
+            "libcxx_guard": "_LIBCPP_HAS_FILESYSTEM",
         },
         {
             "name": "__cpp_lib_flat_map",
-            "values": {"c++23": 202207},
+            "values": {"c++23": 202511},
             "headers": ["flat_map"],
         },
         {
             "name": "__cpp_lib_flat_set",
-            "values": {"c++23": 202207},
+            "values": {"c++23": 202511},
             "headers": ["flat_set"],
         },
         {
@@ -562,7 +580,7 @@ feature_test_macros = [
             "headers": ["format"],
             # Trying to use `std::format` where to_chars floating-point is not
             # available causes compilation errors, even with non floating-point types.
-            # https://github.com/llvm/llvm-project/issues/125353
+            # https://llvm.org/PR125353
             "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_TO_CHARS_FLOATING_POINT",
             "libcxx_guard": "_LIBCPP_AVAILABILITY_HAS_TO_CHARS_FLOATING_POINT",
         },
@@ -570,6 +588,7 @@ feature_test_macros = [
             "name": "__cpp_lib_format_path",
             "values": {"c++26": 202403},  # P2845R8: Formatting of std::filesystem::path
             "headers": ["filesystem"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_format_ranges",
@@ -674,6 +693,7 @@ feature_test_macros = [
                 "c++26": 202306  # P0792R14 function_ref: a type-erased callable reference
             },
             "headers": ["functional"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_gcd_lcm",
@@ -684,6 +704,7 @@ feature_test_macros = [
             "name": "__cpp_lib_generate_random",
             "values": {"c++26": 202403}, # P1068R11: Vector API for random number generation
             "headers": ["random"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_generic_associative_lookup",
@@ -698,8 +719,6 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_hardware_interference_size",
             "values": {"c++17": 201703},
-            "test_suite_guard": "!defined(_LIBCPP_VERSION) || (defined(__GCC_DESTRUCTIVE_SIZE) && defined(__GCC_CONSTRUCTIVE_SIZE))",
-            "libcxx_guard": "defined(__GCC_DESTRUCTIVE_SIZE) && defined(__GCC_CONSTRUCTIVE_SIZE)",
             "headers": ["new"],
         },
         {
@@ -710,12 +729,10 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_hazard_pointer",
             "values": {"c++26": 202306},  # P2530R3 Hazard Pointers for C++26
-            "headers": ["hazard_pointer"],
-        },
-        {
-            "name": "__cpp_lib_hive",
-            "values": {"c++26": 202502},  # P0447R28 Introduction of std::hive to the standard library
-            "headers": ["hive"],
+            "headers": [
+                "hazard_pointer"  # TODO verify this entry since the paper was underspecified.
+            ],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_hypot",
@@ -728,14 +745,10 @@ feature_test_macros = [
             "headers": ["forward_list", "list", "vector"],
         },
         {
-            "name": "__cpp_lib_indirect",
-            "values": {"c++26": 202502},  # P3019R14 indirect and polymorphic: Vocabulary Types for Composite Class Design
-            "headers": ["memory"],
-        },
-        {
             "name": "__cpp_lib_inplace_vector",
             "values": {"c++26": 202406},  # P0843R14 inplace_vector
             "headers": ["inplace_vector"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_int_pow2",
@@ -749,7 +762,10 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_integer_sequence",
-            "values": {"c++14": 201304},
+            "values": {
+                "c++14": 201304,
+                "c++26": 202511,  # P1789R3 Library Support for Expansion Statements
+            },
             "headers": ["utility"],
         },
         {
@@ -865,15 +881,15 @@ feature_test_macros = [
             "name": "__cpp_lib_jthread",
             "values": {"c++20": 201911},
             "headers": ["stop_token", "thread"],
-            "test_suite_guard": "!defined(_LIBCPP_VERSION) || (_LIBCPP_HAS_THREADS && _LIBCPP_AVAILABILITY_HAS_SYNC)",
-            "libcxx_guard": "_LIBCPP_HAS_THREADS && _LIBCPP_AVAILABILITY_HAS_SYNC",
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS",
+            "libcxx_guard": "_LIBCPP_HAS_THREADS",
         },
         {
             "name": "__cpp_lib_latch",
             "values": {"c++20": 201907},
             "headers": ["latch"],
-            "test_suite_guard": "!defined(_LIBCPP_VERSION) || (_LIBCPP_HAS_THREADS && _LIBCPP_AVAILABILITY_HAS_SYNC)",
-            "libcxx_guard": "_LIBCPP_HAS_THREADS && _LIBCPP_AVAILABILITY_HAS_SYNC",
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS",
+            "libcxx_guard": "_LIBCPP_HAS_THREADS",
         },
         {
             "name": "__cpp_lib_launder",
@@ -886,6 +902,7 @@ feature_test_macros = [
                 "c++26": 202311  # P1673 A free function linear algebra interface based on the BLAS
             },
             "headers": ["linalg"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_list_remove_return_type",
@@ -926,6 +943,7 @@ feature_test_macros = [
             "name": "__cpp_lib_math_special_functions",
             "values": {"c++17": 201603},
             "headers": ["cmath"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_mdspan",
@@ -956,6 +974,7 @@ feature_test_macros = [
             "name": "__cpp_lib_move_only_function",
             "values": {"c++23": 202110},
             "headers": ["functional"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_node_extract",
@@ -999,7 +1018,7 @@ feature_test_macros = [
                 "c++17": 201606,
                 "c++20": 202106,  # P2231R1 Missing constexpr in std::optional and std::variant
                 "c++23": 202110,  # P0798R8 Monadic operations for std::optional + LWG3621 Remove feature-test macro __cpp_lib_monadic_optional
-                "c++26": 202506,  # P2988R11 std::optional<T&>
+                "c++26": 202506,  # P2988R12: std::optional<T&>
             },
             "headers": ["optional"],
         },
@@ -1007,6 +1026,8 @@ feature_test_macros = [
             "name": "__cpp_lib_optional_range_support",
             "values": {"c++26": 202406},  # P3168R2 Give std::optional Range Support
             "headers": ["optional"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_OPTIONAL_ITERATOR",
+            "libcxx_guard": "_LIBCPP_HAS_EXPERIMENTAL_OPTIONAL_ITERATOR",
         },
         {
             "name": "__cpp_lib_out_ptr",
@@ -1032,11 +1053,6 @@ feature_test_macros = [
             "unimplemented": True,
         },
         {
-            "name": "__cpp_lib_polymorphic",
-            "values": {"c++26": 202502},  # P3019R14 indirect and polymorphic: Vocabulary Types for Composite Class Design
-            "headers": ["memory"],
-        },
-        {
             "name": "__cpp_lib_polymorphic_allocator",
             "values": {"c++20": 201902},
             "headers": ["memory_resource"],
@@ -1053,7 +1069,7 @@ feature_test_macros = [
             "headers": ["ostream", "print"],
             # Trying to use `std::print` where to_chars floating-point is not
             # available causes compilation errors, even with non floating-point types.
-            # https://github.com/llvm/llvm-project/issues/125353
+            # https://llvm.org/PR125353
             "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_TO_CHARS_FLOATING_POINT",
             "libcxx_guard": "_LIBCPP_AVAILABILITY_HAS_TO_CHARS_FLOATING_POINT",
         },
@@ -1082,18 +1098,8 @@ feature_test_macros = [
             "unimplemented": True,
         },
         {
-            "name": "__cpp_lib_ranges_as_input",
-            "values": {"c++26": 202502},
-            "headers": ["ranges"],
-        },
-        {
             "name": "__cpp_lib_ranges_as_rvalue",
             "values": {"c++23": 202207},
-            "headers": ["ranges"],
-        },
-        {
-            "name": "__cpp_lib_ranges_cache_latest",
-            "values": {"c++26": 202411},
             "headers": ["ranges"],
         },
         {
@@ -1111,6 +1117,7 @@ feature_test_macros = [
             "name": "__cpp_lib_ranges_concat",
             "values": {"c++26": 202403}, # P2542R8: views::concat
             "headers": ["ranges"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_ranges_contains",
@@ -1121,6 +1128,11 @@ feature_test_macros = [
             "name": "__cpp_lib_ranges_find_last",
             "values": {"c++23": 202207},
             "headers": ["algorithm"],
+        },
+        {
+            "name": "__cpp_lib_ranges_indices",
+            "values": {"c++26": 202506},
+            "headers": ["ranges"],
         },
         {
             "name": "__cpp_lib_ranges_iota",
@@ -1135,11 +1147,6 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_ranges_repeat",
             "values": {"c++23": 202207},
-            "headers": ["ranges"],
-        },
-        {
-            "name": "__cpp_lib_ranges_reserve_hint",
-            "values": {"c++26": 202502},
             "headers": ["ranges"],
         },
         {
@@ -1162,7 +1169,6 @@ feature_test_macros = [
             "name": "__cpp_lib_ranges_zip",
             "values": {"c++23": 202110},
             "headers": ["ranges", "tuple", "utility"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_ratio",
@@ -1177,7 +1183,10 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_rcu",
             "values": {"c++26": 202306},  # P2545R4 Read-Copy Update (RCU)
-            "headers": ["rcu"],
+            "headers": [
+                "rcu"  # TODO verify this entry since the paper was underspecified.
+            ],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_reference_from_temporary",
@@ -1226,13 +1235,14 @@ feature_test_macros = [
             "name": "__cpp_lib_semaphore",
             "values": {"c++20": 201907},
             "headers": ["semaphore"],
-            "test_suite_guard": "!defined(_LIBCPP_VERSION) || (_LIBCPP_HAS_THREADS && _LIBCPP_AVAILABILITY_HAS_SYNC)",
-            "libcxx_guard": "_LIBCPP_HAS_THREADS && _LIBCPP_AVAILABILITY_HAS_SYNC",
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS",
+            "libcxx_guard": "_LIBCPP_HAS_THREADS",
         },
         {
             "name": "__cpp_lib_senders",
             "values": {"c++26": 202406},  # P2300R10 std::execution
             "headers": ["execution"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_shared_mutex",
@@ -1264,21 +1274,6 @@ feature_test_macros = [
             "headers": ["algorithm"],
         },
         {
-            "name": "__cpp_lib_simd",
-            "values": {"c++26": 202603},  # P1928R15 std::simd -- merge data-parallel types from the Parallelism TS 2
-            "headers": ["simd"],
-        },
-        {
-            "name": "__cpp_lib_simd_complex",
-            "values": {"c++26": 202502},  # P2663R7 Interleaved complex values support in std::simd
-            "headers": ["simd"],
-        },
-        {
-            "name": "__cpp_lib_simd_permutations",
-            "values": {"c++26": 202506},  # P2664R7 static/dynamic simd permutations
-            "headers": ["simd"],
-        },
-        {
             "name": "__cpp_lib_smart_ptr_for_overwrite",
             "values": {"c++20": 202002},
             "headers": ["memory"],
@@ -1289,6 +1284,7 @@ feature_test_macros = [
                 "c++26": 202306  # P1901R2 Enabling the Use of weak_ptr as Keys in Unordered Associative Containers
             },
             "headers": ["memory"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_source_location",
@@ -1359,6 +1355,11 @@ feature_test_macros = [
             "headers": ["string"],
         },
         {
+            "name": "__cpp_lib_string_subview",
+            "values": {"c++26": 202506},
+            "headers": ["string", "string_view"],
+        },
+        {
             "name": "__cpp_lib_string_udls",
             "values": {"c++14": 201304},
             "headers": ["string"],
@@ -1394,6 +1395,7 @@ feature_test_macros = [
                 "c++26": 202306  # P1885R12 Naming Text Encodings to Demystify Them
             },
             "headers": ["text_encoding"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_three_way_comparison",
@@ -1423,6 +1425,7 @@ feature_test_macros = [
             "name": "__cpp_lib_to_string",
             "values": {"c++26": 202306},  # P2587R3 to_string or not to_string
             "headers": ["string"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_to_underlying",
@@ -1901,7 +1904,6 @@ def produce_tests():
 {cxx_tests}
 
 // clang-format on
-
 """.format(
             script_name=script_name,
             header=h,

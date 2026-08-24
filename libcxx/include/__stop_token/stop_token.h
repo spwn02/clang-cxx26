@@ -22,12 +22,16 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_THREADS
 
+<<<<<<< HEAD
 #  if _LIBCPP_STD_VER >= 26
 template <class _Callback>
 class _LIBCPP_AVAILABILITY_SYNC stop_callback;
 #  endif
 
 class _LIBCPP_AVAILABILITY_SYNC stop_token {
+=======
+class stop_token {
+>>>>>>> refs/tags/llvmorg-22.1.8
 public:
 #  if _LIBCPP_STD_VER >= 26
   // [stoptoken.concepts]: retrofits `stop_token` to model `stoppable_token`, added by P2300.

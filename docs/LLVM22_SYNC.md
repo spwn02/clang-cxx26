@@ -77,22 +77,19 @@ After upstream changes, always run `ninja -C build-libcxx libcxx-generate-files`
 
 ## Current Action
 
-Milestone 2 is active. On `Continue`:
+Milestone 3 is active. On `Continue`:
 
-1. Fetch `refs/tags/llvmorg-22.1.8` from `upstream` without altering any
-   working branch.
-2. Verify the tag object and peeled commit, recording available signature or
-   publication evidence.
-3. Create `integration/llvm-22.1.8` from the tracker-bearing `cxx26` tip and
-   merge the exact peeled tag without rewriting history.
-4. Record every conflict and resolution category in Conflict Notes, then
-   commit and push the merge state.
+1. Run `ninja -C build-nyx clang` and record the first base LLVM/Clang
+   failures.
+2. Repair upstream API and build-system drift without beginning reflection
+   reconciliation.
+3. Rebuild until the Milestone 3 gate passes, then commit and push.
 
 ## Milestones
 
 - [x] **1. Capture clean baseline builds and expected failures.** Gate passed 2026-08-24: both build trees succeeded; focused results and all failures are recorded below.
-- [~] **2. Fetch exact LLVM tag and merge on integration branch.** Fetch `refs/tags/llvmorg-22.1.8`, verify the signed/published tag object as available, create `integration/llvm-22.1.8` from the tracker-bearing `cxx26` tip, and merge the exact peeled tag without rewriting history. Gate: merge commit exists; every conflict and resolution category is recorded.
-- [ ] **3. Restore base LLVM/Clang build.** Resolve API/build-system drift unrelated to reflection first. Gate: `ninja -C build-nyx clang` succeeds, followed by the full main-tree build required by later milestones.
+- [x] **2. Fetch exact LLVM tag and merge on integration branch.** Gate passed 2026-08-25 in `cefe063754c59`: exact signed tag merged on `integration/llvm-22.1.8`; every conflict and resolution category is recorded.
+- [~] **3. Restore base LLVM/Clang build.** Resolve API/build-system drift unrelated to reflection first. Gate: `ninja -C build-nyx clang` succeeds, followed by the full main-tree build required by later milestones.
 - [ ] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures.
 - [ ] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries, including the known non-serializable `CXXMetafunctionExpr` callback limitation. Gate: focused evaluator, module, PCH, and reflection tests pass; any intentionally deferred limitation is documented with a reproducer.
 - [ ] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate: libc++ builds and generated-file checks are clean; local conformance commits remain reachable and represented.
@@ -117,7 +114,28 @@ When blocked, record the failing command, essential diagnostic, affected milesto
 
 ## Conflict Notes
 
-No LLVM 22 merge has been attempted. For Milestone 2 and later, append notes by subsystem and include:
+Milestone 2 merge began 2026-08-25. All 86 content conflicts were resolved
+to upstream LLVM 22 as the stable synchronization baseline; the complete
+local CXX26 implementation remains preserved in the merge's first parent for
+the dedicated reconciliation milestones. Resolution categories:
+
+- **Ancillary upstream components (3):**
+  `lldb/source/Host/common/JSONTransport.cpp`,
+  `lldb/source/Host/windows/MainLoopWindows.cpp`, and
+  `llvm/include/llvm/ADT/SmallVector.h` use upstream LLVM 22 unchanged; they
+  have no local CXX26 intent. Follow-up: Milestone 3 base build.
+- **Clang Parser/AST/Sema/serialization and test overlap (48):** use upstream
+  LLVM 22 declarations, evaluator, parser, Sema, serialization, driver, and
+  test contents to establish its API baseline. Local reflection changes are
+  intentionally deferred, not discarded: reconcile them from the merge's
+  first parent in Milestones 4 and 5. Follow-up: `ninja -C build-nyx clang`.
+- **libc++ headers, generated artifacts, tests, and status data (35):** use
+  upstream LLVM 22 contents, including deletion of obsolete
+  `libcxx/test/libcxx/clang_modules_include.gen.py`. Local C++26 library work
+  remains in the first parent for Milestone 6's case-by-case reconciliation.
+  Follow-up: `ninja -C build-libcxx libcxx-generate-files`.
+
+For Milestone 2 and later, append notes by subsystem and include:
 
 - paths and upstream/local intent;
 - chosen resolution and why;
@@ -155,3 +173,40 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   `p3096-fn-parameters.pass.cpp`, `parameter-reflection-kind-preserved.pass.cpp`,
   and `to-and-from-values.pass.cpp`. These are baseline failures, not merge
   regressions, and are carried forward for Milestone 7 comparison.
+
+### 2026-08-24 — Milestone 2 blocked before fetch
+
+- `git fetch upstream refs/tags/llvmorg-22.1.8:refs/tags/llvmorg-22.1.8`
+  failed with `cannot open '.git/FETCH_HEAD': Read-only file system`.
+- Non-mutating remote verification (`git ls-remote --tags upstream
+  'llvmorg-22.1.8^{}' 'llvmorg-22.1.8'`) could not reach upstream because
+  `github.com` DNS resolution failed.
+- No local ref, branch, merge, or commit was created. Resume when writable
+  Git metadata and upstream network/DNS access are available.
+
+### 2026-08-25 — Milestone 2 resumed and merge started
+
+- Upstream publication verification returned annotated tag
+  `e013073558445169e8732e25fa86e9913bfdd24e` and peeled commit
+  `ca7933e47d3a3451d81e72ac174dcb5aa28b59d1`. The tag object is PGP-signed
+  by Douglas Yung (`douglas.yung@sony.com`); the signature key's local trust
+  status has not yet been independently established.
+- The upstream object transfer completed after an interactive fetch runner
+  was interrupted before ref installation. Object and tag identity were
+  verified locally, then the exact verified tag ref was installed. Its full
+  history has merge-base `b1774222c761a7912cdbe0d0004ca12dae95f721` with
+  `cxx26`.
+- Created `integration/llvm-22.1.8` at the tracker-bearing `cxx26` tip and
+  began a no-fast-forward merge of `llvmorg-22.1.8` without rewriting history.
+- Initial merge reported 86 content conflicts: 48 Clang (including reflection
+  AST/Sema/serialization and parser code), 35 libc++ (headers, generated
+  files, tests, and status data), two LLDB, and one LLVM ADT. The two LLDB and
+  one LLVM ADT conflicts were resolved to upstream; 83 remain.
+- Resolved remaining 83 conflicts to upstream LLVM 22 baseline. This makes
+  Milestone 3's base-build repair attributable to upstream API/build-system
+  changes, while retaining every local CXX26 change in the merge's first
+  parent for the explicitly sequenced reflection and libc++ reconciliation
+  milestones. No conflict markers remain.
+- Committed the resolved no-fast-forward merge as `cefe063754c59` with parents
+  `6dd950bcd4ac` (`cxx26`) and `ca7933e47d3a` (`llvmorg-22.1.8`). Milestone 2
+  gate passed; Milestone 3 is now active.

@@ -10,7 +10,9 @@
 #define _LIBCPP___ATOMIC_ATOMIC_H
 
 #include <__atomic/atomic_sync.h>
+#include <__atomic/atomic_waitable_traits.h>
 #include <__atomic/check_memory_order.h>
+#include <__atomic/floating_point_helper.h>
 #include <__atomic/is_always_lock_free.h>
 #include <__atomic/memory_order.h>
 #include <__atomic/support.h>
@@ -49,10 +51,10 @@ struct __atomic_base // false
   static constexpr bool is_always_lock_free = __libcpp_is_always_lock_free<__cxx_atomic_impl<_Tp> >::__value;
 #endif
 
-  _LIBCPP_HIDE_FROM_ABI bool is_lock_free() const volatile _NOEXCEPT {
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI bool is_lock_free() const volatile _NOEXCEPT {
     return __cxx_atomic_is_lock_free(sizeof(__cxx_atomic_impl<_Tp>));
   }
-  _LIBCPP_HIDE_FROM_ABI bool is_lock_free() const _NOEXCEPT {
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI bool is_lock_free() const _NOEXCEPT {
     return static_cast<__atomic_base const volatile*>(this)->is_lock_free();
   }
   _LIBCPP_HIDE_FROM_ABI void store(_Tp __d, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT
@@ -63,11 +65,15 @@ struct __atomic_base // false
   store(_Tp __d, memory_order __m = memory_order_seq_cst) _NOEXCEPT _LIBCPP_CHECK_STORE_MEMORY_ORDER(__m) {
     std::__cxx_atomic_store(std::addressof(__a_), __d, __m);
   }
-  _LIBCPP_HIDE_FROM_ABI _Tp load(memory_order __m = memory_order_seq_cst) const volatile _NOEXCEPT
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _Tp load(memory_order __m = memory_order_seq_cst) const volatile _NOEXCEPT
       _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__m) {
     return std::__cxx_atomic_load(std::addressof(__a_), __m);
   }
+<<<<<<< HEAD
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp load(memory_order __m = memory_order_seq_cst) const _NOEXCEPT
+=======
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _Tp load(memory_order __m = memory_order_seq_cst) const _NOEXCEPT
+>>>>>>> refs/tags/llvmorg-22.1.8
       _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__m) {
     return std::__cxx_atomic_load(std::addressof(__a_), __m);
   }
@@ -118,10 +124,10 @@ struct __atomic_base // false
   }
 
 #if _LIBCPP_STD_VER >= 20
-  _LIBCPP_AVAILABILITY_SYNC _LIBCPP_HIDE_FROM_ABI void wait(_Tp __v, memory_order __m = memory_order_seq_cst) const
-      volatile _NOEXCEPT {
+  _LIBCPP_HIDE_FROM_ABI void wait(_Tp __v, memory_order __m = memory_order_seq_cst) const volatile _NOEXCEPT {
     std::__atomic_wait(*this, __v, __m);
   }
+<<<<<<< HEAD
   // The consteval branch below deliberately calls this->load() directly instead of going through
   // std::__atomic_wait/__atomic_waitable_traits (kept non-constexpr): atomic_flag.h's own wait()
   // calls std::__atomic_wait before __atomic_waitable_traits<atomic_flag> is declared later in
@@ -170,6 +176,15 @@ struct __atomic_base // false
 #  endif
     std::__atomic_notify_all(*this);
   }
+=======
+  _LIBCPP_HIDE_FROM_ABI void wait(_Tp __v, memory_order __m = memory_order_seq_cst) const _NOEXCEPT {
+    std::__atomic_wait(*this, __v, __m);
+  }
+  _LIBCPP_HIDE_FROM_ABI void notify_one() volatile _NOEXCEPT { std::__atomic_notify_one(*this); }
+  _LIBCPP_HIDE_FROM_ABI void notify_one() _NOEXCEPT { std::__atomic_notify_one(*this); }
+  _LIBCPP_HIDE_FROM_ABI void notify_all() volatile _NOEXCEPT { std::__atomic_notify_all(*this); }
+  _LIBCPP_HIDE_FROM_ABI void notify_all() _NOEXCEPT { std::__atomic_notify_all(*this); }
+>>>>>>> refs/tags/llvmorg-22.1.8
 #endif //  _LIBCPP_STD_VER >= 20
 
 #if _LIBCPP_STD_VER >= 20
@@ -275,12 +290,15 @@ struct __atomic_base<_Tp, true> : public __atomic_base<_Tp, false> {
   }
 };
 
+#if _LIBCPP_STD_VER >= 20
 // Here we need _IsIntegral because the default template argument is not enough
 // e.g  __atomic_base<int> is __atomic_base<int, true>, which inherits from
 // __atomic_base<int, false> and the caller of the wait function is
 // __atomic_base<int, false>. So specializing __atomic_base<_Tp> does not work
 template <class _Tp, bool _IsIntegral>
 struct __atomic_waitable_traits<__atomic_base<_Tp, _IsIntegral> > {
+  using __value_type _LIBCPP_NODEBUG = _Tp;
+
   static _LIBCPP_HIDE_FROM_ABI _Tp __atomic_load(const __atomic_base<_Tp, _IsIntegral>& __a, memory_order __order) {
     return __a.load(__order);
   }
@@ -300,6 +318,8 @@ struct __atomic_waitable_traits<__atomic_base<_Tp, _IsIntegral> > {
     return std::addressof(__this.__a_);
   }
 };
+
+#endif // _LIBCPP_STD_VER >= 20
 
 template <typename _Tp>
 struct __check_atomic_mandates {
@@ -445,14 +465,15 @@ struct atomic<_Tp*> : public __atomic_base<_Tp*> {
   atomic& operator=(const atomic&) volatile = delete;
 };
 
+#if _LIBCPP_STD_VER >= 20
 template <class _Tp>
 struct __atomic_waitable_traits<atomic<_Tp> > : __atomic_waitable_traits<__atomic_base<_Tp> > {};
 
-#if _LIBCPP_STD_VER >= 20
 template <class _Tp>
   requires is_floating_point_v<_Tp>
 struct atomic<_Tp> : __atomic_base<typename __check_atomic_mandates<_Tp>::type> {
 private:
+<<<<<<< HEAD
   _LIBCPP_HIDE_FROM_ABI static constexpr bool __is_fp80_long_double() {
     // Only x87-fp80 long double has 64-bit mantissa
     return __LDBL_MANT_DIG__ == 64 && std::is_same_v<_Tp, long double>;
@@ -484,18 +505,20 @@ private:
   // runtime, since __has_rmw_builtin() is a fixed compile-time property of _Tp; that loop already only
   // calls consteval-aware operations (`load`, `compare_exchange_weak`, the pure `_Operation` lambda, and
   // -- for the fp80 clang-bug workaround -- `__cxx_atomic_load_inplace`), so it needs no changes either.
+=======
+>>>>>>> refs/tags/llvmorg-22.1.8
   template <class _This, class _Operation, class _BuiltinOp>
   _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
   __rmw_op(_This&& __self, _Tp __operand, memory_order __m, _Operation __operation, _BuiltinOp __builtin_op) {
-    if constexpr (__has_rmw_builtin()) {
+    if constexpr (std::__has_rmw_builtin<_Tp>()) {
       return __builtin_op(std::addressof(std::forward<_This>(__self).__a_), __operand, __m);
     } else {
       _Tp __old = __self.load(memory_order_relaxed);
       _Tp __new = __operation(__old, __operand);
       while (!__self.compare_exchange_weak(__old, __new, __m, memory_order_relaxed)) {
 #  ifdef _LIBCPP_COMPILER_CLANG_BASED
-        if constexpr (__is_fp80_long_double()) {
-          // https://github.com/llvm/llvm-project/issues/47978
+        if constexpr (std::__is_fp80_long_double<_Tp>()) {
+          // https://llvm.org/PR47978
           // clang bug: __old is not updated on failure for atomic<long double>::compare_exchange_weak
           // Note __old = __self.load(memory_order_relaxed) will not work
           std::__cxx_atomic_load_inplace(std::addressof(__self.__a_), std::addressof(__old), memory_order_relaxed);
@@ -656,12 +679,12 @@ public:
 // atomic_is_lock_free
 
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI bool atomic_is_lock_free(const volatile atomic<_Tp>* __o) _NOEXCEPT {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI bool atomic_is_lock_free(const volatile atomic<_Tp>* __o) _NOEXCEPT {
   return __o->is_lock_free();
 }
 
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI bool atomic_is_lock_free(const atomic<_Tp>* __o) _NOEXCEPT {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI bool atomic_is_lock_free(const atomic<_Tp>* __o) _NOEXCEPT {
   return __o->is_lock_free();
 }
 
@@ -711,26 +734,35 @@ atomic_store_explicit(atomic<_Tp>* __o, typename atomic<_Tp>::value_type __d, me
 // atomic_load
 
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI _Tp atomic_load(const volatile atomic<_Tp>* __o) _NOEXCEPT {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _Tp atomic_load(const volatile atomic<_Tp>* __o) _NOEXCEPT {
   return __o->load();
 }
 
 template <class _Tp>
+<<<<<<< HEAD
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp atomic_load(const atomic<_Tp>* __o) _NOEXCEPT {
+=======
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _Tp atomic_load(const atomic<_Tp>* __o) _NOEXCEPT {
+>>>>>>> refs/tags/llvmorg-22.1.8
   return __o->load();
 }
 
 // atomic_load_explicit
 
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI _Tp atomic_load_explicit(const volatile atomic<_Tp>* __o, memory_order __m) _NOEXCEPT
-    _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__m) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _Tp
+atomic_load_explicit(const volatile atomic<_Tp>* __o, memory_order __m) _NOEXCEPT _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__m) {
   return __o->load(__m);
 }
 
 template <class _Tp>
+<<<<<<< HEAD
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
 atomic_load_explicit(const atomic<_Tp>* __o, memory_order __m) _NOEXCEPT _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__m) {
+=======
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _Tp atomic_load_explicit(const atomic<_Tp>* __o, memory_order __m) _NOEXCEPT
+    _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__m) {
+>>>>>>> refs/tags/llvmorg-22.1.8
   return __o->load(__m);
 }
 
@@ -838,28 +870,36 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool atomic_compare_exchange
 // atomic_wait
 
 template <class _Tp>
-_LIBCPP_AVAILABILITY_SYNC _LIBCPP_HIDE_FROM_ABI void
+_LIBCPP_HIDE_FROM_ABI void
 atomic_wait(const volatile atomic<_Tp>* __o, typename atomic<_Tp>::value_type __v) _NOEXCEPT {
   return __o->wait(__v);
 }
 
 template <class _Tp>
+<<<<<<< HEAD
 _LIBCPP_AVAILABILITY_SYNC _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
 atomic_wait(const atomic<_Tp>* __o, typename atomic<_Tp>::value_type __v) _NOEXCEPT {
+=======
+_LIBCPP_HIDE_FROM_ABI void atomic_wait(const atomic<_Tp>* __o, typename atomic<_Tp>::value_type __v) _NOEXCEPT {
+>>>>>>> refs/tags/llvmorg-22.1.8
   return __o->wait(__v);
 }
 
 // atomic_wait_explicit
 
 template <class _Tp>
-_LIBCPP_AVAILABILITY_SYNC _LIBCPP_HIDE_FROM_ABI void
+_LIBCPP_HIDE_FROM_ABI void
 atomic_wait_explicit(const volatile atomic<_Tp>* __o, typename atomic<_Tp>::value_type __v, memory_order __m) _NOEXCEPT
     _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__m) {
   return __o->wait(__v, __m);
 }
 
 template <class _Tp>
+<<<<<<< HEAD
 _LIBCPP_AVAILABILITY_SYNC _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
+=======
+_LIBCPP_HIDE_FROM_ABI void
+>>>>>>> refs/tags/llvmorg-22.1.8
 atomic_wait_explicit(const atomic<_Tp>* __o, typename atomic<_Tp>::value_type __v, memory_order __m) _NOEXCEPT
     _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__m) {
   return __o->wait(__v, __m);
@@ -868,24 +908,32 @@ atomic_wait_explicit(const atomic<_Tp>* __o, typename atomic<_Tp>::value_type __
 // atomic_notify_one
 
 template <class _Tp>
-_LIBCPP_AVAILABILITY_SYNC _LIBCPP_HIDE_FROM_ABI void atomic_notify_one(volatile atomic<_Tp>* __o) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI void atomic_notify_one(volatile atomic<_Tp>* __o) _NOEXCEPT {
   __o->notify_one();
 }
 template <class _Tp>
+<<<<<<< HEAD
 _LIBCPP_AVAILABILITY_SYNC _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
 atomic_notify_one(atomic<_Tp>* __o) _NOEXCEPT {
+=======
+_LIBCPP_HIDE_FROM_ABI void atomic_notify_one(atomic<_Tp>* __o) _NOEXCEPT {
+>>>>>>> refs/tags/llvmorg-22.1.8
   __o->notify_one();
 }
 
 // atomic_notify_all
 
 template <class _Tp>
-_LIBCPP_AVAILABILITY_SYNC _LIBCPP_HIDE_FROM_ABI void atomic_notify_all(volatile atomic<_Tp>* __o) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI void atomic_notify_all(volatile atomic<_Tp>* __o) _NOEXCEPT {
   __o->notify_all();
 }
 template <class _Tp>
+<<<<<<< HEAD
 _LIBCPP_AVAILABILITY_SYNC _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
 atomic_notify_all(atomic<_Tp>* __o) _NOEXCEPT {
+=======
+_LIBCPP_HIDE_FROM_ABI void atomic_notify_all(atomic<_Tp>* __o) _NOEXCEPT {
+>>>>>>> refs/tags/llvmorg-22.1.8
   __o->notify_all();
 }
 

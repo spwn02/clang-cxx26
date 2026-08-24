@@ -16,10 +16,11 @@
 
 #include <__algorithm/ranges_copy.h>
 #include <__chrono/statically_widen.h>
-#include <__concepts/same_as.h>
 #include <__config>
 #include <__format/concepts.h>
+#include <__format/fmt_pair_like.h>
 #include <__format/formatter.h>
+#include <__format/range_format.h>
 #include <__format/range_formatter.h>
 #include <__iterator/back_insert_iterator.h>
 #include <__ranges/concepts.h>
@@ -42,18 +43,12 @@ concept __const_formattable_range =
 template <class _Rp, class _CharT>
 using __fmt_maybe_const _LIBCPP_NODEBUG = conditional_t<__const_formattable_range<_Rp, _CharT>, const _Rp, _Rp>;
 
-_LIBCPP_DIAGNOSTIC_PUSH
-_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wshadow")
-_LIBCPP_GCC_DIAGNOSTIC_IGNORED("-Wshadow")
-// This shadows map, set, and string.
-enum class range_format { disabled, map, set, sequence, string, debug_string };
-_LIBCPP_DIAGNOSTIC_POP
-
 // There is no definition of this struct, it's purely intended to be used to
 // generate diagnostics.
 template <class _Rp>
 struct __instantiated_the_primary_template_of_format_kind;
 
+<<<<<<< HEAD
 template <class _Rp>
 constexpr range_format format_kind = [] {
   // [format.range.fmtkind]/1
@@ -104,6 +99,8 @@ template <class _Tp>
 inline constexpr range_format format_kind<optional<_Tp>> = range_format::disabled;
 #  endif // _LIBCPP_STD_VER >= 26
 
+=======
+>>>>>>> refs/tags/llvmorg-22.1.8
 template <range_format _Kp, ranges::input_range _Rp, class _CharT>
 struct __range_default_formatter;
 

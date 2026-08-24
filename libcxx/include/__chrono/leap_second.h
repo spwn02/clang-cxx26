@@ -23,6 +23,10 @@
 #  include <__compare/ordering.h>
 #  include <__compare/three_way_comparable.h>
 #  include <__config>
+<<<<<<< HEAD
+=======
+#  include <__cstddef/size_t.h>
+>>>>>>> refs/tags/llvmorg-22.1.8
 #  include <__functional/hash.h>
 #  include <__utility/private_constructor_tag.h>
 
@@ -124,6 +128,7 @@ private:
 
 } // namespace chrono
 
+<<<<<<< HEAD
 // [time.hash]
 #    if _LIBCPP_STD_VER >= 26
 template <>
@@ -132,6 +137,17 @@ struct hash<chrono::leap_second> {
     return hash<chrono::sys_seconds>()(__ls.date());
   }
 };
+=======
+#    if _LIBCPP_STD_VER >= 26
+
+template <>
+struct hash<chrono::leap_second> {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static size_t operator()(const chrono::leap_second& __lp) noexcept {
+    return std::__hash_combine(hash<chrono::sys_seconds>{}(__lp.date()), hash<chrono::seconds>{}(__lp.value()));
+  }
+};
+
+>>>>>>> refs/tags/llvmorg-22.1.8
 #    endif // _LIBCPP_STD_VER >= 26
 
 #  endif // _LIBCPP_STD_VER >= 20

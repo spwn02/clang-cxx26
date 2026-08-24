@@ -19,7 +19,9 @@
 
 #include <__assert>
 #include <__atomic/atomic_sync.h>
+#include <__atomic/atomic_waitable_traits.h>
 #include <__atomic/check_memory_order.h>
+#include <__atomic/floating_point_helper.h>
 #include <__atomic/memory_order.h>
 #include <__atomic/to_gcc_order.h>
 #include <__concepts/arithmetic.h>
@@ -138,6 +140,7 @@ public:
   static constexpr bool is_always_lock_free =
       __atomic_always_lock_free(sizeof(_Tp), std::addressof(__get_aligner_instance<required_alignment>::__instance));
 
+<<<<<<< HEAD
   // P3323R1: volatile T is only supported when the specialization is always lock-free -- there's no
   // well-defined "which lock" story for a volatile object that outside code might also access directly.
   static_assert(is_always_lock_free || !is_volatile_v<_Tp>,
@@ -145,6 +148,11 @@ public:
                 "specialization to always be lock-free");
 
   _LIBCPP_HIDE_FROM_ABI bool is_lock_free() const noexcept { return __atomic_is_lock_free(sizeof(_Tp), __ptr_); }
+=======
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool is_lock_free() const noexcept {
+    return __atomic_is_lock_free(sizeof(_Tp), __ptr_);
+  }
+>>>>>>> refs/tags/llvmorg-22.1.8
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
   store(value_type __desired, memory_order __order = memory_order::seq_cst) const noexcept
@@ -169,6 +177,7 @@ public:
     return __desired;
   }
 
+<<<<<<< HEAD
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type
   load(memory_order __order = memory_order::seq_cst) const noexcept _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__order) {
 #  if _LIBCPP_STD_VER >= 26
@@ -176,6 +185,10 @@ public:
       return *__ptr_;
     }
 #  endif
+=======
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI _Tp load(memory_order __order = memory_order::seq_cst) const noexcept
+      _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__order) {
+>>>>>>> refs/tags/llvmorg-22.1.8
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
         __order == memory_order::relaxed || __order == memory_order::consume || __order == memory_order::acquire ||
             __order == memory_order::seq_cst,
@@ -337,6 +350,7 @@ public:
         "atomic_ref: memory order argument to atomic wait operation is invalid");
     std::__atomic_wait(*this, __old, __order);
   }
+<<<<<<< HEAD
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_one() const noexcept
     requires(!is_const_v<_Tp>)
   {
@@ -361,6 +375,13 @@ public:
 #  if _LIBCPP_STD_VER >= 26
   _LIBCPP_HIDE_FROM_ABI constexpr _Tp* address() const noexcept { return __ptr_; }
 #  endif // _LIBCPP_STD_VER >= 26
+=======
+  _LIBCPP_HIDE_FROM_ABI void notify_one() const noexcept { std::__atomic_notify_one(*this); }
+  _LIBCPP_HIDE_FROM_ABI void notify_all() const noexcept { std::__atomic_notify_all(*this); }
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp* address() const noexcept { return __ptr_; }
+#  endif
+>>>>>>> refs/tags/llvmorg-22.1.8
 
 protected:
   using _Aligned_Tp [[__gnu__::__aligned__(required_alignment), __gnu__::__nodebug__]] = _Tp;
@@ -371,8 +392,14 @@ protected:
 
 template <class _Tp>
 struct __atomic_waitable_traits<__atomic_ref_base<_Tp>> {
+<<<<<<< HEAD
   static _LIBCPP_HIDE_FROM_ABI typename __atomic_ref_base<_Tp>::value_type
   __atomic_load(const __atomic_ref_base<_Tp>& __a, memory_order __order) {
+=======
+  using __value_type _LIBCPP_NODEBUG = _Tp;
+
+  static _LIBCPP_HIDE_FROM_ABI _Tp __atomic_load(const __atomic_ref_base<_Tp>& __a, memory_order __order) {
+>>>>>>> refs/tags/llvmorg-22.1.8
     return __a.load(__order);
   }
   static _LIBCPP_HIDE_FROM_ABI const _Tp* __atomic_contention_address(const __atomic_ref_base<_Tp>& __a) {
@@ -613,6 +640,7 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
 
   atomic_ref& operator=(const atomic_ref&) = delete;
 
+<<<<<<< HEAD
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type
   fetch_add(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept
     requires(!is_const_v<_Tp>)
@@ -621,9 +649,21 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
     value_type __new = __old + __arg;
     while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
       __new = __old + __arg;
+=======
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_add(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+    if constexpr (std::__has_rmw_builtin<_Tp>()) {
+      return __atomic_fetch_add(this->__ptr_, __arg, std::__to_gcc_order(__order));
+    } else {
+      _Tp __old = this->load(memory_order_relaxed);
+      _Tp __new = __old + __arg;
+      while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
+        __new = __old + __arg;
+      }
+      return __old;
+>>>>>>> refs/tags/llvmorg-22.1.8
     }
-    return __old;
   }
+<<<<<<< HEAD
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type
   fetch_sub(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept
     requires(!is_const_v<_Tp>)
@@ -632,8 +672,19 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
     value_type __new = __old - __arg;
     while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
       __new = __old - __arg;
+=======
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_sub(_Tp __arg, memory_order __order = memory_order_seq_cst) const noexcept {
+    if constexpr (std::__has_rmw_builtin<_Tp>()) {
+      return __atomic_fetch_sub(this->__ptr_, __arg, std::__to_gcc_order(__order));
+    } else {
+      _Tp __old = this->load(memory_order_relaxed);
+      _Tp __new = __old - __arg;
+      while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
+        __new = __old - __arg;
+      }
+      return __old;
+>>>>>>> refs/tags/llvmorg-22.1.8
     }
-    return __old;
   }
 
 #  if _LIBCPP_STD_VER >= 26
