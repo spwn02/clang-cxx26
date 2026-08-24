@@ -10,8 +10,8 @@ repo_root="$(git rev-parse --show-toplevel)"
 install_prefix="$(realpath -m "$1")"
 build_dir="$(realpath -m "$2")"
 cmake_bin="${CMAKE:-cmake}"
-jobs="${P2996_BUILD_JOBS:-$(nproc)}"
-compiler_launcher="${P2996_COMPILER_LAUNCHER:-}"
+jobs="${CXX26_BUILD_JOBS:-$(nproc)}"
+compiler_launcher="${CXX26_COMPILER_LAUNCHER:-}"
 
 rm -rf "${install_prefix}" "${build_dir}"
 
