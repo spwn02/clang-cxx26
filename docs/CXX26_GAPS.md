@@ -1232,7 +1232,7 @@ back to `to_input` based on the paper title alone.
 | [ ] | P2642R6 | Padded `mdspan` layouts | Confirmed from-scratch |
 | [ ] | P3355R1 | `submdspan` C++26 fixes | Depends on P2630R4 |
 | [x] | P3050R2 | `linalg::conjugated` optimization | Complete 2026-08-22 — `conjugated()` always wrapped in `conjugated_accessor` even for arithmetic/no-`conj(E)` element types; now returns the argument unchanged for those (reuses the existing `__has_adl_conj` trait). No FTM of its own. |
-| [ ] | P1673R13 | BLAS-based linear algebra interface | Assessed 2026-08-22, not a from-scratch project — 3150-line implementation with 17 pre-existing passing tests; CSV status is likely stale, not accurate. Needs a real audit against the paper's wording before flipping, not assumed — see mdspan/linalg block note |
+| [~] | P1673R13 | BLAS-based linear algebra interface | Partial 2026-08-24 — audited: name-set diff clean, but found and fixed a real SFINAE-conformance gap (~90 functions retrofitted with concept constraints); `|Partial|` because the live draft's FTM value can't be reconciled and a full prose audit wasn't undertaken — see Session Log |
 | [x] | P2587R3 | `to_string` or not `to_string` | Complete 2026-08-22 — float/double/long double overloads used `sprintf("%f", ...)` (fixed 6 decimals); now `format("{}", val)` per wording, shortest round-trip. Integer overloads already matched via `to_chars`, untouched |
 | [ ] | P2757R3 | Type-checking format args | Assessed 2026-08-22, blocked — shared `__cpp_lib_format` bump can't advance without C++23's P2419R2 (untracked, unstarted) also landing — see format/print block note |
 | [ ] | P3107R5 | Efficient `std::print` implementation | Assessed 2026-08-22 — confirmed `__vprint_nonunicode` materializes a full `string` before writing, the exact thing this paper eliminates; real redesign, deserves its own session — see format/print block note |
@@ -5361,3 +5361,137 @@ blocked, what's next. Do not remove old entries.
   wording — don't guess at it. Otherwise, pick up the Tier 3 mdspan blocker
   to unblock P3222R0, or move to a different tier (Tier 2/3's remaining
   open items) instead.
+
+- **2026-08-24 (fourteenth session)**: User asked to work on completing
+  Tier 3. Started with mdspan `submdspan`/padded layouts (P2630R4/P2642R6/
+  P3355R1, the item blocking Tier 6's P3222R0) since that was the largest
+  open Tier 3 item — see the dedicated sub-plan added above this session:
+  **blocked**, not started, on an untracked prerequisite
+  (`std::constant_wrapper`/P2781) discovered by checking the live draft
+  before writing code, not just the tracked papers' own text. Advisor
+  confirmed this was the right call and redirected to P1673R13 (linalg)
+  as the session's actual deliverable — a real open Tier 3 row, not
+  blocked, and the tracker had already pre-scoped it as "probably mostly
+  done, verify the gaps" back on 2026-08-22.
+
+  **Audit approach, per advisor's explicit sequencing**: mechanical
+  name-set diff first (enumerate every function/type `libcxx/include/
+  linalg` declares, diff against `[linalg.syn]` on eel.is), *then* let
+  that bound the prose audit, rather than starting from prose. Extracted
+  the synopsis via `grep`/regex against the eel.is-fetched text and
+  diffed against the header's own declarations — clean, one apparent gap
+  (`triangular_matrix_vector_2x2_product`) turned out to be a worked
+  example inside a Note in `[linalg.reqs.alg]`, not a real overload the
+  library must provide.
+
+  **The real finding, caught only because advisor pushed to verify it was
+  observable before mass-editing**: every algorithm in the current
+  synopsis is declared with concept-constrained opaque type parameters
+  (`template<in-matrix InMat, in-vector InVec, out-vector OutVec>
+  void matrix_vector_product(InMat A, InVec x, OutVec y);`), but this
+  fork's implementation used fully-decomposed `mdspan<ElementType,
+  Extents, Layout, Accessor>` parameters checked only via `static_assert`
+  in the body — meaning a wrong-rank or non-writable-output call was a
+  hard compile error deep inside the function, not a SFINAE-visible
+  exclusion from the overload set. Wrote a throwaway probe before editing
+  anything: `static_assert(!requires{ matrix_vector_product(A, x,
+  wrong_rank_y); })` — confirmed it evaluated to `false` today (the
+  ill-formed call was still a valid, matched candidate) and `true` after
+  the fix. Hit the same compiler quirk the P3309R3 session had already
+  found and documented: a raw inline `!requires{...}` expression, when
+  overload resolution excludes every candidate via a mix of constraint
+  failure and arity mismatch, hard-errors in this compiler's diagnostic
+  path instead of gracefully evaluating false; wrapping the check in a
+  named `concept` (as that prior session's finding prescribes) fixed it
+  immediately. Recorded again here since this is now the second time this
+  exact shape has bitten a session — worth remembering as a standing
+  quirk of this compiler, not re-discovering each time.
+
+  Added the eleven `[linalg.helpers.concepts]` exposition-only concepts
+  (`is-mdspan`, `in/out/inout-vector`, `in/out/inout-matrix`,
+  `possibly-packed-out-matrix`, `in/out/inout-object`, `scalar`) as
+  `__detail::__is_mdspan_v`/`__in_vector`/`__out_vector`/.../
+  `__linalg_scalar`, matching the standard wording verbatim. **Chose a
+  trailing-`requires`-clause retrofit over restructuring every function's
+  parameter list to take the concepts' opaque type directly** — advisor's
+  call, confirmed correct: reconstructing the mdspan type from each
+  function's already-deduced `ElementType`/`Extents`/`Layout`/`Accessor`
+  template parameters and checking it against the concept is functionally
+  equivalent for every well-formed call, needed zero changes to any
+  function body (the deduced names like `_MatrixExtents` stay valid and
+  in scope), and avoided touching ~90 function *signatures'* parameter
+  declarations — only adding one clause each. Per advisor's explicit
+  instruction, did **not** delete the pre-existing
+  `_LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN`/`_LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING`
+  static-assert macros or the rank-only static_asserts alongside the new
+  requires-clauses — the macros give a diagnosable message
+  ("linalg output mdspan must be writable") that the requires-clause
+  alone would silently swallow into a generic "constraints not
+  satisfied", and removing them is a separable, lower-risk cleanup for
+  later, not bundled into this sweep.
+
+  **One genuine scope decision, not a bug**: `copy`, `scale`, `add`, and
+  `swap_elements` use `in-object`/`out-object`/`inout-object` in the
+  synopsis, which the wording restricts to rank 1 or 2 — but this fork's
+  `copy()`/`add()` (and, by the identical code shape,
+  `scale()`/`swap_elements()`) deliberately and *already-testedly* accept
+  rank-0 mdspans too (`libcxx/test/std/numerics/linalg/
+  execution_policies.pass.cpp`'s `test_add_ranks()`, with an explicit
+  comment: "add() accepts rank-0, rank-1 and rank-2 operands, matching
+  copy()"). Applying the literal standard concept to these four functions
+  would have silently regressed a pre-existing, intentional, already-
+  tested extension — confirmed this was deliberate (not an oversight)
+  before deciding to leave these four on `static_assert`-only checking
+  rather than retrofit them. Recorded as a documented, permanent scope
+  exclusion, not a TODO.
+
+  Landed the retrofit across BLAS 1, 2, and 3 in six separate commits (one
+  per logical batch: BLAS 1; BLAS 2 vector-product/rank-1; the
+  `symmetric_matrix_product`/`hermitian_matrix_product` "xxmm" family;
+  `trmm`/rank-2; rank-k/rank-2k; `trsv`/`trsm` plus the remaining
+  triangle-updating `matrix_product` overloads), running the full
+  `linalg/` suite (17/17 green throughout, never regressed) after every
+  batch rather than once at the end — an intentional sequencing choice
+  per advisor's warning that "92 edits in one commit with one test run at
+  the end is the shape that makes a mid-sweep mistake expensive to find."
+  A post-hoc sweep script (checking every `constexpr` declaration in the
+  file for a nearby `requires`) caught one real function the batching had
+  actually skipped — the 4-argument `matrix_vector_product` overload (the
+  "updating" form with an addend vector) — fixed in the final commit; the
+  same script's first two draft versions produced false positives from a
+  crude line-window heuristic that mistook `_Divide __divide = {}`'s
+  empty-braces default argument for the start of a function body, so the
+  real gap wasn't obvious until the heuristic was tightened and each
+  candidate was checked directly with `grep`, not trusted at face value.
+
+  Full `linalg/` suite (17/17) and the full `numerics/` suite (940/940, 2
+  pre-existing unsupported) both green after the final commit.
+
+  **`|Partial|`, not `|Complete|`, for two independent reasons** (either
+  alone would justify it): (1) the live draft's `__cpp_lib_linalg` is
+  `202511L`; this fork's generator/`<version>` still say `202311L`, and
+  the paper or LWG issue that moved the value couldn't be identified from
+  this environment (checked the 2024/2025 WG21 papers index, came back
+  empty) — same "don't invent an unverifiable target" discipline as
+  P3471R4's FTM macros, just discovered via the value itself rather than
+  the macro name. (2) A full member-by-member prose audit of every
+  function's Preconditions/Effects/Complexity against the standard
+  wording — the kind done for `text_encoding` in Tier 6 — was not
+  attempted this session; 90-odd functions across three BLAS tiers is a
+  different scale than that facility's five member functions, and the 17
+  pre-existing tests plus the now-completed name-set and SFINAE-
+  conformance passes are real, but not exhaustive, evidence of
+  correctness. Recorded as a deliberate scope boundary for whoever picks
+  this up next, not a gap found and left unfixed.
+
+  P1673R13 is now substantively audited and its one confirmed conformance
+  gap is closed. **Next session**: either (a) attempt the prose audit
+  this session skipped (budget for real per-function wording comparison,
+  not a mechanical sweep — same caution this tracker has given every
+  similarly-shaped task), or (b) revisit whether upstream LLVM or a newer
+  WG21 mailing has surfaced what moved `__cpp_lib_linalg` to `202511L`.
+  P3050R2 (already `|Complete|`, landed by an earlier session) does not
+  need re-auditing as part of either follow-up. Tier 3's only remaining
+  fully-unblocked, unstarted work is `format`/`print`'s P3107R5/P3235R3
+  redesign (assessed out of scope in a prior session, needs its own
+  dedicated session) and P2757R3 (blocked on untracked C++23 P2419R2).
