@@ -1,7 +1,5 @@
 //===--- Expr.cpp - Expression AST Node Implementation --------------------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -442,6 +440,7 @@ DeclRefExpr::DeclRefExpr(const ASTContext &Ctx, ValueDecl *D,
       RefersToEnclosingVariableOrCapture;
   DeclRefExprBits.CapturedByCopyInLambdaWithExplicitObjectParameter = false;
   DeclRefExprBits.NonOdrUseReason = NOUR;
+  DeclRefExprBits.IsImmediateEscalating = false;
   DeclRefExprBits.Loc = L;
   setDependence(computeDependence(this, Ctx));
 }
@@ -480,6 +479,7 @@ DeclRefExpr::DeclRefExpr(const ASTContext &Ctx,
     getTrailingObjects<ASTTemplateKWAndArgsInfo>()->initializeFrom(
         TemplateKWLoc);
   }
+  DeclRefExprBits.IsImmediateEscalating = false;
   DeclRefExprBits.HadMultipleCandidates = 0;
   setDependence(computeDependence(this, Ctx));
 }
@@ -1966,8 +1966,7 @@ static Expr *ignoreImplicitSemaNodes(Expr *E) {
     return Binder->getSubExpr();
 
   if (auto *Full = dyn_cast<FullExpr>(E))
-    if (auto *SubExpr = Full->getSubExpr())
-      return SubExpr;
+    return Full->getSubExpr();
 
   if (auto *CPLIE = dyn_cast<CXXParenListInitExpr>(E);
       CPLIE && CPLIE->getInitExprs().size() == 1)
@@ -2254,14 +2253,8 @@ SourceLocExpr::SourceLocExpr(const ASTContext &Ctx, SourceLocIdentKind Kind,
       BuiltinLoc(BLoc), RParenLoc(RParenLoc), ParentContext(ParentContext) {
   SourceLocExprBits.Kind = llvm::to_underlying(Kind);
   // In dependent contexts, function names may change.
-<<<<<<< HEAD
-  setDependence(MayBeDependent(Kind) && ParentContext &&
-                ParentContext->isDependentContext()
-                    ? ExprDependence::Value
-=======
   setDependence(MayBeDependent(Kind) && ParentContext->isDependentContext()
                     ? ExprDependence::ValueInstantiation
->>>>>>> refs/tags/llvmorg-22.1.8
                     : ExprDependence::None);
 }
 
@@ -2307,7 +2300,7 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
   // for it. Because we do not have access to Sema/function scopes here, we
   // detect this case by relying on the fact such method doesn't yet have a
   // type.
-  if (const auto *D = dyn_cast_if_present<CXXMethodDecl>(Context);
+  if (const auto *D = dyn_cast<CXXMethodDecl>(Context);
       D && D->getFunctionTypeLoc().isNull() && isLambdaCallOperator(D))
     Context = D->getParent()->getParent();
 
@@ -2365,28 +2358,24 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
     for (const FieldDecl *F : ImplDecl->fields()) {
       StringRef Name = F->getName();
       if (Name == "_M_file_name") {
-        SmallString<256> Path(PLoc.isValid() ? PLoc.getFilename() : "");
+        SmallString<256> Path(PLoc.getFilename());
         clang::Preprocessor::processPathForFileMacro(Path, Ctx.getLangOpts(),
                                                      Ctx.getTargetInfo());
         Value.getStructField(F->getFieldIndex()) = MakeStringLiteral(Path);
       } else if (Name == "_M_function_name") {
         // Note: this emits the PrettyFunction name -- different than what
         // __builtin_FUNCTION() above returns!
-        const auto *CurDecl = dyn_cast_if_present<Decl>(Context);
+        const auto *CurDecl = dyn_cast<Decl>(Context);
         Value.getStructField(F->getFieldIndex()) = MakeStringLiteral(
             CurDecl && !isa<TranslationUnitDecl>(CurDecl)
                 ? StringRef(PredefinedExpr::ComputeName(
                       PredefinedIdentKind::PrettyFunction, CurDecl))
                 : "");
       } else if (Name == "_M_line") {
-        llvm::APSInt IntVal =
-                           Ctx.MakeIntValue(PLoc.isValid() ? PLoc.getLine() : 0,
-                                            F->getType());
+        llvm::APSInt IntVal = Ctx.MakeIntValue(PLoc.getLine(), F->getType());
         Value.getStructField(F->getFieldIndex()) = APValue(IntVal);
       } else if (Name == "_M_column") {
-        llvm::APSInt IntVal =
-                         Ctx.MakeIntValue(PLoc.isValid() ? PLoc.getColumn() : 0,
-                                          F->getType());
+        llvm::APSInt IntVal = Ctx.MakeIntValue(PLoc.getColumn(), F->getType());
         Value.getStructField(F->getFieldIndex()) = APValue(IntVal);
       }
     }
@@ -3106,10 +3095,6 @@ Expr *Expr::IgnoreParenCasts() {
   return IgnoreExprNodes(this, IgnoreParensSingleStep, IgnoreCastsSingleStep);
 }
 
-Expr *Expr::IgnoreSplices() {
-  return IgnoreExprNodes(this, IgnoreSpliceSingleStep);
-}
-
 Expr *Expr::IgnoreConversionOperatorSingleStep() {
   if (auto *MCE = dyn_cast<CXXMemberCallExpr>(this)) {
     if (isa_and_nonnull<CXXConversionDecl>(MCE->getMethodDecl()))
@@ -3413,7 +3398,7 @@ bool Expr::isConstantInitializer(ASTContext &Ctx, bool IsForRef,
     // FIXME: We should be able to return "true" here, but it can lead to extra
     // error messages. E.g. in Sema/array-init.c.
     const Expr *Exp = cast<ConstantExpr>(this)->getSubExpr();
-    return Exp ? Exp->isConstantInitializer(Ctx, false, Culprit) : true;
+    return Exp->isConstantInitializer(Ctx, false, Culprit);
   }
   case CompoundLiteralExprClass: {
     // This handles gcc's extension that allows global initializers like
@@ -3745,17 +3730,6 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
   case EmbedExprClass:
   case ConceptSpecializationExprClass:
   case RequiresExprClass:
-  case CXXReflectExprClass:
-  case CXXMetafunctionExprClass:
-  case CXXSpliceExprClass:
-  case CXXDependentMemberSpliceExprClass:
-  case StackLocationExprClass:
-  case ExtractLValueExprClass:
-  case CXXExpansionInitListExprClass:
-  case CXXIndeterminateExpansionSelectExprClass:
-  case CXXIterableExpansionSelectExprClass:
-  case CXXDestructurableExpansionSelectExprClass:
-  case CXXExpansionInitListSelectExprClass:
   case SYCLUniqueStableNameExprClass:
   case PackIndexingExprClass:
   case HLSLOutArgExprClass:
@@ -3763,11 +3737,10 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
     // These never have a side-effect.
     return false;
 
-  case ConstantExprClass: {
+  case ConstantExprClass:
     // FIXME: Move this into the "return false;" block above.
-    const Expr *Exp = cast<ConstantExpr>(this)->getSubExpr();
-    return Exp ? Exp->HasSideEffects(Ctx, IncludePossibleEffects) : false;
-  }
+    return cast<ConstantExpr>(this)->getSubExpr()->HasSideEffects(
+        Ctx, IncludePossibleEffects);
 
   case CallExprClass:
   case CXXOperatorCallExprClass:

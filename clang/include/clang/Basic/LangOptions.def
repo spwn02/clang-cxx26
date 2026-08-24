@@ -272,37 +272,6 @@ LANGOPT(HIPStdParInterposeAlloc, 1, 0, NotCompatible, "Replace allocations / dea
 
 LANGOPT(OpenACC           , 1, 0, NotCompatible, "OpenACC Enabled")
 
-<<<<<<< HEAD
-LANGOPT(Reflection          , 1, 0, "Experimental C++26 Reflection")
-LANGOPT(ParameterReflection , 1, 0, "Augments C++26 Reflection with function parameter reflection")
-LANGOPT(AttributeReflection , 1, 0, "Augments C++26 Reflection with standard attribute reflection")
-LANGOPT(ExpansionStatements , 1, 0, "Experimental C++26 Expansion Statements")
-LANGOPT(AnnotationAttributes, 1, 0, "Experimental C++26 support for annotations")
-LANGOPT(EntityProxyReflection, 1, 0, "Augments C++26 Reflection with entity proxy reflection")
-LANGOPT(ReflectionLatest    , 1, 0, "Enable all experimental C++26 features supported by CXX26 Clang")
-
-LANGOPT(MSVCEnableStdcMacro , 1, 0, "Define __STDC__ with '-fms-compatibility'")
-LANGOPT(SizedDeallocation , 1, 0, "sized deallocation")
-LANGOPT(AlignedAllocation , 1, 0, "aligned allocation")
-LANGOPT(AlignedAllocationUnavailable, 1, 0, "aligned allocation functions are unavailable")
-LANGOPT(NewAlignOverride  , 32, 0, "maximum alignment guaranteed by '::operator new(size_t)'")
-BENIGN_LANGOPT(ModulesCodegen , 1, 0, "Modules code generation")
-BENIGN_LANGOPT(ModulesDebugInfo , 1, 0, "Modules debug info")
-BENIGN_LANGOPT(ElideConstructors , 1, 1, "C++ copy constructor elision")
-BENIGN_LANGOPT(DumpRecordLayouts , 1, 0, "dumping the layout of IRgen'd records")
-BENIGN_LANGOPT(DumpRecordLayoutsSimple , 1, 0, "dumping the layout of IRgen'd records in a simple form")
-BENIGN_LANGOPT(DumpRecordLayoutsCanonical , 1, 0, "dumping the AST layout of records using canonical field types")
-BENIGN_LANGOPT(DumpRecordLayoutsComplete , 1, 0, "dumping the AST layout of all complete records")
-BENIGN_LANGOPT(DumpVTableLayouts , 1, 0, "dumping the layouts of emitted vtables")
-LANGOPT(NoConstantCFStrings , 1, 0, "no constant CoreFoundation strings")
-BENIGN_LANGOPT(InlineVisibilityHidden , 1, 0, "hidden visibility for inline C++ methods")
-BENIGN_ENUM_LANGOPT(DefaultVisibilityExportMapping, DefaultVisiblityExportMapping, 2, DefaultVisiblityExportMapping::None, "controls mapping of default visibility to dllexport")
-BENIGN_LANGOPT(IgnoreXCOFFVisibility, 1, 0, "All the visibility attributes that are specified in the source code are ignored in aix XCOFF.")
-BENIGN_LANGOPT(VisibilityInlinesHiddenStaticLocalVar, 1, 0,
-               "hidden visibility for static local variables in inline C++ "
-               "methods when -fvisibility-inlines hidden is enabled")
-ENUM_LANGOPT(GlobalAllocationFunctionVisibility, VisibilityForcedKinds, 3, VisibilityForcedKinds::ForceDefault,
-=======
 LANGOPT(MSVCEnableStdcMacro , 1, 0, NotCompatible, "Define __STDC__ with '-fms-compatibility'")
 LANGOPT(SizedDeallocation , 1, 0, NotCompatible, "sized deallocation")
 LANGOPT(AlignedAllocation , 1, 0, NotCompatible, "aligned allocation")
@@ -324,7 +293,6 @@ LANGOPT(VisibilityInlinesHiddenStaticLocalVar, 1, 0, Benign,
         "hidden visibility for static local variables in inline C++ "
         "methods when -fvisibility-inlines hidden is enabled")
 ENUM_LANGOPT(GlobalAllocationFunctionVisibility, VisibilityForcedKinds, 3, VisibilityForcedKinds::ForceDefault, NotCompatible,
->>>>>>> refs/tags/llvmorg-22.1.8
              "How to apply visibility to global operator new and delete declarations")
 LANGOPT(NewInfallible , 1, 0, NotCompatible, "Treats throwing global C++ operator new as always returning valid memory (annotates with __attribute__((returns_nonnull)) and throw()). This is detectable in source.")
 LANGOPT(ParseUnknownAnytype, 1, 0, Benign, "__unknown_anytype")

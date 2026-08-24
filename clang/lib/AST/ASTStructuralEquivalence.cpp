@@ -1,7 +1,5 @@
 //===- ASTStructuralEquivalence.cpp ---------------------------------------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -162,29 +160,6 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
   }
 
   llvm_unreachable("Unhandled kind of DeclarationName");
-  return true;
-}
-
-static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
-                                     SpliceSpecifier *Splice1,
-                                     SpliceSpecifier *Splice2) {
-  if (Splice1->isSpecialization() != Splice2->isSpecialization())
-    return false;
-
-  if (!IsStructurallyEquivalent(Context, Splice1->getOperand(),
-                                Splice2->getOperand()))
-      return false;
-
-  if (Splice1->isSpecialization()) {
-    auto TArgs1 = Splice1->getTemplateArgs()->arguments();
-    auto TArgs2 = Splice2->getTemplateArgs()->arguments();
-    if (TArgs1.size() != TArgs2.size())
-      return false;
-    for (unsigned k = 0; k < TArgs1.size(); ++k)
-      if (!IsStructurallyEquivalent(Context, TArgs1[k], TArgs2[k]))
-        return false;
-  }
-
   return true;
 }
 
@@ -613,17 +588,6 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
   case NestedNameSpecifier::Kind::Null:
   case NestedNameSpecifier::Kind::Global:
     return true;
-<<<<<<< HEAD
-  case NestedNameSpecifier::Super:
-    return IsStructurallyEquivalent(Context,
-                                    NNS1->getAsRecordDecl(),
-                                    NNS2->getAsRecordDecl());
-  case NestedNameSpecifier::Splice:
-  case NestedNameSpecifier::SpliceWithTemplate:
-    return IsStructurallyEquivalent(
-        Context, const_cast<SpliceSpecifier *>(NNS1->getAsSplice()),
-        const_cast<SpliceSpecifier *>(NNS2->getAsSplice()));
-=======
   case NestedNameSpecifier::Kind::Namespace: {
     auto [Namespace1, Prefix1] = NNS1.getAsNamespaceAndPrefix();
     auto [Namespace2, Prefix2] = NNS2.getAsNamespaceAndPrefix();
@@ -639,7 +603,6 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
   case NestedNameSpecifier::Kind::MicrosoftSuper:
     return IsStructurallyEquivalent(Context, NNS1.getAsMicrosoftSuper(),
                                     NNS2.getAsMicrosoftSuper());
->>>>>>> refs/tags/llvmorg-22.1.8
   }
   return false;
 }
@@ -1291,13 +1254,6 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
     if (!IsStructurallyEquivalent(Context,
                                   cast<DecltypeType>(T1)->getUnderlyingExpr(),
                                   cast<DecltypeType>(T2)->getUnderlyingExpr()))
-      return false;
-    break;
-
-  case Type::ReflectionSplice:
-    if (!IsStructurallyEquivalent(Context,
-                                  cast<ReflectionSpliceType>(T1)->getSplice(),
-                                  cast<ReflectionSpliceType>(T2)->getSplice()))
       return false;
     break;
 

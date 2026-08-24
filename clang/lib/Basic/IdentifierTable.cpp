@@ -1,7 +1,5 @@
 //===- IdentifierTable.cpp - Hash table for identifier lookup -------------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -79,61 +77,6 @@ IdentifierTable::IdentifierTable(const LangOptions &LangOpts,
 // Language Keyword Implementation
 //===----------------------------------------------------------------------===//
 
-<<<<<<< HEAD
-// Constants for TokenKinds.def
-namespace {
-
-enum TokenKey : unsigned {
-  KEYC99 = 0x1,
-  KEYCXX = 0x2,
-  KEYCXX11 = 0x4,
-  KEYGNU = 0x8,
-  KEYMS = 0x10,
-  BOOLSUPPORT = 0x20,
-  KEYALTIVEC = 0x40,
-  KEYNOCXX = 0x80,
-  KEYBORLAND = 0x100,
-  KEYOPENCLC = 0x200,
-  KEYC23 = 0x400,
-  KEYNOMS18 = 0x800,
-  KEYNOOPENCL = 0x1000,
-  WCHARSUPPORT = 0x2000,
-  HALFSUPPORT = 0x4000,
-  CHAR8SUPPORT = 0x8000,
-  KEYOBJC = 0x10000,
-  KEYZVECTOR = 0x20000,
-  KEYCOROUTINES = 0x40000,
-  KEYMODULES = 0x80000,
-  KEYCXX20 = 0x100000,
-  KEYOPENCLCXX = 0x200000,
-  KEYMSCOMPAT = 0x400000,
-  KEYSYCL = 0x800000,
-  KEYCUDA = 0x1000000,
-  KEYZOS = 0x2000000,
-  KEYNOZOS = 0x4000000,
-  KEYHLSL = 0x8000000,
-  KEYFIXEDPOINT = 0x10000000,
-  KEYREFLECT    = 0x20000000,
-  KEYMAX = KEYREFLECT, // The maximum key
-  KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
-  KEYALL = (KEYMAX | (KEYMAX - 1)) & ~KEYNOMS18 & ~KEYNOOPENCL &
-           ~KEYNOZOS // KEYNOMS18, KEYNOOPENCL, KEYNOZOS are excluded.
-};
-
-/// How a keyword is treated in the selected standard. This enum is ordered
-/// intentionally so that the value that 'wins' is the most 'permissive'.
-enum KeywordStatus {
-  KS_Unknown,   // Not yet calculated. Used when figuring out the status.
-  KS_Disabled,  // Disabled
-  KS_Future,    // Is a keyword in future standard
-  KS_Extension, // Is an extension
-  KS_Enabled,   // Enabled
-};
-
-} // namespace
-
-=======
->>>>>>> refs/tags/llvmorg-22.1.8
 // This works on a single TokenKey flag and checks the LangOpts to get the
 // KeywordStatus based exclusively on this flag, so that it can be merged in
 // getKeywordStatus. Most should be enabled/disabled, but some might imply
@@ -221,13 +164,8 @@ static KeywordStatus getKeywordStatusHelper(const LangOptions &LangOpts,
     return KS_Unknown;
   case KEYFIXEDPOINT:
     return LangOpts.FixedPoint ? KS_Enabled : KS_Disabled;
-<<<<<<< HEAD
-  case KEYREFLECT:
-    return LangOpts.Reflection ? KS_Extension : KS_Unknown;
-=======
   case KEYDEFERTS:
     return LangOpts.DeferTS ? KS_Enabled : KS_Disabled;
->>>>>>> refs/tags/llvmorg-22.1.8
   default:
     llvm_unreachable("Unknown KeywordStatus flag");
   }

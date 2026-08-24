@@ -1,7 +1,5 @@
 //===------- SemaTemplate.cpp - Semantic Analysis for C++ Templates -------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -45,7 +43,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/SaveAndRestore.h"
-#include <iostream>
 
 #include <optional>
 using namespace clang;
@@ -226,8 +223,6 @@ TemplateNameKind Sema::isTemplateName(Scope *S,
     // Let the parser know whether we found nothing or found functions; if we
     // found nothing, we want to more carefully check whether this is actually
     // a function template name versus some other kind of undeclared identifier.
-    if (isReflectionContext())
-      return TNK_Non_template;
     return AssumedTemplate == AssumedTemplateKind::FoundNothing
                ? TNK_Undeclared_template
                : TNK_Function_template;
@@ -1477,8 +1472,6 @@ QualType Sema::CheckNonTypeTemplateParameterType(QualType T,
       T->isMemberPointerType() ||
       //   -- std::nullptr_t, or
       T->isNullPtrType() ||
-      //   -- std::meta::info, or
-      T->isReflectionType() ||
       //   -- a type that contains a placeholder type.
       T->isUndeducedType()) {
     // C++ [temp.param]p5: The top-level cv-qualifiers on the template-parameter
@@ -5783,8 +5776,8 @@ bool Sema::CheckTemplateArgument(NamedDecl *Param, TemplateArgumentLoc &ArgLoc,
 
   case TemplateArgument::Declaration:
   case TemplateArgument::Integral:
-  case TemplateArgument::NullPtr:
   case TemplateArgument::StructuralValue:
+  case TemplateArgument::NullPtr:
     llvm_unreachable("non-type argument with template template parameter");
 
   case TemplateArgument::Pack:
@@ -6366,11 +6359,6 @@ bool UnnamedLocalNoLinkageFinder::VisitDecltypeType(const DecltypeType*) {
   return false;
 }
 
-bool UnnamedLocalNoLinkageFinder::VisitReflectionSpliceType(
-                                                  const ReflectionSpliceType* T) {
-  return Visit(T->getUnderlyingType());
-}
-
 bool UnnamedLocalNoLinkageFinder::VisitPackIndexingType(
     const PackIndexingType *) {
   return false;
@@ -6491,27 +6479,12 @@ bool UnnamedLocalNoLinkageFinder::VisitTagDecl(const TagDecl *Tag) {
 }
 
 bool UnnamedLocalNoLinkageFinder::VisitNestedNameSpecifier(
-<<<<<<< HEAD
-                                                    NestedNameSpecifier *NNS) {
-  assert(NNS);
-  if (NNS->getPrefix() && VisitNestedNameSpecifier(NNS->getPrefix()))
-    return true;
-
-  switch (NNS->getKind()) {
-  case NestedNameSpecifier::Identifier:
-  case NestedNameSpecifier::Namespace:
-  case NestedNameSpecifier::NamespaceAlias:
-  case NestedNameSpecifier::Global:
-  case NestedNameSpecifier::Super:
-  case NestedNameSpecifier::Splice:
-=======
     NestedNameSpecifier NNS) {
   switch (NNS.getKind()) {
   case NestedNameSpecifier::Kind::Null:
   case NestedNameSpecifier::Kind::Namespace:
   case NestedNameSpecifier::Kind::Global:
   case NestedNameSpecifier::Kind::MicrosoftSuper:
->>>>>>> refs/tags/llvmorg-22.1.8
     return false;
   case NestedNameSpecifier::Kind::Type:
     return Visit(QualType(NNS.getAsType(), 0));
@@ -8097,11 +8070,6 @@ static Expr *BuildExpressionFromIntegralTemplateArgumentValue(
   return E;
 }
 
-static ExprResult
-BuildExpressionFromReflection(Sema &S, const APValue &RV, SourceLocation Loc) {
-  return CXXReflectExpr::Create(S.Context, Loc, SourceRange {Loc, Loc}, RV);
-}
-
 static Expr *BuildExpressionFromNonTypeTemplateArgumentValue(
     Sema &S, QualType T, const APValue &Val, SourceLocation Loc) {
   auto MakeInitList = [&](ArrayRef<Expr *> Elts) -> Expr * {
@@ -8163,7 +8131,7 @@ static Expr *BuildExpressionFromNonTypeTemplateArgumentValue(
   case APValue::Indeterminate:
     llvm_unreachable("Unexpected APValue kind.");
   case APValue::LValue:
-  case APValue::MemberPointer: {
+  case APValue::MemberPointer:
     // There isn't necessarily a valid equivalent source-level syntax for
     // these; in particular, a naive lowering might violate access control.
     // So for now we lower to a ConstantExpr holding the value, wrapped around
@@ -8176,10 +8144,6 @@ static Expr *BuildExpressionFromNonTypeTemplateArgumentValue(
     }
     auto *OVE = new (S.Context) OpaqueValueExpr(Loc, T, VK);
     return ConstantExpr::Create(S.Context, OVE, Val);
-  }
-  case APValue::Reflection: {
-    return BuildExpressionFromReflection(S, Val, Loc).get();
-  }
   }
   llvm_unreachable("Unhandled APValue::ValueKind enum");
 }
@@ -11291,9 +11255,7 @@ Sema::CheckTypenameType(ElaboratedTypeKeyword Keyword,
                         NestedNameSpecifierLoc QualifierLoc,
                         const IdentifierInfo &II,
                         SourceLocation IILoc, bool DeducedTSTContext) {
-  // Not all paths seem to pass this assertion:
-  //
-  //assert((Keyword != ElaboratedTypeKeyword::None) == KeywordLoc.isValid());
+  assert((Keyword != ElaboratedTypeKeyword::None) == KeywordLoc.isValid());
 
   CXXScopeSpec SS;
   SS.Adopt(QualifierLoc);

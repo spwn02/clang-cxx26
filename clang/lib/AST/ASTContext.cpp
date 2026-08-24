@@ -1,7 +1,5 @@
 //===- ASTContext.cpp - Context to hold long-lived AST nodes --------------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -36,7 +34,6 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExternalASTSource.h"
-#include "clang/AST/LocInfoType.h"
 #include "clang/AST/Mangle.h"
 #include "clang/AST/MangleNumberingContext.h"
 #include "clang/AST/NestedNameSpecifier.h"
@@ -1419,9 +1416,6 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   // nullptr type (C++0x 2.14.7)
   InitBuiltinType(NullPtrTy,           BuiltinType::NullPtr);
 
-  // meta::info type (C++2c CXX26)
-  InitBuiltinType(MetaInfoTy, BuiltinType::MetaInfo);
-
   // half type (OpenCL 6.1.1.1) / ARM NEON __fp16
   InitBuiltinType(HalfTy, BuiltinType::Half);
 
@@ -2244,10 +2238,6 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       // C++ 3.9.1p11: sizeof(nullptr_t) == sizeof(void*)
       Width = Target->getPointerWidth(LangAS::Default);
       Align = Target->getPointerAlign(LangAS::Default);
-      break;
-    case BuiltinType::MetaInfo:
-      Width = Target->getMetaInfoWidth();
-      Align = Target->getMetaInfoAlign();
       break;
     case BuiltinType::ObjCId:
     case BuiltinType::ObjCClass:
@@ -3429,10 +3419,6 @@ static void encodeTypeForFunctionPointerAuth(const ASTContext &Ctx,
       OS << "v";
       return;
 
-    case BuiltinType::MetaInfo:
-      OS << "m";
-      return;
-
     case BuiltinType::ObjCId:
     case BuiltinType::ObjCClass:
     case BuiltinType::ObjCSel:
@@ -4223,7 +4209,6 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
   case Type::Auto:
   case Type::DeducedTemplateSpecialization:
   case Type::PackExpansion:
-  case Type::ReflectionSplice:
   case Type::PackIndexing:
   case Type::BitInt:
   case Type::DependentBitInt:
@@ -6165,23 +6150,6 @@ QualType ASTContext::getPackExpansionType(QualType Pattern,
   return QualType(T, 0);
 }
 
-QualType ASTContext::getReflectionSpliceType(SourceLocation TypenameKWLoc,
-                                             SpliceSpecifier *Splice,
-                                             QualType UnderlyingType) const {
-  ReflectionSpliceType *RST;
-
-  // Unwrap any LocInfoType introduced by reflection operator.
-  const Type *UnderlyingTyPtr = UnderlyingType.getTypePtr();
-  if (const LocInfoType *LIT = dyn_cast_or_null<LocInfoType>(UnderlyingTyPtr))
-    UnderlyingType = LIT->getType();
-
-  CanQualType Canon = getCanonicalType(UnderlyingType);
-  RST = new (*this, TypeAlignment) ReflectionSpliceType(TypenameKWLoc, Splice,
-                                                        Canon);
-  Types.push_back(RST);
-  return QualType(RST, 0);
-}
-
 /// CmpProtocolNames - Comparison predicate for sorting protocols
 /// alphabetically.
 static int CmpProtocolNames(ObjCProtocolDecl *const *LHS,
@@ -7213,8 +7181,6 @@ ASTContext::getNameForTemplate(TemplateName Name,
           DeclarationNameLoc::makeCXXOperatorNameLoc(SourceRange());
       return DeclarationNameInfo(DName, NameLoc, DNLoc);
     }
-
-    llvm_unreachable("unknown dependent template kind");
   }
 
   case TemplateName::SubstTemplateTemplateParm: {
@@ -7531,23 +7497,11 @@ static bool isSameQualifier(const NestedNameSpecifier X,
     const auto *TX = X.getAsType(), *TY = Y.getAsType();
     if (TX->getCanonicalTypeInternal() != TY->getCanonicalTypeInternal())
       return false;
-<<<<<<< HEAD
-    break;
-  case NestedNameSpecifier::Splice:
-  case NestedNameSpecifier::SpliceWithTemplate:
-    // TODO(CXX26): This might not be good enough.
-    if (X->getAsSplice() != Y->getAsSplice())
-      return false;
-    break;
-  case NestedNameSpecifier::Global:
-  case NestedNameSpecifier::Super:
-=======
     return isSameQualifier(TX->getPrefix(), TY->getPrefix());
   }
   case NestedNameSpecifier::Kind::Null:
   case NestedNameSpecifier::Kind::Global:
   case NestedNameSpecifier::Kind::MicrosoftSuper:
->>>>>>> refs/tags/llvmorg-22.1.8
     return true;
   }
   llvm_unreachable("unhandled qualifier kind");
@@ -7943,75 +7897,6 @@ bool ASTContext::isSameTemplateArgument(const TemplateArgument &Arg1,
   llvm_unreachable("Unhandled template argument kind");
 }
 
-<<<<<<< HEAD
-NestedNameSpecifier *
-ASTContext::getCanonicalNestedNameSpecifier(NestedNameSpecifier *NNS) const {
-  if (!NNS)
-    return nullptr;
-
-  switch (NNS->getKind()) {
-  case NestedNameSpecifier::Identifier:
-    // Canonicalize the prefix but keep the identifier the same.
-    return NestedNameSpecifier::Create(*this,
-                         getCanonicalNestedNameSpecifier(NNS->getPrefix()),
-                                       NNS->getAsIdentifier());
-
-  case NestedNameSpecifier::Namespace:
-    // A namespace is canonical; build a nested-name-specifier with
-    // this namespace and no prefix.
-    return NestedNameSpecifier::Create(*this, nullptr,
-                                       NNS->getAsNamespace()->getFirstDecl());
-
-  case NestedNameSpecifier::NamespaceAlias:
-    // A namespace is canonical; build a nested-name-specifier with
-    // this namespace and no prefix.
-    return NestedNameSpecifier::Create(
-        *this, nullptr,
-        NNS->getAsNamespaceAlias()->getNamespace()->getFirstDecl());
-
-  // The difference between TypeSpec and TypeSpecWithTemplate is that the
-  // latter will have the 'template' keyword when printed.
-  case NestedNameSpecifier::TypeSpec: {
-    const Type *T = getCanonicalType(NNS->getAsType());
-
-    // If we have some kind of dependent-named type (e.g., "typename T::type"),
-    // break it apart into its prefix and identifier, then reconsititute those
-    // as the canonical nested-name-specifier. This is required to canonicalize
-    // a dependent nested-name-specifier involving typedefs of dependent-name
-    // types, e.g.,
-    //   typedef typename T::type T1;
-    //   typedef typename T1::type T2;
-    if (const auto *DNT = T->getAs<DependentNameType>())
-      return NestedNameSpecifier::Create(*this, DNT->getQualifier(),
-                                         DNT->getIdentifier());
-    if (const auto *DTST = T->getAs<DependentTemplateSpecializationType>()) {
-      const DependentTemplateStorage &DTN = DTST->getDependentTemplateName();
-      QualType NewT = getDependentTemplateSpecializationType(
-          ElaboratedTypeKeyword::None,
-          {/*NNS=*/nullptr, DTN.getName(), /*HasTemplateKeyword=*/true},
-          DTST->template_arguments(), /*IsCanonical=*/true);
-      assert(NewT.isCanonical());
-      NestedNameSpecifier *Prefix = DTN.getQualifier();
-      if (!Prefix)
-        Prefix = getCanonicalNestedNameSpecifier(NNS->getPrefix());
-      return NestedNameSpecifier::Create(*this, Prefix, NewT.getTypePtr());
-    }
-    return NestedNameSpecifier::Create(*this, nullptr, T);
-  }
-
-  case NestedNameSpecifier::Global:
-  case NestedNameSpecifier::Super:
-  case NestedNameSpecifier::Splice:
-  case NestedNameSpecifier::SpliceWithTemplate:
-    // The global specifier and __super specifer are canonical and unique.
-    return NNS;
-  }
-
-  llvm_unreachable("Invalid NestedNameSpecifier::Kind!");
-}
-
-=======
->>>>>>> refs/tags/llvmorg-22.1.8
 const ArrayType *ASTContext::getAsArrayType(QualType T) const {
   // Handle the non-qualified case efficiently.
   if (!T.hasLocalQualifiers()) {
@@ -9210,7 +9095,6 @@ static char getObjCEncodingForPrimitiveType(const ASTContext *C,
     case BuiltinType::SatUShortFract:
     case BuiltinType::SatUFract:
     case BuiltinType::SatULongFract:
-    case BuiltinType::MetaInfo:
       // FIXME: potentially need @encodes for these!
       return ' ';
 
@@ -13643,55 +13527,6 @@ ASTContext::getPredefinedStringLiteralFromCache(StringRef Key) const {
   return Result;
 }
 
-VarDecl *
-ASTContext::getGeneratedCharArray(StringRef Key, bool Utf8) {
-  auto &Cache = Utf8 ? GenUTF8CharArrayCache : GenCharArrayCache;
-  VarDecl *&Result = Cache[Key];
-  if (!Result) {
-    std::string Name;
-    {
-      llvm::raw_string_ostream NameOut(Name);
-      NameOut << "__gen_char_array_" << Cache.size();
-    }
-
-    QualType CharGenTy = Utf8 ? Char8Ty : CharTy;
-    QualType LitTy = getStringLiteralArrayType(CharGenTy, Key.size());
-
-    Result = VarDecl::Create(*this, TUDecl, SourceLocation(), SourceLocation(),
-                             &Idents.get(Name), LitTy, nullptr, SC_Static);
-  }
-  return Result;
-}
-
-bool ASTContext::checkClassMemberSpecHash(QualType QT, unsigned &Out) {
-  if (ClsMemberSpecHashes.contains(QT)) {
-    Out = ClsMemberSpecHashes[QT];
-    return true;
-  }
-  return false;
-}
-
-void ASTContext::recordClassMemberSpecHash(QualType QT, unsigned Hash) {
-  assert(QT->isRecordType());
-
-  ClsMemberSpecHashes[QT] = Hash;
-}
-
-bool ASTContext::checkCachedSubstitution(unsigned Hash, APValue *Out) {
-  if (SubstitutionHashes.contains(Hash)) {
-    *Out = SubstitutionHashes[Hash];
-    return true;
-  }
-  return false;
-}
-
-void ASTContext::recordCachedSubstitution(unsigned Hash,
-                                          const APValue &Result) {
-  assert(Result.isReflection());
-
-  SubstitutionHashes[Hash] = Result;
-}
-
 MSGuidDecl *
 ASTContext::getMSGuidDecl(MSGuidDecl::Parts Parts) const {
   assert(MSGuidTagDecl && "building MS GUID without MS extensions?");
@@ -14212,7 +14047,6 @@ static QualType getCommonNonSugarTypeNode(const ASTContext &Ctx, const Type *X,
     SUGAR_FREE_TYPE(UnresolvedUsing)
     SUGAR_FREE_TYPE(HLSLAttributedResource)
     SUGAR_FREE_TYPE(HLSLInlineSpirv)
-    SUGAR_FREE_TYPE(ReflectionSplice)
 #undef SUGAR_FREE_TYPE
 #define NON_UNIQUE_TYPE(Class) UNEXPECTED_TYPE(Class, "non-unique")
     NON_UNIQUE_TYPE(TypeOfExpr)
@@ -14695,9 +14529,6 @@ static QualType getCommonSugarTypeNode(const ASTContext &Ctx, const Type *X,
       Kind = TypeOfKind::Unqualified;
     return Ctx.getTypeOfType(Ctx.getQualifiedType(Underlying), Kind);
   }
-  case Type::ReflectionSplice:
-    // TODO(CXX26): Revisit this.
-    return QualType();
   case Type::TypeOfExpr:
     return QualType();
 

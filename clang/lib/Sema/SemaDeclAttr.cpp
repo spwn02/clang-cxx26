@@ -2290,66 +2290,6 @@ static void handleAttrWithMessage(Sema &S, Decl *D, const ParsedAttr &AL) {
   D->addAttr(::new (S.Context) AttrTy(S.Context, AL, Str));
 }
 
-/// Handle an annotation (C++2c).
-static void handleCXX2CAnnotation(Sema &S, Decl *D, const ParsedAttr &AL) {
-  Expr *CE = AL.getArgAsExpr(0);
-  if (CE->isLValue()) {
-    if (CE->getType()->isRecordType()) {
-      InitializedEntity Entity =
-          InitializedEntity::InitializeTemporary(
-              CE->getType().getUnqualifiedType());
-      InitializationKind Kind =
-          InitializationKind::CreateCopy(CE->getExprLoc(), SourceLocation());
-      InitializationSequence Seq(S, Entity, Kind, CE);
-
-      ExprResult CopyResult = Seq.Perform(S, Entity, Kind, CE);
-      if (CopyResult.isInvalid())
-        return;
-
-      CE = CopyResult.get();
-    } else {
-      ExprResult RVExprResult = S.DefaultLvalueConversion(AL.getArgAsExpr(0));
-      if (RVExprResult.isInvalid() || !RVExprResult.get())
-        return;
-
-      CE = RVExprResult.get();
-    }
-  }
-
-  Expr::EvalResult Result;
-
-  SmallVector<PartialDiagnosticAt, 4> Notes;
-  Result.Diag = &Notes;
-
-  if (!CE->isValueDependent()) {
-    ConstantExprKind CEKind = (CE->getType()->isClassType() ?
-                               ConstantExprKind::ClassTemplateArgument :
-                               ConstantExprKind::NonClassTemplateArgument);
-
-    if (!CE->EvaluateAsConstantExpr(Result, S.Context, CEKind)) {
-      S.Diag(CE->getBeginLoc(), diag::err_attribute_argument_type)
-          << "C++26 annotation" << 4 << CE->getSourceRange();
-      for (auto P : Notes)
-        S.Diag(P.first, P.second);
-
-      return;
-    } else if (!CE->getType()->isStructuralType()) {
-      S.Diag(CE->getBeginLoc(), diag::err_attribute_argument_type)
-          << "C++26 annotation" << 5 << CE->getSourceRange();
-      return;
-    }
-  }
-  auto *Annot = CXX26AnnotationAttr::Create(S.Context, CE, AL);
-  Annot->setValue(Result.Val);
-  Annot->setEqLoc(AL.getLoc());
-  D->addAttr(Annot);
-}
-
-static void handleInstantiationDependentAttr(Sema &S, Decl *D,
-                                             const ParsedAttr &AL) {
-  D->addAttr(::new (S.Context) InstantiationDependentAttr(S.Context, AL));
-}
-
 static bool checkAvailabilityAttr(Sema &S, SourceRange Range,
                                   const IdentifierInfo *Platform,
                                   VersionTuple Introduced,
@@ -3081,11 +3021,7 @@ static void handleWarnUnusedResult(Sema &S, Decl *D, const ParsedAttr &AL) {
     // If this is spelled [[clang::warn_unused_result]] we look for an optional
     // string literal. This is not gated behind any specific version of the
     // standard.
-<<<<<<< HEAD
-    if (AL.isClangScope() || AL.isGNUScope()) {
-=======
     if (AL.isClangScope()) {
->>>>>>> refs/tags/llvmorg-22.1.8
       if (AL.getNumArgs() == 1 &&
           !S.checkStringLiteralArgumentAttr(AL, 0, Str, nullptr))
         return;
@@ -3100,13 +3036,8 @@ static void handleWarnUnusedResult(Sema &S, Decl *D, const ParsedAttr &AL) {
       // If this is spelled as the standard C++17 attribute, but not in C++17,
       // warn about using it as an extension. If there are attribute arguments,
       // then claim it's a C++20 extension instead. C23 supports this attribute
-<<<<<<< HEAD
-     // with the message; no extension warning is needed there beyond the one
-     // already issued for accepting attributes in older modes.
-=======
       // with the message; no extension warning is needed there beyond the one
       // already issued for accepting attributes in older modes.
->>>>>>> refs/tags/llvmorg-22.1.8
       const LangOptions &LO = S.getLangOpts();
       if (AL.getNumArgs() == 1) {
         if (LO.CPlusPlus && !LO.CPlusPlus20)
@@ -8091,14 +8022,6 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
     handleVTablePointerAuthentication(S, D, AL);
     break;
 
-<<<<<<< HEAD
-  case ParsedAttr::AnnotationAttribute:
-    handleCXX2CAnnotation(S, D, AL);
-    break;
-
-  case ParsedAttr::AT_InstantiationDependent:
-    handleInstantiationDependentAttr(S, D, AL);
-=======
   case ParsedAttr::AT_ModularFormat:
     handleModularFormat(S, D, AL);
     break;
@@ -8109,7 +8032,6 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
 
   case ParsedAttr::AT_GCCStruct:
     handleGCCStructAttr(S, D, AL);
->>>>>>> refs/tags/llvmorg-22.1.8
     break;
   }
 }
@@ -8540,6 +8462,7 @@ static void handleDelayedForbiddenType(Sema &S, DelayedDiagnostic &DD,
       << DD.getForbiddenTypeOperand() << DD.getForbiddenTypeArgument();
   DD.Triggered = true;
 }
+
 
 void Sema::PopParsingDeclaration(ParsingDeclState state, Decl *decl) {
   assert(DelayedDiagnostics.getCurrentPool());

@@ -1,7 +1,5 @@
 //===------ SemaDeclCXX.cpp - Semantic Analysis for C++ Declarations ------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -2017,14 +2015,12 @@ static bool CheckConstexprDeclStmt(Sema &SemaRef, const FunctionDecl *Dcl,
   for (const auto *DclIt : DS->decls()) {
     switch (DclIt->getKind()) {
     case Decl::StaticAssert:
-    case Decl::ConstevalBlock:
     case Decl::Using:
     case Decl::UsingShadow:
     case Decl::UsingDirective:
     case Decl::UnresolvedUsingTypename:
     case Decl::UnresolvedUsingValue:
     case Decl::UsingEnum:
-    case Decl::ExpansionStmt:
       //   - static_assert-declarations
       //   - using-declarations,
       //   - using-directives,
@@ -2346,30 +2342,6 @@ CheckConstexprFunctionStmt(Sema &SemaRef, const FunctionDecl *Dcl, Stmt *S,
       return false;
     return true;
 
-  case Stmt::CXXIndeterminateExpansionStmtClass:
-  case Stmt::CXXIterableExpansionStmtClass:
-  case Stmt::CXXDestructurableExpansionStmtClass:
-  case Stmt::CXXInitListExpansionStmtClass: {
-    CXXExpansionStmt *CS = cast<CXXExpansionStmt>(S);
-    if (!CS) return true;
-
-    if (Stmt *Init = CS->getInit())
-      if (!CheckConstexprFunctionStmt(SemaRef, Dcl, Init, ReturnStmts, Cxx1yLoc,
-                                      Cxx2aLoc, Cxx2bLoc, Kind))
-        return false;
-
-    if (!CS->hasDependentSize()) {
-      for (size_t Idx = 0; Idx < CS->getNumInstantiations(); ++Idx) {
-        Stmt *Expansion = CS->getInstantiation(Idx);
-        if (!Expansion) break;  // statements not instantiated yet.
-        if (!CheckConstexprFunctionStmt(SemaRef, Dcl, Expansion, ReturnStmts,
-                                        Cxx1yLoc, Cxx2aLoc, Cxx2bLoc, Kind))
-          return false;
-      }
-    }
-    return true;
-  }
-
   default:
     if (!isa<Expr>(S))
       break;
@@ -2611,8 +2583,8 @@ bool Sema::CheckImmediateEscalatingFunctionDefinition(
   if (!getLangOpts().CPlusPlus20 || !FD->isImmediateEscalating())
     return true;
   FD->setBodyContainsImmediateEscalatingExpressions(
-      FSI->FoundImmediateEscalatingConstruct);
-  if (FSI->FoundImmediateEscalatingConstruct) {
+      FSI->FoundImmediateEscalatingExpression);
+  if (FSI->FoundImmediateEscalatingExpression) {
     auto it = UndefinedButUsed.find(FD->getCanonicalDecl());
     if (it != UndefinedButUsed.end()) {
       Diag(it->second, diag::err_immediate_function_used_before_definition)
@@ -2881,8 +2853,9 @@ CXXBaseSpecifier *Sema::CheckBaseSpecifier(CXXRecordDecl *Class,
     Access = AS_public;
 
   // Create the base specifier.
-  return new (Context) CXXBaseSpecifier(SpecifierRange, Virtual, Access,
-                                        TInfo, Class, EllipsisLoc);
+  return new (Context) CXXBaseSpecifier(
+      SpecifierRange, Virtual, Class->getTagKind() == TagTypeKind::Class,
+      Access, TInfo, EllipsisLoc);
 }
 
 BaseResult Sema::ActOnBaseSpecifier(Decl *classdecl, SourceRange SpecifierRange,
@@ -12235,20 +12208,6 @@ NamespaceDecl *Sema::getOrCreateStdNamespace() {
   return getStdNamespace();
 }
 
-/// Retrieve the special "std::meta" namespace, if it's been defined.
-NamespaceDecl *Sema::lookupStdMetaNamespace() {
-  if (!StdMetaNamespace) {
-    if (NamespaceDecl *Std = getStdNamespace()) {
-      LookupResult Result(*this, &PP.getIdentifierTable().get("meta"),
-                          SourceLocation(), LookupNamespaceName);
-      if (!LookupQualifiedName(Result, Std) ||
-          !(StdMetaNamespace = Result.getAsSingle<NamespaceDecl>()))
-      Result.suppressDiagnostics();
-    }
-  }
-  return StdMetaNamespace;
-}
-
 static bool isStdClassTemplate(Sema &S, QualType SugaredType, QualType *TypeArg,
                                const char *ClassName,
                                ClassTemplateDecl **CachedDecl,
@@ -12538,28 +12497,6 @@ static bool TryNamespaceTypoCorrection(Sema &S, LookupResult &R, Scope *Sc,
   return false;
 }
 
-Decl *Sema::ActOnNamespaceName(Scope *S, CXXScopeSpec &SS, IdentifierInfo *Id,
-                               SourceLocation IdLoc) {
-  // Look up namespace name.
-  LookupResult R(*this, Id, IdLoc, LookupNamespaceName);
-  LookupParsedName(R, S, &SS, /*ObjectType=*/QualType());
-  if (R.isAmbiguous())
-    return nullptr;
-
-  if (R.empty() && !isReflectionContext())
-    // Attempt a correction.
-    TryNamespaceTypoCorrection(*this, R, S, SS, IdLoc, Id);
-
-  if (R.empty())
-    return nullptr;
-
-  if (isReflectionContext())
-    if (auto *AD = R.getAsSingle<NamespaceAliasDecl>())
-      return AD;
-
-  return R.getAsSingle<NamespaceDecl>();
-}
-
 Decl *Sema::ActOnUsingDirective(Scope *S, SourceLocation UsingLoc,
                                 SourceLocation NamespcLoc, CXXScopeSpec &SS,
                                 SourceLocation IdentLoc,
@@ -12574,12 +12511,6 @@ Decl *Sema::ActOnUsingDirective(Scope *S, SourceLocation UsingLoc,
 
   UsingDirectiveDecl *UDir = nullptr;
   NestedNameSpecifier Qualifier = SS.getScopeRep();
-
-  if (Qualifier && Qualifier->isDependent()) {
-    Diag(SS.getBeginLoc(), diag::err_using_dependent_namespace)
-        << SourceRange(SS.getBeginLoc(), IdentLoc);
-    return nullptr;
-  }
 
   // Lookup namespace name.
   LookupResult R(*this, NamespcName, IdentLoc, LookupNamespaceName);
@@ -12611,57 +12542,26 @@ Decl *Sema::ActOnUsingDirective(Scope *S, SourceLocation UsingLoc,
     // The use of a nested name specifier may trigger deprecation warnings.
     DiagnoseUseOfDecl(Named, IdentLoc);
 
-    Decl *Result = ActOnUsingDirective(S, UsingLoc, NamespcLoc, SS, IdentLoc, Named,
-                                       NS, AttrList);
-    if (Result)
-      UDir = cast<UsingDirectiveDecl>(Result);
-  } else {
-    Diag(IdentLoc, diag::err_expected_namespace_name) << SS.getRange();
-  }
+    // C++ [namespace.udir]p1:
+    //   A using-directive specifies that the names in the nominated
+    //   namespace can be used in the scope in which the
+    //   using-directive appears after the using-directive. During
+    //   unqualified name lookup (3.4.1), the names appear as if they
+    //   were declared in the nearest enclosing namespace which
+    //   contains both the using-directive and the nominated
+    //   namespace. [Note: in this context, "contains" means "contains
+    //   directly or indirectly". ]
 
-  return UDir;
-}
+    // Find enclosing context containing both using-directive and
+    // nominated namespace.
+    DeclContext *CommonAncestor = NS;
+    while (CommonAncestor && !CommonAncestor->Encloses(CurContext))
+      CommonAncestor = CommonAncestor->getParent();
 
-Decl *Sema::ActOnUsingDirective(Scope *S, SourceLocation UsingLoc,
-                                SourceLocation NamespcLoc, CXXScopeSpec &SS,
-                                SourceLocation IdentLoc, NamedDecl *Named,
-                                NamespaceDecl *NS,
-                                const ParsedAttributesView &AttrList) {
-  assert(!SS.isInvalid() && "Invalid CXXScopeSpec.");
-  assert(IdentLoc.isValid() && "Invalid NamespceName location.");
+    UDir = UsingDirectiveDecl::Create(Context, CurContext, UsingLoc, NamespcLoc,
+                                      SS.getWithLocInContext(Context),
+                                      IdentLoc, Named, CommonAncestor);
 
-  // Check for dependent namespaces.
-  if (auto *DNSD = dyn_cast<DependentNamespaceDecl>(NS)) {
-    Diag(IdentLoc, diag::err_using_dependent_namespace)
-        << DNSD->getSplice()->getSourceRange();
-    return nullptr;
-  } else if (auto *A = dyn_cast<NamespaceAliasDecl>(NS); A && A->isDependent()) {
-    Diag(IdentLoc, diag::err_using_dependent_namespace) << IdentLoc;
-    return nullptr;
-  }
-
-  // C++ [namespace.udir]p1:
-  //   A using-directive specifies that the names in the nominated
-  //   namespace can be used in the scope in which the
-  //   using-directive appears after the using-directive. During
-  //   unqualified name lookup (3.4.1), the names appear as if they
-  //   were declared in the nearest enclosing namespace which
-  //   contains both the using-directive and the nominated
-  //   namespace. [Note: in this context, "contains" means "contains
-  //   directly or indirectly". ]
-
-  // Find enclosing context containing both using-directive and nominated
-  // namespace.
-  DeclContext *CommonAncestor = NS;
-  while (CommonAncestor && !CommonAncestor->Encloses(CurContext))
-    CommonAncestor = CommonAncestor->getParent();
-
-  UsingDirectiveDecl *UDir =
-       UsingDirectiveDecl::Create(Context, CurContext, UsingLoc, NamespcLoc,
-                                  SS.getWithLocInContext(Context),
-                                  IdentLoc, Named, CommonAncestor);
-
-  if (UDir) {
     if (IsUsingDirectiveInToplevelContext(CurContext) &&
         !SourceMgr.isInMainFile(SourceMgr.getExpansionLoc(IdentLoc))) {
       Diag(IdentLoc, diag::warn_using_directive_in_header);
@@ -12800,21 +12700,7 @@ Decl *Sema::ActOnUsingEnumDeclaration(Scope *S, AccessSpecifier AS,
     return nullptr;
   }
 
-<<<<<<< HEAD
-  return ActOnUsingEnumDeclaration(S, AS, UsingLoc, EnumLoc, IdentLoc, EnumTy,
-                                   TSI);
-}
-
-Decl *Sema::ActOnUsingEnumDeclaration(Scope *S, AccessSpecifier AS,
-                                      SourceLocation UsingLoc,
-                                      SourceLocation EnumLoc,
-                                      SourceLocation IdentLoc,
-                                      QualType EnumTy,
-                                      TypeSourceInfo *TSI) {
-  auto *Enum = dyn_cast_if_present<EnumDecl>(EnumTy->getAsTagDecl());
-=======
   auto *Enum = EnumTy->getAsEnumDecl();
->>>>>>> refs/tags/llvmorg-22.1.8
   if (!Enum) {
     Diag(IdentLoc, diag::err_using_enum_not_enum) << EnumTy;
     return nullptr;
@@ -13678,14 +13564,6 @@ bool Sema::CheckUsingDeclQualifier(SourceLocation UsingLoc, bool HasTypename,
   }
 
   if (!CurContext->isRecord()) {
-    // splice-scope-specifier trips the later check
-    // We lift it up here
-    NestedNameSpecifier *NNS = SS.isSet() ? SS.getScopeRep() : nullptr;
-    const bool isDependentSpliceScope =
-      !NamedContext && NNS && NNS->getAsSplice() && NNS->isDependent();
-    if (isDependentSpliceScope) {
-      return false;
-    }
     // C++03 [namespace.udecl]p3:
     // C++0x [namespace.udecl]p8:
     //   A using-declaration for a class member shall be a member-declaration.
@@ -13997,51 +13875,23 @@ Decl *Sema::ActOnNamespaceAliasDef(Scope *S, SourceLocation NamespaceLoc,
                                    IdentifierInfo *Alias, CXXScopeSpec &SS,
                                    SourceLocation IdentLoc,
                                    IdentifierInfo *Ident) {
-  NamedDecl *ND;
 
-  // Scope may be dependent if it has a splice as a leading component of its
-  // qualifiers, and that splice is dependent on a template parameter.
-  if (NestedNameSpecifier *NNS = SS.getScopeRep(); NNS && NNS->isDependent()) {
-    ND = NamespaceDecl::Create(Context, CurContext, false, IdentLoc, IdentLoc,
-                               Ident, nullptr, true);
-  } else {
-    // Lookup the namespace name.
-    LookupResult R(*this, Ident, IdentLoc, LookupNamespaceName);
+  // Lookup the namespace name.
+  LookupResult R(*this, Ident, IdentLoc, LookupNamespaceName);
+  LookupParsedName(R, S, &SS, /*ObjectType=*/QualType());
 
-    if (S) {
-      LookupParsedName(R, S, &SS, /*ObjectType=*/QualType());
-    } else {
-      DeclContext *LookupCtx = computeDeclContext(SS, false);
-      LookupQualifiedName(R, LookupCtx);
+  if (R.isAmbiguous())
+    return nullptr;
+
+  if (R.empty()) {
+    if (!TryNamespaceTypoCorrection(*this, R, S, SS, IdentLoc, Ident)) {
+      Diag(IdentLoc, diag::err_expected_namespace_name) << SS.getRange();
+      return nullptr;
     }
-<<<<<<< HEAD
-=======
   }
   assert(!R.isAmbiguous() && !R.empty());
   auto *ND = cast<NamespaceBaseDecl>(R.getRepresentativeDecl());
->>>>>>> refs/tags/llvmorg-22.1.8
 
-    if (R.isAmbiguous())
-      return nullptr;
-
-    if (R.empty()) {
-      if (!TryNamespaceTypoCorrection(*this, R, S, SS, IdentLoc, Ident)) {
-        Diag(IdentLoc, diag::err_expected_namespace_name) << SS.getRange();
-        return nullptr;
-      }
-    }
-    assert(!R.isAmbiguous() && !R.empty());
-    ND = R.getRepresentativeDecl();
-  }
-  return ActOnNamespaceAliasDef(S, NamespaceLoc, AliasLoc, Alias, SS, IdentLoc,
-                                ND);
-}
-
-Decl *Sema::ActOnNamespaceAliasDef(Scope *S, SourceLocation NamespaceLoc,
-                                   SourceLocation AliasLoc,
-                                   IdentifierInfo *Alias, CXXScopeSpec &SS,
-                                   SourceLocation IdentLoc,
-                                   NamedDecl *ND) {
   // Check if we have a previous declaration with the same name.
   LookupResult PrevR(*this, Alias, AliasLoc, LookupOrdinaryName,
                      RedeclarationKind::ForVisibleRedeclaration);
@@ -14093,14 +13943,9 @@ Decl *Sema::ActOnNamespaceAliasDef(Scope *S, SourceLocation NamespaceLoc,
   if (Prev)
     AliasDecl->setPreviousDecl(Prev);
 
-  if (S)
-    PushOnScopeChains(AliasDecl, S);
-  else
-    CurContext->addDecl(AliasDecl);
-
+  PushOnScopeChains(AliasDecl, S);
   return AliasDecl;
 }
-
 
 namespace {
 struct SpecialMemberExceptionSpecInfo
@@ -14144,17 +13989,13 @@ bool SpecialMemberExceptionSpecInfo::visitField(FieldDecl *FD) {
   if (CSM == CXXSpecialMemberKind::DefaultConstructor &&
       FD->hasInClassInitializer()) {
     Expr *E = FD->getInClassInitializer();
-    if (!E) {
-      EnterExpressionEvaluationContext Context(
-          S, Sema::ExpressionEvaluationContext::ImmediateFunctionContext);
-
+    if (!E)
       // FIXME: It's a little wasteful to build and throw away a
       // CXXDefaultInitExpr here.
       // FIXME: We should have a single context note pointing at Loc, and
       // this location should be MD->getLocation() instead, since that's
       // the location where we actually use the default init expression.
       E = S.BuildCXXDefaultInitExpr(Loc, FD).get();
-    }
     if (E)
       ExceptSpec.CalledExpr(E);
   } else if (auto *RD = S.Context.getBaseElementType(FD->getType())
@@ -18045,8 +17886,7 @@ Decl *Sema::BuildStaticAssertDeclaration(SourceLocation StaticAssertLoc,
     // [dcl.pre]/p10  If [...] the expression is evaluated in the context of a
     // template definition, the declaration has no effect.
     bool InTemplateDefinition =
-        getLangOpts().CPlusPlus && (CurContext->isDependentContext() ||
-                                    CurScope->getTemplateParamParent());
+        getLangOpts().CPlusPlus && CurContext->isDependentContext();
 
     if (!Failed && !Cond && !InTemplateDefinition) {
       SmallString<256> MsgBuffer;
@@ -19098,23 +18938,9 @@ void Sema::ActOnCXXEnterDeclInitializer(Scope *S, Decl *D) {
   if (S && D->isOutOfLine())
     EnterDeclaratorContext(S, D->getDeclContext());
 
-<<<<<<< HEAD
-  auto Ctx = ExpressionEvaluationContext::PotentiallyEvaluated;
-  if (getLangOpts().CPlusPlus23) {
-    if (auto *VD = dyn_cast<VarDecl>(D)) {
-      if (VD->isConstexpr())
-        Ctx = ExpressionEvaluationContext::ImmediateFunctionContext;
-      else if (auto *CIA = VD->getAttr<ConstInitAttr>();
-               CIA && CIA->isConstinit())
-        Ctx = ExpressionEvaluationContext::ImmediateFunctionContext;
-    }
-  }
-  PushExpressionEvaluationContext(Ctx, D);
-=======
   PushExpressionEvaluationContext(
       ExpressionEvaluationContext::PotentiallyEvaluated, D,
       ExpressionEvaluationContextRecord::EK_VariableInit);
->>>>>>> refs/tags/llvmorg-22.1.8
 }
 
 void Sema::ActOnCXXExitDeclInitializer(Scope *S, Decl *D) {

@@ -102,12 +102,6 @@
 //
 //  int     __snprintf(char*, size_t, __locale_t, const char*, ...); // required by the headers
 //  int     __asprintf(char**, __locale_t, const char*, ...);        // required by the headers
-<<<<<<< HEAD
-//  int     __sscanf(const char*, __locale_t, const char*, ...);     // required by the headers
-//
-//  const char* __get_locale_encoding(__locale_t);
-=======
->>>>>>> refs/tags/llvmorg-22.1.8
 // }
 
 #if _LIBCPP_HAS_LOCALIZATION

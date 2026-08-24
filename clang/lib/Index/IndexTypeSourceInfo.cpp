@@ -249,21 +249,11 @@ void IndexingContext::indexNestedNameSpecifierLoc(
     const DeclContext *DC) {
   if (!DC)
     DC = Parent->getLexicalDeclContext();
-<<<<<<< HEAD
-  SourceLocation Loc = NNS.getLocalBeginLoc();
-
-  switch (NNS.getNestedNameSpecifier()->getKind()) {
-  case NestedNameSpecifier::Identifier:
-  case NestedNameSpecifier::Global:
-  case NestedNameSpecifier::Super:
-  case NestedNameSpecifier::Splice:
-=======
   switch (NestedNameSpecifier Qualifier = QualifierLoc.getNestedNameSpecifier();
           Qualifier.getKind()) {
   case NestedNameSpecifier::Kind::Null:
   case NestedNameSpecifier::Kind::Global:
   case NestedNameSpecifier::Kind::MicrosoftSuper:
->>>>>>> refs/tags/llvmorg-22.1.8
     break;
 
   case NestedNameSpecifier::Kind::Namespace: {

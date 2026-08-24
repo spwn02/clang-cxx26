@@ -1,7 +1,5 @@
 //===- ASTImporter.cpp - Importing ASTs from other Contexts ---------------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -81,7 +79,6 @@ namespace clang {
   using ExpectedStmt = llvm::Expected<Stmt *>;
   using ExpectedExpr = llvm::Expected<Expr *>;
   using ExpectedDecl = llvm::Expected<Decl *>;
-  using ExpectedSplice = llvm::Expected<SpliceSpecifier *>;
   using ExpectedSLoc = llvm::Expected<SourceLocation>;
   using ExpectedName = llvm::Expected<DeclarationName>;
 
@@ -519,8 +516,6 @@ namespace clang {
     ExpectedDecl VisitEmptyDecl(EmptyDecl *D);
     ExpectedDecl VisitAccessSpecDecl(AccessSpecDecl *D);
     ExpectedDecl VisitStaticAssertDecl(StaticAssertDecl *D);
-    ExpectedDecl VisitConstevalBlockDecl(ConstevalBlockDecl *D);
-    ExpectedDecl VisitExpansionStmtDecl(ExpansionStmtDecl *D);
     ExpectedDecl VisitTranslationUnitDecl(TranslationUnitDecl *D);
     ExpectedDecl VisitBindingDecl(BindingDecl *D);
     ExpectedDecl VisitNamespaceDecl(NamespaceDecl *D);
@@ -1719,20 +1714,6 @@ ExpectedType ASTNodeImporter::VisitDecltypeType(const DecltypeType *T) {
 }
 
 ExpectedType
-ASTNodeImporter::VisitReflectionSpliceType(const ReflectionSpliceType *T) {
-  ExpectedSplice ToSpliceOrErr = import(T->getSplice());
-  if (!ToSpliceOrErr)
-    return ToSpliceOrErr.takeError();
-
-  ExpectedType ToUnderlyingTypeOrErr = import(T->getUnderlyingType());
-  if (!ToUnderlyingTypeOrErr)
-    return ToUnderlyingTypeOrErr.takeError();
-
-  return Importer.getToContext().getReflectionSpliceType(
-      T->getTypenameKWLoc(), *ToSpliceOrErr, *ToUnderlyingTypeOrErr);
-}
-
-ExpectedType
 ASTNodeImporter::VisitUnaryTransformType(const UnaryTransformType *T) {
   ExpectedType ToBaseTypeOrErr = import(T->getBaseType());
   if (!ToBaseTypeOrErr)
@@ -2617,9 +2598,9 @@ Error ASTNodeImporter::ImportDefinition(
           new (Importer.getToContext()) CXXBaseSpecifier(
               *RangeOrErr,
               Base1.isVirtual(),
+              Base1.isBaseOfClass(),
               Base1.getAccessSpecifierAsWritten(),
               *TSIOrErr,
-              Base1.getDerived(),
               EllipsisLoc));
     }
     if (!Bases.empty())
@@ -2863,53 +2844,6 @@ ExpectedDecl ASTNodeImporter::VisitStaticAssertDecl(StaticAssertDecl *D) {
   if (GetImportedOrCreateDecl(
       ToD, D, Importer.getToContext(), DC, ToLocation, ToAssertExpr, ToMessage,
       ToRParenLoc, D->isFailed()))
-    return ToD;
-
-  ToD->setLexicalDeclContext(LexicalDC);
-  LexicalDC->addDeclInternal(ToD);
-  return ToD;
-}
-
-ExpectedDecl ASTNodeImporter::VisitConstevalBlockDecl(ConstevalBlockDecl *D) {
-  auto DCOrErr = Importer.ImportContext(D->getDeclContext());
-  if (!DCOrErr)
-    return DCOrErr.takeError();
-  DeclContext *DC = *DCOrErr;
-  DeclContext *LexicalDC = DC;
-
-  Error Err = Error::success();
-  auto ToLocation = importChecked(Err, D->getLocation());
-  auto ToEvaluatingExpr = importChecked(Err, D->getEvaluatingExpr());
-  if (Err)
-    return std::move(Err);
-
-  ConstevalBlockDecl *ToD;
-  if (GetImportedOrCreateDecl(ToD, D, Importer.getToContext(), DC, ToLocation,
-                              ToEvaluatingExpr))
-    return ToD;
-
-  ToD->setLexicalDeclContext(LexicalDC);
-  LexicalDC->addDeclInternal(ToD);
-  return ToD;
-}
-
-ExpectedDecl ASTNodeImporter::VisitExpansionStmtDecl(ExpansionStmtDecl *D) {
-  auto DCOrErr = Importer.ImportContext(D->getDeclContext());
-  if (!DCOrErr)
-    return DCOrErr.takeError();
-  DeclContext *DC = *DCOrErr;
-  DeclContext *LexicalDC = DC;
-
-  Error Err = Error::success();
-  auto ToLocation = importChecked(Err, D->getLocation());
-  auto ToExpansion = importChecked(Err, D->getStmt());
-  auto ToTemplateParameters = importChecked(Err, D->getTemplateParameters());
-  if (Err)
-    return std::move(Err);
-
-  ExpansionStmtDecl *ToD;
-  if (GetImportedOrCreateDecl(ToD, D, Importer.getToContext(), DC, ToLocation,
-                              ToExpansion, ToTemplateParameters))
     return ToD;
 
   ToD->setLexicalDeclContext(LexicalDC);
@@ -10008,11 +9942,6 @@ Expected<Decl *> ASTImporter::Import(Decl *FromD) {
   return ToDOrErr;
 }
 
-llvm::Expected<SpliceSpecifier *> ASTImporter::Import(SpliceSpecifier *FromSS) {
-  llvm_unreachable("unimplemented");
-}
-
-
 llvm::Expected<InheritedConstructor>
 ASTImporter::Import(const InheritedConstructor &From) {
   return ASTNodeImporter(*this).ImportInheritedConstructor(From);
@@ -10148,9 +10077,6 @@ Expected<NestedNameSpecifier> ASTImporter::Import(NestedNameSpecifier FromNNS) {
     } else {
       return TyOrErr.takeError();
     }
-
-  case NestedNameSpecifier::Splice:
-    llvm_unreachable("unimplemented");
   }
   llvm_unreachable("Invalid nested name specifier kind");
 }
@@ -10213,34 +10139,6 @@ ASTImporter::Import(NestedNameSpecifierLoc FromNNS) {
       if (!ToSourceRangeOrErr)
         return ToSourceRangeOrErr.takeError();
 
-<<<<<<< HEAD
-      Builder.MakeSuper(getToContext(), Spec->getAsRecordDecl(),
-                        ToSourceRangeOrErr->getBegin(),
-                        ToSourceRangeOrErr->getEnd());
-      break;
-    }
-
-    case NestedNameSpecifier::Splice: {
-      auto ToSourceRangeOrErr = Import(NNS.getSourceRange());
-      if (!ToSourceRangeOrErr)
-        return ToSourceRangeOrErr.takeError();
-
-      Builder.MakeSpliceScopeSpecifier(getToContext(), SourceLocation(),
-                                       Spec->getAsSplice(),
-                                       ToSourceRangeOrErr->getEnd());
-      break;
-    }
-
-    case NestedNameSpecifier::SpliceWithTemplate: {
-      auto ToSourceRangeOrErr = Import(NNS.getSourceRange());
-      if (!ToSourceRangeOrErr)
-        return ToSourceRangeOrErr.takeError();
-      Builder.MakeSpliceScopeSpecifier(getToContext(),
-                                       ToSourceRangeOrErr->getBegin(),
-                                       Spec->getAsSplice(),
-                                       ToSourceRangeOrErr->getEnd());
-      break;
-=======
       Builder.MakeMicrosoftSuper(getToContext(), Spec.getAsMicrosoftSuper(),
                                  ToSourceRangeOrErr->getBegin(),
                                  ToSourceRangeOrErr->getEnd());
@@ -10248,7 +10146,6 @@ ASTImporter::Import(NestedNameSpecifierLoc FromNNS) {
     }
     case NestedNameSpecifier::Kind::Null:
       llvm_unreachable("unexpected null nested name specifier");
->>>>>>> refs/tags/llvmorg-22.1.8
     }
   }
 
@@ -10543,9 +10440,8 @@ ASTImporter::Import(const CXXBaseSpecifier *BaseSpec) {
   if (!ToEllipsisLoc)
     return ToEllipsisLoc.takeError();
   CXXBaseSpecifier *Imported = new (ToContext) CXXBaseSpecifier(
-      *ToSourceRange, BaseSpec->isVirtual(),
-      BaseSpec->getAccessSpecifierAsWritten(), *ToTSI, BaseSpec->getDerived(),
-      *ToEllipsisLoc);
+      *ToSourceRange, BaseSpec->isVirtual(), BaseSpec->isBaseOfClass(),
+      BaseSpec->getAccessSpecifierAsWritten(), *ToTSI, *ToEllipsisLoc);
   ImportedCXXBaseSpecifiers[BaseSpec] = Imported;
   return Imported;
 }
@@ -10710,7 +10606,6 @@ ASTNodeImporter::ImportAPValue(const APValue &FromValue) {
   case APValue::FixedPoint:
   case APValue::ComplexInt:
   case APValue::ComplexFloat:
-  case APValue::Reflection:
     Result = FromValue;
     break;
   case APValue::Vector: {

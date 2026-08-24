@@ -88,7 +88,7 @@ Milestone 3 is active. On `Continue`:
 ## Milestones
 
 - [x] **1. Capture clean baseline builds and expected failures.** Gate passed 2026-08-24: both build trees succeeded; focused results and all failures are recorded below.
-- [x] **2. Fetch exact LLVM tag and merge on integration branch.** Gate passed 2026-08-25 in `cefe063754c59`: exact signed tag merged on `integration/llvm-22.1.8`; every conflict and resolution category is recorded.
+- [x] **2. Fetch exact LLVM tag and merge on integration branch.** Gate passed 2026-08-25 in merge `ea04e484b0b8` and its direct upstream-resolution correction: exact signed tag merged on `integration/llvm-22.1.8`; every conflict and resolution category is recorded.
 - [~] **3. Restore base LLVM/Clang build.** Resolve API/build-system drift unrelated to reflection first. Gate: `ninja -C build-nyx clang` succeeds, followed by the full main-tree build required by later milestones.
 - [ ] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures.
 - [ ] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries, including the known non-serializable `CXXMetafunctionExpr` callback limitation. Gate: focused evaluator, module, PCH, and reflection tests pass; any intentionally deferred limitation is documented with a reproducer.
@@ -210,3 +210,9 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
 - Committed the resolved no-fast-forward merge as `cefe063754c59` with parents
   `6dd950bcd4ac` (`cxx26`) and `ca7933e47d3a` (`llvmorg-22.1.8`). Milestone 2
   gate passed; Milestone 3 is now active.
+- The first Milestone 3 build exposed conflict markers that had remained in
+  staged Clang files after a failed bulk checkout. All 85 non-deleted conflict
+  paths were restored directly from merge parent 2 (`llvmorg-22.1.8`), no
+  markers remain, and the correction is committed immediately after this
+  tracker update. The upstream deletion of
+  `libcxx/test/libcxx/clang_modules_include.gen.py` remains intact.

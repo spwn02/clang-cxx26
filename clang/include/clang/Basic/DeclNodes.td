@@ -15,14 +15,9 @@ def PragmaComment : DeclNode<Decl>;
 def PragmaDetectMismatch : DeclNode<Decl>;
 def ExternCContext : DeclNode<Decl>, DeclContext;
 def Named : DeclNode<Decl, "named declarations", 1>;
-<<<<<<< HEAD
-  def Namespace : DeclNode<Named, "namespaces">, DeclContext;
-    def DependentNamespace : DeclNode<Namespace>;
-=======
   def NamespaceBase : DeclNode<Named, "namespace declarations", 1>;
     def Namespace : DeclNode<NamespaceBase, "namespaces">, DeclContext;
     def NamespaceAlias : DeclNode<NamespaceBase>;
->>>>>>> refs/tags/llvmorg-22.1.8
   def UsingDirective : DeclNode<Named>;
   def Label : DeclNode<Named, "labels">;
   def Type : DeclNode<Named, "types", 1>;
@@ -106,8 +101,6 @@ def AccessSpec : DeclNode<Decl>;
 def Friend : DeclNode<Decl>;
 def FriendTemplate : DeclNode<Decl>;
 def StaticAssert : DeclNode<Decl>;
-def ConstevalBlock : DeclNode<Decl>;
-def ExpansionStmt : DeclNode<Decl>, DeclContext;
 def Block : DeclNode<Decl, "blocks">, DeclContext;
 def OutlinedFunction : DeclNode<Decl>, DeclContext;
 def Captured : DeclNode<Decl>, DeclContext;

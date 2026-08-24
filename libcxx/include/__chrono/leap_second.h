@@ -17,16 +17,12 @@
 #if _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 #  include <__chrono/duration.h>
-#  include <__chrono/hash.h>
 #  include <__chrono/system_clock.h>
 #  include <__chrono/time_point.h>
 #  include <__compare/ordering.h>
 #  include <__compare/three_way_comparable.h>
 #  include <__config>
-<<<<<<< HEAD
-=======
 #  include <__cstddef/size_t.h>
->>>>>>> refs/tags/llvmorg-22.1.8
 #  include <__functional/hash.h>
 #  include <__utility/private_constructor_tag.h>
 
@@ -128,16 +124,6 @@ private:
 
 } // namespace chrono
 
-<<<<<<< HEAD
-// [time.hash]
-#    if _LIBCPP_STD_VER >= 26
-template <>
-struct hash<chrono::leap_second> {
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(const chrono::leap_second& __ls) const noexcept {
-    return hash<chrono::sys_seconds>()(__ls.date());
-  }
-};
-=======
 #    if _LIBCPP_STD_VER >= 26
 
 template <>
@@ -147,7 +133,6 @@ struct hash<chrono::leap_second> {
   }
 };
 
->>>>>>> refs/tags/llvmorg-22.1.8
 #    endif // _LIBCPP_STD_VER >= 26
 
 #  endif // _LIBCPP_STD_VER >= 20

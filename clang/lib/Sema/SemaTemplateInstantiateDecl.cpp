@@ -814,14 +814,8 @@ void Sema::InstantiateAttrsForDecl(
     // FIXME: This function is called multiple times for the same template
     // specialization. We should only instantiate attributes that were added
     // since the previous instantiation.
-    bool AddAnnotations = New->attrs().empty();
     for (const auto *TmplAttr : Tmpl->attrs()) {
       if (!isRelevantAttr(*this, New, TmplAttr))
-        continue;
-
-      if (isa<CXX26AnnotationAttr>(TmplAttr) && !AddAnnotations)
-        // See https://github.com/llvm/llvm-project/issues/138596
-        // Just skip here to avoid duplication of the attribute.
         continue;
 
       // FIXME: If any of the special case versions from InstantiateAttrs become
@@ -861,7 +855,6 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                             const Decl *Tmpl, Decl *New,
                             LateInstantiatedAttrVec *LateAttrs,
                             LocalInstantiationScope *OuterMostScope) {
-  bool AddAnnotations = New->attrs().empty();
   for (const auto *TmplAttr : Tmpl->attrs()) {
     if (!isRelevantAttr(*this, New, TmplAttr))
       continue;
@@ -979,11 +972,6 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                                                  RoutineAttr, Tmpl, New);
       continue;
     }
-
-    if (isa<CXX26AnnotationAttr>(TmplAttr) && !AddAnnotations)
-      // See https://github.com/llvm/llvm-project/issues/138596
-      // Just skip here to avoid duplication of the attribute.
-      continue;
 
     // Existing DLL attribute on the instantiation takes precedence.
     if (TmplAttr->getKind() == attr::DLLExport ||
@@ -1526,55 +1514,7 @@ Decl *TemplateDeclInstantiator::VisitOpenACCRoutineDecl(OpenACCRoutineDecl *D) {
 }
 
 Decl *
-TemplateDeclInstantiator::VisitDependentNamespaceDecl(
-      DependentNamespaceDecl *D) {
-  SpliceResult SR = SemaRef.SubstSpliceSpecifier(D->getSplice(), TemplateArgs);
-  if (SR.isInvalid())
-    return nullptr;
-
-  DeclResult DR = SemaRef.ActOnCXXSpliceExpectingNamespace(SR.get());
-  if (DR.isInvalid())
-    return nullptr;
-  return DR.get();
-}
-
-Decl *
 TemplateDeclInstantiator::VisitNamespaceAliasDecl(NamespaceAliasDecl *D) {
-  NamedDecl *NSDecl = D->getAliasedNamespace();
-
-  if (D->isDependent()) {
-    NestedNameSpecifierLoc QualifierLoc = D->getQualifierLoc();
-    if (NestedNameSpecifier *NNS = QualifierLoc.getNestedNameSpecifier();
-        NNS && NNS->isDependent()) {
-      QualifierLoc = SemaRef.SubstNestedNameSpecifierLoc(QualifierLoc,
-                                                         TemplateArgs);
-
-      CXXScopeSpec SS;
-      SS.Adopt(QualifierLoc);
-      return SemaRef.ActOnNamespaceAliasDef(/*Scope=*/nullptr,
-                                            D->getNamespaceLoc(),
-                                            D->getAliasLoc(),
-                                            D->getIdentifier(),
-                                            SS, D->getBeginLoc(),
-                                            D->getNamespace()->getIdentifier());
-    } else if (auto *DNSD = dyn_cast<DependentNamespaceDecl>(NSDecl)) {
-      assert(!D->getQualifierLoc());
-
-      Decl *Transformed = Visit(DNSD);
-      if (!Transformed)
-        return nullptr;
-      NSDecl = cast<NamedDecl>(Transformed);
-    } else if (auto *SubAlias = dyn_cast<NamespaceAliasDecl>(NSDecl)) {
-      assert(SubAlias->isDependent());
-      Decl *SubAliasResult = Visit(SubAlias);
-      if (!SubAliasResult)
-        return nullptr;
-      NSDecl = cast<NamedDecl>(SubAliasResult);
-    } else {
-      llvm_unreachable("unknown dependent namespace alias kind");
-    }
-  }
-
   NamespaceAliasDecl *Inst
     = NamespaceAliasDecl::Create(SemaRef.Context, Owner,
                                  D->getNamespaceLoc(),
@@ -1582,7 +1522,7 @@ TemplateDeclInstantiator::VisitNamespaceAliasDecl(NamespaceAliasDecl *D) {
                                  D->getIdentifier(),
                                  D->getQualifierLoc(),
                                  D->getTargetNameLoc(),
-                                 NSDecl);
+                                 D->getNamespace());
   Owner->addDecl(Inst);
   return Inst;
 }
@@ -2147,45 +2087,6 @@ Decl *TemplateDeclInstantiator::VisitStaticAssertDecl(StaticAssertDecl *D) {
   return SemaRef.BuildStaticAssertDeclaration(
       D->getLocation(), InstantiatedAssertExpr.get(),
       InstantiatedMessageExpr.get(), D->getRParenLoc(), D->isFailed());
-}
-
-Decl *TemplateDeclInstantiator::VisitConstevalBlockDecl(ConstevalBlockDecl *D) {
-  Expr *EvaluatingExpr = D->getEvaluatingExpr();
-
-  // The expression in a consteval block is a constant expression.
-  EnterExpressionEvaluationContext ConstantEvaluated(
-      SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-
-  ExprResult InstantiatedEvaluatingExpr = SemaRef.SubstExpr(EvaluatingExpr,
-                                                            TemplateArgs);
-  if (InstantiatedEvaluatingExpr.isInvalid())
-    return nullptr;
-
-  return SemaRef.BuildConstevalBlockDeclaration(
-       D->getLocation(), InstantiatedEvaluatingExpr.get());
-}
-
-Decl *TemplateDeclInstantiator::VisitExpansionStmtDecl(ExpansionStmtDecl *D) {
-  Decl *NTTP = VisitNonTypeTemplateParmDecl(D->getTemplateParm());
-
-  ExpansionStmtDecl *Result =
-      cast<ExpansionStmtDecl>(
-          SemaRef.BuildExpansionStmtDeclaration(
-              D->getBeginLoc(), cast<NonTypeTemplateParmDecl>(NTTP)));
-  CXXExpansionStmt *OldStmt = D->getStmt();
-  assert(Result && OldStmt);
-
-  // Enter the scope of this instantiation. We don't use
-  // PushDeclContext because we don't have a scope.
-  Sema::ContextRAII savedContext(SemaRef, Result, /*NewThis=*/false);
-  Sema::ExpansionStmtSynthesisRAII ExpansionGuard(SemaRef);
-
-  StmtResult SR = SemaRef.SubstStmt(OldStmt, TemplateArgs);
-  if (SR.isInvalid())
-    return nullptr;
-  Result->setStmt(cast<CXXExpansionStmt>(SR.get()));
-
-  return Result;
 }
 
 Decl *TemplateDeclInstantiator::VisitEnumDecl(EnumDecl *D) {
@@ -5882,19 +5783,8 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
   };
   Function->setDeclarationNameLoc(NameLocPointsToPattern());
 
-<<<<<<< HEAD
-  ExpressionEvaluationContext Ctx =
-      ExpressionEvaluationContext::PotentiallyEvaluated;
-  if (getLangOpts().CPlusPlus23 && Function->isConsteval())
-    Ctx = ExpressionEvaluationContext::ImmediateFunctionContext;
-  EnterExpressionEvaluationContext EvalContext(*this, Ctx);
-
-  currentEvaluationContext().InImmediateEscalatingFunctionContext =
-      Function->isImmediateEscalating();
-=======
   EnterExpressionEvaluationContextForFunction EvalContext(
       *this, Sema::ExpressionEvaluationContext::PotentiallyEvaluated, Function);
->>>>>>> refs/tags/llvmorg-22.1.8
 
   Qualifiers ThisTypeQuals;
   CXXRecordDecl *ThisContext = nullptr;
@@ -6337,23 +6227,6 @@ void Sema::InstantiateVariableInitializer(
   currentEvaluationContext().DeclForInitializer = Var;
 
   if (OldVar->getInit()) {
-    ExpressionEvaluationContext Ctx =
-        ExpressionEvaluationContext::PotentiallyEvaluated;
-    if (getLangOpts().CPlusPlus23) {
-      if (OldVar->isConstexpr())
-        Ctx = ExpressionEvaluationContext::ImmediateFunctionContext;
-      else if (const auto *A = OldVar->getAttr<ConstInitAttr>();
-               A && A->isConstinit())
-      Ctx = ExpressionEvaluationContext::ImmediateFunctionContext;
-    }
-
-    EnterExpressionEvaluationContext Evaluated(*this, Ctx, Var);
-
-    currentEvaluationContext().InLifetimeExtendingContext =
-        parentEvaluationContext().InLifetimeExtendingContext;
-    currentEvaluationContext().RebuildDefaultArgOrDefaultInit =
-        parentEvaluationContext().RebuildDefaultArgOrDefaultInit;
-
     // Instantiate the initializer.
     ExprResult Init =
         SubstInitializer(OldVar->getInit(), TemplateArgs,
@@ -7027,16 +6900,9 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
   //  - as long as we have a ParmVarDecl whose parent is non-dependent and
   //    whose type is not instantiation dependent, do nothing to the decl
   //  - otherwise find its instantiated decl.
-  if (isa<ParmVarDecl>(D) && !ParentDependsOnArgs) {
-    QualType Ty = cast<ParmVarDecl>(D)->getType();
-    if (!Ty->isInstantiationDependentType())
-      return D;
-    if (auto *RT = dyn_cast<ReferenceType>(Ty))
-      Ty = RT->getPointeeType();
-    if (auto *TTPT = dyn_cast<TemplateTypeParmType>(Ty);
-        TTPT && TTPT->getDepth() < TemplateArgs.getNumRetainedOuterLevels())
-      return D;
-  }
+  if (isa<ParmVarDecl>(D) && !ParentDependsOnArgs &&
+      !cast<ParmVarDecl>(D)->getType()->isInstantiationDependentType())
+    return D;
   if (isa<ParmVarDecl>(D) || isa<NonTypeTemplateParmDecl>(D) ||
       isa<TemplateTypeParmDecl>(D) || isa<TemplateTemplateParmDecl>(D) ||
       (ParentDependsOnArgs && (ParentDC->isFunctionOrMethod() ||
@@ -7222,12 +7088,6 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
 
     // Fall through to deal with other dependent record types (e.g.,
     // anonymous unions in class templates).
-  }
-
-  if (CurrentInstantiationScope) {
-    if (auto Found = CurrentInstantiationScope->getInstantiationOfIfExists(D))
-      if (auto *FD = dyn_cast<NamedDecl>(Found->get<Decl *>()))
-        return FD;
   }
 
   if (!ParentDependsOnArgs)

@@ -1,7 +1,5 @@
 //===--- SemaCXXScopeSpec.cpp - Semantic Analysis for C++ scope specifiers-===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -137,31 +135,6 @@ DeclContext *Sema::computeDeclContext(const CXXScopeSpec &SS,
   case NestedNameSpecifier::Kind::Type:
     return NNS.getAsType()->castAsTagDecl();
 
-<<<<<<< HEAD
-  case NestedNameSpecifier::NamespaceAlias: {
-    NamespaceAliasDecl *Alias = NNS->getAsNamespaceAlias();
-    if (Alias->isDependent())
-      return nullptr;
-    return Alias->getNamespace();
-  }
-
-  case NestedNameSpecifier::TypeSpec: {
-    const TagType *Tag = NNS->getAsType()->getAs<TagType>();
-    assert(Tag && "Non-tag type in nested-name-specifier");
-    return Tag->getDecl();
-  }
-
-  case NestedNameSpecifier::Global:
-    return Context.getTranslationUnitDecl();
-
-  case NestedNameSpecifier::Super:
-    return NNS->getAsRecordDecl();
-
-  case NestedNameSpecifier::Splice:
-  case NestedNameSpecifier::SpliceWithTemplate:
-    return TryFindDeclContextOf(
-        const_cast<SpliceSpecifier *>(NNS->getAsSplice()));
-=======
   case NestedNameSpecifier::Kind::Global:
     return Context.getTranslationUnitDecl();
 
@@ -170,7 +143,6 @@ DeclContext *Sema::computeDeclContext(const CXXScopeSpec &SS,
 
   case NestedNameSpecifier::Kind::Null:
     llvm_unreachable("unexpected null nested name specifier");
->>>>>>> refs/tags/llvmorg-22.1.8
   }
 
   llvm_unreachable("Invalid NestedNameSpecifier::Kind!");
@@ -940,57 +912,6 @@ bool Sema::ActOnCXXNestedNameSpecifier(Scope *S,
   TemplateArgumentListInfo TemplateArgs(LAngleLoc, RAngleLoc);
   translateTemplateArguments(TemplateArgsIn, TemplateArgs);
 
-<<<<<<< HEAD
-  DependentTemplateName *DTN = Template.getAsDependentTemplateName();
-  if (DTN && DTN->getName().getIdentifier()) {
-    // Handle a dependent template specialization for which we cannot resolve
-    // the template name.
-    assert(DTN->getQualifier() == SS.getScopeRep());
-    QualType T = Context.getDependentTemplateSpecializationType(
-        ElaboratedTypeKeyword::None,
-        {/*Qualifier=*/nullptr, DTN->getName().getIdentifier(),
-         TemplateKWLoc.isValid()},
-        TemplateArgs.arguments());
-
-    // Create source-location information for this type.
-    TypeLocBuilder Builder;
-    DependentTemplateSpecializationTypeLoc SpecTL
-      = Builder.push<DependentTemplateSpecializationTypeLoc>(T);
-    SpecTL.setElaboratedKeywordLoc(SourceLocation());
-    SpecTL.setQualifierLoc(NestedNameSpecifierLoc());
-    SpecTL.setTemplateKeywordLoc(TemplateKWLoc);
-    SpecTL.setTemplateNameLoc(TemplateNameLoc);
-    SpecTL.setLAngleLoc(LAngleLoc);
-    SpecTL.setRAngleLoc(RAngleLoc);
-    for (unsigned I = 0, N = TemplateArgs.size(); I != N; ++I)
-      SpecTL.setArgLocInfo(I, TemplateArgs[I].getLocInfo());
-
-    SS.Extend(Context, Builder.getTypeLocInContext(Context, T), CCLoc);
-    return false;
-
-  }
-
-  // If we assumed an undeclared identifier was a template name, try to
-  // typo-correct it now.
-  if (Template.getAsAssumedTemplateName() &&
-      resolveAssumedTemplateNameAsType(S, Template, TemplateNameLoc))
-    return true;
-
-  TemplateDecl *TD = Template.getAsTemplateDecl();
-  if (Template.getAsOverloadedTemplate() || DTN ||
-      isa<FunctionTemplateDecl>(TD) || isa<VarTemplateDecl>(TD)) {
-    SourceRange R(TemplateNameLoc, RAngleLoc);
-    if (SS.getRange().isValid())
-      R.setBegin(SS.getRange().getBegin());
-
-    Diag(CCLoc, diag::err_non_type_template_in_nested_name_specifier)
-        << isa_and_nonnull<VarTemplateDecl>(TD) << Template << R;
-    NoteAllFoundTemplates(Template);
-    return true;
-  }
-
-=======
->>>>>>> refs/tags/llvmorg-22.1.8
   // We were able to resolve the template name to an actual template.
   // Build an appropriate nested-name-specifier.
   QualType T = CheckTemplateIdType(
@@ -1083,16 +1004,8 @@ bool Sema::ShouldEnterDeclaratorScope(Scope *S, const CXXScopeSpec &SS) {
     // namespace scope from anything but a file context.
     return CurContext->getRedeclContext()->isFileContext();
 
-<<<<<<< HEAD
-  case NestedNameSpecifier::Identifier:
-  case NestedNameSpecifier::TypeSpec:
-  case NestedNameSpecifier::Super:
-  case NestedNameSpecifier::Splice:
-  case NestedNameSpecifier::SpliceWithTemplate:
-=======
   case NestedNameSpecifier::Kind::Type:
   case NestedNameSpecifier::Kind::MicrosoftSuper:
->>>>>>> refs/tags/llvmorg-22.1.8
     // These are never namespace scopes.
     return true;
 

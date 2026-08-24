@@ -19,7 +19,6 @@
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExternalASTSource.h"
 #include "clang/AST/ODRHash.h"
-#include "clang/AST/Stmt.h"
 #include "clang/AST/TemplateBase.h"
 #include "clang/AST/TemplateName.h"
 #include "clang/AST/Type.h"
@@ -1654,37 +1653,8 @@ void TemplateParamObjectDecl::printAsInit(llvm::raw_ostream &OS,
   getValue().printPretty(OS, Policy, getType(), &getASTContext());
 }
 
-<<<<<<< HEAD
-ExpansionStmtDecl::ExpansionStmtDecl(DeclContext *DC, SourceLocation Loc,
-                                     CXXExpansionStmt *Expansion,
-                                     TemplateParameterList *TParams)
-    : Decl(ExpansionStmt, DC, Loc),
-      DeclContext(ExpansionStmt), Expansion(Expansion), TParams(TParams) { }
-
-void ExpansionStmtDecl::anchor() {}
-
-ExpansionStmtDecl *ExpansionStmtDecl::Create(ASTContext &C, DeclContext *DC,
-                                             SourceLocation Loc,
-                                             CXXExpansionStmt *Expansion,
-                                             TemplateParameterList *TParams) {
-  return new (C, DC) ExpansionStmtDecl(DC, Loc, Expansion, TParams);
-}
-
-ExpansionStmtDecl *ExpansionStmtDecl::CreateDeserialized(ASTContext &C,
-                                                         GlobalDeclID ID) {
-  return new (C, ID) ExpansionStmtDecl(nullptr, SourceLocation(), nullptr,
-                                       nullptr);
-}
-
-SourceRange ExpansionStmtDecl::getSourceRange() const {
-  return Expansion ? Expansion->getSourceRange() : SourceRange();
-}
-
-TemplateParameterList *clang::getReplacedTemplateParameterList(const Decl *D) {
-=======
 std::tuple<NamedDecl *, TemplateArgument>
 clang::getReplacedTemplateParameter(Decl *D, unsigned Index) {
->>>>>>> refs/tags/llvmorg-22.1.8
   switch (D->getKind()) {
   case Decl::Kind::BuiltinTemplate:
   case Decl::Kind::ClassTemplate:
@@ -1749,18 +1719,6 @@ clang::getReplacedTemplateParameter(Decl *D, unsigned Index) {
     return {Info->getTemplate()->getTemplateParameters()->getParam(Index),
             Info->TemplateArguments->asArray()[Index]};
   }
-<<<<<<< HEAD
-  case Decl::Kind::VarTemplatePartialSpecialization:
-    return cast<VarTemplatePartialSpecializationDecl>(D)
-        ->getTemplateParameters();
-  case Decl::Kind::TemplateTemplateParm:
-    return cast<TemplateTemplateParmDecl>(D)->getTemplateParameters();
-  case Decl::Kind::Concept:
-    return cast<ConceptDecl>(D)->getTemplateParameters();
-  case Decl::Kind::ExpansionStmt:
-    return cast<ExpansionStmtDecl>(D)->getTemplateParameters();
-=======
->>>>>>> refs/tags/llvmorg-22.1.8
   default:
     llvm_unreachable("Unhandled templated declaration kind");
   }

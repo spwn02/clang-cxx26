@@ -516,17 +516,10 @@ static CXXRecordDecl *createHostLayoutStruct(Sema &S,
     if (requiresImplicitBufferLayoutStructure(BaseDecl)) {
       BaseDecl = createHostLayoutStruct(S, BaseDecl);
       if (BaseDecl) {
-<<<<<<< HEAD
-        TypeSourceInfo *TSI = AST.getTrivialTypeSourceInfo(
-            QualType(BaseDecl->getTypeForDecl(), 0));
-        Base = CXXBaseSpecifier(SourceRange(), false, AS_none, TSI, StructDecl,
-                                SourceLocation());
-=======
         TypeSourceInfo *TSI =
             AST.getTrivialTypeSourceInfo(AST.getCanonicalTagType(BaseDecl));
         Base = CXXBaseSpecifier(SourceRange(), false, StructDecl->isClass(),
                                 AS_none, TSI, SourceLocation());
->>>>>>> refs/tags/llvmorg-22.1.8
       }
     }
     if (BaseDecl) {

@@ -150,10 +150,6 @@ module std_core [system] {
       header "__type_traits/is_constant_evaluated.h"
       export std_core.type_traits.integral_constant
     }
-    module is_consteval_only {
-      header "__type_traits/is_consteval_only.h"
-      export std_core.type_traits.integral_constant
-    }
     module is_constructible {
       header "__type_traits/is_constructible.h"
       export std_core.type_traits.integral_constant
@@ -965,10 +961,6 @@ module std [system] {
       header "__chrono/gps_clock.h"
       export std.chrono.time_point
     }
-    module hash {
-      header "__chrono/hash.h"
-      export * // dependent specializations elsewhere (e.g. leap_second's) need this header's size_t use visible too
-    }
     module hh_mm_ss                   { header "__chrono/hh_mm_ss.h" }
     module high_resolution_clock {
       header "__chrono/high_resolution_clock.h"
@@ -1237,13 +1229,6 @@ module std [system] {
     export std.algorithm.simd_utils // This is a workaround for https://llvm.org/PR120108.
   }
 
-  module debugging {
-    module is_debugger_present { header "__debugging/is_debugger_present.h" }
-
-    header "debugging"
-    export *
-  }
-
   module exception {
     module exception          { header "__exception/exception.h" }
     module exception_ptr      { header "__exception/exception_ptr.h" }
@@ -1256,58 +1241,6 @@ module std [system] {
   }
 
   module execution {
-    // [exec], std::execution (P2300R10) submodules. Each header pulls in
-    // symbols from several tightly-coupled siblings (e.g. completion_functions'
-    // set_value_t/set_error_t are used throughout), so — matching this file's
-    // existing `allocator`/`unique_temporary_buffer`/`high_resolution_clock`
-    // precedent for the same shape of problem (see their own TODOs referencing
-    // https://github.com/llvm/llvm-project/issues/120108) — every submodule here
-    // re-exports everything it imports rather than hand-enumerating each
-    // cross-header symbol, since the latter was verified (see this file's own
-    // history) to under-export and produce "declaration must be imported"
-    // errors under a real `-fmodules` build.
-    module as_awaitable                   { header "__execution/as_awaitable.h" export * }
-    module awaitable                      { header "__execution/awaitable.h" export * }
-    module bulk                           { header "__execution/bulk.h" export * }
-    module completion_functions           { header "__execution/completion_functions.h" export * }
-    module completion_signatures          { header "__execution/completion_signatures.h" export * }
-    module connect                        { header "__execution/connect.h" export * }
-    module continues_on                   { header "__execution/continues_on.h" export * }
-    module domain                         { header "__execution/domain.h" export * }
-    module env                            { header "__execution/env.h" export * }
-    module forwarding_query               { header "__execution/forwarding_query.h" export * }
-    module fwd_env                        { header "__execution/fwd_env.h" export * }
-    module get_allocator                  { header "__execution/get_allocator.h" export * }
-    module get_completion_signatures      { header "__execution/get_completion_signatures.h" export * }
-    module get_env                        { header "__execution/get_env.h" export * }
-    module get_forward_progress_guarantee { header "__execution/get_forward_progress_guarantee.h" export * }
-    module get_scheduler                  { header "__execution/get_scheduler.h" export * }
-    module get_stop_token                 { header "__execution/get_stop_token.h" export * }
-    module into_variant                   { header "__execution/into_variant.h" export * }
-    module just                           { header "__execution/just.h" export * }
-    module let                            { header "__execution/let.h" export * }
-    module movable_value                  { header "__execution/movable_value.h" export * }
-    module on                             { header "__execution/on.h" export * }
-    module operation_state                { header "__execution/operation_state.h" export * }
-    module queryable                      { header "__execution/queryable.h" export * }
-    module read_env                       { header "__execution/read_env.h" export * }
-    module receiver                       { header "__execution/receiver.h" export * }
-    module run_loop                       { header "__execution/run_loop.h" export * }
-    module schedule                       { header "__execution/schedule.h" export * }
-    module schedule_from                  { header "__execution/schedule_from.h" export * }
-    module scheduler                      { header "__execution/scheduler.h" export * }
-    module sender                         { header "__execution/sender.h" export * }
-    module sender_adaptor_closure         { header "__execution/sender_adaptor_closure.h" export * }
-    module starts_on                      { header "__execution/starts_on.h" export * }
-    module stopped_as_error               { header "__execution/stopped_as_error.h" export * }
-    module stopped_as_optional            { header "__execution/stopped_as_optional.h" export * }
-    module sync_wait                      { header "__execution/sync_wait.h" export * }
-    module then                           { header "__execution/then.h" export * }
-    module unstoppable                    { header "__execution/unstoppable.h" export * }
-    module when_all                       { header "__execution/when_all.h" export * }
-    module with_awaitable_senders         { header "__execution/with_awaitable_senders.h" export * }
-    module write_env                      { header "__execution/write_env.h" export * }
-
     header "execution"
     export *
   }
@@ -1341,7 +1274,6 @@ module std [system] {
       header "__filesystem/path.h"
       export std.string // returned by various methods of filesystem::path
     }
-    module path_format                    { header "__filesystem/path_format.h" }
     module perm_options                   { header "__filesystem/perm_options.h" }
     module perms                          { header "__filesystem/perms.h" }
     module recursive_directory_iterator   { header "__filesystem/recursive_directory_iterator.h" }
@@ -1483,23 +1415,14 @@ module std [system] {
       header "__functional/compose.h"
       export std.functional.perfect_forward // inherited from and using its operators
     }
-    module copyable_function             { header "__functional/copyable_function.h" }
-    module copyable_function_common      { header "__functional/copyable_function_common.h" }
-    module copyable_function_impl        { textual header "__functional/copyable_function_impl.h" }
     module default_searcher             { header "__functional/default_searcher.h" }
     module function                     { header "__functional/function.h" }
-    module function_ref                 { header "__functional/function_ref.h" }
-    module function_ref_common          { header "__functional/function_ref_common.h" }
-    module function_ref_impl            { textual header "__functional/function_ref_impl.h" }
     module hash                         { header "__functional/hash.h" }
     module identity                     { header "__functional/identity.h" }
     module invoke                       { header "__functional/invoke.h" }
     module is_transparent               { header "__functional/is_transparent.h" }
     module mem_fn                       { header "__functional/mem_fn.h" }
     module mem_fun_ref                  { header "__functional/mem_fun_ref.h" }
-    module move_only_function           { header "__functional/move_only_function.h" }
-    module move_only_function_common    { header "__functional/move_only_function_common.h" }
-    module move_only_function_impl      { textual header "__functional/move_only_function_impl.h" }
     module not_fn {
       header "__functional/not_fn.h"
       export std.functional.perfect_forward // inherited from and using its operators
@@ -1526,52 +1449,6 @@ module std [system] {
 
   module future {
     header "future"
-    export *
-  }
-
-  module hazard_pointer {
-    private header "__hazard_pointer/hazard_pointer.h"
-
-    header "hazard_pointer"
-    export *
-  }
-
-  module hive {
-    header "hive"
-    export *
-  }
-
-  module rcu {
-    private header "__rcu/rcu.h"
-
-    header "rcu"
-    export *
-  }
-
-  module simd {
-    private header "__simd/abi.h"
-    private header "__simd/algorithms.h"
-    private header "__simd/basic_mask.h"
-    private header "__simd/basic_vec.h"
-    private header "__simd/bit.h"
-    private header "__simd/complex.h"
-    private header "__simd/concepts.h"
-    private header "__simd/creation.h"
-    private header "__simd/flags.h"
-    private header "__simd/iterator.h"
-    private header "__simd/loadstore.h"
-    private header "__simd/math.h"
-    private header "__simd/permute.h"
-    private header "__simd/reductions.h"
-    private header "__simd/traits.h"
-    private header "__simd/vectorizable.h"
-
-    header "simd"
-    export *
-  }
-
-  module inplace_vector {
-    header "inplace_vector"
     export *
   }
 
@@ -1679,11 +1556,6 @@ module std [system] {
     export *
   }
 
-  module linalg {
-    header "linalg"
-    export *
-  }
-
   module list {
     header "list"
     export *
@@ -1780,19 +1652,11 @@ module std [system] {
     module destroy                            { header "__memory/destroy.h" }
     module destruct_n                         { header "__memory/destruct_n.h" }
     module fwd                                { header "__fwd/memory.h" }
-    module indirect {
-      header "__memory/indirect.h"
-      export * // strong_ordering/allocator_arg_t appear in public signatures
-    }
     module inout_ptr                          { header "__memory/inout_ptr.h" }
     module is_sufficiently_aligned            { header "__memory/is_sufficiently_aligned.h" }
     module noexcept_move_assign_container     { header "__memory/noexcept_move_assign_container.h" }
     module out_ptr                            { header "__memory/out_ptr.h" }
     module pointer_traits                     { header "__memory/pointer_traits.h" }
-    module polymorphic {
-      header "__memory/polymorphic.h"
-      export * // allocator_arg_t appears in several constructor signatures
-    }
     module ranges_construct_at                { header "__memory/ranges_construct_at.h" }
     module ranges_destroy                     { header "__memory/ranges_destroy.h" }
     module ranges_uninitialized_algorithms {
@@ -1843,14 +1707,6 @@ module std [system] {
 
     header "memory_resource"
     export *
-  }
-
-  module meta {
-    header "meta"
-    export *
-    export std.concepts.constructible
-    export std.concepts.same_as
-    export std.tuple
   }
 
   module mutex {
@@ -1964,7 +1820,6 @@ module std [system] {
     module fisher_f_distribution              { header "__random/fisher_f_distribution.h" }
     module gamma_distribution                 { header "__random/gamma_distribution.h" }
     module generate_canonical                 { header "__random/generate_canonical.h" }
-    module generate_random                    { header "__random/generate_random.h" }
     module geometric_distribution             { header "__random/geometric_distribution.h" }
     module independent_bits_engine            { header "__random/independent_bits_engine.h" }
     module is_seed_sequence                   { header "__random/is_seed_sequence.h" }
@@ -1998,10 +1853,6 @@ module std [system] {
   }
 
   module ranges {
-    private header "__ranges/as_input_view.h"
-    private header "__ranges/cache_latest_view.h"
-    private header "__ranges/concat_view.h"
-    private header "__ranges/enumerate_view.h"
     module access                         { header "__ranges/access.h" }
     module adjacent_transform_view        { header "__ranges/adjacent_transform_view.h" }
     module adjacent_view                  { header "__ranges/adjacent_view.h" }
@@ -2122,11 +1973,6 @@ module std [system] {
     export std.iterator.reverse_iterator
   }
 
-  module scope {
-    header "scope"
-    export *
-  }
-
   module scoped_allocator {
     header "scoped_allocator"
     export *
@@ -2182,17 +2028,12 @@ module std [system] {
 
   module stop_token {
     module atomic_unique_lock     { header "__stop_token/atomic_unique_lock.h" }
-    module inplace_stop_callback  { header "__stop_token/inplace_stop_callback.h" }
-    module inplace_stop_source    { header "__stop_token/inplace_stop_source.h" }
-    module inplace_stop_token     { header "__stop_token/inplace_stop_token.h" }
     module intrusive_list_view    { header "__stop_token/intrusive_list_view.h" }
     module intrusive_shared_ptr   { header "__stop_token/intrusive_shared_ptr.h" }
-    module never_stop_token       { header "__stop_token/never_stop_token.h" }
     module stop_callback          { header "__stop_token/stop_callback.h" }
     module stop_source            { header "__stop_token/stop_source.h" }
     module stop_state             { header "__stop_token/stop_state.h" }
     module stop_token             { header "__stop_token/stop_token.h" }
-    module stoppable_token        { header "__stop_token/stoppable_token.h" }
 
     header "stop_token"
     export *
@@ -2249,11 +2090,6 @@ module std [system] {
     module throw_system_error { header "__system_error/throw_system_error.h" }
 
     header "system_error"
-    export *
-  }
-
-  module text_encoding {
-    header "text_encoding"
     export *
   }
 
@@ -2418,7 +2254,6 @@ module std [system] {
   module experimental {
     module iterator           { header "experimental/iterator" }
     module memory             { header "experimental/memory" }
-    module meta               { header "experimental/meta" }
     module propagate_const    { header "experimental/propagate_const" }
     module type_traits        { header "experimental/type_traits" }
     module utility            { header "experimental/utility" }
@@ -2610,21 +2445,6 @@ module std_stdatomic_h [system] {
   header "stdatomic.h"
   export *
 }
-<<<<<<< HEAD
-module std_stdbit_h [system] {
-  header "stdbit.h"
-  export *
-}
-module std_stdbool_h [system] {
-  // <stdbool.h>'s __bool_true_false_are_defined macro requires textual inclusion.
-  textual header "stdbool.h"
-}
-module std_stdckdint_h [system] {
-  header "stdckdint.h"
-  export *
-}
-=======
->>>>>>> refs/tags/llvmorg-22.1.8
 module std_stddef_h [system] {
   // <stddef.h> supports being included multiple times with different pre-defined macros
   textual header "stddef.h"

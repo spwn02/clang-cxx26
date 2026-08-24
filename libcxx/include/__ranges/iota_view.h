@@ -410,10 +410,7 @@ inline constexpr auto indices = [] [[nodiscard]] (__integer_like auto __size) st
 };
 
 #  endif
-<<<<<<< HEAD
-=======
 
->>>>>>> refs/tags/llvmorg-22.1.8
 } // namespace views
 } // namespace ranges
 

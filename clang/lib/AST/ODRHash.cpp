@@ -124,21 +124,9 @@ void ODRHash::AddNestedNameSpecifier(NestedNameSpecifier NNS) {
   case NestedNameSpecifier::Kind::Type:
     AddType(NNS.getAsType());
     break;
-<<<<<<< HEAD
-  case NestedNameSpecifier::NamespaceAlias:
-    AddDecl(NNS->getAsNamespaceAlias());
-    break;
-  case NestedNameSpecifier::TypeSpec:
-    AddType(NNS->getAsType());
-    break;
-  case NestedNameSpecifier::Global:
-  case NestedNameSpecifier::Super:
-  case NestedNameSpecifier::Splice:  // TODO(CXX26): This is wrong.
-=======
   case NestedNameSpecifier::Kind::Null:
   case NestedNameSpecifier::Kind::Global:
   case NestedNameSpecifier::Kind::MicrosoftSuper:
->>>>>>> refs/tags/llvmorg-22.1.8
     break;
   }
 }

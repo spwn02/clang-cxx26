@@ -81,18 +81,8 @@ __count(__bit_iterator<_Cp, _IsConst> __first, __bit_iterator<_Cp, _IsConst> __l
       __first, static_cast<typename __size_difference_type_traits<_Cp>::size_type>(__last - __first));
 }
 
-<<<<<<< HEAD
-template <class _InputIterator,
-          class _Tp
-#if _LIBCPP_STD_VER >= 26
-          = typename iterator_traits<_InputIterator>::value_type
-#endif
-          >
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 __iter_diff_t<_InputIterator>
-=======
 template <class _InputIterator, class _Tp>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 __iterator_difference_type<_InputIterator>
->>>>>>> refs/tags/llvmorg-22.1.8
 count(_InputIterator __first, _InputIterator __last, const _Tp& __value) {
   __identity __proj;
   return std::__count<_ClassicAlgPolicy>(__first, __last, __value, __proj);

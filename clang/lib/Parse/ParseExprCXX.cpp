@@ -1,7 +1,5 @@
 //===--- ParseExprCXX.cpp - C++ Expression Parsing ------------------------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -15,7 +13,6 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/ExprCXX.h"
-#include "clang/AST/LocInfoType.h"
 #include "clang/Basic/DiagnosticParse.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Basic/TemplateKinds.h"
@@ -185,92 +182,9 @@ bool Parser::ParseOptionalCXXScopeSpecifier(
       SS.SetInvalid(SourceRange(DeclLoc, CCLoc));
 
     HasScopeSpecifier = true;
-  } else if (!HasScopeSpecifier && Tok.is(tok::kw_template) &&
-             NextToken().is(tok::l_splice)) {
-    TentativeParsingAction TPA(*this);
+  }
 
-    // We have 'template [:' . Parse as a (possibly specialized) splice.
-    SourceLocation TemplateKWLoc = ConsumeToken();
-    if (ParseSpliceSpecifier(/*TryParseSpecialization=*/true)) {
-      // If we have a malformed splice-specifier, this can't be valid.
-      TPA.Commit();
-      return true;
-    }
-    SpliceResult SR = getSpliceAnnotation(Tok);
-    if (SR.isInvalid()) {
-      TPA.Commit();
-      return true;
-    }
-
-    if (!NextToken().is(tok::coloncolon)) {
-      if (IsTypename) {
-        // 'typename template [: R :] < args >' can only be well-formed when
-        // followed by '::', so this is definitely an error.
-        TPA.Revert();
-        return true;
-      }
-
-      // This isn't a nested-name-specifier, but it might be a
-      // splice-expression of the form
-      //   template [: R :] < args >
-      // (e.g., calling a function template specialization). Return no error.
-      TPA.Revert();
-      return false;
-    }
-    TPA.Commit();
-
-    // We have 'template [: R :] < args > ::', possibly preceded by 'typename'.
-    ConsumeAnnotationToken();
-
-    SourceLocation CCLoc = ConsumeToken();
-    if (Actions.ActOnCXXSpliceScopeSpecifier(SS, TemplateKWLoc, SR.get(),
-                                             CCLoc)) {
-      SS.SetInvalid(SourceRange(TemplateKWLoc, CCLoc));
-      return true;
-    }
-    HasScopeSpecifier = true;
-  } else if (!HasScopeSpecifier && Tok.isOneOf(tok::l_splice,
-                                               tok::annot_splice)) {
-    if (Tok.is(tok::l_splice) &&
-        ParseSpliceSpecifier(/*TryParseSpecialization=*/IsTypename))
-      return true;
-
-    SpliceResult SR = getSpliceAnnotation(Tok);
-    if (SR.isInvalid())
-      return true;
-    SpliceSpecifier *Splice = SR.get();
-
-    if (!NextToken().is(tok::coloncolon)) {
-      if (IsTypename) {
-        // It's not a splice-scope-specifier, but it is a type: Unconsume the
-        // annot_splice token, and rewrite it as an annot_typename with a
-        // splice-type-specifier.
-        Token SpliceTok = Tok;
-        TypeResult Ty = ParseCXXSpliceAsType(SourceLocation(),
-                                             /*AllowDependent=*/true,
-                                             /*Complain=*/true);
-        UnconsumeToken(Tok);
-
-        SourceLocation EndLoc = Tok.getLastLoc();
-        Tok.setKind(tok::annot_typename);
-        setTypeAnnotation(Tok, Ty);
-        Tok.setAnnotationEndLoc(EndLoc);
-        Tok.setLocation(SpliceTok.getLocation());
-        PP.AnnotateCachedTokens(Tok);
-      }
-      return false;
-    }
-    // We have a splice-scope-specifier.
-    ConsumeAnnotationToken();
-
-    SourceLocation CCLoc = ConsumeToken();
-    if (Actions.ActOnCXXSpliceScopeSpecifier(SS, SourceLocation(), Splice,
-                                             CCLoc)) {
-      SS.SetInvalid(SourceRange(Splice->getBeginLoc(), CCLoc));
-      return true;
-    }
-    HasScopeSpecifier = true;
-  } else if (!HasScopeSpecifier && Tok.is(tok::identifier) &&
+  else if (!HasScopeSpecifier && Tok.is(tok::identifier) &&
            GetLookAheadToken(1).is(tok::ellipsis) &&
            GetLookAheadToken(2).is(tok::l_square) &&
            !GetLookAheadToken(3).is(tok::r_square)) {
@@ -1287,8 +1201,7 @@ static void DiagnoseStaticSpecifierRestrictions(Parser &P,
 }
 
 ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
-                     LambdaIntroducer &Intro, SourceLocation ConstevalLoc,
-                     TypeResult ReturnTy) {
+                     LambdaIntroducer &Intro) {
   SourceLocation LambdaBeginLoc = Intro.Range.getBegin();
   if (getLangOpts().HLSL)
     Diag(LambdaBeginLoc, diag::ext_hlsl_lambda) << /*HLSL*/ 1;
@@ -1392,7 +1305,7 @@ ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
     MaybeParseCXX11Attributes(D);
   }
 
-  TypeResult TrailingReturnType = ReturnTy;
+  TypeResult TrailingReturnType;
   SourceLocation TrailingReturnTypeLoc;
   SourceLocation LParenLoc, RParenLoc;
   SourceLocation DeclEndLoc;
@@ -1457,6 +1370,7 @@ ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
     // Parse mutable-opt and/or constexpr-opt or consteval-opt, and update
     // the DeclEndLoc.
     SourceLocation ConstexprLoc;
+    SourceLocation ConstevalLoc;
     SourceLocation StaticLoc;
 
     tryConsumeLambdaSpecifierToken(*this, MutableLoc, StaticLoc, ConstexprLoc,
@@ -1466,18 +1380,15 @@ ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
 
     addStaticToLambdaDeclSpecifier(*this, StaticLoc, DS);
     addConstexprToLambdaDeclSpecifier(*this, ConstexprLoc, DS);
-  }
-
-  if (ConstevalLoc.isValid())
-    // Could have been parsed from specifiers, or could be a consteval block.
     addConstevalToLambdaDeclSpecifier(*this, ConstevalLoc, DS);
+  }
 
   Actions.ActOnLambdaClosureParameters(getCurScope(), ParamInfo);
 
   if (!HasParentheses)
     Actions.ActOnLambdaClosureQualifiers(Intro, MutableLoc);
 
-  if (HasSpecifiers || HasParentheses || ReturnTy.get().get() != QualType{}) {
+  if (HasSpecifiers || HasParentheses) {
     // Parse exception-specification[opt].
     ExceptionSpecificationType ESpecType = EST_None;
     SourceRange ESpecRange;
@@ -2023,17 +1934,6 @@ Parser::ParseCXXCondition(StmtResult *InitStmt, SourceLocation Loc,
       return ParseCXXCondition(nullptr, Loc, CK, MissingOK);
     }
 
-<<<<<<< HEAD
-    ExprResult Expr = [&] {
-      EnterExpressionEvaluationContext Eval(
-          Actions, Sema::ExpressionEvaluationContext::ImmediateFunctionContext,
-          /*LambdaContextDecl=*/nullptr,
-          /*ExprContext=*/Sema::ExpressionEvaluationContextRecord::EK_Other,
-          /*ShouldEnter=*/CK == Sema::ConditionKind::ConstexprIf);
-      // Parse the expression.
-      return ParseExpression(); // expression
-    }();
-=======
     EnterExpressionEvaluationContext Eval(
         Actions, Sema::ExpressionEvaluationContext::ConstantEvaluated,
         /*LambdaContextDecl=*/nullptr,
@@ -2041,7 +1941,6 @@ Parser::ParseCXXCondition(StmtResult *InitStmt, SourceLocation Loc,
         /*ShouldEnter=*/CK == Sema::ConditionKind::ConstexprIf);
 
     ExprResult Expr = ParseExpression();
->>>>>>> refs/tags/llvmorg-22.1.8
 
     if (Expr.isInvalid())
       return Sema::ConditionError();
@@ -2757,8 +2656,7 @@ bool Parser::ParseUnqualifiedId(CXXScopeSpec &SS, ParsedType ObjectType,
       // argument list or refer to a class template or an alias template.
       if ((TNK == TNK_Function_template || TNK == TNK_Dependent_template_name ||
            TNK == TNK_Var_template) &&
-          !Tok.is(tok::less) &&
-          !Actions.isReflectionContext())
+          !Tok.is(tok::less))
         Diag(IdLoc, diag::missing_template_arg_list_after_template_kw);
     }
     return false;
@@ -3432,56 +3330,37 @@ ExprResult Parser::ParseRequiresExpression() {
 
           // We need to consume the typename to allow 'requires { typename a; }'
           SourceLocation TypenameKWLoc = ConsumeToken();
-
-          CXXScopeSpec SS;
-          if (Tok.is(tok::l_splice)) {
-            if (ParseOptionalCXXScopeSpecifier(SS, nullptr, false,
-                                               false, nullptr, true)) {
-              TPA.Commit();
-              SkipUntil(tok::semi, tok::r_brace,
-                        SkipUntilFlags::StopBeforeMatch);
-              break;
-            }
-          } else if (TryAnnotateOptionalCXXScopeToken()) {
+          if (TryAnnotateOptionalCXXScopeToken()) {
             TPA.Commit();
             SkipUntil(tok::semi, tok::r_brace, SkipUntilFlags::StopBeforeMatch);
             break;
-          } else if (Tok.is(tok::annot_cxxscope)) {
+          }
+          CXXScopeSpec SS;
+          if (Tok.is(tok::annot_cxxscope)) {
             Actions.RestoreNestedNameSpecifierAnnotation(
                 Tok.getAnnotationValue(), Tok.getAnnotationRange(), SS);
             ConsumeAnnotationToken();
           }
 
-          if (Tok.isOneOf(
-              tok::identifier, tok::annot_template_id, tok::annot_typename) &&
+          if (Tok.isOneOf(tok::identifier, tok::annot_template_id) &&
               !NextToken().isOneOf(tok::l_brace, tok::l_paren)) {
             TPA.Commit();
             SourceLocation NameLoc = Tok.getLocation();
             IdentifierInfo *II = nullptr;
             TemplateIdAnnotation *TemplateId = nullptr;
-            SpliceSpecifier *Splice = nullptr;
             if (Tok.is(tok::identifier)) {
               II = Tok.getIdentifierInfo();
               ConsumeToken();
-            } else if (Tok.is(tok::annot_template_id)) {
+            } else {
               TemplateId = takeTemplateIdAnnotation(Tok);
               ConsumeAnnotationToken();
               if (TemplateId->isInvalid())
                 break;
-            } else if (Tok.is(tok::annot_typename)) {
-              TypeResult TR = getTypeAnnotation(Tok);
-              if (TR.isInvalid())
-                break;
-              ConsumeAnnotationToken();
-
-              QualType QT = cast<LocInfoType>(TR.get().get())->getType();
-              auto *RST = cast<ReflectionSpliceType>(QT);
-              Splice = RST->getSplice();
             }
 
             if (auto *Req = Actions.ActOnTypeRequirement(TypenameKWLoc, SS,
                                                          NameLoc, II,
-                                                         TemplateId, Splice)) {
+                                                         TemplateId)) {
               Requirements.push_back(Req);
             }
             break;

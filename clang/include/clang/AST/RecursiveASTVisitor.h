@@ -1,7 +1,5 @@
 //===--- RecursiveASTVisitor.h - Recursive AST Visitor ----------*- C++ -*-===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -32,11 +30,9 @@
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/LambdaCapture.h"
-#include "clang/AST/LocInfoType.h"
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/OpenACCClause.h"
 #include "clang/AST/OpenMPClause.h"
-#include "clang/AST/Reflection.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
@@ -481,8 +477,6 @@ public:
   bool TraverseConceptExprRequirement(concepts::ExprRequirement *R);
   bool TraverseConceptNestedRequirement(concepts::NestedRequirement *R);
 
-  bool TraverseSpliceSpecifier(SpliceSpecifier *SS);
-
   bool dataTraverseNode(Stmt *S, DataRecursionQueue *Queue);
 
 private:
@@ -615,19 +609,6 @@ bool RecursiveASTVisitor<Derived>::TraverseConceptNestedRequirement(
     concepts::NestedRequirement *R) {
   if (!R->hasInvalidConstraint())
     return getDerived().TraverseStmt(R->getConstraintExpr());
-  return true;
-}
-
-template <typename Derived>
-bool RecursiveASTVisitor<Derived>::TraverseSpliceSpecifier(
-    SpliceSpecifier *Splice) {
-  TRY_TO(TraverseStmt(Splice->getOperand()));
-
-  if (Splice->isSpecialization())
-    for (const TemplateArgumentLoc &Arg :
-         Splice->getTemplateArgs()->arguments())
-      TRY_TO(TraverseTemplateArgumentLoc(Arg));
-
   return true;
 }
 
@@ -822,19 +803,6 @@ bool RecursiveASTVisitor<Derived>::TraverseNestedNameSpecifier(
     TRY_TO(TraverseNestedNameSpecifier(T->getPrefix()));
     TRY_TO(TraverseType(QualType(T, 0), /*TraverseQualifier=*/false));
     return true;
-<<<<<<< HEAD
-
-  case NestedNameSpecifier::Splice:
-  case NestedNameSpecifier::SpliceWithTemplate:
-    TRY_TO(
-        TraverseSpliceSpecifier(
-            const_cast<SpliceSpecifier *>(NNS->getAsSplice())));
-    break;
-
-  case NestedNameSpecifier::TypeSpec:
-    TRY_TO(TraverseType(QualType(NNS->getAsType(), 0)));
-=======
->>>>>>> refs/tags/llvmorg-22.1.8
   }
   }
   llvm_unreachable("unhandled kind");
@@ -852,26 +820,12 @@ bool RecursiveASTVisitor<Derived>::TraverseNestedNameSpecifierLoc(
     TRY_TO(
         TraverseNestedNameSpecifierLoc(NNS.castAsNamespaceAndPrefix().Prefix));
     return true;
-<<<<<<< HEAD
-
-  case NestedNameSpecifier::Splice:
-  case NestedNameSpecifier::SpliceWithTemplate:
-    TRY_TO(
-        TraverseSpliceSpecifier(
-            const_cast<SpliceSpecifier *>(NNS.getSplice())));
-    break;
-
-  case NestedNameSpecifier::TypeSpec:
-    TRY_TO(TraverseTypeLoc(NNS.getTypeLoc()));
-    break;
-=======
   case NestedNameSpecifier::Kind::Type: {
     TypeLoc TL = NNS.castAsTypeLoc();
     TRY_TO(TraverseNestedNameSpecifierLoc(TL.getPrefix()));
     TRY_TO(TraverseTypeLoc(TL, /*TraverseQualifier=*/false));
     return true;
   }
->>>>>>> refs/tags/llvmorg-22.1.8
   }
 
   return true;
@@ -1164,10 +1118,6 @@ DEF_TRAVERSE_TYPE(TypeOfType, { TRY_TO(TraverseType(T->getUnmodifiedType())); })
 
 DEF_TRAVERSE_TYPE(DecltypeType,
                   { TRY_TO(TraverseStmt(T->getUnderlyingExpr())); })
-
-DEF_TRAVERSE_TYPE(ReflectionSpliceType, {
-  TRY_TO(TraverseSpliceSpecifier(T->getSplice()));
-})
 
 DEF_TRAVERSE_TYPE(PackIndexingType, {
   TRY_TO(TraverseType(T->getPattern()));
@@ -1507,10 +1457,6 @@ DEF_TRAVERSE_TYPELOC(DecltypeType, {
   TRY_TO(TraverseStmt(TL.getTypePtr()->getUnderlyingExpr()));
 })
 
-DEF_TRAVERSE_TYPELOC(ReflectionSpliceType, {
-  TRY_TO(TraverseSpliceSpecifier(TL.getSplice()));
-})
-
 DEF_TRAVERSE_TYPELOC(PackIndexingType, {
   TRY_TO(TraverseType(TL.getPattern()));
   TRY_TO(TraverseStmt(TL.getTypePtr()->getIndexExpr()));
@@ -1796,16 +1742,6 @@ DEF_TRAVERSE_DECL(StaticAssertDecl, {
   TRY_TO(TraverseStmt(D->getMessage()));
 })
 
-DEF_TRAVERSE_DECL(ConstevalBlockDecl, {
-  TRY_TO(TraverseStmt(D->getEvaluatingExpr()));
-})
-
-DEF_TRAVERSE_DECL(ExpansionStmtDecl, {
-  if (D->getStmt())
-    TRY_TO(TraverseStmt(D->getStmt()));
-  TRY_TO(TraverseDecl(D->getTemplateParm()));
-})
-
 DEF_TRAVERSE_DECL(TranslationUnitDecl, {
   // Code in an unnamed namespace shows up automatically in
   // decls_begin()/decls_end().  Thus we don't need to recurse on
@@ -1837,10 +1773,6 @@ DEF_TRAVERSE_DECL(NamespaceAliasDecl, {
   // We shouldn't traverse an aliased namespace, since it will be
   // defined (and, therefore, traversed) somewhere else.
   ShouldVisitChildren = false;
-})
-
-DEF_TRAVERSE_DECL(DependentNamespaceDecl, {
-  TRY_TO(TraverseSpliceSpecifier(D->getSplice()));
 })
 
 DEF_TRAVERSE_DECL(LabelDecl, {// There is no code in a LabelDecl.
@@ -3132,83 +3064,6 @@ DEF_TRAVERSE_STMT(SubstNonTypeTemplateParmExpr, {})
 DEF_TRAVERSE_STMT(FunctionParmPackExpr, {})
 DEF_TRAVERSE_STMT(CXXFoldExpr, {})
 DEF_TRAVERSE_STMT(AtomicExpr, {})
-DEF_TRAVERSE_STMT(CXXReflectExpr, {
-  if (S->hasDependentSubExpr()) {
-    TRY_TO(TraverseStmt(S->getDependentSubExpr()));
-  } else {
-    APValue RV = S->getReflection();
-    assert(RV.isReflection());
-    switch (RV.getReflectionKind()) {
-    case ReflectionKind::Type: {
-      TRY_TO(TraverseType(RV.getReflectedType()));
-      break;
-    }
-    case ReflectionKind::Declaration: {
-      TRY_TO(TraverseDecl(RV.getReflectedDecl()));
-      break;
-    }
-    case ReflectionKind::Template: {
-      TRY_TO(TraverseTemplateName(RV.getReflectedTemplate()));
-      break;
-    }
-    case ReflectionKind::EntityProxy: {
-      TRY_TO(TraverseDecl(RV.getReflectedEntityProxy()));
-      break;
-    }
-    case ReflectionKind::Parameter: {
-      TRY_TO(TraverseDecl(RV.getReflectedParameter()));
-      break;
-    }
-    case ReflectionKind::Annotation: {
-      TRY_TO(TraverseStmt(RV.getReflectedAnnotation()->getArg()));
-      break;
-    }
-    case ReflectionKind::Null:
-    case ReflectionKind::Object:
-    case ReflectionKind::Value:
-    case ReflectionKind::Namespace:
-    case ReflectionKind::BaseSpecifier:
-    case ReflectionKind::DataMemberSpec:
-    case ReflectionKind::Attribute:
-      break;
-    }
-  }
-})
-DEF_TRAVERSE_STMT(CXXMetafunctionExpr, {})
-DEF_TRAVERSE_STMT(CXXSpliceExpr, {
-  TRY_TO(TraverseSpliceSpecifier(S->getSplice()));
-})
-DEF_TRAVERSE_STMT(CXXDependentMemberSpliceExpr, {
-  TRY_TO(TraverseStmt(S->getBase()));
-  TRY_TO(TraverseStmt(S->getRHS()));
-})
-DEF_TRAVERSE_STMT(CXXExpansionInitListExpr, {
-  for (Expr *SubExpr : S->getSubExprs())
-    TRY_TO(TraverseStmt(SubExpr));
-})
-DEF_TRAVERSE_STMT(CXXIndeterminateExpansionSelectExpr, {
-  TRY_TO(TraverseStmt(S->getRangeExpr()));
-  TRY_TO(TraverseStmt(S->getIdxExpr()));
-})
-DEF_TRAVERSE_STMT(CXXIterableExpansionSelectExpr, {
-  TRY_TO(TraverseDecl(S->getRangeVar()));
-  TRY_TO(TraverseStmt(S->getImplExpr()));
-})
-DEF_TRAVERSE_STMT(CXXDestructurableExpansionSelectExpr, {
-  TRY_TO(TraverseDecl(S->getDecompositionDecl()));
-  TRY_TO(TraverseStmt(S->getIdxExpr()));
-})
-DEF_TRAVERSE_STMT(CXXExpansionInitListSelectExpr, {
-  TRY_TO(TraverseStmt(S->getRangeExpr()));
-  TRY_TO(TraverseStmt(S->getIdxExpr()));
-})
-DEF_TRAVERSE_STMT(StackLocationExpr, {})
-DEF_TRAVERSE_STMT(ExtractLValueExpr, {
-  TRY_TO(TraverseDecl(S->getValueDecl()));
-})
-DEF_TRAVERSE_STMT(ExplDependentCallExpr, {
-  TRY_TO(TraverseStmt(S->getSubExpr()));
-})
 DEF_TRAVERSE_STMT(CXXParenListInitExpr, {})
 
 DEF_TRAVERSE_STMT(MaterializeTemporaryExpr, {
@@ -3248,44 +3103,6 @@ DEF_TRAVERSE_STMT(DependentCoawaitExpr, {
 DEF_TRAVERSE_STMT(CoyieldExpr, {
   if (!getDerived().shouldVisitImplicitCode()) {
     TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getOperand());
-    ShouldVisitChildren = false;
-  }
-})
-
-// C++ expansion statements (P1306).
-DEF_TRAVERSE_STMT(CXXIndeterminateExpansionStmt, {
-  if (!getDerived().shouldVisitImplicitCode()) {
-    if (S->getInit())
-      TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getInit());
-    TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getExpansionVarStmt());
-    TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getBody());
-    ShouldVisitChildren = false;
-  }
-})
-DEF_TRAVERSE_STMT(CXXDestructurableExpansionStmt, {
-  if (!getDerived().shouldVisitImplicitCode()) {
-    if (S->getInit())
-      TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getInit());
-    TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getExpansionVarStmt());
-    TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getBody());
-    ShouldVisitChildren = false;
-  }
-})
-DEF_TRAVERSE_STMT(CXXIterableExpansionStmt, {
-  if (!getDerived().shouldVisitImplicitCode()) {
-    if (S->getInit())
-      TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getInit());
-    TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getExpansionVarStmt());
-    TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getBody());
-    ShouldVisitChildren = false;
-  }
-})
-DEF_TRAVERSE_STMT(CXXInitListExpansionStmt, {
-  if (!getDerived().shouldVisitImplicitCode()) {
-    if (S->getInit())
-      TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getInit());
-    TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getExpansionVarStmt());
-    TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getBody());
     ShouldVisitChildren = false;
   }
 })
