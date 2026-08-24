@@ -406,6 +406,63 @@ inline constexpr bool __is_layout_transpose_v = __is_layout_transpose<_Layout>::
 template <class _Extents>
 using __transpose_extents_t =
     extents<typename _Extents::index_type, _Extents::static_extent(1), _Extents::static_extent(0)>;
+
+// [linalg.helpers.concepts], linear algebra argument concepts. These are checked via trailing
+// requires-clauses on the algorithms below (reconstructing the mdspan type from the deduced
+// ElementType/Extents/Layout/Accessor template parameters) rather than by declaring the
+// algorithms' parameters as these concepts' opaque type directly: the two are equivalent for
+// well-formed calls, but the trailing-requires form avoids restructuring every function's
+// parameter list, keeps the extents/layout/accessor names available by their existing names in
+// the body, and keeps the diagnosable _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN/
+// _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING static_asserts (which fire with a message) working
+// alongside the SFINAE-visible constraint (which silently removes the overload).
+template <class _Tp>
+inline constexpr bool __is_mdspan_v = false;
+template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+inline constexpr bool __is_mdspan_v<mdspan<_ElementType, _Extents, _Layout, _Accessor>> = true;
+
+template <class _Tp>
+concept __in_vector = __is_mdspan_v<_Tp> && _Tp::rank() == 1;
+
+template <class _Tp>
+concept __out_vector = __is_mdspan_v<_Tp> && _Tp::rank() == 1 &&
+                        is_assignable_v<typename _Tp::reference, typename _Tp::element_type> &&
+                        _Tp::is_always_unique();
+
+template <class _Tp>
+concept __inout_vector = __out_vector<_Tp>;
+
+template <class _Tp>
+concept __in_matrix = __is_mdspan_v<_Tp> && _Tp::rank() == 2;
+
+template <class _Tp>
+concept __out_matrix = __is_mdspan_v<_Tp> && _Tp::rank() == 2 &&
+                        is_assignable_v<typename _Tp::reference, typename _Tp::element_type> &&
+                        _Tp::is_always_unique();
+
+template <class _Tp>
+concept __inout_matrix = __out_matrix<_Tp>;
+
+template <class _Tp>
+concept __possibly_packed_out_matrix =
+    __is_mdspan_v<_Tp> && _Tp::rank() == 2 && is_assignable_v<typename _Tp::reference, typename _Tp::element_type> &&
+    (_Tp::is_always_unique() || __is_layout_blas_packed_v<typename _Tp::layout_type>);
+
+template <class _Tp>
+concept __in_object = __is_mdspan_v<_Tp> && (_Tp::rank() == 1 || _Tp::rank() == 2);
+
+template <class _Tp>
+concept __out_object = __is_mdspan_v<_Tp> && (_Tp::rank() == 1 || _Tp::rank() == 2) &&
+                        is_assignable_v<typename _Tp::reference, typename _Tp::element_type> &&
+                        _Tp::is_always_unique();
+
+template <class _Tp>
+concept __inout_object = __out_object<_Tp>;
+
+// Named __linalg_scalar (not __scalar) to avoid colliding with this header's own __detail::scalar-
+// adjacent helpers and with the unqualified "scalar" template parameter name used throughout.
+template <class _Tp>
+concept __linalg_scalar = semiregular<_Tp> && !__is_mdspan_v<_Tp> && !is_execution_policy_v<remove_cvref_t<_Tp>>;
 } // namespace __detail
 
 template <class _ScalingFactor, class _NestedAccessor>
@@ -675,7 +732,11 @@ template <class _LeftElement,
           class _RightAccessor>
 constexpr auto dot(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
                    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
-                   auto __init) {
+                   auto __init)
+  requires(__detail::__in_vector<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
+           __detail::__in_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>> &&
+           __detail::__linalg_scalar<decltype(__init)>)
+{
   static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1, "linalg::dot requires rank-one mdspans");
   static_assert(
       __detail::__static_extents_match<_LeftExtents, _RightExtents>(), "linalg::dot requires matching static extents");
@@ -693,7 +754,10 @@ template <class _LeftElement,
           class _RightLayout,
           class _RightAccessor>
 constexpr auto dot(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
-                   mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right) {
+                   mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right)
+  requires(__detail::__in_vector<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
+           __detail::__in_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>>)
+{
   using _Result = decltype(__left[0] * __right[0]);
   return dot(__left, __right, _Result{});
 }
@@ -708,7 +772,11 @@ template <class _LeftElement,
           class _RightAccessor>
 constexpr auto dotc(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
                     mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
-                    auto __init) {
+                    auto __init)
+  requires(__detail::__in_vector<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
+           __detail::__in_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>> &&
+           __detail::__linalg_scalar<decltype(__init)>)
+{
   return dot(conjugated(__left), __right, __init);
 }
 
@@ -721,7 +789,10 @@ template <class _LeftElement,
           class _RightLayout,
           class _RightAccessor>
 constexpr auto dotc(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
-                    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right) {
+                    mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right)
+  requires(__detail::__in_vector<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
+           __detail::__in_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>>)
+{
   using _Result = decltype(__detail::__conj_if_needed(__left[0]) * __right[0]);
   return dotc(__left, __right, _Result{});
 }
@@ -730,7 +801,10 @@ constexpr auto dotc(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccesso
 // init, so the square root has to be converted back rather than returned as
 // whatever sqrt() happens to produce.
 template <class _ElementType, class _Extents, class _Layout, class _Accessor, class _Scalar>
-constexpr _Scalar vector_two_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector, _Scalar __init) {
+constexpr _Scalar vector_two_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector, _Scalar __init)
+  requires(__detail::__in_vector<mdspan<_ElementType, _Extents, _Layout, _Accessor>> &&
+           __detail::__linalg_scalar<_Scalar>)
+{
   static_assert(_Extents::rank() == 1, "linalg::vector_two_norm requires a rank-one mdspan");
   auto __sum = __detail::__abs_if_needed(__init) * __detail::__abs_if_needed(__init);
   for (size_t __i = 0; __i != __vector.extent(0); ++__i) {
@@ -742,7 +816,9 @@ constexpr _Scalar vector_two_norm(mdspan<_ElementType, _Extents, _Layout, _Acces
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>
-constexpr auto vector_two_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector) {
+constexpr auto vector_two_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector)
+  requires __detail::__in_vector<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
+{
   using _Result = decltype(__detail::__abs_if_needed(__vector[0]) * __detail::__abs_if_needed(__vector[0]));
   return vector_two_norm(__vector, _Result{});
 }
@@ -755,7 +831,9 @@ struct sum_of_squares_result {
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor, class _Scalar>
 constexpr sum_of_squares_result<_Scalar> vector_sum_of_squares(
-    mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector, sum_of_squares_result<_Scalar> __init) {
+    mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector, sum_of_squares_result<_Scalar> __init)
+  requires __detail::__in_vector<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
+{
   static_assert(_Extents::rank() == 1, "linalg::vector_sum_of_squares requires a rank-one mdspan");
   for (size_t __i = 0; __i != __vector.extent(0); ++__i) {
     const _Scalar __value = __detail::__abs_if_needed(__vector[__i]);
@@ -825,7 +903,10 @@ constexpr void apply_givens_rotation(
     mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
     mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
     _Real __c,
-    _Sine __s) {
+    _Sine __s)
+  requires(__detail::__inout_vector<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
+           __detail::__inout_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor);
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_RightElement, _RightExtents, _RightLayout, _RightAccessor);
   _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_LeftExtents, _LeftLayout);
@@ -872,7 +953,10 @@ constexpr void swap_elements(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _Le
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>
-constexpr auto vector_abs_sum(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector, auto __init) {
+constexpr auto vector_abs_sum(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector, auto __init)
+  requires(__detail::__in_vector<mdspan<_ElementType, _Extents, _Layout, _Accessor>> &&
+           __detail::__linalg_scalar<decltype(__init)>)
+{
   static_assert(_Extents::rank() == 1, "linalg::vector_abs_sum requires a rank-one mdspan");
   for (size_t __i = 0; __i != __vector.extent(0); ++__i)
     __init += __detail::__blas_abs(__vector[__i]);
@@ -880,12 +964,15 @@ constexpr auto vector_abs_sum(mdspan<_ElementType, _Extents, _Layout, _Accessor>
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>
-constexpr auto vector_abs_sum(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector) {
+constexpr auto vector_abs_sum(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector)
+  requires __detail::__in_vector<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
+{
   using _Result = decltype(__detail::__blas_abs(__vector[0]));
   return vector_abs_sum(__vector, _Result{});
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>
+  requires __detail::__in_vector<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
 constexpr typename mdspan<_ElementType, _Extents, _Layout, _Accessor>::size_type
 vector_idx_abs_max(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector) {
   static_assert(_Extents::rank() == 1, "linalg::vector_idx_abs_max requires a rank-one mdspan");
@@ -907,7 +994,10 @@ vector_idx_abs_max(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vector) 
 // As with vector_two_norm, [linalg.algs.blas1.matfrobnorm] fixes the return
 // type to Scalar rather than the type of the sqrt() result.
 template <class _ElementType, class _Extents, class _Layout, class _Accessor, class _Scalar>
-constexpr _Scalar matrix_frob_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix, _Scalar __init) {
+constexpr _Scalar matrix_frob_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix, _Scalar __init)
+  requires(__detail::__in_matrix<mdspan<_ElementType, _Extents, _Layout, _Accessor>> &&
+           __detail::__linalg_scalar<_Scalar>)
+{
   static_assert(_Extents::rank() == 2, "linalg::matrix_frob_norm requires a rank-two mdspan");
   auto __sum = __detail::__abs_if_needed(__init) * __detail::__abs_if_needed(__init);
   for (size_t __i = 0; __i != __matrix.extent(0); ++__i)
@@ -920,7 +1010,9 @@ constexpr _Scalar matrix_frob_norm(mdspan<_ElementType, _Extents, _Layout, _Acce
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>
-constexpr auto matrix_frob_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix) {
+constexpr auto matrix_frob_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix)
+  requires __detail::__in_matrix<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
+{
   using _Result =
       decltype(__detail::__abs_if_needed(__matrix[0, 0]) * __detail::__abs_if_needed(__matrix[0, 0]));
   return matrix_frob_norm(__matrix, _Result{});
@@ -929,7 +1021,10 @@ constexpr auto matrix_frob_norm(mdspan<_ElementType, _Extents, _Layout, _Accesso
 // Returns Scalar exactly; `__init + __maximum` would integer-promote for
 // narrow scalar types such as short.
 template <class _ElementType, class _Extents, class _Layout, class _Accessor, class _Scalar>
-constexpr _Scalar matrix_one_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix, _Scalar __init) {
+constexpr _Scalar matrix_one_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix, _Scalar __init)
+  requires(__detail::__in_matrix<mdspan<_ElementType, _Extents, _Layout, _Accessor>> &&
+           __detail::__linalg_scalar<_Scalar>)
+{
   static_assert(_Extents::rank() == 2, "linalg::matrix_one_norm requires a rank-two mdspan");
   auto __maximum = _Scalar{};
   for (size_t __j = 0; __j != __matrix.extent(1); ++__j) {
@@ -943,13 +1038,18 @@ constexpr _Scalar matrix_one_norm(mdspan<_ElementType, _Extents, _Layout, _Acces
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>
-constexpr auto matrix_one_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix) {
+constexpr auto matrix_one_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix)
+  requires __detail::__in_matrix<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
+{
   using _Result = decltype(__detail::__abs_if_needed(__matrix[0, 0]));
   return matrix_one_norm(__matrix, _Result{});
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor, class _Scalar>
-constexpr _Scalar matrix_inf_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix, _Scalar __init) {
+constexpr _Scalar matrix_inf_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix, _Scalar __init)
+  requires(__detail::__in_matrix<mdspan<_ElementType, _Extents, _Layout, _Accessor>> &&
+           __detail::__linalg_scalar<_Scalar>)
+{
   static_assert(_Extents::rank() == 2, "linalg::matrix_inf_norm requires a rank-two mdspan");
   auto __maximum = _Scalar{};
   for (size_t __i = 0; __i != __matrix.extent(0); ++__i) {
@@ -963,7 +1063,9 @@ constexpr _Scalar matrix_inf_norm(mdspan<_ElementType, _Extents, _Layout, _Acces
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>
-constexpr auto matrix_inf_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix) {
+constexpr auto matrix_inf_norm(mdspan<_ElementType, _Extents, _Layout, _Accessor> __matrix)
+  requires __detail::__in_matrix<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
+{
   using _Result = decltype(__detail::__abs_if_needed(__matrix[0, 0]));
   return matrix_inf_norm(__matrix, _Result{});
 }
@@ -980,6 +1082,9 @@ template <class _MatrixElement,
           class _OutputExtents,
           class _OutputLayout,
           class _OutputAccessor>
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>> &&
+           __detail::__out_vector<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
 constexpr void matrix_vector_product(mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
                                       mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
                                       mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
