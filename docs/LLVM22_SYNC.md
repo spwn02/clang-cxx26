@@ -77,18 +77,21 @@ After upstream changes, always run `ninja -C build-libcxx libcxx-generate-files`
 
 ## Current Action
 
-Milestone 1 is active. On `Continue`:
+Milestone 2 is active. On `Continue`:
 
-1. Confirm `cxx26` is clean and resolves to the published baseline plus this tracker commit.
-2. Capture exact CMake configuration and host/tool versions in the session log.
-3. Rebuild `build-nyx`, regenerate libc++ files, and rebuild `build-libcxx` in that order.
-4. Run both focused reflection suites and the single known-failure reproduction.
-5. Record exact pass/fail counts and any new failures here. If results match expectations, mark Milestone 1 `[x]`, Milestone 2 `[~]`, commit, and push.
+1. Fetch `refs/tags/llvmorg-22.1.8` from `upstream` without altering any
+   working branch.
+2. Verify the tag object and peeled commit, recording available signature or
+   publication evidence.
+3. Create `integration/llvm-22.1.8` from the tracker-bearing `cxx26` tip and
+   merge the exact peeled tag without rewriting history.
+4. Record every conflict and resolution category in Conflict Notes, then
+   commit and push the merge state.
 
 ## Milestones
 
-- [~] **1. Capture clean baseline builds and expected failures.** Gate: both build trees succeed; focused reflection results and the known failure are recorded precisely.
-- [ ] **2. Fetch exact LLVM tag and merge on integration branch.** Fetch `refs/tags/llvmorg-22.1.8`, verify the signed/published tag object as available, create `integration/llvm-22.1.8` from the tracker-bearing `cxx26` tip, and merge the exact peeled tag without rewriting history. Gate: merge commit exists; every conflict and resolution category is recorded.
+- [x] **1. Capture clean baseline builds and expected failures.** Gate passed 2026-08-24: both build trees succeeded; focused results and all failures are recorded below.
+- [~] **2. Fetch exact LLVM tag and merge on integration branch.** Fetch `refs/tags/llvmorg-22.1.8`, verify the signed/published tag object as available, create `integration/llvm-22.1.8` from the tracker-bearing `cxx26` tip, and merge the exact peeled tag without rewriting history. Gate: merge commit exists; every conflict and resolution category is recorded.
 - [ ] **3. Restore base LLVM/Clang build.** Resolve API/build-system drift unrelated to reflection first. Gate: `ninja -C build-nyx clang` succeeds, followed by the full main-tree build required by later milestones.
 - [ ] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures.
 - [ ] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries, including the known non-serializable `CXXMetafunctionExpr` callback limitation. Gate: focused evaluator, module, PCH, and reflection tests pass; any intentionally deferred limitation is documented with a reproducer.
@@ -133,3 +136,22 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
 - Archived six obsolete branch tips under annotated `archive/pre-llvm22/*` tags, verified their peeled remote targets, deleted the branches, and made `cxx26` the sole active origin branch and GitHub default.
 - Published annotated baseline tag `cxx26-2026.08.24`, peeled to `4f1df39cf326d27e56f9e9ccc6a7f2124527749f`.
 - Created this tracker. Milestone 1 remains active; no compiler build or test was required for the documentation/metadata transformation.
+
+### 2026-08-24 — Milestone 1 baseline evidence
+
+- `cxx26` was clean at `c3329f6578f5`; baseline tag
+  `cxx26-2026.08.24` peels to `4f1df39cf326d27e56f9e9ccc6a7f2124527749f`.
+- Host: Linux 7.1.8-arch1-3 x86_64; `/usr/bin/clang` 22.1.8; CMake 4.4.2;
+  Ninja 1.13.2. Both build trees are Release.
+- `ninja -C build-nyx` passed. `ninja -C build-libcxx libcxx-generate-files`
+  and `ninja -C build-libcxx cxx` passed.
+- Clang reflection suite: 15 passed, 1 failed. The only failure is
+  `clang/test/Reflection/splice-exprs.cpp`; its expected error at line 23
+  ("not derived from") was not emitted. The isolated reproduction failed
+  identically.
+- libc++ reflection suite: 54 passed, 6 failed:
+  `annotation-module-serialization.sh.cpp`, `miscellaneous.pass.cpp`,
+  `namespace-reflection-equality-reopened.pass.cpp`,
+  `p3096-fn-parameters.pass.cpp`, `parameter-reflection-kind-preserved.pass.cpp`,
+  and `to-and-from-values.pass.cpp`. These are baseline failures, not merge
+  regressions, and are carried forward for Milestone 7 comparison.
