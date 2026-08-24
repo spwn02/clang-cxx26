@@ -5,6 +5,12 @@ https://github.com/llvm/llvm-project) implementing experimental support for ISO
 C++ proposal [P2996](https://wg21.link/p2996) in `clang`. Please see [P2996.md](
 P2996.md) for more about this project.
 
+This fork is maintained at [`spwn02/clang-p2996`](https://github.com/spwn02/clang-p2996).
+It preserves the history of the earlier
+[`bloomberg/clang-p2996`](https://github.com/bloomberg/clang-p2996)
+implementation and the upstream [`llvm/llvm-project`](https://github.com/llvm/llvm-project)
+history. That provenance does not imply Bloomberg endorsement of this fork.
+
 # The LLVM Compiler Infrastructure
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/llvm/llvm-project/badge)](https://securityscorecards.dev/viewer/?uri=github.com/llvm/llvm-project)
