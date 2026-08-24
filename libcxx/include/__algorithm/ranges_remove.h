@@ -34,7 +34,14 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace ranges {
 struct __remove {
-  template <permutable _Iter, sentinel_for<_Iter> _Sent, class _Type, class _Proj = identity>
+  template <permutable _Iter,
+            sentinel_for<_Iter> _Sent,
+            class _Proj = identity,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<_Iter, _Proj>
+#  endif
+            >
     requires indirect_binary_predicate<ranges::equal_to, projected<_Iter, _Proj>, const _Type*>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr subrange<_Iter>
   operator()(_Iter __first, _Sent __last, const _Type& __value, _Proj __proj = {}) const {
@@ -42,7 +49,13 @@ struct __remove {
     return ranges::__remove_if_impl(std::move(__first), std::move(__last), __pred, __proj);
   }
 
-  template <forward_range _Range, class _Type, class _Proj = identity>
+  template <forward_range _Range,
+            class _Proj = identity,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<iterator_t<_Range>, _Proj>
+#  endif
+            >
     requires permutable<iterator_t<_Range>> &&
              indirect_binary_predicate<ranges::equal_to, projected<iterator_t<_Range>, _Proj>, const _Type*>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr borrowed_subrange_t<_Range>

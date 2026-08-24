@@ -33,7 +33,19 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace ranges {
 struct __replace {
-  template <input_iterator _Iter, sentinel_for<_Iter> _Sent, class _Type1, class _Type2, class _Proj = identity>
+  template <input_iterator _Iter,
+            sentinel_for<_Iter> _Sent,
+            class _Proj = identity,
+            class _Type1
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<_Iter, _Proj>
+#  endif
+            ,
+            class _Type2
+#  if _LIBCPP_STD_VER >= 26
+            = _Type1
+#  endif
+            >
     requires indirectly_writable<_Iter, const _Type2&> &&
              indirect_binary_predicate<ranges::equal_to, projected<_Iter, _Proj>, const _Type1*>
   _LIBCPP_HIDE_FROM_ABI constexpr _Iter operator()(
@@ -42,7 +54,18 @@ struct __replace {
     return ranges::__replace_if_impl(std::move(__first), std::move(__last), __pred, __new_value, __proj);
   }
 
-  template <input_range _Range, class _Type1, class _Type2, class _Proj = identity>
+  template <input_range _Range,
+            class _Proj = identity,
+            class _Type1
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<iterator_t<_Range>, _Proj>
+#  endif
+            ,
+            class _Type2
+#  if _LIBCPP_STD_VER >= 26
+            = _Type1
+#  endif
+            >
     requires indirectly_writable<iterator_t<_Range>, const _Type2&> &&
              indirect_binary_predicate<ranges::equal_to, projected<iterator_t<_Range>, _Proj>, const _Type1*>
   _LIBCPP_HIDE_FROM_ABI constexpr borrowed_iterator_t<_Range>

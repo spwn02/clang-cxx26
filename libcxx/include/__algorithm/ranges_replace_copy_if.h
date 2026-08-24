@@ -14,6 +14,7 @@
 #include <__functional/identity.h>
 #include <__functional/invoke.h>
 #include <__iterator/concepts.h>
+#include <__iterator/iterator_traits.h>
 #include <__iterator/projected.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
@@ -55,11 +56,15 @@ _LIBCPP_HIDE_FROM_ABI constexpr replace_copy_if_result<_InIter, _OutIter> __repl
 struct __replace_copy_if {
   template <input_iterator _InIter,
             sentinel_for<_InIter> _Sent,
-            class _Type,
-            output_iterator<const _Type&> _OutIter,
+            class _OutIter,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = iter_value_t<_OutIter>
+#  endif
+            ,
             class _Proj = identity,
             indirect_unary_predicate<projected<_InIter, _Proj>> _Pred>
-    requires indirectly_copyable<_InIter, _OutIter>
+    requires indirectly_copyable<_InIter, _OutIter> && output_iterator<_OutIter, const _Type&>
   _LIBCPP_HIDE_FROM_ABI constexpr replace_copy_if_result<_InIter, _OutIter> operator()(
       _InIter __first, _Sent __last, _OutIter __result, _Pred __pred, const _Type& __new_value, _Proj __proj = {})
       const {
@@ -68,11 +73,15 @@ struct __replace_copy_if {
   }
 
   template <input_range _Range,
-            class _Type,
-            output_iterator<const _Type&> _OutIter,
+            class _OutIter,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = iter_value_t<_OutIter>
+#  endif
+            ,
             class _Proj = identity,
             indirect_unary_predicate<projected<iterator_t<_Range>, _Proj>> _Pred>
-    requires indirectly_copyable<iterator_t<_Range>, _OutIter>
+    requires indirectly_copyable<iterator_t<_Range>, _OutIter> && output_iterator<_OutIter, const _Type&>
   _LIBCPP_HIDE_FROM_ABI constexpr replace_copy_if_result<borrowed_iterator_t<_Range>, _OutIter>
   operator()(_Range&& __range, _OutIter __result, _Pred __pred, const _Type& __new_value, _Proj __proj = {}) const {
     return ranges::__replace_copy_if_impl(

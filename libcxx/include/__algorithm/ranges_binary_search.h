@@ -35,8 +35,12 @@ namespace ranges {
 struct __binary_search {
   template <forward_iterator _Iter,
             sentinel_for<_Iter> _Sent,
-            class _Type,
-            class _Proj                                                             = identity,
+            class _Proj = identity,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<_Iter, _Proj>
+#  endif
+            ,
             indirect_strict_weak_order<const _Type*, projected<_Iter, _Proj>> _Comp = ranges::less>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool
   operator()(_Iter __first, _Sent __last, const _Type& __value, _Comp __comp = {}, _Proj __proj = {}) const {
@@ -45,8 +49,12 @@ struct __binary_search {
   }
 
   template <forward_range _Range,
-            class _Type,
-            class _Proj                                                                          = identity,
+            class _Proj = identity,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<iterator_t<_Range>, _Proj>
+#  endif
+            ,
             indirect_strict_weak_order<const _Type*, projected<iterator_t<_Range>, _Proj>> _Comp = ranges::less>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool
   operator()(_Range&& __r, const _Type& __value, _Comp __comp = {}, _Proj __proj = {}) const {

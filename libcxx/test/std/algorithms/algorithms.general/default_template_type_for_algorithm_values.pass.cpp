@@ -8,14 +8,17 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 
-// P2248R8: Enabling list-initialization for algorithms (partial: the
-// non-range algorithms (including their ExecutionPolicy overloads), the
-// container erase() free functions, and ranges::fold_left/
-// fold_left_with_iter (the only ranges:: sites with no Proj/Comp parameter
-// to jump over, so no reordering was needed) -- the remaining ranges::
-// algorithms and P3217R0's find_last family are not yet implemented;
-// __cpp_lib_default_template_type_for_algorithm_values stays unimplemented
-// until those land too. See docs/CXX26_GAPS.md Tier 6.
+// P2248R8 (Enabling list-initialization for algorithms) + P3217R0 (its
+// find_last addendum): the non-range algorithms (including their
+// ExecutionPolicy overloads), the container erase() free functions, and
+// every ranges:: algorithm the two papers touch (fold_left/
+// fold_left_with_iter, find/count/search_n/replace/replace_if/
+// replace_copy/replace_copy_if/fill/fill_n/remove/remove_copy/
+// lower_bound/upper_bound/equal_range/binary_search/contains/find_last).
+// ranges::fold_right is unimplementable here (a separate, pre-existing
+// gap from P2322R6, not this paper) and ranges::find_last_if/
+// find_last_if_not take a predicate rather than a value, so neither
+// needed the treatment. See docs/CXX26_GAPS.md Tier 6.
 //
 // This test exercises the actual capability the paper is for: calling
 // each affected algorithm/erase() with a braced-init-list value, which
@@ -149,6 +152,119 @@ constexpr bool test() {
 
     auto result = std::ranges::fold_left_with_iter(v.begin(), v.end(), {0, 0}, AddPoints());
     assert((result.value == Point{4, 6}) && result.in == v.end());
+  }
+
+  // ranges:: find / count / search_n / replace / replace_if / replace_copy / replace_copy_if /
+  // fill / fill_n / remove / remove_copy / lower_bound / upper_bound / equal_range /
+  // binary_search / contains / find_last -- each exercised via both the iterator-pair and the
+  // range overload, with a braced-init-list value (the capability P2248R8's ranges:: slice adds).
+  {
+    std::vector<Point> v{{1, 2}, {3, 4}, {5, 6}};
+    assert(std::ranges::find(v.begin(), v.end(), {3, 4}) == v.begin() + 1);
+    assert(std::ranges::find(v, {3, 4}) == v.begin() + 1);
+    assert(std::ranges::count(v.begin(), v.end(), {3, 4}) == 1);
+    assert(std::ranges::count(v, {3, 4}) == 1);
+    assert(std::ranges::contains(v.begin(), v.end(), {3, 4}));
+    assert(std::ranges::contains(v, {3, 4}));
+    assert(std::ranges::find_last(v.begin(), v.end(), {3, 4}).begin() == v.begin() + 1);
+    assert(std::ranges::find_last(v, {3, 4}).begin() == v.begin() + 1);
+  }
+
+  {
+    std::vector<Point> v{{1, 1}, {2, 2}, {2, 2}, {3, 3}};
+    assert(std::ranges::search_n(v.begin(), v.end(), 2, {2, 2}).begin() == v.begin() + 1);
+    assert(std::ranges::search_n(v, 2, {2, 2}).begin() == v.begin() + 1);
+    assert(std::ranges::search_n(v.begin(), v.end(), 2, {2, 2}, [](const Point& a, const Point& b) {
+                                    return a.x == b.x;
+                                  }).begin() == v.begin() + 1);
+  }
+
+  {
+    std::vector<Point> v{{1, 2}, {3, 4}};
+    std::ranges::replace(v.begin(), v.end(), {1, 2}, {9, 9});
+    assert((v == std::vector<Point>{{9, 9}, {3, 4}}));
+
+    std::vector<Point> v2{{1, 2}, {3, 4}};
+    std::ranges::replace(v2, {1, 2}, {9, 9});
+    assert((v2 == std::vector<Point>{{9, 9}, {3, 4}}));
+
+    std::vector<Point> v3{{1, 2}, {3, 4}};
+    std::ranges::replace_if(
+        v3.begin(), v3.end(), [](const Point& p) { return p.x == 1; }, {7, 7});
+    assert((v3 == std::vector<Point>{{7, 7}, {3, 4}}));
+
+    std::vector<Point> v4{{1, 2}, {3, 4}};
+    std::ranges::replace_if(v4, [](const Point& p) { return p.x == 1; }, {7, 7});
+    assert((v4 == std::vector<Point>{{7, 7}, {3, 4}}));
+
+    std::vector<Point> src{{1, 2}, {3, 4}};
+    std::vector<Point> dst(2);
+    std::ranges::replace_copy(src.begin(), src.end(), dst.begin(), {1, 2}, {8, 8});
+    assert((dst == std::vector<Point>{{8, 8}, {3, 4}}));
+
+    std::vector<Point> dst2(2);
+    std::ranges::replace_copy(src, dst2.begin(), {1, 2}, {8, 8});
+    assert((dst2 == std::vector<Point>{{8, 8}, {3, 4}}));
+
+    std::vector<Point> dst3(2);
+    std::ranges::replace_copy_if(
+        src.begin(), src.end(), dst3.begin(), [](const Point& p) { return p.x == 1; }, {8, 8});
+    assert((dst3 == std::vector<Point>{{8, 8}, {3, 4}}));
+
+    std::vector<Point> dst4(2);
+    std::ranges::replace_copy_if(src, dst4.begin(), [](const Point& p) { return p.x == 1; }, {8, 8});
+    assert((dst4 == std::vector<Point>{{8, 8}, {3, 4}}));
+  }
+
+  {
+    std::vector<Point> v(3);
+    std::ranges::fill(v.begin(), v.end(), {1, 2});
+    assert((v == std::vector<Point>{{1, 2}, {1, 2}, {1, 2}}));
+
+    std::vector<Point> v2(3);
+    std::ranges::fill(v2, {1, 2});
+    assert((v2 == std::vector<Point>{{1, 2}, {1, 2}, {1, 2}}));
+
+    std::vector<Point> v3(3);
+    std::ranges::fill_n(v3.begin(), 3, {3, 4});
+    assert((v3 == std::vector<Point>{{3, 4}, {3, 4}, {3, 4}}));
+  }
+
+  {
+    std::vector<Point> v{{1, 2}, {3, 4}, {1, 2}};
+    assert(std::ranges::remove(v.begin(), v.end(), {1, 2}).begin() == v.begin() + 1);
+
+    std::vector<Point> v2{{1, 2}, {3, 4}, {1, 2}};
+    assert(std::ranges::remove(v2, {1, 2}).begin() == v2.begin() + 1);
+
+    std::vector<Point> src{{1, 2}, {3, 4}, {1, 2}};
+    std::vector<Point> out(3);
+    assert(std::ranges::remove_copy(src.begin(), src.end(), out.begin(), {1, 2}).out == out.begin() + 1);
+
+    std::vector<Point> out2(3);
+    assert(std::ranges::remove_copy(src, out2.begin(), {1, 2}).out == out2.begin() + 1);
+  }
+
+  {
+    std::vector<Point> v{{1, 0}, {2, 0}, {2, 0}, {3, 0}};
+    assert(std::ranges::lower_bound(v.begin(), v.end(), {2, 0}, LessByX()) == v.begin() + 1);
+    assert(std::ranges::lower_bound(v, {2, 0}, LessByX()) == v.begin() + 1);
+    assert(std::ranges::upper_bound(v.begin(), v.end(), {2, 0}, LessByX()) == v.begin() + 3);
+    assert(std::ranges::upper_bound(v, {2, 0}, LessByX()) == v.begin() + 3);
+    auto er = std::ranges::equal_range(v.begin(), v.end(), {2, 0}, LessByX());
+    assert(er.begin() == v.begin() + 1 && er.end() == v.begin() + 3);
+    auto er2 = std::ranges::equal_range(v, {2, 0}, LessByX());
+    assert(er2.begin() == v.begin() + 1 && er2.end() == v.begin() + 3);
+    assert(std::ranges::binary_search(v.begin(), v.end(), {2, 0}, LessByX()));
+    assert(std::ranges::binary_search(v, {2, 0}, LessByX()));
+  }
+
+  // A projection whose result type differs from the range's value type: only
+  // projected_value_t (not iter_value_t) gives the right default here.
+  {
+    std::vector<Point> v{{1, 2}, {3, 4}, {5, 6}};
+    assert(std::ranges::find(v, {4}, [](const Point& p) { return p.y; }) == v.begin() + 1);
+    assert(std::ranges::find(v.begin(), v.end(), {4}, &Point::y) == v.begin() + 1);
   }
 
   // vector::erase() -- vector is constexpr-friendly in this implementation.

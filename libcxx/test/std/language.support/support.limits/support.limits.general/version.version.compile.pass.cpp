@@ -6771,17 +6771,11 @@
 #    error "__cpp_lib_debugging should have the value 202403L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_default_template_type_for_algorithm_values
-#      error "__cpp_lib_default_template_type_for_algorithm_values should be defined in c++26"
-#    endif
-#    if __cpp_lib_default_template_type_for_algorithm_values != 202403L
-#      error "__cpp_lib_default_template_type_for_algorithm_values should have the value 202403L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_default_template_type_for_algorithm_values
-#      error "__cpp_lib_default_template_type_for_algorithm_values should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_default_template_type_for_algorithm_values
+#    error "__cpp_lib_default_template_type_for_algorithm_values should be defined in c++26"
+#  endif
+#  if __cpp_lib_default_template_type_for_algorithm_values != 202403L
+#    error "__cpp_lib_default_template_type_for_algorithm_values should have the value 202403L in c++26"
 #  endif
 
 #  if TEST_STD_VER > 17 && defined(__cpp_impl_destroying_delete) && __cpp_impl_destroying_delete >= 201806L

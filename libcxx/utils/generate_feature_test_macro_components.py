@@ -481,7 +481,6 @@ feature_test_macros = [
             "name": "__cpp_lib_default_template_type_for_algorithm_values",
             "values": {"c++26": 202403}, # P2248R8: Enabling list-initialization for algorithms
             "headers": ["algorithm", "deque", "forward_list", "list", "ranges", "string", "vector"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_destroying_delete",

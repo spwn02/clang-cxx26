@@ -16,6 +16,7 @@
 #include <__functional/invoke.h>
 #include <__functional/ranges_operations.h>
 #include <__iterator/concepts.h>
+#include <__iterator/iterator_traits.h>
 #include <__iterator/projected.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
@@ -41,12 +42,21 @@ using replace_copy_result = in_out_result<_InIter, _OutIter>;
 struct __replace_copy {
   template <input_iterator _InIter,
             sentinel_for<_InIter> _Sent,
-            class _OldType,
-            class _NewType,
-            output_iterator<const _NewType&> _OutIter,
-            class _Proj = identity>
+            class _OutIter,
+            class _Proj = identity,
+            class _OldType
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<_InIter, _Proj>
+#  endif
+            ,
+            class _NewType
+#  if _LIBCPP_STD_VER >= 26
+            = iter_value_t<_OutIter>
+#  endif
+            >
     requires indirectly_copyable<_InIter, _OutIter> &&
-             indirect_binary_predicate<ranges::equal_to, projected<_InIter, _Proj>, const _OldType*>
+             indirect_binary_predicate<ranges::equal_to, projected<_InIter, _Proj>, const _OldType*> &&
+             output_iterator<_OutIter, const _NewType&>
   _LIBCPP_HIDE_FROM_ABI constexpr replace_copy_result<_InIter, _OutIter>
   operator()(_InIter __first,
              _Sent __last,
@@ -60,12 +70,21 @@ struct __replace_copy {
   }
 
   template <input_range _Range,
-            class _OldType,
-            class _NewType,
-            output_iterator<const _NewType&> _OutIter,
-            class _Proj = identity>
+            class _OutIter,
+            class _Proj = identity,
+            class _OldType
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<iterator_t<_Range>, _Proj>
+#  endif
+            ,
+            class _NewType
+#  if _LIBCPP_STD_VER >= 26
+            = iter_value_t<_OutIter>
+#  endif
+            >
     requires indirectly_copyable<iterator_t<_Range>, _OutIter> &&
-             indirect_binary_predicate<ranges::equal_to, projected<iterator_t<_Range>, _Proj>, const _OldType*>
+             indirect_binary_predicate<ranges::equal_to, projected<iterator_t<_Range>, _Proj>, const _OldType*> &&
+             output_iterator<_OutIter, const _NewType&>
   _LIBCPP_HIDE_FROM_ABI constexpr replace_copy_result<borrowed_iterator_t<_Range>, _OutIter> operator()(
       _Range&& __range, _OutIter __result, const _OldType& __old_value, const _NewType& __new_value, _Proj __proj = {})
       const {

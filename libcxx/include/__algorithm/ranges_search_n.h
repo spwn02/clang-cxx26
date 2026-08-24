@@ -20,6 +20,7 @@
 #include <__iterator/incrementable_traits.h>
 #include <__iterator/indirectly_comparable.h>
 #include <__iterator/iterator_traits.h>
+#include <__iterator/projected.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/size.h>
@@ -66,9 +67,13 @@ struct __search_n {
 
   template <forward_iterator _Iter,
             sentinel_for<_Iter> _Sent,
-            class _Type,
             class _Pred = ranges::equal_to,
-            class _Proj = identity>
+            class _Proj = identity,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<_Iter, _Proj>
+#  endif
+            >
     requires indirectly_comparable<_Iter, const _Type*, _Pred, _Proj>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr subrange<_Iter>
   operator()(_Iter __first,
@@ -80,7 +85,14 @@ struct __search_n {
     return __ranges_search_n_impl(__first, __last, __count, __value, __pred, __proj);
   }
 
-  template <forward_range _Range, class _Type, class _Pred = ranges::equal_to, class _Proj = identity>
+  template <forward_range _Range,
+            class _Pred = ranges::equal_to,
+            class _Proj = identity,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<iterator_t<_Range>, _Proj>
+#  endif
+            >
     requires indirectly_comparable<iterator_t<_Range>, const _Type*, _Pred, _Proj>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr borrowed_subrange_t<_Range> operator()(
       _Range&& __range, range_difference_t<_Range> __count, const _Type& __value, _Pred __pred = {}, _Proj __proj = {})

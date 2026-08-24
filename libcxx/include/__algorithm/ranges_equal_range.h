@@ -41,8 +41,12 @@ namespace ranges {
 struct __equal_range {
   template <forward_iterator _Iter,
             sentinel_for<_Iter> _Sent,
-            class _Tp,
-            class _Proj                                                           = identity,
+            class _Proj = identity,
+            class _Tp
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<_Iter, _Proj>
+#  endif
+            ,
             indirect_strict_weak_order<const _Tp*, projected<_Iter, _Proj>> _Comp = ranges::less>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr subrange<_Iter>
   operator()(_Iter __first, _Sent __last, const _Tp& __value, _Comp __comp = {}, _Proj __proj = {}) const {
@@ -51,8 +55,12 @@ struct __equal_range {
   }
 
   template <forward_range _Range,
-            class _Tp,
-            class _Proj                                                                        = identity,
+            class _Proj = identity,
+            class _Tp
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<iterator_t<_Range>, _Proj>
+#  endif
+            ,
             indirect_strict_weak_order<const _Tp*, projected<iterator_t<_Range>, _Proj>> _Comp = ranges::less>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr borrowed_subrange_t<_Range>
   operator()(_Range&& __range, const _Tp& __value, _Comp __comp = {}, _Proj __proj = {}) const {

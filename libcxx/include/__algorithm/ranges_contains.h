@@ -34,14 +34,27 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace ranges {
 struct __contains {
-  template <input_iterator _Iter, sentinel_for<_Iter> _Sent, class _Type, class _Proj = identity>
+  template <input_iterator _Iter,
+            sentinel_for<_Iter> _Sent,
+            class _Proj = identity,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<_Iter, _Proj>
+#  endif
+            >
     requires indirect_binary_predicate<ranges::equal_to, projected<_Iter, _Proj>, const _Type*>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool static
   operator()(_Iter __first, _Sent __last, const _Type& __value, _Proj __proj = {}) {
     return ranges::find(std::move(__first), __last, __value, std::ref(__proj)) != __last;
   }
 
-  template <input_range _Range, class _Type, class _Proj = identity>
+  template <input_range _Range,
+            class _Proj = identity,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<iterator_t<_Range>, _Proj>
+#  endif
+            >
     requires indirect_binary_predicate<ranges::equal_to, projected<iterator_t<_Range>, _Proj>, const _Type*>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool static
   operator()(_Range&& __range, const _Type& __value, _Proj __proj = {}) {
