@@ -1911,7 +1911,11 @@ constexpr void symmetric_matrix_product(
     mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
     _Triangle,
     mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_matrix<mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
                 "linalg::symmetric_matrix_product requires three matrices");
@@ -1951,7 +1955,11 @@ constexpr void symmetric_matrix_product(
     mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
     mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
     _Triangle,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor>> &&
+           __detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_OtherExtents::rank() == 2 && _MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
                 "linalg::symmetric_matrix_product requires three matrices");
@@ -1991,7 +1999,11 @@ constexpr void hermitian_matrix_product(
     mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
     _Triangle,
     mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_matrix<mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
                 "linalg::hermitian_matrix_product requires three matrices");
@@ -2037,7 +2049,12 @@ constexpr void symmetric_matrix_product(
     _Triangle,
     mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
     mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_matrix<mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor>> &&
+           __detail::__in_matrix<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
                 "linalg::symmetric_matrix_product requires three matrices");
@@ -2088,7 +2105,12 @@ constexpr void symmetric_matrix_product(
     mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
     _Triangle,
     mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor>> &&
+           __detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_matrix<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_OtherExtents::rank() == 2 && _MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
                 "linalg::symmetric_matrix_product requires three matrices");
@@ -2136,7 +2158,12 @@ constexpr void hermitian_matrix_product(
     _Triangle,
     mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
     mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_matrix<mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor>> &&
+           __detail::__in_matrix<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_MatrixExtents::rank() == 2 && _OtherExtents::rank() == 2 && _OutputExtents::rank() == 2,
                 "linalg::hermitian_matrix_product requires three matrices");
@@ -2185,7 +2212,12 @@ constexpr void hermitian_matrix_product(
     mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
     _Triangle,
     mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor>> &&
+           __detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_matrix<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_OtherExtents::rank() == 2 && _MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
                 "linalg::hermitian_matrix_product requires three matrices");
@@ -2229,7 +2261,11 @@ constexpr void hermitian_matrix_product(
     mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor> __other,
     mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
     _Triangle,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_OtherElement, _OtherExtents, _OtherLayout, _OtherAccessor>> &&
+           __detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_OtherExtents::rank() == 2 && _MatrixExtents::rank() == 2 && _OutputExtents::rank() == 2,
                 "linalg::hermitian_matrix_product requires three matrices");
