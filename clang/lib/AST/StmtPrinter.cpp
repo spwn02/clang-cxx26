@@ -2819,7 +2819,7 @@ void StmtPrinter::VisitCXXIndeterminateExpansionStmt(
   SubPolicy.SuppressInitializers = true;
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
-  // TODO(P2996).
+  // TODO(CXX26).
   OS << "<range>"; //PrintExpr(Node->getRange());
   OS << ")";
   PrintControlledStmt(Node->getBody());
@@ -2834,7 +2834,7 @@ void StmtPrinter::VisitCXXDestructurableExpansionStmt(
   SubPolicy.SuppressInitializers = true;
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
-  // TODO(P2996).
+  // TODO(CXX26).
   OS << "<range>"; //PrintExpr(Node->getRange());
   OS << ")";
   PrintControlledStmt(Node->getBody());
@@ -2849,7 +2849,7 @@ void StmtPrinter::VisitCXXIterableExpansionStmt(
   SubPolicy.SuppressInitializers = true;
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
-  // TODO(P2996).
+  // TODO(CXX26).
   OS << "<range>"; //PrintExpr(Node->getRange());
   OS << ")";
   PrintControlledStmt(Node->getBody());
@@ -2864,7 +2864,7 @@ void StmtPrinter::VisitCXXInitListExpansionStmt(
   SubPolicy.SuppressInitializers = true;
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
-  // TODO(P2996).
+  // TODO(CXX26).
   OS << "<range>"; //PrintExpr(Node->getRange());
   OS << ")";
   PrintControlledStmt(Node->getBody());
@@ -2891,17 +2891,17 @@ void StmtPrinter::VisitCXXExpansionInitListSelectExpr(
 
 void StmtPrinter::VisitCXXIterableExpansionSelectExpr(
         CXXIterableExpansionSelectExpr *Node) {
-  // TODO(P2996): Implement this.
+  // TODO(CXX26): Implement this.
 }
 
 void StmtPrinter::VisitCXXDestructurableExpansionSelectExpr(
         CXXDestructurableExpansionSelectExpr *Node) {
-  // TODO(P2996): Implement this.
+  // TODO(CXX26): Implement this.
 }
 
 void StmtPrinter::VisitCXXIndeterminateExpansionSelectExpr(
         CXXIndeterminateExpansionSelectExpr *Node) {
-  // TODO(P2996): Implement this.
+  // TODO(CXX26): Implement this.
 }
 
 // Obj-C

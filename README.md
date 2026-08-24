@@ -1,15 +1,14 @@
-# Clang/P2996: An LLVM fork
+# CXX26 Clang: Experimental LLVM fork
 
-Welcome to Clang/P2996, a fork of the [`llvm/llvm-project`](
-https://github.com/llvm/llvm-project) implementing experimental support for ISO
-C++ proposal [P2996](https://wg21.link/p2996) in `clang`. Please see [P2996.md](
-P2996.md) for more about this project.
+CXX26 Clang is an experimental fork of
+[`llvm/llvm-project`](https://github.com/llvm/llvm-project). Its goal is broad
+C++26 language and standard-library implementation, together with compatible
+support for earlier C++ standards. Experimental static reflection is documented
+in [docs/REFLECTION.md](docs/REFLECTION.md).
 
-This fork is maintained at [`spwn02/clang-p2996`](https://github.com/spwn02/clang-p2996).
-It preserves the history of the earlier
-[`bloomberg/clang-p2996`](https://github.com/bloomberg/clang-p2996)
-implementation and the upstream [`llvm/llvm-project`](https://github.com/llvm/llvm-project)
-history. That provenance does not imply Bloomberg endorsement of this fork.
+This fork preserves upstream LLVM history and the history of its Bloomberg-originated
+reflection implementation. That provenance does not imply Bloomberg endorsement
+of this fork.
 
 # The LLVM Compiler Infrastructure
 

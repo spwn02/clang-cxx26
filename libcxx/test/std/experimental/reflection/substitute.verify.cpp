@@ -429,28 +429,28 @@ static_assert(!can_substitute(^^Cls,
 }  // namespace invalid_template_ids
 
                   // ========================================
-                  // bb_clang_p2996_issue_101_regression_test
+                  // bb_clang_cxx26_issue_101_regression_test
                   // ========================================
 
-namespace bb_clang_p2996_issue_101_regression_test {
+namespace bb_clang_cxx26_issue_101_regression_test {
 template <class C, typename T> using member_pointer = T C::*;
 
 struct Test { };
 static_assert(substitute(^^member_pointer, {^^Test, ^^int}) !=
               substitute(^^member_pointer, {^^Test, ^^float}));
-}  // namespace bb_clang_p2996_issue_101_regression_test
+}  // namespace bb_clang_cxx26_issue_101_regression_test
 
                   // ========================================
-                  // bb_clang_p2996_issue_123_regression_test
+                  // bb_clang_cxx26_issue_123_regression_test
                   // ========================================
 
-namespace bb_clang_p2996_issue_123_regression_test {
+namespace bb_clang_cxx26_issue_123_regression_test {
 template <typename T> auto fn24() {}
 
 void fn() {
     (void) [:substitute(^^fn24, {^^int}):];
 }
-}  // namespace bb_clang_p2996_issue_123_regression_test
+}  // namespace bb_clang_cxx26_issue_123_regression_test
 
                         // ============================
                         // non_type_ref_regression_test
@@ -464,17 +464,17 @@ static_assert([:substitute(^^Value, {members_of(^^Cls, ctx)[0]}):] == 11);
 }  // namespace non_type_ref_regression_test
 
                   // ========================================
-                  // bb_clang_p2996_issue_147_regression_test
+                  // bb_clang_cxx26_issue_147_regression_test
                   // ========================================
 
-namespace bb_clang_p2996_issue_147_regression_test {
+namespace bb_clang_cxx26_issue_147_regression_test {
 template<int V> constexpr int my_int = V;
 template<int S> struct test {};
 
 constexpr auto r = substitute(^^test, {
   substitute(^^my_int, {std::meta::reflect_constant(0)})
 });
-}  // namespace bb_clang_p2996_issue_147_regression_test
+}  // namespace bb_clang_cxx26_issue_147_regression_test
 
 
                                // ===============

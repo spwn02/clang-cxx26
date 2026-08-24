@@ -2,14 +2,20 @@
 
 ## Project Overview
 
-**Clang/P2996** is an experimental fork of LLVM that implements ISO C++ proposal [P2996](https://wg21.link/p2996) (_Reflection for C++26_). The implementation includes metafunctions, reflection operators, and splice expressions. See [P2996.md](P2996.md) for complete details on the feature set, known limitations, and design decisions.
+**CXX26 Clang** is an experimental LLVM fork focused on implementing C++26 and
+earlier C++ standards. Its experimental static-reflection implementation
+includes metafunctions, reflection operators, and splice expressions; see
+[`docs/REFLECTION.md`](docs/REFLECTION.md).
 
-This repository preserves the Apache-2.0 WITH LLVM-exception license, upstream source headers and Git authorship, and the history of the [Bloomberg implementation](https://github.com/bloomberg/clang-p2996). Do not remove or rewrite that provenance, and do not imply Bloomberg endorses this fork.
+This repository preserves the Apache-2.0 WITH LLVM-exception license, upstream
+source headers and Git authorship, and the history of the Bloomberg-originated
+reflection implementation. Do not remove or rewrite that provenance, and do
+not imply Bloomberg endorses this fork.
 
 ## Command Dispatch
 
-- `Continue`: read `docs/LLVM22_SYNC.md` first when synchronization is active. Resume the `[~]` milestone or its recorded Current action immediately. If synchronization is not active, read `docs/CXX26_GAPS.md` and `P2996.md`, then resume their recorded active work.
-- `Begin PXXXX`: locate the requested paper in `docs/CXX26_GAPS.md`, `P2996.md`, and any linked status files; research its requirements, implement autonomously, run focused tests, update the active tracker, and commit. Begin work without introductory narration.
+- `Continue`: read `docs/LLVM22_SYNC.md` first when synchronization is active. Resume the `[~]` milestone or its recorded Current action immediately. If synchronization is not active, read `docs/CXX26_GAPS.md` and `docs/REFLECTION.md`, then resume their recorded active work.
+- `Begin PXXXX`: locate the requested paper in `docs/CXX26_GAPS.md`, `docs/REFLECTION.md`, and any linked status files; research its requirements, implement autonomously, run focused tests, update the active tracker, and commit. Begin work without introductory narration.
 
 ## Build Architecture
 
@@ -66,7 +72,7 @@ ninja -C build-nyx check-clang
 
 `clang/test/Reflection/splice-exprs.cpp` currently fails because the expected error at line 23 is not seen. This is a known pre-existing regression tracked in `docs/CXX26_GAPS.md` Tier 0.
 
-## P2996 Features and Flags
+## Experimental reflection flags
 
 Enable reflection with `-std=c++26 -freflection`. Extended features require additional flags:
 
@@ -86,7 +92,7 @@ Enable reflection with `-std=c++26 -freflection`. Extended features require addi
 ## Trackers
 
 - During LLVM 22 synchronization, `docs/LLVM22_SYNC.md` is the single source of truth and must be read first.
-- Otherwise, `docs/CXX26_GAPS.md` is the living C++26 conformance tracker and `P2996.md` tracks reflection. Read both before starting relevant work.
+- Otherwise, `docs/CXX26_GAPS.md` is the living C++26 conformance tracker and `docs/REFLECTION.md` tracks reflection. Read both before starting relevant work.
 - Update the active tracker in place when status changes and append a dated session-log entry before ending a work session.
 - Contracts (P2900R14) and `std::execution` (P2300R10) require dedicated sub-plans; consult Tier 2 notes before starting either.
 
@@ -103,7 +109,7 @@ Recent work focuses on C++26 standard-library conformance. Header/module exports
 - Commit and push every completed major milestone after its required test gate.
 - Never push a knowingly broken milestone state.
 - Create and push annotated prerelease tags after completed epics or other release-worthy checkpoints.
-- Use `p2996-YYYY.MM.DD`, then `.2`, `.3`, and so on for additional tags on the same day.
+- Use `cxx26-YYYY.MM.DD`, then `.2`, `.3`, and so on for additional tags on the same day.
 - Stage only files belonging to the current change; never stage unrelated user changes implicitly.
 
 ## Answer Style

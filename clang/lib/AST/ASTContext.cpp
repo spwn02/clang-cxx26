@@ -1506,7 +1506,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   // nullptr type (C++0x 2.14.7)
   InitBuiltinType(NullPtrTy,           BuiltinType::NullPtr);
 
-  // meta::info type (C++2c P2996)
+  // meta::info type (C++2c CXX26)
   InitBuiltinType(MetaInfoTy, BuiltinType::MetaInfo);
 
   // half type (OpenCL 6.1.1.1) / ARM NEON __fp16
@@ -7456,7 +7456,7 @@ static bool isSameQualifier(const NestedNameSpecifier *X,
     break;
   case NestedNameSpecifier::Splice:
   case NestedNameSpecifier::SpliceWithTemplate:
-    // TODO(P2996): This might not be good enough.
+    // TODO(CXX26): This might not be good enough.
     if (X->getAsSplice() != Y->getAsSplice())
       return false;
     break;
@@ -14561,7 +14561,7 @@ static QualType getCommonSugarTypeNode(ASTContext &Ctx, const Type *X,
     return Ctx.getTypeOfType(Ctx.getQualifiedType(Underlying), Kind);
   }
   case Type::ReflectionSplice:
-    // TODO(P2996): Revisit this.
+    // TODO(CXX26): Revisit this.
     return QualType();
   case Type::TypeOfExpr:
     return QualType();

@@ -45,7 +45,7 @@ using EvalFn = Metafunction::EvaluateFn;
 using DiagFn = Metafunction::DiagnoseFn;
 
 // -----------------------------------------------------------------------------
-// P2996 Metafunction declarations
+// CXX26 Metafunction declarations
 // -----------------------------------------------------------------------------
 
 static bool get_begin_enumerator_decl_of(APValue &Result, ASTContext &C,
@@ -1126,7 +1126,7 @@ static bool getParameterName(ParmVarDecl *PVD, std::string &Out) {
 
   unsigned ParamIdx = PVD->getFunctionScopeIndex();
 
-  // TODO(P2996): This will crash if we're in the trailing requires-clause of
+  // TODO(CXX26): This will crash if we're in the trailing requires-clause of
   // a function declaration, since the DeclContext is not the function but the
   // TranslationUnitDecl.
   FunctionDecl *FD = cast<FunctionDecl>(PVD->getDeclContext());
@@ -1178,7 +1178,7 @@ static bool getParameterName(ParmVarDecl *PVD, std::string &Out) {
 }
 
 static ParmVarDecl *getMostRecentParmVarDecl(ParmVarDecl *PVD) {
-  // TODO(P2996): This will crash if we're in the trailing requires-clause of
+  // TODO(CXX26): This will crash if we're in the trailing requires-clause of
   // a function declaration, since the DeclContext is not the function but the
   // TranslationUnitDecl.
   FunctionDecl *FD = cast<FunctionDecl>(PVD->getDeclContext());
@@ -2522,7 +2522,7 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
 
     if (QT->isIncompleteType())
       return true;
-      // NOTE(P2996): Uncomment to allow 'members_of' within member
+      // NOTE(CXX26): Uncomment to allow 'members_of' within member
       // specification.
       /*
       if (auto *TD = dyn_cast<TagDecl>(typeDecl); !TD || !TD->isBeingDefined())
@@ -6890,7 +6890,7 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
     NamingCls = NamingCls->getDefinition();
 
     if (!NamingCls)
-      return true;  // TODO(P2996): Diagnostic for naming class.
+      return true;  // TODO(CXX26): Diagnostic for naming class.
   }
 
   APValue RV;

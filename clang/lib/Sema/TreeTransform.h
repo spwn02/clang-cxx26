@@ -1073,7 +1073,7 @@ public:
   /// Subclasses may override this routine to provide different behavior.
   QualType RebuildDecltypeType(Expr *Underlying, SourceLocation Loc);
 
-  /// Build a new type loc from a C++2c reflection splice (P2996).
+  /// Build a new type loc from a C++2c reflection splice (CXX26).
   QualType RebuildReflectionSpliceTypeLoc(TypeLocBuilder &TLB,
                                           SourceLocation TypenameKWLoc,
                                           SpliceSpecifier *Splice);

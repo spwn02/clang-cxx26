@@ -12,7 +12,7 @@ auto main() -> int {
   std::hive<int> hive;
   hive.insert(42);
 
-  std::println("clang-p2996 reference toolchain: {} values", values.size());
+  std::println("clang-cxx26 reference toolchain: {} values", values.size());
   return values.size() == 3 &&
                  inplace.size() == 3 &&
                  hive.size() == 1 &&

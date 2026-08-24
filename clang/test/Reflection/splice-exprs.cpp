@@ -336,10 +336,10 @@ struct WithIndexOperator {
 }  // namespace colon_parsing
 
                    // =======================================
-                   // bb_clang_p2996_issue_22_regression_test
+                   // bb_clang_cxx26_issue_22_regression_test
                    // =======================================
 
-namespace bb_clang_p2996_issue_22_regression_test {
+namespace bb_clang_cxx26_issue_22_regression_test {
 // Issue #22 invoked a crash involving CTAD in a double templated context.
 // I wasn't able to find a more minimal reproduction of the crash, but am
 // including this test to prevent regression.
@@ -356,25 +356,25 @@ struct Cls
 
 void fn(int);
 static_assert(^^decltype(Cls<^^fn>::Impl(&fn)) == ^^Cls<^^fn>::Impl<void, int>);
-}  // namespace bb_clang_p2996_issue_22_regression_test
+}  // namespace bb_clang_cxx26_issue_22_regression_test
 
                   // ========================================
-                  // bb_clang_p2996_issue_131_regression_test
+                  // bb_clang_cxx26_issue_131_regression_test
                   // ========================================
 
-namespace bb_clang_p2996_issue_131_regression_test {
+namespace bb_clang_cxx26_issue_131_regression_test {
 struct Y 
 {
     int g(this Y const&, int, int);
 };
 static_assert(&Y::g == &[:^^Y::g:]);
-}  // namespace bb_clang_p2996_issue_131_regression_test
+}  // namespace bb_clang_cxx26_issue_131_regression_test
 
                   // ========================================
-                  // bb_clang_p2996_issue_132_regression_test
+                  // bb_clang_cxx26_issue_132_regression_test
                   // ========================================
 
-namespace bb_clang_p2996_issue_132_regression_test {
+namespace bb_clang_cxx26_issue_132_regression_test {
 template<typename>
 void f()
 {
@@ -386,4 +386,4 @@ void f()
 void g() {
    f<int>();
 }
-}  // namespace bb_clang_p2996_issue_132_regression_test
+}  // namespace bb_clang_cxx26_issue_132_regression_test

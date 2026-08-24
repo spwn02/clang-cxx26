@@ -3594,7 +3594,7 @@ defm application_extension : BoolFOption<"application-extension",
 defm reflection : BoolFOption<"reflection",
   LangOpts<"Reflection">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option],
-          "Enable proposed C++26 reflection as described by P2996">,
+          "Enable experimental C++26 static reflection">,
   NegFlag<SetFalse>>;
 defm parameter_reflection : BoolFOption<"parameter-reflection",
   LangOpts<"ParameterReflection">, DefaultFalse,
@@ -3624,7 +3624,7 @@ defm entity_proxy_reflection : BoolFOption<"entity-proxy-reflection",
 defm reflection_latest : BoolFOption<"reflection-latest",
   LangOpts<"ReflectionLatest">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option],
-          "Enable all reflection features supported by Clang/P2996">,
+          "Enable all reflection features supported by CXX26 Clang">,
   NegFlag<SetFalse>>;
 
 defm sized_deallocation : BoolFOption<"sized-deallocation",

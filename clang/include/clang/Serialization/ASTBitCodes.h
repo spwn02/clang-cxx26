@@ -2040,7 +2040,7 @@ enum StmtCode {
   EXPR_COYIELD,
   EXPR_DEPENDENT_COAWAIT,
 
-  // C++2c reflection (P2996)
+  // C++2c reflection (CXX26)
   EXPR_REFLECT,
   EXPR_METAFUNCTION,
   EXPR_SPLICE,

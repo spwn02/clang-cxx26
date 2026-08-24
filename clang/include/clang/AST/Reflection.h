@@ -111,7 +111,7 @@ enum class ReflectionKind {
   /// but the current design seems tolerable for now.
   DataMemberSpec,
 
-  /// \brief A reflection of an annotation (P2996 ext).
+  /// \brief A reflection of an annotation (CXX26 ext).
   Annotation,
 
   /// \brief A reflection of an enumerator spec (P4033).

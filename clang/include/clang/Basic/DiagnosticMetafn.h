@@ -1,4 +1,4 @@
-//==--- DiagnosticMetafn - Diagnostics for P2996 metafunctions ------------===//
+//==--- DiagnosticMetafn - Diagnostics for CXX26 metafunctions ------------===//
 //
 // Copyright 2024 Bloomberg Finance L.P.
 //

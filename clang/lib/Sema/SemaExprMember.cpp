@@ -1216,7 +1216,7 @@ Sema::BuildMemberReferenceExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
     if (isa<FieldDecl>(D) || isa<IndirectFieldDecl>(D) || isa<CXXMethodDecl>(D)
      || (isa<VarDecl>(D) && DRE->getQualifierLoc())) {
       ND = D;
-      // NOTE(P2996): Uncomment the following line for static dispatch.
+      // NOTE(CXX26): Uncomment the following line for static dispatch.
       // SS.Adopt(DRE->getQualifierLoc());
     }
   } else if (auto *ULE = dyn_cast<UnresolvedLookupExpr>(RHS->getModel())) {
@@ -1852,7 +1852,7 @@ ExprResult Sema::ActOnMemberAccessExpr(Scope *S, Expr *Base,
 }
 
 /// Variant of ActOnMemberAccessExpr used when the right-hand expression is an
-/// expression splice (C++26, P2996) rather than an unqualified-id.
+/// expression splice (C++26, CXX26) rather than an unqualified-id.
 ExprResult Sema::ActOnMemberAccessExpr(Scope *S, Expr *Base,
                                        SourceLocation OpLoc,
                                        tok::TokenKind OpKind,

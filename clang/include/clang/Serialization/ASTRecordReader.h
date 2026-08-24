@@ -371,7 +371,7 @@ public:
     return Reader->getSwitchCaseWithID(ID);
   }
 
-  /// P2996 hack: Use the 'Sema' object from the ASTReader to get a
+  /// CXX26 hack: Use the 'Sema' object from the ASTReader to get a
   /// metafunction callback during deserialization of a CXXMetafunctionExpr.
   const CXXMetafunctionExpr::ImplFn &getMetafunctionCb(unsigned ID) {
     return Reader->getSema()->getMetafunctionCb(ID);

@@ -1,4 +1,4 @@
-//==--- DiagnosticSemaKinds.td - P2996 Metafunction diagnostics -----------===//
+//==--- DiagnosticSemaKinds.td - CXX26 Metafunction diagnostics -----------===//
 //
 // Copyright 2024 Bloomberg Finance L.P.
 //

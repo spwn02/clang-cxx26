@@ -112,10 +112,10 @@ void test3() {
 }  // namespace in_using_directives
 
                   // ========================================
-                  // bb_clang_p2996_issue_338_regression_test
+                  // bb_clang_cxx26_issue_338_regression_test
                   // ========================================
 
-namespace bb_clang_p2996_issue_338_regression_test {
+namespace bb_clang_cxx26_issue_338_regression_test {
 // Issue #338: a using-declaration naming a member through a dependent
 // splice-scope-specifier (one that can resolve to a namespace, not just a
 // class) was incorrectly diagnosed as though it must refer to a class
@@ -134,4 +134,4 @@ void useMynsS() {
   S s;
 }
 template void useMynsS<^^myns>();
-}  // namespace bb_clang_p2996_issue_338_regression_test
+}  // namespace bb_clang_cxx26_issue_338_regression_test

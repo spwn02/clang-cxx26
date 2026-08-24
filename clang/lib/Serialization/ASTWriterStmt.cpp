@@ -519,19 +519,19 @@ void ASTStmtWriter::VisitCXXDependentMemberSpliceExpr(
 
 void ASTStmtWriter::VisitStackLocationExpr(StackLocationExpr *E) {
   VisitExpr(E);
-  // TODO(P2996): Implement this.
+  // TODO(CXX26): Implement this.
   Code = serialization::EXPR_STACK_LOCATION;
 }
 
 void ASTStmtWriter::VisitExtractLValueExpr(ExtractLValueExpr *E) {
   VisitExpr(E);
-  // TODO(P2996): Implement this.
+  // TODO(CXX26): Implement this.
   Code = serialization::EXPR_EXTRACT_LVALUE;
 }
 
 void ASTStmtWriter::VisitExplDependentCallExpr(ExplDependentCallExpr *E) {
   VisitExpr(E);
-  // TODO(P2996): Implement this.
+  // TODO(CXX26): Implement this.
   Code = serialization::EXPR_EXPL_DEPENDENT_CALL;
 }
 

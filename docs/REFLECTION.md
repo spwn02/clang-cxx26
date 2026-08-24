@@ -1,12 +1,12 @@
-# Clang/P2996
+# Experimental static reflection
 
-Clang/P2996 is a fork of the [llvm/llvm-project](https://github.com/llvm/llvm-project) implementing experimental support for ISO C++ (WG21) proposal [**P2996**](https://wg21.link/p2996) (_Reflection for C++26_) in the `clang` compiler front-end. This project was initiated by a passionate group of C++ enthusiasts in [Bloomberg's Engineering department](https://www.TechAtBloomberg.com).
+This document records this fork's experimental static-reflection implementation
+in the `clang` front end. It began with work by engineers in
+[Bloomberg Engineering](https://www.TechAtBloomberg.com), and is now maintained
+as one component of a broader C++26-and-earlier implementation effort.
 
-The Clang/P2996 fork is highly experimental; sharp edges abound and occasional crashes should be expected. Memory usage has not been optimized and is, in many cases, wasteful. **DO NOT use this project to build any artifacts destined for production.**
-
-That said, this project represents the most complete implementation of P2996 to date. It is possible to use Clang/P2996 to build nontrivial reflection-heavy programs. We encourage all interested parties to try it out, and we welcome any pull requests or feedback.
-
-The intent of this project is to continue tracking changes to P2996 as it makes its way through WG21's stages of development. That said, this is an aspiration and not a promise. The project is provided "as is." Subsequent development will be on a "best effort" basis, and we offer no guarantees as to its continued maintenance.
+The implementation is experimental. Do not use it for production artifacts.
+Its behavior and interfaces may change as C++ standardization evolves.
 
 
 ## Menu
@@ -16,7 +16,7 @@ The intent of this project is to continue tracking changes to P2996 as it makes 
 - [Quick start](#quick-start)
 - [Implementation status](#implementation-status)
   - [Incomplete features](#incomplete-features)
-  - [P2996 test cases](#p2996-test-cases)
+  - [Reflection test cases](#reflection-test-cases)
 - [License](#license)
 - [Code of conduct](#code-of-conduct)
 - [Implementation design notes](#implementation-design-notes)
@@ -30,17 +30,18 @@ The intent of this project is to continue tracking changes to P2996 as it makes 
 
 
 ## Rationale
-The project's primary goal is to explore the implementation feasibility of P2996 in a major open source compiler. Through this, we hope to also provide an environment in which C++ enthusiasts can experiment with additional reflection features not already proposed by P2996. Finally, we aim to discover and raise awareness of possible concerns with bringing P2996 to `clang` (i.e., proposed features that may not fit easily within the existing architecture).
+The project's primary goal is to explore static reflection in a major open-source
+compiler, while providing a platform for other C++26 and earlier-standard work.
 
 
 ## Acknowledgments
-This project owes an enormous debt to the historical [paper/p2320](https://github.com/lock3/meta/tree/paper/p2320) LLVM fork previously developed by Andrew Sutton and Wyatt Childers from their time at Lock3 Software. Their work not only provided our initial roadmap for implementing reflection in `clang`, but also taught us much about `clang`'s internals -- none of the initial Clang/P2996 developers had any prior development experience with `clang` (or indeed, any modern C++ compiler).
+This project owes an enormous debt to the historical [paper/p2320](https://github.com/lock3/meta/tree/paper/p2320) LLVM fork previously developed by Andrew Sutton and Wyatt Childers from their time at Lock3 Software. Their work not only provided our initial roadmap for implementing reflection in `clang`, but also taught us much about `clang`'s internals -- none of the initial this fork developers had any prior development experience with `clang` (or indeed, any modern C++ compiler).
 
-The initial implementation of Clang/P2996 was led by Dan Katz, with significant contributions from Georgi Koyrushki, Mark Sciabica, Sergei Murzin, and Kay Hicketts. All are engineers at Bloomberg, and they are grateful to their organization for supporting this work.
+The initial implementation of this fork was led by Dan Katz, with significant contributions from Georgi Koyrushki, Mark Sciabica, Sergei Murzin, and Kay Hicketts. All are engineers at Bloomberg, and they are grateful to their organization for supporting this work.
 
 
 ## Quick start
-The upstream LLVM project provides an excellent [Getting Started](https://llvm.org/docs/GettingStarted.html) guide with instructions for building `clang` and `libc++`. After building both of these targets, support for reflection can be enabled in Clang/P2996 by compiling with both the `-std=c++26` and `-freflection` flags.
+The upstream LLVM project provides an excellent [Getting Started](https://llvm.org/docs/GettingStarted.html) guide with instructions for building `clang` and `libc++`. After building both of these targets, support for reflection can be enabled in this fork by compiling with both the `-std=c++26` and `-freflection` flags.
 
 The following additional experimental features can be enabled on top of `-freflection`:
 - Parameter reflection as proposed by [P3096](https://wg21.link/p3096) (`-fparameter-reflection`).
@@ -54,41 +55,41 @@ For convenience, a unified `-freflection-latest` flag enables all of these featu
 
 
 ## Implementation status
-At present, Clang/P2996 supports:
+At present, this fork supports:
 
-* Reflection and splicing of all entities supported by P2996 (i.e., types, functions, variables, class members, templates, namespaces, constant values)
-* All metafunctions proposed by P2996
+* Reflection and splicing of all entities supported by this implementation (i.e., types, functions, variables, class members, templates, namespaces, constant values)
+* All metafunctions available in this implementation
 * [P3096](https://wg21.link/p3096) metafunction extensions for function parameters (enabled with `-fparameter-reflection`)
 * [P1306](https://wg21.link/p1306) expansion statements over _expansion-init-lists_ and _destructurable expressions_
 * [P3289](https://wg21.link/p3289) `consteval` blocks
 * [P3491](https://wg21.link/p3491) define_static_{string,object,array} 
 
-Any implemented language or library extensions that are _not_ candidates for inclusion in P2996 are enabled by separate feature flags (as documented above). Any behaviors divergent from what is described by P2996, unless implemented experimentally for possible adoption by P2996, should be considered bugs.
+Any implemented language or library extensions that are _not_ candidates for inclusion in static reflection are enabled by separate feature flags (as documented above). Any behaviors divergent from what is described by static reflection, unless implemented experimentally for possible adoption by static reflection, should be considered bugs.
 
 ### Incomplete features
-Nearly all of P2996 is supported. We make an effort to keep the [issue tracker](https://github.com/bloomberg/clang-p2996/issues) updated with all known bugs, noncomformant behaviors, and missing features.
+Nearly all of static reflection is supported. We make an effort to keep the [issue tracker](https://github.com/bloomberg/clang-static-reflection/issues) updated with all known bugs, noncomformant behaviors, and missing features.
 
-It has been our goal to provide a working compiler capable of building executables, but it has not been a non-goal to support the full family of features and tools offered by `clang` (e.g., AST output, `clang-tidy`, etc). Several shortcuts were therefore taken when it comes to defining things like the formatting of a reflection in a text dump. We are open to pull requests implementing such things, but are otherwise content to wait until P2996 is further along in the WG21 process.
+It has been our goal to provide a working compiler capable of building executables, but it has not been a non-goal to support the full family of features and tools offered by `clang` (e.g., AST output, `clang-tidy`, etc). Several shortcuts were therefore taken when it comes to defining things like the formatting of a reflection in a text dump. We are open to pull requests implementing such things, but are otherwise content to wait until static reflection is further along in the WG21 process.
 
-### P2996 test cases
-A significant number of tests have been written for this project, covering both the reflection and splicing operators proposed for the core language and the various metafunctions proposed for the Standard Library (found [here](/clang/test/Reflection/) and [here](/libcxx/test/std/experimental/reflection/) respectively). Among these tests are many of the examples from the P2996 paper (e.g., "_Parsing Command-Line Options II_", "_Compile-Time Ticket Counter_", and "_Emulating Typeful Reflection_"). We expect for this body of tests to continue to grow, and hope that it may furthermore assist validation of future implementations of P2996.
+### Reflection test cases
+A significant number of tests have been written for this project, covering both the reflection and splicing operators proposed for the core language and the various metafunctions proposed for the Standard Library (found [here](/clang/test/Reflection/) and [here](/libcxx/test/std/experimental/reflection/) respectively). Among these tests are many of the examples from the static reflection paper (e.g., "_Parsing Command-Line Options II_", "_Compile-Time Ticket Counter_", and "_Emulating Typeful Reflection_"). We expect for this body of tests to continue to grow, and hope that it may furthermore assist validation of future implementations of static reflection.
 
-At this time, our test cases primarily verify correct uses of P2996 facilities; that is, we have not yet written tests to validate expected diagnostics for ill-formed programs. As such, this is probably an area having a nontrivial number of bugs and crashes waiting to be discovered.
+At this time, our test cases primarily verify correct uses of static reflection facilities; that is, we have not yet written tests to validate expected diagnostics for ill-formed programs. As such, this is probably an area having a nontrivial number of bugs and crashes waiting to be discovered.
 
 
 ## License
-Following the example of the upstream LLVM project, new code developed for Clang/P2996 is licensed under Apache 2.0 with LLVM extensions ([LICENSE.TXT](/LICENSE.TXT)).
+Following the example of the upstream LLVM project, new code developed for this fork is licensed under Apache 2.0 with LLVM extensions ([LICENSE.TXT](/LICENSE.TXT)).
 
 
 ## Code of conduct
-The Clang/P2996 project has adopted a [Code of Conduct](https://github.com/bloomberg/.github/blob/main/CODE_OF_CONDUCT.md). If you have any concerns about the Code, or behavior which you have experienced in the project, please contact us at opensource@bloomberg.net.
+The project has adopted a [Code of Conduct](https://github.com/bloomberg/.github/blob/main/CODE_OF_CONDUCT.md). If you have any concerns about the Code, or behavior which you have experienced in the project, please contact us at opensource@bloomberg.net.
 
 
 # Implementation design notes
-Below are some high level notes about our implementation of P2996, along with some thoughts regarding certain "sharp edges" of the proposal as it relates to `clang`.
+Below are some high level notes about our implementation of static reflection, along with some thoughts regarding certain "sharp edges" of the proposal as it relates to `clang`.
 
 ## Representing reflections
-P2996 proposes a _value-based_ reflection model, whereby reflections are encoded as opaque scalar values usable during translation. The evaluation of an expression can compute a reflection, so it becomes important for an `APValue` to be capable of representing a reflection. A new `APValue::Reflection` kind is introduced for this purpose.
+The implementation uses a _value-based_ reflection model, whereby reflections are encoded as opaque scalar values usable during translation. The evaluation of an expression can compute a reflection, so it becomes important for an `APValue` to be capable of representing a reflection. A new `APValue::Reflection` kind is introduced for this purpose.
 
 Most reflections are internally represented as a `void *` tagged with an enum value identifying the kind of entity reflected (similar to e.g., `TemplateArgument`). The pointer identifies one of:
 
@@ -101,7 +102,7 @@ Most reflections are internally represented as a `void *` tagged with an enum va
 
 Representing all of these kinds of reflections is straightforward. Less straightforward is the representation of _values_ and _objects_, the natural representations of which are _also_ `APValue`s. The puzzling situation emerges in which an `APValue` must sometimes be able to hold a reflection, but a reflection must sometimes also be able to hold an `APValue`.
 
-Our initial implementation of P2996 used a separate `ReflectionValue` class to model a reflection, and made `ReflectionValue` one of the several different "kinds" of structs that might be held by an `APValue`. When a reflection of a value or object was required, we stored the reflected result in a separate dynamically allocated `APValue`.
+Our initial implementation of static reflection used a separate `ReflectionValue` class to model a reflection, and made `ReflectionValue` one of the several different "kinds" of structs that might be held by an `APValue`. When a reflection of a value or object was required, we stored the reflected result in a separate dynamically allocated `APValue`.
 
 We eventually settled on a more efficient, if more invasive, change: We merged the `ReflectionValue` class into the `APValue` class, and added a `ReflectionDepth` "counter" to the representation of every `APValue`. This reduces the task of "taking a reflection of a value" to little more than incrementing its "reflection depth". The details are slightly more involved, but this model requires no dynamic allocations to represent any reflections.
 
@@ -124,7 +125,7 @@ While the act of reflecting over an entity always produces an expression, the ac
 
 It thus becomes clear that a _splice_, without further context, can only be given a coherent definition at the grammatical level; its semantics are dependent on both the context and the evaluation of the spliced expression. 
 
-If the operand of the splice can be evaluated at parse time, then this presents little difficulty. However, if the splice is value-dependent on a template parameter (e.g., the common use case of splicing a reflection received as a template argument), then it may not be possible to determine what the splice "is" until template substitution. P2996 addresses this in a familiar way, requiring that all such splices be preceded with e.g., a leading `typename` to disambiguate the class of entity; an expression is assumed in the absence of such a disambiguator.
+If the operand of the splice can be evaluated at parse time, then this presents little difficulty. However, if the splice is value-dependent on a template parameter (e.g., the common use case of splicing a reflection received as a template argument), then it may not be possible to determine what the splice "is" until template substitution. static reflection addresses this in a familiar way, requiring that all such splices be preceded with e.g., a leading `typename` to disambiguate the class of entity; an expression is assumed in the absence of such a disambiguator.
 
 To help with such cases, we decompose a splice `[:R:]` into two objects:
 1. A `CXXSpliceSpecifierExpr` representing the expression whose evaluation will yield the `APValue` of the entity being spliced, and
@@ -140,18 +141,18 @@ Splices of types and namespaces can appear as the (possibly dependent) leading c
 
 
 ### Splicing namespaces
-The most recent revisions of P2996 remove the `namespace [: :]` syntax and only allow splices of namespaces in the following contexts:
+The most recent revisions of static reflection remove the `namespace [: :]` syntax and only allow splices of namespaces in the following contexts:
 * Using directives (e.g., `using namespace [:R:];`)
 * Namespace alias definitions (e.g., `namespace A = [:R:];`)
 * Within nested-name-specifiers (e.g., `[:R:]::Member`)
 
-Use of splices in namespace definitions (e.g., `namespace [:R:] { ... }`) is neither supported by this compiler nor proposed by P2996.
+Use of splices in namespace definitions (e.g., `namespace [:R:] { ... }`) is neither supported by this compiler nor available in this implementation.
 
 Since both using directives and namespace aliases may appear in templated contexts, it becomes possible to have a namespace name that is dependent on a template parameter. Support for this has not yet been implemented in this compiler.
 
 
 ## Metafunctions
-The library functions proposed by P2996 for producing and operating on reflections are coloquially referred to as _metafunctions_; as a general rule, these functions cannot be implemented without compiler intrinsics. Drawing inspiration from the earlier `paper/p2320` implementation from Lock3, we used a single `__metafunction` intrinsic to implement a library of 60+ metafunctions.
+The library functions available in this implementation for producing and operating on reflections are coloquially referred to as _metafunctions_; as a general rule, these functions cannot be implemented without compiler intrinsics. Drawing inspiration from the earlier `paper/p2320` implementation from Lock3, we used a single `__metafunction` intrinsic to implement a library of 60+ metafunctions.
 
 An expression of the form
 
@@ -169,15 +170,15 @@ The core of the `VisitCXXMetafunctionExpr` function, implemented in `ExprConstan
 
 
 ### The `Sema` problem
-Many of the metafunctions proposed by P2996 are "observational", in the sense that they query properties from the AST while leaving it unchanged. These include `is_type`, `is_public`, `parent_of`, and many others.
+Many of the metafunctions available in this implementation are "observational", in the sense that they query properties from the AST while leaving it unchanged. These include `is_type`, `is_public`, `parent_of`, and many others.
 
-However, several of the most powerful proposed metafunctions are _generative_: their evaluation can **modify** the state of the AST, producing side effects during constant evaluation that are not otherwise posssible in C++ today. It is exactly these side-effects that make some of the most interesting examples from the P2996 paper possible in the first place (e.g., "[Compile-time ticket counter](https://wg21.link/p2996r2#compile-time-ticket-counter)").
+However, several of the most powerful proposed metafunctions are _generative_: their evaluation can **modify** the state of the AST, producing side effects during constant evaluation that are not otherwise posssible in C++ today. It is exactly these side-effects that make some of the most interesting examples from the static reflection paper possible in the first place (e.g., "[Compile-time ticket counter](https://wg21.link#compile-time-ticket-counter)").
 
 Although AST nodes can be directly constructed using only `ASTContext`, doing so elides the semantic analysis of whether the would-be entities "make any sense". This is a recipe for compiler crashes and assertion failures, since the resulting function calls, class definitions, and template instantiations will be constructed regardless of violations of invariants that later stages of compilation (e.g., CodeGen) expect semantic analysis to have already enforced. We concluded that metafunctions like `define_class`, `reflect_invoke`, and `substitute` cannot be coherently implemented in `clang` without access to the `Sema` object.
 
 This presents a problem for `clang` though, as its physical design is carefully architected to specifically disallow this. All constant evaluation is implemented by `AST/ExprConstant.cpp`, and there is no means of accessing the `Sema` object from this file. Indeed, referencing any part of the `Sema` layer from the `AST` layer seems contrary to the deliberate design of the `clang` codebase.
 
-The result is an apparent tension between the architecture of `clang` and P2996, or any other paper allowing the constant evaluation of a function to produce side effects in the AST. Between Lock3's implementation and Clang/P2996, two different approaches have been tried to address this tension.
+The result is an apparent tension between the architecture of `clang` and static reflection, or any other paper allowing the constant evaluation of a function to produce side effects in the AST. Between Lock3's implementation and this fork, two different approaches have been tried to address this tension.
 
 #### Lock3/P2320: The `EvalContext` Model
 The Lock3 implementation defines a `ReflectionCallback` struct presenting a polymorphic interface to a narrow set of features provided by `Sema` (e.g., "evaluate this type trait"). This interface is defined in `/AST/`, but implementated as `ReflectionCallbackImpl` in `/Sema/`. An `EvalContext` struct, essentially an `<ASTContext, ReflectionCallback *>` pair, provides the "context" needed to evaluate any compile-time expression.
@@ -202,7 +203,7 @@ Expr::EvalContext Ctx(S.Context, /*ReflectionCallback=*/nullptr);
 
 In some cases, this can result in compiler crashes, especially if a metafunction is evaluated in a context that had no means of accessing the `Sema` object. These can almost certainly be fixed, but it will require more discipline with respect to which code is allowed to evaluate expressions.
 
-#### Clang/P2996: The "Evaluation Callback" Model
+#### this fork: The "Evaluation Callback" Model
 Our implementation's approach is to bind a reference to the `Sema` object to the "evaluation" callback held by the `CXXMetafunctionExpr`. This callback takes only objects from the `AST` layer as arguments, but dispatches to the `Metafunction::evaluate` function from the `Sema` layer. The invocation from `ExprConstant.cpp` also passes an "Evaluator" callback, which allows the `Sema` metafunction implementation to evaluate an expression in the existing constant evaluation context without access to the `EvalInfo` object. This is important, for instance, to ensure that an lvalue referencing an object dynamically allocated earlier in the constant expression can be evaluated by the metafunction.
 
 While this requires less invasive changes than the `EvalContext` model, a new problem is introduced: the "evaluation callback" owned by the `CXXMetafunctionExpr` cannot be serialized or deserialized between processes. Since `clang` stores the serialized AST as a part of its representation of C++20 modules and precompiled headers, our proposed implementation of `CXXMetafunctionExpr` breaks both of these features. Even if we were to try to serialize the callback state, the `Sema` object referred to by the callback likely no longer exists at deserialization time: after all, the process compiling a module is likely different from the process importing it.
@@ -210,13 +211,13 @@ While this requires less invasive changes than the `EvalContext` model, a new pr
 Given that the `ASTReader` and `Sema` objects are owned by the same `CompilerInstance`, one may be able to construct the `ASTReader` with a reference to `Sema`, thereby allowing it to reconstruct metafunction evaluation callbacks that have references to the "new" `Sema` instance belonging to the deserializing process. We have not attempted this change, and aren't fully convinced that such a direction would be desirable.
 
 #### Retrospective: The `Sema` Problem
-We consider this problem not fully solved. On the one hand, the `EvalContext` model avoids the storage of a non-serializable callback in the AST, obviating the issues with C++20 modules. On the other hand, it restricts the contexts from which an expression can be safely evaluated (i.e., those with access to either `Sema` or to an `EvalContext` constructed with `Sema`). The Clang/P2996 model makes it "easier" to evaluate an expression by "hiding" the `Sema` reference in the evaluation callback of the `CXXMetafunctionExpr`, but this makes (de)serialization more tricky.
+We consider this problem not fully solved. On the one hand, the `EvalContext` model avoids the storage of a non-serializable callback in the AST, obviating the issues with C++20 modules. On the other hand, it restricts the contexts from which an expression can be safely evaluated (i.e., those with access to either `Sema` or to an `EvalContext` constructed with `Sema`). The this fork model makes it "easier" to evaluate an expression by "hiding" the `Sema` reference in the evaluation callback of the `CXXMetafunctionExpr`, but this makes (de)serialization more tricky.
 
-The takeaway seems to be: in the presence of the changes proposed by P2996, constant folding can no longer be performed without `Sema`. Either of the above approaches can probably be made to work in a pinch (assuming P2996's eventual adoption by WG21), but some third design approach that more fully re-imagines the relationship between `Sema` and the AST might be better yet.
+The takeaway seems to be: in the presence of the changes available in this implementation, constant folding can no longer be performed without `Sema`. Either of the above approaches can probably be made to work in a pinch (assuming future WG21 standardization), but some third design approach that more fully re-imagines the relationship between `Sema` and the AST might be better yet.
 
 
 ### Retrospective: Metafunction Design
-Almost all of `clang`'s machinery for evaluating constant expressions lives in `ExprConstant.cpp`, so our decision to implement P2996 metafunctions in a separate `/Sema/Metafunctions.cpp` deviates from existing practice. This model nevertheless has a few nice fatures. Implementing all such 60+ functions in an isolated file has helped delineate our "experimental" code from existing production code. More importantly, the model succeeds in maintaining the separation of `Sema` code from `AST`.
+Almost all of `clang`'s machinery for evaluating constant expressions lives in `ExprConstant.cpp`, so our decision to implement static reflection metafunctions in a separate `/Sema/Metafunctions.cpp` deviates from existing practice. This model nevertheless has a few nice fatures. Implementing all such 60+ functions in an isolated file has helped delineate our "experimental" code from existing production code. More importantly, the model succeeds in maintaining the separation of `Sema` code from `AST`.
 
 On the other hand, implementing the metafunctions outside of `ExprConstant.cpp` means that they lack access to much of the constant evaluation state (e.g., the callstack). For metafunctions in need of access to this state, we use the evaluation of synthesized expressions as a "communication channel" with the constant evaluator. In some cases (e.g., `value_of`, `is_accessible`), this required the invention of a novel `Expr` type just to pipe the required state from the constant evaluator back to the metafunction implementation (see `LValueValueOfExpr` and `StackLocationExpr`). While this does work, it leads to wasteful allocation of AST nodes by the compiler. This increased memory usage might become noticeable when compiling large translation units, or several translation units in parallel.
 
@@ -230,6 +231,6 @@ Clang's ability to report accurate error messages requires it to track the locat
 
 
 ## Name mangling
-As P2996 proposes mechanisms for _Static_ Reflection, all of the business around reflections and splices and metafunctions has mostly wrapped up by the time CodeGen begins. The most notable exception is the need to mangle the names of templates having a `std::meta::info` value as an argument. As noted previously, this is a rather important use-case: since a reflection can only be spliced if it's a constant expression, a function that wants to splice a reflection that was received as an argument must receive it as a template argument. Some of the more powerful metafunctions (e.g., `substitute`, `reflect_invoke`, `value_of`) reduce the frequency with which reflections must be passed as template arguments, but it remains necessary in some cases.
+As The implementation uses mechanisms for _Static_ Reflection, all of the business around reflections and splices and metafunctions has mostly wrapped up by the time CodeGen begins. The most notable exception is the need to mangle the names of templates having a `std::meta::info` value as an argument. As noted previously, this is a rather important use-case: since a reflection can only be spliced if it's a constant expression, a function that wants to splice a reflection that was received as an argument must receive it as a template argument. Some of the more powerful metafunctions (e.g., `substitute`, `reflect_invoke`, `value_of`) reduce the frequency with which reflections must be passed as template arguments, but it remains necessary in some cases.
 
-Given a specialization of `template <std::meta::info R> fn()`, the compiler must be able to mangle a representation of any entity that can be reflected by `R`. This includes the full class of values of literal types - an expansion from the values of _structural_ types that can already appear as non-type template arguments. This raises questions around whether all (or which) such values should be well-formed template arguments - or perhaps, if all such values should be allowed, but some should cause the associated specialization to have internal linkage. These are questions that we expect to see clarified as P2996 advances through WG21.
+Given a specialization of `template <std::meta::info R> fn()`, the compiler must be able to mangle a representation of any entity that can be reflected by `R`. This includes the full class of values of literal types - an expansion from the values of _structural_ types that can already appear as non-type template arguments. This raises questions around whether all (or which) such values should be well-formed template arguments - or perhaps, if all such values should be allowed, but some should cause the associated specialization to have internal linkage. These are questions that we expect to see clarified as static reflection advances through WG21.

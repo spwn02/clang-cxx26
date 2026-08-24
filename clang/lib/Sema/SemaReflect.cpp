@@ -394,7 +394,7 @@ public:
     TemplateArgumentListInfo TAListInfo;
     populateTemplateArgumentListInfo(TAListInfo, TArgs, InstantiateLoc);
 
-    // TODO(P2996): Calling 'substitute' should substitute without
+    // TODO(CXX26): Calling 'substitute' should substitute without
     // instantiation. Should a lighter weight call be used?
     TemplateName TName(TD);
     return S.CheckTemplateIdType(TName, InstantiateLoc, TAListInfo);
@@ -408,7 +408,7 @@ public:
     if (!Spec) {
       auto *TArgsCopy = TemplateArgumentList::CreateCopy(S.Context, TArgs);
 
-      // TODO(P2996): Calling 'substitute' should substitute without
+      // TODO(CXX26): Calling 'substitute' should substitute without
       // instantiation. Should a lighter weight call be used?
       Spec = S.InstantiateFunctionDeclaration(TD, TArgsCopy, InstantiateLoc);
 
@@ -681,7 +681,7 @@ public:
                                      SourceLocation());
             break;
           }
-          // TODO(P2996): Handle other kinds of TemplateArgument.
+          // TODO(CXX26): Handle other kinds of TemplateArgument.
           default:
             llvm_unreachable("unimplemented");
           }
@@ -843,7 +843,7 @@ public:
       Decl *ProblemScope = isa<TranslationUnitDecl>(ExprCone) ? NewDeclCone
                                                               : ExprCone;
 
-      // TODO(P2996): Implement diagnostic printing of 'ConstevalBlockDecl's.
+      // TODO(CXX26): Implement diagnostic printing of 'ConstevalBlockDecl's.
       if (isa<ConstevalBlockDecl>(ContainingDecl)) {
         std::string Repr;
         llvm::raw_string_ostream ReprOut(Repr);
@@ -879,7 +879,7 @@ public:
       Decl *ProblemScope = isa<TranslationUnitDecl>(ExprCone) ? TargetDeclCone
                                                               : ExprCone;
 
-      // TODO(P2996): Implement diagnostic printing of 'ConstevalBlockDecl's.
+      // TODO(CXX26): Implement diagnostic printing of 'ConstevalBlockDecl's.
       if (isa<ConstevalBlockDecl>(ContainingDecl)) {
         std::string Repr;
         llvm::raw_string_ostream ReprOut(Repr);
@@ -1287,7 +1287,7 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
   return CXXReflectExpr::Create(Context, OperatorLoc, OperandLoc, RV);
 }
 
-// TODO(P2996): Capture whole SourceRange of declaration naming.
+// TODO(CXX26): Capture whole SourceRange of declaration naming.
 ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
                                      SourceLocation OperandLoc, Decl *D) {
   // This case can happen after transforming a dependent reflection naming a
@@ -1326,7 +1326,7 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
                                 SourceRange(OperandLoc, OperandLoc), RV);
 }
 
-// TODO(P2996): Capture whole SourceRange of declaration naming.
+// TODO(CXX26): Capture whole SourceRange of declaration naming.
 ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
                                      SourceLocation OperandLoc,
                                      const TemplateName Template) {
@@ -1814,7 +1814,7 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
         ScopeSpec.Extend(Context, TSI->getTypeLoc(), Splice->getBeginLoc());
       }
 
-      // TODO(P2996): Would be nice not to have to copy these here.
+      // TODO(CXX26): Would be nice not to have to copy these here.
       TemplateArgumentListInfo TAListInfo;
       if (Splice->isSpecialization()) {
         TAListInfo.setLAngleLoc(Splice->getLAngleLoc());

@@ -1,4 +1,4 @@
-//===--- ParseReflect.cpp - C++2c Reflection Parsing (P2996) --------------===//
+//===--- ParseReflect.cpp - C++2c Reflection Parsing (CXX26) --------------===//
 //
 // Copyright 2024 Bloomberg Finance L.P.
 //

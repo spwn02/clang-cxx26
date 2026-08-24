@@ -270,10 +270,10 @@ static_assert(annotations_of(^^X<int>::D).size() == 1);
 }  // namespace templated_class_annotations
 
                   // ========================================
-                  // bb_clang_p2996_issue_143_regression_test
+                  // bb_clang_cxx26_issue_143_regression_test
                   // ========================================
 
-namespace bb_clang_p2996_issue_143_regression_test {
+namespace bb_clang_cxx26_issue_143_regression_test {
 struct test_struct {};
 
 constexpr test_struct test;
@@ -288,7 +288,7 @@ static_assert(std::meta::constant_of(^^test) == std::meta::reflect_constant(test
 static_assert(std::same_as<decltype([:func_first:]), const test_struct &>);
 static_assert(func2_first == std::meta::reflect_constant(1));
 static_assert(func_first == std::meta::reflect_constant(test));
-}  // namespace bb_clang_p2996_issue_143_regression_test
+}  // namespace bb_clang_cxx26_issue_143_regression_test
 
 
 int main() { }

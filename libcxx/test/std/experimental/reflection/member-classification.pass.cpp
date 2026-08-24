@@ -373,7 +373,7 @@ static_assert(
                       std::ranges::to<std::vector>())[3]));
 static_assert(is_explicit(^^S::operator bool));
 
-// P2996R3 removes support for checking 'explicit' on templates.
+// reflection revision 3 removes support for checking 'explicit' on templates.
 static_assert(
     !is_explicit((members_of(^^S, ctx) |
                       std::views::filter(std::meta::is_constructor) |

@@ -135,7 +135,7 @@ void ODRHash::AddNestedNameSpecifier(const NestedNameSpecifier *NNS) {
     break;
   case NestedNameSpecifier::Global:
   case NestedNameSpecifier::Super:
-  case NestedNameSpecifier::Splice:  // TODO(P2996): This is wrong.
+  case NestedNameSpecifier::Splice:  // TODO(CXX26): This is wrong.
     break;
   }
 }

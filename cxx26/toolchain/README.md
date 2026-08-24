@@ -1,4 +1,4 @@
-# clang-p2996 reference toolchain
+# clang-cxx26 reference toolchain
 
 This directory defines the reproducible snapshot format used by Miracle, Switch, and Nyx.
 
@@ -9,15 +9,15 @@ It is intentionally separate from LLVM's upstream release machinery.
 Published reference snapshots use annotated Git tags:
 
 ```text
-p2996-YYYY.MM.DD
-p2996-YYYY.MM.DD.N
+cxx26-YYYY.MM.DD
+cxx26-YYYY.MM.DD.N
 ```
 
 Examples:
 
 ```text
-p2996-2026.08.22
-p2996-2026.08.22.2
+cxx26-2026.08.22
+cxx26-2026.08.22.2
 ```
 
 A published identifier is immutable. Never move an existing snapshot tag or replace its release assets. If the bytes or source revision change, publish a new identifier.
@@ -25,16 +25,16 @@ A published identifier is immutable. Never move an existing snapshot tag or repl
 Non-publishing preflight artifacts use:
 
 ```text
-p2996-dev-<commit>
+cxx26-dev-<commit>
 ```
 
 They are triggered by disposable tags named:
 
 ```text
-p2996-preflight-<name>
+cxx26-preflight-<name>
 ```
 
-The trigger tag name is not the artifact identity. A preflight always packages the tagged commit as `p2996-dev-<commit>`.
+The trigger tag name is not the artifact identity. A preflight always packages the tagged commit as `cxx26-dev-<commit>`.
 
 ## Initial platform
 
@@ -80,18 +80,18 @@ zstd
 From the repository root:
 
 ```bash
-p2996/toolchain/build-linux-x86_64.sh \
-  /tmp/p2996-stage \
-  /tmp/p2996-build
+cxx26/toolchain/build-linux-x86_64.sh \
+  /tmp/cxx26-stage \
+  /tmp/cxx26-build
 ```
 
 Then package a development snapshot:
 
 ```bash
-python3 p2996/toolchain/package.py \
-  --stage /tmp/p2996-stage \
-  --output /tmp/p2996-dist \
-  --snapshot p2996-dev-$(git rev-parse --short=12 HEAD) \
+python3 cxx26/toolchain/package.py \
+  --stage /tmp/cxx26-stage \
+  --output /tmp/cxx26-dist \
+  --snapshot cxx26-dev-$(git rev-parse --short=12 HEAD) \
   --revision $(git rev-parse HEAD) \
   --source-date-epoch $(git show -s --format=%ct HEAD)
 ```
@@ -101,14 +101,14 @@ python3 p2996/toolchain/package.py \
 After extracting the archive:
 
 ```bash
-source clang-<snapshot>/share/clang-p2996/activate.sh
+source clang-<snapshot>/share/clang-cxx26/activate.sh
 ```
 
 This defines:
 
 ```text
-P2996_TOOLCHAIN_ROOT
-P2996_CMAKE_TOOLCHAIN_FILE
+CXX26_TOOLCHAIN_ROOT
+CXX26_CMAKE_TOOLCHAIN_FILE
 CC
 CXX
 PATH
@@ -122,7 +122,7 @@ cmake \
   -S . \
   -B build \
   -G Ninja \
-  -DCMAKE_TOOLCHAIN_FILE="$P2996_CMAKE_TOOLCHAIN_FILE"
+  -DCMAKE_TOOLCHAIN_FILE="$CXX26_CMAKE_TOOLCHAIN_FILE"
 ```
 
 The toolchain file is relocatable and derives all paths from its own installed location.
@@ -143,12 +143,12 @@ clang-<snapshot>-linux-x86_64.SHA512SUMS
 The same manifest is also stored inside the archive at:
 
 ```text
-share/clang-p2996/manifest.json
+share/clang-cxx26/manifest.json
 ```
 
 The manifest records the exact source commit, platform, compiler identity, libc++ module manifest, included components, and CMake integration entrypoint.
 
-Miracle and Switch CI will later pin both the snapshot identifier and the expected archive digest. They must never follow the moving `p2996` branch.
+Miracle and Switch CI will later pin both the snapshot identifier and the expected archive digest. They must never follow the moving `cxx26` branch.
 
 ## Validation boundary
 
@@ -202,16 +202,16 @@ test therefore does not discard the already-built snapshot.
 
 GitHub Actions dependency caches are deliberately not used for the reusable
 toolchain state. Cache visibility is scoped by branch/tag ref, so a cache
-created by `p2996-preflight-a` cannot be restored by
-`p2996-preflight-b`. Disposable preflight tags therefore make the ordinary
+created by `cxx26-preflight-a` cannot be restored by
+`cxx26-preflight-b`. Disposable preflight tags therefore make the ordinary
 Actions cache service unsuitable for this workflow.
 
 Instead, the workflow uses repository-level Actions artifacts as a
 content-addressed build store:
 
 ```text
-p2996-stage-linux-x86_64-v2-<source-fingerprint>-<recipe-fingerprint>
-p2996-ccache-linux-x86_64-v2
+cxx26-stage-linux-x86_64-v2-<source-fingerprint>-<recipe-fingerprint>
+cxx26-ccache-linux-x86_64-v2
 ```
 
 The staged-toolchain artifact is exact. Its fingerprint is derived from the
@@ -243,23 +243,23 @@ remain the immutable long-term distribution mechanism.
 
 The GitHub workflow `.github/workflows/reference-toolchain-snapshot.yml` has two modes.
 
-A `p2996-preflight-*` tag builds and validates a temporary preflight artifact only.
+A `cxx26-preflight-*` tag builds and validates a temporary preflight artifact only.
 It does not create a GitHub release. Preflight tags may be deleted after the run.
 
 For example:
 
 ```bash
-git tag p2996-preflight-t3
-git push origin p2996-preflight-t3
+git tag cxx26-preflight-t3
+git push origin cxx26-preflight-t3
 ```
 
 After the workflow has completed, the disposable trigger tag can be removed:
 
 ```bash
-git push origin :refs/tags/p2996-preflight-t3
-git tag -d p2996-preflight-t3
+git push origin :refs/tags/cxx26-preflight-t3
+git tag -d cxx26-preflight-t3
 ```
 
-Pushing an annotated `p2996-YYYY.MM.DD[.N]` tag builds the same artifact and creates a GitHub prerelease after validation. The workflow refuses lightweight tags, tags whose commit is not in `p2996` history, and release identifiers that already have a GitHub release.
+Pushing an annotated `cxx26-YYYY.MM.DD[.N]` tag builds the same artifact and creates a GitHub prerelease after validation. The workflow refuses lightweight tags, tags whose commit is not in `cxx26` history, and release identifiers that already have a GitHub release.
 
 The workflow never creates or moves the source tag itself.

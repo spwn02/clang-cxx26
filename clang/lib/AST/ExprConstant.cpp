@@ -8820,7 +8820,7 @@ public:
     VisitIgnoredValue(E);
   }
 
-  /// Visit a metafunction evaluation (P2996).
+  /// Visit a metafunction evaluation (CXX26).
   bool VisitCXXMetafunctionExpr(const CXXMetafunctionExpr *E);
 
   bool VisitCXXSpliceExpr(const CXXSpliceExpr *E) {

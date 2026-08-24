@@ -182,8 +182,8 @@ namespace extract_ref_semantics {
   const int &constGlobalRef = constGlobal;
   static_assert(&extract<const int &>(^^constGlobalRef) == &constGlobal);
 
-  // TODO(P2996): Need to decide whether 'extract' should be legal on locals
-  // within an immediate function context. It isn't legal as spec'd by P2996R3,
+  // TODO(CXX26): Need to decide whether 'extract' should be legal on locals
+  // within an immediate function context. It isn't legal as spec'd by reflection revision 3,
   // but we may want to make it work. Not going to sink more time into making
   // the commented line below work, until we have a decision.
   consteval int myfn([[maybe_unused]] int arg) {
@@ -467,10 +467,10 @@ static_assert(for_test::object_of(^^r) == std::meta::object_of(^^i));
 }  // namespace library_based_implementation
 
                    // =======================================
-                   // bb_clang_p2996_issue_67_regression_test
+                   // bb_clang_cxx26_issue_67_regression_test
                    // =======================================
 
-namespace bb_clang_p2996_issue_67_regression_test {
+namespace bb_clang_cxx26_issue_67_regression_test {
 template<class T> struct TCls {};
 
 template <std::size_t Count, std::meta::info... Rs>
@@ -488,7 +488,7 @@ void odr_use()
 {
     Cls<1, std::meta::reflect_constant(0)>::fn();
 }
-}  // namespace bb_clang_p2996_issue_67_regression_test
+}  // namespace bb_clang_cxx26_issue_67_regression_test
 
 
 int main() {

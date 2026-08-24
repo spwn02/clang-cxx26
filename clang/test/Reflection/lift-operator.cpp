@@ -212,24 +212,24 @@ template <typename T> void fn() requires (sizeof(T) == sizeof(int));
 }  // namespace overload_resolution
 
                    // =======================================
-                   // bb_clang_p2996_issue_35_regression_test
+                   // bb_clang_cxx26_issue_35_regression_test
                    // =======================================
 
-namespace bb_clang_p2996_issue_35_regression_test {
+namespace bb_clang_cxx26_issue_35_regression_test {
 template <auto R = ^^::> class S {};
 S s;
-}  // namespace bb_clang_p2996_issue_35_regression_test
+}  // namespace bb_clang_cxx26_issue_35_regression_test
 
                    // =======================================
-                   // bb_clang_p2996_issue_73_regression_test
+                   // bb_clang_cxx26_issue_73_regression_test
                    // =======================================
 
-namespace bb_clang_p2996_issue_73_regression_test {
+namespace bb_clang_cxx26_issue_73_regression_test {
 namespace foo {
 struct foo {
-  static_assert(^^foo == ^^::bb_clang_p2996_issue_73_regression_test::foo::foo);
+  static_assert(^^foo == ^^::bb_clang_cxx26_issue_73_regression_test::foo::foo);
 };
-static_assert(^^foo == ^^::bb_clang_p2996_issue_73_regression_test::foo::foo);
+static_assert(^^foo == ^^::bb_clang_cxx26_issue_73_regression_test::foo::foo);
 }  // namespace foo
 
 namespace tfoo {
@@ -237,20 +237,20 @@ template <typename T> struct tfoo {
   static_assert(^^tfoo == ^^tfoo<T>);
 };
 static_assert(^^tfoo ==
-              ^^::bb_clang_p2996_issue_73_regression_test::tfoo::tfoo);
+              ^^::bb_clang_cxx26_issue_73_regression_test::tfoo::tfoo);
 
 tfoo<int> instantiation;
 }  // namespace tfoo
 
-static_assert(^^foo == ^^::bb_clang_p2996_issue_73_regression_test::foo);
-static_assert(^^tfoo == ^^::bb_clang_p2996_issue_73_regression_test::tfoo);
-}  // namespace bb_clang_p2996_issue_73_regression_test
+static_assert(^^foo == ^^::bb_clang_cxx26_issue_73_regression_test::foo);
+static_assert(^^tfoo == ^^::bb_clang_cxx26_issue_73_regression_test::tfoo);
+}  // namespace bb_clang_cxx26_issue_73_regression_test
 
                    // =======================================
-                   // bb_clang_p2996_issue_11_regression_test
+                   // bb_clang_cxx26_issue_11_regression_test
                    // =======================================
 
-namespace bb_clang_p2996_issue_11_regression_test {
+namespace bb_clang_cxx26_issue_11_regression_test {
 constexpr auto a = ^^:: != ^^int &;
 constexpr auto b = ^^:: != ^^int &&;
 constexpr auto c = ^^:: != ^^int() &;
@@ -269,4 +269,4 @@ constexpr auto h = ^^:: != ^^int() && true;
   //expected-error@-1 {{after top level declarator}} \
   //expected-warning@-1 {{'&&' binds to reflection operand}}
 
-}  // namespace bb_clang_p2996_issue_11_regression_test
+}  // namespace bb_clang_cxx26_issue_11_regression_test

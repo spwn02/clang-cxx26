@@ -3182,7 +3182,7 @@ def err_type_constraint_missing_arguments : Error<
 def err_placeholder_constraints_not_satisfied : Error<
   "deduced type %0 does not satisfy %1">;
 
-// Reflection (P2996)
+// Reflection (CXX26)
 def err_expr_consteval_only_type : Error<
   "expressions of consteval-only type are only allowed in constant-evaluated "
   "contexts">;

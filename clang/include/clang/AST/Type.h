@@ -1851,7 +1851,7 @@ private:
     LLVM_PREFERRED_TYPE(TypeClass)
     unsigned TC : 8;
 
-    /// Whether this is a consteval-only type ([basic.types.general], P2996).
+    /// Whether this is a consteval-only type ([basic.types.general], CXX26).
     unsigned ConstevalOnly : 1;
 
     /// Store information on the type dependency.
@@ -2565,7 +2565,7 @@ public:
   bool isRealType() const;         // C99 6.2.5p17 (real floating + integer)
   bool isArithmeticType() const;   // C99 6.2.5p18 (integer + floating)
   bool isVoidType() const;         // C99 6.2.5p19
-  bool isReflectionType() const;   // C++2c reflection [P2996]
+  bool isReflectionType() const;   // C++2c reflection [CXX26]
   bool isScalarType() const;       // C99 6.2.5p21 (arithmetic + pointers)
   bool isAggregateType() const;
   bool isFundamentalType() const;
@@ -7405,7 +7405,7 @@ public:
   }
 };
 
-/// Represents a type formed by evaluating a reflection splice (C++2c, P2996).
+/// Represents a type formed by evaluating a reflection splice (C++2c, CXX26).
 ///
 /// A reflection splice wraps a potentially dependent constant expression whose
 /// resulting APValue is a reflection; this is expected to hold a type in the
@@ -7446,7 +7446,7 @@ public:
 };
 
 /// Represents a dependent type formed by evaluating a reflection splice
-/// (C++2c, P2996).
+/// (C++2c, CXX26).
 ///
 /// For these types, we won't actually know what the type is until the
 /// splice operand is evaluated, at which point this will become a

@@ -1,8 +1,8 @@
 # C++26 Conformance Gap-Closing Contract
 
 Persistent, cross-session tracking document for closing this fork's C++26
-language and library conformance gaps (excluding the P2996 reflection work
-itself, which is tracked in [`P2996.md`](../P2996.md)). Read this document
+language and library conformance gaps (excluding the CXX26 reflection work
+itself, which is tracked in [the reflection documentation](REFLECTION.md)). Read this document
 first at the start of any C++26-conformance session; update it in place as
 work completes; append a dated entry to the Session Log before ending a
 session.
@@ -19,13 +19,13 @@ features under `clang/`, as tracked by:
 - `clang/www/cxx_status.html` (§ C++2c implementation status, language side)
 
 **Excluded — tracked elsewhere:** Reflection-family papers
-(P2996R13, P3394R4, P3293R3, P3491R3, P3096R12, P1306R5 "Expansion
+(reflection revision 13, P3394R4, P3293R3, P3491R3, P3096R12, P1306R5 "Expansion
 Statements") show as unimplemented ("No") in `cxx_status.html`, but that page
 mirrors upstream Clang and was never updated for this fork's own reflection
 work. This fork *does* implement substantial portions of these under
-`-freflection`/`-freflection-latest` and related flags — see `P2996.md` and
+`-freflection`/`-freflection-latest` and related flags — see `docs/REFLECTION.md` and
 root `CLAUDE.md` for actual status. **Do not re-implement these from this
-document; consult P2996.md instead.**
+document; consult the reflection documentation instead.**
 
 **Deferred — not sequenced into this plan:** **Contracts (P2900R14).**
 Touches Parser/Sema/CodeGen *and* library simultaneously, is one of the
@@ -68,7 +68,7 @@ predates this contract and was invisible only because `check-clang` was
 never runnable before today. Not fixed here — tracked as a known issue for
 whoever picks up reflection-side maintenance; **do not confuse with the
 Tier 1–6 items below**, which are new C++26 facilities, not regressions in
-existing P2996 support.
+existing CXX26 support.
 
 ## Build & Test Reference
 
@@ -3789,7 +3789,7 @@ blocked, what's next. Do not remove old entries.
   before and after the P3050R2 fix), `support.limits.general/` (unchanged
   count, all pass), `transitive_includes.gen.py`/`module_std.gen.py`
   (126/126, no drift). A background full `check-cxx` run separately hit a
-  pre-existing, unrelated reflection-module (`std.cppm`/P2996) failure
+  pre-existing, unrelated reflection-module (`std.cppm`/CXX26) failure
   before timing out — not caused by this session's changes (none of them
   touch reflection), and the narrower `module_std.gen.py` run covering the
   same generated module content passed cleanly, so treated as inconclusive

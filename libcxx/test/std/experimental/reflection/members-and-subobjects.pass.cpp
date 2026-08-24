@@ -186,7 +186,7 @@ template <> int TVar<int, bool> = 2;
 template <typename T> using TAlias = int;
 template <typename T> concept Concept = requires { true; };
 
-// Partial specializations are not representable in P2996.
+// Partial specializations are not representable in CXX26.
 template <typename T2> class TCls<int, T2> {};
 template <typename T2> int TVar<int, T2> = 1;
 

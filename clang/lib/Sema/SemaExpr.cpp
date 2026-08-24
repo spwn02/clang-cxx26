@@ -18056,11 +18056,11 @@ HandleImmediateInvocations(Sema &SemaRef,
     } Visitor(Rec.ReferenceToConsteval, Rec.ConstevalOnly, RootExpr);
     Visitor.TraverseStmt(RootExpr);
   }
-  // NOTE(P2996): Avoid using a range-for loop, as constant expressions with
+  // NOTE(CXX26): Avoid using a range-for loop, as constant expressions with
   // side-effects may introduce additional invocation candidates, thereby
   // invalidating the iterator.
   //
-  // TODO(P2996): Can we avoid this?
+  // TODO(CXX26): Can we avoid this?
   for (size_t Idx = 0; Idx < Rec.ImmediateInvocationCandidates.size(); ++Idx) {
     auto CE = Rec.ImmediateInvocationCandidates[Idx];
     if (!CE.getInt() && !CE.getPointer()->isValueDependent())

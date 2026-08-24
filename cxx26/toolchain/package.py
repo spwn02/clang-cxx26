@@ -14,8 +14,8 @@ import tempfile
 from typing import NoReturn
 
 
-RELEASE_ID = re.compile(r"^p2996-\d{4}\.\d{2}\.\d{2}(?:\.\d+)?$")
-DEV_ID = re.compile(r"^p2996-dev-[0-9a-f]{7,40}$")
+RELEASE_ID = re.compile(r"^cxx26-\d{4}\.\d{2}\.\d{2}(?:\.\d+)?$")
+DEV_ID = re.compile(r"^cxx26-dev-[0-9a-f]{7,40}$")
 
 
 def fail(message: str) -> NoReturn:
@@ -116,8 +116,8 @@ def main() -> int:
 
     if not RELEASE_ID.fullmatch(args.snapshot) and not DEV_ID.fullmatch(args.snapshot):
         fail(
-            "snapshot id must be p2996-YYYY.MM.DD[.N] or "
-            "p2996-dev-<7..40 lowercase hex characters>"
+            "snapshot id must be cxx26-YYYY.MM.DD[.N] or "
+            "cxx26-dev-<7..40 lowercase hex characters>"
         )
 
     if not re.fullmatch(r"[0-9a-f]{40}", args.revision):
@@ -152,32 +152,32 @@ def main() -> int:
     sha512_file = output / f"{asset_stem}.SHA512SUMS"
     root_name = f"clang-{args.snapshot}"
 
-    with tempfile.TemporaryDirectory(prefix="clang-p2996-package-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="clang-cxx26-package-") as temporary:
         package_parent = Path(temporary)
         package_root = package_parent / root_name
         shutil.copytree(stage, package_root, symlinks=True)
 
-        metadata_dir = package_root / "share" / "clang-p2996"
+        metadata_dir = package_root / "share" / "clang-cxx26"
         metadata_dir.mkdir(parents=True, exist_ok=True)
 
         cmake_rpath = ";".join(
-            f"${{_p2996_root}}/{path.as_posix()}" for path in library_dirs
+            f"${{_cxx26_root}}/{path.as_posix()}" for path in library_dirs
         )
         library_path = ":".join(
-            f"${{P2996_TOOLCHAIN_ROOT}}/{path.as_posix()}" for path in library_dirs
+            f"${{CXX26_TOOLCHAIN_ROOT}}/{path.as_posix()}" for path in library_dirs
         )
 
         template_dir = Path(__file__).resolve().parent
 
         toolchain = render_template(
             template_dir / "toolchain.cmake.in",
-            {"P2996_BUILD_RPATH": cmake_rpath},
+            {"CXX26_BUILD_RPATH": cmake_rpath},
         )
         (metadata_dir / "toolchain.cmake").write_text(toolchain, encoding="utf-8")
 
         activation = render_template(
             template_dir / "activate.sh.in",
-            {"P2996_LIBRARY_PATH": library_path},
+            {"CXX26_LIBRARY_PATH": library_path},
         )
         activation_path = metadata_dir / "activate.sh"
         activation_path.write_text(activation, encoding="utf-8")
@@ -187,8 +187,8 @@ def main() -> int:
             "schemaVersion": 1,
             "snapshot": args.snapshot,
             "source": {
-                "repository": "https://github.com/spwn02/clang-p2996",
-                "branch": "p2996",
+                "repository": "https://github.com/spwn02/clang-cxx26",
+                "branch": "cxx26",
                 "revision": args.revision,
             },
             "platform": {
@@ -197,7 +197,7 @@ def main() -> int:
                 "target": "x86_64-unknown-linux-gnu",
             },
             "compiler": {
-                "name": "clang-p2996",
+                "name": "clang-cxx26",
                 "version": clang_version,
                 "reflectionMode": "-freflection-latest",
             },
@@ -218,9 +218,9 @@ def main() -> int:
             ],
             "cmake": {
                 "minimumConsumerVersion": "4.4",
-                "toolchainFile": "share/clang-p2996/toolchain.cmake",
+                "toolchainFile": "share/clang-cxx26/toolchain.cmake",
             },
-            "activationScript": "share/clang-p2996/activate.sh",
+            "activationScript": "share/clang-cxx26/activate.sh",
             "sourceDateEpoch": args.source_date_epoch,
         }
 

@@ -4626,7 +4626,7 @@ void CXXNameMangler::mangleType(const DecltypeType *T) {
 void CXXNameMangler::mangleType(const ReflectionSpliceType *T) {
   // <type> ::= RT <expression> E  # typename of an expression
   Out << "RT";
-  // FIXME(P2996): This should probably mangle 'UnderlyingType' instead of
+  // FIXME(CXX26): This should probably mangle 'UnderlyingType' instead of
   // 'Operand', but this is crashing the compiler. Revisit this, definitely
   // something wrong here.
   //mangleExpression(T->getSplice()->getOperand());
@@ -5061,7 +5061,7 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
   case ReflectionKind::Annotation: {
     Out << 'a';
 
-    // TODO(P2996): This is insufficient. Some representation of the annotated
+    // TODO(CXX26): This is insufficient. Some representation of the annotated
     // entity will probably have to be mangled alongside the annotation. Or
     // perhaps just mangle some 'entity$index'-schema, idk.
     mangleExpression(R.getReflectedAnnotation()->getArg());

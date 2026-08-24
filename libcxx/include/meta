@@ -470,7 +470,7 @@ enum : unsigned {
   __metafn_is_msvc_attribute,
   __metafn_is_gcc_attribute,
 
-  // P2996 metafunctions
+  // CXX26 metafunctions
   __metafn_identifier_of,
   __metafn_has_identifier,
   __metafn_operator_of,
@@ -799,7 +799,7 @@ struct front_parameter_of_fn {
 
 #endif  // __has_feature(parameter_reflection)
 
-// TODO(P2996): Guard on feature flag.
+// TODO(CXX26): Guard on feature flag.
 
 struct next_annotation_of {
   consteval info operator()(auto /*currItrInfo */, info reflectedEntity,
@@ -1801,7 +1801,7 @@ consteval auto is_nothrow_destructible_type(info r) -> bool {
   return extract<bool>(substitute(^^is_nothrow_destructible_v, {r}));
 }
 
-// TODO(P2996): Not yet implemented in libc++.
+// TODO(CXX26): Not yet implemented in libc++.
 /*consteval auto is_implicit_lifetime_type(info r) -> bool {
   return extract<bool>(substitute(^^is_implicit_lifetime_v, {r}));
 }*/
@@ -1814,7 +1814,7 @@ consteval auto has_unique_object_representations(info r) -> bool {
   return extract<bool>(substitute(^^has_unique_object_representations_v, {r}));
 }
 
-// TODO(P2996): Not yet implemented in libc++.
+// TODO(CXX26): Not yet implemented in libc++.
 /*consteval auto reference_constructs_from_temporary(info r) -> bool {
   return extract<bool>(substitute(^^reference_constructs_from_temporary_v,
                                   {r}));
@@ -1849,12 +1849,12 @@ consteval auto is_nothrow_convertible_type(info r, info s) -> bool {
   return extract<bool>(substitute(^^is_nothrow_convertible_v, {r, s}));
 }
 
-// TODO(P2996): Not yet implemented in libc++.
+// TODO(CXX26): Not yet implemented in libc++.
 /*consteval auto is_layout_compatible_type(info r, info s) -> bool {
   return extract<bool>(substitute(^^is_layout_compatible_v, {r, s}));
 }*/
 
-// TODO(P2996): Not yet implemented in libc++.
+// TODO(CXX26): Not yet implemented in libc++.
 /*consteval auto is_pointer_interconvertible_base_of_type(info r,
                                                         info s) -> bool {
   return extract<bool>(substitute(^^is_pointer_interconvertible_base_of_v,
@@ -2517,7 +2517,7 @@ consteval auto define_aggregate(info class_type, R &&members) -> info {
 
 template <typename Ty>
 [[deprecated("separated into 'reflect_value', 'reflect_result', and "
-             "'reflect_function' in P2996R4")]]
+             "'reflect_function' in reflection revision 4")]]
 consteval auto reflect_result(Ty r) -> info {
   constexpr auto DTy = detail::__underlying_entity_of(^^Ty);
   constexpr auto RTy = is_class_v<typename [:DTy:]> ||
@@ -2530,67 +2530,67 @@ consteval auto reflect_result(Ty r) -> info {
 }
 
 template <typename T>
-[[deprecated("renamed to 'reflect_constant' in P2996R12")]]
+[[deprecated("renamed to 'reflect_constant' in reflection revision 12")]]
 consteval auto reflect_value(const T &r) -> info {
   return reflect_constant(r);
 }
 
-[[deprecated("renamed to 'constant_of' in P2996R12")]]
+[[deprecated("renamed to 'constant_of' in reflection revision 12")]]
 consteval auto value_of(info r) -> info {
   return constant_of(r);
 }
 
 template <reflection_range R = initializer_list<info>>
-[[deprecated("removed 'test_type' and 'test_types' in P2996R4")]]
+[[deprecated("removed 'test_type' and 'test_types' in reflection revision 4")]]
 consteval auto test_types(info templ, R &&args) -> bool {
   return extract<bool>(substitute(templ, args));
 }
 
-[[deprecated("removed 'test_type' and 'test_types' in P2996R4")]]
+[[deprecated("removed 'test_type' and 'test_types' in reflection revision 4")]]
 consteval auto test_type(info templ, info type) -> bool {
   info args[1] = {type};
   return extract<bool>(substitute(templ, args));
 }
 
-[[deprecated("removed 'test_trait' in P2996R5")]]
+[[deprecated("removed 'test_trait' in reflection revision 5")]]
 consteval auto test_trait(info templ, info type) -> bool {
   info args[1] = {type};
   return extract<bool>(substitute(templ, args));
 }
 
 template <reflection_range R = initializer_list<info>>
-[[deprecated("removed 'test_trait' in P2996R5")]]
+[[deprecated("removed 'test_trait' in reflection revision 5")]]
 consteval auto test_trait(info templ, R &&args) -> bool {
   return extract<bool>(substitute(templ, args));
 }
 
 template <reflection_range R = initializer_list<info>>
-[[deprecated("renamed to 'define_aggregate' in P2996R8")]]
+[[deprecated("renamed to 'define_aggregate' in reflection revision 8")]]
 consteval auto define_class(info class_type, R &&members) -> info {
   return define_aggregate(class_type, members);
 }
 
-[[deprecated("P2996R10 requires an 'access_context' argument")]]
+[[deprecated("reflection revision 10 requires an 'access_context' argument")]]
 consteval auto members_of(info r) -> vector<info> {
   return members_of(r, access_context::unchecked());
 }
 
-[[deprecated("P2996R10 requires an 'access_context' argument")]]
+[[deprecated("reflection revision 10 requires an 'access_context' argument")]]
 consteval auto bases_of(info r) -> vector<info> {
   return bases_of(r, access_context::unchecked());
 }
 
-[[deprecated("P2996R10 requires an 'access_context' argument")]]
+[[deprecated("reflection revision 10 requires an 'access_context' argument")]]
 consteval auto static_data_members_of(info r) -> vector<info> {
   return static_data_members_of(r, access_context::unchecked());
 }
 
-[[deprecated("P2996R10 requires an 'access_context' argument")]]
+[[deprecated("reflection revision 10 requires an 'access_context' argument")]]
 consteval auto nonstatic_data_members_of(info r) -> vector<info> {
   return nonstatic_data_members_of(r, access_context::unchecked());
 }
 
-[[deprecated("replaced with 'is_enumerable_type' in P2996R11")]]
+[[deprecated("replaced with 'is_enumerable_type' in reflection revision 11")]]
 consteval auto has_complete_definition(info r) -> bool {
   return __metafunction(detail::__metafn_has_complete_definition, r);
 }
@@ -2673,11 +2673,11 @@ _LIBCPP_BEGIN_NAMESPACE_REFLECTION_V2
                     // ====================================
 
 // For the sake of compile-times, this probably would be better off being
-// implemented as an intrinsic - but it ought to be possible to use P2996 to
+// implemented as an intrinsic - but it ought to be possible to use CXX26 to
 // implement something like it, and the exercise of implementing it as a
 // library has revealed both gaps in the paper and bugs in the implementation.
 //
-// For now, seeing as Clang/P2996 is still first and foremost a prototype, the
+// For now, seeing as CXX26 Clang is still first and foremost a prototype, the
 // implementation stands as both a "test" of the power of the APIs proposed by
 // the paper, and a demonstratation of some reflection techniques.
 

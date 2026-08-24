@@ -5436,7 +5436,7 @@ public:
   }
 };
 
-/// Represents a C++2c reflect expression (P2996). The operand of the expression
+/// Represents a C++2c reflect expression (CXX26). The operand of the expression
 /// is either a type, an expression, a template-name, an attribute or a
 /// namespace.
 class CXXReflectExpr : public Expr {
@@ -5522,7 +5522,7 @@ public:
 };
 
 /// Represents a C++2c "metafunction", a function that operates on one or more
-/// reflections (P2996). Arguments vary by function.
+/// reflections (CXX26). Arguments vary by function.
 class CXXMetafunctionExpr : public Expr {
 public:
   // Type of callback provided to executing metafunctions to help evaluate an
@@ -5589,7 +5589,7 @@ public:
   QualType getResultType() const { return ResultType; }
   void setResultType(QualType QT) { ResultType = QT; }
 
-  // TODO(P2996): Consider implementing this with trailing objects.
+  // TODO(CXX26): Consider implementing this with trailing objects.
   unsigned getNumArgs() const { return NumArgs; }
 
   Expr *getArg(unsigned I) const {

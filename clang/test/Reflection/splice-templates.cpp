@@ -97,7 +97,7 @@ static_assert(template [:^^TCls<int>::tsmem:]<int> == 13);
 static_assert(obj1.template [:^^TCls<int>::tsmem:]<int> == 13);
 static_assert((&obj1)->template [:^^TCls<int>::tsmem:]<int> == 13);
 
-// TODO(P2996): Test splicing concepts as type constraints.
+// TODO(CXX26): Test splicing concepts as type constraints.
 }  // namespace non_dependent
 
 namespace dependent {
@@ -146,7 +146,7 @@ static_assert(DepTMemFn<^^non_dependent::TCls<int>::tmemfn>(obj1, 4) == 12);
 
 static_assert(obj1.template [:TMemFnWithDepScope<^^decltype(obj1)>():](3) == 3);
 
-// TODO(P2996): Test splicing concepts as type constraints.
+// TODO(CXX26): Test splicing concepts as type constraints.
 }  // namespace dependent
 
                         // ============================

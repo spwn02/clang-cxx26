@@ -12,20 +12,20 @@ if(CMAKE_VERSION VERSION_LESS 4.5
       "f35a9ac6-8463-4d38-8eec-5d6008153e7d")
 endif()
 
-project(P2996ReferenceToolchainSmoke LANGUAGES CXX)
+project(CXX26ReferenceToolchainSmoke LANGUAGES CXX)
 
 if(NOT 26 IN_LIST CMAKE_CXX_COMPILER_IMPORT_STD)
   message(FATAL_ERROR
           "The packaged reference toolchain does not expose C++26 import std")
 endif()
 
-add_executable(P2996ReferenceToolchainSmoke main.cxx)
+add_executable(CXX26ReferenceToolchainSmoke main.cxx)
 
-target_compile_features(P2996ReferenceToolchainSmoke PRIVATE cxx_std_26)
-target_compile_options(P2996ReferenceToolchainSmoke PRIVATE -Wall -Wextra -Wpedantic -Werror)
+target_compile_features(CXX26ReferenceToolchainSmoke PRIVATE cxx_std_26)
+target_compile_options(CXX26ReferenceToolchainSmoke PRIVATE -Wall -Wextra -Wpedantic -Werror)
 
 set_target_properties(
-  P2996ReferenceToolchainSmoke
+  CXX26ReferenceToolchainSmoke
   PROPERTIES CXX_STANDARD 26
              CXX_EXTENSIONS OFF
              CXX_STANDARD_REQUIRED ON

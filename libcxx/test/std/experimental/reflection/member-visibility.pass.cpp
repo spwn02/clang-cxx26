@@ -372,10 +372,10 @@ static_assert(baz<true>() == 42);
 }  // namespace access_context_always_value_dependent
 
                   // ========================================
-                  // bb_clang_p2996_issue_148_regression_test
+                  // bb_clang_cxx26_issue_148_regression_test
                   // ========================================
 
-namespace bb_clang_p2996_issue_148_regression_test {
+namespace bb_clang_cxx26_issue_148_regression_test {
 struct A {};
 struct B {};
 struct C {};
@@ -390,13 +390,13 @@ struct D : A, protected B, private C {
     }
 };
 
-}  // namespace bb_clang_p2996_issue_148_regression_test
+}  // namespace bb_clang_cxx26_issue_148_regression_test
 
                   // ========================================
-                  // bb_clang_p2996_issue_193_regression_test
+                  // bb_clang_cxx26_issue_193_regression_test
                   // ========================================
 
-namespace bb_clang_p2996_issue_193_regression_test {
+namespace bb_clang_cxx26_issue_193_regression_test {
 struct S {
     enum E {
         A
@@ -419,6 +419,6 @@ static_assert(!std::meta::is_class_member(^^S::SE::B));
 static_assert(std::meta::is_public(^^S::E::A));
 static_assert(!std::meta::is_public(^^S::SE::B));
 
-}  // namespace bb_clang_p2996_issue_193_regression_test
+}  // namespace bb_clang_cxx26_issue_193_regression_test
 
 int main() { }

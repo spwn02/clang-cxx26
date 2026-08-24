@@ -1294,7 +1294,7 @@ ParsedTemplateArgument Parser::ParseTemplateArgument() {
     /*LambdaContextDecl=*/nullptr,
     /*ExprContext=*/Sema::ExpressionEvaluationContextRecord::EK_TemplateArgument);
 
-  // P2996: Unparenthesized splice expressions are ill-formed (i.e., to carve out
+  // CXX26: Unparenthesized splice expressions are ill-formed (i.e., to carve out
   // syntactic space for future splice template arguments).
   if (Tok.is(tok::l_splice)) {
     if (ParseSpliceSpecifier()) {

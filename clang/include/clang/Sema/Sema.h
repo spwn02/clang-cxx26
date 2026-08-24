@@ -880,7 +880,7 @@ class Sema final : public SemaBase {
   // 33. Types (SemaType.cpp)
   // 34. FixIt Helpers (SemaFixItUtils.cpp)
   // 35. Function Effects (SemaFunctionEffects.cpp)
-  // 36. P2996 Reflection Constructs (SemaReflect.cpp)
+  // 36. CXX26 Reflection Constructs (SemaReflect.cpp)
   // 37. P1306 Expansion Statement Constructs (SemaExpand.cpp)
 
   /// \name Semantic Analysis
@@ -6730,7 +6730,7 @@ public:
     PotentiallyEvaluatedIfUsed,
 
     /// The current expression and its subexpressions occur within an
-    /// unevaluated reflection operand (C++26 P2996).
+    /// unevaluated reflection operand (C++26 CXX26).
     ReflectionContext,
   };
 
@@ -15548,7 +15548,7 @@ public:
 
   ///@}
 
-  /// \name P2996 Reflection Constructs
+  /// \name CXX26 Reflection Constructs
   /// Implementations are in SemaReflect.cpp
   ///@{
 
@@ -15718,7 +15718,7 @@ public:
 
 private:
   // Lambdas having bound references to this Sema object, used to evaluate
-  // metafunction (C++26, P2996) at constant evaluation time.
+  // metafunction (C++26, CXX26) at constant evaluation time.
   llvm::SmallDenseMap<unsigned, std::unique_ptr<CXXMetafunctionExpr::ImplFn>>
     MetafunctionImplCbs;
 

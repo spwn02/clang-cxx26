@@ -255,7 +255,7 @@ PUNCTUATOR(periodstar,          ".*")
 PUNCTUATOR(arrowstar,           "->*")
 PUNCTUATOR(coloncolon,          "::")
 
-// C++2c Reflection Support (P2996)
+// C++2c Reflection Support (CXX26)
 PUNCTUATOR(l_splice,            "[:")
 PUNCTUATOR(r_splice,            ":]")
 

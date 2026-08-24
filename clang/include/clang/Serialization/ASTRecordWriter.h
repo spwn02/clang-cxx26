@@ -286,7 +286,7 @@ public:
 
   /// Emit a TagDataMemberSpec.
   void writeTagDataMemberSpecRef(const TagDataMemberSpec *Spec) {
-    // TODO(P2996): Implement this.
+    // TODO(CXX26): Implement this.
   }
 
   /// Emit a declaration name.

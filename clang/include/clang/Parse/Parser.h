@@ -1577,7 +1577,7 @@ private:
     DSC_condition,          // condition declaration context
     DSC_association, // A _Generic selection expression's type association
     DSC_new,         // C++ new expression
-    DSC_reflect_operator,  // C++2c reflect operator (P2996)
+    DSC_reflect_operator,  // C++2c reflect operator (CXX26)
   };
 
   /// Is this a context in which we are parsing just a type-specifier (or
@@ -8363,7 +8363,7 @@ private:
   ///@{
 
   //===--------------------------------------------------------------------===//
-  // C++2c: Reflection [P2996]
+  // C++2c: Reflection [CXX26]
   ExprResult ParseCXXReflectExpression(SourceLocation OpLoc);
   ExprResult ParseCXXMetafunctionExpression();
 

@@ -407,7 +407,7 @@ bool Declarator::isDeclarationOfFunction() const {
       return false;
 
     case TST_type_splice:
-      // TODO(P2996): This is wrong; a splice of a function type (or a
+      // TODO(CXX26): This is wrong; a splice of a function type (or a
       // non-dependent splice-specialization-specifier declares a function.
       return false;
 
