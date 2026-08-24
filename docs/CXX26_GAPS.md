@@ -1076,15 +1076,8 @@ in an ambiguous state.
   and `support.limits.general/` (208/208) both times.
 - **mdspan/linalg block, split 2026-08-22 per the gate above:**
   - **mdspan proper** (P2630R4 `submdspan`, P2642R6 padded layouts, P3355R1)
-    — **not started, confirmed from-scratch.** `libcxx/include/__mdspan/`
-    has only `layout_left.h`/`layout_right.h`/`layout_stride.h`/
-    `extents.h`/`aligned_accessor.h`/`mdspan.h`; no `submdspan` free
-    function, `submdspan_mapping`, or `layout_left_padded`/
-    `layout_right_padded` anywhere in the tree. Matches the FTM: the
-    generator's `__cpp_lib_submdspan` entry is `unimplemented: True` with
-    the C++26 padded-layout value line literally commented out. This is a
-    real from-scratch implementation project, not a conformance pass —
-    scope it as its own session.
+    — **not started, confirmed from-scratch, and blocked on an untracked
+    prerequisite — see the dedicated sub-plan below before starting this.**
   - **linalg** (P1673R13, P3050R2) — **P1673R13 assessed, not a from-
     scratch project; P3050R2 done 2026-08-22.** `libcxx/include/linalg`
     is 3150 lines with 14 pre-existing test files (`algorithms.pass.cpp`,
@@ -1102,6 +1095,83 @@ in an ambiguous state.
     than "implement from scratch". P3050R2 (a small, independently-
     scoped DR-shaped fix to `linalg::conjugated`) was completed as part
     of this assessment once the fix was understood; see its row below.
+
+### Tier 3 Sub-Plan: mdspan `submdspan`/padded layouts (P2630R4/P2642R6/P3355R1) — BLOCKED, do not start
+
+**Blocked 2026-08-24, before any code was written — this is a scoping
+finding, not an implementation attempt.** Do not pick this up as a normal
+"from-scratch feature" session; read this whole section first, since the
+blocker is a prerequisite chain, not a size problem.
+
+**What was checked, in order:**
+1. Confirmed (again) that `libcxx/include/__mdspan/` has only
+   `layout_left.h`/`layout_right.h`/`layout_stride.h`/`extents.h`/
+   `aligned_accessor.h`/`mdspan.h` — no `submdspan`, `submdspan_mapping`,
+   `strided_slice`, or padded-layout types anywhere.
+2. Checked whether this is just a backport gap by querying upstream LLVM
+   `main` directly via the GitHub API
+   (`api.github.com/repos/llvm/llvm-project/contents/libcxx/include/__mdspan`)
+   rather than assuming: upstream `main` has the exact same 7 files as this
+   fork. **No major libc++ tree has implemented any of this yet** — this
+   isn't a fork-specific backlog item, it's a genuinely unimplemented
+   corner of C++26 industry-wide as of this session.
+3. Fetched P2630R4 (submdspan base proposal, 2023) and P2642R6 (padded
+   layouts, 2024 — PDF-only, no HTML mirror, converted via `pdftotext
+   -layout`) directly, read their wording sections in full.
+4. **Before implementing against those two papers' wording, cross-checked
+   against the live draft** (`eel.is/c++draft/mdspan.sub` — this fetches as
+   one large page covering the entire `[mdspan.sub]` clause tree including
+   the padded-layout submdspan-mapping specializations, not just the base
+   paper's scope) per this tracker's established discipline of verifying
+   against the current draft before trusting a paper's own text. **This is
+   where the blocker was found**, not in the implementation itself.
+
+**The blocker:** the current draft's submdspan wording has moved
+substantially beyond P3355R1 (the tracked "C++26 fixes" paper) via further,
+untracked committee changes:
+- `strided_slice` (P2630R4's type) has been renamed `extent_slice`, and a
+  new sibling type `range_slice` has been added
+  (`[mdspan.sub.range.slices]`).
+- `submdspan_extents` has been renamed `subextents`, and a new function
+  `canonical_slices` and clause `[mdspan.sub.canonical]` ("submdspan slice
+  canonicalization") have been added — this is real new machinery, not a
+  rename.
+- Critically, the *current* wording's "canonical submdspan index type"
+  definition, `range_slice`'s default `StrideType` template argument, and
+  the static-extent computation in `[mdspan.sub.map.sliceable]` all depend
+  on **`std::constant_wrapper`** — confirmed via
+  `grep -rn "constant_wrapper\|constexpr_v" libcxx/include/` to not exist
+  anywhere in this fork. `constant_wrapper` is P2781 ("`std::constexpr_v`",
+  renamed by LEWG during review) — **an entire separate library feature,
+  not tracked in `Cxx2cPapers.csv`/`Cxx2cIssues.csv` at all**, discovered
+  only because this session went looking for it. It is not incidental to
+  the wording; it is load-bearing in exactly the three places listed
+  above.
+
+**Why "implement P2630R4's original wording instead" is not a valid
+workaround** (this was considered and rejected, not just skipped): the
+original papers' `strided_slice`/`submdspan_extents` and the missing
+`range_slice`/`canonical_slices` machinery would all need to be renamed,
+restructured, or added on top once `constant_wrapper` and the newer
+wording eventually get implemented — i.e. this would be writing code
+whose shape is already known to be wrong, destined for a rewrite rather
+than a refinement. This is the same category of decision as declining to
+invent P3471R4's placeholder FTM names, at a much larger scale (a whole
+API surface instead of a handful of macro values).
+
+**What unblocks this:** either (a) implement `std::constant_wrapper`
+(P2781) first as its own tracked item — add it to `Cxx2cPapers.csv`, which
+doesn't have a row for it at all yet — then revisit submdspan/padded
+layouts against the current draft; or (b) a future session re-checks
+whether upstream libc++ `main` has picked up `constant_wrapper` or
+submdspan by then (the GitHub API check above is cheap to repeat) and
+backports rather than reimplements. Do not start on `strided_slice`/
+`submdspan_extents`-shaped code against the old papers as a stopgap.
+
+P2630R4, P2642R6, and P3355R1 stay `[ ]` (not started) in the table below;
+P3222R0 (Tier 6, "transposed special cases for P2642 mdspan layouts")
+stays blocked transitively on this same chain.
+
 - **format/print block, worked partially 2026-08-22:**
   - P2845R8 (`formatter<path, charT>`) and P2587R3 (`to_string`/
     `to_wstring` float overloads) — both **Complete**, see rows below.
