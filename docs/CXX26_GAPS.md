@@ -1626,7 +1626,7 @@ way deliberately (see Notes for what's done vs. remaining).
 | [x] | P3370R1 | New library headers from C23 | Complete 2026-08-23 — see Session Log |
 | [x] | P3349R1 | Converting contiguous iterators to pointers |
 | [!] | P3378R2 | `constexpr` exception types | **Session-sized** — library-side ABI restructure, not compiler-blocked (see block below) |
-| [ ] | P3471R4 | Standard Library Hardening |
+| [~] | P3471R4 | Standard Library Hardening | Partial 2026-08-24 — audit found nearly everything already implemented (upstream-inherited); fixed 2 real gaps (`inplace_vector`, `mdspan::operator[]` array/span overloads), documented 1 deliberate non-fix (`forward_list`); `|Partial|` because §10.11's FTMs are unimplementable placeholders in the paper itself — see Session Log |
 
 ### Language-side gaps (clang/, blocked on Tier 0)
 
@@ -5132,3 +5132,163 @@ blocked, what's next. Do not remove old entries.
   remain the only open Tier 6 rows. **Next session**: pick up P3471R4
   (assess scope first — no prior session has looked at it) or revisit
   Tier 3's mdspan blocker to unblock P3222R0.
+
+- **2026-08-24 (thirteenth session, same day as the twelfth)**: P3471R4
+  (Standard Library Hardening) — audit-and-fill, not a from-scratch
+  implementation, since libc++'s `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS`-based
+  hardening mode (`fast`/`extensive`/`debug`, `libcxx/include/__assert`) is
+  inherited from upstream and predates this paper entirely. Fetched the raw
+  paper HTML (`curl`, per the established process rule) and extracted the
+  exact wording for both hardened-precondition tables (sequence containers'
+  `operator[]`/`front()`/`back()`/`pop_front()`/`pop_back()`; `optional`/
+  `expected`'s `operator->`/`operator*`/`error()`) plus the additional-
+  functions list (`span::first`/`last`/`subspan`, `basic_string_view::
+  remove_prefix`/`remove_suffix`, `span`'s dynamic-size range constructors,
+  `mdspan`'s converting constructor). Audited every cell by grepping each
+  implementation site directly rather than trusting the FTM generator's
+  `unimplemented` flag (same discipline as the text_encoding/P1673R13
+  sessions) — nearly everything was already correct: `array`, `vector`
+  (incl. `vector<bool>`), `deque`, `list`, `basic_string`, `span` (both
+  static- and dynamic-extent specializations, including every constructor's
+  hardened precondition), `basic_string_view` (confirmed its `operator[]`
+  correctly uses the *stronger* `pos < size()`, not `basic_string`'s
+  `pos <= size()` — the exact distinction the paper's own Note 1 warns
+  about), `bitset`, `valarray`, `optional` (both the primary template and
+  the `optional<T&>` reference specialization from P2988R11), and
+  `expected` (both the primary template and the `expected<void, E>`
+  specialization) all had zero gaps.
+
+  Found three real findings via advisor review before editing (first-pass
+  self-review had flagged four; advisor cut one):
+
+  1. **`inplace_vector`** (`libcxx/include/inplace_vector`) — `operator[]`/
+     `front()`/`back()`/`pop_back()` had **zero** hardening in *both* the
+     general (`N > 0`) and zero-capacity (`N == 0`) specializations; the
+     `N == 0` specialization's accessors unconditionally dereferenced
+     `data()` (always `nullptr`), an unconditional UB path with a comment
+     acknowledging it ("exactly as calling front()/back()/operator[] on an
+     empty vector is UB") but no `_LIBCPP_ASSERT` to make it a checked
+     contract violation under hardening. Fixed: added `<__assert>` include
+     and `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS` to all four functions in the
+     general specialization, and — per advisor's specific steer — used the
+     same `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(false, ...)` unconditional-
+     failure shape `array<T, 0>::operator[]` already uses (not a
+     `size()`-based check, since size() is always 0) for the `N == 0`
+     specialization's `operator[]`/`front()`/`back()`, plus a matching
+     `pop_back()` check. Confirmed `<inplace_vector>` has no
+     `_LIBCPP_ENABLE_EXPERIMENTAL` gate (only `_LIBCPP_STD_VER >= 26`) per
+     advisor's flag to check this after the eleventh session's PSTL-gate
+     miss — no special test macro needed.
+  2. **`mdspan::operator[]`** (`libcxx/include/__mdspan/mdspan.h`) — only
+     the variadic-pack overload (`operator[](OtherIndexTypes...)`) had
+     `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS`; the `array<OtherIndexType,
+     rank()>` and `span<OtherIndexType, rank()>` overloads were completely
+     unchecked, confirmed by the pre-existing
+     `assert.index_operator.pass.cpp` only ever exercising the variadic
+     form. Fixed by wrapping each overload's body in an index-sequence
+     lambda that checks `__mdspan_detail::__is_multidimensional_index_in`
+     before calling `__acc_.access`, mirroring the variadic overload's
+     check. Hit a real bug while doing this: an initial version moved
+     `__acc_.access(...)` inside a lambda with implicit `auto` return-type
+     deduction, which silently **strips the reference** from `access()`'s
+     `reference` (`T&`) return — `auto` deduction follows template argument
+     deduction rules, decaying references to prvalues — producing "non-
+     const lvalue reference cannot bind to a temporary" at the *call site*
+     of the lambda, not inside it, which was momentarily confusing. Fixed
+     with an explicit `-> decltype(auto)` trailing return type on the
+     lambda, preserving the reference. Recorded here since the same trap
+     will bite anyone else moving a `reference`-returning call into an
+     `auto`-deduced generic lambda in this codebase.
+  3. **`forward_list::front()`/`pop_front()`** — use
+     `_LIBCPP_ASSERT_NON_NULL` (a no-op in `fast` hardening mode) rather
+     than `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS` (checked in `fast`), unlike
+     every other container's front()/pop_front() in this fork. Initially
+     flagged as a fourth gap to fix; **advisor pushed back and this was
+     correctly dropped, not fixed** — the paper's own wording
+     ([structure.specifications] p3.4, §10.1) only requires that violating
+     a hardened precondition be a contract violation *in a hardened
+     implementation*; it says nothing about which of libc++'s three
+     vendor-specific tiers (`fast`/`extensive`/`debug`) must catch it, and
+     `extensive`/`debug` both already do. `NON_NULL` is also arguably the
+     *more* semantically precise category here specifically: an empty
+     `forward_list` means `__before_begin()->__next_ == nullptr`, so the
+     failure mode really is a null-pointer dereference (a crash), not an
+     attacker-influenced out-of-bounds read on a live heap pointer the way
+     `vector::front()` after `clear()` is. Changing it would be unrequested
+     divergence from the upstream categorization with ongoing rebase cost,
+     the same reasoning this tracker already used to refuse extending
+     `ExprConstant.cpp` for P1383R2. Left untouched; documented as a
+     deliberate non-fix in the CSV Notes rather than silently ignored.
+
+  New tests: `libcxx/test/libcxx/containers/sequences/inplace.vector/
+  assert.pass.cpp` (new file — no prior hardening test existed for this
+  container at all; covers both `N > 0` and `N == 0` specializations,
+  including const-qualified overloads), and extended the existing mdspan
+  `assert.index_operator.pass.cpp` with parallel `array`/`span`-overload
+  blocks covering the same eight out-of-bounds cases as the pre-existing
+  variadic-overload block, plus a valid-index case per overload to confirm
+  no false positives. One test-writing bug caught by the compiler, not by
+  review: `TEST_LIBCPP_ASSERT_FAILURE(m[std::array<int, 3>{-1, -1, -1}],
+  ...)` fails to parse — braces don't protect commas from the C
+  preprocessor's macro-argument splitting the way parens do, so the macro
+  saw four arguments instead of two ("too many arguments provided to
+  function-like macro invocation"); fixed by wrapping the whole
+  subscript expression in an extra pair of parens
+  (`(m[std::array<int, 3>{-1, -1, -1}])`), matching the pattern the
+  pre-existing variadic-overload test already used for its own multi-arg
+  `(m[-1, -1, -1])` calls — should have been obvious from precedent already
+  in the file, but was missed on the first pass.
+
+  Per advisor's specific instruction, ran every new/modified test at
+  `--param hardening_mode=fast` explicitly (not just the lit default, which
+  is `none` — every hardening assert test in this suite carries
+  `UNSUPPORTED: libcpp-hardening-mode=none`, so a default-param run would
+  have come back trivially UNSUPPORTED and proven nothing, the same trap
+  the P3309R3 session hit with its `reinterpret_cast` alignment check) and
+  confirmed the tests actually *ran* rather than skipped. Also ran
+  `extensive` and `debug` explicitly for both new/modified test files — all
+  three modes green for both. Broader regression sweeps, all at
+  `hardening_mode=fast` (the discriminating mode for this paper, per
+  advisor): `libcxx/test/std/containers/views/mdspan/` +
+  `libcxx/test/libcxx/containers/views/mdspan/` (112 tests, 106 passed + 6
+  pre-existing unsupported, 0 failures); `libcxx/test/std/containers/
+  sequences/inplace.vector/` + `libcxx/test/libcxx/containers/sequences/
+  inplace.vector/` (5 tests, all passed); the full `libcxx/test/std/
+  containers/` + `libcxx/test/libcxx/containers/` tree, which includes
+  `views/` (span, mdspan) and every sequence container (2020 tests, 1928
+  passed + 92 pre-existing unsupported, 0 failures — confirms the mdspan
+  and inplace_vector fixes didn't regress anything else under `containers/`
+  and that `array`/`vector`/`deque`/`list`/`forward_list`/`string`/`span`/
+  `bitset`/`valarray` are all still green after the audit); `libcxx/test/
+  std/utilities/optional/` + `.../expected/` (176 tests, all passed, sanity
+  check since these were audited but not edited). `libcxx-generate-files`
+  produced zero diff (expected — no FTM added).
+
+  **CSV status: `|Partial|`, not `|Complete|`** — per advisor: the decisive
+  fact is that the paper's own §10.11 proposes `__cpp_lib_hardened_array`
+  etc. as literal `20????L` placeholders ("we are not attached to any
+  particular way of defining the feature-test macros"), unimplementable as
+  written, and the actual LWG-adopted values can't be verified from this
+  environment (no macro of this shape exists anywhere in this fork's
+  generator or in upstream LLVM as of this Clang). This is the P1383R2/
+  P3309R3 `|Partial|` shape (a provably-unimplementable wording section),
+  not the P2248R8 `ranges::fold_right` shape (nothing to implement because
+  the underlying function doesn't exist in this fork at all) — so
+  `|Partial|`, with a Notes-column explanation, is the correct status
+  rather than `|Complete|` with a caveat. Flipped `Cxx2cPapers.csv`'s
+  P3471R4 row from blank to `|Partial|`; Tier 6 table: `[~]` (matching the
+  P2248R8 precedent's introduction of that marker for a genuinely-partial,
+  not-rejected outcome).
+
+  P3471R4 is now assessed and substantively addressed — the runtime
+  precondition-checking surface is complete modulo the documented
+  `forward_list` non-fix; only the unverifiable FTM section remains open,
+  and re-closing it requires external confirmation of the LWG-adopted
+  macro names/values, not more code. P3222R0 (blocked on Tier 3's
+  from-scratch mdspan/submdspan work) remains the sole fully-open Tier 6
+  row. **Next session**: no further Tier 6 work is queued without either
+  (a) external confirmation of P3471R4's adopted FTM wording, or (b)
+  picking up the Tier 3 mdspan blocker to unblock P3222R0 — whoever picks
+  this up next should treat Tier 6 as effectively drained and consider
+  starting a fresh tier or revisiting Tier 2/3's remaining open items
+  instead.

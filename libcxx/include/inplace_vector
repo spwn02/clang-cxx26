@@ -9,6 +9,7 @@
 #ifndef _LIBCPP_INPLACE_VECTOR
 #define _LIBCPP_INPLACE_VECTOR
 
+#include <__assert>
 #include <__compare/synth_three_way.h>
 #include <__config>
 #include <__iterator/distance.h>
@@ -349,13 +350,31 @@ public:
     return data()[__i];
   }
 
-  [[nodiscard]] constexpr auto operator[](size_type __i) -> reference { return data()[__i]; }
-  [[nodiscard]] constexpr auto operator[](size_type __i) const -> const_reference { return data()[__i]; }
+  [[nodiscard]] constexpr auto operator[](size_type __i) -> reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__i < size(), "inplace_vector[] index out of bounds");
+    return data()[__i];
+  }
+  [[nodiscard]] constexpr auto operator[](size_type __i) const -> const_reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__i < size(), "inplace_vector[] index out of bounds");
+    return data()[__i];
+  }
 
-  [[nodiscard]] constexpr auto front() -> reference { return data()[0]; }
-  [[nodiscard]] constexpr auto front() const -> const_reference { return data()[0]; }
-  [[nodiscard]] constexpr auto back() -> reference { return data()[size() - 1]; }
-  [[nodiscard]] constexpr auto back() const -> const_reference { return data()[size() - 1]; }
+  [[nodiscard]] constexpr auto front() -> reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(!empty(), "front() called on an empty inplace_vector");
+    return data()[0];
+  }
+  [[nodiscard]] constexpr auto front() const -> const_reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(!empty(), "front() called on an empty inplace_vector");
+    return data()[0];
+  }
+  [[nodiscard]] constexpr auto back() -> reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(!empty(), "back() called on an empty inplace_vector");
+    return data()[size() - 1];
+  }
+  [[nodiscard]] constexpr auto back() const -> const_reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(!empty(), "back() called on an empty inplace_vector");
+    return data()[size() - 1];
+  }
 
   // data(): "A pointer such that [data(), data() + size()) is a valid range.
   // For a non-empty inplace_vector, data() == addressof(front())."
@@ -501,6 +520,7 @@ public:
   }
 
   constexpr void pop_back() {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(!empty(), "pop_back() called on an empty inplace_vector");
     --this->__size_;
     this->__destroy_elem(data() + size());
   }
@@ -752,13 +772,31 @@ public:
     std::__throw_out_of_range("inplace_vector::at");
   }
 
-  [[nodiscard]] constexpr auto operator[](size_type) -> reference { return *data(); }
-  [[nodiscard]] constexpr auto operator[](size_type) const -> const_reference { return *data(); }
+  [[nodiscard]] constexpr auto operator[](size_type) -> reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(false, "cannot call inplace_vector<T, 0>::operator[] on a zero-sized inplace_vector");
+    return *data();
+  }
+  [[nodiscard]] constexpr auto operator[](size_type) const -> const_reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(false, "cannot call inplace_vector<T, 0>::operator[] on a zero-sized inplace_vector");
+    return *data();
+  }
 
-  [[nodiscard]] constexpr auto front() -> reference { return *data(); }
-  [[nodiscard]] constexpr auto front() const -> const_reference { return *data(); }
-  [[nodiscard]] constexpr auto back() -> reference { return *data(); }
-  [[nodiscard]] constexpr auto back() const -> const_reference { return *data(); }
+  [[nodiscard]] constexpr auto front() -> reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(false, "cannot call inplace_vector<T, 0>::front() on a zero-sized inplace_vector");
+    return *data();
+  }
+  [[nodiscard]] constexpr auto front() const -> const_reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(false, "cannot call inplace_vector<T, 0>::front() on a zero-sized inplace_vector");
+    return *data();
+  }
+  [[nodiscard]] constexpr auto back() -> reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(false, "cannot call inplace_vector<T, 0>::back() on a zero-sized inplace_vector");
+    return *data();
+  }
+  [[nodiscard]] constexpr auto back() const -> const_reference {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(false, "cannot call inplace_vector<T, 0>::back() on a zero-sized inplace_vector");
+    return *data();
+  }
 
   [[nodiscard]] constexpr auto data() noexcept -> _Tp* { return nullptr; }
   [[nodiscard]] constexpr auto data() const noexcept -> const _Tp* { return nullptr; }
@@ -837,7 +875,9 @@ public:
     return *__r;
   }
 
-  constexpr void pop_back() { /* precondition size() < capacity() is never satisfiable; UB to call */ }
+  constexpr void pop_back() {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(false, "pop_back() called on an empty inplace_vector");
+  }
 
   constexpr auto insert(const_iterator, const _Tp&) -> iterator { std::__throw_bad_alloc(); }
   constexpr auto insert(const_iterator, _Tp&&) -> iterator { std::__throw_bad_alloc(); }
