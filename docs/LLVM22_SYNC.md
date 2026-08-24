@@ -10,7 +10,7 @@ This document is the single source of truth for Epic A: synchronizing CXX26 Clan
 - Baseline annotated tag: `cxx26-2026.08.24`
 - Baseline branch: `cxx26`
 - Upstream remote: `upstream` (`https://github.com/llvm/llvm-project.git`, push disabled)
-- Historical implementation remote: `bloomberg` (`https://github.com/bloomberg/clang-cxx26.git`, push disabled)
+- Historical implementation provenance is retained in Git history.
 - Working fork remote: `origin` (`https://github.com/spwn02/clang-cxx26.git`)
 
 Do not begin unrelated compiler implementation work until this epic completes. Preserve LLVM licensing, source headers, Git authorship, Bloomberg acknowledgments, and historical implementation provenance throughout the merge.
