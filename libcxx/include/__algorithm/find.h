@@ -18,6 +18,7 @@
 #include <__config>
 #include <__functional/identity.h>
 #include <__fwd/bit_reference.h>
+#include <__iterator/iterator_traits.h>
 #include <__iterator/segmented_iterator.h>
 #include <__string/constexpr_c_functions.h>
 #include <__type_traits/enable_if.h>
@@ -169,7 +170,12 @@ struct __find_segment {
 };
 
 // public API
-template <class _InputIterator, class _Tp>
+template <class _InputIterator,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_InputIterator>::value_type
+#endif
+          >
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _InputIterator
 find(_InputIterator __first, _InputIterator __last, const _Tp& __value) {
   __identity __proj;

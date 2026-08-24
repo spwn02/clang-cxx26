@@ -97,6 +97,10 @@ export namespace std {
   // [projected], projected
   using std::projected;
 
+#if _LIBCPP_STD_VER >= 26
+  using std::projected_value_t;
+#endif
+
   // [alg.req], common algorithm requirements
   // [alg.req.ind.move], concept indirectly_movable
   using std::indirectly_movable;

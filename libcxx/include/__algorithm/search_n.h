@@ -136,7 +136,14 @@ __search_n_impl(_Iter1 __first, _Sent1 __last, _DiffT __count, const _Type& __va
   return std::__search_n_forward_impl<_ClassicAlgPolicy>(__first, __last, __count, __value, __pred, __proj);
 }
 
-template <class _ForwardIterator, class _Size, class _Tp, class _BinaryPredicate>
+template <class _ForwardIterator,
+          class _Size,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#endif
+          ,
+          class _BinaryPredicate>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _ForwardIterator search_n(
     _ForwardIterator __first, _ForwardIterator __last, _Size __count, const _Tp& __value, _BinaryPredicate __pred) {
   static_assert(
@@ -145,7 +152,13 @@ template <class _ForwardIterator, class _Size, class _Tp, class _BinaryPredicate
   return std::__search_n_impl(__first, __last, std::__convert_to_integral(__count), __value, __pred, __proj).first;
 }
 
-template <class _ForwardIterator, class _Size, class _Tp>
+template <class _ForwardIterator,
+          class _Size,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#endif
+          >
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _ForwardIterator
 search_n(_ForwardIterator __first, _ForwardIterator __last, _Size __count, const _Tp& __value) {
   return std::search_n(__first, __last, std::__convert_to_integral(__count), __value, __equal_to());

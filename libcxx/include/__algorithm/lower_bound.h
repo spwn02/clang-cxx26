@@ -89,7 +89,13 @@ __lower_bound(_ForwardIterator __first, _Sent __last, const _Type& __value, _Com
   return std::__lower_bound_bisecting<_AlgPolicy>(__first, __value, __dist, __comp, __proj);
 }
 
-template <class _ForwardIterator, class _Tp, class _Compare>
+template <class _ForwardIterator,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#endif
+          ,
+          class _Compare>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _ForwardIterator
 lower_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, _Compare __comp) {
   static_assert(__is_callable<_Compare&, decltype(*__first), const _Tp&>::value, "The comparator has to be callable");
@@ -97,7 +103,12 @@ lower_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __valu
   return std::__lower_bound<_ClassicAlgPolicy>(__first, __last, __value, __comp, __proj);
 }
 
-template <class _ForwardIterator, class _Tp>
+template <class _ForwardIterator,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#endif
+          >
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _ForwardIterator
 lower_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value) {
   return std::lower_bound(__first, __last, __value, __less<>());

@@ -34,7 +34,12 @@ __fill(_RandomAccessIterator __first, _RandomAccessIterator __last, const _Tp& _
   std::fill_n(__first, __last - __first, __value);
 }
 
-template <class _ForwardIterator, class _Tp>
+template <class _ForwardIterator,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#endif
+          >
 inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 void
 fill(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value) {
   std::__fill(__first, __last, __value, typename iterator_traits<_ForwardIterator>::iterator_category());

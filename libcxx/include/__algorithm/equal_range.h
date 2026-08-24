@@ -17,6 +17,7 @@
 #include <__algorithm/upper_bound.h>
 #include <__config>
 #include <__functional/identity.h>
+#include <__iterator/iterator_traits.h>
 #include <__type_traits/invoke.h>
 #include <__type_traits/is_callable.h>
 #include <__type_traits/is_constructible.h>
@@ -55,7 +56,13 @@ __equal_range(_Iter __first, _Sent __last, const _Tp& __value, _Compare&& __comp
   return pair<_Iter, _Iter>(__first, __first);
 }
 
-template <class _ForwardIterator, class _Tp, class _Compare>
+template <class _ForwardIterator,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#endif
+          ,
+          class _Compare>
 [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 pair<_ForwardIterator, _ForwardIterator>
 equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, _Compare __comp) {
   static_assert(__is_callable<_Compare&, decltype(*__first), const _Tp&>::value, "The comparator has to be callable");
@@ -68,7 +75,12 @@ equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __valu
       std::__identity());
 }
 
-template <class _ForwardIterator, class _Tp>
+template <class _ForwardIterator,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#endif
+          >
 [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 pair<_ForwardIterator, _ForwardIterator>
 equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value) {
   return std::equal_range(std::move(__first), std::move(__last), __value, __less<>());

@@ -49,7 +49,13 @@ __upper_bound(_Iter __first, _Sent __last, const _Tp& __value, _Compare&& __comp
   return __first;
 }
 
-template <class _ForwardIterator, class _Tp, class _Compare>
+template <class _ForwardIterator,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#endif
+          ,
+          class _Compare>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _ForwardIterator
 upper_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, _Compare __comp) {
   static_assert(__is_callable<_Compare&, const _Tp&, decltype(*__first)>::value, "The comparator has to be callable");
@@ -58,7 +64,12 @@ upper_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __valu
       std::move(__first), std::move(__last), __value, std::move(__comp), std::__identity());
 }
 
-template <class _ForwardIterator, class _Tp>
+template <class _ForwardIterator,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#endif
+          >
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _ForwardIterator
 upper_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value) {
   return std::upper_bound(std::move(__first), std::move(__last), __value, __less<>());

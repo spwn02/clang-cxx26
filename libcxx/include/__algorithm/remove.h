@@ -12,6 +12,7 @@
 #include <__algorithm/find.h>
 #include <__algorithm/find_if.h>
 #include <__config>
+#include <__iterator/iterator_traits.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -23,7 +24,12 @@ _LIBCPP_PUSH_MACROS
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-template <class _ForwardIterator, class _Tp>
+template <class _ForwardIterator,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#endif
+          >
 [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _ForwardIterator
 remove(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value) {
   __first = std::find(__first, __last, __value);

@@ -515,9 +515,9 @@ template<class charT, class traits, class Allocator>
 basic_istream<charT, traits>&
 getline(basic_istream<charT, traits>& is, basic_string<charT, traits, Allocator>& str);
 
-template<class charT, class traits, class Allocator, class U>
+template<class charT, class traits, class Allocator, class U = charT>
 constexpr typename basic_string<charT, traits, Allocator>::size_type
-erase(basic_string<charT, traits, Allocator>& c, const U& value);    // C++20
+erase(basic_string<charT, traits, Allocator>& c, const U& value);    // C++20, U = charT since C++26
 template<class charT, class traits, class Allocator, class Predicate>
 constexpr typename basic_string<charT, traits, Allocator>::size_type
 erase_if(basic_string<charT, traits, Allocator>& c, Predicate pred); // C++20
@@ -3946,7 +3946,14 @@ inline _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>&
 getline(basic_istream<_CharT, _Traits>&& __is, basic_string<_CharT, _Traits, _Allocator>& __str);
 
 #  if _LIBCPP_STD_VER >= 20
-template <class _CharT, class _Traits, class _Allocator, class _Up>
+template <class _CharT,
+          class _Traits,
+          class _Allocator,
+          class _Up
+#  if _LIBCPP_STD_VER >= 26
+          = _CharT
+#  endif
+          >
 inline _LIBCPP_HIDE_FROM_ABI constexpr typename basic_string<_CharT, _Traits, _Allocator>::size_type
 erase(basic_string<_CharT, _Traits, _Allocator>& __str, const _Up& __v) {
   auto __old_size = __str.size();

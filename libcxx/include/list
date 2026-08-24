@@ -186,9 +186,9 @@ template <class T, class Alloc>
     void swap(list<T,Alloc>& x, list<T,Alloc>& y)
          noexcept(noexcept(x.swap(y)));
 
-template <class T, class Allocator, class U>
+template <class T, class Allocator, class U = T>
     typename list<T, Allocator>::size_type
-    erase(list<T, Allocator>& c, const U& value);       // since C++20
+    erase(list<T, Allocator>& c, const U& value);       // since C++20, U = T since C++26
 template <class T, class Allocator, class Predicate>
     typename list<T, Allocator>::size_type
     erase_if(list<T, Allocator>& c, Predicate pred);    // since C++20
@@ -1792,7 +1792,13 @@ erase_if(list<_Tp, _Allocator>& __c, _Predicate __pred) {
   return __c.remove_if(__pred);
 }
 
-template <class _Tp, class _Allocator, class _Up>
+template <class _Tp,
+          class _Allocator,
+          class _Up
+#if _LIBCPP_STD_VER >= 26
+          = _Tp
+#endif
+          >
 _LIBCPP_CONSTEXPR_SINCE_CXX26 inline _LIBCPP_HIDE_FROM_ABI typename list<_Tp, _Allocator>::size_type
 erase(list<_Tp, _Allocator>& __c, const _Up& __v) {
   return std::erase_if(__c, [&](const auto& __elem) -> bool { return __elem == __v; });

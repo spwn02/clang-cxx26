@@ -13,6 +13,8 @@
 #include <__config>
 #include <__iterator/concepts.h>
 #include <__iterator/incrementable_traits.h> // iter_difference_t
+#include <__iterator/iterator_traits.h>      // iter_value_t
+#include <__type_traits/invoke.h>            // invoke_result_t
 #include <__type_traits/remove_cvref.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -53,6 +55,12 @@ struct __projected_impl<_It, _Proj> {
 // breaks with std::projected are expected to have essentially no impact).
 template <indirectly_readable _It, indirectly_regular_unary_invocable<_It> _Proj>
 using projected = typename __projected_impl<_It, _Proj>::__type;
+
+#  if _LIBCPP_STD_VER >= 26
+// [projected], projected_value_t
+template <indirectly_readable _It, indirectly_regular_unary_invocable<_It> _Proj>
+using projected_value_t = remove_cvref_t<invoke_result_t<_Proj&, iter_value_t<_It>&>>;
+#  endif // _LIBCPP_STD_VER >= 26
 
 #endif // _LIBCPP_STD_VER >= 20
 

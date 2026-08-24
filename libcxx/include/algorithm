@@ -937,22 +937,24 @@ namespace ranges {
       ranges::search_n(R&& r, range_difference_t<R> count,
                        const T& value, Pred pred = {}, Proj proj = {});                             // since C++20
 
-  template<input_iterator I, sentinel_for<I> S, class T,
+  template<input_iterator I, sentinel_for<I> S, class T = iter_value_t<I>,
            indirectly-binary-left-foldable<T, I> F>
-    constexpr auto ranges::fold_left(I first, S last, T init, F f);                                 // since C++23
+    constexpr auto ranges::fold_left(I first, S last, T init, F f);                    // since C++23, T since C++26
 
-  template<input_range R, class T, indirectly-binary-left-foldable<T, iterator_t<R>> F>
-    constexpr auto fold_left(R&& r, T init, F f);                                                   // since C++23
+  template<input_range R, class T = range_value_t<R>,
+           indirectly-binary-left-foldable<T, iterator_t<R>> F>
+    constexpr auto fold_left(R&& r, T init, F f);                                      // since C++23, T since C++26
 
   template<class I, class T>
     using fold_left_with_iter_result = in_value_result<I, T>;                                       // since C++23
 
-  template<input_iterator I, sentinel_for<I> S, class T,
+  template<input_iterator I, sentinel_for<I> S, class T = iter_value_t<I>,
            indirectly-binary-left-foldable<T, I> F>
-    constexpr see below fold_left_with_iter(I first, S last, T init, F f);                          // since C++23
+    constexpr see below fold_left_with_iter(I first, S last, T init, F f);             // since C++23, T since C++26
 
-  template<input_range R, class T, indirectly-binary-left-foldable<T, iterator_t<R>> F>
-    constexpr see below fold_left_with_iter(R&& r, T init, F f);                                    // since C++23
+  template<input_range R, class T = range_value_t<R>,
+           indirectly-binary-left-foldable<T, iterator_t<R>> F>
+    constexpr see below fold_left_with_iter(R&& r, T init, F f);                       // since C++23, T since C++26
 
   template<forward_iterator I1, sentinel_for<I1> S1, forward_iterator I2, sentinel_for<I2> S2,
            class Pred = ranges::equal_to, class Proj1 = identity, class Proj2 = identity>
@@ -1191,9 +1193,9 @@ template<class InputIterator, class Size, class Function>
     constexpr InputIterator     // constexpr since C++20
     for_each_n(InputIterator first, Size n, Function f); // C++17
 
-template <class InputIterator, class T>
+template <class InputIterator, class T = typename iterator_traits<InputIterator>::value_type>
     constexpr InputIterator     // constexpr since C++20
-    find(InputIterator first, InputIterator last, const T& value);
+    find(InputIterator first, InputIterator last, const T& value);           // T since C++26
 
 template <class InputIterator, class Predicate>
     constexpr InputIterator     // constexpr since C++20
@@ -1231,9 +1233,9 @@ template <class ForwardIterator, class BinaryPredicate>
     constexpr ForwardIterator   // constexpr since C++20
     adjacent_find(ForwardIterator first, ForwardIterator last, BinaryPredicate pred);
 
-template <class InputIterator, class T>
+template <class InputIterator, class T = typename iterator_traits<InputIterator>::value_type>
     constexpr typename iterator_traits<InputIterator>::difference_type  // constexpr since C++20
-    count(InputIterator first, InputIterator last, const T& value);
+    count(InputIterator first, InputIterator last, const T& value);          // T since C++26
 
 template <class InputIterator, class Predicate>
     constexpr typename iterator_traits<InputIterator>::difference_type // constexpr since C++20
@@ -1310,14 +1312,15 @@ template <class ForwardIterator1, class ForwardIterator2, class BinaryPredicate>
     search(ForwardIterator1 first1, ForwardIterator1 last1,
            ForwardIterator2 first2, ForwardIterator2 last2, BinaryPredicate pred);
 
-template <class ForwardIterator, class Size, class T>
+template <class ForwardIterator, class Size, class T = typename iterator_traits<ForwardIterator>::value_type>
     constexpr ForwardIterator       // constexpr since C++20
-    search_n(ForwardIterator first, ForwardIterator last, Size count, const T& value);
+    search_n(ForwardIterator first, ForwardIterator last, Size count, const T& value);   // T since C++26
 
-template <class ForwardIterator, class Size, class T, class BinaryPredicate>
+template <class ForwardIterator, class Size, class T = typename iterator_traits<ForwardIterator>::value_type,
+          class BinaryPredicate>
     constexpr ForwardIterator       // constexpr since C++20
     search_n(ForwardIterator first, ForwardIterator last,
-             Size count, const T& value, BinaryPredicate pred);
+             Size count, const T& value, BinaryPredicate pred);              // T since C++26
 
 template <class InputIterator, class OutputIterator>
     constexpr OutputIterator      // constexpr since C++20
@@ -1379,30 +1382,31 @@ template <class InputIterator1, class InputIterator2, class OutputIterator, clas
     transform(InputIterator1 first1, InputIterator1 last1, InputIterator2 first2,
               OutputIterator result, BinaryOperation binary_op);
 
-template <class ForwardIterator, class T>
+template <class ForwardIterator, class T = typename iterator_traits<ForwardIterator>::value_type>
     constexpr void      // constexpr since C++20
-    replace(ForwardIterator first, ForwardIterator last, const T& old_value, const T& new_value);
+    replace(ForwardIterator first, ForwardIterator last, const T& old_value, const T& new_value); // T since C++26
 
-template <class ForwardIterator, class Predicate, class T>
+template <class ForwardIterator, class Predicate, class T = typename iterator_traits<ForwardIterator>::value_type>
     constexpr void      // constexpr since C++20
-    replace_if(ForwardIterator first, ForwardIterator last, Predicate pred, const T& new_value);
+    replace_if(ForwardIterator first, ForwardIterator last, Predicate pred, const T& new_value); // T since C++26
 
 template <class InputIterator, class OutputIterator, class T>
     constexpr OutputIterator      // constexpr since C++20
     replace_copy(InputIterator first, InputIterator last, OutputIterator result,
                  const T& old_value, const T& new_value);
 
-template <class InputIterator, class OutputIterator, class Predicate, class T>
+template <class InputIterator, class OutputIterator, class Predicate,
+          class T = typename iterator_traits<OutputIterator>::value_type>
     constexpr OutputIterator      // constexpr since C++20
-    replace_copy_if(InputIterator first, InputIterator last, OutputIterator result, Predicate pred, const T& new_value);
+    replace_copy_if(InputIterator first, InputIterator last, OutputIterator result, Predicate pred, const T& new_value); // T since C++26
 
-template <class ForwardIterator, class T>
+template <class ForwardIterator, class T = typename iterator_traits<ForwardIterator>::value_type>
     constexpr void      // constexpr since C++20
-    fill(ForwardIterator first, ForwardIterator last, const T& value);
+    fill(ForwardIterator first, ForwardIterator last, const T& value);       // T since C++26
 
-template <class OutputIterator, class Size, class T>
+template <class OutputIterator, class Size, class T = typename iterator_traits<OutputIterator>::value_type>
     constexpr OutputIterator      // constexpr since C++20
-    fill_n(OutputIterator first, Size n, const T& value);
+    fill_n(OutputIterator first, Size n, const T& value);                    // T since C++26
 
 template <class ForwardIterator, class Generator>
     constexpr void      // constexpr since C++20
@@ -1412,17 +1416,17 @@ template <class OutputIterator, class Size, class Generator>
     constexpr OutputIterator      // constexpr since C++20
     generate_n(OutputIterator first, Size n, Generator gen);
 
-template <class ForwardIterator, class T>
+template <class ForwardIterator, class T = typename iterator_traits<ForwardIterator>::value_type>
     constexpr ForwardIterator     // constexpr since C++20
-    remove(ForwardIterator first, ForwardIterator last, const T& value);
+    remove(ForwardIterator first, ForwardIterator last, const T& value);     // T since C++26
 
 template <class ForwardIterator, class Predicate>
     constexpr ForwardIterator     // constexpr since C++20
     remove_if(ForwardIterator first, ForwardIterator last, Predicate pred);
 
-template <class InputIterator, class OutputIterator, class T>
+template <class InputIterator, class OutputIterator, class T = typename iterator_traits<InputIterator>::value_type>
     constexpr OutputIterator     // constexpr since C++20
-    remove_copy(InputIterator first, InputIterator last, OutputIterator result, const T& value);
+    remove_copy(InputIterator first, InputIterator last, OutputIterator result, const T& value); // T since C++26
 
 template <class InputIterator, class OutputIterator, class Predicate>
     constexpr OutputIterator     // constexpr since C++20
@@ -1570,37 +1574,41 @@ template <class RandomAccessIterator, class Compare>
     constexpr void                    // constexpr since C++20
     nth_element(RandomAccessIterator first, RandomAccessIterator nth, RandomAccessIterator last, Compare comp);
 
-template <class ForwardIterator, class T>
+template <class ForwardIterator, class T = typename iterator_traits<ForwardIterator>::value_type>
     constexpr ForwardIterator                         // constexpr since C++20
-    lower_bound(ForwardIterator first, ForwardIterator last, const T& value);
+    lower_bound(ForwardIterator first, ForwardIterator last, const T& value); // T since C++26
 
-template <class ForwardIterator, class T, class Compare>
+template <class ForwardIterator, class T = typename iterator_traits<ForwardIterator>::value_type,
+          class Compare>
     constexpr ForwardIterator                         // constexpr since C++20
-    lower_bound(ForwardIterator first, ForwardIterator last, const T& value, Compare comp);
+    lower_bound(ForwardIterator first, ForwardIterator last, const T& value, Compare comp); // T since C++26
 
-template <class ForwardIterator, class T>
+template <class ForwardIterator, class T = typename iterator_traits<ForwardIterator>::value_type>
     constexpr ForwardIterator                         // constexpr since C++20
-    upper_bound(ForwardIterator first, ForwardIterator last, const T& value);
+    upper_bound(ForwardIterator first, ForwardIterator last, const T& value); // T since C++26
 
-template <class ForwardIterator, class T, class Compare>
+template <class ForwardIterator, class T = typename iterator_traits<ForwardIterator>::value_type,
+          class Compare>
     constexpr ForwardIterator                         // constexpr since C++20
-    upper_bound(ForwardIterator first, ForwardIterator last, const T& value, Compare comp);
+    upper_bound(ForwardIterator first, ForwardIterator last, const T& value, Compare comp); // T since C++26
 
-template <class ForwardIterator, class T>
+template <class ForwardIterator, class T = typename iterator_traits<ForwardIterator>::value_type>
     constexpr pair<ForwardIterator, ForwardIterator>  // constexpr since C++20
-    equal_range(ForwardIterator first, ForwardIterator last, const T& value);
+    equal_range(ForwardIterator first, ForwardIterator last, const T& value); // T since C++26
 
-template <class ForwardIterator, class T, class Compare>
+template <class ForwardIterator, class T = typename iterator_traits<ForwardIterator>::value_type,
+          class Compare>
     constexpr pair<ForwardIterator, ForwardIterator>  // constexpr since C++20
-    equal_range(ForwardIterator first, ForwardIterator last, const T& value, Compare comp);
+    equal_range(ForwardIterator first, ForwardIterator last, const T& value, Compare comp); // T since C++26
 
-template <class ForwardIterator, class T>
+template <class ForwardIterator, class T = typename iterator_traits<ForwardIterator>::value_type>
     constexpr bool                                    // constexpr since C++20
-    binary_search(ForwardIterator first, ForwardIterator last, const T& value);
+    binary_search(ForwardIterator first, ForwardIterator last, const T& value); // T since C++26
 
-template <class ForwardIterator, class T, class Compare>
+template <class ForwardIterator, class T = typename iterator_traits<ForwardIterator>::value_type,
+          class Compare>
     constexpr bool                                    // constexpr since C++20
-    binary_search(ForwardIterator first, ForwardIterator last, const T& value, Compare comp);
+    binary_search(ForwardIterator first, ForwardIterator last, const T& value, Compare comp); // T since C++26
 
 template <class InputIterator1, class InputIterator2, class OutputIterator>
     constexpr OutputIterator                          // constexpr since C++20

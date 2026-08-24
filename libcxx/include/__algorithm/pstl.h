@@ -126,7 +126,11 @@ count_if(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator
 
 template <class _ExecutionPolicy,
           class _ForwardIterator,
-          class _Tp,
+          class _Tp
+#  if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#  endif
+          ,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI __iter_diff_t<_ForwardIterator>
@@ -229,7 +233,11 @@ equal(_ExecutionPolicy&& __policy,
 
 template <class _ExecutionPolicy,
           class _ForwardIterator,
-          class _Tp,
+          class _Tp
+#  if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#  endif
+          ,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI void
@@ -243,7 +251,11 @@ fill(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __l
 template <class _ExecutionPolicy,
           class _ForwardIterator,
           class _Size,
-          class _Tp,
+          class _Tp
+#  if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#  endif
+          ,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI void
@@ -282,7 +294,11 @@ find_if_not(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardItera
 
 template <class _ExecutionPolicy,
           class _ForwardIterator,
-          class _Tp,
+          class _Tp
+#  if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#  endif
+          ,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI _ForwardIterator
@@ -437,7 +453,11 @@ move(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __l
 template <class _ExecutionPolicy,
           class _ForwardIterator,
           class _Pred,
-          class _Tp,
+          class _Tp
+#  if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#  endif
+          ,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI void
@@ -454,7 +474,11 @@ replace_if(_ExecutionPolicy&& __policy,
 
 template <class _ExecutionPolicy,
           class _ForwardIterator,
-          class _Tp,
+          class _Tp
+#  if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#  endif
+          ,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI void
@@ -473,7 +497,11 @@ template <class _ExecutionPolicy,
           class _ForwardIterator,
           class _ForwardOutIterator,
           class _Pred,
-          class _Tp,
+          class _Tp
+#  if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardOutIterator>::value_type
+#  endif
+          ,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI void replace_copy_if(

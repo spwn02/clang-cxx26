@@ -10,6 +10,7 @@
 #define _LIBCPP___ALGORITHM_REPLACE_IF_H
 
 #include <__config>
+#include <__iterator/iterator_traits.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -17,7 +18,13 @@
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-template <class _ForwardIterator, class _Predicate, class _Tp>
+template <class _ForwardIterator,
+          class _Predicate,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type
+#endif
+          >
 inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 void
 replace_if(_ForwardIterator __first, _ForwardIterator __last, _Predicate __pred, const _Tp& __new_value) {
   for (; __first != __last; ++__first)

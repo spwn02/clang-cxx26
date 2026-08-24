@@ -166,9 +166,9 @@ template <class T, class Allocator>
     void swap(deque<T,Allocator>& x, deque<T,Allocator>& y)
          noexcept(noexcept(x.swap(y)));
 
-template <class T, class Allocator, class U>
+template <class T, class Allocator, class U = T>
     typename deque<T, Allocator>::size_type
-    erase(deque<T, Allocator>& c, const U& value);       // C++20
+    erase(deque<T, Allocator>& c, const U& value);       // C++20, U = T since C++26
 template <class T, class Allocator, class Predicate>
     typename deque<T, Allocator>::size_type
     erase_if(deque<T, Allocator>& c, Predicate pred);    // C++20
@@ -2597,7 +2597,13 @@ inline _LIBCPP_HIDE_FROM_ABI void swap(deque<_Tp, _Allocator>& __x, deque<_Tp, _
 }
 
 #  if _LIBCPP_STD_VER >= 20
-template <class _Tp, class _Allocator, class _Up>
+template <class _Tp,
+          class _Allocator,
+          class _Up
+#if _LIBCPP_STD_VER >= 26
+          = _Tp
+#endif
+          >
 inline _LIBCPP_HIDE_FROM_ABI typename deque<_Tp, _Allocator>::size_type
 erase(deque<_Tp, _Allocator>& __c, const _Up& __v) {
   auto __old_size = __c.size();

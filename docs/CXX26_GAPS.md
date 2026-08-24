@@ -1601,6 +1601,10 @@ on its own, matching the `P3107R5`/`P3235R3` "needs its own session" shape
 from the format/print block, not a Tier 6 pickup. Not implemented. No CSV
 changes for any of the three — none of them flip status this session.
 
+`[x]` complete, `[ ]` not started, `[!]` assessed and rejected as too large
+for a Tier 6 pickup (see Notes), `[~]` partially implemented and left that
+way deliberately (see Notes for what's done vs. remaining).
+
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
 | [x] | P2592R3 | Hashing support for `std::chrono` value classes |
@@ -1610,8 +1614,8 @@ changes for any of the three — none of them flip status this session.
 | [x] | P0952R2 | New spec for `std::generate_canonical` |
 | [!] | P2836R1 | `basic_const_iterator` convertibility | **Not small** — depends on unimplemented P2278R4 (see block below) |
 | [x] | P2264R7 | User-friendly `assert()` for C and C++ | Nothing To Do 2026-08-24 — see Session Log |
-| [ ] | P2248R8 | List-initialization for algorithms |
-| [ ] | P3217R0 | `find_last` addendum to P2248R8 |
+| [~] | P2248R8 | List-initialization for algorithms | Partial 2026-08-24 — see Session Log |
+| [ ] | P3217R0 | `find_last` addendum to P2248R8 | Blocked on the `ranges::` reordering slice of P2248R8 |
 | [x] | P2546R5 | Debugging Support (`<debugging>`, not its own CSV-tracked row here) |
 | [x] | P2810R4 | `is_debugger_present`, `is_replaceable` |
 | [x] | P1068R11 | Vector API for RNG | Complete 2026-08-24 — see Session Log |
@@ -4917,3 +4921,117 @@ blocked, what's next. Do not remove old entries.
   `version.version.compile.pass.cpp`. P3222R0 (still blocked on Tier 3
   mdspan work) and P3471R4 (Standard Library Hardening, unassessed) remain
   the other two open Tier 6 rows.
+
+- **2026-08-24 (eleventh session, same day as the tenth)**: Implemented
+  slices 1–3 of P2248R8 (list-initialization for algorithms) — the parts
+  the prior session identified as free of the `ranges::` reordering
+  hazard. New `std::projected_value_t<I, Proj>` alias in
+  `<__iterator/projected.h>` (`remove_cvref_t<invoke_result_t<Proj&,
+  iter_value_t<I>&>>`, C++26-guarded, matching the paper's wording
+  verbatim — fetched via raw `curl` of the paper's HTML rather than
+  `WebFetch`'s summarizer, which had already produced garbled/duplicated
+  template-parameter diffs for this exact paper on a retry mid-session;
+  the raw `<del>`/`<ins>` markup gave unambiguous per-site wording
+  instead). Appended `class T = typename iterator_traits<It>::value_type`
+  (or the paper's specific per-algorithm variant — `OutputIterator` for
+  `replace_copy_if`, `InputIterator` for `remove_copy`) to the classic
+  non-range overloads of `find`, `count`, `search_n` (both overloads),
+  `replace`, `replace_if`, `replace_copy_if`, `fill`, `fill_n`, `remove`,
+  `remove_copy`, `lower_bound`, `upper_bound`, `equal_range`,
+  `binary_search` (both overloads each) — 14 `__algorithm/*.h` files, all
+  pure appends since none of these involve a `Proj`/`Comp` parameter that
+  the value-type parameter would need to jump over. Appended `class U = T`
+  (`= charT` for `basic_string`) to the 5 container `erase()` free
+  functions (`<vector>`'s is split into `__vector/erase.h`; `<deque>`/
+  `<list>`/`<forward_list>`/`<string>` have theirs inline in the main
+  header). Updated the `<algorithm>` synopsis comment block and the 5
+  container synopses to match. All defaults guarded
+  `#if _LIBCPP_STD_VER >= 26` using the `class _Tp #if ... = default
+  #endif` mid-declaration form (avoids duplicating the whole parameter
+  list across two branches) — verified this doesn't leak the behavior into
+  earlier standard modes with a direct `-std=c++23` compile of a
+  braced-init-list call, which correctly still fails to deduce.
+
+  Advisor review caught two real gaps before this was called done. First:
+  the paper's non-range algorithms *also* have `ExecutionPolicy` overloads
+  with the identical default, and this fork actually implements 7 of them
+  (`count`, `fill`, `fill_n`, `find`, `replace`, `replace_if`,
+  `replace_copy_if`, all in `__algorithm/pstl.h`, gated
+  `_LIBCPP_HAS_EXPERIMENTAL_PSTL` — confirmed via `grep -rln
+  "is_execution_policy_v\|_ExecutionPolicy"`; `search_n`/`remove`/
+  `remove_copy`/the `alg.binary.search` family have no PSTL overloads in
+  this tree at all, nothing to do there). Checked each site: `_Tp` sits
+  right before the already-defaulted `_RawPolicy`/`enable_if_t<...>`
+  parameters in every one, so this was the same pure-append edit, not a
+  reordering — done, and exercised in the test via
+  `std::execution::seq`, gated on `_LIBCPP_HAS_EXPERIMENTAL_PSTL` (the
+  *value*, not `defined(...)` — that macro is unconditionally defined to 0
+  or 1, and the first test-file draft used the wrong check, silently
+  compiling the PSTL block out under the ad hoc verification `clang++`
+  invocation that didn't pass `-D_LIBCPP_ENABLE_EXPERIMENTAL`; caught by
+  re-deriving from the header's own `#if _LIBCPP_HAS_EXPERIMENTAL_PSTL`
+  guard once the omission was suspicious). Second: `projected_value_t` had
+  zero instantiation coverage (only declared/synopsis'd/module-exported) —
+  added `static_assert`s against `std::identity`, a projection returning a
+  different type (`int` → `double`), and a pointer-to-member projection,
+  matching the alias's wording directly.
+
+  Also went one step further than the prior session's scope-check
+  suggested: re-examined whether *every* `ranges::` algorithm needs the
+  reordering treatment, per advisor's push-back that the reordering hazard
+  is about declaration order, not a blanket property of the `ranges::`
+  namespace. `ranges::fold_left`/`fold_left_with_iter`
+  (`__algorithm/ranges_fold.h`) have no `Proj`/`Comp` parameter at all —
+  `class _Tp` already sits in the position the paper's diff targets, gaining
+  only a default (`iter_value_t<_Ip>` / `range_value_t<_Rp>`), no jump
+  needed. Implemented and tested alongside the rest. `ranges::fold_right`
+  is not implemented in this fork at all — a separate, pre-existing gap
+  from a different paper (P2322R6, `ranges::fold`) — so it's untouched and
+  unmentioned beyond this note.
+
+  New test: `libcxx/test/std/algorithms/algorithms.general/
+  default_template_type_for_algorithm_values.pass.cpp`. Covers every
+  touched non-range algorithm and both `erase()`/`fold_left` families with
+  actual braced-init-list calls (the capability the paper is *for*, not
+  just that the code compiles) inside a `static_assert`ed `constexpr
+  test()` where possible; `deque`/`list`/`forward_list` (not
+  constexpr-constructible in this implementation) and the PSTL
+  `ExecutionPolicy` overloads (not `constexpr` at all) are split into
+  separate runtime-only functions, matching the pattern the P1068R11
+  session used for `uniform_int_distribution`. Full
+  `libcxx/test/std/algorithms/` sweep: 302/309 passed (7 pre-existing
+  unsupported, unrelated) on the narrower run, 384/391 including
+  `iterators/predef.iterators/projected/` and
+  `language.support/support.limits/support.limits.general/` on the wider
+  one — 0 failures either way. Full container sweeps (`vector`/`deque`/
+  `list`/`forwardlist`/`basic.string`): 868/877 passed (9 pre-existing
+  unsupported), 0 failures. `transitive_includes.gen.py` and
+  `headers_in_modulemap.sh.py` green; `module_std.gen.py` unsupported
+  (same pre-existing lit-feature gap as every prior session this tracker
+  has hit — the `iterator.inc`/`random.inc` module export lines added
+  across this effort remain compile-unverified, not "green"). FTM
+  generator run confirmed zero diff to `version`/`FeatureTestMacroTable.rst`
+  (expected: `unimplemented: True` deliberately untouched).
+  `Cxx2cPapers.csv` P2248R8 row flipped to `|Partial|` with a Notes-column
+  breakdown of what's done vs. remaining; P3217R0 left unflipped (blocked
+  on the same `ranges::` slice). Tier 6 table: P2248R8 row marked `[~]`
+  (new marker — this tracker's first genuinely-partial-not-rejected Tier 6
+  outcome, so `[x]`/`[!]` didn't fit; self-explained via the Notes column
+  per this doc's established pattern for introducing markers).
+
+  **Next session**: the remaining `ranges::` slice of P2248R8
+  (`find`/`count`/`search_n`/`replace`/`replace_if`/`replace_copy`/
+  `replace_copy_if`/`remove`/`remove_copy`/`lower_bound`/`upper_bound`/
+  `equal_range`/`binary_search`/`contains`) plus P3217R0's `find_last`
+  family is the natural continuation — every site needs `_Tp`/`_Type`
+  moved to *after* `_Proj`/`_Comp` in libc++'s current declaration order
+  (confirmed via direct grep of `ranges_find.h`/`ranges_fill.h`/
+  `ranges_replace.h`/`ranges_lower_bound.h` two sessions ago), which is
+  real per-site restructuring — budget accordingly, verify no internal
+  code or test uses positional explicit template arguments on these
+  algorithms before reordering (a silent-meaning-change risk the tenth
+  session flagged), and only then flip
+  `__cpp_lib_default_template_type_for_algorithm_values` and regenerate
+  the 7 affected `.version.compile.pass.cpp` files. P3222R0 (blocked on
+  Tier 3 mdspan work) and P3471R4 (Standard Library Hardening, still
+  unassessed) remain the other two open Tier 6 rows.

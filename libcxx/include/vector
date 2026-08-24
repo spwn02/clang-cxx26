@@ -284,9 +284,9 @@ template <class T, class Allocator>
 void swap(vector<T,Allocator>& x, vector<T,Allocator>& y)
     noexcept(noexcept(x.swap(y)));
 
-template <class T, class Allocator, class U>
+template <class T, class Allocator, class U = T>
 typename vector<T, Allocator>::size_type
-erase(vector<T, Allocator>& c, const U& value);       // since C++20
+erase(vector<T, Allocator>& c, const U& value);       // since C++20, U = T since C++26
 template <class T, class Allocator, class Predicate>
 typename vector<T, Allocator>::size_type
 erase_if(vector<T, Allocator>& c, Predicate pred);    // since C++20
