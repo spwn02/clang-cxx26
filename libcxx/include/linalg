@@ -1157,7 +1157,11 @@ template <class _LeftElement,
           class _OutputAccessor>
 constexpr void matrix_product(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
                                mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
-                               mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+                               mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
+           __detail::__in_matrix<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
   static_assert(_LeftExtents::rank() == 2 && _RightExtents::rank() == 2 && _OutputExtents::rank() == 2,
@@ -1195,7 +1199,12 @@ constexpr void
 matrix_product(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
                mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
                mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
-               mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+               mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
+           __detail::__in_matrix<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>> &&
+           __detail::__in_matrix<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
   static_assert(_LeftExtents::rank() == 2 && _RightExtents::rank() == 2 && _AddExtents::rank() == 2 &&
@@ -1240,7 +1249,11 @@ constexpr void triangular_matrix_vector_product(
     _Triangle,
     _Diagonal,
     mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __in_span,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>> &&
+           __detail::__out_vector<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
   static_assert(_MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _OutputExtents::rank() == 1,
@@ -1296,7 +1309,12 @@ constexpr void triangular_matrix_vector_product(
     _Diagonal,
     mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __in_span,
     mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>> &&
+           __detail::__in_vector<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__out_vector<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   static_assert(
       _MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _AddExtents::rank() == 1 &&
           _OutputExtents::rank() == 1 && __detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
@@ -1341,7 +1359,10 @@ constexpr void triangular_matrix_vector_product(
     mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
     _Triangle,
     _Diagonal,
-    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __io_span) {
+    mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __io_span)
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__inout_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>>)
+{
   static_assert(_MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 &&
                     __detail::__static_extents_match<_MatrixExtents, 0, _MatrixExtents, 1>() &&
                     __detail::__static_extents_match<_MatrixExtents, 0, _VectorExtents, 0>(),
@@ -1385,7 +1406,11 @@ constexpr void symmetric_matrix_vector_product(
     mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
     _Triangle,
     mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>> &&
+           __detail::__out_vector<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _OutputExtents::rank() == 1,
                 "linalg::symmetric_matrix_vector_product requires a matrix and two vectors");
@@ -1428,7 +1453,12 @@ constexpr void symmetric_matrix_vector_product(
     _Triangle,
     mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
     mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>> &&
+           __detail::__in_vector<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__out_vector<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
   static_assert(
@@ -1471,7 +1501,11 @@ constexpr void hermitian_matrix_vector_product(
     mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor> __matrix,
     _Triangle,
     mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>> &&
+           __detail::__out_vector<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
   static_assert(_MatrixExtents::rank() == 2 && _VectorExtents::rank() == 1 && _OutputExtents::rank() == 1,
@@ -1516,7 +1550,12 @@ constexpr void hermitian_matrix_vector_product(
     _Triangle,
     mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
     mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
-    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+    mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
+           __detail::__in_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>> &&
+           __detail::__in_vector<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__out_vector<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
   static_assert(
@@ -1557,7 +1596,11 @@ template <class _LeftElement,
           class _OutputAccessor>
 constexpr void matrix_rank_1_update(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
                                      mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
-                                     mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+                                     mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_vector<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
+           __detail::__in_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
   static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _OutputExtents::rank() == 2,
@@ -1586,7 +1629,11 @@ template <class _LeftElement,
           class _OutputAccessor>
 constexpr void matrix_rank_1_update_c(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
                                        mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
-                                       mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+                                       mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_vector<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
+           __detail::__in_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
   static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _OutputExtents::rank() == 2,
@@ -1622,7 +1669,12 @@ template <class _LeftElement,
 constexpr void matrix_rank_1_update(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
                                      mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
                                      mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
-                                     mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+                                     mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_vector<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
+           __detail::__in_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>> &&
+           __detail::__in_matrix<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
   static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _AddExtents::rank() == 2 &&
@@ -1656,7 +1708,12 @@ template <class _LeftElement,
 constexpr void matrix_rank_1_update_c(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left,
                                        mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor> __right,
                                        mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
-                                       mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span) {
+                                       mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span)
+  requires(__detail::__in_vector<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
+           __detail::__in_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>> &&
+           __detail::__in_matrix<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__out_matrix<mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING(_OutputExtents, _OutputLayout);
   static_assert(_LeftExtents::rank() == 1 && _RightExtents::rank() == 1 && _AddExtents::rank() == 2 &&
@@ -1685,7 +1742,12 @@ constexpr void symmetric_matrix_rank_1_update(
     _Scalar __alpha,
     mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
     mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
-    _Triangle) {
+    _Triangle)
+  requires(__detail::__linalg_scalar<_Scalar> &&
+           __detail::__in_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>> &&
+           __detail::__possibly_packed_out_matrix<
+               mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_VectorExtents::rank() == 1 && _OutputExtents::rank() == 2,
                 "linalg::symmetric_matrix_rank_1_update requires a vector and a matrix");
@@ -1726,7 +1788,13 @@ constexpr void symmetric_matrix_rank_1_update(
     mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
     mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
     mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
-    _Triangle) {
+    _Triangle)
+  requires(__detail::__linalg_scalar<_Scalar> &&
+           __detail::__in_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>> &&
+           __detail::__in_matrix<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__possibly_packed_out_matrix<
+               mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_VectorExtents::rank() == 1 && _AddExtents::rank() == 2 && _OutputExtents::rank() == 2,
                 "linalg::symmetric_matrix_rank_1_update requires a vector and two matrices");
@@ -1758,7 +1826,12 @@ constexpr void hermitian_matrix_rank_1_update(
     _Scalar __alpha,
     mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
     mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
-    _Triangle) {
+    _Triangle)
+  requires(__detail::__linalg_scalar<_Scalar> &&
+           __detail::__in_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>> &&
+           __detail::__possibly_packed_out_matrix<
+               mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_VectorExtents::rank() == 1 && _OutputExtents::rank() == 2,
                 "linalg::hermitian_matrix_rank_1_update requires a vector and a matrix");
@@ -1797,7 +1870,13 @@ constexpr void hermitian_matrix_rank_1_update(
     mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor> __vector,
     mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor> __add,
     mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor> __out_span,
-    _Triangle) {
+    _Triangle)
+  requires(__detail::__linalg_scalar<_Scalar> &&
+           __detail::__in_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>> &&
+           __detail::__in_matrix<mdspan<_AddElement, _AddExtents, _AddLayout, _AddAccessor>> &&
+           __detail::__possibly_packed_out_matrix<
+               mdspan<_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor>>)
+{
   _LIBCPP_LINALG_REQUIRE_WRITABLE_MDSPAN(_OutputElement, _OutputExtents, _OutputLayout, _OutputAccessor);
   static_assert(_VectorExtents::rank() == 1 && _AddExtents::rank() == 2 && _OutputExtents::rank() == 2,
                 "linalg::hermitian_matrix_rank_1_update requires a vector and two matrices");
