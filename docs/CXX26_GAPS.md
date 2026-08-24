@@ -5467,31 +5467,52 @@ blocked, what's next. Do not remove old entries.
   Full `linalg/` suite (17/17) and the full `numerics/` suite (940/940, 2
   pre-existing unsupported) both green after the final commit.
 
-  **`|Partial|`, not `|Complete|`, for two independent reasons** (either
-  alone would justify it): (1) the live draft's `__cpp_lib_linalg` is
-  `202511L`; this fork's generator/`<version>` still say `202311L`, and
-  the paper or LWG issue that moved the value couldn't be identified from
-  this environment (checked the 2024/2025 WG21 papers index, came back
-  empty) — same "don't invent an unverifiable target" discipline as
+  **`|Partial|`, not `|Complete|`**: the live draft's `__cpp_lib_linalg`
+  is `202511L`; this fork's generator/`<version>` still say `202311L`,
+  and the paper or LWG issue that moved the value couldn't be identified
+  from this environment (checked the 2024/2025 WG21 papers index, came
+  back empty) — same "don't invent an unverifiable target" discipline as
   P3471R4's FTM macros, just discovered via the value itself rather than
-  the macro name. (2) A full member-by-member prose audit of every
+  the macro name. A full member-by-member prose audit of every
   function's Preconditions/Effects/Complexity against the standard
-  wording — the kind done for `text_encoding` in Tier 6 — was not
-  attempted this session; 90-odd functions across three BLAS tiers is a
-  different scale than that facility's five member functions, and the 17
-  pre-existing tests plus the now-completed name-set and SFINAE-
-  conformance passes are real, but not exhaustive, evidence of
-  correctness. Recorded as a deliberate scope boundary for whoever picks
-  this up next, not a gap found and left unfixed.
+  wording — the kind done for `text_encoding` in Tier 6 — was also not
+  attempted this session (90-odd functions across three BLAS tiers is a
+  different scale than that facility's five member functions); this is
+  an *unverified area*, not a known defect, and is not by itself why the
+  status is `|Partial|` — the FTM mismatch alone carries that.
 
-  P1673R13 is now substantively audited and its one confirmed conformance
-  gap is closed. **Next session**: either (a) attempt the prose audit
-  this session skipped (budget for real per-function wording comparison,
-  not a mechanical sweep — same caution this tracker has given every
-  similarly-shaped task), or (b) revisit whether upstream LLVM or a newer
-  WG21 mailing has surfaced what moved `__cpp_lib_linalg` to `202511L`.
-  P3050R2 (already `|Complete|`, landed by an earlier session) does not
-  need re-auditing as part of either follow-up. Tier 3's only remaining
-  fully-unblocked, unstarted work is `format`/`print`'s P3107R5/P3235R3
-  redesign (assessed out of scope in a prior session, needs its own
-  dedicated session) and P2757R3 (blocked on untracked C++23 P2419R2).
+  Post-hoc verification (advisor-prompted, same session): reconciled the
+  concept-retrofit sweep mechanically — 82 `constexpr` function
+  definitions in the header, 68 with a `requires` clause referencing one
+  of the 11 new concepts, and the remaining 14 are exactly the
+  documented unconstrained set (6 `__detail` helpers + 4 transform views
+  + the 4 rank-0-scoped functions) — no missed functions. Also added
+  `libcxx/test/std/numerics/linalg/helper_concepts.pass.cpp`, a
+  standing test (the prior `zzprobe.pass.cpp` was thrown away after
+  manual confirmation) that exercises the concepts directly rather than
+  relying on existing tests only proving valid calls still compile: it
+  asserts a wrong-rank output is SFINAE-excluded from
+  `matrix_vector_product`, a `const`-element output is excluded via
+  `out-vector`'s `is_assignable_v` half, and — the discriminating case —
+  a `layout_blas_packed` output *is* accepted by
+  `symmetric_matrix_rank_1_update`'s `possibly-packed-out-matrix`
+  parameter (which plain `out-matrix` would have rejected, since a
+  packed layout has no unique mapping). Separately dropped a spurious
+  `remove_cvref_t` from `__linalg_scalar`'s `is_execution_policy_v`
+  check — the standard's `scalar` concept applies it to `T` directly, so
+  the fork now transcribes the wording verbatim instead of an
+  unexplained variant.
+
+  P1673R13 is now substantively audited, its one confirmed conformance
+  gap is closed, and the retrofit itself has direct test coverage (not
+  just non-regression). **Next session**: either (a) attempt the prose
+  audit this session skipped (budget for real per-function wording
+  comparison, not a mechanical sweep — same caution this tracker has
+  given every similarly-shaped task), or (b) revisit whether upstream
+  LLVM or a newer WG21 mailing has surfaced what moved
+  `__cpp_lib_linalg` to `202511L`. P3050R2 (already `|Complete|`, landed
+  by an earlier session) does not need re-auditing as part of either
+  follow-up. Tier 3's only remaining fully-unblocked, unstarted work is
+  `format`/`print`'s P3107R5/P3235R3 redesign (assessed out of scope in
+  a prior session, needs its own dedicated session) and P2757R3
+  (blocked on untracked C++23 P2419R2).

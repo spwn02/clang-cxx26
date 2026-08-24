@@ -462,7 +462,7 @@ concept __inout_object = __out_object<_Tp>;
 // Named __linalg_scalar (not __scalar) to avoid colliding with this header's own __detail::scalar-
 // adjacent helpers and with the unqualified "scalar" template parameter name used throughout.
 template <class _Tp>
-concept __linalg_scalar = semiregular<_Tp> && !__is_mdspan_v<_Tp> && !is_execution_policy_v<remove_cvref_t<_Tp>>;
+concept __linalg_scalar = semiregular<_Tp> && !__is_mdspan_v<_Tp> && !is_execution_policy_v<_Tp>;
 } // namespace __detail
 
 template <class _ScalingFactor, class _NestedAccessor>
