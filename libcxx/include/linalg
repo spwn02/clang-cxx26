@@ -1846,14 +1846,17 @@ constexpr void hermitian_matrix_rank_1_update(
   static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_rank_1_update requires a triangle tag");
   static_assert(__detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
                 "linalg::hermitian_matrix_rank_1_update requires a packed output matching the triangle tag");
+  // [linalg.algs.blas2.symherrank1]: A = alpha*x*x^H, overwriting A, where the
+  // scalar alpha is real-if-needed(alpha) (this ensures the update stays Hermitian
+  // even if alpha has nonzero imaginary part).
+  const auto __alpha_r = __detail::__real_if_needed(__alpha);
   for (size_t __i = 0; __i != __vector.extent(0); ++__i)
     for (size_t __j = 0; __j != __vector.extent(0); ++__j)
-      // [linalg.algs.blas2.rank1]: A = alpha*x*x^H, overwriting A.
       if constexpr (same_as<_Triangle, upper_triangle_t>) {
         if (__i <= __j)
-          __out_span[__i, __j] = __alpha * __vector[__i] * __detail::__conj_if_needed(__vector[__j]);
+          __out_span[__i, __j] = __alpha_r * __vector[__i] * __detail::__conj_if_needed(__vector[__j]);
       } else if (__i >= __j)
-        __out_span[__i, __j] = __alpha * __vector[__i] * __detail::__conj_if_needed(__vector[__j]);
+        __out_span[__i, __j] = __alpha_r * __vector[__i] * __detail::__conj_if_needed(__vector[__j]);
 }
 
 template <class _Scalar,
@@ -1893,10 +1896,15 @@ constexpr void hermitian_matrix_rank_1_update(
   static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
                     __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
                 "linalg::hermitian_matrix_rank_1_update requires packed matrices matching the triangle tag");
+  // [linalg.algs.blas2.symherrank1]: A = E + alpha*x*x^H, where the scalar alpha
+  // is real-if-needed(alpha), and diagonal accesses of E use real-if-needed(E[i, i]).
+  const auto __alpha_r = __detail::__real_if_needed(__alpha);
   for (size_t __i = 0; __i != __vector.extent(0); ++__i)
     for (size_t __j = 0; __j != __vector.extent(0); ++__j)
-      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) || (same_as<_Triangle, lower_triangle_t> && __i >= __j))
-        __out_span[__i, __j] = __add[__i, __j] + __alpha * __vector[__i] * __detail::__conj_if_needed(__vector[__j]);
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) || (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
+        const auto __add_elem = __i == __j ? __detail::__real_if_needed(__add[__i, __j]) : __add[__i, __j];
+        __out_span[__i, __j] = __add_elem + __alpha_r * __vector[__i] * __detail::__conj_if_needed(__vector[__j]);
+      }
 }
 
 template <class _MatrixElement,
@@ -2617,11 +2625,14 @@ constexpr void hermitian_matrix_rank_2_update(
   static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
                     __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
                 "linalg::hermitian_matrix_rank_2_update requires packed matrices matching the triangle tag");
+  // [linalg.algs.blas2.rank2]: diagonal accesses of E use real-if-needed(E[i, i]).
   for (size_t __i = 0; __i != __left.extent(0); ++__i)
     for (size_t __j = 0; __j != __right.extent(0); ++__j)
-      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) || (same_as<_Triangle, lower_triangle_t> && __i >= __j))
-        __out_span[__i, __j] = __add[__i, __j] + __left[__i] * __detail::__conj_if_needed(__right[__j]) +
+      if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) || (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
+        const auto __add_elem = __i == __j ? __detail::__real_if_needed(__add[__i, __j]) : __add[__i, __j];
+        __out_span[__i, __j] = __add_elem + __left[__i] * __detail::__conj_if_needed(__right[__j]) +
                              __right[__i] * __detail::__conj_if_needed(__left[__j]);
+      }
 }
 
 template <class _Scalar,
@@ -2742,14 +2753,16 @@ constexpr void hermitian_matrix_rank_k_update(
   static_assert(__detail::__triangle_tag<_Triangle>, "linalg::hermitian_matrix_rank_k_update requires a triangle tag");
   static_assert(__detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
                 "linalg::hermitian_matrix_rank_k_update requires a packed output matching the triangle tag");
+  // [linalg.algs.blas3.rankk]: C = alpha*A*A^H, overwriting C, where the scalar
+  // alpha is real-if-needed(alpha).
+  const auto __alpha_r = __detail::__real_if_needed(__alpha);
   for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
     for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
       if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) ||
           (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
-        decltype(__alpha * __matrix[0, 0] * __matrix[0, 0]) __sum{};
+        decltype(__alpha_r * __matrix[0, 0] * __matrix[0, 0]) __sum{};
         for (size_t __k = 0; __k != __matrix.extent(1); ++__k)
-          __sum += __alpha * __matrix[__i, __k] * __detail::__conj_if_needed(__matrix[__j, __k]);
-        // [linalg.algs.blas3.rankk]: C = alpha*A*A^H, overwriting C.
+          __sum += __alpha_r * __matrix[__i, __k] * __detail::__conj_if_needed(__matrix[__j, __k]);
         __out_span[__i, __j] = __sum;
       }
 }
@@ -2790,14 +2803,18 @@ constexpr void hermitian_matrix_rank_k_update(
   static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
                     __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
                 "linalg::hermitian_matrix_rank_k_update requires packed matrices matching the triangle tag");
+  // [linalg.algs.blas3.rankk]: C = E + alpha*A*A^H, where the scalar alpha is
+  // real-if-needed(alpha), and diagonal accesses of E use real-if-needed(E[i, i]).
+  const auto __alpha_r = __detail::__real_if_needed(__alpha);
   for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
     for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
       if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) ||
           (same_as<_Triangle, lower_triangle_t> && __i >= __j)) {
-        decltype(__alpha * __matrix[0, 0] * __matrix[0, 0]) __sum{};
+        decltype(__alpha_r * __matrix[0, 0] * __matrix[0, 0]) __sum{};
         for (size_t __k = 0; __k != __matrix.extent(1); ++__k)
-          __sum += __alpha * __matrix[__i, __k] * __detail::__conj_if_needed(__matrix[__j, __k]);
-        __out_span[__i, __j] = __add[__i, __j] + __sum;
+          __sum += __alpha_r * __matrix[__i, __k] * __detail::__conj_if_needed(__matrix[__j, __k]);
+        const auto __add_elem = __i == __j ? __detail::__real_if_needed(__add[__i, __j]) : __add[__i, __j];
+        __out_span[__i, __j] = __add_elem + __sum;
       }
 }
 
@@ -2990,6 +3007,7 @@ constexpr void hermitian_matrix_rank_2k_update(
   static_assert(__detail::__packed_triangle_matches_v<_AddLayout, _Triangle> &&
                     __detail::__packed_triangle_matches_v<_OutputLayout, _Triangle>,
                 "linalg::hermitian_matrix_rank_2k_update requires packed matrices matching the triangle tag");
+  // [linalg.algs.blas3.rank2k]: diagonal accesses of E use real-if-needed(E[i, i]).
   for (size_t __i = 0; __i != __out_span.extent(0); ++__i)
     for (size_t __j = 0; __j != __out_span.extent(1); ++__j)
       if ((same_as<_Triangle, upper_triangle_t> && __i <= __j) ||
@@ -2998,7 +3016,8 @@ constexpr void hermitian_matrix_rank_2k_update(
         for (size_t __k = 0; __k != __left.extent(1); ++__k)
           __sum += __left[__i, __k] * __detail::__conj_if_needed(__right[__j, __k]) +
                    __right[__i, __k] * __detail::__conj_if_needed(__left[__j, __k]);
-        __out_span[__i, __j] = __add[__i, __j] + __sum;
+        const auto __add_elem = __i == __j ? __detail::__real_if_needed(__add[__i, __j]) : __add[__i, __j];
+        __out_span[__i, __j] = __add_elem + __sum;
       }
 }
 

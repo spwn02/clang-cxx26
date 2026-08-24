@@ -1232,7 +1232,8 @@ back to `to_input` based on the paper title alone.
 | [ ] | P2642R6 | Padded `mdspan` layouts | Confirmed from-scratch |
 | [ ] | P3355R1 | `submdspan` C++26 fixes | Depends on P2630R4 |
 | [x] | P3050R2 | `linalg::conjugated` optimization | Complete 2026-08-22 — `conjugated()` always wrapped in `conjugated_accessor` even for arithmetic/no-`conj(E)` element types; now returns the argument unchanged for those (reuses the existing `__has_adl_conj` trait). No FTM of its own. |
-| [~] | P1673R13 | BLAS-based linear algebra interface | Partial 2026-08-24 — audited: name-set diff clean, but found and fixed a real SFINAE-conformance gap (~90 functions retrofitted with concept constraints); `|Partial|` because the live draft's FTM value can't be reconciled and a full prose audit wasn't undertaken — see Session Log |
+| [~] | P1673R13 | BLAS-based linear algebra interface | Partial 2026-08-24 — audited: name-set diff clean, found and fixed a real SFINAE-conformance gap (~90 functions retrofitted with concept constraints) plus (via P3371R5 below) a real-if-needed gap in the hermitian rank-1/2/k/2k updates; `|Partial|` because the FTM chain to `202511L` traces through P3222R0, which is genuinely blocked on P2642R6/`constant_wrapper` — see Session Log |
+| [x] | P3371R5 | Consistent rank-1/2/k/2k updates | Complete 2026-08-24 — found via tracing the `__cpp_lib_linalg` FTM chain (not previously in this CSV). 3 of its 4 required changes were already correct in this fork; fixed the 4th (`real-if-needed(alpha)` and diagonal `real-if-needed(E[i, i])` missing from the 4 hermitian rank-update E-taking overloads) — see Session Log |
 | [x] | P2587R3 | `to_string` or not `to_string` | Complete 2026-08-22 — float/double/long double overloads used `sprintf("%f", ...)` (fixed 6 decimals); now `format("{}", val)` per wording, shortest round-trip. Integer overloads already matched via `to_chars`, untouched |
 | [ ] | P2757R3 | Type-checking format args | Assessed 2026-08-22, blocked — shared `__cpp_lib_format` bump can't advance without C++23's P2419R2 (untracked, unstarted) also landing — see format/print block note |
 | [ ] | P3107R5 | Efficient `std::print` implementation | Assessed 2026-08-22 — confirmed `__vprint_nonunicode` materializes a full `string` before writing, the exact thing this paper eliminates; real redesign, deserves its own session — see format/print block note |
@@ -5505,14 +5506,58 @@ blocked, what's next. Do not remove old entries.
 
   P1673R13 is now substantively audited, its one confirmed conformance
   gap is closed, and the retrofit itself has direct test coverage (not
-  just non-regression). **Next session**: either (a) attempt the prose
-  audit this session skipped (budget for real per-function wording
-  comparison, not a mechanical sweep — same caution this tracker has
-  given every similarly-shaped task), or (b) revisit whether upstream
-  LLVM or a newer WG21 mailing has surfaced what moved
-  `__cpp_lib_linalg` to `202511L`. P3050R2 (already `|Complete|`, landed
-  by an earlier session) does not need re-auditing as part of either
-  follow-up. Tier 3's only remaining fully-unblocked, unstarted work is
-  `format`/`print`'s P3107R5/P3235R3 redesign (assessed out of scope in
-  a prior session, needs its own dedicated session) and P2757R3
-  (blocked on untracked C++23 P2419R2).
+  just non-regression).
+
+  **Follow-up, same session: resolved the `__cpp_lib_linalg` FTM
+  chain.** Rather than leaving "what moved it to `202511L`"
+  unidentified, cloned `cplusplus/draft` and walked
+  `git log -p`/the GitHub commits API for `source/support.tex`'s
+  `cpp_lib_linalg` line. Full chain: `202311L` (P1673R13 itself,
+  2023-11-16) → `202411L` (**P3222R0**, "transposed special cases for
+  P2642 layouts", 2024-12-16 — already a blank row in this CSV, and
+  already known from this session's earlier mdspan sub-plan to be
+  blocked on P2642R6/`std::constant_wrapper`) → `202412L` (P3050R2,
+  already `|Complete|`) → `202511L` (**P3371R5**, "make the rank-1,
+  rank-2, rank-k, and rank-2k updates consistent with the BLAS",
+  2025-11-04 at Kona — not in `Cxx2cPapers.csv` at all until now).
+  Fetched P3371R5 in full and checked its four required changes
+  against `libcxx/include/linalg`: (1) updating/E-taking overloads for
+  every rank-1/2/k/2k function, (2) overwriting-not-accumulating
+  semantics for the alpha-only overloads, and (4) alpha-only overloads
+  retained plus `scalar` excluding mdspan/execution_policy were **all
+  already correct** — predating this session, likely because the
+  original scaffold was written against a post-P3371R5 draft even
+  though the FTM literal was never updated to match. (3) was a real,
+  previously-unfound gap: `hermitian_matrix_rank_1_update` and
+  `hermitian_matrix_rank_k_update` used `alpha` directly instead of
+  `real-if-needed(alpha)`, and all four `hermitian_matrix_rank_
+  {1,2,k,2k}_update` E-taking overloads used a diagonal `E[i, i]`
+  directly instead of `real-if-needed(E[i, i])` — both meaning a
+  complex `alpha`, or an `E` whose diagonal isn't already exactly
+  real, could leave a nonzero imaginary part on a Hermitian result's
+  diagonal. Fixed in `libcxx/include/linalg` (6 call sites across 4
+  functions); added `hermitian_real_if_needed.pass.cpp` with `alpha`/
+  `E`-diagonal inputs that have deliberately nonzero imaginary parts
+  (confirmed by hand-deriving expected outputs and cross-checking with
+  a scratch binary before trusting the lit test — caught and fixed an
+  unrelated bug in the *test's* own row-major flat-array indexing
+  along the way, not in the header). Landed as P3371R5 `|Complete|` in
+  its own new CSV row. **This does not unblock the FTM bump itself**:
+  P3222R0 is earlier in the same chain and remains genuinely blocked,
+  so `__cpp_lib_linalg` correctly stays `202311L` and P1673R13 stays
+  `|Partial|` — but the reason is now a fully-traced, named blocker
+  (P3222R0 → P2642R6 → `std::constant_wrapper`) instead of an
+  unidentified gap.
+
+  **Next session**: either (a) attempt the prose audit this session
+  skipped (budget for real per-function wording comparison, not a
+  mechanical sweep — same caution this tracker has given every
+  similarly-shaped task), or (b) implement `std::constant_wrapper`
+  (P2781, untracked, needs its own `Cxx2cPapers.csv` row) to unblock
+  both P3222R0 and the mdspan `submdspan`/padded-layouts sub-plan at
+  once — they share the exact same prerequisite. P3050R2 and P3371R5
+  (both already `|Complete|`) do not need re-auditing as part of
+  either follow-up. Tier 3's only remaining fully-unblocked, unstarted
+  work is `format`/`print`'s P3107R5/P3235R3 redesign (assessed out of
+  scope in a prior session, needs its own dedicated session) and
+  P2757R3 (blocked on untracked C++23 P2419R2).
