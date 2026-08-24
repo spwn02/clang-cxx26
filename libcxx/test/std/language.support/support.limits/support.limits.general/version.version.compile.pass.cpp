@@ -7057,17 +7057,11 @@
 #    error "__cpp_lib_gcd_lcm should have the value 201606L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_generate_random
-#      error "__cpp_lib_generate_random should be defined in c++26"
-#    endif
-#    if __cpp_lib_generate_random != 202403L
-#      error "__cpp_lib_generate_random should have the value 202403L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_generate_random
-#      error "__cpp_lib_generate_random should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_generate_random
+#    error "__cpp_lib_generate_random should be defined in c++26"
+#  endif
+#  if __cpp_lib_generate_random != 202403L
+#    error "__cpp_lib_generate_random should have the value 202403L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_generic_associative_lookup

@@ -1614,7 +1614,7 @@ changes for any of the three — none of them flip status this session.
 | [ ] | P3217R0 | `find_last` addendum to P2248R8 |
 | [x] | P2546R5 | Debugging Support (`<debugging>`, not its own CSV-tracked row here) |
 | [x] | P2810R4 | `is_debugger_present`, `is_replaceable` |
-| [ ] | P1068R11 | Vector API for RNG |
+| [x] | P1068R11 | Vector API for RNG | Complete 2026-08-24 — see Session Log |
 | [!] | P2075R6 | Philox RNG engine | **Not small** — from-scratch engine, `unimplemented: True`, no scaffold (see block below) |
 | [ ] | P3222R0 | Transposed special cases for P2642 mdspan layouts |
 | [x] | P3508R0 | Wording for constexpr specialized memory algorithms |
@@ -4715,3 +4715,122 @@ blocked, what's next. Do not remove old entries.
   likely session-sized on its own given its breadth). P1068R11 is probably
   the next-best-scoped pick using the same lens as this session (library-
   only, no compiler dependency) — scope-check it first rather than assume.
+
+- **2026-08-24 (ninth session)**: Implemented P1068R11 (Vector API for
+  random number generation), confirmed `unimplemented: True` in
+  `generate_feature_test_macro_components.py` and library-only per the
+  prior session's scope-check. Fetched the actual paper PDF (R11, LWG wording
+  final) rather than trusting a first-pass WebFetch summary of it, which
+  invented a plausible-but-wrong API shape (per-engine/per-distribution
+  `.generate(first, last)`/`operator()(first, last)` member functions) —
+  the real wording is much narrower: a single new algorithm,
+  `std::ranges::generate_random`, in a new `[rand.alg]`/`[rand.alg.generate]`
+  clause, with four overloads (range/iterator-pair, each with and without a
+  distribution argument). Extending engines/distributions themselves is
+  explicitly out of scope for this paper — confirmed by its own "Extension
+  and/or modification of the list of supported Engines and/or Distributions
+  is out of the scope of this proposal" line — so no changes to any engine
+  or distribution class were needed or made.
+
+  Implemented as a CPO-shaped function object (matching
+  `__algorithm/ranges_generate.h`'s style) in new
+  `libcxx/include/__random/generate_random.h`: each overload checks, via an
+  `if constexpr (requires {...})`, whether the generator (or distribution)
+  exposes its own `generate_random` member function — the paper's actual
+  customization point, for `.generate_random(r)`/`.generate_random(r, g)` —
+  and calls that when well-formed; otherwise it falls back to
+  `ranges::generate(r, ref(g))` or `ranges::generate(r, [&d,&g]{ return
+  invoke(d,g); })`, exactly matching the wording's `Remarks:` equivalence
+  clause. No engine or distribution in this tree defines a `generate_random`
+  member, so today every call takes the fallback path — the member-check
+  branch exists for forward compatibility with a future paper/vendor
+  extension, and is exercised in the new test via two hand-rolled
+  `constexpr`-friendly mock types (a generator and a distribution) that
+  each define one. The iterator-pair overloads are implemented as literal
+  transcriptions of the wording's `Effects: Equivalent to: return
+  generate_random(subrange<O, S>(std::move(first), last), g[, d]);` (a
+  recursive call into `(*this)`), rather than a private shared-impl helper
+  like `ranges_generate.h` uses — closer to the standard text, and the
+  extra call layer is free under `_LIBCPP_HIDE_FROM_ABI` inlining.
+
+  Synopsis: added the `namespace ranges { ... }` block to `<random>`'s
+  header-comment synopsis, placed immediately after `generate_canonical`
+  (matching the paper's own synopsis diff position, before the
+  `// Distributions` section). Registered the new header in
+  `libcxx/include/CMakeLists.txt` and `libcxx/include/module.modulemap.in`;
+  confirmed (by diffing `__cxx03/__random/` against `__random/`) that
+  `uniform_random_bit_generator.h` — a C++20 concept — already has no
+  `__cxx03` mirror, so `generate_random.h` (C++26-only) correctly gets none
+  either, consistent with the `<stdbit.h>`/`<stdckdint.h>` precedent that
+  the frozen-cxx03 split is for pre-C++11 facilities only. Added the
+  `namespace ranges { using std::ranges::generate_random; }` export, guarded
+  `#if _LIBCPP_STD_VER >= 26`, to `libcxx/modules/std/random.inc` (matching
+  `functional.inc`'s existing guard style for `copyable_function`/
+  `function_ref`). Flipped `__cpp_lib_generate_random`'s `unimplemented`
+  off and regenerated `version`/`FeatureTestMacroTable.rst`/the two
+  `*.version.compile.pass.cpp` tests via `libcxx-generate-files` (value
+  `202403L`, already present as a placeholder — no macro-value change).
+  `Cxx2cPapers.csv` P1068R11 row flipped to `|Complete|`.
+
+  Advisor review before commit caught a real bug: both member-customization
+  branches originally did `return ranges::end(__r);` after calling the
+  member, but the declared return type is `borrowed_iterator_t<R>` (i.e.
+  `iterator_t<R>`), while `ranges::end` yields `sentinel_t<R>` — those types
+  differ for a non-common range, making it a hard compile error rather than
+  a graceful failure. Reachable through the paper's own iterator-pair
+  overload (which delegates through `subrange`, itself borrowed) whenever
+  the sentinel and iterator types differ and the generator/distribution
+  customizes `generate_random` — not an exotic case. The test as first
+  written didn't catch this because every case used `std::array`/pointer
+  ranges, where sentinel == iterator. Fixed by returning
+  `ranges::next(ranges::begin(__r), ranges::end(__r))` in both
+  customization branches instead (the non-customized fallback branches were
+  already correct, since `ranges::generate` itself returns the iterator).
+  Added a non-common-range test case (`subrange` over a pointer and
+  `sentinel_wrapper`, from `test_iterators.h`) exercising both the fallback
+  and customization paths through this exact gap.
+
+  Also deliberately **not implemented**: the paper's other customization
+  form, `g.generate_random(s)` for `s` a `span<invoke_result_t<G&>, N>`
+  (the shape a SIMD/vectorized backend would actually use for chunked
+  generation) — only the arbitrary-range member form
+  (`g.generate_random(r)`) is dispatched. This is conforming (the `Remarks:`
+  clause pins observable behavior to plain `ranges::generate` when no
+  customization exists), and libc++ has no vectorized RNG backend to
+  benefit from wiring up span-based chunking, but it means a future engine
+  that only implements the span form won't be picked up by this
+  implementation. Flagging here so a future session doesn't assume the
+  customization point is fully wired.
+
+  New test: `libcxx/test/std/numerics/rand/rand.alg/rand.alg.generate/
+  generate_random.pass.cpp` (new `rand.alg`/`rand.alg.generate` directories
+  — first paper to populate this clause). Covers all four overloads'
+  constraints (`HasGenerateRandomRange`/`HasGenerateRandomIter`/
+  `HasGenerateRandomRangeDist` SFINAE-friendly concepts), the no-
+  customization fallback path (call-count and output assertions), the
+  member-customization dispatch path (via the two mock types), and the
+  non-common-range case described above, all under `static_assert(test())`
+  for compile-time coverage. One thing this needed:
+  `std::uniform_int_distribution`'s constructor isn't `constexpr` in this
+  implementation, so the sub-tests using it were split into a separate
+  runtime-only `test_uniform_int_distribution()` rather than folded into
+  the main `constexpr test()` — the rest of the coverage uses only
+  hand-rolled `constexpr`-friendly generator/distribution mocks and stays
+  in the `static_assert`ed path. Full `libcxx/test/std/numerics/rand/`
+  sweep: 492/493 passed (1 pre-existing unsupported, unrelated);
+  `transitive_includes.gen.py` and `headers_in_modulemap.sh.py` both green;
+  `module_std.gen.py` unsupported (pre-existing, gated on a lit feature
+  this build tree doesn't have — unrelated to this change, matches the
+  Tier 6 `<stdbit.h>` session's same observation).
+
+  **Next session**: four unassessed Tier 6 rows remain — P2264R7
+  (user-friendly `assert()`), P2248R8 + P3217R0 (list-initialization for
+  algorithms + `find_last` addendum), P3222R0 (transposed mdspan layouts,
+  still blocked on Tier 3 mdspan/submdspan work not having started),
+  P3471R4 (Standard Library Hardening, likely session-sized on its own
+  given its breadth — scope-check before committing). None of these four
+  has been scope-checked yet; P2264R7 or P2248R8/P3217R0 are the most
+  promising to check first (both plausibly library/front-end-diagnostic
+  scoped rather than large ABI or from-scratch-engine work), but confirm
+  before implementing rather than assuming, per this tier's established
+  pattern.

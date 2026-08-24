@@ -441,6 +441,31 @@ public:
 template<class RealType, size_t bits, class URNG>
     RealType generate_canonical(URNG& g);
 
+namespace ranges {
+  // [rand.alg.generate], Generate random
+  template<class R, class G>
+    requires output_range<R, invoke_result_t<G&>> &&
+             uniform_random_bit_generator<remove_cvref_t<G>>
+    constexpr borrowed_iterator_t<R>
+      generate_random(R&& r, G&& g);                                             // C++26
+
+  template<class G, output_iterator<invoke_result_t<G&>> O, sentinel_for<O> S>
+    requires uniform_random_bit_generator<remove_cvref_t<G>>
+    constexpr O generate_random(O first, S last, G&& g);                         // C++26
+
+  template<class R, class G, class D>
+    requires output_range<R, invoke_result_t<D&, G&>> &&
+             invocable<D&, G&> &&
+             uniform_random_bit_generator<remove_cvref_t<G>>
+    constexpr borrowed_iterator_t<R>
+      generate_random(R&& r, G&& g, D&& d);                                      // C++26
+
+  template<class G, class D, output_iterator<invoke_result_t<D&, G&>> O, sentinel_for<O> S>
+    requires invocable<D&, G&> &&
+             uniform_random_bit_generator<remove_cvref_t<G>>
+    constexpr O generate_random(O first, S last, G&& g, D&& d);                  // C++26
+}
+
 // Distributions
 
 template<class IntType = int>
@@ -1693,6 +1718,7 @@ class piecewise_linear_distribution
 #  include <__random/fisher_f_distribution.h>
 #  include <__random/gamma_distribution.h>
 #  include <__random/generate_canonical.h>
+#  include <__random/generate_random.h>
 #  include <__random/geometric_distribution.h>
 #  include <__random/independent_bits_engine.h>
 #  include <__random/is_seed_sequence.h>

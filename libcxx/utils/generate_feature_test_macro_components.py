@@ -685,7 +685,6 @@ feature_test_macros = [
             "name": "__cpp_lib_generate_random",
             "values": {"c++26": 202403}, # P1068R11: Vector API for random number generation
             "headers": ["random"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_generic_associative_lookup",
