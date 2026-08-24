@@ -876,7 +876,8 @@ public:
   }
 
   constexpr void pop_back() {
-    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(false, "pop_back() called on an empty inplace_vector");
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
+        false, "cannot call inplace_vector<T, 0>::pop_back() on a zero-sized inplace_vector");
   }
 
   constexpr auto insert(const_iterator, const _Tp&) -> iterator { std::__throw_bad_alloc(); }

@@ -5284,11 +5284,10 @@ blocked, what's next. Do not remove old entries.
   precondition-checking surface is complete modulo the documented
   `forward_list` non-fix; only the unverifiable FTM section remains open,
   and re-closing it requires external confirmation of the LWG-adopted
-  macro names/values, not more code. P3222R0 (blocked on Tier 3's
-  from-scratch mdspan/submdspan work) remains the sole fully-open Tier 6
-  row. **Next session**: no further Tier 6 work is queued without either
-  (a) external confirmation of P3471R4's adopted FTM wording, or (b)
-  picking up the Tier 3 mdspan blocker to unblock P3222R0 — whoever picks
-  this up next should treat Tier 6 as effectively drained and consider
-  starting a fresh tier or revisiting Tier 2/3's remaining open items
-  instead.
+  macro names/values, not more code. It stays `[~]`, not `[x]`, for exactly
+  that reason. P3222R0 (blocked on Tier 3's from-scratch mdspan/submdspan
+  work) is the sole *fully*-open Tier 6 row. **Next session**: further
+  P3471R4 work is blocked pending external confirmation of the adopted FTM
+  wording — don't guess at it. Otherwise, pick up the Tier 3 mdspan blocker
+  to unblock P3222R0, or move to a different tier (Tier 2/3's remaining
+  open items) instead.

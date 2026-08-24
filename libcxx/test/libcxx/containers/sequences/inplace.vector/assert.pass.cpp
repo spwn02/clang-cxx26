@@ -54,7 +54,8 @@ int main(int, char**) {
     TEST_LIBCPP_ASSERT_FAILURE(c.back(), "cannot call inplace_vector<T, 0>::back() on a zero-sized inplace_vector");
     TEST_LIBCPP_ASSERT_FAILURE(
         c[0], "cannot call inplace_vector<T, 0>::operator[] on a zero-sized inplace_vector");
-    TEST_LIBCPP_ASSERT_FAILURE(c.pop_back(), "pop_back() called on an empty inplace_vector");
+    TEST_LIBCPP_ASSERT_FAILURE(
+        c.pop_back(), "cannot call inplace_vector<T, 0>::pop_back() on a zero-sized inplace_vector");
 
     const std::inplace_vector<int, 0>& cc = c;
     TEST_LIBCPP_ASSERT_FAILURE(
