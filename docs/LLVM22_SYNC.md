@@ -287,3 +287,11 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   restoring evaluator or serialization machinery assigned to Milestone 5.
 - `ninja -C build-nyx -j22 clangAST` passed after adding `Reflection.cpp` to
   the LLVM 22 AST library.
+
+### 2026-08-26 — Milestone 4 splice-specifier AST foundations
+
+- Restored `SpliceSpecifier` and its dependence domain. The LLVM 22
+  dependence conversions are retained and extended with
+  `SpliceSpecifierDependence`; no pre-existing conversion was replaced.
+- `ninja -C build-nyx -j22 clangAST` passed after adding
+  `SpliceSpecifier.cpp` to the AST library.
