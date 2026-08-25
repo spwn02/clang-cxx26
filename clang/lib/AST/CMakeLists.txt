@@ -116,6 +116,7 @@ add_clang_library(clangAST
   RawCommentList.cpp
   RecordLayout.cpp
   RecordLayoutBuilder.cpp
+  Reflection.cpp
   ScanfFormatString.cpp
   SelectorLocationsKind.cpp
   Stmt.cpp

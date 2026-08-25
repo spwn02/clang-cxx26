@@ -278,3 +278,12 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
 - `ninja -C build-nyx -j22 clangLex` and the follow-on full
   `ninja -C build-nyx -j22 clang` relink passed. Added
   `clang/test/Lexer/cxx26-reflection-tokens.cpp`; its focused lit run passed.
+
+### 2026-08-26 — Milestone 4 reflection-value AST foundations
+
+- Restored `ReflectionKind`, `TagDataMemberSpec`, and `EnumeratorSpec` in
+  `clang/AST/Reflection.h`, with their implementation in `Reflection.cpp`.
+  This supplies the shared reflection-value vocabulary without prematurely
+  restoring evaluator or serialization machinery assigned to Milestone 5.
+- `ninja -C build-nyx -j22 clangAST` passed after adding `Reflection.cpp` to
+  the LLVM 22 AST library.
