@@ -77,20 +77,20 @@ After upstream changes, always run `ninja -C build-libcxx libcxx-generate-files`
 
 ## Current Action
 
-Milestone 3 is active. On `Continue`:
+Milestone 4 is active. On `Continue`:
 
-1. Run `ninja -C build-nyx clang` and record the first base LLVM/Clang
-   failures.
-2. Repair upstream API and build-system drift without beginning reflection
-   reconciliation.
-3. Rebuild until the Milestone 3 gate passes, then commit and push.
+1. Inventory the first-parent reflection parser, AST, Sema, template, and
+   driver changes omitted from the LLVM 22 baseline.
+2. Reintroduce one coherent subsystem at a time against LLVM 22 APIs.
+3. Build the affected targets and run focused reflection tests after each
+   subsystem; preserve the known baseline failure only where reproduced.
 
 ## Milestones
 
 - [x] **1. Capture clean baseline builds and expected failures.** Gate passed 2026-08-24: both build trees succeeded; focused results and all failures are recorded below.
 - [x] **2. Fetch exact LLVM tag and merge on integration branch.** Gate passed 2026-08-25 in merge `ea04e484b0b8` and its direct upstream-resolution correction: exact signed tag merged on `integration/llvm-22.1.8`; every conflict and resolution category is recorded.
-- [~] **3. Restore base LLVM/Clang build.** Resolve API/build-system drift unrelated to reflection first. Gate: `ninja -C build-nyx clang` succeeds, followed by the full main-tree build required by later milestones.
-- [ ] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures.
+- [x] **3. Restore base LLVM/Clang build.** Gate passed 2026-08-25: `ninja -C build-nyx clang` and then `ninja -C build-nyx` passed from the exact LLVM 22 `clang/` baseline.
+- [~] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures.
 - [ ] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries, including the known non-serializable `CXXMetafunctionExpr` callback limitation. Gate: focused evaluator, module, PCH, and reflection tests pass; any intentionally deferred limitation is documented with a reproducer.
 - [ ] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate: libc++ builds and generated-file checks are clean; local conformance commits remain reachable and represented.
 - [ ] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here.
@@ -237,3 +237,12 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   staged difference remains between `clang/` and the release tag. This is the
   required Milestone 3 base baseline; every removed CXX26 file remains in the
   merge's first parent for Milestones 4 and 5.
+
+### 2026-08-25 — Milestone 3 gate
+
+- `ninja -C build-nyx clang` passed from commit `488d104cecfe6` (the initial
+  tool-attached invocation was interrupted by its execution wrapper, so the
+  completed build was captured in `/tmp/llvm22-m3-build.log`).
+- Follow-on `ninja -C build-nyx -j4` passed with no remaining work. The exact
+  LLVM 22 Clang baseline is now buildable; reflection reconciliation begins in
+  Milestone 4.
