@@ -39,7 +39,7 @@ void FunctionScopeInfo::Clear() {
   FirstCXXOrObjCTryLoc = SourceLocation();
   FirstSEHTryLoc = SourceLocation();
   FirstVLALoc = SourceLocation();
-  FoundImmediateEscalatingConstruct = false;
+  FoundImmediateEscalatingExpression = false;
 
   // Coroutine state
   FirstCoroutineStmtLoc = SourceLocation();

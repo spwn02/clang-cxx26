@@ -1,7 +1,5 @@
 //===- CompilerInvocation.cpp ---------------------------------------------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -609,16 +607,6 @@ static bool FixupInvocation(CompilerInvocation &Invocation,
     Diags.Report(diag::err_fe_invalid_alignment)
         << A->getAsString(Args) << A->getValue();
     LangOpts.NewAlignOverride = 0;
-  }
-
- if (!LangOpts.Reflection) {
-    if (LangOpts.ParameterReflection) {
-      Diags.Report(diag::err_fe_parameter_reflection_without_reflection);
-    } else if (LangOpts.EntityProxyReflection) {
-      Diags.Report(diag::err_fe_entity_proxy_reflection_without_reflection);
-    } else if (LangOpts.AttributeReflection) {
-      Diags.Report(diag::err_fe_attribute_reflection_without_reflection);
-   }
   }
 
   // The -f[no-]raw-string-literals option is only valid in C and in C++

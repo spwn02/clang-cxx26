@@ -231,3 +231,9 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   local `ReflectionSpliceType` in `TypeNodes.td` without corresponding LLVM
   22 `TypeProperties.td` serialization metadata. Removed that local node for
   the base-build baseline; recover and reconcile it in Milestone 5.
+- To prevent serial base-build failures from unrelated retained reflection
+  edits, reset the complete `clang/` subtree to exact `llvmorg-22.1.8`
+  contents and removed 29 local-only reflection sources/tests. Verified no
+  staged difference remains between `clang/` and the release tag. This is the
+  required Milestone 3 base baseline; every removed CXX26 file remains in the
+  merge's first parent for Milestones 4 and 5.

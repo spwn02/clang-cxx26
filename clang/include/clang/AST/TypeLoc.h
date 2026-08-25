@@ -1,7 +1,5 @@
 //===- TypeLoc.h - Type Source Info Wrapper ---------------------*- C++ -*-===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -2622,37 +2620,6 @@ public:
   QualType getInnerType() const {
     return this->getTypePtr()->getPattern();
   }
-};
-
-struct ReflectionSpliceTypeLocInfo { };
-
-class ReflectionSpliceTypeLoc
-  : public ConcreteTypeLoc<UnqualTypeLoc, ReflectionSpliceTypeLoc,
-                           ReflectionSpliceType, ReflectionSpliceTypeLocInfo> {
-public:
-  SourceLocation getTypenameKWLoc() const {
-    return getTypePtr()->getTypenameKWLoc();
-  }
-
-  SpliceSpecifier *getSplice() const {
-    return getTypePtr()->getSplice();
-  }
-
-  void initializeLocal(ASTContext &Context, SourceLocation Loc) {
-    // nothing to do
-  }
-
-  SourceRange getLocalSourceRange() const {
-    SpliceSpecifier *Splice = getTypePtr()->getSplice();
-
-    SourceLocation Begin = getTypePtr()->getTypenameKWLoc();
-    if (Begin.isInvalid())
-      Begin = Splice->getBeginLoc();
-    return SourceRange(Begin, Splice->getEndLoc());
-  }
-
-  // LocalData is empty and TypeLocBuilder doesn't handle DataSize 1.
-  unsigned getLocalDataSize() const { return 0; }
 };
 
 struct AtomicTypeLocInfo {

@@ -481,185 +481,6 @@ void ASTStmtWriter::VisitDependentCoawaitExpr(DependentCoawaitExpr *E) {
   Code = serialization::EXPR_DEPENDENT_COAWAIT;
 }
 
-void ASTStmtWriter::VisitCXXReflectExpr(CXXReflectExpr *E) {
-  VisitExpr(E);
-  Record.AddSourceLocation(E->getOperatorLoc());
-
-  Record.writeBool(E->hasDependentSubExpr());
-  if (E->hasDependentSubExpr()) {
-    Record.AddStmt(E->getDependentSubExpr());
-  } else {
-    Record.AddAPValue(E->getReflection());
-    Record.AddSourceRange(E->getOperandRange());
-  }
-  Code = serialization::EXPR_REFLECT;
-}
-
-void ASTStmtWriter::VisitCXXMetafunctionExpr(CXXMetafunctionExpr *E) {
-  VisitExpr(E);
-  Record.AddSourceLocation(E->getKwLoc());
-  Record.AddSourceLocation(E->getLParenLoc());
-  Record.AddSourceLocation(E->getRParenLoc());
-  Record.writeUInt32(E->getMetaFnID());
-  Record.writeQualType(E->getResultType());
-
-  Record.writeUInt32(E->getNumArgs());
-  for (size_t k = 0; k < E->getNumArgs(); ++k) {
-    Record.AddStmt(E->getArg(k));
-  }
-
-  Code = serialization::EXPR_METAFUNCTION;
-}
-
-void ASTStmtWriter::VisitCXXSpliceExpr(CXXSpliceExpr *E) {
-  VisitExpr(E);
-  Record.AddSourceLocation(E->getTemplateKWLoc());
-  Record.AddSpliceSpecifier(E->getSplice());
-  Record.AddStmt(E->getModel());
-  Record.writeBool(E->allowMemberReference());
-
-  Code = serialization::EXPR_SPLICE;
-}
-
-void ASTStmtWriter::VisitCXXDependentMemberSpliceExpr(
-                                              CXXDependentMemberSpliceExpr *E) {
-  VisitExpr(E);
-  Record.AddSourceLocation(E->getOpLoc());
-  Record.writeBool(E->isArrow());
-  Record.AddStmt(E->getBase());
-  Record.AddStmt(E->getRHS());
-
-  Code = serialization::EXPR_DEPENDENT_MEMBER_SPLICE;
-}
-
-void ASTStmtWriter::VisitStackLocationExpr(StackLocationExpr *E) {
-  VisitExpr(E);
-  // TODO(CXX26): Implement this.
-  Code = serialization::EXPR_STACK_LOCATION;
-}
-
-void ASTStmtWriter::VisitExtractLValueExpr(ExtractLValueExpr *E) {
-  VisitExpr(E);
-  // TODO(CXX26): Implement this.
-  Code = serialization::EXPR_EXTRACT_LVALUE;
-}
-
-void ASTStmtWriter::VisitExplDependentCallExpr(ExplDependentCallExpr *E) {
-  VisitExpr(E);
-  // TODO(CXX26): Implement this.
-  Code = serialization::EXPR_EXPL_DEPENDENT_CALL;
-}
-
-void ASTStmtWriter::VisitCXXExpansionStmt(CXXExpansionStmt *S) {
-  VisitStmt(S);
-
-  Record.AddSourceLocation(S->getTemplateKWLoc());
-  Record.AddSourceLocation(S->getForLoc());
-  Record.AddSourceLocation(S->getLParenLoc());
-  Record.AddSourceLocation(S->getColonLoc());
-  Record.AddSourceLocation(S->getRParenLoc());
-
-  Record.AddStmt(S->getInit());
-  Record.AddStmt(S->getTParamRef());
-  Record.AddStmt(S->getExpansionVarStmt());
-  Record.AddStmt(S->getSizeExpr());
-  Record.AddStmt(S->getBody());
-
-  const unsigned NumInstantiations =
-      S->hasDependentSize() ? 0 : S->getNumInstantiations();
-  Record.writeUInt32(NumInstantiations);
-  for (size_t k = 0; k < NumInstantiations; ++k)
-    Record.AddStmt(S->getInstantiation(k));
-}
-
-void ASTStmtWriter::VisitCXXIndeterminateExpansionStmt(
-                                             CXXIndeterminateExpansionStmt *S) {
-  VisitCXXExpansionStmt(S);
-
-  Code = serialization::STMT_INDETERMINATE_EXPANSION;
-}
-
-void ASTStmtWriter::VisitCXXIterableExpansionStmt(CXXIterableExpansionStmt *S) {
-  VisitCXXExpansionStmt(S);
-  Record.writeUInt32(S->getNumInstantiations());
-
-  Code = serialization::STMT_ITERABLE_EXPANSION;
-}
-
-void ASTStmtWriter::VisitCXXDestructurableExpansionStmt(
-                                            CXXDestructurableExpansionStmt *S) {
-  VisitCXXExpansionStmt(S);
-
-  Code = serialization::STMT_DESTRUCTURABLE_EXPANSION;
-}
-
-void ASTStmtWriter::VisitCXXInitListExpansionStmt(CXXInitListExpansionStmt *S) {
-  VisitCXXExpansionStmt(S);
-
-  Code = serialization::STMT_INIT_LIST_EXPANSION;
-}
-
-void ASTStmtWriter::VisitCXXIndeterminateExpansionSelectExpr(
-        CXXIndeterminateExpansionSelectExpr *E) {
-  VisitExpr(E);
-
-  Record.AddStmt(E->getRangeExpr());
-  Record.AddStmt(E->getIdxExpr());
-  Record.AddDeclRef(E->getExpansionVar());
-
-  auto Temps = E->getLifetimeExtendTemps();
-  Record.writeUInt32(Temps.size());
-  for (auto Temp : Temps)
-    Record.AddStmt(Temp);
-
-  Code = serialization::EXPR_INDETERMINATE_EXPANSION_SELECT;
-}
-
-void ASTStmtWriter::VisitCXXIterableExpansionSelectExpr(
-        CXXIterableExpansionSelectExpr *E) {
-  VisitExpr(E);
-
-  Record.AddStmt(E->getImplExpr());
-  Record.AddDeclRef(E->getRangeVar());
-
-  Code = serialization::EXPR_ITERABLE_EXPANSION_SELECT;
-}
-
-void ASTStmtWriter::VisitCXXDestructurableExpansionSelectExpr(
-        CXXDestructurableExpansionSelectExpr *E) {
-  VisitExpr(E);
-
-  Record.AddStmt(E->getIdxExpr());
-  Record.AddDeclRef(E->getDecompositionDecl());
-  Record.AddDeclRef(E->getExpansionVar());
-
-  Code = serialization::EXPR_DESTRUCTURABLE_EXPANSION_SELECT;
-}
-
-void ASTStmtWriter::VisitCXXExpansionInitListSelectExpr(
-        CXXExpansionInitListSelectExpr *E) {
-  VisitExpr(E);
-
-  Record.AddStmt(E->getRangeExpr());
-  Record.AddStmt(E->getIdxExpr());
-
-  Code = serialization::EXPR_INIT_LIST_EXPANSION_SELECT;
-}
-
-void ASTStmtWriter::VisitCXXExpansionInitListExpr(CXXExpansionInitListExpr *E) {
-  VisitExpr(E);
-
-  Record.AddSourceLocation(E->getLBraceLoc());
-  Record.AddSourceLocation(E->getRBraceLoc());
-
-  auto Exprs = E->getSubExprs();
-  Record.writeUInt32(Exprs.size());
-  for (Expr *E : Exprs)
-    Record.AddStmt(E);
-
-  Code = serialization::EXPR_EXPANSION_INIT_LIST;
-}
-
 static void
 addConstraintSatisfaction(ASTRecordWriter &Record,
                           const ASTConstraintSatisfaction &Satisfaction) {
@@ -821,7 +642,6 @@ void ASTStmtWriter::VisitExpr(Expr *E) {
 
   CurrentPackingBits.updateBits();
   CurrentPackingBits.addBits(E->getDependence(), /*BitsWidth=*/5);
-  CurrentPackingBits.addBits(E->isImmediateEscalating(), /*BitsWidth=*/1);
   CurrentPackingBits.addBits(E->getValueKind(), /*BitsWidth=*/2);
   CurrentPackingBits.addBits(E->getObjectKind(), /*BitsWidth=*/3);
 
@@ -892,6 +712,7 @@ void ASTStmtWriter::VisitDeclRefExpr(DeclRefExpr *E) {
   CurrentPackingBits.addBit(E->hadMultipleCandidates());
   CurrentPackingBits.addBit(E->refersToEnclosingVariableOrCapture());
   CurrentPackingBits.addBits(E->isNonOdrUse(), /*Width=*/2);
+  CurrentPackingBits.addBit(E->isImmediateEscalating());
   CurrentPackingBits.addBit(E->getDecl() != E->getFoundDecl());
   CurrentPackingBits.addBit(E->hasQualifier());
   CurrentPackingBits.addBit(E->hasTemplateKWAndArgsInfo());
@@ -1950,6 +1771,7 @@ void ASTStmtWriter::VisitCXXConstructExpr(CXXConstructExpr *E) {
   Record.push_back(E->requiresZeroInitialization());
   Record.push_back(
       llvm::to_underlying(E->getConstructionKind())); // FIXME: stable encoding
+  Record.push_back(E->isImmediateEscalating());
   Record.AddSourceLocation(E->getLocation());
   Record.AddDeclRef(E->getConstructor());
   Record.AddSourceRange(E->getParenOrBraceRange());

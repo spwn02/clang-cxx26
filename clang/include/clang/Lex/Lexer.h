@@ -620,8 +620,6 @@ public:
   /// Check if this is the first time we're lexing the input file.
   bool isFirstTimeLexingFile() const { return IsFirstTimeLexingFile; }
 
-  bool validateIdentifier(const std::string &In);
-
 private:
   //===--------------------------------------------------------------------===//
   // Internal implementation interfaces.

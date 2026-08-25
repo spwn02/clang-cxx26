@@ -59,13 +59,6 @@ def CXXForRangeStmt : StmtNode<Stmt>;
 def CoroutineBodyStmt : StmtNode<Stmt>;
 def CoreturnStmt : StmtNode<Stmt>;
 
-// C++ expansion statements (P1306)
-def CXXExpansionStmt : StmtNode<Stmt, 1>;
-def CXXIndeterminateExpansionStmt : StmtNode<CXXExpansionStmt>;
-def CXXIterableExpansionStmt : StmtNode<CXXExpansionStmt>;
-def CXXDestructurableExpansionStmt : StmtNode<CXXExpansionStmt>;
-def CXXInitListExpansionStmt : StmtNode<CXXExpansionStmt>;
-
 // Expressions
 def Expr : StmtNode<ValueStmt, 1>;
 def PredefinedExpr : StmtNode<Expr>;
@@ -161,7 +154,6 @@ def ExprWithCleanups : StmtNode<FullExpr>;
 def CXXTemporaryObjectExpr : StmtNode<CXXConstructExpr>;
 def CXXUnresolvedConstructExpr : StmtNode<Expr>;
 def CXXDependentScopeMemberExpr : StmtNode<Expr>;
-def CXXDependentMemberSpliceExpr : StmtNode<Expr>;
 def OverloadExpr : StmtNode<Expr, 1>;
 def UnresolvedLookupExpr : StmtNode<OverloadExpr>;
 def UnresolvedMemberExpr : StmtNode<OverloadExpr>;
@@ -186,21 +178,6 @@ def CoyieldExpr : StmtNode<CoroutineSuspendExpr>;
 // C++20 Concepts expressions
 def ConceptSpecializationExpr : StmtNode<Expr>;
 def RequiresExpr : StmtNode<Expr>;
-
-// C++2c Reflection expressions
-def CXXReflectExpr : StmtNode<Expr>;
-def CXXMetafunctionExpr : StmtNode<Expr>;
-def CXXSpliceExpr : StmtNode<Expr>;
-def StackLocationExpr : StmtNode<Expr>;
-def ExtractLValueExpr : StmtNode<Expr>;
-def ExplDependentCallExpr : StmtNode<Expr>;
-
-// C++2c Expansion statement support expressions
-def CXXExpansionInitListExpr : StmtNode<Expr>;
-def CXXExpansionInitListSelectExpr : StmtNode<Expr>;
-def CXXDestructurableExpansionSelectExpr : StmtNode<Expr>;
-def CXXIterableExpansionSelectExpr : StmtNode<Expr>;
-def CXXIndeterminateExpansionSelectExpr : StmtNode<Expr>;
 
 // Obj-C Expressions.
 def ObjCStringLiteral : StmtNode<Expr>;

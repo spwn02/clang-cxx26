@@ -183,9 +183,6 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::Char32:
     ID = PREDEF_TYPE_CHAR32_ID;
     break;
-  case BuiltinType::MetaInfo:
-    ID = PREDEF_TYPE_META_INFO_ID;
-    break;
   case BuiltinType::Overload:
     ID = PREDEF_TYPE_OVERLOAD_ID;
     break;
@@ -375,7 +372,6 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
 
   case Decl::Namespace:
   case Decl::NamespaceAlias:
-  case Decl::DependentNamespace:
   case Decl::Typedef:
   case Decl::TypeAlias:
   case Decl::Enum:
@@ -440,8 +436,6 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
   case Decl::Friend:
   case Decl::FriendTemplate:
   case Decl::StaticAssert:
-  case Decl::ConstevalBlock:
-  case Decl::ExpansionStmt:
   case Decl::Block:
   case Decl::OutlinedFunction:
   case Decl::Captured:

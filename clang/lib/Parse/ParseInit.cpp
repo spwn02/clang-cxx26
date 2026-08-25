@@ -516,24 +516,6 @@ ExprResult Parser::ParseBraceInitializer() {
   return ExprError(); // an error occurred.
 }
 
-ExprResult Parser::ParseExpansionInitList() {
-  BalancedDelimiterTracker T(*this, tok::l_brace);
-  T.consumeOpen();
-  SourceLocation LBraceLoc = T.getOpenLocation();
-
-  /// InitExprs - This is the actual list of expressions contained in the
-  /// initializer.
-  ExprVector InitExprs;
-
-  if (Tok.is(tok::r_brace) || !ParseExpressionList(InitExprs, []{}, true))
-    if (!T.consumeClose())
-      return Actions.ActOnCXXExpansionInitList(LBraceLoc, InitExprs,
-                                               T.getCloseLocation());
-
-  SkipUntil(tok::r_brace);
-  return ExprError();
-}
-
 bool Parser::ParseMicrosoftIfExistsBraceInitializer(ExprVector &InitExprs,
                                                     bool &InitExprsOk) {
   bool trailingComma = false;

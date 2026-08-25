@@ -34,7 +34,6 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
-#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include <optional>
 
@@ -205,13 +204,6 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     break;
   case Stmt::CXXForRangeStmtClass:
     EmitCXXForRangeStmt(cast<CXXForRangeStmt>(*S), Attrs);
-    break;
-  case Stmt::CXXIndeterminateExpansionStmtClass:
-    llvm_unreachable("should have been replaced during instantiation");
-  case Stmt::CXXIterableExpansionStmtClass:
-  case Stmt::CXXDestructurableExpansionStmtClass:
-  case Stmt::CXXInitListExpansionStmtClass:
-    EmitCXXExpansionStmt(cast<CXXExpansionStmt>(*S), Attrs);
     break;
   case Stmt::SEHTryStmtClass:
     EmitSEHTryStmt(cast<SEHTryStmt>(*S));
@@ -1566,54 +1558,6 @@ CodeGenFunction::EmitCXXForRangeStmt(const CXXForRangeStmt &S,
     // behaviour.
     addInstToNewSourceAtom(FinalBodyBB->getTerminator(), nullptr);
   }
-}
-
-void CodeGenFunction::EmitCXXExpansionStmt(const CXXExpansionStmt &S,
-                                           ArrayRef<const Attr *> Attrs) {
-  JumpDest ExpandExit = getJumpDestInCurrentScope("expand.end");
-
-  LexicalScope InitScope(*this, S.getSourceRange());
-  if (auto *Init = S.getInit())
-    EmitStmt(Init, Attrs);
-
-  {
-    const Expr *Select = S.getExpansionVariable()->getInit();
-    if (auto *WithCleanups = dyn_cast<ExprWithCleanups>(Select))
-      Select = WithCleanups->getSubExpr();
-
-    if (auto *DS = dyn_cast<CXXDestructurableExpansionSelectExpr>(Select)) {
-      auto *DD = DS->getDecompositionDecl();
-      EmitVarDecl(*DD);
-      for (auto *B : DD->bindings())
-        if (auto *H = B->getHoldingVar())
-          EmitVarDecl(*H);
-    } else if (auto *IS = dyn_cast<CXXIterableExpansionSelectExpr>(Select)) {
-      EmitVarDecl(*IS->getRangeVar());
-    }
-  }
-
-  SmallVector<JumpDest> Dests;
-  for (size_t Idx = 0; Idx < S.getNumInstantiations(); ++Idx) {
-    std::string LabelName = llvm::formatv("expand.nxt.{0}", Idx);
-    Dests.emplace_back(getJumpDestInCurrentScope(LabelName));
-  }
-
-  for (size_t Idx = 0; Idx < S.getNumInstantiations(); ++Idx) {
-    const Stmt *Expansion = S.getInstantiation(Idx);
-    assert(Expansion && "missing expansion");
-    {
-      JumpDest &Continue = Idx + 1 < S.getNumInstantiations() ?
-                           Dests[Idx + 1] : ExpandExit;
-      BreakContinueStack.push_back(BreakContinue(ExpandExit, Continue));
-      {
-        EmitBlock(Dests[Idx].getBlock());
-        LexicalScope ExpansionScope(*this, Expansion->getSourceRange());
-        EmitStmt(Expansion, Attrs);
-      }
-      BreakContinueStack.pop_back();
-    }
-  }
-  EmitBlock(ExpandExit.getBlock(), true);
 }
 
 void CodeGenFunction::EmitReturnOfRValue(RValue RV, QualType Ty) {

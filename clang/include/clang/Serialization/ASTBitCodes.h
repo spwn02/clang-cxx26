@@ -1126,9 +1126,6 @@ enum PredefinedTypeIDs {
   /// \brief The '__ibm128' type
   PREDEF_TYPE_IBM128_ID = 74,
 
-  /// \brief The 'std::meta::info' type
-  PREDEF_TYPE_META_INFO_ID = 75,
-
 /// OpenCL image types with auto numeration
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
   PREDEF_TYPE_##Id##_ID,
@@ -1465,12 +1462,6 @@ enum DeclCode {
 
   /// \brief A StaticAssertDecl record.
   DECL_STATIC_ASSERT,
-
-  /// \brief A ConstevalBlockDecl record.
-  DECL_CONSTEVAL_BLOCK,
-
-  /// \brief An expansion statement record.
-  DECL_EXPANSION_STMT,
 
   /// A record containing CXXBaseSpecifiers.
   DECL_CXX_BASE_SPECIFIERS,
@@ -2046,26 +2037,6 @@ enum StmtCode {
   EXPR_COAWAIT,
   EXPR_COYIELD,
   EXPR_DEPENDENT_COAWAIT,
-
-  // C++2c reflection (CXX26)
-  EXPR_REFLECT,
-  EXPR_METAFUNCTION,
-  EXPR_SPLICE,
-  EXPR_DEPENDENT_MEMBER_SPLICE,
-  EXPR_STACK_LOCATION,
-  EXPR_EXTRACT_LVALUE,
-  EXPR_EXPL_DEPENDENT_CALL,
-
-  // C++2c expansion statements (P1306)
-  STMT_INDETERMINATE_EXPANSION,
-  STMT_ITERABLE_EXPANSION,
-  STMT_DESTRUCTURABLE_EXPANSION,
-  STMT_INIT_LIST_EXPANSION,
-  EXPR_INDETERMINATE_EXPANSION_SELECT,
-  EXPR_ITERABLE_EXPANSION_SELECT,
-  EXPR_DESTRUCTURABLE_EXPANSION_SELECT,
-  EXPR_INIT_LIST_EXPANSION_SELECT,
-  EXPR_EXPANSION_INIT_LIST,
 
   // FixedPointLiteral
   EXPR_FIXEDPOINT_LITERAL,

@@ -39,7 +39,6 @@ class AssumedTemplateStorage;
 class DeducedTemplateStorage;
 struct PrintingPolicy;
 class QualifiedTemplateName;
-class SpliceSpecifier;
 class SubstTemplateTemplateParmPackStorage;
 class SubstTemplateTemplateParmStorage;
 class TemplateArgument;
@@ -391,7 +390,7 @@ public:
   /// error.
   void dump() const;
 
-  void Profile(llvm::FoldingSetNodeID &ID) const {
+  void Profile(llvm::FoldingSetNodeID &ID) {
     ID.AddPointer(Storage.getOpaqueValue());
   }
 

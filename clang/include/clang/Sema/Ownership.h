@@ -35,7 +35,6 @@ class Decl;
 class Expr;
 class ParsedTemplateArgument;
 class QualType;
-class SpliceSpecifier;
 class Stmt;
 class TemplateName;
 class TemplateParameterList;
@@ -246,17 +245,12 @@ template <> struct IsResultPtrLowBitFree<CXXBaseSpecifier *> {
 template <> struct IsResultPtrLowBitFree<CXXCtorInitializer *> {
   static const bool value = true;
 };
-template <> struct IsResultPtrLowBitFree<SpliceSpecifier *> {
-  static const bool value = true;
-};
 
 using ExprResult = ActionResult<Expr *>;
 using StmtResult = ActionResult<Stmt *>;
 using TypeResult = ActionResult<ParsedType>;
 using BaseResult = ActionResult<CXXBaseSpecifier *>;
 using MemInitResult = ActionResult<CXXCtorInitializer *>;
-
-using SpliceResult = ActionResult<SpliceSpecifier *>;
 
 using DeclResult = ActionResult<Decl *>;
 using ParsedTemplateTy = OpaquePtr<TemplateName>;
@@ -271,9 +265,6 @@ using MultiTemplateParamsArg = MutableArrayRef<TemplateParameterList *>;
 inline ExprResult ExprError() { return ExprResult(true); }
 inline StmtResult StmtError() { return StmtResult(true); }
 inline TypeResult TypeError() { return TypeResult(true); }
-inline DeclResult DeclError() { return DeclResult(true); }
-
-inline SpliceResult SpliceError() { return SpliceResult(true); }
 
 inline ExprResult ExprError(const StreamingDiagnostic &) { return ExprError(); }
 inline StmtResult StmtError(const StreamingDiagnostic &) { return StmtError(); }

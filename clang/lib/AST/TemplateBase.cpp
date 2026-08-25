@@ -1,7 +1,5 @@
 //===- TemplateBase.cpp - Common template AST class implementation --------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -262,15 +260,6 @@ TemplateArgument::CreatePackCopy(ASTContext &Context,
 
 TemplateArgumentDependence TemplateArgument::getDependence() const {
   auto Deps = TemplateArgumentDependence::None;
-
-  auto computeFromExpr = [](Expr *E) {
-    auto Deps = toTemplateArgumentDependence(E->getDependence());
-    if (isa<PackExpansionExpr>(E))
-      Deps |= TemplateArgumentDependence::Dependent |
-              TemplateArgumentDependence::Instantiation;
-    return Deps;
-  };
-
   switch (getKind()) {
   case Null:
     llvm_unreachable("Should not have a NULL template argument");
@@ -304,7 +293,11 @@ TemplateArgumentDependence TemplateArgument::getDependence() const {
     return TemplateArgumentDependence::None;
 
   case Expression:
-    return computeFromExpr(getAsExpr());
+    Deps = toTemplateArgumentDependence(getAsExpr()->getDependence());
+    if (isa<PackExpansionExpr>(getAsExpr()))
+      Deps |= TemplateArgumentDependence::Dependent |
+              TemplateArgumentDependence::Instantiation;
+    return Deps;
 
   case Pack:
     for (const auto &P : pack_elements())

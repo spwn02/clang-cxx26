@@ -600,17 +600,10 @@ class NamespaceDecl : public NamespaceBaseDecl,
   /// The unnamed namespace that inhabits this namespace, if any.
   NamespaceDecl *AnonymousNamespace = nullptr;
 
-  /// The most recent Decl whose target scope is this namespace, but whose
-  /// lexical scope is another DeclContext. Used to traverse namespace members
-  /// (i.e., for reflection).
-  Decl *LastMultDCSemaDecl = nullptr;
-
-protected:
-  NamespaceDecl(Kind K, ASTContext &C, DeclContext *DC, bool Inline,
+  NamespaceDecl(ASTContext &C, DeclContext *DC, bool Inline,
                 SourceLocation StartLoc, SourceLocation IdLoc,
                 IdentifierInfo *Id, NamespaceDecl *PrevDecl, bool Nested);
 
-private:
   using redeclarable_base = Redeclarable<NamespaceDecl>;
 
   NamespaceDecl *getNextRedeclarationImpl() override;
@@ -691,9 +684,6 @@ public:
   NamespaceDecl *getCanonicalDecl() override { return getFirstDecl(); }
   const NamespaceDecl *getCanonicalDecl() const { return getFirstDecl(); }
 
-  Decl *getLastMultDCSemaDecl() { return LastMultDCSemaDecl; }
-  void setLastMultDCSemaDecl(Decl *D) { LastMultDCSemaDecl = D; }
-
   SourceRange getSourceRange() const override LLVM_READONLY {
     return SourceRange(LocStart, RBraceLoc);
   }
@@ -705,9 +695,7 @@ public:
 
   // Implement isa/cast/dyncast/etc.
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
-  static bool classofKind(Kind K) {
-    return K >= firstNamespace && K <= lastNamespace;
-  }
+  static bool classofKind(Kind K) { return K == Namespace; }
   static DeclContext *castToDeclContext(const NamespaceDecl *D) {
     return static_cast<DeclContext *>(const_cast<NamespaceDecl*>(D));
   }
@@ -1262,7 +1250,13 @@ public:
   /// includes variables inside blocks.
   ///
   ///   void foo() { int x; static int y; extern int z; }
-  bool isLocalVarDecl() const;
+  bool isLocalVarDecl() const {
+    if (getKind() != Decl::Var && getKind() != Decl::Decomposition)
+      return false;
+    if (const DeclContext *DC = getLexicalDeclContext())
+      return DC->getRedeclContext()->isFunctionOrMethod();
+    return false;
+  }
 
   /// Similar to isLocalVarDecl but also includes parameters.
   bool isLocalVarDeclOrParm() const {
@@ -4488,10 +4482,6 @@ public:
   bool isRandomized() const { return RecordDeclBits.IsRandomized; }
 
   void setIsRandomized(bool V) { RecordDeclBits.IsRandomized = V; }
-
-  bool isConstevalOnly() const { return RecordDeclBits.IsConstevalOnly; }
-
-  void setIsConstevalOnly(bool V) { RecordDeclBits.IsConstevalOnly = V; }
 
   void reorderDecls(const SmallVectorImpl<Decl *> &Decls);
 

@@ -63,14 +63,12 @@ class CXXDestructorDecl;
 class CXXFinalOverriderMap;
 class CXXIndirectPrimaryBaseSet;
 class CXXMethodDecl;
-class CXXRecordDecl;
 class DecompositionDecl;
 class FriendDecl;
 class FunctionTemplateDecl;
 class IdentifierInfo;
 class MemberSpecializationInfo;
 class BaseUsingDecl;
-class SpliceSpecifier;
 class TemplateDecl;
 class TemplateParameterList;
 class UsingDecl;
@@ -159,6 +157,13 @@ class CXXBaseSpecifier {
   LLVM_PREFERRED_TYPE(bool)
   unsigned Virtual : 1;
 
+  /// Whether this is the base of a class (true) or of a struct (false).
+  ///
+  /// This determines the mapping from the access specifier as written in the
+  /// source code to the access specifier used for semantic analysis.
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned BaseOfClass : 1;
+
   /// Access specifier as written in the source code (may be AS_none).
   ///
   /// The actual type of data stored here is an AccessSpecifier, but we use
@@ -177,16 +182,12 @@ class CXXBaseSpecifier {
   /// range does not include the \c virtual or the access specifier.
   TypeSourceInfo *BaseTypeInfo;
 
-  /// The derived record type that this base specifier applies to.
-  CXXRecordDecl *Derived;
-
 public:
   CXXBaseSpecifier() = default;
-  CXXBaseSpecifier(SourceRange R, bool V, AccessSpecifier A,
-                   TypeSourceInfo *TInfo, CXXRecordDecl *D,
-                   SourceLocation EllipsisLoc)
-    : Range(R), EllipsisLoc(EllipsisLoc), Virtual(V), Access(A),
-      InheritConstructors(false), BaseTypeInfo(TInfo), Derived(D) {}
+  CXXBaseSpecifier(SourceRange R, bool V, bool BC, AccessSpecifier A,
+                   TypeSourceInfo *TInfo, SourceLocation EllipsisLoc)
+    : Range(R), EllipsisLoc(EllipsisLoc), Virtual(V), BaseOfClass(BC),
+      Access(A), InheritConstructors(false), BaseTypeInfo(TInfo) {}
 
   /// Retrieves the source range that contains the entire base specifier.
   SourceRange getSourceRange() const LLVM_READONLY { return Range; }
@@ -203,9 +204,7 @@ public:
 
   /// Determine whether this base class is a base of a class declared
   /// with the 'class' keyword (vs. one declared with the 'struct' keyword).
-  bool isBaseOfClass() const {
-    return dyn_cast<RecordDecl>(Derived)->isClass();
-  }
+  bool isBaseOfClass() const { return BaseOfClass; }
 
   /// Determine whether this base specifier is a pack expansion.
   bool isPackExpansion() const { return EllipsisLoc.isValid(); }
@@ -230,7 +229,7 @@ public:
   /// written in the source code, use getAccessSpecifierAsWritten().
   AccessSpecifier getAccessSpecifier() const {
     if ((AccessSpecifier)Access == AS_none)
-      return isBaseOfClass()? AS_private : AS_public;
+      return BaseOfClass? AS_private : AS_public;
     else
       return (AccessSpecifier)Access;
   }
@@ -250,10 +249,6 @@ public:
   QualType getType() const {
     return BaseTypeInfo->getType().getUnqualifiedType();
   }
-
-  CXXRecordDecl *getDerived() const { return Derived; }
-
-  void setDerived(CXXRecordDecl *D) { Derived = D; }
 
   /// Retrieves the type and source location of the base class.
   TypeSourceInfo *getTypeSourceInfo() const { return BaseTypeInfo; }
@@ -1557,13 +1552,10 @@ public:
   /// If the class is a local class [class.local], returns
   /// the enclosing function declaration.
   const FunctionDecl *isLocalClass() const {
-    const DeclContext *DC = getDeclContext();
-    while (DC->getDeclKind() == Decl::ExpansionStmt)
-      DC = DC->getParent();
-    if (const auto *RD = dyn_cast<CXXRecordDecl>(DC))
+    if (const auto *RD = dyn_cast<CXXRecordDecl>(getDeclContext()))
       return RD->isLocalClass();
 
-    return dyn_cast<FunctionDecl>(DC);
+    return dyn_cast<FunctionDecl>(getDeclContext());
   }
 
   FunctionDecl *isLocalClass() {
@@ -3194,31 +3186,6 @@ public:
   static bool classofKind(Kind K) { return K == UsingDirective; }
 };
 
-class DependentNamespaceDecl : public NamespaceDecl {
-  friend class ASTDeclReader;
-
-  SpliceSpecifier *Splice;
-
-  DependentNamespaceDecl(ASTContext &C, DeclContext *DC,
-                         SpliceSpecifier *Splice);
-
-  void anchor() override;
-
-public:
-  static DependentNamespaceDecl *Create(ASTContext &C, DeclContext *DC,
-                                        SpliceSpecifier *Splice);
-
-  static DependentNamespaceDecl *CreateDeserialized(ASTContext &C,
-                                                    GlobalDeclID ID);
-
-  SpliceSpecifier *getSplice() const { return Splice; }
-
-  SourceRange getSourceRange() const override LLVM_READONLY;
-
-  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
-  static bool classofKind(Kind K) { return K == DependentNamespace; }
-};
-
 /// Represents a C++ namespace alias.
 ///
 /// For example:
@@ -3306,17 +3273,6 @@ public:
 
   const NamespaceDecl *getNamespace() const {
     return const_cast<NamespaceAliasDecl *>(this)->getNamespace();
-  }
-
-  bool isDependent() const {
-    if (NestedNameSpecifier *Qualifier = getQualifier();
-        Qualifier && Qualifier->isDependent())
-      return true;
-
-    if (auto *AD = dyn_cast<NamespaceAliasDecl>(Namespace))
-      return AD->isDependent();
-
-    return isa<DependentNamespaceDecl>(Namespace);
   }
 
   /// Returns the location of the alias name, i.e. 'foo' in
@@ -4531,36 +4487,6 @@ public:
 
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
   static bool classofKind(Kind K) { return K == Decl::UnnamedGlobalConstant; }
-};
-
-/// Represents a C++26 consteval block declaration.
-class ConstevalBlockDecl : public Decl {
-  Expr *EvaluatingExpr;
-  SourceLocation ConstevalLoc;
-
-  ConstevalBlockDecl(DeclContext *DC, SourceLocation ConstevalLoc,
-                     Expr *EvaluatingExpr)
-      : Decl(ConstevalBlock, DC, ConstevalLoc),
-        EvaluatingExpr(EvaluatingExpr) {}
-
-  virtual void anchor();
-
-public:
-  friend class ASTDeclReader;
-
-  static ConstevalBlockDecl *Create(ASTContext &C, DeclContext *DC,
-                                    SourceLocation ConstevalLoc,
-                                    Expr *EvaluatingExpr);
-  static ConstevalBlockDecl *CreateDeserialized(ASTContext &C, GlobalDeclID ID);
-
-  Expr *getEvaluatingExpr() const { return EvaluatingExpr; }
-
-  SourceRange getSourceRange() const override LLVM_READONLY {
-    return SourceRange(getLocation(), EvaluatingExpr->getEndLoc());
-  }
-
-  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
-  static bool classofKind(Kind K) { return K == ConstevalBlock; }
 };
 
 /// Insertion operator for diagnostics.  This allows sending an AccessSpecifier

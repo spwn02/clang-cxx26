@@ -1726,22 +1726,6 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
   switch (S->getStmtClass()) {
     // C++, OpenMP and ARC stuff we don't support yet.
     case Stmt::CXXDependentScopeMemberExprClass:
-    case Stmt::CXXReflectExprClass:
-    case Stmt::CXXMetafunctionExprClass:
-    case Stmt::CXXSpliceExprClass:
-    case Stmt::CXXDependentMemberSpliceExprClass:
-    case Stmt::StackLocationExprClass:
-    case Stmt::ExtractLValueExprClass:
-    case Stmt::ExplDependentCallExprClass:
-    case Stmt::CXXIndeterminateExpansionStmtClass:
-    case Stmt::CXXIterableExpansionStmtClass:
-    case Stmt::CXXDestructurableExpansionStmtClass:
-    case Stmt::CXXExpansionInitListExprClass:
-    case Stmt::CXXIndeterminateExpansionSelectExprClass:
-    case Stmt::CXXIterableExpansionSelectExprClass:
-    case Stmt::CXXDestructurableExpansionSelectExprClass:
-    case Stmt::CXXExpansionInitListSelectExprClass:
-    case Stmt::CXXInitListExpansionStmtClass:
     case Stmt::CXXTryStmtClass:
     case Stmt::CXXTypeidExprClass:
     case Stmt::CXXUuidofExprClass:

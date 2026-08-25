@@ -155,9 +155,6 @@ public:
   // Reads a concept reference from the given record.
   ConceptReference *readConceptReference();
 
-  // Reads a splice specifier from the given record.
-  SpliceSpecifier *readSpliceSpecifierRef();
-
   /// Reads a declarator info from the given record, advancing Idx.
   TypeSourceInfo *readTypeSourceInfo();
 
@@ -288,8 +285,6 @@ public:
 
   void readOpenACCRoutineDeclAttr(OpenACCRoutineDeclAttr *A);
 
-  void readCXX26AnnotationAttr(CXX26AnnotationAttr *A);
-
   /// Read a source location, advancing Idx.
   SourceLocation readSourceLocation() {
     return Reader->ReadSourceLocation(*F, Record, Idx);
@@ -314,8 +309,6 @@ public:
 
   /// Read a boolean value, advancing Idx.
   bool readBool() { return readInt() != 0; }
-
-  char readChar() { return char(readInt()); }
 
   /// Read a 32-bit unsigned value; required to satisfy BasicReader.
   uint32_t readUInt32() {
@@ -369,12 +362,6 @@ public:
   /// Retrieve the switch-case statement with the given ID.
   SwitchCase *getSwitchCaseWithID(unsigned ID) {
     return Reader->getSwitchCaseWithID(ID);
-  }
-
-  /// CXX26 hack: Use the 'Sema' object from the ASTReader to get a
-  /// metafunction callback during deserialization of a CXXMetafunctionExpr.
-  const CXXMetafunctionExpr::ImplFn &getMetafunctionCb(unsigned ID) {
-    return Reader->getSema()->getMetafunctionCb(ID);
   }
 };
 

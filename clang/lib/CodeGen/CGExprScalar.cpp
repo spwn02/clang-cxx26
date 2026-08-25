@@ -1,7 +1,5 @@
 //===--- CGExprScalar.cpp - Emit LLVM Code for Scalar Exprs ---------------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -499,9 +497,6 @@ public:
   }
   Value *VisitUnaryCoawait(const UnaryOperator *E) {
     return Visit(E->getSubExpr());
-  }
-  Value *VisitCXXSpliceExpr(const CXXSpliceExpr *E) {
-    return Visit(E->getModel());
   }
 
   // Leaves.

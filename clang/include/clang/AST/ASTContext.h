@@ -1,7 +1,5 @@
 //===- ASTContext.h - Context to hold long-lived AST nodes ------*- C++ -*-===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -276,8 +274,6 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<FoldingSetPlaceholder<TypedefType>> TypedefTypes;
   mutable llvm::FoldingSet<DependentNameType> DependentNameTypes;
   mutable llvm::FoldingSet<PackExpansionType> PackExpansionTypes;
-  mutable llvm::FoldingSet<DependentReflectionSpliceType>
-    DependentReflectionSpliceTypes;
   mutable llvm::FoldingSet<ObjCObjectTypeImpl> ObjCObjectTypes;
   mutable llvm::FoldingSet<ObjCObjectPointerType> ObjCObjectPointerTypes;
   mutable llvm::FoldingSet<UnaryTransformType> UnaryTransformTypes;
@@ -396,20 +392,6 @@ class ASTContext : public RefCountedBase<ASTContext> {
   /// We don't need to serialize this because constants get re-evaluated in the
   /// current file before they are compared locally.
   unsigned NextStringLiteralVersion = 0;
-
-  /// A cache mapping a string value to a VarDecl object holding a generated
-  /// immutable character array containing the same string.
-  ///
-  /// This is lazily created.  This is intentionally not serialized.
-  mutable llvm::StringMap<VarDecl *> GenCharArrayCache;
-  mutable llvm::StringMap<VarDecl *> GenUTF8CharArrayCache;
-
-  /// A mapping from classes created through 'define_aggregate' to the unique
-  /// hashes of their member-specifications.
-  mutable llvm::DenseMap<QualType, unsigned> ClsMemberSpecHashes;
-
-  /// A mapping from 'substitute' inputs to specializations.
-  mutable llvm::DenseMap<unsigned, APValue> SubstitutionHashes;
 
   /// MD5 hash of CUID. It is calculated when first used and cached by this
   /// data member.
@@ -1315,7 +1297,6 @@ public:
   CanQualType BFloat16Ty;
   CanQualType Float16Ty; // C11 extension ISO/IEC TS 18661-3
   CanQualType VoidPtrTy, NullPtrTy;
-  CanQualType MetaInfoTy;
   CanQualType DependentTy, OverloadTy, BoundMemberTy, UnresolvedTemplateTy,
       UnknownAnyTy;
   CanQualType BuiltinFnTy;
@@ -2028,10 +2009,6 @@ public:
   ///        if this is the canonical type of another pack expansion type.
   QualType getPackExpansionType(QualType Pattern, UnsignedOrNone NumExpansions,
                                 bool ExpectPackInType = true) const;
-
-  QualType getReflectionSpliceType(SourceLocation TypenameKWLoc,
-                                   SpliceSpecifier *Splice,
-                                   QualType UnderlyingType) const;
 
   QualType getObjCInterfaceType(const ObjCInterfaceDecl *Decl,
                                 ObjCInterfaceDecl *PrevDecl = nullptr) const;
@@ -3567,16 +3544,6 @@ public:
   /// Return the next version number to be used for a string literal evaluated
   /// as part of constant evaluation.
   unsigned getNextStringLiteralVersion() { return NextStringLiteralVersion++; }
-
-  /// Return a variable whose holding a generated immutable character array
-  /// containing the same string.
-  VarDecl *getGeneratedCharArray(StringRef Key, bool IsUtf8);
-
-  bool checkClassMemberSpecHash(QualType QT, unsigned &Out);
-  void recordClassMemberSpecHash(QualType QT, unsigned Hash);
-
-  bool checkCachedSubstitution(unsigned Hash, APValue *Out);
-  void recordCachedSubstitution(unsigned Hash, const APValue &Value);
 
   /// Return a declaration for the global GUID object representing the given
   /// GUID value.

@@ -1,7 +1,5 @@
 //===--- Expr.h - Classes for representing expressions ----------*- C++ -*-===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -127,7 +125,6 @@ protected:
     ExprBits.Dependent = 0;
     ExprBits.ValueKind = VK;
     ExprBits.ObjectKind = OK;
-    ExprBits.IsImmediateEscalating = false;
     assert(ExprBits.ObjectKind == OK && "truncated kind");
     setType(T);
   }
@@ -466,14 +463,6 @@ public:
   /// setObjectKind - Set the object kind produced by this expression.
   void setObjectKind(ExprObjectKind Cat) { ExprBits.ObjectKind = Cat; }
 
-  bool isImmediateEscalating() const {
-    return ExprBits.IsImmediateEscalating;
-  }
-
-  void setIsImmediateEscalating(bool Set) {
-    ExprBits.IsImmediateEscalating = Set;
-  }
-
 private:
   Classification ClassifyImpl(ASTContext &Ctx, SourceLocation *Loc) const;
 
@@ -770,23 +759,13 @@ public:
     /// evaluation is not part of the evaluation, but all other temporaries
     /// are destroyed.
     ImmediateInvocation,
-    /// An immediate invocation which may be an immediate-escalating expression
-    /// if it turns out not to be a constant expression.
-    EscalatoryImmediateInvocation,
-    /// A plainly constant-evaluated expression. Such an expression may produce
-    /// injected declarations.
-    PlainlyConstantEvaluated,
   };
 
   /// Evaluate an expression that is required to be a constant expression. Does
   /// not check the syntactic constraints for C and C++98 constant expressions.
-  ///
-  /// If 'Kind' is 'PlainlyConstantEvaluated', then 'ContainingDecl' is the
-  /// declaration containing the expression and must be non-null.
   bool EvaluateAsConstantExpr(
       EvalResult &Result, const ASTContext &Ctx,
-      ConstantExprKind Kind = ConstantExprKind::Normal,
-      Decl *ContainingDecl = nullptr) const;
+      ConstantExprKind Kind = ConstantExprKind::Normal) const;
 
   /// If the current Expr is a pointer, this will try to statically
   /// determine the number of bytes available where the pointer is pointing.
@@ -959,14 +938,6 @@ public:
     return const_cast<Expr *>(this)->IgnoreParenCasts();
   }
 
-  /// Skip past any expressions splices which might surround this expression
-  /// until reaching a fixed point. Skips:
-  /// * CXXSpliceExpr
-  Expr *IgnoreSplices() LLVM_READONLY;
-  const Expr *IgnoreSplices() const {
-    return const_cast<Expr *>(this)->IgnoreSplices();
-  }
-
   /// Skip conversion operators. If this Expr is a call to a conversion
   /// operator, return the argument.
   Expr *IgnoreConversionOperatorSingleStep() LLVM_READONLY;
@@ -1086,9 +1057,7 @@ protected:
    setDependence(computeDependence(this));
  }
   FullExpr(StmtClass SC, EmptyShell Empty)
-    : Expr(SC, Empty), SubExpr(nullptr) {
-   setDependence(ExprDependence::None);
- }
+    : Expr(SC, Empty) {}
 public:
   const Expr *getSubExpr() const { return cast<Expr>(SubExpr); }
   Expr *getSubExpr() { return cast<Expr>(SubExpr); }
@@ -1504,6 +1473,14 @@ public:
   /// variable?
   bool refersToEnclosingVariableOrCapture() const {
     return DeclRefExprBits.RefersToEnclosingVariableOrCapture;
+  }
+
+  bool isImmediateEscalating() const {
+    return DeclRefExprBits.IsImmediateEscalating;
+  }
+
+  void setIsImmediateEscalating(bool Set) {
+    DeclRefExprBits.IsImmediateEscalating = Set;
   }
 
   bool isCapturedByCopyInLambdaWithExplicitObjectParameter() const {

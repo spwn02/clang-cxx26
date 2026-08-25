@@ -1,7 +1,5 @@
 //===--- MicrosoftMangle.cpp - Microsoft Visual C++ Name Mangling ---------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -24,7 +22,6 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/GlobalDecl.h"
-#include "clang/AST/LocInfoType.h"
 #include "clang/AST/Mangle.h"
 #include "clang/AST/VTableBuilder.h"
 #include "clang/Basic/ABI.h"
@@ -475,7 +472,6 @@ private:
                          const NamedDecl *Parm);
   void mangleTemplateArgValue(QualType T, const APValue &V, TplArgKind,
                               bool WithScalarType = false);
-  void mangleReflection(const APValue &R);
 
   void mangleObjCProtocol(const ObjCProtocolDecl *PD);
   void mangleObjCLifetime(const QualType T, Qualifiers Quals,
@@ -1793,7 +1789,6 @@ void MicrosoftCXXNameMangler::mangleTemplateArg(const TemplateDecl *TD,
   //                  ::= H <mangled-name> <number>
   //                  ::= I <mangled-name> <number> <number>
   //                  ::= J <mangled-name> <number> <number> <number>
-  //                  ::= M <mangled-name>
   //
   // <typed-constant-value> ::= [<type>] <constant-value>
   //
@@ -2172,49 +2167,7 @@ void MicrosoftCXXNameMangler::mangleTemplateArgValue(QualType T,
     Error("template argument (value type: fixed point)");
     return;
   }
-
-  case APValue::Reflection:
-    llvm_unreachable("reflection arguments should be separately handled");
   }
-}
-
-void MicrosoftCXXNameMangler::mangleReflection(const APValue &R) {
-  Out << 'M';
-
-  switch (R.getReflectionKind()) {
-  case ReflectionKind::Null:
-    Out << '0';
-    break;
-  case ReflectionKind::Type: {
-    Out << 't';
-    QualType QT = R.getReflectedType();
-    if (const LocInfoType *LIT = dyn_cast<LocInfoType>(QT)) {
-      QT = LIT->getType();
-    }
-
-    if (const ElaboratedType *UD = dyn_cast<ElaboratedType>(QT)) {
-      if (const TypedefType *TDT = dyn_cast<TypedefType>(UD->getNamedType())) {
-        mangleQualifiers(QT.getQualifiers(), false);
-        mangleName(TDT->getDecl());  // <- not sure if this is right.
-        break;
-      }
-    }
-    Context.mangleCanonicalTypeName(QT, Out, false);
-    break;
-  }
-  case ReflectionKind::Object:
-  case ReflectionKind::Value:
-  case ReflectionKind::Declaration:
-  case ReflectionKind::Template:
-  case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
-  case ReflectionKind::Parameter:
-  case ReflectionKind::BaseSpecifier:
-  case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::Annotation:
-    llvm_unreachable("unimplemented");
-  }
-  Out << 'E';
 }
 
 void MicrosoftCXXNameMangler::mangleObjCProtocol(const ObjCProtocolDecl *PD) {
@@ -2841,10 +2794,6 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
 
   case BuiltinType::NullPtr:
     Out << "$$T";
-    break;
-
-  case BuiltinType::MetaInfo:
-    Out << "$$M";
     break;
 
   case BuiltinType::Float16:
@@ -3734,15 +3683,6 @@ void MicrosoftCXXNameMangler::mangleType(const TypeOfExprType *T, Qualifiers,
 void MicrosoftCXXNameMangler::mangleType(const DecltypeType *T, Qualifiers,
                                          SourceRange Range) {
   Error(Range.getBegin(), "decltype()") << Range;
-}
-
-void MicrosoftCXXNameMangler::mangleType(const ReflectionSpliceType *T,
-                                         Qualifiers, SourceRange Range) {
-  DiagnosticsEngine &Diags = Context.getDiags();
-  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-    "cannot mangle this [: expr :] yet");
-  Diags.Report(Range.getBegin(), DiagID)
-    << Range;
 }
 
 void MicrosoftCXXNameMangler::mangleType(const UnaryTransformType *T,

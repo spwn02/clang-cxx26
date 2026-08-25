@@ -1,7 +1,5 @@
 //===- SemaTemplateDeduction.cpp - Template Argument Deduction ------------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -390,7 +388,8 @@ checkDeducedTemplateArguments(ASTContext &Context,
       return X;
 
     // If we deduced a declaration and an integral constant, keep the
-    // integral constant and whichever type did not come from an array bound.
+    // integral constant and whichever type did not come from an array
+    // bound.
     if (Y.getKind() == TemplateArgument::Integral) {
       if (Y.wasDeducedFromArrayBound())
         return TemplateArgument(Context, Y.getAsIntegral(),
@@ -2544,7 +2543,6 @@ static TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
     case Type::DependentName:
     case Type::UnresolvedUsing:
     case Type::Decltype:
-    case Type::ReflectionSplice:
     case Type::UnaryTransform:
     case Type::DeducedTemplateSpecialization:
     case Type::PackExpansion:
@@ -4131,9 +4129,8 @@ static QualType GetTypeOfFunction(Sema &S, const OverloadExpr::FindResult &R,
   if (CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(Fn))
     if (Method->isImplicitObjectMemberFunction()) {
       // An instance method that's referenced in a form that doesn't
-      // look like a member pointer is just invalid (unless in the context of
-      // taking its reflection).
-      if (!R.HasFormOfMemberPointer && !S.isReflectionContext())
+      // look like a member pointer is just invalid.
+      if (!R.HasFormOfMemberPointer)
         return {};
 
       return S.Context.getMemberPointerType(
@@ -5116,15 +5113,6 @@ namespace {
       return Result;
     }
 
-    QualType TransformReflectionSpliceType(TypeLocBuilder &TLB,
-                                           ReflectionSpliceTypeLoc TL) {
-      QualType Result = SemaRef.Context.getReflectionSpliceType(
-          TL.getTypePtr()->getTypenameKWLoc(), TL.getTypePtr()->getSplice(),
-          Replacement);
-      TLB.push<ReflectionSpliceTypeLoc>(Result);
-      return Result;
-    }
-
     ExprResult TransformLambdaExpr(LambdaExpr *E) {
       // Lambdas never need to be transformed.
       return E;
@@ -5433,11 +5421,6 @@ TypeSourceInfo *Sema::ReplaceAutoTypeSourceInfo(TypeSourceInfo *TypeWithAuto,
 
 void Sema::DiagnoseAutoDeductionFailure(const VarDecl *VDecl,
                                         const Expr *Init) {
-  // If we're deducing to infer the type of the operand of a reflect expression,
-  // elide the diagnostic to allow a more relevant error further up the stack.
-  if (isReflectionContext())
-    return;
-
   if (isa<InitListExpr>(Init))
     Diag(VDecl->getLocation(),
          VDecl->isInitCapture()
@@ -7035,13 +7018,6 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
                                  OnlyDeduced, Depth, Used);
     break;
 
-  case Type::ReflectionSplice: {
-    if (!OnlyDeduced)
-      MarkUsedTemplateParameters(
-          Ctx, cast<ReflectionSpliceType>(T)->getSplice()->getOperand(),
-          OnlyDeduced, Depth, Used);
-    break;
-  }
   case Type::PackIndexing:
     if (!OnlyDeduced) {
       MarkUsedTemplateParameters(Ctx, cast<PackIndexingType>(T)->getPattern(),

@@ -1,7 +1,5 @@
 //===--- ParseDecl.cpp - Declaration Parsing --------------------*- C++ -*-===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -1885,10 +1883,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(DeclaratorContext Context,
   Decl *SingleDecl = nullptr;
   switch (Tok.getKind()) {
   case tok::kw_template:
-    if (NextToken().is(tok::l_splice))
-      return ParseSimpleDeclaration(Context, DeclEnd, DeclAttrs, DeclSpecAttrs,
-                                    true, nullptr, DeclSpecStart);
-    [[fallthrough]];
   case tok::kw_export:
     ProhibitAttributes(DeclAttrs);
     ProhibitAttributes(DeclSpecAttrs);
@@ -1923,14 +1917,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(DeclaratorContext Context,
     ProhibitAttributes(DeclSpecAttrs);
     SingleDecl = ParseStaticAssertDeclaration(DeclEnd);
     break;
-  case tok::kw_consteval:
-    if (getLangOpts().Reflection && NextToken().is(tok::l_brace)) {
-      ProhibitAttributes(DeclAttrs);
-      ProhibitAttributes(DeclSpecAttrs);
-      SingleDecl = ParseConstevalBlockDeclaration(DeclEnd);
-      break;
-    }
-    [[fallthrough]];
   default:
     return ParseSimpleDeclaration(Context, DeclEnd, DeclAttrs, DeclSpecAttrs,
                                   true, nullptr, DeclSpecStart);
@@ -2320,15 +2306,8 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
     bool IsForRangeLoop = false;
     if (TryConsumeToken(tok::colon, FRI->ColonLoc)) {
       IsForRangeLoop = true;
-
-      // Use an immediate function context if this is the initializer for a
-      // constexpr variable in an expansion statement.
-      auto Ctx = Sema::ExpressionEvaluationContext::PotentiallyEvaluated;
-      if (FRI->ExpansionStmt && DS.hasConstexprSpecifier())
-        Ctx = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
-
       EnterExpressionEvaluationContext ForRangeInitContext(
-          Actions, Ctx,
+          Actions, Sema::ExpressionEvaluationContext::PotentiallyEvaluated,
           /*LambdaContextDecl=*/nullptr,
           Sema::ExpressionEvaluationContextRecord::EK_Other,
           getLangOpts().CPlusPlus23);
@@ -2342,22 +2321,10 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
 
       if (getLangOpts().OpenMP)
         Actions.OpenMP().startOpenMPCXXRangeFor();
-
-      {
-        DeclContext *DC = Actions.CurContext;
-        while (isa<ExpansionStmtDecl>(DC))
-          DC = DC->getParent();
-        Sema::ContextRAII CtxGuard(Actions, DC, /*NewThis=*/false);
-
-        if (Tok.is(tok::l_brace))
-          FRI->RangeExpr = FRI->ExpansionStmt ? ParseExpansionInitList() :
-                                                ParseBraceInitializer();
-        else
-          FRI->RangeExpr = ParseExpression();
-
-        if (FRI->ExpansionStmt)
-          FRI->RangeExpr = Actions.MaybeCreateExprWithCleanups(FRI->RangeExpr);
-      }
+      if (Tok.is(tok::l_brace))
+        FRI->RangeExpr = ParseBraceInitializer();
+      else
+        FRI->RangeExpr = ParseExpression();
 
       // Before c++23, ForRangeLifetimeExtendTemps should be empty.
       assert(
@@ -3086,8 +3053,6 @@ Parser::getDeclSpecContextFromDeclaratorContext(DeclaratorContext Context) {
     return DeclSpecContext::DSC_conv_operator;
   case DeclaratorContext::CXXNew:
     return DeclSpecContext::DSC_new;
-  case DeclaratorContext::ReflectOperator:
-    return DeclSpecContext::DSC_reflect_operator;
   case DeclaratorContext::Prototype:
   case DeclaratorContext::ObjCResult:
   case DeclaratorContext::ObjCParameter:
@@ -3168,27 +3133,6 @@ void Parser::ParseAlignmentSpecifier(ParsedAttributes &Attrs,
     Attrs.addNew(KWName, KWLoc, AttributeScopeInfo(), ArgExprs.data(), 1, Kind,
                  EllipsisLoc);
   }
-}
-
-void Parser::ParseAnnotationSpecifier(ParsedAttributes &Attrs,
-                                      SourceLocation *EndLoc) {
-  assert(Tok.is(tok::equal) && "not an annotation");
-  SourceLocation EqLoc = ConsumeToken();
-
-  ExprResult AnnotExpr = ParseConstantExpression();
-  if (AnnotExpr.isInvalid() || AnnotExpr.get()->containsErrors())
-    return;
-
-  IdentifierTable &IT = Actions.PP.getIdentifierTable();
-  IdentifierInfo &Placeholder = IT.get("__annotation_placeholder");
-
-  ArgsVector ArgExprs;
-  ArgExprs.push_back(AnnotExpr.get());
-  Attrs.addNew(&Placeholder, EqLoc, {}, ArgExprs.data(), 1,
-               ParsedAttr::Form::Annotation());
-
-  if (EndLoc)
-    *EndLoc = AnnotExpr.get()->getEndLoc();
 }
 
 void Parser::DistributeCLateParsedAttrs(Decl *Dcl,
@@ -3524,50 +3468,6 @@ void Parser::ParseDeclarationSpecifiers(
       // specifiers.  First verify that DeclSpec's are consistent.
       DS.Finish(Actions, Policy);
       return;
-
-    case tok::kw_template:
-      if (!NextToken().is(tok::l_splice)) {
-        goto DoneWithDeclSpec;
-      } else if (TryAnnotateTypeOrScopeToken()) {
-        DS.SetTypeSpecError();
-        goto DoneWithDeclSpec;
-      }
-
-      if (!NextToken().is(tok::kw_template))
-        continue;
-      break;
-    case tok::l_splice: {
-      bool MaybeSpecialized =
-          AllowImplicitTypename == ImplicitTypenameContext::Yes;
-      if (ParseSpliceSpecifier(MaybeSpecialized) ||
-          TryAnnotateTypeOrScopeToken()) {
-        DS.SetTypeSpecError();
-        goto DoneWithDeclSpec;
-      }
-
-      if (!Tok.is(tok::l_splice))
-        continue;
-      break;
-    }
-
-    case tok::annot_splice: {
-      SpliceResult SR = getSpliceAnnotation(Tok);
-      if (SR.isInvalid()) {
-        DS.SetTypeSpecError();
-        break;
-      }
-      SpliceSpecifier *Splice = SR.get();
-
-      if (DS.SetTypeSpecType(DeclSpec::TST_type_splice, Tok.getLocation(),
-                             PrevSpec, DiagID, Splice, Policy)) {
-        Diag(Tok.getLocation(), DiagID) << PrevSpec;
-        DS.SetTypeSpecError();
-        break;
-      }
-      DS.SetRangeEnd(Tok.getAnnotationEndLoc());
-      ConsumeAnnotationToken();
-      continue;
-    }
 
     // alignment-specifier
     case tok::kw__Alignas:
@@ -5854,14 +5754,11 @@ bool Parser::isDeclarationSpecifier(
     [[fallthrough]];
   case tok::kw_decltype: // decltype(T())::type
   case tok::kw_typename: // typename T::type
-  case tok::l_splice:
     // Annotate typenames and C++ scope specifiers.  If we get one, just
     // recurse to handle whatever we get.
     if (TryAnnotateTypeOrScopeToken(AllowImplicitTypename))
       return true;
     if (TryAnnotateTypeConstraint())
-      return true;
-    if (Tok.is(tok::annot_splice))
       return true;
     if (Tok.is(tok::identifier))
       return false;
@@ -6456,8 +6353,7 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
       (Tok.is(tok::coloncolon) || Tok.is(tok::kw_decltype) ||
        (Tok.is(tok::identifier) &&
         (NextToken().is(tok::coloncolon) || NextToken().is(tok::less))) ||
-       Tok.is(tok::annot_cxxscope) || Tok.is(tok::l_splice) ||
-       Tok.is(tok::annot_splice))) {
+       Tok.is(tok::annot_cxxscope))) {
     TentativeParsingAction TPA(*this, /*Unannotated=*/true);
     bool EnteringContext = D.getContext() == DeclaratorContext::File ||
                            D.getContext() == DeclaratorContext::Member;
@@ -6803,8 +6699,7 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
       // An identifier within parens is unlikely to be intended to be anything
       // other than a name being "declared".
       DiagnoseIdentifier = true;
-    else if (D.getContext() == DeclaratorContext::TemplateArg ||
-             D.getContext() == DeclaratorContext::ReflectOperator)
+    else if (D.getContext() == DeclaratorContext::TemplateArg)
       // T<int N> is an accidental identifier; T<int N indicates a missing '>'.
       DiagnoseIdentifier =
           NextToken().isOneOf(tok::comma, tok::greater, tok::greatergreater);

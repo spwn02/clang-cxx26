@@ -5895,11 +5895,6 @@ static void TryDefaultInitialization(Sema &S,
     return;
   }
 
-  if (DestType->isReflectionType()) {
-    Sequence.AddZeroInitializationStep(Entity.getType());
-    return;
-  }
-
   //     - otherwise, no initialization is performed.
 
   //   If a program calls for the default initialization of an object of
@@ -7855,20 +7850,6 @@ ExprResult InitializationSequence::Perform(Sema &S,
                                            const InitializationKind &Kind,
                                            MultiExprArg Args,
                                            QualType *ResultType) {
-  auto on_complete = [&](ExprResult Res) {
-    if (Res.get() && Res.get()->getType()->isConstevalOnly() &&
-        !Entity.getDecl() && !S.isCheckingDefaultArgumentOrInitializer() &&
-        !S.RebuildingImmediateInvocation && !S.isUnevaluatedContext() &&
-        !S.isImmediateFunctionContext() &&
-        !S.isAlwaysConstantEvaluatedContext() &&
-        Entity.getKind() != InitializedEntity::EK_Member &&
-        Entity.getKind() != InitializedEntity::EK_Base) {
-      S.ExprEvalContexts.back().ConstevalOnly.insert(Res.get());
-    }
-
-    return Res;
-  };
-
   if (Failed()) {
     Diagnose(S, Entity, Kind, Args);
     return ExprError();
@@ -7932,12 +7913,12 @@ ExprResult InitializationSequence::Perform(Sema &S,
     assert(Kind.getKind() == InitializationKind::IK_Copy ||
            Kind.isExplicitCast() ||
            Kind.getKind() == InitializationKind::IK_DirectList);
-    return on_complete(ExprResult(Args[0]));
+    return ExprResult(Args[0]);
   }
 
   // No steps means no initialization.
   if (Steps.empty())
-    return on_complete(ExprResult((Expr *)nullptr));
+    return ExprResult((Expr *)nullptr);
 
   if (S.getLangOpts().CPlusPlus11 && Entity.getType()->isReferenceType() &&
       Args.size() == 1 && isa<InitListExpr>(Args[0]) &&
@@ -8836,7 +8817,7 @@ ExprResult InitializationSequence::Perform(Sema &S,
   CheckMoveOnConstruction(S, Init,
                           Entity.getKind() == InitializedEntity::EK_Result);
 
-  return on_complete(Init);
+  return Init;
 }
 
 /// Somewhere within T there is an uninitialized reference subobject.

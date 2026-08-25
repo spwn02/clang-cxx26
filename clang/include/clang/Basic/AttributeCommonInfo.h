@@ -61,10 +61,7 @@ public:
 
     /// The attibute has no source code manifestation and is only created
     /// implicitly.
-    AS_Implicit,
-
-    /// The attribute is a C++2c annotation.
-    AS_Annotation,
+    AS_Implicit
   };
 
   enum Kind {
@@ -74,7 +71,6 @@ public:
     NoSemaHandlerAttribute,
     IgnoredAttribute,
     UnknownAttribute,
-    AnnotationAttribute,
   };
   enum class Scope { NONE, CLANG, GNU, MSVC, OMP, HLSL, VK, GSL, RISCV };
   enum class AttrArgsInfo {
@@ -137,7 +133,6 @@ public:
     static Form ContextSensitiveKeyword() { return AS_ContextSensitiveKeyword; }
     static Form HLSLAnnotation() { return AS_HLSLAnnotation; }
     static Form Implicit() { return AS_Implicit; }
-    static Form Annotation() { return AS_Annotation; }
 
   private:
     constexpr Form(Syntax SyntaxUsed)
@@ -161,7 +156,7 @@ public:
         SpellingIndex(FormUsed.getSpellingIndex()),
         IsAlignas(FormUsed.isAlignas()),
         IsRegularKeywordAttribute(FormUsed.isRegularKeywordAttribute()) {
-    assert(SyntaxUsed >= AS_GNU && SyntaxUsed <= AS_Annotation &&
+    assert(SyntaxUsed >= AS_GNU && SyntaxUsed <= AS_Implicit &&
            "Invalid syntax!");
   }
 
@@ -226,7 +221,6 @@ public:
   bool isDeclspecAttribute() const { return SyntaxUsed == AS_Declspec; }
   bool isMicrosoftAttribute() const { return SyntaxUsed == AS_Microsoft; }
 
-  bool isMsvcScope() const;
   bool isGNUScope() const;
   bool isClangScope() const;
 
@@ -260,8 +254,6 @@ public:
   bool isContextSensitiveKeywordAttribute() const {
     return SyntaxUsed == AS_ContextSensitiveKeyword;
   }
-
-  bool isAnnotation() const { return SyntaxUsed == AS_Annotation; }
 
   unsigned getAttributeSpellingListIndex() const {
     assert((isAttributeSpellingListCalculated() || AttrName) &&

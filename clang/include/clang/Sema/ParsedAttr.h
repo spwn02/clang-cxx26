@@ -20,7 +20,6 @@
 #include "clang/Basic/ParsedAttrInfo.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/Ownership.h"
-#include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Allocator.h"
@@ -370,12 +369,6 @@ public:
 
   /// getNumArgs - Return the number of actual arguments to this attribute.
   unsigned getNumArgs() const { return NumArgs; }
-
-  /// profile the current parsed attribute, the later arguments determines whether
-  //  those components of the attribute participate in the built up profile
-  void profile(llvm::FoldingSetNodeID& ID,
-               bool isContributingNamespace = true,
-               bool isContributingArgument = true) const;
 
   /// getArg - Return the specified argument.
   ArgsUnion getArg(unsigned Arg) const {

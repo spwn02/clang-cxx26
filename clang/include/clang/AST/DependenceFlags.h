@@ -99,7 +99,6 @@ using TypeDependence = TypeDependenceScope::TypeDependence;
 LLVM_COMMON_DEPENDENCE(NestedNameSpecifierDependence)
 LLVM_COMMON_DEPENDENCE(TemplateNameDependence)
 LLVM_COMMON_DEPENDENCE(TemplateArgumentDependence)
-LLVM_COMMON_DEPENDENCE(SpliceSpecifierDependence)
 #undef LLVM_COMMON_DEPENDENCE
 
 // A combined space of all dependence concepts for all node types.
@@ -177,12 +176,6 @@ public:
              translate(D, TNDependence::Dependent, Dependent) |
              translate(D, TNDependence::Error, Error)) {}
 
-  Dependence(SpliceSpecifierDependence D)
-      : V(translate(D, SSDependence::UnexpandedPack, UnexpandedPack) |
-             translate(D, SSDependence::Instantiation, Instantiation) |
-             translate(D, SSDependence::Dependent, Dependent) |
-             translate(D, SSDependence::Error, Error)) {}
-
   /// Extract only the syntactic portions of this type's dependence.
   Dependence syntactic() {
     Dependence Result = *this;
@@ -235,13 +228,6 @@ public:
            translate(V, Error, TNDependence::Error);
   }
 
-  SpliceSpecifierDependence spliceSpecifier() const {
-    return translate(V, UnexpandedPack, SSDependence::UnexpandedPack) |
-           translate(V, Instantiation, SSDependence::Instantiation) |
-           translate(V, Dependent, SSDependence::Dependent) |
-           translate(V, Error, SSDependence::Error);
-  }
-
 private:
   Bits V;
 
@@ -254,7 +240,6 @@ private:
   using NNSDependence = NestedNameSpecifierDependence;
   using TADependence = TemplateArgumentDependence;
   using TNDependence = TemplateNameDependence;
-  using SSDependence = SpliceSpecifierDependence;
 };
 
 /// Computes dependencies of a reference with the name having template arguments
@@ -272,9 +257,6 @@ inline ExprDependence toExprDependenceAsWritten(TypeDependence D) {
 // If V<T>:: refers to the current instantiation, NNS is considered dependent
 // but the containing V<T>::foo likely isn't.
 inline ExprDependence toExprDependence(NestedNameSpecifierDependence D) {
-  return Dependence(D).expr();
-}
-inline ExprDependence toExprDependence(SpliceSpecifierDependence D) {
   return Dependence(D).expr();
 }
 inline ExprDependence turnTypeToValueDependence(ExprDependence D) {
@@ -302,9 +284,6 @@ inline TypeDependence toTypeDependence(TemplateNameDependence D) {
 inline TypeDependence toTypeDependence(TemplateArgumentDependence D) {
   return Dependence(D).type();
 }
-inline TypeDependence toTypeDependence(SpliceSpecifierDependence D) {
-  return Dependence(D).type();
-}
 
 inline TypeDependence toSyntacticDependence(TypeDependence D) {
   return Dependence(D).syntactic().type();
@@ -315,14 +294,6 @@ inline TypeDependence toSemanticDependence(TypeDependence D) {
 
 inline NestedNameSpecifierDependence
 toNestedNameSpecifierDependence(TypeDependence D) {
-  return Dependence(D).nestedNameSpecifier();
-}
-inline NestedNameSpecifierDependence
-toNestedNameSpecifierDependence(ExprDependence E) {
-  return Dependence(E).nestedNameSpecifier();
-}
-inline NestedNameSpecifierDependence
-toNestedNameSpecifierDependence(SpliceSpecifierDependence D) {
   return Dependence(D).nestedNameSpecifier();
 }
 
@@ -338,10 +309,6 @@ inline TemplateArgumentDependence
 toTemplateArgumentDependence(ExprDependence D) {
   return Dependence(D).templateArgument();
 }
-inline TemplateArgumentDependence
-toTemplateArgumentDependence(SpliceSpecifierDependence D) {
-  return Dependence(D).templateArgument();
-}
 
 inline TemplateNameDependence
 toTemplateNameDependence(NestedNameSpecifierDependence D) {
@@ -351,15 +318,6 @@ toTemplateNameDependence(NestedNameSpecifierDependence D) {
 inline TemplateNameDependence
 toTemplateNameDependence(TemplateArgumentDependence D) {
   return Dependence(D).templateName();
-}
-
-inline SpliceSpecifierDependence
-toSpliceSpecifierDependence(ExprDependence D) {
-  return Dependence(D).spliceSpecifier();
-}
-inline SpliceSpecifierDependence
-toSpliceSpecifierDependence(TemplateArgumentDependence D) {
-  return Dependence(D).spliceSpecifier();
 }
 
 LLVM_ENABLE_BITMASK_ENUMS_IN_NAMESPACE();

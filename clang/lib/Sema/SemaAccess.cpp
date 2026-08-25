@@ -1,7 +1,5 @@
 //===---- SemaAccess.cpp - C++ Access Control -------------------*- C++ -*-===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -1570,7 +1568,7 @@ void Sema::HandleDependentAccessCheck(const DependentDiagnostic &DD,
 
 Sema::AccessResult Sema::CheckUnresolvedLookupAccess(UnresolvedLookupExpr *E,
                                                      DeclAccessPair Found) {
-  if (!languageAccessControl() ||
+  if (!getLangOpts().AccessControl ||
       !E->getNamingClass() ||
       Found.getAccess() == AS_public)
     return AR_accessible;
@@ -1584,7 +1582,7 @@ Sema::AccessResult Sema::CheckUnresolvedLookupAccess(UnresolvedLookupExpr *E,
 
 Sema::AccessResult Sema::CheckUnresolvedMemberAccess(UnresolvedMemberExpr *E,
                                                      DeclAccessPair Found) {
-  if (!languageAccessControl() ||
+  if (!getLangOpts().AccessControl ||
       Found.getAccess() == AS_public)
     return AR_accessible;
 
@@ -1605,7 +1603,7 @@ bool Sema::isMemberAccessibleForDeletion(CXXRecordDecl *NamingClass,
                                          SourceLocation Loc,
                                          const PartialDiagnostic &Diag) {
   // Fast path.
-  if (Found.getAccess() == AS_public || !languageAccessControl())
+  if (Found.getAccess() == AS_public || !getLangOpts().AccessControl)
     return true;
 
   AccessTarget Entity(Context, AccessTarget::Member, NamingClass, Found,
@@ -1627,7 +1625,7 @@ Sema::AccessResult Sema::CheckDestructorAccess(SourceLocation Loc,
                                                CXXDestructorDecl *Dtor,
                                                const PartialDiagnostic &PDiag,
                                                QualType ObjectTy) {
-  if (!languageAccessControl())
+  if (!getLangOpts().AccessControl)
     return AR_accessible;
 
   // There's never a path involved when checking implicit destructor access.
@@ -1652,7 +1650,7 @@ Sema::AccessResult Sema::CheckConstructorAccess(SourceLocation UseLoc,
                                                 DeclAccessPair Found,
                                                 const InitializedEntity &Entity,
                                                 bool IsCopyBindingRefToTemp) {
-  if (!languageAccessControl() || Found.getAccess() == AS_public)
+  if (!getLangOpts().AccessControl || Found.getAccess() == AS_public)
     return AR_accessible;
 
   PartialDiagnostic PD(PDiag());
@@ -1695,7 +1693,7 @@ Sema::AccessResult Sema::CheckConstructorAccess(SourceLocation UseLoc,
                                                 DeclAccessPair Found,
                                                 const InitializedEntity &Entity,
                                                 const PartialDiagnostic &PD) {
-  if (!languageAccessControl() ||
+  if (!getLangOpts().AccessControl ||
       Found.getAccess() == AS_public)
     return AR_accessible;
 
@@ -1736,7 +1734,7 @@ Sema::AccessResult Sema::CheckAllocationAccess(SourceLocation OpLoc,
                                                CXXRecordDecl *NamingClass,
                                                DeclAccessPair Found,
                                                bool Diagnose) {
-  if (!languageAccessControl() ||
+  if (!getLangOpts().AccessControl ||
       !NamingClass ||
       Found.getAccess() == AS_public)
     return AR_accessible;
@@ -1753,7 +1751,7 @@ Sema::AccessResult Sema::CheckAllocationAccess(SourceLocation OpLoc,
 Sema::AccessResult Sema::CheckMemberAccess(SourceLocation UseLoc,
                                            CXXRecordDecl *NamingClass,
                                            DeclAccessPair Found) {
-  if (!languageAccessControl() ||
+  if (!getLangOpts().AccessControl ||
       !NamingClass ||
       Found.getAccess() == AS_public)
     return AR_accessible;
@@ -1768,7 +1766,7 @@ Sema::AccessResult
 Sema::CheckStructuredBindingMemberAccess(SourceLocation UseLoc,
                                          CXXRecordDecl *DecomposedClass,
                                          DeclAccessPair Field) {
-  if (!languageAccessControl() ||
+  if (!getLangOpts().AccessControl ||
       Field.getAccess() == AS_public)
     return AR_accessible;
 
@@ -1783,7 +1781,7 @@ Sema::AccessResult Sema::CheckMemberOperatorAccess(SourceLocation OpLoc,
                                                    Expr *ObjectExpr,
                                                    const SourceRange &Range,
                                                    DeclAccessPair Found) {
-  if (!languageAccessControl() || Found.getAccess() == AS_public)
+  if (!getLangOpts().AccessControl || Found.getAccess() == AS_public)
     return AR_accessible;
 
   auto *NamingClass = ObjectExpr->getType()->castAsCXXRecordDecl();
@@ -1822,7 +1820,8 @@ Sema::AccessResult Sema::CheckFriendAccess(NamedDecl *target) {
   // Friendship lookup is a redeclaration lookup, so there's never an
   // inheritance path modifying access.
   AccessSpecifier access = target->getAccess();
-  if (!languageAccessControl() || access == AS_public)
+
+  if (!getLangOpts().AccessControl || access == AS_public)
     return AR_accessible;
 
   CXXMethodDecl *method = cast<CXXMethodDecl>(target->getAsFunction());
@@ -1848,7 +1847,7 @@ Sema::AccessResult Sema::CheckFriendAccess(NamedDecl *target) {
 
 Sema::AccessResult Sema::CheckAddressOfMemberAccess(Expr *OvlExpr,
                                                     DeclAccessPair Found) {
-  if (!languageAccessControl() ||
+  if (!getLangOpts().AccessControl ||
       Found.getAccess() == AS_none ||
       Found.getAccess() == AS_public)
     return AR_accessible;
@@ -1869,7 +1868,7 @@ Sema::AccessResult Sema::CheckBaseClassAccess(
     const CXXBasePath &Path, unsigned DiagID,
     llvm::function_ref<void(PartialDiagnostic &)> SetupPDiag, bool ForceCheck,
     bool ForceUnprivileged) {
-  if (!ForceCheck && !languageAccessControl())
+  if (!ForceCheck && !getLangOpts().AccessControl)
     return AR_accessible;
 
   if (Path.Access == AS_public)
@@ -1906,7 +1905,7 @@ Sema::AccessResult Sema::CheckBaseClassAccess(SourceLocation AccessLoc,
 }
 
 void Sema::CheckLookupAccess(const LookupResult &R) {
-  assert(languageAccessControl()
+  assert(getLangOpts().AccessControl
          && "performing access check without access control");
   assert(R.getNamingClass() && "performing access check without naming class");
 

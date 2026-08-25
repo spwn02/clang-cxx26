@@ -61,7 +61,6 @@ add_clang_library(clangAST
   ExprClassification.cpp
   ExprConcepts.cpp
   ExprConstant.cpp
-  ExprConstantMeta.cpp
   ExprCXX.cpp
   ExprObjC.cpp
   ExternalASTMerger.cpp
@@ -117,10 +116,8 @@ add_clang_library(clangAST
   RawCommentList.cpp
   RecordLayout.cpp
   RecordLayoutBuilder.cpp
-  Reflection.cpp
   ScanfFormatString.cpp
   SelectorLocationsKind.cpp
-  SpliceSpecifier.cpp
   Stmt.cpp
   StmtCXX.cpp
   StmtIterator.cpp

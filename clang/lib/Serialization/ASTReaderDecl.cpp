@@ -405,8 +405,6 @@ public:
   void VisitFriendDecl(FriendDecl *D);
   void VisitFriendTemplateDecl(FriendTemplateDecl *D);
   void VisitStaticAssertDecl(StaticAssertDecl *D);
-  void VisitConstevalBlockDecl(ConstevalBlockDecl *D);
-  void VisitExpansionStmtDecl(ExpansionStmtDecl *D);
   void VisitBlockDecl(BlockDecl *BD);
   void VisitOutlinedFunctionDecl(OutlinedFunctionDecl *D);
   void VisitCapturedDecl(CapturedDecl *CD);
@@ -2787,18 +2785,6 @@ void ASTDeclReader::VisitStaticAssertDecl(StaticAssertDecl *D) {
   D->RParenLoc = readSourceLocation();
 }
 
-void ASTDeclReader::VisitConstevalBlockDecl(ConstevalBlockDecl *D) {
-  VisitDecl(D);
-  D->ConstevalLoc = readSourceLocation();
-  D->EvaluatingExpr = Record.readExpr();
-}
-
-void ASTDeclReader::VisitExpansionStmtDecl(ExpansionStmtDecl *D) {
-  VisitDecl(D);
-  D->Expansion = cast<CXXExpansionStmt>(Record.readStmt());
-  D->TParams = Record.readTemplateParameterList();
-}
-
 void ASTDeclReader::VisitEmptyDecl(EmptyDecl *D) {
   VisitDecl(D);
 }
@@ -4112,12 +4098,6 @@ Decl *ASTReader::ReadDeclRecord(GlobalDeclID ID) {
     break;
   case DECL_STATIC_ASSERT:
     D = StaticAssertDecl::CreateDeserialized(Context, ID);
-    break;
-  case DECL_CONSTEVAL_BLOCK:
-    D = ConstevalBlockDecl::CreateDeserialized(Context, ID);
-    break;
-  case DECL_EXPANSION_STMT:
-    D = ExpansionStmtDecl::CreateDeserialized(Context, ID);
     break;
   case DECL_OBJC_METHOD:
     D = ObjCMethodDecl::CreateDeserialized(Context, ID);
