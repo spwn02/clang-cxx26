@@ -32,20 +32,24 @@ grep CMAKE_BUILD_TYPE build-nyx/CMakeCache.txt build-libcxx/CMakeCache.txt
 
 ## Building
 
+Always compile with all available host CPUs: pass `-j$(nproc)` to every
+`ninja` invocation (currently `-j22`). Do not use Ninja's implicit default
+parallelism or a fixed lower job count unless the user explicitly requests it.
+
 ```bash
 # Full rebuild (after clang changes, rebuild both)
-ninja -C build-nyx
-ninja -C build-libcxx libcxx-generate-files
-ninja -C build-libcxx cxx
+ninja -C build-nyx -j$(nproc)
+ninja -C build-libcxx -j$(nproc) libcxx-generate-files
+ninja -C build-libcxx -j$(nproc) cxx
 
 # Incremental clang-only
-ninja -C build-nyx clang
+ninja -C build-nyx -j$(nproc) clang
 ```
 
 Generated C++26 module files must be refreshed after upstream changes:
 
 ```bash
-ninja -C build-libcxx libcxx-generate-files
+ninja -C build-libcxx -j$(nproc) libcxx-generate-files
 ```
 
 ## Testing
