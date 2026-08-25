@@ -99,6 +99,15 @@ def warn_toc_unsupported_type : Warning<"-mtocdata option is ignored "
 
 def err_fe_invalid_code_complete_file : Error<
     "cannot locate code-completion file %0">, DefaultFatal;
+def err_fe_parameter_reflection_without_reflection : Error<
+    "cannot specify '-fparameter-reflection' without '-freflection'">,
+    DefaultFatal;
+def err_fe_attribute_reflection_without_reflection : Error<
+    "cannot specify '-fattribute-reflection' without '-freflection'">,
+    DefaultFatal;
+def err_fe_entity_proxy_reflection_without_reflection : Error<
+    "cannot specify '-fentity-proxy-reflection' without '-freflection'">,
+    DefaultFatal;
 def err_fe_dependency_file_requires_MT : Error<
     "-dependency-file requires at least one -MT or -MQ option">;
 def err_fe_invalid_plugin_name : Error<

@@ -272,6 +272,21 @@ LANGOPT(HIPStdParInterposeAlloc, 1, 0, NotCompatible, "Replace allocations / dea
 
 LANGOPT(OpenACC           , 1, 0, NotCompatible, "OpenACC Enabled")
 
+LANGOPT(Reflection          , 1, 0, NotCompatible,
+        "Experimental C++26 static reflection")
+LANGOPT(ParameterReflection , 1, 0, NotCompatible,
+        "C++26 function parameter reflection")
+LANGOPT(AttributeReflection , 1, 0, NotCompatible,
+        "C++26 standard attribute reflection")
+LANGOPT(ExpansionStatements , 1, 0, NotCompatible,
+        "C++26 expansion statements")
+LANGOPT(AnnotationAttributes, 1, 0, NotCompatible,
+        "C++26 annotation attributes")
+LANGOPT(EntityProxyReflection, 1, 0, NotCompatible,
+        "C++26 entity-proxy reflection")
+LANGOPT(ReflectionLatest    , 1, 0, NotCompatible,
+        "all experimental CXX26 Clang reflection features")
+
 LANGOPT(MSVCEnableStdcMacro , 1, 0, NotCompatible, "Define __STDC__ with '-fms-compatibility'")
 LANGOPT(SizedDeallocation , 1, 0, NotCompatible, "sized deallocation")
 LANGOPT(AlignedAllocation , 1, 0, NotCompatible, "aligned allocation")

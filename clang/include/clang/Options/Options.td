@@ -3750,6 +3750,41 @@ defm application_extension : BoolFOption<"application-extension",
   PosFlag<SetTrue, [], [ClangOption, CC1Option],
           "Restrict code to those available for App Extensions">,
   NegFlag<SetFalse>>;
+defm reflection : BoolFOption<"reflection",
+  LangOpts<"Reflection">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption, CC1Option],
+          "Enable experimental C++26 static reflection">,
+  NegFlag<SetFalse>>;
+defm parameter_reflection : BoolFOption<"parameter-reflection",
+  LangOpts<"ParameterReflection">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption, CC1Option],
+          "Enable C++26 function parameter reflection">,
+  NegFlag<SetFalse>>;
+defm attribute_reflection : BoolFOption<"attribute-reflection",
+  LangOpts<"AttributeReflection">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption, CC1Option],
+          "Enable C++26 standard attribute reflection">,
+  NegFlag<SetFalse>>;
+defm expansion_statements : BoolFOption<"expansion-statements",
+  LangOpts<"ExpansionStatements">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption, CC1Option],
+          "Enable C++26 expansion statements">,
+  NegFlag<SetFalse>>;
+defm annotation_attributes : BoolFOption<"annotation-attributes",
+  LangOpts<"AnnotationAttributes">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption, CC1Option],
+          "Enable C++26 annotation attributes">,
+  NegFlag<SetFalse>>;
+defm entity_proxy_reflection : BoolFOption<"entity-proxy-reflection",
+  LangOpts<"EntityProxyReflection">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption, CC1Option],
+          "Enable C++26 entity-proxy reflection">,
+  NegFlag<SetFalse>>;
+defm reflection_latest : BoolFOption<"reflection-latest",
+  LangOpts<"ReflectionLatest">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption, CC1Option],
+          "Enable all experimental CXX26 Clang reflection features">,
+  NegFlag<SetFalse>>;
 defm sized_deallocation : BoolFOption<"sized-deallocation",
   LangOpts<"SizedDeallocation">, Default<cpp14.KeyPath>,
   PosFlag<SetTrue, [], [], "Enable C++14 sized global deallocation functions">,

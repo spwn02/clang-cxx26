@@ -7069,9 +7069,20 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_swift_version_independent_apinotes, false))
     CmdArgs.push_back("-fswift-version-independent-apinotes");
 
+  if (Args.hasFlag(options::OPT_freflection_latest,
+                   options::OPT_fno_reflection_latest, false)) {
+    CmdArgs.push_back("-freflection");
+    CmdArgs.push_back("-fparameter-reflection");
+    CmdArgs.push_back("-fattribute-reflection");
+    CmdArgs.push_back("-fannotation-attributes");
+    CmdArgs.push_back("-fexpansion-statements");
+  }
+
   // -fblocks=0 is default.
+  bool BlocksDefault = TC.IsBlocksDefault() &&
+                       !Args.hasArg(options::OPT_freflection);
   if (Args.hasFlag(options::OPT_fblocks, options::OPT_fno_blocks,
-                   TC.IsBlocksDefault()) ||
+                   BlocksDefault) ||
       (Args.hasArg(options::OPT_fgnu_runtime) &&
        Args.hasArg(options::OPT_fobjc_nonfragile_abi) &&
        !Args.hasArg(options::OPT_fno_blocks))) {
@@ -7400,6 +7411,21 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // -fassume-unique-vtables is on by default.
   Args.addOptOutFlag(CmdArgs, options::OPT_fassume_unique_vtables,
                      options::OPT_fno_assume_unique_vtables);
+
+  Args.addOptInFlag(CmdArgs, options::OPT_freflection,
+                    options::OPT_fno_reflection);
+  Args.addOptInFlag(CmdArgs, options::OPT_fparameter_reflection,
+                    options::OPT_fno_parameter_reflection);
+  Args.addOptInFlag(CmdArgs, options::OPT_fattribute_reflection,
+                    options::OPT_fno_attribute_reflection);
+  Args.addOptInFlag(CmdArgs, options::OPT_fexpansion_statements,
+                    options::OPT_fno_expansion_statements);
+  Args.addOptInFlag(CmdArgs, options::OPT_fannotation_attributes,
+                    options::OPT_fno_annotation_attributes);
+  Args.addOptInFlag(CmdArgs, options::OPT_fentity_proxy_reflection,
+                    options::OPT_fno_entity_proxy_reflection);
+  Args.addOptInFlag(CmdArgs, options::OPT_freflection_latest,
+                    options::OPT_fno_reflection_latest);
 
   // -fsized-deallocation is on by default in C++14 onwards and otherwise off
   // by default.
