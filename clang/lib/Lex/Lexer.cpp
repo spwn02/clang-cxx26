@@ -4054,9 +4054,35 @@ LexStart:
   case '?':
     Kind = tok::question;
     break;
-  case '[':
-    Kind = tok::l_square;
+  case '[': {
+    size_t SuccessiveColons = 0;
+
+    // `[::` must remain `[` followed by `::`; other `[:` patterns begin a
+    // reflection splice token (except the `:>` digraph).
+    Char = getCharAndSize(CurPtr, SizeTmp);
+    SizeTmp2 = 0;
+    while (Char == ':' && SuccessiveColons <= 3) {
+      unsigned SizeTmp3;
+      Char = getCharAndSize(CurPtr + SizeTmp + SizeTmp2, SizeTmp3);
+      SizeTmp2 += SizeTmp3;
+      if (Char != '>')
+        ++SuccessiveColons;
+    }
+
+    if (SuccessiveColons > 0 && SuccessiveColons != 2) {
+      if (LangOpts.Reflection) {
+        Kind = tok::l_splice;
+        CurPtr += SizeTmp;
+      } else {
+        if (!isLexingRawMode() && !LangOpts.OpenMP && !LangOpts.OpenACC)
+          Diag(CurPtr, diag::warn_reflection_disabled) << "[:";
+        Kind = tok::l_square;
+      }
+    } else {
+      Kind = tok::l_square;
+    }
     break;
+  }
   case ']':
     Kind = tok::r_square;
     break;
@@ -4347,6 +4373,9 @@ LexStart:
     if (Char == '=') {
       CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
       Kind = tok::caretequal;
+    } else if (LangOpts.Reflection && Char == '^') {
+      CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
+      Kind = tok::caretcaret;
     } else {
       if (LangOpts.OpenCL && Char == '^')
         Diag(CurPtr, diag::err_opencl_logical_exclusive_or);
@@ -4376,6 +4405,15 @@ LexStart:
     } else if (Char == ':') {
       Kind = tok::coloncolon;
       CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
+    } else if (Char == ']') {
+      if (LangOpts.Reflection) {
+        Kind = tok::r_splice;
+        CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
+      } else {
+        if (!isLexingRawMode() && !LangOpts.OpenMP && !LangOpts.OpenACC)
+          Diag(BufferPtr, diag::warn_reflection_disabled) << ":]";
+        Kind = tok::colon;
+      }
     } else {
       Kind = tok::colon;
     }

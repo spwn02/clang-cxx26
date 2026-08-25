@@ -233,6 +233,7 @@ PUNCTUATOR(greatergreater,      ">>")
 PUNCTUATOR(greaterequal,        ">=")
 PUNCTUATOR(greatergreaterequal, ">>=")
 PUNCTUATOR(caret,               "^")
+PUNCTUATOR(caretcaret,          "^^")
 PUNCTUATOR(caretequal,          "^=")
 PUNCTUATOR(pipe,                "|")
 PUNCTUATOR(pipepipe,            "||")
@@ -251,6 +252,10 @@ PUNCTUATOR(hashat,              "#@")
 PUNCTUATOR(periodstar,          ".*")
 PUNCTUATOR(arrowstar,           "->*")
 PUNCTUATOR(coloncolon,          "::")
+
+// C++26 reflection support.
+PUNCTUATOR(l_splice,            "[:")
+PUNCTUATOR(r_splice,            ":]")
 
 // Objective C support.
 PUNCTUATOR(at,                  "@")
@@ -431,6 +436,9 @@ CXX20_KEYWORD(consteval             , 0)
 CXX20_KEYWORD(constinit             , 0)
 CXX20_KEYWORD(concept               , 0)
 CXX20_KEYWORD(requires              , 0)
+
+// C++26 reflection keyword.
+KEYWORD(__metafunction              , KEYREFLECT)
 
 // Not a CXX20_KEYWORD because it is disabled by -fno-char8_t.
 KEYWORD(char8_t                     , CHAR8SUPPORT)
@@ -891,6 +899,10 @@ ANNOTATION(decltype)     // annotation for a decltype expression,
                          // e.g., "decltype(foo.bar())"
 ANNOTATION(pack_indexing_type) // annotation for an indexed pack of type,
                               // e.g., "T...[expr]"
+
+ANNOTATION(splice)       // annotation for a splice specifier
+ANNOTATION(splice_specialization) // annotation for a splice specialization
+                                  // specifier
 
 // Annotation for #pragma unused(...)
 // For each argument inside the parentheses the pragma handler will produce

@@ -267,3 +267,14 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   `-fannotation-attributes`, and `-fexpansion-statements` to cc1. Direct cc1
   use correctly rejects `-fparameter-reflection` without `-freflection` and
   accepts the dependent flag when reflection is enabled.
+
+### 2026-08-26 — Milestone 4 lexical reflection tokens
+
+- Restored the lexer support for `^^`, `[:`, and `:]`, plus
+  `__metafunction` keyword classification and the disabled-feature warning.
+  LLVM 22's `_Defer` keyword uses the previously final token-key bit, so the
+  reconciliation adds `KEYREFLECT` at the next available bit instead of
+  dropping `_Defer`.
+- `ninja -C build-nyx -j22 clangLex` and the follow-on full
+  `ninja -C build-nyx -j22 clang` relink passed. Added
+  `clang/test/Lexer/cxx26-reflection-tokens.cpp`; its focused lit run passed.
