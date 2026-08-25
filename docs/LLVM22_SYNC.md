@@ -246,3 +246,14 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
 - Follow-on `ninja -C build-nyx -j4` passed with no remaining work. The exact
   LLVM 22 Clang baseline is now buildable; reflection reconciliation begins in
   Milestone 4.
+
+### 2026-08-25 — Milestone 4 reflection driver plumbing
+
+- Restored the reflection language options, cc1/driver option definitions,
+  driver forwarding, `-freflection-latest` expansion, and dependent-option
+  diagnostics in `d2ae0e59597a7`. LLVM 22 moved the option-table source from
+  `clang/include/clang/Driver/Options.td` to `clang/include/clang/Options/Options.td`;
+  the restored definitions use that new location.
+- A Clang rebuild was started, but this workspace's attached execution wrapper
+  repeatedly terminated it while rebuilding the checkout-reset tree. Resume
+  its focused build before proceeding to parser/AST reconciliation.
