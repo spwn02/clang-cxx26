@@ -227,3 +227,7 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   `TableGenBackends.h` from the LLVM 22 merge parent. This is base-build work;
   their reflection extensions remain in the merge's first parent for
   Milestone 4 reconciliation. Rebuild in progress.
+- The next rebuild reached AST serialization TableGen and found the retained
+  local `ReflectionSpliceType` in `TypeNodes.td` without corresponding LLVM
+  22 `TypeProperties.td` serialization metadata. Removed that local node for
+  the base-build baseline; recover and reconcile it in Milestone 5.
