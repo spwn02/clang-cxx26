@@ -257,3 +257,13 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
 - A Clang rebuild was started, but this workspace's attached execution wrapper
   repeatedly terminated it while rebuilding the checkout-reset tree. Resume
   its focused build before proceeding to parser/AST reconciliation.
+
+### 2026-08-26 — Milestone 4 reflection driver validation
+
+- The persistent `ninja -C build-nyx -j4 clang` build completed successfully:
+  all 2,782 steps passed and `build-nyx/bin/clang` was relinked.
+- Focused driver validation passed. `-freflection-latest` forwards
+  `-freflection`, `-fparameter-reflection`, `-fattribute-reflection`,
+  `-fannotation-attributes`, and `-fexpansion-statements` to cc1. Direct cc1
+  use correctly rejects `-fparameter-reflection` without `-freflection` and
+  accepts the dependent flag when reflection is enabled.
