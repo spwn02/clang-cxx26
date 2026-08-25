@@ -29,7 +29,6 @@
 #include "llvm/TableGen/Record.h"
 #include "llvm/TableGen/StringMatcher.h"
 #include "llvm/TableGen/TableGenBackend.h"
-#include <algorithm>
 #include <cassert>
 #include <cctype>
 #include <cstddef>
@@ -189,11 +188,12 @@ static StringRef NormalizeGNUAttrSpelling(StringRef AttrSpelling) {
 
 typedef std::vector<std::pair<std::string, const Record *>> ParsedAttrMap;
 
-static void getParsedAttrFromRecord(const Record* Attr,
-                                    std::set<std::string>& Seen,
-                                    ParsedAttrMap& R,
-                                    ParsedAttrMap *Dupes = nullptr,
-                                    bool SemaOnly = true) {
+static ParsedAttrMap getParsedAttrList(const RecordKeeper &Records,
+                                       ParsedAttrMap *Dupes = nullptr,
+                                       bool SemaOnly = true) {
+  std::set<std::string> Seen;
+  ParsedAttrMap R;
+  for (const Record *Attr : Records.getAllDerivedDefinitions("Attr")) {
     if (!SemaOnly || Attr->getValueAsBit("SemaHandler")) {
       std::string AN;
       if (Attr->isSubClassOf("TargetSpecificAttr") &&
@@ -205,22 +205,13 @@ static void getParsedAttrFromRecord(const Record* Attr,
         if (!Seen.insert(AN).second) {
           if (Dupes)
             Dupes->push_back(std::make_pair(AN, Attr));
-          return;
+          continue;
         }
       } else
         AN = NormalizeAttrName(Attr->getName()).str();
 
       R.push_back(std::make_pair(AN, Attr));
     }
-}
-
-static ParsedAttrMap getParsedAttrList(const RecordKeeper &Records,
-                                       ParsedAttrMap *Dupes = nullptr,
-                                       bool SemaOnly = true) {
-  std::set<std::string> Seen;
-  ParsedAttrMap R;
-  for (const Record *Attr : Records.getAllDerivedDefinitions("Attr")) {
-    getParsedAttrFromRecord(Attr, Seen, R, Dupes, SemaOnly);
   }
   return R;
 }
@@ -2513,13 +2504,13 @@ static void emitClangAttrArgContextList(const RecordKeeper &Records,
   OS << "#endif // CLANG_ATTR_ARG_CONTEXT_LIST\n\n";
 }
 
-static bool isIdentifierArgument(const Record *Arg, bool isStrict = false) {
+static bool isIdentifierArgument(const Record *Arg) {
   return !Arg->getDirectSuperClasses().empty() &&
          StringSwitch<bool>(
              Arg->getDirectSuperClasses().back().first->getName())
              .Case("IdentifierArgument", true)
-             .Case("EnumArgument", !isStrict)
-             .Case("VariadicEnumArgument", !isStrict)
+             .Case("EnumArgument", true)
+             .Case("VariadicEnumArgument", true)
              .Default(false);
 }
 
@@ -2540,190 +2531,22 @@ static bool isVariadicExprArgument(const Record *Arg) {
              .Default(false);
 }
 
-static bool isExprArgument(const Record *Arg) {
-  return !Arg->getDirectSuperClasses().empty() &&
-         StringSwitch<bool>(
-             Arg->getDirectSuperClasses().back().first->getName())
-             .Case("ExprArgument", true)
-             .Default(false);
-}
-
-static bool isBoolArgument(const Record *Arg) {
-  return !Arg->getDirectSuperClasses().empty() &&
-    StringSwitch<bool>(Arg->getDirectSuperClasses().back().first->getName())
-      .Case("BoolArgument", true)
-      .Default(false);
-}
-
-static bool isIntArgument(const Record *Arg) {
-  return !Arg->getDirectSuperClasses().empty() &&
-    StringSwitch<bool>(Arg->getDirectSuperClasses().back().first->getName())
-      .Case("IntArgument", true)
-      .Case("DefaultIntArgument", true)
-      .Default(false);
-}
-
-static bool isStringEnumArgument(const Record *Arg) {
+static bool isStringLiteralArgument(const Record *Arg) {
   if (Arg->getDirectSuperClasses().empty())
     return false;
   StringRef ArgKind = Arg->getDirectSuperClasses().back().first->getName();
-  return ArgKind == "EnumArgument" && Arg->getValueAsBit("IsString");
+  if (ArgKind == "EnumArgument")
+    return Arg->getValueAsBit("IsString");
+  return ArgKind == "StringArgument";
 }
 
-static bool isStringLiteralArgument(const Record *Arg) {
-  StringRef ArgKind = Arg->getDirectSuperClasses().back().first->getName();
-  return isStringEnumArgument(Arg) || ArgKind == "StringArgument";
-}
-
-static bool isVariadicStringLiteralEnumArgument(const Record *Arg) {
+static bool isVariadicStringLiteralArgument(const Record *Arg) {
   if (Arg->getDirectSuperClasses().empty())
     return false;
   StringRef ArgKind = Arg->getDirectSuperClasses().back().first->getName();
   if (ArgKind == "VariadicEnumArgument")
     return Arg->getValueAsBit("IsString");
-  return false;
-}
-
-static bool isVariadicStringLiteralArgument(const Record *Arg) {
-  StringRef ArgKind = Arg->getDirectSuperClasses().back().first->getName();
-  return isVariadicStringLiteralEnumArgument(Arg) || ArgKind == "VariadicStringArgument";
-}
-
-// An (family-of-variant) attribute is reflectable if
-// - it admits at least one CXX11 representation, and
-// - it has no arguments or all its arguments are of any of the types: string, bool, int
-// - it does not set 'EscapeReflection' to true
-// - it does not set 'ASTNode' to true
-// - it is not a type attributes (we may lift later...)
-static bool isReflectableAttr(const Record* R) {
-  if (R->getValueAsBit("EscapeReflection")) {
-    return false;
-  }
-  if (!R->getValueAsBit("ASTNode")) {
-    return false;
-  }
-  if (R->isSubClassOf("TypeAttr")) {
-    return false;
-  }
-  bool hasStandardRepresentation = false;
-  for (const auto &spelling : R->getValueAsListOfDefs("Spellings")) {
-    StringRef variety = spelling->getValueAsString("Variety");
-    // All those CXX11 are implied
-    if (!variety.empty() && (variety == "CXX11" || variety == "GCC" ||
-                             variety == "Clang" || variety == "ClangGCC")) {
-      hasStandardRepresentation = true;
-      break;
-    }
-  }
-  if (!hasStandardRepresentation) {
-    return false;
-  }
-
-  auto isSupportedArgType = [](const Record* arg) {
-    return isStringLiteralArgument(arg)
-      || isVariadicStringLiteralArgument(arg)
-      || isBoolArgument(arg)
-      || isIntArgument(arg)
-      || isTypeArgument(arg)
-      || isExprArgument(arg);
-  };
-  std::vector<const Record *> ArgRecords = R->getValueAsListOfDefs("Args");
-  return ArgRecords.empty() || std::all_of(ArgRecords.begin(), ArgRecords.end(), isSupportedArgType);
-}
-
-// P3385 Codegen an accessor for arguments as expr
-static void writeExtractSyntacticArgumentFunction(const Record &R,
-                         raw_ostream &OS) {
-  OS << "bool " << R.getName() << "Attr::extractSyntacticArguments(ASTContext& C, OnSyntacticArgument onSyntax, SourceLocation srcLocation) const {\n";
-  OS << "  SmallVector<llvm::PointerUnion<Expr *, IdentifierLoc *>, 2> args;\n";
-  OS << "  SmallVector<void *, 2> typeArgs;\n";
-  OS << "  const AttributeCommonInfo* info = this;\n";
-  OS << "  IdentifierInfo &attrName = C.Idents.get(info->getAttrName()->getName());\n\n";
-
-  auto makeShortNameForArgType = [] (const Record* Arg) {
-    const bool isExternal = Arg->getValueAsBit("IsExternalType");
-    StringRef argType = Arg->getValueAsString("Type");
-    StringRef shortType = isExternal ? argType.rsplit("::").second : argType;
-    if (shortType.empty())
-      shortType = argType;
-    return shortType;
-  };
-
-  auto emitExprFromArg = [&] (raw_ostream &OS, const Record *Arg) {
-    // I dont have an Arg here so cant directly call
-    // all the normalization methods...
-    std::string ArgName(Arg->getValueAsString("Name"));
-    ArgName[0] = std::toupper(ArgName[0]);
-    std::string Accessor = std::string("get") + ArgName + "()";
-
-    if (isIntArgument(Arg)) {
-      OS << "    args.push_back(IntegerLiteral::Create(C, llvm::APInt(32, " << Accessor << "), C.IntTy, srcLocation));\n";
-    } else if (isTypeArgument(Arg)) {
-      OS << "    args.push_back(nullptr);\n";
-      OS << "    typeArgs.push_back(" << Accessor << ".getAsOpaquePtr());\n";
-    } else if (isBoolArgument(Arg)) {
-      OS << "    args.push_back(CXXBoolLiteralExpr::Create(C, " << Accessor << ", C.BoolTy, srcLocation));\n";
-    } else if (isIdentifierArgument(Arg, true)) {
-      OS << "    IdentifierLoc *IL" << ArgName << " = new (C) IdentifierLoc(srcLocation, " << Accessor << ");\n";
-      OS << "    args.push_back(IL" << ArgName << ");\n";
-    } else if (isVariadicStringLiteralArgument(Arg)) {
-      // no 'get', no uppercase
-      std::string variadicAccessorName = ArgName;
-      variadicAccessorName[0] = std::tolower(variadicAccessorName[0]);
-      variadicAccessorName += "()";
-      if (!isVariadicStringLiteralEnumArgument(Arg)) {
-        // No need to convert enum to their string representation
-        OS << "    for (auto it : " << variadicAccessorName<< ") {"
-           << "      args.push_back(StringLiteral::Create(\n"
-           << "        C,\n"
-           << "        it,\n"
-           << "        StringLiteralKind::Unevaluated,\n"
-           << "        false,\n"
-           << "        C.getConstantArrayType(C.CharTy, llvm::APInt(32, it.size() + 1), nullptr, ArraySizeModifier::Normal, 0),\n"
-           << "        srcLocation));\n"
-           << "    }\n";
-      } else {
-        std::string enumTypeName(makeShortNameForArgType(Arg));
-        enumTypeName[0] = std::toupper(enumTypeName[0]);
-        std::string variadicConvertorName = "StringRef(Convert" + enumTypeName + "ToStr(it))";
-        OS << "    for (auto it : " << variadicAccessorName<< ") {"
-           << "      args.push_back(StringLiteral::Create(\n"
-           << "        C,\n"
-           << "        " << variadicConvertorName << ",\n"
-           << "        StringLiteralKind::Unevaluated,\n"
-           << "        false,\n"
-           << "        C.getConstantArrayType(C.CharTy, llvm::APInt(32, " << variadicConvertorName << ".size() + 1), nullptr, ArraySizeModifier::Normal, 0),\n"
-           << "        srcLocation));\n"
-           << "    }\n";
-      }
-    } else if (isStringLiteralArgument(Arg)) {
-      // String enums need to go through a convert
-      if (isStringEnumArgument(Arg)) {
-        std::string enumTypeName(makeShortNameForArgType(Arg));
-        enumTypeName[0] = std::toupper(enumTypeName[0]);
-        Accessor = "StringRef(Convert" + enumTypeName + "ToStr(" + Accessor +"))";
-      }
-      OS << "  if (!" << Accessor << ".empty()) {"
-         << "    args.push_back(StringLiteral::Create(C,\n"
-         << "                                         " << Accessor << ",\n"
-         << "                                         StringLiteralKind::Unevaluated,\n"
-         << "                                         false,\n"
-         << "                                         C.getConstantArrayType(C.CharTy, llvm::APInt(32, " + Accessor + ".size() + 1), nullptr, ArraySizeModifier::Normal, 0),\n"
-         << "                                         srcLocation));\n"
-         << "  }\n";
-    } else if (isExprArgument(Arg)) {
-      OS << "  args.push_back(" << Accessor << ");\n";
-    } else {
-      OS << "  // FIXME: Unhandled argument type...'" << Arg->getName() << "'\n";
-    }
-  };
-
-  for (const Record * arg : R.getValueAsListOfDefs("Args")) {
-    emitExprFromArg(OS, arg);
-  }
-  OS << "\n";
-  OS << "  return onSyntax(&attrName, args, typeArgs, info->getForm());\n";
-  OS << "}\n";
+  return ArgKind == "VariadicStringArgument";
 }
 
 static void emitClangAttrVariadicIdentifierArgList(const RecordKeeper &Records,
@@ -2909,13 +2732,11 @@ static void emitAttributes(const RecordKeeper &Records, raw_ostream &OS,
         Inheritable = true;
     }
 
-    if (Header) {
+    if (Header)
       OS << "class CLANG_ABI " << R.getName() << "Attr : public " << SuperName
          << " {\n";
-    }
     else
       OS << "\n// " << R.getName() << "Attr implementation\n\n";
-
 
     std::vector<const Record *> ArgRecords = R.getValueAsListOfDefs("Args");
     std::vector<std::unique_ptr<Argument>> Args;
@@ -3283,27 +3104,12 @@ static void emitAttributes(const RecordKeeper &Records, raw_ostream &OS,
     if (DelayedArgs && HasRequiredArgs)
       emitCtor(false, false, true);
 
-    bool mustEmitOnSyntactiArgs = isReflectableAttr(Attr);
-
     if (Header) {
       OS << '\n';
       OS << "  " << R.getName() << "Attr *clone(ASTContext &C) const;\n";
       OS << "  void printPretty(raw_ostream &OS,\n"
          << "                   const PrintingPolicy &Policy) const;\n";
       OS << "  const char *getSpelling() const;\n";
-
-      if (mustEmitOnSyntactiArgs) {
-        OS << "  using OnSyntacticArgument\n";
-        OS << "    = std::function<bool(\n";
-        OS << "        IdentifierInfo *,\n"; // Attr name
-        OS << "        SmallVector<llvm::PointerUnion<Expr *, IdentifierLoc *>, 2>,\n"; // Args
-        OS << "        SmallVector<void *, 2>,\n"; // Type args as opaque QualType pointers
-        OS << "        AttributeCommonInfo::Form\n"; // Form
-        OS << "      )>;\n";
-        OS << "\n";
-        OS << "  bool extractSyntacticArguments(ASTContext& C, OnSyntacticArgument onSyntax, SourceLocation srcLocation) const;\n";
-        OS << "\n";
-      }
     }
 
     if (!ElideSpelling) {
@@ -3319,9 +3125,8 @@ static void emitAttributes(const RecordKeeper &Records, raw_ostream &OS,
       }
     }
 
-    if (Header) {
+    if (Header)
       writeAttrAccessorDefinition(R, OS);
-    }
 
     for (auto const &ai : Args) {
       if (Header) {
@@ -3367,7 +3172,6 @@ static void emitAttributes(const RecordKeeper &Records, raw_ostream &OS,
         ai->writeCloneArgs(OS);
       }
       OS << ");\n";
-
       OS << "  A->Inherited = Inherited;\n";
       OS << "  A->IsPackExpansion = IsPackExpansion;\n";
       OS << "  A->setImplicit(Implicit);\n";
@@ -3380,9 +3184,6 @@ static void emitAttributes(const RecordKeeper &Records, raw_ostream &OS,
 
       writePrettyPrintFunction(R, Args, OS);
       writeGetSpellingFunction(R, OS);
-      if (mustEmitOnSyntactiArgs) {
-        writeExtractSyntacticArgumentFunction(R, OS);
-      }
     }
   }
 }
@@ -3402,6 +3203,7 @@ void clang::EmitClangAttrClass(const RecordKeeper &Records, raw_ostream &OS) {
 void clang::EmitClangAttrImpl(const RecordKeeper &Records, raw_ostream &OS) {
   emitSourceFileHeader("Attribute classes' member function definitions", OS,
                        Records);
+
   emitAttributes(Records, OS, false);
 
   // Instead of relying on virtual dispatch we just create a huge dispatch
@@ -4272,18 +4074,13 @@ EmitClangAttrTemplateInstantiateHelper(ArrayRef<const Record *> Attrs,
     for (auto const &ai : Args)
       ai->writeTemplateInstantiation(OS);
 
-    OS << "      " << R.getName() << "Attr *Result = new (C) "
-       << R.getName() << "Attr(C, *A";
+    OS << "      return new (C) " << R.getName() << "Attr(C, *A";
     for (auto const &ai : Args) {
       OS << ", ";
       ai->writeTemplateInstantiationArgs(OS);
     }
-    OS << ");\n";
-
-    OS << R.getValueAsString("AdditionalInstantiationStmts");
-
-    OS << "      return Result;\n";
-    OS << "    }\n";
+    OS << ");\n"
+       << "    }\n";
   }
   OS << "  } // end switch\n"
      << "  llvm_unreachable(\"Unknown attribute!\");\n"
@@ -5353,47 +5150,6 @@ void EmitClangAttrParserStringSwitches(const RecordKeeper &Records,
 void EmitClangAttrSubjectMatchRulesParserStringSwitches(
     const RecordKeeper &Records, raw_ostream &OS) {
   getPragmaAttributeSupport(Records).generateParsingHelpers(OS);
-}
-
-// Build list of attributes 'case (Kind) : isReflectable'
-static void emitClangAttrIsReflectableList(const llvm::RecordKeeper &Records,
-                                          llvm::raw_ostream &OS)
-{
-  OS << "#if defined(CLANG_ATTR_IS_REFLECTABLE_LIST)\n";
-  for (const auto & [name, record] : getParsedAttrList(Records)) {
-    OS << "case (AttributeCommonInfo::Kind::AT_" << name << "): return "
-       << (isReflectableAttr(record) ? "true" : "false") << ";\n";
-  }
-  OS << "#endif // CLANG_ATTR_IS_REFLECTABLE_LIST\n\n";
-}
-
-static void emitClangAttrOnSyntacticArgs(const llvm::RecordKeeper &Records,
-                                           llvm::raw_ostream &OS)
-{
-  OS << "#if defined(CLANG_ATTR_ON_SYNTACTIC_ARGS_LIST)\n";
-  for (const auto & [name, record] : getParsedAttrList(Records)) {
-    if (!isReflectableAttr(record)) {
-      OS << "case (AttributeCommonInfo::Kind::AT_" << name << "): return false;\n";
-    } else {
-      std::string attrClassName(record->getName());
-      attrClassName += "Attr";
-      OS << "case (AttributeCommonInfo::Kind::AT_" << name << "): {\n"
-         << "  const " << attrClassName << "* attr = static_cast<const " << attrClassName <<"*>(semanticAttr);\n"
-         /*                              ASTContext&, OnSyntacticArgument, SourceLocation */
-         << "  return attr->extractSyntacticArguments(C, onSyntax, srcLocation);\n"
-         << "}\n";
-    }
-  }
-  OS << "#endif // CLANG_ATTR_ON_SYNTACTIC_ARGS_LIST\n\n";
-}
-
-// Backend to generate Attr reflection .inc file
-void EmitClangAttrReflection(const llvm::RecordKeeper &Records,
-                           llvm::raw_ostream &OS)
-{
-  emitSourceFileHeader("P3385 attribute Reflection facilities", OS, Records);
-  emitClangAttrIsReflectableList(Records, OS);
-  emitClangAttrOnSyntacticArgs(Records, OS);
 }
 
 void EmitClangAttrDocTable(const RecordKeeper &Records, raw_ostream &OS) {

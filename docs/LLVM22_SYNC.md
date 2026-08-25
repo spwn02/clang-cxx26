@@ -216,3 +216,14 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   markers remain, and the correction is committed immediately after this
   tracker update. The upstream deletion of
   `libcxx/test/libcxx/clang_modules_include.gen.py` remains intact.
+
+### 2026-08-25 — Milestone 3 first base-build repair
+
+- After the marker correction, `ninja -C build-nyx clang` reached generation
+  of `Attrs.inc` and failed because the retained local reflection
+  `ClangAttrEmitter.cpp` required `EscapeReflection`, a field absent from
+  upstream LLVM 22 `Attr.td`.
+- Restored `clang/utils/TableGen/ClangAttrEmitter.cpp`, `TableGen.cpp`, and
+  `TableGenBackends.h` from the LLVM 22 merge parent. This is base-build work;
+  their reflection extensions remain in the merge's first parent for
+  Milestone 4 reconciliation. Rebuild in progress.
