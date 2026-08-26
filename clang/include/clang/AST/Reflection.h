@@ -11,6 +11,7 @@
 #ifndef LLVM_CLANG_AST_REFLECTION_H
 #define LLVM_CLANG_AST_REFLECTION_H
 
+#include "clang/AST/ReflectionValue.h"
 #include "clang/AST/Type.h"
 #include "llvm/ADT/SmallVector.h"
 #include <optional>
@@ -21,24 +22,6 @@ namespace clang {
 class APValue;
 class CXXBaseSpecifier;
 class ParsedAttr;
-
-/// The kind of construct represented by a reflection value.
-enum class ReflectionKind {
-  Null = 0,
-  Type,
-  Object,
-  Value,
-  Declaration,
-  Template,
-  Namespace,
-  EntityProxy,
-  Parameter,
-  BaseSpecifier,
-  DataMemberSpec,
-  Annotation,
-  EnumeratorSpec,
-  Attribute,
-};
 
 /// Description of a hypothetical data member used by `define_class`.
 struct TagDataMemberSpec {

@@ -377,6 +377,9 @@ APValue::APValue(const APValue &RHS)
     MakeAddrLabelDiff();
     setAddrLabelDiff(RHS.getAddrLabelDiffLHS(), RHS.getAddrLabelDiffRHS());
     break;
+  case Reflection:
+    MakeReflection(RHS.getReflectionKind(), RHS.getOpaqueReflectionData());
+    break;
   }
 }
 
@@ -439,6 +442,7 @@ bool APValue::needsCleanup() const {
   case None:
   case Indeterminate:
   case AddrLabelDiff:
+  case Reflection:
     return false;
   case Struct:
   case Union:
@@ -502,6 +506,11 @@ void APValue::Profile(llvm::FoldingSetNodeID &ID) const {
   case AddrLabelDiff:
     ID.AddPointer(getAddrLabelDiffLHS()->getLabel()->getCanonicalDecl());
     ID.AddPointer(getAddrLabelDiffRHS()->getLabel()->getCanonicalDecl());
+    return;
+
+  case Reflection:
+    ID.AddInteger(static_cast<unsigned>(getReflectionKind()));
+    ID.AddPointer(getOpaqueReflectionData());
     return;
 
   case Struct:
@@ -949,6 +958,9 @@ void APValue::printPretty(raw_ostream &Out, const PrintingPolicy &Policy,
     Out << " - ";
     Out << "&&" << getAddrLabelDiffRHS()->getLabel()->getName();
     return;
+  case APValue::Reflection:
+    Out << "<reflection>";
+    return;
   }
   llvm_unreachable("Unknown APValue kind!");
 }
@@ -1144,6 +1156,9 @@ LinkageInfo LinkageComputer::getLVForValue(const APValue &V,
   case APValue::AddrLabelDiff:
     // Even for an inline function, it's not reasonable to treat a difference
     // between the addresses of labels as an external value.
+    return LinkageInfo::internal();
+
+  case APValue::Reflection:
     return LinkageInfo::internal();
 
   case APValue::Struct: {

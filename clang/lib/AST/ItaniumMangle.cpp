@@ -6412,6 +6412,7 @@ static bool isZeroInitialized(QualType T, const APValue &V) {
   case APValue::None:
   case APValue::Indeterminate:
   case APValue::AddrLabelDiff:
+  case APValue::Reflection:
     return false;
 
   case APValue::Struct: {
@@ -6571,6 +6572,9 @@ void CXXNameMangler::mangleValueInTemplateArg(QualType T, const APValue &V,
 
   case APValue::AddrLabelDiff:
     llvm_unreachable("unexpected value kind in template argument");
+
+  case APValue::Reflection:
+    llvm_unreachable("reflection arguments should be separately handled");
 
   case APValue::Struct: {
     const CXXRecordDecl *RD = T->getAsCXXRecordDecl();

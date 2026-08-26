@@ -2725,6 +2725,7 @@ static bool HandleConversionToBool(const APValue &Val, bool &Result) {
   case APValue::Struct:
   case APValue::Union:
   case APValue::AddrLabelDiff:
+  case APValue::Reflection:
     return false;
   }
 
@@ -7848,6 +7849,7 @@ class APValueToBufferConverter {
     case APValue::FixedPoint:
       // FIXME: We should support these.
 
+    case APValue::Reflection:
     case APValue::Union:
     case APValue::MemberPointer:
     case APValue::AddrLabelDiff: {

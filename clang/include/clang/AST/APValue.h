@@ -13,6 +13,7 @@
 #ifndef LLVM_CLANG_AST_APVALUE_H
 #define LLVM_CLANG_AST_APVALUE_H
 
+#include "clang/AST/ReflectionValue.h"
 #include "clang/Basic/LLVM.h"
 #include "llvm/ADT/APFixedPoint.h"
 #include "llvm/ADT/APFloat.h"
@@ -140,7 +141,8 @@ public:
     Struct,
     Union,
     MemberPointer,
-    AddrLabelDiff
+    AddrLabelDiff,
+    Reflection
   };
 
   class alignas(uint64_t) LValueBase {
@@ -304,12 +306,17 @@ private:
     const AddrLabelExpr* LHSExpr;
     const AddrLabelExpr* RHSExpr;
   };
+  struct ReflectionData {
+    ReflectionKind Kind;
+    const void *Data;
+  };
   struct MemberPointerData;
 
   // We ensure elsewhere that Data is big enough for LV and MemberPointerData.
   typedef llvm::AlignedCharArrayUnion<void *, APSInt, APFloat, ComplexAPSInt,
                                       ComplexAPFloat, Vec, Arr, StructData,
-                                      UnionData, AddrLabelDiffData> DataType;
+                                      UnionData, AddrLabelDiffData,
+                                      ReflectionData> DataType;
   static const size_t DataSize = sizeof(DataType);
 
   DataType Data;
@@ -429,6 +436,10 @@ public:
       : Kind(None), AllowConstexprUnknown(false) {
     MakeAddrLabelDiff(); setAddrLabelDiff(LHSExpr, RHSExpr);
   }
+  APValue(ReflectionKind RK, const void *ReflectionData)
+      : Kind(None), AllowConstexprUnknown(false) {
+    MakeReflection(RK, ReflectionData);
+  }
   static APValue IndeterminateValue() {
     APValue Result;
     Result.Kind = Indeterminate;
@@ -476,6 +487,7 @@ public:
   bool isUnion() const { return Kind == Union; }
   bool isMemberPointer() const { return Kind == MemberPointer; }
   bool isAddrLabelDiff() const { return Kind == AddrLabelDiff; }
+  bool isReflection() const { return Kind == Reflection; }
 
   void dump() const;
   void dump(raw_ostream &OS, const ASTContext &Context) const;
@@ -650,6 +662,14 @@ public:
     assert(isAddrLabelDiff() && "Invalid accessor");
     return ((const AddrLabelDiffData *)(const char *)&Data)->RHSExpr;
   }
+  ReflectionKind getReflectionKind() const {
+    assert(isReflection() && "Invalid accessor");
+    return ((const ReflectionData *)(const char *)&Data)->Kind;
+  }
+  const void *getOpaqueReflectionData() const {
+    assert(isReflection() && "Invalid accessor");
+    return ((const ReflectionData *)(const char *)&Data)->Data;
+  }
 
   void setInt(APSInt I) {
     assert(isInt() && "Invalid accessor");
@@ -744,6 +764,11 @@ private:
     assert(isAbsent() && "Bad state change");
     new ((void *)(char *)&Data) AddrLabelDiffData();
     Kind = AddrLabelDiff;
+  }
+  void MakeReflection(ReflectionKind RK, const void *Payload) {
+    assert(isAbsent() && "Bad state change");
+    new ((void *)(char *)&Data) ReflectionData{RK, Payload};
+    Kind = Reflection;
   }
 
 private:

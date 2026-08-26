@@ -307,3 +307,14 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   visitor and profiler integrations. The validated splice-specifier foundation
   remains; restore the expression family only as its complete cross-subsystem
   bundle.
+
+### 2026-08-26 — Milestone 4 APValue reflection foundation
+
+- Separated `ReflectionKind` into `ReflectionValue.h` so `APValue` can carry
+  an opaque reflection payload without reintroducing the `APValue`/`Type`
+  include cycle. `Reflection.h` retains the AST-only descriptors.
+- Added copy, profile, dumper, importer, linkage, constant-evaluation, and
+  mangling boundary handling for the new `APValue::Reflection` kind. Full
+  evaluator representation and reflection-expression semantics remain
+  assigned to the integrated expression family and Milestone 5.
+- `ninja -C build-nyx -j22 clangAST` passed cleanly.

@@ -10606,6 +10606,7 @@ ASTNodeImporter::ImportAPValue(const APValue &FromValue) {
   case APValue::FixedPoint:
   case APValue::ComplexInt:
   case APValue::ComplexFloat:
+  case APValue::Reflection:
     Result = FromValue;
     break;
   case APValue::Vector: {

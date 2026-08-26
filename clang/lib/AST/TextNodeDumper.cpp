@@ -620,6 +620,7 @@ static bool isSimpleAPValue(const APValue &Value) {
   case APValue::Vector:
   case APValue::Array:
   case APValue::Struct:
+  case APValue::Reflection:
     return false;
   case APValue::Union:
     return isSimpleAPValue(Value.getUnionValue());
@@ -854,6 +855,9 @@ void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
     OS << "&&" << Value.getAddrLabelDiffLHS()->getLabel()->getName();
     OS << " - ";
     OS << "&&" << Value.getAddrLabelDiffRHS()->getLabel()->getName();
+    return;
+  case APValue::Reflection:
+    OS << "Reflection <opaque>";
     return;
   }
   llvm_unreachable("Unknown APValue kind!");

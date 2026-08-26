@@ -2167,6 +2167,9 @@ void MicrosoftCXXNameMangler::mangleTemplateArgValue(QualType T,
     Error("template argument (value type: fixed point)");
     return;
   }
+
+  case APValue::Reflection:
+    llvm_unreachable("reflection arguments should be separately handled");
   }
 }
 
