@@ -13,6 +13,7 @@
 #include "clang/AST/StmtCXX.h"
 
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/ExprCXX.h"
 
 using namespace clang;
 
@@ -124,4 +125,142 @@ CoroutineBodyStmt::CoroutineBodyStmt(CoroutineBodyStmt::CtorArgs const &Args)
   SubStmts[CoroutineBodyStmt::ReturnStmtOnAllocFailure] =
       Args.ReturnStmtOnAllocFailure;
   llvm::copy(Args.ParamMoves, const_cast<Stmt **>(getParamMoves().data()));
+}
+
+CXXExpansionStmt::CXXExpansionStmt(
+    StmtClass SC, Stmt *Init, DeclStmt *ExpansionVar, Expr *SizeExpr,
+    SourceLocation TemplateKWLoc, SourceLocation ForLoc,
+    SourceLocation LParenLoc, SourceLocation ColonLoc, SourceLocation RParenLoc,
+    Expr *TParamRef)
+    : Stmt(SC),
+      SubStmts {Init, TParamRef, ExpansionVar, SizeExpr, nullptr},
+      Expansions(nullptr), TemplateKWLoc(TemplateKWLoc), ForLoc(ForLoc),
+      LParenLoc(LParenLoc), ColonLoc(ColonLoc), RParenLoc(RParenLoc) { }
+
+VarDecl *CXXExpansionStmt::getExpansionVariable() {
+  Decl *EV = cast<DeclStmt>(getExpansionVarStmt())->getSingleDecl();
+  assert(EV && "No expansion variable in CXXExpansionStmt");
+  return cast<VarDecl>(EV);
+}
+
+bool CXXExpansionStmt::hasDependentSize() const {
+  switch (getStmtClass()) {
+  case CXXIndeterminateExpansionStmtClass:
+    return true;
+  case CXXIterableExpansionStmtClass:
+    return cast<CXXIterableExpansionStmt>(this)->hasDependentSize();
+  case CXXDestructurableExpansionStmtClass:
+    return cast<CXXDestructurableExpansionStmt>(this)->hasDependentSize();
+  case CXXInitListExpansionStmtClass:
+    return cast<CXXInitListExpansionStmt>(this)->hasDependentSize();
+  }
+  llvm_unreachable("unknown expansion statement kind");
+}
+
+unsigned CXXExpansionStmt::getNumInstantiations() const {
+  assert(!hasDependentSize());
+
+  switch (getStmtClass()) {
+  case CXXIterableExpansionStmtClass:
+    return cast<CXXIterableExpansionStmt>(this)->getNumInstantiations();
+  case CXXDestructurableExpansionStmtClass:
+    return cast<CXXDestructurableExpansionStmt>(this)->getNumInstantiations();
+  case CXXInitListExpansionStmtClass:
+    return cast<CXXInitListExpansionStmt>(this)->getNumInstantiations();
+  }
+  llvm_unreachable("unknown expansion statement kind");
+}
+
+CXXIndeterminateExpansionStmt *CXXIndeterminateExpansionStmt::Create(
+    const ASTContext &C, Stmt *Init, DeclStmt *ExpansionVar,
+    SourceLocation TemplateKWLoc, SourceLocation ForLoc,
+    SourceLocation LParenLoc, SourceLocation ColonLoc, SourceLocation RParenLoc,
+    Expr *TParamRef) {
+  return new (C) CXXIndeterminateExpansionStmt(Init, ExpansionVar,
+                                               TemplateKWLoc, ForLoc, LParenLoc,
+                                               ColonLoc, RParenLoc, TParamRef);
+}
+
+CXXIndeterminateExpansionStmt *CXXIndeterminateExpansionStmt::Create(
+    const ASTContext &C, EmptyShell Empty) {
+  return new (C) CXXIndeterminateExpansionStmt(Empty);
+}
+
+CXXIterableExpansionStmt *CXXIterableExpansionStmt::Create(
+    const ASTContext &C, Stmt *Init, DeclStmt *ExpansionVar, Expr *SizeExpr,
+    unsigned NumInstantiations, SourceLocation TemplateKWLoc,
+    SourceLocation ForLoc, SourceLocation LParenLoc, SourceLocation ColonLoc,
+    SourceLocation RParenLoc, Expr *TParamRef) {
+  return new (C) CXXIterableExpansionStmt(Init, ExpansionVar, SizeExpr,
+                                          NumInstantiations, TemplateKWLoc,
+                                          ForLoc, LParenLoc, ColonLoc,
+                                          RParenLoc, TParamRef);
+}
+
+CXXIterableExpansionStmt *CXXIterableExpansionStmt::Create(const ASTContext &C,
+                                                           EmptyShell Empty) {
+  return new (C) CXXIterableExpansionStmt(Empty);
+}
+
+bool CXXIterableExpansionStmt::hasDependentSize() const {
+  return cast<Expr>(getSizeExpr())->isValueDependent();
+}
+
+unsigned CXXIterableExpansionStmt::getNumInstantiations() const {
+  return NumInstantiations;
+}
+
+CXXDestructurableExpansionStmt *CXXDestructurableExpansionStmt::Create(
+    const ASTContext &C, Stmt *Init, DeclStmt *ExpansionVar,
+    SourceLocation TemplateKWLoc, SourceLocation ForLoc,
+    SourceLocation LParenLoc, SourceLocation ColonLoc, SourceLocation RParenLoc,
+    Expr *TParamRef) {
+  return new (C) CXXDestructurableExpansionStmt(Init, ExpansionVar,
+                                                TemplateKWLoc, ForLoc,
+                                                LParenLoc, ColonLoc, RParenLoc,
+                                                TParamRef);
+}
+
+CXXDestructurableExpansionStmt *CXXDestructurableExpansionStmt::Create(
+    const ASTContext &C, EmptyShell Empty) {
+  return new (C) CXXDestructurableExpansionStmt(Empty);
+}
+
+bool CXXDestructurableExpansionStmt::hasDependentSize() const {
+  return false;
+}
+
+unsigned CXXDestructurableExpansionStmt::getNumInstantiations() const {
+  const VarDecl *VD = getExpansionVariable();
+  auto *Selector = cast<CXXDestructurableExpansionSelectExpr>(VD->getInit());
+
+  return Selector->getDecompositionDecl()->bindings().size();
+}
+
+CXXInitListExpansionStmt *CXXInitListExpansionStmt::Create(
+    const ASTContext &C, Stmt *Init, DeclStmt *ExpansionVar,
+    SourceLocation TemplateKWLoc, SourceLocation ForLoc,
+    SourceLocation LParenLoc, SourceLocation ColonLoc, SourceLocation RParenLoc,
+    Expr *TParamRef) {
+  return new (C) CXXInitListExpansionStmt(Init, ExpansionVar, TemplateKWLoc,
+                                          ForLoc, LParenLoc, ColonLoc,
+                                          RParenLoc, TParamRef);
+}
+
+CXXInitListExpansionStmt *CXXInitListExpansionStmt::Create(const ASTContext &C,
+                                                           EmptyShell Empty) {
+  return new (C) CXXInitListExpansionStmt(Empty);
+}
+
+bool CXXInitListExpansionStmt::hasDependentSize() const {
+  const auto *Init = cast<CXXExpansionInitListSelectExpr>(
+      getExpansionVariable()->getInit());
+  return cast<CXXExpansionInitListExpr>(Init->getRangeExpr())->containsPack();
+}
+
+unsigned CXXInitListExpansionStmt::getNumInstantiations() const {
+  const auto *Init = cast<CXXExpansionInitListSelectExpr>(
+      getExpansionVariable()->getInit());
+  return cast<CXXExpansionInitListExpr>(Init->getRangeExpr())
+      ->getSubExprs().size();
 }

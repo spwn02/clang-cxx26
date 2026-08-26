@@ -898,3 +898,108 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   `->getAsIdentifier()` as pointer-style calls, `ElaboratedType` itself).
 - Not committed; `clangAST` has not built successfully. Do not mark
   Milestone 4 progress beyond this note until it does.
+
+### 2026-08-27 — Milestone 4: SemaOverload.cpp/SemaTemplate.cpp reconciled; 15 more wholesale files discovered and fixed
+
+- Resumed from the 2026-08-26 checkpoint's stated next action (three-way
+  reconcile `SemaOverload.cpp`/`SemaTemplate.cpp`) but first re-verified
+  against on-disk content rather than trusting the prior session's own log:
+  both files were confirmed byte-identical to the pre-merge fork tip
+  `6dd950bcd4ac`, i.e. genuinely still wholesale despite an earlier
+  (2026-08-26, "APValue reflection API restoration") log entry listing
+  `SemaOverload.cpp` among files already "applied" — that earlier entry was
+  wrong for this file; trust `git diff --quiet 6dd950bcd4ac -- <file>`, not
+  prior narrative.
+- 3-way merged both (base `b1774222c761a7912cdbe0d0004ca12dae95f721`, local
+  `6dd950bcd4ac`, upstream = current `HEAD`, confirmed equal to the
+  `llvmorg-22.1.8` tag for both files). One conflict each:
+  - `SemaOverload.cpp`: `AddTypesConvertedFrom`'s local reflection-type
+    branch (`Ty->isReflectionType()`) combined with upstream's
+    `RecordType*` → `bool TyIsRec` modernization.
+  - `SemaTemplate.cpp`: `UnnamedLocalNoLinkageFinder::VisitNestedNameSpecifier`
+    combined local's reflection intent with upstream's by-value
+    `NestedNameSpecifier`/`Kind` redesign; added `Kind::Splice` and
+    `Kind::SpliceWithTemplate` to the same no-recursion-needed bucket as
+    `MicrosoftSuper` (`SpliceSpecifier` has no prefix chain to walk, mirroring
+    the ODRHash.cpp precedent from the 2026-08-26 log, now revisited since a
+    real Splice kind exists).
+  - Verified reflection-content line counts (`grep -ci
+    'splice\|reflect\|metafunction'`) before/after against the fork tip
+    matched (9→9, 11→12, the +1 explained by the added switch case) — the
+    "did the merge silently drop a local addition" check the systemic-finding
+    entries above established but that this session had initially skipped.
+- Both files then pass direct LLVM 22 `-fsyntax-only` compilation (only the
+  already-documented `EnumeratorSpec` switch-coverage warning).
+- Before continuing, swept the *entire* fork-touched file list (206 files
+  changed between merge-base and `6dd950bcd4ac`) for any still byte-identical
+  to the fork tip, since the `SemaOverload.cpp` discrepancy proved the
+  session-log narrative alone isn't trustworthy. Found 15 more, all real
+  (non-trivial) local deltas, contradicting their own prior "applied" log
+  entries: `LocInfoType.h`, `StmtCXX.h`, `Parse/CMakeLists.txt` (both the
+  `include` and `lib` ones), `RAIIObjectsForParser.h`, `Sema/Lookup.h`,
+  `AttrImpl.cpp`, `ExprClassification.cpp`, `NSAPI.cpp`, `StmtCXX.cpp`,
+  `OperatorPrecedence.cpp`, `ParseExprCXX.cpp`, `ParseTemplate.cpp`,
+  `ScopeInfo.cpp`, `SemaTemplateInstantiateDecl.cpp`.
+- 3-way merged all 15: 11 zero-conflict (of which 3 —  `StmtCXX.h`,
+  `Sema/Lookup.h`, `Parse/CMakeLists.txt` — merged to content byte-identical
+  to the fork tip, confirmed correct because upstream made zero independent
+  changes to those files beyond the shared merge-base, not a dropped-merge
+  artifact). 4 had 1 conflict each, resolved by hand:
+  - `ExprClassification.cpp`: local's `CXXSpliceExprClass` value-classification
+    case and upstream's independent `MatrixSingleSubscriptExprClass` case are
+    unrelated additions in the same switch region; kept both.
+  - `ParseExprCXX.cpp` (`ParseCXXCondition`): local changed the condition
+    expression's evaluation context from `ConstantEvaluated` to
+    `ImmediateFunctionContext` while upstream, independently, flattened the
+    same region's helper lambda into plain statements (pure style, verified
+    by diffing base vs. upstream directly — no semantic change upstream side).
+    Combined: upstream's flattened structure, local's `ImmediateFunctionContext`.
+  - `ParseTemplate.cpp`: comment-only conflict; took upstream's more
+    descriptive wording.
+  - `SemaTemplateInstantiateDecl.cpp`: local's manual immediate-function-context
+    bookkeeping vs. upstream's new `EnterExpressionEvaluationContextForFunction`
+    helper. Confirmed by reading `Sema::PushExpressionEvaluationContextForFunction`
+    (`SemaExpr.cpp:17945`) that it already subsumes local's logic
+    (`FD->isConsteval()` → `ImmediateFunctionContext`,
+    `InImmediateEscalatingFunctionContext = FD->isImmediateEscalating()`) —
+    this is the same resolution the 2026-08-26 log already documented for a
+    different call site; applied the identical precedent here.
+- Diagnosed and fixed a real shell-portability bug during verification, not a
+  reconciliation bug: this environment's default shell is `zsh`, which does
+  not word-split unquoted variable expansion by default. Storing the direct
+  LLVM 22 compile command in a `FLAGS="..."` shell variable and interpolating
+  `$FLAGS` unquoted silently collapsed every flag into one argument, so the
+  first batch verification pass reported dozens of spurious "no member"/
+  "unknown type" errors for `AttrImpl.cpp`, `ExprClassification.cpp`,
+  `NSAPI.cpp`, `StmtCXX.cpp`, and `OperatorPrecedence.cpp` that were entirely
+  artifacts of the broken include-path search list (confirmed via `clang++
+  -v -fsyntax-only`, which showed only 2 of 8 intended `-I` flags actually
+  reaching the compiler). Re-running the identical command through `bash -c`
+  (which does word-split) showed all 5 files compile cleanly. **Always wrap
+  multi-flag direct-compile verification in `bash -c '...'` or write flags
+  literally on the command line in this environment; never trust a bare
+  `$VAR`-interpolated multi-flag command's error output at face value.**
+- After the shell-bug correction, `SemaTemplateInstantiateDecl.cpp` had two
+  genuine remaining errors (independent of the merge conflict already
+  resolved above), both instances of the by-value `NestedNameSpecifier` and
+  `NamespaceBaseDecl` migrations already established elsewhere in this sync:
+  `VisitNamespaceAliasDecl`'s `NestedNameSpecifier *NNS = ...` →
+  `NestedNameSpecifier NNS = ...` (matching the `NNS && NNS.isDependent()`
+  idiom already used in `SemaCXXScopeSpec.cpp`/`SemaDeclCXX.cpp`/`SemaExpr.cpp`/
+  `SemaTemplate.cpp`), and `NamedDecl *NSDecl` → `NamespaceBaseDecl *NSDecl`
+  (matching `NamespaceAliasDecl::Create`'s and `getAliasedNamespace()`'s
+  already-reconciled `NamespaceBaseDecl *` signatures in `DeclCXX.h`).
+- All 17 files touched this session (the original 2 plus the 15 newly
+  discovered) now pass direct LLVM 22 `-fsyntax-only` compilation with no
+  errors, only the already-documented reflection-switch-coverage warnings.
+- **Carry forward**: the same "trust `git diff --quiet <file> <fork-tip>`
+  over the session log" sweep should be repeated again before trusting *this*
+  session's own "applied" claims in a future session — the failure mode
+  (a file logged as reconciled that silently reverted to, or was never
+  actually saved as, the wholesale fork copy) has now recurred twice.
+- Next action: repeat the wholesale-file sweep restricted to Parse/Sema/AST
+  files not yet checked this pass, then port the new local `SemaReflect.cpp`
+  (no upstream counterpart — a manual port, not a merge) across LLVM 22
+  template, type, and nested-name-specifier APIs, letting the compiler drive
+  fixes batched by API per the enumerated failure classes in
+  `HANDOFF_2026-08-26.md`.
