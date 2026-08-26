@@ -15,6 +15,7 @@
 
 #include "clang/AST/Decl.h"
 #include "clang/AST/NestedNameSpecifierBase.h"
+#include "clang/AST/SpliceSpecifier.h"
 #include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
 #include "llvm/ADT/DenseMapInfo.h"
@@ -36,6 +37,10 @@ auto NestedNameSpecifier::getKind() const -> Kind {
   switch (auto [K, Ptr] = getStored(); K) {
   case StoredKind::Type:
     return Kind::Type;
+  case StoredKind::Splice:
+    return Kind::Splice;
+  case StoredKind::SpliceWithTemplate:
+    return Kind::SpliceWithTemplate;
   case StoredKind::NamespaceWithGlobal:
   case StoredKind::NamespaceWithNamespace:
     return Kind::Namespace;
@@ -73,6 +78,8 @@ auto NestedNameSpecifier::MakeNamespacePtrKind(
             MakeNamespaceAndPrefixStorage(Ctx, Namespace, Prefix)};
   case Kind::MicrosoftSuper:
   case Kind::Type:
+  case Kind::Splice:
+  case Kind::SpliceWithTemplate:
     llvm_unreachable("invalid prefix for namespace");
   }
   llvm_unreachable("unhandled kind");
@@ -93,6 +100,14 @@ NestedNameSpecifier::NestedNameSpecifier(CXXRecordDecl *RD)
   assert(getKind() == Kind::MicrosoftSuper);
 }
 
+NestedNameSpecifier::NestedNameSpecifier(const SpliceSpecifier *S,
+                                         bool WithTemplate)
+    : NestedNameSpecifier({WithTemplate ? StoredKind::SpliceWithTemplate
+                                       : StoredKind::Splice,
+                           S}) {
+  assert(getKind() == (WithTemplate ? Kind::SpliceWithTemplate : Kind::Splice));
+}
+
 CXXRecordDecl *NestedNameSpecifier::getAsRecordDecl() const {
   switch (getKind()) {
   case Kind::MicrosoftSuper:
@@ -102,6 +117,8 @@ CXXRecordDecl *NestedNameSpecifier::getAsRecordDecl() const {
   case Kind::Global:
   case Kind::Namespace:
   case Kind::Null:
+  case Kind::Splice:
+  case Kind::SpliceWithTemplate:
     return nullptr;
   }
   llvm_unreachable("Invalid NNS Kind!");
@@ -112,6 +129,8 @@ NestedNameSpecifier NestedNameSpecifier::getCanonical() const {
   case NestedNameSpecifier::Kind::Null:
   case NestedNameSpecifier::Kind::Global:
   case NestedNameSpecifier::Kind::MicrosoftSuper:
+  case NestedNameSpecifier::Kind::Splice:
+  case NestedNameSpecifier::Kind::SpliceWithTemplate:
     // These are canonical and unique.
     return *this;
   case NestedNameSpecifier::Kind::Namespace: {
@@ -162,6 +181,13 @@ NestedNameSpecifierLoc::getLocalDataLength(NestedNameSpecifier Qualifier) {
     // The "void*" that points at the TypeLoc data.
     // Note: the 'template' keyword is part of the TypeLoc.
     Length += sizeof(void *);
+    break;
+
+  case NestedNameSpecifier::Kind::Splice:
+    Length += sizeof(void *);
+    break;
+  case NestedNameSpecifier::Kind::SpliceWithTemplate:
+    Length += sizeof(void *) + sizeof(SourceLocation::UIntTy);
     break;
 
   case NestedNameSpecifier::Kind::Null:
@@ -219,6 +245,14 @@ SourceRange NestedNameSpecifierLoc::getLocalSourceRange() const {
     TypeLoc TL(Qualifier.getAsType(), TypeData);
     return SourceRange(TL.getBeginLoc(), LoadSourceLocation(sizeof(void *)));
   }
+  case NestedNameSpecifier::Kind::Splice: {
+    const auto *S = static_cast<const SpliceSpecifier *>(LoadPointer(0));
+    return SourceRange(S->getBeginLoc(), LoadSourceLocation(sizeof(void *)));
+  }
+  case NestedNameSpecifier::Kind::SpliceWithTemplate:
+    return SourceRange(
+        LoadSourceLocation(sizeof(void *)),
+        LoadSourceLocation(sizeof(void *) + sizeof(SourceLocation::UIntTy)));
   }
 
   llvm_unreachable("Invalid NNS Kind!");

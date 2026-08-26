@@ -17,6 +17,7 @@
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DependenceFlags.h"
 #include "clang/AST/PrettyPrinter.h"
+#include "clang/AST/SpliceSpecifier.h"
 #include "clang/AST/TemplateName.h"
 #include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
@@ -63,6 +64,9 @@ bool NestedNameSpecifier::isFullyQualified() const {
     return getAsNamespaceAndPrefix().Prefix.isFullyQualified();
   case NestedNameSpecifier::Kind::Type:
     return getAsType()->getPrefix().isFullyQualified();
+  case NestedNameSpecifier::Kind::Splice:
+  case NestedNameSpecifier::Kind::SpliceWithTemplate:
+    return false;
   }
   llvm_unreachable("Invalid NNS Kind!");
 }
@@ -82,6 +86,9 @@ NestedNameSpecifierDependence NestedNameSpecifier::getDependence() const {
   }
   case Kind::Type:
     return toNestedNameSpecifierDependence(getAsType()->getDependence());
+  case Kind::Splice:
+  case Kind::SpliceWithTemplate:
+    return toNestedNameSpecifierDependence(getAsSplice()->getDependence());
   }
   llvm_unreachable("Invalid NNS Kind!");
 }
@@ -117,6 +124,12 @@ void NestedNameSpecifier::print(raw_ostream &OS, const PrintingPolicy &Policy,
   }
   case Kind::Null:
     return;
+  case Kind::SpliceWithTemplate:
+    OS << "template ";
+    [[fallthrough]];
+  case Kind::Splice:
+    OS << "[: splice :]";
+    break;
   }
   if (PrintFinalScopeResOp)
     OS << "::";
@@ -287,6 +300,18 @@ void NestedNameSpecifierLocBuilder::MakeMicrosoftSuper(
   SaveSourceLocation(ColonColonLoc, Buffer, BufferSize, BufferCapacity);
 }
 
+void NestedNameSpecifierLocBuilder::MakeSpliceScopeSpecifier(
+    ASTContext &Context, SourceLocation TemplateKWLoc,
+    const SpliceSpecifier *Splice, SourceLocation ColonColonLoc) {
+  assert(!Representation);
+  Representation = NestedNameSpecifier(Splice, TemplateKWLoc.isValid());
+  SavePointer(const_cast<SpliceSpecifier *>(Splice), Buffer, BufferSize,
+              BufferCapacity);
+  if (TemplateKWLoc.isValid())
+    SaveSourceLocation(TemplateKWLoc, Buffer, BufferSize, BufferCapacity);
+  SaveSourceLocation(ColonColonLoc, Buffer, BufferSize, BufferCapacity);
+}
+
 void NestedNameSpecifierLocBuilder::PushTrivial(ASTContext &Context,
                                                 NestedNameSpecifier Qualifier,
                                                 SourceRange R) {
@@ -310,6 +335,13 @@ void NestedNameSpecifierLocBuilder::PushTrivial(ASTContext &Context,
   }
   case NestedNameSpecifier::Kind::Global:
   case NestedNameSpecifier::Kind::MicrosoftSuper:
+    break;
+  case NestedNameSpecifier::Kind::Splice:
+  case NestedNameSpecifier::Kind::SpliceWithTemplate:
+    SavePointer(const_cast<SpliceSpecifier *>(Qualifier.getAsSplice()), Buffer,
+                BufferSize, BufferCapacity);
+    if (Qualifier.getKind() == NestedNameSpecifier::Kind::SpliceWithTemplate)
+      SaveSourceLocation(R.getBegin(), Buffer, BufferSize, BufferCapacity);
     break;
   }
   SaveSourceLocation(R.getEnd(), Buffer, BufferSize, BufferCapacity);

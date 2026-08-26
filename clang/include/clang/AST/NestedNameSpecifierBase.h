@@ -33,6 +33,7 @@ class IdentifierInfo;
 class LangOptions;
 class NamespaceBaseDecl;
 struct PrintingPolicy;
+class SpliceSpecifier;
 class Type;
 class TypeLoc;
 
@@ -51,10 +52,12 @@ struct alignas(8) NamespaceAndPrefixStorage;
 class NestedNameSpecifier {
   enum class FlagKind { Null, Global, Invalid };
   enum class StoredKind {
-    Type,
-    NamespaceOrSuper,
-    NamespaceWithGlobal,
-    NamespaceWithNamespace
+    Type = 0,
+    Splice = 1,
+    NamespaceOrSuper = 2,
+    SpliceWithTemplate = 3,
+    NamespaceWithGlobal = 4,
+    NamespaceWithNamespace = 6
   };
   static constexpr uintptr_t FlagBits = 2, FlagMask = (1u << FlagBits) - 1u,
                              FlagOffset = 1, PtrOffset = FlagBits + FlagOffset,
@@ -69,7 +72,7 @@ class NestedNameSpecifier {
     const void *Ptr;
   };
   explicit NestedNameSpecifier(PtrKind PK)
-      : StoredOrFlag(uintptr_t(PK.Ptr) | (uintptr_t(PK.SK) << FlagOffset)) {
+      : StoredOrFlag(uintptr_t(PK.Ptr) | uintptr_t(PK.SK)) {
     assert(PK.Ptr != nullptr);
     assert((uintptr_t(PK.Ptr) & ((1u << PtrOffset) - 1u)) == 0);
     assert((uintptr_t(PK.Ptr) >> PtrOffset) != 0);
@@ -82,7 +85,7 @@ class NestedNameSpecifier {
 
   std::pair<StoredKind, const void *> getStored() const {
     assert(isStoredKind());
-    return {StoredKind(StoredOrFlag >> FlagOffset & FlagMask),
+    return {StoredKind(StoredOrFlag & PtrMask),
             reinterpret_cast<const void *>(StoredOrFlag & ~PtrMask)};
   }
 
@@ -128,6 +131,10 @@ public:
     /// Microsoft's '__super' specifier, stored as a CXXRecordDecl* of
     /// the class it appeared in.
     MicrosoftSuper,
+
+    Splice,
+
+    SpliceWithTemplate,
   };
 
   inline Kind getKind() const;
@@ -144,6 +151,9 @@ public:
   /// Builds a nested name specifier that names a class through microsoft's
   /// __super specifier.
   explicit inline NestedNameSpecifier(CXXRecordDecl *RD);
+
+  explicit inline NestedNameSpecifier(const SpliceSpecifier *S,
+                                      bool WithTemplate = false);
 
   explicit operator bool() const { return StoredOrFlag != 0; }
 
@@ -162,6 +172,15 @@ public:
   }
 
   inline NamespaceAndPrefix getAsNamespaceAndPrefix() const;
+
+  const SpliceSpecifier *getAsSplice() const {
+    if (!isStoredKind())
+      return nullptr;
+    auto [K, Ptr] = getStored();
+    if (K != StoredKind::Splice && K != StoredKind::SpliceWithTemplate)
+      return nullptr;
+    return static_cast<const SpliceSpecifier *>(Ptr);
+  }
 
   CXXRecordDecl *getAsMicrosoftSuper() const {
     auto [Kind, Ptr] = getStored();
@@ -289,7 +308,9 @@ NamespaceAndPrefix NestedNameSpecifier::getAsNamespaceAndPrefix() const {
                 : std::nullopt};
   case StoredKind::NamespaceWithNamespace:
     return *static_cast<const NamespaceAndPrefixStorage *>(Ptr);
-  case StoredKind::Type:;
+  case StoredKind::Type:
+  case StoredKind::Splice:
+  case StoredKind::SpliceWithTemplate:;
   }
   llvm_unreachable("unexpected stored kind");
 }
@@ -506,6 +527,11 @@ public:
   void MakeMicrosoftSuper(ASTContext &Context, CXXRecordDecl *RD,
                           SourceLocation SuperLoc,
                           SourceLocation ColonColonLoc);
+
+  void MakeSpliceScopeSpecifier(ASTContext &Context,
+                                SourceLocation TemplateKWLoc,
+                                const SpliceSpecifier *Splice,
+                                SourceLocation ColonColonLoc);
 
   /// Make a new nested-name-specifier from incomplete source-location
   /// information.

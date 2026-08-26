@@ -20724,7 +20724,9 @@ static bool EvaluateDestruction(const ASTContext &Ctx, APValue::LValueBase Base,
 }
 
 bool Expr::EvaluateAsConstantExpr(EvalResult &Result, const ASTContext &Ctx,
-                                  ConstantExprKind Kind) const {
+                                  ConstantExprKind Kind,
+                                  Decl *ContainingDecl) const {
+  (void)ContainingDecl;
   assert(!isValueDependent() &&
          "Expression evaluator can't be called on a dependent expression.");
   bool IsConst;
