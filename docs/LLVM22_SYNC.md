@@ -1069,3 +1069,122 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   clearing the remaining wholesale/conflicted files (see the 2026-08-26
   systemic-finding entries for the exact list) toward a first successful
   `clangAST`/`clangSema` build.
+
+### 2026-08-27 — Milestone 4: first `clangAST`/`clangSema` build attempt, wholesale sweep
+
+- Kicked off the first real `ninja -C build-nyx clangAST clangSema` build of
+  the session (ninja's on-disk state had gone stale enough to warrant a full
+  `-j$(nproc)` rebuild from LLVMSupport up; the "premature end of file"
+  warning noted in earlier sessions is `ninja` recovering its own build log,
+  not a source problem).
+- First failure was unrelated to reflection: `clang/lib/AST/TextNodeDumper.cpp`
+  still `#include`s `llvm/Frontend/HLSL/HLSLRootSignatureUtils.h`, the fork's
+  pre-rename header name. Upstream renamed/split this to
+  `llvm/Frontend/HLSL/HLSLRootSignature.h` before `llvmorg-22.1.8` (confirmed
+  via `git show <upstream-tag>:clang/lib/AST/TextNodeDumper.cpp`, whose own
+  `#include` already uses the new name, and via upstream commit
+  `9ec5afea7737` "[NFC][RootSignature] Move RootSignature util functions").
+  The M2 merge conflict on this line resolved to the fork's stale name
+  instead of upstream's. Fixed by matching upstream's include; verified the
+  only symbol the file uses from it, `llvm::hlsl::rootsig::dumpRootElements`,
+  is declared in the new header. No other file in the tree referenced the
+  old header name.
+- Ran the carry-forward "reflection-content line count" sweep tree-wide this
+  time (every `clang/` file present at fork tip `6dd950bcd4ac`, comparing
+  `grep -ci 'splice|reflect|metafunction'` then vs. now), not just a
+  hand-picked file list. Most deltas are false positives from legitimate
+  upstream file splits/renames that a per-path count can't see across:
+  `Type.h` (29→0) is now a 93-line upstream shim, with the content that
+  matters moved into the new `TypeBase.h` (0→27, i.e. carried over
+  correctly); `Reflection.h` (22→4) lost its `ReflectionKind` enum to the
+  new `ReflectionValue.h` (0→4), which still has all 14 original
+  enumerators, just reformatted onto fewer lines; `Driver/Options.td`
+  (16→MISSING) moved wholesale to `Options/Options.td` (0→16, exact count
+  match). Two `MISSING` test files (`acle_sve_splice-bfloat.c`,
+  `debug-info-ivars-indirect.m`) are confirmed absent from the upstream tag
+  too (the former merged into `acle_sve_splice.c`, which grew 66→73; the
+  latter a plain upstream removal) — not local drops.
+- One finding is real and unaddressed: `clang/lib/AST/ItaniumMangle.cpp`
+  (51→4 matches) and `clang/lib/AST/MicrosoftMangle.cpp` (21→4) both lost
+  their entire reflection-mangling support in the M2 wholesale-upstream
+  resolution and it was never restored. Confirmed by diffing against
+  `6dd950bcd4ac`: both lost a `mangleReflection(const APValue &)` method
+  (switching on every `ReflectionKind` to mangle a reflected type/object/
+  value/decl/template/namespace/entity-proxy/parameter/base-specifier/
+  data-member-spec/annotation), `mangleType(const ReflectionSpliceType *)`,
+  and (Itanium only) `NestedNameSpecifier::Splice`/`SpliceWithTemplate`
+  handling in both the nested-name-specifier mangler and the general
+  expression mangler (`CXXReflectExpr`, `CXXMetafunctionExpr`,
+  `CXXSpliceExprClass`, `CXXDependentMemberSpliceExprClass`). What remains
+  in both files is only the leftover `case APValue::Reflection:` arms,
+  which now hit `llvm_unreachable` instead of calling the removed
+  `mangleReflection`. This is a silent-miscompile risk, not a build error:
+  neither switch is over an enum without a default/unreachable arm, so nothing
+  currently fails to compile — but any template instantiated with a
+  reflection-valued non-type template argument will hit the
+  `llvm_unreachable` at mangle time. Not yet restored; carrying forward as
+  the next concrete Milestone 4 restoration target after the current build's
+  error surface is triaged, since Sema/AST must be stable before mangling
+  can be meaningfully tested.
+- Build is still in progress (LLVM support/analysis libraries, not yet at
+  `clang/lib`); next action is to let it reach `clang/lib/AST`/`clang/lib/Sema`
+  and triage whatever errors land there, batched by API per the established
+  pattern, before returning to the two mangler files.
+- The build reached `clang/lib` and surfaced two real failures, both fixed:
+  - `clang/lib/AST/TextNodeDumper.cpp`: a duplicate `case APValue::Reflection:`
+    arm (one stray copy reading "Reflection <opaque>" alongside the fork's
+    original "Reflection <todo>"; removed the stray one).
+    `dumpNestedNameSpecifier` still took `const NestedNameSpecifier *` and
+    switched on the pre-LLVM-22 `Identifier`/`Namespace`/`NamespaceAlias`/
+    `TypeSpec`/`Global`/`Super` enumerators with a manual `getPrefix()`
+    recursion — the header (`TextNodeDumper.h:214`) already declared the
+    by-value `NestedNameSpecifier NNS` signature, so this was a plain
+    unported holdout. Rewrote to match the by-value `Kind::{Namespace,Type,
+    Global,MicrosoftSuper,Splice,SpliceWithTemplate}` switch already
+    established as this sync's precedent in `NestedNameSpecifier.cpp`,
+    taking upstream's own reconciled `dumpNestedNameSpecifier` (confirmed via
+    `git show <upstream-tag>:clang/lib/AST/TextNodeDumper.cpp`) as the base
+    and adding back the two local `Splice`/`SpliceWithTemplate` arms.
+    `VisitUsingType` called the removed `UsingType::getFoundDecl()`/
+    `typeMatchesDecl()`; replaced with upstream's reconciled body (keyword +
+    `dumpNestedNameSpecifier(qualifier)` + `dumpDeclRef` + `dumpType`, no
+    local reflection-specific content to preserve there). Three
+    `D->getQualifier()->print(...)` call sites (`VisitUsingDecl`,
+    `VisitUnresolvedUsingTypenameDecl`, `VisitUnresolvedUsingValueDecl`)
+    needed `->` → `.` for the same by-value migration. Also added the
+    unrelated-to-reflection `RootSignatureVersion::V1_2` switch arm upstream
+    added after this file's `HLSLRootSignatureUtils.h`-era baseline, to reach
+    a fully warning-clean compile of the file.
+  - `clang/lib/Sema/SemaTypeTraits.cpp` referenced `UTT_IsConstevalOnly` in
+    two `switch` arms (both already correct and complete: one calls
+    `RequireCompleteType`, the other calls the already-present
+    `Type::isConstevalOnly()`/`RecordDecl::isConstevalOnly()`), but the
+    identifier itself was undeclared. Root cause: the fork's
+    `TokenKinds.def` had `TYPE_TRAIT_1(__is_consteval_only, IsConstevalOnly,
+    KEYCXX)` (confirmed via `git show 6dd950bcd4ac:...TokenKinds.def`), and
+    the M2 wholesale-upstream resolution of this file (in the "48 files"
+    category) dropped it with no upstream equivalent to fall back on, unlike
+    most of that category's drops. Restored the single macro line in its
+    original alphabetical slot (between `__is_aggregate` and `__is_base_of`).
+    This is a real, standalone data point for the "M2 wholesale resolution
+    silently dropped fork-only content" failure mode this tracker has now
+    recorded repeatedly — worth another full-tree sweep of `.def`/`.td`
+    files specifically (as opposed to `.cpp`/`.h`) before Milestone 4 closes,
+    since this one was invisible to the reflection-content grep sweep (the
+    string "consteval" doesn't match `splice|reflect|metafunction`).
+  - Two files, one real bug batch each; no other errors. Rebuilt clean:
+    `ninja -C build-nyx clangAST clangSema` now reaches
+    `[1655/1655] Linking CXX static library lib/libclangSema.a` with **zero
+    errors**, only the pre-existing, already-tracked `EnumeratorSpec`
+    `-Wswitch` warning (3 instantiation sites, all downstream of the same
+    known-incomplete metafunction-kind switch in `SemaReflect.cpp`/
+    `TreeTransform.h`). This is the first successful `clangAST`+`clangSema`
+    build since the LLVM 22 merge began.
+- Next action: build the full `clang` driver/frontend binary (needs
+  CodeGen/Serialization/Frontend, which are Milestone 5 territory per the
+  `ExprConstantMeta.cpp`/`ExprConstant.cpp` gap already on record) far enough
+  to run `clang/test/Reflection/`; triage whatever new errors land there
+  before deciding whether Milestone 4's gate can close on `clangAST`/
+  `clangSema` alone or needs the mangler restoration
+  (`ItaniumMangle.cpp`/`MicrosoftMangle.cpp`, still outstanding, see above)
+  first.
