@@ -81,9 +81,11 @@ Milestone 4 is active. On `Continue`:
 
 1. Inventory the first-parent reflection parser, AST, Sema, template, and
    driver changes omitted from the LLVM 22 baseline.
-2. Reintroduce one coherent subsystem at a time against LLVM 22 APIs.
+2. Reintroduce the reflection expression family as one integrated AST/Sema/
+   parser/visitor/profiler/dumper/importer/serialization bundle; do not land
+   isolated generated `StmtNode` classes.
 3. Build the affected targets and run focused reflection tests after each
-   subsystem; preserve the known baseline failure only where reproduced.
+   integrated bundle; preserve the known baseline failure only where reproduced.
 
 ## Milestones
 
@@ -295,3 +297,13 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   `SpliceSpecifierDependence`; no pre-existing conversion was replaced.
 - `ninja -C build-nyx -j22 clangAST` passed after adding
   `SpliceSpecifier.cpp` to the AST library.
+
+### 2026-08-26 — Milestone 4 expression-family boundary
+
+- The LLVM 22 integration audit found that `CXXSpliceExpr` alone crosses 28
+  first-parent files: AST dependence, visitors, profiling, printing, codegen,
+  parser, Sema, tree transforms, static analysis, and AST serialization.
+  An isolated node attempt was reverted after its AST build exposed the missing
+  visitor and profiler integrations. The validated splice-specifier foundation
+  remains; restore the expression family only as its complete cross-subsystem
+  bundle.
