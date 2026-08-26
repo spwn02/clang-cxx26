@@ -1003,3 +1003,69 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   template, type, and nested-name-specifier APIs, letting the compiler drive
   fixes batched by API per the enumerated failure classes in
   `HANDOFF_2026-08-26.md`.
+
+### 2026-08-27 — Milestone 4: SemaReflect.cpp manually ported to LLVM 22, zero errors
+
+- `SemaReflect.cpp` has no upstream counterpart, so this was a manual port
+  driven by the compiler's error list (`-ferror-limit=0`), not a merge.
+  Started at 23 direct errors (some duplicated across `SmallVector.h`
+  instantiation sites), all falling into the API-mismatch classes the
+  2026-08-26 handoff had already enumerated. Fixed in batches by API:
+  - `TagDecl::getTypeForDecl()` removed upstream (6 call sites): replaced
+    with `Decl->getASTContext().getCanonicalTagType(Decl)`, matching the
+    precedent already established in `APValue.cpp` this sync.
+  - `ASTContext::getRecordType(RecordDecl*)` removed upstream (1 call site,
+    the `std::source_location` metafunction result type): same
+    `getCanonicalTagType` replacement.
+  - `CXXScopeSpec::Extend(Context, TypeLoc, Loc)` no longer exists — a
+    type-qualified scope spec is always the *first* component now, so the
+    correct call is `Make`, not `Extend` (3 call sites, matching the idiom
+    already used throughout `SemaCXXScopeSpec.cpp`).
+  - `Sema::CheckTemplateIdType`/`ASTContext::getDeducedTemplateSpecializationType`
+    both gained a leading `ElaboratedTypeKeyword` parameter and trailing
+    `Scope*`/`bool ForNestedNameSpecifier` parameters upstream (6 call
+    sites); passed `ElaboratedTypeKeyword::None`, `/*Scope=*/nullptr`,
+    `/*ForNestedNameSpecifier=*/false` throughout, matching every other
+    reconciled call site of this API in the tree (`SemaCoroutine.cpp`,
+    `SemaDeclCXX.cpp`, etc.) — these are inferred defaults, not verified
+    against the fork's original intent, so a later reflection-test failure
+    touching template-id splices should look here first.
+  - `Sema::CheckVarTemplateId(VarTemplateDecl*, ...)` gained a trailing
+    `bool SetWrittenArgs` (1 call site); passed `/*SetWrittenArgs=*/false`,
+    matching the 6-arg overload's own internal call to the 5-arg one.
+  - `ParsedTemplateArgument::getLocation()` renamed to `getNameLoc()` (2 call
+    sites); its 4-arg `(TemplateKwLoc, SS, Template, NameLoc)` constructor
+    gained the leading `TemplateKwLoc` (1 call site, passed `SourceLocation()`
+    since no real template keyword exists in this synthetic-argument path).
+  - `NestedNameSpecifierLoc::getNestedNameSpecifier()` now returns
+    `NestedNameSpecifier` by value, not `NestedNameSpecifier *` (1 call site,
+    `SS.getScopeRep()->isDependent()` → `.isDependent()`).
+  - `UsingType::getFoundDecl()` renamed to `getDecl()` — verified via the
+    fork tip (`6dd950bcd4ac`) that both always returned `UsingShadowDecl *`
+    (the same stored field, just renamed), not a different entity, so this
+    is a pure rename with no semantic change.
+  - `TemplateSpecializationTypeLoc::setTemplateNameLoc()` no longer exists
+    (only `DeducedTemplateSpecializationTypeLoc` kept the single-field
+    setter); `ASTContext::getReflectionSpliceType` was confirmed (by reading
+    its implementation) to *always* return a `ReflectionSpliceType*`
+    regardless of the underlying reflected entity, which made the calling
+    code's `isa<TemplateSpecializationType>`/`isa<DeducedTemplateSpecializationType>`
+    branches in `BuildReflectionSpliceTypeLoc` dead on every path. Collapsed
+    the three-way branch to a single `TLB.pushTrivial(Context, SpliceTy,
+    Loc)`. Verified this is not a behavior change: `ReflectionSpliceTypeLoc`
+    defines no `getInnerType()`, so `TypeLoc::getNextTypeLoc()` returns empty
+    for it and `pushTrivial`'s desugar-chain walk produces exactly the one
+    no-op `initializeLocal` call that the bare `TLB.push<ReflectionSpliceTypeLoc>`
+    it replaced already did.
+- `SemaReflect.cpp` now passes direct LLVM 22 `-fsyntax-only` compilation
+  with zero errors; the only remaining diagnostics are the two
+  already-documented `EnumeratorSpec`-not-handled `-Wswitch` warnings.
+- Not yet run through the focused reflection test suite or a full
+  `clangSema`/`clangAST` build — `NestedNameSpecifier`/`ElaboratedType`
+  splice-scope-dependent files (`Type.cpp`, `SemaCXXScopeSpec.cpp`,
+  `TreeTransform.h`, `ASTImporter.cpp`, `ASTStructuralEquivalence.cpp`,
+  `SemaExprCXX.cpp`) are still pending from earlier in Milestone 4, so a
+  full library build is not yet expected to succeed. Next action: continue
+  clearing the remaining wholesale/conflicted files (see the 2026-08-26
+  systemic-finding entries for the exact list) toward a first successful
+  `clangAST`/`clangSema` build.
