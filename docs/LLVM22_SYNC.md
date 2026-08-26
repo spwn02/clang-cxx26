@@ -1188,3 +1188,163 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   `clangSema` alone or needs the mangler restoration
   (`ItaniumMangle.cpp`/`MicrosoftMangle.cpp`, still outstanding, see above)
   first.
+- Built the full `clang` binary target. First pass surfaced 5 errors, all in
+  `clang/lib/Parse/` (clangParse depends on nothing clangAST/clangSema's
+  build already exercised), all fixed, commit `5f79df509148`:
+  - `ParseDeclCXX.cpp`: the splice-as-namespace-alias path
+    (`ActOnNamespaceAliasDef`'s 7-arg overload) passed
+    `cast<NamedDecl>(DR.get())` but that overload takes `NamespaceBaseDecl
+    *ND`. Verified safe: `BuildReflectionSpliceNamespace`
+    (`SemaReflect.cpp:1897`) explicitly rejects a `TranslationUnitDecl`
+    result before returning, so every successful result is a
+    `NamespaceDecl`/`NamespaceAliasDecl`/`DependentNamespaceDecl`, all of
+    which derive from `NamespaceBaseDecl`.
+  - `ParseExpr.cpp`: the recursive `ParseCastExpression` call after
+    splice-scope annotation forwarded the removed `isTypeCast` bool
+    instead of the enclosing function's own `CorrectionBehavior`
+    (`TypoCorrectionTypeBehavior`) parameter — a plain unrenamed
+    identifier, not an API redesign.
+  - `ParseReflect.cpp`: `CXXScopeSpec::getScopeRep()` returns
+    `NestedNameSpecifier` by value now (`DeclSpec.h:98`); switched
+    `->getKind() == NestedNameSpecifier::Global` to `.getKind() ==
+    NestedNameSpecifier::Kind::Global`, matching every other by-value
+    `NestedNameSpecifier` callsite already reconciled this sync.
+  - `ParseStmt.cpp`: the expansion-statement `for` parse called the
+    2-argument `ParseForStatement(TrailingElseLoc, PrecedingLabel)` with
+    only 1 argument, unlike the ordinary `case tok::kw_for:` path three
+    lines below it in the same switch, which already passes both.
+  - **Systemic finding, high severity**: while diffing `ParseReflect.cpp`
+    it turned out the file was entirely untracked by git (`git status`
+    showed `??`, not `M`) — a prior session had recreated its content on
+    disk but never `git add`ed it. Broadening the check
+    (`git status --untracked-files=all`, filtered to non-build paths)
+    found 22 such files total, all real, all load-bearing, all currently
+    compiling as dependencies of `clangAST`/`clangSema`/`clangParse`:
+    `AST/MetaActions.h`, `AST/Metafunction.h`,
+    `Basic/DiagnosticMetafn.h`, `Basic/DiagnosticMetafnKinds.td`,
+    `Parse/ParseReflect.cpp`, `Sema/SemaExpand.cpp`, and all 16 files of
+    `clang/test/Reflection/`. Root cause: `llvmorg-22.1.8` has no
+    corresponding paths, so the M2 merge's upstream-side deletion of them
+    was never a real conflict, and some later session's reconciliation
+    work silently recreated the content without restoring git tracking.
+    This left a nontrivial fraction of this sync's actual work (including
+    the entire reflection test suite) one `git clean -fd` or `checkout .`
+    away from silent, total loss. Restored to tracking in commit
+    `d2b4eef00cb7` (3671 lines, 22 files).
+  - Ran the same check tree-wide and deliberately rather than by accident:
+    `git ls-tree -r --name-only 6dd950bcd4ac -- clang/ llvm/` vs. `HEAD`
+    via `comm -23`, cross-referenced against `git ls-tree` of the upstream
+    tag to separate real drops from legitimate upstream renames/deletions
+    (of which there are ~1493, essentially all unrelated target/test
+    churn from a full LLVM version bump — spot-checked a random sample of
+    15, all generic `CodeGen`/`MC`/debug-info tests with no reflection
+    relevance). This method is strictly better than the reflection-content
+    keyword sweep used earlier in Milestone 4: it caught
+    `clang/test/SemaCXX/cxx2c-expansion-stmts.cpp`, which the keyword
+    sweep's methodology could never have found (it was fully deleted from
+    disk, not merely content-reduced at a surviving path) and which name
+    hindsight makes obvious but the earlier sweep's "same path, content
+    diff" design structurally could not see. It's `SemaExpand.cpp`'s test
+    coverage, lost independently of the implementation file itself being
+    restored earlier. Restored verbatim from the fork tip in commit
+    `c6d163805cfb`. **Carry forward**: rerun this exact `comm`-based sweep
+    (not the keyword-based one) at the start of future sessions touching
+    this tree — it is the correct general tool, the keyword sweep is not.
+  - Also confirms and supersedes the `__is_consteval_only` /
+    `TokenKinds.def` finding from earlier this session: that was this same
+    failure mode (M2 wholesale-upstream resolution silently dropping
+    fork-only content with no upstream fallback) hitting a `.def` macro
+    line instead of a whole file, which is why the reflection-content
+    grep sweep missed it (the string "consteval" doesn't match
+    `splice|reflect|metafunction`) but the `comm`-based path sweep
+    structurally cannot miss it (`TokenKinds.def` survives at the same
+    path in both trees, so the `comm` sweep doesn't catch *this specific*
+    case either — a same-path, single-line drop needs the content-count
+    method; only the whole-file-deletion case is what `comm` uniquely
+    catches). The two methods are complementary, not redundant: `comm` for
+    deleted paths, content-diff for shrunk-but-surviving paths. Neither
+    alone is sufficient.
+  - Note on attribution: `ParseReflect.cpp`'s one-line fix landed in commit
+    `d2b4eef00cb7` (the tracking-restoration commit) rather than
+    `5f79df509148` (the other three Parse-file fixes), because it was
+    untracked at the time the restoration commit was staged — the fixed
+    content and the tracking restoration are inseparable in that diff.
+    `5f79df509148`'s message describes it as a fourth fix; the commit
+    itself only shows three files changed. Not worth rewriting history
+    for; noted here so a future `git log`/bisect isn't confused by the
+    mismatch.
+  - Note on prior-session hunks swept into these commits: `git add
+    <file>` stages a file's *entire* working-tree diff, not just the lines
+    touched this session. `SemaTypeTraits.cpp` (commit `970d57fb6caa`)
+    carried 6 lines of already-correct, already-tested prior-session
+    `UTT_IsConstevalOnly` handling that this session didn't write, only
+    unblocked (by restoring the enum value it depended on). Commit
+    `5f79df509148`'s three Parse files carried substantially more:
+    `ParseDeclCXX.cpp` (205 lines), `ParseExpr.cpp` (126 lines),
+    `ParseStmt.cpp` (74 lines) of pre-existing uncommitted M4
+    reconciliation work from earlier sessions, on top of this session's
+    single-line fix in each. This is expected and correct given the tree
+    is intentionally kept dirty across sessions rather than committed
+    file-by-file (see `HANDOFF_2026-08-26.md`), but it means these two
+    commits' diffs are not fully described by their commit messages, which
+    only narrate the specific bugs this session found and fixed.
+  - Note on `clangd` diagnostics: throughout this session, the editor's
+    live diagnostics for every file touched (`TextNodeDumper.cpp`,
+    `ParseReflect.cpp`, `ParseExpr.cpp`, `ParseStmt.cpp`,
+    `ParseDeclCXX.cpp`) reported large numbers of `no_member`/
+    `unknown_typename`/`undeclared_var_use` errors — for symbols
+    (`APValue::Reflection`, `NestedNameSpecifier::Kind::Splice`,
+    `tok::l_splice`, `ParseSpliceSpecifier`, `ExpansionStmtDecl`, etc.)
+    that demonstrably exist and compile correctly under direct
+    `clang++ -fsyntax-only` invocation and under the real `ninja` build.
+    `clangd`'s index/compile-database for this tree is stale or
+    misconfigured and its diagnostics were wrong in every single instance
+    checked this session, with no exceptions. Do not spend time
+    investigating or trusting them; always verify against direct
+    compilation or the real build instead.
+- Rebuilt after the Parse fixes: `clangAST`, `clangSema`, and `clangParse`
+  all now compile with zero errors. The full `clang` binary build reaches
+  `[2779/2793]` before stopping on exactly 4 remaining errors, all in
+  `clang/lib/Serialization/`: `ASTReader.cpp` (`CXXBaseSpecifier`
+  constructor mismatch), `ASTReaderStmt.cpp`
+  (`DeclRefExprBitfields::IsImmediateEscalating` missing),
+  `AttrPCHRead.inc`/`AttrPCHWrite.inc` (generated `readCXX26AnnotationAttr`/
+  `AddCXX26AnnotationAttr` missing). These are the leading edge of the
+  already-recorded Milestone 5 bundle, not four isolated fixes: the sweep
+  earlier this session already found `ASTReader.cpp` (11→0),
+  `ASTReaderStmt.cpp` (16→0), `ASTWriter.cpp` (14→0), `ASTWriterStmt.cpp`
+  (11→0), `AbstractBasicReader.h`/`AbstractBasicWriter.h` (3→0, 2→0),
+  `PropertiesBase.td` (59→0), `ASTBitCodes.h` (5→0), `TypeBitCodes.def`
+  (1→0) all zeroed out by the same M2 wholesale-upstream resolution: the
+  reader/writer property (de)serialization plumbing these four errors sit
+  on top of is entirely absent, not partially broken. Per this tracker's
+  explicit scope boundary ("Do not begin unrelated compiler implementation
+  work until this epic completes" plus Milestone 5's own separate scope
+  statement), this session stops here rather than starting the M5 bundle.
+- **Milestone 4 status**: `clangAST`/`clangSema`/`clangParse` are code-complete
+  and build with zero errors (only the pre-existing, already-tracked
+  `EnumeratorSpec` `-Wswitch` warning remains). The milestone stays `[~]`,
+  not `[x]`: its gate requires focused Clang reflection tests to pass, and
+  those need a working `clang` binary, which needs Milestone 5. Checked
+  whether the still-outstanding `ItaniumMangle.cpp`/`MicrosoftMangle.cpp`
+  reflection-mangling gap (recorded earlier this session) actually blocks
+  that gate: `clang/include/clang/Frontend/FrontendOptions.h:454` defaults
+  `ProgramAction` to `ParseSyntaxOnly`, and all 16 `clang/test/Reflection/`
+  RUN lines invoke bare `%clang_cc1 %s <flags>` with no `-emit-llvm`/`-S`/
+  other action flag — so none of them trigger CodeGen, hence none trigger
+  real Itanium/MS mangling of a reflection-valued template instantiation.
+  The mangler gap is confirmed **not** a Milestone 4 blocker; it remains a
+  correctness carry-forward for whenever Milestone 5/8 exercises CodeGen.
+- Next action: implement the Milestone 5 bundle (constant evaluation,
+  serialization, `ExprConstantMeta.cpp`/`ExprConstant.cpp`,
+  `ASTReader*.cpp`/`ASTWriter*.cpp`, `AbstractBasicReader/Writer.h`,
+  `PropertiesBase.td`, `ASTBitCodes.h`) as its own scoped effort, per the
+  systemic-finding evidence above — not as a side effect of chasing the 4
+  visible `clang` build errors. Once a working `clang` binary exists, run
+  `clang/test/Reflection/` (now that its 16 test files are git-tracked
+  again) to get Milestone 4's actual gate result before marking it `[x]`.
+  Before trusting any future session's "applied"/"restored" narrative in
+  this file, rerun both sweeps from this session (the `comm`-based deleted-
+  path sweep and the content-count shrunk-path sweep) rather than the
+  session log alone — this failure mode has now recurred at every session
+  boundary checked so far.
