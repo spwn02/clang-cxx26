@@ -261,6 +261,35 @@ Retry:
   }
 
   case tok::kw_template: {
+    if (NextToken().is(tok::kw_for)) {  // C++26: Expansion statement
+      ExpansionStmtDecl *ExpansionDecl =
+          cast<ExpansionStmtDecl>(
+              Actions.ActOnExpansionStmtDeclaration(getCurScope(),
+                                                    TemplateParameterDepth,
+                                                    Tok.getLocation()));
+      assert(ExpansionDecl && "no ExpansionStmtDecl returned");
+
+      CXXExpansionStmt *Expansion;
+      {
+        Sema::ContextRAII CtxGuard(Actions, ExpansionDecl, /*NewThis=*/false);
+        TemplateParameterDepthRAII TParamDepthGuard(TemplateParameterDepth);
+        ++TParamDepthGuard;
+
+        StmtResult SR = ParseForStatement(TrailingElseLoc, PrecedingLabel);
+        if (SR.isInvalid())
+          return SR;
+        Expansion = cast<CXXExpansionStmt>(SR.get());
+        ExpansionDecl->setStmt(Expansion);
+      }
+
+      DeclSpec DS(AttrFactory);
+      DeclGroupPtrTy DeclGroupPtr =
+          Actions.FinalizeDeclaratorGroup(getCurScope(), DS, {ExpansionDecl});
+
+      return Actions.ActOnDeclStmt(DeclGroupPtr, Expansion->getBeginLoc(),
+                                   Expansion->getEndLoc());
+    }
+
     SourceLocation DeclEnd;
     ParseTemplateDeclarationOrSpecialization(DeclaratorContext::Block, DeclEnd,
                                              getAccessSpecifierIfPresent());
@@ -1889,6 +1918,19 @@ bool Parser::isForRangeIdentifier() {
 
 StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
                                      LabelDecl *PrecedingLabel) {
+  SourceLocation TemplateKWLoc;
+  NonTypeTemplateParmDecl *ExpansionStmtTemplateParm = nullptr;
+  if (Tok.is(tok::kw_template)) {
+    TemplateKWLoc = ConsumeToken();
+    if (!getLangOpts().ExpansionStatements) {
+      Diag(Tok, diag::err_expansion_statements_disabled);
+      SkipUntil(tok::semi);
+      return StmtError();
+    }
+    ExpansionStmtDecl *ESD = cast<ExpansionStmtDecl>(Actions.CurContext);
+    ExpansionStmtTemplateParm = ESD->getTemplateParm();
+  }
+
   assert(Tok.is(tok::kw_for) && "Not a for stmt!");
   SourceLocation ForLoc = ConsumeToken();  // eat the 'for'.
 
@@ -1923,6 +1965,8 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
   unsigned ScopeFlags = 0;
   if (C99orCXXorObjC)
     ScopeFlags = Scope::DeclScope | Scope::ControlScope;
+  if (TemplateKWLoc.isValid())
+    ScopeFlags |= Scope::TemplateParamScope;
 
   ParseScope ForScope(this, ScopeFlags);
 
@@ -1937,6 +1981,8 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
   ExprResult Collection;
   ForRangeInfo ForRangeInfo;
   FullExprArg ThirdPart(Actions);
+
+  ForRangeInfo.ExpansionStmt = TemplateKWLoc.isValid();
 
   if (Tok.is(tok::code_completion)) {
     cutOffParsing();
@@ -2150,7 +2196,8 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
   }
 
   // Enter a break / continue scope, if we didn't already enter one while
-  // parsing the second part.
+  // parsing the second part. Note that break and continue are not permitted
+  // within expansion statements.
   if (!getCurScope()->isContinueScope())
     getCurScope()->AddFlags(Scope::BreakScope | Scope::ContinueScope);
 
@@ -2193,11 +2240,18 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
   StmtResult ForEachStmt;
 
   if (ForRangeInfo.ParsedForRangeDecl()) {
-    ForRangeStmt = Actions.ActOnCXXForRangeStmt(
-        getCurScope(), ForLoc, CoawaitLoc, FirstPart.get(),
-        ForRangeInfo.LoopVar.get(), ForRangeInfo.ColonLoc,
-        ForRangeInfo.RangeExpr.get(), T.getCloseLocation(), Sema::BFRK_Build,
-        ForRangeInfo.LifetimeExtendTemps);
+    if (ForRangeInfo.ExpansionStmt)
+      ForRangeStmt = Actions.ActOnCXXExpansionStmt(
+          ExpansionStmtTemplateParm, TemplateKWLoc, ForLoc, T.getOpenLocation(),
+          FirstPart.get(), ForRangeInfo.LoopVar.get(), ForRangeInfo.ColonLoc,
+          ForRangeInfo.RangeExpr.get(), T.getCloseLocation(), Sema::BFRK_Build,
+          ForRangeInfo.LifetimeExtendTemps);
+    else
+      ForRangeStmt = Actions.ActOnCXXForRangeStmt(
+          getCurScope(), ForLoc, CoawaitLoc, FirstPart.get(),
+          ForRangeInfo.LoopVar.get(), ForRangeInfo.ColonLoc,
+          ForRangeInfo.RangeExpr.get(), T.getCloseLocation(), Sema::BFRK_Build,
+          ForRangeInfo.LifetimeExtendTemps);
   } else if (ForEach) {
     // Similarly, we need to do the semantic analysis for a for-range
     // statement immediately in order to close over temporaries correctly.
@@ -2268,8 +2322,12 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
     return Actions.ObjC().FinishObjCForCollectionStmt(ForEachStmt.get(),
                                                       Body.get());
 
-  if (ForRangeInfo.ParsedForRangeDecl())
-    return Actions.FinishCXXForRangeStmt(ForRangeStmt.get(), Body.get());
+  if (ForRangeInfo.ParsedForRangeDecl()) {
+    if (ForRangeInfo.ExpansionStmt)
+      return Actions.FinishCXXExpansionStmt(ForRangeStmt.get(), Body.get());
+    else
+      return Actions.FinishCXXForRangeStmt(ForRangeStmt.get(), Body.get());
+  }
 
   return Actions.ActOnForStmt(ForLoc, T.getOpenLocation(), FirstPart.get(),
                               SecondPart, ThirdPart, T.getCloseLocation(),
