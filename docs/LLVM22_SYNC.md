@@ -785,6 +785,21 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
 - Not committed; `clangAST` has not built successfully. Do not mark
   Milestone 4 progress beyond this note until it does.
 
+### 2026-08-27 — Milestone 4: Sema splice-scope reconciliation checkpoint
+
+- Reconciled `SemaCXXScopeSpec.cpp`, `TreeTransform.h`,
+  `SemaTemplateInstantiate.cpp`, `SemaDeclCXX.cpp`, `SemaExpr.cpp`,
+  `SemaExprCXX.cpp`, `SemaExprMember.cpp`, and `SemaLambda.cpp` onto LLVM 22
+  APIs while retaining reflection/splice behavior. Adjusted the namespace
+  alias helper declaration in `Sema.h` to LLVM 22's `NamespaceBaseDecl`.
+- Direct LLVM 22 syntax compilation passes for all listed implementation
+  files. Remaining diagnostics are switch-coverage warnings for reflection
+  extensions.
+- Next action: three-way reconcile `SemaOverload.cpp` and `SemaTemplate.cpp`,
+  then port the new local `SemaReflect.cpp` across LLVM 22 template, type, and
+  nested-name-specifier APIs. Full build and focused reflection tests remain
+  pending.
+
 ### 2026-08-26 — Milestone 4: by-value splice scopes and Type.cpp reconciliation
 
 - Added splice and `template`-splice encodings to LLVM 22's by-value

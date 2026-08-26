@@ -67,6 +67,22 @@ using namespace sema;
 /// lambda which is capture-ready.  If the return value evaluates to 'false'
 /// then no lambda is capture-ready for \p VarToCapture.
 
+static DeclContext *ignoreExpansionStmts(DeclContext *DC) {
+  while (isa<ExpansionStmtDecl>(DC))
+    DC = DC->getParent();
+
+  return DC;
+}
+
+static bool isInExpansionStmt(DeclContext *DC) {
+  while (DC && !DC->isTranslationUnit()) {
+    if (isa<ExpansionStmtDecl>(DC))
+      return true;
+    DC = DC->getParent();
+  }
+  return false;
+}
+
 static inline UnsignedOrNone getStackIndexOfNearestEnclosingCaptureReadyLambda(
     ArrayRef<const clang::sema::FunctionScopeInfo *> FunctionScopes,
     ValueDecl *VarToCapture) {
@@ -101,7 +117,8 @@ static inline UnsignedOrNone getStackIndexOfNearestEnclosingCaptureReadyLambda(
     // arrived here) - so we don't yet have a lambda that can capture the
     // variable.
     if (IsCapturingVariable &&
-        VarToCapture->getDeclContext()->Equals(EnclosingDC))
+        ignoreExpansionStmts(VarToCapture->getDeclContext())->Equals(
+            EnclosingDC))
       return NoLambdaIsCaptureReady;
 
     // For an enclosing lambda to be capture ready for an entity, all
@@ -126,7 +143,8 @@ static inline UnsignedOrNone getStackIndexOfNearestEnclosingCaptureReadyLambda(
       if (IsCapturingThis && !LSI->isCXXThisCaptured())
         return NoLambdaIsCaptureReady;
     }
-    EnclosingDC = getLambdaAwareParentOfDeclContext(EnclosingDC);
+    EnclosingDC = ignoreExpansionStmts(
+            getLambdaAwareParentOfDeclContext(EnclosingDC));
 
     assert(CurScopeIndex);
     --CurScopeIndex;
@@ -191,9 +209,10 @@ UnsignedOrNone clang::getStackIndexOfNearestEnclosingCaptureCapableLambda(
 
   const unsigned IndexOfCaptureReadyLambda = *OptionalStackIndex;
   assert(((IndexOfCaptureReadyLambda != (FunctionScopes.size() - 1)) ||
-          S.getCurGenericLambda()) &&
+          S.getCurGenericLambda() ||
+          isInExpansionStmt(S.CurContext)) &&
          "The capture ready lambda for a potential capture can only be the "
-         "current lambda if it is a generic lambda");
+         "current lambda if it is a generic lambda or inside an expansion statement");
 
   const sema::LambdaScopeInfo *const CaptureReadyLambdaLSI =
       cast<sema::LambdaScopeInfo>(FunctionScopes[IndexOfCaptureReadyLambda]);
@@ -249,6 +268,9 @@ Sema::createLambdaClosureType(SourceRange IntroducerRange, TypeSourceInfo *Info,
                               unsigned LambdaDependencyKind,
                               LambdaCaptureDefault CaptureDefault) {
   DeclContext *DC = CurContext;
+  while (!(DC->isFunctionOrMethod() || DC->isRecord() || DC->isFileContext() ||
+           isa<ExpansionStmtDecl>(DC)))
+    DC = DC->getParent();
 
   bool IsGenericLambda =
       Info && getGenericLambdaTemplateParameterList(getCurLambda(), *this);
@@ -1394,8 +1416,12 @@ void Sema::ActOnLambdaClosureQualifiers(LambdaIntroducer &Intro,
   // For DR1632, we also allow a capture-default in any context where we can
   // odr-use 'this' (in particular, in a default initializer for a non-static
   // data member).
+  DeclContext *Parent = LSI->Lambda->getParent();
+  while (isa<ExpansionStmtDecl>(Parent))
+    Parent = Parent->getParent();
+  
   if (Intro.Default != LCD_None &&
-      !LSI->Lambda->getParent()->isFunctionOrMethod() &&
+      !Parent->isFunctionOrMethod() &&
       (getCurrentThisType().isNull() ||
        CheckCXXThisCapture(SourceLocation(), /*Explicit=*/true,
                            /*BuildAndDiagnose=*/false)))
@@ -2331,6 +2357,7 @@ ExprResult Sema::BuildLambdaExpr(SourceLocation StartLoc,
     case ExpressionEvaluationContext::Unevaluated:
     case ExpressionEvaluationContext::UnevaluatedList:
     case ExpressionEvaluationContext::UnevaluatedAbstract:
+    case ExpressionEvaluationContext::ReflectionContext:
     // C++1y [expr.const]p2:
     //   A conditional-expression e is a core constant expression unless the
     //   evaluation of e, following the rules of the abstract machine, would
@@ -2544,8 +2571,10 @@ Sema::LambdaScopeForCallOperatorInstantiationRAII::
     InstantiationAndPatterns.emplace_back(FDPattern, FD);
 
     FDPattern =
-        dyn_cast<FunctionDecl>(getLambdaAwareParentOfDeclContext(FDPattern));
-    FD = dyn_cast<FunctionDecl>(getLambdaAwareParentOfDeclContext(FD));
+        dyn_cast<FunctionDecl>(
+            ignoreExpansionStmts(getLambdaAwareParentOfDeclContext(FDPattern)));
+    FD = dyn_cast<FunctionDecl>(
+            ignoreExpansionStmts(getLambdaAwareParentOfDeclContext(FD)));
   }
 
   // Add instantiated parameters and local vars to scopes, starting from the
