@@ -3688,6 +3688,11 @@ void MicrosoftCXXNameMangler::mangleType(const DecltypeType *T, Qualifiers,
   Error(Range.getBegin(), "decltype()") << Range;
 }
 
+void MicrosoftCXXNameMangler::mangleType(const ReflectionSpliceType *T,
+                                         Qualifiers, SourceRange Range) {
+  Error(Range.getBegin(), "'[: expr :]' splice type") << Range;
+}
+
 void MicrosoftCXXNameMangler::mangleType(const UnaryTransformType *T,
                                          Qualifiers, SourceRange Range) {
   Error(Range.getBegin(), "unary transform type") << Range;

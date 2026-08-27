@@ -4715,3 +4715,69 @@ bool Lexer::LexDependencyDirectiveTokenWhileSkipping(Token &Result) {
   convertDependencyDirectiveToken(DDTok, Result);
   return false;
 }
+
+bool Lexer::validateIdentifier(const std::string &In) {
+  static const llvm::sys::UnicodeCharRange DigitRanges[] = {
+    {0x0030, 0x0039}
+  };
+  static llvm::sys::UnicodeCharRange NondigitRanges[] = {
+    {0x0041, 0x005A}, {0x005F, 0x005F}, {0x0061, 0x007A}
+  };
+  static const llvm::sys::UnicodeCharSet DigitChars(DigitRanges);
+  static const llvm::sys::UnicodeCharSet NondigitChars(NondigitRanges);
+  static const llvm::sys::UnicodeCharSet XIDStartChars(XIDStartRanges);
+  static const llvm::sys::UnicodeCharSet XIDContinueChars(XIDContinueRanges);
+
+  if (In.size() == 0)
+    return false;
+
+  const auto *Cursor = &In[0];
+  const auto *End = Cursor + In.size();
+
+  // Validate leading character.
+  if (*Cursor == '\\') {
+    const char *SlashLoc = Cursor++;
+    uint32_t UCN = tryReadUCN(Cursor, SlashLoc, nullptr);
+    if (!UCN || !XIDStartChars.contains(UCN))
+      return false;
+  } else {
+    llvm::UTF32 CodePoint;
+
+    if (llvm::conversionOK != llvm::convertUTF8Sequence(
+            reinterpret_cast<const llvm::UTF8 **>(&Cursor),
+            reinterpret_cast<const llvm::UTF8 *>(End), &CodePoint,
+            llvm::ConversionFlags::strictConversion))
+      return false;
+
+    if (!NondigitChars.contains(CodePoint) &&
+        !XIDStartChars.contains(CodePoint))
+        return false;
+  }
+
+  // Validate remaining characters.
+  while (Cursor < End) {
+    if (*Cursor == '\\') {
+      const char *SlashLoc = Cursor++;
+      uint32_t UCN = tryReadUCN(Cursor, SlashLoc, nullptr);
+      if (!UCN || !(XIDStartChars.contains(UCN) ||
+                    XIDContinueChars.contains(UCN)))
+        return false;
+    } else {
+      llvm::UTF32 CodePoint;
+
+      if (llvm::conversionOK != llvm::convertUTF8Sequence(
+              reinterpret_cast<const llvm::UTF8 **>(&Cursor),
+              reinterpret_cast<const llvm::UTF8 *>(End), &CodePoint,
+              llvm::ConversionFlags::strictConversion))
+          return false;
+
+      if (!DigitChars.contains(CodePoint) &&
+          !NondigitChars.contains(CodePoint) &&
+          !XIDStartChars.contains(CodePoint) &&
+          !XIDContinueChars.contains(CodePoint))
+        return false;
+    }
+  }
+  assert(Cursor == End);
+  return true;
+}

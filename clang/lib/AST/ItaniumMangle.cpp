@@ -4523,6 +4523,17 @@ void CXXNameMangler::mangleType(const DecltypeType *T) {
   Out << 'E';
 }
 
+void CXXNameMangler::mangleType(const ReflectionSpliceType *T) {
+  // <type> ::= RT <expression> E  # typename of an expression
+  Out << "RT";
+  // FIXME(CXX26): This should probably mangle 'UnderlyingType' instead of
+  // 'Operand', but this is crashing the compiler. Revisit this, definitely
+  // something wrong here.
+  //mangleExpression(T->getSplice()->getOperand());
+  mangleType(T->getUnderlyingType());
+  Out << "E";
+}
+
 void CXXNameMangler::mangleType(const UnaryTransformType *T) {
   // If this is dependent, we need to record that. If not, we simply
   // mangle it as the underlying type since they are equivalent.
