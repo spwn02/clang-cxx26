@@ -1791,14 +1791,47 @@ unassigned/unhandled `StoredKind`. Confirmed empirically, not just by
 static analysis: breaking on `ASTContext::getDependentTemplateName` and
 dumping `*(long*)$rsi` (the raw pre-packing `DependentTemplateStorage`
 bytes) at each call for `template <auto T, auto NS> void fn() {
-static_assert([:NS:]::template TCls<1>::v == a::v); }` caught the second
-call's `Qualifier` at `0x5900000047` — `& 0x7 == 7` (unassigned tag) —
-and reverse-derived that it can *only* come from an original
-`NamespaceWithNamespace` (`110`) qualifier with the keyword bit forced to
-`1`, exactly matching the formula above; the crash itself is
+static_assert([:NS:]::template TCls<1>::v == a::v); }` caught the first
+call's `Qualifier` at `0x…09` (tag `1` = `Splice`, valid, pointing at the
+real `SpliceSpecifier` for `NS` at `0x…08`) and the second call's at
+`0x5900000047` (`& 0x7 == 7`, unassigned tag); the crash itself is
 `getAsNamespaceAndPrefix()` dereferencing the resulting misinterpreted
 pointer (`r14 = 0x5900000040`, confirmed via `x/20i $pc-24` plus
-`info registers` at the fault). Fix: declared
+`info registers` at the fault). **Correction (post-advisor review, same
+session): an earlier draft of this entry reverse-derived the second
+value as "can only come from an original `NamespaceWithNamespace`
+qualifier with the keyword bit forced to 1" — that is wrong; the actual
+chain (which the advisor caught by re-checking the numbers) starts on the
+*read* side, one step earlier than the write-side formula above.**
+`ASTContext::getCanonicalTemplateName`'s `DependentTemplate` case
+(`ASTContext.cpp:7287-7296`) calls `DTN->getQualifier()` on the *first*
+(valid, `Splice`-tagged, `0x…09`) `DependentTemplateStorage` — but
+`getQualifier()` goes through `llvm::PointerIntPairInfo::getPointer()`,
+which unconditionally masks off bit 0 on every *read*, not just on
+write: `0x…09 & ~1 = 0x…08`, decoding as `StoredKind::Type` (`0`) with
+`Ptr = 0x…08` — the real `SpliceSpecifier`'s own address, now
+misinterpreted as a `Type*`. `NestedNameSpecifier::getCanonical()`'s
+`Kind::Type` case then calls
+`getAsType()->getCanonicalTypeInternal().getTypePtr()` on those bytes —
+undefined behavior, since they are a `SpliceSpecifier`, not a `Type` —
+which is what actually produces the arbitrary `0x5900000046`-shaped
+result (whatever `Type`-shaped method landed on at those reinterpreted
+field offsets). That becomes `CanonQualifier`; since `Qualifier !=
+CanonQualifier`, the code proceeds to
+`getDependentTemplateName({CanonQualifier, ..., /*HasTemplateKeyword=*/
+true})`, and packing `HasTemplateKeyword=true` onto `CanonQualifier`'s
+already-odd-looking low bits via the *write*-side formula above is what
+lands exactly on the observed `0x5900000047`. So the write-side
+corruption described above is real and still the reason the fix is
+correct and necessary, but it is the *second* link in the chain here, not
+the first — the first link is this read-side `getPointer()` masking,
+which corrupts *any* `Splice`/`SpliceWithTemplate`-tagged qualifier the
+moment `getQualifier()` is called on it, independently of what the
+packed bool's value is. The fix below (removing the packing entirely)
+eliminates both the read-side and write-side corruption in one change,
+so no code change follows from this correction — only the recorded
+root-cause narrative needed fixing, so a future session does not reason
+from the wrong link in the chain. Fix: declared
 `NestedNameSpecifier::NumLowBitsAvailable = 0` (`NestedNameSpecifierBase.h`,
 with a comment explaining why, since this now permanently diverges from
 upstream's value) and stopped packing `HasTemplateKeyword`/hasTemplateKeyword
@@ -1869,7 +1902,60 @@ now pass, with zero regressions in the other 14 tests. The only remaining
 failure is the documented Milestone 1 baseline (`splice-exprs.cpp` line
 23). Also ran `clang/test/Lexer/cxx26-reflection-tokens.cpp` and
 `clang/test/SemaCXX/cxx2c-expansion-stmts.cpp` (both pass) as an adjacent
-regression check. Milestone 4's gate is met; marked `[x]`. Files changed:
+regression check. Files changed:
 `clang/include/clang/AST/NestedNameSpecifierBase.h`,
 `clang/include/clang/AST/TemplateName.h`, `clang/lib/AST/TemplateName.cpp`,
 `clang/lib/Sema/SemaReflect.cpp`, `clang/lib/Sema/SemaTemplateVariadic.cpp`.
+Committed as `41fa327e7d63`.
+
+**Post-commit wider regression check (advisor-prompted):** the initial
+verification above was reflection-local, but `NumLowBitsAvailable` and
+the `QualifiedTemplateName`/`DependentTemplateStorage` layout are the
+universal qualified/dependent-template-name representation — every
+`T::template foo<...>` in any TU goes through `getQualifier()`/
+`hasTemplateKeyword()` on these two classes, so the change's real blast
+radius is far wider than the reflection suite. Two follow-up checks:
+1. Tree-wide grep (`grep -rn "PointerIntPair<.*NestedNameSpecifier\|
+   PointerUnion<.*NestedNameSpecifier" .`, not just `clang/include`+
+   `clang/lib`) confirms `QualifiedTemplateName`/`DependentTemplateStorage`
+   are still the *only* two consumers of `NumLowBitsAvailable` anywhere in
+   the tree; no `static_assert` in some other target (e.g.
+   clang-tools-extra) can newly fail from this change.
+2. Ran the wider template/name-lookup/serialization corpus:
+   `llvm-lit -q clang/test/SemaTemplate/ clang/test/CXX/ clang/test/SemaCXX/
+   clang/test/Parser/ clang/test/Modules/ clang/test/PCH/` (4181 tests).
+   9 failed (0.22%): `SemaTemplate/instantiate-static-var.cpp`,
+   `SemaTemplate/concepts-lambda.cpp`,
+   `CXX/temp/temp.constr/temp.constr.constr/non-function-templates.cpp`,
+   `CXX/dcl.dcl/dcl.attr/dcl.attr.grammar/p2-1z.cpp`,
+   `SemaCXX/builtin-is-within-lifetime.cpp`,
+   `SemaCXX/cxx2b-consteval-propagate.cpp`,
+   `SemaCXX/cxx2a-constexpr-dynalloc.cpp`,
+   `SemaCXX/constant-expression-cxx11.cpp`, `Parser/cxx-casting.cpp`.
+   Inspected each with `-v` (the actual mismatched `-verify` diagnostics,
+   not just pass/fail): none involve a qualified or dependent template
+   name, `NestedNameSpecifier`, or a splice scope at all. They're two
+   unrelated pre-existing gap families instead: (a) this fork's C++26
+   reflection lexer claiming `[:`/`:]` token sequences that pre-date
+   reflection and appear in older-standard-mode tests
+   (`dcl.attr.grammar/p2-1z.cpp`, `Parser/cxx-casting.cpp` — both fail with
+   "not parsing token '[:'/'​:]'; use '-freflection'" warnings on unrelated
+   syntax); (b) general C++20/23 consteval/immediate-function-propagation
+   and constant-evaluator diagnostic-completeness gaps
+   (`concepts-lambda.cpp`, `cxx2b-consteval-propagate.cpp`,
+   `cxx2a-constexpr-dynalloc.cpp`, `builtin-is-within-lifetime.cpp`,
+   `constant-expression-cxx11.cpp`, `instantiate-static-var.cpp`,
+   `non-function-templates.cpp` — all mismatched-diagnostic failures in
+   `-verify` expectations for immediate/consteval/constexpr behavior,
+   nothing to do with name qualification). Not rebuilt at `HEAD~1` for a
+   literal before/after baseline (time-boxed; the per-failure diagnostic
+   inspection was conclusive enough that the discriminator the advisor
+   proposed — "does it involve a qualified/dependent template name at
+   all" — cleanly resolved every one of the 9 as unrelated). Milestone 4's
+   gate is met; marked `[x]`.
+
+Also corrected this same entry's root-cause narrative for the
+`reflection-wording-examples.cpp` crash after advisor review caught that
+an earlier draft mis-derived the causal chain (see the "Correction
+(post-advisor review...)" paragraph inline above) — the fix itself was
+unaffected, only the recorded provenance.
