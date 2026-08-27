@@ -77,29 +77,49 @@ After upstream changes, always run `ninja -C build-libcxx libcxx-generate-files`
 
 ## Current Action
 
-Milestone 5 is active. On `Continue`:
+Milestone 5 is active; `clang` links and `clang/test/Reflection/` runs
+11/16 (see the 2026-08-27 "reflection suite triage" Session Log entry for
+the full breakdown). On `Continue`:
 
-1. Restore `clang/lib/AST/ExprConstantMeta.cpp` verbatim from fork tip
-   `6dd950bcd4ac`, `git add` it immediately, add it to
-   `clang/lib/AST/CMakeLists.txt`, then manually port it to LLVM 22 APIs
-   using the direct `-fsyntax-only -ferror-limit=0` compile loop (see the
-   Session Log entry below for the exact command), batching fixes by API
-   class the same way `SemaReflect.cpp` was ported in Milestone 4.
-2. Once it compiles standalone, rebuild `clangAST`/`clangSerialization` and
-   let the linker's undefined-symbol list (metafunction table entries that
-   only `ExprConstantMeta.cpp` defines) confirm nothing else is missing.
-3. Finish reconciling `ASTImporter.cpp`'s remaining non-reflection delta
-   only if it blocks the build; otherwise leave upstream's independent
-   Concepts/Requires-expression importer additions alone.
-4. Run the full `clang` build gate and `clang/test/Reflection/` once the
-   binary links; that is Milestone 4's actual gate as well as Milestone 5's.
+1. `clang/test/Reflection/splice-expr-errors.cpp`: `void fn([:^^int:]);` in
+   a parameter-declaration position (line 66) no longer triggers the
+   expected ambiguity diagnostics (`variable has incomplete type` /
+   `not usable in a splice expression`) — it is silently accepted. Likely
+   LLVM 22's tentative-parsing rework in `Parser::ParseParameterDeclarationClause`
+   / `isCXXDeclarationSpecifier` dropped the disambiguation path for a
+   splice-typed parameter. Everything else in that file passes.
+2. `clang/test/Reflection/splice-namespaces.cpp` (no `-verify`, must compile
+   clean): `namespace ReAlias = [:R:];` resolves to a namespace with an
+   empty name instead of the reflected namespace (`no member named 'x' in
+   namespace ''`). Points at `Sema::ActOnNamespaceAliasDef` dropping the
+   resolved target when given a splice-kind `CXXScopeSpec`.
+3. `clang/test/Reflection/splice-templates.cpp`: carry-forward semantic gap,
+   not a crash. See the "reflection suite triage" Session Log entry —
+   reflecting a bare (non-templated) dependent template-name through a
+   splice scope loses its "template" identity across `TreeTransform`
+   instantiation and falls into `BuildCXXReflectExpr(UnresolvedLookupExpr*)`'s
+   function-overload-resolution path, which is designed for calling an
+   overloaded function, not reflecting a template entity.
+4. `clang/test/Reflection/reflection-wording-examples.cpp` still crashes
+   (SIGSEGV in `TraverseNestedNameSpecifierLoc` reached from
+   `CollectUnexpandedParameterPacksVisitor`, `temp_dep_splice` namespace,
+   line ~164: `[:NS:]::template TCls<1>::v`). Not yet root-caused, and not
+   confirmed whether this predates this session's `SemaReflect.cpp` fix —
+   the fix's branch condition (`TemplateKWLoc.isValid() && !TArgs`) should
+   not fire here since `TCls<1>` supplies explicit template arguments, but
+   this was reasoned, not empirically isolated with `git stash`.
+5. `clang/test/Reflection/splice-exprs.cpp` now has exactly one failure —
+   the documented Milestone 1 baseline (line 23, "not derived from") — no
+   other regressions remain in that file.
+6. Milestone 5's gate also names focused evaluator, module, and PCH tests;
+   none have been attempted yet.
 
 ## Milestones
 
 - [x] **1. Capture clean baseline builds and expected failures.** Gate passed 2026-08-24: both build trees succeeded; focused results and all failures are recorded below.
 - [x] **2. Fetch exact LLVM tag and merge on integration branch.** Gate passed 2026-08-25 in merge `ea04e484b0b8` and its direct upstream-resolution correction: exact signed tag merged on `integration/llvm-22.1.8`; every conflict and resolution category is recorded.
 - [x] **3. Restore base LLVM/Clang build.** Gate passed 2026-08-25: `ninja -C build-nyx clang` and then `ninja -C build-nyx` passed from the exact LLVM 22 `clang/` baseline.
-- [!] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures. Code-complete (`clangAST`/`clangSema`/`clangParse` build clean); blocked on Milestone 5, since the gate's focused reflection tests need a linking `clang` binary and the last 4 pre-M5 build errors are Serialization-layer, not Parser/AST/Sema. Unblock condition: Milestone 5 lands.
+- [!] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures. `clang` now links (Milestone 5 in progress) and the gate has a real measured result: `clang/test/Reflection/` is 11/16, with 1 documented Milestone 1 baseline failure, 1 carry-forward semantic gap, 2 newly-localized (not yet fixed) bugs, and 1 unrooted pre-existing crash — see the 2026-08-27 "reflection suite triage" Session Log entry. Blocked on landing fixes for the remaining 5 failures before this gate can close; not blocked on Milestone 5's serialization work anymore (that landed).
 - [~] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries, including the known non-serializable `CXXMetafunctionExpr` callback limitation. Gate: focused evaluator, module, PCH, and reflection tests pass; any intentionally deferred limitation is documented with a reproducer.
 - [ ] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate: libc++ builds and generated-file checks are clean; local conformance commits remain reachable and represented.
 - [ ] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here.
@@ -108,15 +128,11 @@ Milestone 5 is active. On `Continue`:
 
 ## Blockers
 
-- **Milestone 4** is blocked on Milestone 5, not on unfinished Parser/AST/Sema
-  work. `clangAST`/`clangSema`/`clangParse` build clean (2026-08-27); the full
-  `clang` binary build stopped at 4 errors, all in `clang/lib/Serialization/`
-  (`ASTReader.cpp` `CXXBaseSpecifier` ctor mismatch, `ASTReaderStmt.cpp`
-  `DeclRefExprBitfields::IsImmediateEscalating` missing,
-  `AttrPCHRead.inc`/`AttrPCHWrite.inc` missing
-  `readCXX26AnnotationAttr`/`AddCXX26AnnotationAttr`). Milestone 4's gate
-  needs focused `clang/test/Reflection/` runs, which need a linking `clang`
-  binary. Unblocks when Milestone 5's serialization bundle lands.
+- **Milestone 4** is blocked on landing fixes for the 5 remaining
+  `clang/test/Reflection/` failures (see Current Action and the 2026-08-27
+  "reflection suite triage" Session Log entry), not on Milestone 5's
+  serialization work, which landed 2026-08-27 and produced a linking
+  `clang` binary.
 
 When blocked, record the failing command, essential diagnostic, affected milestone, attempted remedies, and exact condition needed to resume. Use `[!]` only for a genuine external or technical impasse, not for ordinary incomplete work.
 
@@ -1523,3 +1539,127 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   surface as undefined-symbol errors at the final `clang` link, not as a
   `clangAST`/`clangSerialization` compile failure, since static archives
   don't resolve symbols at archive-build time.
+
+### 2026-08-27 — Milestone 5: first linking `clang`, three crashes root-caused, reflection suite triage
+
+Continuing directly from the entry above in the same day's session (user
+instruction: "it's only logical to begin M5 before M4, so go on"). Restored
+and ported `ExprConstantMeta.cpp` to zero compile errors, then re-derived
+`Expr.cpp`/`TextNodeDumper.cpp` via fresh 3-way merges after discovering an
+unattributed prior session had silently lost real upstream content in
+those files (`CallExpr::getCalleeAllocSizeAttr()`,
+`ArraySectionExpr::getElementType()`,
+`CompoundLiteralExpr::getOrCreateStaticValue()`, and others) — caught via
+diff against a clean re-merge, not by inspection. Also restored
+`Lexer::validateIdentifier` and both manglers' `ReflectionSpliceType`
+overloads (`ItaniumMangle.cpp`, `MicrosoftMangle.cpp`); the mangler gap
+turned out to be a hard link-time requirement (referenced unconditionally
+from generated type-switch dispatchers), not merely CodeGen-only
+correctness debt as Milestone 4 had assumed. This produced the first
+successful `clang` binary link since the LLVM 22 merge began.
+
+First `clang/test/Reflection/` run: 9/16, later 7/16 across iterations, with
+one hard crash. Asked the user whether to keep debugging now or hand off;
+answered "keep debugging now." Root-caused and fixed three real bugs via
+`gdb -batch` backtraces and hypothesis testing:
+
+1. **Diagnostic ID/table desync** (bad_alloc crash in
+   `EscapeStringForDiagnostic`): `AllDiagnosticKinds.inc` was missing
+   `#include "clang/Basic/DiagnosticMetafnKinds.inc"` between the CrossTU
+   and Sema includes, silently misaligning every Sema diagnostic ID against
+   its lookup table. Fixed by adding the include in the position matching
+   `DiagnosticIDs.h`'s enum ordering. 7/16 → 10/16.
+2. **`RecursiveASTVisitor.h` missing Splice NNS traversal** (segfault in
+   `TraverseUsingType`/`MarkDeclarationsReferencedInType`): both
+   `TraverseNestedNameSpecifier` and `TraverseNestedNameSpecifierLoc`
+   switches were missing `Kind::Splice`/`Kind::SpliceWithTemplate` cases,
+   so `DynamicRecursiveASTVisitorBase` (new in LLVM 22) silently skipped a
+   splice operand reached through a `UsingType`'s qualifier. Fixed by
+   delegating both to the existing `TraverseSpliceSpecifier` helper.
+   10/16 → 11/16.
+3. **`Sema::ActOnCXXReflectExpr` crash on splice-scoped dependent template
+   names** (segfault in `Decl::isTemplateParameterPack()` via
+   `CollectUnexpandedParameterPacksVisitor::VisitCXXReflectExpr`,
+   reproduced by `splice-templates.cpp`'s
+   `^^[:R:]::template tmemfn`): for `TNK_Dependent_template_name`, the
+   function unconditionally called
+   `BuildCXXReflectExpr(OpLoc, TemplateKWLoc, Template.get())`, building a
+   reflection of an incomplete/dependent `TemplateName` that later crashed.
+   First attempt special-cased *all* `TNK_Dependent_template_name` results
+   to route through `BuildDependentDeclRefExpr` instead — this stopped the
+   crash but silently changed behavior for the *non-splice* dependent case
+   too (plain `T::template Member` through a normal type-dependent scope),
+   newly breaking `lift-operator.cpp` (`DepScope<T>`'s
+   `T::template NestedTemplateStruct` / `T::template template_var`), which
+   had been passing. Consulted `advisor`, which correctly identified the
+   two failing tests differ in scope *kind* (splice vs. plain dependent
+   type) and suggested gating the new branch on
+   `SS.getScopeRep().getKind()` being `Splice`/`SpliceWithTemplate`.
+   Applied that narrower condition
+   (`clang/lib/Sema/SemaReflect.cpp:1001`, commit `b47063279fee`):
+   confirmed by rebuild that `lift-operator.cpp` returns to passing (takes
+   the untouched original path) and `splice-templates.cpp` stays
+   crash-free. Net: still 11/16, but the crash is eliminated with no
+   regression, which is a strictly better position than the pre-fix 11/16
+   (one of those was a live crash).
+
+`splice-templates.cpp` still fails on content after the crash fix, and this
+is a real, separate, unresolved semantic gap, not a mechanical bug:
+reflecting a bare (no explicit template arguments) dependent template-name
+through a splice scope (`^^[:R:]::template tmemfn`) only carries its
+"this names a template, not a value" intent through
+`Sema::ActOnCXXReflectExpr` at the point of first parsing. Once
+`TreeTransform` re-instantiates the resulting `DependentScopeDeclRefExpr`
+(built via `BuildDependentDeclRefExpr`) with a concrete `R`, the
+substituted expression becomes a plain `UnresolvedLookupExpr` naming the
+(still-templated) member — indistinguishable, by the time
+`BuildCXXReflectExpr(Expr*)` sees it, from `^^someOverloadedFunction`. It
+therefore falls into `BuildCXXReflectExpr(UnresolvedLookupExpr*)`, which
+uses `auto`-deduction + `ResolveAddressOfOverloadedFunction` to pick a
+*function* overload — machinery built for reflecting a call target, not a
+template entity — and fails with "cannot take the reflection of an
+overload set". A correct fix needs to preserve the "reflect the template
+itself" intent through instantiation (e.g. a distinct AST representation,
+or having `ActOnCXXReflectExpr`'s template-name path re-fire after
+substitution) rather than downgrading to a value expression up front. Not
+attempted this session; flagged in `Current Action`.
+
+Ran the full `clang/test/Reflection/` suite and triaged every remaining
+failure with direct `-cc1 ... -verify` invocations (not just `llvm-lit`
+pass/fail) to get exact diagnostics:
+
+- `splice-exprs.cpp`: **only** the documented Milestone 1 baseline failure
+  (line 23, "not derived from") remains — no other regressions in this
+  file. (An earlier, uncommitted summary of this session had mentioned
+  additional "using-declarator" errors here; they do not reproduce against
+  this build and were not investigated further.)
+- `splice-expr-errors.cpp`: exactly one missing pair of diagnostics, line
+  66, `void fn([:^^int:]);` — a splice-typed function parameter no longer
+  triggers the expected parameter-declaration ambiguity errors
+  (`variable has incomplete type` / `not usable in a splice expression`);
+  it is silently accepted instead. Everything else in the file passes.
+  Likely cause: LLVM 22 reworked tentative-parsing disambiguation
+  (`Parser::ParseParameterDeclarationClause` /
+  `isCXXDeclarationSpecifier`) in a way that no longer flags a splice type
+  in this position. Not investigated further.
+- `splice-namespaces.cpp` (no `-verify`/`FileCheck` — must compile with
+  zero errors to pass): fails with "no member named 'x' in namespace ''"
+  for `namespace ReAlias = [:R:]; ... ReAlias::x`. The empty namespace name
+  is the signal: `Sema::ActOnNamespaceAliasDef` (or whatever resolves a
+  splice-kind `CXXScopeSpec` into a `NamespaceAliasDecl` target) is
+  dropping the resolved namespace rather than binding it to the reflected
+  one. Not investigated further.
+- `reflection-wording-examples.cpp`: still crashes (SIGSEGV, exit -11).
+  `gdb`-less backtrace from `llvm-lit -v` shows the fault inside
+  `CollectUnexpandedParameterPacksVisitor::TraverseTypeLoc` →
+  `TraverseNestedNameSpecifierLoc` (`temp_dep_splice` namespace, line ~164:
+  `static_assert([:NS:]::template TCls<1>::v == a::v)`). Reasoned, but did
+  not empirically confirm with `git stash`, that this crash is unrelated to
+  this session's `SemaReflect.cpp` fix: `TCls<1>` supplies explicit
+  template arguments, so the fix's `TemplateKWLoc.isValid() && !TArgs`
+  guard should never fire on this code path. Recorded as unverified,
+  pre-existing, not yet root-caused.
+
+Result: `clang/test/Reflection/` is 11/16. Did not attempt Milestone 5's
+evaluator/module/PCH focused tests this session — recorded as not
+attempted, not as passed.
