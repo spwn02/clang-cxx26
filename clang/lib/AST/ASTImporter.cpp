@@ -41,6 +41,7 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtVisitor.h"
+#include "clang/AST/SpliceSpecifier.h"
 #include "clang/AST/TemplateBase.h"
 #include "clang/AST/TemplateName.h"
 #include "clang/AST/Type.h"
@@ -497,6 +498,8 @@ namespace clang {
 
     Expected<InheritedConstructor>
     ImportInheritedConstructor(const InheritedConstructor &From);
+
+    Expected<SpliceSpecifier *> ImportSpliceSpecifier(SpliceSpecifier *From);
 
     // Use for allocating string for newly imported object.
     StringRef ImportASTStringRef(StringRef FromStr);
@@ -10009,7 +10012,33 @@ Expected<Decl *> ASTImporter::Import(Decl *FromD) {
 }
 
 llvm::Expected<SpliceSpecifier *> ASTImporter::Import(SpliceSpecifier *FromSS) {
-  llvm_unreachable("unimplemented");
+  if (!FromSS)
+    return nullptr;
+  return ASTNodeImporter(*this).ImportSpliceSpecifier(FromSS);
+}
+
+Expected<SpliceSpecifier *>
+ASTNodeImporter::ImportSpliceSpecifier(SpliceSpecifier *From) {
+  Error Err = Error::success();
+  auto ToLSpliceLoc = importChecked(Err, From->getLSpliceLoc());
+  auto ToOperand = importChecked(Err, From->getOperand());
+  auto ToRSpliceLoc = importChecked(Err, From->getRSpliceLoc());
+  if (Err)
+    return std::move(Err);
+
+  const ASTTemplateArgumentListInfo *ToTemplateArgs = nullptr;
+  if (const ASTTemplateArgumentListInfo *FromTemplateArgs =
+          From->getTemplateArgs()) {
+    TemplateArgumentListInfo ToTAInfo;
+    if (Error Err =
+            ImportTemplateArgumentListInfo(*FromTemplateArgs, ToTAInfo))
+      return std::move(Err);
+    ToTemplateArgs =
+        ASTTemplateArgumentListInfo::Create(Importer.getToContext(), ToTAInfo);
+  }
+
+  return SpliceSpecifier::Create(Importer.getToContext(), ToLSpliceLoc,
+                                 ToOperand, ToRSpliceLoc, ToTemplateArgs);
 }
 
 
@@ -10149,8 +10178,14 @@ Expected<NestedNameSpecifier> ASTImporter::Import(NestedNameSpecifier FromNNS) {
       return TyOrErr.takeError();
     }
   case NestedNameSpecifier::Kind::Splice:
-  case NestedNameSpecifier::Kind::SpliceWithTemplate:
-    llvm_unreachable("unimplemented");
+  case NestedNameSpecifier::Kind::SpliceWithTemplate: {
+    auto SSOrErr = Import(const_cast<SpliceSpecifier *>(FromNNS.getAsSplice()));
+    if (!SSOrErr)
+      return SSOrErr.takeError();
+    return NestedNameSpecifier(
+        *SSOrErr,
+        FromNNS.getKind() == NestedNameSpecifier::Kind::SpliceWithTemplate);
+  }
   }
   llvm_unreachable("Invalid nested name specifier kind");
 }

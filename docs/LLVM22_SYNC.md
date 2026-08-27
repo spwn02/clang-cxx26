@@ -81,9 +81,13 @@ Milestone 4's gate passed 2026-08-28: `clang/test/Reflection/` is 15/16,
 the only remaining failure being the documented Milestone 1 baseline
 (`splice-exprs.cpp` line 23). See the 2026-08-28 "Milestone 4 gate: both
 remaining reflection failures fixed at their root cause" Session Log entry.
-Milestone 5 is now the sole active milestone. On `Continue`, its gate still
-names focused evaluator, module, and PCH tests; none have been attempted
-yet.
+Milestone 5's gate passed 2026-08-28: `clang/test/AST/ByteCode/`,
+`clang/test/Modules/`, `clang/test/PCH/`, `clang/test/Reflection/`, and
+`clang/test/Import/` together (1339 tests) show only the documented
+Milestone 1 baseline failure. See the 2026-08-28 "Milestone 5 gate: batched
+evaluator/module/PCH/reflection run, two real serialization gaps fixed"
+Session Log entry. Milestone 6 (libc++ and generated C++26 files) is now the
+sole active milestone; nothing has been attempted for it yet.
 
 ## Milestones
 
@@ -91,7 +95,7 @@ yet.
 - [x] **2. Fetch exact LLVM tag and merge on integration branch.** Gate passed 2026-08-25 in merge `ea04e484b0b8` and its direct upstream-resolution correction: exact signed tag merged on `integration/llvm-22.1.8`; every conflict and resolution category is recorded.
 - [x] **3. Restore base LLVM/Clang build.** Gate passed 2026-08-25: `ninja -C build-nyx clang` and then `ninja -C build-nyx` passed from the exact LLVM 22 `clang/` baseline.
 - [x] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate passed 2026-08-28: `clang/test/Reflection/` is 15/16, with the only remaining failure being the documented Milestone 1 baseline (`splice-exprs.cpp` line 23). See the 2026-08-28 "Milestone 4 gate: both remaining reflection failures fixed at their root cause" Session Log entry.
-- [~] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries, including the known non-serializable `CXXMetafunctionExpr` callback limitation. Gate: focused evaluator, module, PCH, and reflection tests pass; any intentionally deferred limitation is documented with a reproducer.
+- [x] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries. Gate passed 2026-08-28: `clang/test/AST/ByteCode/`, `clang/test/Modules/`, `clang/test/PCH/`, `clang/test/Reflection/`, `clang/test/Import/` (1339 tests) show only the Milestone 1 baseline failure. Two real serialization gaps found and fixed (`ReflectionSpliceType` PCH deserialization, `ASTImporter` splice-scoped `NestedNameSpecifier` import); the `CXXMetafunctionExpr` callback mechanism, previously assumed to be a limitation, was empirically verified to round-trip correctly through PCH. See the 2026-08-28 Session Log entry for the one remaining caveat (the `ASTImporter` fix is compile-verified but not runtime-verified — the tool needed to exercise it does not propagate `-freflection`).
 - [ ] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate: libc++ builds and generated-file checks are clean; local conformance commits remain reachable and represented.
 - [ ] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here.
 - [ ] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names.
@@ -99,9 +103,9 @@ yet.
 
 ## Blockers
 
-None currently. Milestone 4 closed 2026-08-28 (see Session Log). Milestone 5
-is active; its remaining gate items (focused evaluator, module, and PCH
-tests) have not been attempted yet, but nothing is blocking starting them.
+None currently. Milestones 4 and 5 closed 2026-08-28 (see Session Log).
+Milestone 6 (libc++ and generated C++26 files) is active; nothing has been
+attempted for it yet, but nothing is blocking starting it.
 
 When blocked, record the failing command, essential diagnostic, affected milestone, attempted remedies, and exact condition needed to resume. Use `[!]` only for a genuine external or technical impasse, not for ordinary incomplete work.
 
@@ -1959,3 +1963,171 @@ Also corrected this same entry's root-cause narrative for the
 an earlier draft mis-derived the causal chain (see the "Correction
 (post-advisor review...)" paragraph inline above) — the fix itself was
 unaffected, only the recorded provenance.
+
+### 2026-08-28 — Milestone 5 gate: batched evaluator/module/PCH/reflection run, two real serialization gaps fixed
+
+Resumed Milestone 5 (user instruction: "finish as much of M5 as you can in
+one go", batch fixes and defer recompiles rather than alternating
+single-fix/rebuild cycles, per the same pattern the M4-closing session used).
+The M5 log entries from 2026-08-27 ("serialization vocabulary...", "first
+linking clang, three crashes root-caused...") had already restored the
+serialization bundle and reached a link-clean `clang`, but the milestone's
+own gate (focused evaluator/module/PCH/reflection tests) had never actually
+been run, and the M4 corpus that later closed Milestone 4 never covered
+`clang/test/AST/ByteCode/` (the evaluator directory, `Interp/` renamed
+upstream) at all.
+
+**Batch 1 — confirm the binary matches the tree, then run the untested
+suites.** Checked no tracked modified file was newer than
+`build-nyx/bin/clang-21`'s mtime (01:20:40, from the M4-closing session's
+build) before testing, to avoid a stale-binary false pass. Ran
+`llvm-lit -q clang/test/AST/ByteCode/ clang/test/Modules/ clang/test/PCH/
+clang/test/Reflection/` in one invocation (1281 tests): only the documented
+Milestone 1 baseline failure (`splice-exprs.cpp` line 23). Zero cost, since
+the existing binary was already valid for this — confirms the M5
+restoration work from 2026-08-27 was already sound for everything these
+directories cover.
+
+**Milestone 5's own gate text calls out "the known non-serializable
+`CXXMetafunctionExpr` callback limitation" — empirically false, corrected
+rather than left standing.** `Sema::getMetafunctionCb` rebuilds the
+`ImplFn` callback from just `MetaFnID` (a static-table index) and the
+*reading* `Sema` (via `Reader->getSema()->getMetafunctionCb(ID)` in
+`ASTRecordReader::getMetafunctionCb`, `ASTRecordReader.h:376`), not by
+literally serializing a function pointer — a comment at that call site
+already calls it a "CXX26 hack". Rather than trust the milestone text's
+characterization, built two direct `-cc1 -emit-pch`/`-include-pch`
+reproducers in the scratchpad (not committed — throwaway probes): (1) a
+`constexpr` variable whose initializer is a `__metafunction(...)` call,
+evaluated at PCH-write time; (2) the same metafunction call inside a
+template function, only instantiated (and thus only *re*-evaluated via the
+deserialized `CXXMetafunctionExpr`) in the second TU after `-include-pch`.
+Both passed cleanly — no crash, correct results. The mechanism is fragile
+by design (any future metafunction whose closure captures more than
+`this`+`Metafn` would break it silently) but is not, today, a limitation.
+Corrected the Milestone 5 line in the Milestones table to say so instead of
+repeating the unverified claim.
+
+**Found and fixed a real, verified serialization gap: `ReflectionSpliceType`
+PCH deserialization was a bare `llvm_unreachable`.**
+`clang/include/clang/AST/TypeProperties.td`'s `ReflectionSpliceType` entry
+(added during the 2026-08-26 Type.h/TypeBase.h reconciliation, deliberately
+deferred to "the AST-serialization reconciliation milestone" per its own
+comment) had a `Creator` that unconditionally called
+`llvm_unreachable("ReflectionSpliceType PCH deserialization not yet
+implemented")`, with zero declared properties. Confirmed this is live and
+reachable, not theoretical: a `-cc1 -emit-pch` on a header containing
+`using SplicedInt = [:^^int:];` succeeded (the writer path doesn't
+round-trip through the reader), but `-include-pch` on a second TU using
+that alias crashed with a plain `SIGSEGV` inside `ASTReader::GetType`
+(Release build, so `llvm_unreachable` compiles to `__builtin_unreachable`
+and jumps into garbage rather than aborting with a message — no diagnostic
+at all, just a raw stack trace landing in
+`AbstractTypeReader<ASTRecordReader>::readTypedefType()`). Fixed by
+declaring the three real properties the type already exposes
+(`getTypenameKWLoc()`, `getSplice()`, `getUnderlyingType()`) and a `Creator`
+that calls `ctx.getReflectionSpliceType(typenameKWLoc, splice,
+underlyingType)` — the same construction path `Sema::BuildReflectionSpliceType`
+already uses for both the dependent case (passing `Context.DependentTy`)
+and the non-dependent case. The `splice` property uses the already-existing
+`SpliceSpecifierRef` declarative property type (`PropertiesBase.td:144`),
+whose `readSpliceSpecifierRef`/`writeSpliceSpecifierRef` primitives on
+`ASTRecordReader`/`ASTRecordWriter` were already implemented by the
+2026-08-27 serialization-vocabulary session for `NestedNameSpecifier::Splice`
+— no new primitive needed, just a missing consumer. `ReflectionSpliceTypeLoc`
+needed no changes (`ReflectionSpliceTypeLocInfo` is an empty struct, so its
+`TypeLoc` serialization is fully generic once the `Type` itself is
+serializable). Verified with direct `-cc1` round trips for both the
+non-dependent case (`using SplicedInt = [:^^int:];`, a real value read back
+across the PCH boundary) and the dependent case (`template <info I> using
+SplicedFromParam = typename [:I:];`, instantiated only in the second TU,
+exercising the `getReflectionSpliceType`-with-`DependentTy` construction
+path and its later re-resolution) — both pass. Added
+`clang/test/PCH/cxx26-reflection-splice-type.cpp` covering both cases as a
+permanent regression test (previously zero PCH coverage existed for
+reflection at all).
+
+**Found and implemented a second real gap:
+`ASTImporter::Import(SpliceSpecifier *)` was also a bare
+`llvm_unreachable`, corroborating the 2026-08-27 log's finding.** That
+entry had already traced, by direct code reading (not empirical
+reproduction), that a `Splice`/`SpliceWithTemplate`-kind `NestedNameSpecifier`
+crossing `ASTImporter` (cross-TU import, e.g. CTU analysis or
+`clang-import-test`) hits `llvm_unreachable("unimplemented")` in the plain
+`Import(NestedNameSpecifier)` overload (`ASTImporter.cpp`, was line 10182)
+before ever reaching the `Import(NestedNameSpecifierLoc)` overload's own
+already-correct `Splice`/`SpliceWithTemplate` cases (`Builder.MakeSpliceScopeSpecifier`)
+— because that loop calls `importInto(Spec, NNS.getNestedNameSpecifier())`
+first, which routes through the unreachable plain-NNS importer. Implemented
+`ASTNodeImporter::ImportSpliceSpecifier` (imports `LSpliceLoc`, `Operand`
+(the reflection expression) via the ordinary generic `Expr` importer,
+`RSpliceLoc`, and the optional `ASTTemplateArgumentListInfo` template-args
+list via the already-existing `ImportTemplateArgumentListInfo` helper —
+mirroring the `import<ConceptReference *>` specialization's pattern at
+`ASTImporter.cpp:1043` exactly, since `ConceptReference` has the same
+"required locs/operand plus optional template-arg list" shape), wired
+`ASTImporter::Import(SpliceSpecifier *)` to call it, and replaced the plain
+`Import(NestedNameSpecifier)` overload's `Splice`/`SpliceWithTemplate` case
+with a real implementation
+(`NestedNameSpecifier(*SSOrErr, Kind == SpliceWithTemplate)`) instead of
+`llvm_unreachable`. This makes the already-correct
+`Import(NestedNameSpecifierLoc)` case's `Spec.getAsSplice()` call
+meaningful for the first time (`Spec` now really is the imported specifier,
+not garbage from a call that could never have returned).
+**Caveat, stated plainly rather than glossed over: this is
+compile-verified only, not runtime-verified.** Attempted a live reproducer
+via `clang-import-test -import ... -expression ...` with a header using
+`[:^^N:]::y` (a `Splice`-kind qualified name) and `-Xcc -std=c++23 -Xcc
+-freflection`; the `[:` was parsed as an ordinary lambda-capture `[`
+regardless, meaning `-freflection` never reached the tool's `LangOpts` for
+either the imported-from or the expression TU. Ran a control to rule out
+"my splice syntax is wrong" instead: passed `-Xcc
+-Wfoo-bar-baz-nonexistent` (a guaranteed-invalid flag) and got no
+diagnostic at all — confirms `-Xcc` args are not reliably reaching
+`CompilerInvocation::CreateFromArgs`'s effect on the parsed TU in this
+tool, a pre-existing `clang-import-test` limitation unrelated to this
+fork's reflection work, not something to route around under build
+pressure. `clang/test/Import/` (1339-test batch below) passing is not
+evidence either way, since none of those tests enable `-freflection` so
+the new code path never executes in that corpus. Did not attempt a
+`clang/unittests/AST/ASTImporterTest.cpp` case either: that fixture's
+`getCommandLineArgsForLanguage(TestLanguage)` has no extension point for
+extra flags like `-freflection` without editing
+`clang/include/clang/Testing/CommandLineArgs.h`, and building the
+`ASTTests` unittest binary was not already available — both are reasonably
+sized follow-up work, not a batch-fits-now fix. **Net effect of landing
+this anyway: replaced a guaranteed Release-mode `SIGSEGV` (verified
+first-hand on the sibling `ReflectionSpliceType` bug above — the same
+`llvm_unreachable`-compiles-to-jump-into-garbage failure mode) with
+untested-but-directly-analogous code that mirrors an already-proven-correct
+import pattern in the same file.** Not a safety regression either way, but
+runtime correctness of this one path is owed, not proven. Follow-up: wire
+`-freflection` into `clang-import-test` or `CommandLineArgs.h`, then add
+a splice-scoped-qualified-name cross-TU test.
+
+**Batch 2 — validate both fixes together plus a wider corpus, one
+rebuild.** One `ninja -C build-nyx clang` (2794/2794, ~25 min). Re-ran the
+original 1281-test batch (still only the M1 baseline failure) plus
+`clang/test/Import/` (the `ASTImporter` lit corpus, 58 more tests, all
+pass — confirms no regression in ordinary, non-reflection import paths from
+the `Import(NestedNameSpecifier)` signature change) for 1339 total. Checked
+for a dedicated `clang/test/Serialization/` lit directory per Milestone 5's
+own "AST serialization" wording (advisor-prompted, since `TypeProperties.td`
+regenerates the core type (de)serialization codegen and the original batch
+didn't target it by name) — does not exist in this tree or upstream LLVM
+22; AST/type serialization is exercised through `Modules/` and `PCH/`
+instead, both already in the batch. `ASTImporter.cpp` alone was also
+checked with the project's standard direct `-fsyntax-only` translation-unit
+compile (per `HANDOFF_2026-08-26.md`'s documented recipe) before the full
+rebuild, to catch a syntax error without waiting ~25 minutes; it was clean.
+
+Files changed: `clang/include/clang/AST/TypeProperties.td`,
+`clang/lib/AST/ASTImporter.cpp`,
+`clang/test/PCH/cxx26-reflection-splice-type.cpp` (new). Milestone 5's gate
+(focused evaluator, module, PCH, and reflection tests pass; any
+intentionally deferred limitation documented with a reproducer) is met: all
+five directories pass except the Milestone 1 baseline, and the one
+incompletely-verified piece (the `ASTImporter` splice-import runtime
+behavior) is documented above with its exact blocker and reproducer
+attempt. Marked `[x]`. Milestone 6 (libc++/generated C++26 files) is next;
+nothing attempted for it yet.

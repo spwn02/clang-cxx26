@@ -791,6 +791,22 @@ let Class = PackExpansionType in {
   }]>;
 }
 
+let Class = ReflectionSpliceType in {
+  def : Property<"typenameKWLoc", SourceLocation> {
+    let Read = [{ node->getTypenameKWLoc() }];
+  }
+  def : Property<"splice", SpliceSpecifierRef> {
+    let Read = [{ node->getSplice() }];
+  }
+  def : Property<"underlyingType", QualType> {
+    let Read = [{ node->getUnderlyingType() }];
+  }
+
+  def : Creator<[{
+    return ctx.getReflectionSpliceType(typenameKWLoc, splice, underlyingType);
+  }]>;
+}
+
 let Class = SubstPackType in {
   def : Property<"replacementPack", TemplateArgument> {
     let Read = [{ node->getArgumentPack() }];
