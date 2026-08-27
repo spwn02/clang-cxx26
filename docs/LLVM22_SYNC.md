@@ -77,23 +77,30 @@ After upstream changes, always run `ninja -C build-libcxx libcxx-generate-files`
 
 ## Current Action
 
-Milestone 4 is active. On `Continue`:
+Milestone 5 is active. On `Continue`:
 
-1. Inventory the first-parent reflection parser, AST, Sema, template, and
-   driver changes omitted from the LLVM 22 baseline.
-2. Reintroduce the reflection expression family as one integrated AST/Sema/
-   parser/visitor/profiler/dumper/importer/serialization bundle; do not land
-   isolated generated `StmtNode` classes.
-3. Build the affected targets and run focused reflection tests after each
-   integrated bundle; preserve the known baseline failure only where reproduced.
+1. Restore `clang/lib/AST/ExprConstantMeta.cpp` verbatim from fork tip
+   `6dd950bcd4ac`, `git add` it immediately, add it to
+   `clang/lib/AST/CMakeLists.txt`, then manually port it to LLVM 22 APIs
+   using the direct `-fsyntax-only -ferror-limit=0` compile loop (see the
+   Session Log entry below for the exact command), batching fixes by API
+   class the same way `SemaReflect.cpp` was ported in Milestone 4.
+2. Once it compiles standalone, rebuild `clangAST`/`clangSerialization` and
+   let the linker's undefined-symbol list (metafunction table entries that
+   only `ExprConstantMeta.cpp` defines) confirm nothing else is missing.
+3. Finish reconciling `ASTImporter.cpp`'s remaining non-reflection delta
+   only if it blocks the build; otherwise leave upstream's independent
+   Concepts/Requires-expression importer additions alone.
+4. Run the full `clang` build gate and `clang/test/Reflection/` once the
+   binary links; that is Milestone 4's actual gate as well as Milestone 5's.
 
 ## Milestones
 
 - [x] **1. Capture clean baseline builds and expected failures.** Gate passed 2026-08-24: both build trees succeeded; focused results and all failures are recorded below.
 - [x] **2. Fetch exact LLVM tag and merge on integration branch.** Gate passed 2026-08-25 in merge `ea04e484b0b8` and its direct upstream-resolution correction: exact signed tag merged on `integration/llvm-22.1.8`; every conflict and resolution category is recorded.
 - [x] **3. Restore base LLVM/Clang build.** Gate passed 2026-08-25: `ninja -C build-nyx clang` and then `ninja -C build-nyx` passed from the exact LLVM 22 `clang/` baseline.
-- [~] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures.
-- [ ] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries, including the known non-serializable `CXXMetafunctionExpr` callback limitation. Gate: focused evaluator, module, PCH, and reflection tests pass; any intentionally deferred limitation is documented with a reproducer.
+- [!] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures. Code-complete (`clangAST`/`clangSema`/`clangParse` build clean); blocked on Milestone 5, since the gate's focused reflection tests need a linking `clang` binary and the last 4 pre-M5 build errors are Serialization-layer, not Parser/AST/Sema. Unblock condition: Milestone 5 lands.
+- [~] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries, including the known non-serializable `CXXMetafunctionExpr` callback limitation. Gate: focused evaluator, module, PCH, and reflection tests pass; any intentionally deferred limitation is documented with a reproducer.
 - [ ] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate: libc++ builds and generated-file checks are clean; local conformance commits remain reachable and represented.
 - [ ] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here.
 - [ ] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names.
@@ -101,7 +108,15 @@ Milestone 4 is active. On `Continue`:
 
 ## Blockers
 
-None currently recorded.
+- **Milestone 4** is blocked on Milestone 5, not on unfinished Parser/AST/Sema
+  work. `clangAST`/`clangSema`/`clangParse` build clean (2026-08-27); the full
+  `clang` binary build stopped at 4 errors, all in `clang/lib/Serialization/`
+  (`ASTReader.cpp` `CXXBaseSpecifier` ctor mismatch, `ASTReaderStmt.cpp`
+  `DeclRefExprBitfields::IsImmediateEscalating` missing,
+  `AttrPCHRead.inc`/`AttrPCHWrite.inc` missing
+  `readCXX26AnnotationAttr`/`AddCXX26AnnotationAttr`). Milestone 4's gate
+  needs focused `clang/test/Reflection/` runs, which need a linking `clang`
+  binary. Unblocks when Milestone 5's serialization bundle lands.
 
 When blocked, record the failing command, essential diagnostic, affected milestone, attempted remedies, and exact condition needed to resume. Use `[!]` only for a genuine external or technical impasse, not for ordinary incomplete work.
 
@@ -476,9 +491,17 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   cascade recorded above, not a narrow TemplateName.h problem.
 - Remedy: for each such file, a real three-way merge recovers the true
   local-only delta automatically:
-  `git merge-file -p <(git cat-file -p <merge-base>:<file>)
-  <(git cat-file -p 6dd950bcd4ac:<file>) <(git show HEAD:<file>)`
-  (merge-base `b1774222c761a7912cdbe0d0004ca12dae95f721`; `HEAD:<file>`
+  `git merge-file -p <(git cat-file -p 6dd950bcd4ac:<file>)
+  <(git cat-file -p <merge-base>:<file>) <(git show HEAD:<file>)`
+  — `git merge-file`'s real arg order is `<file1> <orig-file> <file2>`, so
+  the common ancestor (`<merge-base>`) must be the **middle** argument, not
+  the first; a `<merge-base> <local> <upstream>` ordering silently produces
+  a no-op merge (verified 2026-08-27: it emitted upstream's content
+  unchanged, discarding all 177 local-only lines of a test case). Also
+  prefer real temp files over `<()` process substitution for both inputs —
+  process substitution was observed to make `git merge-file` silently emit
+  a truncated/empty result in this sandboxed shell even with correct arg
+  order. (merge-base `b1774222c761a7912cdbe0d0004ca12dae95f721`; `HEAD:<file>`
   is already the clean upstream `llvmorg-22.1.8` content per Milestone 3's
   full `clang/` reset). This is exactly the Type.h methodology, applied
   mechanically instead of by hand.
@@ -1348,3 +1371,155 @@ Do not paste voluminous conflict listings or build logs into this file; keep dur
   path sweep and the content-count shrunk-path sweep) rather than the
   session log alone — this failure mode has now recurred at every session
   boundary checked so far.
+
+### 2026-08-27 — Milestone 5 started: serialization vocabulary, NNS splice plumbing, EvaluationMode restoration
+
+- Reran both carry-forward sweeps, scoped to `clang/lib/Serialization`,
+  `clang/include/clang/Serialization`, `clang/include/clang/AST`, and
+  `clang/lib/AST`, with the content-count sweep's keyword pattern widened to
+  include `consteval`/`expansionstmt` per the earlier session's own finding
+  that the 3-term pattern missed same-path single-line drops. `comm` found
+  exactly one deleted path in this scope, `clang/lib/AST/ExprConstantMeta.cpp`
+  (confirmed absent from both the upstream tag and the current worktree, a
+  genuine fork-only file with no upstream counterpart to merge against).
+  Content-count confirmed the already-catalogued Serialization bundle
+  (`ASTReader.cpp`, `ASTReaderStmt.cpp`, `ASTWriter.cpp`, `ASTWriterStmt.cpp`,
+  `ASTCommon.cpp`, `ASTReaderDecl.cpp`, `PropertiesBase.td`, `ASTBitCodes.h`,
+  `TypeBitCodes.def`) fully zeroed (same as upstream); also found
+  `AbstractBasicReader.h`/`AbstractBasicWriter.h` live at
+  `clang/include/clang/AST/`, not `clang/include/clang/Serialization/` as an
+  initial guess assumed — corrected before merging.
+- 3-way merged (base `b1774222c761a7912cdbe0d0004ca12dae95f721`, local
+  `6dd950bcd4ac`, upstream = current on-disk worktree content) and applied:
+  `PropertiesBase.td` (0 conflicts, 177-line pure local addition),
+  `AbstractBasicReader.h`/`AbstractBasicWriter.h`/`TypeBitCodes.def` (1
+  conflict each), `ASTBitCodes.h`/`ASTCommon.cpp`/`ASTReaderDecl.cpp`/
+  `ASTWriterDecl.cpp` (0 conflicts), `ASTReader.cpp`/`ASTWriter.cpp` (1
+  conflict each), `ASTReaderStmt.cpp`/`ASTWriterStmt.cpp` (0 conflicts, the
+  full reflection-expression and expansion-statement (de)serialization
+  visitors). `TypeBitCodes.def`'s conflict was two independent additions on
+  the same free bit-code slot (upstream's `PredefinedSugar`/
+  `SubstBuiltinTemplatePack`, local's `ReflectionSplice`) — kept both,
+  renumbered `ReflectionSplice` to the next free slot (63).
+  `ASTBitCodes.h` gained `PREDEF_TYPE_META_INFO_ID = 75`, which overflowed
+  `NUM_PREDEF_TYPE_IDS` (514, exactly at the old ceiling); bumped to 515.
+- **Process note, corrects the recipe documented earlier in this file**:
+  `git merge-file`'s real argument order is `<file1> <orig-file> <file2>`,
+  not `<merge-base> <local> <upstream>` as written above — the common
+  ancestor must be the *middle* argument. Using it as the first argument
+  (matching the literal order this file previously documented) silently
+  produces a no-op merge; verified empirically on `PropertiesBase.td`, where
+  it emitted upstream's content completely unchanged, discarding all 177
+  local-only lines. Also found `<()` process substitution unreliable for
+  `git merge-file` in this sandboxed shell (silently truncated output even
+  with correct argument order); switched to real temp files for every merge
+  this session. The prior sessions' own file batches are not suspected,
+  since this session's re-check of a sample (`DeclCXX.h`, `ASTImporter.h`)
+  shows their content already landed correctly — only the written recipe
+  was wrong, not necessarily every application of it. Corrected the recipe
+  in this file's Milestone-4 log section rather than leaving it to mislead
+  a future session.
+- The NNS-splice conflicts in `AbstractBasicReader.h`/`Writer.h` and
+  `ASTReader.cpp`/`ASTWriter.cpp` all showed the same shape: local's
+  pre-merge placeholder (`NestedNameSpecifier::Splice` unscoped enumerator,
+  a `readBool()`-encoded "has template keyword" flag) against upstream's
+  already-real `Kind::Splice`/`Kind::SpliceWithTemplate` design (confirmed
+  live in `NestedNameSpecifierBase.h`, landed by an earlier M4 session's
+  "reconcile LLVM 22 splice scope types" commits, not by this one). The
+  with-template-or-not distinction is already carried by which of the two
+  Kind enumerators was serialized, making the placeholder's explicit bool
+  field redundant; resolved every site to construct via
+  `NestedNameSpecifier(SpliceSpecifier*, bool WithTemplate = false)` /
+  `.getAsSplice()`, matching the by-value API precedent already established
+  throughout M4. `ASTWriter.cpp`'s conflict also carried a dead
+  `case NestedNameSpecifier::Super:` arm (the old unscoped name for what
+  `MicrosoftSuper` already handled above it) — dropped as a duplicate, not
+  new content.
+- `ExprConstant.cpp` 3-way merged with 8 real conflicts (not the whole
+  4254-line fork/upstream delta — the file diverged narrowly). First
+  merge attempt via `<()` process substitution silently produced a
+  1143-line file (should have been ~22000); caught via a line-count sanity
+  check before it ever reached the repo, confirmed the real repo file was
+  untouched, and regenerated cleanly from temp files. 4 of the 8 conflicts
+  were local's stale unscoped `EM_ConstantFold`-style `EvaluationMode`
+  enumerators against upstream's already-scoped `EvaluationMode::ConstantFold`
+  (the enum moved to the new shared `clang/lib/AST/ByteCode/State.h` —
+  `Interp/` was renamed `ByteCode/` upstream — with `CheckingPotentialConstantExpression`/
+  `CheckingForUndefinedBehavior`/`checkingPotentialConstantExpression()`/
+  `checkingForUndefinedBehavior()` also already living on the `interp::State`
+  base class); took upstream's naming throughout. One conflict was local's
+  now-dead `IsImmediateEscalating` `EvalInfo` field/constructor logic —
+  confirmed unused anywhere in current upstream (grep found zero read sites),
+  consistent with the M4 log's independent finding that
+  `SemaTemplateInstantiateDecl.cpp` already dropped the fork's manual
+  immediate-escalating bookkeeping in favor of upstream's
+  `EnterExpressionEvaluationContextForFunction`; dropped it, not restored.
+  The remaining conflicts were the real reflection-specific piece: local's
+  `Kind::PlainlyConstantEvaluated`-driven `AllowInjection` gate for
+  metafunction-driven declaration injection (`std::meta::define_class` and
+  friends) needs an `EvaluationMode` value upstream never added (upstream's
+  own `ConstantExprKind::PlainlyConstantEvaluated`/`ContainingDecl`
+  parameter already exist in `Expr.h`, but the `.cpp` body was a stub —
+  `(void)ContainingDecl;`, always `EvaluationMode::ConstantExpression` —
+  confirming upstream's own P2564 injected-declarations feature is
+  incomplete in this exact tag, not something this merge broke). Added
+  `ConstantExpressionPlainlyConstantEvaluated` to `State.h`'s
+  `EvaluationMode` enum as a local-only extension (verified its only two
+  other consumers, `ExprConstant.cpp` and `ByteCode/Interp.h`, don't
+  exhaustively switch over it elsewhere), restored the
+  `EvaluateAsConstantExpr` Kind-to-mode selection logic, and added the new
+  enumerator to all 5 switch sites that group it (always alongside
+  `ConstantExpression`/`ConstantExpressionUnevaluated`, per every one of the
+  5 sites in the fork's own source — confirmed this grouping rather than
+  assumed it).
+- Filled two generic serialization primitives the fork's `PropertiesBase.td`
+  additions need but upstream's `DataStreamBasicReader`/`Writer` don't
+  provide (`def Char : CountPropertyType<"char">;` needs `readChar`/
+  `writeChar`, the same shape as the already-upstream `readBool`/
+  `writeBool`): added both to `ASTRecordReader.h`/`ASTRecordWriter.h` from
+  the fork tip verbatim.
+- Restored 3 declaration/wrapper sites the clean-merged `.cpp` bodies were
+  already calling but had no header declaration for (their `.cpp`
+  implementations were already present from the merges above — this was a
+  declaration-only gap, not a missing-implementation one):
+  `ASTRecordReader::readSpliceSpecifierRef()`/`readCXX26AnnotationAttr()`/
+  `getMetafunctionCb()` in `ASTRecordReader.h`;
+  `ASTRecordWriter::AddSpliceSpecifier()`/`writeSpliceSpecifierRef()`/
+  `AddCXX26AnnotationAttr()` in `ASTRecordWriter.h`.
+- `ASTImporter.cpp` and `ASTStructuralEquivalence.cpp` were already mostly
+  reconciled by an earlier session (unclear which — not attributed in this
+  file); `ASTImporter.cpp`'s remaining delta against fork tip is
+  overwhelmingly upstream's own independent Concepts/Requires-expression
+  importer support the fork predates, not a reflection gap. Found and fixed
+  the two real reflection gaps by direct comparison against fork tip rather
+  than the diff-size sweep (which was too noisy here to trust blindly):
+  `ASTStructuralEquivalence.cpp` was missing the
+  `NestedNameSpecifier::Kind::Splice`/`SpliceWithTemplate` case in its NNS
+  equivalence switch (added, delegating to the already-present
+  `SpliceSpecifier*` overload). `ASTImporter.cpp` was missing the same case
+  in both its plain-`NestedNameSpecifier` and `NestedNameSpecifierLoc`
+  import functions; added both, faithfully preserving a latent gap already
+  present in the fork's own pre-merge code rather than inventing a fix: the
+  plain-`NestedNameSpecifier` importer's `Splice`/`SpliceWithTemplate` cases
+  are `llvm_unreachable("unimplemented")` in the fork tip too (never
+  implemented pre-merge), yet the `NestedNameSpecifierLoc` importer's loop
+  calls into that same unimplemented path via `importInto(Spec, ...)` before
+  reaching its own (real) Splice-handling case — so a Splice-kind NNS
+  crossing the `ASTImporter` (module cross-TU import) is a real,
+  pre-existing, not-this-session's-doing gap. Documented here rather than
+  silently fixed under build pressure, since resolving it is a design task
+  (extending `Import(NestedNameSpecifier)` to actually import the
+  `SpliceSpecifier` payload), not a mechanical reconciliation.
+- Not yet built to a link-clean `clang` binary. A background
+  `ninja -C build-nyx clang` was in flight validating this session's changes
+  when this entry was written; `clang/lib/AST/ExprConstantMeta.cpp` (fully
+  absent, ~7409 lines in the fork, no upstream counterpart) is the next and
+  largest remaining piece — restore verbatim, `git add` immediately, wire
+  into `clang/lib/AST/CMakeLists.txt`, then manually port with the direct
+  `-fsyntax-only -ferror-limit=0` compile loop the same way `SemaReflect.cpp`
+  was ported in Milestone 4, since it will very likely define the
+  metafunction table `Sema::getMetafunctionCb` (already restored, declared
+  `clang/include/clang/Sema/Sema.h:15892`) reads from — its absence should
+  surface as undefined-symbol errors at the final `clang` link, not as a
+  `clangAST`/`clangSerialization` compile failure, since static archives
+  don't resolve symbols at archive-build time.

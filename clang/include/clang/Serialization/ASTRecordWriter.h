@@ -181,6 +181,10 @@ public:
     Record->push_back(Value);
   }
 
+  void writeChar(char Value) {
+    Record->push_back(Value);
+  }
+
   void writeUInt32(uint32_t Value) {
     Record->push_back(Value);
   }
@@ -286,6 +290,11 @@ public:
   /// Emit a nested name specifier with source-location information.
   void AddNestedNameSpecifierLoc(NestedNameSpecifierLoc NNS);
 
+  void AddSpliceSpecifier(const SpliceSpecifier *SS);
+  void writeSpliceSpecifierRef(const SpliceSpecifier *SS) {
+    AddSpliceSpecifier(SS);
+  }
+
   /// Emit a template name.
   void AddTemplateName(TemplateName Name) {
     writeTemplateName(Name);
@@ -332,6 +341,8 @@ public:
   void writeOpenACCClauseList(ArrayRef<const OpenACCClause *> Clauses);
 
   void AddOpenACCRoutineDeclAttr(const OpenACCRoutineDeclAttr *A);
+
+  void AddCXX26AnnotationAttr(const CXX26AnnotationAttr *A);
 
   /// Emit a string.
   void AddString(StringRef Str) {

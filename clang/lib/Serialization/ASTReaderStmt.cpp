@@ -109,7 +109,7 @@ namespace clang {
     static const unsigned NumExprFields = NumStmtFields + 2;
 
     /// The number of bits required for the packing bits for the Expr class.
-    static const unsigned NumExprBits = 10;
+    static const unsigned NumExprBits = 11;
 
     /// Read and initialize a ExplicitTemplateArgumentList structure.
     void ReadTemplateKWAndArgsInfo(ASTTemplateKWAndArgsInfo &Args,
@@ -502,6 +502,162 @@ void ASTStmtReader::VisitCoyieldExpr(CoyieldExpr *E) {
   E->OpaqueValue = cast_or_null<OpaqueValueExpr>(Record.readSubStmt());
 }
 
+void ASTStmtReader::VisitCXXReflectExpr(CXXReflectExpr *E) {
+  VisitExpr(E);
+  E->setOperatorLoc(Record.readSourceLocation());
+
+  if (Record.readBool()) {
+    Expr *DepSubExpr = Record.readExpr();
+
+    E->setDependentSubExpr(DepSubExpr);
+    E->setOperandRange(DepSubExpr->getSourceRange());
+  } else {
+    E->setAPValue(Record.readAPValue());
+    E->setOperandRange(Record.readSourceRange());
+  }
+}
+
+void ASTStmtReader::VisitCXXMetafunctionExpr(CXXMetafunctionExpr *E) {
+  VisitExpr(E);
+  E->setKwLoc(Record.readSourceLocation());
+  E->setLParenLoc(Record.readSourceLocation());
+  E->setRParenLoc(Record.readSourceLocation());
+  E->setMetaFnID(Record.readUInt32());
+  E->setImpl(Record.getMetafunctionCb(E->getMetaFnID()));
+  E->setResultType(Record.readQualType());
+
+  unsigned NumArgs = Record.readUInt32();
+  Expr **Args = new (Record.getContext()) Expr *[NumArgs];
+  for (unsigned k = 0; k < NumArgs; ++k)
+    Args[k] = Record.readExpr();
+  E->setArgs(Args, NumArgs);
+}
+
+void ASTStmtReader::VisitCXXSpliceExpr(CXXSpliceExpr *E) {
+  VisitExpr(E);
+  E->setTemplateKWLoc(Record.readSourceLocation());
+  E->setSplice(Record.readSpliceSpecifierRef());
+  E->setModel(Record.readExpr());
+  E->setAllowMemberReference(Record.readBool());
+}
+
+void ASTStmtReader::VisitCXXDependentMemberSpliceExpr(
+                                              CXXDependentMemberSpliceExpr *E) {
+  VisitExpr(E);
+  E->setOpLoc(Record.readSourceLocation());
+  E->setIsArrow(Record.readBool());
+  E->setBase(Record.readExpr());
+  E->setRHS(cast<CXXSpliceExpr>(Record.readExpr()));
+}
+
+void ASTStmtReader::VisitStackLocationExpr(StackLocationExpr *E) {
+  llvm_unreachable("unimplemented");
+}
+
+void ASTStmtReader::VisitExtractLValueExpr(ExtractLValueExpr *E) {
+  llvm_unreachable("unimplemented");
+}
+
+void ASTStmtReader::VisitExplDependentCallExpr(ExplDependentCallExpr *E) {
+  llvm_unreachable("unimplemented");
+}
+
+void ASTStmtReader::VisitCXXExpansionStmt(CXXExpansionStmt *S) {
+  VisitStmt(S);
+
+  S->TemplateKWLoc = Record.readSourceLocation();
+  S->ForLoc = Record.readSourceLocation();
+  S->LParenLoc = Record.readSourceLocation();
+  S->ColonLoc = Record.readSourceLocation();
+  S->RParenLoc = Record.readSourceLocation();
+
+  S->SubStmts[CXXExpansionStmt::INIT] = Record.readStmt();
+  S->SubStmts[CXXExpansionStmt::TPARAM] = Record.readStmt();
+  S->SubStmts[CXXExpansionStmt::VAR] = Record.readStmt();
+  S->SubStmts[CXXExpansionStmt::SIZE] = Record.readStmt();
+  S->SubStmts[CXXExpansionStmt::BODY] = Record.readStmt();
+
+  if (unsigned NumExpansions = Record.readUInt32(); NumExpansions > 0) {
+    Stmt **Expansions = new (Record.getContext()) Stmt *[NumExpansions];
+    for (size_t k = 0; k < NumExpansions; ++k)
+      Expansions[k] = Record.readStmt();
+    S->Expansions = Expansions;
+  }
+}
+
+void ASTStmtReader::VisitCXXIndeterminateExpansionStmt(
+                                             CXXIndeterminateExpansionStmt *S) {
+  VisitCXXExpansionStmt(S);
+}
+
+void ASTStmtReader::VisitCXXIterableExpansionStmt(CXXIterableExpansionStmt *S) {
+  VisitCXXExpansionStmt(S);
+
+  S->NumInstantiations = Record.readUInt32();
+}
+
+void ASTStmtReader::VisitCXXDestructurableExpansionStmt(
+                                            CXXDestructurableExpansionStmt *S) {
+  VisitCXXExpansionStmt(S);
+}
+
+void ASTStmtReader::VisitCXXInitListExpansionStmt(CXXInitListExpansionStmt *S) {
+  VisitCXXExpansionStmt(S);
+}
+
+void ASTStmtReader::VisitCXXIndeterminateExpansionSelectExpr(
+        CXXIndeterminateExpansionSelectExpr *E) {
+  VisitExpr(E);
+
+  E->SubExprs[0] = Record.readExpr();
+  E->SubExprs[1] = Record.readExpr();
+  E->ExpansionVar = readDeclAs<VarDecl>();
+  
+  E->NumLifetimeExtendTemps = Record.readUInt32();
+  Expr **Temps = new (Record.getContext()) Expr *[E->NumLifetimeExtendTemps];
+  for (size_t k = 0; k < E->NumLifetimeExtendTemps; ++k)
+    Temps[k] = Record.readExpr();
+  E->LifetimeExtendTemps = reinterpret_cast<MaterializeTemporaryExpr **>(Temps);
+}
+
+void ASTStmtReader::VisitCXXIterableExpansionSelectExpr(
+        CXXIterableExpansionSelectExpr *E) {
+  VisitExpr(E);
+
+  E->ImplExpr = Record.readExpr();
+  E->RangeVar = readDeclAs<VarDecl>();
+}
+
+void ASTStmtReader::VisitCXXDestructurableExpansionSelectExpr(
+        CXXDestructurableExpansionSelectExpr *E) {
+  VisitExpr(E);
+
+  E->IdxExpr = Record.readExpr();
+  E->DD = Record.readDeclAs<DecompositionDecl>();
+  E->ExpansionVar = Record.readDeclAs<VarDecl>();
+}
+
+void ASTStmtReader::VisitCXXExpansionInitListSelectExpr(
+        CXXExpansionInitListSelectExpr *E) {
+  VisitExpr(E);
+
+  E->SubExprs[0] = Record.readExpr();
+  E->SubExprs[1] = Record.readExpr();
+}
+
+void ASTStmtReader::VisitCXXExpansionInitListExpr(CXXExpansionInitListExpr *E) {
+  VisitExpr(E);
+
+  E->LBraceLoc = readSourceLocation();
+  E->RBraceLoc = readSourceLocation();
+
+  E->NumSubExprs = Record.readUInt32();
+  Expr **SubExprs = new (Record.getContext()) Expr *[E->NumSubExprs];
+  for (size_t k = 0; k < E->NumSubExprs; ++k)
+    SubExprs[k] = Record.readExpr();
+  E->SubExprs = SubExprs;
+}
+
 void ASTStmtReader::VisitDependentCoawaitExpr(DependentCoawaitExpr *E) {
   VisitExpr(E);
   E->KeywordLoc = readSourceLocation();
@@ -546,6 +702,7 @@ void ASTStmtReader::VisitExpr(Expr *E) {
   CurrentUnpackingBits.emplace(Record.readInt());
   E->setDependence(static_cast<ExprDependence>(
       CurrentUnpackingBits->getNextBits(/*Width=*/5)));
+  E->setIsImmediateEscalating(CurrentUnpackingBits->getNextBit());  // Width=1
   E->setValueKind(static_cast<ExprValueKind>(
       CurrentUnpackingBits->getNextBits(/*Width=*/2)));
   E->setObjectKind(static_cast<ExprObjectKind>(
@@ -623,7 +780,6 @@ void ASTStmtReader::VisitDeclRefExpr(DeclRefExpr *E) {
       CurrentUnpackingBits->getNextBit();
   E->DeclRefExprBits.NonOdrUseReason =
       CurrentUnpackingBits->getNextBits(/*Width=*/2);
-  E->DeclRefExprBits.IsImmediateEscalating = CurrentUnpackingBits->getNextBit();
   E->DeclRefExprBits.HasFoundDecl = CurrentUnpackingBits->getNextBit();
   E->DeclRefExprBits.HasQualifier = CurrentUnpackingBits->getNextBit();
   E->DeclRefExprBits.HasTemplateKWAndArgsInfo =
@@ -1778,7 +1934,6 @@ void ASTStmtReader::VisitCXXConstructExpr(CXXConstructExpr *E) {
   E->CXXConstructExprBits.StdInitListInitialization = Record.readInt();
   E->CXXConstructExprBits.ZeroInitialization = Record.readInt();
   E->CXXConstructExprBits.ConstructionKind = Record.readInt();
-  E->CXXConstructExprBits.IsImmediateEscalating = Record.readInt();
   E->CXXConstructExprBits.Loc = readSourceLocation();
   E->Constructor = readDeclAs<CXXConstructorDecl>();
   E->ParenOrBraceRange = readSourceRange();
@@ -3212,7 +3367,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
 
     case EXPR_DECL_REF: {
       BitsUnpacker DeclRefExprBits(Record[ASTStmtReader::NumExprFields]);
-      DeclRefExprBits.advance(5);
+      DeclRefExprBits.advance(4);
       bool HasFoundDecl = DeclRefExprBits.getNextBit();
       bool HasQualifier = DeclRefExprBits.getNextBit();
       bool HasTemplateKWAndArgsInfo = DeclRefExprBits.getNextBit();
@@ -4542,6 +4697,58 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case EXPR_HLSL_OUT_ARG:
       S = HLSLOutArgExpr::CreateEmpty(Context);
       break;
+    case EXPR_REFLECT: {
+      S = CXXReflectExpr::CreateEmpty(Context);
+      break;
+    }
+    case EXPR_METAFUNCTION: {
+      S = CXXMetafunctionExpr::CreateEmpty(Context);
+      break;
+    }
+    case EXPR_SPLICE: {
+      S = CXXSpliceExpr::CreateEmpty(Context);
+      break;
+    }
+    case EXPR_DEPENDENT_MEMBER_SPLICE: {
+      S = CXXDependentMemberSpliceExpr::CreateEmpty(Context);
+      break;
+    }
+    case STMT_INDETERMINATE_EXPANSION: {
+      S = CXXIndeterminateExpansionStmt::Create(Context, Empty);
+      break;
+    }
+    case STMT_ITERABLE_EXPANSION: {
+      S = CXXIterableExpansionStmt::Create(Context, Empty);
+      break;
+    }
+    case STMT_DESTRUCTURABLE_EXPANSION: {
+      S = CXXDestructurableExpansionStmt::Create(Context, Empty);
+      break;
+    }
+    case STMT_INIT_LIST_EXPANSION: {
+      S = CXXInitListExpansionStmt::Create(Context, Empty);
+      break;
+    }
+    case EXPR_INDETERMINATE_EXPANSION_SELECT: {
+      S = CXXIndeterminateExpansionSelectExpr::Create(Context, Empty);
+      break;
+    }
+    case EXPR_ITERABLE_EXPANSION_SELECT: {
+      S = CXXIterableExpansionSelectExpr::Create(Context, Empty);
+      break;
+    }
+    case EXPR_DESTRUCTURABLE_EXPANSION_SELECT: {
+      S = CXXDestructurableExpansionSelectExpr::Create(Context, Empty);
+      break;
+    }
+    case EXPR_INIT_LIST_EXPANSION_SELECT: {
+      S = CXXExpansionInitListSelectExpr::Create(Context, Empty);
+      break;
+    }
+    case EXPR_EXPANSION_INIT_LIST: {
+      S = CXXExpansionInitListExpr::Create(Context, Empty);
+      break;
+    }
     }
 
     // We hit a STMT_STOP, so we're done with this expression.

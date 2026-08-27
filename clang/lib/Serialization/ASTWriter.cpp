@@ -535,6 +535,10 @@ void TypeLocWriter::VisitDecltypeTypeLoc(DecltypeTypeLoc TL) {
   addSourceLocation(TL.getRParenLoc());
 }
 
+void TypeLocWriter::VisitReflectionSpliceTypeLoc(ReflectionSpliceTypeLoc TL) {
+  // nothing to do
+}
+
 void TypeLocWriter::VisitUnaryTransformTypeLoc(UnaryTransformTypeLoc TL) {
   addSourceLocation(TL.getKWLoc());
   addSourceLocation(TL.getLParenLoc());
@@ -552,6 +556,17 @@ void ASTRecordWriter::AddConceptReference(const ConceptReference *CR) {
   push_back(CR->getTemplateArgsAsWritten() != nullptr);
   if (CR->getTemplateArgsAsWritten())
     AddASTTemplateArgumentListInfo(CR->getTemplateArgsAsWritten());
+}
+
+void ASTRecordWriter::AddSpliceSpecifier(const SpliceSpecifier *Splice) {
+  assert(Splice);
+  AddSourceLocation(Splice->getLSpliceLoc());
+  AddStmt(Splice->getOperand());
+  AddSourceLocation(Splice->getRSpliceLoc());
+
+  writeBool(Splice->isSpecialization());
+  if (Splice->isSpecialization())
+    AddASTTemplateArgumentListInfo(Splice->getTemplateArgs());
 }
 
 void TypeLocWriter::VisitPackIndexingTypeLoc(PackIndexingTypeLoc TL) {
@@ -1060,6 +1075,7 @@ void ASTWriter::WriteBlockInfoBlock() {
   RECORD(TYPE_DECAYED);
   RECORD(TYPE_ADJUSTED);
   RECORD(TYPE_OBJC_TYPE_PARAM);
+  RECORD(TYPE_REFLECTION_SPLICE);
   RECORD(LOCAL_REDECLARATIONS);
   RECORD(DECL_TYPEDEF);
   RECORD(DECL_TYPEALIAS);
@@ -7150,6 +7166,13 @@ void ASTRecordWriter::AddNestedNameSpecifierLoc(
       AddSourceRange(QualifierLoc.getLocalSourceRange());
       break;
 
+    case NestedNameSpecifier::Kind::Splice:
+    case NestedNameSpecifier::Kind::SpliceWithTemplate:
+      AddSpliceSpecifier(Qualifier.getAsSplice());
+      writeBool(Kind == NestedNameSpecifier::Kind::SpliceWithTemplate);
+      AddSourceRange(QualifierLoc.getLocalSourceRange());
+      break;
+
     case NestedNameSpecifier::Kind::Null:
       llvm_unreachable("unexpected null nested name specifier");
     }
@@ -7206,10 +7229,10 @@ void ASTRecordWriter::AddUnresolvedSet(const ASTUnresolvedSet &Set) {
 // FIXME: Move this out of the main ASTRecordWriter interface.
 void ASTRecordWriter::AddCXXBaseSpecifier(const CXXBaseSpecifier &Base) {
   Record->push_back(Base.isVirtual());
-  Record->push_back(Base.isBaseOfClass());
   Record->push_back(Base.getAccessSpecifierAsWritten());
   Record->push_back(Base.getInheritConstructors());
   AddTypeSourceInfo(Base.getTypeSourceInfo());
+  AddDeclRef(Base.getDerived());
   AddSourceRange(Base.getSourceRange());
   AddSourceLocation(Base.isPackExpansion()? Base.getEllipsisLoc()
                                           : SourceLocation());
@@ -9114,4 +9137,9 @@ void ASTRecordWriter::AddOpenACCRoutineDeclAttr(
   // Decl version of this, we can't count on trailing storage to get this right.
   writeUInt32(A->Clauses.size());
   writeOpenACCClauseList(A->Clauses);
+}
+
+void ASTRecordWriter::AddCXX26AnnotationAttr(const CXX26AnnotationAttr *A) {
+  AddAPValue(A->getValue());
+  AddSourceLocation(A->getEqLoc());
 }

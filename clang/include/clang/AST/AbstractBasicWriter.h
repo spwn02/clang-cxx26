@@ -264,6 +264,11 @@ public:
         asImpl().writeDeclRef(NNS.getAsMicrosoftSuper());
         continue;
 
+      case NestedNameSpecifier::Kind::Splice:
+      case NestedNameSpecifier::Kind::SpliceWithTemplate:
+        asImpl().writeSpliceSpecifierRef(NNS.getAsSplice());
+        continue;
+
       case NestedNameSpecifier::Kind::Null:
         llvm_unreachable("unexpected null nested name specifier");
       }

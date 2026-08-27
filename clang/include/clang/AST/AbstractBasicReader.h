@@ -278,6 +278,13 @@ public:
         assert(!cur);
         cur = NestedNameSpecifier(asImpl().readCXXRecordDeclRef());
         continue;
+      case NestedNameSpecifier::Kind::Splice:
+        cur = NestedNameSpecifier(asImpl().readSpliceSpecifierRef());
+        continue;
+      case NestedNameSpecifier::Kind::SpliceWithTemplate:
+        cur = NestedNameSpecifier(asImpl().readSpliceSpecifierRef(),
+                                   /*WithTemplate=*/true);
+        continue;
       case NestedNameSpecifier::Kind::Null:
         llvm_unreachable("unexpected null nested name specifier");
       }
