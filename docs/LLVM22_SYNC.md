@@ -78,40 +78,36 @@ After upstream changes, always run `ninja -C build-libcxx libcxx-generate-files`
 ## Current Action
 
 Milestone 5 is active; `clang` links and `clang/test/Reflection/` runs
-11/16 (see the 2026-08-27 "reflection suite triage" Session Log entry for
-the full breakdown). On `Continue`:
+13/16 (up from 11/16 — see the 2026-08-27 "reflection suite triage" and
+"three mechanical fixes" Session Log entries for the full breakdown). On
+`Continue`:
 
-1. `clang/test/Reflection/splice-expr-errors.cpp`: `void fn([:^^int:]);` in
-   a parameter-declaration position (line 66) no longer triggers the
-   expected ambiguity diagnostics (`variable has incomplete type` /
-   `not usable in a splice expression`) — it is silently accepted. Likely
-   LLVM 22's tentative-parsing rework in `Parser::ParseParameterDeclarationClause`
-   / `isCXXDeclarationSpecifier` dropped the disambiguation path for a
-   splice-typed parameter. Everything else in that file passes.
-2. `clang/test/Reflection/splice-namespaces.cpp` (no `-verify`, must compile
-   clean): `namespace ReAlias = [:R:];` resolves to a namespace with an
-   empty name instead of the reflected namespace (`no member named 'x' in
-   namespace ''`). Points at `Sema::ActOnNamespaceAliasDef` dropping the
-   resolved target when given a splice-kind `CXXScopeSpec`.
-3. `clang/test/Reflection/splice-templates.cpp`: carry-forward semantic gap,
+1. `clang/test/Reflection/splice-templates.cpp`: carry-forward semantic gap,
    not a crash. See the "reflection suite triage" Session Log entry —
    reflecting a bare (non-templated) dependent template-name through a
    splice scope loses its "template" identity across `TreeTransform`
    instantiation and falls into `BuildCXXReflectExpr(UnresolvedLookupExpr*)`'s
    function-overload-resolution path, which is designed for calling an
-   overloaded function, not reflecting a template entity.
-4. `clang/test/Reflection/reflection-wording-examples.cpp` still crashes
-   (SIGSEGV in `TraverseNestedNameSpecifierLoc` reached from
-   `CollectUnexpandedParameterPacksVisitor`, `temp_dep_splice` namespace,
-   line ~164: `[:NS:]::template TCls<1>::v`). Not yet root-caused, and not
-   confirmed whether this predates this session's `SemaReflect.cpp` fix —
-   the fix's branch condition (`TemplateKWLoc.isValid() && !TArgs`) should
-   not fire here since `TCls<1>` supplies explicit template arguments, but
-   this was reasoned, not empirically isolated with `git stash`.
-5. `clang/test/Reflection/splice-exprs.cpp` now has exactly one failure —
-   the documented Milestone 1 baseline (line 23, "not derived from") — no
-   other regressions remain in that file.
-6. Milestone 5's gate also names focused evaluator, module, and PCH tests;
+   overloaded function, not reflecting a template entity. Not attempted;
+   the advisor's guidance was not to improvise an AST-representation fix
+   under build-error pressure — needs its own focused design pass.
+2. `clang/test/Reflection/reflection-wording-examples.cpp` still crashes,
+   but is now root-caused much more precisely than before (see the
+   "three mechanical fixes" Session Log entry): `NestedNameSpecifier::
+   getAsNamespaceAndPrefix()`'s `StoredKind::NamespaceWithNamespace` case
+   dereferences a bad/garbage pointer, reached from `TemplateName::
+   getDependence()` while `Sema::CheckTemplateIdType` builds the canonical
+   type for a template-id qualified by a splice-scope (`[:NS:]::template
+   TCls<1>`, `temp_dep_splice` namespace, line ~164). This means some
+   `Kind::Namespace`-tagged `NestedNameSpecifier` with corrupt
+   `NamespaceAndPrefixStorage` gets constructed somewhere in the
+   splice-qualified-dependent-template-name path — a plain `-fsyntax-only`
+   reproducer with no aliasing at all (`template <auto T, auto NS> void
+   fn() { static_assert([:NS:]::template TCls<1>::v == ...); }`) hits the
+   same crash, so this is not an aliasing-chain bug. Same family of issue
+   as item 1 (dependent template names through splice scopes) but a
+   distinct root cause — do not conflate the two fixes.
+3. Milestone 5's gate also names focused evaluator, module, and PCH tests;
    none have been attempted yet.
 
 ## Milestones
@@ -119,7 +115,7 @@ the full breakdown). On `Continue`:
 - [x] **1. Capture clean baseline builds and expected failures.** Gate passed 2026-08-24: both build trees succeeded; focused results and all failures are recorded below.
 - [x] **2. Fetch exact LLVM tag and merge on integration branch.** Gate passed 2026-08-25 in merge `ea04e484b0b8` and its direct upstream-resolution correction: exact signed tag merged on `integration/llvm-22.1.8`; every conflict and resolution category is recorded.
 - [x] **3. Restore base LLVM/Clang build.** Gate passed 2026-08-25: `ninja -C build-nyx clang` and then `ninja -C build-nyx` passed from the exact LLVM 22 `clang/` baseline.
-- [!] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures. `clang` now links (Milestone 5 in progress) and the gate has a real measured result: `clang/test/Reflection/` is 11/16, with 1 documented Milestone 1 baseline failure, 1 carry-forward semantic gap, 2 newly-localized (not yet fixed) bugs, and 1 unrooted pre-existing crash — see the 2026-08-27 "reflection suite triage" Session Log entry. Blocked on landing fixes for the remaining 5 failures before this gate can close; not blocked on Milestone 5's serialization work anymore (that landed).
+- [!] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures. `clang` now links (Milestone 5 in progress) and the gate has a real measured result: `clang/test/Reflection/` is 13/16 (up from 11/16), with 1 documented Milestone 1 baseline failure and 2 remaining failures, both in the "dependent template name through a splice scope" family but with distinct root causes — see the 2026-08-27 "three mechanical fixes" Session Log entry. Blocked on landing fixes for those last 2 failures before this gate can close; not blocked on Milestone 5's serialization work anymore (that landed).
 - [~] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries, including the known non-serializable `CXXMetafunctionExpr` callback limitation. Gate: focused evaluator, module, PCH, and reflection tests pass; any intentionally deferred limitation is documented with a reproducer.
 - [ ] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate: libc++ builds and generated-file checks are clean; local conformance commits remain reachable and represented.
 - [ ] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here.
@@ -128,11 +124,13 @@ the full breakdown). On `Continue`:
 
 ## Blockers
 
-- **Milestone 4** is blocked on landing fixes for the 5 remaining
-  `clang/test/Reflection/` failures (see Current Action and the 2026-08-27
-  "reflection suite triage" Session Log entry), not on Milestone 5's
-  serialization work, which landed 2026-08-27 and produced a linking
-  `clang` binary.
+- **Milestone 4** is blocked on landing fixes for the 2 remaining
+  `clang/test/Reflection/` failures — `splice-templates.cpp` (semantic gap)
+  and `reflection-wording-examples.cpp` (crash), both in the dependent
+  template name / splice scope family (see Current Action and the
+  2026-08-27 "three mechanical fixes" Session Log entry) — not on
+  Milestone 5's serialization work, which landed 2026-08-27 and produced a
+  linking `clang` binary.
 
 When blocked, record the failing command, essential diagnostic, affected milestone, attempted remedies, and exact condition needed to resume. Use `[!]` only for a genuine external or technical impasse, not for ordinary incomplete work.
 
@@ -1663,3 +1661,116 @@ pass/fail) to get exact diagnostics:
 Result: `clang/test/Reflection/` is 11/16. Did not attempt Milestone 5's
 evaluator/module/PCH focused tests this session — recorded as not
 attempted, not as passed.
+
+### 2026-08-27 — Milestone 4: three mechanical fixes land, 11/16 → 13/16
+
+Resumed from the "reflection suite triage" entry above. Ran both
+carry-forward sweeps first (per that entry's own advice): the `comm`-based
+deleted-path sweep found no reflection-relevant real drops in `clang/`/
+`llvm/`; a working-tree-vs-fork-tip byte-identity check over all 139
+fork-touched Parser/Sema/AST/Basic files found zero still-wholesale copies.
+Tree was clean; proceeded directly to the four items.
+
+Fixed three real bugs, all confirmed with direct `-cc1` reproducers before
+and after, not just `llvm-lit` pass/fail:
+
+1. **`splice-expr-errors.cpp` line 66** — root cause was a self-inflicted
+   merge-resolution error, not an LLVM 22 tentative-parsing redesign as
+   earlier session log entries speculated. The 2026-08-26 "systemic
+   finding" entry's own `ParseTentative.cpp` conflict note says upstream's
+   `Next.isNoneOf(tok::coloncolon, tok::less, tok::colon)` is "a strict
+   superset of local's `Tok.is(tok::identifier) && Next.isNot(...) &&
+   Next.isNot(tok::less)`... the `Tok.is(identifier)` guard was already
+   redundant in this context" — true only because upstream's `case
+   tok::identifier:` block never sees a non-identifier `Tok`. Once local's
+   `case tok::annot_splice:` shares that same block (added earlier in
+   Milestone 4), the guard is exactly what routes a splice-typed token to
+   `isCXXDeclarationSpecifier`'s `TryAnnotateTypeOrScopeToken`-then-`TPResult::False`
+   path (the fork tip's original behavior) instead of `TryAnnotateName`
+   (which asserts `Tok.is(tok::identifier) || Tok.is(tok::annot_cxxscope)`
+   and, past the assert in a Release/NDEBUG build, returns `Unresolved` for
+   a splice, letting parameter-declaration ambiguity resolution silently
+   accept the malformed splice-typed parameter instead of diagnosing it).
+   Restored `Tok.is(tok::identifier) &&` in front of the `Next.isNoneOf(...)`
+   condition (`clang/lib/Parse/ParseTentative.cpp`); trivially true for the
+   `identifier` case, so ordinary (non-reflection) disambiguation is
+   provably unaffected. Confirmed via direct `-cc1 -verify` against the
+   test file: only the documented baseline failure remains.
+2. **`splice-namespaces.cpp`** — root cause is `NestedNameSpecifier::
+   getDependence()`'s `Kind::Namespace` case unconditionally returning
+   `None`. Correct in vanilla C++ (a namespace-alias's target is always a
+   concrete, already-resolved namespace — there is no way to make one
+   dependent), but wrong once a splice-based alias's target can itself be
+   an unresolved `DependentNamespaceDecl` (transitively, through a chain of
+   aliases). This made `Sema::computeDeclContext` treat a still-dependent
+   splice-alias scope as already-resolved, eagerly binding member lookups
+   (`Alias::x`) against the empty placeholder `DependentNamespaceDecl`/
+   `NamespaceDecl` created for the not-yet-substituted splice, instead of
+   deferring to instantiation via a `DependentScopeDeclRefExpr`. Explains
+   both observed symptoms from the earlier "reflection suite triage" entry
+   — the empty-named-namespace error and (isolated separately this
+   session, same underlying cause) a same-shape failure where a re-aliased
+   splice-alias's target reports a real but still-wrong placeholder name
+   (`"no member named 'z' in namespace 'inner'"` for a chain like
+   `namespace InnerAlias = [:R:]::inner; namespace ReAliasInner =
+   InnerAlias;`). Fix: check whether the stored `NamespaceBaseDecl` is a
+   `NamespaceAliasDecl` and, if so, delegate to its already-correct
+   `NamespaceAliasDecl::isDependent()` (which already recurses through
+   alias chains and already checks both `getQualifier().isDependent()` and
+   `isa<DependentNamespaceDecl>` — this method existed and was correct, it
+   was simply never consulted from `NestedNameSpecifier::getDependence()`).
+   (`clang/lib/AST/NestedNameSpecifier.cpp`.) Confirmed via three direct
+   `-cc1` reproducers (single-level splice-alias, re-aliased splice-alias,
+   the two-chain `Alias`/`ReAlias`/`InnerAlias`/`ReAliasInner` case) and the
+   test file itself, all clean.
+3. **Latent `Sema::FindInstantiatedDecl` type confusion** (found while
+   investigating item 2, kept as independent hardening even though it
+   turned out not to be item 2's root cause) — its "local decl not found in
+   `CurrentInstantiationScope`, not a template-param/enum/local-class/
+   local-typedef" fallback unconditionally `assert(isa<LabelDecl>(D))`s
+   (a no-op in Release) and then `cast<LabelDecl>(SubstDecl(D, ...))`s,
+   which is genuine undefined behavior if `D` is actually one of
+   reflection's new local-decl kinds. Confirmed this code is byte-identical
+   to the pre-merge fork tip (`6dd950bcd4ac`) — i.e. a real, pre-existing
+   gap exposed by reflection's dependent-namespace-alias feature, not a
+   merge regression, since standard C++ has no way to make a namespace
+   alias's target dependent and therefore never needed this path. Added a
+   dedicated `isa<NamespaceAliasDecl>(D) || isa<DependentNamespaceDecl>(D)`
+   branch before the label-only fallback, mirroring the existing local-
+   class/local-enum precedent immediately above it in the same function
+   (`clang/lib/Sema/SemaTemplateInstantiateDecl.cpp`).
+- **Process note on debugging without a debug build**: this build tree has
+  no usable DWARF (`addr2line` on backtrace addresses returns `??`), so
+  `gdb -batch` backtraces only ever gave function-level frames, never
+  source lines or local-variable values — confirmed by testing
+  `print <var>` inside a live breakpoint, which fails with "No symbol table
+  is loaded" even mid-session. Register/disassembly inspection at the
+  fault instruction (`x/Ni $pc-N`, `info registers`) was still usable to
+  distinguish "null pointer" from "garbage pointer" crashes. Where that
+  wasn't enough (item 2's actual root cause, and the item-4 crash below),
+  a temporary `llvm::errs()` print plus one fast incremental
+  `ninja -C build-nyx clang` (single changed `.cpp` + relink, not a full
+  rebuild) gave a definitive answer in each case; both prints were removed
+  before the final validation build. Do not trust hypotheses built purely
+  from reading call chains in this codebase without one of these two
+  empirical checks — this session's own first two hypotheses for item 2
+  (a `TreeTransform`/`FindInstantiatedDecl` instantiation-scope-lookup
+  failure) were internally consistent, plausible, and wrong; the actual bug
+  was at parse time, before any instantiation occurred at all.
+- **Full suite result after all three fixes and one clean rebuild (no
+  debug instrumentation)**: `clang/test/Reflection/` is 13/16 — up from
+  11/16, no regressions. Remaining 3: the documented Milestone 1 baseline
+  (`splice-exprs.cpp`), and the two `Current Action` items above
+  (`splice-templates.cpp`, `reflection-wording-examples.cpp`), both
+  investigated this session but **not fixed** — see Current Action for the
+  precise, now much-better-localized root cause of the
+  `reflection-wording-examples.cpp` crash. Both remaining failures are in
+  the same "dependent template name through a splice scope" family but
+  have distinct root causes; do not conflate them into one fix.
+- Explicitly deferred `reflection-wording-examples.cpp` and
+  `splice-templates.cpp` rather than attempting a fix under time pressure:
+  both need a real design decision about how a splice-scope-qualified
+  dependent template name's AST representation should survive
+  `TreeTransform` re-instantiation, which the advisor and this tracker's
+  own Decisions section both caution against improvising. Milestone 4
+  gate remains `[!]`, not closed.

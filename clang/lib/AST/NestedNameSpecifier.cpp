@@ -75,8 +75,20 @@ NestedNameSpecifierDependence NestedNameSpecifier::getDependence() const {
   switch (getKind()) {
   case Kind::Null:
   case Kind::Global:
-  case Kind::Namespace:
     return NestedNameSpecifierDependence::None;
+  case Kind::Namespace: {
+    // A namespace-alias's target may itself still be dependent if it was
+    // formed from a splice of a not-yet-resolved reflection (transitively,
+    // through a chain of aliases); ordinary namespaces can never be
+    // dependent, but this is a possibility standard C++ has no way to
+    // express.
+    const NamespaceBaseDecl *NS = getAsNamespaceAndPrefix().Namespace;
+    if (const auto *AD = dyn_cast<NamespaceAliasDecl>(NS);
+        AD && AD->isDependent())
+      return NestedNameSpecifierDependence::DependentInstantiation |
+             NestedNameSpecifierDependence::Dependent;
+    return NestedNameSpecifierDependence::None;
+  }
   case Kind::MicrosoftSuper: {
     CXXRecordDecl *RD = getAsMicrosoftSuper();
     return RD->isDependentContext()

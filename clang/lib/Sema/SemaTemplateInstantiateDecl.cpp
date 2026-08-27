@@ -7091,6 +7091,22 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
       return cast<TypeDecl>(Inst);
     }
 
+    // A local splice-dependent namespace alias (or the placeholder
+    // namespace a bare splice-as-namespace target resolves to) is not yet
+    // in the instantiation-scope map the first time it's referenced from a
+    // nested-name-specifier that precedes its own declaration's transform,
+    // for the same "used before its own def is reached in this scope"
+    // reason as the local-class/local-enum cases above. Lazily instantiate
+    // it here rather than falling into the label-only fallback below, which
+    // would incorrectly `cast<LabelDecl>` it.
+    if (isa<NamespaceAliasDecl>(D) || isa<DependentNamespaceDecl>(D)) {
+      Decl *Inst = SubstDecl(D, CurContext, TemplateArgs);
+      if (!Inst)
+        return nullptr;
+      CurrentInstantiationScope->InstantiatedLocal(D, Inst);
+      return cast<NamedDecl>(Inst);
+    }
+
     // If we didn't find the decl, then we must have a label decl that hasn't
     // been found yet.  Lazily instantiate it and return it now.
     assert(isa<LabelDecl>(D));
