@@ -39,6 +39,7 @@ class AssumedTemplateStorage;
 class DeducedTemplateStorage;
 struct PrintingPolicy;
 class QualifiedTemplateName;
+class SpliceSpecifier;
 class SubstTemplateTemplateParmPackStorage;
 class SubstTemplateTemplateParmStorage;
 class TemplateArgument;
@@ -390,7 +391,7 @@ public:
   /// error.
   void dump() const;
 
-  void Profile(llvm::FoldingSetNodeID &ID) {
+  void Profile(llvm::FoldingSetNodeID &ID) const {
     ID.AddPointer(Storage.getOpaqueValue());
   }
 
@@ -505,13 +506,21 @@ class QualifiedTemplateName : public llvm::FoldingSetNode {
   friend class ASTContext;
 
   /// The nested name specifier that qualifies the template name.
+  NestedNameSpecifier Qualifier;
+
+  /// Whether the "template" keyword was present before the template name
+  /// itself. Note that the "template" keyword is always redundant in this
+  /// case (otherwise, the template name would be a dependent name and we
+  /// would express this name with DependentTemplateName).
   ///
-  /// The bit is used to indicate whether the "template" keyword was
-  /// present before the template name itself. Note that the
-  /// "template" keyword is always redundant in this case (otherwise,
-  /// the template name would be a dependent name and we would express
-  /// this name with DependentTemplateName).
-  llvm::PointerIntPair<NestedNameSpecifier, 1, bool> Qualifier;
+  /// This is a separate field, not packed into a low bit of \c Qualifier
+  /// via llvm::PointerIntPair: unlike upstream LLVM,
+  /// NestedNameSpecifier::NumLowBitsAvailable is 0 in this fork (its
+  /// StoredKind tag occupies all 3 low bits when a pointer is stored), so
+  /// there is no spare bit to pack an extra flag into without corrupting
+  /// the stored tag.
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned HasTemplateKeyword : 1;
 
   /// The underlying template name, it is either
   ///  1) a Template -- a template declaration that this qualified name refers
@@ -522,18 +531,19 @@ class QualifiedTemplateName : public llvm::FoldingSetNode {
 
   QualifiedTemplateName(NestedNameSpecifier NNS, bool TemplateKeyword,
                         TemplateName Template)
-      : Qualifier(NNS, TemplateKeyword ? 1 : 0), UnderlyingTemplate(Template) {
+      : Qualifier(NNS), HasTemplateKeyword(TemplateKeyword),
+        UnderlyingTemplate(Template) {
     assert(UnderlyingTemplate.getKind() == TemplateName::Template ||
            UnderlyingTemplate.getKind() == TemplateName::UsingTemplate);
   }
 
 public:
   /// Return the nested name specifier that qualifies this name.
-  NestedNameSpecifier getQualifier() const { return Qualifier.getPointer(); }
+  NestedNameSpecifier getQualifier() const { return Qualifier; }
 
   /// Whether the template name was prefixed by the "template"
   /// keyword.
-  bool hasTemplateKeyword() const { return Qualifier.getInt(); }
+  bool hasTemplateKeyword() const { return HasTemplateKeyword; }
 
   /// Return the underlying template name.
   TemplateName getUnderlyingTemplate() const { return UnderlyingTemplate; }
@@ -590,10 +600,18 @@ private:
 class DependentTemplateStorage {
   /// The nested name specifier that qualifies the template
   /// name.
+  NestedNameSpecifier Qualifier;
+
+  /// Whether the \c Name field was preceeded by a template keyword.
   ///
-  /// The bit stored in this qualifier describes whether the \c Name field
-  /// was preceeded by a template keyword.
-  llvm::PointerIntPair<NestedNameSpecifier, 1, bool> Qualifier;
+  /// This is a separate field, not packed into a low bit of \c Qualifier
+  /// via llvm::PointerIntPair: unlike upstream LLVM,
+  /// NestedNameSpecifier::NumLowBitsAvailable is 0 in this fork (its
+  /// StoredKind tag occupies all 3 low bits when a pointer is stored), so
+  /// there is no spare bit to pack an extra flag into without corrupting
+  /// the stored tag.
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned HasTemplateKeywordBit : 1;
 
   /// The dependent template name.
   IdentifierOrOverloadedOperator Name;
@@ -604,12 +622,12 @@ public:
                            bool HasTemplateKeyword);
 
   /// Return the nested name specifier that qualifies this name.
-  NestedNameSpecifier getQualifier() const { return Qualifier.getPointer(); }
+  NestedNameSpecifier getQualifier() const { return Qualifier; }
 
   IdentifierOrOverloadedOperator getName() const { return Name; }
 
   /// Was this template name was preceeded by the template keyword?
-  bool hasTemplateKeyword() const { return Qualifier.getInt(); }
+  bool hasTemplateKeyword() const { return HasTemplateKeywordBit; }
 
   TemplateNameDependence getDependence() const;
 

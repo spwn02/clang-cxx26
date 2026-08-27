@@ -77,45 +77,20 @@ After upstream changes, always run `ninja -C build-libcxx libcxx-generate-files`
 
 ## Current Action
 
-Milestone 5 is active; `clang` links and `clang/test/Reflection/` runs
-13/16 (up from 11/16 — see the 2026-08-27 "reflection suite triage" and
-"three mechanical fixes" Session Log entries for the full breakdown). On
-`Continue`:
-
-1. `clang/test/Reflection/splice-templates.cpp`: carry-forward semantic gap,
-   not a crash. See the "reflection suite triage" Session Log entry —
-   reflecting a bare (non-templated) dependent template-name through a
-   splice scope loses its "template" identity across `TreeTransform`
-   instantiation and falls into `BuildCXXReflectExpr(UnresolvedLookupExpr*)`'s
-   function-overload-resolution path, which is designed for calling an
-   overloaded function, not reflecting a template entity. Not attempted;
-   the advisor's guidance was not to improvise an AST-representation fix
-   under build-error pressure — needs its own focused design pass.
-2. `clang/test/Reflection/reflection-wording-examples.cpp` still crashes,
-   but is now root-caused much more precisely than before (see the
-   "three mechanical fixes" Session Log entry): `NestedNameSpecifier::
-   getAsNamespaceAndPrefix()`'s `StoredKind::NamespaceWithNamespace` case
-   dereferences a bad/garbage pointer, reached from `TemplateName::
-   getDependence()` while `Sema::CheckTemplateIdType` builds the canonical
-   type for a template-id qualified by a splice-scope (`[:NS:]::template
-   TCls<1>`, `temp_dep_splice` namespace, line ~164). This means some
-   `Kind::Namespace`-tagged `NestedNameSpecifier` with corrupt
-   `NamespaceAndPrefixStorage` gets constructed somewhere in the
-   splice-qualified-dependent-template-name path — a plain `-fsyntax-only`
-   reproducer with no aliasing at all (`template <auto T, auto NS> void
-   fn() { static_assert([:NS:]::template TCls<1>::v == ...); }`) hits the
-   same crash, so this is not an aliasing-chain bug. Same family of issue
-   as item 1 (dependent template names through splice scopes) but a
-   distinct root cause — do not conflate the two fixes.
-3. Milestone 5's gate also names focused evaluator, module, and PCH tests;
-   none have been attempted yet.
+Milestone 4's gate passed 2026-08-28: `clang/test/Reflection/` is 15/16,
+the only remaining failure being the documented Milestone 1 baseline
+(`splice-exprs.cpp` line 23). See the 2026-08-28 "Milestone 4 gate: both
+remaining reflection failures fixed at their root cause" Session Log entry.
+Milestone 5 is now the sole active milestone. On `Continue`, its gate still
+names focused evaluator, module, and PCH tests; none have been attempted
+yet.
 
 ## Milestones
 
 - [x] **1. Capture clean baseline builds and expected failures.** Gate passed 2026-08-24: both build trees succeeded; focused results and all failures are recorded below.
 - [x] **2. Fetch exact LLVM tag and merge on integration branch.** Gate passed 2026-08-25 in merge `ea04e484b0b8` and its direct upstream-resolution correction: exact signed tag merged on `integration/llvm-22.1.8`; every conflict and resolution category is recorded.
 - [x] **3. Restore base LLVM/Clang build.** Gate passed 2026-08-25: `ninja -C build-nyx clang` and then `ninja -C build-nyx` passed from the exact LLVM 22 `clang/` baseline.
-- [!] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate: relevant unit/build targets and focused Clang reflection tests pass except explicitly retained baseline failures. `clang` now links (Milestone 5 in progress) and the gate has a real measured result: `clang/test/Reflection/` is 13/16 (up from 11/16), with 1 documented Milestone 1 baseline failure and 2 remaining failures, both in the "dependent template name through a splice scope" family but with distinct root causes — see the 2026-08-27 "three mechanical fixes" Session Log entry. Blocked on landing fixes for those last 2 failures before this gate can close; not blocked on Milestone 5's serialization work anymore (that landed).
+- [x] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate passed 2026-08-28: `clang/test/Reflection/` is 15/16, with the only remaining failure being the documented Milestone 1 baseline (`splice-exprs.cpp` line 23). See the 2026-08-28 "Milestone 4 gate: both remaining reflection failures fixed at their root cause" Session Log entry.
 - [~] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries, including the known non-serializable `CXXMetafunctionExpr` callback limitation. Gate: focused evaluator, module, PCH, and reflection tests pass; any intentionally deferred limitation is documented with a reproducer.
 - [ ] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate: libc++ builds and generated-file checks are clean; local conformance commits remain reachable and represented.
 - [ ] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here.
@@ -124,13 +99,9 @@ Milestone 5 is active; `clang` links and `clang/test/Reflection/` runs
 
 ## Blockers
 
-- **Milestone 4** is blocked on landing fixes for the 2 remaining
-  `clang/test/Reflection/` failures — `splice-templates.cpp` (semantic gap)
-  and `reflection-wording-examples.cpp` (crash), both in the dependent
-  template name / splice scope family (see Current Action and the
-  2026-08-27 "three mechanical fixes" Session Log entry) — not on
-  Milestone 5's serialization work, which landed 2026-08-27 and produced a
-  linking `clang` binary.
+None currently. Milestone 4 closed 2026-08-28 (see Session Log). Milestone 5
+is active; its remaining gate items (focused evaluator, module, and PCH
+tests) have not been attempted yet, but nothing is blocking starting them.
 
 When blocked, record the failing command, essential diagnostic, affected milestone, attempted remedies, and exact condition needed to resume. Use `[!]` only for a genuine external or technical impasse, not for ordinary incomplete work.
 
@@ -1774,3 +1745,131 @@ and after, not just `llvm-lit` pass/fail:
   `TreeTransform` re-instantiation, which the advisor and this tracker's
   own Decisions section both caution against improvising. Milestone 4
   gate remains `[!]`, not closed.
+
+### 2026-08-28 — Milestone 4 gate: both remaining reflection failures fixed at their root cause
+
+Resumed from the "three mechanical fixes" entry above (user instruction:
+"Finish M4 in one go" — batch both fixes, one rebuild, one test pass,
+rather than alternating single-fix/rebuild cycles). Root-caused both
+failures with `gdb -batch` (breakpoints on mangled symbol names plus raw
+register/memory inspection — this build still has no usable DWARF) before
+writing any fix, per the "three mechanical fixes" entry's own warning that
+plausible-looking hypotheses here have previously been wrong.
+
+**`reflection-wording-examples.cpp` crash — genuine encoding bug, not a
+"garbage `NestedNameSpecifier` gets constructed somewhere" symptom as
+previously described.** Root cause: `NestedNameSpecifier`'s `StoredKind`
+tag occupies **3** low bits at offset 0 (`Type=0, Splice=1,
+NamespaceOrSuper=2, SpliceWithTemplate=3, NamespaceWithGlobal=4,
+NamespaceWithNamespace=6` — 6 enumerators, needed for the fork's
+Splice/SpliceWithTemplate additions), but
+`NestedNameSpecifier::NumLowBitsAvailable` (consumed by
+`llvm::PointerLikeTypeTraits`) was left at `FlagOffset` (`1`), copied
+unchanged from upstream LLVM 22. Diffing against
+`git show llvmorg-22.1.8:clang/include/clang/AST/NestedNameSpecifierBase.h`
+found *why* upstream's `1` is correct there and wrong here: upstream's
+`StoredKind` only has 4 enumerators and is shifted left by `FlagOffset`
+(occupying bits **1-2**, leaving bit 0 always free); this fork's
+`NestedNameSpecifier(PtrKind)` constructor ORs `PK.SK` in **unshifted**
+(occupying bits **0-2**, bit 0 no longer free) to fit the 2 extra
+enumerators, but nobody updated `NumLowBitsAvailable` to match. The only
+two consumers of that promise
+(`grep -rn "PointerIntPair<NestedNameSpecifier"`) are
+`QualifiedTemplateName::Qualifier` and
+`DependentTemplateStorage::Qualifier` in `TemplateName.h`, both
+byte-identical to upstream (confirmed via the same 3-way-merge-base diff
+this sync has used throughout) — so the bug is real and entirely local to
+`NestedNameSpecifierBase.h`'s tag redesign, not a mis-merge of
+`TemplateName.h` itself. `llvm::PointerIntPairInfo::updateInt` XORs the
+packed bool unconditionally into bit 0
+(`(OrigValue & ~ShiftedIntMask) | Int << IntShift` with `IntShift =
+NumLowBitsAvailable - IntBits = 0`), silently reinterpreting the 3-bit tag
+whenever the packed bool's value differs from the tag's own bit 0 — e.g.
+`StoredKind::NamespaceWithNamespace` (`110`, bit 0 = 0) packed with
+`HasTemplateKeyword=true` (bit 0 forced to 1) becomes `111`, an
+unassigned/unhandled `StoredKind`. Confirmed empirically, not just by
+static analysis: breaking on `ASTContext::getDependentTemplateName` and
+dumping `*(long*)$rsi` (the raw pre-packing `DependentTemplateStorage`
+bytes) at each call for `template <auto T, auto NS> void fn() {
+static_assert([:NS:]::template TCls<1>::v == a::v); }` caught the second
+call's `Qualifier` at `0x5900000047` — `& 0x7 == 7` (unassigned tag) —
+and reverse-derived that it can *only* come from an original
+`NamespaceWithNamespace` (`110`) qualifier with the keyword bit forced to
+`1`, exactly matching the formula above; the crash itself is
+`getAsNamespaceAndPrefix()` dereferencing the resulting misinterpreted
+pointer (`r14 = 0x5900000040`, confirmed via `x/20i $pc-24` plus
+`info registers` at the fault). Fix: declared
+`NestedNameSpecifier::NumLowBitsAvailable = 0` (`NestedNameSpecifierBase.h`,
+with a comment explaining why, since this now permanently diverges from
+upstream's value) and stopped packing `HasTemplateKeyword`/hasTemplateKeyword
+into the `NestedNameSpecifier` pointer's bits in both `TemplateName.h`
+classes — each now stores it as a separate `unsigned ... : 1` bitfield
+instead of `llvm::PointerIntPair<NestedNameSpecifier, 1, bool>`; updated
+`DependentTemplateStorage`'s constructor in `TemplateName.cpp` to match.
+No other type packs extra bits into `NestedNameSpecifier` (confirmed by
+grep), so this is a complete, contained fix, not a partial mitigation.
+
+**`splice-templates.cpp` semantic gap — the SemaReflect.cpp special case
+from the "reflection suite triage" entry was routing around a *different*,
+independently fixable bug, not a real design limitation.** Traced why
+`^^[:R:]::template tmemfn` (a bare, non-templated dependent template-name
+through a splice scope) needed to preserve its "this is a template, not a
+value" identity through `TreeTransform`: `TreeTransform::
+TransformCXXReflectExpr`'s `ReflectionKind::Template` case
+(`TreeTransform.h:9073-9113`) *already* does this correctly — it
+transforms the `NestedNameSpecifierLoc` (which already handles
+`Kind::Splice`/`SpliceWithTemplate` via `TransformSpliceSpecifier`,
+confirmed by reading `TreeTransform.h:4784-4802`) and rebuilds the
+`TemplateName` via `TransformTemplateName`'s `DependentTemplateName`
+branch (`TreeTransform.h:4931-4952`), which re-resolves the name against
+the now-substituted scope. The 2026-08-27 special case in
+`Sema::ActOnCXXReflectExpr` (`SemaReflect.cpp`, around line 1001) bypassed
+this correct path for splice-scoped dependent template names specifically
+because routing through it crashed — but the crash was in a third,
+unrelated place:
+`CollectUnexpandedParameterPacksVisitor::VisitCXXReflectExpr`
+(`SemaTemplateVariadic.cpp:149-170`)'s `isReflectedTemplate()` branch
+called `addUnexpanded(TName.getAsTemplateDecl())` whenever
+`TName.containsUnexpandedParameterPack()` is true — but
+`TemplateName::getAsTemplateDecl()` unconditionally returns `nullptr` for
+a `DependentTemplateName` (confirmed by reading `TemplateName.cpp:199-212`:
+its `Storage` union alternative for that kind is never a `Decl*`), and
+`addUnexpanded(NamedDecl *ND, ...)` dereferences `ND` immediately
+(`dyn_cast<VarDecl>(ND)` / `ND->isTemplateParameterPack()`) — a
+null-pointer deref matching the previously-recorded "segfault in
+`Decl::isTemplateParameterPack()`" symptom exactly. This same visitor
+class already has the *correct* general-purpose logic for this
+(`TraverseTemplateName`, `SemaTemplateVariadic.cpp:173-186`): it
+null-safely checks `dyn_cast_or_null<TemplateTemplateParmDecl>` for the
+`TemplateName::Template` case and, for `DependentTemplateName`/
+`QualifiedTemplateName`, delegates to the base
+`DynamicRecursiveASTVisitor::TraverseTemplateName`, which recurses into
+the qualifier (confirmed against `RecursiveASTVisitor.h:892-903`) and so
+would correctly visit a splice operand referencing an actual pack via the
+ordinary `VisitDeclRefExpr` path. Fix, two parts: (1)
+`SemaTemplateVariadic.cpp`'s `VisitCXXReflectExpr` now calls
+`TraverseTemplateName(TName)` instead of the unsafe
+`addUnexpanded(TName.getAsTemplateDecl())`. (2) With that crash fixed at
+its root, the `SemaReflect.cpp` special case routing splice-scoped
+dependent template names through `BuildDependentDeclRefExpr` (a
+value/decl-ref shape that loses "this is a template" identity once
+substituted, which is what caused the original content failure — the
+substituted expression becomes indistinguishable from
+`^^someOverloadedFunction` and falls into the function-overload-resolution
+path) was removed; splice-scoped dependent template names now take the
+exact same `BuildCXXReflectExpr(OpLoc, TemplateKWLoc, Template.get())`
+path as every other dependent template name, matching
+`TransformCXXReflectExpr`'s existing `ReflectionKind::Template` handling.
+
+Applied both fixes together, then ran exactly one `ninja -C build-nyx
+clang` and one full `clang/test/Reflection/` pass (per the user's request
+to batch fixes rather than rebuild after each one): **15/16**, up from
+13/16 — both `splice-templates.cpp` and `reflection-wording-examples.cpp`
+now pass, with zero regressions in the other 14 tests. The only remaining
+failure is the documented Milestone 1 baseline (`splice-exprs.cpp` line
+23). Also ran `clang/test/Lexer/cxx26-reflection-tokens.cpp` and
+`clang/test/SemaCXX/cxx2c-expansion-stmts.cpp` (both pass) as an adjacent
+regression check. Milestone 4's gate is met; marked `[x]`. Files changed:
+`clang/include/clang/AST/NestedNameSpecifierBase.h`,
+`clang/include/clang/AST/TemplateName.h`, `clang/lib/AST/TemplateName.cpp`,
+`clang/lib/Sema/SemaReflect.cpp`, `clang/lib/Sema/SemaTemplateVariadic.cpp`.

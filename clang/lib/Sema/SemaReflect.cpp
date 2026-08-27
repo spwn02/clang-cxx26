@@ -998,19 +998,17 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc,
            TNK == TNK_Type_template || TNK == TNK_Var_template ||
            TNK == TNK_Concept_template);
 
-    if (TNK == TNK_Dependent_template_name && SS.isSet() &&
-        (SS.getScopeRep().getKind() == NestedNameSpecifier::Kind::Splice ||
-         SS.getScopeRep().getKind() ==
-             NestedNameSpecifier::Kind::SpliceWithTemplate)) {
-      ExprResult Result = BuildDependentDeclRefExpr(SS, TemplateKWLoc, NameInfo,
-                                                    TArgs);
-      // This should only fail if 'SS' is invalid, but that should already
-      // have been diagnosed.
-      assert(!Result.isInvalid());
-
-      return BuildCXXReflectExpr(OpLoc, Result.get());
-    }
-
+    // Build a Template-kind reflection even when 'SS' is a splice scope.
+    // This preserves "reflects a template, not a value" through
+    // TreeTransform: TransformCXXReflectExpr's ReflectionKind::Template case
+    // re-transforms the NestedNameSpecifier and rebuilds the TemplateName
+    // directly, instead of degrading to a value/decl-ref expression that
+    // becomes indistinguishable from an overload set once the splice is
+    // substituted. This used to be special-cased to route through
+    // BuildDependentDeclRefExpr instead, to work around a null-dereference
+    // in CollectUnexpandedParameterPacksVisitor::VisitCXXReflectExpr's
+    // Template case; that crash is now fixed at its root (see
+    // SemaTemplateVariadic.cpp), so the special case is no longer needed.
     return BuildCXXReflectExpr(OpLoc, TemplateKWLoc, Template.get());
   } else if (SS.isSet() && SS.getScopeRep().isDependent()) {
     ExprResult Result = BuildDependentDeclRefExpr(SS, TemplateKWLoc, NameInfo,

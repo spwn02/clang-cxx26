@@ -318,7 +318,8 @@ UsingShadowDecl *TemplateName::getAsUsingShadowDecl() const {
 DependentTemplateStorage::DependentTemplateStorage(
     NestedNameSpecifier Qualifier, IdentifierOrOverloadedOperator Name,
     bool HasTemplateKeyword)
-    : Qualifier(Qualifier, HasTemplateKeyword), Name(Name) {
+    : Qualifier(Qualifier), HasTemplateKeywordBit(HasTemplateKeyword),
+      Name(Name) {
   assert((!Qualifier || Qualifier.isDependent()) &&
          "Qualifier must be dependent");
 }

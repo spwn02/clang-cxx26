@@ -275,7 +275,13 @@ public:
   void dump(llvm::raw_ostream &OS) const;
   void dump(llvm::raw_ostream &OS, const LangOptions &LO) const;
 
-  static constexpr auto NumLowBitsAvailable = FlagOffset;
+  // Unlike upstream LLVM's original 2-bit-wide StoredKind (packed at
+  // FlagOffset, leaving bit 0 free for external users), this fork's
+  // StoredKind needs 3 bits (Type/Splice/NamespaceOrSuper/
+  // SpliceWithTemplate/NamespaceWithGlobal/NamespaceWithNamespace) and packs
+  // them starting at bit 0, so no low bits are free for external packing
+  // (e.g. via llvm::PointerIntPair) without corrupting the stored tag.
+  static constexpr auto NumLowBitsAvailable = 0;
 };
 
 struct NamespaceAndPrefix {
