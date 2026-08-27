@@ -12,7 +12,7 @@
 #define LLVM_CLANG_AST_REFLECTION_H
 
 #include "clang/AST/ReflectionValue.h"
-#include "clang/AST/Type.h"
+#include "clang/AST/TypeBase.h"
 #include "llvm/ADT/SmallVector.h"
 #include <optional>
 #include <string>

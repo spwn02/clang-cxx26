@@ -179,9 +179,9 @@ public:
 
   Dependence(SpliceSpecifierDependence D)
       : V(translate(D, SSDependence::UnexpandedPack, UnexpandedPack) |
-          translate(D, SSDependence::Instantiation, Instantiation) |
-          translate(D, SSDependence::Dependent, Dependent) |
-          translate(D, SSDependence::Error, Error)) {}
+             translate(D, SSDependence::Instantiation, Instantiation) |
+             translate(D, SSDependence::Dependent, Dependent) |
+             translate(D, SSDependence::Error, Error)) {}
 
   /// Extract only the syntactic portions of this type's dependence.
   Dependence syntactic() {
@@ -315,6 +315,14 @@ inline TypeDependence toSemanticDependence(TypeDependence D) {
 
 inline NestedNameSpecifierDependence
 toNestedNameSpecifierDependence(TypeDependence D) {
+  return Dependence(D).nestedNameSpecifier();
+}
+inline NestedNameSpecifierDependence
+toNestedNameSpecifierDependence(ExprDependence E) {
+  return Dependence(E).nestedNameSpecifier();
+}
+inline NestedNameSpecifierDependence
+toNestedNameSpecifierDependence(SpliceSpecifierDependence D) {
   return Dependence(D).nestedNameSpecifier();
 }
 

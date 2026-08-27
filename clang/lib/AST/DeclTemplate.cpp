@@ -19,6 +19,7 @@
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExternalASTSource.h"
 #include "clang/AST/ODRHash.h"
+#include "clang/AST/Stmt.h"
 #include "clang/AST/TemplateBase.h"
 #include "clang/AST/TemplateName.h"
 #include "clang/AST/Type.h"
@@ -1653,6 +1654,31 @@ void TemplateParamObjectDecl::printAsInit(llvm::raw_ostream &OS,
   getValue().printPretty(OS, Policy, getType(), &getASTContext());
 }
 
+ExpansionStmtDecl::ExpansionStmtDecl(DeclContext *DC, SourceLocation Loc,
+                                     CXXExpansionStmt *Expansion,
+                                     TemplateParameterList *TParams)
+    : Decl(ExpansionStmt, DC, Loc),
+      DeclContext(ExpansionStmt), Expansion(Expansion), TParams(TParams) { }
+
+void ExpansionStmtDecl::anchor() {}
+
+ExpansionStmtDecl *ExpansionStmtDecl::Create(ASTContext &C, DeclContext *DC,
+                                             SourceLocation Loc,
+                                             CXXExpansionStmt *Expansion,
+                                             TemplateParameterList *TParams) {
+  return new (C, DC) ExpansionStmtDecl(DC, Loc, Expansion, TParams);
+}
+
+ExpansionStmtDecl *ExpansionStmtDecl::CreateDeserialized(ASTContext &C,
+                                                         GlobalDeclID ID) {
+  return new (C, ID) ExpansionStmtDecl(nullptr, SourceLocation(), nullptr,
+                                       nullptr);
+}
+
+SourceRange ExpansionStmtDecl::getSourceRange() const {
+  return Expansion ? Expansion->getSourceRange() : SourceRange();
+}
+
 std::tuple<NamedDecl *, TemplateArgument>
 clang::getReplacedTemplateParameter(Decl *D, unsigned Index) {
   switch (D->getKind()) {
@@ -1719,6 +1745,8 @@ clang::getReplacedTemplateParameter(Decl *D, unsigned Index) {
     return {Info->getTemplate()->getTemplateParameters()->getParam(Index),
             Info->TemplateArguments->asArray()[Index]};
   }
+  case Decl::Kind::ExpansionStmt:
+    return {cast<ExpansionStmtDecl>(D)->getTemplateParm(), {}};
   default:
     llvm_unreachable("Unhandled templated declaration kind");
   }

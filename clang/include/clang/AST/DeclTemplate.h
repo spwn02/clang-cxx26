@@ -48,6 +48,7 @@ namespace clang {
 enum BuiltinTemplateKind : int;
 class ClassTemplateDecl;
 class ClassTemplatePartialSpecializationDecl;
+class CXXExpansionStmt;
 class Expr;
 class FunctionTemplateDecl;
 class IdentifierInfo;
@@ -2746,6 +2747,8 @@ public:
     PointOfInstantiation = Loc;
   }
 
+  bool isCompleteDefinition() { return IsCompleteDefinition; }
+
   void setCompleteDefinition() { IsCompleteDefinition = true; }
 
   /// If this variable template specialization is an instantiation of
@@ -3341,6 +3344,54 @@ public:
 
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
   static bool classofKind(Kind K) { return K == TemplateParamObject; }
+};
+
+/// Represents a C++26 expansion statement declaration.
+///
+/// This is a bit of a hack, since expansion statements shouldn't really be
+/// "declarations" per se (they don't declare anything). Nevertheless, we *do*
+/// need them to be declaration *contexts*, because the DeclContext is used to
+/// compute the "template depth" of entities enclosed therein. In particular,
+/// the "template depth" is used to find instantiations of parameter variables,
+/// and a lambda enclosed within an expansion statement cannot compute its
+/// templat depth without a pointer to the enclosing expansion statement.
+///
+/// Another approach would be to extend 'CXXExpansionStmt' from 'DeclContext'
+/// without also providing a 'Decl' - but it seems as if this would be novel,
+/// and I'm not sure if existing code assumes that a 'DeclContext' is a 'Decl'.
+///
+/// TODO(CXX26): This could probably be a 'TemplateDecl'.
+class ExpansionStmtDecl : public Decl, public DeclContext {
+  CXXExpansionStmt *Expansion;
+  TemplateParameterList *TParams;
+
+  ExpansionStmtDecl(DeclContext *DC, SourceLocation Loc,
+                    CXXExpansionStmt *Expansion,
+                    TemplateParameterList *TParams);
+
+  virtual void anchor();
+
+public:
+  friend class ASTDeclReader;
+
+  static ExpansionStmtDecl *Create(ASTContext &C, DeclContext *DC,
+                                   SourceLocation Loc,
+                                   CXXExpansionStmt *Expansion,
+                                   TemplateParameterList *TParams);
+  static ExpansionStmtDecl *CreateDeserialized(ASTContext &C, GlobalDeclID ID);
+
+  CXXExpansionStmt *getStmt() const { return Expansion; }
+  void setStmt(CXXExpansionStmt *S) { Expansion = S; }
+
+  NonTypeTemplateParmDecl *getTemplateParm() const {
+    return cast<NonTypeTemplateParmDecl>(TParams->getParam(0));
+  }
+  TemplateParameterList *getTemplateParameters() const { return TParams; }
+
+  SourceRange getSourceRange() const override LLVM_READONLY;
+
+  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
+  static bool classofKind(Kind K) { return K == ExpansionStmt; }
 };
 
 inline NamedDecl *getAsNamedDecl(TemplateParameter P) {

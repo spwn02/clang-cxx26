@@ -2420,6 +2420,86 @@ void StmtProfiler::VisitOpaqueValueExpr(const OpaqueValueExpr *E) {
   VisitExpr(E);
 }
 
+void StmtProfiler::VisitCXXReflectExpr(const CXXReflectExpr *E) {
+  VisitExpr(E);
+
+  if (E->hasDependentSubExpr()) {
+    VisitExpr(E->getDependentSubExpr());
+  } else {
+    E->getReflection().Profile(ID);
+  }
+}
+
+void StmtProfiler::VisitCXXMetafunctionExpr(const CXXMetafunctionExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXSpliceExpr(const CXXSpliceExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXDependentMemberSpliceExpr(
+                                        const CXXDependentMemberSpliceExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitStackLocationExpr(const StackLocationExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitExtractLValueExpr(const ExtractLValueExpr *E) {
+  VisitDecl(E->getValueDecl());
+}
+
+void StmtProfiler::VisitExplDependentCallExpr(const ExplDependentCallExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXIndeterminateExpansionStmt(
+                                       const CXXIndeterminateExpansionStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitCXXIterableExpansionStmt(
+                                            const CXXIterableExpansionStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitCXXDestructurableExpansionStmt(
+                                      const CXXDestructurableExpansionStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitCXXInitListExpansionStmt(
+                                            const CXXInitListExpansionStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitCXXIndeterminateExpansionSelectExpr(
+                                 const CXXIndeterminateExpansionSelectExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXIterableExpansionSelectExpr(
+                                      const CXXIterableExpansionSelectExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXDestructurableExpansionSelectExpr(
+                                const CXXDestructurableExpansionSelectExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXExpansionInitListSelectExpr(
+                                      const CXXExpansionInitListSelectExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXExpansionInitListExpr(
+                                            const CXXExpansionInitListExpr *E) {
+  VisitExpr(E);
+}
+
 void StmtProfiler::VisitSourceLocExpr(const SourceLocExpr *E) {
   VisitExpr(E);
 }

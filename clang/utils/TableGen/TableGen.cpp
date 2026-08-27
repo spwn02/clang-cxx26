@@ -32,6 +32,7 @@ enum ActionType {
   GenClangAttrImpl,
   GenClangAttrList,
   GenClangAttrDocTable,
+  GenClangAttrReflection,
   GenClangAttrSubjectMatchRuleList,
   GenClangAttrPCHRead,
   GenClangAttrPCHWrite,
@@ -149,6 +150,8 @@ cl::opt<ActionType> Action(
                    "Generate a clang attribute list"),
         clEnumValN(GenClangAttrDocTable, "gen-clang-attr-doc-table",
                    "Generate a table of attribute documentation"),
+        clEnumValN(GenClangAttrReflection, "gen-clang-attr-reflection",
+                   "Generate all helpers related to reflection over attributes"),
         clEnumValN(GenClangAttrSubjectMatchRuleList,
                    "gen-clang-attr-subject-match-rule-list",
                    "Generate a clang attribute subject match rule list"),
@@ -393,6 +396,9 @@ bool ClangTableGenMain(raw_ostream &OS, const RecordKeeper &Records) {
     break;
   case GenClangAttrDocTable:
     EmitClangAttrDocTable(Records, OS);
+    break;
+  case GenClangAttrReflection:
+    EmitClangAttrReflection(Records, OS);
     break;
   case GenClangAttrSubjectMatchRuleList:
     EmitClangAttrSubjectMatchRuleList(Records, OS);
