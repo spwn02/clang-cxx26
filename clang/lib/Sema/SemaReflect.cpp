@@ -998,6 +998,19 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc,
            TNK == TNK_Type_template || TNK == TNK_Var_template ||
            TNK == TNK_Concept_template);
 
+    if (TNK == TNK_Dependent_template_name && SS.isSet() &&
+        (SS.getScopeRep().getKind() == NestedNameSpecifier::Kind::Splice ||
+         SS.getScopeRep().getKind() ==
+             NestedNameSpecifier::Kind::SpliceWithTemplate)) {
+      ExprResult Result = BuildDependentDeclRefExpr(SS, TemplateKWLoc, NameInfo,
+                                                    TArgs);
+      // This should only fail if 'SS' is invalid, but that should already
+      // have been diagnosed.
+      assert(!Result.isInvalid());
+
+      return BuildCXXReflectExpr(OpLoc, Result.get());
+    }
+
     return BuildCXXReflectExpr(OpLoc, TemplateKWLoc, Template.get());
   } else if (SS.isSet() && SS.getScopeRep().isDependent()) {
     ExprResult Result = BuildDependentDeclRefExpr(SS, TemplateKWLoc, NameInfo,
