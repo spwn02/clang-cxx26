@@ -2366,6 +2366,27 @@ type_traits,unordered_map,unordered_set,module.modulemap.in,version}`;
 `libcxx/include/stdbool.h` (restored, new);
 `libcxx/test/std/atomics/atomics.ref/address.pass.cpp`;
 `libcxx/test/std/utilities/optional/optional.object/{optional.object.ctor/ctor,../optional_requires_destructible_object}.verify.cpp`.
+**Caveat on what the 660/660 `cxx` build actually proves (advisor-prompted):**
+since `<meta>`'s whole body is `#if __has_feature(reflection)`-gated and
+that feature was false for both `cxx` builds this session (the pre-fix one
+and, separately, the library itself doesn't reference `__has_feature
+(reflection)` at all so the post-fix rebuild wasn't proving anything new
+about it either), the 660/660 count says the *non*-reflection 99% of
+libc++ compiles, not that the 29 reconciled files interact correctly with
+`std::meta`. Ruled out that the Milestone 7 `ConstevalOnly`/
+`std::vector<meta::info>` failure is actually undiscovered M6 merge
+damage before closing this out: `vector.h`, `__split_buffer`, and
+`__utility/exception_guard.h` (the three files the failing stack traces
+point into) all show byte-identical content between the merge-base and
+the fork tip (`git diff --stat <merge-base> 6dd950bcd4ac -- <each>` is
+empty) — the fork never touched any of them, so there is no fork-side
+`_LIBCPP_CONSTEXPR_SINCE_CXX26` or similar annotation for a three-way
+merge to have dropped. The failure is a real interaction between
+`meta::info`'s `ConstevalOnly` AST property and pure-upstream generic
+container code exercised by `std::vector<meta::info>` for the first time
+today, not lost libc++ content — confirming the Milestone 7 assignment
+above rather than reopening Milestone 6.
+
 Milestone 6's gate (libc++ builds and generated-file checks are clean;
 local conformance commits remain reachable and represented) is met.
 Marked `[x]`. Milestone 7 (focused reflection/libc++ tests) is next, with
