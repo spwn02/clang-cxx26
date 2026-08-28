@@ -26,6 +26,8 @@ int main(int, char**) {
   // clang-format off
   {
 #if TEST_STD_VER >= 26
+    // optional<T&> (lvalue reference) is well-formed since C++26 (P2988); only the rvalue-reference
+    // form remains ill-formed.
     std::optional<int&&> opt2; // expected-error-re@optional:* {{static assertion failed{{.*}}instantiation of optional with an rvalue reference type is ill-formed}}
 #else
     std::optional<char&> o1; // expected-error-re@optional:* {{static assertion failed{{.*}}instantiation of optional with a reference type is ill-formed}}

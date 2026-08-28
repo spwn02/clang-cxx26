@@ -327,6 +327,7 @@ __cxx_atomic_fetch_max(__cxx_atomic_base_impl<_Tp> volatile* __a, _Tp __value, m
   return __c11_atomic_fetch_max(
       std::addressof(__a->__a_value), __value, static_cast<__memory_order_underlying_t>(__order));
 }
+#if _LIBCPP_STD_VER >= 26
 // NaN never propagates into the stored value, matching [atomics.types.float]'s "unspecified
 // which" wording -- as if by fmaximum_num/fminimum_num. Duplicated (rather than shared) from
 // atomic<floating-point>::__maximum_num/__minimum_num in <atomic>: this consteval branch is the
@@ -353,6 +354,7 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp __cxx_atomic_consteval_m
   }
   return __b < __a ? __b : __a;
 }
+#endif // _LIBCPP_STD_VER >= 26
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp

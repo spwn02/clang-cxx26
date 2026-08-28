@@ -411,6 +411,7 @@ inline constexpr auto indices = [] [[nodiscard]] (__integer_like auto __size) st
 
 #  endif
 
+
 } // namespace views
 } // namespace ranges
 

@@ -12,8 +12,10 @@
 #include <__algorithm/for_each_n_segment.h>
 #include <__algorithm/specialized_algorithms.h>
 #include <__config>
+#include <__fwd/bit_reference.h>
 #include <__iterator/iterator_traits.h>
 #include <__iterator/segmented_iterator.h>
+#include <__memory/pointer_traits.h>
 #include <__type_traits/enable_if.h>
 #include <__utility/convert_to_integral.h>
 #include <__utility/move.h>
@@ -62,7 +64,13 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _OutIter __fill_n(_OutIter _
       std::move(__first), __n, __value);
 }
 
-template <class _OutputIterator, class _Size, class _Tp>
+template <class _OutputIterator,
+          class _Size,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_OutputIterator>::value_type
+#endif
+          >
 inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _OutputIterator
 fill_n(_OutputIterator __first, _Size __n, const _Tp& __value) {
   return std::__fill_n(__first, std::__convert_to_integral(__n), __value);

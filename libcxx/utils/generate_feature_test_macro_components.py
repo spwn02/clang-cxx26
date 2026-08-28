@@ -160,7 +160,6 @@ feature_test_macros = [
                 "c++26": 202306  # P2363R5 Extending associative containers with the remaining heterogeneous overloads
             },
             "headers": ["map", "set", "unordered_map", "unordered_set"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_assume_aligned",
@@ -191,13 +190,12 @@ feature_test_macros = [
             "name": "__cpp_lib_atomic_min_max",
             "values": {"c++26": 202403}, # P0493R5: Atomic minimum/maximum
             "headers": ["atomic"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_atomic_ref",
             "values": {
                 "c++20": 201806,
-                "c++26": 202411,  # P2835R7: Expose std::atomic_ref 's object address
+                "c++26": 202411,  # P2835R7: Expose std::atomic_ref's object address
             },
             "headers": ["atomic"],
         },
@@ -300,7 +298,7 @@ feature_test_macros = [
             "name": "__cpp_lib_chrono",
             "values": {
                 "c++17": 201611,
-                # "c++26": 202306, # P2592R3 Hashing support for std::chrono value classes
+                "c++26": 202306,  # P2592R3 Hashing support for std::chrono value classes
             },
             "headers": ["chrono"],
         },
@@ -343,6 +341,11 @@ feature_test_macros = [
             "headers": ["algorithm", "utility"],
         },
         {
+            "name": "__cpp_lib_constexpr_atomic",
+            "values": {"c++26": 202411},  # P3309R3: constexpr atomic and atomic_ref
+            "headers": ["atomic"],
+        },
+        {
             "name": "__cpp_lib_constexpr_bitset",
             "values": {"c++23": 202207},
             "headers": ["bitset"],
@@ -360,7 +363,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_constexpr_complex",
-            "values": {"c++20": 201711},
+            "values": {"c++20": 201711, "c++26": 202306},
             "headers": ["complex"],
         },
         {
@@ -400,7 +403,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_constexpr_memory",
-            "values": {"c++20": 201811, "c++23": 202202},
+            "values": {"c++20": 201811, "c++23": 202202, "c++26": 202506},  # P3369R0/P3508R0
             "headers": ["memory"],
         },
         {
@@ -478,7 +481,6 @@ feature_test_macros = [
             "name": "__cpp_lib_copyable_function",
             "values": {"c++26": 202306},  # P2548R6 copyable_function
             "headers": ["functional"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_coroutine",
@@ -488,17 +490,14 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_debugging",
             "values": {
-                "c++26": 202311, # P2546R5 Debugging Support
-                # "c++26": 202403, # P2810R4: is_debugger_present is_replaceable
+                "c++26": 202403, # P2810R4: is_debugger_present is_replaceable
             },
             "headers": ["debugging"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_default_template_type_for_algorithm_values",
             "values": {"c++26": 202403}, # P2248R8: Enabling list-initialization for algorithms
             "headers": ["algorithm", "deque", "forward_list", "list", "ranges", "string", "vector"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_destroying_delete",
@@ -588,7 +587,6 @@ feature_test_macros = [
             "name": "__cpp_lib_format_path",
             "values": {"c++26": 202403},  # P2845R8: Formatting of std::filesystem::path
             "headers": ["filesystem"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_format_ranges",
@@ -693,7 +691,6 @@ feature_test_macros = [
                 "c++26": 202306  # P0792R14 function_ref: a type-erased callable reference
             },
             "headers": ["functional"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_gcd_lcm",
@@ -704,7 +701,6 @@ feature_test_macros = [
             "name": "__cpp_lib_generate_random",
             "values": {"c++26": 202403}, # P1068R11: Vector API for random number generation
             "headers": ["random"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_generic_associative_lookup",
@@ -729,10 +725,12 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_hazard_pointer",
             "values": {"c++26": 202306},  # P2530R3 Hazard Pointers for C++26
-            "headers": [
-                "hazard_pointer"  # TODO verify this entry since the paper was underspecified.
-            ],
-            "unimplemented": True,
+            "headers": ["hazard_pointer"],
+        },
+        {
+            "name": "__cpp_lib_hive",
+            "values": {"c++26": 202502},  # P0447R28 Introduction of std::hive to the standard library
+            "headers": ["hive"],
         },
         {
             "name": "__cpp_lib_hypot",
@@ -745,10 +743,14 @@ feature_test_macros = [
             "headers": ["forward_list", "list", "vector"],
         },
         {
+            "name": "__cpp_lib_indirect",
+            "values": {"c++26": 202502},  # P3019R14 indirect and polymorphic: Vocabulary Types for Composite Class Design
+            "headers": ["memory"],
+        },
+        {
             "name": "__cpp_lib_inplace_vector",
             "values": {"c++26": 202406},  # P0843R14 inplace_vector
             "headers": ["inplace_vector"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_int_pow2",
@@ -902,7 +904,6 @@ feature_test_macros = [
                 "c++26": 202311  # P1673 A free function linear algebra interface based on the BLAS
             },
             "headers": ["linalg"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_list_remove_return_type",
@@ -943,7 +944,6 @@ feature_test_macros = [
             "name": "__cpp_lib_math_special_functions",
             "values": {"c++17": 201603},
             "headers": ["cmath"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_mdspan",
@@ -974,7 +974,6 @@ feature_test_macros = [
             "name": "__cpp_lib_move_only_function",
             "values": {"c++23": 202110},
             "headers": ["functional"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_node_extract",
@@ -1053,6 +1052,11 @@ feature_test_macros = [
             "unimplemented": True,
         },
         {
+            "name": "__cpp_lib_polymorphic",
+            "values": {"c++26": 202502},  # P3019R14 indirect and polymorphic: Vocabulary Types for Composite Class Design
+            "headers": ["memory"],
+        },
+        {
             "name": "__cpp_lib_polymorphic_allocator",
             "values": {"c++20": 201902},
             "headers": ["memory_resource"],
@@ -1098,8 +1102,18 @@ feature_test_macros = [
             "unimplemented": True,
         },
         {
+            "name": "__cpp_lib_ranges_as_input",
+            "values": {"c++26": 202502},
+            "headers": ["ranges"],
+        },
+        {
             "name": "__cpp_lib_ranges_as_rvalue",
             "values": {"c++23": 202207},
+            "headers": ["ranges"],
+        },
+        {
+            "name": "__cpp_lib_ranges_cache_latest",
+            "values": {"c++26": 202411},
             "headers": ["ranges"],
         },
         {
@@ -1117,7 +1131,6 @@ feature_test_macros = [
             "name": "__cpp_lib_ranges_concat",
             "values": {"c++26": 202403}, # P2542R8: views::concat
             "headers": ["ranges"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_ranges_contains",
@@ -1147,6 +1160,11 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_ranges_repeat",
             "values": {"c++23": 202207},
+            "headers": ["ranges"],
+        },
+        {
+            "name": "__cpp_lib_ranges_reserve_hint",
+            "values": {"c++26": 202502},
             "headers": ["ranges"],
         },
         {
@@ -1183,10 +1201,7 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_rcu",
             "values": {"c++26": 202306},  # P2545R4 Read-Copy Update (RCU)
-            "headers": [
-                "rcu"  # TODO verify this entry since the paper was underspecified.
-            ],
-            "unimplemented": True,
+            "headers": ["rcu"],
         },
         {
             "name": "__cpp_lib_reference_from_temporary",
@@ -1242,7 +1257,6 @@ feature_test_macros = [
             "name": "__cpp_lib_senders",
             "values": {"c++26": 202406},  # P2300R10 std::execution
             "headers": ["execution"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_shared_mutex",
@@ -1274,6 +1288,21 @@ feature_test_macros = [
             "headers": ["algorithm"],
         },
         {
+            "name": "__cpp_lib_simd",
+            "values": {"c++26": 202603},  # P1928R15 std::simd -- merge data-parallel types from the Parallelism TS 2
+            "headers": ["simd"],
+        },
+        {
+            "name": "__cpp_lib_simd_complex",
+            "values": {"c++26": 202502},  # P2663R7 Interleaved complex values support in std::simd
+            "headers": ["simd"],
+        },
+        {
+            "name": "__cpp_lib_simd_permutations",
+            "values": {"c++26": 202506},  # P2664R7 static/dynamic simd permutations
+            "headers": ["simd"],
+        },
+        {
             "name": "__cpp_lib_smart_ptr_for_overwrite",
             "values": {"c++20": 202002},
             "headers": ["memory"],
@@ -1284,7 +1313,6 @@ feature_test_macros = [
                 "c++26": 202306  # P1901R2 Enabling the Use of weak_ptr as Keys in Unordered Associative Containers
             },
             "headers": ["memory"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_source_location",
@@ -1395,7 +1423,6 @@ feature_test_macros = [
                 "c++26": 202306  # P1885R12 Naming Text Encodings to Demystify Them
             },
             "headers": ["text_encoding"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_three_way_comparison",
@@ -1425,7 +1452,6 @@ feature_test_macros = [
             "name": "__cpp_lib_to_string",
             "values": {"c++26": 202306},  # P2587R3 to_string or not to_string
             "headers": ["string"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_to_underlying",

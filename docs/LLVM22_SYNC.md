@@ -86,8 +86,26 @@ Milestone 5's gate passed 2026-08-28: `clang/test/AST/ByteCode/`,
 `clang/test/Import/` together (1339 tests) show only the documented
 Milestone 1 baseline failure. See the 2026-08-28 "Milestone 5 gate: batched
 evaluator/module/PCH/reflection run, two real serialization gaps fixed"
-Session Log entry. Milestone 6 (libc++ and generated C++26 files) is now the
-sole active milestone; nothing has been attempted for it yet.
+Session Log entry. Milestone 6's gate passed 2026-08-28: `ninja -C
+build-libcxx libcxx-generate-files` and `ninja -C build-libcxx cxx` are both
+clean, and every real libc++/libc++abi conflict against upstream is resolved
+with both sides' independent changes preserved. See the 2026-08-28 "Milestone
+6 gate: libc++ reconciliation, two silently-merge-deleted files, one real M4
+gap discovered" Session Log entry. Milestone 7 (focused reflection/libc++
+tests) is now the sole active milestone. Its starting point is already
+known and is not a fresh investigation: the libc++ reflection suite
+currently fails far more broadly than Milestone 1's 6-test baseline because
+`__has_feature(reflection)` was false until this session (see the M6 log
+entry) — the *previous* full-suite libc++ numbers were never actually valid
+evidence, since `<meta>`'s entire body is gated on that feature check and
+was silently compiling to nothing. Re-baseline `libcxx/test/std/experimental/
+reflection/` now that the feature check is fixed, then triage from there;
+the immediate next failure class is `std::vector<meta::info>`/
+`std::__split_buffer<meta::info, ...>` hitting "call to immediate function
+... is not a constant expression" / "expressions of consteval-only type are
+only allowed in constant-evaluated contexts" — a `ConstevalOnly`
+constant-evaluator interaction (Milestone 5's domain) that never ran before
+today, not a libc++ source defect.
 
 ## Milestones
 
@@ -96,16 +114,25 @@ sole active milestone; nothing has been attempted for it yet.
 - [x] **3. Restore base LLVM/Clang build.** Gate passed 2026-08-25: `ninja -C build-nyx clang` and then `ninja -C build-nyx` passed from the exact LLVM 22 `clang/` baseline.
 - [x] **4. Reconcile reflection Parser, AST, Sema, templates, and flags.** Preserve CXX26 syntax, reflection contexts, metafunction evaluation, splice behavior, and all experimental flag plumbing. Gate passed 2026-08-28: `clang/test/Reflection/` is 15/16, with the only remaining failure being the documented Milestone 1 baseline (`splice-exprs.cpp` line 23). See the 2026-08-28 "Milestone 4 gate: both remaining reflection failures fixed at their root cause" Session Log entry.
 - [x] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries. Gate passed 2026-08-28: `clang/test/AST/ByteCode/`, `clang/test/Modules/`, `clang/test/PCH/`, `clang/test/Reflection/`, `clang/test/Import/` (1339 tests) show only the Milestone 1 baseline failure. Two real serialization gaps found and fixed (`ReflectionSpliceType` PCH deserialization, `ASTImporter` splice-scoped `NestedNameSpecifier` import); the `CXXMetafunctionExpr` callback mechanism, previously assumed to be a limitation, was empirically verified to round-trip correctly through PCH. See the 2026-08-28 Session Log entry for the one remaining caveat (the `ASTImporter` fix is compile-verified but not runtime-verified — the tool needed to exercise it does not propagate `-freflection`).
-- [ ] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate: libc++ builds and generated-file checks are clean; local conformance commits remain reachable and represented.
+- [x] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate passed 2026-08-28: `ninja -C build-libcxx libcxx-generate-files` and `ninja -C build-libcxx cxx` (660/660) are both clean; every one of the 39 libc++/libc++abi paths where upstream's merge had discarded fork content is reconciled with both sides' independent changes preserved, plus two files silently deleted by the original merge (never conflicted, so never surfaced) restored. See the 2026-08-28 Session Log entry.
 - [ ] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here.
 - [ ] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names.
 - [ ] **9. Merge integration branch into `cxx26`, push, and release.** Recheck provenance and tracker state, merge without history rewriting, push `cxx26`, create the next free annotated `cxx26-YYYY.MM.DD[.N]` prerelease tag, push it explicitly, and verify remote resolution. Gate: clean worktree, remote branch/tag verification, and this epic marked complete.
 
 ## Blockers
 
-None currently. Milestones 4 and 5 closed 2026-08-28 (see Session Log).
-Milestone 6 (libc++ and generated C++26 files) is active; nothing has been
-attempted for it yet, but nothing is blocking starting it.
+None currently. Milestones 4, 5, and 6 closed 2026-08-28 (see Session Log).
+Milestone 7 (focused reflection/libc++ tests) is active. It is not blocked,
+but its starting point is not a clean slate: the libc++ reflection suite is
+currently far below the Milestone 1 baseline pass rate because a real
+`__has_feature(reflection)` gap (fixed in Milestone 6, but conceptually
+Milestone 4/clang-flag-plumbing scope) meant `<meta>` silently compiled to
+an empty namespace for the entire libc++ portion of this sync epic until
+today — no libc++ reflection test run before today's actually exercised
+`std::meta`. The next concrete failure class (`ConstevalOnly`
+type/constant-evaluator interaction with `std::vector<meta::info>` and
+`std::__split_buffer<meta::info, ...>`) is Milestone 5-adjacent and is
+recorded in the Milestone 6 Session Log entry rather than re-described here.
 
 When blocked, record the failing command, essential diagnostic, affected milestone, attempted remedies, and exact condition needed to resume. Use `[!]` only for a genuine external or technical impasse, not for ordinary incomplete work.
 
@@ -2131,3 +2158,216 @@ incompletely-verified piece (the `ASTImporter` splice-import runtime
 behavior) is documented above with its exact blocker and reproducer
 attempt. Marked `[x]`. Milestone 6 (libc++/generated C++26 files) is next;
 nothing attempted for it yet.
+
+### 2026-08-28 — Milestone 6 gate: libc++ reconciliation, two silently-merge-deleted files, one real M4 gap discovered
+
+Resumed Milestone 6 (user instruction: "finish as much of M6 as you can in
+one go", same batch-then-verify discipline as the M4/M5-closing sessions).
+First committed 84 files of forgotten-to-stage Milestone 4 work found
+uncommitted in the working tree since 2026-08-26 (confirmed build- and
+gate-verified via `find clang -newer build-nyx/bin/clang-21` returning
+nothing but the already-committed M5 test file) as its own commit
+(`a2d5edff3f95`), so history matches the binary that already passed the M4
+and M5 gates before starting Milestone 6's own work.
+
+**Enumeration.** `git diff --name-status <merge-base> <pre-merge-cxx26-tip>
+-- libcxx/ libcxxabi/ runtimes/` listed 527 paths the fork ever touched.
+Classified each by comparing blob hashes across the fork tip, HEAD, and the
+upstream `llvmorg-22.1.8` merge parent: 436 already matched the fork
+untouched (pure local additions that never conflicted during the original
+merge — `<meta>`, the reflection test directory, etc. — already fine, no
+action), 51 differed from both fork and upstream (git's automatic
+non-conflicting three-way merge had already correctly blended both sides'
+independent changes — spot-checked the highest-risk ones, including
+`__config`/`string`/`deque`/`list`/`forward_list`, for any dropped
+reflection/annotation content via keyword grep before trusting this bucket;
+all clean, all false-positive keyword hits from unrelated upstream
+`_LIBCPP_CONSTEXPR_SINCE_CXX26`/ASan-annotation naming), 1 was the
+already-documented deliberate upstream deletion
+(`clang_modules_include.gen.py`), and 39 were genuine conflicts where the
+original merge had resolved to pure upstream content, discarding fork's
+side entirely — this 39 is the tracker's "35 libc++" conflict count plus a
+few more in the generated-feature-test-macro family.
+
+**Generated vs. hand-written split.** Of the 39, 10 are outputs of
+`generate_feature_test_macro_components.py` (`libcxx/include/version`,
+`libcxx/docs/FeatureTestMacroTable.rst`, and 8
+`*.version.compile.pass.cpp` tests) — per the advisor's guidance, these are
+never hand-merged; only the generator script itself is reconciled, then
+`ninja -C build-libcxx libcxx-generate-files` regenerates the rest. The
+remaining 29 (2 hand-maintained paper-status CSVs plus one more
+`Cxx2cPapers.csv`, `include/CMakeLists.txt`, 21 headers, 3 tests, and the
+generator script itself) needed real reconciliation.
+
+**Conflict resolution.** Ran the same `git merge-file <fork> <base> <head>`
+three-way merge used for the M4 clang batch (real temp files, base in the
+middle) over all 29: **all 29 conflicted** (unlike the clang M4 batch's
+32-clean/21-conflict split) — expected, since this 29-file set was
+specifically selected as the paths where the *original* merge itself had a
+real content conflict, so an independent re-merge finding conflicts on the
+same lines is corroborating, not surprising. Delegated the mechanical
+resolution to a forked subagent (same "keep both independent changes,
+don't invent content" instruction as the M4 conflict-resolution log
+entries); it made good progress but exhausted its session budget mid-task
+(`libcxx/include/complex`, the largest at 25 conflict hunks, was left with
+all markers still in place; a stray untracked `is_replaceable.h` also
+surfaced from its intermediate work). Finished by hand/script:
+- `libcxx/utils/generate_feature_test_macro_components.py` (3 conflicts):
+  two were the same paper's value written twice with a typo/revision-number
+  difference (`__cpp_lib_atomic_ref`'s C++26 value 202603 vs. 202411 with a
+  stray space in the comment — took upstream's, the exact-tag-shipped
+  value, since this isn't fork-specific conformance work and the fork's
+  comment typo suggested it was the less-careful draft; `__cpp_lib_optional`
+  P2988R11 vs. R12 comment — took upstream's newer revision number, values
+  already matched). The third was purely additive (upstream independently
+  added `test_suite_guard`/`libcxx_guard` gating for
+  `__cpp_lib_optional_range_support` on `_LIBCPP_HAS_EXPERIMENTAL_OPTIONAL_ITERATOR`)
+  — confirmed that guard macro is real and already used by the merged
+  `optional` header before keeping it.
+- `libcxx/include/complex` (25 conflicts, all one mechanical pattern):
+  fork added `_LIBCPP_CONSTEXPR_SINCE_CXX26` plus constexpr-capable
+  `__complex_dispatch_*`/`__constexpr_*` implementations for every
+  transcendental function (`abs`, `arg`, `log`, `sqrt`, `sinh`, `asin`,
+  etc.); upstream independently added `[[__nodiscard__]]` to the same
+  declarations with the old runtime-only bodies. Wrote a small script
+  (not committed) that verified this pattern held for all 25 hunks, then
+  mechanically prepended `[[__nodiscard__]]` to fork's constexpr-capable
+  declaration and dropped upstream's runtime-only duplicate — combining
+  both independent changes exactly as the M4 precedent does by hand.
+
+**Verification, not just trust.** Rather than accept the fork subagent's
+own (truncated, budget-exhausted) self-report, independently re-verified
+all 29 files: confirmed zero conflict markers remain
+(`grep -c '^<<<<<<< \|^=======$\|^>>>>>>> '` across the repo), then
+directly `-fsyntax-only` compiled every merged header against
+`build-nyx/bin/clang++` with real `-isystem` paths (not the background
+LSP, which gave false "file not found"/cascading parse-error diagnostics
+for `atomic.h`, `stop_token.h`, etc. purely because it lacks libc++'s own
+include path — confirmed false by direct compilation, all real headers
+exist on disk and compile clean). This caught what the subagent's
+self-check missed: `libcxx/include/complex` still had all 25 conflict
+markers in place.
+
+**Two files silently deleted by the original merge, invisible to the
+527-path enumeration above.** `ninja -C build-libcxx cxx` failed on a
+missing `libcxx/include/stdbool.h` (still listed in the reconciled
+`include/CMakeLists.txt`, which is fork content). Root cause, generalized:
+a file present in the fork tip *and* the merge-base but absent from the
+upstream tag is invisible to a `<base>..<fork>` diff (no change recorded
+between those two points) yet still gets silently deleted by git's
+automatic three-way merge, since only the upstream side touched it (by not
+having it) — this is a real gap in the M4/M6 diff-based enumeration
+methodology, not just a one-off. Computed the full set with
+`comm -23 <(ls-tree fork) <(ls-tree HEAD)` (248 paths), classified by
+whether fork had modified them since the merge-base (only
+`clang_modules_include.gen.py`, already documented) vs. left them
+untouched (247 — mostly genuine upstream renames/consolidations, e.g.
+`__type_traits/add_lvalue_reference.h` + `add_rvalue_reference.h` merged
+into upstream's new `add_reference.h`, confirmed by checking the upstream
+tag's actual tree rather than assuming), then grepped the current tree's
+plain (non-`__cxx03`) `CMakeLists.txt`/`module.modulemap.in`/headers for
+real references to each candidate, filtering out `__cxx03`'s own
+self-contained legacy mirror (which still uses the pre-consolidation
+names on both sides, correctly). Only two were still genuinely referenced:
+`stdbool.h` (restored from the fork tip) and `is_replaceable.h` (the one
+the subagent had already restored but left untracked — `git add`ed it;
+confirmed `optional`'s merged `#include <__type_traits/is_replaceable.h>`
+and `__is_replaceable_v` usage are real, needed fork content, not
+upstream, since `is_replaceable.h`'s addition commit is not an ancestor of
+the `llvmorg-22.1.8` tag).
+
+**A stale, untracked build-directory artifact, not a source bug.**
+`ninja -C build-libcxx cxx` then succeeded (660/660), but the libc++
+reflection lit suite's `google-benchmark` dependency build failed two
+different ways in sequence, neither a source defect:
+1. `_LIBCPP_STD_VER >= 11` C++11 build hit `use of undeclared identifier
+   'is_floating_point_v'` in `__atomic/support/c11.h`'s
+   `__cxx_atomic_consteval_maximum_num`/`minimum_num` — a pre-existing fork
+   bug (this file is untouched-since-fork, `ALREADY_FORK` in the
+   classification above) already found, fixed, and validated on a
+   *different* branch/worktree per `HANDOFF_2026-08-26.md`
+   (`83232ca0995a0`, "libc++: keep C++26 atomic helpers out of C++11", never
+   ported to `integration/llvm-22.1.8`). Ported the identical two-line
+   `#if _LIBCPP_STD_VER >= 26` / `#endif` guard here; confirmed zero call
+   sites of either function anywhere else in `libcxx/include/`, so gating
+   their definition cannot regress anything.
+2. `_LIBCPP_ASSERTION_SEMANTIC_DEFAULT is not defined` from
+   `build-libcxx/include/c++/v1/__config_site` (the *non*-triple-specific
+   copy, dated 2026-08-15 — three weeks before this sync epic started,
+   with zero references anywhere in `build-libcxx/build.ninja`, i.e. a
+   dead build-directory leftover from before this project's multi-target
+   CMake setup, not a real build output). The triple-specific
+   `x86_64-unknown-linux-gnu/c++/v1/__config_site` (real ninja output, up
+   to date) already had the macro; `google-benchmark`'s C++11 subbuild's
+   `-isystem` order just hit the stale generic one first. Overwrote it
+   with the current triple-specific content (build-directory hygiene, not
+   a source change, nothing to commit).
+
+**A real Milestone 4-scope gap, discovered only because it finally got
+exercised.** With both of the above fixed, `google-benchmark` built, but
+59 of libc++'s 60 reflection tests still failed with "no member named
+'meta' in namespace 'std'" — `<meta>`'s entire body is gated on `#if
+__has_feature(reflection)`. Direct test
+(`clang++ -std=c++26 -freflection -fsyntax-only` on a `__has_feature`
+probe) showed it evaluates false despite `-freflection` being on: the
+`FEATURE(reflection, LangOpts.Reflection)` family (`reflection`,
+`parameter_reflection`, `attribute_reflection`, `expansion_statements`,
+`annotation_attributes`, `entity_proxy_reflection`, `reflection_latest`)
+present in the fork's `clang/include/clang/Basic/Features.def` was never
+reconciled into the current tree at all — this file is untouched-since-M3
+pure upstream content (confirmed via diff against the fork tip: dozens of
+real independent upstream additions — sanitizer features, ptrauth, CFI —
+with zero trace of the reflection block). This slipped through Milestone
+4's own gate because `clang/test/Reflection/` apparently never exercises
+`__has_feature(reflection)` directly, only Sema's internal `LangOpts`
+checks. Three-way merged (0 conflicts, pure addition), rebuilt
+`ninja -C build-nyx clang` (2794/2794), confirmed the probe now reports
+true, then re-ran the full Milestone 5 gate corpus (same 1339 tests) to
+check for wider regression from a file this central: still only the one
+documented Milestone 1 baseline failure. Rebuilt `ninja -C build-libcxx
+cxx` against the new `clang` (660/660, unaffected — no libc++ source
+depends on `__has_feature(reflection)` for its own build) and re-ran the
+reflection lit suite.
+
+**Where that leaves Milestone 7, stated plainly.** `std::meta` now
+resolves, but the suite still shows 59/60 failing, with a new failure
+class: `std::vector<meta::info>`/`std::__split_buffer<meta::info, ...>`
+hitting "call to immediate function ... is not a constant expression" /
+"expressions of consteval-only type are only allowed in constant-evaluated
+contexts". This is not a regression introduced this session and not a
+libc++ source defect to chase under Milestone 6 — since
+`__has_feature(reflection)` was false for the entire span of this sync
+epic until today, **no libc++ reflection test has actually exercised
+`std::meta` since Milestone 1's pre-merge baseline was recorded**; today is
+the first real data point. The failure shape (`ConstevalOnly`
+type/constant-evaluator interaction) points at Milestone 5's evaluator
+domain, not libc++ source. Did not chase it further: Milestone 6's own
+gate (library builds clean, generated-file checks clean, local work
+represented) is met and doesn't require test-suite green — that is
+Milestone 7's explicit job, and it needs its own from-scratch baseline
+run, not a continuation of Milestone 1's now-invalid 54/6 split.
+
+Files changed: `clang/include/clang/Basic/Features.def`;
+`libcxx/utils/generate_feature_test_macro_components.py`; regenerated
+`libcxx/include/version`, `libcxx/docs/FeatureTestMacroTable.rst`, and 9
+`*.version.compile.pass.cpp` tests; `libcxx/docs/Status/{Cxx17,Cxx23,Cxx2c}Papers.csv`;
+`libcxx/include/CMakeLists.txt`; `libcxx/include/{complex,map,optional,set,
+type_traits,unordered_map,unordered_set,module.modulemap.in,version}`;
+`libcxx/include/__algorithm/{count,fill_n}.h`;
+`libcxx/include/__atomic/{atomic,atomic_ref,support/c11}.h`;
+`libcxx/include/__chrono/{leap_second,zoned_time}.h`;
+`libcxx/include/__configuration/availability.h`;
+`libcxx/include/__format/range_default_formatter.h`;
+`libcxx/include/__locale_dir/locale_base_api.h`;
+`libcxx/include/__mdspan/mdspan.h`; `libcxx/include/__ranges/iota_view.h`;
+`libcxx/include/__stop_token/{stop_token,inplace_stop_callback,inplace_stop_source}.h`;
+`libcxx/include/__type_traits/is_within_lifetime.h`;
+`libcxx/include/__type_traits/is_replaceable.h` (restored, new);
+`libcxx/include/stdbool.h` (restored, new);
+`libcxx/test/std/atomics/atomics.ref/address.pass.cpp`;
+`libcxx/test/std/utilities/optional/optional.object/{optional.object.ctor/ctor,../optional_requires_destructible_object}.verify.cpp`.
+Milestone 6's gate (libc++ builds and generated-file checks are clean;
+local conformance commits remain reachable and represented) is met.
+Marked `[x]`. Milestone 7 (focused reflection/libc++ tests) is next, with
+its concrete non-baseline starting point recorded above and in Current
+Action/Blockers.

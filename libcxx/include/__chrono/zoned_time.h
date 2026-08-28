@@ -18,6 +18,7 @@
 
 #  include <__chrono/calendar.h>
 #  include <__chrono/duration.h>
+#  include <__chrono/hash.h>
 #  include <__chrono/sys_info.h>
 #  include <__chrono/system_clock.h>
 #  include <__chrono/time_zone.h>
@@ -218,6 +219,7 @@ operator==(const zoned_time<_Duration1, _TimeZonePtr>& __lhs, const zoned_time<_
 
 } // namespace chrono
 
+// [time.hash]
 #    if _LIBCPP_STD_VER >= 26
 
 template <class _Duration, class _TimeZonePtr>
@@ -229,6 +231,7 @@ struct hash<chrono::zoned_time<_Duration, _TimeZonePtr>> {
         hash<chrono::sys_time<_Duration>>{}(__zt.get_sys_time()), hash<_TimeZonePtr>{}(__zt.get_time_zone()));
   }
 };
+
 
 #    endif // _LIBCPP_STD_VER >= 26
 

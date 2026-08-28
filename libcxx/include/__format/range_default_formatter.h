@@ -48,6 +48,23 @@ using __fmt_maybe_const _LIBCPP_NODEBUG = conditional_t<__const_formattable_rang
 template <class _Rp>
 struct __instantiated_the_primary_template_of_format_kind;
 
+#  if _LIBCPP_STD_VER >= 26
+// [optional.syn]: optional<T> (both the primary template and the T&
+// partial specialization, covered by the same pattern) gained iterator
+// support in C++26, making it a range -- but it must never be picked up by
+// the generic range formatter above (there's no formatter<optional<T>> at
+// all; optional is not meant to be formatted as a sequence of 0-or-1
+// elements). Forward-declared here, rather than including <optional>,
+// specifically to avoid pulling this header's real weight (<format>'s
+// formatter machinery) into <optional>, one of the most widely-included
+// headers in the library.
+template <class _Tp>
+class optional;
+
+template <class _Tp>
+inline constexpr range_format format_kind<optional<_Tp>> = range_format::disabled;
+#  endif // _LIBCPP_STD_VER >= 26
+
 template <range_format _Kp, ranges::input_range _Rp, class _CharT>
 struct __range_default_formatter;
 

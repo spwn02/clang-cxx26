@@ -17,6 +17,10 @@
 #  pragma GCC system_header
 #endif
 
+// Controls whether the implementation for text_encoding::environment() is available.
+#define _LIBCPP_AVAILABILITY_HAS_TEXT_ENCODING_ENVIRONMENT 1
+#define _LIBCPP_AVAILABILITY_TEXT_ENCODING_ENVIRONMENT
+
 // This file defines a framework that can be used by vendors to encode the version of an operating system that various
 // features of libc++ has been shipped in. This is primarily intended to allow safely deploying an executable built with
 // a new version of the library on a platform containing an older version of the built library.

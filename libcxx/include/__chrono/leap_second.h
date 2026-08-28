@@ -17,6 +17,7 @@
 #if _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 #  include <__chrono/duration.h>
+#  include <__chrono/hash.h>
 #  include <__chrono/system_clock.h>
 #  include <__chrono/time_point.h>
 #  include <__compare/ordering.h>
@@ -124,12 +125,16 @@ private:
 
 } // namespace chrono
 
+// [time.hash]
 #    if _LIBCPP_STD_VER >= 26
 
+// leap_second::operator== only compares date() (value() is not part of the
+// object's equality), so the hash must be computed from date() alone to
+// preserve the equal-objects-hash-equal invariant.
 template <>
 struct hash<chrono::leap_second> {
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static size_t operator()(const chrono::leap_second& __lp) noexcept {
-    return std::__hash_combine(hash<chrono::sys_seconds>{}(__lp.date()), hash<chrono::seconds>{}(__lp.value()));
+    return hash<chrono::sys_seconds>{}(__lp.date());
   }
 };
 

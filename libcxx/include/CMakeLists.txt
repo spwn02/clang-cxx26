@@ -263,6 +263,7 @@ set(files
   __chrono/file_clock.h
   __chrono/formatter.h
   __chrono/gps_clock.h
+  __chrono/hash.h
   __chrono/hh_mm_ss.h
   __chrono/high_resolution_clock.h
   __chrono/is_clock.h
@@ -348,11 +349,53 @@ set(files
   __debug_utils/randomize_range.h
   __debug_utils/sanitizers.h
   __debug_utils/strict_weak_ordering_check.h
+  __debugging/is_debugger_present.h
   __exception/exception.h
   __exception/exception_ptr.h
   __exception/nested_exception.h
   __exception/operations.h
   __exception/terminate.h
+  __execution/as_awaitable.h
+  __execution/awaitable.h
+  __execution/bulk.h
+  __execution/completion_functions.h
+  __execution/completion_signatures.h
+  __execution/connect.h
+  __execution/continues_on.h
+  __execution/domain.h
+  __execution/env.h
+  __execution/forwarding_query.h
+  __execution/fwd_env.h
+  __execution/get_allocator.h
+  __execution/get_completion_signatures.h
+  __execution/get_env.h
+  __execution/get_forward_progress_guarantee.h
+  __execution/get_scheduler.h
+  __execution/get_stop_token.h
+  __execution/into_variant.h
+  __execution/just.h
+  __execution/let.h
+  __execution/movable_value.h
+  __execution/on.h
+  __execution/operation_state.h
+  __execution/queryable.h
+  __execution/read_env.h
+  __execution/receiver.h
+  __execution/run_loop.h
+  __execution/schedule.h
+  __execution/schedule_from.h
+  __execution/scheduler.h
+  __execution/sender.h
+  __execution/sender_adaptor_closure.h
+  __execution/starts_on.h
+  __execution/stopped_as_error.h
+  __execution/stopped_as_optional.h
+  __execution/sync_wait.h
+  __execution/then.h
+  __execution/unstoppable.h
+  __execution/when_all.h
+  __execution/with_awaitable_senders.h
+  __execution/write_env.h
   __expected/bad_expected_access.h
   __expected/expected.h
   __expected/unexpect.h
@@ -367,6 +410,7 @@ set(files
   __filesystem/filesystem_error.h
   __filesystem/operations.h
   __filesystem/path.h
+  __filesystem/path_format.h
   __filesystem/path_iterator.h
   __filesystem/perm_options.h
   __filesystem/perms.h
@@ -427,13 +471,22 @@ set(files
   __functional/boyer_moore_searcher.h
   __functional/compose.h
   __functional/default_searcher.h
+  __functional/copyable_function.h
+  __functional/copyable_function_common.h
+  __functional/copyable_function_impl.h
   __functional/function.h
+  __functional/function_ref.h
+  __functional/function_ref_common.h
+  __functional/function_ref_impl.h
   __functional/hash.h
   __functional/identity.h
   __functional/invoke.h
   __functional/is_transparent.h
   __functional/mem_fn.h
   __functional/mem_fun_ref.h
+  __functional/move_only_function.h
+  __functional/move_only_function_common.h
+  __functional/move_only_function_impl.h
   __functional/not_fn.h
   __functional/operations.h
   __functional/perfect_forward.h
@@ -472,6 +525,7 @@ set(files
   __fwd/variant.h
   __fwd/vector.h
   __hash_table
+  __hazard_pointer/hazard_pointer.h
   __ios/fpos.h
   __iterator/access.h
   __iterator/advance.h
@@ -589,11 +643,13 @@ set(files
   __memory/construct_at.h
   __memory/destroy.h
   __memory/destruct_n.h
+  __memory/indirect.h
   __memory/inout_ptr.h
   __memory/is_sufficiently_aligned.h
   __memory/noexcept_move_assign_container.h
   __memory/out_ptr.h
   __memory/pointer_traits.h
+  __memory/polymorphic.h
   __memory/ranges_construct_at.h
   __memory/ranges_destroy.h
   __memory/ranges_uninitialized_algorithms.h
@@ -679,6 +735,7 @@ set(files
   __random/fisher_f_distribution.h
   __random/gamma_distribution.h
   __random/generate_canonical.h
+  __random/generate_random.h
   __random/geometric_distribution.h
   __random/independent_bits_engine.h
   __random/is_seed_sequence.h
@@ -707,9 +764,12 @@ set(files
   __ranges/adjacent_transform_view.h
   __ranges/adjacent_view.h
   __ranges/all.h
+  __ranges/as_input_view.h
   __ranges/as_rvalue_view.h
+  __ranges/cache_latest_view.h
   __ranges/chunk_by_view.h
   __ranges/common_view.h
+  __ranges/concat_view.h
   __ranges/concepts.h
   __ranges/container_compatible_range.h
   __ranges/counted.h
@@ -723,6 +783,7 @@ set(files
   __ranges/empty_view.h
   __ranges/enable_borrowed_range.h
   __ranges/enable_view.h
+  __ranges/enumerate_view.h
   __ranges/filter_view.h
   __ranges/from_range.h
   __ranges/iota_view.h
@@ -751,15 +812,37 @@ set(files
   __ranges/views.h
   __ranges/zip_transform_view.h
   __ranges/zip_view.h
+  __rcu/rcu.h
+  __simd/abi.h
+  __simd/algorithms.h
+  __simd/basic_mask.h
+  __simd/basic_vec.h
+  __simd/bit.h
+  __simd/complex.h
+  __simd/concepts.h
+  __simd/creation.h
+  __simd/flags.h
+  __simd/iterator.h
+  __simd/loadstore.h
+  __simd/math.h
+  __simd/permute.h
+  __simd/reductions.h
+  __simd/traits.h
+  __simd/vectorizable.h
   __split_buffer
   __std_mbstate_t.h
   __stop_token/atomic_unique_lock.h
+  __stop_token/inplace_stop_callback.h
+  __stop_token/inplace_stop_source.h
+  __stop_token/inplace_stop_token.h
   __stop_token/intrusive_list_view.h
   __stop_token/intrusive_shared_ptr.h
+  __stop_token/never_stop_token.h
   __stop_token/stop_callback.h
   __stop_token/stop_source.h
   __stop_token/stop_state.h
   __stop_token/stop_token.h
+  __stop_token/stoppable_token.h
   __string/char_traits.h
   __string/constexpr_c_functions.h
   __string/extern_template_lists.h
@@ -836,6 +919,7 @@ set(files
   __type_traits/is_compound.h
   __type_traits/is_const.h
   __type_traits/is_constant_evaluated.h
+  __type_traits/is_consteval_only.h
   __type_traits/is_constructible.h
   __type_traits/is_convertible.h
   __type_traits/is_core_convertible.h
@@ -1001,6 +1085,7 @@ set(files
   cuchar
   cwchar
   cwctype
+  debugging
   deque
   errno.h
   exception
@@ -1017,6 +1102,7 @@ set(files
   experimental/__simd/vec_ext.h
   experimental/iterator
   experimental/memory
+  experimental/meta
   experimental/propagate_const
   experimental/simd
   experimental/type_traits
@@ -1034,7 +1120,10 @@ set(files
   fstream
   functional
   future
+  hazard_pointer
+  hive
   initializer_list
+  inplace_vector
   inttypes.h
   iomanip
   ios
@@ -1044,6 +1133,7 @@ set(files
   iterator
   latch
   limits
+  linalg
   list
   locale
   map
@@ -1051,6 +1141,7 @@ set(files
   mdspan
   memory
   memory_resource
+  meta
   mutex
   new
   numbers
@@ -1062,16 +1153,22 @@ set(files
   random
   ranges
   ratio
+  rcu
   regex
+  scope
   scoped_allocator
   semaphore
   set
   shared_mutex
+  simd
   source_location
   span
   sstream
   stack
   stdatomic.h
+  stdbit.h
+  stdbool.h
+  stdckdint.h
   stddef.h
   stdexcept
   stdio.h
@@ -1084,6 +1181,7 @@ set(files
   strstream
   syncstream
   system_error
+  text_encoding
   tgmath.h
   thread
   tuple

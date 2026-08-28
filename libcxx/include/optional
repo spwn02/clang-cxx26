@@ -297,6 +297,7 @@ namespace std {
 #  include <__type_traits/is_nothrow_constructible.h>
 #  include <__type_traits/is_object.h>
 #  include <__type_traits/is_reference.h>
+#  include <__type_traits/is_replaceable.h>
 #  include <__type_traits/is_same.h>
 #  include <__type_traits/is_scalar.h>
 #  include <__type_traits/is_swappable.h>
@@ -811,6 +812,7 @@ public:
 
   using __trivially_relocatable _LIBCPP_NODEBUG =
       conditional_t<__libcpp_is_trivially_relocatable<_Tp>::value, optional, void>;
+  using __replaceable _LIBCPP_NODEBUG = conditional_t<__is_replaceable_v<_Tp>, optional, void>;
 
 private:
   static_assert(!is_same_v<__remove_cvref_t<_Tp>, in_place_t>,
@@ -1106,6 +1108,11 @@ public:
     this->__swap(__opt);
   }
 
+  // [optional.iterators]: provided by the __optional_iterator<_Tp> base class (conditionally
+  // inherited above), not hand-written here -- it already handles the bounded-iterator ABI
+  // (_LIBCPP_ABI_BOUNDED_ITERATORS_IN_OPTIONAL) and is gated behind
+  // _LIBCPP_HAS_EXPERIMENTAL_OPTIONAL_ITERATOR, both of which a local plain-pointer begin()/end()
+  // would bypass.
   _LIBCPP_HIDE_FROM_ABI constexpr add_pointer_t<_Tp const> operator->() const noexcept
 #    if _LIBCPP_STD_VER >= 26
     requires(is_object_v<_Tp>)
@@ -1444,6 +1451,20 @@ public:
 
 template <class _Tp>
 optional(_Tp) -> optional<_Tp>;
+
+// [optional.optional.ref]: P2988R11 (optional<T&>) is implemented directly in the primary
+// template above instead of via a dedicated partial specialization -- see value_type's
+// __libcpp_remove_reference_t unwrapping, the is_rvalue_reference_v-only static_assert for
+// _LIBCPP_STD_VER >= 26, __optional_iterator<_Tp&, ...>, and __optional_move_assign_base's
+// is_reference_v<_Tp> parameterization, all already present and unconflicted above. A fork-only
+// dedicated `class optional<_Tp&>` partial specialization existed here (P2988R11-based, with a
+// [[gsl::Pointer]] dangling-reference-checker workaround) but is superseded, not merely dropped:
+// keeping it would let it win overload resolution over the primary template for every
+// optional<T&>, silently bypassing the primary template's own comparison/hash/format/ranges
+// integration, and its own `ranges::enable_borrowed_range<optional<_Tp&>>` would redefine the
+// identical specialization the primary-template path already provides. Recoverable verbatim from
+// `git show 6dd950bcd4ac:libcxx/include/optional` (the [optional.optional.ref] region) if this
+// analysis is ever found to be wrong.
 
 // [optional.relops] Relational operators
 

@@ -27,7 +27,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 // and unlike `stop_source`, is neither copyable nor movable — `inplace_stop_token`/
 // `inplace_stop_callback` refer back to a specific `inplace_stop_source` object by address, so
 // that address must stay stable for as long as any such reference is outstanding.
-class _LIBCPP_AVAILABILITY_SYNC inplace_stop_source {
+class _LIBCPP_AVAILABILITY_NEW_SYNC inplace_stop_source {
 public:
   // Deviates from the synopsis (`constexpr inplace_stop_source() noexcept;`): not `constexpr`
   // here, since incrementing `__stop_state`'s atomic counter (needed so `__add_callback` on

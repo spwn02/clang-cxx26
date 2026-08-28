@@ -10,6 +10,7 @@
 #define _LIBCPP___TYPE_TRAITS_IS_WITHIN_LIFETIME_H
 
 #include <__config>
+#include <__type_traits/is_function.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -18,11 +19,14 @@
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26 && __has_builtin(__builtin_is_within_lifetime)
+
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI consteval bool is_within_lifetime(const _Tp* __p) noexcept {
+  requires(!is_function_v<_Tp>)
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI consteval bool is_within_lifetime(const _Tp* __p) noexcept {
   return __builtin_is_within_lifetime(__p);
 }
-#endif
+
+#endif // _LIBCPP_STD_VER >= 26 && __has_builtin(__builtin_is_within_lifetime)
 
 _LIBCPP_END_NAMESPACE_STD
 
