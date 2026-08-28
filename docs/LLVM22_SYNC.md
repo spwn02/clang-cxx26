@@ -92,28 +92,28 @@ clean, and every real libc++/libc++abi conflict against upstream is resolved
 with both sides' independent changes preserved. See the 2026-08-28 "Milestone
 6 gate: libc++ reconciliation, two silently-merge-deleted files, one real M4
 gap discovered" Session Log entry. Milestone 7 (focused reflection/libc++
-tests) is now the sole active milestone, marked `[~]`. It is not closed:
-`clang/test/Reflection/` is at the Milestone 1 baseline (15/16), but the
-libc++ reflection suite is at 50/60 (plus 1 UNSUPPORTED), against a
-Milestone 1 baseline of 54/60. Nine CodeGen/mangling switch-case gaps and
-one Sema/AST gap were fixed this session (see the 2026-08-28 "Milestone 7:
-CodeGen/mangling restoration and reflection-value template-argument
-mangling fix" Session Log entry) and libc++ pass rate rose 1 -> 48 -> 50 of
-60 across three batched rebuild-and-test cycles. All 6 Milestone 1 baseline
-failures are still present and accounted for. Three genuinely new failures
-remain, each a distinct, deep Sema/library-level bug outside CodeGen/
-mangling: `define-aggregate.pass.cpp` (nested `vector<vector<pair<bool,
-info>>>` destructor-escalation gap the Milestone 6 `ConstevalOnly` fix
-doesn't reach), `p3385-attributes.pass.cpp` (`attributes_of()` returns a
-wrong value, compiles clean), and `reflection-ex-universal-formatter.sh.cpp`
-(wrong runtime formatter output). One test
-(`reflection-ex-parsing-command-line-options-2.sh.cpp`) is gated
-UNSUPPORTED after its binary was found looping unboundedly at runtime
-(`Clap::parse()`'s `define_aggregate`/splice-write logic not populating its
-result correctly) — pre-existing, not introduced this session, but now
-hygiene-gated so it can't hang future suite runs. None of the four
-remaining non-baseline items has been root-caused; each needs its own
-from-scratch investigation before Milestone 7 can close.
+tests) is the sole active milestone, marked `[~]`. It is not closed:
+`clang/test/Reflection/` is at the Milestone 1 baseline (15/16), and the
+libc++ reflection suite is now at 53/60, against a Milestone 1 baseline of
+54/60. See the 2026-08-28/2026-08-29 "Milestone 7: expansion-statement
+CodeGen restoration and attribute-profile ConstantExpr fix" Session Log
+entry. Three of the four items open at the end of the prior session are
+now fixed: `reflection-ex-universal-formatter.sh.cpp`,
+`p3385-attributes.pass.cpp`, and
+`reflection-ex-parsing-command-line-options-2.sh.cpp` (un-gated from
+UNSUPPORTED and passing). All 6 Milestone 1 baseline failures are still
+present and accounted for. One genuinely new failure remains:
+`define-aggregate.pass.cpp`, root-caused to a specific, minimal repro
+(temporary — not named-variable — `vector<vector<T>>` where `T` contains a
+consteval-only field, inside a `consteval` context) but not fixed; see the
+Session Log entry for the exact repro and why it wasn't chased further.
+`miscellaneous.pass.cpp` (an existing Milestone 1 baseline failure) now
+fails via a compile-time crash in `CXXNameMangler::mangleReflection`'s
+`mangleLocalName` path instead of its prior failure mode — a newly-exposed
+latent bug in this session's earlier `mangleReflection` restoration, now
+reachable because the expansion-statement CodeGen fix lets `template for`
+bodies that drive its instantiation actually execute. Not chased; still an
+allowed Milestone 1 baseline name.
 
 ## Milestones
 
@@ -132,12 +132,13 @@ from-scratch investigation before Milestone 7 can close.
 None currently. Milestones 4, 5, and 6 closed 2026-08-28 (see Session Log).
 Milestone 7 (focused reflection/libc++ tests) is active, `[~]`, and not
 blocked, but not closeable without further work: libc++ reflection is at
-50/60 against a 54/60 Milestone 1 baseline, with three distinct unfixed
-Sema/library-level bugs plus one UNSUPPORTED-gated runtime hang (see
-Current Action and the 2026-08-28 "Milestone 7" Session Log entry for
-names and root-cause status of each). None of the four is CodeGen- or
-mangling-adjacent, so none is expected to share a fix with this session's
-work.
+53/60 against a 54/60 Milestone 1 baseline. The one remaining non-baseline
+failure, `define-aggregate.pass.cpp`, is root-caused to a precise 10-line
+repro (temporary — not named-variable — `vector<vector<T>>` where `T`
+contains a consteval-only field, inside a `consteval` context; see the
+2026-08-29 "Milestone 7" Session Log entry) but needs new escalation logic
+in `MaterializeTemporaryExpr`/full-expression handling that wasn't
+attempted given the risk to the M5 corpus and `clang/test/Reflection`.
 
 When blocked, record the failing command, essential diagnostic, affected milestone, attempted remedies, and exact condition needed to resume. Use `[!]` only for a genuine external or technical impasse, not for ordinary incomplete work.
 
@@ -2543,3 +2544,166 @@ still present and unregressed. Four items are new: the runtime hang
 this session), and three genuine, unfixed, deep Sema/library bugs
 (`define-aggregate.pass.cpp`, `p3385-attributes.pass.cpp`,
 `reflection-ex-universal-formatter.sh.cpp`). Milestone 7 stays `[~]`.
+
+### 2026-08-29 — Milestone 7: expansion-statement CodeGen restoration and attribute-profile ConstantExpr fix
+
+Resumed Milestone 7 with the four items left open at the end of the prior
+session, working in the user's requested batch mode (root-cause everything
+findable, land fixes together, rebuild and check once, repeat only as
+needed) rather than single-fix-then-recompile cycles. Consulted the advisor
+before starting substantive work and again mid-session when initial
+hypotheses needed correcting; both consultations materially changed
+direction and are credited inline below.
+
+**Root cause, `reflection-ex-universal-formatter.sh.cpp` and the
+`UNSUPPORTED`-gated CLI-parsing hang: the same bug.** Both use
+`template for` over a `define_static_array(...)`-produced range inside an
+ordinary (non-consteval) runtime function. Minimal repro: a `template for`
+loop with a plain `++count;` body, run at runtime, always executed zero
+iterations, even though `std::meta::nonstatic_data_members_of(...).size()`
+and the equivalent `end()-begin()` expression both evaluated correctly via
+`static_assert`. First hypothesis (the advisor's, and initially mine too)
+was that `define_static_array` itself was returning an empty range;
+disproved by instrumenting `Sema::BuildCXXIterableExpansionStmt`
+(`clang/lib/Sema/SemaExpand.cpp`) directly, which showed `NumExpansions`
+computed correctly as 1. The actual defect was two silently-dropped merge
+cases, invisible to any prior gate because no earlier milestone's tests
+exercised a `template for` with real runtime side effects (all passing
+uses were either compile-time-only or, per the CLI-parsing test, already
+broken in a different way):
+1. `CodeGenFunction::EmitStmt`'s switch and the `EmitCXXExpansionStmt`
+   function that implements it (`clang/lib/CodeGen/CGStmt.cpp`, plus its
+   declaration in `CodeGenFunction.h`) were entirely absent — confirmed via
+   `git show 6dd950bcd4ac -- clang/lib/CodeGen/CGStmt.cpp`, which has both.
+   Restored verbatim except for one real LLVM 22 API break:
+   `BreakContinueStack`'s `BreakContinue` constructor gained a third
+   parameter (`const Stmt &LoopOrSwitch`) upstream; passed `S` (the
+   expansion statement itself), matching `EmitCXXForRangeStmt`'s existing
+   pattern. Also added `llvm/Support/FormatVariadic.h` (needed for
+   `llvm::formatv`, present in the fork's include list but not currently)
+   and a forward declaration of `CXXExpansionStmt` in `CodeGenFunction.h`
+   (also fork content).
+2. Restoring (1) alone was not sufficient: `template for`'s Parser
+   representation is a `DeclStmt` wrapping an `ExpansionStmtDecl` (a
+   `Decl`, not a `Stmt`) that holds the real `CXXExpansionStmt` internally
+   (`ExpansionStmtDecl::getStmt()`) — see
+   `clang/lib/Parse/ParseStmt.cpp`'s `kw_template`/`kw_for` case. CodeGen's
+   `EmitDecl` (`clang/lib/CodeGen/CGDecl.cpp`) had no
+   `case Decl::ExpansionStmt:`, so `EmitDeclStmt` silently treated the
+   whole loop as a no-op declaration. Restored the missing case
+   (`EmitStmt(cast<ExpansionStmtDecl>(D).getStmt())`), again verbatim from
+   `6dd950bcd4ac`. While in this switch, also restored the equally-missing
+   `case Decl::ConstevalBlock:` into the existing "no codegen support"
+   bucket (matches fork tip, quiets a real `-Wswitch`); no test exercises
+   it directly and it isn't needed by anything failing, called out
+   separately since it's unverified beyond compiling clean.
+
+Verified with a battery of standalone probes (not just the two target
+tests) before committing to the fix: a plain runtime `++count` loop
+(0 -> 1 iteration, correct), `break` after N iterations (correct),
+`continue` skipping alternate iterations (correct — the advisor
+specifically flagged the `BreakContinue` 2-arg-vs-3-arg adaptation as an
+unverified blind spot, and this confirms it threads through correctly).
+
+**`p3385-attributes.pass.cpp`: a real, narrow bug, initially
+mis-diagnosed.** `std::meta::attributes_of(^^gnuConstructor)[0] ==
+^^[[gnu::constructor(200)]]` failed while the equivalent std/clang/msvc
+attribute comparisons passed. Bisected with `has_attribute`'s
+`attribute_comparison::ignore_namespace`/`ignore_argument` policy flags
+(both existing, tested library-level knobs): ignoring the argument alone
+made the comparison succeed, ignoring the namespace alone did not —
+isolating the divergence to the attribute's *argument*, not its kind,
+syntax, or namespace (both of which the earlier std/clang/msvc-passing
+tests already exercised via a genuinely different code path,
+`get_ith_attribute_of`'s `ReflectionKind::Attribute` case, which does no
+reconstruction at all — a red herring initially treated as evidence that
+`toSyntacticForm` reconstruction worked in general). Root cause: attribute
+equality goes through `APValue::Profile` ->
+`profileReflection`'s `ReflectionKind::Attribute` case ->
+`ParsedAttr::profile` -> `ProfileExpr` (`clang/lib/Sema/ParsedAttr.cpp`),
+a hand-written "bootleg profile" switch over `Expr::StmtClass` with an
+explicit comment acknowledging "Roughly 250+ cases missing"; anything not
+in its switch falls to `default: ID.AddPointer(E)` — pointer-identity
+comparison, always unequal across two independently-parsed ASTs. The
+integer literal `200` reconstructed from the decl's semantic `Attr` via
+`extractSyntacticArguments` (tablegen-generated,
+`clang/utils/TableGen/ClangAttrEmitter.cpp`) is a bare `IntegerLiteral`,
+but Clang wraps *directly parsed* attribute-argument constant expressions
+in a `ConstantExpr` node — a case `ProfileExpr` never had. Verified before
+committing to the fix, per the advisor's explicit push-back on landing an
+unverified guess: temporarily removed the fix, added a diagnostic print to
+`ProfileExpr`'s `default:` branch, rebuilt, and confirmed the printed
+class was exactly `ConstantExpr` on both failing assertions. Added
+`case Expr::ConstantExprClass: ProfileExpr(ID, CE->getSubExpr());`
+(unwrap, matching the existing `ImplicitCastExprClass` pattern), removed
+the diagnostic print, rebuilt clean.
+
+**`define-aggregate.pass.cpp`: root-caused to a precise minimal repro, not
+fixed.** The advisor's first hypothesis here (nesting depth, or a
+non-trivial immediate destructor on the inner element type) was tested
+directly and falsified: `vector<S>` and `vector<vector<S>>` as *named*
+local variables both compile clean inside a `consteval {}` block, for any
+`S` containing a `meta::info` field regardless of whether `S`'s destructor
+is trivial or a hand-written `constexpr ~S(){}`. The actual discriminator,
+found by bisecting the test's own failing expression against a sequence of
+shrinking repros: **temporary vs. named**. `(void)std::vector<S>{...}` (a
+prvalue, single-level) compiles clean; `(void)std::vector<std::vector<S>>
+{{...}}` (a prvalue, double-level, `S` containing nothing but a
+`meta::info` field, no libc++-specific pair/allocator machinery needed)
+reproduces the exact `define-aggregate.pass.cpp` failure in 10 lines with
+no includes but `<meta>` and `<vector>`. `vector<vector<int>>` (no
+`meta::info` anywhere) does *not* reproduce it as either a temporary or a
+named variable, confirming this is a real interaction between
+consteval-only propagation and temporary-object destruction, not a latent
+plain-C++ regression. The named-variable case is handled by
+`Sema::CheckCompleteVariableDeclaration`'s `FoundImmediateEscalatingConstruct`
+marking (`clang/lib/Sema/SemaDecl.cpp`); nothing analogous exists for a
+`MaterializeTemporaryExpr`'s implicit destructor call at end-of-full-expression,
+and no such site exists in the pristine fork tip either (checked all four
+files that reference `FoundImmediateEscalatingConstruct` against
+`6dd950bcd4ac` — identical). Per the advisor's explicit guidance, timeboxed
+further chasing and stopped here rather than writing new escalation logic
+into `MaterializeTemporaryExpr`/full-expression handling: that's core
+consteval-propagation machinery whose only integrity evidence is the M5
+corpus (1339 tests) and `clang/test/Reflection` (15/16), and a wrong guess
+there risks both. Left as a precisely-scoped open item for a dedicated
+session.
+
+**Regression check.** `clang/test/Reflection/` 15/16 (unchanged,
+`splice-exprs.cpp` only), the M5 corpus (`clang/test/AST/ByteCode`,
+`Modules`, `PCH`, `Reflection`, `Import`) 1339/1339 accounted for with only
+the same one baseline failure — no regressions from the `EmitStmt`/
+`EmitDecl` CodeGen changes despite them being on a core statement-emission
+path. libc++ reflection suite: 53/60 (up from 50/60), with exactly the 6
+Milestone 1 baseline names plus `define-aggregate.pass.cpp` failing —
+confirmed by diffing the full failure list, not just the count.
+`reflection-ex-universal-formatter.sh.cpp`, `p3385-attributes.pass.cpp`,
+and the previously-`UNSUPPORTED` CLI-parsing test are all now passing; the
+`UNSUPPORTED: true` gate and its comment were removed from the CLI test in
+the same batch as the CodeGen fix that resolves the hang, per the
+constraint that a Milestone-1-passing test cannot stay gated when
+Milestone 7's own criterion is "only Milestone 1 failures allowed."
+
+**One newly-exposed, unchased crash.** `miscellaneous.pass.cpp` (already a
+Milestone 1 baseline failure) now fails via a `SIGSEGV` in
+`CXXNameMangler::mangleSourceName`, reached through `mangleReflection` ->
+`mangleLocalName` while mangling `struct_to_tuple_helper<..., ^^decl,
+^^decl, ^^decl>` — a template argument that is a reflection of a *local*
+declaration. This is downstream of this session's earlier `mangleReflection`
+restoration (`c8ad9ae40806`), not of today's changes directly: the
+expansion-statement CodeGen fix is what makes `struct_to_tuple`'s
+recursive `template for`-driven instantiation actually execute (and get
+mangled) instead of silently no-op'ing as it did before today. Same
+category as the CLI-parsing hang's failure-mode change: a pre-existing,
+already-failing Milestone 1 baseline test whose failure now manifests
+differently because previously-dead code is live. Not chased — a distinct
+mangling bug (local-declaration reflections) warranting its own
+investigation, and still an allowed Milestone 1 baseline name regardless
+of failure mode.
+
+Milestone 7's gate is still not met: `define-aggregate.pass.cpp` is one
+non-baseline failure. Three of the four items open at the start of this
+session are now closed; the fourth has a precise, reproducible, 10-line
+repro and a specific named mechanism (temporaries don't get the
+`FoundImmediateEscalatingConstruct` treatment that named variables do) for
+whoever picks it up next. Milestone 7 stays `[~]`.

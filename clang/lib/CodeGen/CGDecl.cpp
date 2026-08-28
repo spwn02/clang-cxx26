@@ -140,7 +140,12 @@ void CodeGenFunction::EmitDecl(const Decl &D, bool EvaluateConditionDecl) {
   case Decl::ImplicitConceptSpecialization:
   case Decl::LifetimeExtendedTemporary:
   case Decl::RequiresExprBody:
+  case Decl::ConstevalBlock:  // consteval { }
     // None of these decls require codegen support.
+    return;
+
+  case Decl::ExpansionStmt:  // template for { }
+    EmitStmt(cast<ExpansionStmtDecl>(D).getStmt());
     return;
 
   case Decl::NamespaceAlias:

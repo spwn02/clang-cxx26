@@ -302,6 +302,11 @@ static void ProfileExpr(llvm::FoldingSetNodeID& ID, const Expr* E) {
       ProfileExpr(ID, ICE->getSubExpr());
       break;
     }
+    case Expr::ConstantExprClass: {
+      auto *CE = cast<ConstantExpr>(E);
+      ProfileExpr(ID, CE->getSubExpr());
+      break;
+    }
     case Expr::StringLiteralClass: {
       auto *strLiteral = dyn_cast<StringLiteral>(E->IgnoreParenCasts());
       StringRef stringArgValue = strLiteral->getString();

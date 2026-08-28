@@ -12,13 +12,6 @@
 // ADDITIONAL_COMPILE_FLAGS: -freflection -fexpansion-statements
 // ADDITIONAL_COMPILE_FLAGS: -Wno-inconsistent-missing-override
 
-// LLVM22_SYNC: at HEAD this binary enters an unbounded loop at runtime
-// instead of the expected 5 iterations (opts.count/opts.name are not
-// correctly populated by Clap::parse()'s define_aggregate/splice-write
-// logic), hanging the whole suite. UNSUPPORTED until root-caused; see
-// docs/LLVM22_SYNC.md Milestone 7.
-// UNSUPPORTED: true
-
 // <experimental/reflection>
 //
 // [reflection]

@@ -59,6 +59,7 @@ class CanonicalLoopInfo;
 namespace clang {
 class ASTContext;
 class CXXDestructorDecl;
+class CXXExpansionStmt;
 class CXXForRangeStmt;
 class CXXTryStmt;
 class Decl;
@@ -3713,6 +3714,9 @@ public:
 
   void EmitCXXForRangeStmt(const CXXForRangeStmt &S,
                            ArrayRef<const Attr *> Attrs = {});
+
+  void EmitCXXExpansionStmt(const CXXExpansionStmt &S,
+                            ArrayRef<const Attr *> Attrs = {});
 
   /// Controls insertion of cancellation exit blocks in worksharing constructs.
   class OMPCancelStackRAII {
