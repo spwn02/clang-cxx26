@@ -6720,7 +6720,8 @@ void CXXNameMangler::mangleValueInTemplateArg(QualType T, const APValue &V,
     llvm_unreachable("unexpected value kind in template argument");
 
   case APValue::Reflection:
-    llvm_unreachable("reflection arguments should be separately handled");
+    mangleReflection(V);
+    break;
 
   case APValue::Struct: {
     const CXXRecordDecl *RD = T->getAsCXXRecordDecl();
