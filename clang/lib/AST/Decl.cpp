@@ -3344,8 +3344,15 @@ bool FunctionDecl::isImmediateEscalating() const {
       CD && CD->isInheritingConstructor())
     return CD->getInheritedConstructor().getConstructor();
 
-  // Destructors are not immediate escalating.
-  if (isa<CXXDestructorDecl>(this))
+  // Destructors are not immediate escalating, except for destructors of
+  // consteval-only types (CXX26 reflection): such a destructor's body
+  // necessarily manipulates a value of consteval-only type (e.g. tearing
+  // down a std::vector<std::meta::info>'s storage), so it must still be
+  // able to become an immediate function like any other member of a
+  // consteval-only class; otherwise destroying such a container inside a
+  // manifestly constant-evaluated context is unconditionally ill-formed.
+  if (const auto *DD = dyn_cast<CXXDestructorDecl>(this);
+      DD && !DD->getParent()->isConstevalOnly())
     return false;
 
   // - a function that results from the instantiation of a templated entity

@@ -588,6 +588,7 @@ private:
   void mangleInitListElements(const InitListExpr *InitList);
   void mangleRequirement(SourceLocation RequiresExprLoc,
                          const concepts::Requirement *Req);
+  void mangleReflection(const APValue &R);
   void mangleExpression(const Expr *E, unsigned Arity = UnknownArity,
                         bool AsTemplateArg = false);
   void mangleCXXCtorType(CXXCtorType T, const CXXRecordDecl *InheritedFrom);
@@ -2450,6 +2451,7 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::TypeOfExpr:
   case Type::TypeOf:
   case Type::Decltype:
+  case Type::ReflectionSplice:
   case Type::PackIndexing:
   case Type::TemplateTypeParm:
   case Type::UnaryTransform:
@@ -3367,6 +3369,9 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   }
   case BuiltinType::NullPtr:
     Out << "Dn";
+    break;
+  case BuiltinType::MetaInfo:
+    Out << "Dm";
     break;
 
 #define BUILTIN_TYPE(Id, SingletonId)
@@ -4855,6 +4860,123 @@ void CXXNameMangler::mangleRequirement(SourceLocation RequiresExprLoc,
   }
 }
 
+void CXXNameMangler::mangleReflection(const APValue &R) {
+  assert(R.isReflection());
+
+  Out << 'M';
+
+  switch (R.getReflectionKind()) {
+  case ReflectionKind::Null:
+    Out << '0';
+    break;
+  case ReflectionKind::Type: {
+    Out << 't';
+    QualType QT = R.getReflectedType();
+
+    if (const TypedefType *TDT = dyn_cast<TypedefType>(QT)) {
+      mangleQualifiers(QT.getQualifiers());
+      mangleNameWithAbiTags(TDT->getDecl(), nullptr);
+      break;
+    }
+    Context.mangleCanonicalTypeName(QT, Out, false);
+    break;
+  }
+  case ReflectionKind::Object: {
+    Out << 'o';
+
+    QualType QT = R.getTypeOfReflectedResult(getASTContext());
+    if (!QT->isReferenceType())
+      QT = getASTContext().getLValueReferenceType(QT);
+    mangleValueInTemplateArg(QT, R.getReflectedObject(), false, true);
+    break;
+  }
+  case ReflectionKind::Value:
+    Out << "v";
+    mangleValueInTemplateArg(R.getTypeOfReflectedResult(getASTContext()),
+                             R.getReflectedValue(), false, true);
+    break;
+  case ReflectionKind::Declaration: {
+    Out << 'd';
+
+    Decl *D = R.getReflectedDecl();
+    if (auto *ED = dyn_cast<EnumConstantDecl>(D)) {
+      mangleIntegerLiteral(ED->getType(), ED->getInitVal());
+    } else if (auto *CD = dyn_cast<CXXConstructorDecl>(D)) {
+      GlobalDecl GD(CD, Ctor_Complete);
+      mangle(GD);
+    } else if (auto *DD = dyn_cast<CXXDestructorDecl>(D)) {
+      GlobalDecl GD(DD, Dtor_Complete);
+      mangle(GD);
+    } else {
+      mangle(cast<NamedDecl>(D));
+    }
+    break;
+  }
+  case ReflectionKind::Parameter: {
+    auto *PVD = R.getReflectedParameter();
+    if (const FunctionDecl *Func
+        = dyn_cast<FunctionDecl>(PVD->getDeclContext())) {
+      Out << 'p';
+      unsigned Num = Func->getNumParams() - PVD->getFunctionScopeIndex();
+      if (Num > 1)
+        mangleNumber(Num - 2);
+      Out << '_';
+    }
+    break;
+  }
+  case ReflectionKind::Template: {
+    Out << 't';
+
+    ArrayRef<TemplateArgument> Args;
+    mangleTemplateName(R.getReflectedTemplate().getAsTemplateDecl(), Args);
+    break;
+  }
+  case ReflectionKind::Namespace: {
+    Out << 'n';
+    if (auto *ND = dyn_cast<NamedDecl>(R.getReflectedNamespace()))
+      mangleNameWithAbiTags(ND, nullptr);
+    // Otherwise, this is the global namespace.
+    Out << '$';
+    break;
+  }
+  case ReflectionKind::EntityProxy: {
+    Out << 'a';
+    mangleNameWithAbiTags(R.getReflectedEntityProxy(), nullptr);
+    Out << '$';
+    break;
+  }
+  case ReflectionKind::BaseSpecifier: {
+    Out << 'b';
+    Context.mangleCanonicalTypeName(R.getReflectedBaseSpecifier()->getType(),
+                                    Out, false);
+    break;
+  }
+  case ReflectionKind::DataMemberSpec: {
+    Out << "sdm";
+
+    TagDataMemberSpec *TDMS = R.getReflectedDataMemberSpec();
+    Context.mangleCanonicalTypeName(TDMS->Ty, Out, false);
+    if (TDMS->Name)
+      Out << "N$" << (*TDMS->Name) << '$';
+    if (TDMS->Alignment)
+      Out << 'A' << (*TDMS->Alignment);
+    if (TDMS->BitWidth)
+      Out << 'B' << (*TDMS->BitWidth);
+    break;
+  }
+  case ReflectionKind::Annotation: {
+    Out << 'a';
+
+    // TODO(CXX26): This is insufficient. Some representation of the annotated
+    // entity will probably have to be mangled alongside the annotation. Or
+    // perhaps just mangle some 'entity$index'-schema, idk.
+    mangleExpression(R.getReflectedAnnotation()->getArg());
+    break;
+  }
+  }
+  Out << 'E';
+}
+
 void CXXNameMangler::mangleExpression(const Expr *E, unsigned Arity,
                                       bool AsTemplateArg) {
   // <expression> ::= <unary operator-name> <expression>
@@ -4957,6 +5079,19 @@ recurse:
   case Expr::CXXParenListInitExprClass:
   case Expr::PackIndexingExprClass:
     llvm_unreachable("unexpected statement kind");
+
+  case Expr::ExplDependentCallExprClass:
+    mangleExpression(cast<ExplDependentCallExpr>(E)->getSubExpr());
+    break;
+
+  case Expr::CXXReflectExprClass: {
+    const CXXReflectExpr *RE = cast<CXXReflectExpr>(E);
+    if (RE->hasDependentSubExpr())
+      mangleExpression(RE->getDependentSubExpr());
+    else
+      mangleReflection(RE->getReflection());
+    break;
+  }
 
   case Expr::ConstantExprClass:
     E = cast<ConstantExpr>(E)->getSubExpr();

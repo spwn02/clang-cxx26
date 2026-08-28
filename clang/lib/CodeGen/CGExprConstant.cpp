@@ -2469,6 +2469,13 @@ ConstantEmitter::tryEmitPrivate(const APValue &Value, QualType DestType,
         llvm::StructType::get(Complex[0]->getType(), Complex[1]->getType());
     return llvm::ConstantStruct::get(STy, Complex);
   }
+  case APValue::Reflection: {
+    // FIXME: This emits an unused garbage value, but there's not much
+    // meaningful we can emit here. This seems okay, as the value only
+    // seems to be used in debug builds...But perhaps we can do better?
+    return llvm::ConstantInt::get(CGM.getLLVMContext(),
+                                  llvm::APInt(/*numBits=*/1, /*val=*/1));
+  }
   case APValue::Float: {
     const llvm::APFloat &Init = Value.getFloat();
     if (&Init.getSemantics() == &llvm::APFloat::IEEEhalf() &&

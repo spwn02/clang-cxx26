@@ -709,6 +709,18 @@ bool Type::isConstevalOnly() const {
     return true;
   else if (auto *RD = getAsRecordDecl())
     return RD->isConstevalOnly();
+  // A pointer/reference's ConstevalOnly bit is a snapshot taken when the
+  // Type node was created (e.g. from a self-referential parameter/field
+  // such as a class template's own copy constructor, declared before the
+  // class itself finishes its definition and gets its own ConstevalOnly
+  // bit set). Since Type nodes are uniqued and reused, that snapshot can
+  // go stale once the pointee is later completed. Fall back to a live
+  // check of the pointee so a pointer/reference to a consteval-only type
+  // is always recognized as such, regardless of when it was formed.
+  else if (auto *PT = dyn_cast<PointerType>(this))
+    return PT->getPointeeType()->isConstevalOnly();
+  else if (auto *RT = dyn_cast<ReferenceType>(this))
+    return RT->getPointeeType()->isConstevalOnly();
   return false;
 }
 

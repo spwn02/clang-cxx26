@@ -14779,13 +14779,20 @@ StmtResult Sema::ActOnCXXForRangeIdentifier(Scope *S, SourceLocation IdentLoc,
 void Sema::CheckCompleteVariableDeclaration(VarDecl *var) {
   if (var->isInvalidDecl()) return;
 
-  if (var->getType()->isConstevalOnly() && !var->isConstexpr() &&
+  if (var->getType()->isConstevalOnly() &&
       !isCheckingDefaultArgumentOrInitializer() &&
       !RebuildingImmediateInvocation && !isUnevaluatedContext() &&
       !isImmediateFunctionContext() && !isAlwaysConstantEvaluatedContext()) {
-    if (!ExprEvalContexts.back().InImmediateEscalatingFunctionContext)
-      Diag(var->getLocation(), diag::err_decl_consteval_only_type) << var;
-    else if (FunctionScopeInfo *FI = getCurFunction())
+    if (!ExprEvalContexts.back().InImmediateEscalatingFunctionContext) {
+      // A constexpr variable's initializer is already constant-evaluated,
+      // so it doesn't need this diagnostic. But it can still be a variable
+      // of automatic storage duration needing a per-call stack slot that
+      // CodeGen cannot represent (consteval-only types have no runtime
+      // representation), so the enclosing context still needs to escalate;
+      // see the FoundImmediateEscalatingConstruct branch below.
+      if (!var->isConstexpr())
+        Diag(var->getLocation(), diag::err_decl_consteval_only_type) << var;
+    } else if (FunctionScopeInfo *FI = getCurFunction())
       FI->FoundImmediateEscalatingConstruct = true;
   }
 

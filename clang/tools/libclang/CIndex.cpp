@@ -1570,6 +1570,7 @@ bool CursorVisitor::VisitBuiltinTypeLoc(BuiltinTypeLoc TL) {
   case BuiltinType::Void:
   case BuiltinType::NullPtr:
   case BuiltinType::Dependent:
+  case BuiltinType::MetaInfo:
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
   case BuiltinType::Id:
 #include "clang/Basic/OpenCLImageTypes.def"
@@ -1850,6 +1851,19 @@ bool CursorVisitor::VisitPackIndexingTypeLoc(PackIndexingTypeLoc TL) {
   if (Visit(TL.getPatternLoc()))
     return true;
   return Visit(MakeCXCursor(TL.getIndexExpr(), StmtParent, TU));
+}
+
+bool CursorVisitor::VisitReflectionSpliceTypeLoc(ReflectionSpliceTypeLoc TL) {
+  SpliceSpecifier *Splice = TL.getSplice();
+  if (Visit(MakeCXCursor(Splice->getOperand(), StmtParent, TU)))
+    return true;
+
+  if (Splice->isSpecialization())
+    for (const TemplateArgumentLoc &Arg : Splice->getTemplateArgs()->arguments())
+      if (VisitTemplateArgumentLoc(Arg))
+        return true;
+
+  return false;
 }
 
 bool CursorVisitor::VisitInjectedClassNameTypeLoc(InjectedClassNameTypeLoc TL) {
