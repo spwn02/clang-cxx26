@@ -2689,17 +2689,37 @@ Milestone 1 baseline failure) now fails via a `SIGSEGV` in
 `CXXNameMangler::mangleSourceName`, reached through `mangleReflection` ->
 `mangleLocalName` while mangling `struct_to_tuple_helper<..., ^^decl,
 ^^decl, ^^decl>` — a template argument that is a reflection of a *local*
-declaration. This is downstream of this session's earlier `mangleReflection`
-restoration (`c8ad9ae40806`), not of today's changes directly: the
-expansion-statement CodeGen fix is what makes `struct_to_tuple`'s
-recursive `template for`-driven instantiation actually execute (and get
-mangled) instead of silently no-op'ing as it did before today. Same
+declaration. This crash is reachable *because of* today's expansion-statement
+CodeGen fix — it's what makes `struct_to_tuple`'s recursive `template
+for`-driven instantiation actually execute (and get mangled) instead of
+silently no-op'ing as it did before today — but whether the underlying bug
+lives in this session's earlier `mangleReflection` restoration
+(`c8ad9ae40806`) or is newly triggered by the live `EmitStmt` path itself
+is not established: the pre-fix failure mode of this specific test was
+never recorded, so the two can't be distinguished from the evidence in
+hand. Same
 category as the CLI-parsing hang's failure-mode change: a pre-existing,
 already-failing Milestone 1 baseline test whose failure now manifests
 differently because previously-dead code is live. Not chased — a distinct
 mangling bug (local-declaration reflections) warranting its own
 investigation, and still an allowed Milestone 1 baseline name regardless
 of failure mode.
+
+**Reusable lesson for the next attribute-argument type found unequal when
+it should compare equal:** `ParsedAttr::ProfileExpr` (`clang/lib/Sema/
+ParsedAttr.cpp`) is a hand-written "bootleg profile" over `Expr::StmtClass`
+with an in-source comment admitting "Roughly 250+ cases missing"; its
+`default:` is a silent `ID.AddPointer(E)` — pointer-identity comparison,
+which is *always* unequal across two independently-parsed ASTs and never
+diagnoses. `StringLiteral`, `IntegerLiteral`, and (as of this session)
+`ConstantExpr` are covered; any other wrapper or argument-expression shape
+Clang introduces will silently produce "not equal" with no signal that the
+comparison degraded. Bisect via
+`attribute_comparison::ignore_namespace`/`ignore_argument` (already
+library-exposed) to localize which field diverges before assuming the
+class is uncovered, then confirm with a throwaway print in the `default:`
+branch rather than guessing the wrapper type, per this session's
+`p3385-attributes.pass.cpp` fix.
 
 Milestone 7's gate is still not met: `define-aggregate.pass.cpp` is one
 non-baseline failure. Three of the four items open at the start of this
