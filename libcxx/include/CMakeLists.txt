@@ -263,7 +263,6 @@ set(files
   __chrono/file_clock.h
   __chrono/formatter.h
   __chrono/gps_clock.h
-  __chrono/hash.h
   __chrono/hh_mm_ss.h
   __chrono/high_resolution_clock.h
   __chrono/is_clock.h
@@ -470,10 +469,10 @@ set(files
   __functional/binder2nd.h
   __functional/boyer_moore_searcher.h
   __functional/compose.h
-  __functional/default_searcher.h
   __functional/copyable_function.h
   __functional/copyable_function_common.h
   __functional/copyable_function_impl.h
+  __functional/default_searcher.h
   __functional/function.h
   __functional/function_ref.h
   __functional/function_ref_common.h
@@ -950,6 +949,7 @@ set(files
   __type_traits/is_reference.h
   __type_traits/is_reference_wrapper.h
   __type_traits/is_referenceable.h
+  __type_traits/is_replaceable.h
   __type_traits/is_same.h
   __type_traits/is_scalar.h
   __type_traits/is_signed.h

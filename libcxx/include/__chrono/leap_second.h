@@ -17,7 +17,6 @@
 #if _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 #  include <__chrono/duration.h>
-#  include <__chrono/hash.h>
 #  include <__chrono/system_clock.h>
 #  include <__chrono/time_point.h>
 #  include <__compare/ordering.h>

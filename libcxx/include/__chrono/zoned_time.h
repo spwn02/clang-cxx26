@@ -18,7 +18,6 @@
 
 #  include <__chrono/calendar.h>
 #  include <__chrono/duration.h>
-#  include <__chrono/hash.h>
 #  include <__chrono/sys_info.h>
 #  include <__chrono/system_clock.h>
 #  include <__chrono/time_zone.h>

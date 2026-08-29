@@ -21,6 +21,7 @@
 #include <__concepts/derived_from.h>
 #include <__config>
 #include <__memory/allocator.h>
+#include <__memory/allocator_arg_t.h>
 #include <__memory/allocator_traits.h>
 #include <__type_traits/is_array.h>
 #include <__type_traits/is_base_of.h>
@@ -31,6 +32,7 @@
 #include <__utility/forward.h>
 #include <__utility/in_place.h>
 #include <__utility/move.h>
+#include <__utility/swap.h>
 #include <initializer_list>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
