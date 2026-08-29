@@ -106,10 +106,10 @@ pass.cpp` (an existing Milestone 1 baseline failure) still fails via the
 local declarations noted in the prior session; not chased, still an allowed
 Milestone 1 baseline name under M7's own criterion.
 Milestone 8's first session (2026-08-29) is paused mid-work, not gated:
-`check-clang` is at 8 real failures (down from 14) and `check-cxx` is at 221
+`check-clang` is at 9 real failures (down from 14) and `check-cxx` is at 221
 (down from 961), via five root-cause fixes (see Session Log). Resume with
 the precisely-scoped open items named there — do not re-diagnose from
-scratch; four of the eight clang failures and most of the 65 substantive
+scratch; four of the nine clang failures and most of the 65 substantive
 (non-clang-tidy) `check-cxx` failures already have root-cause hypotheses or
 confirmed minimal repros recorded.
 
@@ -122,14 +122,14 @@ confirmed minimal repros recorded.
 - [x] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries. Gate passed 2026-08-28: `clang/test/AST/ByteCode/`, `clang/test/Modules/`, `clang/test/PCH/`, `clang/test/Reflection/`, `clang/test/Import/` (1339 tests) show only the Milestone 1 baseline failure. Two real serialization gaps found and fixed (`ReflectionSpliceType` PCH deserialization, `ASTImporter` splice-scoped `NestedNameSpecifier` import); the `CXXMetafunctionExpr` callback mechanism, previously assumed to be a limitation, was empirically verified to round-trip correctly through PCH. See the 2026-08-28 Session Log entry for the one remaining caveat (the `ASTImporter` fix is compile-verified but not runtime-verified — the tool needed to exercise it does not propagate `-freflection`).
 - [x] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate passed 2026-08-28: `ninja -C build-libcxx libcxx-generate-files` and `ninja -C build-libcxx cxx` (660/660) are both clean; every one of the 39 libc++/libc++abi paths where upstream's merge had discarded fork content is reconciled with both sides' independent changes preserved, plus two files silently deleted by the original merge (never conflicted, so never surfaced) restored. See the 2026-08-28 Session Log entry.
 - [x] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here. Gate passed 2026-08-29: `clang/test/Reflection/` 15/16, libc++ reflection suite 54/60, M5 corpus 1339/1339 accounted for — all three at exactly the Milestone 1 baseline. See the 2026-08-29 Session Log entry.
-- [~] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names. `check-clang` reduced 14→8 real failures (2 root-cause fixes plus 2 golden-file regenerations); `check-cxx` reduced 961→221 (three root-cause fixes). Remaining items are precisely scoped in the 2026-08-29 "Milestone 8 first session" Session Log entry; resume there.
+- [~] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names. `check-clang` reduced 14→9 real failures (2 root-cause fixes plus 2 golden-file regenerations; one of the 9 is a flaky test, see Session Log); `check-cxx` reduced 961→221 (three root-cause fixes). Remaining items are precisely scoped in the 2026-08-29 "Milestone 8 first session" Session Log entry; resume there.
 - [ ] **9. Merge integration branch into `cxx26`, push, and release.** Recheck provenance and tracker state, merge without history rewriting, push `cxx26`, create the next free annotated `cxx26-YYYY.MM.DD[.N]` prerelease tag, push it explicitly, and verify remote resolution. Gate: clean worktree, remote branch/tag verification, and this epic marked complete.
 
 ## Blockers
 
 None currently blocking further progress (ordinary incomplete work, not an
 impasse). Milestones 4, 5, 6, and 7 closed (4-6 on 2026-08-28, 7 on
-2026-08-29; see Session Log). Milestone 8 is `[~]`, mid-session: eight real
+2026-08-29; see Session Log). Milestone 8 is `[~]`, mid-session: nine real
 `check-clang` failures and 221 `check-cxx` failures remain, each precisely
 scoped in the 2026-08-29 "Milestone 8 first session" Session Log entry.
 
@@ -2880,7 +2880,7 @@ Reflection/` 15/16, M5 corpus 1339/1339, all three at exactly the
 Milestone 1 baseline with no unexplained failures. Marked `[x]`. Milestone 8
 (full `check-clang`/`check-cxx`) is next and was not started this session.
 
-### 2026-08-29 — Milestone 8 first session: five root-cause fixes, `check-clang` 14→8 and `check-cxx` 961→221, eight open items precisely scoped
+### 2026-08-29 — Milestone 8 first session: five root-cause fixes, `check-clang` 14→9 and `check-cxx` 961→221, nine open items precisely scoped
 
 First session to actually run full `ninja -C build-nyx check-clang` and
 `ninja -C build-libcxx check-cxx` to completion — Milestones 1-7 only ever
@@ -2961,15 +2961,29 @@ byte-for-byte identical to upstream's `InstantiateVariableInitializer` (diff
 confirmed empty apart from trailing whitespace) — the C++23 branch was never
 upstream's behavior for this function in the first place, only for
 `ActOnCXXEnterDeclInitializer`'s non-template path, so completing it here
-was itself the wrong instinct. **Caution for whoever resumes:** the first
-(wrong) version passed one `llvm-lit` re-run of `ast-dump-default-arg-json.
-cpp` before failing a second, isolated re-run with no source change in
-between (same binary) — root cause not established (suspected build/lit
-staleness from the incremental-`clang`-only rebuild + parallel `check-cxx`
-CPU contention, not the compiler itself being nondeterministic), but treat
-any "it passed once" result on this test as unverified until it also passes
-in a clean, uncontended re-run; the second, correct fix passed cleanly twice
-in isolation.
+was itself the wrong instinct. **Important, unresolved finding for whoever
+resumes: `ast-dump-default-arg-json.cpp` is genuinely nondeterministic on
+this tree, not a build/staleness artifact.** Both the wrong and the correct
+version of Fix 2 exhibited this: repeated `./build-nyx/bin/llvm-lit
+clang/test/AST/ast-dump-default-arg-json.cpp -v` runs against the *exact
+same binary, same source, same isolated invocation* (no parallel builds, no
+CPU contention) alternate between PASS and FAIL from one run to the next —
+confirmed by two consecutive isolated runs producing FAIL then PASS with
+nothing in between. The final full `check-clang` run this session (after
+both commits landed) caught it FAILing (9 real failures, not the 8 reported
+mid-session from an isolated PASS a few runs earlier) — so **the accurate
+current count is 9 real `check-clang` failures, not 8**; this test is real
+but flaky and should be listed as a ninth open item. The symptom itself
+(`"isImmediateEscalating": true` appearing or not on the exact same
+`CXXConstructExpr`) points at something order-dependent in
+`HandleImmediateInvocations`/`ImmediateInvocationCandidates` processing
+(`SemaExpr.cpp`) — e.g. iteration over a pointer-keyed unordered container
+whose order depends on ASLR/allocation addresses rather than source order —
+but this is a hypothesis, not confirmed; not investigated further this
+session per the explicit instruction to stop. Whoever resumes should first
+reproduce the flake in isolation (run the single test 5-10 times back to
+back) before doing anything else with this test, since it may also be
+contributing nondeterminism to other tests nobody has noticed yet.
 
 **Fix 3 — `libcxx/include/__chrono/hash.h` deleted (genuine duplicate of
 upstream, not a merge conflict).** Root cause of the largest single
@@ -3063,7 +3077,7 @@ default_searcher.h` was alphabetically out of order in `CMakeLists.txt`
 relative to `copyable_function*.h` (reordered). Both are pure Python static
 checks with no build required to verify; both confirmed passing directly.
 
-**Verification, batched per instruction.** `check-clang`: 14→8 (splice-exprs.
+**Verification, batched per instruction.** `check-clang`: 14→9 (splice-exprs.
 cpp M1 baseline unchanged; `Parser/cxx-casting.cpp`, `p2-1z.cpp`,
 `non-function-templates.cpp`, `instantiate-static-var.cpp`,
 `Misc/warning-flags.c`, `Misc/pragma-attribute-supported-attributes-list.
@@ -3199,6 +3213,12 @@ change.
      related to the `builtin-is-within-lifetime.cpp` self-reference item
      above (same file, `namespace Lifetime`, same shape of construct) but
      unconfirmed.
+6. **`check-clang`'s ninth failure, `AST/ast-dump-default-arg-json.cpp`, is
+   flaky** — see the "Important, unresolved finding" note under Fix 2 above.
+   Confirm the flake reproduces in isolation before investigating it as a
+   correctness bug; a genuinely nondeterministic compiler is a more serious
+   finding than any single wrong-diagnostic test and may deserve its own
+   session before the rest of this list.
 
 Milestone 8 remains `[~]`. Do not re-run the full `check-clang`/`check-cxx`
 baseline-gathering step next session — the current failure lists above are
