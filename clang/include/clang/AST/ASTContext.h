@@ -332,6 +332,13 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::DenseMap<const ObjCInterfaceDecl *, const ASTRecordLayout *>
       ObjCLayouts;
 
+  /// A cache mapping from RecordDecls to whether they are a consteval-only
+  /// type (CXX26 reflection). Lazily populated by RecordDecl::isConstevalOnly
+  /// on first query rather than eagerly at completeDefinition() time, since a
+  /// pointer/reference field's pointee record may still be incomplete at
+  /// that point. Absence from the map means not yet computed.
+  mutable llvm::DenseMap<const RecordDecl *, bool> ConstevalOnlyRecordCache;
+
   /// A cache from types to size and alignment information.
   using TypeInfoMap = llvm::DenseMap<const Type *, struct TypeInfo>;
   mutable TypeInfoMap MemoizedTypeInfo;
@@ -2848,6 +2855,22 @@ public:
 
   void DumpRecordLayout(const RecordDecl *RD, raw_ostream &OS,
                         bool Simple = false) const;
+
+  /// Returns the cached consteval-only-ness of \p RD (CXX26 reflection), or
+  /// std::nullopt if it has not been computed yet. See
+  /// RecordDecl::isConstevalOnly.
+  std::optional<bool> getCachedIsConstevalOnly(const RecordDecl *RD) const {
+    auto It = ConstevalOnlyRecordCache.find(RD);
+    if (It == ConstevalOnlyRecordCache.end())
+      return std::nullopt;
+    return It->second;
+  }
+
+  /// Records the consteval-only-ness of \p RD (CXX26 reflection) computed by
+  /// RecordDecl::isConstevalOnly.
+  void setCachedIsConstevalOnly(const RecordDecl *RD, bool Value) const {
+    ConstevalOnlyRecordCache[RD] = Value;
+  }
 
   /// Get our current best idea for the key function of the
   /// given record decl, or nullptr if there isn't one.

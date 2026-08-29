@@ -5250,7 +5250,6 @@ RecordDecl::RecordDecl(Kind DK, TagKind TK, const ASTContext &C,
   setParamDestroyedInCallee(false);
   setArgPassingRestrictions(RecordArgPassingKind::CanPassInRegs);
   setIsRandomized(false);
-  setIsConstevalOnly(false);
   setODRHash(0);
 }
 
@@ -5319,23 +5318,6 @@ void RecordDecl::completeDefinition() {
 
   ASTContext &Ctx = getASTContext();
 
-  // Compute whether this is a consteval-only type.
-  for (FieldDecl *FD : fields()) {
-    if (FD->getType()->isConstevalOnly()) {
-      setIsConstevalOnly(true);
-      break;
-    }
-  }
-  if (auto CXXRD = dyn_cast<CXXRecordDecl>(this);
-      CXXRD && !isConstevalOnly()) {
-    for (CXXBaseSpecifier BaseSpecifier : CXXRD->bases()) {
-      if (BaseSpecifier.getType()->isConstevalOnly()) {
-        setIsConstevalOnly(true);
-        break;
-      }
-    }
-  }
-
   // Layouts are dumped when computed, so if we are dumping for all complete
   // types, we need to force usage to get types that wouldn't be used elsewhere.
   //
@@ -5346,6 +5328,67 @@ void RecordDecl::completeDefinition() {
   if (Ctx.getLangOpts().DumpRecordLayoutsComplete && !isDependentType() &&
       !isInvalidDecl())
     (void)Ctx.getASTRecordLayout(this);
+}
+
+bool RecordDecl::isConstevalOnly() const {
+  ASTContext &Ctx = getASTContext();
+  if (std::optional<bool> Cached = Ctx.getCachedIsConstevalOnly(this))
+    return *Cached;
+
+  // Not complete yet (or this specific query raced ahead of completion):
+  // report false without caching, so a later, better-informed query gets a
+  // chance to compute the real answer. This matters because a field or base
+  // whose type is a pointer/reference to another record can be checked here
+  // before that other record has finished its own definition; deferring the
+  // computation to first use (rather than doing it once in
+  // completeDefinition()) gives the other record time to complete first, in
+  // the common case where something later in the translation unit actually
+  // needs it complete (e.g. to construct or destroy an object of that type).
+  if (!isCompleteDefinition())
+    return false;
+
+  // Don't force a lazy PCH/module field load ourselves: this accessor can be
+  // reached re-entrantly from deep inside unrelated Sema work (e.g. constant
+  // expression evaluation), and triggering deserialization from there is not
+  // safe context to do it in. Piggyback on a load some other, better-suited
+  // caller already triggered instead; report false without caching so a
+  // later query --- once fields are loaded --- gets a chance to compute the
+  // real answer.
+  if (hasExternalLexicalStorage() && !hasLoadedFieldsFromExternalStorage())
+    return false;
+
+  // Guard against a pointer/reference cycle between two record types (e.g.
+  // `struct A { B *b; }; struct B { A *a; };`) by caching a provisional
+  // false before recursing, so re-entrant queries for this same record
+  // terminate instead of looping forever.
+  Ctx.setCachedIsConstevalOnly(this, false);
+
+  bool Result = false;
+  for (const FieldDecl *FD : noload_fields()) {
+    if (FD->getType()->isConstevalOnly()) {
+      Result = true;
+      break;
+    }
+  }
+  if (!Result) {
+    if (const auto *CXXRD = dyn_cast<CXXRecordDecl>(this)) {
+      for (const CXXBaseSpecifier &BaseSpecifier : CXXRD->bases()) {
+        if (BaseSpecifier.getType()->isConstevalOnly()) {
+          Result = true;
+          break;
+        }
+      }
+    }
+  }
+
+  // Fields are known-available at this point (the guard above already ruled
+  // out an unloaded external definition), so this answer is definitive:
+  // cache it unconditionally rather than only on true, or a record that is
+  // genuinely, permanently not consteval-only would keep re-walking its
+  // fields on every future query, and worse, would keep re-caching the
+  // cycle guard's provisional `false` as if it were still provisional.
+  Ctx.setCachedIsConstevalOnly(this, Result);
+  return Result;
 }
 
 /// isMsStruct - Get whether or not this record uses ms_struct layout.

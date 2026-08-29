@@ -1578,8 +1578,57 @@ LinkageInfo LinkageComputer::getLVForValue(const APValue &V,
     // between the addresses of labels as an external value.
     return LinkageInfo::internal();
 
-  case APValue::Reflection:
-    return LinkageInfo::internal();
+  case APValue::Reflection: {
+    // A reflection's linkage follows what it reflects: a reflection of an
+    // entity with external linkage (e.g. `^^int`, or a reflection of a
+    // namespace-scope class) must not drag a template argument or NTTP down
+    // to internal linkage, or every specialization parameterized by it
+    // becomes spuriously unnameable across translation units (manifesting,
+    // e.g., as a false '-Wunused-variable' on an otherwise-ordinary global).
+    // Kinds with no addressable, cross-TU-stable entity behind them
+    // (parameters, attributes, data-member/enumerator specs, entity
+    // proxies, base specifiers) conservatively stay internal, matching the
+    // prior blanket behavior for those cases.
+    APValue Lowered = V;
+    while (Lowered.getReflectionDepth() > 0)
+      Lowered = Lowered.Lower();
+
+    switch (Lowered.getReflectionKind()) {
+    case ReflectionKind::Null:
+      break;
+    case ReflectionKind::Type:
+      if (MergeLV(getLVForType(*Lowered.getReflectedType(), computation)))
+        break;
+      break;
+    case ReflectionKind::Declaration:
+      if (MergeLV(getLVForDecl(Lowered.getReflectedDecl(), computation)))
+        break;
+      break;
+    case ReflectionKind::Template:
+      if (TemplateDecl *TD =
+              Lowered.getReflectedTemplate().getAsTemplateDecl(
+                  /*IgnoreDeduced=*/true))
+        MergeLV(getLVForDecl(TD, computation));
+      break;
+    case ReflectionKind::Namespace:
+      if (const auto *ND = dyn_cast<NamedDecl>(Lowered.getReflectedNamespace()))
+        MergeLV(getLVForDecl(ND, computation));
+      break;
+    case ReflectionKind::Object:
+    case ReflectionKind::Value:
+      llvm_unreachable("lowered value should never represent a value or "
+                        "object");
+    case ReflectionKind::EntityProxy:
+    case ReflectionKind::Parameter:
+    case ReflectionKind::BaseSpecifier:
+    case ReflectionKind::Annotation:
+    case ReflectionKind::Attribute:
+    case ReflectionKind::DataMemberSpec:
+    case ReflectionKind::EnumeratorSpec:
+      return LinkageInfo::internal();
+    }
+    return LV;
+  }
 
   case APValue::Struct: {
     for (unsigned I = 0, N = V.getStructNumBases(); I != N; ++I)

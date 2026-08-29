@@ -4489,9 +4489,13 @@ public:
 
   void setIsRandomized(bool V) { RecordDeclBits.IsRandomized = V; }
 
-  bool isConstevalOnly() const { return RecordDeclBits.IsConstevalOnly; }
-
-  void setIsConstevalOnly(bool V) { RecordDeclBits.IsConstevalOnly = V; }
+  /// Whether this record is a consteval-only type (directly or transitively,
+  /// through a field, base, or pointer/reference to one). Computed lazily
+  /// and cached in the owning ASTContext on first use rather than at
+  /// completeDefinition() time, because a pointer/reference field's pointee
+  /// record may not have completed its own definition yet when this record
+  /// completes.
+  bool isConstevalOnly() const;
 
   void reorderDecls(const SmallVectorImpl<Decl *> &Decls);
 
