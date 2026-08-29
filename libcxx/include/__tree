@@ -1092,6 +1092,39 @@ public:
         std::forward<_Args>(__args)...);
   }
 
+  // Emplaces a new element unless an element with an equivalent key (compared via a possibly-transparent
+  // comparator against __k, which need not be `key_type`) already exists. Unlike __emplace_unique(), the key is
+  // known upfront, so this never constructs a node just to discover the key already exists.
+  template <class _Key2, class... _Args>
+  _LIBCPP_HIDE_FROM_ABI pair<iterator, bool> __emplace_unique_key_args(_Key2 const& __k, _Args&&... __args) {
+    auto [__parent, __child] = __find_equal(__k);
+    __node_pointer __r       = static_cast<__node_pointer>(__child);
+    bool __inserted          = false;
+    if (__child == nullptr) {
+      __node_holder __h = __construct_node(std::forward<_Args>(__args)...);
+      __insert_node_at(__parent, __child, static_cast<__node_base_pointer>(__h.get()));
+      __r        = __h.release();
+      __inserted = true;
+    }
+    return pair<iterator, bool>(iterator(__r), __inserted);
+  }
+
+  template <class _Key2, class... _Args>
+  _LIBCPP_HIDE_FROM_ABI pair<iterator, bool>
+  __emplace_hint_unique_key_args(const_iterator __p, _Key2 const& __k, _Args&&... __args) {
+    __node_base_pointer __dummy;
+    auto [__parent, __child] = __find_equal(__p, __dummy, __k);
+    __node_pointer __r       = static_cast<__node_pointer>(__child);
+    bool __inserted          = false;
+    if (__child == nullptr) {
+      __node_holder __h = __construct_node(std::forward<_Args>(__args)...);
+      __insert_node_at(__parent, __child, static_cast<__node_base_pointer>(__h.get()));
+      __r        = __h.release();
+      __inserted = true;
+    }
+    return pair<iterator, bool>(iterator(__r), __inserted);
+  }
+
   template <class _InIter, class _Sent>
   _LIBCPP_HIDE_FROM_ABI void __insert_range_multi(_InIter __first, _Sent __last) {
     if (__first == __last)
