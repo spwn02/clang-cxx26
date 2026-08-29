@@ -8,4 +8,9 @@
 // REFLECTION: caretcaret '^^'
 // REFLECTION: __metafunction '__metafunction'
 
-// DISABLED: warning: not parsing token '[:'; use '-freflection' to enable reflection features
+// DISABLED-NOT: warning:
+// DISABLED: l_square '['
+// DISABLED: colon ':'
+// DISABLED: identifier 'x'
+// DISABLED: colon ':'
+// DISABLED: r_square ']'

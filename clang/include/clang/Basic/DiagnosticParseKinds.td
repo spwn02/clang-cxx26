@@ -1834,9 +1834,8 @@ def err_splice_template_argument : Error<
 let CategoryName = "P3385" in {
 
 def p3385_trace_empty_attributes_list : Warning<
-  "empty attribute found when building reflection">;
-def p3385_trace_execution_checkpoint : Warning<
-  "(p3385-Parse) trace_execution_checkpoint %0">;
+  "empty attribute found when building reflection">,
+  InGroup<DiagGroup<"p3385-empty-attributes-list">>;
 def p3385_err_attributes_list : Error<
   "found %0 attributes in reflection list, single attribute expected">;
 }

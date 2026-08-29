@@ -3300,8 +3300,6 @@ def err_expanded_identifier_label : Error<
   "identifier labels are not allowed in expansion statements">;
 
 // P3385
-def p3385_sema_trace_execution_checkpoint : Warning<
-  "(p3385-Sema) trace_execution_checkpoint %0">;
 def p3385_warn_unsupported_attribute : Error<
   "reflecting over the unsupported '%0' attribute is ill-formed">;
 

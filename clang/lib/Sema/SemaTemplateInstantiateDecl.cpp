@@ -6326,23 +6326,6 @@ void Sema::InstantiateVariableInitializer(
   currentEvaluationContext().DeclForInitializer = Var;
 
   if (OldVar->getInit()) {
-    ExpressionEvaluationContext Ctx =
-        ExpressionEvaluationContext::PotentiallyEvaluated;
-    if (getLangOpts().CPlusPlus23) {
-      if (OldVar->isConstexpr())
-        Ctx = ExpressionEvaluationContext::ImmediateFunctionContext;
-      else if (const auto *A = OldVar->getAttr<ConstInitAttr>();
-               A && A->isConstinit())
-      Ctx = ExpressionEvaluationContext::ImmediateFunctionContext;
-    }
-
-    EnterExpressionEvaluationContext Evaluated(*this, Ctx, Var);
-
-    currentEvaluationContext().InLifetimeExtendingContext =
-        parentEvaluationContext().InLifetimeExtendingContext;
-    currentEvaluationContext().RebuildDefaultArgOrDefaultInit =
-        parentEvaluationContext().RebuildDefaultArgOrDefaultInit;
-
     // Instantiate the initializer.
     ExprResult Init =
         SubstInitializer(OldVar->getInit(), TemplateArgs,
