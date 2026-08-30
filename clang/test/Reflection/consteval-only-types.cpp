@@ -146,6 +146,8 @@ consteval const Base &fn1() {
 constexpr auto &ref = fn1();
 // expected-error@-1 {{'ref' must be initialized by a constant expression}}
 // expected-note@-2 {{reference into an object of consteval-only type}}
+// expected-error@-3 {{call to consteval function 'alias_smuggling::fn1' is not a constant expression}}
+// expected-note@-4 {{reference into an object of consteval-only type}}
 
 consteval void *fn2() {
   static constexpr auto v = ^^int;
@@ -154,6 +156,8 @@ consteval void *fn2() {
 constexpr const void *ptr = fn2();
 // expected-error@-1 {{'ptr' must be initialized by a constant expression}}
 // expected-note@-2 {{pointer into an object of consteval-only type}}
+// expected-error@-3 {{call to consteval function 'alias_smuggling::fn2' is not a constant expression}}
+// expected-note@-4 {{pointer into an object of consteval-only type}}
 
 }  // namespace alias_smuggling
 

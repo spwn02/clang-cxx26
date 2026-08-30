@@ -128,7 +128,7 @@ re-try it), and the precisely-scoped remaining open items.
 - [x] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries. Gate passed 2026-08-28: `clang/test/AST/ByteCode/`, `clang/test/Modules/`, `clang/test/PCH/`, `clang/test/Reflection/`, `clang/test/Import/` (1339 tests) show only the Milestone 1 baseline failure. Two real serialization gaps found and fixed (`ReflectionSpliceType` PCH deserialization, `ASTImporter` splice-scoped `NestedNameSpecifier` import); the `CXXMetafunctionExpr` callback mechanism, previously assumed to be a limitation, was empirically verified to round-trip correctly through PCH. See the 2026-08-28 Session Log entry for the one remaining caveat (the `ASTImporter` fix is compile-verified but not runtime-verified — the tool needed to exercise it does not propagate `-freflection`).
 - [x] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate passed 2026-08-28: `ninja -C build-libcxx libcxx-generate-files` and `ninja -C build-libcxx cxx` (660/660) are both clean; every one of the 39 libc++/libc++abi paths where upstream's merge had discarded fork content is reconciled with both sides' independent changes preserved, plus two files silently deleted by the original merge (never conflicted, so never surfaced) restored. See the 2026-08-28 Session Log entry.
 - [x] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here. Gate passed 2026-08-29: `clang/test/Reflection/` 15/16, libc++ reflection suite 54/60, M5 corpus 1339/1339 accounted for — all three at exactly the Milestone 1 baseline. See the 2026-08-29 Session Log entry.
-- [~] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names. First session: `check-clang` reduced 14→9 real failures (2 root-cause fixes plus 2 golden-file regenerations; one of the 9 is a flaky test); `check-cxx` reduced 961→221 (three root-cause fixes). Second session: `check-clang` reduced 9→7 real failures (`splice-exprs.cpp` M1 baseline aside) via one root-cause fix, and the flaky failure is now a confirmed, fixed, zero-flake pass; `check-cxx` reduced 221→209 via one root-cause fix (two files) plus a reserved-name fix, and the 145 `clang_tidy.gen.py` crashes are now confirmed pure-upstream (not a fork regression). Remaining items are precisely scoped in the 2026-08-29/30 "Milestone 8 second session" Session Log entry; resume there.
+- [~] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names. First session: `check-clang` reduced 14→9 real failures (2 root-cause fixes plus 2 golden-file regenerations; one of the 9 is a flaky test); `check-cxx` reduced 961→221 (three root-cause fixes). Second session: `check-clang` reduced 9→7 real failures (`splice-exprs.cpp` M1 baseline aside) via one root-cause fix, and the flaky failure is now a confirmed, fixed, zero-flake pass; `check-cxx` reduced 221→209 via one root-cause fix (two files) plus a reserved-name fix, and the 145 `clang_tidy.gen.py` crashes are now confirmed pure-upstream (not a fork regression). Third session: `check-clang`-relevant suites reduced 7→5 real failures via one root-cause fix (`ActOnCXXEnterDeclInitializer`'s C++23 consteval-escalation-suppression overreach); `concepts-lambda.cpp` root-caused (empirically confirmed the NTTP-vs-namespace-variable-template lookup collision) but not yet fixed; `cxx2b-consteval-propagate.cpp`/`cxx2a-constexpr-dynalloc.cpp` re-confirmed via minimal repro, not yet root-caused; `check-cxx`'s three newly-flagged names and the `std` module partition gap not yet started. Remaining items are precisely scoped in the 2026-08-30 "Milestone 8 third session" Session Log entry; resume there.
 - [ ] **9. Merge integration branch into `cxx26`, push, and release.** Recheck provenance and tracker state, merge without history rewriting, push `cxx26`, create the next free annotated `cxx26-YYYY.MM.DD[.N]` prerelease tag, push it explicitly, and verify remote resolution. Gate: clean worktree, remote branch/tag verification, and this epic marked complete.
 
 ## Blockers
@@ -3483,3 +3483,140 @@ newly-flagged `check-cxx` names (triage only, likely cheap); (3) the
 upstream bug report for the clang-tidy crash, time permitting (not
 blocking M8). `std::execution` (27) and the `map::at` upstream gap remain
 explicitly out of this milestone's scope.
+
+### 2026-08-30 — Milestone 8 third session: self-reference/consteval-escalation cluster root-caused and fixed, `concepts-lambda.cpp` root-caused (not yet fixed), one new fix-vs-cover-existing-test tradeoff resolved via test update
+
+Autonomous unsupervised session (user unavailable for the day). Consulted the
+advisor before starting: confirmed `cxx26` has 3 commits not in
+`integration/llvm-22.1.8` (merge-base `6dd950bcd4ac`) — `759c40831797`
+(toolchain: declare Linux x86_64 processor for CMake) is genuinely absent
+from `integration/llvm-22.1.8` and must survive the M9 merge; `83232ca0995a`
+(atomic c11.h C++11 guard) and `9b7d33fbb2b6` (optional view-support C++26
+guard) are both already subsumed by equivalent-or-more-precise guards
+already present in `integration/llvm-22.1.8` (verified by direct content
+diff, not just commit-message matching) — M9 should be a small, mostly
+non-conflicting merge, not a surprise. Reverted the prior session's
+disproven `SemaLambda.cpp` `DC->isRequiresExprBody()` hypothesis, which had
+been left uncommitted in the working tree contrary to the prior session's
+own "reverted" claim — confirmed via `git diff` it is now byte-identical to
+HEAD again.
+
+**Fix 4 — `Sema::ActOnCXXEnterDeclInitializer` unconditionally suppressed
+the immediate-invocation-candidate diagnostic for every `constexpr`/
+`constinit` variable initializer in C++23 mode
+(`clang/lib/Sema/SemaDeclCXX.cpp`).** Root cause of the `builtin-is-within-
+lifetime.cpp` (C++23 RUN line) and `constant-expression-cxx11.cpp`
+(`Lifetime::f`'s `constexpr int &n = n;`) failures, and unifies what the
+second session's log described as two separately-shaped bugs into one.
+This is fork-original code from `f41c42335f72` ("Proper implementation of
+consteval-only types", pre-dating the LLVM 22 merge), added to support
+diagnosing consteval-only-type "smuggling" (a reference/pointer into a
+`std::meta::info`-typed object escaping into an ordinarily-typed
+`constexpr`/`constinit` variable) — see `alias_smuggling` in
+`clang/test/Reflection/consteval-only-types.cpp`. The bug: it pushed
+`ExpressionEvaluationContext::ImmediateFunctionContext` (instead of
+upstream's unconditional `PotentiallyEvaluated`) for *every* `constexpr`/
+`constinit` variable, not just ones whose initializer risks smuggling.
+`isImmediateFunctionContext()` returning true makes
+`Sema::CheckForImmediateInvocation` bail out before ever registering the
+call as an `ImmediateInvocationCandidate` (see its early-return guard,
+itself unmodified from upstream) — silently disabling the entire
+`HandleImmediateInvocations` diagnosis path for *any* consteval call
+anywhere in a `constexpr`/`constinit` variable's initializer, not just
+smuggling cases. Confirmed via a temporary `getenv("M8_TRACE_CFII")`-gated
+trace (added and removed this session, not committed) that for `self`'s
+initializer both `isAlwaysConstantEvaluatedContext()` and
+`isImmediateFunctionContext()` were true at the guard, causing the bail;
+confirmed via `-ast-dump` that the resulting `CallExpr` was never wrapped in
+the `ConstantExpr(IsImmediateInvocation=true)` node
+`CheckForImmediateInvocation` normally produces. Reverted
+`ActOnCXXEnterDeclInitializer` to upstream's unconditional
+`PotentiallyEvaluated` push. This is safe for the smuggling diagnostic:
+`note_consteval_only_smuggling` (the actual smuggling check, in
+`CheckLValueConstantExpression`, `ExprConstant.cpp`) is independent of this
+Sema-level context flag — it fires during evaluation based purely on the
+referenced object's type. The only observable effect of the revert is that
+`alias_smuggling::fn1`/`fn2` in `consteval-only-types.cpp` now *also* get
+the standard, upstream-consistent "call to consteval function ... is not a
+constant expression" diagnostic alongside the existing smuggling note (the
+call to `fn1`/`fn2` genuinely does fail to be a constant expression, for
+the specific reason of smuggling — exactly the same "outer variable error +
+inner consteval-call error" two-diagnostic shape every other case in this
+file, and upstream itself, already produces); updated that fork-original
+test's `-verify` expectations to match rather than re-suppressing the
+correct diagnostic. Verified: `clang/test/Reflection/` still 15/16 (same
+M1-baseline `splice-exprs.cpp` failure, unchanged); `clang/test/SemaCXX/` +
+`clang/test/AST/` + `clang/test/CodeGenCXX/` + `clang/test/SemaTemplate/`
+(3406 tests) show zero new regressions — the only 5 failures are the
+already-known, still-open ones below;
+`builtin-is-within-lifetime.cpp`/`constant-expression-cxx11.cpp` both now
+pass in full (not just the minimal repro).
+
+**`concepts-lambda.cpp` (GH147650) root-caused via empirical `-ast-dump`
+verification, not yet fixed.** Minimal repro (`template <int> int b;
+template <int b> void f() requires requires { [] { (void)b;
+static_assert(b == 42); }; } {} void test() { f<42>(); }`) reproduces with
+`error: use of variable template 'b' requires template arguments` —
+confirming unqualified `b` inside the lambda-in-`requires`-expression
+resolves to the outer namespace-scope variable template instead of `f`'s
+NTTP, exactly as the second session's log predicted. However, this
+session's static tracing of every function in the parse/Sema path the log
+named as suspect (`Parser::ParseRequiresExpression`,
+`Sema::ActOnStartRequiresExpr`, `Parser::ParseTrailingRequiresClause`,
+`Sema::ActOnStartTrailingRequiresClause`, `Parser::
+ParseLambdaExpressionAfterIntroducer`'s scope-affecting portions,
+`Sema::CppLookupName`, `Scope.h`, `IdentifierResolver.cpp`) found **zero**
+fork diffs in any of them — all byte-identical to `llvmorg-22.1.8`. This
+means the bug is not a straightforward "fork changed a scope push" defect
+localized to one function; it is an emergent interaction, or it lives
+somewhere not yet checked. Not chased further this session in favor of
+closing out the cheaper, already-scoped items — see Next steps.
+
+**Environment note.** The first `ninja -C build-nyx clang` this session
+took roughly 20 minutes and recompiled large parts of LLVM (CodeGen,
+Instrumentation, X86 backend) that touching only 3 `Sema/*.cpp` files
+should not have required — the tree's object files were apparently not
+fully populated from the prior session's builds. Subsequent incremental
+rebuilds (touching only `Sema/*.cpp`) were fast (under a minute). Not
+investigated further; flag for awareness if a session opens expecting a
+fast incremental build and gets a full one instead.
+
+**Verification, current state.** `check-clang`-relevant suites
+(`SemaCXX`+`AST`+`CodeGenCXX`+`SemaTemplate`, 3406 tests): 5 failures, down
+from 7 — `mangle-requires.cpp`, `ms-mangle-requires.cpp`,
+`concepts-lambda.cpp` (one cluster, root-caused not fixed, see above),
+`cxx2b-consteval-propagate.cpp`, `cxx2a-constexpr-dynalloc.cpp` (both
+re-confirmed reproducing via minimal repro this session, not yet
+root-caused). `builtin-is-within-lifetime.cpp` and
+`constant-expression-cxx11.cpp` are fixed and removed from the list.
+`GH66324`/`cxx2b-consteval-propagate.cpp`'s `_Vector_base`/`vector<void>`
+repro is confirmed **not** explained by Fix 4 (its `vector<void> v{};` is
+not itself `constexpr`, so `ActOnCXXEnterDeclInitializer`'s now-removed
+branch never applied to it) — it needs separate root-causing, most likely
+in how `Sema::DefineImplicitDefaultConstructor` (confirmed unmodified from
+upstream) interacts with the escalation-diagnosis machinery for an
+*implicitly-defined* special member function specifically, since
+`CheckImmediateEscalatingFunctionDefinition` (which reads
+`FoundImmediateEscalatingConstruct` and fires
+`err_immediate_function_used_before_definition`) is never called from
+`DefineImplicitDefaultConstructor` at all — unconfirmed whether that's also
+true upstream or is itself part of the gap; not traced to completion.
+
+**Next steps, priority order:** (1) the three newly-flagged `check-cxx`
+names (triage only, unstarted this session); (2) the `std` module
+partition content gap (7 tests, unstarted this session); (3)
+`cxx2b-consteval-propagate.cpp`/`cxx2a-constexpr-dynalloc.cpp` — both
+confirmed as "identical pattern breaks only under template instantiation
+or implicit synthesis," root cause not yet found for either, do not assume
+they share one root cause with each other or with the fixed self-reference
+cluster; (4) `concepts-lambda.cpp` — next lead per the second session's
+log still applies and is now doubly confirmed: trace `Scope` object
+identity (not `DeclContext`) through `Sema::ActOnStartRequiresExpr`'s
+`BodyScope` and the lambda's own pushed `Scope`, likely with a temporary
+`errs()` trace on `Scope::isDeclScope`/`IdResolver::begin` rather than more
+static reading, since static reading has now twice failed to localize this
+across two full sessions; (5) the clang-tidy upstream bug report, drafted
+this session at `$CLAUDE_JOB_DIR/tmp/upstream-clang-tidy-bug-report.md` but
+**not filed** (posting to a public tracker under the account's identity was
+judged out of scope for unsupervised filing — needs a human review pass
+before `gh issue create`).
