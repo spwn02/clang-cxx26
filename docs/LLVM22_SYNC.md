@@ -3852,3 +3852,51 @@ report, drafted this session at
 **not filed** (posting to a public tracker under the account's identity was
 judged out of scope for unsupervised filing — needs a human review pass
 before `gh issue create`).
+
+### 2026-08-30 — Merge-loss audit: no new content loss found beyond the three already-fixed incidents
+
+Fulfills the user's "review the changes relative to both master branch and
+llvm-project master" instruction ahead of the M9 merge itself, per advisor
+guidance to run this before, not after, merging. Per this tracker's own
+Scope/Fixed Points, "llvm-project master" means the pinned tag
+`llvmorg-22.1.8`, not a moving branch; the merge's first parent
+`4f1df39cf326d27e56f9e9ccc6a7f2124527749f` (pre-sync `cxx26` baseline) is
+the right comparison point for "what did the fork have that might now be
+silently absent."
+
+Bounded to the productive query — deletions and shrunk files, not
+additions, since that's the shape of all three prior loss incidents this
+sync already caught (`__chrono/hash.h` duplicate, `__tree`/`__hash_table`
+transparent-emplace methods, two libc++ files deleted with no conflict —
+all fixed in Milestones 6–8, most recently `86015cca84a6`).
+
+- `git diff --diff-filter=D --name-only` against `libcxx/`, `clang/lib`,
+  `clang/include`: 109 deleted files. All are legitimate upstream
+  reorganizations with no reflection/fork-specific content: PNaCl target
+  removal, `GtestMatchers.{h,cpp}` relocation, CIR/Interpreter file moves,
+  `amx*transposeintrin.h` consolidation, `__cxx03` C-header snapshot
+  pruning, `__fwd/map.h`/`__fwd/set.h` and `__tuple`/`__type_traits` helper
+  header consolidation, `.compile.fail.cpp`→`.verify.cpp` test renames,
+  `diagnostics/*.nodiscard.verify.cpp` test reorg, benchmark/CI reorg,
+  `libcxx/utils/libcxx/test/features.py` restructuring. None reference
+  `meta`/`reflect`/reflection-specific paths.
+- Largest shrinks by line count (`git diff --numstat`): `libcxx/include/locale`
+  (6 insertions, 3482 deletions) and `libcxx/include/__tree` (896/757, net
+  positive despite looking large in `--stat`). Verified `locale`'s shrink
+  is a legitimate upstream split: the file is now a 226-line synopsis-only
+  umbrella header, with `moneypunct`/`numpunct`/etc. implementations moved
+  into `__locale_dir/num.h`, `money.h`, `time.h` (confirmed those classes
+  are still defined there, not lost) — not a repeat of the `__tree`/
+  `__hash_table` incident, which was a genuine drop rather than a
+  relocation.
+- Spot-checked `libcxx/include/meta` and `libcxx/modules/std/meta.inc`
+  (the two most fork-specific files, most likely to have unreconciled
+  content) directly: `meta`'s diff against the pre-sync baseline is
+  entirely cosmetic (`P2996` → `"reflection revision N"` in `[[deprecated]]`
+  strings, `TODO(P2996)` → `TODO(CXX26)`), zero functional change;
+  `meta.inc`'s diff is this session's own reflection-feature guard
+  (`cf9bb36e51c4`, see above).
+
+**No new content loss found.** The three incidents already caught and
+fixed earlier in this sync (Milestones 6–8) appear to be the complete set;
+this audit found nothing beyond them. Safe to proceed to the M9 merge.
