@@ -77,6 +77,17 @@ After upstream changes, always run `ninja -C build-libcxx libcxx-generate-files`
 
 ## Current Action
 
+**Epic A is complete as of 2026-08-30** (Milestone 9, `cxx26` merge commit
+`ca44e7b01b09`, tag `cxx26-2026.08.30`). This section was never rewritten
+as milestones completed during the sync and its body below is a stale
+historical narrative (Milestones 4-8's progress notes) — kept for
+continuity with the Session Log rather than deleted, but not the current
+state. See the Milestones list immediately below for the authoritative
+per-milestone status, and the 2026-08-30 "Milestone 9: merge into `cxx26`,
+push, tag — epic complete" Session Log entry for the closing state. There
+is no active milestone; do not resume `Continue` here without first
+checking whether a new epic has since been opened in this file.
+
 Milestone 4's gate passed 2026-08-28: `clang/test/Reflection/` is 15/16,
 the only remaining failure being the documented Milestone 1 baseline
 (`splice-exprs.cpp` line 23). See the 2026-08-28 "Milestone 4 gate: both
@@ -129,7 +140,7 @@ re-try it), and the precisely-scoped remaining open items.
 - [x] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate passed 2026-08-28: `ninja -C build-libcxx libcxx-generate-files` and `ninja -C build-libcxx cxx` (660/660) are both clean; every one of the 39 libc++/libc++abi paths where upstream's merge had discarded fork content is reconciled with both sides' independent changes preserved, plus two files silently deleted by the original merge (never conflicted, so never surfaced) restored. See the 2026-08-28 Session Log entry.
 - [x] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here. Gate passed 2026-08-29: `clang/test/Reflection/` 15/16, libc++ reflection suite 54/60, M5 corpus 1339/1339 accounted for — all three at exactly the Milestone 1 baseline. See the 2026-08-29 Session Log entry.
 - [x] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names. First session: `check-clang` reduced 14→9 real failures (2 root-cause fixes plus 2 golden-file regenerations; one of the 9 is a flaky test); `check-cxx` reduced 961→221 (three root-cause fixes). Second session: `check-clang` reduced 9→7 real failures (`splice-exprs.cpp` M1 baseline aside) via one root-cause fix, and the flaky failure is now a confirmed, fixed, zero-flake pass; `check-cxx` reduced 221→209 via one root-cause fix (two files) plus a reserved-name fix, and the 145 `clang_tidy.gen.py` crashes are now confirmed pure-upstream (not a fork regression). Third session: `check-clang`-relevant suites reduced 7→5 real failures via one root-cause fix (`createLambdaClosureType`'s missing `RequiresExprBodyDecl` stop condition, closing `concepts-lambda.cpp`/`mangle-requires.cpp`/`ms-mangle-requires.cpp`); a second fix (`ActOnCXXEnterDeclInitializer`'s C++23 consteval-escalation-suppression overreach) was correctly root-caused, shipped, found to regress 9 libc++ reflection tests, and reverted. Fourth session (gate closure): verified the `meta.inc` fix against the real `-freflection-latest` packaging config; amended the gate to name 5 fork-regression test names explicitly (Decisions section); ran the merge-loss audit (no new content loss found); ran full `check-clang` (49778 tests, 5 failed — `splice-exprs.cpp` M1 baseline + the 4 named fork regressions, none unexplained) and full `check-cxx` (12035 tests, 199 failed, down from 209 — every failure reconciles exactly against the documented baseline breakdown minus this session's 10 fixes: 145 clang-tidy-bucket + 27 `std::execution` + 8 reflection-suite + 2 std-module-gap [down from 7] + 17 "other" [down from 22]; disk held throughout, no ENOSPC corruption). **Gate closed**, both suites pass with only recorded exceptions. `builtin-is-within-lifetime.cpp`/`constant-expression-cxx11.cpp` (self-reference cluster) and `cxx2b-consteval-propagate.cpp`/`cxx2a-constexpr-dynalloc.cpp` (template-instantiation cluster) remain open as documented fork regressions — root causes recorded, deliberately not pursued further this session per advisor guidance (see 2026-08-30 log entries). Ready for Milestone 9.
-- [ ] **9. Merge integration branch into `cxx26`, push, and release.** Recheck provenance and tracker state, merge without history rewriting, push `cxx26`, create the next free annotated `cxx26-YYYY.MM.DD[.N]` prerelease tag, push it explicitly, and verify remote resolution. Gate: clean worktree, remote branch/tag verification, and this epic marked complete.
+- [x] **9. Merge integration branch into `cxx26`, push, and release.** Recheck provenance and tracker state, merge without history rewriting, push `cxx26`, create the next free annotated `cxx26-YYYY.MM.DD[.N]` prerelease tag, push it explicitly, and verify remote resolution. Gate: clean worktree, remote branch/tag verification, and this epic marked complete. **Done 2026-08-30**: merged `integration/llvm-22.1.8` into `cxx26` (`--no-ff`, merge commit `ca44e7b01b09`), one conflict (`libcxx/include/optional`, resolved to integration's side — verified byte-identical after resolution, the fork's superseded `optional<T&>` partial specialization is already documented in-tree as intentionally subsumed by the primary template). Pushed `cxx26` and annotated tag `cxx26-2026.08.30` to `origin`; `git ls-remote` confirms both resolve to `ca44e7b01b09` and the tag peels correctly. **Epic A (LLVM 22 synchronization) is complete.**
 
 ## Blockers
 
@@ -3985,3 +3996,72 @@ unexplained names:
 `check-cxx` side of the Milestone 8 gate is closed: 199/199 failures
 accounted for, none unexplained, none newly introduced. **Milestone 8 is
 complete.** Proceeding to Milestone 9.
+
+### 2026-08-30 — Milestone 9: merge into `cxx26`, push, tag — epic complete
+
+Pushed `integration/llvm-22.1.8` first (21 unpushed commits, durable
+backup before the merge). Found a stale worktree registration at
+`/tmp/clang-p2996-cxx26-fix` pointing at `cxx26` (directory no longer
+existed on disk — `git worktree list` showed it `prunable`, not an
+active concurrent session); pruned it before switching this session onto
+`cxx26` directly.
+
+`git merge --no-ff integration/llvm-22.1.8`: one conflict,
+`libcxx/include/optional`. The HEAD side carried the fork's ~200-line
+dedicated `class optional<_Tp&>` partial specialization (constructors,
+`emplace`, iterators, `value_or`/`and_then`/`transform`/`or_else`, its own
+`ranges::enable_borrowed_range<optional<_Tp&>>`); the integration side was
+empty at that hunk. Before resolving, read integration's file directly
+(not just trusted the earlier general "resolve to integration" guidance)
+and found a pre-existing comment block, already written by an earlier
+Milestone 6 session, at the exact same location: `optional<T&>` (P2988R11)
+is implemented directly in the primary template in `integration` instead
+of via a separate specialization, and the fork's dedicated specialization
+is explicitly noted there as *superseded, not dropped* — keeping it would
+let it win overload resolution over the primary template for every
+`optional<T&>`, silently bypassing the primary template's own
+comparison/hash/format/ranges integration, and its
+`enable_borrowed_range<optional<_Tp&>>` would redefine the identical
+specialization the primary-template path already provides (confirmed
+both `enable_view<optional<_Tp>>` and `enable_borrowed_range<optional<_Tp&>>`
+already exist elsewhere in integration's file). That comment even names
+its own recovery path (`git show 6dd950bcd4ac:libcxx/include/optional`)
+if the analysis is ever found wrong. Resolved by taking integration's
+side; verified the resolved file is byte-identical to
+`integration/llvm-22.1.8`'s copy.
+
+No conflict in `libcxx/include/__atomic/support/c11.h` (auto-merged
+clean) despite being flagged as a possible conflict site — the two sides'
+changes there didn't overlap textually.
+
+Post-merge verification: `git diff integration/llvm-22.1.8 HEAD --stat`
+shows exactly one file different, `cxx26/toolchain/toolchain.cmake.in`
+(+7 lines, the `CMAKE_SYSTEM_PROCESSOR` fix that was `cxx26`'s one
+genuinely-missing commit) — a toolchain-packaging CMake file untouched by
+either `check-clang` or `check-cxx`. Since the merged tree is otherwise
+identical to the tree already fully verified in the check-clang/check-cxx
+gate closure above, re-running those suites against the merge would be
+redundant; skipped on that basis rather than time pressure. Confirmed
+`CMAKE_SYSTEM_PROCESSOR` block present in the merged
+`toolchain.cmake.in`, all 3 of `cxx26`'s pre-merge-only commits
+(`759c40831797`, `83232ca0995a`, `9b7d33fbb2b6`) are ancestors of the
+merge commit, and `git log --oneline integration/llvm-22.1.8
+^refs/heads/cxx26 --` is empty (everything from `integration` is now
+reachable from `cxx26`).
+
+Pushed `cxx26` (`6dd950bcd4ac..ca44e7b01b09`) and annotated tag
+`cxx26-2026.08.30` to `origin`. `git ls-remote origin refs/heads/cxx26
+refs/tags/cxx26-2026.08.30` confirms both resolve to `ca44e7b01b09`; the
+tag peels to the same commit. Worktree is clean.
+
+**Epic A (LLVM 22 synchronization) is complete.** Two known fork
+regressions remain open and documented rather than fixed under time
+pressure — the self-reference escalation cluster and the
+template-instantiation escalation cluster (both in
+`HandleImmediateInvocations`'s consteval-escalation-diagnosis machinery,
+`clang/lib/Sema/SemaExpr.cpp`) — with root causes, minimal repros, and an
+explicit "do not re-attempt the blanket `ActOnCXXEnterDeclInitializer`
+revert" warning recorded above for whichever future session picks them
+up. The clang-tidy `PPCallbacks` crash bug report drafted this session
+(`$CLAUDE_JOB_DIR/tmp/upstream-clang-tidy-bug-report.md`) remains unfiled,
+pending human review.
