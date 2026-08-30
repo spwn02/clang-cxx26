@@ -128,7 +128,7 @@ re-try it), and the precisely-scoped remaining open items.
 - [x] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries. Gate passed 2026-08-28: `clang/test/AST/ByteCode/`, `clang/test/Modules/`, `clang/test/PCH/`, `clang/test/Reflection/`, `clang/test/Import/` (1339 tests) show only the Milestone 1 baseline failure. Two real serialization gaps found and fixed (`ReflectionSpliceType` PCH deserialization, `ASTImporter` splice-scoped `NestedNameSpecifier` import); the `CXXMetafunctionExpr` callback mechanism, previously assumed to be a limitation, was empirically verified to round-trip correctly through PCH. See the 2026-08-28 Session Log entry for the one remaining caveat (the `ASTImporter` fix is compile-verified but not runtime-verified — the tool needed to exercise it does not propagate `-freflection`).
 - [x] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate passed 2026-08-28: `ninja -C build-libcxx libcxx-generate-files` and `ninja -C build-libcxx cxx` (660/660) are both clean; every one of the 39 libc++/libc++abi paths where upstream's merge had discarded fork content is reconciled with both sides' independent changes preserved, plus two files silently deleted by the original merge (never conflicted, so never surfaced) restored. See the 2026-08-28 Session Log entry.
 - [x] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here. Gate passed 2026-08-29: `clang/test/Reflection/` 15/16, libc++ reflection suite 54/60, M5 corpus 1339/1339 accounted for — all three at exactly the Milestone 1 baseline. See the 2026-08-29 Session Log entry.
-- [~] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names. First session: `check-clang` reduced 14→9 real failures (2 root-cause fixes plus 2 golden-file regenerations; one of the 9 is a flaky test); `check-cxx` reduced 961→221 (three root-cause fixes). Second session: `check-clang` reduced 9→7 real failures (`splice-exprs.cpp` M1 baseline aside) via one root-cause fix, and the flaky failure is now a confirmed, fixed, zero-flake pass; `check-cxx` reduced 221→209 via one root-cause fix (two files) plus a reserved-name fix, and the 145 `clang_tidy.gen.py` crashes are now confirmed pure-upstream (not a fork regression). Third session: `check-clang`-relevant suites reduced 7→5 real failures via one root-cause fix (`createLambdaClosureType`'s missing `RequiresExprBodyDecl` stop condition, closing `concepts-lambda.cpp`/`mangle-requires.cpp`/`ms-mangle-requires.cpp`); a second fix (`ActOnCXXEnterDeclInitializer`'s C++23 consteval-escalation-suppression overreach) was correctly root-caused, shipped, found to regress 9 libc++ reflection tests, and reverted — self-reference cluster (`builtin-is-within-lifetime.cpp`/`constant-expression-cxx11.cpp`) remains open pending a fix that distinguishes `HandleImmediateInvocations`'s two diagnosis buckets instead of gating both via one context flag; `cxx2b-consteval-propagate.cpp`/`cxx2a-constexpr-dynalloc.cpp` re-confirmed via minimal repro, not yet root-caused. All three of the second session's newly-flagged `check-cxx` names triaged (`optional_nullopt_t.verify.cpp` fixed; `gdb_pretty_printer_test.sh.cpp` confirmed pure-upstream/unordered_map-bucket-order, not a fork issue; `reflection-ex-parsing-command-line-options-2.sh.cpp` traced to the same `Rec.ConstevalOnly` gap as the self-reference cluster). `transitive_includes.gen.py`'s 4 stale golden-CSV rows (execution/linalg/scope/simd) regenerated and fixed. `std` module partition gap: 5 of 7 names fixed (`meta.inc` needed the same `__has_feature(reflection)` guard `<meta>` itself uses); the remaining 2 (`module_std.gen.py`/`module_std_compat.gen.py`) are blocked on the already-documented pure-upstream clang-tidy crash, not further actionable here. Remaining items are precisely scoped in the 2026-08-30 "Milestone 8 third session" Session Log entry; resume there.
+- [x] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names. First session: `check-clang` reduced 14→9 real failures (2 root-cause fixes plus 2 golden-file regenerations; one of the 9 is a flaky test); `check-cxx` reduced 961→221 (three root-cause fixes). Second session: `check-clang` reduced 9→7 real failures (`splice-exprs.cpp` M1 baseline aside) via one root-cause fix, and the flaky failure is now a confirmed, fixed, zero-flake pass; `check-cxx` reduced 221→209 via one root-cause fix (two files) plus a reserved-name fix, and the 145 `clang_tidy.gen.py` crashes are now confirmed pure-upstream (not a fork regression). Third session: `check-clang`-relevant suites reduced 7→5 real failures via one root-cause fix (`createLambdaClosureType`'s missing `RequiresExprBodyDecl` stop condition, closing `concepts-lambda.cpp`/`mangle-requires.cpp`/`ms-mangle-requires.cpp`); a second fix (`ActOnCXXEnterDeclInitializer`'s C++23 consteval-escalation-suppression overreach) was correctly root-caused, shipped, found to regress 9 libc++ reflection tests, and reverted. Fourth session (gate closure): verified the `meta.inc` fix against the real `-freflection-latest` packaging config; amended the gate to name 5 fork-regression test names explicitly (Decisions section); ran the merge-loss audit (no new content loss found); ran full `check-clang` (49778 tests, 5 failed — `splice-exprs.cpp` M1 baseline + the 4 named fork regressions, none unexplained) and full `check-cxx` (12035 tests, 199 failed, down from 209 — every failure reconciles exactly against the documented baseline breakdown minus this session's 10 fixes: 145 clang-tidy-bucket + 27 `std::execution` + 8 reflection-suite + 2 std-module-gap [down from 7] + 17 "other" [down from 22]; disk held throughout, no ENOSPC corruption). **Gate closed**, both suites pass with only recorded exceptions. `builtin-is-within-lifetime.cpp`/`constant-expression-cxx11.cpp` (self-reference cluster) and `cxx2b-consteval-propagate.cpp`/`cxx2a-constexpr-dynalloc.cpp` (template-instantiation cluster) remain open as documented fork regressions — root causes recorded, deliberately not pursued further this session per advisor guidance (see 2026-08-30 log entries). Ready for Milestone 9.
 - [ ] **9. Merge integration branch into `cxx26`, push, and release.** Recheck provenance and tracker state, merge without history rewriting, push `cxx26`, create the next free annotated `cxx26-YYYY.MM.DD[.N]` prerelease tag, push it explicitly, and verify remote resolution. Gate: clean worktree, remote branch/tag verification, and this epic marked complete.
 
 ## Blockers
@@ -3928,3 +3928,60 @@ Failed Tests (5) — exactly the tracker's documented set, nothing new:
 The last 4 are the fork regressions named in the Decisions-section gate
 amendment above. `check-clang` side of the Milestone 8 gate is closed:
 5/5 failures accounted for, none unexplained.
+
+### 2026-08-30 — Milestone 8 gate: full `check-cxx` re-run, 199 failures, exact reconciliation against the 209 baseline — gate closed
+
+Forced clean libc++ rebuild first (`ninja -C build-libcxx -t clean cxx &&
+ninja -j22 cxx`) per the `build-libcxx` staleness gotcha, then full `ninja
+-C build-libcxx check-cxx`. Mid-run, disk dropped from 18G to 8.5G free
+within ~10 minutes — traced to
+`build-libcxx/libcxx/test/extensions/clang/clang_modules_include.gen.py/Output`
+(a fork-original per-header module-cache generator test, distinct from
+upstream's now-deleted `libcxx/test/libcxx/clang_modules_include.gen.py`),
+which was actively being written (confirmed via file mtimes seconds old)
+and had already reached 9G. This is very likely the same disk-filling
+mechanism behind the prior session's documented 28-spurious-failure
+incident, now identified by name. Rather than risk a repeat, armed a
+quiet background disk-watch (reports only on 2G+ drops, auto-kills the
+run if free space drops below 3G) instead of deleting the directory
+out from under an active write. Growth stopped on its own once that one
+generator test completed; disk held at 8.4-8.5G free for the rest of the
+run, no ENOSPC. Future sessions: `libcxx/test/extensions/clang/clang_modules_include.gen.py`
+is the disk-usage hazard to watch specifically, not "check-cxx" generally,
+and it's safe to `rm -rf` between runs (gitignored, regenerated fresh
+each time) — do that proactively before a full `check-cxx` run rather
+than reactively.
+
+Result:
+
+```
+Total Discovered Tests: 12035
+Unsupported      :  1206 (10.02%)
+Passed           : 10603 (88.10%)
+Expectedly Failed:    27 (0.22%)
+Failed           :   199 (1.65%)
+```
+
+199, down from the documented 209 baseline — exactly the 10 this session
+fixed (5 `std`-module-partition names + `optional_nullopt_t.verify.cpp` +
+4 `transitive_includes.gen.py` golden-CSV rows). Verified by category,
+every failure reconciles against the documented breakdown with no
+unexplained names:
+- 145 clang-tidy bucket (144 `clang_tidy.gen.py/*.sh.cpp` + 1
+  `clang_tidy.sh.py`) — unchanged, confirmed pure-upstream.
+- 27 `std/execution/**` — unchanged, Tier 2, out of scope.
+- 8 libc++ reflection-suite (the same 8 names documented in the second
+  session) — unchanged.
+- 2 `std`-module-gap (`module_std.gen.py`, `module_std_compat.gen.py`) —
+  down from 7, blocked on the clang-tidy crash for the remaining 2.
+- 17 "other" (down from 22): `extensions/gnu/hash/specializations.
+  verify.cpp`, `system_reserved_names.gen.py/execution.compile.pass.cpp`,
+  4× `atomic_fetch_{add,sub}{,_explicit}.verify.cpp`,
+  `gdb_pretty_printer_test.sh.cpp` (pure-upstream), 2×
+  `is_within_lifetime`, `atomics.ref/cv_qualified.pass.cpp`,
+  `element_access_transparent.pass.cpp` (confirmed pure-upstream), 3×
+  `inplace.vector`, 3× `optional.iterator{,s}`.
+
+`check-cxx` side of the Milestone 8 gate is closed: 199/199 failures
+accounted for, none unexplained, none newly introduced. **Milestone 8 is
+complete.** Proceeding to Milestone 9.
