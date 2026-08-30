@@ -3682,6 +3682,39 @@ baseline (6 M1-baseline names + `reflection-ex-enum-to-string.pass.cpp` +
 `reflection-ex-parsing-command-line-options-2.sh.cpp`), unchanged from the
 second session.
 
+**Triage of the second session's 3 newly-flagged `check-cxx` names.**
+`optional_nullopt_t.verify.cpp`: fixed this session (commit
+`fb00abb4bf2f`) — see below. `libcxx/gdb/gdb_pretty_printer_test.sh.cpp`:
+confirmed **not** a fork regression — both the test and
+`libcxx/utils/gdb/libcxx/printers.py` are byte-identical to
+`llvmorg-22.1.8` (`git diff` empty on both). The one failing sub-check
+(`mi_mode_test`, line 686) expects `std::unordered_map<int, std::string>`
+inserted in order 3,2,1 to iterate in the same 3,2,1 order via GDB's
+pretty-printer; actual iteration order is 1,2,3. `unordered_map` iteration
+order is implementation-defined and depends on internal hash/bucket
+layout, not on anything this fork touches — leave as an allowed
+pre-existing failure, do not "fix" `unordered_map`'s bucket layout to match
+one test's assumption. `reflection-ex-parsing-command-line-options-2.sh.
+cpp`: compile failure, **not newly broken, was already in the documented
+baseline** (this is one of the libc++ reflection suite's own 8 baseline
+failures, not a `check-cxx`-only regression) — but now root-caused, and the
+root cause is the **same underlying gap** as Fix 4's reverted attempt:
+`template for (constexpr auto Pair : std::define_static_array([]()
+consteval { ... return std::vector<Z>; }()))` where `Z` contains
+`std::meta::info` members — the immediately-invoked consteval lambda's
+call expression hits `HandleImmediateInvocations`'s `Rec.ConstevalOnly`
+diagnosis loop inside `Clap::parse<Args>`, an ordinary (non-`constexpr`)
+member function template, so `Rec.InImmediateEscalatingFunctionContext` is
+false and it's misdiagnosed with `err_expr_consteval_only_type` even
+though the call succeeds. This confirms the gap is broader than
+`constexpr`-variable initializers specifically — it also affects
+expansion-statement (`template for`, fork-original P1306) range
+initializers that immediately invoke a consteval lambda producing
+consteval-only-bearing values, with no enclosing immediate-escalating
+function. Any future fix for the self-reference cluster's `Rec.
+ConstevalOnly` false-positive should be verified against this repro too,
+not just the `constexpr`-var-init shape.
+
 **Next steps, priority order:** (1) the three newly-flagged `check-cxx`
 names (triage only, unstarted this session); (2) the `std` module
 partition content gap (7 tests, unstarted this session); (3)
