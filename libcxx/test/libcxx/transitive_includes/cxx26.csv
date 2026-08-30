@@ -255,7 +255,6 @@ execution compare
 execution cstddef
 execution cstdint
 execution cstdio
-execution cstdlib
 execution cstring
 execution ctime
 execution cwchar
@@ -736,7 +735,6 @@ linalg ios
 linalg iosfwd
 linalg istream
 linalg limits
-linalg locale
 linalg mdspan
 linalg optional
 linalg ratio
@@ -1047,7 +1045,6 @@ regex vector
 regex version
 scope compare
 scope cstdint
-scope cstdlib
 scope cstring
 scope exception
 scope initializer_list
@@ -1109,7 +1106,6 @@ simd ios
 simd iosfwd
 simd istream
 simd limits
-simd locale
 simd ratio
 simd sstream
 simd stdexcept
