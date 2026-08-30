@@ -107,11 +107,17 @@ local declarations noted in the prior session; not chased, still an allowed
 Milestone 1 baseline name under M7's own criterion.
 Milestone 8's first session (2026-08-29) is paused mid-work, not gated:
 `check-clang` is at 9 real failures (down from 14) and `check-cxx` is at 221
-(down from 961), via five root-cause fixes (see Session Log). Resume with
-the precisely-scoped open items named there — do not re-diagnose from
-scratch; four of the nine clang failures and most of the 65 substantive
-(non-clang-tidy) `check-cxx` failures already have root-cause hypotheses or
-confirmed minimal repros recorded.
+(down from 961), via five root-cause fixes (see Session Log). Milestone 8's
+second session (2026-08-29/30) fixed two more root causes and closed the
+flaky test entirely: `check-clang` is now 7 real failures (down from 9,
+`splice-exprs.cpp` M1 baseline aside) with zero flakiness (18 consecutive
+isolated runs of the previously-flaky test all pass); `check-cxx` is now 209
+(down from 221). The 145 `clang_tidy.gen.py`/`*.sh.py` crashes are confirmed
+**not** a fork regression — root-caused to a pure upstream LLVM 22.1.8 bug,
+reproducible with 100% vanilla `/usr/bin/clang-tidy` and byte-identical-to-
+upstream check sources. See the 2026-08-29/30 "Milestone 8 second session"
+Session Log entry for full details, the one disproven hypothesis (do not
+re-try it), and the precisely-scoped remaining open items.
 
 ## Milestones
 
@@ -122,16 +128,17 @@ confirmed minimal repros recorded.
 - [x] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries. Gate passed 2026-08-28: `clang/test/AST/ByteCode/`, `clang/test/Modules/`, `clang/test/PCH/`, `clang/test/Reflection/`, `clang/test/Import/` (1339 tests) show only the Milestone 1 baseline failure. Two real serialization gaps found and fixed (`ReflectionSpliceType` PCH deserialization, `ASTImporter` splice-scoped `NestedNameSpecifier` import); the `CXXMetafunctionExpr` callback mechanism, previously assumed to be a limitation, was empirically verified to round-trip correctly through PCH. See the 2026-08-28 Session Log entry for the one remaining caveat (the `ASTImporter` fix is compile-verified but not runtime-verified — the tool needed to exercise it does not propagate `-freflection`).
 - [x] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate passed 2026-08-28: `ninja -C build-libcxx libcxx-generate-files` and `ninja -C build-libcxx cxx` (660/660) are both clean; every one of the 39 libc++/libc++abi paths where upstream's merge had discarded fork content is reconciled with both sides' independent changes preserved, plus two files silently deleted by the original merge (never conflicted, so never surfaced) restored. See the 2026-08-28 Session Log entry.
 - [x] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here. Gate passed 2026-08-29: `clang/test/Reflection/` 15/16, libc++ reflection suite 54/60, M5 corpus 1339/1339 accounted for — all three at exactly the Milestone 1 baseline. See the 2026-08-29 Session Log entry.
-- [~] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names. `check-clang` reduced 14→9 real failures (2 root-cause fixes plus 2 golden-file regenerations; one of the 9 is a flaky test, see Session Log); `check-cxx` reduced 961→221 (three root-cause fixes). Remaining items are precisely scoped in the 2026-08-29 "Milestone 8 first session" Session Log entry; resume there.
+- [~] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names. First session: `check-clang` reduced 14→9 real failures (2 root-cause fixes plus 2 golden-file regenerations; one of the 9 is a flaky test); `check-cxx` reduced 961→221 (three root-cause fixes). Second session: `check-clang` reduced 9→7 real failures (`splice-exprs.cpp` M1 baseline aside) via one root-cause fix, and the flaky failure is now a confirmed, fixed, zero-flake pass; `check-cxx` reduced 221→209 via one root-cause fix (two files) plus a reserved-name fix, and the 145 `clang_tidy.gen.py` crashes are now confirmed pure-upstream (not a fork regression). Remaining items are precisely scoped in the 2026-08-29/30 "Milestone 8 second session" Session Log entry; resume there.
 - [ ] **9. Merge integration branch into `cxx26`, push, and release.** Recheck provenance and tracker state, merge without history rewriting, push `cxx26`, create the next free annotated `cxx26-YYYY.MM.DD[.N]` prerelease tag, push it explicitly, and verify remote resolution. Gate: clean worktree, remote branch/tag verification, and this epic marked complete.
 
 ## Blockers
 
 None currently blocking further progress (ordinary incomplete work, not an
 impasse). Milestones 4, 5, 6, and 7 closed (4-6 on 2026-08-28, 7 on
-2026-08-29; see Session Log). Milestone 8 is `[~]`, mid-session: nine real
-`check-clang` failures and 221 `check-cxx` failures remain, each precisely
-scoped in the 2026-08-29 "Milestone 8 first session" Session Log entry.
+2026-08-29; see Session Log). Milestone 8 is `[~]`, mid-session: seven real
+`check-clang` failures (`splice-exprs.cpp` M1 baseline aside) and 209
+`check-cxx` failures remain, each precisely scoped in the 2026-08-29/30
+"Milestone 8 second session" Session Log entry.
 
 When blocked, record the failing command, essential diagnostic, affected milestone, attempted remedies, and exact condition needed to resume. Use `[!]` only for a genuine external or technical impasse, not for ordinary incomplete work.
 
@@ -3223,3 +3230,256 @@ change.
 Milestone 8 remains `[~]`. Do not re-run the full `check-clang`/`check-cxx`
 baseline-gathering step next session — the current failure lists above are
 already the accurate, current-tree state as of this commit.
+
+### 2026-08-29/30 — Milestone 8 second session: two root-cause fixes, the flaky test closed, 145 clang-tidy crashes confirmed pure-upstream, one lead disproven
+
+User instruction carried over from the first session: batch fixes and
+re-verify in full-suite passes rather than fix-recompile-fix; consult the
+advisor before committing to an approach and before declaring done. This
+session worked the first session's nine-item priority list, reordered by
+the advisor toward highest-leverage items first (nail the flake before
+anything else, since a nondeterministic compiler makes every other gate
+run unreproducible; check the clang-tidy crash against `build-nyx/bin/
+clang-tidy` before assuming environment; batch the immediate-escalation
+cluster since three of the four remaining `check-clang` failures share it;
+batch the cheap libc++ include-gap leads last).
+
+**Fix 1 — `CXXConstructExprBits.IsImmediateEscalating` never initialized
+(`clang/lib/AST/ExprCXX.cpp`).** This is the "genuine compiler
+nondeterminism" flagged unresolved at the end of the first session.
+Diffed `CXXConstructExpr`'s constructor against `llvmorg-22.1.8` (the
+function is otherwise byte-identical): upstream sets
+`CXXConstructExprBits.IsImmediateEscalating = false;` immediately after
+`ConstructionKind`; that one line is missing from our tree, so the bit is
+left as whatever garbage was already in the `ASTContext` bump-allocator
+memory the node was placed in. Confirmed empirically before touching
+anything: `setarch -R ./build-nyx/bin/llvm-lit clang/test/AST/
+ast-dump-default-arg-json.cpp` (ASLR disabled) failed deterministically on
+8/8 runs, while the same command with ASLR enabled produced a mix of
+PASS/FAIL across otherwise-identical isolated runs — exactly the signature
+of reading uninitialized allocator memory whose contents depend on heap
+layout, not of a logic bug. Added the missing initializer. Verified with
+18 consecutive isolated re-runs (10 before, 8 after an unrelated rebuild),
+all PASS; the full `check-clang` run no longer lists it. `clang/test/AST/`
+(476 tests) and `clang/test/SemaCXX/` + `SemaTemplate/` + `CodeGenCXX/`
+(2930 tests) both re-run clean of new failures after this fix.
+
+**Fix 2 — `__tree`/`__hash_table` missing `__emplace_unique_key_args`
+(and, for `__tree`, `__emplace_hint_unique_key_args`).** Root cause of
+the tracker's "transparent-comparator lookups on map/unordered_map/set/
+unordered_set" bucket. `map`/`set`/`unordered_map`/`unordered_set`'s
+C++26 transparent `try_emplace`/insert overloads (fork-original, P2363-
+adjacent heterogeneous-lookup work) call `__tree_.__emplace_unique_key_args
+(__k, ...)` / `__table_.__emplace_unique_key_args(__k, ...)`, passing the
+un-converted key `__k` separately so the lookup can use the transparent
+comparator/hasher without constructing a node first. Neither method exists
+on the post-merge `__tree`/`__hash_table` — but both exist, in the old
+pointer-based-lookup style, in `__cxx03/__tree`/`__cxx03/__hash_table` (the
+frozen pre-merge snapshot), confirming they were dropped by the merge, not
+newly invented later. This is the same "silently-succeeded, semantically-
+wrong merge" class as this milestone's first-session chrono/hash.h fix:
+`__tree`/`__hash_table` were reconciled onto upstream's new
+`__try_key_extraction`-based `__emplace_unique`/`__emplace_unique` (a
+generic "extract the key from the constructor args if possible" scheme),
+and the separate "key already known, don't even try extracting it" fast
+path the transparent overloads need was never re-added — the file textually
+changed enough during reconciliation that git's merge never flagged this as
+a conflict. Restored both methods on `__tree` and `__emplace_unique_key_args`
+on `__hash_table`, reimplemented against the *current* `__find_equal`/
+`__construct_node`/`__insert_node_at`/hash-bucket primitives (each mirrors
+the "key known upfront" branch already present in `__emplace_unique`/
+`__emplace_hint_unique`, just parameterized on a separate `_Key2` template
+type instead of `key_type` — `__find_equal` already accepts any key type,
+so the transparent-comparator support falls out for free). `map`/`set`/
+`unordered_map`/`unordered_set` together (413 tests): 411 pass, 1 skipped
+by feature requirement; the one remaining failure is a confirmed
+pre-existing upstream gap, not a regression — see below.
+
+**Fix 3 — `__bound` reserved-name collision
+(`libcxx/include/__functional/function_ref_impl.h`).** Smaller mechanical
+fix bundled with Fix 2 since both surfaced from the same `map`/`set`
+verification pass. `function_ref_impl.h` (fork-original, P0792
+`std::function_ref`, no upstream counterpart in 22.1.8) names a lambda
+parameter `__bound` in five places; `__bound` is one of the Win32 SAL
+macro names `libcxx/test/libcxx/system_reserved_names.gen.py` deliberately
+`#define`s to a poison token to verify libc++ never uses it, so any public
+header transitively including `<functional>` failed to parse under that
+test. Renamed to `__bound_entity_`. Fixes `functional`/`hive`/`linalg`
+(hive and linalg both transitively include `<functional>`).
+`system_reserved_names.gen.py` (144 tests): 143 pass; the one remaining
+failure (`execution.compile.pass.cpp`, `_T` in `__execution/
+get_completion_signatures.h`) is intentionally untouched — `std::execution`
+is Tier 2 scope per this file's own Decisions section, not an ordinary M8
+regression fix.
+
+**Confirmed NOT a fork regression — the 145 `clang_tidy.gen.py`/`*.sh.py`
+crashes (open item 1 from the first session).** Extracted the exact
+crashing command from a captured log
+(`clang_tidy.gen.py/ccomplex.sh.cpp`) and bisected `libcxx/.clang-tidy`'s
+`Checks:` list down to the two culprits: `libcpp-cpp-version-check`
+(`proper_version_checks.cpp`) and `libcpp-internal-ftms`
+(`internal_ftm_use.cpp`) — the only two of the nine `libcpp-*` checks that
+register `PPCallbacks`. A three-line reproducer (`#if defined(FOO) &&
+__has_include(<stddef.h>)`) crashes identically with either check enabled
+alone. Ruled out, in order: (1) plugin/host ABI mismatch — the plugin
+(`libcxx-tidy.plugin`) was stale relative to a freshly-rebuilt `clang-tidy`
+at the start of this session (a real, separate gotcha: `ninja -C
+build-libcxx cxx-test-depends` does *not* rebuild it either; the target is
+`libcxx-tidy.plugin`, built via `ninja -C build-libcxx libcxx-tidy.plugin`
+after `touch`ing its sources) — rebuilding the plugin fresh against the
+current `clang-tidy` did not change the crash. (2) `find_package(Clang
+${CMAKE_CXX_COMPILER_VERSION})` in `libcxx/test/tools/clang_tidy_checks/
+CMakeLists.txt` resolving to the system's `/usr/lib/cmake/clang/
+ClangConfig.cmake` instead of `build-nyx` (`build-libcxx`'s `Clang_DIR`
+cache variable is `NOTFOUND`, confirming this) — real, but not the cause:
+the crash reproduces identically with `/usr/bin/clang-tidy` (100% vanilla,
+matching ABI) loading the same plugin. (3) Confirmed both
+`proper_version_checks.cpp` and `internal_ftm_use.cpp` are **byte-identical
+to upstream llvmorg-22.1.8** (`git diff llvmorg-22.1.8 --
+libcxx/test/tools/clang_tidy_checks/{proper_version_checks,
+internal_ftm_use}.cpp libcxx/test/tools/clang_tidy_checks/CMakeLists.txt`
+is empty) — this is a pure upstream LLVM 22.1.8 bug: 100% vanilla
+`clang-tidy` binary, 100% vanilla check source, loading a plugin built the
+normal way, crashing on ordinary system-header preprocessing (`stddef.h`'s
+`__has_include_next` guard). The crash site itself
+(`TokenLexer::PropagateLineStartLeadingSpaceInfo` /
+`Preprocessor::LookupFile`, varies by input — looks like corruption
+surfacing downstream of the real fault, not at it) is unmodified-from-
+upstream code per `git diff llvmorg-22.1.8` on every file in the call
+chain. Not investigated further (real LLVM upstream bug hunting is out of
+this milestone's scope); worth an upstream bug report, but not blocking —
+document as a pre-existing exception with this reproduction, matching the
+tracker's own bar ("independently verified pre-existing reproducer").
+
+**Confirmed pre-existing upstream gap, not a regression —
+`map.access/element_access_transparent.pass.cpp`.** `map`'s heterogeneous
+`at<K>()` (both `const`/non-`const` overloads) is constrained solely on
+`__is_transparently_comparable_v<_Compare, key_type, _K2>` — a strict
+semantic-equivalence check with few specializations (`string`/
+`string_view`, `chrono` durations) — instead of `__is_transparent_v
+<_Compare, _K2> || __is_transparently_comparable_v<...>` like every other
+transparent overload in the same file (`erase`, `find`, `count`, `at`'s own
+sibling `operator[]`, etc.). The test's custom `transparent_less` (just an
+`is_transparent` tag, no specialization) therefore can't use `at()` with a
+`string_view` key. Confirmed **not** a fork regression:
+`git show llvmorg-22.1.8:libcxx/include/map` has the exact same two lines,
+unchanged. A genuine upstream libc++ conformance gap; leave to a future
+session or an upstream report, not this milestone's regression-fixing
+mandate.
+
+**Investigated, hypothesis disproven — `concepts-lambda.cpp`/
+`mangle-requires.cpp`/`ms-mangle-requires.cpp` (still open, item 5 from the
+first session).** Confirmed via vanilla-oracle testing that the exact
+`concepts-lambda.cpp` repro (`GH147650`, at the very end of the file) is
+itself one of upstream's *own* regression tests for this bug shape — i.e.
+upstream already fixed this once, and the fork re-broke it — so this is
+unambiguously a fork regression, not a novel gap. Formed one specific,
+falsifiable hypothesis and disproved it empirically rather than shipping
+it unverified: `Sema::createLambdaClosureType` (`SemaLambda.cpp`) walks
+`CurContext` upward with `while (!(DC->isFunctionOrMethod() ||
+DC->isRecord() || DC->isFileContext() || isa<ExpansionStmtDecl>(DC)))
+DC = DC->getParent();` — a loop upstream does not have at all (`DC =
+CurContext;` is used directly there), added by the fork for expansion-
+statement support. `RequiresExprBodyDecl` (the fictitious `DeclContext`
+requirement-bodies parse inside) matches none of those four conditions —
+not `isFunctionOrMethod()`, not `isRecord()`, not `isFileContext()`, not
+`ExpansionStmtDecl` — despite `DeclContext` having a dedicated
+`isRequiresExprBody()` helper for exactly this check, suggesting the loop
+should have included it. Added `DC->isRequiresExprBody()` to the stop
+condition, rebuilt (`ninja -C build-nyx clang`, full relink), and re-ran
+the repro: **no change** — `concepts-lambda.cpp` still fails identically.
+This means the lambda's *class* `DeclContext` parenting (where
+`createLambdaClosureType` places the synthesized closure type) is not the
+mechanism, whatever it is. Reverted the change (confirmed inert against
+this repro and unverified as correct in general, so not worth the risk of
+carrying an unproven behavior change). **Do not re-try this hypothesis.**
+The bug is specifically "lambda nested inside a `requires { ... }`
+compound-requirement" — plain requires-expressions and plain lambdas both
+resolve `b` correctly in isolation — which points at `Scope`-chain
+handling during initial parsing (`Parser::ParseRequiresExpression` /
+`Parser::ParseLambdaExpressionAfterIntroducer`, `ParseExprCXX.cpp`, the
+single largest fork diff in this area at 141 changed lines) rather than
+`DeclContext` structure: unqualified NTTP lookup during parsing goes
+through the live `Scope` stack, not `DeclContext`, so the shadowing must
+come from how the lambda's `Scope` nests (or fails to nest) under the
+enclosing function template's `TemplateParamScope` specifically when a
+`RequiresExprBodyDecl` sits between them. Next session should trace
+`Sema::ActOnStartRequiresExpr`/the requires-expression body's `Scope`
+push/pop against `Parser::ParseLambdaExpressionAfterIntroducer`'s own
+`Scope` push, not `SemaLambda.cpp`.
+
+**Environmental gotcha — the host filesystem filled up mid-session
+(`/home` hit 100%, 234G/240G) from accumulated `-fmodules` cache scratch
+under `build-libcxx/libcxx/test/extensions/clang/*.dir` (17G, entirely
+disposable lit-test output, regenerated on demand).** This produced a
+first `check-cxx` run with 237 failures — 28 spurious new ones, all
+`clang_modules_include.gen.py`/`module_std.gen.py`/`transitive_includes`
+tests failing on literal "No space left on device" while writing `.pcm`
+files, nothing to do with any code change this session. Deleted
+`build-libcxx/libcxx/test/extensions/clang/` (safe: it's gitignored build
+output, see `.gitignore:30`) to recover 16G, then re-ran `check-cxx` clean.
+**The verified, accurate final count below is from the clean re-run.**
+Flag for future sessions: watch `df -h /home` during any `-fmodules`-heavy
+test run in this environment; the module-cache scratch under `extensions/
+clang/` and `libcxx/module_std*.gen.py/` grows fast and isn't cleaned
+between runs.
+
+**Verification, batched per instruction.** `check-clang`: 9→8 total
+(`splice-exprs.cpp` M1 baseline unchanged; the flaky `ast-dump-default-
+arg-json.cpp` is now a confirmed, deterministic pass — 7 real non-baseline
+failures remain, identical set to the first session's item-5 list:
+`mangle-requires.cpp`, `ms-mangle-requires.cpp`, `concepts-lambda.cpp`,
+`cxx2b-consteval-propagate.cpp`, `builtin-is-within-lifetime.cpp`,
+`cxx2a-constexpr-dynalloc.cpp`, `constant-expression-cxx11.cpp` — untouched
+by this session's fixes, confirmed via targeted re-runs, not re-diagnosed).
+`check-cxx`: 221→209 (Fix 2 and Fix 3 combined removed 12; the 145
+clang-tidy crashes are unchanged in nature but now confirmed pure-upstream
+rather than merely "not yet confirmed"). Full breakdown of the 209,
+verified against the clean (post-disk-cleanup) run:
+- 145 `clang_tidy.gen.py`/`*.sh.py` (confirmed pure upstream, this session).
+- 27 `std/execution/**` (Tier 2, out of scope, unchanged from first session's
+  count of "~24" — the small delta is from more precise counting this
+  session, not a regression).
+- 8 libc++ reflection-suite failures: the six M1-baseline names
+  (`annotation-module-serialization.sh.cpp`, `miscellaneous.pass.cpp`,
+  `namespace-reflection-equality-reopened.pass.cpp`,
+  `p3096-fn-parameters.pass.cpp`,
+  `parameter-reflection-kind-preserved.pass.cpp`, `to-and-from-values.
+  pass.cpp`) plus the first session's `reflection-ex-enum-to-string.
+  pass.cpp`, plus one genuinely new name not previously documented:
+  `reflection-ex-parsing-command-line-options-2.sh.cpp` — not triaged this
+  session, next session should check it against vanilla first (it almost
+  certainly can't be, since it's fork-only reflection functionality) and
+  then `docs/REFLECTION.md`/`docs/CXX26_GAPS.md`.
+- 7 `std` module partition content gap (`module_std.gen.py`,
+  `module_std_compat.gen.py`, three `selftest/modules/*.sh.cpp`,
+  `std/modules/std.pass.cpp`, `std/modules/std.compat.pass.cpp`) — same
+  "missing `define_static_array`/`define_static_string`/`std::meta::
+  reflection_v2::*`" gap the first session already named.
+- 22 other substantive failures, all previously named by the first session
+  except three genuinely new ones flagged here for next-session triage:
+  `libcxx/gdb/gdb_pretty_printer_test.sh.cpp`,
+  `std/utilities/optional/optional.syn/optional_nullopt_t.verify.cpp`, and
+  the `transitive_includes.gen.py/{execution,linalg,scope,simd}.sh.cpp`
+  golden-CSV mismatches (likely the same "golden file never updated for
+  fork-added headers" shape as the first session's Fix 5a, given `linalg`/
+  `execution`/`scope`/`simd` are all fork-original C++26 headers — not
+  confirmed, just the obvious first lead). The previously-named items
+  (`element_access_transparent.pass.cpp` — now confirmed upstream, see
+  above; `inplace.vector` ×3; transparent-lookup-shaped map/set/unordered
+  failures — now fixed, see Fix 2; `atomic_fetch_{add,sub}{,_explicit}
+  .verify.cpp` ×4; `extensions/gnu/hash/specializations.verify.cpp`;
+  `optional.iterator{,s}` ×3; two `is_within_lifetime` tests;
+  `atomics.ref/cv_qualified.pass.cpp`) are unchanged and still open.
+
+Milestone 8 remains `[~]`. Do not re-run the full `check-clang`/`check-cxx`
+baseline-gathering step next session — the numbers and full failure lists
+above are already the accurate, current-tree state as of this commit
+(post-disk-cleanup, clean run). Priority order for the next session:
+(1) the `concepts-lambda.cpp` `Scope`-chain lead above (highest-value single
+fix left — resolves 3 `check-clang` test names at once); (2) the three
+newly-flagged `check-cxx` names (triage only, likely cheap); (3) the
+`std` module partition content gap (7 tests, one root cause); (4) an
+upstream bug report for the clang-tidy crash, time permitting (not
+blocking M8). `std::execution` (27) and the `map::at` upstream gap remain
+explicitly out of this milestone's scope.
