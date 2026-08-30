@@ -102,7 +102,8 @@ def metafn_result_not_representable : Note<
   "provided %select{value|object}0 cannot be represented by a reflection">;
 
 def metafn_p3385_non_standard_attribute : Warning<
-  "non-standard attribute %0 found when expanding attributes">;
+  "non-standard attribute %0 found when expanding attributes">,
+  InGroup<DiagGroup<"p3385-non-standard-attribute">>;
 def metafn_p3385_attributes_of_null: Note<
   "the null reflection has no associated attributes">;
 def metafn_p3385_no_declaration_for_type : Error<

@@ -548,14 +548,17 @@ LinkerScript::computeInputSections(const InputSectionDescription *cmd,
           ctx.arg.sortSection, SortSectionPolicy::None);
     };
 
+    bool enableNonContiguousRegions = ctx.arg.enableNonContiguousRegions;
     for (const SectionPattern &pat : cmd->sectionPatterns) {
       size_t sizeBeforeCurrPat = ret.size();
 
       for (size_t i = 0, e = sections.size(); i != e; ++i) {
-        // Skip if the section is dead or has been matched by a previous pattern
-        // in this input section description.
+        // Skip if the section is dead, has been matched by a previous input
+        // section description with non-contiguous regions disabled, or has been
+        // matched by a previous pattern in this input section description.
         InputSectionBase *sec = sections[i];
-        if (!sec->isLive() || seen.contains(i))
+        if (!sec->isLive() || (!enableNonContiguousRegions && sec->parent) ||
+            seen.contains(i))
           continue;
 
         // For --emit-relocs we have to ignore entries like
@@ -576,9 +579,7 @@ LinkerScript::computeInputSections(const InputSectionDescription *cmd,
           continue;
 
         if (sec->parent) {
-          // Skip if not allowing multiple matches.
-          if (!ctx.arg.enableNonContiguousRegions)
-            continue;
+          assert(ctx.arg.enableNonContiguousRegions);
 
           // Disallow spilling into /DISCARD/; special handling would be needed
           // for this in address assignment, and the semantics are nebulous.
@@ -1021,10 +1022,6 @@ void LinkerScript::addOrphanSections() {
     }
   };
 
-  // For further --emit-reloc handling code we need target output section
-  // to be created before we create relocation output section, so we want
-  // to create target sections first. We do not want priority handling
-  // for synthetic sections because them are special.
   size_t n = 0;
   for (InputSectionBase *isec : ctx.inputSections) {
     // Process InputSection and MergeInputSection.
@@ -1037,10 +1034,18 @@ void LinkerScript::addOrphanSections() {
     if (ctx.arg.relocatable && (isec->flags & SHF_LINK_ORDER))
       continue;
 
-    if (auto *sec = dyn_cast<InputSection>(isec))
-      if (InputSectionBase *rel = sec->getRelocatedSection())
-        if (auto *relIS = dyn_cast_or_null<InputSectionBase>(rel->parent))
-          add(relIS);
+    if (auto *sec = dyn_cast<InputSection>(isec)) {
+      if (InputSectionBase *relocated = sec->getRelocatedSection()) {
+        // For --emit-relocs and -r, ensure the output section for .text.foo
+        // is created before the output section for .rela.text.foo.
+        add(relocated);
+        // EhInputSection sections are not added to ctx.inputSections. If we see
+        // .rela.eh_frame, ensure the output section for the synthetic
+        // EhFrameSection is created first.
+        if (auto *p = dyn_cast_or_null<InputSectionBase>(relocated->parent))
+          add(p);
+      }
+    }
     add(isec);
     if (ctx.arg.relocatable)
       for (InputSectionBase *depSec : isec->dependentSections)
@@ -1230,6 +1235,9 @@ bool LinkerScript::assignOffsets(OutputSection *sec) {
   if (sec->firstInOverlay)
     state->overlaySize = 0;
 
+  bool synthesizeAlign =
+      ctx.arg.relocatable && ctx.arg.relax && (sec->flags & SHF_EXECINSTR) &&
+      (ctx.arg.emachine == EM_LOONGARCH || ctx.arg.emachine == EM_RISCV);
   // We visited SectionsCommands from processSectionCommands to
   // layout sections. Now, we visit SectionsCommands again to fix
   // section offsets.
@@ -1260,7 +1268,10 @@ bool LinkerScript::assignOffsets(OutputSection *sec) {
       if (isa<PotentialSpillSection>(isec))
         continue;
       const uint64_t pos = dot;
-      dot = alignToPowerOf2(dot, isec->addralign);
+      // If synthesized ALIGN may be needed, call maybeSynthesizeAlign and
+      // disable the default handling if the return value is true.
+      if (!(synthesizeAlign && ctx.target->synthesizeAlign(dot, isec)))
+        dot = alignToPowerOf2(dot, isec->addralign);
       isec->outSecOff = dot - sec->addr;
       dot += isec->getSize();
 
@@ -1275,6 +1286,12 @@ bool LinkerScript::assignOffsets(OutputSection *sec) {
   // boundary to protect the last page.
   if (ctx.in.relroPadding && sec == ctx.in.relroPadding->getParent())
     expandOutputSection(alignToPowerOf2(dot, ctx.arg.commonPageSize) - dot);
+
+  if (synthesizeAlign) {
+    const uint64_t pos = dot;
+    ctx.target->synthesizeAlign(dot, nullptr);
+    expandOutputSection(dot - pos);
+  }
 
   // Non-SHF_ALLOC sections do not affect the addresses of other OutputSections
   // as they are not part of the process image.

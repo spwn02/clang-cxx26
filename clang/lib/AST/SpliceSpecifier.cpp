@@ -1,14 +1,10 @@
-//===--- SpliceSpecifier.cpp - Class for splice specifiers ------*- C++ -*-===//
+//===--- SpliceSpecifier.cpp - C++26 splice specifier ------------*- C++ -*-===//
 //
 // Copyright 2025 Bloomberg Finance L.P.
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-//
-//  This file implements the SpliceSpecifier class.
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,31 +15,29 @@
 
 namespace clang {
 
-void *SpliceSpecifier::operator new(size_t bytes, const ASTContext &C,
-                                    unsigned alignment) {
-  return ::operator new(bytes, C, alignment);
+void *SpliceSpecifier::operator new(size_t Bytes, const ASTContext &C,
+                                    unsigned Alignment) {
+  return ::operator new(Bytes, C, Alignment);
 }
 
 SpliceSpecifier::SpliceSpecifier(
-    SourceLocation LSplice, Expr *Operand, SourceLocation RSplice,
+    SourceLocation LSpliceLoc, Expr *Operand, SourceLocation RSpliceLoc,
     const ASTTemplateArgumentListInfo *TemplateArgs)
-: LSpliceLoc(LSplice), Operand(Operand), RSpliceLoc(RSplice),
-  TemplateArgs(TemplateArgs) {
-}
+    : LSpliceLoc(LSpliceLoc), Operand(Operand), RSpliceLoc(RSpliceLoc),
+      TemplateArgs(TemplateArgs) {}
 
 SpliceSpecifier *SpliceSpecifier::Create(
-    ASTContext &C, SourceLocation LSplice, Expr *Operand,
-    SourceLocation RSplice, const ASTTemplateArgumentListInfo *TemplateArgs) {
-  return new (C) SpliceSpecifier(LSplice, Operand, RSplice, TemplateArgs);
+    ASTContext &C, SourceLocation LSpliceLoc, Expr *Operand,
+    SourceLocation RSpliceLoc,
+    const ASTTemplateArgumentListInfo *TemplateArgs) {
+  return new (C) SpliceSpecifier(LSpliceLoc, Operand, RSpliceLoc, TemplateArgs);
 }
 
 SpliceSpecifierDependence SpliceSpecifier::getDependence() const {
   auto Result = toSpliceSpecifierDependence(Operand->getDependence());
   if (TemplateArgs)
-    for (const auto &TArg : TemplateArgs->arguments())
-      Result |=
-        toSpliceSpecifierDependence(TArg.getArgument().getDependence());
-
+    for (const auto &Arg : TemplateArgs->arguments())
+      Result |= toSpliceSpecifierDependence(Arg.getArgument().getDependence());
   return Result;
 }
 
@@ -57,4 +51,4 @@ SourceLocation SpliceSpecifier::getRAngleLoc() const {
   return TemplateArgs->getRAngleLoc();
 }
 
-}  // end namespace clang
+} // namespace clang

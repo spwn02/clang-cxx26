@@ -1,7 +1,5 @@
 //===--- TokenKinds.def - C Family Token Kind Database ----------*- C++ -*-===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -255,7 +253,7 @@ PUNCTUATOR(periodstar,          ".*")
 PUNCTUATOR(arrowstar,           "->*")
 PUNCTUATOR(coloncolon,          "::")
 
-// C++2c Reflection Support (CXX26)
+// C++26 reflection support.
 PUNCTUATOR(l_splice,            "[:")
 PUNCTUATOR(r_splice,            ":]")
 
@@ -300,6 +298,7 @@ PUNCTUATOR(greatergreatergreater, ">>>")
 //   CHAR8SUPPORT - This is a keyword if 'char8_t' is a built-in type
 //   KEYFIXEDPOINT - This is a keyword according to the N1169 fixed point
 //                   extension.
+//   KEYDEFERTS - This is a keyword if the C '_Defer' TS is enabled
 //   KEYZOS - This is a keyword in C/C++ on z/OS
 //
 KEYWORD(auto                        , KEYALL)
@@ -438,7 +437,7 @@ CXX20_KEYWORD(constinit             , 0)
 CXX20_KEYWORD(concept               , 0)
 CXX20_KEYWORD(requires              , 0)
 
-// C++2c reflection keywords.
+// C++26 reflection keyword.
 KEYWORD(__metafunction              , KEYREFLECT)
 
 // Not a CXX20_KEYWORD because it is disabled by -fno-char8_t.
@@ -450,6 +449,9 @@ KEYWORD(_Float16                    , KEYALL)
 // C23 keywords
 C23_KEYWORD(typeof                  , KEYGNU)
 C23_KEYWORD(typeof_unqual           , 0)
+
+// '_Defer' TS
+KEYWORD(_Defer                      , KEYDEFERTS)
 
 // ISO/IEC JTC1 SC22 WG14 N1169 Extension
 KEYWORD(_Accum                      , KEYFIXEDPOINT)
@@ -563,6 +565,10 @@ TYPE_TRAIT_1(__can_pass_in_regs, CanPassInRegs, KEYCXX)
 TYPE_TRAIT_2(__reference_binds_to_temporary, ReferenceBindsToTemporary, KEYCXX)
 TYPE_TRAIT_2(__reference_constructs_from_temporary, ReferenceConstructsFromTemporary, KEYCXX)
 TYPE_TRAIT_2(__reference_converts_from_temporary, ReferenceConvertsFromTemporary, KEYCXX)
+TYPE_TRAIT_2(__builtin_lt_synthesizes_from_spaceship, LtSynthesizesFromSpaceship, KEYCXX)
+TYPE_TRAIT_2(__builtin_le_synthesizes_from_spaceship, LeSynthesizesFromSpaceship, KEYCXX)
+TYPE_TRAIT_2(__builtin_gt_synthesizes_from_spaceship, GtSynthesizesFromSpaceship, KEYCXX)
+TYPE_TRAIT_2(__builtin_ge_synthesizes_from_spaceship, GeSynthesizesFromSpaceship, KEYCXX)
 // IsDeducible is only used internally by clang for CTAD implementation and
 // is not exposed to users.
 TYPE_TRAIT_2(/*EmptySpellingName*/, IsDeducible, KEYCXX)
@@ -571,7 +577,6 @@ TYPE_TRAIT_2(/*EmptySpellingName*/, IsDeducible, KEYCXX)
 TYPE_TRAIT_1(__builtin_is_cpp_trivially_relocatable, IsCppTriviallyRelocatable, KEYCXX)
 TYPE_TRAIT_1(__is_trivially_relocatable, IsTriviallyRelocatable, KEYCXX)
 TYPE_TRAIT_1(__is_bitwise_cloneable, IsBitwiseCloneable, KEYALL)
-TYPE_TRAIT_1(__builtin_is_replaceable, IsReplaceable, KEYCXX)
 TYPE_TRAIT_1(__builtin_structured_binding_size, StructuredBindingSize, KEYCXX)
 
 

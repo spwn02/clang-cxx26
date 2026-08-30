@@ -1,7 +1,5 @@
 //===- Lexer.cpp - C Language Family Lexer --------------------------------===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -43,9 +41,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <string>
-#include <tuple>
 
 #ifdef __SSE4_2__
 #include <nmmintrin.h>
@@ -175,8 +173,6 @@ void Lexer::InitLexer(const char *BufStart, const char *BufPtr,
   ExtendedTokenMode = 0;
 
   NewLinePtr = nullptr;
-
-  IsFirstPPToken = true;
 }
 
 /// Lexer constructor - Create a new lexer object for the specified buffer
@@ -931,9 +927,7 @@ static CharSourceRange makeRangeFromFileLocs(CharSourceRange Range,
   }
 
   // Break down the source locations.
-  FileID FID;
-  unsigned BeginOffs;
-  std::tie(FID, BeginOffs) = SM.getDecomposedLoc(Begin);
+  auto [FID, BeginOffs] = SM.getDecomposedLoc(Begin);
   if (FID.isInvalid())
     return {};
 
@@ -3228,7 +3222,6 @@ std::optional<Token> Lexer::peekNextPPToken() {
   bool atStartOfLine = IsAtStartOfLine;
   bool atPhysicalStartOfLine = IsAtPhysicalStartOfLine;
   bool leadingSpace = HasLeadingSpace;
-  bool isFirstPPToken = IsFirstPPToken;
 
   Token Tok;
   Lex(Tok);
@@ -3239,7 +3232,6 @@ std::optional<Token> Lexer::peekNextPPToken() {
   HasLeadingSpace = leadingSpace;
   IsAtStartOfLine = atStartOfLine;
   IsAtPhysicalStartOfLine = atPhysicalStartOfLine;
-  IsFirstPPToken = isFirstPPToken;
   // Restore the lexer back to non-skipping mode.
   LexingRawMode = false;
 
@@ -3460,7 +3452,7 @@ std::optional<uint32_t> Lexer::tryReadNumericUCN(const char *&StartPtr,
     }
 
     unsigned Value = llvm::hexDigitValue(C);
-    if (Value == -1U) {
+    if (Value == std::numeric_limits<unsigned>::max()) {
       if (!Delimited)
         break;
       if (Diagnose)
@@ -3727,11 +3719,6 @@ bool Lexer::Lex(Token &Result) {
   if (HasLeadingEmptyMacro) {
     Result.setFlag(Token::LeadingEmptyMacro);
     HasLeadingEmptyMacro = false;
-  }
-
-  if (IsFirstPPToken) {
-    Result.setFlag(Token::FirstPPToken);
-    IsFirstPPToken = false;
   }
 
   bool atPhysicalStartOfLine = IsAtPhysicalStartOfLine;
@@ -4070,29 +4057,23 @@ LexStart:
   case '[': {
     size_t SuccessiveColons = 0;
 
-    // There may be as many as 3 successive colons:
-    // - `[: ...` for an 'l_splice' token.
-    // - `[:: ...` for an 'l_square' token followed by a 'coloncolon' token.
-    // - `[: :: ...` for an 'l_splice' token followed by a 'coloncolon' token.
+    // `[::` must remain `[` followed by `::`; other `[:` patterns begin a
+    // reflection splice token (except the `:>` digraph).
     Char = getCharAndSize(CurPtr, SizeTmp);
     SizeTmp2 = 0;
     while (Char == ':' && SuccessiveColons <= 3) {
       unsigned SizeTmp3;
       Char = getCharAndSize(CurPtr + SizeTmp + SizeTmp2, SizeTmp3);
       SizeTmp2 += SizeTmp3;
-
-      if (Char != '>')  // Check for ':>'-digraph.
+      if (Char != '>')
         ++SuccessiveColons;
     }
 
-    // Every `[:`-pattern except for `[::` indicates an `l_splice` token.
     if (SuccessiveColons > 0 && SuccessiveColons != 2) {
       if (LangOpts.Reflection) {
         Kind = tok::l_splice;
         CurPtr += SizeTmp;
       } else {
-        if (!isLexingRawMode() && !LangOpts.OpenMP && !LangOpts.OpenACC)
-          Diag(CurPtr, diag::warn_reflection_disabled) << "[:";
         Kind = tok::l_square;
       }
     } else {
@@ -4427,8 +4408,6 @@ LexStart:
         Kind = tok::r_splice;
         CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
       } else {
-        if (!isLexingRawMode() && !LangOpts.OpenMP && !LangOpts.OpenACC)
-          Diag(BufferPtr, diag::warn_reflection_disabled) << ":]";
         Kind = tok::colon;
       }
     } else {
@@ -4633,6 +4612,9 @@ bool Lexer::LexDependencyDirectiveToken(Token &Result) {
 
   if (Result.is(tok::hash) && Result.isAtStartOfLine()) {
     PP->HandleDirective(Result);
+    if (PP->hadModuleLoaderFatalFailure())
+      // With a fatal failure in the module loader, we abort parsing.
+      return true;
     return false;
   }
   if (Result.is(tok::raw_identifier)) {
@@ -4751,8 +4733,8 @@ bool Lexer::validateIdentifier(const std::string &In) {
   // Validate leading character.
   if (*Cursor == '\\') {
     const char *SlashLoc = Cursor++;
-    std::optional<uint32_t> UCN = tryReadUCN(Cursor, SlashLoc, nullptr);
-    if (!UCN || !XIDStartChars.contains(UCN.value()))
+    uint32_t UCN = tryReadUCN(Cursor, SlashLoc, nullptr);
+    if (!UCN || !XIDStartChars.contains(UCN))
       return false;
   } else {
     llvm::UTF32 CodePoint;
@@ -4772,9 +4754,9 @@ bool Lexer::validateIdentifier(const std::string &In) {
   while (Cursor < End) {
     if (*Cursor == '\\') {
       const char *SlashLoc = Cursor++;
-      std::optional<uint32_t> UCN = tryReadUCN(Cursor, SlashLoc, nullptr);
-      if (!UCN || !(XIDStartChars.contains(UCN.value()) ||
-                    XIDContinueChars.contains(UCN.value())))
+      uint32_t UCN = tryReadUCN(Cursor, SlashLoc, nullptr);
+      if (!UCN || !(XIDStartChars.contains(UCN) ||
+                    XIDContinueChars.contains(UCN)))
         return false;
     } else {
       llvm::UTF32 CodePoint;

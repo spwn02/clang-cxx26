@@ -156,3 +156,43 @@ constexpr const void *ptr = fn2();
 // expected-note@-2 {{pointer into an object of consteval-only type}}
 
 }  // namespace alias_smuggling
+
+
+                            // =======================
+                            // destructor_escalation
+                            // =======================
+
+// A destructor whose body handles a consteval-only value (directly, or via
+// a base/member) must still be able to become an immediate function like
+// any other member of a consteval-only class template specialization, so a
+// container of a consteval-only type (e.g. std::vector<std::meta::info>)
+// can be destroyed inside a manifestly constant-evaluated context. Plain,
+// non-template destructors remain excluded per [expr.const]p17, unaffected
+// by this.
+namespace destructor_escalation {
+
+template <typename T>
+struct Holder {
+  T m;
+  constexpr ~Holder() { (void) m; }
+};
+
+consteval bool fn() {
+  Holder<info> h{^^int};
+  return true;
+}
+static_assert(fn());
+
+template <typename T>
+struct Wrapper {
+  Holder<T> h;
+  constexpr ~Wrapper() {}
+};
+
+consteval bool fn2() {
+  Wrapper<info> w{{^^int}};
+  return true;
+}
+static_assert(fn2());
+
+}  // namespace destructor_escalation

@@ -19,7 +19,9 @@
 
 #include <__assert>
 #include <__atomic/atomic_sync.h>
+#include <__atomic/atomic_waitable_traits.h>
 #include <__atomic/check_memory_order.h>
+#include <__atomic/floating_point_helper.h>
 #include <__atomic/memory_order.h>
 #include <__atomic/to_gcc_order.h>
 #include <__concepts/arithmetic.h>
@@ -144,7 +146,9 @@ public:
                 "std::atomic_ref<T>: a volatile-qualified referenced type requires the atomic_ref "
                 "specialization to always be lock-free");
 
-  _LIBCPP_HIDE_FROM_ABI bool is_lock_free() const noexcept { return __atomic_is_lock_free(sizeof(_Tp), __ptr_); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool is_lock_free() const noexcept {
+    return __atomic_is_lock_free(sizeof(_Tp), __ptr_);
+  }
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
   store(value_type __desired, memory_order __order = memory_order::seq_cst) const noexcept
@@ -169,7 +173,7 @@ public:
     return __desired;
   }
 
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type
   load(memory_order __order = memory_order::seq_cst) const noexcept _LIBCPP_CHECK_LOAD_MEMORY_ORDER(__order) {
 #  if _LIBCPP_STD_VER >= 26
     if consteval {
@@ -337,9 +341,10 @@ public:
         "atomic_ref: memory order argument to atomic wait operation is invalid");
     std::__atomic_wait(*this, __old, __order);
   }
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_one() const noexcept
-    requires(!is_const_v<_Tp>)
-  {
+  // No `requires(!is_const_v<_Tp>)` here (unlike store/operator=/fetch_*): notify doesn't write
+  // through __ptr_, it only pokes the shared wait-state, so it's meaningful on a const-object
+  // atomic_ref too -- matching wait() above, which has the same shape and no such constraint.
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_one() const noexcept {
 #  if _LIBCPP_STD_VER >= 26
     if consteval {
       return; // no-op: constant evaluation is single-threaded, so nothing can be waiting.
@@ -347,9 +352,7 @@ public:
 #  endif
     std::__atomic_notify_one(*this);
   }
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_all() const noexcept
-    requires(!is_const_v<_Tp>)
-  {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_all() const noexcept {
 #  if _LIBCPP_STD_VER >= 26
     if consteval {
       return; // no-op: constant evaluation is single-threaded, so nothing can be waiting.
@@ -359,7 +362,7 @@ public:
   }
 
 #  if _LIBCPP_STD_VER >= 26
-  _LIBCPP_HIDE_FROM_ABI constexpr _Tp* address() const noexcept { return __ptr_; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp* address() const noexcept { return __ptr_; }
 #  endif // _LIBCPP_STD_VER >= 26
 
 protected:
@@ -371,8 +374,9 @@ protected:
 
 template <class _Tp>
 struct __atomic_waitable_traits<__atomic_ref_base<_Tp>> {
-  static _LIBCPP_HIDE_FROM_ABI typename __atomic_ref_base<_Tp>::value_type
-  __atomic_load(const __atomic_ref_base<_Tp>& __a, memory_order __order) {
+  using __value_type _LIBCPP_NODEBUG = _Tp;
+
+  static _LIBCPP_HIDE_FROM_ABI _Tp __atomic_load(const __atomic_ref_base<_Tp>& __a, memory_order __order) {
     return __a.load(__order);
   }
   static _LIBCPP_HIDE_FROM_ABI const _Tp* __atomic_contention_address(const __atomic_ref_base<_Tp>& __a) {
@@ -613,6 +617,14 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
 
   atomic_ref& operator=(const atomic_ref&) = delete;
 
+  // Does not use upstream's `if constexpr (std::__has_rmw_builtin<_Tp>())` fast path here
+  // (calling __atomic_fetch_add/__atomic_fetch_sub directly): that path is unconditional, not
+  // guarded by `if consteval`, so combining it with this function's new C++26 constexpr support
+  // would call a runtime-only atomic builtin during constant evaluation for any _Tp with an rmw
+  // builtin. Upstream's fetch_add/fetch_sub are not (yet) marked constexpr, so this interaction
+  // never arises for them. Kept the CAS-loop-only body, which composes safely out of load()'s and
+  // compare_exchange_weak()'s own already-consteval-safe implementations. Follow-up: restore the
+  // builtin fast path guarded by `if !consteval`, once verified.
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type
   fetch_add(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept
     requires(!is_const_v<_Tp>)

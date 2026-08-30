@@ -115,7 +115,7 @@ template <class _ExecutionPolicy,
           class _Predicate,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI __iter_diff_t<_ForwardIterator>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI __iterator_difference_type<_ForwardIterator>
 count_if(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, _Predicate __pred) {
   _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(
       _ForwardIterator, "count_if(first, last, pred) requires [first, last) to be ForwardIterators");
@@ -133,7 +133,7 @@ template <class _ExecutionPolicy,
           ,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI __iter_diff_t<_ForwardIterator>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI __iterator_difference_type<_ForwardIterator>
 count(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, const _Tp& __value) {
   _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(
       _ForwardIterator, "count(first, last, val) requires [first, last) to be ForwardIterators");
@@ -148,7 +148,7 @@ template <class _ExecutionPolicy,
           class _Pred,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI bool
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool
 equal(_ExecutionPolicy&& __policy,
       _ForwardIterator1 __first1,
       _ForwardIterator1 __last1,
@@ -170,7 +170,7 @@ template <class _ExecutionPolicy,
           class _ForwardIterator2,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI bool
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool
 equal(_ExecutionPolicy&& __policy, _ForwardIterator1 __first1, _ForwardIterator1 __last1, _ForwardIterator2 __first2) {
   _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator1, "equal requires ForwardIterators");
   _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator2, "equal requires ForwardIterators");
@@ -189,7 +189,7 @@ template <class _ExecutionPolicy,
           class _Pred,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI bool
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool
 equal(_ExecutionPolicy&& __policy,
       _ForwardIterator1 __first1,
       _ForwardIterator1 __last1,
@@ -213,7 +213,7 @@ template <class _ExecutionPolicy,
           class _ForwardIterator2,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI bool
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool
 equal(_ExecutionPolicy&& __policy,
       _ForwardIterator1 __first1,
       _ForwardIterator1 __last1,
@@ -271,7 +271,7 @@ template <class _ExecutionPolicy,
           class _Predicate,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI _ForwardIterator
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _ForwardIterator
 find_if(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, _Predicate __pred) {
   _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator, "find_if requires ForwardIterators");
   using _Implementation = __pstl::__dispatch<__pstl::__find_if, __pstl::__current_configuration, _RawPolicy>;
@@ -284,7 +284,7 @@ template <class _ExecutionPolicy,
           class _Predicate,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI _ForwardIterator
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _ForwardIterator
 find_if_not(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, _Predicate __pred) {
   _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator, "find_if_not requires ForwardIterators");
   using _Implementation = __pstl::__dispatch<__pstl::__find_if_not, __pstl::__current_configuration, _RawPolicy>;
@@ -301,7 +301,7 @@ template <class _ExecutionPolicy,
           ,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI _ForwardIterator
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _ForwardIterator
 find(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, const _Tp& __value) {
   _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator, "find requires ForwardIterators");
   using _Implementation = __pstl::__dispatch<__pstl::__find, __pstl::__current_configuration, _RawPolicy>;

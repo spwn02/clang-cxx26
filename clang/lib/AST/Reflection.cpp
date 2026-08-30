@@ -7,24 +7,18 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-//  This file implements the ReflectionValue class.
-//
-//===----------------------------------------------------------------------===//
 
 #include "clang/AST/Reflection.h"
 
 namespace clang {
 
-bool TagDataMemberSpec::operator==(TagDataMemberSpec const &Rhs) const {
-  return (Ty == Rhs.Ty &&
-          Alignment == Rhs.Alignment &&
-          BitWidth == Rhs.BitWidth &&
-          Name == Rhs.Name);
+bool TagDataMemberSpec::operator==(const TagDataMemberSpec &Rhs) const {
+  return Ty == Rhs.Ty && Alignment == Rhs.Alignment &&
+         BitWidth == Rhs.BitWidth && Name == Rhs.Name;
 }
 
-bool TagDataMemberSpec::operator!=(TagDataMemberSpec const &Rhs) const {
+bool TagDataMemberSpec::operator!=(const TagDataMemberSpec &Rhs) const {
   return !(*this == Rhs);
 }
 
-}  // end namespace clang
+} // namespace clang

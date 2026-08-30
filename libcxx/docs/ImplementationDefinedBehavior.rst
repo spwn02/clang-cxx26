@@ -69,6 +69,13 @@ on the domain boundary (``k == +-1``): the Carlson symmetric-form evaluation use
 well-defined limit there.
 
 
+`[filebuf.virtuals] <https://eel.is/c++draft/filebuf.virtual>`_ Effect of calling ``basic_filebuf::setbuf`` with nonzero arguments
+----------------------------------------------------------------------------------------------------------------------------------
+
+Libc++ uses the provided buffer as the underlying buffer for input and output, and
+does not discard that buffer even when the stream is closed.
+
+
 `[stringbuf.cons] <http://eel.is/c++draft/stringbuf.cons>`_ Whether sequence pointers are initialized to null pointers
 ----------------------------------------------------------------------------------------------------------------------
 

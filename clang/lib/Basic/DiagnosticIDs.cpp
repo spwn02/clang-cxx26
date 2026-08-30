@@ -69,6 +69,7 @@ enum DiagnosticClass {
   CLASS_WARNING = DiagnosticIDs::CLASS_WARNING,
   CLASS_EXTENSION = DiagnosticIDs::CLASS_EXTENSION,
   CLASS_ERROR = DiagnosticIDs::CLASS_ERROR,
+  CLASS_TRAP = DiagnosticIDs::CLASS_TRAP,
 };
 
 struct StaticDiagInfoRec {
@@ -140,6 +141,7 @@ VALIDATE_DIAG_SIZE(SEMA)
 VALIDATE_DIAG_SIZE(ANALYSIS)
 VALIDATE_DIAG_SIZE(REFACTORING)
 VALIDATE_DIAG_SIZE(INSTALLAPI)
+VALIDATE_DIAG_SIZE(TRAP)
 #undef VALIDATE_DIAG_SIZE
 #undef STRINGIFY_NAME
 
@@ -173,6 +175,7 @@ const StaticDiagInfoRec StaticDiagInfo[] = {
 #include "clang/Basic/DiagnosticAnalysisKinds.inc"
 #include "clang/Basic/DiagnosticRefactoringKinds.inc"
 #include "clang/Basic/DiagnosticInstallAPIKinds.inc"
+#include "clang/Basic/DiagnosticTrapKinds.inc"
 // clang-format on
 #undef DIAG
 };
@@ -217,6 +220,7 @@ CATEGORY(SEMA, METAFN)
 CATEGORY(ANALYSIS, SEMA)
 CATEGORY(REFACTORING, ANALYSIS)
 CATEGORY(INSTALLAPI, REFACTORING)
+CATEGORY(TRAP, INSTALLAPI)
 #undef CATEGORY
 
   // Avoid out of bounds reads.
@@ -501,8 +505,13 @@ DiagnosticIDs::getDiagnosticSeverity(unsigned DiagID, SourceLocation Loc,
 
   // For extension diagnostics that haven't been explicitly mapped, check if we
   // should upgrade the diagnostic.
-  if (IsExtensionDiag && !Mapping.isUser())
-    Result = std::max(Result, State->ExtBehavior);
+  if (IsExtensionDiag && !Mapping.isUser()) {
+    if (Mapping.hasNoWarningAsError())
+      Result = std::max(Result,
+                        std::min(State->ExtBehavior, diag::Severity::Warning));
+    else
+      Result = std::max(Result, State->ExtBehavior);
+  }
 
   // At this point, ignored errors can no longer be upgraded.
   if (Result == diag::Severity::Ignored)
@@ -562,14 +571,13 @@ DiagnosticIDs::getDiagnosticSeverity(unsigned DiagID, SourceLocation Loc,
       return diag::Severity::Ignored;
   }
   // We also ignore warnings due to system macros
-  if (State->SuppressSystemWarnings && Loc.isValid() &&
-      SM.isInSystemMacro(Loc)) {
+  if (State->SuppressSystemWarnings && Loc.isValid()) {
 
     bool ShowInSystemMacro = true;
     if (const StaticDiagInfoRec *Rec = GetDiagInfo(DiagID))
       ShowInSystemMacro = Rec->WarnShowInSystemMacro;
 
-    if (!ShowInSystemMacro)
+    if (!ShowInSystemMacro && SM.isInSystemMacro(Loc))
       return diag::Severity::Ignored;
   }
   // Clang-diagnostics pragmas always take precedence over suppression mapping.
@@ -836,8 +844,12 @@ bool DiagnosticIDs::isUnrecoverable(unsigned DiagID) const {
       DiagID == diag::err_unavailable_message)
     return false;
 
-  // Currently we consider all ARC errors as recoverable.
-  if (isARCDiagnostic(DiagID))
+  // All ARC errors are currently considered recoverable, with the exception of
+  // err_arc_may_not_respond. This specific error is treated as unrecoverable
+  // because sending a message with an unknown selector could lead to crashes
+  // within CodeGen if the resulting expression is used to initialize a C++
+  // auto variable, where type deduction is required.
+  if (isARCDiagnostic(DiagID) && DiagID != diag::err_arc_may_not_respond)
     return false;
 
   if (isCodegenABICheckDiagnostic(DiagID))

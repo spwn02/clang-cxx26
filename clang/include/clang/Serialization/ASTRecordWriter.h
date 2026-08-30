@@ -1,7 +1,5 @@
 //===- ASTRecordWriter.h - Helper classes for writing AST -------*- C++ -*-===//
 //
-// Copyright 2024 Bloomberg Finance L.P.
-//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -238,10 +236,6 @@ public:
   /// Emit a set of C++ base specifiers.
   void AddCXXBaseSpecifiers(ArrayRef<CXXBaseSpecifier> Bases);
 
-  void writeCXXBaseSpecifierRef(const CXXBaseSpecifier *S) {
-    AddCXXBaseSpecifier(*S);
-  }
-
   /// Emit a reference to a type.
   void AddTypeRef(QualType T) {
     return Writer->AddTypeRef(getASTContext(), T, *Record);
@@ -257,8 +251,7 @@ public:
   void AddTypeLoc(TypeLoc TL);
 
   /// Emits a template argument location info.
-  void AddTemplateArgumentLocInfo(TemplateArgument::ArgKind Kind,
-                                  const TemplateArgumentLocInfo &Arg);
+  void AddTemplateArgumentLocInfo(const TemplateArgumentLoc &Arg);
 
   /// Emits a template argument location.
   void AddTemplateArgumentLoc(const TemplateArgumentLoc &Arg);
@@ -270,23 +263,12 @@ public:
   // Emits a concept reference.
   void AddConceptReference(const ConceptReference *CR);
 
-  // Emits a splice specifier.
-  void AddSpliceSpecifier(const SpliceSpecifier *SS);
-  void writeSpliceSpecifierRef(const SpliceSpecifier *SS) {
-    AddSpliceSpecifier(SS);
-  }
-
   /// Emit a reference to a declaration.
   void AddDeclRef(const Decl *D) {
     return Writer->AddDeclRef(D, *Record);
   }
   void writeDeclRef(const Decl *D) {
     AddDeclRef(D);
-  }
-
-  /// Emit a TagDataMemberSpec.
-  void writeTagDataMemberSpecRef(const TagDataMemberSpec *Spec) {
-    // TODO(CXX26): Implement this.
   }
 
   /// Emit a declaration name.
@@ -301,12 +283,17 @@ public:
   void AddQualifierInfo(const QualifierInfo &Info);
 
   /// Emit a nested name specifier.
-  void AddNestedNameSpecifier(NestedNameSpecifier *NNS) {
+  void AddNestedNameSpecifier(NestedNameSpecifier NNS) {
     writeNestedNameSpecifier(NNS);
   }
 
   /// Emit a nested name specifier with source-location information.
   void AddNestedNameSpecifierLoc(NestedNameSpecifierLoc NNS);
+
+  void AddSpliceSpecifier(const SpliceSpecifier *SS);
+  void writeSpliceSpecifierRef(const SpliceSpecifier *SS) {
+    AddSpliceSpecifier(SS);
+  }
 
   /// Emit a template name.
   void AddTemplateName(TemplateName Name) {

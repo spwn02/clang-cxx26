@@ -13,16 +13,19 @@
 #include <__config>
 #include <__functional/hash.h>
 #include <__memory/allocator.h>
+#include <__memory/allocator_arg_t.h>
 #include <__memory/allocator_traits.h>
 #include <__type_traits/is_array.h>
 #include <__type_traits/is_assignable.h>
 #include <__type_traits/is_constructible.h>
 #include <__type_traits/is_object.h>
 #include <__type_traits/is_same.h>
+#include <__type_traits/remove_const.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
 #include <__utility/in_place.h>
 #include <__utility/move.h>
+#include <__utility/swap.h>
 #include <compare>
 #include <initializer_list>
 

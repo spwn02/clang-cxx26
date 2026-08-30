@@ -18,13 +18,13 @@
 
 #  include <__chrono/calendar.h>
 #  include <__chrono/duration.h>
-#  include <__chrono/hash.h>
 #  include <__chrono/sys_info.h>
 #  include <__chrono/system_clock.h>
 #  include <__chrono/time_zone.h>
 #  include <__chrono/tzdb_list.h>
 #  include <__concepts/constructible.h>
 #  include <__config>
+#  include <__cstddef/size_t.h>
 #  include <__functional/hash.h>
 #  include <__type_traits/common_type.h>
 #  include <__type_traits/conditional.h>
@@ -220,12 +220,18 @@ operator==(const zoned_time<_Duration1, _TimeZonePtr>& __lhs, const zoned_time<_
 
 // [time.hash]
 #    if _LIBCPP_STD_VER >= 26
+
 template <class _Duration, class _TimeZonePtr>
-struct hash<__enable_hash_helper<chrono::zoned_time<_Duration, _TimeZonePtr>, _Duration, _TimeZonePtr> > {
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(const chrono::zoned_time<_Duration, _TimeZonePtr>& __zt) const {
-    return std::__hash_combine(hash<_TimeZonePtr>()(__zt.get_time_zone()), hash<_Duration>()(__zt.get_sys_time().time_since_epoch()));
+  requires __has_enabled_hash<_Duration>::value && __has_enabled_hash<_TimeZonePtr>::value
+struct hash<chrono::zoned_time<_Duration, _TimeZonePtr>> {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static size_t
+  operator()(const chrono::zoned_time<_Duration, _TimeZonePtr>& __zt) {
+    return std::__hash_combine(
+        hash<chrono::sys_time<_Duration>>{}(__zt.get_sys_time()), hash<_TimeZonePtr>{}(__zt.get_time_zone()));
   }
 };
+
+
 #    endif // _LIBCPP_STD_VER >= 26
 
 #  endif // _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM &&

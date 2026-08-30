@@ -126,8 +126,7 @@ void test3() {
   // Make sure that parser doesn't expand '[:' to '< ::'
   ::D[:F> A5; // expected-error {{class template '::D' requires template arguments}} \
               // expected-error {{expected expression}} \
-              // expected-error {{expected unqualified-id}} \
-              // expected-warning {{enable reflection features}}
+              // expected-error {{expected unqualified-id}}
 }
 
 // Ensure that a C-style cast doesn't turn off colon protection.

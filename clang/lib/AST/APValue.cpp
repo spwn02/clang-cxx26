@@ -459,12 +459,12 @@ bool APValue::needsCleanup() const {
   case None:
   case Indeterminate:
   case AddrLabelDiff:
+  case Reflection:
     return false;
   case Struct:
   case Union:
   case Array:
   case Vector:
-  case Reflection:
     return true;
   case Int:
     return getInt().needsCleanup();
@@ -824,8 +824,7 @@ ReflectionKind APValue::getReflectionKind() const {
             if (auto *FD = dyn_cast<FieldDecl>(D))
               LVTy = FD->getType()->getCanonicalTypeUnqualified().getTypePtr();
             else if (auto *TD = dyn_cast<CXXRecordDecl>(D))
-              LVTy = TD->getTypeForDecl()
-                        ->getCanonicalTypeUnqualified().getTypePtr();
+              LVTy = TD->getASTContext().getCanonicalTagType(TD).getTypePtr();
           }
         }
 
@@ -876,7 +875,7 @@ static QualType ComputeLValueType(const APValue &V) {
 
         continue;
       } else if (auto *TD = dyn_cast<CXXRecordDecl>(D)) {
-        SQT.Ty = TD->getTypeForDecl();
+        SQT.Ty = TD->getASTContext().getCanonicalTagType(TD).getTypePtr();
         continue;
       }
 
@@ -1169,7 +1168,7 @@ void APValue::printPretty(raw_ostream &Out, const PrintingPolicy &Policy,
       if (!O.isZero()) {
         if (IsReference)
           Out << "*(";
-        if (S.isZero() || O % S) {
+        if (S.isZero() || !O.isMultipleOf(S)) {
           Out << "(char*)";
           S = CharUnits::One();
         }
@@ -1206,7 +1205,7 @@ void APValue::printPretty(raw_ostream &Out, const PrintingPolicy &Policy,
     else if (isLValueOnePastTheEnd())
       Out << "*(&";
 
-    QualType ElemTy = Base.getType();
+    QualType ElemTy = Base.getType().getNonReferenceType();
     if (const ValueDecl *VD = Base.dyn_cast<const ValueDecl*>()) {
       Out << *VD;
     } else if (TypeInfoLValue TI = Base.dyn_cast<TypeInfoLValue>()) {
@@ -1287,8 +1286,8 @@ void APValue::printPretty(raw_ostream &Out, const PrintingPolicy &Policy,
   }
   case APValue::Struct: {
     Out << '{';
-    const RecordDecl *RD = Ty->castAs<RecordType>()->getDecl();
     bool First = true;
+    const auto *RD = Ty->castAsRecordDecl();
     if (unsigned N = getStructNumBases()) {
       const CXXRecordDecl *CD = cast<CXXRecordDecl>(RD);
       CXXRecordDecl::base_class_const_iterator BI = CD->bases_begin();
@@ -1572,13 +1571,64 @@ LinkageInfo LinkageComputer::getLVForValue(const APValue &V,
   case APValue::ComplexInt:
   case APValue::ComplexFloat:
   case APValue::Vector:
-  case APValue::Reflection:
     break;
 
   case APValue::AddrLabelDiff:
     // Even for an inline function, it's not reasonable to treat a difference
     // between the addresses of labels as an external value.
     return LinkageInfo::internal();
+
+  case APValue::Reflection: {
+    // A reflection's linkage follows what it reflects: a reflection of an
+    // entity with external linkage (e.g. `^^int`, or a reflection of a
+    // namespace-scope class) must not drag a template argument or NTTP down
+    // to internal linkage, or every specialization parameterized by it
+    // becomes spuriously unnameable across translation units (manifesting,
+    // e.g., as a false '-Wunused-variable' on an otherwise-ordinary global).
+    // Kinds with no addressable, cross-TU-stable entity behind them
+    // (parameters, attributes, data-member/enumerator specs, entity
+    // proxies, base specifiers) conservatively stay internal, matching the
+    // prior blanket behavior for those cases.
+    APValue Lowered = V;
+    while (Lowered.getReflectionDepth() > 0)
+      Lowered = Lowered.Lower();
+
+    switch (Lowered.getReflectionKind()) {
+    case ReflectionKind::Null:
+      break;
+    case ReflectionKind::Type:
+      if (MergeLV(getLVForType(*Lowered.getReflectedType(), computation)))
+        break;
+      break;
+    case ReflectionKind::Declaration:
+      if (MergeLV(getLVForDecl(Lowered.getReflectedDecl(), computation)))
+        break;
+      break;
+    case ReflectionKind::Template:
+      if (TemplateDecl *TD =
+              Lowered.getReflectedTemplate().getAsTemplateDecl(
+                  /*IgnoreDeduced=*/true))
+        MergeLV(getLVForDecl(TD, computation));
+      break;
+    case ReflectionKind::Namespace:
+      if (const auto *ND = dyn_cast<NamedDecl>(Lowered.getReflectedNamespace()))
+        MergeLV(getLVForDecl(ND, computation));
+      break;
+    case ReflectionKind::Object:
+    case ReflectionKind::Value:
+      llvm_unreachable("lowered value should never represent a value or "
+                        "object");
+    case ReflectionKind::EntityProxy:
+    case ReflectionKind::Parameter:
+    case ReflectionKind::BaseSpecifier:
+    case ReflectionKind::Annotation:
+    case ReflectionKind::Attribute:
+    case ReflectionKind::DataMemberSpec:
+    case ReflectionKind::EnumeratorSpec:
+      return LinkageInfo::internal();
+    }
+    return LV;
+  }
 
   case APValue::Struct: {
     for (unsigned I = 0, N = V.getStructNumBases(); I != N; ++I)
@@ -1659,11 +1709,6 @@ static QualType unwrapReflectedType(QualType QT) {
 
     if (const auto *LIT = dyn_cast<LocInfoType>(QT))
       QT = LIT->getType();
-    if (const auto *ET = dyn_cast<ElaboratedType>(QT)) {
-      QualType New = ET->getNamedType();
-      New.setLocalFastQualifiers(QT.getLocalFastQualifiers());
-      QT = New;
-    }
     if (const auto *STTPT = dyn_cast<SubstTemplateTypeParmType>(QT);
         STTPT && !STTPT->isDependentType())
       QT = STTPT->getReplacementType();

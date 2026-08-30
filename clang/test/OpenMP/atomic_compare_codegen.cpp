@@ -20962,12 +20962,12 @@ double fail_dxevd() {
 // CHECK-NEXT:    [[TMP2994:%.*]] = icmp sgt i64 [[TMP2993]], [[TMP2992]]
 // CHECK-NEXT:    [[TMP2995:%.*]] = select i1 [[TMP2994]], i64 [[TMP2992]], i64 [[TMP2993]]
 // CHECK-NEXT:    store i64 [[TMP2995]], ptr [[LV]], align 8
-// CHECK-NEXT:    [[TMCXX26:%.*]] = load i64, ptr [[LE]], align 8
+// CHECK-NEXT:    [[TMP2996:%.*]] = load i64, ptr [[LE]], align 8
 // CHECK-NEXT:    [[TMP2997:%.*]] = load i64, ptr [[LD]], align 8
-// CHECK-NEXT:    [[TMP2998:%.*]] = cmpxchg ptr [[LX]], i64 [[TMCXX26]], i64 [[TMP2997]] acquire acquire, align 8
+// CHECK-NEXT:    [[TMP2998:%.*]] = cmpxchg ptr [[LX]], i64 [[TMP2996]], i64 [[TMP2997]] acquire acquire, align 8
 // CHECK-NEXT:    [[TMP2999:%.*]] = extractvalue { i64, i1 } [[TMP2998]], 0
 // CHECK-NEXT:    [[TMP3000:%.*]] = extractvalue { i64, i1 } [[TMP2998]], 1
-// CHECK-NEXT:    [[TMP3001:%.*]] = select i1 [[TMP3000]], i64 [[TMCXX26]], i64 [[TMP2999]]
+// CHECK-NEXT:    [[TMP3001:%.*]] = select i1 [[TMP3000]], i64 [[TMP2996]], i64 [[TMP2999]]
 // CHECK-NEXT:    store i64 [[TMP3001]], ptr [[LV]], align 8
 // CHECK-NEXT:    [[TMP3002:%.*]] = load i64, ptr [[LE]], align 8
 // CHECK-NEXT:    [[TMP3003:%.*]] = load i64, ptr [[LD]], align 8
@@ -47745,9 +47745,9 @@ double fail_dxevd() {
 // SIMD-ONLY0:       if.end4206:
 // SIMD-ONLY0-NEXT:    [[TMP2995:%.*]] = load i64, ptr [[LX]], align 8
 // SIMD-ONLY0-NEXT:    store i64 [[TMP2995]], ptr [[LV]], align 8
-// SIMD-ONLY0-NEXT:    [[TMCXX26:%.*]] = load i64, ptr [[LX]], align 8
+// SIMD-ONLY0-NEXT:    [[TMP2996:%.*]] = load i64, ptr [[LX]], align 8
 // SIMD-ONLY0-NEXT:    [[TMP2997:%.*]] = load i64, ptr [[LE]], align 8
-// SIMD-ONLY0-NEXT:    [[CMP4207:%.*]] = icmp slt i64 [[TMCXX26]], [[TMP2997]]
+// SIMD-ONLY0-NEXT:    [[CMP4207:%.*]] = icmp slt i64 [[TMP2996]], [[TMP2997]]
 // SIMD-ONLY0-NEXT:    br i1 [[CMP4207]], label [[IF_THEN4209:%.*]], label [[IF_END4210:%.*]]
 // SIMD-ONLY0:       if.then4209:
 // SIMD-ONLY0-NEXT:    [[TMP2998:%.*]] = load i64, ptr [[LE]], align 8

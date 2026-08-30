@@ -34,7 +34,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 // [stopcallback.inplace]
 template <class _Callback>
-class _LIBCPP_AVAILABILITY_SYNC inplace_stop_callback : private __stop_callback_base {
+class _LIBCPP_AVAILABILITY_NEW_SYNC inplace_stop_callback : private __stop_callback_base {
   static_assert(invocable<_Callback>,
                 "Mandates: inplace_stop_callback is instantiated with an argument for the template parameter "
                 "Callback that satisfies invocable.");
@@ -82,7 +82,7 @@ private:
 };
 
 template <class _Callback>
-_LIBCPP_AVAILABILITY_SYNC inplace_stop_callback(inplace_stop_token, _Callback) -> inplace_stop_callback<_Callback>;
+_LIBCPP_AVAILABILITY_NEW_SYNC inplace_stop_callback(inplace_stop_token, _Callback) -> inplace_stop_callback<_Callback>;
 
 #endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_THREADS
 

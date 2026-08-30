@@ -7,144 +7,42 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-///
-/// \file
-/// \brief Defines facilities for representing reflected entities.
-///
-//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_AST_REFLECTION_H
 #define LLVM_CLANG_AST_REFLECTION_H
 
-#include "clang/AST/Type.h"
-#include "llvm/ADT/FoldingSet.h"
+#include "clang/AST/ReflectionValue.h"
+#include "clang/AST/TypeBase.h"
+#include "llvm/ADT/SmallVector.h"
 #include <optional>
 #include <string>
 
 namespace clang {
 
 class APValue;
-class ASTContext;
 class CXXBaseSpecifier;
-class NamespaceDecl;
 class ParsedAttr;
-class ValueDecl;
 
-struct TagDataMemberSpec;
-
-/// \brief The kind of construct reflected.
-enum class ReflectionKind {
-  /// \brief A null reflection.
-  ///
-  /// Corresponds to no object.
-  Null = 0,
-
-  /// \brief A reflection of a type.
-  ///
-  /// Corresponds to a QualType.
-  Type,
-
-  /// \brief A reflection of an object (i.e., the non-function result of an
-  /// lvalue).
-  ///
-  /// Corresponds to an APValue (plus a QualType).
-  Object,
-
-  /// \brief A reflection of a value (i.e., the result of a prvalue).
-  ///
-  /// Corresponds to an APValue (plus a QualType).
-  Value,
-
-  /// \brief A reflection of a language construct that has a declaration in
-  /// the Clang AST.
-  ///
-  /// Corresponds to a ValueDecl, which could be any of:
-  /// - a variable (i.e., VarDecl),
-  /// - a structured binding (i.e., BindingDecl),
-  /// - a function (i.e., FunctionDecl),
-  /// - an enumerator (i.e., EnumConstantDecl),
-  /// - a non-static data member or unnamed bit-field (i.e., FieldDecl),
-  Declaration,
-
-  /// \brief A reflection of a template (e.g., class template, variable
-  /// template, function template, alias template, concept).
-  ///
-  /// Corresponds to a TemplateName.
-  Template,
-
-  /// \brief A reflection of a namespace.
-  ///
-  /// Corresponds to a Decl, which could be any of:
-  /// - the global namespace (i.e., TranslationUnitDecl),
-  /// - a non-global namespace (i.e., NamespaceDecl),
-  /// - a namespace alias (i.e., NamespaceAliasDecl)
-  ///
-  /// Somewhat annoyingly, these classes have no nearer common ancestor than
-  /// the Decl class.
-  Namespace,
-
-  /// \brief A reflection of an entity proxy.
-  ///
-  /// Corresponds to a UsingShadowDecl.
-  EntityProxy,
-
-  /// \brief A reflection of a function parameter.
-  ///
-  /// Corresponds to a ParmVarDecl.
-  Parameter,
-
-  /// \brief A reflection of a base class specifier.
-  ///
-  /// Corresponds to a CXXBaseSpecifier.
-  BaseSpecifier,
-
-  /// \brief A reflection of a description of a hypothetical data member
-  /// (static or nonstatic) that might belong to a class or union.
-  ///
-  /// Corresponds to a TagDataMemberSpec.
-  ///
-  /// This is specifically used for the 'std::meta::data_member_spec' and
-  /// 'std::meta::define_class' metafunctions. If the surface area of
-  /// 'define_class' grows (i.e., supports additional types of "descriptions",
-  /// e.g., for member functions), it would be nice to find a more generic way
-  /// to do this. One idea is to allow a reflection of a type erased struct,
-  /// but the current design seems tolerable for now.
-  DataMemberSpec,
-
-  /// \brief A reflection of an annotation (CXX26 ext).
-  Annotation,
-
-  /// \brief A reflection of an enumerator spec (P4033).
-  EnumeratorSpec,
-
-  /// \brief A reflection of an attribute (P3385).
-  Attribute,
-};
-
-/// \brief Representation of a hypothetical data member, which could be used to
-/// complete an incomplete class definition using the 'std::meta::define_class'
-/// standard library function.
+/// Description of a hypothetical data member used by `define_class`.
 struct TagDataMemberSpec {
   QualType Ty;
-
   std::optional<std::string> Name;
   std::optional<size_t> Alignment;
   std::optional<size_t> BitWidth;
   bool NoUniqueAddress;
   llvm::SmallVector<ParsedAttr *, 2> Attributes;
 
-  bool operator==(TagDataMemberSpec const& Rhs) const;
-  bool operator!=(TagDataMemberSpec const& Rhs) const;
+  bool operator==(const TagDataMemberSpec &Rhs) const;
+  bool operator!=(const TagDataMemberSpec &Rhs) const;
 };
 
-
-// Hold definition of an enumerator for define_enum
+/// Description of an enumerator used by `define_enum`.
 struct EnumeratorSpec {
   std::string name;
   bool hasValue;
   int64_t val;
-  SmallVector<APValue*, 2> annotations;
-  SmallVector<APValue*, 2> attributes;
+  llvm::SmallVector<APValue *, 2> annotations;
+  llvm::SmallVector<APValue *, 2> attributes;
 };
 
 } // namespace clang
