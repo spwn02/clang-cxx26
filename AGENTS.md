@@ -22,7 +22,7 @@ not imply Bloomberg endorses this fork.
 This repository uses a **two-build-tree architecture**:
 
 1. **`build-nyx/`**: Main LLVM/Clang build (configured from `llvm/` with projects: `clang;clang-tools-extra`). Generates `clang`, `clang-tools-extra`, and `llvm-*` tools.
-2. **`build-libcxx/`**: libc++ build (configured from `runtimes/` with `LLVM_ENABLE_RUNTIMES=libcxx;libcxxabi;libunwind`). **Bootstraps from `build-nyx/bin/clang`** — front-end changes require rebuilding both trees in order.
+2. **`build-libcxx/`**: libc++ build (configured from `runtimes/` with `LLVM_ENABLE_RUNTIMES=libcxx;libcxxabi;libunwind`). **Bootstraps from `build-nyx/bin/clang`** — front-end changes require rebuilding both trees in order. **`ninja -C build-libcxx cxx` has no dependency edge on the external `build-nyx/bin/clang` binary and can silently no-op after a fresh clang rebuild**, leaving a stale `libc++.so`/`.a` in place (the `libcxx-lit` wrapper's `cxx-test-depends` rebuild only runs `cmake --install` steps, which doesn't force a relink either). After any `clang/lib/Sema` or `clang/lib/AST` change, before trusting libc++ test results run `ninja -C build-libcxx -t clean cxx && ninja -C build-libcxx -j$(nproc) cxx` explicitly.
 
 Both use Ninja and Release builds. Check actual configurations with:
 
