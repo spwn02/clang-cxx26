@@ -3859,7 +3859,7 @@ earlier, which has no existing signal to check; do not re-attempt the
 blanket `ActOnCXXEnterDeclInitializer` context-push revert, it is proven
 to regress 9 libc++ reflection tests; (4) the clang-tidy upstream bug
 report, drafted this session at
-`$CLAUDE_JOB_DIR/tmp/upstream-clang-tidy-bug-report.md` but
+`docs/drafts/upstream-clang-tidy-ppcallbacks-crash.md` but
 **not filed** (posting to a public tracker under the account's identity was
 judged out of scope for unsupervised filing — needs a human review pass
 before `gh issue create`).
@@ -4063,5 +4063,5 @@ template-instantiation escalation cluster (both in
 explicit "do not re-attempt the blanket `ActOnCXXEnterDeclInitializer`
 revert" warning recorded above for whichever future session picks them
 up. The clang-tidy `PPCallbacks` crash bug report drafted this session
-(`$CLAUDE_JOB_DIR/tmp/upstream-clang-tidy-bug-report.md`) remains unfiled,
+(`docs/drafts/upstream-clang-tidy-ppcallbacks-crash.md`) remains unfiled,
 pending human review.
