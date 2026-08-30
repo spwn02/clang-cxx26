@@ -1,6 +1,13 @@
 // The implementation header is textually included in the global module
 // fragment.  Re-export its public declarations explicitly; a textual include
 // alone does not make declarations visible to importers of std.
+//
+// <meta>'s reflection_v2 namespace and define_static_array/string are
+// themselves guarded by `#if __has_feature(reflection)` (i.e. -freflection);
+// mirror that guard here so this partition's export list matches what <meta>
+// actually declares when reflection is not enabled, instead of failing to
+// find these names at all.
+#if __has_feature(reflection)
 export namespace std {
   using std::define_static_array;
   using std::define_static_string;
@@ -242,3 +249,4 @@ export namespace std {
     }
   }
 }
+#endif // __has_feature(reflection)
