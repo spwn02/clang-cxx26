@@ -269,7 +269,7 @@ Sema::createLambdaClosureType(SourceRange IntroducerRange, TypeSourceInfo *Info,
                               LambdaCaptureDefault CaptureDefault) {
   DeclContext *DC = CurContext;
   while (!(DC->isFunctionOrMethod() || DC->isRecord() || DC->isFileContext() ||
-           isa<ExpansionStmtDecl>(DC)))
+           DC->isRequiresExprBody() || isa<ExpansionStmtDecl>(DC)))
     DC = DC->getParent();
 
   bool IsGenericLambda =
