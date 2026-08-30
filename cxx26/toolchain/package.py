@@ -127,6 +127,7 @@ def main() -> int:
         stage / "bin" / "clang",
         stage / "bin" / "clang++",
         stage / "bin" / "clang-scan-deps",
+        stage / "bin" / "clangd",
     ]
     for item in required:
         if not item.exists():

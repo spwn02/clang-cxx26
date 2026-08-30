@@ -17,7 +17,7 @@ rm -rf "${install_prefix}" "${build_dir}"
 
 runtime_components="cxx;cxxabi;unwind"
 runtime_distribution_components="cxx-modules"
-distribution_components="clang;clang-resource-headers;clang-scan-deps;lld;llvm-ar;${runtime_components};${runtime_distribution_components}"
+distribution_components="clang;clangd;clang-resource-headers;clang-scan-deps;lld;llvm-ar;${runtime_components};${runtime_distribution_components}"
 
 launcher_args=()
 if [[ -n "${compiler_launcher}" ]]; then
@@ -33,7 +33,7 @@ fi
   -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX="${install_prefix}" \
-  -DLLVM_ENABLE_PROJECTS="clang;lld" \
+  -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" \
   -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind" \
   -DLLVM_TARGETS_TO_BUILD="X86" \
   -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \

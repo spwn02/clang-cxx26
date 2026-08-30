@@ -386,6 +386,7 @@ jobs:
           test -x "$CC"
           test -x "$CXX"
           test -x "$CXX26_TOOLCHAIN_ROOT/bin/clang-scan-deps"
+          test -x "$CXX26_TOOLCHAIN_ROOT/bin/clangd"
           test -f "$CXX26_TOOLCHAIN_ROOT/share/clang-cxx26/manifest.json"
 
           modules_manifest="$("$CXX" -print-file-name=libc++.modules.json)"
