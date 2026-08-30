@@ -128,7 +128,7 @@ re-try it), and the precisely-scoped remaining open items.
 - [x] **5. Reconcile constant evaluation, modules, and AST serialization.** Audit evaluator changes and module/PCH serialization boundaries. Gate passed 2026-08-28: `clang/test/AST/ByteCode/`, `clang/test/Modules/`, `clang/test/PCH/`, `clang/test/Reflection/`, `clang/test/Import/` (1339 tests) show only the Milestone 1 baseline failure. Two real serialization gaps found and fixed (`ReflectionSpliceType` PCH deserialization, `ASTImporter` splice-scoped `NestedNameSpecifier` import); the `CXXMetafunctionExpr` callback mechanism, previously assumed to be a limitation, was empirically verified to round-trip correctly through PCH. See the 2026-08-28 Session Log entry for the one remaining caveat (the `ASTImporter` fix is compile-verified but not runtime-verified — the tool needed to exercise it does not propagate `-freflection`).
 - [x] **6. Reconcile libc++ and generated C++26 files without losing local conformance work.** Preserve post-upstream C++26 implementations and regenerate module/export artifacts with LLVM 22 tooling. Gate passed 2026-08-28: `ninja -C build-libcxx libcxx-generate-files` and `ninja -C build-libcxx cxx` (660/660) are both clean; every one of the 39 libc++/libc++abi paths where upstream's merge had discarded fork content is reconciled with both sides' independent changes preserved, plus two files silently deleted by the original merge (never conflicted, so never surfaced) restored. See the 2026-08-28 Session Log entry.
 - [x] **7. Pass focused reflection/libc++ tests.** Gate: complete Clang reflection directory and libc++ reflection suite pass, allowing only failures explicitly demonstrated in Milestone 1 and still justified here. Gate passed 2026-08-29: `clang/test/Reflection/` 15/16, libc++ reflection suite 54/60, M5 corpus 1339/1339 accounted for — all three at exactly the Milestone 1 baseline. See the 2026-08-29 Session Log entry.
-- [~] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names. First session: `check-clang` reduced 14→9 real failures (2 root-cause fixes plus 2 golden-file regenerations; one of the 9 is a flaky test); `check-cxx` reduced 961→221 (three root-cause fixes). Second session: `check-clang` reduced 9→7 real failures (`splice-exprs.cpp` M1 baseline aside) via one root-cause fix, and the flaky failure is now a confirmed, fixed, zero-flake pass; `check-cxx` reduced 221→209 via one root-cause fix (two files) plus a reserved-name fix, and the 145 `clang_tidy.gen.py` crashes are now confirmed pure-upstream (not a fork regression). Third session: `check-clang`-relevant suites reduced 7→5 real failures via one root-cause fix (`createLambdaClosureType`'s missing `RequiresExprBodyDecl` stop condition, closing `concepts-lambda.cpp`/`mangle-requires.cpp`/`ms-mangle-requires.cpp`); a second fix (`ActOnCXXEnterDeclInitializer`'s C++23 consteval-escalation-suppression overreach) was correctly root-caused, shipped, found to regress 9 libc++ reflection tests, and reverted — self-reference cluster (`builtin-is-within-lifetime.cpp`/`constant-expression-cxx11.cpp`) remains open pending a fix that distinguishes `HandleImmediateInvocations`'s two diagnosis buckets instead of gating both via one context flag; `cxx2b-consteval-propagate.cpp`/`cxx2a-constexpr-dynalloc.cpp` re-confirmed via minimal repro, not yet root-caused; `check-cxx`'s three newly-flagged names and the `std` module partition gap not yet started. Remaining items are precisely scoped in the 2026-08-30 "Milestone 8 third session" Session Log entry; resume there.
+- [~] **8. Pass full `check-clang` and `check-cxx`.** Gate: both full suites pass, allowing only explicitly recorded pre-existing failures with before/after evidence and exact test names. First session: `check-clang` reduced 14→9 real failures (2 root-cause fixes plus 2 golden-file regenerations; one of the 9 is a flaky test); `check-cxx` reduced 961→221 (three root-cause fixes). Second session: `check-clang` reduced 9→7 real failures (`splice-exprs.cpp` M1 baseline aside) via one root-cause fix, and the flaky failure is now a confirmed, fixed, zero-flake pass; `check-cxx` reduced 221→209 via one root-cause fix (two files) plus a reserved-name fix, and the 145 `clang_tidy.gen.py` crashes are now confirmed pure-upstream (not a fork regression). Third session: `check-clang`-relevant suites reduced 7→5 real failures via one root-cause fix (`createLambdaClosureType`'s missing `RequiresExprBodyDecl` stop condition, closing `concepts-lambda.cpp`/`mangle-requires.cpp`/`ms-mangle-requires.cpp`); a second fix (`ActOnCXXEnterDeclInitializer`'s C++23 consteval-escalation-suppression overreach) was correctly root-caused, shipped, found to regress 9 libc++ reflection tests, and reverted — self-reference cluster (`builtin-is-within-lifetime.cpp`/`constant-expression-cxx11.cpp`) remains open pending a fix that distinguishes `HandleImmediateInvocations`'s two diagnosis buckets instead of gating both via one context flag; `cxx2b-consteval-propagate.cpp`/`cxx2a-constexpr-dynalloc.cpp` re-confirmed via minimal repro, not yet root-caused. All three of the second session's newly-flagged `check-cxx` names triaged (`optional_nullopt_t.verify.cpp` fixed; `gdb_pretty_printer_test.sh.cpp` confirmed pure-upstream/unordered_map-bucket-order, not a fork issue; `reflection-ex-parsing-command-line-options-2.sh.cpp` traced to the same `Rec.ConstevalOnly` gap as the self-reference cluster). `transitive_includes.gen.py`'s 4 stale golden-CSV rows (execution/linalg/scope/simd) regenerated and fixed. `std` module partition gap: 5 of 7 names fixed (`meta.inc` needed the same `__has_feature(reflection)` guard `<meta>` itself uses); the remaining 2 (`module_std.gen.py`/`module_std_compat.gen.py`) are blocked on the already-documented pure-upstream clang-tidy crash, not further actionable here. Remaining items are precisely scoped in the 2026-08-30 "Milestone 8 third session" Session Log entry; resume there.
 - [ ] **9. Merge integration branch into `cxx26`, push, and release.** Recheck provenance and tracker state, merge without history rewriting, push `cxx26`, create the next free annotated `cxx26-YYYY.MM.DD[.N]` prerelease tag, push it explicitly, and verify remote resolution. Gate: clean worktree, remote branch/tag verification, and this epic marked complete.
 
 ## Blockers
@@ -3715,14 +3715,48 @@ function. Any future fix for the self-reference cluster's `Rec.
 ConstevalOnly` false-positive should be verified against this repro too,
 not just the `constexpr`-var-init shape.
 
-**Next steps, priority order:** (1) the three newly-flagged `check-cxx`
-names (triage only, unstarted this session); (2) the `std` module
-partition content gap (7 tests, unstarted this session); (3)
+**`std` module partition content gap — root-caused and fixed for 5 of 7
+names (commit `cf9bb36e51c4`).** `<meta>`'s entire `reflection_v2`
+namespace and `define_static_array`/`define_static_string` are gated
+behind `#if __has_feature(reflection)` (true only with `-freflection`).
+The std module's `meta.inc` partition (`libcxx/modules/std/meta.inc`,
+fork-original, no upstream counterpart) re-exported them unconditionally.
+No lit substitution anywhere in the test suite ever adds `-freflection`
+(confirmed via `git log -S` across every test-config/CMake file in
+history — the only two commits ever touching that flag are an unrelated
+toolchain-packaging script from the initial P2996 import) — meaning the
+std module has, as far as can be determined, *never* been buildable with
+`meta.inc` wired in without this fix; not a regression introduced by the
+LLVM 22 merge specifically, but a genuine, previously-unnoticed gap.
+Confirmed via `build-libcxx/CMakeCache.txt`: `LIBCXX_ADDITIONAL_COMPILE_FLAGS`
+(the one CMake-level place `-freflection` could plausibly have been
+injected) is empty, and that variable only affects the library build
+target anyway (`target_compile_options`), not the test suite's
+`%{compile_flags}` lit substitution. Fix: guard `meta.inc`'s export block
+with the same `#if __has_feature(reflection)` as `<meta>` itself, so the
+partition's export list matches what `<meta>` actually declares in either
+configuration instead of referencing names that don't exist. Fixes
+`std/modules/std.pass.cpp`, `std/modules/std.compat.pass.cpp`, and all 4
+`selftest/modules/*.sh.cpp` tests. `module_std.gen.py` and
+`module_std_compat.gen.py` (the remaining 2 of 7) still fail, but for the
+already-documented, unrelated, pure-upstream clang-tidy `PPCallbacks`
+crash (both invoke `%{clang-tidy}` as part of their generation) — not a
+new problem and not fixed by this change. Verified no regressions:
+`libcxx/test/std/modules/`, `libcxx/test/std/experimental/reflection/`
+(62 tests, same 8-failure baseline), `libcxx/test/std/utilities/` +
+`libcxx/test/std/containers/` (3269 tests, only the 8 already-documented
+open items: `inplace.vector` ×2 here, `is_within_lifetime` ×1,
+`optional.iterator{,s}` ×3, plus 2 more accounted for by the tracker's
+existing list).
+
+**Next steps, priority order:** (1) `module_std.gen.py`/
+`module_std_compat.gen.py` — blocked on the pure-upstream clang-tidy
+crash, not further actionable without an upstream fix; (2)
 `cxx2b-consteval-propagate.cpp`/`cxx2a-constexpr-dynalloc.cpp` — both
 confirmed as "identical pattern breaks only under template instantiation
 or implicit synthesis," root cause not yet found for either, do not assume
 they share one root cause with each other or with the self-reference
-cluster; (4) the self-reference cluster
+cluster; (3) the self-reference cluster
 (`builtin-is-within-lifetime.cpp`/`constant-expression-cxx11.cpp`) — root
 cause is fully understood (see Fix 4 above), but the correct fix requires
 teaching `HandleImmediateInvocations`'s `Rec.ConstevalOnly` diagnosis loop
@@ -3730,7 +3764,7 @@ to recognize an expression that already evaluated successfully in the
 `Rec.ImmediateInvocationCandidates` loop moments earlier, which has no
 existing signal to check; do not re-attempt the blanket
 `ActOnCXXEnterDeclInitializer` context-push revert, it is proven to
-regress 9 libc++ reflection tests; (5) the clang-tidy upstream bug report,
+regress 9 libc++ reflection tests; (4) the clang-tidy upstream bug report,
 drafted this session at
 `$CLAUDE_JOB_DIR/tmp/upstream-clang-tidy-bug-report.md` but
 **not filed** (posting to a public tracker under the account's identity was
