@@ -3900,3 +3900,31 @@ all fixed in Milestones 6–8, most recently `86015cca84a6`).
 **No new content loss found.** The three incidents already caught and
 fixed earlier in this sync (Milestones 6–8) appear to be the complete set;
 this audit found nothing beyond them. Safe to proceed to the M9 merge.
+
+### 2026-08-30 — Milestone 8 gate: full `check-clang` re-run, 5 failures, all documented
+
+Full `ninja -C build-nyx check-clang` (forced by earlier front-end changes
+this session), not a subset. `df -h /home` before: 18G free — checked per
+the tracker's own prior incident where a full `check-cxx` run filled the
+disk and produced 28 spurious failures. Result:
+
+```
+Total Discovered Tests: 49778
+Skipped          :    10 (0.02%)
+Unsupported      :  5229 (10.50%)
+Passed           : 44510 (89.42%)
+Expectedly Failed:    24 (0.05%)
+Failed           :     5 (0.01%)
+```
+
+Failed Tests (5) — exactly the tracker's documented set, nothing new:
+- `Clang :: Reflection/splice-exprs.cpp` — M1-baseline pre-existing failure
+  (documented in `AGENTS.md` and earlier in this tracker).
+- `Clang :: SemaCXX/cxx2b-consteval-propagate.cpp`
+- `Clang :: SemaCXX/cxx2a-constexpr-dynalloc.cpp`
+- `Clang :: SemaCXX/builtin-is-within-lifetime.cpp`
+- `Clang :: SemaCXX/constant-expression-cxx11.cpp`
+
+The last 4 are the fork regressions named in the Decisions-section gate
+amendment above. `check-clang` side of the Milestone 8 gate is closed:
+5/5 failures accounted for, none unexplained.
