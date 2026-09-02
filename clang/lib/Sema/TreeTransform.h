@@ -8665,7 +8665,31 @@ TreeTransform<Derived>::TransformDeclStmt(DeclStmt *S) {
   SmallVector<Decl *, 4> Decls;
   LambdaScopeInfo *LSI = getSema().getCurLambda();
   for (auto *D : S->decls()) {
-    Decl *Transformed = getDerived().TransformDefinition(D->getLocation(), D);
+    auto TransformDefinition = [&] {
+      return getDerived().TransformDefinition(D->getLocation(), D);
+    };
+
+    Decl *Transformed;
+    auto *VD = dyn_cast<VarDecl>(D);
+    const Expr *Init = VD ? VD->getInit() : nullptr;
+    while (const auto *EWC = dyn_cast_or_null<ExprWithCleanups>(Init))
+      Init = EWC->getSubExpr();
+
+    // FinishCXXExpansionStmt substitutes the synthesized expansion variable
+    // once more together with its body. Its initializer selects a
+    // consteval-only reflection, but the generated body can still use normal
+    // runtime values. Keep only that selection in an immediate context.
+    if (getSema().isSynthesizingExpansionStmt() &&
+        isa<CXXIndeterminateExpansionSelectExpr,
+            CXXIterableExpansionSelectExpr,
+            CXXDestructurableExpansionSelectExpr,
+            CXXExpansionInitListSelectExpr>(Init)) {
+      EnterExpressionEvaluationContext EvalCtx(
+          getSema(), Sema::ExpressionEvaluationContext::ImmediateFunctionContext);
+      Transformed = TransformDefinition();
+    } else {
+      Transformed = TransformDefinition();
+    }
     if (!Transformed)
       return StmtError();
 
