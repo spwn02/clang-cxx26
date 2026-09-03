@@ -8680,10 +8680,10 @@ TreeTransform<Derived>::TransformDeclStmt(DeclStmt *S) {
     // consteval-only reflection, but the generated body can still use normal
     // runtime values. Keep only that selection in an immediate context.
     if (getSema().isSynthesizingExpansionStmt() &&
-        isa<CXXIndeterminateExpansionSelectExpr,
-            CXXIterableExpansionSelectExpr,
-            CXXDestructurableExpansionSelectExpr,
-            CXXExpansionInitListSelectExpr>(Init)) {
+        isa_and_nonnull<CXXIndeterminateExpansionSelectExpr,
+                        CXXIterableExpansionSelectExpr,
+                        CXXDestructurableExpansionSelectExpr,
+                        CXXExpansionInitListSelectExpr>(Init)) {
       EnterExpressionEvaluationContext EvalCtx(
           getSema(), Sema::ExpressionEvaluationContext::ImmediateFunctionContext);
       Transformed = TransformDefinition();

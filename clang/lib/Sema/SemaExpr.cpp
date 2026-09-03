@@ -20782,7 +20782,19 @@ void Sema::MarkDeclRefReferenced(DeclRefExpr *E, const Expr *Base) {
         ExprEvalContexts.back().ConstevalOnly.insert(E);
     } else if (auto *VD = dyn_cast<VarDecl>(E->getDecl());
                VD && VD->getType()->isConstevalOnly()) {
-      ExprEvalContexts.back().ConstevalOnly.insert(E);
+      const Expr *Init = VD->getInit();
+      while (const auto *EWC = dyn_cast_or_null<ExprWithCleanups>(Init))
+        Init = EWC->getSubExpr();
+
+      // Expansion variables are compile-time substitutions, even when the
+      // generated body executes at runtime. Their selection initializer is
+      // checked separately while the expansion is synthesized; references to
+      // the selected value must not make the generated function immediate.
+      if (!isa_and_nonnull<CXXIndeterminateExpansionSelectExpr,
+                           CXXIterableExpansionSelectExpr,
+                           CXXDestructurableExpansionSelectExpr,
+                           CXXExpansionInitListSelectExpr>(Init))
+        ExprEvalContexts.back().ConstevalOnly.insert(E);
     }
   }
   MarkExprReferenced(*this, E->getLocation(), E->getDecl(), E, OdrUse,

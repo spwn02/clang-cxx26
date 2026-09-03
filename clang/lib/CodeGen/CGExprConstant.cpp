@@ -2611,7 +2611,10 @@ llvm::Constant *
 CodeGenModule::getMemberPointerConstant(const UnaryOperator *uo) {
   // Member pointer constants always have a very particular form.
   const MemberPointerType *type = cast<MemberPointerType>(uo->getType());
-  const ValueDecl *decl = cast<DeclRefExpr>(uo->getSubExpr())->getDecl();
+  const Expr *subExpr = uo->getSubExpr()->IgnoreParenImpCasts();
+  while (const auto *splice = dyn_cast<CXXSpliceExpr>(subExpr))
+    subExpr = splice->getModel()->IgnoreParenImpCasts();
+  const ValueDecl *decl = cast<DeclRefExpr>(subExpr)->getDecl();
 
   // A member function pointer.
   if (const CXXMethodDecl *method = dyn_cast<CXXMethodDecl>(decl))
