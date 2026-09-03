@@ -14783,17 +14783,34 @@ void Sema::CheckCompleteVariableDeclaration(VarDecl *var) {
       !isCheckingDefaultArgumentOrInitializer() &&
       !RebuildingImmediateInvocation && !isUnevaluatedContext() &&
       !isImmediateFunctionContext() && !isAlwaysConstantEvaluatedContext()) {
-    if (!ExprEvalContexts.back().InImmediateEscalatingFunctionContext) {
-      // A constexpr variable's initializer is already constant-evaluated,
-      // so it doesn't need this diagnostic. But it can still be a variable
-      // of automatic storage duration needing a per-call stack slot that
-      // CodeGen cannot represent (consteval-only types have no runtime
-      // representation), so the enclosing context still needs to escalate;
-      // see the FoundImmediateEscalatingConstruct branch below.
-      if (!var->isConstexpr())
-        Diag(var->getLocation(), diag::err_decl_consteval_only_type) << var;
-    } else if (FunctionScopeInfo *FI = getCurFunction())
-      FI->FoundImmediateEscalatingConstruct = true;
+    const Expr *Init = var->getInit();
+    while (const auto *EWC = dyn_cast_or_null<ExprWithCleanups>(Init))
+      Init = EWC->getSubExpr();
+
+    // An expansion statement's per-iteration variable is a compile-time
+    // substitution: its selection is already checked in an immediate
+    // context while the expansion is synthesized (see MarkDeclRefReferenced
+    // and TreeTransform's expansion-selector handling), and it is consumed
+    // entirely by the compiler while unrolling the loop body -- unlike an
+    // ordinary local of consteval-only type, it never needs a real per-call
+    // stack slot in the generated code. It must not force the enclosing
+    // function to escalate either.
+    if (!isa_and_nonnull<CXXIndeterminateExpansionSelectExpr,
+                         CXXIterableExpansionSelectExpr,
+                         CXXDestructurableExpansionSelectExpr,
+                         CXXExpansionInitListSelectExpr>(Init)) {
+      if (!ExprEvalContexts.back().InImmediateEscalatingFunctionContext) {
+        // A constexpr variable's initializer is already constant-evaluated,
+        // so it doesn't need this diagnostic. But it can still be a variable
+        // of automatic storage duration needing a per-call stack slot that
+        // CodeGen cannot represent (consteval-only types have no runtime
+        // representation), so the enclosing context still needs to escalate;
+        // see the FoundImmediateEscalatingConstruct branch below.
+        if (!var->isConstexpr())
+          Diag(var->getLocation(), diag::err_decl_consteval_only_type) << var;
+      } else if (FunctionScopeInfo *FI = getCurFunction())
+        FI->FoundImmediateEscalatingConstruct = true;
+    }
   }
 
   CUDA().MaybeAddConstantAttr(var);

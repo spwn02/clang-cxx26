@@ -7715,6 +7715,12 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     EmitOMPRequiresDecl(cast<OMPRequiresDecl>(D));
     break;
 
+  case Decl::ConstevalBlock:
+    // A top-level 'consteval { ... }' block is fully evaluated by Sema when
+    // declared (see Sema::BuildConstevalBlockDeclaration); it has no runtime
+    // representation and nothing to emit.
+    break;
+
   case Decl::Typedef:
   case Decl::TypeAlias: // using foo = bar; [C++11]
     if (CGDebugInfo *DI = getModuleDebugInfo())
