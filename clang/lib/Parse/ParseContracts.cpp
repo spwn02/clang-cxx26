@@ -152,6 +152,21 @@ void Parser::ParseContractSpecifierSequence(Declarator &DeclarationInfo,
     }
     return CachedType.value();
   };
+  // For an out-of-line member function declarator (e.g. `void B::u(...)`),
+  // re-enter the declarator's qualified scope so that access checks (e.g.
+  // friend access) performed while parsing the contract conditions see the
+  // same context they would for a noexcept-specifier or trailing
+  // requires-clause on the same declarator. See
+  // Parser::ParseTrailingRequiresClause for the identical pattern. This must
+  // be the outermost scope entered/exited here (declared first, so it is
+  // destroyed last) to keep the parser's scope stack balanced with the
+  // scopes pushed below.
+  CXXScopeSpec &ContractSS = DeclarationInfo.getCXXScopeSpec();
+  DeclaratorScopeObj ContractDeclScopeObj(*this, ContractSS);
+  if (EnterScope && ContractSS.isValid() &&
+      Actions.ShouldEnterDeclaratorScope(getCurScope(), ContractSS))
+    ContractDeclScopeObj.EnterDeclaratorScope();
+
   std::optional<ParseScope> ParserScope;
 
   std::optional<Sema::CXXThisScopeRAII> ThisScope;
