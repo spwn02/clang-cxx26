@@ -1503,6 +1503,13 @@ namespace {
                                 SmallVectorImpl<QualType> &Exceptions,
                                 bool &Changed);
 
+    ResultNameDecl *TransformResultNameDecl(ResultNameDecl *RND);
+
+    /// Rebuild the result name declaration and register the declaration
+    /// as an instantiated local.
+    ResultNameDecl *RebuildResultName(ResultNameDecl *Old,
+                                      const FunctionDecl *NewFD);
+
     /// Rebuild the exception declaration and register the declaration
     /// as an instantiated local.
     VarDecl *RebuildExceptionDecl(VarDecl *ExceptionDecl,
@@ -1578,6 +1585,7 @@ namespace {
       }
       return Type;
     }
+
     // Override the default version to handle a rewrite-template-arg-pack case
     // for building a deduction guide.
     bool TransformTemplateArgument(const TemplateArgumentLoc &Input,
@@ -4641,6 +4649,7 @@ static const Decl *getCanonicalParmVarDecl(const Decl *D) {
         return FD->getCanonicalDecl()->getParamDecl(i);
     }
   }
+
   return D;
 }
 

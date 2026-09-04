@@ -1068,6 +1068,7 @@ set(files
   complex.h
   concepts
   condition_variable
+  contracts
   coroutine
   csetjmp
   csignal

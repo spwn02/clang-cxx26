@@ -40,6 +40,7 @@ void FunctionScopeInfo::Clear() {
   FirstSEHTryLoc = SourceLocation();
   FirstVLALoc = SourceLocation();
   FoundImmediateEscalatingConstruct = false;
+  ContractScopeIndex = -1;
 
   // Coroutine state
   FirstCoroutineStmtLoc = SourceLocation();

@@ -464,6 +464,18 @@ DEFAULT_PARAMETERS = [
         ]
     ),
     Parameter(
+        name="use-contracts",
+        type=bool,
+        default=False,
+        help="Whether to enable contracts when compiling the test suite.",
+        actions=lambda use_contracts: [] if not use_contracts else [
+            AddCompileFlag("-fcontracts"),
+            AddCompileFlag('-fcolor-diagnostics'),
+            AddFeature("contracts"),
+            AddCompileFlag("-fcontract-group-evaluation-semantic=std=enforce"),
+        ]
+    ),
+    Parameter(
         name='test_frozen_cxx03_headers',
         type=bool,
         default=False,
