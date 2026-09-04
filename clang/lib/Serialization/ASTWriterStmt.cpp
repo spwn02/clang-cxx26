@@ -913,6 +913,8 @@ void ASTStmtWriter::VisitDeclRefExpr(DeclRefExpr *E) {
   CurrentPackingBits.addBit(E->getDecl() != E->getFoundDecl());
   CurrentPackingBits.addBit(E->hasQualifier());
   CurrentPackingBits.addBit(E->hasTemplateKWAndArgsInfo());
+  CurrentPackingBits.addBit(E->isConstified());
+  CurrentPackingBits.addBit(E->isInContractContext());
 
   if (E->hasTemplateKWAndArgsInfo()) {
     unsigned NumTemplateArgs = E->getNumTemplateArgs();

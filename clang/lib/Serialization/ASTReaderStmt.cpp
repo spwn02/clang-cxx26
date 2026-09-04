@@ -800,6 +800,8 @@ void ASTStmtReader::VisitDeclRefExpr(DeclRefExpr *E) {
   E->DeclRefExprBits.HasQualifier = CurrentUnpackingBits->getNextBit();
   E->DeclRefExprBits.HasTemplateKWAndArgsInfo =
       CurrentUnpackingBits->getNextBit();
+  E->DeclRefExprBits.IsConstified = CurrentUnpackingBits->getNextBit();
+  E->DeclRefExprBits.IsInContractContext = CurrentUnpackingBits->getNextBit();
   E->DeclRefExprBits.CapturedByCopyInLambdaWithExplicitObjectParameter = false;
   unsigned NumTemplateArgs = 0;
   if (E->hasTemplateKWAndArgsInfo())
