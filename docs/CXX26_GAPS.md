@@ -194,6 +194,38 @@ testing against the pre-sync baseline — not pre-existing):
   narrower clang suites — that's what caught the reverted fix's regression
   and its absence is what let it ship in the first place.
 
+**Two more crashes found 2026-09-04 by the Contracts Hardening epic's M1**
+(`docs/CONTRACTS_HARDENING.md`), which flipped `LLVM_ENABLE_ASSERTIONS=ON` in
+`build-nyx` for the first time. Both are `check-clang` failures previously
+invisible because they trip `llvm_unreachable`/`assert` — undefined behavior,
+not a trap, in a Release/NDEBUG build — rather than producing a wrong-but-
+non-crashing result. Neither is a contracts bug; recorded here rather than
+fixed in that epic per its own scope discipline (each is a nontrivial,
+self-contained compiler change, the same shape as the two clusters above):
+
+- **`clang/test/Reflection/splice-namespaces.cpp`** — `UNREACHABLE executed at
+  clang/include/clang/AST/NestedNameSpecifier.h:83! ("invalid prefix for
+  namespace")`. Root cause: `NestedNameSpecifier::MakeNamespacePtrKind`
+  handles a namespace nested-name-specifier prefixed by `Kind::Null`,
+  `Kind::Global`, or another `Kind::Namespace`, but not one prefixed by
+  `Kind::Splice`/`Kind::SpliceWithTemplate` — i.e. `[:some_ns_reflection:]::
+  inner::x`, a splice used as the left-hand scope of a further-nested
+  namespace name. Fixing it needs a new `StoredKind` (e.g.
+  `NamespaceWithSplice`), threaded through the `PointerUnion` bit layout,
+  storage struct, printing, and profiling in
+  `clang/include/clang/AST/NestedNameSpecifier{,Base}.h` — at least 6 switch
+  sites reference `Kind::Splice`/`SpliceWithTemplate` in that header alone.
+  Reflection-area, so worth prioritizing whenever reflection gets its own
+  hardening pass.
+- **`clang/test/SemaCXX/PR98671.cpp`** — `Assertion 'IsExpectedEntity(FD1) &&
+  FD2 && IsExpectedEntity(FD2) && "use non-instantiated function declaration
+  for constraints partial ordering"' failed` in `Sema::IsAtLeastAsConstrained`
+  (`SemaConcept.cpp:2518`). Pure vanilla C++20 concepts partial-ordering
+  machinery — the test itself has zero contracts/reflection/expansion-
+  statement references (confirmed by grep) and predates this fork's feature
+  work (`c4724f603849`, upstream PR #98671, present since the LLVM 22
+  baseline). General conformance/LLVM-sync territory, not this epic's.
+
 **Re-verify before starting, don't assume still-open.** Three commits landed
 after the epic closed (`55872c0fadcc`, `079b20780c79`, `33df47d52b81`,
 2026-09-02/03), driven by downstream Nyx/Miracle testing rather than this

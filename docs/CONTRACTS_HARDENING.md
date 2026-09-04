@@ -57,7 +57,7 @@ an actionable unblock condition recorded.
   links against compiler-rt, then re-baseline `check-clang`/`check-cxx`/
   contracts/reflection via `cxx26/dev/testrun.sh` before any further source
   change.**
-- [~] **M2 — Assertions triage.** First assertions-on unit-test run crashed
+- [x] **M2 — Assertions triage.** First assertions-on unit-test run crashed
   25034-test `AllClangUnitTests` outright (`SIGABRT`) on a bogus assertion in
   `Sema::getContractConstification` (`SemaContract.cpp:1266-1268`):
   `assert(!VD->getDeclContext()->Equals(CSR->ContextAtPush))` guarded by
@@ -66,9 +66,19 @@ an actionable unblock condition recorded.
   contract scope's push context -- the ordinary case of a parameter
   referenced in its own function's postcondition. Dead debug scaffolding from
   the mechanical port, invisible with assertions off. Removed; full
-  `AllClangUnitTests` now passes 25034/25034. **Current action: continue
-  triage against `check-clang`/`check-cxx` once the M1 baseline run
-  completes.**
+  `AllClangUnitTests` now passes 25034/25034.
+
+  `check-clang` M1 baseline (44628/49837 pass, 5171 unsupported, 25 xfail, 7
+  fail): 5 failures match already-documented pre-existing regressions
+  (`docs/CXX26_GAPS.md`'s consteval-escalation clusters + `splice-exprs.cpp`,
+  none newly caused by this epic). 2 are new, both `llvm_unreachable`/`assert`
+  crashes invisible before assertions were on, both out of scope for this
+  epic (recorded in `docs/CXX26_GAPS.md`): a reflection namespace-splicing
+  AST-representation gap (`Reflection/splice-namespaces.cpp`) and a pure
+  vanilla concepts partial-ordering assertion unrelated to any fork feature
+  (`SemaCXX/PR98671.cpp`, predates this fork's work). Archived:
+  `check-clang-20260904T210524Z-a53ad30ef186-hardening-m1-baseline.json`.
+  **Current action: capture the `check-cxx` M1 baseline, then close M1.**
 - [ ] **M3 — Fix the result-name bug.** Write failing T1 (IR/FileCheck) and
   T2 (libc++ execution) regression tests first; confirm red; fix
   `EmitPostContracts` to re-store `RV` into `ReturnValue`; remove the dead
