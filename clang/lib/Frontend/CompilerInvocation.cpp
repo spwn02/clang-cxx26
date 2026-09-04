@@ -3703,6 +3703,10 @@ void CompilerInvocationBase::GenerateLangArgs(const LangOptions &Opts,
     for (StringRef Sanitizer : serializeSanitizerKinds(Opts.Sanitize))
       GenerateArg(Consumer, OPT_fsanitize_EQ, Sanitizer);
 
+
+    for (StringRef ContractGroup :
+         Opts.ContractOpts.serializeContractGroupArgs())
+      GenerateArg(Consumer, OPT_fcontract_group_evaluation_semantic_EQ, ContractGroup);
     return;
   }
 
@@ -3951,6 +3955,10 @@ void CompilerInvocationBase::GenerateLangArgs(const LangOptions &Opts,
 
   if (!Opts.RandstructSeed.empty())
     GenerateArg(Consumer, OPT_frandomize_layout_seed_EQ, Opts.RandstructSeed);
+
+  for (StringRef ContractGroup :
+       Opts.ContractOpts.serializeContractGroupArgs())
+    GenerateArg(Consumer, OPT_fcontract_group_evaluation_semantic_EQ, ContractGroup);
 
   if (Opts.AllocTokenMax)
     GenerateArg(Consumer, OPT_falloc_token_max_EQ,
@@ -4654,6 +4662,17 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
           << Requested.getName() << Recommended.getName();
     }
   }
+
+  auto EmitContractDiag = [&](ContractGroupDiagnostic CGD, StringRef GroupName,
+                              StringRef InvalidChar = "") {
+    Diags.Report(diag::err_drv_contract_group_name_invalid)
+        << (int)CGD << GroupName << InvalidChar;
+  };
+
+  std::vector<std::string> ContractGroupValues =
+      Args.getAllArgValues(options::OPT_fcontract_group_evaluation_semantic_EQ);
+  Opts.ContractOpts.parseContractGroups(ContractGroupValues,
+                                           EmitContractDiag);
 
   return Diags.getNumErrors() == NumErrorsBefore;
 }

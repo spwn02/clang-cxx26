@@ -128,9 +128,10 @@ cxx26/dev/testrun.sh check-cxx
 
 ## Current Action
 
-M1 baseline capture is done; M1's remaining step is to commit the `cxx26/dev/`
-scripts and this doc, then start M2 — `git remote add contracts` and the
-three-way apply onto `integration/contracts-p2900`.
+M2's gate has passed on `integration/contracts-p2900` (mechanical port applied,
+build green, PCH + module round-trips verified). Next: M3 — run
+`cxx26/dev/testrun.sh contracts` (the 43 `clang/test/Contracts` tests + 2 in
+`clang/test/Parser`) and triage failures one at a time.
 
 ## Milestones
 
@@ -147,14 +148,44 @@ three-way apply onto `integration/contracts-p2900`.
   `~/.local/share/cxx26-contracts/results/` with `-latest` symlinks.
   *Gate:* both trees build ✓; baseline archived and stamped ✓; deviations from
   Epic A's exception lists recorded below ✓.
-- [~] **M2 — Mechanical port, build-green.** Fetch `contracts`/`contracts-base`/
-  `contracts-nightly`; branch `integration/contracts-p2900`; 3-way apply the diff
-  minus the cut list (see plan); resolve conflicts in the 77 files also
-  fork-modified (hottest: `TreeTransform.h`, `SemaExpr.cpp`, `Sema.h`,
-  `ExprConstant.cpp`, `StmtCXX.h`) and 22.1.8-vs-23-dev API drift.
-  *Gate:* `ninja -C build-nyx` succeeds; `-fcontracts -std=c++26` smoke file
-  compiles; one PCH + one module round-trip over a contract-carrying decl passes.
-- [ ] **M3 — `clang/test/Contracts` green.** 43 tests + 2 in `clang/test/Parser`.
+- [x] **M2 — Mechanical port, build-green.** Fetched `contracts-base`/
+  `contracts-nightly` from `efcs/llvm-project` (full blobs, no filter); branched
+  `integration/contracts-p2900` off `cxx26`; `git apply -3` of the
+  `contracts-base...contracts-nightly` diff restricted to `clang/` +
+  `llvm/include/llvm/Support/TrailingObjects.h` (libcxx/ deferred to M5;
+  scratch/CMake-debug-opt/doc files cut). 155 files touched (57 new, 98
+  modified), only 19 real conflicts (well under the plan's 77-file worst
+  case) — resolved by hand, mostly additive merges plus a handful of
+  same-anchor-point insertions where diff3 silently swallowed one side's
+  shared closing brace (fixed by re-adding the dropped `}`); one real rename
+  collision (`FoundImmediateEscalatingConstruct` vs upstream's
+  `FoundImmediateEscalatingExpression` — kept our fork's name, no contracts
+  file referenced the other spelling) and one real API split
+  (`lookupStdSourceLocationImpl`: kept our fork's caching member function,
+  used already by `SemaReflect.cpp`).
+  `ninja -C build-nyx` built clean on the first attempt after conflict
+  resolution — zero compile errors. Then found and fixed two real bugs via
+  the PCH/module round-trip checks below (both in the ported code, not
+  merge artifacts): (1) `ContractSpecifierDecl`'s deserialization ctor
+  unconditionally called `DC->isDependentContext()` with `DC == nullptr`
+  (`CreateDeserialized` always passes null; fixed with a null guard,
+  `clang/include/clang/AST/DeclCXX.h`); (2) `ASTDeclWriter`/`ASTDeclReader`
+  disagreed on field order for `ContractSpecifierDecl` — writer emitted
+  `NumContracts` *after* the base `VisitDecl` fields, reader read it
+  *before* (needed up front to size the trailing-objects allocation),
+  desyncing the record cursor for everything after — fixed by moving the
+  writer's `Record.push_back(CSD->NumContracts)` before `VisitDecl(CSD)`,
+  matching the working `DecompositionDecl` precedent
+  (`ASTWriterDecl.cpp`/`ASTReaderDecl.cpp`). Confirmed fixed via both a PCH
+  round-trip and a C++20 module round-trip (`--precompile` + `import`) over
+  a `pre`/`post`/`contract_assert`-carrying function — full AST, correctly
+  deserialized on both paths.
+  *Gate:* `ninja -C build-nyx` succeeds ✓; `-fcontracts -std=c++26` smoke
+  file compiles (verified AST + rejects `pre(...)` without the flag) ✓; PCH
+  round-trip ✓; module round-trip ✓. (Linking the smoke file fails on
+  `__handle_contract_violation_v3` — expected, that's libc++'s runtime hook,
+  M5's job, not a gate requirement here.)
+- [~] **M3 — `clang/test/Contracts` green.** 43 tests + 2 in `clang/test/Parser`.
 - [ ] **M4 — No reflection/Sema regressions.** `clang/test/{Reflection,SemaCXX,
   AST/ByteCode,Modules,PCH,Import}` vs the M1 archive; zero new failures.
 - [ ] **M5 — Library side.** `<contracts>`, `src/contracts.cpp`, module wiring,

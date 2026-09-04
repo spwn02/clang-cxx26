@@ -66,6 +66,9 @@ def CXXIterableExpansionStmt : StmtNode<CXXExpansionStmt>;
 def CXXDestructurableExpansionStmt : StmtNode<CXXExpansionStmt>;
 def CXXInitListExpansionStmt : StmtNode<CXXExpansionStmt>;
 
+// C++ contract statements
+def ContractStmt : StmtNode<Stmt>;
+
 // Expressions
 def Expr : StmtNode<ValueStmt, 1>;
 def PredefinedExpr : StmtNode<Expr>;
