@@ -128,10 +128,17 @@ cxx26/dev/testrun.sh check-cxx
 
 ## Current Action
 
-M2's gate has passed on `integration/contracts-p2900` (mechanical port applied,
-build green, PCH + module round-trips verified). Next: M3 — run
-`cxx26/dev/testrun.sh contracts` (the 43 `clang/test/Contracts` tests + 2 in
-`clang/test/Parser`) and triage failures one at a time.
+M3 is blocked on one item: the constification subsystem (see Known Bugs/TODOs)
+is incomplete across three mechanisms (out-of-line declarations, template
+instantiation, lambda captures), accounting for all 5 remaining test failures.
+This needs its own dedicated investigation session rather than being rushed —
+next actionable step is reading `Sema::getContractConstification`
+(`SemaContract.cpp:1232`) and the dead `#if 0` block above it (~1191-1226,
+an abandoned earlier implementation) to understand why
+`CSR->ContextAtPush->Encloses(VD->getDeclContext())` behaves asymmetrically
+for in-class vs. out-of-line declarators. Meanwhile M4 (no reflection/Sema
+regressions vs. the M1 baseline) is runnable now and independent of this —
+do that next while constification is parked.
 
 ## Milestones
 
@@ -190,15 +197,21 @@ build green, PCH + module round-trips verified). Next: M3 — run
   void functions, see Known Bugs/TODOs) that a round-trip followed by
   execution would also have caught. Not a gate failure (M2's gate says
   "compiles"), noted so the claim isn't read as broader than it is.
-- [~] **M3 — `clang/test/Contracts` green.** 43 tests + 2 in `clang/test/Parser`.
+- [!] **M3 — `clang/test/Contracts` green.** 43 tests + 2 in `clang/test/Parser`.
   Suite widened to also cover `clang/test/Modules/contracts.cppm` and
   `clang/test/SemaCXX/ericwf-crash.cpp` (previously not run by
-  `testrun.sh contracts` at all — see Known Bugs/TODOs). Currently 33/41
-  passing; 8 failures remain (`constification.cpp`,
-  `contract-group-attr.cpp`, `contracts.cpp`, `friendship.cpp`,
-  `lambda.cpp`, `repro.cpp`, `template-test2.cpp`, `templates.cpp`), two
-  real compiler bugs found and fixed so far this milestone (see Known
-  Bugs/TODOs #3 and #4).
+  `testrun.sh contracts` at all — see Known Bugs/TODOs). 36/41 passing.
+  Three stale test-expectation fixes (`contracts.cpp`, `contract-group-attr.cpp`,
+  `repro.cpp` — commits `7aa52c0c1c0d`, `5655604488c2`, `413311678584`) plus
+  two real compiler bugs (#3, #4 below) closed 6 of the original 8 failures.
+  **Blocked** on the remaining 5 (`constification.cpp`, `friendship.cpp`,
+  `lambda.cpp`, `template-test2.cpp`, `templates.cpp`) — all one root cause,
+  see the consolidated Known Bugs/TODOs entry. Unblock condition: implement/
+  repair contract constification as its own dedicated session. The gate's
+  "or each failure is documented with a root cause and a decision" clause is
+  satisfied (root cause: identified; decision: defer, not accept) — marked
+  `[!]` rather than `[x]` because the decision is explicitly *not* to accept
+  these 5 as a permanent exception list.
 - [ ] **M4 — No reflection/Sema regressions.** `clang/test/{Reflection,SemaCXX,
   AST/ByteCode,Modules,PCH,Import}` vs the M1 archive; zero new failures.
 - [ ] **M5 — Library side.** `<contracts>`, `src/contracts.cpp`, module wiring,
@@ -269,17 +282,70 @@ build green, PCH + module round-trips verified). Next: M3 — run
      self-check (also had an unrelated test-file bug: `%t 1>&2` uses a
      redirect direction lit's internal shell doesn't support, fixed in the
      same commit).
-- `friendship.cpp` still fails on a separate, narrower bug: after fix #3
-  above, `clang/test/Contracts/friendship.cpp`'s remaining failure is that
-  `Context.hasSameExpr()` (used by `Sema::CheckEquivalentContractSequence` to
-  compare a redeclaration's contracts against the first declaration's) reports
-  the textually-identical `a.g()` condition as non-equivalent between an
-  in-class declaration and its out-of-line definition. No access-check errors
-  remain (fix #3 resolved those) — this is purely a
-  structural-equivalence-checking bug in the profiler/comparison, not
-  triaged yet. Confirmed *not* the trunk cause of the other 7 remaining M3
-  failures (checked via `llvm-lit -v` grep for the same diagnostic signature
-  across all of `clang/test/Contracts` — no other file shows it).
+- **Constification is systematically incomplete — one root cause behind all 5
+  remaining M3 failures** (`constification.cpp`, `friendship.cpp`, `lambda.cpp`,
+  `template-test2.cpp`, `templates.cpp`). [basic.contract.general] requires
+  id-expressions referring to automatic-storage variables to be treated as
+  `const` inside a contract predicate; the ported implementation
+  (`Sema::getContractConstification`, `clang/lib/Sema/SemaContract.cpp:1232`,
+  gated by `LangOpts.ContractConstification`) applies this inconsistently
+  across three distinct mechanisms:
+  1. **In-class vs. out-of-line declarations produce different AST shapes for
+     the same source.** Repro:
+     `/home/spawn/.claude/jobs/15c946bc/tmp/m2smoke/member_contract_check.cpp`
+     (a friend-access `a.g()` predicate declared in-class, redefined
+     out-of-line). AST dump (`-Xclang -ast-dump -Xclang -ast-dump-filter=u`)
+     shows: in-class declaration constifies via a wrapping
+     `ImplicitCastExpr 'const A' lvalue <NoOp>` around a plain
+     `DeclRefExpr 'A'`; the out-of-line definition instead bakes `const`
+     directly into the `DeclRefExpr`'s own type and marks it
+     `in-contract` (no wrapping cast). Same source, same predicate, two
+     different node shapes — `Context.hasSameExpr()` (used by
+     `Sema::CheckEquivalentContractSequence` to compare a redeclaration's
+     contracts against the canonical/first declaration's, per
+     [basic.contract.func]) is shape-sensitive and reports "non-equivalent"
+     for the textually-identical `a.g()`, which is `friendship.cpp`'s
+     failure. **Verified this predates and is independent of the parser
+     access-scope fix (#3 below, `8801be677844`)**: checked out
+     `ParseContracts.cpp` at `8801be677844^` (pre-fix), rebuilt, re-dumped —
+     identical asymmetric AST shapes appear before that commit too. That
+     commit's message (which describes it as purely an access-checking fix)
+     is accurate; it did not introduce or change this bug.
+  2. **Template instantiation doesn't re-apply constification.**
+     `templates.cpp` expects `'const NoBool' is not contextually convertible
+     to 'bool'` on a contract-guarded template but gets the un-constified
+     `'NoBool'` — the `TreeTransform`-rebuilt predicate at instantiation time
+     loses the constification the original (non-template) parse would have
+     applied.
+  3. **Lambda captures interact wrongly** — `lambda.cpp` and
+     `template-test2.cpp` show both "implicit capture...not allowed" errors
+     and constification over/under-application on captured-by-reference
+     variables inside contract predicates (see `Cap.isCapturedAcrossContract()`
+     in `clang/lib/Sema/SemaLambda.cpp` around line 1999).
+  `constification.cpp` exercises a broad mix of these and additionally shows
+  an unrelated `decltype`/`AssertSame` template mismatch at line 122 —
+  `decltype` inside a contract expression doesn't reflect the constified type
+  either.
+  The likely entry point for a future fix is
+  `Sema::getContractConstification` itself, specifically the early-return
+  condition `CSR->ContextAtPush->Encloses(VD->getDeclContext())` at
+  `SemaContract.cpp:1241` and its interaction with
+  `getLastEnclosingContractScopeForContext(CurContext)` — this is where the
+  in-class/out-of-line asymmetry most plausibly originates (different
+  `CurContext` at the time the predicate is parsed for the two declarator
+  forms). Also worth knowing before diving in: there's a **dead, abandoned
+  earlier implementation** of the same enclosing-scope check sitting in an
+  `#if 0`/`#endif` block directly above `getContractConstification`
+  (`SemaContract.cpp:1191-1226`) — read it for context, don't resurrect it
+  without understanding why it was disabled.
+  Removed one piece of noise found along the way: `lambda.cpp` was printing
+  an unconditional `Setting Is Constified capture!\n` to stderr on every
+  compile via a bare `llvm::errs()` in `SemaLambda.cpp` (not gated behind
+  `EricWFDebug`/`ERICWF_DEBUG` like the rest of the fork's debug output) —
+  removed, since it would have polluted stderr in every downstream build
+  (M8) and any test capturing stderr.
+  Deferred rather than fixed in this session — see Current Action and the M3
+  milestone entry. Not this epic's smallest fix; treat as its own session.
 - `cxx26/dev/testrun.sh`'s `contracts` suite only ran `clang/test/Contracts`,
   missing 4 other contracts-relevant files the port added
   (`clang/test/Parser/{cxx-contracts,contract-inline-methods}.cpp`,
@@ -335,3 +401,38 @@ bug, not access-checking anymore), `lambda.cpp`, `repro.cpp`,
 continue through those one at a time the same way (read `llvm-lit -v`
 output, isolate a minimal repro, find root cause in source before guessing,
 fix, rebuild, recheck, commit each fix separately).
+
+### 2026-09-04 — M3 at 36/41: three stale-test fixes, constification root-caused and deferred
+
+Triaged and fixed 3 of the remaining 8 M3 failures as stale `-verify`
+expectations, not compiler bugs (pre-existing typo-correction diagnostic in
+`contracts.cpp`, a qualified-vs-bare attribute-name string in
+`contract-group-attr.cpp`, and a wrong-declaration-cited note in
+`repro.cpp` — P2900 always compares against the *canonical*/first
+declaration, not the nearest prior one). Commits `7aa52c0c1c0d`,
+`5655604488c2`, `413311678584`.
+
+The remaining 5 (`constification.cpp`, `friendship.cpp`, `lambda.cpp`,
+`template-test2.cpp`, `templates.cpp`) all trace to one root cause:
+constification ([basic.contract.general]'s const-ification of automatic-
+storage id-expressions inside contract predicates) is incomplete across
+three mechanisms — in-class/out-of-line AST-shape asymmetry, template
+instantiation not re-applying it, and lambda-capture interaction. Verified
+by AST dump that the in-class/out-of-line asymmetry predates and is
+independent of the M3 access-scope fix (`8801be677844`) — checked out that
+commit's parent, rebuilt, re-dumped, saw the identical asymmetric shapes.
+Full technical writeup in the consolidated Known Bugs/TODOs entry, including
+the specific `Sema::getContractConstification` code path and a dead `#if 0`
+abandoned-implementation block sitting just above it. Also removed a stray
+unconditional `llvm::errs()` debug print in `SemaLambda.cpp` that was
+polluting `lambda.cpp`'s stderr (not gated behind `EricWFDebug` like the
+rest of the fork's debug output).
+
+M3 marked `[!]` blocked rather than `[x]` accepted — the decision on these
+5 is explicitly to defer to a dedicated session, not to carry them as a
+permanent exception list. M4 (no reflection/Sema regressions vs. the M1
+baseline) is independent of constification and is the more valuable next
+step: it validates whether the ~13k lines of ported Sema/CodeGen changes
+damaged reflection or general Sema, which the M1 baseline can catch cheaply
+right now. Recommended order for the next session: M4 first, then
+constification as its own dedicated push.
