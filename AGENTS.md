@@ -14,7 +14,7 @@ not imply Bloomberg endorses this fork.
 
 ## Command Dispatch
 
-- `Continue`: read `docs/CXX26_GAPS.md` and `docs/REFLECTION.md`, then resume their recorded active work. (The LLVM 22 synchronization epic tracked in `docs/LLVM22_SYNC.md` finished 2026-08-30 and that file was deleted; see `docs/CXX26_GAPS.md`'s "Post-Contracts TODO" section for the fork regressions it left open.)
+- `Continue`: read `docs/CXX26_GAPS.md` and `docs/REFLECTION.md`, then resume their recorded active work. (The LLVM 22 synchronization epic tracked in `docs/LLVM22_SYNC.md` finished 2026-08-30 and that file was deleted; see `docs/CXX26_GAPS.md`'s "Post-Contracts TODO" section for the fork regressions it left open. The Contracts (P2900R14) port epic tracked in `docs/CONTRACTS_PORT.md` finished 2026-09-04 and that file was deleted too; see `docs/CXX26_GAPS.md`'s Scope section and Tier 2 table for the status flip, and `git log` — commits prefixed `contracts:` — for full technical history.)
 - `Begin PXXXX`: locate the requested paper in `docs/CXX26_GAPS.md`, `docs/REFLECTION.md`, and any linked status files; research its requirements, implement autonomously, run focused tests, update the active tracker, and commit. Begin work without introductory narration.
 
 ## Build Architecture
@@ -76,6 +76,37 @@ ninja -C build-nyx check-clang
 
 `clang/test/Reflection/splice-exprs.cpp` currently fails because the expected error at line 23 is not seen. This is a known pre-existing regression tracked in `docs/CXX26_GAPS.md` Tier 0.
 
+### Archived test runs (`cxx26/dev/`)
+
+Built for the Contracts epic (`docs/CONTRACTS_PORT.md`, deleted on
+completion) but generically useful for any future gate that needs to prove
+"zero new failures vs. a known-good baseline" rather than eyeballing a
+failure list:
+
+```bash
+# Run a suite, archive its stamped JSON result under
+# ~/.local/share/cxx26-contracts/{results,lit-times}/ (persists across
+# git clean -xdf and branch switches):
+cxx26/dev/testrun.sh <suite>
+# suites: check-clang, check-cxx, contracts, contracts-lib, reflection,
+#         reflection-lib, semacxx, serialization, regression-clusters
+
+# Diff two archived results (refuses to compare across mismatched configs
+# unless --allow-config-mismatch is passed):
+cxx26/dev/testdiff.py <baseline.json> <candidate.json>
+
+# Idempotent build-tree setup (never deletes an existing tree, unlike
+# cxx26/toolchain/build-linux-x86_64.sh, which rm -rfs its arguments):
+cxx26/dev/configure-build-trees.sh {nyx|libcxx|all}
+```
+
+Each archived result is stamped with the git SHA, a `CMakeCache.txt` config
+fingerprint, and `clang --version`. Before any full `check-cxx`,
+`testrun.sh` automatically clears
+`build-libcxx/libcxx/test/extensions/clang/clang_modules_include.gen.py` —
+a lit-output directory that has been observed to grow past 19G over
+repeated runs.
+
 ## Experimental reflection flags
 
 Enable reflection with `-std=c++26 -freflection`. Extended features require additional flags:
@@ -97,7 +128,7 @@ Enable reflection with `-std=c++26 -freflection`. Extended features require addi
 
 - `docs/CXX26_GAPS.md` is the living C++26 conformance tracker and `docs/REFLECTION.md` tracks reflection. Read both before starting relevant work.
 - Update the active tracker in place when status changes and append a dated session-log entry before ending a work session.
-- Contracts (P2900R14) and `std::execution` (P2300R10) require dedicated sub-plans; consult Tier 2 notes before starting either.
+- `std::execution` (P2300R10) requires a dedicated sub-plan; consult Tier 2 notes before starting. Contracts (P2900R14) was completed 2026-09-04 as its own dedicated epic (see `docs/CXX26_GAPS.md`'s Scope section); no sub-plan needed going forward.
 
 ## Code Review Guidance
 

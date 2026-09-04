@@ -27,13 +27,18 @@ work. This fork *does* implement substantial portions of these under
 root `CLAUDE.md` for actual status. **Do not re-implement these from this
 document; consult the reflection documentation instead.**
 
-**Deferred — not sequenced into this plan:** **Contracts (P2900R14).**
-Touches Parser/Sema/CodeGen *and* library simultaneously, is one of the
-largest single features in C++26, and is orthogonal to this fork's
-reflection focus. Revisit as a separate, dedicated multi-session project
-once the tiers below are substantially complete. Do not start on it as part
-of routine gap-closing work without an explicit decision to open that
-project.
+**Contracts (P2900R14): complete, 2026-09-04.** Was deferred out of this
+plan's scope (touches Parser/Sema/CodeGen *and* library simultaneously, one
+of the largest single features in C++26) and executed as its own dedicated
+epic instead, per the note above. Ported from efcs/llvm-project's
+contracts-nightly fork (upstream LLVM has not landed contracts). Full
+technical history — the mechanical port, the three constification
+mechanisms fixed, serialization/codegen/diagnostic bugs found and fixed,
+library-side wiring, and the merge into `cxx26` — is in `git log` on this
+branch (commit subjects prefixed `contracts:`) and in the individual commit
+messages; the epic's own tracker, `docs/CONTRACTS_PORT.md`, was deleted on
+completion per its stated policy since it had no open items to carry
+forward. See the Tier 2 table below for the status-row flip.
 
 ## Tier 0 — Blocking prerequisite (must do first) — DONE 2026-08-20
 
@@ -79,10 +84,20 @@ Epic A (LLVM 22 synchronization, `docs/LLVM22_SYNC.md`) finished 2026-08-30:
 against a fully documented, named exception list. That tracker file has been
 deleted now that the epic is closed — recover its full text with
 `git show dbc3036eea3c:docs/LLVM22_SYNC.md` (last commit to touch it) if any
-item below needs more detail than is captured here. Do not re-open this as
-active work outside routine gap-closing until Contracts (P2900R14, see Scope
-above) is done — these are recorded so they aren't lost, not because they're
-next in line.
+item below needs more detail than is captured here. Contracts (P2900R14,
+see Scope above) finished 2026-09-04; these two regressions are recorded so
+they aren't lost, not because they're necessarily next in line — pick up as
+routine gap-closing work when convenient.
+
+**Minor open curiosity, not a regression:** the Contracts epic's pre-port
+`check-cxx` baseline (captured 2026-09-04 at `97ea0acaee51`, just before the
+epic branched) showed 50 failures, down from Epic A's recorded 199 — not
+investigated (not the Contracts epic's job per its own M1 gate), and never
+became confusing enough to need investigating: M4/M5/M6 all diffed cleanly
+against this same 50-failure number with zero new failures throughout, so
+whatever caused the drop (prior fixes landing, a config difference between
+the two epics) did so before Contracts started and is orthogonal to it.
+Revisit only if idle curiosity strikes; nothing currently depends on it.
 
 **Two open fork regressions, both in `clang/lib/Sema/SemaExpr.cpp`'s
 `HandleImmediateInvocations`/`Rec.ConstevalOnly` consteval-escalation
@@ -347,7 +362,7 @@ than being tackled as a single commit.
 | [x] | P2300R10 | `std::execution` (sender/receiver) | Complete 2026-08-22 — see dedicated sub-plan below. Scope confirmed to collapse with P3325R5/P3396R1 into one effort (merged draft wording); landed across M1–M6c. |
 | [x] | P3325R5 | Execution environment utility | Folded into the P2300R10 sub-plan below (its content is `[exec.envs]`/`prop`+`env`, M1) — flipped together with P2300R10 |
 | [x] | P3396R1 | `std::execution` wording fixes | No separable content — already merged into current draft wording used by the sub-plan below; flipped to Complete alongside P2300R10 at M6c, not separately implemented |
-| [!] | P2900R14 | Contracts | **Deferred** — see Scope section above |
+| [x] | P2900R14 | Contracts | Complete 2026-09-04 — executed as its own dedicated epic, see Scope section above |
 
 ### Tier 2 Sub-Plan: P2300R10 `std::execution` (sender/receiver)
 
