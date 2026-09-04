@@ -20,6 +20,17 @@
 #   LABEL         extra label appended to the archive filename
 set -euo pipefail
 
+# Disable core dumps for this test run. An assertions-enabled build-nyx
+# (docs/CONTRACTS_HARDENING.md M1) turns every ICE into a SIGABRT, and a full
+# check-clang/check-cxx run can crash dozens of test processes; each one was
+# writing a full systemd-coredump core file, which filled the disk and took
+# the whole desktop down with it (2026-09-05, mid-epic). lit's own crash
+# handler already prints the stack trace to the test log, which is what
+# these runs actually need -- a kept core file is for hands-on debugging of
+# one specific crash, done separately and deliberately, not a side effect of
+# routine test running.
+ulimit -c 0
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
@@ -31,6 +42,16 @@ mkdir -p "$RESULTS_DIR" "$LITTIMES_DIR"
 suite="${1:?usage: testrun.sh <suite> [-- extra args]}"
 shift || true
 extra_args=("$@")
+
+# check-clang/check-cxx can each generate double-digit GB of test-output
+# churn (module precompilation caches, per-test binaries); refuse to start
+# one with less than 10GB free rather than run the disk to zero mid-suite.
+avail_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
+if [[ "$avail_kb" -lt $((10 * 1024 * 1024)) ]]; then
+  echo "error: only $((avail_kb / 1024 / 1024))GB free on $(pwd)'s filesystem;" \
+       "refusing to start '$suite' (need >=10GB headroom)." >&2
+  exit 1
+fi
 
 sha="$(git rev-parse HEAD)"
 short_sha="$(git rev-parse --short=12 HEAD)"
