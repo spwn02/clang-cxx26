@@ -53,10 +53,16 @@ an actionable unblock condition recorded.
 - [~] **M1 — Build-tree hardening and baseline.** `build-nyx` reconfigured
   with `LLVM_ENABLE_ASSERTIONS=ON` + `LLVM_ENABLE_RUNTIMES=compiler-rt`
   (`cxx26/dev/configure-build-trees.sh` updated to match); `clang`/`clangd`/
-  `clang-tidy` rebuilt clean. **Current action: verify `-fsanitize=address`
-  links against compiler-rt, then re-baseline `check-clang`/`check-cxx`/
-  contracts/reflection via `cxx26/dev/testrun.sh` before any further source
-  change.**
+  `clang-tidy` rebuilt clean; `-fsanitize=address`/`memory`/`undefined` all
+  verified linking against the new compiler-rt. `check-clang` baseline
+  captured (44628/49837 pass, 7 fail -- see M2). A second `check-cxx` run
+  (to fold in the M2/M3 fixes below) crashed the whole desktop: the
+  assertions build's crash storm plus this suite's module-precompilation
+  cache churn filled the disk to 100%, and `cxx26/dev/testrun.sh` now
+  guards against both (see its own commit `c0e970b1a0ad`). Disk recovered
+  (freed 27G stale module-cache + 4G coredumps; 32G free, repo/build
+  integrity confirmed intact). **Current action: re-run the `check-cxx`
+  baseline now that the disk guard is in place, then close M1.**
 - [x] **M2 — Assertions triage.** First assertions-on unit-test run crashed
   25034-test `AllClangUnitTests` outright (`SIGABRT`) on a bogus assertion in
   `Sema::getContractConstification` (`SemaContract.cpp:1266-1268`):
@@ -140,3 +146,18 @@ epic is already touching).
   constant evaluator). Plan approved. Delete this file when the epic closes,
   per the same policy as `docs/CONTRACTS_PORT.md` and `docs/LLVM22_SYNC.md`
   before it, carrying forward any open items into `docs/CXX26_GAPS.md`.
+- **2026-09-05**: M1/M2 assertions build done; found and fixed two more real
+  bugs beyond the original `r` finding, both via direct empirical
+  bisection/gdb-adjacent print-debugging rather than guesswork: a bogus
+  assert in `getContractConstification` (dead scaffolding, reflexive
+  `DeclContext::Encloses`), and a crash on nearly any `-fcontracts`
+  translation unit including `<utility>` (a variable-template pattern's
+  `checkForConstantInitialization` early-return never populates the state
+  `recheckForConstantInitialization`'s assert depends on) — the latter was
+  blocking all 4 `libcxx/test/std/contracts/*.pass.cpp` tests outright. Both
+  have red-then-green regression tests. Mid-way through re-baselining
+  `check-cxx`, the disk filled to 100% and crashed the desktop (assertions
+  crash-dump storm + `extensions/clang`'s module-cache churn, against an
+  already-thin 16GB margin). Recovered (32G free now); `testrun.sh` hardened
+  against recurrence (`ulimit -c 0`, refuses to start under 10GB free).
+  Recorded here in full rather than glossed over, per this epic's own point.
