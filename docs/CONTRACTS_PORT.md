@@ -213,15 +213,27 @@ of them exercise it.
   satisfied (root cause: identified; decision: defer, not accept) — marked
   `[!]` rather than `[x]` because the decision is explicitly *not* to accept
   these 5 as a permanent exception list.
-- [x] **M4 — No reflection/Sema regressions.** Ran `reflection` (16 tests: 1
-  fail — `Reflection/splice-exprs.cpp`, the known pre-existing regression),
-  `semacxx` (1384 tests: 4 fail — `builtin-is-within-lifetime.cpp`,
+- [x] **M4 — No reflection/Sema regressions.** Ran `reflection` (16
+  discovered/16 executed: 1 fail — `Reflection/splice-exprs.cpp`, the known
+  pre-existing regression), `semacxx` (1384 discovered / 1369 executed —
+  1 XFAIL, 14 UNSUPPORTED: 4 fail — `builtin-is-within-lifetime.cpp`,
   `constant-expression-cxx11.cpp`, `cxx2a-constexpr-dynalloc.cpp`,
   `cxx2b-consteval-propagate.cpp`, all four known pre-existing regressions),
-  `serialization` (`AST/ByteCode`+`Modules`+`PCH`+`Import`, 1324 tests: 0
-  fail). Verified with `testdiff.py` against the M1 `check-clang` baseline
-  archive (`check-clang-20260904T030222Z-97ea0acaee51.json`), not just by
-  eyeballing the failure names: `NEW FAILURES (0)` for all three suites.
+  `serialization` (`AST/ByteCode`+`Modules`+`PCH`+`Import`, 1324 discovered /
+  1294 executed — 30 UNSUPPORTED, all unrelated feature-gated tests
+  [debug-info, VFS-crash reproducers, ARM/AArch64/RISC-V/wasm targets] with
+  zero contracts-relevant tests among them, checked by name; `Modules/
+  contracts.cppm` — the M2 regression guard — ran and passed: 0 fail).
+  Verified with `testdiff.py` against the M1 `check-clang` baseline archive
+  (`check-clang-20260904T030222Z-97ea0acaee51.json`), not just by eyeballing
+  the failure names: `NEW FAILURES (0)` for all three suites, **and** a
+  second pass checking for tests that vanished from each candidate
+  (`MISSING in candidate`, anchored precisely to each suite's own
+  `Clang :: <Dir>/` prefix — a looser substring match on "modules"/"pch"
+  first produced false positives from unrelated top-level dirs like
+  `Analysis/modules/` and `CXX/module/`, and from `Clang-Unit` tests that
+  aren't part of these three lit invocations at all; the anchored check
+  came back empty for all three).
   *Gate:* zero new failures vs. the M1 archive ✓ — the ~13k lines of ported
   Sema/CodeGen changes caused no reflection or general-Sema regressions.
 - [ ] **M5 — Library side.** `<contracts>`, `src/contracts.cpp`, module wiring,
@@ -450,14 +462,22 @@ constification as its own dedicated push.
 ### 2026-09-04 — M4 complete: zero reflection/Sema regressions
 
 Ran the three M4 suites against `integration/contracts-p2900`
-(`60dcda4054e4`): `reflection` (16 tests, 1 fail), `semacxx` (1384 tests, 4
-fail), `serialization` (`AST/ByteCode`+`Modules`+`PCH`+`Import`, 1324 tests,
-0 fail). Every failure matches a name already recorded as a known
-pre-existing regression in the M1 baseline. Didn't stop at eyeballing the
-failure names — ran `cxx26/dev/testdiff.py` against the M1 `check-clang`
+(`60dcda4054e4`): `reflection` (16 discovered/16 executed, 1 fail),
+`semacxx` (1384 discovered/1369 executed, 4 fail), `serialization`
+(`AST/ByteCode`+`Modules`+`PCH`+`Import`, 1324 discovered/1294 executed, 0
+fail). Every failure matches a name already recorded as a known
+pre-existing regression in the M1 baseline; the 30 serialization
+UNSUPPORTED tests are all unrelated feature-gated tests, checked by name
+(none contracts-relevant), and `Modules/contracts.cppm` — the M2
+serialization-regression guard — ran and passed. Didn't stop at eyeballing
+the failure names — ran `cxx26/dev/testdiff.py` against the M1 `check-clang`
 archive for each of the three result sets and got `NEW FAILURES (0)` for
-all three, confirmed mechanically rather than by inspection (this is the
-exact check the plan's M6 gate description says was skipped once before,
+all three, **plus a second `MISSING in candidate` pass** anchored precisely
+to each suite's own `Clang :: <Dir>/` prefix (an unanchored substring match
+first produced false positives from unrelated dirs sharing the word
+"module"/"pch" and from `Clang-Unit` tests outside these three lit
+invocations) — confirmed mechanically rather than by inspection (this is
+the exact check the plan's M6 gate description says was skipped once before,
 letting a 9-test libc++ regression ship during Epic A — worth the extra
 step here too). M4 gate passed; marked `[x]`.
 
