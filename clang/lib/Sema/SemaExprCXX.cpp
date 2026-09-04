@@ -1237,7 +1237,17 @@ QualType Sema::getCurrentThisType() {
   }
 
 
-  if (!ThisTy.isNull() && currentEvaluationContext().isContractAssertionContext())
+  // NB: this used to also require currentEvaluationContext().
+  // isContractAssertionContext(), but that flag lives on the current
+  // ExpressionEvaluationContextRecord, and entering a lambda body pushes a
+  // fresh one that doesn't inherit it -- so the check silently went false
+  // (and 'this' was never constified) as soon as 'this' was used from inside
+  // any lambda nested in a contract predicate, even though
+  // adjustCXXThisTypeForContracts() below already re-derives the correct
+  // answer from the (eval-context-independent) contract scope stack,
+  // including its own guard against a genuinely nested member function
+  // context (see its comment).
+  if (!ThisTy.isNull())
     ThisTy = adjustCXXThisTypeForContracts(ThisTy);
 
   // If we are within a lambda's call operator, the cv-qualifiers of 'this'
