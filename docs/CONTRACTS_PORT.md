@@ -236,10 +236,121 @@ of them exercise it.
   came back empty for all three).
   *Gate:* zero new failures vs. the M1 archive ✓ — the ~13k lines of ported
   Sema/CodeGen changes caused no reflection or general-Sema regressions.
-- [ ] **M5 — Library side.** `<contracts>`, `src/contracts.cpp`, module wiring,
+- [~] **M5 — Library side.** `<contracts>`, `src/contracts.cpp`, module wiring,
   `libcxx/test/std/contracts/` + 5 support headers, minimal `features.py`
   `contracts` lit feature (default off; run via `--param use-contracts=True`),
   header modernized, P3819R0 `evaluation_exception` removal.
+
+  **Pre-port check (advisor-recommended, done before any file lands):**
+  `cxx26/dev/testrun.sh contracts-lib` on the pre-M5 tree hard-errors "did
+  not discover any tests" (archived
+  `contracts-lib-20260904T052236Z-89f0ae9cee84.json`) — proves the "assert
+  non-zero executed count" gate check actually distinguishes "ran and
+  passed" from "silently ran nothing," before any library code exists to
+  make it pass.
+
+  **In/out manifest** (`contracts-base...contracts-nightly` touches 40
+  `libcxx/*` files; the base fork drifted ~1 month from upstream in that
+  window on top of the contracts changes themselves, so several hunks are
+  unrelated upstream churn bundled into the same diff — checked file by
+  file rather than applied wholesale):
+
+  IN (real contracts additions):
+  - `libcxx/include/contracts` (new, core header)
+  - `libcxx/src/contracts.cpp` (new, core impl — this is what defines
+    `__handle_contract_violation_v3`, unblocking `clang/test/Contracts/
+    Runnable/` and any real `-fcontracts` link)
+  - `libcxx/include/source_location` (+10: `__create_from_pointer` factory
+    so `contract_violation` can build a `source_location` from the
+    compiler's builtin struct layout) — verified byte-identical to
+    `contracts-base` in our tree first, so this hunk applies clean, no
+    3-way merge needed
+  - `libcxx/include/CMakeLists.txt` — add only the `contracts` line (the
+    same hunk also adds `assert.h`, which is the hardening-rewiring
+    non-goal — split out)
+  - `libcxx/src/CMakeLists.txt` — add `contracts.cpp`
+  - `libcxx/include/module.modulemap.in` — add the `contracts` module block
+  - `libcxx/modules/std.cppm.in` — add `#include <contracts>`
+  - `libcxx/modules/std/contracts.inc` (new — exports
+    `contract_violation`, `invoke_default_violation_handler`,
+    `evaluation_semantic`, `assertion_kind`, `detection_mode`; notably
+    **not** `evaluation_exception` — P3819R0 removal already reflected
+    here even before the header itself is modernized)
+  - `libcxx/test/std/contracts/{breathing_test,exceptions-test,
+    free_function_tests,member_function_tests}.pass.cpp` (the 4 plan tests)
+  - `libcxx/test/support/{contracts_support,contracts_handler,
+    test_register,nttp_string,dump_struct}.h` (the 5 support headers)
+  - `libcxx/test/support/check_assertion.h` — guarded subset only: a new
+    `#if TEST_HAS_BUILTIN_IDENTIFIER(contract_assert)` branch defining
+    `TEST_LIBCPP_ASSERT_FAILURE` via contracts, plus the new matcher
+    helpers it needs (`MatchAnyMessage`, `ContainsMessage`,
+    `MakeAnyMessageMatcher`, `ReplaceWhitespaceAndQuotes`,
+    `MakeContainsMessageMatcher`, `AnyDeathCause`) — none of this touches
+    the existing `_LIBCPP_ASSERTION_SEMANTIC` branches, purely additive
+  - `libcxx/utils/libcxx/test/params.py` — hand-extract only the
+    `use-contracts` `Parameter` block (`AddCompileFlag("-fcontracts")`,
+    `AddFeature("contracts")`, group-evaluation-semantic flag) —
+    **default flipped to `False`**, matching this fork's `-freflection`
+    convention (upstream/Eric defaults `True`); the `hasContractSupport`
+    helper above it in the same diff is unused by anything ported here,
+    left out
+  - `libcxx/test/support/test.support/test_check_assertion.pass.cpp` — the
+    one-line `XFAIL: ... || contracts` addition (references the `contracts`
+    lit feature the `use-contracts` param adds)
+  - `libcxx/test/libcxx/module_std.gen.py` — the one-line
+    `UNSUPPORTED: contracts` addition, same reason
+
+  OUT (explicitly cut, with reason):
+  - `libcxx/include/__assert`, `libcxx/include/assert.h`,
+    `libcxx/contracts-scratch/assert.h`,
+    `libcxx/test/libcxx/assertions/modes/override_with_*.pass.cpp` (4
+    files), `libcxx/test/support/check_assertion_old.h`,
+    `libcxx/test/modify.pass.cpp` — the `_LIBCPP_ASSERT`-on-contracts
+    hardening rewiring; already named as a non-goal in the plan
+  - `libcxx/utils/libcxx/test/features.py` (the 900-line diff) —
+    **not** a contracts addition at all: `contracts-base` still has the
+    pre-refactor `libcxx/utils/libcxx/test/features/` *package*
+    (confirmed: `git ls-tree contracts/contracts-base` shows
+    `features/{compiler,misc,platform,...}.py`, matching our own tree's
+    current layout), and upstream collapsed that package into one
+    `features.py` file somewhere in the same 1-month window — the diff
+    against our still-un-collapsed tree makes that collapse look like a
+    900-line contracts addition when it's ~2 lines of actual contracts
+    content (`fcontracts`/`contract-groups` `Feature()` probes). Neither
+    is referenced by `REQUIRES:` in any ported test (checked), and
+    `use-contracts`'s own action adds the `contracts` feature directly —
+    so skipped entirely rather than hand-extracted; revisit only if a
+    future test needs `REQUIRES: fcontracts`
+  - `libcxx/include/__ranges/view_interface.h`,
+    `libcxx/test/std/algorithms/alg.modifying.operations/alg.swap/
+    ranges.swap_ranges.pass.cpp`,
+    `libcxx/test/std/numerics/bit/bit.pow.two/bit_ceil.verify.cpp`,
+    `libcxx/test/libcxx/algorithms/lifetimebound.verify.cpp`,
+    `libcxx/test/std/time/.../sys_info.zdump.pass.cpp`,
+    `libcxx/test/CMakeLists.txt` — unrelated upstream drift (a perf
+    refactor, a test-file split, an unrelated `const`-qualifier fix, a
+    disabled-test marker, and a `tools/` subdirectory reorg tracing back
+    to a Jan 2024 commit respectively) bundled into the same
+    `contracts-base...contracts-nightly` diff by the 1-month base gap, not
+    by contracts. Porting these would shift the `check-cxx` baseline M6
+    diffs against, for reasons unrelated to contracts — same logic as why
+    the `__assert` rewiring is cut
+  - `libcxx/test/std/algorithms/alg.sorting/alg.clamp/
+    ranges.clamp.pass.cpp` (adds `&& !__has_keyword(contract_assert)` to an
+    `_LIBCPP_HARDENING_MODE` guard) and `libcxx/test/std/ranges/
+    range.adaptors/range.chunk.by/range.chunk.by.iter/decrement.pass.cpp`
+    (`XFAIL: contracts`) — both *do* reference contracts, but only in the
+    context of the broader hardening-rewiring / suite-wide
+    `use-contracts=True` default that upstream/Eric ships and this port
+    explicitly doesn't (`libcxx/test/std/contracts` runs standalone with
+    `--param use-contracts=True`, not the whole suite) — cut alongside the
+    hardening non-goal, revisit only if that scope ever changes
+  - `libcxx/test/libcxx/transitive_includes/cxx26.csv` — not hand-ported
+    from the diff (our fork's CSV has already diverged from upstream's);
+    regenerated instead via `ninja -C build-libcxx libcxx-generate-files`
+    once the header lands, per the plan
+  - `libcxx/utils/libcxx/test/features.py`'s hardening bits and
+    `check_assertion_old.h` covered above
 - [ ] **M6 — Full-suite gate.** Full `check-clang` + `check-cxx` vs M1 archive,
   every new failure fixed or named.
 - [ ] **M7 — Merge and tag.** `--no-ff` into `cxx26`, push, tag
