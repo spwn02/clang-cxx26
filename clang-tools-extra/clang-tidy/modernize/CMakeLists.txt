@@ -36,6 +36,7 @@ add_clang_library(clangTidyModernizeModule STATIC
   UseConstraintsCheck.cpp
   UseDefaultMemberInitCheck.cpp
   UseDesignatedInitializersCheck.cpp
+  UseDoExprCheck.cpp
   UseEmplaceCheck.cpp
   UseEqualsDefaultCheck.cpp
   UseEqualsDeleteCheck.cpp
@@ -67,6 +68,7 @@ add_clang_library(clangTidyModernizeModule STATIC
 
 clang_target_link_libraries(clangTidyModernizeModule
   PRIVATE
+  clangAnalysis
   clangAST
   clangASTMatchers
   clangBasic

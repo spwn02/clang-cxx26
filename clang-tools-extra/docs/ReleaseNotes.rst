@@ -345,6 +345,13 @@ New checks
   Finds virtual function overrides with different visibility than the function
   in the base class.
 
+- New :doc:`modernize-use-do-expr
+  <clang-tidy/checks/modernize/use-do-expr>` check.
+
+  Finds immediately-invoked lambda expressions and classifies each one by
+  whether, and why, it could be spelled as a ``do`` expression instead, and
+  rewrites the ones that can be.
+
 - New :doc:`readability-inconsistent-ifelse-braces
   <clang-tidy/checks/readability/inconsistent-ifelse-braces>` check.
 
