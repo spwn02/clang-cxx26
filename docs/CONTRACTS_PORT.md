@@ -128,18 +128,24 @@ cxx26/dev/testrun.sh check-cxx
 
 ## Current Action
 
-M4's gate has passed: zero new failures in reflection/SemaCXX/serialization
-vs. the M1 baseline. M3 remains blocked on constification (see Known
-Bugs/TODOs) — next actionable step for a dedicated session is reading
-`Sema::getContractConstification` (`SemaContract.cpp:1232`) and the dead
-`#if 0` block above it (~1191-1226, an abandoned earlier implementation) to
-understand why `CSR->ContextAtPush->Encloses(VD->getDeclContext())` behaves
-asymmetrically for in-class vs. out-of-line declarators. With M4 clear,
-M5 (library side) is the next milestone that doesn't depend on
-constification being fixed first — `<contracts>`/`src/contracts.cpp`
-wiring is independent of the Sema-side constification gap, though the 4
-library tests should be re-checked once constification lands in case any
-of them exercise it.
+M1, M2, M4 and M5 gates have all passed. M3 remains blocked on
+constification (see Known Bugs/TODOs) — next actionable step for a
+dedicated session is reading `Sema::getContractConstification`
+(`SemaContract.cpp:1232`) and the dead `#if 0` block above it (~1191-1226,
+an abandoned earlier implementation) to understand why
+`CSR->ContextAtPush->Encloses(VD->getDeclContext())` behaves asymmetrically
+for in-class vs. out-of-line declarators. M5's library tests all pass
+without exercising constification specifically, so there's no evidence yet
+either way on whether the library side is affected — worth re-checking once
+constification lands. Next milestone: M6 (full-suite gate) is largely a
+formality at this point, since M4 and M5 already ran full `check-cxx`
+and the reflection/SemaCXX/serialization suites clean — the remaining M6
+work is a `check-clang` pass (not yet run since the M2 mechanical port) and
+folding constification's eventual fix/exception-list decision into the
+final diff. Realistically M6 should wait until M3's constification work is
+either fixed or formally accepted as a named exception, since M6's gate is
+"no unexplained delta" and 5 known Contracts-suite failures would currently
+need to be that named exception.
 
 ## Milestones
 
@@ -236,7 +242,7 @@ of them exercise it.
   came back empty for all three).
   *Gate:* zero new failures vs. the M1 archive ✓ — the ~13k lines of ported
   Sema/CodeGen changes caused no reflection or general-Sema regressions.
-- [~] **M5 — Library side.** `<contracts>`, `src/contracts.cpp`, module wiring,
+- [x] **M5 — Library side.** `<contracts>`, `src/contracts.cpp`, module wiring,
   `libcxx/test/std/contracts/` + 5 support headers, minimal `features.py`
   `contracts` lit feature (default off; run via `--param use-contracts=True`),
   header modernized, P3819R0 `evaluation_exception` removal.
@@ -347,10 +353,134 @@ of them exercise it.
     hardening non-goal, revisit only if that scope ever changes
   - `libcxx/test/libcxx/transitive_includes/cxx26.csv` — not hand-ported
     from the diff (our fork's CSV has already diverged from upstream's);
-    regenerated instead via `ninja -C build-libcxx libcxx-generate-files`
-    once the header lands, per the plan
+    added empirically after the port instead (see below) — 
+    `ninja -C build-libcxx libcxx-generate-files` turned out **not** to
+    regenerate this CSV (it only touches Unicode tables, `std.cppm.in`,
+    `<version>`/feature-test-macro files — the transitive-includes CSV is
+    read, not written, by its own `transitive_includes.gen.py` lit test),
+    so the plan's assumption about that target was wrong; corrected here
   - `libcxx/utils/libcxx/test/features.py`'s hardening bits and
     `check_assertion_old.h` covered above
+
+  **Applied and built.** All IN files landed; `ninja -C build-libcxx cxx
+  generate-cxx-modules` built clean (`libcxx/src/contracts.cpp` compiles
+  with one benign `-Wmissing-prototypes` on the `extern "C"`
+  `__handle_contract_violation_v3` — harmless, matches the ABI-export
+  pattern used elsewhere in this file). One real bug found in the ported
+  test files while getting `contracts-lib` from 0 to 4/4: `free_function_
+  tests.pass.cpp` both defined its own `int main()` **and** included
+  `test_register.h`, which also defines `int main()` for its
+  `REGISTER_TEST`-macro-based tests — a redefinition error, since this
+  particular test doesn't use that macro at all (the other 3 tests do,
+  correctly, and omit their own `main()`). Fixed by dropping the stray
+  `#include "test_register.h"` and silencing the now-`-Werror`ed unused
+  `violation` parameter. `cxx26/dev/testrun.sh contracts-lib` went from a
+  hard "did not discover any tests" error (pre-port, archived above) to
+  `{'PASS': 4}` (archived `contracts-lib-20260904T053200Z-3be02a80381e.json`)
+  — satisfies M5's "assert non-zero executed count" gate concretely,
+  not just structurally.
+
+  Also found and fixed a small gap in `contracts-nightly` itself while
+  wiring modules: `libcxx/modules/std/contracts.inc` (the new module
+  partition file) was never added to `libcxx/modules/CMakeLists.txt`'s
+  `LIBCXX_MODULE_STD_SOURCES` list — present on disk, never built into
+  the `std` module. `git diff contracts/contracts-base
+  contracts/contracts-nightly -- libcxx/modules/CMakeLists.txt` is empty,
+  confirming this is a gap in Eric's branch, not something introduced by
+  our narrower apply. Added the missing line.
+
+  **Full end-to-end proof, not just the mock-runtime `Runnable/` tests**
+  (see the correction below): a standalone program compiled with
+  `-fcontracts -fcontract-evaluation-semantic=observe`, linked against the
+  real `build-libcxx` output (`-nostdinc++ -I .../include/c++/v1 -lc++`,
+  no mock headers), with `pre(x > 0)`/`post(r: r > x)` on a real function
+  and a user-defined `handle_contract_violation` override — violates the
+  precondition on `f(-1)`, correctly reports `kind() == 1` (pre) and
+  `comment() == "x > 0"` through the real library's `contract_violation`
+  object, and (per `observe` semantics) continues execution rather than
+  aborting. This is the first point in the epic where the compiler and
+  library sides have actually been exercised together, rather than each
+  in isolation (M2's PCH/module round-trips: AST only; M3:
+  `clang/test/Contracts`: diagnostics/AST/local-mock-runtime only).
+
+  **Correction to the M5 gate's own text above:** `clang/test/Contracts/
+  Runnable/` was **not** actually blocked on `libcxx/src/contracts.cpp` —
+  checked, and all 6 `Runnable/` tests were already `PASS` before any M5
+  file landed. They carry their own self-contained mock
+  `contracts.h`/`contracts-runtime.h` in the same test directory
+  (defining their own `__handle_contract_violation_v3`), entirely
+  independent of the real libc++ header. The earlier note assuming
+  otherwise was wrong; recorded here so it isn't repeated.
+
+  **Also verified:** the new `contracts` entries in `include/CMakeLists.txt`
+  / `module.modulemap.in` / `std.cppm.in` don't break anything when
+  `-fcontracts` is off (the default) — `libcxx/test/libcxx/
+  transitive_includes.gen.py` initially failed for the newly-discovered
+  `contracts` header (no CSV row yet: 126 total, 1 fail), fixed by adding
+  the 3 rows (`contracts cstdint`, `contracts source_location`,
+  `contracts version` — matching upstream's own diff exactly, confirmed
+  against the actual `-H` trace output rather than trusted blindly): 126/126
+  after.
+
+  **Two real bugs found and fixed via a full `check-cxx` run** (the M5
+  gate itself only asks for the contracts + reflection suites, but a full
+  run was worth doing here too — the same lesson as the M2 gate's PCH/
+  module round-trips: cheaper to catch this same-session than to bisect it
+  at M6 against 13k+ lines):
+  1. `libcxx/modules/std/contracts.inc` exported
+     `invoke_default_violation_handler`, but the header
+     (`libcxx/include/contracts`) actually declares
+     `invoke_default_contract_violation_handler` — a name that never
+     matched anything, breaking `--precompile` of the whole `std` module
+     the moment `contracts` became a real header (5 new failures: the 3
+     `selftest/modules/*.sh.cpp` module smoke tests plus
+     `std/modules/std{,.compat}.pass.cpp`). A real bug in
+     `contracts-nightly` itself, not a merge artifact — fixed by
+     correcting the `using` declaration to match the header.
+  2. `-fcontract-evaluation-semantic=`/`-fcontract-group-evaluation-
+     semantic=` are silently dropped by the clang **driver** (an "unused
+     argument" warning, not an error) whenever `-fcontracts` is passed via
+     `-Xclang` rather than as a plain top-level flag — confirmed with a
+     minimal repro (`/home/spawn/.claude/jobs/15c946bc/tmp/exc_repro*.cpp`,
+     not preserved): identical source and flags, differing only in
+     whether `-fcontracts` has a `-Xclang` prefix, produces working
+     exception-in-predicate routing in one case and an uncaught `throw 42`
+     crash (`libc++abi: terminating due to uncaught exception of type
+     int`) in the other, because the evaluation-semantic flags silently
+     don't take effect and the contract falls back to a semantic with no
+     exception-catching codegen. 3 of the 4 ported
+     `libcxx/test/std/contracts/*.pass.cpp` tests wrote
+     `-Xclang -fcontracts -fcontract-evaluation-semantic=...` in their
+     `ADDITIONAL_COMPILE_FLAGS` (the 4th, `breathing_test.pass.cpp`,
+     already used plain `-fcontracts` and was unaffected) — a real bug in
+     the ported *test files*, not the compiler or library: nobody would
+     hide `-fcontracts` behind `-Xclang` in practice, and the fix is to
+     stop doing that, matching how `breathing_test.pass.cpp` already
+     works and how every manual smoke test in this milestone was
+     invoked. This one only surfaced as an observable failure in
+     `exceptions-test.pass.cpp` (the one test whose assertion actually
+     depends on the group's evaluation semantic being non-default) — the
+     other two silently got the wrong (but non-crashing) semantic and
+     still passed, which is worth remembering if either of them starts
+     asserting on evaluation-semantic-sensitive behavior later. **Left the
+     driver behavior itself alone** — a `-Xclang`-prefixed `-fcontracts`
+     silently defeating sibling `-fcontract-*` flags is arguably a driver
+     bug worth its own investigation, but out of scope here since the
+     library-side fix is sufficient and correct on its own.
+
+  Re-ran `reflection-lib` (54/60, `testdiff.py` vs. the M1 archive:
+  `NEW FAILURES (0)`) and a full `check-cxx` (11766 discovered, 50 fail —
+  same count as the M1 baseline's 50; `testdiff.py` vs. the M1 archive:
+  `NEW FAILURES (0)`, `NEWLY FIXED (0)`) after both fixes. All 4
+  `std/contracts/*.pass.cpp` tests and all 5 module tests confirmed `PASS`
+  in that same full run — not just in the earlier standalone
+  `--param use-contracts=True` invocation, which had been masking bug #2
+  by coincidentally adding its own plain `-fcontracts` ahead of the
+  broken `-Xclang`-prefixed one.
+  *Gate:* libc++ contracts tests run and pass (4/4, non-zero executed,
+  proven false before the port and true after) ✓; libc++ reflection suite
+  unchanged vs. M1 ✓; (bonus, beyond the stated gate) full `check-cxx`
+  unchanged vs. M1 ✓.
 - [ ] **M6 — Full-suite gate.** Full `check-clang` + `check-cxx` vs M1 archive,
   every new failure fixed or named.
 - [ ] **M7 — Merge and tag.** `--no-ff` into `cxx26`, push, tag
@@ -612,3 +742,84 @@ Next: M5 — library side (`<contracts>`, `libcxx/src/contracts.cpp`, module
 wiring, `libcxx/test/std/contracts/` + 5 support headers, `use-contracts`
 lit feature, header modernization, P3819R0 `evaluation_exception` removal).
 Independent of the parked constification work.
+
+### 2026-09-04 — M5 complete: library side ported, two real bugs found via a full check-cxx run
+
+Advisor-recommended pre-port check first: `testrun.sh contracts-lib` on the
+pre-M5 tree hard-errors "did not discover any tests" — a concrete, testable
+proof that the M5 gate's "assert non-zero executed count" would actually
+catch a silent-no-op failure mode, not just structurally exist.
+
+Wrote a file-by-file in/out manifest for the 40 `libcxx/*` files touched
+between `contracts-base` and `contracts-nightly` before applying anything
+(committed separately, `3be02a80381e`) — most of the OUT list is 1-month
+upstream drift bundled into the diff by the fork's aging base, not
+contracts content (a `features/` package collapsed into `features.py`, a
+`view_interface.h` perf refactor, a `test/CMakeLists.txt` reorg tracing to
+a Jan 2024 commit, etc.). Landed the IN list: `<contracts>`,
+`libcxx/src/contracts.cpp`, module wiring
+(`module.modulemap.in`/`std.cppm.in`/`modules/std/contracts.inc`), the 4
+`libcxx/test/std/contracts/*.pass.cpp` tests, the 5 support headers, the
+guarded `check_assertion.h` subset, and a `use-contracts` lit param
+(default **off**, unlike upstream's default-on, matching this fork's
+`-freflection` convention).
+
+`libcxx/src/contracts.cpp` built clean on the first `ninja -C build-libcxx
+cxx` (one benign `-Wmissing-prototypes` on the `extern "C"`
+`__handle_contract_violation_v3`). Found and fixed a real bug in the ported
+test file `free_function_tests.pass.cpp` immediately (`int main()`
+redefinition against `test_register.h`'s own `main()`, from an
+unnecessary/leftover include) getting `contracts-lib` from 0 discovered
+tests to 4/4 passing.
+
+Deferred two items explicitly rather than attempting them under time
+pressure: **P3819R0's `evaluation_exception` removal** — traced its actual
+compiler-side footprint (`CGContracts.cpp`'s `BuildTryCatch`/
+`EmitContractStmtAsCatchBody`, a real try/catch wrapping every enforced/
+observed contract predicate, not just an enum value) and found it's
+load-bearing, invasive codegen surgery, not a header edit — ported the
+library header keeping `evaluation_exception` so compiler and library stay
+in sync; and **header modernization** (splitting `<contracts>` into
+`__contracts/*.h` sub-headers with `_LIBCPP_BEGIN_NAMESPACE_STD`, matching
+this tree's newer-header convention) — cosmetic, not functional, deferred
+to keep this session's scope to a working, tested library.
+
+Did a real compiler+library end-to-end smoke test (not part of any
+existing suite) — a standalone program with real `pre`/`post` contracts,
+linked against the freshly-built `build-libcxx`, with a user-defined
+`handle_contract_violation`: violated the precondition, got the correct
+`kind()`/`comment()` back through the real library object, and continued
+under `observe` semantics as expected. First point in the epic the two
+sides have been exercised together rather than each in isolation.
+
+Ran a full `check-cxx` beyond what M5's stated gate requires (matching the
+M2 gate's own reasoning: cheaper to catch this same-session than bisect it
+against 13k+ lines at M6) and found two real, previously-latent bugs: (1)
+`modules/std/contracts.inc` exported a symbol name
+(`invoke_default_violation_handler`) that never matched the header's actual
+declaration (`invoke_default_contract_violation_handler`) — broke
+`--precompile` of the whole `std` module the moment `contracts` became a
+real header (5 failures: 3 module selftest files + `std/modules/
+std{,.compat}.pass.cpp`); (2) 3 of the 4 ported contracts tests hid
+`-fcontracts` behind `-Xclang` in their `ADDITIONAL_COMPILE_FLAGS`, which
+turns out to silently defeat the clang **driver**'s recognition of sibling
+`-fcontract-evaluation-semantic=`/`-fcontract-group-evaluation-semantic=`
+flags (confirmed with a minimal repro: identical source/flags differing
+only in the `-Xclang` prefix produced working vs. crashing exception-in-
+predicate routing) — only surfaced as an observable failure in
+`exceptions-test.pass.cpp`, since it's the only one of the three whose
+assertions depend on the resulting semantic being non-default. Fixed both
+(the `.inc` name; dropping the stray `-Xclang` to match how
+`breathing_test.pass.cpp` was already written). Re-ran `reflection-lib`
+(54/60, matches M1 exactly) and a full `check-cxx` (11766 discovered, 50
+fail — same count as M1) a second time: `testdiff.py` against the M1
+archive reports `NEW FAILURES (0)` on both, and all 4 contracts tests plus
+all 5 module tests confirmed `PASS` in that same run (not just under the
+earlier `--param use-contracts=True` invocation, which had been masking
+bug #2 by coincidence).
+
+M5 marked `[x]` — gate satisfied and then some. Next: M6 is close to
+formality-only given M5's bonus full-suite verification, but should wait
+for M3's constification decision (fix or named exception) since M6's gate
+requires no unexplained delta and the 5 known Contracts-suite failures
+currently have no formal disposition yet.
