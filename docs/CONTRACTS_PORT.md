@@ -128,13 +128,13 @@ cxx26/dev/testrun.sh check-cxx
 
 ## Current Action
 
-M1-M5 gates have all passed, including M3 (constification is now fully
-fixed, not a named exception — see the M3 entry below). Full `check-clang`
-and `check-cxx` runs are in flight for M6. Next: fold those results into the
-M6 gate, then M7 (local merge first, package + M8-pass-1 no-regression
-check, only then push+tag, per the ordering hazard the epic's advisor
-flagged), then M8 pass 2 (`-fcontracts` downstream verification, uncommitted
-in Nyx/Miracle/Switch).
+M1-M6 gates have all passed (M3 fully fixed, not a named exception; M6's
+full check-clang/check-cxx runs matched the M1 baseline exactly after two
+real port bugs found and fixed — see the M6 entry). M7 is `[~]`: about to do
+the local `--no-ff` merge into `cxx26`, then the doc updates, then M8 pass 1
+(package + no-regression check against Nyx/Miracle/Switch), only then
+push+tag, then M8 pass 2 (`-fcontracts` downstream verification,
+uncommitted in those three repos).
 
 ## Milestones
 
@@ -513,14 +513,49 @@ in Nyx/Miracle/Switch).
   proven false before the port and true after) ✓; libc++ reflection suite
   unchanged vs. M1 ✓; (bonus, beyond the stated gate) full `check-cxx`
   unchanged vs. M1 ✓.
-- [ ] **M6 — Full-suite gate.** Full `check-clang` + `check-cxx` vs M1 archive,
-  every new failure fixed or named.
-- [ ] **M7 — Merge and tag.** `--no-ff` into `cxx26`, push, tag
-  `cxx26-YYYY.MM.DD`; update `Cxx2cPapers.csv`, `CXX26_GAPS.md`, `AGENTS.md`,
-  `REFLECTION.md` if needed.
-- [ ] **M8 — Downstream verification.** Package the reference toolchain; two
-  passes over Nyx + Miracle + Switch (no-regression, then `-fcontracts` +
-  capability probes + contract tests, uncommitted in those repos).
+- [x] **M6 — Full-suite gate.** First attempt (`check-cxx` run concurrently
+  with an unrelated clang rebuild — a self-inflicted process error, not a
+  code issue) produced a contaminated 4425-failure result; discarded
+  without drawing any conclusion from it, and re-run cleanly and
+  sequentially (full `build-nyx` rebuild, forced-clean `build-libcxx`
+  rebuild, then `check-clang`, then `check-cxx`, no concurrent build steps).
+  `check-clang` initially showed 2 real new failures beyond the 5 known
+  ones — both real bugs in the ported code, both fixed (see Known
+  Bugs/TODOs): (1) `DeclRefExpr`'s two new bitfields
+  (`IsConstified`/`IsInContractContext`) were never added to the
+  ASTWriter/ASTReader's packed-bits scheme, so `DeclRefExpr::CreateEmpty`'s
+  bare `EmptyShell` ctor left them as uninitialized memory after any
+  PCH/module round-trip — fixed in `b83bead4b46a`; (2) the port added a
+  `%select{declaration|contract specifier}` to
+  `err_disallowed_duplicate_attribute` but missed updating
+  `SemaHLSL.cpp`'s pre-existing (non-contracts) call site to pass the new
+  selector, corrupting an unrelated HLSL diagnostic's wording — fixed in
+  `1ec351e5fcd3`. After both fixes, a clean re-run of both suites matched
+  the M1 baseline exactly via `testdiff.py`: `check-clang` 5/49836 fail
+  (`NEW FAILURES (0)`), `check-cxx` 50/11766 fail (`NEW FAILURES (0)`,
+  `NEWLY FIXED (0)`). One additional non-regression noted: `LibClang/
+  symbols.test` flipped `PASS → UNSUPPORTED` — traced via `git log` to the
+  M2 mechanical-port commit itself; the file already carries an
+  unconditional `UNSUPPORTED: clang` marker authored by the same upstream
+  fork (comment: "Disabling because it doesn't work with Mold as the
+  linker") that the M1 baseline predates. Same class of bundled
+  unrelated-drift-in-the-diff already documented for several libcxx/ files
+  in M5's manifest, just on the clang/ side and not filtered file-by-file
+  the way M5's port was — accepted, not a regression to fix.
+  *Gate:* zero unexplained new failures across both full suites vs. the M1
+  archive ✓.
+- [~] **M7 — Merge and tag.** `--no-ff` into `cxx26`; update
+  `Cxx2cPapers.csv` (P2900R14 → Complete), `CXX26_GAPS.md` (Scope section +
+  Tier 2 row), `AGENTS.md` (Command Dispatch + Trackers section); delete
+  this tracker per its own stated policy once its content is folded
+  forward. Push and tag deferred until after M8 pass 1's no-regression
+  check, per the ordering hazard flagged at session start (push+tag is
+  irreversible; the local merge is not). *Current action:* about to do the
+  local `--no-ff` merge.
+- [ ] **M8 — Downstream verification.** Package the reference toolchain;
+  two passes over Nyx + Miracle + Switch (no-regression, then `-fcontracts`
+  + capability probes + contract tests, uncommitted in those repos). Push
+  + tag `cxx26-2026.09.04` only after pass 1 confirms no regression.
 
 ## Known Bugs / TODOs
 
