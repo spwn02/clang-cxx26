@@ -24,7 +24,7 @@ struct A {
     post(x : x != 0); // expected-error {{declaration of result name 'x' shadows parameter}}
   void test_this_access() post(r != 0);
 
-  int r;
+  int r; // expected-note {{'A::r' declared here}}
 };
 
 int test_return_parse(const int x) post(r : r == x) {
@@ -77,7 +77,8 @@ void test_converted_to_bool(int x)
 namespace result_name_scope_test {
 
 int test_scope(const int x) post(r : r != x) {
-  return r; // expected-error {{use of undeclared identifier 'r'}}
+  return r; // expected-error {{use of undeclared identifier 'r'}} \
+            // expected-error {{invalid use of non-static data member 'r'}}
 }
 
 struct T {
