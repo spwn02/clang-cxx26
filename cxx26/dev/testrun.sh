@@ -78,18 +78,58 @@ meta_json="$RESULTS_DIR/${suite}-${stamp}-${short_sha}${label}.meta.json"
 latest_link="$RESULTS_DIR/${suite}-latest.json"
 latest_meta_link="$RESULTS_DIR/${suite}-latest.meta.json"
 
+# CRITICAL_FREE_KB: a live, mid-run kill switch. The start-of-run >=10GB
+# check above only catches an already-low margin -- it does nothing about a
+# single run's OWN growth (this suite's module-precompilation cache alone
+# once grew to 27G in one run) consuming the rest during execution. Every
+# long-running command in this script goes through run_with_diskguard, which
+# polls free space and hard-kills the command's entire process group well
+# before the filesystem actually reaches zero, rather than after (2026-09-05
+# incident: disk hit 100%, took the whole desktop down with it).
+readonly CRITICAL_FREE_KB=$((3 * 1024 * 1024))
+
+run_with_diskguard() {
+  # Runs "$@" as the leader of its own session/process group (via setsid) so
+  # the watchdog can safely kill exactly that subtree with a negative PID,
+  # without touching this script's own process group.
+  setsid "$@" &
+  local cmd_pid=$!
+  (
+    while kill -0 "$cmd_pid" 2>/dev/null; do
+      local avail_kb
+      avail_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
+      if (( avail_kb < CRITICAL_FREE_KB )); then
+        echo "CRITICAL: only $((avail_kb / 1024))MB free -- killing this test run" \
+             "to protect the system (see testrun.sh's CRITICAL_FREE_KB)." >&2
+        kill -TERM -- -"$cmd_pid" 2>/dev/null || true
+        sleep 5
+        kill -KILL -- -"$cmd_pid" 2>/dev/null || true
+        break
+      fi
+      sleep 15
+    done
+  ) &
+  local watchdog_pid=$!
+  local rc=0
+  wait "$cmd_pid" || rc=$?
+  kill "$watchdog_pid" 2>/dev/null || true
+  wait "$watchdog_pid" 2>/dev/null || true
+  return "$rc"
+}
+
 run_lit() {
   # $1 = path/target-list description (for logging), remaining = llvm-lit args
   local desc="$1"; shift
   echo "==> $desc"
-  ./build-nyx/bin/llvm-lit -q -o "$out_json" --xunit-xml-output "${out_json%.json}.xunit.xml" --time-tests "$@" "${extra_args[@]}"
+  run_with_diskguard \
+    ./build-nyx/bin/llvm-lit -q -o "$out_json" --xunit-xml-output "${out_json%.json}.xunit.xml" --time-tests "$@" "${extra_args[@]}"
 }
 
 run_ninja_target() {
   local tree="$1" target="$2"
   echo "==> ninja -C $tree $target"
   LIT_OPTS="-o $out_json --xunit-xml-output ${out_json%.json}.xunit.xml --time-tests ${extra_args[*]:-}" \
-    ninja -C "$tree" -j"$(nproc)" "$target"
+    run_with_diskguard ninja -C "$tree" -j"$(nproc)" "$target"
 }
 
 # Test suites are expected to sometimes fail (that's the whole point of
