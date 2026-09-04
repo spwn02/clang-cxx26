@@ -1238,7 +1238,20 @@ ContractConstification Sema::getContractConstification(const ValueDecl *VD) {
   assert(VD);
   const ContractScopeRecord *CSR = S.getCurrentContractEntry();
 
-  if (!CSR || CSR->ContextAtPush->Encloses(VD->getDeclContext()))
+  // NB: this used to also bail out early with CC_None whenever
+  // CSR->ContextAtPush->Encloses(VD->getDeclContext()) held. That condition
+  // is unreliable during parsing: an in-class contract-specifier-sequence is
+  // parsed with CurContext already pushed to the FunctionDecl itself, so a
+  // parameter's DeclContext trivially self-encloses and the check always
+  // fired -- while for an out-of-line definition, the parameter is still
+  // parented to the enclosing (lexical) TranslationUnit at this point, so it
+  // never fired. That asymmetry silently skipped constification for in-class
+  // declarations only, producing a different (unconstified) AST shape for
+  // the identical out-of-line definition and tripping
+  // CheckEquivalentContractSequence's hasSameExpr() comparison. The real
+  // "did we cross a contract boundary" determination is isUsageAcrossContract
+  // below, which doesn't depend on this fragile DeclContext bookkeeping.
+  if (!CSR)
     return CC_None;
 
 
