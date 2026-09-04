@@ -40,6 +40,14 @@ messages; the epic's own tracker, `docs/CONTRACTS_PORT.md`, was deleted on
 completion per its stated policy since it had no open items to carry
 forward. See the Tier 2 table below for the status-row flip.
 
+Merged into `cxx26` locally at `64ad936fe5fe` (`--no-ff`). **Not yet pushed
+and not yet tagged** — deliberately deferred until M8's downstream
+no-regression pass confirms the packaged toolchain doesn't break
+Nyx/Miracle/Switch, since push+tag is irreversible and the local merge is
+not. Remaining: package the reference toolchain, two downstream
+verification passes, then `git push origin cxx26` and tag
+`cxx26-2026.09.04`.
+
 ## Tier 0 — Blocking prerequisite (must do first) — DONE 2026-08-20
 
 `build-nyx` was configured with `LLVM_INCLUDE_TESTS=OFF`. There was
