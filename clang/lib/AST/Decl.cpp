@@ -2726,6 +2726,21 @@ bool VarDecl::checkForConstantInitialization(
 
 bool VarDecl::recheckForConstantInitialization(
     SmallVectorImpl<PartialDiagnosticAt> &Notes, bool EnableContracts) const {
+  // Mirrors the early-return in checkForConstantInitialization() above: a
+  // described variable-template pattern (not yet instantiated) never
+  // populates its EvaluatedStmt's WasEvaluated/HasConstantInitialization
+  // fields there either -- it unconditionally `return true`s before ever
+  // touching Eval state, deliberately, to avoid evaluating a dependent
+  // pattern initializer too early (see that function's TODO(CXX26) comment).
+  // Without this matching guard, SemaDecl.cpp's caller sees that `true` and
+  // unconditionally proceeds to call this function for the contracts
+  // recheck, whose assert below then fires on a never-populated Eval for
+  // every variable-template pattern with an initializer -- which includes
+  // ordinary libc++ traits like __is_referenceable_v, so this crashed on
+  // nearly any -fcontracts translation unit that includes <utility>.
+  if (getDescribedVarTemplate())
+    return true;
+
   EvaluatedStmt *Eval = ensureEvaluatedStmt();
 
   assert((Eval->WasEvaluated && Eval->HasConstantInitialization) &&
