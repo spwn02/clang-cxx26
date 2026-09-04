@@ -184,8 +184,21 @@ build green, PCH + module round-trips verified). Next: M3 — run
   file compiles (verified AST + rejects `pre(...)` without the flag) ✓; PCH
   round-trip ✓; module round-trip ✓. (Linking the smoke file fails on
   `__handle_contract_violation_v3` — expected, that's libc++'s runtime hook,
-  M5's job, not a gate requirement here.)
+  M5's job, not a gate requirement here.) Note: both round-trips verify
+  *deserialization of the AST* only, not codegen from a deserialized
+  contract-carrying decl — M3 found a real codegen bug (postconditions on
+  void functions, see Known Bugs/TODOs) that a round-trip followed by
+  execution would also have caught. Not a gate failure (M2's gate says
+  "compiles"), noted so the claim isn't read as broader than it is.
 - [~] **M3 — `clang/test/Contracts` green.** 43 tests + 2 in `clang/test/Parser`.
+  Suite widened to also cover `clang/test/Modules/contracts.cppm` and
+  `clang/test/SemaCXX/ericwf-crash.cpp` (previously not run by
+  `testrun.sh contracts` at all — see Known Bugs/TODOs). Currently 33/41
+  passing; 8 failures remain (`constification.cpp`,
+  `contract-group-attr.cpp`, `contracts.cpp`, `friendship.cpp`,
+  `lambda.cpp`, `repro.cpp`, `template-test2.cpp`, `templates.cpp`), two
+  real compiler bugs found and fixed so far this milestone (see Known
+  Bugs/TODOs #3 and #4).
 - [ ] **M4 — No reflection/Sema regressions.** `clang/test/{Reflection,SemaCXX,
   AST/ByteCode,Modules,PCH,Import}` vs the M1 archive; zero new failures.
 - [ ] **M5 — Library side.** `<contracts>`, `src/contracts.cpp`, module wiring,
@@ -228,6 +241,54 @@ build green, PCH + module round-trips verified). Next: M3 — run
     needing `libcxx-lit`, not `llvm-lit` — it's now a second invocation in the
     same case, writing to `<out>.lib.json`, with `suite_rc` reflecting either
     invocation's failure.
+- **M2/M3 compiler bugs found and fixed in the ported code** (real bugs in
+  `contracts-nightly`, not merge artifacts — see the M2 milestone entry and
+  commit messages for the two serialization ones):
+  1. `ContractSpecifierDecl`'s deserialization ctor dereferenced a null
+     `DeclContext*` unconditionally (`DeclCXX.h`, fixed in `bae93f99bfde`).
+  2. `ASTDeclWriter`/`ASTDeclReader` disagreed on field order for
+     `ContractSpecifierDecl`, desyncing the record cursor (`ASTWriterDecl.cpp`
+     / `ASTReaderDecl.cpp`, fixed in `bae93f99bfde`).
+  3. `ParseContractSpecifierSequence` parsed `pre`/`post` conditions after an
+     out-of-line declarator's qualified scope had already closed, so access
+     checks (friend/private-member) inside the conditions spuriously failed
+     for out-of-line member/friend function definitions. Fixed in `8801be677844`
+     by re-entering the scope the same way `ParseTrailingRequiresClause`
+     already does — `clang/lib/Parse/ParseContracts.cpp`. (Getting the new
+     RAII scope-object's declaration order wrong relative to the existing
+     `ParserScope`/`ThisScope` first produced a spurious "extra qualification
+     on member" diagnostic — the fix must declare it *before* them so it's
+     destroyed *after*, keeping the parser's scope stack correctly nested.)
+  4. `EmitFunctionEpilog`'s pre-existing "no result" fast path for
+     void-returning functions (`!ReturnValue.isValid()`) returns before
+     reaching the contracts patch's `EmitPostContracts(RV)` call further down
+     — so postconditions on **any void-returning function** never evaluate at
+     all, under every evaluation semantic. Fixed in `1ec85941d1f8` —
+     `clang/lib/CodeGen/CGCall.cpp`. Caught by
+     `clang/test/Contracts/Runnable/breathing-test.cpp`'s own runtime
+     self-check (also had an unrelated test-file bug: `%t 1>&2` uses a
+     redirect direction lit's internal shell doesn't support, fixed in the
+     same commit).
+- `friendship.cpp` still fails on a separate, narrower bug: after fix #3
+  above, `clang/test/Contracts/friendship.cpp`'s remaining failure is that
+  `Context.hasSameExpr()` (used by `Sema::CheckEquivalentContractSequence` to
+  compare a redeclaration's contracts against the first declaration's) reports
+  the textually-identical `a.g()` condition as non-equivalent between an
+  in-class declaration and its out-of-line definition. No access-check errors
+  remain (fix #3 resolved those) — this is purely a
+  structural-equivalence-checking bug in the profiler/comparison, not
+  triaged yet. Confirmed *not* the trunk cause of the other 7 remaining M3
+  failures (checked via `llvm-lit -v` grep for the same diagnostic signature
+  across all of `clang/test/Contracts` — no other file shows it).
+- `cxx26/dev/testrun.sh`'s `contracts` suite only ran `clang/test/Contracts`,
+  missing 4 other contracts-relevant files the port added
+  (`clang/test/Parser/{cxx-contracts,contract-inline-methods}.cpp`,
+  `clang/test/Modules/contracts.cppm` — the regression guard for bugs #1/#2
+  above — and `clang/test/SemaCXX/ericwf-crash.cpp`). Fixed in `045e92d9f32a`;
+  all 5 pass. Also moved `clang/test/ctest.cpp` (a real test, misplaced) into
+  `clang/test/Contracts/` and deleted `clang/test/Contracts/summary.txt` (not
+  a test at all — an unrelated AI-chat summary, evidently carried over by
+  mistake from the source fork).
 
 ## Session Log
 
@@ -249,3 +310,28 @@ final archived baseline runs, so the archived JSON/meta files are from the
 corrected script. M1 gate passed; M2 is next: add the `contracts` remote,
 fetch `contracts-base`+`contracts-nightly` without a blob filter, branch
 `integration/contracts-p2900`, three-way apply.
+
+### 2026-09-04 — M2 complete, M3 in progress: 33/41 passing, 4 real bugs found
+
+M2: fetched and applied the contracts diff (155 files, 19 real conflicts,
+resolved by hand — see the M2 milestone entry for details). Build green on
+the first attempt. Found and fixed two serialization bugs via the PCH/module
+round-trip gate (null-DC deref, writer/reader field-order desync) — both
+caught same-session instead of bisecting at M6, exactly as the M2 gate was
+designed to do. Committed as `bae93f99bfde`.
+
+M3: widened `testrun.sh`'s `contracts` suite to catch a coverage gap (missed
+4 relevant test files, see Known Bugs/TODOs), moved/deleted two misplaced
+non-Contracts files. Found and fixed two more real compiler bugs while
+triaging failures: an out-of-line access-checking scope bug in the parser
+(`8801be677844`) and a postconditions-never-fire-on-void-functions codegen
+bug (`1ec85941d1f8`) — the latter found by reading source after an advisor
+consult rather than continuing to add debug instrumentation, which was the
+faster path. 33/41 tests passing now (started at 27/36 before any fixes).
+8 failures remain: `constification.cpp`, `contract-group-attr.cpp`,
+`contracts.cpp`, `friendship.cpp` (down to a narrower equivalence-checking
+bug, not access-checking anymore), `lambda.cpp`, `repro.cpp`,
+`template-test2.cpp`, `templates.cpp` — not yet triaged individually. Next:
+continue through those one at a time the same way (read `llvm-lit -v`
+output, isolate a minimal repro, find root cause in source before guessing,
+fix, rebuild, recheck, commit each fix separately).
