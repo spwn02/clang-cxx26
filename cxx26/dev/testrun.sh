@@ -83,7 +83,12 @@ case "$suite" in
     run_ninja_target build-libcxx check-cxx
     ;;
   contracts)
-    run_lit "clang/test/Contracts" clang/test/Contracts
+    run_lit "clang/test/Contracts + Parser/Modules/SemaCXX contract tests" \
+      clang/test/Contracts \
+      clang/test/Parser/cxx-contracts.cpp \
+      clang/test/Parser/contract-inline-methods.cpp \
+      clang/test/Modules/contracts.cppm \
+      clang/test/SemaCXX/ericwf-crash.cpp
     ;;
   contracts-lib)
     libcxx/utils/libcxx-lit build-libcxx -q -o "$out_json" --time-tests \
