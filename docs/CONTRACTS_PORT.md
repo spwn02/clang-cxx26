@@ -128,17 +128,18 @@ cxx26/dev/testrun.sh check-cxx
 
 ## Current Action
 
-M3 is blocked on one item: the constification subsystem (see Known Bugs/TODOs)
-is incomplete across three mechanisms (out-of-line declarations, template
-instantiation, lambda captures), accounting for all 5 remaining test failures.
-This needs its own dedicated investigation session rather than being rushed —
-next actionable step is reading `Sema::getContractConstification`
-(`SemaContract.cpp:1232`) and the dead `#if 0` block above it (~1191-1226,
-an abandoned earlier implementation) to understand why
-`CSR->ContextAtPush->Encloses(VD->getDeclContext())` behaves asymmetrically
-for in-class vs. out-of-line declarators. Meanwhile M4 (no reflection/Sema
-regressions vs. the M1 baseline) is runnable now and independent of this —
-do that next while constification is parked.
+M4's gate has passed: zero new failures in reflection/SemaCXX/serialization
+vs. the M1 baseline. M3 remains blocked on constification (see Known
+Bugs/TODOs) — next actionable step for a dedicated session is reading
+`Sema::getContractConstification` (`SemaContract.cpp:1232`) and the dead
+`#if 0` block above it (~1191-1226, an abandoned earlier implementation) to
+understand why `CSR->ContextAtPush->Encloses(VD->getDeclContext())` behaves
+asymmetrically for in-class vs. out-of-line declarators. With M4 clear,
+M5 (library side) is the next milestone that doesn't depend on
+constification being fixed first — `<contracts>`/`src/contracts.cpp`
+wiring is independent of the Sema-side constification gap, though the 4
+library tests should be re-checked once constification lands in case any
+of them exercise it.
 
 ## Milestones
 
@@ -212,8 +213,17 @@ do that next while constification is parked.
   satisfied (root cause: identified; decision: defer, not accept) — marked
   `[!]` rather than `[x]` because the decision is explicitly *not* to accept
   these 5 as a permanent exception list.
-- [ ] **M4 — No reflection/Sema regressions.** `clang/test/{Reflection,SemaCXX,
-  AST/ByteCode,Modules,PCH,Import}` vs the M1 archive; zero new failures.
+- [x] **M4 — No reflection/Sema regressions.** Ran `reflection` (16 tests: 1
+  fail — `Reflection/splice-exprs.cpp`, the known pre-existing regression),
+  `semacxx` (1384 tests: 4 fail — `builtin-is-within-lifetime.cpp`,
+  `constant-expression-cxx11.cpp`, `cxx2a-constexpr-dynalloc.cpp`,
+  `cxx2b-consteval-propagate.cpp`, all four known pre-existing regressions),
+  `serialization` (`AST/ByteCode`+`Modules`+`PCH`+`Import`, 1324 tests: 0
+  fail). Verified with `testdiff.py` against the M1 `check-clang` baseline
+  archive (`check-clang-20260904T030222Z-97ea0acaee51.json`), not just by
+  eyeballing the failure names: `NEW FAILURES (0)` for all three suites.
+  *Gate:* zero new failures vs. the M1 archive ✓ — the ~13k lines of ported
+  Sema/CodeGen changes caused no reflection or general-Sema regressions.
 - [ ] **M5 — Library side.** `<contracts>`, `src/contracts.cpp`, module wiring,
   `libcxx/test/std/contracts/` + 5 support headers, minimal `features.py`
   `contracts` lit feature (default off; run via `--param use-contracts=True`),
@@ -436,3 +446,38 @@ step: it validates whether the ~13k lines of ported Sema/CodeGen changes
 damaged reflection or general Sema, which the M1 baseline can catch cheaply
 right now. Recommended order for the next session: M4 first, then
 constification as its own dedicated push.
+
+### 2026-09-04 — M4 complete: zero reflection/Sema regressions
+
+Ran the three M4 suites against `integration/contracts-p2900`
+(`60dcda4054e4`): `reflection` (16 tests, 1 fail), `semacxx` (1384 tests, 4
+fail), `serialization` (`AST/ByteCode`+`Modules`+`PCH`+`Import`, 1324 tests,
+0 fail). Every failure matches a name already recorded as a known
+pre-existing regression in the M1 baseline. Didn't stop at eyeballing the
+failure names — ran `cxx26/dev/testdiff.py` against the M1 `check-clang`
+archive for each of the three result sets and got `NEW FAILURES (0)` for
+all three, confirmed mechanically rather than by inspection (this is the
+exact check the plan's M6 gate description says was skipped once before,
+letting a 9-test libc++ regression ship during Epic A — worth the extra
+step here too). M4 gate passed; marked `[x]`.
+
+Also, before M4: re-verified the M3 triage from the previous entry with a
+controlled experiment rather than leaving the "predates my fix" claim as a
+theory — checked out `clang/lib/Parse/ParseContracts.cpp` at
+`8801be677844^` (the commit immediately before the M3 access-scope fix),
+rebuilt `build-nyx`, re-ran the `member_contract_check.cpp` AST dump. Same
+asymmetric shapes (in-class: wrapping `ImplicitCastExpr<const A>`;
+out-of-line: `const` baked into the `DeclRefExpr` type, marked
+`in-contract`) appeared before the fix too, confirming `8801be677844` is
+orthogonal to the constification bug. Restored the tree and rebuilt before
+continuing. Also removed a stray unconditional `llvm::errs()` debug print
+in `SemaLambda.cpp` (not gated behind `EricWFDebug`) that was polluting
+`lambda.cpp`'s stderr; re-ran `testrun.sh contracts` afterward to confirm
+still 36/41 (unchanged — that was noise removal, not a logic fix).
+Constification tracker writeup and this verification committed in
+`60dcda4054e4`.
+
+Next: M5 — library side (`<contracts>`, `libcxx/src/contracts.cpp`, module
+wiring, `libcxx/test/std/contracts/` + 5 support headers, `use-contracts`
+lit feature, header modernization, P3819R0 `evaluation_exception` removal).
+Independent of the parked constification work.
