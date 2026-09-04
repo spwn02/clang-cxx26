@@ -70,6 +70,113 @@ whoever picks up reflection-side maintenance; **do not confuse with the
 Tier 1–6 items below**, which are new C++26 facilities, not regressions in
 existing CXX26 support.
 
+## Post-Contracts TODO — carried over from the LLVM 22 sync
+
+Epic A (LLVM 22 synchronization, `docs/LLVM22_SYNC.md`) finished 2026-08-30:
+`integration/llvm-22.1.8` merged into `cxx26` (`--no-ff`, commit
+`ca44e7b01b09`), pushed, tagged `cxx26-2026.08.30`. All 9 milestones closed;
+`check-clang` (49778 tests) and `check-cxx` (12035 tests) both gated clean
+against a fully documented, named exception list. That tracker file has been
+deleted now that the epic is closed — recover its full text with
+`git show dbc3036eea3c:docs/LLVM22_SYNC.md` (last commit to touch it) if any
+item below needs more detail than is captured here. Do not re-open this as
+active work outside routine gap-closing until Contracts (P2900R14, see Scope
+above) is done — these are recorded so they aren't lost, not because they're
+next in line.
+
+**Two open fork regressions, both in `clang/lib/Sema/SemaExpr.cpp`'s
+`HandleImmediateInvocations`/`Rec.ConstevalOnly` consteval-escalation
+machinery** (introduced by the LLVM 22 merge, confirmed via before/after
+testing against the pre-sync baseline — not pre-existing):
+
+- **Self-reference escalation cluster** —
+  `clang/test/AST/ByteCode/builtin-is-within-lifetime.cpp`,
+  `clang/test/SemaCXX/constant-expression-cxx11.cpp`, and
+  `libcxx/test/std/experimental/reflection/reflection-ex-parsing-command-line-options-2.sh.cpp`
+  (same root cause, different context — `constexpr`-var-init vs. `template
+  for` range-init). Root cause fully understood:
+  `HandleImmediateInvocations` has two diagnosis buckets,
+  `Rec.ImmediateInvocationCandidates` (ordinary consteval-call escalation —
+  must run even inside a `constexpr`-var initializer) and `Rec.ConstevalOnly`
+  (consteval-only-*type* escaping — must stay suppressed there, since a
+  successfully-evaluated `std::meta::info` held in a `constexpr` variable is
+  legitimate); both currently share one `isImmediateFunctionContext()` gate,
+  so no fix can toggle it without breaking one bucket in favor of the other.
+  A fix was attempted (`6b5f636e6ba1`), shipped, found to regress 9 libc++
+  reflection tests, and reverted (`87bcf7d13116`). **Do not re-attempt that
+  blanket `ActOnCXXEnterDeclInitializer` context-push revert** — proven
+  net-negative. A correct fix needs `Rec.ConstevalOnly`'s diagnosis loop to
+  recognize an expression that already evaluated successfully in the
+  `Rec.ImmediateInvocationCandidates` loop moments earlier; no existing
+  signal carries that today.
+- **Template-instantiation escalation cluster** —
+  `clang/test/SemaCXX/cxx2b-consteval-propagate.cpp`,
+  `clang/test/SemaCXX/cxx2a-constexpr-dynalloc.cpp`. Reproduces with minimal
+  repros; root cause not found (do not assume it's the same root cause as
+  the cluster above, or that the two share one with each other — only
+  confirmed as "breaks under template instantiation or implicit synthesis").
+
+  Any fix to either cluster must be verified against the full libc++
+  reflection suite (60 tests, forced-clean `build-libcxx` rebuild — see
+  the `build-libcxx` staleness gotcha in `AGENTS.md`), not just the
+  narrower clang suites — that's what caught the reverted fix's regression
+  and its absence is what let it ship in the first place.
+
+**Re-verify before starting, don't assume still-open.** Three commits landed
+after the epic closed (`55872c0fadcc`, `079b20780c79`, `33df47d52b81`,
+2026-09-02/03), driven by downstream Nyx/Miracle testing rather than this
+tracker, touching this exact `ConstevalOnly`/`InImmediateEscalatingFunctionContext`
+subsystem (expansion-statement variables and reflection-substituted template
+codegen, not the two clusters above by inspection — but not run against
+`clang/test/SemaCXX/` or the libc++ reflection suite either). Rebuild and
+re-run both named clusters plus the full libc++ reflection suite first; the
+list above may already be partly stale.
+
+**`check-cxx` 199-failure baseline** (post-merge, for reconciling a future
+full run — a bare failure count of 199 means nothing without this): 145
+clang-tidy bucket (144 `clang_tidy.gen.py`/`*.sh.cpp` + 1 `clang_tidy.sh.py`,
+pure-upstream, see below) + 27 `std/execution/**` (Tier 2, out of scope) + 8
+libc++ reflection-suite (6 Milestone-1-baseline names +
+`reflection-ex-enum-to-string.pass.cpp` +
+`reflection-ex-parsing-command-line-options-2.sh.cpp`, the latter also
+counted above) + 2 `std`-module-gap (`module_std.gen.py`,
+`module_std_compat.gen.py`, blocked on the clang-tidy bug below) + 17
+"other" (`extensions/gnu/hash/specializations.verify.cpp`,
+`system_reserved_names.gen.py/execution.compile.pass.cpp`, 4×
+`atomic_fetch_{add,sub}{,_explicit}.verify.cpp`,
+`gdb_pretty_printer_test.sh.cpp` [pure-upstream, GDB pretty-printer assumes
+an `unordered_map` iteration order this fork doesn't control], 2×
+`is_within_lifetime`, `atomics.ref/cv_qualified.pass.cpp`,
+`element_access_transparent.pass.cpp` [pure-upstream], 3× `inplace.vector`,
+3× `optional.iterator{,s}`).
+
+**Unfiled upstream bug**: `docs/drafts/upstream-clang-tidy-ppcallbacks-crash.md`
+— a vanilla `llvmorg-22.1.8` `clang-tidy` crash in `libcpp-cpp-version-check`/
+`libcpp-internal-ftms` (both register `PPCallbacks`), confirmed pure-upstream
+with a 100% vanilla binary and byte-identical check sources. Blocks the 2
+`std`-module-gap failures above. Needs a human review pass before
+`gh issue create` against `llvm/llvm-project`.
+
+**`meta.inc` latent gap, no failing test**: `libcxx/modules/std/meta.inc`'s
+reflection export guard is a single `#if __has_feature(reflection)`, but
+`<meta>` itself gates several members behind finer-grained nested guards
+(`__has_feature(annotation_attributes)`,
+`__has_feature(attribute_reflection)`, `__has_feature(parameter_reflection)`).
+Correct under `-freflection-latest` (the flag the packaged toolchain actually
+bakes into `std.pcm`) — verified directly against
+`build-libcxx/.../share/libc++/v1/std.cppm`. Fails (16 errors) under bare
+`-freflection`, but no lit test combines `import std` with any reflection
+flag, so this is latent, not live. Fix by mirroring the four nested guards
+from `<meta>` into `meta.inc` line-for-line when a test is added that would
+exercise this — not before, there's nothing to verify against yet.
+
+**Disk hazard for a future full `check-cxx` run** (not in `AGENTS.md`):
+`libcxx/test/extensions/clang/clang_modules_include.gen.py` reached ~9G
+during generation in one run, dropping free disk from 18G to 8.5G in about
+10 minutes. Gitignored and regenerated fresh each run — safe to `rm -rf`
+proactively before a full `check-cxx`, rather than reactively once disk is
+already tight.
+
 ## Build & Test Reference
 
 Full build architecture is in root `CLAUDE.md`. The commands below correct

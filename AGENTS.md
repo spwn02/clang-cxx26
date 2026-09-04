@@ -14,7 +14,7 @@ not imply Bloomberg endorses this fork.
 
 ## Command Dispatch
 
-- `Continue`: read `docs/LLVM22_SYNC.md` first when synchronization is active. Resume the `[~]` milestone or its recorded Current action immediately. If synchronization is not active, read `docs/CXX26_GAPS.md` and `docs/REFLECTION.md`, then resume their recorded active work.
+- `Continue`: read `docs/CXX26_GAPS.md` and `docs/REFLECTION.md`, then resume their recorded active work. (The LLVM 22 synchronization epic tracked in `docs/LLVM22_SYNC.md` finished 2026-08-30 and that file was deleted; see `docs/CXX26_GAPS.md`'s "Post-Contracts TODO" section for the fork regressions it left open.)
 - `Begin PXXXX`: locate the requested paper in `docs/CXX26_GAPS.md`, `docs/REFLECTION.md`, and any linked status files; research its requirements, implement autonomously, run focused tests, update the active tracker, and commit. Begin work without introductory narration.
 
 ## Build Architecture
@@ -95,8 +95,7 @@ Enable reflection with `-std=c++26 -freflection`. Extended features require addi
 
 ## Trackers
 
-- During LLVM 22 synchronization, `docs/LLVM22_SYNC.md` is the single source of truth and must be read first.
-- Otherwise, `docs/CXX26_GAPS.md` is the living C++26 conformance tracker and `docs/REFLECTION.md` tracks reflection. Read both before starting relevant work.
+- `docs/CXX26_GAPS.md` is the living C++26 conformance tracker and `docs/REFLECTION.md` tracks reflection. Read both before starting relevant work.
 - Update the active tracker in place when status changes and append a dated session-log entry before ending a work session.
 - Contracts (P2900R14) and `std::execution` (P2300R10) require dedicated sub-plans; consult Tier 2 notes before starting either.
 

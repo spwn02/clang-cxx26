@@ -68,6 +68,8 @@ localized to two specific PPCallbacks-registering checks," not at the exact
 faulting mechanism.
 
 ---
-Drafted from `docs/LLVM22_SYNC.md`'s 2026-08-29/30 Milestone 8 session log entry
-("Confirmed NOT a fork regression" section). Not yet filed — pending review before
+Drafted during the LLVM 22 synchronization epic's Milestone 8 (2026-08-29/30
+session, "Confirmed NOT a fork regression" finding; see
+`docs/CXX26_GAPS.md`'s "Post-Contracts TODO" section and git history around
+that date for the full investigation). Not yet filed — pending review before
 posting publicly under the account's GitHub identity.
