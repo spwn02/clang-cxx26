@@ -40,13 +40,62 @@ messages; the epic's own tracker, `docs/CONTRACTS_PORT.md`, was deleted on
 completion per its stated policy since it had no open items to carry
 forward. See the Tier 2 table below for the status-row flip.
 
-Merged into `cxx26` locally at `64ad936fe5fe` (`--no-ff`). **Not yet pushed
-and not yet tagged** — deliberately deferred until M8's downstream
-no-regression pass confirms the packaged toolchain doesn't break
-Nyx/Miracle/Switch, since push+tag is irreversible and the local merge is
-not. Remaining: package the reference toolchain, two downstream
-verification passes, then `git push origin cxx26` and tag
-`cxx26-2026.09.04`.
+Merged into `cxx26` locally at `64ad936fe5fe` (`--no-ff`), plus 5 more
+commits fixing check-clang/check-cxx regressions surfaced by M6 and closing
+out the docs (current tip before push: `365b6ec50c28`).
+
+**M8 downstream verification — both passes complete, no regressions.**
+Packaged a real reference-toolchain snapshot
+(`cxx26/toolchain/build-linux-x86_64.sh` + `package.py`, identity
+`cxx26-dev-365b6ec50c` since this predates the actual tag) and ran it
+against Nyx, Miracle, and Switch (`~/dev/cpp/Nyx/...`, all three build via
+their own `clang-tests`/`development-tests` CMake presets, none committed
+or pushed to per standing policy — no fixes were needed there anyway).
+
+Caught and fixed a real methodology bug along the way: Miracle's and
+Switch's `build/tests` directories were pre-existing, from earlier
+sessions, with `CMAKE_CXX_COMPILER` already cached to stale toolchains (one
+to the pre-contracts `~/.local/opt/clang-cxx26-2026.09.04` install, one to a
+scratchpad path from an unrelated prior session that no longer even
+corresponds to this epic). A CMake toolchain file only takes effect on a
+genuinely fresh configure — passing a new `P2996_CMAKE_TOOLCHAIN_FILE` env
+var into an *existing* cache silently does nothing. The first "pass 1" run
+against Miracle/Switch appeared to succeed but was actually exercising an
+unrelated old compiler. Caught by explicitly grepping `CMAKE_CXX_COMPILER`
+out of each `CMakeCache.txt` after configuring rather than trusting a green
+build; fixed by deleting the stale `build/tests` directories (safe — pure
+gitignored build output) and reconfiguring fresh, confirming the resolved
+compiler path pointed at the new package before trusting any result.
+
+- **Pass 1 (contracts off, no-regression):** Switch 100% (1/1), Miracle
+  100% (1/1, using `FETCHCONTENT_SOURCE_DIR_SWITCH` to avoid a GitHub fetch
+  of a commit not yet pushed there), Nyx's `development-tests` preset
+  (vcpkg rebuilt its `x64-linux-cxx26` triplet's Vulkan/glslang/spirv-tools
+  stack from source against the new compiler — triplet ABI hash changed
+  with the toolchain path, ~20 min) built clean and its `unit_tests` binary
+  passed 5/5 headless (RHI metadata + reflection/clap tests; no GPU/display
+  needed for this subset).
+- **Pass 2 (`-fcontracts` regression + integration):** Miracle and Switch
+  both build and pass 100% with `-fcontracts` injected via
+  `CMAKE_CXX_FLAGS` (had to replicate the toolchain file's full
+  `-std=c++26 -stdlib=libc++ -freflection-latest` alongside it — a bare
+  `-DCMAKE_CXX_FLAGS=-fcontracts` silently *replaces* the toolchain's
+  `_INIT` flags rather than appending, another test-methodology trap worth
+  remembering). Neither project has any existing contracts usage (Miracle's
+  `contracts/` directory is an unrelated project design-charter, not C++
+  Contracts). Wrote a standalone integration smoke test instead (not
+  committed to either repo) combining real reflection
+  (`nonstatic_data_members_of`) with real pre/post-conditions against the
+  packaged toolchain end to end: precondition violation correctly routes
+  through libc++'s `contract_violation` object (`kind()`/`comment()`
+  correct) and continues under `observe` semantics — proof the *distributed
+  package*, not just the build tree, wires compiler and library together
+  correctly.
+
+Pushed and tagged as `cxx26-2026.09.04.1` (not `cxx26-2026.09.04` — that
+identifier is already an immutable published tag, at the pre-contracts
+commit `33df47d52b81`, confirmed via `git ls-remote --tags origin` before
+tagging).
 
 ## Tier 0 — Blocking prerequisite (must do first) — DONE 2026-08-20
 
