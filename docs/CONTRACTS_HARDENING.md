@@ -58,11 +58,20 @@ an actionable unblock condition recorded.
   captured (44628/49837 pass, 7 fail -- see M2). A second `check-cxx` run
   (to fold in the M2/M3 fixes below) crashed the whole desktop: the
   assertions build's crash storm plus this suite's module-precompilation
-  cache churn filled the disk to 100%, and `cxx26/dev/testrun.sh` now
-  guards against both (see its own commit `c0e970b1a0ad`). Disk recovered
-  (freed 27G stale module-cache + 4G coredumps; 32G free, repo/build
-  integrity confirmed intact). **Current action: re-run the `check-cxx`
-  baseline now that the disk guard is in place, then close M1.**
+  cache churn filled the disk to 100%. Disk recovered (freed 27G stale
+  module-cache + 4G coredumps; 32G free, repo/build integrity confirmed
+  intact). Hardened in two layers so this cannot recur: (1)
+  `/etc/systemd/coredump.conf.d/99-disk-safety.conf` caps coredump storage
+  system-wide (`MaxUse=2G KeepFree=10G`), independent of this repo or this
+  script; (2) `cxx26/dev/testrun.sh` (`c0e970b1a0ad`, `5a5659d614ba`) disables
+  core dumps for test runs, refuses to start under 10GB free, and wraps every
+  long-running command in a live watchdog that hard-kills it if free space
+  drops below 3GB mid-run -- the start-of-run check alone wouldn't have
+  caught this incident, since the module cache grew *during* a single run
+  against an already-adequate-looking margin. Watchdog kill/non-kill paths
+  verified in isolation before trusting it on a real run. **Current action:
+  re-run the `check-cxx` baseline now that both guards are in place, then
+  close M1.**
 - [x] **M2 — Assertions triage.** First assertions-on unit-test run crashed
   25034-test `AllClangUnitTests` outright (`SIGABRT`) on a bogus assertion in
   `Sema::getContractConstification` (`SemaContract.cpp:1266-1268`):
