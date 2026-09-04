@@ -4029,6 +4029,7 @@ void CodeGenFunction::EmitFunctionEpilog(
 
   // Functions with no result always return void.
   if (!ReturnValue.isValid()) {
+    EmitPostContracts(nullptr);
     auto *I = Builder.CreateRetVoid();
     if (RetKeyInstructionsSourceAtom)
       addInstToSpecificSourceAtom(I, nullptr, RetKeyInstructionsSourceAtom);
