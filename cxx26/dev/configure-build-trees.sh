@@ -21,11 +21,18 @@ configure_nyx() {
   if [[ -n "$CCACHE_BIN" ]]; then
     launcher_args=(-DCMAKE_C_COMPILER_LAUNCHER="$CCACHE_BIN" -DCMAKE_CXX_COMPILER_LAUNCHER="$CCACHE_BIN")
   fi
+  # LLVM_ENABLE_ASSERTIONS=ON and LLVM_ENABLE_RUNTIMES=compiler-rt since the
+  # 2026-09 Contracts hardening epic (docs/CONTRACTS_HARDENING.md M1) --
+  # assertions catch the ICE/segfault class during development, and
+  # compiler-rt is a hard prerequisite for any -fsanitize=* use against this
+  # tree. Neither applies to the packaged release toolchain, which pins its
+  # own flags in cxx26/toolchain/build-linux-x86_64.sh.
   cmake -S llvm -B build-nyx -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra" \
+    -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
     -DLLVM_TARGETS_TO_BUILD=X86 \
-    -DLLVM_ENABLE_ASSERTIONS=OFF \
+    -DLLVM_ENABLE_ASSERTIONS=ON \
     -DLLVM_INCLUDE_TESTS=ON \
     -DCLANG_INCLUDE_TESTS=ON \
     -DCMAKE_C_COMPILER=/usr/bin/clang \

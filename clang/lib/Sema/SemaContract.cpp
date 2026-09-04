@@ -1263,9 +1263,16 @@ ContractConstification Sema::getContractConstification(const ValueDecl *VD) {
   if (CSR == nullptr)
     return CC_None;
 
-  if (VD->getDeclContext()->Encloses(CSR->ContextAtPush)) {
-    assert(!VD->getDeclContext()->Equals(CSR->ContextAtPush));
-  }
+  // NB: this used to additionally assert
+  // !VD->getDeclContext()->Equals(CSR->ContextAtPush) whenever
+  // VD->getDeclContext()->Encloses(CSR->ContextAtPush) held. That assertion
+  // is unconditionally false in the ordinary case -- DeclContext::Encloses
+  // (DeclBase.cpp) is reflexive (its walk starts at DC itself), so the
+  // single most common shape, a parameter referenced in its own function's
+  // postcondition, has VD's DeclContext equal to CSR->ContextAtPush and
+  // therefore trips both Encloses and the assert simultaneously. Dead debug
+  // scaffolding from the mechanical port; only visible with assertions
+  // enabled (see docs/CONTRACTS_HARDENING.md M2).
 
   // Make sure that there's a contract scope interviening between the current
   // context and the declaration of the variable. If there isn't, we don't need

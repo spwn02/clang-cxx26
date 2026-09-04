@@ -50,16 +50,25 @@ an actionable unblock condition recorded.
   in `SemaExpand.cpp`, asymmetric with range-for's `BuildForRangeVarDecl`),
   and clangd never completing `pre`/`post`/`contract_assert` (zero mentions
   in `SemaCodeComplete.cpp`).
-- [~] **M1 — Build-tree hardening and baseline.** Flip `build-nyx` to
-  `LLVM_ENABLE_ASSERTIONS=ON` + `LLVM_ENABLE_RUNTIMES=compiler-rt` in one
-  reconfigure; rebuild; verify `-fsanitize=address` links; re-baseline
-  `check-clang`/`check-cxx`/contracts/reflection via `cxx26/dev/testrun.sh`
-  before any source change, so later failures are attributable. **Current
-  action: reconfigure and rebuild `build-nyx`.**
-- [ ] **M2 — Assertions triage.** Handle whatever pre-existing assertion
-  failures the M1 flip surfaces (never run with assertions before). Per
-  failure: fix in-epic, or record as a named exception in
-  `docs/CXX26_GAPS.md` if fixing would balloon scope.
+- [~] **M1 — Build-tree hardening and baseline.** `build-nyx` reconfigured
+  with `LLVM_ENABLE_ASSERTIONS=ON` + `LLVM_ENABLE_RUNTIMES=compiler-rt`
+  (`cxx26/dev/configure-build-trees.sh` updated to match); `clang`/`clangd`/
+  `clang-tidy` rebuilt clean. **Current action: verify `-fsanitize=address`
+  links against compiler-rt, then re-baseline `check-clang`/`check-cxx`/
+  contracts/reflection via `cxx26/dev/testrun.sh` before any further source
+  change.**
+- [~] **M2 — Assertions triage.** First assertions-on unit-test run crashed
+  25034-test `AllClangUnitTests` outright (`SIGABRT`) on a bogus assertion in
+  `Sema::getContractConstification` (`SemaContract.cpp:1266-1268`):
+  `assert(!VD->getDeclContext()->Equals(CSR->ContextAtPush))` guarded by
+  `Encloses(...)`, but `DeclContext::Encloses` is reflexive, so the assertion
+  is unconditionally false whenever a variable's own DeclContext *is* the
+  contract scope's push context -- the ordinary case of a parameter
+  referenced in its own function's postcondition. Dead debug scaffolding from
+  the mechanical port, invisible with assertions off. Removed; full
+  `AllClangUnitTests` now passes 25034/25034. **Current action: continue
+  triage against `check-clang`/`check-cxx` once the M1 baseline run
+  completes.**
 - [ ] **M3 — Fix the result-name bug.** Write failing T1 (IR/FileCheck) and
   T2 (libc++ execution) regression tests first; confirm red; fix
   `EmitPostContracts` to re-store `RV` into `ReturnValue`; remove the dead
