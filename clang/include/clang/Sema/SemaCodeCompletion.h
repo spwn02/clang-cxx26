@@ -114,6 +114,10 @@ public:
   void CodeCompleteTypeQualifiers(DeclSpec &DS);
   void CodeCompleteFunctionQualifiers(DeclSpec &DS, Declarator &D,
                                       const VirtSpecifiers *VS = nullptr);
+  /// Complete a `pre`/`post` function-contract-specifier. Reached from the
+  /// contract-specifier-sequence, which sits after the virt-specifiers and so
+  /// is past the point CodeCompleteFunctionQualifiers covers.
+  void CodeCompleteFunctionContractSpecifiers();
   void CodeCompleteBracketDeclarator(Scope *S);
   void CodeCompleteCase(Scope *S);
   enum class AttributeCompletion {

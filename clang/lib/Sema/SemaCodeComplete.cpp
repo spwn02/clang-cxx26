@@ -2138,6 +2138,31 @@ static void AddContractAssertResult(CodeCompletionBuilder &Builder,
   Results.AddResult(CodeCompletionResult(Builder.TakeString()));
 }
 
+/// Add the `pre`/`post` function-contract-specifiers. Unlike
+/// `contract_assert` these are not statements: they attach to a declarator, so
+/// they are offered from the function-qualifier position and from the contract
+/// specifier sequence itself, not from statement completion.
+static void AddContractSpecifierResults(CodeCompletionBuilder &Builder,
+                                        ResultBuilder &Results,
+                                        const LangOptions &LangOpts) {
+  if (!LangOpts.Contracts)
+    return;
+
+  Builder.AddTypedTextChunk("pre");
+  Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+  Builder.AddPlaceholderChunk("expression");
+  Builder.AddChunk(CodeCompletionString::CK_RightParen);
+  Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+
+  // A postcondition may introduce a result name (`post(r : r > 0)`), but the
+  // name is the author's to choose, so complete only the plain form.
+  Builder.AddTypedTextChunk("post");
+  Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+  Builder.AddPlaceholderChunk("expression");
+  Builder.AddChunk(CodeCompletionString::CK_RightParen);
+  Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+}
+
 static void AddOverrideResults(ResultBuilder &Results,
                                const CodeCompletionContext &CCContext,
                                CodeCompletionBuilder &Builder) {
@@ -6148,7 +6173,29 @@ void SemaCodeCompletion::CodeCompleteFunctionQualifiers(
       if (!VS || !VS->isOverrideSpecified())
         Results.AddResult("override");
     }
+    // `pre`/`post` follow the cv-qualifiers in the grammar, so they are valid
+    // continuations from this position too.
+    CodeCompletionBuilder Builder(Results.getAllocator(),
+                                  Results.getCodeCompletionTUInfo());
+    AddContractSpecifierResults(Builder, Results, getLangOpts());
   }
+  Results.ExitScope();
+  HandleCodeCompleteResults(&SemaRef, CodeCompleter,
+                            Results.getCompletionContext(), Results.data(),
+                            Results.size());
+}
+
+void SemaCodeCompletion::CodeCompleteFunctionContractSpecifiers() {
+  if (!getLangOpts().Contracts)
+    return;
+
+  ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
+                        CodeCompleter->getCodeCompletionTUInfo(),
+                        CodeCompletionContext::CCC_Other);
+  Results.EnterNewScope();
+  CodeCompletionBuilder Builder(Results.getAllocator(),
+                                Results.getCodeCompletionTUInfo());
+  AddContractSpecifierResults(Builder, Results, getLangOpts());
   Results.ExitScope();
   HandleCodeCompleteResults(&SemaRef, CodeCompleter,
                             Results.getCompletionContext(), Results.data(),

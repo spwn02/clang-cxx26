@@ -136,6 +136,17 @@ StmtResult Parser::ParseContractAssertStatement() {
 void Parser::ParseContractSpecifierSequence(Declarator &DeclarationInfo,
                                             bool EnterScope,
                                             QualType TrailingReturnType) {
+  // Contract specifiers are parsed after the virt-specifiers, past the point
+  // CodeCompleteFunctionQualifiers covers. A code-completion token is not a
+  // contract keyword, so without this the early return below would silently
+  // drop the completion instead of offering `pre`/`post`. Gated on Contracts
+  // so that translation units without the feature keep their prior behavior.
+  if (Tok.is(tok::code_completion) && getLangOpts().Contracts) {
+    cutOffParsing();
+    Actions.CodeCompletion().CodeCompleteFunctionContractSpecifiers();
+    return;
+  }
+
   if (!isFunctionContractKeyword(Tok))
     return;
 
