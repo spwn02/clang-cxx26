@@ -28,6 +28,10 @@
 #    error "__cpp_lib_freestanding_mdspan should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_mdspan
+#    error "__cpp_lib_hardened_mdspan should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_mdspan
 #    error "__cpp_lib_mdspan should not be defined before c++23"
 #  endif
@@ -44,6 +48,10 @@
 
 #  ifdef __cpp_lib_freestanding_mdspan
 #    error "__cpp_lib_freestanding_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_mdspan
+#    error "__cpp_lib_hardened_mdspan should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_mdspan
@@ -64,6 +72,10 @@
 #    error "__cpp_lib_freestanding_mdspan should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_mdspan
+#    error "__cpp_lib_hardened_mdspan should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_mdspan
 #    error "__cpp_lib_mdspan should not be defined before c++23"
 #  endif
@@ -82,6 +94,10 @@
 #    error "__cpp_lib_freestanding_mdspan should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_mdspan
+#    error "__cpp_lib_hardened_mdspan should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_mdspan
 #    error "__cpp_lib_mdspan should not be defined before c++23"
 #  endif
@@ -98,6 +114,10 @@
 
 #  ifdef __cpp_lib_freestanding_mdspan
 #    error "__cpp_lib_freestanding_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_mdspan
+#    error "__cpp_lib_hardened_mdspan should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_mdspan
@@ -130,6 +150,19 @@
 #  else
 #    ifdef __cpp_lib_freestanding_mdspan
 #      error "__cpp_lib_freestanding_mdspan should not be defined because it is unimplemented in libc++!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_mdspan
+#      error "__cpp_lib_hardened_mdspan should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_mdspan != 202502L
+#      error "__cpp_lib_hardened_mdspan should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_mdspan
+#      error "__cpp_lib_hardened_mdspan should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
 #    endif
 #  endif
 

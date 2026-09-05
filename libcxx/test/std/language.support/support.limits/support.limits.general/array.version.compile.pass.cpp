@@ -28,6 +28,10 @@
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_array
+#    error "__cpp_lib_hardened_array should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_nonmember_container_access
 #    error "__cpp_lib_nonmember_container_access should not be defined before c++17"
 #  endif
@@ -44,6 +48,10 @@
 
 #  ifdef __cpp_lib_freestanding_array
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_array
+#    error "__cpp_lib_hardened_array should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_nonmember_container_access
@@ -65,6 +73,10 @@
 
 #  ifdef __cpp_lib_freestanding_array
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_array
+#    error "__cpp_lib_hardened_array should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_nonmember_container_access
@@ -89,6 +101,10 @@
 
 #  ifdef __cpp_lib_freestanding_array
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_array
+#    error "__cpp_lib_hardened_array should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_nonmember_container_access
@@ -116,6 +132,10 @@
 
 #  ifdef __cpp_lib_freestanding_array
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_array
+#    error "__cpp_lib_hardened_array should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_nonmember_container_access
@@ -151,6 +171,19 @@
 #  else
 #    ifdef __cpp_lib_freestanding_array
 #      error "__cpp_lib_freestanding_array should not be defined because it is unimplemented in libc++!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_array
+#      error "__cpp_lib_hardened_array should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_array != 202502L
+#      error "__cpp_lib_hardened_array should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_array
+#      error "__cpp_lib_hardened_array should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
 #    endif
 #  endif
 

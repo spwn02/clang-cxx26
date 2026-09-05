@@ -20,6 +20,10 @@
 
 #if TEST_STD_VER < 14
 
+#  ifdef __cpp_lib_hardened_span
+#    error "__cpp_lib_hardened_span should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_span
 #    error "__cpp_lib_span should not be defined before c++20"
 #  endif
@@ -33,6 +37,10 @@
 #  endif
 
 #elif TEST_STD_VER == 14
+
+#  ifdef __cpp_lib_hardened_span
+#    error "__cpp_lib_hardened_span should not be defined before c++26"
+#  endif
 
 #  ifdef __cpp_lib_span
 #    error "__cpp_lib_span should not be defined before c++20"
@@ -48,6 +56,10 @@
 
 #elif TEST_STD_VER == 17
 
+#  ifdef __cpp_lib_hardened_span
+#    error "__cpp_lib_hardened_span should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_span
 #    error "__cpp_lib_span should not be defined before c++20"
 #  endif
@@ -61,6 +73,10 @@
 #  endif
 
 #elif TEST_STD_VER == 20
+
+#  ifdef __cpp_lib_hardened_span
+#    error "__cpp_lib_hardened_span should not be defined before c++26"
+#  endif
 
 #  ifndef __cpp_lib_span
 #    error "__cpp_lib_span should be defined in c++20"
@@ -79,6 +95,10 @@
 
 #elif TEST_STD_VER == 23
 
+#  ifdef __cpp_lib_hardened_span
+#    error "__cpp_lib_hardened_span should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_span
 #    error "__cpp_lib_span should be defined in c++23"
 #  endif
@@ -95,6 +115,19 @@
 #  endif
 
 #elif TEST_STD_VER > 23
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_span
+#      error "__cpp_lib_hardened_span should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_span != 202502L
+#      error "__cpp_lib_hardened_span should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_span
+#      error "__cpp_lib_hardened_span should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
 
 #  ifndef __cpp_lib_span
 #    error "__cpp_lib_span should be defined in c++26"

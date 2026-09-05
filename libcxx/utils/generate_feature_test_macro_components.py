@@ -713,6 +713,104 @@ feature_test_macros = [
             "headers": ["unordered_map", "unordered_set"],
         },
         {
+            "name": "__cpp_lib_hardened_array",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["array"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_basic_string",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["string"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_basic_string_view",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["string_view"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_bitset",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["bitset"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_deque",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["deque"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_expected",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["expected"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_forward_list",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["forward_list"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE == _LIBCPP_HARDENING_MODE_EXTENSIVE || _LIBCPP_HARDENING_MODE == _LIBCPP_HARDENING_MODE_DEBUG",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE == _LIBCPP_HARDENING_MODE_EXTENSIVE || _LIBCPP_HARDENING_MODE == _LIBCPP_HARDENING_MODE_DEBUG",
+        },
+        {
+            "name": "__cpp_lib_hardened_inplace_vector",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["inplace_vector"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_list",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["list"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_mdspan",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["mdspan"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_optional",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["optional"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_span",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["span"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_valarray",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["valarray"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_vector",
+            "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
+            "headers": ["vector"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
             "name": "__cpp_lib_hardware_interference_size",
             "values": {"c++17": 201703},
             "headers": ["new"],

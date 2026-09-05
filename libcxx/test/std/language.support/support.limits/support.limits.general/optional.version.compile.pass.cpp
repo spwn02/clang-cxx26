@@ -28,6 +28,10 @@
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_optional
+#    error "__cpp_lib_hardened_optional should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_optional
 #    error "__cpp_lib_optional should not be defined before c++17"
 #  endif
@@ -46,6 +50,10 @@
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_optional
+#    error "__cpp_lib_hardened_optional should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_optional
 #    error "__cpp_lib_optional should not be defined before c++17"
 #  endif
@@ -62,6 +70,10 @@
 
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_optional
+#    error "__cpp_lib_hardened_optional should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_optional
@@ -85,6 +97,10 @@
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_optional
+#    error "__cpp_lib_hardened_optional should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_optional
 #    error "__cpp_lib_optional should be defined in c++20"
 #  endif
@@ -104,6 +120,10 @@
 
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_optional
+#    error "__cpp_lib_hardened_optional should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_optional
@@ -136,6 +156,19 @@
 #  else
 #    ifdef __cpp_lib_freestanding_optional
 #      error "__cpp_lib_freestanding_optional should not be defined because it is unimplemented in libc++!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_optional
+#      error "__cpp_lib_hardened_optional should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_optional != 202502L
+#      error "__cpp_lib_hardened_optional should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_optional
+#      error "__cpp_lib_hardened_optional should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
 #    endif
 #  endif
 

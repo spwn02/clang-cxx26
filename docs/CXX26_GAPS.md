@@ -167,6 +167,63 @@ findings below (five reflection issues, the `pre`/`post` completion gap,
 and a `package.py` manifest fix) are everything it had left to carry
 forward.
 
+## Next Up — ranked by why it matters (re-triaged 2026-09-05)
+
+The tier numbers below are a *grouping*, not a priority order — Tier 6 is
+"long tail", not "do last". This block is the priority order. It was rebuilt
+on 2026-09-05 after a CSV diff found 48 untracked papers and three that amend
+already-`Complete` work; see that date's Session Log entry for the full
+diagnosis. Re-derive this ranking whenever a paper batch lands, not on a
+schedule.
+
+**Rank 1 — conformance defects in shipped, tagged, downstream-consumed work.**
+A defect in something already distributed outranks any unstarted feature: the
+fork currently claims conformance it does not have, and downstream projects
+build against it.
+
+| Paper | Amends | Evidence |
+|---|---|---|
+| P3819R0 | P2900R14 Contracts (`Complete`, tagged, `-fcontracts` **on by default**) | `evaluation_exception` still at `libcxx/include/contracts:21` |
+| P3697R1 | P3471R4 hardening | Adds 5 hardened components + 5 FTMs at `202506L` |
+| P3878R1 | P3471R4 hardening | "hardening should not use the `observe` semantic" — unassessed |
+| P3860R1 | `atomic_ref<T>` (Tier 4, `Complete`) | Kona NB-comment resolution |
+
+**Rank 2 — named blockers with multi-paper fan-out.** Each unblocks a chain,
+so the effort amortizes across several rows.
+
+- **P2781R9 `constant_wrapper`** → P3222R0 → P2642R6 / P3355R2 → P1673R13's
+  `__cpp_lib_linalg` FTM. Longest chain in this document. It **has** a CSV row
+  (Sofia 2025-06) — an earlier note here wrongly said it needed one.
+- **P3068R6** (throwing in constant evaluation) → P3378R2 `constexpr`
+  exception types.
+- **P0533R9** (C++23, only `isfinite`/`isinf`/`isnan`/`isnormal` done) →
+  P1383R2 `constexpr <cmath>`.
+- **P2419R2** (C++23, untracked) → P2757R3, and with it `__cpp_lib_format`'s
+  whole C++26 bump.
+
+**Rank 3 — in-flight subsystems this document could not see.** Real code
+exists; the roadmap just did not know about it.
+
+- **`std::simd`** — 7 papers `|In Progress|`, code in `libcxx/include/__simd/`.
+  See Tier 7. Audit-and-finish, not greenfield.
+- **P3372R3** constexpr containers and adaptors (`|In Progress|`).
+- **P2714R1** bind front/back to NTTP callables (`|Partial|`).
+
+**Rank 4 — greenfield.** Ordered roughly by surface area: P3552R3 (coroutine
+task type), P3179R9 (parallel range algorithms), P3037R6 (`constexpr`
+`shared_ptr`), P3391R2 (`constexpr` `std::format`), P3008R6 / P3111R8
+(atomic FP min/max, reduction ops), the ~10 `std::execution` follow-ons listed
+under Tier 2's P2300R10 row, then the language-side and freestanding tables.
+
+**Rank 5 — disposition only, no tier rows.**
+
+- **Reflection family** (P2996R13, P3560R2, and the papers named in Scope
+  above) — tracked in `docs/REFLECTION.md`. Do not re-implement from here.
+- **NB-comment / editorial rollups** (P3348R4 "C++26 should refer to C23",
+  P3914R0, P3923R0) — these are collections of unrelated small resolutions.
+  Triage each only when something else touches the affected wording; a row per
+  rollup would be noise.
+
 ## Tier 0 — Blocking prerequisite (must do first) — DONE 2026-08-20
 
 `build-nyx` was configured with `LLVM_INCLUDE_TESTS=OFF`. There was
@@ -295,6 +352,59 @@ self-contained compiler change, the same shape as the two clusters above):
   statement references (confirmed by grep) and predates this fork's feature
   work (`c4724f603849`, upstream PR #98671, present since the LLVM 22
   baseline). General conformance/LLVM-sync territory, not this epic's.
+
+**Two more issues found 2026-09-06 during the P3471R4/clangd verification
+pass**, one matching this same assertions-build shape and one unrelated.
+Neither is caused by that session's changes. Confirmed three ways, in
+ascending order of how they were found: (a) a full `check-cxx` run
+(11767 tests) diffed via `cxx26/dev/testdiff.py` against the last archived
+baseline (`check-cxx-20260905T035201Z-0a4bb18e21d6-hardening-m9-final.json`,
+2026-09-05 03:52 UTC — the M9 gate, well before this session) shows **zero
+new failures and zero newly fixed** (52 = 52, and the failing-test-name sets
+are exactly equal, not just the counts); both tests below are members of
+that pre-existing 52. That baseline JSON existed all along — nobody had
+written these two failures into this document's prose until now, which is
+itself the finding worth remembering (see
+[[project_cxx26_roadmap_triage]]-style lesson: an archived result and a
+narrative tracker can silently diverge). Independently reproduced via two
+narrower isolation checks before the full-suite run confirmed it: (b) against
+the pre-session tagged toolchain (`~/.local/opt/clang-cxx26-2026.09.05`,
+byte-identical headers verified via `diff`), and (c) after `git stash`-ing
+the session's three touched clang files and rebuilding. Recorded here rather
+than fixed, same scope discipline as above:
+
+- **`inplace_vector::unchecked_emplace_back`/`emplace_back` (4 test
+  failures)** — `-Werror,-Wreturn-stack-address` on `return *__r;` at
+  `libcxx/include/inplace_vector:488,509,519`, hit via `resize()`, the
+  initializer-list constructor, and direct `emplace_back()`. Reproduces on
+  `build-nyx` (`+assertions`) but **not** against the packaged toolchain
+  (no assertions) with byte-identical headers — matching the
+  `LLVM_ENABLE_ASSERTIONS=ON`-only-visible pattern the Contracts Hardening
+  epic's M1 already established for two unrelated crashes above, but this is
+  the first instance found in a *diagnostic* (a real `-Wreturn-stack-address`
+  false positive or a genuine dangling-reference bug — not yet determined
+  which) rather than an `assert`/`llvm_unreachable`. Affects:
+  `std/containers/sequences/inplace.vector/{basic,ranges}.pass.cpp`,
+  `libcxx/containers/sequences/inplace.vector/assert.pass.cpp`. Not
+  investigated further — root-causing whether this is a compiler false
+  positive or a real `inplace_vector` bug is its own task.
+- **`std/containers/associative/map/map.access/element_access_transparent.pass.cpp`**
+  — unrelated to assertions; reproduces identically against the packaged
+  toolchain. `map::at`'s transparent overload
+  (`libcxx/include/map:1119-1121`) constrains on
+  `__is_transparently_comparable_v<_Compare, key_type, __remove_cvref_t<_Arg>>`
+  where `_Compare` is the map's own comparator (`std::less<std::string>` in
+  this test, which is not transparent) rather than requiring `_Compare` to be
+  transparent in the first place — `at(string_view)` has no viable overload.
+  Likely a real gap in P2363R5's ("heterogeneous lookup", Tier 1, `Complete`)
+  own scope, not a new regression; not root-caused further here.
+
+**Full-suite gate for this session's actual changes (P3471R4 FTMs + the
+clangd `pre`/`post` completion fix): clean.** `check-clang` gated clean
+(44633/49842 passed, 7 failed — all 7 matching the already-documented set
+above, zero new) and `check-cxx` gated clean as detailed above (zero new,
+zero newly fixed, 11767 tests — one more than the M9 baseline's 11766, the
+new `valarray.version.compile.pass.cpp` this session's FTM work created).
 
 **Five more distinct, unrelated reflection/`template for` issues found
 2026-09-05 by the same epic's first assertions-build `check-cxx` run** — not
@@ -586,6 +696,21 @@ than being tackled as a single commit.
 | [x] | P3325R5 | Execution environment utility | Folded into the P2300R10 sub-plan below (its content is `[exec.envs]`/`prop`+`env`, M1) — flipped together with P2300R10 |
 | [x] | P3396R1 | `std::execution` wording fixes | No separable content — already merged into current draft wording used by the sub-plan below; flipped to Complete alongside P2300R10 at M6c, not separately implemented |
 | [x] | P2900R14 | Contracts | Complete 2026-09-04 — executed as its own dedicated epic, see Scope section above |
+| [!] | P3819R0 | Remove `evaluation_exception()` from contract-violation handling | **Rank 1 conformance defect.** Amends P2900R14 *after* this fork shipped it. `evaluation_exception` is still live at `libcxx/include/contracts:21`, and the toolchain is tagged (`cxx26-2026.09.05`) with `-fcontracts` on by default — so downstream builds against a non-conformant surface. Spans clang (`Options.td`, `LangOptions.def`, `ContractOptions.h`, `CGContracts.cpp`, `Driver/ToolChains/Clang.cpp`) and libcxx (`include/contracts`, `src/contracts.cpp`'s versioned `_BuiltinContractStruct`, `test/support/contracts_support.h`). **Not a cherry-pick** — the `contracts/contracts-nightly` ref (2026-02-11) still carries the enumerator; `git fetch contracts` is the cheap first check before scoping. The versioned struct already handles v1/v2/v3, so it is built for this kind of bump. |
+| [ ] | P3552R3 | Add a coroutine task type (`execution::task`) | Untriaged until 2026-09-05. Major new facility; own sub-plan when started |
+| [ ] | P3179R9 | Parallel range algorithms | Untriaged until 2026-09-05. Large surface; interacts with Tier 3 ranges work |
+| [~] | P3372R3 | `constexpr` containers and adaptors | `\|In Progress\|` in the CSV but was untracked here — check what already landed before scoping |
+
+**P2300R10 is `Complete` for the paper, not for the C++26 execution surface.**
+Ten follow-on papers amend or extend it and are all unstarted (untriaged until
+2026-09-05): P2079R10 (parallel scheduler), P3149R11 (`async_scope`), P3284R4
+(`write_env`/`unstoppable`), P3388R3 (when `connect` doesn't throw), P3433R1
+(allocator support for operation states), P3481R5 (`bulk()` issues), P3557R3
+(sender diagnostics via constexpr exceptions), P3570R2 (optional variants),
+P3682R0 (**remove** `execution::split`), P3887R1 (`when_all` as a Ronseal
+algorithm). Treat these as one Rank 4 cluster with a shared sub-plan rather
+than ten independent rows — several are small wording deltas against code that
+already exists, and P3682R0 is a deletion.
 
 ### Tier 2 Sub-Plan: P2300R10 `std::execution` (sender/receiver)
 
@@ -1420,7 +1545,7 @@ in an ambiguous state.
   (453/454, 1 pre-existing unsupported) plus `transitive_includes.gen.py`
   and `support.limits.general/` (208/208) both times.
 - **mdspan/linalg block, split 2026-08-22 per the gate above:**
-  - **mdspan proper** (P2630R4 `submdspan`, P2642R6 padded layouts, P3355R1)
+  - **mdspan proper** (P2630R4 `submdspan`, P2642R6 padded layouts, P3355R2)
     — **not started, confirmed from-scratch, and blocked on an untracked
     prerequisite — see the dedicated sub-plan below before starting this.**
   - **linalg** (P1673R13, P3050R2) — **P1673R13 assessed, not a from-
@@ -1441,7 +1566,7 @@ in an ambiguous state.
     scoped DR-shaped fix to `linalg::conjugated`) was completed as part
     of this assessment once the fix was understood; see its row below.
 
-### Tier 3 Sub-Plan: mdspan `submdspan`/padded layouts (P2630R4/P2642R6/P3355R1) — BLOCKED, do not start
+### Tier 3 Sub-Plan: mdspan `submdspan`/padded layouts (P2630R4/P2642R6/P3355R2) — BLOCKED, do not start
 
 **Blocked 2026-08-24, before any code was written — this is a scoping
 finding, not an implementation attempt.** Do not pick this up as a normal
@@ -1472,7 +1597,7 @@ blocker is a prerequisite chain, not a size problem.
    where the blocker was found**, not in the implementation itself.
 
 **The blocker:** the current draft's submdspan wording has moved
-substantially beyond P3355R1 (the tracked "C++26 fixes" paper) via further,
+substantially beyond P3355R2 (the tracked "C++26 fixes" paper) via further,
 untracked committee changes:
 - `strided_slice` (P2630R4's type) has been renamed `extent_slice`, and a
   new sibling type `range_slice` has been added
@@ -1487,11 +1612,21 @@ untracked committee changes:
   on **`std::constant_wrapper`** — confirmed via
   `grep -rn "constant_wrapper\|constexpr_v" libcxx/include/` to not exist
   anywhere in this fork. `constant_wrapper` is P2781 ("`std::constexpr_v`",
-  renamed by LEWG during review) — **an entire separate library feature,
-  not tracked in `Cxx2cPapers.csv`/`Cxx2cIssues.csv` at all**, discovered
-  only because this session went looking for it. It is not incidental to
-  the wording; it is load-bearing in exactly the three places listed
-  above.
+  renamed by LEWG during review) — **an entire separate library feature**,
+  discovered only because this session went looking for it. It is not
+  incidental to the wording; it is load-bearing in exactly the three places
+  listed above.
+
+  **Update (2026-09-05): P2781 now has a CSV row — `P2781R9`** (Sofia
+  2025-06, blank/unstarted). This block originally said it was "not tracked in
+  `Cxx2cPapers.csv`/`Cxx2cIssues.csv` at all", and **that was accurate when
+  written**: `git show ca44e7b01b09^:libcxx/docs/Status/Cxx2cPapers.csv` has
+  zero hits for P2781R9. The row arrived with the LLVM 22 sync merge
+  (`ca44e7b01b09`, 2026-08-30), six days after that note. So the instruction
+  "add it to `Cxx2cPapers.csv`" below is obsolete — the row exists; fill it in
+  rather than create it. **Generalizable:** a paper this document calls
+  "untracked" may simply predate the sync that added it. Re-check the CSV
+  after any upstream merge before acting on an untracked-ness claim.
 
 **Why "implement P2630R4's original wording instead" is not a valid
 workaround** (this was considered and rejected, not just skipped): the
@@ -1505,15 +1640,15 @@ invent P3471R4's placeholder FTM names, at a much larger scale (a whole
 API surface instead of a handful of macro values).
 
 **What unblocks this:** either (a) implement `std::constant_wrapper`
-(P2781) first as its own tracked item — add it to `Cxx2cPapers.csv`, which
-doesn't have a row for it at all yet — then revisit submdspan/padded
+(P2781R9) first as its own tracked item — its `Cxx2cPapers.csv` row already
+exists and is blank, so fill it in — then revisit submdspan/padded
 layouts against the current draft; or (b) a future session re-checks
 whether upstream libc++ `main` has picked up `constant_wrapper` or
 submdspan by then (the GitHub API check above is cheap to repeat) and
 backports rather than reimplements. Do not start on `strided_slice`/
 `submdspan_extents`-shaped code against the old papers as a stopgap.
 
-P2630R4, P2642R6, and P3355R1 stay `[ ]` (not started) in the table below;
+P2630R4, P2642R6, and P3355R2 stay `[ ]` (not started) in the table below;
 P3222R0 (Tier 6, "transposed special cases for P2642 mdspan layouts")
 stays blocked transitively on this same chain.
 
@@ -1575,7 +1710,7 @@ back to `to_input` based on the paper title alone.
 | [x] | P2846R6 | `reserve_hint` | Complete 2026-08-22 — CPO/concept were already scaffolded but untested; added tests, fixed a `_LIBCPP_HIDE_FROM_ABI` gap and `ranges::to` using `sized_range`/`ranges::size` instead of `approximately_sized_range`/`ranges::reserve_hint` |
 | [ ] | P2630R4 | `submdspan` | Confirmed from-scratch, no scaffolding in-tree — see mdspan/linalg block note |
 | [ ] | P2642R6 | Padded `mdspan` layouts | Confirmed from-scratch |
-| [ ] | P3355R1 | `submdspan` C++26 fixes | Depends on P2630R4 |
+| [ ] | P3355R2 | `submdspan` C++26 fixes | Depends on P2630R4 |
 | [x] | P3050R2 | `linalg::conjugated` optimization | Complete 2026-08-22 — `conjugated()` always wrapped in `conjugated_accessor` even for arithmetic/no-`conj(E)` element types; now returns the argument unchanged for those (reuses the existing `__has_adl_conj` trait). No FTM of its own. |
 | [~] | P1673R13 | BLAS-based linear algebra interface | Partial 2026-08-24 — audited: name-set diff clean, found and fixed a real SFINAE-conformance gap (~90 functions retrofitted with concept constraints) plus (via P3371R5 below) a real-if-needed gap in the hermitian rank-1/2/k/2k updates; `|Partial|` because the FTM chain to `202511L` traces through P3222R0, which is genuinely blocked on P2642R6/`constant_wrapper` — see Session Log |
 | [x] | P3371R5 | Consistent rank-1/2/k/2k updates | Complete 2026-08-24 — found via tracing the `__cpp_lib_linalg` FTM chain (not previously in this CSV). 3 of its 4 required changes were already correct in this fork; fixed the 4th (`real-if-needed(alpha)` and diagonal `real-if-needed(E[i, i])` missing from the 4 hermitian rank-update E-taking overloads) — see Session Log |
@@ -1584,6 +1719,11 @@ back to `to_input` based on the paper title alone.
 | [ ] | P3107R5 | Efficient `std::print` implementation | Assessed 2026-08-22 — confirmed `__vprint_nonunicode` materializes a full `string` before writing, the exact thing this paper eliminates; real redesign, deserves its own session — see format/print block note |
 | [x] | P2845R8 | `std::filesystem::path` formatting | Complete 2026-08-22 — new `formatter<path, charT>` in `__filesystem/path_format.h`, path-format-spec grammar (fill-and-align, width, `?`, `g`) |
 | [ ] | P3235R3 | `std::print` faster/leaner for more types | Assessed 2026-08-22, same redesign as P3107R5 above, bundle with it |
+| [ ] | P3391R2 | `constexpr` `std::format` | Untriaged until 2026-09-05. Kona 2025-11. Interacts with the `__cpp_lib_format` FTM chain already blocked on P2419R2 — check whether it shares that blocker before scoping |
+| [ ] | P3037R6 | `constexpr` `std::shared_ptr` and friends | Untriaged until 2026-09-05. Sofia 2025-06 |
+| [ ] | P3913R1 | Optimize `std::optional` in range adaptors | Untriaged until 2026-09-05. Kona 2025-11. Builds on P3168R2 (already Complete) |
+| [ ] | P3612R1 | Harmonize proxy-reference operations (LWG 3638, 4187) | Untriaged until 2026-09-05. Kona 2025-11 |
+| [ ] | P3709R2 | Reconsider parallel `ranges::rotate_copy` / `reverse_copy` | Untriaged until 2026-09-05. Pairs with P3179R9 (Tier 2) |
 
 ### Tier 4 — Atomics
 
@@ -1606,6 +1746,9 @@ One real Clang-parser finding, not a libc++ design issue: combining a trailing `
 New tests: `atomics.ref/cv_qualified.pass.cpp` (value_type identity across all four cv-combinations; `const T` exposes only load/conversion/wait via `requires`-expression concepts checking non-participation, not just call failure; `volatile T` exercises the full read/write API end-to-end including `wait()`, restricted to `T(0)`/`T(1)` throughout so the same test works for `bool`, which only has two distinct values; pointer cv-of-*pointee* is a distinct, already-working case; pointer cv-of-the-pointer-itself is the case this paper actually adds, checked separately with its own read/write/RMW sequence) and `atomics.types.generic/cv_qualified.verify.cpp` (`atomic<const T>` static_assert fires for both the primary-template and floating-point-specialization paths; deliberately excludes `atomic<volatile T>` from the verify test, since forming the primary template's own pre-existing volatile-qualified member overloads for a volatile `T` trips C++20's unrelated `[depr.volatile.type]` deprecation warning under `-verify`'s exact-match mode). No FTM — the paper defines none. Verified: full `atomics/` suite (131 tests incl. both new files) green, including under `--param hardening_mode=extensive` for `cv_qualified.pass.cpp` specifically (the P3309R3 session's finding that the default `none` hardening mode never compiles the constructor's guarded `reinterpret_cast<uintptr_t>` alignment check applies here too, now exercised through a `const`/`volatile` referenced-object constructor path that didn't exist before this session); `utilities/memory/` + `thread/` + `support.limits.general/` (641 of 650, 9 unsupported) green; `transitive_includes.gen.py`/`module_std.gen.py` (125 of 126, 1 unsupported) green; `libcxx-generate-files` + `git diff` clean, no drift |
 | [x] | P3309R3 | `constexpr atomic`/`atomic_ref` | Complete 2026-08-23 for the paper's core surface, with two deliberate, documented scope cuts — see session log. `atomic<T>`'s storage is `_Atomic(T)`; none of `__c11_atomic_*`/`__atomic_*` are constexpr-evaluable in this compiler (confirmed by direct probe, not inferred from the "does not need a clang change" note in this row's prior assessment — that was the paper's own claim, not an audit), so the consteval branches (support/c11.h) read/write `__a_value` directly. That direct read only type-checks when T is scalar (`_Atomic(ClassType)` has no implicit conversion back to `ClassType`), so **`atomic<T>` constexpr is scoped to scalar T** (int, bool, pointer, floating-point incl. fp80 `long double` on this target, which exercises the separate CAS-loop path in `__rmw_op`) — arbitrary trivially-copyable class T stays non-constexpr, a real compiler gap, not scope-timidity. `atomic_ref<T>` has a different storage model (plain `T*`, no `_Atomic` qualification) so its `store`/`load`/`exchange`/`operator=` consteval branches (`*__ptr_` direct access) work for **any** trivially copyable T, including class types; only `compare_exchange_weak/strong` and `wait` stay scalar-gated, since they compare via `==` (unlike the bytewise `__atomic_compare_exchange`/`__clear_padding`/memcmp machinery used at runtime, which needs no such operator and isn't constexpr-usable itself). **`atomic_flag` is explicitly NOT covered** — its `wait()` calls `std::__atomic_wait` before `__atomic_waitable_traits<atomic_flag>`'s specialization is declared later in the same header (atomic_flag.h), relying on that call's *body* not being instantiated until end-of-TU; making the shared `__atomic_wait`/`__atomic_notify_one`/`__atomic_notify_all` templates (atomic_sync.h) `constexpr` breaks that — Clang instantiates constexpr function templates eagerly — producing "explicit specialization after instantiation" errors. Fixed by keeping those shared atomic_sync.h templates non-constexpr and inlining the consteval wait/notify logic locally into `atomic<T>`/`atomic_ref<T>`'s own `wait()`/`notify_one()`/`notify_all()` (calling `this->load()` directly) instead of routing through them — `atomic_flag`'s own wait/notify were left untouched rather than risk restructuring its declaration order. The `gcc.h` backend (dead code in this fork — clang always selects `c11.h`) was not touched, so a hypothetical GCC build would advertise `__cpp_lib_constexpr_atomic` without honoring it; recorded rather than fixed, same shape as the P0493R5 row's compiler-layer scoping. FTM: `__cpp_lib_constexpr_atomic` (202411L, *not* `__cpp_lib_atomic_constexpr` — that name came from the paper's own R3 text, "location TBD by LEWG"; verified against eel.is's actual `<version>` synopsis before adding) |
 | [x] | P2869R4 | Remove deprecated `shared_ptr` atomic access APIs | Complete 2026-08-23 — the tracker's own "low complexity" label undersold this: these functions had never been given `_LIBCPP_DEPRECATED_IN_CXX20` in this fork despite the standard deprecating them since C++20 ([depr.util.smartptr.shared.atomic]), so the work was adding that plus the `_LIBCPP_ENABLE_CXX26_REMOVED_SHARED_PTR_ATOMICS` escape-hatch gate (same pattern as allocator/string/codecvt/strstream) plus updating 11 existing test files with the escape-hatch flag, not a bare deletion. `__sp_mut`/`__get_sp_mut` stay unconditional — implementation plumbing, not part of the removed public surface. Verified empty via `grep -rn "std::atomic_load\|atomic_store\|atomic_exchange\|atomic_compare_exchange" libcxx/src libcxx/test` (excluding the shared_ptr test dir itself) that no other in-tree code calls the now-deprecated overloads under `-Werror` |
+| [ ] | P3008R6 | Atomic floating-point min/max | Untriaged until 2026-09-05. Sofia 2025-06. Direct extension of P0493R5 (Complete) — that row's floating-point `fetch_max`/`fetch_min` already follow `fmaximum_num`/`fminimum_num` NaN semantics via a CAS loop, so check how much of this is already satisfied before scoping |
+| [ ] | P3111R8 | Atomic reduction operations | Untriaged until 2026-09-05. Sofia 2025-06 |
+| [!] | P3860R1 | NB comment GB13-309: `atomic_ref<T>` | **Rank 1 conformance defect.** Kona 2025-11 NB-comment resolution against `atomic_ref<T>`, which this tier marks Complete across P2835R7/P3323R1/P3309R3. Read the resolution before assuming those rows still hold |
 
 ### Tier 5 — Freestanding completeness
 
@@ -2042,7 +2185,67 @@ way deliberately (see Notes for what's done vs. remaining).
 | [x] | P3370R1 | New library headers from C23 | Complete 2026-08-23 — see Session Log |
 | [x] | P3349R1 | Converting contiguous iterators to pointers |
 | [!] | P3378R2 | `constexpr` exception types | **Session-sized** — library-side ABI restructure, not compiler-blocked (see block below) |
-| [~] | P3471R4 | Standard Library Hardening | Partial 2026-08-24 — audit found nearly everything already implemented (upstream-inherited); fixed 2 real gaps (`inplace_vector`, `mdspan::operator[]` array/span overloads), documented 1 deliberate non-fix (`forward_list`); `|Partial|` because §10.11's FTMs are unimplementable placeholders in the paper itself — see Session Log |
+| [x] | P3471R4 | Standard Library Hardening | **Complete 2026-09-06.** Runtime checks landed 2026-08-24 (fixed `inplace_vector` and `mdspan::operator[]`'s array/span overloads; `forward_list`'s `NON_NULL` category kept deliberately). FTMs landed 2026-09-06: the `|Partial|` status had rested on §10.11's `20????L` placeholders, but the **adopted** wording assigns concrete values — 14 macros at `202502L`, verified against `eel.is/c++draft/version.syn` directly rather than via P3697R1's quotation of them. Macros are **guarded, not unconditional**: under `_LIBCPP_HARDENING_MODE_NONE` libc++ is a non-hardened implementation per [structure.specifications] (violations are plain UB), so an unconditional macro would overclaim. 13 use `!= _LIBCPP_HARDENING_MODE_NONE`; `__cpp_lib_hardened_forward_list` uses `== EXTENSIVE || == DEBUG`, which makes the 2026-08-24 `NON_NULL` decision visible in the macro rather than silently overclaiming in `fast`. The mode constants are **deliberately not ordered** (`EXTENSIVE` is `1 << 4`, `DEBUG` is `1 << 3`) so these must be equality comparisons — never `>=`. Verified across all four modes; the generated tests genuinely discriminate (the `fast` run asserts `forward_list`'s macro is *undefined* while `extensive` asserts it is `202502L`, and both pass). Follow-on: P3697R1 below |
+| [!] | P3697R1 | Minor additions to C++26 standard library hardening | **Rank 1**, amends P3471R4. Sofia 2025-06. Adds hardened preconditions to `view_interface::front`/`back`, `counted_iterator` (9 ops), `common_iterator` (10 ops), `shared_ptr<T[N]>::operator[]`, `basic_stacktrace::current`/`operator[]`, plus 5 FTMs at `202506L`. Reuses the existing `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS` machinery — same shape as the 2026-08-24 pass |
+| [!] | P3878R1 | Hardening should not use the `observe` semantic | **Rank 1**, amends P3471R4. Kona 2025-11. **Unassessed.** Plausibly a no-op here — libc++ hardening uses `_LIBCPP_ASSERT`/`_LIBCPP_ASSERTION_HANDLER`, not Contracts semantics — but it may constrain the assertion handler's behaviour. Read the paper before assuming no-op |
+| [~] | P2714R1 | Bind front and back to NTTP callables | `\|Partial\|` in the CSV; was untracked here until 2026-09-05 |
+| [ ] | P2927R3 | Inspecting `exception_ptr` | Untriaged until 2026-09-05. Sofia 2025-06. Pairs with P3748R0 below |
+| [ ] | P3748R0 | Inspecting `exception_ptr` should be constexpr | Untriaged until 2026-09-05. Kona 2025-11. Do after P2927R3 |
+| [ ] | P3503R3 | Type-erased allocator use in `promise`/`packaged_task` | Untriaged until 2026-09-05. Sofia 2025-06 |
+| [ ] | P3641R0 | Rename `std::observable` to `std::observable_checkpoint` | Untriaged until 2026-09-05. Sofia 2025-06. Rename + deprecation |
+| [ ] | P1317R2 | Remove return type deduction in `std::apply` | Untriaged until 2026-09-05. Sofia 2025-06 |
+| [ ] | P2319R5 | Prevent `path` presentation problems | Untriaged until 2026-09-05. Sofia 2025-06. Touches `<filesystem>`, adjacent to P2845R8 (Complete) |
+| [ ] | P3016R6 | Inconsistencies in begin/end for `valarray` and braced initializer lists | Untriaged until 2026-09-05. Kona 2025-11 |
+| [ ] | P3383R3 | `mdspan.at()` | Untriaged until 2026-09-05. Sofia 2025-06. Bounds-checked accessor — coordinate with the P3471R4 hardening work, which already touched `mdspan::operator[]` |
+| [ ] | P3663R3 | Future-proof `submdspan_mapping` | Untriaged until 2026-09-05. Kona 2025-11. Sits behind the same mdspan blocker chain |
+| [ ] | P3774R1 | Rename `std::nontype`, make it broadly useful | Untriaged until 2026-09-05. Kona 2025-11. Touches P2714R1/`function_ref` territory |
+| [ ] | P2830R10 | Standardized constexpr type ordering | Untriaged until 2026-09-05. Sofia 2025-06. **Do together with P3778R0** ("Fix for `type_order` template definition", Kona 2025-11) — P3778R0 is a fix to this paper's own wording, not separable |
+| [ ] | P2079R10 | Parallel scheduler | Untriaged until 2026-09-05. Sofia 2025-06. Belongs to the `std::execution` follow-on cluster — see the note under Tier 2 |
+
+### Tier 7 — `std::simd` (audit-and-finish, not greenfield)
+
+Added 2026-09-05. **This subsystem was invisible to this document until then**
+— seven CSV rows sit at `|In Progress|` while `libcxx/include/__simd/` already
+holds 16 files and `<simd>` is 154 lines. Nothing here is a from-scratch start;
+the first task is an audit establishing what actually works, in the mould of
+the P1673R13 (linalg) and P3471R4 (hardening) audit sessions rather than the
+P2300R10 build-out.
+
+Sequencing note: **P3287R3 (namespace exploration) and P3691R1 (namespace
+naming) should be settled before the API-surface papers**, since both move
+where every other name in this tier lives; landing constructors and algorithms
+first means moving them afterwards.
+
+| Status | Paper | Feature | Notes |
+|---|---|---|---|
+| [~] | P1928R15 | `std::simd` — merge data-parallel types from Parallelism TS 2 | The base paper. `\|In Progress\|`; scope of what landed is unaudited |
+| [~] | P3287R3 | Exploration of namespaces for `std::simd` | Settle before the API-surface rows below |
+| [~] | P3691R1 | Reconsider naming of the namespace for `std::simd` | Pairs with P3287R3 |
+| [~] | P3430R3 | simd issues: explicit, unsequenced, identity-element position, disabled simd | Assorted conformance fixes |
+| [~] | P3441R2 | Rename `simd_split` to `simd_chunk` | Mechanical rename once naming settles |
+| [~] | P2663R7 | Interleaved complex values support | API surface |
+| [~] | P2933R4 | Extend `<bit>` with overloads for `std::simd` | Touches `<bit>` as well as `<simd>` |
+| [ ] | P2664R11 | Extend `std::simd` with permutation API | Untriaged until 2026-09-05 |
+| [ ] | P2876R3 | More `std::simd` constructors and accessors | Untriaged until 2026-09-05 |
+| [ ] | P3480R6 | `std::simd` is a range | Untriaged until 2026-09-05. Interacts with Tier 3 ranges work |
+| [ ] | P3922R1 | Missing deduction guide from `simd::mask` to `simd::vec` | Untriaged until 2026-09-05. Small |
+
+### Excluded and editorial — disposition only, no tier rows
+
+Recorded 2026-09-05 so a future CSV diff does not re-flag these as "untracked".
+
+- **Reflection family** — P2996R13 (Reflection for C++26) and P3560R2 (Error
+  handling in reflection) appear unstarted in `Cxx2cPapers.csv`, like the
+  papers already named in Scope above. That CSV mirrors upstream and does not
+  know about this fork's reflection work. **Tracked in `docs/REFLECTION.md`;
+  do not implement from here.**
+- **NB-comment and editorial rollups** — P3348R4 ("C++26 should refer to C23
+  not C17"), P3914R0 and P3923R0 (assorted Kona 2025 NB resolutions). Each
+  bundles unrelated small changes across the library. A row per rollup would
+  be noise; triage the individual resolutions only when other work touches the
+  affected wording. **Exception:** P3860R1 and P3819R0 are also NB/Kona
+  resolutions but got their own rows above, because each amends a specific
+  facility this fork already marks Complete.
 
 ### Language-side gaps (clang/, blocked on Tier 0)
 
@@ -2064,6 +2267,10 @@ tiers as makes sense.
 | [ ] | P3475R2 | Defang and deprecate `memory_order::consume` | Coordinate with Tier 4 atomics work — the 2026-08-23 Tier 4 session did not touch `memory_order.h`, so this is still fully deferred, not partially covered |
 | [ ] | P1967R14 | `#embed` | |
 | [!] | P1494R5 | Partial program correctness | Research-flavored, open-ended scope — consider deferring alongside Contracts once its actual scope is assessed |
+| [ ] | P3068R6 | Allowing exception throwing in constant-evaluation | Added 2026-09-05. **Rank 2 blocker** — this is the language half that Tier 6's P3378R2 (`constexpr` exception types) sits on top of, and P3557R3 (sender diagnostics) also wants it. Assess these three together; P3378R2's "session-sized, not compiler-blocked" note predates this row and should be re-read against it |
+| [ ] | P1467R9 | Extended floating-point types and standard names | Added 2026-09-05. `std::float16_t`/`float32_t`/`float64_t`/`bfloat16_t` — language *and* library surface (`<stdfloat>`). Large; not previously tracked on either side |
+| [ ] | P2582R1 | CTAD from inherited constructors | Added 2026-09-05 |
+| [ ] | P2590R2 | Explicit lifetime management | Added 2026-09-05. `std::start_lifetime_as` — has a library component too |
 
 ## Session Log
 
@@ -5941,3 +6148,61 @@ blocked, what's next. Do not remove old entries.
   work is `format`/`print`'s P3107R5/P3235R3 redesign (assessed out of
   scope in a prior session, needs its own dedicated session) and
   P2757R3 (blocked on untracked C++23 P2419R2).
+
+- **2026-09-05 (triage pass — this document was stale)**: No implementation;
+  a full re-triage of `Cxx2cPapers.csv` against this document, prompted by a
+  question about P3471R4's remaining cost. The tier tables had never been
+  re-triaged after the LLVM 22 sync (2026-08-30) pulled in the Sofia (2025-06)
+  and Kona (2025-11) paper batches, so this document's claim to be "the single
+  source of truth for what's done, what's next" was **false** for roughly a
+  week. What the diff against the CSV turned up:
+
+  - **48 unstarted library papers appeared nowhere in this document.** Now
+    triaged into the tables below (actionable ones get rows; reflection-family
+    and NB-comment rollups get a collective disposition line each — see the
+    "Next Up" block).
+  - **An entire in-flight subsystem was invisible**: 7 `std::simd` papers are
+    `|In Progress|` in the CSV with real code already in
+    `libcxx/include/__simd/` (16 files) and a 154-line `<simd>`. This document
+    mentioned "simd" exactly once, in unrelated prose about chunked backends.
+    Now Tier 7. Half-done work the roadmap cannot see is worse than unstarted
+    work it can — that is the generalizable lesson from this pass.
+  - **Three papers amend work this document marks Complete**, meaning the fork
+    was claiming conformance it did not have: **P3819R0** (removes
+    `evaluation_exception` from contract-violation handling — still present at
+    `libcxx/include/contracts:21`, in a toolchain that is *tagged*
+    `cxx26-2026.09.05` with `-fcontracts` **on by default**), **P3697R1** and
+    **P3878R1** (both amend P3471R4), **P3860R1** (NB-comment resolution
+    against `atomic_ref<T>`).
+  - **Two stale-by-sync statements corrected in place** — and both were
+    *accurate when written*, which is the more useful finding. The mdspan
+    sub-plan said `constant_wrapper` had no CSV row (true on 2026-08-24;
+    `git show ca44e7b01b09^:...Cxx2cPapers.csv` has zero hits for P2781R9),
+    and the tables said P3355R**1** (also the CSV's value then). The LLVM 22
+    sync merge on 2026-08-30 added the P2781R9 row and bumped P3355R1→R2.
+    Neither was a research error; both were facts with an expiry date that
+    nothing re-checked. **This is the failure mode to design against**: after
+    any upstream merge, this document's claims about what the CSV contains are
+    suspect until re-diffed. Session Log entries were left as written (they are
+    a record of what was known then); only forward-looking tables and sub-plan
+    prose were updated.
+
+  **P3471R4's `|Partial|` rationale was obsolete and is now closed.** That row
+  was `|Partial|` on the sole grounds that the paper's §10.11 feature-test
+  macros were `20????L` placeholders, "unimplementable as written" and
+  unverifiable from this environment (2026-08-24). That was true of the *paper
+  draft*; it is not true of the *adopted wording*. `eel.is/c++draft/version.syn`
+  now publishes **19 ratified hardened macros** — 14 at `202502L` (P3471R4's
+  own set) and 5 at `202506L` (P3697R1's additions). None existed in this
+  fork's generator or `<version>`. Verified against the draft synopsis
+  directly, not inferred from P3697R1's quotation of them, per this document's
+  standing rule about primary sources. The runtime-check half was already done
+  on 2026-08-24, so only the generator work remains.
+
+  **Methodology note worth keeping**: the trigger for this whole pass was a
+  cost estimate given earlier the same day — "P3471R4 is ~15 minutes, just
+  waiting on FTM ratification" — that was produced *without checking whether
+  follow-on papers existed*. Two did (P3697R1, P3878R1). The estimate happened
+  to be right about the FTM half and wrong about the scope. Before quoting a
+  cost for any `|Partial|` row here, grep the CSV for later papers naming the
+  same feature; a `|Partial|` row is not necessarily one paper deep.

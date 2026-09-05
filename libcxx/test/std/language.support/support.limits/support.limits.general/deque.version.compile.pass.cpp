@@ -36,6 +36,10 @@
 #    error "__cpp_lib_erase_if should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_hardened_deque
+#    error "__cpp_lib_hardened_deque should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_nonmember_container_access
 #    error "__cpp_lib_nonmember_container_access should not be defined before c++17"
 #  endif
@@ -56,6 +60,10 @@
 
 #  ifdef __cpp_lib_erase_if
 #    error "__cpp_lib_erase_if should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_hardened_deque
+#    error "__cpp_lib_hardened_deque should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_nonmember_container_access
@@ -81,6 +89,10 @@
 
 #  ifdef __cpp_lib_erase_if
 #    error "__cpp_lib_erase_if should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_hardened_deque
+#    error "__cpp_lib_hardened_deque should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_nonmember_container_access
@@ -112,6 +124,10 @@
 #  endif
 #  if __cpp_lib_erase_if != 202002L
 #    error "__cpp_lib_erase_if should have the value 202002L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_hardened_deque
+#    error "__cpp_lib_hardened_deque should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_nonmember_container_access
@@ -146,6 +162,10 @@
 #  endif
 #  if __cpp_lib_erase_if != 202002L
 #    error "__cpp_lib_erase_if should have the value 202002L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_hardened_deque
+#    error "__cpp_lib_hardened_deque should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_nonmember_container_access
@@ -183,6 +203,19 @@
 #  endif
 #  if __cpp_lib_erase_if != 202002L
 #    error "__cpp_lib_erase_if should have the value 202002L in c++26"
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_deque
+#      error "__cpp_lib_hardened_deque should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_deque != 202502L
+#      error "__cpp_lib_hardened_deque should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_deque
+#      error "__cpp_lib_hardened_deque should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
 #  endif
 
 #  ifndef __cpp_lib_nonmember_container_access

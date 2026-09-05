@@ -28,6 +28,10 @@
 #    error "__cpp_lib_constexpr_bitset should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_hardened_bitset
+#    error "__cpp_lib_hardened_bitset should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 14
 
 #  ifdef __cpp_lib_bitset
@@ -36,6 +40,10 @@
 
 #  ifdef __cpp_lib_constexpr_bitset
 #    error "__cpp_lib_constexpr_bitset should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_hardened_bitset
+#    error "__cpp_lib_hardened_bitset should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 17
@@ -48,6 +56,10 @@
 #    error "__cpp_lib_constexpr_bitset should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_hardened_bitset
+#    error "__cpp_lib_hardened_bitset should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 20
 
 #  ifdef __cpp_lib_bitset
@@ -56,6 +68,10 @@
 
 #  ifdef __cpp_lib_constexpr_bitset
 #    error "__cpp_lib_constexpr_bitset should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_hardened_bitset
+#    error "__cpp_lib_hardened_bitset should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 23
@@ -69,6 +85,10 @@
 #  endif
 #  if __cpp_lib_constexpr_bitset != 202207L
 #    error "__cpp_lib_constexpr_bitset should have the value 202207L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_hardened_bitset
+#    error "__cpp_lib_hardened_bitset should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER > 23
@@ -85,6 +105,19 @@
 #  endif
 #  if __cpp_lib_constexpr_bitset != 202207L
 #    error "__cpp_lib_constexpr_bitset should have the value 202207L in c++26"
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_bitset
+#      error "__cpp_lib_hardened_bitset should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_bitset != 202502L
+#      error "__cpp_lib_hardened_bitset should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_bitset
+#      error "__cpp_lib_hardened_bitset should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
 #  endif
 
 #endif // TEST_STD_VER > 23

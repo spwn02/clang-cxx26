@@ -416,6 +416,62 @@
 #    error "__cpp_lib_generic_unordered_lookup should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_hardened_array
+#    error "__cpp_lib_hardened_array should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_string
+#    error "__cpp_lib_hardened_basic_string should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_string_view
+#    error "__cpp_lib_hardened_basic_string_view should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_bitset
+#    error "__cpp_lib_hardened_bitset should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_deque
+#    error "__cpp_lib_hardened_deque should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_expected
+#    error "__cpp_lib_hardened_expected should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_forward_list
+#    error "__cpp_lib_hardened_forward_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_inplace_vector
+#    error "__cpp_lib_hardened_inplace_vector should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_list
+#    error "__cpp_lib_hardened_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_mdspan
+#    error "__cpp_lib_hardened_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_optional
+#    error "__cpp_lib_hardened_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_span
+#    error "__cpp_lib_hardened_span should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_valarray
+#    error "__cpp_lib_hardened_valarray should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_vector
+#    error "__cpp_lib_hardened_vector should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardware_interference_size
 #    error "__cpp_lib_hardware_interference_size should not be defined before c++17"
 #  endif
@@ -1380,6 +1436,62 @@
 
 #  ifdef __cpp_lib_generic_unordered_lookup
 #    error "__cpp_lib_generic_unordered_lookup should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_hardened_array
+#    error "__cpp_lib_hardened_array should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_string
+#    error "__cpp_lib_hardened_basic_string should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_string_view
+#    error "__cpp_lib_hardened_basic_string_view should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_bitset
+#    error "__cpp_lib_hardened_bitset should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_deque
+#    error "__cpp_lib_hardened_deque should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_expected
+#    error "__cpp_lib_hardened_expected should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_forward_list
+#    error "__cpp_lib_hardened_forward_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_inplace_vector
+#    error "__cpp_lib_hardened_inplace_vector should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_list
+#    error "__cpp_lib_hardened_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_mdspan
+#    error "__cpp_lib_hardened_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_optional
+#    error "__cpp_lib_hardened_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_span
+#    error "__cpp_lib_hardened_span should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_valarray
+#    error "__cpp_lib_hardened_valarray should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_vector
+#    error "__cpp_lib_hardened_vector should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardware_interference_size
@@ -2466,6 +2578,62 @@
 
 #  ifdef __cpp_lib_generic_unordered_lookup
 #    error "__cpp_lib_generic_unordered_lookup should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_hardened_array
+#    error "__cpp_lib_hardened_array should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_string
+#    error "__cpp_lib_hardened_basic_string should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_string_view
+#    error "__cpp_lib_hardened_basic_string_view should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_bitset
+#    error "__cpp_lib_hardened_bitset should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_deque
+#    error "__cpp_lib_hardened_deque should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_expected
+#    error "__cpp_lib_hardened_expected should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_forward_list
+#    error "__cpp_lib_hardened_forward_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_inplace_vector
+#    error "__cpp_lib_hardened_inplace_vector should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_list
+#    error "__cpp_lib_hardened_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_mdspan
+#    error "__cpp_lib_hardened_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_optional
+#    error "__cpp_lib_hardened_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_span
+#    error "__cpp_lib_hardened_span should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_valarray
+#    error "__cpp_lib_hardened_valarray should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_vector
+#    error "__cpp_lib_hardened_vector should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_hardware_interference_size
@@ -3816,6 +3984,62 @@
 #  endif
 #  if __cpp_lib_generic_unordered_lookup != 201811L
 #    error "__cpp_lib_generic_unordered_lookup should have the value 201811L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_hardened_array
+#    error "__cpp_lib_hardened_array should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_string
+#    error "__cpp_lib_hardened_basic_string should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_string_view
+#    error "__cpp_lib_hardened_basic_string_view should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_bitset
+#    error "__cpp_lib_hardened_bitset should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_deque
+#    error "__cpp_lib_hardened_deque should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_expected
+#    error "__cpp_lib_hardened_expected should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_forward_list
+#    error "__cpp_lib_hardened_forward_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_inplace_vector
+#    error "__cpp_lib_hardened_inplace_vector should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_list
+#    error "__cpp_lib_hardened_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_mdspan
+#    error "__cpp_lib_hardened_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_optional
+#    error "__cpp_lib_hardened_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_span
+#    error "__cpp_lib_hardened_span should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_valarray
+#    error "__cpp_lib_hardened_valarray should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_vector
+#    error "__cpp_lib_hardened_vector should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_hardware_interference_size
@@ -5358,6 +5582,62 @@
 #  endif
 #  if __cpp_lib_generic_unordered_lookup != 201811L
 #    error "__cpp_lib_generic_unordered_lookup should have the value 201811L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_hardened_array
+#    error "__cpp_lib_hardened_array should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_string
+#    error "__cpp_lib_hardened_basic_string should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_string_view
+#    error "__cpp_lib_hardened_basic_string_view should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_bitset
+#    error "__cpp_lib_hardened_bitset should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_deque
+#    error "__cpp_lib_hardened_deque should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_expected
+#    error "__cpp_lib_hardened_expected should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_forward_list
+#    error "__cpp_lib_hardened_forward_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_inplace_vector
+#    error "__cpp_lib_hardened_inplace_vector should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_list
+#    error "__cpp_lib_hardened_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_mdspan
+#    error "__cpp_lib_hardened_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_optional
+#    error "__cpp_lib_hardened_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_span
+#    error "__cpp_lib_hardened_span should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_valarray
+#    error "__cpp_lib_hardened_valarray should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_vector
+#    error "__cpp_lib_hardened_vector should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_hardware_interference_size
@@ -7188,6 +7468,188 @@
 #  endif
 #  if __cpp_lib_generic_unordered_lookup != 201811L
 #    error "__cpp_lib_generic_unordered_lookup should have the value 201811L in c++26"
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_array
+#      error "__cpp_lib_hardened_array should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_array != 202502L
+#      error "__cpp_lib_hardened_array should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_array
+#      error "__cpp_lib_hardened_array should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_basic_string
+#      error "__cpp_lib_hardened_basic_string should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_basic_string != 202502L
+#      error "__cpp_lib_hardened_basic_string should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_basic_string
+#      error "__cpp_lib_hardened_basic_string should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_basic_string_view
+#      error "__cpp_lib_hardened_basic_string_view should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_basic_string_view != 202502L
+#      error "__cpp_lib_hardened_basic_string_view should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_basic_string_view
+#      error "__cpp_lib_hardened_basic_string_view should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_bitset
+#      error "__cpp_lib_hardened_bitset should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_bitset != 202502L
+#      error "__cpp_lib_hardened_bitset should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_bitset
+#      error "__cpp_lib_hardened_bitset should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_deque
+#      error "__cpp_lib_hardened_deque should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_deque != 202502L
+#      error "__cpp_lib_hardened_deque should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_deque
+#      error "__cpp_lib_hardened_deque should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_expected
+#      error "__cpp_lib_hardened_expected should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_expected != 202502L
+#      error "__cpp_lib_hardened_expected should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_expected
+#      error "__cpp_lib_hardened_expected should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE == _LIBCPP_HARDENING_MODE_EXTENSIVE || _LIBCPP_HARDENING_MODE == _LIBCPP_HARDENING_MODE_DEBUG
+#    ifndef __cpp_lib_hardened_forward_list
+#      error "__cpp_lib_hardened_forward_list should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_forward_list != 202502L
+#      error "__cpp_lib_hardened_forward_list should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_forward_list
+#      error "__cpp_lib_hardened_forward_list should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE == _LIBCPP_HARDENING_MODE_EXTENSIVE || _LIBCPP_HARDENING_MODE == _LIBCPP_HARDENING_MODE_DEBUG' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_inplace_vector
+#      error "__cpp_lib_hardened_inplace_vector should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_inplace_vector != 202502L
+#      error "__cpp_lib_hardened_inplace_vector should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_inplace_vector
+#      error "__cpp_lib_hardened_inplace_vector should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_list
+#      error "__cpp_lib_hardened_list should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_list != 202502L
+#      error "__cpp_lib_hardened_list should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_list
+#      error "__cpp_lib_hardened_list should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_mdspan
+#      error "__cpp_lib_hardened_mdspan should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_mdspan != 202502L
+#      error "__cpp_lib_hardened_mdspan should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_mdspan
+#      error "__cpp_lib_hardened_mdspan should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_optional
+#      error "__cpp_lib_hardened_optional should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_optional != 202502L
+#      error "__cpp_lib_hardened_optional should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_optional
+#      error "__cpp_lib_hardened_optional should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_span
+#      error "__cpp_lib_hardened_span should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_span != 202502L
+#      error "__cpp_lib_hardened_span should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_span
+#      error "__cpp_lib_hardened_span should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_valarray
+#      error "__cpp_lib_hardened_valarray should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_valarray != 202502L
+#      error "__cpp_lib_hardened_valarray should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_valarray
+#      error "__cpp_lib_hardened_valarray should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_vector
+#      error "__cpp_lib_hardened_vector should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_vector != 202502L
+#      error "__cpp_lib_hardened_vector should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_vector
+#      error "__cpp_lib_hardened_vector should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
 #  endif
 
 #  ifndef __cpp_lib_hardware_interference_size
