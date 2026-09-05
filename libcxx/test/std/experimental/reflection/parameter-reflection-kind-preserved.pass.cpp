@@ -48,7 +48,7 @@ int fn(int a, double b);
 constexpr auto params = std::define_static_array(std::meta::parameters_of(^^fn));
 
 // Symptom 1: a source-level '^^param' is a reflection of a parameter.
-consteval auto directlyReflected(int a) -> bool {
+consteval auto directlyReflected([[maybe_unused]] int a) -> bool {
   return std::meta::is_function_parameter(^^a);
 }
 static_assert(directlyReflected(0));

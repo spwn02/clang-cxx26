@@ -226,6 +226,58 @@ self-contained compiler change, the same shape as the two clusters above):
   work (`c4724f603849`, upstream PR #98671, present since the LLVM 22
   baseline). General conformance/LLVM-sync territory, not this epic's.
 
+**Five more distinct, unrelated reflection/`template for` issues found
+2026-09-05 by the same epic's first assertions-build `check-cxx` run** — not
+one bug, five, spanning ICE/missing-API/test-bug/consteval-failure/module-test
+shapes. None investigated further here (each needs its own root-causing, same
+scope-discipline reasoning as above); one trivial test-file bug in the same
+sweep (an `-Werror,-Wunused-parameter` false failure in
+`parameter-reflection-kind-preserved.pass.cpp` needing only a
+`[[maybe_unused]]`) was fixed on the spot since it cost nothing:
+
+- **`libcxx/test/std/experimental/reflection/parameter-reflection-kind-preserved.pass.cpp`,
+  after the above fix** — `template for (constexpr int n : unrelated) { ... }`
+  where `n` is deliberately unused in the body: `error: expression result
+  unused [-Werror,-Wunused-value]`, caret on the range expression `unrelated`
+  at the loop's colon. Looks like `template for`'s desugaring feeds the range
+  expression through a generic discarded-expression-statement check
+  (`Sema::DiagnoseUnusedExprResult`-shaped) that a normal range-for's
+  `auto &&__range = expr;` binding never reaches, because that binds the range
+  into a declaration rather than a bare expression statement. Not traced past
+  `clang/lib/Sema/SemaExpand.cpp`'s range-handling (search `BuildDeclRefExpr`/
+  `RangeVar` there) — expansion-statement area, same file as the M5
+  `setImplicit()` fix below, possibly a nearby fix once someone's back in that
+  code.
+- **`libcxx/test/std/experimental/reflection/template-arguments.pass.cpp`** —
+  real crash: `Assertion 'isReflection() && "not a reflection value"' failed`
+  in `APValue::getReflectionKind()` (`clang/lib/AST/APValue.cpp:778`), while
+  parsing a `non_auto_non_types::instantiations` function body. Notably
+  **nondeterministic**: passed when run in isolation, failed consistently
+  under the full parallel `check-cxx` run — the same signature as reading an
+  uninitialized/wrongly-tagged `APValue` (compare the `r`-binding bug this
+  epic's M3 fixes), so likely a similar storage-lifetime bug, not a flake.
+- **`libcxx/test/std/experimental/reflection/miscellaneous.pass.cpp`** — real
+  crash: `Assertion 'isa<To>(Val) && "cast<Ty>() argument of incompatible
+  type!"' failed` in `llvm::cast<clang::TagDecl>` (from
+  `llvm/include/llvm/Support/Casting.h:572`, called from reflection code).
+- **`libcxx/test/std/experimental/reflection/namespace-reflection-equality-reopened.pass.cpp`**
+  — not a crash: `no member named 'underlying_entity_of' in namespace
+  'std::meta'; did you mean 'std::meta::detail::__underlying_entity_of'`. A
+  public API the test expects was apparently never exposed past its
+  `detail::__`-prefixed implementation — a library gap, not a compiler bug.
+- **`libcxx/test/std/experimental/reflection/to-and-from-values.pass.cpp`** —
+  `static assertion expression is not an integral constant expression` at line
+  199; not yet traced to a specific evaluator defect.
+- **`libcxx/test/std/experimental/reflection/{annotation-module-serialization,module-imports}.sh.cpp`**
+  — fail with no assertion/crash signature in the captured log (a `RUN:`/
+  `FileCheck`-shaped mismatch rather than a diagnostic); not yet re-run with
+  `-v` to see the actual mismatch.
+
+All 5 unresolved ones reproduce in the full `check-cxx` run archived at
+`~/.local/share/cxx26-contracts/results/check-cxx-20260904T234114Z-50283cf26005-hardening-m1-baseline-v3.json`.
+Anyone picking these up should re-run each individually first (with
+`-v`) to get a clean, uncontended repro before touching source.
+
 **Re-verify before starting, don't assume still-open.** Three commits landed
 after the epic closed (`55872c0fadcc`, `079b20780c79`, `33df47d52b81`,
 2026-09-02/03), driven by downstream Nyx/Miracle testing rather than this
