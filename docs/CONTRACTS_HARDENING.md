@@ -125,10 +125,21 @@ an actionable unblock condition recorded.
   gate. Build out T1/T2 tiers for contracts, then reflection, then
   `template for`, in that priority order. Budget for bugs the new tiers
   uncover.
-- [ ] **M5 — `template for` implicit decls.** Add `setImplicit()` to the
-  synthesized `__range` VarDecl and `__N` NTTP in `SemaExpand.cpp`, matching
-  range-for's treatment. Acceptance test: Miracle's `NOLINT` wrappers around
-  `template for` can be removed cleanly.
+- [x] **M5 — `template for` implicit decls.** `setImplicit()` added to the
+  synthesized `__range` VarDecl (`tryMakeCXXIterableExpansionSelectExpr`) and
+  the `__N` NTTP (`BuildExpansionStmtDeclaration`, the chokepoint shared with
+  template instantiation) in `SemaExpand.cpp`, matching range-for's
+  treatment. Two new regression tests confirmed red (exact match to the
+  user's screenshots) before the fix and green after:
+  `clang-tools-extra/test/clang-tidy/checkers/bugprone/reserved-identifier-expansion-statement.cpp`
+  and `.../readability/identifier-naming-expansion-statement.cpp`.
+  Acceptance test done via a structurally-equivalent standalone repro
+  (member-function template wrapping `template for`, matching Miracle's
+  actual `list_members` shape) rather than a full Miracle rebuild — clean,
+  zero `bugprone-reserved-identifier`/`readability-identifier-naming`
+  findings. `cxx2c-expansion-stmts.cpp`, `clang/test/Reflection/` (55/57,
+  same 2 pre-existing regressions), `clang/test/Contracts/` (42/42), and
+  `AllClangUnitTests` (25034/25034) all still pass.
 - [ ] **M6 — clangd contract-keyword completion.** Add `contract_assert` to
   `SemaCodeComplete.cpp`'s statement-completion results, gated on
   `LangOpts.Contracts`. Attempt `pre`/`post` via a new completion hook in
