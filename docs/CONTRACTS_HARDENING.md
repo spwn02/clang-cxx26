@@ -216,13 +216,34 @@ an actionable unblock condition recorded.
   `check-cxx`: 10617/11766 pass, same 52 known failures, byte-identical to
   the M1 baseline. `testdiff.py` against both M1 baselines: **zero new
   failures, zero newly fixed, on both suites.**
-- [ ] **M10 — Package and tag.** ~2 hour packaging build; smoke tests; verify
-  `git ls-remote --tags origin` before minting a same-day tag.
-- [ ] **M11 — Downstream verification.** Nyx/Miracle/Switch, contracts on and
-  off, per the same methodology as the prior epic's M8 (verify
-  `CMAKE_CXX_COMPILER:` isn't stale in each `CMakeCache.txt`; never pass
-  `-DCMAKE_CXX_FLAGS` alone). No commits/pushes to those repos. Push + tag
-  `clang-p2996` only after this passes clean.
+- [x] **M10 — Package and tag.** Packaging build completed in well under
+  2 hours (ccache reuse from `build-nyx` helped, despite the assertions/
+  NDEBUG mismatch limiting hit rate). Staged and built to
+  `~/dev/toolchains/cxx26-package-work/` (disk-persistent, not `/tmp` --
+  `/tmp` here is a 16G *tmpfs*, i.e. RAM-backed, the wrong place for a
+  multi-GB build after this epic's disk incident). `git ls-remote --tags
+  origin` confirmed `cxx26-2026.09.05` unused. Packaged, checksummed,
+  installed to `~/.local/opt/clang-cxx26-2026.09.05`, symlink repointed.
+  T3 relocation smoke test run against the real installed location under
+  both Debug and Release (exit 0 both). Along the way, fixed a real cosmetic
+  bug found while packaging: `package.py`'s manifest `components` list
+  omitted `clangd` despite it being built, shipped, and required.
+- [x] **M11 — Downstream verification.** Nyx/Miracle/Switch, against the new
+  toolchain, using the same methodology as the prior epic's M8
+  (`CMAKE_CXX_COMPILER:` confirmed non-stale in each `CMakeCache.txt`
+  before trusting any result). Contracts-on-by-default is now the only
+  configuration that matters here -- neither Miracle nor Switch has ever
+  used contracts, so this is the real regression check for M8's toolchain
+  default change: **Miracle 49/49, Switch 92/92, Nyx's own engine +
+  unit_tests 5/5 (headless)**, all passing with contracts silently enabled
+  by the toolchain default. No commits or pushes to any of the three repos
+  (confirmed: HEAD unchanged in all three; the only uncommitted diffs
+  present are the user's own pre-existing working-tree changes, not
+  anything from this session). Verification build directories cleaned up
+  afterward.
+
+  **Current action: push `cxx26` and tag `cxx26-2026.09.05` now that this
+  has passed clean.**
 
 ## Explicitly out of scope
 
