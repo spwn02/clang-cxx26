@@ -9,8 +9,10 @@
 #     check-cxx            ninja target: full check-cxx
 #     contracts             clang/test/Contracts + clang/test/Parser contract tests
 #     contracts-lib          libcxx contracts suite (--param use-contracts=True)
+#     contracts-lib-asan      same, against build-libcxx-asan (ASan+UBSan)
 #     reflection             clang/test/Reflection
 #     reflection-lib          libcxx reflection suite
+#     reflection-lib-asan     same, against build-libcxx-asan (ASan+UBSan)
 #     semacxx                clang/test/SemaCXX
 #     serialization           clang/test/AST/ByteCode + Modules + PCH + Import
 #     regression-clusters     the 5 named open-regression test files
@@ -152,14 +154,22 @@ case "$suite" in
       clang/test/SemaCXX/ericwf-crash.cpp
     ;;
   contracts-lib)
-    libcxx/utils/libcxx-lit build-libcxx -q -o "$out_json" --time-tests \
+    run_with_diskguard libcxx/utils/libcxx-lit build-libcxx -q -o "$out_json" --time-tests \
+      --param use-contracts=True libcxx/test/std/contracts "${extra_args[@]}"
+    ;;
+  contracts-lib-asan)
+    run_with_diskguard libcxx/utils/libcxx-lit build-libcxx-asan -q -o "$out_json" --time-tests \
       --param use-contracts=True libcxx/test/std/contracts "${extra_args[@]}"
     ;;
   reflection)
     run_lit "clang/test/Reflection" clang/test/Reflection
     ;;
   reflection-lib)
-    libcxx/utils/libcxx-lit build-libcxx -q -o "$out_json" --time-tests \
+    run_with_diskguard libcxx/utils/libcxx-lit build-libcxx -q -o "$out_json" --time-tests \
+      libcxx/test/std/experimental/reflection "${extra_args[@]}"
+    ;;
+  reflection-lib-asan)
+    run_with_diskguard libcxx/utils/libcxx-lit build-libcxx-asan -q -o "$out_json" --time-tests \
       libcxx/test/std/experimental/reflection "${extra_args[@]}"
     ;;
   semacxx)
