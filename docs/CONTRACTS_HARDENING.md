@@ -50,7 +50,7 @@ an actionable unblock condition recorded.
   in `SemaExpand.cpp`, asymmetric with range-for's `BuildForRangeVarDecl`),
   and clangd never completing `pre`/`post`/`contract_assert` (zero mentions
   in `SemaCodeComplete.cpp`).
-- [~] **M1 — Build-tree hardening and baseline.** `build-nyx` reconfigured
+- [x] **M1 — Build-tree hardening and baseline.** `build-nyx` reconfigured
   with `LLVM_ENABLE_ASSERTIONS=ON` + `LLVM_ENABLE_RUNTIMES=compiler-rt`
   (`cxx26/dev/configure-build-trees.sh` updated to match); `clang`/`clangd`/
   `clang-tidy` rebuilt clean; `-fsanitize=address`/`memory`/`undefined` all
@@ -69,9 +69,18 @@ an actionable unblock condition recorded.
   drops below 3GB mid-run -- the start-of-run check alone wouldn't have
   caught this incident, since the module cache grew *during* a single run
   against an already-adequate-looking margin. Watchdog kill/non-kill paths
-  verified in isolation before trusting it on a real run. **Current action:
-  re-run the `check-cxx` baseline now that both guards are in place, then
-  close M1.**
+  verified in isolation before trusting it on a real run.
+
+  `check-cxx` baseline re-captured cleanly with both guards active (disk
+  held at 23G free throughout): 10617/11766 pass, 52 fail -- down from 56
+  in the pre-fix run, exactly the 4 contracts tests M3 below fixes. Of the
+  remaining 52: ~40 already match the documented pre-existing
+  `std::execution`/atomics/gdb-pretty-printer/etc. buckets in this file's
+  Scope section; the other ~11 are new reflection/`optional`-iterator
+  findings, recorded in `docs/CXX26_GAPS.md` (one trivial one fixed on the
+  spot) rather than chased here -- explicitly out of this milestone's scope,
+  same discipline as the two crashes M2 already deferred. Archived:
+  `check-cxx-20260904T234114Z-50283cf26005-hardening-m1-baseline-v3.json`.
 - [x] **M2 — Assertions triage.** First assertions-on unit-test run crashed
   25034-test `AllClangUnitTests` outright (`SIGABRT`) on a bogus assertion in
   `Sema::getContractConstification` (`SemaContract.cpp:1266-1268`):
