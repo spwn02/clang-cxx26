@@ -209,6 +209,7 @@ def main() -> int:
             },
             "components": [
                 "clang",
+                "clangd",
                 "clang-scan-deps",
                 "lld",
                 "llvm-ar",
