@@ -158,11 +158,18 @@ an actionable unblock condition recorded.
 - [ ] **M7 — Sanitizer tiers.** `build-libcxx-asan` (cheap, native libc++
   support) first; `build-libcxx-msan` (needs an instrumented libc++,
   time-boxed) second. Re-run T2 tests under both.
-- [ ] **M8 — Toolchain default `-fcontracts`.** Add to
-  `cxx26/toolchain/toolchain.cmake.in`'s append-if-absent flag loop; add a
+- [x] **M8 — Toolchain default `-fcontracts`.** Added to
+  `cxx26/toolchain/toolchain.cmake.in`'s append-if-absent flag loop, plus a
   per-config evaluation-semantic block (Debug/RelWithDebInfo=`enforce`,
-  Release/MinSizeRel=`ignore`). Verify libc++'s `std.cppm` synthetic module
-  target still builds with the flag injected.
+  Release/MinSizeRel=`ignore`) via the same idiom. Verified against a real
+  merged install stage (`cmake --install` of both `build-nyx` and
+  `build-libcxx` into one prefix, matching the real packaging pipeline) --
+  not just the generated flag strings: configured and built the relocation
+  smoke test under both Debug and Release, confirmed the resolved
+  `CMakeCache.txt` values, and ran both resulting binaries (exit 0). The
+  smoke test (`cxx26/toolchain/smoke/main.cxx`) now also exercises a
+  postcondition matching M3's fix, so it validates a real consumer gets a
+  correct contracts result, not just that `import std`/reflection work.
 - [ ] **M9 — Full-suite gate.** `check-clang` + `check-cxx` vs. the M1
   baseline via `testrun.sh`/`testdiff.py`. Remember the `build-libcxx`
   stale-artifact gotcha after any Sema/CodeGen change.
