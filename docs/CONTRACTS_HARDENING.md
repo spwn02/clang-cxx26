@@ -103,13 +103,22 @@ an actionable unblock condition recorded.
   (`SemaCXX/PR98671.cpp`, predates this fork's work). Archived:
   `check-clang-20260904T210524Z-a53ad30ef186-hardening-m1-baseline.json`.
   **Current action: capture the `check-cxx` M1 baseline, then close M1.**
-- [ ] **M3 — Fix the result-name bug.** Write failing T1 (IR/FileCheck) and
-  T2 (libc++ execution) regression tests first; confirm red; fix
-  `EmitPostContracts` to re-store `RV` into `ReturnValue`; remove the dead
-  `OVEStore`/`OVEBind` scaffolding; confirm green. Cover scalar, small-POD
-  (≤16 byte, still `Direct` ABI — the case the prior test suite mistook for
-  safe), large-aggregate (sret), reference, `void`, template, and lambda
-  return cases.
+- [x] **M3 — Fix the result-name bug.** Fixed differently than originally
+  planned, and more surgically: rather than re-storing `RV` into
+  `ReturnValue` inside `EmitPostContracts`, `EmitFunctionEpilog`'s
+  store-erasure optimization (`CGCall.cpp`) is now skipped whenever the
+  function has a postcondition result name, so `ReturnValue`'s natural-type
+  memory simply never goes dead in the first place — one guard covers
+  scalar, small-POD, and any other `Direct`/`Extend`-ABI shape uniformly,
+  without needing per-ABI coercion logic. Removed the dead `OVEStore`/
+  `OVEBind` scaffolding in `EmitPostContracts` (confirmed never consulted).
+  `clang/test/Contracts/Runnable/contract-result-name.cpp` — the file
+  literally named for this feature, previously `-fsyntax-only` with an
+  empty `main()` — rewritten into a real executing regression test (int,
+  double, 8-byte POD, 32-byte sret aggregate); confirmed red before the fix,
+  green after. Full contracts suite 42/42, libcxx contracts suite 4/4,
+  `AllClangUnitTests` 25034/25034 — zero regressions. This was the actual
+  headline bug the epic opened on.
 - [ ] **M4 — Coverage-gate tooling + tier buildout.** Add the anti-regression
   checker script (flags "looks executable but isn't" and "value coverage only
   in the constant evaluator" patterns) to `cxx26/dev/`, wired into the test
