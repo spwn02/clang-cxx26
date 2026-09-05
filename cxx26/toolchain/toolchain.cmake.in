@@ -56,11 +56,34 @@ endforeach()
 # CMake may evaluate a toolchain file more than once while enabling languages.
 # Append each flag only when it is not already present so repeated evaluation
 # cannot duplicate the reference-mode command line.
-foreach(_cxx26_cxx_flag IN ITEMS -std=c++26 -stdlib=libc++ -freflection-latest)
+foreach(_cxx26_cxx_flag IN ITEMS -std=c++26 -stdlib=libc++ -freflection-latest -fcontracts)
   string(FIND " ${CMAKE_CXX_FLAGS_INIT} " " ${_cxx26_cxx_flag} "
               _cxx26_flag_index)
   if(_cxx26_flag_index EQUAL -1)
     string(APPEND CMAKE_CXX_FLAGS_INIT " ${_cxx26_cxx_flag}")
+  endif()
+endforeach()
+
+# Contracts (P2900R14) are enabled by default (-fcontracts above), but their
+# evaluation semantic is deliberately per-config: `enforce` where a developer
+# is debugging (violations abort, same posture as assert()/NDEBUG), `ignore`
+# in Release/MinSizeRel so the reference toolchain has zero contract-checking
+# cost in an optimized build unless a consumer explicitly opts in. A consumer
+# project can still override this by setting its own
+# -fcontract-evaluation-semantic= before this toolchain file runs, since the
+# same append-if-absent idiom above governs this loop too.
+foreach(_cxx26_contract_config_flag IN ITEMS
+        "CMAKE_CXX_FLAGS_DEBUG_INIT:-fcontract-evaluation-semantic=enforce"
+        "CMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT:-fcontract-evaluation-semantic=enforce"
+        "CMAKE_CXX_FLAGS_RELEASE_INIT:-fcontract-evaluation-semantic=ignore"
+        "CMAKE_CXX_FLAGS_MINSIZEREL_INIT:-fcontract-evaluation-semantic=ignore")
+  string(REPLACE ":" ";" _cxx26_contract_config_pair "${_cxx26_contract_config_flag}")
+  list(GET _cxx26_contract_config_pair 0 _cxx26_contract_config_var)
+  list(GET _cxx26_contract_config_pair 1 _cxx26_contract_config_value)
+  string(FIND " ${${_cxx26_contract_config_var}} " " ${_cxx26_contract_config_value} "
+              _cxx26_flag_index)
+  if(_cxx26_flag_index EQUAL -1)
+    string(APPEND ${_cxx26_contract_config_var} " ${_cxx26_contract_config_value}")
   endif()
 endforeach()
 

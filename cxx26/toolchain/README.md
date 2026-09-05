@@ -63,7 +63,7 @@ libc++ standard-module sources and libc++.modules.json
 
 The compiler and runtimes are built from the same source revision. libc++, libc++abi, and libunwind are configured through `LLVM_ENABLE_RUNTIMES`, so they are built by the just-built compiler rather than by an unrelated host compiler.
 
-The installed Clang defaults to libc++ and lld on Linux. The packaged CMake toolchain file also makes those choices explicit and enables `-freflection-latest`, which is the current fork-specific switch for the complete reflection implementation used by the reference C++26 mode.
+The installed Clang defaults to libc++ and lld on Linux. The packaged CMake toolchain file also makes those choices explicit and enables `-freflection-latest`, which is the current fork-specific switch for the complete reflection implementation used by the reference C++26 mode, and `-fcontracts` (P2900R14), with a per-config evaluation semantic: `enforce` in Debug and RelWithDebInfo (violations abort, matching `assert()`/NDEBUG's usual posture), `ignore` in Release and MinSizeRel (zero contract-checking cost in an optimized build unless a consumer opts back in). A consumer project can override the semantic by setting `-fcontract-evaluation-semantic=` itself before this toolchain file runs.
 
 ## Build locally
 
