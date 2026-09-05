@@ -1,4 +1,7 @@
 // RUN: %clang_cc1 -std=c++23  %s -fcontracts -fcontract-evaluation-semantic=enforce
+// NO-EXEC: crash-regression only (a CodeGen cleanup-emission ICE); a plain
+// compile without -fsyntax-only already exercises the path that used to
+// crash, no execution needed.
 
 // Initially this caused a crash because we were failing to take into account
 // the cleanups that are required for the contract evaluation.

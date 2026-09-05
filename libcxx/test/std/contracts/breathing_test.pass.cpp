@@ -21,4 +21,6 @@
 #include "dump_struct.h"
 #include "contracts_support.h"
 
+// NO-EXEC: compile-only header-inclusion smoke test for -fcontracts against
+// the full standard library surface; main() is intentionally empty.
 int main() {}
