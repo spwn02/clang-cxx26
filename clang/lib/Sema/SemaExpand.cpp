@@ -159,6 +159,16 @@ bool tryMakeCXXIterableExpansionSelectExpr(
 
     RangeVar = VarDecl::Create(S.Context, DC, Range->getBeginLoc(),
                                Range->getBeginLoc(), II, QT, TSI, SC_Auto);
+    // Range-based for's analogous synthesized __range/__begin/__end marks
+    // itself implicit (Sema::BuildCXXForRangeStmt, SemaStmt.cpp); this one
+    // didn't, which is why clang-tidy's bugprone-reserved-identifier and
+    // readability-identifier-naming (both gate solely on Decl::isImplicit())
+    // flagged every `template for` loop's synthesized __range, forcing a
+    // NOLINT around ordinary user code (docs/CONTRACTS_HARDENING.md M5).
+    // Deliberately not also calling setCXXForRangeImplicitVar(true): that
+    // flag carries range-for-specific semantics consumed elsewhere in
+    // Sema/CodeGen; isImplicit() alone is what both tidy checks need.
+    RangeVar->setImplicit();
     if (ExpansionVar->isConstexpr())
       RangeVar->setConstexpr(true);
     else if (!LifetimeExtendTemps.empty()) {
@@ -630,6 +640,15 @@ Decl *Sema::ActOnExpansionStmtDeclaration(Scope *S, unsigned TParamDepth,
 
 Decl *Sema::BuildExpansionStmtDeclaration(SourceLocation TemplateKWLoc,
                                           NonTypeTemplateParmDecl *NTTP) {
+  // Set here rather than where NTTP is first created (ActOnExpansionStmt
+  // Declaration above): this is the chokepoint shared with template
+  // instantiation -- TemplateDeclInstantiator::VisitExpansionStmtDecl
+  // (SemaTemplateInstantiateDecl.cpp) builds a fresh NTTP via
+  // VisitNonTypeTemplateParmDecl, which does not copy implicit-ness, and
+  // then calls this function. Same clang-tidy false-positive as __range
+  // above (docs/CONTRACTS_HARDENING.md M5).
+  NTTP->setImplicit();
+
   TemplateParameterList *TParamList =
         TemplateParameterList::Create(Context, TemplateKWLoc, TemplateKWLoc,
                                       {NTTP}, TemplateKWLoc, nullptr);
