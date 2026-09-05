@@ -128,7 +128,7 @@ Enable reflection with `-std=c++26 -freflection`. Extended features require addi
 
 - `docs/CXX26_GAPS.md` is the living C++26 conformance tracker and `docs/REFLECTION.md` tracks reflection. Read both before starting relevant work.
 - Update the active tracker in place when status changes and append a dated session-log entry before ending a work session.
-- `std::execution` (P2300R10) requires a dedicated sub-plan; consult Tier 2 notes before starting. Contracts (P2900R14) was completed 2026-09-04 as its own dedicated epic (see `docs/CXX26_GAPS.md`'s Scope section); a production bug found immediately afterward reopened it as `docs/CONTRACTS_HARDENING.md` — read that tracker before touching contracts code while it exists.
+- `std::execution` (P2300R10) requires a dedicated sub-plan; consult Tier 2 notes before starting. Contracts (P2900R14) was completed 2026-09-04, reopened by a production bug and fully hardened as of 2026-09-05 (see `docs/CXX26_GAPS.md`'s Scope section for both epics' full history); no sub-plan needed going forward.
 
 ## Code Review Guidance
 

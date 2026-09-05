@@ -97,6 +97,76 @@ identifier is already an immutable published tag, at the pre-contracts
 commit `33df47d52b81`, confirmed via `git ls-remote --tags origin` before
 tagging).
 
+**Contracts Hardening epic: complete, 2026-09-05.** Using
+`cxx26-2026.09.04.1` in a real downstream project (Miracle) immediately
+surfaced a production bug the entire M8 pass above had missed: in
+`post(r: ...)`, the result-name `r` read uninitialized stack memory instead
+of the function's actual return value, for any scalar (Direct/Extend ABI)
+return type. Root cause: `EmitFunctionEpilog`'s scalar-return store-elision
+optimization (`CGCall.cpp`) erased the only store to the `ReturnValue`
+alloca before `EmitPostContracts` ran, and `EmitDeclRefLValue`'s
+`ResultNameDecl` case unconditionally read that now-dead alloca. Fixed by
+skipping the elision specifically when the function has a postcondition
+result name. The M8 pass above didn't catch it because its integration
+smoke test checked a precondition violation's plumbing, never a
+postcondition result *value*.
+
+Fixed alongside it, all found via turning `LLVM_ENABLE_ASSERTIONS=ON` in
+`build-nyx` for the first time (a previously-unactioned known gap, see
+below): a bogus assertion in `Sema::getContractConstification` (dead debug
+scaffolding relying on non-reflexive `DeclContext::Encloses`, which is
+actually reflexive) that crashed the entire clang unit-test suite outright;
+and a crash on nearly any `-fcontracts` translation unit that so much as
+includes `<utility>` (a variable-template pattern's `checkForConstant
+Initialization` early-return never populated the state its contracts-aware
+recheck asserts on).
+
+Also fixed, addressing the developer-tooling complaints that motivated
+this epic: `clang-tidy`'s `bugprone-reserved-identifier`/`readability-
+identifier-naming` false-positives on `template for`'s synthesized
+`__range`/`__N` (missing `setImplicit()`, `SemaExpand.cpp` — a one-line
+asymmetry with range-for's treatment of its own synthesized decls); and
+clangd never suggesting `contract_assert` in statement completion
+(`SemaCodeComplete.cpp` had zero contracts-aware completion results,
+unlike `static_assert`/`co_return`). `pre`/`post` completion remains open
+— see the dedicated entry below.
+
+`-fcontracts` is now enabled by default in the packaged toolchain file
+(`cxx26/toolchain/toolchain.cmake.in`), with a per-config evaluation
+semantic (`enforce` in Debug/RelWithDebInfo, `ignore` in
+Release/MinSizeRel) — verified end-to-end against a real installed stage,
+not just the generated flag strings.
+
+Added `cxx26/dev/check-test-tiers.py`, an anti-regression gate targeting
+the exact test-coverage shape that let the headline bug ship (a test that
+looks like it executes a binary and checks a real value, but doesn't) —
+confirmed it still catches the pre-fix shape of the file this epic started
+from. Running it surfaced one more genuine instance of the same gap in
+`clang/test/Reflection/` (fixed) alongside three legitimate compile-only
+smoke tests (waived).
+
+`check-clang`/`check-cxx` both gate clean against the pre-epic baseline —
+zero new failures, zero newly fixed, via `testdiff.py` — after a full
+rebuild picking up every fix. `build-libcxx-asan` (ASan+UBSan) built and
+run against contracts and reflection: zero new findings beyond the
+already-documented Sema/CodeGen issues below. MSan (a third,
+instrumented-libc++ tree) was scope-reduced in favor of
+`-ftrivial-auto-var-init=pattern` — see `docs/CONTRACTS_HARDENING.md`'s M7
+for the reasoning; recommended for future contracts/reflection execution
+tests, not wired into a permanent suite.
+
+Downstream-verified against Nyx/Miracle/Switch with contracts now silently
+enabled by default (neither project had ever used contracts, so this was
+the real regression check for the toolchain-default change): Miracle
+49/49, Switch 92/92, Nyx's own engine + `unit_tests` 5/5 (headless). No
+commits or pushes to any of the three repos. Pushed and tagged
+`cxx26-2026.09.05` (`git ls-remote --tags origin` confirmed unused before
+tagging). The epic's own tracker, `docs/CONTRACTS_HARDENING.md`, is
+deleted on completion per policy; this paragraph plus the dedicated
+findings below (five reflection issues, the `pre`/`post` completion gap,
+and a `package.py` manifest fix) are everything it had left to carry
+forward.
+
 ## Tier 0 — Blocking prerequisite (must do first) — DONE 2026-08-20
 
 `build-nyx` was configured with `LLVM_INCLUDE_TESTS=OFF`. There was
