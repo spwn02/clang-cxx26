@@ -4100,8 +4100,23 @@ void CodeGenFunction::EmitFunctionEpilog(
       // type, just do a load.
 
       // If there is a dominating store to ReturnValue, we can elide
-      // the load, zap the store, and usually zap the alloca.
-      if (llvm::StoreInst *SI = findDominatingStoreToReturnValue(*this)) {
+      // the load, zap the store, and usually zap the alloca. But not when
+      // the function has a postcondition naming its result (`post(r:
+      // ...)`): EmitPostContracts (below)/EmitDeclRefLValue's
+      // ResultNameDecl handling reads `r`'s value directly out of the
+      // ReturnValue alloca, so erasing its only store here would leave `r`
+      // reading uninitialized memory once EmitPostContracts runs, for any
+      // scalar (Direct/Extend ABI) return type -- including small
+      // (<=16 byte) class/struct types, not just int/double (see
+      // docs/CONTRACTS_HARDENING.md M3).
+      const auto *FnDeclForContracts = dyn_cast_or_null<FunctionDecl>(CurCodeDecl);
+      const bool HasPostconditionResultName =
+          FnDeclForContracts && FnDeclForContracts->hasContracts() &&
+          FnDeclForContracts->getContracts()->getCanonicalResultName();
+      llvm::StoreInst *SI = HasPostconditionResultName
+                                ? nullptr
+                                : findDominatingStoreToReturnValue(*this);
+      if (SI) {
         // Reuse the debug location from the store unless there is
         // cleanup code to be emitted between the store and return
         // instruction.
@@ -4230,32 +4245,20 @@ void CodeGenFunction::EmitFunctionEpilog(
 }
 
 void CodeGenFunction::EmitPostContracts(llvm::Value *RV) {
-  SmallVector<const ContractStmt *, 4> PostContracts;
   const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(CurCodeDecl);
 
   if (!FD || !FD->hasContracts())
     return;
 
-  ContractSpecifierDecl *CSD = FD->getContracts();
-  assert(CSD);
-
-  std::optional<OpaqueValueExpr> OVEStore;
-  std::optional<OpaqueValueMapping> OVEBind;
-  if (auto CRD = CSD->getCanonicalResultName(); CRD && RV) {
-    OVEStore.emplace(CRD->getLocation(), CRD->getType(), VK_LValue, OK_Ordinary,
-                     nullptr);
-    // llvm::Value *SLocPtr = Builder.CreateLoad(ReturnLocation,
-    // "return.sloc.load");
-    OVEBind.emplace(*this, &OVEStore.value(),
-                    MakeAddrLValue(ReturnValue, CRD->getType()));
-  }
-
+  // The result name `r` in a postcondition is resolved directly out of the
+  // `ReturnValue` alloca by EmitDeclRefLValue's ResultNameDecl case, not
+  // through any binding constructed here -- see EmitFunctionEpilog's
+  // HasPostconditionResultName guard, which keeps that alloca's store alive
+  // for exactly this purpose (docs/CONTRACTS_HARDENING.md M3).
   disableDebugInfo();
   auto Reenabler = llvm::make_scope_exit([this]() { enableDebugInfo(); });
-  for (auto *CA : FD->postconditions()) {
-    // FIXME(EricWF): We're disabling
+  for (auto *CA : FD->postconditions())
     EmitStmt(CA);
-  }
   enableDebugInfo();
 }
 

@@ -3419,11 +3419,14 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
   assert(E->isNonOdrUse() != NOUR_Unevaluated &&
          "should not emit an unevaluated operand");
 
-  // FIXME(EricWF): There's got to be more to this.
-  if (const auto *RND = dyn_cast<ResultNameDecl>(ND)) {
-    ((void)RND);
+  // A postcondition's result name `r` resolves to the function's actual
+  // return value here. This relies on EmitFunctionEpilog's
+  // HasPostconditionResultName guard (CGCall.cpp) keeping ReturnValue's
+  // store alive for scalar returns -- without it, this alloca can be a
+  // dead store's target by the time a postcondition reads it (see
+  // docs/CONTRACTS_HARDENING.md M3).
+  if (isa<ResultNameDecl>(ND))
     return MakeAddrLValue(ReturnValue, T, AlignmentSource::Decl);
-  }
 
   if (const auto *VD = dyn_cast<VarDecl>(ND)) {
     // Global Named registers access via intrinsics only
