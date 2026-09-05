@@ -278,6 +278,18 @@ All 5 unresolved ones reproduce in the full `check-cxx` run archived at
 Anyone picking these up should re-run each individually first (with
 `-v`) to get a clean, uncontended repro before touching source.
 
+**Open item from the Contracts Hardening epic's M6 (clangd completion):**
+`pre`/`post` (unlike `contract_assert`) still don't appear in clangd's
+statement/declarator completions. They're parsed post-declarator inside
+`Parser::ParseContractSpecifierSequence` (`clang/lib/Parse/
+ParseContracts.cpp:136`), a position the existing `SemaCodeCompletion::
+CodeCompleteFunctionQualifiers` hook (`SemaCodeComplete.cpp:6120-6141`,
+offers `noexcept`/`final`/`override`) doesn't reach — verify that hook's
+call sites in `ParseDeclCXX.cpp`/`ParseDecl.cpp` actually cover the contract
+position before assuming it's a one-line addition; a genuinely new
+completion entry point may be needed. `contract_assert` itself is fixed
+(`docs/CONTRACTS_HARDENING.md` M6).
+
 **Re-verify before starting, don't assume still-open.** Three commits landed
 after the epic closed (`55872c0fadcc`, `079b20780c79`, `33df47d52b81`,
 2026-09-02/03), driven by downstream Nyx/Miracle testing rather than this

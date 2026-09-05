@@ -140,11 +140,21 @@ an actionable unblock condition recorded.
   findings. `cxx2c-expansion-stmts.cpp`, `clang/test/Reflection/` (55/57,
   same 2 pre-existing regressions), `clang/test/Contracts/` (42/42), and
   `AllClangUnitTests` (25034/25034) all still pass.
-- [ ] **M6 — clangd contract-keyword completion.** Add `contract_assert` to
-  `SemaCodeComplete.cpp`'s statement-completion results, gated on
-  `LangOpts.Contracts`. Attempt `pre`/`post` via a new completion hook in
-  `ParseContractSpecifierSequence`; fall back to `contract_assert`-only if
-  that proves disproportionate.
+- [x] **M6 — clangd contract-keyword completion.** `contract_assert` added
+  to `SemaCodeComplete.cpp`'s statement-completion results
+  (`AddOrdinaryNameResults`' `PCC_Statement` branch), gated on
+  `LangOpts.Contracts`, mirroring the existing `static_assert`/`co_return`
+  pattern. `pre`/`post` deliberately not attempted this round — they're
+  parsed post-declarator inside `ParseContractSpecifierSequence`, a
+  position the existing `CodeCompleteFunctionQualifiers` hook doesn't
+  reach; a new completion hook would be needed, carried forward as an open
+  item in `docs/CXX26_GAPS.md` rather than built here (the fallback the
+  plan anticipated). Two new regression tests
+  (`clang/test/CodeCompletion/contract-assert{,-disabled}.cpp`) confirmed
+  red before the fix (no completion offered with `-fcontracts`) and green
+  after, plus the negative case (correctly absent without `-fcontracts`).
+  Full `CodeCompletion` suite 96/96, `AllClangUnitTests` 25034/25034 —
+  zero regressions.
 - [ ] **M7 — Sanitizer tiers.** `build-libcxx-asan` (cheap, native libc++
   support) first; `build-libcxx-msan` (needs an instrumented libc++,
   time-boxed) second. Re-run T2 tests under both.
