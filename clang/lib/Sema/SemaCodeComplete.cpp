@@ -2124,6 +2124,20 @@ static void AddStaticAssertResult(CodeCompletionBuilder &Builder,
   Results.AddResult(CodeCompletionResult(Builder.TakeString()));
 }
 
+static void AddContractAssertResult(CodeCompletionBuilder &Builder,
+                                    ResultBuilder &Results,
+                                    const LangOptions &LangOpts) {
+  if (!LangOpts.Contracts)
+    return;
+
+  Builder.AddTypedTextChunk("contract_assert");
+  Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+  Builder.AddPlaceholderChunk("expression");
+  Builder.AddChunk(CodeCompletionString::CK_RightParen);
+  Builder.AddChunk(CodeCompletionString::CK_SemiColon);
+  Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+}
+
 static void AddOverrideResults(ResultBuilder &Results,
                                const CodeCompletionContext &CCContext,
                                CodeCompletionBuilder &Builder) {
@@ -2648,6 +2662,7 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
     Results.AddResult(Result(Builder.TakeString()));
 
     AddStaticAssertResult(Builder, Results, SemaRef.getLangOpts());
+    AddContractAssertResult(Builder, Results, SemaRef.getLangOpts());
   }
     [[fallthrough]];
 
