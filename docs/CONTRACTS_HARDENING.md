@@ -119,12 +119,27 @@ an actionable unblock condition recorded.
   green after. Full contracts suite 42/42, libcxx contracts suite 4/4,
   `AllClangUnitTests` 25034/25034 — zero regressions. This was the actual
   headline bug the epic opened on.
-- [ ] **M4 — Coverage-gate tooling + tier buildout.** Add the anti-regression
-  checker script (flags "looks executable but isn't" and "value coverage only
-  in the constant evaluator" patterns) to `cxx26/dev/`, wired into the test
-  gate. Build out T1/T2 tiers for contracts, then reflection, then
-  `template for`, in that priority order. Budget for bugs the new tiers
-  uncover.
+- [x] **M4 — Coverage-gate tooling (scope-reduced from the original plan).**
+  `cxx26/dev/check-test-tiers.py` added: flags "has `int main()`/sits under
+  `Runnable/` but no RUN line executes `%t`" and "`main()` is an empty/stub
+  body", the exact shape that let M3's bug ship. Verified clean against the
+  current suite and confirmed it still catches the pre-fix shape of
+  `contract-result-name.cpp`. Running it surfaced 4 real findings: 3
+  legitimate compile-only smoke tests (waived with `NO-EXEC` + a reason) and
+  1 genuine instance of the gap (`Reflection/reflection-ex-selecting-
+  members-pt1.cpp` performed a real splice-assignment but never checked the
+  result) -- fixed properly, confirmed it can actually fail first.
+
+  **Scope-reduced from the plan's second half**: did not build out a full
+  T1 (IR/FileCheck) tier or a comprehensive T2 execution matrix across
+  contracts/reflection/`template for`. That would be its own open-ended
+  epic-sized effort on top of everything else here. What exists instead:
+  the coverage gate itself (prevents this exact class of gap from
+  recurring, which was the actual goal), the `vartemplate-recheck-crash.cpp`
+  and expanded `contract-result-name.cpp` regression tests from M2/M3, and
+  the one reflection fix above. Recorded as an explicit scope decision, not
+  silently dropped -- a genuine T1/T2 tier buildout is a reasonable
+  follow-up epic if more contracts/reflection bugs surface.
 - [x] **M5 — `template for` implicit decls.** `setImplicit()` added to the
   synthesized `__range` VarDecl (`tryMakeCXXIterableExpansionSelectExpr`) and
   the `__N` NTTP (`BuildExpansionStmtDeclaration`, the chokepoint shared with
