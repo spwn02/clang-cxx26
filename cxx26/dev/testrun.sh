@@ -142,8 +142,19 @@ case "$suite" in
     run_ninja_target build-nyx check-clang
     ;;
   check-cxx)
-    rm -rf build-libcxx/libcxx/test/extensions/clang/Output/clang_modules_include* 2>/dev/null || true
+    # clang_modules_include.gen.py's own module-precompilation cache is
+    # unbounded per run (grew to 19-27G in this epic's own runs) and was
+    # never actually being cleaned here: the path below used to read
+    # ".../clang/Output/clang_modules_include*", which doesn't exist --
+    # the real directory has no intervening Output/ segment. That silent
+    # miss (a bare glob failure swallowed by `|| true`) is part of what let
+    # the 2026-09-05 disk-full incident happen. Clean before AND after, not
+    # just before, so it doesn't sit around bloated between runs either.
+    rm -rf build-libcxx/libcxx/test/extensions/clang/clang_modules_include.gen.py 2>/dev/null || true
     run_ninja_target build-libcxx check-cxx
+    check_cxx_rc=$?
+    rm -rf build-libcxx/libcxx/test/extensions/clang/clang_modules_include.gen.py 2>/dev/null || true
+    (exit "$check_cxx_rc")
     ;;
   contracts)
     run_lit "clang/test/Contracts + Parser/Modules/SemaCXX contract tests" \
