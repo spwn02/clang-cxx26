@@ -209,9 +209,13 @@ an actionable unblock condition recorded.
   smoke test (`cxx26/toolchain/smoke/main.cxx`) now also exercises a
   postcondition matching M3's fix, so it validates a real consumer gets a
   correct contracts result, not just that `import std`/reflection work.
-- [ ] **M9 — Full-suite gate.** `check-clang` + `check-cxx` vs. the M1
-  baseline via `testrun.sh`/`testdiff.py`. Remember the `build-libcxx`
-  stale-artifact gotcha after any Sema/CodeGen change.
+- [x] **M9 — Full-suite gate.** `build-nyx` (clang/clangd/clang-tidy) and a
+  forced-clean `build-libcxx` rebuilt to pick up every fix from M2/M3/M5/M6.
+  `check-clang`: 44631/49834 pass (up 3 from the M1 baseline -- exactly the
+  new regression tests added since), same 7 known failures.
+  `check-cxx`: 10617/11766 pass, same 52 known failures, byte-identical to
+  the M1 baseline. `testdiff.py` against both M1 baselines: **zero new
+  failures, zero newly fixed, on both suites.**
 - [ ] **M10 — Package and tag.** ~2 hour packaging build; smoke tests; verify
   `git ls-remote --tags origin` before minting a same-day tag.
 - [ ] **M11 — Downstream verification.** Nyx/Miracle/Switch, contracts on and
