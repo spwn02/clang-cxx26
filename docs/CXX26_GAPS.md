@@ -6592,3 +6592,51 @@ blocked, what's next. Do not remove old entries.
   exactly this reason. The gate did its job; trust it over a narrower
   spot-check next time, and don't consider a Rank item's commit final
   until the gate has actually run clean.
+- **2026-09-07**: Finished Rank 2 and Rank 3, per explicit user instruction,
+  under a "genuinely 0 bugs" bar — multiple parallel Codex sessions plus
+  direct work, each on disjoint files, builds/tests strictly serialized.
+  **Closed**: the `ExprClassification.cpp` compiler bug (one-token fix,
+  `VK_LValue` → `VK_PRValue`, see Tier 6), unblocking `constant_wrapper`'s
+  last 10 operators (P2781R9 now fully complete, 45/45); P2714R1
+  (`bind_front<f>`/`bind_back<f>`, `not_fn<f>` was already done); P3372R3's
+  `stack`/`queue`/`priority_queue` (fully constexpr, ~12 containers still
+  unaudited); two of `std::simd`'s four remaining gaps (`iota`, the
+  range-constructor deduction guide). **Advanced but corrected mid-session**:
+  P0533R9/P1383R2 — added real compiler-level constant-folding for
+  `floor`/`ceil`/`trunc`/`round`/`nearbyint`/`rint`/`fmod`/`remainder`/
+  `lround`/`llround`/`lrint`/`llrint`, then found during the full `check-cxx`
+  gate that this isn't yet user-visible (`std::floor` etc. are `using
+  ::floor`-style aliases of non-`constexpr` glibc declarations) — a test
+  asserting otherwise was written, caught, and removed rather than left
+  broken or narrowed to hide the gap; see Tier 1 for the full finding and
+  what a future session needs to do to finish it. P2419R2 (chrono/locale
+  UTF-8 conversion) implemented but only regression-tested, not positively
+  verified — no ISO-8859-1-family locale is installed on this machine to
+  exercise the actual non-Unicode path.
+  **Deliberately deferred, not silently dropped**: P3068R6/P3378R2 —
+  assessed directly (zero existing scaffolding for throw-in-constexpr, no
+  `try`/`catch`-in-`constexpr` support at all) and confirmed genuinely
+  multi-session Sema/AST design work, not a bug fix; rushing it under this
+  bar risked exactly the kind of dark-corner mistake the bar exists to
+  prevent. See the Rank 2 summary and P3068R6's row for the full reasoning.
+  Also deferred: P2757R3 (needs its own scoping pass now that its blocker
+  is clear), P2933R4's bit ops (blocked on this fork's scalar `<bit>`
+  lacking the functions to forward to), P2664R11's permute constexpr-index
+  enforcement (a Mandates/ill-formed-NDR requirement needing real design).
+  **Bugs found and fixed by the full gate, not the targeted sweeps** (three
+  of them, the same recurring lesson from every prior session): a
+  `constexpr`-on-deduction-guide error in an intermediate `stack`/`queue`
+  edit (deduction guides can never be `constexpr` — a hard language rule);
+  a `queue`-constexpr test using `std::vector` as the underlying container
+  despite `queue` requiring `pop_front()`, which `vector` doesn't have
+  (fixed with a small fixed-capacity test-only ring buffer satisfying
+  exactly `queue`'s Container requirements); two reserved-identifier/macro-
+  poisoning collisions (`__chrono/formatter.h`'s local `__input` variable,
+  `__simd/creation.h`'s bare `numeric_limits<...>::max()` call reached
+  before `<simd>`'s own macro-poisoning guard takes effect) caught only by
+  `system_reserved_names.gen.py`, invisible to every narrower sweep run
+  first. Every item above verified via full `check-clang` (after the
+  compiler-touching changes) and full `check-cxx` (after everything),
+  `testdiff.py` showing zero new failures against the session-start
+  baseline both times. All work is committed locally (8 commits on top of
+  the session-start `e0cd1bcc9b7a`); not yet pushed.
