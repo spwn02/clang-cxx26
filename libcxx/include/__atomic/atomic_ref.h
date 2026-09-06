@@ -35,6 +35,7 @@
 #include <__type_traits/is_constant_evaluated.h>
 #include <__type_traits/is_pointer.h>
 #include <__type_traits/is_scalar.h>
+#include <__type_traits/is_similar.h>
 #include <__type_traits/is_trivially_copyable.h>
 #include <__type_traits/is_volatile.h>
 #include <__type_traits/remove_cv.h>
@@ -405,6 +406,11 @@ struct atomic_ref : public __atomic_ref_base<_Tp> {
 
   _LIBCPP_HIDE_FROM_ABI atomic_ref(const atomic_ref&) noexcept = default;
 
+  template <class _Up>
+    requires(__is_similar_v<_Tp, _Up> && is_convertible_v<_Up*, _Tp*>)
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 atomic_ref(const atomic_ref<_Up>& __ref) noexcept
+      : __base(*__ref.address()) {}
+
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 __base::value_type
   operator=(__base::value_type __desired) const noexcept
     requires(!is_const_v<_Tp>)
@@ -440,6 +446,11 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
   }
 
   _LIBCPP_HIDE_FROM_ABI atomic_ref(const atomic_ref&) noexcept = default;
+
+  template <class _Up>
+    requires(__is_similar_v<_Tp, _Up> && is_convertible_v<_Up*, _Tp*>)
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 atomic_ref(const atomic_ref<_Up>& __ref) noexcept
+      : __base(*__ref.address()) {}
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type operator=(value_type __desired) const noexcept
     requires(!is_const_v<_Tp>)
@@ -609,6 +620,11 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
 
   _LIBCPP_HIDE_FROM_ABI atomic_ref(const atomic_ref&) noexcept = default;
 
+  template <class _Up>
+    requires(__is_similar_v<_Tp, _Up> && is_convertible_v<_Up*, _Tp*>)
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 atomic_ref(const atomic_ref<_Up>& __ref) noexcept
+      : __base(*__ref.address()) {}
+
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type operator=(value_type __desired) const noexcept
     requires(!is_const_v<_Tp>)
   {
@@ -724,6 +740,11 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
   using difference_type = ptrdiff_t;
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 explicit atomic_ref(_Tp& __obj) : __base(__obj) {}
+
+  template <class _Up>
+    requires(__is_similar_v<_Tp, _Up> && is_convertible_v<_Up*, _Tp*>)
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 atomic_ref(const atomic_ref<_Up>& __ref) noexcept
+      : __base(*__ref.address()) {}
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type operator=(value_type __desired) const noexcept
     requires(!is_const_v<_Tp>)
