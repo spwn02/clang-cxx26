@@ -33,6 +33,7 @@
 #include <__type_traits/has_unique_object_representation.h>
 #include <__type_traits/is_const.h>
 #include <__type_traits/is_constant_evaluated.h>
+#include <__type_traits/is_convertible.h>
 #include <__type_traits/is_pointer.h>
 #include <__type_traits/is_scalar.h>
 #include <__type_traits/is_similar.h>
