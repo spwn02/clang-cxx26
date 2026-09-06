@@ -31,32 +31,32 @@ if(EXISTS "${_cxx26_root}/bin/llvm-ranlib")
       CACHE FILEPATH "clang-cxx26 ranlib")
 endif()
 
-# libc++'s standard-module interface units are implementation sources, not
-# consumer sources. CMake's synthetic import-std target may inherit a
-# consumer's warning policy (including -Werror), so keep diagnostics emitted
-# while compiling the packaged standard-library modules isolated here at the
-# toolchain boundary. Actual compiler errors are unaffected.
-set(_cxx26_std_module_sources
-    "${_cxx26_root}/share/libc++/v1/std.cppm"
-    "${_cxx26_root}/share/libc++/v1/std.compat.cppm")
-foreach(_cxx26_std_module_source IN LISTS _cxx26_std_module_sources)
-  if(EXISTS "${_cxx26_std_module_source}")
-    set_source_files_properties(
-      "${_cxx26_std_module_source}"
-      PROPERTIES COMPILE_OPTIONS "-Wno-everything")
-  endif()
-endforeach()
-
 # A reference snapshot models the fork's complete C++26 mode. Keep the
 # language mode explicit at the toolchain boundary so CMake's synthetic
 # standard-library module target is compiled with the same mode as consumers.
 # Linux Clang otherwise defaults to libstdc++, and the current cxx26 fork still
 # gates the complete reflection implementation behind -freflection-latest.
 #
+# -Wno-reserved-module-identifier belongs here too, not on the
+# std.cppm/std.compat.cppm sources directly: CMake's synthetic import-std
+# target (CXX_MODULE_STD) does not go through a normal target_sources() path,
+# so set_source_files_properties(... COMPILE_OPTIONS ...) on those files is
+# silently a no-op for it -- confirmed by inspecting the actual generated
+# compile command, which carries none of a per-source COMPILE_OPTIONS
+# addition, only these global _INIT flags. It also does not inherit a
+# consumer's own target-level warning flags (e.g. -Wall/-Werror), so the
+# warning both packaged interface units unavoidably trigger --
+# `export module std;`/`export module std.compat;` naming a reserved
+# identifier, entirely expected for the standard library's own module
+# sources -- would otherwise appear in every consumer that enables
+# CXX_MODULE_STD, with no consumer-side way to suppress it (a source-level
+# fix isn't consumer-editable; these paths point into the installed
+# toolchain, not the consumer's own tree).
+#
 # CMake may evaluate a toolchain file more than once while enabling languages.
 # Append each flag only when it is not already present so repeated evaluation
 # cannot duplicate the reference-mode command line.
-foreach(_cxx26_cxx_flag IN ITEMS -std=c++26 -stdlib=libc++ -freflection-latest -fcontracts)
+foreach(_cxx26_cxx_flag IN ITEMS -std=c++26 -stdlib=libc++ -freflection-latest -fcontracts -Wno-reserved-module-identifier)
   string(FIND " ${CMAKE_CXX_FLAGS_INIT} " " ${_cxx26_cxx_flag} "
               _cxx26_flag_index)
   if(_cxx26_flag_index EQUAL -1)
@@ -87,6 +87,13 @@ foreach(_cxx26_contract_config_flag IN ITEMS
   endif()
 endforeach()
 
+# CMake's Ninja/Makefiles generators reuse CMAKE_CXX_FLAGS(_<CONFIG>) verbatim
+# as part of the final link command, since clang++ drives both compiling and
+# linking -- so every compile-only flag added above (-fcontracts,
+# -fcontract-evaluation-semantic=, etc.) legitimately, harmlessly, and
+# unavoidably triggers -Wunused-command-line-argument at link time. This is
+# not a bug in those flags or in this file; suppress the resulting noise here
+# rather than expecting a consumer to notice and add it themselves.
 foreach(_cxx26_linker_flags_var IN ITEMS CMAKE_EXE_LINKER_FLAGS_INIT
                                           CMAKE_SHARED_LINKER_FLAGS_INIT
                                           CMAKE_MODULE_LINKER_FLAGS_INIT)
@@ -94,6 +101,11 @@ foreach(_cxx26_linker_flags_var IN ITEMS CMAKE_EXE_LINKER_FLAGS_INIT
               _cxx26_flag_index)
   if(_cxx26_flag_index EQUAL -1)
     string(APPEND ${_cxx26_linker_flags_var} " -fuse-ld=lld")
+  endif()
+  string(FIND " ${${_cxx26_linker_flags_var}} " " -Wno-unused-command-line-argument "
+              _cxx26_flag_index)
+  if(_cxx26_flag_index EQUAL -1)
+    string(APPEND ${_cxx26_linker_flags_var} " -Wno-unused-command-line-argument")
   endif()
 endforeach()
 
@@ -111,7 +123,5 @@ endif()
 unset(_cxx26_flag_index)
 unset(_cxx26_linker_flags_var)
 unset(_cxx26_cxx_flag)
-unset(_cxx26_std_module_source)
-unset(_cxx26_std_module_sources)
 unset(_cxx26_share_dir)
 unset(_cxx26_root)

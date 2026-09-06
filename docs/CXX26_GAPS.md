@@ -6332,3 +6332,46 @@ blocked, what's next. Do not remove old entries.
   not itself Rank-1-listed before this) added and closed. P3697R1 (5 real
   hardening components, genuine implementation work) and P3860R1 (unread)
   remain open.
+
+- **2026-09-06 (later same day)**: A downstream Nyx build surfaced two CMake
+  warnings — `'std' is a reserved name for a module
+  [-Wreserved-module-identifier]` compiling the packaged `std.cppm`/
+  `std.compat.cppm`, and `argument unused during compilation:
+  '-fcontract-evaluation-semantic=enforce' [-Wunused-command-line-argument]`
+  at link time. The second is inherent, expected CMake/Clang behavior (a
+  compile-only flag legitimately echoed on the link line, since `clang++`
+  drives both) with no bug behind it — but both were still worth silencing at
+  the toolchain level rather than leaving every downstream consumer to notice
+  and add the suppression themselves.
+
+  The first turned out to be a **real, previously-undiscovered bug in this
+  fork's own toolchain file**: `cxx26/toolchain/toolchain.cmake.in` already
+  had an attempted fix for exactly this (`set_source_files_properties(std.cppm
+  ... COMPILE_OPTIONS "-Wno-everything")`, landed during the M8 downstream
+  verification work) — but it never worked. Confirmed by inspecting Nyx's
+  actual generated `compile_commands.json` entry for `std.cppm`: no
+  `-Wno-everything` anywhere in it, only the global `CMAKE_CXX_FLAGS_INIT`
+  flags (`-std=c++26 -stdlib=libc++ -freflection-latest -fcontracts`, verbatim
+  present). Root cause: CMake's synthetic `CXX_MODULE_STD` import-std target
+  is built through internal machinery that doesn't consult a source file's
+  `COMPILE_OPTIONS` property (the file was never `target_sources()`'d by any
+  target) — the fix's premise ("CMake's synthetic import-std target may
+  inherit a consumer's warning policy") also doesn't hold in practice; it
+  inherits neither. The only mechanism that demonstrably *does* reach that
+  synthetic target is the global `CMAKE_CXX_FLAGS_INIT` append the file
+  already uses successfully for `-std=c++26` etc.
+
+  Removed the dead `set_source_files_properties` block; added
+  `-Wno-reserved-module-identifier` to the same `CMAKE_CXX_FLAGS_INIT` loop
+  that already works, and `-Wno-unused-command-line-argument` to the existing
+  linker-flags loop (alongside `-fuse-ld=lld`). Verified both fixes for real,
+  not just by reasoning about them: edited the *deployed* `cxx26-2026.09.05.1`
+  toolchain's already-substituted `toolchain.cmake` (backed up first, restored
+  after), configured and built `cxx26/toolchain/smoke` (the repo's own
+  CMake-driven smoke project, `CMAKE_CXX_MODULE_STD ON` + `-Wall -Wextra
+  -Wpedantic -Werror`) against it — `std.cppm.o`/`std.compat.cppm.o` compiled
+  and the executable linked with **zero warnings**, and the smoke binary still
+  ran correctly. Deployed toolchain restored to its original, unmodified
+  state afterward (diffed clean against the published template) — the actual
+  fix lives only in this repo's template, effective starting with the next
+  cut release, not retroactively in already-published (immutable) snapshots.
