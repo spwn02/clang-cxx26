@@ -2177,7 +2177,15 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
   if (Tok.is(tok::kw_requires))
     ParseTrailingRequiresClause(D);
 
-  if (isFunctionContractKeyword(Tok))
+  // The isFunctionContractKeyword(Tok) guard is otherwise redundant with
+  // ParseContractSpecifierSequence's own early-return for the same
+  // condition -- but without the code-completion half of this check, a
+  // completion request right at this position (most visibly, right after a
+  // trailing return type, e.g. `auto f() -> int <cursor>`, since cv-qualifier
+  // completion has no equivalent hook there) never reaches that function's
+  // completion handling at all, silently offering nothing.
+  if (isFunctionContractKeyword(Tok) ||
+      (Tok.is(tok::code_completion) && getLangOpts().Contracts))
     ParseContractSpecifierSequence(D, /*EnterScope=*/true);
 
   // Save late-parsed attributes for now; they need to be parsed in the

@@ -133,6 +133,34 @@ StmtResult Parser::ParseContractAssertStatement() {
 ///
 ///   result-name-introducer:
 ///       attributed-identifier :
+/// True if `Tok` is genuinely the code-completion token, or -- defensively,
+/// for a case not reproduced but plausible -- an identifier sitting exactly
+/// at the recorded completion location while completion is pending. Prefer
+/// this over a bare `Tok.is(tok::code_completion)` inside the specifier loop
+/// below.
+///
+/// Known NOT to cover: completing the *second* (or later) contract
+/// specifier keyword, e.g. `void f() pre(x) po<cursor>`, does not reach
+/// either branch here. Confirmed via instrumentation that at that point
+/// `PP.isCodeCompletionReached()` is still false and `Tok` is a plain
+/// identifier -- clang has deferred the completion point to the *next*
+/// token boundary after the unrecognized identifier (observed landing on
+/// the following `{`), not to this identifier's own location. That
+/// deferral is pre-existing, general clang behavior, not specific to
+/// contracts or to this fork: the same failure (falls through to generic
+/// declaration-specifier completions, not `volatile`) reproduces with
+/// completely unmodified code completing a *second* cv-qualifier, e.g.
+/// `void f() const vo<cursor>`. Fixing it needs a change to the
+/// completion/error-recovery interaction generally (likely around
+/// `Parser::ParseFunctionDefinition`'s `SkipUntil(tok::l_brace, ...)` on
+/// `err_expected_fn_body`, or the token-lexing/backtracking machinery
+/// underneath it) -- out of scope here. See docs/CXX26_GAPS.md.
+static bool isAtCodeCompletionPoint(const Preprocessor &PP, const Token &Tok) {
+  return Tok.is(tok::code_completion) ||
+         (PP.isCodeCompletionReached() &&
+          Tok.getLocation() == PP.getCodeCompletionLoc());
+}
+
 void Parser::ParseContractSpecifierSequence(Declarator &DeclarationInfo,
                                             bool EnterScope,
                                             QualType TrailingReturnType) {
@@ -141,7 +169,9 @@ void Parser::ParseContractSpecifierSequence(Declarator &DeclarationInfo,
   // contract keyword, so without this the early return below would silently
   // drop the completion instead of offering `pre`/`post`. Gated on Contracts
   // so that translation units without the feature keep their prior behavior.
-  if (Tok.is(tok::code_completion) && getLangOpts().Contracts) {
+  // Fixes the *first* specifier position, e.g. `void f() <cursor>` -- see
+  // isAtCodeCompletionPoint's doc comment for what this does not fix.
+  if (isAtCodeCompletionPoint(PP, Tok) && getLangOpts().Contracts) {
     cutOffParsing();
     Actions.CodeCompletion().CodeCompleteFunctionContractSpecifiers();
     return;
@@ -205,7 +235,20 @@ void Parser::ParseContractSpecifierSequence(Declarator &DeclarationInfo,
   SourceLocation StartLoc = Tok.getLocation();
 
   SmallVector<ContractStmt *, 4> Contracts;
-  while (isFunctionContractKeyword(Tok)) {
+  while (true) {
+    // Same completion check as above the loop, needed again for every
+    // specifier after the first so a *genuine* code-completion token
+    // arriving here isn't silently treated as "no more specifiers" by
+    // isFunctionContractKeyword() below. Does not by itself fix completing
+    // the second-or-later specifier in the common case -- see
+    // isAtCodeCompletionPoint's doc comment.
+    if (isAtCodeCompletionPoint(PP, Tok) && getLangOpts().Contracts) {
+      cutOffParsing();
+      Actions.CodeCompletion().CodeCompleteFunctionContractSpecifiers();
+      break;
+    }
+    if (!isFunctionContractKeyword(Tok))
+      break;
     bool IsInvalidTmp = false;
     StmtResult Contract =
         ParseFunctionContractSpecifierImpl(ReturnTypeResolver, EnterScope ? CSO_ParentContext : CSO_FunctionContext, IsInvalidTmp);

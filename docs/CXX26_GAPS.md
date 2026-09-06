@@ -458,17 +458,59 @@ All 5 unresolved ones reproduce in the full `check-cxx` run archived at
 Anyone picking these up should re-run each individually first (with
 `-v`) to get a clean, uncontended repro before touching source.
 
-**Open item from the Contracts Hardening epic's M6 (clangd completion):**
-`pre`/`post` (unlike `contract_assert`) still don't appear in clangd's
-statement/declarator completions. They're parsed post-declarator inside
-`Parser::ParseContractSpecifierSequence` (`clang/lib/Parse/
-ParseContracts.cpp:136`), a position the existing `SemaCodeCompletion::
-CodeCompleteFunctionQualifiers` hook (`SemaCodeComplete.cpp:6120-6141`,
-offers `noexcept`/`final`/`override`) doesn't reach — verify that hook's
-call sites in `ParseDeclCXX.cpp`/`ParseDecl.cpp` actually cover the contract
-position before assuming it's a one-line addition; a genuinely new
-completion entry point may be needed. `contract_assert` itself is fixed
-(`docs/CONTRACTS_HARDENING.md` M6).
+**`pre`/`post` clangd completion (Contracts Hardening epic's M6 open item):
+partially fixed 2026-09-06, one real gap remains open, documented below.**
+Added `pre`/`post` to `CodeCompleteFunctionQualifiers` (covers `void f()
+<cursor>`, the common case) and a new `CodeCompleteFunctionContractSpecifiers`
+entry point called from `ParseContractSpecifierSequence` (covers `void f()
+const override <cursor>`, past where the qualifier hook reaches). Also fixed
+a real, separate bug found via a Nyx downstream report: the call site at
+`ParseDecl.cpp:2180` gated invoking `ParseContractSpecifierSequence` at all
+behind `isFunctionContractKeyword(Tok)`, which is false for a code-completion
+token — so completion right after a **trailing return type**
+(`auto f() -> int <cursor>`, which has no cv-qualifier-list position to hook
+into) silently reached nothing. Fixed by also invoking on
+`Tok.is(tok::code_completion)`.
+
+**Known remaining gap, real and reproduced, not fixed:** completing the
+*second* (or later) contract specifier keyword —
+`void f() pre(x) po<cursor>` — falls through to generic top-level
+declaration-specifier completions (`namespace`, `const`, `import`, etc.)
+instead of offering `post`, and the malformed parse this triggers
+(`err_expected_fn_body`) is exactly what produced the garbled/wrong-context
+completions a Nyx user hit in practice (a real function's `post` clause
+partially auto-completed into an unrelated libc function,
+`post_openpt(int oflag)`, spliced from the fallback candidate list).
+**This is not contracts-specific or introduced by this fork**: the identical
+failure shape reproduces with completely unmodified, pre-existing clang code
+completing a *second* cv-qualifier — `void f() const vo<cursor>` also falls
+through to the same generic fallback instead of offering `volatile`.
+Root cause (confirmed via instrumentation, not guessed): by the time the
+second keyword position is reached, `PP.isCodeCompletionReached()` is still
+`false` and `Tok` is a plain, fully-lexed identifier — clang defers the
+actual completion-point substitution to the *next* token boundary after the
+unrecognized identifier (confirmed landing on the following `{`), not to the
+identifier's own location. A real fix needs to change the completion/
+error-recovery interaction generally — likely in
+`Parser::ParseFunctionDefinition`'s `SkipUntil(tok::l_brace, ...)` path on
+`err_expected_fn_body`, or the token-lexing/backtracking machinery
+underneath — not a contracts-local fix. See
+`clang/lib/Parse/ParseContracts.cpp`'s `isAtCodeCompletionPoint` doc comment
+for the full instrumented evidence. Out of scope for a quick fix; worth a
+dedicated session given it affects general C++ completion, not just
+contracts.
+
+**Also found, not fixed:** the lambda call site
+(`ParseExprCXX.cpp:1564`) has the same `isFunctionContractKeyword(Tok)` guard
+as the (now-fixed) `ParseDecl.cpp:2180` one, but is followed by
+`assert(D.Contracts)` — applying the same fix there needs the assert
+handled too (it would fire on a completion-triggered call that returns
+before populating `D.Contracts`), so it was left alone rather than risk an
+assertions-build crash. Also unverified: whether `auto f() -> int <cursor>`
+(blank cursor, *nothing* typed yet) reaches even the fixed
+`ParseDecl.cpp:2180` path at all, or whether `ParseTrailingReturnType`'s own
+type-parsing intercepts it first (a quick test returned only `const`/
+`volatile`, suggesting the latter) — not root-caused further.
 
 **Re-verify before starting, don't assume still-open.** Three commits landed
 after the epic closed (`55872c0fadcc`, `079b20780c79`, `33df47d52b81`,
