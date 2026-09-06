@@ -6420,3 +6420,27 @@ blocked, what's next. Do not remove old entries.
   (`atomics.ref/cv_qualified.pass.cpp`, a deprecated-volatile-return-type
   diagnostic) independently isolated via `git stash` against a clean tree
   before being excluded from the "zero new failures" claim.
+
+  **Correction, same session, before either commit was left in that
+  state**: "fully verified" above was premature — it was true of the
+  *targeted* atomics/iterators/ranges/memory sweeps, but the mandatory
+  Phase 1 gate (full `check-clang` + `check-cxx`, required by this
+  session's own plan before moving on) caught two real bugs the targeted
+  sweeps couldn't: `atomic_ref.h` used `is_convertible_v` without
+  including its header (compiled by transitive-include accident in an
+  ordinary build) and the new `__type_traits/is_similar.h` had no
+  `module.modulemap.in` entry — both invisible until
+  `libcxx/test/extensions/clang/clang_modules_include.gen.py` (which
+  builds every header as a standalone Clang module) exercised them,
+  producing 125 failures across nearly every header in the library
+  (anything transitively including `<atomic>`). Fixed both in a follow-up
+  commit; the full gate then diffed clean (`testdiff.py`: 0 new, 0 newly
+  fixed, exact match against the `d88885435fa2` baseline) and was pushed.
+  **Lesson for future sessions**: a targeted regression sweep is real
+  evidence but is not a substitute for the full-suite gate before
+  commit/push — the modules-include check specifically exists to catch
+  exactly this "works via accidental transitive include" class of bug,
+  and this session's plan already mandated running it as a gate for
+  exactly this reason. The gate did its job; trust it over a narrower
+  spot-check next time, and don't consider a Rank item's commit final
+  until the gate has actually run clean.
