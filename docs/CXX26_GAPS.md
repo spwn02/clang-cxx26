@@ -2264,19 +2264,27 @@ naming) should be settled before the API-surface papers**, since both move
 where every other name in this tier lives; landing constructors and algorithms
 first means moving them afterwards.
 
+**Audit completed 2026-09-06** (Codex-assisted, Claude-reviewed) against
+the adopted `eel.is/c++draft/simd` wording, not the individual papers'
+own HTML (which can lag the final adopted text — confirmed painfully on
+P2781R9 earlier this session). Namespace question resolved as a
+non-issue: the adopted standard uses plain `namespace std::simd { ... }`,
+exactly matching this fork's existing implementation — P3287R3/P3691R1
+need no code change at all.
+
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
-| [~] | P1928R15 | `std::simd` — merge data-parallel types from Parallelism TS 2 | The base paper. `\|In Progress\|`; scope of what landed is unaudited |
-| [~] | P3287R3 | Exploration of namespaces for `std::simd` | Settle before the API-surface rows below |
-| [~] | P3691R1 | Reconsider naming of the namespace for `std::simd` | Pairs with P3287R3 |
-| [~] | P3430R3 | simd issues: explicit, unsequenced, identity-element position, disabled simd | Assorted conformance fixes |
-| [~] | P3441R2 | Rename `simd_split` to `simd_chunk` | Mechanical rename once naming settles |
-| [~] | P2663R7 | Interleaved complex values support | API surface |
-| [~] | P2933R4 | Extend `<bit>` with overloads for `std::simd` | Touches `<bit>` as well as `<simd>` |
-| [ ] | P2664R11 | Extend `std::simd` with permutation API | Untriaged until 2026-09-05 |
-| [ ] | P2876R3 | More `std::simd` constructors and accessors | Untriaged until 2026-09-05 |
-| [ ] | P3480R6 | `std::simd` is a range | Untriaged until 2026-09-05. Interacts with Tier 3 ranges work |
-| [ ] | P3922R1 | Missing deduction guide from `simd::mask` to `simd::vec` | Untriaged until 2026-09-05. Small |
+| [~] | P1928R15 | `std::simd` — merge data-parallel types from Parallelism TS 2 | **Audited 2026-09-06, real gaps found, not fixed.** Core surface (`basic_vec`/`basic_mask`, ABI/traits, arithmetic/comparisons, reductions, load/store, permutations, algorithms, complex math, chunk/cat) substantially matches adopted `[simd]`. Two gaps: (1) `iota` ([simd.creation]) is entirely absent from `__simd/creation.h`; (2) the adopted range-constructor deduction guide (`basic_vec(R&&, Ts...) -> ...`, [simd.ctor]/903-937) is missing from `basic_vec.h`, and the range *constructor* that does exist doesn't enforce the adopted constant-expression size constraints (documented in-code as a known deviation at `basic_vec.h:199`, not silently unrealized). Neither fixed this session — each is a real, independent, non-trivial addition |
+| [x] | P3287R3 | Exploration of namespaces for `std::simd` | **Resolved 2026-09-06 — moot, no code change.** Adopted wording is plain `namespace std::simd`, already exactly what this fork implements |
+| [x] | P3691R1 | Reconsider naming of the namespace for `std::simd` | **Resolved 2026-09-06 — moot, no code change.** Same finding as P3287R3 |
+| [x] | P3430R3 | simd issues: explicit, unsequenced, identity-element position, disabled simd | **Audited 2026-09-06 — already correct.** Verified against adopted `[simd.ctor]` (broadcast ctor value-preserving-constrained, generator ctor explicit + one invocation per index in increasing order), `[simd.reductions]` (`identity_element` positioned after `binary_op`), and the disabled-specialization wording (only documented members retained) — all match at the cited `basic_vec.h`/`reductions.h` locations |
+| [x] | P3441R2 | Rename `simd_split` to `simd_chunk` | **Audited 2026-09-06 — already correct.** No `simd_split` occurs anywhere in implementation or tests; `chunk` (both deduced- and explicit-width overloads) is already the only name used, matching adopted `[simd.creation]` |
+| [x] | P2663R7 | Interleaved complex values support | **Audited 2026-09-06 — already correct.** Complex vector elements, construction from separate real/imaginary vectors, `real()`/`imag()` accessors/mutators, and complex math overloads all present and match adopted wording |
+| [ ] | P2933R4 | Extend `<bit>` with overloads for `std::simd` | **Audited 2026-09-06 — real gap, not fixed.** `__simd/bit.h` implements the older lane-wise set through `popcount`, but adopted `[simd.bit]` additionally specifies `bit_reverse`, `shl`/`shr`, `bit_repeat`, and `bit_compress`/`bit_expand` — none present. `<bit>` itself also has no SIMD overloads. A real, independent addition for a future session |
+| [ ] | P2664R11 | Extend `std::simd` with permutation API | **Audited 2026-09-06 — real gap: present but wrong, not fixed.** Static/dynamic `permute`, `compress`, `expand`, gather, scatter are all implemented (`__simd/permute.h`), but the adopted static-permute wording mandates every generated index be a constant expression in `{zero_element, uninit_element} ∪ [0, V::size())` — the implementation explicitly documents (at `permute.h:54`) that it does not enforce this for non-`constexpr` generators. A real conformance gap, not a missing-feature one |
+| [ ] | P2876R3 | More `std::simd` constructors and accessors | **Audited 2026-09-06 — real gap, not fixed.** The range and complex constructors/accessors this paper adds are present, but (same finding as P1928R15) the range constructor doesn't enforce the adopted constant-expression size constraint, and lacked its deduction guide until P3922R1's fix below closed the *mask*-deduction half of that gap — the *range* deduction guide is still missing |
+| [x] | P3480R6 | `std::simd` is a range | **Audited 2026-09-06 — already correct.** `__simd/iterator.h` supplies the adopted exposition-only random-access-iterator surface exactly (dereference, indexing, arithmetic, three-way comparison, default-sentinel distance); both `basic_vec` and `basic_mask` expose `begin`/`cbegin`/`end`/`cend` |
+| [x] | P3922R1 | Missing deduction guide from `simd::mask` to `simd::vec` | **Complete 2026-09-06.** Added `basic_vec(basic_mask<Bytes, Abi>) -> basic_vec<integer_from<Bytes>, Abi>` per adopted `[simd.ctor]`/17-19 (deduces through the mask's unary `+` promotion), reusing this file's existing `__mask_enabled`/`__has_integer_from`/`__integer_from` helpers. New test added; full 9-test `simd/` suite verified clean |
 
 ### Excluded and editorial — disposition only, no tier rows
 
