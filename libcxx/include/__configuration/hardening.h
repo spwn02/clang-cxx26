@@ -162,6 +162,12 @@ _LIBCPP_HARDENING_MODE_DEBUG
 //   `ignore` semantic when evaluating hardened preconditions in the Library. Libc++ allows using this semantic for
 //   hardened preconditions, however, be aware that using `ignore` does not produce a conforming "Hardened"
 //   implementation, unlike the other semantics above.
+// - Per P3878R1 ("Standard library hardening should not use the 'observe' semantic", adopted for C++26), hardened
+//   preconditions in a conforming Hardened implementation must be evaluated with a terminating semantic. `observe`
+//   is non-terminating, so — like `ignore` above — selecting it for hardened preconditions does not produce a
+//   conforming "Hardened" implementation either, even though libc++ allows it as an opt-in escape hatch. Neither of
+//   the automatic defaults above (`hardening-dependent` mapping to `quick_enforce`/`enforce`, both terminating) ever
+//   selects `observe`; it is only reachable via an explicit user override of `_LIBCPP_ASSERTION_SEMANTIC`.
 // clang-format off
 #  define _LIBCPP_ASSERTION_SEMANTIC_HARDENING_DEPENDENT (1 << 1)
 #  define _LIBCPP_ASSERTION_SEMANTIC_IGNORE              (1 << 2)

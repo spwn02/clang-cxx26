@@ -35,6 +35,7 @@ public:
   _LIBCPP_EXPORTED_FROM_ABI std::source_location location() const noexcept;
   _LIBCPP_EXPORTED_FROM_ABI const char* comment() const noexcept;
   _LIBCPP_EXPORTED_FROM_ABI _DetectionMode detection_mode() const noexcept;
+  _LIBCPP_EXPORTED_FROM_ABI bool is_terminating() const noexcept;
   _LIBCPP_EXPORTED_FROM_ABI assertion_kind kind() const noexcept;
   _LIBCPP_EXPORTED_FROM_ABI evaluation_semantic semantic() const noexcept;
 

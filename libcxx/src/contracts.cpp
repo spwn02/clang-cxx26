@@ -140,6 +140,7 @@ void std::contracts::invoke_default_contract_violation_handler(const contract_vi
 std::source_location contract_violation::location() const noexcept { return __pimpl_->location; }
 const char* contract_violation::comment() const noexcept { return __pimpl_->comment; }
 _DetectionMode contract_violation::detection_mode() const noexcept { return __pimpl_->mode; }
+bool contract_violation::is_terminating() const noexcept { return __pimpl_->semantic == _EvaluationSemantic::enforce; }
 assertion_kind contract_violation::kind() const noexcept { return __pimpl_->kind; }
 evaluation_semantic contract_violation::semantic() const noexcept { return __pimpl_->semantic; }
 

@@ -183,10 +183,10 @@ build against it.
 
 | Paper | Amends | Evidence |
 |---|---|---|
-| P3819R0 | P2900R14 Contracts (`Complete`, tagged, `-fcontracts` **on by default**) | `evaluation_exception` still at `libcxx/include/contracts:21` |
+| ~~P3819R0~~ | ~~P2900R14 Contracts~~ | **Resolved 2026-09-06, was a false alarm — see below.** |
 | P3697R1 | P3471R4 hardening | Adds 5 hardened components + 5 FTMs at `202506L` |
-| P3878R1 | P3471R4 hardening | "hardening should not use the `observe` semantic" — unassessed |
-| P3860R1 | `atomic_ref<T>` (Tier 4, `Complete`) | Kona NB-comment resolution |
+| ~~P3878R1~~ | ~~P3471R4 hardening~~ | **Resolved 2026-09-06 — already behaviorally conformant, doc comment added.** See below. |
+| P3860R1 | `atomic_ref<T>` (Tier 4, `Complete`) | **Confirmed real 2026-09-06** — genuine gap, scoped below, not yet implemented |
 
 **Rank 2 — named blockers with multi-paper fan-out.** Each unblocks a chain,
 so the effort amortizes across several rows.
@@ -696,7 +696,8 @@ than being tackled as a single commit.
 | [x] | P3325R5 | Execution environment utility | Folded into the P2300R10 sub-plan below (its content is `[exec.envs]`/`prop`+`env`, M1) — flipped together with P2300R10 |
 | [x] | P3396R1 | `std::execution` wording fixes | No separable content — already merged into current draft wording used by the sub-plan below; flipped to Complete alongside P2300R10 at M6c, not separately implemented |
 | [x] | P2900R14 | Contracts | Complete 2026-09-04 — executed as its own dedicated epic, see Scope section above |
-| [!] | P3819R0 | Remove `evaluation_exception()` from contract-violation handling | **Rank 1 conformance defect.** Amends P2900R14 *after* this fork shipped it. `evaluation_exception` is still live at `libcxx/include/contracts:21`, and the toolchain is tagged (`cxx26-2026.09.05`) with `-fcontracts` on by default — so downstream builds against a non-conformant surface. Spans clang (`Options.td`, `LangOptions.def`, `ContractOptions.h`, `CGContracts.cpp`, `Driver/ToolChains/Clang.cpp`) and libcxx (`include/contracts`, `src/contracts.cpp`'s versioned `_BuiltinContractStruct`, `test/support/contracts_support.h`). **Not a cherry-pick** — the `contracts/contracts-nightly` ref (2026-02-11) still carries the enumerator; `git fetch contracts` is the cheap first check before scoping. The versioned struct already handles v1/v2/v3, so it is built for this kind of bump. |
+| [x] | P3819R0 | Remove `evaluation_exception()` from contract-violation handling | **Nothing to do — already conformant, confirmed 2026-09-06.** The 2026-09-05 triage flagged this as a Rank 1 defect based on `detection_mode::evaluation_exception` (the *enumerator*, at `libcxx/include/contracts:21`) still existing — but the paper removes a *different* thing: the member function `contract_violation::evaluation_exception()`. The enumerator is explicitly kept by the paper's own wording (`detection_mode()` returning it is how the paper says to detect this case, replacing the removed convenience accessor). Fetched the paper's full PDF directly and confirmed by exhaustive grep (`evaluation_exception(` — the function call/decl shape, not the enum value) across `libcxx/include`, `libcxx/src`, `clang/lib`, `clang/include`: zero hits. The member function this paper removes was **never implemented in this fork's contracts-nightly port** — likely predates its addition upstream. No compiler-side plumbing either (`CGContracts.cpp` has zero references). Nothing spans clang at all; the earlier row's file list (`Options.td`, `ContractOptions.h`, etc.) was speculative over-scoping based on the wrong target. |
+| [x] | P3227R1 | Fixing the library API for contract violation handling | Complete 2026-09-06. Untracked by any CSV row (Contracts-family wording papers aren't tracked there — see P3819R0's note above). Found by comparing this fork's `<contracts>` synopsis directly against `eel.is/c++draft`'s `[support.contract.violation]`: `bool is_terminating() const noexcept` was entirely missing. Added (`libcxx/include/contracts` + `libcxx/src/contracts.cpp`, returns `semantic() == evaluation_semantic::enforce` — the only terminating semantic this fork's `evaluation_semantic` enum has), with a new test (`libcxx/test/std/contracts/is_terminating.pass.cpp`) covering both `observe` (false) and `enforce` (true, handler throws to avoid actually terminating the test process, matching `exceptions-test.pass.cpp`'s precedent). This paper is also where `evaluation_exception()` was *first proposed* (later removed by P3819R0 above) — the two rows are related but this one is a pure addition, no removal involved. |
 | [ ] | P3552R3 | Add a coroutine task type (`execution::task`) | Untriaged until 2026-09-05. Major new facility; own sub-plan when started |
 | [ ] | P3179R9 | Parallel range algorithms | Untriaged until 2026-09-05. Large surface; interacts with Tier 3 ranges work |
 | [~] | P3372R3 | `constexpr` containers and adaptors | `\|In Progress\|` in the CSV but was untracked here — check what already landed before scoping |
@@ -1748,7 +1749,26 @@ New tests: `atomics.ref/cv_qualified.pass.cpp` (value_type identity across all f
 | [x] | P2869R4 | Remove deprecated `shared_ptr` atomic access APIs | Complete 2026-08-23 — the tracker's own "low complexity" label undersold this: these functions had never been given `_LIBCPP_DEPRECATED_IN_CXX20` in this fork despite the standard deprecating them since C++20 ([depr.util.smartptr.shared.atomic]), so the work was adding that plus the `_LIBCPP_ENABLE_CXX26_REMOVED_SHARED_PTR_ATOMICS` escape-hatch gate (same pattern as allocator/string/codecvt/strstream) plus updating 11 existing test files with the escape-hatch flag, not a bare deletion. `__sp_mut`/`__get_sp_mut` stay unconditional — implementation plumbing, not part of the removed public surface. Verified empty via `grep -rn "std::atomic_load\|atomic_store\|atomic_exchange\|atomic_compare_exchange" libcxx/src libcxx/test` (excluding the shared_ptr test dir itself) that no other in-tree code calls the now-deprecated overloads under `-Werror` |
 | [ ] | P3008R6 | Atomic floating-point min/max | Untriaged until 2026-09-05. Sofia 2025-06. Direct extension of P0493R5 (Complete) — that row's floating-point `fetch_max`/`fetch_min` already follow `fmaximum_num`/`fminimum_num` NaN semantics via a CAS loop, so check how much of this is already satisfied before scoping |
 | [ ] | P3111R8 | Atomic reduction operations | Untriaged until 2026-09-05. Sofia 2025-06 |
-| [!] | P3860R1 | NB comment GB13-309: `atomic_ref<T>` | **Rank 1 conformance defect.** Kona 2025-11 NB-comment resolution against `atomic_ref<T>`, which this tier marks Complete across P2835R7/P3323R1/P3309R3. Read the resolution before assuming those rows still hold |
+| [!] | P3860R1 | NB comment GB13-309: `atomic_ref<T>` is not convertible to `atomic_ref<const T>` | **Confirmed real 2026-09-06, not yet implemented.** DR against C++20 (retroactive, not C++26-gated) — P3323R1 (Complete, 2026-08-23) added cv-qualified `atomic`/`atomic_ref` support but overlooked a converting constructor between cv-qualified `atomic_ref` specializations, the same way `T*` converts to `const T*`. Confirmed missing: `grep -n "atomic_ref(const atomic_ref\|atomic_ref(atomic_ref" libcxx/include/__atomic/atomic_ref.h` finds only the exact-type defaulted copy constructor (`atomic_ref(const atomic_ref&) noexcept = default`) at 4 sites — one per specialization (primary/generic, integral, floating-point, pointer; confirmed via the 4 `explicit atomic_ref(_Tp& __obj)` constructor sites at lines 393/429/597/726). **Scope for next session — exact wording fetched, no re-derivation needed:**
+```cpp
+template <class U>
+constexpr atomic_ref(const atomic_ref<U>&) noexcept;
+```
+added to all 4 specializations (generic/primary, integral, floating-point,
+pointer), constrained on "(9.1) `T` and `U` are similar types ([conv.qual]),
+and (9.2) `is_convertible_v<U*, T*>` is `true`" — the same
+qualification-conversion shape already used elsewhere in the library (e.g.
+`shared_ptr`'s converting constructor, `T*` → `const T*`), broader than plain
+`T` → `const T` (also covers array-of-unknown-bound-to-known-bound-style
+pointer-convertible relationships via "similar types"). Implement via this
+fork's existing `__is_similar`-style trait if one exists (check
+`<__type_traits/`) before writing a new one. Tests: confirm
+`atomic_ref<const T>{atomic_ref<T>{...}}` converts and the reverse direction
+does not (SFINAEs out of overload resolution, not a hard error — verify with
+a `.compile.pass.cpp`, not `.verify.cpp`, unless the paper specifies otherwise).
+Not started this session — deliberately deferred rather than started
+mid-verification of an unrelated background `check-cxx` run, given this
+touches ABI-sensitive atomic code across 4 specializations. |
 
 ### Tier 5 — Freestanding completeness
 
@@ -2187,7 +2207,7 @@ way deliberately (see Notes for what's done vs. remaining).
 | [!] | P3378R2 | `constexpr` exception types | **Session-sized** — library-side ABI restructure, not compiler-blocked (see block below) |
 | [x] | P3471R4 | Standard Library Hardening | **Complete 2026-09-06.** Runtime checks landed 2026-08-24 (fixed `inplace_vector` and `mdspan::operator[]`'s array/span overloads; `forward_list`'s `NON_NULL` category kept deliberately). FTMs landed 2026-09-06: the `|Partial|` status had rested on §10.11's `20????L` placeholders, but the **adopted** wording assigns concrete values — 14 macros at `202502L`, verified against `eel.is/c++draft/version.syn` directly rather than via P3697R1's quotation of them. Macros are **guarded, not unconditional**: under `_LIBCPP_HARDENING_MODE_NONE` libc++ is a non-hardened implementation per [structure.specifications] (violations are plain UB), so an unconditional macro would overclaim. 13 use `!= _LIBCPP_HARDENING_MODE_NONE`; `__cpp_lib_hardened_forward_list` uses `== EXTENSIVE || == DEBUG`, which makes the 2026-08-24 `NON_NULL` decision visible in the macro rather than silently overclaiming in `fast`. The mode constants are **deliberately not ordered** (`EXTENSIVE` is `1 << 4`, `DEBUG` is `1 << 3`) so these must be equality comparisons — never `>=`. Verified across all four modes; the generated tests genuinely discriminate (the `fast` run asserts `forward_list`'s macro is *undefined* while `extensive` asserts it is `202502L`, and both pass). Follow-on: P3697R1 below |
 | [!] | P3697R1 | Minor additions to C++26 standard library hardening | **Rank 1**, amends P3471R4. Sofia 2025-06. Adds hardened preconditions to `view_interface::front`/`back`, `counted_iterator` (9 ops), `common_iterator` (10 ops), `shared_ptr<T[N]>::operator[]`, `basic_stacktrace::current`/`operator[]`, plus 5 FTMs at `202506L`. Reuses the existing `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS` machinery — same shape as the 2026-08-24 pass |
-| [!] | P3878R1 | Hardening should not use the `observe` semantic | **Rank 1**, amends P3471R4. Kona 2025-11. **Unassessed.** Plausibly a no-op here — libc++ hardening uses `_LIBCPP_ASSERT`/`_LIBCPP_ASSERTION_HANDLER`, not Contracts semantics — but it may constrain the assertion handler's behaviour. Read the paper before assuming no-op |
+| [x] | P3878R1 | Hardening should not use the `observe` semantic | **Assessed and closed 2026-09-06.** Fetched the paper's wording diff directly: it tightens `[structure.specifications]` to require hardened preconditions be evaluated with a *terminating* semantic — no library API/macro change, no FTM. This fork's own `_LIBCPP_ASSERTION_SEMANTIC` (`libcxx/include/__configuration/hardening.h`) already never selects a non-terminating semantic automatically — the `hardening-dependent` default maps `fast`/`extensive` → `quick_enforce` and `debug` → `enforce`, both terminating; `_LIBCPP_ASSERTION_SEMANTIC_OBSERVE` (log-and-continue) is reachable only via an explicit, documented-as-experimental user override. So behaviorally this fork was already conformant. What was missing: the header's own comment block already carried an explicit disclaimer that selecting `ignore` doesn't produce a conforming "Hardened" implementation, but had no equivalent disclaimer for `observe` — which P3878R1's tightened wording now requires too. Added the parallel note. Comment-only change, verified via a standalone compile of `<version>` (which transitively includes the file) rather than a full-suite run, since comments cannot affect compiled output. |
 | [~] | P2714R1 | Bind front and back to NTTP callables | `\|Partial\|` in the CSV; was untracked here until 2026-09-05 |
 | [ ] | P2927R3 | Inspecting `exception_ptr` | Untriaged until 2026-09-05. Sofia 2025-06. Pairs with P3748R0 below |
 | [ ] | P3748R0 | Inspecting `exception_ptr` should be constexpr | Untriaged until 2026-09-05. Kona 2025-11. Do after P2927R3 |
@@ -6206,3 +6226,67 @@ blocked, what's next. Do not remove old entries.
   to be right about the FTM half and wrong about the scope. Before quoting a
   cost for any `|Partial|` row here, grep the CSV for later papers naming the
   same feature; a `|Partial|` row is not necessarily one paper deep.
+
+- **2026-09-06**: Committed and pushed the previous session's P3471R4/clangd
+  work (`cc5e9a4bdd7e`, `d88885435fa2`), tagged `cxx26-2026.09.05.1` (not
+  `.05` — already taken by yesterday's tag; `git ls-remote --tags origin`
+  confirmed `.1` free), and while the release CI built, picked up the
+  roadmap's Rank 1 item, P3819R0. **Found it was a false alarm**: the
+  2026-09-05 triage had pattern-matched on `detection_mode::evaluation_exception`
+  (the enum *value*, still legitimately present per the paper's own wording)
+  without checking whether the actual removed symbol — the member function
+  `contract_violation::evaluation_exception()` — ever existed here at all. It
+  didn't (`grep -rn "evaluation_exception("` — parens, the call/decl shape —
+  across the whole tree: zero hits). Fetched the paper's PDF directly to
+  confirm exactly what it removes before trusting the tracker's own prior
+  note. **Lesson for this tracker**: when flagging a paper as amending
+  already-shipped work, verify the *exact* symbol the paper's wording diff
+  touches, not an adjacent one that merely shares a name fragment — an enum
+  value and a member function aren't the same "surface" just because both
+  are spelled `evaluation_exception`.
+
+  While reading the paper's wording diff (which shows the *whole* class
+  synopsis, before and after), noticed this fork's `<contracts>` is missing
+  `bool is_terminating() const noexcept` entirely — traced it to **P3227R1**
+  (the same paper that originally proposed `evaluation_exception()`, later
+  reverted by P3819R0; P3227R1 itself has no `Cxx2cPapers.csv` row, same
+  situation as P3819R0/P3697R1/P3878R1/P3860R1 — Contracts-family wording
+  papers aren't tracked there at all, only the collapsed P2900R14 row is).
+  Implemented it (`libcxx/include/contracts`, `libcxx/src/contracts.cpp`;
+  `is_terminating()` ⟺ `semantic() == evaluation_semantic::enforce`, the only
+  terminating semantic this fork's `evaluation_semantic` enum has) with a new
+  test exercising both `observe` and `enforce` violations
+  (`libcxx/test/std/contracts/is_terminating.pass.cpp`, the `enforce` case's
+  handler throws rather than letting `std::terminate()` actually run, per
+  `exceptions-test.pass.cpp`'s established pattern). Full
+  `libcxx/test/std/contracts/` suite green (5/5) after the addition.
+
+  **Net effect on the Rank 1 list (first pass)**: P3819R0 struck through
+  (resolved, was never real), P3227R1 added and closed same-session,
+  P3697R1/P3878R1/P3860R1 remain open and still unassessed.
+
+  **Second pass, same session, while the release CI (below) built**: assessed
+  P3878R1 ("hardening should not use the `observe` semantic"). Fetched its
+  wording diff: it tightens `[structure.specifications]` to require hardened
+  preconditions use a *terminating* evaluation semantic, no library API/FTM
+  change. Checked this fork's actual `_LIBCPP_ASSERTION_SEMANTIC` machinery
+  (`libcxx/include/__configuration/hardening.h`) rather than assuming from
+  the paper's abstract alone: the automatic `hardening-dependent` default
+  never selects a non-terminating semantic (`fast`/`extensive` → `quick_
+  enforce`, `debug` → `enforce`, both terminating) — `_LIBCPP_ASSERTION_
+  SEMANTIC_OBSERVE` is reachable only via an explicit user override, already
+  documented as experimental. Behaviorally already conformant. Found one real
+  gap: the header's own comment already disclaimed `ignore` as non-conforming
+  for a "Hardened" implementation, but had no equivalent disclaimer for
+  `observe` — added one, comment-only, no behavior change. **This assessment
+  needed reading the paper's actual wording, not just its title** — "hardening
+  should not use the `observe` semantic" reads like a request to *change*
+  something, but the change target turned out to be prose describing existing
+  correct behavior more precisely, not code.
+
+  **Net effect on the Rank 1 list (updated)**: P3819R0 and P3878R1 both
+  resolved same-session (one was a false alarm, one was already-conformant
+  behavior needing a doc note); P3227R1 (found via the P3819R0 investigation,
+  not itself Rank-1-listed before this) added and closed. P3697R1 (5 real
+  hardening components, genuine implementation work) and P3860R1 (unread)
+  remain open.
