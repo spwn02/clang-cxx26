@@ -122,6 +122,18 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto cat(const basic_mask<_Bytes, _FirstAbi>& __
   return _Result([&](auto __i) -> bool { return __elements[__i]; });
 }
 
+// [simd.creation]/7-8
+template <class _Tp>
+  requires((__vectorizable<_Tp> && is_arithmetic_v<_Tp>) ||
+           (__simd_vec_type<_Tp> && is_arithmetic_v<typename _Tp::value_type> &&
+            _Tp::size() - 1 <= numeric_limits<typename _Tp::value_type>::max()))
+inline constexpr _Tp iota = [] {
+  if constexpr (is_arithmetic_v<_Tp>)
+    return _Tp();
+  else
+    return _Tp([](typename _Tp::value_type __i) { return __i; });
+}();
+
 } // namespace simd
 
 #endif // _LIBCPP_STD_VER >= 26

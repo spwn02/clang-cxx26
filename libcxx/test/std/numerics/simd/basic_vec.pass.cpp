@@ -44,6 +44,11 @@ int main(int, char**) {
   assert(selected[0] == 0 && selected[3] == 6);
 
   std::array<int, 4> input{7, 8, 9, 10};
+  {
+    auto deduced = std::simd::basic_vec(input);
+    static_assert(std::same_as<decltype(deduced), vec>);
+    assert(deduced[0] == 7 && deduced[3] == 10);
+  }
   auto loaded = std::simd::unchecked_load<vec>(input);
   assert(loaded[0] == 7 && loaded[3] == 10);
   std::array<int, 2> partial_input{11, 12};
@@ -85,6 +90,13 @@ int main(int, char**) {
   assert((floats + floats)[2] == 3.0f);
   assert(std::simd::sqrt(std::simd::vec<float, 4>(4.0f))[1] == 2.0f);
   assert(std::simd::fma(floats, floats, floats)[0] == 3.75f);
+
+  {
+    constexpr auto sequence = std::simd::iota<vec>;
+    static_assert(std::same_as<decltype(sequence), const vec>);
+    static_assert(sequence[0] == 0 && sequence[1] == 1 && sequence[2] == 2 && sequence[3] == 3);
+    static_assert(std::simd::iota<int> == 0);
+  }
 
   std::simd::vec<unsigned, 4> bits([](auto i) { return 1u << static_cast<unsigned>(i); });
   assert(std::simd::all_of(std::simd::has_single_bit(bits)));

@@ -406,6 +406,13 @@ template <size_t _Bytes, class _Abi>
   requires(__mask_enabled<_Bytes, _Abi> && __has_integer_from<_Bytes>)
 basic_vec(basic_mask<_Bytes, _Abi>) -> basic_vec<__integer_from<_Bytes>, _Abi>;
 
+// [simd.ctor]/16-17
+template <class _Rp, class... _Ts>
+  requires(ranges::contiguous_range<_Rp> && ranges::sized_range<_Rp>)
+basic_vec(_Rp&& __r, _Ts...)
+    -> basic_vec<ranges::range_value_t<_Rp>,
+                 __deduce_abi_t<ranges::range_value_t<_Rp>, static_cast<__simd_size_type>(ranges::size(__r))>>;
+
 // [simd.syn]
 template <class _Tp, __simd_size_type _Np = __simd_size_v<_Tp, __native_abi<_Tp>>>
 using mask = typename vec<_Tp, _Np>::mask_type;
