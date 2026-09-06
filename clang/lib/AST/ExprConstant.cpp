@@ -16866,6 +16866,46 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     return Success(Val, E);
   }
 
+  case Builtin::BI__builtin_lround:
+  case Builtin::BI__builtin_lroundf:
+  case Builtin::BI__builtin_lroundl:
+  case Builtin::BI__builtin_lroundf128:
+  case Builtin::BI__builtin_llround:
+  case Builtin::BI__builtin_llroundf:
+  case Builtin::BI__builtin_llroundl:
+  case Builtin::BI__builtin_llroundf128:
+  case Builtin::BI__builtin_lrint:
+  case Builtin::BI__builtin_lrintf:
+  case Builtin::BI__builtin_lrintl:
+  case Builtin::BI__builtin_lrintf128:
+  case Builtin::BI__builtin_llrint:
+  case Builtin::BI__builtin_llrintf:
+  case Builtin::BI__builtin_llrintl:
+  case Builtin::BI__builtin_llrintf128: {
+    APFloat Val(0.0);
+    if (!EvaluateFloat(E->getArg(0), Val, Info))
+      return false;
+
+    bool IsRound = BuiltinOp == Builtin::BI__builtin_lround ||
+                   BuiltinOp == Builtin::BI__builtin_lroundf ||
+                   BuiltinOp == Builtin::BI__builtin_lroundl ||
+                   BuiltinOp == Builtin::BI__builtin_lroundf128 ||
+                   BuiltinOp == Builtin::BI__builtin_llround ||
+                   BuiltinOp == Builtin::BI__builtin_llroundf ||
+                   BuiltinOp == Builtin::BI__builtin_llroundl ||
+                   BuiltinOp == Builtin::BI__builtin_llroundf128;
+    Val.roundToIntegral(IsRound ? llvm::RoundingMode::NearestTiesToAway
+                                : getActiveRoundingMode(Info, E));
+
+    unsigned Width = Info.Ctx.getIntWidth(E->getType());
+    APSInt IntResult(Width, !E->getType()->isSignedIntegerOrEnumerationType());
+    bool Ignored;
+    if (Val.convertToInteger(IntResult, llvm::RoundingMode::TowardZero,
+                             &Ignored) & APFloat::opInvalidOp)
+      return false;
+    return Success(IntResult, E);
+  }
+
   case Builtin::BI__builtin_popcount:
   case Builtin::BI__builtin_popcountl:
   case Builtin::BI__builtin_popcountll:
@@ -19671,6 +19711,85 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
     if (Result.isNegative())
       Result.changeSign();
     return true;
+
+  case Builtin::BI__builtin_floor:
+  case Builtin::BI__builtin_floorf:
+  case Builtin::BI__builtin_floorl:
+  case Builtin::BI__builtin_floorf16:
+  case Builtin::BI__builtin_floorf128:
+    if (!EvaluateFloat(E->getArg(0), Result, Info))
+      return false;
+    Result.roundToIntegral(llvm::RoundingMode::TowardNegative);
+    return true;
+
+  case Builtin::BI__builtin_ceil:
+  case Builtin::BI__builtin_ceilf:
+  case Builtin::BI__builtin_ceill:
+  case Builtin::BI__builtin_ceilf16:
+  case Builtin::BI__builtin_ceilf128:
+    if (!EvaluateFloat(E->getArg(0), Result, Info))
+      return false;
+    Result.roundToIntegral(llvm::RoundingMode::TowardPositive);
+    return true;
+
+  case Builtin::BI__builtin_trunc:
+  case Builtin::BI__builtin_truncf:
+  case Builtin::BI__builtin_truncl:
+  case Builtin::BI__builtin_truncf16:
+  case Builtin::BI__builtin_truncf128:
+    if (!EvaluateFloat(E->getArg(0), Result, Info))
+      return false;
+    Result.roundToIntegral(llvm::RoundingMode::TowardZero);
+    return true;
+
+  case Builtin::BI__builtin_round:
+  case Builtin::BI__builtin_roundf:
+  case Builtin::BI__builtin_roundl:
+  case Builtin::BI__builtin_roundf16:
+  case Builtin::BI__builtin_roundf128:
+    if (!EvaluateFloat(E->getArg(0), Result, Info))
+      return false;
+    Result.roundToIntegral(llvm::RoundingMode::NearestTiesToAway);
+    return true;
+
+  case Builtin::BI__builtin_nearbyint:
+  case Builtin::BI__builtin_nearbyintf:
+  case Builtin::BI__builtin_nearbyintl:
+  case Builtin::BI__builtin_nearbyintf128:
+  case Builtin::BI__builtin_rint:
+  case Builtin::BI__builtin_rintf:
+  case Builtin::BI__builtin_rintl:
+  case Builtin::BI__builtin_rintf16:
+  case Builtin::BI__builtin_rintf128:
+    if (!EvaluateFloat(E->getArg(0), Result, Info))
+      return false;
+    Result.roundToIntegral(getActiveRoundingMode(Info, E));
+    return true;
+
+  case Builtin::BI__builtin_fmod:
+  case Builtin::BI__builtin_fmodf:
+  case Builtin::BI__builtin_fmodl:
+  case Builtin::BI__builtin_fmodf16:
+  case Builtin::BI__builtin_fmodf128: {
+    APFloat RHS(0.);
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluateFloat(E->getArg(1), RHS, Info))
+      return false;
+    Result.mod(RHS);
+    return true;
+  }
+
+  case Builtin::BI__builtin_remainder:
+  case Builtin::BI__builtin_remainderf:
+  case Builtin::BI__builtin_remainderl:
+  case Builtin::BI__builtin_remainderf128: {
+    APFloat RHS(0.);
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluateFloat(E->getArg(1), RHS, Info))
+      return false;
+    Result.remainder(RHS);
+    return true;
+  }
 
   case Builtin::BI__arithmetic_fence:
     return EvaluateFloat(E->getArg(0), Result, Info);
