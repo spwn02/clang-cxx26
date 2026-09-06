@@ -258,21 +258,21 @@ _LIBCPP_HIDE_FROM_ABI void __format_locale_specific(
     // time_put<char> produces a multibyte sequence in the formatting
     // locale. Decode it with that locale's codecvt facet, then use libc++'s
     // existing Unicode codecvt to encode the replacement as UTF-8.
-    const string_view __input = __locale_output.view();
-    if (!__input.empty()) {
-      wstring __wide(__input.size(), L'\0');
+    const string_view __narrow_bytes = __locale_output.view();
+    if (!__narrow_bytes.empty()) {
+      wstring __wide(__narrow_bytes.size(), L'\0');
       const auto& __cvt = use_facet<codecvt<wchar_t, char, mbstate_t>>(__sstr.getloc());
       mbstate_t __state{};
       const char* __from_next;
       wchar_t* __to_next;
       if (__cvt.in(__state,
-                   __input.data(),
-                   __input.data() + __input.size(),
+                   __narrow_bytes.data(),
+                   __narrow_bytes.data() + __narrow_bytes.size(),
                    __from_next,
                    __wide.data(),
                    __wide.data() + __wide.size(),
                    __to_next) == codecvt_base::error ||
-          __from_next != __input.data() + __input.size())
+          __from_next != __narrow_bytes.data() + __narrow_bytes.size())
         std::__throw_runtime_error("locale replacement cannot be converted to UTF-8");
 
       __narrow_to_utf8<sizeof(wchar_t) * __CHAR_BIT__>{}(

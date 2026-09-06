@@ -123,6 +123,15 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto cat(const basic_mask<_Bytes, _FirstAbi>& __
 }
 
 // [simd.creation]/7-8
+//
+// <simd>'s own _LIBCPP_PUSH_MACROS/<__undef_macros> pair (which neutralizes a
+// user's own `#define max`/`min`, e.g. from <windows.h>) only wraps content
+// after all __simd/*.h sub-includes, so a bare `numeric_limits<...>::max()`
+// here would still see a poisoned `max` -- protect this one call site
+// locally instead of moving the umbrella header's wrap point.
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
 template <class _Tp>
   requires((__vectorizable<_Tp> && is_arithmetic_v<_Tp>) ||
            (__simd_vec_type<_Tp> && is_arithmetic_v<typename _Tp::value_type> &&
@@ -133,6 +142,8 @@ inline constexpr _Tp iota = [] {
   else
     return _Tp([](typename _Tp::value_type __i) { return __i; });
 }();
+
+_LIBCPP_POP_MACROS
 
 } // namespace simd
 
