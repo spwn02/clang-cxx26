@@ -52,6 +52,7 @@
 #  include <__format/write_escaped.h>
 #  include <__iterator/istreambuf_iterator.h>
 #  include <__iterator/ostreambuf_iterator.h>
+#  include <__locale>
 #  include <__locale_dir/time.h>
 #  include <__memory/addressof.h>
 #  include <__type_traits/is_specialization.h>
@@ -230,6 +231,58 @@ struct _LIBCPP_HIDE_FROM_ABI __time_zone {
   chrono::seconds __offset;
 };
 
+// The ordinary character literal encoding is known at compile time. Clang
+// defines this as UTF-8 on the platforms supported by this fork.
+_LIBCPP_HIDE_FROM_ABI consteval bool __literal_encoding_is_utf8() {
+#  if defined(__clang_literal_encoding__)
+  return string_view{__clang_literal_encoding__} == "UTF-8";
+#  elif defined(__GNUC_EXECUTION_CHARSET_NAME)
+  return string_view{__GNUC_EXECUTION_CHARSET_NAME} == "UTF-8";
+#  else
+  return false;
+#  endif
+}
+
+template <class _CharT>
+_LIBCPP_HIDE_FROM_ABI void __format_locale_specific(
+    basic_stringstream<_CharT>& __sstr,
+    const time_put<_CharT>& __facet,
+    const tm* __t,
+    const _CharT* __first,
+    const _CharT* __last) {
+  basic_stringstream<_CharT> __locale_output;
+  __locale_output.imbue(__sstr.getloc());
+  __facet.put({__locale_output}, __locale_output, _CharT(' '), __t, __first, __last);
+
+  if constexpr (same_as<_CharT, char> && __literal_encoding_is_utf8()) {
+    // time_put<char> produces a multibyte sequence in the formatting
+    // locale. Decode it with that locale's codecvt facet, then use libc++'s
+    // existing Unicode codecvt to encode the replacement as UTF-8.
+    const string_view __input = __locale_output.view();
+    if (!__input.empty()) {
+      wstring __wide(__input.size(), L'\0');
+      const auto& __cvt = use_facet<codecvt<wchar_t, char, mbstate_t>>(__sstr.getloc());
+      mbstate_t __state{};
+      const char* __from_next;
+      wchar_t* __to_next;
+      if (__cvt.in(__state,
+                   __input.data(),
+                   __input.data() + __input.size(),
+                   __from_next,
+                   __wide.data(),
+                   __wide.data() + __wide.size(),
+                   __to_next) == codecvt_base::error ||
+          __from_next != __input.data() + __input.size())
+        std::__throw_runtime_error("locale replacement cannot be converted to UTF-8");
+
+      __narrow_to_utf8<sizeof(wchar_t) * __CHAR_BIT__>{}(
+          ostreambuf_iterator<char>{__sstr}, __wide.data(), __to_next);
+    }
+  } else {
+    __sstr << __locale_output.view();
+  }
+}
+
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI __time_zone __convert_to_time_zone([[maybe_unused]] const _Tp& __value) {
 #    if _LIBCPP_HAS_EXPERIMENTAL_TZDB
@@ -277,8 +330,8 @@ _LIBCPP_HIDE_FROM_ABI void __format_chrono_using_chrono_specs(
         if (__year < 1000 || __year > 9999)
           __formatter::__format_century(__sstr, __year);
         else
-          __facet.put(
-              {__sstr}, __sstr, _CharT(' '), std::addressof(__t), std::to_address(__s), std::to_address(__it + 1));
+          __formatter::__format_locale_specific(
+              __sstr, __facet, std::addressof(__t), std::to_address(__s), std::to_address(__it + 1));
       } break;
 
       case _CharT('j'):
@@ -289,8 +342,8 @@ _LIBCPP_HIDE_FROM_ABI void __format_chrono_using_chrono_specs(
           // an intemediate step.
           __sstr << chrono::duration_cast<chrono::days>(chrono::duration_cast<chrono::seconds>(__value)).count();
         else
-          __facet.put(
-              {__sstr}, __sstr, _CharT(' '), std::addressof(__t), std::to_address(__s), std::to_address(__it + 1));
+          __formatter::__format_locale_specific(
+              __sstr, __facet, std::addressof(__t), std::to_address(__s), std::to_address(__it + 1));
         break;
 
       case _CharT('q'):
@@ -318,8 +371,8 @@ _LIBCPP_HIDE_FROM_ABI void __format_chrono_using_chrono_specs(
 
       case _CharT('S'):
       case _CharT('T'):
-        __facet.put(
-            {__sstr}, __sstr, _CharT(' '), std::addressof(__t), std::to_address(__s), std::to_address(__it + 1));
+        __formatter::__format_locale_specific(
+            __sstr, __facet, std::addressof(__t), std::to_address(__s), std::to_address(__it + 1));
         if constexpr (__formatter::__use_fraction<_Tp>())
           __formatter::__format_sub_seconds(__sstr, __value);
         break;
@@ -389,8 +442,8 @@ _LIBCPP_HIDE_FROM_ABI void __format_chrono_using_chrono_specs(
           // fractional part should be formatted.
           if (*(__it + 1) == 'S') {
             ++__it;
-            __facet.put(
-                {__sstr}, __sstr, _CharT(' '), std::addressof(__t), std::to_address(__s), std::to_address(__it + 1));
+            __formatter::__format_locale_specific(
+                __sstr, __facet, std::addressof(__t), std::to_address(__s), std::to_address(__it + 1));
             __formatter::__format_sub_seconds(__sstr, __value);
             break;
           }
@@ -406,8 +459,8 @@ _LIBCPP_HIDE_FROM_ABI void __format_chrono_using_chrono_specs(
         }
         [[fallthrough]];
       default:
-        __facet.put(
-            {__sstr}, __sstr, _CharT(' '), std::addressof(__t), std::to_address(__s), std::to_address(__it + 1));
+        __formatter::__format_locale_specific(
+            __sstr, __facet, std::addressof(__t), std::to_address(__s), std::to_address(__it + 1));
         break;
       }
     } else {
