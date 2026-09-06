@@ -82,7 +82,7 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI constexpr counted_iterator(_Iter __iter, iter_difference_t<_Iter> __n)
       : __current_(std::move(__iter)), __count_(__n) {
-    _LIBCPP_ASSERT_UNCATEGORIZED(__n >= 0, "__n must not be negative.");
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__n >= 0, "__n must not be negative.");
   }
 
   template <class _I2>
@@ -123,14 +123,14 @@ public:
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr counted_iterator& operator++() {
-    _LIBCPP_ASSERT_UNCATEGORIZED(__count_ > 0, "Iterator already at or past end.");
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__count_ > 0, "Iterator already at or past end.");
     ++__current_;
     --__count_;
     return *this;
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) operator++(int) {
-    _LIBCPP_ASSERT_UNCATEGORIZED(__count_ > 0, "Iterator already at or past end.");
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__count_ > 0, "Iterator already at or past end.");
     --__count_;
 #  if _LIBCPP_HAS_EXCEPTIONS
     try {
@@ -147,7 +147,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr counted_iterator operator++(int)
     requires forward_iterator<_Iter>
   {
-    _LIBCPP_ASSERT_UNCATEGORIZED(__count_ > 0, "Iterator already at or past end.");
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__count_ > 0, "Iterator already at or past end.");
     counted_iterator __tmp = *this;
     ++*this;
     return __tmp;
@@ -185,7 +185,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr counted_iterator& operator+=(iter_difference_t<_Iter> __n)
     requires random_access_iterator<_Iter>
   {
-    _LIBCPP_ASSERT_UNCATEGORIZED(__n <= __count_, "Cannot advance iterator past end.");
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__n <= __count_, "Cannot advance iterator past end.");
     __current_ += __n;
     __count_ -= __n;
     return *this;
@@ -216,7 +216,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr counted_iterator& operator-=(iter_difference_t<_Iter> __n)
     requires random_access_iterator<_Iter>
   {
-    _LIBCPP_ASSERT_UNCATEGORIZED(
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
         -__n <= __count_,
         "Attempt to subtract too large of a size: "
         "counted_iterator would be decremented before the "

@@ -741,6 +741,20 @@ feature_test_macros = [
             "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
         },
         {
+            "name": "__cpp_lib_hardened_common_iterator",
+            "values": {"c++26": 202506},
+            "headers": ["iterator"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_counted_iterator",
+            "values": {"c++26": 202506},
+            "headers": ["iterator"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
             "name": "__cpp_lib_hardened_deque",
             "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
             "headers": ["deque"],
@@ -790,6 +804,13 @@ feature_test_macros = [
             "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
         },
         {
+            "name": "__cpp_lib_hardened_shared_ptr_array",
+            "values": {"c++26": 202506},
+            "headers": ["memory"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
             "name": "__cpp_lib_hardened_span",
             "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
             "headers": ["span"],
@@ -807,6 +828,13 @@ feature_test_macros = [
             "name": "__cpp_lib_hardened_vector",
             "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
             "headers": ["vector"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
+            "name": "__cpp_lib_hardened_view_interface",
+            "values": {"c++26": 202506},
+            "headers": ["ranges"],
             "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
             "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
         },

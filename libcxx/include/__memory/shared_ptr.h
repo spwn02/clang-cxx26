@@ -10,6 +10,7 @@
 #ifndef _LIBCPP___MEMORY_SHARED_PTR_H
 #define _LIBCPP___MEMORY_SHARED_PTR_H
 
+#include <__assert>
 #include <__compare/compare_three_way.h>
 #include <__compare/ordering.h>
 #include <__config>
@@ -40,6 +41,7 @@
 #include <__type_traits/conjunction.h>
 #include <__type_traits/disjunction.h>
 #include <__type_traits/enable_if.h>
+#include <__type_traits/extent.h>
 #include <__type_traits/integral_constant.h>
 #include <__type_traits/is_array.h>
 #include <__type_traits/is_constructible.h>
@@ -621,6 +623,9 @@ public:
 #if _LIBCPP_STD_VER >= 17
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI __add_lvalue_reference_t<element_type> operator[](ptrdiff_t __i) const {
     static_assert(is_array<_Tp>::value, "std::shared_ptr<T>::operator[] is only valid when T is an array type.");
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
+        __i >= 0 && (!__is_bounded_array_v<_Tp> || static_cast<size_t>(__i) < extent<_Tp>::value),
+        "shared_ptr<T[]>::operator[] index out of bounds");
     return __ptr_[__i];
   }
 #endif

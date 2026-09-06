@@ -24,6 +24,10 @@
 #    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_view_interface
+#    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges
 #    error "__cpp_lib_ranges should not be defined before c++20"
 #  endif
@@ -88,6 +92,10 @@
 
 #  ifdef __cpp_lib_default_template_type_for_algorithm_values
 #    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_view_interface
+#    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_ranges
@@ -156,6 +164,10 @@
 #    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_view_interface
+#    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges
 #    error "__cpp_lib_ranges should not be defined before c++20"
 #  endif
@@ -220,6 +232,10 @@
 
 #  ifdef __cpp_lib_default_template_type_for_algorithm_values
 #    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_view_interface
+#    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_ranges
@@ -289,6 +305,10 @@
 
 #  ifdef __cpp_lib_default_template_type_for_algorithm_values
 #    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_view_interface
+#    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_ranges
@@ -406,6 +426,19 @@
 #  endif
 #  if __cpp_lib_default_template_type_for_algorithm_values != 202403L
 #    error "__cpp_lib_default_template_type_for_algorithm_values should have the value 202403L in c++26"
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_view_interface
+#      error "__cpp_lib_hardened_view_interface should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_view_interface != 202506L
+#      error "__cpp_lib_hardened_view_interface should have the value 202506L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_view_interface
+#      error "__cpp_lib_hardened_view_interface should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
 #  endif
 
 #  ifndef __cpp_lib_ranges

@@ -432,6 +432,14 @@
 #    error "__cpp_lib_hardened_bitset should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_common_iterator
+#    error "__cpp_lib_hardened_common_iterator should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_counted_iterator
+#    error "__cpp_lib_hardened_counted_iterator should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_deque
 #    error "__cpp_lib_hardened_deque should not be defined before c++26"
 #  endif
@@ -460,6 +468,10 @@
 #    error "__cpp_lib_hardened_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_shared_ptr_array
+#    error "__cpp_lib_hardened_shared_ptr_array should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_span
 #    error "__cpp_lib_hardened_span should not be defined before c++26"
 #  endif
@@ -470,6 +482,10 @@
 
 #  ifdef __cpp_lib_hardened_vector
 #    error "__cpp_lib_hardened_vector should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_view_interface
+#    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardware_interference_size
@@ -1454,6 +1470,14 @@
 #    error "__cpp_lib_hardened_bitset should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_common_iterator
+#    error "__cpp_lib_hardened_common_iterator should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_counted_iterator
+#    error "__cpp_lib_hardened_counted_iterator should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_deque
 #    error "__cpp_lib_hardened_deque should not be defined before c++26"
 #  endif
@@ -1482,6 +1506,10 @@
 #    error "__cpp_lib_hardened_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_shared_ptr_array
+#    error "__cpp_lib_hardened_shared_ptr_array should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_span
 #    error "__cpp_lib_hardened_span should not be defined before c++26"
 #  endif
@@ -1492,6 +1520,10 @@
 
 #  ifdef __cpp_lib_hardened_vector
 #    error "__cpp_lib_hardened_vector should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_view_interface
+#    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardware_interference_size
@@ -2596,6 +2628,14 @@
 #    error "__cpp_lib_hardened_bitset should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_common_iterator
+#    error "__cpp_lib_hardened_common_iterator should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_counted_iterator
+#    error "__cpp_lib_hardened_counted_iterator should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_deque
 #    error "__cpp_lib_hardened_deque should not be defined before c++26"
 #  endif
@@ -2624,6 +2664,10 @@
 #    error "__cpp_lib_hardened_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_shared_ptr_array
+#    error "__cpp_lib_hardened_shared_ptr_array should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_span
 #    error "__cpp_lib_hardened_span should not be defined before c++26"
 #  endif
@@ -2634,6 +2678,10 @@
 
 #  ifdef __cpp_lib_hardened_vector
 #    error "__cpp_lib_hardened_vector should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_view_interface
+#    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_hardware_interference_size
@@ -4002,6 +4050,14 @@
 #    error "__cpp_lib_hardened_bitset should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_common_iterator
+#    error "__cpp_lib_hardened_common_iterator should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_counted_iterator
+#    error "__cpp_lib_hardened_counted_iterator should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_deque
 #    error "__cpp_lib_hardened_deque should not be defined before c++26"
 #  endif
@@ -4030,6 +4086,10 @@
 #    error "__cpp_lib_hardened_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_shared_ptr_array
+#    error "__cpp_lib_hardened_shared_ptr_array should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_span
 #    error "__cpp_lib_hardened_span should not be defined before c++26"
 #  endif
@@ -4040,6 +4100,10 @@
 
 #  ifdef __cpp_lib_hardened_vector
 #    error "__cpp_lib_hardened_vector should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_view_interface
+#    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_hardware_interference_size
@@ -5600,6 +5664,14 @@
 #    error "__cpp_lib_hardened_bitset should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_common_iterator
+#    error "__cpp_lib_hardened_common_iterator should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_counted_iterator
+#    error "__cpp_lib_hardened_counted_iterator should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_deque
 #    error "__cpp_lib_hardened_deque should not be defined before c++26"
 #  endif
@@ -5628,6 +5700,10 @@
 #    error "__cpp_lib_hardened_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_hardened_shared_ptr_array
+#    error "__cpp_lib_hardened_shared_ptr_array should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_span
 #    error "__cpp_lib_hardened_span should not be defined before c++26"
 #  endif
@@ -5638,6 +5714,10 @@
 
 #  ifdef __cpp_lib_hardened_vector
 #    error "__cpp_lib_hardened_vector should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_hardened_view_interface
+#    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_hardware_interference_size
@@ -7523,6 +7603,32 @@
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_common_iterator
+#      error "__cpp_lib_hardened_common_iterator should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_common_iterator != 202506L
+#      error "__cpp_lib_hardened_common_iterator should have the value 202506L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_common_iterator
+#      error "__cpp_lib_hardened_common_iterator should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_counted_iterator
+#      error "__cpp_lib_hardened_counted_iterator should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_counted_iterator != 202506L
+#      error "__cpp_lib_hardened_counted_iterator should have the value 202506L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_counted_iterator
+#      error "__cpp_lib_hardened_counted_iterator should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
 #    ifndef __cpp_lib_hardened_deque
 #      error "__cpp_lib_hardened_deque should be defined in c++26"
 #    endif
@@ -7614,6 +7720,19 @@
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_shared_ptr_array
+#      error "__cpp_lib_hardened_shared_ptr_array should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_shared_ptr_array != 202506L
+#      error "__cpp_lib_hardened_shared_ptr_array should have the value 202506L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_shared_ptr_array
+#      error "__cpp_lib_hardened_shared_ptr_array should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
 #    ifndef __cpp_lib_hardened_span
 #      error "__cpp_lib_hardened_span should be defined in c++26"
 #    endif
@@ -7649,6 +7768,19 @@
 #  else
 #    ifdef __cpp_lib_hardened_vector
 #      error "__cpp_lib_hardened_vector should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_view_interface
+#      error "__cpp_lib_hardened_view_interface should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_view_interface != 202506L
+#      error "__cpp_lib_hardened_view_interface should have the value 202506L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_view_interface
+#      error "__cpp_lib_hardened_view_interface should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
 #    endif
 #  endif
 
