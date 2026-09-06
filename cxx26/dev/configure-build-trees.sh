@@ -6,7 +6,8 @@
 # Usage:
 #   cxx26/dev/configure-build-trees.sh nyx      # configure/reconfigure build-nyx
 #   cxx26/dev/configure-build-trees.sh libcxx   # configure/reconfigure build-libcxx (needs build-nyx/bin/clang)
-#   cxx26/dev/configure-build-trees.sh all      # both, in order
+#   cxx26/dev/configure-build-trees.sh libcxx-asan  # configure/reconfigure build-libcxx-asan (needs build-nyx's compiler-rt)
+#   cxx26/dev/configure-build-trees.sh all      # nyx, libcxx, and libcxx-asan, in order
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -58,9 +59,38 @@ configure_libcxx() {
     "${launcher_args[@]}"
 }
 
+configure_libcxx_asan() {
+  echo "==> configuring build-libcxx-asan"
+  if [[ ! -x build-nyx/bin/clang ]]; then
+    echo "error: build-nyx/bin/clang not built yet; run 'ninja -C build-nyx clang' first" >&2
+    exit 1
+  fi
+  if ! find build-nyx -maxdepth 6 -iname "libclang_rt.asan.so" | grep -q .; then
+    echo "error: build-nyx's compiler-rt ASan runtime isn't built yet;" \
+         "run 'ninja -C build-nyx compiler-rt' first" >&2
+    exit 1
+  fi
+  local launcher_args=()
+  if [[ -n "$CCACHE_BIN" ]]; then
+    launcher_args=(-DCMAKE_C_COMPILER_LAUNCHER="$CCACHE_BIN" -DCMAKE_CXX_COMPILER_LAUNCHER="$CCACHE_BIN")
+  fi
+  # Separate tree, not a reconfigure of build-libcxx: LLVM_USE_SANITIZER
+  # changes the ABI of the built libc++/libc++abi (sanitizer interceptors,
+  # container-annotations), so it cannot share a build directory with the
+  # plain instrumented-free tree used for ordinary check-cxx runs.
+  cmake -S runtimes -B build-libcxx-asan -G Ninja \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind" \
+    -DLLVM_USE_SANITIZER="Address;Undefined" \
+    -DCMAKE_C_COMPILER="$repo_root/build-nyx/bin/clang" \
+    -DCMAKE_CXX_COMPILER="$repo_root/build-nyx/bin/clang++" \
+    "${launcher_args[@]}"
+}
+
 case "${1:-all}" in
   nyx) configure_nyx ;;
   libcxx) configure_libcxx ;;
-  all) configure_nyx; configure_libcxx ;;
-  *) echo "usage: $0 {nyx|libcxx|all}" >&2; exit 1 ;;
+  libcxx-asan) configure_libcxx_asan ;;
+  all) configure_nyx; configure_libcxx; configure_libcxx_asan ;;
+  *) echo "usage: $0 {nyx|libcxx|libcxx-asan|all}" >&2; exit 1 ;;
 esac

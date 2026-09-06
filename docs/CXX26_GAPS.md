@@ -184,9 +184,9 @@ build against it.
 | Paper | Amends | Evidence |
 |---|---|---|
 | ~~P3819R0~~ | ~~P2900R14 Contracts~~ | **Resolved 2026-09-06, was a false alarm — see below.** |
-| P3697R1 | P3471R4 hardening | Adds 5 hardened components + 5 FTMs at `202506L` |
+| ~~P3697R1~~ | ~~P3471R4 hardening~~ | **Resolved 2026-09-06 — 4 of 5 components implemented, 5th out of scope.** See below. |
 | ~~P3878R1~~ | ~~P3471R4 hardening~~ | **Resolved 2026-09-06 — already behaviorally conformant, doc comment added.** See below. |
-| P3860R1 | `atomic_ref<T>` (Tier 4, `Complete`) | **Confirmed real 2026-09-06** — genuine gap, scoped below, not yet implemented |
+| ~~P3860R1~~ | ~~`atomic_ref<T>`~~ | **Resolved 2026-09-06 — converting constructor implemented.** See below. |
 
 **Rank 2 — named blockers with multi-paper fan-out.** Each unblocks a chain,
 so the effort amortizes across several rows.
@@ -1791,26 +1791,7 @@ New tests: `atomics.ref/cv_qualified.pass.cpp` (value_type identity across all f
 | [x] | P2869R4 | Remove deprecated `shared_ptr` atomic access APIs | Complete 2026-08-23 — the tracker's own "low complexity" label undersold this: these functions had never been given `_LIBCPP_DEPRECATED_IN_CXX20` in this fork despite the standard deprecating them since C++20 ([depr.util.smartptr.shared.atomic]), so the work was adding that plus the `_LIBCPP_ENABLE_CXX26_REMOVED_SHARED_PTR_ATOMICS` escape-hatch gate (same pattern as allocator/string/codecvt/strstream) plus updating 11 existing test files with the escape-hatch flag, not a bare deletion. `__sp_mut`/`__get_sp_mut` stay unconditional — implementation plumbing, not part of the removed public surface. Verified empty via `grep -rn "std::atomic_load\|atomic_store\|atomic_exchange\|atomic_compare_exchange" libcxx/src libcxx/test` (excluding the shared_ptr test dir itself) that no other in-tree code calls the now-deprecated overloads under `-Werror` |
 | [ ] | P3008R6 | Atomic floating-point min/max | Untriaged until 2026-09-05. Sofia 2025-06. Direct extension of P0493R5 (Complete) — that row's floating-point `fetch_max`/`fetch_min` already follow `fmaximum_num`/`fminimum_num` NaN semantics via a CAS loop, so check how much of this is already satisfied before scoping |
 | [ ] | P3111R8 | Atomic reduction operations | Untriaged until 2026-09-05. Sofia 2025-06 |
-| [!] | P3860R1 | NB comment GB13-309: `atomic_ref<T>` is not convertible to `atomic_ref<const T>` | **Confirmed real 2026-09-06, not yet implemented.** DR against C++20 (retroactive, not C++26-gated) — P3323R1 (Complete, 2026-08-23) added cv-qualified `atomic`/`atomic_ref` support but overlooked a converting constructor between cv-qualified `atomic_ref` specializations, the same way `T*` converts to `const T*`. Confirmed missing: `grep -n "atomic_ref(const atomic_ref\|atomic_ref(atomic_ref" libcxx/include/__atomic/atomic_ref.h` finds only the exact-type defaulted copy constructor (`atomic_ref(const atomic_ref&) noexcept = default`) at 4 sites — one per specialization (primary/generic, integral, floating-point, pointer; confirmed via the 4 `explicit atomic_ref(_Tp& __obj)` constructor sites at lines 393/429/597/726). **Scope for next session — exact wording fetched, no re-derivation needed:**
-```cpp
-template <class U>
-constexpr atomic_ref(const atomic_ref<U>&) noexcept;
-```
-added to all 4 specializations (generic/primary, integral, floating-point,
-pointer), constrained on "(9.1) `T` and `U` are similar types ([conv.qual]),
-and (9.2) `is_convertible_v<U*, T*>` is `true`" — the same
-qualification-conversion shape already used elsewhere in the library (e.g.
-`shared_ptr`'s converting constructor, `T*` → `const T*`), broader than plain
-`T` → `const T` (also covers array-of-unknown-bound-to-known-bound-style
-pointer-convertible relationships via "similar types"). Implement via this
-fork's existing `__is_similar`-style trait if one exists (check
-`<__type_traits/`) before writing a new one. Tests: confirm
-`atomic_ref<const T>{atomic_ref<T>{...}}` converts and the reverse direction
-does not (SFINAEs out of overload resolution, not a hard error — verify with
-a `.compile.pass.cpp`, not `.verify.cpp`, unless the paper specifies otherwise).
-Not started this session — deliberately deferred rather than started
-mid-verification of an unrelated background `check-cxx` run, given this
-touches ABI-sensitive atomic code across 4 specializations. |
+| [x] | P3860R1 | NB comment GB13-309: `atomic_ref<T>` is not convertible to `atomic_ref<const T>` | **Complete 2026-09-06.** Added `template<class U> constexpr atomic_ref(const atomic_ref<U>&) noexcept` to all 4 specializations (generic/primary, integral, floating-point, pointer), constrained on a new `__is_similar_v<T, U>` trait (`libcxx/include/__type_traits/is_similar.h` — recursive pointer-chain-stripping implementation of [conv.qual]'s "similar types", using a helper class template for the recursive case since a variable template cannot be forward-declared then redefined) `&& is_convertible_v<U*, T*>`, matching the exact adopted wording. Tests (`libcxx/test/std/atomics/atomics.ref/ctor.converting.pass.cpp`) cover all 4 specializations converting `atomic_ref<T>` → `atomic_ref<const T>`, confirm the reverse direction and unrelated-type conversions both SFINAE away (`is_constructible_v` false, not a hard error), and confirm `noexcept`. Verified: targeted test passes; full `libcxx/test/std/atomics/` sweep (134 tests) clean except one pre-existing, independently-isolated failure (`cv_qualified.pass.cpp` — reproduces identically on a `git stash`-clean tree with zero session changes applied, a deprecated-volatile-return-type diagnostic unrelated to this work); clean under ASan+UBSan (`fast` hardening mode) as part of a combined 1336-test sweep with P3697R1's changes. No new FTM — this is a DR against already-shipped C++20 `atomic_ref`, not a new feature. |
 
 ### Tier 5 — Freestanding completeness
 
@@ -2248,7 +2229,7 @@ way deliberately (see Notes for what's done vs. remaining).
 | [x] | P3349R1 | Converting contiguous iterators to pointers |
 | [!] | P3378R2 | `constexpr` exception types | **Session-sized** — library-side ABI restructure, not compiler-blocked (see block below) |
 | [x] | P3471R4 | Standard Library Hardening | **Complete 2026-09-06.** Runtime checks landed 2026-08-24 (fixed `inplace_vector` and `mdspan::operator[]`'s array/span overloads; `forward_list`'s `NON_NULL` category kept deliberately). FTMs landed 2026-09-06: the `|Partial|` status had rested on §10.11's `20????L` placeholders, but the **adopted** wording assigns concrete values — 14 macros at `202502L`, verified against `eel.is/c++draft/version.syn` directly rather than via P3697R1's quotation of them. Macros are **guarded, not unconditional**: under `_LIBCPP_HARDENING_MODE_NONE` libc++ is a non-hardened implementation per [structure.specifications] (violations are plain UB), so an unconditional macro would overclaim. 13 use `!= _LIBCPP_HARDENING_MODE_NONE`; `__cpp_lib_hardened_forward_list` uses `== EXTENSIVE || == DEBUG`, which makes the 2026-08-24 `NON_NULL` decision visible in the macro rather than silently overclaiming in `fast`. The mode constants are **deliberately not ordered** (`EXTENSIVE` is `1 << 4`, `DEBUG` is `1 << 3`) so these must be equality comparisons — never `>=`. Verified across all four modes; the generated tests genuinely discriminate (the `fast` run asserts `forward_list`'s macro is *undefined* while `extensive` asserts it is `202502L`, and both pass). Follow-on: P3697R1 below |
-| [!] | P3697R1 | Minor additions to C++26 standard library hardening | **Rank 1**, amends P3471R4. Sofia 2025-06. Adds hardened preconditions to `view_interface::front`/`back`, `counted_iterator` (9 ops), `common_iterator` (10 ops), `shared_ptr<T[N]>::operator[]`, `basic_stacktrace::current`/`operator[]`, plus 5 FTMs at `202506L`. Reuses the existing `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS` machinery — same shape as the 2026-08-24 pass |
+| [x] | P3697R1 | Minor additions to C++26 standard library hardening | **Complete 2026-09-06 for 4 of 5 components; 5th out of scope.** `view_interface::front`/`back` and `common_iterator` (10 ops) already had the exact hardening upstream — no code change needed. `counted_iterator` had a real miscategorization bug: 6 of its 9 hardened operations (constructor, `operator++()`, both `operator++(int)` overloads, `operator+=`, `operator-=`) used `_LIBCPP_ASSERT_UNCATEGORIZED`, which is a no-op in `fast` hardening mode per `__assert`'s category table — recategorized all 6 to `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS` (checked from `fast` onward), matching the other 3 already-correct operations and this fork's own category-description docs (`__configuration/hardening.h`: "checks that any attempts to access a container element... do not attempt to go out of bounds"). `shared_ptr<T[N]>::operator[]` had zero hardening — added `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__i >= 0 && (!__is_bounded_array_v<_Tp> \|\| static_cast<size_t>(__i) < extent<_Tp>::value), ...)`. **`basic_stacktrace::current`/`operator[]` is out of scope**: `<stacktrace>` is entirely unimplemented in this fork (P0881R7, blank status in `Cxx23Papers.csv`) — there is no `basic_stacktrace` to add hardening to; implementing `<stacktrace>` itself is a separate, session-sized greenfield undertaking, not part of this hardening paper. 4 FTMs added at `202506L` (`__cpp_lib_hardened_view_interface`, `_counted_iterator`, `_common_iterator`, `_shared_ptr_array`; no `_basic_stacktrace` macro, correctly, since the feature doesn't exist), guarded `!= _LIBCPP_HARDENING_MODE_NONE` (all 4 components are now consistently `VALID_ELEMENT_ACCESS`-categorized, so unlike `forward_list`'s narrower guard this one applies uniformly). New hardening death tests for all 4 components (none existed before). Verified across all 4 hardening modes explicitly on both the plain build and under ASan+UBSan (`fast`/`extensive`/`debug`); full affected-directory regression sweep (1202 tests) clean across all 4 modes; combined 1336-test ASan sweep (with P3860R1) clean except the one pre-existing, unrelated `cv_qualified.pass.cpp` failure. Implemented in pairing with Codex CLI (`codex exec`) per this session's operating model — Codex drafted the diff and tests, Claude reviewed line-by-line, ran independent verification, and caught/fixed two minor include-ordering slips before commit. |
 | [x] | P3878R1 | Hardening should not use the `observe` semantic | **Assessed and closed 2026-09-06.** Fetched the paper's wording diff directly: it tightens `[structure.specifications]` to require hardened preconditions be evaluated with a *terminating* semantic — no library API/macro change, no FTM. This fork's own `_LIBCPP_ASSERTION_SEMANTIC` (`libcxx/include/__configuration/hardening.h`) already never selects a non-terminating semantic automatically — the `hardening-dependent` default maps `fast`/`extensive` → `quick_enforce` and `debug` → `enforce`, both terminating; `_LIBCPP_ASSERTION_SEMANTIC_OBSERVE` (log-and-continue) is reachable only via an explicit, documented-as-experimental user override. So behaviorally this fork was already conformant. What was missing: the header's own comment block already carried an explicit disclaimer that selecting `ignore` doesn't produce a conforming "Hardened" implementation, but had no equivalent disclaimer for `observe` — which P3878R1's tightened wording now requires too. Added the parallel note. Comment-only change, verified via a standalone compile of `<version>` (which transitively includes the file) rather than a full-suite run, since comments cannot affect compiled output. |
 | [~] | P2714R1 | Bind front and back to NTTP callables | `\|Partial\|` in the CSV; was untracked here until 2026-09-05 |
 | [ ] | P2927R3 | Inspecting `exception_ptr` | Untriaged until 2026-09-05. Sofia 2025-06. Pairs with P3748R0 below |
@@ -6375,3 +6356,67 @@ blocked, what's next. Do not remove old entries.
   state afterward (diffed clean against the published template) — the actual
   fix lives only in this repo's template, effective starting with the next
   cut release, not retroactively in already-published (immutable) snapshots.
+
+- **2026-09-06 (overnight autonomous session)**: Closed the remainder of
+  Rank 1 — **P3697R1** and **P3860R1** — in pairing with Codex CLI
+  (`codex exec`) per this session's explicit operating model: Codex drafted
+  implementations and tests against a fully-pre-scoped spec (paper wording
+  fetched and verified against `eel.is` before handoff, not left for Codex
+  to re-derive), Claude reviewed every diff line-by-line, ran independent
+  verification (never trusted Codex's self-reported pass/fail counts at
+  face value), and caught/fixed two minor include-ordering slips before
+  commit. Full findings recorded in the Tier 4/Tier 6 rows above; summary:
+  P3697R1 needed far less new code than scoped (3 of 5 components were
+  already correctly hardened upstream; the real find was a `counted_iterator`
+  categorization bug making 6 of 9 hardened operations silently inert in
+  `fast` mode) and one component (`basic_stacktrace`) is a hard dead end
+  this session (`<stacktrace>` doesn't exist in this fork at all). P3860R1
+  was implemented exactly per its pre-fetched scope, needing a new
+  `__is_similar_v` trait (`__type_traits/is_similar.h`) whose first sketch
+  (a self-referencing variable-template partial specialization) doesn't
+  compile in C++ — Codex correctly caught this and used a helper class
+  template instead, verified against a genuine two-level-pointer case.
+
+  **Two operational incidents worth recording:**
+  (1) A `codex exec resume` call (correcting an earlier scoping mistake:
+  I'd said "4 miscategorized assertions" in `counted_iterator`, Codex found
+  6 and correctly stopped rather than guessing) ran for **~9 hours** doing
+  ~15 minutes of purely mechanical verification work, with zero rate-limit
+  or network errors — the entire cost was model reasoning latency,
+  worsened by `model_reasoning_effort=high` on already-scoped mechanical
+  work and a large accumulated context from the resume. Killed it, verified
+  its already-produced diff directly, and finished the mechanical
+  verification myself via `libcxx-lit` in a couple of minutes. See
+  `feedback_codex_pairing_latency` in the assistant's memory system for the
+  full lesson and diagnostic method (check `uptime`, log mtime, and the
+  turns-vs-elapsed-time ratio before assuming a long-running session is
+  making progress).
+  (2) `build-libcxx-asan` — referenced by `cxx26/dev/testrun.sh`'s
+  `contracts-lib-asan`/`reflection-lib-asan` suites and by this document's
+  own verification checklist — did not exist on disk (no recipe had ever
+  been captured into `cxx26/dev/configure-build-trees.sh`, only ad-hoc-built
+  in a past session). Added a `configure_libcxx_asan` function to that
+  script (`-DLLVM_USE_SANITIZER="Address;Undefined"` against `build-nyx`'s
+  already-built compiler-rt) so this is reproducible going forward. Separately
+  discovered libc++'s own lit test suite only accepts a **single**
+  `use_sanitizer` value (`Address`, `Undefined`, etc., not a combined
+  string) even though the underlying compiled library is instrumented with
+  both — pass `--param use_sanitizer=Address` when invoking `libcxx-lit`
+  against this tree; both sanitizers' checks still run since they're baked
+  into the same compiled binary, the lit parameter only affects
+  test-harness-level feature tags. Also hit a real race distinct from the
+  same-build-tree race documented earlier in this log: running a build
+  against `build-libcxx-asan` while a *parallel Codex session* was actively
+  editing files elsewhere in the shared `libcxx/include/` source tree
+  produced a dozen simultaneous, unrelated compile failures (a CMake
+  re-glob triggered by a new header file appearing mid-build); retrying
+  identically once Codex's session was quiescent succeeded cleanly. Full
+  detail in `feedback_codex_pairing_latency`.
+
+  Both items fully verified before commit: implementation matches
+  fetched wording; targeted + broad regression sweeps (up to 1336 tests)
+  clean on both the plain and ASan+UBSan-instrumented trees across all 4
+  hardening modes where applicable; one pre-existing, unrelated failure
+  (`atomics.ref/cv_qualified.pass.cpp`, a deprecated-volatile-return-type
+  diagnostic) independently isolated via `git stash` against a clean tree
+  before being excluded from the "zero new failures" claim.
