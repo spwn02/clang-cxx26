@@ -90,4 +90,14 @@ int main(int, char**) {
   assert(std::simd::all_of(std::simd::has_single_bit(bits)));
   assert(std::simd::bit_width(bits)[3] == 4);
   assert(std::simd::popcount(std::simd::rotl(bits, 1))[0] == 1);
+
+  // [simd.ctor]/17-19 (P3922R1): a mask deduces to the vec type of decltype(+k), i.e. the
+  // native integer promotion of the mask's element size, not the mask's own (possibly
+  // narrower) element type.
+  {
+    std::simd::mask<int, 4> k(true);
+    std::simd::basic_vec promoted(k);
+    static_assert(std::same_as<decltype(promoted), decltype(+k)>);
+    assert(promoted[0] == 1);
+  }
 }

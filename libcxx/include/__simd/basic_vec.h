@@ -401,6 +401,11 @@ public:
   }
 };
 
+// [simd.ctor]/17-19: deduction from a mask promotes through unary +.
+template <size_t _Bytes, class _Abi>
+  requires(__mask_enabled<_Bytes, _Abi> && __has_integer_from<_Bytes>)
+basic_vec(basic_mask<_Bytes, _Abi>) -> basic_vec<__integer_from<_Bytes>, _Abi>;
+
 // [simd.syn]
 template <class _Tp, __simd_size_type _Np = __simd_size_v<_Tp, __native_abi<_Tp>>>
 using mask = typename vec<_Tp, _Np>::mask_type;
