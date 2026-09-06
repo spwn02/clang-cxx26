@@ -106,8 +106,24 @@ struct __constant_wrapper_operators {
   template <__constexpr_param _Lp, __constexpr_param _Rp>
   friend constexpr auto operator,(_Lp, _Rp) noexcept = delete;
 
-  // Pseudo-mutators. Compound assignment operators are intentionally absent;
-  // dependent compound assignments currently trigger a compiler assertion.
+  // Pseudo-mutators.
+#  define _LIBCPP_CW_COMPOUND_ASSIGN(__op) \
+  template <__constexpr_param _Tp, __constexpr_param _Rp> \
+  constexpr auto operator __op(this _Tp, _Rp) noexcept -> constant_wrapper<(_Tp::value __op _Rp::value)> { \
+    return {}; \
+  }
+  _LIBCPP_CW_COMPOUND_ASSIGN(+=)
+  _LIBCPP_CW_COMPOUND_ASSIGN(-=)
+  _LIBCPP_CW_COMPOUND_ASSIGN(*=)
+  _LIBCPP_CW_COMPOUND_ASSIGN(/=)
+  _LIBCPP_CW_COMPOUND_ASSIGN(%=)
+  _LIBCPP_CW_COMPOUND_ASSIGN(&=)
+  _LIBCPP_CW_COMPOUND_ASSIGN(|=)
+  _LIBCPP_CW_COMPOUND_ASSIGN(^=)
+  _LIBCPP_CW_COMPOUND_ASSIGN(<<=)
+  _LIBCPP_CW_COMPOUND_ASSIGN(>>=)
+#  undef _LIBCPP_CW_COMPOUND_ASSIGN
+
   template <__constexpr_param _Tp>
   constexpr auto operator++(this _Tp) noexcept -> constant_wrapper<(++_Tp::value)> { return {}; }
   template <__constexpr_param _Tp>

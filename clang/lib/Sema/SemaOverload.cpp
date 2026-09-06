@@ -15341,8 +15341,19 @@ ExprResult Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
       // If there are no functions to store, just build a dependent
       // BinaryOperator or CompoundAssignment.
       if (BinaryOperator::isCompoundAssignmentOp(Opc))
+        // NOTE: this dependent placeholder is classified as a prvalue by
+        // ClassifyBinaryOp's blanket dependent-type early return (see
+        // ExprClassification.cpp's "For binary operators which are unknown
+        // due to type dependence..." comment), so it must be constructed
+        // with a value kind that agrees with that convention. Using
+        // VK_LValue here (mirroring the non-dependent compound-assignment
+        // result) disagreed with the classifier and tripped
+        // Expr::ClassifyImpl's assert(isPRValue()) for any type-dependent
+        // compound assignment (e.g. `x += y` where x's type is a template
+        // parameter). The real value kind is recomputed correctly once this
+        // placeholder is discarded and rebuilt at instantiation.
         return CompoundAssignOperator::Create(
-            Context, Args[0], Args[1], Opc, Context.DependentTy, VK_LValue,
+            Context, Args[0], Args[1], Opc, Context.DependentTy, VK_PRValue,
             OK_Ordinary, OpLoc, CurFPFeatureOverrides(), Context.DependentTy,
             Context.DependentTy);
       return BinaryOperator::Create(

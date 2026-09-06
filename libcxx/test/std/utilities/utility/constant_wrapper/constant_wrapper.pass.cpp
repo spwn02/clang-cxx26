@@ -40,6 +40,21 @@ struct Mutator {
   constexpr Mutator operator--(int) const { return {value - 1}; }
 };
 
+struct CompoundAssignable {
+  int value;
+  constexpr bool operator==(const CompoundAssignable&) const = default;
+  constexpr CompoundAssignable operator+=(CompoundAssignable o) const { return {value + o.value}; }
+  constexpr CompoundAssignable operator-=(CompoundAssignable o) const { return {value - o.value}; }
+  constexpr CompoundAssignable operator*=(CompoundAssignable o) const { return {value * o.value}; }
+  constexpr CompoundAssignable operator/=(CompoundAssignable o) const { return {value / o.value}; }
+  constexpr CompoundAssignable operator%=(CompoundAssignable o) const { return {value % o.value}; }
+  constexpr CompoundAssignable operator&=(CompoundAssignable o) const { return {value & o.value}; }
+  constexpr CompoundAssignable operator|=(CompoundAssignable o) const { return {value | o.value}; }
+  constexpr CompoundAssignable operator^=(CompoundAssignable o) const { return {value ^ o.value}; }
+  constexpr CompoundAssignable operator<<=(CompoundAssignable o) const { return {value << o.value}; }
+  constexpr CompoundAssignable operator>>=(CompoundAssignable o) const { return {value >> o.value}; }
+};
+
 constexpr int add(int x, int y) { return x + y; }
 constexpr int values[] = {4, 8, 15};
 struct S { int member; };
@@ -127,6 +142,11 @@ static_assert((M{}++).value.value == 5);
 static_assert((--M{}).value.value == 3);
 static_assert((M{}--).value.value == 3);
 
+// Compound assignment SFINAEs away for scalar constant_wrapper (its `value` is a plain
+// constexpr, i.e. const, static data member, same reason plain `operator=` above is also
+// unavailable for scalars) -- it only participates for class-typed operands whose own
+// compound-assignment operators are callable on a const object and return a new value,
+// exactly like Assignable's `operator=` above.
 static_assert(!has_plus_assign<std::constant_wrapper<1>, std::constant_wrapper<2>>);
 static_assert(!has_minus_assign<std::constant_wrapper<1>, std::constant_wrapper<2>>);
 static_assert(!has_mult_assign<std::constant_wrapper<1>, std::constant_wrapper<2>>);
@@ -137,6 +157,21 @@ static_assert(!has_or_assign<std::constant_wrapper<1>, std::constant_wrapper<2>>
 static_assert(!has_xor_assign<std::constant_wrapper<1>, std::constant_wrapper<2>>);
 static_assert(!has_lshift_assign<std::constant_wrapper<1>, std::constant_wrapper<2>>);
 static_assert(!has_rshift_assign<std::constant_wrapper<1>, std::constant_wrapper<2>>);
+
+using CA = std::constant_wrapper<CompoundAssignable{7}>;
+using CA2 = std::constant_wrapper<CompoundAssignable{2}>;
+static_assert(has_plus_assign<CA, CA2>);
+static_assert((CA{} += CA2{}).value.value == 9);
+static_assert((CA{} -= CA2{}).value.value == 5);
+static_assert((CA{} *= CA2{}).value.value == 14);
+static_assert((CA{} /= CA2{}).value.value == 3);
+static_assert((CA{} %= CA2{}).value.value == 1);
+static_assert((CA{} &= CA2{}).value.value == 2);
+static_assert((CA{} |= CA2{}).value.value == 7);
+static_assert((CA{} ^= CA2{}).value.value == 5);
+static_assert((CA{} <<= CA2{}).value.value == 28);
+static_assert((CA{} >>= CA2{}).value.value == 1);
+static_assert(is_cw<decltype(CA{} += CA2{})>::value);
 
 static_assert(__cpp_lib_constant_wrapper == 202606L);
 
