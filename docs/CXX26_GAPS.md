@@ -192,26 +192,74 @@ build against it.
 so the effort amortizes across several rows.
 
 - ~~**P2781R9 `constant_wrapper`**~~ → P3222R0 → P2642R6 / P3355R2 → P1673R13's
-  `__cpp_lib_linalg` FTM. Longest chain in this document. **Implemented
-  2026-09-06** — see Tier 6 below for the exact scope (35 of 45 operators;
-  10 compound-assignment pseudo-mutators blocked by a real, precisely-isolated
-  compiler bug). **Whether this satisfies P3222R0's downstream needs is
-  unverified** — do not treat this chain as unblocked without checking those
-  papers' actual usage against what's implemented here.
-- **P3068R6** (throwing in constant evaluation) → P3378R2 `constexpr`
-  exception types.
-- **P0533R9** (C++23, only `isfinite`/`isinf`/`isnan`/`isnormal` done) →
-  P1383R2 `constexpr <cmath>`.
-- **P2419R2** (C++23, untracked) → P2757R3, and with it `__cpp_lib_format`'s
-  whole C++26 bump.
+  `__cpp_lib_linalg` FTM. Longest chain in this document. **Fully implemented
+  2026-09-07** — all 45 operators, including the 10 compound-assignment
+  pseudo-mutators that were blocked by a real compiler bug through
+  2026-09-06 (see Tier 6 and the `ExprClassification.cpp` fix below — the bug
+  is now fixed, not just documented). **Whether this satisfies P3222R0's
+  downstream needs is unverified** — do not treat this chain as unblocked
+  without checking those papers' actual usage against what's implemented
+  here.
+- ~~**P3068R6** (throwing in constant evaluation) → P3378R2 `constexpr`
+  exception types.~~ **Assessed 2026-09-07, deliberately deferred, not a
+  status flip.** Confirmed via direct probing: zero existing scaffolding —
+  no LangOptions flag, no `VisitCXXThrowExpr` in the constant evaluator, no
+  `try`/`catch`-in-`constexpr` support of any kind (a `CXXThrowExpr` reaching
+  evaluation today falls through to the generic "subexpression not valid in
+  a constant expression" catch-all, not a dedicated diagnostic). This is
+  genuine multi-session Sema/AST design work — new unwinding-signal plumbing
+  through every recursive `Evaluate*` call site, plus catch-based exception-
+  type matching that doesn't exist in any form — not a bug fix or mechanical
+  addition. Rushing it under a 0-bug bar risked exactly the kind of silent
+  dark-corner mistake (nested constexpr calls, `consteval` interaction) this
+  session was trying to avoid. P3378R2 remains correctly scoped as a separate
+  session-sized library ABI restructure sitting on top of it. Revisit both
+  together in a dedicated session.
+- ~~**P0533R9** (C++23, only `isfinite`/`isinf`/`isnan`/`isnormal` done) →
+  P1383R2 `constexpr <cmath>`.~~ **Compiler capability added 2026-09-07, not
+  user-visible yet — see Tier 1 for the full finding.**
+  `__builtin_floor`/`ceil`/`trunc`/`round`/`nearbyint`/`rint`/`fmod`/
+  `remainder`/`lround`/`llround`/`lrint`/`llrint` are now constant-folded in
+  `ExprConstant.cpp`, using already-correct `llvm::APFloat` primitives
+  (`roundToIntegral`/`mod`/`remainder`) — no new numerics. **But `std::floor`
+  etc. still don't work in a `static_assert`**: `<cmath>` exposes them as
+  plain `using ::floor`-style aliases of glibc's non-`constexpr`
+  declarations (confirmed the same is already true of `std::fabs`, not a
+  regression — never actually tested via `std::` before). Exposing this to
+  real callers needs a further library-side wrapper change, not attempted
+  this session — see Tier 1. `sqrt`/`pow`/`exp`/`log`/trig functions remain
+  compiler-blocked regardless: confirmed APFloat has no correctly-rounded
+  implementation of any of them, and this fork has no MPFR or other
+  arbitrary-precision fallback wired into Clang's build.
+  `__cpp_lib_constexpr_cmath` is a single all-or-nothing FTM, so neither
+  paper's status flips — see Tier 1 for the updated boundary.
+- ~~**P2419R2** (C++23, untracked) → P2757R3, and with it `__cpp_lib_format`'s
+  whole C++26 bump.~~ **P2419R2 implemented 2026-09-07** (chrono/locale
+  encoding conversion for `char`-based format strings under non-Unicode
+  locales) — see the format/print block below for the verification caveat
+  (no ISO-8859-1-family locale installed on this machine to exercise the
+  actual mojibake-fix path; the full `time`/`format` suites confirm no
+  regression to the common UTF-8-locale case). **P2757R3 itself remains
+  unscoped** — it's a separable feature only coupled to P2419R2 via the
+  shared FTM value, not attempted this session.
 
 **Rank 3 — in-flight subsystems this document could not see.** Real code
 exists; the roadmap just did not know about it.
 
 - **`std::simd`** — 7 papers `|In Progress|`, code in `libcxx/include/__simd/`.
-  See Tier 7. Audit-and-finish, not greenfield.
+  See Tier 7. Audit-and-finish, not greenfield. Two of the four remaining
+  gaps closed 2026-09-07 (`iota`, the range-constructor deduction guide);
+  P2933R4's bit ops and P2664R11's permute constexpr-index enforcement still
+  open.
 - **P3372R3** constexpr containers and adaptors (`|In Progress|`).
-- **P2714R1** bind front/back to NTTP callables (`|Partial|`).
+  `stack`/`queue`/`priority_queue` made fully constexpr 2026-09-07; the
+  ~12 remaining containers (`deque`, `forward_list`, `list`, the map/set/
+  unordered families, `node_handle`, `flat_map`/`flat_set`'s remaining
+  surface) are unaudited/unstarted.
+- ~~**P2714R1** bind front/back to NTTP callables (`|Partial|`).~~
+  **Completed 2026-09-07** — `not_fn<f>()` was already done and
+  undocumented; `bind_front<f>()`/`bind_back<f>()` added, mirroring its
+  pattern exactly.
 
 **Rank 4 — greenfield.** Ordered roughly by surface area: P3552R3 (coroutine
 task type), P3179R9 (parallel range algorithms), P3037R6 (`constexpr`
@@ -646,63 +694,105 @@ Good starting point after Tier 0.
 | [x] | P2363R5 | Heterogeneous lookup, remaining associative container overloads | Done 2026-08-20 |
 | [x] | P1901R2 | `weak_ptr` as unordered associative container key | Done 2026-08-20 |
 | [x] | P2944R3 | `reference_wrapper` comparisons | Done 2026-08-22 — all Constraints (`pair`/`tuple`/`optional`/`variant`/`reference_wrapper`) were already implemented (mostly inherited from upstream commits); only the shared `__cpp_lib_constrained_equality` FTM flag and CSV status needed flipping |
-| [!] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | **Compiler-blocked** 2026-08-22 — `<complex>` done; scalar math functions need constexpr-evaluator support this Clang doesn't have. See notes below. |
+| [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | **Compiler capability added 2026-09-07, not yet user-visible** — `<complex>` done; the constant evaluator now folds `__builtin_floor`/`ceil`/`trunc`/`round`/`nearbyint`/`rint`/`fmod`/`remainder`/`lround`/`llround`/`lrint`/`llrint` directly, but `std::floor` etc. don't benefit yet (see notes below — a real gap found and corrected during verification, not shipped as a false claim). `sqrt`/`pow`/`exp`/`log`/trig remain compiler-blocked (no correctly-rounded primitive exists anywhere in this LLVM). |
 | [x] | P3168R2 | `std::optional` range support | Done 2026-08-20 — implementation was already complete via P2988R11; added missing test coverage |
 
-**P1383R2 scalar `<cmath>`/`<cstdlib>` — compiler-blocked, found 2026-08-22 (not
-implemented, not scope-excluded):** probed this fork's constant evaluator
-directly rather than guessing from the generator's `unimplemented` flag alone
-(the flag only proves nobody's flipped it, not that the compiler can't). Repro
-(compile with `build-nyx/bin/clang++ -std=c++26`):
+**P1383R2 scalar `<cmath>`/`<cstdlib>` — partially unblocked 2026-09-07.**
+Originally found compiler-blocked 2026-08-22 by probing this fork's constant
+evaluator directly rather than guessing from the generator's `unimplemented`
+flag alone (the flag only proves nobody's flipped it, not that the compiler
+can't):
 
 ```cpp
-static_assert(__builtin_fabs(-1.0) == 1.0);          // OK
-static_assert(__builtin_fmin(1.0, 2.0) == 1.0);      // OK
-static_assert(__builtin_sqrt(4.0) == 2.0);           // error: not a constant expression
-static_assert(__builtin_floor(1.5) == 1.0);          // error: not a constant expression
-static_assert(__builtin_pow(2.0, 3.0) == 8.0);       // error: not a constant expression
+static_assert(__builtin_fabs(-1.0) == 1.0);          // OK (already worked)
+static_assert(__builtin_fmin(1.0, 2.0) == 1.0);      // OK (already worked)
+static_assert(__builtin_sqrt(4.0) == 2.0);           // still: not a constant expression
+static_assert(__builtin_floor(1.5) == 1.0);          // NOW OK — fixed 2026-09-07
+static_assert(__builtin_pow(2.0, 3.0) == 8.0);       // still: not a constant expression
 ```
 
 Confirmed by grepping `clang/lib/AST/ExprConstant.cpp` for `Builtin::BI__builtin_`
-cases directly (not inferred from the static_assert failures alone): this
-fork's evaluator implements exactly `fabs`/`copysign`/`fmax`/`fmin`/
-`fmaximum_num`/`fminimum_num`/`nan`/`nans` (floating) and `abs`/`labs`/`llabs`
-(integer) — nothing else. `sqrt`/`pow`/`floor`/`ceil`/`trunc`/`round`/`fmod`/
-`exp`/`log`/every trig function have **no case at all**, not a
-disabled/guarded one. Line 15957's own `// FIXME: Builtin::BI__builtin_powi`
-comment is upstream's own marker that this area is known-incomplete — this is
-upstream LLVM's gap, not something introduced by this fork's reflection work.
+cases: before this session, this fork's evaluator implemented exactly
+`fabs`/`copysign`/`fmax`/`fmin`/`fmaximum_num`/`fminimum_num`/`nan`/`nans`
+(floating) and `abs`/`labs`/`llabs` (integer) — nothing else. `sqrt`/`pow`/
+`floor`/`ceil`/`trunc`/`round`/`fmod`/`exp`/`log`/every trig function had
+**no case at all**.
 
-**Do not attempt to close this by extending `ExprConstant.cpp`** — beyond the
-sheer size (dozens of transcendental/rounding functions, each needing
-correctly-rounded semantics matching the Cpp17 math-function requirements),
-this file's neighborhood is exactly where this fork's own reflection
-evaluator (`ExprConstantMeta.cpp`) lives; adding an unrelated upstream feature
-here creates permanent rebase friction against a file this fork's actual
-purpose depends on. A pure-library fallback (hand-rolled constexpr algorithms
-for e.g. `floor`/`ceil`/`trunc`, dispatched via
-`__builtin_is_constant_evaluated()`) is also not worth starting: **
-`__cpp_lib_constexpr_cmath` is a single all-or-nothing macro** — implementing
-a subset changes no observable status (CSV stays Partial, FTM stays
-unimplemented) since the paper requires the whole surface area.
+**2026-09-07: added the bit-exact subset, deliberately not the rest.**
+Researched first (not assumed) which functions could be added with genuinely
+zero correctness risk: `llvm::APFloat` (`llvm/include/llvm/ADT/APFloat.h`/
+`.cpp`) already has fully correct, spec-following `roundToIntegral
+(RoundingMode)`, `mod(const APFloat&)` (C `fmod` semantics), and
+`remainder(const APFloat&)` (IEEE remainder) — no new numerics needed.
+Added `floor`/`ceil`/`trunc`/`round`/`nearbyint`/`rint`/`fmod`/`remainder`/
+`lround`/`llround`/`lrint`/`llrint` following the exact code shape of the
+pre-existing `fabs`/`copysign`/`fmax` cases (evaluate args via
+`EvaluateFloat`, call the APFloat method, `return true`), plus the matching
+`OnlyBuiltinPrefixedAliasIsConstexpr`/`Constexpr` TableGen attributes in
+`Builtins.td` (same pattern already used for `Fabs`/`Fmod` upstream).
+`sqrt`/`pow`/`exp`/`log`/trig functions remain **explicitly out of scope**:
+confirmed APFloat has zero sqrt implementation (`APFloat.h:138`'s own
+"New operations: sqrt..." comment is a stale, still-unfulfilled TODO), and
+this fork has no MPFR or other arbitrary-precision fallback wired into
+Clang's build (MPFR exists only as llvm-libc's *test-time* oracle under
+`libc/utils/MPFRWrapper/`, not a compile-time dependency available to
+`ExprConstant.cpp`). Hand-rolling any of these would risk exactly the
+subtly-wrong-last-bit correctness bugs a "genuinely 0 bugs" bar rules out.
 
-**Also blocked behind an undone C++23 prerequisite**, same shape as the
-P2944R3/P2165R4 finding above: the generator's `__cpp_lib_constexpr_cmath`
-entry has *only* a `c++23` value (P0533R9's own number) with `unimplemented:
-True` — no C++26 bump exists yet for P1383R2's own value. `Cxx23Papers.csv`
-confirms P0533R9 itself is only `|In Progress|` (just `isfinite`/`isinf`/
-`isnan`/`isnormal`, which need no builtin folding at all — pure bit
-manipulation on the float representation). So P1383R2 is a C++26 row sitting
-on top of an incomplete C++23 row, tracked in a different CSV entirely — a
-future session should not start P1383R2 thinking it's one paper deep.
+**Extending `ExprConstant.cpp` was previously against standing policy**
+(rebase friction against this fork's own reflection evaluator,
+`ExprConstantMeta.cpp`, which lives in the same file's neighborhood) —
+overridden 2026-09-07 after confirming with the user that this fork only
+re-syncs with upstream LLVM once official reflection support lands there
+(years out, not the next release), making the added friction from this
+change marginal against an already-large future reconciliation. The policy
+against inventing new numerics without a correctly-rounded primitive to
+call still stands, independent of the rebase question — that's why
+`sqrt`/`pow`/`exp`/`log`/trig stay out.
 
-**Tracked as compiler-blocked, not scope-excluded** — the repro above is the
-regression test for "has this been fixed yet" (deliberately not landed as a
-lit test: an assertion that a compiler limitation exists needs `XFAIL` and
-would misfire confusingly, not usefully, once someone actually fixes the
-evaluator). Revisit if this fork's Clang ever gains upstream's missing
-builtin-folding support, or if P0533R9's own classification-function scope
-expands first.
+**Still blocked behind an undone C++23 prerequisite either way**: the
+generator's `__cpp_lib_constexpr_cmath` entry has *only* a `c++23` value
+(P0533R9's own number) with `unimplemented: True` — no C++26 bump exists yet
+for P1383R2's own value. `Cxx23Papers.csv` confirms P0533R9 itself is only
+`|In Progress|` (the classification functions plus, as of 2026-09-07, the
+same bit-exact rounding/remainder subset — `__cpp_lib_constexpr_cmath` is a
+single all-or-nothing macro, so neither paper's FTM flips regardless of how
+much of the safe subset is done).
+
+**Tracked as compiler-blocked for the remaining functions, not
+scope-excluded** — revisit `sqrt`/`pow`/`exp`/`log`/trig if this fork's
+Clang ever gains a correctly-rounded implementation path (upstream APFloat
+sqrt support, or a deliberate MPFR build dependency decision) for them.
+
+**Real gap found during verification, not shipped as a false claim: the new
+compiler capability isn't user-visible yet.** The obvious next check —
+`static_assert(std::floor(1.5) == 1.0)` — still fails, and this is *not* a
+regression: `libcxx/include/cmath` exposes `std::floor`/`ceil`/`trunc`/
+`round`/`nearbyint`/`rint`/`fmod`/`remainder`/`lround`/`llround`/`lrint`/
+`llrint` (and, it turns out, `std::fabs` too — confirmed directly, this was
+never actually tested via `std::` before, only via `__builtin_fabs`) as
+plain `using ::floor`-style aliases of glibc's declarations
+(`bits/mathcalls.h`'s `__MATHCALLX`/`__MATHDECL` macros), which are not
+`constexpr`. Clang's "recognize a library call as its builtin" mechanism —
+the reason `__builtin_floor(1.5)` folds — does not retroactively make an
+arbitrary matching libc declaration usable in a constant expression; only
+an actual `__builtin_`-prefixed call, or a genuinely `constexpr`-declared
+wrapper, qualifies. A libcxx-level test asserting the `std::` form
+(`constexpr-rounding.pass.cpp`) was written, caught by the full `check-cxx`
+gate as a real failure, and removed rather than left broken or narrowed
+to hide the gap — `clang/test/SemaCXX/constexpr-cmath-builtins.cpp` (which
+tests the compiler capability correctly, via `__builtin_floor` etc.
+directly) is the only surviving test for this session's actual change.
+**To make this genuinely useful to `std::` callers, a future session needs
+to replace the `using`-aliases with real constexpr-dispatching wrapper
+functions** (`__builtin_is_constant_evaluated()` to choose between the
+builtin and the runtime libm call), following the exact pattern this same
+header already uses internally for `__constexpr_isnan`/`__constexpr_isinf`
+(lines ~686-710) — just exposed as the actual public `std::floor` etc.
+rather than a private helper. Not attempted this session: it's a real,
+independent library-API change (ABI/overload-set implications across
+`float`/`double`/`long double`, `errno` interaction) that deserves its own
+scoped verification pass, not a rushed tail-end addition.
 
 **Known issue found while implementing `copyable_function` (not fixed — pre-existing,
 affects `move_only_function` too, out of scope for this contract):**
@@ -746,7 +836,7 @@ than being tackled as a single commit.
 | [x] | P3227R1 | Fixing the library API for contract violation handling | Complete 2026-09-06. Untracked by any CSV row (Contracts-family wording papers aren't tracked there — see P3819R0's note above). Found by comparing this fork's `<contracts>` synopsis directly against `eel.is/c++draft`'s `[support.contract.violation]`: `bool is_terminating() const noexcept` was entirely missing. Added (`libcxx/include/contracts` + `libcxx/src/contracts.cpp`, returns `semantic() == evaluation_semantic::enforce` — the only terminating semantic this fork's `evaluation_semantic` enum has), with a new test (`libcxx/test/std/contracts/is_terminating.pass.cpp`) covering both `observe` (false) and `enforce` (true, handler throws to avoid actually terminating the test process, matching `exceptions-test.pass.cpp`'s precedent). This paper is also where `evaluation_exception()` was *first proposed* (later removed by P3819R0 above) — the two rows are related but this one is a pure addition, no removal involved. |
 | [ ] | P3552R3 | Add a coroutine task type (`execution::task`) | Untriaged until 2026-09-05. Major new facility; own sub-plan when started |
 | [ ] | P3179R9 | Parallel range algorithms | Untriaged until 2026-09-05. Large surface; interacts with Tier 3 ranges work |
-| [~] | P3372R3 | `constexpr` containers and adaptors | `\|In Progress\|` in the CSV but was untracked here — check what already landed before scoping |
+| [~] | P3372R3 | `constexpr` containers and adaptors | `\|In Progress\|` in the CSV. **2026-09-07: scoped and partially closed.** `vector`/`array`/`span`/`mdspan`/`basic_string`/`basic_string_view` were already fully constexpr (paper's own exclusion list, no work needed); `stack`/`queue`/`priority_queue` had **zero** constexpr anywhere (every ctor, `push`/`pop`, `top`/`front`/`back`, comparisons, deduction guides) — now fully constexpr, using `std::vector` as the constexpr-capable underlying container since the default (`std::deque`) isn't constexpr yet. `flat_map`/`flat_set` (partially constexpr already) and `deque`/`forward_list`/`list`/the map/set/unordered families/`node_handle` remain unaudited — a full per-header `constexpr` sweep is needed before estimating the remaining scope, several sessions in aggregate. |
 
 **P2300R10 is `Complete` for the paper, not for the C++26 execution surface.**
 Ten follow-on papers amend or extend it and are all unstarted (untriaged until
@@ -1702,24 +1792,42 @@ stays blocked transitively on this same chain.
 - **format/print block, worked partially 2026-08-22:**
   - P2845R8 (`formatter<path, charT>`) and P2587R3 (`to_string`/
     `to_wstring` float overloads) — both **Complete**, see rows below.
-  - P2757R3 (type-checking format args) — **assessed, not completable
-    this session, same shape as Tier 1's P1383R2 finding.** `Cxx2cPapers.
-    csv`'s existing P2637R3 row (inherited from upstream, not written
-    this session) already states outright: "Change of `__cpp_lib_format`
-    is blocked by P2419R2." Confirmed independently: P2419R2 ("Clarify
-    handling of encodings in localized formatting of chrono types") is a
-    *C++23* paper (`Cxx23Papers.csv`), still blank/unstarted, not tracked
-    anywhere in this Tier list. `__cpp_lib_format`'s C++26 bump is a
-    single cumulative value shared across P2510R3 (formatting pointers,
-    already `|Complete|`, LLVM 17), P2757R3 itself, P2637R3 (member
-    `visit`, already `|Complete|`), and P2918R2 (runtime format strings
-    II, already `|Complete|`) — meaning even though P2757R3's own scope
-    might be implementable, the shared macro can't advance past it
-    without P2419R2 also landing, and P2419R2 isn't scoped or started.
-    Don't attempt P2757R3 in isolation next time without first doing
-    P2419R2 (itself untracked — add it to a future C++23-gap pass) or
-    deciding to split `__cpp_lib_format`'s single value into something
-    finer-grained (nonstandard, would need real justification).
+  - P2419R2 ("Clarify handling of encodings in localized formatting of
+    chrono types", C++23) — **implemented 2026-09-07.** `[time.format]`
+    requires that when a format string's literal encoding is Unicode (true
+    for `char`-based format strings on this platform per
+    `__clang_literal_encoding__` == `"UTF-8"`), locale-dependent chrono
+    replacements (month/weekday names via `%a`/`%A`/`%b`/`%B` and similar
+    `time_put`-backed conversions) are converted to that literal encoding
+    before insertion. `__format_locale_specific`
+    (`libcxx/include/__chrono/formatter.h`) now decodes the locale's raw
+    `time_put<char>` output via that locale's own `codecvt<wchar_t, char>`
+    facet and re-encodes as UTF-8 via the existing `__narrow_to_utf8`
+    machinery (`<locale>`, same pattern already used elsewhere). The
+    `wchar_t` path is untouched — this platform's wide-locale facilities
+    are already Unicode-native. **Verification caveat:** no ISO-8859-1-
+    family locale is installed on this machine (`locale -a` confirms), so
+    the actual non-Unicode conversion path (new test
+    `formatter.encoding.pass.cpp`, `REQUIRES: locale.fr_CA.ISO-8859-1`) is
+    UNSUPPORTED here rather than exercised. What is verified: the full
+    `libcxx/test/std/time/` + `libcxx/test/std/utilities/format/` suites
+    (500 tests, 55 correctly unsupported) pass unchanged, confirming this
+    new code path — which now runs on every `char`-based chrono format
+    call, not just non-Unicode ones — doesn't regress the common
+    UTF-8-locale case. `Cxx23Papers.csv` marks it `|In Progress|` rather
+    than `|Complete|` until the non-Unicode path is actually exercised
+    somewhere.
+  - P2757R3 (type-checking format args) — **still not attempted.** Its own
+    scope might be implementable, but it wasn't scoped this session since
+    the immediate blocker (P2419R2) is now cleared — the two papers are
+    only coupled through the shared `__cpp_lib_format` FTM value below, not
+    a technical dependency, so P2757R3 needs its own assessment before
+    attempting it. `__cpp_lib_format`'s C++26 bump is a single cumulative
+    value shared across P2510R3 (formatting pointers, already `|Complete|`,
+    LLVM 17), P2757R3 itself, P2637R3 (member `visit`, already
+    `|Complete|`), and P2918R2 (runtime format strings II, already
+    `|Complete|`) — so even with P2419R2 done, the macro still can't
+    advance past P2757R3's own row until that paper lands too.
   - P3107R5 / P3235R3 (`std::print` efficiency) — **assessed, out of
     scope for this session, deserves a dedicated implementation session
     of its own.** These are pure implementation-strategy papers with no
@@ -1762,11 +1870,11 @@ back to `to_input` based on the paper title alone.
 | [~] | P1673R13 | BLAS-based linear algebra interface | Partial 2026-08-24 — audited: name-set diff clean, found and fixed a real SFINAE-conformance gap (~90 functions retrofitted with concept constraints) plus (via P3371R5 below) a real-if-needed gap in the hermitian rank-1/2/k/2k updates; `|Partial|` because the FTM chain to `202511L` traces through P3222R0, which is genuinely blocked on P2642R6/`constant_wrapper` — see Session Log |
 | [x] | P3371R5 | Consistent rank-1/2/k/2k updates | Complete 2026-08-24 — found via tracing the `__cpp_lib_linalg` FTM chain (not previously in this CSV). 3 of its 4 required changes were already correct in this fork; fixed the 4th (`real-if-needed(alpha)` and diagonal `real-if-needed(E[i, i])` missing from the 4 hermitian rank-update E-taking overloads) — see Session Log |
 | [x] | P2587R3 | `to_string` or not `to_string` | Complete 2026-08-22 — float/double/long double overloads used `sprintf("%f", ...)` (fixed 6 decimals); now `format("{}", val)` per wording, shortest round-trip. Integer overloads already matched via `to_chars`, untouched |
-| [ ] | P2757R3 | Type-checking format args | Assessed 2026-08-22, blocked — shared `__cpp_lib_format` bump can't advance without C++23's P2419R2 (untracked, unstarted) also landing — see format/print block note |
+| [ ] | P2757R3 | Type-checking format args | P2419R2 (its blocker) implemented 2026-09-07 — see format/print block note. P2757R3 itself still needs its own scoping pass, not attempted |
 | [ ] | P3107R5 | Efficient `std::print` implementation | Assessed 2026-08-22 — confirmed `__vprint_nonunicode` materializes a full `string` before writing, the exact thing this paper eliminates; real redesign, deserves its own session — see format/print block note |
 | [x] | P2845R8 | `std::filesystem::path` formatting | Complete 2026-08-22 — new `formatter<path, charT>` in `__filesystem/path_format.h`, path-format-spec grammar (fill-and-align, width, `?`, `g`) |
 | [ ] | P3235R3 | `std::print` faster/leaner for more types | Assessed 2026-08-22, same redesign as P3107R5 above, bundle with it |
-| [ ] | P3391R2 | `constexpr` `std::format` | Untriaged until 2026-09-05. Kona 2025-11. Interacts with the `__cpp_lib_format` FTM chain already blocked on P2419R2 — check whether it shares that blocker before scoping |
+| [ ] | P3391R2 | `constexpr` `std::format` | Untriaged until 2026-09-05. Kona 2025-11. P2419R2 (the `__cpp_lib_format` FTM chain's blocker) is now implemented — re-check whether this still shares a blocker with P2757R3 before scoping |
 | [ ] | P3037R6 | `constexpr` `std::shared_ptr` and friends | Untriaged until 2026-09-05. Sofia 2025-06 |
 | [ ] | P3913R1 | Optimize `std::optional` in range adaptors | Untriaged until 2026-09-05. Kona 2025-11. Builds on P3168R2 (already Complete) |
 | [ ] | P3612R1 | Harmonize proxy-reference operations (LWG 3638, 4187) | Untriaged until 2026-09-05. Kona 2025-11 |
@@ -2231,12 +2339,39 @@ way deliberately (see Notes for what's done vs. remaining).
 | [x] | P3369R0 | `constexpr` for `uninitialized_default_construct` |
 | [x] | P3370R1 | New library headers from C23 | Complete 2026-08-23 — see Session Log |
 | [x] | P3349R1 | Converting contiguous iterators to pointers |
-| [!] | P3378R2 | `constexpr` exception types | **Session-sized** — library-side ABI restructure, not compiler-blocked (see block below) |
+| [!] | P3378R2 | `constexpr` exception types | **Session-sized, deliberately deferred 2026-09-07** — library-side ABI restructure sitting on top of P3068R6 (see below), which was assessed and confirmed to need genuine multi-session Sema/AST work, not a bug fix. See the Rank 2 summary and P3068R6's row for the full reasoning. |
 | [x] | P3471R4 | Standard Library Hardening | **Complete 2026-09-06.** Runtime checks landed 2026-08-24 (fixed `inplace_vector` and `mdspan::operator[]`'s array/span overloads; `forward_list`'s `NON_NULL` category kept deliberately). FTMs landed 2026-09-06: the `|Partial|` status had rested on §10.11's `20????L` placeholders, but the **adopted** wording assigns concrete values — 14 macros at `202502L`, verified against `eel.is/c++draft/version.syn` directly rather than via P3697R1's quotation of them. Macros are **guarded, not unconditional**: under `_LIBCPP_HARDENING_MODE_NONE` libc++ is a non-hardened implementation per [structure.specifications] (violations are plain UB), so an unconditional macro would overclaim. 13 use `!= _LIBCPP_HARDENING_MODE_NONE`; `__cpp_lib_hardened_forward_list` uses `== EXTENSIVE || == DEBUG`, which makes the 2026-08-24 `NON_NULL` decision visible in the macro rather than silently overclaiming in `fast`. The mode constants are **deliberately not ordered** (`EXTENSIVE` is `1 << 4`, `DEBUG` is `1 << 3`) so these must be equality comparisons — never `>=`. Verified across all four modes; the generated tests genuinely discriminate (the `fast` run asserts `forward_list`'s macro is *undefined* while `extensive` asserts it is `202502L`, and both pass). Follow-on: P3697R1 below |
 | [x] | P3697R1 | Minor additions to C++26 standard library hardening | **Complete 2026-09-06 for 4 of 5 components; 5th out of scope.** `view_interface::front`/`back` and `common_iterator` (10 ops) already had the exact hardening upstream — no code change needed. `counted_iterator` had a real miscategorization bug: 6 of its 9 hardened operations (constructor, `operator++()`, both `operator++(int)` overloads, `operator+=`, `operator-=`) used `_LIBCPP_ASSERT_UNCATEGORIZED`, which is a no-op in `fast` hardening mode per `__assert`'s category table — recategorized all 6 to `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS` (checked from `fast` onward), matching the other 3 already-correct operations and this fork's own category-description docs (`__configuration/hardening.h`: "checks that any attempts to access a container element... do not attempt to go out of bounds"). `shared_ptr<T[N]>::operator[]` had zero hardening — added `_LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__i >= 0 && (!__is_bounded_array_v<_Tp> \|\| static_cast<size_t>(__i) < extent<_Tp>::value), ...)`. **`basic_stacktrace::current`/`operator[]` is out of scope**: `<stacktrace>` is entirely unimplemented in this fork (P0881R7, blank status in `Cxx23Papers.csv`) — there is no `basic_stacktrace` to add hardening to; implementing `<stacktrace>` itself is a separate, session-sized greenfield undertaking, not part of this hardening paper. 4 FTMs added at `202506L` (`__cpp_lib_hardened_view_interface`, `_counted_iterator`, `_common_iterator`, `_shared_ptr_array`; no `_basic_stacktrace` macro, correctly, since the feature doesn't exist), guarded `!= _LIBCPP_HARDENING_MODE_NONE` (all 4 components are now consistently `VALID_ELEMENT_ACCESS`-categorized, so unlike `forward_list`'s narrower guard this one applies uniformly). New hardening death tests for all 4 components (none existed before). Verified across all 4 hardening modes explicitly on both the plain build and under ASan+UBSan (`fast`/`extensive`/`debug`); full affected-directory regression sweep (1202 tests) clean across all 4 modes; combined 1336-test ASan sweep (with P3860R1) clean except the one pre-existing, unrelated `cv_qualified.pass.cpp` failure. Implemented in pairing with Codex CLI (`codex exec`) per this session's operating model — Codex drafted the diff and tests, Claude reviewed line-by-line, ran independent verification, and caught/fixed two minor include-ordering slips before commit. |
 | [x] | P3878R1 | Hardening should not use the `observe` semantic | **Assessed and closed 2026-09-06.** Fetched the paper's wording diff directly: it tightens `[structure.specifications]` to require hardened preconditions be evaluated with a *terminating* semantic — no library API/macro change, no FTM. This fork's own `_LIBCPP_ASSERTION_SEMANTIC` (`libcxx/include/__configuration/hardening.h`) already never selects a non-terminating semantic automatically — the `hardening-dependent` default maps `fast`/`extensive` → `quick_enforce` and `debug` → `enforce`, both terminating; `_LIBCPP_ASSERTION_SEMANTIC_OBSERVE` (log-and-continue) is reachable only via an explicit, documented-as-experimental user override. So behaviorally this fork was already conformant. What was missing: the header's own comment block already carried an explicit disclaimer that selecting `ignore` doesn't produce a conforming "Hardened" implementation, but had no equivalent disclaimer for `observe` — which P3878R1's tightened wording now requires too. Added the parallel note. Comment-only change, verified via a standalone compile of `<version>` (which transitively includes the file) rather than a full-suite run, since comments cannot affect compiled output. |
-| [~] | P2781R9 | `std::constant_wrapper` | **Implemented 2026-09-06 for 35 of ~45 operators.** New header `libcxx/include/__utility/constant_wrapper.h`, wired into `<utility>` behind `_LIBCPP_STD_VER >= 26`. Implemented against the **adopted eel.is wording**, not the WG21 paper draft (which still shows an older, more complex `cw-fixed-value`-wrapper design later simplified to plain `template<auto X, class T = decltype(X)>` before adoption — verified by fetching `eel.is/c++draft/utility.syn` directly, not trusting the paper's own HTML). All unary/binary arithmetic/bitwise/logical/comparison operators, `->*`, deleted comma, `operator()`/`operator[]`'s dual constexpr/runtime dispatch, and `++`/`--` (all 4 forms) are implemented and tested. **The 10 compound-assignment operators (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `\|=`, `^=`, `<<=`, `>>=`) are deliberately absent** — a real, precisely-isolated compiler bug: `template<class T, class R> auto f(T, R) -> C<(T::value += R::value)>;` crashes with `Assertion 'isPRValue()' failed` at `clang/lib/AST/ExprClassification.cpp:74`, reached via `Sema::DeduceAutoType` → `Expr::ClassifyImpl` → `ClassifyBinaryOp`. Root cause traced (not just observed): `ClassifyBinaryOp` (`ExprClassification.cpp:639`) returns `CL_PRValue` for any still-type-dependent binary expression via an early `E->getType() == Ctx.DependentTy` check, but the `CompoundAssignOperator` node Sema constructs for a dependent `+=` apparently isn't given a value kind consistent with that, so `ClassifyImpl`'s own `assert(isPRValue())` fails. Confirmed by direct, independent testing (not just Codex's report) that plain assignment (`T::value = 1`) and increment/decrement (`++T::value`, `T::value++`) compile fine — only the 10 `CompoundAssignOperatorClass` nodes crash. This needs a real compiler fix (likely in Sema's construction of a dependent `CompoundAssignOperator`'s value kind) in a future dedicated session — not a library-side workaround, which would misrepresent conformance. The test suite (`libcxx/test/std/utilities/utility/constant_wrapper/constant_wrapper.pass.cpp`) includes explicit negative `static_assert`s proving all 10 are genuinely absent, not silently broken. FTM `__cpp_lib_constant_wrapper` at `202606L` (confirmed via eel.is, headers `["utility"]`). Verified: isolated test passes; full `clang_modules_include.gen.py` suite (146 tests, includes the mandatory `utility.compile.pass.cpp` standalone-module check) clean; `libcxx/test/std/utilities/` (1431 tests) and `libcxx/test/std/containers/` (1839 tests) sweeps show only failures already present in the last known-good baseline (verified by name against the archived JSON, not assumed). Implemented in pairing with Codex CLI; a spec-fidelity deviation was caught and fixed during review (Codex's default template argument used `remove_cvref_t<decltype(X)>` instead of the standard's exact `decltype(X)` — confirmed via direct testing that the plain form works fine in this compiler for both scalar and class-type NTTPs, so the deviation was unnecessary). **Whether this satisfies P3222R0/P2642R6/P3355R2/P1673R13's actual usage is unverified** — do not flip those papers' status based on this row alone. |
-| [~] | P2714R1 | Bind front and back to NTTP callables | `\|Partial\|` in the CSV; was untracked here until 2026-09-05 |
+| [x] | P2781R9 | `std::constant_wrapper` | **Fully implemented 2026-09-07 — all ~45 operators.** New header `libcxx/include/__utility/constant_wrapper.h`, wired into `<utility>` behind `_LIBCPP_STD_VER >= 26`. Implemented against the **adopted eel.is wording**, not the WG21 paper draft (which still shows an older, more complex `cw-fixed-value`-wrapper design later simplified to plain `template<auto X, class T = decltype(X)>` before adoption — verified by fetching `eel.is/c++draft/utility.syn` directly, not trusting the paper's own HTML). All unary/binary arithmetic/bitwise/logical/comparison operators, `->*`, deleted comma, `operator()`/`operator[]`'s dual constexpr/runtime dispatch, `++`/`--` (all 4 forms), and (as of 2026-09-07) all 10 compound-assignment operators (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `\|=`, `^=`, `<<=`, `>>=`) are implemented and tested. **The compound-assignment operators were blocked through 2026-09-06 by a real compiler bug, now fixed** — see the `ExprClassification.cpp` entry below for the root cause and fix; `constant_wrapper.h`'s own "intentionally absent" comment has been removed along with the fix. New test coverage exercises them via a class-typed operand with its own const-qualified compound-assignment operators (scalar `int` operands still correctly SFINAE out, matching the existing `operator=` precedent — `constant_wrapper`'s `value` is a plain `constexpr`/const static member for scalar NTTPs, so no in-place mutation is ever possible regardless of the compiler bug). FTM `__cpp_lib_constant_wrapper` at `202606L` (confirmed via eel.is, headers `["utility"]`). Verified: full `check-clang` after the compiler fix, zero new failures/fixes via `testdiff.py`. **Whether this satisfies P3222R0/P2642R6/P3355R2/P1673R13's actual usage is unverified** — do not flip those papers' status based on this row alone. |
+| [x] | P2714R1 | Bind front and back to NTTP callables | **Completed 2026-09-07.** `not_fn<f>()` was already implemented and correct (`libcxx/include/__functional/not_fn.h:53-72`) but undocumented in this tracker — 1 of 3 required entry points. Added `bind_front<f>()`/`bind_back<f>()` mirroring that exact pattern (same null-pointer/null-member-pointer `static_assert` guard, same `_LIBCPP_HIDE_FROM_ABI`/`[[__nodiscard__]]` annotations, reusing each header's existing `__perfect_forward`-based storage strategy for the bound arguments). `<functional>`'s synopsis updated with both new declarations. Verified: `bind_front.pass.cpp`/`bind_back.pass.cpp`/`bind_back.verify.cpp` all pass against `build-libcxx` (a real `-Wshadow` regression from the initial patch — a new top-level `f` shadowing several pre-existing nested `f`/`x` declarations in the verify test — was found and fixed during verification, not shipped). |
+**`ExprClassification.cpp` compiler bug — fixed 2026-09-07, not a WG21 paper
+but the item that unblocked P2781R9 above.** Root cause, precisely
+identified: `Sema::CreateOverloadedBinOp` (`clang/lib/Sema/
+SemaOverload.cpp:15339-15350`) stamped a type-dependent
+`CompoundAssignOperator` placeholder as `VK_LValue`, but
+`ClassifyBinaryOp`'s dependent-type early return
+(`clang/lib/AST/ExprClassification.cpp:646-647`) unconditionally treats
+*every* dependent binary node as `CL_PRValue` — its own comment states this
+"needs to agree with how they are created." Plain dependent `=`/`+` were
+correctly stamped `VK_PRValue` at the sibling construction call three lines
+below, so only compound assignment disagreed, tripping
+`Expr::ClassifyImpl`'s `assert(isPRValue())` (`ExprClassification.cpp:74`)
+whenever one was classified pre-instantiation (e.g. via an `auto` NTTP
+argument's `DeduceAutoType` call, exactly `constant_wrapper`'s shape).
+**Fix:** one-token change, `VK_LValue` → `VK_PRValue` at the construction
+site, aligning it with the classifier's own stated convention rather than
+special-casing the classifier. The placeholder is discarded and rebuilt
+with the real value kind at instantiation regardless, so this only affects
+the disposable dependent placeholder — no currently-passing test could
+regress, since the pre-fix code unconditionally crashed on this exact
+shape. New regression test: `clang/test/SemaTemplate/dependent-compound-
+assign-classification.cpp` (all 10 compound-assignment operators plus
+`=`/`++`/`--`/`+` negative controls). Verified: full `check-clang`, zero new
+failures/fixes via `testdiff.py` against the last pushed baseline (the same
+7 pre-existing, unrelated failures — `Reflection/splice-{exprs,namespaces}.
+cpp`, five `SemaCXX/*` files — present both before and after).
+
 | [ ] | P2927R3 | Inspecting `exception_ptr` | Untriaged until 2026-09-05. Sofia 2025-06. Pairs with P3748R0 below |
 | [ ] | P3748R0 | Inspecting `exception_ptr` should be constexpr | Untriaged until 2026-09-05. Kona 2025-11. Do after P2927R3 |
 | [ ] | P3503R3 | Type-erased allocator use in `promise`/`packaged_task` | Untriaged until 2026-09-05. Sofia 2025-06 |
@@ -2274,15 +2409,15 @@ need no code change at all.
 
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
-| [~] | P1928R15 | `std::simd` — merge data-parallel types from Parallelism TS 2 | **Audited 2026-09-06, real gaps found, not fixed.** Core surface (`basic_vec`/`basic_mask`, ABI/traits, arithmetic/comparisons, reductions, load/store, permutations, algorithms, complex math, chunk/cat) substantially matches adopted `[simd]`. Two gaps: (1) `iota` ([simd.creation]) is entirely absent from `__simd/creation.h`; (2) the adopted range-constructor deduction guide (`basic_vec(R&&, Ts...) -> ...`, [simd.ctor]/903-937) is missing from `basic_vec.h`, and the range *constructor* that does exist doesn't enforce the adopted constant-expression size constraints (documented in-code as a known deviation at `basic_vec.h:199`, not silently unrealized). Neither fixed this session — each is a real, independent, non-trivial addition |
+| [~] | P1928R15 | `std::simd` — merge data-parallel types from Parallelism TS 2 | **Audited 2026-09-06, two gaps closed 2026-09-07.** Core surface (`basic_vec`/`basic_mask`, ABI/traits, arithmetic/comparisons, reductions, load/store, permutations, algorithms, complex math, chunk/cat) substantially matches adopted `[simd]`. `iota` ([simd.creation]) added as a variable template (`T()` for arithmetic `T`, generator-construction for `basic_vec`/`basic_mask` `T`, matching `eel.is/c++draft/simd.creation` exactly). The range-constructor deduction guide ([simd.ctor]) added to `basic_vec.h`, deducing `value_type`/ABI from the range. The range *constructor* itself still doesn't enforce the adopted constant-expression size constraint — that's a separate, already-documented, deliberate deviation (`basic_vec.h:197-201`), not part of either closed gap, left as-is. |
 | [x] | P3287R3 | Exploration of namespaces for `std::simd` | **Resolved 2026-09-06 — moot, no code change.** Adopted wording is plain `namespace std::simd`, already exactly what this fork implements |
 | [x] | P3691R1 | Reconsider naming of the namespace for `std::simd` | **Resolved 2026-09-06 — moot, no code change.** Same finding as P3287R3 |
 | [x] | P3430R3 | simd issues: explicit, unsequenced, identity-element position, disabled simd | **Audited 2026-09-06 — already correct.** Verified against adopted `[simd.ctor]` (broadcast ctor value-preserving-constrained, generator ctor explicit + one invocation per index in increasing order), `[simd.reductions]` (`identity_element` positioned after `binary_op`), and the disabled-specialization wording (only documented members retained) — all match at the cited `basic_vec.h`/`reductions.h` locations |
 | [x] | P3441R2 | Rename `simd_split` to `simd_chunk` | **Audited 2026-09-06 — already correct.** No `simd_split` occurs anywhere in implementation or tests; `chunk` (both deduced- and explicit-width overloads) is already the only name used, matching adopted `[simd.creation]` |
 | [x] | P2663R7 | Interleaved complex values support | **Audited 2026-09-06 — already correct.** Complex vector elements, construction from separate real/imaginary vectors, `real()`/`imag()` accessors/mutators, and complex math overloads all present and match adopted wording |
-| [ ] | P2933R4 | Extend `<bit>` with overloads for `std::simd` | **Audited 2026-09-06 — real gap, not fixed.** `__simd/bit.h` implements the older lane-wise set through `popcount`, but adopted `[simd.bit]` additionally specifies `bit_reverse`, `shl`/`shr`, `bit_repeat`, and `bit_compress`/`bit_expand` — none present. `<bit>` itself also has no SIMD overloads. A real, independent addition for a future session |
-| [ ] | P2664R11 | Extend `std::simd` with permutation API | **Audited 2026-09-06 — real gap: present but wrong, not fixed.** Static/dynamic `permute`, `compress`, `expand`, gather, scatter are all implemented (`__simd/permute.h`), but the adopted static-permute wording mandates every generated index be a constant expression in `{zero_element, uninit_element} ∪ [0, V::size())` — the implementation explicitly documents (at `permute.h:54`) that it does not enforce this for non-`constexpr` generators. A real conformance gap, not a missing-feature one |
-| [ ] | P2876R3 | More `std::simd` constructors and accessors | **Audited 2026-09-06 — real gap, not fixed.** The range and complex constructors/accessors this paper adds are present, but (same finding as P1928R15) the range constructor doesn't enforce the adopted constant-expression size constraint, and lacked its deduction guide until P3922R1's fix below closed the *mask*-deduction half of that gap — the *range* deduction guide is still missing |
+| [ ] | P2933R4 | Extend `<bit>` with overloads for `std::simd` | **Audited 2026-09-06, still open — attempted 2026-09-07, deliberately not forced.** `__simd/bit.h` implements the older lane-wise set through `popcount`, but adopted `[simd.bit]` additionally specifies `bit_reverse`, `shl`/`shr`, `bit_repeat`, and `bit_compress`/`bit_expand`, all of which forward to scalar `<bit>` functions this fork doesn't have yet — that's the actual blocker, not a missing simd-side pattern (both `bit_reverse` and `shl`/`shr` have direct in-file macro precedent to follow once the scalar functions exist). No scalar `<bit>` API was invented as a side effect of this task; a future session needs to scope the scalar prerequisite first. |
+| [ ] | P2664R11 | Extend `std::simd` with permutation API | **Audited 2026-09-06 — real gap: present but wrong, still open.** Static/dynamic `permute`, `compress`, `expand`, gather, scatter are all implemented (`__simd/permute.h`), but the adopted static-permute wording mandates every generated index be a constant expression in `{zero_element, uninit_element} ∪ [0, V::size())` — the implementation explicitly documents (at `permute.h:54`) that it does not enforce this for non-`constexpr` generators. A real conformance gap, not a missing-feature one — the value semantics are already correct (three-way `zero_element`/`uninit_element`/in-range return, runtime-asserted), what's missing is compile-time Mandates enforcement for a non-constexpr-callable generator. This is a Mandates/ill-formed-NDR requirement, unusual to enforce robustly for an arbitrary passed-in callable — needs real design work, not attempted this session. |
+| [ ] | P2876R3 | More `std::simd` constructors and accessors | **Audited 2026-09-06, one gap closed 2026-09-07.** The range and complex constructors/accessors this paper adds are present. The range constructor's missing deduction guide is now added (see P1928R15's row — same fix, shared gap). The range constructor itself still doesn't enforce the adopted constant-expression size constraint — an already-documented, deliberate deviation (`basic_vec.h:197-201`), not attempted as part of this fix. |
 | [x] | P3480R6 | `std::simd` is a range | **Audited 2026-09-06 — already correct.** `__simd/iterator.h` supplies the adopted exposition-only random-access-iterator surface exactly (dereference, indexing, arithmetic, three-way comparison, default-sentinel distance); both `basic_vec` and `basic_mask` expose `begin`/`cbegin`/`end`/`cend` |
 | [x] | P3922R1 | Missing deduction guide from `simd::mask` to `simd::vec` | **Complete 2026-09-06.** Added `basic_vec(basic_mask<Bytes, Abi>) -> basic_vec<integer_from<Bytes>, Abi>` per adopted `[simd.ctor]`/17-19 (deduces through the mask's unary `+` promotion), reusing this file's existing `__mask_enabled`/`__has_integer_from`/`__integer_from` helpers. New test added; full 9-test `simd/` suite verified clean |
 
@@ -2323,7 +2458,7 @@ tiers as makes sense.
 | [ ] | P3475R2 | Defang and deprecate `memory_order::consume` | Coordinate with Tier 4 atomics work — the 2026-08-23 Tier 4 session did not touch `memory_order.h`, so this is still fully deferred, not partially covered |
 | [ ] | P1967R14 | `#embed` | |
 | [!] | P1494R5 | Partial program correctness | Research-flavored, open-ended scope — consider deferring alongside Contracts once its actual scope is assessed |
-| [ ] | P3068R6 | Allowing exception throwing in constant-evaluation | Added 2026-09-05. **Rank 2 blocker** — this is the language half that Tier 6's P3378R2 (`constexpr` exception types) sits on top of, and P3557R3 (sender diagnostics) also wants it. Assess these three together; P3378R2's "session-sized, not compiler-blocked" note predates this row and should be re-read against it |
+| [ ] | P3068R6 | Allowing exception throwing in constant-evaluation | **Assessed 2026-09-07, deliberately deferred — not a scoping placeholder, a real finding.** Direct probing confirms zero existing scaffolding: no LangOptions flag (`clang/include/clang/Basic/LangOptions.def` has nothing throw-related), no `VisitCXXThrowExpr` anywhere in the real constant evaluator (`ExprConstant.cpp`'s only `CXXThrowExprClass` reference is in the unrelated legacy `CheckICE` C/C++98 integer-constant-expression classifier), no `try`/`catch`-in-`constexpr` support of any kind. A `CXXThrowExpr` reaching evaluation today falls through to the generic default-statement-kind path, producing the generic "subexpression not valid in a constant expression" diagnostic — a catch-all rejection, not a dedicated, partial, or stubbed mechanism. Implementing this means new unwinding-signal plumbing through every recursive `Evaluate*` call site (`EvalInfo` has no notion of "an exception is propagating" today) plus catch-based exception-type matching that doesn't exist in any form — core Sema/AST control-flow design work comparable in complexity to how early-return/break/continue already thread through statement evaluation, but for a new signal kind, plus new `try`/`catch` support. This is genuine multi-session work, not a bug fix or mechanical addition; rushing it under a "genuinely 0 bugs" bar risked exactly the kind of dark-corner mistake (nested constexpr calls, `consteval` interaction, the ABI-sensitive P3378R2 restructure sitting on top) that bar exists to prevent. This is the one Rank 2 item **not** closed this session, by deliberate choice — this is the language half that Tier 6's P3378R2 sits on top of, and P3557R3 (sender diagnostics) also wants it. Revisit all three together in a dedicated session. |
 | [ ] | P1467R9 | Extended floating-point types and standard names | Added 2026-09-05. `std::float16_t`/`float32_t`/`float64_t`/`bfloat16_t` — language *and* library surface (`<stdfloat>`). Large; not previously tracked on either side |
 | [ ] | P2582R1 | CTAD from inherited constructors | Added 2026-09-05 |
 | [ ] | P2590R2 | Explicit lifetime management | Added 2026-09-05. `std::start_lifetime_as` — has a library component too |
