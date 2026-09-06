@@ -23,7 +23,34 @@
 #include "callable_types.h"
 #include "types.h"
 
+constexpr int nttp_add(int x, int y) { return x + y; }
+
+struct NttpMemberFunction {
+  constexpr int add(int x, int y) const { return x + y; }
+};
+
+constexpr auto nttp_lambda = [](int x, int y) { return x + y; };
+
 constexpr void test_basic_bindings() {
+#if TEST_STD_VER >= 26
+  // Test binding NTTP callables.
+  {
+    constexpr auto f = std::bind_back<nttp_add>(2);
+    static_assert(f(1) == 3);
+    assert(f(1) == 3);
+  }
+  {
+    constexpr auto f = std::bind_back<&NttpMemberFunction::add>(2);
+    static_assert(f(NttpMemberFunction{}, 1) == 3);
+    assert(f(NttpMemberFunction{}, 1) == 3);
+  }
+  {
+    constexpr auto f = std::bind_back<nttp_lambda>(2);
+    static_assert(f(1) == 3);
+    assert(f(1) == 3);
+  }
+#endif // TEST_STD_VER >= 26
+
   { // Bind arguments, call without arguments
     {
       auto f = std::bind_back(MakeTuple{});

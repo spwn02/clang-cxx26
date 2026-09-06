@@ -223,6 +223,10 @@ template<class F, class... Args>
   constexpr unspecified bind_front(F&&, Args&&...); // C++20
 template<class F, class... Args>
   constexpr unspecified bind_back(F&&, Args&&...);  // C++23
+template<auto f, class... Args>
+  constexpr unspecified bind_front(Args&&... args); // C++26
+template<auto f, class... Args>
+  constexpr unspecified bind_back(Args&&... args);  // C++26
 
 template<class T> struct is_bind_expression;
 template<class T> struct is_placeholder;

@@ -68,6 +68,14 @@ struct MakeTuple {
   }
 };
 
+constexpr int nttp_add(int x, int y) { return x + y; }
+
+struct NttpMemberFunction {
+  constexpr int add(int x, int y) const { return x + y; }
+};
+
+constexpr auto nttp_lambda = [](int x, int y) { return x + y; };
+
 template <int X>
 struct Elem {
   template <int Y>
@@ -205,6 +213,25 @@ constexpr bool test() {
     auto fn = std::bind_front(&MemberFunction::foo, value, 0);
     assert(fn(0));
   }
+
+#if TEST_STD_VER >= 26
+  // Test binding NTTP callables.
+  {
+    constexpr auto f = std::bind_front<nttp_add>(1);
+    static_assert(f(2) == 3);
+    assert(f(2) == 3);
+  }
+  {
+    constexpr auto f = std::bind_front<&NttpMemberFunction::add>(NttpMemberFunction{}, 1);
+    static_assert(f(2) == 3);
+    assert(f(2) == 3);
+  }
+  {
+    constexpr auto f = std::bind_front<nttp_lambda>(1);
+    static_assert(f(2) == 3);
+    assert(f(2) == 3);
+  }
+#endif // TEST_STD_VER >= 26
 
   // Make sure that we copy the bound arguments into the unspecified-type.
   {

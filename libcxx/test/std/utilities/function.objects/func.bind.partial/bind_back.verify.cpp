@@ -17,9 +17,20 @@
 
 #include "types.h"
 
+#if _LIBCPP_STD_VER >= 26
+struct NttpMemberFunction {
+  void call() const {}
+};
+#endif
+
 constexpr int pass(int n) { return n; }
 
 void test() {
+#if _LIBCPP_STD_VER >= 26
+  auto nttp_null_member =
+      std::bind_back<static_cast<void (NttpMemberFunction::*)()>(nullptr)>(); // expected-error-re@*:* {{static assertion failed{{.*}}f cannot be equal to nullptr}}
+#endif
+
   { // Test calling constexpr function from non-constexpr `bind_back` result
     auto f1 = std::bind_back(pass, 1);
     static_assert(f1() == 1); // expected-error {{static assertion expression is not an integral constant expression}}
@@ -39,8 +50,8 @@ void test() {
       void operator()() {}
     };
 
-    F f;
-    auto f1 = std::bind_back(f);
+    F f2;
+    auto f1 = std::bind_back(f2);
     // expected-error-re@*:* {{static assertion failed{{.*}}bind_back requires decay_t<F> to be constructible from F}}
   }
 
