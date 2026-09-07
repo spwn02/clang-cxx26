@@ -1120,7 +1120,9 @@ public:
 #  endif
 
   template <class _Arg,
-            __enable_if_t<__is_transparently_comparable_v<_Compare, key_type, __remove_cvref_t<_Arg> >, int> = 0>
+            __enable_if_t<__is_transparent_v<_Compare, __remove_cvref_t<_Arg> > ||
+                              __is_transparently_comparable_v<_Compare, key_type, __remove_cvref_t<_Arg> >,
+                          int> = 0>
   [[__nodiscard__]] _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI mapped_type& at(_Arg&& __arg) {
     auto [_, __child] = __tree_.__find_equal(__arg);
     if (__child == nullptr)
@@ -1129,7 +1131,9 @@ public:
   }
 
   template <class _Arg,
-            __enable_if_t<__is_transparently_comparable_v<_Compare, key_type, __remove_cvref_t<_Arg> >, int> = 0>
+            __enable_if_t<__is_transparent_v<_Compare, __remove_cvref_t<_Arg> > ||
+                              __is_transparently_comparable_v<_Compare, key_type, __remove_cvref_t<_Arg> >,
+                          int> = 0>
   [[__nodiscard__]] _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI const mapped_type& at(_Arg&& __arg) const {
     auto [_, __child] = __tree_.__find_equal(__arg);
     if (__child == nullptr)
