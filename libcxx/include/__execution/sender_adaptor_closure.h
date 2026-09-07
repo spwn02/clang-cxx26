@@ -26,6 +26,9 @@
 #  pragma GCC system_header
 #endif
 
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26
@@ -66,11 +69,11 @@ _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) operator|(_Sndr&& __sndr, _Closur
 }
 
 // [exec.adapt.obj]p1: `c | d` produces a closure `e` such that `e(sndr)` is `d(c(sndr))`.
-template <__sender_adaptor_closure_object _C1, __sender_adaptor_closure_object _C2>
-  requires constructible_from<decay_t<_C1>, _C1> && constructible_from<decay_t<_C2>, _C2>
-_LIBCPP_HIDE_FROM_ABI constexpr auto operator|(_C1&& __c1, _C2&& __c2) noexcept(
-    is_nothrow_constructible_v<decay_t<_C1>, _C1> && is_nothrow_constructible_v<decay_t<_C2>, _C2>) {
-  return execution::__pipeable(std::__compose(std::forward<_C2>(__c2), std::forward<_C1>(__c1)));
+template <__sender_adaptor_closure_object _C1p, __sender_adaptor_closure_object _C2p>
+  requires constructible_from<decay_t<_C1p>, _C1p> && constructible_from<decay_t<_C2p>, _C2p>
+_LIBCPP_HIDE_FROM_ABI constexpr auto operator|(_C1p&& __c1, _C2p&& __c2) noexcept(
+    is_nothrow_constructible_v<decay_t<_C1p>, _C1p> && is_nothrow_constructible_v<decay_t<_C2p>, _C2p>) {
+  return execution::__pipeable(std::__compose(std::forward<_C2p>(__c2), std::forward<_C1p>(__c1)));
 }
 
 } // namespace execution
@@ -78,5 +81,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto operator|(_C1&& __c1, _C2&& __c2) noexcept(
 #endif // _LIBCPP_STD_VER >= 26
 
 _LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
 
 #endif // _LIBCPP___EXECUTION_SENDER_ADAPTOR_CLOSURE_H

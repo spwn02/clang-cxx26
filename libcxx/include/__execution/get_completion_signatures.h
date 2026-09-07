@@ -62,20 +62,20 @@ concept __has_member_get_completion_signatures = requires {
 };
 
 // [exec.snd.concepts]: SET-VALUE-SIG(T) -- set_value_t() if T is void, otherwise set_value_t(T).
-// Partial specialization rather than conditional_t<is_void_v<_T>, set_value_t(), set_value_t(_T)>:
+// Partial specialization rather than conditional_t<is_void_v<_Tp>, set_value_t(), set_value_t(_Tp)>:
 // conditional_t requires both alternatives to be well-formed types before picking one, and
 // set_value_t(void) is ill-formed ("argument may not have 'void' type") regardless of which
 // branch would ultimately be selected.
-template <class _T>
+template <class _Tp>
 struct __set_value_sig {
-  using type = set_value_t(_T);
+  using type = set_value_t(_Tp);
 };
 template <>
 struct __set_value_sig<void> {
   using type = set_value_t();
 };
-template <class _T>
-using __set_value_sig_t = typename __set_value_sig<_T>::type;
+template <class _Tp>
+using __set_value_sig_t = typename __set_value_sig<_Tp>::type;
 
 // [exec.getcomplsigs]: NewSndr is Sndr if sizeof...(Env) == 0; otherwise
 // decltype(transform_sender(declval<Sndr>(), declval<Env>()...)).
@@ -109,8 +109,8 @@ consteval __valid_completion_signatures auto get_completion_signatures() {
   } else if constexpr (__has_member_get_completion_signatures<_NewSndr>) {
     return remove_reference_t<_NewSndr>::template get_completion_signatures<_NewSndr>();
   } else {
-    using _V = __await_result_type<_NewSndr, __env_promise<_Env>...>;
-    return completion_signatures<__set_value_sig_t<_V>, set_error_t(exception_ptr), set_stopped_t()>{};
+    using _Vp = __await_result_type<_NewSndr, __env_promise<_Env>...>;
+    return completion_signatures<__set_value_sig_t<_Vp>, set_error_t(exception_ptr), set_stopped_t()>{};
   }
 }
 
@@ -131,23 +131,23 @@ struct __empty_variant {
   __empty_variant() = delete;
 };
 
-template <class _List, class _T>
+template <class _List, class _Tp>
 struct __type_list_append_unique {
   using type = _List;
 };
-template <class... _Ts, class _T>
-  requires(!(is_same_v<_Ts, _T> || ...))
-struct __type_list_append_unique<type_list<_Ts...>, _T> {
-  using type = type_list<_Ts..., _T>;
+template <class... _Ts, class _Tp>
+  requires(!(is_same_v<_Ts, _Tp> || ...))
+struct __type_list_append_unique<type_list<_Ts...>, _Tp> {
+  using type = type_list<_Ts..., _Tp>;
 };
 
 template <class _List, class... _Ts>
 struct __type_list_dedup {
   using type = _List;
 };
-template <class _List, class _T, class... _Rest>
-struct __type_list_dedup<_List, _T, _Rest...>
-    : __type_list_dedup<typename __type_list_append_unique<_List, _T>::type, _Rest...> {};
+template <class _List, class _Tp, class... _Rest>
+struct __type_list_dedup<_List, _Tp, _Rest...>
+    : __type_list_dedup<typename __type_list_append_unique<_List, _Tp>::type, _Rest...> {};
 
 template <class... _Ts>
 using __dedup_type_list_t = typename __type_list_dedup<type_list<>, _Ts...>::type;

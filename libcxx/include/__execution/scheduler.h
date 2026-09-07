@@ -26,6 +26,9 @@
 #  pragma GCC system_header
 #endif
 
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26
@@ -51,5 +54,7 @@ using schedule_result_t = decltype(execution::schedule(std::declval<_Sch>()));
 #endif // _LIBCPP_STD_VER >= 26
 
 _LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
 
 #endif // _LIBCPP___EXECUTION_SCHEDULER_H

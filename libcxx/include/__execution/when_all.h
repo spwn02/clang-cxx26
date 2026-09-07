@@ -44,6 +44,9 @@
 #  pragma GCC system_header
 #endif
 
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_THREADS
@@ -184,7 +187,7 @@ struct __when_all_shape_from_sigs<completion_signatures<_Fns...>> {
 template <class _Sndr, class _Env>
 using __when_all_child_shape_t = typename __when_all_shape_from_sigs<completion_signatures_of_t<_Sndr, _Env>>::type;
 
-template <class _T>
+template <class _Tp>
 inline constexpr bool __when_all_is_single_value_v = false;
 template <class... _Args>
 inline constexpr bool __when_all_is_single_value_v<__when_all_single_value<_Args...>> = true;
@@ -373,7 +376,7 @@ struct __when_all_state {
     __when_all_disposition __d = __disp_.load();
     if (__d == __when_all_disposition::__started) {
       __on_stop_.reset();
-      auto __tie = []<class... _T>(tuple<_T...>& __t) noexcept { return tuple<_T&...>(__t); };
+      auto __tie = []<class... _Tp>(tuple<_Tp...>& __t) noexcept { return tuple<_Tp&...>(__t); };
       std::apply(
           [&](auto&... __opts) noexcept {
             std::apply(
@@ -644,5 +647,7 @@ inline constexpr when_all_with_variant_t when_all_with_variant{};
 #endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_THREADS
 
 _LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
 
 #endif // _LIBCPP___EXECUTION_WHEN_ALL_H

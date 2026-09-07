@@ -33,6 +33,9 @@
 #  pragma GCC system_header
 #endif
 
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26
@@ -141,10 +144,10 @@ _LIBCPP_HIDE_FROM_ABI auto __suspend_complete(_Fun __fun, _Ts&&... __as) noexcep
 template <class _DS, class _DR>
   requires receiver_of<_DR, __connect_awaitable_sigs<_DS, _DR>>
 _LIBCPP_HIDE_FROM_ABI __operation_state_task<_DS, _DR> __connect_awaitable(_DS __sndr, _DR __rcvr) {
-  using _V = __connect_awaitable_value_t<_DS, _DR>;
+  using _Vp = __connect_awaitable_value_t<_DS, _DR>;
   exception_ptr __ep;
   try {
-    if constexpr (is_void_v<_V>) {
+    if constexpr (is_void_v<_Vp>) {
       co_await std::move(__sndr);
       co_await execution::__suspend_complete(execution::set_value, std::move(__rcvr));
     } else {
@@ -218,5 +221,7 @@ concept __sender_to = sender_in<_Sndr, env_of_t<_Rcvr>> && receiver_of<_Rcvr, co
 #endif // _LIBCPP_STD_VER >= 26
 
 _LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
 
 #endif // _LIBCPP___EXECUTION_CONNECT_H

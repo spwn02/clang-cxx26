@@ -31,6 +31,9 @@
 #  pragma GCC system_header
 #endif
 
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26
@@ -85,16 +88,16 @@ public:
   _LIBCPP_NO_UNIQUE_ADDRESS stopped_as_optional_t tag;
   _Sndr child;
 
-  // [exec.stopped.opt]p3's transform_sender body, parameterized on the pinned value type `_V`
+  // [exec.stopped.opt]p3's transform_sender body, parameterized on the pinned value type `_Vp`
   // (computed by each caller below, once Env is known) rather than recomputed here.
-  template <class _V, class _ChildSndr>
+  template <class _Vp, class _ChildSndr>
   _LIBCPP_HIDE_FROM_ABI static constexpr auto __compose(_ChildSndr&& __c) {
     return execution::let_stopped(
         execution::then(std::forward<_ChildSndr>(__c),
-                         []<class... _Ts>(_Ts&&... __ts) noexcept(is_nothrow_constructible_v<_V, _Ts...>) {
-                           return optional<_V>(in_place, std::forward<_Ts>(__ts)...);
+                         []<class... _Ts>(_Ts&&... __ts) noexcept(is_nothrow_constructible_v<_Vp, _Ts...>) {
+                           return optional<_Vp>(in_place, std::forward<_Ts>(__ts)...);
                          }),
-        []() noexcept { return execution::just(optional<_V>()); });
+        []() noexcept { return execution::just(optional<_Vp>()); });
   }
 
   template <class _Rcvr>
@@ -131,5 +134,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto stopped_as_optional_t::operator()(_Sndr&& _
 #endif // _LIBCPP_STD_VER >= 26
 
 _LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
 
 #endif // _LIBCPP___EXECUTION_STOPPED_AS_OPTIONAL_H

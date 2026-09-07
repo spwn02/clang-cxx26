@@ -25,6 +25,9 @@
 #  pragma GCC system_header
 #endif
 
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26
@@ -74,19 +77,19 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __hide_sched_fn(const _Env& __env) noexcept
 // recorded as the M2 "deviation 4" finding in docs/CXX26_GAPS.md). Two overloads, each valid
 // only where its own requires-clause holds, sidesteps this: overload resolution rejects the
 // inapplicable one via its (SFINAE-safe) constraint, without ever deducing its return type.
-template <class _Q, class _Tag, class... _Args>
-  requires requires(const _Q& __q, _Tag __tag, _Args&&... __args) {
+template <class _Qp, class _Tag, class... _Args>
+  requires requires(const _Qp& __q, _Tag __tag, _Args&&... __args) {
     std::as_const(__q).query(__tag, std::forward<_Args>(__args)...);
   }
-_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __try_query(const _Q& __q, _Tag __tag, _Args&&... __args) {
+_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __try_query(const _Qp& __q, _Tag __tag, _Args&&... __args) {
   return std::as_const(__q).query(__tag, std::forward<_Args>(__args)...);
 }
 
-template <class _Q, class _Tag, class... _Args>
-  requires(!requires(const _Q& __q, _Tag __tag, _Args&&... __args) {
+template <class _Qp, class _Tag, class... _Args>
+  requires(!requires(const _Qp& __q, _Tag __tag, _Args&&... __args) {
     std::as_const(__q).query(__tag, std::forward<_Args>(__args)...);
-  }) && requires(const _Q& __q, _Tag __tag) { std::as_const(__q).query(__tag); }
-_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __try_query(const _Q& __q, _Tag __tag, _Args&&...) {
+  }) && requires(const _Qp& __q, _Tag __tag) { std::as_const(__q).query(__tag); }
+_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __try_query(const _Qp& __q, _Tag __tag, _Args&&...) {
   return std::as_const(__q).query(__tag);
 }
 
@@ -115,14 +118,14 @@ _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __recurse_query(_Sch1&& __sch1, c
 // [exec.get.compl.sched]
 template <class _Cpo>
 struct get_completion_scheduler_t {
-  template <class _Q, class... _Envs>
+  template <class _Qp, class... _Envs>
     requires(is_same_v<_Cpo, set_value_t> || is_same_v<_Cpo, set_error_t> || is_same_v<_Cpo, set_stopped_t>)
-  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Q& __q, const _Envs&... __envs) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Qp& __q, const _Envs&... __envs) const noexcept {
     if constexpr (requires { execution::__try_query(__q, *this, __envs...); }) {
       decltype(auto) __sch1 = execution::__try_query(__q, *this, __envs...);
       return execution::__recurse_query(std::forward<decltype(__sch1)>(__sch1), __envs...);
     } else {
-      static_assert(scheduler<_Q>, "Mandates: the type of q satisfies scheduler.");
+      static_assert(scheduler<_Qp>, "Mandates: the type of q satisfies scheduler.");
       static_assert(sizeof...(_Envs) > 0, "Mandates: envs is not an empty pack.");
       return auto(__q);
     }
@@ -189,5 +192,7 @@ inline constexpr get_delegation_scheduler_t get_delegation_scheduler{};
 #endif // _LIBCPP_STD_VER >= 26
 
 _LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
 
 #endif // _LIBCPP___EXECUTION_GET_SCHEDULER_H
