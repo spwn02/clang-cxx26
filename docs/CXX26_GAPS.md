@@ -482,48 +482,46 @@ sweep (an `-Werror,-Wunused-parameter` false failure in
 `parameter-reflection-kind-preserved.pass.cpp` needing only a
 `[[maybe_unused]]`) was fixed on the spot since it cost nothing:
 
-- **`libcxx/test/std/experimental/reflection/parameter-reflection-kind-preserved.pass.cpp`,
-  after the above fix** — `template for (constexpr int n : unrelated) { ... }`
-  where `n` is deliberately unused in the body: `error: expression result
-  unused [-Werror,-Wunused-value]`, caret on the range expression `unrelated`
-  at the loop's colon. Looks like `template for`'s desugaring feeds the range
-  expression through a generic discarded-expression-statement check
-  (`Sema::DiagnoseUnusedExprResult`-shaped) that a normal range-for's
-  `auto &&__range = expr;` binding never reaches, because that binds the range
-  into a declaration rather than a bare expression statement. Not traced past
-  `clang/lib/Sema/SemaExpand.cpp`'s range-handling (search `BuildDeclRefExpr`/
-  `RangeVar` there) — expansion-statement area, same file as the M5
-  `setImplicit()` fix below, possibly a nearby fix once someone's back in that
-  code. **Re-investigated 2026-09-07, traced further but still unresolved**:
-  the diagnostic fires via the generic `Sema::ActOnFinishFullExpr`'s
-  `DiscardedValue` path (`SemaExprCXX.cpp:7712-7740`), not anywhere in
-  `SemaExpand.cpp`'s own `ActOnCXXExpansionStmt`/`BuildCXXExpansionStmt` (read
-  in full; its `AddInitializerToDecl` calls are ordinary decl-initializer
-  paths, not expression-statement discards, so they don't explain it
-  directly). Found the actual differential vs. ordinary range-based `for`
-  (which doesn't trigger this) in `clang/lib/Parse/ParseDecl.cpp:2333-2374`,
-  the shared for-range-declarator parsing both loop kinds go through: the
-  `ParseExpression()` call for the range clause (line 2370) is identical for
-  both, but `template for` uniquely (a) may enter an
-  `ImmediateFunctionContext` evaluation context when the loop variable is
-  `constexpr` (line 2338-2342), and (b) uniquely calls
-  `Actions.MaybeCreateExprWithCleanups(FRI->RangeExpr)` right after parsing
-  (line 2372-2373), which ordinary range-`for` never does. One of these two
-  is the most likely trigger, but which one, and the exact mechanism, isn't
-  confirmed — needs a breakpoint on `DiagnoseUnusedExprResult` or bisecting
-  by disabling each of (a)/(b) in turn. Start here, not `SemaExpand.cpp`.
-- **`libcxx/test/std/experimental/reflection/p3096-fn-parameters.pass.cpp`**
-  — new finding 2026-09-07. Fails at `variable_of_tests::fn`'s `return
-  [:variable_of(parameters_of(^^fn)[0]):];` (line 300): `subexpression not
-  valid in a constant expression`. This splices the *variable* reflection
-  derived from a *parameter* reflection back into an expression, expecting
-  the evaluator to read the parameter's current bound value through that
-  derived reflection. `variable_of` dispatches into
-  `clang/lib/AST/ExprConstantMeta.cpp` (`__metafn_variable_of`, lines
-  ~697/938/6595) — the evaluator doesn't currently know how to resolve a
-  `variable_of(parameter)`-derived reflection back to the calling frame's
-  actual parameter binding. Genuine, nontrivial evaluator feature gap, not a
-  quick fix — not attempted further this session.
+- ~~**`libcxx/test/std/experimental/reflection/parameter-reflection-kind-preserved.pass.cpp`,
+  after the above fix**~~ — **Fixed 2026-09-07 (second session).** Root
+  cause precisely traced (past the two candidates this entry originally
+  left open): `clang/lib/Sema/TreeTransform.h:9458`, in
+  `TransformCXXDestructurableExpansionStmt`, called
+  `TransformStmt(S->getTParamRef())` without an explicit `StmtDiscardKind`,
+  defaulting to `Discarded` — the synthesized `__N` template-parameter
+  reference is an `Expr*`, not a real statement, so it routed into
+  `Sema::ActOnExprStmt(E, /*DiscardedValue=*/true)` and triggered the
+  warning. The sibling `TransformCXXInitListExpansionStmt` already passed
+  `StmtDiscardKind::NotDiscarded` explicitly at the equivalent call — this
+  exact fix just hadn't been copied to the destructurable-expansion
+  variant. Fixed by adding the same argument. Verified: only fires when the
+  `template for` loop is inside a template that gets instantiated (a
+  non-template repro produces no warning), confirming the mechanism.
+- ~~**`libcxx/test/std/experimental/reflection/p3096-fn-parameters.pass.cpp`**~~
+  — **Fixed 2026-09-07 (second session).** `variable_of`
+  (`clang/lib/AST/ExprConstantMeta.cpp:6595`) used
+  `Meta.CurrentCtx()` (`Sema::CurContext`, the parser's static lexical
+  position) as a proxy for "which function's dynamic call frame is
+  currently executing" — this only worked by accident on the very first
+  evaluation (while Sema was still lexically parsing the function's body)
+  and silently failed (no diagnostic queued) on every real invocation
+  afterward, surfacing as the reported opaque "subexpression not valid in a
+  constant expression." Fixed using the same `StackLocationExpr`-based
+  dynamic-call-stack lookup (walking `Info.CurrentCall`/
+  `CallStackFrame::Caller`) that the sibling `current_access_context`
+  (line ~6797) already used correctly, falling back to `CurrentCtx()` only
+  if that lookup doesn't produce a usable declaration. Fixing this exposed
+  a second, related bug: `^^p == variable_of(parameters_of(^^fn)[0])`
+  (comparing a `Parameter`-kind reflection against `variable_of`'s
+  `Declaration`-kind result for the *same* `ParmVarDecl`) evaluated to
+  `false` instead of `true`, because `APValue.cpp`'s `profileReflection`
+  hashed the raw `ReflectionKind` tag before hashing the underlying decl —
+  so two reflections denoting the same parameter never hashed equal across
+  the `Parameter`/`Declaration` kind split, even though `SemaReflect.cpp`'s
+  `BuildCXXReflectExpr` already documents (in a comment) that this
+  same-entity-must-compare-equal invariant is supposed to hold. Fixed by
+  normalizing a `Declaration`-kind reflection of a `ParmVarDecl` to hash
+  with `Parameter`'s kind tag before the rest of the profile.
 - **`libcxx/test/std/experimental/reflection/template-arguments.pass.cpp`** —
   real crash: `Assertion 'isReflection() && "not a reflection value"' failed`
   in `APValue::getReflectionKind()` (`clang/lib/AST/APValue.cpp:778`), while
@@ -532,10 +530,78 @@ sweep (an `-Werror,-Wunused-parameter` false failure in
   under the full parallel `check-cxx` run — the same signature as reading an
   uninitialized/wrongly-tagged `APValue` (compare the `r`-binding bug this
   epic's M3 fixes), so likely a similar storage-lifetime bug, not a flake.
-- **`libcxx/test/std/experimental/reflection/miscellaneous.pass.cpp`** — real
-  crash: `Assertion 'isa<To>(Val) && "cast<Ty>() argument of incompatible
+  **Investigated further 2026-09-07 (second session), still open:** the
+  `APValue` reflection-depth/kind bookkeeping (`Lift()`/`Lower()`,
+  `APValue.cpp:893-920`) is sound in isolation and copy/move/assign/swap all
+  correctly propagate `ReflectionDepth`/`UnderlyingTy` together. Found one
+  real, adjacent bug — `getNthTemplateArgument`'s `StructuralValue` case
+  (`clang/lib/AST/ExprConstantMeta.cpp:1380-1383`) unconditionally calls
+  `.Lift()` on the stored APValue, double-wrapping `ReflectionDepth` when an
+  NTTP's stored value is already itself a reflection (`ReflectionDepth==1`,
+  reachable via this test's `WithReflection<std::meta::reflect_constant(...)>`
+  pattern) — but tracing shows this only ever produces a *wrong-but-still-
+  reflection* value, not the fully-unreflected state the line-778 assert
+  needs, so it's evidence of the same fragility class, not confirmed as
+  *the* cause. No shared/global/static cache keyed on reflection kind exists
+  in `ExprConstantMeta.cpp`/`APValue.cpp` (checked explicitly), arguing
+  against a cross-invocation-shared-state explanation for the
+  parallel-only reproduction and toward a genuine single-compilation
+  dangling-pointer/uninitialized-read bug. Static reading is exhausted here;
+  next step needs a debugger/ASan session with a watchpoint on the crashing
+  APValue's `Kind`/`ReflectionDepth` fields, not more source analysis.
+- ~~**`libcxx/test/std/experimental/reflection/miscellaneous.pass.cpp`**~~ —
+  **The originally-reported crash is fixed 2026-09-07 (second session)**,
+  but the test still fails overall on a newly-exposed successor bug (below)
+  that the crash was masking. Original crash:
+  `Assertion 'isa<To>(Val) && "cast<Ty>() argument of incompatible
   type!"' failed` in `llvm::cast<clang::TagDecl>` (from
-  `llvm/include/llvm/Support/Casting.h:572`, called from reflection code).
+  `llvm/include/llvm/Support/Casting.h:572`). Root cause: a lambda's
+  closure-type capture fields are unnamed `FieldDecl`s
+  (`SemaLambda.cpp:2154-2156`); reflecting one (via this test's
+  `struct_to_tuple_helper`, the file's *first* namespace) and mangling the
+  resulting specialization routed through `mangleReflection`'s
+  `ReflectionKind::Declaration` case's generic `mangle(cast<NamedDecl>(D))`
+  fallback, which — for an unnamed decl — assumes it can only be a
+  namespace/anonymous-union-var/tag and does `cast<TagDecl>(ND)`
+  unconditionally, crashing on an unnamed `FieldDecl`. Fixed by adding a
+  dedicated `FieldDecl` branch to `mangleReflection` (identifying the field
+  by owning-record-type + field-index — this fork's reflection mangling is
+  already a bespoke, non-ISO-standardized extension, so this carries no
+  external-ABI risk).
+  **Successor bug, newly exposed, not fixed:** with the mangler crash gone,
+  compilation now proceeds into the file's *second* namespace
+  (`alisdair_universal_swap`, previously unreachable) and fails there
+  instead, at line 138's `lhs.[:mem:]`: `error: class '(anonymous struct at
+  .../__vector/vector.h:583:3)' not derived from 'vector<int>'`. This is
+  `alisdair_universal_swap::do_swap_representations<T>` recursing into
+  `vector<int>`'s `_LIBCPP_COMPRESSED_PAIR`-generated anonymous-struct
+  member (confirmed via `-ast-dump` on a minimal repro: the compressed
+  pair's `__cap_`/`__alloc_` fields have `DeclContext` = the anonymous
+  struct itself, one level nested inside `vector<int>`). Initially looked
+  like a `Sema::BuildMemberReferenceExpr`
+  (`clang/lib/Sema/SemaExprMember.cpp:1245-1260`) derived-from-check bug
+  that doesn't account for anonymous struct/union DeclContext nesting —
+  **tried and reverted**, a targeted fix there (walking outward through
+  anonymous `DeclContext`s until a level satisfies the derived-from check)
+  reproduced the identical error byte-for-byte both before and after,
+  ruling that function out as the cause. The evidence instead points at the
+  `template for` / `define_static_array` / `nonstatic_data_members_of`
+  recursion itself: `do_swap_representations<T>` is a template being
+  re-instantiated with a *different* `T` at each recursion level
+  (`vector<int>` → the anonymous compressed-pair struct), and the observed
+  mismatch (a member reflection whose `DeclContext` reads as the *outer*
+  instantiation's type rather than the *current* one) is consistent with
+  `define_static_array`'s `extract`/`substitute`-based static-storage
+  materialization (`libcxx/include/meta:2642`, dispatching into
+  `clang/lib/AST/ExprConstantMeta.cpp`'s `extract`, line 3633) incorrectly
+  reusing a result across two different instantiations of the same
+  templated call site rather than genuinely re-evaluating
+  `nonstatic_data_members_of(^^T, ...)` for the new `T`. Not confirmed with
+  instrumentation — this is a lead, not a root cause; likely
+  Phase-B/C-caliber (deep template-instantiation/evaluator-caching
+  internals), not a quick fix. Regression surface for whoever picks this up:
+  any recursive template combined with `template for` over a
+  `define_static_array`-backed reflection array.
 - ~~**`libcxx/test/std/experimental/reflection/namespace-reflection-equality-reopened.pass.cpp`**~~
   — **Fixed 2026-09-07.** Not actually a library gap: `underlying_entity_of`
   exists but is gated behind `-fentity-proxy-reflection` (a separate flag
@@ -557,18 +623,25 @@ sweep (an `-Werror,-Wunused-parameter` false failure in
   handling gap) — the "not yet re-run with -v" framing this bullet
   previously carried was stale, superseded by that fuller writeup.
 
-Of this list, 2 were fixed as trivial test-side issues 2026-09-07
+**Updated 2026-09-07 (second session):** of this list, 2 were fixed as
+trivial test-side issues in the first session
 (`namespace-reflection-equality-reopened.pass.cpp`,
-`annotation-module-serialization.sh.cpp`); 4 remain genuinely open compiler
-gaps (`parameter-reflection-kind-preserved.pass.cpp`'s `-Wunused-value`,
-`p3096-fn-parameters.pass.cpp`'s `variable_of` evaluator gap,
+`annotation-module-serialization.sh.cpp`), and 2 more got full compiler-side
+fixes in the second session (`parameter-reflection-kind-preserved.pass.cpp`'s
+`-Wunused-value`, `p3096-fn-parameters.pass.cpp`'s `variable_of` evaluator
+gap, both flip PASS in `check-cxx` — see the `160ee8a5`-and-later and
+`b2ec86f2fbe6` commits). `miscellaneous.pass.cpp`'s original mangler crash
+is also fixed, but the test itself still fails on a newly-exposed successor
+bug (both documented in place above). **3 items remain genuinely open:**
 `template-arguments.pass.cpp`/`to-and-from-values.pass.cpp`'s shared
-`APValue::getReflectionKind()` crash, and `module-imports.sh.cpp`'s
-`NestedNameSpecifier` splice gap, precisely scoped above). All reproduce in
-the full `check-cxx` run archived at
-`~/.local/share/cxx26-contracts/results/check-cxx-20260904T234114Z-50283cf26005-hardening-m1-baseline-v3.json`.
-Anyone picking these up should re-run each individually first (with
-`-v`) to get a clean, uncontended repro before touching source.
+`APValue::getReflectionKind()` crash (needs a debugger/ASan session, not
+more static reading), `miscellaneous.pass.cpp`'s successor bug (a
+suspected `define_static_array`/`extract` template-instantiation-caching
+issue), and `module-imports.sh.cpp`'s `NestedNameSpecifier` splice gap
+(pre-scoped elsewhere in this doc as its own session-sized compiler task).
+Anyone picking these up should re-run each individually first (with `-v`)
+to get a clean, uncontended repro before touching source — two of these
+three are confirmed to only reproduce under full parallel `check-cxx`.
 
 **`pre`/`post` clangd completion (Contracts Hardening epic's M6 open item):
 partially fixed 2026-09-06, one real gap remains open, documented below.**
