@@ -9455,7 +9455,8 @@ TreeTransform<Derived>::TransformCXXDestructurableExpansionStmt(
   DeclStmt *ExpansionVarStmt = cast<DeclStmt>(SR.get());
 
   // Transform the expression referencing the template parameter.
-  SR = getDerived().TransformStmt(S->getTParamRef());
+  SR = getDerived().TransformStmt(S->getTParamRef(),
+                                  StmtDiscardKind::NotDiscarded);
   if (SR.isInvalid())
     return StmtError();
   DeclRefExpr *TParamRef = cast<DeclRefExpr>(SR.get());

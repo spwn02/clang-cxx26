@@ -4907,6 +4907,11 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
     } else if (auto *DD = dyn_cast<CXXDestructorDecl>(D)) {
       GlobalDecl GD(DD, Dtor_Complete);
       mangle(GD);
+    } else if (auto *FD2 = dyn_cast<FieldDecl>(D)) {
+      Out << 'f';
+      Context.mangleCanonicalTypeName(
+          getASTContext().getCanonicalTagType(FD2->getParent()), Out, false);
+      mangleNumber(FD2->getFieldIndex());
     } else {
       mangle(cast<NamedDecl>(D));
     }

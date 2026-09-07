@@ -6610,7 +6610,15 @@ bool variable_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   ParmVarDecl *PVD = RV.getReflectedParameter();
   FunctionDecl *FD = cast<FunctionDecl>(PVD->getDeclContext());
 
-  if (Meta.CurrentCtx()->getCanonicalDecl() != FD->getCanonicalDecl())
+  FunctionDecl *CurrentFD = nullptr;
+  APValue Current;
+  StackLocationExpr *SLE = StackLocationExpr::Create(C, SourceRange(), 1);
+  if (Evaluator(Current, SLE, true) && Current.isReflectedDecl())
+    CurrentFD = dyn_cast_or_null<FunctionDecl>(Current.getReflectedDecl());
+  if (!CurrentFD)
+    CurrentFD = dyn_cast<FunctionDecl>(Meta.CurrentCtx());
+
+  if (!CurrentFD || CurrentFD->getCanonicalDecl() != FD->getCanonicalDecl())
     return true;
   assert(FD->getDefinition());
   PVD = FD->getDefinition()->getParamDecl(PVD->getFunctionScopeIndex());
