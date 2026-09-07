@@ -254,16 +254,21 @@ exists; the roadmap just did not know about it.
   misread off `eel.is`'s live draft, the paper is actually fully `|Complete|`
   for C++26; only P2664R11's permute constexpr-index enforcement remains
   open.
-- **P3372R3** constexpr containers and adaptors (`|In Progress|`).
-  `stack`/`queue`/`priority_queue` made fully constexpr 2026-09-07.
-  `list`/`forward_list` and all four `flat_map`/`flat_set` family
-  containers turned out to already be fully constexpr (real upstream
+- ~~**P3372R3** constexpr containers and adaptors (`|In Progress|`).~~
+  **Completed 2026-09-07.** `stack`/`queue`/`priority_queue` made fully
+  constexpr first. `list`/`forward_list` and all four `flat_map`/`flat_set`
+  family containers turned out to already be fully constexpr (real upstream
   commits already merged into this branch) — corrected same day, they were
-  wrongly marked unaudited. Genuinely remaining: `deque`, `map`/`multimap`,
-  `set`/`multiset`, `unordered_map`/`unordered_multimap`/`unordered_set`/
-  `unordered_multiset`, and `node_handle` — confirmed no compiler blocker,
-  mechanical work like stack/queue, just spanning two shared backend
-  headers (`__tree`, `__hash_table`).
+  wrongly marked unaudited. `deque`, `unordered_map`/`unordered_multimap`/
+  `unordered_set`/`unordered_multiset` (`__hash_table` backend), `map`/
+  `multimap`/`set`/`multiset` (`__tree` backend), and `node_handle` all made
+  constexpr the same day — mechanical annotation like stack/queue, but with
+  real findings along the way (shared helpers needing the same treatment,
+  a bucket-array object-lifetime gap, a friend-declaration constexpr
+  mismatch) and honestly-documented boundaries where this fork's compiler
+  or `std::hash` block specific calls without blocking the paper's own
+  requirement that the member surface be `constexpr` — see the P3372R3 row
+  and its follow-up paragraphs below for the full detail.
 - ~~**P2714R1** bind front/back to NTTP callables (`|Partial|`).~~
   **Completed 2026-09-07** — `not_fn<f>()` was already done and
   undocumented; `bind_front<f>()`/`bind_back<f>()` added, mirroring its
@@ -917,7 +922,7 @@ than being tackled as a single commit.
 | [x] | P3227R1 | Fixing the library API for contract violation handling | Complete 2026-09-06. Untracked by any CSV row (Contracts-family wording papers aren't tracked there — see P3819R0's note above). Found by comparing this fork's `<contracts>` synopsis directly against `eel.is/c++draft`'s `[support.contract.violation]`: `bool is_terminating() const noexcept` was entirely missing. Added (`libcxx/include/contracts` + `libcxx/src/contracts.cpp`, returns `semantic() == evaluation_semantic::enforce` — the only terminating semantic this fork's `evaluation_semantic` enum has), with a new test (`libcxx/test/std/contracts/is_terminating.pass.cpp`) covering both `observe` (false) and `enforce` (true, handler throws to avoid actually terminating the test process, matching `exceptions-test.pass.cpp`'s precedent). This paper is also where `evaluation_exception()` was *first proposed* (later removed by P3819R0 above) — the two rows are related but this one is a pure addition, no removal involved. |
 | [ ] | P3552R3 | Add a coroutine task type (`execution::task`) | Untriaged until 2026-09-05. Major new facility; own sub-plan when started |
 | [ ] | P3179R9 | Parallel range algorithms | Untriaged until 2026-09-05. Large surface; interacts with Tier 3 ranges work |
-| [~] | P3372R3 | `constexpr` containers and adaptors | `\|In Progress\|` in the CSV. **2026-09-07: scoped and partially closed, corrected same day.** `vector`/`array`/`span`/`mdspan`/`basic_string`/`basic_string_view` were already fully constexpr (paper's own exclusion list, no work needed); `stack`/`queue`/`priority_queue` had **zero** constexpr anywhere — now fully constexpr, using `std::vector` as the constexpr-capable underlying container since the default (`std::deque`) isn't constexpr yet. **Correction**: `list`/`forward_list` (217/186 `_LIBCPP_CONSTEXPR_SINCE_CXX26` occurrences respectively) and all four `flat_map`/`flat_multimap`/`flat_set`/`flat_multiset` containers are **already fully constexpr** via real upstream P3372R3 commits already merged into this branch — the earlier "unaudited" note for these was wrong, not just incomplete. **`deque` done 2026-09-07**: full member surface constexpr, backend (`__split_buffer`) was already constexpr since C++20. **`unordered_map`/`unordered_multimap`/`unordered_set`/`unordered_multiset` done 2026-09-07, with three documented boundaries** (see detail below) — genuinely usable in constant evaluation for the common case (integral/enum/`nullptr_t` keys, power-of-two bucket growth, no duplicate-key lookups), not just internally annotated. **`map`/`multimap`/`set`/`multiset` done 2026-09-07** — full member surface constexpr including duplicate-key insertion (no `goto`-based fast path in `__tree`, unlike `__hash_table`); hits one of the four `unordered_map` boundaries (the `const_cast`-based in-place key reuse during same-size copy-assignment) but none of the other three (no bucket array, `std::less` has none of `std::hash`'s type-punning). Genuinely remaining: `node_handle` (needs both backends' node destructors constexpr — both now are, should be a small follow-up). |
+| [x] | P3372R3 | `constexpr` containers and adaptors | Flipped to `\|Complete\|` 2026-09-07 (was `\|In Progress\|`). **2026-09-07: scoped and closed over the course of the day.** `vector`/`array`/`span`/`mdspan`/`basic_string`/`basic_string_view` were already fully constexpr (paper's own exclusion list, no work needed); `stack`/`queue`/`priority_queue` had **zero** constexpr anywhere — now fully constexpr, using `std::vector` as the constexpr-capable underlying container since the default (`std::deque`) isn't constexpr yet. **Correction**: `list`/`forward_list` (217/186 `_LIBCPP_CONSTEXPR_SINCE_CXX26` occurrences respectively) and all four `flat_map`/`flat_multimap`/`flat_set`/`flat_multiset` containers are **already fully constexpr** via real upstream P3372R3 commits already merged into this branch — the earlier "unaudited" note for these was wrong, not just incomplete. **`deque` done 2026-09-07**: full member surface constexpr, backend (`__split_buffer`) was already constexpr since C++20. **`unordered_map`/`unordered_multimap`/`unordered_set`/`unordered_multiset` done 2026-09-07, with three documented boundaries** (see detail below) — genuinely usable in constant evaluation for the common case (integral/enum/`nullptr_t` keys, power-of-two bucket growth, no duplicate-key lookups), not just internally annotated. **`map`/`multimap`/`set`/`multiset` done 2026-09-07** — full member surface constexpr including duplicate-key insertion (no `goto`-based fast path in `__tree`, unlike `__hash_table`); hits one of the four `unordered_map` boundaries (the `const_cast`-based in-place key reuse during same-size copy-assignment) but none of the other three (no bucket array, `std::less` has none of `std::hash`'s type-punning). **`node_handle` done 2026-09-07** — full member surface constexpr for all four map/set families, except `key()`, excluded per CWG2514 (matching upstream P3372R3's own carve-out) — verified as a real, working boundary, not a gap. **P3372R3 is now fully closed for every container this fork tracks.** |
 
 **P3372R3 follow-up 2026-09-07: `deque` and the unordered containers, with
 three real boundaries found and documented, not papered over.**
