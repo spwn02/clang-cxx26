@@ -10,8 +10,8 @@
 
 import AnnotationSerialization;
 
-constexpr Rename rename = extracted();
-static_assert(rename.value[0] == 'n');
-static_assert(rename.value[1] == 'e');
-static_assert(rename.value[2] == 'w');
-static_assert(rename.value[3] == '\0');
+constexpr Rename extracted_rename = extracted();
+static_assert(extracted_rename.value[0] == 'n');
+static_assert(extracted_rename.value[1] == 'e');
+static_assert(extracted_rename.value[2] == 'w');
+static_assert(extracted_rename.value[3] == '\0');

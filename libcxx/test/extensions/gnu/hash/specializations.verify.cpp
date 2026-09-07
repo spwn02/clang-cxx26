@@ -13,7 +13,9 @@
 #include <string>
 
 int main(int, char**) {
-  assert(__gnu_cxx::hash<std::string>()(std::string()) == 0); // expected-error {{does not provide a call operator}}
+  // glibc's assert.h macro expands its argument twice (once in a type-check
+  // branch, once in the real check), so the diagnostic below fires twice.
+  assert(__gnu_cxx::hash<std::string>()(std::string()) == 0); // expected-error 2 {{does not provide a call operator}}
 
   return 0;
 }

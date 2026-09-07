@@ -19,8 +19,9 @@
 
 template <class T>
 consteval bool checked_is_within_lifetime(T* p) {
+  // expected-error@+1 {{no matching function for call to 'is_within_lifetime'}}
   return p ? std::is_within_lifetime<T>(p) : false;
 }
 static_assert(!checked_is_within_lifetime<int>(nullptr));
+// expected-error@+1 {{static assertion expression is not an integral constant expression}}
 static_assert(!checked_is_within_lifetime<void()>(nullptr));
-// expected-error@*:* {{function pointer argument to '__builtin_is_within_lifetime' is not allowed}}
