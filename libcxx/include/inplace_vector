@@ -466,18 +466,25 @@ public:
     return data()[size() - 1];
   }
 
+  // Binds the dereferenced optional<reference> to a second named variable rather than
+  // returning *__r directly: -Wreturn-stack-address's conservative pattern match otherwise
+  // flags this as a reference into the (already-destroyed) local optional<reference> itself,
+  // even though the referent actually lives in this container's own storage. Binding __r to a
+  // name is not enough on its own -- the dereference has to be named too.
   constexpr auto push_back(const _Tp& __value) -> reference {
     auto __r = try_push_back(__value);
     if (!__r)
       std::__throw_bad_alloc();
-    return *__r;
+    reference __ref = *__r;
+    return __ref;
   }
 
   constexpr auto push_back(_Tp&& __value) -> reference {
     auto __r = try_push_back(std::move(__value));
     if (!__r)
       std::__throw_bad_alloc();
-    return *__r;
+    reference __ref = *__r;
+    return __ref;
   }
 
   template <class... _Args>
@@ -485,7 +492,8 @@ public:
     auto __r = try_emplace_back(std::forward<_Args>(__args)...);
     if (!__r)
       std::__throw_bad_alloc();
-    return *__r;
+    reference __ref = *__r;
+    return __ref;
   }
 
   template <_ContainerCompatibleRange<_Tp> _Range>
@@ -499,24 +507,24 @@ public:
 
   // Preconditions: size() < capacity(). Equivalent to *try_push_back(...)/
   // *try_emplace_back(...); the precondition is exactly what makes that
-  // dereference always valid. Binds the optional<reference> to a name first
-  // rather than dereferencing the call result inline: the referent lives in
-  // this container's storage, not in the temporary optional itself, but
-  // dereferencing a temporary inline still trips -Wreturn-stack-address's
-  // conservative pattern match for "reference into a temporary".
+  // dereference always valid. See push_back/emplace_back above for why the
+  // dereferenced value also needs to be bound to its own name.
   constexpr auto unchecked_push_back(const _Tp& __value) -> reference {
     auto __r = try_push_back(__value);
-    return *__r;
+    reference __ref = *__r;
+    return __ref;
   }
   constexpr auto unchecked_push_back(_Tp&& __value) -> reference {
     auto __r = try_push_back(std::move(__value));
-    return *__r;
+    reference __ref = *__r;
+    return __ref;
   }
 
   template <class... _Args>
   constexpr auto unchecked_emplace_back(_Args&&... __args) -> reference {
     auto __r = try_emplace_back(std::forward<_Args>(__args)...);
-    return *__r;
+    reference __ref = *__r;
+    return __ref;
   }
 
   constexpr void pop_back() {
