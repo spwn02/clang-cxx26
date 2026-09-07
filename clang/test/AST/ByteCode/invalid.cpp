@@ -5,7 +5,8 @@ namespace Throw {
 
   constexpr int ConditionalThrow(bool t) {
     if (t)
-      throw 4; // both-note {{subexpression not valid in a constant expression}}
+      throw 4; // expected-note {{subexpression not valid in a constant expression}} \
+               // ref-note {{exception thrown here was not caught}}
 
     return 0;
   }
@@ -15,7 +16,8 @@ namespace Throw {
                                                   // both-note {{in call to 'ConditionalThrow(true)'}}
 
   constexpr int Throw() { // both-error {{never produces a constant expression}}
-    throw 5; // both-note {{subexpression not valid in a constant expression}}
+    throw 5; // expected-note {{subexpression not valid in a constant expression}} \
+             // ref-note {{exception thrown here was not caught}}
     return 0;
   }
 

@@ -1148,9 +1148,15 @@ namespace DiscardedTrivialCXXConstructExpr {
     int x;
   };
 
-  constexpr int foo(int x) { // ref-error {{never produces a constant expression}}
-    throw S(3); // both-note {{not valid in a constant expression}} \
-                // ref-note {{not valid in a constant expression}}
+  // P3068R6: the shallow -Winvalid-constexpr check can no longer see that
+  // this always fails on the classic evaluator, since constructing the
+  // thrown S(3) requires a nested constexpr call, and that check
+  // deliberately refuses to look inside any nested call. The real
+  // evaluator (exercised below by y's initializer) still correctly
+  // rejects it.
+  constexpr int foo(int x) {
+    throw S(3); // expected-note {{not valid in a constant expression}} \
+                // ref-note {{exception thrown here was not caught}}
     return 1;
   }
 

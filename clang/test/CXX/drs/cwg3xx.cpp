@@ -1129,6 +1129,7 @@ namespace cwg366 { // cwg366: 2.7
 namespace cwg367 { // cwg367: 2.7
   static_assert(__enable_constant_folding(true ? throw 0 : 4), "");
   // expected-error@-1 {{expression is not an integral constant expression}}
+  //   expected-note@-2 {{exception thrown here was not caught}}
   static_assert(__enable_constant_folding(true ? 4 : throw 0), "");
   static_assert(__enable_constant_folding(true ? *new int : 4), "");
   // expected-error@-1 {{expression is not an integral constant expression}}

@@ -330,7 +330,8 @@ namespace InitializerTemporaries {
     constexpr S() {}
     constexpr ~S() noexcept(false) { throw 12; } // both-error {{cannot use 'throw'}} \
                                                  // both-error {{never produces a constant expression}} \
-                                                 // both-note 2{{subexpression not valid}}
+                                                 // expected-note 2{{subexpression not valid}} \
+                                                 // ref-note 2{{exception thrown here was not caught}}
   };
 
   constexpr int f() {

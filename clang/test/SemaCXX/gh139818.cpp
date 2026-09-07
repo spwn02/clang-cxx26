@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -std=c++23 -fsyntax-only %s -verify -fcxx-exceptions
-// RUN: %clang_cc1 -std=c++23 -fsyntax-only %s -verify -fexperimental-new-constant-interpreter -fcxx-exceptions
+// RUN: %clang_cc1 -std=c++23 -fsyntax-only %s -verify=expected,ref -fcxx-exceptions
+// RUN: %clang_cc1 -std=c++23 -fsyntax-only %s -verify=expected,new -fexperimental-new-constant-interpreter -fcxx-exceptions
 
 namespace GH139818{
     struct A {
@@ -20,7 +20,8 @@ namespace GH139818{
     static_assert(!f1());
 
     struct Y {
-      constexpr ~Y() noexcept(false) { throw "oops"; }  // expected-note {{subexpression not valid in a constant expression}}
+      constexpr ~Y() noexcept(false) { throw "oops"; }  // ref-note {{exception thrown here was not caught}} \
+                                                        // new-note {{subexpression not valid in a constant expression}}
                                                         
       constexpr operator bool() {
         return b;

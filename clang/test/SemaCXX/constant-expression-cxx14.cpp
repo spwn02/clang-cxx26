@@ -98,7 +98,7 @@ constexpr U u2{2}; // expected-error {{constant expression}} expected-note {{in 
 // We allow expression-statements.
 constexpr int l(bool b) {
   if (b)
-    throw "invalid value for b!"; // expected-note {{subexpression not valid}}
+    throw "invalid value for b!"; // expected-note {{exception thrown here was not caught}}
   return 5;
 }
 static_assert(l(false) == 5, "");

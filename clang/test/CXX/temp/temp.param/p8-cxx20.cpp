@@ -35,7 +35,7 @@ namespace ConstDestruction {
 
     constexpr ~D() {
       if (!can_destroy)
-        throw "oh no"; // expected-note {{subexpression not valid}}
+        throw "oh no"; // expected-note {{exception thrown here was not caught}}
     }
   };
 

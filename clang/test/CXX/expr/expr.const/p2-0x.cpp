@@ -626,7 +626,7 @@ namespace Assignment {
 // - a throw-expression (15.1)
 namespace Throw {
   struct S {
-    int n : (throw "hello", 10); // expected-error {{constant expression}}
+    int n : (throw "hello", 10); // expected-error {{constant expression}} expected-note {{exception thrown here was not caught}}
   };
 }
 

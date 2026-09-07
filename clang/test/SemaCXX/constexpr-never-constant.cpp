@@ -14,7 +14,7 @@
 // good-no-diagnostics
 
 constexpr void func() { // expected-error {{constexpr function never produces a constant expression}}
-  throw 12;             // expected-note {{subexpression not valid in a constant expression}}
+  throw 12;             // expected-note {{exception thrown here was not caught within the constant expression}}
 }
 
 #pragma clang diagnostic push

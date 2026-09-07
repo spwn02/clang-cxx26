@@ -878,6 +878,26 @@ namespace {
     /// The number of heap allocations performed so far in this evaluation.
     unsigned NumHeapAllocs = 0;
 
+    /// An exception currently propagating through this evaluation
+    /// (P3068R6, [expr.const.core]p2.24-2.25). Set by a thrown
+    /// throw-expression; cleared when caught by a matching handler. If
+    /// still set when the top-level evaluation completes, the exception
+    /// object was never destroyed within the evaluation, which makes the
+    /// evaluation ill-formed.
+    struct PendingExceptionInfo {
+      APValue Value;
+      QualType Ty;
+      const Expr *ThrowExpr;
+      /// The "in call to" backtrace notes for the call stack as it existed
+      /// at the moment of the throw, captured eagerly because by the time
+      /// it's known whether this exception is actually uncaught, every
+      /// CallStackFrame between the throw and the top-level evaluation has
+      /// already unwound off the native stack, taking the real backtrace
+      /// with it.
+      SmallVector<PartialDiagnosticAt, 4> CallStackNotes;
+    };
+    std::optional<PendingExceptionInfo> PendingException;
+
     struct EvaluatingConstructorRAII {
       EvalInfo &EI;
       ObjectUnderConstruction Object;
@@ -1370,7 +1390,10 @@ namespace {
     }
     ~ScopeRAII() {
       if (OldStackSize != std::numeric_limits<unsigned>::max())
-        destroy(false);
+        // An exception unwinding through this scope (P3068R6) is a real
+        // stack-unwind, unlike an ordinary hard-error abandonment of
+        // evaluation, so scope destructors must still run in that case.
+        destroy(/*RunDestructors=*/Info.PendingException.has_value());
       // Body moved to a static method to encourage the compiler to inline away
       // instances of this class.
       Info.CurrentCall->popTempVersion();
@@ -2058,9 +2081,16 @@ void CallStackFrame::describe(raw_ostream &Out) const {
 static bool EvaluateIgnoredValue(EvalInfo &Info, const Expr *E) {
   assert(!E->isValueDependent());
   APValue Scratch;
-  if (!Evaluate(Scratch, Info, E))
+  if (!Evaluate(Scratch, Info, E)) {
+    // A pending exception (P3068R6) is real control flow -- unlike an
+    // ordinary discarded-value evaluation failure, it must propagate so it
+    // can unwind through enclosing scopes and be caught, not be silently
+    // treated as "a side effect we can't see the value of."
+    if (Info.PendingException)
+      return false;
     // We don't need the value, but we might have skipped a side effect here.
     return Info.noteSideEffect();
+  }
   return true;
 }
 
@@ -2698,6 +2728,154 @@ static bool CheckMemoryLeaks(EvalInfo &Info) {
     Info.CCEDiag(Info.HeapAllocs.begin()->second.AllocExpr,
                  diag::note_constexpr_memory_leak)
         << unsigned(Info.HeapAllocs.size() - 1);
+  }
+  return true;
+}
+
+/// Capture the "in call to" backtrace notes for the current call stack, in
+/// the same shape as (private) State::addCallStack, but into a caller-owned
+/// buffer rather than the live EvalStatus.Diag. Used to snapshot a throw's
+/// backtrace at throw time (P3068R6): by the time it's known whether an
+/// exception is actually uncaught, every CallStackFrame between the throw
+/// and the top-level evaluation has already unwound off the native stack,
+/// so the real backtrace is gone by then -- it must be captured now, while
+/// those frames are still live, and replayed later if needed.
+static void CaptureCallStackNotes(EvalInfo &Info,
+                                  SmallVectorImpl<PartialDiagnosticAt> &Notes) {
+  if (Info.checkingPotentialConstantExpression())
+    return;
+
+  // getCallStackDepth/getCurrentFrame/getBottomFrame are declared public in
+  // interp::State but re-declared private when EvalInfo overrides them;
+  // reach them through the base class, same as the base class's own
+  // (private) addCallStack does implicitly as a member.
+  interp::State &BaseInfo = Info;
+
+  unsigned Limit = Info.Ctx.getDiagnostics().getConstexprBacktraceLimit();
+  unsigned ActiveCalls = BaseInfo.getCallStackDepth() - 1;
+  unsigned SkipStart = ActiveCalls, SkipEnd = SkipStart;
+  if (Limit && Limit < ActiveCalls) {
+    SkipStart = Limit / 2 + Limit % 2;
+    SkipEnd = ActiveCalls - Limit / 2;
+  }
+
+  auto AddNote = [&](SourceLocation Loc, diag::kind DiagId) -> PartialDiagnostic & {
+    Notes.push_back(std::make_pair(
+        Loc, PartialDiagnostic(DiagId, Info.Ctx.getDiagAllocator())));
+    return Notes.back().second;
+  };
+
+  unsigned CallIdx = 0;
+  const interp::Frame *Top = BaseInfo.getCurrentFrame();
+  const interp::Frame *Bottom = BaseInfo.getBottomFrame();
+  for (const interp::Frame *F = Top; F != Bottom;
+       F = F->getCaller(), ++CallIdx) {
+    SourceRange CallRange = F->getCallRange();
+
+    if (CallIdx >= SkipStart && CallIdx < SkipEnd) {
+      if (CallIdx == SkipStart)
+        AddNote(CallRange.getBegin(), diag::note_constexpr_calls_suppressed)
+            << unsigned(ActiveCalls - Limit);
+      continue;
+    }
+
+    if (const auto *CD =
+            dyn_cast_if_present<CXXConstructorDecl>(F->getCallee());
+        CD && CD->isInheritingConstructor()) {
+      AddNote(CallRange.getBegin(),
+              diag::note_constexpr_inherited_ctor_call_here)
+          << CD->getParent();
+      continue;
+    }
+
+    SmallString<128> Buffer;
+    llvm::raw_svector_ostream Out(Buffer);
+    F->describe(Out);
+    if (!Buffer.empty())
+      AddNote(CallRange.getBegin(), diag::note_constexpr_call_here)
+          << Out.str() << CallRange;
+  }
+}
+
+/// P3068R6 [except.handle]p3, reimplemented without a Sema& (the constant
+/// evaluator is deliberately Sema-independent). Deliberately conservative:
+/// only handles the common cases (exact type match, reference/value catch of
+/// an unambiguous public base class, and catch(...)); pointer and
+/// pointer-to-member exception types are not matched (treated as "does not
+/// catch", which is a safe under-approximation -- it just means such an
+/// exception continues propagating rather than being wrongly caught).
+static bool HandlerCanCatch(ASTContext &Ctx, QualType HandlerTy,
+                            QualType ExceptionTy) {
+  if (const auto *RefTy = HandlerTy->getAs<ReferenceType>())
+    HandlerTy = RefTy->getPointeeType();
+
+  if (Ctx.hasSameUnqualifiedType(ExceptionTy, HandlerTy))
+    return true;
+
+  if (!ExceptionTy->isRecordType() || !HandlerTy->isRecordType())
+    return false;
+
+  const auto *ExceptionRD = ExceptionTy->getAsCXXRecordDecl();
+  const auto *HandlerRD = HandlerTy->getAsCXXRecordDecl();
+  if (!ExceptionRD || !HandlerRD || !ExceptionRD->hasDefinition() ||
+      !HandlerRD->hasDefinition())
+    return false;
+
+  CXXBasePaths Paths(/*FindAmbiguities=*/true, /*RecordPaths=*/true,
+                     /*DetectVirtual=*/false);
+  if (!ExceptionRD->isDerivedFrom(HandlerRD, Paths) ||
+      Paths.isAmbiguous(Ctx.getCanonicalType(HandlerTy)))
+    return false;
+
+  return Paths.front().Access == AS_public;
+}
+
+/// Slice Val (of static type ExceptionTy, already confirmed catchable by
+/// HandlerCanCatch) down to the CatchTy base-class subobject, by walking the
+/// same unambiguous public inheritance path and indexing into each class's
+/// base-class subobjects in turn (APValue models a struct's base-class
+/// subobjects as its first getStructNumBases() elements, in declaration
+/// order -- the same order as CXXRecordDecl::bases()). A no-op when the
+/// types already match exactly.
+static APValue ExtractCaughtSubobject(QualType ExceptionTy, QualType CatchTy,
+                                      APValue Val) {
+  const auto *ExceptionRD = ExceptionTy->getAsCXXRecordDecl();
+  const auto *CatchRD = CatchTy->getAsCXXRecordDecl();
+  if (!ExceptionRD || !CatchRD || ExceptionRD == CatchRD)
+    return Val;
+
+  CXXBasePaths Paths(/*FindAmbiguities=*/false, /*RecordPaths=*/true,
+                     /*DetectVirtual=*/false);
+  if (!ExceptionRD->isDerivedFrom(CatchRD, Paths))
+    return Val;
+
+  for (const CXXBasePathElement &Elem : Paths.front()) {
+    unsigned Idx = 0;
+    for (const CXXBaseSpecifier &B : Elem.Class->bases()) {
+      if (&B == Elem.Base)
+        break;
+      ++Idx;
+    }
+    Val = Val.getStructBase(Idx);
+  }
+  return Val;
+}
+
+/// Enforce P3068R6 [expr.const.core]p2.24: a thrown exception's object (and
+/// all of its implicit copies) must be destroyed within the evaluation of
+/// the enclosing expression. Unlike CheckMemoryLeaks, this is not optional:
+/// an uncaught exception unconditionally makes the evaluation ill-formed.
+static bool CheckUncaughtException(EvalInfo &Info) {
+  if (Info.PendingException) {
+    Info.FFDiag(Info.PendingException->ThrowExpr,
+               diag::note_constexpr_uncaught_exception)
+        << Info.PendingException->ThrowExpr->getSourceRange();
+    // By now, every CallStackFrame that was live at throw time has already
+    // unwound off the native stack, so FFDiag's own (empty) backtrace walk
+    // found nothing -- replay the backtrace captured back when the throw
+    // actually happened instead.
+    Info.addNotes(Info.PendingException->CallStackNotes);
+    return false;
   }
   return true;
 }
@@ -6448,9 +6626,86 @@ static EvalStmtResult EvaluateStmt(StmtResult &Result, EvalInfo &Info,
   case Stmt::CaseStmtClass:
   case Stmt::DefaultStmtClass:
     return EvaluateStmt(Result, Info, cast<SwitchCase>(S)->getSubStmt(), Case);
-  case Stmt::CXXTryStmtClass:
-    // Evaluate try blocks by evaluating all sub statements.
-    return EvaluateStmt(Result, Info, cast<CXXTryStmt>(S)->getTryBlock(), Case);
+  case Stmt::CXXTryStmtClass: {
+    const auto *TS = cast<CXXTryStmt>(S);
+    EvalStmtResult ESR = EvaluateStmt(Result, Info, TS->getTryBlock(), Case);
+    if (ESR != ESR_Failed || !Info.PendingException)
+      return ESR;
+
+    // P3068R6 [except.handle]: search the handlers, in declaration order,
+    // for one that can catch the pending exception.
+    EvalInfo::PendingExceptionInfo Exc = std::move(*Info.PendingException);
+    Info.PendingException.reset();
+
+    for (unsigned I = 0, N = TS->getNumHandlers(); I != N; ++I) {
+      const CXXCatchStmt *Handler = TS->getHandler(I);
+      const VarDecl *ExDecl = Handler->getExceptionDecl();
+      // A null exception-declaration is catch(...), which always matches;
+      // otherwise, match by static type per [except.handle]p3.
+      if (ExDecl && !HandlerCanCatch(Info.Ctx, Handler->getCaughtType(),
+                                     Exc.Ty))
+        continue;
+
+      BlockScopeRAII Scope(Info);
+      if (ExDecl) {
+        QualType CatchTy = ExDecl->getType();
+        QualType ObjTy = CatchTy;
+        if (const auto *RefTy = ObjTy->getAs<ReferenceType>())
+          ObjTy = RefTy->getPointeeType();
+
+        if (CatchTy->isReferenceType()) {
+          // An LValueBase's effective type is permanently tied to its key
+          // expression's own static type (re-derived from scratch every
+          // time the LValue is reloaded from storage), so the exception
+          // object's backing storage must be keyed by the original throw
+          // operand (whose static type is exactly Exc.Ty), not a synthetic
+          // expression. Bind the reference to it, applying an ordinary
+          // derived-to-base cast (same as any other base-class reference
+          // binding) when the handler catches a base class rather than the
+          // exact type -- this deliberately does not preserve the thrown
+          // object's identity across multiple catches of the same
+          // exception (V1 has no support for rethrow, so nothing can
+          // observe the difference between this and a "real" reference to
+          // the original exception object).
+          const Expr *ObjKey = cast<CXXThrowExpr>(Exc.ThrowExpr)->getSubExpr();
+          LValue ObjLV;
+          APValue &ObjSlot = Info.CurrentCall->createTemporary(
+              ObjKey, Exc.Ty, ScopeKind::Block, ObjLV);
+          ObjSlot = Exc.Value;
+
+          if (!Info.Ctx.hasSameUnqualifiedType(Exc.Ty, ObjTy) &&
+              !CastToBaseClass(Info, ObjKey, ObjLV,
+                               Exc.Ty->getAsCXXRecordDecl(),
+                               ObjTy->getAsCXXRecordDecl()))
+            return ESR_Failed;
+
+          LValue RefLV;
+          APValue &RefSlot = Info.CurrentCall->createTemporary(
+              ExDecl, CatchTy, ScopeKind::Block, RefLV);
+          ObjLV.moveInto(RefSlot);
+        } else {
+          // A by-value catch's storage is keyed by the exception-declaration
+          // itself, whose static type already exactly matches CatchTy, so a
+          // direct (possibly base-slicing) copy of the exception value is
+          // sufficient -- no addressability concerns here.
+          LValue LV;
+          APValue &Slot = Info.CurrentCall->createTemporary(
+              ExDecl, CatchTy, ScopeKind::Block, LV);
+          Slot = ExtractCaughtSubobject(Exc.Ty, ObjTy, Exc.Value);
+        }
+      }
+
+      ESR = EvaluateStmt(Result, Info, Handler->getHandlerBlock());
+      if (ESR != ESR_Failed && !Scope.destroy())
+        return ESR_Failed;
+      return ESR;
+    }
+
+    // No handler matched; leave it pending so it keeps propagating to an
+    // enclosing try (or ultimately, CheckUncaughtException).
+    Info.PendingException.emplace(std::move(Exc));
+    return ESR_Failed;
+  }
 
   case Stmt::CXXIterableExpansionStmtClass:
   case Stmt::CXXDestructurableExpansionStmtClass:
@@ -8752,6 +9007,42 @@ public:
   }
   bool VisitExpr(const Expr *E) {
     return Error(E);
+  }
+
+  /// P3068R6: a throw-expression is permitted during constant evaluation as
+  /// long as the thrown object is destroyed within the evaluation (i.e. it's
+  /// caught by an enclosing try/catch in the same evaluation) --
+  /// [expr.const.core]p2.24-2.25. Evaluate the operand as an ordinary rvalue
+  /// (the same machinery used for e.g. a return-statement's operand) and
+  /// record it as in flight; unlike Error(), this deliberately does NOT
+  /// call FFDiag -- whether this is actually ill-formed is only known once
+  /// it's determined whether an enclosing handler catches it, in
+  /// EvaluateStmt's CXXTryStmtClass case.
+  bool VisitCXXThrowExpr(const CXXThrowExpr *E) {
+    const Expr *SubExpr = E->getSubExpr();
+    if (!SubExpr) {
+      // Bare `throw;` (rethrow). Not supported: this would need to track
+      // which exception is "currently being handled" (a separate, narrower
+      // notion than Info.PendingException, which only tracks in-flight
+      // propagation) per [expr.const.core]p2.25. Failing here is a safe
+      // under-approximation -- it rejects a valid program rather than
+      // accepting an invalid one.
+      return Error(E);
+    }
+
+    APValue Val;
+    QualType Ty = SubExpr->getType();
+    if (!Evaluate(Val, Info, SubExpr))
+      return false;
+
+    // Snapshot the backtrace now, while every frame between here and the
+    // top-level evaluation is still alive -- see CaptureCallStackNotes.
+    SmallVector<PartialDiagnosticAt, 4> CallStackNotes;
+    CaptureCallStackNotes(Info, CallStackNotes);
+
+    Info.PendingException.emplace(EvalInfo::PendingExceptionInfo{
+        std::move(Val), Ty, E, std::move(CallStackNotes)});
+    return false;
   }
 
   bool VisitEmbedExpr(const EmbedExpr *E) {
@@ -18095,8 +18386,14 @@ bool DataRecursiveIntBinOpEvaluator::
                          bool &SuppressRHSDiags) {
   if (E->getOpcode() == BO_Comma) {
     // Ignore LHS but note if we could not evaluate it.
-    if (LHSResult.Failed)
+    if (LHSResult.Failed) {
+      // A pending exception (P3068R6) is real control flow that must
+      // propagate, not a value we can shrug off as an untracked side
+      // effect -- it means the comma's RHS must not run either.
+      if (Info.PendingException)
+        return false;
       return Info.noteSideEffect();
+    }
     return true;
   }
 
@@ -18111,6 +18408,12 @@ bool DataRecursiveIntBinOpEvaluator::
       }
     } else {
       LHSResult.Failed = true;
+
+      // A pending exception (P3068R6) must propagate rather than be treated
+      // as an ordinary untracked side effect that lets evaluation continue
+      // into the RHS.
+      if (Info.PendingException)
+        return false;
 
       // Since we weren't able to evaluate the left hand side, it
       // might have had side effects.
@@ -21043,7 +21346,18 @@ static bool EvaluateAsRValue(EvalInfo &Info, const Expr *E, APValue &Result) {
                                    ConstantExprKind::Normal);
   }
 
-  if (!::Evaluate(Result, Info, E))
+  bool Ok = ::Evaluate(Result, Info, E);
+  // An uncaught exception (P3068R6) makes evaluation ill-formed regardless
+  // of whether the inner Evaluate succeeded or failed -- check for it before
+  // bailing out on failure, since Evaluate() returning false is exactly what
+  // happens when an exception propagates all the way out unhandled, and by
+  // that point every intermediate frame has already returned false without
+  // itself diagnosing anything, so this is the first opportunity to point
+  // the diagnostic at the throw instead of leaving a bare "not a constant
+  // expression" with no explanation.
+  if (!CheckUncaughtException(Info))
+    return false;
+  if (!Ok)
     return false;
 
   // Implicit lvalue-to-rvalue cast.
@@ -21281,8 +21595,16 @@ static bool EvaluateDestruction(const ASTContext &Ctx, APValue::LValueBase Base,
   LVal.set(Base);
 
   if (!HandleDestruction(Info, Loc, Base, DestroyedValue, Type) ||
-      EStatus.HasSideEffects)
+      EStatus.HasSideEffects) {
+    // An uncaught exception (P3068R6) is the likely root cause whenever
+    // this fails and one is pending -- e.g. a destructor that throws during
+    // the separate "does this have constant destruction" check for a
+    // template parameter object ([temp.param]p8). Diagnose it here (before
+    // returning) since HandleDestruction's own failure already propagated
+    // silently.
+    CheckUncaughtException(Info);
     return false;
+  }
 
   if (!Info.discardCleanups())
     llvm_unreachable("Unhandled cleanup; missing full expression marker?");
@@ -21342,12 +21664,20 @@ bool Expr::EvaluateAsConstantExpr(EvalResult &Result, const ASTContext &Ctx,
   // evaluating the expression (per C++23 [class.temporary]/p4).
   FullExpressionRAII Scope(Info);
   if (!::EvaluateInPlace(Result.Val, Info, LVal, this) ||
-      Result.HasSideEffects || !Scope.destroy())
+      Result.HasSideEffects || !Scope.destroy()) {
+    // An uncaught exception (P3068R6) is the likely root cause whenever
+    // this fails and one is pending -- diagnose it here (before returning)
+    // since every intermediate frame above already returned false without
+    // itself explaining why.
+    CheckUncaughtException(Info);
     return false;
+  }
 
   if (!Info.discardCleanups())
     llvm_unreachable("Unhandled cleanup; missing full expression marker?");
 
+  if (!CheckUncaughtException(Info))
+    return false;
   if (!CheckConstantExpression(Info, getExprLoc(), getStorageType(Ctx, this),
                                Result.Val, Kind))
     return false;
@@ -21426,8 +21756,14 @@ bool Expr::EvaluateAsInitializer(APValue &Value, const ASTContext &Ctx,
       FullExpressionRAII Scope(Info);
       if (!EvaluateInPlace(Value, Info, LVal, this,
                            /*AllowNonLiteralTypes=*/true) ||
-          EStatus.HasSideEffects)
+          EStatus.HasSideEffects) {
+        // An uncaught exception (P3068R6) is the likely root cause whenever
+        // this fails and one is pending -- diagnose it here (before
+        // returning) since every intermediate frame above already returned
+        // false without itself explaining why.
+        CheckUncaughtException(Info);
         return false;
+      }
     }
 
     // At this point, any lifetime-extended temporaries are completely
@@ -21437,6 +21773,9 @@ bool Expr::EvaluateAsInitializer(APValue &Value, const ASTContext &Ctx,
     if (!Info.discardCleanups())
       llvm_unreachable("Unhandled cleanup; missing full expression marker?");
   }
+
+  if (!CheckUncaughtException(Info))
+    return false;
 
   return CheckConstantExpression(Info, DeclLoc, DeclTy, Value,
                                  ConstantExprKind::Normal) &&
@@ -22255,6 +22594,14 @@ bool Expr::isPotentialConstantExpr(const FunctionDecl *FD,
         /*ResultSlot=*/nullptr);
   }
 
+  // An uncaught exception (P3068R6) means this call can never produce a
+  // constant expression, exactly like an outstanding heap allocation or any
+  // other hard evaluation failure -- but unlike those, nothing above this
+  // point diagnoses it, since HandleFunctionCall's failure already
+  // propagated silently through several layers of "return false" once the
+  // exception was determined to be uncaught.
+  CheckUncaughtException(Info);
+
   return Diags.empty();
 }
 
@@ -22284,6 +22631,9 @@ bool Expr::isPotentialConstantExprUnevaluated(Expr *E,
 
   APValue ResultScratch;
   Evaluate(ResultScratch, Info, E);
+  // See the identical call in isPotentialConstantExpr: nothing above this
+  // point diagnoses an uncaught exception (P3068R6) on this path.
+  CheckUncaughtException(Info);
   return Diags.empty();
 }
 
@@ -22419,7 +22769,8 @@ static bool EvaluateCharRangeAsStringImpl(const Expr *, T &Result,
       return false;
   }
 
-  return Scope.destroy() && CheckMemoryLeaks(Info);
+  return Scope.destroy() && CheckUncaughtException(Info) &&
+        CheckMemoryLeaks(Info);
 }
 
 bool Expr::EvaluateCharRangeAsString(std::string &Result,

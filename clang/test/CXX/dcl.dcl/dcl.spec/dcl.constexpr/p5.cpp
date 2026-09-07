@@ -30,7 +30,7 @@ static_assert(g4() == 5, "");
 
 constexpr int f(bool b)
   { return b ? throw 0 : 0; } // ok
-constexpr int f() { return throw 0, 0; } // expected-error {{constexpr function never produces a constant expression}} expected-note {{subexpression}}
+constexpr int f() { return throw 0, 0; } // expected-error {{constexpr function never produces a constant expression}} expected-note {{exception thrown here was not caught}}
 
 struct B {
   constexpr B(int x) : i(0) { }
@@ -49,7 +49,7 @@ namespace PotentialConstant {
 
 constexpr int Comma(int n) { return // expected-error {{constexpr function never produces a constant expression}}
   (void)(n * 2),
-  throw 0, // expected-note {{subexpression}}
+  throw 0, // expected-note {{exception thrown here was not caught}}
   0;
 }
 
