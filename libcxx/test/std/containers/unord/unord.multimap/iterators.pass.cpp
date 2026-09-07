@@ -45,6 +45,7 @@ int main(int, char**) {
     assert(static_cast<std::size_t>(std::distance(c.begin(), c.end())) == c.size());
     assert(static_cast<std::size_t>(std::distance(c.cbegin(), c.cend())) == c.size());
     C::iterator i;
+    (void)i;
     i         = c.begin();
     i->second = "ONE";
     assert(i->second == "ONE");
@@ -66,6 +67,7 @@ int main(int, char**) {
     assert(static_cast<std::size_t>(std::distance(c.begin(), c.end())) == c.size());
     assert(static_cast<std::size_t>(std::distance(c.cbegin(), c.cend())) == c.size());
     C::const_iterator i;
+    (void)i;
   }
 #if TEST_STD_VER >= 11
   {
@@ -90,6 +92,7 @@ int main(int, char**) {
     assert(static_cast<std::size_t>(std::distance(c.begin(), c.end())) == c.size());
     assert(static_cast<std::size_t>(std::distance(c.cbegin(), c.cend())) == c.size());
     C::iterator i;
+    (void)i;
     i         = c.begin();
     i->second = "ONE";
     assert(i->second == "ONE");
@@ -116,6 +119,7 @@ int main(int, char**) {
     assert(static_cast<std::size_t>(std::distance(c.begin(), c.end())) == c.size());
     assert(static_cast<std::size_t>(std::distance(c.cbegin(), c.cend())) == c.size());
     C::const_iterator i;
+    (void)i;
   }
 #endif
 #if TEST_STD_VER > 11

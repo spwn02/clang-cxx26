@@ -917,7 +917,112 @@ than being tackled as a single commit.
 | [x] | P3227R1 | Fixing the library API for contract violation handling | Complete 2026-09-06. Untracked by any CSV row (Contracts-family wording papers aren't tracked there — see P3819R0's note above). Found by comparing this fork's `<contracts>` synopsis directly against `eel.is/c++draft`'s `[support.contract.violation]`: `bool is_terminating() const noexcept` was entirely missing. Added (`libcxx/include/contracts` + `libcxx/src/contracts.cpp`, returns `semantic() == evaluation_semantic::enforce` — the only terminating semantic this fork's `evaluation_semantic` enum has), with a new test (`libcxx/test/std/contracts/is_terminating.pass.cpp`) covering both `observe` (false) and `enforce` (true, handler throws to avoid actually terminating the test process, matching `exceptions-test.pass.cpp`'s precedent). This paper is also where `evaluation_exception()` was *first proposed* (later removed by P3819R0 above) — the two rows are related but this one is a pure addition, no removal involved. |
 | [ ] | P3552R3 | Add a coroutine task type (`execution::task`) | Untriaged until 2026-09-05. Major new facility; own sub-plan when started |
 | [ ] | P3179R9 | Parallel range algorithms | Untriaged until 2026-09-05. Large surface; interacts with Tier 3 ranges work |
-| [~] | P3372R3 | `constexpr` containers and adaptors | `\|In Progress\|` in the CSV. **2026-09-07: scoped and partially closed, corrected same day.** `vector`/`array`/`span`/`mdspan`/`basic_string`/`basic_string_view` were already fully constexpr (paper's own exclusion list, no work needed); `stack`/`queue`/`priority_queue` had **zero** constexpr anywhere — now fully constexpr, using `std::vector` as the constexpr-capable underlying container since the default (`std::deque`) isn't constexpr yet. **Correction**: `list`/`forward_list` (217/186 `_LIBCPP_CONSTEXPR_SINCE_CXX26` occurrences respectively) and all four `flat_map`/`flat_multimap`/`flat_set`/`flat_multiset` containers are **already fully constexpr** via real upstream P3372R3 commits already merged into this branch — the earlier "unaudited" note for these was wrong, not just incomplete. Genuinely remaining: `deque`, `map`/`multimap`, `set`/`multiset`, `unordered_map`/`unordered_multimap`/`unordered_set`/`unordered_multiset`, `node_handle`. **No compiler blocker**: confirmed directly `constexpr int* p = new int(5); delete p;` compiles, and `list`/`forward_list`'s already-working union-based deferred-init node pattern (`libcxx/include/list:311-316`) proves the full node-allocation pipeline already works in constant evaluation — `__tree`/`__hash_table` (backends for map/set and unordered_map/unordered_set respectively) use the identical unmarked pattern, and `deque`'s backend `__split_buffer` is already constexpr since C++20. Purely mechanical remaining work, just spanning 2 shared backend headers + 8 public containers + `node_handle` (constexpr everything except `key()`, excluded per CWG2514 same as upstream's own carve-out). |
+| [~] | P3372R3 | `constexpr` containers and adaptors | `\|In Progress\|` in the CSV. **2026-09-07: scoped and partially closed, corrected same day.** `vector`/`array`/`span`/`mdspan`/`basic_string`/`basic_string_view` were already fully constexpr (paper's own exclusion list, no work needed); `stack`/`queue`/`priority_queue` had **zero** constexpr anywhere — now fully constexpr, using `std::vector` as the constexpr-capable underlying container since the default (`std::deque`) isn't constexpr yet. **Correction**: `list`/`forward_list` (217/186 `_LIBCPP_CONSTEXPR_SINCE_CXX26` occurrences respectively) and all four `flat_map`/`flat_multimap`/`flat_set`/`flat_multiset` containers are **already fully constexpr** via real upstream P3372R3 commits already merged into this branch — the earlier "unaudited" note for these was wrong, not just incomplete. **`deque` done 2026-09-07**: full member surface constexpr, backend (`__split_buffer`) was already constexpr since C++20. **`unordered_map`/`unordered_multimap`/`unordered_set`/`unordered_multiset` done 2026-09-07, with three documented boundaries** (see detail below) — genuinely usable in constant evaluation for the common case (integral/enum/`nullptr_t` keys, power-of-two bucket growth, no duplicate-key lookups), not just internally annotated. Genuinely remaining: `map`/`multimap`, `set`/`multiset` (`__tree` backend — expected clean, no bucket array, `std::less` already constexpr), `node_handle` (needs both backends' node destructors constexpr first). **No compiler blocker for the tree/map/set path**: confirmed directly `constexpr int* p = new int(5); delete p;` compiles, and `list`/`forward_list`'s already-working union-based deferred-init node pattern (`libcxx/include/list:311-316`) proves the full node-allocation pipeline already works in constant evaluation — `__tree` uses the identical pattern already in place. |
+
+**P3372R3 follow-up 2026-09-07: `deque` and the unordered containers, with
+three real boundaries found and documented, not papered over.**
+
+**`deque`** — mechanical: `_LIBCPP_CONSTEXPR_SINCE_CXX26` added to every
+member (constructors, observers, modifiers, comparisons, swap; deduction
+guides excluded, the known constexpr-deduction-guide hard-error), plus two
+shared helpers it depends on that needed the same treatment:
+`__allocator_destructor` (used by `deque`'s strong-exception-safety
+allocation path) and `__annotate_double_ended_contiguous_container`
+(`deque`'s ASan hook, which unconditionally called the sanitizer intrinsic —
+given the same `!__libcpp_is_constant_evaluated()` guard its sibling
+`__annotate_contiguous_container`, used by `vector`/`string`, already had).
+Both found only by feeding `deque` through an actual allocating push, not by
+inspection. `deque.constexpr/constexpr.pass.cpp` added.
+
+**`unordered_map`/`unordered_multimap`/`unordered_set`/`unordered_multiset`**
+— mechanical annotation of `__hash_table` + both public headers, plus
+`__utility/try_key_extraction.h` (a shared helper both `__hash_table` and
+`__tree` route emplacement through — fixed once, benefits the `map`/`set`
+batch too). Three real, structural boundaries found along the way, none of
+them a keyword-level fix:
+
+1. **`std::hash`'s scalar specializations use union type-punning and
+   `memcpy`-based byte loading (`__loadword`), neither constant-evaluable.**
+   Fixed the *safe* subset only: `hash<T>` for `T` integral and no larger
+   than `size_t` (`__functional/hash.h:372`, body is a plain
+   `static_cast<size_t>`), the `is_enum` forwarding case (`:361`), and
+   `hash<nullptr_t>` (`:438`, returns a literal). Left untouched:
+   `__scalar_hash<T, 0..4>`, `hash<T*>`, floating-point and `long double`
+   hashing, oversized-integral hashing — all route through `__loadword`'s
+   `memcpy` or read a union member they didn't write. Same shape as
+   `sqrt`/`pow` staying out of P1383R2: no correctness-safe primitive to
+   call, not fixable by adding `constexpr`.
+2. **`std::allocator<T>::allocate` followed by raw assignment does not
+   start object lifetime in this compiler's constant evaluator, even for
+   implicit-lifetime types like raw pointers** — confirmed as a general,
+   library-independent fact with a standalone test
+   (`std::allocator<int*>::allocate(4)` then `p[i] = nullptr;` fails with
+   "assignment to object outside its lifetime"; the identical `int` case
+   fails too). `__hash_table`'s bucket-array initialization (3 sites:
+   the copy constructor, copy-assignment, and `__do_rehash`) did exactly
+   this. Fixed by using `std::__construct_at` (fresh allocation) or leaving
+   plain assignment only for the already-live-array reuse case
+   (same-bucket-count copy-assign). `std::uninitialized_fill_n` was
+   confirmed to work correctly as an alternative (it already does proper
+   construction) but `__construct_at` was used to match this codebase's
+   existing internal convention and avoid a new header dependency.
+3. **`__next_prime` (`libcxx/include/__hash_table:76`,
+   `_LIBCPP_EXPORTED_FROM_ABI`, ~400-line implementation with a prime table
+   in `libcxx/src/hash.cpp`) cannot be called during constant evaluation at
+   all** — it is a compiled, ABI-exported symbol, not visible to the
+   constant evaluator regardless of any keyword. `__rehash`
+   (`__hash_table:1770-1773`) only calls it when the requested bucket count
+   is *not* a power of two (`__n & (__n - 1)`); confirmed directly that
+   `reserve()` to a power-of-two target keeps every subsequent insert on
+   the power-of-two growth path and works in constant evaluation up to at
+   least 32 elements, while a non-power-of-two `reserve()` (and unguided
+   growth past the first couple of elements, which lands on a
+   non-power-of-two target almost immediately) hits `__next_prime` and
+   fails. Header-inlining `__next_prime` would remove a stable ABI-exported
+   symbol from `libc++.so`'s surface — a deliberate, separate decision, not
+   part of this mechanical pass.
+4. **Bonus, found but not fixed**: emplacing/inserting a key that already
+   exists hits a `goto` (`__hash_table:793`, the "found existing key, skip
+   constructing a duplicate node" fast path in `__emplace_unique`) that
+   this compiler's constant evaluator rejects outright — confirmed with a
+   trivial standalone `goto`-inside-a-loop `constexpr` function, unrelated
+   to `unordered_map` entirely. This is a general, pre-existing
+   language-level limitation (not scoped by this session), most likely
+   requiring `clang/lib/AST/ExprConstant.cpp` work comparable in shape to
+   the P3068R6 control-flow additions. New keys (`emplace`/`insert`/
+   `operator[]` on a key not already present) never reach this path and
+   work fine.
+5. **Separate, not fixed**: same-size copy-assignment reuses existing
+   nodes and writes the new key in place via
+   `const_cast<key_type&>(...) = ...` (`__hash_table:1103`) — legal at
+   runtime (the storage was never actually `const`) but rejected by the
+   constant evaluator, which disallows modifying a `const`-qualified
+   subobject through `const_cast` unconditionally during constant
+   evaluation. Not exercised by the shipped test; noted here rather than
+   silently avoided.
+
+Net result: `unordered_map`/`unordered_set` are genuinely constexpr-usable
+for the common case — default-constructed, `reserve()`d to a power of two,
+populated with new integral/enum/`nullptr_t` keys, read via `find`/`at`,
+erased, copied, moved — which is a real, verified, public-entry-point
+capability, not just annotated internals. `unord.map.constexpr`/
+`unord.set.constexpr` test both the working path and boundaries 1 and 4
+above as documented negative `static_assert(!__builtin_constant_p(...))`
+checks. `map`/`multimap`/`set`/`multiset` are expected to avoid boundaries
+2-5 entirely (`__tree` has no bucket array, and `std::less` has none of
+`std::hash`'s type-punning) — to be confirmed when that batch lands.
+
+**Side-effect regression fixed in the same commit, unrelated to the above
+findings themselves**: marking `__hash_iterator`/`__hash_const_iterator`'s
+default constructor `constexpr` made Clang's `-Wunused-variable` fire on 4
+pre-existing upstream test files
+(`unord.{map,multimap,set,multiset}/iterators.pass.cpp`) that declare
+`C::iterator i;` purely to check default-constructibility compiles, never
+using `i` afterward — previously silent, now flagged now that the
+compiler can see through the (now visibly trivial) constructor. Fixed with
+`(void)i;` immediately after each declaration, matching the intent of the
+original test (checking well-formedness, not behavior) without weakening
+it.
 
 **P2300R10 is `Complete` for the paper, not for the C++26 execution surface.**
 Ten follow-on papers amend or extend it and are all unstarted (untriaged until

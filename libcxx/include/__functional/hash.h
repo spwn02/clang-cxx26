@@ -358,7 +358,7 @@ struct __hash_impl {
 template <class _Tp>
 struct __hash_impl<_Tp, __enable_if_t<is_enum<_Tp>::value && __is_unqualified_v<_Tp> > >
     : __unary_function<_Tp, size_t> {
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(_Tp __v) const _NOEXCEPT {
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI size_t operator()(_Tp __v) const _NOEXCEPT {
     using type = __underlying_type_t<_Tp>;
     return hash<type>()(static_cast<type>(__v));
   }
@@ -369,7 +369,9 @@ struct __hash_impl<
     _Tp,
     __enable_if_t<is_integral<_Tp>::value && __is_unqualified_v<_Tp> && (sizeof(_Tp) <= sizeof(size_t))> >
     : __unary_function<_Tp, size_t> {
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(_Tp __v) const _NOEXCEPT { return static_cast<size_t>(__v); }
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI size_t operator()(_Tp __v) const _NOEXCEPT {
+    return static_cast<size_t>(__v);
+  }
 };
 
 template <class _Tp>
@@ -435,7 +437,9 @@ struct hash : public __hash_impl<_Tp> {};
 
 template <>
 struct hash<nullptr_t> : public __unary_function<nullptr_t, size_t> {
-  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI size_t operator()(nullptr_t) const _NOEXCEPT { return 662607004ull; }
+  [[__nodiscard__]] _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI size_t operator()(nullptr_t) const _NOEXCEPT {
+    return 662607004ull;
+  }
 };
 
 #ifndef _LIBCPP_CXX03_LANG
