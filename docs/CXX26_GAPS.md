@@ -439,21 +439,22 @@ byte-identical headers verified via `diff`), and (c) after `git stash`-ing
 the session's three touched clang files and rebuilding. Recorded here rather
 than fixed, same scope discipline as above:
 
-- **`inplace_vector::unchecked_emplace_back`/`emplace_back` (4 test
-  failures)** — `-Werror,-Wreturn-stack-address` on `return *__r;` at
-  `libcxx/include/inplace_vector:488,509,519`, hit via `resize()`, the
-  initializer-list constructor, and direct `emplace_back()`. Reproduces on
-  `build-nyx` (`+assertions`) but **not** against the packaged toolchain
-  (no assertions) with byte-identical headers — matching the
-  `LLVM_ENABLE_ASSERTIONS=ON`-only-visible pattern the Contracts Hardening
-  epic's M1 already established for two unrelated crashes above, but this is
-  the first instance found in a *diagnostic* (a real `-Wreturn-stack-address`
-  false positive or a genuine dangling-reference bug — not yet determined
-  which) rather than an `assert`/`llvm_unreachable`. Affects:
-  `std/containers/sequences/inplace.vector/{basic,ranges}.pass.cpp`,
-  `libcxx/containers/sequences/inplace.vector/assert.pass.cpp`. Not
-  investigated further — root-causing whether this is a compiler false
-  positive or a real `inplace_vector` bug is its own task.
+- ~~**`inplace_vector::unchecked_emplace_back`/`emplace_back` (4 test
+  failures)**~~ — **Fixed 2026-09-07.** Root-caused: this is a genuine
+  `-Wreturn-stack-address` false positive (the referent lives in the
+  container's own backing storage, not in the local `optional<reference>`),
+  and — correcting this entry's own prior claim — it affects **all four**
+  of `push_back`/`emplace_back`/`unchecked_push_back`/`unchecked_emplace_back`
+  under the real lit compile flags, not just three of them; the header's own
+  comment claiming `unchecked_push_back` was "already fixed" by binding
+  `optional<reference>` to a name was itself wrong — that binding alone does
+  nothing to suppress the warning. The actual fix needs the *dereferenced*
+  value bound to its own named variable too (`reference __ref = *__r; return
+  __ref;`), not just the optional. Applied to all four functions,
+  `libcxx/include/inplace_vector`. Full `std/containers/sequences/inplace.
+  vector/` + `libcxx/containers/sequences/inplace.vector/` sweep clean
+  (5/5) with the real lit warning-flag set (a narrower ad-hoc compile without
+  those flags had misleadingly appeared to pass).
 - **`std/containers/associative/map/map.access/element_access_transparent.pass.cpp`**
   — unrelated to assertions; reproduces identically against the packaged
   toolchain. `map::at`'s transparent overload
@@ -1101,6 +1102,57 @@ P3682R0 (**remove** `execution::split`), P3887R1 (`when_all` as a Ronseal
 algorithm). Treat these as one Rank 4 cluster with a shared sub-plan rather
 than ten independent rows — several are small wording deltas against code that
 already exists, and P3682R0 is a deletion.
+
+**A real compiler crash blocks ~27 of the 52 currently-failing check-cxx
+tests, all under `std/execution/`, confirmed 2026-09-07.** Every sampled
+test crashes identically:
+```
+Assertion `Arg.getKind() == TemplateArgument::Type && "Template argument
+kind mismatch"' failed.
+TemplateInstantiator::TransformTemplateTypeParmType, SemaTemplateInstantiate.cpp:2531
+```
+reached via `ConstraintSatisfactionChecker::SubstitutionInTemplateArguments`
+(`SemaConcept.cpp`) while substituting a nested atomic constraint's parameter
+mapping — triggered by `connect_t::operator()`'s `static_assert(sender_in<...>,
+...)` (`connect.h:197`) recursively normalizing nested `requires{...}`
+expressions several levels deep. Minimal repro: `connect(just(42,'a'),
+SomeReceiver{...})` — no libc++ machinery beyond `<execution>` itself needed.
+Confirmed **not fork-introduced**: every function in the crash stack is
+byte-identical to the pristine `llvmorg-22.1.8` merge base; this is a
+known-recurring upstream Clang bug class ("Template argument kind mismatch"
+at this exact function, upstream issues #51840/#122134/#131481/#64607) in a
+2024-2025 constraint-checking rewrite (`ConstraintSatisfactionChecker`,
+upstream PR #141776+) still accumulating fixes upstream.
+
+**One real, adjacent bug found and fixed-then-reverted while investigating:**
+`SemaConcept.cpp`'s `SubstitutedOutermost.erase(SubstitutedOutermost.begin()
++ Offset)` removes exactly one stale element past the last-written position,
+not the whole tail — should almost certainly be `erase(begin() + Offset,
+end())`. This is a real correctness bug (confirmed via a debug trace: cases
+exist where `Offset < SubstitutedOutermost.size() - 1`, leaving more than one
+stale leftover element after the single-element erase) and the fix was
+applied, rebuilt, and verified to change nothing about *this* crash — the
+repro fails identically before and after. **Root-caused why it doesn't help,
+via a debug trace on the actual repro**: the crash isn't caused by a stale
+*leftover* element surviving truncation. A debug trace of every call showed
+`SubstitutedOutermost` containing a `TemplateArgument::Pack` (kind=9) at an
+index where a later nested constraint's `TemplateTypeParmType` lookup at that
+same (depth, index) expects a `TemplateArgument::Type` (kind=1) — i.e. the
+constraint's own "used template param list" substitution (`CTAI.
+SugaredConverted`) writes a *pack* argument into a slot the enclosing level's
+bookkeeping still treats as scalar. This is a pack-expansion/parameter-
+remapping interaction inside constraint normalization, not a simple
+truncation bug — `sender_in`/`connect_t`'s heavy use of variadic sender/
+receiver template parameters is exactly the kind of shape that would surface
+it. **Reverted** (the erase fix, while independently correct, doesn't move
+this crash and isn't worth carrying as a no-op library-invisible change) —
+left as a documented, precisely-scoped starting point rather than attempted
+further. Whoever picks this up next has the actual mechanism, not just the
+crash site: look at how `NormalizedConstraintWithParamMapping`'s pack
+arguments get reconciled against the *enclosing* level's non-pack expectation
+at the same index, likely in `SubstitutionInTemplateArguments`'s handling of
+`CTAI.SugaredConverted` when `Used[I]`'s corresponding used-param-list entry
+is itself a pack.
 
 ### Tier 2 Sub-Plan: P2300R10 `std::execution` (sender/receiver)
 
