@@ -917,7 +917,7 @@ than being tackled as a single commit.
 | [x] | P3227R1 | Fixing the library API for contract violation handling | Complete 2026-09-06. Untracked by any CSV row (Contracts-family wording papers aren't tracked there — see P3819R0's note above). Found by comparing this fork's `<contracts>` synopsis directly against `eel.is/c++draft`'s `[support.contract.violation]`: `bool is_terminating() const noexcept` was entirely missing. Added (`libcxx/include/contracts` + `libcxx/src/contracts.cpp`, returns `semantic() == evaluation_semantic::enforce` — the only terminating semantic this fork's `evaluation_semantic` enum has), with a new test (`libcxx/test/std/contracts/is_terminating.pass.cpp`) covering both `observe` (false) and `enforce` (true, handler throws to avoid actually terminating the test process, matching `exceptions-test.pass.cpp`'s precedent). This paper is also where `evaluation_exception()` was *first proposed* (later removed by P3819R0 above) — the two rows are related but this one is a pure addition, no removal involved. |
 | [ ] | P3552R3 | Add a coroutine task type (`execution::task`) | Untriaged until 2026-09-05. Major new facility; own sub-plan when started |
 | [ ] | P3179R9 | Parallel range algorithms | Untriaged until 2026-09-05. Large surface; interacts with Tier 3 ranges work |
-| [~] | P3372R3 | `constexpr` containers and adaptors | `\|In Progress\|` in the CSV. **2026-09-07: scoped and partially closed, corrected same day.** `vector`/`array`/`span`/`mdspan`/`basic_string`/`basic_string_view` were already fully constexpr (paper's own exclusion list, no work needed); `stack`/`queue`/`priority_queue` had **zero** constexpr anywhere — now fully constexpr, using `std::vector` as the constexpr-capable underlying container since the default (`std::deque`) isn't constexpr yet. **Correction**: `list`/`forward_list` (217/186 `_LIBCPP_CONSTEXPR_SINCE_CXX26` occurrences respectively) and all four `flat_map`/`flat_multimap`/`flat_set`/`flat_multiset` containers are **already fully constexpr** via real upstream P3372R3 commits already merged into this branch — the earlier "unaudited" note for these was wrong, not just incomplete. **`deque` done 2026-09-07**: full member surface constexpr, backend (`__split_buffer`) was already constexpr since C++20. **`unordered_map`/`unordered_multimap`/`unordered_set`/`unordered_multiset` done 2026-09-07, with three documented boundaries** (see detail below) — genuinely usable in constant evaluation for the common case (integral/enum/`nullptr_t` keys, power-of-two bucket growth, no duplicate-key lookups), not just internally annotated. Genuinely remaining: `map`/`multimap`, `set`/`multiset` (`__tree` backend — expected clean, no bucket array, `std::less` already constexpr), `node_handle` (needs both backends' node destructors constexpr first). **No compiler blocker for the tree/map/set path**: confirmed directly `constexpr int* p = new int(5); delete p;` compiles, and `list`/`forward_list`'s already-working union-based deferred-init node pattern (`libcxx/include/list:311-316`) proves the full node-allocation pipeline already works in constant evaluation — `__tree` uses the identical pattern already in place. |
+| [~] | P3372R3 | `constexpr` containers and adaptors | `\|In Progress\|` in the CSV. **2026-09-07: scoped and partially closed, corrected same day.** `vector`/`array`/`span`/`mdspan`/`basic_string`/`basic_string_view` were already fully constexpr (paper's own exclusion list, no work needed); `stack`/`queue`/`priority_queue` had **zero** constexpr anywhere — now fully constexpr, using `std::vector` as the constexpr-capable underlying container since the default (`std::deque`) isn't constexpr yet. **Correction**: `list`/`forward_list` (217/186 `_LIBCPP_CONSTEXPR_SINCE_CXX26` occurrences respectively) and all four `flat_map`/`flat_multimap`/`flat_set`/`flat_multiset` containers are **already fully constexpr** via real upstream P3372R3 commits already merged into this branch — the earlier "unaudited" note for these was wrong, not just incomplete. **`deque` done 2026-09-07**: full member surface constexpr, backend (`__split_buffer`) was already constexpr since C++20. **`unordered_map`/`unordered_multimap`/`unordered_set`/`unordered_multiset` done 2026-09-07, with three documented boundaries** (see detail below) — genuinely usable in constant evaluation for the common case (integral/enum/`nullptr_t` keys, power-of-two bucket growth, no duplicate-key lookups), not just internally annotated. **`map`/`multimap`/`set`/`multiset` done 2026-09-07** — full member surface constexpr including duplicate-key insertion (no `goto`-based fast path in `__tree`, unlike `__hash_table`); hits one of the four `unordered_map` boundaries (the `const_cast`-based in-place key reuse during same-size copy-assignment) but none of the other three (no bucket array, `std::less` has none of `std::hash`'s type-punning). Genuinely remaining: `node_handle` (needs both backends' node destructors constexpr — both now are, should be a small follow-up). |
 
 **P3372R3 follow-up 2026-09-07: `deque` and the unordered containers, with
 three real boundaries found and documented, not papered over.**
@@ -1023,6 +1023,67 @@ compiler can see through the (now visibly trivial) constructor. Fixed with
 `(void)i;` immediately after each declaration, matching the intent of the
 original test (checking well-formedness, not behavior) without weakening
 it.
+
+**`map`/`multimap`/`set`/`multiset` 2026-09-07: same mechanical pass,
+`__tree` backend, three real findings along the way — two shared with the
+`unordered_map` batch (fixed once, benefits both), one genuinely new and
+left undone.**
+
+Mechanical annotation of `__tree` (backend, shared by all four containers)
+plus `map`/`set` (which also define `multimap`/`multiset`). Three issues
+surfaced during verification, not by inspection:
+
+1. **A `friend` declaration/definition constexpr mismatch**, distinct from
+   the deque out-of-line-definition case: `__tree_iterate_subrange`
+   (`__tree:681-682`, a free function doing in-order traversal) is
+   `_LIBCPP_CONSTEXPR_SINCE_CXX26` at its real definition, but
+   `__tree_iterator`/`__tree_const_iterator` each `friend`-declare it
+   without repeating the keyword (`__tree:769`, `:854`) — C++ requires
+   every declaration of a function to agree on `constexpr`. Fixed by
+   adding the macro to both friend declarations.
+2. **Two more small, self-contained, shared helpers needed the same
+   treatment as `try_key_extraction.h`** in the `unordered_map` batch:
+   `__type_traits/make_transparent.h`'s `__as_transparent` (trivial
+   forwarding, used by `__tree::__find_equal`'s transparent-comparison
+   path) and `__utility/lazy_synth_three_way_comparator.h`'s
+   `__lazy_synth_three_way_comparator`/`__lazy_compare_result`/
+   `__eager_compare_result` (small comparator-wrapper structs, no
+   type-punning or heap access) plus its sibling
+   `default_three_way_comparator.h`. `map`'s own three specializations of
+   `__lazy_synth_three_way_comparator` (`map:690`, `:704`, `:718`, for
+   comparing a transparent key against a `pair<const Key, T>`) needed the
+   fix applied separately: their constructors had no
+   `_LIBCPP_HIDE_FROM_ABI` at all (only `operator()` did, so only
+   `operator()` was caught by the bulk `sed`) — added
+   `_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI` to all three
+   constructors directly. Also found and fixed in passing: `__tree`'s
+   `destroy(__node_pointer)` (`__tree:1443-1444`, called from `~__tree()`)
+   carried a `// TODO: Make this _LIBCPP_HIDE_FROM_ABI` comment — it was
+   only `_LIBCPP_HIDDEN`, not `_LIBCPP_HIDE_FROM_ABI`/`inline`/constexpr;
+   upgraded it per the TODO's own intent, which is what the destructor
+   needed to become constexpr-callable in the first place.
+3. **New finding, shared with `unordered_map`'s boundary 5, not fixed**:
+   `__tree`'s own same-size copy-assignment reuses existing nodes and
+   writes the new key in place via
+   `const_cast<__key_type&>(__lhs.first) = ...` (`__tree:1469`, identical
+   shape to `__hash_table:1103`) — rejected by the constant evaluator for
+   the same reason (modifying a `const`-qualified subobject through
+   `const_cast` is disallowed unconditionally during constant evaluation,
+   regardless of whether the underlying storage was ever really `const`).
+   Not exercised by `map.constexpr`/`set.constexpr`; documented here
+   instead of silently avoided.
+
+**Unlike `unordered_map`, `map`/`set` hit none of the other three
+boundaries**: no bucket array (`__tree` allocates one node at a time, the
+same pattern `list`/`forward_list` already proved works), `std::less` has
+none of `std::hash`'s union type-punning, and duplicate-key insertion
+(`m.emplace(existing_key, ...)`) works correctly in constant evaluation —
+`__tree`'s lookup-then-insert path uses ordinary comparison and structured
+bindings, not the `goto`-based fast path `__hash_table`'s emplace uses.
+`map.constexpr`/`set.constexpr` test construction, insert/emplace
+(including a duplicate key), `find`/`at`/`operator[]`, `erase`, copy,
+move, and `clear` — a strictly larger verified surface than
+`unordered_map`'s, for the reasons above.
 
 **P2300R10 is `Complete` for the paper, not for the C++26 execution surface.**
 Ten follow-on papers amend or extend it and are all unstarted (untriaged until
