@@ -270,10 +270,14 @@ template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp*
 __cxx_atomic_fetch_add(__cxx_atomic_base_impl<_Tp*>* __a, ptrdiff_t __delta, memory_order __order) _NOEXCEPT {
 #if _LIBCPP_STD_VER >= 26
-  if consteval {
-    _Tp* __old     = __a->__a_value;
-    __a->__a_value = __old + __delta;
-    return __old;
+  // Guarded on well-formed pointer arithmetic, not just is_object_v<_Tp>: that alone wouldn't
+  // exclude an incomplete _Tp, and this branch's arithmetic needs a complete, non-function type.
+  if constexpr (requires(_Tp* __p) { __p + __delta; }) {
+    if consteval {
+      _Tp* __old     = __a->__a_value;
+      __a->__a_value = __old + __delta;
+      return __old;
+    }
   }
 #endif
   return __c11_atomic_fetch_add(
@@ -311,10 +315,13 @@ template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp*
 __cxx_atomic_fetch_sub(__cxx_atomic_base_impl<_Tp*>* __a, ptrdiff_t __delta, memory_order __order) _NOEXCEPT {
 #if _LIBCPP_STD_VER >= 26
-  if consteval {
-    _Tp* __old     = __a->__a_value;
-    __a->__a_value = __old - __delta;
-    return __old;
+  // See the fetch_add overload above for why this can't just be is_object_v<_Tp>.
+  if constexpr (requires(_Tp* __p) { __p - __delta; }) {
+    if consteval {
+      _Tp* __old     = __a->__a_value;
+      __a->__a_value = __old - __delta;
+      return __old;
+    }
   }
 #endif
   return __c11_atomic_fetch_sub(

@@ -343,10 +343,11 @@ public:
         "atomic_ref: memory order argument to atomic wait operation is invalid");
     std::__atomic_wait(*this, __old, __order);
   }
-  // No `requires(!is_const_v<_Tp>)` here (unlike store/operator=/fetch_*): notify doesn't write
-  // through __ptr_, it only pokes the shared wait-state, so it's meaningful on a const-object
-  // atomic_ref too -- matching wait() above, which has the same shape and no such constraint.
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_one() const noexcept {
+  // [atomics.ref.generic.general] (P3323R1) constrains notify_one/notify_all on !is_const_v<_Tp>,
+  // unlike wait() above -- despite the similar shape, these aren't symmetric in the standard.
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_one() const noexcept
+    requires(!is_const_v<_Tp>)
+  {
 #  if _LIBCPP_STD_VER >= 26
     if consteval {
       return; // no-op: constant evaluation is single-threaded, so nothing can be waiting.
@@ -354,7 +355,9 @@ public:
 #  endif
     std::__atomic_notify_one(*this);
   }
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_all() const noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_all() const noexcept
+    requires(!is_const_v<_Tp>)
+  {
 #  if _LIBCPP_STD_VER >= 26
     if consteval {
       return; // no-op: constant evaluation is single-threaded, so nothing can be waiting.
@@ -378,7 +381,10 @@ template <class _Tp>
 struct __atomic_waitable_traits<__atomic_ref_base<_Tp>> {
   using __value_type _LIBCPP_NODEBUG = _Tp;
 
-  static _LIBCPP_HIDE_FROM_ABI _Tp __atomic_load(const __atomic_ref_base<_Tp>& __a, memory_order __order) {
+  // Not _Tp directly: __a.load() already returns the cv-unqualified value_type, but declaring
+  // this function's return type as a possibly-volatile _Tp (e.g. for atomic_ref<volatile T>)
+  // triggers -Wdeprecated-volatile on the return, even though nothing volatile is ever returned.
+  static _LIBCPP_HIDE_FROM_ABI __remove_cv_t<_Tp> __atomic_load(const __atomic_ref_base<_Tp>& __a, memory_order __order) {
     return __a.load(__order);
   }
   static _LIBCPP_HIDE_FROM_ABI const _Tp* __atomic_contention_address(const __atomic_ref_base<_Tp>& __a) {
