@@ -13,6 +13,7 @@
 #include <__config>
 #include <__format/format_error.h>
 #include <__type_traits/is_constant_evaluated.h>
+#include <cstdint>
 #include <string_view>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -22,6 +23,15 @@
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 20
+
+namespace __format {
+// Defined in format_arg.h, which is included after this header. An opaque
+// enum declaration with a fixed underlying type is a complete type for the
+// purposes of declaring a pointer member and comparing values, which is all
+// basic_format_parse_context needs -- including format_arg.h here would be
+// circular (format_arg.h includes this header).
+enum class __arg_t : uint8_t;
+} // namespace __format
 
 template <class _CharT>
 class basic_format_parse_context {
@@ -83,6 +93,26 @@ public:
       std::__throw_format_error("Argument index outside the valid range");
   }
 
+#  if _LIBCPP_STD_VER >= 26
+  // P2757R3: lets a formatter's parse() validate the type of a dynamic
+  // width/precision argument at compile time. __types_ is only non-null
+  // when this context was built by the library's own compile-time format
+  // string validation (see basic_format_string's consteval constructor in
+  // format_functions.h); a directly user-constructed context has no type
+  // information available, so these always fail to be a constant
+  // expression in that case, same as when id >= num_args_.
+  template <class... _Ts>
+  _LIBCPP_HIDE_FROM_ABI constexpr void check_dynamic_spec(size_t __id) noexcept;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr void check_dynamic_spec_integral(size_t __id) noexcept {
+    check_dynamic_spec<int, unsigned int, long long int, unsigned long long int>(__id);
+  }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr void check_dynamic_spec_string(size_t __id) noexcept {
+    check_dynamic_spec<const char_type*, basic_string_view<char_type>>(__id);
+  }
+#  endif // _LIBCPP_STD_VER >= 26
+
 private:
   iterator __begin_;
   iterator __end_;
@@ -90,6 +120,19 @@ private:
   _Indexing __indexing_;
   size_t __next_arg_id_;
   size_t __num_args_;
+  const __format::__arg_t* __types_ = nullptr; // only set by the private constructor below
+
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit basic_format_parse_context(
+      basic_string_view<_CharT> __fmt, size_t __num_args, const __format::__arg_t* __types) noexcept
+      : __begin_(__fmt.begin()),
+        __end_(__fmt.end()),
+        __indexing_(__unknown),
+        __next_arg_id_(0),
+        __num_args_(__num_args),
+        __types_(__types) {}
+
+  template <class, class...>
+  friend struct basic_format_string;
 };
 _LIBCPP_CTAD_SUPPORTED_FOR_TYPE(basic_format_parse_context);
 

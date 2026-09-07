@@ -1414,7 +1414,11 @@ module std [system] {
     module extended_grapheme_cluster_table    { header "__format/extended_grapheme_cluster_table.h" }
     module fmt_pair_like                      { header "__format/fmt_pair_like.h" }
     module format_arg                         { header "__format/format_arg.h" }
-    module format_arg_store                   { header "__format/format_arg_store.h" }
+    module format_arg_store                   {
+      header "__format/format_arg_store.h"
+      export std.format.format_parse_context // out-of-line basic_format_parse_context::check_dynamic_spec definition (P2757R3)
+      export std.format.format_error         // __throw_format_error call in that definition
+    }
     module format_args                        { header "__format/format_args.h" }
     module format_context {
       header "__format/format_context.h"

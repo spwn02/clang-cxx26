@@ -118,7 +118,9 @@ __cpp_lib_expected                                      202211L <expected>
 __cpp_lib_filesystem                                    201703L <filesystem>
 __cpp_lib_flat_map                                      202511L <flat_map>
 __cpp_lib_flat_set                                      202511L <flat_set>
-__cpp_lib_format                                        202110L <format>
+__cpp_lib_format                                        202311L <format>
+                                                        202207L // C++23
+                                                        202110L // C++20
 __cpp_lib_format_path                                   202403L <filesystem>
 __cpp_lib_format_ranges                                 202207L <format>
 __cpp_lib_format_uchar                                  202311L <format>
@@ -531,6 +533,10 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_expected                             202211L
 # define __cpp_lib_flat_map                             202511L
 # define __cpp_lib_flat_set                             202511L
+# if _LIBCPP_AVAILABILITY_HAS_TO_CHARS_FLOATING_POINT
+# undef  __cpp_lib_format
+#   define __cpp_lib_format                             202207L
+# endif
 # define __cpp_lib_format_ranges                        202207L
 // # define __cpp_lib_formatters                           202302L
 # define __cpp_lib_forward_like                         202207L
@@ -606,6 +612,10 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_copyable_function                    202306L
 # define __cpp_lib_debugging                            202403L
 # define __cpp_lib_default_template_type_for_algorithm_values 202403L
+# if _LIBCPP_AVAILABILITY_HAS_TO_CHARS_FLOATING_POINT
+# undef  __cpp_lib_format
+#   define __cpp_lib_format                             202311L
+# endif
 # define __cpp_lib_format_path                          202403L
 // # define __cpp_lib_freestanding_algorithm               202311L
 // # define __cpp_lib_freestanding_array                   202311L

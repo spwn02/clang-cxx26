@@ -240,9 +240,10 @@ so the effort amortizes across several rows.
   locales) — see the format/print block below for the verification caveat
   (no ISO-8859-1-family locale installed on this machine to exercise the
   actual mojibake-fix path; the full `time`/`format` suites confirm no
-  regression to the common UTF-8-locale case). **P2757R3 itself remains
-  unscoped** — it's a separable feature only coupled to P2419R2 via the
-  shared FTM value, not attempted this session.
+  regression to the common UTF-8-locale case). **P2757R3 implemented
+  2026-09-07** — see Tier 3 for the details and its one documented scope
+  boundary. `__cpp_lib_format` now correctly resolves to `202311L` for
+  C++26.
 
 **Rank 3 — in-flight subsystems this document could not see.** Real code
 exists; the roadmap just did not know about it.
@@ -2069,17 +2070,33 @@ stays blocked transitively on this same chain.
     UTF-8-locale case. `Cxx23Papers.csv` marks it `|In Progress|` rather
     than `|Complete|` until the non-Unicode path is actually exercised
     somewhere.
-  - P2757R3 (type-checking format args) — **still not attempted.** Its own
-    scope might be implementable, but it wasn't scoped this session since
-    the immediate blocker (P2419R2) is now cleared — the two papers are
-    only coupled through the shared `__cpp_lib_format` FTM value below, not
-    a technical dependency, so P2757R3 needs its own assessment before
-    attempting it. `__cpp_lib_format`'s C++26 bump is a single cumulative
-    value shared across P2510R3 (formatting pointers, already `|Complete|`,
-    LLVM 17), P2757R3 itself, P2637R3 (member `visit`, already
-    `|Complete|`), and P2918R2 (runtime format strings II, already
-    `|Complete|`) — so even with P2419R2 done, the macro still can't
-    advance past P2757R3's own row until that paper lands too.
+  - ~~P2757R3 (type-checking format args) — still not attempted.~~
+    **Implemented 2026-09-07.** Added `basic_format_parse_context::
+    check_dynamic_spec<Ts...>`/`check_dynamic_spec_integral`/
+    `check_dynamic_spec_string`, letting a user-defined formatter's
+    `parse()` validate a dynamic width/precision argument's type at compile
+    time, matching the paper's own Remarks-clause wording (verified via
+    three standalone compiles: a well-typed dynamic arg compiles and runs,
+    a wrong-typed one is a hard compile error at the `std::format(...)`
+    call site, and a directly user-constructed `format_parse_context` — no
+    type info threaded through — always fails to be a constant expression,
+    same boundary as an out-of-range id). **One deliberate, documented
+    scope boundary:** did not implement the paper's own constructor-
+    signature change (removing `num_args` from `basic_format_parse_context`'s
+    public constructor, forcing `next_arg_id`/`check_arg_id`/
+    `check_dynamic_spec` to always fail via that constructor) — that's a
+    real, currently-tested C++20 behavior (`next_arg_id.pass.cpp` relies on
+    successful constexpr `next_arg_id()` via the 2-arg public ctor) whose
+    removal isn't actually required to deliver this paper's value (compile-
+    time type-checking for user-defined formatters); `__types_` being
+    `nullptr` on a directly-constructed context already makes
+    `check_dynamic_spec` itself always fail there, which is the paper's
+    real intent for that boundary. `__cpp_lib_format`'s C++26 bump (all
+    four papers — P2510R3, P2757R3, P2637R3, P2918R2 — plus C++23's
+    P2419R2) now correctly resolves to `202311L`; the FTM generator script
+    itself had a stale `assert` blocking a macro from combining a
+    multi-dialect value change with `test_suite_guard` — relaxed after
+    confirming the generated `#undef`/`#define` nesting is correct.
   - P3107R5 / P3235R3 (`std::print` efficiency) — **assessed, out of
     scope for this session, deserves a dedicated implementation session
     of its own.** These are pure implementation-strategy papers with no
@@ -2122,7 +2139,7 @@ back to `to_input` based on the paper title alone.
 | [~] | P1673R13 | BLAS-based linear algebra interface | Partial 2026-08-24 — audited: name-set diff clean, found and fixed a real SFINAE-conformance gap (~90 functions retrofitted with concept constraints) plus (via P3371R5 below) a real-if-needed gap in the hermitian rank-1/2/k/2k updates; `|Partial|` because the FTM chain to `202511L` traces through P3222R0, which is genuinely blocked on P2642R6/`constant_wrapper` — see Session Log |
 | [x] | P3371R5 | Consistent rank-1/2/k/2k updates | Complete 2026-08-24 — found via tracing the `__cpp_lib_linalg` FTM chain (not previously in this CSV). 3 of its 4 required changes were already correct in this fork; fixed the 4th (`real-if-needed(alpha)` and diagonal `real-if-needed(E[i, i])` missing from the 4 hermitian rank-update E-taking overloads) — see Session Log |
 | [x] | P2587R3 | `to_string` or not `to_string` | Complete 2026-08-22 — float/double/long double overloads used `sprintf("%f", ...)` (fixed 6 decimals); now `format("{}", val)` per wording, shortest round-trip. Integer overloads already matched via `to_chars`, untouched |
-| [ ] | P2757R3 | Type-checking format args | P2419R2 (its blocker) implemented 2026-09-07 — see format/print block note. P2757R3 itself still needs its own scoping pass, not attempted |
+| [x] | P2757R3 | Type-checking format args | Complete 2026-09-07 — `check_dynamic_spec<Ts...>`/`_integral`/`_string` added; `__cpp_lib_format` now `202311L` for C++26 — see format/print block note for the one documented scope boundary |
 | [ ] | P3107R5 | Efficient `std::print` implementation | Assessed 2026-08-22 — confirmed `__vprint_nonunicode` materializes a full `string` before writing, the exact thing this paper eliminates; real redesign, deserves its own session — see format/print block note |
 | [x] | P2845R8 | `std::filesystem::path` formatting | Complete 2026-08-22 — new `formatter<path, charT>` in `__filesystem/path_format.h`, path-format-spec grammar (fill-and-align, width, `?`, `g`) |
 | [ ] | P3235R3 | `std::print` faster/leaner for more types | Assessed 2026-08-22, same redesign as P3107R5 above, bundle with it |

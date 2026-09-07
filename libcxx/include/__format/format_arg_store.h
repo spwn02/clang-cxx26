@@ -254,7 +254,76 @@ struct __unpacked_format_arg_store {
   basic_format_arg<_Context> __args_[_Np];
 };
 
+#  if _LIBCPP_STD_VER >= 26
+// P2757R3's check_dynamic_spec<Ts...> mandates that every type in Ts... is
+// one of exactly these twelve types -- not the broader set of types
+// __determine_arg_t accepts (e.g. it excludes plain char arrays and
+// basic_string, both of which __determine_arg_t maps to __string_view
+// alongside basic_string_view itself). This mapping is intentionally
+// separate from __determine_arg_t: it both enforces that Mandates and
+// gives the diagnostic when it's violated, via the else branch below.
+template <class _CharT, class _Tp>
+consteval __arg_t __dynamic_spec_arg_t() {
+  if constexpr (same_as<_Tp, bool>)
+    return __arg_t::__boolean;
+  else if constexpr (same_as<_Tp, _CharT>)
+    return __arg_t::__char_type;
+  else if constexpr (same_as<_Tp, int>)
+    return __arg_t::__int;
+  else if constexpr (same_as<_Tp, unsigned int>)
+    return __arg_t::__unsigned;
+  else if constexpr (same_as<_Tp, long long int>)
+    return __arg_t::__long_long;
+  else if constexpr (same_as<_Tp, unsigned long long int>)
+    return __arg_t::__unsigned_long_long;
+  else if constexpr (same_as<_Tp, float>)
+    return __arg_t::__float;
+  else if constexpr (same_as<_Tp, double>)
+    return __arg_t::__double;
+  else if constexpr (same_as<_Tp, long double>)
+    return __arg_t::__long_double;
+  else if constexpr (same_as<_Tp, const _CharT*>)
+    return __arg_t::__const_char_type_ptr;
+  else if constexpr (same_as<_Tp, basic_string_view<_CharT>>)
+    return __arg_t::__string_view;
+  else if constexpr (same_as<_Tp, const void*>)
+    return __arg_t::__ptr;
+  else
+    static_assert(sizeof(_Tp) == 0,
+                  "check_dynamic_spec<Ts...>: each type in Ts... must be one of bool, char_type, int, unsigned int, "
+                  "long long int, unsigned long long int, float, double, long double, const char_type*, "
+                  "basic_string_view<char_type>, or const void*");
+}
+
+template <class...>
+inline constexpr bool __dynamic_spec_types_are_unique = true;
+
+template <class _Tp, class... _Rest>
+inline constexpr bool __dynamic_spec_types_are_unique<_Tp, _Rest...> =
+    (!same_as<_Tp, _Rest> && ...) && __format::__dynamic_spec_types_are_unique<_Rest...>;
+#  endif // _LIBCPP_STD_VER >= 26
+
 } // namespace __format
+
+#  if _LIBCPP_STD_VER >= 26
+template <class _CharT>
+template <class... _Ts>
+_LIBCPP_HIDE_FROM_ABI constexpr void basic_format_parse_context<_CharT>::check_dynamic_spec(size_t __id) noexcept {
+  static_assert(sizeof...(_Ts) > 0, "check_dynamic_spec<Ts...> requires at least one type");
+  static_assert(__format::__dynamic_spec_types_are_unique<_Ts...>, "the types in Ts... must be unique");
+
+  // [format.parse.ctx]: Call expressions where id >= num_args_ or the type
+  // of the corresponding format argument is not one of the types in Ts...
+  // are not core constant expressions. At runtime this performs no check
+  // at all (matches next_arg_id/check_arg_id's existing is_constant_evaluated
+  // gating just above).
+  if (is_constant_evaluated()) {
+    if (__id >= __num_args_ || __types_ == nullptr ||
+        ((__types_[__id] != __format::__dynamic_spec_arg_t<_CharT, _Ts>()) && ...))
+      std::__throw_format_error("Dynamic spec argument index outside the valid range or of an unexpected type");
+  }
+}
+#  endif // _LIBCPP_STD_VER >= 26
 
 template <class _Context, class... _Args>
 struct __format_arg_store {

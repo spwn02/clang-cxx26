@@ -369,7 +369,7 @@ struct basic_format_string {
   template <class _Tp>
     requires convertible_to<const _Tp&, basic_string_view<_CharT>>
   consteval basic_format_string(const _Tp& __str) : __str_{__str} {
-    __format::__vformat_to(basic_format_parse_context<_CharT>{__str_, sizeof...(_Args)},
+    __format::__vformat_to(basic_format_parse_context<_CharT>{__str_, sizeof...(_Args), __types_.data()},
                            _Context{__types_.data(), __handles_.data(), sizeof...(_Args)});
   }
 

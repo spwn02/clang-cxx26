@@ -573,14 +573,14 @@ feature_test_macros = [
             "name": "__cpp_lib_format",
             "values": {
                 "c++20": 202110,
-                # "c++23": 202207, Not implemented P2419R2 Clarify handling of encodings in localized formatting of chrono types
-                # "c++26": 202306, P2637R3 Member Visit (implemented)
-                # "c++26": 202311, P2918R2 Runtime format strings II (implemented)
+                "c++23": 202207,  # P2419R2 Clarify handling of encodings in localized formatting of chrono types
+                # Sequential numbering from the June 2023 meeting, all now implemented:
+                # 202304 P2510R3 Formatting pointers
+                # 202305 P2757R3 Type-checking format args
+                # 202306 P2637R3 Member visit
+                # 202311 P2918R2 Runtime format strings II
+                "c++26": 202311,
             },
-            # Note these three papers are adopted at the June 2023 meeting and have sequential numbering
-            # 202304 P2510R3 Formatting pointers (Implemented)
-            # 202305 P2757R3 Type-checking format args
-            # 202306 P2637R3 Member Visit
             "headers": ["format"],
             # Trying to use `std::format` where to_chars floating-point is not
             # available causes compilation errors, even with non floating-point types.
@@ -1775,7 +1775,12 @@ def produce_macros_definition_for_std(std):
             result += "# if %s\n" % tc["libcxx_guard"]
             inner_indent += 2
         if get_value_before(tc["values"], std) is not None:
-            assert "test_suite_guard" not in tc.keys()
+            # Note: a macro combining "test_suite_guard" with a value that
+            # changes across std dialects (e.g. __cpp_lib_format, P2757R3)
+            # is fine here: the #undef below lands inside the same
+            # "# if libcxx_guard" block just opened above, so it only fires
+            # when the guard the original #define was conditioned on is
+            # itself satisfied.
             result += "# undef  %s\n" % tc["name"]
         line = "#%sdefine %s" % ((" " * inner_indent), tc["name"])
         line += " " * (indent - len(line))
