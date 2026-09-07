@@ -494,7 +494,36 @@ sweep (an `-Werror,-Wunused-parameter` false failure in
   `clang/lib/Sema/SemaExpand.cpp`'s range-handling (search `BuildDeclRefExpr`/
   `RangeVar` there) — expansion-statement area, same file as the M5
   `setImplicit()` fix below, possibly a nearby fix once someone's back in that
-  code.
+  code. **Re-investigated 2026-09-07, traced further but still unresolved**:
+  the diagnostic fires via the generic `Sema::ActOnFinishFullExpr`'s
+  `DiscardedValue` path (`SemaExprCXX.cpp:7712-7740`), not anywhere in
+  `SemaExpand.cpp`'s own `ActOnCXXExpansionStmt`/`BuildCXXExpansionStmt` (read
+  in full; its `AddInitializerToDecl` calls are ordinary decl-initializer
+  paths, not expression-statement discards, so they don't explain it
+  directly). Found the actual differential vs. ordinary range-based `for`
+  (which doesn't trigger this) in `clang/lib/Parse/ParseDecl.cpp:2333-2374`,
+  the shared for-range-declarator parsing both loop kinds go through: the
+  `ParseExpression()` call for the range clause (line 2370) is identical for
+  both, but `template for` uniquely (a) may enter an
+  `ImmediateFunctionContext` evaluation context when the loop variable is
+  `constexpr` (line 2338-2342), and (b) uniquely calls
+  `Actions.MaybeCreateExprWithCleanups(FRI->RangeExpr)` right after parsing
+  (line 2372-2373), which ordinary range-`for` never does. One of these two
+  is the most likely trigger, but which one, and the exact mechanism, isn't
+  confirmed — needs a breakpoint on `DiagnoseUnusedExprResult` or bisecting
+  by disabling each of (a)/(b) in turn. Start here, not `SemaExpand.cpp`.
+- **`libcxx/test/std/experimental/reflection/p3096-fn-parameters.pass.cpp`**
+  — new finding 2026-09-07. Fails at `variable_of_tests::fn`'s `return
+  [:variable_of(parameters_of(^^fn)[0]):];` (line 300): `subexpression not
+  valid in a constant expression`. This splices the *variable* reflection
+  derived from a *parameter* reflection back into an expression, expecting
+  the evaluator to read the parameter's current bound value through that
+  derived reflection. `variable_of` dispatches into
+  `clang/lib/AST/ExprConstantMeta.cpp` (`__metafn_variable_of`, lines
+  ~697/938/6595) — the evaluator doesn't currently know how to resolve a
+  `variable_of(parameter)`-derived reflection back to the calling frame's
+  actual parameter binding. Genuine, nontrivial evaluator feature gap, not a
+  quick fix — not attempted further this session.
 - **`libcxx/test/std/experimental/reflection/template-arguments.pass.cpp`** —
   real crash: `Assertion 'isReflection() && "not a reflection value"' failed`
   in `APValue::getReflectionKind()` (`clang/lib/AST/APValue.cpp:778`), while
@@ -507,20 +536,36 @@ sweep (an `-Werror,-Wunused-parameter` false failure in
   crash: `Assertion 'isa<To>(Val) && "cast<Ty>() argument of incompatible
   type!"' failed` in `llvm::cast<clang::TagDecl>` (from
   `llvm/include/llvm/Support/Casting.h:572`, called from reflection code).
-- **`libcxx/test/std/experimental/reflection/namespace-reflection-equality-reopened.pass.cpp`**
-  — not a crash: `no member named 'underlying_entity_of' in namespace
-  'std::meta'; did you mean 'std::meta::detail::__underlying_entity_of'`. A
-  public API the test expects was apparently never exposed past its
-  `detail::__`-prefixed implementation — a library gap, not a compiler bug.
+- ~~**`libcxx/test/std/experimental/reflection/namespace-reflection-equality-reopened.pass.cpp`**~~
+  — **Fixed 2026-09-07.** Not actually a library gap: `underlying_entity_of`
+  exists but is gated behind `-fentity-proxy-reflection` (a separate flag
+  from `-freflection-latest`, tracking a still-evolving proposal), which the
+  test was simply missing. Added the flag, matching the convention already
+  used by `entity-proxies.pass.cpp`/`attributed-function-type-queries.pass.cpp`.
 - **`libcxx/test/std/experimental/reflection/to-and-from-values.pass.cpp`** —
   `static assertion expression is not an integral constant expression` at line
-  199; not yet traced to a specific evaluator defect.
-- **`libcxx/test/std/experimental/reflection/{annotation-module-serialization,module-imports}.sh.cpp`**
-  — fail with no assertion/crash signature in the captured log (a `RUN:`/
-  `FileCheck`-shaped mismatch rather than a diagnostic); not yet re-run with
-  `-v` to see the actual mismatch.
+  199 (`extract<int>(^^arg)` on a parameter reflection). **Confirmed
+  2026-09-07: same `APValue::getReflectionKind()` crash signature as
+  `template-arguments.pass.cpp` above** — very likely the identical
+  storage-lifetime bug, not independently root-caused.
+- ~~**`libcxx/test/std/experimental/reflection/annotation-module-serialization.sh.cpp`**~~
+  — **Fixed 2026-09-07.** Not a compiler bug: the test's own `Rename` object
+  was named `rename`, ambiguous with libc `::rename` transitively pulled in
+  by `<meta>`. Renamed the local variable.
+- **`libcxx/test/std/experimental/reflection/module-imports.sh.cpp`** —
+  precisely root-caused above (the `NestedNameSpecifier`/`Kind::Splice`
+  handling gap) — the "not yet re-run with -v" framing this bullet
+  previously carried was stale, superseded by that fuller writeup.
 
-All 5 unresolved ones reproduce in the full `check-cxx` run archived at
+Of this list, 2 were fixed as trivial test-side issues 2026-09-07
+(`namespace-reflection-equality-reopened.pass.cpp`,
+`annotation-module-serialization.sh.cpp`); 4 remain genuinely open compiler
+gaps (`parameter-reflection-kind-preserved.pass.cpp`'s `-Wunused-value`,
+`p3096-fn-parameters.pass.cpp`'s `variable_of` evaluator gap,
+`template-arguments.pass.cpp`/`to-and-from-values.pass.cpp`'s shared
+`APValue::getReflectionKind()` crash, and `module-imports.sh.cpp`'s
+`NestedNameSpecifier` splice gap, precisely scoped above). All reproduce in
+the full `check-cxx` run archived at
 `~/.local/share/cxx26-contracts/results/check-cxx-20260904T234114Z-50283cf26005-hardening-m1-baseline-v3.json`.
 Anyone picking these up should re-run each individually first (with
 `-v`) to get a clean, uncontended repro before touching source.
