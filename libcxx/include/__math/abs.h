@@ -23,19 +23,22 @@ namespace __math {
 
 // fabs
 
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI float fabs(float __x) _NOEXCEPT { return __builtin_fabsf(__x); }
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 float fabs(float __x) _NOEXCEPT {
+  return __builtin_fabsf(__x);
+}
 
 template <class = int>
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI double fabs(double __x) _NOEXCEPT {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double fabs(double __x) _NOEXCEPT {
   return __builtin_fabs(__x);
 }
 
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI long double fabs(long double __x) _NOEXCEPT {
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 long double fabs(long double __x)
+    _NOEXCEPT {
   return __builtin_fabsl(__x);
 }
 
 template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI double fabs(_A1 __x) _NOEXCEPT {
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double fabs(_A1 __x) _NOEXCEPT {
   return __builtin_fabs((double)__x);
 }
 

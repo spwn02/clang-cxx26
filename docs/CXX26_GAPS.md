@@ -702,7 +702,7 @@ Good starting point after Tier 0.
 | [x] | P2363R5 | Heterogeneous lookup, remaining associative container overloads | Done 2026-08-20 |
 | [x] | P1901R2 | `weak_ptr` as unordered associative container key | Done 2026-08-20 |
 | [x] | P2944R3 | `reference_wrapper` comparisons | Done 2026-08-22 — all Constraints (`pair`/`tuple`/`optional`/`variant`/`reference_wrapper`) were already implemented (mostly inherited from upstream commits); only the shared `__cpp_lib_constrained_equality` FTM flag and CSV status needed flipping |
-| [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | **Compiler capability added 2026-09-07, not yet user-visible** — `<complex>` done; the constant evaluator now folds `__builtin_floor`/`ceil`/`trunc`/`round`/`nearbyint`/`rint`/`fmod`/`remainder`/`lround`/`llround`/`lrint`/`llrint` directly, but `std::floor` etc. don't benefit yet (see notes below — a real gap found and corrected during verification, not shipped as a false claim). `sqrt`/`pow`/`exp`/`log`/trig remain compiler-blocked (no correctly-rounded primitive exists anywhere in this LLVM). |
+| [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | **Partially user-visible as of 2026-09-07** — `<complex>` done. `std::floor`/`ceil`/`trunc`/`round`/`nearbyint`/`rint`/`fmod`/`remainder`/`lround`/`llround`/`lrint`/`llrint`/`fabs`/`copysign`/`fmax`/`fmin` are now `constexpr`-usable for `float`, `long double`, and integral-promoted arguments; the exact-`double` overload of each is still blocked by a pre-existing glibc-collision workaround (see notes below — a real, structural gap found and documented, not a false claim). `sqrt`/`pow`/`exp`/`log`/trig remain compiler-blocked (no correctly-rounded primitive exists anywhere in this LLVM). Integral `std::abs` (`<cstdlib>`) is a separate, still-unfixed routing gap. |
 | [x] | P3168R2 | `std::optional` range support | Done 2026-08-20 — implementation was already complete via P2988R11; added missing test coverage |
 
 **P1383R2 scalar `<cmath>`/`<cstdlib>` — partially unblocked 2026-09-07.**
@@ -771,6 +771,79 @@ much of the safe subset is done).
 scope-excluded** — revisit `sqrt`/`pow`/`exp`/`log`/trig if this fork's
 Clang ever gains a correctly-rounded implementation path (upstream APFloat
 sqrt support, or a deliberate MPFR build dependency decision) for them.
+
+**2026-09-07 follow-up: library-side wrappers already existed; the real
+blocker is a glibc-collision workaround, not a missing wrapper.**
+Investigation found the previous session's framing wrong on two points.
+`libcxx/include/__math/{abs,copysign,modulo,remainder,min_max,
+rounding_functions}.h` already define `std::__math::floor`/`ceil`/`trunc`/
+`round`/`nearbyint`/`rint`/`fmod`/`remainder`/`lround`/`llround`/`lrint`/
+`llrint`/`fabs`/`copysign`/`fmax`/`fmin` — correctly-typed `float`/`double`/
+`long double` overloads plus an integral-promotion template, all calling
+the matching `__builtin_*` — and all 16 of those builtins were directly
+confirmed (via `static_assert`) to constant-fold in this compiler. These
+are not new wrappers to write; they were just missing the `constexpr`
+keyword, so that's the only change made: added
+`_LIBCPP_CONSTEXPR_SINCE_CXX23` to every overload of all 16 functions
+across the 6 headers above (leaving `modf`/`remquo`/`nextafter`/
+`nexttoward` untouched — confirmed by direct test that their builtins do
+*not* constant-fold).
+
+The exposure chain is `std::__math::X` → global `::X` (via
+`libcxx/include/math.h`'s `using std::__math::X;`) → `std::X` (via
+`<cmath>`'s blanket `using ::X;` block, lines ~492-683). This chain works
+end-to-end for `float`, `long double`, and integral arguments — verified
+directly:
+
+```cpp
+static_assert(std::floor(1.5f) == 1.0f);   // OK, now constexpr
+static_assert(std::floor(1.5L) == 1.0L);   // OK, now constexpr
+static_assert(std::floor(3) == 3.0);       // OK, now constexpr (integral promotion)
+static_assert(std::fabs(-1.5f) == 1.5f);   // OK
+static_assert(std::copysign(1.0L, -2.0L) == -1.0L);  // OK
+```
+
+But the exact-`double` overload of each function is declared as
+`template <class = int> ... double floor(double __x)` (a template with a
+defaulted, unused parameter) rather than a plain function — a pre-existing
+trick to let it coexist in the same scope as glibc's raw, non-`constexpr`
+`double floor(double)` declaration without a duplicate-declaration error.
+Per C++ overload resolution, a non-template candidate beats an
+equally-good template specialization, so for an exact-`double` argument
+the *raw glibc declaration* always wins over the `constexpr` `__math::`
+template — confirmed directly, including reproducing the identical failure
+at global-scope with `<math.h>` alone (independent of `<cmath>`):
+
+```cpp
+static_assert(std::floor(1.5) == 1.0);
+// error: non-constexpr function 'floor' cannot be used in a constant expression
+// /usr/include/bits/mathcalls.h:220:14: note: declared here
+```
+
+Runtime (non-constant-evaluated) calls are unaffected either way — verified
+by executing `std::floor`/`fabs`/`fmax` at runtime post-change and
+confirming identical results, since `_LIBCPP_CONSTEXPR_SINCE_CXX23` only
+adds an additional evaluation mode and changes no codegen for the ordinary
+call path.
+
+**Unblocking the `double` case is a structural fix, not a keyword
+addition** — it needs libc++'s `math.h` to stop letting glibc's raw
+`double`-overload declaration enter the same overload set as
+`std::__math`'s (so the template-trick workaround can be dropped and the
+`double` overload can become a genuine non-template, `constexpr`
+function), which has blast radius across all of `<cmath>`/`<math.h>`, not
+just these 16 functions. Left as a separate, session-sized follow-up;
+this session's fix is a real, verified, but partial improvement.
+
+`__cpp_lib_constexpr_cmath` is correctly left commented out in
+`libcxx/include/version` — even with this fix, the FTM's full requirement
+(`sqrt`/`pow`/`exp`/`log`/trig included) is nowhere near met.
+
+**Separate adjacent gap, not fixed here**: integral `std::abs` (from
+`<cstdlib>`) is still non-`constexpr`, resolving to raw glibc
+`stdlib.h`'s declaration rather than `std::__math::abs` — a different
+routing gap (`<cstdlib>`'s `abs` doesn't reach `__math::` the way
+`<cmath>`'s functions do), out of scope for this fix.
 
 **Real gap found during verification, not shipped as a false claim: the new
 compiler capability isn't user-visible yet.** The obvious next check —

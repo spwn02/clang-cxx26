@@ -25,19 +25,22 @@ namespace __math {
 
 // fmod
 
-inline _LIBCPP_HIDE_FROM_ABI float fmod(float __x, float __y) _NOEXCEPT { return __builtin_fmodf(__x, __y); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 float fmod(float __x, float __y) _NOEXCEPT {
+  return __builtin_fmodf(__x, __y);
+}
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI double fmod(double __x, double __y) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double fmod(double __x, double __y) _NOEXCEPT {
   return __builtin_fmod(__x, __y);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI long double fmod(long double __x, long double __y) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 long double fmod(long double __x,
+                                                                            long double __y) _NOEXCEPT {
   return __builtin_fmodl(__x, __y);
 }
 
 template <class _A1, class _A2, __enable_if_t<is_arithmetic<_A1>::value && is_arithmetic<_A2>::value, int> = 0>
-inline _LIBCPP_HIDE_FROM_ABI __promote_t<_A1, _A2> fmod(_A1 __x, _A2 __y) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 __promote_t<_A1, _A2> fmod(_A1 __x, _A2 __y) _NOEXCEPT {
   using __result_type = __promote_t<_A1, _A2>;
   static_assert(!(_IsSame<_A1, __result_type>::value && _IsSame<_A2, __result_type>::value), "");
   return __math::fmod((__result_type)__x, (__result_type)__y);

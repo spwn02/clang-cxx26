@@ -98,57 +98,57 @@ int main(int, char**) {
   ASSERT_NOT_CONSTEXPR_CXX23(std::scalblnf(1.0f, 1L) == 2.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::scalblnl(1.0L, 1L) == 2.0L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::fabs(-1.0f) == 1.0f);
+  ASSERT_CONSTEXPR_CXX23(std::fabs(-1.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fabs(-1.0) == 1.0);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::fabs(-1.0L) == 1.0L);
+  ASSERT_CONSTEXPR_CXX23(std::fabs(-1.0L) == 1.0L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fabsf(-1.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fabsl(-1.0L) == 1.0L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::ceil(0.0f) == 0.0f);
+  ASSERT_CONSTEXPR_CXX23(std::ceil(0.0f) == 0.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::ceil(0.0) == 0.0);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::ceil(0.0L) == 0.0L);
+  ASSERT_CONSTEXPR_CXX23(std::ceil(0.0L) == 0.0L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::ceilf(0.0f) == 0.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::ceill(0.0L) == 0.0L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::floor(1.0f) == 1.0f);
+  ASSERT_CONSTEXPR_CXX23(std::floor(1.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::floor(1.0) == 1.0);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::floor(1.0L) == 1.0L);
+  ASSERT_CONSTEXPR_CXX23(std::floor(1.0L) == 1.0L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::floorf(1.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::floorl(1.0L) == 1.0L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::round(1.0f) == 1.0f);
+  ASSERT_CONSTEXPR_CXX23(std::round(1.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::round(1.0) == 1.0);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::round(1.0L) == 1.0L);
+  ASSERT_CONSTEXPR_CXX23(std::round(1.0L) == 1.0L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::roundf(1.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::roundl(1.0L) == 1.0L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::lround(1.0f) == 1L);
+  ASSERT_CONSTEXPR_CXX23(std::lround(1.0f) == 1L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::lround(1.0) == 1L);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::lround(1.0L) == 1L);
+  ASSERT_CONSTEXPR_CXX23(std::lround(1.0L) == 1L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::lroundf(1.0f) == 1L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::lroundl(1.0L) == 1L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::llround(1.0f) == 1LL);
+  ASSERT_CONSTEXPR_CXX23(std::llround(1.0f) == 1LL);
   ASSERT_NOT_CONSTEXPR_CXX23(std::llround(1.0) == 1LL);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::llround(1.0L) == 1LL);
+  ASSERT_CONSTEXPR_CXX23(std::llround(1.0L) == 1LL);
   ASSERT_NOT_CONSTEXPR_CXX23(std::llroundf(1.0f) == 1LL);
   ASSERT_NOT_CONSTEXPR_CXX23(std::llroundl(1.0L) == 1LL);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::trunc(1.0f) == 1.0f);
+  ASSERT_CONSTEXPR_CXX23(std::trunc(1.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::trunc(1.0) == 1.0);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::trunc(1.0L) == 1.0L);
+  ASSERT_CONSTEXPR_CXX23(std::trunc(1.0L) == 1.0L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::truncf(1.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::truncl(1.0L) == 1.0L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::fmod(1.5f, 1.0f) == 0.5f);
+  ASSERT_CONSTEXPR_CXX23(std::fmod(1.5f, 1.0f) == 0.5f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fmod(1.5, 1.0) == 0.5);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::fmod(1.5L, 1.0L) == 0.5L);
+  ASSERT_CONSTEXPR_CXX23(std::fmod(1.5L, 1.0L) == 0.5L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fmodf(1.5f, 1.0f) == 0.5f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fmodl(1.5L, 1.0L) == 0.5L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::remainder(0.5f, 1.0f) == 0.5f);
+  ASSERT_CONSTEXPR_CXX23(std::remainder(0.5f, 1.0f) == 0.5f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::remainder(0.5, 1.0) == 0.5);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::remainder(0.5L, 1.0L) == 0.5L);
+  ASSERT_CONSTEXPR_CXX23(std::remainder(0.5L, 1.0L) == 0.5L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::remainderf(0.5f, 1.0f) == 0.5f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::remainderl(0.5L, 1.0L) == 0.5L);
 
@@ -158,9 +158,9 @@ int main(int, char**) {
   ASSERT_NOT_CONSTEXPR_CXX23(std::remquof(0.5f, 1.0f, &DummyInt) == 0.5f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::remquol(0.5L, 1.0L, &DummyInt) == 0.5L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::copysign(1.0f, 1.0f) == 1.0f);
+  ASSERT_CONSTEXPR_CXX23(std::copysign(1.0f, 1.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::copysign(1.0, 1.0) == 1.0);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::copysign(1.0L, 1.0L) == 1.0L);
+  ASSERT_CONSTEXPR_CXX23(std::copysign(1.0L, 1.0L) == 1.0L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::copysignf(1.0f, 1.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::copysignl(1.0L, 1.0L) == 1.0L);
 
@@ -182,15 +182,15 @@ int main(int, char**) {
   ASSERT_NOT_CONSTEXPR_CXX23(std::fdimf(1.0f, 0.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fdiml(1.0L, 0.0L) == 1.0L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::fmax(1.0f, 0.0f) == 1.0f);
+  ASSERT_CONSTEXPR_CXX23(std::fmax(1.0f, 0.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fmax(1.0, 0.0) == 1.0);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::fmax(1.0L, 0.0L) == 1.0L);
+  ASSERT_CONSTEXPR_CXX23(std::fmax(1.0L, 0.0L) == 1.0L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fmaxf(1.0f, 0.0f) == 1.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fmaxl(1.0L, 0.0L) == 1.0L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::fmin(1.0f, 0.0f) == 0.0f);
+  ASSERT_CONSTEXPR_CXX23(std::fmin(1.0f, 0.0f) == 0.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fmin(1.0, 0.0) == 0.0);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::fmin(1.0L, 0.0L) == 0.0L);
+  ASSERT_CONSTEXPR_CXX23(std::fmin(1.0L, 0.0L) == 0.0L);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fminf(1.0f, 0.0f) == 0.0f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::fminl(1.0L, 0.0L) == 0.0L);
 
