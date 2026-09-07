@@ -15,6 +15,7 @@
 // the optional, since they point into the referenced object, not into
 // storage owned by the optional).
 
+#include <iterator>
 #include <optional>
 #include <ranges>
 #include <type_traits>
@@ -28,8 +29,15 @@ static_assert(std::ranges::view<std::optional<int>>);
 static_assert(!std::ranges::borrowed_range<std::optional<int>>);
 static_assert(!std::ranges::borrowed_range<const std::optional<int>>);
 
-static_assert(std::is_same_v<std::ranges::iterator_t<std::optional<int>>, int*>);
-static_assert(std::is_same_v<std::ranges::iterator_t<const std::optional<int>>, const int*>);
+// The iterator type is implementation-defined ([optional.iterators]), not necessarily a raw
+// pointer -- libc++ uses a bounded/wrapped iterator here. Check the actual requirements instead.
+static_assert(std::contiguous_iterator<std::ranges::iterator_t<std::optional<int>>>);
+static_assert(std::contiguous_iterator<std::ranges::iterator_t<const std::optional<int>>>);
+static_assert(std::is_same_v<std::iter_value_t<std::ranges::iterator_t<std::optional<int>>>, int>);
+static_assert(std::is_same_v<std::iter_reference_t<std::ranges::iterator_t<std::optional<int>>>, int&>);
+static_assert(std::is_same_v<std::iter_value_t<std::ranges::iterator_t<const std::optional<int>>>, int>);
+static_assert(
+    std::is_same_v<std::iter_reference_t<std::ranges::iterator_t<const std::optional<int>>>, const int&>);
 
 // optional<T&>: contiguous, sized, common range; both a view and a
 // borrowed_range, since its iterators point at the referenced object.
@@ -41,4 +49,6 @@ static_assert(std::ranges::view<std::optional<int&>>);
 static_assert(std::ranges::borrowed_range<std::optional<int&>>);
 static_assert(std::ranges::borrowed_range<const std::optional<int&>>);
 
-static_assert(std::is_same_v<std::ranges::iterator_t<std::optional<int&>>, int*>);
+static_assert(std::contiguous_iterator<std::ranges::iterator_t<std::optional<int&>>>);
+static_assert(std::is_same_v<std::iter_value_t<std::ranges::iterator_t<std::optional<int&>>>, int>);
+static_assert(std::is_same_v<std::iter_reference_t<std::ranges::iterator_t<std::optional<int&>>>, int&>);

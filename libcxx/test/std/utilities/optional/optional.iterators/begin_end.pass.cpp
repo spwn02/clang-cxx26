@@ -82,8 +82,8 @@ constexpr bool test() {
   {
     int value    = 42;
     std::optional<int&> opt(value);
-    assert(opt.begin() == &value);
-    assert(opt.end() == &value + 1);
+    assert(std::to_address(opt.begin()) == &value);
+    assert(std::to_address(opt.end()) == &value + 1);
     assert(std::distance(opt.begin(), opt.end()) == 1);
 
     // mutating through the iterator mutates the referenced object
