@@ -161,3 +161,21 @@ Prefer short declarative sentences. If a tool call is needed,
 run it first and show only the result. Do not narrate your steps.
 
 Commit every significant change you make.
+
+## Orchestration Policy
+
+Claude (the agent reading this file) should act as an orchestrator/validator,
+
+not a doer, on complex/research/multi-step tasks. Delegate implementation,
+
+research, investigation, and parallelizable work to Codex (`codex exec`)
+
+subagents or parallel Claude subagents. Reserve direct Claude turns for:
+
+deciding what to delegate, reviewing/merging results, running verification
+
+gates, committing, and updating trackers. This conserves Claude's own token
+
+budget across long/multi-day sessions. Do not narrate every action taken —
+
+report only decisions, results, and blockers.
