@@ -6449,6 +6449,10 @@ bool get_ith_parameter_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       << 5 << DescriptionOf(RV) << Range;
 }
 
+// P3096R12 [meta.reflection.parameter]: has_ellipsis_parameter is a total
+// function over 'info' -- no Constant When clause, "Otherwise, false" for
+// every reflection that isn't a function/function-type with an ellipsis
+// parameter. Must never diagnose.
 bool has_ellipsis_parameter(APValue &Result, ASTContext &C, MetaActions &Meta,
                             EvalFn Evaluator, DiagFn Diagnoser,
                             bool AllowInjection, QualType ResultTy,
@@ -6473,27 +6477,29 @@ bool has_ellipsis_parameter(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
   case ReflectionKind::Attribute:
-    return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
-      << 5 << DescriptionOf(RV) << Range;
+    return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Type:
     if (const auto *FPT = RV.getReflectedType()->getAs<FunctionProtoType>()) {
       bool HasEllipsis = FPT->isVariadic();
       return SetAndSucceed(Result, makeBool(C, HasEllipsis));
     }
-    return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
-        << 2 << 2;
+    return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Declaration: {
     if (auto *FD = dyn_cast<FunctionDecl>(RV.getReflectedDecl())) {
       bool HasEllipsis = FD->getEllipsisLoc().isValid();
       return SetAndSucceed(Result, makeBool(C, HasEllipsis));
     }
-    return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
-      << 5 << DescriptionOf(RV) << Range;
+    return SetAndSucceed(Result, makeBool(C, false));
   }
   }
   llvm_unreachable("unknown reflection kind");
 }
 
+// P3096R12 [meta.reflection.parameter]: has_default_argument is likewise a
+// total function -- its Constant When clause was explicitly removed per a
+// LEWG poll (R12 revision log), so it must return false rather than
+// diagnose for every reflection that isn't a parameter with a default
+// argument.
 bool has_default_argument(APValue &Result, ASTContext &C, MetaActions &Meta,
                           EvalFn Evaluator, DiagFn Diagnoser,
                           bool AllowInjection, QualType ResultTy,
@@ -6523,8 +6529,7 @@ bool has_default_argument(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
   case ReflectionKind::Attribute:
-    return DiagnoseReflectionKind(Diagnoser, Range, "a function parameter",
-                                  DescriptionOf(RV));
+    return SetAndSucceed(Result, makeBool(C, false));
   }
   llvm_unreachable("unknown reflection kind");
 }
