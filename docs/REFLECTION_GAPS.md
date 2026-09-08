@@ -166,13 +166,15 @@ All 85 open `bloomberg/clang-p2996` issues triaged 2026-09-08 by 5 parallel Code
 Confirmed-Open, 27 Needs-Build-To-Verify, 19 Already-Fixed, 8 Out-of-Scope, 2 Not-Applicable.**
 
 **Cross-links noticed between batches / to the paper audit above:**
-- **Reflection-NTTP mangling is a real, recurring cluster**: #286 (same-named function-template
-  reflections collide), #290 (entity-proxy mangling crash), #298 (deduction-guide mangler ICE),
-  #300 (same-headed member-template reflections collide), #312 (deduction-guide specialization
-  mangling ICE) all trace to the same root shape — `clang/lib/AST/ItaniumMangle.cpp`'s
-  `ReflectionKind::Template` case (~line 4932-4937) mangles only the template name, with no
-  discriminator for overloads/specialization-context/deduction-guides. **Good first M4 fix
-  target — one root cause, five issues closed together.**
+- **Reflection-NTTP mangling cluster — 4 of 5 issues FIXED 2026-09-09** (ported from upstream PR
+  #316, the cumulative version superseding #287/#299/#301): #286 (overload discriminator via
+  ODRHash), #298 (Template-kind deduction-guide mangling), #300 (specialization-context fix —
+  `AddFunctionDecl` no-ops there, folds in the pattern's function type + ref-qualifier), #312
+  (Declaration-kind deduction-guide-specialization mangling) all closed in
+  `clang/lib/AST/ItaniumMangle.cpp`'s `mangleReflection`. Verified via `check-clang` (identical
+  5-test pre-existing baseline, zero new failures) plus 4 ported regression tests, all passing.
+  #290 (entity-proxy mangling crash) remains open — separate PR (#291), not part of this cluster's
+  root cause, port next.
 - **Expansion-statement control-flow/robustness is the other major cluster**: #146 (expansion
   generates raw `case` labels), #150 (spliced destructor call), #181 (non-copyable range), #182
   (`template for` + `continue` ICE), #326/#327 (ICE on unresolved-overload / uninstantiated
