@@ -602,67 +602,86 @@ sweep (an `-Werror,-Wunused-parameter` false failure in
   `clang/lib/AST/ExprConstantMeta.cpp`'s `extract`, line 3633) incorrectly
   reusing a result across two different instantiations of the same
   templated call site rather than genuinely re-evaluating
-  `nonstatic_data_members_of(^^T, ...)` for the new `T`. Not confirmed with
-  instrumentation — this is a lead, not a root cause; likely
-  Phase-B/C-caliber (deep template-instantiation/evaluator-caching
-  internals), not a quick fix. Regression surface for whoever picks this up:
-  any recursive template combined with `template for` over a
-  `define_static_array`-backed reflection array.
+  `nonstatic_data_members_of(^^T, ...)` for the new `T`.
+  **2026-09-08 (fourth session): this specific caching lead is confirmed
+  DEAD.** `substitute()`'s own cache (`ExprConstantMeta.cpp:3538-3547`,
+  `checkCachedSubstitution`/`SubstitutionHash`) can never incorrectly
+  reuse anything — every `recordCachedSubstitution` call site (there are
+  5) is commented out, and `recordCachedSubstitution` is called nowhere
+  else in the tree, so `checkCachedSubstitution` always misses; there is
+  nothing to reuse. This rules out the specific mechanism this entry
+  previously led with. **Next step, not yet attempted:** instrument
+  `TArgFromReflection`/`ExpandedTArgs` at each recursive `substitute()`
+  call to check whether the *wrong* `T` is actually being resolved for the
+  anonymous-struct recursion level — i.e. go back to first principles with
+  live instrumentation rather than a caching theory. Likely
+  Phase-B/C-caliber (deep template-instantiation/evaluator internals), not
+  a quick fix. Regression surface for whoever picks this up: any recursive
+  template combined with `template for` over a `define_static_array`-backed
+  reflection array.
 - ~~**`libcxx/test/std/experimental/reflection/namespace-reflection-equality-reopened.pass.cpp`**~~
   — **Fixed 2026-09-07.** Not actually a library gap: `underlying_entity_of`
   exists but is gated behind `-fentity-proxy-reflection` (a separate flag
   from `-freflection-latest`, tracking a still-evolving proposal), which the
   test was simply missing. Added the flag, matching the convention already
   used by `entity-proxies.pass.cpp`/`attributed-function-type-queries.pass.cpp`.
-- **`libcxx/test/std/experimental/reflection/to-and-from-values.pass.cpp`** —
-  `static assertion expression is not an integral constant expression` at line
-  199 (`extract<int>(^^arg)` on a parameter reflection: `extract` doesn't
-  support resolving a reflection of a function parameter to its bound
-  value — a real, distinct feature gap from `variable_of`'s now-fixed
-  version of the same underlying problem, see
-  `parameter-reflection-kind-preserved.pass.cpp` above). Originally
-  confirmed 2026-09-07 to sometimes instead show the shared
-  `APValue::getReflectionKind()` crash signature with
-  `template-arguments.pass.cpp` above, under load. **2026-09-08: that crash
-  is now fixed** (see `template-arguments.pass.cpp`'s entry — commit
-  `07635be93cf6`), and this test reverted cleanly to the diagnostic above
-  with no crash across repeated runs — confirming these were two distinct,
-  independently-observable failure modes for the same test (the crash was
-  intermittent/load-dependent; this diagnostic is the test's deterministic
-  steady state). **Still open, not fixed:** the `extract`-on-parameter gap
-  itself — needs its own fix in `extract`'s implementation
-  (`clang/lib/AST/ExprConstantMeta.cpp:3633`) mirroring `variable_of`'s
-  `StackLocationExpr`-based dynamic-call-frame resolution.
+- ~~**`libcxx/test/std/experimental/reflection/to-and-from-values.pass.cpp`**~~
+  — **Fixed 2026-09-08 (fourth session), commit `8d0a1f8db3f4`.** Prior
+  entries here documented two distinct, independently-observable failure
+  modes for this same test: an intermittent `APValue::getReflectionKind()`
+  crash (fixed the prior session, `07635be93cf6`) and this test's
+  deterministic steady-state failure — `extract<int>(^^arg)`
+  (`clang/lib/AST/ExprConstantMeta.cpp:3633`) bucketed
+  `ReflectionKind::Parameter` into a blanket-reject arm, never attempting
+  to resolve a parameter reflection to its bound value at all (a real,
+  distinct gap from `variable_of`'s now-fixed version of the same
+  underlying problem). Fixed by adding a dedicated `Parameter` case that
+  resolves the current call frame's matching `ParmVarDecl` via the same
+  `StackLocationExpr`-based technique `variable_of` already uses
+  correctly, then falls through into `extract`'s existing `VarDecl`
+  handling (a `ParmVarDecl` IS-A `VarDecl` — no new value-extraction logic
+  needed).
 - ~~**`libcxx/test/std/experimental/reflection/annotation-module-serialization.sh.cpp`**~~
   — **Fixed 2026-09-07.** Not a compiler bug: the test's own `Rename` object
   was named `rename`, ambiguous with libc `::rename` transitively pulled in
   by `<meta>`. Renamed the local variable.
-- **`libcxx/test/std/experimental/reflection/module-imports.sh.cpp`** —
-  precisely root-caused above (the `NestedNameSpecifier`/`Kind::Splice`
-  handling gap) — the "not yet re-run with -v" framing this bullet
-  previously carried was stale, superseded by that fuller writeup.
+- ~~**`libcxx/test/std/experimental/reflection/module-imports.sh.cpp`**~~ —
+  **Fixed 2026-09-08 (fourth session), commit `557d77d82f43`.** The
+  `NestedNameSpecifier`/`Kind::Splice`-as-namespace-prefix gap
+  (`MakeNamespacePtrKind`'s `llvm_unreachable("invalid prefix for
+  namespace")`) turned out smaller than the original "add a new
+  `StoredKind` threaded through ≥6 switch sites" scoping: the existing
+  `StoredKind::NamespaceWithNamespace` representation's `Prefix` field was
+  confirmed (by checking every `StoredKind` switch site in the tree, all
+  confined to `NestedNameSpecifier{,Base}.h`) to already be a fully
+  generic `NestedNameSpecifier`, so widening one switch arm to also accept
+  `Kind::Splice`/`Kind::SpliceWithTemplate` sufficed — no new `StoredKind`
+  needed. Also fixed a related bug found in the same investigation:
+  `getDependence()`'s `Kind::Namespace` case never recursed into
+  `Prefix.getDependence()` (unlike `isFullyQualified()`, which already
+  does), needed for a splice-of-a-dependent-reflection prefix to correctly
+  report dependence inside a template. This same fix also flips
+  `check-clang`'s `Reflection/splice-namespaces.cpp` (one of the 7 known
+  pre-existing `check-clang` failures) to passing.
 
-**Updated 2026-09-08 (third session):** of this list, 2 were fixed as
-trivial test-side issues in the first session
-(`namespace-reflection-equality-reopened.pass.cpp`,
-`annotation-module-serialization.sh.cpp`), 2 more got full compiler-side
-fixes in the second session (`parameter-reflection-kind-preserved.pass.cpp`'s
-`-Wunused-value`, `p3096-fn-parameters.pass.cpp`'s `variable_of` evaluator
-gap — see `160ee8a5`-and-later and `b2ec86f2fbe6`), and 1 more got a full
-compiler-side fix in the third session (`template-arguments.pass.cpp`'s
-`APValue::getReflectionKind()` crash — see `07635be93cf6`).
-`miscellaneous.pass.cpp`'s and `to-and-from-values.pass.cpp`'s original
-crashes are both now fixed too, but each test still fails on its own
-distinct successor issue (documented in place above) — real progress, not
-a false "fixed" claim. **3 items remain genuinely open:**
-`miscellaneous.pass.cpp`'s successor bug (a suspected
-`define_static_array`/`extract` template-instantiation-caching issue),
-`to-and-from-values.pass.cpp`'s pre-existing `extract`-on-parameter gap,
-and `module-imports.sh.cpp`'s `NestedNameSpecifier` splice gap (pre-scoped
-elsewhere in this doc as its own session-sized compiler task).
-Anyone picking these up should re-run each individually first (with `-v`)
-to get a clean, uncontended repro before touching source — two of these
-three are confirmed to only reproduce under full parallel `check-cxx`.
+**Updated 2026-09-08 (fourth session):** of the original list of test-area
+issues in this section, 2 were fixed as trivial test-side issues in the
+first session (`namespace-reflection-equality-reopened.pass.cpp`,
+`annotation-module-serialization.sh.cpp`), 2 got full compiler-side fixes
+in the second session (`parameter-reflection-kind-preserved.pass.cpp`,
+`p3096-fn-parameters.pass.cpp`), 1 in the third session
+(`template-arguments.pass.cpp`), and 2 more in this, the fourth session
+(`to-and-from-values.pass.cpp`, `module-imports.sh.cpp`) — **8 of the
+original list now genuinely fixed (flip PASS)**. `miscellaneous.pass.cpp`'s
+original crash is also fixed (second session) but the test itself still
+fails on its own distinct successor issue documented above (a suspected
+`define_static_array`/`extract` template-instantiation-caching issue —
+**note this specific caching lead was later confirmed dead** in the
+fourth session's `std::execution` recon, see the P2300R10 section; this
+item needs fresh instrumentation-based investigation, not a known lead).
+**This is now the only item remaining open in this section.** Whoever
+picks it up should re-run it individually first (with `-v`) to get a
+clean repro before touching source.
 
 **`pre`/`post` clangd completion (Contracts Hardening epic's M6 open item):
 partially fixed 2026-09-06, one real gap remains open, documented below.**
@@ -1338,6 +1357,43 @@ this needs the complete upstream lambda-constraint/template-depth-
 preservation fix family (tracked by #202957 upstream), not a local patch —
 port the eventual upstream fix (or wait for it to land and rebase) rather
 than re-attempting a local one, given the demonstrated regression risk.
+
+**2026-09-08 (fourth session): the recommended port actually happened —
+26 of 27 tests now pass.** #202957's fix was found to already be closed
+and merged upstream as commit `24df1d13d9090e075b162bf81d1a34a408e54924`
+("Reapply '[Clang] Transform lambda's constraints when instantiating
+parameter mapping'"), which was **already present in this repo's local
+git object database** (this fork's git history includes upstream commits
+past its own `llvmorg-22.1.8` merge base, just not merged into `cxx26`).
+A `codex exec` session (high reasoning effort) manually ported it: 6 of 9
+touched non-test source files applied cleanly via `git apply --check
+--3way`; 3 (`Sema.h`, `SemaConcept.cpp`, `SemaTemplateInstantiate.cpp`)
+needed manual conflict resolution against this fork's own Contracts/
+Reflection-era changes to the same functions. One piece of upstream's diff
+(a `CurrentCachedTemplateArgs` template-argument-substitution cache
+reference) was deliberately not ported — confirmed via a tree-wide grep
+that this caching infrastructure doesn't exist anywhere in this fork and
+predates commit `24df1d13` upstream itself (a separate, unrelated earlier
+upstream addition this fork's older baseline never received), so this is
+a pure-performance omission, not an incomplete port of the actual fix.
+Landed in commit `651683d0b997`.
+
+**Result:** the original minimal repros no longer crash; a 1719-test
+sweep of `temp.constr`/`SemaTemplate`/`SemaCXX` shows zero new failures
+and — critically — no satisfied-to-unsatisfied constraint flip, the exact
+regression this doc's prior session demonstrated as the most likely
+failure mode. **26 of the 27 `std/execution/**` tests now pass outright.**
+The 27th, `exec.when.all/when_all.pass.cpp`, no longer hits the original
+crash but immediately surfaces a **different, previously-masked bug**:
+`StandardConversionSequence::isPerfect`'s assertion
+(`clang/include/clang/Sema/Overload.h:453`) fails while instantiating
+`sync_wait_t::operator()` for a `__when_all_sndr<__just_sndr<
+just_stopped_t>, __just_sndr<just_t, int>>` — an overload-candidate
+perfect-forwarding-detection bug, structurally unrelated to constraint
+substitution. Not a regression (this code path was categorically
+unreachable before, since compilation aborted earlier) and not addressed
+by this fix — a new, distinct, not-yet-investigated item for a future
+session.
 
 ### Tier 2 Sub-Plan: P2300R10 `std::execution` (sender/receiver)
 
