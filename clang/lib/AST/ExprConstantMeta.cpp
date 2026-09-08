@@ -3723,6 +3723,26 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
 
     return SetAndSucceed(Result, A->getValue());
   }
+  case ReflectionKind::Parameter: {
+    ParmVarDecl *PVD = RV.getReflectedParameter();
+    FunctionDecl *FD = cast<FunctionDecl>(PVD->getDeclContext());
+
+    FunctionDecl *CurrentFD = nullptr;
+    APValue Current;
+    StackLocationExpr *SLE = StackLocationExpr::Create(C, SourceRange(), 1);
+    if (Evaluator(Current, SLE, true) && Current.isReflectedDecl())
+      CurrentFD = dyn_cast_or_null<FunctionDecl>(Current.getReflectedDecl());
+    if (!CurrentFD)
+      CurrentFD = dyn_cast<FunctionDecl>(Meta.CurrentCtx());
+
+    if (!CurrentFD || CurrentFD->getCanonicalDecl() != FD->getCanonicalDecl())
+      return true;
+    assert(FD->getDefinition());
+    PVD = FD->getDefinition()->getParamDecl(PVD->getFunctionScopeIndex());
+
+    RV = APValue(ReflectionKind::Declaration, PVD);
+    [[fallthrough]];
+  }
   case ReflectionKind::Declaration: {
     ValueDecl *Decl = RV.getReflectedDecl();
     Meta.EnsureInstantiated(Decl, Args[1]->getSourceRange());
@@ -3867,7 +3887,6 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Namespace:
   case ReflectionKind::EntityProxy:
   case ReflectionKind::Attribute:
-  case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
