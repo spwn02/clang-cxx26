@@ -230,8 +230,57 @@ for readability, same as the source files:
 
 ## Upstream PR triage (M1)
 
-*Pending — not yet started; 35 open PRs snapshotted to
-`docs/reflection-audit/upstream-prs-snapshot.json`.*
+**Major finding (2026-09-08): most of the 35 open upstream PRs are ready-made fixes for issues
+this epic just triaged as Confirmed-Open.** Titles alone map cleanly onto the mangling cluster and
+several other confirmed issues — this changes M4 from "write fixes from scratch" to "assess and
+port these diffs" for a large fraction of the backlog. **Do not re-derive a fix from scratch before
+checking this list first.**
+
+| PR # | Title | Maps to issue(s) |
+|---:|---|---|
+| 353 | Reflect the introduced function when an id-expression names a using-declarator | #342 |
+| 352 | Convert the base of a member splice before building the member expression | #350 |
+| 347 | Remove warning if `&` is not directly in code | #346 (likely) |
+| 345 | Allow reflections of values designating immediate functions | — (check against #184/#334 consteval-only cluster) |
+| 340 | Add `std::meta::has_c_language_linkage` | — (new facility, check against P2996R13 synopsis) |
+| 330 | [Clang][P2996] Implement PCH serialization for `ExplDependentCallExpr` | #329 (related) |
+| 328 | fix crash on expansion statement over an overload set | #327, possibly #326 |
+| 323 | Fix silent miscompile of template argument packs with 2^15+ elements | #321 |
+| 320 | Fix `symbol_of`/`u8symbol_of` table entry for `op_caret_equals` | #319 |
+| 318 | Handle LP64 long-element NEON vectors in the Itanium mangler | #314 |
+| 317 | Don't truncate member enumeration at linkage-spec typedef tags | #313 (already-fixed here — check if this fork's fix differs/is equivalent) |
+| 316 | Mangle deduction-guide specialization reflections | #312 |
+| 315 | Describe builtin templates instead of crashing | #311 |
+| 310 | Don't crash classifying a dependent splice expression | #309 |
+| 306 | Keep namespace member walks clear of out-of-line class-member definitions | #303 |
+| 301 | Discriminate same-headed member-template reflections of a specialization in NTTP mangling | #300 |
+| 299 | Mangle deduction-guide reflections instead of hitting unreachable | #298 |
+| 295 | Report substitution failure instead of crashing when substitution forms an invalid type | #294 |
+| 291 | Handle entity-proxy reflections in member metafunctions and NTTP mangling | #290 |
+| 289 | Fix use-after-free: `ExprEvalContexts` reallocates under held record references during reentrant consteval evaluation | #288 |
+| 287 | Discriminate same-named function-template reflections in NTTP mangling | #286 |
+| 279 | Fix reflect unresolved lookup | — (check against #239/#204 overload-related issues) |
+| 277 | Fix canonicalization of dependent splice types | #276 |
+| 261 | Defer expansion statement body instantiation | — (check against #180/expansion cluster) |
+| 249 | Merging upstream 91cdd350 [clang] Improve nested name specifier AST representation | — (general upstream sync, check relevance) |
+| 244 | Fix `Sema::BuildCXXReflectExpr` wrongly thinks a template is overloaded (e.g. reflecting a lambda's `operator()`) | — (check against #239) |
+| 227,195,170 | [P3816] Implement `std::consteval_hash<std::meta::info>` (3 iterations) | **New paper not in this epic's list — P3816, need to identify and add to the paper audit** |
+| 207 | Examples from P2996 - Reflection for C++26 | — (test/example content, low priority) |
+| 168 | Adding string literal manipulation | — (check scope) |
+| 166 | fix `is_reflection_type` | — (check scope) |
+| 163 | [P3074] Implementing part of trivial unions | **Another paper reference — P3074, cross-check against the language-side gaps list in `docs/CXX26_GAPS.md`** |
+| 135 | ast dump for splice specifier and reflection splice type | tooling, low priority |
+| 124 | Custom annotation requires type to be `equality_comparable` | — (check against annotation/P3394R4 work) |
+
+**Action items surfaced by this list, not yet done:**
+- Identify P3816 ("consteval_hash<std::meta::info>") — not part of this epic's original 10-paper
+  list, needs its own wording lookup and a decision on whether it's in C++26 scope at all (3
+  competing PR implementations upstream suggests it was contentious/unstable there).
+- Cross-check P3074 ("trivial unions") against `docs/CXX26_GAPS.md`'s language-side gaps table —
+  it may already be tracked there as a non-reflection item, avoid duplicate tracking.
+- For every PR mapped to a Confirmed-Open issue above: fetch the diff (`gh pr diff -R
+  bloomberg/clang-p2996 <N>`), check whether it applies cleanly or needs adaptation to this fork's
+  divergent surrounding code, and prefer porting/adapting it over writing an independent fix in M4.
 
 ## Session Log
 
