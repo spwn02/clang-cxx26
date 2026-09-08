@@ -46,6 +46,12 @@ epic). `build-libcxx` has `LIBCXXABI_ENABLE_ASSERTIONS=ON`. **Disk is tight**: r
 `build-libcxx-asan` 3.4G. Watch this during heavy build phases (M3+); a `ninja` failure with a
 disk-space-flavored error should not be mistaken for a code bug.
 
+**Memory is also tight**: a `ninja -C build-nyx clang -j22` (full `nproc`) rebuild after editing
+`ItaniumMangle.cpp` was OOM-killed 2026-09-09 (30G RAM total, only ~5G free at the time, 12G swap
+already in use on this shared machine). **Use `-j4` (or lower) for `clang`/`check-clang` rebuilds
+after touching a large/heavily-templated file**, not full `nproc` — a killed build can look like a
+hang or an unrelated failure if you don't check `dmesg`/the task notification's kill reason first.
+
 ## Paper-by-paper audit (M2)
 
 Full list: P2996R13, P1306R5, P3096R12, P3293R3, P3394R4, P3491R3, P3560R2 (original 7, adopted
