@@ -82,12 +82,13 @@ NestedNameSpecifierDependence NestedNameSpecifier::getDependence() const {
     // through a chain of aliases); ordinary namespaces can never be
     // dependent, but this is a possibility standard C++ has no way to
     // express.
-    const NamespaceBaseDecl *NS = getAsNamespaceAndPrefix().Namespace;
+    auto [NS, Prefix] = getAsNamespaceAndPrefix();
+    NestedNameSpecifierDependence Dependence = Prefix.getDependence();
     if (const auto *AD = dyn_cast<NamespaceAliasDecl>(NS);
         AD && AD->isDependent())
-      return NestedNameSpecifierDependence::DependentInstantiation |
-             NestedNameSpecifierDependence::Dependent;
-    return NestedNameSpecifierDependence::None;
+      Dependence |= NestedNameSpecifierDependence::DependentInstantiation |
+                    NestedNameSpecifierDependence::Dependent;
+    return Dependence;
   }
   case Kind::MicrosoftSuper: {
     CXXRecordDecl *RD = getAsMicrosoftSuper();

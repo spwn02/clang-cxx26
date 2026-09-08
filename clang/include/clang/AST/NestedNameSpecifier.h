@@ -74,12 +74,12 @@ auto NestedNameSpecifier::MakeNamespacePtrKind(
   case Kind::Global:
     return {StoredKind::NamespaceWithGlobal, Namespace};
   case Kind::Namespace:
+  case Kind::Splice:
+  case Kind::SpliceWithTemplate:
     return {StoredKind::NamespaceWithNamespace,
             MakeNamespaceAndPrefixStorage(Ctx, Namespace, Prefix)};
   case Kind::MicrosoftSuper:
   case Kind::Type:
-  case Kind::Splice:
-  case Kind::SpliceWithTemplate:
     llvm_unreachable("invalid prefix for namespace");
   }
   llvm_unreachable("unhandled kind");
