@@ -52,6 +52,18 @@ already in use on this shared machine). **Use `-j4` (or lower) for `clang`/`chec
 after touching a large/heavily-templated file**, not full `nproc` — a killed build can look like a
 hang or an unrelated failure if you don't check `dmesg`/the task notification's kill reason first.
 
+**Root cause identified 2026-09-09: this is the user's actual personal desktop, not a dedicated
+build box.** `ps`/`pgrep` during a second OOM kill (this time on `ninja check-clang` itself, not a
+compile) showed Discord (Vesktop), Steam, Chrome, and 1Password all running concurrently, eating
+~16G of the 30G total before any build work starts. **`ninja check-clang`'s default `llvm-lit`
+invocation also has no explicit `-j` and defaults to `nproc` (22) parallel test-worker processes,
+each spawning its own `clang` subprocess — just as memory-hungry as a 22-way compile.** Invoke
+`llvm-lit` directly with an explicit low `-j` (e.g. `build-nyx/bin/llvm-lit -j4 -sv
+build-nyx/tools/clang/test`) instead of going through the opaque `ninja check-clang` wrapper, for
+both builds AND test runs, for the rest of this epic. Re-check `free -h` before any full-suite run
+if it's been a while since the last one — available memory on a shared desktop fluctuates with
+whatever else the user is doing.
+
 ## Paper-by-paper audit (M2)
 
 Full list: P2996R13, P1306R5, P3096R12, P3293R3, P3394R4, P3491R3, P3560R2 (original 7, adopted
