@@ -9,6 +9,11 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
+// This test unconditionally exercises the "blocks" extension (see
+// compatible_with_blocks below), which requires the Blocks runtime --
+// only available on Darwin out-of-the-box (see the sibling test
+// libcxx/test/libcxx/utilities/function.objects/func.blocks.pass.cpp).
+// REQUIRES: has-fblocks && darwin
 // ADDITIONAL_COMPILE_FLAGS: -fblocks
 // ADDITIONAL_COMPILE_FLAGS: -freflection-latest
 
