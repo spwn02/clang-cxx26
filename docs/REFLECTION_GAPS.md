@@ -13,14 +13,17 @@ verification protocol) lives at
 `/home/spawn/.claude/plans/i-think-finishing-reflection-elegant-rivest.md` — read that first if
 you're picking this up cold.
 
-## Next Up (updated 2026-09-08, epic start)
+## Next Up (updated 2026-09-08, after M1 issue triage landed)
 
-Working M0 (setup, essentially done) and M2 (paper audit) in parallel with M1 (upstream issue
-triage, running as 5 parallel Codex batches in the background as of this writing — check
-`docs/reflection-audit/batch-outputs/batch-0{0..4}-triage.md` for results, fold into the Issue
-Triage table below once all 5 land). Next concrete actions once triage batches land: merge them
-into the table below, then start M3 (the three known bugs) and continue M2 for the remaining 7
-original papers + DRs.
+M0 done. M1's issue triage is done (all 85 issues dispositioned — 29 Confirmed-Open, 27
+Needs-Build-To-Verify, 19 Already-Fixed, 8 Out-of-Scope, 2 Not-Applicable); PR triage (35 open PRs)
+still pending. M2's paper audit is running for the remaining 7 original papers in 4 parallel
+background agents as of this writing (P2996R13 alone; P1306R5+P3096R12; P3293R3+P3394R4;
+P3491R3+P3560R2) — fold results into the Paper-by-paper audit table above once they land. Next
+concrete actions: merge those, then start M3 (the three known bugs — the mangling cluster from M1
+found above is a natural M4 opener once M3's individually-gated bugs are done), then PR triage,
+then M4's Confirmed-Open backlog (start with the mangling cluster: #286/#290/#298/#300/#312, one
+root cause in `ItaniumMangle.cpp`'s `ReflectionKind::Template` case, five issues closed together).
 
 ## Ground truth (established during epic setup, 2026-09-08)
 
@@ -85,8 +88,145 @@ that finished C++26) + P1789R3 (Kona, expansion-statement library support) + DRs
 
 ## Upstream issue triage (M1)
 
-*Pending — 5 parallel Codex batches launched 2026-09-08 covering all 85 open issues, writing to
-`docs/reflection-audit/batch-outputs/batch-0{0..4}-triage.md`. Merge results here once all land.*
+All 85 open `bloomberg/clang-p2996` issues triaged 2026-09-08 by 5 parallel Codex batches
+(read-only source cross-reference, no builds). Full per-batch reasoning kept at
+`docs/reflection-audit/batch-outputs/batch-0{0..4}-triage.md` (git-tracked). **Counts: 29
+Confirmed-Open, 27 Needs-Build-To-Verify, 19 Already-Fixed, 8 Out-of-Scope, 2 Not-Applicable.**
+
+**Cross-links noticed between batches / to the paper audit above:**
+- **Reflection-NTTP mangling is a real, recurring cluster**: #286 (same-named function-template
+  reflections collide), #290 (entity-proxy mangling crash), #298 (deduction-guide mangler ICE),
+  #300 (same-headed member-template reflections collide), #312 (deduction-guide specialization
+  mangling ICE) all trace to the same root shape — `clang/lib/AST/ItaniumMangle.cpp`'s
+  `ReflectionKind::Template` case (~line 4932-4937) mangles only the template name, with no
+  discriminator for overloads/specialization-context/deduction-guides. **Good first M4 fix
+  target — one root cause, five issues closed together.**
+- **Expansion-statement control-flow/robustness is the other major cluster**: #146 (expansion
+  generates raw `case` labels), #150 (spliced destructor call), #181 (non-copyable range), #182
+  (`template for` + `continue` ICE), #326/#327 (ICE on unresolved-overload / uninstantiated
+  ranges). Several are in `clang/lib/Sema/SemaExpand.cpp` and `clang/lib/CodeGen/CGStmt.cpp`.
+- **Issue #225 ("`meta::exception` unimplemented") is the same gap as P3560R2's core
+  requirement** in the paper audit above — not a separate item, the same fix closes both.
+- **Issue #185 ("Annotation API changed in R1") independently confirms the P3394R4 audit is not
+  yet done this epic** — the batch found `<meta>` still has the old `annotations_of(info, info)`/
+  `annotation_of_type`/`annotate` API surface and is missing `annotations_of_with_type` entirely,
+  which is exactly the kind of drift the paper audit (still pending for P3394R4) needs to nail
+  down precisely.
+- **Entity-proxy query gaps (#290) directly extend the P3687R1 audit finding above**: the feature
+  is real and flag-gated (`EntityProxyReflection`), but several query handlers
+  (`is_constructor`/`is_destructor`/`is_special_member_function` in `ExprConstantMeta.cpp`) still
+  `llvm_unreachable`/mishandle `ReflectionKind::EntityProxy`, and the Itanium mangler doesn't
+  discriminate proxy-mangled names either. So P3687R1's disposition above ("substantially
+  implemented") needs a caveat: implemented for the paper's core semantics, but with real
+  follow-on query/mangling gaps the triage surfaced independently.
+
+Full merged table (issue # | title | disposition | evidence | confidence) — split by batch range
+for readability, same as the source files:
+
+**105-184:**
+| # | Title | Disposition | Evidence | Conf. |
+|---:|---|---|---|---|
+| 105 | `experimental/meta` missing | Not-Applicable | Fork exposes current `<meta>`, not the obsolete path; build/install guidance issue, already closed upstream. | High |
+| 120 | Repeated first argument on Windows | Confirmed-Open | Itanium mangling fixed (`698fc39db256`); MS mangling still `llvm_unreachable` at `MicrosoftMangle.cpp:2171-2172`. | High |
+| 146 | Expansion generates `case` labels | Confirmed-Open | `ParseStmt.cpp:2250-2253` accepts `case` in expansion body with no control-flow check; `CGStmt.cpp:1575-1621` emits unconditionally. | High |
+| 150 | Spliced explicit destructor call | Confirmed-Open | `ParseReflect.cpp:49-58` permits ordinary destructor names; splice-as-destructor-name path (`~[:...:]`) absent at `:243-289`. | High |
+| 151 | ICE in member-wise swap | Already-Fixed | Fixes `f0a3e5e612db`/`0f70ed5eb99e`; `CGStmt.cpp:1605-1618` scoping; `miscellaneous.pass.cpp:126-145` close coverage (no dedicated regression test though). | Medium |
+| 154 | `underlying_type` ICE for non-enum | Needs-Build-To-Verify | `libcxx/include/meta:1995-1999`; repro: `std::meta::underlying_type(^^int)`. | Medium |
+| 169 | Crash in templated lambda | Needs-Build-To-Verify | `TreeTransform.h:9352-9419`; repro in batch file. | Medium |
+| 173 | Templated `named_tuple` | Out-of-Scope | Feature request; `define_aggregate` (`libcxx/include/meta:2503-2515`) already covers the underlying need. | High |
+| 175 | Namespace comparison | Already-Fixed | `2245a73e94f5`; `namespace-reflection-equality-reopened.pass.cpp:70-87`. | High |
+| 176 | `members_of` + empty namespace redeclaration | Already-Fixed | `ExprConstantMeta.cpp:1535-1545`; same test file `:41-61`, `:70-84`. | Medium |
+| 177 | Enum NTTP loses enumerator identity | Out-of-Scope | Intentional: reflected value vs. enumerator declaration distinction, `ExprConstantMeta.cpp:4192-4208`; `entity-classification.pass.cpp:61-82` requires this. | High |
+| 178 | `template for` over `integer_sequence` | Needs-Build-To-Verify | `ParseStmt.cpp:1980-1992`; repro in batch file. | Medium |
+| 180 | `static_assert(false)` ignored | Needs-Build-To-Verify | No fork-specific handling found; repro needs `substitute`+`if constexpr` build test. | Medium |
+| 181 | Non-copyable tuple in `template for` | Needs-Build-To-Verify | `ParseStmt.cpp:1980-1992` vs. `libcxx/include/meta:2638-2655`; repro in batch file. | Medium |
+| 182 | `template for` + `continue` ICE | Confirmed-Open | `CGStmt.cpp:1599-1617` doesn't account for `if constexpr`-discarded expansion instances; no regression test. | High |
+| 183 | ICE with imported reflection function | Already-Fixed | `module-imports.sh.cpp:1-17`; serialization fix `090152727f3f` (broader than original scenario). | Medium |
+| 184 | Spurious consteval-only diagnostic | Needs-Build-To-Verify | `SemaReflect.cpp:948-974`, `TreeTransform.h:9368-9419`; no test for the specific nested-lambda escalation case. | Medium |
+
+**185-225:**
+| # | Title | Disposition | Evidence | Conf. |
+|---:|---|---|---|---|
+| 185 | Annotation API changed in R1 | Confirmed-Open | Obsolete `annotations_of(info,info)`/`annotation_of_type`/`annotate` still present; `annotations_of_with_type` absent (`libcxx/include/meta:358-364`, `2085-2128`). See P3394R4 cross-link above. | High |
+| 187 | Compilation never ends | Needs-Build-To-Verify | No reproducer in snapshot, Godbolt-link only. | Low |
+| 188 | `display_string_of(dealias(...))` not constant expr | Needs-Build-To-Verify | `libcxx/include/meta:3303-3308`, `2960-2990`; no regression test for this combination. | Medium |
+| 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
+| 200 | `parent_of` wrong for class-template aliases | Confirmed-Open | `ExprConstantMeta.cpp:3055-3060` doesn't preserve alias layer; `related-reflections.pass.cpp:104-121` doesn't cover this exact case. | High |
+| 203 | Unbalanced diagnostic parentheses | Needs-Build-To-Verify | `SemaExpand.cpp:82-121`; repro in batch file. | Medium |
+| 204 | ICE: `template for` over overload set | Needs-Build-To-Verify | `SemaExpand.cpp:82-121`, no dedicated test; repro in batch file. | Medium |
+| 205 | ICE: templated lambda + `define_static_array` | Already-Fixed | Fix `f72d85e5a0fd`; `SemaExpand.cpp:148-173`. | High |
+| 208 | CRTP constexpr degradation | Needs-Build-To-Verify | Godbolt-link only, insufficient detail to localize. | Low |
+| 210 | Capturing lambda inside expansion statement | Already-Fixed | Fixes `f0a3e5e612db`, `0f70ed5eb99e`; `SemaExpand.cpp:148-173`. | High |
+| 211 | Static enum member wrong `type_of` | Needs-Build-To-Verify | `ExprConstantMeta.cpp:2982-2994` looks correct but unverified for this exact case. | Medium |
+| 212 | ICE in `if constexpr` optional extraction | Needs-Build-To-Verify | Insufficient repro detail in snapshot. | Low |
+| 215 | Empty `reflect_constant_array` result | Already-Fixed | Fix `5dafd8cc4a45`; `libcxx/include/meta:2598-2616`; `static-arrays.pass.cpp:64-70`. | High |
+| 220 | `display_string_of(type_of(undeduced))` hangs | Needs-Build-To-Verify | `ExprConstantMeta.cpp:6565-6594` lacks explicit undeduced-return guard. | Medium |
+| 221 | `expected<bool,int>` in `vector` fails | Needs-Build-To-Verify | `__expected/expected.h:1164-1173`; depends on constraint normalization/CTAD, needs build. | Medium |
+| 222 | `define_aggregate` nested incomplete type in template arg | Needs-Build-To-Verify | `ExprConstantMeta.cpp:6092-6119`, `SemaReflect.cpp:638-710`; different path than the reported case, no matching test. | Medium |
+| 225 | `meta::exception` unimplemented | Confirmed-Open | No declaration anywhere in `<meta>`; P3068 compiler prerequisite (throw-in-constexpr) already implemented (`ExprConstant.cpp:881-893`,`6635-6689`) but the library type itself is missing. **Same gap as P3560R2's core requirement.** | High |
+
+**230-273:**
+| # | Title | Disposition | Evidence | Conf. |
+|---:|---|---|---|---|
+| 230 | Reflecting `std::int32_t` | Out-of-Scope | Deliberate: using-shadow-decl rejection unless entity-proxy reflection on (`SemaReflect.cpp:1044-1050`,`1314-1336`); unresolved WG21 semantics. | High |
+| 232 | `template for` + `display_string_of` | Needs-Build-To-Verify | `libcxx/include/meta:2960-2970`; no test for this nested `type_of(field)` case. | Medium |
+| 234 | Protected base member reflection | Needs-Build-To-Verify | `SemaReflect.cpp:214-250` looks like it should permit this; unverified without build. | Medium |
+| 235 | Ambiguous constructor reflection | Out-of-Scope | Unresolved design question — multiple ctors, no WG21 resolution to implement against (`SemaReflect.cpp:1398-1430`). | High |
+| 237 | Alias of closure type loses identity | Needs-Build-To-Verify | `libcxx/include/meta:3090-3120`; ambiguous whether intentional. | Low |
+| 239 | Closure `operator()` reported overloaded | Needs-Build-To-Verify | `SemaReflect.cpp:1412-1430`; generic-lambda operator template case unverified. | Medium |
+| 245 | Protected member as reflected template arg | Not-Applicable | `access_context` model (`libcxx/include/meta:1053-1090`) intentionally preserves access-context effects. | High |
+| 246 | Order-dependent `define_static_array` | Needs-Build-To-Verify | `libcxx/include/meta:2642-2660`; likely already fixed by `01836b3333d5` consteval-only caching fix, needs build to confirm. | Medium |
+| 252 | VS Code `__has_feature(reflection)` | Out-of-Scope | Editor/IntelliSense issue, not Clang. | High |
+| 253 | ICE during recursive reflection in modules | Needs-Build-To-Verify | Module/annotation serialization work exists (`f63157a8d87c`) but no exact repro match. | Medium |
+| 254 | `define_static_string` hits constexpr step limit | Confirmed-Open | `libcxx/include/meta:2655-2660` has no chunking/step-limit management for long strings. | High |
+| 256 | `__is_consteval_only` + defaulted special members | Already-Fixed | `Decl.cpp:5426-5475` fixed by `01836b3333d5`; `p3603-consteval-only.pass.cpp` covers it. | High |
+| 259 | Windows build errors | Out-of-Scope | Upstream platform/build-system issue, unrelated to this fork's two-tree build architecture. | High |
+| 262 | Annotation crash with modules | Already-Fixed | `f63157a8d87c` added `CXX26AnnotationAttr` serialization; `annotation-module-serialization.sh.cpp`. | High |
+| 264 | Constant evaluation of arrow splices | Needs-Build-To-Verify | `SemaReflect.cpp:1730-1745`; provenance question needs build to verify. | Medium |
+| 265 | Anonymous union members unavailable for splicing | Already-Fixed | `f33742c88aa3`, `2ea0a79fe7bb`; `anon-union.pass.cpp:18-31`. | High |
+| 273 | Dependent function-template reflection seen as overload set | Already-Fixed | `41fa327e7d63`; `SemaReflect.cpp:998-1030`. | High |
+
+**275-309:**
+| # | Title | Disposition | Evidence | Conf. |
+|---:|---|---|---|---|
+| 275 | clangd crashes while code compiles | Needs-Build-To-Verify | Fork changed substantially since reported clangd build; no local repro. | Low |
+| 276 | Splice type aliases treated as identical | Confirmed-Open | Dependent vs. nondependent splice-type canonicalization asymmetry (`Type.cpp:4247-4258`, `ASTContext.cpp:6171-6185`); no test for the two-dependent-alias case. | Medium |
+| 280 | `has_parent` missing | Confirmed-Open | `parent_of` exists, `has_parent` doesn't (`libcxx/include/meta:56-60`,`934-942`). Missing library feature. | High |
+| 281 | ICE from `annotations_of(^^member)` | Already-Fixed | `SemaReflect.cpp:1371-1377`; `p3394-annotations.pass.cpp:89-110`,`131-142`. | Medium |
+| 286 | Same-named function-template reflections collide | Confirmed-Open | `ItaniumMangle.cpp:4932-4937` mangles template name only, no overload discriminator. **Mangling cluster — see cross-link above.** | High |
+| 288 | Reentrant constant evaluation UAF | Confirmed-Open | `SemaExpr.cpp:18396-18611` — `ExpressionEvaluationContextRecord&` held across reallocation-prone calls; no fix or test. | High |
+| 290 | Entity-proxy queries + mangling crash | Confirmed-Open | `is_constructor`/`is_destructor`/`is_special_member_function` `llvm_unreachable` on `ReflectionKind::EntityProxy` (`ExprConstantMeta.cpp:5346-5570`); mangler also unaware (`ItaniumMangle.cpp:4947-4951`). **Extends P3687R1 audit finding.** | High |
+| 292 | `AttributedType` blinds function queries | Already-Fixed | Fix `1dee6d809821`; `ExprConstantMeta.cpp:1622-1629`; `attributed-function-type-queries.pass.cpp`. | High |
+| 294 | `can_substitute`/`substitute` crash on invalid formed types | Confirmed-Open | `ExprConstantMeta.cpp:3590-3619` asserts non-null without handling Sema failure from `SemaReflect.cpp:406-423`. | High |
+| 296 | `members_of` eagerly instantiates member bodies | Already-Fixed | Fix `7220baffd57e`; `members-of-lazily-ill-formed-bodies.pass.cpp:18-28,75-89`. | High |
+| 298 | Deduction-guide reflection mangler ICE | Confirmed-Open | `ItaniumMangle.cpp:4932-4937` unconditional `mangleTemplateName`; deduction guides unsupported elsewhere in same mangler. **Mangling cluster.** | High |
+| 300 | Same-headed member-template reflections collide | Confirmed-Open | No ODR/type/ref-qualifier discriminator in template-reflection mangling; `ODRHash.cpp:670-690` returns early for class-template-specialization members. **Mangling cluster.** | High |
+| 302 | Reopened namespace reflections compare unequal | Already-Fixed | `2245a73e94f5`; `APValue.cpp:575-584`; `namespace-reflection-equality-reopened.pass.cpp:19-31,70-95`. | High |
+| 303 | Reopened namespace walk truncates members | Confirmed-Open | `ExprConstantMeta.cpp:1457-1549` — lexical-context redeclaration check + cross-block traversal gap; no regression test. | High |
+| 304 | `is_complete_type` fails through aliases | Already-Fixed | Fix `7f0f89cc7e75`; `ExprConstantMeta.cpp:4865-4880`; `is-complete-type-alias-sugar.pass.cpp`. | High |
+| 308 | Tracking issue for #286-#304 | Out-of-Scope | Aggregate meta-issue; entries triaged individually above. | High |
+| 309 | Dependent splice ICE during `auto` NTTP deduction | Confirmed-Open | `SemaReflect.cpp:1596-1601,1904-1905` creates `CXXSpliceExpr` with null model; `ExprClassification.cpp:281-293` dereferences unconditionally. | High |
+
+**311-350:**
+| # | Title | Disposition | Evidence | Conf. |
+|---:|---|---|---|---|
+| 311 | Builtin-template diagnostic ICE | Confirmed-Open | `DescriptionOf` `llvm_unreachable("unhandled template kind")` for `BuiltinTemplateDecl` (`ExprConstantMeta.cpp:1749-1771`). | High |
+| 312 | Deduction-guide specialization mangling ICE | Confirmed-Open | `ItaniumMangle.cpp:4898-4917`, `1444`, `1738` — `llvm_unreachable("Can't mangle a deduction guide name!")`. **Mangling cluster.** | High |
+| 313 | `members_of` truncates after linkage specifier | Already-Fixed | `ExprConstantMeta.cpp:1551-1560` already descends into `LinkageSpecDecl`. | High |
+| 314 | LP64 NEON vector mangling ICE | Confirmed-Open | `ItaniumMangle.cpp:3941-3959` — `long` on LP64 uncovered. Reflection-independent but real. | High |
+| 319 | `op_caret_equals` symbol typo | Confirmed-Open | Both operator tables still use `"^"` at the `op_caret_equals` slot (`libcxx/include/meta:906-925`). | High |
+| 321 | 32K+ template packs miscompile | Confirmed-Open | `SubstNonTypeTemplateParmPackExpr::NumArguments` still a 15-bit bitfield (`ExprCXX.h:4761-4778`). | High |
+| 322 | Parameter-name result depends on instantiation | Already-Fixed | Fix `fad02ea72cc7`; `ExprConstantMeta.cpp:1130-1148`; `param-name-consistency-instantiation.pass.cpp`. | High |
+| 326 | Expansion statement ICE during instantiation | Confirmed-Open | `TreeTransform.h:9544-9573` → `SemaExpand.cpp:439-460` doesn't reject unresolved-overload ranges. | High |
+| 327 | Expansion statement ICE on unresolved overload range | Confirmed-Open | `SemaExpand.cpp:190-219` reaches ADL candidate construction on an unresolved range. | High |
+| 329 | Constant evaluation crash through PCH | Confirmed-Open | `ASTWriterStmt.cpp:498-515` serializes `CXXMetafunctionExpr` args as ordinary statements; evaluator-side state not covered; no PCH/module regression test. | Medium |
+| 331 | `reflect_object` rejects explicit defaulted copy ctor | Needs-Build-To-Verify | `ExprConstantMeta.cpp:3170-3207`; no explicit exception found but needs build. | Medium |
+| 332 | `reflect_constant` rejects pointer to mixed consteval-only type | Needs-Build-To-Verify | `ExprConstantMeta.cpp:3227-3264`, `ExprConstant.cpp:2405-2410`; needs build. | Medium |
+| 333 | Splice operand convertible to `meta::info` rejected | Already-Fixed | `SemaReflect.cpp:1575-1593` already handles `DefaultLvalueConversion` + implicit conversion. | High |
+| 334 | Static member call inherits consteval-only object restriction | Confirmed-Open | `ExprConstant.cpp:2405-2410` doesn't distinguish unevaluated object expression. | Medium |
+| 342 | `^^derived::operator()` rejects using-declaration | Confirmed-Open | `SemaReflect.cpp:1042-1050,1320-1339` unconditional rejection, no operator-function-id distinction. | High |
+| 346 | Spurious warning for reflected reference type | Needs-Build-To-Verify | `DiagnosticParseKinds.td:1828-1829`, `ParseReflect.cpp:149`; needs build to confirm type-info availability at warn site. | Medium |
+| 350 | `->[:member:]` assertion with lvalue pointer | Confirmed-Open | `SemaExprMember.cpp:1233-1257,1330-1335` — no lvalue-to-rvalue conversion before `IsArrow` build. | High |
 
 ## Upstream PR triage (M1)
 
