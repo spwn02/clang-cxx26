@@ -269,7 +269,7 @@ for readability, same as the source files:
 | 281 | ICE from `annotations_of(^^member)` | Already-Fixed | `SemaReflect.cpp:1371-1377`; `p3394-annotations.pass.cpp:89-110`,`131-142`. | Medium |
 | 286 | Same-named function-template reflections collide | Confirmed-Open | `ItaniumMangle.cpp:4932-4937` mangles template name only, no overload discriminator. **Mangling cluster — see cross-link above.** | High |
 | 288 | Reentrant constant evaluation UAF | Confirmed-Open | `SemaExpr.cpp:18396-18611` — `ExpressionEvaluationContextRecord&` held across reallocation-prone calls; no fix or test. | High |
-| 290 | Entity-proxy queries + mangling crash | Confirmed-Open | `is_constructor`/`is_destructor`/`is_special_member_function` `llvm_unreachable` on `ReflectionKind::EntityProxy` (`ExprConstantMeta.cpp:5346-5570`); mangler also unaware (`ItaniumMangle.cpp:4947-4951`). **Extends P3687R1 audit finding.** | High |
+| 290 | Entity-proxy queries + mangling crash | Fixed | PR #291 ported; proxy member predicates now return false and proxy NTTP mangling targets the underlying declaration; `entity-proxy-member-queries.pass.cpp`. | High |
 | 292 | `AttributedType` blinds function queries | Already-Fixed | Fix `1dee6d809821`; `ExprConstantMeta.cpp:1622-1629`; `attributed-function-type-queries.pass.cpp`. | High |
 | 294 | `can_substitute`/`substitute` crash on invalid formed types | Confirmed-Open | `ExprConstantMeta.cpp:3590-3619` asserts non-null without handling Sema failure from `SemaReflect.cpp:406-423`. | High |
 | 296 | `members_of` eagerly instantiates member bodies | Already-Fixed | Fix `7220baffd57e`; `members-of-lazily-ill-formed-bodies.pass.cpp:18-28,75-89`. | High |
@@ -330,7 +330,7 @@ checking this list first.**
 | 301 | Discriminate same-headed member-template reflections of a specialization in NTTP mangling | #300 |
 | 299 | Mangle deduction-guide reflections instead of hitting unreachable | #298 |
 | 295 | Report substitution failure instead of crashing when substitution forms an invalid type | #294 |
-| 291 | Handle entity-proxy reflections in member metafunctions and NTTP mangling | #290 |
+| 291 | Handle entity-proxy reflections in member metafunctions and NTTP mangling | #290 — Fixed; ported and verified in commit |
 | 289 | Fix use-after-free: `ExprEvalContexts` reallocates under held record references during reentrant consteval evaluation | #288 |
 | 287 | Discriminate same-named function-template reflections in NTTP mangling | #286 |
 | 279 | Fix reflect unresolved lookup | — (check against #239/#204 overload-related issues) |
@@ -384,6 +384,15 @@ the diff's "before" context byte-for-byte. High confidence the other 4 mangling-
 full application deferred to M4 (each needs its own build-gated commit).
 
 ## Session Log
+
+**2026-09-09 — M4 PR batch, PR #291.** Ported upstream PR #291 for issue #290. Entity-proxy
+member predicates now classify using-shadow proxies as false, and proxy reflection NTTP mangling
+encodes the target declaration while retaining the proxy discriminator. Added
+`entity-proxy-member-queries.pass.cpp`; the libc++ wrapper test passed. The initial full gate
+exposed stale revision-stamped `clang-scan-deps`, `c-index-test`, `clang-repl`, `clang-check`, and
+`clang-extdef-mapping` binaries; rebuilding those tools removed all unrelated failures. Final
+capped direct-lit gate: 49,818 discovered, 44,613 passed, exactly the five documented baseline
+failures. Commit and push follow.
 
 **2026-09-08 — Epic start (M0 + partial M2).** Established ground truth: real upstream tracker is
 `bloomberg/clang-p2996` not the dead URL in `REFLECTION.md`; confirmed real divergence from

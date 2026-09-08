@@ -5047,7 +5047,23 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
   }
   case ReflectionKind::EntityProxy: {
     Out << 'a';
-    mangleNameWithAbiTags(R.getReflectedEntityProxy(), nullptr);
+    NamedDecl *Target = R.getReflectedEntityProxy()->getTargetDecl();
+    if (auto *ED = dyn_cast<EnumConstantDecl>(Target)) {
+      mangleIntegerLiteral(ED->getType(), ED->getInitVal());
+    } else if (auto *CD = dyn_cast<CXXConstructorDecl>(Target)) {
+      GlobalDecl GD(CD, Ctor_Complete);
+      mangle(GD);
+    } else if (auto *DD = dyn_cast<CXXDestructorDecl>(Target)) {
+      GlobalDecl GD(DD, Dtor_Complete);
+      mangle(GD);
+    } else if (isa<FunctionDecl, VarDecl, FieldDecl>(Target)) {
+      mangle(Target);
+    } else if (auto *TD = dyn_cast<TypeDecl>(Target)) {
+      Context.mangleCanonicalTypeName(getASTContext().getTypeDeclType(TD), Out,
+                                      false);
+    } else if (IdentifierInfo *II = Target->getIdentifier()) {
+      mangleSourceName(II);
+    }
     Out << '$';
     break;
   }
