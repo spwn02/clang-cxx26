@@ -1241,7 +1241,7 @@ struct SVGPropertyOwnerRegistry {
   }
 };
 
-class SVGCircleElement {
+struct SVGCircleElement {
   friend SVGPropertyOwnerRegistry<SVGCircleElement>;
   void propertyForAttribute(int);
 };
@@ -1540,9 +1540,12 @@ struct vector;
 template <typename T, typename U>
 concept C = __is_same_as(T, U);
 
+template <typename T, typename U>
+concept D = false && __is_same_as(T, U);
+
 template<class T, auto Cpt>
 concept generic_range_value = requires {
-    Cpt.template operator()<int>();
+    Cpt.template operator()<int>(); // expected-note {{would be invalid}}
 };
 
 
@@ -1551,8 +1554,14 @@ template<generic_range_value<[]<
    >() {}> T>
 void x() {}
 
+template<generic_range_value<[]< // expected-note {{evaluated to false}}
+   D<int>
+   >() {}> T>
+void y() {} // expected-note {{ignored}}
+
 void foo() {
   x<vector<int>>();
+  y<vector<int>>(); // expected-error {{no matching function}}
 }
 
 }
