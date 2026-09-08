@@ -39,6 +39,52 @@ static bool isProvablyNotDerivedFrom(Sema &SemaRef, CXXRecordDecl *Record,
   return BaseIsNotInSet(Record) && Record->forallBases(BaseIsNotInSet);
 }
 
+// A reflected field declared in an anonymous struct/union is always handed
+// to us as the injected IndirectFieldDecl for the outermost containing
+// named class (see normalizeSplicedMemberDecl in SemaReflect.cpp, which
+// eagerly normalizes every spliced anonymous-struct field this way --
+// needed so that a standalone splice like `&[:mem:]` used to build a
+// pointer-to-member value, with no base expression available at all,
+// still produces the correct as-if-direct-member-of-the-named-class
+// representation, matching ordinary C++'s own semantics for
+// `&Foo::anon_member`).
+//
+// But when this splice is actually used as `Base.[:mem:]` and `Base`'s
+// real type is itself the INNERMOST anonymous struct/union directly
+// declaring the target field (not the outermost class the chain was built
+// against) -- e.g. inside a recursively-instantiated template currently
+// instantiated with the anonymous struct itself as its type parameter --
+// access is really DIRECT, not indirect. Route that case to the plain
+// FieldDecl instead, so it takes the ordinary direct-field-access path
+// rather than Sema::BuildAnonymousStructUnionMemberReference's chain-
+// walking (which is shared by every indirect-field access in the
+// compiler, reflection or not, and always assumes the base is the
+// chain's outermost/first level -- it must not be touched here).
+//
+// Only the LAST chain entry (the real target field, IFD->getAnonField())
+// is checked, not the whole chain: the first entry's parent is always the
+// outermost class by construction, so checking it too would misfire on
+// the ordinary case (Base genuinely is the outermost class) and
+// incorrectly strip the indirection there as well.
+static ValueDecl *normalizeSplicedMemberDecl(QualType BaseType,
+                                             ValueDecl *VD) {
+  auto *IFD = dyn_cast_or_null<IndirectFieldDecl>(VD);
+  if (!IFD)
+    return VD;
+
+  if (QualType PT = BaseType->getPointeeType(); !PT.isNull())
+    BaseType = PT;
+  auto *BaseRD = BaseType->getAsCXXRecordDecl();
+  if (!BaseRD)
+    return VD;
+  BaseRD = BaseRD->getCanonicalDecl();
+
+  FieldDecl *TargetField = IFD->getAnonField();
+  if (TargetField->getParent()->getCanonicalDecl() == BaseRD)
+    return TargetField;
+  return VD;
+}
+
 enum IMAKind {
   /// The reference is definitely not an instance member access.
   IMA_Static,
@@ -1217,7 +1263,7 @@ Sema::BuildMemberReferenceExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
     ValueDecl *D = DRE->getDecl();
     if (isa<FieldDecl>(D) || isa<IndirectFieldDecl>(D) || isa<CXXMethodDecl>(D)
      || (isa<VarDecl>(D) && DRE->getQualifierLoc())) {
-      ND = D;
+      ND = normalizeSplicedMemberDecl(Base->getType(), D);
       // NOTE(CXX26): Uncomment the following line for static dispatch.
       // SS.Adopt(DRE->getQualifierLoc());
     }
