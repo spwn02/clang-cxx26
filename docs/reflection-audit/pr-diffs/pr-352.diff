@@ -1,0 +1,54 @@
+diff --git a/clang/lib/Sema/SemaExprMember.cpp b/clang/lib/Sema/SemaExprMember.cpp
+index 4db5aed741df1..de70ebac86b74 100644
+--- a/clang/lib/Sema/SemaExprMember.cpp
++++ b/clang/lib/Sema/SemaExprMember.cpp
+@@ -1187,6 +1187,14 @@ Sema::BuildMemberReferenceExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
+   bool IsRHSDependent = (RHS->isValueDependent() || RHS->isTypeDependent());
+   bool IsArrow = (OpKind == tok::arrow);
+   if (Base) {
++    // Apply the usual conversions to the base first, so that the base of
++    // '->' is a pointer prvalue and an array base decays, as for a member
++    // access that is not a splice.
++    ExprResult BaseResult = PerformMemberExprBaseConversion(Base, IsArrow);
++    if (BaseResult.isInvalid())
++      return ExprError();
++    Base = BaseResult.get();
++
+     const PointerType *PT = Base->getType()->getAs<PointerType>();
+     bool IsPtr = (PT != nullptr);
+     bool IsRecord = isRecordType(PT ? PT->getPointeeType() : Base->getType());
+diff --git a/clang/test/Reflection/splice-exprs.cpp b/clang/test/Reflection/splice-exprs.cpp
+index 2bef991246d28..0124aa32eacfa 100644
+--- a/clang/test/Reflection/splice-exprs.cpp
++++ b/clang/test/Reflection/splice-exprs.cpp
+@@ -387,3 +387,30 @@ void g() {
+    f<int>();
+ }
+ }  // namespace bb_clang_p2996_issue_132_regression_test
++
++                  // ========================================
++                  // bb_clang_p2996_issue_350_regression_test
++                  // ========================================
++
++namespace bb_clang_p2996_issue_350_regression_test {
++struct S {
++  int k;
++  consteval int get() const { return k; }
++};
++
++constexpr S s{3};
++constexpr const S *ps = &s;
++constexpr S arr[] = {{4}};
++
++// The base of '->' is an lvalue of pointer type.
++static_assert(ps->[:^^S::k:] == 3);
++static_assert(ps->[:^^S::get:]() == 3);
++
++// The base of '->' is an array, which decays to a pointer.
++static_assert(arr->[:^^S::k:] == 4);
++
++// Dependent splice with a non-dependent lvalue pointer base.
++template <info M>
++consteval int splice_member(const S *p) { return p->[:M:]; }
++static_assert(splice_member<^^S::k>(&s) == 3);
++}  // namespace bb_clang_p2996_issue_350_regression_test

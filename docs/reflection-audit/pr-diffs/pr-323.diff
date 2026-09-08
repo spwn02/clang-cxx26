@@ -1,0 +1,155 @@
+diff --git a/clang/include/clang/AST/ExprCXX.h b/clang/include/clang/AST/ExprCXX.h
+index 216dc93184a4f..d9869a2f5129d 100644
+--- a/clang/include/clang/AST/ExprCXX.h
++++ b/clang/include/clang/AST/ExprCXX.h
+@@ -4611,10 +4611,16 @@ class SubstNonTypeTemplateParmExpr : public Expr {
+   llvm::PointerIntPair<Decl *, 1, bool> AssociatedDeclAndRef;
+ 
+   unsigned Index : 15;
+-  unsigned PackIndex : 15;
+   LLVM_PREFERRED_TYPE(bool)
+   unsigned Final : 1;
+ 
++  /// Stored full-width: pack expansions routinely exceed 2^15-1 elements
++  /// (e.g. a substituted character pack for a long string literal), and the
++  /// index-plus-one encoding silently wrapped in a narrower bitfield,
++  /// miscompiling the expansion. The two fields above pack into 16 bits, so
++  /// this costs no object size on 64-bit hosts.
++  unsigned PackIndex;
++
+   explicit SubstNonTypeTemplateParmExpr(EmptyShell Empty)
+       : Expr(SubstNonTypeTemplateParmExprClass, Empty) {}
+ 
+@@ -4627,7 +4633,7 @@ class SubstNonTypeTemplateParmExpr : public Expr {
+       : Expr(SubstNonTypeTemplateParmExprClass, Ty, ValueKind, OK_Ordinary),
+         Replacement(Replacement),
+         AssociatedDeclAndRef(AssociatedDecl, RefParam), Index(Index),
+-        PackIndex(PackIndex.toInternalRepresentation()), Final(Final) {
++        Final(Final), PackIndex(PackIndex.toInternalRepresentation()) {
+     assert(AssociatedDecl != nullptr);
+     SubstNonTypeTemplateParmExprBits.NameLoc = Loc;
+     setDependence(computeDependence(this));
+@@ -4699,8 +4705,11 @@ class SubstNonTypeTemplateParmPackExpr : public Expr {
+   /// parameter pack is instantiated with.
+   const TemplateArgument *Arguments;
+ 
+-  /// The number of template arguments in \c Arguments.
+-  unsigned NumArguments : 15;
++  /// The number of template arguments in \c Arguments. Stored full-width:
++  /// argument packs routinely exceed 2^15-1 elements (e.g. a character pack
++  /// for a long string literal), and the old 15-bit field silently wrapped,
++  /// miscompiling the expansion (a 2^15-element pack expanded as empty).
++  unsigned NumArguments;
+ 
+   LLVM_PREFERRED_TYPE(bool)
+   unsigned Final : 1;
+diff --git a/clang/include/clang/AST/TemplateName.h b/clang/include/clang/AST/TemplateName.h
+index 885f1c1e9ff84..a3356d2429a18 100644
+--- a/clang/include/clang/AST/TemplateName.h
++++ b/clang/include/clang/AST/TemplateName.h
+@@ -68,6 +68,8 @@ class UncommonTemplateNameStorage {
+ 
+     /// The pack index, or the number of stored templates
+     /// or template arguments, depending on which subclass we have.
++    /// Subclass constructors must assert their payload fits (a wrapped
++    /// count silently miscompiles the expansion).
+     unsigned Data : 15;
+   };
+ 
+@@ -77,6 +79,8 @@ class UncommonTemplateNameStorage {
+   };
+ 
+   UncommonTemplateNameStorage(Kind Kind, unsigned Index, unsigned Data) {
++    assert(Data < (1u << 15) &&
++           "size or pack index overflows UncommonTemplateNameStorage storage");
+     Bits.Kind = Kind;
+     Bits.Index = Index;
+     Bits.Data = Data;
+@@ -421,6 +425,8 @@ class SubstTemplateTemplateParmStorage
+             SubstTemplateTemplateParm, Index,
+             ((PackIndex.toInternalRepresentation()) << 1) | Final),
+         Replacement(Replacement), AssociatedDecl(AssociatedDecl) {
++    assert(PackIndex.toInternalRepresentation() < (1u << 14) &&
++           "pack index overflows UncommonTemplateNameStorage::Bits.Data");
+     assert(AssociatedDecl != nullptr);
+   }
+ 
+diff --git a/clang/include/clang/AST/Type.h b/clang/include/clang/AST/Type.h
+index a567f891c565a..9ff6dc638aeb4 100644
+--- a/clang/include/clang/AST/Type.h
++++ b/clang/include/clang/AST/Type.h
+@@ -2189,7 +2189,11 @@ class alignas(TypeAlignment) Type : public ExtQualsTypeCommonBase {
+     /// increments towards the beginning.
+     /// Positive non-zero number represents the index + 1.
+     /// Zero means this is not substituted from an expansion.
+-    unsigned PackIndex : 15;
++    /// 26 bits fills the remainder of the 64-bit bitfield word; large pack
++    /// expansions (substituted character packs for long string literals)
++    /// overflowed the previous 15-bit field, miscompiling the expansion.
++    /// The constructor asserts the encoding fits.
++    unsigned PackIndex : 26;
+   };
+ 
+   class SubstTemplateTypeParmPackTypeBitfields {
+diff --git a/clang/lib/AST/Type.cpp b/clang/lib/AST/Type.cpp
+index c4a415369f926..25ff5324e09a6 100644
+--- a/clang/lib/AST/Type.cpp
++++ b/clang/lib/AST/Type.cpp
+@@ -4471,6 +4471,8 @@ SubstTemplateTypeParmType::SubstTemplateTypeParmType(QualType Replacement,
+ 
+   SubstTemplateTypeParmTypeBits.Index = Index;
+   SubstTemplateTypeParmTypeBits.Final = Final;
++  assert(PackIndex.toInternalRepresentation() < (1u << 26) &&
++         "pack index overflows SubstTemplateTypeParmTypeBitfields::PackIndex");
+   SubstTemplateTypeParmTypeBits.PackIndex =
+       PackIndex.toInternalRepresentation();
+   assert(AssociatedDecl != nullptr);
+diff --git a/libcxx/test/std/experimental/reflection/define-static-string-large.pass.cpp b/libcxx/test/std/experimental/reflection/define-static-string-large.pass.cpp
+new file mode 100644
+index 0000000000000..1eb5aaffcb5a6
+--- /dev/null
++++ b/libcxx/test/std/experimental/reflection/define-static-string-large.pass.cpp
+@@ -0,0 +1,43 @@
++//===----------------------------------------------------------------------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++// ADDITIONAL_COMPILE_FLAGS: -freflection-latest -fconstexpr-steps=268435456
++
++// <experimental/meta>
++
++// RUN: %{build}
++// RUN: %{exec} %t.exe
++
++// Large pack expansions: a substituted character pack for a string of
++// 2^15 or more characters used to overflow the 15-bit PackIndex storage on
++// SubstNonTypeTemplateParmExpr (index+1 encoding wrapped to zero), producing
++// a bogus "excess elements in array initializer" from define_static_string's
++// FixedArray. Exercise both sides of the old cliff.
++
++#include <experimental/meta>
++#include <cstring>
++#include <string>
++
++template <std::size_t N>
++consteval const char* lift() {
++  return std::define_static_string(std::string(N, 'x'));
++}
++
++int main(int, char**) {
++  // Just under the old 15-bit cliff (always worked).
++  constexpr const char* a = lift<32767>();
++  if (std::strlen(a) != 32767)
++    return 1;
++  // At and past the old cliff (used to fail to compile).
++  constexpr const char* b = lift<32768>();
++  if (std::strlen(b) != 32768)
++    return 2;
++  constexpr const char* c = lift<50000>();
++  if (std::strlen(c) != 50000)
++    return 3;
++  return 0;
++}

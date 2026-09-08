@@ -1,0 +1,189 @@
+diff --git a/clang/include/clang/AST/Type.h b/clang/include/clang/AST/Type.h
+index a567f891c565a..8ac4150187110 100644
+--- a/clang/include/clang/AST/Type.h
++++ b/clang/include/clang/AST/Type.h
+@@ -7415,14 +7415,14 @@ class ReflectionSpliceType : public Type {
+   SpliceSpecifier *Splice;
+   QualType UnderlyingTy;
+ 
+-  static TypeDependence computeDependence(QualType Canon,
++  static TypeDependence computeDependence(QualType UnderlyingTy,
+                                           SpliceSpecifier *Splice);
+ 
+ protected:
+   friend class ASTContext;
+ 
+   ReflectionSpliceType(SourceLocation TypenameKWLoc, SpliceSpecifier *Splice,
+-                       QualType Canon = QualType());
++                       QualType UnderlyingTy);
+ 
+ public:
+   /// Returns the location of the 'typename' keyword (if any).
+@@ -7461,11 +7461,11 @@ class DependentReflectionSpliceType : public ReflectionSpliceType,
+                                 SpliceSpecifier *Splice);
+ 
+   void Profile(llvm::FoldingSetNodeID &ID) {
+-    ID.AddPointer(getSplice());
++    DependentReflectionSpliceType::Profile(ID, Context, getSplice());
+   }
+ 
+   static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
+-                      Expr *Operand);
++                      const SpliceSpecifier *Splice);
+ };
+ 
+ /// This class wraps the list of protocol qualifiers. For types that can
+diff --git a/clang/lib/AST/ASTContext.cpp b/clang/lib/AST/ASTContext.cpp
+index b7ab732649416..d137818d796fb 100644
+--- a/clang/lib/AST/ASTContext.cpp
++++ b/clang/lib/AST/ASTContext.cpp
+@@ -6088,16 +6088,30 @@ QualType ASTContext::getPackExpansionType(QualType Pattern,
+ QualType ASTContext::getReflectionSpliceType(SourceLocation TypenameKWLoc,
+                                              SpliceSpecifier *Splice,
+                                              QualType UnderlyingType) const {
+-  ReflectionSpliceType *RST;
++  // For dependent reflection splices, we want to canonicalize based on the splice operand,
++  // since that's the only part of the type that contributes to its identity.
++  if (UnderlyingType == DependentTy) {
++    llvm::FoldingSetNodeID ID;
++    DependentReflectionSpliceType::Profile(ID, *this, Splice);
++
++    void *InsertPos = nullptr;
++    if (auto *T = DependentReflectionSpliceTypes.FindNodeOrInsertPos(ID, InsertPos))
++      return QualType(T, 0);
+ 
+-  // Unwrap any LocInfoType introduced by reflection operator.
++    auto *T = new (*this, TypeAlignment)
++        DependentReflectionSpliceType(*this, TypenameKWLoc, Splice);
++    Types.push_back(T);
++    DependentReflectionSpliceTypes.InsertNode(T, InsertPos);
++    return QualType(T, 0);
++  }
++
++  // For non-dependent splices, we want to canonicalize based on the underlying type,
++  // since that's what determines the properties of the splice type.
+   const Type *UnderlyingTyPtr = UnderlyingType.getTypePtr();
+   if (const LocInfoType *LIT = dyn_cast_or_null<LocInfoType>(UnderlyingTyPtr))
+     UnderlyingType = LIT->getType();
+-
+-  CanQualType Canon = getCanonicalType(UnderlyingType);
+-  RST = new (*this, TypeAlignment) ReflectionSpliceType(TypenameKWLoc, Splice,
+-                                                        Canon);
++  auto *RST = new (*this, TypeAlignment)
++      ReflectionSpliceType(TypenameKWLoc, Splice, UnderlyingType);
+   Types.push_back(RST);
+   return QualType(RST, 0);
+ }
+diff --git a/clang/lib/AST/Type.cpp b/clang/lib/AST/Type.cpp
+index c4a415369f926..9739a101f3f6d 100644
+--- a/clang/lib/AST/Type.cpp
++++ b/clang/lib/AST/Type.cpp
+@@ -4189,9 +4189,9 @@ void DependentDecltypeType::Profile(llvm::FoldingSetNodeID &ID,
+ }
+ 
+ TypeDependence
+-ReflectionSpliceType::computeDependence(QualType Canon,
++ReflectionSpliceType::computeDependence(QualType UnderlyingTy,
+                                         SpliceSpecifier *Splice) {
+-  TypeDependence Result = Canon->getDependence();
++  TypeDependence Result = UnderlyingTy->getDependence();
+   if (Splice->getDependence() & SpliceSpecifierDependence::UnexpandedPack)
+     Result |= TypeDependence::UnexpandedPack;
+ 
+@@ -4200,11 +4200,15 @@ ReflectionSpliceType::computeDependence(QualType Canon,
+ 
+ ReflectionSpliceType::ReflectionSpliceType(SourceLocation TypenameKWLoc,
+                                            SpliceSpecifier *Splice,
+-                                           QualType Canon)
+-  : Type(ReflectionSplice, Canon,
+-         ReflectionSpliceType::computeDependence(Canon, Splice),
+-         Canon->isConstevalOnly()),
+-    TypenameKWLoc(TypenameKWLoc), Splice(Splice), UnderlyingTy(Canon) {
++                                           QualType UnderlyingTy)
++  // When the underlying type is dependent,
++  // Canon should be null and this splice type itself is the canonical type.
++  : Type(ReflectionSplice,
++         UnderlyingTy->isDependentType() ? QualType()
++                                         : UnderlyingTy.getCanonicalType(),
++         ReflectionSpliceType::computeDependence(UnderlyingTy, Splice),
++         UnderlyingTy->isConstevalOnly()),
++    TypenameKWLoc(TypenameKWLoc), Splice(Splice), UnderlyingTy(UnderlyingTy) {
+ }
+ 
+ QualType ReflectionSpliceType::desugar() const {
+@@ -4228,8 +4232,16 @@ DependentReflectionSpliceType::DependentReflectionSpliceType(
+ 
+ void DependentReflectionSpliceType::Profile(llvm::FoldingSetNodeID &ID,
+                                             const ASTContext &Context,
+-                                            Expr *Operand) {
+-  Operand->Profile(ID, Context, true);
++                                            const SpliceSpecifier *Splice) {
++  Splice->getOperand()->Profile(ID, Context, true);
++
++  if (Splice->isSpecialization()) {
++    const ASTTemplateArgumentListInfo *TemplateArg = Splice->getTemplateArgs();
++    for (unsigned int i = 0; i < TemplateArg->getNumTemplateArgs(); i++) {
++      TemplateArgumentLoc TemplateArgLoc = TemplateArg->getTemplateArgs()[i];
++      TemplateArgLoc.getArgument().Profile(ID, Context);
++    }
++  }
+ }
+ 
+ PackIndexingType::PackIndexingType(QualType Canonical, QualType Pattern,
+diff --git a/clang/test/Reflection/dependent-splice-overloads.cpp b/clang/test/Reflection/dependent-splice-overloads.cpp
+new file mode 100644
+index 0000000000000..c28201fede6e0
+--- /dev/null
++++ b/clang/test/Reflection/dependent-splice-overloads.cpp
+@@ -0,0 +1,51 @@
++//===----------------------------------------------------------------------===//
++//
++// Copyright 2026 Bloomberg Finance L.P.
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++// RUN: %clang_cc1 %s -std=c++26 -freflection -fentity-proxy-reflection -verify
++
++using info = decltype(^^int);
++
++template <info R0, info R1>
++struct DistinctSplices {
++  using t0 = [:R0:];
++  using t1 = [:R1:];
++
++  static constexpr int f(t0) { return 0; }
++  static constexpr int f(t1) { return 1; }
++};
++
++static_assert(DistinctSplices<^^int, ^^long>::f(0) == 0);
++static_assert(DistinctSplices<^^int, ^^long>::f(0L) == 1);
++
++template <info R>
++struct SameSplice {
++  using t0 = [:R:];
++  using t1 = [:R:];
++
++  static int f(t0); // expected-note {{previous declaration is here}}
++  static int f(t1); // expected-error {{class member cannot be redeclared}}
++};
++
++template <typename T>
++struct TBox {};
++
++template <info R, typename T1, typename T2>
++struct DistinctSpliceSpecializations {
++  using t0 = typename [:R:]<T1>;
++  using t1 = typename [:R:]<T2>;
++
++  static constexpr int f(t0) { return 0; }
++  static constexpr int f(t1) { return 1; }
++};
++
++static_assert(DistinctSpliceSpecializations<^^TBox, int, long>::f(TBox<int>{}) ==
++              0);
++static_assert(DistinctSpliceSpecializations<^^TBox, int, long>::f(TBox<long>{}) ==
++              1);
