@@ -60,7 +60,9 @@ that finished C++26) + P1789R3 (Kona, expansion-statement library support) + DRs
 | P3687R1 Poll 2a (entity proxy) | **Substantially implemented, flag-gated** | `ReflectionKind::EntityProxy` is a real AST-level reflection kind with broad handling across `clang/lib/AST/ExprConstantMeta.cpp` (member queries, layout, names, etc. all have `EntityProxy` cases). `underlying_entity_of`/`proxied_entity_of`/`is_entity_proxy` all exist in both `libcxx/include/meta` and the compiler backend (`clang/lib/AST/ExprConstantMeta.cpp:137,143,382`), wired into the metafunction dispatch table. Old name `dealias` kept as a deprecated alias — exactly the paper's rename pattern. Gated behind `LangOpts.EntityProxyReflection` (real flag, default off, `LangOptions.def:289`). **Not yet verified**: whether `docs/REFLECTION.md`'s flag list needs updating to mention this (it currently doesn't name an entity-proxy flag at all — docs are stale here), and whether the `_DEALIAS_` exposition-only threading through `members_of`/`bases_of`/`size_of`/etc. matches the paper exactly (spot-checked a few call sites, not exhaustive). |
 | P3687R1 Poll 2b (using-decl reflection ill-formed by default) | **Already-Conformant** | `clang/lib/AST/ExprConstantMeta.cpp:1480` — `UsingShadowDecl` is rejected as reflectable (`return false`) unless `EntityProxyReflection` is explicitly on. Default behavior matches the paper's "ill-formed" requirement; the flag-gated alternative is the newer proxy semantics from Poll 2a, not a conformance violation of the default. |
 | P3795R2 (Croydon cleanup) | **Confirmed-Open, real gap** | Grepped `libcxx/include/meta`, `clang/lib/Sema/SemaReflect.cpp`, `clang/lib/AST/ExprConstantMeta.cpp`, `clang/include/clang/AST/Metafunction.h` for `current_function`/`current_class`/`current_namespace`/`is_applicable_type`/`is_nothrow_applicable_type`/`apply_result` — **zero matches, none exist**. `data_member_options` (`libcxx/include/meta:2331-2358`) has no `annotations` field (contrast: the sibling `enumerator_options` struct *does* already have one — exactly the kind of cross-paper asymmetry this cleanup paper exists to fix). Parameter-annotation extension and the error-handling front-matter clarification not yet checked. **This is the single largest confirmed paper-level gap found so far** — matches the pre-epic prediction that pre-March-2026 work would be built against stale wording. |
-| P2996R13, P1306R5, P3096R12, P3293R3, P3394R4, P3491R3, P3560R2 | **Not yet audited this epic** | `docs/REFLECTION.md` claims these are supported; only spot-checked incidentally so far (e.g. `dealias`/`data_member_options` above). Full clause-by-clause audit still pending — see M2 in the plan. |
+| P3293R3 "Splicing a Base Class Subobject" | **Missing, ~0% implemented** | `obj.[:base:]` is explicitly rejected: `SemaReflect.cpp:1890`, `Sema::BuildReflectionSpliceExpr` diagnoses `ReflectionKind::BaseSpecifier` with `err_unexpected_reflection_kind_in_splice` (grouped with categorically-disallowed splice targets). `subobjects_of(info, access_context)` doesn't exist anywhere in `clang/` or `libcxx/` (grep-confirmed zero hits). No test files reference this paper at all. The prerequisite building blocks (`bases_of()`, `nonstatic_data_members_of()`) are already implemented and tested, so `subobjects_of` itself would be a straightforward compose-and-wire task — but the splice-to-base grammar/semantics is real new Sema/Parse work. **Second confirmed real paper-level gap, larger than expected.** |
+| P3394R4 "Annotations for Reflection" | **Substantially implemented, one confirmed drift** | Core mechanism (parsing `[[=constant-expression]]`, storage, `is_annotation`/`annotations_of`, parameter-annotation extension from P3096, module serialization round-trip) is solid and well-tested. **Confirmed gap, corroborating issue #185 from the M1 triage**: `annotations_of_with_type(info, info)` doesn't exist under that name — implemented instead as an `annotations_of(info, info)` overload with equivalent filter logic but a different name/signature than the final adopted wording; stale pre-R4 API (`annotation_of_type<T>`, `annotate`) still present alongside it. Two items flagged Unverified-without-a-build: the empty-declaration annotation restriction, and the exact direction of the "order preserved" guarantee. |
+| P2996R13, P1306R5, P3096R12, P3491R3, P3560R2 | **Not yet audited this epic** | `docs/REFLECTION.md` claims these are supported; only spot-checked incidentally so far (e.g. `dealias`/`data_member_options` above). Full clause-by-clause audit still pending — see M2 in the plan. |
 | CWG 3111 (array-type template parameter objects) | **Not yet checked** | Resolved as a C++26 DR at Kona 2025-11-07; affects [meta.define.static]-family reflection queries for array-type template parameter objects. Cross-check against `reflect_constant_array`'s implementation above once its own audit is complete — likely the same code path. |
 | LWG 4432 (element init for `reflect_constant_array`) | **Not yet checked** | Resolved Kona 2025-11-04/08. Clarifies copy- vs. direct-initialization semantics for array elements — check `reflect_constant_array`'s actual element-init strategy in `ExprConstantMeta.cpp` against this. |
 | LWG 4426 (`reflect_constant_string` literal detection) | **Not yet checked** | Live-checked 2026-09-08: status is now **C++26** (moved from Tentatively Ready). Wording changes "trailing null terminator" → "trailing u+0000 null character" and adds "is a reference to" for precision, in [meta.reflection.array]. Small wording-only fix — check whether the fork's `is_string_literal`-style detection already matches the *intent* even if built against the old imprecise wording. |
@@ -272,15 +274,42 @@ checking this list first.**
 | 135 | ast dump for splice specifier and reflection splice type | tooling, low priority |
 | 124 | Custom annotation requires type to be `equality_comparable` | — (check against annotation/P3394R4 work) |
 
-**Action items surfaced by this list, not yet done:**
-- Identify P3816 ("consteval_hash<std::meta::info>") — not part of this epic's original 10-paper
-  list, needs its own wording lookup and a decision on whether it's in C++26 scope at all (3
-  competing PR implementations upstream suggests it was contentious/unstable there).
-- Cross-check P3074 ("trivial unions") against `docs/CXX26_GAPS.md`'s language-side gaps table —
-  it may already be tracked there as a non-reflection item, avoid duplicate tracking.
+**Action items surfaced by this list — both resolved 2026-09-08:**
+- **P3816R3 "Hashing meta::info"** (`consteval_hash<std::meta::info>`) is **Out-of-Scope for this
+  epic** — confirmed via live wording fetch: still a proposal under SG7 discussion, not adopted
+  into the C++26 working draft (implementers still debating hash-stability semantics across TUs).
+  The 3 competing upstream PRs (#227/#195/#170) are experimental attempts at a not-yet-standardized
+  facility. Not required for "genuinely complete C++26 reflection"; could be revisited later as an
+  experimental opt-in (matching this fork's existing pattern for P3381/P3385), but that's a
+  post-epic nice-to-have, not a completion blocker.
+- **P3074R7 "Trivial unions"** is **already tracked in `docs/CXX26_GAPS.md`'s language-side gaps
+  table** (currently `[ ]` unstarted) — it's a general language paper, not reflection-specific,
+  despite PR #163 living in the reflection repo. Not duplicated here; if PR #163's diff is useful,
+  route the actual fix work through `CXX26_GAPS.md`, not this tracker.
 - For every PR mapped to a Confirmed-Open issue above: fetch the diff (`gh pr diff -R
   bloomberg/clang-p2996 <N>`), check whether it applies cleanly or needs adaptation to this fork's
   divergent surrounding code, and prefer porting/adapting it over writing an independent fix in M4.
+
+**Portability spot-check (2026-09-08): PR #287 confirmed directly portable.** Diff saved to
+`docs/reflection-audit/pr-diffs/pr-287.diff`. Small, surgical change to
+`CXXNameMangler::mangleReflection`'s `ReflectionKind::Template` case (append an `ODRHash`-based
+discriminator so overloaded function templates reflected as NTTPs don't collide/silently fold in
+CodeGen) plus a well-commented regression test. This fork's `ItaniumMangle.cpp:4932-4938` matches
+the diff's "before" context byte-for-byte. High confidence the other 4 mangling-cluster PRs (#291,
+#299, #301, #316) are similarly portable — diffs fetched to `docs/reflection-audit/pr-diffs/`,
+full application deferred to M4 (each needs its own build-gated commit).
+- For every PR mapped to a Confirmed-Open issue above: fetch the diff (`gh pr diff -R
+  bloomberg/clang-p2996 <N>`), check whether it applies cleanly or needs adaptation to this fork's
+  divergent surrounding code, and prefer porting/adapting it over writing an independent fix in M4.
+
+**Portability spot-check (2026-09-08): PR #287 confirmed directly portable.** Diff saved to
+`docs/reflection-audit/pr-diffs/pr-287.diff`. Small, surgical change to
+`CXXNameMangler::mangleReflection`'s `ReflectionKind::Template` case (append an `ODRHash`-based
+discriminator so overloaded function templates reflected as NTTPs don't collide/silently fold in
+CodeGen) plus a well-commented regression test. This fork's `ItaniumMangle.cpp:4932-4938` matches
+the diff's "before" context byte-for-byte. High confidence the other 4 mangling-cluster PRs (#291,
+#299, #301, #316) are similarly portable — diffs fetched to `docs/reflection-audit/pr-diffs/`,
+full application deferred to M4 (each needs its own build-gated commit).
 
 ## Session Log
 

@@ -1,0 +1,267 @@
+diff --git a/clang/lib/AST/ItaniumMangle.cpp b/clang/lib/AST/ItaniumMangle.cpp
+index 8da32928a40e1..77905f577fc5d 100644
+--- a/clang/lib/AST/ItaniumMangle.cpp
++++ b/clang/lib/AST/ItaniumMangle.cpp
+@@ -29,6 +29,7 @@
+ #include "clang/AST/ExprObjC.h"
+ #include "clang/AST/LocInfoType.h"
+ #include "clang/AST/Mangle.h"
++#include "clang/AST/ODRHash.h"
+ #include "clang/AST/TypeLoc.h"
+ #include "clang/Basic/ABI.h"
+ #include "clang/Basic/Module.h"
+@@ -5021,8 +5022,66 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
+   case ReflectionKind::Template: {
+     Out << 't';
+ 
++    TemplateDecl *TD = R.getReflectedTemplate().getAsTemplateDecl();
++
++    // A deduction guide's DeclarationName (CXXDeductionGuideName) has no
++    // <unqualified-name> encoding: mangleTemplateName would reach the
++    // llvm_unreachable in mangleUnqualifiedName. members_of over a
++    // namespace enumerates guides like any other member, and lifting that
++    // list into define_static_array makes each one a reflection template
++    // argument, so they MUST mangle. Encode "dg" + the deduced template's
++    // name + the same '$'-bracketed ODR-hash discriminator used for
++    // overloaded function templates below: every guide for one template
++    // shares a single DeclarationName (and implicit/copy guides can be
++    // enumerated alongside explicit ones once CTAD has been used in the TU),
++    // so the hash of the template head + declaration pattern is what keeps
++    // two different guides for the same template distinct. Cross-TU-stable by
++    // design, preserving legitimate linkonce_odr merging.
++    if (auto *FTD = dyn_cast<FunctionTemplateDecl>(TD)) {
++      if (auto *DG = dyn_cast<CXXDeductionGuideDecl>(FTD->getTemplatedDecl())) {
++        Out << "dg";
++        if (TemplateDecl *Deduced = DG->getDeducedTemplate())
++          mangleTemplateName(Deduced, /*Args=*/{});
++        ODRHash Hash;
++        // The structural hash alone cannot separate an EXPLICIT guide from
++        // the IMPLICIT guide Sema declares for the same-signature
++        // constructor, nor a per-constructor guide from the copy guide when
++        // their signatures coincide (X(X<E>)); fold implicitness and the
++        // deduction-candidate kind in as well -- all of these enumerate
++        // side by side and are distinct reflections.
++        Hash.AddBoolean(DG->isImplicit());
++        DeductionCandidate DCK = DG->getDeductionCandidateKind();
++        Hash.AddBoolean(DCK == DeductionCandidate::Copy);
++        Hash.AddBoolean(DCK == DeductionCandidate::Aggregate);
++        Hash.AddTemplateParameterList(FTD->getTemplateParameters());
++        Hash.AddFunctionDecl(DG, /*SkipBody=*/true);
++        Out << '$' << Hash.CalculateHash() << '$';
++        break;
++      }
++    }
++
+     ArrayRef<TemplateArgument> Args;
+-    mangleTemplateName(R.getReflectedTemplate().getAsTemplateDecl(), Args);
++    mangleTemplateName(TD, Args);
++    // The name alone identifies class/variable/alias templates, but function
++    // templates OVERLOAD: two same-named siblings (e.g. absl raw_hash_map's
++    // lifetimebound operator[] pair) mangled identically here, so a template
++    // taking the reflection as an NTTP got ONE mangled name for its two
++    // specializations -- CodeGen then silently folds the linkonce_odr
++    // definitions and a single body serves both call sites (the AST-level
++    // specializations are correct and distinct; no diagnostic anywhere). Append a structural
++    // digest of the template head + declaration pattern to discriminate the
++    // overloads. An ODR hash (cross-TU-stable by design; it is how modules
++    // compare decls between TUs) rather than a structural mangling of the
++    // pattern's function type: dependent pattern types from real code embed
++    // parameter-referencing expressions (lifetimebound SFINAE, noexcept(...))
++    // that the mangler cannot encode outside a function-declaration context
++    // (mangleFunctionParam asserts).
++    if (auto *FTD = dyn_cast<FunctionTemplateDecl>(TD)) {
++      ODRHash Hash;
++      Hash.AddTemplateParameterList(FTD->getTemplateParameters());
++      Hash.AddFunctionDecl(FTD->getTemplatedDecl(), /*SkipBody=*/true);
++      Out << '$' << Hash.CalculateHash() << '$';
++    }
+     break;
+   }
+   case ReflectionKind::Namespace: {
+diff --git a/libcxx/test/std/experimental/reflection/deduction-guide-reflection-mangling.pass.cpp b/libcxx/test/std/experimental/reflection/deduction-guide-reflection-mangling.pass.cpp
+new file mode 100644
+index 0000000000000..df0953c3d41f7
+--- /dev/null
++++ b/libcxx/test/std/experimental/reflection/deduction-guide-reflection-mangling.pass.cpp
+@@ -0,0 +1,72 @@
++//===----------------------------------------------------------------------===//
++//
++// Copyright 2024 Bloomberg Finance L.P.
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
++// ADDITIONAL_COMPILE_FLAGS: -freflection-latest
++
++// <experimental/reflection>
++//
++// [reflection]
++//
++// Regression test: a reflection of a DEDUCTION GUIDE used as a template
++// argument (a define_static_array element / reflection NTTP) must mangle
++// rather than hitting mangleUnqualifiedName's
++//   llvm_unreachable("Can't mangle a deduction guide name!")
++// (a CXXDeductionGuideName has no <unqualified-name> encoding), and two
++// different guides for the same template must mangle DISTINCTLY -- they share
++// one DeclarationName, so a name-only encoding would fold their
++// specializations at codegen (the same silent failure mode as overloaded
++// function templates, different declaration-name kind). members_of over a namespace enumerates guides like
++// any other member, so any namespace-walking reflection consumer that lifts
++// the member list into static storage hits this. -fsyntax-only does NOT
++// reproduce; the assertions below require codegen and a runtime observation.
++
++#include <meta>
++
++#include <cassert>
++
++namespace demo {
++template <class E> struct unexpected { unexpected(E); };
++template <class E> unexpected(E)  -> unexpected<E>;    // guide #1
++template <class E> unexpected(E*) -> unexpected<E*>;   // guide #2 (same DeclarationName)
++}  // namespace demo
++
++template <std::meta::info R> int probe() { return 1; }
++
++int main() {
++  // The lift itself is the ICE shape: the array backing define_static_array
++  // has every element reflection mangled into its linkage name. Taking
++  // &probe<m> additionally pins each guide reflection as a function-template
++  // NTTP, whose mangled names must be pairwise distinct. The enumeration
++  // contains FOUR guides: the two explicit ones plus the two Sema-declared
++  // implicit ones (the per-constructor guide -- whose signature is
++  // structurally IDENTICAL to explicit guide #1 -- and the copy guide), so
++  // distinctness needs more than a structural hash of the declaration.
++  int (*addrs[8])() = {};
++  int n = 0;
++  template for (constexpr auto m : std::define_static_array(
++      std::meta::members_of(^^demo, std::meta::access_context::unchecked()))) {
++    if constexpr (std::meta::is_function_template(m)) {  // only the guides
++      addrs[n++] = &probe<m>;
++    }
++  }
++  assert(n == 4);
++  for (int i = 0; i < n; ++i) {
++    assert(addrs[i]() == 1);
++    // Distinct manglings: without the per-guide discriminator the
++    // linkonce_odr specializations silently fold into one symbol.
++    for (int j = i + 1; j < n; ++j)
++      assert(addrs[i] != addrs[j]);
++    // A reflection of a guide stays distinct from a reflection of the
++    // deduced class template itself.
++    assert((void *)&probe<^^demo::unexpected> != (void *)addrs[i]);
++  }
++  return 0;
++}
+diff --git a/libcxx/test/std/experimental/reflection/substitute-nested-dependent.pass.cpp b/libcxx/test/std/experimental/reflection/substitute-nested-dependent.pass.cpp
+new file mode 100644
+index 0000000000000..e093c63a2f7bc
+--- /dev/null
++++ b/libcxx/test/std/experimental/reflection/substitute-nested-dependent.pass.cpp
+@@ -0,0 +1,103 @@
++//===----------------------------------------------------------------------===//
++//
++// Copyright 2024 Bloomberg Finance L.P.
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
++// ADDITIONAL_COMPILE_FLAGS: -freflection-latest
++
++// <experimental/reflection>
++//
++// [reflection]
++//
++// Regression test: reflections of same-named (overloaded) function templates
++// used as non-type template arguments must produce DISTINCT specializations
++// all the way through codegen. Previously the Itanium mangling for a
++// ReflectionKind::Template encoded only the template's name, so a dispatcher
++// like fn_probe<T, tmpl> below got one mangled name for its two
++// instantiations; CodeGen silently folded the linkonce_odr definitions, and a
++// single body (here: the SFINAE-false pack sibling's) served both call sites.
++// The AST-level specializations were always correct, so only a RUNTIME
++// observation catches this.
++
++#include <meta>
++
++#include <cassert>
++#include <string>
++#include <type_traits>
++#include <vector>
++
++template <bool C> using EnableIf = std::enable_if_t<C, int>;
++template <class K, bool V> inline constexpr bool LTB = !V;
++
++struct B {
++  // Instantiable with zero explicit arguments (every parameter defaulted).
++  template <class K = int, class P = double, int = EnableIf<LTB<K, false>>()>
++  std::string& operator[](K&& k);
++  // SFINAE-false pack sibling: same name, never instantiable.
++  template <class K = int, class P = double, int&..., EnableIf<LTB<K, true>> = 0>
++  std::string& operator[](K&& k);
++};
++
++consteval bool can_sub0(std::meta::info tmpl) {
++  return std::meta::can_substitute(tmpl, std::vector<std::meta::info>{});
++}
++consteval std::meta::info sub0(std::meta::info tmpl) {
++  return std::meta::substitute(tmpl, std::vector<std::meta::info>{});
++}
++consteval int member_index(std::meta::info cls, std::meta::info fn) {
++  int i = 0;
++  for (auto m : std::meta::members_of(cls, std::meta::access_context::unchecked())) {
++    if (m == fn) return i;
++    ++i;
++  }
++  return -1;
++}
++
++// The probe: substitute() two dependent levels deep (called from a `template
++// for` body in fn_driver). Encodes which template it was instantiated for and
++// whether it substituted into its return value.
++template <typename T, std::meta::info tmpl>
++int fn_probe() {
++  if constexpr (can_sub0(tmpl)) {
++    constexpr auto spec = sub0(tmpl);
++    static_assert(std::meta::is_operator_function(spec));
++    static_assert(!std::meta::is_volatile(spec));
++    static_assert(!std::meta::is_rvalue_reference_qualified(spec));
++    return member_index(^^T, tmpl) * 10 + 1;
++  } else {
++    return member_index(^^T, tmpl) * 10;
++  }
++}
++
++template <typename T>
++void fn_driver() {
++  int results[2];
++  int (*addrs[2])();
++  int n = 0;
++  template for (constexpr auto fn : std::define_static_array(
++          std::meta::members_of(^^T, std::meta::access_context::unchecked()))) {
++    if constexpr (std::meta::is_function_template(fn)) {
++      results[n] = fn_probe<T, fn>();
++      addrs[n] = &fn_probe<T, fn>;
++      ++n;
++    }
++  }
++  assert(n == 2);
++  // Distinct specializations: under the mangling collision these were one
++  // folded symbol, so the addresses compared equal and one body ran twice.
++  assert(addrs[0] != addrs[1]);
++  // member#0 substitutes (0 * 10 + 1), the pack sibling does not (1 * 10).
++  assert(results[0] == 1);
++  assert(results[1] == 10);
++}
++
++int main() {
++  fn_driver<B>();
++  return 0;
++}
