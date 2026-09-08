@@ -64,7 +64,8 @@ that finished C++26) + P1789R3 (Kona, expansion-statement library support) + DRs
 | P3394R4 "Annotations for Reflection" | **Substantially implemented, one confirmed drift** | Core mechanism (parsing `[[=constant-expression]]`, storage, `is_annotation`/`annotations_of`, parameter-annotation extension from P3096, module serialization round-trip) is solid and well-tested. **Confirmed gap, corroborating issue #185 from the M1 triage**: `annotations_of_with_type(info, info)` doesn't exist under that name — implemented instead as an `annotations_of(info, info)` overload with equivalent filter logic but a different name/signature than the final adopted wording; stale pre-R4 API (`annotation_of_type<T>`, `annotate`) still present alongside it. Two items flagged Unverified-without-a-build: the empty-declaration annotation restriction, and the exact direction of the "order preserved" guarantee. |
 | P3491R3 "define_static_{string,object,array}" | **Substantially implemented, 3 confirmed gaps** | Final adopted synopsis already absorbed P3617R0's `reflect_constant_array`/`reflect_constant_string` split — confirms the earlier delegation finding *is* the paper's own intent, not a deviation. Gaps: (1) **`define_static_object` is entirely missing** — zero occurrences anywhere, despite `docs/REFLECTION.md:65` claiming all three of `define_static_{string,object,array}` are supported (that line is inaccurate). (2) `is_string_literal` (5 overloads) missing entirely, no compiler query backing it either. (3) `reflect_constant_string` is narrower than spec — fork has 2 fixed non-template overloads (`char`/`char8_t` only) vs. the paper's one generic template covering `wchar_t`/`char16_t`/`char32_t` too; also doesn't implement the "already a string literal → skip double-terminating" carve-out (likely masked in practice but unproven equivalent). `reflect_constant_array`'s Mandates (structural-type, `copy_constructible`) aren't enforced, only `is_constructible_v`. |
 | P3560R2 "Error Handling in Reflection" | **~0% implemented at the library level — full architectural gap** | `class std::meta::exception` doesn't exist anywhere (same root as issue #225). **This is the single biggest, most structurally important gap found in this epic so far**: every metafunction that P3560R2 specifies should throw `meta::exception` on failure instead currently uses this fork's pre-P3068 `DiagFn`-callback hard-diagnostic model (`Metafunction::DiagnoseFn` in `ExprConstantMeta.cpp`) — a "Constant When" evaluation-failure pattern, not a catchable exception. No throws-flag exists anywhere in `clang/include/clang/AST/Metafunction.h`. The P3068R6 compiler prerequisite (throw-in-consteval) is confirmed done (`ExprConstant.cpp`, per `CXX26_GAPS.md`), so the primitive exists — the reflection library was simply never rewired to use it. LWG 4428's wording fix is moot until this exists (same root cause). No `.verify.cpp` test anywhere exercises throw/catch reflection-error behavior — all still check classic hard-diagnostic `expected-error` patterns. **Recommended next major work item once M3's three known bugs are closed**: implement `meta::exception` as a real class, then rewire the `DiagFn` paths metafunction-by-metafunction — well-scoped, single root cause, unblocks P3560R2 + LWG 4428 + closes issue #225 all at once. |
-| P2996R13, P1306R5, P3096R12 | **Not yet audited this epic** | `docs/REFLECTION.md` claims these are supported; only spot-checked incidentally so far (e.g. `dealias`/`data_member_options` above). Full clause-by-clause audit still pending — see M2 in the plan; P2996R13's audit is currently running as a background agent. |
+| P2996R13 "Reflection for C++26" (core) | **Substantially implemented, real small gaps + 2 concrete bugs** | Grammar (reflect-operator, all 3 splicer forms) matches. **Missing**: `has_c_language_linkage`, `has_parent`, `type_order` (upstream libc++ itself tracks this as open, LWG4305), `is_virtual_base_of_type`, `is_trivially_relocatable_type`/`is_replaceable_type`/`is_nothrow_relocatable_type` (underlying `<type_traits>` facilities exist, just no `std::meta` wrapper), and `reference_constructs_from_temporary`/`reference_converts_from_temporary` are present but **commented out** with a `TODO(CXX26)` and had the wrong arity even before being disabled. **Signature drift**: `type_underlying_type`→`underlying_type` rename, `member_offset::total_bits()` missing `const` (real usability bug, not cosmetic), `reflect_constant(T)` by-value vs. paper's by-const-ref, `extract<T>` over-excludes rvalue-references, `data_member_options::bit_width`→`width` rename, `access_context::via(info)` doesn't accept the null reflection the paper explicitly permits (untested either way). **Two concrete, verified-by-direct-read bugs, no build needed**: `symbol_of`/`u8symbol_of` table has `"^"` (not `"^="`) at the `op_caret_equals` slot — this is issue #319 from the M1 triage, independently reconfirmed here with the exact table detail; and `op_co_await` is spelled `"coawait"` instead of the paper's `"co_await"` in the same tables. Framing correction: P2996R13 has **no `Throws:` clauses** at all (unlike P3560R2) — failure is `Mandates:`/`Constant When:`, and the fork's `throw`-inside-`consteval` + `requires`-clause pattern soundly encodes both without needing `meta::exception`. `reflect_invoke`/`subobjects_of`/`define_static_*` are correctly out of P2996R13's own current scope (moved to companion papers or removed pre-R13) — not fork gaps. The ~90-entry `[meta.reflection.traits]` family and most boolean predicates are presence-confirmed but not individually behavior-verified — flagged Implemented-Behavior-Unverified as a group, not itemized. |
+| P1306R5 "Expansion Statements", P3096R12 "Function Parameter Reflection" | **Audit in progress** | Background agent still running as of this writing — check for completion and fold results in next. |
 | CWG 3111 (array-type template parameter objects) | **Not yet checked** | Resolved as a C++26 DR at Kona 2025-11-07; affects [meta.define.static]-family reflection queries for array-type template parameter objects. Cross-check against `reflect_constant_array`'s implementation above once its own audit is complete — likely the same code path. |
 | LWG 4432 (element init for `reflect_constant_array`) | **Not yet checked** | Resolved Kona 2025-11-04/08. Clarifies copy- vs. direct-initialization semantics for array elements — check `reflect_constant_array`'s actual element-init strategy in `ExprConstantMeta.cpp` against this. |
 | LWG 4426 (`reflect_constant_string` literal detection) | **Not yet checked** | Live-checked 2026-09-08: status is now **C++26** (moved from Tentatively Ready). Wording changes "trailing null terminator" → "trailing u+0000 null character" and adds "is a reference to" for precision, in [meta.reflection.array]. Small wording-only fix — check whether the fork's `is_string_literal`-style detection already matches the *intent* even if built against the old imprecise wording. |
@@ -91,13 +92,40 @@ that finished C++26) + P1789R3 (Kona, expansion-statement library support) + DRs
    success instead of the old rejection; `llvm-lit` confirms **PASS** (16/16 in
    `clang/test/Reflection/` now). Full `check-clang` gate run to confirm no wider regression before
    committing — see Session Log for the result.
-3. **Consteval self-reference escalation cluster — not yet investigated this session.**
-   `SemaExpr.cpp` (`HandleImmediateInvocations`/`Rec.ConstevalOnly`), introduced by the LLVM 22
-   merge. Affects
+3. **Consteval self-reference escalation cluster — investigated 2026-09-08, deliberately NOT
+   fixed this session, precise mechanism now documented.** Root mechanism: `SemaDeclCXX.cpp`'s
+   `ActOnCXXEnterDeclInitializer` pushes `ExpressionEvaluationContext::ImmediateFunctionContext`
+   for every C++23+ `constexpr`/`constinit` variable's initializer (`:19105-19116`). This one push
+   feeds two different consumers that need opposite behavior from it:
+   - `CheckForImmediateInvocation` (`SemaExpr.cpp:18144-18149`) bails out and never registers a
+     call as an `ImmediateInvocationCandidate` whenever `isImmediateFunctionContext()` is true —
+     correct in general (an immediate invocation failing inside another immediate-function-context
+     should *escalate*, not diagnose locally), but this is what suppresses the diagnostic a
+     self-referential `constexpr` variable's consteval call genuinely needs.
+   - `HandleImmediateInvocations` (`SemaExpr.cpp:18397-18402`) *also* bails out entirely — skips
+     its whole candidate-processing loop, including the `Rec.ConstevalOnly` bucket — whenever
+     `Rec.isImmediateFunctionContext()` is true on the record being popped. This is what makes the
+     ordinary P2996 idiom `constexpr auto R = <consteval-fn-returning-info>();` work: the ordinary
+     VarDecl-level constant-evaluation (a separate mechanism from this one) still runs and
+     succeeds, and this bail-out just prevents a *redundant* secondary diagnosis pass from also
+     firing on a `ConstevalOnly`-typed subexpression that already evaluated fine.
+   Both consumers key off the exact same `isImmediateFunctionContext()`/`Rec.isImmediateFunctionContext()`
+   signal, gated purely by *whether the push happened*, not by *whether the contained call actually
+   succeeded* — so there is no way to satisfy "diagnose the genuinely-failing self-reference case"
+   and "don't diagnose the genuinely-succeeding reflection idiom" by touching the push/gate alone.
+   **Confirms the prior revert's diagnosis exactly** (`87bcf7d13116`'s message) and adds the two
+   precise line ranges. A correct fix needs a per-candidate success/failure signal threaded through
+   to the point of diagnosis (e.g. distinguish in `Rec.ConstevalOnly`/`ImmediateInvocationCandidates`
+   whether the specific candidate already evaluated successfully elsewhere, not a context-wide
+   flag) — nontrivial, matches the prior session's own "left as documented future work" call.
+   **Deliberately not attempted this session**: the existing 9-test regression risk is real and
+   well-documented (`docs/LLVM22_SYNC.md`), there's no quick, low-risk version of this fix, and
+   this epic has substantially higher-value, lower-risk, well-scoped work queued (the 5-issue
+   mangling cluster with ready upstream PRs, `meta::exception` for P3560R2, `subobjects_of` for
+   P3293R3). Revisit with a dedicated session once the backlog above is smaller. Affects
    `libcxx/test/std/experimental/reflection/reflection-ex-parsing-command-line-options-2.sh.cpp`
-   among others. **A prior fix (`6b5f636e6ba1`) regressed 9 libc++ reflection tests and was
-   reverted (`87bcf7d13116`) — any new attempt must be verified against exactly those 9 tests
-   before being trusted, and must not repeat a blanket revert if trouble recurs.**
+   among others (not yet re-enumerated this session — the original 9-test list is in
+   `docs/LLVM22_SYNC.md`, re-check it's still current before reusing it as the regression gate).
 
 ## Upstream issue triage (M1)
 
