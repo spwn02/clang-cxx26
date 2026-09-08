@@ -743,7 +743,22 @@ ExprResult ConstraintSatisfactionChecker::EvaluateSlow(
   // i.e. they should not have access to the current class object or its
   // non-public members.
   std::optional<Sema::ContextRAII> ConceptContext;
-  if (ParentConcept)
+  bool CurrentClassIsBeingDefined = false;
+  if (const auto *MD = dyn_cast<CXXMethodDecl>(S.getCurLexicalContext())) {
+    const CXXRecordDecl *RD = MD->getParent();
+    CurrentClassIsBeingDefined =
+        RD->isBeingDefined() && llvm::any_of(*SubstitutedArgs, [&](auto &List) {
+          return llvm::any_of(List.Args, [&](const TemplateArgument &Arg) {
+            if (Arg.getKind() != TemplateArgument::Type ||
+                Arg.getAsType().isNull())
+              return false;
+            const CXXRecordDecl *ArgRD = Arg.getAsType()->getAsCXXRecordDecl();
+            return ArgRD &&
+                   ArgRD->getCanonicalDecl() == RD->getCanonicalDecl();
+          });
+        });
+  }
+  if (ParentConcept && !CurrentClassIsBeingDefined)
     ConceptContext.emplace(S, ParentConcept->getDeclContext());
 
   Sema::ArgPackSubstIndexRAII SubstIndex(S, PackSubstitutionIndex);
