@@ -1603,6 +1603,12 @@ LinkageInfo LinkageComputer::getLVForValue(const APValue &V,
     while (Lowered.getReflectionDepth() > 0)
       Lowered = Lowered.Lower();
 
+    // A depth-one reflection of a value or object lowers to its underlying
+    // APValue, which is not itself a reflection.  Compute linkage from that
+    // value instead of asking it for a reflection kind.
+    if (!Lowered.isReflection())
+      return getLVForValue(Lowered, computation);
+
     switch (Lowered.getReflectionKind()) {
     case ReflectionKind::Null:
       break;

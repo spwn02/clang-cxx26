@@ -6875,7 +6875,13 @@ void CXXNameMangler::mangleValueInTemplateArg(QualType T, const APValue &V,
 
   case APValue::LValue: {
     // Proposed in https://github.com/itanium-cxx-abi/cxx-abi/issues/47.
-    assert((T->isPointerOrReferenceType()) &&
+    // A reflection of a `nullptr_t` value (e.g. `reflect_constant(nullptr)`)
+    // is represented as a null-pointer LValue with an `UnderlyingTy` of
+    // `nullptr_t` itself, not a pointer/reference type -- that proposal's
+    // pointer/reference-only scope predates this fork's reflection
+    // extension. `mangleNullPointer(T)` below is otherwise fully generic
+    // (just `L <type> 0 E`), so this is the only case that needs widening.
+    assert((T->isPointerOrReferenceType() || T->isNullPtrType()) &&
            "unexpected type for LValue template arg");
 
     if (V.isNullPointer()) {
