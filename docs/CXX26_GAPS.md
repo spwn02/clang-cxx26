@@ -574,51 +574,42 @@ sweep (an `-Werror,-Wunused-parameter` false failure in
   by owning-record-type + field-index — this fork's reflection mangling is
   already a bespoke, non-ISO-standardized extension, so this carries no
   external-ABI risk).
-  **Successor bug, newly exposed, not fixed:** with the mangler crash gone,
-  compilation now proceeds into the file's *second* namespace
-  (`alisdair_universal_swap`, previously unreachable) and fails there
-  instead, at line 138's `lhs.[:mem:]`: `error: class '(anonymous struct at
-  .../__vector/vector.h:583:3)' not derived from 'vector<int>'`. This is
-  `alisdair_universal_swap::do_swap_representations<T>` recursing into
-  `vector<int>`'s `_LIBCPP_COMPRESSED_PAIR`-generated anonymous-struct
-  member (confirmed via `-ast-dump` on a minimal repro: the compressed
-  pair's `__cap_`/`__alloc_` fields have `DeclContext` = the anonymous
-  struct itself, one level nested inside `vector<int>`). Initially looked
-  like a `Sema::BuildMemberReferenceExpr`
-  (`clang/lib/Sema/SemaExprMember.cpp:1245-1260`) derived-from-check bug
-  that doesn't account for anonymous struct/union DeclContext nesting —
-  **tried and reverted**, a targeted fix there (walking outward through
-  anonymous `DeclContext`s until a level satisfies the derived-from check)
-  reproduced the identical error byte-for-byte both before and after,
-  ruling that function out as the cause. The evidence instead points at the
-  `template for` / `define_static_array` / `nonstatic_data_members_of`
-  recursion itself: `do_swap_representations<T>` is a template being
-  re-instantiated with a *different* `T` at each recursion level
-  (`vector<int>` → the anonymous compressed-pair struct), and the observed
-  mismatch (a member reflection whose `DeclContext` reads as the *outer*
-  instantiation's type rather than the *current* one) is consistent with
-  `define_static_array`'s `extract`/`substitute`-based static-storage
-  materialization (`libcxx/include/meta:2642`, dispatching into
-  `clang/lib/AST/ExprConstantMeta.cpp`'s `extract`, line 3633) incorrectly
-  reusing a result across two different instantiations of the same
-  templated call site rather than genuinely re-evaluating
-  `nonstatic_data_members_of(^^T, ...)` for the new `T`.
-  **2026-09-08 (fourth session): this specific caching lead is confirmed
-  DEAD.** `substitute()`'s own cache (`ExprConstantMeta.cpp:3538-3547`,
-  `checkCachedSubstitution`/`SubstitutionHash`) can never incorrectly
-  reuse anything — every `recordCachedSubstitution` call site (there are
-  5) is commented out, and `recordCachedSubstitution` is called nowhere
-  else in the tree, so `checkCachedSubstitution` always misses; there is
-  nothing to reuse. This rules out the specific mechanism this entry
-  previously led with. **Next step, not yet attempted:** instrument
-  `TArgFromReflection`/`ExpandedTArgs` at each recursive `substitute()`
-  call to check whether the *wrong* `T` is actually being resolved for the
-  anonymous-struct recursion level — i.e. go back to first principles with
-  live instrumentation rather than a caching theory. Likely
-  Phase-B/C-caliber (deep template-instantiation/evaluator internals), not
-  a quick fix. Regression surface for whoever picks this up: any recursive
-  template combined with `template for` over a `define_static_array`-backed
-  reflection array.
+  **Successor bug, found 2026-09-07/08 across sessions three through five,
+  FIXED 2026-09-08 (fifth session), commit `f33742c88aa3`.** With the
+  mangler crash gone, compilation proceeded into the file's *second*
+  namespace (`alisdair_universal_swap`, previously unreachable) and failed
+  there instead, at line 138's `lhs.[:mem:]`: `error: class '(anonymous
+  struct at .../__vector/vector.h:583:3)' not derived from 'vector<int>'`.
+  **Root cause, finally confirmed**: `alisdair_universal_swap::
+  do_swap_representations<T>` recurses into `vector<int>`'s
+  `_LIBCPP_COMPRESSED_PAIR`-generated anonymous-struct member, re-
+  instantiating itself with `T` = that anonymous struct. At that point
+  `lhs`'s real type IS the anonymous struct itself — but every spliced
+  anonymous-struct field is eagerly normalized (in `SemaReflect.cpp`'s
+  `BuildReflectionSpliceExpr`, unconditionally, so that a standalone
+  splice like `&[:mem:]` building a pointer-to-member value with no base
+  expression at all still gets the correct as-if-direct-member-of-the-
+  outer-class representation) to the injected `IndirectFieldDecl` for the
+  OUTERMOST class, not the immediate anonymous struct — so
+  `Sema::BuildMemberReferenceExpr`'s derived-from check compares the
+  actual base (the anonymous struct) against the wrong (outer) class and
+  rejects it. Two earlier proposed fixes (an `ExprConstantMeta.cpp`
+  caching theory, and a `Sema::BuildMemberReferenceExpr` derived-from-
+  check edit) were both tried, both reproduced the identical error
+  byte-for-byte before and after, and were both correctly ruled out and
+  reverted before landing on the real mechanism above. Fixed by detecting,
+  only in the reflection-splice-specific overload of
+  `BuildMemberReferenceExpr`, when the base's type matches the *direct*
+  parent of the `IndirectFieldDecl`'s real target field
+  (`IndirectFieldDecl::getAnonField()`) rather than the chain's outermost
+  link, and using the raw `FieldDecl` in that case instead. See
+  `project_52_failure_triage_epic.md`'s session-5 note for the full
+  three-attempt story, including two intermediate regressions this
+  specific fix caused and had to correct before it was safe to land (one
+  broke 17 unrelated, non-reflection anonymous-struct/union tests across
+  `CodeGen`/`Sema`/`Index`/`Modules`; the other broke ordinary anonymous-
+  union member-splice access) — both caught by full-suite testing before
+  committing, neither shipped.
 - ~~**`libcxx/test/std/experimental/reflection/namespace-reflection-equality-reopened.pass.cpp`**~~
   — **Fixed 2026-09-07.** Not actually a library gap: `underlying_entity_of`
   exists but is gated behind `-fentity-proxy-reflection` (a separate flag
@@ -670,18 +661,19 @@ first session (`namespace-reflection-equality-reopened.pass.cpp`,
 `annotation-module-serialization.sh.cpp`), 2 got full compiler-side fixes
 in the second session (`parameter-reflection-kind-preserved.pass.cpp`,
 `p3096-fn-parameters.pass.cpp`), 1 in the third session
-(`template-arguments.pass.cpp`), and 2 more in this, the fourth session
-(`to-and-from-values.pass.cpp`, `module-imports.sh.cpp`) — **8 of the
-original list now genuinely fixed (flip PASS)**. `miscellaneous.pass.cpp`'s
-original crash is also fixed (second session) but the test itself still
-fails on its own distinct successor issue documented above (a suspected
-`define_static_array`/`extract` template-instantiation-caching issue —
-**note this specific caching lead was later confirmed dead** in the
-fourth session's `std::execution` recon, see the P2300R10 section; this
-item needs fresh instrumentation-based investigation, not a known lead).
-**This is now the only item remaining open in this section.** Whoever
-picks it up should re-run it individually first (with `-v`) to get a
-clean repro before touching source.
+(`template-arguments.pass.cpp`), 2 more in the fourth session
+(`to-and-from-values.pass.cpp`, `module-imports.sh.cpp`), and
+`miscellaneous.pass.cpp`'s own successor bug was finally root-caused and
+fixed in the fifth session (commit `f33742c88aa3`) — **9 of the original
+list now genuinely fixed (flip PASS), and `miscellaneous.pass.cpp` itself
+compiles and runs correctly**, though the test resolves `Unsupported`
+rather than `PASS` on this platform for an entirely separate, unrelated
+reason: it unconditionally exercises the Blocks language extension, whose
+runtime is Darwin-only — fixed by adding the missing
+`REQUIRES: has-fblocks && darwin` lit annotation (commit `eb686d8eade4`,
+matching the convention its sibling test `func.blocks.pass.cpp` already
+used). **Every item in this section is now resolved — no compiler bugs
+remain open here.**
 
 **`pre`/`post` clangd completion (Contracts Hardening epic's M6 open item):
 partially fixed 2026-09-06, one real gap remains open, documented below.**
@@ -1394,6 +1386,43 @@ substitution. Not a regression (this code path was categorically
 unreachable before, since compilation aborted earlier) and not addressed
 by this fix — a new, distinct, not-yet-investigated item for a future
 session.
+
+**2026-09-08 (fifth session): `when_all.pass.cpp` fixed too — 27/27
+`std::execution` tests now pass, and the port's own regression finally
+caught and fixed.** The `isPerfect()` assertion above turned out to be an
+exact match for upstream commit `73ebadaa837e` ("[clang] Don't assert on
+perfect overload match with _Atomic", fixes llvm/llvm-project#170433):
+the debug-only invariant check never stripped `_Atomic` qualification
+before comparing types, so a genuinely-correct identity conversion
+between an `_Atomic(T)` lvalue and a plain `T` rvalue (exactly what
+libc++'s constexpr `compare_exchange_strong` does) tripped the assert.
+Confirmed byte-for-byte identical to the upstream commit before landing
+(commit `d2b6f5b7a3e9`). Not fork-specific — `Overload.h` is untouched by
+this fork's own work; this was a latent vanilla-upstream bug newly
+exposed only after the prior fix let compilation reach it for the first
+time. **All 27 `std/execution/**` tests pass as of this session.**
+
+**Also this session: the `651683d0b997` port itself turned out to have a
+narrow regression, found only by running a full, all-test `check-clang`
+gate (something its own original verification never did).** Its new
+`ContextRAII` push — added so a concept "should not have access to the
+current class object or its non-public members" when used externally —
+incorrectly also fired when a class checks a named concept about
+*itself* from inside one of its own still-being-defined member functions
+(`clang/test/CXX/class/class.dtor/p4.cpp`'s `~E() requires Foo<E> =
+delete;`, where `Foo<T>` checks `t.foo()` and `E::foo()` is a real,
+visible member) — silently misevaluating the self-check as unsatisfied
+and skipping the deleted, more-constrained destructor. Fixed narrowly
+(commit `c6b4999832a1`) to skip the context push specifically in that
+self-referential case, leaving the port's own original fix, and every
+ordinary external use of a concept's context isolation, untouched.
+Verified via live instrumentation (confirmed the exact context-before/
+after and diagnostic) and direct isolation (reverting `651683d0b997`'s
+touched files alone reproduces the old, correct behavior). See
+`project_52_failure_triage_epic.md`'s session-5 note for the full
+methodology — this finding is this session's concrete argument for never
+skipping the full gate in favor of a narrower, topically-scoped sweep,
+however well-targeted that sweep seems.
 
 ### Tier 2 Sub-Plan: P2300R10 `std::execution` (sender/receiver)
 
