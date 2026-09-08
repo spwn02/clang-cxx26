@@ -522,33 +522,39 @@ sweep (an `-Werror,-Wunused-parameter` false failure in
   same-entity-must-compare-equal invariant is supposed to hold. Fixed by
   normalizing a `Declaration`-kind reflection of a `ParmVarDecl` to hash
   with `Parameter`'s kind tag before the rest of the profile.
-- **`libcxx/test/std/experimental/reflection/template-arguments.pass.cpp`** —
-  real crash: `Assertion 'isReflection() && "not a reflection value"' failed`
-  in `APValue::getReflectionKind()` (`clang/lib/AST/APValue.cpp:778`), while
-  parsing a `non_auto_non_types::instantiations` function body. Notably
-  **nondeterministic**: passed when run in isolation, failed consistently
-  under the full parallel `check-cxx` run — the same signature as reading an
-  uninitialized/wrongly-tagged `APValue` (compare the `r`-binding bug this
-  epic's M3 fixes), so likely a similar storage-lifetime bug, not a flake.
-  **Investigated further 2026-09-07 (second session), still open:** the
-  `APValue` reflection-depth/kind bookkeeping (`Lift()`/`Lower()`,
-  `APValue.cpp:893-920`) is sound in isolation and copy/move/assign/swap all
-  correctly propagate `ReflectionDepth`/`UnderlyingTy` together. Found one
-  real, adjacent bug — `getNthTemplateArgument`'s `StructuralValue` case
-  (`clang/lib/AST/ExprConstantMeta.cpp:1380-1383`) unconditionally calls
-  `.Lift()` on the stored APValue, double-wrapping `ReflectionDepth` when an
-  NTTP's stored value is already itself a reflection (`ReflectionDepth==1`,
-  reachable via this test's `WithReflection<std::meta::reflect_constant(...)>`
-  pattern) — but tracing shows this only ever produces a *wrong-but-still-
-  reflection* value, not the fully-unreflected state the line-778 assert
-  needs, so it's evidence of the same fragility class, not confirmed as
-  *the* cause. No shared/global/static cache keyed on reflection kind exists
-  in `ExprConstantMeta.cpp`/`APValue.cpp` (checked explicitly), arguing
-  against a cross-invocation-shared-state explanation for the
-  parallel-only reproduction and toward a genuine single-compilation
-  dangling-pointer/uninitialized-read bug. Static reading is exhausted here;
-  next step needs a debugger/ASan session with a watchpoint on the crashing
-  APValue's `Kind`/`ReflectionDepth` fields, not more source analysis.
+- ~~**`libcxx/test/std/experimental/reflection/template-arguments.pass.cpp`**~~
+  — **Fixed 2026-09-08 (third session).** Original crash:
+  `Assertion 'isReflection() && "not a reflection value"' failed` in
+  `APValue::getReflectionKind()` (`clang/lib/AST/APValue.cpp:778`), while
+  parsing a `non_auto_non_types::instantiations` function body. Originally
+  characterized as nondeterministic (passed in isolation, failed under full
+  parallel `check-cxx`) across two prior sessions of static-only analysis —
+  a follow-up `codex exec` session (per user request, dynamic tooling
+  instead of more source reading) got a **deterministic standalone repro**
+  on the first direct compile, then root-caused it live via a conditional
+  `gdb` breakpoint on `APValue::getReflectionKind()`: `LinkageComputer::
+  getLVForValue` (`APValue.cpp:~1603`) fully lowers a reflection APValue via
+  repeated `Lower()` calls, then unconditionally calls
+  `Lowered.getReflectionKind()` on the result — but a depth-one reflection
+  of a `Value`/`Object` lowers to an ordinary (non-reflection) `APValue`, so
+  the call violates `getReflectionKind()`'s own precondition by
+  construction, not via any race or corruption (the earlier "nondeterministic,
+  parallel-only" characterization turned out to depend on incidental
+  compile-order/caching factors, not genuine memory unsafety — the adjacent
+  `getNthTemplateArgument` double-`Lift()` bug found in the prior session's
+  investigation was real but not the cause; still worth having fixed).
+  Fixed by checking `Lowered.isReflection()` first and recursing into
+  `getLVForValue` on the plain lowered value if false (safe — the outer
+  switch dispatches on `Lowered.getKind()`, no longer `Reflection` after
+  `Lower()`). Fixing this exposed a **second, previously-masked bug**:
+  mangling a reflected `nullptr_t` NTTP (`FnWithReflection<
+  std::meta::reflect_constant(nullptr)>`) hit `mangleValueInTemplateArg`'s
+  `T->isPointerOrReferenceType()` assertion — the Itanium ABI proposal that
+  encodes (cxx-abi issue #47) predates this fork's reflection extension and
+  never anticipated a depth-one reflection's `UnderlyingTy` being
+  `nullptr_t` itself. `mangleNullPointer(T)` is fully generic, so widening
+  the assert to also accept `T->isNullPtrType()` was sufficient. Both fixes
+  landed in commit `07635be93cf6`.
 - ~~**`libcxx/test/std/experimental/reflection/miscellaneous.pass.cpp`**~~ —
   **The originally-reported crash is fixed 2026-09-07 (second session)**,
   but the test still fails overall on a newly-exposed successor bug (below)
@@ -610,10 +616,23 @@ sweep (an `-Werror,-Wunused-parameter` false failure in
   used by `entity-proxies.pass.cpp`/`attributed-function-type-queries.pass.cpp`.
 - **`libcxx/test/std/experimental/reflection/to-and-from-values.pass.cpp`** —
   `static assertion expression is not an integral constant expression` at line
-  199 (`extract<int>(^^arg)` on a parameter reflection). **Confirmed
-  2026-09-07: same `APValue::getReflectionKind()` crash signature as
-  `template-arguments.pass.cpp` above** — very likely the identical
-  storage-lifetime bug, not independently root-caused.
+  199 (`extract<int>(^^arg)` on a parameter reflection: `extract` doesn't
+  support resolving a reflection of a function parameter to its bound
+  value — a real, distinct feature gap from `variable_of`'s now-fixed
+  version of the same underlying problem, see
+  `parameter-reflection-kind-preserved.pass.cpp` above). Originally
+  confirmed 2026-09-07 to sometimes instead show the shared
+  `APValue::getReflectionKind()` crash signature with
+  `template-arguments.pass.cpp` above, under load. **2026-09-08: that crash
+  is now fixed** (see `template-arguments.pass.cpp`'s entry — commit
+  `07635be93cf6`), and this test reverted cleanly to the diagnostic above
+  with no crash across repeated runs — confirming these were two distinct,
+  independently-observable failure modes for the same test (the crash was
+  intermittent/load-dependent; this diagnostic is the test's deterministic
+  steady state). **Still open, not fixed:** the `extract`-on-parameter gap
+  itself — needs its own fix in `extract`'s implementation
+  (`clang/lib/AST/ExprConstantMeta.cpp:3633`) mirroring `variable_of`'s
+  `StackLocationExpr`-based dynamic-call-frame resolution.
 - ~~**`libcxx/test/std/experimental/reflection/annotation-module-serialization.sh.cpp`**~~
   — **Fixed 2026-09-07.** Not a compiler bug: the test's own `Rename` object
   was named `rename`, ambiguous with libc `::rename` transitively pulled in
@@ -623,22 +642,24 @@ sweep (an `-Werror,-Wunused-parameter` false failure in
   handling gap) — the "not yet re-run with -v" framing this bullet
   previously carried was stale, superseded by that fuller writeup.
 
-**Updated 2026-09-07 (second session):** of this list, 2 were fixed as
+**Updated 2026-09-08 (third session):** of this list, 2 were fixed as
 trivial test-side issues in the first session
 (`namespace-reflection-equality-reopened.pass.cpp`,
-`annotation-module-serialization.sh.cpp`), and 2 more got full compiler-side
+`annotation-module-serialization.sh.cpp`), 2 more got full compiler-side
 fixes in the second session (`parameter-reflection-kind-preserved.pass.cpp`'s
 `-Wunused-value`, `p3096-fn-parameters.pass.cpp`'s `variable_of` evaluator
-gap, both flip PASS in `check-cxx` — see the `160ee8a5`-and-later and
-`b2ec86f2fbe6` commits). `miscellaneous.pass.cpp`'s original mangler crash
-is also fixed, but the test itself still fails on a newly-exposed successor
-bug (both documented in place above). **3 items remain genuinely open:**
-`template-arguments.pass.cpp`/`to-and-from-values.pass.cpp`'s shared
-`APValue::getReflectionKind()` crash (needs a debugger/ASan session, not
-more static reading), `miscellaneous.pass.cpp`'s successor bug (a
-suspected `define_static_array`/`extract` template-instantiation-caching
-issue), and `module-imports.sh.cpp`'s `NestedNameSpecifier` splice gap
-(pre-scoped elsewhere in this doc as its own session-sized compiler task).
+gap — see `160ee8a5`-and-later and `b2ec86f2fbe6`), and 1 more got a full
+compiler-side fix in the third session (`template-arguments.pass.cpp`'s
+`APValue::getReflectionKind()` crash — see `07635be93cf6`).
+`miscellaneous.pass.cpp`'s and `to-and-from-values.pass.cpp`'s original
+crashes are both now fixed too, but each test still fails on its own
+distinct successor issue (documented in place above) — real progress, not
+a false "fixed" claim. **3 items remain genuinely open:**
+`miscellaneous.pass.cpp`'s successor bug (a suspected
+`define_static_array`/`extract` template-instantiation-caching issue),
+`to-and-from-values.pass.cpp`'s pre-existing `extract`-on-parameter gap,
+and `module-imports.sh.cpp`'s `NestedNameSpecifier` splice gap (pre-scoped
+elsewhere in this doc as its own session-sized compiler task).
 Anyone picking these up should re-run each individually first (with `-v`)
 to get a clean, uncontended repro before touching source — two of these
 three are confirmed to only reproduce under full parallel `check-cxx`.
@@ -1271,6 +1292,52 @@ arguments get reconciled against the *enclosing* level's non-pack expectation
 at the same index, likely in `SubstitutionInTemplateArguments`'s handling of
 `CTAI.SugaredConverted` when `Used[I]`'s corresponding used-param-list entry
 is itself a pack.
+
+**2026-09-08 (third session): root cause pinned down further via live
+instrumentation, confirmed to match a known upstream issue, no fix landed
+(one candidate tried and correctly rejected).** A `codex exec` session
+(high reasoning effort) added temporary `llvm::errs()` tracing at both
+`TreeTransform.h:7392` (`TransformSubstTemplateTypeParmType`, right before
+the recursive `TransformType` call) and the `SemaTemplateInstantiate.cpp:2530`
+assert site, rebuilt clang incrementally, and reproduced the crash against
+the minimal repro. Confirmed: **the failure is in a generic lambda's
+implicit template parameter, `_Tag`, inside
+`std::execution::__valid_completion_for`** — at depth 1, index 0,
+`isParameterPack()==false`, but the incoming `TemplateArgument` at that
+slot is a `Pack` (kind 9), i.e. `_Args...`'s pack is being routed into the
+lambda's single `_Tag` slot. Level dump at the crash:
+```
+levels=2
+level 0: size=2, kinds=11
+level 1: associated with lambda, size=1, kinds=9
+```
+This matches (and sharpens) the mechanism this doc already described:
+nested constraint parameter-mapping levels associated with a different
+`TemplateDecl` than the caller's outermost `MLTAL` level assumes — here,
+specifically, a lambda's own implicit template parameter list versus the
+enclosing constraint's. **A candidate fix was tried and correctly
+rejected**: a `SemaConcept.cpp`-only change to the lambda-context handling
+suppressed the assertion, but changed a previously-*satisfied* constraint
+into a hard failure (`static assertion failed: Mandates:
+receiver_of<...>`) — i.e. it directly reproduced the exact "crash goes
+away but ordinary constraint satisfaction regresses" risk this doc already
+flagged as the most likely failure mode for a naive fix here. The
+candidate was removed; no fix was committed. **This is a known, currently
+open upstream Clang bug**, tracked as
+[llvm/llvm-project#202957](https://github.com/llvm/llvm-project/issues/202957)
+(the generic-lambda-in-a-constraint depth-preservation family) — a
+separate, superficially similar upstream issue,
+[llvm/llvm-project#208972](https://github.com/llvm/llvm-project/issues/208972)
+(template-template-parameters), was checked and ruled out as unrelated to
+this specific failure. Manual bisection of the 39k-line preprocessed repro
+(`/home/spawn/.claude/jobs/36ad3cb3/tmp/execution_crash_repro.preprocessed.cpp`)
+did not converge on a minimal standalone reproducer — large semantic-chunk
+deletions all preserved the exact assertion, but no small self-contained
+repro was extracted. **Recommended next step for whoever picks this up:**
+this needs the complete upstream lambda-constraint/template-depth-
+preservation fix family (tracked by #202957 upstream), not a local patch —
+port the eventual upstream fix (or wait for it to land and rebase) rather
+than re-attempting a local one, given the demonstrated regression risk.
 
 ### Tier 2 Sub-Plan: P2300R10 `std::execution` (sender/receiver)
 
