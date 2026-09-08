@@ -20,7 +20,11 @@ struct C {
 };
 
 auto c = C{.i=2};
-auto v = c.[:^^C::i:];  // expected-error {{not derived from}}
+// Anonymous-union member splice access through a base expression is
+// well-formed (matches ordinary C++'s own c.i semantics) since the
+// intermediate-anonymous-struct splice fix (commit f33742c88aa3) -- this
+// was previously (incorrectly) rejected with "not derived from".
+auto v = c.[:^^C::i:];
 
 static union { int m; };
 constexpr auto r = ^^m;

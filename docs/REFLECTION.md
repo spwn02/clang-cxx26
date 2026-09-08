@@ -45,7 +45,7 @@ The upstream LLVM project provides an excellent [Getting Started](https://llvm.o
 
 The following additional experimental features can be enabled on top of `-freflection`:
 - Parameter reflection as proposed by [P3096](https://wg21.link/p3096) (`-fparameter-reflection`).
-- Partial support for expansion statements as proposed by [P1306](https://wg21.link/p1306) (`-fexpansion-statements`). Note that expansions over constexpr ranges are not supported.
+- Expansion statements as proposed by [P1306](https://wg21.link/p1306) (`-fexpansion-statements`), covering all three forms (enumerating, iterating over a range, and destructuring).
 - Consteval blocks as proposed by [P3289](https://wg21.link/p3289).
 - Newly proposed reflection syntax from [P3381](https://wg21.link/p3381).
 - Attributes reflection from [p3385](https://wg21.link/p3385) (`-fattribute-reflection`)
@@ -60,7 +60,7 @@ At present, this fork supports:
 * Reflection and splicing of all entities supported by this implementation (i.e., types, functions, variables, class members, templates, namespaces, constant values)
 * All metafunctions available in this implementation
 * [P3096](https://wg21.link/p3096) metafunction extensions for function parameters (enabled with `-fparameter-reflection`)
-* [P1306](https://wg21.link/p1306) expansion statements over _expansion-init-lists_ and _destructurable expressions_
+* [P1306](https://wg21.link/p1306) expansion statements over _expansion-init-lists_, _destructurable expressions_, and iterated ranges
 * [P3289](https://wg21.link/p3289) `consteval` blocks
 * [P3491](https://wg21.link/p3491) define_static_{string,object,array} 
 
