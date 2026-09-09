@@ -9,11 +9,15 @@ Date: 2026-09-09
   - Verification: libc++ wrapper test passed; final capped full Clang gate returned exactly the
     five documented pre-existing failures.
 - Issue #276 / upstream PR #277: dependent splice-type canonicalization asymmetry.
-  - Commit: pending commit for this report update.
+  - Commit: `959ec92fdf49`.
   - Verification: `dependent-splice-overloads.cpp` passed; `clang` built at `-j2`; final capped
     direct-lit Clang gate returned exactly the five documented pre-existing failures.
+- Issue #309 / upstream PR #310: dependent splice classification during auto NTTP deduction.
+  - Commit: pending commit for this report update.
+  - Verification: libc++ wrapper regression passed; `clang` built at `-j2`; final capped direct-lit
+    Clang gate returned exactly the five documented pre-existing failures.
 
 ## Not attempted
 
-PRs #310, #295, #289, #306, #315, #318, #323, #328, #352, and #353 remain in the requested
+PRs #295, #289, #306, #315, #318, #323, #328, #352, and #353 remain in the requested
 order.

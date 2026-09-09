@@ -279,7 +279,7 @@ for readability, same as the source files:
 | 303 | Reopened namespace walk truncates members | Confirmed-Open | `ExprConstantMeta.cpp:1457-1549` — lexical-context redeclaration check + cross-block traversal gap; no regression test. | High |
 | 304 | `is_complete_type` fails through aliases | Already-Fixed | Fix `7f0f89cc7e75`; `ExprConstantMeta.cpp:4865-4880`; `is-complete-type-alias-sugar.pass.cpp`. | High |
 | 308 | Tracking issue for #286-#304 | Out-of-Scope | Aggregate meta-issue; entries triaged individually above. | High |
-| 309 | Dependent splice ICE during `auto` NTTP deduction | Confirmed-Open | `SemaReflect.cpp:1596-1601,1904-1905` creates `CXXSpliceExpr` with null model; `ExprClassification.cpp:281-293` dereferences unconditionally. | High |
+| 309 | Dependent splice ICE during `auto` NTTP deduction | Fixed | PR #310 ported; null-model dependent splices are classified by their own value kind, with libc++ requires-expression regression coverage. | High |
 
 **311-350:**
 | # | Title | Disposition | Evidence | Conf. |
@@ -325,7 +325,7 @@ checking this list first.**
 | 317 | Don't truncate member enumeration at linkage-spec typedef tags | #313 (already-fixed here — check if this fork's fix differs/is equivalent) |
 | 316 | Mangle deduction-guide specialization reflections | #312 |
 | 315 | Describe builtin templates instead of crashing | #311 |
-| 310 | Don't crash classifying a dependent splice expression | #309 |
+| 310 | Don't crash classifying a dependent splice expression | #309 — Fixed; ported and verified in commit |
 | 306 | Keep namespace member walks clear of out-of-line class-member definitions | #303 |
 | 301 | Discriminate same-headed member-template reflections of a specialization in NTTP mangling | #300 |
 | 299 | Mangle deduction-guide reflections instead of hitting unreachable | #298 |
@@ -400,6 +400,13 @@ nondependent splice types canonicalize to the underlying type. Added
 `dependent-splice-overloads.cpp`. Built `clang` with `-j2`, passed the focused test, and ran the
 capped direct-lit Clang gate: 49,819 discovered, 44,614 passed, exactly the five documented
 baseline failures.
+
+**2026-09-09 — M4 PR batch, PR #310.** Ported upstream PR #310 for issue #309. Dependent
+`CXXSpliceExpr` nodes with no model are now classified from their own value kind instead of being
+dereferenced. Added `auto-nttp-dependent-splice-requires.pass.cpp`; the libc++ wrapper test
+passed. Built `clang` with `-j2`; after rebuilding stale auxiliary tools, the capped direct-lit
+Clang gate reported 49,819 discovered, 44,614 passed, exactly the five documented baseline
+failures.
 
 **2026-09-08 — Epic start (M0 + partial M2).** Established ground truth: real upstream tracker is
 `bloomberg/clang-p2996` not the dead URL in `REFLECTION.md`; confirmed real divergence from
