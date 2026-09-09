@@ -38,6 +38,9 @@ unverifiable because their reports lack a usable reproducer. M1 issue and PR tri
 complete; the 11 formerly unassessed PRs and the four cross-check PRs are dispositioned in the
 table below and in [`codex-pr-triage-final-report.md`](reflection-audit/codex-pr-triage-final-report.md).
 
+Batch-5 correction: the P2996R13 `has_c_language_linkage` item formerly listed in the paper audit
+Missing list is implemented and tested by commit `6bbb1c0cfbea`.
+
 **Concrete next actions, in rough priority order (re-ordered 2026-09-09 night after a second
 strategy-2 attempt hit a real evaluator crash — see `codex-strategy2-redesign-report.md`):**
 1. Re-audit the 27 Needs-Build-To-Verify issues from M1 against current source — likely several
