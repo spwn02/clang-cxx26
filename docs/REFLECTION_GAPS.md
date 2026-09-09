@@ -252,7 +252,7 @@ for readability, same as the source files:
 | 246 | Order-dependent `define_static_array` | Needs-Build-To-Verify | `libcxx/include/meta:2642-2660`; likely already fixed by `01836b3333d5` consteval-only caching fix, needs build to confirm. | Medium |
 | 252 | VS Code `__has_feature(reflection)` | Out-of-Scope | Editor/IntelliSense issue, not Clang. | High |
 | 253 | ICE during recursive reflection in modules | Needs-Build-To-Verify | Module/annotation serialization work exists (`f63157a8d87c`) but no exact repro match. | Medium |
-| 254 | `define_static_string` hits constexpr step limit | Confirmed-Open | `libcxx/include/meta:2655-2660` has no chunking/step-limit management for long strings. | High |
+| 254 | `define_static_string` hits constexpr step limit | Confirmed-Open → Skipped 2026-09-09 | The failure is the evaluator's finite constexpr operation budget, not an incorrect result or missing semantic branch. Chunking the copy loop could reduce per-expression work but cannot guarantee acceptance under an implementation-selected step limit and would alter the established implementation strategy; callers can raise `-fconstexpr-steps`. | High |
 | 256 | `__is_consteval_only` + defaulted special members | Already-Fixed | `Decl.cpp:5426-5475` fixed by `01836b3333d5`; `p3603-consteval-only.pass.cpp` covers it. | High |
 | 259 | Windows build errors | Out-of-Scope | Upstream platform/build-system issue, unrelated to this fork's two-tree build architecture. | High |
 | 262 | Annotation crash with modules | Already-Fixed | `f63157a8d87c` added `CXX26AnnotationAttr` serialization; `annotation-module-serialization.sh.cpp`. | High |
