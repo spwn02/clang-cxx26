@@ -896,6 +896,9 @@ struct next_attribute_of {
 // Metafunctions
 // -----------------------------------------------------------------------------
 
+consteval auto is_operator_function(info) -> bool;
+consteval auto is_operator_function_template(info) -> bool;
+
 // Returns a reflection of the canonical type for the reflected type.
 #if __has_feature(entity_proxy_reflection)
 [[deprecated("renamed to 'underlying_entity_of' in PXYZ")]]
@@ -949,6 +952,8 @@ using enum operators;
 // Returns the operator overloaded by the represented operator function or
 // operator function template.
 consteval auto operator_of(info r) -> operators {
+  if (!is_operator_function(r) && !is_operator_function_template(r))
+    throw exception(u8"bad operator", ^^operator_of);
   return operators(__metafunction(detail::__metafn_operator_of, r));
 }
 

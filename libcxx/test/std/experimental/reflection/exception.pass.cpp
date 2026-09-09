@@ -60,6 +60,15 @@ consteval bool test_offset_query_preconditions() {
 
 template <class> struct template_query_record {};
 
+struct operator_query_record {
+  constexpr operator_query_record operator+(operator_query_record) const;
+};
+
+consteval bool test_operator_query_preconditions() {
+  return std::meta::operator_of(^^operator_query_record::operator+) ==
+         std::meta::operators::op_plus;
+}
+
 enum class enumerator_query_enum { first, second };
 
 int parameter_query_function(int);
@@ -99,6 +108,7 @@ static_assert(test_string_constructor());
 static_assert(test_throw_and_catch());
 static_assert(test_layout_query_preconditions());
 static_assert(test_offset_query_preconditions());
+static_assert(test_operator_query_preconditions());
 static_assert(test_member_query_preconditions());
 static_assert(test_access_context_preconditions());
 static_assert(test_template_query_preconditions());
@@ -111,6 +121,7 @@ int main() {
   assert(test_throw_and_catch());
   assert(test_layout_query_preconditions());
   assert(test_offset_query_preconditions());
+  assert(test_operator_query_preconditions());
   assert(test_member_query_preconditions());
   assert(test_access_context_preconditions());
   assert(test_template_query_preconditions());
