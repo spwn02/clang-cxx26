@@ -2132,6 +2132,8 @@ consteval auto __workaround_expand_compiler_builtins(info type) -> info {
 #if __has_feature(parameter_reflection)
 
 consteval auto parameters_of(info r) -> vector<info> {
+  if (!is_function(r) && !is_function_type(r))
+    throw exception(u8"bad function", ^^parameters_of);
   using iterator =
     __range_of_infos::iterator<__range_of_infos::front_parameter_of_fn,
                                 __range_of_infos::next_parameter_of_fn,
@@ -2158,6 +2160,8 @@ consteval auto is_function_parameter(info r) -> bool {
 }
 
 consteval auto return_type_of(info r) -> info {
+  if (!is_function(r) && !is_function_type(r))
+    throw exception(u8"bad function", ^^return_type_of);
   return __metafunction(detail::__metafn_return_type_of, r);
 }
 
