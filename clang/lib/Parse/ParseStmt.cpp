@@ -831,6 +831,9 @@ StmtResult Parser::ParseCaseStatement(ParsedStmtContext StmtCtx,
                                            ConsumeToken();  // eat the 'case'.
     ColonLoc = SourceLocation();
 
+    if (isa<ExpansionStmtDecl>(Actions.CurContext))
+      Diag(CaseLoc, diag::err_expanded_case_label);
+
     if (Tok.is(tok::code_completion)) {
       cutOffParsing();
       Actions.CodeCompletion().CodeCompleteCase(getCurScope());
@@ -952,6 +955,9 @@ StmtResult Parser::ParseDefaultStatement(ParsedStmtContext StmtCtx) {
   StmtCtx &= ~ParsedStmtContext::AllowStandaloneOpenMPDirectives;
 
   SourceLocation DefaultLoc = ConsumeToken();  // eat the 'default'.
+
+  if (isa<ExpansionStmtDecl>(Actions.CurContext))
+    Diag(DefaultLoc, diag::err_expanded_case_label);
 
   SourceLocation ColonLoc;
   if (TryConsumeToken(tok::colon, ColonLoc)) {

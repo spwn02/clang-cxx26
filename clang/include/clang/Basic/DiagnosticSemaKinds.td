@@ -3306,6 +3306,8 @@ def err_expansion_stmt_range_is_function : Error<
   "with no arguments?">;
 def err_expanded_identifier_label : Error<
   "identifier labels are not allowed in expansion statements">;
+def err_expanded_case_label : Error<
+  "case and default labels are not allowed in expansion statements">;
 
 // P3385
 def p3385_warn_unsupported_attribute : Error<

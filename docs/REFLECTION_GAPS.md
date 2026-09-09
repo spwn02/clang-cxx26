@@ -15,14 +15,15 @@ you're picking this up cold.
 
 ## Next Up (updated 2026-09-09, after definitive full check-clang gate)
 
-Definitive clean full-suite gate completed at HEAD `501497f1ec18`: 44,615
-passes, 5 failures, 25 expected failures, and 5,171 unsupported tests in the
-JSON result set (lit terminal summary: 49,820 discovered). The only failures
-are the five established baseline tests: `SemaCXX/PR98671.cpp`,
+The established validation baseline is now **23 failures**: the five original
+consteval-escalation tests (`SemaCXX/PR98671.cpp`,
 `SemaCXX/builtin-is-within-lifetime.cpp`, `SemaCXX/constant-expression-cxx11.cpp`,
 `SemaCXX/cxx2a-constexpr-dynalloc.cpp`, and
-`SemaCXX/cxx2b-consteval-propagate.cpp`. No new regression from the reflection
-commits was found. Full evidence: `docs/reflection-audit/codex-final-gate-report.md`.
+`SemaCXX/cxx2b-consteval-propagate.cpp`) plus 18 failures from the confirmed
+pre-existing ASTUnit/libclang PCH-loading bug. Do not count either cluster as a
+regression from reflection changes. The last clean full-suite evidence before
+the 18-test ASTUnit cluster was recorded in
+`docs/reflection-audit/codex-final-gate-report.md`.
 
 M0 done. M1's issue triage is done (all 85 issues dispositioned — 29 Confirmed-Open, 27
 Needs-Build-To-Verify, 19 Already-Fixed, 8 Out-of-Scope, 2 Not-Applicable); PR triage (35 open PRs)
@@ -275,8 +276,8 @@ for readability, same as the source files:
 |---:|---|---|---|---|
 | 105 | `experimental/meta` missing | Not-Applicable | Fork exposes current `<meta>`, not the obsolete path; build/install guidance issue, already closed upstream. | High |
 | 120 | Repeated first argument on Windows | Confirmed-Open → Skipped 2026-09-09 | Upstream discussion points to PR #243 (`b725cb40f042`) as a placeholder Microsoft mangler implementation, but GitHub API access was unavailable this session and no local port exists. Linux cannot verify MSVC ABI output. A real fix should add a Microsoft equivalent of the Itanium `mangleReflection` path, call it from `mangleTemplateArgValue` instead of the `APValue::Reflection` `llvm_unreachable`, and add Windows/ClangCL regression coverage for distinct reflection NTTPs and expansion results. Not verified here. | High |
-| 146 | Expansion generates `case` labels | Confirmed-Open → Skipped 2026-09-09 | Requires a dedicated control-flow-limited-statement rule spanning parser/Sema and CodeGen: `case`/`default` must be rejected even when an enclosing switch makes ordinary case handling legal, and the expansion must not retain raw switch labels. No safe local patch or upstream PR was available; deferred with #182's expansion control-flow work. | High |
-| 150 | Spliced explicit destructor call | Confirmed-Open → Skipped 2026-09-09 | Requires a new parser/Sema representation for a splice as a destructor-name, including `~[:info:]()` lookup and destructor-call formation; the existing splice-as-member-expression path cannot preserve the tilde/name semantics. No safe local patch or upstream PR was available. | High |
+| 146 | Expansion generates `case` labels | Confirmed-Open → Fixed 2026-09-09 | Parser diagnostics reject `case` and `default` labels while parsing an expansion body, before the raw-label CodeGen path can be reached. `expansion-case-labels.cpp` covers both forms. | High |
+| 150 | Spliced explicit destructor call | Confirmed-Open → Skipped 2026-09-09 | Re-traced `ParseExpr.cpp`'s `~` path: `ParseUnqualifiedId(...IK_DestructorName...)` accepts ordinary type/name tokens but has no splice branch. Supporting `~[:info:]()` needs a splice-bearing destructor-name AST/Sema representation and destructor lookup/call formation; the existing member-splice path cannot preserve those semantics. | High |
 | 151 | ICE in member-wise swap | Already-Fixed | Fixes `f0a3e5e612db`/`0f70ed5eb99e`; `CGStmt.cpp:1605-1618` scoping; `miscellaneous.pass.cpp:126-145` close coverage (no dedicated regression test though). | Medium |
 | 154 | `underlying_type` ICE for non-enum | Needs-Build-To-Verify | `libcxx/include/meta:1995-1999`; repro: `std::meta::underlying_type(^^int)`. | Medium |
 | 169 | Crash in templated lambda | Needs-Build-To-Verify | `TreeTransform.h:9352-9419`; repro in batch file. | Medium |
@@ -298,7 +299,7 @@ for readability, same as the source files:
 | 187 | Compilation never ends | Needs-Build-To-Verify | No reproducer in snapshot, Godbolt-link only. | Low |
 | 188 | `display_string_of(dealias(...))` not constant expr | Needs-Build-To-Verify | `libcxx/include/meta:3303-3308`, `2960-2990`; no regression test for this combination. | Medium |
 | 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
-| 200 | `parent_of` wrong for class-template aliases | Confirmed-Open → Skipped 2026-09-09 | Correct behavior requires preserving the alias declaration layer while retaining the existing template-specialization parent semantics; `parent_of` currently canonicalizes through `findTemplateOfType`. Needs wording-specific alias/template reflection tests before changing shared parent logic. | High |
+| 200 | `parent_of` wrong for class-template aliases | Confirmed-Open → Already-Fixed 2026-09-09 | Direct probe `static_assert(parent_of(^^T::A) == ^^T)` passes. Existing `findTypeDecl` preserves the top-level `UsingType` alias before template-specialization fallback; the stale deferral note incorrectly described the current checkout. | High |
 | 203 | Unbalanced diagnostic parentheses | Needs-Build-To-Verify | `SemaExpand.cpp:82-121`; repro in batch file. | Medium |
 | 204 | ICE: `template for` over overload set | Needs-Build-To-Verify | `SemaExpand.cpp:82-121`, no dedicated test; repro in batch file. | Medium |
 | 205 | ICE: templated lambda + `define_static_array` | Already-Fixed | Fix `f72d85e5a0fd`; `SemaExpand.cpp:148-173`. | High |
@@ -370,7 +371,7 @@ for readability, same as the source files:
 | 331 | `reflect_object` rejects explicit defaulted copy ctor | Needs-Build-To-Verify | `ExprConstantMeta.cpp:3170-3207`; no explicit exception found but needs build. | Medium |
 | 332 | `reflect_constant` rejects pointer to mixed consteval-only type | Needs-Build-To-Verify | `ExprConstantMeta.cpp:3227-3264`, `ExprConstant.cpp:2405-2410`; needs build. | Medium |
 | 333 | Splice operand convertible to `meta::info` rejected | Already-Fixed | `SemaReflect.cpp:1575-1593` already handles `DefaultLvalueConversion` + implicit conversion. | High |
-| 334 | Static member call inherits consteval-only object restriction | Confirmed-Open → Skipped 2026-09-09 | Constant-expression classification must avoid propagating consteval-only restrictions from an unevaluated object expression for static calls while preserving non-static restrictions. Needs a focused compiler test and broader immediate-invocation regression gate; no safe one-line change was identified. | Medium |
+| 334 | Static member call inherits consteval-only object restriction | Confirmed-Open → Fixed 2026-09-09 | `MarkMemberReferenced` now removes a direct consteval-only object reference from the immediate-context set for non-arrow static member calls; side effects remain normally analyzed. `static-member-consteval-only.cpp` covers the reported runtime call. | Medium |
 | 342 | `^^derived::operator()` rejects using-declaration | Fixed | PR #353 ported; reflection-name syntax remains rejected, while id-expressions naming introduced operators/templates resolve to the target declaration, including dependent cases. | High |
 | 346 | Spurious warning for reflected reference type | Needs-Build-To-Verify | `DiagnosticParseKinds.td:1828-1829`, `ParseReflect.cpp:149`; needs build to confirm type-info availability at warn site. | Medium |
 | 350 | `->[:member:]` assertion with lvalue pointer | Fixed | PR #352 ported; splice member bases undergo the ordinary member-access conversions, covering lvalue pointers and array decay. | High |

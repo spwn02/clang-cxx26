@@ -21043,6 +21043,17 @@ void Sema::MarkMemberReferenced(MemberExpr *E) {
   }
   SourceLocation Loc =
       E->getMemberLoc().isValid() ? E->getMemberLoc() : E->getBeginLoc();
+
+  // The object expression of a static member call is a discarded-value
+  // expression. Do not let a consteval-only object make the call immediate;
+  // its side effects, if any, are still checked normally.
+  if (!E->isArrow()) {
+    if (const auto *MD = dyn_cast<CXXMethodDecl>(E->getMemberDecl());
+        MD && MD->isStatic())
+      if (auto *DRE = dyn_cast<DeclRefExpr>(E->getBase()->IgnoreParenImpCasts()))
+        ExprEvalContexts.back().ConstevalOnly.erase(DRE);
+  }
+
   MarkExprReferenced(*this, Loc, E->getMemberDecl(), E, MightBeOdrUse,
                      RefsMinusAssignments);
 }
