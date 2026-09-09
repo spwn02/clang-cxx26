@@ -64,6 +64,12 @@ consteval bool test_member_query_preconditions() {
          std::meta::nonstatic_data_members_of(^^member_query_record, ctx).size() >= 1;
 }
 
+consteval bool test_access_context_preconditions() {
+  constexpr auto ctx = std::meta::access_context::current();
+  return ctx.via(^^member_query_record).designating_class() ==
+         (^^member_query_record);
+}
+
 consteval bool test_template_query_preconditions() {
   constexpr auto r = ^^template_query_record<int>;
   return std::meta::template_of(r) != info{} &&
@@ -75,6 +81,7 @@ static_assert(test_string_constructor());
 static_assert(test_throw_and_catch());
 static_assert(test_layout_query_preconditions());
 static_assert(test_member_query_preconditions());
+static_assert(test_access_context_preconditions());
 static_assert(test_template_query_preconditions());
 
 int main() {
@@ -83,5 +90,6 @@ int main() {
   assert(test_throw_and_catch());
   assert(test_layout_query_preconditions());
   assert(test_member_query_preconditions());
+  assert(test_access_context_preconditions());
   assert(test_template_query_preconditions());
 }
