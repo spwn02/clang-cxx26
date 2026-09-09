@@ -40,20 +40,26 @@ open PRs) is still only partially mapped (the mangling-cluster + M4-batch PRs we
 issues; the rest — #340, #345, #279, #261, #249, #244, #207, #168, #166, #135, #124, and the P3816/
 P3074 ones already dispositioned out-of-scope — haven't been individually assessed).
 
-**Concrete next actions, in rough priority order:**
-1. P3560R2 strategy 2 design revision: extend the evaluator interface per
-   `codex-strategy2-pilot-report.md`'s "Recommended next design revision" (a
-   `BuildAndPendMetaException` operation, `PendingExceptionInfo` needing a stable exception-object
-   key not assuming `CXXThrowExpr`), THEN retry the `members_of` pilot. This is real, careful
-   compiler-internals work — dispatch it as its own design-then-implement pair, not rushed.
-2. #150 (destructor splice) — still deferred, needs a new parser/Sema destructor-name-via-splice
-   representation, per the M4-hard session's notes.
-3. Re-audit the 27 Needs-Build-To-Verify issues from M1 against current source — likely several
-   are now resolved incidentally.
-4. Finish PR triage for the ~11 still-unassessed open PRs listed above.
-5. M5 (diagnostic/ill-formed-program test suite) — not started, genuinely large; the M2 paper
+**Concrete next actions, in rough priority order (re-ordered 2026-09-09 night after a second
+strategy-2 attempt hit a real evaluator crash — see `codex-strategy2-redesign-report.md`):**
+1. Re-audit the 27 Needs-Build-To-Verify issues from M1 against current source — likely several
+   are now resolved incidentally. Low-risk, high-value, no deep compiler-internals gamble.
+2. Finish PR triage for the ~11 still-unassessed open PRs (#340, #345, #279, #261, #249, #244,
+   #207, #168, #166, #135, #124).
+3. M5 (diagnostic/ill-formed-program test suite) — not started, genuinely large; the M2 paper
    audits already enumerate most Throws/Mandates conditions per paper, which is the concrete
    starting checklist per the plan.
+4. #150 (destructor splice) — still deferred, needs a new parser/Sema destructor-name-via-splice
+   representation, per the M4-hard session's notes.
+5. **P3560R2 strategy 2 — DO NOT re-attempt without fresh design work first.** Two rounds of
+   careful investigation (pilot: 2 API gaps; redesign: a real evaluator `SIGABRT` in
+   `extractSubobject`/`HandleConstructorCall`/`VisitCXXInheritedCtorInitExpr` when evaluating a
+   compiler-synthesized `CXXConstructExpr` through an inherited constructor) show this needs
+   either a different construction strategy (avoid the inherited-constructor evaluation path
+   entirely — investigate whether `std::meta::exception` can be built via a non-inherited
+   constructor path, or via direct APValue field population instead of a synthesized
+   `CXXConstructExpr`) or a genuine evaluator fix for that crash. Treat with the same caution as
+   the M3 escalation-cluster bug below — this is not a quick follow-up.
 6. M3 escalation-cluster bug — worth another look given today's accumulated splice/scope-lookup
    expertise, but real regression risk (prior attempt broke 9 libc++ tests) — treat with the same
    caution as strategy 2.
