@@ -225,7 +225,7 @@ for readability, same as the source files:
 | 187 | Compilation never ends | Needs-Build-To-Verify | No reproducer in snapshot, Godbolt-link only. | Low |
 | 188 | `display_string_of(dealias(...))` not constant expr | Needs-Build-To-Verify | `libcxx/include/meta:3303-3308`, `2960-2990`; no regression test for this combination. | Medium |
 | 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
-| 200 | `parent_of` wrong for class-template aliases | Confirmed-Open | `ExprConstantMeta.cpp:3055-3060` doesn't preserve alias layer; `related-reflections.pass.cpp:104-121` doesn't cover this exact case. | High |
+| 200 | `parent_of` wrong for class-template aliases | Confirmed-Open → Skipped 2026-09-09 | Correct behavior requires preserving the alias declaration layer while retaining the existing template-specialization parent semantics; `parent_of` currently canonicalizes through `findTemplateOfType`. Needs wording-specific alias/template reflection tests before changing shared parent logic. | High |
 | 203 | Unbalanced diagnostic parentheses | Needs-Build-To-Verify | `SemaExpand.cpp:82-121`; repro in batch file. | Medium |
 | 204 | ICE: `template for` over overload set | Needs-Build-To-Verify | `SemaExpand.cpp:82-121`, no dedicated test; repro in batch file. | Medium |
 | 205 | ICE: templated lambda + `define_static_array` | Already-Fixed | Fix `f72d85e5a0fd`; `SemaExpand.cpp:148-173`. | High |
