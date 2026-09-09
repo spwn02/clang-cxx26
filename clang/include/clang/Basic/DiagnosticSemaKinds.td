@@ -3263,6 +3263,10 @@ def err_member_access_splice_not_class_member : Error<
   "member of a class">;
 def err_splice_unnamed_bit_field : Error<
   "cannot splice a reflection of an unnamed bit-field">;
+def err_splice_virtual_base : Error<
+  "cannot splice a reflection of a virtual base class subobject">;
+def err_splice_array_element : Error<
+  "cannot splice a base class subobject through an array element">;
 def err_unsupported_splice_kind : Error<
   "splicing %0 %select{as template arguments is|is}1 %select{not|not yet}2 "
   "%select{supported|implemented}2">;

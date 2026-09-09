@@ -1930,7 +1930,22 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
     case ReflectionKind::Null:
     case ReflectionKind::Type:
     case ReflectionKind::Namespace:
-    case ReflectionKind::BaseSpecifier:
+      Diag(Splice->getBeginLoc(),
+           diag::err_unexpected_reflection_kind_in_splice)
+          << 1 << Splice->getSourceRange();
+      return ExprError();
+    case ReflectionKind::BaseSpecifier: {
+      if (Refl.getReflectedBaseSpecifier()->isVirtual()) {
+        Diag(Splice->getBeginLoc(), diag::err_splice_virtual_base);
+        return ExprError();
+      }
+      CXXBaseSpecifier *Base = Refl.getReflectedBaseSpecifier();
+      Expr *Model = new (Context) OpaqueValueExpr(
+          Splice->getBeginLoc(), Base->getType(), VK_LValue);
+      Result = CXXSpliceExpr::Create(Context, VK_LValue, TemplateKWLoc,
+                                     Splice, Model, AllowMemberReference);
+      break;
+    }
     case ReflectionKind::Parameter:
     case ReflectionKind::DataMemberSpec:
     case ReflectionKind::Annotation:

@@ -11,6 +11,7 @@
 //  This file implements semantic analysis member access expressions.
 //
 //===----------------------------------------------------------------------===//
+#include "clang/AST/APValue.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
@@ -1262,6 +1263,52 @@ Sema::BuildMemberReferenceExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
 
   if (IsRHSDependent) {
     return BuildDependentMemberSpliceExpr(Base, OpLoc, IsArrow, RHS);
+  }
+
+  // A base-class reflection spliced after '.' designates the corresponding
+  // base subobject, rather than a named member.  Build the same
+  // derived-to-base conversion used by an implicit base conversion.  The
+  // reflection is evaluated here because CXXSpliceExpr's model is only an
+  // expression-shaped placeholder; the CXXBaseSpecifier itself lives in the
+  // reflected APValue.
+  {
+    SmallVector<PartialDiagnosticAt, 4> Diags;
+    Expr::EvalResult ER;
+    ER.Diag = &Diags;
+    if (!RHS->getSplice()->getOperand()->EvaluateAsConstantExpr(ER, Context))
+      return ExprError();
+    if (ER.Val.isReflection()) {
+      APValue Refl = ER.Val;
+      if (Refl.isReflectedBaseSpecifier()) {
+        CXXBaseSpecifier *BaseSpec = Refl.getReflectedBaseSpecifier();
+        if (BaseSpec->isVirtual()) {
+          Diag(RHS->getExprLoc(), diag::err_splice_virtual_base);
+          return ExprError();
+        }
+
+        if (isa<ArraySubscriptExpr>(Base->IgnoreParenImpCasts())) {
+          Diag(Base->getExprLoc(), diag::err_splice_array_element);
+          return ExprError();
+        }
+
+        if (IsArrow) {
+          Diag(RHS->getExprLoc(),
+               diag::err_unexpected_reflection_kind_in_splice)
+              << 1 << RHS->getSourceRange();
+          return ExprError();
+        }
+
+        QualType BaseType = Context.getQualifiedType(
+            BaseSpec->getType(), Base->getType().getQualifiers());
+        CXXCastPath BasePath;
+        if (CheckDerivedToBaseConversion(
+                Base->getType(), BaseType, Base->getExprLoc(),
+                Base->getSourceRange(), &BasePath))
+          return ExprError();
+        return ImpCastExprToType(Base, BaseType, CK_DerivedToBase,
+                                 Base->getValueKind(), &BasePath);
+      }
+    }
   }
 
   CXXScopeSpec SS;
