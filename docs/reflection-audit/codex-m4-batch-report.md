@@ -33,11 +33,16 @@ Date: 2026-09-09
   - Verification: builtin-template diagnostic libc++ regression passed; `clang` built at `-j2`;
     final capped direct-lit Clang gate returned exactly the five documented pre-existing failures.
 - Issue #314 / upstream PR #318: LP64 NEON vector mangling ICE.
-  - Commit: pending commit for this report update.
+  - Commit: `f3480e421c61`.
   - Verification: focused AArch64 NEON mangling test passed; `clang` built at `-j2`; final capped
     direct-lit Clang gate returned exactly the five documented pre-existing failures.
+- Issue #321 / upstream PR #323: 32K+ template packs miscompile.
+  - Commit: pending commit for this report update.
+  - Verification: 32K+/50K-element `define_static_string` libc++ regression passed; `clang` built
+    at `-j2`; final capped direct-lit Clang gate returned exactly the five documented pre-existing
+    failures.
 
 ## Not attempted
 
-PRs #323, #328, #352, and #353 remain in the requested
+PRs #328, #352, and #353 remain in the requested
 order.

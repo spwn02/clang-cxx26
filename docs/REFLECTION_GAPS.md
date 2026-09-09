@@ -289,7 +289,7 @@ for readability, same as the source files:
 | 313 | `members_of` truncates after linkage specifier | Already-Fixed | `ExprConstantMeta.cpp:1551-1560` already descends into `LinkageSpecDecl`. | High |
 | 314 | LP64 NEON vector mangling ICE | Fixed | PR #318 ported; LP64 `long`/`unsigned long` NEON elements use the 64-bit ABI spellings, with focused AArch64 mangling coverage. | High |
 | 319 | `op_caret_equals` symbol typo | Confirmed-Open | Both operator tables still use `"^"` at the `op_caret_equals` slot (`libcxx/include/meta:906-925`). | High |
-| 321 | 32K+ template packs miscompile | Confirmed-Open | `SubstNonTypeTemplateParmPackExpr::NumArguments` still a 15-bit bitfield (`ExprCXX.h:4761-4778`). | High |
+| 321 | 32K+ template packs miscompile | Fixed | PR #323 ported; template pack counts and substitution indices are full-width (with bounded packed storage where required), and a 50K-element `define_static_string` regression passes. | High |
 | 322 | Parameter-name result depends on instantiation | Already-Fixed | Fix `fad02ea72cc7`; `ExprConstantMeta.cpp:1130-1148`; `param-name-consistency-instantiation.pass.cpp`. | High |
 | 326 | Expansion statement ICE during instantiation | Confirmed-Open | `TreeTransform.h:9544-9573` → `SemaExpand.cpp:439-460` doesn't reject unresolved-overload ranges. | High |
 | 327 | Expansion statement ICE on unresolved overload range | Confirmed-Open | `SemaExpand.cpp:190-219` reaches ADL candidate construction on an unresolved range. | High |
@@ -319,7 +319,7 @@ checking this list first.**
 | 340 | Add `std::meta::has_c_language_linkage` | — (new facility, check against P2996R13 synopsis) |
 | 330 | [Clang][P2996] Implement PCH serialization for `ExplDependentCallExpr` | #329 (related) |
 | 328 | fix crash on expansion statement over an overload set | #327, possibly #326 |
-| 323 | Fix silent miscompile of template argument packs with 2^15+ elements | #321 |
+| 323 | Fix silent miscompile of template argument packs with 2^15+ elements | #321 — Fixed; ported and verified in commit |
 | 320 | Fix `symbol_of`/`u8symbol_of` table entry for `op_caret_equals` | #319 |
 | 318 | Handle LP64 long-element NEON vectors in the Itanium mangler | #314 — Fixed; ported and verified in commit |
 | 317 | Don't truncate member enumeration at linkage-spec typedef tags | #313 (already-fixed here — check if this fork's fix differs/is equivalent) |
@@ -427,6 +427,13 @@ nondependent splice types canonicalize to the underlying type. Added
 `dependent-splice-overloads.cpp`. Built `clang` with `-j2`, passed the focused test, and ran the
 capped direct-lit Clang gate: 49,819 discovered, 44,614 passed, exactly the five documented
 baseline failures.
+
+**2026-09-09 — M4 PR batch, PR #323.** Ported upstream PR #323 for issue #321. Template
+substitution pack counts and non-type pack indices no longer truncate at 15 bits; the remaining
+packed type index is widened to 26 bits with overflow assertions. Added the 32K+/50K-element
+`define_static_string` regression; it passed through the libc++ wrapper. Built `clang` with `-j2`,
+rebuilt stale auxiliary tools, and ran the capped direct-lit Clang gate: 49,819 discovered,
+44,614 passed, exactly the five documented baseline failures.
 
 **2026-09-09 — M4 PR batch, PR #310.** Ported upstream PR #310 for issue #309. Dependent
 `CXXSpliceExpr` nodes with no model are now classified from their own value kind instead of being
