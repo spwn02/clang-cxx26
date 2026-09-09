@@ -31,11 +31,10 @@ implemented (were ~0% at epic start). P3560R2 substantially advanced (`meta::exc
 (see below) — do not re-attempt the `members_of` pilot without first fixing the two evaluator-API
 gaps documented in `docs/reflection-audit/codex-strategy2-pilot-report.md`.**
 
-Remaining M4 Confirmed-Open items: only **#150** (destructor splice `~[:info:]`) is still
-genuinely deferred — everything else in the original 29-issue list is fixed, confirmed
-already-correct, or was a stale tracker entry now reconciled. The 27 Needs-Build-To-Verify items
-from M1 have not been systematically re-checked against the now-much-more-complete implementation
-— worth a fresh pass, many are likely resolved as a side effect of today's fixes. PR triage (35
+Remaining M4 Confirmed-Open items now include **#150** (destructor splice `~[:info:]`) plus nine
+issues reclassified by the Needs-Build-To-Verify audit: **#169, #180, #181, #188, #220, #221,
+#237, #239, and #346**. The audit reclassified 12 as Already-Fixed and left six genuinely
+unverifiable because their reports lack a usable reproducer. PR triage (35
 open PRs) is still only partially mapped (the mangling-cluster + M4-batch PRs were matched to
 issues; the rest — #340, #345, #279, #261, #249, #244, #207, #168, #166, #135, #124, and the P3816/
 P3074 ones already dispositioned out-of-scope — haven't been individually assessed).
@@ -765,3 +764,9 @@ and aborted in `extractSubobject` through recursive inherited-constructor evalua
 core pending-object-key and callback design remains unimplemented; see
 `codex-strategy2-redesign-report.md` for the exact coredump evidence. No risky change remains
 in shared exception evaluation.
+
+**2026-09-09 — Needs-Build-To-Verify audit.** Rebuilt and ran 21 of the 27 M1 issue probes against
+current HEAD, reclassifying 12 as Already-Fixed and nine as Confirmed-Open; six remain
+Needs-Build-To-Verify because their reports provide only an inaccessible Godbolt case, an
+unavailable attachment, or an external clangd project. Exact open cases were added to the M4
+backlog. Clang Reflection passed 20/20 and the two focused libc++ reflection tests passed 2/2.
