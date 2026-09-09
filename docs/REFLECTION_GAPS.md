@@ -308,18 +308,18 @@ for readability, same as the source files:
 | 146 | Expansion generates `case` labels | Confirmed-Open → Fixed 2026-09-09 | Parser diagnostics reject `case` and `default` labels while parsing an expansion body, before the raw-label CodeGen path can be reached. `expansion-case-labels.cpp` covers both forms. | High |
 | 150 | Spliced explicit destructor call | Confirmed-Open → Skipped 2026-09-09 | Re-traced `ParseExpr.cpp`'s `~` path: `ParseUnqualifiedId(...IK_DestructorName...)` accepts ordinary type/name tokens but has no splice branch. Supporting `~[:info:]()` needs a splice-bearing destructor-name AST/Sema representation and destructor lookup/call formation; the existing member-splice path cannot preserve those semantics. | High |
 | 151 | ICE in member-wise swap | Already-Fixed | Fixes `f0a3e5e612db`/`0f70ed5eb99e`; `CGStmt.cpp:1605-1618` scoping; `miscellaneous.pass.cpp:126-145` close coverage (no dedicated regression test though). | Medium |
-| 154 | `underlying_type` ICE for non-enum | Needs-Build-To-Verify | `libcxx/include/meta:1995-1999`; repro: `std::meta::underlying_type(^^int)`. | Medium |
-| 169 | Crash in templated lambda | Needs-Build-To-Verify | `TreeTransform.h:9352-9419`; repro in batch file. | Medium |
+| 154 | `underlying_type` ICE for non-enum | Already-Fixed | Direct `-freflection-latest -fsyntax-only` probe diagnoses the invalid `underlying_type_t<int>` substitution cleanly; no ICE or process failure at current HEAD. | High |
+| 169 | Crash in templated lambda | Confirmed-Open | Exact issue reproducer still aborts in `CheckIfAnyEnclosingLambdasMustCaptureAnyPotentialCaptures` (`SemaExprCXX.cpp:7629`) during parsing of the nested templated lambda. Deferred to M4 backlog. | High |
 | 173 | Templated `named_tuple` | Out-of-Scope | Feature request; `define_aggregate` (`libcxx/include/meta:2503-2515`) already covers the underlying need. | High |
 | 175 | Namespace comparison | Already-Fixed | `2245a73e94f5`; `namespace-reflection-equality-reopened.pass.cpp:70-87`. | High |
 | 176 | `members_of` + empty namespace redeclaration | Already-Fixed | `ExprConstantMeta.cpp:1535-1545`; same test file `:41-61`, `:70-84`. | Medium |
 | 177 | Enum NTTP loses enumerator identity | Out-of-Scope | Intentional: reflected value vs. enumerator declaration distinction, `ExprConstantMeta.cpp:4192-4208`; `entity-classification.pass.cpp:61-82` requires this. | High |
-| 178 | `template for` over `integer_sequence` | Needs-Build-To-Verify | `ParseStmt.cpp:1980-1992`; repro in batch file. | Medium |
-| 180 | `static_assert(false)` ignored | Needs-Build-To-Verify | No fork-specific handling found; repro needs `substitute`+`if constexpr` build test. | Medium |
-| 181 | Non-copyable tuple in `template for` | Needs-Build-To-Verify | `ParseStmt.cpp:1980-1992` vs. `libcxx/include/meta:2638-2655`; repro in batch file. | Medium |
+| 178 | `template for` over `integer_sequence` | Already-Fixed | Direct `-freflection-latest -fsyntax-only` probe over `std::integer_sequence<int,1,5>` succeeds at current HEAD. | High |
+| 180 | `static_assert(false)` ignored | Confirmed-Open | Exact reproducer compiles successfully, instantiates `test_impl<int>`, and therefore still ignores the dependent `static_assert(false)` that should make substitution ill-formed. Deferred to M4 backlog. | High |
+| 181 | Non-copyable tuple in `template for` | Confirmed-Open | Exact range-for probe still attempts to copy `const tuple<unique_ptr<...>>` and diagnoses its deleted copy constructor. Deferred to M4 backlog. | High |
 | 182 | `template for` + `continue` ICE | Confirmed-Open → Skipped 2026-09-09 | CodeGen currently creates one continuation destination per expansion instance before emitting discarded `if constexpr` bodies; fixing this needs instance-discard awareness in expansion control-flow lowering and a regression gate for break/continue nesting. No safe local patch was identified; deferred with the M3 consteval escalation cluster. | High |
 | 183 | ICE with imported reflection function | Already-Fixed | `module-imports.sh.cpp:1-17`; serialization fix `090152727f3f` (broader than original scenario). | Medium |
-| 184 | Spurious consteval-only diagnostic | Needs-Build-To-Verify | `SemaReflect.cpp:948-974`, `TreeTransform.h:9368-9419`; no test for the specific nested-lambda escalation case. | Medium |
+| 184 | Spurious consteval-only diagnostic | Needs-Build-To-Verify | No exact source reproducer was available in the issue body beyond a Godbolt link; retain until the nested-lambda/consteval-only NTTP example is rebuilt. | Low |
 
 **185-225:**
 | # | Title | Disposition | Evidence | Conf. |
@@ -329,16 +329,16 @@ for readability, same as the source files:
 | 188 | `display_string_of(dealias(...))` not constant expr | Needs-Build-To-Verify | `libcxx/include/meta:3303-3308`, `2960-2990`; no regression test for this combination. | Medium |
 | 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
 | 200 | `parent_of` wrong for class-template aliases | Confirmed-Open → Already-Fixed 2026-09-09 | Direct probe `static_assert(parent_of(^^T::A) == ^^T)` passes. Existing `findTypeDecl` preserves the top-level `UsingType` alias before template-specialization fallback; the stale deferral note incorrectly described the current checkout. | High |
-| 203 | Unbalanced diagnostic parentheses | Needs-Build-To-Verify | `SemaExpand.cpp:82-121`; repro in batch file. | Medium |
+| 203 | Unbalanced diagnostic parentheses | Already-Fixed | Direct malformed-range probe now emits a balanced diagnostic (`cannot expand over a function 'void ()'; did you mean to call it with no arguments?`) with no unbalanced-parenthesis output. | High |
 | 204 | ICE: `template for` over overload set | Needs-Build-To-Verify | `SemaExpand.cpp:82-121`, no dedicated test; repro in batch file. | Medium |
 | 205 | ICE: templated lambda + `define_static_array` | Already-Fixed | Fix `f72d85e5a0fd`; `SemaExpand.cpp:148-173`. | High |
 | 208 | CRTP constexpr degradation | Needs-Build-To-Verify | Godbolt-link only, insufficient detail to localize. | Low |
 | 210 | Capturing lambda inside expansion statement | Already-Fixed | Fixes `f0a3e5e612db`, `0f70ed5eb99e`; `SemaExpand.cpp:148-173`. | High |
-| 211 | Static enum member wrong `type_of` | Needs-Build-To-Verify | `ExprConstantMeta.cpp:2982-2994` looks correct but unverified for this exact case. | Medium |
+| 211 | Static enum member wrong `type_of` | Already-Fixed | Direct probe for `static E S::value` confirms `type_of(^^S::value) == ^^E`. | High |
 | 212 | ICE in `if constexpr` optional extraction | Needs-Build-To-Verify | Insufficient repro detail in snapshot. | Low |
 | 215 | Empty `reflect_constant_array` result | Already-Fixed | Fix `5dafd8cc4a45`; `libcxx/include/meta:2598-2616`; `static-arrays.pass.cpp:64-70`. | High |
-| 220 | `display_string_of(type_of(undeduced))` hangs | Needs-Build-To-Verify | `ExprConstantMeta.cpp:6565-6594` lacks explicit undeduced-return guard. | Medium |
-| 221 | `expected<bool,int>` in `vector` fails | Needs-Build-To-Verify | `__expected/expected.h:1164-1173`; depends on constraint normalization/CTAD, needs build. | Medium |
+| 220 | `display_string_of(type_of(undeduced))` hangs | Needs-Build-To-Verify | Initial simplified probe used a type template parameter rather than the issue's undeduced-return scenario and failed for that mismatch; retain until the exact repro is rebuilt. | Low |
+| 221 | `expected<bool,int>` in `vector` fails | Confirmed-Open | Exact `std::vector{value(), value()}` probe still fails in `__expected/expected.h:1167` with self-dependent constraint satisfaction while copying the expected elements. Deferred to M4 backlog. | High |
 | 222 | `define_aggregate` nested incomplete type in template arg | Needs-Build-To-Verify | `ExprConstantMeta.cpp:6092-6119`, `SemaReflect.cpp:638-710`; different path than the reported case, no matching test. | Medium |
 | 225 | `meta::exception` unimplemented | Confirmed-Open → Partial 2026-09-09 | `<meta>` now declares and defines the P3560R2 class, with direct consteval construction/accessor/throw-catch regression coverage. Remaining issue scope is the unrewired Throws-bearing metafunctions; nested consteval exception propagation passes after staged-header refresh. | High |
 
@@ -346,13 +346,13 @@ for readability, same as the source files:
 | # | Title | Disposition | Evidence | Conf. |
 |---:|---|---|---|---|
 | 230 | Reflecting `std::int32_t` | Out-of-Scope | Deliberate: using-shadow-decl rejection unless entity-proxy reflection on (`SemaReflect.cpp:1044-1050`,`1314-1336`); unresolved WG21 semantics. | High |
-| 232 | `template for` + `display_string_of` | Needs-Build-To-Verify | `libcxx/include/meta:2960-2970`; no test for this nested `type_of(field)` case. | Medium |
-| 234 | Protected base member reflection | Needs-Build-To-Verify | `SemaReflect.cpp:214-250` looks like it should permit this; unverified without build. | Medium |
+| 232 | `template for` + `display_string_of` | Already-Fixed | Direct probe over a member of type `std::vector<int>` (exercising pretty-printer template-argument rendering inside `template for`) succeeds at current HEAD. | High |
+| 234 | Protected base member reflection | Already-Fixed | Direct derived-context probe with `static_assert(is_protected(^^A::protected_virtual_function))` succeeds at current HEAD. | High |
 | 235 | Ambiguous constructor reflection | Out-of-Scope | Unresolved design question — multiple ctors, no WG21 resolution to implement against (`SemaReflect.cpp:1398-1430`). | High |
-| 237 | Alias of closure type loses identity | Needs-Build-To-Verify | `libcxx/include/meta:3090-3120`; ambiguous whether intentional. | Low |
-| 239 | Closure `operator()` reported overloaded | Needs-Build-To-Verify | `SemaReflect.cpp:1412-1430`; generic-lambda operator template case unverified. | Medium |
+| 237 | Alias of closure type loses identity | Confirmed-Open | The issue's `using ct = typename[:cr:]` closure-alias probe still diagnoses `'auto' not allowed in type alias`; the reflected closure type cannot be reconstructed as the expected alias. Deferred to M4 backlog. | High |
+| 239 | Closure `operator()` reported overloaded | Confirmed-Open | Reduced generic-lambda probe still reports `cannot take the reflection of an overload set` inside a `requires` expression, then fails the concept. Deferred to M4 backlog. | High |
 | 245 | Protected member as reflected template arg | Not-Applicable | `access_context` model (`libcxx/include/meta:1053-1090`) intentionally preserves access-context effects. | High |
-| 246 | Order-dependent `define_static_array` | Needs-Build-To-Verify | `libcxx/include/meta:2642-2660`; likely already fixed by `01836b3333d5` consteval-only caching fix, needs build to confirm. | Medium |
+| 246 | Order-dependent `define_static_array` | Already-Fixed | Both the two-declaration probe and the variant with `arr_0` removed compile successfully; no order dependence at current HEAD. | High |
 | 252 | VS Code `__has_feature(reflection)` | Out-of-Scope | Editor/IntelliSense issue, not Clang. | High |
 | 253 | ICE during recursive reflection in modules | Needs-Build-To-Verify | Module/annotation serialization work exists (`f63157a8d87c`) but no exact repro match. | Medium |
 | 254 | `define_static_string` hits constexpr step limit | Confirmed-Open → Skipped 2026-09-09 | The failure is the evaluator's finite constexpr operation budget, not an incorrect result or missing semantic branch. Chunking the copy loop could reduce per-expression work but cannot guarantee acceptance under an implementation-selected step limit and would alter the established implementation strategy; callers can raise `-fconstexpr-steps`. | High |
@@ -397,12 +397,12 @@ for readability, same as the source files:
 | 326 | Expansion statement ICE during instantiation | Confirmed-Open → Fixed 2026-09-09, commit `c1d0c5075bbb` | The shared `BuildCXXExpansionSelectExpr` validation is called from `TransformCXXIndeterminateExpansionSelectExpr`, so the function-range rejection covers instantiation as well as parse time; regression coverage includes dependent function templates. | High |
 | 327 | Expansion statement ICE on unresolved overload range | Fixed | PR #328 ported; function and function-pointer ranges are diagnosed before expansion/ADL candidate construction, with overload-range regression coverage. | High |
 | 329 | Constant evaluation crash through PCH | Confirmed-Open → Skipped 2026-09-09 | This is an AST serialization/evaluator-state redesign: `CXXMetafunctionExpr` callbacks and reflection evaluation context must round-trip through PCH/module serialization, with evaluator-owned state reconstructed on deserialization. A local statement-serialization tweak would risk stale callbacks/UAFs; requires a dedicated PCH/module design and reproducer gate. | Medium |
-| 331 | `reflect_object` rejects explicit defaulted copy ctor | Needs-Build-To-Verify | `ExprConstantMeta.cpp:3170-3207`; no explicit exception found but needs build. | Medium |
-| 332 | `reflect_constant` rejects pointer to mixed consteval-only type | Needs-Build-To-Verify | `ExprConstantMeta.cpp:3227-3264`, `ExprConstant.cpp:2405-2410`; needs build. | Medium |
+| 331 | `reflect_object` rejects explicit defaulted copy ctor | Already-Fixed | Exact issue probe with `A(const A&) = default` compiles successfully at current HEAD. | High |
+| 332 | `reflect_constant` rejects pointer to mixed consteval-only type | Already-Fixed | Exact issue probe with both `meta::info` member and non-static `consteval` member function compiles successfully at current HEAD. | High |
 | 333 | Splice operand convertible to `meta::info` rejected | Already-Fixed | `SemaReflect.cpp:1575-1593` already handles `DefaultLvalueConversion` + implicit conversion. | High |
 | 334 | Static member call inherits consteval-only object restriction | Confirmed-Open → Fixed 2026-09-09 | `MarkMemberReferenced` now removes a direct consteval-only object reference from the immediate-context set for non-arrow static member calls; side effects remain normally analyzed. `static-member-consteval-only.cpp` covers the reported runtime call. | Medium |
 | 342 | `^^derived::operator()` rejects using-declaration | Fixed | PR #353 ported; reflection-name syntax remains rejected, while id-expressions naming introduced operators/templates resolve to the target declaration, including dependent cases. | High |
-| 346 | Spurious warning for reflected reference type | Needs-Build-To-Verify | `DiagnosticParseKinds.td:1828-1829`, `ParseReflect.cpp:149`; needs build to confirm type-info availability at warn site. | Medium |
+| 346 | Spurious warning for reflected reference type | Confirmed-Open | Exact probe emits `-Wreflexing-parse` for `^^decltype(std::move(1))`, despite no source `&` token. Deferred to M4 backlog. | High |
 | 350 | `->[:member:]` assertion with lvalue pointer | Fixed | PR #352 ported; splice member bases undergo the ordinary member-access conversions, covering lvalue pointers and array decay. | High |
 
 ## Upstream PR triage (M1)
