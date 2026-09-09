@@ -49,14 +49,29 @@ consteval bool test_layout_query_preconditions() {
          std::meta::alignment_of(^^int) == alignof(int);
 }
 
+struct member_query_record {
+  static constexpr int value = 0;
+  int member;
+};
+
+consteval bool test_member_query_preconditions() {
+  constexpr auto ctx = std::meta::access_context::current();
+  return std::meta::members_of(^^member_query_record, ctx).size() >= 1 &&
+         std::meta::bases_of(^^member_query_record, ctx).empty() &&
+         std::meta::static_data_members_of(^^member_query_record, ctx).size() >= 1 &&
+         std::meta::nonstatic_data_members_of(^^member_query_record, ctx).size() >= 1;
+}
+
 static_assert(test_u8_constructor());
 static_assert(test_string_constructor());
 static_assert(test_throw_and_catch());
 static_assert(test_layout_query_preconditions());
+static_assert(test_member_query_preconditions());
 
 int main() {
   assert(test_u8_constructor());
   assert(test_string_constructor());
   assert(test_throw_and_catch());
   assert(test_layout_query_preconditions());
+  assert(test_member_query_preconditions());
 }
