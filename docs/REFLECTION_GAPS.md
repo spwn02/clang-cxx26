@@ -337,6 +337,7 @@ for readability, same as the source files:
 | NEW-2 | Annotation on empty-declaration is accepted | New conformance gap — found in M5 2026-09-10 | P3394R4 prohibits an annotation in an empty-declaration's attribute-specifier-seq. Direct probe `[[=1]];` with `-fannotation-attributes` was accepted by the current front end, so no passing `-verify` test can honestly be added until the diagnostic exists. | High |
 | NEW-3 | Invalid `annotations_of_with_type` arguments are accepted | New conformance gap — found in M5 2026-09-10 | P3394R4 requires the item and filter arguments to satisfy the specified reflection domains. Direct probes with `annotations_of_with_type(^^int, ^^void)` and an invalid target were accepted and produced empty results rather than diagnostics. | High |
 | NEW-4 | `has_inaccessible_nonstatic_data_members` accepts closure types | New conformance gap — found in M5 2026-09-10 | P2996R13 requires this query to be ill-formed for a closure type. A direct probe using `^^decltype(closure)` for a captureless closure was accepted by the current front end/library path instead of producing a diagnostic. | High |
+| NEW-5 | `data_member_spec` accepts `void` as member type | New conformance gap — found in M5 2026-09-10 | P2996R13 requires the member type to be an object or reference type. A direct probe using `data_member_spec(^^void)` was accepted by the current library/compiler path. | High |
 | 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
 | 200 | `parent_of` wrong for class-template aliases | Confirmed-Open → Already-Fixed 2026-09-09 | Direct probe `static_assert(parent_of(^^T::A) == ^^T)` passes. Existing `findTypeDecl` preserves the top-level `UsingType` alias before template-specialization fallback; the stale deferral note incorrectly described the current checkout. | High |
 | 203 | Unbalanced diagnostic parentheses | Already-Fixed | Direct malformed-range probe now emits a balanced diagnostic (`cannot expand over a function 'void ()'; did you mean to call it with no arguments?`) with no unbalanced-parenthesis output. | High |
@@ -880,6 +881,12 @@ lit wrapper with one worker; it passed 1/1 with all expected diagnostics matched
 2996-33 through 2996-37 are covered for invalid extraction and substitution domains. No new
 implementation gap was found. Checklist totals are now 67 covered, 23 needing new tests, and 18
 blocked.
+
+**2026-09-10 — M5 batch 11.** Added `m5-p2996-batch11.verify.cpp` and ran it through the libc++
+lit wrapper with one worker; it passed 1/1 with all expected diagnostics matched. P2996R13 rows
+2996-38 through 2996-40 are covered for invalid member types, names, and option combinations.
+A direct `data_member_spec(^^void)` probe was accepted and recorded as NEW-5. Checklist totals
+are now 70 covered, 20 needing new tests, and 18 blocked.
 
 **2026-09-10 — M5 batch 6.** Added `m5-p3617-p3687-batch6.verify.cpp`. P3617 rows 3617-02
 through 3617-04 are covered by checks for string-literal termination, character-array extent,
