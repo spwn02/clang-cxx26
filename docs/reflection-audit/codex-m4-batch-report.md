@@ -13,11 +13,15 @@ Date: 2026-09-09
   - Verification: `dependent-splice-overloads.cpp` passed; `clang` built at `-j2`; final capped
     direct-lit Clang gate returned exactly the five documented pre-existing failures.
 - Issue #309 / upstream PR #310: dependent splice classification during auto NTTP deduction.
-  - Commit: pending commit for this report update.
+  - Commit: `419d7a1ef581`.
   - Verification: libc++ wrapper regression passed; `clang` built at `-j2`; final capped direct-lit
     Clang gate returned exactly the five documented pre-existing failures.
+- Issue #294 / upstream PR #295: invalid formed types during can_substitute/substitute.
+  - Commit: pending commit for this report update.
+  - Verification: both focused libc++ regressions passed; `clang` built at `-j2`; final capped
+    direct-lit Clang gate returned exactly the five documented pre-existing failures.
 
 ## Not attempted
 
-PRs #295, #289, #306, #315, #318, #323, #328, #352, and #353 remain in the requested
+PRs #289, #306, #315, #318, #323, #328, #352, and #353 remain in the requested
 order.

@@ -271,7 +271,7 @@ for readability, same as the source files:
 | 288 | Reentrant constant evaluation UAF | Confirmed-Open | `SemaExpr.cpp:18396-18611` — `ExpressionEvaluationContextRecord&` held across reallocation-prone calls; no fix or test. | High |
 | 290 | Entity-proxy queries + mangling crash | Fixed | PR #291 ported; proxy member predicates now return false and proxy NTTP mangling targets the underlying declaration; `entity-proxy-member-queries.pass.cpp`. | High |
 | 292 | `AttributedType` blinds function queries | Already-Fixed | Fix `1dee6d809821`; `ExprConstantMeta.cpp:1622-1629`; `attributed-function-type-queries.pass.cpp`. | High |
-| 294 | `can_substitute`/`substitute` crash on invalid formed types | Confirmed-Open | `ExprConstantMeta.cpp:3590-3619` asserts non-null without handling Sema failure from `SemaReflect.cpp:406-423`. | High |
+| 294 | `can_substitute`/`substitute` crash on invalid formed types | Fixed | PR #295 ported; substitution APIs now return failure and suppress diagnostics for invalid formed types, with function/alias/variable/member-template regression coverage. | High |
 | 296 | `members_of` eagerly instantiates member bodies | Already-Fixed | Fix `7220baffd57e`; `members-of-lazily-ill-formed-bodies.pass.cpp:18-28,75-89`. | High |
 | 298 | Deduction-guide reflection mangler ICE | Confirmed-Open | `ItaniumMangle.cpp:4932-4937` unconditional `mangleTemplateName`; deduction guides unsupported elsewhere in same mangler. **Mangling cluster.** | High |
 | 300 | Same-headed member-template reflections collide | Confirmed-Open | No ODR/type/ref-qualifier discriminator in template-reflection mangling; `ODRHash.cpp:670-690` returns early for class-template-specialization members. **Mangling cluster.** | High |
@@ -329,7 +329,7 @@ checking this list first.**
 | 306 | Keep namespace member walks clear of out-of-line class-member definitions | #303 |
 | 301 | Discriminate same-headed member-template reflections of a specialization in NTTP mangling | #300 |
 | 299 | Mangle deduction-guide reflections instead of hitting unreachable | #298 |
-| 295 | Report substitution failure instead of crashing when substitution forms an invalid type | #294 |
+| 295 | Report substitution failure instead of crashing when substitution forms an invalid type | #294 — Fixed; ported and verified in commit |
 | 291 | Handle entity-proxy reflections in member metafunctions and NTTP mangling | #290 — Fixed; ported and verified in commit |
 | 289 | Fix use-after-free: `ExprEvalContexts` reallocates under held record references during reentrant consteval evaluation | #288 |
 | 287 | Discriminate same-named function-template reflections in NTTP mangling | #286 |
@@ -407,6 +407,15 @@ dereferenced. Added `auto-nttp-dependent-splice-requires.pass.cpp`; the libc++ w
 passed. Built `clang` with `-j2`; after rebuilding stale auxiliary tools, the capped direct-lit
 Clang gate reported 49,819 discovered, 44,614 passed, exactly the five documented baseline
 failures.
+
+**2026-09-09 — M4 PR batch, PR #295.** Ported upstream PR #295 for issue #294. Metafunction
+substitution now propagates null specialization results instead of asserting, suppresses Sema
+diagnostics for `can_substitute`, and reports the normalized substitution-failed diagnostic for
+`substitute`. Added invalid-type-formation coverage for function, alias, variable, and member
+templates; both focused libc++ tests passed. Built `clang` with `-j2`, rebuilt stale auxiliary
+tools, and ran the capped direct-lit Clang gate: 49,819 discovered, 44,614 passed, exactly the
+five documented baseline failures. The fork-specific verify test also records its duplicate
+underlying invalid-reference diagnostic.
 
 **2026-09-08 — Epic start (M0 + partial M2).** Established ground truth: real upstream tracker is
 `bloomberg/clang-p2996` not the dead URL in `REFLECTION.md`; confirmed real divergence from

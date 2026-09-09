@@ -500,4 +500,21 @@ constexpr auto r2 = substitute(^^fn2, {^^int});
   // expected-note@-1 {{requested here}}
 }  // namespace wording_example
 
+                       // ======================
+                       // invalid_type_formation
+                       // ======================
+
+namespace invalid_type_formation {
+template <class T> struct trait { using type = void; };
+template <class OT> typename trait<OT&>::type fn();
+
+static_assert(!can_substitute(^^fn, {^^void}));
+constexpr auto r = substitute(^^fn, {^^void});
+  // expected-error@-1 {{must be initialized by a constant expression}} \
+  // expected-note@-1 {{substitution of the given template arguments into 'fn' failed}}
+  // This fork reports the underlying invalid-reference diagnostic during the
+  // diagnosed substitution as well as the normalized metafunction note.
+  // expected-error@509 2 {{cannot form a reference to 'void'}}
+}  // namespace invalid_type_formation
+
 int main() { }

@@ -3578,18 +3578,22 @@ bool substitute(APValue &Result, ASTContext &C, MetaActions &Meta,
     TArgs.clear();
     expandTemplateArgPacks(ExpandedTArgs, TArgs);
 
-    QualType QT = Meta.Substitute(TATD, TArgs, Range.getBegin());
-    if(QT.isNull()) {
-      // substitution failed after validating arguments
-      return true;
-    }
+    QualType QT = Meta.Substitute(TATD, TArgs, NoDiagnose, Range.getBegin());
+    if (QT.isNull())
+      return NoDiagnose ? ElideDiagnosis() :
+             Diagnoser(Range.getBegin(), diag::metafn_substitution_failed)
+               << TDecl << Range;
     APValue RV = makeReflection(QT);
     //C.recordCachedSubstitution(SubstitutionHash, RV);
     return SetAndSucceed(Result, makeReflection(QT));
   }
   if (auto *FTD = dyn_cast<FunctionTemplateDecl>(TDecl)) {
-    FunctionDecl *Spec = Meta.Substitute(FTD, ExpandedTArgs, Range.getBegin());
-    assert(Spec && "substitution failed after validating arguments?");
+    FunctionDecl *Spec =
+        Meta.Substitute(FTD, ExpandedTArgs, NoDiagnose, Range.getBegin());
+    if (!Spec)
+      return NoDiagnose ? ElideDiagnosis() :
+             Diagnoser(Range.getBegin(), diag::metafn_substitution_failed)
+               << TDecl << Range;
 
     if (Spec->getReturnType()->isUndeducedType())
       return NoDiagnose ? ElideDiagnosis() :
@@ -3604,8 +3608,12 @@ bool substitute(APValue &Result, ASTContext &C, MetaActions &Meta,
     TArgs.clear();
     expandTemplateArgPacks(ExpandedTArgs, TArgs);
 
-    VarDecl *Spec = Meta.Substitute(VTD, TArgs, Range.getBegin());
-    assert(Spec && "substitution failed after validating arguments?");
+    VarDecl *Spec =
+        Meta.Substitute(VTD, TArgs, NoDiagnose, Range.getBegin());
+    if (!Spec)
+      return NoDiagnose ? ElideDiagnosis() :
+             Diagnoser(Range.getBegin(), diag::metafn_substitution_failed)
+               << TDecl << Range;
 
     APValue RV = makeReflection(Spec);
     //C.recordCachedSubstitution(SubstitutionHash, RV);
@@ -3615,8 +3623,12 @@ bool substitute(APValue &Result, ASTContext &C, MetaActions &Meta,
     TArgs.clear();
     expandTemplateArgPacks(ExpandedTArgs, TArgs);
 
-    Expr *Spec = Meta.Substitute(CD, TArgs, Range.getBegin());
-    assert(Spec && "substitution failed after validating arguments?");
+    Expr *Spec =
+        Meta.Substitute(CD, TArgs, NoDiagnose, Range.getBegin());
+    if (!Spec)
+      return NoDiagnose ? ElideDiagnosis() :
+             Diagnoser(Range.getBegin(), diag::metafn_substitution_failed)
+               << TDecl << Range;
 
     APValue SatisfiesConcept;
     if (!Evaluator(SatisfiesConcept, Spec, true))
