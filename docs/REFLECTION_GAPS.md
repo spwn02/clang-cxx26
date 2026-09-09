@@ -25,15 +25,38 @@ regression from reflection changes. The last clean full-suite evidence before
 the 18-test ASTUnit cluster was recorded in
 `docs/reflection-audit/codex-final-gate-report.md`.
 
-M0 done. M1's issue triage is done (all 85 issues dispositioned — 29 Confirmed-Open, 27
-Needs-Build-To-Verify, 19 Already-Fixed, 8 Out-of-Scope, 2 Not-Applicable); PR triage (35 open PRs)
-still pending. M2's paper audit is running for the remaining 7 original papers in 4 parallel
-background agents as of this writing (P2996R13 alone; P1306R5+P3096R12; P3293R3+P3394R4;
-P3491R3+P3560R2) — fold results into the Paper-by-paper audit table above once they land. Next
-concrete actions: merge those, then start M3 (the three known bugs — the mangling cluster from M1
-found above is a natural M4 opener once M3's individually-gated bugs are done), then PR triage,
-then M4's Confirmed-Open backlog (start with the mangling cluster: #286/#290/#298/#300/#312, one
-root cause in `ItaniumMangle.cpp`'s `ReflectionKind::Template` case, five issues closed together).
+**Status as of 2026-09-09 night: M0/M1/M2/M3 done. M4 mostly done. P3293R3 and P3795R2 fully
+implemented (were ~0% at epic start). P3560R2 substantially advanced (`meta::exception` class +
+13 strategy-1 wrappers) but strategy 2 needs one more design-revision round before implementation
+(see below) — do not re-attempt the `members_of` pilot without first fixing the two evaluator-API
+gaps documented in `docs/reflection-audit/codex-strategy2-pilot-report.md`.**
+
+Remaining M4 Confirmed-Open items: only **#150** (destructor splice `~[:info:]`) is still
+genuinely deferred — everything else in the original 29-issue list is fixed, confirmed
+already-correct, or was a stale tracker entry now reconciled. The 27 Needs-Build-To-Verify items
+from M1 have not been systematically re-checked against the now-much-more-complete implementation
+— worth a fresh pass, many are likely resolved as a side effect of today's fixes. PR triage (35
+open PRs) is still only partially mapped (the mangling-cluster + M4-batch PRs were matched to
+issues; the rest — #340, #345, #279, #261, #249, #244, #207, #168, #166, #135, #124, and the P3816/
+P3074 ones already dispositioned out-of-scope — haven't been individually assessed).
+
+**Concrete next actions, in rough priority order:**
+1. P3560R2 strategy 2 design revision: extend the evaluator interface per
+   `codex-strategy2-pilot-report.md`'s "Recommended next design revision" (a
+   `BuildAndPendMetaException` operation, `PendingExceptionInfo` needing a stable exception-object
+   key not assuming `CXXThrowExpr`), THEN retry the `members_of` pilot. This is real, careful
+   compiler-internals work — dispatch it as its own design-then-implement pair, not rushed.
+2. #150 (destructor splice) — still deferred, needs a new parser/Sema destructor-name-via-splice
+   representation, per the M4-hard session's notes.
+3. Re-audit the 27 Needs-Build-To-Verify issues from M1 against current source — likely several
+   are now resolved incidentally.
+4. Finish PR triage for the ~11 still-unassessed open PRs listed above.
+5. M5 (diagnostic/ill-formed-program test suite) — not started, genuinely large; the M2 paper
+   audits already enumerate most Throws/Mandates conditions per paper, which is the concrete
+   starting checklist per the plan.
+6. M3 escalation-cluster bug — worth another look given today's accumulated splice/scope-lookup
+   expertise, but real regression risk (prior attempt broke 9 libc++ tests) — treat with the same
+   caution as strategy 2.
 
 ## Ground truth (established during epic setup, 2026-09-08)
 
