@@ -267,14 +267,14 @@ for readability, same as the source files:
 | 276 | Splice type aliases treated as identical | Fixed | PR #277 ported; dependent splice types now canonicalize by operand and template arguments, with distinct/same-alias regression coverage. | Medium |
 | 280 | `has_parent` missing | Confirmed-Open | `parent_of` exists, `has_parent` doesn't (`libcxx/include/meta:56-60`,`934-942`). Missing library feature. | High |
 | 281 | ICE from `annotations_of(^^member)` | Already-Fixed | `SemaReflect.cpp:1371-1377`; `p3394-annotations.pass.cpp:89-110`,`131-142`. | Medium |
-| 286 | Same-named function-template reflections collide | Confirmed-Open | `ItaniumMangle.cpp:4932-4937` mangles template name only, no overload discriminator. **Mangling cluster — see cross-link above.** | High |
+| 286 | Same-named function-template reflections collide | Confirmed-Open → Fixed 2026-09-09, commit `2262084ae5e1` | Mangling cluster fix adds overload discrimination via ODRHash. | High |
 | 288 | Reentrant constant evaluation UAF | Fixed | PR #289 ported; immediate-invocation and cleanup paths reacquire evaluation-context records after reentrant operations, with a 64-level reflection instantiation regression test. | High |
 | 290 | Entity-proxy queries + mangling crash | Fixed | PR #291 ported; proxy member predicates now return false and proxy NTTP mangling targets the underlying declaration; `entity-proxy-member-queries.pass.cpp`. | High |
 | 292 | `AttributedType` blinds function queries | Already-Fixed | Fix `1dee6d809821`; `ExprConstantMeta.cpp:1622-1629`; `attributed-function-type-queries.pass.cpp`. | High |
 | 294 | `can_substitute`/`substitute` crash on invalid formed types | Fixed | PR #295 ported; substitution APIs now return failure and suppress diagnostics for invalid formed types, with function/alias/variable/member-template regression coverage. | High |
 | 296 | `members_of` eagerly instantiates member bodies | Already-Fixed | Fix `7220baffd57e`; `members-of-lazily-ill-formed-bodies.pass.cpp:18-28,75-89`. | High |
-| 298 | Deduction-guide reflection mangler ICE | Confirmed-Open | `ItaniumMangle.cpp:4932-4937` unconditional `mangleTemplateName`; deduction guides unsupported elsewhere in same mangler. **Mangling cluster.** | High |
-| 300 | Same-headed member-template reflections collide | Confirmed-Open | No ODR/type/ref-qualifier discriminator in template-reflection mangling; `ODRHash.cpp:670-690` returns early for class-template-specialization members. **Mangling cluster.** | High |
+| 298 | Deduction-guide reflection mangler ICE | Confirmed-Open → Fixed 2026-09-09, commit `2262084ae5e1` | Mangling cluster fix handles Template-kind deduction-guide reflections. | High |
+| 300 | Same-headed member-template reflections collide | Confirmed-Open → Fixed 2026-09-09, commit `2262084ae5e1` | Mangling cluster fix adds specialization-context type and ref-qualifier discrimination. | High |
 | 302 | Reopened namespace reflections compare unequal | Already-Fixed | `2245a73e94f5`; `APValue.cpp:575-584`; `namespace-reflection-equality-reopened.pass.cpp:19-31,70-95`. | High |
 | 303 | Reopened namespace walk truncates members | Fixed | PR #306 ported; out-of-line class-member definitions are excluded from namespace enumeration and traversal returns to their lexical namespace, with reopened-namespace coverage. | High |
 | 304 | `is_complete_type` fails through aliases | Already-Fixed | Fix `7f0f89cc7e75`; `ExprConstantMeta.cpp:4865-4880`; `is-complete-type-alias-sugar.pass.cpp`. | High |
@@ -285,10 +285,10 @@ for readability, same as the source files:
 | # | Title | Disposition | Evidence | Conf. |
 |---:|---|---|---|---|
 | 311 | Builtin-template diagnostic ICE | Fixed | PR #315 ported; `DescriptionOf` handles builtin and template-template-parameter reflections with a safe fallback, with a builtin-template diagnostic regression test. | High |
-| 312 | Deduction-guide specialization mangling ICE | Confirmed-Open | `ItaniumMangle.cpp:4898-4917`, `1444`, `1738` — `llvm_unreachable("Can't mangle a deduction guide name!")`. **Mangling cluster.** | High |
+| 312 | Deduction-guide specialization mangling ICE | Confirmed-Open → Fixed 2026-09-09, commit `2262084ae5e1` | Mangling cluster fix handles declaration-kind deduction-guide-specialization reflections. | High |
 | 313 | `members_of` truncates after linkage specifier | Already-Fixed | `ExprConstantMeta.cpp:1551-1560` already descends into `LinkageSpecDecl`. | High |
 | 314 | LP64 NEON vector mangling ICE | Fixed | PR #318 ported; LP64 `long`/`unsigned long` NEON elements use the 64-bit ABI spellings, with focused AArch64 mangling coverage. | High |
-| 319 | `op_caret_equals` symbol typo | Confirmed-Open | Both operator tables still use `"^"` at the `op_caret_equals` slot (`libcxx/include/meta:906-925`). | High |
+| 319 | `op_caret_equals` symbol typo | Confirmed-Open → Fixed 2026-09-08, commit `357aff58a79b` | Both operator tables now use `"^="` at the `op_caret_equals` slot, with regression coverage. | High |
 | 321 | 32K+ template packs miscompile | Fixed | PR #323 ported; template pack counts and substitution indices are full-width (with bounded packed storage where required), and a 50K-element `define_static_string` regression passes. | High |
 | 322 | Parameter-name result depends on instantiation | Already-Fixed | Fix `fad02ea72cc7`; `ExprConstantMeta.cpp:1130-1148`; `param-name-consistency-instantiation.pass.cpp`. | High |
 | 326 | Expansion statement ICE during instantiation | Confirmed-Open | `TreeTransform.h:9544-9573` → `SemaExpand.cpp:439-460` doesn't reject unresolved-overload ranges. | High |
