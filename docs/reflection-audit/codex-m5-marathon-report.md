@@ -4,7 +4,7 @@ Date: 2026-09-10
 
 This session continued from batch 6 after rereading the Ground Truth section of
 `docs/REFLECTION_GAPS.md`, the M5 checklist, and `codex-m5-batch6-report.md`. Work stopped after
-four additional facility-first batches at a natural boundary: remaining P3491 rows depend on
+five additional facility-first batches at a natural boundary: remaining P3491 rows depend on
 missing `define_static_object`/`is_string_literal`, while P3560 strategy-2 rows depend on the
 explicitly deferred evaluator exception plumbing. Known NEW-1/NEW-2/NEW-3 were not re-investigated.
 
@@ -77,4 +77,3 @@ P2996R13 2996-09, -19, -46 through -49; P3096R12 3096-06; P3394R4 3394-03 and -0
 3491-03, -04, and -08; P3560R2 3560-14 through -19; P3617R0 3617-01; and P3795R2 3795-01
 through -04. P3491 missing-facility rows and P3560 compiler-side exception rows remain blocked
 as documented in the checklist.
-
