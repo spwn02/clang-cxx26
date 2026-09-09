@@ -34,18 +34,15 @@ gaps documented in `docs/reflection-audit/codex-strategy2-pilot-report.md`.**
 Remaining M4 Confirmed-Open items now include **#150** (destructor splice `~[:info:]`) plus nine
 issues reclassified by the Needs-Build-To-Verify audit: **#169, #180, #181, #188, #220, #221,
 #237, #239, and #346**. The audit reclassified 12 as Already-Fixed and left six genuinely
-unverifiable because their reports lack a usable reproducer. PR triage (35
-open PRs) is still only partially mapped (the mangling-cluster + M4-batch PRs were matched to
-issues; the rest — #340, #345, #279, #261, #249, #244, #207, #168, #166, #135, #124, and the P3816/
-P3074 ones already dispositioned out-of-scope — haven't been individually assessed).
+unverifiable because their reports lack a usable reproducer. M1 issue and PR triage are now
+complete; the 11 formerly unassessed PRs and the four cross-check PRs are dispositioned in the
+table below and in [`codex-pr-triage-final-report.md`](reflection-audit/codex-pr-triage-final-report.md).
 
 **Concrete next actions, in rough priority order (re-ordered 2026-09-09 night after a second
 strategy-2 attempt hit a real evaluator crash — see `codex-strategy2-redesign-report.md`):**
 1. Re-audit the 27 Needs-Build-To-Verify issues from M1 against current source — likely several
    are now resolved incidentally. Low-risk, high-value, no deep compiler-internals gamble.
-2. Finish PR triage for the ~11 still-unassessed open PRs (#340, #345, #279, #261, #249, #244,
-   #207, #168, #166, #135, #124).
-3. M5 (diagnostic/ill-formed-program test suite) — not started, genuinely large; the M2 paper
+2. M5 (diagnostic/ill-formed-program test suite) — not started, genuinely large; the M2 paper
    audits already enumerate most Throws/Mandates conditions per paper, which is the concrete
    starting checklist per the plan.
 4. #150 (destructor splice) — still deferred, needs a new parser/Sema destructor-name-via-splice
@@ -417,8 +414,8 @@ checking this list first.**
 | 353 | Reflect the introduced function when an id-expression names a using-declarator | #342 — Fixed; ported and verified in commit |
 | 352 | Convert the base of a member splice before building the member expression | #350 — Fixed; ported and verified in commit |
 | 347 | Remove warning if `&` is not directly in code | #346 (likely) |
-| 345 | Allow reflections of values designating immediate functions | — (check against #184/#334 consteval-only cluster) |
-| 340 | Add `std::meta::has_c_language_linkage` | — (new facility, check against P2996R13 synopsis) |
+| 345 | Allow reflections of values designating immediate functions | **#184/#334 consteval-only cluster — #334 Already-Fixed; #184 Needs-Build-To-Verify. Ready-made upstream fix exists; port in M4 only after a buildable reproducer/gate.** |
+| 340 | Add `std::meta::has_c_language_linkage` | **P2996R13 adopted facility, absent here (also listed in the paper audit's Missing list). Ready-made upstream implementation exists; future M4 paper-gap port.** |
 | 330 | [Clang][P2996] Implement PCH serialization for `ExplDependentCallExpr` | #329 (related) |
 | 328 | fix crash on expansion statement over an overload set | #327, possibly #326 — Fixed; ported and verified in commit |
 | 323 | Fix silent miscompile of template argument packs with 2^15+ elements | #321 — Fixed; ported and verified in commit |
@@ -435,18 +432,18 @@ checking this list first.**
 | 291 | Handle entity-proxy reflections in member metafunctions and NTTP mangling | #290 — Fixed; ported and verified in commit |
 | 289 | Fix use-after-free: `ExprEvalContexts` reallocates under held record references during reentrant consteval evaluation | #288 — Fixed; ported and verified in commit |
 | 287 | Discriminate same-named function-template reflections in NTTP mangling | #286 |
-| 279 | Fix reflect unresolved lookup | — (check against #239/#204 overload-related issues) |
+| 279 | Fix reflect unresolved lookup | **#273 (dependent function-template reflection) and #276 (dependent splice-type canonicalization) — both Already-Fixed here by independent ports. The PR is a ready-made upstream equivalent/stacked fix; no port needed unless regression coverage is revisited.** |
 | 277 | Fix canonicalization of dependent splice types | #276 — Fixed; ported and verified in commit |
-| 261 | Defer expansion statement body instantiation | — (check against #180/expansion cluster) |
-| 249 | Merging upstream 91cdd350 [clang] Improve nested name specifier AST representation | — (general upstream sync, check relevance) |
-| 244 | Fix `Sema::BuildCXXReflectExpr` wrongly thinks a template is overloaded (e.g. reflecting a lambda's `operator()`) | — (check against #239) |
-| 227,195,170 | [P3816] Implement `std::consteval_hash<std::meta::info>` (3 iterations) | **New paper not in this epic's list — P3816, need to identify and add to the paper audit** |
-| 207 | Examples from P2996 - Reflection for C++26 | — (test/example content, low priority) |
-| 168 | Adding string literal manipulation | — (check scope) |
-| 166 | fix `is_reflection_type` | — (check scope) |
-| 163 | [P3074] Implementing part of trivial unions | **Another paper reference — P3074, cross-check against the language-side gaps list in `docs/CXX26_GAPS.md`** |
-| 135 | ast dump for splice specifier and reflection splice type | tooling, low priority |
-| 124 | Custom annotation requires type to be `equality_comparable` | — (check against annotation/P3394R4 work) |
+| 261 | Defer expansion statement body instantiation | **Expansion cluster, principally #180 and related #181 — Confirmed-Open. Ready-made upstream AST/Sema/TreeTransform fix exists; port/adapt in M4 with the expansion regression gate.** |
+| 249 | Merging upstream 91cdd350 [clang] Improve nested name specifier AST representation | **General LLVM synchronization (11 files), not a reflection-specific defect or C++26 paper facility. Current fork has independently reconciled the relevant AST representation; out of scope for this closure epic.** |
+| 244 | Fix `Sema::BuildCXXReflectExpr` wrongly thinks a template is overloaded (e.g. reflecting a lambda's `operator()`) | **#239 (closure `operator()` reported overloaded) — Confirmed-Open. Ready-made upstream Sema fix exists; port/adapt in M4.** |
+| 227,195,170 | [P3816] Implement `std::consteval_hash<std::meta::info>` (3 iterations) | **Out-of-Scope confirmed: P3816 remains a separate, non-adopted proposal, not required C++26 reflection. These are experimental competing implementations; no issue or paper-gap action here.** |
+| 207 | Examples from P2996 - Reflection for C++26 | **Low-priority/out-of-scope for conformance closure: Docker/build scaffolding and examples only; no compiler or standard-library fix.** |
+| 168 | Adding string literal manipulation | **P3491R3 facility (`is_string_literal` and string-literal helpers), in scope and currently missing per the paper audit. Ready-made upstream implementation exists; future M4 paper-gap port, with wording/API review first.** |
+| 166 | fix `is_reflection_type` | **P2996R13 library correctness gap: one-line alias/dealias fix is applicable to current `meta` and a ready-made upstream fix exists. Not ported in this documentation session; future M4/library test.** |
+| 163 | [P3074] Implementing part of trivial unions | **Out-of-scope for this tracker, confirmed: P3074 is language-side work already tracked in `docs/CXX26_GAPS.md`; route any port there.** |
+| 135 | ast dump for splice specifier and reflection splice type | **Low-priority tooling/AST-dump coverage, not C++26 reflection conformance; defer outside closure critical path.** |
+| 124 | Custom annotation requires type to be `equality_comparable` | **P3394R4 annotation Mandates correction. Ready-made constraint exists, but PR changes legacy `experimental/meta`; adapt against current adopted `meta` API in future M4/M5 rather than port verbatim.** |
 
 **Action items surfaced by this list — both resolved 2026-09-08:**
 - **P3816R3 "Hashing meta::info"** (`consteval_hash<std::meta::info>`) is **Out-of-Scope for this
@@ -770,3 +767,10 @@ current HEAD, reclassifying 12 as Already-Fixed and nine as Confirmed-Open; six 
 Needs-Build-To-Verify because their reports provide only an inaccessible Godbolt case, an
 unavailable attachment, or an external clangd project. Exact open cases were added to the M4
 backlog. Clang Reflection passed 20/20 and the two focused libc++ reflection tests passed 2/2.
+
+**2026-09-09 — M1 upstream PR triage complete.** Fetched and reviewed descriptions and diffs for
+the 11 formerly unassessed PRs (#340, #345, #279, #261, #249, #244, #207, #168, #166, #135, and
+#124), and re-confirmed the existing out-of-scope dispositions for P3816 (#227/#195/#170) and
+P3074 (#163). The table now records definitive issue mappings, ready-made fixes for future M4
+ports, paper-gap items, and low-priority/out-of-scope content. No implementation changes were
+made in this triage session.
