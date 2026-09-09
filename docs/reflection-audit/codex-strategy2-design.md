@@ -1,7 +1,7 @@
 # P3560R2 strategy (2): compiler-side throwable reflection failures
 
-Status: investigation/design only, 2026-09-09. No implementation is included in this
-document's originating session.
+Status: redesign investigated, 2026-09-09. No implementation is retained: the first
+construction attempt hit a real evaluator recursion/abort and was reverted.
 
 ## Scope and ground truth
 
@@ -267,4 +267,3 @@ Each phase gets its own focused test and commit. After compiler changes, rebuild
 `cxx` so staged headers and the library are not stale. Use low parallelism under the
 documented memory conditions, and compare full-suite results against the 23-failure
 baseline rather than an assumed five-failure baseline.
-

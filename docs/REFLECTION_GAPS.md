@@ -752,3 +752,10 @@ the proposed metafunction/synthetic throw site is not one; and the proposed `Thr
 evaluator API for constexpr construction of `meta::exception` from a `StringRef` and `APValue`.
 Recorded required private evaluator-interface changes in
 `docs/reflection-audit/codex-strategy2-pilot-report.md`; committed in the documentation commit.
+
+**2026-09-09 — P3560R2 strategy (2) redesign attempt.** A narrowly scoped implementation
+was reverted after the focused pilot reached the synthesized `std::meta::exception` constructor
+and aborted in `extractSubobject` through recursive inherited-constructor evaluation. The
+core pending-object-key and callback design remains unimplemented; see
+`codex-strategy2-redesign-report.md` for the exact coredump evidence. No risky change remains
+in shared exception evaluation.
