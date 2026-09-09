@@ -268,7 +268,7 @@ for readability, same as the source files:
 | 280 | `has_parent` missing | Confirmed-Open | `parent_of` exists, `has_parent` doesn't (`libcxx/include/meta:56-60`,`934-942`). Missing library feature. | High |
 | 281 | ICE from `annotations_of(^^member)` | Already-Fixed | `SemaReflect.cpp:1371-1377`; `p3394-annotations.pass.cpp:89-110`,`131-142`. | Medium |
 | 286 | Same-named function-template reflections collide | Confirmed-Open | `ItaniumMangle.cpp:4932-4937` mangles template name only, no overload discriminator. **Mangling cluster — see cross-link above.** | High |
-| 288 | Reentrant constant evaluation UAF | Confirmed-Open | `SemaExpr.cpp:18396-18611` — `ExpressionEvaluationContextRecord&` held across reallocation-prone calls; no fix or test. | High |
+| 288 | Reentrant constant evaluation UAF | Fixed | PR #289 ported; immediate-invocation and cleanup paths reacquire evaluation-context records after reentrant operations, with a 64-level reflection instantiation regression test. | High |
 | 290 | Entity-proxy queries + mangling crash | Fixed | PR #291 ported; proxy member predicates now return false and proxy NTTP mangling targets the underlying declaration; `entity-proxy-member-queries.pass.cpp`. | High |
 | 292 | `AttributedType` blinds function queries | Already-Fixed | Fix `1dee6d809821`; `ExprConstantMeta.cpp:1622-1629`; `attributed-function-type-queries.pass.cpp`. | High |
 | 294 | `can_substitute`/`substitute` crash on invalid formed types | Fixed | PR #295 ported; substitution APIs now return failure and suppress diagnostics for invalid formed types, with function/alias/variable/member-template regression coverage. | High |
@@ -331,7 +331,7 @@ checking this list first.**
 | 299 | Mangle deduction-guide reflections instead of hitting unreachable | #298 |
 | 295 | Report substitution failure instead of crashing when substitution forms an invalid type | #294 — Fixed; ported and verified in commit |
 | 291 | Handle entity-proxy reflections in member metafunctions and NTTP mangling | #290 — Fixed; ported and verified in commit |
-| 289 | Fix use-after-free: `ExprEvalContexts` reallocates under held record references during reentrant consteval evaluation | #288 |
+| 289 | Fix use-after-free: `ExprEvalContexts` reallocates under held record references during reentrant consteval evaluation | #288 — Fixed; ported and verified in commit |
 | 287 | Discriminate same-named function-template reflections in NTTP mangling | #286 |
 | 279 | Fix reflect unresolved lookup | — (check against #239/#204 overload-related issues) |
 | 277 | Fix canonicalization of dependent splice types | #276 — Fixed; ported and verified in commit |
@@ -384,6 +384,13 @@ the diff's "before" context byte-for-byte. High confidence the other 4 mangling-
 full application deferred to M4 (each needs its own build-gated commit).
 
 ## Session Log
+
+**2026-09-09 — M4 PR batch, PR #289.** Ported upstream PR #289 for issue #288. Immediate
+invocation handling and cleanup now reacquire `ExprEvalContexts` records after reentrant
+evaluation, preventing dangling references after `SmallVector` growth. Added the 64-level
+`consteval-reentrant-instantiation.pass.cpp` regression test; it passed. Built `clang` with
+`-j2`, rebuilt stale auxiliary tools, and ran the capped direct-lit Clang gate: 49,819 discovered,
+44,614 passed, exactly the five documented baseline failures.
 
 **2026-09-09 — M4 PR batch, PR #291.** Ported upstream PR #291 for issue #290. Entity-proxy
 member predicates now classify using-shadow proxies as false, and proxy reflection NTTP mangling
