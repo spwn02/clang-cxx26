@@ -56,6 +56,8 @@ struct member_query_record {
 
 template <class> struct template_query_record {};
 
+enum class enumerator_query_enum { first, second };
+
 consteval bool test_member_query_preconditions() {
   constexpr auto ctx = std::meta::access_context::current();
   return std::meta::members_of(^^member_query_record, ctx).size() >= 1 &&
@@ -76,6 +78,10 @@ consteval bool test_template_query_preconditions() {
          std::meta::template_arguments_of(r).size() == 1;
 }
 
+consteval bool test_enumerator_query_preconditions() {
+  return std::meta::enumerators_of(^^enumerator_query_enum).size() == 2;
+}
+
 static_assert(test_u8_constructor());
 static_assert(test_string_constructor());
 static_assert(test_throw_and_catch());
@@ -83,6 +89,7 @@ static_assert(test_layout_query_preconditions());
 static_assert(test_member_query_preconditions());
 static_assert(test_access_context_preconditions());
 static_assert(test_template_query_preconditions());
+static_assert(test_enumerator_query_preconditions());
 
 int main() {
   assert(test_u8_constructor());
@@ -92,4 +99,5 @@ int main() {
   assert(test_member_query_preconditions());
   assert(test_access_context_preconditions());
   assert(test_template_query_preconditions());
+  assert(test_enumerator_query_preconditions());
 }

@@ -1214,7 +1214,7 @@ consteval auto is_enumerable_type(info r) -> bool {
 
 consteval auto enumerators_of(info r) -> vector<info> {
   if (!is_enumerable_type(r))
-    throw "Reflection must represent an enumeration with a definition";
+    throw exception(u8"bad enumeration", ^^enumerators_of);
 
   using iterator =
     __range_of_infos::iterator<__range_of_infos::front_enumerator_of_fn,
