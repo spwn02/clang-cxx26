@@ -214,7 +214,7 @@ for readability, same as the source files:
 | 178 | `template for` over `integer_sequence` | Needs-Build-To-Verify | `ParseStmt.cpp:1980-1992`; repro in batch file. | Medium |
 | 180 | `static_assert(false)` ignored | Needs-Build-To-Verify | No fork-specific handling found; repro needs `substitute`+`if constexpr` build test. | Medium |
 | 181 | Non-copyable tuple in `template for` | Needs-Build-To-Verify | `ParseStmt.cpp:1980-1992` vs. `libcxx/include/meta:2638-2655`; repro in batch file. | Medium |
-| 182 | `template for` + `continue` ICE | Confirmed-Open | `CGStmt.cpp:1599-1617` doesn't account for `if constexpr`-discarded expansion instances; no regression test. | High |
+| 182 | `template for` + `continue` ICE | Confirmed-Open → Skipped 2026-09-09 | CodeGen currently creates one continuation destination per expansion instance before emitting discarded `if constexpr` bodies; fixing this needs instance-discard awareness in expansion control-flow lowering and a regression gate for break/continue nesting. No safe local patch was identified; deferred with the M3 consteval escalation cluster. | High |
 | 183 | ICE with imported reflection function | Already-Fixed | `module-imports.sh.cpp:1-17`; serialization fix `090152727f3f` (broader than original scenario). | Medium |
 | 184 | Spurious consteval-only diagnostic | Needs-Build-To-Verify | `SemaReflect.cpp:948-974`, `TreeTransform.h:9368-9419`; no test for the specific nested-lambda escalation case. | Medium |
 
