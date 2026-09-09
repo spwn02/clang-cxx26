@@ -333,6 +333,7 @@ for readability, same as the source files:
 | 185 | Annotation API changed in R1 | Confirmed-Open → Fixed 2026-09-09, commit `625ed6cec16a` | Added adopted `annotations_of_with_type(info, info)` as a compatibility-preserving forwarding wrapper over the existing filtered implementation, with focused coverage. Legacy APIs remain available for existing fork tests and callers. | High |
 | 187 | Compilation never ends | Needs-Build-To-Verify | No reproducer in snapshot, Godbolt-link only. | Low |
 | 188 | `display_string_of(dealias(...))` not constant expr | Confirmed-Open — deferred 2026-09-09 | Rebuilt the issue's sequence of `ranges::max_element` type displays. Current HEAD rejects `dealias`/double-`dealias` cases for template-heavy iterator types as not constant expressions. Requires dedicated evaluator/printer investigation; no narrow safe fix identified. | High |
+| NEW-1 | `display_string_of(null reflection)` may return an empty string | New conformance gap — found in M5 2026-09-10 | P2996R13 [meta.reflection.names] says `display_string_of(r)` returns an unspecified non-empty `string_view` for any reflection. The fork's null-reflection fallback is empty. This is not a Mandates/Constant-When diagnostic obligation; it needs an implementation fix and a positive regression test. | High |
 | 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
 | 200 | `parent_of` wrong for class-template aliases | Confirmed-Open → Already-Fixed 2026-09-09 | Direct probe `static_assert(parent_of(^^T::A) == ^^T)` passes. Existing `findTypeDecl` preserves the top-level `UsingType` alias before template-specialization fallback; the stale deferral note incorrectly described the current checkout. | High |
 | 203 | Unbalanced diagnostic parentheses | Already-Fixed | Direct malformed-range probe now emits a balanced diagnostic (`cannot expand over a function 'void ()'; did you mean to call it with no arguments?`) with no unbalanced-parenthesis output. | High |
@@ -498,7 +499,7 @@ M5 scoping is complete. The paper-by-paper inventory of every identified Constra
 Throws/Constant-When ill-formed condition, existing coverage, implementation blockers, row counts,
 and recommended facility-first execution plan is in
 [`reflection-audit/M5-diagnostic-checklist.md`](reflection-audit/M5-diagnostic-checklist.md).
-The inventory records **109 conditions: 23 covered, 68 needing new tests, and 18 blocked on an
+The inventory records **108 checklist conditions: 28 covered, 62 needing new tests, 18 blocked on an
 unimplemented facility or P3560R2 exception plumbing**. Future M5 sessions must update checklist
 rows as tests land and append their results to this tracker’s Session Log.
 
@@ -830,3 +831,11 @@ remain open because the current display-string/source-location implementation re
 or empty results for null reflections instead of diagnosing. Checklist totals are now 23 covered,
 68 needing new tests, and 18 blocked. See
 `docs/reflection-audit/codex-m5-batch3-report.md`.
+
+**2026-09-10 — M5 batch 4.** Checked P2996R13 [meta.reflection.names]: `display_string_of` must
+return a non-empty view for any reflection, so the null-reflection empty fallback is recorded as
+new gap NEW-1; `source_location_of` has an explicit result rule and does not require a diagnostic
+for null reflections, so checklist row 2996-10 is Not-Applicable. Added and ran the P1306R5
+negative test batch, covering rows 1306-01 through 1306-05; libc++ lit passed 1/1 with all
+`-verify` diagnostics matched. See
+`docs/reflection-audit/codex-m5-batch4-report.md`.

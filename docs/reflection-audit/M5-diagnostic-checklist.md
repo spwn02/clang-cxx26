@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 109 | 23 | 68 | 18 |
+| 108 | 28 | 62 | 18 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -40,8 +40,8 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 | 2996-06 | `reflect_function<T>`: `T` is a function type. | Covered | [m5-p2996-batch2.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch2.verify.cpp) |
 | 2996-07 | `reflect_function(fn)`: `fn` is suitable as a constant template argument for `T&`. | Covered | [m5-p2996-batch2.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch2.verify.cpp) |
 | 2996-08 | `identifier_of(r)` / `u8identifier_of(r)`: `r` represents a declaration with an identifier (including the specified operator/literal-operator cases). | Covered | [m5-p2996-batch2.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch2.verify.cpp) |
-| 2996-09 | `display_string_of(r)`: `r` represents a construct for which a display string can be produced. | Needs-New-Test | — |
-| 2996-10 | `source_location_of(r)`: `r` represents a declaration with a source location. | Needs-New-Test | — |
+| 2996-09 | `display_string_of(r)`: every reflection must produce a non-empty display string. | Needs-New-Test | P2996R13 requires a non-empty result even for a null reflection; the fork currently returns an empty fallback. This is a conformance gap, not a diagnostic-test row. |
+| 2996-10 | `source_location_of(r)`: null and other non-declaration reflections may produce the specified empty/implementation-defined location. | Not-Applicable | P2996R13 specifies a result for any `info`; it does not require a Mandates/Constant-When diagnostic for null reflections. |
 | 2996-11 | `type_of(r)`: `r` represents a construct having a type, and the type is available under the clause's completeness/containing-enum rules. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
 | 2996-12 | `parent_of(r)`: `r` represents a construct with a parent. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
 | 2996-13 | `object_of(r)`: `r` represents a variable or object whose object can be designated. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
@@ -88,11 +88,11 @@ Normative source: [P1306R5](https://wg21.link/P1306R5).
 
 | ID | Condition | Status | Existing coverage |
 |---|---|---|---|
-| 1306-01 | The expansion initializer/range must be a constant expression when the expansion is instantiated. | Needs-New-Test | — |
-| 1306-02 | The range-based form requires a valid `begin`/`end` range and dereferenceable iteration for the generated expansion. | Needs-New-Test | — |
-| 1306-03 | The for-range declaration may contain only the permitted declaration specifiers. | Needs-New-Test | — |
-| 1306-04 | Labels and control flow that escape the expansion statement are ill-formed. | Needs-New-Test | — |
-| 1306-05 | Destructuring expansion requires an initializer usable for the generated structured binding. | Needs-New-Test | — |
+| 1306-01 | The expansion initializer/range must be a constant expression when the expansion is instantiated. | Covered | [m5-p1306-batch4.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p1306-batch4.verify.cpp) |
+| 1306-02 | The range-based form requires a valid `begin`/`end` range and dereferenceable iteration for the generated expansion. | Covered | [m5-p1306-batch4.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p1306-batch4.verify.cpp) |
+| 1306-03 | The for-range declaration may contain only the permitted declaration specifiers. | Covered | [m5-p1306-batch4.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p1306-batch4.verify.cpp) |
+| 1306-04 | Labels and control flow that escape the expansion statement are ill-formed. | Covered | [m5-p1306-batch4.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p1306-batch4.verify.cpp) |
+| 1306-05 | Destructuring expansion requires an initializer usable for the generated structured binding. | Covered | [m5-p1306-batch4.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p1306-batch4.verify.cpp) |
 
 ## P3096R12 — Function Parameter Reflection
 
