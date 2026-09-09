@@ -134,6 +134,12 @@ static bool parent_of(APValue &Result, ASTContext &C, MetaActions &Meta,
                       QualType ResultTy, SourceRange Range,
                       ArrayRef<Expr *> Args, Decl *ContainingDecl);
 
+static bool has_parent(APValue &Result, ASTContext &C, MetaActions &Meta,
+                       EvalFn Evaluator, DiagFn Diagnoser,
+                       bool AllowInjection, QualType ResultTy,
+                       SourceRange Range, ArrayRef<Expr *> Args,
+                       Decl *ContainingDecl);
+
 static bool underlying_entity_of(APValue &Result, ASTContext &C,
                                  MetaActions &Meta, EvalFn Evaluator,
                                  DiagFn Diagnoser, bool AllowInjection,
@@ -840,6 +846,7 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_sourceLoc, 1, 1, source_location_of },
   { Metafunction::MFRK_metaInfo, 1, 1, type_of },
   { Metafunction::MFRK_metaInfo, 1, 1, parent_of },
+  { Metafunction::MFRK_bool, 1, 1, has_parent },
   { Metafunction::MFRK_metaInfo, 1, 1, underlying_entity_of },
   { Metafunction::MFRK_metaInfo, 1, 1, proxied_entity_of },
   { Metafunction::MFRK_metaInfo, 1, 1, object_of },
@@ -3103,6 +3110,64 @@ bool parent_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   }
   }
   llvm_unreachable("unknown reflection kind");
+}
+
+bool has_parent(APValue &Result, ASTContext &C, MetaActions &Meta,
+                EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                Decl *ContainingDecl) {
+  assert(Args[0]->getType()->isReflectionType());
+  assert(ResultTy == C.BoolTy);
+
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+
+  RV = MaybeUnproxy(C, RV);
+  APValue Parent;
+  unsigned Error = 0;
+  switch (RV.getReflectionKind()) {
+  case ReflectionKind::Type: {
+    TemplateName TName = findTemplateOfType(RV.getReflectedType());
+    Error = parentOf(Parent, TName.isNull()
+                               ? findTypeDecl(RV.getReflectedType())
+                               : TName.getAsTemplateDecl());
+    break;
+  }
+  case ReflectionKind::Declaration: {
+    TemplateName TName = findTemplateOfDecl(RV.getReflectedDecl());
+    Decl *D = TName.isNull() ? cast<Decl>(RV.getReflectedDecl())
+                             : cast<Decl>(TName.getAsTemplateDecl());
+    Error = parentOf(Parent, D);
+    break;
+  }
+  case ReflectionKind::Template:
+    Error = parentOf(Parent, RV.getReflectedTemplate().getAsTemplateDecl());
+    break;
+  case ReflectionKind::Parameter:
+    Error = parentOf(Parent, RV.getReflectedParameter());
+    break;
+  case ReflectionKind::Namespace:
+    if (!isa<TranslationUnitDecl>(RV.getReflectedNamespace()))
+      Error = parentOf(Parent, RV.getReflectedNamespace());
+    else
+      Error = diag::metafn_parent_of_undeclared;
+    break;
+  case ReflectionKind::EntityProxy:
+    Error = parentOf(Parent, RV.getReflectedEntityProxy());
+    break;
+  case ReflectionKind::BaseSpecifier:
+    return SetAndSucceed(Result, makeBool(C, true));
+  case ReflectionKind::Null:
+  case ReflectionKind::Object:
+  case ReflectionKind::Value:
+  case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::Annotation:
+  case ReflectionKind::Attribute:
+    Error = diag::metafn_parent_of_undeclared;
+    break;
+  }
+  return SetAndSucceed(Result, makeBool(C, Error == 0));
 }
 
 bool underlying_entity_of(APValue &Result, ASTContext &C, MetaActions &Meta,
