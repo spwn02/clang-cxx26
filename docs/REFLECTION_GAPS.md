@@ -64,6 +64,26 @@ both builds AND test runs, for the rest of this epic. Re-check `free -h` before 
 if it's been a while since the last one — available memory on a shared desktop fluctuates with
 whatever else the user is doing.
 
+**Recurring gotcha: PCH/tool-binary staleness causes false-alarm failures, distinct from OOM.**
+Only `ninja -C build-nyx clang` gets rebuilt after most source edits (it's the fast, targeted
+command used throughout this epic) — but `c-index-test`, `clang-extdef-mapping`,
+`clang-scan-deps`, and other test-suite tool binaries do NOT get rebuilt alongside it, and go
+stale relative to `clang`'s PCH/serialization format. Symptom: a validation run shows ~15-20 new
+"unable to load precompiled file" failures concentrated in `ClangScanDeps/*`, `Index/Core/*-pch*`,
+`Interpreter/*pch*`, `Tooling/pch.cpp`, `Analysis/func-mapping-test.cpp` — check tool binary mtimes
+(`ls -la build-nyx/bin/{clang-22,c-index-test,clang-extdef-mapping,clang-scan-deps}`) before
+concluding these are real regressions; if `clang-22` is newer than the others, rebuild the stale
+ones (`ninja -C build-nyx c-index-test clang-extdef-mapping clang-scan-deps clang-import-test`,
+same -j discipline) and re-verify. This is the same root cause as the earlier 308-failure scare.
+
+**2026-09-09, later same day: repeated OOM kills even at `-j1`** during an attempt to rebuild
+those stale tools — `free -h` showed only 2.5G free with Chrome (dozens of tabs/processes) and
+Discord/Electron actively consuming memory; the user is visibly using the machine heavily right
+now. **When even `-j1` gets OOM-killed, stop retrying immediately and defer the build to a later
+heartbeat** rather than hammering it — repeated retries under real memory pressure risk degrading
+the user's actual foreground session, which matters more than this epic's throughput. Check
+`free -h` and `ps --sort=-rss` first on the next attempt; proceed once there's real headroom.
+
 ## Paper-by-paper audit (M2)
 
 Full list: P2996R13, P1306R5, P3096R12, P3293R3, P3394R4, P3491R3, P3560R2 (original 7, adopted
