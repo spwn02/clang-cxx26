@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 109 | 10 | 81 | 18 |
+| 109 | 14 | 77 | 18 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -32,10 +32,10 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 
 | ID | Condition | Status | Existing coverage |
 |---|---|---|---|
-| 2996-01 | `reflect_constant<T>`: `T` is copy-constructible. | Needs-New-Test | — |
-| 2996-02 | `reflect_constant<T>`: `T` is cv-unqualified structural and not a reference type. | Needs-New-Test | — |
-| 2996-03 | `reflect_constant(expr)`: the invented template argument object can be formed; otherwise the call is not a constant subexpression. | Needs-New-Test | — |
-| 2996-04 | `reflect_object<T>`: `T` is an object type. | Needs-New-Test | — |
+| 2996-01 | `reflect_constant<T>`: `T` is copy-constructible. | Covered | [m5-p2996-batch1.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch1.verify.cpp) |
+| 2996-02 | `reflect_constant<T>`: `T` is cv-unqualified structural and not a reference type. | Covered | [m5-p2996-batch1.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch1.verify.cpp) |
+| 2996-03 | `reflect_constant(expr)`: the invented template argument object can be formed; otherwise the call is not a constant subexpression. | Covered | [m5-p2996-batch1.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch1.verify.cpp) |
+| 2996-04 | `reflect_object<T>`: `T` is an object type. | Covered | [m5-p2996-batch1.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch1.verify.cpp) |
 | 2996-05 | `reflect_object(expr)`: `expr` is suitable as a constant template argument for `T&`. | Needs-New-Test | — |
 | 2996-06 | `reflect_function<T>`: `T` is a function type. | Needs-New-Test | — |
 | 2996-07 | `reflect_function(fn)`: `fn` is suitable as a constant template argument for `T&`. | Needs-New-Test | — |
