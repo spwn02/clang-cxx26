@@ -29,11 +29,15 @@ Date: 2026-09-09
   - Verification: namespace-member libc++ regression passed; `clang` built at `-j2`; final capped
     direct-lit Clang gate returned exactly the five documented pre-existing failures.
 - Issue #311 / upstream PR #315: builtin-template diagnostic ICE.
-  - Commit: pending commit for this report update.
+  - Commit: `aafe2c1ea7b6`.
   - Verification: builtin-template diagnostic libc++ regression passed; `clang` built at `-j2`;
     final capped direct-lit Clang gate returned exactly the five documented pre-existing failures.
+- Issue #314 / upstream PR #318: LP64 NEON vector mangling ICE.
+  - Commit: pending commit for this report update.
+  - Verification: focused AArch64 NEON mangling test passed; `clang` built at `-j2`; final capped
+    direct-lit Clang gate returned exactly the five documented pre-existing failures.
 
 ## Not attempted
 
-PRs #318, #323, #328, #352, and #353 remain in the requested
+PRs #323, #328, #352, and #353 remain in the requested
 order.

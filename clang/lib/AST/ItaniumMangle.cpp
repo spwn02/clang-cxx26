@@ -3933,6 +3933,8 @@ void CXXNameMangler::mangleNeonVectorType(const VectorType *T) {
     case BuiltinType::UShort:
       EltName = "poly16_t";
       break;
+    case BuiltinType::Long:
+    case BuiltinType::ULong:
     case BuiltinType::LongLong:
     case BuiltinType::ULongLong:
       EltName = "poly64_t";
@@ -3947,6 +3949,8 @@ void CXXNameMangler::mangleNeonVectorType(const VectorType *T) {
     case BuiltinType::UShort:    EltName = "uint16_t"; break;
     case BuiltinType::Int:       EltName = "int32_t"; break;
     case BuiltinType::UInt:      EltName = "uint32_t"; break;
+    case BuiltinType::Long:      EltName = "int64_t"; break;
+    case BuiltinType::ULong:     EltName = "uint64_t"; break;
     case BuiltinType::LongLong:  EltName = "int64_t"; break;
     case BuiltinType::ULongLong: EltName = "uint64_t"; break;
     case BuiltinType::Double:    EltName = "float64_t"; break;

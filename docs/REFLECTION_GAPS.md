@@ -287,7 +287,7 @@ for readability, same as the source files:
 | 311 | Builtin-template diagnostic ICE | Fixed | PR #315 ported; `DescriptionOf` handles builtin and template-template-parameter reflections with a safe fallback, with a builtin-template diagnostic regression test. | High |
 | 312 | Deduction-guide specialization mangling ICE | Confirmed-Open | `ItaniumMangle.cpp:4898-4917`, `1444`, `1738` — `llvm_unreachable("Can't mangle a deduction guide name!")`. **Mangling cluster.** | High |
 | 313 | `members_of` truncates after linkage specifier | Already-Fixed | `ExprConstantMeta.cpp:1551-1560` already descends into `LinkageSpecDecl`. | High |
-| 314 | LP64 NEON vector mangling ICE | Confirmed-Open | `ItaniumMangle.cpp:3941-3959` — `long` on LP64 uncovered. Reflection-independent but real. | High |
+| 314 | LP64 NEON vector mangling ICE | Fixed | PR #318 ported; LP64 `long`/`unsigned long` NEON elements use the 64-bit ABI spellings, with focused AArch64 mangling coverage. | High |
 | 319 | `op_caret_equals` symbol typo | Confirmed-Open | Both operator tables still use `"^"` at the `op_caret_equals` slot (`libcxx/include/meta:906-925`). | High |
 | 321 | 32K+ template packs miscompile | Confirmed-Open | `SubstNonTypeTemplateParmPackExpr::NumArguments` still a 15-bit bitfield (`ExprCXX.h:4761-4778`). | High |
 | 322 | Parameter-name result depends on instantiation | Already-Fixed | Fix `fad02ea72cc7`; `ExprConstantMeta.cpp:1130-1148`; `param-name-consistency-instantiation.pass.cpp`. | High |
@@ -321,7 +321,7 @@ checking this list first.**
 | 328 | fix crash on expansion statement over an overload set | #327, possibly #326 |
 | 323 | Fix silent miscompile of template argument packs with 2^15+ elements | #321 |
 | 320 | Fix `symbol_of`/`u8symbol_of` table entry for `op_caret_equals` | #319 |
-| 318 | Handle LP64 long-element NEON vectors in the Itanium mangler | #314 |
+| 318 | Handle LP64 long-element NEON vectors in the Itanium mangler | #314 — Fixed; ported and verified in commit |
 | 317 | Don't truncate member enumeration at linkage-spec typedef tags | #313 (already-fixed here — check if this fork's fix differs/is equivalent) |
 | 316 | Mangle deduction-guide specialization reflections | #312 |
 | 315 | Describe builtin templates instead of crashing | #311 — Fixed; ported and verified in commit |
@@ -405,6 +405,12 @@ unanticipated template kinds instead of reaching `llvm_unreachable`. Added
 `description-of-template-kinds.verify.cpp`; it passed. Built `clang` with `-j2`, rebuilt stale
 auxiliary tools, and ran the capped direct-lit Clang gate: 49,819 discovered, 44,614 passed,
 exactly the five documented baseline failures.
+
+**2026-09-09 — M4 PR batch, PR #318.** Ported upstream PR #318 for issue #314. Itanium NEON
+mangling now maps LP64 `long` and `unsigned long` elements to the 64-bit ABI names for both
+polynomial and ordinary vectors. The focused AArch64 mangling test passed. Built `clang` with
+`-j2`, rebuilt stale auxiliary tools, and ran the capped direct-lit Clang gate: 49,819 discovered,
+44,614 passed, exactly the five documented baseline failures.
 
 **2026-09-09 — M4 PR batch, PR #291.** Ported upstream PR #291 for issue #290. Entity-proxy
 member predicates now classify using-shadow proxies as false, and proxy reflection NTTP mangling
