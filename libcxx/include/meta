@@ -359,6 +359,7 @@ consteval auto variable_of(info) -> info;
 // annotations (P3394)
 consteval auto annotations_of(info) -> vector<info>;
 consteval auto annotations_of(info, info) -> vector<info>;
+consteval auto annotations_of_with_type(info, info) -> vector<info>;
 template <typename T>
   consteval auto annotation_of_type(info) -> optional<info>;
 consteval auto is_annotation(info) -> bool;
@@ -2108,6 +2109,11 @@ consteval auto annotations_of(info r, info ty) -> vector<info> {
   return __filtered(annotations_of(r), [=](info annot) {
     return remove_const(type_of(annot)) == remove_const(ty);
   });
+}
+
+// Returns annotations of the reflected entity whose type matches ty.
+consteval auto annotations_of_with_type(info r, info ty) -> vector<info> {
+  return annotations_of(r, ty);
 }
 
 template<typename T>
