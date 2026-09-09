@@ -1169,8 +1169,8 @@ consteval auto is_namespace(info r) -> bool {
 }
 
 consteval auto bases_of(info r, access_context ctx) -> vector<info> {
-  if (is_namespace(r) || !is_class_type(r))
-    throw exception(u8"bad type", ^^bases_of);
+  if (is_namespace(r))
+    throw "Namespaces cannot have base classes";
 
   using iterator =
     __range_of_infos::iterator<__range_of_infos::front_base_of_fn,
@@ -1188,16 +1188,16 @@ consteval auto is_variable(info r) -> bool {
 
 consteval auto static_data_members_of(info r,
                                       access_context ctx) -> vector<info> {
-  if (!is_namespace(r) && !is_class_type(r))
-    throw exception(u8"bad type", ^^static_data_members_of);
+  if (is_namespace(r))
+    throw "Namespaces cannot have static data members";
 
   return __filtered(members_of(r, ctx), is_variable);
 }
 
 consteval auto nonstatic_data_members_of(info r,
                                          access_context ctx) -> vector<info> {
-  if (!is_namespace(r) && !is_class_type(r))
-    throw exception(u8"bad type", ^^nonstatic_data_members_of);
+  if (is_namespace(r))
+    throw "Namespaces cannot have non-static data members";
 
   return __filtered(members_of(r, ctx), is_nonstatic_data_member);
 }
@@ -1569,6 +1569,8 @@ consteval auto __is_size_operand(info r, bool allow_bit_field) -> bool {
     return is_complete_type(r);
   if (is_object(r) || is_value(r) || is_base(r) || is_data_member_spec(r))
     return true;
+  if (is_bit_field(r))
+    return allow_bit_field;
   if (is_variable(r))
     return !extract<bool>(substitute(^^is_reference_v, {type_of(r)}));
   return is_nonstatic_data_member(r) &&
@@ -1596,8 +1598,7 @@ consteval auto alignment_of(info r) -> size_t {
   } else if (is_object(r) || is_base(r) || is_data_member_spec(r)) {
     // valid
   } else if (is_variable(r)) {
-    if (extract<bool>(substitute(^^is_reference_v, {type_of(r)})))
-      throw exception(u8"bad", ^^alignment_of);
+    // valid
   } else if (!is_nonstatic_data_member(r) || is_bit_field(r)) {
     throw exception(u8"bad", ^^alignment_of);
   }
@@ -2127,8 +2128,6 @@ consteval auto __workaround_expand_compiler_builtins(info type) -> info {
 #if __has_feature(parameter_reflection)
 
 consteval auto parameters_of(info r) -> vector<info> {
-  if (!is_function(r) && !is_function_type(r))
-    throw exception(u8"bad function", ^^parameters_of);
   using iterator =
     __range_of_infos::iterator<__range_of_infos::front_parameter_of_fn,
                                 __range_of_infos::next_parameter_of_fn,
@@ -2155,8 +2154,6 @@ consteval auto is_function_parameter(info r) -> bool {
 }
 
 consteval auto return_type_of(info r) -> info {
-  if (!is_function(r) && !is_function_type(r))
-    throw exception(u8"bad function", ^^return_type_of);
   return __metafunction(detail::__metafn_return_type_of, r);
 }
 
