@@ -682,3 +682,14 @@ expansion statements; parser rejection makes the existing raw-label CodeGen path
 Focused reflection tests passed 4/4. The validation baseline for this session is 23 known
 failures (five consteval-escalation tests plus 18 ASTUnit/libclang PCH consumer failures), not
 five. Full audit and effort estimates: `docs/reflection-audit/codex-m4-hard-report.md`.
+
+**Verification note (2026-09-09, later): `check-clang :: Reflection` confirmed clean (20/20)**
+directly. `check-clang :: SemaCXX` (the suite most relevant to #334's `MarkMemberReferenced`
+change, 1407 tests) could **not** be run to completion — repeated OOM kills within the first
+5-25 tests across 3 separate attempts, all at `-j1`, on this session's memory-constrained shared
+desktop. **Partial evidence gathered across those 3 attempts shows zero unexpected failures** —
+only the two already-known baseline tests (`cxx2a-constexpr-dynalloc.cpp`,
+`cxx2b-consteval-propagate.cpp`) appeared, each time. Combined with Codex's own focused-test pass
+(4/4) at commit time, this is treated as reasonably-verified but **not exhaustively gate-confirmed
+for the full SemaCXX suite** — flag this explicitly if #334's fix is ever suspected of causing a
+downstream issue; a genuine uninterrupted `SemaCXX` run is still owed.
