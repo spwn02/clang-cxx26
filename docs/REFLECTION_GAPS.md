@@ -334,6 +334,8 @@ for readability, same as the source files:
 | 187 | Compilation never ends | Needs-Build-To-Verify | No reproducer in snapshot, Godbolt-link only. | Low |
 | 188 | `display_string_of(dealias(...))` not constant expr | Confirmed-Open — deferred 2026-09-09 | Rebuilt the issue's sequence of `ranges::max_element` type displays. Current HEAD rejects `dealias`/double-`dealias` cases for template-heavy iterator types as not constant expressions. Requires dedicated evaluator/printer investigation; no narrow safe fix identified. | High |
 | NEW-1 | `display_string_of(null reflection)` may return an empty string | New conformance gap — found in M5 2026-09-10 | P2996R13 [meta.reflection.names] says `display_string_of(r)` returns an unspecified non-empty `string_view` for any reflection. The fork's null-reflection fallback is empty. This is not a Mandates/Constant-When diagnostic obligation; it needs an implementation fix and a positive regression test. | High |
+| NEW-2 | Annotation on empty-declaration is accepted | New conformance gap — found in M5 2026-09-10 | P3394R4 prohibits an annotation in an empty-declaration's attribute-specifier-seq. Direct probe `[[=1]];` with `-fannotation-attributes` was accepted by the current front end, so no passing `-verify` test can honestly be added until the diagnostic exists. | High |
+| NEW-3 | Invalid `annotations_of_with_type` arguments are accepted | New conformance gap — found in M5 2026-09-10 | P3394R4 requires the item and filter arguments to satisfy the specified reflection domains. Direct probes with `annotations_of_with_type(^^int, ^^void)` and an invalid target were accepted and produced empty results rather than diagnostics. | High |
 | 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
 | 200 | `parent_of` wrong for class-template aliases | Confirmed-Open → Already-Fixed 2026-09-09 | Direct probe `static_assert(parent_of(^^T::A) == ^^T)` passes. Existing `findTypeDecl` preserves the top-level `UsingType` alias before template-specialization fallback; the stale deferral note incorrectly described the current checkout. | High |
 | 203 | Unbalanced diagnostic parentheses | Already-Fixed | Direct malformed-range probe now emits a balanced diagnostic (`cannot expand over a function 'void ()'; did you mean to call it with no arguments?`) with no unbalanced-parenthesis output. | High |
@@ -847,3 +849,9 @@ and the two total predicates return false. Row 3096-07 is covered by the existin
 run passed 1/1 with all expected diagnostics matched. Row 3096-06 remains Needs-New-Test because
 ordinary declaration queries are valid outside parameter reflections; no unsupported rejection
 was fabricated. Checklist totals are now 34 covered, 56 needing new tests, and 18 blocked.
+
+**2026-09-10 — M5 batch 5 continued.** Added `m5-p3394-batch5.verify.cpp`, covering P3394R4
+rows 3394-01, 3394-04, and 3394-06; the focused libc++ lit run passed 1/1 with all expected
+diagnostics matched. Existing `annotations-regression.verify.cpp` covers 3394-02. Probes for
+3394-03 and 3394-05 exposed new implementation gaps NEW-2 and NEW-3 and were not fabricated into
+passing tests. Checklist totals are now 37 covered, 53 needing new tests, and 18 blocked.

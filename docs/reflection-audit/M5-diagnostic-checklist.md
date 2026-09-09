@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 108 | 34 | 56 | 18 |
+| 108 | 37 | 53 | 18 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -124,12 +124,12 @@ Normative source: [P3394R4](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/
 
 | ID | Condition | Status | Existing coverage |
 |---|---|---|---|
-| 3394-01 | The annotation operand is a constant expression and, after the required conversion, has structural type. | Needs-New-Test | — |
+| 3394-01 | The annotation operand is a constant expression and, after the required conversion, has structural type. | Covered | [m5-p3394-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3394-batch5.verify.cpp) |
 | 3394-02 | An annotation cannot appear in the attribute-specifier-seq of a type-specifier-seq. | Covered | [annotations-regression.verify.cpp](../../libcxx/test/std/experimental/reflection/annotations-regression.verify.cpp) |
-| 3394-03 | An annotation cannot appear on an empty-declaration. | Needs-New-Test | — |
-| 3394-04 | An annotation cannot be mixed with ordinary attributes in one attribute-specifier. | Needs-New-Test | — |
-| 3394-05 | `annotations_of_with_type(item, type)` returns only annotations whose `type_of` equals `type`; invalid item/type reflections are ill-formed as specified. | Needs-New-Test | — |
-| 3394-06 | Annotation accumulation and order preservation across repeated annotations and redeclarations must be diagnosed/rejected correctly when the syntax is invalid. | Needs-New-Test | — |
+| 3394-03 | An annotation cannot appear on an empty-declaration. | Needs-New-Test — NEW-2 | `[[=1]];` was accepted; see NEW-2. |
+| 3394-04 | An annotation cannot be mixed with ordinary attributes in one attribute-specifier. | Covered | [m5-p3394-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3394-batch5.verify.cpp) |
+| 3394-05 | `annotations_of_with_type(item, type)` returns only annotations whose `type_of` equals `type`; invalid item/type reflections are ill-formed as specified. | Needs-New-Test — NEW-3 | Invalid item/type probes were accepted; see NEW-3. |
+| 3394-06 | Annotation accumulation and order preservation across repeated annotations and redeclarations must be diagnosed/rejected correctly when the syntax is invalid. | Covered | [m5-p3394-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3394-batch5.verify.cpp), [p3394-annotations.pass.cpp](../../libcxx/test/std/experimental/reflection/p3394-annotations.pass.cpp) |
 
 ## P3491R3 — `define_static_{string,object,array}`
 
