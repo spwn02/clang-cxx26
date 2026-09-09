@@ -42,11 +42,15 @@ Date: 2026-09-09
     at `-j2`; final capped direct-lit Clang gate returned exactly the five documented pre-existing
     failures.
 - Issue #327 / upstream PR #328: expansion statement ICE on unresolved overload range.
-  - Commit: pending commit for this report update.
+  - Commit: `c1d0c5075bbb`.
   - Verification: focused overload-range diagnostic regression passed; `clang` built at `-j2`; final
     capped direct-lit Clang gate returned exactly the five documented pre-existing failures.
+- Issue #350 / upstream PR #352: `->[:member:]` assertion with lvalue pointer.
+  - Commit: pending commit for this report update.
+  - Verification: extended `splice-exprs.cpp` regression passed; `clang` built at `-j2`; final capped
+    direct-lit Clang gate returned exactly the five documented pre-existing failures.
 
 ## Not attempted
 
-PRs #352 and #353 remain in the requested
+PR #353 remains in the requested
 order.

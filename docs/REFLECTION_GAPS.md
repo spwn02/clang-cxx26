@@ -300,7 +300,7 @@ for readability, same as the source files:
 | 334 | Static member call inherits consteval-only object restriction | Confirmed-Open | `ExprConstant.cpp:2405-2410` doesn't distinguish unevaluated object expression. | Medium |
 | 342 | `^^derived::operator()` rejects using-declaration | Confirmed-Open | `SemaReflect.cpp:1042-1050,1320-1339` unconditional rejection, no operator-function-id distinction. | High |
 | 346 | Spurious warning for reflected reference type | Needs-Build-To-Verify | `DiagnosticParseKinds.td:1828-1829`, `ParseReflect.cpp:149`; needs build to confirm type-info availability at warn site. | Medium |
-| 350 | `->[:member:]` assertion with lvalue pointer | Confirmed-Open | `SemaExprMember.cpp:1233-1257,1330-1335` — no lvalue-to-rvalue conversion before `IsArrow` build. | High |
+| 350 | `->[:member:]` assertion with lvalue pointer | Fixed | PR #352 ported; splice member bases undergo the ordinary member-access conversions, covering lvalue pointers and array decay. | High |
 
 ## Upstream PR triage (M1)
 
@@ -313,7 +313,7 @@ checking this list first.**
 | PR # | Title | Maps to issue(s) |
 |---:|---|---|
 | 353 | Reflect the introduced function when an id-expression names a using-declarator | #342 |
-| 352 | Convert the base of a member splice before building the member expression | #350 |
+| 352 | Convert the base of a member splice before building the member expression | #350 — Fixed; ported and verified in commit |
 | 347 | Remove warning if `&` is not directly in code | #346 (likely) |
 | 345 | Allow reflections of values designating immediate functions | — (check against #184/#334 consteval-only cluster) |
 | 340 | Add `std::meta::has_c_language_linkage` | — (new facility, check against P2996R13 synopsis) |
@@ -442,6 +442,13 @@ expansion and ADL candidate construction; placeholder ranges are checked first. 
 diagnostic to this fork. Built `clang` with `-j2`, rebuilt stale auxiliary tools, and ran the capped
 direct-lit Clang gate: 49,820 discovered, 44,615 passed, exactly the five documented baseline
 failures.
+
+**2026-09-09 — M4 PR batch, PR #352.** Ported upstream PR #352 for issue #350. Member splice
+bases now use `PerformMemberExprBaseConversion`, matching ordinary `->` access for lvalue pointer
+conversion and array-to-pointer decay. Extended `splice-exprs.cpp` with pointer, array, consteval,
+and dependent-splice cases; it passed. Built `clang` with `-j2`, rebuilt stale auxiliary tools, and
+ran the capped direct-lit Clang gate: 49,820 discovered, 44,615 passed, exactly the five documented
+baseline failures.
 
 **2026-09-09 — M4 PR batch, PR #310.** Ported upstream PR #310 for issue #309. Dependent
 `CXXSpliceExpr` nodes with no model are now classified from their own value kind instead of being
