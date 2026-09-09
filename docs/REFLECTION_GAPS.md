@@ -636,3 +636,12 @@ baseline tests (`PR98671.cpp`, `builtin-is-within-lifetime.cpp`, `constant-expre
 `cxx2a-constexpr-dynalloc.cpp`, and `cxx2b-consteval-propagate.cpp`); the other three were stale
 `clang-repl`/`clang-check` PCH consumers and passed after those binaries were rebuilt. Final
 targeted rerun of those three plus all 16 Clang reflection tests passed 21/21.
+
+**2026-09-09 — P3795R2 piece 3.** Added `data_member_options.annotations`, ABI threading,
+constant validation, generated-member annotation attributes, and focused coverage. Commit
+`47e5bba54f7e`; focused libc++ test passed 1/1. A serial current-HEAD full gate was started with
+the Python `fork` workaround required by this sandbox and reproduced the five established
+baseline failures first, but was interrupted after negligible progress because the 23,495-test
+`-j1` sweep was taking tens of seconds per test. No reflection failure appeared before stopping;
+the current-HEAD definitive gate remains outstanding. Combined evidence is in
+`docs/reflection-audit/codex-p3795r2-piece3-and-gate-report.md`.
