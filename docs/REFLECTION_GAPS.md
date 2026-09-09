@@ -221,7 +221,7 @@ for readability, same as the source files:
 **185-225:**
 | # | Title | Disposition | Evidence | Conf. |
 |---:|---|---|---|---|
-| 185 | Annotation API changed in R1 | Confirmed-Open → Fixed 2026-09-09, commit pending | Added adopted `annotations_of_with_type(info, info)` as a compatibility-preserving forwarding wrapper over the existing filtered implementation, with focused coverage. Legacy APIs remain available for existing fork tests and callers. | High |
+| 185 | Annotation API changed in R1 | Confirmed-Open → Fixed 2026-09-09, commit `625ed6cec16a` | Added adopted `annotations_of_with_type(info, info)` as a compatibility-preserving forwarding wrapper over the existing filtered implementation, with focused coverage. Legacy APIs remain available for existing fork tests and callers. | High |
 | 187 | Compilation never ends | Needs-Build-To-Verify | No reproducer in snapshot, Godbolt-link only. | Low |
 | 188 | `display_string_of(dealias(...))` not constant expr | Needs-Build-To-Verify | `libcxx/include/meta:3303-3308`, `2960-2990`; no regression test for this combination. | Medium |
 | 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
