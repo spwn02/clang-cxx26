@@ -326,20 +326,20 @@ for readability, same as the source files:
 |---:|---|---|---|---|
 | 185 | Annotation API changed in R1 | Confirmed-Open → Fixed 2026-09-09, commit `625ed6cec16a` | Added adopted `annotations_of_with_type(info, info)` as a compatibility-preserving forwarding wrapper over the existing filtered implementation, with focused coverage. Legacy APIs remain available for existing fork tests and callers. | High |
 | 187 | Compilation never ends | Needs-Build-To-Verify | No reproducer in snapshot, Godbolt-link only. | Low |
-| 188 | `display_string_of(dealias(...))` not constant expr | Needs-Build-To-Verify | `libcxx/include/meta:3303-3308`, `2960-2990`; no regression test for this combination. | Medium |
+| 188 | `display_string_of(dealias(...))` not constant expr | Confirmed-Open | Rebuilt the issue's sequence of `ranges::max_element` type displays. Current HEAD rejects `dealias`/double-`dealias` cases for template-heavy iterator types as not constant expressions. Deferred to M4 backlog. | High |
 | 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
 | 200 | `parent_of` wrong for class-template aliases | Confirmed-Open → Already-Fixed 2026-09-09 | Direct probe `static_assert(parent_of(^^T::A) == ^^T)` passes. Existing `findTypeDecl` preserves the top-level `UsingType` alias before template-specialization fallback; the stale deferral note incorrectly described the current checkout. | High |
 | 203 | Unbalanced diagnostic parentheses | Already-Fixed | Direct malformed-range probe now emits a balanced diagnostic (`cannot expand over a function 'void ()'; did you mean to call it with no arguments?`) with no unbalanced-parenthesis output. | High |
-| 204 | ICE: `template for` over overload set | Needs-Build-To-Verify | `SemaExpand.cpp:82-121`, no dedicated test; repro in batch file. | Medium |
+| 204 | ICE: `template for` over overload set | Already-Fixed | Exact overloaded-function-range probe now produces ordinary overload-resolution diagnostics and no crash/abort at current HEAD. | High |
 | 205 | ICE: templated lambda + `define_static_array` | Already-Fixed | Fix `f72d85e5a0fd`; `SemaExpand.cpp:148-173`. | High |
 | 208 | CRTP constexpr degradation | Needs-Build-To-Verify | Godbolt-link only, insufficient detail to localize. | Low |
 | 210 | Capturing lambda inside expansion statement | Already-Fixed | Fixes `f0a3e5e612db`, `0f70ed5eb99e`; `SemaExpand.cpp:148-173`. | High |
 | 211 | Static enum member wrong `type_of` | Already-Fixed | Direct probe for `static E S::value` confirms `type_of(^^S::value) == ^^E`. | High |
 | 212 | ICE in `if constexpr` optional extraction | Needs-Build-To-Verify | Insufficient repro detail in snapshot. | Low |
 | 215 | Empty `reflect_constant_array` result | Already-Fixed | Fix `5dafd8cc4a45`; `libcxx/include/meta:2598-2616`; `static-arrays.pass.cpp:64-70`. | High |
-| 220 | `display_string_of(type_of(undeduced))` hangs | Needs-Build-To-Verify | Initial simplified probe used a type template parameter rather than the issue's undeduced-return scenario and failed for that mismatch; retain until the exact repro is rebuilt. | Low |
+| 220 | `display_string_of(type_of(undeduced))` hangs | Confirmed-Open | Exact issue probe with `auto operator()();` exceeds a 20-second timeout without producing the expected diagnostic. Deferred to M4 backlog. | High |
 | 221 | `expected<bool,int>` in `vector` fails | Confirmed-Open | Exact `std::vector{value(), value()}` probe still fails in `__expected/expected.h:1167` with self-dependent constraint satisfaction while copying the expected elements. Deferred to M4 backlog. | High |
-| 222 | `define_aggregate` nested incomplete type in template arg | Needs-Build-To-Verify | `ExprConstantMeta.cpp:6092-6119`, `SemaReflect.cpp:638-710`; different path than the reported case, no matching test. | Medium |
+| 222 | `define_aggregate` nested incomplete type in template arg | Already-Fixed | Exact non-templated-inner-type/structural-template-argument probe compiles successfully at current HEAD; no `'inside_S' cannot be defined in a parameter type` diagnostic. | High |
 | 225 | `meta::exception` unimplemented | Confirmed-Open → Partial 2026-09-09 | `<meta>` now declares and defines the P3560R2 class, with direct consteval construction/accessor/throw-catch regression coverage. Remaining issue scope is the unrewired Throws-bearing metafunctions; nested consteval exception propagation passes after staged-header refresh. | High |
 
 **230-273:**
@@ -359,7 +359,7 @@ for readability, same as the source files:
 | 256 | `__is_consteval_only` + defaulted special members | Already-Fixed | `Decl.cpp:5426-5475` fixed by `01836b3333d5`; `p3603-consteval-only.pass.cpp` covers it. | High |
 | 259 | Windows build errors | Out-of-Scope | Upstream platform/build-system issue, unrelated to this fork's two-tree build architecture. | High |
 | 262 | Annotation crash with modules | Already-Fixed | `f63157a8d87c` added `CXX26AnnotationAttr` serialization; `annotation-module-serialization.sh.cpp`. | High |
-| 264 | Constant evaluation of arrow splices | Needs-Build-To-Verify | `SemaReflect.cpp:1730-1745`; provenance question needs build to verify. | Medium |
+| 264 | Constant evaluation of arrow splices | Already-Fixed | Computed `nonstatic_data_members_of` reflection used in `(&value)->[:field:]` during constant evaluation succeeds at current HEAD. | High |
 | 265 | Anonymous union members unavailable for splicing | Already-Fixed | `f33742c88aa3`, `2ea0a79fe7bb`; `anon-union.pass.cpp:18-31`. | High |
 | 273 | Dependent function-template reflection seen as overload set | Already-Fixed | `41fa327e7d63`; `SemaReflect.cpp:998-1030`. | High |
 
