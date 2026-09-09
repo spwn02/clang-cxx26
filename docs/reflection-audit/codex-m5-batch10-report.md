@@ -25,5 +25,4 @@ No new implementation gap was found.
 
 | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility | Not-Applicable |
 |---:|---:|---:|---:|
-| 67 | 23 | 18 | 1 |
-
+| 64 | 26 | 18 | 1 |

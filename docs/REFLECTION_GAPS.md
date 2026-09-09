@@ -862,31 +862,31 @@ passing tests. Checklist totals are now 37 covered, 53 needing new tests, and 18
 lit wrapper with one worker; it passed 1/1 with all expected diagnostics matched. P2996R13 rows
 2996-16, 2996-17, 2996-18, and 2996-20 are covered. A closure-type probe for 2996-19 was
 accepted rather than rejected, so it remains open as new gap NEW-4. Checklist totals are now
-50 covered, 40 needing new tests, and 18 blocked.
+47 covered, 43 needing new tests, and 18 blocked.
 
 **2026-09-10 — M5 batch 8.** Added `m5-p2996-batch8.verify.cpp` and ran it through the libc++
 lit wrapper with one worker; it passed 1/1 with all expected diagnostics matched. P2996R13 rows
 2996-21 through 2996-25 are covered for invalid member/base/enumerator query domains. No new
-implementation gap was found. Checklist totals are now 55 covered, 35 needing new tests, and 18
+implementation gap was found. Checklist totals are now 52 covered, 38 needing new tests, and 18
 blocked.
 
 **2026-09-10 — M5 batch 9.** Added `m5-p2996-batch9.verify.cpp` and ran it through the libc++
 lit wrapper with one worker; it passed 1/1 with all expected diagnostics matched. P2996R13 rows
 2996-26 through 2996-32 are covered for invalid offset, size, alignment, bit-size, and incomplete
-type queries. No new implementation gap was found. Checklist totals are now 62 covered, 28
+type queries. No new implementation gap was found. Checklist totals are now 59 covered, 31
 needing new tests, and 18 blocked.
 
 **2026-09-10 — M5 batch 10.** Added `m5-p2996-batch10.verify.cpp` and ran it through the libc++
 lit wrapper with one worker; it passed 1/1 with all expected diagnostics matched. P2996R13 rows
 2996-33 through 2996-37 are covered for invalid extraction and substitution domains. No new
-implementation gap was found. Checklist totals are now 67 covered, 23 needing new tests, and 18
+implementation gap was found. Checklist totals are now 64 covered, 26 needing new tests, and 18
 blocked.
 
 **2026-09-10 — M5 batch 11.** Added `m5-p2996-batch11.verify.cpp` and ran it through the libc++
 lit wrapper with one worker; it passed 1/1 with all expected diagnostics matched. P2996R13 rows
 2996-38 through 2996-40 are covered for invalid member types, names, and option combinations.
 A direct `data_member_spec(^^void)` probe was accepted and recorded as NEW-5. Checklist totals
-are now 70 covered, 20 needing new tests, and 18 blocked.
+are now 67 covered, 23 needing new tests, and 18 blocked.
 
 **2026-09-10 — M5 batch 6.** Added `m5-p3617-p3687-batch6.verify.cpp`. P3617 rows 3617-02
 through 3617-04 are covered by checks for string-literal termination, character-array extent,

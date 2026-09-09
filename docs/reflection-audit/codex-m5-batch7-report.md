@@ -30,5 +30,4 @@ coverage was added.
 
 | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility | Not-Applicable |
 |---:|---:|---:|---:|
-| 50 | 40 | 18 | 1 |
-
+| 47 | 43 | 18 | 1 |

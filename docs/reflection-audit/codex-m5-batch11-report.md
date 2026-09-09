@@ -27,5 +27,4 @@ to cover the invalid-type diagnostic without masking the `void` gap.
 
 | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility | Not-Applicable |
 |---:|---:|---:|---:|
-| 70 | 20 | 18 | 1 |
-
+| 67 | 23 | 18 | 1 |
