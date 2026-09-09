@@ -57,13 +57,13 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 | 2996-23 | `static_data_members_of(type, ctx)`: `dealias(type)` is a complete class type. | Covered | [m5-p2996-batch8.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch8.verify.cpp) |
 | 2996-24 | `nonstatic_data_members_of(type, ctx)`: `dealias(type)` is a complete class type. | Covered | [m5-p2996-batch8.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch8.verify.cpp) |
 | 2996-25 | `enumerators_of(type_enum)`: `dealias(type_enum)` is an enumeration and `is_enumerable_type(type_enum)` is true. | Covered | [m5-p2996-batch8.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch8.verify.cpp) |
-| 2996-26 | `offset_of(r)`: `r` is a non-static data member, unnamed bit-field, or permitted direct-base relationship (non-virtual base, or non-abstract derived class). | Needs-New-Test | — |
-| 2996-27 | `size_of(r)`: `r` represents one of the permitted type/object/value/variable/member/base/data-member-spec kinds. | Needs-New-Test | — |
-| 2996-28 | `size_of(r)`: a reflected type is complete. | Needs-New-Test | — |
-| 2996-29 | `alignment_of(r)`: `r` represents one of the permitted type/object/variable/member/base/data-member-spec kinds. | Needs-New-Test | — |
-| 2996-30 | `alignment_of(r)`: a reflected type is complete. | Needs-New-Test | — |
-| 2996-31 | `bit_size_of(r)`: `r` is a permitted type/object/value/variable/member/bit-field/base/data-member-spec reflection. | Needs-New-Test | — |
-| 2996-32 | `bit_size_of(r)`: a reflected type is not incomplete at a point in the evaluation context. | Needs-New-Test | — |
+| 2996-26 | `offset_of(r)`: `r` is a non-static data member, unnamed bit-field, or permitted direct-base relationship (non-virtual base, or non-abstract derived class). | Covered | [m5-p2996-batch9.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch9.verify.cpp) |
+| 2996-27 | `size_of(r)`: `r` represents one of the permitted type/object/value/variable/member/base/data-member-spec kinds. | Covered | [m5-p2996-batch9.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch9.verify.cpp) |
+| 2996-28 | `size_of(r)`: a reflected type is complete. | Covered | [m5-p2996-batch9.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch9.verify.cpp) |
+| 2996-29 | `alignment_of(r)`: `r` represents one of the permitted type/object/variable/member/base/data-member-spec kinds. | Covered | [m5-p2996-batch9.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch9.verify.cpp) |
+| 2996-30 | `alignment_of(r)`: a reflected type is complete. | Covered | [m5-p2996-batch9.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch9.verify.cpp) |
+| 2996-31 | `bit_size_of(r)`: `r` is a permitted type/object/value/variable/member/bit-field/base/data-member-spec reflection. | Covered | [m5-p2996-batch9.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch9.verify.cpp) |
+| 2996-32 | `bit_size_of(r)`: `r` is not incomplete at a point in the evaluation context. | Covered | [m5-p2996-batch9.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch9.verify.cpp) |
 | 2996-33 | `extract<T>(r)` value extraction: `r` represents a variable or object of type `U`, the qualification conversion to `T` is permitted, and a variable is usable in constant expressions or began its lifetime in the current core constant expression. | Needs-New-Test | — |
 | 2996-34 | `extract<T>(r)` member/function extraction: `r` is a non-bit-field direct member or implicit-object member function and `T` is the corresponding permitted member-pointer type. | Needs-New-Test | — |
 | 2996-35 | `extract<T>(r)` value extraction: pointer types are similar/compatible as required, or non-pointer cv-unqualified types match. | Needs-New-Test | — |
