@@ -1610,6 +1610,8 @@ struct member_offset {
 
 // Returns the offset of the reflected entity.
 consteval auto offset_of(info r) -> member_offset {
+  if (!is_nonstatic_data_member(r) && !is_base(r))
+    throw exception(u8"bad member", ^^offset_of);
   return member_offset {
       __metafunction(detail::__metafn_offset_of, ^^ptrdiff_t, r),
       __metafunction(detail::__metafn_bit_offset_of, ^^ptrdiff_t, r)

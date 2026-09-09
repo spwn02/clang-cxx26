@@ -54,6 +54,10 @@ struct member_query_record {
   int member;
 };
 
+consteval bool test_offset_query_preconditions() {
+  return std::meta::offset_of(^^member_query_record::member).bytes == 0;
+}
+
 template <class> struct template_query_record {};
 
 enum class enumerator_query_enum { first, second };
@@ -94,6 +98,7 @@ static_assert(test_u8_constructor());
 static_assert(test_string_constructor());
 static_assert(test_throw_and_catch());
 static_assert(test_layout_query_preconditions());
+static_assert(test_offset_query_preconditions());
 static_assert(test_member_query_preconditions());
 static_assert(test_access_context_preconditions());
 static_assert(test_template_query_preconditions());
@@ -105,6 +110,7 @@ int main() {
   assert(test_string_constructor());
   assert(test_throw_and_catch());
   assert(test_layout_query_preconditions());
+  assert(test_offset_query_preconditions());
   assert(test_member_query_preconditions());
   assert(test_access_context_preconditions());
   assert(test_template_query_preconditions());
