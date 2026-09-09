@@ -41,16 +41,22 @@ table below and in [`codex-pr-triage-final-report.md`](reflection-audit/codex-pr
 Batch-5 correction: the P2996R13 `has_c_language_linkage` item formerly listed in the paper audit
 Missing list is implemented and tested by commit `6bbb1c0cfbea`.
 
-**Concrete next actions, in rough priority order (re-ordered 2026-09-09 night after a second
-strategy-2 attempt hit a real evaluator crash — see `codex-strategy2-redesign-report.md`):**
-1. Re-audit the 27 Needs-Build-To-Verify issues from M1 against current source — likely several
-   are now resolved incidentally. Low-risk, high-value, no deep compiler-internals gamble.
+**Concrete next actions, in rough priority order (updated 2026-09-09 night after M1 fully closed
+and the NBTV audit landed — items 1/2 below are DONE, kept struck through for history):**
+0. ~~Re-audit the 27 Needs-Build-To-Verify issues from M1~~ — **done**, see
+   `codex-nbtv-audit-report.md` (12 Already-Fixed, 9 Confirmed-Open, 6 still unverifiable).
+   ~~Finish PR triage~~ — **done**, see `codex-pr-triage-final-report.md`, M1 fully complete.
+1. Work the remaining 8 Confirmed-Open issues from the NBTV audit: **#169, #180, #181, #188,
+   #220, #221, #237, #346** (plus #150, tracked separately below). Each has a repro/description
+   already in the Issue Triage table — investigate and fix where safely scoped, defer with
+   precise documentation otherwise, same discipline as every prior M4 batch.
 2. M5 (diagnostic/ill-formed-program test suite) — not started, genuinely large; the M2 paper
    audits already enumerate most Throws/Mandates conditions per paper, which is the concrete
-   starting checklist per the plan.
-4. #150 (destructor splice) — still deferred, needs a new parser/Sema destructor-name-via-splice
+   starting checklist per the plan. Scope it with a design pass before diving into writing tests,
+   same as was done for P3560R2/P3293R3 before implementing.
+3. #150 (destructor splice) — still deferred, needs a new parser/Sema destructor-name-via-splice
    representation, per the M4-hard session's notes.
-5. **P3560R2 strategy 2 — DO NOT re-attempt without fresh design work first.** Two rounds of
+4. **P3560R2 strategy 2 — DO NOT re-attempt without fresh design work first.** Two rounds of
    careful investigation (pilot: 2 API gaps; redesign: a real evaluator `SIGABRT` in
    `extractSubobject`/`HandleConstructorCall`/`VisitCXXInheritedCtorInitExpr` when evaluating a
    compiler-synthesized `CXXConstructExpr` through an inherited constructor) show this needs
@@ -59,7 +65,7 @@ strategy-2 attempt hit a real evaluator crash — see `codex-strategy2-redesign-
    constructor path, or via direct APValue field population instead of a synthesized
    `CXXConstructExpr`) or a genuine evaluator fix for that crash. Treat with the same caution as
    the M3 escalation-cluster bug below — this is not a quick follow-up.
-6. M3 escalation-cluster bug — worth another look given today's accumulated splice/scope-lookup
+5. M3 escalation-cluster bug — worth another look given today's accumulated splice/scope-lookup
    expertise, but real regression risk (prior attempt broke 9 libc++ tests) — treat with the same
    caution as strategy 2.
 
