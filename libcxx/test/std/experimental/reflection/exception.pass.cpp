@@ -9,11 +9,12 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
-// ADDITIONAL_COMPILE_FLAGS: -freflection
+// ADDITIONAL_COMPILE_FLAGS: -freflection -fparameter-reflection
 
 // <meta>
 
 #include <cassert>
+#include <climits>
 #include <meta>
 #include <string_view>
 
@@ -42,12 +43,20 @@ consteval bool test_throw_and_catch() {
   return false;
 }
 
+consteval bool test_layout_query_preconditions() {
+  return std::meta::size_of(^^int) == sizeof(int) &&
+         std::meta::bit_size_of(^^int) == sizeof(int) * CHAR_BIT &&
+         std::meta::alignment_of(^^int) == alignof(int);
+}
+
 static_assert(test_u8_constructor());
 static_assert(test_string_constructor());
 static_assert(test_throw_and_catch());
+static_assert(test_layout_query_preconditions());
 
 int main() {
   assert(test_u8_constructor());
   assert(test_string_constructor());
   assert(test_throw_and_catch());
+  assert(test_layout_query_preconditions());
 }

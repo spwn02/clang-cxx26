@@ -1558,14 +1558,44 @@ consteval auto offset_of(info r) -> member_offset {
   };
 }
 
+consteval auto __is_size_operand(info r, bool allow_bit_field) -> bool {
+  if (is_type(r))
+    return is_complete_type(r);
+  if (is_object(r) || is_value(r) || is_base(r) || is_data_member_spec(r))
+    return true;
+  if (is_variable(r))
+    return !extract<bool>(substitute(^^is_reference_v, {type_of(r)}));
+  return is_nonstatic_data_member(r) &&
+         (allow_bit_field || !is_bit_field(r));
+}
+
 // Returns the size of the reflected entity.
 consteval auto size_of(info r) -> size_t {
+  if (!__is_size_operand(r, false))
+    throw exception(u8"bad", ^^size_of);
   return __metafunction(detail::__metafn_size_of, r);
 }
 
 // Returns the size of the reflected entity in bits.
 consteval auto bit_size_of(info r) -> size_t {
+  if (!__is_size_operand(r, true))
+    throw exception(u8"bad", ^^bit_size_of);
   return __metafunction(detail::__metafn_bit_size_of, r);
+}
+
+consteval auto alignment_of(info r) -> size_t {
+  if (is_type(r)) {
+    if (!is_complete_type(r))
+      throw exception(u8"bad", ^^alignment_of);
+  } else if (is_object(r) || is_base(r) || is_data_member_spec(r)) {
+    // valid
+  } else if (is_variable(r)) {
+    if (extract<bool>(substitute(^^is_reference_v, {type_of(r)})))
+      throw exception(u8"bad", ^^alignment_of);
+  } else if (!is_nonstatic_data_member(r) || is_bit_field(r)) {
+    throw exception(u8"bad", ^^alignment_of);
+  }
+  return __metafunction(detail::__metafn_alignment_of, r);
 }
 
 // Type trait wrappers
@@ -2412,11 +2442,6 @@ struct data_member_options {
   bool no_unique_address = false;
 #endif
 };
-
-// Returns the alignment of the reflected entity.
-consteval auto alignment_of(info r) -> size_t {
-  return __metafunction(detail::__metafn_alignment_of, r);
-}
 
 struct enumerator_options {
   string name;
