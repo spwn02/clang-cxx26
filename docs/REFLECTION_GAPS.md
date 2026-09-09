@@ -13,7 +13,16 @@ verification protocol) lives at
 `/home/spawn/.claude/plans/i-think-finishing-reflection-elegant-rivest.md` — read that first if
 you're picking this up cold.
 
-## Next Up (updated 2026-09-08, after M1 issue triage landed)
+## Next Up (updated 2026-09-09, after definitive full check-clang gate)
+
+Definitive clean full-suite gate completed at HEAD `501497f1ec18`: 44,615
+passes, 5 failures, 25 expected failures, and 5,171 unsupported tests in the
+JSON result set (lit terminal summary: 49,820 discovered). The only failures
+are the five established baseline tests: `SemaCXX/PR98671.cpp`,
+`SemaCXX/builtin-is-within-lifetime.cpp`, `SemaCXX/constant-expression-cxx11.cpp`,
+`SemaCXX/cxx2a-constexpr-dynalloc.cpp`, and
+`SemaCXX/cxx2b-consteval-propagate.cpp`. No new regression from the reflection
+commits was found. Full evidence: `docs/reflection-audit/codex-final-gate-report.md`.
 
 M0 done. M1's issue triage is done (all 85 issues dispositioned — 29 Confirmed-Open, 27
 Needs-Build-To-Verify, 19 Already-Fixed, 8 Out-of-Scope, 2 Not-Applicable); PR triage (35 open PRs)
@@ -537,3 +546,7 @@ P1789R3.
 #326 was covered by existing function-range validation, added `has_parent` (#280), and added the
 adopted `annotations_of_with_type` API (#185). Documented precise skips for #120/#146/#150/#182/
 #200/#254/#329/#334. See `docs/reflection-audit/codex-m4-batch2-report.md` for details.
+**2026-09-09 — definitive final gate.** Cleaned all Clang test `Output` directories, rebuilt
+current-HEAD Clang and stale test consumers, and ran the complete `clang/test` suite. Found only
+the five established baseline failures listed above; no reflection-session regression. See
+`docs/reflection-audit/codex-final-gate-report.md`.
