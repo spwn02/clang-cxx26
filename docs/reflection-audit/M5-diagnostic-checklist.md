@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 108 | 37 | 53 | 18 |
+| 108 | 46 | 44 | 18 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -185,9 +185,9 @@ Normative source: [P3617R0](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/
 | ID | Condition | Status | Existing coverage |
 |---|---|---|---|
 | 3617-01 | `reflect_constant_string`: range value type is one of the five permitted character types. | Needs-New-Test | — |
-| 3617-02 | String-literal input omits its trailing null character before the new terminator is added. | Needs-New-Test | — |
-| 3617-03 | `reflect_constant_array`: element type is structural, constructible from the range reference, and copy-constructible. | Needs-New-Test | — |
-| 3617-04 | The resulting array/string object is potentially non-unique and has the specified template-parameter-object type and extent. | Needs-New-Test | — |
+| 3617-02 | String-literal input omits its trailing null character before the new terminator is added. | Covered | [m5-p3617-p3687-batch6.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3617-p3687-batch6.verify.cpp) |
+| 3617-03 | `reflect_constant_array`: element type is structural, constructible from the range reference, and copy-constructible. | Covered | [m5-p3617-p3687-batch6.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3617-p3687-batch6.verify.cpp) |
+| 3617-04 | The resulting array/string object is potentially non-unique and has the specified template-parameter-object type and extent. | Covered | [m5-p3617-p3687-batch6.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3617-p3687-batch6.verify.cpp) |
 
 ## P3687R1 — Final Adjustments to C++26 Reflection
 
@@ -195,9 +195,9 @@ Normative source: [P3687R1](https://wg21.link/P3687R1).
 
 | ID | Condition | Status | Existing coverage |
 |---|---|---|---|
-| 3687-01 | Splice-template-arguments are removed from C++26 and must be rejected in template-argument position. | Needs-New-Test | — |
-| 3687-02 | `^^qualified-id` is ill-formed when lookup finds a declaration replacing a using-declarator. | Needs-New-Test | — |
-| 3687-03 | If lookup finds multiple entity proxies, the reflection is ambiguous and ill-formed. | Needs-New-Test | — |
+| 3687-01 | Splice-template-arguments are removed from C++26 and must be rejected in template-argument position. | Covered | [m5-p3617-p3687-batch6.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3617-p3687-batch6.verify.cpp) |
+| 3687-02 | `^^qualified-id` is ill-formed when lookup finds a declaration replacing a using-declarator. | Covered | [m5-p3617-p3687-batch6.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3617-p3687-batch6.verify.cpp) |
+| 3687-03 | If lookup finds multiple entity proxies, the reflection is ambiguous and ill-formed. | Covered | [m5-p3617-p3687-batch6.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3617-p3687-batch6.verify.cpp) |
 
 ## P3795R2 — Miscellaneous Reflection Cleanup
 

@@ -855,3 +855,12 @@ rows 3394-01, 3394-04, and 3394-06; the focused libc++ lit run passed 1/1 with a
 diagnostics matched. Existing `annotations-regression.verify.cpp` covers 3394-02. Probes for
 3394-03 and 3394-05 exposed new implementation gaps NEW-2 and NEW-3 and were not fabricated into
 passing tests. Checklist totals are now 37 covered, 53 needing new tests, and 18 blocked.
+
+**2026-09-10 — M5 batch 6.** Added `m5-p3617-p3687-batch6.verify.cpp`. P3617 rows 3617-02
+through 3617-04 are covered by checks for string-literal termination, character-array extent,
+structural array elements, and extraction. P3687 rows 3687-01 through 3687-03 are covered by
+`-verify` checks for removed splice template arguments, using-declarator reflection, and
+ambiguous multiple-base lookup. The focused libc++ lit run passed 1/1 after matching the exact
+front-end diagnostics. P3617-01 and the P3491 string/object rows remain blocked by the missing
+character overloads, `is_string_literal`, and `define_static_object`; no new implementation gap
+was found. Checklist totals are now 46 covered, 44 needing new tests, and 18 blocked.
