@@ -498,10 +498,9 @@ M5 scoping is complete. The paper-by-paper inventory of every identified Constra
 Throws/Constant-When ill-formed condition, existing coverage, implementation blockers, row counts,
 and recommended facility-first execution plan is in
 [`reflection-audit/M5-diagnostic-checklist.md`](reflection-audit/M5-diagnostic-checklist.md).
-The inventory records **109 conditions: 10 covered, 81 needing new tests, and 18 blocked on an
-unimplemented facility or P3560R2 exception plumbing**. No test files were added during this
-scoping session. Future M5 sessions must update checklist rows as tests land and append their
-results to this tracker’s Session Log.
+The inventory records **109 conditions: 23 covered, 68 needing new tests, and 18 blocked on an
+unimplemented facility or P3560R2 exception plumbing**. Future M5 sessions must update checklist
+rows as tests land and append their results to this tracker’s Session Log.
 
 ## Session Log
 
@@ -823,3 +822,11 @@ Clang gate reported the documented 23 baseline failures plus three Python 3.14 f
 test failures; no reflection failure appeared. Commit `6bbb1c0cfbea` was pushed to
 `origin/cxx26`. The remaining Confirmed-Open backlog is 9 items; full details are in
 `docs/reflection-audit/codex-m4-batch5-report.md`.
+
+**2026-09-10 — M5 batch 3.** Added and ran
+`m5-p2996-batch3.verify.cpp`, covering P2996R13 rows 2996-11 through 2996-15. The focused
+libc++ lit test passed 1/1 with all `-verify` diagnostics matched. Rows 2996-09 and 2996-10
+remain open because the current display-string/source-location implementation returns fallback
+or empty results for null reflections instead of diagnosing. Checklist totals are now 23 covered,
+68 needing new tests, and 18 blocked. See
+`docs/reflection-audit/codex-m5-batch3-report.md`.

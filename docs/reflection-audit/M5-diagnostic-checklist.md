@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 109 | 18 | 73 | 18 |
+| 109 | 23 | 68 | 18 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -42,11 +42,11 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 | 2996-08 | `identifier_of(r)` / `u8identifier_of(r)`: `r` represents a declaration with an identifier (including the specified operator/literal-operator cases). | Covered | [m5-p2996-batch2.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch2.verify.cpp) |
 | 2996-09 | `display_string_of(r)`: `r` represents a construct for which a display string can be produced. | Needs-New-Test | — |
 | 2996-10 | `source_location_of(r)`: `r` represents a declaration with a source location. | Needs-New-Test | — |
-| 2996-11 | `type_of(r)`: `r` represents a construct having a type, and the type is available under the clause's completeness/containing-enum rules. | Needs-New-Test | — |
-| 2996-12 | `parent_of(r)`: `r` represents a construct with a parent. | Needs-New-Test | — |
-| 2996-13 | `object_of(r)`: `r` represents a variable or object whose object can be designated. | Needs-New-Test | — |
-| 2996-14 | `constant_of(r)`: `r` represents a value or object usable as the required constant expression. | Needs-New-Test | — |
-| 2996-15 | `template_of(r)`: `has_template_arguments(r)` is true. | Needs-New-Test | — |
+| 2996-11 | `type_of(r)`: `r` represents a construct having a type, and the type is available under the clause's completeness/containing-enum rules. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
+| 2996-12 | `parent_of(r)`: `r` represents a construct with a parent. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
+| 2996-13 | `object_of(r)`: `r` represents a variable or object whose object can be designated. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
+| 2996-14 | `constant_of(r)`: `r` represents a value or object usable as the required constant expression. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
+| 2996-15 | `template_of(r)`: `has_template_arguments(r)` is true. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
 | 2996-16 | `template_arguments_of(r)`: `has_template_arguments(r)` is true. | Needs-New-Test | — |
 | 2996-17 | `is_accessible(r, ctx)`: `ctx` is a valid access context and the represented construct is one to which access can be applied. | Needs-New-Test | — |
 | 2996-18 | `has_inaccessible_nonstatic_data_members(r, ctx)`: `nonstatic_data_members_of(r, unchecked())` is a constant subexpression. | Needs-New-Test | — |
