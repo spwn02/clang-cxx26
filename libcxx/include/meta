@@ -1153,12 +1153,7 @@ consteval auto __filtered(vector<info> v, P pred) -> vector<info> {
   return v;
 }
 
-consteval auto is_namespace(info r) -> bool;
-
 consteval auto members_of(info r, access_context ctx) -> vector<info> {
-  if (!is_class_type(r) && !is_namespace(r))
-    throw exception(u8"bad type", ^^members_of);
-
   using iterator =
       __range_of_infos::iterator<__range_of_infos::front_member_of_fn,
                                  __range_of_infos::next_member_of_fn,
@@ -1174,7 +1169,7 @@ consteval auto is_namespace(info r) -> bool {
 }
 
 consteval auto bases_of(info r, access_context ctx) -> vector<info> {
-  if (!is_class_type(r))
+  if (is_namespace(r) || !is_class_type(r))
     throw exception(u8"bad type", ^^bases_of);
 
   using iterator =
@@ -1193,7 +1188,7 @@ consteval auto is_variable(info r) -> bool {
 
 consteval auto static_data_members_of(info r,
                                       access_context ctx) -> vector<info> {
-  if (!is_class_type(r) && !is_namespace(r))
+  if (!is_namespace(r) && !is_class_type(r))
     throw exception(u8"bad type", ^^static_data_members_of);
 
   return __filtered(members_of(r, ctx), is_variable);
@@ -1201,7 +1196,7 @@ consteval auto static_data_members_of(info r,
 
 consteval auto nonstatic_data_members_of(info r,
                                          access_context ctx) -> vector<info> {
-  if (!is_class_type(r) && !is_namespace(r))
+  if (!is_namespace(r) && !is_class_type(r))
     throw exception(u8"bad type", ^^nonstatic_data_members_of);
 
   return __filtered(members_of(r, ctx), is_nonstatic_data_member);
