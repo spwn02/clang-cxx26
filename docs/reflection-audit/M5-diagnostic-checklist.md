@@ -52,11 +52,11 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 | 2996-18 | `has_inaccessible_nonstatic_data_members(r, ctx)`: `nonstatic_data_members_of(r, unchecked())` is a constant subexpression. | Covered | [m5-p2996-batch7.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch7.verify.cpp) |
 | 2996-19 | `has_inaccessible_nonstatic_data_members(r, ctx)`: `r` does not represent a closure type. | Needs-New-Test — NEW-4 | A closure-type probe was accepted instead of producing the required failure; see NEW-4. |
 | 2996-20 | `has_inaccessible_bases(r, ctx)`: `bases_of(r, unchecked())` is a constant subexpression. | Covered | [m5-p2996-batch7.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch7.verify.cpp) |
-| 2996-21 | `members_of(r, ctx)`: `dealias(r)` is a complete class type at a point in the evaluation context or a namespace. | Needs-New-Test | — |
-| 2996-22 | `bases_of(type, ctx)`: `dealias(type)` is a complete class type at a point in the evaluation context. | Needs-New-Test | — |
-| 2996-23 | `static_data_members_of(type, ctx)`: `dealias(type)` is a complete class type. | Needs-New-Test | — |
-| 2996-24 | `nonstatic_data_members_of(type, ctx)`: `dealias(type)` is a complete class type. | Needs-New-Test | — |
-| 2996-25 | `enumerators_of(type_enum)`: `dealias(type_enum)` is an enumeration and `is_enumerable_type(type_enum)` is true. | Needs-New-Test | — |
+| 2996-21 | `members_of(r, ctx)`: `dealias(r)` is a complete class type at a point in the evaluation context or a namespace. | Covered | [m5-p2996-batch8.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch8.verify.cpp) |
+| 2996-22 | `bases_of(type, ctx)`: `dealias(type)` is a complete class type at a point in the evaluation context. | Covered | [m5-p2996-batch8.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch8.verify.cpp) |
+| 2996-23 | `static_data_members_of(type, ctx)`: `dealias(type)` is a complete class type. | Covered | [m5-p2996-batch8.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch8.verify.cpp) |
+| 2996-24 | `nonstatic_data_members_of(type, ctx)`: `dealias(type)` is a complete class type. | Covered | [m5-p2996-batch8.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch8.verify.cpp) |
+| 2996-25 | `enumerators_of(type_enum)`: `dealias(type_enum)` is an enumeration and `is_enumerable_type(type_enum)` is true. | Covered | [m5-p2996-batch8.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch8.verify.cpp) |
 | 2996-26 | `offset_of(r)`: `r` is a non-static data member, unnamed bit-field, or permitted direct-base relationship (non-virtual base, or non-abstract derived class). | Needs-New-Test | — |
 | 2996-27 | `size_of(r)`: `r` represents one of the permitted type/object/value/variable/member/base/data-member-spec kinds. | Needs-New-Test | — |
 | 2996-28 | `size_of(r)`: a reflected type is complete. | Needs-New-Test | — |

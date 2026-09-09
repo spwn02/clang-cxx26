@@ -863,6 +863,12 @@ lit wrapper with one worker; it passed 1/1 with all expected diagnostics matched
 accepted rather than rejected, so it remains open as new gap NEW-4. Checklist totals are now
 50 covered, 40 needing new tests, and 18 blocked.
 
+**2026-09-10 — M5 batch 8.** Added `m5-p2996-batch8.verify.cpp` and ran it through the libc++
+lit wrapper with one worker; it passed 1/1 with all expected diagnostics matched. P2996R13 rows
+2996-21 through 2996-25 are covered for invalid member/base/enumerator query domains. No new
+implementation gap was found. Checklist totals are now 55 covered, 35 needing new tests, and 18
+blocked.
+
 **2026-09-10 — M5 batch 6.** Added `m5-p3617-p3687-batch6.verify.cpp`. P3617 rows 3617-02
 through 3617-04 are covered by checks for string-literal termination, character-array extent,
 structural array elements, and extraction. P3687 rows 3687-01 through 3687-03 are covered by
