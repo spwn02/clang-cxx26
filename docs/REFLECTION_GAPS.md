@@ -73,7 +73,7 @@ both builds AND test runs, for the rest of this epic. Re-check `free -h` before 
 if it's been a while since the last one — available memory on a shared desktop fluctuates with
 whatever else the user is doing.
 
-**Recurring gotcha: PCH/tool-binary staleness causes false-alarm failures, distinct from OOM.**
+**Recurring gotcha: PCH/tool-binary staleness causes some false-alarm failures, distinct from OOM.**
 Only `ninja -C build-nyx clang` gets rebuilt after most source edits (it's the fast, targeted
 command used throughout this epic) — but `c-index-test`, `clang-extdef-mapping`,
 `clang-scan-deps`, and other test-suite tool binaries do NOT get rebuilt alongside it, and go
@@ -84,6 +84,12 @@ stale relative to `clang`'s PCH/serialization format. Symptom: a validation run 
 concluding these are real regressions; if `clang-22` is newer than the others, rebuild the stale
 ones (`ninja -C build-nyx c-index-test clang-extdef-mapping clang-scan-deps clang-import-test`,
 same -j discipline) and re-verify. This is the same root cause as the earlier 308-failure scare.
+
+This staleness warning does **not** explain every such failure. The separate baseline bug audited
+in `docs/reflection-audit/codex-pch-bug-report.md` makes `ASTUnit::LoadFromASTFile` reject a PCH
+in `readASTFileControlBlock` even when the same PCH loads through the compiler's `-include-pch`
+path and all consumer binaries are freshly rebuilt. It is pre-existing and should be tracked as
+one repeated ASTUnit/libclang consumer failure, not attributed to stale PCHs or reflection.
 
 **2026-09-09, later same day: repeated OOM kills even at `-j1`** during an attempt to rebuild
 those stale tools — `free -h` showed only 2.5G free with Chrome (dozens of tabs/processes) and
@@ -213,6 +219,17 @@ immediately after.
    `libcxx/test/std/experimental/reflection/reflection-ex-parsing-command-line-options-2.sh.cpp`
    among others (not yet re-enumerated this session — the original 9-test list is in
    `docs/LLVM22_SYNC.md`, re-check it's still current before reusing it as the regression gate).
+
+4. **ASTUnit/libclang PCH control-block load failure — pre-existing baseline, investigated
+   2026-09-09.** A PCH emitted by current `clang -cc1` loads successfully through the compiler's
+   `-include-pch` path but is rejected by `c-index-test -module-file` and the corresponding
+   libclang/ASTUnit path. Fresh auxiliary-tool rebuilds and disabled ASTReader validation do not
+   change the result. Temporary instrumentation showed the failure is in
+   `readASTFileControlBlock`, before `ASTReader::ReadAST`; the helper discards the underlying
+   error and ASTUnit emits only `unable to load precompiled file`. No PCH consumer or serialization
+   code changed during today's reflection commits, so this is not an epic regression. The roughly
+   18 Index/Core, ClangScanDeps, Interpreter, Tooling, and Analysis failures are one repeated root
+   cause. Full details: `docs/reflection-audit/codex-pch-bug-report.md`.
 
 ## Upstream issue triage (M1)
 
@@ -645,3 +662,10 @@ baseline failures first, but was interrupted after negligible progress because t
 `-j1` sweep was taking tens of seconds per test. No reflection failure appeared before stopping;
 the current-HEAD definitive gate remains outstanding. Combined evidence is in
 `docs/reflection-audit/codex-p3795r2-piece3-and-gate-report.md`.
+
+**2026-09-09 — ASTUnit/libclang PCH audit.** Confirmed reported PCH failure is a pre-existing
+consumer-path bug, not reflection or stale binaries. The compiler's `-include-pch` accepts the
+same file; `c-index-test -module-file` fails during `readASTFileControlBlock`, whose underlying
+error is discarded before ASTUnit emits its generic diagnostic. Corrected this tracker’s
+staleness warning and added the bug as Known Bug 4. Full details are in
+`docs/reflection-audit/codex-pch-bug-report.md`.
