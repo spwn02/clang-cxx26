@@ -51,6 +51,8 @@ static_assert(is_enum_type(^^E));
 static_assert(is_class_type(^^C));
 static_assert(is_function_type(^^void()));
 static_assert(is_reflection_type(^^std::meta::info));
+using info_alias = std::meta::info;
+static_assert(is_reflection_type(^^info_alias));
 
 static_assert(is_reference_type(^^int&));
 static_assert(is_arithmetic_type(^^int));

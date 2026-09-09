@@ -1476,6 +1476,26 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
 
   // Use the 'auto' deduction machinery to infer the operand type.
   if (DeduceVariableDeclarationType(InventedVD, true, ULE)) {
+    TemplateDecl *UniqueTemplate = nullptr;
+    bool IsAmbiguous = false;
+    for (NamedDecl *D : ULE->decls()) {
+      D = D->getUnderlyingDecl();
+      if (auto *TD = dyn_cast<TemplateDecl>(D)) {
+        if (!UniqueTemplate)
+          UniqueTemplate = TD;
+        else if (UniqueTemplate != TD) {
+          IsAmbiguous = true;
+          break;
+        }
+      } else {
+        IsAmbiguous = true;
+        break;
+      }
+    }
+    if (UniqueTemplate && !IsAmbiguous)
+      return BuildCXXReflectExpr(OperatorLoc, E->getExprLoc(),
+                                 TemplateName(UniqueTemplate));
+
     Diag(E->getExprLoc(), diag::err_reflect_overload_set)
         << E->getSourceRange();
     return ExprError();

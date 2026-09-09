@@ -31,9 +31,9 @@ implemented (were ~0% at epic start). P3560R2 substantially advanced (`meta::exc
 (see below) — do not re-attempt the `members_of` pilot without first fixing the two evaluator-API
 gaps documented in `docs/reflection-audit/codex-strategy2-pilot-report.md`.**
 
-Remaining M4 Confirmed-Open items now include **#150** (destructor splice `~[:info:]`) plus nine
+Remaining M4 Confirmed-Open items now include **#150** (destructor splice `~[:info:]`) plus eight
 issues reclassified by the Needs-Build-To-Verify audit: **#169, #180, #181, #188, #220, #221,
-#237, #239, and #346**. The audit reclassified 12 as Already-Fixed and left six genuinely
+#237, and #346**. The audit reclassified 12 as Already-Fixed and left six genuinely
 unverifiable because their reports lack a usable reproducer. M1 issue and PR triage are now
 complete; the 11 formerly unassessed PRs and the four cross-check PRs are dispositioned in the
 table below and in [`codex-pr-triage-final-report.md`](reflection-audit/codex-pr-triage-final-report.md).
@@ -346,7 +346,7 @@ for readability, same as the source files:
 | 234 | Protected base member reflection | Already-Fixed | Direct derived-context probe with `static_assert(is_protected(^^A::protected_virtual_function))` succeeds at current HEAD. | High |
 | 235 | Ambiguous constructor reflection | Out-of-Scope | Unresolved design question — multiple ctors, no WG21 resolution to implement against (`SemaReflect.cpp:1398-1430`). | High |
 | 237 | Alias of closure type loses identity | Confirmed-Open | The issue's `using ct = typename[:cr:]` closure-alias probe still diagnoses `'auto' not allowed in type alias`; the reflected closure type cannot be reconstructed as the expected alias. Deferred to M4 backlog. | High |
-| 239 | Closure `operator()` reported overloaded | Confirmed-Open | Reduced generic-lambda probe still reports `cannot take the reflection of an overload set` inside a `requires` expression, then fails the concept. Deferred to M4 backlog. | High |
+| 239 | Closure `operator()` reported overloaded | Confirmed-Open → Fixed in this batch | `BuildCXXReflectExpr` now preserves a unique `TemplateDecl` when invented-`auto` deduction fails, covering deduced-`this` closure call operators; ported from PR #244 and validated by the full Clang gate with no reflection failures. | High |
 | 245 | Protected member as reflected template arg | Not-Applicable | `access_context` model (`libcxx/include/meta:1053-1090`) intentionally preserves access-context effects. | High |
 | 246 | Order-dependent `define_static_array` | Already-Fixed | Both the two-declaration probe and the variant with `arr_0` removed compile successfully; no order dependence at current HEAD. | High |
 | 252 | VS Code `__has_feature(reflection)` | Out-of-Scope | Editor/IntelliSense issue, not Clang. | High |
@@ -415,7 +415,7 @@ checking this list first.**
 | 352 | Convert the base of a member splice before building the member expression | #350 — Fixed; ported and verified in commit |
 | 347 | Remove warning if `&` is not directly in code | #346 (likely) |
 | 345 | Allow reflections of values designating immediate functions | **#184/#334 consteval-only cluster — #334 Already-Fixed; #184 Needs-Build-To-Verify. Ready-made upstream fix exists; port in M4 only after a buildable reproducer/gate.** |
-| 340 | Add `std::meta::has_c_language_linkage` | **P2996R13 adopted facility, absent here (also listed in the paper audit's Missing list). Ready-made upstream implementation exists; future M4 paper-gap port.** |
+| 340 | Add `std::meta::has_c_language_linkage` | **Fixed in this batch; compiler/library implementation and focused coverage added.** |
 | 330 | [Clang][P2996] Implement PCH serialization for `ExplDependentCallExpr` | #329 (related) |
 | 328 | fix crash on expansion statement over an overload set | #327, possibly #326 — Fixed; ported and verified in commit |
 | 323 | Fix silent miscompile of template argument packs with 2^15+ elements | #321 — Fixed; ported and verified in commit |
@@ -436,11 +436,11 @@ checking this list first.**
 | 277 | Fix canonicalization of dependent splice types | #276 — Fixed; ported and verified in commit |
 | 261 | Defer expansion statement body instantiation | **Expansion cluster, principally #180 and related #181 — Confirmed-Open. Ready-made upstream AST/Sema/TreeTransform fix exists; port/adapt in M4 with the expansion regression gate.** |
 | 249 | Merging upstream 91cdd350 [clang] Improve nested name specifier AST representation | **General LLVM synchronization (11 files), not a reflection-specific defect or C++26 paper facility. Current fork has independently reconciled the relevant AST representation; out of scope for this closure epic.** |
-| 244 | Fix `Sema::BuildCXXReflectExpr` wrongly thinks a template is overloaded (e.g. reflecting a lambda's `operator()`) | **#239 (closure `operator()` reported overloaded) — Confirmed-Open. Ready-made upstream Sema fix exists; port/adapt in M4.** |
+| 244 | Fix `Sema::BuildCXXReflectExpr` wrongly thinks a template is overloaded (e.g. reflecting a lambda's `operator()`) | **Fixed in this batch; closes #239.** |
 | 227,195,170 | [P3816] Implement `std::consteval_hash<std::meta::info>` (3 iterations) | **Out-of-Scope confirmed: P3816 remains a separate, non-adopted proposal, not required C++26 reflection. These are experimental competing implementations; no issue or paper-gap action here.** |
 | 207 | Examples from P2996 - Reflection for C++26 | **Low-priority/out-of-scope for conformance closure: Docker/build scaffolding and examples only; no compiler or standard-library fix.** |
 | 168 | Adding string literal manipulation | **P3491R3 facility (`is_string_literal` and string-literal helpers), in scope and currently missing per the paper audit. Ready-made upstream implementation exists; future M4 paper-gap port, with wording/API review first.** |
-| 166 | fix `is_reflection_type` | **P2996R13 library correctness gap: one-line alias/dealias fix is applicable to current `meta` and a ready-made upstream fix exists. Not ported in this documentation session; future M4/library test.** |
+| 166 | fix `is_reflection_type` | **Fixed in this batch; alias/dealias correction plus alias regression coverage added.** |
 | 163 | [P3074] Implementing part of trivial unions | **Out-of-scope for this tracker, confirmed: P3074 is language-side work already tracked in `docs/CXX26_GAPS.md`; route any port there.** |
 | 135 | ast dump for splice specifier and reflection splice type | **Low-priority tooling/AST-dump coverage, not C++26 reflection conformance; defer outside closure critical path.** |
 | 124 | Custom annotation requires type to be `equality_comparable` | **P3394R4 annotation Mandates correction. Ready-made constraint exists, but PR changes legacy `experimental/meta`; adapt against current adopted `meta` API in future M4/M5 rather than port verbatim.** |

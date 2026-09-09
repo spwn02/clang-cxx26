@@ -257,6 +257,20 @@ static_assert(!has_external_linkage(^^int));
 static_assert(!has_external_linkage(^^TCls));
 static_assert(!has_external_linkage(^^TFn));
 static_assert(!has_external_linkage(^^TVar));
+
+extern "C" {
+void c_function(int);
+int c_variable;
+typedef void c_function_type(void*);
+using c_function_alias = void*(int);
+}
+
+static_assert(has_c_language_linkage(^^c_function));
+static_assert(has_c_language_linkage(^^c_variable));
+static_assert(has_c_language_linkage(^^c_function_type));
+static_assert(has_c_language_linkage(^^c_function_alias));
+static_assert(!has_c_language_linkage(^^int));
+static_assert(!has_c_language_linkage(^^global));
 }  // namespace linkage
 
 export module test_module;
