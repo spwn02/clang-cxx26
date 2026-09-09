@@ -25,11 +25,15 @@ Date: 2026-09-09
   - Verification: `consteval-reentrant-instantiation.pass.cpp` passed; `clang` built at `-j2`;
     final capped direct-lit Clang gate returned exactly the five documented pre-existing failures.
 - Issue #303 / upstream PR #306: reopened namespace walks truncated by out-of-line class members.
-  - Commit: pending commit for this report update.
+  - Commit: `7626b6ad000e`.
   - Verification: namespace-member libc++ regression passed; `clang` built at `-j2`; final capped
     direct-lit Clang gate returned exactly the five documented pre-existing failures.
+- Issue #311 / upstream PR #315: builtin-template diagnostic ICE.
+  - Commit: pending commit for this report update.
+  - Verification: builtin-template diagnostic libc++ regression passed; `clang` built at `-j2`;
+    final capped direct-lit Clang gate returned exactly the five documented pre-existing failures.
 
 ## Not attempted
 
-PRs #315, #318, #323, #328, #352, and #353 remain in the requested
+PRs #318, #323, #328, #352, and #353 remain in the requested
 order.

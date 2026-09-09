@@ -284,7 +284,7 @@ for readability, same as the source files:
 **311-350:**
 | # | Title | Disposition | Evidence | Conf. |
 |---:|---|---|---|---|
-| 311 | Builtin-template diagnostic ICE | Confirmed-Open | `DescriptionOf` `llvm_unreachable("unhandled template kind")` for `BuiltinTemplateDecl` (`ExprConstantMeta.cpp:1749-1771`). | High |
+| 311 | Builtin-template diagnostic ICE | Fixed | PR #315 ported; `DescriptionOf` handles builtin and template-template-parameter reflections with a safe fallback, with a builtin-template diagnostic regression test. | High |
 | 312 | Deduction-guide specialization mangling ICE | Confirmed-Open | `ItaniumMangle.cpp:4898-4917`, `1444`, `1738` — `llvm_unreachable("Can't mangle a deduction guide name!")`. **Mangling cluster.** | High |
 | 313 | `members_of` truncates after linkage specifier | Already-Fixed | `ExprConstantMeta.cpp:1551-1560` already descends into `LinkageSpecDecl`. | High |
 | 314 | LP64 NEON vector mangling ICE | Confirmed-Open | `ItaniumMangle.cpp:3941-3959` — `long` on LP64 uncovered. Reflection-independent but real. | High |
@@ -324,7 +324,7 @@ checking this list first.**
 | 318 | Handle LP64 long-element NEON vectors in the Itanium mangler | #314 |
 | 317 | Don't truncate member enumeration at linkage-spec typedef tags | #313 (already-fixed here — check if this fork's fix differs/is equivalent) |
 | 316 | Mangle deduction-guide specialization reflections | #312 |
-| 315 | Describe builtin templates instead of crashing | #311 |
+| 315 | Describe builtin templates instead of crashing | #311 — Fixed; ported and verified in commit |
 | 310 | Don't crash classifying a dependent splice expression | #309 — Fixed; ported and verified in commit |
 | 306 | Keep namespace member walks clear of out-of-line class-member definitions | #303 — Fixed; ported and verified in commit |
 | 301 | Discriminate same-headed member-template reflections of a specialization in NTTP mangling | #300 |
@@ -396,6 +396,13 @@ evaluation, preventing dangling references after `SmallVector` growth. Added the
 walks now reject out-of-line class-member definitions as namespace entities and switch back to the
 lexical namespace when traversing from such a definition. Added
 `namespace-members-out-of-line-defs.pass.cpp`; it passed. Built `clang` with `-j2`, rebuilt stale
+auxiliary tools, and ran the capped direct-lit Clang gate: 49,819 discovered, 44,614 passed,
+exactly the five documented baseline failures.
+
+**2026-09-09 — M4 PR batch, PR #315.** Ported upstream PR #315 for issue #311. `DescriptionOf`
+now describes builtin and template-template-parameter reflections and falls back safely for
+unanticipated template kinds instead of reaching `llvm_unreachable`. Added
+`description-of-template-kinds.verify.cpp`; it passed. Built `clang` with `-j2`, rebuilt stale
 auxiliary tools, and ran the capped direct-lit Clang gate: 49,819 discovered, 44,614 passed,
 exactly the five documented baseline failures.
 

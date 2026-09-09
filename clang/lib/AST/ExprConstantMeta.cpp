@@ -1776,7 +1776,10 @@ StringRef DescriptionOf(APValue RV, bool Granular = true) {
     else if (isa<TypeAliasTemplateDecl>(TD)) return "an alias template";
     else if (isa<VarTemplateDecl>(TD)) return "a variable template";
     else if (isa<ConceptDecl>(TD)) return "a concept";
-    llvm_unreachable("unhandled template kind");
+    else if (isa<BuiltinTemplateDecl>(TD)) return "a builtin template";
+    else if (isa<TemplateTemplateParmDecl>(TD))
+      return "a template template parameter";
+    return "a template";
   }
   case ReflectionKind::Namespace: {
     Decl *D = RV.getReflectedNamespace();
