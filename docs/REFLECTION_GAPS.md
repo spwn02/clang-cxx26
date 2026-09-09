@@ -201,7 +201,7 @@ for readability, same as the source files:
 | # | Title | Disposition | Evidence | Conf. |
 |---:|---|---|---|---|
 | 105 | `experimental/meta` missing | Not-Applicable | Fork exposes current `<meta>`, not the obsolete path; build/install guidance issue, already closed upstream. | High |
-| 120 | Repeated first argument on Windows | Confirmed-Open | Itanium mangling fixed (`698fc39db256`); MS mangling still `llvm_unreachable` at `MicrosoftMangle.cpp:2171-2172`. | High |
+| 120 | Repeated first argument on Windows | Confirmed-Open → Skipped 2026-09-09 | Upstream discussion points to PR #243 (`b725cb40f042`) as a placeholder Microsoft mangler implementation, but GitHub API access was unavailable this session and no local port exists. Linux cannot verify MSVC ABI output. A real fix should add a Microsoft equivalent of the Itanium `mangleReflection` path, call it from `mangleTemplateArgValue` instead of the `APValue::Reflection` `llvm_unreachable`, and add Windows/ClangCL regression coverage for distinct reflection NTTPs and expansion results. Not verified here. | High |
 | 146 | Expansion generates `case` labels | Confirmed-Open | `ParseStmt.cpp:2250-2253` accepts `case` in expansion body with no control-flow check; `CGStmt.cpp:1575-1621` emits unconditionally. | High |
 | 150 | Spliced explicit destructor call | Confirmed-Open | `ParseReflect.cpp:49-58` permits ordinary destructor names; splice-as-destructor-name path (`~[:...:]`) absent at `:243-289`. | High |
 | 151 | ICE in member-wise swap | Already-Fixed | Fixes `f0a3e5e612db`/`0f70ed5eb99e`; `CGStmt.cpp:1605-1618` scoping; `miscellaneous.pass.cpp:126-145` close coverage (no dedicated regression test though). | Medium |
