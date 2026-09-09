@@ -1457,6 +1457,10 @@ static bool ensureDeclared(ASTContext &C, QualType QT, SourceLocation SpecLoc) {
 static bool isReflectableDecl(MetaActions &Meta, ASTContext &C, Decl *D) {
   assert(D && "null declaration");
 
+  if (D->getDeclContext() != D->getLexicalDeclContext() &&
+      isa<CXXRecordDecl>(D->getDeclContext()))
+    return false;
+
   if (D != D->getCanonicalDecl()) {
     Decl *First = nullptr;
     for (Decl *I = D->getMostRecentDecl(); I; I = I->getPreviousDecl())
@@ -1518,6 +1522,10 @@ static Decl *findIterableMember(MetaActions &Meta, ASTContext &C, Decl *D,
 
   do {
     DeclContext *DC = D->getDeclContext();  // note: SemanticDC
+
+    if (DC != D->getLexicalDeclContext() && isa<CXXRecordDecl>(DC) &&
+        D->getLexicalDeclContext()->isFileContext())
+      DC = D->getLexicalDeclContext();
 
     if (D->getLexicalDeclContext() == DC) {
       // Get the next declaration in the DeclContext.

@@ -21,11 +21,15 @@ Date: 2026-09-09
   - Verification: both focused libc++ regressions passed; `clang` built at `-j2`; final capped
     direct-lit Clang gate returned exactly the five documented pre-existing failures.
 - Issue #288 / upstream PR #289: reentrant constant-evaluation use-after-free.
-  - Commit: pending commit for this report update.
+  - Commit: `86b19f56a362`.
   - Verification: `consteval-reentrant-instantiation.pass.cpp` passed; `clang` built at `-j2`;
     final capped direct-lit Clang gate returned exactly the five documented pre-existing failures.
+- Issue #303 / upstream PR #306: reopened namespace walks truncated by out-of-line class members.
+  - Commit: pending commit for this report update.
+  - Verification: namespace-member libc++ regression passed; `clang` built at `-j2`; final capped
+    direct-lit Clang gate returned exactly the five documented pre-existing failures.
 
 ## Not attempted
 
-PRs #306, #315, #318, #323, #328, #352, and #353 remain in the requested
+PRs #315, #318, #323, #328, #352, and #353 remain in the requested
 order.

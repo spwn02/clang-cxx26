@@ -276,7 +276,7 @@ for readability, same as the source files:
 | 298 | Deduction-guide reflection mangler ICE | Confirmed-Open | `ItaniumMangle.cpp:4932-4937` unconditional `mangleTemplateName`; deduction guides unsupported elsewhere in same mangler. **Mangling cluster.** | High |
 | 300 | Same-headed member-template reflections collide | Confirmed-Open | No ODR/type/ref-qualifier discriminator in template-reflection mangling; `ODRHash.cpp:670-690` returns early for class-template-specialization members. **Mangling cluster.** | High |
 | 302 | Reopened namespace reflections compare unequal | Already-Fixed | `2245a73e94f5`; `APValue.cpp:575-584`; `namespace-reflection-equality-reopened.pass.cpp:19-31,70-95`. | High |
-| 303 | Reopened namespace walk truncates members | Confirmed-Open | `ExprConstantMeta.cpp:1457-1549` — lexical-context redeclaration check + cross-block traversal gap; no regression test. | High |
+| 303 | Reopened namespace walk truncates members | Fixed | PR #306 ported; out-of-line class-member definitions are excluded from namespace enumeration and traversal returns to their lexical namespace, with reopened-namespace coverage. | High |
 | 304 | `is_complete_type` fails through aliases | Already-Fixed | Fix `7f0f89cc7e75`; `ExprConstantMeta.cpp:4865-4880`; `is-complete-type-alias-sugar.pass.cpp`. | High |
 | 308 | Tracking issue for #286-#304 | Out-of-Scope | Aggregate meta-issue; entries triaged individually above. | High |
 | 309 | Dependent splice ICE during `auto` NTTP deduction | Fixed | PR #310 ported; null-model dependent splices are classified by their own value kind, with libc++ requires-expression regression coverage. | High |
@@ -326,7 +326,7 @@ checking this list first.**
 | 316 | Mangle deduction-guide specialization reflections | #312 |
 | 315 | Describe builtin templates instead of crashing | #311 |
 | 310 | Don't crash classifying a dependent splice expression | #309 — Fixed; ported and verified in commit |
-| 306 | Keep namespace member walks clear of out-of-line class-member definitions | #303 |
+| 306 | Keep namespace member walks clear of out-of-line class-member definitions | #303 — Fixed; ported and verified in commit |
 | 301 | Discriminate same-headed member-template reflections of a specialization in NTTP mangling | #300 |
 | 299 | Mangle deduction-guide reflections instead of hitting unreachable | #298 |
 | 295 | Report substitution failure instead of crashing when substitution forms an invalid type | #294 — Fixed; ported and verified in commit |
@@ -391,6 +391,13 @@ evaluation, preventing dangling references after `SmallVector` growth. Added the
 `consteval-reentrant-instantiation.pass.cpp` regression test; it passed. Built `clang` with
 `-j2`, rebuilt stale auxiliary tools, and ran the capped direct-lit Clang gate: 49,819 discovered,
 44,614 passed, exactly the five documented baseline failures.
+
+**2026-09-09 — M4 PR batch, PR #306.** Ported upstream PR #306 for issue #303. Namespace member
+walks now reject out-of-line class-member definitions as namespace entities and switch back to the
+lexical namespace when traversing from such a definition. Added
+`namespace-members-out-of-line-defs.pass.cpp`; it passed. Built `clang` with `-j2`, rebuilt stale
+auxiliary tools, and ran the capped direct-lit Clang gate: 49,819 discovered, 44,614 passed,
+exactly the five documented baseline failures.
 
 **2026-09-09 — M4 PR batch, PR #291.** Ported upstream PR #291 for issue #290. Entity-proxy
 member predicates now classify using-shadow proxies as false, and proxy reflection NTTP mangling
