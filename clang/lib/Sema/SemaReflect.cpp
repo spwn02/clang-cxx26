@@ -852,8 +852,32 @@ public:
       }
 
       VirtSpecifiers VS;
-      S.ActOnCXXMemberDeclarator(&ClsScope, MemberAS, MemberDeclarator, MTP,
-                                 BitWidthCE, VS, ICIS_NoInit);
+      NamedDecl *Member = S.ActOnCXXMemberDeclarator(
+          &ClsScope, MemberAS, MemberDeclarator, MTP, BitWidthCE, VS,
+          ICIS_NoInit);
+
+      for (APValue *AnnotVal : MemberSpec->Annotations) {
+        APValue LoweredVal = AnnotVal->isReflectedValue()
+                                 ? AnnotVal->getReflectedValue()
+                                 : AnnotVal->getReflectedObject();
+        Expr *OVE = new (S.Context) OpaqueValueExpr(
+            DefinitionLoc,
+            AnnotVal->getTypeOfReflectedResult(S.Context), VK_PRValue);
+        Expr *CE = ConstantExpr::Create(S.Context, OVE, LoweredVal);
+
+        AttributeFactory AnnotationAttrFactory;
+        ParsedAttributes ParsedAttrs(AnnotationAttrFactory);
+        SourceRange AnnotationRange(DefinitionLoc, DefinitionLoc);
+        IdentifierInfo &AnnotII =
+            S.Context.Idents.get("__annotation_placeholder");
+        AttributeCommonInfo *ACI = ParsedAttrs.addNew(
+            &AnnotII, AnnotationRange, {}, nullptr, 0,
+            ParsedAttr::Form::Annotation(), DefinitionLoc);
+        auto *Annot = CXX26AnnotationAttr::Create(S.Context, CE, *ACI);
+        Annot->setValue(LoweredVal);
+        Annot->setEqLoc(DefinitionLoc);
+        Member->addAttr(Annot);
+      }
     }
 
     // Finish the member-specification and the class definition.

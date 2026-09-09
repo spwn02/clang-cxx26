@@ -30,6 +30,7 @@ struct TagDataMemberSpec {
   std::optional<size_t> Alignment;
   std::optional<size_t> BitWidth;
   bool NoUniqueAddress;
+  llvm::SmallVector<APValue *, 2> Annotations;
   llvm::SmallVector<ParsedAttr *, 2> Attributes;
 
   bool operator==(const TagDataMemberSpec &Rhs) const;

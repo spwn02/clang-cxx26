@@ -940,7 +940,7 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 1, 1, is_user_provided },
   { Metafunction::MFRK_bool, 1, 1, is_user_declared },
   { Metafunction::MFRK_metaInfo, 2, 2, reflect_result },
-  { Metafunction::MFRK_metaInfo, 12, 12, data_member_spec },
+  { Metafunction::MFRK_metaInfo, 14, 14, data_member_spec },
   { Metafunction::MFRK_metaInfo, 8, 8, enumerator_spec },
   { Metafunction::MFRK_bool, 1, 1, is_enumerator_spec },
   { Metafunction::MFRK_metaInfo, 3, 3, define_aggregate },
@@ -5899,6 +5899,34 @@ bool data_member_spec(APValue &Result, ASTContext &C, MetaActions &Meta,
     return true;
   bool NoUniqueAddress = Scratch.getInt().getBoolValue();
 
+  // Next is `N` and then { annotation_i, ..., annotation_N }
+  if (!Evaluator(Scratch, Args[ArgIdx++], true))
+    return true;
+  llvm::SmallVector<APValue *, 2> Annotations;
+  if (int64_t N = Scratch.getInt().getExtValue(); N > 0) {
+    for (int64_t i = 0; i < N; ++i) {
+      llvm::APInt Idx(C.getTypeSize(C.getSizeType()), i, false);
+      Expr *indexExpr = IntegerLiteral::Create(C, Idx, C.getSizeType(),
+                                               Args[ArgIdx]->getExprLoc());
+      Expr *arraySubExpr = new (C) ArraySubscriptExpr(
+          Args[ArgIdx], indexExpr, C.MetaInfoTy, VK_LValue, OK_Ordinary,
+          Range.getBegin());
+      if (!Evaluator(Scratch, arraySubExpr, true))
+        return true;
+      if (!Scratch.isReflectedValue() && !Scratch.isReflectedObject())
+        return DiagnoseReflectionKind(Diagnoser, Range,
+                                      "a reflected constant",
+                                      DescriptionOf(Scratch));
+      QualType AnnotationTy = Scratch.getTypeOfReflectedResult(C);
+      if (AnnotationTy->isArrayType())
+        return DiagnoseReflectionKind(Diagnoser, Range,
+                                      "a non-array reflected constant",
+                                      DescriptionOf(Scratch));
+      Annotations.push_back(new (C) APValue(Scratch));
+    }
+  }
+  ArgIdx++;
+
   // Next is `N` and then { attr_i, ..., attr_N }
   if (!Evaluator(Scratch, Args[ArgIdx++], true))
     return true;
@@ -5921,7 +5949,8 @@ bool data_member_spec(APValue &Result, ASTContext &C, MetaActions &Meta,
   }
 
   TagDataMemberSpec *TDMS = new (C) TagDataMemberSpec {
-    MemberTy, Name, Alignment, BitWidth, NoUniqueAddress, Attributes
+    MemberTy, Name, Alignment, BitWidth, NoUniqueAddress, Annotations,
+    Attributes
   };
   return SetAndSucceed(Result, makeReflection(TDMS));
 }

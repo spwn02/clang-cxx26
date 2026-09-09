@@ -2518,6 +2518,7 @@ struct data_member_options {
   optional<name_type> name = nullopt;
   optional<int> alignment = nullopt;
   optional<int> width = nullopt;
+  vector<info> annotations = {};
 #if __has_feature(attribute_reflection)
   [[deprecated("Use .attributes = { ^^[[no_unique_address]] }")]] bool no_unique_address = false;
   vector<meta::info> attributes = {};
@@ -2585,6 +2586,13 @@ consteval auto data_member_spec(info member_type,
   bool has_name = options.name.has_value();
   int alignment = options.alignment.value_or(0);
   int width = options.width.value_or(0);
+  for (info annotation : options.annotations) {
+    if (!is_value(annotation) && !is_object(annotation))
+      throw exception(u8"annotation must reflect a constant", ^^data_member_spec);
+    if (is_array_type(type_of(annotation)))
+      throw exception(u8"annotation must not have array type", ^^data_member_spec);
+    (void)constant_of(annotation);
+  }
   // 'no_unique_address' is intentionally deprecated in favor of
   // '.attributes = { ^^[[no_unique_address]] }', but is still honored here for
   // backward compatibility; suppress the deprecation warning at this read site.
@@ -2623,6 +2631,7 @@ consteval auto data_member_spec(info member_type,
                             options.alignment.has_value(), alignment,
                             options.width.has_value(), width,
                             no_unique_address,
+                            options.annotations.size(), options.annotations.data(),
 #if __has_feature(attribute_reflection)
                             options.attributes.size(), options.attributes.data()
 #else
@@ -2637,6 +2646,7 @@ consteval auto data_member_spec(info member_type,
                             options.alignment.has_value(), alignment,
                             options.width.has_value(), width,
                             no_unique_address,
+                            options.annotations.size(), options.annotations.data(),
 #if __has_feature(attribute_reflection)
                             options.attributes.size(), options.attributes.data()
 #else
@@ -2651,6 +2661,7 @@ consteval auto data_member_spec(info member_type,
       options.alignment.has_value(), alignment,
       options.width.has_value(), width,
       no_unique_address,
+      options.annotations.size(), options.annotations.data(),
 #if __has_feature(attribute_reflection)
       options.attributes.size(), options.attributes.data()
 #else
