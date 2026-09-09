@@ -492,7 +492,24 @@ the diff's "before" context byte-for-byte. High confidence the other 4 mangling-
 #299, #301, #316) are similarly portable — diffs fetched to `docs/reflection-audit/pr-diffs/`,
 full application deferred to M4 (each needs its own build-gated commit).
 
+## M5 diagnostic checklist
+
+M5 scoping is complete. The paper-by-paper inventory of every identified Constraints/Mandates/
+Throws/Constant-When ill-formed condition, existing coverage, implementation blockers, row counts,
+and recommended facility-first execution plan is in
+[`reflection-audit/M5-diagnostic-checklist.md`](reflection-audit/M5-diagnostic-checklist.md).
+The inventory records **109 conditions: 10 covered, 81 needing new tests, and 18 blocked on an
+unimplemented facility or P3560R2 exception plumbing**. No test files were added during this
+scoping session. Future M5 sessions must update checklist rows as tests land and append their
+results to this tracker’s Session Log.
+
 ## Session Log
+
+**2026-09-09 — M5 diagnostic scoping.** Read Ground Truth, the original M5 definition, the full
+M2 paper audit, the existing reflection verify/pass tests, and the adopted wording for all ten
+papers. Added `reflection-audit/M5-diagnostic-checklist.md` with 109 condition rows, coverage and
+implementation classifications, exact existing-test pointers, totals, and a facility-first plan.
+No test files or implementation sources were changed.
 
 **2026-09-09 — P3560R2 strategy-(2) design investigation.** Read Ground truth, the P3560R2
 row, the five paper-audit rows, the 13-function strategy-(1) history/report, P3068 pending
