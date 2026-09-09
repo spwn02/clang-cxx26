@@ -31,9 +31,10 @@ implemented (were ~0% at epic start). P3560R2 substantially advanced (`meta::exc
 (see below) — do not re-attempt the `members_of` pilot without first fixing the two evaluator-API
 gaps documented in `docs/reflection-audit/codex-strategy2-pilot-report.md`.**
 
-Remaining M4 Confirmed-Open items now include **#150** (destructor splice `~[:info:]`) plus eight
-issues reclassified by the Needs-Build-To-Verify audit: **#169, #180, #181, #188, #220, #221,
-#237, and #346**. The audit reclassified 12 as Already-Fixed and left six genuinely
+Remaining M4 Confirmed-Open items now include **#150** (destructor splice `~[:info:]`) plus five
+issues reclassified by the Needs-Build-To-Verify audit: **#180, #181, #188, #220, and #237**.
+#169 and #346 were fixed in M4 batch 6; #221 was confirmed to be a libc++ constraint bug rather
+than a reflection issue. The audit reclassified 12 as Already-Fixed and left six genuinely
 unverifiable because their reports lack a usable reproducer. M1 issue and PR triage are now
 complete; the 11 formerly unassessed PRs and the four cross-check PRs are dispositioned in the
 table below and in [`codex-pr-triage-final-report.md`](reflection-audit/codex-pr-triage-final-report.md).
@@ -46,10 +47,10 @@ and the NBTV audit landed — items 1/2 below are DONE, kept struck through for 
 0. ~~Re-audit the 27 Needs-Build-To-Verify issues from M1~~ — **done**, see
    `codex-nbtv-audit-report.md` (12 Already-Fixed, 9 Confirmed-Open, 6 still unverifiable).
    ~~Finish PR triage~~ — **done**, see `codex-pr-triage-final-report.md`, M1 fully complete.
-1. Work the remaining 8 Confirmed-Open issues from the NBTV audit: **#169, #180, #181, #188,
-   #220, #221, #237, #346** (plus #150, tracked separately below). Each has a repro/description
-   already in the Issue Triage table — investigate and fix where safely scoped, defer with
-   precise documentation otherwise, same discipline as every prior M4 batch.
+1. Work the remaining 5 Confirmed-Open issues from the NBTV audit: **#180, #181, #188, #220,
+   and #237** (plus #150, tracked separately below). #169 and #346 were fixed in M4 batch 6;
+   #221 is not a reflection bug. The remaining issues need architectural expansion, evaluator,
+   or type-reconstruction work.
 2. M5 (diagnostic/ill-formed-program test suite) — not started, genuinely large; the M2 paper
    audits already enumerate most Throws/Mandates conditions per paper, which is the concrete
    starting checklist per the plan. Scope it with a design pass before diving into writing tests,
@@ -314,14 +315,14 @@ for readability, same as the source files:
 | 150 | Spliced explicit destructor call | Confirmed-Open → Skipped 2026-09-09 | Re-traced `ParseExpr.cpp`'s `~` path: `ParseUnqualifiedId(...IK_DestructorName...)` accepts ordinary type/name tokens but has no splice branch. Supporting `~[:info:]()` needs a splice-bearing destructor-name AST/Sema representation and destructor lookup/call formation; the existing member-splice path cannot preserve those semantics. | High |
 | 151 | ICE in member-wise swap | Already-Fixed | Fixes `f0a3e5e612db`/`0f70ed5eb99e`; `CGStmt.cpp:1605-1618` scoping; `miscellaneous.pass.cpp:126-145` close coverage (no dedicated regression test though). | Medium |
 | 154 | `underlying_type` ICE for non-enum | Already-Fixed | Direct `-freflection-latest -fsyntax-only` probe diagnoses the invalid `underlying_type_t<int>` substitution cleanly; no ICE or process failure at current HEAD. | High |
-| 169 | Crash in templated lambda | Confirmed-Open | Exact issue reproducer still aborts in `CheckIfAnyEnclosingLambdasMustCaptureAnyPotentialCaptures` (`SemaExprCXX.cpp:7629`) during parsing of the nested templated lambda. Deferred to M4 backlog. | High |
+| 169 | Crash in templated lambda | Confirmed-Open → Fixed 2026-09-09 | Exact reproducer aborted in `CheckIfAnyEnclosingLambdasMustCaptureAnyPotentialCaptures` when an expansion statement left the lambda scope stack out of sync with `CurContext`. The potential-capture walk now returns for that invalid context. **Independently re-verified** (the first attempt was uncommitted due to a sandbox `.git`-read-only block and had no gate run) — built clang, ran the test directly (compile+execute, exit 0) since full-suite lit runs were OOM-killed repeatedly; also confirmed `clang/test/Reflection` 20/20 clean. Test lives at `libcxx/test/std/experimental/reflection/expansion-lambda-capture-crash.pass.cpp` (needs real `<meta>`/`define_static_array`/`members_of`, not available in the bare `clang/test/Reflection` environment — the original test file was misplaced there and has been moved). | High |
 | 173 | Templated `named_tuple` | Out-of-Scope | Feature request; `define_aggregate` (`libcxx/include/meta:2503-2515`) already covers the underlying need. | High |
 | 175 | Namespace comparison | Already-Fixed | `2245a73e94f5`; `namespace-reflection-equality-reopened.pass.cpp:70-87`. | High |
 | 176 | `members_of` + empty namespace redeclaration | Already-Fixed | `ExprConstantMeta.cpp:1535-1545`; same test file `:41-61`, `:70-84`. | Medium |
 | 177 | Enum NTTP loses enumerator identity | Out-of-Scope | Intentional: reflected value vs. enumerator declaration distinction, `ExprConstantMeta.cpp:4192-4208`; `entity-classification.pass.cpp:61-82` requires this. | High |
 | 178 | `template for` over `integer_sequence` | Already-Fixed | Direct `-freflection-latest -fsyntax-only` probe over `std::integer_sequence<int,1,5>` succeeds at current HEAD. | High |
-| 180 | `static_assert(false)` ignored | Confirmed-Open | Exact reproducer compiles successfully, instantiates `test_impl<int>`, and therefore still ignores the dependent `static_assert(false)` that should make substitution ill-formed. Deferred to M4 backlog. | High |
-| 181 | Non-copyable tuple in `template for` | Confirmed-Open | Exact range-for probe still attempts to copy `const tuple<unique_ptr<...>>` and diagnoses its deleted copy constructor. Deferred to M4 backlog. | High |
+| 180 | `static_assert(false)` ignored | Confirmed-Open — deferred 2026-09-09 | Exact reproducer still compiles successfully, instantiates `test_impl<int>`, and ignores the dependent `static_assert(false)` that should make substitution ill-formed. This needs the broader expansion-body deferral design associated with PR #261; no safe local diagnostic tweak identified. | High |
+| 181 | Non-copyable tuple in `template for` | Confirmed-Open — deferred 2026-09-09 | Exact range-for probe still attempts to copy `const tuple<unique_ptr<...>>` and diagnoses its deleted copy constructor. Correct range/reference preservation is coupled to the #180/#261 expansion work; no safe local fix identified. | High |
 | 182 | `template for` + `continue` ICE | Confirmed-Open → Skipped 2026-09-09 | CodeGen currently creates one continuation destination per expansion instance before emitting discarded `if constexpr` bodies; fixing this needs instance-discard awareness in expansion control-flow lowering and a regression gate for break/continue nesting. No safe local patch was identified; deferred with the M3 consteval escalation cluster. | High |
 | 183 | ICE with imported reflection function | Already-Fixed | `module-imports.sh.cpp:1-17`; serialization fix `090152727f3f` (broader than original scenario). | Medium |
 | 184 | Spurious consteval-only diagnostic | Needs-Build-To-Verify | No exact source reproducer was available in the issue body beyond a Godbolt link; retain until the nested-lambda/consteval-only NTTP example is rebuilt. | Low |
@@ -331,7 +332,7 @@ for readability, same as the source files:
 |---:|---|---|---|---|
 | 185 | Annotation API changed in R1 | Confirmed-Open → Fixed 2026-09-09, commit `625ed6cec16a` | Added adopted `annotations_of_with_type(info, info)` as a compatibility-preserving forwarding wrapper over the existing filtered implementation, with focused coverage. Legacy APIs remain available for existing fork tests and callers. | High |
 | 187 | Compilation never ends | Needs-Build-To-Verify | No reproducer in snapshot, Godbolt-link only. | Low |
-| 188 | `display_string_of(dealias(...))` not constant expr | Confirmed-Open | Rebuilt the issue's sequence of `ranges::max_element` type displays. Current HEAD rejects `dealias`/double-`dealias` cases for template-heavy iterator types as not constant expressions. Deferred to M4 backlog. | High |
+| 188 | `display_string_of(dealias(...))` not constant expr | Confirmed-Open — deferred 2026-09-09 | Rebuilt the issue's sequence of `ranges::max_element` type displays. Current HEAD rejects `dealias`/double-`dealias` cases for template-heavy iterator types as not constant expressions. Requires dedicated evaluator/printer investigation; no narrow safe fix identified. | High |
 | 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
 | 200 | `parent_of` wrong for class-template aliases | Confirmed-Open → Already-Fixed 2026-09-09 | Direct probe `static_assert(parent_of(^^T::A) == ^^T)` passes. Existing `findTypeDecl` preserves the top-level `UsingType` alias before template-specialization fallback; the stale deferral note incorrectly described the current checkout. | High |
 | 203 | Unbalanced diagnostic parentheses | Already-Fixed | Direct malformed-range probe now emits a balanced diagnostic (`cannot expand over a function 'void ()'; did you mean to call it with no arguments?`) with no unbalanced-parenthesis output. | High |
@@ -342,8 +343,8 @@ for readability, same as the source files:
 | 211 | Static enum member wrong `type_of` | Already-Fixed | Direct probe for `static E S::value` confirms `type_of(^^S::value) == ^^E`. | High |
 | 212 | ICE in `if constexpr` optional extraction | Needs-Build-To-Verify | Insufficient repro detail in snapshot. | Low |
 | 215 | Empty `reflect_constant_array` result | Already-Fixed | Fix `5dafd8cc4a45`; `libcxx/include/meta:2598-2616`; `static-arrays.pass.cpp:64-70`. | High |
-| 220 | `display_string_of(type_of(undeduced))` hangs | Confirmed-Open | Exact issue probe with `auto operator()();` exceeds a 20-second timeout without producing the expected diagnostic. Deferred to M4 backlog. | High |
-| 221 | `expected<bool,int>` in `vector` fails | Confirmed-Open | Exact `std::vector{value(), value()}` probe still fails in `__expected/expected.h:1167` with self-dependent constraint satisfaction while copying the expected elements. Deferred to M4 backlog. | High |
+| 220 | `display_string_of(type_of(undeduced))` hangs | Confirmed-Open — deferred 2026-09-09 | Exact issue probe with `auto operator()();` still exceeds a 20-second timeout without producing the expected diagnostic. Likely infinite recursion around undeduced return-type handling; needs a dedicated traced evaluator fix. | High |
+| 221 | `expected<bool,int>` in `vector` fails | Confirmed-Open → Not a reflection bug 2026-09-09 | Exact `std::vector{value(), value()}` probe fails in libc++ `__expected/expected.h:1167` with self-dependent constraint satisfaction while copying the expected elements. The source contains no reflection; leave outside the M4 reflection backlog. | High |
 | 222 | `define_aggregate` nested incomplete type in template arg | Already-Fixed | Exact non-templated-inner-type/structural-template-argument probe compiles successfully at current HEAD; no `'inside_S' cannot be defined in a parameter type` diagnostic. | High |
 | 225 | `meta::exception` unimplemented | Confirmed-Open → Partial 2026-09-09 | `<meta>` now declares and defines the P3560R2 class, with direct consteval construction/accessor/throw-catch regression coverage. Remaining issue scope is the unrewired Throws-bearing metafunctions; nested consteval exception propagation passes after staged-header refresh. | High |
 
@@ -354,7 +355,7 @@ for readability, same as the source files:
 | 232 | `template for` + `display_string_of` | Already-Fixed | Direct probe over a member of type `std::vector<int>` (exercising pretty-printer template-argument rendering inside `template for`) succeeds at current HEAD. | High |
 | 234 | Protected base member reflection | Already-Fixed | Direct derived-context probe with `static_assert(is_protected(^^A::protected_virtual_function))` succeeds at current HEAD. | High |
 | 235 | Ambiguous constructor reflection | Out-of-Scope | Unresolved design question — multiple ctors, no WG21 resolution to implement against (`SemaReflect.cpp:1398-1430`). | High |
-| 237 | Alias of closure type loses identity | Confirmed-Open | The issue's `using ct = typename[:cr:]` closure-alias probe still diagnoses `'auto' not allowed in type alias`; the reflected closure type cannot be reconstructed as the expected alias. Deferred to M4 backlog. | High |
+| 237 | Alias of closure type loses identity | Confirmed-Open — deferred 2026-09-09 | The issue's `using ct = typename[:cr:]` closure-alias probe still diagnoses `'auto' not allowed in type alias`; reconstructing an invented closure type through a splice needs deeper alias/type work. No safe local fix identified. | High |
 | 239 | Closure `operator()` reported overloaded | Confirmed-Open → Fixed in this batch | `BuildCXXReflectExpr` now preserves a unique `TemplateDecl` when invented-`auto` deduction fails, covering deduced-`this` closure call operators; ported from PR #244 and validated by the full Clang gate with no reflection failures. | High |
 | 245 | Protected member as reflected template arg | Not-Applicable | `access_context` model (`libcxx/include/meta:1053-1090`) intentionally preserves access-context effects. | High |
 | 246 | Order-dependent `define_static_array` | Already-Fixed | Both the two-declaration probe and the variant with `arr_0` removed compile successfully; no order dependence at current HEAD. | High |
@@ -407,7 +408,7 @@ for readability, same as the source files:
 | 333 | Splice operand convertible to `meta::info` rejected | Already-Fixed | `SemaReflect.cpp:1575-1593` already handles `DefaultLvalueConversion` + implicit conversion. | High |
 | 334 | Static member call inherits consteval-only object restriction | Confirmed-Open → Fixed 2026-09-09 | `MarkMemberReferenced` now removes a direct consteval-only object reference from the immediate-context set for non-arrow static member calls; side effects remain normally analyzed. `static-member-consteval-only.cpp` covers the reported runtime call. | Medium |
 | 342 | `^^derived::operator()` rejects using-declaration | Fixed | PR #353 ported; reflection-name syntax remains rejected, while id-expressions naming introduced operators/templates resolve to the target declaration, including dependent cases. | High |
-| 346 | Spurious warning for reflected reference type | Confirmed-Open | Exact probe emits `-Wreflexing-parse` for `^^decltype(std::move(1))`, despite no source `&` token. Deferred to M4 backlog. | High |
+| 346 | Spurious warning for reflected reference type | Confirmed-Open → Fixed 2026-09-09 | Exact probe emitted `-Wreflexing-parse` for `^^decltype(std::move(1))`, despite no source `&`/`&&` token. **Independent re-verification caught a real bug in the first attempt's fix**: it checked `LastTypeToken.is(tok::ampamp)` only, which suppressed the warning entirely for the single-`&` case too, regressing `clang/test/Reflection/lift-operator.cpp`'s `'&' binds to reflection operand` expectations (2 previously-passing checks started failing) — fixed by checking `.isOneOf(tok::amp, tok::ampamp)` instead. Verified: `clang/test/Reflection` back to 20/20 (including `lift-operator.cpp`), the `std::move(1)` repro passes cleanly via direct `clang++` invocation and `libcxx-lit`. Test lives at `libcxx/test/std/experimental/reflection/no-spurious-reflect-reference-warning.pass.cpp` (needs `<utility>`/`std::move`, not available in bare `clang/test/Reflection`). **Two new, separate, genuinely pre-existing bugs found while constructing a minimal repro** (confirmed via `git stash` against unmodified code, unrelated to this fix): `^^decltype(<ordinary-function-call>)` (non-template) fails to parse at all (`type name requires a specifier or qualifier` / spurious Blocks-syntax errors — likely a tentative-parse disambiguation gap for call-expressions inside `decltype` as a reflect-operand), and `^^SomeTypeAliasName` (a plain identifier naming a type alias, with no lookahead token in `{[`, `(`, `*`, `&`, `&&`, cv-qualifiers`}` after it) is misrouted down the unqualified-id/entity path instead of being recognized as a type, with the same downstream parse corruption. Neither is in the M1 issue list — **not yet triaged as new issues, flagged here for a future session**. | High |
 | 350 | `->[:member:]` assertion with lvalue pointer | Fixed | PR #352 ported; splice member bases undergo the ordinary member-access conversions, covering lvalue pointers and array decay. | High |
 
 ## Upstream PR triage (M1)
@@ -755,6 +756,20 @@ only the two already-known baseline tests (`cxx2a-constexpr-dynalloc.cpp`,
 (4/4) at commit time, this is treated as reasonably-verified but **not exhaustively gate-confirmed
 for the full SemaCXX suite** — flag this explicitly if #334's fix is ever suspected of causing a
 downstream issue; a genuine uninterrupted `SemaCXX` run is still owed.
+
+**2026-09-09 — M4 batch 6, issue #169.** Reproduced the assertion in
+`CheckIfAnyEnclosingLambdasMustCaptureAnyPotentialCaptures` with the exact NBTV source. The
+expansion-statement parser can leave `CurrentLSI` on the function-scope stack after its call
+operator is no longer `CurContext`; the existing debug assertion fired before the function's
+capture walk could decline the invalid context. Added a guard for that state and a no-crash
+regression test. Direct rebuilt-compiler probe passes after rebuilding Clang; lit is unavailable in
+this sandbox because its Python worker setup requires a forbidden `forkserver` operation.
+
+**2026-09-09 — M4 batch 6, issue #346.** Reproduced the spurious `-Wreflexing-parse` warning for
+`^^decltype(std::move(1))`. The warning path used the semantic reference type and the following
+token, which incorrectly treated a reference nested inside `decltype` as binding to `^^`. It now
+checks the raw token at the parsed type-id's end location before warning. The exact probe is clean,
+while the direct ambiguous `^^int&& != ^^int` case still warns.
 
 **2026-09-09 — P3560R2 strategy (2) pilot investigation.** Confirmed the design's pilot is
 `members_of`, but stopped before source changes after finding two implementation blockers: the

@@ -146,6 +146,17 @@ ExprResult Parser::ParseCXXReflectExpression(SourceLocation OpLoc) {
       TypeLoc TL = cast<LocInfoType>(TR.get().get())
           ->getTypeSourceInfo()->getTypeLoc();
 
+      // A type such as decltype(std::move(1)) can itself be an rvalue
+      // reference even though no reference token binds to the reflect
+      // operator. Only warn when the reference token is actually at the end
+      // of the parsed type-id.
+      Token LastTypeToken;
+      if (Lexer::getRawToken(TL.getEndLoc(), LastTypeToken,
+                             PP.getSourceManager(), getLangOpts(), true) ||
+          !LastTypeToken.isOneOf(tok::amp, tok::ampamp))
+        return RecordConstevalOnly.RecordAndReturn(
+            Actions.ActOnCXXReflectExpr(OpLoc, TR));
+
       Diag(OperandLoc, diag::warn_meant_parenthesize_reflection)
         << refKind << TL.getSourceRange();
     }

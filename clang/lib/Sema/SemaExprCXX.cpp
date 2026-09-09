@@ -7620,10 +7620,16 @@ static void CheckIfAnyEnclosingLambdasMustCaptureAnyPotentialCaptures(
 
   assert(!S.isUnevaluatedContext());
   assert(S.CurContext->isDependentContext());
-#ifndef NDEBUG
   DeclContext *DC = S.CurContext;
   while (isa_and_nonnull<CapturedDecl>(DC))
     DC = DC->getParent();
+  // Expansion statements can leave the current lambda scope on the
+  // FunctionScopes stack while CurContext refers to the enclosing expansion
+  // context. In that case the potential-capture walk below is not valid: it
+  // assumes that the lambda call operator and CurContext are synchronized.
+  if (CurrentLSI->AfterParameterList && CurrentLSI->CallOperator != DC)
+    return;
+#ifndef NDEBUG
   assert(
       (CurrentLSI->CallOperator == DC || !CurrentLSI->AfterParameterList) &&
       "The current call operator must be synchronized with Sema's CurContext");
