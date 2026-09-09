@@ -46,11 +46,12 @@ Date: 2026-09-09
   - Verification: focused overload-range diagnostic regression passed; `clang` built at `-j2`; final
     capped direct-lit Clang gate returned exactly the five documented pre-existing failures.
 - Issue #350 / upstream PR #352: `->[:member:]` assertion with lvalue pointer.
-  - Commit: pending commit for this report update.
+  - Commit: `84ba1ef5ccaa`.
   - Verification: extended `splice-exprs.cpp` regression passed; `clang` built at `-j2`; final capped
     direct-lit Clang gate returned exactly the five documented pre-existing failures.
+- Issue #342 / upstream PR #353: `^^derived::operator()` rejects using-declaration.
+  - Commit: pending commit for this report update.
+  - Verification: wording/using-declarator reflection regression passed; `clang` built at `-j2`; final
+    capped direct-lit Clang gate returned exactly the five documented pre-existing failures.
 
-## Not attempted
-
-PR #353 remains in the requested
-order.
+All 12 requested PRs were attempted and closed; no batch items remain.

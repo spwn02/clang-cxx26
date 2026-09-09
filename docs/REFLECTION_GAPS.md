@@ -298,7 +298,7 @@ for readability, same as the source files:
 | 332 | `reflect_constant` rejects pointer to mixed consteval-only type | Needs-Build-To-Verify | `ExprConstantMeta.cpp:3227-3264`, `ExprConstant.cpp:2405-2410`; needs build. | Medium |
 | 333 | Splice operand convertible to `meta::info` rejected | Already-Fixed | `SemaReflect.cpp:1575-1593` already handles `DefaultLvalueConversion` + implicit conversion. | High |
 | 334 | Static member call inherits consteval-only object restriction | Confirmed-Open | `ExprConstant.cpp:2405-2410` doesn't distinguish unevaluated object expression. | Medium |
-| 342 | `^^derived::operator()` rejects using-declaration | Confirmed-Open | `SemaReflect.cpp:1042-1050,1320-1339` unconditional rejection, no operator-function-id distinction. | High |
+| 342 | `^^derived::operator()` rejects using-declaration | Fixed | PR #353 ported; reflection-name syntax remains rejected, while id-expressions naming introduced operators/templates resolve to the target declaration, including dependent cases. | High |
 | 346 | Spurious warning for reflected reference type | Needs-Build-To-Verify | `DiagnosticParseKinds.td:1828-1829`, `ParseReflect.cpp:149`; needs build to confirm type-info availability at warn site. | Medium |
 | 350 | `->[:member:]` assertion with lvalue pointer | Fixed | PR #352 ported; splice member bases undergo the ordinary member-access conversions, covering lvalue pointers and array decay. | High |
 
@@ -312,7 +312,7 @@ checking this list first.**
 
 | PR # | Title | Maps to issue(s) |
 |---:|---|---|
-| 353 | Reflect the introduced function when an id-expression names a using-declarator | #342 |
+| 353 | Reflect the introduced function when an id-expression names a using-declarator | #342 — Fixed; ported and verified in commit |
 | 352 | Convert the base of a member splice before building the member expression | #350 — Fixed; ported and verified in commit |
 | 347 | Remove warning if `&` is not directly in code | #346 (likely) |
 | 345 | Allow reflections of values designating immediate functions | — (check against #184/#334 consteval-only cluster) |
@@ -449,6 +449,13 @@ conversion and array-to-pointer decay. Extended `splice-exprs.cpp` with pointer,
 and dependent-splice cases; it passed. Built `clang` with `-j2`, rebuilt stale auxiliary tools, and
 ran the capped direct-lit Clang gate: 49,820 discovered, 44,615 passed, exactly the five documented
 baseline failures.
+
+**2026-09-09 — M4 PR batch, PR #353.** Ported upstream PR #353 for issue #342. Reflection-name
+syntax continues to reject using-declarators, while id-expression forms now reflect the introduced
+target declaration; this distinction also works for operators, templates, and dependent bases.
+Added the using-declarator wording regression to `reflection-wording-examples.cpp`; it passed.
+Built `clang` with `-j2`, rebuilt stale auxiliary tools, and ran the capped direct-lit Clang gate:
+49,820 discovered, 44,615 passed, exactly the five documented baseline failures.
 
 **2026-09-09 — M4 PR batch, PR #310.** Ported upstream PR #310 for issue #309. Dependent
 `CXXSpliceExpr` nodes with no model are now classified from their own value kind instead of being
