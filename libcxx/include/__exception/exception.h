@@ -73,11 +73,15 @@ public:
 
 class _LIBCPP_EXPORTED_FROM_ABI exception {
 public:
-  _LIBCPP_HIDE_FROM_ABI exception() _NOEXCEPT {}
+  _LIBCPP_HIDE_FROM_ABI constexpr exception() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI exception(const exception&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI exception& operator=(const exception&) _NOEXCEPT = default;
 
+#  if _LIBCPP_STD_VER >= 26
+  virtual constexpr ~exception() _NOEXCEPT {}
+#  else
   virtual ~exception() _NOEXCEPT;
+#  endif
   [[__nodiscard__]] virtual const char* what() const _NOEXCEPT;
 };
 

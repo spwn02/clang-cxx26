@@ -26,6 +26,9 @@ inline namespace reflection_v2
 // std::meta::info
 using info = decltype(^^int);
 
+// std::meta::exception
+class exception;
+
 // attribute namespace
 enum class AttributeNamespace {
   None,
@@ -416,6 +419,7 @@ template <reflection_range R1 = initializer_list<info>,
 
 #include <__config>
 #include <bit>
+#include <exception>
 #include <initializer_list>
 #include <optional>
 
@@ -441,6 +445,38 @@ _LIBCPP_BEGIN_NAMESPACE_REFLECTION_V2
 
 // An opaque handle to a reflected entity.
 using info = decltype(^^int);
+
+class exception : public std::exception {
+  optional<string> what_;
+  u8string u8what_;
+  info from_;
+  source_location where_;
+
+public:
+  consteval exception(u8string_view what, info from,
+                      source_location where = source_location::current()) noexcept
+      : what_(string(what.begin(), what.end())),
+        u8what_(what),
+        from_(from),
+        where_(where) {}
+
+  consteval exception(string_view what, info from,
+                      source_location where = source_location::current()) noexcept
+      : what_(what),
+        u8what_(u8string(what.begin(), what.end())),
+        from_(from),
+        where_(where) {}
+
+  exception(const exception&) = default;
+  exception(exception&&) = default;
+  exception& operator=(const exception&) = default;
+  exception& operator=(exception&&) = default;
+
+  constexpr const char* what() const noexcept override { return what_->c_str(); }
+  consteval u8string_view u8what() const noexcept { return u8what_; }
+  consteval info from() const noexcept { return from_; }
+  consteval source_location where() const noexcept { return where_; }
+};
 
 template <typename R>
 concept reflection_range =
@@ -2113,6 +2149,8 @@ consteval auto annotations_of(info r, info ty) -> vector<info> {
 
 // Returns annotations of the reflected entity whose type matches ty.
 consteval auto annotations_of_with_type(info r, info ty) -> vector<info> {
+  if (!is_type(ty))
+    throw exception(u8"bad type", ^^annotations_of_with_type);
   return annotations_of(r, ty);
 }
 
@@ -2278,10 +2316,14 @@ consteval auto __any_inaccessible(vector<info> const& r, access_context ctx) -> 
 consteval auto has_inaccessible_nonstatic_data_members(
         info r,
         access_context ctx) -> bool {
+  if (!is_class_type(r))
+    throw exception(u8"bad type", ^^has_inaccessible_nonstatic_data_members);
   return __any_inaccessible(nonstatic_data_members_of(r, access_context::unchecked()), ctx);
 }
 
 consteval auto has_inaccessible_bases(info r, access_context ctx) -> bool {
+  if (!is_class_type(r))
+    throw exception(u8"bad type", ^^has_inaccessible_bases);
   return __any_inaccessible(bases_of(r, access_context::unchecked()), ctx);
 }
 
