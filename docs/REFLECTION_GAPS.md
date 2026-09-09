@@ -264,7 +264,7 @@ for readability, same as the source files:
 | # | Title | Disposition | Evidence | Conf. |
 |---:|---|---|---|---|
 | 275 | clangd crashes while code compiles | Needs-Build-To-Verify | Fork changed substantially since reported clangd build; no local repro. | Low |
-| 276 | Splice type aliases treated as identical | Confirmed-Open | Dependent vs. nondependent splice-type canonicalization asymmetry (`Type.cpp:4247-4258`, `ASTContext.cpp:6171-6185`); no test for the two-dependent-alias case. | Medium |
+| 276 | Splice type aliases treated as identical | Fixed | PR #277 ported; dependent splice types now canonicalize by operand and template arguments, with distinct/same-alias regression coverage. | Medium |
 | 280 | `has_parent` missing | Confirmed-Open | `parent_of` exists, `has_parent` doesn't (`libcxx/include/meta:56-60`,`934-942`). Missing library feature. | High |
 | 281 | ICE from `annotations_of(^^member)` | Already-Fixed | `SemaReflect.cpp:1371-1377`; `p3394-annotations.pass.cpp:89-110`,`131-142`. | Medium |
 | 286 | Same-named function-template reflections collide | Confirmed-Open | `ItaniumMangle.cpp:4932-4937` mangles template name only, no overload discriminator. **Mangling cluster — see cross-link above.** | High |
@@ -334,7 +334,7 @@ checking this list first.**
 | 289 | Fix use-after-free: `ExprEvalContexts` reallocates under held record references during reentrant consteval evaluation | #288 |
 | 287 | Discriminate same-named function-template reflections in NTTP mangling | #286 |
 | 279 | Fix reflect unresolved lookup | — (check against #239/#204 overload-related issues) |
-| 277 | Fix canonicalization of dependent splice types | #276 |
+| 277 | Fix canonicalization of dependent splice types | #276 — Fixed; ported and verified in commit |
 | 261 | Defer expansion statement body instantiation | — (check against #180/expansion cluster) |
 | 249 | Merging upstream 91cdd350 [clang] Improve nested name specifier AST representation | — (general upstream sync, check relevance) |
 | 244 | Fix `Sema::BuildCXXReflectExpr` wrongly thinks a template is overloaded (e.g. reflecting a lambda's `operator()`) | — (check against #239) |
@@ -393,6 +393,13 @@ exposed stale revision-stamped `clang-scan-deps`, `c-index-test`, `clang-repl`, 
 `clang-extdef-mapping` binaries; rebuilding those tools removed all unrelated failures. Final
 capped direct-lit gate: 49,818 discovered, 44,613 passed, exactly the five documented baseline
 failures. Commit and push follow.
+
+**2026-09-09 — M4 PR batch, PR #277.** Ported upstream PR #277 for issue #276. Dependent
+reflection splice types now canonicalize using their splice operand and template arguments, while
+nondependent splice types canonicalize to the underlying type. Added
+`dependent-splice-overloads.cpp`. Built `clang` with `-j2`, passed the focused test, and ran the
+capped direct-lit Clang gate: 49,819 discovered, 44,614 passed, exactly the five documented
+baseline failures.
 
 **2026-09-08 — Epic start (M0 + partial M2).** Established ground truth: real upstream tracker is
 `bloomberg/clang-p2996` not the dead URL in `REFLECTION.md`; confirmed real divergence from

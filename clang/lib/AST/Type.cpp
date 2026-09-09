@@ -4214,9 +4214,9 @@ void DependentDecltypeType::Profile(llvm::FoldingSetNodeID &ID,
 }
 
 TypeDependence
-ReflectionSpliceType::computeDependence(QualType Canon,
+ReflectionSpliceType::computeDependence(QualType UnderlyingTy,
                                         SpliceSpecifier *Splice) {
-  TypeDependence Result = Canon->getDependence();
+  TypeDependence Result = UnderlyingTy->getDependence();
   if (Splice->getDependence() & SpliceSpecifierDependence::UnexpandedPack)
     Result |= TypeDependence::UnexpandedPack;
 
@@ -4225,11 +4225,13 @@ ReflectionSpliceType::computeDependence(QualType Canon,
 
 ReflectionSpliceType::ReflectionSpliceType(SourceLocation TypenameKWLoc,
                                            SpliceSpecifier *Splice,
-                                           QualType Canon)
-  : Type(ReflectionSplice, Canon,
-         ReflectionSpliceType::computeDependence(Canon, Splice),
-         Canon->isConstevalOnly()),
-    TypenameKWLoc(TypenameKWLoc), Splice(Splice), UnderlyingTy(Canon) {
+                                           QualType UnderlyingTy)
+  : Type(ReflectionSplice,
+         UnderlyingTy->isDependentType() ? QualType()
+                                         : UnderlyingTy.getCanonicalType(),
+         ReflectionSpliceType::computeDependence(UnderlyingTy, Splice),
+         UnderlyingTy->isConstevalOnly()),
+    TypenameKWLoc(TypenameKWLoc), Splice(Splice), UnderlyingTy(UnderlyingTy) {
 }
 
 QualType ReflectionSpliceType::desugar() const {
@@ -4253,8 +4255,16 @@ DependentReflectionSpliceType::DependentReflectionSpliceType(
 
 void DependentReflectionSpliceType::Profile(llvm::FoldingSetNodeID &ID,
                                             const ASTContext &Context,
-                                            Expr *Operand) {
-  Operand->Profile(ID, Context, true);
+                                            const SpliceSpecifier *Splice) {
+  Splice->getOperand()->Profile(ID, Context, true);
+
+  if (Splice->isSpecialization()) {
+    const ASTTemplateArgumentListInfo *TemplateArg = Splice->getTemplateArgs();
+    for (unsigned int i = 0; i < TemplateArg->getNumTemplateArgs(); i++) {
+      TemplateArgumentLoc TemplateArgLoc = TemplateArg->getTemplateArgs()[i];
+      TemplateArgLoc.getArgument().Profile(ID, Context);
+    }
+  }
 }
 
 PackIndexingType::PackIndexingType(QualType Canonical, QualType Pattern,

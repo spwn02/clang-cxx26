@@ -6171,16 +6171,32 @@ QualType ASTContext::getPackExpansionType(QualType Pattern,
 QualType ASTContext::getReflectionSpliceType(SourceLocation TypenameKWLoc,
                                              SpliceSpecifier *Splice,
                                              QualType UnderlyingType) const {
-  ReflectionSpliceType *RST;
+  // Dependent splice types are canonicalized by their splice operand and
+  // template arguments. Non-dependent splice types are canonicalized by the
+  // underlying type, which determines their properties.
+  if (UnderlyingType == DependentTy) {
+    llvm::FoldingSetNodeID ID;
+    DependentReflectionSpliceType::Profile(ID, *this, Splice);
+
+    void *InsertPos = nullptr;
+    if (auto *T = DependentReflectionSpliceTypes.FindNodeOrInsertPos(ID,
+                                                                      InsertPos))
+      return QualType(T, 0);
+
+    auto *T = new (*this, TypeAlignment)
+        DependentReflectionSpliceType(*this, TypenameKWLoc, Splice);
+    Types.push_back(T);
+    DependentReflectionSpliceTypes.InsertNode(T, InsertPos);
+    return QualType(T, 0);
+  }
 
   // Unwrap any LocInfoType introduced by reflection operator.
   const Type *UnderlyingTyPtr = UnderlyingType.getTypePtr();
   if (const LocInfoType *LIT = dyn_cast_or_null<LocInfoType>(UnderlyingTyPtr))
     UnderlyingType = LIT->getType();
 
-  CanQualType Canon = getCanonicalType(UnderlyingType);
-  RST = new (*this, TypeAlignment) ReflectionSpliceType(TypenameKWLoc, Splice,
-                                                        Canon);
+  auto *RST = new (*this, TypeAlignment)
+      ReflectionSpliceType(TypenameKWLoc, Splice, UnderlyingType);
   Types.push_back(RST);
   return QualType(RST, 0);
 }
