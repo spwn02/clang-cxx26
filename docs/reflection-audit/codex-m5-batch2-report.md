@@ -36,5 +36,5 @@ then rerun with sandbox restrictions lifted and passed.
 
 ## Commits
 
-- `reflection: add M5 diagnostic batch 2` — test and checklist update.
-- `docs: report reflection M5 batch 2` — this report.
+- `cb8f63f38f26` (`reflection: add M5 diagnostic batch 2`) — test and checklist update.
+- `bd66d762689f` (`docs: report reflection M5 batch 2`) — this report.
