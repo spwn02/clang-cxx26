@@ -344,6 +344,9 @@ consteval auto unwrap_ref_decay(info) -> info;
 // tuple and variant queries
 consteval auto tuple_size(info) -> size_t;
 consteval auto tuple_element(size_t, info) -> info;
+consteval bool is_applicable_type(info fn, info tuple);
+consteval bool is_nothrow_applicable_type(info fn, info tuple);
+consteval info apply_result(info fn, info tuple);
 
 consteval auto variant_size(info) -> size_t;
 consteval auto variant_alternative(size_t, info) -> info;
@@ -435,6 +438,7 @@ template <reflection_range R1 = initializer_list<info>,
 #include <span>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -2151,6 +2155,30 @@ consteval auto tuple_size(info type) -> size_t {
 consteval auto tuple_element(size_t index, info type) -> info {
   return detail::__underlying_entity_of(substitute(^^tuple_element_t,
                             {reflect_constant(index), type}));
+}
+
+consteval bool is_applicable_type(info fn, info tuple) {
+  vector<info> args;
+  for (size_t i = 0; i != tuple_size(tuple); ++i)
+    args.push_back(tuple_element(i, tuple));
+  return is_invocable_type(fn, args);
+}
+
+consteval bool is_nothrow_applicable_type(info fn, info tuple) {
+  vector<info> args;
+  for (size_t i = 0; i != tuple_size(tuple); ++i)
+    args.push_back(tuple_element(i, tuple));
+  return is_nothrow_invocable_type(fn, args);
+}
+
+consteval info apply_result(info fn, info tuple) {
+  vector<info> args;
+  for (size_t i = 0; i != tuple_size(tuple); ++i)
+    args.push_back(tuple_element(i, tuple));
+  vector<info> targs(args);
+  targs.insert(targs.begin(), fn);
+  return detail::__underlying_entity_of(
+      substitute(^^invoke_result_t, targs));
 }
 
 consteval auto variant_size(info type) -> size_t {
