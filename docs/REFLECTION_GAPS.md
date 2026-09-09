@@ -774,3 +774,11 @@ the 11 formerly unassessed PRs (#340, #345, #279, #261, #249, #244, #207, #168, 
 P3074 (#163). The table now records definitive issue mappings, ready-made fixes for future M4
 ports, paper-gap items, and low-priority/out-of-scope content. No implementation changes were
 made in this triage session.
+
+**2026-09-09 — M4 batch 5.** Ported PR #166 (`is_reflection_type` alias/dealias correction), PR
+#340 (`has_c_language_linkage`), and PR #244 (unique closure operator-template reflection),
+closing issue #239. Focused libc++ tests passed 2/2 and Clang Reflection passed 20/20. The full
+Clang gate reported the documented 23 baseline failures plus three Python 3.14 forkserver helper
+test failures; no reflection failure appeared. Commit `6bbb1c0cfbea` was pushed to
+`origin/cxx26`. The remaining Confirmed-Open backlog is 9 items; full details are in
+`docs/reflection-audit/codex-m4-batch5-report.md`.
