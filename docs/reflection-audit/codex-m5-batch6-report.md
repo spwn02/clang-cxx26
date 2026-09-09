@@ -33,6 +33,15 @@ The same verify test covers:
 
 All expected diagnostics matched in the confirmed 1/1 libc++ lit run above.
 
+Related Clang regression run (with the Python 3.14 worker start method forced to `fork` because
+the sandbox rejects `forkserver`) also passed 1/1:
+
+```text
+./build-nyx/bin/llvm-lit -j1 clang/test/Reflection/reflection-wording-examples.cpp -v
+Total Discovered Tests: 1
+  Passed: 1 (100.00%)
+```
+
 ## P3491R3 status check
 
 No test was fabricated for the remaining P3491 rows. `define_static_object` and all
