@@ -486,3 +486,7 @@ three new scope-identification functions, its three tuple metafunctions, or its
 both resolved to C++26 status at Kona (revision R126), wording fetched. Remaining M2 work: the
 original 7 papers (not yet audited this epic beyond incidental spot-checks), CWG 3111, LWG 4432,
 P1789R3.
+**2026-09-09 — M4 batch 2.** Reconciled stale fixed rows for #286/#298/#300/#312/#319, confirmed
+#326 was covered by existing function-range validation, added `has_parent` (#280), and added the
+adopted `annotations_of_with_type` API (#185). Documented precise skips for #120/#146/#150/#182/
+#200/#254/#329/#334. See `docs/reflection-audit/codex-m4-batch2-report.md` for details.
