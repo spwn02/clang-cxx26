@@ -73,6 +73,7 @@ consteval auto template_arguments_of(info r) -> vector<info>;
 // member queries
 consteval auto members_of(info class_type, access_context ctx) -> vector<info>;
 consteval auto bases_of(info class_type, access_context ctx) -> vector<info>;
+consteval auto subobjects_of(info class_type, access_context ctx) -> vector<info>;
 consteval auto static_data_members_of(info class_type,
                                       access_context ctx) -> vector<info>;
 consteval auto nonstatic_data_members_of(info class_type,
@@ -1200,6 +1201,13 @@ consteval auto nonstatic_data_members_of(info r,
     throw "Namespaces cannot have non-static data members";
 
   return __filtered(members_of(r, ctx), is_nonstatic_data_member);
+}
+
+consteval auto subobjects_of(info r, access_context ctx) -> vector<info> {
+  vector<info> result = bases_of(r, ctx);
+  for (info subobject : nonstatic_data_members_of(r, ctx))
+    result.push_back(subobject);
+  return result;
 }
 
 // Returns true if the reflected entity is an enumerable type.
