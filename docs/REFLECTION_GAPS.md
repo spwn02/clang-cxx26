@@ -265,7 +265,7 @@ for readability, same as the source files:
 |---:|---|---|---|---|
 | 275 | clangd crashes while code compiles | Needs-Build-To-Verify | Fork changed substantially since reported clangd build; no local repro. | Low |
 | 276 | Splice type aliases treated as identical | Fixed | PR #277 ported; dependent splice types now canonicalize by operand and template arguments, with distinct/same-alias regression coverage. | Medium |
-| 280 | `has_parent` missing | Confirmed-Open → Fixed 2026-09-09, commit pending | Added `std::meta::has_parent(info)` and compiler dispatch, returning false for reflections without an associated parent; `has-parent.pass.cpp` covers type, declaration, namespace, null-parent, and value cases. | High |
+| 280 | `has_parent` missing | Confirmed-Open → Fixed 2026-09-09, commit `c21e31f8eb5e` | Added `std::meta::has_parent(info)` and compiler dispatch, returning false for reflections without an associated parent; `has-parent.pass.cpp` covers type, declaration, namespace, null-parent, and value cases. | High |
 | 281 | ICE from `annotations_of(^^member)` | Already-Fixed | `SemaReflect.cpp:1371-1377`; `p3394-annotations.pass.cpp:89-110`,`131-142`. | Medium |
 | 286 | Same-named function-template reflections collide | Confirmed-Open → Fixed 2026-09-09, commit `2262084ae5e1` | Mangling cluster fix adds overload discrimination via ODRHash. | High |
 | 288 | Reentrant constant evaluation UAF | Fixed | PR #289 ported; immediate-invocation and cleanup paths reacquire evaluation-context records after reentrant operations, with a 64-level reflection instantiation regression test. | High |
