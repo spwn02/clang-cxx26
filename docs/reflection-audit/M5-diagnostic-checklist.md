@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 108 | 28 | 62 | 18 |
+| 108 | 34 | 56 | 18 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -100,13 +100,13 @@ Normative source: [P3096R12](https://www.open-std.org/jtc1/sc22/wg21/docs/papers
 
 | ID | Condition | Status | Existing coverage |
 |---|---|---|---|
-| 3096-01 | `parameters_of(r)`: `r` represents a function or function template for which parameters can be reflected. | Needs-New-Test | — |
-| 3096-02 | `return_type_of(r)`: `r` represents a function or function template with a return type that can be reflected. | Needs-New-Test | — |
-| 3096-03 | `variable_of(r)`: `r` represents a function parameter and the parameter has a valid invocation frame in the required constant-evaluation context. | Needs-New-Test | — |
-| 3096-04 | `has_ellipsis_parameter(r)` is total: for a non-function reflection it returns false rather than diagnosing. | Needs-New-Test | — |
-| 3096-05 | `has_default_argument(r)` is total: for a non-function-parameter reflection it returns false rather than diagnosing. | Needs-New-Test | — |
+| 3096-01 | `parameters_of(r)`: `r` represents a function or function template for which parameters can be reflected. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp) |
+| 3096-02 | `return_type_of(r)`: `r` represents a function or function template with a return type that can be reflected. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp) |
+| 3096-03 | `variable_of(r)`: `r` represents a function parameter and the parameter has a valid invocation frame in the required constant-evaluation context. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp) |
+| 3096-04 | `has_ellipsis_parameter(r)` is total: for a non-function reflection it returns false rather than diagnosing. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp), [p3096-total-functions.pass.cpp](../../libcxx/test/std/experimental/reflection/p3096-total-functions.pass.cpp) |
+| 3096-05 | `has_default_argument(r)` is total: for a non-function-parameter reflection it returns false rather than diagnosing. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp), [p3096-total-functions.pass.cpp](../../libcxx/test/std/experimental/reflection/p3096-total-functions.pass.cpp) |
 | 3096-06 | Parameter `identifier_of`, `u8identifier_of`, `type_of`, and `has_identifier` are ill-formed when applied outside the parameter cases specified by the paper. | Needs-New-Test | — |
-| 3096-07 | Local parameters introduced by a requires-expression cannot be reflected. | Needs-New-Test | — |
+| 3096-07 | Local parameters introduced by a requires-expression cannot be reflected. | Covered | [lift-operator.cpp](../../clang/test/Reflection/lift-operator.cpp) |
 
 ## P3293R3 — Splicing a Base Class Subobject
 

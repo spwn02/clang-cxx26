@@ -839,3 +839,11 @@ for null reflections, so checklist row 2996-10 is Not-Applicable. Added and ran 
 negative test batch, covering rows 1306-01 through 1306-05; libc++ lit passed 1/1 with all
 `-verify` diagnostics matched. See
 `docs/reflection-audit/codex-m5-batch4-report.md`.
+
+**2026-09-10 — M5 batch 5.** Added `m5-p3096-batch5.verify.cpp` for P3096R12 rows 3096-01
+through 3096-05: invalid `parameters_of`/`return_type_of`/`variable_of` domains are rejected,
+and the two total predicates return false. Row 3096-07 is covered by the existing
+`clang/test/Reflection/lift-operator.cpp` requires-expression diagnostic. The focused libc++ lit
+run passed 1/1 with all expected diagnostics matched. Row 3096-06 remains Needs-New-Test because
+ordinary declaration queries are valid outside parameter reflections; no unsupported rejection
+was fabricated. Checklist totals are now 34 covered, 56 needing new tests, and 18 blocked.
