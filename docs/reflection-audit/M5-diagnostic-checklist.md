@@ -47,11 +47,11 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 | 2996-13 | `object_of(r)`: `r` represents a variable or object whose object can be designated. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
 | 2996-14 | `constant_of(r)`: `r` represents a value or object usable as the required constant expression. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
 | 2996-15 | `template_of(r)`: `has_template_arguments(r)` is true. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
-| 2996-16 | `template_arguments_of(r)`: `has_template_arguments(r)` is true. | Needs-New-Test | — |
-| 2996-17 | `is_accessible(r, ctx)`: `ctx` is a valid access context and the represented construct is one to which access can be applied. | Needs-New-Test | — |
-| 2996-18 | `has_inaccessible_nonstatic_data_members(r, ctx)`: `nonstatic_data_members_of(r, unchecked())` is a constant subexpression. | Needs-New-Test | — |
-| 2996-19 | `has_inaccessible_nonstatic_data_members(r, ctx)`: `r` does not represent a closure type. | Needs-New-Test | — |
-| 2996-20 | `has_inaccessible_bases(r, ctx)`: `bases_of(r, unchecked())` is a constant subexpression. | Needs-New-Test | — |
+| 2996-16 | `template_arguments_of(r)`: `has_template_arguments(r)` is true. | Covered | [m5-p2996-batch7.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch7.verify.cpp) |
+| 2996-17 | `is_accessible(r, ctx)`: `ctx` is a valid access context and the represented construct is one to which access can be applied. | Covered | [m5-p2996-batch7.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch7.verify.cpp) |
+| 2996-18 | `has_inaccessible_nonstatic_data_members(r, ctx)`: `nonstatic_data_members_of(r, unchecked())` is a constant subexpression. | Covered | [m5-p2996-batch7.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch7.verify.cpp) |
+| 2996-19 | `has_inaccessible_nonstatic_data_members(r, ctx)`: `r` does not represent a closure type. | Needs-New-Test — NEW-4 | A closure-type probe was accepted instead of producing the required failure; see NEW-4. |
+| 2996-20 | `has_inaccessible_bases(r, ctx)`: `bases_of(r, unchecked())` is a constant subexpression. | Covered | [m5-p2996-batch7.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch7.verify.cpp) |
 | 2996-21 | `members_of(r, ctx)`: `dealias(r)` is a complete class type at a point in the evaluation context or a namespace. | Needs-New-Test | — |
 | 2996-22 | `bases_of(type, ctx)`: `dealias(type)` is a complete class type at a point in the evaluation context. | Needs-New-Test | — |
 | 2996-23 | `static_data_members_of(type, ctx)`: `dealias(type)` is a complete class type. | Needs-New-Test | — |

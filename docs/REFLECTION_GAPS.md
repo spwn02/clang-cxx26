@@ -336,6 +336,7 @@ for readability, same as the source files:
 | NEW-1 | `display_string_of(null reflection)` may return an empty string | New conformance gap — found in M5 2026-09-10 | P2996R13 [meta.reflection.names] says `display_string_of(r)` returns an unspecified non-empty `string_view` for any reflection. The fork's null-reflection fallback is empty. This is not a Mandates/Constant-When diagnostic obligation; it needs an implementation fix and a positive regression test. | High |
 | NEW-2 | Annotation on empty-declaration is accepted | New conformance gap — found in M5 2026-09-10 | P3394R4 prohibits an annotation in an empty-declaration's attribute-specifier-seq. Direct probe `[[=1]];` with `-fannotation-attributes` was accepted by the current front end, so no passing `-verify` test can honestly be added until the diagnostic exists. | High |
 | NEW-3 | Invalid `annotations_of_with_type` arguments are accepted | New conformance gap — found in M5 2026-09-10 | P3394R4 requires the item and filter arguments to satisfy the specified reflection domains. Direct probes with `annotations_of_with_type(^^int, ^^void)` and an invalid target were accepted and produced empty results rather than diagnostics. | High |
+| NEW-4 | `has_inaccessible_nonstatic_data_members` accepts closure types | New conformance gap — found in M5 2026-09-10 | P2996R13 requires this query to be ill-formed for a closure type. A direct probe using `^^decltype(closure)` for a captureless closure was accepted by the current front end/library path instead of producing a diagnostic. | High |
 | 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
 | 200 | `parent_of` wrong for class-template aliases | Confirmed-Open → Already-Fixed 2026-09-09 | Direct probe `static_assert(parent_of(^^T::A) == ^^T)` passes. Existing `findTypeDecl` preserves the top-level `UsingType` alias before template-specialization fallback; the stale deferral note incorrectly described the current checkout. | High |
 | 203 | Unbalanced diagnostic parentheses | Already-Fixed | Direct malformed-range probe now emits a balanced diagnostic (`cannot expand over a function 'void ()'; did you mean to call it with no arguments?`) with no unbalanced-parenthesis output. | High |
@@ -855,6 +856,12 @@ rows 3394-01, 3394-04, and 3394-06; the focused libc++ lit run passed 1/1 with a
 diagnostics matched. Existing `annotations-regression.verify.cpp` covers 3394-02. Probes for
 3394-03 and 3394-05 exposed new implementation gaps NEW-2 and NEW-3 and were not fabricated into
 passing tests. Checklist totals are now 37 covered, 53 needing new tests, and 18 blocked.
+
+**2026-09-10 — M5 batch 7.** Added `m5-p2996-batch7.verify.cpp` and ran it through the libc++
+lit wrapper with one worker; it passed 1/1 with all expected diagnostics matched. P2996R13 rows
+2996-16, 2996-17, 2996-18, and 2996-20 are covered. A closure-type probe for 2996-19 was
+accepted rather than rejected, so it remains open as new gap NEW-4. Checklist totals are now
+50 covered, 40 needing new tests, and 18 blocked.
 
 **2026-09-10 — M5 batch 6.** Added `m5-p3617-p3687-batch6.verify.cpp`. P3617 rows 3617-02
 through 3617-04 are covered by checks for string-literal termination, character-array extent,
