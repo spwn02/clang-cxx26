@@ -69,6 +69,11 @@ consteval bool test_operator_query_preconditions() {
          std::meta::operators::op_plus;
 }
 
+consteval bool test_subobjects_query_preconditions() {
+  constexpr auto ctx = std::meta::access_context::current();
+  return std::meta::subobjects_of(^^member_query_record, ctx).size() >= 1;
+}
+
 enum class enumerator_query_enum { first, second };
 
 int parameter_query_function(int);
@@ -109,6 +114,7 @@ static_assert(test_throw_and_catch());
 static_assert(test_layout_query_preconditions());
 static_assert(test_offset_query_preconditions());
 static_assert(test_operator_query_preconditions());
+static_assert(test_subobjects_query_preconditions());
 static_assert(test_member_query_preconditions());
 static_assert(test_access_context_preconditions());
 static_assert(test_template_query_preconditions());
@@ -122,6 +128,7 @@ int main() {
   assert(test_layout_query_preconditions());
   assert(test_offset_query_preconditions());
   assert(test_operator_query_preconditions());
+  assert(test_subobjects_query_preconditions());
   assert(test_member_query_preconditions());
   assert(test_access_context_preconditions());
   assert(test_template_query_preconditions());

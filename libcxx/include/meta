@@ -1253,6 +1253,8 @@ consteval auto nonstatic_data_members_of(info r,
 }
 
 consteval auto subobjects_of(info r, access_context ctx) -> vector<info> {
+  if (!is_class_type(r))
+    throw exception(u8"bad class", ^^subobjects_of);
   vector<info> result = bases_of(r, ctx);
   for (info subobject : nonstatic_data_members_of(r, ctx))
     result.push_back(subobject);
