@@ -50,7 +50,7 @@ Date: 2026-09-09
   - Verification: extended `splice-exprs.cpp` regression passed; `clang` built at `-j2`; final capped
     direct-lit Clang gate returned exactly the five documented pre-existing failures.
 - Issue #342 / upstream PR #353: `^^derived::operator()` rejects using-declaration.
-  - Commit: pending commit for this report update.
+  - Commit: `cecbcefcc9a0`.
   - Verification: wording/using-declarator reflection regression passed; `clang` built at `-j2`; final
     capped direct-lit Clang gate returned exactly the five documented pre-existing failures.
 
