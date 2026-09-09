@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 109 | 14 | 77 | 18 |
+| 109 | 18 | 73 | 18 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -36,10 +36,10 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 | 2996-02 | `reflect_constant<T>`: `T` is cv-unqualified structural and not a reference type. | Covered | [m5-p2996-batch1.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch1.verify.cpp) |
 | 2996-03 | `reflect_constant(expr)`: the invented template argument object can be formed; otherwise the call is not a constant subexpression. | Covered | [m5-p2996-batch1.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch1.verify.cpp) |
 | 2996-04 | `reflect_object<T>`: `T` is an object type. | Covered | [m5-p2996-batch1.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch1.verify.cpp) |
-| 2996-05 | `reflect_object(expr)`: `expr` is suitable as a constant template argument for `T&`. | Needs-New-Test | — |
-| 2996-06 | `reflect_function<T>`: `T` is a function type. | Needs-New-Test | — |
-| 2996-07 | `reflect_function(fn)`: `fn` is suitable as a constant template argument for `T&`. | Needs-New-Test | — |
-| 2996-08 | `identifier_of(r)` / `u8identifier_of(r)`: `r` represents a declaration with an identifier (including the specified operator/literal-operator cases). | Needs-New-Test | — |
+| 2996-05 | `reflect_object(expr)`: `expr` is suitable as a constant template argument for `T&`. | Covered | [m5-p2996-batch2.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch2.verify.cpp) |
+| 2996-06 | `reflect_function<T>`: `T` is a function type. | Covered | [m5-p2996-batch2.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch2.verify.cpp) |
+| 2996-07 | `reflect_function(fn)`: `fn` is suitable as a constant template argument for `T&`. | Covered | [m5-p2996-batch2.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch2.verify.cpp) |
+| 2996-08 | `identifier_of(r)` / `u8identifier_of(r)`: `r` represents a declaration with an identifier (including the specified operator/literal-operator cases). | Covered | [m5-p2996-batch2.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch2.verify.cpp) |
 | 2996-09 | `display_string_of(r)`: `r` represents a construct for which a display string can be produced. | Needs-New-Test | — |
 | 2996-10 | `source_location_of(r)`: `r` represents a declaration with a source location. | Needs-New-Test | — |
 | 2996-11 | `type_of(r)`: `r` represents a construct having a type, and the type is available under the clause's completeness/containing-enum rules. | Needs-New-Test | — |
