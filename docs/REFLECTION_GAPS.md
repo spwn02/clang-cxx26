@@ -670,3 +670,15 @@ same file; `c-index-test -module-file` fails during `readASTFileControlBlock`, w
 error is discarded before ASTUnit emits its generic diagnostic. Corrected this tracker’s
 staleness warning and added the bug as Known Bug 4. Full details are in
 `docs/reflection-audit/codex-pch-bug-report.md`.
+
+**2026-09-09 — M4 hard-issue reattempt.** Re-traced deferred issues #150, #200, #334, and
+#146 using the P3293 base-splice and P3795 scope-lookup implementations as precedent. #150
+remains deferred: `~[:info:]` needs a splice-bearing destructor-name representation and new
+parser/Sema formation. #200 is already correct in this checkout; `parent_of(^^T::A) == ^^T`
+passes because `findTypeDecl` preserves the top-level alias layer. Fixed #334 by preventing a
+discarded direct object reference from a non-arrow static member call from entering Sema's
+consteval-only set. Fixed #146 with parser diagnostics for `case` and `default` labels inside
+expansion statements; parser rejection makes the existing raw-label CodeGen path unreachable.
+Focused reflection tests passed 4/4. The validation baseline for this session is 23 known
+failures (five consteval-escalation tests plus 18 ASTUnit/libclang PCH consumer failures), not
+five. Full audit and effort estimates: `docs/reflection-audit/codex-m4-hard-report.md`.
