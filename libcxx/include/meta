@@ -394,6 +394,9 @@ struct access_context {
 };
 
 consteval auto is_accessible(info r, access_context ctx) -> bool;
+consteval auto current_function() -> info;
+consteval auto current_class() -> info;
+consteval auto current_namespace() -> info;
 consteval auto has_inaccessible_nonstatic_data_members(
        info r,
        access_context cls) -> vector<info>;
@@ -446,6 +449,11 @@ _LIBCPP_BEGIN_NAMESPACE_REFLECTION_V2
 
 // An opaque handle to a reflected entity.
 using info = decltype(^^int);
+
+consteval auto is_function(info) -> bool;
+consteval auto is_namespace(info) -> bool;
+consteval auto is_class_type(info) -> bool;
+consteval auto parent_of(info) -> info;
 
 class exception : public std::exception {
   optional<string> what_;
@@ -629,6 +637,9 @@ enum : unsigned {
 
   // P3493 accessibility metafunctions
   __metafn_access_context,
+  __metafn_current_function,
+  __metafn_current_class,
+  __metafn_current_namespace,
   __metafn_is_accessible,
 
   // Other bespoke functions (not proposed at this time)
@@ -1137,6 +1148,35 @@ public:
     return access_context{d_scope, new_designating_class};
   }
 };
+
+// Scope identification (P3795R2).
+[[clang::instantiation_dependent]]
+consteval info current_function() {
+  info scope = __metafunction(detail::__metafn_current_function);
+  if (!is_function(scope))
+    throw exception(u8"current scope does not represent a function",
+                    ^^current_function);
+  return scope;
+}
+
+[[clang::instantiation_dependent]]
+consteval info current_class() {
+  info scope = __metafunction(detail::__metafn_current_class);
+  if (is_function(scope))
+    scope = parent_of(scope);
+  if (!is_class_type(scope))
+    throw exception(u8"current scope does not represent a class nor a member function",
+                    ^^current_class);
+  return scope;
+}
+
+[[clang::instantiation_dependent]]
+consteval info current_namespace() {
+  info scope = __metafunction(detail::__metafn_current_namespace);
+  while (!is_namespace(scope))
+    scope = parent_of(scope);
+  return scope;
+}
 
 consteval auto is_accessible(info r, access_context ctx) -> bool {
   // Note: The accessibility of an enumerator may be looked up in a class

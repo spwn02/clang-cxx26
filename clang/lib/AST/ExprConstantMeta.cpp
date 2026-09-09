@@ -791,6 +791,22 @@ static bool current_access_context(APValue &Result, ASTContext &C,
                                    QualType ResultTy, SourceRange Range,
                                    ArrayRef<Expr *> Args, Decl *ContainingDecl);
 
+static bool current_function(APValue &Result, ASTContext &C, MetaActions &Meta,
+                             EvalFn Evaluator, DiagFn Diagnoser,
+                             bool AllowInjection, QualType ResultTy,
+                             SourceRange Range, ArrayRef<Expr *> Args,
+                             Decl *ContainingDecl);
+static bool current_class(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl);
+static bool current_namespace(APValue &Result, ASTContext &C,
+                              MetaActions &Meta, EvalFn Evaluator,
+                              DiagFn Diagnoser, bool AllowInjection,
+                              QualType ResultTy, SourceRange Range,
+                              ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
 static bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
                           EvalFn Evaluator, DiagFn Diagnoser,
                           bool AllowInjection, QualType ResultTy,
@@ -959,6 +975,9 @@ static constexpr Metafunction Metafunctions[] = {
 
   // P3493 accessibility extensions
   { Metafunction::MFRK_metaInfo, 0, 0, current_access_context },
+  { Metafunction::MFRK_metaInfo, 0, 0, current_function },
+  { Metafunction::MFRK_metaInfo, 0, 0, current_class },
+  { Metafunction::MFRK_metaInfo, 0, 0, current_namespace },
   { Metafunction::MFRK_bool, 3, 3, is_accessible },
 
   // Other bespoke functions (not proposed at this time)
@@ -6936,6 +6955,50 @@ bool current_access_context(APValue &Result, ASTContext &C, MetaActions &Meta,
     return SetAndSucceed(Result,
                          makeReflection(RD->getASTContext().getCanonicalTagType(RD)));
   return SetAndSucceed(Result, makeReflection(Ctx));
+}
+
+static bool current_scope(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, QualType ResultTy,
+                          ArrayRef<Expr *> Args) {
+  assert(ResultTy == C.MetaInfoTy);
+  StackLocationExpr *SLE = StackLocationExpr::Create(C, SourceRange(), 1);
+  if (!Evaluator(Result, SLE, true) || !Result.isReflectedDecl())
+    return true;
+  Decl *Ctx = Result.getReflectedDecl();
+  if (!Ctx)
+    Ctx = Meta.CurrentCtx();
+
+  if (auto *Ctor = dyn_cast<CXXConstructorDecl>(Ctx);
+      Ctor && Ctor->isInheritingConstructor())
+    Ctx = cast<Decl>(Ctor->getDeclContext());
+  if (auto *RD = dyn_cast<CXXRecordDecl>(Ctx))
+    return SetAndSucceed(Result,
+                         makeReflection(RD->getASTContext().getCanonicalTagType(RD)));
+  return SetAndSucceed(Result, makeReflection(Ctx));
+}
+
+static bool current_function(APValue &Result, ASTContext &C, MetaActions &Meta,
+                             EvalFn Evaluator, DiagFn Diagnoser,
+                             bool AllowInjection, QualType ResultTy,
+                             SourceRange Range, ArrayRef<Expr *> Args,
+                             Decl *ContainingDecl) {
+  return current_scope(Result, C, Meta, Evaluator, ResultTy, Args);
+}
+
+static bool current_class(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl) {
+  return current_scope(Result, C, Meta, Evaluator, ResultTy, Args);
+}
+
+static bool current_namespace(APValue &Result, ASTContext &C,
+                              MetaActions &Meta, EvalFn Evaluator,
+                              DiagFn Diagnoser, bool AllowInjection,
+                              QualType ResultTy, SourceRange Range,
+                              ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  return current_scope(Result, C, Meta, Evaluator, ResultTy, Args);
 }
 
 bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
