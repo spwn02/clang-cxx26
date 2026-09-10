@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 110 | 69 | 21 | 19 |
+| 110 | 74 | 16 | 19 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -139,12 +139,12 @@ Normative source: [P3491R3](https://www.open-std.org/JTC1/SC22/WG21/docs/papers/
 |---|---|---|---|
 | 3491-01 | `reflect_constant_string`/`define_static_string`: range value type is `char`, `wchar_t`, `char8_t`, `char16_t`, or `char32_t`. | Blocked-On-Unimplemented-Facility | `reflect_constant_string` is currently only `char`/`char8_t`; `define_static_string` is not fully aligned. |
 | 3491-02 | String input's elements are constant-evaluable; a string-literal input excludes exactly its trailing null character before re-termination. | Blocked-On-Unimplemented-Facility | String-literal detection (`is_string_literal`) is absent. |
-| 3491-03 | `reflect_constant_array`/`define_static_array`: element type is structural, constructible from the range reference, and copy-constructible. | Needs-New-Test | — |
+| 3491-03 | `reflect_constant_array`/`define_static_array`: element type is structural, constructible from the range reference, and copy-constructible. | Covered | [m5-p3491-batch15.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3491-batch15.verify.cpp) |
 | 3491-04 | `reflect_constant_array`/`define_static_array`: every element's `reflect_constant` is a constant subexpression. | Needs-New-Test | — |
 | 3491-05 | `define_static_object`: `remove_cvref_t<T>` is structural and constructible from `T`. | Blocked-On-Unimplemented-Facility | `define_static_object` is absent. |
 | 3491-06 | `define_static_object`: the argument initializes the required template-parameter object. | Blocked-On-Unimplemented-Facility | `define_static_object` is absent. |
 | 3491-07 | `is_string_literal` overloads require an accepted string-literal/reference form and reject non-string objects. | Blocked-On-Unimplemented-Facility | Facility is absent. |
-| 3491-08 | Results are potentially non-unique objects and array/string extraction must preserve the specified extent and element initialization. | Needs-New-Test | — |
+| 3491-08 | Results are potentially non-unique objects and array/string extraction must preserve the specified extent and element initialization. | Covered | [m5-p3491-batch15.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3491-batch15.verify.cpp) |
 
 ## P3560R2 — Error Handling in Reflection
 
