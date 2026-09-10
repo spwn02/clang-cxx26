@@ -205,9 +205,9 @@ Normative source: [P3795R2](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/
 
 | ID | Condition | Status | Existing coverage |
 |---|---|---|---|
-| 3795-01 | `current_function()` is usable only while evaluating within a function; otherwise the required failure is produced. | Needs-New-Test | — |
-| 3795-02 | `current_class()` is usable only while evaluating within a class member context; otherwise the required failure is produced. | Needs-New-Test | — |
-| 3795-03 | `current_namespace()` is usable only where a current namespace can be identified; otherwise the required failure is produced. | Needs-New-Test | — |
+| 3795-01 | `current_function()` is usable only while evaluating within a function; otherwise the required failure is produced. | Covered | [m5-p3795-batch14.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3795-batch14.verify.cpp) |
+| 3795-02 | `current_class()` is usable only while evaluating within a class member context; otherwise the required failure is produced. | Covered | [m5-p3795-batch14.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3795-batch14.verify.cpp) |
+| 3795-03 | `current_namespace()` is usable only where a current namespace can be identified; otherwise the required failure is produced. | Covered | [m5-p3795-batch14.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3795-batch14.verify.cpp) |
 | 3795-04 | Generated data-member annotations must satisfy the same constant-expression/structural-value constraints as source annotations. | Needs-New-Test | — |
 
 ## Execution plan
