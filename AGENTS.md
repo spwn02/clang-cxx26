@@ -74,7 +74,41 @@ ninja -C build-libcxx check-cxx
 ninja -C build-nyx check-clang
 ```
 
-`clang/test/Reflection/splice-exprs.cpp` currently fails because the expected error at line 23 is not seen. This is a known pre-existing regression tracked in `docs/CXX26_GAPS.md` Tier 0.
+### Known pre-existing baseline failures (not regressions — check here before re-investigating)
+
+As of 2026-09-10 (Reflection Closure Epic M6 gate, `docs/REFLECTION_GAPS.md` before its
+own eventual deletion at that epic's M7 — recorded here so the information survives):
+
+- **`check-clang` (`clang/test`, assertions-enabled build): exactly 5 `SemaCXX` failures**
+  — `PR98671.cpp`, `builtin-is-within-lifetime.cpp`, `constant-expression-cxx11.cpp`,
+  `cxx2a-constexpr-dynalloc.cpp`, `cxx2b-consteval-propagate.cpp`. All five are the
+  consteval self-reference escalation cluster documented in
+  `clang/lib/Sema/SemaExpr.cpp`'s `HandleImmediateInvocations` (a general C++23
+  immediate-function-context defect from the LLVM 22 merge, not reflection-specific).
+  Separately, a distinct 18-test ASTUnit/libclang PCH-loading cluster exists (PCH loads
+  fine via `-include-pch` but is rejected by `c-index-test -module-file`/ASTUnit) — not
+  part of the standard `check-clang` lit target, a separate test surface, pre-existing and
+  not further diagnosed as of this writing.
+- **`libcxx/test/std/experimental/reflection/`: exactly 7 failures**, all pre-existing
+  warning/verify mismatches, none behavioral: `attributed-function-type-queries.pass.cpp`,
+  `entity-proxies.pass.cpp`, `entity-proxy-member-queries.pass.cpp`,
+  `namespace-reflection-equality-reopened.pass.cpp` (all four fail on
+  `-Werror,-Wdeprecated-declarations` for the header's own deprecated `dealias` alias to
+  `underlying_entity_of`), `m5-p2996-batch13.verify.cpp`, `m5-p2996-p3096-batch12.verify.cpp`,
+  `m5-p3491-batch15.verify.cpp` (unused-variable/verify-expectation mismatches). Confirmed
+  via `git stash` isolation against an unmodified checkout — not caused by any reflection
+  epic fix, safe to treat as baseline in any future gate.
+- **`libcxx/test`, full suite minus `benchmarks/`** (the `benchmarks` subtree actually
+  *executes* ~134 real Google Benchmark microbenchmarks under `enable-benchmarks=run`,
+  20s+ each — exclude via `--filter-out 'benchmarks/'` for a pure correctness gate,
+  matching upstream LLVM's own `check-cxx` scope): the 7 reflection-suite failures above,
+  nothing else, as of the M6 gate.
+
+`clang/test/Reflection/splice-exprs.cpp` was previously noted here as failing — that was
+fixed 2026-09-08 (a stale test expectation, not a compiler regression: an anonymous-union
+member splice through a base expression is supposed to succeed since commit `f33742c88aa3`).
+Verify current state directly (`llvm-lit -v <path>`) rather than trusting either this note
+or `docs/CXX26_GAPS.md`'s older Tier 0 entry if either looks stale by the time you read this.
 
 ### Archived test runs (`cxx26/dev/`)
 
@@ -126,7 +160,7 @@ Enable reflection with `-std=c++26 -freflection`. Extended features require addi
 
 ## Trackers
 
-- `docs/CXX26_GAPS.md` is the living C++26 conformance tracker and `docs/REFLECTION.md` tracks reflection. Read both before starting relevant work.
+- `docs/CXX26_GAPS.md` is the living C++26 conformance tracker. `docs/REFLECTION_GAPS.md` is the current reflection tracker (supersedes `docs/REFLECTION.md`'s older informal notes as of the 2026-09-08 Reflection Closure Epic); both `REFLECTION.md` and `REFLECTION_GAPS.md` are slated for deletion once that epic's M7 close-out runs — if both are gone by the time you read this, reflection has no dedicated tracker anymore because it's considered genuinely complete, and this file's "Known pre-existing baseline failures" section above plus source comments (e.g. `SemaExpr.cpp`'s `HandleImmediateInvocations`, `libcxx/include/meta`'s `reflect_constant`) are what's left of that tracker's load-bearing content.
 - Update the active tracker in place when status changes and append a dated session-log entry before ending a work session.
 - `std::execution` (P2300R10) requires a dedicated sub-plan; consult Tier 2 notes before starting. Contracts (P2900R14) was completed 2026-09-04, reopened by a production bug and fully hardened as of 2026-09-05 (see `docs/CXX26_GAPS.md`'s Scope section for both epics' full history); no sub-plan needed going forward.
 
