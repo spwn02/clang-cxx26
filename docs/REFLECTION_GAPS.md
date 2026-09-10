@@ -507,8 +507,8 @@ M5 scoping is complete. The paper-by-paper inventory of every identified Constra
 Throws/Constant-When ill-formed condition, existing coverage, implementation blockers, row counts,
 and recommended facility-first execution plan is in
 [`reflection-audit/M5-diagnostic-checklist.md`](reflection-audit/M5-diagnostic-checklist.md).
-The inventory records **108 checklist conditions: 28 covered, 62 needing new tests, 18 blocked on an
-unimplemented facility or P3560R2 exception plumbing**. Future M5 sessions must update checklist
+The inventory records **109 checklist conditions: 81 covered, 8 needing new tests, 19 blocked on an
+unimplemented facility or P3560R2 exception plumbing, and one not-applicable row**. Future M5 sessions must update checklist
 rows as tests land and append their results to this tracker’s Session Log.
 
 ## Session Log
@@ -911,6 +911,18 @@ data-member annotation with a non-structural value. The six P3560R2 wrapper rows
 `meta::exception` throw, but the exception is not catchable across the library call, exposing
 NEW-9. Those rows remain Needs-New-Test pending exception propagation work. Totals are now 76
 covered, 13 needing new tests, 19 blocked, and one not-applicable.
+
+**2026-09-10 — M5 marathon 4, batch 17.** Added and directly executed
+`m5-p3560-batch17.verify.cpp`. P3560R2 rows 3560-14, 3560-15, 3560-16, 3560-17, and 3560-19
+now have catch-and-inspect coverage using `meta::exception::from()`. The negative control was
+also run: changing a caught `from()` check to `false` made its `static_assert` fail, confirming
+the test is exercising the wrapper throw. The libc++ wrapper completed dependency installation
+but could not run lit because Python's forkserver socket is denied by the sandbox; the direct
+built-clang `-verify` invocation passed. Row 3560-18 remains Needs-New-Test: `via` returns an
+`access_context`, and this compiler currently rejects the catch test while destroying the
+throwing return object (`lifetime has already ended`). No coverage or new-gap claim is made for
+that row. Current checklist totals are 81 covered, 8 needing new tests, 19 blocked, and one
+not-applicable.
 
 **2026-09-10 — M5 batch 6.** Added `m5-p3617-p3687-batch6.verify.cpp`. P3617 rows 3617-02
 through 3617-04 are covered by checks for string-literal termination, character-array extent,

@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 109 | 76 | 13 | 19 |
+| 109 | 81 | 8 | 19 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -170,12 +170,12 @@ path is the current contract.
 | 3560-11 | `annotations_of`/`annotations_of_with_type` receives an invalid target or filter reflection. | Blocked-On-Unimplemented-Facility | Annotation traversal still uses `DiagFn`. |
 | 3560-12 | `reflect_constant`, `reflect_object`, or `reflect_function` violates its type or constant-template-argument requirements. | Blocked-On-Unimplemented-Facility | Compiler-side throw path not wired. |
 | 3560-13 | `data_member_spec` violates its type, name, width, alignment, or option-combination requirements. | Blocked-On-Unimplemented-Facility | Compiler-side throw path not wired. |
-| 3560-14 | `has_inaccessible_nonstatic_data_members` is called when its member query is not a constant subexpression or on a closure type. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
-| 3560-15 | `has_inaccessible_bases` is called when its base query is not a constant subexpression. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
-| 3560-16 | `size_of`, `bit_size_of`, or `alignment_of` receives a disallowed reflection or incomplete type. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
-| 3560-17 | `template_of` or `template_arguments_of` receives a reflection without template arguments. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
-| 3560-18 | `access_context::via` receives a non-class reflection. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
-| 3560-19 | `enumerators_of`, `offset_of`, `operator_of`, or `subobjects_of` receives a reflection outside its specified domain. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
+| 3560-14 | `has_inaccessible_nonstatic_data_members` is called when its member query is not a constant subexpression or on a closure type. | Covered | [m5-p3560-batch17.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3560-batch17.verify.cpp) catches the invalid non-class reflection and inspects `exception::from()`. |
+| 3560-15 | `has_inaccessible_bases` is called when its base query is not a constant subexpression. | Covered | [m5-p3560-batch17.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3560-batch17.verify.cpp) catches the invalid non-class reflection and inspects `exception::from()`. |
+| 3560-16 | `size_of`, `bit_size_of`, or `alignment_of` receives a disallowed reflection or incomplete type. | Covered | [m5-p3560-batch17.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3560-batch17.verify.cpp) catches all three invalid `void` layout queries and inspects `exception::from()`. |
+| 3560-17 | `template_of` or `template_arguments_of` receives a reflection without template arguments. | Covered | [m5-p3560-batch17.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3560-batch17.verify.cpp) catches the invalid `template_of(^^int)` query and inspects `exception::from()`. |
+| 3560-18 | `access_context::via` receives a non-class reflection. | Needs-New-Test | Catch-and-inspect coverage still needs a return-object lifetime workaround: the direct test reaches the wrapper throw but constant evaluation rejects destruction of the throwing `access_context` return object (`lifetime has already ended`). |
+| 3560-19 | `enumerators_of`, `offset_of`, `operator_of`, or `subobjects_of` receives a reflection outside its specified domain. | Covered | [m5-p3560-batch17.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3560-batch17.verify.cpp) catches the invalid `operator_of(^^int)` query and inspects `exception::from()`. |
 | 3560-20 | `define_aggregate` failure remains unrecoverable and must retain its required hard diagnostic rather than become a catchable throw. | Covered | [define-aggregate.verify.cpp](../../libcxx/test/std/experimental/reflection/define-aggregate.verify.cpp) |
 
 ## P3617R0 — `reflect_constant_{array,string}`
