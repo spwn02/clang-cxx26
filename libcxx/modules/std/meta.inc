@@ -231,6 +231,7 @@ export namespace std {
       using std::meta::reflection_v2::return_type_of;
       using std::meta::reflection_v2::variable_of;
       using std::meta::reflection_v2::annotations_of;
+      using std::meta::reflection_v2::annotations_of_with_type;
       using std::meta::reflection_v2::annotation_of_type;
       using std::meta::reflection_v2::is_annotation;
       using std::meta::reflection_v2::annotate;
