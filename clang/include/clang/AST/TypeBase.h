@@ -7610,11 +7610,13 @@ public:
                                 SpliceSpecifier *Splice);
 
   void Profile(llvm::FoldingSetNodeID &ID) {
-    DependentReflectionSpliceType::Profile(ID, Context, getSplice());
+    DependentReflectionSpliceType::Profile(ID, Context,
+                                           getTypenameKWLoc().isValid(),
+                                           getSplice());
   }
 
   static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
-                      const SpliceSpecifier *Splice);
+                      bool HasTypenameKW, const SpliceSpecifier *Splice);
 };
 
 /// This class wraps the list of protocol qualifiers. For types that can

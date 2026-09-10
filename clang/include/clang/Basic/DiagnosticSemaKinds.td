@@ -3248,6 +3248,10 @@ def err_splice_operand_not_constexpr : Error<
 def err_unexpected_reflection_kind_in_splice : Error<
   "reflection not usable in a "
   "%select{splice type|splice expression|namespace splice|template splice}0">;
+def err_dependent_splice_ctad : Error<
+  "a dependent splice-specifier used without 'typename' cannot be used to "
+  "deduce a class template specialization from copy-list-initialization; "
+  "write 'typename' explicitly">;
 def err_unexpected_reflection_kind : Error<
   "expected a reflection of %select{a|an|a|a}0 "
   "%select{type|expression|namespace|template}0">;

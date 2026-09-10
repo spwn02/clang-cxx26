@@ -6176,7 +6176,8 @@ QualType ASTContext::getReflectionSpliceType(SourceLocation TypenameKWLoc,
   // underlying type, which determines their properties.
   if (UnderlyingType == DependentTy) {
     llvm::FoldingSetNodeID ID;
-    DependentReflectionSpliceType::Profile(ID, *this, Splice);
+    DependentReflectionSpliceType::Profile(ID, *this, TypenameKWLoc.isValid(),
+                                           Splice);
 
     void *InsertPos = nullptr;
     if (auto *T = DependentReflectionSpliceTypes.FindNodeOrInsertPos(ID,

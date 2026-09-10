@@ -4255,7 +4255,18 @@ DependentReflectionSpliceType::DependentReflectionSpliceType(
 
 void DependentReflectionSpliceType::Profile(llvm::FoldingSetNodeID &ID,
                                             const ASTContext &Context,
+                                            bool HasTypenameKW,
                                             const SpliceSpecifier *Splice) {
+  // Distinguish 'typename [:R:]' from a bare '[:R:]' with the same operand:
+  // without this bit, the two forms produce structurally-identical folding-
+  // set keys (the operand and any specialization arguments are the same)
+  // and silently collapse onto the same cached type node, taking whichever
+  // of the two forms happened to be built first in this translation unit --
+  // including its TypenameKWLoc, which callers (e.g. the CWG3003-derived
+  // "dependent splice used without 'typename' in a CTAD-like position"
+  // diagnostic in Sema::AddInitializerToDecl) rely on to distinguish the
+  // two forms per declaration.
+  ID.AddBoolean(HasTypenameKW);
   Splice->getOperand()->Profile(ID, Context, true);
 
   if (Splice->isSpecialization()) {

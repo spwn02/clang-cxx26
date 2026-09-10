@@ -4613,6 +4613,11 @@ private:
   ///
   /// \param OnlyNamespace If true, only considers namespaces in lookup.
   ///
+  /// \param TypenameKWLoc If \c IsTypename is true and an explicit
+  /// 'typename' keyword was already consumed by the caller, its location --
+  /// so that a bare splice-type-specifier encountered here (e.g.
+  /// 'typename [:R:] obj = ...') can be rebuilt with the correct keyword
+  /// location instead of silently losing it.
   ///
   /// \returns true if there was an error parsing a scope specifier
   bool ParseOptionalCXXScopeSpecifier(
@@ -4620,7 +4625,8 @@ private:
       bool EnteringContext, bool *MayBePseudoDestructor = nullptr,
       bool IsTypename = false, const IdentifierInfo **LastII = nullptr,
       bool OnlyNamespace = false, bool InUsingDeclaration = false,
-      bool Disambiguation = false);
+      bool Disambiguation = false,
+      SourceLocation TypenameKWLoc = SourceLocation());
 
   //===--------------------------------------------------------------------===//
   // C++11 5.1.2: Lambda expressions

@@ -1278,7 +1278,18 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     SpliceSpecifier *Splice = DS.getRepAsSpliceSpecifier();
     assert(Splice && "Didn't get a splice for type-splice?");
     // TypeQuals handled by caller.
-    Result = S.BuildReflectionSpliceType(DS.getTypeSpecTypeLoc(), Splice,
+    // This case is reached only for a bare '[:R:]' type-specifier with no
+    // preceding 'typename' keyword (an explicit 'typename [:R:]' is parsed
+    // as TST_typename instead, with its own correctly-tracked keyword
+    // location -- see Sema::ActOnCXXSpliceTypeSpecifier). Pass an invalid
+    // location here rather than DS.getTypeSpecTypeLoc() (the splice's own
+    // position): callers use ReflectionSpliceType::getTypenameKWLoc()'s
+    // validity to distinguish "no explicit typename" from "explicit
+    // typename" (e.g. to diagnose a dependent splice used without one in a
+    // forbidden CTAD-like position), and reusing the splice's location here
+    // would make every implicit splice look indistinguishable from one that
+    // spelled out 'typename'.
+    Result = S.BuildReflectionSpliceType(SourceLocation(), Splice,
                                          /*Complain=*/true);
     if (Result.isNull()) {
       Result = Context.IntTy;

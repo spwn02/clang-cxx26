@@ -111,7 +111,7 @@ bool Parser::ParseOptionalCXXScopeSpecifier(
     CXXScopeSpec &SS, ParsedType ObjectType, bool ObjectHadErrors,
     bool EnteringContext, bool *MayBePseudoDestructor, bool IsTypename,
     const IdentifierInfo **LastII, bool OnlyNamespace, bool InUsingDeclaration,
-    bool Disambiguation) {
+    bool Disambiguation, SourceLocation TypenameKWLoc) {
   assert(getLangOpts().CPlusPlus &&
          "Call sites of this function should be guarded by checking for C++");
 
@@ -246,7 +246,7 @@ bool Parser::ParseOptionalCXXScopeSpecifier(
         // annot_splice token, and rewrite it as an annot_typename with a
         // splice-type-specifier.
         Token SpliceTok = Tok;
-        TypeResult Ty = ParseCXXSpliceAsType(SourceLocation(),
+        TypeResult Ty = ParseCXXSpliceAsType(TypenameKWLoc,
                                              /*AllowDependent=*/true,
                                              /*Complain=*/true);
         UnconsumeToken(Tok);

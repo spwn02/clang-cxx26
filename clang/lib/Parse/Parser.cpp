@@ -1947,10 +1947,12 @@ bool Parser::TryAnnotateTypeOrScopeToken(
     SourceLocation TypenameLoc = ConsumeToken();
 
     CXXScopeSpec SS;
-    if (ParseOptionalCXXScopeSpecifier(SS, /*ObjectType=*/nullptr,
-                                       /*ObjectHasErrors=*/false,
-                                       /*EnteringContext=*/false, nullptr,
-                                       /*IsTypename*/ true))
+    if (ParseOptionalCXXScopeSpecifier(
+            SS, /*ObjectType=*/nullptr, /*ObjectHasErrors=*/false,
+            /*EnteringContext=*/false, /*MayBePseudoDestructor=*/nullptr,
+            /*IsTypename=*/true, /*LastII=*/nullptr, /*OnlyNamespace=*/false,
+            /*InUsingDeclaration=*/false, /*Disambiguation=*/false,
+            /*TypenameKWLoc=*/TypenameLoc))
       return true;
     if (Tok.is(tok::annot_typename))
       return false;

@@ -13869,6 +13869,41 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init, bool DirectInit) {
     return;
   }
 
+  // [dcl.type.simple]p3 / [temp.dep.splice]: a dependent splice-specifier
+  // used without an explicit 'typename' keyword cannot stand for a
+  // placeholder for a deduced class type -- CWG3003's restriction on
+  // dependent nested-name-specifiers in CTAD extends to dependent splices.
+  // The narrowest, unambiguous shape of this is copy-list-initialization
+  // from a bare (non-'typename') dependent splice, e.g.
+  // 'typename[opt] [:R:] obj = {value};' with 'R' a dependent
+  // splice-specifier: direct-list-init ('{value}' as the whole declarator),
+  // parenthesized init, and plain copy-init from a non-list expression are
+  // all left alone, as is any splice with an explicit 'typename' (that
+  // form is unambiguously a type, not a CTAD placeholder).
+  //
+  // Distinguishing "no explicit typename" from "explicit typename" relies
+  // on ReflectionSpliceType::getTypenameKWLoc()'s validity, which required
+  // two upstream fixes to be reliable here: SemaType.cpp's TST_type_splice
+  // case no longer substitutes the splice's own location for a genuinely
+  // absent keyword location, and ParseOptionalCXXScopeSpecifier's
+  // 'typename [:R:]' rewrite (used for a splice-specifier reached via
+  // TryAnnotateTypeOrScopeToken's 'typename' handling) now threads the
+  // real keyword location through instead of discarding it. Without those,
+  // an explicit 'typename' was indistinguishable from its absence here.
+  if (auto *RST = dyn_cast<ReflectionSpliceType>(VDecl->getType().getTypePtr());
+      RST && RST->getUnderlyingType() == Context.DependentTy &&
+      RST->getTypenameKWLoc().isInvalid() && !DirectInit &&
+      isa<InitListExpr>(Init)) {
+    Diag(VDecl->getLocation(), diag::err_dependent_splice_ctad)
+        << RST->getSplice()->getSourceRange();
+    VDecl->setInvalidDecl();
+    ExprResult Recovery =
+        CreateRecoveryExpr(Init->getBeginLoc(), Init->getEndLoc(), {Init});
+    if (Expr *E = Recovery.get())
+      VDecl->setInit(E);
+    return;
+  }
+
   if (VDecl->isInvalidDecl()) {
     ExprResult Recovery =
         CreateRecoveryExpr(Init->getBeginLoc(), Init->getEndLoc(), {Init});
