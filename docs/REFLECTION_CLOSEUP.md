@@ -38,6 +38,14 @@ mode of operation this epic started with.
 
 ## Next Up
 
+**Status as of 2026-09-10 (post item-3 fix):** Item 1 is escalated to the user, not being worked
+automatically (see below). Item 2 has a partial fix landed, one sub-symptom (`is_type_alias`
+identity loss) still open and deliberately parked. **Item 3 is now fixed and verified** (commit
+`9760450c0fe4` — see the item-3 paragraph near the end of this section and the table row below).
+**Resume with item 4 (NEW-7 — dependent splice-specifier wrongly accepted)**: read
+`docs/reflection-audit/codex-new7-design-report.md` first (3 prior attempts, 3 different bugs
+found) before starting a 4th.
+
 **Item 1 (escalation cluster): FIVE attempts now, all rejected empirically. Genuinely resists a
 full fix — this is the completion bar's escalation case, not a "keep trying" case.** Per the plan's
 own Completion Bar section: an item that resists a full fix even after real, careful effort gets
@@ -181,13 +189,51 @@ correct). Given item 1's lesson about diminishing returns on a single sub-sympto
 continuing this specific thread further right now** — moving to item 3, will return to this with
 fresh eyes (or escalate per the completion bar) rather than keep excavating linearly.
 
+**Item 3 (`display_string_of(dealias(...))` not constant expr, `#188`): fixed and verified
+(commit `9760450c0fe4`).** Worked entirely directly (no Codex usage). Root-caused precisely via
+temporary `Type*`-identity and type-class tracing (added and fully reverted before commit, matching
+the discipline used for items 1 and 2): `dealias()`'s `desugarType()` hand-rolled sugar-strip loop
+was missing `DecltypeType`. `iterator_t<R>`'s underlying alias-template type
+(`decltype(ranges::begin(declval<R&>()))`) desugars one step to a `DecltypeType` node whose own
+*canonical* type is perfectly ordinary (confirmed by forcing clang's native, non-reflection type
+printer to reveal it via an unrelated overload-resolution error: the true type is the shallow,
+unremarkable `__wrap_iter<char *>`), but the loop had no branch matching `DecltypeType` and gave up
+right there. The still-sugared reflection then fed the printer's recursive
+`render_template_argument_list_of` walk, whose `template_arguments_of()` query on this specific
+`DecltypeType` resolved back to an equivalent, still-unresolved reflection every single time —
+confirmed via a `QualType::getAsOpaquePtr()` trace that the *exact same* `Type*` pointer recurred
+across 380+ probed calls. This is a literal non-terminating recursion, not legitimate deep template
+nesting (ruled out early: `-fconstexpr-steps=100000000` didn't help, since it's a call-*depth*
+limit, not a step-count one; `-fconstexpr-depth=4096` crashed the compiler outright rather than
+just taking longer, which was the first strong signal this wasn't ordinary deep nesting).
+
+Fix: add `DecltypeType` to `desugarType`'s unconditional strip set, alongside the pre-existing
+`AutoType`/`SubstTemplateTypeParmType`/`ReflectionSpliceType` handling — these are all structural
+sugar produced while *resolving* an alias's underlying type, not a named alias the user wrote, so
+(like the others already there) always stripped rather than gated behind the `UnwrapAliases` flag.
+Also fixed an unrelated dead-code bug found en route in the same loop: the `UsingType` branch's
+condition tested `TDT` (guaranteed null there, left over from the preceding `if`'s scope) instead
+of `UT`, so `UsingType` sugar was never actually unwrapped despite the branch's evident intent —
+real bug, but not the cause of this particular issue (confirmed: fixing it alone, without the
+`DecltypeType` fix, left the recursion unchanged).
+
+Considered and rejected a broader rewrite (a generic `getSingleStepDesugaredType`-to-fixed-point
+loop, which would auto-handle every current and future sugar kind uniformly) as higher-risk than
+warranted here without concrete evidence of other missing cases — the two confirmed, narrowly-
+targeted fixes above are what's landed. Verified zero regressions: `clang/test/Reflection` 20/20,
+libcxx reflection suite at the documented 7-test pre-existing baseline (identical test names,
+confirmed byte-for-byte against `AGENTS.md`'s snapshot), `SemaCXX` at the documented 5-test
+pre-existing baseline (item 1's escalation cluster, unaffected). New regression test:
+`libcxx/test/std/experimental/reflection/issue-188-dealias-decltype.pass.cpp` (covers both the
+non-termination symptom and idempotency of a repeated `dealias()` round-trip).
+
 ## The 14 items
 
 | # | Item | Status | Notes |
 |---|---|---|---|
 | 1 | Consteval self-reference escalation cluster | **ESCALATED TO USER — 5 attempts, genuinely resists a full fix** | Attempt 5 (Claude, direct, no Codex) got furthest: fixed 2 real bugs (attempt 2's "dead bailout" was an overgeneralization; a `DeclRefExpr`-to-invalid-decl false positive) but hit a new, different-in-kind evaluator bug — a nested immediate invocation gets evaluated twice across separate `ExpressionEvaluationContextRecord`s with different (wrong) heap-lifetime outcomes for range-pipeline expressions. Reverted, not committed. Full history: `clang/lib/Sema/SemaExpr.cpp:18396`'s comment (5 attempts) and the dated entries below. Also confirmed: only 2 of the originally-named "5 SemaCXX tests" are this bug; `PR98671.cpp` is an unrelated pre-existing C++20 concepts crash, `cxx2a-constexpr-dynalloc.cpp`/`cxx2b-consteval-propagate.cpp` are a different consteval-escalation bug via a different code path. Per the completion bar: not resuming automatically, waiting for user direction. |
 | 2 | Issue #237 — closure-type alias loses identity | **Partial fix landed (commit `a9c1f8aad1d6`), one symptom remains open** | Primary hard-error ("'auto' not allowed in type alias") fixed — root cause: `decltype(auto-declared-var)` retains `AutoType` sugar that leaked into `BuildReflectionSpliceType`'s reflected-operand resolution; fixed by desugaring there. Zero regressions (verified: clang/test/Reflection 20/20, libcxx reflection 7-test baseline unchanged, SemaCXX/AST/CodeGenCXX/SemaTemplate 3411 tests at the documented 5-test baseline). **Remaining**: `is_type_alias(^^ct)` still returns false even once `ct` declares successfully — traced through every layer (CXXReflectExpr construction, `VisitCXXReflectExpr` evaluation, `APValue::getReflectedType()`, the metafunction `Evaluator` callback, calling the raw `__metafn_is_alias` directly bypassing the library wrapper) and found each one correctly preserving the `TypedefType` sugar in isolation — yet the metafunction still observes a bare `RecordType`. Root cause not found; see the dated session-log entry for the full ruled-out-hypothesis list before re-investigating. |
-| 3 | Issue #188 — `display_string_of(dealias(...))` not constant expr | Not started | Bottoms out in `pretty_printer::print` → `reflect_invoke(^^tprint, ...)` constant evaluation for canonicalized template-specialization types. |
+| 3 | Issue #188 — `display_string_of(dealias(...))` not constant expr | **Fixed and verified (commit `9760450c0fe4`)** | Root cause: `dealias()`'s `desugarType()` hand-rolled sugar-strip loop was missing `DecltypeType` — an alias template's underlying type (e.g. `iterator_t<R> = decltype(ranges::begin(declval<R&>()))`) desugars one step to a `DecltypeType` whose *canonical* type is ordinary but which the loop couldn't unwrap further, leaving a still-sugared reflection whose own template-argument query resolved back to an equivalent unresolved reflection every time — a literal non-terminating recursion (confirmed via `Type*` identity tracing: same pointer recurred 380+ times), not legitimate deep nesting, eventually exhausting the constexpr call-depth budget with a generic, cause-free diagnostic. Fixed by adding `DecltypeType` to the loop's unconditional strip set (alongside pre-existing `AutoType`/`SubstTemplateTypeParmType`/`ReflectionSpliceType`). Also fixed an unrelated dead-code bug found en route in the same loop: the `UsingType` branch tested the wrong local (`TDT` instead of `UT`), so `UsingType` sugar was never actually unwrapped. Verified zero regressions: clang/test/Reflection 20/20, libcxx reflection suite at the documented 7-test pre-existing baseline (byte-for-byte same tests), SemaCXX at the documented 5-test pre-existing baseline. New regression test: `libcxx/test/std/experimental/reflection/issue-188-dealias-decltype.pass.cpp`. |
 | 4 | NEW-7 — dependent splice-specifier wrongly accepted (CTAD-like position) | Not started | `docs/reflection-audit/codex-new7-design-report.md` — 3 prior attempts, 3 different bugs. Needs to understand `AddInitializerToDecl` timing for dependent splice-typed declarators. |
 | 5 | Issues #180/#181 — expansion-statement body deferral + non-copyable tuple binding | Not started | `docs/reflection-audit/codex-m4-180-181-report.md` — PR #261's design applicable, ~11-file port. #181 has an independent binding defect (`SemaExpand.cpp:245-285`, `:150`). |
 | 6 | Issue #182 — `template for` + `continue` ICE | Not started | CodeGen needs instance-discard awareness in expansion control-flow lowering. |
