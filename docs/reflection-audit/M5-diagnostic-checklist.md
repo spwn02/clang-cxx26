@@ -17,14 +17,13 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility | Not-Applicable |
 |---:|---:|---:|---:|---:|
-| 111 | 87 | 3 | 20 | 1 |
+| 111 | 88 | 2 | 20 | 1 |
 
-Updated 2026-09-10 after fixing NEW-2/3/4/6 (constructor-splice half) and deferring/reclassifying
-NEW-7/NEW-8. Remaining `Needs-New-Test` rows: 2996-49 (NEW-7, deferred — no safely-scoped
-rejection point found), 3096-06 (NEW-8, reclassified — the paper doesn't actually restrict these
-queries; row intentionally left open pending a decision on whether to reword or close it as
-Not-Applicable), and 3560-18 (blocked on a return-object lifetime workaround, unrelated to this
-batch).
+Updated 2026-09-10 after fixing NEW-2/3/4/6 (constructor-splice half), reclassifying NEW-8's row
+(3096-06, now Covered with a corrected condition statement), and deferring NEW-7. Remaining
+`Needs-New-Test` rows: 2996-49 (NEW-7, deferred — no safely-scoped rejection point found without
+risking valid dependent declarations) and 3560-18 (blocked on a return-object lifetime workaround,
+unrelated to this batch).
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -112,7 +111,7 @@ Normative source: [P3096R12](https://www.open-std.org/jtc1/sc22/wg21/docs/papers
 | 3096-03 | `variable_of(r)`: `r` represents a function parameter and the parameter has a valid invocation frame in the required constant-evaluation context. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp) |
 | 3096-04 | `has_ellipsis_parameter(r)` is total: for a non-function reflection it returns false rather than diagnosing. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp), [p3096-total-functions.pass.cpp](../../libcxx/test/std/experimental/reflection/p3096-total-functions.pass.cpp) |
 | 3096-05 | `has_default_argument(r)` is total: for a non-function-parameter reflection it returns false rather than diagnosing. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp), [p3096-total-functions.pass.cpp](../../libcxx/test/std/experimental/reflection/p3096-total-functions.pass.cpp) |
-| 3096-06 | Parameter `identifier_of`, `u8identifier_of`, `type_of`, and `has_identifier` are ill-formed when applied outside the parameter cases specified by the paper. | Needs-New-Test — NEW-8 | Reclassified: P3096R12 does not impose a parameter-only domain on the three accepted queries; see NEW-8 tracker note. |
+| 3096-06 | `identifier_of`, `u8identifier_of`, and `has_identifier` are total over named entities (not parameter-only); `type_of` is separately ill-formed for a type reflection. | Covered | [identifier-of-non-parameter.pass.cpp](../../libcxx/test/std/experimental/reflection/identifier-of-non-parameter.pass.cpp) covers the three non-parameter-restricted queries; `type_of`'s existing correct rejection is unchanged. Row condition text corrected 2026-09-10 — see NEW-8 tracker note. |
 | 3096-07 | Local parameters introduced by a requires-expression cannot be reflected. | Covered | [lift-operator.cpp](../../clang/test/Reflection/lift-operator.cpp) |
 
 ## P3293R3 — Splicing a Base Class Subobject
