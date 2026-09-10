@@ -30,10 +30,20 @@ and do not leave it silently unresolved — stop and escalate the specific block
 
 ## Next Up
 
-**Not started — CU0 setup in progress.** This document was just created (2026-09-10). Next action:
-seed the 14-item table below (already drafted from the plan file), confirm the recurring cron
-heartbeat is armed, then begin CU1 (Tier 0, item 1 — the escalation cluster — first, using Astra
-from the start per the plan's reasoning that normal effort has already failed 3 times).
+**CU0 complete. CU1 item 1 (escalation cluster) dispatched to Astra at xhigh effort, in flight.**
+Launched via `mise exec codex@0.153.0-alpha.2 -- codex exec -m gpt-6-astra -c
+model_reasoning_effort=xhigh ...`, report will land at
+`docs/reflection-audit/codex-closeup-item1-escalation-report.md` /
+`codex-closeup-item1-escalation-final.md`, log at
+`docs/reflection-audit/batch-outputs/codex-closeup-item1-escalation.log`. This is expected to run
+long (genuine architecture design work, no deadline). When it returns: **personally, independently
+verify any claimed fix** (build, run the exact regression gate listed in the dispatch prompt
+yourself) before trusting it — do not commit on Astra's own "fixed and verified" claim alone, per
+this epic's inherited validator discipline. If it reports a genuine full fix: verify, commit
+(`reflection:` prefix), push, update this table's row 1 to Fixed-and-verified with evidence, move
+to item 2. If it reports exhausting effort without a fix: read its writeup, decide whether the
+Completion Bar's "escalate to the user" clause applies (it does, per the plan — do not close this
+item under a lesser bar or move on silently), and surface it to the user precisely as instructed.
 
 ## The 14 items
 
