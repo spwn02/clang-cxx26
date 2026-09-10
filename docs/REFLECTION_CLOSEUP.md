@@ -66,8 +66,37 @@ specifically in the `HandleImmediateInvocations` nested-context-merging addition
 excerpt in the dated entry) rather than starting over. **Do not dispatch any more Codex work until
 usage has recovered** — this is a 5-hour rolling limit, not the weekly cap the user must
 personally authorize resetting; it should recover on its own with time, no action needed from
-either side. In the meantime, non-Codex work (further isolation of the `PR98671.cpp` crash's
-scope, or documentation/tracker upkeep) can continue without spending any Codex usage.
+either side.
+
+**Non-Codex investigation done while paused (2026-09-10, no Codex usage spent):**
+- Read `PR98671.cpp` and `SemaConcept.cpp:2563-2581` directly: the crash is
+  `Sema::IsAtLeastAsConstrained`'s `#ifndef NDEBUG` assertion (only visible on this
+  assertions-enabled build) firing when `SetEligibleMethods`/`ComputeSpecialMemberFunctionsEligiblity`
+  passes an instantiated `FunctionDecl` where a non-instantiated one is expected, while computing
+  special-member eligibility for `S2<int>`'s two constrained constructor templates. Confirmed via
+  the test file's own comment ("Ensure that no assertion is raised...") that this is a regression
+  test for a known upstream issue (`PR98671`) that has re-broken in some form — entirely C++20
+  concepts/special-member machinery, zero reflection content. **Not pursuing a fix — out of this
+  epic's 14-item scope; flagging to the user as a possible separate item rather than scope-creeping
+  it in unilaterally.**
+- Re-read the relevant lines of Astra's (reverted, not recoverable via git — only visible in the
+  log) diff for the exact type of the new field: `VarDecl *CheckingConstantInitializer = nullptr;`
+  on `ExpressionEvaluationContextRecord` (not a bare `bool` — rules out the simplest "two unrelated
+  declarations look identical" hypothesis). The merge condition in `HandleImmediateInvocations` was
+  `Rec.CheckingConstantInitializer == SemaRef.parentEvaluationContext().CheckingConstantInitializer`.
+  The log also showed at least one path where a *child* context's field is set by inheriting the
+  *parent's* value (`ExprEvalContexts.back().CheckingConstantInitializer = Prev.CheckingConstantInitializer;`)
+  rather than always being freshly assigned per new top-level declaration — worth the next
+  dispatch's first debugging step being: instrument exactly which `VarDecl*` value each of the 16
+  regressed tests' declarations sees at the merge-condition check, since a stale/reused value
+  (e.g. from `ExprEvalContexts`' underlying vector reusing a popped slot's memory before the new
+  push fully overwrites this specific field) would explain corruption bleeding between unrelated
+  sibling `constexpr auto X = ...;` declarations in the same file — exactly the pattern in the 16
+  regressed tests (all have many sequential top-level reflection declarations in one namespace;
+  the 2 tests that stayed fixed have only isolated single declarations). This is a lead for the
+  next dispatch to verify empirically, not a confirmed root cause — I did not rebuild/test this
+  hypothesis myself (the diff isn't recoverable without re-generating it, and doing so would risk
+  another build cycle without the ability to verify against real Codex-assisted debugging anyway).
 
 ## The 14 items
 
