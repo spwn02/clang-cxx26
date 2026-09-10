@@ -134,12 +134,59 @@ independent item — this is not "stopping the epic," just this one item).
   hypothesis myself (the diff isn't recoverable without re-generating it, and doing so would risk
   another build cycle without the ability to verify against real Codex-assisted debugging anyway).
 
+**Item 2 (closure-type alias, `#237`): partial fix landed (commit `a9c1f8aad1d6`), one symptom
+remains open.** Worked entirely directly (no Codex usage). Root-caused and fixed the primary,
+hard-error symptom precisely: `decltype(auto-declared-var)` retains `AutoType` sugar that survived
+into `Sema::BuildReflectionSpliceType`'s reflected-operand resolution, tripping the ordinary
+"auto not allowed in type alias" check when reconstructing the splice as a type-alias target.
+Fixed with a targeted desugar, mirroring the function's existing `UsingType`/
+`SubstTemplateTypeParmType` handling. Verified zero regressions across `clang/test/Reflection/`
+(20/20), the libcxx reflection 7-test baseline (unchanged), and the broader SemaCXX/AST/
+CodeGenCXX/SemaTemplate suites (3411 tests, exactly the documented 5-test baseline) — **this is a
+genuinely safe, non-regressing fix, unlike item 1's reverted attempts, so it was committed even
+though item 2 as a whole isn't fully done yet.**
+
+**What's still open**: the original issue's own probe also asserts `is_type_alias(^^ct)` — this
+still evaluates to false even once `ct` declares successfully. Traced exhaustively without finding
+the root cause:
+- Confirmed via `-ast-dump` that `ct`'s own `TypeAliasDecl` is correctly formed
+  (`TypeAliasDecl ... 'const (lambda at ...)'` wrapping a `ReflectionSpliceType` sugar node) —
+  the alias declaration itself is fine.
+- Confirmed via temporary tracing that `BuildCXXReflectExpr(SourceLocation, SourceLocation,
+  QualType)` — the function that constructs the `CXXReflectExpr` for `^^ct` — receives and stores
+  a correct `TypedefType` (`T=ct`), untouched, with no accidental desugaring.
+- Confirmed `ReflectionEvaluator::VisitCXXReflectExpr` (`ExprConstant.cpp`) is a trivial
+  passthrough (`APValue Result(E->getReflection()); return Success(Result, E);`) and
+  `APValue::getReflectedType()` is a trivial `QualType::getFromOpaquePtr` round-trip — neither
+  desugars anything.
+- Confirmed the metafunction `Evaluator` callback (`ExprConstant.cpp`'s
+  `VisitCXXMetafunctionExpr`) also just calls the same general `::Evaluate()` path — no special
+  handling.
+- **Ruled out the library-wrapper parameter-binding theory**: calling
+  `__metafunction(detail::__metafn_is_alias, ^^ct)` directly (bypassing `is_type_alias`'s consteval
+  wrapper function entirely, so there's no intermediate `info`-typed parameter copy to suspect)
+  produces the exact same wrong result (`QT` observed as a bare `RecordType`, not `TypedefType`).
+- Confirmed via `-ast-dump` inside the exact failing test file (not just a simpler isolated one)
+  that `ct`'s declaration is still correctly formed even in the context where the metafunction
+  call fails — ruling out "something later in the same TU retroactively corrupts `ct`'s cached
+  type."
+- Confirmed this is closure-specific, not about being inside a `consteval {}` block: an ordinary
+  (non-closure) type alias declared and reflected inside the identical `consteval {}` block
+  structure works correctly (`is_type_alias` returns true).
+
+Every layer between `^^ct`'s construction and the metafunction's observation of its value has been
+individually verified correct in isolation, yet the end-to-end value is wrong — meaning the loss
+happens in a layer not yet identified (or in an interaction between layers each individually
+correct). Given item 1's lesson about diminishing returns on a single sub-symptom, **not
+continuing this specific thread further right now** — moving to item 3, will return to this with
+fresh eyes (or escalate per the completion bar) rather than keep excavating linearly.
+
 ## The 14 items
 
 | # | Item | Status | Notes |
 |---|---|---|---|
 | 1 | Consteval self-reference escalation cluster | **ESCALATED TO USER — 5 attempts, genuinely resists a full fix** | Attempt 5 (Claude, direct, no Codex) got furthest: fixed 2 real bugs (attempt 2's "dead bailout" was an overgeneralization; a `DeclRefExpr`-to-invalid-decl false positive) but hit a new, different-in-kind evaluator bug — a nested immediate invocation gets evaluated twice across separate `ExpressionEvaluationContextRecord`s with different (wrong) heap-lifetime outcomes for range-pipeline expressions. Reverted, not committed. Full history: `clang/lib/Sema/SemaExpr.cpp:18396`'s comment (5 attempts) and the dated entries below. Also confirmed: only 2 of the originally-named "5 SemaCXX tests" are this bug; `PR98671.cpp` is an unrelated pre-existing C++20 concepts crash, `cxx2a-constexpr-dynalloc.cpp`/`cxx2b-consteval-propagate.cpp` are a different consteval-escalation bug via a different code path. Per the completion bar: not resuming automatically, waiting for user direction. |
-| 2 | Issue #237 — closure-type alias loses identity | Not started | `using ct = typename[:cr:];` fails for closure types. Start from `SemaReflect.cpp`'s splice-type handling. |
+| 2 | Issue #237 — closure-type alias loses identity | **Partial fix landed (commit `a9c1f8aad1d6`), one symptom remains open** | Primary hard-error ("'auto' not allowed in type alias") fixed — root cause: `decltype(auto-declared-var)` retains `AutoType` sugar that leaked into `BuildReflectionSpliceType`'s reflected-operand resolution; fixed by desugaring there. Zero regressions (verified: clang/test/Reflection 20/20, libcxx reflection 7-test baseline unchanged, SemaCXX/AST/CodeGenCXX/SemaTemplate 3411 tests at the documented 5-test baseline). **Remaining**: `is_type_alias(^^ct)` still returns false even once `ct` declares successfully — traced through every layer (CXXReflectExpr construction, `VisitCXXReflectExpr` evaluation, `APValue::getReflectedType()`, the metafunction `Evaluator` callback, calling the raw `__metafn_is_alias` directly bypassing the library wrapper) and found each one correctly preserving the `TypedefType` sugar in isolation — yet the metafunction still observes a bare `RecordType`. Root cause not found; see the dated session-log entry for the full ruled-out-hypothesis list before re-investigating. |
 | 3 | Issue #188 — `display_string_of(dealias(...))` not constant expr | Not started | Bottoms out in `pretty_printer::print` → `reflect_invoke(^^tprint, ...)` constant evaluation for canonicalized template-specialization types. |
 | 4 | NEW-7 — dependent splice-specifier wrongly accepted (CTAD-like position) | Not started | `docs/reflection-audit/codex-new7-design-report.md` — 3 prior attempts, 3 different bugs. Needs to understand `AddInitializerToDecl` timing for dependent splice-typed declarators. |
 | 5 | Issues #180/#181 — expansion-statement body deferral + non-copyable tuple binding | Not started | `docs/reflection-audit/codex-m4-180-181-report.md` — PR #261's design applicable, ~11-file port. #181 has an independent binding defect (`SemaExpand.cpp:245-285`, `:150`). |
