@@ -13,6 +13,15 @@ verification protocol) lives at
 `/home/spawn/.claude/plans/i-think-finishing-reflection-elegant-rivest.md` — read that first if
 you're picking this up cold.
 
+## Next Up (updated 2026-09-10, M6 gate)
+
+**M6 BLOCKED (2026-09-10):** assertions-enabled clang rebuilt and its complete test tree ran
+with exactly the five documented consteval-escalation failures; the 18-test ASTUnit/PCH cluster
+did not reproduce after fresh consumer-tool rebuilds. Full libc++ `libcxx/test` did not complete:
+the observed seven failures exactly match the documented reflection baseline, but the run stalled
+early after the disk-pressure retry. See [`codex-m6-final-gate-report.md`](reflection-audit/codex-m6-final-gate-report.md)
+for commands, complete observed lists, and the required rerun. M7 close-out is not yet safe.
+
 ## Next Up (updated 2026-09-10, after M4/M5 backlog closure)
 
 **Status: M0-M3 done. M4 and M5 are now substantively complete** — every item in each
@@ -1011,3 +1020,14 @@ and updated batch 13. Built Clang with `env CCACHE_DISABLE=1 ninja -C build-nyx 
 the direct verify run passed. The full libc++ reflection wrapper run completed 108 tests with
 101 passed, 1 unsupported, and 6 failures: the remaining documented baseline cluster after
 batch 13 and NEW-7 ceased failing. See `reflection-audit/codex-new7-design-report.md`.
+
+**2026-09-10 — M6 final-gate attempt.** Read Ground Truth in full. Rebuilt `clang` successfully
+with `ninja -C build-nyx clang -j4`, then refreshed the full clang check prerequisites. The final
+Python-3.13-compatible full clang lit run completed 49,850 discovered tests with exactly the five
+documented consteval-escalation failures and no additional failures; the separately established
+18-test ASTUnit/PCH cluster did not appear. `ninja -C build-nyx check-cxx` is not configured in
+this checkout. The full libc++ wrapper discovered 11,834 tests, first hit the documented 25-GiB
+generated-module-output disk exhaustion at `-j22`, then was retried at `-j4` after clearing that
+disposable output. It observed exactly the seven documented reflection failures but stalled early
+before completing the remaining suite. M6 is **BLOCKED** pending a complete libc++ run; details
+and exact lists are in `reflection-audit/codex-m6-final-gate-report.md`.
