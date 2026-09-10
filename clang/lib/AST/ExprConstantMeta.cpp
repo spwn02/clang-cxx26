@@ -3038,8 +3038,20 @@ bool type_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
           << 0 << DescriptionOf(RV) << Range;
 
-    if (auto *FD = dyn_cast<FunctionDecl>(VD))
+    if (auto *FD = dyn_cast<FunctionDecl>(VD)) {
       Meta.EnsureInstantiationOfExceptionSpec(Range.getBegin(), FD);
+
+      // [meta.reflection.queries]p2's has-type condition excludes a
+      // function whose type contains an undeduced placeholder (e.g. a
+      // not-yet-defined 'auto f();'). Reject here rather than reflecting
+      // a type containing the placeholder: letting it through causes the
+      // printer's function-type rendering to recursively re-query the
+      // same undeduced return type via return_type_of, which otherwise
+      // recurses indefinitely instead of producing the required failure.
+      if (FD->getType()->isUndeducedType())
+        return Diagnoser(Range.getBegin(), diag::metafn_undeduced_placeholder)
+            << FD << FD->getType() << Range;
+    }
 
     QualType QT = desugarType(VD->getType(),
                               /*UnwrapAliases=*/ true, /*DropCV=*/false,
