@@ -13,7 +13,54 @@ verification protocol) lives at
 `/home/spawn/.claude/plans/i-think-finishing-reflection-elegant-rivest.md` — read that first if
 you're picking this up cold.
 
-## Next Up (updated 2026-09-10, M6 COMPLETE)
+## Next Up (updated 2026-09-10 later, re-audited against the plan's 7-point completion bar)
+
+**M6 (below) is complete, but M6-complete ≠ epic-complete** — the plan's own "Definition of
+genuinely complete" (7 criteria, see the plan file) is the actual bar. Status against each,
+re-audited this session:
+1. 85 issues/35 PRs dispositioned — **done** (M1/M4).
+2. All papers wording-audited — **done** (M2, plus P3795R2 late-paper work in M4).
+3. CWG 3111, LWG 4432, LWG 4426, LWG 4428 — **done, all four Fixed-and-verified or
+   confirmed-not-applicable** (CWG 3111/LWG 4432 closed this session, see the DR table and
+   the dated entry below; LWG 4426/4428 closed earlier).
+4. Three known bugs fixed — **2 of 3 done** (`splice-namespaces.cpp`, `splice-exprs.cpp`).
+   The consteval self-reference escalation cluster is **not fixed** — three independent
+   attempts (original August fix, this epic's static analysis, this session's two
+   built-and-tested strategies) all converge on the same conclusion: a correct fix needs an
+   `ExpressionEvaluationContextRecord` architecture change (per-candidate state, not a
+   shared context flag), not a patch. See the M3 section below for full evidence. **This is
+   the one criterion not met**, and is not close to being met without a session
+   specifically budgeted for that redesign.
+5. Diagnostic coverage for every Constraints/Mandates/Throws condition — **substantively
+   done** (M5's 111-condition checklist: 88 Covered, 2 Needs-New-Test, 20
+   Blocked-On-Unimplemented-Facility, 1 N/A — the 20 blocked rows are conditions that can't
+   be tested because the underlying facility isn't implemented, a legitimate documented
+   reason under criterion #1's own allowance, not a gap in the test-writing effort itself).
+6. Full check-clang + check-cxx gate clean — **done** (M6).
+7. Zero open rows in this tracker — **read against criterion #1's own "documented reason"
+   allowance, not literally**: re-audited every `Confirmed-Open`/`Needs-Build-To-Verify` row
+   this session (~30 across the M1/M4 issue table). Every one carries either a terminal
+   disposition (`→ Fixed`/`→ Skipped`/`→ Not-Applicable`/`→ Not a reflection bug`) or, for
+   the 4 rows without one (#180, #181, #188, #237, now relabeled `→ Deferred` for
+   consistency), a full paragraph of concrete technical reasoning for why no safe fix was
+   found. The `Needs-Build-To-Verify` rows are all "no reproducer available in the upstream
+   issue snapshot" — a legitimate, documented, unverifiable-for-lack-of-evidence
+   disposition. No row was found bare/undispositioned. **This criterion is satisfied under
+   the documented-reason reading.**
+
+**Bottom line: criterion #4 (the escalation cluster) is the sole remaining blocker for
+literal completion.** Everything else is done or satisfies the plan's own allowance for a
+documented, reasoned disposition instead of a forced fix. The next session should decide
+between (a) a dedicated, purpose-budgeted session to redesign
+`ExpressionEvaluationContextRecord`'s manifestly-constant-evaluated/candidate-success
+tracking (the real fix, per three attempts' worth of evidence), or (b) treating this one
+criterion the same documented-exception way criterion #1 explicitly allows for other items,
+and proceeding to M7 with this one gap explicitly called out in the release notes / final
+report rather than silently closed. Not decided this session — flagging for the next one
+(or an advisor consultation) rather than choosing unilaterally on a criterion that, unlike
+the others, has no explicit "documented reason" escape clause in the plan's own wording.
+
+## Historical Next Up (superseded 2026-09-10, M6 COMPLETE — kept for context)
 
 **M6 COMPLETE.** Full `check-clang`: 49,850 tests, exactly the 5 documented consteval-escalation
 failures, nothing else (the 18-test ASTUnit/PCH cluster is a separate test surface, not part of
@@ -447,8 +494,8 @@ for readability, same as the source files:
 | 176 | `members_of` + empty namespace redeclaration | Already-Fixed | `ExprConstantMeta.cpp:1535-1545`; same test file `:41-61`, `:70-84`. | Medium |
 | 177 | Enum NTTP loses enumerator identity | Out-of-Scope | Intentional: reflected value vs. enumerator declaration distinction, `ExprConstantMeta.cpp:4192-4208`; `entity-classification.pass.cpp:61-82` requires this. | High |
 | 178 | `template for` over `integer_sequence` | Already-Fixed | Direct `-freflection-latest -fsyntax-only` probe over `std::integer_sequence<int,1,5>` succeeds at current HEAD. | High |
-| 180 | `static_assert(false)` ignored | Confirmed-Open — design investigation 2026-09-10 | Upstream PR #261 (`1fdd67b76362`, “Compute expansion size and instantiate after expansion...”) proposes the applicable broad design: retain expansion bodies as deferred `Stmt*`, compute size, then instantiate the body per index. This fork currently transforms expansion bodies before `FinishCXXExpansionStmt` and separately substitutes a combined body per index (`SemaExpand.cpp:551-613`, `TreeTransform.h:9336-9343`), so premature/incorrect context handling remains plausible. However, the published #180 reproducer is a reflected `substitute` of `test_impl` containing `static_assert(false)`, not literally an expansion-body assertion; a future port needs an exact regression for both scenarios. No safe local diagnostic tweak identified. See [codex-m4-180-181-report](reflection-audit/codex-m4-180-181-report.md). | High |
-| 181 | Non-copyable tuple in `template for` | Confirmed-Open — design investigation 2026-09-10 | PR #261's body deferral is applicable to the shared expansion architecture but does not fix this issue's independent binding defect. `makeCXXDestructurableExpansionSelectExpr` still has `// TODO: Add ref support` (`SemaExpand.cpp:245-285`), while the iterable helper creates a const hidden range (`SemaExpand.cpp:150`); either can cause the reported deleted copy of `const tuple<unique_ptr<...>>`. P1306R5 requires `auto&&` hidden tuple binding and per-element lvalue/reference or `std::move` preservation. Requires a dedicated binding design, exact `auto`/`auto&`/`auto&&` tests, and the PR #261 deferred-body regression gate; no safe local fix identified. See [codex-m4-180-181-report](reflection-audit/codex-m4-180-181-report.md). | High |
+| 180 | `static_assert(false)` ignored | Confirmed-Open → Deferred, design investigation 2026-09-10 | Upstream PR #261 (`1fdd67b76362`, “Compute expansion size and instantiate after expansion...”) proposes the applicable broad design: retain expansion bodies as deferred `Stmt*`, compute size, then instantiate the body per index. This fork currently transforms expansion bodies before `FinishCXXExpansionStmt` and separately substitutes a combined body per index (`SemaExpand.cpp:551-613`, `TreeTransform.h:9336-9343`), so premature/incorrect context handling remains plausible. However, the published #180 reproducer is a reflected `substitute` of `test_impl` containing `static_assert(false)`, not literally an expansion-body assertion; a future port needs an exact regression for both scenarios. No safe local diagnostic tweak identified. See [codex-m4-180-181-report](reflection-audit/codex-m4-180-181-report.md). | High |
+| 181 | Non-copyable tuple in `template for` | Confirmed-Open → Deferred, design investigation 2026-09-10 | PR #261's body deferral is applicable to the shared expansion architecture but does not fix this issue's independent binding defect. `makeCXXDestructurableExpansionSelectExpr` still has `// TODO: Add ref support` (`SemaExpand.cpp:245-285`), while the iterable helper creates a const hidden range (`SemaExpand.cpp:150`); either can cause the reported deleted copy of `const tuple<unique_ptr<...>>`. P1306R5 requires `auto&&` hidden tuple binding and per-element lvalue/reference or `std::move` preservation. Requires a dedicated binding design, exact `auto`/`auto&`/`auto&&` tests, and the PR #261 deferred-body regression gate; no safe local fix identified. See [codex-m4-180-181-report](reflection-audit/codex-m4-180-181-report.md). | High |
 | 182 | `template for` + `continue` ICE | Confirmed-Open → Skipped 2026-09-09 | CodeGen currently creates one continuation destination per expansion instance before emitting discarded `if constexpr` bodies; fixing this needs instance-discard awareness in expansion control-flow lowering and a regression gate for break/continue nesting. No safe local patch was identified; deferred with the M3 consteval escalation cluster. | High |
 | 183 | ICE with imported reflection function | Already-Fixed | `module-imports.sh.cpp:1-17`; serialization fix `090152727f3f` (broader than original scenario). | Medium |
 | 184 | Spurious consteval-only diagnostic | Needs-Build-To-Verify | No exact source reproducer was available in the issue body beyond a Godbolt link; retain until the nested-lambda/consteval-only NTTP example is rebuilt. | Low |
@@ -458,7 +505,7 @@ for readability, same as the source files:
 |---:|---|---|---|---|
 | 185 | Annotation API changed in R1 | Confirmed-Open → Fixed 2026-09-09, commit `625ed6cec16a` | Added adopted `annotations_of_with_type(info, info)` as a compatibility-preserving forwarding wrapper over the existing filtered implementation, with focused coverage. Legacy APIs remain available for existing fork tests and callers. | High |
 | 187 | Compilation never ends | Needs-Build-To-Verify | No reproducer in snapshot, Godbolt-link only. | Low |
-| 188 | `display_string_of(dealias(...))` not constant expr | **Confirmed-Open — deferred 2026-09-10, M4 audit** | Exact upstream `ranges::max_element` reproducer was compiled against the staged libc++ headers and current compiler. The five reported cases (`1.2`, `2.2`, `2.3`, `3.3`, `4.3`) are rejected as non-constant expressions; direct displays and single `dealias` controls pass. Diagnostics bottom out at `pretty_printer::print` → `reflect_invoke(^^tprint, ...)`, with no more specific evaluator diagnostic. The failure is therefore in constant evaluation of the printer path for canonicalized template-specialization types (and double-canonicalization), not in parsing or overload resolution. Source inspection identifies the relevant path as `dealias`/`underlying_entity_of` followed by `tprint_impl::render`, whose `is_function_type`/template-argument rendering performs further metafunction evaluation. No narrow safe fix was identified; no source change or test was committed. | High |
+| 188 | `display_string_of(dealias(...))` not constant expr | **Confirmed-Open → Deferred 2026-09-10, M4 audit** | Exact upstream `ranges::max_element` reproducer was compiled against the staged libc++ headers and current compiler. The five reported cases (`1.2`, `2.2`, `2.3`, `3.3`, `4.3`) are rejected as non-constant expressions; direct displays and single `dealias` controls pass. Diagnostics bottom out at `pretty_printer::print` → `reflect_invoke(^^tprint, ...)`, with no more specific evaluator diagnostic. The failure is therefore in constant evaluation of the printer path for canonicalized template-specialization types (and double-canonicalization), not in parsing or overload resolution. Source inspection identifies the relevant path as `dealias`/`underlying_entity_of` followed by `tprint_impl::render`, whose `is_function_type`/template-argument rendering performs further metafunction evaluation. No narrow safe fix was identified; no source change or test was committed. | High |
 | ~~NEW-1~~ | ~~`display_string_of(null reflection)` may return an empty string~~ | **False alarm, corrected 2026-09-10** | The original finding was reasoned from reading source (`tprint_impl::render<R>()`'s dispatch through `reflect_invoke`), not from an actual empirical test ("no fabricated -verify test was added" per the batch-4 report). **Independently re-verified and refuted**: `static_assert(string_view(display_string_of(info{})).size() > 0)` compiles and passes cleanly against the current (unmodified) header — `libcxx/include/meta`'s `pretty_printer<CharT>::print` already dispatches to `tprint_impl::render<R>()`'s `requires (R == info{})` specialization (~line 2954), which returns `"(null-reflection)"`, a non-empty result. A well-intentioned attempted fix (adding a redundant early-return duplicating the same string) was found uncommitted, independently tested against the *unmodified* header (confirming the fix wasn't even needed for the test to pass), and discarded rather than committed. **Third false-alarm correction this epic in reflection-printer/exception-propagation-adjacent territory (see also the refuted NEW-9 and the earlier nested-consteval-throw investigation)** — this specific area (`std::meta` display/printing and exception plumbing) is unusually prone to source-reading-only false negatives; always empirically test before recording a new gap here. | High |
 | NEW-2 | Annotation on empty-declaration is accepted | **Fixed-and-verified 2026-09-10** — this working-tree change | `SemaDeclAttr` rejects annotations on `EmptyDecl`; [new-2-empty-declaration.verify.cpp](../libcxx/test/std/experimental/reflection/new-2-empty-declaration.verify.cpp) covers rejection and a valid variable annotation. | High |
 | NEW-3 | Invalid `annotations_of_with_type` arguments are accepted | **Fixed-and-verified 2026-09-10** — this working-tree change | The wrapper now requires a complete filter type; [new-3-annotations-with-type.verify.cpp](../libcxx/test/std/experimental/reflection/new-3-annotations-with-type.verify.cpp) covers `void` rejection and a valid complete type. | High |
@@ -490,7 +537,7 @@ for readability, same as the source files:
 | 232 | `template for` + `display_string_of` | Already-Fixed | Direct probe over a member of type `std::vector<int>` (exercising pretty-printer template-argument rendering inside `template for`) succeeds at current HEAD. | High |
 | 234 | Protected base member reflection | Already-Fixed | Direct derived-context probe with `static_assert(is_protected(^^A::protected_virtual_function))` succeeds at current HEAD. | High |
 | 235 | Ambiguous constructor reflection | Out-of-Scope | Unresolved design question — multiple ctors, no WG21 resolution to implement against (`SemaReflect.cpp:1398-1430`). | High |
-| 237 | Alias of closure type loses identity | **Confirmed-Open — deferred 2026-09-10, M4 audit** | Exact issue probe still diagnoses `'auto' not allowed in type alias` for `using ct = typename[:cr:]`, where `cr` reflects `decltype([] {})`; ordinary named-type splice controls remain valid. Adopted splice-type wording says a `typename` splice-specifier shall designate a type/class template/alias template and designates the same entity; the type-only-context example explicitly permits `using alias = [:^^S::type:]`. No closure-type exclusion appears in the wording. This is a real compiler gap, not a Not-Applicable result, but the failure occurs in invented closure/alias type reconstruction and requires deeper alias/type work; no narrow safe fix was identified or attempted. | High |
+| 237 | Alias of closure type loses identity | **Confirmed-Open → Deferred 2026-09-10, M4 audit** | Exact issue probe still diagnoses `'auto' not allowed in type alias` for `using ct = typename[:cr:]`, where `cr` reflects `decltype([] {})`; ordinary named-type splice controls remain valid. Adopted splice-type wording says a `typename` splice-specifier shall designate a type/class template/alias template and designates the same entity; the type-only-context example explicitly permits `using alias = [:^^S::type:]`. No closure-type exclusion appears in the wording. This is a real compiler gap, not a Not-Applicable result, but the failure occurs in invented closure/alias type reconstruction and requires deeper alias/type work; no narrow safe fix was identified or attempted. | High |
 | 239 | Closure `operator()` reported overloaded | Confirmed-Open → Fixed in this batch | `BuildCXXReflectExpr` now preserves a unique `TemplateDecl` when invented-`auto` deduction fails, covering deduced-`this` closure call operators; ported from PR #244 and validated by the full Clang gate with no reflection failures. | High |
 | 245 | Protected member as reflected template arg | Not-Applicable | `access_context` model (`libcxx/include/meta:1053-1090`) intentionally preserves access-context effects. | High |
 | 246 | Order-dependent `define_static_array` | Already-Fixed | Both the two-declaration probe and the variant with `arr_0` removed compile successfully; no order dependence at current HEAD. | High |
