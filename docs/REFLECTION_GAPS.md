@@ -18,9 +18,10 @@ you're picking this up cold.
 **M6 BLOCKED (2026-09-10):** assertions-enabled clang rebuilt and its complete test tree ran
 with exactly the five documented consteval-escalation failures; the 18-test ASTUnit/PCH cluster
 did not reproduce after fresh consumer-tool rebuilds. Full libc++ `libcxx/test` did not complete:
-the observed seven failures exactly match the documented reflection baseline, but the run stalled
-early after the disk-pressure retry. See [`codex-m6-final-gate-report.md`](reflection-audit/codex-m6-final-gate-report.md)
-for commands, complete observed lists, and the required rerun. M7 close-out is not yet safe.
+the observed seven failures exactly match the documented reflection baseline, but the low-parallel
+rerun stalled in the benchmark subtree before producing a complete result list. See
+[`codex-m6-check-cxx-report.md`](reflection-audit/codex-m6-check-cxx-report.md) for commands,
+partial results, and the required rerun. M7 close-out is not yet safe.
 
 ## Next Up (updated 2026-09-10, after M4/M5 backlog closure)
 
@@ -1031,3 +1032,12 @@ generated-module-output disk exhaustion at `-j22`, then was retried at `-j4` aft
 disposable output. It observed exactly the seven documented reflection failures but stalled early
 before completing the remaining suite. M6 is **BLOCKED** pending a complete libc++ run; details
 and exact lists are in `reflection-audit/codex-m6-final-gate-report.md`.
+
+**2026-09-10 — M6 libc++ rerun.** Verified 25 GiB root headroom and no disposable module-output
+growth. Re-ran the required libc++ wrapper at `-j2`, then isolated standard-library subtrees and
+retried benchmarks at `-j4`. The seven observed reflection failures remained exactly the documented
+baseline. `std/algorithms/alg.modifying.operations` completed 97 tests (93 pass, 4 unsupported),
+`std/algorithms/alg.nonmodifying` completed 65/65, and two individual benchmark tests passed.
+The aggregate 11,834-test run and benchmark subtree stalled before summaries, so M6 remains
+**BLOCKED**; no new completed failure was found and no source fix was attempted. Full details:
+`docs/reflection-audit/codex-m6-check-cxx-report.md`.
