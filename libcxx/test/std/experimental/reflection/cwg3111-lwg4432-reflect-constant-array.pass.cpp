@@ -67,9 +67,10 @@ static_assert(std::meta::extract<const int *>(via_array_fn)[0] ==
 // pack element. This is intentionally excluded via the requires-clause
 // (SFINAE), matching this function's pre-existing behavior for every array
 // type before this fix (a clean "no matching function", not a hard
-// substitution-failure deep in 'reflect_constant_array'). See
-// docs/REFLECTION_GAPS.md's CWG 3111 entry for the full story; a follow-up
-// needs a different backing representation for nested arrays specifically.
+// substitution-failure deep in 'reflect_constant_array'). See the design
+// comments on 'reflect_constant' in libcxx/include/meta for the full
+// story; a follow-up needs a different backing representation for nested
+// arrays specifically.
 
                               // ================
                               // CWG 3111: array of

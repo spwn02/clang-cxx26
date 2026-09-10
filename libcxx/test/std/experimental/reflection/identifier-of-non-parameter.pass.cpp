@@ -18,9 +18,9 @@
 // reflections merely receive additional naming rules on top. A named type,
 // data member, and function must accept these three queries the same way a
 // named parameter does. (An earlier M5 session's NEW-8 claim that these
-// three were ill-formed for non-parameter reflections misread the paper;
-// see the corrected entry in docs/REFLECTION_GAPS.md. type_of(^^S) is a
-// separate, still-correctly-rejected case and is out of scope here.)
+// three were ill-formed for non-parameter reflections misread the paper.
+// type_of(^^S) is a separate, still-correctly-rejected case and is out of
+// scope here.)
 
 #include <meta>
 

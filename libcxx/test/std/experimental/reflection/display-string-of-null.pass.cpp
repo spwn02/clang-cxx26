@@ -19,8 +19,7 @@
 // display_string_of(r) and u8display_string_of(r) must return an
 // unspecified but non-empty string_view for every reflection, including
 // the null reflection. (An earlier session mistakenly flagged this as a
-// gap by reading source rather than testing -- see the refuted NEW-1
-// entry in docs/REFLECTION_GAPS.md; this fork's existing
+// gap by reading source rather than testing; this fork's existing
 // tprint_impl::render<R>() null specialization already handles it
 // correctly. This test exists to give that guarantee real coverage.)
 

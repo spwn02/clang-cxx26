@@ -1,11 +1,17 @@
 # C++26 Conformance Gap-Closing Contract
 
 Persistent, cross-session tracking document for closing this fork's C++26
-language and library conformance gaps (excluding the CXX26 reflection work
-itself, which is tracked in [the reflection documentation](REFLECTION.md)). Read this document
-first at the start of any C++26-conformance session; update it in place as
-work completes; append a dated entry to the Session Log before ending a
-session.
+language and library conformance gaps (excluding static reflection, which had
+its own tracking documents — `REFLECTION.md`/`REFLECTION_GAPS.md` — until the
+2026-09-08 through 2026-09-10 Reflection Closure Epic judged it genuinely
+complete and deleted both; see `AGENTS.md`'s Trackers section, its "Known
+pre-existing baseline failures" section, and source comments at
+`clang/lib/Sema/SemaExpr.cpp`'s `HandleImmediateInvocations`,
+`clang/include/clang/AST/MetaActions.h`, `clang/lib/AST/ItaniumMangle.cpp`'s
+`mangleReflection`, and `libcxx/include/meta`'s `reflect_constant` for what
+remains of that tracker's load-bearing content). Read this document first at
+the start of any C++26-conformance session; update it in place as work
+completes; append a dated entry to the Session Log before ending a session.
 
 This is the **single source of truth** for what's done, what's next, and why.
 Do not create parallel tracking files — edit this one.
@@ -23,9 +29,10 @@ features under `clang/`, as tracked by:
 Statements") show as unimplemented ("No") in `cxx_status.html`, but that page
 mirrors upstream Clang and was never updated for this fork's own reflection
 work. This fork *does* implement substantial portions of these under
-`-freflection`/`-freflection-latest` and related flags — see `docs/REFLECTION.md` and
-root `CLAUDE.md` for actual status. **Do not re-implement these from this
-document; consult the reflection documentation instead.**
+`-freflection`/`-freflection-latest` and related flags, and as of the
+2026-09-10 Reflection Closure Epic is considered genuinely complete (see
+`AGENTS.md`'s Trackers section for what's left of that epic's tracker).
+**Do not re-implement these from this document; reflection is done.**
 
 **Contracts (P2900R14): complete, 2026-09-04.** Was deferred out of this
 plan's scope (touches Parser/Sema/CodeGen *and* library simultaneously, one
@@ -284,7 +291,8 @@ under Tier 2's P2300R10 row, then the language-side and freestanding tables.
 **Rank 5 — disposition only, no tier rows.**
 
 - **Reflection family** (P2996R13, P3560R2, and the papers named in Scope
-  above) — tracked in `docs/REFLECTION.md`. Do not re-implement from here.
+  above) — genuinely complete as of the 2026-09-10 Reflection Closure Epic
+  (see `AGENTS.md`'s Trackers section). Do not re-implement from here.
 - **NB-comment / editorial rollups** (P3348R4 "C++26 should refer to C23",
   P3914R0, P3923R0) — these are collections of unrelated small resolutions.
   Triage each only when something else touches the affected wording; a row per
@@ -3019,8 +3027,9 @@ Recorded 2026-09-05 so a future CSV diff does not re-flag these as "untracked".
 - **Reflection family** — P2996R13 (Reflection for C++26) and P3560R2 (Error
   handling in reflection) appear unstarted in `Cxx2cPapers.csv`, like the
   papers already named in Scope above. That CSV mirrors upstream and does not
-  know about this fork's reflection work. **Tracked in `docs/REFLECTION.md`;
-  do not implement from here.**
+  know about this fork's reflection work, which is genuinely complete as of
+  the 2026-09-10 Reflection Closure Epic (see `AGENTS.md`'s Trackers
+  section). **Do not implement from here.**
 - **NB-comment and editorial rollups** — P3348R4 ("C++26 should refer to C23
   not C17"), P3914R0 and P3923R0 (assorted Kona 2025 NB resolutions). Each
   bundles unrelated small changes across the library. A row per rollup would

@@ -10,8 +10,7 @@
 // ADDITIONAL_COMPILE_FLAGS: -freflection-latest
 
 // M5 checklist row 2996-48 (P2996R13): a splice of a constructor reflection
-// is ill-formed. (Destructor splices are already correctly rejected; see
-// docs/REFLECTION_GAPS.md's NEW-6 entry.)
+// is ill-formed. (Destructor splices are already correctly rejected.)
 
 #include <meta>
 
