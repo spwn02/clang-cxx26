@@ -50,8 +50,17 @@ instantiation-context work as item 1, not a narrow fix; see its own table row an
 (header-only, `libcxx/include/meta` — see its table row for the full design and the dated session-log
 entry below). **Item 9 is escalated, not closed:** independent re-audit reconfirmed the missing
 evaluator construction API and synthesized inherited-constructor abort; see
-`docs/reflection-audit/item9-strategy2-stop-report.md`. Do not convert only a subset. Next
-actionable item is **item 10** (`3560-18`), separately blocked on its return-object lifetime workaround.
+`docs/reflection-audit/item9-strategy2-stop-report.md`. Do not convert only a subset. **Item 10 is
+now fixed and verified**: its blocker was a general P3068 constant-evaluator cleanup-registration
+bug, not reflection plumbing (Terra's fix independently re-verified against a fresh full
+`ninja -C build-nyx` rebuild + clean `build-libcxx` rebuild by the calling session before trusting
+it — see the dated session-log entry below). **Also fixed, off the 14-item list but discovered
+mid-epic**: a stale `"unimplemented": True` flag for `__cpp_lib_stacktrace` in
+`generate_feature_test_macro_components.py`, left over from the earlier emergency `<stacktrace>`
+port, was causing the *packaged reference-toolchain* preflight CI to fail (`std.compat.cppm`'s
+generated "please update headers_not_available" guard trips as soon as `<stacktrace>` is genuinely
+includable) — see the dated session-log entry below. Next actionable item is **item 11**
+(`define_static_object`).
 
 **Two new, unrelated findings surfaced while closing item 5b (not part of this epic's 14-item
 scope, not fixed, logged here so a future session doesn't have to rediscover them):**
@@ -321,7 +330,7 @@ documented 7-test pre-existing baseline.
 | 7 | Issue #150 — spliced explicit destructor call `~[:info:]()` | **Fixed and verified (commit `cbba49e3c2d9`)** | The upstream report's own bare-splice repro (`value.~[:^^test:]();`) is correctly rejected per [expr.prim.splice]/2.1.2 (a bare splice-expression is ill-formed when it designates a destructor) — a maintainer comment on the issue confirmed this "works as intended" and identified the real gap: [class.dtor]p16 permits a *type-name*, *decltype-specifier*, or *computed-type-specifier* after `~`, and a splice-type-specifier (`typename[:R:]`) is a computed-type-specifier per [dcl.type.splice] — so `value.~typename[:R:]()` should work, but didn't parse at all ("expected a class name after '~' to name a destructor"). Two independent parser entry points needed the fix, both in `ParseExprCXX.cpp`: `ParseUnqualifiedId`'s destructor-name case (non-dependent object type) and `ParseCXXPseudoDestructor` (object type still dependent at parse time, e.g. inside a function template) — both already had an analogous, working `decltype`-specifier case to mirror, so splice support was added the same way in each, no new AST node needed (reuses the existing `PseudoDestructorTypeStorage`/`UnqualifiedId::setDestructorName` machinery). New `Sema::getDestructorTypeForSplice` (`SemaExprCXX.cpp`) mirrors the existing `getDestructorTypeForDecltype`'s cross-check against the statically-known object type, for the same better-diagnostic reason (a mismatched splice destructor type gets a specific "destructor type ... does not match ..." error, not a generic one). New tests: `clang/test/Reflection/issue150-spliced-destructor.cpp` (parse/Sema coverage: non-dependent, dependent/template, type-mismatch-diagnosed, and confirms the bare-splice form stays correctly rejected) and `libcxx/test/std/experimental/reflection/spliced-destructor-call.pass.cpp` (proves the destructor genuinely runs at runtime, not just parses, in both contexts). Verified zero regressions: `clang/test/Reflection/` 22/22, Parser/SemaCXX/AST/CodeGenCXX/SemaTemplate 3814 tests at the documented 5-test escalation-cluster baseline, libc++ reflection+debugging+stacktrace suite at the documented 7-test baseline (125 tests, zero new failures). |
 | 8 | CWG 3111 residual — nested/multi-dimensional arrays | **Fixed and verified (commit pending)** | Root cause: a row-by-row NTTP-*reference* backing design (copy each row's own `FixedArray` object into a fresh contiguous array via `{Rows...}`) looks plausible ([temp.param]p6 permits reference NTTPs to array objects) but can never work — arrays are never copy-list-initializable from another array object in C++ at all (`int a[2][3] = {row0, row1};` is exactly as ill-formed in ordinary code). Real fix: flatten all the way down to the scalar leaf type, gather every dimension's extent along the way, and reconstruct the correctly-nested array type via a small `__nd_array_shape<ValTy, Extents...>` recursive metafunction (arbitrary rank, not limited by declarator syntax) — ordinary aggregate-init brace elision then fills the nested array correctly from one flat, row-major scalar list (`FixedNDArray`). Two secondary bugs found and fixed along the way: (1) the entry `requires`-clause's `is_constructible_v<range_value_t<R>, range_reference_t<R>>` check is unconditionally false for any array-typed `range_value_t` (arrays are never "constructible" per the trait's own specification), which would silently reject every nested case at the SFINAE boundary — added an array-aware recursive `__reflect_constant_array_row_ok_v` alternative. (2) `define_static_array`'s row-pointer extraction (`extract<const ValTy*>(array)`) doesn't work for a multi-dimensional backing object (only whole-array-by-reference extraction does); fixed by extracting the whole array by reference and decaying to a row pointer manually — the outer extent for the reference type comes directly from `R` itself (a template parameter, not a runtime read), since `is_array_v<ValTy>` can only be true when `R` is itself a genuine raw C array type. `-Wmissing-braces` on the intentional flat brace-elided initializer suppressed locally (same warning ordinary `int a[2][3]={1,2,3,4,5,6};` code triggers). New/extended test: `libcxx/test/std/experimental/reflection/cwg3111-lwg4432-reflect-constant-array.pass.cpp`'s former "nested arrays remain unsupported" section replaced with real 2D/3D coverage (`reflect_constant`, `reflect_constant_array`, `define_static_array`, a structural class-type row). Verified zero regressions: `clang/test/Reflection/` 22/22, libc++ reflection suite at the documented 7-test pre-existing baseline (114 tests, zero new failures). |
 | 9 | P3560R2 strategy 2 — ~20 remaining Throws-bearing metafunctions | **Escalated — no partial fix** | Independent source audit reconfirmed both evaluator-interface blockers; synthesized-constructor pilot remains blocked by the inherited-constructor abort. See `docs/reflection-audit/item9-strategy2-stop-report.md`. |
-| 10 | `3560-18` — `access_context::via` catch-and-inspect coverage | Not started | Blocked on a return-object lifetime workaround in constant evaluation. Smaller/separate from #9. |
+| 10 | `3560-18` — `access_context::via` catch-and-inspect coverage | **Fixed and verified (commit pending)** | Root cause was a general P3068 constexpr-exceptions evaluator bug: `EvaluateVarDecl` allocated a local's APValue and registered its block cleanup before evaluating its initializer, but retained that cleanup when initialization threw. The declaration's APValue is therefore absent (its lifetime never began), yet try-block unwinding attempted its destruction and diagnosed `note_constexpr_destroy_out_of_lifetime`. `EvalInfo::cancelCleanup` now removes the exact pending cleanup when a local initializer fails (idempotently, because some failure paths have already unwound it). This preserves normal destructor unwinding for fully constructed locals. New compiler regression: `clang/test/SemaCXX/constexpr-p3068r6-throw.cpp`; extended `libcxx/test/std/experimental/reflection/exception.pass.cpp` proves `access_context::via(^^int)` is caught as `meta::exception` and verifies `what()`, `from()`, and `where()`. Verified clang Reflection + Parser/SemaCXX/SemaTemplate/AST/CodeGenCXX: 3836 tests, only documented 5 SemaCXX baselines; libc++ reflection: 114 tests, only documented 7 failures. Full command/output record: `docs/reflection-audit/item10-3560-18-report.md`. |
 | 11 | `define_static_object` entirely missing (P3491R3) | Not started | Zero occurrences anywhere in the tree. |
 | 12 | `is_string_literal` (5 overloads) missing (P3491R3) | Not started | Issue #168 has a ready-made upstream implementation targeting the legacy `experimental/meta` API — needs adaptation, not verbatim port. |
 | 13 | `reflect_constant_string` narrower than spec + `reflect_constant_array` Mandates unenforced | Not started | Fork has 2 fixed overloads (`char`/`char8_t`) vs. paper's generic template (+ `wchar_t`/`char16_t`/`char32_t`); missing "already a string literal" carve-out; `copy_constructible`/structural-type Mandates not checked. |
@@ -335,6 +344,21 @@ between two copies. Key anchors: `clang/lib/Sema/SemaExpr.cpp:18396`, `libcxx/in
 pre-existing baseline failures" section.
 
 ## Session Log
+
+### 2026-09-11 — Item 10 (`3560-18`): fixed and verified (uncommitted)
+
+Root-caused the return-object-lifetime blocker to a general constexpr-exceptions cleanup bug,
+not `std::meta` exception construction or item 9's missing evaluator API. `EvaluateVarDecl`
+registers a block cleanup before it calls `EvaluateInPlace`; when the initializer propagates a
+P3068 exception, the local remains an absent APValue and has not begun its lifetime, but the
+enclosing `BlockScopeRAII` nevertheless later tries to destroy it. Added exact, idempotent cleanup
+cancellation on failed local initialization. The standard non-reflection reproducer and the new
+`access_context::via` catch-and-inspect coverage both pass. Gates: rebuilt clang; rebuilt libc++
+with the mandatory `-t clean cxx` flow; `constexpr-p3068r6-throw.cpp` passed; the new libc++
+exception test passed; full libc++ reflection remained exactly at 7 documented baseline failures
+(114 tests); clang Reflection + Parser/SemaCXX/SemaTemplate/AST/CodeGenCXX ran 3836 tests with
+only the documented five SemaCXX baseline failures. Exact commands/results:
+`docs/reflection-audit/item10-3560-18-report.md`. No commit or push.
 
 ### 2026-09-11 — Item 9 (P3560R2 strategy 2): escalated
 
@@ -551,3 +575,64 @@ plain non-array `reflect_constant` overload). Verified zero regressions: `clang/
 documented 7-test pre-existing baseline (114 tests total, exactly the 7 documented pre-existing
 warning/verify-mismatch failures, zero new). Header-only fix, no compiler rebuild needed beyond
 `ninja -C build-libcxx cxx`. Updated the table above and the Next Up pointer to item 9.
+
+### 2026-09-11 (later) — Item 10 independently re-verified; separate stacktrace CI bug found and fixed
+
+**Item 10 re-verification.** Dispatched Terra for item 10 (`3560-18`, `access_context::via`
+catch-and-inspect coverage) after personally isolating the blocker down to a minimal, non-reflection
+repro first (a `consteval` local variable whose initializer throws before completing construction
+gets destroyed anyway during exception unwinding — `note_constexpr_destroy_out_of_lifetime` in
+`ExprConstant.cpp`'s `HandleDestructionImpl`) — a much stronger starting point than item 9 had, so
+Terra could go straight to root-causing rather than needing to rediscover the repro. Terra found the
+actual bug: `EvaluateVarDecl` registers the new local's block cleanup (so its storage is addressable
+during initializer evaluation) *before* running that initializer; if the initializer throws, nothing
+removed the now-stale cleanup, so unwinding later tried to destroy an object whose `APValue` was left
+`Absent` (lifetime never began). Fix: a new `EvalInfo::cancelCleanup(APValue&)` that removes the
+matching cleanup-stack entry, called from `EvaluateVarDecl` right before propagating a failed
+initializer's failure upward (idempotent — some failure paths already unwind their own cleanup
+first, so a not-found case is a normal no-op, not an error).
+
+**Did not trust the "fixed and verified" claim at face value** — independently re-ran the full
+verification personally: fresh `ninja -C build-nyx -j$(nproc)` (full rebuild, not just the `clang`
+target), then both my own original isolated repro and the new
+`clang/test/SemaCXX/constexpr-p3068r6-throw.cpp` regression case compiled/passed directly, then the
+full `clang/test/Reflection/ clang/test/Parser/ clang/test/SemaCXX/ clang/test/SemaTemplate/
+clang/test/AST/ clang/test/CodeGenCXX/` suite (3836 tests) came back at exactly the documented
+5-test `SemaCXX` escalation-cluster baseline, zero new failures. Then `ninja -C build-libcxx -t
+clean cxx && ninja -C build-libcxx -j$(nproc) cxx` (explicit clean rebuild, not trusting the `cxx`
+target's weak dependency edge on the external clang binary) followed by the new
+`libcxx/test/std/experimental/reflection/exception.pass.cpp` catch-and-inspect case (asserts
+`what()`, `from()`, and `where().line()` on the caught `meta::exception`), the full libc++
+reflection suite (114 tests, exactly the documented 7-test baseline, zero new), and the full
+`libcxx/test/std/diagnostics/stacktrace/` + `.../support.limits.general/` suites (92/92) for good
+measure since the fix touches general constexpr-exception plumbing that stacktrace-adjacent tests
+also exercise. All independently confirmed clean. Committed as `<see git log>`.
+
+**Separate bug found from a user-provided CI screenshot** (GitHub Actions "Verify relocated
+package" step failing on `std.compat.cppm`, from the `cxx26-preflight-2026.09.10-miracle-fixes` tag
+cut during the emergency stacktrace-port phase, task #23 "Watch preflight CI run" never having been
+followed up on before this). Root-caused, not dismissed as noise: the emergency `<stacktrace>` port
+correctly removed `"stacktrace"` from `header_information.py`'s `headers_not_available` list (so the
+header genuinely is treated as available) but never cleared the *separate*
+`"unimplemented": True` flag on `__cpp_lib_stacktrace`'s own entry in
+`generate_feature_test_macro_components.py` — a different data table entirely, used to generate
+`libcxx/include/version`, `libcxx/modules/std.compat.cppm.in`'s "please update headers_not_available"
+guards, and the FTM compile-pass test. With that flag still set, `std.compat.cppm.in` retained a
+stale `#if __has_include(<stacktrace>) #error ... #endif` guard that fires the moment `<stacktrace>`
+is genuinely includable — exactly the observed CI failure (this hadn't surfaced locally before
+because the local dev tree's `libcxx/include/version`/`std.compat.cppm.in` were hand-edited directly
+during the emergency port rather than regenerated, so they'd drifted from what the generator's data
+tables would actually produce). Fixed by removing the stale flag; also corrected the same entry's
+`"values"` from the paper's nominal `{"c++23": 202011}` to `{"c++26": 202011}`, since this fork's
+actual `<stacktrace>` header (confirmed by reading `libcxx/include/stacktrace` directly) is gated
+`_LIBCPP_STD_VER >= 26`, not 23 — using the paper's nominal version would have made the regenerated
+FTM test assert the macro should be defined at `-std=c++23`, which is false for this fork. Verified
+by regenerating (`ninja -C build-libcxx libcxx-generate-files`) and confirming `libcxx/include/version`
+now has **zero diff** against the already-committed (hand-edited, but correct) state — the generator
+and the hand-edit now agree exactly — while `std.compat.cppm.in`, `stacktrace.version.compile.pass.cpp`,
+`version.version.compile.pass.cpp`, and `libcxx/docs/FeatureTestMacroTable.rst` pick up the correct,
+now-generator-consistent state. Full stacktrace + support.limits.general + reflection suites (above)
+confirm zero regressions from this change either. Committed separately from item 10's fix (unrelated
+root causes). Cutting a fresh, properly-named preflight tag next (the prior `...miracle-fixes` name
+was a project codename, not descriptive — per explicit user feedback) and watching its CI run to
+closure this time (task #23).

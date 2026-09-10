@@ -92,6 +92,19 @@ consteval bool test_access_context_preconditions() {
          (^^member_query_record);
 }
 
+consteval bool test_access_context_via_catch_and_inspect() {
+  bool caught = false;
+  try {
+    auto ctx = std::meta::access_context::current().via(^^int);
+    (void)ctx;
+  } catch (const exception& e) {
+    caught = std::string_view(e.what()) == "bad type" &&
+             e.from() == (^^std::meta::access_context::via) &&
+             e.where().line() != 0;
+  }
+  return caught;
+}
+
 consteval bool test_template_query_preconditions() {
   constexpr auto r = ^^template_query_record<int>;
   return std::meta::template_of(r) != info{} &&
@@ -117,6 +130,7 @@ static_assert(test_operator_query_preconditions());
 static_assert(test_subobjects_query_preconditions());
 static_assert(test_member_query_preconditions());
 static_assert(test_access_context_preconditions());
+static_assert(test_access_context_via_catch_and_inspect());
 static_assert(test_template_query_preconditions());
 static_assert(test_enumerator_query_preconditions());
 static_assert(test_parameter_query_preconditions());
@@ -131,6 +145,7 @@ int main() {
   assert(test_subobjects_query_preconditions());
   assert(test_member_query_preconditions());
   assert(test_access_context_preconditions());
+  assert(test_access_context_via_catch_and_inspect());
   assert(test_template_query_preconditions());
   assert(test_enumerator_query_preconditions());
   assert(test_parameter_query_preconditions());

@@ -16,6 +16,26 @@ constexpr int f1(int x) {
 static_assert(f1(5) == 5);
 static_assert(f1(-5) == -1);
 
+// A local whose initializer throws never enters its lifetime, so unwinding
+// must not run a cleanup for it.
+struct Widget { int val; };
+consteval Widget maybe_throw(bool doThrow) {
+  if (doThrow)
+    throw 42;
+  return Widget{1};
+}
+consteval bool failed_local_initializer_is_not_destroyed() {
+  bool caught = false;
+  try {
+    auto w = maybe_throw(true);
+    (void)w;
+  } catch (int) {
+    caught = true;
+  }
+  return caught;
+}
+static_assert(failed_local_initializer_is_not_destroyed());
+
 // Uncaught exception still makes the evaluation ill-formed.
 constexpr int f2() {
   throw 1; // expected-note {{exception thrown here was not caught}}

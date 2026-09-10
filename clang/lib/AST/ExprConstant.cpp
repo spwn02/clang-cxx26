@@ -702,6 +702,7 @@ namespace {
     bool isDestroyedAtEndOf(ScopeKind K) const {
       return (int)Value.getInt() >= (int)K;
     }
+    bool manages(const APValue &V) const { return Value.getPointer() == &V; }
     bool endLifetime(EvalInfo &Info, bool RunDestructors) {
       if (RunDestructors) {
         SourceLocation Loc;
@@ -1121,6 +1122,21 @@ namespace {
       llvm::erase_if(CleanupStack, [](Cleanup &C) {
         return !C.isDestroyedAtEndOf(ScopeKind::FullExpression);
       });
+    }
+
+    /// Cancel the cleanup for an object whose initialization did not complete.
+    /// Such an object never entered its lifetime, so exception unwinding must
+    /// not try to destroy it.
+    void cancelCleanup(APValue &Value) {
+      for (auto I = CleanupStack.rbegin(), E = CleanupStack.rend(); I != E;
+           ++I) {
+        if (I->manages(Value)) {
+          CleanupStack.erase(std::next(I).base());
+          return;
+        }
+      }
+      // Some failed initializers have already unwound their cleanup before
+      // EvaluateVarDecl receives the failure. Nothing remains to cancel.
     }
 
     /// Throw away any remaining cleanups at the end of evaluation. If any
@@ -5857,15 +5873,23 @@ static bool EvaluateVarDecl(EvalInfo &Info, const VarDecl *VD) {
   // For references to objects, check they do not designate a one-past-the-end
   // object.
   if (VD->getType()->isReferenceType()) {
-    return EvaluateInitForDeclOfReferenceType(Info, VD, InitE, Result, Val);
+    if (EvaluateInitForDeclOfReferenceType(Info, VD, InitE, Result, Val))
+      return true;
   } else if (!EvaluateInPlace(Val, Info, Result, InitE)) {
     // Wipe out any partially-computed value, to allow tracking that this
     // evaluation failed.
     Val = APValue();
-    return false;
+  } else {
+    return true;
   }
 
-  return true;
+  // createTemporary registers the local's block cleanup before evaluating
+  // its initializer so the initializer has addressable storage. If evaluation
+  // throws, though, initialization did not complete and the local's lifetime
+  // never began. Remove that cleanup before propagating the exception: the
+  // enclosing block still unwinds already-constructed locals normally.
+  Info.cancelCleanup(Val);
+  return false;
 }
 
 static bool EvaluateDecompositionDeclInit(EvalInfo &Info,
