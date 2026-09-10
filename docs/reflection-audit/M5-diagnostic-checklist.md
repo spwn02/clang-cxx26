@@ -19,11 +19,12 @@ context; it is not interchangeable with a library `Throws` test.
 |---:|---:|---:|---:|---:|
 | 111 | 88 | 2 | 20 | 1 |
 
-Updated 2026-09-10 after fixing NEW-2/3/4/6 (constructor-splice half), reclassifying NEW-8's row
-(3096-06, now Covered with a corrected condition statement), and deferring NEW-7. Remaining
-`Needs-New-Test` rows: 2996-49 (NEW-7, deferred — no safely-scoped rejection point found without
-risking valid dependent declarations) and 3560-18 (blocked on a return-object lifetime workaround,
-unrelated to this batch).
+Updated 2026-09-10 after fixing NEW-2/3/4/6 (constructor-splice half) and reclassifying NEW-8's
+row (3096-06, now Covered with a corrected condition statement). NEW-7 (2996-49) was attempted and
+reverted after a personal review caught three distinct correctness bugs across two
+implementation approaches (see the NEW-7 tracker entry in docs/REFLECTION_GAPS.md for the full
+evidence) — no fix is in the tree, row remains `Needs-New-Test`. 3560-18 also remains open
+(blocked on a return-object lifetime workaround, unrelated to this batch).
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -86,7 +87,7 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 | 2996-46 | Reflection of a local parameter introduced by a requires-expression is ill-formed. | Covered | [m5-p2996-p3096-batch12.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-p3096-batch12.verify.cpp) |
 | 2996-47 | A reflection operator naming a `using-declarator` is ill-formed under the adopted R13 wording. | Covered | [m5-p2996-p3096-batch12.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-p3096-batch12.verify.cpp) |
 | 2996-48 | A splice of a constructor or destructor is ill-formed. | Covered | [new-6-constructor-splice.verify.cpp](../../libcxx/test/std/experimental/reflection/new-6-constructor-splice.verify.cpp); destructor rejection remains covered by the existing Sema path. |
-| 2996-49 | A dependent splice-specifier in the forbidden CTAD position is ill-formed. | Needs-New-Test — NEW-7 | Deferred 2026-09-10: no safely-scoped rejection point found; see NEW-7 tracker note. |
+| 2996-49 | A dependent splice-specifier in the forbidden CTAD position is ill-formed. | Needs-New-Test — NEW-7 | Deferred 2026-09-10 (revised): a fix was attempted and reverted after personal review found three correctness bugs (comment-fooled text-scan, AST-check false-positive breaking `splice-templates.cpp`'s `DepTClsCTAD`, and a multi-declaration interaction bug in a token-precise third attempt); see NEW-7 tracker note for full detail. |
 
 ## P1306R5 — Expansion Statements
 
