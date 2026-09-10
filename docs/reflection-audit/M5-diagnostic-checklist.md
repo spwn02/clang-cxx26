@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 109 | 74 | 15 | 19 |
+| 109 | 76 | 13 | 19 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -140,7 +140,7 @@ Normative source: [P3491R3](https://www.open-std.org/JTC1/SC22/WG21/docs/papers/
 | 3491-01 | `reflect_constant_string`/`define_static_string`: range value type is `char`, `wchar_t`, `char8_t`, `char16_t`, or `char32_t`. | Blocked-On-Unimplemented-Facility | `reflect_constant_string` is currently only `char`/`char8_t`; `define_static_string` is not fully aligned. |
 | 3491-02 | String input's elements are constant-evaluable; a string-literal input excludes exactly its trailing null character before re-termination. | Blocked-On-Unimplemented-Facility | String-literal detection (`is_string_literal`) is absent. |
 | 3491-03 | `reflect_constant_array`/`define_static_array`: element type is structural, constructible from the range reference, and copy-constructible. | Covered | [m5-p3491-batch15.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3491-batch15.verify.cpp) |
-| 3491-04 | `reflect_constant_array`/`define_static_array`: every element's `reflect_constant` is a constant subexpression. | Needs-New-Test | — |
+| 3491-04 | `reflect_constant_array`/`define_static_array`: every element's `reflect_constant` is a constant subexpression. | Covered | [m5-p3491-p3560-p3795-batch16.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3491-p3560-p3795-batch16.verify.cpp) |
 | 3491-05 | `define_static_object`: `remove_cvref_t<T>` is structural and constructible from `T`. | Blocked-On-Unimplemented-Facility | `define_static_object` is absent. |
 | 3491-06 | `define_static_object`: the argument initializes the required template-parameter object. | Blocked-On-Unimplemented-Facility | `define_static_object` is absent. |
 | 3491-07 | `is_string_literal` overloads require an accepted string-literal/reference form and reject non-string objects. | Blocked-On-Unimplemented-Facility | Facility is absent. |
@@ -170,12 +170,12 @@ path is the current contract.
 | 3560-11 | `annotations_of`/`annotations_of_with_type` receives an invalid target or filter reflection. | Blocked-On-Unimplemented-Facility | Annotation traversal still uses `DiagFn`. |
 | 3560-12 | `reflect_constant`, `reflect_object`, or `reflect_function` violates its type or constant-template-argument requirements. | Blocked-On-Unimplemented-Facility | Compiler-side throw path not wired. |
 | 3560-13 | `data_member_spec` violates its type, name, width, alignment, or option-combination requirements. | Blocked-On-Unimplemented-Facility | Compiler-side throw path not wired. |
-| 3560-14 | `has_inaccessible_nonstatic_data_members` is called when its member query is not a constant subexpression or on a closure type. | Needs-New-Test | `meta::exception` wrapper exists; no negative catch test. |
-| 3560-15 | `has_inaccessible_bases` is called when its base query is not a constant subexpression. | Needs-New-Test | `meta::exception` wrapper exists; no negative catch test. |
-| 3560-16 | `size_of`, `bit_size_of`, or `alignment_of` receives a disallowed reflection or incomplete type. | Needs-New-Test | `exception.pass.cpp` has positive coverage only. |
-| 3560-17 | `template_of` or `template_arguments_of` receives a reflection without template arguments. | Needs-New-Test | `exception.pass.cpp` has positive coverage only. |
-| 3560-18 | `access_context::via` receives a non-class reflection. | Needs-New-Test | `exception.pass.cpp` has positive coverage only. |
-| 3560-19 | `enumerators_of`, `offset_of`, `operator_of`, or `subobjects_of` receives a reflection outside its specified domain. | Needs-New-Test | `exception.pass.cpp` has positive coverage only. |
+| 3560-14 | `has_inaccessible_nonstatic_data_members` is called when its member query is not a constant subexpression or on a closure type. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
+| 3560-15 | `has_inaccessible_bases` is called when its base query is not a constant subexpression. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
+| 3560-16 | `size_of`, `bit_size_of`, or `alignment_of` receives a disallowed reflection or incomplete type. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
+| 3560-17 | `template_of` or `template_arguments_of` receives a reflection without template arguments. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
+| 3560-18 | `access_context::via` receives a non-class reflection. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
+| 3560-19 | `enumerators_of`, `offset_of`, `operator_of`, or `subobjects_of` receives a reflection outside its specified domain. | Needs-New-Test | NEW-9 (the claim that this throw is uncatchable) was a false alarm, refuted 2026-09-10 by direct repro -- write the catch-and-inspect test normally. |
 | 3560-20 | `define_aggregate` failure remains unrecoverable and must retain its required hard diagnostic rather than become a catchable throw. | Covered | [define-aggregate.verify.cpp](../../libcxx/test/std/experimental/reflection/define-aggregate.verify.cpp) |
 
 ## P3617R0 — `reflect_constant_{array,string}`
@@ -208,7 +208,7 @@ Normative source: [P3795R2](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/
 | 3795-01 | `current_function()` is usable only while evaluating within a function; otherwise the required failure is produced. | Covered | [m5-p3795-batch14.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3795-batch14.verify.cpp) |
 | 3795-02 | `current_class()` is usable only while evaluating within a class member context; otherwise the required failure is produced. | Covered | [m5-p3795-batch14.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3795-batch14.verify.cpp) |
 | 3795-03 | `current_namespace()` is usable only where a current namespace can be identified; otherwise the required failure is produced. | Covered | [m5-p3795-batch14.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3795-batch14.verify.cpp) |
-| 3795-04 | Generated data-member annotations must satisfy the same constant-expression/structural-value constraints as source annotations. | Needs-New-Test | — |
+| 3795-04 | Generated data-member annotations must satisfy the same constant-expression/structural-value constraints as source annotations. | Covered | [m5-p3491-p3560-p3795-batch16.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3491-p3560-p3795-batch16.verify.cpp) |
 
 ## Execution plan
 

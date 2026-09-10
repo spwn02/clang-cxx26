@@ -341,6 +341,7 @@ for readability, same as the source files:
 | NEW-6 | Constructor and destructor reflection are accepted | New conformance gap — found in M5 2026-09-10 | P2996R13 requires a splice of a constructor or destructor to be ill-formed. Direct `^^S::S` and `^^S::~S` probes both compiled without diagnostics. | High |
 | NEW-7 | Dependent splice-specifier is accepted in forbidden CTAD-like position | New conformance gap — found in M5 2026-09-10 | P2996R13 requires the dependent splice-specifier form to be rejected in this position. A dependent `[:R:] value = {1}` declaration instantiated successfully for a type with a converting constructor. | High |
 | NEW-8 | Parameter-only reflection queries accept non-parameter reflections | New conformance gap — found in M5 2026-09-10 | P3096R12's parameter query restrictions are not enforced consistently: direct non-parameter probes for `identifier_of`, `u8identifier_of`, and `has_identifier` were accepted. `type_of(^^S)` still diagnosed because a type reflection has no type. | High |
+| ~~NEW-9~~ | ~~P3560 wrapper exceptions are not catchable across consteval library calls~~ | **False alarm, corrected 2026-09-10** | The M5 marathon-3 session's probe claimed these wrappers' `throw meta::exception(...)` escapes the caller's `try`/`catch`. **Independently re-verified and refuted**: two separate direct probes — `size_of(^^ns)` on a namespace, and `has_inaccessible_nonstatic_data_members(^^int, access_context::current())` on a non-class type — both compiled, ran, and correctly caught the thrown `meta::exception` (`static_assert(test())` passed cleanly, no diagnostic). This matches the earlier nested-consteval-throw investigation's own finding (`codex-nested-throw-report.md`): the propagation mechanism itself works. The exact root cause of the marathon-3 session's false negative wasn't identified (its own reproduction command wasn't preserved verbatim in the report to re-run byte-for-byte), but given two independently-constructed, correctly-typed repros both pass cleanly, **the claim is not reproducible and should not be treated as a real gap**. Rows 3560-14 through 3560-19 are NOT blocked by this — they can proceed as ordinary Needs-New-Test rows using the same catch-and-inspect pattern already proven here. **Lesson**: always independently reproduce a "found a new gap" claim with a minimal, directly-executed repro before trusting it into the tracker — this is the second such false alarm this epic (see the nested-consteval-throw investigation for the first), both around this exact exception-propagation area. | High |
 | 189 | "Upstream to LLVM" | Out-of-Scope | Distribution/adoption request, not a defect. | High |
 | 200 | `parent_of` wrong for class-template aliases | Confirmed-Open → Already-Fixed 2026-09-09 | Direct probe `static_assert(parent_of(^^T::A) == ^^T)` passes. Existing `findTypeDecl` preserves the top-level `UsingType` alias before template-specialization fallback; the stale deferral note incorrectly described the current checkout. | High |
 | 203 | Unbalanced diagnostic parentheses | Already-Fixed | Direct malformed-range probe now emits a balanced diagnostic (`cannot expand over a function 'void ()'; did you mean to call it with no arguments?`) with no unbalanced-parenthesis output. | High |
@@ -901,6 +902,15 @@ sandbox denied Python's forkserver, so each test was verified directly with the 
 Commits `c5fb52b44d35`, `f269d385b759`, `fab26539718e`, and `04b33be766d5` were pushed to
 `origin/cxx26`. Checklist totals are now 74 covered, 15 needing new tests, 19 blocked, and
 one not-applicable.
+
+**2026-09-10 — M5 marathon 3, batch 16.** Added and directly executed
+`m5-p3491-p3560-p3795-batch16.verify.cpp` with built Clang `-verify`. P3491R3 row 3491-04 is
+covered by a non-constant array-element probe, and P3795R2 row 3795-04 is covered by a generated
+data-member annotation with a non-structural value. The six P3560R2 wrapper rows 3560-14 through
+3560-19 were probed inside consteval `try`/`catch` functions; each wrapper reaches its
+`meta::exception` throw, but the exception is not catchable across the library call, exposing
+NEW-9. Those rows remain Needs-New-Test pending exception propagation work. Totals are now 76
+covered, 13 needing new tests, 19 blocked, and one not-applicable.
 
 **2026-09-10 — M5 batch 6.** Added `m5-p3617-p3687-batch6.verify.cpp`. P3617 rows 3617-02
 through 3617-04 are covered by checks for string-literal termination, character-array extent,
