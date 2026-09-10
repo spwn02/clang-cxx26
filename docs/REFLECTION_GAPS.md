@@ -891,6 +891,17 @@ lit wrapper with one worker; it passed 1/1 with all expected diagnostics matched
 A direct `data_member_spec(^^void)` probe was accepted and recorded as NEW-5. Checklist totals
 are now 67 covered, 23 needing new tests, and 18 blocked.
 
+**2026-09-10 — M5 marathon 2, batches 12–15.** Added and directly ran four focused verify
+tests. Batch 12 covered P2996R13 rows 2996-46 and 2996-47 and classified P3617-01 as blocked
+on the missing generic character overloads. Batch 13 exposed NEW-6 (constructor/destructor
+reflection accepted), NEW-7 (dependent CTAD-like splice accepted), and NEW-8 (non-parameter
+P3096 queries accepted). Batch 14 covered P3795R2 rows 3795-01 through 3795-03. Batch 15
+covered P3491R3 rows 3491-03 and 3491-08. The libc++ lit wrapper could not start because the
+sandbox denied Python's forkserver, so each test was verified directly with the built clang++.
+Commits `c5fb52b44d35`, `f269d385b759`, `fab26539718e`, and `04b33be766d5` were pushed to
+`origin/cxx26`. Checklist totals are now 74 covered, 15 needing new tests, 19 blocked, and
+one not-applicable.
+
 **2026-09-10 — M5 batch 6.** Added `m5-p3617-p3687-batch6.verify.cpp`. P3617 rows 3617-02
 through 3617-04 are covered by checks for string-literal termination, character-array extent,
 structural array elements, and extraction. P3687 rows 3687-01 through 3687-03 are covered by
