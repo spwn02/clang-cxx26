@@ -484,6 +484,27 @@ ParsedType Sema::getDestructorTypeForDecltype(const DeclSpec &DS,
   return ParsedType::make(T);
 }
 
+ParsedType Sema::getDestructorTypeForSplice(SourceLocation SpliceLoc,
+                                            ParsedType SpliceType,
+                                            ParsedType ObjectType) {
+  QualType T = GetTypeFromParser(SpliceType);
+  if (T.isNull())
+    return nullptr;
+
+  // If we know the type of the object, check that the correct destructor
+  // type was named now; we can give better diagnostics this way (same
+  // rationale, and the same check, as getDestructorTypeForDecltype above).
+  QualType SearchType = GetTypeFromParser(ObjectType);
+  if (!SearchType.isNull() && !SearchType->isDependentType() &&
+      !Context.hasSameUnqualifiedType(T, SearchType)) {
+    Diag(SpliceLoc, diag::err_destructor_expr_type_mismatch)
+      << T << SearchType;
+    return nullptr;
+  }
+
+  return ParsedType::make(T);
+}
+
 bool Sema::checkLiteralOperatorId(const CXXScopeSpec &SS,
                                   const UnqualifiedId &Name, bool IsUDSuffix) {
   assert(Name.getKind() == UnqualifiedIdKind::IK_LiteralOperatorId);

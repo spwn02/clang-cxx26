@@ -8619,6 +8619,15 @@ public:
   ParsedType getDestructorTypeForDecltype(const DeclSpec &DS,
                                           ParsedType ObjectType);
 
+  /// Validate and produce the destructor's named type for an explicit
+  /// destructor call spelled with a splice-type-specifier as the
+  /// computed-type-specifier ([class.dtor]p16), e.g. 'x.~typename[:R:]()'.
+  /// Mirrors getDestructorTypeForDecltype's cross-check against the known
+  /// object type, for the same better-diagnostic reason.
+  ParsedType getDestructorTypeForSplice(SourceLocation SpliceLoc,
+                                        ParsedType SpliceType,
+                                        ParsedType ObjectType);
+
   /// Build a C++ typeid expression with a type operand.
   ExprResult BuildCXXTypeId(QualType TypeInfoType, SourceLocation TypeidLoc,
                             TypeSourceInfo *Operand, SourceLocation RParenLoc);

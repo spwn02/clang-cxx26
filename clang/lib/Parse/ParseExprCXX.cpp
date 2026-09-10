@@ -1821,6 +1821,37 @@ Parser::ParseCXXPseudoDestructor(Expr *Base, SourceLocation OpLoc,
                                              TildeLoc, DS);
   }
 
+  // As in ParseUnqualifiedId's destructor-name handling above: a
+  // splice-type-specifier ('typename[:R:]') is a computed-type-specifier
+  // ([class.dtor]p16) and so is permitted here too. This path is reached
+  // (rather than ParseUnqualifiedId's) when the base expression's type is
+  // still dependent at parse time, so whether the eventual destructor call
+  // is a real class destructor or a scalar pseudo-destructor can't be
+  // determined yet -- BuildPseudoDestructorExpr (the same entry point the
+  // decltype case above ultimately reaches) handles both once instantiated.
+  if (Tok.is(tok::kw_typename) && !FirstTypeName.isValid() &&
+      NextToken().isOneOf(tok::l_splice, tok::annot_splice)) {
+    SourceLocation TypenameKWLoc = ConsumeToken();
+    if (Tok.is(tok::l_splice) &&
+        ParseSpliceSpecifier(/*TryParseSpecialization=*/false))
+      return ExprError();
+    TypeResult SpliceTy = ParseCXXSpliceAsType(TypenameKWLoc,
+                                               /*AllowDependent=*/true,
+                                               /*Complain=*/true);
+    if (SpliceTy.isInvalid())
+      return ExprError();
+    TypeSourceInfo *TSI = nullptr;
+    QualType T = Sema::GetTypeFromParser(SpliceTy.get(), &TSI);
+    if (T.isNull())
+      return ExprError();
+    if (!TSI)
+      TSI = Actions.getASTContext().getTrivialTypeSourceInfo(T, TypenameKWLoc);
+    return Actions.BuildPseudoDestructorExpr(
+        Base, OpLoc, OpKind, CXXScopeSpec(), /*ScopeType=*/nullptr,
+        /*CCLoc=*/SourceLocation(), TildeLoc,
+        PseudoDestructorTypeStorage(TSI));
+  }
+
   if (!Tok.is(tok::identifier)) {
     Diag(Tok, diag::err_destructor_tilde_identifier);
     return ExprError();
@@ -2899,6 +2930,32 @@ bool Parser::ParseUnqualifiedId(CXXScopeSpec &SS, ParsedType ObjectType,
       SourceLocation EndLoc = ParseDecltypeSpecifier(DS);
       if (ParsedType Type =
               Actions.getDestructorTypeForDecltype(DS, ObjectType)) {
+        Result.setDestructorName(TildeLoc, Type, EndLoc);
+        return false;
+      }
+      return true;
+    }
+
+    // [class.dtor]p16: "In an explicit destructor call, the destructor is
+    // specified by a ~ followed by a type-name, decltype-specifier, or
+    // computed-type-specifier that denotes the destructor's class type."
+    // A splice-type-specifier ('typename[:R:]') is a computed-type-specifier
+    // ([dcl.type.splice]), so it's permitted here too, exactly like the
+    // decltype-specifier case just above.
+    if (SS.isEmpty() && Tok.is(tok::kw_typename) &&
+        NextToken().isOneOf(tok::l_splice, tok::annot_splice)) {
+      SourceLocation TypenameKWLoc = ConsumeToken();
+      if (Tok.is(tok::l_splice) &&
+          ParseSpliceSpecifier(/*TryParseSpecialization=*/false))
+        return true;
+      SourceLocation EndLoc = Tok.getLastLoc();
+      TypeResult SpliceTy = ParseCXXSpliceAsType(TypenameKWLoc,
+                                                 /*AllowDependent=*/true,
+                                                 /*Complain=*/true);
+      if (SpliceTy.isInvalid())
+        return true;
+      if (ParsedType Type = Actions.getDestructorTypeForSplice(
+              TildeLoc, SpliceTy.get(), ObjectType)) {
         Result.setDestructorName(TildeLoc, Type, EndLoc);
         return false;
       }
