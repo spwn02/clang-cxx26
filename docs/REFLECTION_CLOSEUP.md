@@ -24,6 +24,14 @@ and do not leave it silently unresolved — stop and escalate the specific block
   CLI) — this is a one-time environment change already done, not something to repeat or reconsider.
 - Add `-c model_reasoning_effort=xhigh` to either invocation for the hardest items — confirmed
   valid and accepted (not just `high`; `xhigh` is the real ceiling, verified directly with `gpt-6-astra`).
+
+**Policy change, 2026-09-10 (explicit user instruction after round 1): do not use Astra.** It made
+genuinely good architectural progress on item 1 but consumed ~93% of the 5-hour usage window in
+roughly 15-20 minutes of work. **Use Terra at most, only if absolutely necessary, and be very
+careful even then** — prefer doing work directly (Claude's own Read/Edit/Bash tools: build and
+test personally) over any Codex dispatch by default now. Only reach for Terra when a task
+genuinely needs Codex-scale parallel exploration or a fresh model perspective, not as the default
+mode of operation this epic started with.
 - **Weekly-usage resets (the user has 3) are the user's to authorize, never mine to trigger.** If a
   Codex dispatch (Terra or Astra) reports hitting a weekly usage cap, stop and ask the user before
   anything resets it. This does not apply to ordinary 5-hour-limit resets.
