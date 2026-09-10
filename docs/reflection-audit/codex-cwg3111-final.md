@@ -1,0 +1,3 @@
+Audit complete: [codex-cwg3111-report.md](/home/spawn/dev/toolchains/clang-p2996/docs/reflection-audit/codex-cwg3111-report.md).
+
+Result: design needs reconsideration. Nested arrays cannot be represented by current `FixedArray` NTTP machinery. Build succeeds with `CCACHE_DISABLE=1`; Clang reflection remains 20/20. libc++ reflection rises from 7 to 9 failures, including the new test and an existing copy-diagnostic regression. No commit or push performed.
