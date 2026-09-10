@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 109 | 81 | 8 | 19 |
+| 109 | 82 | 7 | 19 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -40,7 +40,7 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 | 2996-06 | `reflect_function<T>`: `T` is a function type. | Covered | [m5-p2996-batch2.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch2.verify.cpp) |
 | 2996-07 | `reflect_function(fn)`: `fn` is suitable as a constant template argument for `T&`. | Covered | [m5-p2996-batch2.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch2.verify.cpp) |
 | 2996-08 | `identifier_of(r)` / `u8identifier_of(r)`: `r` represents a declaration with an identifier (including the specified operator/literal-operator cases). | Covered | [m5-p2996-batch2.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch2.verify.cpp) |
-| 2996-09 | `display_string_of(r)`: every reflection must produce a non-empty display string. | Needs-New-Test | P2996R13 requires a non-empty result even for a null reflection; the fork currently returns an empty fallback. This is a conformance gap, not a diagnostic-test row. |
+| 2996-09 | `display_string_of(r)`: every reflection must produce a non-empty display string. | Covered | The originally-claimed gap (NEW-1) was refuted 2026-09-10 — the fork's existing `tprint_impl::render<R>()` null specialization already returns a non-empty result. Positive coverage added: `libcxx/test/std/experimental/reflection/display-string-of-null.pass.cpp`. |
 | 2996-10 | `source_location_of(r)`: null and other non-declaration reflections may produce the specified empty/implementation-defined location. | Not-Applicable | P2996R13 specifies a result for any `info`; it does not require a Mandates/Constant-When diagnostic for null reflections. |
 | 2996-11 | `type_of(r)`: `r` represents a construct having a type, and the type is available under the clause's completeness/containing-enum rules. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
 | 2996-12 | `parent_of(r)`: `r` represents a construct with a parent. | Covered | [m5-p2996-batch3.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch3.verify.cpp) |
