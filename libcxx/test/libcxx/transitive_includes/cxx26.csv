@@ -325,6 +325,7 @@ experimental/meta cstdlib
 experimental/meta cstring
 experimental/meta cwchar
 experimental/meta cwctype
+experimental/meta exception
 experimental/meta initializer_list
 experimental/meta iosfwd
 experimental/meta limits
@@ -844,6 +845,7 @@ meta cstdlib
 meta cstring
 meta cwchar
 meta cwctype
+meta exception
 meta initializer_list
 meta iosfwd
 meta limits
