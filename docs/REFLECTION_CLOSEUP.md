@@ -46,13 +46,14 @@ fixed/verified** (commits `9760450c0fe4`, `8081ce09739d`, `08999b0aea1e`, `acd49
 item 6 needed no compiler code change, only a regression test confirming it's already fixed). **Item 5a (issue #180) remains escalated to the user alongside item 1** — it was refuted
 as an expansion-statement bug during investigation and needs the same class of Sema
 instantiation-context work as item 1, not a narrow fix; see its own table row and
-`docs/reflection-audit/issue-180-minimal-repro.cpp`. **Resume with item 8 (CWG 3111 residual —
-nested/multi-dimensional arrays)**: `libcxx/include/meta:1602-1645` has the flat-array fix and its
-own limitation note — `FixedArray<ValTy, Vals...>`'s NTTP pack can't hold an array-typed element,
-needs a real backing representation for nested arrays (e.g. recursively building a wrapper over
-per-row `FixedArray`s, or new compiler-side support for an array-typed NTTP pack element) while
-keeping the existing by-value/pointer-decay overload's generality intact for its own,
-non-array-typed callers.
+`docs/reflection-audit/issue-180-minimal-repro.cpp`. **Item 8 is now fixed and verified too**
+(header-only, `libcxx/include/meta` — see its table row for the full design and the dated session-log
+entry below). **Resume with item 9 (P3560R2 strategy 2 — remaining ~20 Throws-bearing
+metafunctions)**: read `docs/reflection-audit/codex-strategy2-design.md` and
+`codex-strategy2-pilot-report.md` first — two real blockers already found there (no evaluator API
+for constructing a `meta::exception` from arbitrary `StringRef`/`APValue`; a genuine evaluator
+SIGABRT in the inherited-constructor evaluation path) — do not re-attempt the exact same pilot
+approach without a genuinely different angle.
 
 **Two new, unrelated findings surfaced while closing item 5b (not part of this epic's 14-item
 scope, not fixed, logged here so a future session doesn't have to rediscover them):**
@@ -320,7 +321,7 @@ documented 7-test pre-existing baseline.
 | 5b | Issue #181 — non-copyable tuple/range element expansion binding | **Fixed and verified (commit `08999b0aea1e`)** | Three independent, compounding bugs in `SemaExpand.cpp`, found via direct instrumentation (not the guessed-at P1306R5 `std::move`-selection design from the original plan, which turned out not to be the actual mechanism at all): (1) `tryMakeCXXIterableExpansionSelectExpr`'s hidden `__range` unconditionally copy-constructed (`Range->getType().withConst()`) *before* the function had even determined whether the type is iterable, so a non-copyable range (e.g. `std::tuple<std::unique_ptr<int>, ...>`) hard-errored regardless of binding form, before ever reaching the (already-correct) destructurable path. (2) `makeCXXDestructurableExpansionSelectExpr` hardcoded `SpelledAsLValue=true` when building the hidden binding's reference type, indistinguishable from `auto&`, so `auto&&` over a genuine prvalue range failed to bind. (3) Neither path completed the range's type before a `begin()`/`end()` member lookup on it (unlike ordinary range-based for, which does), asserting in an assertions-enabled build when the type is reached only via a reference parameter. Fixing (1) by unconditionally switching to a forwarding reference (mirroring ordinary range-based for's `auto&& __range`) regressed *working* constexpr cases with a perfectly copyable range type elsewhere in the libc++ reflection suite (`expansion-lambda-capture-crash.pass.cpp`, `deduction-guide-reflection-mangling.pass.cpp`) — binding a reference to a temporary inside a manifestly-constant-evaluated context needs lifetime-extension bookkeeping a by-value copy never needed. Final fix: speculatively check copy-constructibility first (a trial `InitializationSequence`, which never commits/diagnoses unlike the real `AddInitializerToDecl` call) and only fall back to the reference when the type genuinely can't be copied — preserving by-value behavior for every case that already worked. Also had to scope the earlier `RequireCompleteType` addition to record types only (a `void`-typed range from an unrelated unresolved-overloaded-function recovery path was getting a wrong, pre-empting diagnostic) and make the reference-only lifetime-extension conditional on actually using the reference path (applying it to the by-value copy path was itself found to corrupt the constant evaluator's allocation tracking). New regression test: `libcxx/test/std/experimental/reflection/expansion-noncopyable-tuple-binding.pass.cpp`, covering all four binding forms (`auto`/`auto&`/`auto&&`/`const auto&`) plus const-source and prvalue-range variants in one translation unit (per this epic's now-repeated "isolated passes, combined breaks" lesson from items 4 and 5a). Verified zero regressions: `clang/test/Reflection/` 21/21 (including the new file), libc++ reflection+debugging+stacktrace suite at the documented 7-test baseline (123 tests total, 7 pre-existing failures, zero new), SemaCXX/Parser/AST/CodeGenCXX/SemaTemplate 3814 tests at the documented 5-test escalation-cluster baseline. Two new, unrelated findings (out of scope for this item) logged in the Next Up section above. |
 | 6 | Issue #182 — `template for` + `continue` ICE | **Already fixed — verified with a regression test, no code change needed** | Upstream report: `template for` crashes at codegen (`llvm::BranchInst::BranchInst`) if its body contains `continue` (bare, or via `if constexpr`), reproducing only at `-O1`+ (`-O0` doesn't reproduce). Extensive reproduction attempts against this fork — matching the exact upstream shape, across `-O0` through `-O3`, with/without `-g`, in template and non-template enclosing functions, with `continue`/`break` combined, 1–10 iterations — could not reproduce any crash. Direct inspection of `CodeGenFunction::EmitCXXExpansionStmt` (`clang/lib/CodeGen/CGStmt.cpp`) shows correct, already-sound lowering: one `JumpDest` is pre-allocated per expansion instance up front, and each instance's continue target is simply the next instance's own `JumpDest` (or the loop's exit block for the last one) — no shared, instance-independent continuation destination for a discarded branch to dangle a reference to. Likely explanation (not confirmed, since the original bug was never reproduced to bisect against): this exact function was silently dropped by a merge during this fork's LLVM 22 sync and later restored verbatim from the pre-merge fork in commit `df8b70aeaf5e` ("restore expansion-statement CodeGen..."), which landed after the upstream report (2025-09-08) — plausibly picking up a fix (LLVM-side or otherwise) incidentally along the way. New regression test locks this in: `libcxx/test/std/experimental/reflection/expansion-continue-break-codegen.pass.cpp` (compiled at `-O2 -g`, both a bare top-of-loop `continue` and the exact `if constexpr() continue` shape from the issue title, runtime-asserted for correctness, not just "doesn't crash"). Verified: libc++ reflection+debugging+stacktrace suite at the documented 7-test baseline (124 tests, zero new failures) — no compiler code change was needed, so the broader `clang/test/Reflection`/SemaCXX baselines are unaffected and weren't re-run. |
 | 7 | Issue #150 — spliced explicit destructor call `~[:info:]()` | **Fixed and verified (commit `cbba49e3c2d9`)** | The upstream report's own bare-splice repro (`value.~[:^^test:]();`) is correctly rejected per [expr.prim.splice]/2.1.2 (a bare splice-expression is ill-formed when it designates a destructor) — a maintainer comment on the issue confirmed this "works as intended" and identified the real gap: [class.dtor]p16 permits a *type-name*, *decltype-specifier*, or *computed-type-specifier* after `~`, and a splice-type-specifier (`typename[:R:]`) is a computed-type-specifier per [dcl.type.splice] — so `value.~typename[:R:]()` should work, but didn't parse at all ("expected a class name after '~' to name a destructor"). Two independent parser entry points needed the fix, both in `ParseExprCXX.cpp`: `ParseUnqualifiedId`'s destructor-name case (non-dependent object type) and `ParseCXXPseudoDestructor` (object type still dependent at parse time, e.g. inside a function template) — both already had an analogous, working `decltype`-specifier case to mirror, so splice support was added the same way in each, no new AST node needed (reuses the existing `PseudoDestructorTypeStorage`/`UnqualifiedId::setDestructorName` machinery). New `Sema::getDestructorTypeForSplice` (`SemaExprCXX.cpp`) mirrors the existing `getDestructorTypeForDecltype`'s cross-check against the statically-known object type, for the same better-diagnostic reason (a mismatched splice destructor type gets a specific "destructor type ... does not match ..." error, not a generic one). New tests: `clang/test/Reflection/issue150-spliced-destructor.cpp` (parse/Sema coverage: non-dependent, dependent/template, type-mismatch-diagnosed, and confirms the bare-splice form stays correctly rejected) and `libcxx/test/std/experimental/reflection/spliced-destructor-call.pass.cpp` (proves the destructor genuinely runs at runtime, not just parses, in both contexts). Verified zero regressions: `clang/test/Reflection/` 22/22, Parser/SemaCXX/AST/CodeGenCXX/SemaTemplate 3814 tests at the documented 5-test escalation-cluster baseline, libc++ reflection+debugging+stacktrace suite at the documented 7-test baseline (125 tests, zero new failures). |
-| 8 | CWG 3111 residual — nested/multi-dimensional arrays | Not started | `libcxx/include/meta:1602-1645` has the flat-array fix + limitation note. `FixedArray<ValTy, Vals...>` can't hold an array-typed pack element — needs a real backing representation, not just a rejection. |
+| 8 | CWG 3111 residual — nested/multi-dimensional arrays | **Fixed and verified (commit pending)** | Root cause: a row-by-row NTTP-*reference* backing design (copy each row's own `FixedArray` object into a fresh contiguous array via `{Rows...}`) looks plausible ([temp.param]p6 permits reference NTTPs to array objects) but can never work — arrays are never copy-list-initializable from another array object in C++ at all (`int a[2][3] = {row0, row1};` is exactly as ill-formed in ordinary code). Real fix: flatten all the way down to the scalar leaf type, gather every dimension's extent along the way, and reconstruct the correctly-nested array type via a small `__nd_array_shape<ValTy, Extents...>` recursive metafunction (arbitrary rank, not limited by declarator syntax) — ordinary aggregate-init brace elision then fills the nested array correctly from one flat, row-major scalar list (`FixedNDArray`). Two secondary bugs found and fixed along the way: (1) the entry `requires`-clause's `is_constructible_v<range_value_t<R>, range_reference_t<R>>` check is unconditionally false for any array-typed `range_value_t` (arrays are never "constructible" per the trait's own specification), which would silently reject every nested case at the SFINAE boundary — added an array-aware recursive `__reflect_constant_array_row_ok_v` alternative. (2) `define_static_array`'s row-pointer extraction (`extract<const ValTy*>(array)`) doesn't work for a multi-dimensional backing object (only whole-array-by-reference extraction does); fixed by extracting the whole array by reference and decaying to a row pointer manually — the outer extent for the reference type comes directly from `R` itself (a template parameter, not a runtime read), since `is_array_v<ValTy>` can only be true when `R` is itself a genuine raw C array type. `-Wmissing-braces` on the intentional flat brace-elided initializer suppressed locally (same warning ordinary `int a[2][3]={1,2,3,4,5,6};` code triggers). New/extended test: `libcxx/test/std/experimental/reflection/cwg3111-lwg4432-reflect-constant-array.pass.cpp`'s former "nested arrays remain unsupported" section replaced with real 2D/3D coverage (`reflect_constant`, `reflect_constant_array`, `define_static_array`, a structural class-type row). Verified zero regressions: `clang/test/Reflection/` 22/22, libc++ reflection suite at the documented 7-test pre-existing baseline (114 tests, zero new failures). |
 | 9 | P3560R2 strategy 2 — ~20 remaining Throws-bearing metafunctions | Not started | `docs/reflection-audit/codex-strategy2-design.md` + `codex-strategy2-pilot-report.md` — two real blockers found (no evaluator API for arbitrary-input exception construction; a genuine evaluator SIGABRT in the inherited-constructor path). Read both before touching this. |
 | 10 | `3560-18` — `access_context::via` catch-and-inspect coverage | Not started | Blocked on a return-object lifetime workaround in constant evaluation. Smaller/separate from #9. |
 | 11 | `define_static_object` entirely missing (P3491R3) | Not started | Zero occurrences anywhere in the tree. |
@@ -482,3 +483,69 @@ one — has the full picture without re-deriving any of this.
 
 **Per the plan's Completion Bar section, escalating item 1 to the user** rather than attempting a
 6th round immediately or accepting a lesser bar. Updated the table above. Moving to item 2 next.
+
+### 2026-09-11 — Item 8 (CWG 3111 residual, nested arrays): fixed and verified
+
+Worked entirely directly (no Codex usage). Resumed from the epic's own limitation note at
+`libcxx/include/meta:1602-1645` (flat-array fix only). First design attempt (recursing one
+dimension at a time, collecting a pack of *references* to each row's own `FixedArray` object as a
+reference-NTTP pack, then copying `{Rows...}` into a fresh contiguous array) compiled but crashed
+empirically: `int a[2][3] = {row0, row1};` is not valid C++ at all (confirmed via a minimal,
+non-reflective isolated repro — arrays are never copy-list-initializable from another array
+object), so no wiring of that design could ever have worked, reference-NTTP legality
+notwithstanding.
+
+Redesigned around flattening: `reflect_constant_array` now recurses down to the ultimate scalar
+leaf type via `__define_static::__flatten_reflect_constant`, gathers every dimension's extent
+along the way (outer range size first, then `ValTy`'s own static extents via `extent_v`), and
+reconstructs the correctly-nested array type via a new `__define_static::__nd_array_shape<ValTy,
+Extents...>` (ordinary recursive class-template metafunction over the extents pack — sidesteps the
+declarator syntax limitation of not being able to spell an arbitrary, pack-driven number of `[N]`
+pairs). `FixedNDArray<ValTy, Shape, Vals...>` then initializes `Shape::type` from the fully flat,
+row-major `Vals...` pack via ordinary aggregate-initialization brace elision (the same mechanism
+`int a[2][3] = {1,2,3,4,5,6};` uses in non-reflective code) — no per-row copying needed at all.
+
+Two secondary bugs found empirically while testing this, neither anticipated by the original
+design note:
+1. **The `reflect_constant_array` forward declaration's own `requires`-clause** (`is_constructible_v<range_value_t<R>, range_reference_t<R>>`) is unconditionally `false` for any array-typed
+   `range_value_t` — arrays are never "constructible" per that trait's specification (there's no
+   such thing as direct-initializing an array object via ordinary constructor syntax) — so it
+   would have silently SFINAE-rejected every nested case at the very entry point regardless of
+   what the body did. Added an array-aware alternative,
+   `__reflect_constant_array_row_ok_v<T>` (recursively `is_copy_constructible_v` at the leaf,
+   `is_array_v`-peeling one dimension at a time), used only when `range_value_t<R>` is itself an
+   array type.
+2. **`define_static_array`'s existing row-pointer extraction pattern**
+   (`extract<const ValTy*>(array)`, already established/working for the flat case) does not work
+   for a multi-dimensional backing object — empirically, only extracting the *whole* array by
+   reference succeeds; a row-pointer target hits `extract`'s "Value"-kind exact-type-match path,
+   which has no array-to-pointer decay logic at all (unlike the "Declaration"-kind path the flat
+   case apparently goes through, which does). Fixed by extracting the whole array as a reference
+   and decaying to a row pointer manually (`&whole[0]`). Getting the outer extent for that
+   reference type hit a second, unrelated, general-C++ wall: a `constexpr` local (or an array
+   bound in a type) cannot be initialized by reading an ordinary (non-`constexpr`) local or
+   function parameter, even inside a `consteval` function body executing within an ambient
+   manifestly-constant-evaluated context — confirmed via a minimal, non-reflective isolated repro
+   before concluding it wasn't reflection-specific. Sidestepped entirely rather than worked around:
+   since `is_array_v<ValTy>` can only be true when `R` is itself (modulo reference) a genuine raw C
+   array type (no ordinary container can hold array-typed elements), the outer extent is already
+   available directly from the template parameter `R` via `extent_v<remove_reference_t<R>, 0>` — a
+   genuine compile-time constant, not something that needs computing from a runtime-shaped value at
+   all.
+
+Also hit, and suppressed, `-Wmissing-braces` on `FixedNDArray`'s intentionally flat, brace-elided
+initializer (`{Vals...}`) — confirmed via a minimal isolated repro that ordinary, non-reflective
+code (`int a[2][3] = {1,2,3,4,5,6};`) triggers the exact same warning under `-Wmissing-braces
+-Werror`, so this is expected, not a design smell; wrapped in
+`_LIBCPP_DIAGNOSTIC_PUSH`/`_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wmissing-braces")`/`_LIBCPP_DIAGNOSTIC_POP`
+matching existing precedent elsewhere in this same header.
+
+Extended the existing regression test (`cwg3111-lwg4432-reflect-constant-array.pass.cpp`'s former
+"nested arrays remain unsupported" section, now real coverage): 2D and 3D `reflect_constant`/
+`reflect_constant_array`, `define_static_array` on a nested array, and a 2D array of a structural
+class type (not just scalars, to confirm per-leaf recursion still bottoms out correctly through the
+plain non-array `reflect_constant` overload). Verified zero regressions: `clang/test/Reflection/`
+22/22 (header-only change, but ran anyway per discipline), libc++ reflection suite at the
+documented 7-test pre-existing baseline (114 tests total, exactly the 7 documented pre-existing
+warning/verify-mismatch failures, zero new). Header-only fix, no compiler rebuild needed beyond
+`ninja -C build-libcxx cxx`. Updated the table above and the Next Up pointer to item 9.
