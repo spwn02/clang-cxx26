@@ -13,7 +13,37 @@ verification protocol) lives at
 `/home/spawn/.claude/plans/i-think-finishing-reflection-elegant-rivest.md` — read that first if
 you're picking this up cold.
 
-## Next Up (updated 2026-09-09, after definitive full check-clang gate)
+## Next Up (updated 2026-09-10, after M4/M5 backlog closure)
+
+**Status: M0-M3 done. M4 and M5 are now substantively complete** — every item in each
+milestone's backlog is either fixed-and-verified or reclassified with a documented technical
+reason, matching each milestone's own completion criterion in the plan file. Remaining open items
+are genuinely hard (need dedicated design/architecture work, not a session's worth of effort) and
+are individually documented below and inline in the tables. **Next milestone is M6**: a full
+`check-clang` + `check-cxx` gate on the assertions-enabled `build-nyx` tree (already
+`LLVM_ENABLE_ASSERTIONS=ON`), diffed against the known baselines documented in Ground Truth below,
+with any surviving surprise proven pre-existing via isolation before M7 close-out.
+
+**M4 remaining (all documented, none blocking M6):** #150 (destructor splice, Skipped — needs new
+parser/Sema destructor-name-via-splice AST representation), #180/#181 (expansion-statement
+deferred-body/tuple-binding, design-investigated 2026-09-10 — PR #261's design is applicable but
+is an ~11-file port with an independent #181 root cause, no safe narrow fix), #188
+(`display_string_of(dealias(...))`, deferred — confirmed real, bottoms out in printer constant
+evaluation for template-heavy iterator types, no narrow safe fix), #220 (**fixed 2026-09-10** —
+`type_of` now rejects an undeduced-return-type function via the existing
+`metafn_undeduced_placeholder` diagnostic, verified against clang-side Reflection/libcxx
+reflection/SemaCXX suites with 0 new failures), #237 (closure-type alias, deferred — confirmed
+real per direct wording check, no narrow safe fix). P3560R2 strategy 2 and the M3
+escalation-cluster bug remain explicitly out of scope for now (see below) — do not attempt without
+fresh design work, both carry real regression risk from prior attempts.
+
+**M5 remaining (2 Needs-New-Test rows, both documented, none blocking M6):** 2996-49 (NEW-7,
+dependent CTAD-like splice rejection — attempted and reverted 2026-09-10 after finding 3 distinct
+correctness bugs across 2 implementation approaches, see commit `5d50d28c334d` for full evidence),
+3560-18 (`access_context::via` catch-and-inspect coverage, blocked on a return-object lifetime
+workaround in constant evaluation, pre-existing/unrelated to this batch).
+
+## Historical Next Up (superseded 2026-09-09 entry, kept for context)
 
 The established validation baseline is now **23 failures**: the five original
 consteval-escalation tests (`SemaCXX/PR98671.cpp`,
