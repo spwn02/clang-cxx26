@@ -4865,6 +4865,25 @@ void CXXNameMangler::mangleRequirement(SourceLocation RequiresExprLoc,
   }
 }
 
+// DESIGN NOTE (folded in from this fork's former docs/REFLECTION.md, deleted
+// once reflection support was judged complete): a specialization of
+// `template <std::meta::info R> fn()` requires the compiler to mangle a
+// representation of whatever entity `R` reflects, since a reflection can
+// only be spliced from a constant expression, and a function that wants to
+// splice a reflection received as an argument must therefore receive it as
+// a template argument. This covers the full class of values of literal
+// type -- a strict expansion beyond the values of *structural* type
+// already permitted as ordinary non-type template arguments (see this
+// file's CWG-3111 handling for template parameter objects of array type,
+// and libcxx/include/meta's `reflect_constant`/`reflect_constant_array` for
+// how the library builds an addressable backing object for such values).
+// Some of the more powerful metafunctions (`substitute`, `reflect_invoke`,
+// `value_of`) reduce how often a reflection must be passed as a template
+// argument at all, but it remains necessary in real cases. This also opens
+// WG21-unresolved questions this implementation doesn't answer on its own:
+// whether every such value should be a well-formed template argument, and
+// whether some classes of value should force the resulting specialization
+// to internal linkage rather than being externally nameable at all.
 void CXXNameMangler::mangleReflection(const APValue &R) {
   assert(R.isReflection());
 
