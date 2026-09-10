@@ -15,9 +15,16 @@ context; it is not interchangeable with a library `Throws` test.
 
 ## Totals
 
-| Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
-|---:|---:|---:|---:|
-| 109 | 82 | 7 | 19 |
+| Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility | Not-Applicable |
+|---:|---:|---:|---:|---:|
+| 111 | 87 | 3 | 20 | 1 |
+
+Updated 2026-09-10 after fixing NEW-2/3/4/6 (constructor-splice half) and deferring/reclassifying
+NEW-7/NEW-8. Remaining `Needs-New-Test` rows: 2996-49 (NEW-7, deferred — no safely-scoped
+rejection point found), 3096-06 (NEW-8, reclassified — the paper doesn't actually restrict these
+queries; row intentionally left open pending a decision on whether to reword or close it as
+Not-Applicable), and 3560-18 (blocked on a return-object lifetime workaround, unrelated to this
+batch).
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
