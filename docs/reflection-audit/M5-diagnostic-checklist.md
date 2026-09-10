@@ -50,7 +50,7 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 | 2996-16 | `template_arguments_of(r)`: `has_template_arguments(r)` is true. | Covered | [m5-p2996-batch7.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch7.verify.cpp) |
 | 2996-17 | `is_accessible(r, ctx)`: `ctx` is a valid access context and the represented construct is one to which access can be applied. | Covered | [m5-p2996-batch7.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch7.verify.cpp) |
 | 2996-18 | `has_inaccessible_nonstatic_data_members(r, ctx)`: `nonstatic_data_members_of(r, unchecked())` is a constant subexpression. | Covered | [m5-p2996-batch7.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch7.verify.cpp) |
-| 2996-19 | `has_inaccessible_nonstatic_data_members(r, ctx)`: `r` does not represent a closure type. | Needs-New-Test — NEW-4 | A closure-type probe was accepted instead of producing the required failure; see NEW-4. |
+| 2996-19 | `has_inaccessible_nonstatic_data_members(r, ctx)`: `r` does not represent a closure type. | Covered | [new-4-closure-inaccessible.verify.cpp](../../libcxx/test/std/experimental/reflection/new-4-closure-inaccessible.verify.cpp) |
 | 2996-20 | `has_inaccessible_bases(r, ctx)`: `bases_of(r, unchecked())` is a constant subexpression. | Covered | [m5-p2996-batch7.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch7.verify.cpp) |
 | 2996-21 | `members_of(r, ctx)`: `dealias(r)` is a complete class type at a point in the evaluation context or a namespace. | Covered | [m5-p2996-batch8.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch8.verify.cpp) |
 | 2996-22 | `bases_of(type, ctx)`: `dealias(type)` is a complete class type at a point in the evaluation context. | Covered | [m5-p2996-batch8.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-batch8.verify.cpp) |
@@ -79,8 +79,8 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 | 2996-45 | `define_aggregate`: injected declarations obey the scope, reachability, sequencing, and complete-class restrictions. | Covered | [define-aggregate.verify.cpp](../../libcxx/test/std/experimental/reflection/define-aggregate.verify.cpp) |
 | 2996-46 | Reflection of a local parameter introduced by a requires-expression is ill-formed. | Covered | [m5-p2996-p3096-batch12.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-p3096-batch12.verify.cpp) |
 | 2996-47 | A reflection operator naming a `using-declarator` is ill-formed under the adopted R13 wording. | Covered | [m5-p2996-p3096-batch12.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-p3096-batch12.verify.cpp) |
-| 2996-48 | A splice of a constructor or destructor is ill-formed. | Needs-New-Test — NEW-6 | Both constructor and destructor reflection probes were accepted; see NEW-6. |
-| 2996-49 | A dependent splice-specifier in the forbidden CTAD position is ill-formed. | Needs-New-Test — NEW-7 | The dependent type splice in the CTAD-like declaration was accepted; see NEW-7. |
+| 2996-48 | A splice of a constructor or destructor is ill-formed. | Covered | [new-6-constructor-splice.verify.cpp](../../libcxx/test/std/experimental/reflection/new-6-constructor-splice.verify.cpp); destructor rejection remains covered by the existing Sema path. |
+| 2996-49 | A dependent splice-specifier in the forbidden CTAD position is ill-formed. | Needs-New-Test — NEW-7 | Deferred 2026-09-10: no safely-scoped rejection point found; see NEW-7 tracker note. |
 
 ## P1306R5 — Expansion Statements
 
@@ -105,7 +105,7 @@ Normative source: [P3096R12](https://www.open-std.org/jtc1/sc22/wg21/docs/papers
 | 3096-03 | `variable_of(r)`: `r` represents a function parameter and the parameter has a valid invocation frame in the required constant-evaluation context. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp) |
 | 3096-04 | `has_ellipsis_parameter(r)` is total: for a non-function reflection it returns false rather than diagnosing. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp), [p3096-total-functions.pass.cpp](../../libcxx/test/std/experimental/reflection/p3096-total-functions.pass.cpp) |
 | 3096-05 | `has_default_argument(r)` is total: for a non-function-parameter reflection it returns false rather than diagnosing. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp), [p3096-total-functions.pass.cpp](../../libcxx/test/std/experimental/reflection/p3096-total-functions.pass.cpp) |
-| 3096-06 | Parameter `identifier_of`, `u8identifier_of`, `type_of`, and `has_identifier` are ill-formed when applied outside the parameter cases specified by the paper. | Needs-New-Test — NEW-8 | Non-parameter `identifier_of`, `u8identifier_of`, and `has_identifier` probes were accepted; see NEW-8. |
+| 3096-06 | Parameter `identifier_of`, `u8identifier_of`, `type_of`, and `has_identifier` are ill-formed when applied outside the parameter cases specified by the paper. | Needs-New-Test — NEW-8 | Reclassified: P3096R12 does not impose a parameter-only domain on the three accepted queries; see NEW-8 tracker note. |
 | 3096-07 | Local parameters introduced by a requires-expression cannot be reflected. | Covered | [lift-operator.cpp](../../clang/test/Reflection/lift-operator.cpp) |
 
 ## P3293R3 — Splicing a Base Class Subobject
@@ -126,9 +126,9 @@ Normative source: [P3394R4](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/
 |---|---|---|---|
 | 3394-01 | The annotation operand is a constant expression and, after the required conversion, has structural type. | Covered | [m5-p3394-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3394-batch5.verify.cpp) |
 | 3394-02 | An annotation cannot appear in the attribute-specifier-seq of a type-specifier-seq. | Covered | [annotations-regression.verify.cpp](../../libcxx/test/std/experimental/reflection/annotations-regression.verify.cpp) |
-| 3394-03 | An annotation cannot appear on an empty-declaration. | Needs-New-Test — NEW-2 | `[[=1]];` was accepted; see NEW-2. |
+| 3394-03 | An annotation cannot appear on an empty-declaration. | Covered | [new-2-empty-declaration.verify.cpp](../../libcxx/test/std/experimental/reflection/new-2-empty-declaration.verify.cpp) |
 | 3394-04 | An annotation cannot be mixed with ordinary attributes in one attribute-specifier. | Covered | [m5-p3394-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3394-batch5.verify.cpp) |
-| 3394-05 | `annotations_of_with_type(item, type)` returns only annotations whose `type_of` equals `type`; invalid item/type reflections are ill-formed as specified. | Needs-New-Test — NEW-3 | Invalid item/type probes were accepted; see NEW-3. |
+| 3394-05 | `annotations_of_with_type(item, type)` returns only annotations whose `type_of` equals `type`; invalid item/type reflections are ill-formed as specified. | Covered | [new-3-annotations-with-type.verify.cpp](../../libcxx/test/std/experimental/reflection/new-3-annotations-with-type.verify.cpp) |
 | 3394-06 | Annotation accumulation and order preservation across repeated annotations and redeclarations must be diagnosed/rejected correctly when the syntax is invalid. | Covered | [m5-p3394-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3394-batch5.verify.cpp), [p3394-annotations.pass.cpp](../../libcxx/test/std/experimental/reflection/p3394-annotations.pass.cpp) |
 
 ## P3491R3 — `define_static_{string,object,array}`

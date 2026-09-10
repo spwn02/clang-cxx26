@@ -2294,6 +2294,12 @@ static void handleAttrWithMessage(Sema &S, Decl *D, const ParsedAttr &AL) {
 
 /// Handle an annotation (C++2c).
 static void handleCXX2CAnnotation(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (isa<EmptyDecl>(D)) {
+    S.Diag(AL.getLoc(), diag::err_attribute_invalid_on_decl)
+        << AL << false;
+    return;
+  }
+
   Expr *CE = AL.getArgAsExpr(0);
   if (CE->isLValue()) {
     if (CE->getType()->isRecordType()) {

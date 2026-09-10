@@ -200,6 +200,7 @@ consteval auto is_member_function_pointer_type(info) -> bool;
 consteval auto is_enum_type(info) -> bool;
 consteval auto is_union_type(info) -> bool;
 consteval auto is_class_type(info) -> bool;
+consteval auto __is_closure_type(info) -> bool;
 consteval auto is_function_type(info) -> bool;
 consetval auto is_reflection_type(info) -> bool;
 
@@ -654,6 +655,8 @@ enum : unsigned {
 
   // P4033 extension: completing unscoped (C-style) enums
   __metafn_define_unscoped_enum,
+
+  __metafn_is_closure_type,
 };
 
 consteval auto __workaround_expand_compiler_builtins(info type) -> info;
@@ -1106,6 +1109,10 @@ consteval auto extract(info r) -> Ty {
 
 consteval auto is_class_type(info r) -> bool {
   return extract<bool>(substitute(^^is_class_v, {r}));
+}
+
+consteval auto __is_closure_type(info r) -> bool {
+  return __metafunction(detail::__metafn_is_closure_type, r);
 }
 
 // Returns true if the reflected entity is a complete type.
@@ -2278,7 +2285,7 @@ consteval auto annotations_of(info r, info ty) -> vector<info> {
 
 // Returns annotations of the reflected entity whose type matches ty.
 consteval auto annotations_of_with_type(info r, info ty) -> vector<info> {
-  if (!is_type(ty))
+  if (!is_type(ty) || !is_complete_type(ty))
     throw exception(u8"bad type", ^^annotations_of_with_type);
   return annotations_of(r, ty);
 }
@@ -2445,7 +2452,7 @@ consteval auto __any_inaccessible(vector<info> const& r, access_context ctx) -> 
 consteval auto has_inaccessible_nonstatic_data_members(
         info r,
         access_context ctx) -> bool {
-  if (!is_class_type(r))
+  if (!is_class_type(r) || __is_closure_type(r))
     throw exception(u8"bad type", ^^has_inaccessible_nonstatic_data_members);
   return __any_inaccessible(nonstatic_data_members_of(r, access_context::unchecked()), ctx);
 }

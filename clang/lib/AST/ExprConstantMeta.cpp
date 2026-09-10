@@ -397,6 +397,12 @@ static bool is_complete_type(APValue &Result, ASTContext &C, MetaActions &Meta,
                              SourceRange Range, ArrayRef<Expr *> Args,
                              Decl *ContainingDecl);
 
+static bool is_closure_type(APValue &Result, ASTContext &C, MetaActions &Meta,
+                            EvalFn Evaluator, DiagFn Diagnoser,
+                            bool AllowInjection, QualType ResultTy,
+                            SourceRange Range, ArrayRef<Expr *> Args,
+                            Decl *ContainingDecl);
+
 static bool has_complete_definition(APValue &Result, ASTContext &C,
                                     MetaActions &Meta, EvalFn Evaluator,
                                     DiagFn Diagnoser, bool AllowInjection,
@@ -994,6 +1000,8 @@ static constexpr Metafunction Metafunctions[] = {
 
   // P4033 extension: completing unscoped (C-style) enums
   { Metafunction::MFRK_metaInfo, 3, 3, define_unscoped_enum },
+
+  { Metafunction::MFRK_bool, 1, 1, is_closure_type },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
                                             sizeof(Metafunction);
@@ -4995,6 +5003,28 @@ bool is_complete_type(APValue &Result, ASTContext &C, MetaActions &Meta,
     result = !QT->isIncompleteType();
   }
   return SetAndSucceed(Result, makeBool(C, result));
+}
+
+static bool is_closure_type(APValue &Result, ASTContext &C, MetaActions &Meta,
+                            EvalFn Evaluator, DiagFn Diagnoser,
+                            bool AllowInjection, QualType ResultTy,
+                            SourceRange Range, ArrayRef<Expr *> Args,
+                            Decl *ContainingDecl) {
+  assert(Args[0]->getType()->isReflectionType());
+  assert(ResultTy == C.BoolTy);
+
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+
+  bool IsClosure = false;
+  if (RV.isReflectedType()) {
+    QualType QT = desugarType(RV.getReflectedType(), /*UnwrapAliases=*/true,
+                              /*DropCV=*/false, /*DropRefs=*/false);
+    if (const auto *RD = QT->getAsCXXRecordDecl())
+      IsClosure = RD->isLambda();
+  }
+  return SetAndSucceed(Result, makeBool(C, IsClosure));
 }
 
 bool has_complete_definition(APValue &Result, ASTContext &C, MetaActions &Meta,

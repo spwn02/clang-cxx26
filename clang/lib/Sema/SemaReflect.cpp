@@ -1836,6 +1836,13 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
     case ReflectionKind::Declaration: {
       Decl *TheDecl = Refl.getReflectedDecl();
 
+      if (isa<CXXConstructorDecl>(TheDecl)) {
+        Diag(Splice->getBeginLoc(),
+             diag::err_unexpected_reflection_kind_in_splice)
+          << 0 << Splice->getSourceRange();
+        return ExprError();
+      }
+
       // Class members may not be implicitly referenced through a splice.
       if (!AllowMemberReference &&
           (isa<FieldDecl>(TheDecl) ||
