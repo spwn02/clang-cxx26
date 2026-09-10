@@ -1734,6 +1734,23 @@ QualType Sema::BuildReflectionSpliceType(SourceLocation TypenameKWLoc,
     return QualType();
   } else {
     ReflectedTy = Refl.getReflectedType();
+
+    // A reflection of decltype(e), where 'e' is an id-expression naming an
+    // 'auto'-declared entity (e.g. 'constexpr auto closure = []{};
+    // ^^decltype(closure)'), carries that entity's *declared* type, which
+    // retains the AutoType sugar (deduced, pointing at the real type --
+    // here, the closure type) rather than the plain deduced type itself.
+    // Reconstructing this splice as a type-specifier (e.g. a type alias's
+    // target, 'using ct = typename[:cr:];') needs the deduced type, not the
+    // placeholder: GetTypeForDeclarator's alias-declaration check in
+    // SemaType.cpp correctly rejects a literal, still-undeduced-looking
+    // 'auto' as an alias target ("'auto' not allowed in type alias"), since
+    // it can't tell this apart from an ordinary 'using Alias = auto;' typo.
+    // Desugar here, preserving any qualifiers already on the AutoType (e.g.
+    // the implicit const from a constexpr variable's declared type).
+    if (auto *AT = dyn_cast<AutoType>(ReflectedTy); AT && AT->isDeduced())
+      ReflectedTy = Context.getQualifiedType(AT->getDeducedType(),
+                                             ReflectedTy.getQualifiers());
   }
 
   // Check if the type refers to a substituted but uninstantiated template.
