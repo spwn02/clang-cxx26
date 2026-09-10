@@ -18393,6 +18393,79 @@ static void RemoveNestedImmediateInvocation(
   }
 }
 
+// KNOWN BUG (unfixed as of 2026-09-10, three independent attempts, all
+// rejected empirically -- see clang-p2996's docs/reflection-audit/
+// codex-m3-escalation-report.md for the full evidence trail before
+// attempting a fourth): a self-referential C++23 constexpr/constinit
+// variable initializer that calls a consteval function referencing itself
+// (e.g. `constexpr int &n = n;`, or a self-referential NSDMI) fails to
+// produce the standard "call to consteval function ... is not a constant
+// expression" diagnostic. Affects clang/test/SemaCXX/PR98671.cpp,
+// builtin-is-within-lifetime.cpp, constant-expression-cxx11.cpp,
+// cxx2a-constexpr-dynalloc.cpp, cxx2b-consteval-propagate.cpp -- five
+// plain C++23 tests with no reflection content; this is a general
+// LLVM-22-merge Sema defect, not a reflection-specific one, even though
+// clang-p2996 found it because std::meta::info (a consteval-only type)
+// exercises this same shared machinery.
+//
+// Root mechanism: SemaDeclCXX.cpp's ActOnCXXEnterDeclInitializer pushes
+// ExpressionEvaluationContext::ImmediateFunctionContext for every C++23+
+// constexpr/constinit variable's initializer. This one push feeds two
+// consumers that need opposite behavior:
+//   - CheckForImmediateInvocation (above in this file) bails out and never
+//     registers a call as an ImmediateInvocationCandidate whenever
+//     isImmediateFunctionContext() is true -- this is what suppresses the
+//     self-reference diagnostic.
+//   - This function's own bailout just below (Rec.isImmediateFunctionContext())
+//     is what makes the ordinary P2996 idiom
+//     `constexpr auto R = <consteval-fn-returning-info>();` work without a
+//     spurious "expression of consteval-only type" error.
+// Both consumers key off the exact same push/gate signal, not off whether
+// the contained call actually succeeded -- so no fix that only touches the
+// push or this bailout can satisfy both cases simultaneously.
+//
+// Attempt 1 (2026-08-30, commit 6b5f636e6ba1, reverted 87bcf7d13116):
+// removed the push entirely (reverted to upstream's unconditional
+// PotentiallyEvaluated). Fixed the self-reference cases but regressed 9
+// libc++ reflection tests at the time (now 25, since this epic's test
+// suite has grown substantially) with spurious consteval-only-type errors.
+//
+// Attempt 2 (2026-09-10): confirmed empirically *why* attempt 1's
+// regression happens. The "manifestly constant-evaluated" bailout a few
+// lines below this comment (checking
+// VarDecl::isUsableInConstantExpressions()/hasConstantInitialization())
+// can never fire at this call site: this function runs from
+// ActOnCXXExitDeclInitializer, called via the initializer RAII scope's
+// destructor in Parser::ParseDeclarationAfterDeclaratorAndAttributes
+// *before* the parser calls Sema::AddInitializerToDecl, which is the only
+// thing that attaches the initializer expression to the VarDecl
+// (VDecl->setInit(...)). Both queries call VarDecl::getAnyInitializer()
+// internally and return false when it's null -- meaning that bailout is
+// dead code at this call site, for every declaration, fork or upstream,
+// independent of this bug.
+//
+// Attempt 3 (2026-09-10): tried a per-candidate success/failure signal --
+// track which ImmediateInvocationCandidates evaluate successfully, skip
+// the ConstevalOnly diagnostic for those, and gate the manifestly-
+// constant-evaluated bailout on VarDecl::isConstexpr()/ConstInitAttr
+// (available pre-attachment, unlike the dead check above) instead, but
+// only when no candidate in the record failed. Built successfully but
+// still produced spurious consteval-only-type errors on ordinary
+// non-consteval reflection declarations and regressed
+// clang/test/Reflection/consteval-only-types.cpp (the smuggling test
+// itself) -- confirming a per-candidate bit alone is insufficient: the
+// shared context flag conflates at least three distinct diagnostic
+// concerns (ordinary immediate-function-context escalation, consteval-only
+// smuggling suppression -- see ExprConstant.cpp's
+// note_consteval_only_smuggling, which is independent of all of this and
+// correctly fires regardless -- and self-reference-in-initializer
+// escalation), and relaxing the flag for "any successfully-evaluated
+// candidate" leaks into the other two.
+//
+// A real fix needs ExpressionEvaluationContextRecord to track manifestly-
+// constant-evaluation and per-candidate success state *per initializer
+// context*, not as one shared boolean context flag -- a scoped but real
+// architecture change, not a patch. Budget a dedicated session for it.
 static void
 HandleImmediateInvocations(Sema &SemaRef,
                            Sema::ExpressionEvaluationContextRecord &Rec) {
