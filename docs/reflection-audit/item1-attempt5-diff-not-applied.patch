@@ -1,0 +1,87 @@
+diff --git i/clang/lib/Sema/SemaDeclCXX.cpp w/clang/lib/Sema/SemaDeclCXX.cpp
+index 2bec6dcac8a2..fc14ddebd5bb 100644
+--- i/clang/lib/Sema/SemaDeclCXX.cpp
++++ w/clang/lib/Sema/SemaDeclCXX.cpp
+@@ -19102,18 +19102,20 @@ void Sema::ActOnCXXEnterDeclInitializer(Scope *S, Decl *D) {
+   if (S && D->isOutOfLine())
+     EnterDeclaratorContext(S, D->getDeclContext());
+ 
+-  auto Ctx = ExpressionEvaluationContext::PotentiallyEvaluated;
+-  if (getLangOpts().CPlusPlus23) {
+-    if (auto *VD = dyn_cast<VarDecl>(D)) {
+-      if (VD->isConstexpr())
+-        Ctx = ExpressionEvaluationContext::ImmediateFunctionContext;
+-      else if (auto *CIA = VD->getAttr<ConstInitAttr>();
+-               CIA && CIA->isConstinit())
+-        Ctx = ExpressionEvaluationContext::ImmediateFunctionContext;
+-    }
+-  }
++  // NOTE: this used to conditionally push ImmediateFunctionContext for every
++  // C++23+ constexpr/constinit variable's initializer, to support a
++  // consteval-only-type "smuggling" diagnostic. That reused a context flag
++  // that also gates unrelated escalation diagnostics in SemaExpr.cpp's
++  // CheckForImmediateInvocation/HandleImmediateInvocations, which suppressed
++  // the standard "call to consteval function ... is not a constant
++  // expression" diagnostic for a self-referential constexpr/constinit
++  // initializer. See HandleImmediateInvocations' own comment (SemaExpr.cpp)
++  // for the full history; the smuggling diagnostic itself
++  // (note_consteval_only_smuggling, ExprConstant.cpp) is independent of this
++  // context flag and is unaffected by reverting to the unconditional push.
+   PushExpressionEvaluationContext(
+-      Ctx, D, ExpressionEvaluationContextRecord::EK_VariableInit);
++      ExpressionEvaluationContext::PotentiallyEvaluated, D,
++      ExpressionEvaluationContextRecord::EK_VariableInit);
+ }
+ 
+ void Sema::ActOnCXXExitDeclInitializer(Scope *S, Decl *D) {
+diff --git i/clang/lib/Sema/SemaExpr.cpp w/clang/lib/Sema/SemaExpr.cpp
+index 93f434610586..0c1af67860a1 100644
+--- i/clang/lib/Sema/SemaExpr.cpp
++++ w/clang/lib/Sema/SemaExpr.cpp
+@@ -18613,6 +18613,19 @@ HandleImmediateInvocations(Sema &SemaRef,
+     if (E->isImmediateEscalating())
+       continue;
+ 
++    // Don't pile a redundant "expressions of consteval-only type" error onto
++    // an expression that already failed for an unrelated reason -- e.g.
++    // referencing an already ill-formed using-declarator reflection
++    // (clang/test/Reflection/reflection-wording-examples.cpp's
++    // bb_clang_p2996_issue_342_regression_test: `constexpr info ua =
++    // U<Base>::a;` where `U<Base>::a`'s own initializer already failed to
++    // instantiate). E->containsErrors() doesn't catch this case (the
++    // DeclRefExpr to the already-invalid decl is itself well-formed), so
++    // check the referenced declaration's validity directly.
++    if (auto *DRE = dyn_cast<DeclRefExpr>(E);
++        DRE && DRE->getDecl()->isInvalidDecl())
++      continue;
++
+     bool ImmediateEscalating = false;
+     bool IsPotentiallyEvaluated =
+         CurRec.Context ==
+diff --git i/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp w/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
+index d38bfb3c679e..02590e3fa87d 100644
+--- i/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
++++ w/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
+@@ -6378,16 +6378,13 @@ void Sema::InstantiateVariableInitializer(
+   currentEvaluationContext().DeclForInitializer = Var;
+ 
+   if (OldVar->getInit()) {
+-    ExpressionEvaluationContext Ctx =
+-        ExpressionEvaluationContext::PotentiallyEvaluated;
+-    if (getLangOpts().CPlusPlus23 &&
+-        (OldVar->isConstexpr() ||
+-         (OldVar->hasAttr<ConstInitAttr>() &&
+-          OldVar->getAttr<ConstInitAttr>()->isConstinit())))
+-      Ctx = ExpressionEvaluationContext::ImmediateFunctionContext;
+-
++    // See the matching comment in Sema::ActOnCXXEnterDeclInitializer
++    // (SemaDeclCXX.cpp) for why this always pushes PotentiallyEvaluated now
++    // rather than conditionally pushing ImmediateFunctionContext for C++23+
++    // constexpr/constinit variables.
+     EnterExpressionEvaluationContext InitContext(
+-        *this, Ctx, Var, ExpressionEvaluationContextRecord::EK_VariableInit);
++        *this, ExpressionEvaluationContext::PotentiallyEvaluated, Var,
++        ExpressionEvaluationContextRecord::EK_VariableInit);
+     currentEvaluationContext().InLifetimeExtendingContext =
+         parentEvaluationContext().InLifetimeExtendingContext;
+     currentEvaluationContext().RebuildDefaultArgOrDefaultInit =

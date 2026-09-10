@@ -18466,6 +18466,88 @@ static void RemoveNestedImmediateInvocation(
 // constant-evaluation and per-candidate success state *per initializer
 // context*, not as one shared boolean context flag -- a scoped but real
 // architecture change, not a patch. Budget a dedicated session for it.
+//
+// Attempt 4 (2026-09-10, Reflection Closeup epic, gpt-6-astra at xhigh
+// effort): converged on a new `VarDecl *CheckingConstantInitializer`
+// field on ExpressionEvaluationContextRecord (inherited into nested
+// contexts, compared by identity to merge a nested sub-context's
+// candidates into its parent when both belong to the same declaration).
+// Correctly fixed the 2 tests actually in this bug's scope
+// (builtin-is-within-lifetime.cpp, constant-expression-cxx11.cpp) with
+// clang/test/Reflection/ staying 20/20 including the smuggling test, but
+// regressed 16 libcxx reflection tests -- the nested-context-merging
+// logic wasn't correct for the broader space of ordinary reflection
+// declarations. User flagged the dispatch had burned ~93% of a 5-hour
+// Codex usage window in ~15-20 minutes; interrupted before full
+// verification, diff not recoverable (never committed). Full evidence:
+// docs/reflection-audit/codex-closeup-item1-escalation-report.md in the
+// Reflection Closeup epic's history.
+//
+// Attempt 5 (2026-09-10, same epic, Claude working directly -- no Codex
+// usage spent): revisited Attempt 2's "the manifestly-constant-evaluated
+// bailout is dead code" finding and found it was an *overgeneralization*:
+// VarDecl::hasConstantInitialization() genuinely depends on
+// VarDecl::getEvaluatedStmt()/EvaluatedStmt::HasConstantInitialization,
+// which *can* already be populated by the time this function runs for a
+// simple, non-dependent global variable's initializer (confirmed
+// empirically via temporary tracing: `decltype(^^int) r3 = ^^int;` at
+// namespace scope has hasConstantInitialization()==true here) -- Attempt
+// 2's specific failing test cases (self-referential locals) just
+// happened to be cases where it's still unpopulated. So: reverted only
+// the push in ActOnCXXEnterDeclInitializer/SemaTemplateInstantiateDecl.cpp
+// (matching Attempt 1) and left this function's bailout completely
+// untouched, at its original position and with its original condition.
+// This alone fixed the target self-reference tests AND left the ordinary
+// P2996 idiom working for simple cases -- but exposed two more issues,
+// found and fixed via direct isolation + minimal repros (see
+// docs/reflection-audit/ in the Reflection Closeup epic's history for
+// the exact minimal repros):
+//   (a) A DeclRefExpr to an already-invalid declaration (e.g.
+//       `constexpr info ua = U<Base>::a;` where `U<Base>::a`'s own
+//       initializer already failed a using-declarator check) still hits
+//       MarkDeclRefReferenced's ConstevalOnly-insertion path and gets a
+//       redundant, spurious err_expr_consteval_only_type on top of the
+//       real, already-correct error. E->containsErrors() does NOT catch
+//       this (the DeclRefExpr itself is well-formed); checking
+//       cast<DeclRefExpr>(E)->getDecl()->isInvalidDecl() does.
+//   (b) A genuinely deeper, different-in-kind problem for complex
+//       expressions: `constexpr auto x = (members_of(...) |
+//       views::filter(...)).front();` -- a range-view pipeline over a
+//       constexpr-heap-allocated vector<info> -- regressed with "read of
+//       heap allocated object that has been deleted" / "reference to
+//       subobject of heap-allocated object is not a constant expression".
+//       Root cause (traced, not yet fixed): `front()` becomes immediate-
+//       escalating because its body (`*ranges::begin(__derived())`) takes
+//       the address of the immediate `operator*`; when `front()` gets
+//       instantiated (as part of evaluating the whole pipeline once,
+//       atomically, via the ordinary constexpr-initializer check), that
+//       instantiation happens in its OWN nested ExpressionEvaluationContext
+//       (a different Record than the outer variable's EK_VariableInit),
+//       so RemoveNestedImmediateInvocation's same-Record deduplication
+//       (SemaExpr.cpp above) never sees it as "the same candidate" --
+//       once the push-revert makes `.front()` itself an eagerly-evaluated
+//       top-level candidate in the OUTER record too, it gets evaluated a
+//       *second*, fully independent time via EvaluateAndDiagnoseImmediateInvocation,
+//       and this second, isolated evaluation is what hits the heap-
+//       lifetime failure -- the ordinary single atomic whole-expression
+//       evaluation (which is what actually determines whether the
+//       variable has a valid constant initializer, and which the fix
+//       doesn't touch) does NOT have this problem, confirmed by testing
+//       the same expression on the unmodified baseline. This is a real,
+//       different-in-kind evaluator bug (double-evaluation of a nested
+//       immediate invocation across two separate
+//       ExpressionEvaluationContextRecord instances producing different
+//       lifetime outcomes), not a diagnostic-suppression-logic bug like
+//       (a) or Attempts 1-4 -- fixing it needs either extending nested-
+//       candidate deduplication across sibling/child Records (not just
+//       within one Record, as RemoveNestedImmediateInvocation currently
+//       does), or avoiding the redundant eager evaluation entirely for a
+//       candidate that will be evaluated anyway by the ordinary constexpr-
+//       initializer check. Reverted (not committed) after confirming (a)
+//       alone wasn't sufficient and (b) is a substantially different,
+//       deeper problem than everything found so far -- this is the
+//       closest any attempt has gotten (down to exactly one precisely
+//       root-caused, narrow failure mode) but still not a full fix.
 static void
 HandleImmediateInvocations(Sema &SemaRef,
                            Sema::ExpressionEvaluationContextRecord &Rec) {
