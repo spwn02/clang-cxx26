@@ -1315,13 +1315,26 @@ static QualType desugarType(QualType QT, bool UnwrapAliases, bool DropCV,
     QT = QualType(QT.getTypePtr(), 0);
     if (auto *TDT = dyn_cast<TypedefType>(QT); TDT && UnwrapAliases)
       QT = TDT->desugar();
-    else if (auto *UT = dyn_cast<UsingType>(QT); TDT && UnwrapAliases)
+    else if (auto *UT = dyn_cast<UsingType>(QT); UT && UnwrapAliases)
       QT = UT->desugar();
     else if (auto *TST = dyn_cast<TemplateSpecializationType>(QT);
              TST && UnwrapAliases && TST->isTypeAlias())
       QT = TST->getAliasedType();
     else if (auto *AT = dyn_cast<AutoType>(QT))
       QT = AT->desugar();
+    else if (auto *DT = dyn_cast<DecltypeType>(QT))
+      // Like AutoType/SubstTemplateTypeParmType below, a 'decltype(expr)'
+      // node is structural sugar produced while resolving an alias
+      // template's underlying type (e.g. 'iterator_t<R>''s
+      // 'decltype(ranges::begin(declval<R&>()))') rather than a named alias
+      // the user wrote -- so it's always stripped, not gated behind
+      // UnwrapAliases. Left alone, a reflection that dealiases down to an
+      // unresolved DecltypeType (whose *canonical* type is perfectly
+      // ordinary) can feed back into itself when its own template arguments
+      // are queried, since nothing downstream re-desugars it: observed as a
+      // genuine non-terminating recursion (issue #188) in the printer
+      // walking template_arguments_of() on such a value.
+      QT = DT->desugar();
     else if (auto *RT = dyn_cast<ReferenceType>(QT); RT && DropRefs)
       QT = RT->getPointeeType();
     else if (auto *STTP = dyn_cast<SubstTemplateTypeParmType>(QT))
