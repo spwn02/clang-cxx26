@@ -1,0 +1,81 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_STACKTRACE
+#define _LIBCPP_STACKTRACE
+
+/*
+    stacktrace synopsis
+
+namespace std {
+  // [stacktrace.entry], class stacktrace_entry
+  class stacktrace_entry;
+
+  // [stacktrace.basic], class template basic_stacktrace
+  template<class Allocator>
+    class basic_stacktrace;
+
+  using stacktrace = basic_stacktrace<allocator<stacktrace_entry>>;
+
+  // [stacktrace.basic.nonmem], non-member functions
+  template<class Allocator>
+    void swap(basic_stacktrace<Allocator>& a, basic_stacktrace<Allocator>& b) noexcept(see below);
+
+  string to_string(const stacktrace_entry& f);
+  template<class Allocator>
+    string to_string(const basic_stacktrace<Allocator>& st);
+
+  template<class charT, class traits>
+    basic_ostream<charT, traits>&
+      operator<<(basic_ostream<charT, traits>& os, const stacktrace_entry& f);
+  template<class charT, class traits, class Allocator>
+    basic_ostream<charT, traits>&
+      operator<<(basic_ostream<charT, traits>& os, const basic_stacktrace<Allocator>& st);
+
+  // [stacktrace.basic.hash], hash support
+  template<class T> struct hash;
+  template<> struct hash<stacktrace_entry>;
+  template<class Allocator> struct hash<basic_stacktrace<Allocator>>;
+
+  namespace pmr {
+    using stacktrace = std::basic_stacktrace<polymorphic_allocator<stacktrace_entry>>;
+  }
+}
+
+*/
+
+#include <__config>
+
+#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#  pragma GCC system_header
+#endif
+
+#include <version>
+
+#if _LIBCPP_STD_VER >= 26
+
+#  include <__memory_resource/polymorphic_allocator.h>
+#  include <__stacktrace/basic_stacktrace.h>
+#  include <__stacktrace/stacktrace_entry.h>
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+namespace pmr {
+using stacktrace _LIBCPP_AVAILABILITY_PMR = basic_stacktrace<polymorphic_allocator<stacktrace_entry>>;
+} // namespace pmr
+_LIBCPP_END_NAMESPACE_STD
+
+#endif // _LIBCPP_STD_VER >= 26
+
+#if !defined(_LIBCPP_REMOVE_TRANSITIVE_INCLUDES)
+#  include <cstddef>
+#  include <cstdint>
+#  include <string>
+#endif
+
+#endif // _LIBCPP_STACKTRACE

@@ -829,6 +829,9 @@ set(files
   __simd/traits.h
   __simd/vectorizable.h
   __split_buffer
+  __stacktrace/basic_stacktrace.h
+  __stacktrace/stacktrace_decls.h
+  __stacktrace/stacktrace_entry.h
   __std_mbstate_t.h
   __stop_token/atomic_unique_lock.h
   __stop_token/inplace_stop_callback.h
@@ -1168,6 +1171,7 @@ set(files
   span
   sstream
   stack
+  stacktrace
   stdatomic.h
   stdbit.h
   stdbool.h

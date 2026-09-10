@@ -30,6 +30,8 @@ set(LIBCXX_SOURCES
   include/ryu/digit_table.h
   include/ryu/f2s.h
   include/ryu/ryu.h
+  include/stacktrace/dwarf_line_table.h
+  include/stacktrace/elf_reader.h
   include/to_chars_floating_point.h
   include/from_chars_floating_point.h
   memory.cpp
@@ -42,6 +44,7 @@ set(LIBCXX_SOURCES
   ryu/d2fixed.cpp
   ryu/d2s.cpp
   ryu/f2s.cpp
+  stacktrace.cpp
   stdexcept.cpp
   string.cpp
   support/runtime/exception_fallback.ipp

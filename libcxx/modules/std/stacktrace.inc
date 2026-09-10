@@ -8,14 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 export namespace std {
-#if 0
-  // [stacktrace.entry], class stacktrace_­entry
+#if _LIBCPP_STD_VER >= 26
+  // [stacktrace.entry], class stacktrace_entry
   using std::stacktrace_entry;
 
-  // [stacktrace.basic], class template basic_­stacktrace
+  // [stacktrace.basic], class template basic_stacktrace
   using std::basic_stacktrace;
 
-  // basic_­stacktrace typedef-names
   using std::stacktrace;
 
   // [stacktrace.basic.nonmem], non-member functions

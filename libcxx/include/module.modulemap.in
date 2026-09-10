@@ -2185,6 +2185,14 @@ module std [system] {
     export *
   }
 
+  module stacktrace {
+    module basic_stacktrace { header "__stacktrace/basic_stacktrace.h" }
+    module stacktrace_entry { header "__stacktrace/stacktrace_entry.h" }
+
+    header "stacktrace"
+    export *
+  }
+
   module stdexcept {
     header "stdexcept"
     export *
