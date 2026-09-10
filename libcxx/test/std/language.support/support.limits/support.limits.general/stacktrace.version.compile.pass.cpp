@@ -20,11 +20,19 @@
 
 #if TEST_STD_VER < 14
 
+#  ifdef __cpp_lib_formatters
+#    error "__cpp_lib_formatters should not be defined before c++23"
+#  endif
+
 #  ifdef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 14
+
+#  ifdef __cpp_lib_formatters
+#    error "__cpp_lib_formatters should not be defined before c++23"
+#  endif
 
 #  ifdef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should not be defined before c++26"
@@ -32,11 +40,19 @@
 
 #elif TEST_STD_VER == 17
 
+#  ifdef __cpp_lib_formatters
+#    error "__cpp_lib_formatters should not be defined before c++23"
+#  endif
+
 #  ifdef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 20
+
+#  ifdef __cpp_lib_formatters
+#    error "__cpp_lib_formatters should not be defined before c++23"
+#  endif
 
 #  ifdef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should not be defined before c++26"
@@ -44,11 +60,37 @@
 
 #elif TEST_STD_VER == 23
 
+#  if !defined(_LIBCPP_VERSION)
+#    ifndef __cpp_lib_formatters
+#      error "__cpp_lib_formatters should be defined in c++23"
+#    endif
+#    if __cpp_lib_formatters != 202302L
+#      error "__cpp_lib_formatters should have the value 202302L in c++23"
+#    endif
+#  else
+#    ifdef __cpp_lib_formatters
+#      error "__cpp_lib_formatters should not be defined because it is unimplemented in libc++!"
+#    endif
+#  endif
+
 #  ifdef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER > 23
+
+#  if !defined(_LIBCPP_VERSION)
+#    ifndef __cpp_lib_formatters
+#      error "__cpp_lib_formatters should be defined in c++26"
+#    endif
+#    if __cpp_lib_formatters != 202302L
+#      error "__cpp_lib_formatters should have the value 202302L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_formatters
+#      error "__cpp_lib_formatters should not be defined because it is unimplemented in libc++!"
+#    endif
+#  endif
 
 #  ifndef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should be defined in c++26"
