@@ -38,13 +38,17 @@ mode of operation this epic started with.
 
 ## Next Up
 
-**Status as of 2026-09-10 (post item-3 fix):** Item 1 is escalated to the user, not being worked
+**Status as of 2026-09-10 (post item-4 fix):** Item 1 is escalated to the user, not being worked
 automatically (see below). Item 2 has a partial fix landed, one sub-symptom (`is_type_alias`
-identity loss) still open and deliberately parked. **Item 3 is now fixed and verified** (commit
-`9760450c0fe4` — see the item-3 paragraph near the end of this section and the table row below).
-**Resume with item 4 (NEW-7 — dependent splice-specifier wrongly accepted)**: read
-`docs/reflection-audit/codex-new7-design-report.md` first (3 prior attempts, 3 different bugs
-found) before starting a 4th.
+identity loss) still open and deliberately parked. **Items 3 and 4 are now fixed and verified**
+(commits `9760450c0fe4` and `8081ce09739d` — see their paragraphs near the end of this section and
+their table rows below). **Resume with item 5 (issues #180/#181 — expansion-statement body
+deferral + non-copyable tuple binding)**: read `docs/reflection-audit/codex-m4-180-181-report.md`
+first — the design (porting upstream PR #261's deferred-body approach against
+`SemaExpand.cpp:551-613`/`TreeTransform.h:9336-9343`) is an ~11-file port, the largest single item
+remaining after item 1. #181 has an independent binding defect on top (`SemaExpand.cpp:245-285`'s
+`// TODO: Add ref support`, a const hidden range at `:150`) needing a real `auto`/`auto&`/`auto&&`
+hidden-tuple-binding design per P1306R5.
 
 **Item 1 (escalation cluster): FIVE attempts now, all rejected empirically. Genuinely resists a
 full fix — this is the completion bar's escalation case, not a "keep trying" case.** Per the plan's
@@ -227,6 +231,55 @@ pre-existing baseline (item 1's escalation cluster, unaffected). New regression 
 `libcxx/test/std/experimental/reflection/issue-188-dealias-decltype.pass.cpp` (covers both the
 non-termination symptom and idempotency of a repeated `dealias()` round-trip).
 
+**Item 4 (NEW-7 — dependent splice-specifier wrongly accepted in CTAD-like position): fixed and
+verified (commit `8081ce09739d`).** Worked entirely directly (no Codex usage). This is the item
+with the most prior failed attempts after item 1 (3 rounds, per
+`docs/reflection-audit/codex-new7-design-report.md`), and every one of them was solving the wrong
+layer: each tried to *recover* "was `typename` written" via an unreliable proxy (a raw source-line
+text scan; `Lexer::findPreviousToken`) rather than asking why the type system's own tracked signal
+for this — `ReflectionSpliceType::getTypenameKWLoc()` — wasn't trustworthy in the first place. It
+wasn't, for three independent, compounding reasons, found via direct `Type*`/location tracing
+(temporary, fully reverted before this commit, matching the discipline used for items 1-3):
+
+1. **`SemaType.cpp`'s plain (no-`typename`) `TST_type_splice` case reused the splice's own source
+   location as `TypenameKWLoc`** instead of an invalid location — so every *implicit* splice looked
+   exactly like one that had spelled out `typename`.
+2. **The opposite failure, for the explicit case**: a `typename [:R:]` splice reached via
+   `Parser::TryAnnotateTypeOrScopeToken`'s `typename`-keyword handling routes through
+   `ParseOptionalCXXScopeSpecifier`'s internal splice-to-`annot_typename` rewrite (used to decide
+   "is this a splice-scope-specifier or just a type"), which **hard-coded `SourceLocation()`**
+   for the keyword location instead of threading through the one its caller had just consumed —
+   silently discarding a genuine `typename` occurrence.
+3. **The one that actually explains "works in isolation, breaks with multiple dependent-splice
+   templates in one TU"** — attempt 3's exact failure signature, hit here via a completely
+   different mechanism than any prior attempt suspected: even after fixing (1) and (2),
+   `ASTContext::getReflectionSpliceType`'s dependent-type uniquing
+   (`DependentReflectionSpliceType::Profile`, the `FoldingSet` cache key) folded in only the
+   splice's operand expression and template arguments — never `TypenameKWLoc`. Two *structurally
+   identical* dependent splices (e.g. the same depth-0/index-0 `info` non-type template parameter,
+   used by two unrelated function templates elsewhere in the same file), one written with
+   `typename` and one without, therefore produced identical folding-set keys and collapsed onto
+   whichever type node happened to be built first — silently corrupting the *other* declaration's
+   `TypenameKWLoc` regardless of what it actually wrote.
+
+Fixed all three: `SemaType.cpp` passes an invalid location for the implicit case; a new
+default-invalid `TypenameKWLoc` parameter on `ParseOptionalCXXScopeSpecifier` (every other call
+site unaffected) threads the real location through for the explicit case;
+`DependentReflectionSpliceType::Profile` gained a `HasTypenameKW` boolean in its folding-set key
+(deliberately *not* the raw `SourceLocation`, to avoid over-fragmenting type identity by source
+position — only the presence/absence of the keyword is semantically load-bearing for this
+diagnostic). With all three fixed, `getTypenameKWLoc().isInvalid()` alone is now a fully reliable
+"no explicit `typename`" signal — no text-scan or lexer heuristic needed, unlike every prior
+attempt. Implemented the actual NEW-7 diagnostic (`err_dependent_splice_ctad`) in
+`Sema::AddInitializerToDecl` per the original design's scope decision: dependent splice, no
+explicit `typename`, copy-list-initialization only (direct-list-init, parenthesized-init, and
+plain non-list copy-init are all left alone, as is any splice with explicit `typename`). New test:
+`clang/test/Reflection/new7-dependent-splice-ctad.verify.cpp` (covers the forbidden form plus all
+four positive controls plus a non-dependent-splice control). Verified zero regressions:
+clang/test/Reflection 21/21, the broader Parser/SemaCXX/SemaTemplate/AST/CodeGenCXX suites
+(3814 tests) at the documented 5-test pre-existing baseline, libcxx reflection suite at the
+documented 7-test pre-existing baseline.
+
 ## The 14 items
 
 | # | Item | Status | Notes |
@@ -234,7 +287,7 @@ non-termination symptom and idempotency of a repeated `dealias()` round-trip).
 | 1 | Consteval self-reference escalation cluster | **ESCALATED TO USER — 5 attempts, genuinely resists a full fix** | Attempt 5 (Claude, direct, no Codex) got furthest: fixed 2 real bugs (attempt 2's "dead bailout" was an overgeneralization; a `DeclRefExpr`-to-invalid-decl false positive) but hit a new, different-in-kind evaluator bug — a nested immediate invocation gets evaluated twice across separate `ExpressionEvaluationContextRecord`s with different (wrong) heap-lifetime outcomes for range-pipeline expressions. Reverted, not committed. Full history: `clang/lib/Sema/SemaExpr.cpp:18396`'s comment (5 attempts) and the dated entries below. Also confirmed: only 2 of the originally-named "5 SemaCXX tests" are this bug; `PR98671.cpp` is an unrelated pre-existing C++20 concepts crash, `cxx2a-constexpr-dynalloc.cpp`/`cxx2b-consteval-propagate.cpp` are a different consteval-escalation bug via a different code path. Per the completion bar: not resuming automatically, waiting for user direction. |
 | 2 | Issue #237 — closure-type alias loses identity | **Partial fix landed (commit `a9c1f8aad1d6`), one symptom remains open** | Primary hard-error ("'auto' not allowed in type alias") fixed — root cause: `decltype(auto-declared-var)` retains `AutoType` sugar that leaked into `BuildReflectionSpliceType`'s reflected-operand resolution; fixed by desugaring there. Zero regressions (verified: clang/test/Reflection 20/20, libcxx reflection 7-test baseline unchanged, SemaCXX/AST/CodeGenCXX/SemaTemplate 3411 tests at the documented 5-test baseline). **Remaining**: `is_type_alias(^^ct)` still returns false even once `ct` declares successfully — traced through every layer (CXXReflectExpr construction, `VisitCXXReflectExpr` evaluation, `APValue::getReflectedType()`, the metafunction `Evaluator` callback, calling the raw `__metafn_is_alias` directly bypassing the library wrapper) and found each one correctly preserving the `TypedefType` sugar in isolation — yet the metafunction still observes a bare `RecordType`. Root cause not found; see the dated session-log entry for the full ruled-out-hypothesis list before re-investigating. |
 | 3 | Issue #188 — `display_string_of(dealias(...))` not constant expr | **Fixed and verified (commit `9760450c0fe4`)** | Root cause: `dealias()`'s `desugarType()` hand-rolled sugar-strip loop was missing `DecltypeType` — an alias template's underlying type (e.g. `iterator_t<R> = decltype(ranges::begin(declval<R&>()))`) desugars one step to a `DecltypeType` whose *canonical* type is ordinary but which the loop couldn't unwrap further, leaving a still-sugared reflection whose own template-argument query resolved back to an equivalent unresolved reflection every time — a literal non-terminating recursion (confirmed via `Type*` identity tracing: same pointer recurred 380+ times), not legitimate deep nesting, eventually exhausting the constexpr call-depth budget with a generic, cause-free diagnostic. Fixed by adding `DecltypeType` to the loop's unconditional strip set (alongside pre-existing `AutoType`/`SubstTemplateTypeParmType`/`ReflectionSpliceType`). Also fixed an unrelated dead-code bug found en route in the same loop: the `UsingType` branch tested the wrong local (`TDT` instead of `UT`), so `UsingType` sugar was never actually unwrapped. Verified zero regressions: clang/test/Reflection 20/20, libcxx reflection suite at the documented 7-test pre-existing baseline (byte-for-byte same tests), SemaCXX at the documented 5-test pre-existing baseline. New regression test: `libcxx/test/std/experimental/reflection/issue-188-dealias-decltype.pass.cpp`. |
-| 4 | NEW-7 — dependent splice-specifier wrongly accepted (CTAD-like position) | Not started | `docs/reflection-audit/codex-new7-design-report.md` — 3 prior attempts, 3 different bugs. Needs to understand `AddInitializerToDecl` timing for dependent splice-typed declarators. |
+| 4 | NEW-7 — dependent splice-specifier wrongly accepted (CTAD-like position) | **Fixed and verified (commit `8081ce09739d`)** | Root cause: THREE independent, compounding bugs in `ReflectionSpliceType::getTypenameKWLoc()`'s tracking, not the diagnostic logic itself (which every prior attempt was trying to work around via unreliable heuristics instead). (1) `SemaType.cpp`'s plain (no-`typename`) `TST_type_splice` case reused the splice's own location as `TypenameKWLoc`, making implicit splices look explicit. (2) `typename [:R:]` reached via `TryAnnotateTypeOrScopeToken` goes through `ParseOptionalCXXScopeSpecifier`'s splice-rewrite, which hard-coded `SourceLocation()` instead of threading the real keyword location through — the opposite failure, discarding an explicit `typename`. (3) Even after fixing both, `DependentReflectionSpliceType::Profile` (the FoldingSet uniquing key for dependent splice types) never included `TypenameKWLoc`, so two structurally-identical dependent splices (e.g. the same depth/index template parameter in two different function templates), one with `typename` and one without, collapsed onto the same cached type node — exactly the "breaks once multiple dependent-splice templates coexist in one TU" signature all 3 prior attempts hit, via a completely different mechanism than any suspected. Fixed all three; added a `HasTypenameKW` bit to the Profile (not the raw location, to avoid over-fragmenting type identity by source position). New test: `clang/test/Reflection/new7-dependent-splice-ctad.verify.cpp`. Verified zero regressions: clang/test/Reflection 21/21, Parser+SemaCXX+SemaTemplate+AST+CodeGenCXX 3814/3814 at the documented 5-test baseline, libcxx reflection suite at the documented 7-test baseline. |
 | 5 | Issues #180/#181 — expansion-statement body deferral + non-copyable tuple binding | Not started | `docs/reflection-audit/codex-m4-180-181-report.md` — PR #261's design applicable, ~11-file port. #181 has an independent binding defect (`SemaExpand.cpp:245-285`, `:150`). |
 | 6 | Issue #182 — `template for` + `continue` ICE | Not started | CodeGen needs instance-discard awareness in expansion control-flow lowering. |
 | 7 | Issue #150 — spliced explicit destructor call `~[:info:]()` | Not started | Needs a new splice-bearing destructor-name AST/Sema representation. |
