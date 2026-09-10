@@ -30,26 +30,50 @@ and do not leave it silently unresolved — stop and escalate the specific block
 
 ## Next Up
 
-**CU0 complete. CU1 item 1 (escalation cluster) dispatched to Astra at xhigh effort, in flight.**
-Launched via `mise exec codex@0.153.0-alpha.2 -- codex exec -m gpt-6-astra -c
-model_reasoning_effort=xhigh ...`, report will land at
-`docs/reflection-audit/codex-closeup-item1-escalation-report.md` /
-`codex-closeup-item1-escalation-final.md`, log at
-`docs/reflection-audit/batch-outputs/codex-closeup-item1-escalation.log`. This is expected to run
-long (genuine architecture design work, no deadline). When it returns: **personally, independently
-verify any claimed fix** (build, run the exact regression gate listed in the dispatch prompt
-yourself) before trusting it — do not commit on Astra's own "fixed and verified" claim alone, per
-this epic's inherited validator discipline. If it reports a genuine full fix: verify, commit
-(`reflection:` prefix), push, update this table's row 1 to Fixed-and-verified with evidence, move
-to item 2. If it reports exhausting effort without a fix: read its writeup, decide whether the
-Completion Bar's "escalate to the user" clause applies (it does, per the plan — do not close this
-item under a lesser bar or move on silently), and surface it to the user precisely as instructed.
+**Item 1 (escalation cluster): real progress made and documented, NOT fixed, Codex work paused.**
+The user flagged mid-dispatch that the 5-hour Codex usage window had dropped to ~7% remaining.
+The Astra dispatch (pid 693539) was interrupted cleanly (SIGINT, no corruption) rather than risk
+it dying uncontrolled. Its on-disk diff (6 files: `Sema.h`, `SemaDecl.cpp`, `SemaDeclCXX.cpp`,
+`SemaExpr.cpp`, `SemaTemplateInstantiateDecl.cpp`, `consteval-only-types.cpp`) was personally
+verified with direct `ninja`/`lit` calls (no further Codex usage spent) — see the dated entry
+below for the full before/after evidence. **Verdict: real, substantive progress on the actual
+target bug, but not a clean fix — reverted, not committed.**
+
+**Key finding from this round, worth preserving even though the fix didn't land:** the "5 known
+SemaCXX failures" this item's description names are **not all the same bug**. Isolated via
+git-stash: `PR98671.cpp` crashes (SIGABRT, a C++20 concepts/`IsAtLeastAsConstrained` assertion)
+identically on the clean baseline — entirely unrelated to consteval escalation, likely deserves
+its own item, and is arguably not reflection-scoped at all (flag to the user before pursuing).
+`cxx2a-constexpr-dynalloc.cpp`/`cxx2b-consteval-propagate.cpp` show the exact right diagnostic
+*family* (missing "call to consteval function ... is not a constant expression") but Astra's diff
+made byte-for-byte zero difference to either — they're missing the diagnostic via a **different**
+code path (implicit special member functions / `if constexpr` conditions, not the explicit
+`ActOnCXXEnterDeclInitializer` variable-initializer path this fix targets) — this matches a note
+already in the original epic's August-era history that these two were suspected to have a
+different root cause. Only `builtin-is-within-lifetime.cpp` and `constant-expression-cxx11.cpp`
+are the actual explicit-variable-initializer self-reference cases this fix's design addresses, and
+Astra's diff **did fix both correctly**, plus `clang/test/Reflection/` stayed 20/20 including the
+smuggling test (`consteval-only-types.cpp`) — the design direction (a new `CheckingConstantInitializer`
+field on `ExpressionEvaluationContextRecord`, replacing the overloaded `ImmediateFunctionContext`
+reuse) is sound for the narrow case. What broke: the libc++ reflection suite went from the
+documented 7-failure baseline to 23 failures — 16 new regressions, listed in the dated entry below
+— meaning the nested-expression-merging logic added to `HandleImmediateInvocations` for handling
+sub-initializers is not yet correct for the broader space of ordinary reflection declarations.
+
+**Next action, once Codex usage recovers:** resume with Terra (cheaper) rather than Astra first,
+handing it this exact finding (the design is right for the target case, the regression is
+specifically in the `HandleImmediateInvocations` nested-context-merging addition — see the diff
+excerpt in the dated entry) rather than starting over. **Do not dispatch any more Codex work until
+usage has recovered** — this is a 5-hour rolling limit, not the weekly cap the user must
+personally authorize resetting; it should recover on its own with time, no action needed from
+either side. In the meantime, non-Codex work (further isolation of the `PR98671.cpp` crash's
+scope, or documentation/tracker upkeep) can continue without spending any Codex usage.
 
 ## The 14 items
 
 | # | Item | Status | Notes |
 |---|---|---|---|
-| 1 | Consteval self-reference escalation cluster | Not started | `clang/lib/Sema/SemaExpr.cpp:18396`'s `HandleImmediateInvocations` has the full 3-attempt history as a source comment — read it in full before starting. Affects 5 `SemaCXX` tests. Tier 0, hardest item — use Astra from the start. |
+| 1 | Consteval self-reference escalation cluster | 4th attempt in progress, reverted, usage-paused | Astra's round-1 design (`CheckingConstantInitializer` field) correctly fixed the 2 tests actually in scope; introduced 16 new libcxx regressions in `HandleImmediateInvocations`'s nested-context-merging logic. Reverted, not committed. See the dated 2026-09-10 entry below for full evidence and the exact regression list. Also discovered: only 2 of the originally-named "5 SemaCXX tests" are this bug; `PR98671.cpp` is an unrelated pre-existing concepts crash, `cxx2a-constexpr-dynalloc.cpp`/`cxx2b-consteval-propagate.cpp` are a different consteval-escalation bug (different code path). Resume with Terra once Codex usage recovers. |
 | 2 | Issue #237 — closure-type alias loses identity | Not started | `using ct = typename[:cr:];` fails for closure types. Start from `SemaReflect.cpp`'s splice-type handling. |
 | 3 | Issue #188 — `display_string_of(dealias(...))` not constant expr | Not started | Bottoms out in `pretty_printer::print` → `reflect_invoke(^^tprint, ...)` constant evaluation for canonicalized template-specialization types. |
 | 4 | NEW-7 — dependent splice-specifier wrongly accepted (CTAD-like position) | Not started | `docs/reflection-audit/codex-new7-design-report.md` — 3 prior attempts, 3 different bugs. Needs to understand `AddInitializerToDecl` timing for dependent splice-typed declarators. |
@@ -79,3 +103,69 @@ needed the alpha CLI `0.153.0-alpha.2`, installed with the user's explicit permi
 install codex@0.153.0-alpha.2` and invoked via `mise exec` rather than changing the global pin) both
 resolve and respond. Seeded the 14-item table from the approved plan. Setting up the recurring cron
 heartbeat next, then starting CU1 with item 1 (escalation cluster) using Astra directly.
+
+### 2026-09-10 (later) — Item 1 first Astra round: real progress, not landed, usage-constrained
+
+Dispatched Astra at `xhigh` effort with the full 3-attempt history, exact regression gate, and a
+design lead (give the C++23 constexpr/constinit-initializer case its own
+`ExpressionEvaluationContext` state instead of reusing `ImmediateFunctionContext`). It converged on
+a design along those lines: a new `CheckingConstantInitializer` bit on
+`ExpressionEvaluationContextRecord`, with `ActOnCXXEnterDeclInitializer` (`SemaDeclCXX.cpp`) always
+pushing `PotentiallyEvaluated` now and setting this new flag instead of conditionally picking
+`ImmediateFunctionContext`; `CheckForImmediateInvocation` (`SemaExpr.cpp`) skips its escalation-
+marking when the flag is set; `HandleImmediateInvocations` merges a nested sub-context's candidates
+up into its parent when both share the same `CheckingConstantInitializer` value (a new block right
+before the existing "manifestly constant-evaluated" bailout) rather than processing them in place.
+Mirrored in `SemaTemplateInstantiateDecl.cpp`'s template-instantiation variable-initializer path.
+
+**The user flagged the 5-hour Codex usage window had dropped to ~7% remaining mid-dispatch.**
+Interrupted the process with `SIGINT` (pid 693539) — exited cleanly, log ends with "turn
+interrupted", no partial/corrupted file state; `git status` showed a coherent 6-file diff, not a
+half-written mess. Verified the result personally from there using only direct `ninja`/`lit` calls
+(zero additional Codex usage spent):
+
+- Rebuilt `clang` with the diff applied — succeeded cleanly.
+- The 5 documented `SemaCXX` tests: 2 passed (`builtin-is-within-lifetime.cpp`,
+  `constant-expression-cxx11.cpp` — genuinely fixed, verified the diagnostic is now present and
+  correct), 3 still failed (`PR98671.cpp`, `cxx2a-constexpr-dynalloc.cpp`,
+  `cxx2b-consteval-propagate.cpp`).
+- **Isolation via `git stash`**: re-ran the same 5 tests against the unmodified baseline.
+  `PR98671.cpp` crashes (SIGABRT) identically with or without the diff —
+  `clang/lib/Sema/SemaConcept.cpp:2579`'s `IsAtLeastAsConstrained` assertion
+  (`"use non-instantiated function declaration for constraints partial ordering"`), triggered while
+  instantiating `S2<int>` and computing special-member eligibility. **Pre-existing, unrelated to
+  consteval escalation or reflection at all** — a pure C++20 concepts/constraints bug. Worth its
+  own item, but likely out of this reflection epic's scope; flag to the user before pursuing.
+  `cxx2a-constexpr-dynalloc.cpp` and `cxx2b-consteval-propagate.cpp` produce **byte-identical**
+  `-verify` failure output with or without the diff — the diff changed nothing for either. Both are
+  missing the same diagnostic *family* ("call to consteval function ... is not a constant
+  expression") but via implicit-special-member-function-definition and `if constexpr`-condition
+  paths, not the explicit `constexpr`/`constinit` variable-initializer path this fix's design
+  targets — matches a suspicion already on record from the original epic's August history that
+  these two don't share the escalation cluster's exact root cause. **So of the 5, only 2 are
+  actually in this fix's scope, and both of those 2 now pass correctly.**
+- `clang/test/Reflection/`: 20/20, including `consteval-only-types.cpp` (the smuggling test) —
+  this is the exact test that broke the third prior attempt, and it's clean here.
+- `libcxx/test/std/experimental/reflection/` (full subtree, via the real `libcxx-lit` wrapper):
+  **23 failures, up from the documented 7-test baseline** — a real regression. The 7 baseline
+  tests are all still present in the 23 (not fixed, not worsened), but 16 new failures appeared:
+  `define-aggregate.verify.cpp`, `description-of-template-kinds.verify.cpp`,
+  `m5-p2996-batch1.verify.cpp`, `m5-p2996-batch2.verify.cpp`, `m5-p2996-batch3.verify.cpp`,
+  `m5-p2996-batch7.verify.cpp`, `m5-p2996-batch8.verify.cpp`, `m5-p2996-batch9.verify.cpp`,
+  `m5-p2996-batch10.verify.cpp`, `m5-p2996-batch11.verify.cpp`,
+  `m5-p3491-p3560-p3795-batch16.verify.cpp`, `m5-p3795-batch14.verify.cpp`,
+  `new-3-annotations-with-type.verify.cpp`, `new-4-closure-inaccessible.verify.cpp`,
+  `substitute.verify.cpp`, `to-and-from-values.verify.cpp`. Not yet root-caused — the regression is
+  most plausibly in `HandleImmediateInvocations`'s new nested-context-merging block (the design's
+  riskiest, least-tested new piece — it was mid-way through Astra's own verification pass, testing
+  ~20 declaration shapes with temporary trace instrumentation, when it was interrupted; it had not
+  yet reached the libc++ suite).
+
+**Reverted the diff entirely** (`git checkout --` on all 6 touched files, confirmed clean, rebuilt
+to restore a known-good tree) — not safe to commit given the completion bar. Nothing committed or
+pushed this round. **Codex usage-constrained: pausing further Codex dispatches on this or any item
+until the 5-hour window recovers naturally** (this is the rolling 5-hour limit, not the weekly cap
+the user must personally authorize — no action needed, just time). When resuming: hand the next
+session (Terra first, cheaper, since the design direction is already validated for the target
+case) this exact diff shape and the 16-test regression list as a starting point rather than a blank
+slate — the fix isn't wrong, it's incomplete specifically around nested-context merging.
