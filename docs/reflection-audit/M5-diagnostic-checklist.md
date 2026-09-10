@@ -17,7 +17,7 @@ context; it is not interchangeable with a library `Throws` test.
 
 | Total conditions | Covered | Needs-New-Test | Blocked-On-Unimplemented-Facility |
 |---:|---:|---:|---:|
-| 109 | 69 | 23 | 19 |
+| 110 | 69 | 21 | 19 |
 
 The count is by row below, not by diagnostic line. Several rows deliberately cover a conjunction
 from one standard-library clause; future implementation sessions may split such a row if the
@@ -79,8 +79,8 @@ Normative source: [P2996R13](https://wg21.link/P2996R13), especially [meta.refle
 | 2996-45 | `define_aggregate`: injected declarations obey the scope, reachability, sequencing, and complete-class restrictions. | Covered | [define-aggregate.verify.cpp](../../libcxx/test/std/experimental/reflection/define-aggregate.verify.cpp) |
 | 2996-46 | Reflection of a local parameter introduced by a requires-expression is ill-formed. | Covered | [m5-p2996-p3096-batch12.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-p3096-batch12.verify.cpp) |
 | 2996-47 | A reflection operator naming a `using-declarator` is ill-formed under the adopted R13 wording. | Covered | [m5-p2996-p3096-batch12.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p2996-p3096-batch12.verify.cpp) |
-| 2996-48 | A splice of a constructor or destructor is ill-formed. | Needs-New-Test | — |
-| 2996-49 | A dependent splice-specifier in the forbidden CTAD position is ill-formed. | Needs-New-Test | — |
+| 2996-48 | A splice of a constructor or destructor is ill-formed. | Needs-New-Test — NEW-6 | Both constructor and destructor reflection probes were accepted; see NEW-6. |
+| 2996-49 | A dependent splice-specifier in the forbidden CTAD position is ill-formed. | Needs-New-Test — NEW-7 | The dependent type splice in the CTAD-like declaration was accepted; see NEW-7. |
 
 ## P1306R5 — Expansion Statements
 
@@ -105,7 +105,7 @@ Normative source: [P3096R12](https://www.open-std.org/jtc1/sc22/wg21/docs/papers
 | 3096-03 | `variable_of(r)`: `r` represents a function parameter and the parameter has a valid invocation frame in the required constant-evaluation context. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp) |
 | 3096-04 | `has_ellipsis_parameter(r)` is total: for a non-function reflection it returns false rather than diagnosing. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp), [p3096-total-functions.pass.cpp](../../libcxx/test/std/experimental/reflection/p3096-total-functions.pass.cpp) |
 | 3096-05 | `has_default_argument(r)` is total: for a non-function-parameter reflection it returns false rather than diagnosing. | Covered | [m5-p3096-batch5.verify.cpp](../../libcxx/test/std/experimental/reflection/m5-p3096-batch5.verify.cpp), [p3096-total-functions.pass.cpp](../../libcxx/test/std/experimental/reflection/p3096-total-functions.pass.cpp) |
-| 3096-06 | Parameter `identifier_of`, `u8identifier_of`, `type_of`, and `has_identifier` are ill-formed when applied outside the parameter cases specified by the paper. | Needs-New-Test | — |
+| 3096-06 | Parameter `identifier_of`, `u8identifier_of`, `type_of`, and `has_identifier` are ill-formed when applied outside the parameter cases specified by the paper. | Needs-New-Test — NEW-8 | Non-parameter `identifier_of`, `u8identifier_of`, and `has_identifier` probes were accepted; see NEW-8. |
 | 3096-07 | Local parameters introduced by a requires-expression cannot be reflected. | Covered | [lift-operator.cpp](../../clang/test/Reflection/lift-operator.cpp) |
 
 ## P3293R3 — Splicing a Base Class Subobject
