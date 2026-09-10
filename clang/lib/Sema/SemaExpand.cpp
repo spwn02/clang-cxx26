@@ -76,8 +76,16 @@ ExprResult makeIterableExpansionSizeExpr(Sema &S, VarDecl *RangeVar) {
   Expr *VarRef;
   {
     DeclarationNameInfo Name(RangeVar->getDeclName(), RangeVar->getBeginLoc());
-    VarRef = S.BuildDeclRefExpr(RangeVar, RangeVar->getType(), VK_LValue, Name,
-                                nullptr, RangeVar);
+    // A DeclRefExpr's type must never itself be a reference type (see the
+    // sibling VarRef construction in tryMakeCXXIterableExpansionSelectExpr,
+    // which already strips it via 'Range->getType()' being non-reference to
+    // begin with). RangeVar's *declared* type is now a genuine reference
+    // (see the 'getAutoRRefDeductType()' comment above) rather than the
+    // by-value const copy it used to be, so it must be stripped here too --
+    // otherwise Sema::BuildDeclRefExpr crashes
+    // ("Expressions can't have reference type", Expr::setType).
+    VarRef = S.BuildDeclRefExpr(RangeVar, RangeVar->getType().getNonReferenceType(),
+                                VK_LValue, Name, nullptr, RangeVar);
   }
   assert(VarRef);
 
@@ -156,7 +164,50 @@ bool tryMakeCXXIterableExpansionSelectExpr(
       DC = DC->getParent();
 
     IdentifierInfo *II = &S.PP.getIdentifierTable().get("__range");
-    QualType QT = Range->getType().withConst();
+    // The hidden '__range' used to always be a const-qualified BY-VALUE
+    // copy ('Range->getType().withConst()'), constructed here unconditionally
+    // -- via the AddInitializerToDecl call below -- before this function has
+    // even determined whether the type is iterable (that's decided later, by
+    // the begin()/end() lookups). For a range type with a deleted or
+    // inaccessible copy constructor (e.g. a std::tuple holding a
+    // std::unique_ptr), that copy attempt is a hard, non-SFINAE diagnostic
+    // that fires regardless of whether this iterable path ultimately
+    // applies, permanently corrupting a 'template for' over such a type even
+    // though the destructurable path below never needed a copy at all (see
+    // issue #181).
+    //
+    // The fix is *not* to switch unconditionally to a forwarding reference
+    // (mirroring ordinary range-based for's 'auto&& __range = range-init'):
+    // a reference bound to a temporary needs its lifetime properly extended
+    // to remain usable, including inside a manifestly-constant-evaluated
+    // 'constexpr' expansion variable's initializer -- and plumbing that
+    // correctly turned out to regress working cases (e.g. a prvalue
+    // define_static_array(...) result bound in a 'template for (constexpr
+    // ... : ...)') whose type is perfectly copyable and was never the
+    // problem to begin with. Instead, speculatively check copy-
+    // constructibility first (via a trial InitializationSequence, which
+    // unlike the real AddInitializerToDecl call never commits/diagnoses) and
+    // only fall back to the reference when the type genuinely can't be
+    // copied -- preserving the by-value behavior (and its constexpr-
+    // friendliness) for every case that already worked, and only changing
+    // behavior for the one that didn't.
+    QualType CopyQT = Range->getType().withConst();
+    // 'void' can't be copy-constructed OR referenced (deducing 'auto&&'
+    // against it is its own hard error, "cannot form a reference to
+    // 'void'"), so it must use the plain by-value spelling regardless of the
+    // check below -- it was never going to succeed as a range either way,
+    // and this just preserves whatever diagnostic it was already going to
+    // produce elsewhere (e.g. an unresolved-overloaded-function recovery
+    // expression) instead of pre-empting it with a less specific one.
+    bool CanCopyConstruct = Range->getType()->isVoidType();
+    if (!CanCopyConstruct) {
+      InitializedEntity Entity = InitializedEntity::InitializeTemporary(CopyQT);
+      InitializationKind Kind = InitializationKind::CreateCopy(
+          Range->getBeginLoc(), Range->getBeginLoc());
+      InitializationSequence Seq(S, Entity, Kind, Range);
+      CanCopyConstruct = !Seq.Failed();
+    }
+    QualType QT = CanCopyConstruct ? CopyQT : S.Context.getAutoRRefDeductType();
     TypeSourceInfo *TSI = S.Context.getTrivialTypeSourceInfo(QT);
 
     RangeVar = VarDecl::Create(S.Context, DC, Range->getBeginLoc(),
@@ -173,7 +224,16 @@ bool tryMakeCXXIterableExpansionSelectExpr(
     RangeVar->setImplicit();
     if (ExpansionVar->isConstexpr())
       RangeVar->setConstexpr(true);
-    else if (!LifetimeExtendTemps.empty()) {
+    // Lifetime extension (P2718R0-style, mirroring ordinary range-based
+    // for's BuildCXXForRangeStmt in SemaStmt.cpp) only makes sense when
+    // '__range' is itself a reference bound to a temporary -- extending a
+    // temporary's lifetime to match a BY-VALUE variable is meaningless (the
+    // value was already copied out of it) and, empirically, confuses the
+    // constant evaluator's own allocation/temporary tracking when applied to
+    // the copy case anyway (observed as a spurious "allocation ... was not
+    // deallocated" diagnostic on an otherwise-valid constexpr copy). Only
+    // apply it when QT above chose the reference-binding fallback.
+    if (!CanCopyConstruct && !LifetimeExtendTemps.empty()) {
       InitializedEntity Entity =
           InitializedEntity::InitializeVariable(RangeVar);
       for (auto *MTE : LifetimeExtendTemps)
@@ -255,10 +315,22 @@ ExprResult makeCXXDestructurableExpansionSelectExpr(
   if (!Arity)
     return ExprError();
 
-  QualType QT = S.Context.getAutoDeductType();  // TODO: Add ref support.
+  QualType QT = S.Context.getAutoDeductType();
   if (ExpansionVar->getType()->isReferenceType())
-    QT = S.BuildReferenceType(QT, true, Range->getBeginLoc(),
-                              DeclarationName());
+    // 'SpelledAsLValue' must track the expansion variable's own declared
+    // reference kind: 'auto&' needs a hidden binding of lvalue-reference
+    // type, but 'auto&&' needs an rvalue-reference (forwarding) type. This
+    // was previously hardcoded to 'true' unconditionally, which is
+    // indistinguishable from 'auto&' for any consumer of the resulting
+    // reference type -- in particular, it forced every hidden binding built
+    // here to be a plain lvalue reference even when the user wrote 'auto&&',
+    // so binding to a genuine prvalue range (e.g. 'template for (auto&&
+    // elem : SomeTuple{})') hard-errored with "non-const lvalue reference
+    // ... cannot bind to a temporary" instead of correctly binding via
+    // rvalue-reference/forwarding semantics (see issue #181).
+    QT = S.BuildReferenceType(
+        QT, !ExpansionVar->getType()->isRValueReferenceType(),
+        Range->getBeginLoc(), DeclarationName());
 
   SmallVector<BindingDecl *, 4> Bindings;
   for (size_t k = 0; k < *Arity; ++k) {
@@ -471,6 +543,30 @@ ExprResult Sema::BuildCXXExpansionSelectExpr(
     return BuildCXXIndeterminateExpansionSelectExpr(Range, TParamRef,
                                                     ExpansionVar,
                                                     LifetimeExtendTemps);
+
+  // Ordinary range-based for (Sema::BuildCXXForRangeStmt, SemaStmt.cpp)
+  // explicitly completes the range's type before doing any begin()/end()
+  // member lookup on it. This code never did, and member lookup into an
+  // as-yet-uninstantiated class (e.g. a std::tuple<...> reached only via a
+  // reference parameter, never otherwise odr-used before this loop) hits an
+  // assertion in Sema::LookupQualifiedName ("Declaration context must
+  // already be complete!") in an assertions-enabled build -- and would
+  // silently misbehave in a release build. See issue #181: a range whose
+  // type isn't independently forced complete elsewhere in the same
+  // definition triggers this unconditionally, regardless of the expansion
+  // variable's declared form (auto/auto&/auto&&/const auto&).
+  //
+  // Scoped to record types only (the only kind LookupQualifiedName's
+  // completeness assertion ever cares about): a non-class, non-array type
+  // like 'void' is inherently incomplete and can never be completed, so
+  // diagnosing it here as though it *could* have been completed pre-empts
+  // -- with a worse, less specific message -- whatever this Range expression
+  // would otherwise have produced downstream (e.g. an unresolved-overloaded-
+  // function recovery expression legitimately typed 'void').
+  if (Range->getType()->isRecordType() &&
+      RequireCompleteType(Range->getExprLoc(), Range->getType(),
+                          diag::err_for_range_incomplete_type))
+    return ExprError();
 
   ExprResult IterableExprResult;
   if (tryMakeCXXIterableExpansionSelectExpr(*this, Range, TParamRef,
