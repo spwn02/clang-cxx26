@@ -332,8 +332,8 @@ for readability, same as the source files:
 | 176 | `members_of` + empty namespace redeclaration | Already-Fixed | `ExprConstantMeta.cpp:1535-1545`; same test file `:41-61`, `:70-84`. | Medium |
 | 177 | Enum NTTP loses enumerator identity | Out-of-Scope | Intentional: reflected value vs. enumerator declaration distinction, `ExprConstantMeta.cpp:4192-4208`; `entity-classification.pass.cpp:61-82` requires this. | High |
 | 178 | `template for` over `integer_sequence` | Already-Fixed | Direct `-freflection-latest -fsyntax-only` probe over `std::integer_sequence<int,1,5>` succeeds at current HEAD. | High |
-| 180 | `static_assert(false)` ignored | Confirmed-Open — deferred 2026-09-09 | Exact reproducer still compiles successfully, instantiates `test_impl<int>`, and ignores the dependent `static_assert(false)` that should make substitution ill-formed. This needs the broader expansion-body deferral design associated with PR #261; no safe local diagnostic tweak identified. | High |
-| 181 | Non-copyable tuple in `template for` | Confirmed-Open — deferred 2026-09-09 | Exact range-for probe still attempts to copy `const tuple<unique_ptr<...>>` and diagnoses its deleted copy constructor. Correct range/reference preservation is coupled to the #180/#261 expansion work; no safe local fix identified. | High |
+| 180 | `static_assert(false)` ignored | Confirmed-Open — design investigation 2026-09-10 | Upstream PR #261 (`1fdd67b76362`, “Compute expansion size and instantiate after expansion...”) proposes the applicable broad design: retain expansion bodies as deferred `Stmt*`, compute size, then instantiate the body per index. This fork currently transforms expansion bodies before `FinishCXXExpansionStmt` and separately substitutes a combined body per index (`SemaExpand.cpp:551-613`, `TreeTransform.h:9336-9343`), so premature/incorrect context handling remains plausible. However, the published #180 reproducer is a reflected `substitute` of `test_impl` containing `static_assert(false)`, not literally an expansion-body assertion; a future port needs an exact regression for both scenarios. No safe local diagnostic tweak identified. See [codex-m4-180-181-report](reflection-audit/codex-m4-180-181-report.md). | High |
+| 181 | Non-copyable tuple in `template for` | Confirmed-Open — design investigation 2026-09-10 | PR #261's body deferral is applicable to the shared expansion architecture but does not fix this issue's independent binding defect. `makeCXXDestructurableExpansionSelectExpr` still has `// TODO: Add ref support` (`SemaExpand.cpp:245-285`), while the iterable helper creates a const hidden range (`SemaExpand.cpp:150`); either can cause the reported deleted copy of `const tuple<unique_ptr<...>>`. P1306R5 requires `auto&&` hidden tuple binding and per-element lvalue/reference or `std::move` preservation. Requires a dedicated binding design, exact `auto`/`auto&`/`auto&&` tests, and the PR #261 deferred-body regression gate; no safe local fix identified. See [codex-m4-180-181-report](reflection-audit/codex-m4-180-181-report.md). | High |
 | 182 | `template for` + `continue` ICE | Confirmed-Open → Skipped 2026-09-09 | CodeGen currently creates one continuation destination per expansion instance before emitting discarded `if constexpr` bodies; fixing this needs instance-discard awareness in expansion control-flow lowering and a regression gate for break/continue nesting. No safe local patch was identified; deferred with the M3 consteval escalation cluster. | High |
 | 183 | ICE with imported reflection function | Already-Fixed | `module-imports.sh.cpp:1-17`; serialization fix `090152727f3f` (broader than original scenario). | Medium |
 | 184 | Spurious consteval-only diagnostic | Needs-Build-To-Verify | No exact source reproducer was available in the issue body beyond a Godbolt link; retain until the nested-lambda/consteval-only NTTP example is rebuilt. | Low |
@@ -523,6 +523,14 @@ unimplemented facility or P3560R2 exception plumbing, and one not-applicable row
 rows as tests land and append their results to this tracker’s Session Log.
 
 ## Session Log
+
+**2026-09-10 — M4 issues #180/#181 design investigation.** Fetched upstream PR #261
+(`1fdd67b76362`) and compared its deferred expansion-body design against this fork. Read
+adopted P1306R5 wording and traced parser, Sema, TreeTransform, template-instantiation, and
+serialization paths. Confirmed PR #261 is applicable in concept but is a broad 11-file port;
+it does not fix #181's independent tuple/reference binding defect, and #180's published issue
+reproducer is a reflected `substitute` case rather than a literal `template for` body assertion.
+No source fix or new tests were added. Detailed findings: [codex-m4-180-181-report](reflection-audit/codex-m4-180-181-report.md).
 
 **2026-09-10 — Reflection closure fixes.** Implemented and directly verified NEW-4 (closure
 queries), NEW-6 (constructor splices only), NEW-2 (empty-declaration annotations), and NEW-3
