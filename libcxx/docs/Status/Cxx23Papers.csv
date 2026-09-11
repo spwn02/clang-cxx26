@@ -1,5 +1,5 @@
 "Paper #","Paper Name","Meeting","Status","First released version","GitHub issue","Notes"
-"`P0881R7 <https://wg21.link/P0881R7>`__","A Proposal to add stacktrace library","2020-11 (Virtual)","","","`#105131 <https://github.com/llvm/llvm-project/issues/105131>`__",""
+"`P0881R7 <https://wg21.link/P0881R7>`__","A Proposal to add stacktrace library","2020-11 (Virtual)","|Complete|","","`#105131 <https://github.com/llvm/llvm-project/issues/105131>`__",""
 "`P0943R6 <https://wg21.link/P0943R6>`__","Support C atomics in C++","2020-11 (Virtual)","|Complete|","15","`#105132 <https://github.com/llvm/llvm-project/issues/105132>`__",""
 "`P1048R1 <https://wg21.link/P1048R1>`__","A proposal for a type trait to detect scoped enumerations","2020-11 (Virtual)","|Complete|","12","`#105134 <https://github.com/llvm/llvm-project/issues/105134>`__",""
 "`P1679R3 <https://wg21.link/P1679R3>`__","string contains function","2020-11 (Virtual)","|Complete|","12","`#105135 <https://github.com/llvm/llvm-project/issues/105135>`__",""

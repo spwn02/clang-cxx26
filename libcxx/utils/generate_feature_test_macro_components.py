@@ -1489,12 +1489,8 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_stacktrace",
-            # Upstream P2996R7/C++23 mandates this starting at C++23, but this
-            # fork's <stacktrace> port (see libcxx/include/stacktrace) is
-            # gated '_LIBCPP_STD_VER >= 26', matching this fork's general
-            # practice of only exposing newly-ported library facilities at
-            # C++26 rather than also backporting availability to C++23.
-            "values": {"c++26": 202011},
+            # P0881R7 adopted <stacktrace> for C++23.
+            "values": {"c++23": 202011},
             "headers": ["stacktrace"],
         },
         {

@@ -28,7 +28,7 @@ _LIBCPP_PUSH_MACROS
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-#if _LIBCPP_STD_VER >= 26
+#if _LIBCPP_STD_VER >= 23
 
 // Resolution (symbol name / source file / source line) is expensive -- it may
 // require opening and parsing an ELF module's DWARF debug info the first time
@@ -120,7 +120,7 @@ struct hash<stacktrace_entry> {
   }
 };
 
-#endif // _LIBCPP_STD_VER >= 26
+#endif // _LIBCPP_STD_VER >= 23
 
 _LIBCPP_END_NAMESPACE_STD
 

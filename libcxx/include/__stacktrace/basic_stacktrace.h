@@ -38,7 +38,7 @@ _LIBCPP_PUSH_MACROS
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-#if _LIBCPP_STD_VER >= 26
+#if _LIBCPP_STD_VER >= 23
 
 // Raw capture: __stacktrace_capture (declared in
 // __stacktrace/stacktrace_decls.h) fills in up to __max_depth program
@@ -241,7 +241,7 @@ struct hash<basic_stacktrace<_Allocator>> {
   }
 };
 
-#endif // _LIBCPP_STD_VER >= 26
+#endif // _LIBCPP_STD_VER >= 23
 
 _LIBCPP_END_NAMESPACE_STD
 

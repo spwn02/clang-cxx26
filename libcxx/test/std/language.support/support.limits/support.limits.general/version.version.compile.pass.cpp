@@ -929,7 +929,7 @@
 #  endif
 
 #  ifdef __cpp_lib_stacktrace
-#    error "__cpp_lib_stacktrace should not be defined before c++26"
+#    error "__cpp_lib_stacktrace should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_starts_ends_with
@@ -2016,7 +2016,7 @@
 #  endif
 
 #  ifdef __cpp_lib_stacktrace
-#    error "__cpp_lib_stacktrace should not be defined before c++26"
+#    error "__cpp_lib_stacktrace should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_starts_ends_with
@@ -3277,7 +3277,7 @@
 #  endif
 
 #  ifdef __cpp_lib_stacktrace
-#    error "__cpp_lib_stacktrace should not be defined before c++26"
+#    error "__cpp_lib_stacktrace should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_starts_ends_with
@@ -4802,7 +4802,7 @@
 #  endif
 
 #  ifdef __cpp_lib_stacktrace
-#    error "__cpp_lib_stacktrace should not be defined before c++26"
+#    error "__cpp_lib_stacktrace should not be defined before c++23"
 #  endif
 
 #  ifndef __cpp_lib_starts_ends_with
@@ -6533,8 +6533,11 @@
 #    error "__cpp_lib_sstream_from_string_view should not be defined before c++26"
 #  endif
 
-#  ifdef __cpp_lib_stacktrace
-#    error "__cpp_lib_stacktrace should not be defined before c++26"
+#  ifndef __cpp_lib_stacktrace
+#    error "__cpp_lib_stacktrace should be defined in c++23"
+#  endif
+#  if __cpp_lib_stacktrace != 202011L
+#    error "__cpp_lib_stacktrace should have the value 202011L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_starts_ends_with
