@@ -1145,6 +1145,14 @@ private:
 };
 
 bool ExposureChecker::isTULocal(QualType Ty) {
+  // An error-recovered declaration (e.g. a malformed declarator that Sema
+  // couldn't assign a real type to) can reach here with a null QualType --
+  // unlike this, the NamedDecl* and Expr* overloads above/below already
+  // guard against their own null-pointer equivalent. A null type can't be
+  // TU-local in any meaningful sense.
+  if (Ty.isNull())
+    return false;
+
   // [basic.link]p15:
   // An entity is TU-local if it is
   // - a type, type alias, namespace, namespace alias, function, variable, or
