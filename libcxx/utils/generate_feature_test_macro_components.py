@@ -732,13 +732,6 @@ feature_test_macros = [
             "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
         },
         {
-            "name": "__cpp_lib_hardened_basic_stacktrace",
-            "values": {"c++26": 202506},
-            "headers": ["stacktrace"],
-            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
-            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
-        },
-        {
             "name": "__cpp_lib_hardened_basic_string",
             "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
             "headers": ["string"],
