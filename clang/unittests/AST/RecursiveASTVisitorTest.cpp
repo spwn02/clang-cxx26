@@ -18,6 +18,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include <algorithm>
 #include <cassert>
 
 using namespace clang;
@@ -170,6 +171,46 @@ TEST(RecursiveASTVisitorTest, EnumDeclWithBase) {
                           VisitEvent::StartTraverseTypedefType,
                           VisitEvent::EndTraverseTypedefType,
                           VisitEvent::EndTraverseEnum));
+}
+
+TEST(RecursiveASTVisitorTest, ReflectExprOfMutuallyReferencingFunctions) {
+  // A CXXReflectExpr (P2996 '^^') that designates a declaration must be
+  // treated as a *reference* to that declaration, the same way a
+  // DeclRefExpr or MemberExpr is -- not as a request to also traverse that
+  // declaration's own, independently-declared subtree. Two functions whose
+  // bodies reflect each other (directly, as here, or transitively through a
+  // longer chain) previously caused RecursiveASTVisitor::TraverseFunctionDecl
+  // and its own TraverseCXXReflectExpr handling to recurse into one
+  // another without bound -- a real crash hit by a downstream user running
+  // clang-tidy over an ordinary `import std;` translation unit (which makes
+  // the whole, mutually-referential <meta> library implementation visible,
+  // even when the translation unit itself never uses reflection). If this
+  // regresses, this test crashes the whole unit test binary via stack
+  // overflow rather than failing an assertion -- that's expected: the bug
+  // is exactly that unbounded recursion, not a wrong-but-finite result.
+  llvm::StringRef Code = R"cpp(
+  void g();
+  void f() { auto R = ^^g; (void)R; }
+  void g() { auto R = ^^f; (void)R; }
+  )cpp";
+
+  CollectInterestingEvents Visitor;
+  std::vector<std::string> Args = {"-std=c++26", "-freflection-latest"};
+  bool Ran = clang::tooling::runToolOnCodeWithArgs(
+      std::make_unique<ProcessASTAction>(
+          [&](clang::ASTContext &Ctx) { Visitor.TraverseAST(Ctx); }),
+      Code, Args, "input.cc");
+  ASSERT_TRUE(Ran);
+  // g's forward declaration, f's definition, g's definition -- exactly
+  // three FunctionDecls, each traversed exactly once, never re-entered
+  // through the other's reflect-expression.
+  std::vector<VisitEvent> Events = std::move(Visitor).takeEvents();
+  EXPECT_EQ(std::count(Events.begin(), Events.end(),
+                       VisitEvent::StartTraverseFunction),
+            3);
+  EXPECT_EQ(std::count(Events.begin(), Events.end(),
+                       VisitEvent::EndTraverseFunction),
+            3);
 }
 
 TEST(RecursiveASTVisitorTest, InterfaceDeclWithProtocols) {

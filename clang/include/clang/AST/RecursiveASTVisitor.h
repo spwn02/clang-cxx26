@@ -3149,26 +3149,37 @@ DEF_TRAVERSE_STMT(CXXReflectExpr, {
       TRY_TO(TraverseType(RV.getReflectedType()));
       break;
     }
-    case ReflectionKind::Declaration: {
-      TRY_TO(TraverseDecl(RV.getReflectedDecl()));
-      break;
-    }
     case ReflectionKind::Template: {
       TRY_TO(TraverseTemplateName(RV.getReflectedTemplate()));
-      break;
-    }
-    case ReflectionKind::EntityProxy: {
-      TRY_TO(TraverseDecl(RV.getReflectedEntityProxy()));
-      break;
-    }
-    case ReflectionKind::Parameter: {
-      TRY_TO(TraverseDecl(RV.getReflectedParameter()));
       break;
     }
     case ReflectionKind::Annotation: {
       TRY_TO(TraverseStmt(RV.getReflectedAnnotation()->getArg()));
       break;
     }
+    // A reflection of a declaration (or an entity/parameter proxying one)
+    // designates that declaration the same way a DeclRefExpr or MemberExpr
+    // designates the entity it names -- it's a *reference*, not a request to
+    // also walk that entity's own, independently-declared subtree. Calling
+    // TraverseDecl here would do exactly that: for a FunctionDecl (or a
+    // VarDecl with an initializer containing further reflections), it walks
+    // the full body, including any further CXXReflectExprs found there. Two
+    // functions that reflect each other -- directly, or transitively
+    // through a longer chain, both unremarkable and common in a large
+    // reflection-based library implementation -- would then recurse without
+    // bound (a real crash observed by a downstream user running clang-tidy,
+    // a RecursiveASTVisitor-based tool, over an ordinary `import std;`
+    // translation unit that never itself uses reflection: `import std;`
+    // makes the *entire* <meta> implementation visible, including its own
+    // internal reflect-expressions on other declarations, and any tool
+    // walking that whole graph while resolving each in turn hit this
+    // unbounded recursion). The referenced declaration is still visited on
+    // its own, exactly once, wherever it's actually declared -- reflecting
+    // it here doesn't lose that, any more than an ordinary call expression
+    // loses it for the function it calls.
+    case ReflectionKind::Declaration:
+    case ReflectionKind::EntityProxy:
+    case ReflectionKind::Parameter:
     case ReflectionKind::Null:
     case ReflectionKind::Object:
     case ReflectionKind::Value:
