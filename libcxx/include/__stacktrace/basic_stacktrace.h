@@ -173,7 +173,10 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI size_type size() const noexcept { return __frames_.size(); }
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI size_type max_size() const noexcept { return __frames_.max_size(); }
 
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_reference operator[](size_type __i) const { return __frames_[__i]; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_reference operator[](size_type __i) const {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__i < size(), "basic_stacktrace::operator[] index out of bounds");
+    return __frames_[__i];
+  }
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_reference at(size_type __i) const { return __frames_.at(__i); }
 
   // [stacktrace.basic.cmp], comparisons

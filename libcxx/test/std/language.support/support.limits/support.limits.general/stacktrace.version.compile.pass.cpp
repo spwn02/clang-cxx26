@@ -24,6 +24,10 @@
 #    error "__cpp_lib_formatters should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_hardened_basic_stacktrace
+#    error "__cpp_lib_hardened_basic_stacktrace should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should not be defined before c++23"
 #  endif
@@ -32,6 +36,10 @@
 
 #  ifdef __cpp_lib_formatters
 #    error "__cpp_lib_formatters should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_stacktrace
+#    error "__cpp_lib_hardened_basic_stacktrace should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_stacktrace
@@ -44,6 +52,10 @@
 #    error "__cpp_lib_formatters should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_hardened_basic_stacktrace
+#    error "__cpp_lib_hardened_basic_stacktrace should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should not be defined before c++23"
 #  endif
@@ -52,6 +64,10 @@
 
 #  ifdef __cpp_lib_formatters
 #    error "__cpp_lib_formatters should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_hardened_basic_stacktrace
+#    error "__cpp_lib_hardened_basic_stacktrace should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_stacktrace
@@ -73,6 +89,10 @@
 #    endif
 #  endif
 
+#  ifdef __cpp_lib_hardened_basic_stacktrace
+#    error "__cpp_lib_hardened_basic_stacktrace should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should be defined in c++23"
 #  endif
@@ -92,6 +112,19 @@
 #  else
 #    ifdef __cpp_lib_formatters
 #      error "__cpp_lib_formatters should not be defined because it is unimplemented in libc++!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_basic_stacktrace
+#      error "__cpp_lib_hardened_basic_stacktrace should be defined in c++26"
+#    endif
+#    if __cpp_lib_hardened_basic_stacktrace != 202506L
+#      error "__cpp_lib_hardened_basic_stacktrace should have the value 202506L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_basic_stacktrace
+#      error "__cpp_lib_hardened_basic_stacktrace should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
 #    endif
 #  endif
 
