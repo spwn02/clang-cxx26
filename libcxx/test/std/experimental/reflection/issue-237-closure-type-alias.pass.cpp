@@ -28,17 +28,8 @@
 // a deduced AutoType when resolving a type splice's reflected operand
 // (Sema::BuildReflectionSpliceType, SemaReflect.cpp).
 //
-// NOTE: this covers the primary (previously hard-error) symptom only. A
-// second, deeper symptom from the same issue report --
-// 'is_type_alias(^^ct)' evaluating to false even once the alias declares
-// successfully, i.e. the alias's own identity not surviving a *second*
-// reflection round-trip through '^^ct' -- remains open; not yet root-caused
-// despite extensive tracing (every layer from CXXReflectExpr construction
-// through APValue's reflected-type accessor was verified to correctly
-// preserve the TypedefType sugar, so the loss happens somewhere not yet
-// located). Do not add a static_assert(is_type_alias(...)) call here until
-// that's fixed -- see the Reflection Closeup epic's tracker for the current
-// investigation state.
+// The alias's identity must survive a second reflection round trip, including
+// when its target is cv-qualified because the closure object is constexpr.
 
 #include <meta>
 
@@ -48,7 +39,7 @@ consteval bool test() {
   constexpr auto closure = [] {};
   constexpr auto cr = ^^decltype(closure);
   using ct = typename[:cr:];
-  return true;
+  return is_type_alias(^^ct) && has_identifier(^^ct);
 }
 static_assert(test());
 

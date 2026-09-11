@@ -1718,6 +1718,7 @@ static QualType unwrapReflectedType(QualType QT) {
   bool IsConst = QT.isConstQualified();
   bool IsVolatile = QT.isVolatileQualified();
   bool UnwrapAliases = (IsConst || IsVolatile);
+  bool UnwrappedDecltype = false;
 
   void *AsPtr;
   do {
@@ -1739,14 +1740,24 @@ static QualType unwrapReflectedType(QualType QT) {
       QT = DTST->getDeducedType();
     if (const auto *DTT = dyn_cast<DecltypeType>(QT)) {
       QT = DTT->desugar();
-      UnwrapAliases = true;
+      UnwrappedDecltype = true;
     }
+    // A qualifier spelled outside an alias is not part of that alias's
+    // identity: ^^const Alias must remain equal to ^^const T.  But an alias
+    // whose declared target itself is cv-qualified still has alias identity.
+    // The latter is represented by qualifiers on the alias declaration's
+    // underlying type, while the former has qualifiers only on the alias.
     if (const auto *UT = dyn_cast<UsingType>(QT);
-        UT && UnwrapAliases)
+        UT && (UnwrapAliases || UnwrappedDecltype))
       QT = UT->desugar();
-    if (const auto *TDT = dyn_cast<TypedefType>(QT);
-        TDT && UnwrapAliases)
-      QT = TDT->desugar();
+    if (const auto *TDT = dyn_cast<TypedefType>(QT)) {
+      QualType Underlying = TDT->getDecl()->getUnderlyingType();
+      bool HasExternalCV =
+          (IsConst && !Underlying.isConstQualified()) ||
+          (IsVolatile && !Underlying.isVolatileQualified());
+      if (UnwrappedDecltype || HasExternalCV)
+        QT = TDT->desugar();
+    }
   } while (QT.getAsOpaquePtr() != AsPtr);
 
   if (IsConst)

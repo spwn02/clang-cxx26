@@ -38,7 +38,14 @@ mode of operation this epic started with.
 
 ## Next Up
 
-**Status as of 2026-09-11 (CU4 in progress):** Item 1 is escalated to the user, not being worked
+**Closeout update (2026-09-11): all 14 items now have a final disposition.** Item 2 is fully
+fixed and verified: its landed primary splice fix remains intact, and the former `is_type_alias`
+loose end is now fixed. Items 1, 5a, and 9 remain escalated to the user; the remaining items are
+fixed/verified, conclusively unreproducible, or (for #275 within item 14) escalated with evidence.
+**Reflection Closeup is ready for CU5**, the final assertions-enabled `check-clang`/`check-cxx`
+gate. The following superseded CU4 progress snapshot remains for historical context.
+
+**Superseded CU4 progress snapshot:** Item 1 is escalated to the user, not being worked
 automatically (see below). Item 2 has a partial fix landed, one sub-symptom (`is_type_alias`
 identity loss) still open and deliberately parked. **Items 3, 4, 5b, 6, and 7 are now
 fixed/verified** (commits `9760450c0fe4`, `8081ce09739d`, `08999b0aea1e`, `acd49b881802`, and
@@ -184,8 +191,8 @@ independent item — this is not "stopping the epic," just this one item).
   hypothesis myself (the diff isn't recoverable without re-generating it, and doing so would risk
   another build cycle without the ability to verify against real Codex-assisted debugging anyway).
 
-**Item 2 (closure-type alias, `#237`): partial fix landed (commit `a9c1f8aad1d6`), one symptom
-remains open.** Worked entirely directly (no Codex usage). Root-caused and fixed the primary,
+**Item 2 (closure-type alias, `#237`): initial partial-fix record (superseded by the final
+2026-09-11 entry below).** Worked entirely directly (no Codex usage). Root-caused and fixed the primary,
 hard-error symptom precisely: `decltype(auto-declared-var)` retains `AutoType` sugar that survived
 into `Sema::BuildReflectionSpliceType`'s reflected-operand resolution, tripping the ordinary
 "auto not allowed in type alias" check when reconstructing the splice as a type-alias target.
@@ -323,7 +330,7 @@ documented 7-test pre-existing baseline.
 | # | Item | Status | Notes |
 |---|---|---|---|
 | 1 | Consteval self-reference escalation cluster | **ESCALATED TO USER — 5 attempts, genuinely resists a full fix** | Attempt 5 (Claude, direct, no Codex) got furthest: fixed 2 real bugs (attempt 2's "dead bailout" was an overgeneralization; a `DeclRefExpr`-to-invalid-decl false positive) but hit a new, different-in-kind evaluator bug — a nested immediate invocation gets evaluated twice across separate `ExpressionEvaluationContextRecord`s with different (wrong) heap-lifetime outcomes for range-pipeline expressions. Reverted, not committed. Full history: `clang/lib/Sema/SemaExpr.cpp:18396`'s comment (5 attempts) and the dated entries below. Also confirmed: only 2 of the originally-named "5 SemaCXX tests" are this bug; `PR98671.cpp` is an unrelated pre-existing C++20 concepts crash, `cxx2a-constexpr-dynalloc.cpp`/`cxx2b-consteval-propagate.cpp` are a different consteval-escalation bug via a different code path. Per the completion bar: not resuming automatically, waiting for user direction. |
-| 2 | Issue #237 — closure-type alias loses identity | **Partial fix landed (commit `a9c1f8aad1d6`), one symptom remains open** | Primary hard-error ("'auto' not allowed in type alias") fixed — root cause: `decltype(auto-declared-var)` retains `AutoType` sugar that leaked into `BuildReflectionSpliceType`'s reflected-operand resolution; fixed by desugaring there. Zero regressions (verified: clang/test/Reflection 20/20, libcxx reflection 7-test baseline unchanged, SemaCXX/AST/CodeGenCXX/SemaTemplate 3411 tests at the documented 5-test baseline). **Remaining**: `is_type_alias(^^ct)` still returns false even once `ct` declares successfully — traced through every layer (CXXReflectExpr construction, `VisitCXXReflectExpr` evaluation, `APValue::getReflectedType()`, the metafunction `Evaluator` callback, calling the raw `__metafn_is_alias` directly bypassing the library wrapper) and found each one correctly preserving the `TypedefType` sugar in isolation — yet the metafunction still observes a bare `RecordType`. Root cause not found; see the dated session-log entry for the full ruled-out-hypothesis list before re-investigating. |
+| 2 | Issue #237 — closure-type alias loses identity | **Fully fixed and verified (primary fix `a9c1f8aad1d6`; identity fix uncommitted)** | The remaining `is_type_alias(^^ct)` failure was `APValue::setReflection` normalization, not metafunction argument evaluation: its `unwrapReflectedType` stripped a `TypedefType` whenever `QualType` was cv-qualified. `ct`'s target is intrinsically const (because the closure object is `constexpr`), so this erased its alias identity before evaluation. Preserve aliases whose declared underlying type carries that cv; continue desugaring only aliases with externally applied cv, retaining the historical `^^const Alias == ^^const T` behavior. `isTypedefNameType()` itself is ordinary and has no lambda special case. Regression now checks both `is_type_alias` and `has_identifier`. Verified: full clang rebuild; Reflection 22/22; Parser/SemaCXX/SemaTemplate/AST/CodeGenCXX 3814 tests at exactly the 5-test baseline; clean libc++ rebuild; reflection 119 tests with exactly the documented 7-test baseline. |
 | 3 | Issue #188 — `display_string_of(dealias(...))` not constant expr | **Fixed and verified (commit `9760450c0fe4`)** | Root cause: `dealias()`'s `desugarType()` hand-rolled sugar-strip loop was missing `DecltypeType` — an alias template's underlying type (e.g. `iterator_t<R> = decltype(ranges::begin(declval<R&>()))`) desugars one step to a `DecltypeType` whose *canonical* type is ordinary but which the loop couldn't unwrap further, leaving a still-sugared reflection whose own template-argument query resolved back to an equivalent unresolved reflection every time — a literal non-terminating recursion (confirmed via `Type*` identity tracing: same pointer recurred 380+ times), not legitimate deep nesting, eventually exhausting the constexpr call-depth budget with a generic, cause-free diagnostic. Fixed by adding `DecltypeType` to the loop's unconditional strip set (alongside pre-existing `AutoType`/`SubstTemplateTypeParmType`/`ReflectionSpliceType`). Also fixed an unrelated dead-code bug found en route in the same loop: the `UsingType` branch tested the wrong local (`TDT` instead of `UT`), so `UsingType` sugar was never actually unwrapped. Verified zero regressions: clang/test/Reflection 20/20, libcxx reflection suite at the documented 7-test pre-existing baseline (byte-for-byte same tests), SemaCXX at the documented 5-test pre-existing baseline. New regression test: `libcxx/test/std/experimental/reflection/issue-188-dealias-decltype.pass.cpp`. |
 | 4 | NEW-7 — dependent splice-specifier wrongly accepted (CTAD-like position) | **Fixed and verified (commit `8081ce09739d`)** | Root cause: THREE independent, compounding bugs in `ReflectionSpliceType::getTypenameKWLoc()`'s tracking, not the diagnostic logic itself (which every prior attempt was trying to work around via unreliable heuristics instead). (1) `SemaType.cpp`'s plain (no-`typename`) `TST_type_splice` case reused the splice's own location as `TypenameKWLoc`, making implicit splices look explicit. (2) `typename [:R:]` reached via `TryAnnotateTypeOrScopeToken` goes through `ParseOptionalCXXScopeSpecifier`'s splice-rewrite, which hard-coded `SourceLocation()` instead of threading the real keyword location through — the opposite failure, discarding an explicit `typename`. (3) Even after fixing both, `DependentReflectionSpliceType::Profile` (the FoldingSet uniquing key for dependent splice types) never included `TypenameKWLoc`, so two structurally-identical dependent splices (e.g. the same depth/index template parameter in two different function templates), one with `typename` and one without, collapsed onto the same cached type node — exactly the "breaks once multiple dependent-splice templates coexist in one TU" signature all 3 prior attempts hit, via a completely different mechanism than any suspected. Fixed all three; added a `HasTypenameKW` bit to the Profile (not the raw location, to avoid over-fragmenting type identity by source position). New test: `clang/test/Reflection/new7-dependent-splice-ctad.verify.cpp`. Verified zero regressions: clang/test/Reflection 21/21, Parser+SemaCXX+SemaTemplate+AST+CodeGenCXX 3814/3814 at the documented 5-test baseline, libcxx reflection suite at the documented 7-test baseline. |
 | 5a | Issue #180 — `static_assert(false)` silently ignored | **ESCALATED TO USER — not an expansion-statement bug, mis-scoped from the start** | The plan bundled this with #181 under upstream PR #261's expansion-body-deferral design, inherited from `docs/reflection-audit/codex-m4-180-181-report.md`'s investigation. That premise is refuted: the upstream repro contains no `template for` anywhere, and a minimal reproducer confirms the failure has nothing to do with expansion statements. See `docs/reflection-audit/issue-180-minimal-repro.cpp` (fails silently) and its companion `docs/reflection-audit/issue-180-control-diagnoses-correctly.cpp` (diagnoses correctly) — narrowed down from the full upstream repro to a single discriminating factor: whether the *enclosing* function calling `substitute()`+`extract()` is itself a function template. `Sema::EnsureInstantiated` (`SemaReflect.cpp:328-336`) does call `S.InstantiateFunctionDefinition(..., true, true)` for a function-template-specialization reflection, and this correctly triggers the `static_assert` diagnostic when called from an *ordinary* (non-template) consteval function — but the identical call, made while Sema's instantiation-context stack already has a frame for the *enclosing* function template's own instantiation, silently produces no diagnostic. Four candidate mechanisms considered (SFINAE-context misfire, instantiation-depth deferral, evaluator-side diagnostic suppression, an overly-eager mutual-recursion instantiation guard) — none confirmed; distinguishing them needs a targeted Sema instantiation-context trace, the same class of investigation as item 1's escalation cluster. Per the completion bar, escalating alongside item 1 rather than guessing further. **PR #261's port is NOT justified by #180 as currently understood — do not let a future session inherit that premise; if the port is ever needed, it needs its own independent justification.** |
@@ -680,3 +687,28 @@ confirm zero regressions from this change either. Committed separately from item
 root causes). Cutting a fresh, properly-named preflight tag next (the prior `...miracle-fixes` name
 was a project codename, not descriptive — per explicit user feedback) and watching its CI run to
 closure this time (task #23).
+
+### 2026-09-11 (final) — Item 2 (`#237`) fully fixed and verified
+
+The parked `is_type_alias(^^ct)` sub-symptom was root-caused and fixed. The exact failing path is
+not a special metafunction-argument evaluation path: `Sema::BuildCXXReflectExpr` receives `ct` as
+a const `TypedefType`, then its `APValue(ReflectionKind::Type, ...)` construction calls
+`APValue::setReflection`, which calls `unwrapReflectedType`. That helper treated every cv-qualified
+alias as externally cv-qualified and desugared `ct` to its bare closure `RecordType` before
+`is_alias()` evaluated its argument. `isTypedefNameType()` is an ordinary type-class check and has
+no lambda-specific behavior.
+
+The historical cv normalization is still needed for `^^const Alias == ^^const T`. The fix now
+consults the `TypedefNameDecl` underlying type: it preserves an alias when that underlying type
+itself carries the cv qualifier (the `constexpr` closure case), and desugars only when the
+qualifier is external to the alias. The existing `decltype`-driven alias stripping remains
+unchanged. Extended `issue-237-closure-type-alias.pass.cpp` to require both
+`is_type_alias(^^ct)` and `has_identifier(^^ct)`.
+
+Verification: full `ninja -C build-nyx -j$(nproc)` rebuild; original upstream repro compiles;
+`clang/test/Reflection/` passes 22/22; Parser/SemaCXX/SemaTemplate/AST/CodeGenCXX runs 3814 tests
+with exactly the documented five SemaCXX baseline failures; explicit clean `build-libcxx` cxx
+rebuild succeeds; focused #237 test passes; full libc++ reflection suite discovers 119 tests and
+reports exactly its documented seven pre-existing failures, with no new failures. Item 2 now has a
+final fixed-and-verified disposition. All 14 Reflection Closeup items are consequently final,
+ready for CU5.
