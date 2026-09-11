@@ -485,6 +485,7 @@ namespace std {
 #    include <__ranges/from_range.h>
 #    include <__ranges/join_with_view.h>
 #    include <__ranges/repeat_view.h>
+#    include <__ranges/stride_view.h>
 #    include <__ranges/to.h>
 #    include <__ranges/zip_transform_view.h>
 #    include <__ranges/zip_view.h>
