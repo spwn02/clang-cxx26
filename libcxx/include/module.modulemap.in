@@ -2197,6 +2197,10 @@ module std [system] {
 
   module stacktrace {
     module basic_stacktrace { header "__stacktrace/basic_stacktrace.h" }
+    module formatter {
+      header "__stacktrace/formatter.h"
+      export std.format.formatter
+    }
     module stacktrace_decls { header "__stacktrace/stacktrace_decls.h" }
     module stacktrace_entry { header "__stacktrace/stacktrace_entry.h" }
 

@@ -833,6 +833,7 @@ set(files
   __simd/vectorizable.h
   __split_buffer
   __stacktrace/basic_stacktrace.h
+  __stacktrace/formatter.h
   __stacktrace/stacktrace_decls.h
   __stacktrace/stacktrace_entry.h
   __std_mbstate_t.h
