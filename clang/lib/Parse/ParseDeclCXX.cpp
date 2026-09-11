@@ -2681,19 +2681,24 @@ bool Parser::ParseCXXMemberDeclaratorBeforeInitializer(
                                                               VS);
   }
 
-  // A trailing-return-type declarator's own contract-specifier completions
-  // (pre/post) are already offered by CodeCompleteDeclSpec's
-  // IsTrailingReturnType handling, fired from deep inside the trailing
-  // return type's own type-id parse (ParseDecl.cpp's
-  // `case tok::code_completion:` in ParseDeclarationSpecifiers). By the time
-  // control reaches here, cutOffParsing() has already turned Tok into eof
-  // without resetting PP's code-completion-reached state, so calling
-  // ParseContractSpecifierSequence unconditionally here would fire a second,
-  // redundant completion pass over the same position -- duplicating pre/post
-  // in the results. Skip it in that specific case; every other declarator
-  // shape still needs this call (it's the only source of pre/post
-  // completions for e.g. `void f() <cursor>` with no trailing return type).
-  if (!(DeclaratorInfo.hasTrailingReturnType() && PP.isCodeCompletionReached()))
+  // By this point, an earlier stage of this same declarator's parse may
+  // already have offered pre/post as part of its own completion results:
+  // either CodeCompleteDeclSpec's IsTrailingReturnType handling (fired deep
+  // inside a trailing return type's own type-id parse, ParseDecl.cpp's
+  // `case tok::code_completion:` in ParseDeclarationSpecifiers) for a
+  // trailing-return-type declarator, or plain CodeCompleteFunctionQualifiers
+  // (ParseDecl.cpp's ParseFunctionDeclarator, right after the parameter
+  // list's cv-qualifier-seq -- see SemaCodeComplete.cpp's
+  // CodeCompleteFunctionQualifiers, which appends AddContractSpecifierResults
+  // itself) for an ordinary declarator with no trailing return type at all,
+  // e.g. `void f() <cursor>`. Either way, cutOffParsing() has already turned
+  // Tok into eof without resetting PP's code-completion-reached state, so
+  // calling ParseContractSpecifierSequence unconditionally here would fire a
+  // second, redundant completion pass over the same position -- duplicating
+  // pre/post in the results (see issue #94). Every declarator shape still
+  // needs this call for its *non*-completion parse (real pre/post tokens),
+  // so only the completion sub-case is guarded.
+  if (!PP.isCodeCompletionReached())
     ParseContractSpecifierSequence(DeclaratorInfo, /*EnterScope=*/true);
 
   // If a simple-asm-expr is present, parse it.
