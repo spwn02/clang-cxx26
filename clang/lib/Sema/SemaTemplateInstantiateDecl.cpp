@@ -1845,7 +1845,8 @@ Decl *TemplateDeclInstantiator::VisitVarDecl(VarDecl *D,
 
   SemaRef.BuildVariableInstantiation(Var, D, TemplateArgs, LateAttrs, Owner,
                                      StartingScope, InstantiatingVarTemplate);
-  if (D->isNRVOVariable() && !Var->isInvalidDecl()) {
+  if (D->isNRVOVariable() && !Var->isInvalidDecl() &&
+      (isa<FunctionDecl>(DC) || isa<BlockDecl>(DC))) {
     QualType RT;
     if (auto *F = dyn_cast<FunctionDecl>(DC))
       RT = F->getReturnType();

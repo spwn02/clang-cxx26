@@ -5552,8 +5552,8 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
 bool MemberPointerType::isSugared() const {
   CXXRecordDecl *D1 = getMostRecentCXXRecordDecl(),
                 *D2 = getQualifier().getAsRecordDecl();
-  if (getQualifier().getAsSplice())
-    return true;
+  if (const auto *Splice = getQualifier().getAsSplice())
+    return Splice->getDependence() == SpliceSpecifierDependence::None;
   assert(!D1 == !D2);
   return D1 != D2 && D1->getCanonicalDecl() != D2->getCanonicalDecl();
 }

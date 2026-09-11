@@ -2742,9 +2742,9 @@ QualType Sema::BuildFunctionType(QualType T,
 QualType Sema::BuildMemberPointerType(QualType T, const CXXScopeSpec &SS,
                                       CXXRecordDecl *Cls, SourceLocation Loc,
                                       DeclarationName Entity) {
-  if (!Cls && !isDependentScopeSpecifier(SS)) {
+  if (!Cls) {
     Cls = dyn_cast_or_null<CXXRecordDecl>(computeDeclContext(SS));
-    if (!Cls) {
+    if (!Cls && !isDependentScopeSpecifier(SS)) {
       auto D =
           Diag(SS.getBeginLoc(), diag::err_illegal_decl_mempointer_in_nonclass)
           << SS.getRange();

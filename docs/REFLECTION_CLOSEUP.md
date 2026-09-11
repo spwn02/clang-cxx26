@@ -38,7 +38,7 @@ mode of operation this epic started with.
 
 ## Next Up
 
-**Status as of 2026-09-11 (post item-7 fix):** Item 1 is escalated to the user, not being worked
+**Status as of 2026-09-11 (CU4 in progress):** Item 1 is escalated to the user, not being worked
 automatically (see below). Item 2 has a partial fix landed, one sub-symptom (`is_type_alias`
 identity loss) still open and deliberately parked. **Items 3, 4, 5b, 6, and 7 are now
 fixed/verified** (commits `9760450c0fe4`, `8081ce09739d`, `08999b0aea1e`, `acd49b881802`, and
@@ -60,8 +60,9 @@ mid-epic**: a stale `"unimplemented": True` flag for `__cpp_lib_stacktrace` in
 port, was causing the *packaged reference-toolchain* preflight CI to fail (`std.compat.cppm`'s
 generated "please update headers_not_available" guard trips as soon as `<stacktrace>` is genuinely
 includable) — see the dated session-log entry below. **Items 11, 12, and 13 are now fixed and
-verified** (uncommitted; see the dated session-log entry below). Next actionable item is **item
-14** (the upstream-issue reproducer audit).
+verified** (uncommitted; see the dated session-log entry below). CU4 item 14 fixed #187/#212,
+confirmed #184/#208 already fixed, and closed #253 as unreproducible; #275 is escalated after two
+sequential clangd crashes. See `docs/reflection-audit/cu4-needs-reproducer-report.md`.
 
 **Two new, unrelated findings surfaced while closing item 5b (not part of this epic's 14-item
 scope, not fixed, logged here so a future session doesn't have to rediscover them):**
@@ -335,7 +336,7 @@ documented 7-test pre-existing baseline.
 | 11 | `define_static_object` entirely missing (P3491R3) | **Fixed and verified (uncommitted)** | Implemented P3491R3's class/scalar split exactly: classes return the address of the `reflect_constant` template-parameter object; non-class objects route through a one-element `define_static_array`. Regression coverage includes both structural class and scalar objects. |
 | 12 | `is_string_literal` (5 overloads) missing (P3491R3) | **Fixed and verified (uncommitted)** | Added all five `std::is_string_literal` overloads plus one minimal compiler metafunction. It evaluates the pointer and recognizes a `StringLiteral` lvalue base, so literal subobjects return true and ordinary character arrays return false. Adapted the approach from upstream PR #168 to adopted `std::meta`. |
 | 13 | `reflect_constant_string` narrower than spec + `reflect_constant_array` Mandates unenforced | **Fixed and verified (uncommitted)** | Replaced fixed `char`/`char8_t` overloads with the P3491R3 range template for all five character types. Literal ranges retain their supplied terminator rather than gaining a second one. Enforced structural, constructible, and copyable array-element requirements; nested-array support preserves item 8's recursive leaf checks because array row types themselves are not structural. |
-| 14 | Issues #184, #187, #208, #212, #253, #275 — needs-reproducer | Not started | All previously blocked on a dead Godbolt link. Re-check the live upstream issue threads for accumulated detail before giving up on each. |
+| 14 | Issues #184, #187, #208, #212, #253, #275 — needs-reproducer | **Partial: #184/#208 already fixed; #187/#212 fixed; #253 CNR; #275 escalated** | #187 fixes dependent spliced member-pointer canonicality; #212 excludes non-returning consteval blocks from NRVO checking. Permanent regressions cover #184/#187/#208/#212. #253's only attachment is an incompatible preprocessed clang-21 input. #275 reproduces two sequential clangd defects, so no partial serializer-only patch was retained. Full evidence: `docs/reflection-audit/cu4-needs-reproducer-report.md`. |
 
 ## Ground truth / where to look
 
@@ -345,6 +346,24 @@ between two copies. Key anchors: `clang/lib/Sema/SemaExpr.cpp:18396`, `libcxx/in
 pre-existing baseline failures" section.
 
 ## Session Log
+
+### 2026-09-11 — CU4 item 14: #187/#212 fixed; #184/#208 already fixed; #253 CNR; #275 escalated
+
+Recovered all four dead Compiler Explorer links through their shortlink API,
+downloaded #253's attached module repro, and fetched #275's pinned GitLab
+revision. #187 was a real assertion/nontermination: a dependent splice
+qualifier is its own canonical nested-name-specifier, but
+`MemberPointerType::isSugared()` called every splice sugared; canonical
+member-pointer construction therefore recursed into itself. Dependent splices
+now remain non-sugared. #212 reached the NRVO recalculation branch with this
+fork's `ConstevalBlockDecl`; such a block has no return type, so the recalculation
+now only applies to function/block contexts. New libc++ regressions cover
+#184/#187/#208/#212. #253's preprocessed attachment embeds an incompatible
+clang-21 `<meta>` ABI and reaches ordinary interface errors before its alleged
+ICE. #275 reproduces through `clangd --check`: after its preamble serialization
+assert is bypassed, a distinct `BodyIndexer` recursion over reflection/function
+nodes stack-overflows. Reverted the serializer-only attempt; item remains
+escalated. Full command record: `docs/reflection-audit/cu4-needs-reproducer-report.md`.
 
 ### 2026-09-11 — CU3 items 11–13 (P3491R3 static storage): fixed and verified (uncommitted)
 
