@@ -46,5 +46,33 @@ int main(int, char**) {
   moved = nullptr;
   assert(moved == nullptr);
 
+  // unwrap optimization: constructing from a differently cv-qualified
+  // move_only_function of the same signature moves its target's buffer
+  // directly, rather than wrapping the wrapper itself; verifies that the
+  // vtable struct (parameterized only on the return/argument types, not on
+  // cv/ref/noexcept) is compatible across such conversions, and that the
+  // source is left empty (its buffer was relocated out, not copied).
+  {
+    std::move_only_function<int(int) const> src = [](int value) { return value + 1; };
+    std::move_only_function<int(int)> dst       = std::move(src);
+    assert(!src);
+    assert(dst(41) == 42);
+  }
+
+  // Genuinely different signature: still falls back to double-wrapping
+  // (the vtable types are incompatible, so the unwrap path can't apply)
+  // rather than failing to compile -- this is the case the unwrap
+  // optimization must decline, per [func.wrap.move]. Uses a base/derived
+  // pointer pair so the two signatures are related by implicit conversion
+  // (Derived* -> Base*, int -> long) without being identical.
+  {
+    struct Base {};
+    struct Derived : Base {};
+    std::move_only_function<int(Base*)> general      = [](Base*) { return 42; };
+    std::move_only_function<long(Derived*)> specific = std::move(general);
+    Derived d;
+    assert(specific(&d) == 42);
+  }
+
   return 0;
 }

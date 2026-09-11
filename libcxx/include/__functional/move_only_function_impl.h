@@ -136,9 +136,23 @@ public:
         __buffer_.template __construct<_StoredFunc>(std::forward<_Func>(__func));
       }
     } else if constexpr (__is_move_only_function_v<_StoredFunc>) {
-      if (__func) {
-        __vtable_ = std::exchange(__func.__vtable_, nullptr);
-        __buffer_ = std::move(__func.__buffer_);
+      // _StoredFunc is some move_only_function<S>, so .__vtable_ is a real
+      // member regardless of S -- but its pointee type is parameterized on
+      // _StoredFunc's own return/argument types (not ours), and is
+      // identical to _VTable only when those match (the vtable doesn't
+      // encode cv/ref/noexcept, so that part is always compatible). A
+      // genuinely different signature yields an incompatible vtable
+      // pointer type: fall through to __construct and double-wrap instead
+      // of hard-erroring inside this constexpr-if branch. _BufferT is not
+      // parameterized on the signature at all, so moving it is always safe
+      // once we know we're taking this branch at all.
+      if constexpr (is_same_v<decltype(__func.__vtable_), const _VTable*>) {
+        if (__func) {
+          __vtable_ = std::exchange(__func.__vtable_, nullptr);
+          __buffer_ = std::move(__func.__buffer_);
+        }
+      } else {
+        __construct<_Func>(std::forward<_Func>(__func));
       }
     } else {
       __construct<_Func>(std::forward<_Func>(__func));
