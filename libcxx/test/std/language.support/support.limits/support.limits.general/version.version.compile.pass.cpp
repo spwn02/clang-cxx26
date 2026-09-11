@@ -696,6 +696,10 @@
 #    error "__cpp_lib_not_fn should not be defined before c++17"
 #  endif
 
+#  ifdef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should not be defined before c++20"
+#  endif
+
 #  ifdef __cpp_lib_null_iterators
 #    error "__cpp_lib_null_iterators should not be defined before c++14"
 #  endif
@@ -894,6 +898,10 @@
 
 #  ifdef __cpp_lib_simd_permutations
 #    error "__cpp_lib_simd_permutations should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_smart_ptr_default_init
+#    error "__cpp_lib_smart_ptr_default_init should not be defined before c++20"
 #  endif
 
 #  ifdef __cpp_lib_smart_ptr_for_overwrite
@@ -1760,6 +1768,10 @@
 #    error "__cpp_lib_not_fn should not be defined before c++17"
 #  endif
 
+#  ifdef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should not be defined before c++20"
+#  endif
+
 #  ifndef __cpp_lib_null_iterators
 #    error "__cpp_lib_null_iterators should be defined in c++14"
 #  endif
@@ -1985,6 +1997,10 @@
 
 #  ifdef __cpp_lib_simd_permutations
 #    error "__cpp_lib_simd_permutations should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_smart_ptr_default_init
+#    error "__cpp_lib_smart_ptr_default_init should not be defined before c++20"
 #  endif
 
 #  ifdef __cpp_lib_smart_ptr_for_overwrite
@@ -2983,6 +2999,10 @@
 #    error "__cpp_lib_not_fn should have the value 201603L in c++17"
 #  endif
 
+#  ifdef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should not be defined before c++20"
+#  endif
+
 #  ifndef __cpp_lib_null_iterators
 #    error "__cpp_lib_null_iterators should be defined in c++17"
 #  endif
@@ -3250,6 +3270,10 @@
 
 #  ifdef __cpp_lib_simd_permutations
 #    error "__cpp_lib_simd_permutations should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_smart_ptr_default_init
+#    error "__cpp_lib_smart_ptr_default_init should not be defined before c++20"
 #  endif
 
 #  ifdef __cpp_lib_smart_ptr_for_overwrite
@@ -4473,6 +4497,13 @@
 #    error "__cpp_lib_not_fn should have the value 201603L in c++20"
 #  endif
 
+#  ifndef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should be defined in c++20"
+#  endif
+#  if __cpp_lib_nothrow_convertible != 201806L
+#    error "__cpp_lib_nothrow_convertible should have the value 201806L in c++20"
+#  endif
+
 #  ifndef __cpp_lib_null_iterators
 #    error "__cpp_lib_null_iterators should be defined in c++20"
 #  endif
@@ -4767,6 +4798,13 @@
 
 #  ifdef __cpp_lib_simd_permutations
 #    error "__cpp_lib_simd_permutations should not be defined before c++26"
+#  endif
+
+#  ifndef __cpp_lib_smart_ptr_default_init
+#    error "__cpp_lib_smart_ptr_default_init should be defined in c++20"
+#  endif
+#  if __cpp_lib_smart_ptr_default_init != 201811L
+#    error "__cpp_lib_smart_ptr_default_init should have the value 201811L in c++20"
 #  endif
 
 #  ifndef __cpp_lib_smart_ptr_for_overwrite
@@ -6122,6 +6160,13 @@
 #    error "__cpp_lib_not_fn should have the value 201603L in c++23"
 #  endif
 
+#  ifndef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should be defined in c++23"
+#  endif
+#  if __cpp_lib_nothrow_convertible != 201806L
+#    error "__cpp_lib_nothrow_convertible should have the value 201806L in c++23"
+#  endif
+
 #  ifndef __cpp_lib_null_iterators
 #    error "__cpp_lib_null_iterators should be defined in c++23"
 #  endif
@@ -6494,6 +6539,13 @@
 
 #  ifdef __cpp_lib_simd_permutations
 #    error "__cpp_lib_simd_permutations should not be defined before c++26"
+#  endif
+
+#  ifndef __cpp_lib_smart_ptr_default_init
+#    error "__cpp_lib_smart_ptr_default_init should be defined in c++23"
+#  endif
+#  if __cpp_lib_smart_ptr_default_init != 201811L
+#    error "__cpp_lib_smart_ptr_default_init should have the value 201811L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_smart_ptr_for_overwrite
@@ -8236,6 +8288,13 @@
 #    error "__cpp_lib_not_fn should have the value 202306L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should be defined in c++26"
+#  endif
+#  if __cpp_lib_nothrow_convertible != 201806L
+#    error "__cpp_lib_nothrow_convertible should have the value 201806L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_null_iterators
 #    error "__cpp_lib_null_iterators should be defined in c++26"
 #  endif
@@ -8668,6 +8727,13 @@
 #  endif
 #  if __cpp_lib_simd_permutations != 202506L
 #    error "__cpp_lib_simd_permutations should have the value 202506L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_smart_ptr_default_init
+#    error "__cpp_lib_smart_ptr_default_init should be defined in c++26"
+#  endif
+#  if __cpp_lib_smart_ptr_default_init != 201811L
+#    error "__cpp_lib_smart_ptr_default_init should have the value 201811L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_smart_ptr_for_overwrite
