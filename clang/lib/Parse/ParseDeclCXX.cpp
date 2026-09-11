@@ -2681,7 +2681,20 @@ bool Parser::ParseCXXMemberDeclaratorBeforeInitializer(
                                                               VS);
   }
 
-  ParseContractSpecifierSequence(DeclaratorInfo, /*EnterScope=*/true);
+  // A trailing-return-type declarator's own contract-specifier completions
+  // (pre/post) are already offered by CodeCompleteDeclSpec's
+  // IsTrailingReturnType handling, fired from deep inside the trailing
+  // return type's own type-id parse (ParseDecl.cpp's
+  // `case tok::code_completion:` in ParseDeclarationSpecifiers). By the time
+  // control reaches here, cutOffParsing() has already turned Tok into eof
+  // without resetting PP's code-completion-reached state, so calling
+  // ParseContractSpecifierSequence unconditionally here would fire a second,
+  // redundant completion pass over the same position -- duplicating pre/post
+  // in the results. Skip it in that specific case; every other declarator
+  // shape still needs this call (it's the only source of pre/post
+  // completions for e.g. `void f() <cursor>` with no trailing return type).
+  if (!(DeclaratorInfo.hasTrailingReturnType() && PP.isCodeCompletionReached()))
+    ParseContractSpecifierSequence(DeclaratorInfo, /*EnterScope=*/true);
 
   // If a simple-asm-expr is present, parse it.
   if (Tok.is(tok::kw_asm)) {

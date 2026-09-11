@@ -98,7 +98,8 @@ public:
   void CodeCompleteOrdinaryName(Scope *S,
                                 ParserCompletionContext CompletionContext);
   void CodeCompleteDeclSpec(Scope *S, DeclSpec &DS, bool AllowNonIdentifiers,
-                            bool AllowNestedNameSpecifiers);
+                            bool AllowNestedNameSpecifiers,
+                            bool IsTrailingReturnType = false);
 
   struct CodeCompleteExpressionData;
   void CodeCompleteExpression(Scope *S, const CodeCompleteExpressionData &Data);

@@ -3647,10 +3647,20 @@ void Parser::ParseDeclarationSpecifiers(
         bool AllowNestedNameSpecifiers
           = DSContext == DeclSpecContext::DSC_top_level ||
             (DSContext == DeclSpecContext::DSC_class && DS.isFriendSpecified());
+        // A trailing return type's own decl-specifier-seq (`auto f() -> int
+        // <cursor>`) is reached through ParseTypeName/ParseSpecifierQualifierList
+        // rather than through the function declarator's own cv-qualifier/
+        // contract-specifier completion hooks (CodeCompleteFunctionQualifiers/
+        // ParseContractSpecifierSequence) -- this whole switch unwinds out of
+        // the declarator parse before those are ever reached. Flag this
+        // position so CodeCompleteDeclSpec can also offer what a function
+        // declarator still has left to parse (noexcept, contract specifiers).
+        bool IsTrailingReturnType = DSContext == DeclSpecContext::DSC_trailing;
 
         cutOffParsing();
         Actions.CodeCompletion().CodeCompleteDeclSpec(
-            getCurScope(), DS, AllowNonIdentifiers, AllowNestedNameSpecifiers);
+            getCurScope(), DS, AllowNonIdentifiers, AllowNestedNameSpecifiers,
+            IsTrailingReturnType);
         return;
       }
 

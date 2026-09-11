@@ -4777,7 +4777,8 @@ AddClassMessageCompletions(Sema &SemaRef, Scope *S, ParsedType Receiver,
 
 void SemaCodeCompletion::CodeCompleteDeclSpec(Scope *S, DeclSpec &DS,
                                               bool AllowNonIdentifiers,
-                                              bool AllowNestedNameSpecifiers) {
+                                              bool AllowNestedNameSpecifiers,
+                                              bool IsTrailingReturnType) {
   typedef CodeCompletionResult Result;
   ResultBuilder Results(
       SemaRef, CodeCompleter->getAllocator(),
@@ -4800,6 +4801,19 @@ void SemaCodeCompletion::CodeCompleteDeclSpec(Scope *S, DeclSpec &DS,
         (DS.getTypeSpecType() == DeclSpec::TST_class ||
          DS.getTypeSpecType() == DeclSpec::TST_struct))
       Results.AddResult("final");
+
+    // A trailing return type's decl-specifier-seq is immediately followed by
+    // the rest of the function declarator -- cv-qualifiers, noexcept, and
+    // (with -fcontracts) pre/post contract specifiers -- e.g.
+    // `auto f() -> int <#cursor#>`. This position is reached through
+    // ParseTypeName/ParseSpecifierQualifierList rather than through
+    // CodeCompleteFunctionQualifiers, so mirror what that function offers.
+    if (IsTrailingReturnType && getLangOpts().CPlusPlus11) {
+      Results.AddResult(Result("noexcept"));
+      CodeCompletionBuilder Builder(Results.getAllocator(),
+                                    Results.getCodeCompletionTUInfo());
+      AddContractSpecifierResults(Builder, Results, getLangOpts());
+    }
 
     if (AllowNonIdentifiers) {
       Results.AddResult(Result("operator"));
