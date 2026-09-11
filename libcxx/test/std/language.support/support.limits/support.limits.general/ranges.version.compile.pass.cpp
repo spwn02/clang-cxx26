@@ -362,17 +362,11 @@
 #    error "__cpp_lib_ranges_cache_latest should not be defined before c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_ranges_chunk
-#      error "__cpp_lib_ranges_chunk should be defined in c++23"
-#    endif
-#    if __cpp_lib_ranges_chunk != 202202L
-#      error "__cpp_lib_ranges_chunk should have the value 202202L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_ranges_chunk
-#      error "__cpp_lib_ranges_chunk should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_ranges_chunk
+#    error "__cpp_lib_ranges_chunk should be defined in c++23"
+#  endif
+#  if __cpp_lib_ranges_chunk != 202202L
+#    error "__cpp_lib_ranges_chunk should have the value 202202L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_ranges_chunk_by
@@ -408,17 +402,11 @@
 #    error "__cpp_lib_ranges_reserve_hint should not be defined before c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_ranges_slide
-#      error "__cpp_lib_ranges_slide should be defined in c++23"
-#    endif
-#    if __cpp_lib_ranges_slide != 202202L
-#      error "__cpp_lib_ranges_slide should have the value 202202L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_ranges_slide
-#      error "__cpp_lib_ranges_slide should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_ranges_slide
+#    error "__cpp_lib_ranges_slide should be defined in c++23"
+#  endif
+#  if __cpp_lib_ranges_slide != 202202L
+#    error "__cpp_lib_ranges_slide should have the value 202202L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_ranges_stride
@@ -505,17 +493,11 @@
 #    error "__cpp_lib_ranges_cache_latest should have the value 202411L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_ranges_chunk
-#      error "__cpp_lib_ranges_chunk should be defined in c++26"
-#    endif
-#    if __cpp_lib_ranges_chunk != 202202L
-#      error "__cpp_lib_ranges_chunk should have the value 202202L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_ranges_chunk
-#      error "__cpp_lib_ranges_chunk should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_ranges_chunk
+#    error "__cpp_lib_ranges_chunk should be defined in c++26"
+#  endif
+#  if __cpp_lib_ranges_chunk != 202202L
+#    error "__cpp_lib_ranges_chunk should have the value 202202L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_ranges_chunk_by
@@ -560,17 +542,11 @@
 #    error "__cpp_lib_ranges_reserve_hint should have the value 202502L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_ranges_slide
-#      error "__cpp_lib_ranges_slide should be defined in c++26"
-#    endif
-#    if __cpp_lib_ranges_slide != 202202L
-#      error "__cpp_lib_ranges_slide should have the value 202202L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_ranges_slide
-#      error "__cpp_lib_ranges_slide should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_ranges_slide
+#    error "__cpp_lib_ranges_slide should be defined in c++26"
+#  endif
+#  if __cpp_lib_ranges_slide != 202202L
+#    error "__cpp_lib_ranges_slide should have the value 202202L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_ranges_stride

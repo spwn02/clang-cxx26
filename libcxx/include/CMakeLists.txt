@@ -769,6 +769,7 @@ set(files
   __ranges/as_rvalue_view.h
   __ranges/cache_latest_view.h
   __ranges/chunk_by_view.h
+  __ranges/chunk_view.h
   __ranges/common_view.h
   __ranges/concat_view.h
   __ranges/concepts.h
@@ -803,6 +804,7 @@ set(files
   __ranges/reverse_view.h
   __ranges/single_view.h
   __ranges/size.h
+  __ranges/slide_view.h
   __ranges/split_view.h
   __ranges/stride_view.h
   __ranges/subrange.h
