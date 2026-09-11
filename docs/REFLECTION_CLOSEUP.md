@@ -42,8 +42,37 @@ mode of operation this epic started with.
 fixed and verified: its landed primary splice fix remains intact, and the former `is_type_alias`
 loose end is now fixed. Items 1, 5a, and 9 remain escalated to the user; the remaining items are
 fixed/verified, conclusively unreproducible, or (for #275 within item 14) escalated with evidence.
-**Reflection Closeup is ready for CU5**, the final assertions-enabled `check-clang`/`check-cxx`
-gate. The following superseded CU4 progress snapshot remains for historical context.
+
+**CU5 is now done too.** Full `check-clang` (49852 tests) came back at exactly the documented
+5-test SemaCXX escalation-cluster baseline, zero new failures. Full `check-cxx` (11866 tests, run
+via `llvm-lit -j 6` directly rather than through `ninja check-cxx` — the default ~22-way
+parallelism OOM-killed the first attempt on this machine, which also runs an interactive desktop
+session sharing memory) came back with exactly the documented 7-test reflection-suite baseline
+plus **one genuine new failure**: `libcxx/headers_in_modulemap.sh.py`, reporting
+`__stacktrace/stacktrace_decls.h` missing from the modulemap. Root cause: that file was added
+during the emergency `<stacktrace>` port (an ungated declarations header, mirroring
+`__debugging/is_debugger_present.h`'s own documented trick) but never registered in
+`module.modulemap.in` — never caught earlier because only the targeted reflection subdirectory was
+exercised throughout this epic, not the full `check-cxx` suite, until this final gate. Fixed
+(commit `ac4086ad878d`), reverified clean: the specific test now passes, and
+`libcxx/test/libcxx/` (1108 tests) plus `libcxx/test/std/diagnostics/stacktrace/` are both 100%
+clean.
+
+**Reflection Closeup's 14 items and CU5's final gate are both done.** Ready for CU6 close-out.
+
+**Also today, separately (not one of the 14 items): an emergency, user-reported production bug**
+was found and fixed — clang-tidy (and any `RecursiveASTVisitor`-based tool) crashed with
+unbounded recursion on any `import std;` translation unit, even one using no reflection syntax at
+all, because `RecursiveASTVisitor`'s `CXXReflectExpr` traversal called `TraverseDecl` on the
+reflected declaration, walking its *entire body* (unlike an ordinary reference such as
+`DeclRefExpr`) — and libc++'s own `<meta>` implementation, fully visible via `import std;`, is
+internally self-referential through reflection. Fixed in `clang/include/clang/AST/
+RecursiveASTVisitor.h` (commit `939041485e49`), shipped as `cxx26-2026.09.11.2`, verified
+end-to-end against the packaged release. See that commit's message for full detail; not
+tracked as a numbered item here since it wasn't one of the 14 deferred items this epic exists to
+close, but material to CU5/CU6 since it landed in the same session, on the same tree.
+
+The following superseded CU4 progress snapshot remains for historical context.
 
 **Superseded CU4 progress snapshot:** Item 1 is escalated to the user, not being worked
 automatically (see below). Item 2 has a partial fix landed, one sub-symptom (`is_type_alias`
@@ -712,3 +741,44 @@ rebuild succeeds; focused #237 test passes; full libc++ reflection suite discove
 reports exactly its documented seven pre-existing failures, with no new failures. Item 2 now has a
 final fixed-and-verified disposition. All 14 Reflection Closeup items are consequently final,
 ready for CU5.
+
+### 2026-09-11 (final) — CU5 final gate, plus an emergency out-of-scope production fix
+
+**CU5 (`check-clang`/`check-cxx` on the assertions-enabled tree):** `build-nyx` already has
+`+assertions` (confirmed via `clang --version`), so no separate tree was needed. `ninja -C
+build-nyx check-clang` (49852 tests) came back at exactly the documented 5-test SemaCXX
+escalation-cluster baseline, zero new failures — the strongest confirmation yet that none of this
+epic's fixes regressed anything outside the reflection-specific subdirectories exercised
+throughout. `ninja -C build-libcxx check-cxx` at default parallelism was OOM-killed by the host
+(this machine also runs an interactive desktop session competing for memory, not a dedicated CI
+box); retried directly via `llvm-lit -j 6` (reduced parallelism), which completed cleanly in
+~43 minutes: 11866 tests, exactly the documented 7-test reflection baseline plus **one genuine new
+failure**, `libcxx/headers_in_modulemap.sh.py` (`__stacktrace/stacktrace_decls.h` missing from
+`module.modulemap.in` — added during the emergency `<stacktrace>` port earlier this session as an
+ungated declarations header, mirroring `__debugging/is_debugger_present.h`'s own documented trick,
+but never registered in the modulemap; never caught earlier since only the targeted reflection
+subdirectory was run throughout the epic, not the full `check-cxx` suite, until this final gate).
+Fixed (commit `ac4086ad878d`) and reverified: the specific test passes, and both
+`libcxx/test/libcxx/` (1108 tests) and `libcxx/test/std/diagnostics/stacktrace/` are 100% clean.
+**CU5 is done — both final gates are clean.**
+
+**Separately, an emergency production bug reported directly by a downstream user** (not one of
+the 14 items, but landed in this same session on this same tree, so noted here for continuity):
+clang-tidy (and any `RecursiveASTVisitor`-based tool) crashed with unbounded/mutual recursion on
+*any* `import std;` translation unit, even one using no reflection syntax at all —
+`RecursiveASTVisitor`'s `CXXReflectExpr` handling called `TraverseDecl` on the reflected
+declaration for `ReflectionKind::Declaration`/`EntityProxy`/`Parameter`, which (unlike an ordinary
+reference such as `DeclRefExpr`, which never re-descends into what it references) walks that
+declaration's *entire body* — so two declarations that reflect each other, directly or
+transitively, recurse without bound. This is inevitable throughout libc++'s own `<meta>`
+implementation, which `import std;` makes fully visible regardless of whether the translation
+unit itself uses reflection. Root-caused via a real CMake + `import std;` + clang-tidy
+reproduction (confirmed specific to `-freflection-latest` by precompiling `std.pcm` under each
+flag combination independently — not `-fcontracts`, not a generic upstream limitation). Fixed by
+treating those reflection kinds as pure references, matching the established `DeclRefExpr` idiom
+(`clang/include/clang/AST/RecursiveASTVisitor.h`, commit `939041485e49`), with a new permanent
+regression unittest. Verified against the exact user repro, a broad multi-family clang-tidy check
+sweep, the full `check-clang` run above, and the libc++ reflection suite — all clean. Shipped as
+`cxx26-2026.09.11.2`, and re-verified end-to-end against the *packaged* release specifically
+(precompiling `std.pcm` and re-running the exact crash repro against the downloaded, extracted
+install, not just the dev build) before reporting it fixed.
