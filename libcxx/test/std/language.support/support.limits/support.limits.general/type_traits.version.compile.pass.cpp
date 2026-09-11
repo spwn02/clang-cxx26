@@ -96,6 +96,10 @@
 #    error "__cpp_lib_logical_traits should not be defined before c++17"
 #  endif
 
+#  ifdef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should not be defined before c++20"
+#  endif
+
 #  ifdef __cpp_lib_reference_from_temporary
 #    error "__cpp_lib_reference_from_temporary should not be defined before c++23"
 #  endif
@@ -209,6 +213,10 @@
 
 #  ifdef __cpp_lib_logical_traits
 #    error "__cpp_lib_logical_traits should not be defined before c++17"
+#  endif
+
+#  ifdef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should not be defined before c++20"
 #  endif
 
 #  ifdef __cpp_lib_reference_from_temporary
@@ -348,6 +356,10 @@
 #  endif
 #  if __cpp_lib_logical_traits != 201510L
 #    error "__cpp_lib_logical_traits should have the value 201510L in c++17"
+#  endif
+
+#  ifdef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should not be defined before c++20"
 #  endif
 
 #  ifdef __cpp_lib_reference_from_temporary
@@ -523,6 +535,13 @@
 #  endif
 #  if __cpp_lib_logical_traits != 201510L
 #    error "__cpp_lib_logical_traits should have the value 201510L in c++20"
+#  endif
+
+#  ifndef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should be defined in c++20"
+#  endif
+#  if __cpp_lib_nothrow_convertible != 201806L
+#    error "__cpp_lib_nothrow_convertible should have the value 201806L in c++20"
 #  endif
 
 #  ifdef __cpp_lib_reference_from_temporary
@@ -716,6 +735,13 @@
 #  endif
 #  if __cpp_lib_logical_traits != 201510L
 #    error "__cpp_lib_logical_traits should have the value 201510L in c++23"
+#  endif
+
+#  ifndef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should be defined in c++23"
+#  endif
+#  if __cpp_lib_nothrow_convertible != 201806L
+#    error "__cpp_lib_nothrow_convertible should have the value 201806L in c++23"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)
@@ -936,6 +962,13 @@
 #  endif
 #  if __cpp_lib_logical_traits != 201510L
 #    error "__cpp_lib_logical_traits should have the value 201510L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_nothrow_convertible
+#    error "__cpp_lib_nothrow_convertible should be defined in c++26"
+#  endif
+#  if __cpp_lib_nothrow_convertible != 201806L
+#    error "__cpp_lib_nothrow_convertible should have the value 201806L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)

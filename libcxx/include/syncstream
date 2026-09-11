@@ -323,6 +323,10 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI void set_emit_on_sync(bool __b) noexcept { __emit_on_sync_ = __b; }
 
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __set_emit_on_sync(bool __b) noexcept override { set_emit_on_sync(__b); }
+
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __emit_on_flush() override { emit(); }
+
 protected:
   // [syncstream.syncbuf.virtuals], overridden virtual functions
 

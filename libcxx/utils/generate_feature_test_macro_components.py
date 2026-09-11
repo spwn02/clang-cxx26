@@ -725,6 +725,13 @@ feature_test_macros = [
             "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
         },
         {
+            "name": "__cpp_lib_hardened_basic_stacktrace",
+            "values": {"c++26": 202506},
+            "headers": ["stacktrace"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+            "libcxx_guard": "_LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE",
+        },
+        {
             "name": "__cpp_lib_hardened_basic_string",
             "values": {"c++26": 202502},  # P3471R4 Standard Library Hardening
             "headers": ["string"],
@@ -1138,6 +1145,11 @@ feature_test_macros = [
             "headers": ["functional"],
         },
         {
+            "name": "__cpp_lib_nothrow_convertible",
+            "values": {"c++20": 201806},
+            "headers": ["type_traits"],
+        },
+        {
             "name": "__cpp_lib_null_iterators",
             "values": {"c++14": 201304},
             "headers": ["iterator"],
@@ -1432,6 +1444,11 @@ feature_test_macros = [
             "name": "__cpp_lib_simd_permutations",
             "values": {"c++26": 202506},  # P2664R7 static/dynamic simd permutations
             "headers": ["simd"],
+        },
+        {
+            "name": "__cpp_lib_smart_ptr_default_init",
+            "values": {"c++20": 201811},
+            "headers": ["memory"],
         },
         {
             "name": "__cpp_lib_smart_ptr_for_overwrite",

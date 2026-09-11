@@ -141,6 +141,7 @@ __cpp_lib_generate_random                               202403L <random>
 __cpp_lib_generic_associative_lookup                    201304L <map> <set>
 __cpp_lib_generic_unordered_lookup                      201811L <unordered_map> <unordered_set>
 __cpp_lib_hardened_array                                202502L <array>
+__cpp_lib_hardened_basic_stacktrace                     202506L <stacktrace>
 __cpp_lib_hardened_basic_string                         202502L <string>
 __cpp_lib_hardened_basic_string_view                    202502L <string_view>
 __cpp_lib_hardened_bitset                               202502L <bitset>
@@ -214,6 +215,7 @@ __cpp_lib_nonmember_container_access                    201411L <array> <deque> 
                                                                 <unordered_map> <unordered_set> <vector>
 __cpp_lib_not_fn                                        202306L <functional>
                                                         201603L // C++17
+__cpp_lib_nothrow_convertible                           201806L <type_traits>
 __cpp_lib_null_iterators                                201304L <iterator>
 __cpp_lib_optional                                      202506L <optional>
                                                         202110L // C++23
@@ -271,6 +273,7 @@ __cpp_lib_shift                                         201806L <algorithm>
 __cpp_lib_simd                                          202603L <simd>
 __cpp_lib_simd_complex                                  202502L <simd>
 __cpp_lib_simd_permutations                             202506L <simd>
+__cpp_lib_smart_ptr_default_init                        201811L <memory>
 __cpp_lib_smart_ptr_for_overwrite                       202002L <memory>
 __cpp_lib_smart_ptr_owner_equality                      202306L <memory>
 __cpp_lib_source_location                               201907L <source_location>
@@ -485,6 +488,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_list_remove_return_type              201806L
 # define __cpp_lib_math_constants                       201907L
 # define __cpp_lib_move_iterator_concept                202207L
+# define __cpp_lib_nothrow_convertible                  201806L
 # undef  __cpp_lib_optional
 # define __cpp_lib_optional                             202106L
 # if _LIBCPP_AVAILABILITY_HAS_PMR
@@ -498,6 +502,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # undef  __cpp_lib_shared_ptr_arrays
 # define __cpp_lib_shared_ptr_arrays                    201707L
 # define __cpp_lib_shift                                201806L
+# define __cpp_lib_smart_ptr_default_init               201811L
 # define __cpp_lib_smart_ptr_for_overwrite              202002L
 # define __cpp_lib_source_location                      201907L
 # define __cpp_lib_span                                 202002L
@@ -632,6 +637,9 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_generate_random                      202403L
 # if _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
 #   define __cpp_lib_hardened_array                     202502L
+# endif
+# if _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#   define __cpp_lib_hardened_basic_stacktrace          202506L
 # endif
 # if _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
 #   define __cpp_lib_hardened_basic_string              202502L

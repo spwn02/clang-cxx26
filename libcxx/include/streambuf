@@ -255,6 +255,12 @@ public:
     return xsputn(__s, __n);
   }
 
+  // These hooks allow the synchronized-stream manipulators to recognize a
+  // basic_syncbuf without depending on RTTI or its allocator type. They are
+  // no-ops for every other stream buffer.
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __set_emit_on_sync(bool) noexcept {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __emit_on_flush() {}
+
 protected:
   basic_streambuf() {}
   basic_streambuf(const basic_streambuf& __sb)

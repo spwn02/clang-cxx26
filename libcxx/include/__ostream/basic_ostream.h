@@ -557,6 +557,25 @@ _LIBCPP_HIDE_FROM_ABI inline basic_ostream<_CharT, _Traits>& flush(basic_ostream
   return __os;
 }
 
+template <class _CharT, class _Traits>
+_LIBCPP_HIDE_FROM_ABI inline basic_ostream<_CharT, _Traits>& emit_on_flush(basic_ostream<_CharT, _Traits>& __os) {
+  __os.rdbuf()->__set_emit_on_sync(true);
+  return __os;
+}
+
+template <class _CharT, class _Traits>
+_LIBCPP_HIDE_FROM_ABI inline basic_ostream<_CharT, _Traits>& noemit_on_flush(basic_ostream<_CharT, _Traits>& __os) {
+  __os.rdbuf()->__set_emit_on_sync(false);
+  return __os;
+}
+
+template <class _CharT, class _Traits>
+_LIBCPP_HIDE_FROM_ABI inline basic_ostream<_CharT, _Traits>& flush_emit(basic_ostream<_CharT, _Traits>& __os) {
+  __os.flush();
+  __os.rdbuf()->__emit_on_flush();
+  return __os;
+}
+
 template <class _Stream, class _Tp, class = void>
 struct __is_ostreamable : false_type {};
 
