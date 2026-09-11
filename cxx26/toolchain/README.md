@@ -52,6 +52,8 @@ A snapshot is one coherent compiler/runtime unit:
 
 ```text
 clang / clang++
+clangd
+clang-tidy
 clang-scan-deps
 lld
 llvm-ar

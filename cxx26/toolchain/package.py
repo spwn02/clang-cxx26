@@ -128,6 +128,7 @@ def main() -> int:
         stage / "bin" / "clang++",
         stage / "bin" / "clang-scan-deps",
         stage / "bin" / "clangd",
+        stage / "bin" / "clang-tidy",
     ]
     for item in required:
         if not item.exists():
@@ -210,6 +211,7 @@ def main() -> int:
             "components": [
                 "clang",
                 "clangd",
+                "clang-tidy",
                 "clang-scan-deps",
                 "lld",
                 "llvm-ar",

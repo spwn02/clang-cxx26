@@ -17,7 +17,7 @@ rm -rf "${install_prefix}" "${build_dir}"
 
 runtime_components="cxx;cxxabi;unwind"
 runtime_distribution_components="cxx-modules"
-distribution_components="clang;clangd;clang-resource-headers;clang-scan-deps;lld;llvm-ar;${runtime_components};${runtime_distribution_components}"
+distribution_components="clang;clangd;clang-tidy;clang-resource-headers;clang-scan-deps;lld;llvm-ar;${runtime_components};${runtime_distribution_components}"
 
 launcher_args=()
 if [[ -n "${compiler_launcher}" ]]; then
@@ -76,6 +76,7 @@ fi
 test -x "${install_prefix}/bin/clang"
 test -x "${install_prefix}/bin/clang++"
 test -x "${install_prefix}/bin/clang-scan-deps"
+test -x "${install_prefix}/bin/clang-tidy"
 
 if ! find "${install_prefix}" -name 'libc++.modules.json' -print -quit | grep -q .; then
   echo "reference toolchain install does not contain libc++.modules.json" >&2
