@@ -158,7 +158,7 @@
 "`P1872R0 <https://wg21.link/P1872R0>`__","span should have size_type, not index_type","2019-11 (Belfast)","|Complete|","10","`#104192 <https://github.com/llvm/llvm-project/issues/104192>`__",""
 "`P1878R1 <https://wg21.link/P1878R1>`__","Constraining Readable Types","2019-11 (Belfast)","|Complete|","15","`#104194 <https://github.com/llvm/llvm-project/issues/104194>`__",""
 "`P1892R1 <https://wg21.link/P1892R1>`__","Extended locale-specific presentation specifiers for std::format","2019-11 (Belfast)","|Complete|","14","`#104196 <https://github.com/llvm/llvm-project/issues/104196>`__",""
-"`P1902R1 <https://wg21.link/P1902R1>`__","Missing feature-test macros 2018-2019","2019-11 (Belfast)","","","`#100032 <https://github.com/llvm/llvm-project/issues/100032>`__",""
+"`P1902R1 <https://wg21.link/P1902R1>`__","Missing feature-test macros 2018-2019","2019-11 (Belfast)","|Partial|","","`#100032 <https://github.com/llvm/llvm-project/issues/100032>`__","All macros present at/above the paper's specified values except ``__cpp_lib_atomic_shared_ptr`` (still commented out -- ``atomic<shared_ptr<T>>``/``atomic<weak_ptr<T>>`` genuinely unimplemented, tracked separately as P0718R2+P1644R0)."
 "`P1959R0 <https://wg21.link/P1959R0>`__","Remove std::weak_equality and std::strong_equality","2019-11 (Belfast)","|Nothing To Do|","","`#104198 <https://github.com/llvm/llvm-project/issues/104198>`__",""
 "`P1960R0 <https://wg21.link/P1960R0>`__","NB Comment Changes Reviewed by SG1","2019-11 (Belfast)","","","`#100033 <https://github.com/llvm/llvm-project/issues/100033>`__",""
 "`P1961R0 <https://wg21.link/P1961R0>`__","Harmonizing the definitions of total order for pointers","2019-11 (Belfast)","","","`#100611 <https://github.com/llvm/llvm-project/issues/100611>`__",""
