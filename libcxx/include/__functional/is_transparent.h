@@ -19,15 +19,15 @@
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-#if _LIBCPP_STD_VER >= 14
-
+// This trait itself is just a compile-time check for `Tp::is_transparent`'s existence -- it has no
+// dependency on any C++14-or-later language/library feature, so it's available unconditionally.
+// Individual call sites that use it to opt into heterogeneous lookup remain gated on whatever
+// standard version actually introduced that specific overload.
 template <class _Tp, class _Key = void, class = void>
 inline const bool __is_transparent_v = false;
 
 template <class _Tp, class _Key>
 inline const bool __is_transparent_v<_Tp, _Key, __void_t<typename _Tp::is_transparent> > = true;
-
-#endif
 
 // Two types are considered transparently comparable if `comparator(key, arg)` is equivalent to `comparator(key,
 // <implicit cast to KeyT>(arg))`.
