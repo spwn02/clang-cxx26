@@ -843,6 +843,12 @@ static bool reflect_invoke(APValue &Result, ASTContext &C, MetaActions &Meta,
                            SourceRange Range, ArrayRef<Expr *> Args,
                            Decl *ContainingDecl);
 
+static bool is_string_literal(APValue &Result, ASTContext &C, MetaActions &Meta,
+                              EvalFn Evaluator, DiagFn Diagnoser,
+                              bool AllowInjection, QualType ResultTy,
+                              SourceRange Range, ArrayRef<Expr *> Args,
+                              Decl *ContainingDecl);
+
 // -----------------------------------------------------------------------------
 // Metafunction table
 //
@@ -1002,6 +1008,7 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_metaInfo, 3, 3, define_unscoped_enum },
 
   { Metafunction::MFRK_bool, 1, 1, is_closure_type },
+  { Metafunction::MFRK_bool, 1, 1, is_string_literal },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
                                             sizeof(Metafunction);
@@ -7696,6 +7703,22 @@ bool reflect_invoke(APValue &Result, ASTContext &C, MetaActions &Meta,
                   const_cast<ValueDecl *>(LVBase.get<const ValueDecl *>())));
 
   return SetAndSucceed(Result, EvalResult.Val.Lift(CallExpr->getType()));
+}
+
+bool is_string_literal(APValue &Result, ASTContext &C, MetaActions &Meta,
+                       EvalFn Evaluator, DiagFn Diagnoser,
+                       bool AllowInjection, QualType ResultTy,
+                       SourceRange Range, ArrayRef<Expr *> Args,
+                       Decl *ContainingDecl) {
+  assert(Args[0]->getType()->isPointerType());
+  assert(ResultTy == C.BoolTy);
+
+  APValue Pointer;
+  if (!Evaluator(Pointer, Args[0], true))
+    return true;
+
+  const Expr *Base = Pointer.getLValueBase().dyn_cast<const Expr *>();
+  return SetAndSucceed(Result, makeBool(C, isa_and_nonnull<StringLiteral>(Base)));
 }
 
 }  // end namespace clang

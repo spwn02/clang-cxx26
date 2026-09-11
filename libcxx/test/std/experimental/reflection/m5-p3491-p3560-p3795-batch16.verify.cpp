@@ -17,6 +17,17 @@ constexpr auto bad_array = std::define_static_array(
     std::array{runtime_value()});
 // expected-error@-2 {{must be initialized by a constant expression}}
 
+// 3491-05: array elements must be structural, not merely copyable.
+struct non_structural {
+private:
+  int value = 0; // expected-warning {{private field 'value' is not used}}
+public:
+  constexpr non_structural() = default;
+};
+constexpr auto non_structural_array = std::define_static_array(
+    std::array{non_structural{}});
+// expected-error@-2 {{no matching function for call to 'define_static_array'}}
+
 // 3795-04: generated-member annotations retain source annotation constraints.
 struct Annotated;
 consteval {
@@ -25,7 +36,7 @@ consteval {
                                .annotations = {std::meta::reflect_constant(
                                    std::string{"not structural"})}})});
 }
-// expected-error@25 {{no matching function for call to 'reflect_constant'}}
-// expected-error@22 {{evaluating expression of a consteval block must be a constant expression}}
+// expected-error@-3 {{no matching function for call to 'reflect_constant'}}
+// expected-error@-7 {{evaluating expression of a consteval block must be a constant expression}}
 
 } // namespace batch16

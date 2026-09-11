@@ -59,8 +59,9 @@ mid-epic**: a stale `"unimplemented": True` flag for `__cpp_lib_stacktrace` in
 `generate_feature_test_macro_components.py`, left over from the earlier emergency `<stacktrace>`
 port, was causing the *packaged reference-toolchain* preflight CI to fail (`std.compat.cppm`'s
 generated "please update headers_not_available" guard trips as soon as `<stacktrace>` is genuinely
-includable) — see the dated session-log entry below. Next actionable item is **item 11**
-(`define_static_object`).
+includable) — see the dated session-log entry below. **Items 11, 12, and 13 are now fixed and
+verified** (uncommitted; see the dated session-log entry below). Next actionable item is **item
+14** (the upstream-issue reproducer audit).
 
 **Two new, unrelated findings surfaced while closing item 5b (not part of this epic's 14-item
 scope, not fixed, logged here so a future session doesn't have to rediscover them):**
@@ -331,9 +332,9 @@ documented 7-test pre-existing baseline.
 | 8 | CWG 3111 residual — nested/multi-dimensional arrays | **Fixed and verified (commit pending)** | Root cause: a row-by-row NTTP-*reference* backing design (copy each row's own `FixedArray` object into a fresh contiguous array via `{Rows...}`) looks plausible ([temp.param]p6 permits reference NTTPs to array objects) but can never work — arrays are never copy-list-initializable from another array object in C++ at all (`int a[2][3] = {row0, row1};` is exactly as ill-formed in ordinary code). Real fix: flatten all the way down to the scalar leaf type, gather every dimension's extent along the way, and reconstruct the correctly-nested array type via a small `__nd_array_shape<ValTy, Extents...>` recursive metafunction (arbitrary rank, not limited by declarator syntax) — ordinary aggregate-init brace elision then fills the nested array correctly from one flat, row-major scalar list (`FixedNDArray`). Two secondary bugs found and fixed along the way: (1) the entry `requires`-clause's `is_constructible_v<range_value_t<R>, range_reference_t<R>>` check is unconditionally false for any array-typed `range_value_t` (arrays are never "constructible" per the trait's own specification), which would silently reject every nested case at the SFINAE boundary — added an array-aware recursive `__reflect_constant_array_row_ok_v` alternative. (2) `define_static_array`'s row-pointer extraction (`extract<const ValTy*>(array)`) doesn't work for a multi-dimensional backing object (only whole-array-by-reference extraction does); fixed by extracting the whole array by reference and decaying to a row pointer manually — the outer extent for the reference type comes directly from `R` itself (a template parameter, not a runtime read), since `is_array_v<ValTy>` can only be true when `R` is itself a genuine raw C array type. `-Wmissing-braces` on the intentional flat brace-elided initializer suppressed locally (same warning ordinary `int a[2][3]={1,2,3,4,5,6};` code triggers). New/extended test: `libcxx/test/std/experimental/reflection/cwg3111-lwg4432-reflect-constant-array.pass.cpp`'s former "nested arrays remain unsupported" section replaced with real 2D/3D coverage (`reflect_constant`, `reflect_constant_array`, `define_static_array`, a structural class-type row). Verified zero regressions: `clang/test/Reflection/` 22/22, libc++ reflection suite at the documented 7-test pre-existing baseline (114 tests, zero new failures). |
 | 9 | P3560R2 strategy 2 — ~20 remaining Throws-bearing metafunctions | **Escalated — no partial fix** | Independent source audit reconfirmed both evaluator-interface blockers; synthesized-constructor pilot remains blocked by the inherited-constructor abort. See `docs/reflection-audit/item9-strategy2-stop-report.md`. |
 | 10 | `3560-18` — `access_context::via` catch-and-inspect coverage | **Fixed and verified (commit pending)** | Root cause was a general P3068 constexpr-exceptions evaluator bug: `EvaluateVarDecl` allocated a local's APValue and registered its block cleanup before evaluating its initializer, but retained that cleanup when initialization threw. The declaration's APValue is therefore absent (its lifetime never began), yet try-block unwinding attempted its destruction and diagnosed `note_constexpr_destroy_out_of_lifetime`. `EvalInfo::cancelCleanup` now removes the exact pending cleanup when a local initializer fails (idempotently, because some failure paths have already unwound it). This preserves normal destructor unwinding for fully constructed locals. New compiler regression: `clang/test/SemaCXX/constexpr-p3068r6-throw.cpp`; extended `libcxx/test/std/experimental/reflection/exception.pass.cpp` proves `access_context::via(^^int)` is caught as `meta::exception` and verifies `what()`, `from()`, and `where()`. Verified clang Reflection + Parser/SemaCXX/SemaTemplate/AST/CodeGenCXX: 3836 tests, only documented 5 SemaCXX baselines; libc++ reflection: 114 tests, only documented 7 failures. Full command/output record: `docs/reflection-audit/item10-3560-18-report.md`. |
-| 11 | `define_static_object` entirely missing (P3491R3) | Not started | Zero occurrences anywhere in the tree. |
-| 12 | `is_string_literal` (5 overloads) missing (P3491R3) | Not started | Issue #168 has a ready-made upstream implementation targeting the legacy `experimental/meta` API — needs adaptation, not verbatim port. |
-| 13 | `reflect_constant_string` narrower than spec + `reflect_constant_array` Mandates unenforced | Not started | Fork has 2 fixed overloads (`char`/`char8_t`) vs. paper's generic template (+ `wchar_t`/`char16_t`/`char32_t`); missing "already a string literal" carve-out; `copy_constructible`/structural-type Mandates not checked. |
+| 11 | `define_static_object` entirely missing (P3491R3) | **Fixed and verified (uncommitted)** | Implemented P3491R3's class/scalar split exactly: classes return the address of the `reflect_constant` template-parameter object; non-class objects route through a one-element `define_static_array`. Regression coverage includes both structural class and scalar objects. |
+| 12 | `is_string_literal` (5 overloads) missing (P3491R3) | **Fixed and verified (uncommitted)** | Added all five `std::is_string_literal` overloads plus one minimal compiler metafunction. It evaluates the pointer and recognizes a `StringLiteral` lvalue base, so literal subobjects return true and ordinary character arrays return false. Adapted the approach from upstream PR #168 to adopted `std::meta`. |
+| 13 | `reflect_constant_string` narrower than spec + `reflect_constant_array` Mandates unenforced | **Fixed and verified (uncommitted)** | Replaced fixed `char`/`char8_t` overloads with the P3491R3 range template for all five character types. Literal ranges retain their supplied terminator rather than gaining a second one. Enforced structural, constructible, and copyable array-element requirements; nested-array support preserves item 8's recursive leaf checks because array row types themselves are not structural. |
 | 14 | Issues #184, #187, #208, #212, #253, #275 — needs-reproducer | Not started | All previously blocked on a dead Godbolt link. Re-check the live upstream issue threads for accumulated detail before giving up on each. |
 
 ## Ground truth / where to look
@@ -344,6 +345,30 @@ between two copies. Key anchors: `clang/lib/Sema/SemaExpr.cpp:18396`, `libcxx/in
 pre-existing baseline failures" section.
 
 ## Session Log
+
+### 2026-09-11 — CU3 items 11–13 (P3491R3 static storage): fixed and verified (uncommitted)
+
+Implemented all three separable P3491R3 gaps. `define_static_object(T&&)` follows the paper's
+class/non-class effects: class values use `reflect_constant` and `extract<const U&>` to return the
+template-parameter object's address; scalar values use a one-element static array. Added the five
+`std::is_string_literal` overloads and a single `ExprConstantMeta.cpp` metafunction that evaluates
+the pointer argument and checks whether its lvalue base is a `StringLiteral` AST node. This is the
+same core approach as upstream #168, adapted to this fork's adopted `std::meta` metafunction table
+rather than its old `experimental/meta` interface. `reflect_constant_string` and
+`define_static_string` are now range templates supporting `char`, `wchar_t`, `char8_t`, `char16_t`,
+and `char32_t`; when its range is a genuine literal, it retains the existing terminator instead of
+appending another. `reflect_constant_array`/`define_static_array` now enforce P3491's structural,
+constructible, and copy-constructible requirements. Item 8's nested-array extension needs a
+recursive structural test through its array rows, since the compiler correctly reports raw array
+types themselves non-structural even when their leaf type is structural.
+
+New `p3491-static-storage.pass.cpp` covers all five literal character types, literal subobjects vs
+ordinary arrays, one-null-terminator behavior, and scalar/class static objects. Extended
+`m5-p3491-p3560-p3795-batch16.verify.cpp` proves a copyable but non-structural element is rejected.
+Full report and exact commands/results: `docs/reflection-audit/cu3-p3491-report.md`. Gates: full
+Clang rebuild; mandatory clean libc++ rebuild; focused P3491 and nested-array tests; full Clang
+Reflection; full libc++ reflection; Parser/SemaCXX/SemaTemplate/AST/CodeGenCXX (3814 tests, exactly
+the documented five SemaCXX baseline failures). No commit or push.
 
 ### 2026-09-11 — Item 10 (`3560-18`): fixed and verified (uncommitted)
 

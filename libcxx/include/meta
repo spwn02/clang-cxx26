@@ -427,6 +427,7 @@ template <reflection_range R1 = initializer_list<info>,
 */
 
 #include <__config>
+#include <__memory/addressof.h>
 #include <bit>
 #include <exception>
 #include <initializer_list>
@@ -450,6 +451,18 @@ template <reflection_range R1 = initializer_list<info>,
 #endif
 
 #if __has_feature(reflection)
+
+#define __cpp_lib_define_static 202506L
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+
+consteval bool is_string_literal(const char* p);
+consteval bool is_string_literal(const wchar_t* p);
+consteval bool is_string_literal(const char8_t* p);
+consteval bool is_string_literal(const char16_t* p);
+consteval bool is_string_literal(const char32_t* p);
+
+_LIBCPP_END_NAMESPACE_STD
 
 _LIBCPP_BEGIN_NAMESPACE_REFLECTION_V2
 
@@ -657,6 +670,9 @@ enum : unsigned {
   __metafn_define_unscoped_enum,
 
   __metafn_is_closure_type,
+
+  // P3491R3 string-literal helper
+  __metafn_is_string_literal,
 };
 
 consteval auto __workaround_expand_compiler_builtins(info type) -> info;
@@ -1618,6 +1634,16 @@ template <typename T, size_t N>
 inline constexpr bool __reflect_constant_array_row_ok_v<T[N]> =
     __reflect_constant_array_row_ok_v<T>;
 
+// 'range_value_t<R>' is an array for the nested-array extension above, but
+// arrays themselves are not structural types even when every ultimate leaf
+// is. Apply P3491's structural mandate to the element that is actually made
+// into a template argument, recursively through those implementation rows.
+template <typename T>
+inline constexpr bool __reflect_constant_array_structural_v = is_structural_type(^^T);
+template <typename T, size_t N>
+inline constexpr bool __reflect_constant_array_structural_v<T[N]> =
+    __reflect_constant_array_structural_v<T>;
+
 // Forward declaration: a template parameter of array type cannot be formed
 // through the ordinary template-parameter-object mechanism (CWG 3111), so
 // the array-typed overload of 'reflect_constant' just below routes through
@@ -1641,10 +1667,11 @@ inline constexpr bool __reflect_constant_array_row_ok_v<T[N]> =
 // arbitrary number of '[N]' pairs directly) before substituting the flat
 // leaves into that shape. Defined further below.
 template <ranges::input_range R>
-    requires (is_array_v<ranges::range_value_t<R>>
+    requires (__reflect_constant_array_structural_v<ranges::range_value_t<R>> &&
+              (is_array_v<ranges::range_value_t<R>>
                   ? __reflect_constant_array_row_ok_v<ranges::range_value_t<R>>
                   : is_constructible_v<ranges::range_value_t<R>,
-                                       ranges::range_reference_t<R>>)
+                                       ranges::range_reference_t<R>>))
 consteval auto reflect_constant_array(R &&elems) -> info;
 
 // Returns a reflection of an array held by the provided argument (CWG 3111).
@@ -2955,10 +2982,11 @@ consteval void __flatten_reflect_constant(vector<info> &Args, const T &V) {
 // row-major list of scalars -- see 'FixedNDArray' above -- which is what
 // finally makes the multi-dimensional case work.
 template <ranges::input_range R>
-    requires (is_array_v<ranges::range_value_t<R>>
+    requires (__reflect_constant_array_structural_v<ranges::range_value_t<R>> &&
+              (is_array_v<ranges::range_value_t<R>>
                   ? __reflect_constant_array_row_ok_v<ranges::range_value_t<R>>
                   : is_constructible_v<ranges::range_value_t<R>,
-                                       ranges::range_reference_t<R>>)
+                                       ranges::range_reference_t<R>>))
 consteval auto reflect_constant_array(R &&elems) -> info {
   using ValTy = ranges::range_value_t<R>;
   if constexpr (is_array_v<ValTy>) {
@@ -2997,31 +3025,56 @@ consteval auto reflect_constant_array(R &&elems) -> info {
   }
 }
 
-consteval auto reflect_constant_string(std::string_view In) -> info {
-  vector Args = {^^char};
-  for (char C : In)
-    Args.push_back(reflect_constant(C));
-  Args.push_back(reflect_constant(char{}));
+template <ranges::input_range R>
+consteval auto reflect_constant_string(R &&r) -> info {
+  using CharT = ranges::range_value_t<R>;
+  static_assert(same_as<CharT, char> || same_as<CharT, wchar_t> ||
+                same_as<CharT, char8_t> || same_as<CharT, char16_t> ||
+                same_as<CharT, char32_t>);
+
+  vector Args = {^^CharT};
+  for (auto &&C : r)
+    Args.push_back(reflect_constant(static_cast<CharT>(C)));
+
+  bool add_null = true;
+  if constexpr (requires { std::is_string_literal(r); })
+    add_null = !std::is_string_literal(r);
+  if (add_null)
+    Args.push_back(reflect_constant(CharT{}));
   return substitute(^^__define_static::FixedArray, Args);
 }
 
-consteval auto reflect_constant_string(std::u8string_view In) -> info {
-  vector Args = {^^char8_t};
-  for (char8_t C : In)
-    Args.push_back(reflect_constant(C));
-  Args.push_back(reflect_constant(char8_t{}));
-  return substitute(^^__define_static::FixedArray, Args);
+template <class CharT>
+consteval bool __is_string_literal(const CharT *p) {
+  return __metafunction(detail::__metafn_is_string_literal, p);
 }
 
 _LIBCPP_END_NAMESPACE_REFLECTION_V2
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
+consteval bool is_string_literal(const char *p) {
+  return meta::__is_string_literal(p);
+}
+consteval bool is_string_literal(const wchar_t *p) {
+  return meta::__is_string_literal(p);
+}
+consteval bool is_string_literal(const char8_t *p) {
+  return meta::__is_string_literal(p);
+}
+consteval bool is_string_literal(const char16_t *p) {
+  return meta::__is_string_literal(p);
+}
+consteval bool is_string_literal(const char32_t *p) {
+  return meta::__is_string_literal(p);
+}
+
 template <ranges::input_range R>
-    requires (is_array_v<ranges::range_value_t<R>>
+    requires (meta::__reflect_constant_array_structural_v<ranges::range_value_t<R>> &&
+              (is_array_v<ranges::range_value_t<R>>
                   ? meta::__reflect_constant_array_row_ok_v<ranges::range_value_t<R>>
                   : is_constructible_v<ranges::range_value_t<R>,
-                                       ranges::range_reference_t<R>>)
+                                       ranges::range_reference_t<R>>))
 consteval auto define_static_array(R &&elems)
     -> span<const ranges::range_value_t<R>> {
   using ValTy  = ranges::range_value_t<R>;
@@ -3064,15 +3117,19 @@ consteval auto define_static_array(R &&elems)
   }
 }
 
-// Returns a static string having the provided contents.
-consteval auto define_static_string(string_view in) -> const char * {
-  meta::info array = meta::reflect_constant_string(in);
-  return extract<const char*>(array);
+template <ranges::input_range R>
+consteval auto define_static_string(R &&r) -> const ranges::range_value_t<R> * {
+  using CharT = ranges::range_value_t<R>;
+  return extract<const CharT *>(meta::reflect_constant_string(r));
 }
 
-consteval auto define_static_string(u8string_view in) -> const char8_t * {
-  meta::info array = meta::reflect_constant_string(in);
-  return extract<const char8_t*>(array);
+template <class T>
+consteval auto define_static_object(T &&t) -> const remove_cvref_t<T> * {
+  using U = remove_cvref_t<T>;
+  if constexpr (is_class_v<U>)
+    return addressof(extract<const U &>(meta::reflect_constant(std::forward<T>(t))));
+  else
+    return define_static_array(span(addressof(t), 1)).data();
 }
 
 _LIBCPP_END_NAMESPACE_STD
