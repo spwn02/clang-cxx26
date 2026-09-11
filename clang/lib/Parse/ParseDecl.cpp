@@ -4045,6 +4045,18 @@ void Parser::ParseDeclarationSpecifiers(
       continue;
     }
 
+    case tok::annot_template_name: {
+      if (DS.hasTypeSpecifier() || !NextToken().is(tok::less))
+        goto DoneWithDeclSpec;
+      if (TryAnnotateTypeOrScopeToken(AllowImplicitTypename)) {
+        DS.SetTypeSpecError();
+        goto DoneWithDeclSpec;
+      }
+      if (Tok.is(tok::annot_template_name))
+        goto DoneWithDeclSpec;
+      continue;
+    }
+
       // type-name or placeholder-specifier
     case tok::annot_template_id: {
       TemplateIdAnnotation *TemplateId = takeTemplateIdAnnotation(Tok);
@@ -5717,6 +5729,15 @@ bool Parser::isTypeSpecifierQualifier() {
   switch (Tok.getKind()) {
   default: return false;
 
+  case tok::annot_template_name:
+    if (!NextToken().is(tok::less))
+      return false;
+    if (TryAnnotateTypeOrScopeToken())
+      return true;
+    if (getCurToken().is(tok::annot_template_name))
+      return false;
+    return isTypeSpecifierQualifier(getCurToken());
+
   case tok::identifier:   // foo::bar
     if (TryAltiVecVectorToken())
       return true;
@@ -5902,6 +5923,15 @@ bool Parser::isDeclarationSpecifier(
   case tok::kw_pipe:
     return getLangOpts().OpenCL &&
            getLangOpts().getOpenCLCompatibleVersion() >= 200;
+
+  case tok::annot_template_name:
+    if (!NextToken().is(tok::less))
+      return false;
+    if (TryAnnotateTypeOrScopeToken(AllowImplicitTypename))
+      return true;
+    if (Tok.is(tok::annot_template_name))
+      return false;
+    return isDeclarationSpecifier(AllowImplicitTypename);
 
   case tok::identifier:   // foo::bar
     // Unfortunate hack to support "Class.factoryMethod" notation.
