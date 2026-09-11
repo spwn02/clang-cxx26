@@ -18548,6 +18548,69 @@ static void RemoveNestedImmediateInvocation(
 //       deeper problem than everything found so far -- this is the
 //       closest any attempt has gotten (down to exactly one precisely
 //       root-caused, narrow failure mode) but still not a full fix.
+//
+// Attempt 6 (2026-09-11, GitHub issue #1, Terra/gpt-5.6-terra at high
+// effort): built on Attempt 5's exact starting point (push-revert in both
+// ActOnCXXEnterDeclInitializer and the SemaTemplateInstantiateDecl.cpp
+// equivalent, left HandleImmediateInvocations's own bailout untouched, added
+// sub-issue (a)'s !VD->isInvalidDecl() guard at MarkDeclRefReferenced) and
+// additionally attempted sub-issue (b) via direction (ii): a new early-return
+// in CheckForImmediateInvocation that skips wrapping an immediate-escalating,
+// non-consteval, non-constructor call in its own independent ConstantExpr
+// candidate when already inside an EK_VariableInit context for a
+// constexpr/constinit variable -- on the theory that such a call is a
+// sub-expression of the initializer the ordinary constexpr-initializer check
+// will evaluate anyway, so a second, independent evaluation is redundant (and
+// is exactly what produces (b)'s heap-lifetime divergence). Also added,
+// self-discovered during iteration (not anticipated by this comment before
+// the attempt): a duplicate-diagnostic suppression in
+// EvaluateAndDiagnoseImmediateInvocation for note_consteval_only_smuggling
+// specifically inside EK_VariableInit contexts, and a second, more general
+// invalid-decl/EK_VariableInit skip directly inside HandleImmediateInvocations
+// itself (in addition to, not instead of, the MarkDeclRefReferenced guard).
+//
+// Result, independently re-verified after the dispatch (not just trusting the
+// session's own in-flight claims -- it hit a Codex usage-limit error mid-run
+// and never wrote its own final report; the diff itself survived only because
+// it was sitting in a named git stash, "issue1-candidate-isolation", from the
+// session's own isolation testing): genuine, partial, but NOT a full fix.
+// - `builtin-is-within-lifetime.cpp` and `constant-expression-cxx11.cpp`:
+//   confirmed FIXED, pass cleanly.
+// - `PR98671.cpp`: still fails, but confirmed (via direct -cc1 reproduction)
+//   to be a wholly separate bug -- an assertion in
+//   Sema::IsAtLeastAsConstrained (SemaConcept.cpp), a vanilla C++20 concepts
+//   partial-ordering defect with no relation to immediate-invocation/
+//   consteval machinery. Was already suspected separate in earlier attempts;
+//   this confirms it definitively. Not in scope for this bug.
+// - `cxx2b-consteval-propagate.cpp`: still fails, genuinely in-scope --
+//   several GH65985/GH66324-area cases (an escalating function template
+//   instantiation, a consteval allocate() call) still don't produce their
+//   expected "call to consteval/immediate function ... is not a constant
+//   expression" diagnostics. The fix is incomplete for these shapes.
+// - `cxx2a-constexpr-dynalloc.cpp`: still fails, but the observed failure
+//   is a NEW regression in a *different* test case in the same file
+//   (`GH134820`, `if constexpr` conditions involving a struct with a
+//   constexpr destructor that frees heap-allocated storage) -- "constexpr if
+//   condition is not a constant expression" plus "allocation performed here
+//   was not deallocated". This is unrelated to the self-reference-in-
+//   initializer scope this bug targets, and was not present in Attempt 5's
+//   own more limited testing -- suggests direction (ii)'s
+//   CheckForImmediateInvocation early-return has a broader interaction with
+//   ordinary (non-self-referential) constexpr-heap-lifetime tracking than
+//   anticipated, separate from and in addition to the originally-scoped
+//   sub-issue (b) range-view-pipeline problem. Not investigated further this
+//   attempt due to running out of Codex usage budget.
+//
+// The stashed diff (`git stash list` on this branch as of 2026-09-11, if
+// still present) has the full candidate patch for whoever picks this up
+// next -- Attempt 5's push-revert + sub-issue (a) portion is solid and
+// reusable as-is; direction (ii)'s CheckForImmediateInvocation early-return
+// needs to be either scoped more narrowly (so it doesn't touch
+// GH134820-shaped ordinary constexpr-heap-lifetime cases) or abandoned in
+// favor of direction (i) (cross-Record nested-candidate deduplication,
+// never attempted by any of the 6 attempts so far). cxx2b-consteval-
+// propagate.cpp's remaining failures were not root-caused this attempt --
+// that's the next concrete thing to trace.
 static void
 HandleImmediateInvocations(Sema &SemaRef,
                            Sema::ExpressionEvaluationContextRecord &Rec) {
