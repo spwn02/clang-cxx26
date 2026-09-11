@@ -110,6 +110,17 @@ member splice through a base expression is supposed to succeed since commit `f33
 Verify current state directly (`llvm-lit -v <path>`) rather than trusting either this note
 or `docs/CXX26_GAPS.md`'s older Tier 0 entry if either looks stale by the time you read this.
 
+**Reconfirmed 2026-09-11** (Reflection Closeup epic's own CU5 final gate, after fixing 8 of the
+14 deferred items and escalating 3 — `docs/reflection-audit/` has the full per-item history):
+`check-clang` still exactly 5 `SemaCXX` failures (same tests, same cause), `check-cxx` still
+exactly the same 7 named `libcxx/test/std/experimental/reflection/` failures — both baselines
+above are unchanged by this epic's fixes, and can be trusted as-is. One genuine, non-baseline
+regression *was* found and fixed during this reconfirmation
+(`libcxx/headers_in_modulemap.sh.py`, a modulemap-registration gap from the earlier emergency
+`<stacktrace>` port — see commit `ac4086ad878d`), which is why re-running the full gate
+periodically (not just targeted subdirectories) is worth doing even when a change looks
+narrowly scoped.
+
 ### Archived test runs (`cxx26/dev/`)
 
 Built for the Contracts epic (`docs/CONTRACTS_PORT.md`, deleted on
@@ -161,6 +172,32 @@ Enable reflection with `-std=c++26 -freflection`. Extended features require addi
 ## Trackers
 
 - `docs/CXX26_GAPS.md` is the living C++26 conformance tracker. Static reflection had its own tracker (`REFLECTION.md`/`REFLECTION_GAPS.md`) through the 2026-09-08 through 2026-09-10 Reflection Closure Epic; both were deleted at that epic's M7 close-out once all seven of the epic plan's completion criteria were met. The release tag cut at that close-out (see `git tag -l 'cxx26-2026.09.10*'` or the repo's release list) carries the final summary in its annotation, including the one criterion that needed a documented scope correction rather than a fix (a consteval self-reference escalation cluster, reclassified as a general C++23 compiler defect outside reflection's own scope — see `clang/lib/Sema/SemaExpr.cpp`'s `HandleImmediateInvocations` for the full technical writeup). This file's "Known pre-existing baseline failures" section above plus source comments (`SemaExpr.cpp`'s `HandleImmediateInvocations`, `clang/include/clang/AST/MetaActions.h`, `clang/lib/AST/ItaniumMangle.cpp`'s `mangleReflection`, `libcxx/include/meta`'s `reflect_constant`) are what's left of that tracker's load-bearing content.
+- The Reflection Closure Epic deferred 14 concrete items; a follow-on **Reflection Closeup epic**
+  (2026-09-10 through 2026-09-11) closed all 14 of them and its own tracker
+  (`docs/REFLECTION_CLOSEUP.md`) was deleted at close-out, same pattern as above. 10 items got a
+  genuine fix (each with its own source-comment writeup at the fix site — see e.g.
+  `libcxx/include/meta`'s `reflect_constant_array`/`FixedNDArray` for the CWG 3111 nested-array
+  fix, `clang/lib/AST/APValue.cpp`'s `unwrapReflectedType` for the closure-type-alias identity
+  fix, `clang/lib/AST/ExprConstant.cpp`'s `EvalInfo::cancelCleanup` for a general P3068
+  constexpr-exceptions bug found along the way). 4 items resisted a full fix even at this epic's
+  escalation ceiling (Terra/Codex, since a prior round found Astra burns Codex usage too fast to
+  use routinely — see `feedback_avoid_astra_prefer_direct_work` in the assistant's own memory) and
+  remain genuinely open, escalated rather than closed under a lesser bar: the consteval
+  self-reference escalation cluster (same root cause as the prior epic's own escalation, still
+  unresolved — `SemaExpr.cpp`'s `HandleImmediateInvocations` comment has the full multi-attempt
+  history), upstream issue #180 (`static_assert(false)` silently ignored in a specific
+  function-template instantiation context — `docs/reflection-audit/issue-180-minimal-repro.cpp`),
+  P3560R2 strategy 2's remaining ~20 `Throws`-bearing metafunctions (blocked on a missing
+  evaluator API to construct a `meta::exception` from an arbitrary throw site, plus a genuine
+  evaluator abort down a different path — `docs/reflection-audit/item9-strategy2-stop-report.md`),
+  and upstream issue #275 (a `clangd`-specific crash with two independent, compounding causes,
+  only the first of which has an isolated fix — `docs/reflection-audit/cu4-needs-reproducer-report.md`).
+  The release tag cut at this epic's own close-out carries the final summary in its annotation.
+  Separately, the same session also fixed an emergency production bug reported directly by a
+  downstream user — unrelated to any of the 14 items, but on the same tree — where
+  `RecursiveASTVisitor`'s reflection support (`clang/include/clang/AST/RecursiveASTVisitor.h`)
+  recursed without bound into every reflected declaration's own body; see that file's
+  `DEF_TRAVERSE_STMT(CXXReflectExpr, ...)` comment for the fix.
 - Update the active tracker in place when status changes and append a dated session-log entry before ending a work session.
 - `std::execution` (P2300R10) requires a dedicated sub-plan; consult Tier 2 notes before starting. Contracts (P2900R14) was completed 2026-09-04, reopened by a production bug and fully hardened as of 2026-09-05 (see `docs/CXX26_GAPS.md`'s Scope section for both epics' full history); no sub-plan needed going forward.
 
