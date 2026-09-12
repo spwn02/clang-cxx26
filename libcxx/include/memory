@@ -944,6 +944,24 @@ template<size_t N, class T>
 template<size_t Alignment, class T>
   bool is_sufficiently_aligned(T* ptr); // since C++26
 
+// [obj.lifetime] Explicit lifetime management
+template<class T>
+  T* start_lifetime_as(void* p) noexcept;                          // since C++23
+template<class T>
+  const T* start_lifetime_as(const void* p) noexcept;               // since C++23
+template<class T>
+  volatile T* start_lifetime_as(volatile void* p) noexcept;         // since C++23
+template<class T>
+  const volatile T* start_lifetime_as(const volatile void* p) noexcept; // since C++23
+template<class T>
+  T* start_lifetime_as_array(void* p, size_t n) noexcept;           // since C++23
+template<class T>
+  const T* start_lifetime_as_array(const void* p, size_t n) noexcept; // since C++23
+template<class T>
+  volatile T* start_lifetime_as_array(volatile void* p, size_t n) noexcept; // since C++23
+template<class T>
+  const volatile T* start_lifetime_as_array(const volatile void* p, size_t n) noexcept; // since C++23
+
 // [out.ptr.t], class template out_ptr_t
 template<class Smart, class Pointer, class... Args>
   class out_ptr_t;                                          // since c++23
@@ -1005,6 +1023,7 @@ template<class Pointer = void, class Smart, class... Args>
 
 #  if _LIBCPP_STD_VER >= 23
 #    include <__memory/allocate_at_least.h>
+#    include <__memory/start_lifetime_as.h>
 #  endif
 
 #  if _LIBCPP_STD_VER >= 26

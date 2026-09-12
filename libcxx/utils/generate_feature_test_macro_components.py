@@ -1522,6 +1522,11 @@ feature_test_macros = [
             "headers": ["stacktrace"],
         },
         {
+            "name": "__cpp_lib_start_lifetime_as",
+            "values": {"c++23": 202207},  # P2590R2 Explicit lifetime management
+            "headers": ["memory"],
+        },
+        {
             "name": "__cpp_lib_starts_ends_with",
             "values": {"c++20": 201711},
             "headers": ["string", "string_view"],

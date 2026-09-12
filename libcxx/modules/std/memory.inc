@@ -31,8 +31,8 @@ export namespace std {
 #endif
 
   // [obj.lifetime], explicit lifetime management
-  //  using std::start_lifetime_as;
-  //  using std::start_lifetime_as_array;
+  using std::start_lifetime_as;
+  using std::start_lifetime_as_array;
 
   // [allocator.tag], allocator argument tag
   using std::allocator_arg;

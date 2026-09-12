@@ -956,6 +956,10 @@
 #    error "__cpp_lib_stacktrace should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
+#  endif
+
 #  ifdef __cpp_lib_starts_ends_with
 #    error "__cpp_lib_starts_ends_with should not be defined before c++20"
 #  endif
@@ -2065,6 +2069,10 @@
 
 #  ifdef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_starts_ends_with
@@ -3350,6 +3358,10 @@
 
 #  ifdef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_starts_ends_with
@@ -4905,6 +4917,10 @@
 
 #  ifdef __cpp_lib_stacktrace
 #    error "__cpp_lib_stacktrace should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
 #  endif
 
 #  ifndef __cpp_lib_starts_ends_with
@@ -6655,6 +6671,13 @@
 #  endif
 #  if __cpp_lib_stacktrace != 202011L
 #    error "__cpp_lib_stacktrace should have the value 202011L in c++23"
+#  endif
+
+#  ifndef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should be defined in c++23"
+#  endif
+#  if __cpp_lib_start_lifetime_as != 202207L
+#    error "__cpp_lib_start_lifetime_as should have the value 202207L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_starts_ends_with
@@ -8852,6 +8875,13 @@
 #  endif
 #  if __cpp_lib_stacktrace != 202011L
 #    error "__cpp_lib_stacktrace should have the value 202011L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should be defined in c++26"
+#  endif
+#  if __cpp_lib_start_lifetime_as != 202207L
+#    error "__cpp_lib_start_lifetime_as should have the value 202207L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_starts_ends_with

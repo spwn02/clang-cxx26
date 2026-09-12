@@ -104,6 +104,10 @@
 #    error "__cpp_lib_smart_ptr_owner_equality should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
+#  endif
+
 #  ifdef __cpp_lib_to_address
 #    error "__cpp_lib_to_address should not be defined before c++20"
 #  endif
@@ -199,6 +203,10 @@
 
 #  ifdef __cpp_lib_smart_ptr_owner_equality
 #    error "__cpp_lib_smart_ptr_owner_equality should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_to_address
@@ -317,6 +325,10 @@
 
 #  ifdef __cpp_lib_smart_ptr_owner_equality
 #    error "__cpp_lib_smart_ptr_owner_equality should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_to_address
@@ -456,6 +468,10 @@
 
 #  ifdef __cpp_lib_smart_ptr_owner_equality
 #    error "__cpp_lib_smart_ptr_owner_equality should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
 #  endif
 
 #  ifndef __cpp_lib_to_address
@@ -604,6 +620,13 @@
 
 #  ifdef __cpp_lib_smart_ptr_owner_equality
 #    error "__cpp_lib_smart_ptr_owner_equality should not be defined before c++26"
+#  endif
+
+#  ifndef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should be defined in c++23"
+#  endif
+#  if __cpp_lib_start_lifetime_as != 202207L
+#    error "__cpp_lib_start_lifetime_as should have the value 202207L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_to_address
@@ -773,6 +796,13 @@
 #  endif
 #  if __cpp_lib_smart_ptr_owner_equality != 202306L
 #    error "__cpp_lib_smart_ptr_owner_equality should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_start_lifetime_as
+#    error "__cpp_lib_start_lifetime_as should be defined in c++26"
+#  endif
+#  if __cpp_lib_start_lifetime_as != 202207L
+#    error "__cpp_lib_start_lifetime_as should have the value 202207L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_to_address
