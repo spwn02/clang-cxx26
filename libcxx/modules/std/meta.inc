@@ -223,6 +223,7 @@ export namespace std {
       using std::meta::reflection_v2::tuple_element;
       using std::meta::reflection_v2::variant_size;
       using std::meta::reflection_v2::variant_alternative;
+#if __has_feature(parameter_reflection)
       using std::meta::reflection_v2::parameters_of;
       using std::meta::reflection_v2::has_ellipsis_parameter;
       using std::meta::reflection_v2::has_default_argument;
@@ -230,16 +231,21 @@ export namespace std {
       using std::meta::reflection_v2::is_function_parameter;
       using std::meta::reflection_v2::return_type_of;
       using std::meta::reflection_v2::variable_of;
+#endif // __has_feature(parameter_reflection)
+#if __has_feature(annotation_attributes)
       using std::meta::reflection_v2::annotations_of;
       using std::meta::reflection_v2::annotations_of_with_type;
       using std::meta::reflection_v2::annotation_of_type;
       using std::meta::reflection_v2::is_annotation;
       using std::meta::reflection_v2::annotate;
+#endif // __has_feature(annotation_attributes)
+#if __has_feature(attribute_reflection)
       using std::meta::reflection_v2::is_attribute;
       using std::meta::reflection_v2::attributes_of;
       using std::meta::reflection_v2::attribute_namespace_of;
       using std::meta::reflection_v2::attribute_token_of;
       using std::meta::reflection_v2::has_attribute_namespace;
+#endif // __has_feature(attribute_reflection)
       using std::meta::reflection_v2::access_context;
       using std::meta::reflection_v2::is_accessible;
       using std::meta::reflection_v2::has_inaccessible_nonstatic_data_members;
