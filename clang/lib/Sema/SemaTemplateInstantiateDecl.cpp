@@ -6389,6 +6389,8 @@ void Sema::InstantiateVariableInitializer(
 
     EnterExpressionEvaluationContext InitContext(
         *this, Ctx, Var, ExpressionEvaluationContextRecord::EK_VariableInit);
+    if (Ctx == ExpressionEvaluationContext::ImmediateFunctionContext)
+      currentEvaluationContext().IsSynthesizedConstexprVarInitContext = true;
     currentEvaluationContext().InLifetimeExtendingContext =
         parentEvaluationContext().InLifetimeExtendingContext;
     currentEvaluationContext().RebuildDefaultArgOrDefaultInit =

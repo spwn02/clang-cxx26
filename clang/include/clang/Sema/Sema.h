@@ -6954,6 +6954,18 @@ public:
     bool InImmediateEscalatingFunctionContext;
     bool IsCurrentlyCheckingDefaultArgumentOrInitializer = false;
 
+    /// True iff this record's Context was pushed as
+    /// ImmediateFunctionContext solely because it's a C++23+
+    /// constexpr/constinit variable initializer (ActOnCXXEnterDeclInitializer /
+    /// InstantiateVariableInitializer), as opposed to a genuine immediate
+    /// (consteval) function body or other real immediate-function context.
+    /// Lets CheckForImmediateInvocation distinguish the two without changing
+    /// what isImmediateFunctionContext() reports to every other reader --
+    /// see the KNOWN BUG comment above HandleImmediateInvocations in
+    /// SemaExpr.cpp for why both need this context to remain
+    /// ImmediateFunctionContext but need opposite bailout behavior from it.
+    bool IsSynthesizedConstexprVarInitContext = false;
+
     // We are in a constant context, but we also allow
     // non constant expressions, for example for array bounds (which may be
     // VLAs).

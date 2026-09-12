@@ -18141,11 +18141,67 @@ void Sema::MarkExpressionAsImmediateEscalating(Expr *E) {
     FI->FoundImmediateEscalatingConstruct = true;
 }
 
+namespace {
+/// Detects whether an expression contains a reference to a specific
+/// declaration -- used below to recognize a call that is self-referential
+/// with respect to the variable currently being initialized (as opposed to
+/// an ordinary, non-self-referential call in the same initializer).
+struct ContainsDeclRefToDecl : DynamicRecursiveASTVisitor {
+  const Decl *Target;
+  bool Found = false;
+  explicit ContainsDeclRefToDecl(const Decl *Target) : Target(Target) {}
+  bool VisitDeclRefExpr(DeclRefExpr *E) override {
+    if (E->getDecl() == Target)
+      Found = true;
+    return !Found;
+  }
+};
+} // namespace
+
+static bool exprReferencesDecl(Expr *E, const Decl *Target) {
+  ContainsDeclRefToDecl Visitor(Target);
+  Visitor.TraverseStmt(E);
+  return Visitor.Found;
+}
+
 ExprResult Sema::CheckForImmediateInvocation(ExprResult E, FunctionDecl *Decl) {
   if (isUnevaluatedContext() || !E.isUsable() || !Decl ||
-      !Decl->isImmediateFunction() || isAlwaysConstantEvaluatedContext() ||
-      isCheckingDefaultArgumentOrInitializer() ||
-      RebuildingImmediateInvocation || isImmediateFunctionContext())
+      !Decl->isImmediateFunction() ||
+      isCheckingDefaultArgumentOrInitializer() || RebuildingImmediateInvocation)
+    return E;
+
+  // Both isAlwaysConstantEvaluatedContext() and isImmediateFunctionContext()
+  // read true for the synthetic ImmediateFunctionContext push around a
+  // C++23+ constexpr/constinit variable's own initializer
+  // (ActOnCXXEnterDeclInitializer/InstantiateVariableInitializer), same as
+  // for a genuine immediate-function-body/constant-evaluated context. For an
+  // ORDINARY (non-self-referential) call there, that's exactly the behavior
+  // we want: it'll be diagnosed once, by the ordinary whole-initializer
+  // constant-expression check, and registering it as its own independent
+  // ImmediateInvocationCandidate here would only produce a redundant/
+  // divergent second evaluation (see Attempt 5's sub-issue (b) in the KNOWN
+  // BUG comment above HandleImmediateInvocations). But when the call is
+  // SELF-referential -- it (transitively) names the very variable whose
+  // initializer is being checked, e.g.
+  // `constexpr bool self = __builtin_is_within_lifetime(&self);` -- the
+  // ordinary whole-initializer check alone produces only the generic
+  // "must be initialized by a constant expression" diagnostic; standard
+  // C++23 behavior additionally expects the specific
+  // "call to consteval function ... is not a constant expression"
+  // diagnostic that only coming through this candidate machinery provides.
+  // So: keep the ordinary bailout for every case except this one narrow
+  // self-referential carve-out.
+  const ExpressionEvaluationContextRecord &CurCtx = ExprEvalContexts.back();
+  bool IsSelfReferential =
+      CurCtx.IsSynthesizedConstexprVarInitContext &&
+      CurCtx.ManglingContextDecl &&
+      exprReferencesDecl(E.get(), CurCtx.ManglingContextDecl);
+  bool GenuinelyAlwaysConstantEvaluated =
+      (CurCtx.Context == ExpressionEvaluationContext::ConstantEvaluated ||
+       isConstantEvaluatedOverride ||
+       (isImmediateFunctionContext() && !IsSelfReferential)) &&
+      !CurCtx.InConditionallyConstantEvaluateContext;
+  if (GenuinelyAlwaysConstantEvaluated)
     return E;
 
   /// Opportunistically remove the callee from ReferencesToConsteval if we can.
@@ -18393,17 +18449,19 @@ static void RemoveNestedImmediateInvocation(
   }
 }
 
-// KNOWN BUG (unfixed as of 2026-09-10, three independent attempts, all
-// rejected empirically -- see clang-p2996's docs/reflection-audit/
-// codex-m3-escalation-report.md for the full evidence trail before
-// attempting a fourth): a self-referential C++23 constexpr/constinit
-// variable initializer that calls a consteval function referencing itself
-// (e.g. `constexpr int &n = n;`, or a self-referential NSDMI) fails to
+// KNOWN BUG (partially fixed 2026-09-12, Attempt 7, GitHub issue #1; six
+// prior independent attempts rejected empirically -- see clang-p2996's
+// docs/reflection-audit/codex-m3-escalation-report.md and the Attempt 7
+// entry far below for the full evidence trail before attempting an eighth):
+// a self-referential C++23 constexpr/constinit variable initializer that
+// calls a consteval function referencing itself (e.g.
+// `constexpr bool self = __builtin_is_within_lifetime(&self);`) failed to
 // produce the standard "call to consteval function ... is not a constant
-// expression" diagnostic. Affects clang/test/SemaCXX/PR98671.cpp,
-// builtin-is-within-lifetime.cpp, constant-expression-cxx11.cpp,
-// cxx2a-constexpr-dynalloc.cpp, cxx2b-consteval-propagate.cpp -- five
-// plain C++23 tests with no reflection content; this is a general
+// expression" diagnostic. This is now FIXED for the bare-VarDecl case (see
+// Attempt 7). Real remaining scope, corrected from the "five tests" earlier
+// attempts believed (two of the five were miscategorized -- see Attempt 7):
+// builtin-is-within-lifetime.cpp's NSDMI sub-case, and
+// cxx2b-consteval-propagate.cpp, both still open. This is a general
 // LLVM-22-merge Sema defect, not a reflection-specific one, even though
 // clang-p2996 found it because std::meta::info (a consteval-only type)
 // exercises this same shared machinery.
@@ -18603,20 +18661,183 @@ static void RemoveNestedImmediateInvocation(
 //
 // The stashed diff (`git stash list` on this branch as of 2026-09-11, if
 // still present) has the full candidate patch for whoever picks this up
-// next -- Attempt 5's push-revert + sub-issue (a) portion is solid and
-// reusable as-is; direction (ii)'s CheckForImmediateInvocation early-return
-// needs to be either scoped more narrowly (so it doesn't touch
-// GH134820-shaped ordinary constexpr-heap-lifetime cases) or abandoned in
-// favor of direction (i) (cross-Record nested-candidate deduplication,
-// never attempted by any of the 6 attempts so far). cxx2b-consteval-
-// propagate.cpp's remaining failures were not root-caused this attempt --
-// that's the next concrete thing to trace.
+// next -- direction (i) (cross-Record nested-candidate deduplication) was
+// never attempted by any of the first 6 attempts. cxx2b-consteval-
+// propagate.cpp's remaining failures were not root-caused by Attempt 6 --
+// see Attempt 7 below for where that trace landed.
+//
+// CORRECTION (2026-09-12, Attempt 7): Attempt 6's claim above that "Attempt
+// 5's push-revert + sub-issue (a) portion is solid and reusable as-is" is
+// WRONG and must not be trusted by a future attempt. Re-isolating that exact
+// subset (push-revert in both ActOnCXXEnterDeclInitializer and
+// InstantiateVariableInitializer, plus the MarkDeclRefReferenced
+// !VD->isInvalidDecl() guard -- nothing else from Attempt 6) and running it
+// against clang/test/Reflection/ (22 tests) and the full libc++ reflection
+// suite (119 tests, std/experimental/reflection/) -- neither of which any
+// prior attempt's own testing evidently covered before declaring a subset
+// "solid" -- shows it alone regresses clang/test/Reflection/consteval-only-
+// types.cpp and clang/test/Reflection/reflection-wording-examples.cpp (2 new
+// failures, baseline 0/22) and 25 additional libc++ reflection tests
+// (32/119 failing vs. a true baseline of 7/119 pre-existing, unrelated
+// failures -- see below for how "true baseline" was established). It also
+// independently reproduces the GH134820 cxx2a-constexpr-dynalloc.cpp
+// failure -- i.e. that regression comes from the push-revert itself, not
+// from Attempt 6's direction (ii) CheckForImmediateInvocation change as
+// Attempt 6 concluded. The whole subtractive family (remove or weaken the
+// push) is closed: the push is load-bearing for the ordinary P2996 idiom
+// `constexpr auto x = <consteval-fn>();` across the entire nested subtree of
+// the initializer, not just at the two call sites (CheckForImmediateInvocation,
+// HandleImmediateInvocations) every attempt so far has focused on -- roughly
+// a dozen other isImmediateFunctionContext()/isAlwaysConstantEvaluatedContext()
+// readers across SemaDecl.cpp, SemaInit.cpp, SemaReflect.cpp,
+// SemaTemplateInstantiateDecl.cpp (lambda mangling, walks the *entire*
+// ExprEvalContexts stack, not just .back()) and Sema.h all silently change
+// behavior for every expression in the initializer's subtree the moment the
+// push is removed or altered, which is what actually produced the historical
+// 9/16/25-test regression counts -- not a single localized diagnostic bug.
+//
+// Also corrected against a byte-identical clean-HEAD (no fork changes at
+// all) re-run of the same test, obtained via `git stash`/rebuild/re-test:
+// PR98671.cpp's IsAtLeastAsConstrained assertion is confirmed, AGAIN,
+// completely unaffected by any variant tried (already known); and
+// cxx2a-constexpr-dynalloc.cpp's exact failure content (errors at lines 278
+// and 281, "constexpr if condition is not a constant expression", plus two
+// "allocation performed here was not deallocated" notes at line 253) is
+// BYTE-IDENTICAL between clean HEAD and every patch variant tried this
+// attempt -- meaning this is a genuine PRE-EXISTING failure already present
+// in vanilla, unpatched HEAD (the `GH134820` namespace is one of the file's
+// own long-standing test cases, unrelated to any of this bug's 6 prior
+// attempts), NOT a new regression Attempt 6 introduced as that attempt's own
+// entry above claims. Issue #1's real scope is therefore 3 tests
+// (builtin-is-within-lifetime.cpp, constant-expression-cxx11.cpp,
+// cxx2b-consteval-propagate.cpp), not 5 -- PR98671.cpp and
+// cxx2a-constexpr-dynalloc.cpp were miscategorized by earlier attempts that
+// never diffed against true clean-HEAD output for these specific files.
+//
+// The fix landed this attempt (committed, not stashed) is a genuinely new,
+// non-regressing architecture: keep the push in ActOnCXXEnterDeclInitializer/
+// InstantiateVariableInitializer completely unchanged (both consumers that
+// need it -- CheckForImmediateInvocation's suppression and
+// HandleImmediateInvocations's ConstevalOnly-diagnostic suppression -- keep
+// seeing isImmediateFunctionContext()==true exactly as upstream), and instead
+// add a new bit, ExpressionEvaluationContextRecord::
+// IsSynthesizedConstexprVarInitContext, set ONLY at those same two push
+// sites when the push chose ImmediateFunctionContext for the C++23
+// constexpr/constinit reason (as opposed to the ~dozen OTHER call sites
+// throughout Sema/Parse that also push ImmediateFunctionContext for genuine
+// immediate-function bodies, contract predicates, etc. -- see the grep list
+// this attempt ran over `ExpressionEvaluationContext::ImmediateFunctionContext`
+// across clang/lib/{Parse,Sema}/*.cpp and TreeTransform.h). Only
+// CheckForImmediateInvocation's OWN decision reads this new bit; every other
+// reader of isImmediateFunctionContext()/isAlwaysConstantEvaluatedContext()
+// anywhere in Sema is completely unaffected, which is what keeps the
+// reflection suites byte-identical to baseline (unlike every previous
+// attempt). Two additional non-obvious findings were needed to make this
+// work, both discovered empirically via a temporary env-gated llvm::errs()
+// trace in CheckForImmediateInvocation (removed before committing):
+//   1. isAlwaysConstantEvaluatedContext() ALSO derives from
+//      Context==ImmediateFunctionContext (via isConstantEvaluated()), and is
+//      checked in CheckForImmediateInvocation's very first bailout line --
+//      BEFORE the isImmediateFunctionContext() check every prior attempt
+//      focused on. A fix that only touches the visible
+//      isImmediateFunctionContext() bailout, as every earlier attempt did,
+//      never actually reaches its own logic for this case, because this
+//      earlier, unexamined condition already returns first.
+//   2. The relaxation cannot apply to EVERY call inside the synthesized
+//      context -- only to one that is SELF-referential (transitively names
+//      the VarDecl currently being initialized, e.g.
+//      `constexpr bool self = __builtin_is_within_lifetime(&self);`).
+//      Applying it unconditionally (verified empirically) reintroduces the
+//      full regression: an ordinary, non-self-referential failing consteval
+//      call inside a constexpr initializer (e.g. libc++ reflection's
+//      `constexpr auto r3 = std::meta::reflect_constant((const char*)"fails");`,
+//      m5-p2996-batch1.verify.cpp) gets independently re-evaluated and
+//      produces a SECOND, duplicate "call to consteval function ... is not a
+//      constant expression" error on top of the correct, sufficient
+//      diagnostic the ordinary whole-initializer evaluation already
+//      produces -- breaking that test even though it only asserts on
+//      unexpected errors, not unexpected notes (`-verify-ignore-unexpected=note`).
+//      HandleImmediateInvocations was similarly split: the whole-function
+//      early return still fires for a genuine immediate-function context,
+//      but for the synthesized context it now evaluates
+//      ImmediateInvocationCandidates (needed so a *registered* self-
+//      referential candidate actually gets diagnosed) while still skipping
+//      the ReferenceToConsteval/ConstevalOnly loops entirely (which is what
+//      protects the ordinary P2996 idiom, unchanged from upstream).
+//
+// Result, verified via: (a) the isolated self.cpp repro
+// (`constexpr bool self = __builtin_is_within_lifetime(&self);`) directly
+// via -cc1, both diagnostics now present in the correct order; (b)
+// clang/test/Reflection/ (22 tests) and the full libc++ reflection suite
+// (119 tests) both byte-identical to clean-HEAD baseline (0/22, and the same
+// 7/119 pre-existing failures by name -- zero regressions, zero
+// coincidental fixes); (c) a broad ~4000-test sweep across
+// clang/test/{SemaCXX,SemaTemplate,AST,Modules,CXX} showing exactly the same
+// 5 known failures as clean HEAD, byte-for-byte, nothing more and nothing
+// less. NOT yet a full fix -- known remaining gaps, still open for a future
+// attempt:
+//   - The NSDMI sub-case in builtin-is-within-lifetime.cpp
+//     (`constexpr struct NSDMI { bool a = true; bool b =
+//     __builtin_is_within_lifetime(&a); } x2;`) is NOT fixed: the failing
+//     call here is nested inside the implicit constructor's own evaluation,
+//     and it's the CONSTRUCTOR CALL (not the inner builtin call) that is the
+//     top-level candidate in `x2`'s synthesized EK_VariableInit context --
+//     that candidate does not itself reference `x2` (the field `a` it
+//     touches belongs to the object under construction, not to the outer
+//     VarDecl), so the self-reference test in CheckForImmediateInvocation
+//     does not identify it. Widening the syntactic self-reference test (to
+//     look inside CXXConstructExpr, to field accesses, etc.) was
+//     considered and rejected: m5-p2996-batch1.verify.cpp's r3 case is
+//     STRUCTURALLY IDENTICAL to the fixed self.cpp case (a top-level call to
+//     a consteval function that fails constant evaluation, IS the entire
+//     initializer) yet must NOT get the duplicate diagnostic -- so no static
+//     syntactic property of the call expression distinguishes the two; the
+//     real distinguishing signal is almost certainly "did the ordinary
+//     whole-initializer evaluation already report this exact failure",
+//     which points at duplicate-error suppression keyed off
+//     FailedImmediateInvocations or similar in
+//     EvaluateAndDiagnoseImmediateInvocation, not at a better predicate in
+//     CheckForImmediateInvocation. This is the concrete next step for
+//     builtin-is-within-lifetime.cpp.
+//   - constant-expression-cxx11.cpp's remaining failure (line 2015,
+//     `constexpr int &n = n;` inside a function body) is a genuinely
+//     SEPARATE, pre-existing bug unrelated to this comment's immediate-
+//     invocation machinery entirely: the expected `-Wuninitialized`
+//     diagnostic (warn_uninit_self_reference_in_reference_init, "reference
+//     %0 is not yet bound to a value") comes from SemaDecl.cpp's
+//     SelfReferenceChecker/CheckSelfReference, called unconditionally from
+//     AddInitializerToDecl with no isImmediateFunctionContext() dependency
+//     at all -- confirmed missing identically on a byte-for-byte isolated
+//     repro against clean HEAD. Should be filed and fixed as its own,
+//     separate issue, not chased as part of this one.
+//   - cxx2b-consteval-propagate.cpp was not investigated this attempt --
+//     still the next concrete thing to trace, now on top of a verified-clean
+//     foundation instead of on top of an untested "solid" claim.
 static void
 HandleImmediateInvocations(Sema &SemaRef,
                            Sema::ExpressionEvaluationContextRecord &Rec) {
   if ((Rec.ImmediateInvocationCandidates.size() == 0 &&
        Rec.ReferenceToConsteval.size() == 0 && Rec.ConstevalOnly.size() == 0) ||
-      Rec.isImmediateFunctionContext() || SemaRef.RebuildingImmediateInvocation)
+      SemaRef.RebuildingImmediateInvocation)
+    return;
+
+  // Ordinarily, an immediate-function-context Record is skipped entirely
+  // here: either it's a genuine consteval function body (whose own
+  // immediate invocations are the enclosing invocation's problem, not this
+  // Record's), or it's the synthetic push around a C++23+ constexpr/
+  // constinit variable's own initializer, which exists to protect the
+  // ordinary P2996 idiom `constexpr auto x = <consteval-fn>();` from a
+  // spurious consteval-only-type diagnostic (see the KNOWN BUG comment above
+  // CheckForImmediateInvocation). But in that second case we still need to
+  // evaluate this Record's own ImmediateInvocationCandidates -- that's what
+  // diagnoses a self-referential immediate call inside the initializer
+  // (e.g. `constexpr bool self = __builtin_is_within_lifetime(&self);`) --
+  // while still skipping the ReferenceToConsteval/ConstevalOnly loops below,
+  // which is what protects the P2996 idiom. SkipDiagnosticLoops tracks that
+  // narrower skip; only a genuine (non-synthetic) immediate-function context
+  // still returns outright below.
+  bool SkipDiagnosticLoops = Rec.isImmediateFunctionContext();
+  if (SkipDiagnosticLoops && !Rec.IsSynthesizedConstexprVarInitContext)
     return;
 
   // An expression or conversion is 'manifestly constant-evaluated' if it is:
@@ -18643,8 +18864,11 @@ HandleImmediateInvocations(Sema &SemaRef,
   /// ImmediateInvocationCandidates in order to avoid duplicate diagnostics.
   /// Otherwise we only need to remove ReferenceToConsteval in the immediate
   /// invocation.
-  if (Rec.ImmediateInvocationCandidates.size() > 1 ||
-      !SemaRef.FailedImmediateInvocations.empty()) {
+  ///
+  /// This dedup logic only feeds the ReferenceToConsteval/ConstevalOnly
+  /// diagnostic loops below, so it's pointless work when those are skipped.
+  if (!SkipDiagnosticLoops && (Rec.ImmediateInvocationCandidates.size() > 1 ||
+      !SemaRef.FailedImmediateInvocations.empty())) {
 
     /// Prevent sema calls during the tree transform from adding pointers that
     /// are already in the sets.
@@ -18658,7 +18882,7 @@ HandleImmediateInvocations(Sema &SemaRef,
          It != Rec.ImmediateInvocationCandidates.rend(); It++)
       if (!It->getInt())
         RemoveNestedImmediateInvocation(SemaRef, Rec, It);
-  } else if (Rec.ImmediateInvocationCandidates.size() == 1 &&
+  } else if (!SkipDiagnosticLoops && Rec.ImmediateInvocationCandidates.size() == 1 &&
              (Rec.ReferenceToConsteval.size() || Rec.ConstevalOnly.size())) {
     Expr *RootExpr =
         Rec.ImmediateInvocationCandidates.front().getPointer()->getSubExpr();
@@ -18709,6 +18933,15 @@ HandleImmediateInvocations(Sema &SemaRef,
   // Re-acquire after the reentrant evaluation above; Rec may now be dangling.
   Sema::ExpressionEvaluationContextRecord &CurRec =
       SemaRef.currentEvaluationContext();
+
+  // The synthesized-var-init carve-out above only wants the candidate
+  // evaluation loop just above; the ReferenceToConsteval/ConstevalOnly
+  // diagnostic loops below must stay suppressed for it exactly like any
+  // other immediate-function context (see the comment on SkipDiagnosticLoops
+  // near the top of this function).
+  if (SkipDiagnosticLoops)
+    return;
+
   for (auto *DR : CurRec.ReferenceToConsteval) {
     // If the expression is immediate escalating, it is not an error;
     // The outer context itself becomes immediate and further errors,
@@ -21226,7 +21459,7 @@ void Sema::MarkDeclRefReferenced(DeclRefExpr *E, const Expr *Base) {
       if (FD->getType()->isConstevalOnly())
         ExprEvalContexts.back().ConstevalOnly.insert(E);
     } else if (auto *VD = dyn_cast<VarDecl>(E->getDecl());
-               VD && VD->getType()->isConstevalOnly()) {
+               VD && !VD->isInvalidDecl() && VD->getType()->isConstevalOnly()) {
       const Expr *Init = VD->getInit();
       while (const auto *EWC = dyn_cast_or_null<ExprWithCleanups>(Init))
         Init = EWC->getSubExpr();

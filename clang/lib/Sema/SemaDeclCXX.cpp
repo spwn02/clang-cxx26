@@ -19114,6 +19114,8 @@ void Sema::ActOnCXXEnterDeclInitializer(Scope *S, Decl *D) {
   }
   PushExpressionEvaluationContext(
       Ctx, D, ExpressionEvaluationContextRecord::EK_VariableInit);
+  if (Ctx == ExpressionEvaluationContext::ImmediateFunctionContext)
+    ExprEvalContexts.back().IsSynthesizedConstexprVarInitContext = true;
 }
 
 void Sema::ActOnCXXExitDeclInitializer(Scope *S, Decl *D) {
