@@ -249,6 +249,7 @@ export namespace std::execution {
 export namespace std::this_thread {
   // [exec.sync.wait]
   using std::this_thread::sync_wait;
+  using std::this_thread::sync_wait_t;
 } // namespace std::this_thread
 #endif // _LIBCPP_HAS_THREADS
 #endif // _LIBCPP_STD_VER >= 26
