@@ -16,6 +16,19 @@
 
 #include "test_macros.h"
 
+#if TEST_STD_VER > 23
+constexpr bool test_constexpr_runtime_error() {
+  char msg[] = "runtime_error message";
+  std::runtime_error e(msg);
+  msg[0] = 'x'; // Constant evaluation must own its copy, not retain msg.
+  std::runtime_error copy(e);
+  copy = e;
+  return copy.what()[0] == 'r' && copy.what()[21] == '\0';
+}
+
+static_assert(test_constexpr_runtime_error());
+#endif
+
 int main(int, char**)
 {
     static_assert((std::is_base_of<std::exception, std::runtime_error>::value),

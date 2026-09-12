@@ -6,6 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+// Preserve libc++'s legacy out-of-line stdexcept ABI definitions in this TU.
+#define _LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS
 #include "stdexcept"
 #include "new"
 #include <cstdlib>

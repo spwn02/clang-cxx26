@@ -16,6 +16,19 @@
 
 #include "test_macros.h"
 
+#if TEST_STD_VER > 23
+constexpr bool test_constexpr_logic_error() {
+  char msg[] = "logic_error message";
+  std::logic_error e(msg);
+  msg[0] = 'x'; // Constant evaluation must own its copy, not retain msg.
+  std::logic_error copy(e);
+  copy = e;
+  return copy.what()[0] == 'l' && copy.what()[19] == '\0';
+}
+
+static_assert(test_constexpr_logic_error());
+#endif
+
 int main(int, char**)
 {
     static_assert((std::is_base_of<std::exception, std::logic_error>::value),

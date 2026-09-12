@@ -4028,6 +4028,16 @@ inline constexpr bool __format::__enable_insertable<std::basic_string<wchar_t>> 
 
 _LIBCPP_END_NAMESPACE_STD
 
+// <stdexcept> must be included before basic_string is complete, but P3378R2
+// makes its string-taking exception constructors constexpr.  Define those
+// constructors here, after basic_string, to break that unavoidable cycle.
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS)
+namespace std { // purposefully not using the ABI versioning namespace
+inline _LIBCPP_HIDE_FROM_ABI constexpr logic_error::logic_error(const string& __msg) : __imp_(__msg.c_str()) {}
+inline _LIBCPP_HIDE_FROM_ABI constexpr runtime_error::runtime_error(const string& __msg) : __imp_(__msg.c_str()) {}
+} // namespace std
+#  endif
+
 _LIBCPP_POP_MACROS
 
 #  if !defined(_LIBCPP_REMOVE_TRANSITIVE_INCLUDES) && _LIBCPP_STD_VER <= 20

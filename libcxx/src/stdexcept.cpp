@@ -8,6 +8,10 @@
 
 #include <__verbose_abort>
 #include <new>
+// Keep the historic out-of-line definitions in this TU.  C++26 clients see
+// constexpr inline definitions in <stdexcept>; these symbols are retained for
+// clients compiled against older headers.
+#define _LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS
 #include <stdexcept>
 #include <string>
 

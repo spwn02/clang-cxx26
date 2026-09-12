@@ -122,6 +122,41 @@ inline bool __libcpp_refstring::__uses_refcount() const {
 #endif
 }
 
+void __libcpp_refstring_init(__libcpp_refstring& __s, const char* __msg) {
+  std::size_t __len = strlen(__msg);
+  _Rep_base* __rep  = static_cast<_Rep_base*>(::operator new(sizeof(*__rep) + __len + 1));
+  __rep->len        = __len;
+  __rep->cap        = __len;
+  __rep->count      = 0;
+  char* __data      = data_from_rep(__rep);
+  std::memcpy(__data, __msg, __len + 1);
+  __s.__imp_ = __data;
+}
+
+void __libcpp_refstring_copy(__libcpp_refstring& __dst, const __libcpp_refstring& __src) noexcept {
+  __dst.__imp_ = __src.__imp_;
+  if (__dst.__uses_refcount())
+    __libcpp_atomic_add(&rep_from_data(__dst.__imp_)->count, 1);
+}
+
+void __libcpp_refstring_assign(__libcpp_refstring& __dst, const __libcpp_refstring& __src) noexcept {
+  bool __adjust_old_count = __dst.__uses_refcount();
+  _Rep_base* __old_rep    = rep_from_data(__dst.__imp_);
+  __dst.__imp_            = __src.__imp_;
+  if (__dst.__uses_refcount())
+    __libcpp_atomic_add(&rep_from_data(__dst.__imp_)->count, 1);
+  if (__adjust_old_count && __libcpp_atomic_add(&__old_rep->count, count_t(-1)) < 0)
+    ::operator delete(__old_rep);
+}
+
+void __libcpp_refstring_destroy(__libcpp_refstring& __s) noexcept {
+  if (__s.__uses_refcount()) {
+    _Rep_base* __rep = rep_from_data(__s.__imp_);
+    if (__libcpp_atomic_add(&__rep->count, count_t(-1)) < 0)
+      ::operator delete(__rep);
+  }
+}
+
 _LIBCPP_END_NAMESPACE_STD
 
 #endif // _LIBCPP_REFSTRING_H
