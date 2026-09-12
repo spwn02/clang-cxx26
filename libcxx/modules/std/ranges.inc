@@ -309,16 +309,13 @@ export namespace std {
 
     namespace views {
       using std::ranges::views::zip;
+    } // namespace views
 
-      struct enumerate_fn : range_adaptor_closure<enumerate_fn> {
-        template <viewable_range _Range>
-        constexpr auto operator()(_Range&& range) const
-            noexcept(noexcept(zip(iota(size_t{0}), std::forward<_Range>(range)))) {
-          return zip(iota(size_t{0}), std::forward<_Range>(range));
-        }
-      };
+    // [range.enumerate], enumerate view
+    using std::ranges::enumerate_view;
 
-      inline constexpr enumerate_fn enumerate{};
+    namespace views {
+      using std::ranges::views::enumerate;
     } // namespace views
 
     // [range.zip.transform], zip transform view
@@ -377,14 +374,13 @@ export namespace std {
     }
 #endif // _LIBCPP_STD_VER >= 23
 
-#if 0
-    // views::cartesian_product is not yet implemented (issue #68).
+#if _LIBCPP_STD_VER >= 23
     using std::ranges::cartesian_product_view;
 
     namespace views {
       using std::ranges::views::cartesian_product;
     }
-#endif
+#endif // _LIBCPP_STD_VER >= 23
   } // namespace ranges
 
   namespace views = ranges::views;

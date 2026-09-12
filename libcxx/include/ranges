@@ -482,6 +482,7 @@ namespace std {
 #    include <__ranges/adjacent_view.h>
 #    include <__ranges/as_const_view.h>
 #    include <__ranges/as_rvalue_view.h>
+#    include <__ranges/cartesian_product_view.h>
 #    include <__ranges/chunk_by_view.h>
 #    include <__ranges/chunk_view.h>
 #    include <__ranges/from_range.h>
@@ -491,10 +492,8 @@ namespace std {
 #    include <__ranges/stride_view.h>
 #    include <__ranges/to.h>
 #    include <__ranges/zip_transform_view.h>
+#    include <__ranges/enumerate_view.h>
 #    include <__ranges/zip_view.h>
-#    if !defined(_LIBCPP_BUILDING_STD_MODULE)
-#      include <__ranges/enumerate_view.h>
-#    endif
 #  endif
 
 #  if _LIBCPP_STD_VER >= 26

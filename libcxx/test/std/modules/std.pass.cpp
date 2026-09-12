@@ -30,8 +30,22 @@ int main(int, char**) {
   auto strided = values | std::views::stride(2);
   auto chunked = values | std::views::chunk(4);
   auto windowed = values | std::views::slide(3);
-  if (*strided.begin() + *chunked.front().begin() + *windowed.front().begin() != 0)
+  auto cartesian = std::views::cartesian_product(std::array{1, 2}, std::array{3, 4});
+  if (*strided.begin() + *chunked.front().begin() + *windowed.front().begin() + std::get<0>(*cartesian.begin()) != 1)
     return 1;
+
+  // Regression test: ranges.inc's `views::enumerate` was hand-written as a
+  // stale zip+iota proxy directly inside the module partition (predating
+  // issue #85's real enumerate_view rewrite), and enumerate_view.h itself
+  // was excluded from the std module build entirely (`#if
+  // !defined(_LIBCPP_BUILDING_STD_MODULE)`), so `std::ranges::enumerate_view`
+  // wasn't even visible, let alone re-exported with the right implementation.
+  static_assert(std::same_as<decltype(std::views::iota(0, 1) | std::views::enumerate),
+                              std::ranges::enumerate_view<std::ranges::iota_view<int, int>>>);
+  for (auto [i, v] : std::views::iota(0, 3) | std::views::enumerate) {
+    if (i != v)
+      return 1;
+  }
 
   return 0;
 }

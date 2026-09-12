@@ -772,6 +772,7 @@ set(files
   __ranges/as_input_view.h
   __ranges/as_rvalue_view.h
   __ranges/cache_latest_view.h
+  __ranges/cartesian_product_view.h
   __ranges/chunk_by_view.h
   __ranges/chunk_view.h
   __ranges/common_view.h

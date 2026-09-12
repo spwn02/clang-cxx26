@@ -760,6 +760,10 @@
 #    error "__cpp_lib_ranges_cache_latest should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_ranges_cartesian_product
+#    error "__cpp_lib_ranges_cartesian_product should not be defined before c++23"
+#  endif
+
 #  ifdef __cpp_lib_ranges_chunk
 #    error "__cpp_lib_ranges_chunk should not be defined before c++23"
 #  endif
@@ -1858,6 +1862,10 @@
 
 #  ifdef __cpp_lib_ranges_cache_latest
 #    error "__cpp_lib_ranges_cache_latest should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_ranges_cartesian_product
+#    error "__cpp_lib_ranges_cartesian_product should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_ranges_chunk
@@ -3117,6 +3125,10 @@
 
 #  ifdef __cpp_lib_ranges_cache_latest
 #    error "__cpp_lib_ranges_cache_latest should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_ranges_cartesian_product
+#    error "__cpp_lib_ranges_cartesian_product should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_ranges_chunk
@@ -4646,6 +4658,10 @@
 
 #  ifdef __cpp_lib_ranges_cache_latest
 #    error "__cpp_lib_ranges_cache_latest should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_ranges_cartesian_product
+#    error "__cpp_lib_ranges_cartesian_product should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_ranges_chunk
@@ -6337,6 +6353,13 @@
 
 #  ifdef __cpp_lib_ranges_cache_latest
 #    error "__cpp_lib_ranges_cache_latest should not be defined before c++26"
+#  endif
+
+#  ifndef __cpp_lib_ranges_cartesian_product
+#    error "__cpp_lib_ranges_cartesian_product should be defined in c++23"
+#  endif
+#  if __cpp_lib_ranges_cartesian_product != 202207L
+#    error "__cpp_lib_ranges_cartesian_product should have the value 202207L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_ranges_chunk
@@ -8404,17 +8427,11 @@
 #    endif
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_philox_engine
-#      error "__cpp_lib_philox_engine should be defined in c++26"
-#    endif
-#    if __cpp_lib_philox_engine != 202406L
-#      error "__cpp_lib_philox_engine should have the value 202406L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_philox_engine
-#      error "__cpp_lib_philox_engine should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_philox_engine
+#    error "__cpp_lib_philox_engine should be defined in c++26"
+#  endif
+#  if __cpp_lib_philox_engine != 202406L
+#    error "__cpp_lib_philox_engine should have the value 202406L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_polymorphic
@@ -8496,6 +8513,13 @@
 #  endif
 #  if __cpp_lib_ranges_cache_latest != 202411L
 #    error "__cpp_lib_ranges_cache_latest should have the value 202411L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_ranges_cartesian_product
+#    error "__cpp_lib_ranges_cartesian_product should be defined in c++26"
+#  endif
+#  if __cpp_lib_ranges_cartesian_product != 202207L
+#    error "__cpp_lib_ranges_cartesian_product should have the value 202207L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_ranges_chunk
