@@ -105,7 +105,7 @@
 "`P0574R1 <https://wg21.link/P0574R1>`__","Algorithm Complexity Constraints and Parallel Overloads","2017-02 (Kona)","|Nothing To Do|","","`#103694 <https://github.com/llvm/llvm-project/issues/103694>`__",""
 "`P0599R1 <https://wg21.link/P0599R1>`__","noexcept for hash functions","2017-02 (Kona)","|Complete|","5","`#103695 <https://github.com/llvm/llvm-project/issues/103695>`__",""
 "`P0604R0 <https://wg21.link/P0604R0>`__","Resolving GB 55, US 84, US 85, US 86","2017-02 (Kona)","|Complete|","","`#103696 <https://github.com/llvm/llvm-project/issues/103696>`__",""
-"`P0607R0 <https://wg21.link/P0607R0>`__","Inline Variables for the Standard Library","2017-02 (Kona)","|In Progress|","6","`#99951 <https://github.com/llvm/llvm-project/issues/99951>`__","The parts of P0607 that are not done are the ``<regex>`` bits"
+"`P0607R0 <https://wg21.link/P0607R0>`__","Inline Variables for the Standard Library","2017-02 (Kona)","|Complete|","6","`#99951 <https://github.com/llvm/llvm-project/issues/99951>`__","The remaining ``<regex>`` bits (``basic_regex``'s ``syntax_option_type`` static members) are now ``static constexpr``. ``placeholders::_1``..``_N`` deliberately stay ``extern const`` per the standard-permitted ABI-preserving alternative (already documented in source)."
 "`P0618R0 <https://wg21.link/P0618R0>`__","Deprecating <codecvt>","2017-02 (Kona)","|Complete|","15","`#103697 <https://github.com/llvm/llvm-project/issues/103697>`__",""
 "`P0623R0 <https://wg21.link/P0623R0>`__","Final C++17 Parallel Algorithms Fixes","2017-02 (Kona)","|Nothing To Do|","","`#103698 <https://github.com/llvm/llvm-project/issues/103698>`__",""
 "","","","","","",""

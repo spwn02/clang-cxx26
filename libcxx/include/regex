@@ -2297,17 +2297,17 @@ private:
 
 public:
   // constants:
-  static const regex_constants::syntax_option_type icase      = regex_constants::icase;
-  static const regex_constants::syntax_option_type nosubs     = regex_constants::nosubs;
-  static const regex_constants::syntax_option_type optimize   = regex_constants::optimize;
-  static const regex_constants::syntax_option_type collate    = regex_constants::collate;
-  static const regex_constants::syntax_option_type ECMAScript = regex_constants::ECMAScript;
-  static const regex_constants::syntax_option_type basic      = regex_constants::basic;
-  static const regex_constants::syntax_option_type extended   = regex_constants::extended;
-  static const regex_constants::syntax_option_type awk        = regex_constants::awk;
-  static const regex_constants::syntax_option_type grep       = regex_constants::grep;
-  static const regex_constants::syntax_option_type egrep      = regex_constants::egrep;
-  static const regex_constants::syntax_option_type multiline  = regex_constants::multiline;
+  static constexpr regex_constants::syntax_option_type icase      = regex_constants::icase;
+  static constexpr regex_constants::syntax_option_type nosubs     = regex_constants::nosubs;
+  static constexpr regex_constants::syntax_option_type optimize   = regex_constants::optimize;
+  static constexpr regex_constants::syntax_option_type collate    = regex_constants::collate;
+  static constexpr regex_constants::syntax_option_type ECMAScript = regex_constants::ECMAScript;
+  static constexpr regex_constants::syntax_option_type basic      = regex_constants::basic;
+  static constexpr regex_constants::syntax_option_type extended   = regex_constants::extended;
+  static constexpr regex_constants::syntax_option_type awk        = regex_constants::awk;
+  static constexpr regex_constants::syntax_option_type grep       = regex_constants::grep;
+  static constexpr regex_constants::syntax_option_type egrep      = regex_constants::egrep;
+  static constexpr regex_constants::syntax_option_type multiline  = regex_constants::multiline;
 
   // construct/copy/destroy:
   _LIBCPP_HIDE_FROM_ABI basic_regex()
@@ -2656,26 +2656,10 @@ basic_regex(_ForwardIterator, _ForwardIterator, regex_constants::syntax_option_t
     -> basic_regex<typename iterator_traits<_ForwardIterator>::value_type>;
 #    endif
 
-template <class _CharT, class _Traits>
-const regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::icase;
-template <class _CharT, class _Traits>
-const regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::nosubs;
-template <class _CharT, class _Traits>
-const regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::optimize;
-template <class _CharT, class _Traits>
-const regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::collate;
-template <class _CharT, class _Traits>
-const regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::ECMAScript;
-template <class _CharT, class _Traits>
-const regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::basic;
-template <class _CharT, class _Traits>
-const regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::extended;
-template <class _CharT, class _Traits>
-const regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::awk;
-template <class _CharT, class _Traits>
-const regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::grep;
-template <class _CharT, class _Traits>
-const regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::egrep;
+// icase/nosubs/optimize/collate/ECMAScript/basic/extended/awk/grep/egrep/multiline
+// are `static constexpr` (P0607R0), which are implicitly inline since C++17 --
+// no out-of-class definition needed or provided (this header targets C++11+
+// only; C++03 goes through the separate __cxx03/regex frozen header instead).
 
 template <class _CharT, class _Traits>
 void basic_regex<_CharT, _Traits>::swap(basic_regex& __r) {
