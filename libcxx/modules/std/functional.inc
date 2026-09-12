@@ -107,8 +107,8 @@ export namespace std {
   using std::copyable_function;
 
   // [func.wrap.ref], class template function_ref
-  using std::nontype_t;
-  using std::nontype;
+  using std::constant_arg_t;
+  using std::constant_arg;
   using std::function_ref;
 #endif
 
