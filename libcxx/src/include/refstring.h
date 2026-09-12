@@ -122,40 +122,17 @@ inline bool __libcpp_refstring::__uses_refcount() const {
 #endif
 }
 
-void __libcpp_refstring_init(__libcpp_refstring& __s, const char* __msg) {
-  std::size_t __len = strlen(__msg);
-  _Rep_base* __rep  = static_cast<_Rep_base*>(::operator new(sizeof(*__rep) + __len + 1));
-  __rep->len        = __len;
-  __rep->cap        = __len;
-  __rep->count      = 0;
-  char* __data      = data_from_rep(__rep);
-  std::memcpy(__data, __msg, __len + 1);
-  __s.__imp_ = __data;
-}
-
-void __libcpp_refstring_copy(__libcpp_refstring& __dst, const __libcpp_refstring& __src) noexcept {
-  __dst.__imp_ = __src.__imp_;
-  if (__dst.__uses_refcount())
-    __libcpp_atomic_add(&rep_from_data(__dst.__imp_)->count, 1);
-}
-
-void __libcpp_refstring_assign(__libcpp_refstring& __dst, const __libcpp_refstring& __src) noexcept {
-  bool __adjust_old_count = __dst.__uses_refcount();
-  _Rep_base* __old_rep    = rep_from_data(__dst.__imp_);
-  __dst.__imp_            = __src.__imp_;
-  if (__dst.__uses_refcount())
-    __libcpp_atomic_add(&rep_from_data(__dst.__imp_)->count, 1);
-  if (__adjust_old_count && __libcpp_atomic_add(&__old_rep->count, count_t(-1)) < 0)
-    ::operator delete(__old_rep);
-}
-
-void __libcpp_refstring_destroy(__libcpp_refstring& __s) noexcept {
-  if (__s.__uses_refcount()) {
-    _Rep_base* __rep = rep_from_data(__s.__imp_);
-    if (__libcpp_atomic_add(&__rep->count, count_t(-1)) < 0)
-      ::operator delete(__rep);
-  }
-}
+// __libcpp_refstring_init/_copy/_assign/_destroy (the free-function entry
+// points the non-legacy, header-inline <stdexcept> constructors in ordinary
+// libcxx client TUs call, see <stdexcept>) are deliberately NOT defined here.
+// This header is included by both libcxx/src/stdexcept.cpp AND
+// libcxxabi/src/stdlib_stdexcept.cpp; some configurations (e.g. compiler-rt's
+// hermetic fuzzer runtime) statically link both TUs' objects into the same
+// final archive, and these are ordinary (non-inline) exported symbols, so
+// defining them here would duplicate-define across that link. libcxxabi's
+// stdlib_stdexcept.cpp never calls them itself (only libcxx's own non-legacy
+// <stdexcept> header code does), so they're defined exactly once, directly in
+// libcxx/src/stdexcept.cpp, instead of in this shared header.
 
 _LIBCPP_END_NAMESPACE_STD
 
