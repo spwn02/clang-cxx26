@@ -97,6 +97,8 @@
           basic_string<EcharT, traits, Allocator>
             string(const Allocator& a = Allocator()) const;
         std::string    string() const;
+        std::string    display_string() const;              // since C++26
+        std::string    system_encoded_string() const;        // since C++26
         std::wstring   wstring() const;
         std::u8string  u8string() const;
         std::u16string u16string() const;
@@ -107,6 +109,8 @@
           basic_string<EcharT, traits, Allocator>
             generic_string(const Allocator& a = Allocator()) const;
         std::string    generic_string() const;
+        std::string    generic_display_string() const;       // since C++26
+        std::string    generic_system_encoded_string() const; // since C++26
         std::wstring   generic_wstring() const;
         std::u8string  generic_u8string() const;
         std::u16string generic_u16string() const;
