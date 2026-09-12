@@ -150,7 +150,15 @@ public:
   }
   __shared_weak_count* lock() _NOEXCEPT;
 
-  _LIBCPP_CONSTEXPR_SINCE_CXX26 virtual const void* __get_deleter(const type_info&) const _NOEXCEPT;
+  // Not _LIBCPP_CONSTEXPR_SINCE_CXX26: this base declaration's actual
+  // definition lives out-of-line in libcxx/src/memory.cpp (compiled into
+  // the shared library, per this class's _LIBCPP_EXPORTED_FROM_ABI
+  // convention), so it can never be visible for constant evaluation.
+  // Derived overrides with a header-visible body (e.g.
+  // __shared_ptr_pointer::__get_deleter) may still be constexpr -- C++20's
+  // relaxed constexpr-virtual-function rules (P1064) don't require a
+  // constexpr override to itself override a constexpr function.
+  virtual const void* __get_deleter(const type_info&) const _NOEXCEPT;
 
 private:
   _LIBCPP_CONSTEXPR_SINCE_CXX26 virtual void __on_zero_shared_weak() _NOEXCEPT = 0;

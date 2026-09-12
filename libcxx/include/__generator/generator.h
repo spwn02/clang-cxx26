@@ -117,8 +117,41 @@ public:
     _LIBCPP_HIDE_FROM_ABI suspend_always initial_suspend() const noexcept { return {}; }
     _LIBCPP_HIDE_FROM_ABI __final_awaiter final_suspend() noexcept { return {}; }
     _LIBCPP_HIDE_FROM_ABI suspend_always yield_value(yielded __value) noexcept {
-      __state_->__value_ = addressof(__value); return {};
+      // __value_ is an untyped void* (it has to be, since it's shared state
+      // between arbitrarily-nested generator instantiations with different
+      // `yielded` types) -- for a const-qualified `yielded` (e.g.
+      // `generator<const T&>`), addressof(__value) is a `const T*`, which
+      // must have its constness stripped to store here. This does not
+      // create a genuine const-correctness hole: nothing ever writes
+      // through this pointer, only reads it back via operator*() with the
+      // original (correctly const-qualified) `yielded`/`__reference` type.
+      __state_->__value_ = const_cast<void*>(static_cast<const void*>(addressof(__value)));
+      return {};
     }
+
+    // [coro.generator.promise]: when `yielded` is an rvalue reference (the
+    // common case, e.g. `yielded == int&&` for `generator<int>`), the above
+    // overload can't bind an lvalue argument (e.g. `co_yield i;` for a named
+    // local `int i`) -- the standard requires this second overload, which
+    // copy-constructs a value that lives inside the returned awaiter (so it
+    // survives the suspension point) and points __value_ at that stored
+    // copy, not at the original (potentially short-lived) lvalue.
+    struct __copy_awaiter {
+      remove_cvref_t<yielded> __val_;
+      _LIBCPP_HIDE_FROM_ABI static constexpr bool await_ready() noexcept { return false; }
+      _LIBCPP_HIDE_FROM_ABI bool await_suspend(coroutine_handle<promise_type> __h) noexcept {
+        __h.promise().__state_->__value_ = addressof(__val_);
+        return true;
+      }
+      _LIBCPP_HIDE_FROM_ABI void await_resume() const noexcept {}
+    };
+    _LIBCPP_HIDE_FROM_ABI auto yield_value(const remove_reference_t<yielded>& __lval)
+      requires is_rvalue_reference_v<yielded> &&
+               constructible_from<remove_cvref_t<yielded>, const remove_reference_t<yielded>&>
+    {
+      return __copy_awaiter{__lval};
+    }
+
     template <class _R2, class _V2, class _A2, class _Unused>
       requires same_as<typename generator<_R2, _V2, _A2>::yielded, yielded>
     _LIBCPP_HIDE_FROM_ABI auto yield_value(ranges::elements_of<generator<_R2, _V2, _A2>&&, _Unused> __r) noexcept {

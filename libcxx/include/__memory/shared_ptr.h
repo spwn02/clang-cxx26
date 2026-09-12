@@ -714,8 +714,46 @@ allocate_shared(const _Alloc& __a, _Args&&... __args) {
   // casts that are not permitted in constant evaluation.  A separate object
   // allocation retains that representation and its one-allocation fast path
   // at runtime while giving constexpr evaluation ordinary typed allocations.
+  //
+  // Both branches of `if consteval` are compiled unconditionally (unlike
+  // `if constexpr`, neither branch is discarded), so whatever expression
+  // appears here must be well-formed for every _Tp/_Alloc this function
+  // could be instantiated for -- including a type whose constructor is
+  // private and accessible only via a friend allocator (see LWG2070;
+  // `allocate_shared.lwg2070.pass.cpp`), for which a bare `new _Tp(...)`
+  // is ill-formed (not in the allocator's own friended scope).
+  //
+  // For the common default-allocator case, use the simple `new`-based path:
+  // it's the one already wired to shared_ptr's constexpr-enabled
+  // single-pointer constructor below, so it's actually usable in a real
+  // constant expression (see constexpr_make_shared.pass.cpp).
+  //
+  // For a custom allocator, go through allocator_traits<_Alloc>::construct
+  // instead, matching the runtime path's own access pattern -- this keeps
+  // compilation well-formed for LWG2070-shaped types, though (unlike the
+  // default-allocator path) it does not claim to actually be usable inside
+  // a real constant expression for an arbitrary custom allocator; nothing
+  // in this fork's scope for P3037R6 requires that yet.
   if consteval {
-    return shared_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+    if constexpr (is_same<_Alloc, allocator<__remove_cv_t<_Tp> > >::value) {
+      return shared_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
+    } else {
+      // allocator_traits<_TpAlloc>::pointer is not necessarily a raw
+      // pointer (a conforming allocator may use a fancy pointer type) --
+      // keep that type for allocate/construct/destroy/deallocate, and only
+      // convert to a raw pointer where shared_ptr's constructor requires one.
+      using _TpAlloc   = typename __allocator_traits_rebind<_Alloc, _Tp>::type;
+      using _TpPointer = typename allocator_traits<_TpAlloc>::pointer;
+      _TpAlloc __tmp(__a);
+      _TpPointer __fancy_p = allocator_traits<_TpAlloc>::allocate(__tmp, 1);
+      allocator_traits<_TpAlloc>::construct(__tmp, std::addressof(*__fancy_p), std::forward<_Args>(__args)...);
+      _Tp* __p = std::addressof(*__fancy_p);
+      return shared_ptr<_Tp>(__p, [__tmp, __fancy_p](_Tp*) mutable {
+        _TpAlloc __d(__tmp);
+        allocator_traits<_TpAlloc>::destroy(__d, std::addressof(*__fancy_p));
+        allocator_traits<_TpAlloc>::deallocate(__d, __fancy_p, 1);
+      });
+    }
   }
 #endif
   using _ControlBlock          = __shared_ptr_emplace<_Tp, _Alloc>;

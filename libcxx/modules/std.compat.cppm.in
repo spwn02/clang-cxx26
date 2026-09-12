@@ -49,9 +49,6 @@ module;
 // into thinking that libc++ provides the header.
 //
 #ifndef _WIN32
-#  if __has_include(<generator>)
-#    error "please update the header information for <generator> in headers_not_available in utils/libcxx/header_information.py"
-#  endif // __has_include(<generator>)
 #  if __has_include(<spanstream>)
 #    error "please update the header information for <spanstream> in headers_not_available in utils/libcxx/header_information.py"
 #  endif // __has_include(<spanstream>)
