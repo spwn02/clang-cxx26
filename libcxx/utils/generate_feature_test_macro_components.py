@@ -187,7 +187,15 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_atomic_min_max",
-            "values": {"c++26": 202403}, # P0493R5: Atomic minimum/maximum
+            # P0493R5 established this macro at 202403; P3008R6 (Atomic
+            # floating-point min/max: fetch_fmaximum/fetch_fminimum/
+            # fetch_fmaximum_num/fetch_fminimum_num) bumps it to 202506.
+            "values": {"c++26": 202506},
+            "headers": ["atomic"],
+        },
+        {
+            "name": "__cpp_lib_atomic_reductions",
+            "values": {"c++26": 202506},  # P3111R8: Atomic reduction operations
             "headers": ["atomic"],
         },
         {

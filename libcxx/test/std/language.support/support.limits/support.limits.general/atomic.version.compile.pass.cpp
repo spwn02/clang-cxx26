@@ -40,6 +40,10 @@
 #    error "__cpp_lib_atomic_min_max should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_atomic_reductions
+#    error "__cpp_lib_atomic_reductions should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_atomic_ref
 #    error "__cpp_lib_atomic_ref should not be defined before c++20"
 #  endif
@@ -84,6 +88,10 @@
 
 #  ifdef __cpp_lib_atomic_min_max
 #    error "__cpp_lib_atomic_min_max should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_atomic_reductions
+#    error "__cpp_lib_atomic_reductions should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_atomic_ref
@@ -133,6 +141,10 @@
 
 #  ifdef __cpp_lib_atomic_min_max
 #    error "__cpp_lib_atomic_min_max should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_atomic_reductions
+#    error "__cpp_lib_atomic_reductions should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_atomic_ref
@@ -191,6 +203,10 @@
 
 #  ifdef __cpp_lib_atomic_min_max
 #    error "__cpp_lib_atomic_min_max should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_atomic_reductions
+#    error "__cpp_lib_atomic_reductions should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_atomic_ref
@@ -272,6 +288,10 @@
 #    error "__cpp_lib_atomic_min_max should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_atomic_reductions
+#    error "__cpp_lib_atomic_reductions should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_atomic_ref
 #    error "__cpp_lib_atomic_ref should be defined in c++23"
 #  endif
@@ -350,8 +370,15 @@
 #  ifndef __cpp_lib_atomic_min_max
 #    error "__cpp_lib_atomic_min_max should be defined in c++26"
 #  endif
-#  if __cpp_lib_atomic_min_max != 202403L
-#    error "__cpp_lib_atomic_min_max should have the value 202403L in c++26"
+#  if __cpp_lib_atomic_min_max != 202506L
+#    error "__cpp_lib_atomic_min_max should have the value 202506L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_atomic_reductions
+#    error "__cpp_lib_atomic_reductions should be defined in c++26"
+#  endif
+#  if __cpp_lib_atomic_reductions != 202506L
+#    error "__cpp_lib_atomic_reductions should have the value 202506L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_atomic_ref
