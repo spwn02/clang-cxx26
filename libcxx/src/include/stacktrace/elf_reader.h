@@ -72,7 +72,9 @@ inline std::optional<std::vector<uint8_t>> __read_elf_section(const std::string&
   if (__section_name == nullptr)
     return std::nullopt;
 
+#if _LIBCPP_HAS_EXCEPTIONS
   try {
+#endif // _LIBCPP_HAS_EXCEPTIONS
     std::ifstream __in(__path, std::ios::binary | std::ios::ate);
     if (!__in)
       return std::nullopt;
@@ -139,9 +141,11 @@ inline std::optional<std::vector<uint8_t>> __read_elf_section(const std::string&
         return std::nullopt;
       return std::vector<uint8_t>(__data.begin() + __off, __data.begin() + __off + __size);
     }
+#if _LIBCPP_HAS_EXCEPTIONS
   } catch (...) {
     return std::nullopt;
   }
+#endif // _LIBCPP_HAS_EXCEPTIONS
   return std::nullopt;
 }
 

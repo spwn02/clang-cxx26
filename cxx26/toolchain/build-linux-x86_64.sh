@@ -16,8 +16,14 @@ compiler_launcher="${CXX26_COMPILER_LAUNCHER:-}"
 rm -rf "${install_prefix}" "${build_dir}"
 
 runtime_components="cxx;cxxabi;unwind"
-runtime_distribution_components="cxx-modules;compiler-rt;compiler-rt-headers"
-distribution_components="clang;clangd;clang-tidy;clang-resource-headers;clang-scan-deps;lld;llvm-ar;${runtime_components};${runtime_distribution_components}"
+# NOTE: "compiler-rt" itself must NOT appear in runtime_distribution_components:
+# it's already a full entry in LLVM_ENABLE_RUNTIMES, which makes the runtimes
+# build register its own install-compiler-rt/-stripped targets automatically.
+# Listing it again here makes LLVM try to define those same targets a second
+# time and fail to configure ("add_custom_target ... already exists"). Only
+# genuine sub-components (not full runtime names) belong here.
+runtime_distribution_components="cxx-modules;compiler-rt-headers"
+distribution_components="clang;clangd;clang-tidy;clang-resource-headers;clang-scan-deps;lld;llvm-ar;${runtime_components};compiler-rt;${runtime_distribution_components}"
 
 launcher_args=()
 if [[ -n "${compiler_launcher}" ]]; then
