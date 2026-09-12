@@ -535,6 +535,7 @@ set(files
   __iterator/bounded_iter.h
   __iterator/common_iterator.h
   __iterator/concepts.h
+  __iterator/const_iterator.h
   __iterator/counted_iterator.h
   __iterator/cpp17_iterator_concepts.h
   __iterator/data.h
@@ -765,6 +766,7 @@ set(files
   __ranges/adjacent_transform_view.h
   __ranges/adjacent_view.h
   __ranges/all.h
+  __ranges/as_const_view.h
   __ranges/as_input_view.h
   __ranges/as_rvalue_view.h
   __ranges/cache_latest_view.h
