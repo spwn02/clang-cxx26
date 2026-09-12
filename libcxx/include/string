@@ -4035,6 +4035,13 @@ _LIBCPP_END_NAMESPACE_STD
 namespace std { // purposefully not using the ABI versioning namespace
 inline _LIBCPP_HIDE_FROM_ABI constexpr logic_error::logic_error(const string& __msg) : __imp_(__msg.c_str()) {}
 inline _LIBCPP_HIDE_FROM_ABI constexpr runtime_error::runtime_error(const string& __msg) : __imp_(__msg.c_str()) {}
+inline _LIBCPP_HIDE_FROM_ABI constexpr domain_error::domain_error(const string& __s) : logic_error(__s) {}
+inline _LIBCPP_HIDE_FROM_ABI constexpr invalid_argument::invalid_argument(const string& __s) : logic_error(__s) {}
+inline _LIBCPP_HIDE_FROM_ABI constexpr length_error::length_error(const string& __s) : logic_error(__s) {}
+inline _LIBCPP_HIDE_FROM_ABI constexpr out_of_range::out_of_range(const string& __s) : logic_error(__s) {}
+inline _LIBCPP_HIDE_FROM_ABI constexpr range_error::range_error(const string& __s) : runtime_error(__s) {}
+inline _LIBCPP_HIDE_FROM_ABI constexpr overflow_error::overflow_error(const string& __s) : runtime_error(__s) {}
+inline _LIBCPP_HIDE_FROM_ABI constexpr underflow_error::underflow_error(const string& __s) : runtime_error(__s) {}
 } // namespace std
 #  endif
 
