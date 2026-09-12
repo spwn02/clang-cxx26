@@ -1561,9 +1561,18 @@ ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
   ParseScope BodyScope(this, ScopeFlags);
 
   Actions.ActOnStartOfLambdaDefinition(Intro, D, DS);
-  if (isFunctionContractKeyword(Tok)) {
+  // Mirrors the same fix in ParseDecl.cpp (see its comment there): without
+  // the code-completion half of this guard, a completion request right at
+  // this position (e.g. `[] () pre(x) <cursor>`) never reaches
+  // ParseContractSpecifierSequence's own completion handling. When that
+  // completion path is taken, ParseContractSpecifierSequence calls
+  // cutOffParsing() and returns before ActOnFinishContractSpecifierSequence
+  // ever runs, so D.Contracts is deliberately still null -- the assert must
+  // allow that case rather than firing on every completion request here.
+  if (isFunctionContractKeyword(Tok) ||
+      (Tok.is(tok::code_completion) && getLangOpts().Contracts)) {
     ParseContractSpecifierSequence(D, /*EnterScope=*/false);
-    assert(D.Contracts);
+    assert(D.Contracts || PP.isCodeCompletionReached());
   }
   assert(Actions.CurContext->isFunctionOrMethod());
   cast<FunctionDecl>(Actions.CurContext)->setContracts(D.Contracts);
