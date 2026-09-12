@@ -423,6 +423,12 @@ template<class charT, class traits, class Duration>     // C++20
   basic_ostream<charT, traits>&
     operator<<(basic_ostream<charT, traits>& os, const file_time<Duration>& tp);
 
+template<class DestClock, class SourceClock>            // C++20
+  struct clock_time_conversion;
+
+template<class DestClock, class SourceClock, class Duration>
+  auto clock_cast(const time_point<SourceClock, Duration>& t); // C++20
+
 class steady_clock
 {
 public:
@@ -1134,6 +1140,198 @@ namespace std {
 #      include <__chrono/utc_clock.h>
 #      include <__chrono/zoned_time.h>
 #    endif
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+
+namespace chrono {
+
+template <class _DestClock, class _SourceClock>
+struct clock_time_conversion {};
+
+template <class _Tp, class _Clock>
+inline constexpr bool __clock_time_conversion_result = false;
+
+template <class _Clock, class _Duration>
+inline constexpr bool __clock_time_conversion_result<time_point<_Clock, _Duration>, _Clock> = true;
+
+template <class _Clock>
+struct clock_time_conversion<_Clock, _Clock> {
+  template <class _Duration>
+  _LIBCPP_HIDE_FROM_ABI time_point<_Clock, _Duration>
+  operator()(const time_point<_Clock, _Duration>& __time) const {
+    return __time;
+  }
+};
+
+template <>
+struct clock_time_conversion<system_clock, system_clock> {
+  template <class _Duration>
+  _LIBCPP_HIDE_FROM_ABI sys_time<_Duration> operator()(const sys_time<_Duration>& __time) const {
+    return __time;
+  }
+};
+
+template <class _SourceClock>
+struct clock_time_conversion<system_clock, _SourceClock> {
+  template <class _Duration>
+    requires requires(const time_point<_SourceClock, _Duration>& __time) { _SourceClock::to_sys(__time); }
+  _LIBCPP_HIDE_FROM_ABI auto operator()(const time_point<_SourceClock, _Duration>& __time) const {
+    using _Result = decltype(_SourceClock::to_sys(__time));
+    static_assert(__clock_time_conversion_result<_Result, system_clock>);
+    return _SourceClock::to_sys(__time);
+  }
+};
+
+template <class _DestClock>
+struct clock_time_conversion<_DestClock, system_clock> {
+  template <class _Duration>
+    requires requires(const sys_time<_Duration>& __time) { _DestClock::from_sys(__time); }
+  _LIBCPP_HIDE_FROM_ABI auto operator()(const sys_time<_Duration>& __time) const {
+    using _Result = decltype(_DestClock::from_sys(__time));
+    static_assert(__clock_time_conversion_result<_Result, _DestClock>);
+    return _DestClock::from_sys(__time);
+  }
+};
+
+#  if defined(_LIBCPP_HAS_EXPERIMENTAL_TZDB) && _LIBCPP_HAS_EXPERIMENTAL_TZDB &&                                   \
+      _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
+
+template <>
+struct clock_time_conversion<utc_clock, utc_clock> {
+  template <class _Duration>
+  _LIBCPP_HIDE_FROM_ABI utc_time<_Duration> operator()(const utc_time<_Duration>& __time) const {
+    return __time;
+  }
+};
+
+template <>
+struct clock_time_conversion<utc_clock, system_clock> {
+  template <class _Duration>
+  _LIBCPP_HIDE_FROM_ABI utc_time<common_type_t<_Duration, seconds>>
+  operator()(const sys_time<_Duration>& __time) const {
+    return utc_clock::from_sys(__time);
+  }
+};
+
+template <>
+struct clock_time_conversion<system_clock, utc_clock> {
+  template <class _Duration>
+  _LIBCPP_HIDE_FROM_ABI sys_time<common_type_t<_Duration, seconds>>
+  operator()(const utc_time<_Duration>& __time) const {
+    return utc_clock::to_sys(__time);
+  }
+};
+
+template <class _SourceClock>
+struct clock_time_conversion<utc_clock, _SourceClock> {
+  template <class _Duration>
+    requires requires(const time_point<_SourceClock, _Duration>& __time) { _SourceClock::to_utc(__time); }
+  _LIBCPP_HIDE_FROM_ABI auto operator()(const time_point<_SourceClock, _Duration>& __time) const {
+    using _Result = decltype(_SourceClock::to_utc(__time));
+    static_assert(__clock_time_conversion_result<_Result, utc_clock>);
+    return _SourceClock::to_utc(__time);
+  }
+};
+
+template <class _DestClock>
+struct clock_time_conversion<_DestClock, utc_clock> {
+  template <class _Duration>
+    requires requires(const utc_time<_Duration>& __time) { _DestClock::from_utc(__time); }
+  _LIBCPP_HIDE_FROM_ABI auto operator()(const utc_time<_Duration>& __time) const {
+    using _Result = decltype(_DestClock::from_utc(__time));
+    static_assert(__clock_time_conversion_result<_Result, _DestClock>);
+    return _DestClock::from_utc(__time);
+  }
+};
+
+#  endif // TZDB support
+
+template <class _DestClock, class _SourceClock, class _Duration>
+concept __clock_cast_direct = requires(const time_point<_SourceClock, _Duration>& __time) {
+  clock_time_conversion<_DestClock, _SourceClock>{}(__time);
+};
+
+template <class _DestClock, class _SourceClock, class _Duration>
+concept __clock_cast_via_sys = requires(const time_point<_SourceClock, _Duration>& __time) {
+  clock_time_conversion<_DestClock, system_clock>{}(
+      clock_time_conversion<system_clock, _SourceClock>{}(__time));
+};
+
+#  if defined(_LIBCPP_HAS_EXPERIMENTAL_TZDB) && _LIBCPP_HAS_EXPERIMENTAL_TZDB &&                                   \
+      _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
+
+template <class _DestClock, class _SourceClock, class _Duration>
+concept __clock_cast_via_utc = requires(const time_point<_SourceClock, _Duration>& __time) {
+  clock_time_conversion<_DestClock, utc_clock>{}(clock_time_conversion<utc_clock, _SourceClock>{}(__time));
+};
+
+template <class _DestClock, class _SourceClock, class _Duration>
+concept __clock_cast_via_sys_utc = requires(const time_point<_SourceClock, _Duration>& __time) {
+  clock_time_conversion<_DestClock, utc_clock>{}(
+      clock_time_conversion<utc_clock, system_clock>{}(
+          clock_time_conversion<system_clock, _SourceClock>{}(__time)));
+};
+
+template <class _DestClock, class _SourceClock, class _Duration>
+concept __clock_cast_via_utc_sys = requires(const time_point<_SourceClock, _Duration>& __time) {
+  clock_time_conversion<_DestClock, system_clock>{}(
+      clock_time_conversion<system_clock, utc_clock>{}(
+          clock_time_conversion<utc_clock, _SourceClock>{}(__time)));
+};
+
+template <class _DestClock, class _SourceClock, class _Duration>
+  requires(__clock_cast_direct<_DestClock, _SourceClock, _Duration> ||
+           __clock_cast_via_sys<_DestClock, _SourceClock, _Duration> ||
+           __clock_cast_via_utc<_DestClock, _SourceClock, _Duration> ||
+           __clock_cast_via_sys_utc<_DestClock, _SourceClock, _Duration> ||
+           __clock_cast_via_utc_sys<_DestClock, _SourceClock, _Duration>)
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI auto clock_cast(const time_point<_SourceClock, _Duration>& __time) {
+  if constexpr (__clock_cast_direct<_DestClock, _SourceClock, _Duration>) {
+    return clock_time_conversion<_DestClock, _SourceClock>{}(__time);
+  } else if constexpr (__clock_cast_via_sys<_DestClock, _SourceClock, _Duration> ||
+                       __clock_cast_via_utc<_DestClock, _SourceClock, _Duration>) {
+    static_assert(__clock_cast_via_sys<_DestClock, _SourceClock, _Duration> !=
+                      __clock_cast_via_utc<_DestClock, _SourceClock, _Duration>,
+                  "clock_cast requires a unique best conversion");
+    if constexpr (__clock_cast_via_sys<_DestClock, _SourceClock, _Duration>)
+      return clock_time_conversion<_DestClock, system_clock>{}(
+          clock_time_conversion<system_clock, _SourceClock>{}(__time));
+    else
+      return clock_time_conversion<_DestClock, utc_clock>{}(
+          clock_time_conversion<utc_clock, _SourceClock>{}(__time));
+  } else {
+    static_assert(__clock_cast_via_sys_utc<_DestClock, _SourceClock, _Duration> !=
+                      __clock_cast_via_utc_sys<_DestClock, _SourceClock, _Duration>,
+                  "clock_cast requires a unique best conversion");
+    if constexpr (__clock_cast_via_sys_utc<_DestClock, _SourceClock, _Duration>)
+      return clock_time_conversion<_DestClock, utc_clock>{}(
+          clock_time_conversion<utc_clock, system_clock>{}(
+              clock_time_conversion<system_clock, _SourceClock>{}(__time)));
+    else
+      return clock_time_conversion<_DestClock, system_clock>{}(
+          clock_time_conversion<system_clock, utc_clock>{}(
+              clock_time_conversion<utc_clock, _SourceClock>{}(__time)));
+  }
+}
+
+#  else
+
+template <class _DestClock, class _SourceClock, class _Duration>
+  requires(__clock_cast_direct<_DestClock, _SourceClock, _Duration> ||
+           __clock_cast_via_sys<_DestClock, _SourceClock, _Duration>)
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI auto clock_cast(const time_point<_SourceClock, _Duration>& __time) {
+  if constexpr (__clock_cast_direct<_DestClock, _SourceClock, _Duration>)
+    return clock_time_conversion<_DestClock, _SourceClock>{}(__time);
+  else
+    return clock_time_conversion<_DestClock, system_clock>{}(
+        clock_time_conversion<system_clock, _SourceClock>{}(__time));
+}
+
+#  endif // TZDB support
+
+} // namespace chrono
+
+_LIBCPP_END_NAMESPACE_STD
 
 #  endif
 
