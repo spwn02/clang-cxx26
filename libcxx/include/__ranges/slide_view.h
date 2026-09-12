@@ -10,6 +10,7 @@
 #ifndef _LIBCPP___RANGES_SLIDE_VIEW_H
 #define _LIBCPP___RANGES_SLIDE_VIEW_H
 
+#include <__compare/three_way_comparable.h>
 #include <__concepts/constructible.h>
 #include <__concepts/convertible_to.h>
 #include <__config>
@@ -120,10 +121,37 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr __iterator& operator--() requires bidirectional_range<_Base> { --__current_; --__last_; return *this; }
   _LIBCPP_HIDE_FROM_ABI constexpr __iterator operator--(int) requires bidirectional_range<_Base> { auto __t=*this; --*this; return __t; }
   _LIBCPP_HIDE_FROM_ABI constexpr __iterator& operator+=(difference_type __n) requires random_access_range<_Base> { __current_ += __n; __last_ += __n; return *this; }
+  _LIBCPP_HIDE_FROM_ABI constexpr __iterator& operator-=(difference_type __n) requires random_access_range<_Base> { return *this += -__n; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr value_type operator[](difference_type __n) const
+    requires random_access_range<_Base> {
+    return *(*this + __n);
+  }
   _LIBCPP_HIDE_FROM_ABI friend constexpr __iterator operator+(const __iterator& __i, difference_type __n) requires random_access_range<_Base> { auto __r=__i; return __r += __n; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr __iterator operator+(difference_type __n, const __iterator& __i) requires random_access_range<_Base> { return __i + __n; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr __iterator operator-(const __iterator& __i, difference_type __n) requires random_access_range<_Base> { auto __r=__i; return __r -= __n; }
   _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const __iterator& __x, const __iterator& __y) {
     return __x.__current_ == __y.__current_ ||
            (__x.__last_ == __x.__end_ && __y.__last_ == __y.__end_);
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<(const __iterator& __x, const __iterator& __y)
+    requires random_access_range<_Base> {
+    return __x.__current_ < __y.__current_;
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator>(const __iterator& __x, const __iterator& __y)
+    requires random_access_range<_Base> {
+    return __y < __x;
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<=(const __iterator& __x, const __iterator& __y)
+    requires random_access_range<_Base> {
+    return !(__y < __x);
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator>=(const __iterator& __x, const __iterator& __y)
+    requires random_access_range<_Base> {
+    return !(__x < __y);
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator<=>(const __iterator& __x, const __iterator& __y)
+    requires random_access_range<_Base> && three_way_comparable<iterator_t<_Base>> {
+    return __x.__current_ <=> __y.__current_;
   }
   _LIBCPP_HIDE_FROM_ABI friend constexpr difference_type operator-(const __iterator& __x, const __iterator& __y) requires sized_sentinel_for<iterator_t<_Base>, iterator_t<_Base>> { return __x.__current_ - __y.__current_; }
 };
