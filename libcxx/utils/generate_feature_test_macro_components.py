@@ -549,9 +549,16 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_exception_ptr_cast",
-            "values": {"c++26": 202603},  # P2927R3 Inspecting exception_ptr, P3748R0 make it constexpr,
-            # P3981R2 changed the return type to optional<const E&>
+            # P2927R3 Inspecting exception_ptr; P3981R2 changed the return type to
+            # optional<const E&>. GCC's shipped exception_ptr_cast at this value is
+            # constexpr (i.e. P3748R0's constexpr requirement is baked into the value,
+            # even though GCC's own version.def comment doesn't cite P3748R0 by number).
+            # This fork's exception_ptr_cast is real and tested but NOT constexpr --
+            # rethrow/catch has no compile-time evaluator support -- so it isn't a
+            # conforming implementation of what this FTM value actually promises yet.
+            "values": {"c++26": 202603},
             "headers": ["exception"],
+            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_exchange_function",

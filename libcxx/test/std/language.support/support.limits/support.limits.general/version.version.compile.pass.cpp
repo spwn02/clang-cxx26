@@ -7550,11 +7550,17 @@
 #    error "__cpp_lib_erase_if should have the value 202002L in c++26"
 #  endif
 
-#  ifndef __cpp_lib_exception_ptr_cast
-#    error "__cpp_lib_exception_ptr_cast should be defined in c++26"
-#  endif
-#  if __cpp_lib_exception_ptr_cast != 202603L
-#    error "__cpp_lib_exception_ptr_cast should have the value 202603L in c++26"
+#  if !defined(_LIBCPP_VERSION)
+#    ifndef __cpp_lib_exception_ptr_cast
+#      error "__cpp_lib_exception_ptr_cast should be defined in c++26"
+#    endif
+#    if __cpp_lib_exception_ptr_cast != 202603L
+#      error "__cpp_lib_exception_ptr_cast should have the value 202603L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_exception_ptr_cast
+#      error "__cpp_lib_exception_ptr_cast should not be defined because it is unimplemented in libc++!"
+#    endif
 #  endif
 
 #  ifndef __cpp_lib_exchange_function
