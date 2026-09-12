@@ -16,7 +16,7 @@ compiler_launcher="${CXX26_COMPILER_LAUNCHER:-}"
 rm -rf "${install_prefix}" "${build_dir}"
 
 runtime_components="cxx;cxxabi;unwind"
-runtime_distribution_components="cxx-modules"
+runtime_distribution_components="cxx-modules;compiler-rt;compiler-rt-headers"
 distribution_components="clang;clangd;clang-tidy;clang-resource-headers;clang-scan-deps;lld;llvm-ar;${runtime_components};${runtime_distribution_components}"
 
 launcher_args=()
@@ -34,7 +34,7 @@ fi
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX="${install_prefix}" \
   -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" \
-  -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind" \
+  -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind;compiler-rt" \
   -DLLVM_TARGETS_TO_BUILD="X86" \
   -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \
   -DLLVM_ENABLE_ASSERTIONS=OFF \
@@ -80,5 +80,10 @@ test -x "${install_prefix}/bin/clang-tidy"
 
 if ! find "${install_prefix}" -name 'libc++.modules.json' -print -quit | grep -q .; then
   echo "reference toolchain install does not contain libc++.modules.json" >&2
+  exit 1
+fi
+
+if ! find "${install_prefix}" -name 'libclang_rt.ubsan_standalone*' -print -quit | grep -q .; then
+  echo "reference toolchain install does not contain the UBSan runtime (libclang_rt.ubsan_standalone)" >&2
   exit 1
 fi
