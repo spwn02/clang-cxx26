@@ -74,6 +74,9 @@ _LIBCPP_PUSH_MACROS
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
+template <class _Tp>
+struct atomic;
+
 class _LIBCPP_EXPORTED_FROM_ABI bad_weak_ptr : public std::exception {
 public:
   _LIBCPP_HIDE_FROM_ABI bad_weak_ptr() _NOEXCEPT                               = default;
@@ -694,6 +697,8 @@ private:
   friend class shared_ptr;
   template <class _Up>
   friend class weak_ptr;
+  template <class _Up>
+  friend struct atomic;
 };
 
 #if _LIBCPP_STD_VER >= 17
@@ -1316,6 +1321,8 @@ public:
   friend class weak_ptr;
   template <class _Up>
   friend class shared_ptr;
+  template <class _Up>
+  friend struct atomic;
 };
 
 #if _LIBCPP_STD_VER >= 17

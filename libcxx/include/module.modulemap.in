@@ -1818,6 +1818,7 @@ module std [system] {
     }
     module raw_storage_iterator               { header "__memory/raw_storage_iterator.h" }
     module shared_count                       { header "__memory/shared_count.h" }
+    module atomic_shared_ptr                  { header "__memory/atomic_shared_ptr.h" }
     module shared_ptr                         {
       header "__memory/shared_ptr.h"
       export std.functional.hash
