@@ -144,7 +144,7 @@ public:
 template <class R> void swap(promise<R>& x, promise<R>& y) noexcept;
 
 template <class R, class Alloc>
-    struct uses_allocator<promise<R>, Alloc> : public true_type {};
+    struct uses_allocator<promise<R>, Alloc> : public true_type {};          // removed in C++26
 
 template <class R>
 class future
@@ -327,7 +327,7 @@ public:
     template <class F>
         explicit packaged_task(F&& f);
     template <class F, class Allocator>
-        packaged_task(allocator_arg_t, const Allocator& a, F&& f);              // removed in C++17
+        packaged_task(allocator_arg_t, const Allocator& a, F&& f);              // removed in C++17, re-added in C++26
     ~packaged_task();
 
     // no copy
@@ -1381,8 +1381,13 @@ inline _LIBCPP_HIDE_FROM_ABI void swap(promise<_Rp>& __x, promise<_Rp>& __y) _NO
   __x.swap(__y);
 }
 
+// Removed for C++26 by P3503R3 (the inconsistency of specializing uses_allocator
+// for promise but not packaged_task, without actually changing either class's
+// public API, wasn't worth keeping).
+#    if _LIBCPP_STD_VER < 26
 template <class _Rp, class _Alloc>
 struct uses_allocator<promise<_Rp>, _Alloc> : public true_type {};
+#    endif
 
 // packaged_task
 
@@ -1613,7 +1618,8 @@ public:
   template <class _Fp, __enable_if_t<!is_same<__remove_cvref_t<_Fp>, packaged_task>::value, int> = 0>
   _LIBCPP_HIDE_FROM_ABI explicit packaged_task(_Fp&& __f) : __f_(std::forward<_Fp>(__f)) {}
 
-#    if _LIBCPP_STD_VER <= 14
+  // Removed in C++17 (LWG2921-adjacent cleanup); re-added by P3503R3 for C++26.
+#    if _LIBCPP_STD_VER <= 14 || _LIBCPP_STD_VER >= 26
   template <class _Fp, class _Allocator, __enable_if_t<!is_same<__remove_cvref_t<_Fp>, packaged_task>::value, int> = 0>
   _LIBCPP_HIDE_FROM_ABI packaged_task(allocator_arg_t, const _Allocator& __a, _Fp&& __f)
       : __f_(allocator_arg_t(), __a, std::forward<_Fp>(__f)), __p_(allocator_arg_t(), __a) {}
@@ -1702,7 +1708,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI packaged_task() _NOEXCEPT : __p_(nullptr) {}
   template <class _Fp, __enable_if_t<!is_same<__remove_cvref_t<_Fp>, packaged_task>::value, int> = 0>
   _LIBCPP_HIDE_FROM_ABI explicit packaged_task(_Fp&& __f) : __f_(std::forward<_Fp>(__f)) {}
-#    if _LIBCPP_STD_VER <= 14
+  // Removed in C++17 (LWG2921-adjacent cleanup); re-added by P3503R3 for C++26.
+#    if _LIBCPP_STD_VER <= 14 || _LIBCPP_STD_VER >= 26
   template <class _Fp, class _Allocator, __enable_if_t<!is_same<__remove_cvref_t<_Fp>, packaged_task>::value, int> = 0>
   _LIBCPP_HIDE_FROM_ABI packaged_task(allocator_arg_t, const _Allocator& __a, _Fp&& __f)
       : __f_(allocator_arg_t(), __a, std::forward<_Fp>(__f)), __p_(allocator_arg_t(), __a) {}

@@ -37,7 +37,9 @@ static_assert(!std::is_constructible<PA, std::allocator_arg_t, std::allocator<A>
 static_assert(!std::is_constructible<PA, std::allocator_arg_t, std::allocator<A>, volatile PA&>::value, "");
 static_assert(!std::is_constructible<PA, std::allocator_arg_t, std::allocator<A>, volatile PA&&>::value, "");
 
-#if TEST_STD_VER >= 17 // packaged_task allocator support was removed in C++17 (LWG 2921)
+// packaged_task allocator support was removed in C++17 (LWG 2921) and re-added
+// for C++26 by P3503R3.
+#if TEST_STD_VER >= 17 && TEST_STD_VER < 26
 static_assert(!std::is_constructible_v<PA, std::allocator_arg_t, std::allocator<A>, const PI&>);
 static_assert(!std::is_constructible_v<PA, std::allocator_arg_t, std::allocator<A>, const PI&&>);
 static_assert(!std::is_constructible_v<PA, std::allocator_arg_t, std::allocator<A>, volatile PI&>);

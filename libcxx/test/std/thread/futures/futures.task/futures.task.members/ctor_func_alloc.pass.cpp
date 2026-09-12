@@ -8,8 +8,9 @@
 //
 // UNSUPPORTED: no-threads
 
-// packaged_task allocator support was removed in C++17 (LWG 2921)
-// REQUIRES: c++11 || c++14
+// packaged_task allocator support was removed in C++17 (LWG 2921) and
+// re-added for C++26 by P3503R3.
+// REQUIRES: c++11 || c++14 || c++26
 
 // <future>
 
