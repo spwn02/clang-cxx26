@@ -18459,12 +18459,18 @@ static void RemoveNestedImmediateInvocation(
 // produce the standard "call to consteval function ... is not a constant
 // expression" diagnostic. This is now FIXED for the bare-VarDecl case (see
 // Attempt 7). Real remaining scope, corrected from the "five tests" earlier
-// attempts believed (two of the five were miscategorized -- see Attempt 7):
-// builtin-is-within-lifetime.cpp's NSDMI sub-case, and
-// cxx2b-consteval-propagate.cpp, both still open. This is a general
-// LLVM-22-merge Sema defect, not a reflection-specific one, even though
-// clang-p2996 found it because std::meta::info (a consteval-only type)
-// exercises this same shared machinery.
+// attempts believed (three of the five were miscategorized -- see Attempt
+// 7): just the NSDMI sub-case in builtin-is-within-lifetime.cpp, still open.
+// PR98671.cpp (separate concepts assertion, issue #101),
+// constant-expression-cxx11.cpp's line-2015 -Wuninitialized gap (separate,
+// issue #102), cxx2a-constexpr-dynalloc.cpp's GH134820 failure (separate,
+// pre-existing on clean HEAD, not yet filed), and
+// cxx2b-consteval-propagate.cpp (separate NSDMI-escalation bug, issue #103)
+// all turned out to be unrelated bugs mistakenly bundled into this one by
+// earlier attempts. This is a general LLVM-22-merge Sema defect, not a
+// reflection-specific one, even though clang-p2996 found it because
+// std::meta::info (a consteval-only type) exercises this same shared
+// machinery.
 //
 // Root mechanism: SemaDeclCXX.cpp's ActOnCXXEnterDeclInitializer pushes
 // ExpressionEvaluationContext::ImmediateFunctionContext for every C++23+
@@ -18659,12 +18665,13 @@ static void RemoveNestedImmediateInvocation(
 //   sub-issue (b) range-view-pipeline problem. Not investigated further this
 //   attempt due to running out of Codex usage budget.
 //
-// The stashed diff (`git stash list` on this branch as of 2026-09-11, if
-// still present) has the full candidate patch for whoever picks this up
-// next -- direction (i) (cross-Record nested-candidate deduplication) was
-// never attempted by any of the first 6 attempts. cxx2b-consteval-
-// propagate.cpp's remaining failures were not root-caused by Attempt 6 --
-// see Attempt 7 below for where that trace landed.
+// Attempt 6's full candidate diff is preserved in commit e692c8afee9e's
+// history (it was carried as git stash "issue1-candidate-isolation" through
+// 2026-09-11/12; that stash is now superseded and has been dropped) --
+// direction (i) (cross-Record nested-candidate deduplication) was never
+// attempted by any of the first 6 attempts. cxx2b-consteval-propagate.cpp's
+// remaining failures were not root-caused by Attempt 6, and turned out (see
+// Attempt 7 below) not to belong to this bug at all.
 //
 // CORRECTION (2026-09-12, Attempt 7): Attempt 6's claim above that "Attempt
 // 5's push-revert + sub-issue (a) portion is solid and reusable as-is" is
@@ -18810,9 +18817,22 @@ static void RemoveNestedImmediateInvocation(
 //     at all -- confirmed missing identically on a byte-for-byte isolated
 //     repro against clean HEAD. Should be filed and fixed as its own,
 //     separate issue, not chased as part of this one.
-//   - cxx2b-consteval-propagate.cpp was not investigated this attempt --
-//     still the next concrete thing to trace, now on top of a verified-clean
-//     foundation instead of on top of an untested "solid" claim.
+//   - cxx2b-consteval-propagate.cpp was investigated and confirmed OUT OF
+//     SCOPE for this bug entirely: its output is byte-identical before and
+//     after this attempt's fix, and none of its failing cases' variables
+//     (ConstevalConstructor::i, GH66324::v, etc.) are constexpr/constinit,
+//     so none of them enter the EK_VariableInit push this bug is about. The
+//     actual gate for its NSDMI cases is a DIFFERENT push --
+//     ParseDeclCXX.cpp:3442-3460's PotentiallyEvaluatedIfUsed +
+//     InImmediateEscalatingFunctionContext=true for field default-member-
+//     initializers -- which routes into CheckForImmediateInvocation's
+//     escalation branch (MarkExpressionAsImmediateEscalating) rather than
+//     candidate registration; the missing NSDMI-anchored diagnostic likely
+//     belongs in BuildCXXDefaultInitExpr's EnsureImmediateInvocationInDefaultArgs
+//     rebuild path (SemaExpr.cpp, ~line 5768) instead. Filed as its own
+//     issue, #103 -- notably it shares its NSDMI shape with this comment's
+//     own still-open builtin-is-within-lifetime.cpp gap above, so a future
+//     fix attempt should investigate both together.
 static void
 HandleImmediateInvocations(Sema &SemaRef,
                            Sema::ExpressionEvaluationContextRecord &Rec) {
