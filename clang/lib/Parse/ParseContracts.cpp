@@ -139,22 +139,10 @@ StmtResult Parser::ParseContractAssertStatement() {
 /// this over a bare `Tok.is(tok::code_completion)` inside the specifier loop
 /// below.
 ///
-/// Known NOT to cover: completing the *second* (or later) contract
-/// specifier keyword, e.g. `void f() pre(x) po<cursor>`, does not reach
-/// either branch here. Confirmed via instrumentation that at that point
-/// `PP.isCodeCompletionReached()` is still false and `Tok` is a plain
-/// identifier -- clang has deferred the completion point to the *next*
-/// token boundary after the unrecognized identifier (observed landing on
-/// the following `{`), not to this identifier's own location. That
-/// deferral is pre-existing, general clang behavior, not specific to
-/// contracts or to this fork: the same failure (falls through to generic
-/// declaration-specifier completions, not `volatile`) reproduces with
-/// completely unmodified code completing a *second* cv-qualifier, e.g.
-/// `void f() const vo<cursor>`. Fixing it needs a change to the
-/// completion/error-recovery interaction generally (likely around
-/// `Parser::ParseFunctionDefinition`'s `SkipUntil(tok::l_brace, ...)` on
-/// `err_expected_fn_body`, or the token-lexing/backtracking machinery
-/// underneath it) -- out of scope here. See docs/CXX26_GAPS.md.
+/// This also covers a partial later specifier, e.g. `void f() pre(x)
+/// po<cursor>`. Lexer::LexIdentifier returns tok::code_completion when the
+/// completion offset is at the end of an identifier, so parser recovery (and
+/// ParseFunctionDefinition's SkipUntil) is not involved in this case.
 static bool isAtCodeCompletionPoint(const Preprocessor &PP, const Token &Tok) {
   return Tok.is(tok::code_completion) ||
          (PP.isCodeCompletionReached() &&
