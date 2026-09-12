@@ -343,21 +343,21 @@ export namespace std {
 
 #endif // _LIBCPP_STD_VER >= 23
 
-#if 0
+#if _LIBCPP_STD_VER >= 23
+    // [range.chunk], chunk view
     using std::ranges::chunk_view;
-
-    using std::ranges::chunk_view<V>;
 
     namespace views {
       using std::ranges::views::chunk;
     }
 
+    // [range.slide], slide view
     using std::ranges::slide_view;
 
     namespace views {
       using std::ranges::views::slide;
     }
-#endif
+#endif // _LIBCPP_STD_VER >= 23
 
 #if _LIBCPP_STD_VER >= 23
     // [range.chunk.by], chunk by view
@@ -368,14 +368,17 @@ export namespace std {
     }
 #endif // _LIBCPP_STD_VER >= 23
 
-#if 0
+#if _LIBCPP_STD_VER >= 23
     // [range.stride], stride view
     using std::ranges::stride_view;
 
     namespace views {
       using std::ranges::views::stride;
     }
+#endif // _LIBCPP_STD_VER >= 23
 
+#if 0
+    // views::cartesian_product is not yet implemented (issue #68).
     using std::ranges::cartesian_product_view;
 
     namespace views {
