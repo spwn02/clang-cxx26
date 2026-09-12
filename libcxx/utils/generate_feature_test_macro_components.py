@@ -707,6 +707,11 @@ feature_test_macros = [
             "headers": ["random"],
         },
         {
+            "name": "__cpp_lib_generator",
+            "values": {"c++23": 202207},  # P2502R2, P2787R1
+            "headers": ["generator"],
+        },
+        {
             "name": "__cpp_lib_generic_associative_lookup",
             "values": {"c++14": 201304},
             "headers": ["map", "set"],

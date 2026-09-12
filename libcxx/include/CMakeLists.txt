@@ -785,6 +785,7 @@ set(files
   __ranges/drop_view.h
   __ranges/drop_while_view.h
   __ranges/elements_of.h
+  __generator/generator.h
   __ranges/elements_view.h
   __ranges/empty.h
   __ranges/empty_view.h
@@ -1137,6 +1138,7 @@ set(files
   fstream
   functional
   future
+  generator
   hazard_pointer
   hive
   initializer_list
