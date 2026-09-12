@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
 // UNSUPPORTED: no-localization
-// REQUIRES: locale.fr_CA.ISO-8859-1
+// REQUIRES: locale.fr_CA.ISO8859-1
 
 // <chrono>
 // P2419R2: Clarify handling of encodings in localized formatting of chrono types
