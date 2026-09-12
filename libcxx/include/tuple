@@ -152,8 +152,12 @@ template <class... Tuples> tuple<CTypes...> tuple_cat(Tuples&&... tpls); // cons
 // [tuple.apply], calling a function with a tuple of arguments:
 template <class F, class Tuple> struct apply_result;
 template <class F, class Tuple> using apply_result_t = typename apply_result<F, Tuple>::type;
+template <class F, class Tuple> struct is_applicable;
+template <class F, class Tuple> inline constexpr bool is_applicable_v = is_applicable<F, Tuple>::value;
+template <class F, class Tuple> struct is_nothrow_applicable;
+template <class F, class Tuple> inline constexpr bool is_nothrow_applicable_v = is_nothrow_applicable<F, Tuple>::value;
 template <class F, class Tuple>
-  constexpr apply_result_t<F, Tuple> apply(F&& f, Tuple&& t) noexcept(see below);  // C++17 noexcept since C++23
+  constexpr apply_result_t<F, Tuple> apply(F&& f, Tuple&& t) noexcept(is_nothrow_applicable_v<F, Tuple>);  // C++17 noexcept since C++23
 template <class T, class Tuple>
   constexpr T make_from_tuple(Tuple&& t); // C++17
 
@@ -1428,12 +1432,37 @@ struct __apply_result<_Fn, _Tuple, __void_t<__apply_result_t<_Fn, _Tuple>>> {
 template <class _Fn, class _Tuple>
 struct apply_result : __apply_result<_Fn, _Tuple> {};
 
+// P1317R2 [meta.rel]: is_applicable<Fn, Tuple> is true iff apply(declval<Fn>(), declval<Tuple>())
+// would be well-formed, i.e. apply_result_t<Fn, Tuple> names a type. Mirrors __apply_result's own
+// void_t-based SFINAE detection above, just yielding a bool instead of a type member.
+template <class _Fn, class _Tuple, class = void>
+struct __is_applicable_impl : false_type {};
+
 template <class _Fn, class _Tuple>
-inline _LIBCPP_HIDE_FROM_ABI constexpr auto apply(_Fn&& __f, _Tuple&& __t)
-    noexcept(noexcept(std::__apply_tuple_impl(
-        std::forward<_Fn>(__f),
-        std::forward<_Tuple>(__t),
-        make_index_sequence<tuple_size_v<remove_reference_t<_Tuple>>>())))
+struct __is_applicable_impl<_Fn, _Tuple, __void_t<__apply_result_t<_Fn, _Tuple>>> : true_type {};
+
+template <class _Fn, class _Tuple>
+struct is_applicable : __is_applicable_impl<_Fn, _Tuple> {};
+
+template <class _Fn, class _Tuple>
+inline constexpr bool is_applicable_v = is_applicable<_Fn, _Tuple>::value;
+
+template <class _Fn, class _Tuple, bool = is_applicable_v<_Fn, _Tuple>>
+inline constexpr bool __is_nothrow_applicable_v = false;
+
+template <class _Fn, class _Tuple>
+inline constexpr bool __is_nothrow_applicable_v<_Fn, _Tuple, true> =
+    noexcept(std::__apply_tuple_impl(
+        std::declval<_Fn>(), std::declval<_Tuple>(), make_index_sequence<tuple_size_v<remove_reference_t<_Tuple>>>()));
+
+template <class _Fn, class _Tuple>
+struct is_nothrow_applicable : bool_constant<__is_nothrow_applicable_v<_Fn, _Tuple>> {};
+
+template <class _Fn, class _Tuple>
+inline constexpr bool is_nothrow_applicable_v = __is_nothrow_applicable_v<_Fn, _Tuple>;
+
+template <class _Fn, class _Tuple>
+inline _LIBCPP_HIDE_FROM_ABI constexpr auto apply(_Fn&& __f, _Tuple&& __t) noexcept(is_nothrow_applicable_v<_Fn, _Tuple>)
     -> apply_result_t<_Fn, _Tuple> {
   return std::__apply_tuple_impl(
       std::forward<_Fn>(__f),
