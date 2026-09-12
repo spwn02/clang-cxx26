@@ -12,16 +12,20 @@
 #include <__algorithm/for_each.h>
 #include <__algorithm/for_each_n.h>
 #include <__algorithm/in_fun_result.h>
+#include <__algorithm/pstl.h>
 #include <__algorithm/specialized_algorithms.h>
 #include <__concepts/assignable.h>
 #include <__config>
 #include <__functional/identity.h>
+#include <__functional/invoke.h>
 #include <__iterator/concepts.h>
 #include <__iterator/projected.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
 #include <__type_traits/remove_cvref.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__utility/forward.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -81,6 +85,43 @@ public:
       return __for_each_impl(ranges::begin(__range), ranges::end(__range), __func, __proj);
     }
   }
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep,
+            random_access_iterator _Iter,
+            sized_sentinel_for<_Iter> _Sent,
+            class _Proj = identity,
+            indirectly_unary_invocable<projected<_Iter, _Proj>> _Func,
+            class _RawPolicy                                    = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+  _LIBCPP_HIDE_FROM_ABI _Iter
+  operator()(_Ep&& __exec, _Iter __first, _Sent __last, _Func __func, _Proj __proj = {}) const {
+    // P3179R9 requires a sized sentinel; normalize it because the existing PSTL
+    // backend, shared with the classic overloads, takes two iterators.
+    _Iter __end = __first + (__last - __first);
+    std::for_each(
+        std::forward<_Ep>(__exec),
+        std::move(__first),
+        __end,
+        [__func = std::move(__func), __proj = std::move(__proj)](auto&& __value) mutable {
+          std::invoke(__func, std::invoke(__proj, std::forward<decltype(__value)>(__value)));
+        });
+    return __end;
+  }
+
+  template <class _Ep,
+            random_access_range _Range,
+            class _Proj = identity,
+            indirectly_unary_invocable<projected<iterator_t<_Range>, _Proj>> _Func,
+            class _RawPolicy                                    = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range>
+  _LIBCPP_HIDE_FROM_ABI borrowed_iterator_t<_Range>
+  operator()(_Ep&& __exec, _Range&& __range, _Func __func, _Proj __proj = {}) const {
+    return (*this)(
+        std::forward<_Ep>(__exec), ranges::begin(__range), ranges::end(__range), std::move(__func), std::move(__proj));
+  }
+#  endif
 };
 
 inline namespace __cpo {
