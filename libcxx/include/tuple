@@ -150,8 +150,10 @@ template <class... T> tuple<T&...> tie(T&...) noexcept; // constexpr in C++14
 template <class... Tuples> tuple<CTypes...> tuple_cat(Tuples&&... tpls); // constexpr in C++14
 
 // [tuple.apply], calling a function with a tuple of arguments:
+template <class F, class Tuple> struct apply_result;
+template <class F, class Tuple> using apply_result_t = typename apply_result<F, Tuple>::type;
 template <class F, class Tuple>
-  constexpr decltype(auto) apply(F&& f, Tuple&& t) noexcept(see below);  // C++17 noexcept since C++23
+  constexpr apply_result_t<F, Tuple> apply(F&& f, Tuple&& t) noexcept(see below);  // C++17 noexcept since C++23
 template <class T, class Tuple>
   constexpr T make_from_tuple(Tuple&& t); // C++17
 
@@ -253,6 +255,7 @@ template <class... Types>
 #  include <__type_traits/is_nothrow_constructible.h>
 #  include <__type_traits/is_reference.h>
 #  include <__type_traits/is_same.h>
+#  include <__type_traits/void_t.h>
 #  include <__type_traits/is_swappable.h>
 #  include <__type_traits/is_trivially_relocatable.h>
 #  include <__type_traits/lazy.h>
@@ -1394,17 +1397,49 @@ struct uses_allocator<tuple<_Tp...>, _Alloc> : true_type {};
 
 // The _LIBCPP_NOEXCEPT_RETURN macro breaks formatting.
 // clang-format off
-template <class _Fn, class _Tuple, size_t... _Id>
-inline _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto)
-__apply_tuple_impl(_Fn&& __f, _Tuple&& __t, index_sequence<_Id...>)
-    _LIBCPP_NOEXCEPT_RETURN(std::__invoke(std::forward<_Fn>(__f), std::get<_Id>(std::forward<_Tuple>(__t))...))
+template <class _Fn, class _Tuple>
+struct apply_result;
 
 template <class _Fn, class _Tuple>
-inline _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) apply(_Fn&& __f, _Tuple&& __t)
-    _LIBCPP_NOEXCEPT_RETURN(std::__apply_tuple_impl(
+using apply_result_t = typename apply_result<_Fn, _Tuple>::type;
+
+template <class _Fn, class _Tuple, size_t... _Id>
+inline _LIBCPP_HIDE_FROM_ABI constexpr auto
+__apply_tuple_impl(_Fn&& __f, _Tuple&& __t, index_sequence<_Id...>)
+    noexcept(noexcept(std::__invoke(std::forward<_Fn>(__f), std::get<_Id>(std::forward<_Tuple>(__t))...)))
+    -> invoke_result_t<_Fn, decltype(std::get<_Id>(std::forward<_Tuple>(__t)))...> {
+  return std::__invoke(std::forward<_Fn>(__f), std::get<_Id>(std::forward<_Tuple>(__t))...);
+}
+
+template <class _Fn, class _Tuple>
+using __apply_result_t = decltype(std::__apply_tuple_impl(
+    std::declval<_Fn>(),
+    std::declval<_Tuple>(),
+    make_index_sequence<tuple_size_v<remove_reference_t<_Tuple>>>()));
+
+template <class _Fn, class _Tuple, class = void>
+struct __apply_result {};
+
+template <class _Fn, class _Tuple>
+struct __apply_result<_Fn, _Tuple, __void_t<__apply_result_t<_Fn, _Tuple>>> {
+  using type = __apply_result_t<_Fn, _Tuple>;
+};
+
+template <class _Fn, class _Tuple>
+struct apply_result : __apply_result<_Fn, _Tuple> {};
+
+template <class _Fn, class _Tuple>
+inline _LIBCPP_HIDE_FROM_ABI constexpr auto apply(_Fn&& __f, _Tuple&& __t)
+    noexcept(noexcept(std::__apply_tuple_impl(
         std::forward<_Fn>(__f),
         std::forward<_Tuple>(__t),
-        make_index_sequence<tuple_size_v<remove_reference_t<_Tuple>>>()))
+        make_index_sequence<tuple_size_v<remove_reference_t<_Tuple>>>())))
+    -> apply_result_t<_Fn, _Tuple> {
+  return std::__apply_tuple_impl(
+      std::forward<_Fn>(__f),
+      std::forward<_Tuple>(__t),
+      make_index_sequence<tuple_size_v<remove_reference_t<_Tuple>>>());
+}
 
 #if _LIBCPP_STD_VER >= 20
 template <class _Tp, class _Tuple, size_t... _Idx>

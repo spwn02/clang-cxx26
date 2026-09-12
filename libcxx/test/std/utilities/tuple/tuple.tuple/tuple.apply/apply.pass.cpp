@@ -22,6 +22,16 @@
 #include "test_macros.h"
 #include "type_id.h"
 
+template <class F, class T, class = void>
+struct is_applicable : std::false_type {};
+
+template <class F, class T>
+struct is_applicable<F, T, std::void_t<decltype(std::apply(std::declval<F>(), std::declval<T>()))>>
+    : std::true_type {};
+
+static_assert(std::is_same_v<std::apply_result_t<int (&)(int), std::tuple<int>&>, int>);
+static_assert(!is_applicable<void (*)(), std::tuple<int>>::value);
+
 constexpr int constexpr_sum_fn() { return 0; }
 
 template <class ...Ints>
