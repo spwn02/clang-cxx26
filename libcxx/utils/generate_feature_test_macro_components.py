@@ -548,6 +548,12 @@ feature_test_macros = [
             ],
         },
         {
+            "name": "__cpp_lib_exception_ptr_cast",
+            "values": {"c++26": 202603},  # P2927R3 Inspecting exception_ptr, P3748R0 make it constexpr,
+            # P3981R2 changed the return type to optional<const E&>
+            "headers": ["exception"],
+        },
+        {
             "name": "__cpp_lib_exchange_function",
             "values": {"c++14": 201304},
             "headers": ["utility"],

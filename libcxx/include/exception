@@ -56,6 +56,9 @@ exception_ptr current_exception() noexcept;
 void rethrow_exception [[noreturn]] (exception_ptr p);
 template<class E> exception_ptr make_exception_ptr(E e) noexcept;
 
+template<class E> optional<const E&> exception_ptr_cast(const exception_ptr& p) noexcept;  // since C++26
+template<class E> void exception_ptr_cast(const exception_ptr&&) = delete;                 // since C++26
+
 class nested_exception
 {
 public:

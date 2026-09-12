@@ -324,6 +324,10 @@
 #    error "__cpp_lib_erase_if should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_exception_ptr_cast
+#    error "__cpp_lib_exception_ptr_cast should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_exchange_function
 #    error "__cpp_lib_exchange_function should not be defined before c++14"
 #  endif
@@ -1402,6 +1406,10 @@
 
 #  ifdef __cpp_lib_erase_if
 #    error "__cpp_lib_erase_if should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_exception_ptr_cast
+#    error "__cpp_lib_exception_ptr_cast should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_exchange_function
@@ -2587,6 +2595,10 @@
 
 #  ifdef __cpp_lib_erase_if
 #    error "__cpp_lib_erase_if should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_exception_ptr_cast
+#    error "__cpp_lib_exception_ptr_cast should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_exchange_function
@@ -4036,6 +4048,10 @@
 #  endif
 #  if __cpp_lib_erase_if != 202002L
 #    error "__cpp_lib_erase_if should have the value 202002L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_exception_ptr_cast
+#    error "__cpp_lib_exception_ptr_cast should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_exchange_function
@@ -5671,6 +5687,10 @@
 #  endif
 #  if __cpp_lib_erase_if != 202002L
 #    error "__cpp_lib_erase_if should have the value 202002L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_exception_ptr_cast
+#    error "__cpp_lib_exception_ptr_cast should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_exchange_function
@@ -7528,6 +7548,13 @@
 #  endif
 #  if __cpp_lib_erase_if != 202002L
 #    error "__cpp_lib_erase_if should have the value 202002L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_exception_ptr_cast
+#    error "__cpp_lib_exception_ptr_cast should be defined in c++26"
+#  endif
+#  if __cpp_lib_exception_ptr_cast != 202603L
+#    error "__cpp_lib_exception_ptr_cast should have the value 202603L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_exchange_function

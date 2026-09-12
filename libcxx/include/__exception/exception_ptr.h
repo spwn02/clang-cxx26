@@ -16,11 +16,19 @@
 #include <__memory/addressof.h>
 #include <__memory/construct_at.h>
 #include <__type_traits/decay.h>
+#include <__type_traits/is_array.h>
+#include <__type_traits/is_member_pointer.h>
 #include <__type_traits/is_pointer.h>
+#include <__type_traits/is_same.h>
+#include <__type_traits/remove_cv.h>
 #include <__utility/move.h>
 #include <__utility/swap.h>
 #include <__verbose_abort>
 #include <typeinfo>
+
+#if _LIBCPP_STD_VER >= 26
+#  include <optional>
+#endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -219,6 +227,41 @@ _LIBCPP_HIDE_FROM_ABI exception_ptr make_exception_ptr(_Ep __e) _NOEXCEPT {
 }
 
 #endif // _LIBCPP_ABI_MICROSOFT
+
+#if _LIBCPP_STD_VER >= 26
+// [propagation], exception_ptr_cast
+//
+// Portable across both the Itanium and Microsoft exception_ptr representations:
+// rethrows into a catch(const _Ep&) to reuse the runtime's own handler-matching
+// logic (the same logic `catch` clauses use), rather than reaching into either
+// ABI's private exception-object layout.
+template <class _Ep>
+_LIBCPP_HIDE_FROM_ABI optional<const _Ep&> exception_ptr_cast(const exception_ptr& __p) _NOEXCEPT {
+  static_assert(!is_array<_Ep>::value, "exception_ptr_cast<E>: E must not be an array type");
+  static_assert(!is_pointer<_Ep>::value, "exception_ptr_cast<E>: E must not be a pointer type");
+  static_assert(!is_member_pointer<_Ep>::value, "exception_ptr_cast<E>: E must not be a pointer-to-member type");
+  static_assert(is_same<_Ep, remove_cv_t<_Ep> >::value, "exception_ptr_cast<E>: E must be cv-unqualified");
+
+#  if _LIBCPP_HAS_EXCEPTIONS
+  if (!__p)
+    return nullopt;
+  try {
+    std::rethrow_exception(__p);
+  } catch (const _Ep& __e) {
+    return optional<const _Ep&>(__e);
+  } catch (...) {
+  }
+  return nullopt;
+#  else
+  (void)__p;
+  _LIBCPP_VERBOSE_ABORT("exception_ptr_cast was called in -fno-exceptions mode");
+#  endif
+}
+
+template <class _Ep>
+void exception_ptr_cast(const exception_ptr&&) = delete;
+#endif // _LIBCPP_STD_VER >= 26
+
 _LIBCPP_END_UNVERSIONED_NAMESPACE_STD
 
 _LIBCPP_POP_MACROS
