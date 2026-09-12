@@ -21,18 +21,18 @@
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 template <auto _Vp>
-struct nontype_t {
-  _LIBCPP_HIDE_FROM_ABI explicit nontype_t() = default;
+struct constant_arg_t {
+  _LIBCPP_HIDE_FROM_ABI explicit constant_arg_t() = default;
 };
 
 template <auto _Vp>
-inline constexpr nontype_t<_Vp> nontype{};
+inline constexpr constant_arg_t<_Vp> constant_arg{};
 
 template <class _Tp>
-inline constexpr bool __is_nontype_t_v = false;
+inline constexpr bool __is_constant_arg_t_v = false;
 
 template <auto _Vp>
-inline constexpr bool __is_nontype_t_v<nontype_t<_Vp>> = true;
+inline constexpr bool __is_constant_arg_t_v<constant_arg_t<_Vp>> = true;
 
 // Exposition-only `bound-entity`: a trivially copyable object capable of
 // storing either a pointer to an object or a pointer to a function, per

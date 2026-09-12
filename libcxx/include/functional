@@ -561,10 +561,10 @@ public:
 };
 
 // [func.wrap.ref], class template function_ref                       // since C++26
-template<auto V> struct nontype_t {
-  explicit nontype_t() = default;
+template<auto V> struct constant_arg_t {
+  explicit constant_arg_t() = default;
 };
-template<auto V> constexpr nontype_t<V> nontype{};
+template<auto V> constexpr constant_arg_t<V> constant_arg{};
 
 template<class... S> class function_ref; // not defined
 
@@ -575,9 +575,9 @@ class function_ref<R(ArgTypes...) cv noexcept(noex)> {
 public:
   template<class F> function_ref(F*) noexcept;
   template<class F> constexpr function_ref(F&&) noexcept;
-  template<auto f> constexpr function_ref(nontype_t<f>) noexcept;
-  template<auto f, class U> constexpr function_ref(nontype_t<f>, U&&) noexcept;
-  template<auto f, class T> constexpr function_ref(nontype_t<f>, cv T*) noexcept;
+  template<auto f> constexpr function_ref(constant_arg_t<f>) noexcept;
+  template<auto f, class U> constexpr function_ref(constant_arg_t<f>, U&&) noexcept;
+  template<auto f, class T> constexpr function_ref(constant_arg_t<f>, cv T*) noexcept;
 
   constexpr function_ref(const function_ref&) noexcept = default;
   constexpr function_ref& operator=(const function_ref&) noexcept = default;

@@ -84,7 +84,7 @@ public:
 
   template <auto _Fp>
     requires __is_invocable_using<decltype(_Fp)>
-  _LIBCPP_HIDE_FROM_ABI constexpr function_ref(nontype_t<_Fp>) noexcept
+  _LIBCPP_HIDE_FROM_ABI constexpr function_ref(constant_arg_t<_Fp>) noexcept
       : __bound_(), __thunk_([](__function_ref_bound_entity, _ArgTypes&&... __args) noexcept(_Np) -> _Rp {
           return std::invoke_r<_Rp>(_Fp, std::forward<_ArgTypes>(__args)...);
         }) {
@@ -97,7 +97,7 @@ public:
   template <auto _Fp, class _Up>
     requires(!is_rvalue_reference_v<_Up&&> &&
              __is_invocable_using<decltype(_Fp), _LIBCPP_FUNCTION_REF_CV remove_reference_t<_Up>&>)
-  _LIBCPP_HIDE_FROM_ABI constexpr function_ref(nontype_t<_Fp>, _Up&& __obj) noexcept
+  _LIBCPP_HIDE_FROM_ABI constexpr function_ref(constant_arg_t<_Fp>, _Up&& __obj) noexcept
       : __bound_(std::addressof(__obj)),
         __thunk_([](__function_ref_bound_entity __bound_entity_, _ArgTypes&&... __args) noexcept(_Np) -> _Rp {
           using _Tp _LIBCPP_NODEBUG = remove_reference_t<_Up>;
@@ -113,7 +113,7 @@ public:
 
   template <auto _Fp, class _Tp>
     requires __is_invocable_using<decltype(_Fp), _LIBCPP_FUNCTION_REF_CV _Tp*>
-  _LIBCPP_HIDE_FROM_ABI constexpr function_ref(nontype_t<_Fp>, _LIBCPP_FUNCTION_REF_CV _Tp* __obj) noexcept
+  _LIBCPP_HIDE_FROM_ABI constexpr function_ref(constant_arg_t<_Fp>, _LIBCPP_FUNCTION_REF_CV _Tp* __obj) noexcept
       : __bound_(__obj),
         __thunk_([](__function_ref_bound_entity __bound_entity_, _ArgTypes&&... __args) noexcept(_Np) -> _Rp {
           return std::invoke_r<_Rp>(_Fp,
@@ -134,7 +134,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr function_ref& operator=(const function_ref&) noexcept = default;
 
   template <class _Tp>
-    requires(!is_same_v<_Tp, function_ref> && !is_pointer_v<_Tp> && !__is_nontype_t_v<_Tp>)
+    requires(!is_same_v<_Tp, function_ref> && !is_pointer_v<_Tp> && !__is_constant_arg_t_v<_Tp>)
   function_ref& operator=(_Tp) = delete;
 
   _LIBCPP_HIDE_FROM_ABI _Rp operator()(_ArgTypes... __args) const noexcept(_Np) {
