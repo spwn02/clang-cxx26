@@ -87,7 +87,10 @@ constexpr bool testReturnTypes() {
       short*& begin() const;
     } x;
     ASSERT_SAME_TYPE(decltype(std::ranges::begin(x)), char*);
-    ASSERT_SAME_TYPE(decltype(std::ranges::cbegin(x)), short*);
+    // Different's const begin() still yields a mutable short*, so it doesn't model
+    // constant_range; cbegin falls back to the non-const begin() and wraps it in
+    // basic_const_iterator instead of trusting the (not actually const-safe) overload.
+    ASSERT_SAME_TYPE(decltype(std::ranges::cbegin(x)), std::basic_const_iterator<char*>);
   }
   return true;
 }
@@ -136,7 +139,11 @@ struct NonConstBeginMember {
 };
 static_assert( std::is_invocable_v<RangeBeginT,  NonConstBeginMember &>);
 static_assert(!std::is_invocable_v<RangeBeginT,  NonConstBeginMember const&>);
-static_assert(!std::is_invocable_v<RangeCBeginT, NonConstBeginMember &>);
+// cbegin no longer requires a const begin() overload to exist: since
+// NonConstBeginMember has no const begin() at all, const NonConstBeginMember
+// isn't even a range, so possibly-const-range falls back to the mutable
+// object and wraps its (mutable) begin() in basic_const_iterator instead.
+static_assert( std::is_invocable_v<RangeCBeginT, NonConstBeginMember &>);
 static_assert(!std::is_invocable_v<RangeCBeginT, NonConstBeginMember const&>);
 
 struct EnabledBorrowingBeginMember {
@@ -166,7 +173,8 @@ constexpr bool testBeginMember() {
 
   NonConstBeginMember b;
   assert(std::ranges::begin(b) == &b.x);
-  static_assert(!std::is_invocable_v<RangeCBeginT, NonConstBeginMember&>);
+  assert(std::ranges::cbegin(b) == &b.x);
+  static_assert( std::is_invocable_v<RangeCBeginT, NonConstBeginMember&>);
 
   EnabledBorrowingBeginMember c;
   assert(std::ranges::begin(c) == &globalBuff[0]);
@@ -296,14 +304,20 @@ struct NoThrowMemberBegin {
   ThrowingIterator<int> begin() const noexcept; // auto(t.begin()) doesn't throw
 } ntmb;
 static_assert(noexcept(std::ranges::begin(ntmb)));
-static_assert(noexcept(std::ranges::cbegin(ntmb)));
+// cbegin wraps the result in basic_const_iterator, whose converting constructor
+// moves the underlying iterator; ThrowingIterator's copy/move constructor isn't
+// noexcept, so wrapping it is a potentially-throwing step even though begin()
+// itself is noexcept.
+static_assert(!noexcept(std::ranges::cbegin(ntmb)));
 
 struct NoThrowADLBegin {
   friend ThrowingIterator<int> begin(NoThrowADLBegin&) noexcept;  // auto(begin(t)) doesn't throw
   friend ThrowingIterator<int> begin(const NoThrowADLBegin&) noexcept;
 } ntab;
 static_assert(noexcept(std::ranges::begin(ntab)));
-static_assert(noexcept(std::ranges::cbegin(ntab)));
+// Same reasoning as NoThrowMemberBegin above: wrapping still needs to move a
+// ThrowingIterator, which isn't noexcept.
+static_assert(!noexcept(std::ranges::cbegin(ntab)));
 
 struct NoThrowMemberBeginReturnsRef {
   ThrowingIterator<int>& begin() const noexcept; // auto(t.begin()) may throw

@@ -73,7 +73,10 @@ constexpr bool testReturnTypes() {
       sentinel_wrapper<short*>& end() const;
     } x;
     ASSERT_SAME_TYPE(decltype(std::ranges::end(x)), sentinel_wrapper<char*>);
-    ASSERT_SAME_TYPE(decltype(std::ranges::cend(x)), sentinel_wrapper<short*>);
+    // Different's const overloads still yield a mutable short*, so const Different
+    // doesn't model constant_range; cend falls back to the non-const overloads.
+    // sentinel_wrapper isn't an iterator, so const_sentinel doesn't wrap it either.
+    ASSERT_SAME_TYPE(decltype(std::ranges::cend(x)), sentinel_wrapper<char*>);
   }
   return true;
 }
@@ -127,7 +130,11 @@ struct NonConstEndMember {
 };
 static_assert( std::is_invocable_v<RangeEndT,  NonConstEndMember &>);
 static_assert(!std::is_invocable_v<RangeEndT,  NonConstEndMember const&>);
-static_assert(!std::is_invocable_v<RangeCEndT, NonConstEndMember &>);
+// cend no longer requires a const begin()/end() pair to exist: since
+// NonConstEndMember has no const begin() at all, const NonConstEndMember
+// isn't even a range, so possibly-const-range falls back to the mutable
+// object and wraps its (mutable) end() in basic_const_iterator instead.
+static_assert( std::is_invocable_v<RangeCEndT, NonConstEndMember &>);
 static_assert(!std::is_invocable_v<RangeCEndT, NonConstEndMember const&>);
 
 struct EnabledBorrowingEndMember {
@@ -165,7 +172,8 @@ constexpr bool testEndMember() {
 
   NonConstEndMember b;
   assert(std::ranges::end(b) == &b.x);
-  static_assert(!std::is_invocable_v<RangeCEndT, decltype((b))>);
+  assert(std::ranges::cend(b) == &b.x);
+  static_assert( std::is_invocable_v<RangeCEndT, decltype((b))>);
 
   EnabledBorrowingEndMember c;
   assert(std::ranges::end(std::move(c)) == &globalBuff[0]);
@@ -322,7 +330,11 @@ struct NoThrowMemberEnd {
   ThrowingIterator<int> end() const noexcept; // auto(t.end()) doesn't throw
 } ntme;
 static_assert(noexcept(std::ranges::end(ntme)));
-static_assert(noexcept(std::ranges::cend(ntme)));
+// end() returns an iterator (ThrowingIterator), so cend wraps it in
+// basic_const_iterator; ThrowingIterator's move constructor isn't noexcept,
+// so wrapping is a potentially-throwing step even though end() itself is
+// noexcept.
+static_assert(!noexcept(std::ranges::cend(ntme)));
 
 struct NoThrowADLEnd {
   ThrowingIterator<int> begin() const;
@@ -330,7 +342,8 @@ struct NoThrowADLEnd {
   friend ThrowingIterator<int> end(const NoThrowADLEnd&) noexcept;
 } ntae;
 static_assert(noexcept(std::ranges::end(ntae)));
-static_assert(noexcept(std::ranges::cend(ntae)));
+// Same reasoning as NoThrowMemberEnd above.
+static_assert(!noexcept(std::ranges::cend(ntae)));
 
 struct NoThrowMemberEndReturnsRef {
   ThrowingIterator<int> begin() const;

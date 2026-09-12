@@ -88,7 +88,11 @@ constexpr bool testReturnTypes() {
       short*& rbegin() const;
     } x;
     ASSERT_SAME_TYPE(decltype(std::ranges::rbegin(x)), char*);
-    ASSERT_SAME_TYPE(decltype(std::ranges::crbegin(x)), short*);
+    // Different has no begin() at all, so const Different isn't a range and
+    // doesn't model constant_range; crbegin falls back to the non-const
+    // rbegin() and wraps it in basic_const_iterator instead of trusting the
+    // (not actually const-safe) const rbegin() overload.
+    ASSERT_SAME_TYPE(decltype(std::ranges::crbegin(x)), std::basic_const_iterator<char*>);
   }
   return true;
 }
@@ -131,7 +135,10 @@ struct NonConstRBeginMember {
 };
 static_assert( std::is_invocable_v<RangeRBeginT,  NonConstRBeginMember &>);
 static_assert(!std::is_invocable_v<RangeRBeginT,  NonConstRBeginMember const&>);
-static_assert(!std::is_invocable_v<RangeCRBeginT, NonConstRBeginMember &>);
+// NonConstRBeginMember has no begin() at all, so const NonConstRBeginMember
+// isn't even a range; crbegin falls back to the mutable member rbegin() and
+// wraps it in basic_const_iterator.
+static_assert( std::is_invocable_v<RangeCRBeginT, NonConstRBeginMember &>);
 static_assert(!std::is_invocable_v<RangeCRBeginT, NonConstRBeginMember const&>);
 
 struct EnabledBorrowingRBeginMember {
@@ -161,13 +168,18 @@ constexpr bool testRBeginMember() {
 
   NonConstRBeginMember b;
   assert(std::ranges::rbegin(b) == &b.x);
-  static_assert(!std::is_invocable_v<RangeCRBeginT, NonConstRBeginMember&>);
+  assert(std::ranges::crbegin(b) == &b.x);
+  static_assert( std::is_invocable_v<RangeCRBeginT, NonConstRBeginMember&>);
 
   EnabledBorrowingRBeginMember c;
   assert(std::ranges::rbegin(c) == globalBuff);
-  assert(std::ranges::crbegin(c) == globalBuff);
+  // crbegin(c) is a basic_const_iterator wrapping int*; its templated operator==
+  // requires sentinel_for<Sent, It>, which an array (not semiregular) doesn't
+  // satisfy, unlike the raw-pointer comparison above which benefits from
+  // built-in array-to-pointer decay. Decay explicitly on this side.
+  assert(std::ranges::crbegin(c) == +globalBuff);
   assert(std::ranges::rbegin(std::move(c)) == globalBuff);
-  assert(std::ranges::crbegin(std::move(c)) == globalBuff);
+  assert(std::ranges::crbegin(std::move(c)) == +globalBuff);
 
   RBeginMemberFunction d;
   assert(std::ranges::rbegin(d) == &d.x);
@@ -417,7 +429,10 @@ struct MemberBeginAndRBegin {
 static_assert( std::is_invocable_v<RangeRBeginT, MemberBeginAndRBegin&>);
 static_assert( std::is_invocable_v<RangeCRBeginT, MemberBeginAndRBegin&>);
 static_assert( std::same_as<std::invoke_result_t<RangeRBeginT, MemberBeginAndRBegin&>, int*>);
-static_assert( std::same_as<std::invoke_result_t<RangeCRBeginT, MemberBeginAndRBegin&>, int*>);
+// rbegin() const still returns a mutable int*, so const MemberBeginAndRBegin
+// doesn't model constant_range; crbegin wraps the result in basic_const_iterator.
+static_assert( std::same_as<std::invoke_result_t<RangeCRBeginT, MemberBeginAndRBegin&>,
+                             std::basic_const_iterator<int*>>);
 
 constexpr bool testBeginEnd() {
   MemberBeginEnd a{};
@@ -459,14 +474,17 @@ struct NoThrowMemberRBegin {
   ThrowingIterator<int> rbegin() const noexcept; // auto(t.rbegin()) doesn't throw
 } ntmb;
 static_assert(noexcept(std::ranges::rbegin(ntmb)));
-static_assert(noexcept(std::ranges::crbegin(ntmb)));
+// crbegin wraps the result in basic_const_iterator, which moves the
+// underlying iterator; ThrowingIterator's move constructor isn't noexcept.
+static_assert(!noexcept(std::ranges::crbegin(ntmb)));
 
 struct NoThrowADLRBegin {
   friend ThrowingIterator<int> rbegin(NoThrowADLRBegin&) noexcept;  // auto(rbegin(t)) doesn't throw
   friend ThrowingIterator<int> rbegin(const NoThrowADLRBegin&) noexcept;
 } ntab;
 static_assert(noexcept(std::ranges::rbegin(ntab)));
-static_assert(noexcept(std::ranges::crbegin(ntab)));
+// Same reasoning as NoThrowMemberRBegin above.
+static_assert(!noexcept(std::ranges::crbegin(ntab)));
 
 struct NoThrowMemberRBeginReturnsRef {
   ThrowingIterator<int>& rbegin() const noexcept; // auto(t.rbegin()) may throw

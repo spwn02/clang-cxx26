@@ -56,6 +56,9 @@ concept range = requires(_Tp& __t) {
 template <class _Tp>
 concept input_range = range<_Tp> && input_iterator<iterator_t<_Tp>>;
 
+template <class _Tp>
+concept constant_range = input_range<_Tp> && constant_iterator<iterator_t<_Tp>>;
+
 template <class _Range>
 concept borrowed_range =
     range<_Range> && (is_lvalue_reference_v<_Range> || enable_borrowed_range<remove_cvref_t<_Range>>);

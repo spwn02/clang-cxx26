@@ -73,6 +73,22 @@ public:
   }
 
   template <class _D2 = _Derived>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto cbegin() requires range<_D2> { return ranges::cbegin(__derived()); }
+
+  template <class _D2 = _Derived>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto cbegin() const requires range<const _D2> {
+    return ranges::cbegin(__derived());
+  }
+
+  template <class _D2 = _Derived>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto cend() requires range<_D2> { return ranges::cend(__derived()); }
+
+  template <class _D2 = _Derived>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto cend() const requires range<const _D2> {
+    return ranges::cend(__derived());
+  }
+
+  template <class _D2 = _Derived>
   _LIBCPP_HIDE_FROM_ABI constexpr explicit operator bool()
     requires requires(_D2& __t) { ranges::empty(__t); }
   {

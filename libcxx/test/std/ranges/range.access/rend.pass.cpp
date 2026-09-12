@@ -75,7 +75,11 @@ constexpr bool testReturnTypes() {
       sentinel_wrapper<short*>& rend() const;
     } x;
     ASSERT_SAME_TYPE(decltype(std::ranges::rend(x)), sentinel_wrapper<char*>);
-    ASSERT_SAME_TYPE(decltype(std::ranges::crend(x)), sentinel_wrapper<short*>);
+    // Different has no begin() at all, so const Different isn't a range and
+    // doesn't model constant_range; crend falls back to the non-const
+    // overloads. sentinel_wrapper isn't an iterator, so const_sentinel
+    // doesn't wrap it either.
+    ASSERT_SAME_TYPE(decltype(std::ranges::crend(x)), sentinel_wrapper<char*>);
   }
 
   return true;
@@ -130,7 +134,10 @@ struct NonConstREndMember {
 };
 static_assert( std::is_invocable_v<RangeREndT,  NonConstREndMember &>);
 static_assert(!std::is_invocable_v<RangeREndT,  NonConstREndMember const&>);
-static_assert(!std::is_invocable_v<RangeCREndT, NonConstREndMember &>);
+// NonConstREndMember has no const rbegin() at all, so const NonConstREndMember
+// isn't even a range; crend falls back to the mutable member rend() and
+// wraps it in basic_const_iterator.
+static_assert( std::is_invocable_v<RangeCREndT, NonConstREndMember &>);
 static_assert(!std::is_invocable_v<RangeCREndT, NonConstREndMember const&>);
 
 struct EnabledBorrowingREndMember {
@@ -168,7 +175,8 @@ constexpr bool testREndMember() {
 
   NonConstREndMember b;
   assert(std::ranges::rend(b) == &b.x);
-  static_assert(!std::is_invocable_v<RangeCREndT, decltype((b))>);
+  assert(std::ranges::crend(b) == &b.x);
+  static_assert( std::is_invocable_v<RangeCREndT, decltype((b))>);
 
   EnabledBorrowingREndMember c;
   assert(std::ranges::rend(std::move(c)) == &globalBuff[0]);
@@ -441,7 +449,10 @@ struct MemberBeginAndRBegin {
 static_assert( std::is_invocable_v<RangeREndT, MemberBeginAndRBegin&>);
 static_assert( std::is_invocable_v<RangeCREndT, MemberBeginAndRBegin&>);
 static_assert( std::same_as<std::invoke_result_t<RangeREndT, MemberBeginAndRBegin&>, int*>);
-static_assert( std::same_as<std::invoke_result_t<RangeCREndT, MemberBeginAndRBegin&>, int*>);
+// begin() const still returns a mutable int*, so const MemberBeginAndRBegin
+// doesn't model constant_range; crend wraps the result in basic_const_iterator.
+static_assert( std::same_as<std::invoke_result_t<RangeCREndT, MemberBeginAndRBegin&>,
+                             std::basic_const_iterator<int*>>);
 
 constexpr bool testBeginEnd() {
   MemberBeginEnd a{};
@@ -484,7 +495,9 @@ struct NoThrowMemberREnd {
   ThrowingIterator<int> rend() const noexcept; // auto(t.rend()) doesn't throw
 } ntmre;
 static_assert(noexcept(std::ranges::rend(ntmre)));
-static_assert(noexcept(std::ranges::crend(ntmre)));
+// crend wraps the result in basic_const_iterator, which moves the underlying
+// iterator; ThrowingIterator's move constructor isn't noexcept.
+static_assert(!noexcept(std::ranges::crend(ntmre)));
 
 struct NoThrowADLREnd {
   ThrowingIterator<int> rbegin() const;
@@ -492,7 +505,8 @@ struct NoThrowADLREnd {
   friend ThrowingIterator<int> rend(const NoThrowADLREnd&) noexcept;
 } ntare;
 static_assert(noexcept(std::ranges::rend(ntare)));
-static_assert(noexcept(std::ranges::crend(ntare)));
+// Same reasoning as NoThrowMemberREnd above.
+static_assert(!noexcept(std::ranges::crend(ntare)));
 
 struct NoThrowMemberREndReturnsRef {
   ThrowingIterator<int> rbegin() const;

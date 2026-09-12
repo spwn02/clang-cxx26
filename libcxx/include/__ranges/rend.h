@@ -95,18 +95,13 @@ namespace ranges {
 namespace __crend {
 struct __fn {
   template <class _Tp>
-    requires is_lvalue_reference_v<_Tp&&>
+    requires __can_borrow<_Tp&&> && requires(_Tp&& __t) {
+      std::make_const_sentinel(ranges::rend(ranges::__possibly_const_range(__t)));
+    }
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Tp&& __t) const
-      noexcept(noexcept(ranges::rend(static_cast<const remove_reference_t<_Tp>&>(__t))))
-          -> decltype(ranges::rend(static_cast<const remove_reference_t<_Tp>&>(__t))) {
-    return ranges::rend(static_cast<const remove_reference_t<_Tp>&>(__t));
-  }
-
-  template <class _Tp>
-    requires is_rvalue_reference_v<_Tp&&>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Tp&& __t) const noexcept(
-      noexcept(ranges::rend(static_cast<const _Tp&&>(__t)))) -> decltype(ranges::rend(static_cast<const _Tp&&>(__t))) {
-    return ranges::rend(static_cast<const _Tp&&>(__t));
+      noexcept(noexcept(std::make_const_sentinel(ranges::rend(ranges::__possibly_const_range(__t))))) {
+    auto& __r = ranges::__possibly_const_range(__t);
+    return std::make_const_sentinel(ranges::rend(__r));
   }
 };
 } // namespace __crend

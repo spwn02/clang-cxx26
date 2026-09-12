@@ -14,6 +14,7 @@
 #include <__config>
 #include <__cstddef/size_t.h>
 #include <__iterator/concepts.h>
+#include <__iterator/const_iterator.h>
 #include <__iterator/readable_traits.h>
 #include <__ranges/enable_borrowed_range.h>
 #include <__type_traits/decay.h>
@@ -96,6 +97,17 @@ inline constexpr auto begin = __begin::__fn{};
 namespace ranges {
 template <class _Tp>
 using iterator_t = decltype(ranges::begin(std::declval<_Tp&>()));
+
+template <class _Tp>
+concept __constant_range = requires { typename iterator_t<_Tp>; } && constant_iterator<iterator_t<_Tp>>;
+
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI constexpr auto& __possibly_const_range(_Tp& __t) noexcept {
+  if constexpr (__constant_range<const _Tp> && !__constant_range<_Tp>)
+    return const_cast<const _Tp&>(__t);
+  else
+    return __t;
+}
 } // namespace ranges
 
 // [range.access.end]
@@ -154,20 +166,15 @@ namespace ranges {
 namespace __cbegin {
 struct __fn {
   template <class _Tp>
-    requires is_lvalue_reference_v<_Tp&&>
+    requires __can_borrow<_Tp&&> && requires(_Tp&& __t) {
+      std::make_const_iterator(ranges::begin(ranges::__possibly_const_range(__t)));
+    }
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Tp&& __t) const
-      noexcept(noexcept(ranges::begin(static_cast<const remove_reference_t<_Tp>&>(__t))))
-          -> decltype(ranges::begin(static_cast<const remove_reference_t<_Tp>&>(__t))) {
-    return ranges::begin(static_cast<const remove_reference_t<_Tp>&>(__t));
+      noexcept(noexcept(std::make_const_iterator(ranges::begin(ranges::__possibly_const_range(__t))))) {
+    auto& __r = ranges::__possibly_const_range(__t);
+    return std::make_const_iterator(ranges::begin(__r));
   }
 
-  template <class _Tp>
-    requires is_rvalue_reference_v<_Tp&&>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Tp&& __t) const
-      noexcept(noexcept(ranges::begin(static_cast<const _Tp&&>(__t))))
-          -> decltype(ranges::begin(static_cast<const _Tp&&>(__t))) {
-    return ranges::begin(static_cast<const _Tp&&>(__t));
-  }
 };
 } // namespace __cbegin
 
@@ -182,18 +189,13 @@ namespace ranges {
 namespace __cend {
 struct __fn {
   template <class _Tp>
-    requires is_lvalue_reference_v<_Tp&&>
+    requires __can_borrow<_Tp&&> && requires(_Tp&& __t) {
+      std::make_const_sentinel(ranges::end(ranges::__possibly_const_range(__t)));
+    }
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Tp&& __t) const
-      noexcept(noexcept(ranges::end(static_cast<const remove_reference_t<_Tp>&>(__t))))
-          -> decltype(ranges::end(static_cast<const remove_reference_t<_Tp>&>(__t))) {
-    return ranges::end(static_cast<const remove_reference_t<_Tp>&>(__t));
-  }
-
-  template <class _Tp>
-    requires is_rvalue_reference_v<_Tp&&>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Tp&& __t) const noexcept(
-      noexcept(ranges::end(static_cast<const _Tp&&>(__t)))) -> decltype(ranges::end(static_cast<const _Tp&&>(__t))) {
-    return ranges::end(static_cast<const _Tp&&>(__t));
+      noexcept(noexcept(std::make_const_sentinel(ranges::end(ranges::__possibly_const_range(__t))))) {
+    auto& __r = ranges::__possibly_const_range(__t);
+    return std::make_const_sentinel(ranges::end(__r));
   }
 };
 } // namespace __cend
