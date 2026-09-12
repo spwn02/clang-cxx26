@@ -20,6 +20,11 @@ export namespace std {
   // [rand.eng.sub], class template subtract_with_carry_engine
   using std::subtract_with_carry_engine;
 
+#if _LIBCPP_STD_VER >= 26
+  // [rand.eng.philox], class template philox_engine
+  using std::philox_engine;
+#endif
+
   // [rand.adapt.disc], class template discard_block_engine
   using std::discard_block_engine;
 
@@ -35,6 +40,10 @@ export namespace std {
   using std::minstd_rand0;
   using std::mt19937;
   using std::mt19937_64;
+#if _LIBCPP_STD_VER >= 26
+  using std::philox4x32;
+  using std::philox4x64;
+#endif
   using std::ranlux24;
   using std::ranlux24_base;
   using std::ranlux48;

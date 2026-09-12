@@ -752,6 +752,7 @@ set(files
   __random/normal_distribution.h
   __random/piecewise_constant_distribution.h
   __random/piecewise_linear_distribution.h
+  __random/philox_engine.h
   __random/poisson_distribution.h
   __random/random_device.h
   __random/ranlux.h

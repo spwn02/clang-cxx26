@@ -72,7 +72,7 @@
 "`P0843R14 <https://wg21.link/P0843R14>`__","``inplace_vector``","2024-06 (St. Louis)","|Complete|","","`#105433 <https://github.com/llvm/llvm-project/issues/105433>`__",""
 "`P3235R3 <https://wg21.link/P3235R3>`__","``std::print`` more types faster with less memory","2024-06 (St. Louis)","","","`#105435 <https://github.com/llvm/llvm-project/issues/105435>`__",""
 "`P2968R2 <https://wg21.link/P2968R2>`__","Make ``std::ignore`` a first-class object","2024-06 (St. Louis)","|Complete|","19","`#105436 <https://github.com/llvm/llvm-project/issues/105436>`__",""
-"`P2075R6 <https://wg21.link/P2075R6>`__","Philox as an extension of the C++ RNG engines","2024-06 (St. Louis)","","","`#105437 <https://github.com/llvm/llvm-project/issues/105437>`__",""
+"`P2075R6 <https://wg21.link/P2075R6>`__","Philox as an extension of the C++ RNG engines","2024-06 (St. Louis)","|Complete|","","`#105437 <https://github.com/llvm/llvm-project/issues/105437>`__",""
 "`P2422R1 <https://wg21.link/P2422R1>`__","Remove ``nodiscard`` annotations from the standard library specification","2024-06 (St. Louis)","|Complete|","19","`#105438 <https://github.com/llvm/llvm-project/issues/105438>`__","``nodiscard`` attributes were kept as a conforming extension"
 "`P2300R10 <https://wg21.link/P2300R10>`__","``std::execution``","2024-06 (St. Louis)","|Complete|","","`#105440 <https://github.com/llvm/llvm-project/issues/105440>`__",""
 "","","","","","",""

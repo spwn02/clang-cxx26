@@ -1191,7 +1191,6 @@ feature_test_macros = [
             },  # P2075R6 Philox as an extension of the C++ RNG engines
             # Note the paper mentions 202310L as value, which differs from the typical procedure.
             "headers": ["random"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_polymorphic",

@@ -252,6 +252,10 @@ basic_istream<charT, traits>&
 operator>>(basic_istream<charT, traits>& is,
            discard_block_engine<Engine, p, r>& x);
 
+// [rand.eng.philox], class template philox_engine
+template<class UIntType, size_t w, size_t n, size_t r, UIntType... consts>
+class philox_engine;
+
 template<class Engine, size_t w, class UIntType>
 class independent_bits_engine
 {
@@ -376,6 +380,8 @@ typedef mersenne_twister_engine<uint_fast64_t, 64, 312, 156, 31,
                                 43, 6364136223846793005>             mt19937_64;
 typedef subtract_with_carry_engine<uint_fast32_t, 24, 10, 24>     ranlux24_base;
 typedef subtract_with_carry_engine<uint_fast64_t, 48,  5, 12>     ranlux48_base;
+using philox4x32 = see below;
+using philox4x64 = see below;
 typedef discard_block_engine<ranlux24_base, 223, 23>                   ranlux24;
 typedef discard_block_engine<ranlux48_base, 389, 11>                   ranlux48;
 typedef shuffle_order_engine<minstd_rand0, 256>                         knuth_b;
@@ -1730,6 +1736,9 @@ class piecewise_linear_distribution
 #  include <__random/normal_distribution.h>
 #  include <__random/piecewise_constant_distribution.h>
 #  include <__random/piecewise_linear_distribution.h>
+#  if _LIBCPP_STD_VER >= 26
+#    include <__random/philox_engine.h>
+#  endif
 #  include <__random/poisson_distribution.h>
 #  include <__random/random_device.h>
 #  include <__random/ranlux.h>
