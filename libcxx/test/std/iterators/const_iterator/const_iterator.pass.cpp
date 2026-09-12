@@ -1,11 +1,28 @@
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20
 
+#include <cassert>
+#include <memory>
 #include <ranges>
 #include <type_traits>
 #include <vector>
 
 template <class T>
 concept assignable_through = requires(T t) { *t = 42; };
+
+struct Base {};
+struct Derived : Base {};
+
+// P2836R1: basic_const_iterator<I> is convertible from basic_const_iterator<I2>
+// whenever I2 is convertible to I -- not just from a raw I2.
+constexpr bool test_p2836r1_conversion() {
+  Derived d;
+  Derived* p = &d;
+  std::basic_const_iterator<Derived*> derived_iter(p);
+  std::basic_const_iterator<Base*> base_iter = derived_iter;
+  return static_cast<const void*>(&*base_iter) == static_cast<const void*>(&d);
+}
+static_assert(std::convertible_to<std::basic_const_iterator<Derived*>, std::basic_const_iterator<Base*>>);
+static_assert(!std::convertible_to<std::basic_const_iterator<Base*>, std::basic_const_iterator<Derived*>>);
 
 constexpr bool test() {
   int values[] = {1, 2, 3};
@@ -19,6 +36,8 @@ constexpr bool test() {
 
 int main() {
   static_assert(test());
+  static_assert(test_p2836r1_conversion());
+  assert(test_p2836r1_conversion());
 
   std::vector<int> values{1, 2, 3};
   auto transformed = values | std::views::transform([](int& value) -> int& { return value; });
