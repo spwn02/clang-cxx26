@@ -546,7 +546,8 @@ void ASTStmtWriter::VisitExtractLValueExpr(ExtractLValueExpr *E) {
 
 void ASTStmtWriter::VisitExplDependentCallExpr(ExplDependentCallExpr *E) {
   VisitExpr(E);
-  // TODO(CXX26): Implement this.
+  Record.AddStmt(E->getSubExpr());
+  Record.push_back(E->getTemplateDepth());
   Code = serialization::EXPR_EXPL_DEPENDENT_CALL;
 }
 

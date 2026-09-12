@@ -2105,6 +2105,10 @@ ExplDependentCallExpr *ExplDependentCallExpr::Create(ASTContext &C,
   return new (C) ExplDependentCallExpr(SubExpr, TemplateDepth);
 }
 
+ExplDependentCallExpr *ExplDependentCallExpr::CreateEmpty(const ASTContext &C) {
+  return new (C) ExplDependentCallExpr(EmptyShell());
+}
+
 CXXDependentMemberSpliceExpr::CXXDependentMemberSpliceExpr(
         QualType ResultTy, Expr *Base, SourceLocation OpLoc, bool IsArrow,
         CXXSpliceExpr *RHS)
