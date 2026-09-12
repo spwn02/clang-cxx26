@@ -10,10 +10,15 @@
 
 // template<class T> class valarray;
 
-// template <class T> unspecified begin(valarray<T>& v);
-// template <class T> unspecified begin(const valarray<T>& v);
-// template <class T> unspecified end(valarray<T>& v);
-// template <class T> unspecified end(const valarray<T>& v);
+// template <class T> unspecified begin(valarray<T>& v);         // removed in C++26
+// template <class T> unspecified begin(const valarray<T>& v);   // removed in C++26
+// template <class T> unspecified end(valarray<T>& v);           // removed in C++26
+// template <class T> unspecified end(const valarray<T>& v);     // removed in C++26
+//
+// iterator begin();               // since C++26
+// iterator end();                 // since C++26
+// const_iterator begin()  const;  // since C++26
+// const_iterator end()    const;  // since C++26
 
 #include <valarray>
 #include <cassert>
@@ -62,6 +67,38 @@ int main(int, char**)
       sum += i;
     }
     assert(sum == 15);
+  }
+#endif
+
+#if TEST_STD_VER >= 26
+  {
+    // P3016R6: valarray now has member begin()/end() with real
+    // iterator/const_iterator typedefs, in addition to (and implemented in
+    // terms of the same storage as) the std::begin/std::end passthrough
+    // exercised above.
+    int a[] = {1, 2, 3, 4, 5};
+    std::valarray<int> v(a, 5);
+    const std::valarray<int>& cv = v;
+
+    ASSERT_SAME_TYPE(decltype(v.begin()), std::valarray<int>::iterator);
+    ASSERT_SAME_TYPE(decltype(v.end()), std::valarray<int>::iterator);
+    ASSERT_SAME_TYPE(decltype(cv.begin()), std::valarray<int>::const_iterator);
+    ASSERT_SAME_TYPE(decltype(cv.end()), std::valarray<int>::const_iterator);
+
+    static_assert(noexcept(v.begin()));
+    static_assert(noexcept(v.end()));
+    static_assert(noexcept(cv.begin()));
+    static_assert(noexcept(cv.end()));
+
+    assert(&*v.begin() == &v[0]);
+    assert(&*cv.begin() == &cv[0]);
+    assert(std::prev(v.end()) == std::addressof(v[4]));
+    assert(std::prev(cv.end()) == std::addressof(cv[4]));
+
+    // std::begin/std::end still work, now dispatching to the member
+    // functions instead of the (now C++26-removed) non-member overloads.
+    assert(std::begin(v) == v.begin());
+    assert(std::end(v) == v.end());
   }
 #endif
 

@@ -21,6 +21,8 @@ class valarray
 {
 public:
     typedef T value_type;
+    typedef unspecified iterator;               // since C++26
+    typedef unspecified const_iterator;         // since C++26
 
     // construct/destroy:
     valarray();
@@ -93,6 +95,11 @@ public:
     void swap(valarray& v) noexcept;
 
     size_t size() const;
+
+    iterator       begin();          // since C++26
+    iterator       end();            // since C++26
+    const_iterator begin()  const;   // since C++26
+    const_iterator end()    const;   // since C++26
 
     value_type sum() const;
     value_type min() const;
@@ -334,10 +341,10 @@ template<class T> valarray<T> sqrt (const valarray<T>& x);
 template<class T> valarray<T> tan (const valarray<T>& x);
 template<class T> valarray<T> tanh (const valarray<T>& x);
 
-template <class T> unspecified1 begin(valarray<T>& v);
-template <class T> unspecified2 begin(const valarray<T>& v);
-template <class T> unspecified1 end(valarray<T>& v);
-template <class T> unspecified2 end(const valarray<T>& v);
+template <class T> unspecified1 begin(valarray<T>& v);         // removed in C++26, use valarray<T>::begin()
+template <class T> unspecified2 begin(const valarray<T>& v);   // removed in C++26, use valarray<T>::begin()
+template <class T> unspecified1 end(valarray<T>& v);           // removed in C++26, use valarray<T>::end()
+template <class T> unspecified2 end(const valarray<T>& v);     // removed in C++26, use valarray<T>::end()
 
 }  // std
 
@@ -419,6 +426,10 @@ class mask_array;
 template <class _Tp>
 class indirect_array;
 
+#  if _LIBCPP_STD_VER < 26
+// P3016R6 removed these non-member overloads for C++26 -- valarray now has
+// member begin()/end() instead (a non-member overload alongside a member of
+// the same name would otherwise make unqualified calls ambiguous).
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI _Tp* begin(valarray<_Tp>& __v);
 
@@ -430,6 +441,7 @@ _LIBCPP_HIDE_FROM_ABI _Tp* end(valarray<_Tp>& __v);
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI const _Tp* end(const valarray<_Tp>& __v);
+#  endif // _LIBCPP_STD_VER < 26
 
 template <class _Op, class _A0>
 struct _UnaryOp {
@@ -912,6 +924,16 @@ public:
 
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI size_t size() const { return static_cast<size_t>(__end_ - __begin_); }
 
+#  if _LIBCPP_STD_VER >= 26
+  typedef value_type* iterator;
+  typedef const value_type* const_iterator;
+
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI iterator begin() _NOEXCEPT { return __begin_; }
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI const_iterator begin() const _NOEXCEPT { return __begin_; }
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI iterator end() _NOEXCEPT { return __end_; }
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI const_iterator end() const _NOEXCEPT { return __end_; }
+#  endif // _LIBCPP_STD_VER >= 26
+
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI value_type sum() const;
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI value_type min() const;
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI value_type max() const;
@@ -940,6 +962,7 @@ private:
   template <class>
   friend class __val_expr;
 
+#  if _LIBCPP_STD_VER < 26
   template <class _Up>
   friend _Up* begin(valarray<_Up>& __v);
 
@@ -951,6 +974,7 @@ private:
 
   template <class _Up>
   friend const _Up* end(const valarray<_Up>& __v);
+#  endif // _LIBCPP_STD_VER < 26
 
   _LIBCPP_HIDE_FROM_ABI void __clear(size_t __capacity);
   valarray& __assign_range(const value_type* __f, const value_type* __l);
@@ -3280,6 +3304,7 @@ tanh(const _Expr& __x) {
   return __val_expr<_Op>(_Op(__tanh_expr<value_type>(), __x));
 }
 
+#  if _LIBCPP_STD_VER < 26
 template <class _Tp>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _Tp* begin(valarray<_Tp>& __v) {
   return __v.__begin_;
@@ -3299,6 +3324,7 @@ template <class _Tp>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI const _Tp* end(const valarray<_Tp>& __v) {
   return __v.__end_;
 }
+#  endif // _LIBCPP_STD_VER < 26
 
 _LIBCPP_END_NAMESPACE_STD
 

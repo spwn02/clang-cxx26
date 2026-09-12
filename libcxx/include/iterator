@@ -739,6 +739,7 @@ template <class E> constexpr const E* data(initializer_list<E> il) noexcept;    
 // [iterator.synopsis]
 #  include <compare>
 #  include <concepts>
+#  include <initializer_list>
 
 // [range.access.general]
 #  if _LIBCPP_STD_VER >= 20
