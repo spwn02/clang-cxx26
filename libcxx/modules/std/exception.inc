@@ -12,6 +12,9 @@ export namespace std {
   using std::current_exception;
   using std::exception;
   using std::exception_ptr;
+#if _LIBCPP_STD_VER >= 26
+  using std::exception_ptr_cast;
+#endif
   using std::get_terminate;
   using std::make_exception_ptr;
   using std::nested_exception;
