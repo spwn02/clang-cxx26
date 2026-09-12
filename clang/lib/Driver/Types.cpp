@@ -374,6 +374,7 @@ types::ID types::lookupTypeForExtension(llvm::StringRef Ext) {
       .Case("c++m", TY_CXXModule)
       .Case("cppm", TY_CXXModule)
       .Case("cxxm", TY_CXXModule)
+      .Case("ixx", TY_CXXModule) // MSVC's C++ module interface unit extension.
       .Case("hlsl", TY_HLSL)
       .Default(TY_INVALID);
 }
