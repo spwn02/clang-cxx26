@@ -30,7 +30,9 @@ using __memory_order_underlying_t _LIBCPP_NODEBUG = __underlying_type_t<__legacy
 
 enum class memory_order : __memory_order_underlying_t {
   relaxed = __mo_relaxed,
-  consume = __mo_consume,
+  consume _LIBCPP_DEPRECATED_IN_CXX26_("Use memory_order::acquire instead; memory_order::consume has proven "
+                                        "difficult to implement correctly and is deprecated by P3475R2.") =
+      __mo_consume,
   acquire = __mo_acquire,
   release = __mo_release,
   acq_rel = __mo_acq_rel,
@@ -41,6 +43,8 @@ static_assert(is_same<__underlying_type_t<memory_order>, __memory_order_underlyi
               "unexpected underlying type for std::memory_order");
 
 inline constexpr auto memory_order_relaxed = memory_order::relaxed;
+_LIBCPP_DEPRECATED_IN_CXX26_("Use memory_order_acquire instead; memory_order_consume has proven difficult to "
+                              "implement correctly and is deprecated by P3475R2.")
 inline constexpr auto memory_order_consume = memory_order::consume;
 inline constexpr auto memory_order_acquire = memory_order::acquire;
 inline constexpr auto memory_order_release = memory_order::release;

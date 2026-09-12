@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+// ADDITIONAL_COMPILE_FLAGS: -Wno-deprecated-declarations
 // <atomic>
 
 // struct atomic_flag

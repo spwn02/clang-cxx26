@@ -183,7 +183,7 @@ public:
     }
 #  endif
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
-        __order == memory_order::relaxed || __order == memory_order::consume || __order == memory_order::acquire ||
+        __order == memory_order::relaxed || __order == static_cast<memory_order>(__mo_consume) || __order == memory_order::acquire ||
             __order == memory_order::seq_cst,
         "atomic_ref: memory order argument to atomic load operation is invalid");
     alignas(value_type) byte __mem[sizeof(value_type)];
@@ -232,7 +232,7 @@ public:
     }
 #  endif
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
-        __failure == memory_order::relaxed || __failure == memory_order::consume ||
+        __failure == memory_order::relaxed || __failure == static_cast<memory_order>(__mo_consume) ||
             __failure == memory_order::acquire || __failure == memory_order::seq_cst,
         "atomic_ref: failure memory order argument to weak atomic compare-and-exchange operation is invalid");
     return __compare_exchange(
@@ -260,7 +260,7 @@ public:
     }
 #  endif
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
-        __failure == memory_order::relaxed || __failure == memory_order::consume ||
+        __failure == memory_order::relaxed || __failure == static_cast<memory_order>(__mo_consume) ||
             __failure == memory_order::acquire || __failure == memory_order::seq_cst,
         "atomic_ref: failure memory order argument to strong atomic compare-and-exchange operation is invalid");
     return __compare_exchange(
@@ -338,7 +338,7 @@ public:
     }
 #  endif
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
-        __order == memory_order::relaxed || __order == memory_order::consume || __order == memory_order::acquire ||
+        __order == memory_order::relaxed || __order == static_cast<memory_order>(__mo_consume) || __order == memory_order::acquire ||
             __order == memory_order::seq_cst,
         "atomic_ref: memory order argument to atomic wait operation is invalid");
     std::__atomic_wait(*this, __old, __order);

@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 // REQUIRES: diagnose-if-support
+// ADDITIONAL_COMPILE_FLAGS: -Wno-deprecated-declarations
 
 // <atomic>
 
