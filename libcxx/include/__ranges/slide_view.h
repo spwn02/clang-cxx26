@@ -160,10 +160,12 @@ template <forward_range _View> requires view<_View>
 template <bool _Const>
 class slide_view<_View>::__sentinel {
   using _Base = __maybe_const<_Const, _View>;
-  sentinel_t<_Base> __end_;
+  sentinel_t<_Base> __end_ = sentinel_t<_Base>();
   friend slide_view;
   _LIBCPP_HIDE_FROM_ABI explicit __sentinel(sentinel_t<_Base> __e) : __end_(std::move(__e)) {}
 public:
+  _LIBCPP_HIDE_FROM_ABI __sentinel() = default;
+
   _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const __iterator<_Const>& __i, const __sentinel& __s) { return __i.__last_ == __s.__end_; }
   _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const __sentinel& __s, const __iterator<_Const>& __i) { return __i == __s; }
 };

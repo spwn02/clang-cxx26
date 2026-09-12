@@ -4,6 +4,7 @@
 #include <array>
 #include <cassert>
 #include <ranges>
+#include <utility>
 #include <vector>
 
 int main() {
@@ -50,5 +51,25 @@ int main() {
 
     auto w = sv[2];
     assert(w[0] == 3 && w[1] == 4 && w[2] == 5);
+  }
+
+  // Regression test: slide_view<V>::__sentinel had no default constructor,
+  // so it wasn't semiregular and couldn't satisfy sentinel_for -- for any
+  // non-common base (e.g. views::repeat), slide_view::end() returns a
+  // __sentinel, so the whole slide_view failed to model range at all.
+  {
+    using Base = decltype(std::views::repeat(1));
+    static_assert(std::ranges::view<Base>);
+    static_assert(std::ranges::random_access_range<Base>);
+    static_assert(!std::ranges::common_range<Base>);
+
+    using Window = decltype(std::declval<Base>() | std::ranges::views::slide(3));
+    static_assert(std::ranges::range<Window>);
+    static_assert(std::ranges::view<Window>);
+
+    auto windowed = std::views::repeat(1) | std::ranges::views::slide(3);
+    auto it        = windowed.begin();
+    assert((*it)[0] == 1);
+    assert((*it)[2] == 1);
   }
 }
