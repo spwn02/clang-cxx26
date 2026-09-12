@@ -245,6 +245,20 @@ struct __atomic_base<_Tp, true> : public __atomic_base<_Tp, false> {
   _LIBCPP_HIDE_FROM_ABI constexpr _Tp fetch_min(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT {
     return std::__cxx_atomic_fetch_min(std::addressof(this->__a_), __op, __m);
   }
+  _LIBCPP_HIDE_FROM_ABI void store_add(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT { (void)fetch_add(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_add(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT { (void)fetch_add(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_sub(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT { (void)fetch_sub(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_sub(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT { (void)fetch_sub(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_and(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT { (void)fetch_and(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_and(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT { (void)fetch_and(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_or(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT { (void)fetch_or(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_or(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT { (void)fetch_or(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_xor(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT { (void)fetch_xor(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_xor(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT { (void)fetch_xor(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_max(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT { (void)fetch_max(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_max(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT { (void)fetch_max(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_min(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT { (void)fetch_min(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_min(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT { (void)fetch_min(__op, __m); }
 #endif // _LIBCPP_STD_VER >= 26
 
   _LIBCPP_HIDE_FROM_ABI _Tp operator++(int) volatile _NOEXCEPT { return fetch_add(_Tp(1)); }
@@ -429,6 +443,14 @@ struct atomic<_Tp*> : public __atomic_base<_Tp*> {
     }
     return __old;
   }
+  _LIBCPP_HIDE_FROM_ABI void store_add(ptrdiff_t __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT { (void)fetch_add(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_add(ptrdiff_t __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT { (void)fetch_add(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_sub(ptrdiff_t __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT { (void)fetch_sub(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_sub(ptrdiff_t __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT { (void)fetch_sub(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_max(_Tp* __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT { (void)fetch_max(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_max(_Tp* __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT { (void)fetch_max(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_min(_Tp* __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT { (void)fetch_min(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_min(_Tp* __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT { (void)fetch_min(__op, __m); }
 #  endif // _LIBCPP_STD_VER >= 26
 
   _LIBCPP_HIDE_FROM_ABI _Tp* operator++(int) volatile _NOEXCEPT { return fetch_add(1); }
@@ -529,6 +551,18 @@ private:
       return __a;
     return __b < __a ? __b : __a;
   }
+  _LIBCPP_HIDE_FROM_ABI static constexpr _Tp __maximum(_Tp __a, _Tp __b) {
+    if (__builtin_isnan(__a)) return __a;
+    if (__builtin_isnan(__b)) return __b;
+    if (__a == _Tp(0) && __b == _Tp(0)) return __builtin_signbit(__a) ? __b : __a;
+    return __a < __b ? __b : __a;
+  }
+  _LIBCPP_HIDE_FROM_ABI static constexpr _Tp __minimum(_Tp __a, _Tp __b) {
+    if (__builtin_isnan(__a)) return __a;
+    if (__builtin_isnan(__b)) return __b;
+    if (__a == _Tp(0) && __b == _Tp(0)) return __builtin_signbit(__a) ? __a : __b;
+    return __b < __a ? __b : __a;
+  }
 
   template <class _This>
   _LIBCPP_HIDE_FROM_ABI static constexpr _Tp __fetch_max(_This&& __self, _Tp __operand, memory_order __m) {
@@ -544,6 +578,30 @@ private:
       return std::__cxx_atomic_fetch_min(__a, __builtin_operand, __order);
     };
     return __rmw_op(std::forward<_This>(__self), __operand, __m, __minimum_num, __builtin_op);
+  }
+  template <class _This>
+  _LIBCPP_HIDE_FROM_ABI static constexpr _Tp __fetch_fmaximum(_This&& __self, _Tp __operand, memory_order __m) {
+    _Tp __old = __self.load(memory_order_relaxed); _Tp __new = __maximum(__old, __operand);
+    while (!__self.compare_exchange_weak(__old, __new, __m, memory_order_relaxed)) __new = __maximum(__old, __operand);
+    return __old;
+  }
+  template <class _This>
+  _LIBCPP_HIDE_FROM_ABI static constexpr _Tp __fetch_fminimum(_This&& __self, _Tp __operand, memory_order __m) {
+    _Tp __old = __self.load(memory_order_relaxed); _Tp __new = __minimum(__old, __operand);
+    while (!__self.compare_exchange_weak(__old, __new, __m, memory_order_relaxed)) __new = __minimum(__old, __operand);
+    return __old;
+  }
+  template <class _This>
+  _LIBCPP_HIDE_FROM_ABI static constexpr _Tp __fetch_fmaximum_num(_This&& __self, _Tp __operand, memory_order __m) {
+    _Tp __old = __self.load(memory_order_relaxed); _Tp __new = __maximum_num(__old, __operand);
+    while (!__self.compare_exchange_weak(__old, __new, __m, memory_order_relaxed)) __new = __maximum_num(__old, __operand);
+    return __old;
+  }
+  template <class _This>
+  _LIBCPP_HIDE_FROM_ABI static constexpr _Tp __fetch_fminimum_num(_This&& __self, _Tp __operand, memory_order __m) {
+    _Tp __old = __self.load(memory_order_relaxed); _Tp __new = __minimum_num(__old, __operand);
+    while (!__self.compare_exchange_weak(__old, __new, __m, memory_order_relaxed)) __new = __minimum_num(__old, __operand);
+    return __old;
   }
 #  endif // _LIBCPP_STD_VER >= 26
 
@@ -612,6 +670,30 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr _Tp fetch_min(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept {
     return __fetch_min(*this, __op, __m);
   }
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_fmaximum(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { return __fetch_fmaximum(*this, __op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp fetch_fmaximum(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { return __fetch_fmaximum(*this, __op, __m); }
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_fminimum(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { return __fetch_fminimum(*this, __op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp fetch_fminimum(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { return __fetch_fminimum(*this, __op, __m); }
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_fmaximum_num(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { return __fetch_fmaximum_num(*this, __op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp fetch_fmaximum_num(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { return __fetch_fmaximum_num(*this, __op, __m); }
+  _LIBCPP_HIDE_FROM_ABI _Tp fetch_fminimum_num(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { return __fetch_fminimum_num(*this, __op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr _Tp fetch_fminimum_num(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { return __fetch_fminimum_num(*this, __op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_add(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { (void)fetch_add(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_add(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { (void)fetch_add(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_sub(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { (void)fetch_sub(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_sub(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { (void)fetch_sub(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_max(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { (void)fetch_max(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_max(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { (void)fetch_max(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_min(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { (void)fetch_min(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_min(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { (void)fetch_min(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_fmaximum(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { (void)fetch_fmaximum(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_fmaximum(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { (void)fetch_fmaximum(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_fminimum(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { (void)fetch_fminimum(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_fminimum(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { (void)fetch_fminimum(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_fmaximum_num(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { (void)fetch_fmaximum_num(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_fmaximum_num(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { (void)fetch_fmaximum_num(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI void store_fminimum_num(_Tp __op, memory_order __m = memory_order_seq_cst) volatile noexcept requires __base::is_always_lock_free { (void)fetch_fminimum_num(__op, __m); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_fminimum_num(_Tp __op, memory_order __m = memory_order_seq_cst) noexcept { (void)fetch_fminimum_num(__op, __m); }
 #  endif // _LIBCPP_STD_VER >= 26
 
   _LIBCPP_HIDE_FROM_ABI _Tp operator+=(_Tp __op) volatile noexcept
@@ -1069,6 +1151,26 @@ atomic_fetch_min_explicit(atomic<_Tp>* __o, typename atomic<_Tp>::value_type __o
 }
 
 #endif // _LIBCPP_STD_VER >= 26
+
+#if _LIBCPP_STD_VER >= 26
+#define _LIBCPP_ATOMIC_STORE_REDUCTION(_Name, _Type)                                                   \
+  template <class _Tp> _LIBCPP_HIDE_FROM_ABI void atomic_store_##_Name(volatile atomic<_Tp>* __o, _Type __op) _NOEXCEPT { (void)__o->store_##_Name(__op); } \
+  template <class _Tp> _LIBCPP_HIDE_FROM_ABI constexpr void atomic_store_##_Name(atomic<_Tp>* __o, _Type __op) _NOEXCEPT { (void)__o->store_##_Name(__op); } \
+  template <class _Tp> _LIBCPP_HIDE_FROM_ABI void atomic_store_##_Name##_explicit(volatile atomic<_Tp>* __o, _Type __op, memory_order __m) _NOEXCEPT { (void)__o->store_##_Name(__op, __m); } \
+  template <class _Tp> _LIBCPP_HIDE_FROM_ABI constexpr void atomic_store_##_Name##_explicit(atomic<_Tp>* __o, _Type __op, memory_order __m) _NOEXCEPT { (void)__o->store_##_Name(__op, __m); }
+_LIBCPP_ATOMIC_STORE_REDUCTION(add, typename atomic<_Tp>::difference_type)
+_LIBCPP_ATOMIC_STORE_REDUCTION(sub, typename atomic<_Tp>::difference_type)
+_LIBCPP_ATOMIC_STORE_REDUCTION(and, typename atomic<_Tp>::value_type)
+_LIBCPP_ATOMIC_STORE_REDUCTION(or, typename atomic<_Tp>::value_type)
+_LIBCPP_ATOMIC_STORE_REDUCTION(xor, typename atomic<_Tp>::value_type)
+_LIBCPP_ATOMIC_STORE_REDUCTION(max, typename atomic<_Tp>::value_type)
+_LIBCPP_ATOMIC_STORE_REDUCTION(min, typename atomic<_Tp>::value_type)
+_LIBCPP_ATOMIC_STORE_REDUCTION(fmaximum, typename atomic<_Tp>::value_type)
+_LIBCPP_ATOMIC_STORE_REDUCTION(fminimum, typename atomic<_Tp>::value_type)
+_LIBCPP_ATOMIC_STORE_REDUCTION(fmaximum_num, typename atomic<_Tp>::value_type)
+_LIBCPP_ATOMIC_STORE_REDUCTION(fminimum_num, typename atomic<_Tp>::value_type)
+#undef _LIBCPP_ATOMIC_STORE_REDUCTION
+#endif
 
 _LIBCPP_END_NAMESPACE_STD
 

@@ -555,6 +555,13 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
     }
     return __atomic_fetch_min(this->__ptr_, __arg, std::__to_gcc_order(__order));
   }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_add(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_add(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_sub(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_sub(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_and(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_and(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_or(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_or(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_xor(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_xor(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_max(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_max(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_min(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_min(__arg, __order); }
 #  endif // _LIBCPP_STD_VER >= 26
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type operator++(int) const noexcept
@@ -689,6 +696,18 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
       return __a;
     return __b < __a ? __b : __a;
   }
+  _LIBCPP_HIDE_FROM_ABI static constexpr value_type __maximum(value_type __a, value_type __b) {
+    if (__builtin_isnan(__a)) return __a;
+    if (__builtin_isnan(__b)) return __b;
+    if (__a == value_type(0) && __b == value_type(0)) return __builtin_signbit(__a) ? __b : __a;
+    return __a < __b ? __b : __a;
+  }
+  _LIBCPP_HIDE_FROM_ABI static constexpr value_type __minimum(value_type __a, value_type __b) {
+    if (__builtin_isnan(__a)) return __a;
+    if (__builtin_isnan(__b)) return __b;
+    if (__a == value_type(0) && __b == value_type(0)) return __builtin_signbit(__a) ? __a : __b;
+    return __b < __a ? __b : __a;
+  }
 
   _LIBCPP_HIDE_FROM_ABI constexpr value_type
   fetch_max(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept
@@ -712,6 +731,30 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
     }
     return __old;
   }
+  _LIBCPP_HIDE_FROM_ABI constexpr value_type fetch_fmaximum(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) {
+    value_type __old = this->load(memory_order_relaxed); value_type __new = __maximum(__old, __arg);
+    while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) __new = __maximum(__old, __arg); return __old;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr value_type fetch_fminimum(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) {
+    value_type __old = this->load(memory_order_relaxed); value_type __new = __minimum(__old, __arg);
+    while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) __new = __minimum(__old, __arg); return __old;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr value_type fetch_fmaximum_num(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) {
+    value_type __old = this->load(memory_order_relaxed); value_type __new = __maximum_num(__old, __arg);
+    while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) __new = __maximum_num(__old, __arg); return __old;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr value_type fetch_fminimum_num(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) {
+    value_type __old = this->load(memory_order_relaxed); value_type __new = __minimum_num(__old, __arg);
+    while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) __new = __minimum_num(__old, __arg); return __old;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_add(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_add(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_sub(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_sub(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_max(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_max(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_min(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_min(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_fmaximum(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_fmaximum(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_fminimum(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_fminimum(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_fmaximum_num(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_fmaximum_num(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_fminimum_num(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_fminimum_num(__arg, __order); }
 #  endif // _LIBCPP_STD_VER >= 26
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type operator+=(value_type __arg) const noexcept
