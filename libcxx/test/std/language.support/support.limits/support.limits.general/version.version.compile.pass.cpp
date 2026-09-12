@@ -28,6 +28,10 @@
 #    error "__cpp_lib_addressof_constexpr should not be defined before c++17"
 #  endif
 
+#  ifdef __cpp_lib_algorithm_iterator_requirements
+#    error "__cpp_lib_algorithm_iterator_requirements should not be defined before c++23"
+#  endif
+
 #  ifdef __cpp_lib_aligned_accessor
 #    error "__cpp_lib_aligned_accessor should not be defined before c++26"
 #  endif
@@ -1096,6 +1100,10 @@
 
 #  ifdef __cpp_lib_addressof_constexpr
 #    error "__cpp_lib_addressof_constexpr should not be defined before c++17"
+#  endif
+
+#  ifdef __cpp_lib_algorithm_iterator_requirements
+#    error "__cpp_lib_algorithm_iterator_requirements should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_aligned_accessor
@@ -2241,6 +2249,10 @@
 #  endif
 #  if __cpp_lib_addressof_constexpr != 201603L
 #    error "__cpp_lib_addressof_constexpr should have the value 201603L in c++17"
+#  endif
+
+#  ifdef __cpp_lib_algorithm_iterator_requirements
+#    error "__cpp_lib_algorithm_iterator_requirements should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_aligned_accessor
@@ -3569,6 +3581,10 @@
 #  endif
 #  if __cpp_lib_addressof_constexpr != 201603L
 #    error "__cpp_lib_addressof_constexpr should have the value 201603L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_algorithm_iterator_requirements
+#    error "__cpp_lib_algorithm_iterator_requirements should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_aligned_accessor
@@ -5164,6 +5180,13 @@
 #  endif
 #  if __cpp_lib_addressof_constexpr != 201603L
 #    error "__cpp_lib_addressof_constexpr should have the value 201603L in c++23"
+#  endif
+
+#  ifndef __cpp_lib_algorithm_iterator_requirements
+#    error "__cpp_lib_algorithm_iterator_requirements should be defined in c++23"
+#  endif
+#  if __cpp_lib_algorithm_iterator_requirements != 202207L
+#    error "__cpp_lib_algorithm_iterator_requirements should have the value 202207L in c++23"
 #  endif
 
 #  ifdef __cpp_lib_aligned_accessor
@@ -6957,6 +6980,13 @@
 #  endif
 #  if __cpp_lib_addressof_constexpr != 201603L
 #    error "__cpp_lib_addressof_constexpr should have the value 201603L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_algorithm_iterator_requirements
+#    error "__cpp_lib_algorithm_iterator_requirements should be defined in c++26"
+#  endif
+#  if __cpp_lib_algorithm_iterator_requirements != 202207L
+#    error "__cpp_lib_algorithm_iterator_requirements should have the value 202207L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_aligned_accessor

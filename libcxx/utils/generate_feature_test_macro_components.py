@@ -99,6 +99,11 @@ feature_test_macros = [
             "headers": ["memory"],
         },
         {
+            "name": "__cpp_lib_algorithm_iterator_requirements",
+            "values": {"c++23": 202207},  # P2408R5 Ranges iterators as inputs to non-Ranges algorithms
+            "headers": ["algorithm", "memory", "numeric"],
+        },
+        {
             "name": "__cpp_lib_aligned_accessor",
             "values": {"c++26": 202411},
             "headers": ["mdspan"],
