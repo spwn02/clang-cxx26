@@ -102,7 +102,7 @@
 "`P2602R2 <https://wg21.link/P2602R2>`__","Poison Pills are Too Toxic","2022-11 (Kona)","|Complete|","19","`#105246 <https://github.com/llvm/llvm-project/issues/105246>`__","Implemented as a DR in C++20."
 "`P2708R1 <https://wg21.link/P2708R1>`__","No Further Fundamentals TSes","2022-11 (Kona)","|Nothing To Do|","","`#105247 <https://github.com/llvm/llvm-project/issues/105247>`__",""
 "","","","","","",""
-"`P0290R4 <https://wg21.link/P0290R4>`__","``apply()`` for ``synchronized_value<T>``","2023-02 (Issaquah)","","","`#105249 <https://github.com/llvm/llvm-project/issues/105249>`__",""
+"`P0290R4 <https://wg21.link/P0290R4>`__","``apply()`` for ``synchronized_value<T>``","2023-02 (Issaquah)","|Nothing To Do|","","`#105249 <https://github.com/llvm/llvm-project/issues/105249>`__","Targets Concurrency TS v2 only (verified against the paper itself), not the C++ IS -- not a mandatory-library gap."
 "`P2770R0 <https://wg21.link/P2770R0>`__","Stashing stashing ``iterators`` for proper flattening","2023-02 (Issaquah)","|Complete|","21","`#105250 <https://github.com/llvm/llvm-project/issues/105250>`__",""
 "`P2164R9 <https://wg21.link/P2164R9>`__","``views::enumerate``","2023-02 (Issaquah)","","","`#105251 <https://github.com/llvm/llvm-project/issues/105251>`__",""
 "`P2711R1 <https://wg21.link/P2711R1>`__","Making multi-param constructors of ``views`` ``explicit``","2023-02 (Issaquah)","|Complete|","21","`#105252 <https://github.com/llvm/llvm-project/issues/105252>`__",""
