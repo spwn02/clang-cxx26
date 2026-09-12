@@ -32,9 +32,9 @@ bad_weak_ptr::~bad_weak_ptr() noexcept {}
 
 const char* bad_weak_ptr::what() const noexcept { return "bad_weak_ptr"; }
 
-__shared_count::~__shared_count() {}
-
-__shared_weak_count::~__shared_weak_count() {}
+// __shared_count::~__shared_count() and __shared_weak_count::~__shared_weak_count()
+// are now defined inline in __memory/shared_count.h (needed for constexpr
+// support since C++26) -- defining them again here would be an ODR violation.
 
 #if defined(_LIBCPP_SHARED_PTR_DEFINE_LEGACY_INLINE_FUNCTIONS)
 void __shared_count::__add_shared() noexcept { __libcpp_atomic_refcount_increment(__shared_owners_); }
