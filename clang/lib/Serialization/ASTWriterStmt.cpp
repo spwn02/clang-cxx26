@@ -924,9 +924,26 @@ void ASTStmtWriter::VisitDeclRefExpr(DeclRefExpr *E) {
 
   DeclarationName::NameKind nk = (E->getDecl()->getDeclName().getNameKind());
 
+  // EXPR_DECL_REF's abbreviation packs HadMultipleCandidates,
+  // RefersToEnclosingVariableOrCapture, and NonOdrUseReason into a fixed
+  // 4-bit field, on the assumption that GetDeclFound/HasQualifier/
+  // ExplicitTemplateArgs (checked below) are always 0 when this fast path is
+  // taken. IsConstified and IsInContractContext are packed into the same
+  // running bitfield (see above) but were never added to that assumption or
+  // to the abbreviation's bit width -- so whenever either is true (e.g. any
+  // DeclRefExpr inside a contract condition, which sets
+  // isInContractContext() unconditionally), the packed value overflows the
+  // 4-bit field and trips BitstreamWriter's "High bits set!" assertion while
+  // writing a C++20 named module's .pcm (a plain single-TU compile never hits
+  // this, since it doesn't serialize an AST to a bitstream at all). Excluding
+  // both from the fast path, like the other three flags already are, keeps
+  // the abbreviation's bit-packing assumption true and falls back to the
+  // general (unabbreviated) DeclRefExpr encoding instead, which has room for
+  // the full packed value.
   if ((!E->hasTemplateKWAndArgsInfo()) && (!E->hasQualifier()) &&
       (E->getDecl() == E->getFoundDecl()) &&
-      nk == DeclarationName::Identifier && E->getObjectKind() == OK_Ordinary) {
+      nk == DeclarationName::Identifier && E->getObjectKind() == OK_Ordinary &&
+      !E->isConstified() && !E->isInContractContext()) {
     AbbrevToUse = Writer.getDeclRefExprAbbrev();
   }
 
