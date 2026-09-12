@@ -80,6 +80,20 @@ using _IotaDiffT _LIBCPP_NODEBUG =
                   type_identity<iter_difference_t<_Start>>,
                   __get_wider_signed<_Start> >::type;
 
+// Equivalent to `std::__to_unsigned_like(-__value)`, but without ever forming `-__value` as a
+// (possibly UB-triggering, for the most-negative representable value) signed computation. Negates
+// in the unsigned domain instead, where it's well-defined modular arithmetic, after first widening
+// `__value` to whatever type unary `-` would naturally promote it to -- this keeps the result's
+// type and value identical to `std::__to_unsigned_like(-__value)` for every input that wouldn't
+// already have been undefined behavior (in particular, this matters for integer-like types
+// narrower than `int`, like `short`, where skipping the widening step would leave the final result
+// incorrectly signed and incorrectly valued -- see LWG3614's discussion).
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI constexpr auto __negate_to_unsigned_like(_Tp __value) {
+  using _Promoted = decltype(-__value);
+  return -std::__to_unsigned_like(static_cast<_Promoted>(__value));
+}
+
 template <class _Iter>
 concept __decrementable = incrementable<_Iter> && requires(_Iter __i) {
   { --__i } -> same_as<_Iter&>;
@@ -360,10 +374,15 @@ public:
             (integral<_Start> && integral<_BoundSentinel>) || sized_sentinel_for<_BoundSentinel, _Start>
   {
     if constexpr (__integer_like<_Start> && __integer_like<_BoundSentinel>) {
+      // LWG3614: negating __value_/__bound_sentinel_ directly (as this used to do) is
+      // undefined behavior when either is the most-negative representable value of
+      // its type (e.g. INT_MIN). __negate_to_unsigned_like avoids ever forming that
+      // signed negation while still producing the exact same type and value for
+      // every input that wasn't already undefined behavior.
       return (__value_ < 0)
                ? ((__bound_sentinel_ < 0)
-                      ? std::__to_unsigned_like(-__value_) - std::__to_unsigned_like(-__bound_sentinel_)
-                      : std::__to_unsigned_like(__bound_sentinel_) + std::__to_unsigned_like(-__value_))
+                      ? ranges::__negate_to_unsigned_like(__value_) - ranges::__negate_to_unsigned_like(__bound_sentinel_)
+                      : std::__to_unsigned_like(__bound_sentinel_) + ranges::__negate_to_unsigned_like(__value_))
                : std::__to_unsigned_like(__bound_sentinel_) - std::__to_unsigned_like(__value_);
     } else {
       return std::__to_unsigned_like(__bound_sentinel_ - __value_);

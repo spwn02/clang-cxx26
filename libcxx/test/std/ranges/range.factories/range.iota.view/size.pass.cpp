@@ -34,17 +34,29 @@ constexpr bool test() {
     const std::ranges::iota_view<int, int> io(-10, 10);
     assert(io.size() == 20);
   }
+  // LWG3614: negating the most-negative representable value of an integer-like type
+  // (as the pre-LWG3614 formula did) is undefined behavior. Fixed via
+  // ranges::__negate_to_unsigned_like, which negates in the unsigned domain instead.
   {
-// TODO: this is invalid with the current implementation. We need to file an LWG issue to
-// fix this. Essentially the issue is: An int's min and max are -2147483648 and 2147483647
-// which means the negated min cannot be represented as an integer; it needs to be cast to
-// an unsigned type first. That seems to be what the
-// to-unsigned-like(bound_) + to-unsigned-like(-value_))
-// part of https://eel.is/c++draft/range.iota#view-15 is doing, but I think it's doing it
-// wrong. It should be to-unsigned-like(bound_) - to-unsigned-like(value_)) (cast to
-// unsigned first).
-//     const std::ranges::iota_view<int, int> io(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
-//     assert(io.size() == (static_cast<unsigned>(std::numeric_limits<int>::max()) * 2) + 1);
+    const std::ranges::iota_view<int, int> io(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
+    assert(io.size() == (static_cast<unsigned>(std::numeric_limits<int>::max()) * 2u) + 1u);
+  }
+  {
+    const std::ranges::iota_view<int, int> io(std::numeric_limits<int>::min(), 0);
+    assert(io.size() == static_cast<unsigned>(std::numeric_limits<int>::max()) + 1u);
+  }
+  {
+    const std::ranges::iota_view<int, int> io(
+        std::numeric_limits<int>::min(), std::numeric_limits<int>::min() + 5);
+    assert(io.size() == 5);
+  }
+  // Regression check for narrow integer-like types (P2278R4/LWG3614 fix interaction):
+  // the negation helper must preserve the same promoted-to-unsigned result type and
+  // value that the naive (but UB-prone) formulation produced for in-range inputs.
+  {
+    const std::ranges::iota_view<short, short> io(short(-10), short(-5));
+    std::same_as<unsigned int> auto sz = io.size();
+    assert(sz == 5);
   }
 
   // It is UB for "bound_" to be less than "value_" i.e.: iota_view<int, int> io(10, -5).
