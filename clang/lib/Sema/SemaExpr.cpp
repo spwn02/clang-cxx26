@@ -18164,6 +18164,19 @@ static bool exprReferencesDecl(Expr *E, const Decl *Target) {
   return Visitor.Found;
 }
 
+/// A default-initialized class object has no spelling that could refer to the
+/// VarDecl being initialized.  Nevertheless, its CXXConstructExpr is the
+/// initializer of that object, so an immediate constructor that fails while
+/// constructing it needs the same candidate treatment as a syntactically
+/// self-referential immediate call.
+static bool exprConstructsDecl(Expr *E, const Decl *Target) {
+  const auto *VD = dyn_cast<VarDecl>(Target);
+  const auto *Construct = dyn_cast<CXXConstructExpr>(E->IgnoreImplicit());
+  return VD && Construct &&
+         VD->getType().getCanonicalType() ==
+             Construct->getType().getCanonicalType();
+}
+
 ExprResult Sema::CheckForImmediateInvocation(ExprResult E, FunctionDecl *Decl) {
   if (isUnevaluatedContext() || !E.isUsable() || !Decl ||
       !Decl->isImmediateFunction() ||
@@ -18195,7 +18208,8 @@ ExprResult Sema::CheckForImmediateInvocation(ExprResult E, FunctionDecl *Decl) {
   bool IsSelfReferential =
       CurCtx.IsSynthesizedConstexprVarInitContext &&
       CurCtx.ManglingContextDecl &&
-      exprReferencesDecl(E.get(), CurCtx.ManglingContextDecl);
+      (exprReferencesDecl(E.get(), CurCtx.ManglingContextDecl) ||
+       exprConstructsDecl(E.get(), CurCtx.ManglingContextDecl));
   bool GenuinelyAlwaysConstantEvaluated =
       (CurCtx.Context == ExpressionEvaluationContext::ConstantEvaluated ||
        isConstantEvaluatedOverride ||
@@ -18781,31 +18795,12 @@ static void RemoveNestedImmediateInvocation(
 // coincidental fixes); (c) a broad ~4000-test sweep across
 // clang/test/{SemaCXX,SemaTemplate,AST,Modules,CXX} showing exactly the same
 // 5 known failures as clean HEAD, byte-for-byte, nothing more and nothing
-// less. NOT yet a full fix -- known remaining gaps, still open for a future
-// attempt:
-//   - The NSDMI sub-case in builtin-is-within-lifetime.cpp
-//     (`constexpr struct NSDMI { bool a = true; bool b =
-//     __builtin_is_within_lifetime(&a); } x2;`) is NOT fixed: the failing
-//     call here is nested inside the implicit constructor's own evaluation,
-//     and it's the CONSTRUCTOR CALL (not the inner builtin call) that is the
-//     top-level candidate in `x2`'s synthesized EK_VariableInit context --
-//     that candidate does not itself reference `x2` (the field `a` it
-//     touches belongs to the object under construction, not to the outer
-//     VarDecl), so the self-reference test in CheckForImmediateInvocation
-//     does not identify it. Widening the syntactic self-reference test (to
-//     look inside CXXConstructExpr, to field accesses, etc.) was
-//     considered and rejected: m5-p2996-batch1.verify.cpp's r3 case is
-//     STRUCTURALLY IDENTICAL to the fixed self.cpp case (a top-level call to
-//     a consteval function that fails constant evaluation, IS the entire
-//     initializer) yet must NOT get the duplicate diagnostic -- so no static
-//     syntactic property of the call expression distinguishes the two; the
-//     real distinguishing signal is almost certainly "did the ordinary
-//     whole-initializer evaluation already report this exact failure",
-//     which points at duplicate-error suppression keyed off
-//     FailedImmediateInvocations or similar in
-//     EvaluateAndDiagnoseImmediateInvocation, not at a better predicate in
-//     CheckForImmediateInvocation. This is the concrete next step for
-//     builtin-is-within-lifetime.cpp.
+// less. The remaining NSDMI sub-case in builtin-is-within-lifetime.cpp has
+// the same semantic relationship without a DeclRefExpr: its top-level
+// CXXConstructExpr constructs the VarDecl currently being initialized.
+// Treating that direct construction as self-referential registers the
+// immediate constructor candidate, while ordinary function-call initializers
+// (including m5-p2996-batch1.verify.cpp's r3) retain the normal bailout.
 //   - constant-expression-cxx11.cpp's remaining failure (line 2015,
 //     `constexpr int &n = n;` inside a function body) is a genuinely
 //     SEPARATE, pre-existing bug unrelated to this comment's immediate-
