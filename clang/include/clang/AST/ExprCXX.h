@@ -68,6 +68,7 @@ class ASTContext;
 class DeclAccessPair;
 class IdentifierInfo;
 class LambdaCapture;
+class MetaActions;
 class NonTypeTemplateParmDecl;
 class TemplateParameterList;
 
@@ -5605,11 +5606,15 @@ public:
   using DiagnoseFn = std::function<PartialDiagnostic &(SourceLocation,
                                                        unsigned)>;
 
+  // Type of callback provided to turn a metafunction-owned failure into a
+  // pending std::meta::exception in the current evaluation.
+  using ThrowFn = std::function<bool(SourceLocation, StringRef, MetaActions &)>;
+
   // Type of callback used to evaluate the metafunction during constant
   // evaluation. This will be a lambda with the bound 'Sema' object.
-  using ImplFn = std::function<bool(APValue &, EvaluateFn, DiagnoseFn, bool,
-                                    QualType, SourceRange, ArrayRef<Expr *>,
-                                    Decl *ContainingDecl)>;
+  using ImplFn = std::function<bool(APValue &, EvaluateFn, DiagnoseFn, ThrowFn,
+                                    bool, QualType, SourceRange,
+                                    ArrayRef<Expr *>, Decl *ContainingDecl)>;
 
 private:
 

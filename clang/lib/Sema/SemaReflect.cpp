@@ -23,6 +23,7 @@
 #include "clang/AST/Type.h"
 #include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Basic/DiagnosticSema.h"
+#include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/ParsedAttr.h"
@@ -182,6 +183,7 @@ APValue MaybeUnproxy(ASTContext &C, APValue RV) {
 
 class MetaActionsImpl : public MetaActions {
   Sema &S;
+  ThrowCallback Throw;
 
   void populateTemplateArgumentListInfo(TemplateArgumentListInfo &TAListInfo,
                                         ArrayRef<TemplateArgument> TArgs,
@@ -202,6 +204,42 @@ class MetaActionsImpl : public MetaActions {
 
 public:
   MetaActionsImpl(Sema &S) : MetaActions(), S(S) { }
+
+  void SetThrowCallback(ThrowCallback Callback) override {
+    Throw = std::move(Callback);
+  }
+
+  bool ThrowMetaException(SourceLocation Loc, llvm::StringRef Message) override {
+    assert(Throw && "metafunction throw callback not installed");
+    return Throw(Loc, Message, *this);
+  }
+
+  Expr *SynthesizeMetaExceptionCall(Expr *From) override {
+    NamespaceDecl *Std = S.getStdNamespace();
+    if (!Std)
+      return nullptr;
+
+    LookupResult MetaLookup(S, &S.PP.getIdentifierTable().get("meta"),
+                            From->getExprLoc(), Sema::LookupNamespaceName);
+    if (!S.LookupQualifiedName(MetaLookup, Std))
+      return nullptr;
+    auto *Meta = MetaLookup.getAsSingle<NamespaceDecl>();
+    if (!Meta)
+      return nullptr;
+
+    LookupResult FactoryLookup(
+        S, &S.PP.getIdentifierTable().get("__make_exception"),
+        From->getExprLoc(), Sema::LookupOrdinaryName);
+    if (!S.LookupQualifiedName(FactoryLookup, Meta))
+      return nullptr;
+    auto *Factory = FactoryLookup.getAsSingle<FunctionDecl>();
+    if (!Factory)
+      return nullptr;
+
+    Expr *FactoryRef = CreateRefToDecl(S, Factory, From->getExprLoc());
+    SmallVector<Expr *, 1> Args{From};
+    return SynthesizeCallExpr(FactoryRef, Args);
+  }
 
   Decl *CurrentCtx() const override {
     return cast<Decl>(S.CurContext);
@@ -1264,13 +1302,14 @@ const CXXMetafunctionExpr::ImplFn &Sema::getMetafunctionCb(unsigned FnID) {
             [this, Metafn](APValue &Result,
                            CXXMetafunctionExpr::EvaluateFn EvalFn,
                            CXXMetafunctionExpr::DiagnoseFn DiagFn,
+                           CXXMetafunctionExpr::ThrowFn ThrowFn,
                            bool AllowInjection, QualType ResultTy,
                            SourceRange Range, ArrayRef<Expr *> Args,
                            Decl *ContainingDecl) -> bool {
               MetaActionsImpl Actions(*this);
               return Metafn->evaluate(Result, Context, Actions, EvalFn, DiagFn,
-                                      AllowInjection, ResultTy, Range, Args,
-                                      ContainingDecl);
+                                      ThrowFn, AllowInjection, ResultTy, Range,
+                                      Args, ContainingDecl);
             }));
     ImplIt = MetafunctionImplCbs.try_emplace(FnID, std::move(MetafnImpl)).first;
   }

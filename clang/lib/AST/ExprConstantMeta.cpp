@@ -863,10 +863,10 @@ static constexpr Metafunction Metafunctions[] = {
   // non-exposed metafunctions
   { Metafunction::MFRK_metaInfo, 2, 2, get_begin_enumerator_decl_of },
   { Metafunction::MFRK_metaInfo, 2, 2, get_next_enumerator_decl_of },
-  { Metafunction::MFRK_metaInfo, 3, 3, get_ith_base_of },
+  { Metafunction::MFRK_metaInfo, 4, 4, get_ith_base_of, true },
   { Metafunction::MFRK_metaInfo, 3, 3, get_ith_template_argument_of },
-  { Metafunction::MFRK_metaInfo, 2, 2, get_begin_member_decl_of },
-  { Metafunction::MFRK_metaInfo, 2, 2, get_next_member_decl_of },
+  { Metafunction::MFRK_metaInfo, 3, 3, get_begin_member_decl_of, true },
+  { Metafunction::MFRK_metaInfo, 3, 3, get_next_member_decl_of, true },
   { Metafunction::MFRK_bool, 1, 1, is_structural_type },
   { Metafunction::MFRK_metaInfo, 1, 1, map_decl_to_entity },
   { Metafunction::MFRK_bool, 1, 1, is_unscoped_attribute },
@@ -875,20 +875,20 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 1, 1, is_gcc_attribute },
 
   // exposed metafunctions
-  { Metafunction::MFRK_spliceFromArg, 4, 4, identifier_of },
+  { Metafunction::MFRK_spliceFromArg, 5, 5, identifier_of, true },
   { Metafunction::MFRK_bool, 1, 1, has_identifier },
   { Metafunction::MFRK_sizeT, 1, 1, operator_of },
   { Metafunction::MFRK_sourceLoc, 1, 1, source_location_of },
-  { Metafunction::MFRK_metaInfo, 1, 1, type_of },
-  { Metafunction::MFRK_metaInfo, 1, 1, parent_of },
+  { Metafunction::MFRK_metaInfo, 2, 2, type_of, true },
+  { Metafunction::MFRK_metaInfo, 2, 2, parent_of, true },
   { Metafunction::MFRK_bool, 1, 1, has_parent },
-  { Metafunction::MFRK_metaInfo, 1, 1, underlying_entity_of },
+  { Metafunction::MFRK_metaInfo, 2, 2, underlying_entity_of, true },
   { Metafunction::MFRK_metaInfo, 1, 1, proxied_entity_of },
-  { Metafunction::MFRK_metaInfo, 1, 1, object_of },
-  { Metafunction::MFRK_metaInfo, 1, 1, constant_of },
+  { Metafunction::MFRK_metaInfo, 2, 2, object_of, true },
+  { Metafunction::MFRK_metaInfo, 2, 2, constant_of, true },
   { Metafunction::MFRK_metaInfo, 1, 1, template_of },
-  { Metafunction::MFRK_metaInfo, 4, 4, substitute },
-  { Metafunction::MFRK_spliceFromArg, 2, 2, extract },
+  { Metafunction::MFRK_metaInfo, 5, 5, substitute, true },
+  { Metafunction::MFRK_spliceFromArg, 3, 3, extract, true },
   { Metafunction::MFRK_bool, 1, 1, is_public },
   { Metafunction::MFRK_bool, 1, 1, is_protected },
   { Metafunction::MFRK_bool, 1, 1, is_private },
@@ -958,8 +958,8 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 1, 1, is_special_member_function },
   { Metafunction::MFRK_bool, 1, 1, is_user_provided },
   { Metafunction::MFRK_bool, 1, 1, is_user_declared },
-  { Metafunction::MFRK_metaInfo, 2, 2, reflect_result },
-  { Metafunction::MFRK_metaInfo, 14, 14, data_member_spec },
+  { Metafunction::MFRK_metaInfo, 3, 3, reflect_result, true },
+  { Metafunction::MFRK_metaInfo, 15, 15, data_member_spec, true },
   { Metafunction::MFRK_metaInfo, 8, 8, enumerator_spec },
   { Metafunction::MFRK_bool, 1, 1, is_enumerator_spec },
   { Metafunction::MFRK_metaInfo, 3, 3, define_aggregate },
@@ -972,16 +972,16 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 1, 1, has_c_language_linkage },
 
   // P3096 metafunction extensions
-  { Metafunction::MFRK_metaInfo, 3, 3, get_ith_parameter_of },
+  { Metafunction::MFRK_metaInfo, 4, 4, get_ith_parameter_of, true },
   { Metafunction::MFRK_bool, 1, 1, has_ellipsis_parameter },
   { Metafunction::MFRK_bool, 1, 1, has_default_argument },
   { Metafunction::MFRK_bool, 1, 1, is_explicit_object_parameter },
   { Metafunction::MFRK_bool, 1, 1, is_function_parameter },
-  { Metafunction::MFRK_metaInfo, 1, 1, return_type_of },
-  { Metafunction::MFRK_metaInfo, 1, 1, variable_of },
+  { Metafunction::MFRK_metaInfo, 2, 2, return_type_of, true },
+  { Metafunction::MFRK_metaInfo, 2, 2, variable_of, true },
 
   // P3394 annotation metafunction extensions
-  { Metafunction::MFRK_metaInfo, 3, 3, get_ith_annotation_of },
+  { Metafunction::MFRK_metaInfo, 4, 4, get_ith_annotation_of, true },
   { Metafunction::MFRK_bool, 1, 1, is_annotation },
   { Metafunction::MFRK_metaInfo, 2, 2, annotate },
 
@@ -998,7 +998,7 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_metaInfo, 0, 0, current_function },
   { Metafunction::MFRK_metaInfo, 0, 0, current_class },
   { Metafunction::MFRK_metaInfo, 0, 0, current_namespace },
-  { Metafunction::MFRK_bool, 3, 3, is_accessible },
+  { Metafunction::MFRK_bool, 4, 4, is_accessible, true },
 
   // Other bespoke functions (not proposed at this time)
   { Metafunction::MFRK_bool, 1, 1, is_access_specified },
@@ -1020,11 +1020,23 @@ constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
 
 bool Metafunction::evaluate(APValue &Result, ASTContext &C,
                             MetaActions &Meta, EvalFn Evaluator,
-                            DiagFn Diagnoser, bool AllowInjection,
+                            DiagFn Diagnoser, ThrowFn Thrower,
+                            bool AllowInjection,
                             QualType ResultTy, SourceRange Range,
                             ArrayRef<Expr *> Args, Decl *ContainingDecl) const {
-  return ImplFn(Result, C, Meta, Evaluator, Diagnoser, AllowInjection, ResultTy,
-                Range, Args, ContainingDecl);
+  Meta.SetThrowCallback(std::move(Thrower));
+  bool OwnedFailure = false;
+  DiagFn OwnedDiagnoser = [&](SourceLocation Loc,
+                              unsigned DiagID) -> PartialDiagnostic & {
+    OwnedFailure = true;
+    return Diagnoser(Loc, DiagID);
+  };
+  bool Failed = ImplFn(Result, C, Meta, Evaluator, OwnedDiagnoser,
+                       AllowInjection, ResultTy, Range, Args, ContainingDecl);
+  if (Failed && Throws && OwnedFailure)
+    return Meta.ThrowMetaException(Range.getBegin(),
+                                   "invalid reflection operand");
+  return Failed;
 }
 
 bool Metafunction::Lookup(unsigned ID, const Metafunction *&result) {

@@ -506,6 +506,14 @@ public:
   consteval source_location where() const noexcept { return where_; }
 };
 
+// Compiler entry point for P3560R2 failures that originate inside a
+// metafunction rather than in library code.  Keeping construction here gives
+// the constant evaluator an ordinary, fully type-checked call expression to
+// evaluate; in particular, it must not synthesize a constructor AST by hand.
+_LIBCPP_HIDE_FROM_ABI consteval info __make_exception(info from) {
+  throw exception(u8"invalid reflection operand", from);
+}
+
 template <typename R>
 concept reflection_range =
   ranges::input_range<R> &&
@@ -678,7 +686,8 @@ enum : unsigned {
 consteval auto __workaround_expand_compiler_builtins(info type) -> info;
 
 consteval auto __underlying_entity_of(info r) -> info {
-  return __metafunction(detail::__metafn_underlying_entity_of, r);
+  return __metafunction(detail::__metafn_underlying_entity_of, r,
+                        ^^__underlying_entity_of);
 }
 
 }  // namespace detail
@@ -698,6 +707,7 @@ class iterator {
   // doing template_arguments_of(^^vector<int, double, string>)
   // m_currInfoItr can be either ^^int, ^^double and ^^string
   info m_currInfoItr{^^sentinel};
+  info m_from{};
 
   Map m_mapFn;
   size_t m_nextIndex {0};
@@ -714,9 +724,10 @@ public:
     , m_mapFn{}
   { }
 
-  consteval iterator(meta::info reflectedEntity)
+  consteval iterator(meta::info reflectedEntity, meta::info from = {})
     : m_reflectedEntity{reflectedEntity}
-    , m_currInfoItr{m_front(reflectedEntity)}
+    , m_currInfoItr{m_front(reflectedEntity, from)}
+    , m_from{from}
     , m_nextIndex{1} // after we fetch the front, next index is 1
   { }
 
@@ -726,7 +737,8 @@ public:
 
   // pre-incr ++itr;
   consteval iterator& operator++() {
-    m_currInfoItr = m_next(m_currInfoItr, m_reflectedEntity, m_nextIndex++);
+    m_currInfoItr = m_next(m_currInfoItr, m_reflectedEntity, m_nextIndex++,
+                           m_from);
     return *this;
   }
 
@@ -754,8 +766,8 @@ class range {
 public:
   using iterator = Iter;
 
-  consteval range(info reflection)
-    : m_first(reflection), m_last()
+  consteval range(info reflection, info from = {})
+    : m_first(reflection, from), m_last()
   { }
 
   consteval iterator begin() const
@@ -785,16 +797,16 @@ consteval ptrdiff_t distance(iterator<Front, Next, Map> first,
 
 constexpr struct next_member_of_fn {
   consteval info operator()(info currItrInfo, auto /* reflectedEntity */,
-                            auto /* idx */) const {
+                            auto /* idx */, info from) const {
     return __metafunction(detail::__metafn_get_next_member_decl_of, currItrInfo,
-                          ^^sentinel);
+                          ^^sentinel, from);
   }
 } next_member;
 
 constexpr struct front_member_of_fn {
-  consteval info operator()(info reflectedEntity) const {
+  consteval info operator()(info reflectedEntity, info from) const {
     return __metafunction(detail::__metafn_get_begin_member_decl_of,
-                          reflectedEntity, ^^sentinel);
+                          reflectedEntity, ^^sentinel, from);
   }
 } front_member;
 
@@ -812,14 +824,14 @@ constexpr struct map_identity_fn {
 
 constexpr struct next_targ_fn {
   consteval info operator()(auto /* currItrInfo */, info reflectedEntity,
-                            size_t idx) const {
+                            size_t idx, info) const {
     return __metafunction(detail::__metafn_get_ith_template_argument_of,
                           reflectedEntity, ^^sentinel, idx);
   }
 } next_targ;
 
 constexpr struct front_targ_fn {
-  consteval info operator()(info reflectedEntity) const {
+  consteval info operator()(info reflectedEntity, info) const {
     return __metafunction(detail::__metafn_get_ith_template_argument_of,
                           reflectedEntity, ^^sentinel, 0);
   }
@@ -827,22 +839,22 @@ constexpr struct front_targ_fn {
 
 constexpr struct next_base_of_fn {
   consteval info operator()(auto /* currItrInfo */, info reflectedEntity,
-                            size_t idx) const {
+                            size_t idx, info from) const {
     return __metafunction(detail::__metafn_get_ith_base_of,
-                          reflectedEntity, ^^sentinel, idx);
+                          reflectedEntity, ^^sentinel, idx, from);
   }
 } next_base;
 
 constexpr struct front_base_of_fn {
-  consteval info operator()(info reflectedEntity) const {
+  consteval info operator()(info reflectedEntity, info from) const {
     return __metafunction(detail::__metafn_get_ith_base_of,
-                          reflectedEntity, ^^sentinel, 0);
+                          reflectedEntity, ^^sentinel, 0, from);
   }
 } front_base;
 
 constexpr struct next_enumerator_of_fn {
   consteval info operator()(info currItrInfo, auto /* reflectedEntity */,
-                            auto /* idx */ ) const {
+                            auto /* idx */, info) const {
 
     return __metafunction(detail::__metafn_get_get_next_enumerator_decl_of,
                           currItrInfo, ^^sentinel);
@@ -850,7 +862,7 @@ constexpr struct next_enumerator_of_fn {
 } next_enumerator;
 
 constexpr struct front_enumerator_of_fn {
-  consteval info operator()(info reflectedEntity) const {
+  consteval info operator()(info reflectedEntity, info) const {
     return __metafunction(detail::__metafn_get_begin_enumerator_decl_of,
                           reflectedEntity, ^^sentinel);
   }
@@ -860,16 +872,16 @@ constexpr struct front_enumerator_of_fn {
 
 struct next_parameter_of_fn {
   consteval info operator()(auto /* currItrInfo */, info reflectedEntity,
-                            size_t idx) const {
+                            size_t idx, info from) const {
     return __metafunction(detail::__metafn_get_ith_parameter_of,
-                          reflectedEntity, ^^sentinel, idx);
+                          reflectedEntity, ^^sentinel, idx, from);
   }
 };
 
 struct front_parameter_of_fn {
-  consteval info operator()(info reflectedEntity) const {
+  consteval info operator()(info reflectedEntity, info from) const {
     return __metafunction(detail::__metafn_get_ith_parameter_of,
-                          reflectedEntity, ^^sentinel, 0);
+                          reflectedEntity, ^^sentinel, 0, from);
   }
 };
 
@@ -879,23 +891,23 @@ struct front_parameter_of_fn {
 
 struct next_annotation_of {
   consteval info operator()(auto /*currItrInfo */, info reflectedEntity,
-                            size_t idx) const {
+                            size_t idx, info from) const {
     return __metafunction(detail::__metafn_get_ith_annotation_of,
-                          reflectedEntity, ^^sentinel, idx);
+                          reflectedEntity, ^^sentinel, idx, from);
   }
 };
 
 struct front_annotation_of {
-  consteval info operator()(info reflectedEntity) const {
+  consteval info operator()(info reflectedEntity, info from) const {
     return __metafunction(detail::__metafn_get_ith_annotation_of,
-                          reflectedEntity, ^^sentinel, 0);
+                          reflectedEntity, ^^sentinel, 0, from);
   }
 };
 
 #if __has_feature(attribute_reflection)
 
 struct front_attribute_of {
-  consteval info operator()(info reflectedEntity) const {
+  consteval info operator()(info reflectedEntity, info) const {
     return __metafunction(detail::__metafn_get_ith_attribute_of,
                           reflectedEntity, ^^sentinel, 0);
   }
@@ -903,7 +915,7 @@ struct front_attribute_of {
 
 struct next_attribute_of {
   consteval info operator()(auto /*currItrInfo */, info reflectedEntity,
-                            size_t idx) const {
+                            size_t idx, info) const {
     return __metafunction(detail::__metafn_get_ith_attribute_of,
                           reflectedEntity, ^^sentinel, idx);
   }
@@ -925,12 +937,13 @@ consteval auto is_operator_function_template(info) -> bool;
 [[deprecated("renamed to 'underlying_entity_of' in PXYZ")]]
 #endif
 consteval auto dealias(info r) -> info {
-  return __metafunction(detail::__metafn_underlying_entity_of, r);
+  return __metafunction(detail::__metafn_underlying_entity_of, r, ^^dealias);
 }
 
 #if __has_feature(entity_proxy_reflection)
 consteval auto underlying_entity_of(info r) -> info {
-  return __metafunction(detail::__metafn_underlying_entity_of, r);
+  return __metafunction(detail::__metafn_underlying_entity_of, r,
+                        ^^underlying_entity_of);
 }
 
 consteval auto proxied_entity_of(info r) -> info {
@@ -943,12 +956,14 @@ consteval auto proxied_entity_of(info r) -> info {
 // suffix for the literal operator.
 consteval auto identifier_of(info r) -> string_view {
   return __metafunction(detail::__metafn_identifier_of, ^^const char *, r,
-                        /*UTF8=*/false, /*EnforceConsistent=*/true);
+                        /*UTF8=*/false, /*EnforceConsistent=*/true,
+                        ^^identifier_of);
 }
 
 consteval auto u8identifier_of(info r) -> u8string_view {
   return __metafunction(detail::__metafn_identifier_of, ^^const char8_t *,
-                        r, /*UTF8=*/true, /*EnforceConsistent=*/true);
+                        r, /*UTF8=*/true, /*EnforceConsistent=*/true,
+                        ^^u8identifier_of);
 }
 
 // Returns an implementation-defined name for the reflected entity.
@@ -1014,12 +1029,12 @@ consteval auto source_location_of(info r) -> source_location {
 
 // Returns the type of the provided reflection of an expression.
 consteval auto type_of(info r) -> info {
-  return __metafunction(detail::__metafn_type_of, r);
+  return __metafunction(detail::__metafn_type_of, r, ^^type_of);
 }
 
 // Returns the containing class or namespace of a class or namespace member.
 consteval auto parent_of(info r) -> info {
-  return __metafunction(detail::__metafn_parent_of, r);
+  return __metafunction(detail::__metafn_parent_of, r, ^^parent_of);
 }
 
 // Returns whether the reflected entity has an associated parent.
@@ -1029,12 +1044,12 @@ consteval auto has_parent(info r) -> bool {
 
 // Returns a reflection of the object designated by the reflected entity.
 consteval auto object_of(info r) -> info {
-  return __metafunction(detail::__metafn_object_of, r);
+  return __metafunction(detail::__metafn_object_of, r, ^^object_of);
 }
 
 // Returns a reflection of the value evaluated from the reflected entity.
 consteval auto constant_of(info r) -> info {
-  return __metafunction(detail::__metafn_constant_of, r);
+  return __metafunction(detail::__metafn_constant_of, r, ^^constant_of);
 }
 
 // Returns a reflection of the template from which the reflected entity was
@@ -1093,11 +1108,12 @@ consteval auto can_substitute(info templ, R &&args) -> bool {
   info sub;
   if constexpr (ranges::contiguous_range<R>) {
     sub = __metafunction(detail::__metafn_substitute, templ,
-                         ranges::data(args), ranges::size(args), false);
+                         ranges::data(args), ranges::size(args), false,
+                         ^^can_substitute);
   } else {
     vector vargs(from_range, args);
     sub = __metafunction(detail::__metafn_substitute, templ,
-                         vargs.data(), vargs.size(), false);
+                         vargs.data(), vargs.size(), false, ^^can_substitute);
   }
   return sub != info{};
 }
@@ -1108,11 +1124,12 @@ template <reflection_range R = initializer_list<info>>
 consteval auto substitute(info templ, R &&args) -> info {
   if constexpr (ranges::contiguous_range<R>) {
     return __metafunction(detail::__metafn_substitute, templ,
-                          ranges::data(args), ranges::size(args), true);
+                          ranges::data(args), ranges::size(args), true,
+                          ^^substitute);
   } else {
     vector vargs(from_range, args);
     return __metafunction(detail::__metafn_substitute, templ, vargs.data(),
-                          vargs.size(), true);
+                          vargs.size(), true, ^^substitute);
   }
 }
 
@@ -1120,7 +1137,7 @@ consteval auto substitute(info templ, R &&args) -> info {
 // or object having type 'T'.
 template <typename Ty> requires (!is_rvalue_reference_v<Ty>)
 consteval auto extract(info r) -> Ty {
-  return __metafunction(detail::__metafn_extract, ^^Ty, r);
+  return __metafunction(detail::__metafn_extract, ^^Ty, r, ^^extract);
 }
 
 consteval auto is_class_type(info r) -> bool {
@@ -1219,7 +1236,8 @@ consteval auto is_accessible(info r, access_context ctx) -> bool {
     return true;
 
   return __metafunction(detail::__metafn_is_accessible,
-                        r, ctx.scope(), ctx.designating_class());
+                        r, ctx.scope(), ctx.designating_class(),
+                        ^^is_accessible);
 }
 
 template <class P>
@@ -1228,14 +1246,22 @@ consteval auto __filtered(vector<info> v, P pred) -> vector<info> {
   return v;
 }
 
-consteval auto members_of(info r, access_context ctx) -> vector<info> {
+consteval auto __members_of(info r, access_context ctx, info from) -> vector<info> {
   using iterator =
       __range_of_infos::iterator<__range_of_infos::front_member_of_fn,
                                  __range_of_infos::next_member_of_fn,
                                  __range_of_infos::map_decl_to_entity_fn>;
   using range = __range_of_infos::range<iterator>;
 
-  return __filtered(range(r).to_vec(), [=](info r) { return is_accessible(r, ctx); });
+  return __filtered(range(r, from).to_vec(),
+                    [=](info r) { return is_accessible(r, ctx); });
+}
+
+consteval auto members_of(info r, access_context ctx) -> vector<info> {
+  // The public name is overloaded, and this compiler cannot reflect an
+  // overload selected by a cast.  Use the unique implementation function as
+  // the closest stable source reflection for this overload.
+  return __members_of(r, ctx, ^^__members_of);
 }
 
 // Returns whether the reflected entity is a namespace.
@@ -1243,7 +1269,7 @@ consteval auto is_namespace(info r) -> bool {
   return __metafunction(detail::__metafn_is_namespace, r);
 }
 
-consteval auto bases_of(info r, access_context ctx) -> vector<info> {
+consteval auto __bases_of(info r, access_context ctx, info from) -> vector<info> {
   if (is_namespace(r))
     throw "Namespaces cannot have base classes";
 
@@ -1253,7 +1279,12 @@ consteval auto bases_of(info r, access_context ctx) -> vector<info> {
                                 __range_of_infos::map_identity_fn>;
   using range = __range_of_infos::range<iterator>;
 
-  return __filtered(range(r).to_vec(), [=](info r) { return is_accessible(r, ctx); });
+  return __filtered(range(r, from).to_vec(),
+                    [=](info r) { return is_accessible(r, ctx); });
+}
+
+consteval auto bases_of(info r, access_context ctx) -> vector<info> {
+  return __bases_of(r, ctx, ^^__bases_of);
 }
 
 // Returns whether the reflected entity is a variable.
@@ -1266,7 +1297,8 @@ consteval auto static_data_members_of(info r,
   if (is_namespace(r))
     throw "Namespaces cannot have static data members";
 
-  return __filtered(members_of(r, ctx), is_variable);
+  return __filtered(__members_of(r, ctx, ^^static_data_members_of),
+                    is_variable);
 }
 
 consteval auto nonstatic_data_members_of(info r,
@@ -1274,7 +1306,8 @@ consteval auto nonstatic_data_members_of(info r,
   if (is_namespace(r))
     throw "Namespaces cannot have non-static data members";
 
-  return __filtered(members_of(r, ctx), is_nonstatic_data_member);
+  return __filtered(__members_of(r, ctx, ^^nonstatic_data_members_of),
+                    is_nonstatic_data_member);
 }
 
 consteval auto subobjects_of(info r, access_context ctx) -> vector<info> {
@@ -1699,19 +1732,22 @@ consteval auto reflect_constant(const T (&r)[N]) -> info {
 template <typename T>
   requires (!is_reference_v<T> && is_structural_type(^^T))
 consteval auto reflect_constant(T r) -> info {
-  return __metafunction(detail::__metafn_reflect_result, ^^T, r);
+  return __metafunction(detail::__metafn_reflect_result, ^^T, r,
+                        ^^reflect_constant<T>);
 }
 
 // Returns a reflection of the object designated by the provided argument.
 template <typename T> requires (!is_function_v<remove_reference_t<T>>)
 consteval auto reflect_object(T &r) -> info {
-  return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r);
+  return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r,
+                        ^^reflect_object);
 }
 
 // Returns a reflection of the object designated by the provided argument.
 template <typename T> requires (is_function_v<remove_reference_t<T>>)
 consteval auto reflect_function(T &r) -> info {
-  return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r);
+  return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r,
+                        ^^reflect_function);
 }
 
 struct member_offset {
@@ -2328,7 +2364,7 @@ consteval auto parameters_of(info r) -> vector<info> {
                                 __range_of_infos::next_parameter_of_fn,
                                 __range_of_infos::map_identity_fn>;
   using range = __range_of_infos::range<iterator>;
-  auto rng = range{r};
+  auto rng = range{r, ^^parameters_of};
   return vector<info>{rng.begin(), rng.end()};
 }
 
@@ -2349,32 +2385,36 @@ consteval auto is_function_parameter(info r) -> bool {
 }
 
 consteval auto return_type_of(info r) -> info {
-  return __metafunction(detail::__metafn_return_type_of, r);
+  return __metafunction(detail::__metafn_return_type_of, r, ^^return_type_of);
 }
 
 consteval auto variable_of(info r) -> info {
-  return __metafunction(detail::__metafn_variable_of, r);
+  return __metafunction(detail::__metafn_variable_of, r, ^^variable_of);
 }
 
 #endif  // __has_feature(parameter_reflection)
 
 #if __has_feature(annotation_attributes)
 
-consteval auto annotations_of(info r) -> vector<info> {
+consteval auto __annotations_of(info r, info from) -> vector<info> {
   using iterator =
     __range_of_infos::iterator<__range_of_infos::front_annotation_of,
                                 __range_of_infos::next_annotation_of,
                                 __range_of_infos::map_identity_fn>;
   using range = __range_of_infos::range<iterator>;
-  auto rng = range{r};
+  auto rng = range{r, from};
   return vector<info>{rng.begin(), rng.end()};
+}
+
+consteval auto annotations_of(info r) -> vector<info> {
+  return __annotations_of(r, ^^annotations_of);
 }
 
 consteval auto annotations_of(info r, info ty) -> vector<info> {
   if (!is_type(ty))
     throw "Expected a reflection of a type";
 
-  return __filtered(annotations_of(r), [=](info annot) {
+  return __filtered(__annotations_of(r, ^^__annotations_of), [=](info annot) {
     return remove_const(type_of(annot)) == remove_const(ty);
   });
 }
@@ -2752,11 +2792,11 @@ consteval auto data_member_spec(info member_type,
                             no_unique_address,
                             options.annotations.size(), options.annotations.data(),
 #if __has_feature(attribute_reflection)
-                            options.attributes.size(), options.attributes.data()
+                            options.attributes.size(), options.attributes.data(),
 #else
-                            size_t(0), (const info *)nullptr
+                            size_t(0), (const info *)nullptr,
 #endif
-                            );
+                            ^^data_member_spec);
     } else {
       const string &s = options.name->s;
       return __metafunction(detail::__metafn_data_member_spec,
@@ -2767,11 +2807,11 @@ consteval auto data_member_spec(info member_type,
                             no_unique_address,
                             options.annotations.size(), options.annotations.data(),
 #if __has_feature(attribute_reflection)
-                            options.attributes.size(), options.attributes.data()
+                            options.attributes.size(), options.attributes.data(),
 #else
-                            size_t(0), (const info *)nullptr
+                            size_t(0), (const info *)nullptr,
 #endif
-                            );
+                            ^^data_member_spec);
     }
   } else {
     return __metafunction(detail::__metafn_data_member_spec,
@@ -2782,11 +2822,11 @@ consteval auto data_member_spec(info member_type,
       no_unique_address,
       options.annotations.size(), options.annotations.data(),
 #if __has_feature(attribute_reflection)
-      options.attributes.size(), options.attributes.data()
+      options.attributes.size(), options.attributes.data(),
 #else
-      size_t(0), (const info *)nullptr
+      size_t(0), (const info *)nullptr,
 #endif
-      );
+      ^^data_member_spec);
   }
 }
 
@@ -2819,7 +2859,7 @@ consteval auto reflect_result(Ty r) -> info {
 
   return __metafunction(detail::__metafn_reflect_result,
                         detail::__underlying_entity_of(RTy),
-                        static_cast<typename [:DTy:]>(r));
+                        static_cast<typename [:DTy:]>(r), ^^reflect_result);
 }
 
 template <typename T>

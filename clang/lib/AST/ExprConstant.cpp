@@ -47,6 +47,7 @@
 #include "clang/AST/CurrentSourceLocExprScope.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/InferAlloc.h"
+#include "clang/AST/MetaActions.h"
 #include "clang/AST/OSLog.h"
 #include "clang/AST/OptionalDiagnostic.h"
 #include "clang/AST/RecordLayout.h"
@@ -703,6 +704,9 @@ namespace {
       return (int)Value.getInt() >= (int)K;
     }
     bool manages(const APValue &V) const { return Value.getPointer() == &V; }
+    bool manages(const Expr *E) const {
+      return Base.dyn_cast<const Expr *>() == E;
+    }
     bool endLifetime(EvalInfo &Info, bool RunDestructors) {
       if (RunDestructors) {
         SourceLocation Loc;
@@ -889,6 +893,10 @@ namespace {
       APValue Value;
       QualType Ty;
       const Expr *ThrowExpr;
+      /// Stable key for the temporary that owns the exception object. This is
+      /// normally the throw operand, but evaluator-originated exceptions have
+      /// no CXXThrowExpr and supply their owning expression directly.
+      const Expr *ObjectKey;
       /// The "in call to" backtrace notes for the call stack as it existed
       /// at the moment of the throw, captured eagerly because by the time
       /// it's known whether this exception is actually uncaught, every
@@ -1137,6 +1145,16 @@ namespace {
       }
       // Some failed initializers have already unwound their cleanup before
       // EvaluateVarDecl receives the failure. Nothing remains to cancel.
+    }
+
+    void cancelCleanup(const Expr *E) {
+      for (auto I = CleanupStack.rbegin(), End = CleanupStack.rend(); I != End;
+           ++I) {
+        if (I->manages(E)) {
+          CleanupStack.erase(std::next(I).base());
+          return;
+        }
+      }
     }
 
     /// Throw away any remaining cleanups at the end of evaluation. If any
@@ -6691,7 +6709,7 @@ static EvalStmtResult EvaluateStmt(StmtResult &Result, EvalInfo &Info,
           // exception (V1 has no support for rethrow, so nothing can
           // observe the difference between this and a "real" reference to
           // the original exception object).
-          const Expr *ObjKey = cast<CXXThrowExpr>(Exc.ThrowExpr)->getSubExpr();
+          const Expr *ObjKey = Exc.ObjectKey;
           LValue ObjLV;
           APValue &ObjSlot = Info.CurrentCall->createTemporary(
               ObjKey, Exc.Ty, ScopeKind::Block, ObjLV);
@@ -9058,6 +9076,11 @@ public:
     QualType Ty = SubExpr->getType();
     if (!Evaluate(Val, Info, SubExpr))
       return false;
+    // Ownership of the completed throw operand moves into PendingException.
+    // Do not also destroy that same APValue as a temporary while unwinding
+    // the callee that issued the throw.
+    Info.cancelCleanup(Val);
+    Info.cancelCleanup(SubExpr);
 
     // Snapshot the backtrace now, while every frame between here and the
     // top-level evaluation is still alive -- see CaptureCallStackNotes.
@@ -9065,7 +9088,7 @@ public:
     CaptureCallStackNotes(Info, CallStackNotes);
 
     Info.PendingException.emplace(EvalInfo::PendingExceptionInfo{
-        std::move(Val), Ty, E, std::move(CallStackNotes)});
+        std::move(Val), Ty, E, SubExpr, std::move(CallStackNotes)});
     return false;
   }
 
@@ -9760,6 +9783,27 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
     return D.second;
   };
 
+  auto Thrower = [&](SourceLocation Loc, StringRef Message,
+                     MetaActions &Meta) -> bool {
+    // A nested evaluator failure can already be propagating an exception;
+    // never replace it with a less specific metafunction failure.
+    if (Info.PendingException)
+      return true;
+
+    Expr *ExceptionExpr = Meta.SynthesizeMetaExceptionCall(
+        E->getArg(E->getNumArgs() - 1));
+    if (!ExceptionExpr)
+      return true;
+
+    APValue Ignored;
+    // The helper contains a real throw-expression, so the ordinary constexpr
+    // exception path constructs, owns, unwinds, and catches the object.  A
+    // synthesized constructor or returned exception APValue would bypass
+    // those lifetime rules.
+    (void)::Evaluate(Ignored, Info, ExceptionExpr);
+    return true;
+  };
+
   // Construct array of arguments.
   SmallVector<Expr *, 2> Args(E->getNumArgs() - 1);
   for (std::size_t I = 1; I < E->getNumArgs(); ++I) {
@@ -9777,9 +9821,14 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
   // Evaluate the metafunction.
   APValue Result;
   const CXXMetafunctionExpr::ImplFn &Implementation = E->getImpl();
-  if (Implementation(Result, Evaluator, Diagnoser, AllowInjection,
+  if (Implementation(Result, Evaluator, Diagnoser, Thrower, AllowInjection,
                      E->getResultType(), Info.CurrentCall->CallRange, Args,
                      Info.ContainingDecl)) {
+    // A throwing metafunction reports failure to its implementation caller,
+    // but the evaluator must propagate the installed exception instead of
+    // converting that report back into a hard constant-expression error.
+    if (Info.PendingException)
+      return false;
     bool Result = Error(E);
     Info.addNotes(Diagnostics);
 

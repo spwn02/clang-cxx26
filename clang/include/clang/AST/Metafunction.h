@@ -40,6 +40,7 @@ public:
 
   using EvaluateFn = CXXMetafunctionExpr::EvaluateFn;
   using DiagnoseFn = CXXMetafunctionExpr::DiagnoseFn;
+  using ThrowFn = CXXMetafunctionExpr::ThrowFn;
 
 private:
   using impl_fn_t = bool (*)(APValue &Result,
@@ -57,14 +58,16 @@ private:
   unsigned MinArgs;
   unsigned MaxArgs;
   impl_fn_t ImplFn;
+  bool Throws;
 
 public:
   constexpr Metafunction(ResultKind ResultKind,
                          unsigned MinArgs,
                          unsigned MaxArgs,
-                         impl_fn_t ImplFn)
+                         impl_fn_t ImplFn,
+                         bool Throws = false)
       : Kind(ResultKind), MinArgs(MinArgs), MaxArgs(MaxArgs),
-        ImplFn(ImplFn) { }
+        ImplFn(ImplFn), Throws(Throws) { }
 
   ResultKind getResultKind() const {
     return Kind;
@@ -79,8 +82,8 @@ public:
   }
 
   bool evaluate(APValue &Result, ASTContext &C, MetaActions &Meta,
-                EvaluateFn Evaluator, DiagnoseFn Diagnoser, bool AllowInjection,
-                QualType ResultType, SourceRange Range,
+                EvaluateFn Evaluator, DiagnoseFn Diagnoser, ThrowFn Thrower,
+                bool AllowInjection, QualType ResultType, SourceRange Range,
                 ArrayRef<Expr *> Args, Decl *ContainingDecl) const;
 
   // Get a pointer to the metafunction with the given ID.

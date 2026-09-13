@@ -98,6 +98,8 @@
 #include <clang/Basic/SourceLocation.h>
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringRef.h>
+#include <functional>
 
 namespace clang {
 
@@ -124,7 +126,20 @@ class ParsedAttributesView;
 // functions (i.e., metafunctions).
 class MetaActions {
 public:
+  using ThrowCallback =
+      std::function<bool(SourceLocation, llvm::StringRef, MetaActions &)>;
+
   virtual ~MetaActions() {}
+
+  virtual void SetThrowCallback(ThrowCallback Callback) = 0;
+  virtual bool ThrowMetaException(SourceLocation Loc,
+                                  llvm::StringRef Message) = 0;
+
+  // Build a normal, semantically checked call to the library's exception
+  // factory.  Constant evaluation uses this instead of fabricating a
+  // CXXConstructExpr, whose inherited-constructor subexpressions require a
+  // real call frame and construction destination.
+  virtual Expr *SynthesizeMetaExceptionCall(Expr *From) = 0;
 
                             // ====================
                             // Access-Check Support
