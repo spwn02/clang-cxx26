@@ -4509,6 +4509,20 @@ static OverloadingResult ResolveConstructorOverload(
     }
   }
 
+  // A perfect non-template constructor cannot be displaced by a candidate
+  // requiring a user-defined conversion. Resolve it before enumerating the
+  // source type's conversion functions: merely forming those losing
+  // candidates can instantiate recursively constrained conversions.
+  if (CandidateSet.hasDeferredNonTemplateCandidates()) {
+    OverloadingResult Result =
+        CandidateSet.BestViableFunction(S, DeclLoc, Best);
+    if ((Result == OR_Success || Result == OR_Deleted) &&
+        Best != CandidateSet.end() &&
+        isa_and_nonnull<CXXConstructorDecl>(Best->Function) &&
+        Best->isPerfectMatch(S.Context))
+      return Result;
+  }
+
   // FIXME: Work around a bug in C++17 guaranteed copy elision.
   //
   // When initializing an object of class type T by constructor

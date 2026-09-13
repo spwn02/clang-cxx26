@@ -10692,7 +10692,8 @@ public:
       ADLCallKind IsADLCandidate = ADLCallKind::NotADL,
       ConversionSequenceList EarlyConversions = {},
       OverloadCandidateParamOrder PO = {},
-      bool AggregateCandidateDeduction = false, bool StrictPackMatch = false);
+      bool AggregateCandidateDeduction = false, bool StrictPackMatch = false,
+      bool IsDeferredCandidate = false);
 
   /// Add all of the function declarations in the given function set to
   /// the overload candidate set.
@@ -15060,23 +15061,33 @@ public:
   ///@{
 
 public:
-  void PushSatisfactionStackEntry(const NamedDecl *D,
+  void PushSatisfactionStackEntry(const NamedDecl *D, const Expr *Constraint,
                                   const llvm::FoldingSetNodeID &ID) {
     const NamedDecl *Can = cast<NamedDecl>(D->getCanonicalDecl());
-    SatisfactionStack.emplace_back(Can, ID);
+    SatisfactionStack.push_back({Can, Constraint, ID});
   }
 
   void PopSatisfactionStackEntry() { SatisfactionStack.pop_back(); }
 
-  bool SatisfactionStackContains(const NamedDecl *D,
+  bool SatisfactionStackContains(const NamedDecl *D, const Expr *Constraint,
                                  const llvm::FoldingSetNodeID &ID) const {
     const NamedDecl *Can = cast<NamedDecl>(D->getCanonicalDecl());
-    return llvm::is_contained(SatisfactionStack,
-                              SatisfactionStackEntryTy{Can, ID});
+    return llvm::any_of(SatisfactionStack, [&](const auto &Entry) {
+      // The owning declaration identifies recursion within one top-level
+      // constraint check. The expression identity also catches re-entry into
+      // that same constraint through a nested top-level check with a different
+      // owner. Do not use ID alone: different declarations can have
+      // structurally identical, legitimately nested constraints.
+      return Entry.ID == ID &&
+             (Entry.Owner == Can || Entry.Constraint == Constraint);
+    });
   }
 
-  using SatisfactionStackEntryTy =
-      std::pair<const NamedDecl *, llvm::FoldingSetNodeID>;
+  struct SatisfactionStackEntryTy {
+    const NamedDecl *Owner;
+    const Expr *Constraint;
+    llvm::FoldingSetNodeID ID;
+  };
 
   // Resets the current SatisfactionStack for cases where we are instantiating
   // constraints as a 'side effect' of normal instantiation in a way that is not

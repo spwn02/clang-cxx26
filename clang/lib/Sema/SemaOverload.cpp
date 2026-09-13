@@ -1137,7 +1137,8 @@ void OverloadCandidateSet::clear(CandidateSetKind CSK) {
   Kind = CSK;
   FirstDeferredCandidate = nullptr;
   DeferredCandidatesCount = 0;
-  HasDeferredTemplateConstructors = false;
+  HasDeferredConstructors = false;
+  HasDeferredNonTemplateCandidates = false;
   ResolutionByPerfectCandidateIsDisabled = false;
 }
 
@@ -7144,13 +7145,55 @@ static bool isNonViableMultiVersionOverload(FunctionDecl *FD) {
   return HasDefault || SeenAt != 0;
 }
 
+/// Return whether a non-template function could be a perfect match for the
+/// supplied arguments without forming its implicit conversion sequences.
+///
+/// This is deliberately conservative: false means at least one conversion
+/// cannot be an identity conversion. Returning true merely leaves normal
+/// candidate processing in place.
+static bool couldBePerfectNonTemplateMatch(ASTContext &Ctx,
+                                           const FunctionProtoType *Proto,
+                                           ArrayRef<Expr *> Args) {
+  if (Args.size() > Proto->getNumParams())
+    return false;
+
+  for (unsigned I = 0; I != Args.size(); ++I) {
+    Expr *Arg = Args[I];
+    if (isa<InitListExpr>(Arg))
+      return false;
+
+    QualType From = Arg->getType();
+    QualType To = Proto->getParamType(I);
+    if (From->isDependentType() || To->isDependentType())
+      continue;
+
+    if (To->isReferenceType()) {
+      if (!Ctx.hasSameType(From, To->getPointeeType()))
+        return false;
+      continue;
+    }
+
+    auto Decay = [&](QualType T) {
+      if (T->isArrayType() || T->isFunctionType())
+        T = Ctx.getDecayedType(T);
+      if (auto *MPT = T->getAs<MemberPointerType>();
+          MPT && MPT->isMemberFunctionPointer())
+        T = Ctx.getDecayedType(MPT->getPointeeType());
+      return T.getAtomicUnqualifiedType();
+    };
+    if (!Ctx.hasSameUnqualifiedType(Decay(From), Decay(To)))
+      return false;
+  }
+  return true;
+}
+
 void Sema::AddOverloadCandidate(
     FunctionDecl *Function, DeclAccessPair FoundDecl, ArrayRef<Expr *> Args,
     OverloadCandidateSet &CandidateSet, bool SuppressUserConversions,
     bool PartialOverloading, bool AllowExplicit, bool AllowExplicitConversions,
     ADLCallKind IsADLCandidate, ConversionSequenceList EarlyConversions,
     OverloadCandidateParamOrder PO, bool AggregateCandidateDeduction,
-    bool StrictPackMatch) {
+    bool StrictPackMatch, bool IsDeferredCandidate) {
   const FunctionProtoType *Proto
     = dyn_cast<FunctionProtoType>(Function->getType()->getAs<FunctionType>());
   assert(Proto && "Functions without a prototype cannot be overloaded");
@@ -7177,8 +7220,26 @@ void Sema::AddOverloadCandidate(
     // argument doesn't participate in overload resolution.
   }
 
-  if (!CandidateSet.isNewCandidate(Function, PO))
-    return;
+  if (!IsDeferredCandidate) {
+    if (!CandidateSet.isNewCandidate(Function, PO))
+      return;
+
+    // P3606 defers template argument deduction when a non-template perfect
+    // match may make it unnecessary. Apply the same two-phase principle to a
+    // non-template candidate that is provably unable to tie a perfect match.
+    // Besides avoiding unnecessary work, this prevents a losing conversion
+    // from recursively querying the constructibility currently being
+    // determined.
+    if (!Function->getPrimaryTemplate() && EarlyConversions.empty() &&
+        CandidateSet.shouldDeferNonTemplateCandidates(getLangOpts()) &&
+        !couldBePerfectNonTemplateMatch(Context, Proto, Args)) {
+      CandidateSet.AddDeferredNonTemplateCandidate(
+          Function, FoundDecl, Args, SuppressUserConversions,
+          PartialOverloading, AllowExplicit, AllowExplicitConversions,
+          IsADLCandidate, PO, AggregateCandidateDeduction, StrictPackMatch);
+      return;
+    }
+  }
 
   // C++11 [class.copy]p11: [DR1402]
   //   A defaulted move constructor that is defined as deleted is ignored by
@@ -11294,7 +11355,7 @@ void OverloadCandidateSet::AddDeferredTemplateCandidate(
       IsADLCandidate,
       PO};
 
-  HasDeferredTemplateConstructors |=
+  HasDeferredConstructors |=
       isa<CXXConstructorDecl>(FunctionTemplate->getTemplatedDecl());
 }
 
@@ -11348,6 +11409,33 @@ void OverloadCandidateSet::AddDeferredConversionTemplateCandidate(
       ToType};
 }
 
+void OverloadCandidateSet::AddDeferredNonTemplateCandidate(
+    FunctionDecl *Function, DeclAccessPair FoundDecl, ArrayRef<Expr *> Args,
+    bool SuppressUserConversions, bool PartialOverloading, bool AllowExplicit,
+    bool AllowExplicitConversions, CallExpr::ADLCallKind IsADLCandidate,
+    OverloadCandidateParamOrder PO, bool AggregateCandidateDeduction,
+    bool StrictPackMatch) {
+  MutableArrayRef<Expr *> PersistentArgs = getPersistentArgsArray(Args.size());
+  llvm::copy(Args, PersistentArgs.begin());
+  auto *C = allocateDeferredCandidate<DeferredNonTemplateOverloadCandidate>();
+
+  C = new (C) DeferredNonTemplateOverloadCandidate{
+      {nullptr, DeferredOverloadCandidate::NonTemplateFunction,
+       /*AllowObjCConversionOnExplicit=*/false,
+       /*AllowResultConversion=*/false, AllowExplicit, SuppressUserConversions,
+       PartialOverloading, AggregateCandidateDeduction},
+      Function,
+      FoundDecl,
+      PersistentArgs,
+      IsADLCandidate,
+      PO,
+      AllowExplicitConversions,
+      StrictPackMatch};
+
+  HasDeferredConstructors |= isa<CXXConstructorDecl>(Function);
+  HasDeferredNonTemplateCandidates = true;
+}
+
 static void
 AddTemplateOverloadCandidate(Sema &S, OverloadCandidateSet &CandidateSet,
                              DeferredMethodTemplateOverloadCandidate &C) {
@@ -11377,31 +11465,48 @@ AddTemplateOverloadCandidate(Sema &S, OverloadCandidateSet &CandidateSet,
       C.AllowResultConversion);
 }
 
-void OverloadCandidateSet::InjectNonDeducedTemplateCandidates(Sema &S) {
+static void
+AddNonTemplateOverloadCandidate(Sema &S, OverloadCandidateSet &CandidateSet,
+                                DeferredNonTemplateOverloadCandidate &C) {
+  S.AddOverloadCandidate(C.Function, C.FoundDecl, C.Args, CandidateSet,
+                         C.SuppressUserConversions, C.PartialOverloading,
+                         C.AllowExplicit, C.AllowExplicitConversions,
+                         C.IsADLCandidate, /*EarlyConversions=*/{}, C.PO,
+                         C.AggregateCandidateDeduction, C.StrictPackMatch,
+                         /*IsDeferredCandidate=*/true);
+}
+
+void OverloadCandidateSet::InjectDeferredCandidates(Sema &S) {
   Candidates.reserve(Candidates.size() + DeferredCandidatesCount);
-  DeferredTemplateOverloadCandidate *Cand = FirstDeferredCandidate;
+  DeferredOverloadCandidate *Cand = FirstDeferredCandidate;
   while (Cand) {
     switch (Cand->Kind) {
-    case DeferredTemplateOverloadCandidate::Function:
+    case DeferredOverloadCandidate::Function:
       AddTemplateOverloadCandidate(
           S, *this,
           *static_cast<DeferredFunctionTemplateOverloadCandidate *>(Cand));
       break;
-    case DeferredTemplateOverloadCandidate::Method:
+    case DeferredOverloadCandidate::Method:
       AddTemplateOverloadCandidate(
           S, *this,
           *static_cast<DeferredMethodTemplateOverloadCandidate *>(Cand));
       break;
-    case DeferredTemplateOverloadCandidate::Conversion:
+    case DeferredOverloadCandidate::Conversion:
       AddTemplateOverloadCandidate(
           S, *this,
           *static_cast<DeferredConversionTemplateOverloadCandidate *>(Cand));
+      break;
+    case DeferredOverloadCandidate::NonTemplateFunction:
+      AddNonTemplateOverloadCandidate(
+          S, *this, *static_cast<DeferredNonTemplateOverloadCandidate *>(Cand));
       break;
     }
     Cand = Cand->Next;
   }
   FirstDeferredCandidate = nullptr;
   DeferredCandidatesCount = 0;
+  HasDeferredConstructors = false;
+  HasDeferredNonTemplateCandidates = false;
 }
 
 OverloadingResult
@@ -11464,8 +11569,9 @@ OverloadingResult OverloadCandidateSet::BestViableFunction(Sema &S,
                                                            iterator &Best) {
 
   assert((shouldDeferTemplateArgumentDeduction(S.getLangOpts()) ||
+          shouldDeferNonTemplateCandidates(S.getLangOpts()) ||
           DeferredCandidatesCount == 0) &&
-         "Unexpected deferred template candidates");
+         "Unexpected deferred candidates");
 
   bool TwoPhaseResolution =
       DeferredCandidatesCount != 0 && !ResolutionByPerfectCandidateIsDisabled;
@@ -11473,13 +11579,13 @@ OverloadingResult OverloadCandidateSet::BestViableFunction(Sema &S,
   if (TwoPhaseResolution) {
     OverloadingResult Res = BestViableFunctionImpl(S, Loc, Best);
     if (Best != end() && Best->isPerfectMatch(S.Context)) {
-      if (!(HasDeferredTemplateConstructors &&
+      if (!(HasDeferredConstructors &&
             isa_and_nonnull<CXXConversionDecl>(Best->Function)))
         return Res;
     }
   }
 
-  InjectNonDeducedTemplateCandidates(S);
+  InjectDeferredCandidates(S);
   return BestViableFunctionImpl(S, Loc, Best);
 }
 
@@ -13260,7 +13366,7 @@ SmallVector<OverloadCandidate *, 32> OverloadCandidateSet::CompleteCandidates(
     SourceLocation OpLoc,
     llvm::function_ref<bool(OverloadCandidate &)> Filter) {
 
-  InjectNonDeducedTemplateCandidates(S);
+  InjectDeferredCandidates(S);
 
   // Sort the candidates by viability and position.  Sorting directly would
   // be prohibitive, so we make a set of pointers and sort those.

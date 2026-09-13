@@ -151,6 +151,32 @@ struct Test {
 static_assert(__is_constructible(S, Test));
 }
 
+namespace NonTemplatePerfectMatch {
+template <typename T> struct Poison {
+  static_assert(sizeof(T) == 0, "losing conversion was instantiated");
+  static constexpr bool value = true;
+};
+
+struct ExpensiveParameter {
+  template <typename T>
+    requires Poison<T>::value
+  ExpensiveParameter(T &&);
+};
+
+struct Target {
+  Target(ExpensiveParameter);
+  Target(Target &&);
+};
+
+static_assert(__is_constructible(Target, Target));
+
+struct ConvertsToInt {
+  operator int();
+};
+void deferredFallback(int);
+static_assert(__is_same(decltype(deferredFallback(ConvertsToInt{})), void));
+} // namespace NonTemplatePerfectMatch
+
 namespace RefBinding {
 
 template <typename> struct remove_reference;

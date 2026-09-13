@@ -1096,12 +1096,12 @@ class Sema;
           HasFinalConversion(false), RewriteKind(CRK_None) {}
   };
 
-  struct DeferredTemplateOverloadCandidate {
+  struct DeferredOverloadCandidate {
 
     // intrusive linked list support for allocateDeferredCandidate
-    DeferredTemplateOverloadCandidate *Next = nullptr;
+    DeferredOverloadCandidate *Next = nullptr;
 
-    enum Kind { Function, Method, Conversion };
+    enum Kind { Function, Method, Conversion, NonTemplateFunction };
 
     LLVM_PREFERRED_TYPE(Kind)
     unsigned Kind : 2;
@@ -1120,7 +1120,7 @@ class Sema;
   };
 
   struct DeferredFunctionTemplateOverloadCandidate
-      : public DeferredTemplateOverloadCandidate {
+      : public DeferredOverloadCandidate {
     FunctionTemplateDecl *FunctionTemplate;
     DeclAccessPair FoundDecl;
     ArrayRef<Expr *> Args;
@@ -1131,7 +1131,7 @@ class Sema;
                 DeferredFunctionTemplateOverloadCandidate>);
 
   struct DeferredMethodTemplateOverloadCandidate
-      : public DeferredTemplateOverloadCandidate {
+      : public DeferredOverloadCandidate {
     FunctionTemplateDecl *FunctionTemplate;
     DeclAccessPair FoundDecl;
     ArrayRef<Expr *> Args;
@@ -1144,7 +1144,7 @@ class Sema;
                 DeferredMethodTemplateOverloadCandidate>);
 
   struct DeferredConversionTemplateOverloadCandidate
-      : public DeferredTemplateOverloadCandidate {
+      : public DeferredOverloadCandidate {
     FunctionTemplateDecl *FunctionTemplate;
     DeclAccessPair FoundDecl;
     CXXRecordDecl *ActingContext;
@@ -1154,6 +1154,20 @@ class Sema;
 
   static_assert(std::is_trivially_destructible_v<
                 DeferredConversionTemplateOverloadCandidate>);
+
+  struct DeferredNonTemplateOverloadCandidate
+      : public DeferredOverloadCandidate {
+    FunctionDecl *Function;
+    DeclAccessPair FoundDecl;
+    ArrayRef<Expr *> Args;
+    CallExpr::ADLCallKind IsADLCandidate;
+    OverloadCandidateParamOrder PO;
+    bool AllowExplicitConversions;
+    bool StrictPackMatch;
+  };
+
+  static_assert(
+      std::is_trivially_destructible_v<DeferredNonTemplateOverloadCandidate>);
 
   /// OverloadCandidateSet - A set of overload candidates, used in C++
   /// overload resolution (C++ 13.3).
@@ -1186,7 +1200,7 @@ class Sema;
 
       /// When doing overload resolution during code completion,
       /// we want to show all viable candidates, including otherwise
-      /// deferred template candidates.
+      /// deferred candidates.
       CSK_CodeCompletion,
     };
 
@@ -1262,10 +1276,12 @@ class Sema;
     SmallVector<OverloadCandidate, 16> Candidates;
     llvm::SmallPtrSet<uintptr_t, 16> Functions;
 
-    DeferredTemplateOverloadCandidate *FirstDeferredCandidate = nullptr;
-    unsigned DeferredCandidatesCount : 8 * sizeof(unsigned) - 2;
+    DeferredOverloadCandidate *FirstDeferredCandidate = nullptr;
+    unsigned DeferredCandidatesCount : 8 * sizeof(unsigned) - 3;
     LLVM_PREFERRED_TYPE(bool)
-    unsigned HasDeferredTemplateConstructors : 1;
+    unsigned HasDeferredConstructors : 1;
+    LLVM_PREFERRED_TYPE(bool)
+    unsigned HasDeferredNonTemplateCandidates : 1;
     LLVM_PREFERRED_TYPE(bool)
     unsigned ResolutionByPerfectCandidateIsDisabled : 1;
 
@@ -1314,7 +1330,7 @@ class Sema;
     }
 
     // Because the size of OverloadCandidateSet has a noticeable impact on
-    // performance, we store each deferred template candidate in the slab
+    // performance, we store each deferred candidate in the slab
     // allocator such that deferred candidates are ultimately a singly-linked
     // intrusive linked list. This ends up being much more efficient than a
     // SmallVector that is empty in the common case.
@@ -1338,7 +1354,8 @@ class Sema;
     OverloadCandidateSet(SourceLocation Loc, CandidateSetKind CSK,
                          OperatorRewriteInfo RewriteInfo = {})
         : FirstDeferredCandidate(nullptr), DeferredCandidatesCount(0),
-          HasDeferredTemplateConstructors(false),
+          HasDeferredConstructors(false),
+          HasDeferredNonTemplateCandidates(false),
           ResolutionByPerfectCandidateIsDisabled(false), Loc(Loc), Kind(CSK),
           RewriteInfo(RewriteInfo) {}
     OverloadCandidateSet(const OverloadCandidateSet &) = delete;
@@ -1354,6 +1371,9 @@ class Sema;
 
     // Whether the resolution of template candidates should be deferred
     bool shouldDeferTemplateArgumentDeduction(const LangOptions &Opts) const;
+
+    // Whether provably non-perfect non-template candidates should be deferred.
+    bool shouldDeferNonTemplateCandidates(const LangOptions &Opts) const;
 
     /// Determine when this overload candidate will be new to the
     /// overload set.
@@ -1386,6 +1406,10 @@ class Sema;
       return Candidates.empty() && DeferredCandidatesCount == 0;
     }
 
+    bool hasDeferredNonTemplateCandidates() const {
+      return HasDeferredNonTemplateCandidates;
+    }
+
     /// Allocate storage for conversion sequences for NumConversions
     /// conversions.
     ConversionSequenceList
@@ -1400,8 +1424,8 @@ class Sema;
       return ConversionSequenceList(Conversions, NumConversions);
     }
 
-    /// Provide storage for any Expr* arg that must be preserved
-    /// until deferred template candidates are deduced.
+    /// Provide storage for any Expr* arg that must be preserved until deferred
+    /// candidates are added.
     /// Typically this should be used for reversed operator arguments
     /// and any time the argument array is transformed while adding
     /// a template candidate.
@@ -1453,7 +1477,14 @@ class Sema;
         bool AllowObjCConversionOnExplicit, bool AllowExplicit,
         bool AllowResultConversion);
 
-    void InjectNonDeducedTemplateCandidates(Sema &S);
+    void AddDeferredNonTemplateCandidate(
+        FunctionDecl *Function, DeclAccessPair FoundDecl, ArrayRef<Expr *> Args,
+        bool SuppressUserConversions, bool PartialOverloading,
+        bool AllowExplicit, bool AllowExplicitConversions,
+        CallExpr::ADLCallKind IsADLCandidate, OverloadCandidateParamOrder PO,
+        bool AggregateCandidateDeduction, bool StrictPackMatch);
+
+    void InjectDeferredCandidates(Sema &S);
 
     void DisableResolutionByPerfectCandidate() {
       ResolutionByPerfectCandidateIsDisabled = true;
@@ -1559,6 +1590,14 @@ class Sema;
         // CUDA may prefer template candidates even when a non-candidate
         // is a perfect match
         && !Opts.CUDA;
+  }
+
+  inline bool OverloadCandidateSet::shouldDeferNonTemplateCandidates(
+      const LangOptions &Opts) const {
+    // This optimization is specifically for constructor overload resolution.
+    // Deferring candidates in general call or operator sets can change which
+    // deleted/ambiguous/address-of diagnostic is selected.
+    return Kind == CSK_InitByConstructor && !Opts.CUDA;
   }
 
 } // namespace clang

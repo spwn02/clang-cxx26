@@ -7250,3 +7250,13 @@ blocked, what's next. Do not remove old entries.
   legacy-definition TUs. Added compile-time copy/assignment/`what()` tests
   for `logic_error` and `runtime_error`. Full `cxx_shared`/`cxx_static`
   rebuild plus exception/diagnostics sweep passed.
+- **2026-09-13**: Fixed issue #112, a recursive constraint-instantiation
+  failure while constructing nested `view_interface`-derived range adaptors.
+  Constructor overload resolution now defers non-template candidates that
+  cannot be perfect matches, avoiding formation of losing user-defined
+  conversions when a perfect constructor already wins. Constraint recursion
+  tracking also recognizes re-entry through the same atomic constraint under
+  a different top-level owner without conflating structurally identical
+  constraints from distinct expressions. The issue reproducer, focused Clang
+  tests, `SemaCXX`/`SemaTemplate`/`CXX`, and libc++ reflection tests passed or
+  matched clean HEAD exactly (four and seven known failures, respectively).

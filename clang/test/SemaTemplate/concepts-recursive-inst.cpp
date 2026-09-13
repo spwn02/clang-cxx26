@@ -100,11 +100,9 @@ namespace GH50891 {
   // expected-error@#NUMERIC{{satisfaction of constraint 'requires (T a) { foo(a); }' depends on itself}}
   // expected-note@#NUMERIC {{while substituting template arguments into constraint expression here}}
   // expected-note@#OP_TO {{while checking the satisfaction of concept 'Numeric<GH50891::Deferred>' requested here}}
-  // expected-note@#OP_TO {{skipping 1 context}}
-  // expected-note@#FOO_CALL 2{{while checking constraint satisfaction for template}}
-  // expected-note@#FOO_CALL 2{{while substituting deduced template arguments into function template}}
-  // expected-note@#FOO_CALL 2{{in instantiation of requirement here}}
-  // expected-note@#NUMERIC {{while substituting template arguments into constraint expression here}}
+  // expected-note@#FOO_CALL {{while checking constraint satisfaction for template}}
+  // expected-note@#FOO_CALL {{while substituting deduced template arguments into function template}}
+  // expected-note@#FOO_CALL {{in instantiation of requirement here}}
 
   // expected-error@#STATIC_ASSERT {{static assertion failed}}
   // expected-note@#STATIC_ASSERT{{while checking the satisfaction of concept 'Numeric<Deferred>' requested here}}

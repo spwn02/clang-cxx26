@@ -164,11 +164,11 @@ namespace {
 struct SatisfactionStackRAII {
   Sema &SemaRef;
   bool Inserted = false;
-  SatisfactionStackRAII(Sema &SemaRef, const NamedDecl *ND,
+  SatisfactionStackRAII(Sema &SemaRef, const NamedDecl *ND, const Expr *E,
                         const llvm::FoldingSetNodeID &FSNID)
       : SemaRef(SemaRef) {
     if (ND) {
-      SemaRef.PushSatisfactionStackEntry(ND, FSNID);
+      SemaRef.PushSatisfactionStackEntry(ND, E, FSNID);
       Inserted = true;
     }
   }
@@ -189,7 +189,7 @@ static bool DiagRecursiveConstraintEval(
         S.Context.getCanonicalTemplateArgument(TemplateArg)
             .Profile(ID, S.Context);
   }
-  if (S.SatisfactionStackContains(Templ, ID)) {
+  if (S.SatisfactionStackContains(Templ, E, ID)) {
     S.Diag(E->getExprLoc(), diag::err_constraint_depends_on_self)
         << E << E->getSourceRange();
     return true;
@@ -575,7 +575,7 @@ ExprResult ConstraintSatisfactionChecker::EvaluateAtomicConstraint(
     Satisfaction.ContainsErrors = true;
     return ExprEmpty();
   }
-  SatisfactionStackRAII StackRAII(S, Template, ID);
+  SatisfactionStackRAII StackRAII(S, Template, AtomicExpr, ID);
 
   // Atomic constraint - substitute arguments and check satisfaction.
   ExprResult SubstitutedExpression = const_cast<Expr *>(AtomicExpr);
@@ -2401,7 +2401,7 @@ NormalizedConstraint *NormalizedConstraint::fromConstraintExpr(
   if (D && DiagRecursiveConstraintEval(S, ID, D, E)) {
     return nullptr;
   }
-  SatisfactionStackRAII StackRAII(S, D, ID);
+  SatisfactionStackRAII StackRAII(S, D, E, ID);
 
   // C++2a [temp.param]p4:
   //     [...] If T is not a pack, then E is E', otherwise E is (E' && ...).
