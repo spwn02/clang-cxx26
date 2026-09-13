@@ -600,6 +600,10 @@ public:
     return isReflection() &&
            getReflectionKind() == ReflectionKind::Identifier;
   }
+  bool isReflectedExpression() const {
+    return isReflection() &&
+           getReflectionKind() == ReflectionKind::Expression;
+  }
 
 
   void dump() const;
@@ -803,6 +807,7 @@ public:
     return *(const TokenSequenceData *)(const char *)&Data;
   }
   IdentifierInfo *getReflectedIdentifier() const;
+  Expr *getReflectedExpression() const;
 
   /// The annotation of a reflection of an annotation, as its base class.
   /// Used to serialize such reflections, where the derived type is unknown.

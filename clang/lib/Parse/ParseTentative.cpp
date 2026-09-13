@@ -34,6 +34,8 @@ bool Parser::isCXXDeclarationStatement(
   case tok::kw_static_assert:
   case tok::kw__Static_assert:
     return true;
+  case tok::kw___macro:
+    return true;
   case tok::kw_consteval:
     // consteval-block-declaration
     if (getLangOpts().Reflection)
@@ -1233,6 +1235,7 @@ Parser::isCXXDeclarationSpecifier(ImplicitTypenameContext AllowImplicitTypename,
   case tok::kw_constexpr:
   case tok::kw_consteval:
   case tok::kw_constinit:
+  case tok::kw___macro:
     // storage-class-specifier
   case tok::kw_register:
   case tok::kw_static:

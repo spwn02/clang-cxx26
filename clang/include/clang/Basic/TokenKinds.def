@@ -446,6 +446,7 @@ CXX20_KEYWORD(requires              , 0)
 
 // C++26 reflection keyword.
 KEYWORD(__metafunction              , KEYREFLECT)
+KEYWORD(__macro                     , KEYREFLECT)
 
 // C++ contracts keywords
 CONTRACTS_KEYWORD(contract_assert)
