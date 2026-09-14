@@ -8347,8 +8347,8 @@
 #  ifndef __cpp_lib_linalg
 #    error "__cpp_lib_linalg should be defined in c++26"
 #  endif
-#  if __cpp_lib_linalg != 202411L
-#    error "__cpp_lib_linalg should have the value 202411L in c++26"
+#  if __cpp_lib_linalg != 202511L
+#    error "__cpp_lib_linalg should have the value 202511L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_list_remove_return_type

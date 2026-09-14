@@ -2466,7 +2466,7 @@ back to `to_input` based on the paper title alone.
 | [x] | P2642R6 | Padded `mdspan` layouts | Complete 2026-09-14 — added padded mappings and submdspan support |
 | [x] | P3355R2 | `submdspan` C++26 fixes | Complete 2026-09-14 — contiguous partial-slice layout selection and corrected unit-stride handling; padded-layout work remains under P2642R6 |
 | [x] | P3050R2 | `linalg::conjugated` optimization | Complete 2026-08-22 — `conjugated()` always wrapped in `conjugated_accessor` even for arithmetic/no-`conj(E)` element types; now returns the argument unchanged for those (reuses the existing `__has_adl_conj` trait). No FTM of its own. |
-| [~] | P1673R13 | BLAS-based linear algebra interface | Partial 2026-08-24 — audited: name-set diff clean, found and fixed a real SFINAE-conformance gap (~90 functions retrofitted with concept constraints) plus (via P3371R5 below) a real-if-needed gap in the hermitian rank-1/2/k/2k updates; `|Partial|` because the FTM chain to `202511L` traces through P3222R0, which is genuinely blocked on P2642R6/`constant_wrapper` — see Session Log |
+| [x] | P1673R13 | BLAS-based linear algebra interface | Complete 2026-09-14 — full prose audit against current eel.is wording covered helper types, layouts, views, all BLAS 1/2/3 overloads, preconditions, effects, aliasing remarks, and complexity; no additional gaps found. FTM chain unblocked by completed P3222R0/P2642R6 work; `__cpp_lib_linalg` is now `202511L` — see Session Log |
 | [x] | P3371R5 | Consistent rank-1/2/k/2k updates | Complete 2026-08-24 — found via tracing the `__cpp_lib_linalg` FTM chain (not previously in this CSV). 3 of its 4 required changes were already correct in this fork; fixed the 4th (`real-if-needed(alpha)` and diagonal `real-if-needed(E[i, i])` missing from the 4 hermitian rank-update E-taking overloads) — see Session Log |
 | [x] | P2587R3 | `to_string` or not `to_string` | Complete 2026-08-22 — float/double/long double overloads used `sprintf("%f", ...)` (fixed 6 decimals); now `format("{}", val)` per wording, shortest round-trip. Integer overloads already matched via `to_chars`, untouched |
 | [x] | P2757R3 | Type-checking format args | Complete 2026-09-07 — `check_dynamic_spec<Ts...>`/`_integral`/`_string` added; `__cpp_lib_format` now `202311L` for C++26 — see format/print block note for the one documented scope boundary |
@@ -7302,3 +7302,11 @@ blocked, what's next. Do not remove old entries.
   path can synthesize `meta::exception`. Direct compile-and-run checks passed
   for both the standalone reproducer and `meta-exception-strategy2.pass.cpp`;
   the remaining strategy-2 metafunction rollout stays intentionally deferred.
+- **2026-09-14 (linalg audit)**: Completed full member-by-member prose audit
+  of `libcxx/include/linalg` against current eel.is `[linalg]` wording.
+  Checked helper types, layouts, views, every BLAS 1/2/3 overload, and each
+  specified precondition, effect, aliasing remark, and complexity requirement.
+  Found no additional implementation gaps beyond the landed concept retrofit
+  and P3371R5 hermitian `real-if-needed` fixes. With P3222R0 and P2642R6 now
+  complete, advanced `__cpp_lib_linalg` to `202511L` and marked P1673R13
+  complete in the tracker and libc++ CSV.

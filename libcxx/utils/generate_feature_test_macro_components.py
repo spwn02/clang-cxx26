@@ -1067,7 +1067,8 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_linalg",
             "values": {
-                "c++26": 202411  # P3222R0: transposed special cases for P2642 padded layouts
+                "c++26": 202511  # P3371R5: consistent rank-1/2/k/2k updates
+                # 202411: P3222R0: transposed special cases for P2642 padded layouts
             },
             "headers": ["linalg"],
         },
