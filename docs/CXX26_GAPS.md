@@ -2473,7 +2473,7 @@ back to `to_input` based on the paper title alone.
 | [ ] | P3107R5 | Efficient `std::print` implementation | Assessed 2026-08-22 — confirmed `__vprint_nonunicode` materializes a full `string` before writing, the exact thing this paper eliminates; real redesign, deserves its own session — see format/print block note |
 | [x] | P2845R8 | `std::filesystem::path` formatting | Complete 2026-08-22 — new `formatter<path, charT>` in `__filesystem/path_format.h`, path-format-spec grammar (fill-and-align, width, `?`, `g`) |
 | [ ] | P3235R3 | `std::print` faster/leaner for more types | Assessed 2026-08-22, same redesign as P3107R5 above, bundle with it |
-| [ ] | P3391R2 | `constexpr` `std::format` | **Scoped 2026-09-07 — genuinely large, not blocked on P2419R2** (that framing was wrong: P3391R2 gates its own separate `__cpp_lib_constexpr_format` FTM, confirmed distinct from `__cpp_lib_format` at `eel.is/c++draft/version.syn` — `202511L` vs `202603L` — and this fork's FTM generator has zero references to it, not even scaffolded). The parsing side (`parser_std_format_spec.h`, 32/39 functions already `constexpr`) is mostly ready, but the value-formatting/output-writing side is almost entirely not: `format_functions.h`'s `vformat`/`format` have no `constexpr` at all, `format_arg.h`'s type-erased storage/`visit()` (lines 210-349) carry none, `buffer.h`'s allocating-buffer/iterator machinery is unannotated, and the builtin formatters range from 1/13 (`formatter_output.h`) to 2/30 (`formatter_floating_point.h`) constexpr-ready. Floating-point, all `chrono` formatting, locale-specific formatting, and `stacktrace_entry`/`filesystem::path`/`thread::id`/`void const*` formatters are explicitly out of the paper's own scope. Comparable in shape to the already-logged P3107R5/P3235R3 "real redesign, own session" items — not a quick pass, deferred to a dedicated future session |
+| [x] | P3391R2 | `constexpr` `std::format` | **Complete 2026-09-14** — added the separate `__cpp_lib_constexpr_format` FTM (`202511L`) and constexpr-enabled the format parser, type-erased arguments, buffers, entry points, and in-scope builtin formatters. Added a compile-time end-to-end test covering bool, char, integral, string, and tuple formatting. Floating-point, all chrono formatting, locale-specific formatting, and `stacktrace_entry`/`filesystem::path`/`thread::id`/`void const*` remain explicitly out of scope per P3391R2; see `docs/p3391r2-constexpr-format-design.md` |
 | [ ] | P3037R6 | `constexpr` `std::shared_ptr` and friends | Untriaged until 2026-09-05. Sofia 2025-06 |
 | [ ] | P3913R1 | Optimize `std::optional` in range adaptors | Untriaged until 2026-09-05. Kona 2025-11. Builds on P3168R2 (already Complete) |
 | [ ] | P3612R1 | Harmonize proxy-reference operations (LWG 3638, 4187) | Untriaged until 2026-09-05. Kona 2025-11 |
@@ -3064,6 +3064,15 @@ tiers as makes sense.
 | [ ] | P2590R2 | Explicit lifetime management | Added 2026-09-05. `std::start_lifetime_as` — has a library component too |
 
 ## Session Log
+
+- **2026-09-14 (issue #16, phases 2–7)**: Completed P3391R2. Made the
+  parser, format pipeline, type-erased argument machinery, allocating and
+  iterator buffers, and in-scope builtin formatters constexpr-enabled. Added
+  and passed an end-to-end consteval test for bool, char, integral, string,
+  and tuple formatting. Activated `__cpp_lib_constexpr_format` at `202511L`.
+  Floating-point, chrono, locale, and excluded non-core formatters remain
+  deliberately untouched. Full lit regression gate remains for external
+  final validation.
 
 - **2026-09-14 (issue #16, phase 1)**: Confirmed against P3391R2 and the
   current draft that `__cpp_lib_constexpr_format` is a separate `<format>`

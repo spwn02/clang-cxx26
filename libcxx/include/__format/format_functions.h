@@ -555,7 +555,7 @@ format_to_n(_OutIt __out_it, iter_difference_t<_OutIt> __n, format_string<_Args.
 
 #  if _LIBCPP_HAS_WIDE_CHARACTERS
 template <output_iterator<const wchar_t&> _OutIt, class... _Args>
-_LIBCPP_HIDE_FROM_ABI format_to_n_result<_OutIt>
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI format_to_n_result<_OutIt>
 format_to_n(_OutIt __out_it, iter_difference_t<_OutIt> __n, wformat_string<_Args...> __fmt, _Args&&... __args) {
   return std::__vformat_to_n<wformat_context>(std::move(__out_it), __n, __fmt.get(), std::make_wformat_args(__args...));
 }
