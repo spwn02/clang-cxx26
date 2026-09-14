@@ -2286,10 +2286,10 @@ in an ambiguous state.
     scoped DR-shaped fix to `linalg::conjugated`) was completed as part
     of this assessment once the fix was understood; see its row below.
 
-### Tier 3 Sub-Plan: mdspan `submdspan`/padded layouts (P2630R4/P2642R6/P3355R2) — BLOCKED, do not start
+### Tier 3 Sub-Plan: mdspan `submdspan`/padded layouts (P2630R4/P2642R6/P3355R2) — in progress
 
-**Blocked 2026-08-24, before any code was written — this is a scoping
-finding, not an implementation attempt.** Do not pick this up as a normal
+**Previously blocked 2026-08-24; unblocked 2026-09-14 when P2781R9 landed.**
+This is now an implementation effort; retain the historical scoping
 "from-scratch feature" session; read this whole section first, since the
 blocker is a prerequisite chain, not a size problem.
 
@@ -2316,7 +2316,7 @@ blocker is a prerequisite chain, not a size problem.
    against the current draft before trusting a paper's own text. **This is
    where the blocker was found**, not in the implementation itself.
 
-**The blocker:** the current draft's submdspan wording has moved
+**Historical blocker:** the current draft's submdspan wording had moved
 substantially beyond P3355R2 (the tracked "C++26 fixes" paper) via further,
 untracked committee changes:
 - `strided_slice` (P2630R4's type) has been renamed `extent_slice`, and a
@@ -2368,7 +2368,7 @@ submdspan by then (the GitHub API check above is cheap to repeat) and
 backports rather than reimplements. Do not start on `strided_slice`/
 `submdspan_extents`-shaped code against the old papers as a stopgap.
 
-P2630R4, P2642R6, and P3355R2 stay `[ ]` (not started) in the table below;
+P2642R6 and P3355R2 stay `[ ]` (not started) in the table below;
 P3222R0 (Tier 6, "transposed special cases for P2642 mdspan layouts")
 stays blocked transitively on this same chain.
 
@@ -2462,7 +2462,7 @@ back to `to_input` based on the paper title alone.
 | [x] | P3138R5 | `views::cache_latest` | Complete 2026-08-22 — scaffolded but untested; fixed missing `_LIBCPP_HIDE_FROM_ABI` throughout, a wrongly-added `enable_borrowed_range` specialization, and two private constructors missing `constexpr` |
 | [x] | P3137R3 | `views::to_input` (adopted as `views::as_input`) | Complete 2026-08-22 — same conformance-pass fixes as P3138R5 (missing `_LIBCPP_HIDE_FROM_ABI`, wrong `enable_borrowed_range` specialization) |
 | [x] | P2846R6 | `reserve_hint` | Complete 2026-08-22 — CPO/concept were already scaffolded but untested; added tests, fixed a `_LIBCPP_HIDE_FROM_ABI` gap and `ranges::to` using `sized_range`/`ranges::size` instead of `approximately_sized_range`/`ranges::reserve_hint` |
-| [ ] | P2630R4 | `submdspan` | Confirmed from-scratch, no scaffolding in-tree — see mdspan/linalg block note |
+| [~] | P2630R4 | `submdspan` | In progress 2026-09-14 — current-draft slice types/canonicalization and `subextents` committed; mapping and `submdspan` remain |
 | [ ] | P2642R6 | Padded `mdspan` layouts | Confirmed from-scratch |
 | [ ] | P3355R2 | `submdspan` C++26 fixes | Depends on P2630R4 |
 | [x] | P3050R2 | `linalg::conjugated` optimization | Complete 2026-08-22 — `conjugated()` always wrapped in `conjugated_accessor` even for arithmetic/no-`conj(E)` element types; now returns the argument unchanged for those (reuses the existing `__has_adl_conj` trait). No FTM of its own. |
@@ -3067,6 +3067,19 @@ tiers as makes sense.
 
 Append a short dated entry each session — a few lines: what moved, what's
 blocked, what's next. Do not remove old entries.
+
+- **2026-09-14**: Started issue #14 on branch `wip/14-mdspan-submdspan` after
+  rechecking the live `[mdspan.sub]` draft and upstream LLVM `main` (upstream
+  still has no submdspan implementation). Added and committed the current-
+  wording design note, then implemented and committed `extent_slice`,
+  `range_slice`, `canonical_slices`, and an initial standards-shaped
+  `subextents` with constant-wrapper static extents and collapsing-slice rank
+  removal. P2630R4 is now in progress; mapping, padded layouts, P3222,
+  `mdspan.at()`, P3663, and the separate linalg audit remain. An initial
+  mapping prototype is uncommitted and must be repaired or discarded before
+  the next commit. Direct standalone compilation is still blocked by the
+  repository's known `wint_t` header conflict; no phase-specific diagnostic
+  has been isolated yet.
 
 - **2026-08-20**: Contract created. Surveyed `Cxx2cPapers.csv`/`Cxx2cIssues.csv`
   (60 unstarted, 3 partial, 43 complete library papers) and
