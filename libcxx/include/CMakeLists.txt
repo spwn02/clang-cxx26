@@ -628,6 +628,8 @@ set(files
   __mdspan/layout_left.h
   __mdspan/layout_right.h
   __mdspan/layout_stride.h
+  __mdspan/layout_left_padded.h
+  __mdspan/layout_right_padded.h
   __mdspan/mdspan.h
   __mdspan/submdspan.h
   __mdspan/submdspan_mapping.h

@@ -18,6 +18,7 @@
 #define _LIBCPP___MDSPAN_LAYOUTS_H
 
 #include <__config>
+#include <__cstddef/size_t.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -44,6 +45,18 @@ struct layout_right {
 
 // Layout policy with a unique mapping where strides are arbitrary
 struct layout_stride {
+  template <class _Extents>
+  class mapping;
+};
+
+template <size_t _PaddingValue>
+struct layout_left_padded {
+  template <class _Extents>
+  class mapping;
+};
+
+template <size_t _PaddingValue>
+struct layout_right_padded {
   template <class _Extents>
   class mapping;
 };

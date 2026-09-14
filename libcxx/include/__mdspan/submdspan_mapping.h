@@ -178,6 +178,48 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto submdspan_mapping(
   }
 }
 
+template <size_t _Padding, class _Extents, class... _SliceSpecifiers>
+  requires(sizeof...(_SliceSpecifiers) == _Extents::rank())
+_LIBCPP_HIDE_FROM_ABI constexpr auto submdspan_mapping(
+    const typename layout_left_padded<_Padding>::template mapping<_Extents>& __mapping,
+    _SliceSpecifiers... __slices) {
+  auto __canonical = canonical_slices(__mapping.extents(), std::move(__slices)...);
+  using _SubExtents = decltype(subextents(__mapping.extents(), __slices...));
+  auto __offset = __mdspan_detail::__submdspan_offset_impl(__mapping, __canonical, make_index_sequence<_Extents::rank()>{});
+  if constexpr (_SubExtents::rank() == 0)
+    return submdspan_mapping_result<typename layout_left::template mapping<_SubExtents>>{
+        typename layout_left::template mapping<_SubExtents>(subextents(__mapping.extents(), __slices...)),
+        static_cast<size_t>(__offset)};
+  else {
+    auto __strides = __mdspan_detail::__submdspan_strides<_SubExtents::rank()>(
+        __mapping, __canonical, make_index_sequence<_Extents::rank()>{});
+    return submdspan_mapping_result<typename layout_stride::template mapping<_SubExtents>>{
+        typename layout_stride::template mapping<_SubExtents>(subextents(__mapping.extents(), __slices...), span(__strides)),
+        static_cast<size_t>(__offset)};
+  }
+}
+
+template <size_t _Padding, class _Extents, class... _SliceSpecifiers>
+  requires(sizeof...(_SliceSpecifiers) == _Extents::rank())
+_LIBCPP_HIDE_FROM_ABI constexpr auto submdspan_mapping(
+    const typename layout_right_padded<_Padding>::template mapping<_Extents>& __mapping,
+    _SliceSpecifiers... __slices) {
+  auto __canonical = canonical_slices(__mapping.extents(), std::move(__slices)...);
+  using _SubExtents = decltype(subextents(__mapping.extents(), __slices...));
+  auto __offset = __mdspan_detail::__submdspan_offset_impl(__mapping, __canonical, make_index_sequence<_Extents::rank()>{});
+  if constexpr (_SubExtents::rank() == 0)
+    return submdspan_mapping_result<typename layout_right::template mapping<_SubExtents>>{
+        typename layout_right::template mapping<_SubExtents>(subextents(__mapping.extents(), __slices...)),
+        static_cast<size_t>(__offset)};
+  else {
+    auto __strides = __mdspan_detail::__submdspan_strides<_SubExtents::rank()>(
+        __mapping, __canonical, make_index_sequence<_Extents::rank()>{});
+    return submdspan_mapping_result<typename layout_stride::template mapping<_SubExtents>>{
+        typename layout_stride::template mapping<_SubExtents>(subextents(__mapping.extents(), __slices...), span(__strides)),
+        static_cast<size_t>(__offset)};
+  }
+}
+
 template <class _Extents, class... _SliceSpecifiers>
   requires(sizeof...(_SliceSpecifiers) == _Extents::rank())
 _LIBCPP_HIDE_FROM_ABI constexpr auto submdspan_mapping(

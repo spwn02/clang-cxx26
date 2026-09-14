@@ -7723,17 +7723,11 @@
 #    endif
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_mdspan
-#      error "__cpp_lib_freestanding_mdspan should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_mdspan != 202311L
-#      error "__cpp_lib_freestanding_mdspan should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_mdspan
-#      error "__cpp_lib_freestanding_mdspan should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_mdspan
+#    error "__cpp_lib_freestanding_mdspan should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_mdspan != 202311L
+#    error "__cpp_lib_freestanding_mdspan should have the value 202311L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)
@@ -9059,17 +9053,11 @@
 #    error "__cpp_lib_string_view should have the value 202403L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_submdspan
-#      error "__cpp_lib_submdspan should be defined in c++26"
-#    endif
-#    if __cpp_lib_submdspan != 202306L
-#      error "__cpp_lib_submdspan should have the value 202306L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_submdspan
-#      error "__cpp_lib_submdspan should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_submdspan
+#    error "__cpp_lib_submdspan should be defined in c++26"
+#  endif
+#  if __cpp_lib_submdspan != 202306L
+#    error "__cpp_lib_submdspan should have the value 202306L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM

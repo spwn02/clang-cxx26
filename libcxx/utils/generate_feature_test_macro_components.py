@@ -1602,7 +1602,7 @@ feature_test_macros = [
             "name": "__cpp_lib_submdspan",
             "values": {
                 "c++26": 202306, # P2630R4: submdspan
-                # "c++26": 202403, # P2642R6: Padded mdspan layouts
+                "c++26": 202403, # P2642R6: Padded mdspan layouts
             },
             "headers": ["mdspan"],
         },

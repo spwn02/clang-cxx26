@@ -28,6 +28,8 @@ namespace std {
   struct layout_left;
   struct layout_right;
   struct layout_stride;
+  template<size_t PaddingValue> struct layout_left_padded;
+  template<size_t PaddingValue> struct layout_right_padded;
 
   struct full_extent_t;
   inline constexpr full_extent_t full_extent;
@@ -470,6 +472,8 @@ namespace std {
 #    include <__mdspan/layout_left.h>
 #    include <__mdspan/layout_right.h>
 #    include <__mdspan/layout_stride.h>
+#    include <__mdspan/layout_left_padded.h>
+#    include <__mdspan/layout_right_padded.h>
 #    include <__mdspan/submdspan.h>
 #    include <__mdspan/mdspan.h>
 #    include <__mdspan/submdspan_mapping.h>
