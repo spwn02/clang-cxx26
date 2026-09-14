@@ -75,9 +75,6 @@ public:
   bool __generic_ = false;
 };
 
-template <>
-inline constexpr bool __enable_nonlocking_formatter_optimization<filesystem::path> = true;
-
 _LIBCPP_END_NAMESPACE_STD
 
 #endif // _LIBCPP_STD_VER >= 26

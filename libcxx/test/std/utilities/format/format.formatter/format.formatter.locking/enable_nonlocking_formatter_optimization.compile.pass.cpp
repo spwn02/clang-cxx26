@@ -119,7 +119,8 @@ void test_P1361() {
 // In libc++ std:::ostringstream requires localization support.
 #ifndef TEST_HAS_NO_LOCALIZATION
 
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::microseconds>);
+  // P3235R3: duration's trait is inherited from its representation type.
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::microseconds>);
 
   static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::sys_time<std::chrono::microseconds>>);
 #  if !defined(TEST_HAS_NO_EXPERIMENTAL_TZDB) && !defined(TEST_HAS_NO_TIME_ZONE_DATABASE) &&                           \
@@ -158,7 +159,8 @@ void test_P1361() {
   static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::local_info>);
 
 #    if !defined(TEST_HAS_NO_TIME_ZONE_DATABASE) && !defined(TEST_HAS_NO_FILESYSTEM)
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::zoned_time<std::chrono::microseconds>>);
+  // P3235R3: zoned_time with the default TimeZonePtr is opted in.
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::zoned_time<std::chrono::microseconds>>);
 #    endif // !defined(TEST_HAS_NO_TIME_ZONE_DATABASE) && !defined(TEST_HAS_NO_FILESYSTEM)
 #  endif   // !defined(TEST_HAS_NO_EXPERIMENTAL_TZDB)
 

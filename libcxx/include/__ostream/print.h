@@ -168,10 +168,17 @@ _LIBCPP_HIDE_FROM_ABI inline void vprint_unicode(ostream& __os, string_view __fm
 template <class>
 _LIBCPP_HIDE_FROM_ABI inline void
 __vprint_unicode_buffered(ostream& __os, string_view __fmt, format_args __args, bool __write_nl) {
-  string __out = std::vformat(__os.getloc(), __fmt, __args);
-  if (__write_nl)
-    __out.push_back('\n');
-  std::__vprint_unicode(__os, "{}", std::make_format_args(__out), false);
+  // [ostream.formatted.print]/3.2: the sentry must be constructed (and any
+  // resulting exception propagated) before vformat is called, so a failing
+  // tied-stream sync takes precedence over a format error. Do not call
+  // vformat unconditionally before checking the sentry here.
+  ostream::sentry __s(__os);
+  if (__s) {
+    string __out = std::vformat(__os.getloc(), __fmt, __args);
+    if (__write_nl)
+      __out.push_back('\n');
+    std::__vprint_unicode(__os, "{}", std::make_format_args(__out), false);
+  }
 }
 #    endif // _LIBCPP_HAS_UNICODE
 

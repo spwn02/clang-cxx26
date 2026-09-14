@@ -70,12 +70,6 @@ public:
   __format_spec::__parser<char> __parser_{.__alignment_ = __format_spec::__alignment::__left};
 };
 
-template <>
-inline constexpr bool __enable_nonlocking_formatter_optimization<stacktrace_entry> = true;
-
-template <class _Allocator>
-inline constexpr bool __enable_nonlocking_formatter_optimization<basic_stacktrace<_Allocator>> = true;
-
 _LIBCPP_END_NAMESPACE_STD
 
 #endif // _LIBCPP_STD_VER >= 23
