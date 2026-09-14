@@ -681,7 +681,6 @@ feature_test_macros = [
                 "c++26": 202311  # P2833R2 Freestanding Library: inout expected span
             },
             "headers": ["mdspan"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_freestanding_optional",
@@ -1606,7 +1605,6 @@ feature_test_macros = [
                 # "c++26": 202403, # P2642R6: Padded mdspan layouts
             },
             "headers": ["mdspan"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_syncbuf",

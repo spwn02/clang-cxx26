@@ -2368,7 +2368,7 @@ submdspan by then (the GitHub API check above is cheap to repeat) and
 backports rather than reimplements. Do not start on `strided_slice`/
 `submdspan_extents`-shaped code against the old papers as a stopgap.
 
-P2642R6 and P3355R2 stay `[ ]` (not started) in the table below;
+P2642R6 remains `[ ]` (not started) in the table below; P3355R2 is now complete;
 P3222R0 (Tier 6, "transposed special cases for P2642 mdspan layouts")
 stays blocked transitively on this same chain.
 
@@ -2462,9 +2462,9 @@ back to `to_input` based on the paper title alone.
 | [x] | P3138R5 | `views::cache_latest` | Complete 2026-08-22 — scaffolded but untested; fixed missing `_LIBCPP_HIDE_FROM_ABI` throughout, a wrongly-added `enable_borrowed_range` specialization, and two private constructors missing `constexpr` |
 | [x] | P3137R3 | `views::to_input` (adopted as `views::as_input`) | Complete 2026-08-22 — same conformance-pass fixes as P3138R5 (missing `_LIBCPP_HIDE_FROM_ABI`, wrong `enable_borrowed_range` specialization) |
 | [x] | P2846R6 | `reserve_hint` | Complete 2026-08-22 — CPO/concept were already scaffolded but untested; added tests, fixed a `_LIBCPP_HIDE_FROM_ABI` gap and `ranges::to` using `sized_range`/`ranges::size` instead of `approximately_sized_range`/`ranges::reserve_hint` |
-| [~] | P2630R4 | `submdspan` | In progress 2026-09-14 — current-draft slice types/canonicalization and `subextents` committed; mapping and `submdspan` remain |
+| [x] | P2630R4 | `submdspan` | Complete 2026-09-14 — current-draft slice types/canonicalization, `subextents`, layout mapping selection, `layout_stride` fallback, and `submdspan` construction |
 | [ ] | P2642R6 | Padded `mdspan` layouts | Confirmed from-scratch |
-| [ ] | P3355R2 | `submdspan` C++26 fixes | Depends on P2630R4 |
+| [x] | P3355R2 | `submdspan` C++26 fixes | Complete 2026-09-14 — contiguous partial-slice layout selection and corrected unit-stride handling; padded-layout work remains under P2642R6 |
 | [x] | P3050R2 | `linalg::conjugated` optimization | Complete 2026-08-22 — `conjugated()` always wrapped in `conjugated_accessor` even for arithmetic/no-`conj(E)` element types; now returns the argument unchanged for those (reuses the existing `__has_adl_conj` trait). No FTM of its own. |
 | [~] | P1673R13 | BLAS-based linear algebra interface | Partial 2026-08-24 — audited: name-set diff clean, found and fixed a real SFINAE-conformance gap (~90 functions retrofitted with concept constraints) plus (via P3371R5 below) a real-if-needed gap in the hermitian rank-1/2/k/2k updates; `|Partial|` because the FTM chain to `202511L` traces through P3222R0, which is genuinely blocked on P2642R6/`constant_wrapper` — see Session Log |
 | [x] | P3371R5 | Consistent rank-1/2/k/2k updates | Complete 2026-08-24 — found via tracing the `__cpp_lib_linalg` FTM chain (not previously in this CSV). 3 of its 4 required changes were already correct in this fork; fixed the 4th (`real-if-needed(alpha)` and diagonal `real-if-needed(E[i, i])` missing from the 4 hermitian rank-update E-taking overloads) — see Session Log |
@@ -3088,6 +3088,13 @@ blocked, what's next. Do not remove old entries.
   native layout preservation for all-full left/right slices. Remaining in
   phase 3: contiguous partial-slice layout selection; then padded layouts,
   P3222, `mdspan.at()`, P3663, and the linalg audit.
+
+- **2026-09-14 (phase 3)**: Completed P2630R4/P3355R2's standard layout mapping
+  work. `layout_left` and `layout_right` now preserve their layout for the
+  contiguous partial-slice patterns specified by the current draft, while
+  non-contiguous cases use `layout_stride`; extent slices of size zero or one
+  retain the source stride. Focused staged-header direct tests pass. Next:
+  P2642R6 padded layouts, then P3222R0.
 
 - **2026-08-20**: Contract created. Surveyed `Cxx2cPapers.csv`/`Cxx2cIssues.csv`
   (60 unstarted, 3 partial, 43 complete library papers) and
