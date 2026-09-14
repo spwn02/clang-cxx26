@@ -119,4 +119,30 @@ consteval bool catches_unnamed_parameter_identifier() {
 
 static_assert(catches_unnamed_parameter_identifier());
 
+consteval bool catches_ast_validation_failures() {
+  bool object = false;
+  bool constant = false;
+  bool extract = false;
+  bool reflect = false;
+  try { (void)std::meta::object_of(^^int); }
+  catch (const std::meta::exception& e) {
+    object = e.from() == ^^std::meta::object_of;
+  }
+  try { (void)std::meta::constant_of(^^int); }
+  catch (const std::meta::exception& e) {
+    constant = e.from() == ^^std::meta::constant_of;
+  }
+  try { (void)std::meta::extract<int>(^^int); }
+  catch (const std::meta::exception& e) {
+    extract = e.from() == ^^std::meta::extract;
+  }
+  try { (void)std::meta::reflect_constant((const char *)"fails"); }
+  catch (const std::meta::exception& e) {
+    reflect = e.from() != std::meta::info{};
+  }
+  return object && constant && extract && reflect;
+}
+
+static_assert(catches_ast_validation_failures());
+
 int main(int, char**) { return 0; }

@@ -3356,8 +3356,11 @@ bool object_of(APValue &Result, ASTContext &C, MetaActions &Meta,
                                             Range.getBegin(), QT,
                                             VK_LValue, VD, nullptr);
     APValue Value;
-    if (!Evaluator(Value, Synthesized, false) || !Value.isLValue())
+    if (!Evaluator(Value, Synthesized, false))
       return true;
+    if (!Value.isLValue())
+      return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
+          << 1 << DescriptionOf(RV) << Range;
 
     APValue OV = Value.Lift(QualType{});
     return SetAndSucceed(Result, OV);
@@ -3814,7 +3817,8 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
 
   auto extractLambda = [&](APValue &Out, CXXRecordDecl *RD) -> bool {
     if (!RD->isCapturelessLambda())
-      return true;
+      return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
+          << 0 << "a captureful lambda" << Range;
 
     CXXMethodDecl *CallOp = RD->getLambdaStaticInvoker();
     QualType LambdaPtrTy = C.getPointerType(CallOp->getType());
@@ -3904,7 +3908,8 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
       CurrentFD = dyn_cast<FunctionDecl>(Meta.CurrentCtx());
 
     if (!CurrentFD || CurrentFD->getCanonicalDecl() != FD->getCanonicalDecl())
-      return true;
+      return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
+          << (ReturnsLValue ? 1 : 0) << DescriptionOf(RV) << Range;
     assert(FD->getDefinition());
     PVD = FD->getDefinition()->getParamDecl(PVD->getFunctionScopeIndex());
 
