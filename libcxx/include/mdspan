@@ -29,6 +29,19 @@ namespace std {
   struct layout_right;
   struct layout_stride;
 
+  struct full_extent_t;
+  inline constexpr full_extent_t full_extent;
+  template<class OffsetType, class ExtentType, class StrideType>
+    struct extent_slice;
+  template<class FirstType, class LastType, class StrideType = constant_wrapper<1zu>>
+    struct range_slice;
+  template<class LayoutMapping>
+    struct submdspan_mapping_result;
+  template<class IndexType, size_t... Extents, class... SliceSpecifiers>
+    constexpr auto canonical_slices(const extents<IndexType, Extents...>&, SliceSpecifiers...);
+  template<class IndexType, size_t... Extents, class... SliceSpecifiers>
+    constexpr auto subextents(const extents<IndexType, Extents...>&, SliceSpecifiers...);
+
   // [mdspan.accessor.default], class template default_accessor
   template<class ElementType>
     class default_accessor;
@@ -457,6 +470,7 @@ namespace std {
 #    include <__mdspan/layout_left.h>
 #    include <__mdspan/layout_right.h>
 #    include <__mdspan/layout_stride.h>
+#    include <__mdspan/submdspan.h>
 #    include <__mdspan/mdspan.h>
 #  endif
 
