@@ -16,6 +16,10 @@ struct complete { int value; };
 void named_parameter(int value);
 void unnamed_parameter(int);
 
+template <class T> struct substitution_trait { using type = void; };
+template <class T>
+using substitution_probe = typename substitution_trait<T &>::type;
+
 consteval bool catches_members_error() {
   try {
     (void)std::meta::members_of(
@@ -144,5 +148,17 @@ consteval bool catches_ast_validation_failures() {
 }
 
 static_assert(catches_ast_validation_failures());
+
+consteval bool nested_substitution_probe() {
+  try {
+    return !std::meta::can_substitute(^^substitution_probe, {^^void});
+  } catch (...) {
+    return false;
+  }
+}
+
+static_assert(nested_substitution_probe());
+static_assert(std::meta::substitute(^^substitution_probe, {^^int}) !=
+              std::meta::info{});
 
 int main(int, char**) { return 0; }

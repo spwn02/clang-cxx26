@@ -3705,9 +3705,15 @@ bool substitute(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (C.checkCachedSubstitution(SubstitutionHash, &Result))
     return false;
 
-  if (!Meta.CheckTemplateArgumentList(TDecl, ExpandedTArgs, NoDiagnose,
+  // Keep Sema's nested diagnostics suppressed even for substitute().  The
+  // metafunction owns the failure and must report it through the strategy-2
+  // exception path; leaking Sema diagnostics here also masks a pending
+  // exception from a nested evaluator call.
+  if (!Meta.CheckTemplateArgumentList(TDecl, ExpandedTArgs, true,
                                       Args[0]->getExprLoc()))
-    return NoDiagnose ? ElideDiagnosis() : true;
+    return NoDiagnose ? ElideDiagnosis() :
+           Diagnoser(Range.getBegin(), diag::metafn_substitution_failed)
+             << TDecl << Range;
   for (const auto &TArg : ExpandedTArgs)
     if (TArg.getKind() == TemplateArgument::Expression &&
         TArg.getAsExpr()->containsErrors())
@@ -3737,7 +3743,7 @@ bool substitute(APValue &Result, ASTContext &C, MetaActions &Meta,
     TArgs.clear();
     expandTemplateArgPacks(ExpandedTArgs, TArgs);
 
-    QualType QT = Meta.Substitute(TATD, TArgs, NoDiagnose, Range.getBegin());
+    QualType QT = Meta.Substitute(TATD, TArgs, true, Range.getBegin());
     if (QT.isNull())
       return NoDiagnose ? ElideDiagnosis() :
              Diagnoser(Range.getBegin(), diag::metafn_substitution_failed)
@@ -3748,7 +3754,7 @@ bool substitute(APValue &Result, ASTContext &C, MetaActions &Meta,
   }
   if (auto *FTD = dyn_cast<FunctionTemplateDecl>(TDecl)) {
     FunctionDecl *Spec =
-        Meta.Substitute(FTD, ExpandedTArgs, NoDiagnose, Range.getBegin());
+        Meta.Substitute(FTD, ExpandedTArgs, true, Range.getBegin());
     if (!Spec)
       return NoDiagnose ? ElideDiagnosis() :
              Diagnoser(Range.getBegin(), diag::metafn_substitution_failed)
@@ -3768,7 +3774,7 @@ bool substitute(APValue &Result, ASTContext &C, MetaActions &Meta,
     expandTemplateArgPacks(ExpandedTArgs, TArgs);
 
     VarDecl *Spec =
-        Meta.Substitute(VTD, TArgs, NoDiagnose, Range.getBegin());
+        Meta.Substitute(VTD, TArgs, true, Range.getBegin());
     if (!Spec)
       return NoDiagnose ? ElideDiagnosis() :
              Diagnoser(Range.getBegin(), diag::metafn_substitution_failed)
@@ -3783,7 +3789,7 @@ bool substitute(APValue &Result, ASTContext &C, MetaActions &Meta,
     expandTemplateArgPacks(ExpandedTArgs, TArgs);
 
     Expr *Spec =
-        Meta.Substitute(CD, TArgs, NoDiagnose, Range.getBegin());
+        Meta.Substitute(CD, TArgs, true, Range.getBegin());
     if (!Spec)
       return NoDiagnose ? ElideDiagnosis() :
              Diagnoser(Range.getBegin(), diag::metafn_substitution_failed)
