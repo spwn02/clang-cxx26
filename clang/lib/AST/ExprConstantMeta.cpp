@@ -7177,7 +7177,8 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
     AccessDC = dyn_cast_or_null<DeclContext>(
         findTypeDecl(Scratch.getReflectedType()));
     if (!AccessDC)
-      return true;
+      return Meta.ThrowMetaException(Range.getBegin(),
+                                     "invalid reflection operand");
     break;
   case ReflectionKind::Namespace:
     AccessDC = dyn_cast<DeclContext>(Scratch.getReflectedNamespace());
@@ -7201,7 +7202,8 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
     NamingCls = NamingCls->getDefinition();
 
     if (!NamingCls)
-      return true;  // TODO(CXX26): Diagnostic for naming class.
+      return Meta.ThrowMetaException(Range.getBegin(),
+                                     "invalid reflection operand");
   }
 
   APValue RV;
