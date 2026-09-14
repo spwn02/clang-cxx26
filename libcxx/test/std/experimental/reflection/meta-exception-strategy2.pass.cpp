@@ -161,4 +161,15 @@ static_assert(nested_substitution_probe());
 static_assert(std::meta::substitute(^^substitution_probe, {^^int}) !=
               std::meta::info{});
 
+consteval bool catches_invalid_substitution() {
+  try {
+    (void)std::meta::substitute(^^substitution_probe, {^^void});
+  } catch (const std::meta::exception& e) {
+    return e.from() != std::meta::info{};
+  }
+  return false;
+}
+
+static_assert(catches_invalid_substitution());
+
 int main(int, char**) { return 0; }
