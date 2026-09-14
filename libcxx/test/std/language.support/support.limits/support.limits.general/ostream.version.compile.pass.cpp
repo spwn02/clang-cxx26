@@ -116,8 +116,8 @@
 #    ifndef __cpp_lib_print
 #      error "__cpp_lib_print should be defined in c++26"
 #    endif
-#    if __cpp_lib_print != 202207L
-#      error "__cpp_lib_print should have the value 202207L in c++26"
+#    if __cpp_lib_print != 202406L
+#      error "__cpp_lib_print should have the value 202406L in c++26"
 #    endif
 #  else
 #    ifdef __cpp_lib_print

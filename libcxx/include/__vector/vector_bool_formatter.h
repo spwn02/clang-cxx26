@@ -42,6 +42,10 @@ public:
   }
 };
 
+template <class _Tp>
+  requires same_as<typename _Tp::__container, vector<bool, typename _Tp::__container::allocator_type>>
+inline constexpr bool __enable_nonlocking_formatter_optimization<_Tp> = true;
+
 _LIBCPP_END_NAMESPACE_STD
 
 #endif // _LIBCPP_STD_VER >= 23

@@ -11,9 +11,11 @@
 // Verify the P3107R5 implementation mechanism, not only its output.
 
 #include <cassert>
+#include <chrono>
 #include <ostream>
 #include <print>
 #include <string>
+#include <tuple>
 #include <vector>
 
 struct recording_buf : std::streambuf {
@@ -32,6 +34,10 @@ protected:
 };
 
 int main(int, char**) {
+  static_assert(std::enable_nonlocking_formatter_optimization<std::tuple<int, std::string>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::sys_days>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::duration<int>>);
+
   std::string expected(4097, 'x');
   recording_buf __buf;
   std::ostream __os(&__buf);

@@ -71,6 +71,9 @@ public:
   __format_spec::__parser<_CharT> __parser_{.__alignment_ = __format_spec::__alignment::__right};
 };
 
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<__thread_id> = true;
+
 #  endif // _LIBCPP_HAS_THREADS
 
 _LIBCPP_END_NAMESPACE_STD

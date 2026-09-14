@@ -41,8 +41,13 @@ struct formatter : __disabled_formatter {};
 
 #  if _LIBCPP_STD_VER >= 23
 
+// P3235R3 catalogue of standard-library formatter types that can be used by
+// the direct print path. The public variable remains specializeable.
 template <class _Tp>
-constexpr bool enable_nonlocking_formatter_optimization = false;
+inline constexpr bool __enable_nonlocking_formatter_optimization = false;
+
+template <class _Tp>
+constexpr bool enable_nonlocking_formatter_optimization = __enable_nonlocking_formatter_optimization<_Tp>;
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr void __set_debug_format(_Tp& __formatter) {

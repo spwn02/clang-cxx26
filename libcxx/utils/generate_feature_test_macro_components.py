@@ -1243,8 +1243,7 @@ feature_test_macros = [
             "name": "__cpp_lib_print",
             "values": {
                 "c++23": 202207,
-                # "c++26": 202403, # P3107R5: Permit an efficient implementation of std::print
-                # "c++26": 202406, # P3235R3 std::print more types faster with less memory
+                "c++26": 202406, # P3107R5/P3235R3: faster std::print with less memory
             },
             "headers": ["ostream", "print"],
             # Trying to use `std::print` where to_chars floating-point is not

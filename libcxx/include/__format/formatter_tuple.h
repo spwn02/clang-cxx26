@@ -141,6 +141,14 @@ struct formatter<pair<_Args...>, _CharT> : public __formatter_tuple<_CharT, pair
 template <__fmt_char_type _CharT, formattable<_CharT>... _Args>
 struct formatter<tuple<_Args...>, _CharT> : public __formatter_tuple<_CharT, tuple<_Args...>, _Args...> {};
 
+template <class... _Args>
+inline constexpr bool __enable_nonlocking_formatter_optimization<pair<_Args...>> =
+    (enable_nonlocking_formatter_optimization<_Args> && ...);
+
+template <class... _Args>
+inline constexpr bool __enable_nonlocking_formatter_optimization<tuple<_Args...>> =
+    (enable_nonlocking_formatter_optimization<_Args> && ...);
+
 #endif // _LIBCPP_STD_VER >= 23
 
 _LIBCPP_END_NAMESPACE_STD
