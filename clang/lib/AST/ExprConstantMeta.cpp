@@ -2455,8 +2455,8 @@ bool get_ith_base_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       CXXBaseSpecifier *baseClassItr = cxxRecordDecl->bases_begin() + idx;
       return SetAndSucceed(Result, makeReflection(baseClassItr));
     }
-    return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
-        << 0 << 1 << Range;
+    return Meta.ThrowMetaException(Range.getBegin(),
+                                   "invalid reflection operand");
   }
   case ReflectionKind::Null:
   case ReflectionKind::Declaration:
@@ -2566,24 +2566,22 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       QT = desugarType(QT, /*UnwrapAliases=*/true, /*DropCV=*/false,
                        /*DropRefs=*/false);
 
-    if (isa<EnumType>(QT)) {
-      Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
-            << 1 << 1 << Range;
-      return Diagnoser(Range.getBegin(), diag::metafn_members_of_enum) << Range;
-    }
+    if (isa<EnumType>(QT))
+      return Meta.ThrowMetaException(Range.getBegin(),
+                                     "invalid reflection operand");
 
     ensureDeclared(C, QT, Range.getBegin());
     Decl *typeDecl = findTypeDecl(QT);
     if (!typeDecl)
-      return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
-             << 1 << 1 << Range;
+      return Meta.ThrowMetaException(Range.getBegin(),
+                                     "invalid reflection operand");
 
     if (!Meta.EnsureInstantiated(typeDecl, Range))
       return true;
 
     if (QT->isIncompleteType())
-      return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
-             << 1 << 1 << Range;
+      return Meta.ThrowMetaException(Range.getBegin(),
+                                     "invalid reflection operand");
       // NOTE(CXX26): Uncomment to allow 'members_of' within member
       // specification.
       /*
@@ -2628,7 +2626,8 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
   case ReflectionKind::Attribute:
-    return true;
+    return Meta.ThrowMetaException(Range.getBegin(),
+                                   "invalid reflection operand");
   }
   llvm_unreachable("unknown reflection kind");
 }
@@ -6678,8 +6677,8 @@ bool get_ith_parameter_of(APValue &Result, ASTContext &C, MetaActions &Meta,
 
       return SetAndSucceed(Result, makeReflection(FT->getParamType(idx)));
     }
-    return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
-        << 2 << 2 << Range;
+    return Meta.ThrowMetaException(Range.getBegin(),
+                                   "invalid reflection operand");
   }
   case ReflectionKind::Declaration: {
     if (auto FD = dyn_cast<FunctionDecl>(RV.getReflectedDecl())) {
@@ -6689,8 +6688,8 @@ bool get_ith_parameter_of(APValue &Result, ASTContext &C, MetaActions &Meta,
 
       return SetAndSucceed(Result, makeReflection(FD->getParamDecl(idx)));
     }
-    return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
-          << 5 << DescriptionOf(RV) << Range;
+    return Meta.ThrowMetaException(Range.getBegin(),
+                                   "invalid reflection operand");
   }
   case ReflectionKind::Null:
   case ReflectionKind::Template:
@@ -6705,8 +6704,8 @@ bool get_ith_parameter_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Attribute:
     return true;
   }
-  return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
-      << 5 << DescriptionOf(RV) << Range;
+  return Meta.ThrowMetaException(Range.getBegin(),
+                                 "invalid reflection operand");
 }
 
 // P3096R12 [meta.reflection.parameter]: has_ellipsis_parameter is a total
@@ -7005,8 +7004,8 @@ bool get_ith_annotation_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
   case ReflectionKind::Attribute:
-    return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
-        << 7 << DescriptionOf(RV) << Range;
+    return Meta.ThrowMetaException(Range.getBegin(),
+                                   "invalid reflection operand");
   }
   llvm_unreachable("unknown reflection kind");
 }

@@ -34,6 +34,8 @@ consteval bool catches_representative_failures() {
   bool type = false;
   bool parent = false;
   bool bases = false;
+  bool static_members = false;
+  bool nonstatic_members = false;
   try { (void)std::meta::type_of(^^std); }
   catch (const std::meta::exception& e) {
     type = e.from() == ^^std::meta::type_of;
@@ -48,7 +50,19 @@ consteval bool catches_representative_failures() {
   } catch (const std::meta::exception& e) {
     bases = e.from() != std::meta::info{};
   }
-  return type && parent && bases;
+  try {
+    (void)std::meta::static_data_members_of(
+        ^^int, std::meta::access_context::unchecked());
+  } catch (const std::meta::exception& e) {
+    static_members = e.from() != std::meta::info{};
+  }
+  try {
+    (void)std::meta::nonstatic_data_members_of(
+        ^^int, std::meta::access_context::unchecked());
+  } catch (const std::meta::exception& e) {
+    nonstatic_members = e.from() != std::meta::info{};
+  }
+  return type && parent && bases && static_members && nonstatic_members;
 }
 
 static_assert(catches_members_error());
