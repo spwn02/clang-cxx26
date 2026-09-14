@@ -18,4 +18,15 @@ int main() {
   assert(r.mapping.extents().extent(1) == 3);
   assert(r.mapping.stride(0) == 30);
   assert(r.mapping.stride(1) == 12);
+
+  int data[4 * 5 * 6]{};
+  std::mdspan view(data, e);
+  auto sub = std::submdspan(view, std::full_extent, std::extent_slice{1, std::cw<3>, std::cw<2>}, 2);
+  static_assert(std::is_same_v<typename decltype(sub)::layout_type, std::layout_stride>);
+  assert(sub.data_handle() == data + 8);
+  assert(sub.extent(0) == 4);
+  assert(sub.extent(1) == 3);
+
+  auto full = std::submdspan_mapping(m, std::full_extent, std::full_extent, std::full_extent);
+  static_assert(std::is_same_v<typename decltype(full.mapping)::layout_type, std::layout_right>);
 }

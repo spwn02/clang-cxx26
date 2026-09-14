@@ -91,6 +91,41 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto submdspan_mapping(const _LayoutMapping& __m
       static_cast<size_t>(__offset)};
 }
 
+template <class _Extents, class... _SliceSpecifiers>
+  requires(sizeof...(_SliceSpecifiers) == _Extents::rank() &&
+           (is_same_v<remove_cvref_t<_SliceSpecifiers>, full_extent_t> && ...))
+_LIBCPP_HIDE_FROM_ABI constexpr auto submdspan_mapping(
+    const layout_right::mapping<_Extents>& __mapping, _SliceSpecifiers... __slices) {
+  using _SubExtents = decltype(subextents(__mapping.extents(), __slices...));
+  return submdspan_mapping_result<typename layout_right::template mapping<_SubExtents>>{
+      typename layout_right::template mapping<_SubExtents>(subextents(__mapping.extents(), __slices...)), 0};
+}
+
+template <class _Extents, class... _SliceSpecifiers>
+  requires(sizeof...(_SliceSpecifiers) == _Extents::rank() &&
+           (is_same_v<remove_cvref_t<_SliceSpecifiers>, full_extent_t> && ...))
+_LIBCPP_HIDE_FROM_ABI constexpr auto submdspan_mapping(
+    const layout_left::mapping<_Extents>& __mapping, _SliceSpecifiers... __slices) {
+  using _SubExtents = decltype(subextents(__mapping.extents(), __slices...));
+  return submdspan_mapping_result<typename layout_left::template mapping<_SubExtents>>{
+      typename layout_left::template mapping<_SubExtents>(subextents(__mapping.extents(), __slices...)), 0};
+}
+
+template <class _ElementType, class _Extents, class _LayoutPolicy, class _AccessorPolicy, class... _SliceSpecifiers>
+  requires(sizeof...(_SliceSpecifiers) == _Extents::rank())
+_LIBCPP_HIDE_FROM_ABI constexpr auto submdspan(
+    const mdspan<_ElementType, _Extents, _LayoutPolicy, _AccessorPolicy>& __src,
+    _SliceSpecifiers... __slices) {
+  auto __result = submdspan_mapping(__src.mapping(), std::move(__slices)...);
+  using _Result = decltype(__result.mapping);
+  using _ResultExtents = typename _Result::extents_type;
+  using _ResultLayout = typename _Result::layout_type;
+  using _ResultAccessor = typename _AccessorPolicy::offset_policy;
+  using _ResultMdspan = mdspan<_ElementType, _ResultExtents, _ResultLayout, _ResultAccessor>;
+  return _ResultMdspan(__src.accessor().offset(__src.data_handle(), __result.offset),
+                       __result.mapping, _ResultAccessor(__src.accessor()));
+}
+
 #endif
 
 _LIBCPP_END_NAMESPACE_STD
