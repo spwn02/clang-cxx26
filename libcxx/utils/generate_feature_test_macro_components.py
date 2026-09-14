@@ -1067,7 +1067,7 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_linalg",
             "values": {
-                "c++26": 202311  # P1673 A free function linear algebra interface based on the BLAS
+                "c++26": 202411  # P3222R0: transposed special cases for P2642 padded layouts
             },
             "headers": ["linalg"],
         },

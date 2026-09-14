@@ -40,6 +40,7 @@
 #include <__utility/integer_sequence.h>
 #include <array>
 #include <span>
+#include <stdexcept>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -218,6 +219,34 @@ public:
       _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__mdspan_detail::__is_multidimensional_index_in(extents(), __indices[_Idxs]...),
                                           "mdspan: operator[] out of bounds access");
       return __acc_.access(__ptr_, __map_(__indices[_Idxs]...));
+    }(make_index_sequence<rank()>());
+  }
+
+  template <class... _OtherIndexTypes>
+    requires((is_convertible_v<_OtherIndexTypes, index_type> && ...) &&
+             (is_nothrow_constructible_v<index_type, _OtherIndexTypes> && ...) &&
+             (sizeof...(_OtherIndexTypes) == rank()))
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr reference at(_OtherIndexTypes... __indices) const {
+    if (!__mdspan_detail::__is_multidimensional_index_in(extents(), __indices...))
+      throw out_of_range("mdspan::at: index out of bounds");
+    return __acc_.access(__ptr_, __map_(static_cast<index_type>(std::move(__indices))...));
+  }
+
+  template <class _OtherIndexType>
+    requires(is_convertible_v<const _OtherIndexType&, index_type> &&
+             is_nothrow_constructible_v<index_type, const _OtherIndexType&>)
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr reference at(const array<_OtherIndexType, rank()>& __indices) const {
+    return [&]<size_t... _Idxs>(index_sequence<_Idxs...>) -> decltype(auto) {
+      return at(__indices[_Idxs]...);
+    }(make_index_sequence<rank()>());
+  }
+
+  template <class _OtherIndexType>
+    requires(is_convertible_v<const _OtherIndexType&, index_type> &&
+             is_nothrow_constructible_v<index_type, const _OtherIndexType&>)
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr reference at(span<_OtherIndexType, rank()> __indices) const {
+    return [&]<size_t... _Idxs>(index_sequence<_Idxs...>) -> decltype(auto) {
+      return at(__indices[_Idxs]...);
     }(make_index_sequence<rank()>());
   }
 

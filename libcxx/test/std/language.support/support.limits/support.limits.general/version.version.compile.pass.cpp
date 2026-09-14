@@ -8347,8 +8347,8 @@
 #  ifndef __cpp_lib_linalg
 #    error "__cpp_lib_linalg should be defined in c++26"
 #  endif
-#  if __cpp_lib_linalg != 202311L
-#    error "__cpp_lib_linalg should have the value 202311L in c++26"
+#  if __cpp_lib_linalg != 202411L
+#    error "__cpp_lib_linalg should have the value 202411L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_list_remove_return_type
@@ -9056,8 +9056,8 @@
 #  ifndef __cpp_lib_submdspan
 #    error "__cpp_lib_submdspan should be defined in c++26"
 #  endif
-#  if __cpp_lib_submdspan != 202306L
-#    error "__cpp_lib_submdspan should have the value 202306L in c++26"
+#  if __cpp_lib_submdspan != 202403L
+#    error "__cpp_lib_submdspan should have the value 202403L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM

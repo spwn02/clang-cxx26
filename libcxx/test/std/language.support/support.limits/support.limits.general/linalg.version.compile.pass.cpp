@@ -53,8 +53,8 @@
 #  ifndef __cpp_lib_linalg
 #    error "__cpp_lib_linalg should be defined in c++26"
 #  endif
-#  if __cpp_lib_linalg != 202311L
-#    error "__cpp_lib_linalg should have the value 202311L in c++26"
+#  if __cpp_lib_linalg != 202411L
+#    error "__cpp_lib_linalg should have the value 202411L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

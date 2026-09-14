@@ -403,6 +403,13 @@ struct __is_layout_transpose<layout_transpose<_NestedLayout>> : true_type {
 template <class _Layout>
 inline constexpr bool __is_layout_transpose_v = __is_layout_transpose<_Layout>::value;
 
+template <class _Layout> struct __is_layout_left_padded : false_type {};
+template <size_t _Padding> struct __is_layout_left_padded<layout_left_padded<_Padding>> : true_type { static constexpr size_t value_padding = _Padding; };
+template <class _Layout> inline constexpr bool __is_layout_left_padded_v = __is_layout_left_padded<_Layout>::value;
+template <class _Layout> struct __is_layout_right_padded : false_type {};
+template <size_t _Padding> struct __is_layout_right_padded<layout_right_padded<_Padding>> : true_type { static constexpr size_t value_padding = _Padding; };
+template <class _Layout> inline constexpr bool __is_layout_right_padded_v = __is_layout_right_padded<_Layout>::value;
+
 template <class _Extents>
 using __transpose_extents_t =
     extents<typename _Extents::index_type, _Extents::static_extent(1), _Extents::static_extent(0)>;
@@ -615,6 +622,16 @@ constexpr auto transposed(mdspan<_ElementType, _Extents, _Layout, _Accessor> __v
     using _Result  = mdspan<_ElementType, _ExtentsType, layout_stride, _Accessor>;
     const array<typename _Extents::index_type, 2> __strides{__view.mapping().stride(1), __view.mapping().stride(0)};
     return _Result{__view.data_handle(), _Mapping{__extents, __strides}, __view.accessor()};
+  } else if constexpr (__detail::__is_layout_left_padded_v<_Layout>) {
+    using _ReturnLayout = layout_right_padded<__detail::__is_layout_left_padded<_Layout>::value_padding>;
+    using _Result = mdspan<_ElementType, _ExtentsType, _ReturnLayout, _Accessor>;
+    return _Result{__view.data_handle(), typename _ReturnLayout::template mapping<_ExtentsType>{
+        __extents, __view.mapping().stride(1)}, __view.accessor()};
+  } else if constexpr (__detail::__is_layout_right_padded_v<_Layout>) {
+    using _ReturnLayout = layout_left_padded<__detail::__is_layout_right_padded<_Layout>::value_padding>;
+    using _Result = mdspan<_ElementType, _ExtentsType, _ReturnLayout, _Accessor>;
+    return _Result{__view.data_handle(), typename _ReturnLayout::template mapping<_ExtentsType>{
+        __extents, __view.mapping().stride(0)}, __view.accessor()};
   } else if constexpr (__detail::__is_layout_blas_packed_v<_Layout>) {
     using _Triangle =
         conditional_t<same_as<typename _Layout::triangle_type, upper_triangle_t>, lower_triangle_t, upper_triangle_t>;
