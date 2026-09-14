@@ -629,6 +629,7 @@ set(files
   __mdspan/layout_right.h
   __mdspan/layout_stride.h
   __mdspan/mdspan.h
+  __mdspan/submdspan.h
   __memory/addressof.h
   __memory/align.h
   __memory/allocate_at_least.h

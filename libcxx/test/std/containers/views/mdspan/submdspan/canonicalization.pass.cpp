@@ -17,4 +17,11 @@ int main() {
   static_assert(decltype(se)::static_extent(1) == std::dynamic_extent);
   static_assert(decltype(se)::static_extent(2) == 3);
   assert(se.extent(1) == 4);
+
+  using DE = std::extents<int, std::dynamic_extent, 8>;
+  DE de(7, 8);
+  auto dse = std::subextents(de, std::full_extent, std::full_extent);
+  static_assert(decltype(dse)::static_extent(0) == std::dynamic_extent);
+  static_assert(decltype(dse)::static_extent(1) == 8);
+  assert(dse.extent(0) == 7);
 }
