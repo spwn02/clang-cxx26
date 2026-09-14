@@ -493,7 +493,7 @@ public:
   }
 
   /// \returns the `__parsed_specifications` with the resolved dynamic sizes..
-  _LIBCPP_HIDE_FROM_ABI __parsed_specifications<_CharT> __get_parsed_std_specifications(auto& __ctx) const {
+  _LIBCPP_HIDE_FROM_ABI constexpr __parsed_specifications<_CharT> __get_parsed_std_specifications(auto& __ctx) const {
     return __parsed_specifications<_CharT>{
         .__std_ = __std{.__alignment_            = __alignment_,
                         .__sign_                 = __sign_,
@@ -505,7 +505,7 @@ public:
         .__fill_{__fill_}};
   }
 
-  _LIBCPP_HIDE_FROM_ABI __parsed_specifications<_CharT> __get_parsed_chrono_specifications(auto& __ctx) const {
+  _LIBCPP_HIDE_FROM_ABI constexpr __parsed_specifications<_CharT> __get_parsed_chrono_specifications(auto& __ctx) const {
     return __parsed_specifications<_CharT>{
         .__chrono_ =
             __chrono{.__alignment_            = __alignment_,
@@ -857,14 +857,14 @@ private:
     ++__begin;
   }
 
-  _LIBCPP_HIDE_FROM_ABI int32_t __get_width(auto& __ctx) const {
+  _LIBCPP_HIDE_FROM_ABI constexpr int32_t __get_width(auto& __ctx) const {
     if (!__width_as_arg_)
       return __width_;
 
     return __format_spec::__substitute_arg_id(__ctx.arg(__width_));
   }
 
-  _LIBCPP_HIDE_FROM_ABI int32_t __get_precision(auto& __ctx) const {
+  _LIBCPP_HIDE_FROM_ABI constexpr int32_t __get_precision(auto& __ctx) const {
     if (!__precision_as_arg_)
       return __precision_;
 
