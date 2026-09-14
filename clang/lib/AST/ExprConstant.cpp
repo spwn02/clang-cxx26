@@ -7423,8 +7423,14 @@ static bool EvaluateCallArg(const ParmVarDecl *PVD, const Expr *Arg,
   APValue &V = PVD ? Info.CurrentCall->createParam(Call, PVD, LV)
                    : Info.CurrentCall->createTemporary(Arg, Arg->getType(),
                                                        ScopeKind::Call, LV);
-  if (!EvaluateInPlace(V, Info, LV, Arg))
+  if (!EvaluateInPlace(V, Info, LV, Arg)) {
+    // The parameter object never entered its lifetime. In particular, a
+    // throwing argument can leave a partially-computed APValue here; keeping
+    // its registered call-scope cleanup would destroy it again while the
+    // exception unwinds.
+    Info.cancelCleanup(V);
     return false;
+  }
 
   // Passing a null pointer to an __attribute__((nonnull)) parameter results in
   // undefined behavior, so is non-constant.
@@ -10298,6 +10304,7 @@ bool LValueExprEvaluator::VisitMaterializeTemporaryExpr(
   // Materialize the temporary itself.
   if (!EvaluateInPlace(*Value, Info, Result, Inner)) {
     *Value = APValue();
+    Info.cancelCleanup(*Value);
     return false;
   }
 
@@ -12342,7 +12349,11 @@ public:
   bool VisitConstructExpr(const Expr *E) {
     APValue &Value = Info.CurrentCall->createTemporary(
         E, E->getType(), ScopeKind::FullExpression, Result);
-    return EvaluateInPlace(Value, Info, Result, E);
+    if (!EvaluateInPlace(Value, Info, Result, E)) {
+      Info.cancelCleanup(Value);
+      return false;
+    }
+    return true;
   }
 
   bool VisitCastExpr(const CastExpr *E) {
@@ -21110,8 +21121,7 @@ public:
     default:
       return ExprEvaluatorBaseTy::VisitCastExpr(E);
     case CK_ToVoid:
-      VisitIgnoredValue(E->getSubExpr());
-      return true;
+      return EvaluateIgnoredValue(Info, E->getSubExpr());
     }
   }
 
@@ -21333,8 +21343,13 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
     LValue LV;
     APValue &Value =
         Info.CurrentCall->createTemporary(E, T, ScopeKind::FullExpression, LV);
-    if (!EvaluateRecord(E, LV, Value, Info))
+    if (!EvaluateRecord(E, LV, Value, Info)) {
+      // Construction did not complete, so the temporary never entered its
+      // lifetime. Do not run its registered full-expression cleanup again
+      // while propagating an exception from a subobject initializer.
+      Info.cancelCleanup(Value);
       return false;
+    }
     Result = Value;
   } else if (T->isVoidType()) {
     if (!Info.getLangOpts().CPlusPlus11)

@@ -2575,13 +2575,15 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     ensureDeclared(C, QT, Range.getBegin());
     Decl *typeDecl = findTypeDecl(QT);
     if (!typeDecl)
-      return true;
+      return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
+             << 1 << 1 << Range;
 
     if (!Meta.EnsureInstantiated(typeDecl, Range))
       return true;
 
     if (QT->isIncompleteType())
-      return true;
+      return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
+             << 1 << 1 << Range;
       // NOTE(CXX26): Uncomment to allow 'members_of' within member
       // specification.
       /*

@@ -7260,3 +7260,12 @@ blocked, what's next. Do not remove old entries.
   constraints from distinct expressions. The issue reproducer, focused Clang
   tests, `SemaCXX`/`SemaTemplate`/`CXX`, and libc++ reflection tests passed or
   matched clean HEAD exactly (four and seven known failures, respectively).
+- **2026-09-14**: Fixed the narrow constant-evaluator primitive blocking
+  P3560R2 strategy 2. Pending exceptions are no longer swallowed by to-void
+  casts, and failed parameter/record/temporary construction cancels cleanup
+  for objects whose lifetimes never began. Added a standalone nested-call,
+  non-trivial exception regression test. Also made the internal member-range
+  metafunction diagnose invalid/incomplete operands so its existing `Throws`
+  path can synthesize `meta::exception`. Direct compile-and-run checks passed
+  for both the standalone reproducer and `meta-exception-strategy2.pass.cpp`;
+  the remaining strategy-2 metafunction rollout stays intentionally deferred.
