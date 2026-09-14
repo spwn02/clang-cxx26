@@ -235,9 +235,12 @@ template <class _IndexType, size_t... _Extents, class _Tuple>
 _LIBCPP_HIDE_FROM_ABI constexpr auto __subextents(const extents<_IndexType, _Extents...>& __src,
                                                   const _Tuple& __slices) {
   using _Result = typename __subextents_type_impl<_IndexType, _Tuple, integer_sequence<size_t, _Extents...>, 0>::type;
-  array<_IndexType, _Result::rank()> __values{};
+  array<_IndexType, sizeof...(_Extents)> __values{};
   __subextents_values<_IndexType, _Tuple, 0, 0>(__slices, __src, __values);
-  return _Result(__values);
+  array<_IndexType, _Result::rank()> __result_values{};
+  for (size_t __i = 0; __i < _Result::rank(); ++__i)
+    __result_values[__i] = __values[__i];
+  return _Result(__result_values);
 }
 } // namespace __mdspan_detail
 
