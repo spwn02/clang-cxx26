@@ -18,6 +18,17 @@
 #include <tuple>
 #include <vector>
 
+struct fallback_type {
+  int value;
+};
+
+template <>
+struct std::formatter<fallback_type, char> : std::formatter<int, char> {
+  auto format(const fallback_type& __value, auto& __ctx) const {
+    return std::formatter<int, char>::format(__value.value, __ctx);
+  }
+};
+
 struct recording_buf : std::streambuf {
   std::vector<std::size_t> writes;
   std::string output;
@@ -42,7 +53,7 @@ int main(int, char**) {
   recording_buf __buf;
   std::ostream __os(&__buf);
 
-  std::vprint_nonunicode(__os, "{}", std::make_format_args(expected));
+  std::__vprint_nonunicode(__os, "{}", std::make_format_args(expected), false);
   assert(__buf.output == expected);
   assert(__buf.writes.size() > 1);
   for (std::size_t __size : __buf.writes)
@@ -54,12 +65,20 @@ int main(int, char**) {
   __os.exceptions(std::ios_base::badbit | std::ios_base::failbit);
   bool __threw = false;
   try {
-    std::vprint_nonunicode(__os, "{}", std::make_format_args(expected));
+    std::__vprint_nonunicode(__os, "{}", std::make_format_args(expected), false);
   } catch (const std::ios_base::failure&) {
     __threw = true;
   }
   assert(__threw);
   assert(__buf.writes.size() >= 2);
   assert(__buf.output.size() < expected.size());
+
+  __buf.output.clear();
+  __buf.writes.clear();
+  __buf.fail_after = static_cast<std::size_t>(-1);
+  __os.clear();
+  std::print(__os, "{}", fallback_type{42});
+  assert(__buf.output == "42");
+  assert(__buf.writes.size() == 1);
   return 0;
 }

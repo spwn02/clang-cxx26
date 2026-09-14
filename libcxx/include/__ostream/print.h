@@ -53,9 +53,11 @@ __vprint_nonunicode(ostream& __os, string_view __fmt, format_args __args, bool _
     __format::__print_buffer<char, decltype(__flush)> __buffer{std::move(__flush)};
 
 #    if _LIBCPP_HAS_EXCEPTIONS
+    std::vformat_to(__buffer.__make_output_iterator(), __os.getloc(), __fmt, __args);
     try {
+#    else
+    std::vformat_to(__buffer.__make_output_iterator(), __os.getloc(), __fmt, __args);
 #    endif // _LIBCPP_HAS_EXCEPTIONS
-      std::vformat_to(__buffer.__make_output_iterator(), __os.getloc(), __fmt, __args);
     if (__write_nl)
       __buffer.push_back('\n');
     __buffer.__flush();
@@ -68,9 +70,32 @@ __vprint_nonunicode(ostream& __os, string_view __fmt, format_args __args, bool _
   }
 }
 
+template <class = void>
+_LIBCPP_HIDE_FROM_ABI inline void
+__vprint_nonunicode_buffered(ostream& __os, string_view __fmt, format_args __args, bool __write_nl) {
+  ostream::sentry __s(__os);
+  if (__s) {
+    string __out = std::vformat(__os.getloc(), __fmt, __args);
+    if (__write_nl)
+      __out.push_back('\n');
+
+#    if _LIBCPP_HAS_EXCEPTIONS
+    try {
+#    endif
+      if (auto __rdbuf = __os.rdbuf();
+          !__rdbuf || __rdbuf->sputn(__out.data(), static_cast<streamsize>(__out.size())) != static_cast<streamsize>(__out.size()))
+        __os.setstate(ios_base::badbit | ios_base::failbit);
+#    if _LIBCPP_HAS_EXCEPTIONS
+    } catch (...) {
+      __os.__set_badbit_and_consider_rethrow();
+    }
+#    endif
+  }
+}
+
 template <class = void> // TODO PRINT template or availability markup fires too eagerly (http://llvm.org/PR61563).
 _LIBCPP_HIDE_FROM_ABI inline void vprint_nonunicode(ostream& __os, string_view __fmt, format_args __args) {
-  std::__vprint_nonunicode(__os, __fmt, __args, false);
+  std::__vprint_nonunicode_buffered(__os, __fmt, __args, false);
 }
 
 // Returns the FILE* associated with the __os.
@@ -131,9 +156,22 @@ _LIBCPP_HIDE_FROM_ABI void __vprint_unicode(ostream& __os, string_view __fmt, fo
 #      endif   // _LIBCPP_AVAILABILITY_HAS_PRINT
 }
 
+template <class = void>
+_LIBCPP_HIDE_FROM_ABI inline void
+__vprint_unicode_buffered(ostream&, string_view, format_args, bool);
+
 template <class = void> // TODO PRINT template or availability markup fires too eagerly (http://llvm.org/PR61563).
 _LIBCPP_HIDE_FROM_ABI inline void vprint_unicode(ostream& __os, string_view __fmt, format_args __args) {
-  std::__vprint_unicode(__os, __fmt, __args, false);
+  std::__vprint_unicode_buffered(__os, __fmt, __args, false);
+}
+
+template <class>
+_LIBCPP_HIDE_FROM_ABI inline void
+__vprint_unicode_buffered(ostream& __os, string_view __fmt, format_args __args, bool __write_nl) {
+  string __out = std::vformat(__os.getloc(), __fmt, __args);
+  if (__write_nl)
+    __out.push_back('\n');
+  std::__vprint_unicode(__os, "{}", std::make_format_args(__out), false);
 }
 #    endif // _LIBCPP_HAS_UNICODE
 
@@ -141,11 +179,20 @@ template <class... _Args>
 _LIBCPP_HIDE_FROM_ABI void print(ostream& __os, format_string<_Args...> __fmt, _Args&&... __args) {
 #    if _LIBCPP_HAS_UNICODE
   if constexpr (__print::__use_unicode_execution_charset)
-    std::__vprint_unicode(__os, __fmt.get(), std::make_format_args(__args...), false);
+    if constexpr ((enable_nonlocking_formatter_optimization<remove_cvref_t<_Args>> && ...))
+      std::__vprint_unicode(__os, __fmt.get(), std::make_format_args(__args...), false);
+    else
+      std::__vprint_unicode_buffered(__os, __fmt.get(), std::make_format_args(__args...), false);
   else
-    std::__vprint_nonunicode(__os, __fmt.get(), std::make_format_args(__args...), false);
+    if constexpr ((enable_nonlocking_formatter_optimization<remove_cvref_t<_Args>> && ...))
+      std::__vprint_nonunicode(__os, __fmt.get(), std::make_format_args(__args...), false);
+    else
+      std::__vprint_nonunicode_buffered(__os, __fmt.get(), std::make_format_args(__args...), false);
 #    else  // _LIBCPP_HAS_UNICODE
-  std::__vprint_nonunicode(__os, __fmt.get(), std::make_format_args(__args...), false);
+  if constexpr ((enable_nonlocking_formatter_optimization<remove_cvref_t<_Args>> && ...))
+    std::__vprint_nonunicode(__os, __fmt.get(), std::make_format_args(__args...), false);
+  else
+    std::__vprint_nonunicode_buffered(__os, __fmt.get(), std::make_format_args(__args...), false);
 #    endif // _LIBCPP_HAS_UNICODE
 }
 
@@ -156,11 +203,20 @@ _LIBCPP_HIDE_FROM_ABI void println(ostream& __os, format_string<_Args...> __fmt,
   // std::format is a std::string which is then copied. This solution
   // just appends a newline at the end of the output.
   if constexpr (__print::__use_unicode_execution_charset)
-    std::__vprint_unicode(__os, __fmt.get(), std::make_format_args(__args...), true);
+    if constexpr ((enable_nonlocking_formatter_optimization<remove_cvref_t<_Args>> && ...))
+      std::__vprint_unicode(__os, __fmt.get(), std::make_format_args(__args...), true);
+    else
+      std::__vprint_unicode_buffered(__os, __fmt.get(), std::make_format_args(__args...), true);
   else
-    std::__vprint_nonunicode(__os, __fmt.get(), std::make_format_args(__args...), true);
+    if constexpr ((enable_nonlocking_formatter_optimization<remove_cvref_t<_Args>> && ...))
+      std::__vprint_nonunicode(__os, __fmt.get(), std::make_format_args(__args...), true);
+    else
+      std::__vprint_nonunicode_buffered(__os, __fmt.get(), std::make_format_args(__args...), true);
 #    else  // _LIBCPP_HAS_UNICODE
-  std::__vprint_nonunicode(__os, __fmt.get(), std::make_format_args(__args...), true);
+  if constexpr ((enable_nonlocking_formatter_optimization<remove_cvref_t<_Args>> && ...))
+    std::__vprint_nonunicode(__os, __fmt.get(), std::make_format_args(__args...), true);
+  else
+    std::__vprint_nonunicode_buffered(__os, __fmt.get(), std::make_format_args(__args...), true);
 #    endif // _LIBCPP_HAS_UNICODE
 }
 
