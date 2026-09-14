@@ -45,16 +45,20 @@ __vprint_nonunicode(ostream& __os, string_view __fmt, format_args __args, bool _
 
   ostream::sentry __s(__os);
   if (__s) {
-    string __o = std::vformat(__os.getloc(), __fmt, __args);
-    if (__write_nl)
-      __o += '\n';
+    auto __flush = [&__os](const char* __data, size_t __size) {
+      if (auto __rdbuf = __os.rdbuf();
+          !__rdbuf || __rdbuf->sputn(__data, static_cast<streamsize>(__size)) != static_cast<streamsize>(__size))
+        __os.setstate(ios_base::badbit | ios_base::failbit);
+    };
+    __format::__print_buffer<char, decltype(__flush)> __buffer{std::move(__flush)};
 
 #    if _LIBCPP_HAS_EXCEPTIONS
     try {
 #    endif // _LIBCPP_HAS_EXCEPTIONS
-      if (auto __rdbuf = __os.rdbuf();
-          !__rdbuf || __rdbuf->sputn(__o.data(), __o.size()) != static_cast<streamsize>(__o.size()))
-        __os.setstate(ios_base::badbit | ios_base::failbit);
+      std::vformat_to(__buffer.__make_output_iterator(), __os.getloc(), __fmt, __args);
+    if (__write_nl)
+      __buffer.push_back('\n');
+    __buffer.__flush();
 
 #    if _LIBCPP_HAS_EXCEPTIONS
     } catch (...) {

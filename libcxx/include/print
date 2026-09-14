@@ -38,6 +38,7 @@ namespace std {
 #else
 #  include <__assert>
 #  include <__concepts/same_as.h>
+#  include <__format/print_buffer.h>
 #  include <__config>
 #  include <__system_error/throw_system_error.h>
 #  include <__utility/forward.h>
@@ -217,16 +218,19 @@ template <class = void> // TODO PRINT template or availability markup fires too 
 _LIBCPP_HIDE_FROM_ABI inline void
 __vprint_nonunicode(FILE* __stream, string_view __fmt, format_args __args, bool __write_nl) {
   _LIBCPP_ASSERT_NON_NULL(__stream, "__stream must be a valid pointer to an output C stream");
-  string __str = std::vformat(__fmt, __args);
+  auto __flush = [__stream](const char* __data, size_t __size) {
+    size_t __written = fwrite(__data, 1, __size, __stream);
+    if (__written < __size) {
+      if (std::feof(__stream))
+        std::__throw_system_error(EIO, "EOF while writing the formatted output");
+      std::__throw_system_error(std::ferror(__stream), "failed to write formatted output");
+    }
+  };
+  __format::__print_buffer<char, decltype(__flush)> __buffer{std::move(__flush)};
+  std::vformat_to(__buffer.__make_output_iterator(), __fmt, __args);
   if (__write_nl)
-    __str.push_back('\n');
-
-  size_t __size = fwrite(__str.data(), 1, __str.size(), __stream);
-  if (__size < __str.size()) {
-    if (std::feof(__stream))
-      std::__throw_system_error(EIO, "EOF while writing the formatted output");
-    std::__throw_system_error(std::ferror(__stream), "failed to write formatted output");
-  }
+    __buffer.push_back('\n');
+  __buffer.__flush();
 }
 
 #    if _LIBCPP_HAS_UNICODE
