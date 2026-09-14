@@ -53,12 +53,20 @@ template <size_t _PaddingValue>
 struct layout_left_padded {
   template <class _Extents>
   class mapping;
+  template <class _Extents>
+  mapping(const _Extents&) -> mapping<_Extents>;
+  template <class _Extents, class _Padding>
+  mapping(const _Extents&, _Padding) -> mapping<_Extents>;
 };
 
 template <size_t _PaddingValue>
 struct layout_right_padded {
   template <class _Extents>
   class mapping;
+  template <class _Extents>
+  mapping(const _Extents&) -> mapping<_Extents>;
+  template <class _Extents, class _Padding>
+  mapping(const _Extents&, _Padding) -> mapping<_Extents>;
 };
 
 #endif // _LIBCPP_STD_VER >= 23

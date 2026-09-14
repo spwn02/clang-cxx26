@@ -83,8 +83,8 @@ using std::linalg::triangular_matrix_matrix_right_solve;
 #ifndef __cpp_lib_linalg
 #  error "__cpp_lib_linalg must be defined by <linalg>"
 #endif
-#if __cpp_lib_linalg != 202311L
-#  error "__cpp_lib_linalg must be 202311L"
+#if __cpp_lib_linalg != 202511L
+#  error "__cpp_lib_linalg must be 202511L"
 #endif
 
 int main(int, char**) { return 0; }
