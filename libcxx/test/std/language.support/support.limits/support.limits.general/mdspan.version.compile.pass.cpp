@@ -170,8 +170,8 @@
 #  ifndef __cpp_lib_submdspan
 #    error "__cpp_lib_submdspan should be defined in c++26"
 #  endif
-#  if __cpp_lib_submdspan != 202403L
-#    error "__cpp_lib_submdspan should have the value 202403L in c++26"
+#  if __cpp_lib_submdspan != 202511L
+#    error "__cpp_lib_submdspan should have the value 202511L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23
