@@ -800,6 +800,24 @@ static bool token_count(APValue &Result, ASTContext &C, MetaActions &Meta,
                         QualType ResultTy, SourceRange Range,
                         ArrayRef<Expr *> Args, Decl *ContainingDecl);
 
+static bool token_kind_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl);
+
+static bool identifier_of_token(APValue &Result, ASTContext &C,
+                                MetaActions &Meta, EvalFn Evaluator,
+                                DiagFn Diagnoser, bool AllowInjection,
+                                QualType ResultTy, SourceRange Range,
+                                ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool operator_of_token(APValue &Result, ASTContext &C,
+                              MetaActions &Meta, EvalFn Evaluator,
+                              DiagFn Diagnoser, bool AllowInjection,
+                              QualType ResultTy, SourceRange Range,
+                              ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
 static bool get_ith_token(APValue &Result, ASTContext &C, MetaActions &Meta,
                           EvalFn Evaluator, DiagFn Diagnoser,
                           bool AllowInjection, QualType ResultTy,
@@ -939,9 +957,7 @@ static constexpr Metafunction Metafunctions[] = {
 
   { Metafunction::MFRK_bool, 1, 1, is_closure_type },
   { Metafunction::MFRK_bool, 1, 1, is_string_literal },
-<<<<<<< HEAD
   { Metafunction::MFRK_metaInfo, 6, 6, reflect_array_object, true },
-=======
   { Metafunction::MFRK_charPtr, 1, 1, string_literal_from },
 
   // Expression macros
@@ -950,7 +966,9 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_metaInfo, 2, 2, get_ith_operand_of },
   { Metafunction::MFRK_sizeT, 1, 1, token_count },
   { Metafunction::MFRK_tokenSequence, 2, 2, get_ith_token },
->>>>>>> 4688d6eb4f13 (Experimenting with expression macros)
+  { Metafunction::MFRK_sizeT, 1, 1, token_kind_of },
+  { Metafunction::MFRK_metaInfo, 1, 1, identifier_of_token },
+  { Metafunction::MFRK_sizeT, 1, 1, operator_of_token },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
                                             sizeof(Metafunction);
@@ -2409,6 +2427,87 @@ bool token_count(APValue &Result, ASTContext &C, MetaActions &Meta,
                                    C.getSizeType())));
 }
 
+// Evaluate Args[0] as a token sequence; if it is exactly one token, put it in
+// Tok (annotation tokens included). Returns false on evaluation failure.
+static bool getSingleToken(EvalFn Evaluator, Expr *Arg,
+                           std::optional<Token> &Tok) {
+  APValue TS;
+  if (!Evaluator(TS, Arg, true))
+    return false;
+  if (TS.isTokenSequence() && TS.getTokenSequence().size() == 1)
+    Tok = TS.getTokenSequence()[0];
+  return true;
+}
+
+// Ordinals must match std::meta::token_kind in <meta>.
+enum class MetaTokenKind : uint64_t {
+  Identifier = 0,
+  Keyword = 1,
+  Literal = 2,
+  Punctuator = 3,
+  Annotation = 4,
+  Unknown = 5,
+};
+
+bool token_kind_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+                   EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                   QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                   Decl *ContainingDecl) {
+  assert(ResultTy == C.getSizeType());
+  std::optional<Token> Tok;
+  if (!getSingleToken(Evaluator, Args[0], Tok))
+    return true;
+  MetaTokenKind K = MetaTokenKind::Unknown;
+  if (Tok) {
+    tok::TokenKind TK = Tok->getKind();
+    if (Tok->isAnnotation())
+      K = MetaTokenKind::Annotation;
+    else if (TK == tok::identifier)
+      K = MetaTokenKind::Identifier;
+    else if (tok::getKeywordSpelling(TK))
+      K = MetaTokenKind::Keyword;
+    else if (tok::isLiteral(TK))
+      K = MetaTokenKind::Literal;
+    else if (tok::getPunctuatorSpelling(TK))
+      K = MetaTokenKind::Punctuator;
+  }
+  return SetAndSucceed(
+      Result, APValue(C.MakeIntValue(static_cast<uint64_t>(K),
+                                     C.getSizeType())));
+}
+
+bool identifier_of_token(APValue &Result, ASTContext &C, MetaActions &Meta,
+                         EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                         QualType ResultTy, SourceRange Range,
+                         ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  assert(ResultTy == C.MetaInfoTy);
+  std::optional<Token> Tok;
+  if (!getSingleToken(Evaluator, Args[0], Tok))
+    return true;
+  if (!Tok || !Tok->is(tok::identifier))
+    return DiagnoseReflectionKind(Diagnoser, Range,
+                                  "a single identifier token");
+  return SetAndSucceed(
+      Result, APValue(ReflectionKind::Identifier, Tok->getIdentifierInfo()));
+}
+
+bool operator_of_token(APValue &Result, ASTContext &C, MetaActions &Meta,
+                       EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                       QualType ResultTy, SourceRange Range,
+                       ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  assert(ResultTy == C.getSizeType());
+  std::optional<Token> Tok;
+  if (!getSingleToken(Evaluator, Args[0], Tok))
+    return true;
+  OverloadedOperatorKind OO =
+      Tok ? getOverloadedOperatorForTokenKind(Tok->getKind()) : OO_None;
+  if (OO == OO_None)
+    return DiagnoseReflectionKind(Diagnoser, Range, "a single operator token");
+  return SetAndSucceed(
+      Result, APValue(C.MakeIntValue(getMetaIndexForOverloadedOperator(OO),
+                                     C.getSizeType())));
+}
+
 bool get_ith_token(APValue &Result, ASTContext &C, MetaActions &Meta,
                    EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
                    QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
@@ -2735,9 +2834,7 @@ bool source_location_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Annotation:
     return findAnnotLoc(Result, C, Evaluator, ResultTy,
                         RV.getReflectedAnnotation());
-<<<<<<< HEAD
 
-=======
   case ReflectionKind::Expression: {
     SourceLocExpr *SLE = new (C) SourceLocExpr(
         C, SourceLocIdentKind::SourceLocStruct, ResultTy,
@@ -2745,7 +2842,6 @@ bool source_location_of(APValue &Result, ASTContext &C, MetaActions &Meta,
         /*ParentContext=*/nullptr);
     return !Evaluator(Result, SLE, true);
   }
->>>>>>> 4688d6eb4f13 (Experimenting with expression macros)
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Null:
