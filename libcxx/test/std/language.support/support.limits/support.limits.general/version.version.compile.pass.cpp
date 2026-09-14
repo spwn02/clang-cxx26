@@ -228,6 +228,10 @@
 #    error "__cpp_lib_constexpr_flat_set should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_format
+#    error "__cpp_lib_constexpr_format should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_forward_list
 #    error "__cpp_lib_constexpr_forward_list should not be defined before c++26"
 #  endif
@@ -1310,6 +1314,10 @@
 
 #  ifdef __cpp_lib_constexpr_flat_set
 #    error "__cpp_lib_constexpr_flat_set should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_format
+#    error "__cpp_lib_constexpr_format should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_forward_list
@@ -2496,6 +2504,10 @@
 
 #  ifdef __cpp_lib_constexpr_flat_set
 #    error "__cpp_lib_constexpr_flat_set should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_format
+#    error "__cpp_lib_constexpr_format should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_forward_list
@@ -3904,6 +3916,10 @@
 
 #  ifdef __cpp_lib_constexpr_flat_set
 #    error "__cpp_lib_constexpr_flat_set should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_format
+#    error "__cpp_lib_constexpr_format should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_forward_list
@@ -5537,6 +5553,10 @@
 
 #  ifdef __cpp_lib_constexpr_flat_set
 #    error "__cpp_lib_constexpr_flat_set should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_format
+#    error "__cpp_lib_constexpr_format should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_forward_list
@@ -7368,6 +7388,19 @@
 #  endif
 #  if __cpp_lib_constexpr_flat_set != 202502L
 #    error "__cpp_lib_constexpr_flat_set should have the value 202502L in c++26"
+#  endif
+
+#  if !defined(_LIBCPP_VERSION)
+#    ifndef __cpp_lib_constexpr_format
+#      error "__cpp_lib_constexpr_format should be defined in c++26"
+#    endif
+#    if __cpp_lib_constexpr_format != 202511L
+#      error "__cpp_lib_constexpr_format should have the value 202511L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_constexpr_format
+#      error "__cpp_lib_constexpr_format should not be defined because it is unimplemented in libc++!"
+#    endif
 #  endif
 
 #  ifndef __cpp_lib_constexpr_forward_list

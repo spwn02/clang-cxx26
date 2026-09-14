@@ -3065,6 +3065,13 @@ tiers as makes sense.
 
 ## Session Log
 
+- **2026-09-14 (issue #16, phase 1)**: Confirmed against P3391R2 and the
+  current draft that `__cpp_lib_constexpr_format` is a separate `<format>`
+  macro with value `202511L`. Recorded the constexpr-enabled surface and
+  explicit exclusions in `docs/p3391r2-constexpr-format-design.md`, and
+  staged the generator entry as unimplemented. Next: finish parser constexpr
+  annotations, then implement the formatting pipeline in dependency order.
+
 - **2026-09-14 (issue #14 phases 4–7)**: Completed P2642R6 padded layouts,
   P3222R0 padded-layout transposition, P3383R3 `mdspan::at`, and P3663R3
   canonical slice dispatch. Focused staged-header tests pass; full linalg
