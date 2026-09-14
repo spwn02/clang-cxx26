@@ -54,8 +54,14 @@ template <class _OutIt, class _CharT>
   _LIBCPP_HIDE_FROM_ABI basic_format_context<_OutIt, _CharT>
 __format_context_create(_OutIt __out_it,
                         basic_format_args<basic_format_context<_OutIt, _CharT>> __args,
-                        optional<std::locale>&& __loc = nullopt) {
+                        optional<std::locale>&& __loc) {
   return std::basic_format_context(std::move(__out_it), __args, std::move(__loc));
+}
+
+template <class _OutIt, class _CharT>
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI basic_format_context<_OutIt, _CharT>
+__format_context_create(_OutIt __out_it, basic_format_args<basic_format_context<_OutIt, _CharT>> __args) {
+  return std::basic_format_context(std::move(__out_it), __args);
 }
 #  else
 template <class _OutIt, class _CharT>
@@ -113,10 +119,18 @@ private:
   friend _LIBCPP_HIDE_FROM_ABI basic_format_context<_OtherOutIt, _OtherCharT> __format_context_create(
       _OtherOutIt, basic_format_args<basic_format_context<_OtherOutIt, _OtherCharT>>, optional<std::locale>&&);
 
+  template <class _OtherOutIt, class _OtherCharT>
+  friend _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI basic_format_context<_OtherOutIt, _OtherCharT>
+      __format_context_create(_OtherOutIt, basic_format_args<basic_format_context<_OtherOutIt, _OtherCharT>>);
+
   // Note: the Standard doesn't specify the required constructors.
   _LIBCPP_HIDE_FROM_ABI explicit basic_format_context(
       _OutIt __out_it, basic_format_args<basic_format_context> __args, optional<std::locale>&& __loc)
       : __out_it_(std::move(__out_it)), __args_(__args), __loc_(std::move(__loc)) {}
+
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI explicit basic_format_context(
+      _OutIt __out_it, basic_format_args<basic_format_context> __args)
+      : __out_it_(std::move(__out_it)), __args_(__args), __loc_{} {}
 #  else
   template <class _OtherOutIt, class _OtherCharT>
   friend _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI basic_format_context<_OtherOutIt, _OtherCharT>

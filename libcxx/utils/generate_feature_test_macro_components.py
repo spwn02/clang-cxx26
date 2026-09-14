@@ -401,7 +401,6 @@ feature_test_macros = [
             "name": "__cpp_lib_constexpr_format",
             "values": {"c++26": 202511},  # P3391R2 constexpr std::format
             "headers": ["format"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_constexpr_forward_list",
