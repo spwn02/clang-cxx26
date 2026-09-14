@@ -3075,11 +3075,19 @@ blocked, what's next. Do not remove old entries.
   `range_slice`, `canonical_slices`, and an initial standards-shaped
   `subextents` with constant-wrapper static extents and collapsing-slice rank
   removal. P2630R4 is now in progress; mapping, padded layouts, P3222,
-  `mdspan.at()`, P3663, and the separate linalg audit remain. An initial
-  mapping prototype is uncommitted and must be repaired or discarded before
-  the next commit. Direct standalone compilation is still blocked by the
-  repository's known `wint_t` header conflict; no phase-specific diagnostic
-  has been isolated yet.
+  `mdspan.at()`, P3663, and the separate linalg audit remain. Direct
+  standalone compilation must use staged headers only; the earlier `wint_t`
+  report was an include-path mistake, not a libc++ header defect.
+
+- **2026-09-14 (continued)**: Corrected the validation diagnosis: the `wint_t`
+  conflict came from mixing raw and staged libc++ include trees. Registered
+  `__mdspan/submdspan.h` and `submdspan_mapping.h` for staging, fixed the
+  source/dynamic extent value-buffer handling, and verified canonicalization
+  with staged-only direct compilation. Committed baseline standard-layout
+  mapping and `submdspan` construction, including offset/accessor handling and
+  native layout preservation for all-full left/right slices. Remaining in
+  phase 3: contiguous partial-slice layout selection; then padded layouts,
+  P3222, `mdspan.at()`, P3663, and the linalg audit.
 
 - **2026-08-20**: Contract created. Surveyed `Cxx2cPapers.csv`/`Cxx2cIssues.csv`
   (60 unstarted, 3 partial, 43 complete library papers) and
