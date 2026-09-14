@@ -13,3 +13,5 @@ consteval bool test_constexpr_format() {
 
 static_assert(test_constexpr_format());
 static_assert(__cpp_lib_constexpr_format == 202511L);
+
+int main(int, char**) { return 0; }

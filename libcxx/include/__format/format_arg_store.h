@@ -148,20 +148,15 @@ consteval __arg_t __determine_arg_t() {
 
 // Handle
 //
-// Note this version can't be constrained avoiding ambiguous overloads.
-// That means it can be instantiated by disabled formatters. To solve this, a
-// constrained version for not formattable formatters is added.
+// Note this version can't be constrained avoiding ambiguous overloads. A
+// constrained overload for non-formattable types would improve diagnostics,
+// but its __formattable_with constraint recursively evaluates constexpr
+// formatters such as the self-referential formatter covered by PR81590.
+// Keep the fallback unconstrained; __create_format_arg's static assertion
+// still rejects non-formattable arguments.
 template <class _Context, class _Tp>
 consteval __arg_t __determine_arg_t() {
   return __arg_t::__handle;
-}
-
-// The overload for not formattable types allows triggering the static
-// assertion below.
-template <class _Context, class _Tp>
-  requires(!__formattable_with<_Tp, _Context>)
-consteval __arg_t __determine_arg_t() {
-  return __arg_t::__none;
 }
 
 // Pseudo constuctor for basic_format_arg
