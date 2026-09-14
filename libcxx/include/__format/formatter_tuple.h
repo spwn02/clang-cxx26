@@ -84,7 +84,7 @@ struct __formatter_tuple {
   }
 
   template <class _FormatContext>
-  typename _FormatContext::iterator _LIBCPP_HIDE_FROM_ABI
+  typename _FormatContext::iterator _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI
   format(conditional_t<(formattable<const _Args, _CharT> && ...), const _Tuple&, _Tuple&> __tuple,
          _FormatContext& __ctx) const {
     __format_spec::__parsed_specifications<_CharT> __specs = __parser_.__get_parsed_std_specifications(__ctx);
@@ -114,7 +114,7 @@ struct __formatter_tuple {
   }
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator __format_tuple(auto&& __tuple, _FormatContext& __ctx) const {
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator __format_tuple(auto&& __tuple, _FormatContext& __ctx) const {
     __ctx.advance_to(std::ranges::copy(__opening_bracket_, __ctx.out()).out);
 
     std::__for_each_index_sequence(make_index_sequence<sizeof...(_Args)>(), [&]<size_t _Index> {

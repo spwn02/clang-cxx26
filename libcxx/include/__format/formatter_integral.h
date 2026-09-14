@@ -55,7 +55,7 @@ namespace __formatter {
 
 template <contiguous_iterator _Iterator>
   requires same_as<char, iter_value_t<_Iterator>>
-_LIBCPP_HIDE_FROM_ABI inline _Iterator __insert_sign(_Iterator __buf, bool __negative, __format_spec::__sign __sign) {
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI inline _Iterator __insert_sign(_Iterator __buf, bool __negative, __format_spec::__sign __sign) {
   if (__negative)
     *__buf++ = '-';
   else
@@ -90,7 +90,7 @@ _LIBCPP_HIDE_FROM_ABI inline _Iterator __insert_sign(_Iterator __buf, bool __neg
  * @note The grouping field of the locale is always a @c std::string,
  * regardless whether the @c std::numpunct's type is @c char or @c wchar_t.
  */
-_LIBCPP_HIDE_FROM_ABI inline string __determine_grouping(ptrdiff_t __size, const string& __grouping) {
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI inline string __determine_grouping(ptrdiff_t __size, const string& __grouping) {
   _LIBCPP_ASSERT_INTERNAL(!__grouping.empty() && __size > __grouping[0],
                           "The slow grouping formatting is used while there will be no separators written");
   string __r;
@@ -124,7 +124,7 @@ _LIBCPP_HIDE_FROM_ABI inline string __determine_grouping(ptrdiff_t __size, const
 //
 
 template <__fmt_char_type _CharT>
-_LIBCPP_HIDE_FROM_ABI auto
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI auto
 __format_char(integral auto __value,
               output_iterator<const _CharT&> auto __out_it,
               __format_spec::__parsed_specifications<_CharT> __specs) -> decltype(__out_it) {
@@ -156,7 +156,7 @@ __format_char(integral auto __value,
 /** Wrapper around @ref to_chars, returning the output iterator. */
 template <contiguous_iterator _Iterator, integral _Tp>
   requires same_as<char, iter_value_t<_Iterator>>
-_LIBCPP_HIDE_FROM_ABI _Iterator __to_buffer(_Iterator __first, _Iterator __last, _Tp __value, int __base) {
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI _Iterator __to_buffer(_Iterator __first, _Iterator __last, _Tp __value, int __base) {
   // TODO FMT Evaluate code overhead due to not calling the internal function
   // directly. (Should be zero overhead.)
   to_chars_result __r = std::to_chars(std::to_address(__first), std::to_address(__last), __value, __base);
@@ -212,7 +212,7 @@ consteval size_t __buffer_size() noexcept
 
 template <class _OutIt, contiguous_iterator _Iterator, class _CharT>
   requires same_as<char, iter_value_t<_Iterator>>
-_LIBCPP_HIDE_FROM_ABI _OutIt __write_using_decimal_separators(
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI _OutIt __write_using_decimal_separators(
     _OutIt __out_it,
     _Iterator __begin,
     _Iterator __first,
@@ -225,7 +225,7 @@ _LIBCPP_HIDE_FROM_ABI _OutIt __write_using_decimal_separators(
                (__grouping.size() - 1); // number of separator characters
 
   __padding_size_result __padding = {0, 0};
-  if (__specs.__alignment_ == __format_spec::__alignment::__zero_padding) {
+  if (__specs.__std_.__alignment_ == __format_spec::__alignment::__zero_padding) {
     // Write [sign][prefix].
     __out_it = __formatter::__copy(__begin, __first, std::move(__out_it));
 
@@ -237,7 +237,7 @@ _LIBCPP_HIDE_FROM_ABI _OutIt __write_using_decimal_separators(
   } else {
     if (__specs.__width_ > __size) {
       // Determine padding and write padding.
-      __padding = __formatter::__padding_size(__size, __specs.__width_, __specs.__alignment_);
+      __padding = __formatter::__padding_size(__size, __specs.__width_, __specs.__std_.__alignment_);
 
       __out_it = __formatter::__fill(std::move(__out_it), __padding.__before_, __specs.__fill_);
     }
@@ -282,7 +282,7 @@ _LIBCPP_HIDE_FROM_ABI _OutIt __write_using_decimal_separators(
 
 template <unsigned_integral _Tp, contiguous_iterator _Iterator, class _CharT, class _FormatContext>
   requires same_as<char, iter_value_t<_Iterator>>
-_LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator __format_integer(
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator __format_integer(
     _Tp __value,
     _FormatContext& __ctx,
     __format_spec::__parsed_specifications<_CharT> __specs,
@@ -319,7 +319,7 @@ _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator __format_integer(
   }
 #  endif
   auto __out_it = __ctx.out();
-  if (__specs.__alignment_ != __format_spec::__alignment::__zero_padding)
+  if (__specs.__std_.__alignment_ != __format_spec::__alignment::__zero_padding)
     __first = __begin;
   else {
     // __buf contains [sign][prefix]data
@@ -328,7 +328,7 @@ _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator __format_integer(
     // - Write [sign][prefix]
     // - Write data right aligned with '0' as fill character.
     __out_it                  = __formatter::__copy(__begin, __first, std::move(__out_it));
-    __specs.__alignment_      = __format_spec::__alignment::__right;
+    __specs.__std_.__alignment_ = __format_spec::__alignment::__right;
     __specs.__fill_.__data[0] = _CharT('0');
     int32_t __size            = __first - __begin;
 
@@ -342,7 +342,7 @@ _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator __format_integer(
 }
 
 template <unsigned_integral _Tp, class _CharT, class _FormatContext>
-_LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
 __format_integer(_Tp __value,
                  _FormatContext& __ctx,
                  __format_spec::__parsed_specifications<_CharT> __specs,
@@ -383,7 +383,7 @@ __format_integer(_Tp __value,
 }
 
 template <signed_integral _Tp, class _CharT, class _FormatContext>
-_LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
 __format_integer(_Tp __value, _FormatContext& __ctx, __format_spec::__parsed_specifications<_CharT> __specs) {
   // Depending on the std-format-spec string the sign and the value
   // might not be outputted together:
@@ -421,7 +421,7 @@ struct __bool_strings<wchar_t> {
 #  endif
 
 template <class _CharT, class _FormatContext>
-_LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
 __format_bool(bool __value, _FormatContext& __ctx, __format_spec::__parsed_specifications<_CharT> __specs) {
 #  if _LIBCPP_HAS_LOCALIZATION
   if (__specs.__std_.__locale_specific_form_) {

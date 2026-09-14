@@ -43,7 +43,7 @@ public:
   }
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(bool __value, _FormatContext& __ctx) const {
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(bool __value, _FormatContext& __ctx) const {
     switch (__parser_.__type_) {
     case __format_spec::__type::__default:
     case __format_spec::__type::__string:

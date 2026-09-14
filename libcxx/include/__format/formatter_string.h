@@ -41,7 +41,7 @@ public:
   }
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
   format(basic_string_view<_CharT> __str, _FormatContext& __ctx) const {
 #  if _LIBCPP_STD_VER >= 23
     if (__parser_.__type_ == __format_spec::__type::__debug)
@@ -64,7 +64,7 @@ struct formatter<const _CharT*, _CharT> : public __formatter_string<_CharT> {
   using _Base _LIBCPP_NODEBUG = __formatter_string<_CharT>;
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(const _CharT* __str, _FormatContext& __ctx) const {
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(const _CharT* __str, _FormatContext& __ctx) const {
     _LIBCPP_ASSERT_INTERNAL(__str, "The basic_format_arg constructor should have prevented an invalid pointer.");
     // Converting the input to a basic_string_view means the data is looped over twice;
     // - once to determine the length, and
@@ -83,7 +83,7 @@ struct formatter<_CharT*, _CharT> : public formatter<const _CharT*, _CharT> {
   using _Base _LIBCPP_NODEBUG = formatter<const _CharT*, _CharT>;
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(_CharT* __str, _FormatContext& __ctx) const {
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(_CharT* __str, _FormatContext& __ctx) const {
     return _Base::format(__str, __ctx);
   }
 };
@@ -94,7 +94,7 @@ struct formatter<_CharT[_Size], _CharT> : public __formatter_string<_CharT> {
   using _Base _LIBCPP_NODEBUG = __formatter_string<_CharT>;
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
   format(const _CharT (&__str)[_Size], _FormatContext& __ctx) const {
     const _CharT* const __pzero = char_traits<_CharT>::find(__str, _Size, _CharT{});
     _LIBCPP_ASSERT_VALID_INPUT_RANGE(__pzero != nullptr, "formatting a non-null-terminated array");
@@ -108,7 +108,7 @@ struct formatter<basic_string<_CharT, _Traits, _Allocator>, _CharT> : public __f
   using _Base _LIBCPP_NODEBUG = __formatter_string<_CharT>;
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
   format(const basic_string<_CharT, _Traits, _Allocator>& __str, _FormatContext& __ctx) const {
     // Drop _Traits and _Allocator to have one std::basic_string formatter.
     return _Base::format(basic_string_view<_CharT>(__str.data(), __str.size()), __ctx);
@@ -121,7 +121,7 @@ struct formatter<basic_string_view<_CharT, _Traits>, _CharT> : public __formatte
   using _Base _LIBCPP_NODEBUG = __formatter_string<_CharT>;
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
   format(basic_string_view<_CharT, _Traits> __str, _FormatContext& __ctx) const {
     // Drop _Traits to have one std::basic_string_view formatter.
     return _Base::format(basic_string_view<_CharT>(__str.data(), __str.size()), __ctx);
