@@ -247,7 +247,10 @@ template <class _ElementType, class _Extents, class _LayoutPolicy, class _Access
 _LIBCPP_HIDE_FROM_ABI constexpr auto submdspan(
     const mdspan<_ElementType, _Extents, _LayoutPolicy, _AccessorPolicy>& __src,
     _SliceSpecifiers... __slices) {
-  auto __result = submdspan_mapping(__src.mapping(), std::move(__slices)...);
+  auto __canonical = canonical_slices(__src.extents(), std::move(__slices)...);
+  auto __result = [&]<size_t... _I>(index_sequence<_I...>) {
+    return submdspan_mapping(__src.mapping(), get<_I>(__canonical)...);
+  }(make_index_sequence<sizeof...(_SliceSpecifiers)>{});
   using _Result = decltype(__result.mapping);
   using _ResultExtents = typename _Result::extents_type;
   using _ResultLayout = typename _Result::layout_type;
