@@ -10,11 +10,14 @@
 
 // std::views::reverse
 
+// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
+
 #include <ranges>
 
 #include <cassert>
 #include <concepts>
 #include <iterator>
+#include <optional>
 #include <utility>
 
 #include "test_range.h"
@@ -115,6 +118,14 @@ constexpr bool test() {
     std::same_as<std::ranges::reverse_view<BidirRange>> auto result = std::views::reverse(view);
     assert(base(result.begin().base()) == buf + 3);
     assert(base(result.end().base()) == buf);
+  }
+
+  // `views::reverse(optional)` returns the optional directly.
+  {
+    std::optional<int> value = 42;
+    static_assert(std::same_as<decltype(std::views::reverse(value)), std::optional<int>>);
+    std::same_as<std::optional<int>> decltype(auto) result = std::views::reverse(value);
+    assert(result && *result == 42);
   }
 
   // Test that std::views::reverse is a range adaptor

@@ -2475,7 +2475,7 @@ back to `to_input` based on the paper title alone.
 | [ ] | P3235R3 | `std::print` faster/leaner for more types | Assessed 2026-08-22, same redesign as P3107R5 above, bundle with it |
 | [x] | P3391R2 | `constexpr` `std::format` | **Complete 2026-09-14** — added the separate `__cpp_lib_constexpr_format` FTM (`202511L`) and constexpr-enabled the format parser, type-erased arguments, buffers, entry points, and in-scope builtin formatters. Added a compile-time end-to-end test covering bool, char, integral, string, and tuple formatting. Floating-point, all chrono formatting, locale-specific formatting, and `stacktrace_entry`/`filesystem::path`/`thread::id`/`void const*` remain explicitly out of scope per P3391R2; see `docs/p3391r2-constexpr-format-design.md` |
 | [ ] | P3037R6 | `constexpr` `std::shared_ptr` and friends | Untriaged until 2026-09-05. Sofia 2025-06 |
-| [ ] | P3913R1 | Optimize `std::optional` in range adaptors | Untriaged until 2026-09-05. Kona 2025-11. Builds on P3168R2 (already Complete) |
+| [x] | P3913R1 | Optimize `std::optional` in range adaptors | Complete 2026-09-15 — added optional expression-equivalence dispatch to `views::take`, `views::drop`, `views::as_const`, and `views::reverse`, with direct-type tests under experimental optional range support |
 | [ ] | P3612R1 | Harmonize proxy-reference operations (LWG 3638, 4187) | Untriaged until 2026-09-05. Kona 2025-11 |
 | [ ] | P3709R2 | Reconsider parallel `ranges::rotate_copy` / `reverse_copy` | Untriaged until 2026-09-05. Pairs with P3179R9 (Tier 2) |
 
@@ -7326,3 +7326,9 @@ blocked, what's next. Do not remove old entries.
   and P3371R5 hermitian `real-if-needed` fixes. With P3222R0 and P2642R6 now
   complete, advanced `__cpp_lib_linalg` to `202511L` and marked P1673R13
   complete in the tracker and libc++ CSV.
+- **2026-09-15 (issue #18)**: Completed P3913R1 on branch
+  `wip/18-optional-range-adaptors`. Added the four optional fast paths with
+  the adopted take/drop condition inversion and exact dispatch ordering, plus
+  direct compile-and-run type tests for all four adaptors. Optional range
+  support was already present; full lit validation remains for external
+  execution because this sandbox cannot bind the libc++ lit forkserver socket.

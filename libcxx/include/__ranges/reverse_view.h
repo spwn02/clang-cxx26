@@ -28,6 +28,7 @@
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
+#include <optional>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -161,6 +162,14 @@ struct __fn : __range_adaptor_closure<__fn> {
     return std::forward<_Range>(__range).base();
   }
 
+  template <class _Range>
+    requires(__is_std_optional<remove_cvref_t<_Range>>::value && view<remove_cvref_t<_Range>>)
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
+      noexcept(noexcept(_LIBCPP_AUTO_CAST(std::forward<_Range>(__range))))
+          -> decltype(_LIBCPP_AUTO_CAST(std::forward<_Range>(__range))) {
+    return _LIBCPP_AUTO_CAST(std::forward<_Range>(__range));
+  }
+
   template <class _Range,
             class _UnwrappedSubrange = typename __unwrapped_reverse_subrange<remove_cvref_t<_Range>>::type>
     requires __is_sized_reverse_subrange<remove_cvref_t<_Range>>
@@ -180,7 +189,8 @@ struct __fn : __range_adaptor_closure<__fn> {
   }
 
   template <class _Range>
-    requires(!__is_reverse_view<remove_cvref_t<_Range>> && !__is_sized_reverse_subrange<remove_cvref_t<_Range>> &&
+    requires(!__is_reverse_view<remove_cvref_t<_Range>> && !__is_std_optional<remove_cvref_t<_Range>>::value &&
+             !__is_sized_reverse_subrange<remove_cvref_t<_Range>> &&
              !__is_unsized_reverse_subrange<remove_cvref_t<_Range>>)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const noexcept(noexcept(reverse_view{
       std::forward<_Range>(__range)})) -> decltype(reverse_view{std::forward<_Range>(__range)}) {

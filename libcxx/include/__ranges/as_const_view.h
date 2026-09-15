@@ -14,6 +14,7 @@
 #include <__ranges/view_interface.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
+#include <optional>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -60,8 +61,29 @@ template <class _View>
 inline constexpr bool enable_borrowed_range<as_const_view<_View>> = enable_borrowed_range<_View>;
 
 namespace views {
+template <class _Tp>
+struct __optional_reference {
+  static constexpr bool value = false;
+};
+
+template <class _Tp>
+struct __optional_reference<optional<_Tp&>> {
+  static constexpr bool value = true;
+  using type                     = _Tp;
+};
+
 struct __as_const : range_adaptor_closure<__as_const> {
+  template <class _Range, class _RawRange = remove_cvref_t<_Range>>
+    requires __optional_reference<_RawRange>::value
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
+      noexcept(noexcept(optional<const typename __optional_reference<_RawRange>::type&>(
+          std::forward<_Range>(__range))))
+          -> decltype(optional<const typename __optional_reference<_RawRange>::type&>(std::forward<_Range>(__range))) {
+    return optional<const typename __optional_reference<_RawRange>::type&>(std::forward<_Range>(__range));
+  }
+
   template <viewable_range _Range>
+    requires(!__optional_reference<remove_cvref_t<_Range>>::value)
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
       noexcept(noexcept(as_const_view(std::forward<_Range>(__range))))
       requires requires { as_const_view(std::forward<_Range>(__range)); }

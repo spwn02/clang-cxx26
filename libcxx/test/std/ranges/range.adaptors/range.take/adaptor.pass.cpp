@@ -10,12 +10,15 @@
 
 // std::views::take
 
+// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
+
 #include <ranges>
 
 #include <cassert>
 #include <concepts>
 #include <span>
 #include <string_view>
+#include <optional>
 #include <utility>
 
 #include "test_iterators.h"
@@ -108,6 +111,17 @@ constexpr bool test() {
   {
     using Result = std::ranges::empty_view<int>;
     [[maybe_unused]] std::same_as<Result> decltype(auto) result = std::views::empty<int> | std::views::take(3);
+  }
+
+  // `views::take(optional, n)` returns the optional directly.
+  {
+    std::optional<int> value = 42;
+    static_assert(std::same_as<decltype(std::views::take(value, 0)), std::optional<int>>);
+    static_assert(std::same_as<decltype(std::views::take(value, 1)), std::optional<int>>);
+    std::same_as<std::optional<int>> decltype(auto) empty = std::views::take(value, 0);
+    std::same_as<std::optional<int>> decltype(auto) same = std::views::take(value, 1);
+    assert(!empty);
+    assert(same && *same == 42);
   }
 
   // `views::take(span, n)` returns a `span`.

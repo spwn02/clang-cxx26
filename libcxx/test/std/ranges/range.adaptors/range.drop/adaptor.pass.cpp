@@ -10,6 +10,8 @@
 
 // std::views::drop
 
+// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
+
 #include <ranges>
 
 #include <array>
@@ -17,6 +19,7 @@
 #include <concepts>
 #include <span>
 #include <string_view>
+#include <optional>
 #include <utility>
 
 #include "test_iterators.h"
@@ -132,6 +135,17 @@ constexpr bool test() {
   {
     using Result = std::ranges::empty_view<int>;
     [[maybe_unused]] std::same_as<Result> decltype(auto) result = std::views::empty<int> | std::views::drop(3);
+  }
+
+  // `views::drop(optional, n)` returns the optional directly.
+  {
+    std::optional<int> value = 42;
+    static_assert(std::same_as<decltype(std::views::drop(value, 0)), std::optional<int>>);
+    static_assert(std::same_as<decltype(std::views::drop(value, 1)), std::optional<int>>);
+    std::same_as<std::optional<int>> decltype(auto) same = std::views::drop(value, 0);
+    std::same_as<std::optional<int>> decltype(auto) empty = std::views::drop(value, 1);
+    assert(same && *same == 42);
+    assert(!empty);
   }
 
   // `views::drop(span, n)` returns a `span`.

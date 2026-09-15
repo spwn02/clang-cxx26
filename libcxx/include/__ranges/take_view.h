@@ -42,6 +42,7 @@
 #include <__utility/auto_cast.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
+#include <optional>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -256,6 +257,20 @@ struct __fn {
     return _LIBCPP_AUTO_CAST(std::forward<_Range>(__range));
   }
 
+  // [range.take.overview]: the optional case.
+  template <class _Range,
+            convertible_to<range_difference_t<_Range>> _Np,
+            class _RawRange = remove_cvref_t<_Range>,
+            class _Dist     = range_difference_t<_Range>>
+    requires(__is_std_optional<_RawRange>::value && view<_RawRange>)
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range, _Np&& __n) const
+      noexcept(noexcept(static_cast<_RawRange>(std::forward<_Range>(__range))))
+          -> decltype(static_cast<_RawRange>(std::forward<_Range>(__range))) {
+    return static_cast<_Dist>(std::forward<_Np>(__n)) == _Dist()
+               ? _RawRange()
+               : _LIBCPP_AUTO_CAST(std::forward<_Range>(__range));
+  }
+
   // [range.take.overview]: the `span | basic_string_view | subrange` case.
   template <class _Range,
             convertible_to<range_difference_t<_Range>> _Np,
@@ -330,6 +345,7 @@ struct __fn {
   // Note: without specifically excluding the other cases, GCC sees this overload as ambiguous with the other
   // overloads.
     requires(!(__is_empty_view<_RawRange> ||
+               __is_std_optional<_RawRange>::value ||
 #  if _LIBCPP_STD_VER >= 23
                __is_repeat_specialization<_RawRange> ||
 #  endif
