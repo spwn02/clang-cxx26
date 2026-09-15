@@ -56,5 +56,35 @@ int main(int, char**) {
   // std::this_thread::sync_wait but not its CPO tag type sync_wait_t.
   static_assert(std::same_as<decltype(std::this_thread::sync_wait), const std::this_thread::sync_wait_t>);
 
+  // Regression test: libcxx/modules/std/algorithm.inc left
+  // fold_left_first, fold_right, fold_right_last, and
+  // fold_left_first_with_iter (plus its _result alias) under `#if 0` even
+  // after they were implemented and wired into <algorithm> -- import std;
+  // couldn't see them even though #include <algorithm> could.
+  {
+    int fold_values[]{1, 2, 3};
+    auto first = std::ranges::fold_left_first(fold_values, std::plus{});
+    if (!first || *first != 6)
+      return 1;
+    if (std::ranges::fold_right(fold_values, 0, std::plus{}) != 6)
+      return 1;
+    if (std::ranges::fold_right_last(fold_values, std::plus{}).value() != 6)
+      return 1;
+  }
+
+  // Regression test: libcxx/modules/std/mdspan.inc never exported any of
+  // issue #14's P2630R4/P3355R2/P2642R6 submdspan/padded-layout facilities
+  // (layout_left_padded, layout_right_padded, full_extent_t, full_extent,
+  // extent_slice, range_slice, canonical_slices, subextents,
+  // submdspan_mapping_result, submdspan_mapping, submdspan) at all.
+  {
+    std::extents<int, std::dynamic_extent, 3> e{4};
+    int data[12]{};
+    std::mdspan m(data, e);
+    auto sub = std::submdspan(m, std::full_extent, 1);
+    if (sub.extent(0) != 4)
+      return 1;
+  }
+
   return 0;
 }
