@@ -19093,6 +19093,13 @@ void Sema::SetDeclDeleted(Decl *Dcl, SourceLocation DelLoc,
   if (Fn->hasContracts()) {
     Diag(DelLoc, diag::err_contract_on_deleted_or_defaulted_function) << 0;
     Fn->setInvalidDecl();
+    return;
+  }
+
+  if (IsExpressionMacro(Fn)) {
+    Diag(DelLoc, diag::err_macro_defaulted_deleted) << /*deleted*/ 1;
+    Fn->setInvalidDecl();
+    return;
   }
 
   // Deleted function does not have a body.
@@ -19153,6 +19160,12 @@ void Sema::SetDeclDefaulted(Decl *Dcl, SourceLocation DefaultLoc) {
 
     Diag(DefaultLoc, diag::err_default_special_members)
         << getLangOpts().CPlusPlus20;
+    return;
+  }
+
+  if (IsExpressionMacro(FD)) {
+    Diag(DefaultLoc, diag::err_macro_defaulted_deleted) << /*defaulted*/ 0;
+    FD->setInvalidDecl();
     return;
   }
 
