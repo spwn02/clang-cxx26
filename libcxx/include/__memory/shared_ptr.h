@@ -894,9 +894,23 @@ __allocate_shared_unbounded_array(const _Alloc& __a, size_t __n, _Arg&&... __arg
   if consteval {
     using _Elem = remove_extent_t<_Array>;
     if constexpr (sizeof...(_Arg) == 0)
-      return shared_ptr<_Array>(new _Elem[__n]());
-    else
-      return shared_ptr<_Array>(new _Elem[__n](std::forward<_Arg>(__arg)...));
+      return shared_ptr<_Array>(new _Elem[__n](), default_delete<_Elem[]>());
+    else if constexpr (!is_array_v<_Elem>)
+      return shared_ptr<_Array>(new _Elem[__n](std::forward<_Arg>(__arg)...), default_delete<_Elem[]>());
+    else {
+      auto __result = new _Elem[__n]();
+      auto __copy   = [&]<class _Nested>(this auto&& __copy, auto* __dst, size_t __count, const _Nested& __src) constexpr {
+        if constexpr (is_array_v<_Nested>) {
+          for (size_t __i = 0; __i != __count; ++__i)
+            __copy(__dst[__i], extent_v<_Nested>, __src[__i]);
+        } else {
+          for (size_t __i = 0; __i != __count; ++__i)
+            __dst[__i] = __src;
+        }
+      };
+      (__copy(__result, __n, __arg), ...);
+      return shared_ptr<_Array>(__result, default_delete<_Elem[]>());
+    }
   }
 #endif
   // We compute the number of bytes necessary to hold the control block and the
@@ -981,9 +995,24 @@ __allocate_shared_bounded_array(const _Alloc& __a, _Arg&&... __arg) {
   if consteval {
     using _Elem = remove_extent_t<_Array>;
     if constexpr (sizeof...(_Arg) == 0)
-      return shared_ptr<_Array>(new _Elem[extent<_Array>::value]());
-    else
-      return shared_ptr<_Array>(new _Elem[extent<_Array>::value](std::forward<_Arg>(__arg)...));
+      return shared_ptr<_Array>(new _Elem[extent<_Array>::value](), default_delete<_Elem[]>());
+    else if constexpr (!is_array_v<_Elem>)
+      return shared_ptr<_Array>(
+          new _Elem[extent<_Array>::value](std::forward<_Arg>(__arg)...), default_delete<_Elem[]>());
+    else {
+      auto __result = new _Elem[extent<_Array>::value]();
+      auto __copy   = [&]<class _Nested>(this auto&& __copy, auto* __dst, size_t __count, const _Nested& __src) constexpr {
+        if constexpr (is_array_v<_Nested>) {
+          for (size_t __i = 0; __i != __count; ++__i)
+            __copy(__dst[__i], extent_v<_Nested>, __src[__i]);
+        } else {
+          for (size_t __i = 0; __i != __count; ++__i)
+            __dst[__i] = __src;
+        }
+      };
+      (__copy(__result, extent_v<_Array>, __arg), ...);
+      return shared_ptr<_Array>(__result, default_delete<_Elem[]>());
+    }
   }
 #endif
   using _ControlBlock      = __bounded_array_control_block<_Array, _Alloc>;
