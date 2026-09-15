@@ -996,6 +996,16 @@ def ConstexprExceptionRethrow : LangBuiltin<"CXX_LANG"> {
   let Prototype = "void(void*)";
 }
 
+// P2758: emitting messages at compile time. Takes a kind (0 = print,
+// 1 = warning, 2 = error), a tag (pointer + length), and a message
+// (pointer + length, char or char8_t). Only has an effect when manifestly
+// constant-evaluated; a kind-2 call additionally fails the evaluation.
+def ConstexprDiag : LangBuiltin<"CXX_LANG"> {
+  let Spellings = ["__builtin_constexpr_diag"];
+  let Attributes = [NoThrow, Constexpr, CustomTypeChecking];
+  let Prototype = "void(int, ...)";
+}
+
 def IsWithinLifetime : LangBuiltin<"CXX_LANG"> {
   let Spellings = ["__builtin_is_within_lifetime"];
   let Attributes = [NoThrow, CustomTypeChecking, Consteval];
