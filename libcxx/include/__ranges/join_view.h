@@ -396,16 +396,16 @@ struct __segmented_iterator_traits<_JoinViewIterator> {
     if (ranges::empty(__iter.__parent_->__base_))
       return {};
     if (!__iter.__inner_.has_value())
-      return ranges::end(*--__iter.__outer_);
+      return ranges::end(std::__as_lvalue(*--__iter.__outer_));
     return *__iter.__inner_;
   }
 
   static constexpr _LIBCPP_HIDE_FROM_ABI __local_iterator __begin(__segment_iterator __iter) {
-    return ranges::begin(*__iter.__get_iter());
+    return ranges::begin(std::__as_lvalue(*__iter.__get_iter()));
   }
 
   static constexpr _LIBCPP_HIDE_FROM_ABI __local_iterator __end(__segment_iterator __iter) {
-    return ranges::end(*__iter.__get_iter());
+    return ranges::end(std::__as_lvalue(*__iter.__get_iter()));
   }
 
   static constexpr _LIBCPP_HIDE_FROM_ABI _JoinViewIterator
