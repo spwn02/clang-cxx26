@@ -1273,15 +1273,28 @@ move, and `clear` — a strictly larger verified surface than
 `unordered_map`'s, for the reasons above.
 
 **P2300R10 is `Complete` for the paper, not for the C++26 execution surface.**
-Ten follow-on papers amend or extend it and are all unstarted (untriaged until
-2026-09-05): P2079R10 (parallel scheduler), P3149R11 (`async_scope`), P3284R4
-(`write_env`/`unstoppable`), P3388R3 (when `connect` doesn't throw), P3433R1
-(allocator support for operation states), P3481R5 (`bulk()` issues), P3557R3
-(sender diagnostics via constexpr exceptions), P3570R2 (optional variants),
-P3682R0 (**remove** `execution::split`), P3887R1 (`when_all` as a Ronseal
-algorithm). Treat these as one Rank 4 cluster with a shared sub-plan rather
-than ten independent rows — several are small wording deltas against code that
-already exists, and P3682R0 is a deletion.
+Ten follow-on papers amend or extend it: P3284R4 and P3682R0 are complete;
+the other eight remain unstarted (untriaged until 2026-09-05): P2079R10
+(parallel scheduler), P3149R11 (`async_scope`), P3388R3 (when `connect` doesn't
+throw), P3433R1 (allocator support for operation states), P3481R5 (`bulk()`
+issues), P3557R3 (sender diagnostics via constexpr exceptions), P3570R2
+(optional variants), and P3887R1 (`when_all` as a Ronseal algorithm). Treat
+these as one Rank 4 cluster with a shared sub-plan rather than ten independent
+rows — several are small wording deltas against code that already exists, and
+P3682R0 is a deletion.
+
+Issue #11 checklist:
+
+- [ ] P2079R10 — parallel scheduler
+- [ ] P3149R11 — `async_scope`
+- [x] P3284R4 — `write_env`/`unstoppable`; complete in base P2300R10 implementation, verified against P3284R4 wording
+- [ ] P3388R3 — when `connect` doesn't throw
+- [ ] P3433R1 — allocator support for operation states
+- [ ] P3481R5 — `bulk()` issues
+- [ ] P3557R3 — sender diagnostics via constexpr exceptions
+- [ ] P3570R2 — optional variants
+- [x] P3682R0 — remove `execution::split`; complete because no execution-namespace `split` exists to remove
+- [ ] P3887R1 — `when_all` as a Ronseal algorithm
 
 **A real compiler crash blocks ~27 of the 52 currently-failing check-cxx
 tests, all under `std/execution/`, confirmed 2026-09-07.** Every sampled
@@ -7399,3 +7412,9 @@ blocked, what's next. Do not remove old entries.
   `std::__math::abs`, and runtime evaluation retains the C-library overloads.
   Added static-assert coverage for `int`, `long`, and `long long`. Issue #7
   remains open; sub-gaps 1-3 are still blocked.
+- **2026-09-16 (issue #11, P3284R4/P3682R0 only)**: Verified P3284R4's
+  `write_env`/`unstoppable` wording against the existing base-P2300R10
+  implementation and found no delta; marked it complete. Grepped the libc++
+  include and test trees for execution-namespace `split` and found none, so
+  marked P3682R0 complete as vacuously satisfied. The other issue-11 papers
+  remain untouched.
