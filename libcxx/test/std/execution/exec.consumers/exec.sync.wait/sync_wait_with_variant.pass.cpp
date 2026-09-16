@@ -80,21 +80,28 @@ struct stops_sndr {
 };
 
 int main(int, char**) {
+  // sync_wait_with_variant(sndr) is sync_wait(into_variant(sndr)), and sync_wait's own
+  // result type always wraps its completion args in a tuple -- so the result here is
+  // optional<tuple<variant<...>>>, not optional<variant<...>> directly. into_variant's
+  // single value-completion argument (the variant) becomes that lone tuple element.
+
   // Value completion, first alternative.
   {
     auto r = std::this_thread::sync_wait_with_variant(two_shapes_sndr{/*send_int=*/true});
     assert(r.has_value());
-    using V = std::decay_t<decltype(*r)>;
+    auto& v = std::get<0>(*r);
+    using V = std::decay_t<decltype(v)>;
     static_assert(std::variant_size_v<V> == 2);
-    assert(std::holds_alternative<std::tuple<int>>(*r));
-    assert(std::get<std::tuple<int>>(*r) == std::tuple<int>(42));
+    assert(std::holds_alternative<std::tuple<int>>(v));
+    assert(std::get<std::tuple<int>>(v) == std::tuple<int>(42));
   }
   // Value completion, second alternative.
   {
     auto r = std::this_thread::sync_wait_with_variant(two_shapes_sndr{/*send_int=*/false});
     assert(r.has_value());
-    assert(std::holds_alternative<std::tuple<std::string>>(*r));
-    assert(std::get<std::tuple<std::string>>(*r) == std::tuple<std::string>("hello"));
+    auto& v = std::get<0>(*r);
+    assert(std::holds_alternative<std::tuple<std::string>>(v));
+    assert(std::get<std::tuple<std::string>>(v) == std::tuple<std::string>("hello"));
   }
   // Stopped completion: disengaged optional, matching sync_wait's own behavior.
   {
@@ -104,7 +111,7 @@ int main(int, char**) {
   // Equivalent to sync_wait(into_variant(sndr)) -- spot-check the two spellings agree.
   {
     auto r1 = std::this_thread::sync_wait_with_variant(two_shapes_sndr{/*send_int=*/true});
-    auto r2 = std::this_thread::sync_wait(execution::into_variant(two_shapes_sndr{/*send_int=*/true}));
+    auto r2 = std::this_thread::sync_wait(into_variant(two_shapes_sndr{/*send_int=*/true}));
     static_assert(std::is_same_v<decltype(r1), decltype(r2)>);
     assert(r1 == r2);
   }

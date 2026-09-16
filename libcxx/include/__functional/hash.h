@@ -449,8 +449,12 @@ struct __hash_impl<long double> : __scalar_hash<long double> {
       // during constant evaluation ("read of uninitialized object"), unlike at runtime where
       // it's merely unspecified. Converting to double instead is a lossy but always
       // well-defined *value* conversion (no object-representation bits involved), and
-      // self-consistency within one evaluation is all that's required here.
-      return std::hash<double>{}(static_cast<double>(__v));
+      // self-consistency within one evaluation is all that's required here. Calls
+      // __scalar_hash<double> directly rather than std::hash<double>: the latter's
+      // definition (via the primary hash<T> template below) isn't visible yet at this
+      // point in the header. The __v == 0.0L check above already excludes +/-0, so no
+      // zero-normalization is needed here the way __hash_impl<double> itself would do.
+      return __scalar_hash<double>{}(static_cast<double>(__v));
     }
 #if defined(__i386__) || (defined(__x86_64__) && defined(__ILP32__))
     // Zero out padding bits

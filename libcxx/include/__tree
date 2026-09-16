@@ -1465,11 +1465,40 @@ private:
     using __key_type = __remove_const_t<typename value_type::first_type>;
 
     if consteval {
-      // Construct the replacement before destroying the old value so a
-      // throwing copy leaves the node valid, as the runtime path does.
-      __get_node_value_type_t<value_type> __tmp(std::forward<_From>(__rhs));
+      // Destroying and placement-new-ing just the *key* subobject isn't sufficient: the
+      // evaluator only recognizes reconstructing a const-qualified subobject as legal when
+      // it's a whole active-union-member switch (the pattern __hash_node/__tree_node's
+      // anonymous union exists for), not a partial reconstruction of one field within an
+      // already-active member -- confirmed empirically ("modification of object of
+      // const-qualified type" from inside construct_at itself when only `.first` was
+      // destroyed+reconstructed). So the whole pair is destroyed and reconstructed together.
+      //
+      // It must be constructed via the pair's two-argument (key, value) constructor, not
+      // its single-argument whole-pair constructor: constructing "as one argument" from
+      // `_From` (or from an intermediate whole-pair temporary) routes through pair's own
+      // generic copy/move constructor, whose key member-initializer receives an argument of
+      // type `const key_type&&` (since `first_type` is itself `const key_type`) -- which
+      // cannot bind to a move constructor's non-const `key_type&&` parameter, only to the
+      // copy constructor's `const key_type&` parameter, which fails for a key without one.
+      // Passing the key argument explicitly (already cast to a non-const rvalue) as its own
+      // constructor argument avoids ever binding a member-initializer to a const rvalue.
+      //
+      // The const_cast below (same trick as the runtime path, same caveat: technically UB
+      // since `__rhs.first`'s declared type is const) is needed for the same reason as
+      // there -- `.first`'s static type is `const key_type&` regardless of `_From`'s own
+      // value category, so an unadorned forward would always bind the key's *copy*
+      // constructor. This is only reachable (and only ever actually constant-evaluated)
+      // for the key types this fork's constexpr container support targets
+      // (integral/enum/nullptr_t, docs/CXX26_GAPS.md), whose move "constructors" are
+      // trivial copies and never write through the source -- unlike a hypothetical
+      // move-only key with a mutating move constructor, for which this exact construct,
+      // if actually evaluated at compile time, would legitimately fail to constant-evaluate
+      // (a real limitation, not silently swept under the rug).
       std::__destroy_at(std::addressof(__lhs));
-      std::__construct_at(std::addressof(__lhs), std::move(__tmp));
+      std::__construct_at(
+          std::addressof(__lhs),
+          const_cast<__copy_cvref_t<_From, __key_type>&&>(__rhs.first),
+          std::forward<_From>(__rhs).second);
       return;
     }
 
