@@ -3040,7 +3040,7 @@ cpp`, five `SemaCXX/*` files — present both before and after).
 | [ ] | P2927R3 | Inspecting `exception_ptr` | Untriaged until 2026-09-05. Sofia 2025-06. Pairs with P3748R0 below |
 | [ ] | P3748R0 | Inspecting `exception_ptr` should be constexpr | Untriaged until 2026-09-05. Kona 2025-11. Do after P2927R3 |
 | [ ] | P3503R3 | Type-erased allocator use in `promise`/`packaged_task` | Untriaged until 2026-09-05. Sofia 2025-06 |
-| [ ] | P3641R0 | Rename `std::observable` to `std::observable_checkpoint` | Untriaged until 2026-09-05. Sofia 2025-06. Rename + deprecation |
+| [ ] | P3641R0 | Rename `std::observable` to `std::observable_checkpoint` | Escalated 2026-09-16 — P1494R5 requires a compiler/middle-end checkpoint intrinsic that prevents UB-based optimization from invalidating the preceding defined prefix; P3641R0 only renames the facility and adds `__cpp_lib_observable_checkpoint`. No library-only implementation. See issue #30. |
 | [ ] | P1317R2 | Remove return type deduction in `std::apply` | Untriaged until 2026-09-05. Sofia 2025-06 |
 | [ ] | P2319R5 | Prevent `path` presentation problems | Untriaged until 2026-09-05. Sofia 2025-06. Touches `<filesystem>`, adjacent to P2845R8 (Complete) |
 | [ ] | P3016R6 | Inconsistencies in begin/end for `valarray` and braced initializer lists | Untriaged until 2026-09-05. Kona 2025-11 |
@@ -3130,6 +3130,15 @@ tiers as makes sense.
 | [ ] | P2590R2 | Explicit lifetime management | Added 2026-09-05. `std::start_lifetime_as` — has a library component too |
 
 ## Session Log
+
+- **2026-09-16 (issue #30)**: Resolved the P1494R5/P3641R0 scope discrepancy.
+  The papers require real compiler support: P1494R5 describes an intrinsic that
+  counts as possible termination and cannot be removed by the optimizer, while
+  P3641R0 only renames `std::observable` to
+  `std::observable_checkpoint` and adds the feature-test macro. No existing
+  facility was found, so no fake library-only implementation was attempted.
+  Posted the exact wording and escalation note to issue #30; left it open with
+  the existing `tier-6` label.
 
 - **2026-09-16 (issues #23/#79)**: Applied P2407R5's partial-class rule to
   `optional`: all throwing `value()` overloads, including `optional<T&>`, are
