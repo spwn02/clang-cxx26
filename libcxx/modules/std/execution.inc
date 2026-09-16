@@ -257,6 +257,15 @@ export namespace std::execution {
   using std::execution::change_coroutine_scheduler;
   using std::execution::task;
   using std::execution::with_error;
+
+  // [exec.scope] -- Pass 1 only (simple_counting_scope/associate/spawn/join); counting_scope
+  // and spawn_future are follow-up work, see docs/design/async_scope_p3149.md.
+  using std::execution::associate;
+  using std::execution::associate_t;
+  using std::execution::scope_token;
+  using std::execution::simple_counting_scope;
+  using std::execution::spawn;
+  using std::execution::spawn_t;
 #endif
 } // namespace std::execution
 

@@ -160,6 +160,7 @@ _LIBCPP_END_NAMESPACE_STD
 #  if _LIBCPP_STD_VER >= 26
 #    include <__execution/affine_on.h>
 #    include <__execution/as_awaitable.h>
+#    include <__execution/async_scope.h>
 #    include <__execution/awaitable.h>
 #    include <__execution/bulk.h>
 #    include <__execution/completion_functions.h>

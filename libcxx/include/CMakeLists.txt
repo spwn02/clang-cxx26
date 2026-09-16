@@ -358,6 +358,7 @@ set(files
   __exception/terminate.h
   __execution/affine_on.h
   __execution/as_awaitable.h
+  __execution/async_scope.h
   __execution/awaitable.h
   __execution/bulk.h
   __execution/completion_functions.h
