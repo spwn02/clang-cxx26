@@ -699,7 +699,6 @@ feature_test_macros = [
                 "c++26": 202311  # P2407R5 Freestanding Library: Partial Classes
             },
             "headers": ["string_view"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_freestanding_variant",

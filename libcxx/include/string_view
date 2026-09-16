@@ -417,9 +417,11 @@ public:
     return _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__pos < size(), "string_view[] index out of bounds"), __data_[__pos];
   }
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[__nodiscard__]] _LIBCPP_CONSTEXPR _LIBCPP_HIDE_FROM_ABI const_reference at(size_type __pos) const {
     return __pos >= size() ? (__throw_out_of_range("string_view::at"), __data_[0]) : __data_[__pos];
   }
+#  endif
 
   [[__nodiscard__]] _LIBCPP_CONSTEXPR _LIBCPP_HIDE_FROM_ABI const_reference front() const _NOEXCEPT {
     return _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(!empty(), "string_view::front(): string is empty"), __data_[0];
@@ -453,6 +455,7 @@ public:
     __other.__size_ = __sz;
   }
 
+#  if !defined(_LIBCPP_FREESTANDING)
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 size_type
   copy(_CharT* __s, size_type __n, size_type __pos = 0) const {
     if (__pos > size())
@@ -461,7 +464,9 @@ public:
     _Traits::copy(__s, data() + __pos, __rlen);
     return __rlen;
   }
+#  endif
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[__nodiscard__]] _LIBCPP_CONSTEXPR _LIBCPP_HIDE_FROM_ABI basic_string_view
   substr(size_type __pos = 0, size_type __n = npos) const {
     // Use the `__assume_valid` form of the constructor to avoid an unnecessary check. Any substring of a view is a
@@ -470,11 +475,13 @@ public:
     return __pos > size() ? (__throw_out_of_range("string_view::substr"), basic_string_view())
                           : basic_string_view(__assume_valid(), data() + __pos, std::min(__n, size() - __pos));
   }
+#  endif
 
 #  if _LIBCPP_STD_VER >= 26
   [[nodiscard]]
   _LIBCPP_HIDE_FROM_ABI constexpr basic_string_view subview(size_type __pos = 0, size_type __n = npos) const {
-    return substr(__pos, __n);
+    return __pos > size() ? (__throw_out_of_range("string_view::subview"), basic_string_view())
+                          : basic_string_view(__assume_valid(), data() + __pos, std::min(__n, size() - __pos));
   }
 #  endif
 
@@ -486,6 +493,7 @@ public:
     return __retval;
   }
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[__nodiscard__]] _LIBCPP_CONSTEXPR_SINCE_CXX14 _LIBCPP_HIDE_FROM_ABI int
   compare(size_type __pos1, size_type __n1, basic_string_view __sv) const {
     return substr(__pos1, __n1).compare(__sv);
@@ -495,12 +503,14 @@ public:
   compare(size_type __pos1, size_type __n1, basic_string_view __sv, size_type __pos2, size_type __n2) const {
     return substr(__pos1, __n1).compare(__sv.substr(__pos2, __n2));
   }
+#  endif
 
   [[__nodiscard__]] _LIBCPP_CONSTEXPR_SINCE_CXX14 _LIBCPP_HIDE_FROM_ABI int
   compare(const _CharT* _LIBCPP_DIAGNOSE_NULLPTR __s) const _NOEXCEPT {
     return compare(basic_string_view(__s));
   }
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[__nodiscard__]] _LIBCPP_CONSTEXPR_SINCE_CXX14 _LIBCPP_HIDE_FROM_ABI int
   compare(size_type __pos1, size_type __n1, const _CharT* _LIBCPP_DIAGNOSE_NULLPTR __s) const {
     return substr(__pos1, __n1).compare(basic_string_view(__s));
@@ -511,6 +521,7 @@ public:
       _LIBCPP_DIAGNOSE_NULLPTR_IF(__n2 != 0 && __s == nullptr, " if n2 is not zero") {
     return substr(__pos1, __n1).compare(basic_string_view(__s, __n2));
   }
+#  endif
 
   // find
   [[__nodiscard__]] _LIBCPP_CONSTEXPR_SINCE_CXX14 _LIBCPP_HIDE_FROM_ABI size_type
@@ -668,7 +679,8 @@ public:
 
 #  if _LIBCPP_STD_VER >= 20
   [[nodiscard]] constexpr _LIBCPP_HIDE_FROM_ABI bool starts_with(basic_string_view __s) const noexcept {
-    return size() >= __s.size() && compare(0, __s.size(), __s) == 0;
+    const size_type __rlen = std::min(size(), __s.size());
+    return basic_string_view(data(), __rlen).compare(__s) == 0;
   }
 
   [[nodiscard]] constexpr _LIBCPP_HIDE_FROM_ABI bool starts_with(value_type __c) const noexcept {
@@ -681,7 +693,8 @@ public:
   }
 
   [[nodiscard]] constexpr _LIBCPP_HIDE_FROM_ABI bool ends_with(basic_string_view __s) const noexcept {
-    return size() >= __s.size() && compare(size() - __s.size(), npos, __s) == 0;
+    const size_type __rlen = std::min(size(), __s.size());
+    return basic_string_view(data() + (size() - __rlen), __rlen).compare(__s) == 0;
   }
 
   [[nodiscard]] constexpr _LIBCPP_HIDE_FROM_ABI bool ends_with(value_type __c) const noexcept {
