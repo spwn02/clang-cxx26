@@ -132,6 +132,24 @@ struct __swap_ranges;
 
 template <class _Backend, class _ExecutionPolicy>
 struct __partition;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __set_difference;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __set_intersection;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __set_symmetric_difference;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __set_union;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __is_heap;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __is_heap_until;
 // template <class _Policy, class _ForwardIterator, class _Predicate>
 // optional<bool>
 // operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Predicate __pred) const noexcept;

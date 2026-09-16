@@ -613,6 +613,76 @@ merge(_ExecutionPolicy&& __policy,
       less{});
 }
 
+#define _LIBCPP_PSTL_SET_ALGORITHM(__name) \
+template <class _ExecutionPolicy, class _ForwardIterator1, class _ForwardIterator2, class _ForwardOutIterator, \
+          class _Comp, class _RawPolicy = __remove_cvref_t<_ExecutionPolicy>, \
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0> \
+_LIBCPP_HIDE_FROM_ABI _ForwardOutIterator __name( \
+    _ExecutionPolicy&& __policy, _ForwardIterator1 __first1, _ForwardIterator1 __last1, \
+    _ForwardIterator2 __first2, _ForwardIterator2 __last2, _ForwardOutIterator __result, _Comp __comp) { \
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator1, #__name " requires ForwardIterators"); \
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator2, #__name " requires ForwardIterators"); \
+  _LIBCPP_REQUIRE_CPP17_OUTPUT_ITERATOR(_ForwardOutIterator, decltype(*__first1), #__name " requires an OutputIterator"); \
+  _LIBCPP_REQUIRE_CPP17_OUTPUT_ITERATOR(_ForwardOutIterator, decltype(*__first2), #__name " requires an OutputIterator"); \
+  using _Implementation = __pstl::__dispatch<__pstl::__##__name, __pstl::__current_configuration, _RawPolicy>; \
+  return __pstl::__handle_exception<_Implementation>(std::forward<_ExecutionPolicy>(__policy), std::move(__first1), \
+      std::move(__last1), std::move(__first2), std::move(__last2), std::move(__result), std::move(__comp)); \
+} \
+template <class _ExecutionPolicy, class _ForwardIterator1, class _ForwardIterator2, class _ForwardOutIterator, \
+          class _RawPolicy = __remove_cvref_t<_ExecutionPolicy>, \
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0> \
+_LIBCPP_HIDE_FROM_ABI _ForwardOutIterator __name( \
+    _ExecutionPolicy&& __policy, _ForwardIterator1 __first1, _ForwardIterator1 __last1, \
+    _ForwardIterator2 __first2, _ForwardIterator2 __last2, _ForwardOutIterator __result) { \
+  return std::__name(std::forward<_ExecutionPolicy>(__policy), std::move(__first1), std::move(__last1), \
+                     std::move(__first2), std::move(__last2), std::move(__result), less{}); \
+}
+
+_LIBCPP_PSTL_SET_ALGORITHM(set_difference)
+_LIBCPP_PSTL_SET_ALGORITHM(set_intersection)
+_LIBCPP_PSTL_SET_ALGORITHM(set_symmetric_difference)
+_LIBCPP_PSTL_SET_ALGORITHM(set_union)
+#undef _LIBCPP_PSTL_SET_ALGORITHM
+
+template <class _ExecutionPolicy, class _RandomAccessIterator, class _Comp,
+          class _RawPolicy = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI bool is_heap(
+    _ExecutionPolicy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __last, _Comp __comp) {
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator, "is_heap requires RandomAccessIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__is_heap, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(std::forward<_ExecutionPolicy>(__policy), std::move(__first),
+                                                     std::move(__last), std::move(__comp));
+}
+
+template <class _ExecutionPolicy, class _RandomAccessIterator,
+          class _RawPolicy = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI bool is_heap(
+    _ExecutionPolicy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __last) {
+  return std::is_heap(std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), less{});
+}
+
+template <class _ExecutionPolicy, class _RandomAccessIterator, class _Comp,
+          class _RawPolicy = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _RandomAccessIterator is_heap_until(
+    _ExecutionPolicy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __last, _Comp __comp) {
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator, "is_heap_until requires RandomAccessIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__is_heap_until, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(std::forward<_ExecutionPolicy>(__policy), std::move(__first),
+                                                     std::move(__last), std::move(__comp));
+}
+
+template <class _ExecutionPolicy, class _RandomAccessIterator,
+          class _RawPolicy = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _RandomAccessIterator is_heap_until(
+    _ExecutionPolicy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __last) {
+  return std::is_heap_until(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), less{});
+}
+
 template <class _ExecutionPolicy,
           class _ForwardIterator,
           class _ForwardOutIterator,
