@@ -60,18 +60,30 @@ private:
   unsigned MaxArgs;
   impl_fn_t ImplFn;
   bool Throws;
+  bool WantsMacroExpansionContext;
 
 public:
   constexpr Metafunction(ResultKind ResultKind,
                          unsigned MinArgs,
                          unsigned MaxArgs,
                          impl_fn_t ImplFn,
-                         bool Throws = false)
+                         bool Throws = false,
+                         bool WantsMacroExpansionContext = false)
       : Kind(ResultKind), MinArgs(MinArgs), MaxArgs(MaxArgs),
-        ImplFn(ImplFn), Throws(Throws) { }
+        ImplFn(ImplFn), Throws(Throws),
+        WantsMacroExpansionContext(WantsMacroExpansionContext) { }
 
   ResultKind getResultKind() const {
     return Kind;
+  }
+
+  // When set, the 'ContainingDecl' argument delivers the context the expansion
+  // of the enclosing expression macro lands in, rather than the declaration
+  // being constant-evaluated. Null outside a macro body. This is opt-in
+  // because 'ContainingDecl' otherwise carries the injection target, which
+  // define_aggregate and annotate depend on.
+  bool wantsMacroExpansionContext() const {
+    return WantsMacroExpansionContext;
   }
 
   unsigned getMinArgs() const {
