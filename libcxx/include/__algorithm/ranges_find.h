@@ -90,10 +90,12 @@ struct __find {
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI _Ip
   operator()(_Ep&& __exec, _Ip __first, _Sp __last, const _Tp& __value, _Proj __proj = {}) const {
     _Ip __end = __first + (__last - __first);
-    return std::find(std::forward<_Ep>(__exec), std::move(__first), std::move(__end),
-                     [&__value, __proj = std::move(__proj)](auto&& __element) mutable {
-                       return std::invoke(__proj, std::forward<decltype(__element)>(__element)) == __value;
-                     });
+    // std::find(policy, first, last, value) compares by operator== against value directly and
+    // takes no predicate -- a projection needs std::find_if instead.
+    return std::find_if(std::forward<_Ep>(__exec), std::move(__first), std::move(__end),
+                        [&__value, __proj = std::move(__proj)](auto&& __element) mutable {
+                          return std::invoke(__proj, std::forward<decltype(__element)>(__element)) == __value;
+                        });
   }
 
   template <class _Ep, random_access_range _Rp, class _Proj = identity, class _Tp
