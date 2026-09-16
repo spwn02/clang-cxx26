@@ -41,6 +41,26 @@ inline _LIBCPP_HIDE_FROM_ABI _Size __loadword(const void* __p) {
   return __r;
 }
 
+// __scalar_hash's runtime path type-puns through a union (or calls __hash_memory, which
+// memcpy's), neither of which is usable during constant evaluation. This constexpr twin
+// doesn't need to reproduce the runtime murmur2/cityhash bit pattern -- a compile-time-built
+// container can never escape its own evaluation (constant evaluation forbids allocations
+// from surviving to runtime), so the hash only needs to be self-consistent within one
+// evaluation, not match the runtime value. __builtin_bit_cast to a same-size byte array is
+// constexpr-friendly (unlike the union/memcpy punning above) for any trivially copyable
+// scalar type.
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI constexpr size_t __constexpr_scalar_hash(_Tp __v) _NOEXCEPT {
+  struct _Bytes {
+    unsigned char __b[sizeof(_Tp)];
+  };
+  _Bytes __bytes = __builtin_bit_cast(_Bytes, __v);
+  size_t __h     = 0;
+  for (unsigned char __byte : __bytes.__b)
+    __h = __h * 131 + __byte;
+  return __h;
+}
+
 // We use murmur2 when size_t is 32 bits, and cityhash64 when size_t
 // is 64 bits.  This is because cityhash64 uses 64bit x 64bit
 // multiplication, which can be very slow on 32-bit systems.
@@ -254,74 +274,94 @@ struct __scalar_hash;
 
 template <class _Tp>
 struct __scalar_hash<_Tp, 0> : public __unary_function<_Tp, size_t> {
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(_Tp __v) const _NOEXCEPT {
-    union {
-      _Tp __t;
-      size_t __a;
-    } __u;
-    __u.__a = 0;
-    __u.__t = __v;
-    return __u.__a;
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(_Tp __v) const _NOEXCEPT {
+    if consteval {
+      return std::__constexpr_scalar_hash(__v);
+    } else {
+      union {
+        _Tp __t;
+        size_t __a;
+      } __u;
+      __u.__a = 0;
+      __u.__t = __v;
+      return __u.__a;
+    }
   }
 };
 
 template <class _Tp>
 struct __scalar_hash<_Tp, 1> : public __unary_function<_Tp, size_t> {
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(_Tp __v) const _NOEXCEPT {
-    union {
-      _Tp __t;
-      size_t __a;
-    } __u;
-    __u.__t = __v;
-    return __u.__a;
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(_Tp __v) const _NOEXCEPT {
+    if consteval {
+      return std::__constexpr_scalar_hash(__v);
+    } else {
+      union {
+        _Tp __t;
+        size_t __a;
+      } __u;
+      __u.__t = __v;
+      return __u.__a;
+    }
   }
 };
 
 template <class _Tp>
 struct __scalar_hash<_Tp, 2> : public __unary_function<_Tp, size_t> {
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(_Tp __v) const _NOEXCEPT {
-    union {
-      _Tp __t;
-      struct {
-        size_t __a;
-        size_t __b;
-      } __s;
-    } __u;
-    __u.__t = __v;
-    return std::__hash_memory(std::addressof(__u), sizeof(__u));
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(_Tp __v) const _NOEXCEPT {
+    if consteval {
+      return std::__constexpr_scalar_hash(__v);
+    } else {
+      union {
+        _Tp __t;
+        struct {
+          size_t __a;
+          size_t __b;
+        } __s;
+      } __u;
+      __u.__t = __v;
+      return std::__hash_memory(std::addressof(__u), sizeof(__u));
+    }
   }
 };
 
 template <class _Tp>
 struct __scalar_hash<_Tp, 3> : public __unary_function<_Tp, size_t> {
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(_Tp __v) const _NOEXCEPT {
-    union {
-      _Tp __t;
-      struct {
-        size_t __a;
-        size_t __b;
-        size_t __c;
-      } __s;
-    } __u;
-    __u.__t = __v;
-    return std::__hash_memory(std::addressof(__u), sizeof(__u));
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(_Tp __v) const _NOEXCEPT {
+    if consteval {
+      return std::__constexpr_scalar_hash(__v);
+    } else {
+      union {
+        _Tp __t;
+        struct {
+          size_t __a;
+          size_t __b;
+          size_t __c;
+        } __s;
+      } __u;
+      __u.__t = __v;
+      return std::__hash_memory(std::addressof(__u), sizeof(__u));
+    }
   }
 };
 
 template <class _Tp>
 struct __scalar_hash<_Tp, 4> : public __unary_function<_Tp, size_t> {
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(_Tp __v) const _NOEXCEPT {
-    union {
-      _Tp __t;
-      struct {
-        size_t __a;
-        size_t __b;
-        size_t __c;
-        size_t __d;
-      } __s;
-    } __u;
-    __u.__t = __v;
-    return std::__hash_memory(std::addressof(__u), sizeof(__u));
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(_Tp __v) const _NOEXCEPT {
+    if consteval {
+      return std::__constexpr_scalar_hash(__v);
+    } else {
+      union {
+        _Tp __t;
+        struct {
+          size_t __a;
+          size_t __b;
+          size_t __c;
+          size_t __d;
+        } __s;
+      } __u;
+      __u.__t = __v;
+      return std::__hash_memory(std::addressof(__u), sizeof(__u));
+    }
   }
 };
 
@@ -338,6 +378,11 @@ _LIBCPP_HIDE_FROM_ABI inline size_t __hash_combine(size_t __lhs, size_t __rhs) _
 
 template <class _Tp>
 struct hash<_Tp*> : public __unary_function<_Tp*, size_t> {
+  // Deliberately not constexpr: a pointer's numeric value isn't a compile-time concept at
+  // all (reinterpreting a pointer as an integer is unconditionally disallowed during
+  // constant evaluation, unlike the union/memcpy punning __scalar_hash works around above),
+  // so there is no self-consistent-within-one-evaluation fallback to offer here the way
+  // there is for the scalar specializations. Not a P3372R3 requirement.
   _LIBCPP_HIDE_FROM_ABI size_t operator()(_Tp* __v) const _NOEXCEPT {
     union {
       _Tp* __t;
@@ -382,7 +427,7 @@ struct __hash_impl<_Tp,
 template <class _Tp>
 struct __hash_impl<_Tp, __enable_if_t<is_floating_point<_Tp>::value && __is_unqualified_v<_Tp> > >
     : __scalar_hash<_Tp> {
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(_Tp __v) const _NOEXCEPT {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(_Tp __v) const _NOEXCEPT {
     // -0.0 and 0.0 should return same hash
     if (__v == 0.0f)
       return 0;
@@ -392,10 +437,21 @@ struct __hash_impl<_Tp, __enable_if_t<is_floating_point<_Tp>::value && __is_unqu
 
 template <>
 struct __hash_impl<long double> : __scalar_hash<long double> {
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(long double __v) const _NOEXCEPT {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(long double __v) const _NOEXCEPT {
     // -0.0 and 0.0 should return same hash
     if (__v == 0.0L)
       return 0;
+    if consteval {
+      // Unlike float/double, long double's object representation includes genuine
+      // ABI-specific padding bytes on several targets (e.g. the 80-bit x87 value stored in
+      // a 12- or 16-byte object) whose value is indeterminate. Reading those bytes -- which
+      // __scalar_hash's generic bit_cast-and-fold consteval path would do -- is illegal
+      // during constant evaluation ("read of uninitialized object"), unlike at runtime where
+      // it's merely unspecified. Converting to double instead is a lossy but always
+      // well-defined *value* conversion (no object-representation bits involved), and
+      // self-consistency within one evaluation is all that's required here.
+      return std::hash<double>{}(static_cast<double>(__v));
+    }
 #if defined(__i386__) || (defined(__x86_64__) && defined(__ILP32__))
     // Zero out padding bits
     union {
