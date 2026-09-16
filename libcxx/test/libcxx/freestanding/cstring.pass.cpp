@@ -14,6 +14,10 @@
 #  error "<cstring> must advertise its freestanding subset"
 #endif
 
+static_assert(!requires(char* first, const char* delimiters) {
+  std::strtok(first, delimiters);
+});
+
 void test_freestanding_cstring(const char* input, char* output) {
   (void)std::memcpy(output, input, 1);
   (void)std::strcmp(input, output);
