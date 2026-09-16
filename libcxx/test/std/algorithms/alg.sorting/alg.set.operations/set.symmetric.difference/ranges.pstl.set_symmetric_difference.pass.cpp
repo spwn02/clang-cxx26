@@ -13,10 +13,14 @@
 #include <cassert>
 #include <execution>
 template <class P> void test(P&& p) {
-  std::array<int, 4> a{1, 2, 3, 5}, b{2, 4, 5}; std::array<int, 5> out{};
+  std::array<int, 4> a{1, 2, 3, 5};
+  std::array<int, 3> b{2, 4, 5};
+  std::array<int, 5> out{};
   assert(std::set_symmetric_difference(p, a.begin(), a.end(), b.begin(), b.end(), out.begin()) == out.begin() + 3);
   assert((out == std::array<int, 5>{1, 3, 4, 0, 0}));
-  std::array<int, 4> c{1, 2, 3, 5}, d{2, 4, 5}; std::array<int, 5> out2{};
+  std::array<int, 4> c{1, 2, 3, 5};
+  std::array<int, 3> d{2, 4, 5};
+  std::array<int, 5> out2{};
   auto r = std::ranges::set_symmetric_difference(p, c, d, out2.begin());
   assert(r.in1 == c.end() && r.in2 == d.end() && r.out == out2.begin() + 3);
   assert((out2 == std::array<int, 5>{1, 3, 4, 0, 0}));
