@@ -1896,11 +1896,14 @@ schedulers can't come before sender concepts exist):**
   `default_domain::apply_sender` (already built at M2) via a member
   `sync_wait_t::apply_sender`. `AS-EXCEPT-PTR` ([exec.general]p8) is
   implemented locally in this header (its only consumer so far) rather than
-  factored out. **`sync_wait_with_variant` is not implemented**: its
-  `apply_sender` is specified directly in terms of `into_variant`
-  ([exec.sync.wait.var]p3: `sync_wait(into_variant(sndr))`), an M5 sender
-  adaptor — pulling it forward into M4 was explicitly rejected rather than
-  silently skipped. Revisit once M5 lands `into_variant`.
+  factored out. **`sync_wait_with_variant` implemented 2026-09-16** (issue
+  #10): `into_variant` landed at M5 (2026-08-22) but nobody came back to
+  wire this up — a genuine dropped thread, not a real blocker.
+  `sync_wait_with_variant_t::apply_sender` is exactly
+  [exec.sync.wait.var]p3's `sync_wait(into_variant(sndr))`; reuses
+  `__sync_wait_env` rather than a separate identically-shaped
+  `sync-wait-with-variant-env` type. Test:
+  `exec.sync.wait/sync_wait_with_variant.pass.cpp`.
 
   **Pipeable closures** (`__execution/sender_adaptor_closure.h`, new for
   this milestone — M1–M3 built only factories, no adaptors yet):
