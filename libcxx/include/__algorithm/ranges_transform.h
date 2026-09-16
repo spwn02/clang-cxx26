@@ -11,6 +11,7 @@
 
 #include <__algorithm/in_in_out_result.h>
 #include <__algorithm/in_out_result.h>
+#include <__algorithm/min.h>
 #include <__algorithm/pstl.h>
 #include <__concepts/constructible.h>
 #include <__config>
@@ -199,8 +200,15 @@ public:
   _LIBCPP_HIDE_FROM_ABI binary_transform_result<_InIter1, _InIter2, _OutIter> operator()(
       _Ep&& __exec, _InIter1 __first1, _Sent1 __last1, _InIter2 __first2, _Sent2 __last2, _OutIter __result,
       _Func __operation, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
-    _InIter1 __end1 = __first1 + (__last1 - __first1);
-    _InIter2 __end2 = __first2 + (__last2 - __first2);
+    // ranges::transform's binary form (see __binary above) stops at whichever range is
+    // shorter, unlike std::transform(policy, first1, last1, first2, result, op) which has no
+    // last2 parameter at all and reads exactly (last1 - first1) elements from range2 --
+    // undefined behavior if range2 is shorter, and a wrong `in2` in the returned result if
+    // range2 is longer. Bound both ranges to the common length before delegating so the
+    // classic overload only ever walks as far as both ranges actually agree on.
+    auto __len  = std::min(__last1 - __first1, __last2 - __first2);
+    _InIter1 __end1 = __first1 + __len;
+    _InIter2 __end2 = __first2 + __len;
     _OutIter __out = std::transform(
         std::forward<_Ep>(__exec), std::move(__first1), __end1, std::move(__first2), std::move(__result),
         [__operation = std::move(__operation), __proj1 = std::move(__proj1), __proj2 = std::move(__proj2)](auto&& __a, auto&& __b) mutable {
