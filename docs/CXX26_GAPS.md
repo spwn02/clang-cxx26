@@ -1288,7 +1288,7 @@ Issue #11 checklist:
 - [ ] P2079R10 — parallel scheduler
 - [ ] P3149R11 — `async_scope`
 - [x] P3284R4 — `write_env`/`unstoppable`; complete in base P2300R10 implementation, verified against P3284R4 wording
-- [ ] P3388R3 — when `connect` doesn't throw
+- [x] P3388R3 — when `connect` doesn't throw; complete in base P2300R10 implementation — `execution::receiver` already conjoins `is_nothrow_move_constructible_v<remove_cvref_t<_Rcvr>>` (predates this fork's P3388R3 triage, from the original M2 port), verified to correctly reject a throwing-move-constructible receiver and accept a nothrow one; the paper's other change (an IFNDR consistency clause on `connect()`'s `noexcept`-ness across receivers sharing an environment type) is a documentation-only contract, vacuously satisfied since no `connect()` in this fork declares an explicit `noexcept` specifier
 - [x] P3433R1 — allocator support for operation states; implemented allocator-aware-forward for the fork's hand-written just/then/let operation-state construction, including elementwise tuple construction
 - [ ] P3481R5 — `bulk()` issues
 - [ ] P3557R3 — sender diagnostics via constexpr exceptions
