@@ -7721,8 +7721,8 @@
 #  ifndef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should be defined in c++26"
 #  endif
-#  if __cpp_lib_freestanding_cstring != 202306L
-#    error "__cpp_lib_freestanding_cstring should have the value 202306L in c++26"
+#  if __cpp_lib_freestanding_cstring != 202311L
+#    error "__cpp_lib_freestanding_cstring should have the value 202311L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_expected
