@@ -195,6 +195,10 @@ export namespace std::execution {
   using std::execution::continues_on;
   using std::execution::continues_on_t;
 
+  // [exec.affine.on]
+  using std::execution::affine_on;
+  using std::execution::affine_on_t;
+
   // [exec.on]
   using std::execution::on;
   using std::execution::on_t;
@@ -243,6 +247,17 @@ export namespace std::execution {
 
   // [exec.with.awaitable.senders]
   using std::execution::with_awaitable_senders;
+
+  // [exec.task.scheduler]
+  using std::execution::inline_scheduler;
+  using std::execution::task_scheduler;
+
+#if _LIBCPP_HAS_THREADS
+  // [exec.task]
+  using std::execution::change_coroutine_scheduler;
+  using std::execution::task;
+  using std::execution::with_error;
+#endif
 } // namespace std::execution
 
 #if _LIBCPP_HAS_THREADS

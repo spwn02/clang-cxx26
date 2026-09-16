@@ -356,6 +356,7 @@ set(files
   __exception/nested_exception.h
   __exception/operations.h
   __exception/terminate.h
+  __execution/affine_on.h
   __execution/as_awaitable.h
   __execution/awaitable.h
   __execution/bulk.h
@@ -392,6 +393,8 @@ set(files
   __execution/stopped_as_error.h
   __execution/stopped_as_optional.h
   __execution/sync_wait.h
+  __execution/task.h
+  __execution/task_scheduler.h
   __execution/then.h
   __execution/unstoppable.h
   __execution/when_all.h
