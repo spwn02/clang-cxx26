@@ -57,6 +57,12 @@ int main(int, char**)
         std::future<double> f = p.get_future();
         p(3, 'a');
         assert(f.get() == 105.0);
+        p.reset();
+        // P3503R3: reset reuses the allocator from the original shared state.
+        assert(alloc_stats.alloc_count > 0);
+        f = p.get_future();
+        p(4, 'a');
+        assert(f.get() == 106.0);
         assert(A::n_copies == 0);
         assert(A::n_moves > 0);
     }

@@ -575,7 +575,12 @@ public:
   }
 
   virtual void __execute();
+  // P3503R3: packaged_task::reset() must preserve the allocator used for
+  // the shared state. Allocator-backed states override this hook.
+  virtual __assoc_sub_state* __make_new_state() const;
 };
+
+inline __assoc_sub_state* __assoc_sub_state::__make_new_state() const { return new __assoc_sub_state; }
 
 template <class _Rep, class _Period>
 inline future_status __assoc_sub_state::wait_for(const chrono::duration<_Rep, _Period>& __rel_time) const {
@@ -592,6 +597,7 @@ protected:
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __on_zero_shared() _NOEXCEPT override;
 
 public:
+  _LIBCPP_HIDE_FROM_ABI __assoc_sub_state* __make_new_state() const override { return new __assoc_state<_Rp>; }
   template <class _Arg>
   _LIBCPP_HIDE_FROM_ABI void set_value(_Arg&& __arg);
 
@@ -660,6 +666,7 @@ protected:
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __on_zero_shared() _NOEXCEPT override;
 
 public:
+  _LIBCPP_HIDE_FROM_ABI __assoc_sub_state* __make_new_state() const override { return new __assoc_state<_Rp&>; }
   _LIBCPP_HIDE_FROM_ABI void set_value(_Rp& __arg);
   _LIBCPP_HIDE_FROM_ABI void set_value_at_thread_exit(_Rp& __arg);
 
@@ -709,6 +716,14 @@ class __assoc_state_alloc : public __assoc_state<_Rp> {
 
 public:
   _LIBCPP_HIDE_FROM_ABI explicit __assoc_state_alloc(const _Alloc& __a) : __alloc_(__a) {}
+  _LIBCPP_HIDE_FROM_ABI __assoc_sub_state* __make_new_state() const override {
+    typedef typename __allocator_traits_rebind<_Alloc, __assoc_state_alloc>::type _Al;
+    _Al __a(__alloc_);
+    typedef __allocator_destructor<_Al> _D;
+    unique_ptr<__assoc_state_alloc, _D> __hold(__a.allocate(1), _D(__a, 1));
+    ::new ((void*)std::addressof(*__hold.get())) __assoc_state_alloc(__alloc_);
+    return std::addressof(*__hold.release());
+  }
 };
 
 template <class _Rp, class _Alloc>
@@ -732,6 +747,14 @@ class __assoc_state_alloc<_Rp&, _Alloc> : public __assoc_state<_Rp&> {
 
 public:
   _LIBCPP_HIDE_FROM_ABI explicit __assoc_state_alloc(const _Alloc& __a) : __alloc_(__a) {}
+  _LIBCPP_HIDE_FROM_ABI __assoc_sub_state* __make_new_state() const override {
+    typedef typename __allocator_traits_rebind<_Alloc, __assoc_state_alloc>::type _Al;
+    _Al __a(__alloc_);
+    typedef __allocator_destructor<_Al> _D;
+    unique_ptr<__assoc_state_alloc, _D> __hold(__a.allocate(1), _D(__a, 1));
+    ::new ((void*)std::addressof(*__hold.get())) __assoc_state_alloc(__alloc_);
+    return std::addressof(*__hold.release());
+  }
 };
 
 template <class _Rp, class _Alloc>
@@ -753,6 +776,14 @@ class __assoc_sub_state_alloc : public __assoc_sub_state {
 
 public:
   _LIBCPP_HIDE_FROM_ABI explicit __assoc_sub_state_alloc(const _Alloc& __a) : __alloc_(__a) {}
+  _LIBCPP_HIDE_FROM_ABI __assoc_sub_state* __make_new_state() const override {
+    typedef typename __allocator_traits_rebind<_Alloc, __assoc_sub_state_alloc>::type _Al;
+    _Al __a(__alloc_);
+    typedef __allocator_destructor<_Al> _D;
+    unique_ptr<__assoc_sub_state_alloc, _D> __hold(__a.allocate(1), _D(__a, 1));
+    ::new ((void*)std::addressof(*__hold.get())) __assoc_sub_state_alloc(__alloc_);
+    return std::addressof(*__hold.release());
+  }
 };
 
 template <class _Alloc>
@@ -1120,6 +1151,12 @@ class promise {
   template <class>
   friend class packaged_task;
 
+  _LIBCPP_HIDE_FROM_ABI void __reset() {
+    __assoc_state<_Rp>* __old = __state_;
+    __state_                    = static_cast<__assoc_state<_Rp>*>(__old->__make_new_state());
+    __old->__release_shared();
+  }
+
 public:
   _LIBCPP_HIDE_FROM_ABI promise();
   template <class _Alloc>
@@ -1237,6 +1274,12 @@ class promise<_Rp&> {
   template <class>
   friend class packaged_task;
 
+  _LIBCPP_HIDE_FROM_ABI void __reset() {
+    __assoc_state<_Rp&>* __old = __state_;
+    __state_                     = static_cast<__assoc_state<_Rp&>*>(__old->__make_new_state());
+    __old->__release_shared();
+  }
+
 public:
   _LIBCPP_HIDE_FROM_ABI promise();
   template <class _Allocator>
@@ -1337,6 +1380,12 @@ class _LIBCPP_EXPORTED_FROM_ABI promise<void> {
 
   template <class>
   friend class packaged_task;
+
+  _LIBCPP_HIDE_FROM_ABI void __reset() {
+    __assoc_sub_state* __old = __state_;
+    __state_                  = __old->__make_new_state();
+    __old->__release_shared();
+  }
 
 public:
   promise();
@@ -1694,7 +1743,7 @@ template <class _Rp, class... _ArgTypes>
 void packaged_task<_Rp(_ArgTypes...)>::reset() {
   if (!valid())
     std::__throw_future_error(future_errc::no_state);
-  __p_ = promise<_Rp>();
+  __p_.__reset();
 }
 
 template <class... _ArgTypes>
@@ -1796,7 +1845,7 @@ template <class... _ArgTypes>
 void packaged_task<void(_ArgTypes...)>::reset() {
   if (!valid())
     std::__throw_future_error(future_errc::no_state);
-  __p_ = promise<void>();
+  __p_.__reset();
 }
 
 template <class _Rp, class... _ArgTypes>
