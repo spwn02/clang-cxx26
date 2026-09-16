@@ -11,5 +11,14 @@
 #include <array>
 #include <cassert>
 #include <execution>
-template <class P> void test(P&& p) { std::array<int, 5> a{1, 1, 2, 2, 3}; auto e = std::ranges::unique(p, a); assert(e.begin() == a.begin() + 3 && e.end() == a.end()); auto f = std::unique(p, a.begin(), a.end()); assert(f == a.begin() + 3); }
+template <class P> void test(P&& p) {
+  std::array<int, 5> a{1, 1, 2, 2, 3};
+  auto e = std::ranges::unique(p, a);
+  assert(e.begin() == a.begin() + 3 && e.end() == a.end());
+  assert(a[0] == 1 && a[1] == 2 && a[2] == 3);
+
+  std::array<int, 5> b{1, 1, 2, 2, 3};
+  auto f = std::unique(p, b.begin(), b.end());
+  assert(f == b.begin() + 3);
+}
 int main(int, char**) { test(std::execution::seq); test(std::execution::par); test(std::execution::par_unseq); test(std::execution::unseq); }

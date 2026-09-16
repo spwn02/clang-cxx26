@@ -13,6 +13,15 @@
 #include <__algorithm/equal.h>
 #include <__algorithm/fill_n.h>
 #include <__algorithm/for_each_n.h>
+#include <__algorithm/partition.h>
+#include <__algorithm/remove.h>
+#include <__algorithm/remove_if.h>
+#include <__algorithm/reverse.h>
+#include <__algorithm/rotate.h>
+#include <__algorithm/shift_left.h>
+#include <__algorithm/shift_right.h>
+#include <__algorithm/swap_ranges.h>
+#include <__algorithm/unique.h>
 #include <__config>
 #include <__functional/identity.h>
 #include <__functional/not_fn.h>
@@ -462,6 +471,104 @@ struct __generate_n<__default_backend_tag, _ExecutionPolicy> {
     using _ForEachN = __dispatch<__for_each_n, __current_configuration, _ExecutionPolicy>;
     using _Ref      = __iterator_reference<_ForwardIterator>;
     return _ForEachN()(__policy, std::move(__first), __n, [&](_Ref __element) { __element = __gen(); });
+  }
+};
+
+//////////////////////////////////////////////////////////////
+// sequential-fallback family -- in-place data-movement algorithms
+// (remove/unique/reverse/rotate/shift_left/shift_right/swap_ranges/
+// partition) that are genuinely hard to decompose from the primitives
+// above; registered here (__default_backend_tag, always the last
+// fallback in every __current_configuration) rather than
+// __serial_backend_tag, since that tag is not necessarily part of the
+// active backend chain (e.g. this build's chain is
+// <__std_thread_backend_tag, __default_backend_tag>, which never
+// reaches __serial_backend_tag's registrations at all).
+//////////////////////////////////////////////////////////////
+template <class _ExecutionPolicy>
+struct __remove<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Tp>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, const _Tp& __value) const noexcept {
+    return std::remove(std::move(__first), std::move(__last), __value);
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __remove_if<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Predicate>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Predicate&& __pred) const noexcept {
+    return std::remove_if(std::move(__first), std::move(__last), std::forward<_Predicate>(__pred));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __unique<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _BinaryPredicate>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _BinaryPredicate&& __pred) const noexcept {
+    return std::unique(std::move(__first), std::move(__last), std::forward<_BinaryPredicate>(__pred));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __reverse<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _BidirectionalIterator>
+  _LIBCPP_HIDE_FROM_ABI optional<__empty>
+  operator()(_Policy&&, _BidirectionalIterator __first, _BidirectionalIterator __last) const noexcept {
+    std::reverse(std::move(__first), std::move(__last));
+    return __empty{};
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __rotate<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator> operator()(
+      _Policy&&, _ForwardIterator __first, _ForwardIterator __middle, _ForwardIterator __last) const noexcept {
+    return std::rotate(std::move(__first), std::move(__middle), std::move(__last));
+  }
+};
+
+#if _LIBCPP_STD_VER >= 20
+template <class _ExecutionPolicy>
+struct __shift_left<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Distance>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator> operator()(
+      _Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Distance __n) const noexcept {
+    return std::shift_left(std::move(__first), std::move(__last), __n);
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __shift_right<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Distance>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator> operator()(
+      _Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Distance __n) const noexcept {
+    return std::shift_right(std::move(__first), std::move(__last), __n);
+  }
+};
+#endif
+
+template <class _ExecutionPolicy>
+struct __swap_ranges<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator1, class _ForwardIterator2>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator2> operator()(
+      _Policy&&,
+      _ForwardIterator1 __first1,
+      _ForwardIterator1 __last1,
+      _ForwardIterator2 __first2) const noexcept {
+    return std::swap_ranges(std::move(__first1), std::move(__last1), std::move(__first2));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __partition<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Predicate>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Predicate&& __pred) const noexcept {
+    return std::partition(std::move(__first), std::move(__last), std::forward<_Predicate>(__pred));
   }
 };
 
