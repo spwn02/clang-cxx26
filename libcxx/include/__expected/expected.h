@@ -826,6 +826,7 @@ public:
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool has_value() const noexcept { return this->__has_val(); }
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const _Tp& value() const& {
     static_assert(is_copy_constructible_v<_Err>, "error_type has to be copy constructible");
     if (!this->__has_val()) {
@@ -833,7 +834,9 @@ public:
     }
     return this->__val();
   }
+#  endif
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp& value() & {
     static_assert(is_copy_constructible_v<_Err>, "error_type has to be copy constructible");
     if (!this->__has_val()) {
@@ -841,7 +844,9 @@ public:
     }
     return this->__val();
   }
+#  endif
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const _Tp&& value() const&& {
     static_assert(is_copy_constructible_v<_Err> && is_constructible_v<_Err, decltype(std::move(error()))>,
                   "error_type has to be both copy constructible and constructible from decltype(std::move(error()))");
@@ -850,7 +855,9 @@ public:
     }
     return std::move(this->__val());
   }
+#  endif
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp&& value() && {
     static_assert(is_copy_constructible_v<_Err> && is_constructible_v<_Err, decltype(std::move(error()))>,
                   "error_type has to be both copy constructible and constructible from decltype(std::move(error()))");
@@ -859,6 +866,7 @@ public:
     }
     return std::move(this->__val());
   }
+#  endif
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const _Err& error() const& noexcept {
     _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
@@ -1602,19 +1610,23 @@ public:
         this->__has_val(), "expected::operator* requires the expected to contain a value");
   }
 
+#  if !defined(_LIBCPP_FREESTANDING)
   _LIBCPP_HIDE_FROM_ABI constexpr void value() const& {
     static_assert(is_copy_constructible_v<_Err>);
     if (!this->__has_val()) {
       std::__throw_bad_expected_access<_Err>(this->__unex());
     }
   }
+#  endif
 
+#  if !defined(_LIBCPP_FREESTANDING)
   _LIBCPP_HIDE_FROM_ABI constexpr void value() && {
     static_assert(is_copy_constructible_v<_Err> && is_move_constructible_v<_Err>);
     if (!this->__has_val()) {
       std::__throw_bad_expected_access<_Err>(std::move(this->__unex()));
     }
   }
+#  endif
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const _Err& error() const& noexcept {
     _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(

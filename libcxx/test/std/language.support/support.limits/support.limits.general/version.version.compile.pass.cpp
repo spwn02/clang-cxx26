@@ -7725,17 +7725,11 @@
 #    error "__cpp_lib_freestanding_cstring should have the value 202306L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_expected
-#      error "__cpp_lib_freestanding_expected should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_expected != 202311L
-#      error "__cpp_lib_freestanding_expected should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_expected
-#      error "__cpp_lib_freestanding_expected should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_expected
+#    error "__cpp_lib_freestanding_expected should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_expected != 202311L
+#    error "__cpp_lib_freestanding_expected should have the value 202311L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_mdspan

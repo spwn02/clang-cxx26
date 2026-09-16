@@ -2515,7 +2515,7 @@ Lower priority (niche embedded/kernel audience), but self-contained.
 | [ ] | P2013R5 | Freestanding optional `::operator new` | |
 | [ ] | P2407R5 | Freestanding partial classes | Optional completed; `variant` remains. |
 | [ ] | P2937R0 | Freestanding: remove `strtok` | |
-| [ ] | P2833R2 | Freestanding `expected`/`span` | |
+| [ ] | P2833R2 | Freestanding `expected`/`span` | `expected::value` now omitted; `out_ptr`/`inout_ptr` remain. |
 | [ ] | P2976R1 | Freestanding `algorithm`/`numeric`/`random` | |
 
 ### Tier 6 — Long tail (small, independent items)
@@ -3075,6 +3075,13 @@ tiers as makes sense.
   requires the wording-only exposition `GET` split throughout implementation
   internals. Direct freestanding syntax validation passed; the libc++ lit
   wrapper was blocked by its shared build tree being read-only.
+
+- **2026-09-16 (issues #23/#79)**: Applied P2833R2's freestanding deletion
+  of all `expected::value()` overloads (including the `void` specialization)
+  and activated the regenerated `__cpp_lib_freestanding_expected` FTM
+  (`202311L`). `span::at` was already complete from the prior round;
+  `out_ptr`/`inout_ptr` remain open because their shared-pointer exclusions
+  require a separate audit.
 
 - **2026-09-15 (issue #17, phases 1–6)**: Completed P3037R6. Audited the
   prior non-array landing, added constexpr support for shared_ptr/weak_ptr
