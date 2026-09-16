@@ -11,6 +11,8 @@
 
 #include <__algorithm/in_in_out_result.h>
 #include <__algorithm/in_out_result.h>
+#include <__algorithm/min.h>
+#include <__algorithm/pstl.h>
 #include <__concepts/constructible.h>
 #include <__config>
 #include <__functional/identity.h>
@@ -20,6 +22,9 @@
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -159,6 +164,72 @@ public:
         __projection1,
         __projection2);
   }
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep, random_access_iterator _InIter, sized_sentinel_for<_InIter> _Sent, weakly_incrementable _OutIter,
+            copy_constructible _Func, class _Proj = identity,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires indirectly_writable<_OutIter, indirect_result_t<_Func&, projected<_InIter, _Proj>>>
+  _LIBCPP_HIDE_FROM_ABI unary_transform_result<_InIter, _OutIter> operator()(
+      _Ep&& __exec, _InIter __first, _Sent __last, _OutIter __result, _Func __operation, _Proj __proj = {}) const {
+    _InIter __end = __first + (__last - __first);
+    _OutIter __out = std::transform(
+        std::forward<_Ep>(__exec), std::move(__first), __end, std::move(__result),
+        [__operation = std::move(__operation), __proj = std::move(__proj)](auto&& __value) mutable {
+          return std::invoke(__operation, std::invoke(__proj, std::forward<decltype(__value)>(__value)));
+        });
+    return {std::move(__end), std::move(__out)};
+  }
+
+  template <class _Ep, random_access_range _Range, weakly_incrementable _OutIter, copy_constructible _Func,
+            class _Proj = identity, class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range> &&
+             indirectly_writable<_OutIter, indirect_result_t<_Func&, projected<iterator_t<_Range>, _Proj>>>
+  _LIBCPP_HIDE_FROM_ABI unary_transform_result<borrowed_iterator_t<_Range>, _OutIter> operator()(
+      _Ep&& __exec, _Range&& __range, _OutIter __result, _Func __operation, _Proj __proj = {}) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::end(__range), std::move(__result),
+                   std::move(__operation), std::move(__proj));
+  }
+
+  template <class _Ep, random_access_iterator _InIter1, sized_sentinel_for<_InIter1> _Sent1,
+            random_access_iterator _InIter2, sized_sentinel_for<_InIter2> _Sent2, weakly_incrementable _OutIter,
+            copy_constructible _Func, class _Proj1 = identity, class _Proj2 = identity,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires indirectly_writable<_OutIter, indirect_result_t<_Func&, projected<_InIter1, _Proj1>, projected<_InIter2, _Proj2>>>
+  _LIBCPP_HIDE_FROM_ABI binary_transform_result<_InIter1, _InIter2, _OutIter> operator()(
+      _Ep&& __exec, _InIter1 __first1, _Sent1 __last1, _InIter2 __first2, _Sent2 __last2, _OutIter __result,
+      _Func __operation, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
+    // ranges::transform's binary form (see __binary above) stops at whichever range is
+    // shorter, unlike std::transform(policy, first1, last1, first2, result, op) which has no
+    // last2 parameter at all and reads exactly (last1 - first1) elements from range2 --
+    // undefined behavior if range2 is shorter, and a wrong `in2` in the returned result if
+    // range2 is longer. Bound both ranges to the common length before delegating so the
+    // classic overload only ever walks as far as both ranges actually agree on.
+    auto __len  = std::min(__last1 - __first1, __last2 - __first2);
+    _InIter1 __end1 = __first1 + __len;
+    _InIter2 __end2 = __first2 + __len;
+    _OutIter __out = std::transform(
+        std::forward<_Ep>(__exec), std::move(__first1), __end1, std::move(__first2), std::move(__result),
+        [__operation = std::move(__operation), __proj1 = std::move(__proj1), __proj2 = std::move(__proj2)](auto&& __a, auto&& __b) mutable {
+          return std::invoke(__operation, std::invoke(__proj1, std::forward<decltype(__a)>(__a)),
+                             std::invoke(__proj2, std::forward<decltype(__b)>(__b)));
+        });
+    return {std::move(__end1), std::move(__end2), std::move(__out)};
+  }
+
+  template <class _Ep, random_access_range _Range1, random_access_range _Range2, weakly_incrementable _OutIter,
+            copy_constructible _Func, class _Proj1 = identity, class _Proj2 = identity,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range1> && sized_range<_Range2> &&
+             indirectly_writable<_OutIter, indirect_result_t<_Func&, projected<iterator_t<_Range1>, _Proj1>, projected<iterator_t<_Range2>, _Proj2>>>
+  _LIBCPP_HIDE_FROM_ABI binary_transform_result<borrowed_iterator_t<_Range1>, borrowed_iterator_t<_Range2>, _OutIter>
+  operator()(_Ep&& __exec, _Range1&& __range1, _Range2&& __range2, _OutIter __result, _Func __operation,
+             _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range1), ranges::end(__range1), ranges::begin(__range2),
+                   ranges::end(__range2), std::move(__result), std::move(__operation), std::move(__proj1), std::move(__proj2));
+  }
+#  endif
 };
 
 inline namespace __cpo {
