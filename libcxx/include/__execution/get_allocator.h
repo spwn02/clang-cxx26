@@ -15,6 +15,11 @@
 #include <__config>
 #include <__cstddef/size_t.h>
 #include <__execution/forwarding_query.h>
+#include <__execution/get_env.h>
+#include <__memory/uses_allocator_construction.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/forward_like.h>
+#include <tuple>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -46,6 +51,39 @@ struct get_allocator_t : forwarding_query_t {
 };
 
 inline constexpr get_allocator_t get_allocator{};
+
+// [exec.snd.expos] allocator-aware-forward. The generic basic-sender machinery is not
+// present in this fork, so hand-written sender adaptors call this helper from their
+// connect() implementations. std::tuple is the product-type used by those adaptors.
+template <class _Tp>
+struct __is_execution_product_type : false_type {};
+
+template <class... _Ts>
+struct __is_execution_product_type<tuple<_Ts...>> : true_type {};
+
+template <class _Tp, class _Alloc, size_t... _Is>
+_LIBCPP_HIDE_FROM_ABI constexpr auto __allocator_aware_product(_Tp&& __obj,
+                                                                const _Alloc& __alloc,
+                                                                index_sequence<_Is...>) {
+  return _Tp(std::make_obj_using_allocator<tuple_element_t<_Is, remove_cvref_t<_Tp>>>(
+      __alloc, std::forward_like<_Tp>(std::get<_Is>(std::forward<_Tp>(__obj))))...);
+}
+
+template <class _Tp, class _Context>
+_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __allocator_aware_forward(_Tp&& __obj, _Context&& __context) {
+  if constexpr (requires { std::get_allocator(execution::get_env(__context)); }) {
+    auto __alloc = std::get_allocator(execution::get_env(__context));
+    using _P     = remove_cvref_t<_Tp>;
+    if constexpr (__is_execution_product_type<_P>::value) {
+      return std::__allocator_aware_product(
+          std::forward<_Tp>(__obj), __alloc, make_index_sequence<tuple_size_v<_P>>{});
+    } else {
+      return std::make_obj_using_allocator<_P>(__alloc, std::forward<_Tp>(__obj));
+    }
+  } else {
+    return std::forward<_Tp>(__obj);
+  }
+}
 
 #endif // _LIBCPP_STD_VER >= 26
 

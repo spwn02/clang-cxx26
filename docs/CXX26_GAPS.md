@@ -1289,7 +1289,7 @@ Issue #11 checklist:
 - [ ] P3149R11 — `async_scope`
 - [x] P3284R4 — `write_env`/`unstoppable`; complete in base P2300R10 implementation, verified against P3284R4 wording
 - [ ] P3388R3 — when `connect` doesn't throw
-- [ ] P3433R1 — allocator support for operation states
+- [x] P3433R1 — allocator support for operation states; implemented allocator-aware-forward for the fork's hand-written just/then/let operation-state construction, including elementwise tuple construction
 - [ ] P3481R5 — `bulk()` issues
 - [ ] P3557R3 — sender diagnostics via constexpr exceptions
 - [ ] P3570R2 — optional variants
@@ -7418,3 +7418,4 @@ blocked, what's next. Do not remove old entries.
   include and test trees for execution-namespace `split` and found none, so
   marked P3682R0 complete as vacuously satisfied. The other issue-11 papers
   remain untouched.
+- **2026-09-16 (issue #11, P3433R1 only)**: Implemented adopted P3433R1 wording. Added allocator-aware-forward, which queries the receiver environment and uses make_obj_using_allocator when an allocator is available, with elementwise construction for tuple product-types. Applied it to hand-written just, then, and let operation-state construction and added focused allocator propagation tests. The paper does not change connect() or operation_state itself; the fork has no generic basic-sender/impls-for layer, so these are its corresponding concrete paths. The other issue-11 papers remain untouched.
