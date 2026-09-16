@@ -670,7 +670,6 @@ feature_test_macros = [
                 #        202311  # P2407R5 Freestanding Library: Partial Classes
             },
             "headers": ["cstring"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_freestanding_expected",
