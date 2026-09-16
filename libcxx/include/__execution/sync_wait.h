@@ -15,6 +15,7 @@
 #include <__execution/domain.h>
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_scheduler.h>
+#include <__execution/into_variant.h>
 #include <__execution/operation_state.h>
 #include <__execution/queryable.h>
 #include <__execution/receiver.h>
@@ -132,10 +133,25 @@ struct sync_wait_t {
 
 inline constexpr sync_wait_t sync_wait{};
 
-// this_thread::sync_wait_with_variant is not implemented: [exec.sync.wait.var]p3's
-// `apply_sender` is specified directly in terms of `into_variant` (`sync_wait(into_variant
-// (sndr))`), an M5 sender adaptor (docs/CXX26_GAPS.md) not yet built. Revisit once M5 lands
-// into_variant.
+// [exec.sync.wait.var]: sync_wait_with_variant. sync-wait-with-variant-env is specified with
+// the same query surface as sync-wait-env ([exec.sync.wait]p2) -- reuse __sync_wait_env
+// rather than duplicating an identical type under a new name.
+struct sync_wait_with_variant_t {
+  template <class _Sndr>
+    requires execution::sender_in<_Sndr, __sync_wait_env>
+  _LIBCPP_HIDE_FROM_ABI auto operator()(_Sndr&& __sndr) const {
+    return execution::apply_sender(
+        execution::__completion_domain(__sndr, __sync_wait_env{nullptr}), *this, std::forward<_Sndr>(__sndr));
+  }
+
+  // [exec.sync.wait.var]p3: apply_sender(sndr) is equivalent to sync_wait(into_variant(sndr)).
+  template <class _Sndr>
+  _LIBCPP_HIDE_FROM_ABI auto apply_sender(_Sndr&& __sndr) const {
+    return this_thread::sync_wait(execution::into_variant(std::forward<_Sndr>(__sndr)));
+  }
+};
+
+inline constexpr sync_wait_with_variant_t sync_wait_with_variant{};
 
 } // namespace this_thread
 
