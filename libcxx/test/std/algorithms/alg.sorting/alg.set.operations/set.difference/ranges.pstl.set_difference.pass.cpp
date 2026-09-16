@@ -18,7 +18,7 @@ template <class P> void test(P&& p) {
   assert((out == std::array<int, 4>{1, 3, 0, 0}));
   std::array<int, 4> c{1, 2, 3, 5}, d{2, 4, 5}; std::array<int, 4> out2{};
   auto r = std::ranges::set_difference(p, c, d, out2.begin());
-  assert(r.in1 == c.end() && r.in2 == d.end() && r.out == out2.begin() + 2);
+  assert(r.in1 == c.end() && r.out == out2.begin() + 2);
   assert((out2 == std::array<int, 4>{1, 3, 0, 0}));
 }
 int main(int, char**) { test(std::execution::seq); test(std::execution::par); test(std::execution::par_unseq); test(std::execution::unseq); }

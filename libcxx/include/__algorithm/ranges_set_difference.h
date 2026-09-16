@@ -10,9 +10,8 @@
 #define _LIBCPP___ALGORITHM_RANGES_SET_DIFFERENCE_H
 
 #include <__algorithm/in_out_result.h>
-#include <__algorithm/in_in_out_result.h>
-#include <__algorithm/pstl.h>
 #include <__algorithm/make_projected.h>
+#include <__algorithm/pstl.h>
 #include <__algorithm/set_difference.h>
 #include <__config>
 #include <__functional/identity.h>
@@ -100,9 +99,13 @@ struct __set_difference {
             class _Comp = less, class _Proj1 = identity, class _Proj2 = identity,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires mergeable<_InIter1, _InIter2, _OutIter, _Comp, _Proj1, _Proj2>
-  _LIBCPP_HIDE_FROM_ABI in_in_out_result<_InIter1, _InIter2, _OutIter> operator()(
+  _LIBCPP_HIDE_FROM_ABI set_difference_result<_InIter1, _OutIter> operator()(
       _Ep&& __exec, _InIter1 __first1, _Sent1 __last1, _InIter2 __first2, _Sent2 __last2, _OutIter __result,
       _Comp __comp = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
+    // set_difference's Returns clause only reports `in1` (always `last1` -- unlike
+    // set_intersection/set_symmetric_difference, this algorithm never needs to advance
+    // first2 all the way to last2, so `in2` isn't well-defined and the standard doesn't
+    // report it at all: set_difference_result is in_out_result, not in_in_out_result).
     _InIter1 __end1 = __first1 + (__last1 - __first1);
     _InIter2 __end2 = __first2 + (__last2 - __first2);
     _OutIter __out = std::set_difference(
@@ -111,7 +114,7 @@ struct __set_difference {
           return std::invoke(__comp, std::invoke(__proj1, std::forward<decltype(__a)>(__a)),
                              std::invoke(__proj2, std::forward<decltype(__b)>(__b)));
         });
-    return {std::move(__end1), std::move(__end2), std::move(__out)};
+    return {std::move(__end1), std::move(__out)};
   }
 
   template <class _Ep, random_access_range _Range1, random_access_range _Range2, weakly_incrementable _OutIter,
@@ -119,7 +122,7 @@ struct __set_difference {
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires sized_range<_Range1> && sized_range<_Range2> &&
              mergeable<iterator_t<_Range1>, iterator_t<_Range2>, _OutIter, _Comp, _Proj1, _Proj2>
-  _LIBCPP_HIDE_FROM_ABI in_in_out_result<borrowed_iterator_t<_Range1>, borrowed_iterator_t<_Range2>, _OutIter> operator()(
+  _LIBCPP_HIDE_FROM_ABI set_difference_result<borrowed_iterator_t<_Range1>, _OutIter> operator()(
       _Ep&& __exec, _Range1&& __range1, _Range2&& __range2, _OutIter __result, _Comp __comp = {},
       _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
     return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range1), ranges::end(__range1), ranges::begin(__range2),
