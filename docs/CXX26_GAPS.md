@@ -7453,3 +7453,4 @@ blocked, what's next. Do not remove old entries.
   landing P3709R2's `_truncated_result` return type in the same pass. See
   P3709R2's row above for the truncation-semantics detail.
 - **2026-09-16 (issue #13, P3179R9 min/max slice)**: Added classic and ranges execution-policy overloads for `min_element`, `max_element`, `minmax_element`, and `lexicographical_compare`, with sequential PSTL fallback backends and focused tests.
+- **2026-09-17 (issue #13, P3179R9 sorting/set slice)**: Added classic and ranges execution-policy overloads for `partial_sort`, `partial_sort_copy`, `is_sorted`, `nth_element`, `inplace_merge`, and `includes`, plus a PSTL-backed `contains_subrange` composition through `ranges::search`, with focused tests. Full rebuild/lit validation remains for the orchestrating session.

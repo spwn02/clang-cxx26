@@ -280,6 +280,19 @@ template <class _Backend, class _ExecutionPolicy>
 struct __search_n;
 
 template <class _Backend, class _ExecutionPolicy>
+struct __partial_sort;
+template <class _Backend, class _ExecutionPolicy>
+struct __partial_sort_copy;
+template <class _Backend, class _ExecutionPolicy>
+struct __is_sorted;
+template <class _Backend, class _ExecutionPolicy>
+struct __nth_element;
+template <class _Backend, class _ExecutionPolicy>
+struct __inplace_merge;
+template <class _Backend, class _ExecutionPolicy>
+struct __includes;
+
+template <class _Backend, class _ExecutionPolicy>
 struct __replace_copy_if;
 // template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Predicate, class _Tp>
 // optional<__empty>
