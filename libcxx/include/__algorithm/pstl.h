@@ -1106,6 +1106,146 @@ search_n(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator
       std::move(__pred));
 }
 
+template <class _ExecutionPolicy, class _RandomAccessIterator, class _Compare,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI void
+partial_sort(_ExecutionPolicy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __middle,
+             _RandomAccessIterator __last, _Compare __comp) {
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator, "partial_sort requires RandomAccessIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__partial_sort, __pstl::__current_configuration, _RawPolicy>;
+  (void)__pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__middle), std::move(__last),
+      std::move(__comp));
+}
+
+template <class _ExecutionPolicy, class _RandomAccessIterator,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI void
+partial_sort(_ExecutionPolicy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __middle,
+             _RandomAccessIterator __last) {
+  return std::partial_sort(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__middle), std::move(__last), less{});
+}
+
+template <class _ExecutionPolicy, class _ForwardIterator, class _RandomAccessIterator, class _Compare,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _RandomAccessIterator
+partial_sort_copy(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last,
+                  _RandomAccessIterator __result_first, _RandomAccessIterator __result_last, _Compare __comp) {
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator, "partial_sort_copy requires ForwardIterators");
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator, "partial_sort_copy requires RandomAccessIterator");
+  using _Implementation =
+      __pstl::__dispatch<__pstl::__partial_sort_copy, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), std::move(__result_first),
+      std::move(__result_last), std::move(__comp));
+}
+
+template <class _ExecutionPolicy, class _ForwardIterator, class _RandomAccessIterator,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _RandomAccessIterator
+partial_sort_copy(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last,
+                  _RandomAccessIterator __result_first, _RandomAccessIterator __result_last) {
+  return std::partial_sort_copy(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), std::move(__result_first),
+      std::move(__result_last), less{});
+}
+
+template <class _ExecutionPolicy, class _ForwardIterator, class _Compare,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool
+is_sorted(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, _Compare __comp) {
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator, "is_sorted requires ForwardIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__is_sorted, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), std::move(__comp));
+}
+
+template <class _ExecutionPolicy, class _ForwardIterator,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool
+is_sorted(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last) {
+  return std::is_sorted(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), less{});
+}
+
+template <class _ExecutionPolicy, class _RandomAccessIterator, class _Compare,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI void
+nth_element(_ExecutionPolicy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __nth,
+            _RandomAccessIterator __last, _Compare __comp) {
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator, "nth_element requires RandomAccessIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__nth_element, __pstl::__current_configuration, _RawPolicy>;
+  (void)__pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__nth), std::move(__last),
+      std::move(__comp));
+}
+
+template <class _ExecutionPolicy, class _RandomAccessIterator,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI void
+nth_element(_ExecutionPolicy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __nth,
+            _RandomAccessIterator __last) {
+  return std::nth_element(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__nth), std::move(__last), less{});
+}
+
+template <class _ExecutionPolicy, class _BidirectionalIterator, class _Compare,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI void
+inplace_merge(_ExecutionPolicy&& __policy, _BidirectionalIterator __first, _BidirectionalIterator __middle,
+              _BidirectionalIterator __last, _Compare __comp) {
+  _LIBCPP_REQUIRE_CPP17_BIDIRECTIONAL_ITERATOR(_BidirectionalIterator, "inplace_merge requires BidirectionalIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__inplace_merge, __pstl::__current_configuration, _RawPolicy>;
+  (void)__pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__middle), std::move(__last),
+      std::move(__comp));
+}
+
+template <class _ExecutionPolicy, class _BidirectionalIterator,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI void
+inplace_merge(_ExecutionPolicy&& __policy, _BidirectionalIterator __first, _BidirectionalIterator __middle,
+              _BidirectionalIterator __last) {
+  return std::inplace_merge(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__middle), std::move(__last), less{});
+}
+
+template <class _ExecutionPolicy, class _ForwardIterator1, class _ForwardIterator2, class _Compare,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool
+includes(_ExecutionPolicy&& __policy, _ForwardIterator1 __first1, _ForwardIterator1 __last1,
+         _ForwardIterator2 __first2, _ForwardIterator2 __last2, _Compare __comp) {
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator1, "includes requires ForwardIterators");
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator2, "includes requires ForwardIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__includes, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first1), std::move(__last1), std::move(__first2),
+      std::move(__last2), std::move(__comp));
+}
+
+template <class _ExecutionPolicy, class _ForwardIterator1, class _ForwardIterator2,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool
+includes(_ExecutionPolicy&& __policy, _ForwardIterator1 __first1, _ForwardIterator1 __last1,
+         _ForwardIterator2 __first2, _ForwardIterator2 __last2) {
+  return std::includes(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first1), std::move(__last1), std::move(__first2),
+      std::move(__last2), less{});
+}
+
 _LIBCPP_END_NAMESPACE_STD
 
 #endif // _LIBCPP_HAS_EXPERIMENTAL_PSTL && _LIBCPP_STD_VER >= 17

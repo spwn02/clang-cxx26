@@ -10,6 +10,7 @@
 #define _LIBCPP___ALGORITHM_RANGES_INCLUDES_H
 
 #include <__algorithm/includes.h>
+#include <__algorithm/pstl.h>
 #include <__algorithm/make_projected.h>
 #include <__config>
 #include <__functional/identity.h>
@@ -22,6 +23,8 @@
 #include <__ranges/concepts.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -78,6 +81,38 @@ struct __includes {
         std::move(__proj1),
         std::move(__proj2));
   }
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep, random_access_iterator _Iter1, sized_sentinel_for<_Iter1> _Sent1,
+            random_access_iterator _Iter2, sized_sentinel_for<_Iter2> _Sent2,
+            class _Proj1 = identity, class _Proj2 = identity,
+            indirect_strict_weak_order<projected<_Iter1, _Proj1>, projected<_Iter2, _Proj2>> _Comp = ranges::less,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool operator()(
+      _Ep&& __exec, _Iter1 __first1, _Sent1 __last1, _Iter2 __first2, _Sent2 __last2,
+      _Comp __comp = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
+    _Iter1 __end1 = __first1 + (__last1 - __first1);
+    _Iter2 __end2 = __first2 + (__last2 - __first2);
+    return std::includes(std::forward<_Ep>(__exec), __first1, __end1, __first2, __end2,
+                         [&__comp, &__proj1, &__proj2](auto&& __a, auto&& __b) {
+                           return std::invoke(__comp, std::invoke(__proj1, std::forward<decltype(__a)>(__a)),
+                                              std::invoke(__proj2, std::forward<decltype(__b)>(__b)));
+                         });
+  }
+
+  template <class _Ep, random_access_range _Range1, random_access_range _Range2,
+            class _Proj1 = identity, class _Proj2 = identity,
+            indirect_strict_weak_order<projected<iterator_t<_Range1>, _Proj1>, projected<iterator_t<_Range2>, _Proj2>> _Comp = ranges::less,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range1> && sized_range<_Range2>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool operator()(
+      _Ep&& __exec, _Range1&& __range1, _Range2&& __range2,
+      _Comp __comp = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range1), ranges::end(__range1),
+                   ranges::begin(__range2), ranges::end(__range2), std::move(__comp), std::move(__proj1),
+                   std::move(__proj2));
+  }
+#  endif
 };
 
 inline namespace __cpo {

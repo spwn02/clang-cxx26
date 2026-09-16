@@ -13,8 +13,10 @@
 #include <__algorithm/iterator_operations.h>
 #include <__algorithm/make_projected.h>
 #include <__algorithm/partial_sort_copy.h>
+#include <__algorithm/pstl.h>
 #include <__config>
 #include <__functional/identity.h>
+#include <__functional/invoke.h>
 #include <__functional/ranges_operations.h>
 #include <__iterator/concepts.h>
 #include <__iterator/iterator_traits.h>
@@ -25,6 +27,8 @@
 #include <__ranges/dangling.h>
 #include <__utility/move.h>
 #include <__utility/pair.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -94,6 +98,44 @@ struct __partial_sort_copy {
         __proj2);
     return {std::move(__result.first), std::move(__result.second)};
   }
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep, random_access_iterator _Iter1, sized_sentinel_for<_Iter1> _Sent1,
+            random_access_iterator _Iter2, sized_sentinel_for<_Iter2> _Sent2,
+            class _Comp = ranges::less, class _Proj1 = identity, class _Proj2 = identity,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires indirectly_copyable<_Iter1, _Iter2> && sortable<_Iter2, _Comp, _Proj2> &&
+             indirect_strict_weak_order<_Comp, projected<_Iter1, _Proj1>, projected<_Iter2, _Proj2>>
+  _LIBCPP_HIDE_FROM_ABI partial_sort_copy_result<_Iter1, _Iter2> operator()(
+      _Ep&& __exec, _Iter1 __first, _Sent1 __last, _Iter2 __result_first, _Sent2 __result_last,
+      _Comp __comp = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
+    _Iter1 __end1 = __first + (__last - __first);
+    _Iter2 __end2 = __result_first + (__result_last - __result_first);
+    _Iter2 __out = std::partial_sort_copy(
+        std::forward<_Ep>(__exec), __first, __end1, __result_first, __end2,
+        [&__comp, &__proj1, &__proj2](auto&& __a, auto&& __b) {
+          return std::invoke(__comp, std::invoke(__proj1, std::forward<decltype(__a)>(__a)),
+                             std::invoke(__proj2, std::forward<decltype(__b)>(__b)));
+        });
+    return {std::move(__end1), std::move(__out)};
+  }
+
+  template <class _Ep, random_access_range _Range1, random_access_range _Range2,
+            class _Comp = ranges::less, class _Proj1 = identity, class _Proj2 = identity,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range1> && sized_range<_Range2> &&
+             indirectly_copyable<iterator_t<_Range1>, iterator_t<_Range2>> &&
+             sortable<iterator_t<_Range2>, _Comp, _Proj2> &&
+             indirect_strict_weak_order<_Comp, projected<iterator_t<_Range1>, _Proj1>,
+                                        projected<iterator_t<_Range2>, _Proj2>>
+  _LIBCPP_HIDE_FROM_ABI partial_sort_copy_result<borrowed_iterator_t<_Range1>, borrowed_iterator_t<_Range2>> operator()(
+      _Ep&& __exec, _Range1&& __range, _Range2&& __result_range,
+      _Comp __comp = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::end(__range),
+                   ranges::begin(__result_range), ranges::end(__result_range), std::move(__comp),
+                   std::move(__proj1), std::move(__proj2));
+  }
+#  endif
 };
 
 inline namespace __cpo {

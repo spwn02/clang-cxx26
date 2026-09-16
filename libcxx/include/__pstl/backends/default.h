@@ -12,8 +12,14 @@
 #include <__algorithm/copy_if.h>
 #include <__algorithm/copy_n.h>
 #include <__algorithm/partition_copy.h>
+#include <__algorithm/partial_sort.h>
+#include <__algorithm/partial_sort_copy.h>
 #include <__algorithm/search_n.h>
 #include <__algorithm/stable_partition.h>
+#include <__algorithm/is_sorted.h>
+#include <__algorithm/inplace_merge.h>
+#include <__algorithm/includes.h>
+#include <__algorithm/nth_element.h>
 #include <__algorithm/equal.h>
 #include <__algorithm/fill_n.h>
 #include <__algorithm/for_each_n.h>
@@ -986,6 +992,72 @@ struct __search_n<__default_backend_tag, _ExecutionPolicy> {
   operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Size __count, const _Tp& __value,
              _Predicate&& __pred) const noexcept {
     return std::search_n(std::move(__first), std::move(__last), __count, __value, std::forward<_Predicate>(__pred));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __partial_sort<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _RandomAccessIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<__empty> operator()(
+      _Policy&&, _RandomAccessIterator __first, _RandomAccessIterator __middle, _RandomAccessIterator __last,
+      _Compare&& __comp) const noexcept {
+    std::partial_sort(std::move(__first), std::move(__middle), std::move(__last), std::forward<_Compare>(__comp));
+    return __empty{};
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __partial_sort_copy<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _RandomAccessIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<_RandomAccessIterator> operator()(
+      _Policy&&, _ForwardIterator __first, _ForwardIterator __last, _RandomAccessIterator __result_first,
+      _RandomAccessIterator __result_last, _Compare&& __comp) const noexcept {
+    return std::partial_sort_copy(
+        std::move(__first), std::move(__last), std::move(__result_first), std::move(__result_last),
+        std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __is_sorted<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<bool> operator()(
+      _Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Compare&& __comp) const noexcept {
+    return std::is_sorted(std::move(__first), std::move(__last), std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __nth_element<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _RandomAccessIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<__empty> operator()(
+      _Policy&&, _RandomAccessIterator __first, _RandomAccessIterator __nth, _RandomAccessIterator __last,
+      _Compare&& __comp) const noexcept {
+    std::nth_element(std::move(__first), std::move(__nth), std::move(__last), std::forward<_Compare>(__comp));
+    return __empty{};
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __inplace_merge<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _BidirectionalIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<__empty> operator()(
+      _Policy&&, _BidirectionalIterator __first, _BidirectionalIterator __middle, _BidirectionalIterator __last,
+      _Compare&& __comp) const noexcept {
+    std::inplace_merge(std::move(__first), std::move(__middle), std::move(__last), std::forward<_Compare>(__comp));
+    return __empty{};
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __includes<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator1, class _ForwardIterator2, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<bool> operator()(
+      _Policy&&, _ForwardIterator1 __first1, _ForwardIterator1 __last1, _ForwardIterator2 __first2,
+      _ForwardIterator2 __last2, _Compare&& __comp) const noexcept {
+    return std::includes(
+        std::move(__first1), std::move(__last1), std::move(__first2), std::move(__last2),
+        std::forward<_Compare>(__comp));
   }
 };
 
