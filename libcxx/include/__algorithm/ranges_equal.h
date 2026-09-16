@@ -10,9 +10,11 @@
 #define _LIBCPP___ALGORITHM_RANGES_EQUAL_H
 
 #include <__algorithm/equal.h>
+#include <__algorithm/pstl.h>
 #include <__algorithm/unwrap_range.h>
 #include <__config>
 #include <__functional/identity.h>
+#include <__functional/invoke.h>
 #include <__functional/ranges_operations.h>
 #include <__iterator/concepts.h>
 #include <__iterator/indirectly_comparable.h>
@@ -20,6 +22,9 @@
 #include <__ranges/concepts.h>
 #include <__ranges/size.h>
 #include <__utility/move.h>
+#include <__utility/forward.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -82,6 +87,35 @@ struct __equal {
     return std::__equal_impl<__both_sized>(
         std::move(__ufirst1), std::move(__ulast1), std::move(__ufirst2), std::move(__ulast2), __pred, __proj1, __proj2);
   }
+  // P3179R9 requires random-access, sized ranges for policy overloads.
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep, random_access_iterator _Iter1, sized_sentinel_for<_Iter1> _Sent1,
+            random_access_iterator _Iter2, sized_sentinel_for<_Iter2> _Sent2,
+            class _Pred = ranges::equal_to, class _Proj1 = identity, class _Proj2 = identity,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires indirectly_comparable<_Iter1, _Iter2, _Pred, _Proj1, _Proj2>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool operator()(
+      _Ep&& __exec, _Iter1 __first1, _Sent1 __last1, _Iter2 __first2, _Sent2 __last2,
+      _Pred __pred = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
+    _Iter1 __end1 = __first1 + (__last1 - __first1);
+    _Iter2 __end2 = __first2 + (__last2 - __first2);
+    return std::equal(std::forward<_Ep>(__exec), std::move(__first1), __end1, std::move(__first2), __end2,
+                      [__pred = std::move(__pred), __proj1 = std::move(__proj1), __proj2 = std::move(__proj2)](auto&& __a, auto&& __b) mutable {
+                        return std::invoke(__pred, std::invoke(__proj1, std::forward<decltype(__a)>(__a)),
+                                           std::invoke(__proj2, std::forward<decltype(__b)>(__b)));
+                      });
+  }
+
+  template <class _Ep, random_access_range _Range1, random_access_range _Range2,
+            class _Pred = ranges::equal_to, class _Proj1 = identity, class _Proj2 = identity,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range1> && sized_range<_Range2> && indirectly_comparable<iterator_t<_Range1>, iterator_t<_Range2>, _Pred, _Proj1, _Proj2>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool operator()(
+      _Ep&& __exec, _Range1&& __range1, _Range2&& __range2, _Pred __pred = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range1), ranges::end(__range1), ranges::begin(__range2), ranges::end(__range2),
+                   std::move(__pred), std::move(__proj1), std::move(__proj2));
+  }
+#  endif
 };
 
 inline namespace __cpo {
