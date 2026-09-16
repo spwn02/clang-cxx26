@@ -18,6 +18,12 @@
 #include <__algorithm/remove_if.h>
 #include <__algorithm/reverse.h>
 #include <__algorithm/rotate.h>
+#include <__algorithm/is_heap.h>
+#include <__algorithm/is_heap_until.h>
+#include <__algorithm/set_difference.h>
+#include <__algorithm/set_intersection.h>
+#include <__algorithm/set_symmetric_difference.h>
+#include <__algorithm/set_union.h>
 #include <__algorithm/shift_left.h>
 #include <__algorithm/shift_right.h>
 #include <__algorithm/swap_ranges.h>
@@ -569,6 +575,89 @@ struct __partition<__default_backend_tag, _ExecutionPolicy> {
   _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
   operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Predicate&& __pred) const noexcept {
     return std::partition(std::move(__first), std::move(__last), std::forward<_Predicate>(__pred));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __set_difference<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _InputIterator1, class _InputIterator2, class _OutputIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<_OutputIterator> operator()(
+      _Policy&&,
+      _InputIterator1 __first1,
+      _InputIterator1 __last1,
+      _InputIterator2 __first2,
+      _InputIterator2 __last2,
+      _OutputIterator __result,
+      _Compare&& __comp) const noexcept {
+    return std::set_difference(std::move(__first1), std::move(__last1), std::move(__first2), std::move(__last2),
+                               std::move(__result), std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __set_intersection<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _InputIterator1, class _InputIterator2, class _OutputIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<_OutputIterator> operator()(
+      _Policy&&,
+      _InputIterator1 __first1,
+      _InputIterator1 __last1,
+      _InputIterator2 __first2,
+      _InputIterator2 __last2,
+      _OutputIterator __result,
+      _Compare&& __comp) const noexcept {
+    return std::set_intersection(std::move(__first1), std::move(__last1), std::move(__first2), std::move(__last2),
+                                 std::move(__result), std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __set_symmetric_difference<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _InputIterator1, class _InputIterator2, class _OutputIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<_OutputIterator> operator()(
+      _Policy&&,
+      _InputIterator1 __first1,
+      _InputIterator1 __last1,
+      _InputIterator2 __first2,
+      _InputIterator2 __last2,
+      _OutputIterator __result,
+      _Compare&& __comp) const noexcept {
+    return std::set_symmetric_difference(
+        std::move(__first1), std::move(__last1), std::move(__first2), std::move(__last2), std::move(__result),
+        std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __set_union<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _InputIterator1, class _InputIterator2, class _OutputIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<_OutputIterator> operator()(
+      _Policy&&,
+      _InputIterator1 __first1,
+      _InputIterator1 __last1,
+      _InputIterator2 __first2,
+      _InputIterator2 __last2,
+      _OutputIterator __result,
+      _Compare&& __comp) const noexcept {
+    return std::set_union(std::move(__first1), std::move(__last1), std::move(__first2), std::move(__last2),
+                          std::move(__result), std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __is_heap<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _RandomAccessIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<bool> operator()(
+      _Policy&&, _RandomAccessIterator __first, _RandomAccessIterator __last, _Compare&& __comp) const noexcept {
+    return std::is_heap(std::move(__first), std::move(__last), std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __is_heap_until<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _RandomAccessIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<_RandomAccessIterator> operator()(
+      _Policy&&, _RandomAccessIterator __first, _RandomAccessIterator __last, _Compare&& __comp) const noexcept {
+    return std::is_heap_until(std::move(__first), std::move(__last), std::forward<_Compare>(__comp));
   }
 };
 
