@@ -13,5 +13,5 @@
 #include <cassert>
 #include <execution>
 struct X { int v; };
-template<class P> void test(P p) { std::array<X, 4> a{{{1},{2},{3},{4}}}; auto f=[](int x){return x>1;}; assert(std::ranges::count_if(p,a.begin(),a.end(),f,&X::v)==3); assert(std::ranges::count_if(p,a,f,&X::v)==3); }
+template<class P> void test(P&& p) { std::array<X, 4> a{{{1},{2},{3},{4}}}; auto f=[](int x){return x>1;}; assert(std::ranges::count_if(p,a.begin(),a.end(),f,&X::v)==3); assert(std::ranges::count_if(p,a,f,&X::v)==3); }
 int main(int,char**) { test(std::execution::seq); test(std::execution::par); test(std::execution::par_unseq); test(std::execution::unseq); }

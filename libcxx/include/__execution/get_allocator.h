@@ -41,9 +41,19 @@ concept __simple_allocator =
 // [exec.get.allocator]
 // Declared directly in namespace std (not std::execution) per [execution.syn].
 struct get_allocator_t : forwarding_query_t {
+  // The constraint checks the *decayed* query result against simple-allocator, not the raw
+  // `decltype((__env.query(__self)))` a compound-requirement would otherwise use: many
+  // queryable environments (e.g. prop, per its own [exec.prop]-matching design) return their
+  // stored value via `const Value&` for efficiency, which is fine for read-only queries but
+  // would make simple-allocator's own `alloc.allocate(n)` check (a non-const member function
+  // on every standard allocator, including pmr::polymorphic_allocator) fail on the
+  // const-qualified reference type -- not because the allocator itself is unusable, only
+  // because the *reference* is const. operator() itself already returns by decayed `auto`
+  // (a fresh copy), so only the constraint needed to match that intent.
   template <class _Env>
     requires requires(const _Env& __env, const get_allocator_t& __self) {
-      { __env.query(__self) } -> __simple_allocator;
+      { __env.query(__self) };
+      requires __simple_allocator<remove_cvref_t<decltype(__env.query(__self))>>;
     }
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept(noexcept(__env.query(*this))) {
     return __env.query(*this);

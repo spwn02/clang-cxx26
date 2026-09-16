@@ -99,8 +99,11 @@ struct __equal {
       _Pred __pred = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
     _Iter1 __end1 = __first1 + (__last1 - __first1);
     _Iter2 __end2 = __first2 + (__last2 - __first2);
+    // Not `mutable`: the PSTL backend's transform_reduce-based kernel calls this through a
+    // const copy (parallel algorithm predicates must be callable as if const), and neither
+    // std::invoke nor the default equal_to/identity need mutable state to do so.
     return std::equal(std::forward<_Ep>(__exec), std::move(__first1), __end1, std::move(__first2), __end2,
-                      [__pred = std::move(__pred), __proj1 = std::move(__proj1), __proj2 = std::move(__proj2)](auto&& __a, auto&& __b) mutable {
+                      [__pred = std::move(__pred), __proj1 = std::move(__proj1), __proj2 = std::move(__proj2)](auto&& __a, auto&& __b) {
                         return std::invoke(__pred, std::invoke(__proj1, std::forward<decltype(__a)>(__a)),
                                            std::invoke(__proj2, std::forward<decltype(__b)>(__b)));
                       });

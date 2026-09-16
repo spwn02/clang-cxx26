@@ -244,6 +244,13 @@ struct __rotate_copy;
 //                       _ForwardOutIterator __out_it) const noexcept;
 
 template <class _Backend, class _ExecutionPolicy>
+struct __reverse_copy;
+// template <class _Policy, class _BidirectionalIterator, class _ForwardOutIterator>
+// optional<_ForwardOutIterator>
+// operator()(_Policy&&, _BidirectionalIterator __first, _BidirectionalIterator __last,
+//                       _ForwardOutIterator __out_it) const noexcept;
+
+template <class _Backend, class _ExecutionPolicy>
 struct __transform_reduce;
 // template <class _Policy, class _ForwardIterator, class _Tp, class _BinaryOperation, class _UnaryOperation>
 // optional<_Tp>

@@ -579,6 +579,25 @@ _LIBCPP_HIDE_FROM_ABI _ForwardOutIterator rotate_copy(
 }
 
 template <class _ExecutionPolicy,
+          class _BidirectionalIterator,
+          class _ForwardOutIterator,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _ForwardOutIterator reverse_copy(
+    _ExecutionPolicy&& __policy,
+    _BidirectionalIterator __first,
+    _BidirectionalIterator __last,
+    _ForwardOutIterator __result) {
+  _LIBCPP_REQUIRE_CPP17_BIDIRECTIONAL_ITERATOR(_BidirectionalIterator, "reverse_copy requires BidirectionalIterators");
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardOutIterator, "reverse_copy requires ForwardIterators");
+  _LIBCPP_REQUIRE_CPP17_OUTPUT_ITERATOR(
+      _ForwardOutIterator, decltype(*__first), "reverse_copy requires an OutputIterator");
+  using _Implementation = __pstl::__dispatch<__pstl::__reverse_copy, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), std::move(__result));
+}
+
+template <class _ExecutionPolicy,
           class _RandomAccessIterator,
           class _Comp,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,

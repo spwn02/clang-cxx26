@@ -13,5 +13,5 @@
 #include <cassert>
 #include <execution>
 struct X { int v; };
-template<class P> void test(P p) { std::array<X,3> a{{{1},{2},{3}}}, b{{{1},{2},{3}}}; assert(std::ranges::equal(p,a.begin(),a.end(),b.begin(),b.end(),{},&X::v,&X::v)); assert(std::ranges::equal(p,a,b,{},&X::v,&X::v)); }
+template<class P> void test(P&& p) { std::array<X,3> a{{{1},{2},{3}}}, b{{{1},{2},{3}}}; assert(std::ranges::equal(p,a.begin(),a.end(),b.begin(),b.end(),{},&X::v,&X::v)); assert(std::ranges::equal(p,a,b,{},&X::v,&X::v)); }
 int main(int,char**) { test(std::execution::seq); test(std::execution::par); test(std::execution::par_unseq); test(std::execution::unseq); }
