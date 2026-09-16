@@ -11,17 +11,14 @@
 // <unordered_set>
 //
 // P3372R3: constexpr containers and adaptors -- unordered_set's member
-// surface is constexpr for integral/enum/nullptr_t keys, as long as bucket
-// growth stays on a power-of-two trajectory. See docs/CXX26_GAPS.md for the
-// boundaries this hits (std::hash's union-based scalar hashing and
-// __next_prime being an ABI-exported non-inline function) that are not
-// fixed by this change.
+// surface is constexpr for integral/enum/nullptr_t keys. Scalar std::hash's
+// union-based type-punning remains a separate boundary.
 
 #include <unordered_set>
 
 constexpr bool test_unordered_set() {
   std::unordered_set<int> s;
-  s.reserve(16); // power-of-two growth avoids __next_prime, see docs/CXX26_GAPS.md
+  s.reserve(17); // non-power-of-two growth exercises constexpr __next_prime
   for (int i = 0; i < 10; ++i)
     s.insert(i);
   if (s.size() != 10)
@@ -34,6 +31,7 @@ constexpr bool test_unordered_set() {
     return false;
 
   std::unordered_set<int> copy(s);
+  copy = s; // same-size assignment reconstructs const-key values in place
   return copy.size() == s.size();
 }
 static_assert(test_unordered_set());

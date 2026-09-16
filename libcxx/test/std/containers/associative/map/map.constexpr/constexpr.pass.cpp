@@ -19,8 +19,8 @@
 // docs/CXX26_GAPS.md -- including duplicate-key insertion, which works fine
 // here (no goto-based fast path in __tree's lookup). It does hit the same
 // const_cast-based in-place key reuse during same-size copy-assignment that
-// unordered_map does (__tree:1469, same shape as __hash_table:1103) -- not
-// exercised here, see docs/CXX26_GAPS.md.
+// unordered_map does (__tree:1469, same shape as __hash_table:1103), which
+// has a dedicated constant-evaluation reconstruction path.
 
 #include <map>
 #include <utility>
@@ -56,6 +56,9 @@ constexpr bool test_map() {
 
   std::map<int, int> copy(m);
   if (copy.size() != m.size())
+    return false;
+  copy = m;
+  if (copy.at(10) != -1)
     return false;
 
   std::map<int, int> moved(std::move(copy));

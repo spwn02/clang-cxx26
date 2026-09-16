@@ -1085,8 +1085,8 @@ than being tackled as a single commit.
 | [ ] | P3179R9 | Parallel range algorithms | Untriaged until 2026-09-05. Large surface; interacts with Tier 3 ranges work |
 | [x] | P3372R3 | `constexpr` containers and adaptors | Flipped to `\|Complete\|` 2026-09-07 (was `\|In Progress\|`). **2026-09-07: scoped and closed over the course of the day.** `vector`/`array`/`span`/`mdspan`/`basic_string`/`basic_string_view` were already fully constexpr (paper's own exclusion list, no work needed); `stack`/`queue`/`priority_queue` had **zero** constexpr anywhere — now fully constexpr, using `std::vector` as the constexpr-capable underlying container since the default (`std::deque`) isn't constexpr yet. **Correction**: `list`/`forward_list` (217/186 `_LIBCPP_CONSTEXPR_SINCE_CXX26` occurrences respectively) and all four `flat_map`/`flat_multimap`/`flat_set`/`flat_multiset` containers are **already fully constexpr** via real upstream P3372R3 commits already merged into this branch — the earlier "unaudited" note for these was wrong, not just incomplete. **`deque` done 2026-09-07**: full member surface constexpr, backend (`__split_buffer`) was already constexpr since C++20. **`unordered_map`/`unordered_multimap`/`unordered_set`/`unordered_multiset` done 2026-09-07, with three documented boundaries** (see detail below) — genuinely usable in constant evaluation for the common case (integral/enum/`nullptr_t` keys, power-of-two bucket growth, no duplicate-key lookups), not just internally annotated. **`map`/`multimap`/`set`/`multiset` done 2026-09-07** — full member surface constexpr including duplicate-key insertion (no `goto`-based fast path in `__tree`, unlike `__hash_table`); hits one of the four `unordered_map` boundaries (the `const_cast`-based in-place key reuse during same-size copy-assignment) but none of the other three (no bucket array, `std::less` has none of `std::hash`'s type-punning). **`node_handle` done 2026-09-07** — full member surface constexpr for all four map/set families, except `key()`, excluded per CWG2514 (matching upstream P3372R3's own carve-out) — verified as a real, working boundary, not a gap. **P3372R3 is now fully closed for every container this fork tracks.** |
 
-**P3372R3 follow-up 2026-09-07: `deque` and the unordered containers, with
-three real boundaries found and documented, not papered over.**
+**P3372R3 follow-up 2026-09-16: constant-evaluation boundary fixes for
+unordered and ordered containers.**
 
 **`deque`** — mechanical: `_LIBCPP_CONSTEXPR_SINCE_CXX26` added to every
 member (constructors, observers, modifiers, comparisons, swap; deduction
@@ -1144,39 +1144,32 @@ them a keyword-level fix:
    least 32 elements, while a non-power-of-two `reserve()` (and unguided
    growth past the first couple of elements, which lands on a
    non-power-of-two target almost immediately) hits `__next_prime` and
-   fails. Header-inlining `__next_prime` would remove a stable ABI-exported
-   symbol from `libc++.so`'s surface — a deliberate, separate decision, not
-   part of this mechanical pass.
-4. **Bonus, found but not fixed**: emplacing/inserting a key that already
-   exists hits a `goto` (`__hash_table:793`, the "found existing key, skip
-   constructing a duplicate node" fast path in `__emplace_unique`) that
-   this compiler's constant evaluator rejects outright — confirmed with a
-   trivial standalone `goto`-inside-a-loop `constexpr` function, unrelated
-   to `unordered_map` entirely. This is a general, pre-existing
-   language-level limitation (not scoped by this session), most likely
-   requiring `clang/lib/AST/ExprConstant.cpp` work comparable in shape to
-   the P3068R6 control-flow additions. New keys (`emplace`/`insert`/
-   `operator[]` on a key not already present) never reach this path and
-   work fine.
-5. **Separate, not fixed**: same-size copy-assignment reuses existing
+   fails. Fixed 2026-09-16 by dispatching constant evaluation to an inline
+   constexpr header twin while retaining the stable ABI-exported symbol.
+4. **Bonus, found and fixed 2026-09-16**: the two unique-emplacement
+   fast paths now use a found flag and loop break instead of a forward
+   `goto`. Duplicate-key `emplace` therefore works during constant
+   evaluation while preserving the no-duplicate-node runtime fast path.
+5. **Separate, found and fixed 2026-09-16**: same-size copy-assignment reuses existing
    nodes and writes the new key in place via
    `const_cast<key_type&>(...) = ...` (`__hash_table:1103`) — legal at
    runtime (the storage was never actually `const`) but rejected by the
    constant evaluator, which disallows modifying a `const`-qualified
    subobject through `const_cast` unconditionally during constant
-   evaluation. Not exercised by the shipped test; noted here rather than
-   silently avoided.
+   evaluation. Both `__hash_table` and `__tree` now destroy and reconstruct
+   the union value during constant evaluation, while runtime retains the
+   capacity-reusing path.
 
 Net result: `unordered_map`/`unordered_set` are genuinely constexpr-usable
-for the common case — default-constructed, `reserve()`d to a power of two,
-populated with new integral/enum/`nullptr_t` keys, read via `find`/`at`,
-erased, copied, moved — which is a real, verified, public-entry-point
-capability, not just annotated internals. `unord.map.constexpr`/
-`unord.set.constexpr` test both the working path and boundaries 1 and 4
-above as documented negative `static_assert(!__builtin_constant_p(...))`
+for default-constructed containers with integral/enum/`nullptr_t` keys,
+including non-power-of-two reserve, duplicate-key lookup, and same-size copy
+assignment. Scalar `std::hash` type-punning remains a separate boundary.
+`unord.map.constexpr`/`unord.set.constexpr` test these paths and that
+remaining boundary as documented negative `static_assert(!__builtin_constant_p(...))`
 checks. `map`/`multimap`/`set`/`multiset` are expected to avoid boundaries
 2-5 entirely (`__tree` has no bucket array, and `std::less` has none of
-`std::hash`'s type-punning) — to be confirmed when that batch lands.
+`std::hash`'s type-punning); same-size assignment now uses the shared
+constant-evaluation reconstruction path.
 
 **Side-effect regression fixed in the same commit, unrelated to the above
 findings themselves**: marking `__hash_iterator`/`__hash_const_iterator`'s
@@ -1236,8 +1229,15 @@ surfaced during verification, not by inspection:
    the same reason (modifying a `const`-qualified subobject through
    `const_cast` is disallowed unconditionally during constant evaluation,
    regardless of whether the underlying storage was ever really `const`).
-   Not exercised by `map.constexpr`/`set.constexpr`; documented here
-   instead of silently avoided.
+   `__hash_table` and `__tree` now destroy and reconstruct the union value
+   during constant evaluation, while runtime retains the capacity-reusing
+   path.
+
+The two `__hash_table` unique-emplacement fast paths were also changed from
+forward `goto` statements to a found flag and loop break on 2026-09-16.
+Duplicate `emplace` is therefore usable in constant evaluation. The remaining
+boundary here is scalar `std::hash` type-punning; issue #9 sub-item (a) is
+handled separately.
 
 **Unlike `unordered_map`, `map`/`set` hit none of the other three
 boundaries**: no bucket array (`__tree` allocates one node at a time, the

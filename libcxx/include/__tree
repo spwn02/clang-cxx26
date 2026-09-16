@@ -1464,6 +1464,15 @@ private:
   _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI static void __assign_value(__get_node_value_type_t<value_type>& __lhs, _From&& __rhs) {
     using __key_type = __remove_const_t<typename value_type::first_type>;
 
+    if consteval {
+      // Construct the replacement before destroying the old value so a
+      // throwing copy leaves the node valid, as the runtime path does.
+      __get_node_value_type_t<value_type> __tmp(std::forward<_From>(__rhs));
+      std::__destroy_at(std::addressof(__lhs));
+      std::__construct_at(std::addressof(__lhs), std::move(__tmp));
+      return;
+    }
+
     // This is technically UB, since the object was constructed as `const`.
     // Clang doesn't optimize on this currently though.
     const_cast<__key_type&>(__lhs.first) = const_cast<__copy_cvref_t<_From, __key_type>&&>(__rhs.first);

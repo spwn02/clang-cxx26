@@ -12,18 +12,15 @@
 //
 // P3372R3: constexpr containers and adaptors -- unordered_map's member
 // surface is constexpr for integral/enum/nullptr_t keys, as long as bucket
-// growth stays on a power-of-two trajectory and no operation looks up a key
-// that already exists. See docs/CXX26_GAPS.md for the full set of boundaries
-// this hits (std::hash's union-based scalar hashing, __next_prime being an
-// ABI-exported non-inline function, and a goto-based fast path in the
-// duplicate-key lookup) that are not fixed by this change.
+// growth can use either bucket trajectory. Scalar std::hash's union-based
+// type-punning remains a separate constant-evaluation boundary.
 
 #include <unordered_map>
 #include <utility>
 
 constexpr bool test_unordered_map() {
   std::unordered_map<int, int> m;
-  m.reserve(16); // power-of-two growth avoids __next_prime, see docs/CXX26_GAPS.md
+  m.reserve(17); // non-power-of-two growth exercises constexpr __next_prime
   if (!m.empty() || m.size() != 0)
     return false;
   for (int i = 0; i < 10; ++i)
@@ -40,6 +37,8 @@ constexpr bool test_unordered_map() {
   m[10] = 100; // a new key -- avoids the duplicate-key goto path
   if (m.at(10) != 100)
     return false;
+  if (m.emplace(10, 999).second || m.at(10) != 100)
+    return false;
 
   m.erase(3);
   if (m.find(3) != m.end())
@@ -47,6 +46,9 @@ constexpr bool test_unordered_map() {
 
   std::unordered_map<int, int> copy(m);
   if (copy.size() != m.size())
+    return false;
+  copy = m; // same-size assignment reconstructs const-key values in place
+  if (copy.at(10) != 100)
     return false;
 
   std::unordered_map<int, int> moved(std::move(copy));
@@ -57,17 +59,5 @@ constexpr bool test_unordered_map() {
   return moved.empty();
 }
 static_assert(test_unordered_map());
-
-// Documented boundary: emplace/insert of a key that already exists hits a
-// goto-based fast path (skip constructing a duplicate node) that this
-// compiler's constant evaluator does not support at all -- confirmed via a
-// standalone goto-in-constexpr test unrelated to unordered_map.
-static_assert(!__builtin_constant_p([] {
-  std::unordered_map<int, int> m;
-  m.reserve(4);
-  m.emplace(1, 1);
-  m.emplace(1, 2); // duplicate key -> hits goto
-  return m.size();
-}()));
 
 int main(int, char**) { return 0; }
