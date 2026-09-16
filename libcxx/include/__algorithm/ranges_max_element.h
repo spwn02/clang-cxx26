@@ -72,8 +72,8 @@ struct __max_element {
         __end,
         [__comp = std::move(__comp), __proj = std::move(__proj)](auto&& __a, auto&& __b) mutable {
           return std::invoke(__comp,
-                             std::invoke(__proj, std::forward<decltype(__b)>(__b)),
-                             std::invoke(__proj, std::forward<decltype(__a)>(__a)));
+                             std::invoke(__proj, std::forward<decltype(__a)>(__a)),
+                             std::invoke(__proj, std::forward<decltype(__b)>(__b)));
         });
   }
   template <class _Ep,
