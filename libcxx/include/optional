@@ -1185,6 +1185,7 @@ public:
   using __base::__get;
   using __base::has_value;
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp const& value() const&
 #    if _LIBCPP_STD_VER >= 26
     requires(is_object_v<_Tp>)
@@ -1194,7 +1195,9 @@ public:
       std::__throw_bad_optional_access();
     return this->__get();
   }
+#  endif
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp& value() &
 #    if _LIBCPP_STD_VER >= 26
     requires(is_object_v<_Tp>)
@@ -1204,7 +1207,9 @@ public:
       std::__throw_bad_optional_access();
     return this->__get();
   }
+#  endif
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp&& value() &&
 #    if _LIBCPP_STD_VER >= 26
     requires(is_object_v<_Tp>)
@@ -1214,7 +1219,9 @@ public:
       std::__throw_bad_optional_access();
     return std::move(this->__get());
   }
+#  endif
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp const&& value() const&&
 #    if _LIBCPP_STD_VER >= 26
     requires(is_object_v<_Tp>)
@@ -1224,6 +1231,7 @@ public:
       std::__throw_bad_optional_access();
     return std::move(this->__get());
   }
+#  endif
 
   template <class _Up = remove_cv_t<_Tp>>
 #    if _LIBCPP_STD_VER >= 26
@@ -1255,7 +1263,7 @@ public:
     static_assert(__is_std_optional<remove_cvref_t<_Up>>::value,
                   "Result of f(value()) must be a specialization of std::optional");
     if (*this)
-      return std::invoke(std::forward<_Func>(__f), value());
+      return std::invoke(std::forward<_Func>(__f), *this);
     return remove_cvref_t<_Up>();
   }
 
@@ -1268,7 +1276,7 @@ public:
     static_assert(__is_std_optional<remove_cvref_t<_Up>>::value,
                   "Result of f(value()) must be a specialization of std::optional");
     if (*this)
-      return std::invoke(std::forward<_Func>(__f), value());
+      return std::invoke(std::forward<_Func>(__f), *this);
     return remove_cvref_t<_Up>();
   }
 
@@ -1281,7 +1289,7 @@ public:
     static_assert(__is_std_optional<remove_cvref_t<_Up>>::value,
                   "Result of f(std::move(value())) must be a specialization of std::optional");
     if (*this)
-      return std::invoke(std::forward<_Func>(__f), std::move(value()));
+      return std::invoke(std::forward<_Func>(__f), std::move(*this));
     return remove_cvref_t<_Up>();
   }
 
@@ -1294,7 +1302,7 @@ public:
     static_assert(__is_std_optional<remove_cvref_t<_Up>>::value,
                   "Result of f(std::move(value())) must be a specialization of std::optional");
     if (*this)
-      return std::invoke(std::forward<_Func>(__f), std::move(value()));
+      return std::invoke(std::forward<_Func>(__f), std::move(*this));
     return remove_cvref_t<_Up>();
   }
 
@@ -1309,7 +1317,7 @@ public:
     static_assert(!is_same_v<_Up, nullopt_t>, "Result of f(value()) should not be std::nullopt_t");
     static_assert(is_object_v<_Up>, "Result of f(value()) should be an object type");
     if (*this)
-      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), value());
+      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), *this);
     return optional<_Up>();
   }
 
@@ -1324,7 +1332,7 @@ public:
     static_assert(!is_same_v<_Up, nullopt_t>, "Result of f(value()) should not be std::nullopt_t");
     static_assert(is_object_v<_Up>, "Result of f(value()) should be an object type");
     if (*this)
-      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), value());
+      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), *this);
     return optional<_Up>();
   }
 
@@ -1339,7 +1347,7 @@ public:
     static_assert(!is_same_v<_Up, nullopt_t>, "Result of f(std::move(value())) should not be std::nullopt_t");
     static_assert(is_object_v<_Up>, "Result of f(std::move(value())) should be an object type");
     if (*this)
-      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), std::move(value()));
+      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), std::move(*this));
     return optional<_Up>();
   }
 
@@ -1354,7 +1362,7 @@ public:
     static_assert(!is_same_v<_Up, nullopt_t>, "Result of f(std::move(value())) should not be std::nullopt_t");
     static_assert(is_object_v<_Up>, "Result of f(std::move(value())) should be an object type");
     if (*this)
-      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), std::move(value()));
+      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), std::move(*this));
     return optional<_Up>();
   }
 
@@ -1406,6 +1414,7 @@ public:
     return this->__get();
   }
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp& value() const
     requires(is_lvalue_reference_v<_Tp>)
   {
@@ -1413,6 +1422,7 @@ public:
       std::__throw_bad_optional_access();
     return this->__get();
   }
+#  endif
 
   template <class _Up = remove_cvref_t<_Tp>>
     requires(is_lvalue_reference_v<_Tp> && is_object_v<__libcpp_remove_reference_t<_Tp>> &&
@@ -1432,7 +1442,7 @@ public:
     static_assert(__is_std_optional<remove_cvref_t<_Up>>::value,
                   "Result of f(value()) must be a specialization of std::optional");
     if (*this)
-      return std::invoke(std::forward<_Func>(__f), value());
+      return std::invoke(std::forward<_Func>(__f), *this);
     return remove_cvref_t<_Up>();
   }
 
@@ -1446,7 +1456,7 @@ public:
     static_assert(!is_same_v<_Up, nullopt_t>, "Result of f(value()) should not be std::nullopt_t");
     static_assert(is_object_v<_Up>, "Result of f(value()) should be an object type");
     if (*this)
-      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), value());
+      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), *this);
     return optional<_Up>();
   }
 

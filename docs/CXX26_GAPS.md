@@ -2513,7 +2513,7 @@ Lower priority (niche embedded/kernel audience), but self-contained.
 | [ ] | P2198R7 | Freestanding feature-test macros | |
 | [ ] | P2338R4 | Freestanding character primitives & C library | |
 | [ ] | P2013R5 | Freestanding optional `::operator new` | |
-| [ ] | P2407R5 | Freestanding partial classes | |
+| [ ] | P2407R5 | Freestanding partial classes | Optional completed; `variant` remains. |
 | [ ] | P2937R0 | Freestanding: remove `strtok` | |
 | [ ] | P2833R2 | Freestanding `expected`/`span` | |
 | [ ] | P2976R1 | Freestanding `algorithm`/`numeric`/`random` | |
@@ -3064,6 +3064,17 @@ tiers as makes sense.
 | [ ] | P2590R2 | Explicit lifetime management | Added 2026-09-05. `std::start_lifetime_as` — has a library component too |
 
 ## Session Log
+
+- **2026-09-16 (issues #23/#79)**: Applied P2407R5's partial-class rule to
+  `optional`: all throwing `value()` overloads, including `optional<T&>`, are
+  absent under `_LIBCPP_FREESTANDING`; monadic operations use `operator*` as
+  required by the wording. Activated and regenerated
+  `__cpp_lib_freestanding_optional` (`202311L`). The existing `array`,
+  `span`, `string_view`, and `cstring` work from the prior round were
+  rechecked in the tracker. `variant` remains open because its `get` removal
+  requires the wording-only exposition `GET` split throughout implementation
+  internals. Direct freestanding syntax validation passed; the libc++ lit
+  wrapper was blocked by its shared build tree being read-only.
 
 - **2026-09-15 (issue #17, phases 1–6)**: Completed P3037R6. Audited the
   prior non-array landing, added constexpr support for shared_ptr/weak_ptr
