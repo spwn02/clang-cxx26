@@ -867,7 +867,7 @@ Good starting point after Tier 0.
 | [x] | P2363R5 | Heterogeneous lookup, remaining associative container overloads | Done 2026-08-20 |
 | [x] | P1901R2 | `weak_ptr` as unordered associative container key | Done 2026-08-20 |
 | [x] | P2944R3 | `reference_wrapper` comparisons | Done 2026-08-22 — all Constraints (`pair`/`tuple`/`optional`/`variant`/`reference_wrapper`) were already implemented (mostly inherited from upstream commits); only the shared `__cpp_lib_constrained_equality` FTM flag and CSV status needed flipping |
-| [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | **Partially user-visible as of 2026-09-07** — `<complex>` done. `std::floor`/`ceil`/`trunc`/`round`/`nearbyint`/`rint`/`fmod`/`remainder`/`lround`/`llround`/`lrint`/`llrint`/`fabs`/`copysign`/`fmax`/`fmin` are now `constexpr`-usable for `float`, `long double`, and integral-promoted arguments; the exact-`double` overload of each is still blocked by a pre-existing glibc-collision workaround (see notes below — a real, structural gap found and documented, not a false claim). `sqrt`/`pow`/`exp`/`log`/trig remain compiler-blocked (no correctly-rounded primitive exists anywhere in this LLVM). Integral `std::abs` (`<cstdlib>`) is a separate, still-unfixed routing gap. |
+| [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | **Partially user-visible as of 2026-09-16** — `<complex>` done. `std::floor`/`ceil`/`trunc`/`round`/`nearbyint`/`rint`/`fmod`/`remainder`/`lround`/`llround`/`lrint`/`llrint`/`fabs`/`copysign`/`fmax`/`fmin` are now `constexpr`-usable for `float`, `long double`, and integral-promoted arguments; integral `std::abs(int/long/long long)` now dispatches to `std::__math::abs` during constant evaluation while preserving the C-library call at runtime. The exact-`double` overload of each `<cmath>` function is still blocked by a pre-existing glibc-collision workaround. `sqrt`/`pow`/`exp`/`log`/trig remain compiler-blocked (no correctly-rounded primitive exists anywhere in this LLVM). This addresses only sub-gap 4 of issue #7; sub-gaps 1-3 remain open and blocked. |
 | [x] | P3168R2 | `std::optional` range support | Done 2026-08-20 — implementation was already complete via P2988R11; added missing test coverage |
 
 **P1383R2 scalar `<cmath>`/`<cstdlib>` — partially unblocked 2026-09-07.**
@@ -1004,11 +1004,12 @@ this session's fix is a real, verified, but partial improvement.
 `libcxx/include/version` — even with this fix, the FTM's full requirement
 (`sqrt`/`pow`/`exp`/`log`/trig included) is nowhere near met.
 
-**Separate adjacent gap, not fixed here**: integral `std::abs` (from
-`<cstdlib>`) is still non-`constexpr`, resolving to raw glibc
-`stdlib.h`'s declaration rather than `std::__math::abs` — a different
-routing gap (`<cstdlib>`'s `abs` doesn't reach `__math::` the way
-`<cmath>`'s functions do), out of scope for this fix.
+**2026-09-16, issue #7 sub-gap 4 fixed**: `<cstdlib>` now provides
+`constexpr` `std::abs(int)`, `std::abs(long)`, and `std::abs(long long)` wrappers.
+They use `__libcpp_is_constant_evaluated()` to route constant evaluation to the
+existing constexpr-capable `std::__math::abs` builtin helpers, while runtime calls
+continue to use the corresponding C-library functions. Sub-gaps 1-3 remain open
+and blocked.
 
 **Real gap found during verification, not shipped as a false claim: the new
 compiler capability isn't user-visible yet.** The obvious next check —
@@ -7343,3 +7344,8 @@ blocked, what's next. Do not remove old entries.
   direct compile-and-run type tests for all four adaptors. Optional range
   support was already present; full lit validation remains for external
   execution because this sandbox cannot bind the libc++ lit forkserver socket.
+- **2026-09-16 (issue #7, sub-gap 4 only)**: Routed integral `std::abs` from
+  `<cstdlib>` through constexpr-dispatching wrappers: constant evaluation uses
+  `std::__math::abs`, and runtime evaluation retains the C-library overloads.
+  Added static-assert coverage for `int`, `long`, and `long long`. Issue #7
+  remains open; sub-gaps 1-3 are still blocked.
