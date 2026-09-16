@@ -75,8 +75,10 @@ struct __remove {
   _LIBCPP_HIDE_FROM_ABI subrange<_Iter> operator()(_Ep&& __exec, _Iter __first, _Sent __last, const _Type& __value,
                                                    _Proj __proj = {}) const {
     _Iter __end = __first + (__last - __first);
-    (void)__proj;
-    _Iter __new_end = std::remove(std::forward<_Ep>(__exec), __first, __end, __value);
+    _Iter __new_end = std::remove_if(
+        std::forward<_Ep>(__exec), __first, __end, [&__value, __proj](auto&& __other) -> bool {
+          return __value == std::invoke(__proj, std::forward<decltype(__other)>(__other));
+        });
     return {std::move(__new_end), std::move(__end)};
   }
   template <class _Ep, random_access_range _Range, class _Type, class _Proj = identity,

@@ -110,6 +110,9 @@ template <class _Backend, class _ExecutionPolicy>
 struct __remove;
 
 template <class _Backend, class _ExecutionPolicy>
+struct __remove_if;
+
+template <class _Backend, class _ExecutionPolicy>
 struct __unique;
 
 template <class _Backend, class _ExecutionPolicy>

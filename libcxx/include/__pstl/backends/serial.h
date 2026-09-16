@@ -15,6 +15,7 @@
 #include <__algorithm/merge.h>
 #include <__algorithm/partition.h>
 #include <__algorithm/remove.h>
+#include <__algorithm/remove_if.h>
 #include <__algorithm/reverse.h>
 #include <__algorithm/rotate.h>
 #include <__algorithm/shift_left.h>
@@ -79,6 +80,15 @@ struct __remove<__serial_backend_tag, _ExecutionPolicy> {
   _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
   operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, const _Tp& __value) const noexcept {
     return std::remove(std::move(__first), std::move(__last), __value);
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __remove_if<__serial_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Predicate>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Predicate&& __pred) const noexcept {
+    return std::remove_if(std::move(__first), std::move(__last), std::forward<_Predicate>(__pred));
   }
 };
 
