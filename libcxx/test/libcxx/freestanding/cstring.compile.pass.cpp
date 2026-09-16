@@ -1,6 +1,6 @@
 //===----------------------------------------------------------------------===//
 // UNSUPPORTED: c++03
-// RUN: %{cxx} %{flags} %{compile_flags} -ffreestanding -fsyntax-only %s
+// ADDITIONAL_COMPILE_FLAGS: -ffreestanding
 //===----------------------------------------------------------------------===//
 
 #include <cstring>
@@ -15,9 +15,9 @@
 #endif
 
 
-static_assert(!requires(char* first, const char* delimiters) {
-  std::strtok(first, delimiters);
-});
+// std::strtok's removal is checked separately in strtok.compile.fail.cpp:
+// `std::strtok` is a qualified name, so its lookup isn't deferred by a
+// template parameter and can't be tested via requires-expression SFINAE.
 
 void test_freestanding_cstring(const char* input, char* output) {
   (void)std::memcpy(output, input, 1);
