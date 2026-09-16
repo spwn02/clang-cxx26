@@ -1082,7 +1082,7 @@ than being tackled as a single commit.
 | [x] | P3819R0 | Remove `evaluation_exception()` from contract-violation handling | **Nothing to do — already conformant, confirmed 2026-09-06.** The 2026-09-05 triage flagged this as a Rank 1 defect based on `detection_mode::evaluation_exception` (the *enumerator*, at `libcxx/include/contracts:21`) still existing — but the paper removes a *different* thing: the member function `contract_violation::evaluation_exception()`. The enumerator is explicitly kept by the paper's own wording (`detection_mode()` returning it is how the paper says to detect this case, replacing the removed convenience accessor). Fetched the paper's full PDF directly and confirmed by exhaustive grep (`evaluation_exception(` — the function call/decl shape, not the enum value) across `libcxx/include`, `libcxx/src`, `clang/lib`, `clang/include`: zero hits. The member function this paper removes was **never implemented in this fork's contracts-nightly port** — likely predates its addition upstream. No compiler-side plumbing either (`CGContracts.cpp` has zero references). Nothing spans clang at all; the earlier row's file list (`Options.td`, `ContractOptions.h`, etc.) was speculative over-scoping based on the wrong target. |
 | [x] | P3227R1 | Fixing the library API for contract violation handling | Complete 2026-09-06. Untracked by any CSV row (Contracts-family wording papers aren't tracked there — see P3819R0's note above). Found by comparing this fork's `<contracts>` synopsis directly against `eel.is/c++draft`'s `[support.contract.violation]`: `bool is_terminating() const noexcept` was entirely missing. Added (`libcxx/include/contracts` + `libcxx/src/contracts.cpp`, returns `semantic() == evaluation_semantic::enforce` — the only terminating semantic this fork's `evaluation_semantic` enum has), with a new test (`libcxx/test/std/contracts/is_terminating.pass.cpp`) covering both `observe` (false) and `enforce` (true, handler throws to avoid actually terminating the test process, matching `exceptions-test.pass.cpp`'s precedent). This paper is also where `evaluation_exception()` was *first proposed* (later removed by P3819R0 above) — the two rows are related but this one is a pure addition, no removal involved. |
 | [ ] | P3552R3 | Add a coroutine task type (`execution::task`) | Untriaged until 2026-09-05. Major new facility; own sub-plan when started |
-| [~] | P3179R9 | Parallel range algorithms | Partial. 2026-09-16: execution-policy overloads landed for `find`, `find_if`, `find_if_not`, `count`, `count_if`, `equal`, `copy`, `copy_n`, `rotate_copy`, and `reverse_copy` (the last two also close P3709R2, see its row). Remaining approximately 78 algorithms are not done; the overall paper remains open, tracked in issue #13. |
+| [~] | P3179R9 | Parallel range algorithms | Partial. 2026-09-16: execution-policy overloads landed for `find`, `find_if`, `find_if_not`, `count`, `count_if`, `equal`, `copy`, `copy_n`, `rotate_copy`, and `reverse_copy` (15 total incl. earlier `all_of`/`any_of`/`none_of`/`for_each`/`for_each_n`; the last two also close P3709R2, see its row). **Denominator correction (2026-09-16): the "~78 remaining" figure was never sourced and should not be repeated.** P3179R9's own wording diff is too large to fetch in full via available tooling, and no reliable secondary source gives an exact per-algorithm list, so the true total is genuinely unconfirmed. What's concretely known: 14 more algorithms already have a classic PSTL overload awaiting only a `ranges::` transplant (`fill`, `fill_n`, `generate`, `generate_n`, `is_partitioned`, `merge`, `move`, `replace`, `replace_if`, `replace_copy`, `replace_copy_if`, `sort`, `stable_sort`, `transform` — tracked as issue #13's next batch), plus a further ~29 named candidates needing from-scratch classic-layer work first (`find_end`, `find_first_of`, `adjacent_find`, `mismatch`, `search`, `starts_with`, `ends_with`, `contains`, `remove`, `unique`, `reverse`, `rotate`, `shift_left`/`shift_right`, `swap_ranges`, `partition`, the 4 set operations, the 6 heap operations, `min_element`/`max_element`/`minmax_element`, `lexicographical_compare`) — giving **≥58 named algorithms in scope so far** (15 done + 14 + 29), not a final count. Several `ranges_*.h` files in the tree are very likely out of scope entirely (no C++17 classic execution-policy precedent exists for `binary_search`/`lower_bound`/`upper_bound`/`equal_range`, `next_permutation`/`prev_permutation`, `sample`/`shuffle`, or `clamp`) and should not be counted toward the denominator without confirming against the paper's actual wording diff first. Tracked in issue #13. |
 | [x] | P3372R3 | `constexpr` containers and adaptors | Flipped to `\|Complete\|` 2026-09-07 (was `\|In Progress\|`). **2026-09-07: scoped and closed over the course of the day.** `vector`/`array`/`span`/`mdspan`/`basic_string`/`basic_string_view` were already fully constexpr (paper's own exclusion list, no work needed); `stack`/`queue`/`priority_queue` had **zero** constexpr anywhere — now fully constexpr, using `std::vector` as the constexpr-capable underlying container since the default (`std::deque`) isn't constexpr yet. **Correction**: `list`/`forward_list` (217/186 `_LIBCPP_CONSTEXPR_SINCE_CXX26` occurrences respectively) and all four `flat_map`/`flat_multimap`/`flat_set`/`flat_multiset` containers are **already fully constexpr** via real upstream P3372R3 commits already merged into this branch — the earlier "unaudited" note for these was wrong, not just incomplete. **`deque` done 2026-09-07**: full member surface constexpr, backend (`__split_buffer`) was already constexpr since C++20. **`unordered_map`/`unordered_multimap`/`unordered_set`/`unordered_multiset` done 2026-09-07, with three documented boundaries** (see detail below) — genuinely usable in constant evaluation for the common case (integral/enum/`nullptr_t` keys, power-of-two bucket growth, no duplicate-key lookups), not just internally annotated. **`map`/`multimap`/`set`/`multiset` done 2026-09-07** — full member surface constexpr including duplicate-key insertion (no `goto`-based fast path in `__tree`, unlike `__hash_table`); hits one of the four `unordered_map` boundaries (the `const_cast`-based in-place key reuse during same-size copy-assignment) but none of the other three (no bucket array, `std::less` has none of `std::hash`'s type-punning). **`node_handle` done 2026-09-07** — full member surface constexpr for all four map/set families, except `key()`, excluded per CWG2514 (matching upstream P3372R3's own carve-out) — verified as a real, working boundary, not a gap. **P3372R3 is now fully closed for every container this fork tracks.** |
 
 **P3372R3 follow-up 2026-09-16: constant-evaluation boundary fixes for
@@ -1290,11 +1290,11 @@ Issue #11 checklist:
 - [x] P3284R4 — `write_env`/`unstoppable`; complete in base P2300R10 implementation, verified against P3284R4 wording
 - [x] P3388R3 — when `connect` doesn't throw; complete in base P2300R10 implementation — `execution::receiver` already conjoins `is_nothrow_move_constructible_v<remove_cvref_t<_Rcvr>>` (predates this fork's P3388R3 triage, from the original M2 port), verified to correctly reject a throwing-move-constructible receiver and accept a nothrow one; the paper's other change (an IFNDR consistency clause on `connect()`'s `noexcept`-ness across receivers sharing an environment type) is a documentation-only contract, vacuously satisfied since no `connect()` in this fork declares an explicit `noexcept` specifier
 - [x] P3433R1 — allocator support for operation states; implemented allocator-aware-forward for the fork's hand-written just/then/let operation-state construction, including elementwise tuple construction
-- [ ] P3481R5 — `bulk()` issues
-- [ ] P3557R3 — sender diagnostics via constexpr exceptions
-- [ ] P3570R2 — optional variants
+- [ ] P3481R5 — `bulk()` issues; its Mandates-diagnostic piece is blocked, see P3557R3
+- [ ] P3557R3 — sender diagnostics via constexpr exceptions; **blocked at the standard-wording level, not just this fork** — fetched the adopted text 2026-09-16, it specifies verbatim the throw-based `is-dependent-sender-helper` mechanism already proven non-conforming (evaluation failure, not substitution failure, per [temp.constr.atomic]); no revision of the paper fixes this, no conforming implementation exists from the papers as written on any compiler. See `get_completion_signatures.h:39-56` for the fork's permanent soft-fail deviation.
+- [ ] P3570R2 — optional variants; extends `into_variant`/`stopped_as_optional`, blocked on the same P3557R3 mechanism
 - [x] P3682R0 — remove `execution::split`; complete because no execution-namespace `split` exists to remove
-- [ ] P3887R1 — `when_all` as a Ronseal algorithm
+- [ ] P3887R1 — `when_all` as a Ronseal algorithm; its Mandates-diagnostic piece is blocked, see P3557R3
 
 **A real compiler crash blocks ~27 of the 52 currently-failing check-cxx
 tests, all under `std/execution/`, confirmed 2026-09-07.** Every sampled
@@ -1480,16 +1480,30 @@ utility additions. Treat all three CSV rows (P2300R10, P3325R5, P3396R1)
 as **one implementation effort**; flip all three to `|Complete|` together
 when M6 lands, not separately.
 
-**Explicitly out of scope (separate, untracked papers merged into the same
-draft clause after P2300R10 landed — do not implement here):**
-- `[exec.coro.util]` 33.13.3–33.13.6: `execution::affine`,
+**Correction (2026-09-16): the section below is stale and no longer a real
+scope boundary.** It dates to the 2026-08-20 M2 push, before the
+2026-09-05 untriaging pass gave all three of these papers CSV rows
+(`libcxx/docs/Status/Cxx2cPapers.csv` lines 144 P3149R11, 146 P2079R10, 157
+P3552R3) and open GitHub tracking (P2079R10/P3149R11 are checklist items on
+issue #11; P3552R3 is issue #12). They are genuinely **in scope**, just
+unstarted, greenfield facilities needing their own design-first session —
+see "Wave 3b" in the Session Log. Left here (struck through in spirit, kept
+verbatim) only as a record of the M2-era scoping decision:
+
+- ~~`[exec.coro.util]` 33.13.3–33.13.6: `execution::affine`,
   `execution::inline_scheduler`, `execution::task_scheduler`,
-  `execution::task` — this is P3552, a distinct paper with no CSV row.
-- `[exec.scope]` 33.14: execution scope / counting-scope utilities — P3149
-  and related async-scope papers, no CSV row.
-- `[exec.par.scheduler]` / `[exec.parschedrepl]` 33.15–33.16: parallel
+  `execution::task` — this is P3552, a distinct paper with no CSV row.~~
+  (P3552R3 now has a CSV row and tracking issue #12; not implemented yet,
+  but not "do not implement here" either.)
+- ~~`[exec.scope]` 33.14: execution scope / counting-scope utilities — P3149
+  and related async-scope papers, no CSV row.~~ (P3149R11 now has a CSV row
+  and is on issue #11's checklist.)
+- ~~`[exec.par.scheduler]` / `[exec.parschedrepl]` 33.15–33.16: parallel
   scheduler and `parallel_scheduler_replacement` — P3481 and related, no
-  CSV row.
+  CSV row.~~ This citation was also a paper-number mixup: P3481R5 (CSV line
+  142) is "`std::execution::bulk()` issues," unrelated to a scheduler; these
+  clauses are almost certainly P2079R10's own (CSV line 146, "Parallel
+  scheduler," on issue #11's checklist), not P3481's.
 
 In scope: `[exec.queryable]`, `[exec.async.ops]`, `[execution.syn]`,
 `[exec.queries]` (all of 33.5), `[exec.sched]`, `[exec.recv]`,
@@ -1757,18 +1771,29 @@ schedulers can't come before sender concepts exist):**
      implemented**, and `get_completion_signatures` never throws
      `dependent_sender_error` for a genuinely dependent sender (one whose
      signatures can only be known once connected to a real environment).
-     Root cause: [exec.getcomplsigs]'s Effects requires throwing an
-     exception from a `consteval` function (`is-dependent-sender-helper`'s
-     function-try-block, P3068 constexpr-exceptions), which this Clang does
-     not support -- verified empirically:
-     `consteval bool f() try { throw E{}; return false; } catch (E&) {
-     return true; } static_assert(f());` fails to be a constant expression.
-     Consequence: a sender with no viable `get_completion_signatures`
-     dispatch simply has `sender_in` be false (soft), rather than
-     `dependent_sender` being true. Tracked as **compiler-blocked**, not
-     scope-excluded -- revisit if/when this fork gains constexpr-exception
-     support. The repro above is the regression test for "has this been
-     fixed yet."
+     **Status corrected 2026-09-16 (Wave 3 gate + Wave 3b research): this is
+     a permanent standard-level gap, not a temporary compiler-blocked one.**
+     P3068's constexpr-exceptions limitation *was* fixed in this fork's
+     compiler (2026-09-07); re-testing the repro below now succeeds. But the
+     actual mechanism `is-dependent-sender-helper` needs — an *uncaught*
+     consteval throw treated as SFINAE-false inside a requires-expression —
+     is a separate, non-fixable problem: an exception escaping mid-evaluation
+     is an *evaluation* failure, not a *substitution* failure, and SFINAE
+     ([temp.constr.atomic]) only covers the latter (confirmed via a
+     nested-requirement probe producing `err_non_constant_constraint_expression`,
+     a deliberate Clang `Error`, not a bug). Fetching P3557R3's actual
+     adopted wording confirmed the committee's own text specifies exactly
+     this mechanism — no revision of the paper fixes it, so there is no
+     conforming implementation path from the papers as written on any
+     compiler (this one or otherwise). A real, non-conforming compiler
+     builtin could paper over this since this is a compiler fork, but that
+     is a distinct undertaking, out of scope for library work. Consequence:
+     a sender with no viable `get_completion_signatures` dispatch simply has
+     `sender_in` be false (soft), rather than `dependent_sender` being true —
+     this soft-fail deviation is now the **deliberate, permanent** behavior,
+     not an interim workaround pending a fix. The repro below still holds
+     (constexpr-exceptions themselves work fine now); it's the
+     SFINAE-vs-evaluation-failure distinction that blocks this permanently.
   3. **`get_completion_domain`/`get_scheduler`-driven domain resolution is
      not implemented** (`__execution/domain.h`): `get_completion_domain_t`
      is declared with *no* `operator()`, purely so `completion-domain(s)`'s
