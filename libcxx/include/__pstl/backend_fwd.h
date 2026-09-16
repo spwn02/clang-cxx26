@@ -105,6 +105,33 @@ struct __none_of;
 
 template <class _Backend, class _ExecutionPolicy>
 struct __is_partitioned;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __remove;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __remove_if;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __unique;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __reverse;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __rotate;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __shift_left;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __shift_right;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __swap_ranges;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __partition;
 // template <class _Policy, class _ForwardIterator, class _Predicate>
 // optional<bool>
 // operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Predicate __pred) const noexcept;

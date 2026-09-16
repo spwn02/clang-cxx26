@@ -13,6 +13,10 @@
 #include <__algorithm/iterator_operations.h>
 #include <__algorithm/swap_ranges.h>
 #include <__config>
+#include <__algorithm/pstl.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
 #include <__iterator/concepts.h>
 #include <__iterator/iter_swap.h>
 #include <__ranges/access.h>
@@ -52,6 +56,26 @@ struct __swap_ranges {
   operator()(_R1&& __r1, _R2&& __r2) const {
     return operator()(ranges::begin(__r1), ranges::end(__r1), ranges::begin(__r2), ranges::end(__r2));
   }
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep, random_access_iterator _I1, sized_sentinel_for<_I1> _S1,
+            random_access_iterator _I2,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires indirectly_swappable<_I1, _I2>
+  _LIBCPP_HIDE_FROM_ABI swap_ranges_result<_I1, _I2> operator()(_Ep&& __exec, _I1 __first1, _S1 __last1,
+                                                                 _I2 __first2) const {
+    _I1 __end1 = __first1 + (__last1 - __first1);
+    _I2 __end2 = __first2 + (__last1 - __first1);
+    std::swap_ranges(std::forward<_Ep>(__exec), __first1, __end1, __first2);
+    return {std::move(__end1), std::move(__end2)};
+  }
+  template <class _Ep, random_access_range _R1, random_access_range _R2,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_R1> && sized_range<_R2> && indirectly_swappable<iterator_t<_R1>, iterator_t<_R2>>
+  _LIBCPP_HIDE_FROM_ABI swap_ranges_result<borrowed_iterator_t<_R1>, borrowed_iterator_t<_R2>>
+  operator()(_Ep&& __exec, _R1&& __r1, _R2&& __r2) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__r1), ranges::end(__r1), ranges::begin(__r2));
+  }
+#  endif
 };
 
 inline namespace __cpo {

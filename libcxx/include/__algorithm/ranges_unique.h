@@ -13,6 +13,11 @@
 #include <__algorithm/make_projected.h>
 #include <__algorithm/unique.h>
 #include <__config>
+#include <__algorithm/pstl.h>
+#include <__functional/invoke.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
 #include <__functional/identity.h>
 #include <__functional/invoke.h>
 #include <__functional/ranges_operations.h>
@@ -62,6 +67,28 @@ struct __unique {
         ranges::begin(__range), ranges::end(__range), std::__make_projected(__comp, __proj));
     return {std::move(__ret.first), std::move(__ret.second)};
   }
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
+            class _Comp = ranges::equal_to, class _Proj = identity,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+  _LIBCPP_HIDE_FROM_ABI subrange<_Iter> operator()(_Ep&& __exec, _Iter __first, _Sent __last, _Comp __comp = {},
+                                                   _Proj __proj = {}) const {
+    _Iter __end = __first + (__last - __first);
+    _Iter __new_end = std::unique(std::forward<_Ep>(__exec), __first, __end, [__comp, __proj](auto&& __a, auto&& __b) {
+      return std::invoke(__comp, std::invoke(__proj, std::forward<decltype(__a)>(__a)),
+                         std::invoke(__proj, std::forward<decltype(__b)>(__b)));
+    });
+    return {std::move(__new_end), std::move(__end)};
+  }
+  template <class _Ep, random_access_range _Range, class _Comp = ranges::equal_to, class _Proj = identity,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range>
+  _LIBCPP_HIDE_FROM_ABI borrowed_subrange_t<_Range> operator()(_Ep&& __exec, _Range&& __range, _Comp __comp = {},
+                                                               _Proj __proj = {}) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::end(__range), std::move(__comp), std::move(__proj));
+  }
+#  endif
 };
 
 inline namespace __cpo {

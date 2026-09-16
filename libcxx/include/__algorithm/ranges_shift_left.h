@@ -11,6 +11,10 @@
 
 #include <__algorithm/shift_left.h>
 #include <__config>
+#include <__algorithm/pstl.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
 #include <__iterator/concepts.h>
 #include <__iterator/next.h>
 #include <__iterator/permutable.h>
@@ -52,6 +56,23 @@ struct __shift_left {
   _LIBCPP_HIDE_FROM_ABI constexpr borrowed_subrange_t<_Range> operator()(_Range&& __range, range_difference_t<_Range> __n) const {
     return __shift_left_fn_impl(ranges::begin(__range), ranges::end(__range), __n);
   }
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+  _LIBCPP_HIDE_FROM_ABI subrange<_Iter> operator()(_Ep&& __exec, _Iter __first, _Sent __last,
+                                                   iter_difference_t<_Iter> __n) const {
+    _Iter __end = __first + (__last - __first);
+    _Iter __new_end = std::shift_left(std::forward<_Ep>(__exec), __first, __end, __n);
+    return {std::move(__first), std::move(__new_end)};
+  }
+  template <class _Ep, random_access_range _Range, class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range>
+  _LIBCPP_HIDE_FROM_ABI borrowed_subrange_t<_Range> operator()(_Ep&& __exec, _Range&& __range,
+                                                               range_difference_t<_Range> __n) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::end(__range), __n);
+  }
+#  endif
 };
 
 inline namespace __cpo {
