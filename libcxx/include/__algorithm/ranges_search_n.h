@@ -10,9 +10,11 @@
 #define _LIBCPP___ALGORITHM_RANGES_SEARCH_N_H
 
 #include <__algorithm/iterator_operations.h>
+#include <__algorithm/pstl.h>
 #include <__algorithm/search_n.h>
 #include <__config>
 #include <__functional/identity.h>
+#include <__functional/invoke.h>
 #include <__functional/ranges_operations.h>
 #include <__iterator/advance.h>
 #include <__iterator/concepts.h>
@@ -25,6 +27,8 @@
 #include <__ranges/concepts.h>
 #include <__ranges/size.h>
 #include <__ranges/subrange.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
 #include <__utility/move.h>
 #include <__utility/pair.h>
 
@@ -110,6 +114,51 @@ struct __search_n {
 
     return __ranges_search_n_impl(ranges::begin(__range), ranges::end(__range), __count, __value, __pred, __proj);
   }
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  // NOTE: the non-policy overloads above return a subrange spanning exactly the found
+  // __count-length match ([found, found + __count)), not [found, source-last) -- reconstruct
+  // that same shape here rather than the wider (and wrong) span to the source's own end.
+  template <class _Ep,
+            random_access_iterator _Iter,
+            sized_sentinel_for<_Iter> _Sent,
+            class _Size,
+            class _Type,
+            class _Pred                                        = ranges::equal_to,
+            class _Proj                                        = identity,
+            class _RawPolicy                                   = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires indirectly_comparable<_Iter, const _Type*, _Pred, _Proj>
+  _LIBCPP_HIDE_FROM_ABI subrange<_Iter>
+  operator()(_Ep&& __exec, _Iter __first, _Sent __last, _Size __count, const _Type& __value, _Pred __pred = {},
+             _Proj __proj = {}) const {
+    _Iter __end = __first + (__last - __first);
+    if (__count <= 0)
+      return {__first, __first};
+    _Iter __found = std::search_n(
+        std::forward<_Ep>(__exec), __first, __end, __count, __value,
+        [&__pred, &__proj](auto&& __elem, auto&& __val) { return std::invoke(__pred, std::invoke(__proj, __elem), __val); });
+    if (__found == __end)
+      return {__end, __end};
+    return {__found, __found + __count};
+  }
+
+  template <class _Ep,
+            random_access_range _Range,
+            class _Size,
+            class _Type,
+            class _Pred                                        = ranges::equal_to,
+            class _Proj                                        = identity,
+            class _RawPolicy                                   = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range> && indirectly_comparable<iterator_t<_Range>, const _Type*, _Pred, _Proj>
+  _LIBCPP_HIDE_FROM_ABI borrowed_subrange_t<_Range>
+  operator()(_Ep&& __exec, _Range&& __r, _Size __count, const _Type& __value, _Pred __pred = {},
+             _Proj __proj = {}) const {
+    return (*this)(
+        std::forward<_Ep>(__exec), ranges::begin(__r), ranges::end(__r), __count, __value, std::move(__pred),
+        std::move(__proj));
+  }
+#  endif
 };
 
 inline namespace __cpo {

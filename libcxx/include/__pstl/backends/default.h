@@ -9,7 +9,11 @@
 #ifndef _LIBCPP___PSTL_BACKENDS_DEFAULT_H
 #define _LIBCPP___PSTL_BACKENDS_DEFAULT_H
 
+#include <__algorithm/copy_if.h>
 #include <__algorithm/copy_n.h>
+#include <__algorithm/partition_copy.h>
+#include <__algorithm/search_n.h>
+#include <__algorithm/stable_partition.h>
 #include <__algorithm/equal.h>
 #include <__algorithm/fill_n.h>
 #include <__algorithm/for_each_n.h>
@@ -941,6 +945,47 @@ struct __reverse_copy<__default_backend_tag, _ExecutionPolicy> {
         std::make_reverse_iterator(std::move(__last)),
         std::make_reverse_iterator(std::move(__first)),
         std::move(__out_it));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __copy_if<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Predicate>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __result,
+             _Predicate&& __pred) const noexcept {
+    return std::copy_if(std::move(__first), std::move(__last), std::move(__result), std::forward<_Predicate>(__pred));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __stable_partition<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Predicate>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Predicate&& __pred) const noexcept {
+    return std::stable_partition(std::move(__first), std::move(__last), std::forward<_Predicate>(__pred));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __partition_copy<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator1, class _ForwardOutIterator2, class _Predicate>
+  _LIBCPP_HIDE_FROM_ABI optional<pair<_ForwardOutIterator1, _ForwardOutIterator2>>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator1 __out_true,
+             _ForwardOutIterator2 __out_false, _Predicate&& __pred) const noexcept {
+    return std::partition_copy(
+        std::move(__first), std::move(__last), std::move(__out_true), std::move(__out_false),
+        std::forward<_Predicate>(__pred));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __search_n<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Size, class _Tp, class _Predicate>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Size __count, const _Tp& __value,
+             _Predicate&& __pred) const noexcept {
+    return std::search_n(std::move(__first), std::move(__last), __count, __value, std::forward<_Predicate>(__pred));
   }
 };
 

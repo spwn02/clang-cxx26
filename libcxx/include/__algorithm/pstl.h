@@ -1040,6 +1040,72 @@ _LIBCPP_HIDE_FROM_ABI _ForwardOutIterator transform(
       std::move(__op));
 }
 
+template <class _ExecutionPolicy,
+          class _ForwardIterator,
+          class _ForwardOutIterator,
+          class _Predicate,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _ForwardOutIterator
+copy_if(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __result,
+        _Predicate __pred) {
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator, "copy_if requires ForwardIterators");
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardOutIterator, "copy_if requires an OutputIterator");
+  using _Implementation = __pstl::__dispatch<__pstl::__copy_if, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), std::move(__result),
+      std::move(__pred));
+}
+
+template <class _ExecutionPolicy,
+          class _ForwardIterator,
+          class _Predicate,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _ForwardIterator
+stable_partition(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, _Predicate __pred) {
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator, "stable_partition requires ForwardIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__stable_partition, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), std::move(__pred));
+}
+
+template <class _ExecutionPolicy,
+          class _ForwardIterator,
+          class _ForwardOutIterator1,
+          class _ForwardOutIterator2,
+          class _Predicate,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI pair<_ForwardOutIterator1, _ForwardOutIterator2>
+partition_copy(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last,
+               _ForwardOutIterator1 __out_true, _ForwardOutIterator2 __out_false, _Predicate __pred) {
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator, "partition_copy requires ForwardIterators");
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardOutIterator1, "partition_copy requires an OutputIterator");
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardOutIterator2, "partition_copy requires an OutputIterator");
+  using _Implementation = __pstl::__dispatch<__pstl::__partition_copy, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), std::move(__out_true),
+      std::move(__out_false), std::move(__pred));
+}
+
+template <class _ExecutionPolicy,
+          class _ForwardIterator,
+          class _Size,
+          class _Tp,
+          class _Predicate,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _ForwardIterator
+search_n(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, _Size __count,
+         const _Tp& __value, _Predicate __pred) {
+  _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator, "search_n requires ForwardIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__search_n, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), __count, __value,
+      std::move(__pred));
+}
+
 _LIBCPP_END_NAMESPACE_STD
 
 #endif // _LIBCPP_HAS_EXPERIMENTAL_PSTL && _LIBCPP_STD_VER >= 17

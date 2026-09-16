@@ -11,6 +11,7 @@
 
 #include <__algorithm/iterator_operations.h>
 #include <__algorithm/make_projected.h>
+#include <__algorithm/pstl.h>
 #include <__algorithm/ranges_iterator_concept.h>
 #include <__algorithm/stable_partition.h>
 #include <__config>
@@ -26,6 +27,7 @@
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
 #include <__ranges/subrange.h>
+#include <__type_traits/is_execution_policy.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
@@ -73,6 +75,36 @@ struct __stable_partition {
   operator()(_Range&& __range, _Pred __pred, _Proj __proj = {}) const {
     return __stable_partition_fn_impl(ranges::begin(__range), ranges::end(__range), __pred, __proj);
   }
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep,
+            random_access_iterator _Iter,
+            sized_sentinel_for<_Iter> _Sent,
+            class _Pred,
+            class _Proj                                        = identity,
+            class _RawPolicy                                   = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires permutable<_Iter>
+  _LIBCPP_HIDE_FROM_ABI subrange<_Iter>
+  operator()(_Ep&& __exec, _Iter __first, _Sent __last, _Pred __pred, _Proj __proj = {}) const {
+    _Iter __end = __first + (__last - __first);
+    auto __mid  = std::stable_partition(
+        std::forward<_Ep>(__exec), __first, __end,
+        [&__pred, &__proj](auto&& __elem) { return std::invoke(__pred, std::invoke(__proj, __elem)); });
+    return {std::move(__mid), std::move(__end)};
+  }
+
+  template <class _Ep,
+            random_access_range _Range,
+            class _Pred,
+            class _Proj                                        = identity,
+            class _RawPolicy                                   = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range> && permutable<iterator_t<_Range>>
+  _LIBCPP_HIDE_FROM_ABI borrowed_subrange_t<_Range>
+  operator()(_Ep&& __exec, _Range&& __r, _Pred __pred, _Proj __proj = {}) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__r), ranges::end(__r), std::move(__pred), std::move(__proj));
+  }
+#  endif
 };
 
 inline namespace __cpo {
