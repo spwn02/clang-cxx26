@@ -10,6 +10,7 @@
 #define _LIBCPP___ALGORITHM_RANGES_GENERATE_N_H
 
 #include <__algorithm/generate_n.h>
+#include <__algorithm/pstl.h>
 #include <__concepts/constructible.h>
 #include <__concepts/invocable.h>
 #include <__config>
@@ -20,6 +21,9 @@
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__type_traits/invoke.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -41,6 +45,18 @@ struct __generate_n {
   operator()(_OutIter __first, iter_difference_t<_OutIter> __n, _Func __gen) const {
     return std::__generate_n(std::move(__first), __n, __gen);
   }
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep, random_access_iterator _OutIter, copy_constructible _Func,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires invocable<_Func&> && indirectly_writable<_OutIter, invoke_result_t<_Func&>>
+  _LIBCPP_HIDE_FROM_ABI _OutIter
+  operator()(_Ep&& __exec, _OutIter __first, iter_difference_t<_OutIter> __n, _Func __gen) const {
+    _OutIter __end = __first + __n;
+    std::generate_n(std::forward<_Ep>(__exec), std::move(__first), __n, std::move(__gen));
+    return __end;
+  }
+#  endif
 };
 
 inline namespace __cpo {

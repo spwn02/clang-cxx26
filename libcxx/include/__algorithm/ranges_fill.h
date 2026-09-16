@@ -11,12 +11,16 @@
 
 #include <__algorithm/fill.h>
 #include <__algorithm/fill_n.h>
+#include <__algorithm/pstl.h>
 #include <__config>
 #include <__iterator/concepts.h>
 #include <__iterator/iterator_traits.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -59,6 +63,32 @@ struct __fill {
   _LIBCPP_HIDE_FROM_ABI constexpr borrowed_iterator_t<_Range> operator()(_Range&& __range, const _Type& __value) const {
     return (*this)(ranges::begin(__range), ranges::end(__range), __value);
   }
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent, class _Type
+#    if _LIBCPP_STD_VER >= 26
+            = iter_value_t<_Iter>
+#    endif
+            , class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires output_iterator<_Iter, const _Type&>
+  _LIBCPP_HIDE_FROM_ABI _Iter
+  operator()(_Ep&& __exec, _Iter __first, _Sent __last, const _Type& __value) const {
+    _Iter __end = __first + (__last - __first);
+    std::fill(std::forward<_Ep>(__exec), std::move(__first), __end, __value);
+    return __end;
+  }
+
+  template <class _Ep, random_access_range _Range, class _Type
+#    if _LIBCPP_STD_VER >= 26
+            = range_value_t<_Range>
+#    endif
+            , class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range> && output_range<_Range, const _Type&>
+  _LIBCPP_HIDE_FROM_ABI borrowed_iterator_t<_Range>
+  operator()(_Ep&& __exec, _Range&& __range, const _Type& __value) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::end(__range), __value);
+  }
+#  endif
 };
 
 inline namespace __cpo {
