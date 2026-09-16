@@ -31,6 +31,7 @@ _LIBCPP_PUSH_MACROS
 #  include <__type_traits/remove_cvref.h>
 #  include <__utility/forward.h>
 #  include <__utility/move.h>
+#  include <__utility/pair.h>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -307,6 +308,74 @@ find(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __l
   using _Implementation = __pstl::__dispatch<__pstl::__find, __pstl::__current_configuration, _RawPolicy>;
   return __pstl::__handle_exception<_Implementation>(
       std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), __value);
+}
+
+template <class _ExecutionPolicy, class _RandomAccessIterator, class _RandomAccessIterator2, class _BinaryPredicate,
+          class _RawPolicy = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _RandomAccessIterator
+find_end(_ExecutionPolicy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __last,
+         _RandomAccessIterator2 __first2, _RandomAccessIterator2 __last2, _BinaryPredicate __pred) {
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator, "find_end requires RandomAccessIterators");
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator2, "find_end requires RandomAccessIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__find_end, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), std::move(__first2),
+      std::move(__last2), std::move(__pred));
+}
+
+template <class _ExecutionPolicy, class _RandomAccessIterator, class _RandomAccessIterator2, class _BinaryPredicate,
+          class _RawPolicy = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _RandomAccessIterator
+find_first_of(_ExecutionPolicy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __last,
+              _RandomAccessIterator2 __first2, _RandomAccessIterator2 __last2, _BinaryPredicate __pred) {
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator, "find_first_of requires RandomAccessIterators");
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator2, "find_first_of requires RandomAccessIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__find_first_of, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), std::move(__first2),
+      std::move(__last2), std::move(__pred));
+}
+
+template <class _ExecutionPolicy, class _RandomAccessIterator, class _BinaryPredicate,
+          class _RawPolicy = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _RandomAccessIterator
+adjacent_find(_ExecutionPolicy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __last,
+              _BinaryPredicate __pred) {
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator, "adjacent_find requires RandomAccessIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__adjacent_find, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first), std::move(__last), std::move(__pred));
+}
+
+template <class _ExecutionPolicy, class _RandomAccessIterator1, class _RandomAccessIterator2, class _BinaryPredicate,
+          class _RawPolicy = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI pair<_RandomAccessIterator1, _RandomAccessIterator2>
+mismatch(_ExecutionPolicy&& __policy, _RandomAccessIterator1 __first1, _RandomAccessIterator1 __last1,
+         _RandomAccessIterator2 __first2, _RandomAccessIterator2 __last2, _BinaryPredicate __pred) {
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator1, "mismatch requires RandomAccessIterators");
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator2, "mismatch requires RandomAccessIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__mismatch, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first1), std::move(__last1), std::move(__first2),
+      std::move(__last2), std::move(__pred));
+}
+
+template <class _ExecutionPolicy, class _RandomAccessIterator1, class _RandomAccessIterator2, class _BinaryPredicate,
+          class _RawPolicy = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _RandomAccessIterator1
+search(_ExecutionPolicy&& __policy, _RandomAccessIterator1 __first1, _RandomAccessIterator1 __last1,
+       _RandomAccessIterator2 __first2, _RandomAccessIterator2 __last2, _BinaryPredicate __pred) {
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator1, "search requires RandomAccessIterators");
+  _LIBCPP_REQUIRE_CPP17_RANDOM_ACCESS_ITERATOR(_RandomAccessIterator2, "search requires RandomAccessIterators");
+  using _Implementation = __pstl::__dispatch<__pstl::__search, __pstl::__current_configuration, _RawPolicy>;
+  return __pstl::__handle_exception<_Implementation>(
+      std::forward<_ExecutionPolicy>(__policy), std::move(__first1), std::move(__last1), std::move(__first2),
+      std::move(__last2), std::move(__pred));
 }
 
 template <class _ExecutionPolicy,

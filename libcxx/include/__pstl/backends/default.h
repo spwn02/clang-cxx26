@@ -25,6 +25,7 @@
 #include <__utility/empty.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
+#include <__utility/pair.h>
 #include <optional>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -96,6 +97,52 @@ namespace __pstl {
 //////////////////////////////////////////////////////////////
 // find_if family
 //////////////////////////////////////////////////////////////
+template <class _Difference>
+class __pstl_counting_iterator {
+public:
+  using iterator_category = random_access_iterator_tag;
+  using value_type        = _Difference;
+  using difference_type   = _Difference;
+  using pointer           = _Difference*;
+  using reference         = _Difference;
+
+  constexpr __pstl_counting_iterator() : __value_(0) {}
+  constexpr explicit __pstl_counting_iterator(_Difference __value) : __value_(__value) {}
+  constexpr reference operator*() const { return __value_; }
+  constexpr reference operator[](difference_type __n) const { return __value_ + __n; }
+  constexpr __pstl_counting_iterator operator++(int) { auto __copy = *this; ++*this; return __copy; }
+  constexpr __pstl_counting_iterator operator--(int) { auto __copy = *this; --*this; return __copy; }
+  constexpr __pstl_counting_iterator& operator++() { ++__value_; return *this; }
+  constexpr __pstl_counting_iterator& operator--() { --__value_; return *this; }
+  constexpr __pstl_counting_iterator& operator+=(difference_type __n) { __value_ += __n; return *this; }
+  constexpr __pstl_counting_iterator& operator-=(difference_type __n) { __value_ -= __n; return *this; }
+  constexpr friend __pstl_counting_iterator operator+(__pstl_counting_iterator __it, difference_type __n) {
+    return __it += __n;
+  }
+  constexpr friend __pstl_counting_iterator operator+(difference_type __n, __pstl_counting_iterator __it) {
+    return __it += __n;
+  }
+  constexpr friend __pstl_counting_iterator operator-(__pstl_counting_iterator __it, difference_type __n) {
+    return __it -= __n;
+  }
+  constexpr friend difference_type operator-(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
+    return __x.__value_ - __y.__value_;
+  }
+  constexpr friend bool operator==(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
+    return __x.__value_ == __y.__value_;
+  }
+  constexpr friend bool operator!=(__pstl_counting_iterator __x, __pstl_counting_iterator __y) { return !(__x == __y); }
+  constexpr friend bool operator<(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
+    return __x.__value_ < __y.__value_;
+  }
+  constexpr friend bool operator>(__pstl_counting_iterator __x, __pstl_counting_iterator __y) { return __y < __x; }
+  constexpr friend bool operator<=(__pstl_counting_iterator __x, __pstl_counting_iterator __y) { return !(__y < __x); }
+  constexpr friend bool operator>=(__pstl_counting_iterator __x, __pstl_counting_iterator __y) { return !(__x < __y); }
+
+private:
+  _Difference __value_;
+};
+
 template <class _ExecutionPolicy>
 struct __find<__default_backend_tag, _ExecutionPolicy> {
   template <class _Policy, class _ForwardIterator, class _Tp>
@@ -176,6 +223,143 @@ struct __is_partitioned<__default_backend_tag, _ExecutionPolicy> {
     ++__first;
     using _NoneOf = __dispatch<__none_of, __current_configuration, _ExecutionPolicy>;
     return _NoneOf()(__policy, std::move(__first), std::move(__last), __pred);
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __adjacent_find<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _RandomAccessIterator, class _Pred>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_RandomAccessIterator> operator()(
+      _Policy&& __policy, _RandomAccessIterator __first, _RandomAccessIterator __last, _Pred&& __pred) const noexcept {
+    if (__first == __last || __last - __first == 1)
+      return __last;
+
+    using _Difference = typename iterator_traits<_RandomAccessIterator>::difference_type;
+    using _FindIf = __dispatch<__find_if, __current_configuration, _ExecutionPolicy>;
+    auto __res = _FindIf()(__policy, __pstl_counting_iterator<_Difference>(0),
+                           __pstl_counting_iterator<_Difference>(__last - __first - 1),
+                           [=, __pred = std::forward<_Pred>(__pred)](_Difference __i) mutable {
+                             return __pred(__first[__i], __first[__i + 1]);
+                           });
+    if (!__res)
+      return nullopt;
+    return *__res == __last - __first - 1 ? __last : __first + *__res;
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __mismatch<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _RandomAccessIterator1, class _RandomAccessIterator2, class _Pred>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<pair<_RandomAccessIterator1, _RandomAccessIterator2>> operator()(
+      _Policy&& __policy,
+      _RandomAccessIterator1 __first1,
+      _RandomAccessIterator1 __last1,
+      _RandomAccessIterator2 __first2,
+      _RandomAccessIterator2 __last2,
+      _Pred&& __pred) const noexcept {
+    using _Difference1 = typename iterator_traits<_RandomAccessIterator1>::difference_type;
+    using _Difference2 = typename iterator_traits<_RandomAccessIterator2>::difference_type;
+    _Difference1 __len1 = __last1 - __first1;
+    _Difference2 __len2 = __last2 - __first2;
+    auto __length = __len1 < __len2 ? __len1 : __len2;
+    using _FindIf = __dispatch<__find_if, __current_configuration, _ExecutionPolicy>;
+    auto __res = _FindIf()(__policy, __pstl_counting_iterator<_Difference1>(0),
+                           __pstl_counting_iterator<_Difference1>(__length),
+                           [=, __pred = std::forward<_Pred>(__pred)](_Difference1 __i) mutable {
+                             return !__pred(__first1[__i], __first2[__i]);
+                           });
+    if (!__res)
+      return nullopt;
+    auto __i = *__res;
+    return pair<_RandomAccessIterator1, _RandomAccessIterator2>{__first1 + __i, __first2 + __i};
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __search<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _RandomAccessIterator1, class _RandomAccessIterator2, class _Pred>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_RandomAccessIterator1> operator()(
+      _Policy&& __policy,
+      _RandomAccessIterator1 __first1,
+      _RandomAccessIterator1 __last1,
+      _RandomAccessIterator2 __first2,
+      _RandomAccessIterator2 __last2,
+      _Pred&& __pred) const noexcept {
+    using _Difference1 = typename iterator_traits<_RandomAccessIterator1>::difference_type;
+    using _Difference2 = typename iterator_traits<_RandomAccessIterator2>::difference_type;
+    _Difference1 __len1 = __last1 - __first1;
+    _Difference2 __len2 = __last2 - __first2;
+    if (__len2 == 0)
+      return __first1;
+    if (__len2 > __len1)
+      return __last1;
+    using _Difference = typename iterator_traits<_RandomAccessIterator1>::difference_type;
+    using _FindIf = __dispatch<__find_if, __current_configuration, _ExecutionPolicy>;
+    auto __res = _FindIf()(__policy, __pstl_counting_iterator<_Difference>(0),
+                           __pstl_counting_iterator<_Difference>(__len1 - __len2 + 1),
+                           [=, __pred = std::forward<_Pred>(__pred)](_Difference __candidate) mutable {
+      for (_Difference2 __i = 0; __i != __len2; ++__i)
+        if (!__pred(__first1[__candidate + __i], __first2[__i]))
+          return false;
+      return true;
+    });
+    return !__res || *__res == __len1 - __len2 + 1 ? optional<_RandomAccessIterator1>{__last1}
+                                                   : optional<_RandomAccessIterator1>{__first1 + *__res};
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __find_first_of<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _RandomAccessIterator1, class _RandomAccessIterator2, class _Pred>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_RandomAccessIterator1> operator()(
+      _Policy&& __policy,
+      _RandomAccessIterator1 __first1,
+      _RandomAccessIterator1 __last1,
+      _RandomAccessIterator2 __first2,
+      _RandomAccessIterator2 __last2,
+      _Pred&& __pred) const noexcept {
+    using _FindIf = __dispatch<__find_if, __current_configuration, _ExecutionPolicy>;
+    auto __res = _FindIf()(__policy, __first1, __last1, [=, __pred = std::forward<_Pred>(__pred)](auto&& __value) mutable {
+      for (auto __it = __first2; __it != __last2; ++__it)
+        if (__pred(__value, *__it))
+          return true;
+      return false;
+    });
+    return __res;
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __find_end<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _RandomAccessIterator1, class _RandomAccessIterator2, class _Pred>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_RandomAccessIterator1> operator()(
+      _Policy&& __policy,
+      _RandomAccessIterator1 __first1,
+      _RandomAccessIterator1 __last1,
+      _RandomAccessIterator2 __first2,
+      _RandomAccessIterator2 __last2,
+      _Pred&& __pred) const noexcept {
+    using _Difference1 = typename iterator_traits<_RandomAccessIterator1>::difference_type;
+    using _Difference2 = typename iterator_traits<_RandomAccessIterator2>::difference_type;
+    _Difference1 __len1 = __last1 - __first1;
+    _Difference2 __len2 = __last2 - __first2;
+    if (__len2 == 0)
+      return __last1;
+    if (__len2 > __len1)
+      return __last1;
+    using _Difference = typename iterator_traits<_RandomAccessIterator1>::difference_type;
+    using _FindIf = __dispatch<__find_if, __current_configuration, _ExecutionPolicy>;
+    auto __res = _FindIf()(__policy, __pstl_counting_iterator<_Difference>(0),
+                           __pstl_counting_iterator<_Difference>(__len1 - __len2 + 1),
+                           [=, __pred = std::forward<_Pred>(__pred)](_Difference __candidate) mutable {
+                             for (_Difference2 __i = 0; __i != __len2; ++__i)
+                               if (!__pred(__first1[__len1 - __len2 - __candidate + __i], __first2[__i]))
+                                 return false;
+                             return true;
+                           });
+    if (!__res)
+      return nullopt;
+    return *__res == __len1 - __len2 + 1 ? __last1 : __first1 + (__len1 - __len2 - *__res);
   }
 };
 
