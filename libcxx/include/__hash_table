@@ -11,6 +11,7 @@
 #define _LIBCPP___HASH_TABLE
 
 #include <__algorithm/fill_n.h>
+#include <__algorithm/lower_bound.h>
 #include <__algorithm/max.h>
 #include <__algorithm/min.h>
 #include <__assert>
@@ -74,6 +75,44 @@ template <class _One>
 struct __is_hash_value_type<_One> : __is_hash_value_type_imp<__remove_cvref_t<_One> > {};
 
 _LIBCPP_EXPORTED_FROM_ABI size_t __next_prime(size_t __n);
+
+// Keep the ABI-exported function above for runtime callers. This header-local
+// copy is used only while constant evaluating, where a call to a compiled
+// definition cannot be evaluated.
+inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI size_t __next_prime_constexpr(size_t __n) {
+  constexpr unsigned __small_primes[] = {
+      0,   2,   3,   5,   7,   11,  13,  17,  19,  23,  29,  31,  37,  41,  43,  47,
+      53,  59,  61,  67,  71,  73,  79,  83,  89,  97,  101, 103, 107, 109, 113, 127,
+      131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211};
+  constexpr unsigned __indices[] = {
+      1,   11,  13,  17,  19,  23,  29,  31,  37,  41,  43,  47,  53,  59,  61,  67,
+      71,  73,  79,  83,  89,  97,  101, 103, 107, 109, 113, 121, 127, 131, 137, 139,
+      143, 149, 151, 157, 163, 167, 169, 173, 179, 181, 187, 191, 193, 197, 199, 209};
+  constexpr size_t __L = 210;
+  constexpr size_t __N = sizeof(__small_primes) / sizeof(__small_primes[0]);
+  constexpr size_t __M = sizeof(__indices) / sizeof(__indices[0]);
+  if (__n <= __small_primes[__N - 1])
+    return *std::lower_bound(__small_primes, __small_primes + __N, __n);
+  size_t __k = __n / __L;
+  size_t __i = static_cast<size_t>(
+      std::lower_bound(__indices, __indices + __M, __n - __k * __L) - __indices);
+  for (;;) {
+    __n = __L * __k + __indices[__i];
+    bool __prime = true;
+    for (size_t __p = 11; __p * __p <= __n; ++__p) {
+      if (__n % __p == 0) {
+        __prime = false;
+        break;
+      }
+    }
+    if (__prime)
+      return __n;
+    if (++__i == __M) {
+      __i = 0;
+      ++__k;
+    }
+  }
+}
 
 template <class _NodePtr>
 struct __hash_node_base {
@@ -779,6 +818,7 @@ public:
           size_t __hash   = hash_function()(__key);
           size_type __bc  = bucket_count();
           bool __inserted = false;
+          bool __found    = false;
           __next_pointer __nd;
           size_t __chash;
           if (__bc != 0) {
@@ -789,12 +829,14 @@ public:
                    __nd != nullptr &&
                    (__nd->__hash() == __hash || std::__constrain_hash(__nd->__hash(), __bc) == __chash);
                    __nd = __nd->__next_) {
-                if ((__nd->__hash() == __hash) && key_eq()(__nd->__upcast()->__get_value(), __key))
-                  goto __done;
+                if ((__nd->__hash() == __hash) && key_eq()(__nd->__upcast()->__get_value(), __key)) {
+                  __found = true;
+                  break;
+                }
               }
             }
           }
-          {
+          if (!__found) {
             __node_holder __h = __construct_node_hash(__hash, std::forward<_Args>(__args2)...);
             if (size() + 1 > __bc * max_load_factor()) {
               __rehash_unique(std::max<size_type>(2 * __bc + !std::__is_hash_power2(__bc),
@@ -821,7 +863,6 @@ public:
             ++size();
             __inserted = true;
           }
-        __done:
           return pair<iterator, bool>(iterator(__nd), __inserted);
         },
         [this](_Args&&... __args2) {
@@ -842,6 +883,7 @@ public:
     size_t __hash   = hash_function()(__k);
     size_type __bc  = bucket_count();
     bool __inserted = false;
+    bool __found    = false;
     __next_pointer __nd;
     size_t __chash;
     if (__bc != 0) {
@@ -852,12 +894,14 @@ public:
              __nd != nullptr &&
              (__nd->__hash() == __hash || std::__constrain_hash(__nd->__hash(), __bc) == __chash);
              __nd = __nd->__next_) {
-          if ((__nd->__hash() == __hash) && key_eq()(__nd->__upcast()->__get_value(), __k))
-            goto __done;
+          if ((__nd->__hash() == __hash) && key_eq()(__nd->__upcast()->__get_value(), __k)) {
+            __found = true;
+            break;
+          }
         }
       }
     }
-    {
+    if (!__found) {
       __node_holder __h = __construct_node_hash(__hash, std::forward<_Args>(__args)...);
       if (size() + 1 > __bc * max_load_factor()) {
         __rehash_unique(std::max<size_type>(2 * __bc + !std::__is_hash_power2(__bc),
@@ -884,7 +928,6 @@ public:
       ++size();
       __inserted = true;
     }
-  __done:
     return pair<iterator, bool>(iterator(__nd), __inserted);
   }
 
@@ -1098,6 +1141,14 @@ private:
 
   template <class _From, class _ValueT = _Tp, __enable_if_t<__is_hash_value_type<_ValueT>::value, int> = 0>
   _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI void __assign_value(__get_hash_node_value_type_t<_Tp>& __lhs, _From&& __rhs) {
+    if consteval {
+      // Build the replacement first so a throwing copy leaves the old node
+      // value alive; after destruction, construction must leave a valid node.
+      __get_hash_node_value_type_t<_Tp> __tmp(std::forward<_From>(__rhs));
+      std::__destroy_at(std::addressof(__lhs));
+      std::__construct_at(std::addressof(__lhs), std::move(__tmp));
+      return;
+    }
     // This is technically UB, since the object was constructed as `const`.
     // Clang doesn't optimize on this currently though.
     const_cast<key_type&>(__lhs.first) = const_cast<__copy_cvref_t<_From, key_type>&&>(__rhs.first);
@@ -1769,8 +1820,13 @@ template <bool _UniqueKeys>
 _LIBCPP_CONSTEXPR_SINCE_CXX26 void __hash_table<_Tp, _Hash, _Equal, _Alloc>::__rehash(size_type __n) _LIBCPP_DISABLE_UBSAN_UNSIGNED_INTEGER_CHECK {
   if (__n == 1)
     __n = 2;
-  else if (__n & (__n - 1))
-    __n = std::__next_prime(__n);
+  else if (__n & (__n - 1)) {
+    if consteval {
+      __n = std::__next_prime_constexpr(__n);
+    } else {
+      __n = std::__next_prime(__n);
+    }
+  }
   size_type __bc = bucket_count();
   if (__n > __bc)
     __do_rehash<_UniqueKeys>(__n);
@@ -1778,7 +1834,14 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 void __hash_table<_Tp, _Hash, _Equal, _Alloc>::__r
     __n = std::max<size_type>(
         __n,
         std::__is_hash_power2(__bc) ? std::__next_hash_pow2(size_t(__math::ceil(float(size()) / max_load_factor())))
-                                    : std::__next_prime(size_t(__math::ceil(float(size()) / max_load_factor()))));
+                                    : ([&] {
+                                        size_t __n = size_t(__math::ceil(float(size()) / max_load_factor()));
+                                        if consteval {
+                                          return std::__next_prime_constexpr(__n);
+                                        } else {
+                                          return std::__next_prime(__n);
+                                        }
+                                      })());
     if (__n < __bc)
       __do_rehash<_UniqueKeys>(__n);
   }
