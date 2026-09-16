@@ -14,6 +14,7 @@
 #  error "<cstring> must advertise its freestanding subset"
 #endif
 
+
 static_assert(!requires(char* first, const char* delimiters) {
   std::strtok(first, delimiters);
 });

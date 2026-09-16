@@ -2510,13 +2510,13 @@ Lower priority (niche embedded/kernel audience), but self-contained.
 
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
-| [ ] | P2198R7 | Freestanding feature-test macros | |
+| [ ] | P2198R7 | Freestanding feature-test macros | Audited 2026-09-16 against R7: required freestanding FTM inventory and meta/operator-new detection remain open. |
 | [ ] | P2338R4 | Freestanding character primitives & C library | |
-| [ ] | P2013R5 | Freestanding optional `::operator new` | |
+| [ ] | P2013R5 | Freestanding optional `::operator new` | Audited 2026-09-16 against R5: core-language/runtime-platform contract, not a safe libc++-only gate; depends on P2198 detection. |
 | [ ] | P2407R5 | Freestanding partial classes | Optional completed; `variant` remains. |
-| [ ] | P2937R0 | Freestanding: remove `strtok` | |
-| [ ] | P2833R2 | Freestanding `expected`/`span` | `expected::value` now omitted; `out_ptr`/`inout_ptr` remain. |
-| [ ] | P2976R1 | Freestanding `algorithm`/`numeric`/`random` | |
+| [x] | P2937R0 | Freestanding: remove `strtok` | Complete 2026-09-16; `<cstring>` omits `std::strtok` under `_LIBCPP_FREESTANDING` and has negative requires-expression coverage. |
+| [ ] | P2833R2 | Freestanding `expected`/`span` | Partial. `span::at` and `expected::value` are gated and tested; `out_ptr`/`inout_ptr` remain open. |
+| [ ] | P2976R1 | Freestanding `algorithm`/`numeric`/`random` | Audited 2026-09-16 against R1; execution-policy/allocating algorithm exclusions, random subset gating, and execution/random FTMs remain open. |
 
 ### Tier 6 — Long tail (small, independent items)
 
@@ -3082,6 +3082,14 @@ tiers as makes sense.
   (`202311L`). `span::at` was already complete from the prior round;
   `out_ptr`/`inout_ptr` remain open because their shared-pointer exclusions
   require a separate audit.
+
+- **2026-09-16 (issues #23/#79)**: Re-read P2198R7, P2013R5, P2976R1,
+  P1642R11, and P2937R0. Confirmed P2937R0's prior `<cstring>` removal by
+  direct freestanding compilation. P2013R5 cannot be truthfully advertised
+  without target knowledge of default global allocation definitions. P2198R7
+  needs a broad FTM truthfulness inventory; P1642R11 needs a broad
+  utilities/ranges/iterators declaration inventory; P2976R1 needs a larger
+  random and execution-policy split. These remain explicitly open.
 
 - **2026-09-15 (issue #17, phases 1–6)**: Completed P3037R6. Audited the
   prior non-array landing, added constexpr support for shared_ptr/weak_ptr
