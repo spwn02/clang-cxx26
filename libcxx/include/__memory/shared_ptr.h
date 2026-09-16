@@ -886,31 +886,70 @@ private:
   };
 };
 
+#if _LIBCPP_STD_VER >= 26
+// Deleter used to pair with the raw (pointer, count) allocation done by
+// __allocate_shared_array_consteval below: destroys every (possibly nested)
+// array element via the allocator, then deallocates the storage. This
+// mirrors exactly what __bounded_array_control_block/
+// __unbounded_array_control_block's __on_zero_shared does for the runtime
+// path, just without the extra control-block indirection, which isn't
+// needed here since shared_ptr's (pointer, deleter) constructor already
+// creates its own control block for the reference count.
+template <class _Elem, class _Alloc>
+struct __consteval_array_deleter {
+  _LIBCPP_NO_UNIQUE_ADDRESS _Alloc __alloc_;
+  size_t __count_;
+
+  // shared_ptr always stores/hands the deleter a raw element_type*, even
+  // when the allocator's own pointer type is a fancy pointer -- reconstruct
+  // the allocator's pointer type via pointer_to before calling into
+  // allocator-based destroy/deallocate, which expect it.
+  _LIBCPP_HIDE_FROM_ABI constexpr void operator()(_Elem* __p) const {
+    _Alloc __value_alloc(__alloc_);
+    using _PointerTraits = pointer_traits<typename allocator_traits<_Alloc>::pointer>;
+    auto __fancy         = _PointerTraits::pointer_to(*__p);
+    std::__allocator_destroy_multidimensional(__value_alloc, __fancy, __fancy + __count_);
+    allocator_traits<_Alloc>::deallocate(__value_alloc, __fancy, __count_);
+  }
+};
+
+// Shared implementation for the consteval fast path of both
+// __allocate_shared_unbounded_array and __allocate_shared_bounded_array.
+// Reuses the same allocator-aware, exception-safe, already-constexpr
+// construction utilities the runtime control-block classes rely on
+// (__uninitialized_allocator_{fill_n,value_construct_n}_multidimensional),
+// instead of hand-rolling array-new plus element-wise assignment, which
+// both double-constructs every leaf element (once via value-initializing
+// array-new, once via the broadcast assignment) and uses assignment where
+// copy-construction is required -- observable for types whose behavior
+// differs between construction and assignment.
+template <class _Array, class _Alloc, class... _Arg>
+_LIBCPP_HIDE_FROM_ABI constexpr shared_ptr<_Array> __allocate_shared_array_consteval(
+    const _Alloc& __a, size_t __n, _Arg&&... __arg) {
+  using _Elem       = remove_extent_t<_Array>;
+  using _ValueAlloc = __allocator_traits_rebind_t<_Alloc, _Elem>;
+  _ValueAlloc __value_alloc(__a);
+  // Allocate/construct through the allocator's own (possibly fancy)
+  // pointer type, matching what the utilities below expect; shared_ptr
+  // itself always stores a raw pointer, so convert once construction is
+  // done (the deleter reconstructs the fancy pointer via pointer_to).
+  auto __fancy_result = allocator_traits<_ValueAlloc>::allocate(__value_alloc, __n);
+  if constexpr (sizeof...(_Arg) == 0)
+    std::__uninitialized_allocator_value_construct_n_multidimensional(__value_alloc, __fancy_result, __n);
+  else
+    std::__uninitialized_allocator_fill_n_multidimensional(__value_alloc, __fancy_result, __n, __arg...);
+  _Elem* __result = std::to_address(__fancy_result);
+  return shared_ptr<_Array>(__result, __consteval_array_deleter<_Elem, _ValueAlloc>{__value_alloc, __n});
+}
+#endif // _LIBCPP_STD_VER >= 26
+
 template <class _Array, class _Alloc, class... _Arg>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 shared_ptr<_Array>
 __allocate_shared_unbounded_array(const _Alloc& __a, size_t __n, _Arg&&... __arg) {
   static_assert(__is_unbounded_array_v<_Array>);
 #if _LIBCPP_STD_VER >= 26
   if consteval {
-    using _Elem = remove_extent_t<_Array>;
-    if constexpr (sizeof...(_Arg) == 0)
-      return shared_ptr<_Array>(new _Elem[__n](), default_delete<_Elem[]>());
-    else if constexpr (!is_array_v<_Elem>)
-      return shared_ptr<_Array>(new _Elem[__n](std::forward<_Arg>(__arg)...), default_delete<_Elem[]>());
-    else {
-      auto __result = new _Elem[__n]();
-      auto __copy   = [&]<class _Nested>(this auto&& __copy, auto* __dst, size_t __count, const _Nested& __src) constexpr {
-        if constexpr (is_array_v<_Nested>) {
-          for (size_t __i = 0; __i != __count; ++__i)
-            __copy(__dst[__i], extent_v<_Nested>, __src[__i]);
-        } else {
-          for (size_t __i = 0; __i != __count; ++__i)
-            __dst[__i] = __src;
-        }
-      };
-      (__copy(__result, __n, __arg), ...);
-      return shared_ptr<_Array>(__result, default_delete<_Elem[]>());
-    }
+    return std::__allocate_shared_array_consteval<_Array>(__a, __n, std::forward<_Arg>(__arg)...);
   }
 #endif
   // We compute the number of bytes necessary to hold the control block and the
@@ -993,26 +1032,7 @@ __allocate_shared_bounded_array(const _Alloc& __a, _Arg&&... __arg) {
   static_assert(__is_bounded_array_v<_Array>);
 #if _LIBCPP_STD_VER >= 26
   if consteval {
-    using _Elem = remove_extent_t<_Array>;
-    if constexpr (sizeof...(_Arg) == 0)
-      return shared_ptr<_Array>(new _Elem[extent<_Array>::value](), default_delete<_Elem[]>());
-    else if constexpr (!is_array_v<_Elem>)
-      return shared_ptr<_Array>(
-          new _Elem[extent<_Array>::value](std::forward<_Arg>(__arg)...), default_delete<_Elem[]>());
-    else {
-      auto __result = new _Elem[extent<_Array>::value]();
-      auto __copy   = [&]<class _Nested>(this auto&& __copy, auto* __dst, size_t __count, const _Nested& __src) constexpr {
-        if constexpr (is_array_v<_Nested>) {
-          for (size_t __i = 0; __i != __count; ++__i)
-            __copy(__dst[__i], extent_v<_Nested>, __src[__i]);
-        } else {
-          for (size_t __i = 0; __i != __count; ++__i)
-            __dst[__i] = __src;
-        }
-      };
-      (__copy(__result, extent_v<_Array>, __arg), ...);
-      return shared_ptr<_Array>(__result, default_delete<_Elem[]>());
-    }
+    return std::__allocate_shared_array_consteval<_Array>(__a, extent<_Array>::value, std::forward<_Arg>(__arg)...);
   }
 #endif
   using _ControlBlock      = __bounded_array_control_block<_Array, _Alloc>;
