@@ -13,6 +13,7 @@
 #include <__config>
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
+#include <__execution/get_allocator.h>
 #include <__execution/movable_value.h>
 #include <__execution/operation_state.h>
 #include <__execution/sender.h>
@@ -98,7 +99,8 @@ public:
 
   template <class _Rcvr>
   _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && -> __just_opstate<_Tag, remove_cvref_t<_Rcvr>, _Ts...> {
-    return __just_opstate<_Tag, remove_cvref_t<_Rcvr>, _Ts...>(std::forward<_Rcvr>(__rcvr), std::move(data));
+    return __just_opstate<_Tag, remove_cvref_t<_Rcvr>, _Ts...>(
+        std::forward<_Rcvr>(__rcvr), std::__allocator_aware_forward(std::move(data), __rcvr));
   }
 
   // Env-independent (just/just_error/just_stopped's completions never depend on the receiver's

@@ -140,7 +140,7 @@
 "`P2830R10 <https://wg21.link/P2830R10>`__","Standardized Constexpr Type Ordering","2025-06 (Sofia)","","","`#148152 <https://github.com/llvm/llvm-project/issues/148152>`__",""
 "`P3570R2 <https://wg21.link/P3570R2>`__","optional variants in sender/receiver","2025-06 (Sofia)","","","`#148153 <https://github.com/llvm/llvm-project/issues/148153>`__",""
 "`P3481R5 <https://wg21.link/P3481R5>`__","``std::execution::bulk()`` issues","2025-06 (Sofia)","","","`#148155 <https://github.com/llvm/llvm-project/issues/148155>`__",""
-"`P3433R1 <https://wg21.link/P3433R1>`__","Allocator Support for Operation States","2025-06 (Sofia)","","","`#148157 <https://github.com/llvm/llvm-project/issues/148157>`__",""
+"`P3433R1 <https://wg21.link/P3433R1>`__","Allocator Support for Operation States","2025-06 (Sofia)","|Complete|","","`#148157 <https://github.com/llvm/llvm-project/issues/148157>`__","Implemented 2026-09-16: allocator-aware-forward applied to hand-written just, then, and let operation-state construction; tuple elements are allocator-constructed individually."
 "`P3149R11 <https://wg21.link/P3149R11>`__","``async_scope`` - Creating scopes for non-sequential concurrency","2025-06 (Sofia)","","","`#148158 <https://github.com/llvm/llvm-project/issues/148158>`__",""
 "`P3682R0 <https://wg21.link/P3682R0>`__","Remove ``std::execution::split``","2025-06 (Sofia)","|Complete|","","`#148160 <https://github.com/llvm/llvm-project/issues/148160>`__","Vacuously satisfied: no execution-namespace ``split`` implementation or tests exist in ``libcxx/include`` or ``libcxx/test``."
 "`P2079R10 <https://wg21.link/P2079R10>`__","Parallel scheduler","2025-06 (Sofia)","","","`#148161 <https://github.com/llvm/llvm-project/issues/148161>`__",""

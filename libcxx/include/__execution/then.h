@@ -16,6 +16,7 @@
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
 #include <__execution/fwd_env.h>
+#include <__execution/get_allocator.h>
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
 #include <__execution/movable_value.h>
@@ -219,8 +220,10 @@ public:
 
   template <class _Rcvr>
   _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && {
-    return execution::connect(std::move(child), __then_rcvr<_Tag, _Fn, remove_cvref_t<_Rcvr>>(
-                                                      std::move(data), std::forward<_Rcvr>(__rcvr)));
+    return execution::connect(
+        std::move(child), __then_rcvr<_Tag, _Fn, remove_cvref_t<_Rcvr>>(
+                              std::__allocator_aware_forward(std::move(data), __rcvr),
+                              std::forward<_Rcvr>(__rcvr)));
   }
 
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
