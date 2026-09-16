@@ -18,6 +18,35 @@
 #include <unordered_map>
 #include <utility>
 
+// A hash that collapses every key into one of two buckets, forcing a real
+// multi-node collision chain -- unlike the default hash used below, where
+// small distinct keys mostly land in distinct buckets and the duplicate-key
+// lookup never has to walk past the first node in the chain.
+struct colliding_hash {
+  constexpr std::size_t operator()(int key) const { return static_cast<std::size_t>(key) % 2; }
+};
+
+constexpr bool test_unordered_map_collision_chain() {
+  std::unordered_map<int, int, colliding_hash> m;
+  m.reserve(2);
+  for (int i = 0; i < 8; i += 2) // 0, 2, 4, 6 -- all hash to bucket 0
+    m.emplace(i, i);
+  if (m.size() != 4)
+    return false;
+  // Duplicate-key emplace of a key that is NOT the first node in its bucket's
+  // chain: must still be detected as a duplicate, not silently inserted
+  // again (the goto-to-flag rewrite must walk the whole chain, not just the
+  // first node before breaking out of the loop).
+  if (m.emplace(6, -1).second || m.at(6) != 6)
+    return false;
+  if (m.emplace(0, -1).second || m.at(0) != 0)
+    return false;
+  if (m.size() != 4)
+    return false;
+  return true;
+}
+static_assert(test_unordered_map_collision_chain());
+
 constexpr bool test_unordered_map() {
   std::unordered_map<int, int> m;
   m.reserve(17); // non-power-of-two growth exercises constexpr __next_prime
