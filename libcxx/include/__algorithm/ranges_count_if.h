@@ -10,6 +10,7 @@
 #define _LIBCPP___ALGORITHM_RANGES_COUNT_IF_H
 
 #include <__algorithm/count_if.h>
+#include <__algorithm/pstl.h>
 #include <__algorithm/iterator_operations.h>
 #include <__config>
 #include <__functional/identity.h>
@@ -21,6 +22,9 @@
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__utility/move.h>
+#include <__utility/forward.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -51,6 +55,29 @@ struct __count_if {
   operator()(_Range&& __r, _Predicate __pred, _Proj __proj = {}) const {
     return std::__count_if<_RangeAlgPolicy>(ranges::begin(__r), ranges::end(__r), __pred, __proj);
   }
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+  template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
+            class _Proj = identity, indirect_unary_predicate<projected<_Iter, _Proj>> _Predicate,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI iter_difference_t<_Iter>
+  operator()(_Ep&& __exec, _Iter __first, _Sent __last, _Predicate __pred, _Proj __proj = {}) const {
+    _Iter __end = __first + (__last - __first);
+    return std::count_if(std::forward<_Ep>(__exec), std::move(__first), std::move(__end),
+                         [__pred = std::move(__pred), __proj = std::move(__proj)](auto&& __value) mutable {
+                           return std::invoke(__pred, std::invoke(__proj, std::forward<decltype(__value)>(__value)));
+                         });
+  }
+
+  template <class _Ep, random_access_range _Range, class _Proj = identity,
+            indirect_unary_predicate<projected<iterator_t<_Range>, _Proj>> _Predicate,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI range_difference_t<_Range>
+  operator()(_Ep&& __exec, _Range&& __range, _Predicate __pred, _Proj __proj = {}) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::end(__range), std::move(__pred), std::move(__proj));
+  }
+#  endif
 };
 
 inline namespace __cpo {
