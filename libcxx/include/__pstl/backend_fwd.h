@@ -271,6 +271,15 @@ struct __transform_binary;
 //                       _BinaryOperation __op) const noexcept;
 
 template <class _Backend, class _ExecutionPolicy>
+struct __copy_if;
+template <class _Backend, class _ExecutionPolicy>
+struct __stable_partition;
+template <class _Backend, class _ExecutionPolicy>
+struct __partition_copy;
+template <class _Backend, class _ExecutionPolicy>
+struct __search_n;
+
+template <class _Backend, class _ExecutionPolicy>
 struct __replace_copy_if;
 // template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Predicate, class _Tp>
 // optional<__empty>
