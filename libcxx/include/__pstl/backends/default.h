@@ -303,8 +303,9 @@ struct __search<__default_backend_tag, _ExecutionPolicy> {
           return false;
       return true;
     });
-    return !__res || *__res == __len1 - __len2 + 1 ? optional<_RandomAccessIterator1>{__last1}
-                                                   : optional<_RandomAccessIterator1>{__first1 + *__res};
+    if (!__res)
+      return nullopt;
+    return *__res == __len1 - __len2 + 1 ? __last1 : __first1 + *__res;
   }
 };
 
