@@ -243,7 +243,8 @@ struct __adjacent_find<__default_backend_tag, _ExecutionPolicy> {
                            });
     if (!__res)
       return nullopt;
-    return *__res == __last - __first - 1 ? __last : __first + *__res;
+    _Difference __i = **__res;
+    return __i == __last - __first - 1 ? __last : __first + __i;
   }
 };
 
@@ -270,7 +271,7 @@ struct __mismatch<__default_backend_tag, _ExecutionPolicy> {
                            });
     if (!__res)
       return nullopt;
-    auto __i = *__res;
+    _Difference1 __i = **__res;
     return pair<_RandomAccessIterator1, _RandomAccessIterator2>{__first1 + __i, __first2 + __i};
   }
 };
@@ -305,7 +306,8 @@ struct __search<__default_backend_tag, _ExecutionPolicy> {
     });
     if (!__res)
       return nullopt;
-    return *__res == __len1 - __len2 + 1 ? __last1 : __first1 + *__res;
+    _Difference __i = **__res;
+    return __i == __len1 - __len2 + 1 ? __last1 : __first1 + __i;
   }
 };
 
@@ -360,7 +362,8 @@ struct __find_end<__default_backend_tag, _ExecutionPolicy> {
                            });
     if (!__res)
       return nullopt;
-    return *__res == __len1 - __len2 + 1 ? __last1 : __first1 + (__len1 - __len2 - *__res);
+    _Difference __i = **__res;
+    return __i == __len1 - __len2 + 1 ? __last1 : __first1 + (__len1 - __len2 - __i);
   }
 };
 
