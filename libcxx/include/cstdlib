@@ -87,7 +87,6 @@ void *aligned_alloc(size_t alignment, size_t size);                       // C11
 #  include <__config>
 #  include <__cstddef/size_t.h>
 #  include <__math/abs.h>
-#  include <__type_traits/is_constant_evaluated.h>
 
 #  include <stdlib.h>
 
@@ -134,23 +133,11 @@ using ::system _LIBCPP_USING_IF_EXISTS;
 using ::bsearch _LIBCPP_USING_IF_EXISTS;
 using ::qsort _LIBCPP_USING_IF_EXISTS;
 #  if _LIBCPP_STD_VER >= 23
-// Keep the floating overloads made visible by the C library, while routing the
-// standard integral overloads through __math during constant evaluation.
-_LIBCPP_HIDE_FROM_ABI inline float abs(float __j) _NOEXCEPT { return ::abs(__j); }
-_LIBCPP_HIDE_FROM_ABI inline double abs(double __j) _NOEXCEPT { return ::abs(__j); }
-_LIBCPP_HIDE_FROM_ABI inline long double abs(long double __j) _NOEXCEPT { return ::abs(__j); }
-
-_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 int abs(int __j) _NOEXCEPT {
-  return __libcpp_is_constant_evaluated() ? __math::abs(__j) : ::abs(__j);
-}
-
-_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 long abs(long __j) _NOEXCEPT {
-  return __libcpp_is_constant_evaluated() ? __math::abs(__j) : ::abs(__j);
-}
-
-_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 long long abs(long long __j) _NOEXCEPT {
-  return __libcpp_is_constant_evaluated() ? __math::abs(__j) : ::abs(__j);
-}
+// Route through the same __math::abs overload set <cmath> uses (rather than
+// hand-rolled forwarding wrappers around the C library's ::abs), so both
+// headers name the identical entities when included together -- separate
+// declarations of the same signature would otherwise conflict.
+using __math::abs;
 #  else
 using ::abs _LIBCPP_USING_IF_EXISTS;
 #  endif
