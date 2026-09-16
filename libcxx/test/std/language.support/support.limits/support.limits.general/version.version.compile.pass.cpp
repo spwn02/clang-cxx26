@@ -7711,43 +7711,25 @@
 #    endif
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_array
-#      error "__cpp_lib_freestanding_array should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_array != 202311L
-#      error "__cpp_lib_freestanding_array should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_array
-#      error "__cpp_lib_freestanding_array should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_array
+#    error "__cpp_lib_freestanding_array should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_array != 202311L
+#    error "__cpp_lib_freestanding_array should have the value 202311L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_cstring
-#      error "__cpp_lib_freestanding_cstring should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_cstring != 202306L
-#      error "__cpp_lib_freestanding_cstring should have the value 202306L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_cstring
-#      error "__cpp_lib_freestanding_cstring should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_cstring
+#    error "__cpp_lib_freestanding_cstring should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_cstring != 202311L
+#    error "__cpp_lib_freestanding_cstring should have the value 202311L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_expected
-#      error "__cpp_lib_freestanding_expected should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_expected != 202311L
-#      error "__cpp_lib_freestanding_expected should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_expected
-#      error "__cpp_lib_freestanding_expected should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_expected
+#    error "__cpp_lib_freestanding_expected should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_expected != 202311L
+#    error "__cpp_lib_freestanding_expected should have the value 202311L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_mdspan
@@ -7757,30 +7739,18 @@
 #    error "__cpp_lib_freestanding_mdspan should have the value 202311L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_optional
-#      error "__cpp_lib_freestanding_optional should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_optional != 202311L
-#      error "__cpp_lib_freestanding_optional should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_optional
-#      error "__cpp_lib_freestanding_optional should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_optional
+#    error "__cpp_lib_freestanding_optional should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_optional != 202311L
+#    error "__cpp_lib_freestanding_optional should have the value 202311L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_string_view
-#      error "__cpp_lib_freestanding_string_view should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_string_view != 202311L
-#      error "__cpp_lib_freestanding_string_view should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_string_view
-#      error "__cpp_lib_freestanding_string_view should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_string_view
+#    error "__cpp_lib_freestanding_string_view should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_string_view != 202311L
+#    error "__cpp_lib_freestanding_string_view should have the value 202311L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)
@@ -8972,8 +8942,8 @@
 #  ifndef __cpp_lib_span
 #    error "__cpp_lib_span should be defined in c++26"
 #  endif
-#  if __cpp_lib_span != 202002L
-#    error "__cpp_lib_span should have the value 202002L in c++26"
+#  if __cpp_lib_span != 202311L
+#    error "__cpp_lib_span should have the value 202311L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_span_at

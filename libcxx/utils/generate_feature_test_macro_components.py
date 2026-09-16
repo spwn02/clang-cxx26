@@ -661,16 +661,13 @@ feature_test_macros = [
                 "c++26": 202311  # P2407R5 Freestanding Library: Partial Classes
             },
             "headers": ["array"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_freestanding_cstring",
             "values": {
-                "c++26": 202306  # P2338R4 Freestanding Library: Character primitives and the C library
-                #        202311  # P2407R5 Freestanding Library: Partial Classes
+                "c++26": 202311  # P2937R0 Freestanding: Remove strtok
             },
             "headers": ["cstring"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_freestanding_expected",
@@ -678,7 +675,6 @@ feature_test_macros = [
                 "c++26": 202311  # P2833R2 Freestanding Library: inout expected span
             },
             "headers": ["expected"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_freestanding_mdspan",
@@ -693,7 +689,6 @@ feature_test_macros = [
                 "c++26": 202311  # P2407R5 Freestanding Library: Partial Classes
             },
             "headers": ["optional"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_freestanding_string_view",
@@ -701,7 +696,6 @@ feature_test_macros = [
                 "c++26": 202311  # P2407R5 Freestanding Library: Partial Classes
             },
             "headers": ["string_view"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_freestanding_variant",
@@ -1520,8 +1514,7 @@ feature_test_macros = [
             "name": "__cpp_lib_span",
             "values": {
                 "c++20": 202002,
-                # "c++26": 202311,  # P2821R5 span.at()
-                #          202311   # P2833R2 Freestanding Library: inout expected span
+                "c++26": 202311,  # P2833R2 Freestanding Library: inout expected span
             },
             "headers": ["span"],
         },

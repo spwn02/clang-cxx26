@@ -283,6 +283,7 @@ struct array {
     return __elems_[__n];
   }
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX17 reference at(size_type __n) {
     if (__n >= _Size)
       std::__throw_out_of_range("array::at");
@@ -294,6 +295,7 @@ struct array {
       std::__throw_out_of_range("array::at");
     return __elems_[__n];
   }
+#  endif
 
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX17 reference front() _NOEXCEPT {
     return (*this)[0];
@@ -436,6 +438,7 @@ struct array<_Tp, 0> {
     __libcpp_unreachable();
   }
 
+#  if !defined(_LIBCPP_FREESTANDING)
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX17 reference at(size_type) {
     std::__throw_out_of_range("array<T, 0>::at");
     __libcpp_unreachable();
@@ -445,6 +448,7 @@ struct array<_Tp, 0> {
     std::__throw_out_of_range("array<T, 0>::at");
     __libcpp_unreachable();
   }
+#  endif
 
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX17 reference front() _NOEXCEPT {
     _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(false, "cannot call array<T, 0>::front() on a zero-sized array");

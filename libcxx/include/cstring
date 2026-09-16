@@ -88,8 +88,10 @@ using ::strncat _LIBCPP_USING_IF_EXISTS;
 using ::memcmp _LIBCPP_USING_IF_EXISTS;
 using ::strcmp _LIBCPP_USING_IF_EXISTS;
 using ::strncmp _LIBCPP_USING_IF_EXISTS;
+#  if !defined(_LIBCPP_FREESTANDING)
 using ::strcoll _LIBCPP_USING_IF_EXISTS;
 using ::strxfrm _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::memchr _LIBCPP_USING_IF_EXISTS;
 using ::strchr _LIBCPP_USING_IF_EXISTS;
 using ::strcspn _LIBCPP_USING_IF_EXISTS;
@@ -97,9 +99,13 @@ using ::strpbrk _LIBCPP_USING_IF_EXISTS;
 using ::strrchr _LIBCPP_USING_IF_EXISTS;
 using ::strspn _LIBCPP_USING_IF_EXISTS;
 using ::strstr _LIBCPP_USING_IF_EXISTS;
+#  if !defined(_LIBCPP_FREESTANDING)
 using ::strtok _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::memset _LIBCPP_USING_IF_EXISTS;
+#  if !defined(_LIBCPP_FREESTANDING)
 using ::strerror _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::strlen _LIBCPP_USING_IF_EXISTS;
 
 _LIBCPP_END_NAMESPACE_STD

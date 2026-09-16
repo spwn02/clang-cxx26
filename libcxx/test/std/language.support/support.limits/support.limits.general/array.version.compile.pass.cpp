@@ -161,17 +161,11 @@
 #    error "__cpp_lib_array_constexpr should have the value 201811L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_array
-#      error "__cpp_lib_freestanding_array should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_array != 202311L
-#      error "__cpp_lib_freestanding_array should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_array
-#      error "__cpp_lib_freestanding_array should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_array
+#    error "__cpp_lib_freestanding_array should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_array != 202311L
+#    error "__cpp_lib_freestanding_array should have the value 202311L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE

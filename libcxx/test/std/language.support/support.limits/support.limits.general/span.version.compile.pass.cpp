@@ -132,8 +132,8 @@
 #  ifndef __cpp_lib_span
 #    error "__cpp_lib_span should be defined in c++26"
 #  endif
-#  if __cpp_lib_span != 202002L
-#    error "__cpp_lib_span should have the value 202002L in c++26"
+#  if __cpp_lib_span != 202311L
+#    error "__cpp_lib_span should have the value 202311L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_span_at

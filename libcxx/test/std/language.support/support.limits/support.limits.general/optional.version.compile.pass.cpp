@@ -146,17 +146,11 @@
 #    error "__cpp_lib_constrained_equality should have the value 202411L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_optional
-#      error "__cpp_lib_freestanding_optional should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_optional != 202311L
-#      error "__cpp_lib_freestanding_optional should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_optional
-#      error "__cpp_lib_freestanding_optional should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_optional
+#    error "__cpp_lib_freestanding_optional should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_optional != 202311L
+#    error "__cpp_lib_freestanding_optional should have the value 202311L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
