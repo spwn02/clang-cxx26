@@ -1109,15 +1109,36 @@ them a keyword-level fix:
 
 1. **`std::hash`'s scalar specializations use union type-punning and
    `memcpy`-based byte loading (`__loadword`), neither constant-evaluable.**
-   Fixed the *safe* subset only: `hash<T>` for `T` integral and no larger
-   than `size_t` (`__functional/hash.h:372`, body is a plain
+   Originally fixed the *safe* subset only: `hash<T>` for `T` integral and
+   no larger than `size_t` (`__functional/hash.h:372`, body is a plain
    `static_cast<size_t>`), the `is_enum` forwarding case (`:361`), and
-   `hash<nullptr_t>` (`:438`, returns a literal). Left untouched:
-   `__scalar_hash<T, 0..4>`, `hash<T*>`, floating-point and `long double`
-   hashing, oversized-integral hashing — all route through `__loadword`'s
-   `memcpy` or read a union member they didn't write. Same shape as
-   `sqrt`/`pow` staying out of P1383R2: no correctness-safe primitive to
-   call, not fixable by adding `constexpr`.
+   `hash<nullptr_t>` (`:438`, returns a literal).
+
+   **2026-09-16, issue #9(a): `__scalar_hash<T, 0..4>` (backing
+   `hash<float>`/`hash<double>`/`hash<long double>`/oversized-integral
+   `hash<T>`) now also constexpr-usable.** The runtime union/memcpy path
+   can't run during constant evaluation, but a compile-time-built container
+   can never escape its own evaluation (allocations can't survive to
+   runtime), so the compile-time hash only needs to be self-consistent
+   *within one evaluation* — it does not need to reproduce the runtime
+   murmur2/cityhash bit pattern. Added an `if consteval` branch
+   (`__constexpr_scalar_hash`) that `__builtin_bit_cast`s the value to a
+   same-size byte array and folds the bytes, which is constexpr-legal where
+   the union/memcpy punning isn't. One real trap found along the way:
+   `long double` has genuine ABI-specific padding bytes on several targets
+   (e.g. the 80-bit x87 value in a 12- or 16-byte object) whose value is
+   indeterminate — bit-casting and then reading those bytes is illegal
+   during constant evaluation ("read of uninitialized object"), caught by a
+   standalone test before merging. `hash<long double>`'s consteval path
+   instead converts to `double` first (a well-defined value conversion,
+   no object-representation bits touched) rather than folding the padded
+   representation.
+
+   Left as documented, deliberate non-fixes: `hash<T*>` (a pointer's
+   numeric value isn't a compile-time concept at all — reinterpreting a
+   pointer as an integer is unconditionally disallowed in constant
+   evaluation, unlike the union punning worked around above; not a
+   P3372R3 requirement).
 2. **`std::allocator<T>::allocate` followed by raw assignment does not
    start object lifetime in this compiler's constant evaluator, even for
    implicit-lifetime types like raw pointers** — confirmed as a general,

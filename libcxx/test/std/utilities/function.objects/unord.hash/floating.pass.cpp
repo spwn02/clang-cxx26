@@ -78,6 +78,28 @@ test()
     assert(pinf != ninf);
 }
 
+#if TEST_STD_VER >= 26
+// hash<T> for floating-point T is constexpr-usable since C++26 (the runtime path's
+// union-based type punning isn't valid in a constant expression, so the consteval branch
+// takes a different, self-consistent-within-one-evaluation route -- see __functional/hash.h).
+template <class T>
+constexpr bool test_constexpr() {
+  std::hash<T> h;
+  if (h(T(0)) != 0)
+    return false;
+  if (h(T(0)) != h(-T(0))) // -0.0 and 0.0 must still hash the same at compile time
+    return false;
+  if (h(static_cast<T>(1.5)) != h(static_cast<T>(1.5)))
+    return false;
+  if (h(static_cast<T>(1.5)) == h(static_cast<T>(2.5)))
+    return false;
+  return true;
+}
+static_assert(test_constexpr<float>());
+static_assert(test_constexpr<double>());
+static_assert(test_constexpr<long double>());
+#endif // TEST_STD_VER >= 26
+
 int main(int, char**)
 {
     test<float>();
