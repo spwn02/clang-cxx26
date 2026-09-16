@@ -3047,7 +3047,7 @@ cpp`, five `SemaCXX/*` files — present both before and after).
 | [x] | P3383R3 | `mdspan.at()` | Complete 2026-09-14 — throwing bounds-checked accessor reuses existing index validation |
 | [x] | P3663R3 | Future-proof `submdspan_mapping` | Complete 2026-09-14 — canonicalize slices before customization-point dispatch |
 | [ ] | P3774R1 | Rename `std::nontype`, make it broadly useful | Untriaged until 2026-09-05. Kona 2025-11. Touches P2714R1/`function_ref` territory |
-| [ ] | P2830R10 | Standardized constexpr type ordering | Untriaged until 2026-09-05. Sofia 2025-06. **Do together with P3778R0** ("Fix for `type_order` template definition", Kona 2025-11) — P3778R0 is a fix to this paper's own wording, not separable |
+| [x] | P2830R10 | Standardized constexpr type ordering | Complete 2026-09-16 — added `<compare>` `std::type_order`/`type_order_v`, FTM, module export, and compile-time API coverage; includes P3778R0's explicit trait definition and incomplete-type semantics |
 | [~] | P2079R10 | Parallel scheduler | Pass 1+2 complete 2026-09-17: `parallel_scheduler`/`get_parallel_scheduler()`/`schedule()` (a real fixed worker-thread pool), plus `bulk_chunked`'s completion-scheduler probe/dispatch across workers (`bulk()` becomes parallel for free; `bulk_unchunked` deliberately not yet customized) — see docs/design/parallel_scheduler_p2079.md. Caught and fixed a genuine pre-existing `run_loop.h` notify-outside-lock race via ThreadSanitizer (the first real multi-threaded exercise of `run_loop` in this fork). Pass 3 (`system_context_replaceability` ABI) remains deferred — tracked as issue #115 |
 
 ### Tier 7 — `std::simd` (audit-and-finish, not greenfield)
@@ -7444,6 +7444,11 @@ blocked, what's next. Do not remove old entries.
   direct compile-and-run type tests for all four adaptors. Optional range
   support was already present; full lit validation remains for external
   execution because this sandbox cannot bind the libc++ lit forkserver socket.
+- **2026-09-16 (issue #35)**: Completed P2830R10 and bundled P3778R0. Added
+  `<compare>` `std::type_order` and `std::type_order_v` backed by Clang's
+  `__builtin_type_order`, with P3778R0's explicit `strong_ordering` trait body,
+  incomplete-type support, feature-test macro, module export, and compile-time
+  tests. Updated libc++ status CSVs and generated feature-test artifacts.
 - **2026-09-16 (issue #7, sub-gap 4 only)**: Routed integral `std::abs` from
   `<cstdlib>` through constexpr-dispatching wrappers: constant evaluation uses
   `std::__math::abs`, and runtime evaluation retains the C-library overloads.

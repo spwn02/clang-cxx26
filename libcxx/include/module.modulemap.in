@@ -1936,6 +1936,10 @@ module std [system] {
       header "__compare/three_way_comparable.h"
       export *
     }
+    module type_order {
+      header "__compare/type_order.h"
+      export *
+    }
     module weak_order {
       header "__compare/weak_order.h"
       export *
