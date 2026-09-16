@@ -712,7 +712,7 @@ class __assoc_state_alloc : public __assoc_state<_Rp> {
   typedef __assoc_state<_Rp> base;
   _Alloc __alloc_;
 
-  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __on_zero_shared() _NOEXCEPT;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __on_zero_shared() _NOEXCEPT override;
 
 public:
   _LIBCPP_HIDE_FROM_ABI explicit __assoc_state_alloc(const _Alloc& __a) : __alloc_(__a) {}
@@ -743,7 +743,7 @@ class __assoc_state_alloc<_Rp&, _Alloc> : public __assoc_state<_Rp&> {
   typedef __assoc_state<_Rp&> base;
   _Alloc __alloc_;
 
-  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __on_zero_shared() _NOEXCEPT;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __on_zero_shared() _NOEXCEPT override;
 
 public:
   _LIBCPP_HIDE_FROM_ABI explicit __assoc_state_alloc(const _Alloc& __a) : __alloc_(__a) {}
