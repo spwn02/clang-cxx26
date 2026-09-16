@@ -150,6 +150,18 @@ struct __is_heap;
 
 template <class _Backend, class _ExecutionPolicy>
 struct __is_heap_until;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __min_element;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __max_element;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __minmax_element;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __lexicographical_compare;
 // template <class _Policy, class _ForwardIterator, class _Predicate>
 // optional<bool>
 // operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Predicate __pred) const noexcept;

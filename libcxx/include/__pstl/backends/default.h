@@ -20,6 +20,10 @@
 #include <__algorithm/rotate.h>
 #include <__algorithm/is_heap.h>
 #include <__algorithm/is_heap_until.h>
+#include <__algorithm/lexicographical_compare.h>
+#include <__algorithm/max_element.h>
+#include <__algorithm/min_element.h>
+#include <__algorithm/minmax_element.h>
 #include <__algorithm/set_difference.h>
 #include <__algorithm/set_intersection.h>
 #include <__algorithm/set_symmetric_difference.h>
@@ -658,6 +662,49 @@ struct __is_heap_until<__default_backend_tag, _ExecutionPolicy> {
   _LIBCPP_HIDE_FROM_ABI optional<_RandomAccessIterator> operator()(
       _Policy&&, _RandomAccessIterator __first, _RandomAccessIterator __last, _Compare&& __comp) const noexcept {
     return std::is_heap_until(std::move(__first), std::move(__last), std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __min_element<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator> operator()(
+      _Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Compare&& __comp) const noexcept {
+    return std::min_element(std::move(__first), std::move(__last), std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __max_element<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator> operator()(
+      _Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Compare&& __comp) const noexcept {
+    return std::max_element(std::move(__first), std::move(__last), std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __minmax_element<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<pair<_ForwardIterator, _ForwardIterator>> operator()(
+      _Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Compare&& __comp) const noexcept {
+    return std::minmax_element(std::move(__first), std::move(__last), std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __lexicographical_compare<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator1, class _ForwardIterator2, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<bool> operator()(
+      _Policy&&,
+      _ForwardIterator1 __first1,
+      _ForwardIterator1 __last1,
+      _ForwardIterator2 __first2,
+      _ForwardIterator2 __last2,
+      _Compare&& __comp) const noexcept {
+    return std::lexicographical_compare(
+        std::move(__first1), std::move(__last1), std::move(__first2), std::move(__last2),
+        std::forward<_Compare>(__comp));
   }
 };
 
