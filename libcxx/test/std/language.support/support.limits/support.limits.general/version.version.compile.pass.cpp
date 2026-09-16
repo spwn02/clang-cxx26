@@ -7711,17 +7711,11 @@
 #    endif
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_array
-#      error "__cpp_lib_freestanding_array should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_array != 202311L
-#      error "__cpp_lib_freestanding_array should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_array
-#      error "__cpp_lib_freestanding_array should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_array
+#    error "__cpp_lib_freestanding_array should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_array != 202311L
+#    error "__cpp_lib_freestanding_array should have the value 202311L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_cstring
@@ -8966,8 +8960,8 @@
 #  ifndef __cpp_lib_span
 #    error "__cpp_lib_span should be defined in c++26"
 #  endif
-#  if __cpp_lib_span != 202002L
-#    error "__cpp_lib_span should have the value 202002L in c++26"
+#  if __cpp_lib_span != 202311L
+#    error "__cpp_lib_span should have the value 202311L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_span_at

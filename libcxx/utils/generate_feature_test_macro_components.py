@@ -661,7 +661,6 @@ feature_test_macros = [
                 "c++26": 202311  # P2407R5 Freestanding Library: Partial Classes
             },
             "headers": ["array"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_freestanding_cstring",
@@ -1519,8 +1518,7 @@ feature_test_macros = [
             "name": "__cpp_lib_span",
             "values": {
                 "c++20": 202002,
-                # "c++26": 202311,  # P2821R5 span.at()
-                #          202311   # P2833R2 Freestanding Library: inout expected span
+                "c++26": 202311,  # P2833R2 Freestanding Library: inout expected span
             },
             "headers": ["span"],
         },
