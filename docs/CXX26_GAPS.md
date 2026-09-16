@@ -2474,7 +2474,7 @@ back to `to_input` based on the paper title alone.
 | [x] | P2845R8 | `std::filesystem::path` formatting | Complete 2026-08-22 — new `formatter<path, charT>` in `__filesystem/path_format.h`, path-format-spec grammar (fill-and-align, width, `?`, `g`) |
 | [ ] | P3235R3 | `std::print` faster/leaner for more types | Assessed 2026-08-22, same redesign as P3107R5 above, bundle with it |
 | [x] | P3391R2 | `constexpr` `std::format` | **Complete 2026-09-14** — added the separate `__cpp_lib_constexpr_format` FTM (`202511L`) and constexpr-enabled the format parser, type-erased arguments, buffers, entry points, and in-scope builtin formatters. Added a compile-time end-to-end test covering bool, char, integral, string, and tuple formatting. Floating-point, all chrono formatting, locale-specific formatting, and `stacktrace_entry`/`filesystem::path`/`thread::id`/`void const*` remain explicitly out of scope per P3391R2; see `docs/p3391r2-constexpr-format-design.md` |
-| [ ] | P3037R6 | `constexpr` `std::shared_ptr` and friends | Untriaged until 2026-09-05. Sofia 2025-06 |
+| [x] | P3037R6 | `constexpr` `std::shared_ptr` and friends | Complete 2026-09-15 — constexpr-enabled non-array and array shared_ptr factories/operations, full weak_ptr ownership/lock surface, comparisons/casts/get_deleter, and enable_shared_from_this; FTM was already 202506L. See `docs/P3037R6_CONSTEXPR_SHARED_PTR.md` |
 | [x] | P3913R1 | Optimize `std::optional` in range adaptors | Complete 2026-09-15 — added optional expression-equivalence dispatch to `views::take`, `views::drop`, `views::as_const`, and `views::reverse`, with direct-type tests under experimental optional range support |
 | [ ] | P3612R1 | Harmonize proxy-reference operations (LWG 3638, 4187) | Untriaged until 2026-09-05. Kona 2025-11 |
 | [ ] | P3709R2 | Reconsider parallel `ranges::rotate_copy` / `reverse_copy` | Untriaged until 2026-09-05. Pairs with P3179R9 (Tier 2) |
@@ -3064,6 +3064,17 @@ tiers as makes sense.
 | [ ] | P2590R2 | Explicit lifetime management | Added 2026-09-05. `std::start_lifetime_as` — has a library component too |
 
 ## Session Log
+
+- **2026-09-15 (issue #17, phases 1–6)**: Completed P3037R6. Audited the
+  prior non-array landing, added constexpr support for shared_ptr/weak_ptr
+  ownership and observers, array factories, comparisons/casts, and
+  enable_shared_from_this. Added consteval end-to-end tests for direct
+  construction, copying, moving, assignment, reset, weak lock/expiry,
+  make_shared, and bounded/unbounded arrays. The existing
+  `__cpp_lib_constexpr_memory` value (`202506L`) was already correct. The
+  sandbox compile required pre-including the system `<string.h>` to avoid its
+  known libc++ `using_if_exists`/`memcpy` diagnostic; direct compile and run
+  then passed. Full lit suites remain for external final validation.
 
 - **2026-09-14 (issue #16, phases 2–7)**: Completed P3391R2. Made the
   parser, format pipeline, type-erased argument machinery, allocating and
