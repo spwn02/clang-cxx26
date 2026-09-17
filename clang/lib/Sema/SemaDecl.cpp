@@ -13191,10 +13191,30 @@ namespace {
         return;
       }
 
-      S.DiagRuntimeBehavior(DRE->getBeginLoc(), DRE,
-                            S.PDiag(diag)
-                                << DRE->getDecl() << OrigDecl->getLocation()
-                                << DRE->getSourceRange());
+      PartialDiagnostic PD = S.PDiag(diag)
+          << DRE->getDecl() << OrigDecl->getLocation()
+          << DRE->getSourceRange();
+
+      // DiagRuntimeBehavior silently drops any diagnostic whenever the
+      // current context is ImmediateFunctionContext, on the assumption that
+      // constant evaluation will already produce the relevant diagnostic.
+      // That assumption is false here: constant evaluation never produces
+      // warn_uninit_self_reference_in_reference_init (it only reports the
+      // generic "not a constant expression" error/notes), and this
+      // reference-init case has no CFG-analysis fallback the way the
+      // non-reference "Local variables" branch above does -- so when the
+      // context is ImmediateFunctionContext purely because
+      // ActOnCXXEnterDeclInitializer synthesized it around a C++23+
+      // constexpr/constinit variable's own initializer (see
+      // IsSynthesizedConstexprVarInitContext's doc comment), rather than a
+      // genuine consteval function body, this diagnostic must still fire or
+      // it's lost for good (only reproducible in C++23 mode; C++20/C++11
+      // never install this synthesized push and always warn correctly).
+      if (isReferenceType &&
+          S.currentEvaluationContext().IsSynthesizedConstexprVarInitContext)
+        S.DiagIfReachable(DRE->getBeginLoc(), DRE, PD);
+      else
+        S.DiagRuntimeBehavior(DRE->getBeginLoc(), DRE, PD);
     }
   };
 
