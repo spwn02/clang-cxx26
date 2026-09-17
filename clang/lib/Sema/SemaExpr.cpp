@@ -18872,6 +18872,56 @@ static void RemoveNestedImmediateInvocation(
 // attempting again -- this shares its NSDMI shape with the still-open
 // builtin-is-within-lifetime.cpp gap above, so investigate both together
 // rather than patching this call site in isolation.
+//
+// Issue #103 Attempt 2 (2026-09-18, not committed, reverted): tried the
+// "new context state" direction Attempt 1 called for. Hypothesis: only
+// clear InImmediateEscalatingFunctionContext on this rebuild's pushed
+// Record when the *immediately enclosing function being defined* is NOT
+// itself a constructor of the exact class that owns the field (i.e.
+// dyn_cast<CXXConstructorDecl>(getCurFunctionDecl())->getParent() !=
+// Field->getParent()) -- the idea being that a field whose NSDMI is used
+// as *that constructor's own, direct* member-initialization should keep
+// escalating (matching DefaultedUse/UserDefinedConstructors, where
+// Field->getParent() == the enclosing constructor's class), while a field
+// belonging to a *different* class reached via a nested subobject/base
+// aggregate-init inside that constructor (matching GH66324: Field is
+// _Vector_base::b, but the enclosing constructor being defined is
+// vector<T>::vector(), a different class) is CWG2631's own independent
+// "aggregate initialization" checkpoint and must not inherit.
+//
+// Traced empirically (instrumented build) and confirmed the classification
+// itself is right where it was checked: for GH66324, getCurFunctionDecl()
+// resolves to vector's constructor (not _Vector_base's), so
+// Field->getParent() (_Vector_base) correctly compares unequal and the
+// rebuild is correctly flagged as independent. But this call site is
+// reached *twice* for GH66324 -- once while checking the still-dependent
+// class-template *pattern* vector<T>::vector() (getCurFunctionDecl()
+// reports the pattern, name "vector<type-parameter-0-0>"), and again for
+// the real instantiation vector<void>::vector() once v{} triggers it --
+// and clearing the flag on *both* passes makes each one independently
+// emit the full "call to consteval function 'allocate' is not a constant
+// expression" error, so the target diagnostic appears twice where the
+// test's -verify annotations expect it exactly once (they do expect the
+// *notes* -- undefined-function and declared-here -- twice, matching the
+// two passes, but only one copy of the top-level error). Broader run
+// against the whole file surfaces the same over-firing on aggregate::test
+// and Aggregate::immediate's own analogous NSDMI-through-aggregate-init
+// cases, which regressed in the other direction from Attempt 1 (this
+// heuristic fires the independent path for them too, but their expected
+// output wants only the escalation notes, no independent error) --
+// suggesting the per-class comparison is on the right axis but the
+// pattern-vs-instantiation duplication and at least one more
+// discriminating dimension (why aggregate::test/Aggregate::immediate
+// still want pure escalation despite also reaching the field through a
+// nested aggregate-init) remain unresolved. Reverted; no working fix
+// committed. Per this project's standing discipline (matching issue #1's
+// "seven attempts, stop and reassess" history), this is the point to stop
+// iterating single-attempt variants on this call site and treat #103 as
+// needing a dedicated design session -- likely starting from an accurate,
+// exhaustive enumeration of every NSDMI-rebuild case in this test file and
+// its expected diagnostic shape (escalation-only vs. independent-plus-
+// escalation vs. independent-only) before writing any code, rather than
+// pattern-matching from the two cases inspected so far.
 static void
 HandleImmediateInvocations(Sema &SemaRef,
                            Sema::ExpressionEvaluationContextRecord &Rec) {
