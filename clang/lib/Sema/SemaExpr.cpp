@@ -18828,6 +18828,50 @@ static void RemoveNestedImmediateInvocation(
 //     issue, #103 -- notably it shares its NSDMI shape with this comment's
 //     own still-open builtin-is-within-lifetime.cpp gap above, so a future
 //     fix attempt should investigate both together.
+//
+// Issue #103 Attempt 1 (2026-09-17, not committed, reverted): traced the
+// GH66324 case with instrumented builds. Confirmed the exact mechanism:
+// BuildCXXDefaultInitExpr's EnsureImmediateInvocationInDefaultArgs rebuild
+// (SemaExpr.cpp, ~line 5792) pushes a fresh ExpressionEvaluationContext via
+// the general EnterExpressionEvaluationContext overload, which copies
+// InImmediateEscalatingFunctionContext from the *parent* context
+// (PushExpressionEvaluationContext's `Prev.InImmediateEscalatingFunctionContext`
+// assignment). When the enclosing function using the NSDMI (e.g. vector()'s
+// constructor) is itself immediate-escalating, that flag is already true, so
+// CheckForImmediateInvocation's escalation branch
+// (ExprEvalContexts.back().InImmediateEscalatingFunctionContext check, above)
+// fires *again* for the NSDMI's own immediate call and silently
+// re-escalates the outer function via MarkExpressionAsImmediateEscalating,
+// instead of falling through to register an independent
+// ImmediateInvocationCandidate for the NSDMI call itself. That's why
+// GH66324 gets vector()'s own escalation chain but never the standalone
+// "call to consteval function 'allocate' is not a constant expression"
+// error plus its own pair of undefined-function/declared-here notes that
+// cxx2b-consteval-propagate.cpp expects.
+//
+// Tried: clearing InImmediateEscalatingFunctionContext to false on the
+// Record pushed by this rebuild (treating the rebuild as its own
+// independent CWG2631 check point, distinct from whatever escalating
+// function triggered it). This does make GH66324 emit the missing
+// independent error. But InImmediateEscalatingFunctionContext is load-
+// bearing for *other* passing cases in the same test file that go through
+// this identical rebuild path -- DefaultedUse, UserDefinedConstructors,
+// AggregateInit, and the immediate<int> aggregate case all regressed: they
+// need the NSDMI's immediate call to escalate the *outer* function (their
+// expected diagnostics are the escalation-chain notes: "is an immediate
+// function/constructor because its default initializer contains a call
+// to...", "in the default initializer of 'x'", "declared here"), not an
+// independent top-level error. A blanket clear breaks those to fix GH66324;
+// a blanket inherit breaks GH66324 to keep those. The two families are
+// currently indistinguishable at this call site by any state already
+// tracked on ExpressionEvaluationContextRecord -- distinguishing them
+// needs either new context state describing *why* the NSDMI is being
+// rebuilt (first-definition-time check vs. later point-of-use recheck per
+// CWG2631) or a different fix location entirely. Reverted; no working fix
+// committed. See docs/design/ (or a future issue #103 comment) before
+// attempting again -- this shares its NSDMI shape with the still-open
+// builtin-is-within-lifetime.cpp gap above, so investigate both together
+// rather than patching this call site in isolation.
 static void
 HandleImmediateInvocations(Sema &SemaRef,
                            Sema::ExpressionEvaluationContextRecord &Rec) {
