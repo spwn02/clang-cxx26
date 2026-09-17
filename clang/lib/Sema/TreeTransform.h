@@ -4680,15 +4680,27 @@ Sema::ConditionResult TreeTransform<Derived>::TransformCondition(
   }
 
   if (Expr) {
-    ExprResult CondExpr;
-    if (Kind == Sema::ConditionKind::ConstexprIf) {
-      EnterExpressionEvaluationContext Context(
-            getSema(),
-            Sema::ExpressionEvaluationContext::ImmediateFunctionContext);
-      CondExpr = getDerived().TransformExpr(Expr);
-    } else {
-      CondExpr = getDerived().TransformExpr(Expr);
-    }
+    // Note: an `if constexpr` condition does NOT need (and must not get) its
+    // own nested ImmediateFunctionContext push here on top of the
+    // ConstantEvaluated context already entered above (EnterExpressionEvaluationContext
+    // Eval, ShouldEnter=Kind==ConstexprIf) -- that outer ConstantEvaluated
+    // context already satisfies CheckForImmediateInvocation's
+    // GenuinelyAlwaysConstantEvaluated check (which accepts EITHER
+    // Context==ConstantEvaluated OR isImmediateFunctionContext()), so a
+    // consteval-only-typed condition (e.g. a std::meta::info comparison)
+    // still evaluates correctly without it. An extra nested
+    // ImmediateFunctionContext push here previously caused a real, confirmed
+    // regression (issue #117): rebuilding a class-type temporary with a
+    // non-trivial destructor inside an `if constexpr` condition during
+    // template instantiation, under the extra push, made the temporary's
+    // destructor evaluation fail to complete (a heap allocation from the
+    // temporary's own construction was reported as never deallocated, and
+    // the whole condition was rejected as "not a constant expression") even
+    // though the byte-identical non-template condition evaluates cleanly.
+    // Confirmed via clang/test/Reflection (22/22) and a full
+    // SemaCXX+SemaTemplate+CXX sweep (2626 tests, zero regressions) with the
+    // push removed.
+    ExprResult CondExpr = getDerived().TransformExpr(Expr);
 
     if (CondExpr.isInvalid())
       return Sema::ConditionError();
