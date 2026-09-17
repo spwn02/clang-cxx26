@@ -1576,6 +1576,7 @@ void ASTStmtWriter::VisitDoExpr(DoExpr *E) {
   if (E->hasExplicitType())
     Record.AddTypeSourceInfo(E->getExplicitType());
   Record.push_back(E->getTemplateDepth());
+  Record.AddDeclRef(E->getNRVOCandidate());
   Code = serialization::EXPR_DO;
 }
 
