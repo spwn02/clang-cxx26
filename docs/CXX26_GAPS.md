@@ -1273,28 +1273,27 @@ move, and `clear` — a strictly larger verified surface than
 `unordered_map`'s, for the reasons above.
 
 **P2300R10 is `Complete` for the paper, not for the C++26 execution surface.**
-Ten follow-on papers amend or extend it: P3284R4 and P3682R0 are complete;
-the other eight remain unstarted (untriaged until 2026-09-05): P2079R10
-(parallel scheduler), P3149R11 (`async_scope`), P3388R3 (when `connect` doesn't
-throw), P3433R1 (allocator support for operation states), P3481R5 (`bulk()`
-issues), P3557R3 (sender diagnostics via constexpr exceptions), P3570R2
-(optional variants), and P3887R1 (`when_all` as a Ronseal algorithm). Treat
-these as one Rank 4 cluster with a shared sub-plan rather than ten independent
-rows — several are small wording deltas against code that already exists, and
-P3682R0 is a deletion.
+Ten follow-on papers amend or extend it, tracked as issue #11 (**CLOSED
+2026-09-17** — see the issue for full history, not reproduced here to avoid
+the exact staleness this note is warning about): 6/10 implemented
+(P3284R4, P3388R3, P3433R1, P3682R0, P3149R11 Pass 1, P2079R10 Pass 1+2);
+4/10 confirmed **permanently blocked at the standard-wording level, not a
+fork limitation** — P3557R3's adopted text specifies, verbatim, a throw
+inside a `consteval` `requires`-expression as its `is-dependent-sender-helper`
+mechanism, which [temp.constr.atomic] makes an evaluation failure rather
+than a substitution failure (not SFINAE-covered on any conformant
+compiler); P3481R5's and P3887R1's Mandates-diagnostic pieces and P3570R2's
+`into_variant`/`stopped_as_optional` extension all depend on that same
+mechanism. See `get_completion_signatures.h:39-56` for the fork's permanent
+soft-fail deviation.
 
-Issue #11 checklist:
-
-- [ ] P2079R10 — parallel scheduler
-- [ ] P3149R11 — `async_scope`
-- [x] P3284R4 — `write_env`/`unstoppable`; complete in base P2300R10 implementation, verified against P3284R4 wording
-- [x] P3388R3 — when `connect` doesn't throw; complete in base P2300R10 implementation — `execution::receiver` already conjoins `is_nothrow_move_constructible_v<remove_cvref_t<_Rcvr>>` (predates this fork's P3388R3 triage, from the original M2 port), verified to correctly reject a throwing-move-constructible receiver and accept a nothrow one; the paper's other change (an IFNDR consistency clause on `connect()`'s `noexcept`-ness across receivers sharing an environment type) is a documentation-only contract, vacuously satisfied since no `connect()` in this fork declares an explicit `noexcept` specifier
-- [x] P3433R1 — allocator support for operation states; implemented allocator-aware-forward for the fork's hand-written just/then/let operation-state construction, including elementwise tuple construction
-- [ ] P3481R5 — `bulk()` issues; its Mandates-diagnostic piece is blocked, see P3557R3
-- [ ] P3557R3 — sender diagnostics via constexpr exceptions; **blocked at the standard-wording level, not just this fork** — fetched the adopted text 2026-09-16, it specifies verbatim the throw-based `is-dependent-sender-helper` mechanism already proven non-conforming (evaluation failure, not substitution failure, per [temp.constr.atomic]); no revision of the paper fixes this, no conforming implementation exists from the papers as written on any compiler. See `get_completion_signatures.h:39-56` for the fork's permanent soft-fail deviation.
-- [ ] P3570R2 — optional variants; extends `into_variant`/`stopped_as_optional`, blocked on the same P3557R3 mechanism
-- [x] P3682R0 — remove `execution::split`; complete because no execution-namespace `split` exists to remove
-- [ ] P3887R1 — `when_all` as a Ronseal algorithm; its Mandates-diagnostic piece is blocked, see P3557R3
+Two facilities landed only a first pass, with later passes tracked as
+their own follow-on issues (not reopening #11): **#114** (`async_scope`
+Pass 2 `counting_scope`, Pass 3 `spawn_future` — see
+`docs/design/async_scope_p3149.md`) and **#115** (`parallel_scheduler`
+Pass 3 `system_context_replaceability` ABI, plus extending Pass 2's
+`bulk_chunked` customization to `bulk_unchunked` — see
+`docs/design/parallel_scheduler_p2079.md`).
 
 **A real compiler crash blocks ~27 of the 52 currently-failing check-cxx
 tests, all under `std/execution/`, confirmed 2026-09-07.** Every sampled
@@ -1484,26 +1483,30 @@ when M6 lands, not separately.
 scope boundary.** It dates to the 2026-08-20 M2 push, before the
 2026-09-05 untriaging pass gave all three of these papers CSV rows
 (`libcxx/docs/Status/Cxx2cPapers.csv` lines 144 P3149R11, 146 P2079R10, 157
-P3552R3) and open GitHub tracking (P2079R10/P3149R11 are checklist items on
-issue #11; P3552R3 is issue #12). They are genuinely **in scope**, just
+P3552R3) and GitHub tracking (P2079R10/P3149R11 were checklist items on
+issue #11; P3552R3 was issue #12). They were genuinely **in scope**, just
 unstarted, greenfield facilities needing their own design-first session —
-see "Wave 3b" in the Session Log. Left here (struck through in spirit, kept
-verbatim) only as a record of the M2-era scoping decision:
+see "Wave 3b" in the Session Log. **Update (2026-09-17): both #11 and #12
+are now CLOSED** — P3552R3 fully implemented (`execution::task`); P2079R10
+and P3149R11 each landed a first pass with later passes tracked as
+follow-on issues #115 and #114 respectively, not #11 itself. Left here
+(struck through in spirit, kept verbatim) only as a record of the M2-era
+scoping decision:
 
 - ~~`[exec.coro.util]` 33.13.3–33.13.6: `execution::affine`,
   `execution::inline_scheduler`, `execution::task_scheduler`,
   `execution::task` — this is P3552, a distinct paper with no CSV row.~~
-  (P3552R3 now has a CSV row and tracking issue #12; not implemented yet,
-  but not "do not implement here" either.)
+  (P3552R3 implemented; issue #12 closed 2026-09-16.)
 - ~~`[exec.scope]` 33.14: execution scope / counting-scope utilities — P3149
-  and related async-scope papers, no CSV row.~~ (P3149R11 now has a CSV row
-  and is on issue #11's checklist.)
+  and related async-scope papers, no CSV row.~~ (P3149R11 Pass 1 landed;
+  remaining passes tracked as issue #114.)
 - ~~`[exec.par.scheduler]` / `[exec.parschedrepl]` 33.15–33.16: parallel
   scheduler and `parallel_scheduler_replacement` — P3481 and related, no
   CSV row.~~ This citation was also a paper-number mixup: P3481R5 (CSV line
   142) is "`std::execution::bulk()` issues," unrelated to a scheduler; these
   clauses are almost certainly P2079R10's own (CSV line 146, "Parallel
-  scheduler," on issue #11's checklist), not P3481's.
+  scheduler") — Pass 1+2 landed, remaining backend-replaceability work
+  tracked as issue #115.
 
 In scope: `[exec.queryable]`, `[exec.async.ops]`, `[execution.syn]`,
 `[exec.queries]` (all of 33.5), `[exec.sched]`, `[exec.recv]`,
@@ -3045,7 +3048,7 @@ cpp`, five `SemaCXX/*` files — present both before and after).
 | [x] | P3663R3 | Future-proof `submdspan_mapping` | Complete 2026-09-14 — canonicalize slices before customization-point dispatch |
 | [ ] | P3774R1 | Rename `std::nontype`, make it broadly useful | Untriaged until 2026-09-05. Kona 2025-11. Touches P2714R1/`function_ref` territory |
 | [ ] | P2830R10 | Standardized constexpr type ordering | Untriaged until 2026-09-05. Sofia 2025-06. **Do together with P3778R0** ("Fix for `type_order` template definition", Kona 2025-11) — P3778R0 is a fix to this paper's own wording, not separable |
-| [~] | P2079R10 | Parallel scheduler | Pass 1+2 complete 2026-09-17: `parallel_scheduler`/`get_parallel_scheduler()`/`schedule()` (a real fixed worker-thread pool), plus `bulk_chunked`'s completion-scheduler probe/dispatch across workers (`bulk()` becomes parallel for free; `bulk_unchunked` deliberately not yet customized) — see docs/design/parallel_scheduler_p2079.md. Caught and fixed a genuine pre-existing `run_loop.h` notify-outside-lock race via ThreadSanitizer (the first real multi-threaded exercise of `run_loop` in this fork). Pass 3 (`system_context_replaceability` ABI) remains deferred — see issue #11 |
+| [~] | P2079R10 | Parallel scheduler | Pass 1+2 complete 2026-09-17: `parallel_scheduler`/`get_parallel_scheduler()`/`schedule()` (a real fixed worker-thread pool), plus `bulk_chunked`'s completion-scheduler probe/dispatch across workers (`bulk()` becomes parallel for free; `bulk_unchunked` deliberately not yet customized) — see docs/design/parallel_scheduler_p2079.md. Caught and fixed a genuine pre-existing `run_loop.h` notify-outside-lock race via ThreadSanitizer (the first real multi-threaded exercise of `run_loop` in this fork). Pass 3 (`system_context_replaceability` ABI) remains deferred — tracked as issue #115 |
 
 ### Tier 7 — `std::simd` (audit-and-finish, not greenfield)
 
