@@ -9248,6 +9248,7 @@ TreeTransform<Derived>::TransformCXXReflectExpr(CXXReflectExpr *E) {
   case ReflectionKind::Null:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
     return E;
   }

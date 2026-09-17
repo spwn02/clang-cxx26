@@ -25,8 +25,11 @@ namespace clang {
 
 class APValue;
 class CXXBaseSpecifier;
-
+class NamedDecl;
+class NamespaceDecl;
 class Token;
+
+struct FunctionDeclSpec;
 
 /// \\brief Representation of a captured token sequence from ^^{ ... }.
 /// Essentially an ArrayRef<Token> allocated in the ASTContext.
@@ -78,6 +81,29 @@ struct TagDataMemberSpec {
   bool operator!=(const TagDataMemberSpec &Rhs) const;
 };
 
+/// \brief Description of a function declaration to be introduced into a
+/// class, cloned from an existing member function or member function
+/// template (std::meta::declaration_of).
+///
+/// The description retains the *source* declaration and the naming policy;
+/// the actual clone is produced at each injection site, so reusing the
+/// description creates fresh declarations each time.
+struct FunctionDeclSpec {
+  /// The source: a CXXMethodDecl or a FunctionTemplateDecl whose templated
+  /// declaration is a CXXMethodDecl.
+  NamedDecl *Source;
+
+  /// Replacement declaration name; empty means keep the source's name.
+  std::optional<std::string> Name;
+
+  /// Prefixes for renaming template parameters (-> T0, T1, ...) and function
+  /// parameters (-> p0, p1, ...).
+  std::string TemplateParameterPrefix;
+  std::string ParameterPrefix;
+
+  bool operator==(FunctionDeclSpec const &Rhs) const;
+  bool operator!=(FunctionDeclSpec const &Rhs) const;
+};
 } // namespace clang
 
 #endif

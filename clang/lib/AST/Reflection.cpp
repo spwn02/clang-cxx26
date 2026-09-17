@@ -62,6 +62,17 @@ bool TagDataMemberSpec::operator!=(const TagDataMemberSpec &Rhs) const {
   return !(*this == Rhs);
 }
 
+bool FunctionDeclSpec::operator==(FunctionDeclSpec const &Rhs) const {
+  return (Source == Rhs.Source &&
+          Name == Rhs.Name &&
+          TemplateParameterPrefix == Rhs.TemplateParameterPrefix &&
+          ParameterPrefix == Rhs.ParameterPrefix);
+}
+
+bool FunctionDeclSpec::operator!=(FunctionDeclSpec const &Rhs) const {
+  return !(*this == Rhs);
+}
+
 }  // end namespace clang
 
 namespace clang {
