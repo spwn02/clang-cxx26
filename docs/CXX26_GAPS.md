@@ -3045,7 +3045,7 @@ cpp`, five `SemaCXX/*` files — present both before and after).
 | [x] | P3663R3 | Future-proof `submdspan_mapping` | Complete 2026-09-14 — canonicalize slices before customization-point dispatch |
 | [ ] | P3774R1 | Rename `std::nontype`, make it broadly useful | Untriaged until 2026-09-05. Kona 2025-11. Touches P2714R1/`function_ref` territory |
 | [ ] | P2830R10 | Standardized constexpr type ordering | Untriaged until 2026-09-05. Sofia 2025-06. **Do together with P3778R0** ("Fix for `type_order` template definition", Kona 2025-11) — P3778R0 is a fix to this paper's own wording, not separable |
-| [ ] | P2079R10 | Parallel scheduler | Untriaged until 2026-09-05. Sofia 2025-06. Belongs to the `std::execution` follow-on cluster — see the note under Tier 2 |
+| [~] | P2079R10 | Parallel scheduler | Pass 1 complete 2026-09-17: `parallel_scheduler`/`get_parallel_scheduler()`/`schedule()`, a real fixed worker-thread pool (see docs/design/parallel_scheduler_p2079.md). Caught and fixed a genuine pre-existing `run_loop.h` notify-outside-lock race via ThreadSanitizer (the first real multi-threaded exercise of `run_loop` in this fork). Pass 2 (`bulk()` completion-scheduler probe/dispatch) and Pass 3 (`system_context_replaceability` ABI, deferred) remain — see issue #11 |
 
 ### Tier 7 — `std::simd` (audit-and-finish, not greenfield)
 

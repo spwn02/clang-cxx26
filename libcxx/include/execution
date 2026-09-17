@@ -183,6 +183,7 @@ _LIBCPP_END_NAMESPACE_STD
 #    include <__execution/movable_value.h>
 #    include <__execution/on.h>
 #    include <__execution/operation_state.h>
+#    include <__execution/parallel_scheduler.h>
 #    include <__execution/queryable.h>
 #    include <__execution/read_env.h>
 #    include <__execution/receiver.h>

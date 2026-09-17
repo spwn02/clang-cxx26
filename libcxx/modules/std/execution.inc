@@ -253,6 +253,14 @@ export namespace std::execution {
   using std::execution::task_scheduler;
 
 #if _LIBCPP_HAS_THREADS
+  // [exec.parallel.scheduler] -- Pass 1 only (the pool/parallel_scheduler/schedule()); bulk()
+  // customization and the system_context_replaceability ABI are follow-up work, see
+  // docs/design/parallel_scheduler_p2079.md.
+  using std::execution::get_parallel_scheduler;
+  using std::execution::parallel_scheduler;
+#endif
+
+#if _LIBCPP_HAS_THREADS
   // [exec.task]
   using std::execution::change_coroutine_scheduler;
   using std::execution::task;

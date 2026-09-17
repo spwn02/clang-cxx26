@@ -1279,6 +1279,7 @@ module std [system] {
     // history) to under-export and produce "declaration must be imported"
     // errors under a real `-fmodules` build.
     module as_awaitable                   { header "__execution/as_awaitable.h" export * }
+    module async_scope                    { header "__execution/async_scope.h" export * }
     module awaitable                      { header "__execution/awaitable.h" export * }
     module bulk                           { header "__execution/bulk.h" export * }
     module completion_functions           { header "__execution/completion_functions.h" export * }
@@ -1301,6 +1302,7 @@ module std [system] {
     module movable_value                  { header "__execution/movable_value.h" export * }
     module on                             { header "__execution/on.h" export * }
     module operation_state                { header "__execution/operation_state.h" export * }
+    module parallel_scheduler             { header "__execution/parallel_scheduler.h" export * }
     module queryable                      { header "__execution/queryable.h" export * }
     module read_env                       { header "__execution/read_env.h" export * }
     module receiver                       { header "__execution/receiver.h" export * }
@@ -1314,6 +1316,8 @@ module std [system] {
     module stopped_as_error               { header "__execution/stopped_as_error.h" export * }
     module stopped_as_optional            { header "__execution/stopped_as_optional.h" export * }
     module sync_wait                      { header "__execution/sync_wait.h" export * }
+    module task                           { header "__execution/task.h" export * }
+    module task_scheduler                 { header "__execution/task_scheduler.h" export * }
     module then                           { header "__execution/then.h" export * }
     module unstoppable                    { header "__execution/unstoppable.h" export * }
     module when_all                       { header "__execution/when_all.h" export * }

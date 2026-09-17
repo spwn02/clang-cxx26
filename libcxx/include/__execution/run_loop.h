@@ -231,12 +231,18 @@ public:
     }
   }
 
-  // [exec.run.loop.members]p8-10.
+  // [exec.run.loop.members]p8-10. notify_one() is called while still holding __mtx_ (not
+  // after releasing it): releasing first would let a waiter that's already reacquired the
+  // lock inside cv.wait() return from run() and let ITS caller destroy this run_loop --
+  // including the condition_variable itself -- while this thread's notify_one() call is still
+  // in flight, a genuine use-after-free race. Only latent until parallel_scheduler existed:
+  // every prior run_loop user drove finish()/run() from the same thread that later destroyed
+  // the loop, so no second thread was ever around to race the notify against. First caught by
+  // a real ThreadSanitizer run exercising this_thread::sync_wait(schedule(parallel_scheduler))
+  // -- see docs/design/parallel_scheduler_p2079.md.
   _LIBCPP_HIDE_FROM_ABI void finish() noexcept {
-    {
-      lock_guard<mutex> __lock(__mtx_);
-      __state_ = __finishing;
-    }
+    lock_guard<mutex> __lock(__mtx_);
+    __state_ = __finishing;
     __cv_.notify_one();
   }
 
@@ -264,19 +270,20 @@ private:
   }
 
   // [exec.run.loop.members]p2-3: adds to the back, increments count, and synchronizes with
-  // the pop-front call that obtains this item.
+  // the pop-front call that obtains this item. notify_one() is called under __mtx_ for the
+  // same use-after-free reason finish() does above -- a second thread calling push_back()
+  // concurrently with this run_loop's destruction is exactly the shape parallel_scheduler's
+  // worker threads can produce.
   _LIBCPP_HIDE_FROM_ABI void __push_back(__run_loop_opstate_base* __item) noexcept {
-    {
-      lock_guard<mutex> __lock(__mtx_);
-      __item->__next = nullptr;
-      if (__tail_ != nullptr) {
-        __tail_->__next = __item;
-      } else {
-        __head_ = __item;
-      }
-      __tail_ = __item;
-      ++__count_;
+    lock_guard<mutex> __lock(__mtx_);
+    __item->__next = nullptr;
+    if (__tail_ != nullptr) {
+      __tail_->__next = __item;
+    } else {
+      __head_ = __item;
     }
+    __tail_ = __item;
+    ++__count_;
     __cv_.notify_one();
   }
 
