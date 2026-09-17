@@ -19711,6 +19711,25 @@ static bool AreSpecialMemberFunctionsSameKind(ASTContext &Context,
   return true;
 }
 
+/// IsAtLeastAsConstrained requires, for any argument that's a FunctionDecl,
+/// that it be non-templated, a member specialization, or a function template
+/// specialization -- never the templated pattern of a function template
+/// (FunctionDecl::TK_FunctionTemplate). A special member function can itself
+/// be a constructor/assignment-operator *template* made eligible via a
+/// default template argument (e.g. `template <class U = T> S(U = {})`
+/// usable as a default constructor); ComputeSpecialMemberFunctionsEligiblity
+/// collects such candidates via FunctionTemplateDecl::getTemplatedDecl(),
+/// which is exactly that disallowed pattern kind. Constraint partial
+/// ordering between templates is meant to operate on the FunctionTemplateDecl
+/// itself (see the getMostSpecialized()/DeduceTemplateArguments() partial-
+/// ordering call sites in SemaTemplateDeduction.cpp, which already pass
+/// FunctionTemplateDecl*, not FunctionDecl*), so recover it here too.
+static const NamedDecl *getConstraintComparisonEntity(CXXMethodDecl *Method) {
+  if (FunctionTemplateDecl *FTD = Method->getDescribedFunctionTemplate())
+    return FTD;
+  return Method;
+}
+
 /// [class.mem.special]p6:
 /// An eligible special member function is a special member function for which:
 /// - the function is not deleted,
@@ -19762,8 +19781,10 @@ static void SetEligibleMethods(Sema &S, CXXRecordDecl *Record,
         AnotherMethodIsMoreConstrained = true;
         break;
       }
-      if (S.IsAtLeastAsConstrained(OtherMethod, {Other}, OrigMethod, {Orig},
-                                   AnotherMethodIsMoreConstrained)) {
+      if (S.IsAtLeastAsConstrained(getConstraintComparisonEntity(OtherMethod),
+                                   {Other},
+                                   getConstraintComparisonEntity(OrigMethod),
+                                   {Orig}, AnotherMethodIsMoreConstrained)) {
         // There was an error with the constraints comparison. Exit the loop
         // and don't consider this function eligible.
         AnotherMethodIsMoreConstrained = true;
