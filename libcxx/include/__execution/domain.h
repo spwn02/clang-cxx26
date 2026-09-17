@@ -53,20 +53,34 @@ inline constexpr get_completion_domain_t<_Cpo> get_completion_domain{};
 struct default_domain {
   // Per [exec.domain.default]p2: `tag_of_t<Sndr>().transform_sender(Tag(), forward<Sndr>
   // (sndr), env)` if that expression is well-formed, else `static_cast<Sndr>(forward<Sndr>
-  // (sndr))`. The "if well-formed" half is deliberately not implemented: `tag_of_t` is
-  // computed via a structured-binding decomposition inside a *separate* helper function
-  // ([__execution/sender.h]'s __sender_tag_of), and instantiating that helper's body to
-  // deduce its `auto` return type is not in the "immediate context" of substitution --
-  // verified empirically that a `requires{ tag_of_t<Sndr>()...; }` probe hard-errors
-  // (rather than soundly evaluating false) for a Sndr that doesn't decompose into at least
-  // (tag, data), instead of being SFINAE-safe the way the standard's prose implies.
+  // (sndr))`. The "if well-formed" half is deliberately not implemented: a
+  // `requires{ tag_of_t<Sndr>()...; }` probe hard-errors (rather than soundly evaluating
+  // false) for a Sndr that doesn't decompose into at least (tag, data).
+  //
+  // **Correction (2026-09-17, docs/design/dependent_sender_atomic_constraint_investigation.md):
+  // this is NOT caused by auto-return-type body instantiation not being "immediate context,"
+  // as an earlier version of this comment claimed.** Tested directly: replacing
+  // __sender_tag_of's `auto` return type with an explicit, non-deduced one (via a
+  // reflection-based member-count query with an explicit `size_t` return type) reproduces
+  // the identical hard error for a non-decomposable type, ruling out return-type deduction
+  // as the cause. The real cause is the same one blocking issue #10/#11's dependent_sender
+  // cluster: an evaluation failure (here, `nonstatic_data_members_of`/structured-binding
+  // decomposition failing for a type with the wrong shape) inside a `requires{}` atomic
+  // constraint hard-errors on this Clang -- deliberately and identically to any other reason
+  // a constraint expression fails to be a constant expression, confirmed against Clang's own
+  // pre-existing tests for this diagnostic. No library-side technique dodges this (tried and
+  // ruled out: reflection with an explicit return type behaves the same as the structured-
+  // binding version). This needs new standard machinery to fix, not a different
+  // implementation technique in this header.
+  //
   // Rather than build a from-scratch "is this aggregate decomposable into >=2 members"
   // trait (fragile, and non-aggregate-with-public-members senders would still need
-  // separate handling) purely to guard a branch that, per the transform-recurse fixed
-  // point, is only ever reached for a sender whose *own tag type* defines a per-tag
-  // `.transform_sender` member -- something nothing in scope through at least M5 does --
-  // this always takes the "otherwise" branch. Revisit once a real sender needs per-tag
-  // domain customization.
+  // separate handling, and per the above, wouldn't dodge the underlying issue anyway)
+  // purely to guard a branch that, per the transform-recurse fixed point, is only ever
+  // reached for a sender whose *own tag type* defines a per-tag `.transform_sender` member
+  // -- something nothing in scope through at least M5 does -- this always takes the
+  // "otherwise" branch. Revisit only if a future standard/compiler capability resolves the
+  // underlying atomic-constraint-evaluation-failure gap.
   template <class _Tag, sender _Sndr, __queryable _Env>
   _LIBCPP_HIDE_FROM_ABI static constexpr decltype(auto) transform_sender(_Tag, _Sndr&& __sndr, const _Env&) noexcept {
     return static_cast<_Sndr>(std::forward<_Sndr>(__sndr));

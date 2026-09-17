@@ -39,20 +39,41 @@ namespace execution {
 // [exec.getcomplsigs]
 // The standard's Effects clause can fall through to throwing `dependent_sender_error` (for
 // a sender whose signatures genuinely depend on Env) or an unspecified `except` (any other
-// unresolvable case), both evaluated at consteval time -- this requires throwing an
-// exception from within a consteval function ([P3068]), which this Clang does not yet
-// support (verified empirically: `consteval bool f() try { throw E{}; ... } catch (E&) {
-// return true; }` fails to be a constant expression here). `dependent_sender_error` itself
-// is declared regardless since downstream wording names it, but the throwing fallback
-// paths are omitted: a sender with no viable get_completion_signatures dispatch (and that
-// isn't itself awaitable, once M6 adds that) simply has no viable
-// get_completion_signatures<Sndr, Env...>() overload, making sender_in false for it (the
-// ordinary, non-dependent "not a sender_in" case) rather than hard-erroring -- see
-// __has_completion_signatures below. The one real behavioral deviation this causes is for
-// truly *dependent* senders (whose signatures can only be known once connected to a real
-// environment, e.g. read_env's zero-env case in M3): rather than reporting
-// `dependent_sender<Sndr>` as true, `sender_in<Sndr>` (zero-Env) will simply be false for
-// them on this fork. Tracked as compiler-blocked, not scope-excluded, in
+// unresolvable case), both evaluated inside an atomic constraint (a nested-requirement /
+// concept check) at consteval time. This is **permanently blocked at the standard-wording
+// level, confirmed via primary-source investigation (2026-09-17,
+// docs/design/dependent_sender_atomic_constraint_investigation.md), not a fork-specific or
+// even Clang-specific gap**: a `throw` escaping uncaught from an otherwise-fully-resolvable
+// `consteval` call, when that call sits inside an atomic constraint's evaluation, is
+// diagnosed identically to *any other* reason an atomic constraint's expression fails to be
+// a constant expression (confirmed by testing a division-by-zero case side-by-side, and
+// cross-checked against 4 of Clang's own pre-existing test files —
+// `clang/test/CXX/expr/expr.prim/expr.prim.id/p3.cpp`,
+// `clang/test/CXX/expr/expr.prim/expr.prim.req/nested-requirement.cpp`,
+// `clang/test/SemaCXX/cxx23-assume.cpp`,
+// `clang/test/SemaCXX/requires-nested-non-constant.cpp` — all of which assert this exact
+// "substitution into constraint expression resulted in a non-constant expression" diagnostic
+// as *intended* behavior). [temp.constr.atomic]'s graceful "not satisfied" treatment applies
+// to *substitution* failures (forming an invalid type/expression from template arguments,
+// classic SFINAE); it does not extend to an otherwise-well-formed expression that merely
+// fails to *evaluate* as a constant expression, whether via an escaping exception or any
+// other non-constant-expression cause. P3557R3's `is-dependent-sender-helper` mechanism
+// requires the former; this is the latter. A throw *contained and caught within* a single
+// consteval function's own body works fine on this Clang (verified separately;
+// `dependent_sender_error` itself is unaffected by any of this) — what's blocked is
+// specifically an *uncaught* throw used as an atomic-constraint-satisfaction signal. Making
+// this work would need new standard machinery (a P3068-successor or similar), not a Clang
+// bug fix — there is nothing here for a future session to patch in this compiler.
+// `dependent_sender_error` itself is declared regardless since downstream wording names it,
+// but the throwing fallback paths are omitted: a sender with no viable
+// get_completion_signatures dispatch (and that isn't itself awaitable, once M6 adds that)
+// simply has no viable get_completion_signatures<Sndr, Env...>() overload, making
+// sender_in false for it (the ordinary, non-dependent "not a sender_in" case) rather than
+// hard-erroring -- see __has_completion_signatures below. The one real behavioral deviation
+// this causes is for truly *dependent* senders (whose signatures can only be known once
+// connected to a real environment, e.g. read_env's zero-env case in M3): rather than
+// reporting `dependent_sender<Sndr>` as true, `sender_in<Sndr>` (zero-Env) will simply be
+// false for them on this fork. Tracked as a standard-level gap, not scope-excluded, in
 // docs/CXX26_GAPS.md.
 struct dependent_sender_error : exception {};
 
