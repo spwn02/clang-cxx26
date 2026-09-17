@@ -1,6 +1,8 @@
 # Design note: `parallel_scheduler` (P2079R10, issue #11's last remaining item)
 
-Status: draft. Staged implementation — see "Staging" below. Written per this
+Status: Pass 1 and Pass 2 complete and merged (2026-09-17). Pass 3
+(`system_context_replaceability`) remains deferred — see "Staging" below.
+Written per this
 project's standing policy that greenfield facilities get a design note
 before any Codex dispatch, following the process used for `execution::task`
 (#12) and `async_scope` (#11's `P3149R11` sub-item).
@@ -92,15 +94,64 @@ existing deviations are recorded.
 
 ## Staging (per advisor review)
 
-- **Pass 1 (this session): the pool, `parallel_scheduler`,
+- **Pass 1 (done, 2026-09-17): the pool, `parallel_scheduler`,
   `get_parallel_scheduler()`, `schedule()`.** A fixed worker set (sized
   from `hardware_concurrency()`, floored at 1) draining one shared
   mutex/condvar-protected intrusive queue — no work stealing, no
-  per-thread queues. This is the first genuinely concurrent code in the
-  fork; keep the concurrency surface as small as `run_loop`'s own and
-  verify it in isolation before building anything on top of it.
-- **Pass 2 (this session, after Pass 1 is verified): `bulk_chunked_t`'s
-  completion-scheduler probe and chunked dispatch across workers.**
+  per-thread queues. Verified via a real rebuild, a dedicated lit test,
+  50 reps of a concurrent stress test through `async_scope`'s
+  `spawn`/`join`, and a standalone ThreadSanitizer run — which caught a
+  genuine pre-existing race in `<__execution/run_loop.h>` (see "Bugs
+  found" below), fixed as part of this pass.
+- **Pass 2 (done, 2026-09-17): `bulk_chunked_t`'s completion-scheduler
+  probe and chunked dispatch across workers.** Implemented in
+  `<__execution/bulk.h>`: `__bulk_sndr::connect()` probes the child
+  sender's completion scheduler via the same `__try_query` primitive
+  `get_completion_scheduler_t` itself uses internally (calling the full
+  CPO directly would hard-fail via a `static_assert` instead of
+  SFINAE-ing away when the query isn't answered — the same "immediate
+  context" pitfall recorded elsewhere in this fork's M1/M2 deviations).
+  When the probe finds `parallel_scheduler`, `[0, shape)` is split into
+  up to 32 contiguous chunks (capped by `hardware_concurrency()`), each
+  dispatched via its own `schedule(sch)` and completed asynchronously —
+  **not** via a blocking wait, which would consume a pool worker and
+  deadlock the moment concurrent bulk operations reach or exceed the
+  worker count (this fork's Pass-1 pool has no work-stealing/helping to
+  rescue a blocked worker). Instead each chunk decrements a shared
+  atomic counter (`acq_rel`, not `relaxed`, so the completing chunk
+  observes every other chunk's writes); the chunk that reaches zero
+  completes the outer receiver. `bulk_t` (which composes over
+  `bulk_chunked_t`) becomes parallel for free. `bulk_unchunked_t` is
+  deliberately **not** customized this pass — always the existing
+  single-threaded fallback, regardless of scheduler.
+
+  **A real scope limit, found empirically, not assumed:** the probe
+  only ever succeeds for a *direct* `schedule(get_parallel_scheduler())
+  | bulk_chunked(...)` chain. `FWD-ENV` (`<__execution/fwd_env.h>`),
+  the same shared utility every adaptor in this fork's `get_env()` uses
+  (including `bulk`'s own and `then`'s), does not forward
+  `get_completion_scheduler` through — confirmed by actually testing
+  `schedule(sch) | then(f) | bulk_chunked(...)`, which silently and
+  correctly falls back to the sequential path rather than customizing.
+  This matches every other adaptor's existing behavior in this fork; it
+  is a narrower reach than "wherever a parallel_scheduler's completion
+  is reachable," and is recorded here rather than left to be
+  rediscovered as a surprise later.
+
+  Verified via a dedicated lit test (997-shape chunk-boundary
+  correctness, `bulk()`-composes-parallel-too, TRY-EVAL exception
+  propagation via `set_error` rather than `std::terminate` — unlike the
+  *parallel range algorithms'* different exception rule — and the
+  non-`parallel_scheduler` regression case), a real multi-thread-id
+  observation confirming genuine parallelism (not just a
+  sequential-fallback that happens to be correct), a standalone
+  ThreadSanitizer run (4 repeats, clean), and — the specific check this
+  design's self-deadlock risk demanded — a manual, temporary
+  forced-single-worker-pool run of the whole suite, which completed
+  without hanging (the only failure was the trivially-expected
+  "observed more than one thread id" assertion, since a 1-worker pool
+  can only ever produce one).
+
 - **Pass 3 (explicit follow-up, not this session): the
   `system_context_replaceability` ABI** (`parallel_scheduler_backend`,
   `receiver_proxy`, `bulk_item_receiver_proxy`, the weak-symbol
@@ -111,6 +162,36 @@ existing deviations are recorded.
   against. Deferred explicitly, the same way `execution::task` deferred
   custom `Environment::error_types` and `async_scope` deferred
   `spawn_future`.
+
+## Bugs found during this work (not present before Pass 1/2, or latent
+and newly exposed)
+
+- **`run_loop.h`'s `finish()`/`__push_back()` notified their condition
+  variable *after* releasing the mutex.** A waiter could wake, return
+  from `run()`, and let its caller destroy the `run_loop` (including
+  the condition variable) while the notifying thread's `notify_one()`
+  call was still in flight — a genuine use-after-free race, caught by
+  ThreadSanitizer on the very first cross-thread exercise of
+  `run_loop` this fork has ever had (`this_thread::sync_wait` uses
+  `run_loop` internally, and `parallel_scheduler`'s worker threads are
+  the first real second thread to ever call `finish()` on one). Fixed
+  by notifying while still holding the lock in both functions. Every
+  prior `run_loop` user drove it single-threadedly, so this was latent,
+  not a regression.
+- **`__parallel_opstate`'s defaulted move constructor triggered
+  `-Wdeprecated-copy-with-dtor` under `-Werror`.** Moving the
+  `__parallel_task_base` base subobject fell back to its (deprecated)
+  implicit copy constructor, since a user-declared destructor suppresses
+  the implicit move constructor. Fixed by declaring one explicitly on
+  the base.
+- **`receiver_of`'s check required `__bulk_chunk_rcvr` to declare
+  `set_stopped()`** even though its environment never answers
+  `get_stop_token` (expected, by this file's own reasoning applied
+  elsewhere, to narrow the sender's completion signatures down to just
+  `set_value_t()`) — a real build demanded it regardless. Added as a
+  safe no-op (decrements the same completion counter, invokes nothing);
+  genuinely unreachable in practice, since no stop token is ever
+  propagated into that receiver's environment.
 
 ## Two specifics that would otherwise cause real bugs
 
