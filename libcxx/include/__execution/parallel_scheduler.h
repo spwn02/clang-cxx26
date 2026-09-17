@@ -15,6 +15,7 @@
 #include <__execution/completion_signatures.h>
 #include <__execution/get_env.h>
 #include <__execution/get_forward_progress_guarantee.h>
+#include <__execution/get_scheduler.h>
 #include <__execution/get_stop_token.h>
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
