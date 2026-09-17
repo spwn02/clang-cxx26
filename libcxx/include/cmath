@@ -441,7 +441,13 @@ constexpr long double lerp(long double a, long double b, long double t) noexcept
 #  include <__cxx03/cmath>
 #else
 #  include <__config>
+#  include <__math/abs.h>
+#  include <__math/copysign.h>
 #  include <__math/hypot.h>
+#  include <__math/min_max.h>
+#  include <__math/modulo.h>
+#  include <__math/remainder.h>
+#  include <__math/rounding_functions.h>
 #  include <__type_traits/enable_if.h>
 #  include <__type_traits/is_arithmetic.h>
 #  include <__type_traits/is_constant_evaluated.h>
@@ -499,7 +505,12 @@ using ::atan _LIBCPP_USING_IF_EXISTS;
 using ::atanf _LIBCPP_USING_IF_EXISTS;
 using ::atan2 _LIBCPP_USING_IF_EXISTS;
 using ::atan2f _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::ceil;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double ceil(double __x) _NOEXCEPT { return __builtin_ceil(__x); }
+#  else
 using ::ceil _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::ceilf _LIBCPP_USING_IF_EXISTS;
 using ::cos _LIBCPP_USING_IF_EXISTS;
 using ::cosf _LIBCPP_USING_IF_EXISTS;
@@ -509,12 +520,29 @@ using ::coshf _LIBCPP_USING_IF_EXISTS;
 using ::exp _LIBCPP_USING_IF_EXISTS;
 using ::expf _LIBCPP_USING_IF_EXISTS;
 
+#  if _LIBCPP_STD_VER >= 23
+using __math::fabs;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double fabs(double __x) _NOEXCEPT { return __builtin_fabs(__x); }
+#  else
 using ::fabs _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::fabsf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::floor;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double floor(double __x) _NOEXCEPT { return __builtin_floor(__x); }
+#  else
 using ::floor _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::floorf _LIBCPP_USING_IF_EXISTS;
 
+#  if _LIBCPP_STD_VER >= 23
+using __math::fmod;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double fmod(double __x, double __y) _NOEXCEPT {
+  return __builtin_fmod(__x, __y);
+}
+#  else
 using ::fmod _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::fmodf _LIBCPP_USING_IF_EXISTS;
 
 using ::frexp _LIBCPP_USING_IF_EXISTS;
@@ -555,7 +583,14 @@ using ::atanhf _LIBCPP_USING_IF_EXISTS;
 using ::cbrt _LIBCPP_USING_IF_EXISTS;
 using ::cbrtf _LIBCPP_USING_IF_EXISTS;
 
+#  if _LIBCPP_STD_VER >= 23
+using __math::copysign;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double copysign(double __x, double __y) _NOEXCEPT {
+  return __builtin_copysign(__x, __y);
+}
+#  else
 using ::copysign _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::copysignf _LIBCPP_USING_IF_EXISTS;
 
 using ::erf _LIBCPP_USING_IF_EXISTS;
@@ -570,9 +605,23 @@ using ::fdim _LIBCPP_USING_IF_EXISTS;
 using ::fdimf _LIBCPP_USING_IF_EXISTS;
 using ::fmaf _LIBCPP_USING_IF_EXISTS;
 using ::fma _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::fmax;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double fmax(double __x, double __y) _NOEXCEPT {
+  return __builtin_fmax(__x, __y);
+}
+#  else
 using ::fmax _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::fmaxf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::fmin;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double fmin(double __x, double __y) _NOEXCEPT {
+  return __builtin_fmin(__x, __y);
+}
+#  else
 using ::fmin _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::fminf _LIBCPP_USING_IF_EXISTS;
 using ::hypot _LIBCPP_USING_IF_EXISTS;
 using ::hypotf _LIBCPP_USING_IF_EXISTS;
@@ -580,9 +629,23 @@ using ::ilogb _LIBCPP_USING_IF_EXISTS;
 using ::ilogbf _LIBCPP_USING_IF_EXISTS;
 using ::lgamma _LIBCPP_USING_IF_EXISTS;
 using ::lgammaf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::llrint;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr long long llrint(double __x) _NOEXCEPT {
+  return __builtin_llrint(__x);
+}
+#  else
 using ::llrint _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::llrintf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::llround;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr long long llround(double __x) _NOEXCEPT {
+  return __builtin_llround(__x);
+}
+#  else
 using ::llround _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::llroundf _LIBCPP_USING_IF_EXISTS;
 using ::log1p _LIBCPP_USING_IF_EXISTS;
 using ::log1pf _LIBCPP_USING_IF_EXISTS;
@@ -590,27 +653,63 @@ using ::log2 _LIBCPP_USING_IF_EXISTS;
 using ::log2f _LIBCPP_USING_IF_EXISTS;
 using ::logb _LIBCPP_USING_IF_EXISTS;
 using ::logbf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::lrint;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr long lrint(double __x) _NOEXCEPT { return __builtin_lrint(__x); }
+#  else
 using ::lrint _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::lrintf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::lround;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr long lround(double __x) _NOEXCEPT {
+  return __builtin_lround(__x);
+}
+#  else
 using ::lround _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::lroundf _LIBCPP_USING_IF_EXISTS;
 
 using ::nan _LIBCPP_USING_IF_EXISTS;
 using ::nanf _LIBCPP_USING_IF_EXISTS;
 
+#  if _LIBCPP_STD_VER >= 23
+using __math::nearbyint;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double nearbyint(double __x) _NOEXCEPT {
+  return __builtin_nearbyint(__x);
+}
+#  else
 using ::nearbyint _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::nearbyintf _LIBCPP_USING_IF_EXISTS;
 using ::nextafter _LIBCPP_USING_IF_EXISTS;
 using ::nextafterf _LIBCPP_USING_IF_EXISTS;
 using ::nexttoward _LIBCPP_USING_IF_EXISTS;
 using ::nexttowardf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::remainder;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double remainder(double __x, double __y) _NOEXCEPT {
+  return __builtin_remainder(__x, __y);
+}
+#  else
 using ::remainder _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::remainderf _LIBCPP_USING_IF_EXISTS;
 using ::remquo _LIBCPP_USING_IF_EXISTS;
 using ::remquof _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::rint;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double rint(double __x) _NOEXCEPT { return __builtin_rint(__x); }
+#  else
 using ::rint _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::rintf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::round;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double round(double __x) _NOEXCEPT { return __builtin_round(__x); }
+#  else
 using ::round _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::roundf _LIBCPP_USING_IF_EXISTS;
 using ::scalbln _LIBCPP_USING_IF_EXISTS;
 using ::scalblnf _LIBCPP_USING_IF_EXISTS;
@@ -618,7 +717,12 @@ using ::scalbn _LIBCPP_USING_IF_EXISTS;
 using ::scalbnf _LIBCPP_USING_IF_EXISTS;
 using ::tgamma _LIBCPP_USING_IF_EXISTS;
 using ::tgammaf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::trunc;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double trunc(double __x) _NOEXCEPT { return __builtin_trunc(__x); }
+#  else
 using ::trunc _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::truncf _LIBCPP_USING_IF_EXISTS;
 
 using ::acosl _LIBCPP_USING_IF_EXISTS;
