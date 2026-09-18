@@ -250,15 +250,18 @@ private:
 
 #if _LIBCPP_HAS_THREADS
 // Pass 2 (P2079R10, see docs/design/parallel_scheduler_p2079.md): parallel_scheduler's own
-// bulk_chunked customization. [exec.bulk]p4's specified mechanism for this kind of
-// customization (domain-based transform_sender, see the file-level comment above) is
+// bulk_chunked customization, later widened in Pass 3 to bulk_unchunked_t too (both share this
+// same job/receiver machinery, parameterized on _Chunked exactly the way __bulk_rcvr's own
+// single-threaded fallback already is above). [exec.bulk]p4's specified mechanism for this kind
+// of customization (domain-based transform_sender, see the file-level comment above) is
 // permanently disabled on this fork; this is the documented, pragmatic replacement -- probing
 // the input sender's completion scheduler directly inside __bulk_sndr::connect() (below) and,
 // when it is parallel_scheduler, actually splitting [0, shape) across the pool's worker
-// threads instead of invoking f once inline. Only bulk_chunked_t is customized this way;
-// bulk_unchunked_t's own per-index dispatch is a follow-up (see the design note's Pass 2
-// section) -- it always takes the existing, single-threaded __bulk_rcvr path above, regardless
-// of scheduler.
+// threads instead of invoking f once inline. Chunked and unchunked differ only in what each
+// worker does with its own [begin, end) sub-range once dispatched: one call to f covering the
+// whole sub-range for bulk_chunked_t (matching what a single implementation-chosen chunk may
+// do), versus one call to f per index within it for bulk_unchunked_t (matching
+// [exec.bulk]p9's "f is invoked once for every index" requirement) -- see __invoke_chunk below.
 //
 // A chunk's own completion always runs ON a pool worker thread -- so completing the whole
 // bulk operation cannot block waiting for the other chunks (this fork's Pass-1 pool has no
@@ -294,13 +297,15 @@ private:
 // deliberate Pass 2 simplification, not an oversight.
 inline constexpr size_t __bulk_max_chunks = 32;
 
-template <class _Shape, class _Func, class _Rcvr, class... _Args>
+template <bool _Chunked, class _Shape, class _Func, class _Rcvr, class... _Args>
 struct __bulk_parallel_job;
 
-// A chunk's own receiver: invokes f once for [__begin, __end) (matching bulk_chunked's own
-// "invoke f once per chunk, chunk decides its own sub-range" contract), then reports back to
-// the shared job. get_env() deliberately answers nothing (matching __inline_sender's own
-// convention): this receiver never needs a stop token or allocator from its environment.
+// A chunk's own receiver: runs the job's [__begin, __end) sub-range on whichever pool worker
+// it lands on -- one call to f covering the whole sub-range for bulk_chunked_t, or one call to
+// f per index within it for bulk_unchunked_t (see __bulk_parallel_job::__invoke_chunk) -- then
+// reports back to the shared job. get_env() deliberately answers nothing (matching
+// __inline_sender's own convention): this receiver never needs a stop token or allocator from
+// its environment.
 // set_stopped() is declared even though it's never actually reachable in practice (no stop
 // token is ever propagated into this environment) -- confirmed via a real build that
 // connect()'s own receiver_of check requires it regardless.
@@ -319,7 +324,7 @@ struct __bulk_chunk_rcvr {
   _LIBCPP_HIDE_FROM_ABI auto get_env() const noexcept { return env<>{}; }
 };
 
-template <class _Shape, class _Func, class _Rcvr, class... _Args>
+template <bool _Chunked, class _Shape, class _Func, class _Rcvr, class... _Args>
 struct __bulk_parallel_job {
   using __shape_t    = _Shape;
   using __chunk_op_t = connect_result_t<__parallel_sender, __bulk_chunk_rcvr<__bulk_parallel_job>>;
@@ -358,7 +363,7 @@ struct __bulk_parallel_job {
   // `this` (see the file-level comment above) -- nothing may touch any member after
   // __finish() returns.
   _LIBCPP_HIDE_FROM_ABI void __run_chunk(_Shape __begin, _Shape __end) noexcept {
-    constexpr bool __nothrow = is_nothrow_invocable_v<_Func&, _Shape, _Shape, _Args&...>;
+    constexpr bool __nothrow = __bulk_nothrow_invocable<_Chunked, _Func, _Shape, _Args...>::value;
     if constexpr (__nothrow) {
       __invoke_chunk(__begin, __end);
     } else {
@@ -390,7 +395,17 @@ struct __bulk_parallel_job {
 
 private:
   _LIBCPP_HIDE_FROM_ABI void __invoke_chunk(_Shape __begin, _Shape __end) {
-    std::apply([&](_Args&... __a) { std::invoke(__f_, __begin, __end, __a...); }, __args_);
+    if constexpr (_Chunked) {
+      std::apply([&](_Args&... __a) { std::invoke(__f_, __begin, __end, __a...); }, __args_);
+    } else {
+      std::apply(
+          [&](_Args&... __a) {
+            for (_Shape __i = __begin; __i != __end; ++__i) {
+              std::invoke(__f_, __i, __a...);
+            }
+          },
+          __args_);
+    }
   }
 
   _LIBCPP_HIDE_FROM_ABI void __finish() noexcept {
@@ -412,11 +427,11 @@ private:
   vector<__chunk_op_t> __chunk_ops_;
 };
 
-// Entry receiver directly connected to bulk_chunked's child sender: the one and only
-// set_value() call it ever receives is what supplies the real _Args... (only known at that
-// point, not at __bulk_sndr::connect() time), so this is where __bulk_parallel_job is actually
-// created and dispatched.
-template <class _Policy, class _Shape, class _Func, class _Rcvr>
+// Entry receiver directly connected to bulk_chunked's/bulk_unchunked's child sender: the one
+// and only set_value() call it ever receives is what supplies the real _Args... (only known at
+// that point, not at __bulk_sndr::connect() time), so this is where __bulk_parallel_job is
+// actually created and dispatched.
+template <bool _Chunked, class _Policy, class _Shape, class _Func, class _Rcvr>
 class __bulk_parallel_rcvr {
 public:
   using receiver_concept = receiver_tag;
@@ -427,7 +442,7 @@ public:
 
   template <class... _Args>
   _LIBCPP_HIDE_FROM_ABI void set_value(_Args&&... __args) && noexcept {
-    using __job_t = __bulk_parallel_job<_Shape, _Func, _Rcvr, decay_t<_Args>...>;
+    using __job_t = __bulk_parallel_job<_Chunked, _Shape, _Func, _Rcvr, decay_t<_Args>...>;
     auto* __job =
         new __job_t(std::move(__data_.f), __data_.shape, std::move(__rcvr_), __sch_, std::forward<_Args>(__args)...);
     __job->__start();
@@ -474,22 +489,24 @@ public:
   template <class _Rcvr>
   _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && {
 #if _LIBCPP_HAS_THREADS
-    // Pass 2 (P2079R10): probe child's completion scheduler via the same __try_query
+    // Pass 2/3 (P2079R10): probe child's completion scheduler via the same __try_query
     // primitive <__execution/get_scheduler.h>'s own get_completion_scheduler_t uses
     // internally -- calling the full get_completion_scheduler CPO directly here would be
     // unsafe: with no fallback env supplied, its own body hard-fails (a static_assert, not a
     // SFINAE-friendly substitution failure) when the query isn't answered at all, exactly the
     // "immediate context" pitfall documented in docs/CXX26_GAPS.md's M1/M2 entries.
     // __try_query's two overloads are individually requires-constrained, so probing whether
-    // this call is well-formed at all is genuinely SFINAE-safe.
-    if constexpr (_Chunked && requires {
+    // this call is well-formed at all is genuinely SFINAE-safe. Both bulk_chunked_t and
+    // bulk_unchunked_t take this branch identically -- __bulk_parallel_job's own _Chunked
+    // dispatch (see __invoke_chunk above) is what makes each worker do the right thing per tag.
+    if constexpr (requires {
                     execution::__try_query(execution::get_env(child), get_completion_scheduler<set_value_t>);
                   }) {
       using __child_sch_t =
           remove_cvref_t<decltype(execution::__try_query(execution::get_env(child), get_completion_scheduler<set_value_t>))>;
       if constexpr (same_as<__child_sch_t, parallel_scheduler>) {
         return execution::connect(
-            std::move(child), __bulk_parallel_rcvr<_Policy, _Shape, _Func, remove_cvref_t<_Rcvr>>(
+            std::move(child), __bulk_parallel_rcvr<_Chunked, _Policy, _Shape, _Func, remove_cvref_t<_Rcvr>>(
                                    std::move(data), std::forward<_Rcvr>(__rcvr),
                                    execution::__try_query(execution::get_env(child), get_completion_scheduler<set_value_t>)));
       } else {

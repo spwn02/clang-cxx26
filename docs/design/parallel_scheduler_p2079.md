@@ -1,8 +1,9 @@
 # Design note: `parallel_scheduler` (P2079R10, issue #11's last remaining item)
 
-Status: Pass 1 and Pass 2 complete and merged (2026-09-17). Pass 3
-(`system_context_replaceability`) remains deferred — see "Staging" below.
-Written per this
+Status: Pass 1 and Pass 2 complete and merged (2026-09-17); Pass 3a
+(`bulk_unchunked_t` customization, issue #115) complete and merged
+(2026-09-18). Pass 3b (`system_context_replaceability`) remains deferred —
+see "Staging" below. Written per this
 project's standing policy that greenfield facilities get a design note
 before any Codex dispatch, following the process used for `execution::task`
 (#12) and `async_scope` (#11's `P3149R11` sub-item).
@@ -152,7 +153,49 @@ existing deviations are recorded.
   "observed more than one thread id" assertion, since a 1-worker pool
   can only ever produce one).
 
-- **Pass 3 (explicit follow-up, not this session): the
+- **Pass 3a (done, 2026-09-18, issue #115): `bulk_unchunked_t`'s
+  parallel_scheduler customization.** Generalized Pass 2's
+  `__bulk_parallel_job`/`__bulk_parallel_rcvr`/`__bulk_chunk_rcvr` machinery
+  with a `_Chunked` template parameter (mirroring `__bulk_rcvr`'s own
+  existing single-threaded-fallback dichotomy) instead of duplicating it:
+  each dispatched chunk's worker either invokes `f` once for the whole
+  `[begin, end)` sub-range (`bulk_chunked_t`) or once per index within it
+  (`bulk_unchunked_t`), and `__bulk_sndr::connect()`'s completion-scheduler
+  probe was widened from `_Chunked && requires{...}` to just `requires{...}`
+  so both tags take the same dispatch path. No new architectural finding
+  beyond Pass 2's own -- this was a mechanical generalization of an
+  already-proven pattern, not a new design.
+
+  **A real, non-obvious verification trap hit during this pass:** the
+  first lit run after this change failed its multi-thread-id assertion
+  (`ids.size() > 1`) for `bulk_unchunked_t` specifically, while
+  `bulk_chunked_t`'s identical check kept passing -- looking like a real
+  dispatch bug (unchunked silently falling back to the single-threaded
+  path). Root cause was mundane: `ninja -C build-libcxx cxx cxx_shared
+  cxx_static` does not refresh the separate `libcxx/test-suite-install`
+  header copy lit actually compiles tests against for this build tree --
+  only `ninja -C build-libcxx libcxx-test-suite-install-cxx-headers` does.
+  A standalone diagnostic binary (tracking `this_thread::get_id()` per
+  index into a plain array, no mutex contention) confirmed the *installed*
+  header was still the pre-Pass-3a source before reinstalling, then showed
+  the correct 22-chunk/15-thread contiguous-range split immediately after.
+  Worth remembering for any future libcxx header-only change verified via
+  a pre-existing `build-libcxx` tree: rebuilding the library target alone
+  is not sufficient if tests are then run through a separate
+  `test-suite-install` header mirror.
+
+  Verified via the extended lit test (997-shape correctness,
+  200000-shape multi-thread-id observability, TRY-EVAL exception
+  propagation, non-parallel_scheduler fallback regression -- all mirroring
+  `bulk_chunked_t`'s own existing cases), 5 repeated lit runs (no
+  flakiness), a standalone ThreadSanitizer build run 4 times (clean, no
+  races), and a manual temporary forced-single-worker-pool run (same
+  technique as Pass 2, reverted afterward -- confirmed no deadlock and
+  exactly-once-per-index correctness at both a small and a
+  larger-than-Pass-2's-own-chunk-cap shape), plus a full
+  `libcxx/test/std/execution` regression sweep (54/54 passing).
+
+- **Pass 3b (explicit follow-up, not yet attempted): the
   `system_context_replaceability` ABI** (`parallel_scheduler_backend`,
   `receiver_proxy`, `bulk_item_receiver_proxy`, the weak-symbol
   `query_parallel_scheduler_backend()`). The paper mandates link-time

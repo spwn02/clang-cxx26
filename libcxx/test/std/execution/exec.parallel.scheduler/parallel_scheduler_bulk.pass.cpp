@@ -12,10 +12,11 @@
 
 // <execution>
 //
-// Pass 2 (P2079R10, see docs/design/parallel_scheduler_p2079.md): bulk_chunked_t's
-// parallel_scheduler completion-scheduler probe/dispatch. bulk_unchunked_t is deliberately not
-// customized yet (still always the single-threaded fallback, regardless of scheduler) -- not
-// tested here.
+// Pass 2/3 (P2079R10, see docs/design/parallel_scheduler_p2079.md): bulk_chunked_t's and
+// bulk_unchunked_t's parallel_scheduler completion-scheduler probe/dispatch. Both share the
+// same worker-pool job machinery (see <__execution/bulk.h>'s __bulk_parallel_job); they differ
+// only in whether each worker invokes f once for its whole sub-range (chunked) or once per
+// index within it (unchunked).
 
 #include <atomic>
 #include <cassert>
@@ -117,6 +118,71 @@ int main(int, char**) {
     assert(*r == std::tuple(5));
     assert(chunks.size() == 1);
     assert((chunks[0] == std::pair(0, 5)));
+  }
+
+  // bulk_unchunked_t: same parallel_scheduler probe as bulk_chunked_t (Pass 3), but each worker
+  // invokes f once per index in its own sub-range rather than once for the whole sub-range --
+  // correctness: every index in [0, shape) is invoked exactly once, shape again deliberately not
+  // divisible by any small chunk count.
+  {
+    constexpr int kShape = 997;
+    std::vector<std::atomic<int>> hits(kShape);
+    for (auto& h : hits) {
+      h.store(0);
+    }
+
+    auto r = std::this_thread::sync_wait(
+        schedule(get_parallel_scheduler()) | bulk_unchunked(par, kShape, [&](int i) {
+          hits[i].fetch_add(1, std::memory_order_relaxed);
+        }));
+    assert(r.has_value());
+    for (int i = 0; i < kShape; ++i) {
+      assert(hits[i].load() == 1);
+    }
+  }
+
+  // The customization is actually observable for bulk_unchunked_t too: indices run on more than
+  // one distinct thread id when the pool has more than one worker.
+  if (std::thread::hardware_concurrency() > 1) {
+    constexpr int kShape = 200000;
+    std::mutex mtx;
+    std::set<std::thread::id> ids;
+
+    auto r = std::this_thread::sync_wait(
+        schedule(get_parallel_scheduler()) | bulk_unchunked(par, kShape, [&](int) {
+          std::lock_guard<std::mutex> lock(mtx);
+          ids.insert(std::this_thread::get_id());
+        }));
+    assert(r.has_value());
+    assert(ids.size() > 1);
+  }
+
+  // TRY-EVAL semantics apply to bulk_unchunked_t's parallel dispatch identically to
+  // bulk_chunked_t's: a throwing index still completes the whole operation via set_error.
+  {
+    constexpr int kShape = 64;
+    bool caught          = false;
+    try {
+      std::this_thread::sync_wait(
+          schedule(get_parallel_scheduler()) | bulk_unchunked(par, kShape, [](int) { throw 42; }));
+    } catch (int v) {
+      caught = true;
+      assert(v == 42);
+    }
+    assert(caught);
+  }
+
+  // Non-parallel_scheduler completion schedulers are unaffected for bulk_unchunked_t either:
+  // still falls back to invoking f once per index, in order, on the calling thread.
+  {
+    std::vector<int> indices;
+    auto r = std::this_thread::sync_wait(just(0) | bulk_unchunked(seq, 5, [&](int i, int& v) {
+                                            indices.push_back(i);
+                                            v += 1;
+                                          }));
+    assert(r.has_value());
+    assert(*r == std::tuple(5));
+    assert((indices == std::vector<int>{0, 1, 2, 3, 4}));
   }
 
   return 0;
