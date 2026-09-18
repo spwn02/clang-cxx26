@@ -22,10 +22,13 @@
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
 #include <__execution/sender.h>
+#include <__execution/stop_when.h>
 #include <__memory/allocator.h>
 #include <__memory/allocator_traits.h>
 #include <__mutex/lock_guard.h>
 #include <__mutex/mutex.h>
+#include <__stop_token/inplace_stop_source.h>
+#include <__type_traits/is_nothrow_constructible.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
@@ -43,9 +46,9 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 // execution::async_scope (P3149R11). See docs/design/async_scope_p3149.md for the design
 // note this implementation follows, including the staging plan: this file implements Pass 1
-// only (scope_token, simple_counting_scope, associate, spawn, join) -- counting_scope's
-// stop-forwarding token::wrap() (Pass 2) and spawn_future (Pass 3) are explicitly deferred,
-// tracked as follow-up work, not silently dropped.
+// (scope_token, simple_counting_scope, associate, spawn, join) and Pass 2 (counting_scope) --
+// spawn_future (Pass 3) is explicitly deferred, tracked as follow-up work, not silently
+// dropped.
 #if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_THREADS
 
 namespace execution {
@@ -207,6 +210,57 @@ private:
 };
 
 _LIBCPP_HIDE_FROM_ABI inline auto simple_counting_scope::join() noexcept { return __join_sender(this); }
+
+// [exec.scope.counting] (Pass 2, P3149R11): counting_scope behaves like a
+// simple_counting_scope augmented with a stop source. Implemented exactly as the paper's own
+// [exec.scope.counting]p2 "as if implemented like so" reference implementation: composition
+// over a private simple_counting_scope member plus an inplace_stop_source, not a parallel
+// reimplementation of the count/state-machine logic -- get_token()/close()/join() are thin
+// delegates, request_stop() is a single call into the stop source, and token::wrap() is the
+// only place that actually does something new (fusing the stop source's own token into the
+// wrapped sender via the exposition-only stop-when, <__execution/stop_when.h>).
+class counting_scope {
+public:
+  class token {
+  public:
+    template <sender _Sndr>
+    _LIBCPP_HIDE_FROM_ABI auto wrap(_Sndr&& __sndr) const
+        noexcept(is_nothrow_constructible_v<remove_cvref_t<_Sndr>, _Sndr>) {
+      return execution::__stop_when(std::forward<_Sndr>(__sndr), __scope_->__source_.get_token());
+    }
+    _LIBCPP_HIDE_FROM_ABI bool try_associate() const noexcept {
+      return __scope_->__scope_.get_token().try_associate();
+    }
+    _LIBCPP_HIDE_FROM_ABI void disassociate() const noexcept { __scope_->__scope_.get_token().disassociate(); }
+
+  private:
+    friend class counting_scope;
+    _LIBCPP_HIDE_FROM_ABI explicit token(counting_scope* __scope) noexcept : __scope_(__scope) {}
+    counting_scope* __scope_;
+  };
+
+  _LIBCPP_HIDE_FROM_ABI counting_scope() noexcept = default;
+
+  counting_scope(counting_scope&&)            = delete;
+  counting_scope& operator=(counting_scope&&) = delete;
+
+  // ~simple_counting_scope() already terminate()s unless in a safe-to-destroy state -- nothing
+  // extra to check here, since counting_scope's own state lives entirely in __scope_.
+  _LIBCPP_HIDE_FROM_ABI ~counting_scope() = default;
+
+  _LIBCPP_HIDE_FROM_ABI token get_token() noexcept { return token(this); }
+
+  _LIBCPP_HIDE_FROM_ABI void close() noexcept { __scope_.close(); }
+
+  _LIBCPP_HIDE_FROM_ABI void request_stop() noexcept { __source_.request_stop(); }
+
+  _LIBCPP_HIDE_FROM_ABI auto join() noexcept { return __scope_.join(); }
+
+private:
+  friend class token;
+  simple_counting_scope __scope_;
+  inplace_stop_source __source_;
+};
 
 // [exec.scope.associate]. A basis operation, not composed from spawn (nor vice versa): wraps
 // the input sender via the token, then on start() either try_associate()s and connects+starts

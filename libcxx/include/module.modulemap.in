@@ -2292,6 +2292,7 @@ module std [system] {
     module sender                         { header "__execution/sender.h" export * }
     module sender_adaptor_closure         { header "__execution/sender_adaptor_closure.h" export * }
     module starts_on                      { header "__execution/starts_on.h" export * }
+    module stop_when                      { header "__execution/stop_when.h" export * }
     module stopped_as_error               { header "__execution/stopped_as_error.h" export * }
     module stopped_as_optional            { header "__execution/stopped_as_optional.h" export * }
     module sync_wait                      { header "__execution/sync_wait.h" export * }

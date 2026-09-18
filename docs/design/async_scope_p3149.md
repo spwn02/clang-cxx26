@@ -1,6 +1,7 @@
 # Design note: `async_scope` (P3149R11, GitHub issue #11's remaining greenfield item)
 
-Status: draft. Staged implementation — see "Staging" below. Written per this
+Status: Pass 1 and Pass 2 complete and merged (2026-09-17, 2026-09-18); Pass
+3 (`spawn_future`) remains deferred — see "Staging" below. Written per this
 project's standing policy that greenfield facilities get a design note
 before any Codex dispatch, following the same process used for
 `execution::task` (docs/design/execution_task_p3552.md).
@@ -99,18 +100,46 @@ genuinely store its receiver and complete it later, not poll).
   `associate`, `spawn`, `join`.** Fully self-contained and testable via
   `run_loop` as described above. This is what gets implemented and
   committed now.
-- **Pass 2 (explicit follow-up, not this session): `counting_scope`** =
-  Pass 1 plus the real `token::wrap()` "stop-when" composition (an
-  `inplace_stop_callback` on the connected receiver's stop token,
-  forwarding into the scope's own `inplace_stop_source`) and
-  `request_stop()`. Incremental on top of Pass 1.
-- **Pass 3 (explicit follow-up, not this session): `spawn_future`.** Its
+- **Pass 2 (done, 2026-09-18, issue #114): `counting_scope`.** The paper's
+  own [exec.stop.when] specifies `token::wrap()` in terms of an
+  exposition-only `stop-when(sndr, token)` sender algorithm, *not* the
+  mechanism originally guessed above (a single `inplace_stop_callback`
+  forwarding the connected receiver's own stop token into the scope's
+  source). The real spec: `stop-when` fuses the given `token` with
+  whatever `get_stop_token(get_env(r))` the eventual receiver `r` answers,
+  building a *combined* token when both are genuinely stoppable (installed
+  via `write_env(sndr, prop(get_stop_token, combined))`), or degrading to
+  installing just `token` alone when `r`'s own token is `unstoppable_token`
+  (and to the identity when `token` itself is `unstoppable_token`).
+  Implemented as its own reusable header, `<__execution/stop_when.h>`
+  (needed again by `spawn_future` per the paper's own section ordering),
+  realizing the paper's abstract "OR of two tokens" `stoken-t` concretely
+  as an `inplace_stop_source` that either side's callback can request stop
+  on. `counting_scope` itself is exactly the paper's own "as if
+  implemented like so" reference: a private `simple_counting_scope` member
+  plus an `inplace_stop_source`, with `get_token()`/`close()`/`join()` as
+  thin delegates and `request_stop()` a single call into the source —
+  composition, not a parallel reimplementation of Pass 1's state machine.
+  Verified via `<__execution/stop_when.h>`'s two `if constexpr` branches
+  each having direct test coverage (a receiver with no stop token, and one
+  with a real `inplace_stop_source` of its own, requesting stop from both
+  the scope's side and the external side), a real `import std;` round
+  trip (confirming `counting_scope` is exported and `__stop_when` is not —
+  this caught a real stale-install trap, see
+  [[feedback_build_libcxx_test_suite_install_stale]]: the module partition
+  `.inc` files have their *own* separate install target,
+  `libcxx-test-suite-install-cxx-modules`, distinct from
+  `libcxx-test-suite-install-cxx-headers`), a standalone ThreadSanitizer
+  run, and the full `libcxx/test/std/execution` suite (54/54).
+- **Pass 3 (explicit follow-up, not yet attempted): `spawn_future`.** Its
   shared state must survive being completed from one side while abandoned
   or stopped from the other — materially harder than Pass 1 and 2
   combined, and the piece least verifiable without genuine concurrency.
-  Design it here, land it separately, the same way `execution::task`
-  deferred a custom `Environment::error_types` rather than build unexercised
-  machinery for it.
+  Benefits from Pass 2's `stop-when` already being solid and committed,
+  since [exec.spawn.future] is specified in terms of it too. Land it
+  separately, the same way `execution::task` deferred a custom
+  `Environment::error_types` rather than build unexercised machinery for
+  it.
 
 ## Implementation notes for Pass 1
 
