@@ -368,6 +368,7 @@ struct vector : _Vector_base {
 vector<void> v{};
 // expected-error@-1 {{call to immediate function 'GH66324::vector<void>::vector' is not a constant expression}}
 // expected-note@-2 {{in call to 'vector()'}}
+// expected-note@-3 {{in instantiation of member function 'GH66324::vector<void>::vector' requested here}}
 
 }
 

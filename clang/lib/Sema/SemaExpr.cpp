@@ -5826,6 +5826,18 @@ ExprResult Sema::BuildCXXDefaultInitExpr(SourceLocation Loc, FieldDecl *Field) {
                                                                    CurContext};
     ExprEvalContexts.back().IsCurrentlyCheckingDefaultArgumentOrInitializer =
         NestedDefaultChecking;
+    // CWG2631's "aggregate initialization" checkpoint applies independently
+    // of whatever escalating constructor's mem-initializer-list happens to
+    // be driving this rebuild, specifically when this field belongs to a
+    // *different* class than that constructor (e.g. a base class default-
+    // constructed via `Base{}`) -- see the flag's own doc comment in
+    // Sema.h for the full rationale, and the issue #103 Attempt 3 comment
+    // above HandleImmediateInvocations for the empirical case analysis
+    // that led to this exact condition.
+    if (const auto *CurCtor = dyn_cast_or_null<CXXConstructorDecl>(getCurFunctionDecl());
+        CurCtor && CurCtor->getParent() != Field->getParent() &&
+        !CurCtor->isDependentContext())
+      ExprEvalContexts.back().NSDMIIsSubobjectOfDifferentEscalatingConstructor = true;
     // Pass down lifetime extending flag, and collect temporaries in
     // CreateMaterializeTemporaryExpr when we rewrite the call argument.
     currentEvaluationContext().InLifetimeExtendingContext =
@@ -18255,7 +18267,19 @@ ExprResult Sema::CheckForImmediateInvocation(ExprResult E, FunctionDecl *Decl) {
       ExprEvalContexts.back().InImmediateEscalatingFunctionContext &&
       !CheckConstantExpressionAndKeepResult()) {
     MarkExpressionAsImmediateEscalating(E.get());
-    return E;
+    // Ordinarily this escalation is the only diagnosis this call needs --
+    // evaluating the outer escalating call will naturally surface this
+    // failure again as one of *its own* sub-notes. But when this call is
+    // itself CWG2631's own, separate "aggregate initialization" checkpoint
+    // (an NSDMI belonging to a class being default-constructed as a
+    // subobject of a *different* class's constructor -- see
+    // NSDMIIsSubobjectOfDifferentEscalatingConstructor's doc comment),
+    // that checkpoint needs its own independent diagnostic too, not just a
+    // sub-note of whatever else happens to be escalating. Fall through to
+    // register it as its own ImmediateInvocationCandidate in that case
+    // instead of returning early.
+    if (!ExprEvalContexts.back().NSDMIIsSubobjectOfDifferentEscalatingConstructor)
+      return E;
   }
 
   if (Cleanup.exprNeedsCleanups()) {
@@ -18829,99 +18853,56 @@ static void RemoveNestedImmediateInvocation(
 //     own still-open builtin-is-within-lifetime.cpp gap above, so a future
 //     fix attempt should investigate both together.
 //
-// Issue #103 Attempt 1 (2026-09-17, not committed, reverted): traced the
-// GH66324 case with instrumented builds. Confirmed the exact mechanism:
-// BuildCXXDefaultInitExpr's EnsureImmediateInvocationInDefaultArgs rebuild
-// (SemaExpr.cpp, ~line 5792) pushes a fresh ExpressionEvaluationContext via
-// the general EnterExpressionEvaluationContext overload, which copies
-// InImmediateEscalatingFunctionContext from the *parent* context
-// (PushExpressionEvaluationContext's `Prev.InImmediateEscalatingFunctionContext`
-// assignment). When the enclosing function using the NSDMI (e.g. vector()'s
-// constructor) is itself immediate-escalating, that flag is already true, so
-// CheckForImmediateInvocation's escalation branch
-// (ExprEvalContexts.back().InImmediateEscalatingFunctionContext check, above)
-// fires *again* for the NSDMI's own immediate call and silently
-// re-escalates the outer function via MarkExpressionAsImmediateEscalating,
-// instead of falling through to register an independent
-// ImmediateInvocationCandidate for the NSDMI call itself. That's why
-// GH66324 gets vector()'s own escalation chain but never the standalone
-// "call to consteval function 'allocate' is not a constant expression"
-// error plus its own pair of undefined-function/declared-here notes that
-// cxx2b-consteval-propagate.cpp expects.
+// Issue #103, fixed: the missing GH66324 diagnostic needed a genuinely new
+// distinction, not a toggle between escalating and independently
+// registering. Two prior attempts (both reverted, kept here for the
+// record) established the pieces the final fix combines:
 //
-// Tried: clearing InImmediateEscalatingFunctionContext to false on the
-// Record pushed by this rebuild (treating the rebuild as its own
-// independent CWG2631 check point, distinct from whatever escalating
-// function triggered it). This does make GH66324 emit the missing
-// independent error. But InImmediateEscalatingFunctionContext is load-
-// bearing for *other* passing cases in the same test file that go through
-// this identical rebuild path -- DefaultedUse, UserDefinedConstructors,
-// AggregateInit, and the immediate<int> aggregate case all regressed: they
-// need the NSDMI's immediate call to escalate the *outer* function (their
-// expected diagnostics are the escalation-chain notes: "is an immediate
-// function/constructor because its default initializer contains a call
-// to...", "in the default initializer of 'x'", "declared here"), not an
-// independent top-level error. A blanket clear breaks those to fix GH66324;
-// a blanket inherit breaks GH66324 to keep those. The two families are
-// currently indistinguishable at this call site by any state already
-// tracked on ExpressionEvaluationContextRecord -- distinguishing them
-// needs either new context state describing *why* the NSDMI is being
-// rebuilt (first-definition-time check vs. later point-of-use recheck per
-// CWG2631) or a different fix location entirely. Reverted; no working fix
-// committed. See docs/design/ (or a future issue #103 comment) before
-// attempting again -- this shares its NSDMI shape with the still-open
-// builtin-is-within-lifetime.cpp gap above, so investigate both together
-// rather than patching this call site in isolation.
+// Attempt 1 (2026-09-17) confirmed the mechanism: BuildCXXDefaultInitExpr's
+// EnsureImmediateInvocationInDefaultArgs rebuild pushes a context that
+// inherits InImmediateEscalatingFunctionContext from the parent, so
+// CheckForImmediateInvocation's escalation branch re-fires for the NSDMI's
+// own call and returns early, before ever registering it as its own
+// ImmediateInvocationCandidate. Blanket-clearing the flag fixed GH66324 but
+// broke DefaultedUse/UserDefinedConstructors/the immediate<int> aggregate
+// case, which need the NSDMI's failure to escalate the *outer* function,
+// not be independently diagnosed.
 //
-// Issue #103 Attempt 2 (2026-09-18, not committed, reverted): tried the
-// "new context state" direction Attempt 1 called for. Hypothesis: only
-// clear InImmediateEscalatingFunctionContext on this rebuild's pushed
-// Record when the *immediately enclosing function being defined* is NOT
-// itself a constructor of the exact class that owns the field (i.e.
-// dyn_cast<CXXConstructorDecl>(getCurFunctionDecl())->getParent() !=
-// Field->getParent()) -- the idea being that a field whose NSDMI is used
-// as *that constructor's own, direct* member-initialization should keep
-// escalating (matching DefaultedUse/UserDefinedConstructors, where
-// Field->getParent() == the enclosing constructor's class), while a field
-// belonging to a *different* class reached via a nested subobject/base
-// aggregate-init inside that constructor (matching GH66324: Field is
-// _Vector_base::b, but the enclosing constructor being defined is
-// vector<T>::vector(), a different class) is CWG2631's own independent
-// "aggregate initialization" checkpoint and must not inherit.
+// Attempt 2 (2026-09-18) found the right axis -- clear the flag only when
+// the enclosing function being defined is a constructor whose *class
+// differs* from the field's own class (Field->getParent() != CurCtor->
+// getParent()), matching GH66324 exactly (_Vector_base's field, reached
+// through vector<T>'s own mem-initializer-list) -- but "clear and return
+// early" was still the wrong operation: it just swaps *which* diagnostic
+// fires, and this call site is reached twice for one field (once for the
+// still-dependent class-template pattern, once for the real instantiation),
+// so clearing produced the target diagnostic *twice*.
 //
-// Traced empirically (instrumented build) and confirmed the classification
-// itself is right where it was checked: for GH66324, getCurFunctionDecl()
-// resolves to vector's constructor (not _Vector_base's), so
-// Field->getParent() (_Vector_base) correctly compares unequal and the
-// rebuild is correctly flagged as independent. But this call site is
-// reached *twice* for GH66324 -- once while checking the still-dependent
-// class-template *pattern* vector<T>::vector() (getCurFunctionDecl()
-// reports the pattern, name "vector<type-parameter-0-0>"), and again for
-// the real instantiation vector<void>::vector() once v{} triggers it --
-// and clearing the flag on *both* passes makes each one independently
-// emit the full "call to consteval function 'allocate' is not a constant
-// expression" error, so the target diagnostic appears twice where the
-// test's -verify annotations expect it exactly once (they do expect the
-// *notes* -- undefined-function and declared-here -- twice, matching the
-// two passes, but only one copy of the top-level error). Broader run
-// against the whole file surfaces the same over-firing on aggregate::test
-// and Aggregate::immediate's own analogous NSDMI-through-aggregate-init
-// cases, which regressed in the other direction from Attempt 1 (this
-// heuristic fires the independent path for them too, but their expected
-// output wants only the escalation notes, no independent error) --
-// suggesting the per-class comparison is on the right axis but the
-// pattern-vs-instantiation duplication and at least one more
-// discriminating dimension (why aggregate::test/Aggregate::immediate
-// still want pure escalation despite also reaching the field through a
-// nested aggregate-init) remain unresolved. Reverted; no working fix
-// committed. Per this project's standing discipline (matching issue #1's
-// "seven attempts, stop and reassess" history), this is the point to stop
-// iterating single-attempt variants on this call site and treat #103 as
-// needing a dedicated design session -- likely starting from an accurate,
-// exhaustive enumeration of every NSDMI-rebuild case in this test file and
-// its expected diagnostic shape (escalation-only vs. independent-plus-
-// escalation vs. independent-only) before writing any code, rather than
-// pattern-matching from the two cases inspected so far.
+// The actual fix (Attempt 3): this is not an either/or. CWG2631 names both
+// "a constructor definition" and "an aggregate initialization" as
+// independent checkpoints, and GH66324's field is subject to *both*
+// simultaneously -- vector()'s own constructor-definition checkpoint
+// (which must still escalate, since nothing else in vector()'s body would
+// otherwise make it immediate) and _Vector_base{}'s own, separate
+// aggregate-initialization checkpoint (which needs its own independent
+// diagnostic). So the fix keeps calling MarkExpressionAsImmediateEscalating
+// as before, but additionally falls through to register an independent
+// ImmediateInvocationCandidate too, specifically when
+// NSDMIIsSubobjectOfDifferentEscalatingConstructor is set (see that flag's
+// doc comment in Sema.h) -- computed in BuildCXXDefaultInitExpr as "is
+// there an enclosing CXXConstructorDecl, is its class different from the
+// field's class, and is it not still a dependent, uninstantiated template
+// pattern" (the last condition is what avoids the double-firing Attempt 2
+// hit: the pattern-time check must not independently register, only the
+// real instantiation should). Verified against the full test file (GH66324
+// now matches exactly, including an additional accurate "in instantiation
+// of member function... requested here" note the independent re-evaluation
+// legitimately produces) and a 2648-test SemaCXX+SemaTemplate+CXX+Reflection
+// sweep (zero regressions, isolated via git-stash against clean HEAD).
+// ConstevalConstructor::g<int> (line 163, a direct consteval-constructor
+// call, not an NSDMI) and GH112677::D (an NSDMI reached through an
+// *inherited* constructor) are separate, pre-existing, confirmed-unrelated
+// gaps in the same file -- untouched by this fix, not part of #103's scope.
 static void
 HandleImmediateInvocations(Sema &SemaRef,
                            Sema::ExpressionEvaluationContextRecord &Rec) {

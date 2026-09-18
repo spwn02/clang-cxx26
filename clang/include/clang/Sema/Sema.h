@@ -6966,6 +6966,24 @@ public:
     /// ImmediateFunctionContext but need opposite bailout behavior from it.
     bool IsSynthesizedConstexprVarInitContext = false;
 
+    /// True iff this record was pushed by BuildCXXDefaultInitExpr rebuilding
+    /// a default member initializer that CWG2631 treats as its own,
+    /// independent "aggregate initialization" checkpoint -- specifically,
+    /// when the field being defaulted belongs to a *different* class than
+    /// the constructor whose own mem-initializer-list is what's driving
+    /// this rebuild (e.g. a base class default-constructed via `Base{}` in
+    /// a derived class's constructor). When this is set,
+    /// CheckForImmediateInvocation's escalation branch must not just mark
+    /// the outer function as escalating and stop -- CWG2631's own
+    /// checkpoint for *this* aggregate initialization still needs its own
+    /// independent ImmediateInvocationCandidate registered too, so the
+    /// field's own failure is diagnosed both as part of the outer
+    /// function's escalation notes (unavoidable, since evaluating the
+    /// outer immediate call necessarily evaluates this field too) *and* as
+    /// its own standalone error. See the issue #103 Attempt 3 comment
+    /// above HandleImmediateInvocations in SemaExpr.cpp.
+    bool NSDMIIsSubobjectOfDifferentEscalatingConstructor = false;
+
     // We are in a constant context, but we also allow
     // non constant expressions, for example for array bounds (which may be
     // VLAs).
