@@ -1060,8 +1060,6 @@ protected:
     unsigned ZeroInitialization : 1;
     LLVM_PREFERRED_TYPE(CXXConstructionKind)
     unsigned ConstructionKind : 3;
-    LLVM_PREFERRED_TYPE(bool)
-    unsigned IsImmediateEscalating : 1;
 
     SourceLocation Loc;
   };

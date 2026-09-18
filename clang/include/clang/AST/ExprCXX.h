@@ -1711,14 +1711,6 @@ public:
     getArgs()[Arg] = ArgExpr;
   }
 
-  bool isImmediateEscalating() const {
-    return CXXConstructExprBits.IsImmediateEscalating;
-  }
-
-  void setIsImmediateEscalating(bool Set) {
-    CXXConstructExprBits.IsImmediateEscalating = Set;
-  }
-
   /// Returns the WarnUnusedResultAttr that is declared on the callee
   /// or its return type declaration, together with a NamedDecl that
   /// refers to the declaration the attribute is attached to.
