@@ -1464,6 +1464,7 @@ private:
   _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI static void __assign_value(__get_node_value_type_t<value_type>& __lhs, _From&& __rhs) {
     using __key_type = __remove_const_t<typename value_type::first_type>;
 
+#if _LIBCPP_STD_VER >= 26
     if consteval {
       // Destroying and placement-new-ing just the *key* subobject isn't sufficient: the
       // evaluator only recognizes reconstructing a const-qualified subobject as legal when
@@ -1501,6 +1502,7 @@ private:
           std::forward<_From>(__rhs).second);
       return;
     }
+#endif
 
     // This is technically UB, since the object was constructed as `const`.
     // Clang doesn't optimize on this currently though.

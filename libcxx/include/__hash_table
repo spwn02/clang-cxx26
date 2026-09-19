@@ -1141,6 +1141,7 @@ private:
 
   template <class _From, class _ValueT = _Tp, __enable_if_t<__is_hash_value_type<_ValueT>::value, int> = 0>
   _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI void __assign_value(__get_hash_node_value_type_t<_Tp>& __lhs, _From&& __rhs) {
+#if _LIBCPP_STD_VER >= 26
     if consteval {
       // Destroying and placement-new-ing just the *key* subobject isn't sufficient: the
       // evaluator only recognizes reconstructing a const-qualified subobject as legal when
@@ -1176,6 +1177,7 @@ private:
           std::addressof(__lhs), const_cast<__copy_cvref_t<_From, key_type>&&>(__rhs.first), std::forward<_From>(__rhs).second);
       return;
     }
+#endif
     // This is technically UB, since the object was constructed as `const`.
     // Clang doesn't optimize on this currently though.
     const_cast<key_type&>(__lhs.first) = const_cast<__copy_cvref_t<_From, key_type>&&>(__rhs.first);
@@ -1848,9 +1850,12 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 void __hash_table<_Tp, _Hash, _Equal, _Alloc>::__r
   if (__n == 1)
     __n = 2;
   else if (__n & (__n - 1)) {
+#if _LIBCPP_STD_VER >= 26
     if consteval {
       __n = std::__next_prime_constexpr(__n);
-    } else {
+    } else
+#endif
+    {
       __n = std::__next_prime(__n);
     }
   }
@@ -1863,9 +1868,12 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 void __hash_table<_Tp, _Hash, _Equal, _Alloc>::__r
         std::__is_hash_power2(__bc) ? std::__next_hash_pow2(size_t(__math::ceil(float(size()) / max_load_factor())))
                                     : ([&] {
                                         size_t __n = size_t(__math::ceil(float(size()) / max_load_factor()));
+#if _LIBCPP_STD_VER >= 26
                                         if consteval {
                                           return std::__next_prime_constexpr(__n);
-                                        } else {
+                                        } else
+#endif
+                                        {
                                           return std::__next_prime(__n);
                                         }
                                       })());

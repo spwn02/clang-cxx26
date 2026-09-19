@@ -1236,85 +1236,112 @@ _LIBCPP_HIDE_FROM_ABI constexpr _Tp __complex_constexpr_cosh(_Tp __x) {
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp __complex_dispatch_sqrt(_Tp __x) {
+#if _LIBCPP_STD_VER >= 26
   if consteval {
     return std::__complex_constexpr_sqrt(__x);
-  } else {
+  } else
+#endif
+  {
     return std::sqrt(__x);
   }
 }
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp __complex_dispatch_hypot(_Tp __x, _Tp __y) {
+#if _LIBCPP_STD_VER >= 26
   if consteval {
     return std::__complex_constexpr_hypot(__x, __y);
-  } else {
+  } else
+#endif
+  {
     return std::hypot(__x, __y);
   }
 }
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp __complex_dispatch_exp(_Tp __x) {
+#if _LIBCPP_STD_VER >= 26
   if consteval {
     return std::__complex_constexpr_exp(__x);
-  } else {
+  } else
+#endif
+  {
     return std::exp(__x);
   }
 }
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp __complex_dispatch_log(_Tp __x) {
+#if _LIBCPP_STD_VER >= 26
   if consteval {
     return std::__complex_constexpr_log(__x);
-  } else {
+  } else
+#endif
+  {
     return std::log(__x);
   }
 }
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp __complex_dispatch_sin(_Tp __x) {
+#if _LIBCPP_STD_VER >= 26
   if consteval {
     _Tp __s, __c;
     std::__complex_constexpr_sincos(__x, __s, __c);
     return __s;
-  } else {
+  } else
+#endif
+  {
     return std::sin(__x);
   }
 }
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp __complex_dispatch_cos(_Tp __x) {
+#if _LIBCPP_STD_VER >= 26
   if consteval {
     _Tp __s, __c;
     std::__complex_constexpr_sincos(__x, __s, __c);
     return __c;
-  } else {
+  } else
+#endif
+  {
     return std::cos(__x);
   }
 }
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp __complex_dispatch_sinh(_Tp __x) {
+#if _LIBCPP_STD_VER >= 26
   if consteval {
     return std::__complex_constexpr_sinh(__x);
-  } else {
+  } else
+#endif
+  {
     return std::sinh(__x);
   }
 }
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp __complex_dispatch_cosh(_Tp __x) {
+#if _LIBCPP_STD_VER >= 26
   if consteval {
     return std::__complex_constexpr_cosh(__x);
-  } else {
+  } else
+#endif
+  {
     return std::cosh(__x);
   }
 }
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp __complex_dispatch_atan2(_Tp __y, _Tp __x) {
+#if _LIBCPP_STD_VER >= 26
   if consteval {
     return std::__complex_constexpr_atan2(__y, __x);
-  } else {
+  } else
+#endif
+  {
     return std::atan2(__y, __x);
   }
 }

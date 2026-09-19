@@ -275,9 +275,12 @@ struct __scalar_hash;
 template <class _Tp>
 struct __scalar_hash<_Tp, 0> : public __unary_function<_Tp, size_t> {
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(_Tp __v) const _NOEXCEPT {
+#if _LIBCPP_STD_VER >= 26
     if consteval {
       return std::__constexpr_scalar_hash(__v);
-    } else {
+    } else
+#endif
+    {
       union {
         _Tp __t;
         size_t __a;
@@ -292,9 +295,12 @@ struct __scalar_hash<_Tp, 0> : public __unary_function<_Tp, size_t> {
 template <class _Tp>
 struct __scalar_hash<_Tp, 1> : public __unary_function<_Tp, size_t> {
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(_Tp __v) const _NOEXCEPT {
+#if _LIBCPP_STD_VER >= 26
     if consteval {
       return std::__constexpr_scalar_hash(__v);
-    } else {
+    } else
+#endif
+    {
       union {
         _Tp __t;
         size_t __a;
@@ -308,9 +314,12 @@ struct __scalar_hash<_Tp, 1> : public __unary_function<_Tp, size_t> {
 template <class _Tp>
 struct __scalar_hash<_Tp, 2> : public __unary_function<_Tp, size_t> {
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(_Tp __v) const _NOEXCEPT {
+#if _LIBCPP_STD_VER >= 26
     if consteval {
       return std::__constexpr_scalar_hash(__v);
-    } else {
+    } else
+#endif
+    {
       union {
         _Tp __t;
         struct {
@@ -327,9 +336,12 @@ struct __scalar_hash<_Tp, 2> : public __unary_function<_Tp, size_t> {
 template <class _Tp>
 struct __scalar_hash<_Tp, 3> : public __unary_function<_Tp, size_t> {
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(_Tp __v) const _NOEXCEPT {
+#if _LIBCPP_STD_VER >= 26
     if consteval {
       return std::__constexpr_scalar_hash(__v);
-    } else {
+    } else
+#endif
+    {
       union {
         _Tp __t;
         struct {
@@ -347,9 +359,12 @@ struct __scalar_hash<_Tp, 3> : public __unary_function<_Tp, size_t> {
 template <class _Tp>
 struct __scalar_hash<_Tp, 4> : public __unary_function<_Tp, size_t> {
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 size_t operator()(_Tp __v) const _NOEXCEPT {
+#if _LIBCPP_STD_VER >= 26
     if consteval {
       return std::__constexpr_scalar_hash(__v);
-    } else {
+    } else
+#endif
+    {
       union {
         _Tp __t;
         struct {
@@ -441,6 +456,7 @@ struct __hash_impl<long double> : __scalar_hash<long double> {
     // -0.0 and 0.0 should return same hash
     if (__v == 0.0L)
       return 0;
+#if _LIBCPP_STD_VER >= 26
     if consteval {
       // Unlike float/double, long double's object representation includes genuine
       // ABI-specific padding bytes on several targets (e.g. the 80-bit x87 value stored in
@@ -456,6 +472,7 @@ struct __hash_impl<long double> : __scalar_hash<long double> {
       // zero-normalization is needed here the way __hash_impl<double> itself would do.
       return __scalar_hash<double>{}(static_cast<double>(__v));
     }
+#endif
 #if defined(__i386__) || (defined(__x86_64__) && defined(__ILP32__))
     // Zero out padding bits
     union {
