@@ -1,7 +1,7 @@
 # Design note: `async_scope` (P3149R11, GitHub issue #11's remaining greenfield item)
 
-Status: Pass 1 and Pass 2 complete and merged (2026-09-17, 2026-09-18); Pass
-3 (`spawn_future`) remains deferred — see "Staging" below. Written per this
+Status: Pass 1, Pass 2, and Pass 3 all complete and merged (2026-09-17,
+2026-09-18, 2026-09-19) — issue #114 fully closed. Written per this
 project's standing policy that greenfield facilities get a design note
 before any Codex dispatch, following the same process used for
 `execution::task` (docs/design/execution_task_p3552.md).
@@ -131,15 +131,82 @@ genuinely store its receiver and complete it later, not poll).
   `libcxx-test-suite-install-cxx-modules`, distinct from
   `libcxx-test-suite-install-cxx-headers`), a standalone ThreadSanitizer
   run, and the full `libcxx/test/std/execution` suite (54/54).
-- **Pass 3 (explicit follow-up, not yet attempted): `spawn_future`.** Its
-  shared state must survive being completed from one side while abandoned
-  or stopped from the other — materially harder than Pass 1 and 2
-  combined, and the piece least verifiable without genuine concurrency.
-  Benefits from Pass 2's `stop-when` already being solid and committed,
-  since [exec.spawn.future] is specified in terms of it too. Land it
-  separately, the same way `execution::task` deferred a custom
-  `Environment::error_types` rather than build unexercised machinery for
-  it.
+- **Pass 3 (done, 2026-09-19, issue #114): `spawn_future`.** Implemented
+  exactly per [exec.spawn.future]'s exposition-only reference: a
+  `spawn-future-state` owning the eagerly-connected-and-started child
+  operation (composed through `token.wrap(sndr)` **and** a second,
+  independent `stop-when` layer using the state's own private
+  `inplace_stop_source` -- abandoning *this* future requests stop without
+  affecting any other operation associated with the scope), a
+  `spawn-future-receiver` that stores the result into a `variant` and
+  signals completion, and three operations --
+  `complete()`/`consume()`/`abandon()` -- that the spec requires to
+  "behave as atomic operations" appearing "to occur in a single total
+  order." Implemented with a plain `mutex` (matching `simple_counting_scope`'s
+  own Pass 1 idiom for a structurally similar race), not lock-free atomics.
+
+  **Two real bugs found only by testing every ordering the race actually
+  has, not just the ones synchronous test senders exercise by default:**
+  1. `complete()`'s "the receiver was already registered via `consume()`"
+     branch dispatched the result but never transitioned `__phase_` away
+     from `__consumed`. Once the *outer* opstate (and the `unique_ptr` it
+     owns) was later destroyed, `abandon()` -- called from the
+     `unique_ptr`'s own deleter, never a direct delete -- saw a phase its
+     `switch` had no case for, silently did nothing, and the state (and
+     its scope association) leaked forever, `std::terminate()`-ing the
+     *next* time that scope's own destructor ran. Fixed by transitioning
+     to `__completed` (the same "nothing left to wait for, just tear
+     down" terminal state `abandon()` already knows how to handle) before
+     dispatching.
+  2. The original "defer the destroy decision to `abandon()`'s own stack"
+     fix for the advisor-flagged synchronous-`request_stop()` reentrancy
+     risk only handles `complete()` firing *synchronously inside*
+     `request_stop()`'s own call. It does not handle the much more common
+     case in this fork -- `complete()` firing *later*, fully
+     asynchronously (a `run_loop`-scheduled operation, draining only once
+     something eventually calls `run()`) -- where `abandon()`'s own stack
+     frame is long gone by the time `complete()` runs, so nothing was ever
+     going to re-check anything. Fixed with an explicit
+     `__request_stop_in_progress_` flag: `complete()`'s `__abandoned`
+     branch destroys directly, itself, whenever that flag is false (the
+     ordinary, asynchronous case, where nothing depends on
+     `request_stop()`'s stack frame surviving); it only defers when the
+     flag is true (genuinely nested inside `request_stop()`'s own
+     still-unwinding call).
+
+  Both were caught by a standalone scratch reproduction *before* they
+  reached the committed test suite -- built specifically because the
+  design note's own testability section already flagged that this fork's
+  senders complete synchronously by default, so a test built around that
+  assumption would never exercise the deferred-completion code at all.
+  The lesson generalizes past this one facility: **for any state machine
+  whose correctness depends on *which* of several async completion paths
+  happens first, a passing synchronous-only test proves nothing about the
+  paths that only fire when something is genuinely still outstanding --
+  build the `run_loop`-deferred version of every such test before trusting
+  any of them.**
+
+  Also discovered while composing tests: `run_loop`'s own `schedule()`
+  opstate checks its stop token *before* dispatching
+  ([exec.run.loop.types]p10.2) and completes with `set_stopped()`
+  directly if already requested -- correct, standard-mandated behavior,
+  but it means nothing chained after `schedule(loop.get_scheduler())` via
+  `then`/`let_value` ever runs once abandonment has requested stop first.
+  A test built to observe a stop token mid-chain this way will silently
+  never reach its own observer; the actually-meaningful observable proof
+  for "did abandonment's `request_stop()` reach a still-outstanding
+  operation" is that the scope's own association count returns to zero
+  cleanly afterward (which is exactly what bug 1 above broke).
+
+  Verified via the full paper wording extracted directly from the primary
+  source (`curl` + manual HTML-strip, after `WebFetch` truncated before
+  reaching [exec.spawn.future]'s own section -- see
+  [[project_p3149_async_scope]] for why), tests covering every
+  `complete`/`consume`/`abandon` ordering (synchronous value/error/stopped
+  completion, closed-scope association failure, abandonment before and
+  after completion, consume-then-complete via `run_loop`), a standalone
+  ThreadSanitizer run (4 reps, clean), a real `import std;` round trip,
+  and the full `libcxx/test/std/execution` suite (54/54).
 
 ## Implementation notes for Pass 1
 

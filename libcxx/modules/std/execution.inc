@@ -266,8 +266,8 @@ export namespace std::execution {
   using std::execution::task;
   using std::execution::with_error;
 
-  // [exec.scope] -- Pass 1 (simple_counting_scope/associate/spawn/join) and Pass 2
-  // (counting_scope) done; spawn_future is still follow-up work, see
+  // [exec.scope] -- Pass 1 (simple_counting_scope/associate/spawn/join), Pass 2
+  // (counting_scope), and Pass 3 (spawn_future) all done, see
   // docs/design/async_scope_p3149.md. [exec.stop.when]'s stop-when is exposition-only (never a
   // name in [execution.syn] at all, unlike write_env above) and is deliberately not exported
   // here -- see <__execution/stop_when.h>'s own file comment.
@@ -277,6 +277,8 @@ export namespace std::execution {
   using std::execution::scope_token;
   using std::execution::simple_counting_scope;
   using std::execution::spawn;
+  using std::execution::spawn_future;
+  using std::execution::spawn_future_t;
   using std::execution::spawn_t;
 #endif
 } // namespace std::execution
