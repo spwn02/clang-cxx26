@@ -50,7 +50,7 @@ __vprint_nonunicode(ostream& __os, string_view __fmt, format_args __args, bool _
           !__rdbuf || __rdbuf->sputn(__data, static_cast<streamsize>(__size)) != static_cast<streamsize>(__size))
         __os.setstate(ios_base::badbit | ios_base::failbit);
     };
-    __format::__print_buffer<char, decltype(__flush)> __buffer{std::move(__flush)};
+    __format::__print_buffer<char, decltype(__flush)> __buffer{std::forward<decltype(__flush)>(__flush)};
 
 #    if _LIBCPP_HAS_EXCEPTIONS
     std::vformat_to(__buffer.__make_output_iterator(), __os.getloc(), __fmt, __args);

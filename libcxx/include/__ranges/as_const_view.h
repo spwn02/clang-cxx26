@@ -34,12 +34,12 @@ class as_const_view : public view_interface<as_const_view<_View>> {
 public:
   as_const_view() requires default_initializable<_View> = default;
   _LIBCPP_HIDE_FROM_ABI constexpr explicit as_const_view(_View __base)
-      noexcept(is_nothrow_move_constructible_v<_View>) : __base_(std::move(__base)) {}
+      noexcept(is_nothrow_move_constructible_v<_View>) : __base_(std::forward<_View>(__base)) {}
 
   _LIBCPP_HIDE_FROM_ABI constexpr _View base() const&
       noexcept(is_nothrow_copy_constructible_v<_View>) requires copy_constructible<_View> { return __base_; }
   _LIBCPP_HIDE_FROM_ABI constexpr _View base() && noexcept(is_nothrow_move_constructible_v<_View>) {
-    return std::move(__base_);
+    return std::forward<_View>(__base_);
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto begin() requires (!__simple_view<_View>) { return ranges::cbegin(__base_); }

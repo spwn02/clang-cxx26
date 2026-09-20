@@ -142,23 +142,23 @@ private:
 
     _LIBCPP_HIDE_FROM_ABI constexpr __iterator(_Parent& __p, decltype(__current_) __current)
         : __parent_(std::addressof(__p)), __current_(std::move(__current)) {}
-    template <size_t _N = sizeof...(_Vs)>
+    template <size_t _Index = sizeof...(_Vs)>
     _LIBCPP_HIDE_FROM_ABI constexpr void __next() {
-      auto& __it = std::get<_N>(__current_);
+      auto& __it = std::get<_Index>(__current_);
       ++__it;
-      if constexpr (_N > 0)
-        if (__it == ranges::end(std::get<_N>(__parent_->__bases_))) {
-          __it = ranges::begin(std::get<_N>(__parent_->__bases_));
-          __next<_N - 1>();
+      if constexpr (_Index > 0)
+        if (__it == ranges::end(std::get<_Index>(__parent_->__bases_))) {
+          __it = ranges::begin(std::get<_Index>(__parent_->__bases_));
+          __next<_Index - 1>();
         }
     }
-    template <size_t _N = sizeof...(_Vs)>
+    template <size_t _Index = sizeof...(_Vs)>
     _LIBCPP_HIDE_FROM_ABI constexpr void __prev() {
-      auto& __it = std::get<_N>(__current_);
-      if constexpr (_N > 0)
-        if (__it == ranges::begin(std::get<_N>(__parent_->__bases_))) {
-          __it = __cartesian_product_end(std::get<_N>(__parent_->__bases_));
-          __prev<_N - 1>();
+      auto& __it = std::get<_Index>(__current_);
+      if constexpr (_Index > 0)
+        if (__it == ranges::begin(std::get<_Index>(__parent_->__bases_))) {
+          __it = __cartesian_product_end(std::get<_Index>(__parent_->__bases_));
+          __prev<_Index - 1>();
         }
       --__it;
     }

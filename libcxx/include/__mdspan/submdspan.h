@@ -87,8 +87,8 @@ template <class _Tp, class = void>
 struct __static_subextent : integral_constant<size_t, dynamic_extent> {};
 template <class _Tp>
 struct __cw_static_value : integral_constant<size_t, dynamic_extent> {};
-template <auto __value_type, class _T>
-struct __cw_static_value<constant_wrapper<__value_type, _T>> : integral_constant<size_t, static_cast<size_t>(__value_type)> {};
+template <auto __value_type, class _ValueType>
+struct __cw_static_value<constant_wrapper<__value_type, _ValueType>> : integral_constant<size_t, static_cast<size_t>(__value_type)> {};
 template <class _Tp>
 struct __static_subextent<_Tp, void_t<typename _Tp::extent_type>>
     : __cw_static_value<typename _Tp::extent_type> {};
@@ -105,7 +105,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __canonical_index(__slice_type __s) {
   if constexpr (__integral_constant_like<__slice_type>::value)
     return cw<_IndexType(__slice_type::value)>;
   else
-    return _IndexType(std::move(__s));
+    return _IndexType(std::forward<decltype(__s)>(__s));
 }
 
 template <class _IndexType, class _OffsetType, class _SpanType, class... _StrideTypes>

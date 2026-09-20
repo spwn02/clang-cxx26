@@ -54,7 +54,7 @@ private:
 public:
   _LIBCPP_HIDE_FROM_ABI constexpr atomic() _NOEXCEPT = default;
   _LIBCPP_HIDE_FROM_ABI constexpr atomic(nullptr_t) _NOEXCEPT : atomic() {}
-  _LIBCPP_HIDE_FROM_ABI atomic(shared_ptr<_Tp> __desired) _NOEXCEPT : __value_(std::move(__desired)) {}
+  _LIBCPP_HIDE_FROM_ABI atomic(shared_ptr<_Tp> __desired) _NOEXCEPT : __value_(std::forward<decltype(__desired)>(__desired)) {}
 
   atomic(const atomic&) = delete;
   void operator=(const atomic&) = delete;
@@ -79,7 +79,7 @@ public:
     __unlock();
   }
 
-  _LIBCPP_HIDE_FROM_ABI void operator=(shared_ptr<_Tp> __desired) _NOEXCEPT { store(std::move(__desired)); }
+  _LIBCPP_HIDE_FROM_ABI void operator=(shared_ptr<_Tp> __desired) _NOEXCEPT { store(std::forward<decltype(__desired)>(__desired)); }
   _LIBCPP_HIDE_FROM_ABI void operator=(nullptr_t) _NOEXCEPT { store(shared_ptr<_Tp>()); }
 
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI shared_ptr<_Tp>
@@ -95,24 +95,24 @@ public:
       shared_ptr<_Tp>& __expected, shared_ptr<_Tp> __desired, memory_order __success, memory_order __failure) _NOEXCEPT
       _LIBCPP_CHECK_EXCHANGE_MEMORY_ORDER(__success, __failure) {
     (void)__success;
-    return __compare_exchange(__expected, std::move(__desired));
+    return __compare_exchange(__expected, std::forward<decltype(__desired)>(__desired));
   }
 
   _LIBCPP_HIDE_FROM_ABI bool compare_exchange_strong(
       shared_ptr<_Tp>& __expected, shared_ptr<_Tp> __desired, memory_order __success, memory_order __failure) _NOEXCEPT
       _LIBCPP_CHECK_EXCHANGE_MEMORY_ORDER(__success, __failure) {
     (void)__success;
-    return __compare_exchange(__expected, std::move(__desired));
+    return __compare_exchange(__expected, std::forward<decltype(__desired)>(__desired));
   }
 
   _LIBCPP_HIDE_FROM_ABI bool
   compare_exchange_weak(shared_ptr<_Tp>& __expected, shared_ptr<_Tp> __desired, memory_order __order = memory_order_seq_cst) _NOEXCEPT {
-    return compare_exchange_weak(__expected, std::move(__desired), __order, __fail_order(__order));
+    return compare_exchange_weak(__expected, std::forward<decltype(__desired)>(__desired), __order, __fail_order(__order));
   }
 
   _LIBCPP_HIDE_FROM_ABI bool
   compare_exchange_strong(shared_ptr<_Tp>& __expected, shared_ptr<_Tp> __desired, memory_order __order = memory_order_seq_cst) _NOEXCEPT {
-    return compare_exchange_strong(__expected, std::move(__desired), __order, __fail_order(__order));
+    return compare_exchange_strong(__expected, std::forward<decltype(__desired)>(__desired), __order, __fail_order(__order));
   }
 
   _LIBCPP_HIDE_FROM_ABI void wait(shared_ptr<_Tp> __old, memory_order __order = memory_order_seq_cst) const _NOEXCEPT
@@ -146,7 +146,7 @@ private:
     // therefore releasing its previous value) occurs after the lock is gone.
     shared_ptr<_Tp> __actual = __value_;
     __unlock();
-    __expected = std::move(__actual);
+    __expected = std::forward<decltype(__actual)>(__actual);
     return false;
   }
 };
@@ -172,7 +172,7 @@ private:
 
 public:
   _LIBCPP_HIDE_FROM_ABI constexpr atomic() _NOEXCEPT = default;
-  _LIBCPP_HIDE_FROM_ABI atomic(weak_ptr<_Tp> __desired) _NOEXCEPT : __value_(std::move(__desired)) {}
+  _LIBCPP_HIDE_FROM_ABI atomic(weak_ptr<_Tp> __desired) _NOEXCEPT : __value_(std::forward<decltype(__desired)>(__desired)) {}
   atomic(const atomic&) = delete;
   void operator=(const atomic&) = delete;
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI bool is_lock_free() const _NOEXCEPT { return false; }
@@ -192,7 +192,7 @@ public:
     __value_.swap(__desired);
     __unlock();
   }
-  _LIBCPP_HIDE_FROM_ABI void operator=(weak_ptr<_Tp> __desired) _NOEXCEPT { store(std::move(__desired)); }
+  _LIBCPP_HIDE_FROM_ABI void operator=(weak_ptr<_Tp> __desired) _NOEXCEPT { store(std::forward<decltype(__desired)>(__desired)); }
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI weak_ptr<_Tp>
   exchange(weak_ptr<_Tp> __desired, memory_order __order = memory_order_seq_cst) _NOEXCEPT {
     (void)__order;
@@ -205,21 +205,21 @@ public:
       weak_ptr<_Tp>& __expected, weak_ptr<_Tp> __desired, memory_order __success, memory_order __failure) _NOEXCEPT
       _LIBCPP_CHECK_EXCHANGE_MEMORY_ORDER(__success, __failure) {
     (void)__success;
-    return __compare_exchange(__expected, std::move(__desired));
+    return __compare_exchange(__expected, std::forward<decltype(__desired)>(__desired));
   }
   _LIBCPP_HIDE_FROM_ABI bool compare_exchange_strong(
       weak_ptr<_Tp>& __expected, weak_ptr<_Tp> __desired, memory_order __success, memory_order __failure) _NOEXCEPT
       _LIBCPP_CHECK_EXCHANGE_MEMORY_ORDER(__success, __failure) {
     (void)__success;
-    return __compare_exchange(__expected, std::move(__desired));
+    return __compare_exchange(__expected, std::forward<decltype(__desired)>(__desired));
   }
   _LIBCPP_HIDE_FROM_ABI bool
   compare_exchange_weak(weak_ptr<_Tp>& __expected, weak_ptr<_Tp> __desired, memory_order __order = memory_order_seq_cst) _NOEXCEPT {
-    return compare_exchange_weak(__expected, std::move(__desired), __order, __fail_order(__order));
+    return compare_exchange_weak(__expected, std::forward<decltype(__desired)>(__desired), __order, __fail_order(__order));
   }
   _LIBCPP_HIDE_FROM_ABI bool
   compare_exchange_strong(weak_ptr<_Tp>& __expected, weak_ptr<_Tp> __desired, memory_order __order = memory_order_seq_cst) _NOEXCEPT {
-    return compare_exchange_strong(__expected, std::move(__desired), __order, __fail_order(__order));
+    return compare_exchange_strong(__expected, std::forward<decltype(__desired)>(__desired), __order, __fail_order(__order));
   }
   _LIBCPP_HIDE_FROM_ABI void wait(weak_ptr<_Tp> __old, memory_order __order = memory_order_seq_cst) const _NOEXCEPT
       _LIBCPP_CHECK_WAIT_MEMORY_ORDER(__order) {
@@ -248,7 +248,7 @@ private:
     }
     weak_ptr<_Tp> __actual = __value_;
     __unlock();
-    __expected = std::move(__actual);
+    __expected = std::forward<decltype(__actual)>(__actual);
     return false;
   }
 };

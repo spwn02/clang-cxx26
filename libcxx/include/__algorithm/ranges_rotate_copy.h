@@ -81,9 +81,9 @@ struct __rotate_copy {
   _LIBCPP_HIDE_FROM_ABI rotate_copy_truncated_result<_InIter, _InIter, _OutIter>
   operator()(_Ep&& __exec, _InIter __first, _InIter __middle, _Sent __last, _OutIter __result) const {
     _InIter __end = __first + (__last - __first);
-    _OutIter __out =
+    _OutIter __destination =
         std::rotate_copy(std::forward<_Ep>(__exec), std::move(__first), __middle, __end, std::move(__result));
-    return {__end, __middle, std::move(__out)};
+    return {__end, __middle, std::move(__destination)};
   }
 
   template <class _Ep,

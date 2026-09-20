@@ -226,7 +226,7 @@ __vprint_nonunicode(FILE* __stream, string_view __fmt, format_args __args, bool 
       std::__throw_system_error(std::ferror(__stream), "failed to write formatted output");
     }
   };
-  __format::__print_buffer<char, decltype(__flush)> __buffer{std::move(__flush)};
+  __format::__print_buffer<char, decltype(__flush)> __buffer{std::forward<decltype(__flush)>(__flush)};
   std::vformat_to(__buffer.__make_output_iterator(), __fmt, __args);
   if (__write_nl)
     __buffer.push_back('\n');

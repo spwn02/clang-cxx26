@@ -104,7 +104,7 @@ public:
     }
 
     template <class _Alloc>
-    _LIBCPP_HIDE_FROM_ABI static void __deallocate(void* __pointer, const __allocation_header* __header) noexcept {
+    _LIBCPP_HIDE_FROM_ABI static void __deallocate_storage(void* __pointer, const __allocation_header* __header) noexcept {
       using _B = __allocator_traits_rebind_t<_Alloc, __allocation_unit>;
       auto* __stored = reinterpret_cast<_B*>(
           static_cast<unsigned char*>(__pointer) + __header->__allocator_offset_);
@@ -146,7 +146,7 @@ public:
       }
 #  endif
       ::new (static_cast<void*>(reinterpret_cast<unsigned char*>(__pointer) + __header_pos))
-          __allocation_header{__count, __allocator_pos, &__deallocate<_A>};
+          __allocation_header{__count, __allocator_pos, &__deallocate_storage<_A>};
       return __pointer;
     }
 
