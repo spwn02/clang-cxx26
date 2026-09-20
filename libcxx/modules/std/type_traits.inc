@@ -50,6 +50,7 @@ export namespace std {
   using std::is_standard_layout;
   using std::is_trivial;
   using std::is_trivially_copyable;
+  using std::is_trivially_relocatable;
   using std::is_volatile;
 
   using std::is_bounded_array;
@@ -283,6 +284,7 @@ export namespace std {
   using std::is_trivially_copy_assignable_v;
   using std::is_trivially_copy_constructible_v;
   using std::is_trivially_copyable_v;
+  using std::is_trivially_relocatable_v;
   using std::is_trivially_default_constructible_v;
   using std::is_trivially_destructible_v;
   using std::is_trivially_move_assignable_v;
