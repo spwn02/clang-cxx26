@@ -8,8 +8,10 @@
 #include <__config>
 #include <__ranges/all.h>
 #include <__ranges/concepts.h>
+#include <__ranges/empty_view.h>
 #include <__ranges/enable_borrowed_range.h>
 #include <__ranges/range_adaptor.h>
+#include <span>
 #include <__ranges/size.h>
 #include <__ranges/view_interface.h>
 #include <__utility/forward.h>
@@ -62,6 +64,26 @@ inline constexpr bool enable_borrowed_range<as_const_view<_View>> = enable_borro
 
 namespace views {
 template <class _Tp>
+inline constexpr bool __as_const_is_empty_view = false;
+template <class _Tp>
+inline constexpr bool __as_const_is_empty_view<empty_view<_Tp>> = true;
+
+template <class _Tp>
+struct __as_const_span_type;
+template <class _Tp, size_t _Extent>
+struct __as_const_span_type<span<_Tp, _Extent>> {
+    using type = span<const _Tp, _Extent>;
+};
+
+template <class _Tp>
+struct __as_const_ref_view_type;
+template <class _Tp>
+struct __as_const_ref_view_type<ref_view<_Tp>> {
+  using type = ref_view<const _Tp>;
+  using base_type = _Tp;
+};
+
+template <class _Tp>
 struct __optional_reference {
   static constexpr bool value = false;
 };
@@ -80,6 +102,38 @@ struct __as_const : range_adaptor_closure<__as_const> {
           std::forward<_Range>(__range))))
           -> decltype(optional<const typename __optional_reference<_RawRange>::type&>(std::forward<_Range>(__range))) {
     return optional<const typename __optional_reference<_RawRange>::type&>(std::forward<_Range>(__range));
+  }
+
+  template <viewable_range _Range>
+    requires constant_range<_Range>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
+      noexcept(noexcept(views::all(std::forward<_Range>(__range))))
+          -> decltype(views::all(std::forward<_Range>(__range))) {
+    return views::all(std::forward<_Range>(__range));
+  }
+
+  template <class _Range, class _RawRange = remove_cvref_t<_Range>>
+    requires __as_const_is_empty_view<_RawRange>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
+      noexcept(noexcept(_LIBCPP_AUTO_CAST(std::forward<_Range>(__range))))
+          -> decltype(_LIBCPP_AUTO_CAST(std::forward<_Range>(__range))) {
+    return _LIBCPP_AUTO_CAST(std::forward<_Range>(__range));
+  }
+
+  template <class _Range, class _RawRange = remove_cvref_t<_Range>>
+    requires requires { typename __as_const_span_type<_RawRange>::type; }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
+      noexcept(noexcept(typename __as_const_span_type<_RawRange>::type(__range)))
+          -> typename __as_const_span_type<_RawRange>::type {
+    return typename __as_const_span_type<_RawRange>::type(__range);
+  }
+
+  template <class _Range, class _RawRange = remove_cvref_t<_Range>>
+    requires requires { typename __as_const_ref_view_type<_RawRange>::type; } &&
+             range<const typename __as_const_ref_view_type<_RawRange>::base_type>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
+      -> typename __as_const_ref_view_type<_RawRange>::type {
+    return typename __as_const_ref_view_type<_RawRange>::type(__range.base());
   }
 
   template <viewable_range _Range>

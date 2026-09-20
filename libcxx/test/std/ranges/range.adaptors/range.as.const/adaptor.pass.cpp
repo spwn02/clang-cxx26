@@ -15,6 +15,8 @@
 #include <cassert>
 #include <concepts>
 #include <optional>
+#include <span>
+#include <vector>
 
 constexpr bool test() {
   int value = 42;
@@ -24,6 +26,20 @@ constexpr bool test() {
   std::same_as<std::optional<const int&>> decltype(auto) result = std::views::as_const(input);
   static_assert(std::same_as<decltype(*result), const int&>);
   assert(result && *result == 42);
+
+  int values[] = {1, 2, 3};
+  std::span<int> span_input(values);
+  static_assert(std::same_as<decltype(std::views::as_const(span_input)), std::span<const int>>);
+
+  std::span<const int> constant_span(values);
+  static_assert(std::same_as<decltype(std::views::as_const(constant_span)), std::span<const int>>);
+
+  std::ranges::empty_view<int> empty;
+  static_assert(std::same_as<decltype(std::views::as_const(empty)), std::ranges::empty_view<int>>);
+
+  std::vector<int> vector_input(values, values + 3);
+  std::ranges::ref_view<std::vector<int>> ref(vector_input);
+  static_assert(std::same_as<decltype(std::views::as_const(ref)), std::ranges::ref_view<const std::vector<int>>>);
 
   return true;
 }
