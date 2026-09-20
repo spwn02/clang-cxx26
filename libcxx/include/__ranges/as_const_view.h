@@ -113,7 +113,8 @@ struct __as_const : range_adaptor_closure<__as_const> {
   }
 
   template <class _Range, class _RawRange = remove_cvref_t<_Range>>
-    requires __as_const_is_empty_view<_RawRange>
+    requires __as_const_is_empty_view<_RawRange> &&
+             (!(viewable_range<_Range> && constant_range<_Range>))
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
       noexcept(noexcept(_LIBCPP_AUTO_CAST(std::forward<_Range>(__range))))
           -> decltype(_LIBCPP_AUTO_CAST(std::forward<_Range>(__range))) {
@@ -121,7 +122,9 @@ struct __as_const : range_adaptor_closure<__as_const> {
   }
 
   template <class _Range, class _RawRange = remove_cvref_t<_Range>>
-    requires requires { typename __as_const_span_type<_RawRange>::type; }
+    requires requires { typename __as_const_span_type<_RawRange>::type; } &&
+             (!(viewable_range<_Range> && constant_range<_Range>)) &&
+             (!__as_const_is_empty_view<_RawRange>)
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
       noexcept(noexcept(typename __as_const_span_type<_RawRange>::type(__range)))
           -> typename __as_const_span_type<_RawRange>::type {
@@ -130,14 +133,22 @@ struct __as_const : range_adaptor_closure<__as_const> {
 
   template <class _Range, class _RawRange = remove_cvref_t<_Range>>
     requires requires { typename __as_const_ref_view_type<_RawRange>::type; } &&
-             range<const typename __as_const_ref_view_type<_RawRange>::base_type>
+             range<const typename __as_const_ref_view_type<_RawRange>::base_type> &&
+             (!(viewable_range<_Range> && constant_range<_Range>)) &&
+             (!__as_const_is_empty_view<_RawRange>) &&
+             (!(requires { typename __as_const_span_type<_RawRange>::type; }))
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
       -> typename __as_const_ref_view_type<_RawRange>::type {
     return typename __as_const_ref_view_type<_RawRange>::type(__range.base());
   }
 
   template <viewable_range _Range>
-    requires(!__optional_reference<remove_cvref_t<_Range>>::value)
+    requires(!__optional_reference<remove_cvref_t<_Range>>::value) &&
+            (!(constant_range<_Range>)) &&
+            (!__as_const_is_empty_view<remove_cvref_t<_Range>>) &&
+            (!(requires { typename __as_const_span_type<remove_cvref_t<_Range>>::type; })) &&
+            (!(requires { typename __as_const_ref_view_type<remove_cvref_t<_Range>>::type; } &&
+              range<const typename __as_const_ref_view_type<remove_cvref_t<_Range>>::base_type>))
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
       noexcept(noexcept(as_const_view(std::forward<_Range>(__range))))
       requires requires { as_const_view(std::forward<_Range>(__range)); }
