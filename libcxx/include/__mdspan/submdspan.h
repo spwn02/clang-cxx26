@@ -130,22 +130,22 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __canonical_slice_range(_OffsetType __offse
 template <class _IndexType, class __slice_type>
 _LIBCPP_HIDE_FROM_ABI constexpr auto __canonical_slice(__slice_type __s) {
   if constexpr (is_convertible_v<__slice_type, full_extent_t>)
-    return static_cast<full_extent_t>(std::move(__s));
+    return static_cast<full_extent_t>(std::forward<decltype(__s)>(__s));
   else if constexpr (is_convertible_v<__slice_type, _IndexType>)
-    return __canonical_index<_IndexType>(std::move(__s));
+    return __canonical_index<_IndexType>(std::forward<decltype(__s)>(__s));
   else if constexpr (__extent_slice<__slice_type>)
-    return extent_slice{__canonical_index<_IndexType>(std::move(__s.offset)),
-                        __canonical_index<_IndexType>(std::move(__s.extent)),
-                        __canonical_index<_IndexType>(std::move(__s.stride))};
+    return extent_slice{__canonical_index<_IndexType>(std::forward<decltype(__s.offset)>(__s.offset)),
+                        __canonical_index<_IndexType>(std::forward<decltype(__s.extent)>(__s.extent)),
+                        __canonical_index<_IndexType>(std::forward<decltype(__s.stride)>(__s.stride))};
   else if constexpr (__range_slice<__slice_type>) {
-    auto __first = __canonical_index<_IndexType>(std::move(__s.first));
-    auto __last  = __canonical_index<_IndexType>(std::move(__s.last));
+    auto __first = __canonical_index<_IndexType>(std::forward<decltype(__s.first)>(__s.first));
+    auto __last  = __canonical_index<_IndexType>(std::forward<decltype(__s.last)>(__s.last));
     return __canonical_slice_range<_IndexType>(__first, __canonical_index<_IndexType>(__last - __first),
-                                               __canonical_index<_IndexType>(std::move(__s.stride)));
+                                               __canonical_index<_IndexType>(std::forward<decltype(__s.stride)>(__s.stride)));
   } else {
-    auto [__first, __last] = std::move(__s);
-    auto __cfirst = __canonical_index<_IndexType>(std::move(__first));
-    auto __clast  = __canonical_index<_IndexType>(std::move(__last));
+    auto [__first, __last] = std::forward<decltype(__s)>(__s);
+    auto __cfirst = __canonical_index<_IndexType>(std::forward<decltype(__first)>(__first));
+    auto __clast  = __canonical_index<_IndexType>(std::forward<decltype(__last)>(__last));
     return __canonical_slice_range<_IndexType>(__cfirst, __canonical_index<_IndexType>(__clast - __cfirst));
   }
 }
@@ -155,7 +155,7 @@ template <class _IndexType, size_t... _Extents, class... _SliceSpecifiers>
   requires(sizeof...(_SliceSpecifiers) == sizeof...(_Extents))
 _LIBCPP_HIDE_FROM_ABI constexpr auto canonical_slices(const extents<_IndexType, _Extents...>&,
                                                       _SliceSpecifiers... __slices) {
-  return std::tuple{__mdspan_detail::__canonical_slice<_IndexType>(std::move(__slices))...};
+  return std::tuple{__mdspan_detail::__canonical_slice<_IndexType>(std::forward<decltype(__slices)>(__slices))...};
 }
 
 namespace __mdspan_detail {
@@ -248,7 +248,7 @@ template <class _IndexType, size_t... _Extents, class... _SliceSpecifiers>
   requires(sizeof...(_SliceSpecifiers) == sizeof...(_Extents))
 _LIBCPP_HIDE_FROM_ABI constexpr auto subextents(const extents<_IndexType, _Extents...>& __src,
                                                 _SliceSpecifiers... __slices) {
-  auto __canonical = canonical_slices(__src, std::move(__slices)...);
+  auto __canonical = canonical_slices(__src, std::forward<decltype(__slices)>(__slices)...);
   return __mdspan_detail::__subextents<_IndexType>(__src, __canonical);
 }
 

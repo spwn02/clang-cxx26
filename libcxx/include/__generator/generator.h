@@ -105,48 +105,48 @@ public:
 
     template <class _Alloc>
     _LIBCPP_HIDE_FROM_ABI static void __deallocate_storage(void* __pointer, const __allocation_header* __header) noexcept {
-      using _B = __allocator_traits_rebind_t<_Alloc, __allocation_unit>;
-      auto* __stored = reinterpret_cast<_B*>(
+      using __rebound_alloc = __allocator_traits_rebind_t<_Alloc, __allocation_unit>;
+      auto* __stored = reinterpret_cast<__rebound_alloc*>(
           static_cast<unsigned char*>(__pointer) + __header->__allocator_offset_);
       // Cpp17Allocator copy construction does not throw.  The copy must
       // outlive the allocator object embedded in the allocation it releases.
-      _B __alloc(*__stored);
-      __stored->~_B();
+      __rebound_alloc __alloc(*__stored);
+      __stored->~__rebound_alloc();
       size_t __count = __header->__count_;
       const_cast<__allocation_header*>(__header)->~__allocation_header();
-      allocator_traits<_B>::deallocate(__alloc, static_cast<__allocation_unit*>(__pointer), __count);
+      allocator_traits<__rebound_alloc>::deallocate(__alloc, static_cast<__allocation_unit*>(__pointer), __count);
     }
 
     template <class _Alloc>
     _LIBCPP_HIDE_FROM_ABI static void* __allocate(size_t __size, const _Alloc& __input_alloc) {
-      using _A = conditional_t<is_void_v<_Allocator>, _Alloc, _Allocator>;
-      using _B = __allocator_traits_rebind_t<_A, __allocation_unit>;
-      static_assert(is_pointer_v<typename allocator_traits<_B>::pointer>);
+      using __allocator_type = conditional_t<is_void_v<_Allocator>, _Alloc, _Allocator>;
+      using __rebound_alloc = __allocator_traits_rebind_t<__allocator_type, __allocation_unit>;
+      static_assert(is_pointer_v<typename allocator_traits<__rebound_alloc>::pointer>);
 
-      _A __a(__input_alloc);
-      _B __b(__a);
+      __allocator_type __a(__input_alloc);
+      __rebound_alloc __b(__a);
       size_t __header_pos = __header_offset(__size);
       size_t __allocator_begin = __header_pos + sizeof(__allocation_header);
-      size_t __count = __align_up(__allocator_begin + alignof(_B) - 1 + sizeof(_B), sizeof(__allocation_unit)) /
+      size_t __count = __align_up(__allocator_begin + alignof(__rebound_alloc) - 1 + sizeof(__rebound_alloc), sizeof(__allocation_unit)) /
                        sizeof(__allocation_unit);
-      __allocation_unit* __pointer = allocator_traits<_B>::allocate(__b, __count);
+      __allocation_unit* __pointer = allocator_traits<__rebound_alloc>::allocate(__b, __count);
       void* __allocator_address = reinterpret_cast<unsigned char*>(__pointer) + __allocator_begin;
       size_t __allocator_space  = __count * sizeof(__allocation_unit) - __allocator_begin;
-      (void)std::align(alignof(_B), sizeof(_B), __allocator_address, __allocator_space);
+      (void)std::align(alignof(__rebound_alloc), sizeof(__rebound_alloc), __allocator_address, __allocator_space);
       size_t __allocator_pos = static_cast<unsigned char*>(__allocator_address) -
                                reinterpret_cast<unsigned char*>(__pointer);
 #  if _LIBCPP_HAS_EXCEPTIONS
       try {
 #  endif
-        ::new (static_cast<void*>(reinterpret_cast<unsigned char*>(__pointer) + __allocator_pos)) _B(__b);
+        ::new (static_cast<void*>(reinterpret_cast<unsigned char*>(__pointer) + __allocator_pos)) __rebound_alloc(__b);
 #  if _LIBCPP_HAS_EXCEPTIONS
       } catch (...) {
-        allocator_traits<_B>::deallocate(__b, __pointer, __count);
+        allocator_traits<__rebound_alloc>::deallocate(__b, __pointer, __count);
         throw;
       }
 #  endif
       ::new (static_cast<void*>(reinterpret_cast<unsigned char*>(__pointer) + __header_pos))
-          __allocation_header{__count, __allocator_pos, &__deallocate_storage<_A>};
+          __allocation_header{__count, __allocator_pos, &__deallocate_storage<__allocator_type>};
       return __pointer;
     }
 
@@ -230,12 +230,12 @@ public:
     template <class _R2, class _V2, class _A2, class _Unused>
       requires same_as<typename generator<_R2, _V2, _A2>::yielded, yielded>
     _LIBCPP_HIDE_FROM_ABI auto yield_value(ranges::elements_of<generator<_R2, _V2, _A2>&&, _Unused> __r) noexcept {
-      return __recursive_awaiter<generator<_R2, _V2, _A2>>{std::move(__r.range)};
+      return __recursive_awaiter<generator<_R2, _V2, _A2>>{std::forward<decltype(__r.range)>(__r.range)};
     }
     template <class _R2, class _V2, class _A2, class _Unused>
       requires same_as<typename generator<_R2, _V2, _A2>::yielded, yielded>
     _LIBCPP_HIDE_FROM_ABI auto yield_value(ranges::elements_of<generator<_R2, _V2, _A2>&, _Unused> __r) noexcept {
-      return __recursive_awaiter<generator<_R2, _V2, _A2>>{std::move(__r.range)};
+      return __recursive_awaiter<generator<_R2, _V2, _A2>>{std::forward<decltype(__r.range)>(__r.range)};
     }
     // LWG 4418: the published convertible_to constraint rejects the motivating
     // generator<int>/vector<int> case.  Constrain this exactly as the loop body
