@@ -34,8 +34,16 @@ constexpr bool test() {
   std::span<const int> constant_span(values);
   static_assert(std::same_as<decltype(std::views::as_const(constant_span)), std::span<const int>>);
 
+  const std::vector<int> constant_vector(values, values + 3);
+  static_assert(std::same_as<decltype(std::views::as_const(constant_vector)),
+                             std::ranges::ref_view<const std::vector<int>>>);
+
   std::ranges::empty_view<int> empty;
-  static_assert(std::same_as<decltype(std::views::as_const(empty)), std::ranges::empty_view<int>>);
+  static_assert(std::same_as<decltype(std::views::as_const(empty)), std::ranges::empty_view<const int>>);
+
+  std::vector<int> plain_lvalue(values, values + 3);
+  static_assert(std::same_as<decltype(std::views::as_const(plain_lvalue)),
+                             std::ranges::ref_view<const std::vector<int>>>);
 
   std::vector<int> vector_input(values, values + 3);
   std::ranges::ref_view<std::vector<int>> ref(vector_input);
