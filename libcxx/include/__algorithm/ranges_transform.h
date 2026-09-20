@@ -173,12 +173,12 @@ public:
   _LIBCPP_HIDE_FROM_ABI unary_transform_result<_InIter, _OutIter> operator()(
       _Ep&& __exec, _InIter __first, _Sent __last, _OutIter __result, _Func __operation, _Proj __proj = {}) const {
     _InIter __end = __first + (__last - __first);
-    _OutIter __out = std::transform(
+    _OutIter __result_end = std::transform(
         std::forward<_Ep>(__exec), std::move(__first), __end, std::move(__result),
         [__operation = std::move(__operation), __proj = std::move(__proj)](auto&& __value) mutable {
           return std::invoke(__operation, std::invoke(__proj, std::forward<decltype(__value)>(__value)));
         });
-    return {std::move(__end), std::move(__out)};
+    return {std::move(__end), std::move(__result_end)};
   }
 
   template <class _Ep, random_access_range _Range, weakly_incrementable _OutIter, copy_constructible _Func,
@@ -209,13 +209,13 @@ public:
     auto __len  = std::min(__last1 - __first1, __last2 - __first2);
     _InIter1 __end1 = __first1 + __len;
     _InIter2 __end2 = __first2 + __len;
-    _OutIter __out = std::transform(
+    _OutIter __result_end = std::transform(
         std::forward<_Ep>(__exec), std::move(__first1), __end1, std::move(__first2), std::move(__result),
         [__operation = std::move(__operation), __proj1 = std::move(__proj1), __proj2 = std::move(__proj2)](auto&& __a, auto&& __b) mutable {
           return std::invoke(__operation, std::invoke(__proj1, std::forward<decltype(__a)>(__a)),
                              std::invoke(__proj2, std::forward<decltype(__b)>(__b)));
         });
-    return {std::move(__end1), std::move(__end2), std::move(__out)};
+    return {std::move(__end1), std::move(__end2), std::move(__result_end)};
   }
 
   template <class _Ep, random_access_range _Range1, random_access_range _Range2, weakly_incrementable _OutIter,

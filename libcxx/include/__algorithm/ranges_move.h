@@ -68,8 +68,8 @@ struct __move {
   _LIBCPP_HIDE_FROM_ABI move_result<_InIter, _OutIter>
   operator()(_Ep&& __exec, _InIter __first, _Sent __last, _OutIter __result) const {
     _InIter __end = __first + (__last - __first);
-    _OutIter __out = std::move(std::forward<_Ep>(__exec), std::move(__first), __end, std::move(__result));
-    return {std::move(__end), std::move(__out)};
+    _OutIter __result_end = std::move(std::forward<_Ep>(__exec), std::move(__first), __end, std::move(__result));
+    return {std::move(__end), std::move(__result_end)};
   }
 
   template <class _Ep, random_access_range _Range, weakly_incrementable _OutIter,

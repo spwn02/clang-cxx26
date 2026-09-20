@@ -75,15 +75,15 @@ _LIBCPP_HIDE_FROM_ABI inline void
 __vprint_nonunicode_buffered(ostream& __os, string_view __fmt, format_args __args, bool __write_nl) {
   ostream::sentry __s(__os);
   if (__s) {
-    string __out = std::vformat(__os.getloc(), __fmt, __args);
+    string __result_end = std::vformat(__os.getloc(), __fmt, __args);
     if (__write_nl)
-      __out.push_back('\n');
+      __result_end.push_back('\n');
 
 #    if _LIBCPP_HAS_EXCEPTIONS
     try {
 #    endif
       if (auto __rdbuf = __os.rdbuf();
-          !__rdbuf || __rdbuf->sputn(__out.data(), static_cast<streamsize>(__out.size())) != static_cast<streamsize>(__out.size()))
+          !__rdbuf || __rdbuf->sputn(__result_end.data(), static_cast<streamsize>(__result_end.size())) != static_cast<streamsize>(__result_end.size()))
         __os.setstate(ios_base::badbit | ios_base::failbit);
 #    if _LIBCPP_HAS_EXCEPTIONS
     } catch (...) {
@@ -174,10 +174,10 @@ __vprint_unicode_buffered(ostream& __os, string_view __fmt, format_args __args, 
   // vformat unconditionally before checking the sentry here.
   ostream::sentry __s(__os);
   if (__s) {
-    string __out = std::vformat(__os.getloc(), __fmt, __args);
+    string __result_end = std::vformat(__os.getloc(), __fmt, __args);
     if (__write_nl)
-      __out.push_back('\n');
-    std::__vprint_unicode(__os, "{}", std::make_format_args(__out), false);
+      __result_end.push_back('\n');
+    std::__vprint_unicode(__os, "{}", std::make_format_args(__result_end), false);
   }
 }
 #    endif // _LIBCPP_HAS_UNICODE

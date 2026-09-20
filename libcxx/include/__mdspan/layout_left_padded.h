@@ -64,8 +64,8 @@ public:
       __r += (__extents_.extent(__i) - 1) * stride(__i);
     return __r + 1;
   }
-  template<class... _I> requires(sizeof...(_I) == __rank)
-  constexpr index_type operator()(_I... __i) const noexcept {
+  template<class... __index_type> requires(sizeof...(__index_type) == __rank)
+  constexpr index_type operator()(__index_type... __i) const noexcept {
     index_type __r = 0; index_type __a[] = {static_cast<index_type>(__i)...};
     for (size_t __n = __rank; __n-- > 0;) __r = __a[__n] + __extents_.extent(__n) * __r;
     if constexpr (__rank > 1) { __r = 0; for (size_t __n = 0; __n < __rank; ++__n) __r += __a[__n] * stride(__n); }

@@ -111,13 +111,13 @@ struct __partial_sort_copy {
       _Comp __comp = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
     _Iter1 __end1 = __first + (__last - __first);
     _Iter2 __end2 = __result_first + (__result_last - __result_first);
-    _Iter2 __out = std::partial_sort_copy(
+    _Iter2 __result_end = std::partial_sort_copy(
         std::forward<_Ep>(__exec), __first, __end1, __result_first, __end2,
         [&__comp, &__proj1, &__proj2](auto&& __a, auto&& __b) {
           return std::invoke(__comp, std::invoke(__proj1, std::forward<decltype(__a)>(__a)),
                              std::invoke(__proj2, std::forward<decltype(__b)>(__b)));
         });
-    return {std::move(__end1), std::move(__out)};
+    return {std::move(__end1), std::move(__result_end)};
   }
 
   template <class _Ep, random_access_range _Range1, random_access_range _Range2,

@@ -56,14 +56,14 @@ concept __cartesian_product_bidirectional =
     ((common_range<__maybe_const<_Const, _Vs>> ||
       (random_access_range<__maybe_const<_Const, _Vs>> && sized_range<__maybe_const<_Const, _Vs>>)) && ...);
 
-template <class _R>
+template <class _Range>
 concept __cartesian_product_common_arg =
-    common_range<_R> || (random_access_range<_R> && sized_range<_R>);
+    common_range<_Range> || (random_access_range<_Range> && sized_range<_Range>);
 
-template <class _R>
-  requires __cartesian_product_common_arg<_R>
-_LIBCPP_HIDE_FROM_ABI constexpr auto __cartesian_product_end(_R& __r) {
-  if constexpr (common_range<_R>)
+template <class _Range>
+  requires __cartesian_product_common_arg<_Range>
+_LIBCPP_HIDE_FROM_ABI constexpr auto __cartesian_product_end(_Range& __r) {
+  if constexpr (common_range<_Range>)
     return ranges::end(__r);
   else
     return ranges::begin(__r) + ranges::distance(__r);

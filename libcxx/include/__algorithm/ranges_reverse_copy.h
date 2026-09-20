@@ -84,8 +84,8 @@ struct __reverse_copy {
   _LIBCPP_HIDE_FROM_ABI reverse_copy_truncated_result<_Sent, _InIter, _OutIter>
   operator()(_Ep&& __exec, _InIter __first, _Sent __last, _OutIter __result) const {
     _InIter __end = __first + (__last - __first);
-    _OutIter __out = std::reverse_copy(std::forward<_Ep>(__exec), __first, __end, std::move(__result));
-    return {__last, std::move(__first), std::move(__out)};
+    _OutIter __result_end = std::reverse_copy(std::forward<_Ep>(__exec), __first, __end, std::move(__result));
+    return {__last, std::move(__first), std::move(__result_end)};
   }
 
   template <class _Ep,

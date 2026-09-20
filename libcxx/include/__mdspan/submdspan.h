@@ -87,8 +87,8 @@ template <class _Tp, class = void>
 struct __static_subextent : integral_constant<size_t, dynamic_extent> {};
 template <class _Tp>
 struct __cw_static_value : integral_constant<size_t, dynamic_extent> {};
-template <auto _V, class _T>
-struct __cw_static_value<constant_wrapper<_V, _T>> : integral_constant<size_t, static_cast<size_t>(_V)> {};
+template <auto __value_type, class _T>
+struct __cw_static_value<constant_wrapper<__value_type, _T>> : integral_constant<size_t, static_cast<size_t>(__value_type)> {};
 template <class _Tp>
 struct __static_subextent<_Tp, void_t<typename _Tp::extent_type>>
     : __cw_static_value<typename _Tp::extent_type> {};
@@ -100,10 +100,10 @@ _LIBCPP_HIDE_FROM_ABI constexpr _IndexType __subextent_value(const _Tp& __s) {
     return _IndexType(__s.extent);
 }
 
-template <class _IndexType, class _S>
-_LIBCPP_HIDE_FROM_ABI constexpr auto __canonical_index(_S __s) {
-  if constexpr (__integral_constant_like<_S>::value)
-    return cw<_IndexType(_S::value)>;
+template <class _IndexType, class __slice_type>
+_LIBCPP_HIDE_FROM_ABI constexpr auto __canonical_index(__slice_type __s) {
+  if constexpr (__integral_constant_like<__slice_type>::value)
+    return cw<_IndexType(__slice_type::value)>;
   else
     return _IndexType(std::move(__s));
 }
@@ -127,17 +127,17 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __canonical_slice_range(_OffsetType __offse
   }
 }
 
-template <class _IndexType, class _S>
-_LIBCPP_HIDE_FROM_ABI constexpr auto __canonical_slice(_S __s) {
-  if constexpr (is_convertible_v<_S, full_extent_t>)
+template <class _IndexType, class __slice_type>
+_LIBCPP_HIDE_FROM_ABI constexpr auto __canonical_slice(__slice_type __s) {
+  if constexpr (is_convertible_v<__slice_type, full_extent_t>)
     return static_cast<full_extent_t>(std::move(__s));
-  else if constexpr (is_convertible_v<_S, _IndexType>)
+  else if constexpr (is_convertible_v<__slice_type, _IndexType>)
     return __canonical_index<_IndexType>(std::move(__s));
-  else if constexpr (__extent_slice<_S>)
+  else if constexpr (__extent_slice<__slice_type>)
     return extent_slice{__canonical_index<_IndexType>(std::move(__s.offset)),
                         __canonical_index<_IndexType>(std::move(__s.extent)),
                         __canonical_index<_IndexType>(std::move(__s.stride))};
-  else if constexpr (__range_slice<_S>) {
+  else if constexpr (__range_slice<__slice_type>) {
     auto __first = __canonical_index<_IndexType>(std::move(__s.first));
     auto __last  = __canonical_index<_IndexType>(std::move(__s.last));
     return __canonical_slice_range<_IndexType>(__first, __canonical_index<_IndexType>(__last - __first),

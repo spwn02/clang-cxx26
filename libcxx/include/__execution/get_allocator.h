@@ -83,12 +83,12 @@ template <class _Tp, class _Context>
 _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __allocator_aware_forward(_Tp&& __obj, _Context&& __context) {
   if constexpr (requires { std::get_allocator(execution::get_env(__context)); }) {
     auto __alloc = std::get_allocator(execution::get_env(__context));
-    using _P     = remove_cvref_t<_Tp>;
-    if constexpr (__is_execution_product_type<_P>::value) {
+    using __product_type     = remove_cvref_t<_Tp>;
+    if constexpr (__is_execution_product_type<__product_type>::value) {
       return std::__allocator_aware_product(
-          std::forward<_Tp>(__obj), __alloc, make_index_sequence<tuple_size_v<_P>>{});
+          std::forward<_Tp>(__obj), __alloc, make_index_sequence<tuple_size_v<__product_type>>{});
     } else {
-      return std::make_obj_using_allocator<_P>(__alloc, std::forward<_Tp>(__obj));
+      return std::make_obj_using_allocator<__product_type>(__alloc, std::forward<_Tp>(__obj));
     }
   } else {
     return std::forward<_Tp>(__obj);

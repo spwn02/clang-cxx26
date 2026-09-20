@@ -134,7 +134,7 @@ template <class _Mapping, class _Tuple, size_t... _Pos>
 _LIBCPP_HIDE_FROM_ABI constexpr typename _Mapping::index_type
 __submdspan_offset_impl(const _Mapping& __mapping, const _Tuple& __slices, index_sequence<_Pos...>) {
   auto __indices = __submdspan_offset_indices<_Mapping>(__slices, index_sequence<_Pos...>{});
-  return [&]<size_t... _I>(index_sequence<_I...>) { return __mapping(__indices[_I]...); }(
+  return [&]<size_t... __index_type>(index_sequence<__index_type...>) { return __mapping(__indices[__index_type]...); }(
       index_sequence<_Pos...>{});
 }
 } // namespace __mdspan_detail
@@ -248,8 +248,8 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto submdspan(
     const mdspan<_ElementType, _Extents, _LayoutPolicy, _AccessorPolicy>& __src,
     _SliceSpecifiers... __slices) {
   auto __canonical = canonical_slices(__src.extents(), std::move(__slices)...);
-  auto __result = [&]<size_t... _I>(index_sequence<_I...>) {
-    return submdspan_mapping(__src.mapping(), get<_I>(__canonical)...);
+  auto __result = [&]<size_t... __index_type>(index_sequence<__index_type...>) {
+    return submdspan_mapping(__src.mapping(), get<__index_type>(__canonical)...);
   }(make_index_sequence<sizeof...(_SliceSpecifiers)>{});
   using _Result = decltype(__result.mapping);
   using _ResultExtents = typename _Result::extents_type;

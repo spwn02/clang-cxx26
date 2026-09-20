@@ -133,13 +133,13 @@ struct __merge {
       _Comp __comp = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
     _InIter1 __end1 = __first1 + (__last1 - __first1);
     _InIter2 __end2 = __first2 + (__last2 - __first2);
-    _OutIter __out = std::merge(
+    _OutIter __result_end = std::merge(
         std::forward<_Ep>(__exec), std::move(__first1), __end1, std::move(__first2), __end2, std::move(__result),
         [__comp = std::move(__comp), __proj1 = std::move(__proj1), __proj2 = std::move(__proj2)](auto&& __a, auto&& __b) mutable {
           return std::invoke(__comp, std::invoke(__proj1, std::forward<decltype(__a)>(__a)),
                              std::invoke(__proj2, std::forward<decltype(__b)>(__b)));
         });
-    return {std::move(__end1), std::move(__end2), std::move(__out)};
+    return {std::move(__end1), std::move(__end2), std::move(__result_end)};
   }
 
   template <class _Ep, random_access_range _Range1, random_access_range _Range2, weakly_incrementable _OutIter,

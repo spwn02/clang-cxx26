@@ -237,11 +237,11 @@ template <class = void>
 _LIBCPP_HIDE_FROM_ABI inline void
 __vprint_nonunicode_buffered(FILE* __stream, string_view __fmt, format_args __args, bool __write_nl) {
   _LIBCPP_ASSERT_NON_NULL(__stream, "__stream must be a valid pointer to an output C stream");
-  string __out = std::vformat(__fmt, __args);
+  string __result_end = std::vformat(__fmt, __args);
   if (__write_nl)
-    __out.push_back('\n');
-  size_t __written = fwrite(__out.data(), 1, __out.size(), __stream);
-  if (__written < __out.size()) {
+    __result_end.push_back('\n');
+  size_t __written = fwrite(__result_end.data(), 1, __result_end.size(), __stream);
+  if (__written < __result_end.size()) {
     if (std::feof(__stream))
       std::__throw_system_error(EIO, "EOF while writing the formatted output");
     std::__throw_system_error(std::ferror(__stream), "failed to write formatted output");
@@ -346,10 +346,10 @@ __vprint_unicode([[maybe_unused]] FILE* __stream,
 template <class = void>
 _LIBCPP_HIDE_FROM_ABI inline void
 __vprint_unicode_buffered(FILE* __stream, string_view __fmt, format_args __args, bool __write_nl) {
-  string __out = std::vformat(__fmt, __args);
+  string __result_end = std::vformat(__fmt, __args);
   if (__write_nl)
-    __out.push_back('\n');
-  __print::__vprint_unicode(__stream, "{}", std::make_format_args(__out), false);
+    __result_end.push_back('\n');
+  __print::__vprint_unicode(__stream, "{}", std::make_format_args(__result_end), false);
 }
 
 #    endif // _LIBCPP_HAS_UNICODE

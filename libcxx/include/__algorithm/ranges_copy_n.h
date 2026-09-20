@@ -52,8 +52,8 @@ struct __copy_n {
   _LIBCPP_HIDE_FROM_ABI copy_n_result<_Ip, _Op>
   operator()(_Ep&& __exec, _Ip __first, iter_difference_t<_Ip> __n, _Op __result) const {
     _Ip __end = __first + __n;
-    auto __out = std::copy_n(std::forward<_Ep>(__exec), std::move(__first), __n, std::move(__result));
-    return {std::move(__end), std::move(__out)};
+    auto __result_end = std::copy_n(std::forward<_Ep>(__exec), std::move(__first), __n, std::move(__result));
+    return {std::move(__end), std::move(__result_end)};
   }
 #  endif
 };

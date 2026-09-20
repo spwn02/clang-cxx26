@@ -63,8 +63,8 @@ struct __copy {
   _LIBCPP_HIDE_FROM_ABI copy_result<_InIter, _OutIter>
   operator()(_Ep&& __exec, _InIter __first, _Sent __last, _OutIter __result) const {
     _InIter __end = __first + (__last - __first);
-    auto __out = std::copy(std::forward<_Ep>(__exec), std::move(__first), __end, std::move(__result));
-    return {std::move(__end), std::move(__out)};
+    auto __result_end = std::copy(std::forward<_Ep>(__exec), std::move(__first), __end, std::move(__result));
+    return {std::move(__end), std::move(__result_end)};
   }
 
   template <class _Ep, random_access_range _Range, weakly_incrementable _OutIter,

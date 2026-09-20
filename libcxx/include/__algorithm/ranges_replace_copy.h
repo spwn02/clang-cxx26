@@ -109,14 +109,14 @@ struct __replace_copy {
       const _NewType& __new_value, _Proj __proj = {}) const {
     auto __count = __last - __first;
     _InIter __end = __first + __count;
-    _OutIter __out = __result;
+    _OutIter __result_end = __result;
     std::replace_copy_if(std::forward<_Ep>(__exec), std::move(__first), __end, std::move(__result),
                          [&__old_value, __proj = std::move(__proj)](auto&& __value) mutable {
                            return std::invoke(__proj, std::forward<decltype(__value)>(__value)) == __old_value;
                          }, __new_value);
     for (decltype(__count) __i = 0; __i != __count; ++__i)
-      ++__out;
-    return {std::move(__end), std::move(__out)};
+      ++__result_end;
+    return {std::move(__end), std::move(__result_end)};
   }
 
   template <class _Ep, random_access_range _Range, class _OutIter, class _Proj = identity, class _OldType,

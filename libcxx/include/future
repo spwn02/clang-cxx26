@@ -719,8 +719,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI __assoc_sub_state* __make_new_state() const override {
     typedef typename __allocator_traits_rebind<_Alloc, __assoc_state_alloc>::type _Al;
     _Al __a(__alloc_);
-    typedef __allocator_destructor<_Al> _D;
-    unique_ptr<__assoc_state_alloc, _D> __hold(__a.allocate(1), _D(__a, 1));
+    typedef __allocator_destructor<_Al> _Deleter;
+    unique_ptr<__assoc_state_alloc, _Deleter> __hold(__a.allocate(1), _Deleter(__a, 1));
     ::new ((void*)std::addressof(*__hold.get())) __assoc_state_alloc(__alloc_);
     return std::addressof(*__hold.release());
   }
@@ -750,8 +750,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI __assoc_sub_state* __make_new_state() const override {
     typedef typename __allocator_traits_rebind<_Alloc, __assoc_state_alloc>::type _Al;
     _Al __a(__alloc_);
-    typedef __allocator_destructor<_Al> _D;
-    unique_ptr<__assoc_state_alloc, _D> __hold(__a.allocate(1), _D(__a, 1));
+    typedef __allocator_destructor<_Al> _Deleter;
+    unique_ptr<__assoc_state_alloc, _Deleter> __hold(__a.allocate(1), _Deleter(__a, 1));
     ::new ((void*)std::addressof(*__hold.get())) __assoc_state_alloc(__alloc_);
     return std::addressof(*__hold.release());
   }
@@ -779,8 +779,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI __assoc_sub_state* __make_new_state() const override {
     typedef typename __allocator_traits_rebind<_Alloc, __assoc_sub_state_alloc>::type _Al;
     _Al __a(__alloc_);
-    typedef __allocator_destructor<_Al> _D;
-    unique_ptr<__assoc_sub_state_alloc, _D> __hold(__a.allocate(1), _D(__a, 1));
+    typedef __allocator_destructor<_Al> _Deleter;
+    unique_ptr<__assoc_sub_state_alloc, _Deleter> __hold(__a.allocate(1), _Deleter(__a, 1));
     ::new ((void*)std::addressof(*__hold.get())) __assoc_sub_state_alloc(__alloc_);
     return std::addressof(*__hold.release());
   }
