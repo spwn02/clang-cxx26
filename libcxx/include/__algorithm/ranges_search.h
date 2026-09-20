@@ -137,7 +137,8 @@ struct __search {
     _Iter2 __end2 = __first2 + (__last2 - __first2);
     _Iter1 __result = std::search(
         std::forward<_Ep>(__exec), __first1, __end1, __first2, __end2,
-        [__pred = std::__move(__pred), __proj1 = std::__move(__proj1), __proj2 = std::__move(__proj2)](
+        [__pred = static_cast<_Pred&&>(__pred), __proj1 = static_cast<_Proj1&&>(__proj1),
+         __proj2 = static_cast<_Proj2&&>(__proj2)](
             auto&& __a, auto&& __b) mutable {
           return std::invoke(__pred, std::invoke(__proj1, std::forward<decltype(__a)>(__a)),
                              std::invoke(__proj2, std::forward<decltype(__b)>(__b)));
@@ -156,7 +157,8 @@ struct __search {
       _Ep&& __exec, _Range1&& __range1, _Range2&& __range2,
       _Pred __pred = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
     return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range1), ranges::end(__range1),
-                   ranges::begin(__range2), ranges::end(__range2), std::__move(__pred), std::__move(__proj1), std::__move(__proj2));
+                   ranges::begin(__range2), ranges::end(__range2), static_cast<_Pred&&>(__pred),
+                   static_cast<_Proj1&&>(__proj1), static_cast<_Proj2&&>(__proj2));
   }
 #  endif
 };
