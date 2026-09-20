@@ -113,12 +113,12 @@ public:
   basic_const_iterator() requires default_initializable<_It> = default;
 
   constexpr basic_const_iterator(_It __current) noexcept(is_nothrow_move_constructible_v<_It>)
-      : __current_(std::move(__current)) {}
+      : __current_(static_cast<decltype(__current)&&>(__current)) {}
 
   template <convertible_to<_It> _It2>
   constexpr basic_const_iterator(basic_const_iterator<_It2> __current)
       noexcept(is_nothrow_constructible_v<_It, _It2>)
-      : __current_(std::move(__current.__current_)) {}
+      : __current_(static_cast<decltype(__current.__current_)&&>(__current.__current_)) {}
 
   template <__not_a_const_iterator _Tp>
     requires convertible_to<_Tp, _It>
@@ -126,7 +126,7 @@ public:
       : __current_(std::forward<_Tp>(__current)) {}
 
   constexpr const _It& base() const& noexcept { return __current_; }
-  constexpr _It base() && noexcept(is_nothrow_move_constructible_v<_It>) { return std::move(__current_); }
+  constexpr _It base() && noexcept(is_nothrow_move_constructible_v<_It>) { return static_cast<_It&&>(__current_); }
 
   constexpr __reference operator*() const noexcept(noexcept(static_cast<__reference>(*__current_))) {
     return static_cast<__reference>(*__current_);
