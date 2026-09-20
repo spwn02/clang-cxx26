@@ -3117,7 +3117,7 @@ tiers as makes sense.
 | [ ] | P2686R5 | `constexpr` structured bindings | |
 | [ ] | P2795R5 | Erroneous behaviour for uninitialized reads | |
 | [ ] | P2752R3 | Static storage for braced initializers (DR) | |
-| [ ] | P3034R1 | Module declarations shouldn't be macros (DR) | |
+| [x] | P3034R1 | Module declarations shouldn't be macros (DR) | Complete 2026-09-21. Preprocessor now suppresses macro expansion while `ModuleDeclState` is parsing a module-declaration name or partition, while ordinary identifiers retain existing expansion behavior. Added `clang/test/Modules/module-decl-macro.cppm`; focused test and full `clang/test/Modules/` (866 passed, 11 unsupported) pass. |
 | [ ] | P2843R3 | Preprocessing is never undefined | |
 | [ ] | P3533R2 | `constexpr` virtual inheritance | |
 | [ ] | P3074R7 | Trivial unions | Library-adjacent — coordinate with libcxx if relevant containers change |
@@ -7471,3 +7471,9 @@ blocked, what's next. Do not remove old entries.
   P3709R2's row above for the truncation-semantics detail.
 - **2026-09-16 (issue #13, P3179R9 min/max slice)**: Added classic and ranges execution-policy overloads for `min_element`, `max_element`, `minmax_element`, and `lexicographical_compare`, with sequential PSTL fallback backends and focused tests.
 - **2026-09-17 (issue #13, P3179R9 sorting/set slice)**: Added classic and ranges execution-policy overloads for `partial_sort`, `partial_sort_copy`, `is_sorted`, `nth_element`, `inplace_merge`, and `includes`, plus a PSTL-backed `contains_subrange` composition through `ranges::search`, with focused tests. Full rebuild/lit validation remains for the orchestrating session.
+- **2026-09-21 (issue #43)**: Implemented P3034R1. The preprocessor now leaves
+  module-declaration names and partitions unexpanded, including `export module`
+  declarations, while preserving normal macro expansion outside that context.
+  Added `clang/test/Modules/module-decl-macro.cppm`; rebuilt Clang and ran the
+  focused test plus all 877 tests under `clang/test/Modules/` (866 passed, 11
+  unsupported). A required clean libc++ rebuild also passed.

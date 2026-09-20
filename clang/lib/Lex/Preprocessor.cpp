@@ -827,7 +827,10 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
   if (const MacroDefinition MD = getMacroDefinition(&II)) {
     const auto *MI = MD.getMacroInfo();
     assert(MI && "macro definition with no macro info?");
-    if (!DisableMacroExpansion) {
+    // P3034R1: module names in a module declaration are not macro names.
+    // ModuleDeclState is advanced when the preceding `module` token is
+    // returned, so this also covers qualified names and partitions.
+    if (!DisableMacroExpansion && !ModuleDeclState.isModuleCandidate()) {
       if (!Identifier.isExpandDisabled() && MI->isEnabled()) {
         // C99 6.10.3p10: If the preprocessing token immediately after the
         // macro name isn't a '(', this macro should not be expanded.
