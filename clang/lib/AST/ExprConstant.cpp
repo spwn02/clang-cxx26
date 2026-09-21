@@ -23973,6 +23973,11 @@ public:
 /// inserting any user-defined conversion to std::meta::info or
 /// std::meta::token_sequence at AST construction time, so this helper
 /// simply evaluates and applies lvalue-to-rvalue conversion if needed.
+// Evaluate an operand to its rvalue as a *subexpression* of the current
+// evaluation. (The file-level EvaluateAsRValue is a top-level entry point: it
+// ends with CheckMemoryLeaks, so calling it mid-evaluation reports every live
+// allocation -- e.g. a std::vector in the enclosing consteval function -- as a
+// leak.) All token-sequence and interpolation operands go through here.
 static bool EvaluateOperandAsRValue(EvalInfo &Info, const Expr *SubExpr,
                                     APValue &Result) {
   if (!::Evaluate(Result, Info, SubExpr))
@@ -24516,7 +24521,7 @@ bool ReflectionEvaluator::VisitCXXTokenSequenceExpr(
           QualType ExprTy = SubExpr->getType();
           if (ExprTy->isTokenSequenceType()) {
             // Token sequence interpolation: splice tokens inline.
-            if (!EvaluateAsRValue(Info, SubExpr, Val))
+            if (!EvaluateOperandAsRValue(Info, SubExpr, Val))
               return false;
             assert(Val.isTokenSequence());
             TokenSequenceData Inner = Val.getTokenSequence();
@@ -24533,7 +24538,7 @@ bool ReflectionEvaluator::VisitCXXTokenSequenceExpr(
             }
           } else if (ExprTy->isReflectionType()) {
             // Reflection-typed expression: evaluate and check kind.
-            if (!EvaluateAsRValue(Info, SubExpr, Val))
+            if (!EvaluateOperandAsRValue(Info, SubExpr, Val))
               return false;
 
             if (Val.isReflectedType()) {
@@ -24669,7 +24674,7 @@ bool ReflectionEvaluator::VisitCXXTokenSequenceExpr(
           } else {
             // Non-reflection, non-record interpolation: evaluate as
             // rvalue and wrap in a ConstantExpr.
-            if (!EvaluateAsRValue(Info, SubExpr, Val))
+            if (!EvaluateOperandAsRValue(Info, SubExpr, Val))
               return false;
 
             Expr *ResultExpr;
@@ -24868,23 +24873,6 @@ bool ReflectionEvaluator::VisitCXXBuiltinTokenizeExpr(
   return Success(APValue(TSD), E);
 }
 
-// Evaluate a token_sequence-typed operand to its rvalue, as a
-// *subexpression* of the current evaluation. (The file-level
-// EvaluateAsRValue is a top-level entry point: it ends with
-// CheckMemoryLeaks, so calling it mid-evaluation reports every live
-// allocation -- e.g. a std::vector in the enclosing consteval function --
-// as a leak.)
-static bool EvaluateTokenSequenceOperand(const Expr *E, APValue &Result,
-                                         EvalInfo &Info) {
-  if (E->isGLValue()) {
-    LValue LV;
-    if (!EvaluateLValue(E, LV, Info))
-      return false;
-    return handleLValueToRValueConversion(Info, E, E->getType(), LV, Result);
-  }
-  return Evaluate(Result, Info, E);
-}
-
 bool ReflectionEvaluator::VisitBinaryOperator(const BinaryOperator *E) {
   // Handle token_sequence + token_sequence concatenation.
   if (E->getOpcode() != BO_Add)
@@ -24896,9 +24884,9 @@ bool ReflectionEvaluator::VisitBinaryOperator(const BinaryOperator *E) {
     return BaseType::VisitBinaryOperator(E);
 
   APValue LHSVal, RHSVal;
-  if (!EvaluateTokenSequenceOperand(E->getLHS(), LHSVal, Info))
+  if (!EvaluateOperandAsRValue(Info, E->getLHS(), LHSVal))
     return false;
-  if (!EvaluateTokenSequenceOperand(E->getRHS(), RHSVal, Info))
+  if (!EvaluateOperandAsRValue(Info, E->getRHS(), RHSVal))
     return false;
 
   if (!LHSVal.isTokenSequence() || !RHSVal.isTokenSequence()) {
@@ -24917,7 +24905,7 @@ bool ReflectionEvaluator::VisitArraySubscriptExpr(
     return Error(E);
 
   APValue BaseVal;
-  if (!EvaluateTokenSequenceOperand(E->getBase(), BaseVal, Info))
+  if (!EvaluateOperandAsRValue(Info, E->getBase(), BaseVal))
     return false;
   APSInt Index;
   if (!EvaluateInteger(E->getIdx(), Index, Info))
