@@ -1356,7 +1356,7 @@ ExprResult Sema::ActOnCXXBuiltinId(SourceLocation KwLoc,
     DataCalls[I] = DataConv.get();
   }
 
-  return CXXBuiltinIdExpr::Create(Context, Context.MetaInfoTy,
+  return CXXBuiltinIdExpr::Create(Context, Context.TokenSequenceTy,
                                   ArrayRef<Expr *>(Args), SizeCalls, DataCalls,
                                   KwLoc, LParenLoc, RParenLoc);
 }
@@ -2771,7 +2771,6 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
     case ReflectionKind::DataMemberSpec:
     case ReflectionKind::DeclarationSpec:
     case ReflectionKind::Annotation:
-    case ReflectionKind::Identifier:
     case ReflectionKind::Expression:
       Diag(Splice->getBeginLoc(),
            diag::err_unexpected_reflection_kind_in_splice)
@@ -3121,7 +3120,6 @@ DeclContext *Sema::TryFindDeclContextOf(SpliceSpecifier *Splice) {
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Identifier:
   case ReflectionKind::Expression:
     Diag(Splice->getBeginLoc(), diag::err_expected_class_or_namespace)
         << "spliced entity" << getLangOpts().CPlusPlus;

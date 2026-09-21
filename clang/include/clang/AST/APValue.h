@@ -600,10 +600,6 @@ public:
   bool isReflectedAnnotation() const {
     return isReflection() && getReflectionKind() == ReflectionKind::Annotation;
   }
-  bool isReflectedIdentifier() const {
-    return isReflection() &&
-           getReflectionKind() == ReflectionKind::Identifier;
-  }
   bool isReflectedExpression() const {
     return isReflection() &&
            getReflectionKind() == ReflectionKind::Expression;
@@ -811,7 +807,6 @@ public:
     assert(isTokenSequence() && "Invalid accessor");
     return *(const TokenSequenceData *)(const char *)&Data;
   }
-  IdentifierInfo *getReflectedIdentifier() const;
   Expr *getReflectedExpression() const;
 
   /// The annotation of a reflection of an annotation, as its base class.

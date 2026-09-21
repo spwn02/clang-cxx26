@@ -9242,7 +9242,6 @@ TreeTransform<Derived>::TransformCXXReflectExpr(CXXReflectExpr *E) {
   // A reflection value (std::meta::info) that was substituted for a non-type
   // template parameter is wrapped in a CXXReflectExpr whatever its kind. These
   // kinds have nothing that depends on a template parameter.
-  case ReflectionKind::Identifier:
   case ReflectionKind::Expression:
     return E;
   case ReflectionKind::Null:
