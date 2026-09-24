@@ -1995,6 +1995,7 @@ public:
   enum class SourceDeductionGuideKind : uint8_t {
     None,
     Alias,
+    InheritedConstructor,
   };
 
 private:
@@ -2019,8 +2020,9 @@ private:
   CXXConstructorDecl *Ctor;
   ExplicitSpecifier ExplicitSpec;
   // The deduction guide, if any, that this deduction guide was generated from,
-  // in the case of alias template deduction. The SourceDeductionGuideKind
-  // member indicates which of these sources applies, or is None otherwise.
+  // in the case of alias template deduction or CTAD from inherited
+  // constructors. The SourceDeductionGuideKind member indicates which of these
+  // sources applies, or is None otherwise.
   llvm::PointerIntPair<const CXXDeductionGuideDecl *, 2,
                        SourceDeductionGuideKind>
       SourceDeductionGuide;

@@ -8394,6 +8394,28 @@ TEST_P(ImportFunctions, CTADAliasTemplateWithExplicitSourceDeductionGuide) {
   EXPECT_TRUE(ToD->getSourceDeductionGuide());
 }
 
+TEST_P(ImportFunctions, CTADInheritedCtor) {
+  Decl *TU = getTuDecl(
+      R"(
+      template <typename T> struct A {
+        A(T);
+      };
+      template <typename T> struct B : public A<T> {
+        using A<T>::A;
+      };
+      B b{(int)0};
+      )",
+      Lang_CXX23, "input.cc");
+  auto *FromD = FirstDeclMatcher<CXXDeductionGuideDecl>().match(
+      TU, cxxDeductionGuideDecl(hasParameter(0, hasType(asString("int")))));
+  auto *ToD = Import(FromD, Lang_CXX23);
+  ASSERT_TRUE(ToD);
+  EXPECT_TRUE(
+      ToD->getSourceDeductionGuideKind() ==
+      CXXDeductionGuideDecl::SourceDeductionGuideKind::InheritedConstructor);
+  EXPECT_TRUE(ToD->getSourceDeductionGuide());
+}
+
 TEST_P(ImportFunctions, ParmVarDeclDeclContext) {
   constexpr auto FromTUCode = R"(
       void f(int P);

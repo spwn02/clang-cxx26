@@ -219,6 +219,10 @@ C++2c Feature Support
 C++23 Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
+- Implemented `P2582R1 <https://wg21.link/P2582R1>`_ Class template argument
+  deduction from inherited constructors. Deduction guides are not yet generated
+  from the inherited constructors of a member template of a class template.
+
 C++20 Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 

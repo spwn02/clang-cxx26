@@ -1550,6 +1550,15 @@ static bool isReflectableDecl(MetaActions &Meta, ASTContext &C, Decl *D) {
   if (isa<NamespaceAliasDecl>(D))
     return true;
 
+  // The alias and class templates that are synthesized to declare the deduction
+  // guides inherited from a base class (C++23 [over.match.class.deduct]) are
+  // implementation details, not declarations of the program.
+  if (D->isImplicit() && isa<TypeAliasTemplateDecl, ClassTemplateDecl>(D)) {
+    const IdentifierInfo *II = cast<NamedDecl>(D)->getIdentifier();
+    if (II && II->getName().starts_with("__ctad_"))
+      return false;
+  }
+
   if (!isa<VarDecl, FunctionDecl, TypeDecl, FieldDecl, TemplateDecl,
            NamespaceDecl, NamespaceAliasDecl, TranslationUnitDecl,
            UsingShadowDecl>(D))
