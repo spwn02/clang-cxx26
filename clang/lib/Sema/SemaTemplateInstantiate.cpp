@@ -4553,6 +4553,7 @@ ExprResult Sema::SubstConceptTemplateArguments(
       case Stmt::ConceptSpecializationExprClass:
       case Stmt::ParenExprClass:
       case Stmt::UnresolvedLookupExprClass:
+      case Stmt::DependentTemplateIdExprClass:
         return Base::TransformExpr(E);
       default:
         break;
@@ -4590,13 +4591,45 @@ ExprResult Sema::SubstConceptTemplateArguments(
       return false;
     }
 
-    ExprResult TransformUnresolvedLookupExpr(UnresolvedLookupExpr *E,
-                                             bool IsAddressOfOperand = false) {
-      if (E->isConceptReference()) {
-        ExprResult Res = SemaRef.SubstExpr(E, MLTAL);
-        return Res;
+    ExprResult RebuildConceptSpecialization(ConceptDecl *ResolvedConcept,
+                                            SourceLocation NameLoc,
+                                            SourceLocation LAngleLoc,
+                                            SourceLocation RAngleLoc,
+                                            const TemplateArgumentLoc *Args,
+                                            unsigned NumArgs) {
+      TemplateArgumentListInfo TransArgs(LAngleLoc, RAngleLoc);
+      if (TransformTemplateArguments(Args, NumArgs, TransArgs))
+        return ExprError();
+
+      CXXScopeSpec SS;
+      DeclarationNameInfo NameInfo(ResolvedConcept->getDeclName(), NameLoc);
+      return SemaRef.CheckConceptTemplateId(SS, SourceLocation(), NameInfo,
+                                            ResolvedConcept, ResolvedConcept,
+                                            &TransArgs, false);
+    }
+
+    ExprResult TransformDependentTemplateIdExpr(DependentTemplateIdExpr *E) {
+      if (!E->isConceptReference())
+        return E;
+
+      TemplateTemplateParmDecl *TTP = E->getParameter();
+      unsigned Depth = TTP->getDepth();
+      unsigned Pos = TTP->getPosition();
+      ConceptDecl *ResolvedConcept = nullptr;
+
+      if (MLTAL.hasTemplateArgument(Depth, Pos)) {
+        TemplateArgument Arg = MLTAL(Depth, Pos);
+        assert(Arg.getKind() == TemplateArgument::Template);
+        ResolvedConcept =
+            dyn_cast<ConceptDecl>(Arg.getAsTemplate().getAsTemplateDecl());
       }
-      return E;
+      if (!ResolvedConcept)
+        return E;
+
+      return RebuildConceptSpecialization(ResolvedConcept, E->getNameLoc(),
+                                          E->getLAngleLoc(), E->getRAngleLoc(),
+                                          E->template_arguments().data(),
+                                          E->getNumTemplateArgs());
     }
   };
 

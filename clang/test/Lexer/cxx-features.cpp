@@ -45,6 +45,10 @@
 #error "wrong value for __cpp_pack_indexing"
 #endif
 
+#if check(template_parameters, 0, 0, 0, 0, 0, 0, 202502)
+#error "wrong value for __cpp_template_parameters"
+#endif
+
 #if check(placeholder_variables, 202306, 202306, 202306, 202306, 202306, 202306, 202306)
 #error "wrong value for __cpp_placeholder_variables"
 #endif

@@ -1273,10 +1273,17 @@ void DeclPrinter::VisitTemplateDecl(const TemplateDecl *D) {
 
   if (const TemplateTemplateParmDecl *TTP =
         dyn_cast<TemplateTemplateParmDecl>(D)) {
-    if (TTP->wasDeclaredWithTypename())
-      Out << "typename";
-    else
-      Out << "class";
+    switch (TTP->templateParameterKind()) {
+    case TNK_Concept_template:
+      Out << "concept";
+      break;
+    case TNK_Var_template:
+      Out << "auto";
+      break;
+    default:
+      Out << (TTP->wasDeclaredWithTypename() ? "typename" : "class");
+      break;
+    }
 
     if (TTP->isParameterPack())
       Out << " ...";

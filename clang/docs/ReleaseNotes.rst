@@ -212,6 +212,10 @@ C++2c Feature Support
   At this time, references to constexpr and decomposition of *tuple-like* types are not supported
   (only arrays and aggregates are).
 
+- Implemented `P2841R7 <https://wg21.link/P2841R7>`_ Concept and variable-template template-parameters.
+  Concept and variable template template parameters are now modeled with a dedicated
+  ``DependentTemplateIdExpr`` AST node, and ``__cpp_template_parameters`` is defined in C++2c mode.
+
 C++23 Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
