@@ -20,12 +20,12 @@ struct S {
 };
 struct T { constexpr T(int) {} };
 
-constexpr auto constructor = ^^S::S;
-constexpr auto destructor = ^^S::~S;
+[[maybe_unused]] constexpr auto constructor = ^^S::S;
+[[maybe_unused]] constexpr auto destructor = ^^S::~S;
 
 template <std::meta::info R>
 consteval auto dependent_ctad() {
-  [:R:] value = {1};
+  typename [:R:] value = {1};
   return value;
 }
 

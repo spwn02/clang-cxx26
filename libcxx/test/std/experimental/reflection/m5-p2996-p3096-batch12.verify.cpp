@@ -15,7 +15,7 @@
 
 namespace p2996_batch12 {
 
-void requires_probe(int parameter) {
+void requires_probe([[maybe_unused]] int parameter) {
   (void)requires(int local) { ^^local; };
   // expected-error@-1 {{cannot take the reflection of a local parameter of a requires-expression}}
 }
