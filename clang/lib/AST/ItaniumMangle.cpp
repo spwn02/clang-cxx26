@@ -4536,11 +4536,14 @@ void CXXNameMangler::mangleType(const DecltypeType *T) {
 void CXXNameMangler::mangleType(const ReflectionSpliceType *T) {
   // <type> ::= RT <expression> E  # typename of an expression
   Out << "RT";
-  // FIXME(CXX26): This should probably mangle 'UnderlyingType' instead of
-  // 'Operand', but this is crashing the compiler. Revisit this, definitely
-  // something wrong here.
-  //mangleExpression(T->getSplice()->getOperand());
-  mangleType(T->getUnderlyingType());
+  if (T->isDependentType() || T->getUnderlyingType()->isPlaceholderType()) {
+    // The spliced type is not known yet (its underlying type is the dependent
+    // placeholder), e.g. when mangling the return type of a function template
+    // written in terms of 'typename [:R:]'. Mangle the operand instead.
+    mangleExpression(T->getSplice()->getOperand());
+  } else {
+    mangleType(T->getUnderlyingType());
+  }
   Out << "E";
 }
 
