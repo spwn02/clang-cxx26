@@ -88,11 +88,15 @@ constexpr bool testReturnTypes() {
       short*& rbegin() const;
     } x;
     ASSERT_SAME_TYPE(decltype(std::ranges::rbegin(x)), char*);
+#if TEST_STD_VER >= 23
     // Different has no begin() at all, so const Different isn't a range and
     // doesn't model constant_range; crbegin falls back to the non-const
     // rbegin() and wraps it in basic_const_iterator instead of trusting the
     // (not actually const-safe) const rbegin() overload.
     ASSERT_SAME_TYPE(decltype(std::ranges::crbegin(x)), std::basic_const_iterator<char*>);
+#else
+    ASSERT_SAME_TYPE(decltype(std::ranges::crbegin(x)), short*);
+#endif
   }
   return true;
 }
@@ -135,10 +139,14 @@ struct NonConstRBeginMember {
 };
 static_assert( std::is_invocable_v<RangeRBeginT,  NonConstRBeginMember &>);
 static_assert(!std::is_invocable_v<RangeRBeginT,  NonConstRBeginMember const&>);
+#if TEST_STD_VER >= 23
 // NonConstRBeginMember has no begin() at all, so const NonConstRBeginMember
 // isn't even a range; crbegin falls back to the mutable member rbegin() and
 // wraps it in basic_const_iterator.
 static_assert( std::is_invocable_v<RangeCRBeginT, NonConstRBeginMember &>);
+#else
+static_assert(!std::is_invocable_v<RangeCRBeginT, NonConstRBeginMember &>);
+#endif
 static_assert(!std::is_invocable_v<RangeCRBeginT, NonConstRBeginMember const&>);
 
 struct EnabledBorrowingRBeginMember {
@@ -168,18 +176,30 @@ constexpr bool testRBeginMember() {
 
   NonConstRBeginMember b;
   assert(std::ranges::rbegin(b) == &b.x);
+#if TEST_STD_VER >= 23
   assert(std::ranges::crbegin(b) == &b.x);
   static_assert( std::is_invocable_v<RangeCRBeginT, NonConstRBeginMember&>);
+#else
+  static_assert(!std::is_invocable_v<RangeCRBeginT, NonConstRBeginMember&>);
+#endif
 
   EnabledBorrowingRBeginMember c;
   assert(std::ranges::rbegin(c) == globalBuff);
+#if TEST_STD_VER >= 23
   // crbegin(c) is a basic_const_iterator wrapping int*; its templated operator==
   // requires sentinel_for<Sent, It>, which an array (not semiregular) doesn't
   // satisfy, unlike the raw-pointer comparison above which benefits from
   // built-in array-to-pointer decay. Decay explicitly on this side.
   assert(std::ranges::crbegin(c) == +globalBuff);
+#else
+  assert(std::ranges::crbegin(c) == globalBuff);
+#endif
   assert(std::ranges::rbegin(std::move(c)) == globalBuff);
+#if TEST_STD_VER >= 23
   assert(std::ranges::crbegin(std::move(c)) == +globalBuff);
+#else
+  assert(std::ranges::crbegin(std::move(c)) == globalBuff);
+#endif
 
   RBeginMemberFunction d;
   assert(std::ranges::rbegin(d) == &d.x);
@@ -429,10 +449,14 @@ struct MemberBeginAndRBegin {
 static_assert( std::is_invocable_v<RangeRBeginT, MemberBeginAndRBegin&>);
 static_assert( std::is_invocable_v<RangeCRBeginT, MemberBeginAndRBegin&>);
 static_assert( std::same_as<std::invoke_result_t<RangeRBeginT, MemberBeginAndRBegin&>, int*>);
+#if TEST_STD_VER >= 23
 // rbegin() const still returns a mutable int*, so const MemberBeginAndRBegin
 // doesn't model constant_range; crbegin wraps the result in basic_const_iterator.
 static_assert( std::same_as<std::invoke_result_t<RangeCRBeginT, MemberBeginAndRBegin&>,
                              std::basic_const_iterator<int*>>);
+#else
+static_assert( std::same_as<std::invoke_result_t<RangeCRBeginT, MemberBeginAndRBegin&>, int*>);
+#endif
 
 constexpr bool testBeginEnd() {
   MemberBeginEnd a{};
@@ -474,17 +498,25 @@ struct NoThrowMemberRBegin {
   ThrowingIterator<int> rbegin() const noexcept; // auto(t.rbegin()) doesn't throw
 } ntmb;
 static_assert(noexcept(std::ranges::rbegin(ntmb)));
+#if TEST_STD_VER >= 23
 // crbegin wraps the result in basic_const_iterator, which moves the
 // underlying iterator; ThrowingIterator's move constructor isn't noexcept.
 static_assert(!noexcept(std::ranges::crbegin(ntmb)));
+#else
+static_assert(noexcept(std::ranges::crbegin(ntmb)));
+#endif
 
 struct NoThrowADLRBegin {
   friend ThrowingIterator<int> rbegin(NoThrowADLRBegin&) noexcept;  // auto(rbegin(t)) doesn't throw
   friend ThrowingIterator<int> rbegin(const NoThrowADLRBegin&) noexcept;
 } ntab;
 static_assert(noexcept(std::ranges::rbegin(ntab)));
+#if TEST_STD_VER >= 23
 // Same reasoning as NoThrowMemberRBegin above.
 static_assert(!noexcept(std::ranges::crbegin(ntab)));
+#else
+static_assert(noexcept(std::ranges::crbegin(ntab)));
+#endif
 
 struct NoThrowMemberRBeginReturnsRef {
   ThrowingIterator<int>& rbegin() const noexcept; // auto(t.rbegin()) may throw

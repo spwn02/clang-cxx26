@@ -56,8 +56,10 @@ concept range = requires(_Tp& __t) {
 template <class _Tp>
 concept input_range = range<_Tp> && input_iterator<iterator_t<_Tp>>;
 
+#  if _LIBCPP_STD_VER >= 23
 template <class _Tp>
 concept constant_range = input_range<_Tp> && constant_iterator<iterator_t<_Tp>>;
+#  endif // _LIBCPP_STD_VER >= 23
 
 template <class _Range>
 concept borrowed_range =

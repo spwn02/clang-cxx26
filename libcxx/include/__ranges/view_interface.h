@@ -72,6 +72,7 @@ public:
     }
   }
 
+#  if _LIBCPP_STD_VER >= 23
   template <class _D2 = _Derived>
   _LIBCPP_HIDE_FROM_ABI constexpr auto cbegin() requires range<_D2> { return ranges::cbegin(__derived()); }
 
@@ -87,6 +88,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto cend() const requires range<const _D2> {
     return ranges::cend(__derived());
   }
+#  endif // _LIBCPP_STD_VER >= 23
 
   template <class _D2 = _Derived>
   _LIBCPP_HIDE_FROM_ABI constexpr explicit operator bool()
