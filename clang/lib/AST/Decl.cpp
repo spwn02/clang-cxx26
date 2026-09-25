@@ -4848,7 +4848,11 @@ Expr *FieldDecl::getInClassInitializer() const {
   if (!hasInClassInitializer())
     return nullptr;
 
-  LazyDeclStmtPtr InitPtr = BitField ? InitAndBitWidth->Init : Init;
+  // Note: bind by reference. LazyOffsetPtr::get() caches the deserialized
+  // statement in the (mutable) pointer, so working on a copy would deserialize
+  // a fresh expression tree on every call for fields read from a PCH/module,
+  // and consecutive traversals would see different nodes.
+  const LazyDeclStmtPtr &InitPtr = BitField ? InitAndBitWidth->Init : Init;
   return cast_if_present<Expr>(
       InitPtr.isOffset() ? InitPtr.get(getASTContext().getExternalSource())
                          : InitPtr.get(nullptr));

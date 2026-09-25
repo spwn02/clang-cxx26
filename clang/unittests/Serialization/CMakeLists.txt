@@ -6,6 +6,7 @@ add_clang_unittest(SerializationTests
   PreambleInNamedModulesTest.cpp
   LoadSpecLazilyTest.cpp
   SourceLocationEncodingTest.cpp
+  InClassInitializerTest.cpp
   VarDeclConstantInitTest.cpp
   CLANG_LIBS
   clangAST
