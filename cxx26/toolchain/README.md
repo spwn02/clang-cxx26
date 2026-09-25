@@ -131,6 +131,35 @@ The toolchain file is relocatable and derives all paths from its own installed l
 
 It also enables the current reference-fork reflection mode automatically. Consumer CMake projects should target standardized C++26 source semantics rather than repeat `-freflection-latest` themselves merely to select the reference implementation.
 
+## Using the bundled `clangd` with modules
+
+`clangd` only sees the flags in your compilation database (or a `.clangd` file). Two things go wrong with C++20/26 modules, both configuration rather than toolchain bugs:
+
+1. **No language-standard flag for a file.** If the compile command for a module unit has no `-std=c++20` or later (or the file is not in `compile_commands.json` at all, so `clangd` falls back to default flags), the file is parsed as C++17 and `clangd` reports, on perfectly valid code, `unknown type name 'import'`, `unknown type name 'module'` and `expected template` for `export module X:Y;`. Give every module file the toolchain's flags. In a project-level `.clangd`:
+
+   ```yaml
+   CompileFlags:
+     Add: [-std=c++26, -stdlib=libc++, -freflection-latest, -Wno-reserved-module-identifier]
+   ```
+
+   (CMake with the toolchain file above already passes these for compiled targets; the problem shows up for files the database does not contain, such as module partitions that are not listed.)
+
+2. **`import std;` needs a `std` binary module interface (BMI).** Without one, `clangd` reports `module 'std' not found`. Build one with the same compiler and point `clangd` at it:
+
+   ```bash
+   "$CXX" -std=c++26 -stdlib=libc++ -freflection-latest -Wno-reserved-module-identifier \
+     --precompile -o std.pcm "$CXX26_TOOLCHAIN_ROOT/share/libc++/v1/std.cppm"
+   ```
+
+   ```yaml
+   CompileFlags:
+     Add: [-fmodule-file=std=/absolute/path/to/std.pcm]
+   ```
+
+   Rebuild `std.pcm` whenever the toolchain changes: a BMI from a different compiler revision is rejected.
+
+With both in place, `clangd --check=<module interface unit>` is clean for a unit that does `import std;`. Importing *your own* modules (`import Demo;`) additionally needs their BMIs: `clangd` 22's `--experimental-modules-support` is meant to build them from the compilation database using `clang-scan-deps` (shipped in this toolchain), but this was **not** verified to resolve project modules with `--check`; treat it as experimental, and see spwn02/clang-cxx26#108.
+
 ## Package metadata
 
 Each release contains:
