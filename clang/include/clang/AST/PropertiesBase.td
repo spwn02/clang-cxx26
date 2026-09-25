@@ -511,6 +511,13 @@ let Class = PropertyTypeCase<APValue, "Reflection"> in {
     let Conditional = [{ kind == ReflectionKind::Parameter  }];
     let Read = [{ base.getReflectedParameter() }];
   }
+  // A reflection of an annotation is serialized by value, i.e. the annotation
+  // attribute is written in full and a new one is created when reading. Without
+  // this the value read back was a plain (non-reflection) APValue.
+  def : Property<"baseAnnotation", Attr> {
+    let Conditional = [{ kind == ReflectionKind::Annotation }];
+    let Read = [{ base.getReflectedAnnotationAsAttr() }];
+  }
   def : Property<"baseBaseSpecDerivedFrom", CXXRecordDeclRef> {
     let Conditional = [{ kind == ReflectionKind::BaseSpecifier }];
     let Read = [{ base.getReflectedBaseSpecifier()->getDerived() }];
@@ -580,6 +587,9 @@ let Class = PropertyTypeCase<APValue, "Reflection"> in {
       break;
     case ReflectionKind::Parameter:
       V = APValue(kind, *baseParameter);
+      break;
+    case ReflectionKind::Annotation:
+      V = APValue::MakeAnnotationReflection(*baseAnnotation);
       break;
     case ReflectionKind::BaseSpecifier:
       V = APValue(

@@ -1016,6 +1016,15 @@ CXX26AnnotationAttr *APValue::getReflectedAnnotation() const {
           const_cast<void *>(getOpaqueReflectionData()));
 }
 
+const Attr *APValue::getReflectedAnnotationAsAttr() const {
+  return getReflectedAnnotation();
+}
+
+APValue APValue::MakeAnnotationReflection(const Attr *A) {
+  return APValue(ReflectionKind::Annotation,
+                 static_cast<const void *>(cast<CXX26AnnotationAttr>(A)));
+}
+
 ParsedAttr *APValue::getReflectedAttribute() const {
   assert(getReflectionKind() == ReflectionKind::Attribute &&
          "not a reflection of an attribute");

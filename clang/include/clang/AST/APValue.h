@@ -33,6 +33,7 @@ template <typename T> class BasicReaderBase;
   class AddrLabelExpr;
   class ASTContext;
   class CharUnits;
+  class Attr;
   class CXX26AnnotationAttr;
   class CXXBaseSpecifier;
   class CXXRecordDecl;
@@ -786,6 +787,13 @@ public:
   EnumeratorSpec *getReflectedEnumeratorSpec() const;
   CXX26AnnotationAttr *getReflectedAnnotation() const;
   ParsedAttr *getReflectedAttribute() const;
+
+  /// The annotation of a reflection of an annotation, as its base class.
+  /// Used to serialize such reflections, where the derived type is unknown.
+  const Attr *getReflectedAnnotationAsAttr() const;
+  /// Creates a reflection of the annotation \p A, which must be a
+  /// CXX26AnnotationAttr; the counterpart of getReflectedAnnotationAsAttr().
+  static APValue MakeAnnotationReflection(const Attr *A);
 
   void setInt(APSInt I) {
     assert(isInt() && "Invalid accessor");
