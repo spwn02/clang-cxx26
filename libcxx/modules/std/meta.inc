@@ -10,7 +10,9 @@
 #if __has_feature(reflection)
 export namespace std {
   using std::define_static_array;
+  using std::define_static_object;
   using std::define_static_string;
+  using std::is_string_literal;
 
   namespace meta {
     inline namespace reflection_v2 {
@@ -245,6 +247,14 @@ export namespace std {
       using std::meta::reflection_v2::attribute_namespace_of;
       using std::meta::reflection_v2::attribute_token_of;
       using std::meta::reflection_v2::has_attribute_namespace;
+      using std::meta::reflection_v2::has_attribute;
+      using std::meta::reflection_v2::attribute_comparison;
+      using std::meta::reflection_v2::u8attribute_namespace_of;
+      using std::meta::reflection_v2::u8attribute_token_of;
+      using std::meta::reflection_v2::is_unscoped_attribute;
+      using std::meta::reflection_v2::is_clang_attribute;
+      using std::meta::reflection_v2::is_gcc_attribute;
+      using std::meta::reflection_v2::is_msvc_attribute;
 #endif // __has_feature(attribute_reflection)
       using std::meta::reflection_v2::access_context;
       using std::meta::reflection_v2::is_accessible;
@@ -252,6 +262,50 @@ export namespace std {
       using std::meta::reflection_v2::has_inaccessible_bases;
       using std::meta::reflection_v2::is_access_specified;
       using std::meta::reflection_v2::reflect_invoke;
+
+      // The enumerators of `operators` (`op_plus`, ...) are introduced into
+      // the namespace by a using-enum-declaration in <meta>.
+      using enum std::meta::reflection_v2::operators;
+
+      using std::meta::reflection_v2::exception;
+      using std::meta::reflection_v2::current_function;
+      using std::meta::reflection_v2::current_class;
+      using std::meta::reflection_v2::current_namespace;
+      using std::meta::reflection_v2::has_parent;
+      using std::meta::reflection_v2::has_complete_definition;
+      using std::meta::reflection_v2::has_c_language_linkage;
+      using std::meta::reflection_v2::subobjects_of;
+      using std::meta::reflection_v2::symbol_of;
+      using std::meta::reflection_v2::u8symbol_of;
+      using std::meta::reflection_v2::enumerator_options;
+      using std::meta::reflection_v2::enumerator_spec;
+      using std::meta::reflection_v2::define_enum;
+      using std::meta::reflection_v2::define_unscoped_enum;
+      using std::meta::reflection_v2::reflect_constant_array;
+      using std::meta::reflection_v2::reflect_constant_string;
+      using std::meta::reflection_v2::is_applicable_type;
+      using std::meta::reflection_v2::is_nothrow_applicable_type;
+      using std::meta::reflection_v2::apply_result;
+      using std::meta::reflection_v2::is_trivially_constructible_type;
+      _LIBCPP_META_EXPORT_PREDICATE(is_enumerator_spec)
+      _LIBCPP_META_EXPORT_PREDICATE(is_final)
+      _LIBCPP_META_EXPORT_PREDICATE(is_object)
+      _LIBCPP_META_EXPORT_PREDICATE(is_value)
+      _LIBCPP_META_EXPORT_PREDICATE(is_structural_type)
+
+      // Deprecated names, which <meta> still declares.
+      using std::meta::reflection_v2::define_class;
+      using std::meta::reflection_v2::reflect_result;
+      using std::meta::reflection_v2::reflect_value;
+      using std::meta::reflection_v2::value_of;
+      using std::meta::reflection_v2::test_trait;
+      using std::meta::reflection_v2::test_type;
+      using std::meta::reflection_v2::test_types;
+#if __has_feature(entity_proxy_reflection)
+      using std::meta::reflection_v2::is_entity_proxy;
+      using std::meta::reflection_v2::proxied_entity_of;
+      using std::meta::reflection_v2::underlying_entity_of;
+#endif // __has_feature(entity_proxy_reflection)
 #undef _LIBCPP_META_EXPORT_PREDICATE
     }
   }

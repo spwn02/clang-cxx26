@@ -3400,6 +3400,7 @@ module std [system] {
     export *
     export std.concepts.constructible
     export std.concepts.same_as
+    export std.exception
     export std.tuple
   }
 
