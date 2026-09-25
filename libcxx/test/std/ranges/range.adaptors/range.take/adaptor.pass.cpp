@@ -113,6 +113,7 @@ constexpr bool test() {
     [[maybe_unused]] std::same_as<Result> decltype(auto) result = std::views::empty<int> | std::views::take(3);
   }
 
+#if TEST_STD_VER >= 26
   // `views::take(optional, n)` returns the optional directly.
   {
     std::optional<int> value = 42;
@@ -123,6 +124,7 @@ constexpr bool test() {
     assert(!empty);
     assert(same && *same == 42);
   }
+#endif // TEST_STD_VER >= 26
 
   // `views::take(span, n)` returns a `span`.
   {

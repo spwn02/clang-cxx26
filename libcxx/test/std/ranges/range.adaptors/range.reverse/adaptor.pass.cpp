@@ -120,6 +120,7 @@ constexpr bool test() {
     assert(base(result.end().base()) == buf);
   }
 
+#if TEST_STD_VER >= 26
   // `views::reverse(optional)` returns the optional directly.
   {
     std::optional<int> value = 42;
@@ -127,6 +128,7 @@ constexpr bool test() {
     std::same_as<std::optional<int>> decltype(auto) result = std::views::reverse(value);
     assert(result && *result == 42);
   }
+#endif // TEST_STD_VER >= 26
 
   // Test that std::views::reverse is a range adaptor
   {

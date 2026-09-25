@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14, c++17
+// UNSUPPORTED: c++03, c++11, c++14, c++17, c++20
 
 // Regression test for ranges::distance on a join_view whose outer range
 // produces xvalues, as views::as_rvalue is specified to do.

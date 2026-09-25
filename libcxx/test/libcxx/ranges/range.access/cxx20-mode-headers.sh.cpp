@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// The C++23 basic_const_iterator machinery (P2278R4) must not leak into C++20
-// mode: <ranges> (and everything that includes __ranges/access.h) failed to
+// C++23/26 facilities (P2278R4 basic_const_iterator, P3235R3 print opt-ins in
+// <chrono>) must not leak into C++20 mode: <ranges> (and everything that includes __ranges/access.h) failed to
 // compile at -std=c++20 with "use of undeclared identifier 'constant_iterator'"
 // while every lit run used the default (newest) standard. Compile the public
 // headers and use ranges::cbegin/cend/crbegin/crend at both standards.
@@ -18,6 +18,7 @@
 // RUN: %{cxx} %{flags} %{compile_flags} -std=c++23 -fsyntax-only %s
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <format>
 #include <iterator>
@@ -26,6 +27,7 @@
 #include <regex>
 #include <span>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 void test() {

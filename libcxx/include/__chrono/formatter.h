@@ -1090,6 +1090,7 @@ public:
 // eel.is/c++draft/time.format directly) -- do not add specializations for
 // them here, see enable_nonlocking_formatter_optimization.compile.pass.cpp's
 // static_asserts, which encode this exact boundary.
+#    if _LIBCPP_STD_VER >= 23
 template <class _Rep, class _Period>
 inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::duration<_Rep, _Period>> =
     enable_nonlocking_formatter_optimization<_Rep>;
@@ -1099,6 +1100,7 @@ template <class _Duration>
 inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::zoned_time<_Duration, const chrono::time_zone*>> =
     true;
 #    endif
+#    endif // _LIBCPP_STD_VER >= 23
 
 #  endif // if _LIBCPP_STD_VER >= 20
 
