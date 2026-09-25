@@ -12,6 +12,8 @@
 #pragma GCC system_header
 #endif
 
+#if _LIBCPP_STD_VER >= 20 // std::source_location is needed; contracts proper is C++26 (the compiler accepts -fcontracts earlier)
+
 namespace std::contracts {
 
 enum class assertion_kind : unsigned char { __unknown = 0, pre = 1, post = 2, assert = 3, manual = 4, cassert = 5 };
@@ -100,5 +102,7 @@ __handle_manual_contract_violation(assertion_kind::manual,
 } // namespace std::contracts
 
 __attribute__((weak)) void handle_contract_violation(const std::contracts::contract_violation&);
+
+#endif // _LIBCPP_STD_VER >= 20
 
 #endif // _LIBCPP_CONTRACTS

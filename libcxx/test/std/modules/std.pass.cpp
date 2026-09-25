@@ -34,6 +34,7 @@ int main(int, char**) {
   if (*strided.begin() + *chunked.front().begin() + *windowed.front().begin() + std::get<0>(*cartesian.begin()) != 1)
     return 1;
 
+#if __cplusplus > 202302L // C++26: enumerate, constant_wrapper, sync_wait
   // Regression test: ranges.inc's `views::enumerate` was hand-written as a
   // stale zip+iota proxy directly inside the module partition (predating
   // issue #85's real enumerate_view rewrite), and enumerate_view.h itself
@@ -55,6 +56,7 @@ int main(int, char**) {
   // Regression test: libcxx/modules/std/execution.inc exported
   // std::this_thread::sync_wait but not its CPO tag type sync_wait_t.
   static_assert(std::same_as<decltype(std::this_thread::sync_wait), const std::this_thread::sync_wait_t>);
+#endif // __cplusplus > 202302L
 
   // Regression test: libcxx/modules/std/algorithm.inc left
   // fold_left_first, fold_right, fold_right_last, and
@@ -72,6 +74,7 @@ int main(int, char**) {
       return 1;
   }
 
+#if __cplusplus > 202302L // C++26: submdspan
   // Regression test: libcxx/modules/std/mdspan.inc never exported any of
   // issue #14's P2630R4/P3355R2/P2642R6 submdspan/padded-layout facilities
   // (layout_left_padded, layout_right_padded, full_extent_t, full_extent,
@@ -85,6 +88,7 @@ int main(int, char**) {
     if (sub.extent(0) != 4)
       return 1;
   }
+#endif // __cplusplus > 202302L
 
   return 0;
 }
