@@ -652,12 +652,14 @@ __format_floating_point(_Tp __value, _FormatContext& __ctx, __format_spec::__par
   if (__negative)
     __value = -__value;
 
-  // TODO FMT _Fp should just be _Tp when to_chars has proper long double support.
+  // long double is still formatted through double: the format tests and the buffer sizing above assume
+  // double's digit counts. std::to_chars itself handles long double at full precision, so this is only a
+  // limit of the formatter (TODO: format long double at full precision, then _Fp is just _Tp).
   using _Fp = conditional_t<same_as<_Tp, long double>, double, _Tp>;
   // Force the type of the precision to avoid -1 to become an unsigned value.
   __float_buffer<_Fp> __buffer(__specs.__precision_);
   __float_result __result = __formatter::__format_buffer(
-      __buffer, __value, __negative, (__specs.__has_precision()), __specs.__std_.__sign_, __specs.__std_.__type_);
+      __buffer, static_cast<_Fp>(__value), __negative, (__specs.__has_precision()), __specs.__std_.__sign_, __specs.__std_.__type_);
 
   if (__specs.__std_.__alternate_form_) {
     if (__result.__radix_point == __result.__last) {

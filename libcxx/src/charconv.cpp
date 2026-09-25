@@ -21,8 +21,196 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace {
 
+#if defined(__x86_64__) || defined(__i386__)
+// glibc prints the x87 80-bit long double with "%La" using the explicit integer bit as the leading
+// hexit ("0xd.5ep-3" for 0x1.abcp+0), but [charconv.to.chars] requires the normalized form with a single
+// leading "1" (or "0" for zero and subnormals), exactly like the float and double implementations.
+// So format the hexits ourselves. Only used for finite values when long double is the x87 type.
+to_chars_result __to_chars_x87_hex(char* __first, char* __last, long double __value, int __precision, bool __has_precision) {
+  static_assert(numeric_limits<long double>::digits == 64, "x87 extended precision layout required");
+  unsigned long long __mantissa;
+  unsigned short __sign_exponent;
+  ::memcpy(&__mantissa, &__value, 8);
+  ::memcpy(&__sign_exponent, reinterpret_cast<const char*>(&__value) + 8, 2);
+  const bool __negative     = (__sign_exponent & 0x8000) != 0;
+  const int __biased        = __sign_exponent & 0x7fff;
+  const unsigned __leading  = static_cast<unsigned>(__mantissa >> 63); // the explicit integer bit
+  const unsigned long long __fraction = __mantissa << 1;               // 63 fraction bits, aligned to 16 hexits
+
+  int __exponent;
+  if (__mantissa == 0)
+    __exponent = 0; // C11 7.21.6.1/8: "If the value is zero, the exponent is zero."
+  else if (__biased == 0)
+    __exponent = 1 - 16383; // subnormal
+  else
+    __exponent = __biased - 16383;
+
+  // Hexits of the fraction and the leading hexit, after rounding if a precision was requested.
+  unsigned __lead = __leading;
+  unsigned long long __frac = __fraction;
+  int __hexits;
+  if (!__has_precision) {
+    __hexits = 16;
+    while (__hexits > 0 && (__frac & 0xf) == 0) {
+      __frac >>= 4;
+      --__hexits;
+    }
+  } else if (__precision >= 16) {
+    __hexits = 16;
+  } else {
+    __hexits = __precision;
+    const int __dropped = (16 - __precision) * 4; // 4..64
+    unsigned __int128 __combined = (static_cast<unsigned __int128>(__leading) << 64) | __fraction;
+    unsigned __int128 __quotient = __combined >> __dropped;
+    const unsigned __int128 __remainder = __combined & ((static_cast<unsigned __int128>(1) << __dropped) - 1);
+    const unsigned __int128 __half      = static_cast<unsigned __int128>(1) << (__dropped - 1);
+    if (__remainder > __half || (__remainder == __half && (__quotient & 1)))
+      ++__quotient;
+    __lead = static_cast<unsigned>(__quotient >> (4 * __precision));
+    __frac = __precision == 0 ? 0ull : static_cast<unsigned long long>(__quotient & ((static_cast<unsigned __int128>(1) << (4 * __precision)) - 1));
+  }
+
+  const int __padding = __has_precision && __precision > 16 ? __precision - 16 : 0;
+
+  char __head[32];
+  char* __out = __head;
+  if (__negative)
+    *__out++ = '-';
+  *__out++ = "0123456789abcdef"[__lead];
+  const bool __point = __hexits > 0 || __padding > 0;
+  if (__point)
+    *__out++ = '.';
+  for (int __i = __hexits - 1; __i >= 0; --__i)
+    *__out++ = "0123456789abcdef"[(__frac >> (4 * __i)) & 0xf];
+
+  char __tail[16];
+  char* __tail_out = __tail;
+  *__tail_out++ = 'p';
+  unsigned __abs_exponent = __exponent < 0 ? static_cast<unsigned>(-__exponent) : static_cast<unsigned>(__exponent);
+  *__tail_out++ = __exponent < 0 ? '-' : '+';
+  char __digits[8];
+  int __ndigits = 0;
+  do {
+    __digits[__ndigits++] = static_cast<char>('0' + __abs_exponent % 10);
+    __abs_exponent /= 10;
+  } while (__abs_exponent != 0);
+  while (__ndigits > 0)
+    *__tail_out++ = __digits[--__ndigits];
+
+  const ptrdiff_t __head_length = __out - __head;
+  const ptrdiff_t __tail_length = __tail_out - __tail;
+  const ptrdiff_t __capacity    = __last - __first;
+  if (static_cast<ptrdiff_t>(__padding) + __head_length + __tail_length > __capacity)
+    return {__last, errc::value_too_large};
+  ::memcpy(__first, __head, static_cast<size_t>(__head_length));
+  __first += __head_length;
+  ::memset(__first, '0', static_cast<size_t>(__padding));
+  __first += __padding;
+  ::memcpy(__first, __tail, static_cast<size_t>(__tail_length));
+  return {__first + __tail_length, errc{}};
+}
+#endif // x86
+
+
+// Shortest round-trip formatting for long double. There is no Ryu implementation for the extended
+// types, so search for the smallest number of significant digits whose correctly rounded decimal
+// form (glibc's printf is exact) reads back as the same value, then lay the digits out following the
+// same rules the float/double implementation uses (see ryu/d2s.cpp).
+to_chars_result __to_chars_long_double_shortest(char* __first, char* __last, long double __value, chars_format __fmt) {
+  char __buffer[96];
+  int __negative = __builtin_signbit(__value) ? 1 : 0;
+  const long double __abs = __negative ? -__value : __value;
+
+  string __digits;
+  int __sci_exponent = 0;
+  if (__abs == 0) {
+    __digits = "0";
+  } else {
+    for (int __digits_count = 1; __digits_count <= numeric_limits<long double>::max_digits10; ++__digits_count) {
+      int __n = ::snprintf(__buffer, sizeof(__buffer), "%.*Le", __digits_count - 1, __abs);
+      if (__n <= 0 || static_cast<size_t>(__n) >= sizeof(__buffer))
+        return {__last, errc::value_too_large};
+      char* __end;
+      const long double __back = ::strtold(__buffer, &__end);
+      if (__back == __abs || __digits_count == numeric_limits<long double>::max_digits10) {
+        __digits.clear();
+        const char* __e = ::strchr(__buffer, 'e');
+        for (const char* __c = __buffer; __c != __e; ++__c)
+          if (*__c != '.')
+            __digits.push_back(*__c);
+        __sci_exponent = static_cast<int>(::strtol(__e + 1, nullptr, 10));
+        break;
+      }
+    }
+  }
+
+  const int __length            = static_cast<int>(__digits.size());
+  const int __ryu_exponent      = __sci_exponent - (__length - 1);
+  if (__fmt == chars_format{}) {
+    int __lower, __upper;
+    if (__length == 1) {
+      __lower = -3;
+      __upper = 4;
+    } else {
+      __lower = -(__length + 3);
+      __upper = 5;
+    }
+    __fmt = (__lower <= __ryu_exponent && __ryu_exponent <= __upper) ? chars_format::fixed : chars_format::scientific;
+  } else if (__fmt == chars_format::general) {
+    __fmt = (-4 <= __sci_exponent && __sci_exponent < 6) ? chars_format::fixed : chars_format::scientific;
+  }
+
+  string __out;
+  if (__negative)
+    __out.push_back('-');
+  if (__fmt == chars_format::fixed) {
+    if (__abs == 0) {
+      __out.push_back('0');
+    } else if (__ryu_exponent >= 0) {
+      __out += __digits;
+      __out.append(static_cast<size_t>(__ryu_exponent), '0');
+    } else if (__sci_exponent >= 0) {
+      __out.append(__digits, 0, static_cast<size_t>(__sci_exponent + 1));
+      __out.push_back('.');
+      __out.append(__digits, static_cast<size_t>(__sci_exponent + 1), string::npos);
+    } else {
+      __out += "0.";
+      __out.append(static_cast<size_t>(-__sci_exponent - 1), '0');
+      __out += __digits;
+    }
+  } else { // scientific
+    __out.push_back(__digits[0]);
+    if (__length > 1) {
+      __out.push_back('.');
+      __out.append(__digits, 1, string::npos);
+    }
+    const int __exp = __abs == 0 ? 0 : __sci_exponent;
+    __out.push_back('e');
+    __out.push_back(__exp < 0 ? '-' : '+');
+    const int __abs_exp = __exp < 0 ? -__exp : __exp;
+    if (__abs_exp < 10)
+      __out.push_back('0');
+    __out += to_string(__abs_exp);
+  }
+
+  if (static_cast<ptrdiff_t>(__out.size()) > __last - __first)
+    return {__last, errc::value_too_large};
+  ::memcpy(__first, __out.data(), __out.size());
+  return {__first + __out.size(), errc{}};
+}
+
+
 to_chars_result __to_chars_long_double(
     char* __first, char* __last, long double __value, chars_format __fmt, int __precision, bool __has_precision) {
+#if defined(__x86_64__) || defined(__i386__)
+  if (__fmt == chars_format::hex && numeric_limits<long double>::digits == 64 && __builtin_isfinite(__value)) {
+    if (__has_precision && __precision >= 1'000'000'000)
+      return {__last, errc::value_too_large};
+    return __to_chars_x87_hex(__first, __last, __value, __has_precision && __precision < 0 ? 6 : __precision, __has_precision);
+  }
+#endif
+  if (!__has_precision && __fmt != chars_format::hex && __builtin_isfinite(__value))
+    return __to_chars_long_double_shortest(__first, __last, __value, __fmt);
   const char* __format;
   int __effective_precision = __precision;
   if (!__has_precision) {
@@ -155,7 +343,7 @@ to_chars_result to_chars(char* __first, char* __last, double __value) {
 }
 
 to_chars_result to_chars(char* __first, char* __last, long double __value) {
-  return __to_chars_long_double(__first, __last, __value, chars_format::general, 0, false);
+  return __to_chars_long_double(__first, __last, __value, chars_format{}, 0, false);
 }
 
 to_chars_result to_chars(char* __first, char* __last, float __value, chars_format __fmt) {
