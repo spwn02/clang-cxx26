@@ -1139,10 +1139,12 @@ bool Decl::AccessDeclContextCheck() const {
   // 6. it's a C++0x static_assert.
   // 7. it's a block literal declaration
   // 8. it's a temporary with lifetime extended due to being default value.
+  // 9. it's a consteval block, which like a static_assert is not a member.
   if (isa<TranslationUnitDecl>(this) || isa<TemplateTypeParmDecl>(this) ||
       isa<NonTypeTemplateParmDecl>(this) || !getDeclContext() ||
       !isa<CXXRecordDecl>(getDeclContext()) || isInvalidDecl() ||
-      isa<StaticAssertDecl>(this) || isa<BlockDecl>(this) ||
+      isa<StaticAssertDecl>(this) || isa<ConstevalBlockDecl>(this) ||
+      isa<BlockDecl>(this) ||
       // FIXME: a ParmVarDecl can have ClassTemplateSpecialization
       // as DeclContext (?).
       isa<ParmVarDecl>(this) ||
