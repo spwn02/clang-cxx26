@@ -607,6 +607,7 @@ void ASTStmtWriter::VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
   VisitExpr(E);
   Record.push_back(E->getNumArgs());
   Record.push_back(E->isArrow());
+  Record.push_back(E->areArgsUnparsed());
   Record.AddDeclarationNameInfo(E->getMemberNameInfo());
   Record.AddSourceLocation(E->getOperatorLoc());
   Record.AddSourceLocation(E->getExclaimLoc());
