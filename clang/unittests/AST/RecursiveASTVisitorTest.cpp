@@ -189,9 +189,9 @@ TEST(RecursiveASTVisitorTest, ReflectExprOfMutuallyReferencingFunctions) {
   // overflow rather than failing an assertion -- that's expected: the bug
   // is exactly that unbounded recursion, not a wrong-but-finite result.
   llvm::StringRef Code = R"cpp(
-  void g();
-  void f() { auto R = ^^g; (void)R; }
-  void g() { auto R = ^^f; (void)R; }
+  consteval void g();
+  consteval void f() { constexpr auto R = ^^g; (void)R; }
+  consteval void g() { constexpr auto R = ^^f; (void)R; }
   )cpp";
 
   CollectInterestingEvents Visitor;
