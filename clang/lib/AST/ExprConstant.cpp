@@ -17241,6 +17241,20 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     return Success(Val, E);
   }
 
+  case Builtin::BI__builtin_ilogb:
+  case Builtin::BI__builtin_ilogbf:
+  case Builtin::BI__builtin_ilogbl:
+  case Builtin::BI__builtin_ilogbf128: {
+    APFloat Val(0.0);
+    if (!EvaluateFloat(E->getArg(0), Val, Info))
+      return false;
+    // FP_ILOGB0, FP_ILOGBNAN and the result for infinity are defined by the
+    // target's C library, so those are left to run time.
+    if (!Val.isFinite() || Val.isZero())
+      return Error(E);
+    return Success(ilogb(Val), E);
+  }
+
   case Builtin::BI__builtin_lround:
   case Builtin::BI__builtin_lroundf:
   case Builtin::BI__builtin_lroundl:
@@ -20176,6 +20190,148 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
       return false;
     Result.remainder(RHS);
     return true;
+  }
+
+  case Builtin::BI__builtin_fdim:
+  case Builtin::BI__builtin_fdimf:
+  case Builtin::BI__builtin_fdiml:
+  case Builtin::BI__builtin_fdimf128: {
+    APFloat RHS(0.);
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluateFloat(E->getArg(1), RHS, Info))
+      return false;
+    if (Result.isNaN())
+      return true;
+    if (RHS.isNaN()) {
+      Result = RHS;
+      return true;
+    }
+    if (Result.compare(RHS) == APFloat::cmpGreaterThan) {
+      APFloat::opStatus St =
+          Result.subtract(RHS, getActiveRoundingMode(getEvalInfo(), E));
+      return checkFloatingPointResult(getEvalInfo(), E, St);
+    }
+    Result = APFloat::getZero(Result.getSemantics());
+    return true;
+  }
+
+  case Builtin::BI__builtin_fma:
+  case Builtin::BI__builtin_fmaf:
+  case Builtin::BI__builtin_fmal: {
+    APFloat Y(0.), Z(0.);
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluateFloat(E->getArg(1), Y, Info) ||
+        !EvaluateFloat(E->getArg(2), Z, Info))
+      return false;
+    llvm::RoundingMode RM = getActiveRoundingMode(getEvalInfo(), E);
+    APFloat::opStatus St = Result.fusedMultiplyAdd(Y, Z, RM);
+    // inf * 0 + z and similar have no usefully definable result.
+    if (St & APFloat::opInvalidOp)
+      return false;
+    return checkFloatingPointResult(getEvalInfo(), E, St);
+  }
+
+  case Builtin::BI__builtin_ldexp:
+  case Builtin::BI__builtin_ldexpf:
+  case Builtin::BI__builtin_ldexpl:
+  case Builtin::BI__builtin_ldexpf128:
+  case Builtin::BI__builtin_scalbn:
+  case Builtin::BI__builtin_scalbnf:
+  case Builtin::BI__builtin_scalbnl:
+  case Builtin::BI__builtin_scalbnf128: {
+    APSInt Exp;
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluateInteger(E->getArg(1), Exp, Info))
+      return false;
+    int N = static_cast<int>(
+        Exp.isSigned() ? std::clamp<int64_t>(Exp.getSExtValue(), INT_MIN, INT_MAX)
+                       : std::min<uint64_t>(Exp.getZExtValue(), INT_MAX));
+    Result = scalbn(Result, N, getActiveRoundingMode(getEvalInfo(), E));
+    return true;
+  }
+
+  case Builtin::BI__builtin_nextafter:
+  case Builtin::BI__builtin_nextafterf:
+  case Builtin::BI__builtin_nextafterl:
+  case Builtin::BI__builtin_nextafterf128:
+  case Builtin::BI__builtin_nexttoward:
+  case Builtin::BI__builtin_nexttowardf:
+  case Builtin::BI__builtin_nexttowardl:
+  case Builtin::BI__builtin_nexttowardf128: {
+    APFloat Toward(0.);
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluateFloat(E->getArg(1), Toward, Info))
+      return false;
+    if (Result.isNaN())
+      return true;
+    if (Toward.isNaN()) {
+      bool Ignored;
+      Toward.convert(Result.getSemantics(), APFloat::rmNearestTiesToEven,
+                     &Ignored);
+      Result = Toward;
+      return true;
+    }
+    // The direction is decided in the wider of the two types; widening the
+    // first argument is exact.
+    APFloat Wide = Result;
+    bool Ignored;
+    if (&Toward.getSemantics() != &Result.getSemantics())
+      Wide.convert(Toward.getSemantics(), APFloat::rmNearestTiesToEven,
+                   &Ignored);
+    APFloat::cmpResult Cmp = Wide.compare(Toward);
+    if (Cmp == APFloat::cmpEqual) {
+      // The result is the second argument (this matters for the sign of zero).
+      Toward.convert(Result.getSemantics(), APFloat::rmNearestTiesToEven,
+                     &Ignored);
+      Result = Toward;
+      return true;
+    }
+    (void)Result.next(/*nextDown=*/Cmp == APFloat::cmpGreaterThan);
+    return true;
+  }
+
+  case Builtin::BI__builtin_modf:
+  case Builtin::BI__builtin_modff:
+  case Builtin::BI__builtin_modfl:
+  case Builtin::BI__builtin_modff128: {
+    LValue IntLV;
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluatePointer(E->getArg(1), IntLV, Info))
+      return false;
+    APFloat IntPart = Result;
+    if (Result.isFinite()) {
+      IntPart.roundToIntegral(llvm::RoundingMode::TowardZero);
+      // The subtraction is exact; a zero fractional part keeps the sign of the
+      // argument.
+      (void)Result.subtract(IntPart, llvm::RoundingMode::NearestTiesToEven);
+      if (Result.isZero() && Result.isNegative() != IntPart.isNegative())
+        Result.changeSign();
+    } else if (Result.isInfinity()) {
+      Result = APFloat::getZero(Result.getSemantics(), Result.isNegative());
+    }
+    QualType IntTy = E->getArg(1)->getType()->getPointeeType();
+    APValue APV(IntPart);
+    return handleAssignment(Info, E, IntLV, IntTy, APV);
+  }
+
+  case Builtin::BI__builtin_frexp:
+  case Builtin::BI__builtin_frexpf:
+  case Builtin::BI__builtin_frexpl:
+  case Builtin::BI__builtin_frexpf128: {
+    LValue ExpLV;
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluatePointer(E->getArg(1), ExpLV, Info))
+      return false;
+    // The exponent of an infinity or NaN is unspecified.
+    if (!Result.isFinite())
+      return Info.FFDiag(E), false;
+    int Exp;
+    Result = frexp(Result, Exp, getActiveRoundingMode(getEvalInfo(), E));
+    QualType ExpTy = E->getArg(1)->getType()->getPointeeType();
+    APSInt ExpVal(Info.Ctx.getIntWidth(ExpTy), /*isUnsigned=*/false);
+    ExpVal = Exp;
+    APValue APV(ExpVal);
+    return handleAssignment(Info, E, ExpLV, ExpTy, APV);
   }
 
   case Builtin::BI__arithmetic_fence:
