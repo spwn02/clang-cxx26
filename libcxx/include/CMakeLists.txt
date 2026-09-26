@@ -964,6 +964,7 @@ set(files
   __type_traits/is_implicit_lifetime.h
   __type_traits/is_implicitly_default_constructible.h
   __type_traits/is_integral.h
+  __type_traits/is_layout_compatible.h
   __type_traits/is_literal_type.h
   __type_traits/is_member_pointer.h
   __type_traits/is_nothrow_assignable.h
@@ -973,6 +974,7 @@ set(files
   __type_traits/is_object.h
   __type_traits/is_pod.h
   __type_traits/is_pointer.h
+  __type_traits/is_pointer_interconvertible_base_of.h
   __type_traits/is_polymorphic.h
   __type_traits/is_primary_template.h
   __type_traits/is_reference.h

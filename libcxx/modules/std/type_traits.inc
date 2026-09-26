@@ -126,9 +126,13 @@ export namespace std {
   using std::is_virtual_base_of;
 #endif
   using std::is_convertible;
-  // using std::is_layout_compatible;
+#if _LIBCPP_STD_VER >= 20
+  using std::is_layout_compatible;
+#endif
   using std::is_nothrow_convertible;
-  // using std::is_pointer_interconvertible_base_of;
+#if _LIBCPP_STD_VER >= 20
+  using std::is_pointer_interconvertible_base_of;
+#endif
   using std::is_same;
 
   using std::is_invocable;
@@ -312,11 +316,15 @@ export namespace std {
   using std::is_convertible_v;
   using std::is_invocable_r_v;
   using std::is_invocable_v;
-  // using std::is_layout_compatible_v;
+#if _LIBCPP_STD_VER >= 20
+  using std::is_layout_compatible_v;
+#endif
   using std::is_nothrow_convertible_v;
   using std::is_nothrow_invocable_r_v;
   using std::is_nothrow_invocable_v;
-  // using std::is_pointer_interconvertible_base_of_v;
+#if _LIBCPP_STD_VER >= 20
+  using std::is_pointer_interconvertible_base_of_v;
+#endif
   using std::is_same_v;
 
   // [meta.logical], logical operator traits

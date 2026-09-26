@@ -106,5 +106,18 @@ int main(int, char**) {
       return 1;
   }
 
+  // Regression test: type_traits.inc left std::is_layout_compatible(_v) and std::is_pointer_interconvertible_base_of(_v)
+  // commented out (P0466R5).
+  {
+    struct Base {
+      int x;
+    };
+    struct Derived : Base {};
+    static_assert(std::is_layout_compatible_v<int, const int>);
+    static_assert(!std::is_layout_compatible<int, long>::value);
+    static_assert(std::is_pointer_interconvertible_base_of_v<Base, Derived>);
+    static_assert(!std::is_pointer_interconvertible_base_of<Derived, Base>::value);
+  }
+
   return 0;
 }

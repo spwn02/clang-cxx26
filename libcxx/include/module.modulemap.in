@@ -380,6 +380,10 @@ module std_core [system] {
       header "__type_traits/is_integral.h"
       export *
     }
+    module is_layout_compatible {
+      header "__type_traits/is_layout_compatible.h"
+      export *
+    }
     module is_literal_type {
       header "__type_traits/is_literal_type.h"
       export *
@@ -414,6 +418,10 @@ module std_core [system] {
     }
     module is_pointer {
       header "__type_traits/is_pointer.h"
+      export *
+    }
+    module is_pointer_interconvertible_base_of {
+      header "__type_traits/is_pointer_interconvertible_base_of.h"
       export *
     }
     module is_polymorphic {
