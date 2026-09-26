@@ -256,6 +256,16 @@ HandleClassTemplateSpec(const ClassTemplateSpecializationDecl *ClassTemplSpec,
     if (ClassTemplSpec->getSpecializedTemplate()->isMemberSpecialization())
       return Response::Done();
 
+    // The implicit class templates that CTAD synthesizes for the guides
+    // inherited from a base class are declared in an already instantiated
+    // enclosing class. Their template parameters are numbered relative to that
+    // class (depth 0), so the arguments of the enclosing class must not be added
+    // as an outer level.
+    if (ClassTemplSpec->getSpecializedTemplate()->isImplicit() &&
+        ClassTemplSpec->getSpecializedTemplate()->getDeclContext()
+            ->isDependentContext() == false)
+      return Response::Done();
+
     // If this was instantiated from a partial template specialization, we need
     // to get the next level of declaration context from the partial
     // specialization, as the ClassTemplateSpecializationDecl's

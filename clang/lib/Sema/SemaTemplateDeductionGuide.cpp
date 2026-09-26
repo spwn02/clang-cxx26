@@ -1730,9 +1730,30 @@ buildInheritedGuideReturnType(Sema &SemaRef, TemplateDecl *Template,
 //   `typename CC<R>::type`.
 void DeclareImplicitDeductionGuidesFromInheritedConstructors(
     Sema &SemaRef, TemplateDecl *Template, ClassTemplateDecl *Pattern,
-    TypeSourceInfo *BaseTSI, unsigned BaseIdx) {
+    TypeSourceInfo *BaseTSI, unsigned BaseIdx,
+    const MultiLevelTemplateArgumentList *OuterArgs) {
   ASTContext &Context = SemaRef.Context;
   DeclContext *DC = Template->getDeclContext();
+
+  // For a member template of a class template, \p BaseTSI is written in terms
+  // of the enclosing templates' parameters too. Substitute their arguments
+  // (this also lowers the depth of the member template's own parameters, so
+  // that they end up at the depth of the instantiated \p Template).
+  if (OuterArgs) {
+    Sema::SFINAETrap Trap(SemaRef);
+    // Look through typedefs (e.g. a member typedef of the enclosing class
+    // template naming the base): substituting into the typedef itself would
+    // find the typedef of the pattern again and leave the enclosing
+    // template's parameters in place.
+    SourceLocation Loc = BaseTSI->getTypeLoc().getBeginLoc();
+    BaseTSI = Context.getTrivialTypeSourceInfo(
+        BaseTSI->getType().getCanonicalType(), Loc);
+    BaseTSI = SemaRef.SubstType(BaseTSI, *OuterArgs, Loc, DeclarationName(),
+                                true);
+    if (!BaseTSI || Trap.hasErrorOccurred())
+      return;
+  }
+
   const auto *BaseTST = BaseTSI->getType()->getAs<TemplateSpecializationType>();
   if (!BaseTST)
     return;
@@ -1781,7 +1802,12 @@ void DeclareImplicitDeductionGuidesFromInheritedConstructors(
   // Substitute any parameters with default arguments not present in the base,
   // since partial specializations cannot have default parameters.
   // See https://github.com/cplusplus/CWG/issues/627
-  TemplateParameterList *TemplateTPL = Pattern->getTemplateParameters();
+  // The parameters of the template itself, with the arguments of any enclosing
+  // templates already applied. Its depth is 0, except for an explicit
+  // specialization of a member template, whose parameter list follows the empty
+  // `template<>` of the enclosing specialization.
+  TemplateParameterList *TemplateTPL = Template->getTemplateParameters();
+  const unsigned OwnDepth = TemplateTPL->getDepth();
   SmallVector<unsigned> BaseDeducedTemplateParamsList =
       TemplateParamsReferencedInTemplateArgumentList(
           SemaRef, TemplateTPL, BaseTST->template_arguments());
@@ -1822,7 +1848,7 @@ void DeclareImplicitDeductionGuidesFromInheritedConstructors(
     MultiLevelTemplateArgumentList Args;
     Args.setKind(TemplateSubstitutionKind::Rewrite);
     Args.addOuterTemplateArguments(SubstArgs);
-    Args.addOuterRetainedLevels(Template->getTemplateDepth());
+    Args.addOuterRetainedLevels(OwnDepth);
 
     NamedDecl *NewParam = transformTemplateParameter(
         SemaRef, DC, Param, Args, AliasTemplateParams.size(),
@@ -1838,7 +1864,7 @@ void DeclareImplicitDeductionGuidesFromInheritedConstructors(
   MultiLevelTemplateArgumentList Args;
   Args.setKind(TemplateSubstitutionKind::Rewrite);
   Args.addOuterTemplateArguments(SubstArgs);
-  Args.addOuterRetainedLevels(Template->getTemplateDepth());
+  Args.addOuterRetainedLevels(OwnDepth);
   if (Expr *TemplateRC = TemplateTPL->getRequiresClause()) {
     ExprResult E = SemaRef.SubstExpr(TemplateRC, Args);
     if (E.isInvalid())
@@ -1855,7 +1881,7 @@ void DeclareImplicitDeductionGuidesFromInheritedConstructors(
   LocalInstantiationScope CloneScope(SemaRef);
   MultiLevelTemplateArgumentList CloneArgs;
   CloneArgs.setKind(TemplateSubstitutionKind::Rewrite);
-  CloneArgs.addOuterRetainedLevels(Template->getTemplateDepth());
+  CloneArgs.addOuterRetainedLevels(OwnDepth);
   TemplateDeclInstantiator CloneTDI(SemaRef, DC, CloneArgs);
   TemplateParameterList *PartialSpecTPL =
       CloneTDI.SubstTemplateParams(AliasTPL);
@@ -1885,6 +1911,12 @@ void DeclareImplicitDeductionGuidesFromInheritedConstructors(
   BaseAD->setDescribedAliasTemplate(BaseATD);
   BaseAD->setImplicit();
   BaseATD->setImplicit();
+  // When the derived template is a member of a class (template specialization),
+  // the declarations below are members of that class.
+  if (DC->isRecord()) {
+    BaseAD->setAccess(AS_public);
+    BaseATD->setAccess(AS_public);
+  }
 
   DC->addDecl(BaseATD);
 
@@ -1908,6 +1940,10 @@ void DeclareImplicitDeductionGuidesFromInheritedConstructors(
   CCTemplateRD->setDescribedClassTemplate(CCTemplateDecl);
   CCTemplateDecl->setImplicit();
   CCTemplateRD->setImplicit();
+  if (DC->isRecord()) {
+    CCTemplateDecl->setAccess(AS_public);
+    CCTemplateRD->setAccess(AS_public);
+  }
 
   DC->addDecl(CCTemplateDecl);
 
@@ -1961,6 +1997,8 @@ void DeclareImplicitDeductionGuidesFromInheritedConstructors(
   CCPartialSpecialization->completeDefinition();
 
   CCTemplateDecl->AddPartialSpecialization(CCPartialSpecialization, nullptr);
+  if (DC->isRecord())
+    CCPartialSpecialization->setAccess(AS_public);
   DC->addDecl(CCPartialSpecialization);
 
   InheritedConstructorDeductionInfo Info{
@@ -2055,7 +2093,8 @@ getInheritedConstructorBaseType(Sema &SemaRef, const CXXRecordDecl *Pattern,
 // constructors. Safe to call repeatedly; only guides not yet inherited from
 // are added.
 void DeclareImplicitDeductionGuidesFromAllInheritedConstructors(
-    Sema &SemaRef, TemplateDecl *Template, ClassTemplateDecl *Pattern) {
+    Sema &SemaRef, TemplateDecl *Template, ClassTemplateDecl *Pattern,
+    const MultiLevelTemplateArgumentList *OuterArgs) {
   CXXRecordDecl *TemplatedDecl = Pattern->getTemplatedDecl();
   if (!TemplatedDecl->hasDefinition())
     return;
@@ -2071,8 +2110,8 @@ void DeclareImplicitDeductionGuidesFromAllInheritedConstructors(
         getInheritedConstructorBaseType(SemaRef, TemplatedDecl, UUVD);
     if (!TSI)
       continue;
-    DeclareImplicitDeductionGuidesFromInheritedConstructors(SemaRef, Template,
-                                                            Pattern, TSI, Idx);
+    DeclareImplicitDeductionGuidesFromInheritedConstructors(
+        SemaRef, Template, Pattern, TSI, Idx, OuterArgs);
   }
 }
 
@@ -2186,18 +2225,8 @@ void Sema::DeclareImplicitDeductionGuides(TemplateDecl *Template,
       hasDeclaredDeductionGuides(Transform.DeductionGuideName, DC);
   // The guides inherited from a base may need to be extended, since deduction
   // guides for the base can be declared after the ones of this template.
-  // FIXME: This is only supported for templates that are not members of a class
-  // template (or of a specialization of one, which includes the explicit
-  // specializations of member templates). Otherwise, the template parameters
-  // of the enclosing templates would have to be substituted into the base class
-  // and the parameters of this template be shifted to the right depth; without
-  // that, the wrong types are deduced. See
-  // https://github.com/spwn02/clang-cxx26/issues/122.
-  bool DeclareInherited = getLangOpts().CPlusPlus23 &&
-                          !Transform.NestedPattern &&
-                          Template->getTemplateParameters()->getDepth() == 0 &&
-                          !isa<ClassTemplateSpecializationDecl>(DC) &&
-                          hasInheritingConstructorUsing(Pattern);
+  bool DeclareInherited =
+      getLangOpts().CPlusPlus23 && hasInheritingConstructorUsing(Pattern);
   if (AlreadyDeclared && !DeclareInherited)
     return;
 
@@ -2217,9 +2246,11 @@ void Sema::DeclareImplicitDeductionGuides(TemplateDecl *Template,
   // for which some class template parameter without a default argument never
   // appears in a deduced context).
   ContextRAII SavedContext(*this, Pattern->getTemplatedDecl());
+  const MultiLevelTemplateArgumentList *OuterArgs =
+      Transform.NestedPattern ? &Transform.OuterInstantiationArgs : nullptr;
   if (AlreadyDeclared) {
-    DeclareImplicitDeductionGuidesFromAllInheritedConstructors(*this, Template,
-                                                               Pattern);
+    DeclareImplicitDeductionGuidesFromAllInheritedConstructors(
+        *this, Template, Pattern, OuterArgs);
     SavedContext.pop();
     return;
   }
@@ -2274,8 +2305,8 @@ void Sema::DeclareImplicitDeductionGuides(TemplateDecl *Template,
 
   // C++23 [over.match.class.deduct]p1.10: guides for inherited constructors.
   if (DeclareInherited)
-    DeclareImplicitDeductionGuidesFromAllInheritedConstructors(*this, Template,
-                                                               Pattern);
+    DeclareImplicitDeductionGuidesFromAllInheritedConstructors(
+        *this, Template, Pattern, OuterArgs);
 
   SavedContext.pop();
 }
