@@ -42,37 +42,37 @@ inline _LIBCPP_HIDE_FROM_ABI double exp(_A1 __x) _NOEXCEPT {
 
 // frexp
 
-inline _LIBCPP_HIDE_FROM_ABI float frexp(float __x, int* __e) _NOEXCEPT { return __builtin_frexpf(__x, __e); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 float frexp(float __x, int* __e) _NOEXCEPT { return __builtin_frexpf(__x, __e); }
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI double frexp(double __x, int* __e) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double frexp(double __x, int* __e) _NOEXCEPT {
   return __builtin_frexp(__x, __e);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI long double frexp(long double __x, int* __e) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 long double frexp(long double __x, int* __e) _NOEXCEPT {
   return __builtin_frexpl(__x, __e);
 }
 
 template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
-inline _LIBCPP_HIDE_FROM_ABI double frexp(_A1 __x, int* __e) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double frexp(_A1 __x, int* __e) _NOEXCEPT {
   return __builtin_frexp((double)__x, __e);
 }
 
 // ldexp
 
-inline _LIBCPP_HIDE_FROM_ABI float ldexp(float __x, int __e) _NOEXCEPT { return __builtin_ldexpf(__x, __e); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 float ldexp(float __x, int __e) _NOEXCEPT { return __builtin_ldexpf(__x, __e); }
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI double ldexp(double __x, int __e) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double ldexp(double __x, int __e) _NOEXCEPT {
   return __builtin_ldexp(__x, __e);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI long double ldexp(long double __x, int __e) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 long double ldexp(long double __x, int __e) _NOEXCEPT {
   return __builtin_ldexpl(__x, __e);
 }
 
 template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
-inline _LIBCPP_HIDE_FROM_ABI double ldexp(_A1 __x, int __e) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double ldexp(_A1 __x, int __e) _NOEXCEPT {
   return __builtin_ldexp((double)__x, __e);
 }
 
@@ -128,19 +128,19 @@ inline _LIBCPP_HIDE_FROM_ABI double scalbln(_A1 __x, long __y) _NOEXCEPT {
 
 // scalbn
 
-inline _LIBCPP_HIDE_FROM_ABI float scalbn(float __x, int __y) _NOEXCEPT { return __builtin_scalbnf(__x, __y); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 float scalbn(float __x, int __y) _NOEXCEPT { return __builtin_scalbnf(__x, __y); }
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI double scalbn(double __x, int __y) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double scalbn(double __x, int __y) _NOEXCEPT {
   return __builtin_scalbn(__x, __y);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI long double scalbn(long double __x, int __y) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 long double scalbn(long double __x, int __y) _NOEXCEPT {
   return __builtin_scalbnl(__x, __y);
 }
 
 template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
-inline _LIBCPP_HIDE_FROM_ABI double scalbn(_A1 __x, int __y) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double scalbn(_A1 __x, int __y) _NOEXCEPT {
   return __builtin_scalbn((double)__x, __y);
 }
 

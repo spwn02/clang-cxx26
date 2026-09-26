@@ -48,14 +48,14 @@ inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 __promote_t<_A1, _A2>
 
 // modf
 
-inline _LIBCPP_HIDE_FROM_ABI float modf(float __x, float* __y) _NOEXCEPT { return __builtin_modff(__x, __y); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 float modf(float __x, float* __y) _NOEXCEPT { return __builtin_modff(__x, __y); }
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI double modf(double __x, double* __y) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double modf(double __x, double* __y) _NOEXCEPT {
   return __builtin_modf(__x, __y);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI long double modf(long double __x, long double* __y) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 long double modf(long double __x, long double* __y) _NOEXCEPT {
   return __builtin_modfl(__x, __y);
 }
 
