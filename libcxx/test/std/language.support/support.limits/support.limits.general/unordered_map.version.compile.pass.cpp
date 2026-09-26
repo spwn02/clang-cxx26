@@ -271,17 +271,11 @@
 #    error "__cpp_lib_nonmember_container_access should have the value 201411L in c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_tuple_like
-#      error "__cpp_lib_tuple_like should be defined in c++23"
-#    endif
-#    if __cpp_lib_tuple_like != 202207L
-#      error "__cpp_lib_tuple_like should have the value 202207L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_tuple_like
-#      error "__cpp_lib_tuple_like should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_tuple_like
+#    error "__cpp_lib_tuple_like should be defined in c++23"
+#  endif
+#  if __cpp_lib_tuple_like != 202207L
+#    error "__cpp_lib_tuple_like should have the value 202207L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_unordered_map_try_emplace
@@ -349,17 +343,11 @@
 #    error "__cpp_lib_nonmember_container_access should have the value 201411L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_tuple_like
-#      error "__cpp_lib_tuple_like should be defined in c++26"
-#    endif
-#    if __cpp_lib_tuple_like != 202311L
-#      error "__cpp_lib_tuple_like should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_tuple_like
-#      error "__cpp_lib_tuple_like should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_tuple_like
+#    error "__cpp_lib_tuple_like should be defined in c++26"
+#  endif
+#  if __cpp_lib_tuple_like != 202311L
+#    error "__cpp_lib_tuple_like should have the value 202311L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_unordered_map_try_emplace

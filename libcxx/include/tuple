@@ -1348,6 +1348,40 @@ template <class... _TTypes, class... _UTypes>
 struct common_type<tuple<_TTypes...>, tuple<_UTypes...>> {
   using type _LIBCPP_NODEBUG = tuple<common_type_t<_TTypes, _UTypes>...>;
 };
+
+// P2165R4: the same for a tuple and any other tuple-like (pair, array, subrange) of the same size.
+template <class _TTuple, class _UTuple, template <class> class _TQual, template <class> class _UQual, size_t... _Is>
+auto __tuple_like_common_reference(index_sequence<_Is...>)
+    -> tuple<common_reference_t<_TQual<tuple_element_t<_Is, _TTuple>>, _UQual<tuple_element_t<_Is, _UTuple>>>...>;
+
+template <class _TTuple, class _UTuple, size_t... _Is>
+auto __tuple_like_common_type(index_sequence<_Is...>)
+    -> tuple<common_type_t<tuple_element_t<_Is, _TTuple>, tuple_element_t<_Is, _UTuple>>...>;
+
+template <class _TTuple, class _UTuple>
+concept __tuple_like_common_operands =
+    __tuple_like<_TTuple> && __tuple_like<_UTuple> && (__is_tuple_v<_TTuple> || __is_tuple_v<_UTuple>) &&
+    is_same_v<_TTuple, decay_t<_TTuple>> && is_same_v<_UTuple, decay_t<_UTuple>> &&
+    (tuple_size_v<_TTuple> == tuple_size_v<_UTuple>);
+
+template <class _TTuple, class _UTuple, template <class> class _TQual, template <class> class _UQual>
+  requires __tuple_like_common_operands<_TTuple, _UTuple> && (!__is_tuple_v<_TTuple> || !__is_tuple_v<_UTuple>) &&
+           requires {
+             std::__tuple_like_common_reference<_TTuple, _UTuple, _TQual, _UQual>(
+                 make_index_sequence<tuple_size_v<_TTuple>>());
+           }
+struct basic_common_reference<_TTuple, _UTuple, _TQual, _UQual> {
+  using type _LIBCPP_NODEBUG = decltype(std::__tuple_like_common_reference<_TTuple, _UTuple, _TQual, _UQual>(
+      make_index_sequence<tuple_size_v<_TTuple>>()));
+};
+
+template <class _TTuple, class _UTuple>
+  requires __tuple_like_common_operands<_TTuple, _UTuple> && (!__is_tuple_v<_TTuple> || !__is_tuple_v<_UTuple>) &&
+           requires { std::__tuple_like_common_type<_TTuple, _UTuple>(make_index_sequence<tuple_size_v<_TTuple>>()); }
+struct common_type<_TTuple, _UTuple> {
+  using type _LIBCPP_NODEBUG =
+      decltype(std::__tuple_like_common_type<_TTuple, _UTuple>(make_index_sequence<tuple_size_v<_TTuple>>()));
+};
 #    endif // _LIBCPP_STD_VER >= 23
 
 #    if _LIBCPP_STD_VER >= 17
@@ -1569,6 +1603,14 @@ struct __tuple_cat_return_impl<tuple<_Types...>, array<_ValueT, _Np>, _Tuples...
     : __tuple_cat_return_impl<typename __tuple_cat_array<tuple<_Types...>, _ValueT, __make_index_sequence<_Np>>::type,
                               _Tuples...> {};
 
+#    if _LIBCPP_STD_VER >= 23
+// P2165R4: ranges::subrange is tuple-like too.
+template <class... _Types, class _Sr, class... _Tuples>
+  requires __is_ranges_subrange_v<_Sr>
+struct __tuple_cat_return_impl<tuple<_Types...>, _Sr, _Tuples...>
+    : __tuple_cat_return_impl<tuple<_Types..., tuple_element_t<0, _Sr>, tuple_element_t<1, _Sr>>, _Tuples...> {};
+#    endif
+
 template <class... _Tuples>
 using __tuple_cat_return_t _LIBCPP_NODEBUG =
     typename __tuple_cat_return_impl<tuple<>, __remove_cvref_t<_Tuples>...>::type;
@@ -1640,9 +1682,30 @@ __tuple_cat_select_element_wise(_TupleSrc&& __src, __index_sequence<_Indices...>
   return _TupleDst(std::get<_Indices>(std::forward<_TupleSrc>(__src))...);
 }
 
+#    if _LIBCPP_STD_VER >= 23
+// A ranges::subrange yields its elements by value, which the reference-forwarding machinery below cannot bind to,
+// so it is copied into a tuple first.
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __tuple_cat_normalize(_Tp&& __t) {
+  using _Up _LIBCPP_NODEBUG = __remove_cvref_t<_Tp>;
+  if constexpr (__is_ranges_subrange_v<_Up>)
+    return tuple<tuple_element_t<0, _Up>, tuple_element_t<1, _Up>>(std::get<0>(__t), std::get<1>(__t));
+  else
+    return std::forward<_Tp>(__t);
+}
+#    endif
+
 template <class _Tuple0, class... _Tuples>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 __tuple_cat_return_t<_Tuple0, _Tuples...>
 tuple_cat(_Tuple0&& __t0, _Tuples&&... __tpls) {
+#    if _LIBCPP_STD_VER >= 23
+  if constexpr (__is_ranges_subrange_v<__remove_cvref_t<_Tuple0>> ||
+                (__is_ranges_subrange_v<__remove_cvref_t<_Tuples>> || ...))
+    return std::tuple_cat(std::__tuple_cat_normalize(std::forward<_Tuple0>(__t0)),
+                          std::__tuple_cat_normalize(std::forward<_Tuples>(__tpls))...);
+  else
+#    endif
+  {
   using _T0 _LIBCPP_NODEBUG          = __libcpp_remove_reference_t<_Tuple0>;
   using _TRet _LIBCPP_NODEBUG        = __tuple_cat_return_t<_Tuple0, _Tuples...>;
   using _T0Indices _LIBCPP_NODEBUG   = __make_index_sequence<tuple_size<_T0>::value>;
@@ -1651,6 +1714,7 @@ tuple_cat(_Tuple0&& __t0, _Tuples&&... __tpls) {
       __tuple_cat<tuple<>, __index_sequence<>, _T0Indices>()(
           tuple<>(), std::forward<_Tuple0>(__t0), std::forward<_Tuples>(__tpls)...),
       _TRetIndices());
+  }
 }
 
 template <class... _Tp, class _Alloc>

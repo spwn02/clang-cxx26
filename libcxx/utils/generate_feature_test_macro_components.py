@@ -1674,7 +1674,6 @@ feature_test_macros = [
                 "c++26": 202311,  # P2819R2 Add tuple protocol to complex (implemented)
             },
             "headers": ["map", "tuple", "unordered_map", "utility"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_tuples_by_type",
