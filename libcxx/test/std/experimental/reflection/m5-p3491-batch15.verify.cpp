@@ -24,11 +24,12 @@ public:
   constexpr NonStructural(int v) : value(v) {}
 };
 
+// P3491R3: the structural-type requirement is a Mandates: a hard error at the call.
+// expected-error@*:* {{reflect_constant_array requires a structural element type}}
+// expected-error@*:* {{no matching function for call to 'reflect_constant'}}
 constexpr auto bad_structural = std::meta::reflect_constant_array(
     std::array{NonStructural{1}});
-// FIXME(spwn02/clang-cxx26#127): P3491R3 makes this a Mandates, i.e. a hard
-// error at the call, not a removed overload.
-// expected-error@-4 {{no matching function for call to 'reflect_constant_array'}}
+// expected-error@-2 {{constexpr variable 'bad_structural' must be initialized by a constant expression}}
 
 constexpr auto values = std::define_static_array(std::array{2, 4, 6});
 static_assert(values.size() == 3);
