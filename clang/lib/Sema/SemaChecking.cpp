@@ -1988,6 +1988,38 @@ static ExprResult BuiltinIsWithinLifetime(Sema &S, CallExpr *TheCall) {
   return TheCall;
 }
 
+/// Common checking of __builtin_is_corresponding_member and
+/// __builtin_is_pointer_interconvertible_with_class: each argument must be a
+/// pointer to a non-static data member of a complete class.
+static ExprResult BuiltinMemberPointerQuery(Sema &S, CallExpr *TheCall,
+                                            unsigned NumArgs,
+                                            const char *Name) {
+  if (S.checkArgCount(TheCall, NumArgs))
+    return ExprError();
+
+  for (unsigned I = 0; I != NumArgs; ++I) {
+    ExprResult Arg = S.DefaultFunctionArrayLvalueConversion(TheCall->getArg(I));
+    if (Arg.isInvalid())
+      return ExprError();
+    TheCall->setArg(I, Arg.get());
+
+    QualType Ty = Arg.get()->getType();
+    const auto *MPT = Ty->getAs<MemberPointerType>();
+    if (!MPT || MPT->isMemberFunctionPointer()) {
+      S.Diag(Arg.get()->getExprLoc(), diag::err_builtin_member_pointer_class_arg)
+          << (I + 1) << Name << Ty;
+      return ExprError();
+    }
+    if (const CXXRecordDecl *RD = MPT->getMostRecentCXXRecordDecl())
+      if (S.RequireCompleteType(Arg.get()->getExprLoc(),
+                                S.Context.getCanonicalTagType(RD),
+                                diag::err_incomplete_type))
+        return ExprError();
+  }
+  TheCall->setType(S.Context.BoolTy);
+  return TheCall;
+}
+
 static ExprResult BuiltinTriviallyRelocate(Sema &S, CallExpr *TheCall) {
   if (S.checkArgCount(TheCall, 3))
     return ExprError();
@@ -2902,6 +2934,12 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     return BuiltinLaunder(*this, TheCall);
   case Builtin::BI__builtin_is_within_lifetime:
     return BuiltinIsWithinLifetime(*this, TheCall);
+  case Builtin::BI__builtin_is_corresponding_member:
+    return BuiltinMemberPointerQuery(*this, TheCall, 2,
+                                     "__builtin_is_corresponding_member");
+  case Builtin::BI__builtin_is_pointer_interconvertible_with_class:
+    return BuiltinMemberPointerQuery(
+        *this, TheCall, 1, "__builtin_is_pointer_interconvertible_with_class");
   case Builtin::BI__builtin_trivially_relocate:
     return BuiltinTriviallyRelocate(*this, TheCall);
   case Builtin::BI__builtin_clear_padding: {
@@ -15757,154 +15795,10 @@ void Sema::DiagnoseSelfMove(const Expr *LHSExpr, const Expr *RHSExpr,
 
 //===--- Layout compatibility ----------------------------------------------//
 
-static bool isLayoutCompatible(const ASTContext &C, QualType T1, QualType T2);
-
-/// Check if two enumeration types are layout-compatible.
-static bool isLayoutCompatible(const ASTContext &C, const EnumDecl *ED1,
-                               const EnumDecl *ED2) {
-  // C++11 [dcl.enum] p8:
-  // Two enumeration types are layout-compatible if they have the same
-  // underlying type.
-  return ED1->isComplete() && ED2->isComplete() &&
-         C.hasSameType(ED1->getIntegerType(), ED2->getIntegerType());
-}
-
-/// Check if two fields are layout-compatible.
-/// Can be used on union members, which are exempt from alignment requirement
-/// of common initial sequence.
-static bool isLayoutCompatible(const ASTContext &C, const FieldDecl *Field1,
-                               const FieldDecl *Field2,
-                               bool AreUnionMembers = false) {
-#ifndef NDEBUG
-  CanQualType Field1Parent = C.getCanonicalTagType(Field1->getParent());
-  CanQualType Field2Parent = C.getCanonicalTagType(Field2->getParent());
-  assert(((Field1Parent->isStructureOrClassType() &&
-           Field2Parent->isStructureOrClassType()) ||
-          (Field1Parent->isUnionType() && Field2Parent->isUnionType())) &&
-         "Can't evaluate layout compatibility between a struct field and a "
-         "union field.");
-  assert(((!AreUnionMembers && Field1Parent->isStructureOrClassType()) ||
-          (AreUnionMembers && Field1Parent->isUnionType())) &&
-         "AreUnionMembers should be 'true' for union fields (only).");
-#endif
-
-  if (!isLayoutCompatible(C, Field1->getType(), Field2->getType()))
-    return false;
-
-  if (Field1->isBitField() != Field2->isBitField())
-    return false;
-
-  if (Field1->isBitField()) {
-    // Make sure that the bit-fields are the same length.
-    unsigned Bits1 = Field1->getBitWidthValue();
-    unsigned Bits2 = Field2->getBitWidthValue();
-
-    if (Bits1 != Bits2)
-      return false;
-  }
-
-  if (Field1->hasAttr<clang::NoUniqueAddressAttr>() ||
-      Field2->hasAttr<clang::NoUniqueAddressAttr>())
-    return false;
-
-  if (!AreUnionMembers &&
-      Field1->getMaxAlignment() != Field2->getMaxAlignment())
-    return false;
-
-  return true;
-}
-
-/// Check if two standard-layout structs are layout-compatible.
-/// (C++11 [class.mem] p17)
-static bool isLayoutCompatibleStruct(const ASTContext &C, const RecordDecl *RD1,
-                                     const RecordDecl *RD2) {
-  // Get to the class where the fields are declared
-  if (const CXXRecordDecl *D1CXX = dyn_cast<CXXRecordDecl>(RD1))
-    RD1 = D1CXX->getStandardLayoutBaseWithFields();
-
-  if (const CXXRecordDecl *D2CXX = dyn_cast<CXXRecordDecl>(RD2))
-    RD2 = D2CXX->getStandardLayoutBaseWithFields();
-
-  // Check the fields.
-  return llvm::equal(RD1->fields(), RD2->fields(),
-                     [&C](const FieldDecl *F1, const FieldDecl *F2) -> bool {
-                       return isLayoutCompatible(C, F1, F2);
-                     });
-}
-
-/// Check if two standard-layout unions are layout-compatible.
-/// (C++11 [class.mem] p18)
-static bool isLayoutCompatibleUnion(const ASTContext &C, const RecordDecl *RD1,
-                                    const RecordDecl *RD2) {
-  llvm::SmallPtrSet<const FieldDecl *, 8> UnmatchedFields(llvm::from_range,
-                                                          RD2->fields());
-
-  for (auto *Field1 : RD1->fields()) {
-    auto I = UnmatchedFields.begin();
-    auto E = UnmatchedFields.end();
-
-    for ( ; I != E; ++I) {
-      if (isLayoutCompatible(C, Field1, *I, /*IsUnionMember=*/true)) {
-        bool Result = UnmatchedFields.erase(*I);
-        (void) Result;
-        assert(Result);
-        break;
-      }
-    }
-    if (I == E)
-      return false;
-  }
-
-  return UnmatchedFields.empty();
-}
-
-static bool isLayoutCompatible(const ASTContext &C, const RecordDecl *RD1,
-                               const RecordDecl *RD2) {
-  if (RD1->isUnion() != RD2->isUnion())
-    return false;
-
-  if (RD1->isUnion())
-    return isLayoutCompatibleUnion(C, RD1, RD2);
-  else
-    return isLayoutCompatibleStruct(C, RD1, RD2);
-}
-
-/// Check if two types are layout-compatible in C++11 sense.
-static bool isLayoutCompatible(const ASTContext &C, QualType T1, QualType T2) {
-  if (T1.isNull() || T2.isNull())
-    return false;
-
-  // C++20 [basic.types] p11:
-  // Two types cv1 T1 and cv2 T2 are layout-compatible types
-  // if T1 and T2 are the same type, layout-compatible enumerations (9.7.1),
-  // or layout-compatible standard-layout class types (11.4).
-  T1 = T1.getCanonicalType().getUnqualifiedType();
-  T2 = T2.getCanonicalType().getUnqualifiedType();
-
-  if (C.hasSameType(T1, T2))
-    return true;
-
-  const Type::TypeClass TC1 = T1->getTypeClass();
-  const Type::TypeClass TC2 = T2->getTypeClass();
-
-  if (TC1 != TC2)
-    return false;
-
-  if (TC1 == Type::Enum)
-    return isLayoutCompatible(C, T1->castAsEnumDecl(), T2->castAsEnumDecl());
-  if (TC1 == Type::Record) {
-    if (!T1->isStandardLayoutType() || !T2->isStandardLayoutType())
-      return false;
-
-    return isLayoutCompatible(C, T1->castAsRecordDecl(),
-                              T2->castAsRecordDecl());
-  }
-
-  return false;
-}
+// The implementation lives in ASTContext so that constant evaluation can use it.
 
 bool Sema::IsLayoutCompatible(QualType T1, QualType T2) const {
-  return isLayoutCompatible(getASTContext(), T1, T2);
+  return getASTContext().isLayoutCompatible(T1, T2);
 }
 
 //===-------------- Pointer interconvertibility ----------------------------//
@@ -16177,11 +16071,10 @@ void Sema::CheckArgumentWithTypeTag(const ArgumentWithTypeTagAttr *Attr,
         mismatch = false;
   } else
     if (IsPointerAttr)
-      mismatch = !isLayoutCompatible(Context,
-                                     ArgumentType->getPointeeType(),
-                                     RequiredType->getPointeeType());
+      mismatch = !Context.isLayoutCompatible(ArgumentType->getPointeeType(),
+                                             RequiredType->getPointeeType());
     else
-      mismatch = !isLayoutCompatible(Context, ArgumentType, RequiredType);
+      mismatch = !Context.isLayoutCompatible(ArgumentType, RequiredType);
 
   if (mismatch)
     Diag(ArgumentExpr->getExprLoc(), diag::warn_type_safety_type_mismatch)

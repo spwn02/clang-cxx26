@@ -15807,6 +15807,94 @@ bool ArrayExprEvaluator::VisitCXXParenListInitExpr(
 // either as an integer-valued APValue, or as an lvalue-valued APValue.
 //===----------------------------------------------------------------------===//
 
+//===----------------------------------------------------------------------===//
+// [meta.trans.other]: is_corresponding_member and
+// is_pointer_interconvertible_with_class
+//===----------------------------------------------------------------------===//
+
+/// The class in the hierarchy of a standard-layout \p RD that declares its
+/// non-static data members (RD itself when it has none and no base does).
+static const CXXRecordDecl *getFieldsClass(const CXXRecordDecl *RD) {
+  return RD->getStandardLayoutBaseWithFields();
+}
+
+/// Do \p M1 (a member of \p S1) and \p M2 (a member of \p S2) designate
+/// corresponding members of the common initial sequence of the standard-layout
+/// struct types \p S1 and \p S2?
+static bool isCorrespondingMember(const ASTContext &Ctx,
+                                  const CXXRecordDecl *S1, const ValueDecl *M1,
+                                  const CXXRecordDecl *S2,
+                                  const ValueDecl *M2) {
+  if (!S1 || !S2 || !M1 || !M2)
+    return false;
+  if (S1->isUnion() || S2->isUnion() || !S1->isStandardLayout() ||
+      !S2->isStandardLayout())
+    return false;
+  const auto *F1 = dyn_cast<FieldDecl>(M1);
+  const auto *F2 = dyn_cast<FieldDecl>(M2);
+  if (!F1 || !F2)
+    return false;
+
+  const CXXRecordDecl *R1 = getFieldsClass(S1);
+  const CXXRecordDecl *R2 = getFieldsClass(S2);
+  if (F1->getParent() != R1 || F2->getParent() != R2)
+    return false;
+
+  auto Fields1 = R1->fields();
+  auto Fields2 = R2->fields();
+  auto I1 = Fields1.begin(), E1 = Fields1.end();
+  auto I2 = Fields2.begin(), E2 = Fields2.end();
+  // Walk the common initial sequence; both members must be reached at the same
+  // position.
+  for (; I1 != E1 && I2 != E2; ++I1, ++I2) {
+    if (!Ctx.isLayoutCompatibleField(*I1, *I2))
+      return false;
+    bool Is1 = declaresSameEntity(*I1, F1);
+    bool Is2 = declaresSameEntity(*I2, F2);
+    if (Is1 || Is2)
+      return Is1 && Is2;
+  }
+  return false;
+}
+
+/// Is the first base class subobject of \p Derived pointer-interconvertible
+/// with it ([basic.compound]: a standard-layout class object without
+/// non-static data members and its first base class subobject)?
+static bool isFirstBaseInterconvertible(const CXXRecordDecl *Derived) {
+  if (!Derived->isStandardLayout() || Derived->bases().empty())
+    return false;
+  return std::distance(Derived->field_begin(), Derived->field_end()) == 0;
+}
+
+/// Given an object of class \p S, is the subobject designated by member
+/// pointer value \p M pointer-interconvertible with it?
+static bool isPointerInterconvertibleWithClass(const CXXRecordDecl *S,
+                                               const ValueDecl *M) {
+  if (!S || !M || !S->isStandardLayout())
+    return false;
+  const auto *F = dyn_cast<FieldDecl>(M);
+  if (!F)
+    return false;
+
+  // Walk from S down to the class that declares the member: every step must
+  // be to the first base class of a class without data members.
+  const CXXRecordDecl *Cur = S;
+  while (Cur != F->getParent()) {
+    if (!isFirstBaseInterconvertible(Cur))
+      return false;
+    const CXXRecordDecl *Base =
+        Cur->bases_begin()->getType()->getAsCXXRecordDecl();
+    if (!Base)
+      return false;
+    Cur = Base;
+  }
+  if (Cur->isUnion())
+    return true;
+  // The first non-static data member of a standard-layout class.
+  return Cur->field_begin() != Cur->field_end() &&
+         declaresSameEntity(*Cur->field_begin(), F);
+}
+
 namespace {
 class IntExprEvaluator
         : public ExprEvaluatorBase<IntExprEvaluator> {
@@ -17015,6 +17103,35 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     }
 
     return Success(Info.InConstantContext, E);
+  }
+
+  case Builtin::BI__builtin_is_corresponding_member: {
+    MemberPtr MP1, MP2;
+    if (!EvaluateMemberPointer(E->getArg(0), MP1, Info) ||
+        !EvaluateMemberPointer(E->getArg(1), MP2, Info))
+      return false;
+    const CXXRecordDecl *S1 = E->getArg(0)
+                                  ->getType()
+                                  ->castAs<MemberPointerType>()
+                                  ->getMostRecentCXXRecordDecl();
+    const CXXRecordDecl *S2 = E->getArg(1)
+                                  ->getType()
+                                  ->castAs<MemberPointerType>()
+                                  ->getMostRecentCXXRecordDecl();
+    return Success(isCorrespondingMember(Info.Ctx, S1, MP1.getDecl(), S2,
+                                         MP2.getDecl()),
+                   E);
+  }
+
+  case Builtin::BI__builtin_is_pointer_interconvertible_with_class: {
+    MemberPtr MP;
+    if (!EvaluateMemberPointer(E->getArg(0), MP, Info))
+      return false;
+    const CXXRecordDecl *S = E->getArg(0)
+                                 ->getType()
+                                 ->castAs<MemberPointerType>()
+                                 ->getMostRecentCXXRecordDecl();
+    return Success(isPointerInterconvertibleWithClass(S, MP.getDecl()), E);
   }
 
   case Builtin::BI__builtin_is_within_lifetime:

@@ -3104,6 +3104,15 @@ public:
   bool hasSameTemplateName(const TemplateName &X, const TemplateName &Y,
                            bool IgnoreDeduced = false) const;
 
+  /// Determine whether two types are layout-compatible ([basic.types.general]).
+  bool isLayoutCompatible(QualType T1, QualType T2) const;
+
+  /// Determine whether two non-static data members are layout-compatible
+  /// (same type, bit-field width, alignment; neither is [[no_unique_address]]),
+  /// as needed for the common initial sequence of two structs.
+  bool isLayoutCompatibleField(const FieldDecl *Field1,
+                               const FieldDecl *Field2) const;
+
   /// Determine whether the two declarations refer to the same entity.
   bool isSameEntity(const NamedDecl *X, const NamedDecl *Y) const;
 

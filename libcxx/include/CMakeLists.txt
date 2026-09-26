@@ -952,6 +952,7 @@ set(files
   __type_traits/is_constructible.h
   __type_traits/is_convertible.h
   __type_traits/is_core_convertible.h
+  __type_traits/is_corresponding_member.h
   __type_traits/is_destructible.h
   __type_traits/is_empty.h
   __type_traits/is_enum.h
@@ -976,6 +977,7 @@ set(files
   __type_traits/is_pod.h
   __type_traits/is_pointer.h
   __type_traits/is_pointer_interconvertible_base_of.h
+  __type_traits/is_pointer_interconvertible_with_class.h
   __type_traits/is_polymorphic.h
   __type_traits/is_primary_template.h
   __type_traits/is_reference.h

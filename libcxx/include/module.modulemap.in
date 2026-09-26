@@ -384,6 +384,10 @@ module std_core [system] {
       header "__type_traits/is_layout_compatible.h"
       export *
     }
+    module is_corresponding_member {
+      header "__type_traits/is_corresponding_member.h"
+      export *
+    }
     module is_literal_type {
       header "__type_traits/is_literal_type.h"
       export *
@@ -422,6 +426,10 @@ module std_core [system] {
     }
     module is_pointer_interconvertible_base_of {
       header "__type_traits/is_pointer_interconvertible_base_of.h"
+      export *
+    }
+    module is_pointer_interconvertible_with_class {
+      header "__type_traits/is_pointer_interconvertible_with_class.h"
       export *
     }
     module is_polymorphic {

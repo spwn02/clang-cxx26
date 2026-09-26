@@ -161,6 +161,10 @@ namespace std
       struct is_nothrow_convertible;                            // since C++20
     template <class T, class U> struct is_layout_compatible;                       // since C++20
     template <class Base, class Derived> struct is_pointer_interconvertible_base_of; // since C++20
+    template <class S1, class S2, class M1, class M2>
+      constexpr bool is_corresponding_member(M1 S1::*, M2 S2::*) noexcept;       // since C++20
+    template <class S, class M>
+      constexpr bool is_pointer_interconvertible_with_class(M S::*) noexcept;    // since C++20
 
     template <class Fn, class... ArgTypes> struct is_invocable; // since C++17
     template <class R, class Fn, class... ArgTypes>
@@ -505,6 +509,7 @@ namespace std
 #  include <__type_traits/is_function.h>
 #  include <__type_traits/is_fundamental.h>
 #  include <__type_traits/is_integral.h>
+#  include <__type_traits/is_corresponding_member.h>
 #  include <__type_traits/is_layout_compatible.h>
 #  include <__type_traits/is_literal_type.h>
 #  include <__type_traits/is_member_pointer.h>
@@ -515,6 +520,7 @@ namespace std
 #  include <__type_traits/is_pod.h>
 #  include <__type_traits/is_pointer.h>
 #  include <__type_traits/is_pointer_interconvertible_base_of.h>
+#  include <__type_traits/is_pointer_interconvertible_with_class.h>
 #  include <__type_traits/is_polymorphic.h>
 #  include <__type_traits/is_reference.h>
 #  include <__type_traits/is_same.h>

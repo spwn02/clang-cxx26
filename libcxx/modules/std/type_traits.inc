@@ -333,8 +333,10 @@ export namespace std {
   using std::negation_v;
 
   // [meta.member], member relationships
-  // using std::is_corresponding_member;
-  // using std::is_pointer_interconvertible_with_class;
+#if _LIBCPP_STD_VER >= 20
+  using std::is_corresponding_member;
+  using std::is_pointer_interconvertible_with_class;
+#endif
 
   // [meta.const.eval], constant evaluation context
   using std::is_constant_evaluated;

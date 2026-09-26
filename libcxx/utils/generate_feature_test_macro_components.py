@@ -1006,7 +1006,6 @@ feature_test_macros = [
             "name": "__cpp_lib_is_pointer_interconvertible",
             "values": {"c++20": 201907},
             "headers": ["type_traits"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_is_scoped_enum",

@@ -988,6 +988,18 @@ def IsWithinLifetime : LangBuiltin<"CXX_LANG"> {
   let Prototype = "bool(void*)";
 }
 
+def IsCorrespondingMember : LangBuiltin<"CXX_LANG"> {
+  let Spellings = ["__builtin_is_corresponding_member"];
+  let Attributes = [NoThrow, CustomTypeChecking, Constexpr];
+  let Prototype = "bool(...)";
+}
+
+def IsPointerInterconvertibleWithClass : LangBuiltin<"CXX_LANG"> {
+  let Spellings = ["__builtin_is_pointer_interconvertible_with_class"];
+  let Attributes = [NoThrow, CustomTypeChecking, Constexpr];
+  let Prototype = "bool(...)";
+}
+
 def ClearPadding : Builtin {
   let Spellings = ["__builtin_clear_padding"];
   let Attributes = [NoThrow, CustomTypeChecking];

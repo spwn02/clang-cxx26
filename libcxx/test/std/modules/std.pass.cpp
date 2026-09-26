@@ -117,6 +117,10 @@ int main(int, char**) {
     static_assert(!std::is_layout_compatible<int, long>::value);
     static_assert(std::is_pointer_interconvertible_base_of_v<Base, Derived>);
     static_assert(!std::is_pointer_interconvertible_base_of<Derived, Base>::value);
+    struct Sm { int a; char b; };
+    struct Sn { int x; char y; };
+    static_assert(std::is_corresponding_member(&Sm::a, &Sn::x));
+    static_assert(std::is_pointer_interconvertible_with_class(&Sm::a));
   }
 
   // Regression test: libcxx/modules/std/spanstream.inc exported nothing (`#if 0`) because <spanstream> did not exist.

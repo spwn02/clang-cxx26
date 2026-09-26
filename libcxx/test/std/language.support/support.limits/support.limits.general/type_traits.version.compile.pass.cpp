@@ -492,17 +492,11 @@
 #    error "__cpp_lib_is_null_pointer should have the value 201309L in c++20"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_is_pointer_interconvertible
-#      error "__cpp_lib_is_pointer_interconvertible should be defined in c++20"
-#    endif
-#    if __cpp_lib_is_pointer_interconvertible != 201907L
-#      error "__cpp_lib_is_pointer_interconvertible should have the value 201907L in c++20"
-#    endif
-#  else
-#    ifdef __cpp_lib_is_pointer_interconvertible
-#      error "__cpp_lib_is_pointer_interconvertible should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_is_pointer_interconvertible
+#    error "__cpp_lib_is_pointer_interconvertible should be defined in c++20"
+#  endif
+#  if __cpp_lib_is_pointer_interconvertible != 201907L
+#    error "__cpp_lib_is_pointer_interconvertible should have the value 201907L in c++20"
 #  endif
 
 #  ifdef __cpp_lib_is_scoped_enum
@@ -683,17 +677,11 @@
 #    error "__cpp_lib_is_null_pointer should have the value 201309L in c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_is_pointer_interconvertible
-#      error "__cpp_lib_is_pointer_interconvertible should be defined in c++23"
-#    endif
-#    if __cpp_lib_is_pointer_interconvertible != 201907L
-#      error "__cpp_lib_is_pointer_interconvertible should have the value 201907L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_is_pointer_interconvertible
-#      error "__cpp_lib_is_pointer_interconvertible should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_is_pointer_interconvertible
+#    error "__cpp_lib_is_pointer_interconvertible should be defined in c++23"
+#  endif
+#  if __cpp_lib_is_pointer_interconvertible != 201907L
+#    error "__cpp_lib_is_pointer_interconvertible should have the value 201907L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_is_scoped_enum
@@ -880,17 +868,11 @@
 #    error "__cpp_lib_is_null_pointer should have the value 201309L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_is_pointer_interconvertible
-#      error "__cpp_lib_is_pointer_interconvertible should be defined in c++26"
-#    endif
-#    if __cpp_lib_is_pointer_interconvertible != 201907L
-#      error "__cpp_lib_is_pointer_interconvertible should have the value 201907L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_is_pointer_interconvertible
-#      error "__cpp_lib_is_pointer_interconvertible should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_is_pointer_interconvertible
+#    error "__cpp_lib_is_pointer_interconvertible should be defined in c++26"
+#  endif
+#  if __cpp_lib_is_pointer_interconvertible != 201907L
+#    error "__cpp_lib_is_pointer_interconvertible should have the value 201907L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_is_scoped_enum
