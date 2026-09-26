@@ -488,5 +488,18 @@ DynTypedNodeList ParentMapContext::getParents(const DynTypedNode &Node) {
     // We build the parent map for the traversal scope (usually whole TU), as
     // hasAncestor can escape any subtree.
     Parents = std::make_unique<ParentMap>(ASTCtx);
-  return Parents->getParents(getTraversalKind(), Node);
+  DynTypedNodeList Result = Parents->getParents(getTraversalKind(), Node);
+  if (!Result.empty())
+    return Result;
+
+  // A declaration that a module added to a class it imports (an implicit member
+  // such as an inheriting constructor of a class template specialization) is
+  // not part of the lexical declarations that the traversal above visits, but
+  // its parent is still the declaration context it lives in.
+  if (const auto *D = Node.get<Decl>())
+    if (!isa<TranslationUnitDecl>(D) && D->isImplicit())
+      if (const auto *Parent = dyn_cast_or_null<Decl>(
+              Decl::castFromDeclContext(D->getLexicalDeclContext())))
+        return DynTypedNodeList(DynTypedNode::create(*Parent));
+  return Result;
 }
