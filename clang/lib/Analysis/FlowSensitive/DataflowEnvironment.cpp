@@ -401,6 +401,12 @@ public:
   // location to all lower-level prvalues that initialize the same object as
   // `E` (or one of its base classes or member variables).
   void PropagateResultObject(Expr *E, RecordStorageLocation *Loc) {
+    // The instantiation of a function containing an expansion statement
+    // (`template for`) keeps the still-dependent pattern of the body next to
+    // its expansions. Nothing in it has a result object to propagate.
+    if (E->isInstantiationDependent() || E->getType()->isDependentType())
+      return;
+
     if (!E->isPRValue() || !E->getType()->isRecordType()) {
       assert(false);
       // Ensure we don't propagate the result object if we hit this in a

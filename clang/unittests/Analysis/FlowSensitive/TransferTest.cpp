@@ -8186,4 +8186,39 @@ TEST(TransferTest, AnonymousUnionMemberExprInTemplate) {
                     llvm::Succeeded());
 }
 
+// The instantiation of a function template that contains an expansion
+// statement keeps the still-dependent pattern of the loop body next to the
+// expansions; the result object visitor used to assert on it.
+TEST(TransferTest, ExpansionStatementInFunctionTemplateInstantiation) {
+  using ast_matchers::functionDecl;
+  using ast_matchers::hasName;
+  using ast_matchers::unless;
+
+  std::string Code = R"cc(
+    struct S { S(int); };
+    struct Ann { constexpr int apply() const { return 1; } };
+    template <class T> struct Holder {
+      static constexpr Ann items[] = {Ann{}, Ann{}};
+    };
+
+    template <class T>
+    S target() {
+      S s{0};
+      template for (constexpr Ann x : Holder<T>::items) {
+        using A = decltype(x);
+        constexpr A a = x;
+        s = S{a.apply()};
+      }
+      return s;
+    }
+
+    template S target<int>();
+  )cc";
+  auto Matcher = functionDecl(hasName("target"), unless(isTemplated()));
+  ASSERT_THAT_ERROR(checkDataflowWithNoopAnalysis(
+                        Code, Matcher, [](const auto &, auto &) {},
+                        {BuiltinOptions()}, LangStandard::lang_cxx26),
+                    llvm::Succeeded());
+}
+
 } // namespace

@@ -190,6 +190,9 @@ llvm::Error test::checkDataflowWithNoopAnalysis(
       "-frtti",
       "-std=" +
           std::string(LangStandard::getLangStandardForKind(Std).getName())};
+  // Expansion statements (`template for`) are C++26.
+  if (Std == LangStandard::lang_cxx26)
+    ASTBuildArgs.push_back("-fexpansion-statements");
   AnalysisInputs<NoopAnalysis> AI(
       Code, TargetFuncMatcher,
       [UseBuiltinModel = Options.BuiltinOpts.has_value(),
