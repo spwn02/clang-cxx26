@@ -119,5 +119,18 @@ int main(int, char**) {
     static_assert(!std::is_pointer_interconvertible_base_of<Derived, Base>::value);
   }
 
+  // Regression test: libcxx/modules/std/spanstream.inc exported nothing (`#if 0`) because <spanstream> did not exist.
+  {
+    char buffer[16] = {};
+    std::ospanstream out{std::span<char>(buffer)};
+    out << 12 << ' ' << 34;
+    std::ispanstream in{out.span()};
+    int first  = 0;
+    int second = 0;
+    in >> first >> second;
+    if (first != 12 || second != 34)
+      return 1;
+  }
+
   return 0;
 }

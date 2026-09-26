@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 export namespace std {
-#if 0
+#if _LIBCPP_HAS_LOCALIZATION && _LIBCPP_STD_VER >= 23
   using std::basic_spanbuf;
 
   using std::swap;
