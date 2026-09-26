@@ -1761,6 +1761,10 @@ module std [system] {
       header "__chrono/formatter.h"
       export *
     }
+    module from_stream {
+      header "__chrono/from_stream.h"
+      export *
+    }
     module gps_clock {
       header "__chrono/gps_clock.h"
       export *

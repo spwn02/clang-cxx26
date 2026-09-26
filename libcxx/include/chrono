@@ -227,6 +227,15 @@ template<class charT, class traits, class Rep, class Period>       // C++20
     operator<<(basic_ostream<charT, traits>& os,
                const duration<Rep, Period>& d);
 
+// [time.parse], parsing                                            // C++20
+// from_stream(is, fmt, x [, abbrev [, offset]]) is provided for duration, day, month, year, weekday,
+// month_day, year_month, year_month_day, sys_time, local_time, utc_time, tai_time, gps_time and file_time.
+template<class charT, class Parsable>
+  unspecified parse(const charT* fmt, Parsable& tp);                                  // C++20
+template<class charT, class traits, class Alloc, class Parsable>
+  unspecified parse(const basic_string<charT, traits, Alloc>& fmt, Parsable& tp);     // C++20
+// ... and the overloads that also take a basic_string<charT, traits, Alloc>& abbrev and/or a minutes& offset.
+
 // time_point arithmetic (all constexpr in C++14)
 template <class Clock, class Duration1, class Rep2, class Period2>
   time_point<Clock, typename common_type<Duration1, duration<Rep2, Period2>>::type>
@@ -1124,6 +1133,7 @@ namespace std {
 
 #    if _LIBCPP_HAS_LOCALIZATION
 #      include <__chrono/formatter.h>
+#      include <__chrono/from_stream.h>
 #      include <__chrono/ostream.h>
 #      include <__chrono/parser_std_format_spec.h>
 #      include <__chrono/statically_widen.h>

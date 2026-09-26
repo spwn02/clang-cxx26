@@ -90,5 +90,21 @@ int main(int, char**) {
   }
 #endif // __cplusplus > 202302L
 
+  // Regression test: libcxx/modules/std/chrono.inc left std::chrono::parse and from_stream commented out
+  // (they did not exist yet).
+  {
+    std::istringstream stream("2020-02-29 12:34:56");
+    std::chrono::sys_seconds time;
+    stream >> std::chrono::parse("%F %T", time);
+    if (stream.fail() || time != std::chrono::sys_days{std::chrono::year{2020} / std::chrono::February / 29} +
+                                     std::chrono::hours{12} + std::chrono::minutes{34} + std::chrono::seconds{56})
+      return 1;
+    std::istringstream day_stream("17");
+    std::chrono::day day;
+    std::chrono::from_stream(day_stream, "%d", day);
+    if (day_stream.fail() || day != std::chrono::day{17})
+      return 1;
+  }
+
   return 0;
 }

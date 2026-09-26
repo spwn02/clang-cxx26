@@ -119,6 +119,7 @@ chrono ios
 chrono iosfwd
 chrono istream
 chrono limits
+chrono locale
 chrono optional
 chrono ratio
 chrono sstream
