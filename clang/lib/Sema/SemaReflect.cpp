@@ -214,7 +214,8 @@ public:
     return Throw(Loc, Message, *this);
   }
 
-  Expr *SynthesizeMetaExceptionCall(Expr *From) override {
+  Expr *SynthesizeMetaExceptionCall(Expr *From,
+                                    llvm::StringRef Message) override {
     NamespaceDecl *Std = S.getStdNamespace();
     if (!Std)
       return nullptr;
@@ -237,7 +238,13 @@ public:
       return nullptr;
 
     Expr *FactoryRef = CreateRefToDecl(S, Factory, From->getExprLoc());
-    SmallVector<Expr *, 1> Args{From};
+    QualType StrTy = S.Context.getStringLiteralArrayType(S.Context.CharTy,
+                                                         Message.size());
+    Expr *What = StringLiteral::Create(S.Context, Message,
+                                       StringLiteralKind::Ordinary,
+                                       /*Pascal=*/false, StrTy,
+                                       From->getExprLoc());
+    SmallVector<Expr *, 2> Args{From, What};
     return SynthesizeCallExpr(FactoryRef, Args);
   }
 

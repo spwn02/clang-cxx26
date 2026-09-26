@@ -11,9 +11,8 @@
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
 // ADDITIONAL_COMPILE_FLAGS: -freflection-latest
 
-// FIXME(spwn02/clang-cxx26#126): the failure reason is no longer part of the
-// diagnostic, only the generic "exception thrown here was not caught" note,
-// so that is what the expectations below check.
+// A failing metafunction throws std::meta::exception; the constant evaluator
+// adds the reason as a "reflection failure" note (spwn02/clang-cxx26#126).
 
 #include <experimental/meta>
 
@@ -30,4 +29,5 @@ static_assert(find_builtin_template() != ^^void);
 constexpr auto r = std::meta::return_type_of(find_builtin_template());
 // expected-error@-1 {{must be initialized by a constant expression}}
 // expected-note@* {{exception thrown here was not caught within the constant expression}}
-// expected-note@-3 {{in call to}}
+// expected-note@* {{cannot query the return type of a builtin template}}
+// expected-note@-4 {{in call to}}

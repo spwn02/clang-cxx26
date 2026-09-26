@@ -904,6 +904,8 @@ namespace {
       /// already unwound off the native stack, taking the real backtrace
       /// with it.
       SmallVector<PartialDiagnosticAt, 4> CallStackNotes;
+      /// For an exception thrown by a failing metafunction: the reason.
+      std::string MetaReason;
     };
     std::optional<PendingExceptionInfo> PendingException;
 
@@ -2909,6 +2911,15 @@ static bool CheckUncaughtException(EvalInfo &Info) {
     // found nothing -- replay the backtrace captured back when the throw
     // actually happened instead.
     Info.addNotes(Info.PendingException->CallStackNotes);
+    if (!Info.PendingException->MetaReason.empty()) {
+      PartialDiagnostic Reason(diag::note_constexpr_meta_exception_reason,
+                               Info.Ctx.getDiagAllocator());
+      Reason << Info.PendingException->MetaReason;
+      SmallVector<PartialDiagnosticAt, 1> ReasonNote;
+      ReasonNote.emplace_back(Info.PendingException->ThrowExpr->getExprLoc(),
+                              std::move(Reason));
+      Info.addNotes(ReasonNote);
+    }
     return false;
   }
   return true;
@@ -9796,8 +9807,18 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
     if (Info.PendingException)
       return true;
 
+    // Prefer the specific reason the metafunction recorded over the generic
+    // one it was thrown with.
+    std::string Reason = Message.str();
+    if (!Diagnostics.empty()) {
+      SmallString<128> Buf;
+      Diagnostics.front().second.EmitToString(Info.Ctx.getDiagnostics(), Buf);
+      if (!Buf.empty())
+        Reason = std::string(Buf);
+    }
+
     Expr *ExceptionExpr = Meta.SynthesizeMetaExceptionCall(
-        E->getArg(E->getNumArgs() - 1));
+        E->getArg(E->getNumArgs() - 1), Reason);
     if (!ExceptionExpr)
       return true;
 
@@ -9807,6 +9828,8 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
     // synthesized constructor or returned exception APValue would bypass
     // those lifetime rules.
     (void)::Evaluate(Ignored, Info, ExceptionExpr);
+    if (Info.PendingException)
+      Info.PendingException->MetaReason = std::move(Reason);
     return true;
   };
 

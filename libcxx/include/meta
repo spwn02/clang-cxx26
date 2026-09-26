@@ -510,8 +510,8 @@ public:
 // metafunction rather than in library code.  Keeping construction here gives
 // the constant evaluator an ordinary, fully type-checked call expression to
 // evaluate; in particular, it must not synthesize a constructor AST by hand.
-_LIBCPP_HIDE_FROM_ABI consteval info __make_exception(info from) {
-  throw exception(u8"invalid reflection operand", from);
+_LIBCPP_HIDE_FROM_ABI consteval info __make_exception(info from, const char* what) {
+  throw exception(string_view(what), from);
 }
 
 template <typename R>

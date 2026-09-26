@@ -139,7 +139,9 @@ public:
   // factory.  Constant evaluation uses this instead of fabricating a
   // CXXConstructExpr, whose inherited-constructor subexpressions require a
   // real call frame and construction destination.
-  virtual Expr *SynthesizeMetaExceptionCall(Expr *From) = 0;
+  // 'Message' becomes the exception's what().
+  virtual Expr *SynthesizeMetaExceptionCall(Expr *From,
+                                            llvm::StringRef Message) = 0;
 
                             // ====================
                             // Access-Check Support

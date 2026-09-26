@@ -11,9 +11,8 @@
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
 // ADDITIONAL_COMPILE_FLAGS: -freflection-latest
 
-// FIXME(spwn02/clang-cxx26#126): the failure reason is no longer part of the
-// diagnostic, only the generic "exception thrown here was not caught" note,
-// so that is what the expectations below check.
+// A failing metafunction throws std::meta::exception; the constant evaluator
+// adds the reason as a "reflection failure" note (spwn02/clang-cxx26#126).
 
 #include <meta>
 
@@ -27,6 +26,7 @@ constexpr auto bad_object = [] {
 }();
 // expected-error@-4 {{constexpr variable 'bad_object' must be initialized by a constant expression}}
 // expected-note@* {{exception thrown here was not caught within the constant expression}}
+// expected-note@* {{provided object cannot be represented by a reflection}}
 
 // 2996-06: reflect_function requires a function type.
 int object = 0;
@@ -45,8 +45,10 @@ constexpr auto bad_function_value = std::meta::reflect_function(*function_pointe
 constexpr auto no_identifier = std::meta::identifier_of(^^int);
 // expected-error@-1 {{constexpr variable 'no_identifier' must be initialized by a constant expression}}
 // expected-note@* {{exception thrown here was not caught within the constant expression}}
+// expected-note@* {{reflected a type is anonymous and has no associated identifier}}
 constexpr auto no_u8identifier = std::meta::u8identifier_of(^^int);
 // expected-error@-1 {{constexpr variable 'no_u8identifier' must be initialized by a constant expression}}
 // expected-note@* {{exception thrown here was not caught within the constant expression}}
+// expected-note@* {{reflected a type is anonymous and has no associated identifier}}
 
 } // namespace p2996_batch2

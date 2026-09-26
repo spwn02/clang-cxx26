@@ -11,9 +11,8 @@
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
 // ADDITIONAL_COMPILE_FLAGS: -freflection-latest
 
-// FIXME(spwn02/clang-cxx26#126): the failure reason is no longer part of the
-// diagnostic, only the generic "exception thrown here was not caught" note,
-// so that is what the expectations below check.
+// A failing metafunction throws std::meta::exception; the constant evaluator
+// adds the reason as a "reflection failure" note (spwn02/clang-cxx26#126).
 
 // <experimental/reflection>
 //
@@ -41,6 +40,7 @@ int ordinary(int, int);
 consteval bool bad() {
   (void)std::meta::type_of(^^Undeducible::operator());
   // expected-note@* {{exception thrown here was not caught within the constant expression}}
+  // expected-note@* {{cannot form a reflection of function 'operator()' whose type 'auto ()' contains an undeduced placeholder}}
   return true;
 }
 

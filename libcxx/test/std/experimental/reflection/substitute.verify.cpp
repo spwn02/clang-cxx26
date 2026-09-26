@@ -11,9 +11,8 @@
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
 // ADDITIONAL_COMPILE_FLAGS: -freflection
 
-// FIXME(spwn02/clang-cxx26#126): the failure reason is no longer part of the
-// diagnostic, only the generic "exception thrown here was not caught" note,
-// so that is what the expectations below check.
+// A failing metafunction throws std::meta::exception; the constant evaluator
+// adds the reason as a "reflection failure" note (spwn02/clang-cxx26#126).
 
 // <experimental/reflection>
 //
@@ -493,6 +492,7 @@ static_assert(!can_substitute(^^fn1, {^^int}));
 constexpr auto r1 = substitute(^^fn1, {^^int});
   // expected-error@-1 {{must be initialized by a constant expression}} \
   // expected-note@* {{exception thrown here was not caught within the constant expression}}
+  // expected-note@* {{cannot form a reflection of function 'fn1<int>' whose type 'auto ()' contains an undeduced placeholder}}
 
 // The second half of the example, where the body of fn2<int> is instantiated to
 // deduce its return type and its static_assert fails, is in
@@ -511,6 +511,7 @@ static_assert(!can_substitute(^^fn, {^^void}));
 constexpr auto r = substitute(^^fn, {^^void});
   // expected-error@-1 {{must be initialized by a constant expression}} \
   // expected-note@* {{exception thrown here was not caught within the constant expression}}
+  // expected-note@* {{substitution of the given template arguments into 'fn' failed}}
   // The invalid-reference diagnostic of the failed substitution is deliberately
   // not reported: the failure is reported as the exception above.
 }  // namespace invalid_type_formation

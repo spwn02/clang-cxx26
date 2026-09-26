@@ -397,6 +397,8 @@ def note_constexpr_memory_leak : Note<
   "%plural{0:|: (along with %0 other memory leak%s0)}0">;
 def note_constexpr_uncaught_exception : Note<
   "exception thrown here was not caught within the constant expression">;
+def note_constexpr_meta_exception_reason : Note<
+  "reflection failure: %0">;
 def note_constexpr_unsupported_layout : Note<
   "type %0 has unexpected layout">;
 def note_constexpr_unsupported_flexible_array : Note<
