@@ -2261,6 +2261,7 @@ module std [system] {
     // cross-header symbol, since the latter was verified (see this file's own
     // history) to under-export and produce "declaration must be imported"
     // errors under a real `-fmodules` build.
+    module affine_on                      { header "__execution/affine_on.h" export * }
     module as_awaitable                   { header "__execution/as_awaitable.h" export * }
     module async_scope                    { header "__execution/async_scope.h" export * }
     module awaitable                      { header "__execution/awaitable.h" export * }
@@ -2585,6 +2586,10 @@ module std [system] {
       header "__format/parser_std_format_spec.h"
       export *
     }
+    module print_buffer {
+      header "__format/print_buffer.h"
+      export *
+    }
     module range_default_formatter {
       header "__format/range_default_formatter.h"
       export *
@@ -2828,6 +2833,16 @@ module std [system] {
 
   module inplace_vector {
     header "inplace_vector"
+    export *
+  }
+
+  module generator {
+    module generator {
+      header "__generator/generator.h"
+      export *
+    }
+
+    header "generator"
     export *
   }
 
@@ -3186,8 +3201,16 @@ module std [system] {
       header "__mdspan/layout_left.h"
       export *
     }
+    module layout_left_padded {
+      header "__mdspan/layout_left_padded.h"
+      export *
+    }
     module layout_right {
       header "__mdspan/layout_right.h"
+      export *
+    }
+    module layout_right_padded {
+      header "__mdspan/layout_right_padded.h"
       export *
     }
     module layout_stride {
@@ -3196,6 +3219,14 @@ module std [system] {
     }
     module mdspan {
       header "__mdspan/mdspan.h"
+      export *
+    }
+    module submdspan {
+      header "__mdspan/submdspan.h"
+      export *
+    }
+    module submdspan_mapping {
+      header "__mdspan/submdspan_mapping.h"
       export *
     }
 
@@ -3326,6 +3357,10 @@ module std [system] {
     }
     module shared_ptr                         {
       header "__memory/shared_ptr.h"
+      export *
+    }
+    module start_lifetime_as {
+      header "__memory/start_lifetime_as.h"
       export *
     }
     module swap_allocator {
@@ -3699,6 +3734,10 @@ module std [system] {
       header "__random/normal_distribution.h"
       export *
     }
+    module philox_engine {
+      header "__random/philox_engine.h"
+      export *
+    }
     module piecewise_constant_distribution {
       header "__random/piecewise_constant_distribution.h"
       export *
@@ -3759,6 +3798,7 @@ module std [system] {
   module ranges {
     private header "__ranges/as_input_view.h"
     private header "__ranges/cache_latest_view.h"
+    private header "__ranges/cartesian_product_view.h"
     private header "__ranges/concat_view.h"
     private header "__ranges/enumerate_view.h"
     module access {

@@ -160,7 +160,7 @@
 "`LWG3661 <https://wg21.link/LWG3661>`__","``constinit atomic<shared_ptr<T>> a(nullptr);`` should work","2022-02 (Virtual)","|Complete|","","`#104962 <https://github.com/llvm/llvm-project/issues/104962>`__",""
 "","","","","","",""
 "`LWG3564 <https://wg21.link/LWG3564>`__","``transform_view::iterator<true>::value_type`` and ``iterator_category`` should use ``const F&``","2022-07 (Virtual)","|Complete|","20","`#104963 <https://github.com/llvm/llvm-project/issues/104963>`__",""
-"`LWG3617 <https://wg21.link/LWG3617>`__","``function``/``packaged_task`` deduction guides and deducing ``this``","2022-07 (Virtual)","","","`#104965 <https://github.com/llvm/llvm-project/issues/104965>`__",""
+"`LWG3617 <https://wg21.link/LWG3617>`__","``function``/``packaged_task`` deduction guides and deducing ``this``","2022-07 (Virtual)","|Complete|","","`#104965 <https://github.com/llvm/llvm-project/issues/104965>`__",""
 "`LWG3656 <https://wg21.link/LWG3656>`__","Inconsistent bit operations returning a count","2022-07 (Virtual)","|Complete|","15","`#104966 <https://github.com/llvm/llvm-project/issues/104966>`__",""
 "`LWG3659 <https://wg21.link/LWG3659>`__","Consider ``ATOMIC_FLAG_INIT`` undeprecation","2022-07 (Virtual)","|Complete|","15","`#104968 <https://github.com/llvm/llvm-project/issues/104968>`__",""
 "`LWG3670 <https://wg21.link/LWG3670>`__","``Cpp17InputIterators`` don't have integer-class difference types","2022-07 (Virtual)","","","`#104969 <https://github.com/llvm/llvm-project/issues/104969>`__",""

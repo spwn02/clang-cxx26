@@ -12,6 +12,7 @@
 
 #include <__config>
 #include <__mdspan/layout_stride.h>
+#include <__mdspan/mdspan.h>
 #include <__mdspan/submdspan.h>
 #include <__type_traits/remove_cvref.h>
 #include <array>
