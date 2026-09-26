@@ -33,12 +33,13 @@ struct TestFn {
     A t;
     std::atomic_init(&t, T(1));
     assert(t == T(1));
-    volatile A vt;
-    std::atomic_init(&vt, T(2));
-    assert(vt == T(2));
-
+    if constexpr (A::is_always_lock_free) {
+      volatile A vt;
+      std::atomic_init(&vt, T(2));
+      assert(vt == T(2));
+      ASSERT_NOEXCEPT(std::atomic_init(&vt, T(2)));
+    }
     ASSERT_NOEXCEPT(std::atomic_init(&t, T(1)));
-    ASSERT_NOEXCEPT(std::atomic_init(&vt, T(2)));
   }
 };
 

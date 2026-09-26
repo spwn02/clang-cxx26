@@ -32,12 +32,13 @@ struct TestFn {
     A t(T(1));
     assert(std::atomic_exchange(&t, T(2)) == T(1));
     assert(t == T(2));
-    volatile A vt(T(3));
-    assert(std::atomic_exchange(&vt, T(4)) == T(3));
-    assert(vt == T(4));
-
+    if constexpr (A::is_always_lock_free) {
+      volatile A vt(T(3));
+      assert(std::atomic_exchange(&vt, T(4)) == T(3));
+      assert(vt == T(4));
+      ASSERT_NOEXCEPT(std::atomic_exchange(&vt, T(4)));
+    }
     ASSERT_NOEXCEPT(std::atomic_exchange(&t, T(2)));
-    ASSERT_NOEXCEPT(std::atomic_exchange(&vt, T(4)));
   }
 };
 

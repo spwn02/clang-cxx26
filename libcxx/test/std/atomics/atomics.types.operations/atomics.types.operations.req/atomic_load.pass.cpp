@@ -31,11 +31,12 @@ struct TestFn {
     typedef std::atomic<T> A;
     A t(T(1));
     assert(std::atomic_load(&t) == T(1));
-    volatile A vt(T(2));
-    assert(std::atomic_load(&vt) == T(2));
-
+    if constexpr (A::is_always_lock_free) {
+      volatile A vt(T(2));
+      assert(std::atomic_load(&vt) == T(2));
+      ASSERT_NOEXCEPT(std::atomic_load(&vt));
+    }
     ASSERT_NOEXCEPT(std::atomic_load(&t));
-    ASSERT_NOEXCEPT(std::atomic_load(&vt));
   }
 };
 

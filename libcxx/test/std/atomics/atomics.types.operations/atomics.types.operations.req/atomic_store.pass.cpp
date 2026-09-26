@@ -32,12 +32,13 @@ struct TestFn {
     A t;
     std::atomic_store(&t, T(1));
     assert(t == T(1));
-    volatile A vt;
-    std::atomic_store(&vt, T(2));
-    assert(vt == T(2));
-
+    if constexpr (A::is_always_lock_free) {
+      volatile A vt;
+      std::atomic_store(&vt, T(2));
+      assert(vt == T(2));
+      ASSERT_NOEXCEPT(std::atomic_store(&vt, T(2)));
+    }
     ASSERT_NOEXCEPT(std::atomic_store(&t, T(1)));
-    ASSERT_NOEXCEPT(std::atomic_store(&vt, T(2)));
   }
 };
 

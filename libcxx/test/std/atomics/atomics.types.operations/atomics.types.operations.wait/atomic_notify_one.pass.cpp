@@ -45,6 +45,7 @@ struct TestFn {
       assert(std::atomic_load(&a) == T(3));
       t.join();
     }
+    if constexpr (std::atomic<T>::is_always_lock_free)
     {
       volatile A a(T(2));
       static_assert(noexcept(std::atomic_notify_one(&a)), "");

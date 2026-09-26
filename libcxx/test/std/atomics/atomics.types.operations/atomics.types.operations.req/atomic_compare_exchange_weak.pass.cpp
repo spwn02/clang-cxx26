@@ -46,6 +46,7 @@ struct TestFn {
 
         ASSERT_NOEXCEPT(std::atomic_compare_exchange_weak(&a, &t, T(3)));
     }
+    if constexpr (std::atomic<T>::is_always_lock_free)
     {
         typedef std::atomic<T> A;
         T t(T(1));

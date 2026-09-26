@@ -26,7 +26,11 @@ public:
 };
 constexpr auto non_structural_array = std::define_static_array(
     std::array{non_structural{}});
-// expected-error@-2 {{no matching function for call to 'define_static_array'}}
+// expected-error@-2 {{constexpr variable 'non_structural_array' must be initialized by a constant expression}}
+// P3491R3: the structural-type requirement is a Mandates (a hard error at the call).
+// expected-error@*:* {{define_static_array requires a structural element type}}
+// expected-error@*:* {{reflect_constant_array requires a structural element type}}
+// expected-error@*:* {{no matching function for call to 'reflect_constant'}}
 
 // 3795-04: generated-member annotations retain source annotation constraints.
 struct Annotated;

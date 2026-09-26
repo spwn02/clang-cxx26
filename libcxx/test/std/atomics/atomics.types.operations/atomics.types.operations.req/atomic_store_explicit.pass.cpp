@@ -34,12 +34,13 @@ struct TestFn {
     A t;
     std::atomic_store_explicit(&t, T(1), std::memory_order_seq_cst);
     assert(t == T(1));
-    volatile A vt;
-    std::atomic_store_explicit(&vt, T(2), std::memory_order_seq_cst);
-    assert(vt == T(2));
-
+    if constexpr (A::is_always_lock_free) {
+      volatile A vt;
+      std::atomic_store_explicit(&vt, T(2), std::memory_order_seq_cst);
+      assert(vt == T(2));
+      ASSERT_NOEXCEPT(std::atomic_store_explicit(&vt, T(2), std::memory_order_seq_cst));
+    }
     ASSERT_NOEXCEPT(std::atomic_store_explicit(&t, T(1), std::memory_order_seq_cst));
-    ASSERT_NOEXCEPT(std::atomic_store_explicit(&vt, T(2), std::memory_order_seq_cst));
   }
 };
 
