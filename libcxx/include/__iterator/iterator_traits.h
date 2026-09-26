@@ -21,6 +21,7 @@
 #include <__cstddef/ptrdiff_t.h>
 #include <__fwd/pair.h>
 #include <__iterator/incrementable_traits.h>
+#include <__iterator/integer_like.h>
 #include <__iterator/readable_traits.h>
 #include <__tuple/tuple_element.h>
 #include <__type_traits/common_reference.h>
@@ -90,7 +91,7 @@ concept __cpp17_input_iterator = __cpp17_iterator<_Ip> && equality_comparable<_I
   typename indirectly_readable_traits<_Ip>::value_type;
   typename common_reference_t<iter_reference_t<_Ip>&&, typename indirectly_readable_traits<_Ip>::value_type&>;
   typename common_reference_t<decltype(*__i++)&&, typename indirectly_readable_traits<_Ip>::value_type&>;
-  requires signed_integral<typename incrementable_traits<_Ip>::difference_type>;
+  requires __signed_integer_like<typename incrementable_traits<_Ip>::difference_type>;
 };
 
 template <class _Ip>

@@ -86,6 +86,32 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR __make_unsigned_t<_Tp> __to_unsigned_lik
   return static_cast<__make_unsigned_t<_Tp> >(__x);
 }
 
+#if _LIBCPP_STD_VER >= 20
+// make-unsigned-like-t (P2393R1): the unsigned type of the same width as an integer(-class) type. libc++ has no
+// integer-class types of its own; one provided by the user names its unsigned counterpart as `unsigned_type` (an
+// unsigned integer-class type names itself).
+template <class _Tp>
+struct __make_unsigned_like {
+  using type _LIBCPP_NODEBUG = __make_unsigned_t<_Tp>;
+};
+
+template <class _Tp>
+  requires(!is_integral<_Tp>::value && !is_enum<_Tp>::value && requires { typename _Tp::unsigned_type; })
+struct __make_unsigned_like<_Tp> {
+  using type _LIBCPP_NODEBUG = typename _Tp::unsigned_type;
+};
+
+template <class _Tp>
+using __make_unsigned_like_t _LIBCPP_NODEBUG = typename __make_unsigned_like<_Tp>::type;
+
+template <class _Tp>
+  requires(!is_integral<_Tp>::value && !is_enum<_Tp>::value && requires { typename _Tp::unsigned_type; })
+_LIBCPP_HIDE_FROM_ABI constexpr __make_unsigned_like_t<_Tp> __to_unsigned_like(_Tp __x) noexcept(
+    noexcept(static_cast<__make_unsigned_like_t<_Tp>>(__x))) {
+  return static_cast<__make_unsigned_like_t<_Tp>>(__x);
+}
+#endif // _LIBCPP_STD_VER >= 20
+
 template <class _Tp, class _Up>
 using __copy_unsigned_t _LIBCPP_NODEBUG = __conditional_t<is_unsigned<_Tp>::value, __make_unsigned_t<_Up>, _Up>;
 

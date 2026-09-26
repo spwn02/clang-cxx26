@@ -2983,6 +2983,10 @@ module std [system] {
       header "__iterator/insert_iterator.h"
       export *
     }
+    module integer_like {
+      header "__iterator/integer_like.h"
+      export *
+    }
     module istream_iterator {
       header "__iterator/istream_iterator.h"
       export *

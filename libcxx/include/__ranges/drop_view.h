@@ -240,13 +240,13 @@ struct __fn {
              __is_passthrough_specialization<_RawRange>)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __rng, _Np&& __n) const
       noexcept(noexcept(__passthrough_type_t<_RawRange>(
-          ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n)), ranges::end(__rng))))
+          ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n))), ranges::end(__rng))))
           -> decltype(__passthrough_type_t<_RawRange>(
               // Note: deliberately not forwarding `__rng` to guard against double moves.
-              ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n)),
+              ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n))),
               ranges::end(__rng))) {
     return __passthrough_type_t<_RawRange>(
-        ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n)), ranges::end(__rng));
+        ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n))), ranges::end(__rng));
   }
 
   // [range.drop.overview]: the `subrange (StoreSize == true)` case.
@@ -257,20 +257,20 @@ struct __fn {
     requires(!__is_empty_view<_RawRange> && random_access_range<_RawRange> && sized_range<_RawRange> &&
              __is_subrange_specialization_with_store_size<_RawRange>)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __rng, _Np&& __n) const noexcept(noexcept(
-      _RawRange(ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n)),
+      _RawRange(ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n))),
                 ranges::end(__rng),
                 std::__to_unsigned_like(ranges::distance(__rng) -
-                                        std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n))))))
+                                        std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n)))))))
       -> decltype(_RawRange(
           // Note: deliberately not forwarding `__rng` to guard against double moves.
-          ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n)),
+          ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n))),
           ranges::end(__rng),
           std::__to_unsigned_like(ranges::distance(__rng) -
-                                  std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n))))) {
+                                  std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n)))))) {
     // Introducing local variables avoids calculating `min` and `distance` twice (at the cost of diverging from the
     // expression used in the `noexcept` clause and the return statement).
     auto __dist    = ranges::distance(__rng);
-    auto __clamped = std::min<_Dist>(__dist, std::forward<_Np>(__n));
+    auto __clamped = std::min<_Dist>(__dist, static_cast<_Dist>(std::forward<_Np>(__n)));
     return _RawRange(ranges::begin(__rng) + __clamped, ranges::end(__rng), std::__to_unsigned_like(__dist - __clamped));
   }
   // clang-format off
@@ -282,9 +282,9 @@ struct __fn {
             class _Dist     = range_difference_t<_Range>>
     requires (__is_repeat_specialization<_RawRange> && sized_range<_RawRange>)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range, _Np&& __n) const
-    noexcept(noexcept(views::repeat(*__range.__value_, ranges::distance(__range) - std::min<_Dist>(ranges::distance(__range), std::forward<_Np>(__n)))))
-    -> decltype(      views::repeat(*__range.__value_, ranges::distance(__range) - std::min<_Dist>(ranges::distance(__range), std::forward<_Np>(__n))))
-    { return          views::repeat(*__range.__value_, ranges::distance(__range) - std::min<_Dist>(ranges::distance(__range), std::forward<_Np>(__n))); }
+    noexcept(noexcept(views::repeat(*__range.__value_, ranges::distance(__range) - std::min<_Dist>(ranges::distance(__range), static_cast<_Dist>(std::forward<_Np>(__n))))))
+    -> decltype(      views::repeat(*__range.__value_, ranges::distance(__range) - std::min<_Dist>(ranges::distance(__range), static_cast<_Dist>(std::forward<_Np>(__n)))))
+    { return          views::repeat(*__range.__value_, ranges::distance(__range) - std::min<_Dist>(ranges::distance(__range), static_cast<_Dist>(std::forward<_Np>(__n)))); }
 
   // [range.drop.overview]: the `repeat_view` "otherwise" case.
   template <class _Range,

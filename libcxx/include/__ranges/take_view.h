@@ -280,13 +280,13 @@ struct __fn {
              __is_passthrough_specialization<_RawRange>)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto
   operator()(_Range&& __rng, _Np&& __n) const noexcept(noexcept(__passthrough_type_t<_RawRange>(
-      ranges::begin(__rng), ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n)))))
+      ranges::begin(__rng), ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n))))))
       -> decltype(__passthrough_type_t<_RawRange>(
           // Note: deliberately not forwarding `__rng` to guard against double moves.
           ranges::begin(__rng),
-          ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n)))) {
+          ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n))))) {
     return __passthrough_type_t<_RawRange>(
-        ranges::begin(__rng), ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n)));
+        ranges::begin(__rng), ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n))));
   }
 
   // [range.take.overview]: the `iota_view` case.
@@ -303,16 +303,16 @@ struct __fn {
   constexpr auto operator()(_Range&& __rng, _Np&& __n) const
     noexcept(noexcept(ranges::iota_view(
                               *ranges::begin(__rng),
-                              *(ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n)))
+                              *(ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n))))
                               )))
     -> decltype(      ranges::iota_view(
                               // Note: deliberately not forwarding `__rng` to guard against double moves.
                               *ranges::begin(__rng),
-                              *(ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n)))
+                              *(ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n))))
                               ))
     { return          ranges::iota_view(
                               *ranges::begin(__rng),
-                              *(ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), std::forward<_Np>(__n)))
+                              *(ranges::begin(__rng) + std::min<_Dist>(ranges::distance(__rng), static_cast<_Dist>(std::forward<_Np>(__n))))
                               ); }
 
 #if _LIBCPP_STD_VER >= 23
@@ -323,9 +323,9 @@ struct __fn {
             class _Dist     = range_difference_t<_Range>>
     requires(__is_repeat_specialization<_RawRange> && sized_range<_RawRange>)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range, _Np&& __n) const
-    noexcept(noexcept(views::repeat(*__range.__value_, std::min<_Dist>(ranges::distance(__range), std::forward<_Np>(__n)))))
-    -> decltype(      views::repeat(*__range.__value_, std::min<_Dist>(ranges::distance(__range), std::forward<_Np>(__n))))
-    { return          views::repeat(*__range.__value_, std::min<_Dist>(ranges::distance(__range), std::forward<_Np>(__n))); }
+    noexcept(noexcept(views::repeat(*__range.__value_, std::min<_Dist>(ranges::distance(__range), static_cast<_Dist>(std::forward<_Np>(__n))))))
+    -> decltype(      views::repeat(*__range.__value_, std::min<_Dist>(ranges::distance(__range), static_cast<_Dist>(std::forward<_Np>(__n)))))
+    { return          views::repeat(*__range.__value_, std::min<_Dist>(ranges::distance(__range), static_cast<_Dist>(std::forward<_Np>(__n)))); }
 
   // [range.take.overview]: the `repeat_view` "otherwise" case.
   template <class _Range,

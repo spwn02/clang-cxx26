@@ -27,6 +27,7 @@
 #include <__concepts/totally_ordered.h>
 #include <__config>
 #include <__iterator/incrementable_traits.h>
+#include <__iterator/integer_like.h>
 #include <__iterator/iter_move.h>
 #include <__iterator/iterator_traits.h>
 #include <__memory/pointer_traits.h>
@@ -108,13 +109,6 @@ concept indirectly_writable = requires(_Out&& __o, _Tp&& __t) {
   const_cast<const iter_reference_t<_Out>&&>(*std::forward<_Out>(__o)) =
       std::forward<_Tp>(__t); // not required to be equality-preserving
 };
-
-// [iterator.concept.winc]
-template <class _Tp>
-concept __integer_like = integral<_Tp> && !same_as<_Tp, bool>;
-
-template <class _Tp>
-concept __signed_integer_like = signed_integral<_Tp>;
 
 template <class _Ip>
 concept weakly_incrementable = movable<_Ip> && requires(_Ip __i) {

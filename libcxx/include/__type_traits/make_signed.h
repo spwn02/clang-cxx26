@@ -79,6 +79,24 @@ template <class _Tp>
 using make_signed_t = __make_signed_t<_Tp>;
 #endif
 
+#if _LIBCPP_STD_VER >= 20
+// make-signed-like-t (P2393R1); see __make_unsigned_like in <__type_traits/make_unsigned.h>. An integer-class type
+// provided by the user names its signed counterpart as `signed_type` (a signed integer-class type names itself).
+template <class _Tp>
+struct __make_signed_like {
+  using type _LIBCPP_NODEBUG = __make_signed_t<_Tp>;
+};
+
+template <class _Tp>
+  requires(!is_integral<_Tp>::value && !is_enum<_Tp>::value && requires { typename _Tp::signed_type; })
+struct __make_signed_like<_Tp> {
+  using type _LIBCPP_NODEBUG = typename _Tp::signed_type;
+};
+
+template <class _Tp>
+using __make_signed_like_t _LIBCPP_NODEBUG = typename __make_signed_like<_Tp>::type;
+#endif // _LIBCPP_STD_VER >= 20
+
 _LIBCPP_END_NAMESPACE_STD
 
 #endif // _LIBCPP___TYPE_TRAITS_MAKE_SIGNED_H

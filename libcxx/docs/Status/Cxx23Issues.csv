@@ -163,7 +163,7 @@
 "`LWG3617 <https://wg21.link/LWG3617>`__","``function``/``packaged_task`` deduction guides and deducing ``this``","2022-07 (Virtual)","|Complete|","","`#104965 <https://github.com/llvm/llvm-project/issues/104965>`__",""
 "`LWG3656 <https://wg21.link/LWG3656>`__","Inconsistent bit operations returning a count","2022-07 (Virtual)","|Complete|","15","`#104966 <https://github.com/llvm/llvm-project/issues/104966>`__",""
 "`LWG3659 <https://wg21.link/LWG3659>`__","Consider ``ATOMIC_FLAG_INIT`` undeprecation","2022-07 (Virtual)","|Complete|","15","`#104968 <https://github.com/llvm/llvm-project/issues/104968>`__",""
-"`LWG3670 <https://wg21.link/LWG3670>`__","``Cpp17InputIterators`` don't have integer-class difference types","2022-07 (Virtual)","","","`#104969 <https://github.com/llvm/llvm-project/issues/104969>`__",""
+"`LWG3670 <https://wg21.link/LWG3670>`__","``Cpp17InputIterators`` don't have integer-class difference types","2022-07 (Virtual)","|Complete|","","`#104969 <https://github.com/llvm/llvm-project/issues/104969>`__",""
 "`LWG3671 <https://wg21.link/LWG3671>`__","``atomic_fetch_xor`` missing from ``stdatomic.h``","2022-07 (Virtual)","|Complete|","20","`#104970 <https://github.com/llvm/llvm-project/issues/104970>`__",""
 "`LWG3672 <https://wg21.link/LWG3672>`__","``common_iterator::operator->()`` should return by value","2022-07 (Virtual)","|Complete|","19","`#104971 <https://github.com/llvm/llvm-project/issues/104971>`__",""
 "`LWG3683 <https://wg21.link/LWG3683>`__","``operator==`` for ``polymorphic_allocator`` cannot deduce template argument in common cases","2022-07 (Virtual)","|Complete|","20","`#104972 <https://github.com/llvm/llvm-project/issues/104972>`__",""

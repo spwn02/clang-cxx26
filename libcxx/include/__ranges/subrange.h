@@ -82,7 +82,7 @@ private:
   struct _Empty {
     _LIBCPP_HIDE_FROM_ABI constexpr _Empty(auto) noexcept {}
   };
-  using _Size _LIBCPP_NODEBUG = conditional_t<_StoreSize, make_unsigned_t<iter_difference_t<_Iter>>, _Empty>;
+  using _Size _LIBCPP_NODEBUG = conditional_t<_StoreSize, __make_unsigned_like_t<iter_difference_t<_Iter>>, _Empty>;
   _LIBCPP_NO_UNIQUE_ADDRESS _Iter __begin_ = _Iter();
   _LIBCPP_NO_UNIQUE_ADDRESS _Sent __end_   = _Sent();
   _LIBCPP_NO_UNIQUE_ADDRESS _Size __size_  = 0;
@@ -97,7 +97,7 @@ public:
       : __begin_(std::move(__iter)), __end_(std::move(__sent)) {}
 
   _LIBCPP_HIDE_FROM_ABI constexpr subrange(
-      __convertible_to_non_slicing<_Iter> auto __iter, _Sent __sent, make_unsigned_t<iter_difference_t<_Iter>> __n)
+      __convertible_to_non_slicing<_Iter> auto __iter, _Sent __sent, __make_unsigned_like_t<iter_difference_t<_Iter>> __n)
     requires(_Kind == subrange_kind::sized)
       : __begin_(std::move(__iter)), __end_(std::move(__sent)), __size_(__n) {
     if constexpr (sized_sentinel_for<_Sent, _Iter>)
@@ -122,7 +122,7 @@ public:
   template <borrowed_range _Range>
     requires __convertible_to_non_slicing<iterator_t<_Range>, _Iter> &&
              convertible_to<sentinel_t<_Range>, _Sent>
-             _LIBCPP_HIDE_FROM_ABI constexpr subrange(_Range&& __range, make_unsigned_t<iter_difference_t<_Iter>> __n)
+             _LIBCPP_HIDE_FROM_ABI constexpr subrange(_Range&& __range, __make_unsigned_like_t<iter_difference_t<_Iter>> __n)
                requires(_Kind == subrange_kind::sized)
       : subrange(ranges::begin(__range), ranges::end(__range), __n) {}
 
@@ -147,7 +147,7 @@ public:
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool empty() const { return __begin_ == __end_; }
 
-  _LIBCPP_HIDE_FROM_ABI constexpr make_unsigned_t<iter_difference_t<_Iter>> size() const
+  _LIBCPP_HIDE_FROM_ABI constexpr __make_unsigned_like_t<iter_difference_t<_Iter>> size() const
     requires(_Kind == subrange_kind::sized)
   {
     if constexpr (_StoreSize)
@@ -198,7 +198,7 @@ template <input_or_output_iterator _Iter, sentinel_for<_Iter> _Sent>
 subrange(_Iter, _Sent) -> subrange<_Iter, _Sent>;
 
 template <input_or_output_iterator _Iter, sentinel_for<_Iter> _Sent>
-subrange(_Iter, _Sent, make_unsigned_t<iter_difference_t<_Iter>>) -> subrange<_Iter, _Sent, subrange_kind::sized>;
+subrange(_Iter, _Sent, __make_unsigned_like_t<iter_difference_t<_Iter>>) -> subrange<_Iter, _Sent, subrange_kind::sized>;
 
 template <borrowed_range _Range>
 subrange(_Range&&) -> subrange<iterator_t<_Range>,
@@ -208,7 +208,7 @@ subrange(_Range&&) -> subrange<iterator_t<_Range>,
                                    : subrange_kind::unsized>;
 
 template <borrowed_range _Range>
-subrange(_Range&&, make_unsigned_t<range_difference_t<_Range>>)
+subrange(_Range&&, __make_unsigned_like_t<range_difference_t<_Range>>)
     -> subrange<iterator_t<_Range>, sentinel_t<_Range>, subrange_kind::sized>;
 
 template <size_t _Index, class _Iter, class _Sent, subrange_kind _Kind>

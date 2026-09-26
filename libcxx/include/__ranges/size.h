@@ -18,6 +18,7 @@
 #include <__iterator/concepts.h>
 #include <__iterator/iterator_traits.h>
 #include <__ranges/access.h>
+#include <__type_traits/common_type.h>
 #include <__type_traits/decay.h>
 #include <__type_traits/make_signed.h>
 #include <__type_traits/make_unsigned.h>
@@ -115,13 +116,16 @@ namespace __ssize {
 struct __fn {
   template <class _Tp>
     requires requires(_Tp&& __t) { ranges::size(__t); }
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr integral auto operator()(_Tp&& __t) const
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __signed_integer_like auto operator()(_Tp&& __t) const
       noexcept(noexcept(ranges::size(__t))) {
-    using _Signed = make_signed_t<decltype(ranges::size(__t))>;
-    if constexpr (sizeof(ptrdiff_t) > sizeof(_Signed))
+    // common_type_t<ptrdiff_t, make-signed-like-t<decltype(ranges::size(t))>> ([range.prim.ssize])
+    using _Signed = __make_signed_like_t<decltype(ranges::size(__t))>;
+    if constexpr (integral<_Signed> && sizeof(ptrdiff_t) > sizeof(_Signed))
       return static_cast<ptrdiff_t>(ranges::size(__t));
-    else
+    else if constexpr (integral<_Signed>)
       return static_cast<_Signed>(ranges::size(__t));
+    else
+      return static_cast<common_type_t<ptrdiff_t, _Signed>>(static_cast<_Signed>(ranges::size(__t)));
   }
 };
 } // namespace __ssize
