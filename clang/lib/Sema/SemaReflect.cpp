@@ -466,9 +466,14 @@ public:
       if (!Spec)
         return nullptr;
 
-      // Only instantiate the body if the signature has an undeduced type.
-      if (Spec->getType()->isUndeducedType())
+      // Only instantiate the body if the signature has an undeduced type. A
+      // failure in the body is outside the immediate context, so the program is
+      // ill-formed ([meta.reflection.substitute]): report it instead of
+      // swallowing it.
+      if (Spec->getType()->isUndeducedType()) {
+        NoDiagnostics.reset();
         S.InstantiateFunctionDefinition(InstantiateLoc, Spec);
+      }
     }
     return Spec;
   }
