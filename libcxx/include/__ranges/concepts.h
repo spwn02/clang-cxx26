@@ -17,6 +17,7 @@
 #include <__concepts/same_as.h>
 #include <__config>
 #include <__iterator/concepts.h>
+#include <__iterator/const_iterator.h>
 #include <__iterator/incrementable_traits.h>
 #include <__iterator/iter_move.h>
 #include <__iterator/iterator_traits.h>
@@ -84,6 +85,17 @@ using range_rvalue_reference_t = iter_rvalue_reference_t<iterator_t<_Rp>>;
 
 template <range _Rp>
 using range_common_reference_t = iter_common_reference_t<iterator_t<_Rp>>;
+
+#  if _LIBCPP_STD_VER >= 23
+template <input_range _Rp>
+using const_iterator_t = const_iterator<iterator_t<_Rp>>;
+
+template <range _Rp>
+using const_sentinel_t = const_sentinel<sentinel_t<_Rp>>;
+
+template <input_range _Rp>
+using range_const_reference_t = iter_const_reference_t<iterator_t<_Rp>>;
+#  endif // _LIBCPP_STD_VER >= 23
 
 // [range.sized]
 template <class _Tp>

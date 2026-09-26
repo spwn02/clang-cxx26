@@ -25,6 +25,7 @@
 #include <__ranges/view_interface.h>
 #include <__tuple/tuple_transform.h>
 #include <__type_traits/conditional.h>
+#include <__type_traits/integral_constant.h>
 #include <__utility/forward.h>
 #include <__utility/integer_sequence.h>
 #include <__utility/move.h>
@@ -55,6 +56,14 @@ concept __cartesian_product_bidirectional =
     (bidirectional_range<__maybe_const<_Const, _Vs>> && ...) &&
     ((common_range<__maybe_const<_Const, _Vs>> ||
       (random_access_range<__maybe_const<_Const, _Vs>> && sized_range<__maybe_const<_Const, _Vs>>)) && ...);
+
+// The sentinel-distance overloads of the iterator ([range.cartesian.iterator]) need every range to be sized and the
+// first range's sentinel to be a sized sentinel for its iterator.
+template <bool _Const, class _First, class... _Vs>
+concept __cartesian_is_sized_sentinel =
+    sized_sentinel_for<sentinel_t<__maybe_const<_Const, _First>>, iterator_t<__maybe_const<_Const, _First>>> &&
+    (sized_range<__maybe_const<_Const, _Vs>> && ...) &&
+    (sized_sentinel_for<iterator_t<__maybe_const<_Const, _Vs>>, iterator_t<__maybe_const<_Const, _Vs>>> && ...);
 
 template <class _Range>
 concept __cartesian_product_common_arg =
@@ -166,14 +175,24 @@ private:
     _LIBCPP_HIDE_FROM_ABI constexpr bool __at_end(index_sequence<_Is...>) const {
       return ((std::get<_Is>(__current_) == ranges::end(std::get<_Is>(__parent_->__bases_))) || ...);
     }
-    template <size_t... _Is>
+    // The distance from __other(N) to the current position, where __other(N) yields the Nth component of the position
+    // to measure from (a sentinel for N == 0 is allowed).
+    template <class _Other, size_t... _Is>
     _LIBCPP_HIDE_FROM_ABI constexpr common_type_t<range_difference_t<__maybe_const<_Const, _First>>, range_difference_t<__maybe_const<_Const, _Vs>>...>
-    __distance_from(const __iterator& __other, index_sequence<_Is...>) const {
+    __distance_from(_Other&& __other, index_sequence<_Is...>) const {
       common_type_t<range_difference_t<__maybe_const<_Const, _First>>, range_difference_t<__maybe_const<_Const, _Vs>>...> __result = 0;
-      ((void)(_Is == 0 ? (__result = std::get<0>(__current_) - std::get<0>(__other.__current_), 0)
+      ((void)(_Is == 0 ? (__result = std::get<0>(__current_) - __other(integral_constant<size_t, 0>{}), 0)
                         : (__result = __result * static_cast<difference_type>(ranges::size(std::get<_Is>(__parent_->__bases_))) +
-                                      (std::get<_Is>(__current_) - std::get<_Is>(__other.__current_)), 0)), ...);
+                                      (std::get<_Is>(__current_) - __other(integral_constant<size_t, _Is>{})), 0)), ...);
       return __result;
+    }
+    // The position one past the last element: the first range at its end, all others at their beginning.
+    template <size_t _Index>
+    _LIBCPP_HIDE_FROM_ABI constexpr auto __end_component(integral_constant<size_t, _Index>) const {
+      if constexpr (_Index == 0)
+        return ranges::end(std::get<0>(__parent_->__bases_));
+      else
+        return ranges::begin(std::get<_Index>(__parent_->__bases_));
     }
   public:
     using iterator_category = input_iterator_tag;
@@ -200,7 +219,9 @@ private:
     _LIBCPP_HIDE_FROM_ABI friend constexpr __iterator operator+(const __iterator& __i, difference_type __n) requires __cartesian_product_random_access<_Const, _First, _Vs...> { auto __r = __i; return __r += __n; }
     _LIBCPP_HIDE_FROM_ABI friend constexpr __iterator operator+(difference_type __n, const __iterator& __i) requires __cartesian_product_random_access<_Const, _First, _Vs...> { return __i + __n; }
     _LIBCPP_HIDE_FROM_ABI friend constexpr __iterator operator-(const __iterator& __i, difference_type __n) requires __cartesian_product_random_access<_Const, _First, _Vs...> { auto __r = __i; return __r -= __n; }
-    _LIBCPP_HIDE_FROM_ABI friend constexpr difference_type operator-(const __iterator& __x, const __iterator& __y) requires __cartesian_product_random_access<_Const, _First, _Vs...> { return __x.__distance_from(__y, make_index_sequence<sizeof...(_Vs) + 1>{}); }
+    _LIBCPP_HIDE_FROM_ABI friend constexpr difference_type operator-(const __iterator& __x, const __iterator& __y) requires __cartesian_product_random_access<_Const, _First, _Vs...> { return __x.__distance_from([&__y](auto __c) -> decltype(auto) { return std::get<decltype(__c)::value>(__y.__current_); }, make_index_sequence<sizeof...(_Vs) + 1>{}); }
+    _LIBCPP_HIDE_FROM_ABI friend constexpr difference_type operator-(const __iterator& __i, default_sentinel_t) requires __cartesian_is_sized_sentinel<_Const, _First, _Vs...> { return __i.__distance_from([&__i](auto __c) { return __i.__end_component(__c); }, make_index_sequence<sizeof...(_Vs) + 1>{}); }
+    _LIBCPP_HIDE_FROM_ABI friend constexpr difference_type operator-(default_sentinel_t __s, const __iterator& __i) requires __cartesian_is_sized_sentinel<_Const, _First, _Vs...> { return -(__i - __s); }
     _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator<=>(const __iterator& __x, const __iterator& __y) requires __cartesian_product_random_access<_Const, _First, _Vs...> { return __x.__current_ <=> __y.__current_; }
   };
 };

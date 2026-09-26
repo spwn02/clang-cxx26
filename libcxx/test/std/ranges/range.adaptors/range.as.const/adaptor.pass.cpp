@@ -18,7 +18,10 @@
 #include <span>
 #include <vector>
 
+#include "test_macros.h"
+
 constexpr bool test() {
+#if TEST_STD_VER >= 26 // optional<T&> and views::as_const(optional) are C++26
   int value = 42;
   std::optional<int&> input(value);
 
@@ -26,6 +29,7 @@ constexpr bool test() {
   std::same_as<std::optional<const int&>> decltype(auto) result = std::views::as_const(input);
   static_assert(std::same_as<decltype(*result), const int&>);
   assert(result && *result == 42);
+#endif
 
   int values[] = {1, 2, 3};
   std::span<int> span_input(values);
