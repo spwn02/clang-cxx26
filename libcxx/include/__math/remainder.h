@@ -49,21 +49,21 @@ inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 __promote_t<_A1, _A2>
 
 // remquo
 
-inline _LIBCPP_HIDE_FROM_ABI float remquo(float __x, float __y, int* __z) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 float remquo(float __x, float __y, int* __z) _NOEXCEPT {
   return __builtin_remquof(__x, __y, __z);
 }
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI double remquo(double __x, double __y, int* __z) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double remquo(double __x, double __y, int* __z) _NOEXCEPT {
   return __builtin_remquo(__x, __y, __z);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI long double remquo(long double __x, long double __y, int* __z) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 long double remquo(long double __x, long double __y, int* __z) _NOEXCEPT {
   return __builtin_remquol(__x, __y, __z);
 }
 
 template <class _A1, class _A2, __enable_if_t<is_arithmetic<_A1>::value && is_arithmetic<_A2>::value, int> = 0>
-inline _LIBCPP_HIDE_FROM_ABI __promote_t<_A1, _A2> remquo(_A1 __x, _A2 __y, int* __z) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 __promote_t<_A1, _A2> remquo(_A1 __x, _A2 __y, int* __z) _NOEXCEPT {
   using __result_type = __promote_t<_A1, _A2>;
   static_assert(!(_IsSame<_A1, __result_type>::value && _IsSame<_A2, __result_type>::value), "");
   return __math::remquo((__result_type)__x, (__result_type)__y, __z);

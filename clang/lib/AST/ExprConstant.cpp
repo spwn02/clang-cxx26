@@ -20453,6 +20453,73 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
     return true;
   }
 
+  case Builtin::BI__builtin_remquo:
+  case Builtin::BI__builtin_remquof:
+  case Builtin::BI__builtin_remquol:
+  case Builtin::BI__builtin_remquof128: {
+    APFloat Y(0.);
+    LValue QuoLV;
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluateFloat(E->getArg(1), Y, Info) ||
+        !EvaluatePointer(E->getArg(2), QuoLV, Info))
+      return false;
+    // Domain errors (an infinite x, a zero or NaN y) are left to run time.
+    if (!Result.isFinite() || Y.isNaN() || Y.isZero())
+      return Info.FFDiag(E), false;
+
+    // The C library reports at least the three low bits of the integral
+    // quotient; which further bits are reported varies, so fold only when the
+    // quotient is small enough for every implementation to agree.
+    int Quo = 0;
+    if (!Y.isInfinity() && !Result.isZero()) {
+      unsigned P = APFloat::semanticsPrecision(Result.getSemantics());
+      auto Decompose = [&](const APFloat &V, APInt &Mant, int &Exp) {
+        APFloat Abs = V;
+        Abs.clearSign();
+        int Log = ilogb(Abs);
+        APFloat Scaled =
+            scalbn(Abs, static_cast<int>(P) - 1 - Log,
+                   llvm::RoundingMode::NearestTiesToEven);
+        APSInt Int(P + 1, /*isUnsigned=*/true);
+        bool Exact;
+        Scaled.convertToInteger(Int, llvm::RoundingMode::TowardZero, &Exact);
+        Mant = Int;
+        Exp = Log - (static_cast<int>(P) - 1);
+      };
+      APInt MX, MY;
+      int EX, EY;
+      Decompose(Result, MX, EX);
+      Decompose(Y, MY, EY);
+      unsigned Shift = static_cast<unsigned>(std::abs(EX - EY));
+      unsigned Width = P + 1 + Shift + 2;
+      APInt N = MX.zext(Width), D = MY.zext(Width);
+      if (EX >= EY)
+        N <<= Shift;
+      else
+        D <<= Shift;
+      APInt Q, R;
+      APInt::udivrem(N, D, Q, R);
+      APInt Twice = R << 1;
+      if (Twice.ugt(D) || (Twice == D && Q[0]))
+        ++Q;
+      if (Q.getActiveBits() > 3)
+        return Info.FFDiag(E), false;
+      Quo = static_cast<int>(Q.getZExtValue());
+      if (Result.isNegative() != Y.isNegative())
+        Quo = -Quo;
+    }
+    bool WasNegative = Result.isNegative();
+    (void)Result.remainder(Y);
+    if (Result.isZero() && Result.isNegative() != WasNegative)
+      Result.changeSign();
+
+    QualType QuoTy = E->getArg(2)->getType()->getPointeeType();
+    APSInt QuoVal(Info.Ctx.getIntWidth(QuoTy), /*isUnsigned=*/false);
+    QuoVal = Quo;
+    APValue APV(QuoVal);
+    return handleAssignment(Info, E, QuoLV, QuoTy, APV);
+  }
+
   case Builtin::BI__builtin_modf:
   case Builtin::BI__builtin_modff:
   case Builtin::BI__builtin_modfl:

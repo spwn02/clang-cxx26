@@ -740,7 +740,14 @@ using __math::remainder;
 using ::remainder _LIBCPP_USING_IF_EXISTS;
 #  endif
 using ::remainderf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::remquo;
+_LIBCPP_HIDE_FROM_ABI constexpr double remquo(double __x, double __y, int* __q) _NOEXCEPT {
+  return __builtin_remquo(__x, __y, __q);
+}
+#  else
 using ::remquo _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::remquof _LIBCPP_USING_IF_EXISTS;
 #  if _LIBCPP_STD_VER >= 23
 using __math::rint;

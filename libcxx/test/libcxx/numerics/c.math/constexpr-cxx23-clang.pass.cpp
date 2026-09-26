@@ -151,9 +151,9 @@ int main(int, char**) {
   ASSERT_NOT_CONSTEXPR_CXX23(std::remainderf(0.5f, 1.0f) == 0.5f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::remainderl(0.5L, 1.0L) == 0.5L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::remquo(0.5f, 1.0f, &DummyInt) == 0.5f);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::remquo(0.5, 1.0, &DummyInt) == 0.5);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::remquo(0.5L, 1.0L, &DummyInt) == 0.5L);
+  ASSERT_CONSTEXPR_CXX23(([] { int Out = 0; return std::remquo(0.5f, 1.0f, &Out) == 0.5f; }()));
+  ASSERT_CONSTEXPR_CXX23(([] { int Out = 0; return std::remquo(0.5, 1.0, &Out) == 0.5; }()));
+  ASSERT_CONSTEXPR_CXX23(([] { int Out = 0; return std::remquo(0.5L, 1.0L, &Out) == 0.5L; }()));
   ASSERT_NOT_CONSTEXPR_CXX23(std::remquof(0.5f, 1.0f, &DummyInt) == 0.5f);
   ASSERT_NOT_CONSTEXPR_CXX23(std::remquol(0.5L, 1.0L, &DummyInt) == 0.5L);
 

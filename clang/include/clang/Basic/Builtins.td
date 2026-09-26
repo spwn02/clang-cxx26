@@ -443,7 +443,7 @@ def RemainderF128 : Builtin {
 
 def RemquoF128 : Builtin {
   let Spellings = ["__builtin_remquof128"];
-  let Attributes = [FunctionWithBuiltinPrefix, NoThrow];
+  let Attributes = [FunctionWithBuiltinPrefix, NoThrow, Constexpr];
   let Prototype = "__float128(__float128, __float128, int*)";
 }
 
@@ -4143,6 +4143,7 @@ def Remquo : FPMathTemplate, LibBuiltin<"math.h"> {
   let Attributes = [NoThrow];
   let Prototype = "T(T, T, int*)";
   let AddBuiltinPrefixedAlias = 1;
+  let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
 }
 
 def Rint : FPMathTemplate, LibBuiltin<"math.h"> {

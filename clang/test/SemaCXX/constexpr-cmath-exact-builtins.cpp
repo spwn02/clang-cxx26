@@ -60,3 +60,32 @@ static_assert(__builtin_logb(8.0) == 3.0 && __builtin_logbf(0.1f) == -4.0f && __
 static_assert(__builtin_scalbln(1.0, 10L) == 1024.0 && __builtin_scalblnf(1.5f, -1L) == 0.75f);
 // logb of zero and infinity raise floating-point exceptions and are left to run time.
 constexpr double bad3 = __builtin_logb(0.0); // expected-error {{must be initialized by a constant expression}}
+
+// remquo: folded when the integral quotient is small enough for every C library to agree.
+constexpr bool rq(double x, double y, double er, int eq) { int q = 99; double r = __builtin_remquo(x, y, &q); return r == er && q == eq; }
+static_assert(rq(10.0, 3.0, 1.0, 3));
+static_assert(rq(-10.0, 3.0, -1.0, -3));
+static_assert(rq(10.0, -3.0, 1.0, -3));
+static_assert(rq(5.0, 2.0, 1.0, 2));   // 2.5 -> ties to even (2), remainder +1
+static_assert(rq(7.0, 2.0, -1.0, 4));  // 3.5 -> 4, remainder -1
+static_assert(rq(0.5, 1.0, 0.5, 0));
+static_assert(rq(0.75, 1.0, -0.25, 1));
+static_assert(rq(0.0, 1.0, 0.0, 0));
+static_assert(rq(1.0, __builtin_inf(), 1.0, 0));
+static_assert(rq(1e-300, 1e300, 1e-300, 0));
+static_assert(rq(1e300, 1e300, 0.0, 1));
+static_assert(rq(6.0, 3.0, 0.0, 2));
+constexpr bool rqf() { int q; float r = __builtin_remquof(9.0f, 4.0f, &q); return r == 1.0f && q == 2; }
+static_assert(rqf());
+constexpr bool rql() { int q; long double r = __builtin_remquol(-9.5L, 4.0L, &q); return r == -1.5L && q == -2; }
+static_assert(rql());
+constexpr bool neg0() { int q; double r = __builtin_remquo(-6.0, 3.0, &q); return __builtin_signbit(r) && r == 0.0 && q == -2; }
+static_assert(neg0());
+constexpr double big() { int q; return __builtin_remquo(1000.0, 3.0, &q); }
+constexpr double b = big(); // expected-error {{must be initialized by a constant expression}}
+// expected-note@-2 {{subexpression not valid in a constant expression}}
+// expected-note@-2 {{in call to}}
+constexpr double d0() { int q; return __builtin_remquo(1.0, 0.0, &q); }
+constexpr double c = d0(); // expected-error {{must be initialized by a constant expression}}
+// expected-note@-2 {{subexpression not valid in a constant expression}}
+// expected-note@-2 {{in call to}}
