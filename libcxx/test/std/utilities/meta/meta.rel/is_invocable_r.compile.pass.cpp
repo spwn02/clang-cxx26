@@ -12,6 +12,8 @@
 
 #include <type_traits>
 
+#include "test_macros.h"
+
 // Non-invocable types
 
 static_assert(!std::is_invocable_r<void, void>::value);
@@ -55,10 +57,20 @@ static_assert(std::is_invocable_r<const volatile void, decltype(Return<int>)>::v
 static_assert(std::is_invocable_r<char, decltype(Return<int>)>::value);
 static_assert(std::is_invocable_r<const int*, decltype(Return<int*>)>::value);
 static_assert(std::is_invocable_r<void*, decltype(Return<int*>)>::value);
+#if TEST_STD_VER >= 23
+// P2255R2: INVOKE<R> is ill-formed if the conversion would bind a reference to a temporary.
+static_assert(!std::is_invocable_r<const int&, decltype(Return<int>)>::value);
+#else
 static_assert(std::is_invocable_r<const int&, decltype(Return<int>)>::value);
+#endif
 static_assert(std::is_invocable_r<const int&, decltype(Return<int&>)>::value);
 static_assert(std::is_invocable_r<const int&, decltype(Return<int&&>)>::value);
+#if TEST_STD_VER >= 23
+// P2255R2: INVOKE<R> is ill-formed if the conversion would bind a reference to a temporary.
+static_assert(!std::is_invocable_r<const char&, decltype(Return<int>)>::value);
+#else
 static_assert(std::is_invocable_r<const char&, decltype(Return<int>)>::value);
+#endif
 
 // But not a result type where the conversion doesn't work.
 static_assert(!std::is_invocable_r<int, decltype(Return<void>)>::value);

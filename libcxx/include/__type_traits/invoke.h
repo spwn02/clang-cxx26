@@ -107,7 +107,14 @@ inline const bool __is_invocable_r_impl = false;
 
 template <class _Ret, class... _Args>
 inline const bool __is_invocable_r_impl<_Ret, true, _Args...> =
+#  if _LIBCPP_STD_VER >= 23
+    // P2255R2: INVOKE<R> is ill-formed if the conversion would bind a reference to a temporary.
+    (__is_core_convertible<__invoke_result_t<_Args...>, _Ret>::value &&
+     !__reference_converts_from_temporary(_Ret, __invoke_result_t<_Args...>)) ||
+    is_void<_Ret>::value;
+#  else
     __is_core_convertible<__invoke_result_t<_Args...>, _Ret>::value || is_void<_Ret>::value;
+#  endif
 
 template <class _Ret, class... _Args>
 inline const bool __is_invocable_r_v = __is_invocable_r_impl<_Ret, __is_invocable_v<_Args...>, _Args...>;

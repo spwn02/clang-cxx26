@@ -15,10 +15,8 @@
 //     noexcept(is_nothrow_invocable_r_v<R, F, Args...>);
 //
 // Make sure that we diagnose when std::invoke_r is used with a return type that
-// would yield a dangling reference to a temporary.
-
-// TODO: We currently can't diagnose because we don't implement reference_converts_from_temporary.
-// XFAIL: *
+// would yield a dangling reference to a temporary. Since P2255R2, INVOKE<R> is ill-formed in that
+// case, so is_invocable_r_v is false and invoke_r is not viable.
 
 #include <functional>
 #include <cassert>
@@ -27,5 +25,5 @@
 
 void f() {
     auto func = []() -> int { return 0; };
-    std::invoke_r<int&&>(func); // expected-error {{Returning from invoke_r would bind a temporary object}}
+    std::invoke_r<int&&>(func); // expected-error {{no matching function for call to 'invoke_r'}}
 }

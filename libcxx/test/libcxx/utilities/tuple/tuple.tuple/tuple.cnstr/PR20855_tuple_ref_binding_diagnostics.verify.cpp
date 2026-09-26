@@ -8,6 +8,8 @@
 
 // UNSUPPORTED: c++03
 
+// UNSUPPORTED: std-at-least-c++23
+
 // <tuple>
 
 // See https://llvm.org/PR20855
