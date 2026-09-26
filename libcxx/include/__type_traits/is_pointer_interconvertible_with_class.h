@@ -20,8 +20,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 20
 
-template <class _S, class _M>
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool is_pointer_interconvertible_with_class(_M _S::* __m) noexcept {
+template <class _Class, class _Member>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool is_pointer_interconvertible_with_class(_Member _Class::* __m) noexcept {
   return __builtin_is_pointer_interconvertible_with_class(__m);
 }
 

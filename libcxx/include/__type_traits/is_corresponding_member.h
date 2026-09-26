@@ -20,8 +20,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 20
 
-template <class _S1, class _S2, class _M1, class _M2>
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool is_corresponding_member(_M1 _S1::* __m1, _M2 _S2::* __m2) noexcept {
+template <class _Class1, class _Class2, class _Member1, class _Member2>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool is_corresponding_member(_Member1 _Class1::* __m1, _Member2 _Class2::* __m2) noexcept {
   return __builtin_is_corresponding_member(__m1, __m2);
 }
 
