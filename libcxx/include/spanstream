@@ -161,19 +161,19 @@ protected:
 
   _LIBCPP_HIDE_FROM_ABI pos_type
   seekoff(off_type __off, ios_base::seekdir __way, ios_base::openmode __which = ios_base::in | ios_base::out) override {
-    const bool __in  = (__which & ios_base::in) != 0;
-    const bool __out = (__which & ios_base::out) != 0;
-    if (__in == __out)
+    const bool __has_in  = (__which & ios_base::in) != 0;
+    const bool __has_out = (__which & ios_base::out) != 0;
+    if (__has_in == __has_out)
       // neither sequence selected, or both (only meaningful for seekpos, i.e. seeking from the beginning)
-      if (!__in || __way == ios_base::cur)
+      if (!__has_in || __way == ios_base::cur)
         return pos_type(off_type(-1));
-    if ((__in && !(__mode_ & ios_base::in)) || (__out && !(__mode_ & ios_base::out)))
+    if ((__has_in && !(__mode_ & ios_base::in)) || (__has_out && !(__mode_ & ios_base::out)))
       return pos_type(off_type(-1));
 
     // The sequences are positioned relative to their own beginning.
     off_type __base = 0;
     if (__way == ios_base::cur) {
-      __base = __out ? static_cast<off_type>(this->pptr() - this->pbase()) : static_cast<off_type>(this->gptr() - this->eback());
+      __base = __has_out ? static_cast<off_type>(this->pptr() - this->pbase()) : static_cast<off_type>(this->gptr() - this->eback());
     } else if (__way == ios_base::end) {
       if ((__mode_ & ios_base::out) && !(__mode_ & ios_base::in))
         __base = static_cast<off_type>(this->pptr() - this->pbase());
@@ -187,11 +187,11 @@ protected:
         static_cast<size_t>(__newoff) > __buf_.size())
       return pos_type(off_type(-1));
 
-    _CharT* __xnext = __out ? this->pptr() : this->gptr();
+    _CharT* __xnext = __has_out ? this->pptr() : this->gptr();
     if (__xnext == nullptr && __newoff != 0)
       return pos_type(off_type(-1));
 
-    if (__out) {
+    if (__has_out) {
       this->setp(this->pbase(), this->epptr());
       this->pbump(static_cast<int>(__newoff));
     } else {
