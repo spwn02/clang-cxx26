@@ -343,9 +343,16 @@ struct __tuple_like_ctor_traits<_UTuple, tuple<_Tp...>, index_sequence<_Is...>> 
       !__is_ranges_subrange_v<__remove_cvref_t<_UTuple>> && (sizeof...(_Tp) == tuple_size_v<__remove_cvref_t<_UTuple>>);
 };
 
+// pair and (as an extension) array have dedicated constructors and assignment operators; the tuple-like overloads
+// take everything else, and only after checking the arity.
 template <class _UTuple, class _Tuple, class _IndexSeq>
 concept __tuple_like_ctor_applicable =
-    __tuple_like_no_tuple<_UTuple> && __tuple_like_ctor_traits<_UTuple, _Tuple, _IndexSeq>::__applicable;
+    __tuple_like_no_tuple<__remove_cvref_t<_UTuple>> && !__is_pair_v<__remove_cvref_t<_UTuple>> &&
+    __tuple_like_ctor_traits<_UTuple, _Tuple, _IndexSeq>::__applicable;
+
+template <class _UTuple, class _Tuple, class _IndexSeq>
+concept __tuple_like_assign_applicable =
+    __tuple_like_ctor_applicable<_UTuple, _Tuple, _IndexSeq> && !__is_std_array_v<__remove_cvref_t<_UTuple>>;
 
 template <class _UTuple, size_t... _Is, class... _Tp>
 consteval bool __tuple_like_constructible(index_sequence<_Is...>, tuple<_Tp...>*) {
@@ -995,7 +1002,7 @@ public:
 
   // tuple-like assignment, P2165R4
   template <class _UTuple>
-    requires __tuple_like_ctor_applicable<_UTuple, tuple, index_sequence_for<_Tp...>> &&
+    requires __tuple_like_assign_applicable<_UTuple, tuple, index_sequence_for<_Tp...>> &&
              (std::__tuple_like_assignable<_UTuple>(index_sequence_for<_Tp...>{}, static_cast<tuple*>(nullptr)))
   _LIBCPP_HIDE_FROM_ABI constexpr tuple& operator=(_UTuple&& __u) {
     __assign_from_tuple_like(std::forward<_UTuple>(__u), index_sequence_for<_Tp...>{});
