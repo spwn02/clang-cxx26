@@ -55,3 +55,8 @@ constexpr bool modf_ok() {
   return ff == 0.5f && fi == 2.0f && lf == 0.75L && li == 0.0L;
 }
 static_assert(modf_ok());
+
+static_assert(__builtin_logb(8.0) == 3.0 && __builtin_logbf(0.1f) == -4.0f && __builtin_logbl(1e300L) == 996.0L);
+static_assert(__builtin_scalbln(1.0, 10L) == 1024.0 && __builtin_scalblnf(1.5f, -1L) == 0.75f);
+// logb of zero and infinity raise floating-point exceptions and are left to run time.
+constexpr double bad3 = __builtin_logb(0.0); // expected-error {{must be initialized by a constant expression}}

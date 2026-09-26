@@ -681,7 +681,12 @@ using ::log1p _LIBCPP_USING_IF_EXISTS;
 using ::log1pf _LIBCPP_USING_IF_EXISTS;
 using ::log2 _LIBCPP_USING_IF_EXISTS;
 using ::log2f _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::logb;
+_LIBCPP_HIDE_FROM_ABI constexpr double logb(double __x) _NOEXCEPT { return __builtin_logb(__x); }
+#  else
 using ::logb _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::logbf _LIBCPP_USING_IF_EXISTS;
 #  if _LIBCPP_STD_VER >= 23
 using __math::lrint;
@@ -751,7 +756,12 @@ using __math::round;
 using ::round _LIBCPP_USING_IF_EXISTS;
 #  endif
 using ::roundf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::scalbln;
+_LIBCPP_HIDE_FROM_ABI constexpr double scalbln(double __x, long __e) _NOEXCEPT { return __builtin_scalbln(__x, __e); }
+#  else
 using ::scalbln _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::scalblnf _LIBCPP_USING_IF_EXISTS;
 #  if _LIBCPP_STD_VER >= 23
 using __math::scalbn;

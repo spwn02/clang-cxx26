@@ -15,15 +15,7 @@
 // DEFAULT-NEXT:  [[ENTRY:.*:]]
 // DEFAULT-NEXT:    [[D1:%.*]] = alloca float, align 4, addrspace(5)
 // DEFAULT-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[D1]] to ptr
-// DEFAULT-NEXT:    [[TMP0:%.*]] = call { float, i32 } @llvm.frexp.f32.i32(float 0x40301999A0000000)
-// DEFAULT-NEXT:    [[TMP1:%.*]] = extractvalue { float, i32 } [[TMP0]], 1
-// DEFAULT-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// DEFAULT-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to float
-// DEFAULT-NEXT:    [[TMP4:%.*]] = call float @llvm.fabs.f32(float 0x40301999A0000000)
-// DEFAULT-NEXT:    [[TMP5:%.*]] = fcmp one float [[TMP4]], 0x7FF0000000000000
-// DEFAULT-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], float [[TMP3]], float [[TMP4]]
-// DEFAULT-NEXT:    [[TMP7:%.*]] = select i1 false, float 0xFFF0000000000000, float [[TMP6]]
-// DEFAULT-NEXT:    store float [[TMP7]], ptr [[D1_ASCAST]], align 4
+// DEFAULT-NEXT:    store float 4.000000e+00, ptr [[D1_ASCAST]], align 4
 // DEFAULT-NEXT:    ret void
 //
 // IGNORE-LABEL: define dso_local void @test_logbf(
@@ -31,15 +23,7 @@
 // IGNORE-NEXT:  [[ENTRY:.*:]]
 // IGNORE-NEXT:    [[D1:%.*]] = alloca float, align 4, addrspace(5)
 // IGNORE-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[D1]] to ptr
-// IGNORE-NEXT:    [[TMP0:%.*]] = call { float, i32 } @llvm.frexp.f32.i32(float 0x40301999A0000000)
-// IGNORE-NEXT:    [[TMP1:%.*]] = extractvalue { float, i32 } [[TMP0]], 1
-// IGNORE-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// IGNORE-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to float
-// IGNORE-NEXT:    [[TMP4:%.*]] = call float @llvm.fabs.f32(float 0x40301999A0000000)
-// IGNORE-NEXT:    [[TMP5:%.*]] = fcmp one float [[TMP4]], 0x7FF0000000000000
-// IGNORE-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], float [[TMP3]], float [[TMP4]]
-// IGNORE-NEXT:    [[TMP7:%.*]] = select i1 false, float 0xFFF0000000000000, float [[TMP6]]
-// IGNORE-NEXT:    store float [[TMP7]], ptr [[D1_ASCAST]], align 4
+// IGNORE-NEXT:    store float 4.000000e+00, ptr [[D1_ASCAST]], align 4
 // IGNORE-NEXT:    ret void
 //
 // STRICT-LABEL: define dso_local void @test_logbf(
@@ -47,15 +31,7 @@
 // STRICT-NEXT:  [[ENTRY:.*:]]
 // STRICT-NEXT:    [[D1:%.*]] = alloca float, align 4, addrspace(5)
 // STRICT-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[D1]] to ptr
-// STRICT-NEXT:    [[TMP0:%.*]] = call { float, i32 } @llvm.frexp.f32.i32(float 0x40301999A0000000)
-// STRICT-NEXT:    [[TMP1:%.*]] = extractvalue { float, i32 } [[TMP0]], 1
-// STRICT-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// STRICT-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to float
-// STRICT-NEXT:    [[TMP4:%.*]] = call float @llvm.fabs.f32(float 0x40301999A0000000)
-// STRICT-NEXT:    [[TMP5:%.*]] = fcmp one float [[TMP4]], 0x7FF0000000000000
-// STRICT-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], float [[TMP3]], float [[TMP4]]
-// STRICT-NEXT:    [[TMP7:%.*]] = select i1 false, float 0xFFF0000000000000, float [[TMP6]]
-// STRICT-NEXT:    store float [[TMP7]], ptr [[D1_ASCAST]], align 4
+// STRICT-NEXT:    store float 4.000000e+00, ptr [[D1_ASCAST]], align 4
 // STRICT-NEXT:    ret void
 //
 // MAYTRAP-LABEL: define dso_local void @test_logbf(
@@ -63,15 +39,7 @@
 // MAYTRAP-NEXT:  [[ENTRY:.*:]]
 // MAYTRAP-NEXT:    [[D1:%.*]] = alloca float, align 4, addrspace(5)
 // MAYTRAP-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[D1]] to ptr
-// MAYTRAP-NEXT:    [[TMP0:%.*]] = call { float, i32 } @llvm.frexp.f32.i32(float 0x40301999A0000000)
-// MAYTRAP-NEXT:    [[TMP1:%.*]] = extractvalue { float, i32 } [[TMP0]], 1
-// MAYTRAP-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// MAYTRAP-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to float
-// MAYTRAP-NEXT:    [[TMP4:%.*]] = call float @llvm.fabs.f32(float 0x40301999A0000000)
-// MAYTRAP-NEXT:    [[TMP5:%.*]] = fcmp one float [[TMP4]], 0x7FF0000000000000
-// MAYTRAP-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], float [[TMP3]], float [[TMP4]]
-// MAYTRAP-NEXT:    [[TMP7:%.*]] = select i1 false, float 0xFFF0000000000000, float [[TMP6]]
-// MAYTRAP-NEXT:    store float [[TMP7]], ptr [[D1_ASCAST]], align 4
+// MAYTRAP-NEXT:    store float 4.000000e+00, ptr [[D1_ASCAST]], align 4
 // MAYTRAP-NEXT:    ret void
 //
 // ERRNO-LABEL: define dso_local void @test_logbf(
@@ -79,8 +47,7 @@
 // ERRNO-NEXT:  [[ENTRY:.*:]]
 // ERRNO-NEXT:    [[D1:%.*]] = alloca float, align 4, addrspace(5)
 // ERRNO-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[D1]] to ptr
-// ERRNO-NEXT:    [[CALL:%.*]] = call float @logbf(float noundef 0x40301999A0000000) #[[ATTR2:[0-9]+]]
-// ERRNO-NEXT:    store float [[CALL]], ptr [[D1_ASCAST]], align 4
+// ERRNO-NEXT:    store float 4.000000e+00, ptr [[D1_ASCAST]], align 4
 // ERRNO-NEXT:    ret void
 //
 // AMDGCNSPIRV-DEFAULT-LABEL: define spir_func void @test_logbf(
@@ -88,15 +55,7 @@
 // AMDGCNSPIRV-DEFAULT-NEXT:  [[ENTRY:.*:]]
 // AMDGCNSPIRV-DEFAULT-NEXT:    [[D1:%.*]] = alloca float, align 4
 // AMDGCNSPIRV-DEFAULT-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr [[D1]] to ptr addrspace(4)
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP0:%.*]] = call addrspace(4) { float, i32 } @llvm.frexp.f32.i32(float 0x40301999A0000000)
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP1:%.*]] = extractvalue { float, i32 } [[TMP0]], 1
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to float
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP4:%.*]] = call addrspace(4) float @llvm.fabs.f32(float 0x40301999A0000000)
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP5:%.*]] = fcmp one float [[TMP4]], 0x7FF0000000000000
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], float [[TMP3]], float [[TMP4]]
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP7:%.*]] = select i1 false, float 0xFFF0000000000000, float [[TMP6]]
-// AMDGCNSPIRV-DEFAULT-NEXT:    store float [[TMP7]], ptr addrspace(4) [[D1_ASCAST]], align 4
+// AMDGCNSPIRV-DEFAULT-NEXT:    store float 4.000000e+00, ptr addrspace(4) [[D1_ASCAST]], align 4
 // AMDGCNSPIRV-DEFAULT-NEXT:    ret void
 //
 // AMDGCNSPIRV-IGNORE-LABEL: define spir_func void @test_logbf(
@@ -104,15 +63,7 @@
 // AMDGCNSPIRV-IGNORE-NEXT:  [[ENTRY:.*:]]
 // AMDGCNSPIRV-IGNORE-NEXT:    [[D1:%.*]] = alloca float, align 4
 // AMDGCNSPIRV-IGNORE-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr [[D1]] to ptr addrspace(4)
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP0:%.*]] = call addrspace(4) { float, i32 } @llvm.frexp.f32.i32(float 0x40301999A0000000)
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP1:%.*]] = extractvalue { float, i32 } [[TMP0]], 1
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to float
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP4:%.*]] = call addrspace(4) float @llvm.fabs.f32(float 0x40301999A0000000)
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP5:%.*]] = fcmp one float [[TMP4]], 0x7FF0000000000000
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], float [[TMP3]], float [[TMP4]]
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP7:%.*]] = select i1 false, float 0xFFF0000000000000, float [[TMP6]]
-// AMDGCNSPIRV-IGNORE-NEXT:    store float [[TMP7]], ptr addrspace(4) [[D1_ASCAST]], align 4
+// AMDGCNSPIRV-IGNORE-NEXT:    store float 4.000000e+00, ptr addrspace(4) [[D1_ASCAST]], align 4
 // AMDGCNSPIRV-IGNORE-NEXT:    ret void
 //
 // AMDGCNSPIRV-STRICT-LABEL: define spir_func void @test_logbf(
@@ -120,15 +71,7 @@
 // AMDGCNSPIRV-STRICT-NEXT:  [[ENTRY:.*:]]
 // AMDGCNSPIRV-STRICT-NEXT:    [[D1:%.*]] = alloca float, align 4
 // AMDGCNSPIRV-STRICT-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr [[D1]] to ptr addrspace(4)
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP0:%.*]] = call addrspace(4) { float, i32 } @llvm.frexp.f32.i32(float 0x40301999A0000000)
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP1:%.*]] = extractvalue { float, i32 } [[TMP0]], 1
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to float
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP4:%.*]] = call addrspace(4) float @llvm.fabs.f32(float 0x40301999A0000000)
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP5:%.*]] = fcmp one float [[TMP4]], 0x7FF0000000000000
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], float [[TMP3]], float [[TMP4]]
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP7:%.*]] = select i1 false, float 0xFFF0000000000000, float [[TMP6]]
-// AMDGCNSPIRV-STRICT-NEXT:    store float [[TMP7]], ptr addrspace(4) [[D1_ASCAST]], align 4
+// AMDGCNSPIRV-STRICT-NEXT:    store float 4.000000e+00, ptr addrspace(4) [[D1_ASCAST]], align 4
 // AMDGCNSPIRV-STRICT-NEXT:    ret void
 //
 // AMDGCNSPIRV-MAYTRAP-LABEL: define spir_func void @test_logbf(
@@ -136,15 +79,7 @@
 // AMDGCNSPIRV-MAYTRAP-NEXT:  [[ENTRY:.*:]]
 // AMDGCNSPIRV-MAYTRAP-NEXT:    [[D1:%.*]] = alloca float, align 4
 // AMDGCNSPIRV-MAYTRAP-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr [[D1]] to ptr addrspace(4)
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP0:%.*]] = call addrspace(4) { float, i32 } @llvm.frexp.f32.i32(float 0x40301999A0000000)
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP1:%.*]] = extractvalue { float, i32 } [[TMP0]], 1
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to float
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP4:%.*]] = call addrspace(4) float @llvm.fabs.f32(float 0x40301999A0000000)
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP5:%.*]] = fcmp one float [[TMP4]], 0x7FF0000000000000
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], float [[TMP3]], float [[TMP4]]
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP7:%.*]] = select i1 false, float 0xFFF0000000000000, float [[TMP6]]
-// AMDGCNSPIRV-MAYTRAP-NEXT:    store float [[TMP7]], ptr addrspace(4) [[D1_ASCAST]], align 4
+// AMDGCNSPIRV-MAYTRAP-NEXT:    store float 4.000000e+00, ptr addrspace(4) [[D1_ASCAST]], align 4
 // AMDGCNSPIRV-MAYTRAP-NEXT:    ret void
 //
 // AMDGCNSPIRV-ERRNO-LABEL: define spir_func void @test_logbf(
@@ -152,8 +87,7 @@
 // AMDGCNSPIRV-ERRNO-NEXT:  [[ENTRY:.*:]]
 // AMDGCNSPIRV-ERRNO-NEXT:    [[D1:%.*]] = alloca float, align 4
 // AMDGCNSPIRV-ERRNO-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr [[D1]] to ptr addrspace(4)
-// AMDGCNSPIRV-ERRNO-NEXT:    [[CALL:%.*]] = call spir_func addrspace(4) float @logbf(float noundef 0x40301999A0000000) #[[ATTR2:[0-9]+]]
-// AMDGCNSPIRV-ERRNO-NEXT:    store float [[CALL]], ptr addrspace(4) [[D1_ASCAST]], align 4
+// AMDGCNSPIRV-ERRNO-NEXT:    store float 4.000000e+00, ptr addrspace(4) [[D1_ASCAST]], align 4
 // AMDGCNSPIRV-ERRNO-NEXT:    ret void
 //
 void test_logbf() {
@@ -256,7 +190,7 @@ void test_logbf() {
 // ERRNO-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[D1]] to ptr
 // ERRNO-NEXT:    store float [[A]], ptr [[A_ADDR_ASCAST]], align 4
 // ERRNO-NEXT:    [[TMP0:%.*]] = load float, ptr [[A_ADDR_ASCAST]], align 4
-// ERRNO-NEXT:    [[CALL:%.*]] = call float @logbf(float noundef [[TMP0]]) #[[ATTR2]]
+// ERRNO-NEXT:    [[CALL:%.*]] = call float @logbf(float noundef [[TMP0]]) #[[ATTR2:[0-9]+]]
 // ERRNO-NEXT:    store float [[CALL]], ptr [[D1_ASCAST]], align 4
 // ERRNO-NEXT:    ret void
 //
@@ -357,7 +291,7 @@ void test_logbf() {
 // AMDGCNSPIRV-ERRNO-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr [[D1]] to ptr addrspace(4)
 // AMDGCNSPIRV-ERRNO-NEXT:    store float [[A]], ptr addrspace(4) [[A_ADDR_ASCAST]], align 4
 // AMDGCNSPIRV-ERRNO-NEXT:    [[TMP0:%.*]] = load float, ptr addrspace(4) [[A_ADDR_ASCAST]], align 4
-// AMDGCNSPIRV-ERRNO-NEXT:    [[CALL:%.*]] = call spir_func addrspace(4) float @logbf(float noundef [[TMP0]]) #[[ATTR2]]
+// AMDGCNSPIRV-ERRNO-NEXT:    [[CALL:%.*]] = call spir_func addrspace(4) float @logbf(float noundef [[TMP0]]) #[[ATTR2:[0-9]+]]
 // AMDGCNSPIRV-ERRNO-NEXT:    store float [[CALL]], ptr addrspace(4) [[D1_ASCAST]], align 4
 // AMDGCNSPIRV-ERRNO-NEXT:    ret void
 //
@@ -384,15 +318,7 @@ void test_logbf_var(float a) {
 // DEFAULT-NEXT:  [[ENTRY:.*:]]
 // DEFAULT-NEXT:    [[D1:%.*]] = alloca double, align 8, addrspace(5)
 // DEFAULT-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[D1]] to ptr
-// DEFAULT-NEXT:    [[TMP0:%.*]] = call { double, i32 } @llvm.frexp.f64.i32(double 1.510000e+01)
-// DEFAULT-NEXT:    [[TMP1:%.*]] = extractvalue { double, i32 } [[TMP0]], 1
-// DEFAULT-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// DEFAULT-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to double
-// DEFAULT-NEXT:    [[TMP4:%.*]] = call double @llvm.fabs.f64(double 1.510000e+01)
-// DEFAULT-NEXT:    [[TMP5:%.*]] = fcmp one double [[TMP4]], 0x7FF0000000000000
-// DEFAULT-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], double [[TMP3]], double [[TMP4]]
-// DEFAULT-NEXT:    [[TMP7:%.*]] = select i1 false, double 0xFFF0000000000000, double [[TMP6]]
-// DEFAULT-NEXT:    store double [[TMP7]], ptr [[D1_ASCAST]], align 8
+// DEFAULT-NEXT:    store double 3.000000e+00, ptr [[D1_ASCAST]], align 8
 // DEFAULT-NEXT:    ret void
 //
 // IGNORE-LABEL: define dso_local void @test_logb(
@@ -400,15 +326,7 @@ void test_logbf_var(float a) {
 // IGNORE-NEXT:  [[ENTRY:.*:]]
 // IGNORE-NEXT:    [[D1:%.*]] = alloca double, align 8, addrspace(5)
 // IGNORE-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[D1]] to ptr
-// IGNORE-NEXT:    [[TMP0:%.*]] = call { double, i32 } @llvm.frexp.f64.i32(double 1.510000e+01)
-// IGNORE-NEXT:    [[TMP1:%.*]] = extractvalue { double, i32 } [[TMP0]], 1
-// IGNORE-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// IGNORE-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to double
-// IGNORE-NEXT:    [[TMP4:%.*]] = call double @llvm.fabs.f64(double 1.510000e+01)
-// IGNORE-NEXT:    [[TMP5:%.*]] = fcmp one double [[TMP4]], 0x7FF0000000000000
-// IGNORE-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], double [[TMP3]], double [[TMP4]]
-// IGNORE-NEXT:    [[TMP7:%.*]] = select i1 false, double 0xFFF0000000000000, double [[TMP6]]
-// IGNORE-NEXT:    store double [[TMP7]], ptr [[D1_ASCAST]], align 8
+// IGNORE-NEXT:    store double 3.000000e+00, ptr [[D1_ASCAST]], align 8
 // IGNORE-NEXT:    ret void
 //
 // STRICT-LABEL: define dso_local void @test_logb(
@@ -416,15 +334,7 @@ void test_logbf_var(float a) {
 // STRICT-NEXT:  [[ENTRY:.*:]]
 // STRICT-NEXT:    [[D1:%.*]] = alloca double, align 8, addrspace(5)
 // STRICT-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[D1]] to ptr
-// STRICT-NEXT:    [[TMP0:%.*]] = call { double, i32 } @llvm.frexp.f64.i32(double 1.510000e+01)
-// STRICT-NEXT:    [[TMP1:%.*]] = extractvalue { double, i32 } [[TMP0]], 1
-// STRICT-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// STRICT-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to double
-// STRICT-NEXT:    [[TMP4:%.*]] = call double @llvm.fabs.f64(double 1.510000e+01)
-// STRICT-NEXT:    [[TMP5:%.*]] = fcmp one double [[TMP4]], 0x7FF0000000000000
-// STRICT-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], double [[TMP3]], double [[TMP4]]
-// STRICT-NEXT:    [[TMP7:%.*]] = select i1 false, double 0xFFF0000000000000, double [[TMP6]]
-// STRICT-NEXT:    store double [[TMP7]], ptr [[D1_ASCAST]], align 8
+// STRICT-NEXT:    store double 3.000000e+00, ptr [[D1_ASCAST]], align 8
 // STRICT-NEXT:    ret void
 //
 // MAYTRAP-LABEL: define dso_local void @test_logb(
@@ -432,15 +342,7 @@ void test_logbf_var(float a) {
 // MAYTRAP-NEXT:  [[ENTRY:.*:]]
 // MAYTRAP-NEXT:    [[D1:%.*]] = alloca double, align 8, addrspace(5)
 // MAYTRAP-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[D1]] to ptr
-// MAYTRAP-NEXT:    [[TMP0:%.*]] = call { double, i32 } @llvm.frexp.f64.i32(double 1.510000e+01)
-// MAYTRAP-NEXT:    [[TMP1:%.*]] = extractvalue { double, i32 } [[TMP0]], 1
-// MAYTRAP-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// MAYTRAP-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to double
-// MAYTRAP-NEXT:    [[TMP4:%.*]] = call double @llvm.fabs.f64(double 1.510000e+01)
-// MAYTRAP-NEXT:    [[TMP5:%.*]] = fcmp one double [[TMP4]], 0x7FF0000000000000
-// MAYTRAP-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], double [[TMP3]], double [[TMP4]]
-// MAYTRAP-NEXT:    [[TMP7:%.*]] = select i1 false, double 0xFFF0000000000000, double [[TMP6]]
-// MAYTRAP-NEXT:    store double [[TMP7]], ptr [[D1_ASCAST]], align 8
+// MAYTRAP-NEXT:    store double 3.000000e+00, ptr [[D1_ASCAST]], align 8
 // MAYTRAP-NEXT:    ret void
 //
 // ERRNO-LABEL: define dso_local void @test_logb(
@@ -448,8 +350,7 @@ void test_logbf_var(float a) {
 // ERRNO-NEXT:  [[ENTRY:.*:]]
 // ERRNO-NEXT:    [[D1:%.*]] = alloca double, align 8, addrspace(5)
 // ERRNO-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[D1]] to ptr
-// ERRNO-NEXT:    [[CALL:%.*]] = call double @logb(double noundef 1.510000e+01) #[[ATTR2]]
-// ERRNO-NEXT:    store double [[CALL]], ptr [[D1_ASCAST]], align 8
+// ERRNO-NEXT:    store double 3.000000e+00, ptr [[D1_ASCAST]], align 8
 // ERRNO-NEXT:    ret void
 //
 // AMDGCNSPIRV-DEFAULT-LABEL: define spir_func void @test_logb(
@@ -457,15 +358,7 @@ void test_logbf_var(float a) {
 // AMDGCNSPIRV-DEFAULT-NEXT:  [[ENTRY:.*:]]
 // AMDGCNSPIRV-DEFAULT-NEXT:    [[D1:%.*]] = alloca double, align 8
 // AMDGCNSPIRV-DEFAULT-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr [[D1]] to ptr addrspace(4)
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP0:%.*]] = call addrspace(4) { double, i32 } @llvm.frexp.f64.i32(double 1.510000e+01)
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP1:%.*]] = extractvalue { double, i32 } [[TMP0]], 1
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to double
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP4:%.*]] = call addrspace(4) double @llvm.fabs.f64(double 1.510000e+01)
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP5:%.*]] = fcmp one double [[TMP4]], 0x7FF0000000000000
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], double [[TMP3]], double [[TMP4]]
-// AMDGCNSPIRV-DEFAULT-NEXT:    [[TMP7:%.*]] = select i1 false, double 0xFFF0000000000000, double [[TMP6]]
-// AMDGCNSPIRV-DEFAULT-NEXT:    store double [[TMP7]], ptr addrspace(4) [[D1_ASCAST]], align 8
+// AMDGCNSPIRV-DEFAULT-NEXT:    store double 3.000000e+00, ptr addrspace(4) [[D1_ASCAST]], align 8
 // AMDGCNSPIRV-DEFAULT-NEXT:    ret void
 //
 // AMDGCNSPIRV-IGNORE-LABEL: define spir_func void @test_logb(
@@ -473,15 +366,7 @@ void test_logbf_var(float a) {
 // AMDGCNSPIRV-IGNORE-NEXT:  [[ENTRY:.*:]]
 // AMDGCNSPIRV-IGNORE-NEXT:    [[D1:%.*]] = alloca double, align 8
 // AMDGCNSPIRV-IGNORE-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr [[D1]] to ptr addrspace(4)
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP0:%.*]] = call addrspace(4) { double, i32 } @llvm.frexp.f64.i32(double 1.510000e+01)
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP1:%.*]] = extractvalue { double, i32 } [[TMP0]], 1
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to double
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP4:%.*]] = call addrspace(4) double @llvm.fabs.f64(double 1.510000e+01)
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP5:%.*]] = fcmp one double [[TMP4]], 0x7FF0000000000000
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], double [[TMP3]], double [[TMP4]]
-// AMDGCNSPIRV-IGNORE-NEXT:    [[TMP7:%.*]] = select i1 false, double 0xFFF0000000000000, double [[TMP6]]
-// AMDGCNSPIRV-IGNORE-NEXT:    store double [[TMP7]], ptr addrspace(4) [[D1_ASCAST]], align 8
+// AMDGCNSPIRV-IGNORE-NEXT:    store double 3.000000e+00, ptr addrspace(4) [[D1_ASCAST]], align 8
 // AMDGCNSPIRV-IGNORE-NEXT:    ret void
 //
 // AMDGCNSPIRV-STRICT-LABEL: define spir_func void @test_logb(
@@ -489,15 +374,7 @@ void test_logbf_var(float a) {
 // AMDGCNSPIRV-STRICT-NEXT:  [[ENTRY:.*:]]
 // AMDGCNSPIRV-STRICT-NEXT:    [[D1:%.*]] = alloca double, align 8
 // AMDGCNSPIRV-STRICT-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr [[D1]] to ptr addrspace(4)
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP0:%.*]] = call addrspace(4) { double, i32 } @llvm.frexp.f64.i32(double 1.510000e+01)
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP1:%.*]] = extractvalue { double, i32 } [[TMP0]], 1
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to double
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP4:%.*]] = call addrspace(4) double @llvm.fabs.f64(double 1.510000e+01)
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP5:%.*]] = fcmp one double [[TMP4]], 0x7FF0000000000000
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], double [[TMP3]], double [[TMP4]]
-// AMDGCNSPIRV-STRICT-NEXT:    [[TMP7:%.*]] = select i1 false, double 0xFFF0000000000000, double [[TMP6]]
-// AMDGCNSPIRV-STRICT-NEXT:    store double [[TMP7]], ptr addrspace(4) [[D1_ASCAST]], align 8
+// AMDGCNSPIRV-STRICT-NEXT:    store double 3.000000e+00, ptr addrspace(4) [[D1_ASCAST]], align 8
 // AMDGCNSPIRV-STRICT-NEXT:    ret void
 //
 // AMDGCNSPIRV-MAYTRAP-LABEL: define spir_func void @test_logb(
@@ -505,15 +382,7 @@ void test_logbf_var(float a) {
 // AMDGCNSPIRV-MAYTRAP-NEXT:  [[ENTRY:.*:]]
 // AMDGCNSPIRV-MAYTRAP-NEXT:    [[D1:%.*]] = alloca double, align 8
 // AMDGCNSPIRV-MAYTRAP-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr [[D1]] to ptr addrspace(4)
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP0:%.*]] = call addrspace(4) { double, i32 } @llvm.frexp.f64.i32(double 1.510000e+01)
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP1:%.*]] = extractvalue { double, i32 } [[TMP0]], 1
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP2:%.*]] = add nsw i32 [[TMP1]], -1
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP3:%.*]] = sitofp i32 [[TMP2]] to double
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP4:%.*]] = call addrspace(4) double @llvm.fabs.f64(double 1.510000e+01)
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP5:%.*]] = fcmp one double [[TMP4]], 0x7FF0000000000000
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP6:%.*]] = select i1 [[TMP5]], double [[TMP3]], double [[TMP4]]
-// AMDGCNSPIRV-MAYTRAP-NEXT:    [[TMP7:%.*]] = select i1 false, double 0xFFF0000000000000, double [[TMP6]]
-// AMDGCNSPIRV-MAYTRAP-NEXT:    store double [[TMP7]], ptr addrspace(4) [[D1_ASCAST]], align 8
+// AMDGCNSPIRV-MAYTRAP-NEXT:    store double 3.000000e+00, ptr addrspace(4) [[D1_ASCAST]], align 8
 // AMDGCNSPIRV-MAYTRAP-NEXT:    ret void
 //
 // AMDGCNSPIRV-ERRNO-LABEL: define spir_func void @test_logb(
@@ -521,8 +390,7 @@ void test_logbf_var(float a) {
 // AMDGCNSPIRV-ERRNO-NEXT:  [[ENTRY:.*:]]
 // AMDGCNSPIRV-ERRNO-NEXT:    [[D1:%.*]] = alloca double, align 8
 // AMDGCNSPIRV-ERRNO-NEXT:    [[D1_ASCAST:%.*]] = addrspacecast ptr [[D1]] to ptr addrspace(4)
-// AMDGCNSPIRV-ERRNO-NEXT:    [[CALL:%.*]] = call spir_func addrspace(4) double @logb(double noundef 1.510000e+01) #[[ATTR2]]
-// AMDGCNSPIRV-ERRNO-NEXT:    store double [[CALL]], ptr addrspace(4) [[D1_ASCAST]], align 8
+// AMDGCNSPIRV-ERRNO-NEXT:    store double 3.000000e+00, ptr addrspace(4) [[D1_ASCAST]], align 8
 // AMDGCNSPIRV-ERRNO-NEXT:    ret void
 //
 void test_logb() {

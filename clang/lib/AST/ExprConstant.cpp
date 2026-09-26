@@ -20235,6 +20235,10 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   case Builtin::BI__builtin_ldexpf:
   case Builtin::BI__builtin_ldexpl:
   case Builtin::BI__builtin_ldexpf128:
+  case Builtin::BI__builtin_scalbln:
+  case Builtin::BI__builtin_scalblnf:
+  case Builtin::BI__builtin_scalblnl:
+  case Builtin::BI__builtin_scalblnf128:
   case Builtin::BI__builtin_scalbn:
   case Builtin::BI__builtin_scalbnf:
   case Builtin::BI__builtin_scalbnl:
@@ -20247,6 +20251,25 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
         Exp.isSigned() ? std::clamp<int64_t>(Exp.getSExtValue(), INT_MIN, INT_MAX)
                        : std::min<uint64_t>(Exp.getZExtValue(), INT_MAX));
     Result = scalbn(Result, N, getActiveRoundingMode(getEvalInfo(), E));
+    return true;
+  }
+
+  case Builtin::BI__builtin_logb:
+  case Builtin::BI__builtin_logbf:
+  case Builtin::BI__builtin_logbl:
+  case Builtin::BI__builtin_logbf128: {
+    if (!EvaluateFloat(E->getArg(0), Result, Info))
+      return false;
+    // logb of zero, infinity and NaN raises floating-point exceptions and is
+    // left to run time.
+    if (!Result.isFinite() || Result.isZero())
+      return Info.FFDiag(E), false;
+    APSInt Exp(APInt(64, static_cast<int64_t>(ilogb(Result)), true),
+               /*isUnsigned=*/false);
+    APFloat Out(Result.getSemantics());
+    (void)Out.convertFromAPInt(Exp, /*IsSigned=*/true,
+                               llvm::RoundingMode::NearestTiesToEven);
+    Result = Out;
     return true;
   }
 

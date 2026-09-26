@@ -44,10 +44,10 @@ template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
 
 // abs
 
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI inline float abs(float __x) _NOEXCEPT { return __builtin_fabsf(__x); }
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI inline double abs(double __x) _NOEXCEPT { return __builtin_fabs(__x); }
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 inline float abs(float __x) _NOEXCEPT { return __builtin_fabsf(__x); }
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 inline double abs(double __x) _NOEXCEPT { return __builtin_fabs(__x); }
 
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI inline long double abs(long double __x) _NOEXCEPT {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 inline long double abs(long double __x) _NOEXCEPT {
   return __builtin_fabsl(__x);
 }
 

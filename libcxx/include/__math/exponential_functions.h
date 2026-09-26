@@ -110,19 +110,19 @@ inline _LIBCPP_HIDE_FROM_ABI double expm1(_A1 __x) _NOEXCEPT {
 
 // scalbln
 
-inline _LIBCPP_HIDE_FROM_ABI float scalbln(float __x, long __y) _NOEXCEPT { return __builtin_scalblnf(__x, __y); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 float scalbln(float __x, long __y) _NOEXCEPT { return __builtin_scalblnf(__x, __y); }
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI double scalbln(double __x, long __y) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double scalbln(double __x, long __y) _NOEXCEPT {
   return __builtin_scalbln(__x, __y);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI long double scalbln(long double __x, long __y) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 long double scalbln(long double __x, long __y) _NOEXCEPT {
   return __builtin_scalblnl(__x, __y);
 }
 
 template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
-inline _LIBCPP_HIDE_FROM_ABI double scalbln(_A1 __x, long __y) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double scalbln(_A1 __x, long __y) _NOEXCEPT {
   return __builtin_scalbln((double)__x, __y);
 }
 

@@ -392,7 +392,7 @@ def Log2F16F128 : Builtin, F16F128MathTemplate {
 
 def LogbF128 : Builtin {
   let Spellings = ["__builtin_logbf128"];
-  let Attributes = [FunctionWithBuiltinPrefix, NoThrow, ConstIgnoringErrnoAndExceptions];
+  let Attributes = [FunctionWithBuiltinPrefix, NoThrow, ConstIgnoringErrnoAndExceptions, Constexpr];
   let Prototype = "__float128(__float128)";
 }
 
@@ -468,7 +468,7 @@ def RoundevenF16F128 : Builtin, F16F128MathTemplate {
 def ScanlblnF128 : Builtin {
   let Spellings = ["__builtin_scalblnf128"];
   let Attributes = [FunctionWithBuiltinPrefix, NoThrow,
-                    ConstIgnoringErrnoAndExceptions];
+                    ConstIgnoringErrnoAndExceptions, Constexpr];
   let Prototype = "__float128(__float128, long int)";
 }
 
@@ -4075,6 +4075,7 @@ def Logb : FPMathTemplate, LibBuiltin<"math.h"> {
   let Attributes = [NoThrow, ConstIgnoringErrnoAndExceptions];
   let Prototype = "T(T)";
   let AddBuiltinPrefixedAlias = 1;
+  let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
 }
 
 def Lrint : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4160,6 +4161,7 @@ def Scalbln : FPMathTemplate, LibBuiltin<"math.h"> {
   let Attributes = [NoThrow, ConstIgnoringErrnoAndExceptions];
   let Prototype = "T(T, long int)";
   let AddBuiltinPrefixedAlias = 1;
+  let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
 }
 
 def Scalbn : FPMathTemplate, LibBuiltin<"math.h"> {
