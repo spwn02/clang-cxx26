@@ -4922,6 +4922,16 @@ def Uninitialized : InheritableAttr {
   let Documentation = [UninitializedDocs];
 }
 
+// [dcl.attr.indet] (P2795R5): the object (or function parameter) keeps its
+// indeterminate value instead of being given an erroneous value.
+def Indeterminate : InheritableParamAttr {
+  let Spellings = [CXX11<"", "indeterminate", 202403>];
+  let Subjects = SubjectList<[LocalVar, ParmVar], ErrorDiag,
+                             "local variables and function parameters">;
+  let Documentation = [IndeterminateDocs];
+  let SimpleHandler = 1;
+}
+
 def LoaderUninitialized : Attr {
   let Spellings = [Clang<"loader_uninitialized">];
   let Subjects = SubjectList<[GlobalVar]>;

@@ -7193,6 +7193,32 @@ will be destroyed, so the element's destructor needs to be accessible.
   }];
 }
 
+def IndeterminateDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+The C++26 attribute ``[[indeterminate]]`` (P2795R5) can be applied to a
+block-scope variable definition or to a function parameter. It states that the
+object's value is *indeterminate* until it is initialized: reading it before
+initialization is undefined behavior, as it was before C++26, instead of the
+erroneous behavior that C++26 specifies for automatic variables without an
+initializer.
+
+For a function parameter the attribute has to appear on the first declaration of
+the function; a later declaration that adds it is ill-formed. The attribute takes
+no arguments.
+
+Clang treats ``[[indeterminate]]`` like ``[[clang::uninitialized]]`` for
+``-ftrivial-auto-var-init``: the variable is left uninitialized.
+
+.. code-block:: c++
+
+  void f() {
+    int buffer[256] [[indeterminate]]; // not zero/pattern initialized
+    fill(buffer);
+  }
+  }];
+}
+
 def UninitializedDocs : Documentation {
   let Category = DocCatVariable;
   let Content = [{

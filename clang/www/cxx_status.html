@@ -192,7 +192,8 @@ C++23, informally referred to as C++26.</p>
  <tr>
   <td>Erroneous behaviour for uninitialized reads</td>
   <td><a href="https://wg21.link/P2795R5">P2795R5</a></td>
-  <td class="none" align="center">No</td>
+  <td class="partial" align="center">Partial<br>(<tt>[[indeterminate]]</tt> is accepted; automatic variables are not
+  yet erroneously initialized by default, see <tt>docs/design/erroneous_behavior_p2795.md</tt> in the fork)</td>
  </tr>
  <tr>
   <td><tt>= delete("should have a reason");</tt></td>

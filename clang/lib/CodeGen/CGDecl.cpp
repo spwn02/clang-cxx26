@@ -1992,6 +1992,7 @@ void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
   // Note: constexpr already initializes everything correctly.
   LangOptions::TrivialAutoVarInitKind trivialAutoVarInit =
       ((D.isConstexpr() || D.getAttr<UninitializedAttr>() ||
+        D.hasAttr<IndeterminateAttr>() ||
         hasNoTrivialAutoVarInitAttr(type->getAsTagDecl()) ||
         hasNoTrivialAutoVarInitAttr(CurFuncDecl))
            ? LangOptions::TrivialAutoVarInitKind::Uninitialized

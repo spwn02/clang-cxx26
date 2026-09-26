@@ -6479,6 +6479,11 @@ def warn_undefined_inline : Warning<"inline function %q0 is not defined">,
 def err_undefined_inline_var : Error<"inline variable %q0 is not defined">;
 def note_used_here : Note<"used here">;
 
+def err_indeterminate_not_on_first_decl : Error<
+  "'indeterminate' attribute on a function parameter must appear on the first "
+  "declaration of the function">;
+def note_indeterminate_first_decl : Note<
+  "first declaration of the parameter is here">;
 def err_attribute_missing_on_first_decl : Error<
   "%0 attribute does not appear on the first declaration">;
 def warn_internal_linkage_local_storage : Warning<

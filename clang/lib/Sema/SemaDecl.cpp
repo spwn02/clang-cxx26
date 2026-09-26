@@ -3433,6 +3433,18 @@ static void mergeParamDeclAttributes(ParmVarDecl *newDecl,
            diag::note_carries_dependency_missing_first_decl) << 1/*Param*/;
   }
 
+  // [dcl.attr.indet]p1 (P2795R5): if a function parameter is declared with
+  // the indeterminate attribute, it shall be so declared in the first
+  // declaration of its function.
+  if (const auto *IA = newDecl->getAttr<IndeterminateAttr>();
+      IA && !oldDecl->hasAttr<IndeterminateAttr>()) {
+    S.Diag(IA->getLocation(), diag::err_indeterminate_not_on_first_decl);
+    const FunctionDecl *FirstFD =
+        cast<FunctionDecl>(oldDecl->getDeclContext())->getFirstDecl();
+    S.Diag(FirstFD->getParamDecl(oldDecl->getFunctionScopeIndex())->getLocation(),
+           diag::note_indeterminate_first_decl);
+  }
+
   propagateAttributes(
       newDecl, oldDecl, [&S](ParmVarDecl *To, const ParmVarDecl *From) {
         unsigned found = 0;
