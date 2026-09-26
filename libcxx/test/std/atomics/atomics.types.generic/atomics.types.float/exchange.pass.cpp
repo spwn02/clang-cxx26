@@ -25,8 +25,7 @@ concept HasVolatileExchange = requires(volatile std::atomic<T>& a, T t) { a.exch
 
 template <class T, template <class> class MaybeVolatile = std::type_identity_t>
 void test_impl() {
-  // Uncomment the test after P1831R1 is implemented
-  // static_assert(HasVolatileExchange<T> == std::atomic<T>::is_always_lock_free);
+  static_assert(HasVolatileExchange<T> == std::atomic<T>::is_always_lock_free);
   static_assert(noexcept(std::declval<MaybeVolatile<std::atomic<T>>&>() = (T(0))));
 
   // exchange

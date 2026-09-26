@@ -36,8 +36,7 @@ concept HasNoexceptCompareExchangeWeak = requires(MaybeVolatile<std::atomic<T>>&
 
 template <class T, template <class> class MaybeVolatile = std::type_identity_t, class... MemoryOrder>
 void testBasic(MemoryOrder... memory_order) {
-  // Uncomment the test after P1831R1 is implemented
-  // static_assert(HasVolatileCompareExchangeWeak<T, MemoryOrder...> == std::atomic<T>::is_always_lock_free);
+  static_assert(HasVolatileCompareExchangeWeak<T, MemoryOrder...> == std::atomic<T>::is_always_lock_free);
   static_assert(HasNoexceptCompareExchangeWeak<T, MaybeVolatile, MemoryOrder...>);
 
   // compare pass

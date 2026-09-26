@@ -34,8 +34,7 @@ concept HasVolatileLoad = requires(volatile std::atomic<T>& a, T t) { a.load(); 
 
 template <class T, template <class> class MaybeVolatile = std::type_identity_t>
 void test_impl() {
-  // Uncomment the test after P1831R1 is implemented
-  // static_assert(HasVolatileLoad<T> == std::atomic<T>::is_always_lock_free);
+  static_assert(HasVolatileLoad<T> == std::atomic<T>::is_always_lock_free);
   static_assert(noexcept(std::declval<MaybeVolatile<std::atomic<T>>&>().load()));
 
   // load

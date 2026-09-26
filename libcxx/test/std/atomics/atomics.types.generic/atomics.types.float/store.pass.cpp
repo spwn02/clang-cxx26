@@ -32,8 +32,7 @@ concept HasVolatileStore = requires(volatile std::atomic<T>& a, T t) { a.store(t
 
 template <class T, template <class> class MaybeVolatile = std::type_identity_t>
 void test_impl() {
-  // Uncomment the test after P1831R1 is implemented
-  // static_assert(HasVolatileStore<T> == std::atomic<T>::is_always_lock_free);
+  static_assert(HasVolatileStore<T> == std::atomic<T>::is_always_lock_free);
   static_assert(noexcept(std::declval<MaybeVolatile<std::atomic<T>>&>().store(T(0))));
 
   // store

@@ -22,8 +22,7 @@
 
 template <class T, template <class> class MaybeVolatile = std::type_identity_t>
 void test_impl() {
-  // Uncomment the test after P1831R1 is implemented
-  // static_assert(std::is_convertible_v<volatile std::atomic<T>&, T> == std::atomic<T>::is_always_lock_free);
+  static_assert(std::is_convertible_v<volatile std::atomic<T>&, T> == std::atomic<T>::is_always_lock_free);
   static_assert(noexcept(T(std::declval<MaybeVolatile<std::atomic<T>>&>())));
 
   // operator float

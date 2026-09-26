@@ -27,8 +27,7 @@ concept HasVolatileNotifyAll = requires(volatile std::atomic<T>& a, T t) { a.not
 
 template <class T, template <class> class MaybeVolatile = std::type_identity_t>
 void test_impl() {
-  // Uncomment the test after P1831R1 is implemented
-  // static_assert(HasVolatileNotifyAll<T> == std::atomic<T>::is_always_lock_free);
+  static_assert(HasVolatileNotifyAll<T> == std::atomic<T>::is_always_lock_free);
   static_assert(noexcept(std::declval<MaybeVolatile<std::atomic<T>>&>().notify_all()));
 
   // bug?? wait can also fail for long double ??
