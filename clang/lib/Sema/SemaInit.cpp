@@ -10317,6 +10317,12 @@ QualType Sema::DeduceTemplateSpecializationFromInitializer(
       }
     };
 
+    // Modules that each declare (or, for the implicit guides, each synthesize)
+    // the deduction guides of the same class template are not merged when they
+    // are imported, so the same guide can show up once per module. Only one of
+    // them may take part in overload resolution.
+    SmallVector<FunctionTemplateDecl *, 4> ImportedGuides;
+
     for (auto I = Guides.begin(), E = Guides.end(); I != E; ++I) {
       NamedDecl *D = (*I)->getUnderlyingDecl();
       if (D->isInvalidDecl())
@@ -10327,6 +10333,36 @@ QualType Sema::DeduceTemplateSpecializationFromInitializer(
           TD ? TD->getTemplatedDecl() : dyn_cast<FunctionDecl>(D));
       if (!GD)
         continue;
+
+      if (TD && TD->isFromASTFile()) {
+        // The guides of different modules are named after their own copy of
+        // the class template, so this cannot go through isSameEntity.
+        auto IsSameGuide = [&](FunctionTemplateDecl *Prev) {
+          auto *PrevGD = cast<CXXDeductionGuideDecl>(Prev->getTemplatedDecl());
+          if (Context.isInSameModule(TD->getOwningModule(),
+                                     Prev->getOwningModule()))
+            return false;
+          ExplicitSpecifier ExplicitA = GD->getExplicitSpecifier();
+          ExplicitSpecifier ExplicitB = PrevGD->getExplicitSpecifier();
+          if (ExplicitA.getKind() == ExplicitSpecKind::Unresolved ||
+              ExplicitA.getKind() != ExplicitB.getKind())
+            return false;
+          if (GD->getTrailingRequiresClause() ||
+              PrevGD->getTrailingRequiresClause())
+            if (!Context.isSameConstraintExpr(
+                    GD->getTrailingRequiresClause().ConstraintExpr,
+                    PrevGD->getTrailingRequiresClause().ConstraintExpr))
+              return false;
+          return Context.isSameTemplateParameterList(
+                     TD->getTemplateParameters(),
+                     Prev->getTemplateParameters()) &&
+                 Context.getCanonicalType(GD->getType()) ==
+                     Context.getCanonicalType(PrevGD->getType());
+        };
+        if (llvm::any_of(ImportedGuides, IsSameGuide))
+          continue;
+        ImportedGuides.push_back(TD);
+      }
 
       if (!GD->isImplicit())
         HasAnyDeductionGuide = true;
