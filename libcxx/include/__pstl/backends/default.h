@@ -49,6 +49,11 @@
 #include <__iterator/concepts.h>
 #include <__iterator/iterator_traits.h>
 #include <__iterator/reverse_iterator.h>
+#include <__numeric/adjacent_difference.h>
+#include <__numeric/exclusive_scan.h>
+#include <__numeric/inclusive_scan.h>
+#include <__numeric/transform_exclusive_scan.h>
+#include <__numeric/transform_inclusive_scan.h>
 #include <__pstl/backend_fwd.h>
 #include <__pstl/dispatch.h>
 #include <__utility/empty.h>
@@ -1058,6 +1063,76 @@ struct __includes<__default_backend_tag, _ExecutionPolicy> {
     return std::includes(
         std::move(__first1), std::move(__last1), std::move(__first2), std::move(__last2),
         std::forward<_Compare>(__comp));
+  }
+};
+
+// The numeric scans have no parallel backend yet: the default implementation runs the serial algorithm.
+template <class _ExecutionPolicy>
+struct __inclusive_scan_op<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryOperation>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _BinaryOperation __op) const noexcept {
+    return std::inclusive_scan(std::move(__first), std::move(__last), std::move(__out), std::move(__op));
+  }
+};
+
+// The numeric scans have no parallel backend yet: the default implementation runs the serial algorithm.
+template <class _ExecutionPolicy>
+struct __inclusive_scan_op_init<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryOperation, class _Tp>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _BinaryOperation __op, _Tp __init) const noexcept {
+    return std::inclusive_scan(std::move(__first), std::move(__last), std::move(__out), std::move(__op), std::move(__init));
+  }
+};
+
+// The numeric scans have no parallel backend yet: the default implementation runs the serial algorithm.
+template <class _ExecutionPolicy>
+struct __exclusive_scan<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Tp, class _BinaryOperation>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _Tp __init, _BinaryOperation __op) const noexcept {
+    return std::exclusive_scan(std::move(__first), std::move(__last), std::move(__out), std::move(__init), std::move(__op));
+  }
+};
+
+// The numeric scans have no parallel backend yet: the default implementation runs the serial algorithm.
+template <class _ExecutionPolicy>
+struct __transform_inclusive_scan<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryOperation, class _UnaryOperation>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _BinaryOperation __bop, _UnaryOperation __uop) const noexcept {
+    return std::transform_inclusive_scan(std::move(__first), std::move(__last), std::move(__out), std::move(__bop), std::move(__uop));
+  }
+};
+
+// The numeric scans have no parallel backend yet: the default implementation runs the serial algorithm.
+template <class _ExecutionPolicy>
+struct __transform_inclusive_scan_init<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryOperation, class _UnaryOperation, class _Tp>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _BinaryOperation __bop, _UnaryOperation __uop, _Tp __init) const noexcept {
+    return std::transform_inclusive_scan(std::move(__first), std::move(__last), std::move(__out), std::move(__bop), std::move(__uop), std::move(__init));
+  }
+};
+
+// The numeric scans have no parallel backend yet: the default implementation runs the serial algorithm.
+template <class _ExecutionPolicy>
+struct __transform_exclusive_scan<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Tp, class _BinaryOperation, class _UnaryOperation>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _Tp __init, _BinaryOperation __bop, _UnaryOperation __uop) const noexcept {
+    return std::transform_exclusive_scan(std::move(__first), std::move(__last), std::move(__out), std::move(__init), std::move(__bop), std::move(__uop));
+  }
+};
+
+// The numeric scans have no parallel backend yet: the default implementation runs the serial algorithm.
+template <class _ExecutionPolicy>
+struct __adjacent_difference<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryOperation>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _BinaryOperation __op) const noexcept {
+    return std::adjacent_difference(std::move(__first), std::move(__last), std::move(__out), std::move(__op));
   }
 };
 

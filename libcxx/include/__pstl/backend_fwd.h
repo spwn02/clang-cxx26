@@ -398,6 +398,48 @@ struct __reduce;
 // operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last,
 //                       _Tp __init, _BinaryOperation __op) const noexcept;
 
+template <class _Backend, class _ExecutionPolicy>
+struct __inclusive_scan_op;
+// template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryOperation>
+// optional<_ForwardOutIterator>
+// operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _BinaryOperation __op) const noexcept;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __inclusive_scan_op_init;
+// template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryOperation, class _Tp>
+// optional<_ForwardOutIterator>
+// operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _BinaryOperation __op, _Tp __init) const noexcept;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __exclusive_scan;
+// template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Tp, class _BinaryOperation>
+// optional<_ForwardOutIterator>
+// operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _Tp __init, _BinaryOperation __op) const noexcept;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __transform_inclusive_scan;
+// template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryOperation, class _UnaryOperation>
+// optional<_ForwardOutIterator>
+// operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _BinaryOperation __bop, _UnaryOperation __uop) const noexcept;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __transform_inclusive_scan_init;
+// template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryOperation, class _UnaryOperation, class _Tp>
+// optional<_ForwardOutIterator>
+// operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _BinaryOperation __bop, _UnaryOperation __uop, _Tp __init) const noexcept;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __transform_exclusive_scan;
+// template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Tp, class _BinaryOperation, class _UnaryOperation>
+// optional<_ForwardOutIterator>
+// operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _Tp __init, _BinaryOperation __bop, _UnaryOperation __uop) const noexcept;
+
+template <class _Backend, class _ExecutionPolicy>
+struct __adjacent_difference;
+// template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryOperation>
+// optional<_ForwardOutIterator>
+// operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __out, _BinaryOperation __op) const noexcept;
+
 } // namespace __pstl
 _LIBCPP_END_NAMESPACE_STD
 
