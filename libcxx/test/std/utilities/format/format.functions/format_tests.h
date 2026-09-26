@@ -2871,11 +2871,11 @@ void format_test_floating_point_PR58714(TestFunction check) {
   check(SV("1234.000000"), SV("{:#f}"), F(1234.0));
   check(SV("1234.00"), SV("{:#g}"), F(1234.0));
 
-  check(SV("4.e+30"), SV("{:#}"), F(4.0e+30));
+  check(SV("4.e+30"), SV("{:#}"), F(4.0e+30L));
   check(SV("1.p+102"), SV("{:#a}"), F(0x4.0p+100));
-  check(SV("4.000000e+30"), SV("{:#e}"), F(4.0e+30));
+  check(SV("4.000000e+30"), SV("{:#e}"), F(4.0e+30L));
   check(SV("5070602400912917605986812821504.000000"), SV("{:#f}"), F(0x4.0p+100));
-  check(SV("4.00000e+30"), SV("{:#g}"), F(4.0e+30));
+  check(SV("4.00000e+30"), SV("{:#g}"), F(4.0e+30L));
 
   check(SV("1234."), SV("{:#.6}"), F(1234.0)); // # does not restore zeros
   check(SV("1.348000p+10"), SV("{:#.6a}"), F(1234.0));

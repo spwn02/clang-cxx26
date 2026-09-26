@@ -106,7 +106,6 @@ _LIBCPP_HIDE_FROM_ABI char* __to_buffer(char* __first, char* __last, _Tp __value
 // TODO FMT Optimize the storage to avoid storing digits that are known to be zero.
 // https://www.exploringbinary.com/maximum-number-of-decimal-digits-in-binary-floating-point-numbers/
 
-// TODO FMT Add long double specialization when to_chars has proper long double support.
 template <class _Tp>
 struct __traits;
 
@@ -136,6 +135,19 @@ struct __traits<double> {
   static constexpr int __hex_precision_digits = 4;
 };
 
+// The digit counts follow from <cfloat>: the smallest subnormal is 2^(MIN_EXP - MANT_DIG), which needs
+// MANT_DIG - MIN_EXP fractional digits, and the largest value has MAX_10_EXP integral digits. This gives
+// 4932 and 16445 for the x87 extended type, and reproduces the double numbers above for a 64-bit long double.
+template <>
+struct __traits<long double> {
+  static constexpr int __max_integral         = __LDBL_MAX_10_EXP__;
+  static constexpr int __max_fractional       = __LDBL_MANT_DIG__ - __LDBL_MIN_EXP__;
+  static constexpr int __max_fractional_value = __max_fractional >= 10000 ? 5 : __max_fractional >= 1000 ? 4 : 3;
+  static constexpr size_t __stack_buffer_size = 1024;
+
+  static constexpr int __hex_precision_digits = __max_fractional_value;
+};
+
 /// Helper class to store the conversion buffer.
 ///
 /// Depending on the maximum size required for a value, the buffer is allocated
@@ -143,6 +155,9 @@ struct __traits<double> {
 template <floating_point _Fp>
 class __float_buffer {
   using _Traits _LIBCPP_NODEBUG = __traits<_Fp>;
+
+  // Enough for "-1.2345678901234567890e-4932", a hexfloat, and a sign, with room to spare.
+  static constexpr size_t __shortest_buffer_size = 128;
 
 public:
   // TODO FMT Improve this constructor to do a better estimate.
@@ -169,7 +184,10 @@ public:
       __precision_          = _Traits::__max_fractional;
     }
 
-    __size_ = __formatter::__float_buffer_size<_Fp>(__precision_);
+    // Without an explicit precision only the shortest round-trip form (default) or the exact hexadecimal form is
+    // requested, both of which are short; sizing for the largest possible precision would needlessly allocate
+    // ~21 KiB per long double.
+    __size_ = __precision == -1 ? __shortest_buffer_size : __formatter::__float_buffer_size<_Fp>(__precision_);
     if (__size_ > _Traits::__stack_buffer_size)
       // The allocated buffer's contents don't need initialization.
       __begin_ = allocator<char>{}.allocate(__size_);
@@ -295,7 +313,7 @@ _LIBCPP_HIDE_FROM_ABI __float_result __format_buffer_hexadecimal_lower_case(
     //        ^---- integral = end of search
     //    ^-------- start of search
     // 0123456789
-    static_assert(__traits<_Fp>::__hex_precision_digits <= 4, "Guard against possible underflow.");
+    static_assert(__traits<_Fp>::__hex_precision_digits <= 5, "Guard against possible underflow.");
 
     char* __last        = __result.__last - 2;
     __first             = __last - __traits<_Fp>::__hex_precision_digits;
@@ -446,7 +464,6 @@ __format_buffer_general_upper_case(__float_buffer<_Fp>& __buffer, _Tp __value, i
 /// - alternate form needs to add a radix point when not present.
 /// - localization needs to do grouping in the integral part.
 template <class _Fp, class _Tp>
-// TODO FMT _Fp should just be _Tp when to_chars has proper long double support.
 _LIBCPP_HIDE_FROM_ABI __float_result __format_buffer(
     __float_buffer<_Fp>& __buffer,
     _Tp __value,
@@ -652,14 +669,11 @@ __format_floating_point(_Tp __value, _FormatContext& __ctx, __format_spec::__par
   if (__negative)
     __value = -__value;
 
-  // long double is still formatted through double: the format tests and the buffer sizing above assume
-  // double's digit counts. std::to_chars itself handles long double at full precision, so this is only a
-  // limit of the formatter (TODO: format long double at full precision, then _Fp is just _Tp).
-  using _Fp = conditional_t<same_as<_Tp, long double>, double, _Tp>;
+  using _Fp = _Tp;
   // Force the type of the precision to avoid -1 to become an unsigned value.
   __float_buffer<_Fp> __buffer(__specs.__precision_);
   __float_result __result = __formatter::__format_buffer(
-      __buffer, static_cast<_Fp>(__value), __negative, (__specs.__has_precision()), __specs.__std_.__sign_, __specs.__std_.__type_);
+      __buffer, __value, __negative, (__specs.__has_precision()), __specs.__std_.__sign_, __specs.__std_.__type_);
 
   if (__specs.__std_.__alternate_form_) {
     if (__result.__radix_point == __result.__last) {

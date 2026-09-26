@@ -65,12 +65,7 @@ void test(std::basic_string_view<CharT> fmt, ArithmeticT arg, std::basic_string<
 
   if (expected.empty()) {
     std::array<char, 128> buffer;
-    // std::formatter<long double> formats through double for now (see formatter_floating_point.h),
-    // while std::to_chars(long double) preserves the full extended precision.
-    if constexpr (std::same_as<ArithmeticT, long double>)
-      expected.append(buffer.data(), std::to_chars(buffer.data(), buffer.data() + buffer.size(), static_cast<double>(arg)).ptr);
-    else
-      expected.append(buffer.data(), std::to_chars(buffer.data(), buffer.data() + buffer.size(), arg).ptr);
+    expected.append(buffer.data(), std::to_chars(buffer.data(), buffer.data() + buffer.size(), arg).ptr);
   }
 
   assert(result == expected);
@@ -555,9 +550,7 @@ void test_float_type() {
   test_termination_condition(STR("}"), std::copysign(nan, -1.0), STR("-nan"));
   test_termination_condition(STR("}"), nan, STR("nan"));
 
-  // TODO FMT Enable long double testing
-  if constexpr (!std::same_as<A, long double>)
-    test_special_values<A, CharT>();
+  test_special_values<A, CharT>();
 }
 
 template <class CharT>
