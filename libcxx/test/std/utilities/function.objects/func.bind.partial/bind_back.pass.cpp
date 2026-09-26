@@ -29,7 +29,9 @@ struct NttpMemberFunction {
   constexpr int add(int x, int y) const { return x + y; }
 };
 
+#if TEST_STD_VER >= 26
 constexpr auto nttp_lambda = [](int x, int y) { return x + y; };
+#endif
 
 constexpr void test_basic_bindings() {
 #if TEST_STD_VER >= 26
