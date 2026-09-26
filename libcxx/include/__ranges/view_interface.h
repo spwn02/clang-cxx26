@@ -74,18 +74,18 @@ public:
 
 #  if _LIBCPP_STD_VER >= 23
   template <class _D2 = _Derived>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto cbegin() requires range<_D2> { return ranges::cbegin(__derived()); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto cbegin() requires input_range<_D2> { return ranges::cbegin(__derived()); }
 
   template <class _D2 = _Derived>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto cbegin() const requires range<const _D2> {
+  _LIBCPP_HIDE_FROM_ABI constexpr auto cbegin() const requires input_range<const _D2> {
     return ranges::cbegin(__derived());
   }
 
   template <class _D2 = _Derived>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto cend() requires range<_D2> { return ranges::cend(__derived()); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto cend() requires input_range<_D2> { return ranges::cend(__derived()); }
 
   template <class _D2 = _Derived>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto cend() const requires range<const _D2> {
+  _LIBCPP_HIDE_FROM_ABI constexpr auto cend() const requires input_range<const _D2> {
     return ranges::cend(__derived());
   }
 #  endif // _LIBCPP_STD_VER >= 23

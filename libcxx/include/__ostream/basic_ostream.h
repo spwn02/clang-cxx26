@@ -572,7 +572,9 @@ _LIBCPP_HIDE_FROM_ABI inline basic_ostream<_CharT, _Traits>& noemit_on_flush(bas
 template <class _CharT, class _Traits>
 _LIBCPP_HIDE_FROM_ABI inline basic_ostream<_CharT, _Traits>& flush_emit(basic_ostream<_CharT, _Traits>& __os) {
   __os.flush();
-  __os.rdbuf()->__emit_on_flush();
+  // LWG3571: a failed emit() sets badbit.
+  if (!__os.rdbuf()->__emit_on_flush())
+    __os.setstate(ios_base::badbit);
   return __os;
 }
 

@@ -29,6 +29,7 @@
 #include <__flat_map/key_value_iterator.h>
 #include <__flat_map/sorted_unique.h>
 #include <__flat_map/utils.h>
+#include <__fwd/array.h>
 #include <__functional/is_transparent.h>
 #include <__functional/operations.h>
 #include <__fwd/memory.h>
@@ -88,6 +89,8 @@ class flat_map {
   static_assert(is_same_v<_Key, typename _KeyContainer::value_type>);
   static_assert(is_same_v<_Tp, typename _MappedContainer::value_type>);
   static_assert(!is_same_v<_KeyContainer, std::vector<bool>>, "vector<bool> is not a sequence container");
+  static_assert(!__is_std_array_v<_KeyContainer>, "std::array is not a sequence container (LWG3816)");
+  static_assert(!__is_std_array_v<_MappedContainer>, "std::array is not a sequence container (LWG3816)");
   static_assert(!is_same_v<_MappedContainer, std::vector<bool>>, "vector<bool> is not a sequence container");
 
   template <bool _Const>

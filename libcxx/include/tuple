@@ -331,6 +331,50 @@ _LIBCPP_HIDE_FROM_ABI constexpr _Ret __tuple_compare_three_way(const _Tp& __x, c
 template <class _Tp>
 concept __tuple_like_no_tuple = __tuple_like<_Tp> && !__is_tuple_v<_Tp>;
 
+// P2165R4: constraints for the tuple-like converting constructors and assignments of tuple.
+template <class _UTuple, class _Tuple, class _IndexSeq>
+struct __tuple_like_ctor_traits {
+  static constexpr bool __applicable = false;
+};
+
+template <class _UTuple, class... _Tp, size_t... _Is>
+struct __tuple_like_ctor_traits<_UTuple, tuple<_Tp...>, index_sequence<_Is...>> {
+  static constexpr bool __applicable =
+      !__is_ranges_subrange_v<__remove_cvref_t<_UTuple>> && (sizeof...(_Tp) == tuple_size_v<__remove_cvref_t<_UTuple>>);
+};
+
+template <class _UTuple, class _Tuple, class _IndexSeq>
+concept __tuple_like_ctor_applicable =
+    __tuple_like_no_tuple<_UTuple> && __tuple_like_ctor_traits<_UTuple, _Tuple, _IndexSeq>::__applicable;
+
+template <class _UTuple, size_t... _Is, class... _Tp>
+consteval bool __tuple_like_constructible(index_sequence<_Is...>, tuple<_Tp...>*) {
+  return (is_constructible_v<_Tp, decltype(std::get<_Is>(std::declval<_UTuple>()))> && ...);
+}
+
+template <class _UTuple, size_t... _Is, class... _Tp>
+consteval bool __tuple_like_convertible(index_sequence<_Is...>, tuple<_Tp...>*) {
+  return (is_convertible_v<decltype(std::get<_Is>(std::declval<_UTuple>())), _Tp> && ...);
+}
+
+template <class _UTuple, size_t... _Is, class... _Tp>
+consteval bool __tuple_like_assignable(index_sequence<_Is...>, tuple<_Tp...>*) {
+  return (is_assignable_v<_Tp&, decltype(std::get<_Is>(std::declval<_UTuple>()))> && ...);
+}
+
+template <class _UTuple, size_t... _Is, class... _Tp>
+consteval bool __tuple_like_const_assignable(index_sequence<_Is...>, tuple<_Tp...>*) {
+  return (is_assignable_v<const _Tp&, decltype(std::get<_Is>(std::declval<_UTuple>()))> && ...);
+}
+
+// For a one-element tuple the constructor must not compete with the converting constructor from a single value.
+template <class _UTuple, class... _Tp>
+inline constexpr bool __tuple_like_single_element_ok = true;
+
+template <class _UTuple, class _T0>
+inline constexpr bool __tuple_like_single_element_ok<_UTuple, _T0> =
+    !is_convertible_v<_UTuple, _T0> && !is_constructible_v<_T0, _UTuple>;
+
 template <class _Tp, class _Up, class _IndexSeq>
 struct __tuple_common_comparison_category_impl {};
 
@@ -861,6 +905,27 @@ public:
       : __base_(allocator_arg_t(), __alloc, __from_tuple(), std::move(__p)) {}
 #    endif // _LIBCPP_STD_VER >= 23
 
+#    if _LIBCPP_STD_VER >= 23
+  // tuple(tuple-like&&) constructors (including allocator_arg_t variant), P2165R4
+  template <class _UTuple>
+    requires __tuple_like_ctor_applicable<_UTuple, tuple, index_sequence_for<_Tp...>> &&
+             (std::__tuple_like_constructible<_UTuple>(index_sequence_for<_Tp...>{}, static_cast<tuple*>(nullptr))) &&
+             (sizeof...(_Tp) != 1 || __tuple_like_single_element_ok<_UTuple, _Tp...>)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit(
+      !std::__tuple_like_convertible<_UTuple>(index_sequence_for<_Tp...>{}, static_cast<tuple*>(nullptr)))
+      tuple(_UTuple&& __u)
+      : __base_(__from_tuple(), std::forward<_UTuple>(__u)) {}
+
+  template <class _Alloc, class _UTuple>
+    requires __tuple_like_ctor_applicable<_UTuple, tuple, index_sequence_for<_Tp...>> &&
+             (std::__tuple_like_constructible<_UTuple>(index_sequence_for<_Tp...>{}, static_cast<tuple*>(nullptr))) &&
+             (sizeof...(_Tp) != 1 || __tuple_like_single_element_ok<_UTuple, _Tp...>)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit(
+      !std::__tuple_like_convertible<_UTuple>(index_sequence_for<_Tp...>{}, static_cast<tuple*>(nullptr)))
+      tuple(allocator_arg_t, const _Alloc& __alloc, _UTuple&& __u)
+      : __base_(allocator_arg_t(), __alloc, __from_tuple(), std::forward<_UTuple>(__u)) {}
+#    endif // _LIBCPP_STD_VER >= 23
+
   // [tuple.assign]
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 tuple&
   operator=(_If<_And<is_copy_assignable<_Tp>...>::value, tuple, __nat> const& __tuple) noexcept(
@@ -927,6 +992,36 @@ public:
     std::__memberwise_forward_assign(*this, __u, __type_list<_UTypes...>(), index_sequence_for<_Tp...>());
     return *this;
   }
+
+  // tuple-like assignment, P2165R4
+  template <class _UTuple>
+    requires __tuple_like_ctor_applicable<_UTuple, tuple, index_sequence_for<_Tp...>> &&
+             (std::__tuple_like_assignable<_UTuple>(index_sequence_for<_Tp...>{}, static_cast<tuple*>(nullptr)))
+  _LIBCPP_HIDE_FROM_ABI constexpr tuple& operator=(_UTuple&& __u) {
+    __assign_from_tuple_like(std::forward<_UTuple>(__u), index_sequence_for<_Tp...>{});
+    return *this;
+  }
+
+  template <class _UTuple>
+    requires __tuple_like_ctor_applicable<_UTuple, tuple, index_sequence_for<_Tp...>> &&
+             (std::__tuple_like_const_assignable<_UTuple>(index_sequence_for<_Tp...>{}, static_cast<tuple*>(nullptr)))
+  _LIBCPP_HIDE_FROM_ABI constexpr const tuple& operator=(_UTuple&& __u) const {
+    __assign_from_tuple_like(std::forward<_UTuple>(__u), index_sequence_for<_Tp...>{});
+    return *this;
+  }
+
+private:
+  template <class _UTuple, size_t... _Is>
+  _LIBCPP_HIDE_FROM_ABI constexpr void __assign_from_tuple_like(_UTuple&& __u, index_sequence<_Is...>) const {
+    ((void)(std::get<_Is>(*this) = std::get<_Is>(std::forward<_UTuple>(__u))), ...);
+  }
+
+  template <class _UTuple, size_t... _Is>
+  _LIBCPP_HIDE_FROM_ABI constexpr void __assign_from_tuple_like(_UTuple&& __u, index_sequence<_Is...>) {
+    ((void)(std::get<_Is>(*this) = std::get<_Is>(std::forward<_UTuple>(__u))), ...);
+  }
+
+public:
 #    endif // _LIBCPP_STD_VER >= 23
 
   template <template <class...> class _Pred,

@@ -259,7 +259,7 @@ public:
   // basic_syncbuf without depending on RTTI or its allocator type. They are
   // no-ops for every other stream buffer.
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __set_emit_on_sync(bool) noexcept {}
-  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __emit_on_flush() {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual bool __emit_on_flush() { return true; }
 
 protected:
   basic_streambuf() {}

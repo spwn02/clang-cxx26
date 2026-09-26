@@ -325,7 +325,7 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __set_emit_on_sync(bool __b) noexcept override { set_emit_on_sync(__b); }
 
-  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __emit_on_flush() override { emit(); }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL bool __emit_on_flush() override { return emit(); }
 
 protected:
   // [syncstream.syncbuf.virtuals], overridden virtual functions
@@ -389,7 +389,8 @@ private:
 
       // The __str_ does not know how much of its buffer is used. This
       // information is extracted from the information of the base class.
-      __result &= (__wrapped_->sputn(this->pbase(), this->pptr() - this->pbase()) != -1);
+      const streamsize __count = this->pptr() - this->pbase();
+      __result &= (__wrapped_->sputn(this->pbase(), __count) == __count);
       // Clears the buffer, but keeps the contents (and) size of the
       // internal buffer.
       this->setp(this->pbase(), this->epptr());
