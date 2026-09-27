@@ -38,7 +38,9 @@ public:
       : __y_{__yval}, __m_{__mval} {}
   _LIBCPP_HIDE_FROM_ABI inline constexpr chrono::year year() const noexcept { return __y_; }
   _LIBCPP_HIDE_FROM_ABI inline constexpr chrono::month month() const noexcept { return __m_; }
+  template <class = void>
   _LIBCPP_HIDE_FROM_ABI inline constexpr year_month& operator+=(const months& __dm) noexcept;
+  template <class = void>
   _LIBCPP_HIDE_FROM_ABI inline constexpr year_month& operator-=(const months& __dm) noexcept;
   _LIBCPP_HIDE_FROM_ABI inline constexpr year_month& operator+=(const years& __dy) noexcept;
   _LIBCPP_HIDE_FROM_ABI inline constexpr year_month& operator-=(const years& __dy) noexcept;
@@ -64,6 +66,7 @@ operator<=>(const year_month& __lhs, const year_month& __rhs) noexcept {
   return __lhs.month() <=> __rhs.month();
 }
 
+template <class = void>
 _LIBCPP_HIDE_FROM_ABI inline constexpr year_month operator+(const year_month& __lhs, const months& __rhs) noexcept {
   int __dmi      = static_cast<int>(static_cast<unsigned>(__lhs.month())) - 1 + __rhs.count();
   const int __dy = (__dmi >= 0 ? __dmi : __dmi - 11) / 12;
@@ -71,6 +74,7 @@ _LIBCPP_HIDE_FROM_ABI inline constexpr year_month operator+(const year_month& __
   return (__lhs.year() + years(__dy)) / month(static_cast<unsigned>(__dmi));
 }
 
+template <class = void>
 _LIBCPP_HIDE_FROM_ABI inline constexpr year_month operator+(const months& __lhs, const year_month& __rhs) noexcept {
   return __rhs + __lhs;
 }
@@ -88,6 +92,7 @@ _LIBCPP_HIDE_FROM_ABI inline constexpr months operator-(const year_month& __lhs,
          months(static_cast<unsigned>(__lhs.month()) - static_cast<unsigned>(__rhs.month()));
 }
 
+template <class = void>
 _LIBCPP_HIDE_FROM_ABI inline constexpr year_month operator-(const year_month& __lhs, const months& __rhs) noexcept {
   return __lhs + -__rhs;
 }
@@ -96,11 +101,13 @@ _LIBCPP_HIDE_FROM_ABI inline constexpr year_month operator-(const year_month& __
   return __lhs + -__rhs;
 }
 
+template <class>
 _LIBCPP_HIDE_FROM_ABI inline constexpr year_month& year_month::operator+=(const months& __dm) noexcept {
   *this = *this + __dm;
   return *this;
 }
 
+template <class>
 _LIBCPP_HIDE_FROM_ABI inline constexpr year_month& year_month::operator-=(const months& __dm) noexcept {
   *this = *this - __dm;
   return *this;
