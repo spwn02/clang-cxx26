@@ -4294,6 +4294,13 @@ def ftrivial_auto_var_init : Joined<["-"], "ftrivial-auto-var-init=">, Group<f_G
   NormalizedValuesScope<"LangOptions::TrivialAutoVarInitKind">,
   NormalizedValues<["Uninitialized", "Zero", "Pattern"]>,
   MarshallingInfoEnum<LangOpts<"TrivialAutoVarInit">, "Uninitialized">;
+def ferroneous_initialization : Flag<["-"], "ferroneous-initialization">, Group<f_Group>,
+  Visibility<[ClangOption, CLOption]>,
+  HelpText<"In C++26, give automatic variables without an initializer a fixed pattern"
+           " (erroneous behavior, P2795R5) unless -ftrivial-auto-var-init= is given (default)">;
+def fno_erroneous_initialization : Flag<["-"], "fno-erroneous-initialization">, Group<f_Group>,
+  Visibility<[ClangOption, CLOption]>,
+  HelpText<"Leave automatic variables without an initializer uninitialized in C++26">;
 def ftrivial_auto_var_init_stop_after : Joined<["-"], "ftrivial-auto-var-init-stop-after=">, Group<f_Group>,
   Visibility<[ClangOption, CC1Option, CLOption, DXCOption]>,
   HelpText<"Stop initializing trivial automatic stack variables after the specified number of instances">,

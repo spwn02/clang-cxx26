@@ -21,6 +21,7 @@
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/HeaderInclude.h"
 #include "clang/Basic/LangOptions.h"
+#include "clang/Basic/LangStandard.h"
 #include "clang/Basic/MakeSupport.h"
 #include "clang/Basic/ObjCRuntime.h"
 #include "clang/Basic/Version.h"
@@ -3625,6 +3626,9 @@ static void RenderTrivialAutoVarInitOptions(const Driver &D,
                                             ArgStringList &CmdArgs) {
   auto DefaultTrivialAutoVarInit = TC.GetDefaultTrivialAutoVarInit();
   StringRef TrivialAutoVarInit = "";
+  bool ErroneousInit = Args.hasFlag(options::OPT_ferroneous_initialization,
+                                    options::OPT_fno_erroneous_initialization,
+                                    true);
 
   for (const Arg *A : Args) {
     switch (A->getOption().getID()) {
@@ -3646,6 +3650,19 @@ static void RenderTrivialAutoVarInitOptions(const Driver &D,
   if (TrivialAutoVarInit.empty())
     switch (DefaultTrivialAutoVarInit) {
     case LangOptions::TrivialAutoVarInitKind::Uninitialized:
+      // C++26 [basic.indet] (P2795R5): reading an uninitialized automatic
+      // variable is erroneous behavior, so unless the user opted out, or
+      // MemorySanitizer is there to report such reads, such variables hold
+      // a fixed pattern.
+      if (Arg *Std = Args.getLastArg(options::OPT_std_EQ);
+          Std && ErroneousInit && !TC.getSanitizerArgs(Args).needsMsanRt()) {
+        LangStandard::Kind K = LangStandard::getLangKind(Std->getValue());
+        if (K != LangStandard::lang_unspecified) {
+          const LangStandard &LS = LangStandard::getLangStandardForKind(K);
+          if (LS.isCPlusPlus() && LS.isCPlusPlus26())
+            TrivialAutoVarInit = "pattern";
+        }
+      }
       break;
     case LangOptions::TrivialAutoVarInitKind::Pattern:
       TrivialAutoVarInit = "pattern";

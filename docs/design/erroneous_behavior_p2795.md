@@ -1,6 +1,6 @@
 # P2795R5 erroneous behaviour for uninitialized reads — design note (#41)
 
-Status: **plan only**, nothing implemented. Probed 2026-09-25 on HEAD `b1811f61aca4`.
+Status: M1 (`[[indeterminate]]`, 5e34aba4cae1) and M2a (C++26 default = pattern, this note's "Implemented" section) done; M3 (libc++ audit) open. Probed 2026-09-25 on HEAD `b1811f61aca4`.
 Primary source: https://wg21.link/P2795R5 (adopted for C++26).
 
 ## What the paper changes
@@ -77,3 +77,15 @@ attribute; ODR/redeclaration diagnostics; `-std=c++23` unchanged.
 - Sanitizer interplay (MSan treats these as initialised: needs to keep reporting, or explicitly not, to match the paper).
 
 Effort: milestone 1 small; milestone 2 moderate; milestone 3 is the unknown (libc++ audit).
+
+## Implemented: M2a (2026-09-27)
+
+* In C++26, `CompilerInvocation` (`ParseLangArgs`) sets `-ftrivial-auto-var-init=pattern` when the user gave no
+  `-ftrivial-auto-var-init=` at all, `-fno-erroneous-initialization` was not given, and MemorySanitizer is not enabled
+  (MSan's job is to report exactly these reads). The pattern is the existing `0xAA` byte pattern (`-1431655766` for `int`);
+  an explicit `-ftrivial-auto-var-init=uninitialized|zero|pattern` always wins.
+* New option `-f[no-]erroneous-initialization` (LangOpt `ErroneousInitialization`, default on, only consulted in C++26).
+* `[[indeterminate]]`, `[[clang::uninitialized]]` and constexpr variables already skip the pattern in `EmitAutoVarInit`.
+* Tests: `CodeGenCXX/erroneous-init.cpp` (scalar, array, struct, `[[indeterminate]]`, initialized variable, the three
+  opt-outs, C++23 unchanged, MSan). Optimized IR no longer contains `undef` for such reads.
+* Warnings are untouched: `-Wuninitialized` and friends still fire because they run in Sema.
