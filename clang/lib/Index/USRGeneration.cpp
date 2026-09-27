@@ -734,6 +734,10 @@ void USRGenerator::VisitType(QualType T) {
         case BuiltinType::Float16:
         case BuiltinType::Half:
           Out << 'h'; break;
+        case BuiltinType::Float32:
+          Out << "F32"; break;
+        case BuiltinType::Float64:
+          Out << "F64"; break;
         case BuiltinType::Float:
           Out << 'f'; break;
         case BuiltinType::Double:

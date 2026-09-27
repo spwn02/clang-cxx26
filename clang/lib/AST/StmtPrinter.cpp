@@ -1552,6 +1552,8 @@ static void PrintFloatingLiteral(raw_ostream &OS, FloatingLiteral *Node,
   case BuiltinType::Ibm128:     break; // FIXME: No suffix for ibm128 literal
   case BuiltinType::Double:     break; // no suffix.
   case BuiltinType::Float16:    OS << "F16"; break;
+  case BuiltinType::Float32:    OS << "F32"; break;
+  case BuiltinType::Float64:    OS << "F64"; break;
   case BuiltinType::Float:      OS << 'F'; break;
   case BuiltinType::LongDouble: OS << 'L'; break;
   case BuiltinType::Float128:   OS << 'Q'; break;

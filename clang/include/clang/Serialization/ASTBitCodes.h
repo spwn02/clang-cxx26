@@ -44,7 +44,7 @@ namespace serialization {
 /// Version 4 of AST files also requires that the version control branch and
 /// revision match exactly, since there is no backward compatibility of
 /// AST files at this time.
-const unsigned VERSION_MAJOR = 35;
+const unsigned VERSION_MAJOR = 36;
 
 /// AST file minor version number supported by this version of
 /// Clang.
@@ -1157,6 +1157,10 @@ enum PredefinedTypeIDs {
 
   /// The placeholder type for unresolved templates.
   PREDEF_TYPE_UNRESOLVED_TEMPLATE,
+
+  /// The '__float32' and '__float64' types (P1467R9).
+  PREDEF_TYPE_FLOAT32_ID,
+  PREDEF_TYPE_FLOAT64_ID,
   // Sentinel value. Considered a predefined type but not useable as one.
   PREDEF_TYPE_LAST_ID
 };
@@ -1166,7 +1170,7 @@ enum PredefinedTypeIDs {
 ///
 /// Type IDs for non-predefined types will start at
 /// NUM_PREDEF_TYPE_IDs.
-const unsigned NUM_PREDEF_TYPE_IDS = 515;
+const unsigned NUM_PREDEF_TYPE_IDS = 520;
 
 // Ensure we do not overrun the predefined types we reserved
 // in the enum PredefinedTypeIDs above.

@@ -918,6 +918,9 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   isImaginary = false;
   isFloat16 = false;
   isFloat128 = false;
+  isFloat32 = false;
+  isFloat64 = false;
+  isBFloat16 = false;
   MicrosoftInteger = 0;
   isFract = false;
   isAccum = false;
@@ -1026,8 +1029,40 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
         continue;
       }
 
+      // C++23 (P1467R9): the suffixes of the extended floating-point types.
+      if (LangOpts.CPlusPlus && s + 2 < ThisTokEnd) {
+        if (s[1] == '3' && s[2] == '2') {
+          s += 2;
+          isFloat32 = true;
+          continue;
+        }
+        if (s[1] == '6' && s[2] == '4') {
+          s += 2;
+          isFloat64 = true;
+          continue;
+        }
+        if (Target.hasFloat128Type() && s + 3 < ThisTokEnd && s[1] == '1' &&
+            s[2] == '2' && s[3] == '8') {
+          s += 3;
+          isFloat128 = true;
+          continue;
+        }
+      }
+
       isFloat = true;
       continue;  // Success.
+    case 'b':    // FP Suffix for "std::bfloat16_t" (C++23)
+    case 'B':
+      if (!isFPConstant || !LangOpts.CPlusPlus || HasSize)
+        break;
+      if (Target.hasBFloat16Type() && s + 3 < ThisTokEnd &&
+          (s[1] == 'f' || s[1] == 'F') && s[2] == '1' && s[3] == '6') {
+        s += 3;
+        HasSize = true;
+        isBFloat16 = true;
+        continue;
+      }
+      break;
     case 'q':    // FP Suffix for "__float128"
     case 'Q':
       if (!isFPConstant) break;  // Error for integer constant.
@@ -1183,6 +1218,9 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
         isSizeT = false;
         isFloat = false;
         isFloat16 = false;
+        isFloat32 = false;
+        isFloat64 = false;
+        isBFloat16 = false;
         isHalf = false;
         isImaginary = false;
         isBitInt = false;

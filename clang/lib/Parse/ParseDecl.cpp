@@ -4478,6 +4478,14 @@ void Parser::ParseDeclarationSpecifiers(
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float16, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
+    case tok::kw___float32:
+      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float32, Loc, PrevSpec,
+                                     DiagID, Policy);
+      break;
+    case tok::kw___float64:
+      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float64, Loc, PrevSpec,
+                                     DiagID, Policy);
+      break;
     case tok::kw__Accum:
       assert(getLangOpts().FixedPoint &&
              "This keyword is only used when fixed point types are enabled "
@@ -5673,6 +5681,8 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
   case tok::kw__Accum:
   case tok::kw__Fract:
   case tok::kw__Float16:
+  case tok::kw___float32:
+  case tok::kw___float64:
   case tok::kw___float128:
   case tok::kw___ibm128:
   case tok::kw_bool:
@@ -5757,6 +5767,8 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw__Accum:
   case tok::kw__Fract:
   case tok::kw__Float16:
+  case tok::kw___float32:
+  case tok::kw___float64:
   case tok::kw___float128:
   case tok::kw___ibm128:
   case tok::kw_bool:
@@ -5977,6 +5989,8 @@ bool Parser::isDeclarationSpecifier(
   case tok::kw__Accum:
   case tok::kw__Fract:
   case tok::kw__Float16:
+  case tok::kw___float32:
+  case tok::kw___float64:
   case tok::kw___float128:
   case tok::kw___ibm128:
   case tok::kw_bool:

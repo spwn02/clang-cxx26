@@ -212,6 +212,12 @@ FLOATING_TYPE(LongDouble, LongDoubleTy)
 // '_Float16'
 FLOATING_TYPE(Float16, HalfTy)
 
+// '__float32' (std::float32_t, P1467R9)
+FLOATING_TYPE(Float32, Float32Ty)
+
+// '__float64' (std::float64_t, P1467R9)
+FLOATING_TYPE(Float64, Float64Ty)
+
 // '__bf16'
 FLOATING_TYPE(BFloat16, BFloat16Ty)
 

@@ -1321,6 +1321,7 @@ public:
   CanQualType HalfTy; // [OpenCL 6.1.1.1], ARM NEON
   CanQualType BFloat16Ty;
   CanQualType Float16Ty; // C11 extension ISO/IEC TS 18661-3
+  CanQualType Float32Ty, Float64Ty; // C++23 std::float32_t/std::float64_t
   CanQualType VoidPtrTy, NullPtrTy;
   CanQualType MetaInfoTy;
   CanQualType DependentTy, OverloadTy, BoundMemberTy, UnresolvedTemplateTy,
@@ -3269,6 +3270,11 @@ public:
   /// if both types have the same floating-point semantics on the target (i.e.
   /// long double and double on AArch64 will return 0).
   int getFloatingTypeSemanticOrder(QualType LHS, QualType RHS) const;
+
+  /// Are the floating-point conversion ranks of the two real floating types
+  /// unordered ([conv.rank]p2 note)? True when neither type's set of values is
+  /// a subset of the other's, e.g. _Float16 and __bf16.
+  bool hasUnorderedFloatingRanks(QualType LHS, QualType RHS) const;
 
   unsigned getTargetAddressSpace(LangAS AS) const;
 

@@ -1254,6 +1254,17 @@ static QualType handleFloatConversion(Sema &S, ExprResult &LHS,
   // If we have two real floating types, convert the smaller operand
   // to the bigger result.
   if (LHSFloat && RHSFloat) {
+    // [conv.rank]p2, [expr.arith.conv]: operands whose conversion ranks are
+    // unordered (neither type's values are a subset of the other's, as with
+    // std::float16_t and std::bfloat16_t) cannot be combined.
+    if (S.Context.hasUnorderedFloatingRanks(LHSType, RHSType)) {
+      S.Diag(LHS.get()->getExprLoc(), diag::err_typecheck_unordered_float_ranks)
+          << LHSType << RHSType << LHS.get()->getSourceRange()
+          << RHS.get()->getSourceRange();
+      LHS = ExprError();
+      RHS = ExprError();
+      return QualType();
+    }
     int order = S.Context.getFloatingTypeOrder(LHSType, RHSType);
     if (order > 0) {
       RHS = S.ImpCastExprToType(RHS.get(), LHSType, CK_FloatingCast);
@@ -3926,6 +3937,12 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
       Ty = !getLangOpts().HLSL ? Context.LongDoubleTy : Context.DoubleTy;
     else if (Literal.isFloat16)
       Ty = Context.Float16Ty;
+    else if (Literal.isFloat32)
+      Ty = Context.Float32Ty;
+    else if (Literal.isFloat64)
+      Ty = Context.Float64Ty;
+    else if (Literal.isBFloat16)
+      Ty = Context.BFloat16Ty;
     else if (Literal.isFloat128)
       Ty = Context.Float128Ty;
     else if (getLangOpts().HLSL)

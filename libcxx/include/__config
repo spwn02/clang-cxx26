@@ -449,6 +449,34 @@ typedef __char32_t char32_t;
 #    define _LIBCPP_HAS_INT128 1
 #  endif
 
+// P1467R9: Clang provides std::float{16,32,64,128}_t and std::bfloat16_t under private spellings and announces them
+// with __CLANG_STDCPP_*__ macros; the standard __STDCPP_*__ macros are derived here (libstdc++ misreads them).
+#  ifdef __CLANG_STDCPP_FLOAT16_T__
+#    ifndef __STDCPP_FLOAT16_T__
+#      define __STDCPP_FLOAT16_T__ 1
+#    endif
+#  endif
+#  ifdef __CLANG_STDCPP_FLOAT32_T__
+#    ifndef __STDCPP_FLOAT32_T__
+#      define __STDCPP_FLOAT32_T__ 1
+#    endif
+#  endif
+#  ifdef __CLANG_STDCPP_FLOAT64_T__
+#    ifndef __STDCPP_FLOAT64_T__
+#      define __STDCPP_FLOAT64_T__ 1
+#    endif
+#  endif
+#  ifdef __CLANG_STDCPP_FLOAT128_T__
+#    ifndef __STDCPP_FLOAT128_T__
+#      define __STDCPP_FLOAT128_T__ 1
+#    endif
+#  endif
+#  ifdef __CLANG_STDCPP_BFLOAT16_T__
+#    ifndef __STDCPP_BFLOAT16_T__
+#      define __STDCPP_BFLOAT16_T__ 1
+#    endif
+#  endif
+
 #  ifdef _LIBCPP_CXX03_LANG
 #    define _LIBCPP_DECLARE_STRONG_ENUM(x)                                                                             \
       struct _LIBCPP_EXPORTED_FROM_ABI x {                                                                             \

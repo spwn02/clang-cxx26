@@ -165,6 +165,12 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::Float16:
     ID = PREDEF_TYPE_FLOAT16_ID;
     break;
+  case BuiltinType::Float32:
+    ID = PREDEF_TYPE_FLOAT32_ID;
+    break;
+  case BuiltinType::Float64:
+    ID = PREDEF_TYPE_FLOAT64_ID;
+    break;
   case BuiltinType::Float128:
     ID = PREDEF_TYPE_FLOAT128_ID;
     break;

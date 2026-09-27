@@ -114,7 +114,11 @@ enum FloatingRank {
   Float16Rank,
   HalfRank,
   FloatRank,
+  // The extended types have the rank of the standard type with the same set
+  // of values and a greater subrank ([conv.rank]p2-3).
+  Float32Rank,
   DoubleRank,
+  Float64Rank,
   LongDoubleRank,
   Float128Rank,
   Ibm128Rank
@@ -1240,6 +1244,10 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   // C11 extension ISO/IEC TS 18661-3
   InitBuiltinType(Float16Ty,           BuiltinType::Float16);
 
+  // C++23 extended floating-point types (P1467R9)
+  InitBuiltinType(Float32Ty,           BuiltinType::Float32);
+  InitBuiltinType(Float64Ty,           BuiltinType::Float64);
+
   // ISO/IEC JTC1 SC22 WG14 N1169 Extension
   InitBuiltinType(ShortAccumTy,            BuiltinType::ShortAccum);
   InitBuiltinType(AccumTy,                 BuiltinType::Accum);
@@ -1731,6 +1739,10 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
     return Target->getHalfFormat();
   case BuiltinType::Half:
     return Target->getHalfFormat();
+  case BuiltinType::Float32:
+    return llvm::APFloat::IEEEsingle();
+  case BuiltinType::Float64:
+    return llvm::APFloat::IEEEdouble();
   case BuiltinType::Float:      return Target->getFloatFormat();
   case BuiltinType::Double:     return Target->getDoubleFormat();
   case BuiltinType::Ibm128:
@@ -2211,6 +2223,14 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     case BuiltinType::Float:
       Width = Target->getFloatWidth();
       Align = Target->getFloatAlign();
+      break;
+    case BuiltinType::Float32:
+      Width = 32;
+      Align = Target->getFloatAlign();
+      break;
+    case BuiltinType::Float64:
+      Width = 64;
+      Align = Target->getDoubleAlign();
       break;
     case BuiltinType::Double:
       Width = Target->getDoubleWidth();
@@ -3423,6 +3443,12 @@ static void encodeTypeForFunctionPointerAuth(const ASTContext &Ctx,
       return;
     case BuiltinType::Float16:
       OS << "DF16_";
+      return;
+    case BuiltinType::Float32:
+      OS << "DF32_";
+      return;
+    case BuiltinType::Float64:
+      OS << "DF64_";
       return;
     case BuiltinType::Float128:
       OS << "g";
@@ -8273,6 +8299,8 @@ static FloatingRank getFloatingRank(QualType T) {
   case BuiltinType::Float16:    return Float16Rank;
   case BuiltinType::Half:       return HalfRank;
   case BuiltinType::Float:      return FloatRank;
+  case BuiltinType::Float32:    return Float32Rank;
+  case BuiltinType::Float64:    return Float64Rank;
   case BuiltinType::Double:     return DoubleRank;
   case BuiltinType::LongDouble: return LongDoubleRank;
   case BuiltinType::Float128:   return Float128Rank;
@@ -8294,6 +8322,12 @@ int ASTContext::getFloatingTypeOrder(QualType LHS, QualType RHS) const {
   if (LHSR > RHSR)
     return 1;
   return -1;
+}
+
+bool ASTContext::hasUnorderedFloatingRanks(QualType LHS, QualType RHS) const {
+  auto IsBF16 = [](QualType T) { return T->isBFloat16Type(); };
+  auto IsHalf = [](QualType T) { return T->isFloat16Type() || T->isHalfType(); };
+  return (IsBF16(LHS) && IsHalf(RHS)) || (IsHalf(LHS) && IsBF16(RHS));
 }
 
 int ASTContext::getFloatingTypeSemanticOrder(QualType LHS, QualType RHS) const {
@@ -9280,6 +9314,8 @@ static char getObjCEncodingForPrimitiveType(const ASTContext *C,
 
     case BuiltinType::BFloat16:
     case BuiltinType::Float16:
+    case BuiltinType::Float32:
+    case BuiltinType::Float64:
     case BuiltinType::Float128:
     case BuiltinType::Ibm128:
     case BuiltinType::Half:

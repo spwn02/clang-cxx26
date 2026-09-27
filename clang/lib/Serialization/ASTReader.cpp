@@ -7857,6 +7857,12 @@ QualType ASTReader::GetType(TypeID ID) {
     case PREDEF_TYPE_FLOAT16_ID:
       T = Context.Float16Ty;
       break;
+    case PREDEF_TYPE_FLOAT32_ID:
+      T = Context.Float32Ty;
+      break;
+    case PREDEF_TYPE_FLOAT64_ID:
+      T = Context.Float64Ty;
+      break;
     case PREDEF_TYPE_FLOAT128_ID:
       T = Context.Float128Ty;
       break;

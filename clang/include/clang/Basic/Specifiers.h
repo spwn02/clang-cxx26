@@ -65,6 +65,8 @@ namespace clang {
     TST_bitint,  // Bit-precise integer types.
     TST_half,    // OpenCL half, ARM NEON __fp16
     TST_Float16, // C11 extension ISO/IEC TS 18661-3
+    TST_Float32, // C++23 std::float32_t (P1467R9)
+    TST_Float64, // C++23 std::float64_t (P1467R9)
     TST_Accum,   // ISO/IEC JTC1 SC22 WG14 N1169 Extension
     TST_Fract,
     TST_BFloat16,

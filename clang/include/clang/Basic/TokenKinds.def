@@ -454,6 +454,10 @@ KEYWORD(char8_t                     , CHAR8SUPPORT)
 // C11 Extension
 KEYWORD(_Float16                    , KEYALL)
 
+// C++23 extended floating-point types (P1467R9): distinct from float/double.
+KEYWORD(__float32                   , KEYCXX)
+KEYWORD(__float64                   , KEYCXX)
+
 // C23 keywords
 C23_KEYWORD(typeof                  , KEYGNU)
 C23_KEYWORD(typeof_unqual           , 0)

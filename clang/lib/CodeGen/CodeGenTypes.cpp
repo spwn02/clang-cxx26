@@ -490,6 +490,8 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
       [[fallthrough]];
     case BuiltinType::BFloat16:
     case BuiltinType::Float:
+    case BuiltinType::Float32:
+    case BuiltinType::Float64:
     case BuiltinType::Double:
     case BuiltinType::Float128:
     case BuiltinType::Ibm128:

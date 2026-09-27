@@ -77,7 +77,10 @@ public:
   bool isFloat : 1;         // 1.0f
   bool isImaginary : 1;     // 1.0i
   bool isFloat16 : 1;       // 1.0f16
-  bool isFloat128 : 1;      // 1.0q
+  bool isFloat128 : 1;      // 1.0q, 1.0f128 (C++23)
+  bool isFloat32 : 1;       // 1.0f32 (C++23)
+  bool isFloat64 : 1;       // 1.0f64 (C++23)
+  bool isBFloat16 : 1;      // 1.0bf16 (C++23)
   bool isFract : 1;         // 1.0hr/r/lr/uhr/ur/ulr
   bool isAccum : 1;         // 1.0hk/k/lk/uhk/uk/ulk
   bool isBitInt : 1;        // 1wb, 1uwb (C23) or 1__wb, 1__uwb (Clang extension in C++

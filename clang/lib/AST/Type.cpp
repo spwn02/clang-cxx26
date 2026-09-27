@@ -3495,6 +3495,10 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
     return "_Sat unsigned long _Fract";
   case Float16:
     return "_Float16";
+  case Float32:
+    return "__float32";
+  case Float64:
+    return "__float64";
   case Float128:
     return "__float128";
   case Ibm128:

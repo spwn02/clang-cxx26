@@ -4660,6 +4660,41 @@ CompareStandardConversionSequences(Sema &S, SourceLocation Loc,
                ? ImplicitConversionSequence::Better
                : ImplicitConversionSequence::Worse;
 
+  // C++23 [over.ics.rank]p4.3 (P1467R9): a conversion between floating-point
+  // types of equal conversion rank is better than one to a type of a
+  // different rank (or to a non-floating arithmetic type); between two of
+  // equal rank the greater subrank wins.
+  {
+    QualType From = SCS1.getFromType();
+    QualType To1 = SCS1.getToType(1), To2 = SCS2.getToType(1);
+    if (From->isRealFloatingType() && To1->isArithmeticType() &&
+        To2->isArithmeticType() &&
+        S.Context.hasSameUnqualifiedType(From, SCS2.getFromType()) &&
+        !S.Context.hasSameUnqualifiedType(To1, To2) &&
+        !S.Context.hasSameUnqualifiedType(From, To1) &&
+        !S.Context.hasSameUnqualifiedType(From, To2)) {
+      auto EqualRank = [&](QualType B) {
+        return B->isRealFloatingType() &&
+               &S.Context.getFloatTypeSemantics(From) ==
+                   &S.Context.getFloatTypeSemantics(B);
+      };
+      auto IsStandard = [](QualType T) {
+        const auto *BT = T->castAs<BuiltinType>();
+        return BT->getKind() == BuiltinType::Float ||
+               BT->getKind() == BuiltinType::Double ||
+               BT->getKind() == BuiltinType::LongDouble;
+      };
+      bool Eq1 = EqualRank(To1), Eq2 = EqualRank(To2);
+      if (Eq1 != Eq2)
+        return Eq1 ? ImplicitConversionSequence::Better
+                   : ImplicitConversionSequence::Worse;
+      if (Eq1 && Eq2 && IsStandard(To1) != IsStandard(To2))
+        // The extended types have a greater subrank than the standard ones.
+        return IsStandard(To2) ? ImplicitConversionSequence::Better
+                               : ImplicitConversionSequence::Worse;
+    }
+  }
+
   // C++ [over.ics.rank]p4b2:
   //
   //   If class B is derived directly or indirectly from class A,

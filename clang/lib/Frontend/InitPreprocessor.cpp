@@ -988,6 +988,21 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (LangOpts.CPlusPlus)
     InitializeCPlusPlusFeatureTestMacros(LangOpts, Builder);
 
+  // C++23 (P1467R9): the extended floating-point types this target supports.
+  // The standard __STDCPP_FLOAT<N>_T__ macros are deliberately not predefined:
+  // libstdc++ takes them to mean that GCC's _Float<N> types exist. libc++'s
+  // <__config> derives them from these.
+  if (LangOpts.CPlusPlus23) {
+    if (TI.hasFloat16Type())
+      Builder.defineMacro("__CLANG_STDCPP_FLOAT16_T__", "1");
+    Builder.defineMacro("__CLANG_STDCPP_FLOAT32_T__", "1");
+    Builder.defineMacro("__CLANG_STDCPP_FLOAT64_T__", "1");
+    if (TI.hasFloat128Type())
+      Builder.defineMacro("__CLANG_STDCPP_FLOAT128_T__", "1");
+    if (TI.hasBFloat16Type())
+      Builder.defineMacro("__CLANG_STDCPP_BFLOAT16_T__", "1");
+  }
+
   // darwin_constant_cfstrings controls this. This is also dependent
   // on other things like the runtime I believe.  This is set even for C code.
   if (!LangOpts.NoConstantCFStrings)

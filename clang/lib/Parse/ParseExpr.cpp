@@ -1340,6 +1340,8 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
   case tok::kw_double:
   case tok::kw___bf16:
   case tok::kw__Float16:
+  case tok::kw___float32:
+  case tok::kw___float64:
   case tok::kw___float128:
   case tok::kw___ibm128:
   case tok::kw_void:
