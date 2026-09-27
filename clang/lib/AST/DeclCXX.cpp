@@ -1205,6 +1205,11 @@ void CXXRecordDecl::addedMember(Decl *D) {
     // those because they are always unnamed.
     bool IsZeroSize = Field->isZeroSize(Context);
 
+    // C++26 (P3074R7): unions get a trivial default constructor and, unless
+    // Sema finds otherwise, a trivial destructor.
+    const bool IsTrivialUnion =
+        isUnion() && Context.getLangOpts().CPlusPlus26;
+
     if (auto *FieldRec = T->getAsCXXRecordDecl()) {
       if (FieldRec->isBeingDefined() || FieldRec->isCompleteDefinition()) {
         addedClassSubobject(FieldRec);
@@ -1236,7 +1241,14 @@ void CXXRecordDecl::addedMember(Decl *D) {
           if (FieldRec->hasNonTrivialMoveAssignment())
             data().DefaultedMoveAssignmentIsDeleted = true;
           if (FieldRec->hasNonTrivialDestructor()) {
-            data().DefaultedDestructorIsDeleted = true;
+            // C++26 [class.dtor]p7 (P3074R7): the destructor of a union is only
+            // deleted in the presence of a non-trivial default constructor of
+            // the union or a default member initializer for the variant
+            // member; Sema decides.
+            if (IsTrivialUnion)
+              data().NeedOverloadResolutionForDestructor = true;
+            else
+              data().DefaultedDestructorIsDeleted = true;
             // C++20 [dcl.constexpr]p5:
             //   The definition of a constexpr destructor whose function-body is
             //   not = delete shall additionally satisfy...
@@ -1264,7 +1276,10 @@ void CXXRecordDecl::addedMember(Decl *D) {
         //    -- for all the non-static data members of its class that are of
         //       class type (or array thereof), each such class has a trivial
         //       default constructor.
-        if (!FieldRec->hasTrivialDefaultConstructor())
+        //
+        // C++26 [class.default.ctor]p3 (P3074R7): the default constructor of a
+        // union is trivial no matter its variant members.
+        if (!FieldRec->hasTrivialDefaultConstructor() && !IsTrivialUnion)
           data().HasTrivialSpecialMembers &= ~SMF_DefaultConstructor;
 
         // C++0x [class.copy]p13:
@@ -1302,14 +1317,18 @@ void CXXRecordDecl::addedMember(Decl *D) {
         if (!FieldRec->hasTrivialMoveAssignment())
           data().HasTrivialSpecialMembers &= ~SMF_MoveAssignment;
 
-        if (!FieldRec->hasTrivialDestructor())
-          data().HasTrivialSpecialMembers &= ~SMF_Destructor;
-        if (!FieldRec->hasTrivialDestructorForCall())
-          data().HasTrivialSpecialMembersForCall &= ~SMF_Destructor;
-        if (!FieldRec->hasIrrelevantDestructor())
-          data().HasIrrelevantDestructor = false;
-        if (FieldRec->isAnyDestructorNoReturn())
-          data().IsAnyDestructorNoReturn = true;
+        // C++26 [class.dtor]p8 (P3074R7): a union destructor is trivial no
+        // matter its variant members (it never destroys them).
+        if (!IsTrivialUnion) {
+          if (!FieldRec->hasTrivialDestructor())
+            data().HasTrivialSpecialMembers &= ~SMF_Destructor;
+          if (!FieldRec->hasTrivialDestructorForCall())
+            data().HasTrivialSpecialMembersForCall &= ~SMF_Destructor;
+          if (!FieldRec->hasIrrelevantDestructor())
+            data().HasIrrelevantDestructor = false;
+          if (FieldRec->isAnyDestructorNoReturn())
+            data().IsAnyDestructorNoReturn = true;
+        }
         if (FieldRec->hasObjectMember())
           setHasObjectMember(true);
         if (FieldRec->hasVolatileMember())

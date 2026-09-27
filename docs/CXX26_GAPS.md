@@ -3121,7 +3121,7 @@ tiers as makes sense.
 | [x] | P3034R1 | Module declarations shouldn't be macros (DR) | Complete 2026-09-21. Preprocessor now suppresses macro expansion while `ModuleDeclState` is parsing a module-declaration name or partition, while ordinary identifiers retain existing expansion behavior. Added `clang/test/Modules/module-decl-macro.cppm`; focused test and full `clang/test/Modules/` (866 passed, 11 unsupported) pass. |
 | [ ] | P2843R3 | Preprocessing is never undefined | |
 | [ ] | P3533R2 | `constexpr` virtual inheritance | |
-| [ ] | P3074R7 | Trivial unions | Library-adjacent — coordinate with libcxx if relevant containers change |
+| [x] | P3074R7 | Trivial unions | Compiler complete 2026-09-27 (see docs/design/p3074-trivial-unions.md); libc++ `<inplace_vector>` constexpr for non-trivial `T` remains a library follow-up. |
 | [ ] | P3475R2 | Defang and deprecate `memory_order::consume` | Coordinate with Tier 4 atomics work — the 2026-08-23 Tier 4 session did not touch `memory_order.h`, so this is still fully deferred, not partially covered |
 | [ ] | P1967R14 | `#embed` | |
 | [!] | P1494R5 | Partial program correctness | Research-flavored, open-ended scope — consider deferring alongside Contracts once its actual scope is assessed |

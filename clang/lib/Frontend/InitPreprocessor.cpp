@@ -747,8 +747,10 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
   Builder.defineMacro("__cpp_trivial_relocatability", "202502L");
 
   // C++26 features only supported in C++26 mode.
-  if (LangOpts.CPlusPlus26)
+  if (LangOpts.CPlusPlus26) {
     Builder.defineMacro("__cpp_template_parameters", "202502L");
+    Builder.defineMacro("__cpp_trivial_union", "202502L");
+  }
 
   if (LangOpts.Char8)
     Builder.defineMacro("__cpp_char8_t", "202207L");

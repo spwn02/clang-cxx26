@@ -35,8 +35,14 @@ consteval bool is_within_lifetime(const T* p) noexcept { // #std-definition
 #endif
 }
 
+// C++26 [class.default.ctor]p4 (P3074R7): the trivial default constructor of a
+// union begins the lifetime of its first variant member if that has
+// implicit-lifetime type.
+constexpr bool first_member_starts_lifetime = __cplusplus > 202302L;
+
 consteval bool test_union(int& i, char& c) {
-  if (__builtin_is_within_lifetime(&i) || __builtin_is_within_lifetime(&c))
+  if (__builtin_is_within_lifetime(&i) != first_member_starts_lifetime ||
+      __builtin_is_within_lifetime(&c))
     return false;
   std::construct_at(&c, 1);
   if (__builtin_is_within_lifetime(&i) || !__builtin_is_within_lifetime(&c))
@@ -69,7 +75,7 @@ consteval bool test_nested() {
     union { int i; char c; } u;
     long l;
   };
-  if (__builtin_is_within_lifetime(&l) || __builtin_is_within_lifetime(&u) || __builtin_is_within_lifetime(&u.i) || __builtin_is_within_lifetime(&u.c))
+  if (__builtin_is_within_lifetime(&l) || __builtin_is_within_lifetime(&u) != first_member_starts_lifetime || __builtin_is_within_lifetime(&u.i) || __builtin_is_within_lifetime(&u.c))
     return false;
   std::construct_at(&l);
   if (!__builtin_is_within_lifetime(&l) || __builtin_is_within_lifetime(&u) || __builtin_is_within_lifetime(&u.i) || __builtin_is_within_lifetime(&u.c))

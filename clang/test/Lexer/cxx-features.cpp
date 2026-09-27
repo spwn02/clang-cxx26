@@ -49,6 +49,10 @@
 #error "wrong value for __cpp_template_parameters"
 #endif
 
+#if check(trivial_union, 0, 0, 0, 0, 0, 0, 202502)
+#error "wrong value for __cpp_trivial_union"
+#endif
+
 #if check(placeholder_variables, 202306, 202306, 202306, 202306, 202306, 202306, 202306)
 #error "wrong value for __cpp_placeholder_variables"
 #endif

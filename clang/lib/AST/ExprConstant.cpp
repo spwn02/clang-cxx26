@@ -5790,7 +5790,44 @@ static bool HandleBaseToDerivedCast(EvalInfo &Info, const CastExpr *E,
 
 /// Get the value to use for a default-initialized object of type T.
 /// Return false if it encounters something invalid.
-static bool handleDefaultInitValue(QualType T, APValue &Result) {
+/// Whether \p T is an implicit-lifetime type ([basic.types.general]p9). This
+/// mirrors __builtin_is_implicit_lifetime.
+static bool isImplicitLifetimeType(QualType T) {
+  T = T->getCanonicalTypeUnqualified();
+  if (T->isScalarType() || T->isArrayType() || T->isVectorType())
+    return true;
+  const CXXRecordDecl *RD = T->getAsCXXRecordDecl();
+  if (!RD || !RD->hasDefinition())
+    return false;
+  // [class.prop]p9: an aggregate whose destructor is not user-provided, or a
+  // class with a trivial eligible constructor and a trivial, non-deleted
+  // destructor.
+  const CXXDestructorDecl *Dtor = RD->getDestructor();
+  if (T->isAggregateType() && (!Dtor || !Dtor->isUserProvided()))
+    return true;
+  if (!RD->hasTrivialDestructor() || (Dtor && Dtor->isDeleted()))
+    return false;
+  for (const CXXConstructorDecl *Ctr : RD->ctors())
+    if (!Ctr->isIneligibleOrNotSelected() && !Ctr->isDeleted() &&
+        Ctr->isTrivial())
+      return true;
+  return (RD->needsImplicitDefaultConstructor() &&
+          RD->hasTrivialDefaultConstructor() &&
+          !RD->hasNonTrivialDefaultConstructor()) ||
+         (RD->needsImplicitCopyConstructor() &&
+          RD->hasTrivialCopyConstructor() &&
+          !RD->defaultedCopyConstructorIsDeleted()) ||
+         (RD->needsImplicitMoveConstructor() &&
+          RD->hasTrivialMoveConstructor() &&
+          !RD->defaultedMoveConstructorIsDeleted());
+}
+
+/// Set \p Result to the value of an object of type \p T after (trivial)
+/// default-initialization. \p BeginUnionLifetime is false for an anonymous
+/// union member of a class whose own constructor initializes its members:
+/// [class.base.init]p9 performs no initialization for it.
+static bool handleDefaultInitValue(QualType T, APValue &Result,
+                                   bool BeginUnionLifetime = true) {
   bool Success = true;
 
   // If there is already a value present don't overwrite it.
@@ -5803,6 +5840,24 @@ static bool handleDefaultInitValue(QualType T, APValue &Result) {
       return false;
     }
     if (RD->isUnion()) {
+      // C++26 [class.default.ctor]p4 (P3074R7): the trivial default
+      // constructor of a union begins the lifetime of its first variant
+      // member if that has implicit-lifetime type, making it the active
+      // member.
+      if (BeginUnionLifetime && RD->getASTContext().getLangOpts().CPlusPlus26 &&
+          !RD->hasInClassInitializer()) {
+        auto First = llvm::find_if(RD->fields(), [](const FieldDecl *F) {
+          return !F->isUnnamedBitField();
+        });
+        if (First != RD->field_end() && !First->isAnonymousStructOrUnion() &&
+            isImplicitLifetimeType(First->getType())) {
+          Result = APValue(*First);
+          // The member is created implicitly, not default-initialized.
+          return handleDefaultInitValue(First->getType(),
+                                        Result.getUnionValue(),
+                                        /*BeginUnionLifetime=*/false);
+        }
+      }
       Result = APValue((const FieldDecl *)nullptr);
       return true;
     }
@@ -5813,14 +5868,15 @@ static bool handleDefaultInitValue(QualType T, APValue &Result) {
     for (CXXRecordDecl::base_class_const_iterator I = RD->bases_begin(),
                                                   End = RD->bases_end();
          I != End; ++I, ++Index)
-      Success &=
-          handleDefaultInitValue(I->getType(), Result.getStructBase(Index));
+      Success &= handleDefaultInitValue(
+          I->getType(), Result.getStructBase(Index), BeginUnionLifetime);
 
     for (const auto *I : RD->fields()) {
       if (I->isUnnamedBitField())
         continue;
       Success &= handleDefaultInitValue(
-          I->getType(), Result.getStructField(I->getFieldIndex()));
+          I->getType(), Result.getStructField(I->getFieldIndex()),
+          BeginUnionLifetime);
     }
     return Success;
   }
@@ -5829,8 +5885,9 @@ static bool handleDefaultInitValue(QualType T, APValue &Result) {
           dyn_cast_or_null<ConstantArrayType>(T->getAsArrayTypeUnsafe())) {
     Result = APValue(APValue::UninitArray(), 0, AT->getZExtSize());
     if (Result.hasArrayFiller())
-      Success &=
-          handleDefaultInitValue(AT->getElementType(), Result.getArrayFiller());
+      Success &= handleDefaultInitValue(AT->getElementType(),
+                                        Result.getArrayFiller(),
+                                        BeginUnionLifetime);
 
     return Success;
   }
@@ -7741,7 +7798,8 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
       if (!FieldIt->isUnnamedBitField())
         Success &= handleDefaultInitValue(
             FieldIt->getType(),
-            Result.getStructField(FieldIt->getFieldIndex()));
+            Result.getStructField(FieldIt->getFieldIndex()),
+            !FieldIt->isAnonymousStructOrUnion());
     }
     ++FieldIt;
   };
@@ -7861,7 +7919,8 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
       if (!FieldIt->isUnnamedBitField())
         Success &= handleDefaultInitValue(
             FieldIt->getType(),
-            Result.getStructField(FieldIt->getFieldIndex()));
+            Result.getStructField(FieldIt->getFieldIndex()),
+            !FieldIt->isAnonymousStructOrUnion());
     }
   }
 
