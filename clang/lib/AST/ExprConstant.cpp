@@ -3844,11 +3844,21 @@ static bool evaluateVarDeclInit(EvalInfo &Info, const Expr *E,
   //  ... reference has a preceding initialization and either ...
   if (Init && Init->isValueDependent()) {
     // The DeclRefExpr is not value-dependent, but the variable it refers to
-    // has a value-dependent initializer. This should only happen in
-    // constant-folding cases, where the variable is not actually of a suitable
-    // type for use in a constant expression (otherwise the DeclRefExpr would
-    // have been value-dependent too), so diagnose that.
-    assert(!VD->mightBeUsableInConstantExpressions(Info.Ctx));
+    // has a value-dependent initializer. This ordinarily only happens in
+    // constant-folding cases, where the variable is not actually of a
+    // suitable type for use in a constant expression (otherwise the
+    // DeclRefExpr would have been value-dependent too) -- but reflection's
+    // substitute()/extract() can also reach this path while instantiating a
+    // variable template specialization whose initializer is genuinely
+    // ill-formed (e.g. tuple_size_v<T> for a T with no tuple_size
+    // specialization): VD may still look mightBeUsableInConstantExpressions()
+    // even though this particular instantiation failed, so that is no longer
+    // an invariant here (see spwn02/clang-cxx26#146). Diagnosing and
+    // returning false either way is correct and already matches what the
+    // type-alias-template substitution-failure path does -- it lets a
+    // caller checking a potential constant expression (as substitute()'s own
+    // SFINAE-to-meta::exception translation does) fail gracefully instead of
+    // asserting.
     if (!Info.checkingPotentialConstantExpression()) {
       Info.FFDiag(E, Info.getLangOpts().CPlusPlus11
                          ? diag::note_constexpr_ltor_non_constexpr
