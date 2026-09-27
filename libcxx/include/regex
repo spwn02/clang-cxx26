@@ -4552,6 +4552,8 @@ public:
 #    ifndef _LIBCPP_CXX03_LANG
   match_results() : match_results(allocator_type()) {}
   explicit match_results(const allocator_type& __a);
+  match_results(const match_results& __m, const allocator_type& __a);
+  match_results(match_results&& __m, const allocator_type& __a);
 #    else
   explicit match_results(const allocator_type& __a = allocator_type());
 #    endif
@@ -4697,6 +4699,26 @@ private:
 template <class _BidirectionalIterator, class _Allocator>
 match_results<_BidirectionalIterator, _Allocator>::match_results(const allocator_type& __a)
     : __matches_(__a), __unmatched_(), __prefix_(), __suffix_(), __ready_(false), __position_start_() {}
+
+#    ifndef _LIBCPP_CXX03_LANG
+template <class _BidirectionalIterator, class _Allocator>
+match_results<_BidirectionalIterator, _Allocator>::match_results(const match_results& __m, const allocator_type& __a)
+    : __matches_(__m.__matches_, __a),
+      __unmatched_(__m.__unmatched_),
+      __prefix_(__m.__prefix_),
+      __suffix_(__m.__suffix_),
+      __ready_(__m.__ready_),
+      __position_start_(__m.__position_start_) {}
+
+template <class _BidirectionalIterator, class _Allocator>
+match_results<_BidirectionalIterator, _Allocator>::match_results(match_results&& __m, const allocator_type& __a)
+    : __matches_(std::move(__m.__matches_), __a),
+      __unmatched_(std::move(__m.__unmatched_)),
+      __prefix_(std::move(__m.__prefix_)),
+      __suffix_(std::move(__m.__suffix_)),
+      __ready_(__m.__ready_),
+      __position_start_(std::move(__m.__position_start_)) {}
+#    endif // _LIBCPP_CXX03_LANG
 
 template <class _BidirectionalIterator, class _Allocator>
 void match_results<_BidirectionalIterator, _Allocator>::__init(
