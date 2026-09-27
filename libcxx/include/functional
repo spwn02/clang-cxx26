@@ -616,12 +616,16 @@ POLICY:  For non-variadic implementations, the number of arguments is limited
 #  include <__functional/unary_negate.h>
 
 #  ifndef _LIBCPP_CXX03_LANG
-#    include <__functional/function.h>
+#    if !defined(_LIBCPP_FREESTANDING)
+#      include <__functional/function.h>
+#    endif
 #  endif
 
 #  if _LIBCPP_STD_VER >= 17
-#    include <__functional/boyer_moore_searcher.h>
-#    include <__functional/default_searcher.h>
+#    if !defined(_LIBCPP_FREESTANDING)
+#      include <__functional/boyer_moore_searcher.h>
+#      include <__functional/default_searcher.h>
+#    endif
 #    include <__functional/invoke.h>
 #    include <__functional/not_fn.h>
 #  endif
@@ -636,7 +640,9 @@ POLICY:  For non-variadic implementations, the number of arguments is limited
 #  endif
 
 #  if _LIBCPP_STD_VER >= 23
-#    include <__functional/move_only_function.h>
+#    if !defined(_LIBCPP_FREESTANDING)
+#      include <__functional/move_only_function.h>
+#    endif
 #  endif
 
 #  if _LIBCPP_STD_VER >= 26
