@@ -8079,8 +8079,8 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
 /// Is \p LV a complete object (rather than a base-class subobject)?
 static bool isCompleteObjectLValue(const LValue &LV) {
   const SubobjectDesignator &D = LV.Designator;
-  return D.Invalid || D.Entries.empty() ||
-         !getAsBaseClass(D.Entries.back());
+  // Only base-class entries follow the path to the most derived object.
+  return D.Invalid || D.Entries.size() <= D.MostDerivedPathLength;
 }
 
 static bool HandleDestructionImpl(EvalInfo &Info, SourceRange CallRange,

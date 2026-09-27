@@ -54,3 +54,14 @@ static_assert(cpb() == 3);
 // lambda capturing
 constexpr int lam() { D d; auto f = [&] { return d.n; }; return f(); }
 static_assert(lam() == 3);
+// Destroying array elements (the last designator entry is an array index).
+struct Dtor { int x = 1; constexpr ~Dtor() {} };
+constexpr int destroy_elements() {
+  Dtor a[2];
+  std::destroy_at(&a[1]);
+  std::construct_at(&a[1]);
+  a[0].~Dtor();
+  std::construct_at(&a[0]);
+  return a[0].x + a[1].x;
+}
+static_assert(destroy_elements() == 2);
