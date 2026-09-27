@@ -10339,6 +10339,9 @@ QualType Sema::DeduceTemplateSpecializationFromInitializer(
         // the class template, so this cannot go through isSameEntity.
         auto IsSameGuide = [&](FunctionTemplateDecl *Prev) {
           auto *PrevGD = cast<CXXDeductionGuideDecl>(Prev->getTemplatedDecl());
+          // Guides read from a PCH (no owning module) are merged normally.
+          if (!TD->getOwningModule() && !Prev->getOwningModule())
+            return false;
           if (Context.isInSameModule(TD->getOwningModule(),
                                      Prev->getOwningModule()))
             return false;
