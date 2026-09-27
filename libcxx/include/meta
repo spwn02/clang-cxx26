@@ -2224,11 +2224,15 @@ consteval auto add_rvalue_reference(info type) -> info {
 }
 
 consteval auto make_signed(info type) -> info {
+  if (!(is_integral_type(type) || is_enum_type(type)) || remove_cv(dealias(type)) == ^^bool)
+    throw exception(u8"bad type", ^^make_signed);
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^make_signed_t, {type})));
 }
 
 consteval auto make_unsigned(info type) -> info {
+  if (!(is_integral_type(type) || is_enum_type(type)) || remove_cv(dealias(type)) == ^^bool)
+    throw exception(u8"bad type", ^^make_unsigned);
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^make_unsigned_t, {type})));
 }
@@ -2299,10 +2303,16 @@ consteval auto unwrap_ref_decay(info type) -> info {
 }
 
 consteval auto tuple_size(info type) -> size_t {
+  if (!is_complete_type(type))
+    throw exception(u8"bad type", ^^tuple_size);
   return extract<size_t>(substitute(^^tuple_size_v, {type}));
 }
 
 consteval auto tuple_element(size_t index, info type) -> info {
+  if (!is_complete_type(type))
+    throw exception(u8"bad type", ^^tuple_element);
+  if (index >= tuple_size(type))
+    throw exception(u8"bad index", ^^tuple_element);
   return detail::__underlying_entity_of(substitute(^^tuple_element_t,
                             {reflect_constant(index), type}));
 }
@@ -2332,10 +2342,16 @@ consteval info apply_result(info fn, info tuple) {
 }
 
 consteval auto variant_size(info type) -> size_t {
+  if (!is_complete_type(type))
+    throw exception(u8"bad type", ^^variant_size);
   return extract<size_t>(substitute(^^variant_size_v, {type}));
 }
 
 consteval auto variant_alternative(size_t index, info type) -> info {
+  if (!is_complete_type(type))
+    throw exception(u8"bad type", ^^variant_alternative);
+  if (index >= variant_size(type))
+    throw exception(u8"bad index", ^^variant_alternative);
   return detail::__underlying_entity_of(substitute(^^variant_alternative_t,
                  {reflect_constant(index), type}));
 }
