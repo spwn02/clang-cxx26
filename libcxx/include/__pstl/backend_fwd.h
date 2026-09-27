@@ -146,6 +146,17 @@ template <class _Backend, class _ExecutionPolicy>
 struct __set_union;
 
 template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_set_union;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_set_intersection;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_set_difference;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_set_symmetric_difference;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_unique_copy;
+
+template <class _Backend, class _ExecutionPolicy>
 struct __is_heap;
 
 template <class _Backend, class _ExecutionPolicy>

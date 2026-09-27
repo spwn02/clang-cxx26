@@ -10,6 +10,8 @@
 #define _LIBCPP___ALGORITHM_RANGES_UNIQUE_COPY_H
 
 #include <__algorithm/in_out_result.h>
+#include <__algorithm/pstl.h>
+#include <__pstl/ranges_bounded.h>
 #include <__algorithm/iterator_operations.h>
 #include <__algorithm/make_projected.h>
 #include <__algorithm/unique_copy.h>
@@ -24,6 +26,8 @@
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
 #include <__utility/pair.h>
@@ -100,6 +104,36 @@ struct __unique_copy {
         __algo_tag_t<iterator_t<_Range>, _OutIter>());
     return {std::move(__ret.first), std::move(__ret.second)};
   }
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && _LIBCPP_STD_VER >= 26
+  template <class _Ep, random_access_iterator _InIter, sized_sentinel_for<_InIter> _Sent,
+            random_access_iterator _OutIter, sized_sentinel_for<_OutIter> _OutSent,
+            class _Proj = identity, indirect_equivalence_relation<projected<_InIter, _Proj>> _Comp = ranges::equal_to,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires indirectly_copyable<_InIter, _OutIter>
+  _LIBCPP_HIDE_FROM_ABI unique_copy_result<_InIter, _OutIter>
+  operator()(_Ep&& __exec, _InIter __first, _Sent __last, _OutIter __result, _OutSent __result_last,
+             _Comp __comp = {}, _Proj __proj = {}) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__ranges_bounded_unique_copy,
+                                                __pstl::__current_configuration, _RawPolicy>;
+    return __pstl::__handle_exception<_Implementation>(std::forward<_Ep>(__exec), std::move(__first),
+        std::move(__last), std::move(__result), std::move(__result_last), std::move(__comp), std::move(__proj));
+  }
+
+  template <class _Ep, random_access_range _Range, random_access_range _OutRange,
+            class _Proj = identity,
+            indirect_equivalence_relation<projected<iterator_t<_Range>, _Proj>> _Comp = ranges::equal_to,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range> && sized_range<_OutRange> &&
+             indirectly_copyable<iterator_t<_Range>, iterator_t<_OutRange>>
+  _LIBCPP_HIDE_FROM_ABI unique_copy_result<borrowed_iterator_t<_Range>, borrowed_iterator_t<_OutRange>>
+  operator()(_Ep&& __exec, _Range&& __range, _OutRange&& __result_range,
+             _Comp __comp = {}, _Proj __proj = {}) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::end(__range),
+                   ranges::begin(__result_range), ranges::end(__result_range),
+                   std::move(__comp), std::move(__proj));
+  }
+#  endif
 };
 
 inline namespace __cpo {

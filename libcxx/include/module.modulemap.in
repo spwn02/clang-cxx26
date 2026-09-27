@@ -4721,6 +4721,10 @@ module std [system] {
       header "__pstl/handle_exception.h"
       export *
     }
+    module ranges_bounded {
+      header "__pstl/ranges_bounded.h"
+      export *
+    }
   }
 
   // Miscellaneous modules for top-level headers

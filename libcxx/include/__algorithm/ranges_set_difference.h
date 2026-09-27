@@ -12,8 +12,11 @@
 #include <__algorithm/in_out_result.h>
 #include <__algorithm/make_projected.h>
 #include <__algorithm/pstl.h>
+#include <__pstl/ranges_bounded.h>
+#include <__pstl/handle_exception.h>
 #include <__algorithm/set_difference.h>
 #include <__config>
+#include <__pstl/dispatch.h>
 #include <__functional/identity.h>
 #include <__functional/invoke.h>
 #include <__functional/ranges_operations.h>
@@ -128,6 +131,37 @@ struct __set_difference {
     return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range1), ranges::end(__range1), ranges::begin(__range2),
                    ranges::end(__range2), std::move(__result), std::move(__comp), std::move(__proj1), std::move(__proj2));
   }
+
+#    if _LIBCPP_STD_VER >= 26
+  template <class _Ep, random_access_iterator _InIter1, sized_sentinel_for<_InIter1> _Sent1,
+            random_access_iterator _InIter2, sized_sentinel_for<_InIter2> _Sent2,
+            random_access_iterator _OutIter, sized_sentinel_for<_OutIter> _OutSent,
+            class _Comp = ranges::less, class _Proj1 = identity, class _Proj2 = identity,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires mergeable<_InIter1, _InIter2, _OutIter, _Comp, _Proj1, _Proj2>
+  _LIBCPP_HIDE_FROM_ABI set_difference_result<_InIter1, _OutIter> operator()(
+      _Ep&& __exec, _InIter1 __first1, _Sent1 __last1, _InIter2 __first2, _Sent2 __last2,
+      _OutIter __result, _OutSent __result_last, _Comp __comp = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__ranges_bounded_set_difference, __pstl::__current_configuration,
+                                                _RawPolicy>;
+    return __pstl::__handle_exception<_Implementation>(std::forward<_Ep>(__exec), std::move(__first1),
+        std::move(__last1), std::move(__first2), std::move(__last2), std::move(__result), std::move(__result_last),
+        std::move(__comp), std::move(__proj1), std::move(__proj2));
+  }
+
+  template <class _Ep, random_access_range _Range1, random_access_range _Range2, random_access_range _OutRange,
+            class _Comp = ranges::less, class _Proj1 = identity, class _Proj2 = identity,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range1> && sized_range<_Range2> && sized_range<_OutRange> &&
+             mergeable<iterator_t<_Range1>, iterator_t<_Range2>, iterator_t<_OutRange>, _Comp, _Proj1, _Proj2>
+  _LIBCPP_HIDE_FROM_ABI set_difference_result<borrowed_iterator_t<_Range1>, borrowed_iterator_t<_OutRange>>
+  operator()(_Ep&& __exec, _Range1&& __range1, _Range2&& __range2, _OutRange&& __result_range,
+             _Comp __comp = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range1), ranges::end(__range1),
+                   ranges::begin(__range2), ranges::end(__range2), ranges::begin(__result_range),
+                   ranges::end(__result_range), std::move(__comp), std::move(__proj1), std::move(__proj2));
+  }
+#    endif
 #  endif
 };
 
