@@ -89,3 +89,12 @@ Effort: milestone 1 small; milestone 2 moderate; milestone 3 is the unknown (lib
 * Tests: `CodeGenCXX/erroneous-init.cpp` (scalar, array, struct, `[[indeterminate]]`, initialized variable, the three
   opt-outs, C++23 unchanged, MSan). Optimized IR no longer contains `undef` for such reads.
 * Warnings are untouched: `-Wuninitialized` and friends still fire because they run in Sema.
+
+## M2b (2026-09-27)
+
+Uninitialized-value warnings (`-Wuninitialized`, `-Wsometimes-uninitialized`) are unchanged; `SemaCXX/erroneous-init-warnings.cpp` pins that
+in C++23 and C++26. Optimized code no longer treats the erroneous read as undefined: `int g(){ int y; return y; }` returns the pattern
+(`ret i32 -1431655766` at -O2) while `[[indeterminate]]` still yields `undef`. MemorySanitizer keeps the old (uninitialized) behavior
+so it can report these reads.
+M3 (libc++ audit): measured +1.4% `.text` on a TU using `<format>`, `<print>`, `<regex>`, `<map>`, `<sstream>`, `<charconv>`; a Codex pass
+(`_LIBCPP_INDETERMINATE` macro, hot buffers) is queued.
