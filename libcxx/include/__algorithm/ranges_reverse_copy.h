@@ -66,7 +66,7 @@ struct __reverse_copy {
     return {ranges::next(ranges::begin(__range), ranges::end(__range)), std::move(__ret.out)};
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   // This fork's PSTL backend (__pstl::__handle_exception) is all-or-nothing: it either
   // completes the whole operation or throws, with no partial/truncated outcome ever
   // observable by the caller. So on (the only possible) success, the entire input has been

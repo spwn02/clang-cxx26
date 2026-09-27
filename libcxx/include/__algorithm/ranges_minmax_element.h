@@ -62,7 +62,7 @@ struct __minmax_element {
     auto __ret = std::__minmax_element_impl(ranges::begin(__r), ranges::end(__r), __comp, __proj);
     return {__ret.first, __ret.second};
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _Iter,
             sized_sentinel_for<_Iter> _Sent,

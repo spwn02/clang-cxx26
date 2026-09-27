@@ -76,7 +76,7 @@ struct __replace_if {
     return ranges::__replace_if_impl(ranges::begin(__range), ranges::end(__range), __pred, __new_value, __proj);
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent, class _Proj = identity,
             class _Type, indirect_unary_predicate<projected<_Iter, _Proj>> _Pred,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>

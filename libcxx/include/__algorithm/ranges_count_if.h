@@ -56,7 +56,7 @@ struct __count_if {
     return std::__count_if<_RangeAlgPolicy>(ranges::begin(__r), ranges::end(__r), __pred, __proj);
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
             class _Proj = identity, indirect_unary_predicate<projected<_Iter, _Proj>> _Predicate,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>

@@ -71,7 +71,7 @@ struct __partition {
   operator()(_Range&& __range, _Pred __pred, _Proj __proj = {}) const {
     return __partition_fn_impl(ranges::begin(__range), ranges::end(__range), __pred, __proj);
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
             class _Proj = identity, class _Pred, class _RawPolicy = __remove_cvref_t<_Ep>,
             enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>

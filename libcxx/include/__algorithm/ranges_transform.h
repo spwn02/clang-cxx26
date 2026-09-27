@@ -165,7 +165,7 @@ public:
         __projection2);
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _InIter, sized_sentinel_for<_InIter> _Sent, weakly_incrementable _OutIter,
             copy_constructible _Func, class _Proj = identity,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>

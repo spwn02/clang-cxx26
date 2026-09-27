@@ -45,7 +45,7 @@ struct __copy_n {
     auto __res = std::__copy_n<_RangeAlgPolicy>(std::move(__first), __n, std::move(__result));
     return {std::move(__res.first), std::move(__res.second)};
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Ip, weakly_incrementable _Op,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires indirectly_copyable<_Ip, _Op>

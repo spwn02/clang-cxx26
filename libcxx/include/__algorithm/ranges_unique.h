@@ -67,7 +67,7 @@ struct __unique {
         ranges::begin(__range), ranges::end(__range), std::__make_projected(__comp, __proj));
     return {std::move(__ret.first), std::move(__ret.second)};
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
             class _Comp = ranges::equal_to, class _Proj = identity,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>

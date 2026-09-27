@@ -92,7 +92,7 @@ struct __partition_copy {
     return __partition_copy_fn_impl(
         ranges::begin(__range), ranges::end(__range), std::move(__out_true), std::move(__out_false), __pred, __proj);
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _InIter,
             sized_sentinel_for<_InIter> _Sent,

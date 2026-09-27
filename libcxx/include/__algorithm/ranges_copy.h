@@ -56,7 +56,7 @@ struct __copy {
     auto __ret = std::__copy(ranges::begin(__r), ranges::end(__r), std::move(__result));
     return {std::move(__ret.first), std::move(__ret.second)};
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _InIter, sized_sentinel_for<_InIter> _Sent, weakly_incrementable _OutIter,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires indirectly_copyable<_InIter, _OutIter>

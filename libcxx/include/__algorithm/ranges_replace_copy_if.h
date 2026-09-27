@@ -92,7 +92,7 @@ struct __replace_copy_if {
         ranges::begin(__range), ranges::end(__range), std::move(__result), __pred, __new_value, __proj);
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _InIter, sized_sentinel_for<_InIter> _Sent, class _OutIter, class _Type,
             class _Proj = identity, indirect_unary_predicate<projected<_InIter, _Proj>> _Pred,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>

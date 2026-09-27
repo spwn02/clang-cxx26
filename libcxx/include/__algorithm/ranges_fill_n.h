@@ -45,7 +45,7 @@ struct __fill_n {
     return std::__fill_n(std::move(__first), __n, __value);
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, class _Type
 #    if _LIBCPP_STD_VER >= 26
             = iter_value_t<_Iter>

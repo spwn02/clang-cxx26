@@ -116,7 +116,7 @@ struct __find_last {
   operator()(_Range&& __range, const _Type& __value, _Proj __proj = {}) {
     return ranges::__find_last_impl(ranges::begin(__range), ranges::end(__range), __op<_Type>{__value}, __proj);
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   // Composes via the already-PSTL-backed ranges::find, scanning in reverse (find_last(first,
   // last, v) is find(reverse(last), reverse(first), v), mapped back to a forward position) --
   // this routes through the same __pstl::__handle_exception/backend-dispatch machinery
@@ -189,7 +189,7 @@ struct __find_last_if {
   operator()(_Range&& __range, _Pred __pred, _Proj __proj = {}) {
     return ranges::__find_last_impl(ranges::begin(__range), ranges::end(__range), __op<_Pred>{__pred}, __proj);
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   // See __find_last's own PSTL overload above for why this composes via ranges::find_if
   // (already PSTL-backed) on a reversed range, rather than a hand-rolled loop.
   template <class _Ep,
@@ -250,7 +250,7 @@ struct __find_last_if_not {
   operator()(_Range&& __range, _Pred __pred, _Proj __proj = {}) {
     return ranges::__find_last_impl(ranges::begin(__range), ranges::end(__range), __op<_Pred>{__pred}, __proj);
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   // See __find_last's own PSTL overload above for why this composes via ranges::find_if_not
   // (already PSTL-backed) on a reversed range, rather than a hand-rolled loop.
   template <class _Ep,

@@ -73,7 +73,7 @@ struct __is_partitioned {
     return __is_partitioned_impl(ranges::begin(__range), ranges::end(__range), __pred, __proj);
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
             class _Proj = identity,
             indirect_unary_predicate<projected<_Iter, _Proj>> _Pred,

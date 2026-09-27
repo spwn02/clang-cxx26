@@ -58,7 +58,7 @@ struct __generate {
     return __generate_fn_impl(ranges::begin(__range), ranges::end(__range), __gen);
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _OutIter, sized_sentinel_for<_OutIter> _Sent, copy_constructible _Func,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires invocable<_Func&> && indirectly_writable<_OutIter, invoke_result_t<_Func&>>

@@ -61,7 +61,7 @@ struct __move {
     return __move_impl(ranges::begin(__range), ranges::end(__range), std::move(__result));
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _InIter, sized_sentinel_for<_InIter> _Sent, weakly_incrementable _OutIter,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires indirectly_movable<_InIter, _OutIter>

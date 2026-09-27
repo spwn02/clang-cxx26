@@ -56,7 +56,7 @@ struct __swap_ranges {
   operator()(_R1&& __r1, _R2&& __r2) const {
     return operator()(ranges::begin(__r1), ranges::end(__r1), ranges::begin(__r2), ranges::end(__r2));
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _I1, sized_sentinel_for<_I1> _S1,
             random_access_iterator _I2,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>

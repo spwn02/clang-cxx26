@@ -96,7 +96,7 @@ struct __set_difference {
     return {std::move(__ret.first), std::move(__ret.second)};
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _InIter1, sized_sentinel_for<_InIter1> _Sent1,
             random_access_iterator _InIter2, sized_sentinel_for<_InIter2> _Sent2, weakly_incrementable _OutIter,
             class _Comp = less, class _Proj1 = identity, class _Proj2 = identity,

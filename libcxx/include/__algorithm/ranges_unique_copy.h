@@ -105,7 +105,7 @@ struct __unique_copy {
     return {std::move(__ret.first), std::move(__ret.second)};
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && _LIBCPP_STD_VER >= 26
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _InIter, sized_sentinel_for<_InIter> _Sent,
             random_access_iterator _OutIter, sized_sentinel_for<_OutIter> _OutSent,
             class _Proj = identity, indirect_equivalence_relation<projected<_InIter, _Proj>> _Comp = ranges::equal_to,

@@ -87,7 +87,7 @@ struct __mismatch {
         ranges::begin(__r1), ranges::end(__r1), ranges::begin(__r2), ranges::end(__r2), __pred, __proj1, __proj2);
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _I1, sized_sentinel_for<_I1> _S1,
             random_access_iterator _I2, sized_sentinel_for<_I2> _S2,
             class _Pred = ranges::equal_to, class _Proj1 = identity, class _Proj2 = identity,

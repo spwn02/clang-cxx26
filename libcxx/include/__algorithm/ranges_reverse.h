@@ -67,7 +67,7 @@ struct __reverse {
   _LIBCPP_HIDE_FROM_ABI constexpr borrowed_iterator_t<_Range> operator()(_Range&& __range) const {
     return (*this)(ranges::begin(__range), ranges::end(__range));
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
   _LIBCPP_HIDE_FROM_ABI _Iter operator()(_Ep&& __exec, _Iter __first, _Sent __last) const {

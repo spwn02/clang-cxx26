@@ -66,7 +66,7 @@ struct __is_heap {
     return __is_heap_fn_impl(ranges::begin(__range), ranges::end(__range), __comp, __proj);
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
             class _Proj = identity, indirect_strict_weak_order<projected<_Iter, _Proj>> _Comp = ranges::less,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>

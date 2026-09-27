@@ -55,7 +55,7 @@ struct __rotate {
   operator()(_Range&& __range, iterator_t<_Range> __middle) const {
     return __rotate_fn_impl(ranges::begin(__range), std::move(__middle), ranges::end(__range));
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
   _LIBCPP_HIDE_FROM_ABI subrange<_Iter> operator()(_Ep&& __exec, _Iter __first, _Iter __middle, _Sent __last) const {
