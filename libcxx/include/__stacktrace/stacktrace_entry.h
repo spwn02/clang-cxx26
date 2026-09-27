@@ -105,9 +105,9 @@ private:
   return __result;
 }
 
-template <class _CharT, class _Traits>
-_LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
-operator<<(basic_ostream<_CharT, _Traits>& __os, const stacktrace_entry& __f) {
+// LWG3515: this overload is not a template over charT/traits (it would otherwise be
+// well-formed only for char/char_traits<char>, since the effects stream a std::string).
+_LIBCPP_HIDE_FROM_ABI inline ostream& operator<<(ostream& __os, const stacktrace_entry& __f) {
   // [stacktrace.entry.observers]: "the streamed result is the same as
   // (the corresponding call to) std::to_string(f)".
   return __os << std::to_string(__f);

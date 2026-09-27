@@ -225,9 +225,10 @@ template <class _Allocator>
   return __result;
 }
 
-template <class _CharT, class _Traits, class _Allocator>
-_LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
-operator<<(basic_ostream<_CharT, _Traits>& __os, const basic_stacktrace<_Allocator>& __st) {
+// LWG3515: templated only on Allocator, not also on charT/traits (it would otherwise be
+// well-formed only for char/char_traits<char>, since the effects stream a std::string).
+template <class _Allocator>
+_LIBCPP_HIDE_FROM_ABI ostream& operator<<(ostream& __os, const basic_stacktrace<_Allocator>& __st) {
   return __os << std::to_string(__st);
 }
 
