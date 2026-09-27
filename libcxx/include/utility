@@ -13,6 +13,8 @@
 /*
     utility synopsis
 
+// all freestanding
+
 #include <initializer_list>
 
 namespace std

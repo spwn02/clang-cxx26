@@ -13,6 +13,8 @@
 /*
     ratio synopsis
 
+// all freestanding
+
 namespace std
 {
 

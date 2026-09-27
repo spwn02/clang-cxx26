@@ -136,7 +136,10 @@ __cpp_lib_freestanding_cstring                          202311L <cstring>
 __cpp_lib_freestanding_expected                         202311L <expected>
 __cpp_lib_freestanding_mdspan                           202311L <mdspan>
 __cpp_lib_freestanding_optional                         202311L <optional>
+__cpp_lib_freestanding_ratio                            202306L <ratio>
 __cpp_lib_freestanding_string_view                      202311L <string_view>
+__cpp_lib_freestanding_tuple                            202306L <tuple>
+__cpp_lib_freestanding_utility                          202306L <utility>
 __cpp_lib_freestanding_variant                          202311L <variant>
 __cpp_lib_fstream_native_handle                         202306L <fstream>
 __cpp_lib_function_ref                                  202306L <functional>
@@ -658,7 +661,10 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_freestanding_expected                202311L
 # define __cpp_lib_freestanding_mdspan                  202311L
 # define __cpp_lib_freestanding_optional                202311L
+# define __cpp_lib_freestanding_ratio                   202306L
 # define __cpp_lib_freestanding_string_view             202311L
+# define __cpp_lib_freestanding_tuple                   202306L
+# define __cpp_lib_freestanding_utility                 202306L
 // # define __cpp_lib_freestanding_variant                 202311L
 # if _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
 #   define __cpp_lib_fstream_native_handle              202306L
