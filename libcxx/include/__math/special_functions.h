@@ -88,6 +88,16 @@ inline _LIBCPP_HIDE_FROM_ABI float hermite(unsigned __n, float __x) {
 
 inline _LIBCPP_HIDE_FROM_ABI long double hermite(unsigned __n, long double __x) { return std::__hermite(__n, __x); }
 
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 hermite(unsigned __n, __float128 __x) { return std::__hermite(__n, __x); }
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended hermite(unsigned __n, Extended __x) {
+  return static_cast<Extended>(std::hermite(__n, static_cast<double>(__x)));
+}
+#endif
+
 inline _LIBCPP_HIDE_FROM_ABI float hermitef(unsigned __n, float __x) { return std::hermite(__n, __x); }
 
 inline _LIBCPP_HIDE_FROM_ABI long double hermitel(unsigned __n, long double __x) { return std::hermite(__n, __x); }
@@ -137,6 +147,16 @@ inline _LIBCPP_HIDE_FROM_ABI float legendre(unsigned __l, float __x) {
 inline _LIBCPP_HIDE_FROM_ABI long double legendre(unsigned __l, long double __x) {
   return std::__legendre(__l, __x);
 }
+
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 legendre(unsigned __l, __float128 __x) { return std::__legendre(__l, __x); }
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended legendre(unsigned __l, Extended __x) {
+  return static_cast<Extended>(std::legendre(__l, static_cast<double>(__x)));
+}
+#endif
 
 inline _LIBCPP_HIDE_FROM_ABI float legendref(unsigned __l, float __x) { return std::legendre(__l, __x); }
 
@@ -204,6 +224,18 @@ inline _LIBCPP_HIDE_FROM_ABI long double assoc_legendre(unsigned __l, unsigned _
   return std::__assoc_legendre(__l, __m, __x);
 }
 
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 assoc_legendre(unsigned __l, unsigned __m, __float128 __x) {
+  return std::__assoc_legendre(__l, __m, __x);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended assoc_legendre(unsigned __l, unsigned __m, Extended __x) {
+  return static_cast<Extended>(std::assoc_legendre(__l, __m, static_cast<double>(__x)));
+}
+#endif
+
 inline _LIBCPP_HIDE_FROM_ABI float assoc_legendref(unsigned __l, unsigned __m, float __x) {
   return std::assoc_legendre(__l, __m, __x);
 }
@@ -263,6 +295,16 @@ inline _LIBCPP_HIDE_FROM_ABI long double laguerre(unsigned __n, long double __x)
   return std::__laguerre(__n, __x);
 }
 
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 laguerre(unsigned __n, __float128 __x) { return std::__laguerre(__n, __x); }
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended laguerre(unsigned __n, Extended __x) {
+  return static_cast<Extended>(std::laguerre(__n, static_cast<double>(__x)));
+}
+#endif
+
 inline _LIBCPP_HIDE_FROM_ABI float laguerref(unsigned __n, float __x) { return std::laguerre(__n, __x); }
 
 inline _LIBCPP_HIDE_FROM_ABI long double laguerrel(unsigned __n, long double __x) {
@@ -320,6 +362,18 @@ inline _LIBCPP_HIDE_FROM_ABI long double assoc_laguerre(unsigned __n, unsigned _
   return std::__assoc_laguerre(__n, __m, __x);
 }
 
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 assoc_laguerre(unsigned __n, unsigned __m, __float128 __x) {
+  return std::__assoc_laguerre(__n, __m, __x);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended assoc_laguerre(unsigned __n, unsigned __m, Extended __x) {
+  return static_cast<Extended>(std::assoc_laguerre(__n, __m, static_cast<double>(__x)));
+}
+#endif
+
 inline _LIBCPP_HIDE_FROM_ABI float assoc_laguerref(unsigned __n, unsigned __m, float __x) {
   return std::assoc_laguerre(__n, __m, __x);
 }
@@ -354,6 +408,16 @@ inline _LIBCPP_HIDE_FROM_ABI double beta(double __x, double __y) { return std::_
 inline _LIBCPP_HIDE_FROM_ABI float beta(float __x, float __y) { return std::__beta(__x, __y); }
 
 inline _LIBCPP_HIDE_FROM_ABI long double beta(long double __x, long double __y) { return std::__beta(__x, __y); }
+
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 beta(__float128 __x, __float128 __y) { return std::__beta(__x, __y); }
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended beta(Extended __x, Extended __y) {
+  return static_cast<Extended>(std::beta(static_cast<double>(__x), static_cast<double>(__y)));
+}
+#endif
 
 inline _LIBCPP_HIDE_FROM_ABI float betaf(float __x, float __y) { return std::beta(__x, __y); }
 
@@ -400,6 +464,18 @@ inline _LIBCPP_HIDE_FROM_ABI float sph_legendre(unsigned __l, unsigned __m, floa
 inline _LIBCPP_HIDE_FROM_ABI long double sph_legendre(unsigned __l, unsigned __m, long double __theta) {
   return std::__sph_legendre(__l, __m, __theta);
 }
+
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 sph_legendre(unsigned __l, unsigned __m, __float128 __theta) {
+  return std::__sph_legendre(__l, __m, __theta);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended sph_legendre(unsigned __l, unsigned __m, Extended __theta) {
+  return static_cast<Extended>(std::sph_legendre(__l, __m, static_cast<double>(__theta)));
+}
+#endif
 
 inline _LIBCPP_HIDE_FROM_ABI float sph_legendref(unsigned __l, unsigned __m, float __theta) {
   return std::sph_legendre(__l, __m, __theta);
@@ -594,6 +670,16 @@ inline _LIBCPP_HIDE_FROM_ABI float comp_ellint_1(float __k) {
 
 inline _LIBCPP_HIDE_FROM_ABI long double comp_ellint_1(long double __k) { return std::__comp_ellint_1(__k); }
 
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 comp_ellint_1(__float128 __k) { return std::__comp_ellint_1(__k); }
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended comp_ellint_1(Extended __k) {
+  return static_cast<Extended>(std::comp_ellint_1(static_cast<double>(__k)));
+}
+#endif
+
 inline _LIBCPP_HIDE_FROM_ABI float comp_ellint_1f(float __k) { return std::comp_ellint_1(__k); }
 
 inline _LIBCPP_HIDE_FROM_ABI long double comp_ellint_1l(long double __k) { return std::comp_ellint_1(__k); }
@@ -626,6 +712,16 @@ inline _LIBCPP_HIDE_FROM_ABI float comp_ellint_2(float __k) {
 
 inline _LIBCPP_HIDE_FROM_ABI long double comp_ellint_2(long double __k) { return std::__comp_ellint_2(__k); }
 
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 comp_ellint_2(__float128 __k) { return std::__comp_ellint_2(__k); }
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended comp_ellint_2(Extended __k) {
+  return static_cast<Extended>(std::comp_ellint_2(static_cast<double>(__k)));
+}
+#endif
+
 inline _LIBCPP_HIDE_FROM_ABI float comp_ellint_2f(float __k) { return std::comp_ellint_2(__k); }
 
 inline _LIBCPP_HIDE_FROM_ABI long double comp_ellint_2l(long double __k) { return std::comp_ellint_2(__k); }
@@ -657,6 +753,18 @@ inline _LIBCPP_HIDE_FROM_ABI float comp_ellint_3(float __k, float __nu) {
 inline _LIBCPP_HIDE_FROM_ABI long double comp_ellint_3(long double __k, long double __nu) {
   return std::__comp_ellint_3(__k, __nu);
 }
+
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 comp_ellint_3(__float128 __k, __float128 __nu) {
+  return std::__comp_ellint_3(__k, __nu);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended comp_ellint_3(Extended __k, Extended __nu) {
+  return static_cast<Extended>(std::comp_ellint_3(static_cast<double>(__k), static_cast<double>(__nu)));
+}
+#endif
 
 inline _LIBCPP_HIDE_FROM_ABI float comp_ellint_3f(float __k, float __nu) { return std::comp_ellint_3(__k, __nu); }
 
@@ -693,6 +801,18 @@ inline _LIBCPP_HIDE_FROM_ABI float ellint_1(float __k, float __phi) {
 inline _LIBCPP_HIDE_FROM_ABI long double ellint_1(long double __k, long double __phi) {
   return std::__ellint_1(__k, __phi);
 }
+
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 ellint_1(__float128 __k, __float128 __phi) {
+  return std::__ellint_1(__k, __phi);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended ellint_1(Extended __k, Extended __phi) {
+  return static_cast<Extended>(std::ellint_1(static_cast<double>(__k), static_cast<double>(__phi)));
+}
+#endif
 
 inline _LIBCPP_HIDE_FROM_ABI float ellint_1f(float __k, float __phi) { return std::ellint_1(__k, __phi); }
 
@@ -733,6 +853,18 @@ inline _LIBCPP_HIDE_FROM_ABI float ellint_2(float __k, float __phi) {
 inline _LIBCPP_HIDE_FROM_ABI long double ellint_2(long double __k, long double __phi) {
   return std::__ellint_2(__k, __phi);
 }
+
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 ellint_2(__float128 __k, __float128 __phi) {
+  return std::__ellint_2(__k, __phi);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended ellint_2(Extended __k, Extended __phi) {
+  return static_cast<Extended>(std::ellint_2(static_cast<double>(__k), static_cast<double>(__phi)));
+}
+#endif
 
 inline _LIBCPP_HIDE_FROM_ABI float ellint_2f(float __k, float __phi) { return std::ellint_2(__k, __phi); }
 
@@ -776,6 +908,18 @@ inline _LIBCPP_HIDE_FROM_ABI float ellint_3(float __k, float __nu, float __phi) 
 inline _LIBCPP_HIDE_FROM_ABI long double ellint_3(long double __k, long double __nu, long double __phi) {
   return std::__ellint_3(__k, __nu, __phi);
 }
+
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 ellint_3(__float128 __k, __float128 __nu, __float128 __phi) {
+  return std::__ellint_3(__k, __nu, __phi);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended ellint_3(Extended __k, Extended __nu, Extended __phi) {
+  return static_cast<Extended>(std::ellint_3(static_cast<double>(__k), static_cast<double>(__nu), static_cast<double>(__phi)));
+}
+#endif
 
 inline _LIBCPP_HIDE_FROM_ABI float ellint_3f(float __k, float __nu, float __phi) { return std::ellint_3(__k, __nu, __phi); }
 
@@ -887,6 +1031,16 @@ inline _LIBCPP_HIDE_FROM_ABI float expint(float __x) {
 
 inline _LIBCPP_HIDE_FROM_ABI long double expint(long double __x) { return std::__expint(__x); }
 
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 expint(__float128 __x) { return std::__expint(__x); }
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended expint(Extended __x) {
+  return static_cast<Extended>(std::expint(static_cast<double>(__x)));
+}
+#endif
+
 inline _LIBCPP_HIDE_FROM_ABI float expintf(float __x) { return std::expint(__x); }
 
 inline _LIBCPP_HIDE_FROM_ABI long double expintl(long double __x) { return std::expint(__x); }
@@ -960,6 +1114,16 @@ inline _LIBCPP_HIDE_FROM_ABI float riemann_zeta(float __s) {
 }
 
 inline _LIBCPP_HIDE_FROM_ABI long double riemann_zeta(long double __s) { return std::__riemann_zeta(__s); }
+
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 riemann_zeta(__float128 __s) { return std::__riemann_zeta(__s); }
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended riemann_zeta(Extended __s) {
+  return static_cast<Extended>(std::riemann_zeta(static_cast<double>(__s)));
+}
+#endif
 
 inline _LIBCPP_HIDE_FROM_ABI float riemann_zetaf(float __s) { return std::riemann_zeta(__s); }
 
@@ -1238,6 +1402,18 @@ inline _LIBCPP_HIDE_FROM_ABI long double cyl_bessel_j(long double __nu, long dou
   return std::__cyl_bessel_j(__nu, __x);
 }
 
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 cyl_bessel_j(__float128 __nu, __float128 __x) {
+  return std::__cyl_bessel_j(__nu, __x);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended cyl_bessel_j(Extended __nu, Extended __x) {
+  return static_cast<Extended>(std::cyl_bessel_j(static_cast<double>(__nu), static_cast<double>(__x)));
+}
+#endif
+
 inline _LIBCPP_HIDE_FROM_ABI float cyl_bessel_jf(float __nu, float __x) { return std::cyl_bessel_j(__nu, __x); }
 
 inline _LIBCPP_HIDE_FROM_ABI long double cyl_bessel_jl(long double __nu, long double __x) {
@@ -1261,6 +1437,18 @@ inline _LIBCPP_HIDE_FROM_ABI float cyl_neumann(float __nu, float __x) {
 inline _LIBCPP_HIDE_FROM_ABI long double cyl_neumann(long double __nu, long double __x) {
   return std::__cyl_neumann(__nu, __x);
 }
+
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 cyl_neumann(__float128 __nu, __float128 __x) {
+  return std::__cyl_neumann(__nu, __x);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended cyl_neumann(Extended __nu, Extended __x) {
+  return static_cast<Extended>(std::cyl_neumann(static_cast<double>(__nu), static_cast<double>(__x)));
+}
+#endif
 
 inline _LIBCPP_HIDE_FROM_ABI float cyl_neumannf(float __nu, float __x) { return std::cyl_neumann(__nu, __x); }
 
@@ -1286,6 +1474,18 @@ inline _LIBCPP_HIDE_FROM_ABI long double cyl_bessel_i(long double __nu, long dou
   return std::__cyl_bessel_i(__nu, __x);
 }
 
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 cyl_bessel_i(__float128 __nu, __float128 __x) {
+  return std::__cyl_bessel_i(__nu, __x);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended cyl_bessel_i(Extended __nu, Extended __x) {
+  return static_cast<Extended>(std::cyl_bessel_i(static_cast<double>(__nu), static_cast<double>(__x)));
+}
+#endif
+
 inline _LIBCPP_HIDE_FROM_ABI float cyl_bessel_if(float __nu, float __x) { return std::cyl_bessel_i(__nu, __x); }
 
 inline _LIBCPP_HIDE_FROM_ABI long double cyl_bessel_il(long double __nu, long double __x) {
@@ -1309,6 +1509,18 @@ inline _LIBCPP_HIDE_FROM_ABI float cyl_bessel_k(float __nu, float __x) {
 inline _LIBCPP_HIDE_FROM_ABI long double cyl_bessel_k(long double __nu, long double __x) {
   return std::__cyl_bessel_k(__nu, __x);
 }
+
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 cyl_bessel_k(__float128 __nu, __float128 __x) {
+  return std::__cyl_bessel_k(__nu, __x);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended cyl_bessel_k(Extended __nu, Extended __x) {
+  return static_cast<Extended>(std::cyl_bessel_k(static_cast<double>(__nu), static_cast<double>(__x)));
+}
+#endif
 
 inline _LIBCPP_HIDE_FROM_ABI float cyl_bessel_kf(float __nu, float __x) { return std::cyl_bessel_k(__nu, __x); }
 
@@ -1397,6 +1609,18 @@ inline _LIBCPP_HIDE_FROM_ABI long double sph_bessel(unsigned __n, long double __
   return std::__sph_bessel(__n, __x);
 }
 
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 sph_bessel(unsigned __n, __float128 __x) {
+  return std::__sph_bessel(__n, __x);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended sph_bessel(unsigned __n, Extended __x) {
+  return static_cast<Extended>(std::sph_bessel(__n, static_cast<double>(__x)));
+}
+#endif
+
 inline _LIBCPP_HIDE_FROM_ABI float sph_besself(unsigned __n, float __x) { return std::sph_bessel(__n, __x); }
 
 inline _LIBCPP_HIDE_FROM_ABI long double sph_bessell(unsigned __n, long double __x) {
@@ -1417,6 +1641,18 @@ inline _LIBCPP_HIDE_FROM_ABI float sph_neumann(unsigned __n, float __x) {
 inline _LIBCPP_HIDE_FROM_ABI long double sph_neumann(unsigned __n, long double __x) {
   return std::__sph_neumann(__n, __x);
 }
+
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT128_T__)
+inline _LIBCPP_HIDE_FROM_ABI __float128 sph_neumann(unsigned __n, __float128 __x) {
+  return std::__sph_neumann(__n, __x);
+}
+#  endif
+template <class Extended, std::enable_if_t<__math::__is_stdfloat_math_v<Extended>, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI Extended sph_neumann(unsigned __n, Extended __x) {
+  return static_cast<Extended>(std::sph_neumann(__n, static_cast<double>(__x)));
+}
+#endif
 
 inline _LIBCPP_HIDE_FROM_ABI float sph_neumannf(unsigned __n, float __x) { return std::sph_neumann(__n, __x); }
 
