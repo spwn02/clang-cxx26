@@ -223,24 +223,19 @@ so the effort amortizes across several rows.
   pointer-to-base matching), and the one documented `-Winvalid-constexpr`
   precision loss. → P3378R2 `constexpr` exception types was completed
   2026-09-12 with an ABI-preserving constexpr/runtime storage split.
-- ~~**P0533R9** (C++23, only `isfinite`/`isinf`/`isnan`/`isnormal` done) →
-  P1383R2 `constexpr <cmath>`.~~ **Compiler capability added 2026-09-07, not
-  user-visible yet — see Tier 1 for the full finding.**
-  `__builtin_floor`/`ceil`/`trunc`/`round`/`nearbyint`/`rint`/`fmod`/
-  `remainder`/`lround`/`llround`/`lrint`/`llrint` are now constant-folded in
-  `ExprConstant.cpp`, using already-correct `llvm::APFloat` primitives
-  (`roundToIntegral`/`mod`/`remainder`) — no new numerics. **But `std::floor`
-  etc. still don't work in a `static_assert`**: `<cmath>` exposes them as
-  plain `using ::floor`-style aliases of glibc's non-`constexpr`
-  declarations (confirmed the same is already true of `std::fabs`, not a
-  regression — never actually tested via `std::` before). Exposing this to
-  real callers needs a further library-side wrapper change, not attempted
-  this session — see Tier 1. `sqrt`/`pow`/`exp`/`log`/trig functions remain
-  compiler-blocked regardless: confirmed APFloat has no correctly-rounded
-  implementation of any of them, and this fork has no MPFR or other
-  arbitrary-precision fallback wired into Clang's build.
-  `__cpp_lib_constexpr_cmath` is a single all-or-nothing FTM, so neither
-  paper's status flips — see Tier 1 for the updated boundary.
+- **P0533R9** (C++23, issue #128): All declared math work is implemented and
+  the P0533R9-class functions are constexpr-usable, subject to the documented
+  `remquo` quotient limitation (constant evaluation currently succeeds only
+  for quotient magnitude at most 7). LWG3834 `imaxabs`/`imaxdiv` are also
+  constexpr since 2026-09-27. The remaining `div`/`ldiv`/`lldiv` and
+  `labs`/`llabs` C-library declarations cannot be wrapped in distinct
+  constexpr `std` overloads without breaking unqualified lookup: an isolated
+  libc++-shape probe reproduced both the declaration conflict with
+  `using ::div` and ambiguity against the global C `div` when only the new
+  overload is declared and `using namespace std;` is active. The P0533R9
+  feature-test macro stays disabled because the C-named `f`/`l` variants also
+  remain non-constexpr and the `remquo` evaluator limitation remains; stale
+  historical notes below are retained as logs.
 - ~~**P2419R2** (C++23, untracked) → P2757R3, and with it `__cpp_lib_format`'s
   whole C++26 bump.~~ **P2419R2 implemented 2026-09-07** (chrono/locale
   encoding conversion for `char`-based format strings under non-Unicode
@@ -867,7 +862,7 @@ Good starting point after Tier 0.
 | [x] | P2363R5 | Heterogeneous lookup, remaining associative container overloads | Done 2026-08-20 |
 | [x] | P1901R2 | `weak_ptr` as unordered associative container key | Done 2026-08-20 |
 | [x] | P2944R3 | `reference_wrapper` comparisons | Done 2026-08-22 — all Constraints (`pair`/`tuple`/`optional`/`variant`/`reference_wrapper`) were already implemented (mostly inherited from upstream commits); only the shared `__cpp_lib_constrained_equality` FTM flag and CSV status needed flipping |
-| [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | **Sub-gaps 2-4 complete as of 2026-09-18** — `<complex>` done. `std::floor`/`ceil`/`trunc`/`round`/`nearbyint`/`rint`/`fmod`/`remainder`/`lround`/`llround`/`lrint`/`llrint`/`fabs`/`copysign`/`fmax`/`fmin` are now fully `constexpr`-usable for `float`, `double`, `long double`, and integral-promoted arguments (the exact-`double` overload's glibc-collision tie-break fixed 2026-09-18 by exposing a dedicated non-template `std::X(double)` overload instead of importing glibc's raw declaration); integral `std::abs(int/long/long long)` dispatches to `std::__math::abs` during constant evaluation while preserving the C-library call at runtime. Only sub-gap 1 remains: `sqrt`/`pow`/`exp`/`log`/trig stay compiler-blocked (no correctly-rounded `APFloat` primitive exists anywhere in this LLVM, and no MPFR/arbitrary-precision dependency is wired in) — needs a new compiler primitive plus an external dependency, its own multi-session undertaking. Issue #7 closed 2026-09-18 (everything else in its original scope complete); the remaining sub-gap 1 work is tracked separately as issue #118 (P1383R2, C++26: [cmath.syn] does declare `sqrt`/`exp`/trig `constexpr`; an earlier reading that only cited P0533R9's exclusion was wrong). The achievable P0533R9 residuals (`div`/`ldiv`/`lldiv`, the `isgreater` family, `fdim`, `fma`, `ldexp`, `ilogb`, `nextafter`) are issue #128. `__cpp_lib_constexpr_cmath` correctly stays uncommented — the FTM is all-or-nothing and sub-gap 1 isn't met yet. |
+| [~] | P1383R2 | `constexpr` for `<cmath>`/`<cstdlib>` | **Sub-gaps 2-4 complete as of 2026-09-18** — `<complex>` done. `std::floor`/`ceil`/`trunc`/`round`/`nearbyint`/`rint`/`fmod`/`remainder`/`lround`/`llround`/`lrint`/`llrint`/`fabs`/`copysign`/`fmax`/`fmin` are now fully `constexpr`-usable for `float`, `double`, `long double`, and integral-promoted arguments; integral `std::abs(int/long/long long)` routes through `std::__math::abs`. Only sub-gap 1 remains: `sqrt`/`pow`/`exp`/`log`/trig stay compiler-blocked (no correctly-rounded `APFloat` primitive or wired arbitrary-precision dependency). Issue #7 closed 2026-09-18; the remaining work is tracked as issue #118. The C++23 P0533R9 achievable math work from issue #128 is complete, with the documented bounded `remquo` evaluator limitation. Its remaining `<cstdlib>` declarations (`div`/`ldiv`/`lldiv`, `labs`/`llabs`) are a permanent libc++-only gap: constexpr overloads distinct from the imported C declarations cause unqualified calls to become ambiguous with `using namespace std;` and global C declarations visible. LWG3834's `imaxabs`/`imaxdiv` are constexpr since 2026-09-27. `__cpp_lib_constexpr_cmath` stays disabled because P0533R9's full constexpr surface is not implemented. |
 | [x] | P3168R2 | `std::optional` range support | Done 2026-08-20 — implementation was already complete via P2988R11; added missing test coverage |
 
 **P1383R2 scalar `<cmath>`/`<cstdlib>` — partially unblocked 2026-09-07.**
@@ -923,21 +918,29 @@ against inventing new numerics without a correctly-rounded primitive to
 call still stands, independent of the rebase question — that's why
 `sqrt`/`pow`/`exp`/`log`/trig stay out.
 
-**Still blocked behind an undone C++23 prerequisite either way**: the
-generator's `__cpp_lib_constexpr_cmath` entry has *only* a `c++23` value
-(P0533R9's own number) with `unimplemented: True` — no C++26 bump exists yet
-for P1383R2's own value. `Cxx23Papers.csv` confirms P0533R9 itself is only
-`|In Progress|` (the classification functions plus, as of 2026-09-07, the
-same bit-exact rounding/remainder subset — `__cpp_lib_constexpr_cmath` is a
-single all-or-nothing macro, so neither paper's FTM flips regardless of how
-much of the safe subset is done).
+**P0533R9 remaining boundary (issue #128, finalized 2026-09-27):** the
+remaining `<cstdlib>` `div`/`ldiv`/`lldiv` and `labs`/`llabs` declarations
+cannot be made constexpr by a libc++-only change. libc++ imports the C
+functions into `std`; replacing an imported declaration with a distinct
+constexpr overload of the same signature makes an unqualified call ambiguous
+when the global C declaration and `using namespace std;` are both visible.
+A compile probe reproduced this with `using ::div;` followed by a distinct
+`constexpr ldiv_t div(long, long)` in an isolated namespace: the declaration
+conflicts with the using-declaration; omitting the using-declaration makes
+`div(7L, 2L)` ambiguous between the global C function and constexpr candidate.
+The same lookup constraint applies to `labs`/`llabs`. This is a genuine
+library-only boundary, not the already-fixed glibc `<cmath>` collision.
+LWG3834's `<cinttypes>` `imaxabs`/`imaxdiv` are separately implemented as
+constexpr C++23 functions in libc++ and tested. `__cpp_lib_constexpr_cmath`
+remains disabled: P0533R9 requires the unresolved `<cstdlib>` functions, so
+completing the achievable math subset does not satisfy the paper's macro.
 
 **Tracked as compiler-blocked for the remaining functions, not
 scope-excluded** — revisit `sqrt`/`pow`/`exp`/`log`/trig if this fork's
 Clang ever gains a correctly-rounded implementation path (upstream APFloat
 sqrt support, or a deliberate MPFR build dependency decision) for them.
 
-**2026-09-07 follow-up: library-side wrappers already existed; the real
+  **2026-09-07 follow-up: library-side wrappers already existed; the real
 blocker is a glibc-collision workaround, not a missing wrapper.**
 Investigation found the previous session's framing wrong on two points.
 `libcxx/include/__math/{abs,copysign,modulo,remainder,min_max,
@@ -7484,3 +7487,13 @@ blocked, what's next. Do not remove old entries.
   representations through a padding-insensitive retry loop. Focused tests and
   the 165-test atomics sweep passed; the 9,826-test Clang Sema/CodeGen sweep
   had only the known `cxx2b-consteval-propagate.cpp` baseline failure.
+- **2026-09-27 (issue #128, P0533R9 close-out)**: Added constexpr C++23
+  `std::imaxabs`/`std::imaxdiv` per current [cinttypes.syn] wording
+  (LWG3834), with static-assert tests. An isolated libc++-shape overload probe
+  confirmed that a distinct constexpr `std::div(long, long)` either conflicts
+  with the existing `using ::div` declaration or, without it, makes unqualified
+  `div(7L, 2L)` ambiguous when global C `::div` and `using namespace std;` are
+  both visible. Final verdict: `<cstdlib>` `div`/`ldiv`/`lldiv`/`labs`/`llabs`
+  cannot be made constexpr by a libc++-only overload change. The P0533R9
+  feature-test macro remains disabled because the complete surface also lacks
+  the C-named `f`/`l` variants and unrestricted `remquo` constant evaluation.
