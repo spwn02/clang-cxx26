@@ -154,7 +154,7 @@ template <class _UIntType, size_t __w, size_t __s, size_t __r>
 template <class _Sseq>
 void subtract_with_carry_engine<_UIntType, __w, __s, __r>::__seed(_Sseq& __q, integral_constant<unsigned, 1>) {
   const unsigned __k = 1;
-  uint32_t __ar[__r * __k];
+  _LIBCPP_INDETERMINATE uint32_t __ar[__r * __k];
   __q.generate(__ar, __ar + __r * __k);
   for (size_t __i = 0; __i < __r; ++__i)
     __x_[__i] = static_cast<result_type>(__ar[__i] & _Max);
@@ -166,7 +166,7 @@ template <class _UIntType, size_t __w, size_t __s, size_t __r>
 template <class _Sseq>
 void subtract_with_carry_engine<_UIntType, __w, __s, __r>::__seed(_Sseq& __q, integral_constant<unsigned, 2>) {
   const unsigned __k = 2;
-  uint32_t __ar[__r * __k];
+  _LIBCPP_INDETERMINATE uint32_t __ar[__r * __k];
   __q.generate(__ar, __ar + __r * __k);
   for (size_t __i = 0; __i < __r; ++__i)
     __x_[__i] = static_cast<result_type>((__ar[2 * __i] + ((uint64_t)__ar[2 * __i + 1] << 32)) & _Max);

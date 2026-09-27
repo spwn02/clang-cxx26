@@ -268,7 +268,7 @@ private:
   template <class _Sseq>
   _LIBCPP_HIDE_FROM_ABI void __seed(_Sseq& __q, integral_constant<unsigned, 1>) {
     const unsigned __k = 1;
-    uint32_t __ar[__n * __k];
+    _LIBCPP_INDETERMINATE uint32_t __ar[__n * __k];
     __q.generate(__ar, __ar + __n * __k);
     for (size_t __i = 0; __i < __n; ++__i)
       __x_[__i] = static_cast<result_type>(__ar[__i] & _Max);
@@ -285,7 +285,7 @@ private:
   template <class _Sseq>
   _LIBCPP_HIDE_FROM_ABI void __seed(_Sseq& __q, integral_constant<unsigned, 2>) {
     const unsigned __k = 2;
-    uint32_t __ar[__n * __k];
+    _LIBCPP_INDETERMINATE uint32_t __ar[__n * __k];
     __q.generate(__ar, __ar + __n * __k);
     for (size_t __i = 0; __i < __n; ++__i)
       __x_[__i] = static_cast<result_type>((__ar[2 * __i] + ((uint64_t)__ar[2 * __i + 1] << 32)) & _Max);

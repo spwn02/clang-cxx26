@@ -175,7 +175,7 @@ public:
   template <class _Sseq, __enable_if_t<__is_seed_sequence<_Sseq, philox_engine>::value, int> = 0>
   _LIBCPP_HIDE_FROM_ABI void seed(_Sseq& __q) {
     constexpr size_t __p = (__w + 31) / 32;
-    uint32_t __a[__array_size * __p];
+    _LIBCPP_INDETERMINATE uint32_t __a[__array_size * __p];
     __q.generate(__a, __a + __array_size * __p);
     for (size_t __k = 0; __k != __array_size; ++__k) {
       __key_[__k] = 0;
