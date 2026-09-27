@@ -82,7 +82,13 @@ using atomic_intmax_t  = atomic<intmax_t>;
 using atomic_uintmax_t = atomic<uintmax_t>;
 
 // C++20 atomic_{signed,unsigned}_lock_free: prefer the contention type most highly, then the largest lock-free type
-#if _LIBCPP_STD_VER >= 20
+//
+// P1642R11 [atomics.syn] deliberately leaves these two aliases off its "mark freestanding" list: per
+// [compliance]p3, whether atomic_signed_lock_free/atomic_unsigned_lock_free are defined at all is
+// implementation-defined for a freestanding implementation (tied to always-lock-free integral atomic
+// support itself being implementation-defined there, not to any specific hosted-only computation). This
+// fork's choice is to withhold them under freestanding rather than provide the "more than required" extra.
+#if _LIBCPP_STD_VER >= 20 && !defined(_LIBCPP_FREESTANDING)
 #  if ATOMIC_LLONG_LOCK_FREE == 2
 using __largest_lock_free_type _LIBCPP_NODEBUG = long long;
 #  elif ATOMIC_INT_LOCK_FREE == 2
@@ -104,7 +110,7 @@ using __contention_t_or_largest _LIBCPP_NODEBUG =
 using atomic_signed_lock_free   = atomic<__contention_t_or_largest>;
 using atomic_unsigned_lock_free = atomic<make_unsigned_t<__contention_t_or_largest>>;
 #  endif // !_LIBCPP_NO_LOCK_FREE_TYPES
-#endif   // C++20
+#endif   // C++20 && !_LIBCPP_FREESTANDING
 
 _LIBCPP_END_NAMESPACE_STD
 
