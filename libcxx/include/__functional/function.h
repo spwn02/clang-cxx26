@@ -202,15 +202,16 @@ public:
 
   template <class _Fp, __enable_if_t<!is_same<__decay_t<_Fp>, __value_func>::value, int> = 0>
   _LIBCPP_HIDE_FROM_ABI explicit __value_func(_Fp&& __f) : __f_(nullptr) {
-    typedef __function::__func<_Fp, _Rp(_ArgTypes...)> _Fun;
+    typedef __decay_t<_Fp> _DecayFp;
+    typedef __function::__func<_DecayFp, _Rp(_ArgTypes...)> _Fun;
 
     if (__function::__is_null(__f))
       return;
 
-    if (sizeof(_Fun) <= sizeof(__buf_) && is_nothrow_copy_constructible<_Fp>::value) {
-      __f_ = ::new (std::addressof(__buf_)) _Fun(std::move(__f));
+    if (sizeof(_Fun) <= sizeof(__buf_) && is_nothrow_copy_constructible<_DecayFp>::value) {
+      __f_ = ::new (std::addressof(__buf_)) _Fun(std::forward<_Fp>(__f));
     } else {
-      __f_ = new _Fun(std::move(__f));
+      __f_ = new _Fun(std::forward<_Fp>(__f));
     }
   }
 
@@ -451,12 +452,13 @@ public:
     if (__function::__is_null(__f))
       return;
 
-    __func_   = __call_func<_Fp>;
-    __policy_ = __policy::__create<_Fp>();
-    if (__use_small_storage<_Fp>()) {
-      ::new ((void*)&__buf_.__small) _Fp(std::move(__f));
+    typedef __decay_t<_Fp> _DecayFp;
+    __func_   = __call_func<_DecayFp>;
+    __policy_ = __policy::__create<_DecayFp>();
+    if (__use_small_storage<_DecayFp>()) {
+      ::new ((void*)&__buf_.__small) _DecayFp(std::forward<_Fp>(__f));
     } else {
-      __buf_.__large = ::new _Fp(std::move(__f));
+      __buf_.__large = ::new _DecayFp(std::forward<_Fp>(__f));
     }
   }
 
@@ -622,7 +624,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI function(const function&);
   _LIBCPP_HIDE_FROM_ABI function(function&&) _NOEXCEPT;
   template <class _Fp, class = _EnableIfLValueCallable<_Fp>>
-  _LIBCPP_HIDE_FROM_ABI function(_Fp);
+  _LIBCPP_HIDE_FROM_ABI function(_Fp&&);
 
 #  if _LIBCPP_STD_VER <= 14
   template <class _Alloc>
@@ -685,7 +687,7 @@ template <class _Rp, class... _Ap>
 function(_Rp (*)(_Ap...)) -> function<_Rp(_Ap...)>;
 
 template <class _Fp, class _Stripped = typename __strip_signature<decltype(&_Fp::operator())>::type>
-function(_Fp) -> function<_Stripped>;
+function(_Fp&&) -> function<_Stripped>;
 #  endif // _LIBCPP_STD_VER >= 17
 
 template <class _Rp, class... _ArgTypes>
@@ -708,7 +710,7 @@ function<_Rp(_ArgTypes...)>::function(allocator_arg_t, const _Alloc&, function&&
 
 template <class _Rp, class... _ArgTypes>
 template <class _Fp, class>
-function<_Rp(_ArgTypes...)>::function(_Fp __f) : __f_(std::move(__f)) {}
+function<_Rp(_ArgTypes...)>::function(_Fp&& __f) : __f_(std::forward<_Fp>(__f)) {}
 
 #  if _LIBCPP_STD_VER <= 14
 template <class _Rp, class... _ArgTypes>
