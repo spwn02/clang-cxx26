@@ -14,6 +14,7 @@
 #include <__math/exponential_functions.h>
 #include <__math/min_max.h>
 #include <__math/roots.h>
+#include <__math/stdfloat.h>
 #include <__type_traits/enable_if.h>
 #include <__type_traits/is_arithmetic.h>
 #include <__type_traits/is_same.h>
@@ -86,6 +87,16 @@ inline _LIBCPP_HIDE_FROM_ABI double hypot(double __x, double __y, double __z) { 
 inline _LIBCPP_HIDE_FROM_ABI long double hypot(long double __x, long double __y, long double __z) {
   return __math::__hypot(__x, __y, __z);
 }
+
+#  if _LIBCPP_STD_VER >= 23
+template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _Float hypot(_Float __x, _Float __y, _Float __z) {
+  if constexpr (__is_stdfloat64_v<_Float>)
+    return static_cast<_Float>(__math::__hypot(static_cast<double>(__x), static_cast<double>(__y), static_cast<double>(__z)));
+  else
+    return static_cast<_Float>(__math::__hypot(static_cast<float>(__x), static_cast<float>(__y), static_cast<float>(__z)));
+}
+#  endif
 
 template <class _A1,
           class _A2,

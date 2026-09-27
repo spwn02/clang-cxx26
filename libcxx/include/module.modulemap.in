@@ -140,6 +140,10 @@ module std_core [system] {
       header "__math/special_functions.h"
       export *
     }
+    module stdfloat {
+      header "__math/stdfloat.h"
+      export *
+    }
     module traits {
       header "__math/traits.h"
       export *

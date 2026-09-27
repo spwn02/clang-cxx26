@@ -441,6 +441,7 @@ constexpr long double lerp(long double a, long double b, long double t) noexcept
 #  include <__cxx03/cmath>
 #else
 #  include <__config>
+#  include <__math/stdfloat.h>
 #  include <__math/abs.h>
 #  include <__math/copysign.h>
 #  include <__math/hypot.h>
@@ -733,6 +734,19 @@ using ::nexttoward _LIBCPP_USING_IF_EXISTS;
 using ::nexttowardf _LIBCPP_USING_IF_EXISTS;
 #  if _LIBCPP_STD_VER >= 23
 using __math::remainder;
+using __math::remquo;
+using __math::frexp;
+using __math::ldexp;
+using __math::modf;
+using __math::scalbn;
+using __math::scalbln;
+using __math::fma;
+using __math::nexttoward;
+using __math::ilogb;
+using __math::lrint;
+using __math::lround;
+using __math::llrint;
+using __math::llround;
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double remainder(double __x, double __y) _NOEXCEPT {
   return __builtin_remainder(__x, __y);
 }
@@ -847,6 +861,82 @@ using ::scalblnl _LIBCPP_USING_IF_EXISTS;
 using ::scalbnl _LIBCPP_USING_IF_EXISTS;
 using ::tgammal _LIBCPP_USING_IF_EXISTS;
 using ::truncl _LIBCPP_USING_IF_EXISTS;
+
+#  if _LIBCPP_STD_VER >= 23
+// C++23 extended floating-point overloads. The same-type overloads also serve
+// as the targets of the existing mixed-arithmetic promotion templates.
+using __math::abs;
+using __math::fabs;
+using __math::sqrt;
+using __math::acos;
+using __math::asin;
+using __math::atan;
+using __math::acosh;
+using __math::asinh;
+using __math::atanh;
+using __math::cos;
+using __math::cosh;
+using __math::sin;
+using __math::sinh;
+using __math::tan;
+using __math::tanh;
+using __math::exp;
+using __math::exp2;
+using __math::expm1;
+using __math::log;
+using __math::log10;
+using __math::log1p;
+using __math::log2;
+using __math::logb;
+using __math::cbrt;
+using __math::ceil;
+using __math::floor;
+using __math::nearbyint;
+using __math::rint;
+using __math::round;
+using __math::trunc;
+using __math::erf;
+using __math::erfc;
+using __math::tgamma;
+using __math::lgamma;
+using __math::atan2;
+using __math::copysign;
+using __math::fdim;
+using __math::fmax;
+using __math::fmin;
+using __math::fmod;
+using __math::hypot;
+using __math::nextafter;
+using __math::pow;
+using __math::remainder;
+using __math::isnan;
+using __math::isinf;
+using __math::isfinite;
+using __math::isnormal;
+using __math::signbit;
+
+// The C classification macros can otherwise accept unordered extended pairs
+// by converting both operands to double. Such a pair has no common
+// floating-point type under the C++23 rank rules.
+#    define _LIBCPP_STDFLOAT_DELETE_UNORDERED_COMPARE(__name)                                                 \
+      template <class _Left, class _Right>                                                                     \
+        requires(__is_extended_floating_point_v<_Left> && __is_extended_floating_point_v<_Right> &&           \
+                 !requires(_Left __left, _Right __right) { __left + __right; })                                 \
+      bool __name(_Left, _Right) = delete
+_LIBCPP_STDFLOAT_DELETE_UNORDERED_COMPARE(isgreater);
+_LIBCPP_STDFLOAT_DELETE_UNORDERED_COMPARE(isgreaterequal);
+_LIBCPP_STDFLOAT_DELETE_UNORDERED_COMPARE(isless);
+_LIBCPP_STDFLOAT_DELETE_UNORDERED_COMPARE(islessequal);
+_LIBCPP_STDFLOAT_DELETE_UNORDERED_COMPARE(islessgreater);
+_LIBCPP_STDFLOAT_DELETE_UNORDERED_COMPARE(isunordered);
+#    undef _LIBCPP_STDFLOAT_DELETE_UNORDERED_COMPARE
+
+template <class _Float, __enable_if_t<__is_extended_floating_point_v<_Float>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI inline constexpr int fpclassify(_Float __value) _NOEXCEPT {
+  return __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO, __value);
+}
+
+#  endif
 
 template <class _A1, __enable_if_t<is_floating_point<_A1>::value, int> = 0>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bool __constexpr_isinf(_A1 __lcpp_x) _NOEXCEPT {
@@ -979,6 +1069,13 @@ _LIBCPP_HIDE_FROM_ABI inline constexpr double lerp(double __a, double __b, doubl
 _LIBCPP_HIDE_FROM_ABI inline constexpr long double lerp(long double __a, long double __b, long double __t) _NOEXCEPT {
   return __lerp(__a, __b, __t);
 }
+
+#    if _LIBCPP_STD_VER >= 23
+template <class _Float, __enable_if_t<__math::__is_stdfloat_math_v<_Float>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI inline constexpr _Float lerp(_Float __left, _Float __right, _Float __weight) _NOEXCEPT {
+  return std::__lerp(__left, __right, __weight);
+}
+#    endif
 
 template <class _A1, class _A2, class _A3>
   requires(is_arithmetic_v<_A1> && is_arithmetic_v<_A2> && is_arithmetic_v<_A3>)

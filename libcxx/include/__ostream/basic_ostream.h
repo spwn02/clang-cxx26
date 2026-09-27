@@ -31,6 +31,9 @@
 #  include <bitset>
 #  include <ios>
 #  include <streambuf>
+#  if _LIBCPP_STD_VER >= 23
+#    include <stdfloat>
+#  endif
 #  include <string_view>
 
 #  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -152,6 +155,28 @@ public:
   basic_ostream& operator<<(float __f);
   basic_ostream& operator<<(double __f);
   basic_ostream& operator<<(long double __f);
+#  if _LIBCPP_STD_VER >= 23
+#    if defined(__STDCPP_FLOAT16_T__)
+  _LIBCPP_HIDE_FROM_ABI basic_ostream& operator<<(float16_t __value) {
+    return *this << static_cast<double>(__value);
+  }
+#    endif
+#    if defined(__STDCPP_BFLOAT16_T__)
+  _LIBCPP_HIDE_FROM_ABI basic_ostream& operator<<(bfloat16_t __value) {
+    return *this << static_cast<double>(__value);
+  }
+#    endif
+#    if defined(__STDCPP_FLOAT32_T__)
+  _LIBCPP_HIDE_FROM_ABI basic_ostream& operator<<(float32_t __value) {
+    return *this << static_cast<double>(__value);
+  }
+#    endif
+#    if defined(__STDCPP_FLOAT64_T__)
+  _LIBCPP_HIDE_FROM_ABI basic_ostream& operator<<(float64_t __value) {
+    return *this << static_cast<double>(__value);
+  }
+#    endif
+#  endif
   basic_ostream& operator<<(const void* __p);
 
 #  if _LIBCPP_STD_VER >= 23

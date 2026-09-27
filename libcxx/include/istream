@@ -180,6 +180,9 @@ template <class Stream, class T>
 #    include <bitset>
 #    include <ios>
 #    include <streambuf>
+#    if _LIBCPP_STD_VER >= 23
+#      include <stdfloat>
+#    endif
 #    include <version>
 
 #    if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -262,6 +265,43 @@ public:
   basic_istream& operator>>(float& __f);
   basic_istream& operator>>(double& __f);
   basic_istream& operator>>(long double& __f);
+#    if _LIBCPP_STD_VER >= 23
+  template <class _Extended, class _Standard>
+  _LIBCPP_HIDE_FROM_ABI basic_istream& __extract_extended_float(_Extended& __value) {
+    _Standard __intermediate = 0;
+    *this >> __intermediate;
+    if (__intermediate < -static_cast<_Standard>(numeric_limits<_Extended>::max())) {
+      __value = -numeric_limits<_Extended>::max();
+      this->setstate(ios_base::failbit);
+    } else if (__intermediate > static_cast<_Standard>(numeric_limits<_Extended>::max())) {
+      __value = numeric_limits<_Extended>::max();
+      this->setstate(ios_base::failbit);
+    } else {
+      __value = static_cast<_Extended>(__intermediate);
+    }
+    return *this;
+  }
+#      if defined(__STDCPP_FLOAT16_T__)
+  _LIBCPP_HIDE_FROM_ABI basic_istream& operator>>(float16_t& __value) {
+    return __extract_extended_float<float16_t, float>(__value);
+  }
+#      endif
+#      if defined(__STDCPP_BFLOAT16_T__)
+  _LIBCPP_HIDE_FROM_ABI basic_istream& operator>>(bfloat16_t& __value) {
+    return __extract_extended_float<bfloat16_t, float>(__value);
+  }
+#      endif
+#      if defined(__STDCPP_FLOAT32_T__)
+  _LIBCPP_HIDE_FROM_ABI basic_istream& operator>>(float32_t& __value) {
+    return __extract_extended_float<float32_t, float>(__value);
+  }
+#      endif
+#      if defined(__STDCPP_FLOAT64_T__)
+  _LIBCPP_HIDE_FROM_ABI basic_istream& operator>>(float64_t& __value) {
+    return __extract_extended_float<float64_t, double>(__value);
+  }
+#      endif
+#    endif
   basic_istream& operator>>(void*& __p);
 
   // 27.7.1.3 Unformatted input:
