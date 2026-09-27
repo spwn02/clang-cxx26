@@ -287,19 +287,23 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 template <class _Tp>
 class complex;
 
-template <class _Tp, __enable_if_t<is_floating_point<_Tp>::value, int> = 0>
+template <class _Tp>
+inline constexpr bool __is_standard_complex_float =
+    is_same<_Tp, float>::value || is_same<_Tp, double>::value || is_same<_Tp, long double>::value;
+
+template <class _Tp, __enable_if_t<__is_standard_complex_float<_Tp>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 complex<_Tp>
 operator*(const complex<_Tp>& __z, const complex<_Tp>& __w);
 
-template <class _Tp, __enable_if_t<!is_floating_point<_Tp>::value, int> = 0>
+template <class _Tp, __enable_if_t<!__is_standard_complex_float<_Tp>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 complex<_Tp>
 operator*(const complex<_Tp>& __z, const complex<_Tp>& __w);
 
-template <class _Tp, __enable_if_t<is_floating_point<_Tp>::value, int> = 0>
+template <class _Tp, __enable_if_t<__is_standard_complex_float<_Tp>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 complex<_Tp>
 operator/(const complex<_Tp>& __x, const complex<_Tp>& __y);
 
-template <class _Tp, __enable_if_t<!is_floating_point<_Tp>::value, int> = 0>
+template <class _Tp, __enable_if_t<!__is_standard_complex_float<_Tp>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 complex<_Tp>
 operator/(const complex<_Tp>& __x, const complex<_Tp>& __y);
 
@@ -780,13 +784,13 @@ operator-(const _Tp& __x, const complex<_Tp>& __y) {
   return __t;
 }
 
-template <class _Tp, __enable_if_t<is_floating_point<_Tp>::value, int> >
+template <class _Tp, __enable_if_t<__is_standard_complex_float<_Tp>, int> >
 [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 complex<_Tp>
 operator*(const complex<_Tp>& __lhs, const complex<_Tp>& __rhs) {
   return complex<_Tp>(__from_builtin_tag(), __lhs.__builtin() * __rhs.__builtin());
 }
 
-template <class _Tp, __enable_if_t<!is_floating_point<_Tp>::value, int> >
+template <class _Tp, __enable_if_t<!__is_standard_complex_float<_Tp>, int> >
 [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 complex<_Tp>
 operator*(const complex<_Tp>& __z, const complex<_Tp>& __w) {
   _Tp __a = __z.real();
@@ -813,13 +817,13 @@ operator*(const _Tp& __x, const complex<_Tp>& __y) {
   return __t;
 }
 
-template <class _Tp, __enable_if_t<is_floating_point<_Tp>::value, int> >
+template <class _Tp, __enable_if_t<__is_standard_complex_float<_Tp>, int> >
 [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 complex<_Tp>
 operator/(const complex<_Tp>& __lhs, const complex<_Tp>& __rhs) {
   return complex<_Tp>(__from_builtin_tag(), __lhs.__builtin() / __rhs.__builtin());
 }
 
-template <class _Tp, __enable_if_t<!is_floating_point<_Tp>::value, int> >
+template <class _Tp, __enable_if_t<!__is_standard_complex_float<_Tp>, int> >
 [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 complex<_Tp>
 operator/(const complex<_Tp>& __z, const complex<_Tp>& __w) {
   _Tp __a = __z.real();

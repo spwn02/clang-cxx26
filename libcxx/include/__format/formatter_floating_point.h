@@ -24,6 +24,9 @@
 #include <__concepts/arithmetic.h>
 #include <__concepts/same_as.h>
 #include <__config>
+#if _LIBCPP_STD_VER >= 23
+#  include <stdfloat>
+#endif
 #include <__cstddef/ptrdiff_t.h>
 #include <__format/concepts.h>
 #include <__format/format_parse_context.h>
@@ -599,7 +602,7 @@ _LIBCPP_HIDE_FROM_ABI _OutIt __format_locale_specific_form(
 template <class _OutIt, class _CharT>
 _LIBCPP_HIDE_FROM_ABI _OutIt __format_floating_point_non_finite(
     _OutIt __out_it, __format_spec::__parsed_specifications<_CharT> __specs, bool __negative, bool __isnan) {
-  char __buffer[4];
+  _LIBCPP_INDETERMINATE char __buffer[4];
   char* __last = __formatter::__insert_sign(__buffer, __negative, __specs.__std_.__sign_);
 
   // to_chars can return inf, infinity, nan, and nan(n-char-sequence).
@@ -790,6 +793,53 @@ template <__fmt_char_type _CharT>
 struct formatter<double, _CharT> : public __formatter_floating_point<_CharT> {};
 template <__fmt_char_type _CharT>
 struct formatter<long double, _CharT> : public __formatter_floating_point<_CharT> {};
+
+#  if _LIBCPP_STD_VER >= 23
+#    if defined(__STDCPP_FLOAT16_T__)
+template <__fmt_char_type _CharT>
+struct formatter<float16_t, _CharT> : public __formatter_floating_point<_CharT> {
+  using __base = __formatter_floating_point<_CharT>;
+  using __base::parse;
+  template <class _FormatContext>
+  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(float16_t __value, _FormatContext& __ctx) const {
+    return __base::format(static_cast<float>(__value), __ctx);
+  }
+};
+#    endif
+#    if defined(__STDCPP_FLOAT32_T__)
+template <__fmt_char_type _CharT>
+struct formatter<float32_t, _CharT> : public __formatter_floating_point<_CharT> {
+  using __base = __formatter_floating_point<_CharT>;
+  using __base::parse;
+  template <class _FormatContext>
+  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(float32_t __value, _FormatContext& __ctx) const {
+    return __base::format(static_cast<float>(__value), __ctx);
+  }
+};
+#    endif
+#    if defined(__STDCPP_FLOAT64_T__)
+template <__fmt_char_type _CharT>
+struct formatter<float64_t, _CharT> : public __formatter_floating_point<_CharT> {
+  using __base = __formatter_floating_point<_CharT>;
+  using __base::parse;
+  template <class _FormatContext>
+  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(float64_t __value, _FormatContext& __ctx) const {
+    return __base::format(static_cast<double>(__value), __ctx);
+  }
+};
+#    endif
+#    if defined(__STDCPP_BFLOAT16_T__)
+template <__fmt_char_type _CharT>
+struct formatter<bfloat16_t, _CharT> : public __formatter_floating_point<_CharT> {
+  using __base = __formatter_floating_point<_CharT>;
+  using __base::parse;
+  template <class _FormatContext>
+  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(bfloat16_t __value, _FormatContext& __ctx) const {
+    return __base::format(static_cast<float>(__value), __ctx);
+  }
+};
+#    endif
+#  endif
 
 #  if _LIBCPP_STD_VER >= 23
 template <>

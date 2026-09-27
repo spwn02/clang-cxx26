@@ -851,7 +851,7 @@ _LIBCPP_HIDE_FROM_ABI inline _OutputIterator num_put<_CharT, _OutputIterator>::_
       + ((numeric_limits<_Unsigned>::digits % 3) != 0) // round up
       + 2;                                             // base prefix + terminating null character
 
-  char __char_buffer[__buffer_size];
+  _LIBCPP_INDETERMINATE char __char_buffer[__buffer_size];
   char* __buffer_ptr = __char_buffer;
 
   auto __flags = __iob.flags();
@@ -898,7 +898,7 @@ _LIBCPP_HIDE_FROM_ABI inline _OutputIterator num_put<_CharT, _OutputIterator>::_
 
   char* __np = this->__identify_padding(__char_buffer, __res.__ptr, __iob);
   // Stage 2 - Widen __nar while adding thousands separators
-  char_type __o[2 * (__buffer_size - 1) - 1];
+  _LIBCPP_INDETERMINATE char_type __o[2 * (__buffer_size - 1) - 1];
   char_type* __op; // pad here
   char_type* __oe; // end of output
   this->__widen_and_group_int(__char_buffer, __np, __res.__ptr, __o, __op, __oe, __iob.getloc());

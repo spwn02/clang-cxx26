@@ -840,6 +840,13 @@ typedef __char32_t char32_t;
 #    define _LIBCPP_NO_UNIQUE_ADDRESS [[__no_unique_address__]]
 #  endif
 
+// Avoid initializing local buffers that are fully written before being read.
+#  if defined(_LIBCPP_COMPILER_CLANG_BASED) && __has_cpp_attribute(clang::uninitialized)
+#    define _LIBCPP_INDETERMINATE [[clang::uninitialized]]
+#  else
+#    define _LIBCPP_INDETERMINATE
+#  endif
+
 // c8rtomb() and mbrtoc8() were added in C++20 and C23. Support for these
 // functions is gradually being added to existing C libraries. The conditions
 // below check for known C library versions and conditions under which these

@@ -349,31 +349,31 @@ __format_integer(_Tp __value,
                  bool __negative = false) {
   switch (__specs.__std_.__type_) {
   case __format_spec::__type::__binary_lower_case: {
-    array<char, __formatter::__buffer_size<decltype(__value), 2>()> __array;
+    _LIBCPP_INDETERMINATE array<char, __formatter::__buffer_size<decltype(__value), 2>()> __array;
     return __formatter::__format_integer(__value, __ctx, __specs, __negative, __array.begin(), __array.end(), "0b", 2);
   }
   case __format_spec::__type::__binary_upper_case: {
-    array<char, __formatter::__buffer_size<decltype(__value), 2>()> __array;
+    _LIBCPP_INDETERMINATE array<char, __formatter::__buffer_size<decltype(__value), 2>()> __array;
     return __formatter::__format_integer(__value, __ctx, __specs, __negative, __array.begin(), __array.end(), "0B", 2);
   }
   case __format_spec::__type::__octal: {
     // Octal is special; if __value == 0 there's no prefix.
-    array<char, __formatter::__buffer_size<decltype(__value), 8>()> __array;
+    _LIBCPP_INDETERMINATE array<char, __formatter::__buffer_size<decltype(__value), 8>()> __array;
     return __formatter::__format_integer(
         __value, __ctx, __specs, __negative, __array.begin(), __array.end(), __value != 0 ? "0" : nullptr, 8);
   }
   case __format_spec::__type::__default:
   case __format_spec::__type::__decimal: {
-    array<char, __formatter::__buffer_size<decltype(__value), 10>()> __array;
+    _LIBCPP_INDETERMINATE array<char, __formatter::__buffer_size<decltype(__value), 10>()> __array;
     return __formatter::__format_integer(
         __value, __ctx, __specs, __negative, __array.begin(), __array.end(), nullptr, 10);
   }
   case __format_spec::__type::__hexadecimal_lower_case: {
-    array<char, __formatter::__buffer_size<decltype(__value), 16>()> __array;
+    _LIBCPP_INDETERMINATE array<char, __formatter::__buffer_size<decltype(__value), 16>()> __array;
     return __formatter::__format_integer(__value, __ctx, __specs, __negative, __array.begin(), __array.end(), "0x", 16);
   }
   case __format_spec::__type::__hexadecimal_upper_case: {
-    array<char, __formatter::__buffer_size<decltype(__value), 16>()> __array;
+    _LIBCPP_INDETERMINATE array<char, __formatter::__buffer_size<decltype(__value), 16>()> __array;
     return __formatter::__format_integer(__value, __ctx, __specs, __negative, __array.begin(), __array.end(), "0X", 16);
   }
   default:

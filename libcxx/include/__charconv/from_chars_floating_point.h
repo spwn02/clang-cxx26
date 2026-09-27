@@ -16,6 +16,9 @@
 #include <__config>
 #include <__cstddef/ptrdiff_t.h>
 #include <__system_error/errc.h>
+#if _LIBCPP_STD_VER >= 23
+#  include <stdfloat>
+#endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -27,6 +30,7 @@ _LIBCPP_PUSH_MACROS
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 17
+
 
 template <class _Fp>
 struct __from_chars_result {
@@ -74,6 +78,43 @@ from_chars(const char* __first, const char* __last, long double& __value, chars_
     __value = __r.__value;
   return {__first + __r.__n, __r.__ec};
 }
+
+#  if _LIBCPP_STD_VER >= 23
+#    if defined(__STDCPP_FLOAT32_T__)
+_LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, const char* __last, float32_t& __value, chars_format __fmt = chars_format::general) {
+  float __temporary;
+  from_chars_result __result = std::from_chars(__first, __last, __temporary, __fmt);
+  if (__result.ec != errc::invalid_argument) __value = static_cast<float32_t>(__temporary);
+  return __result;
+}
+#    endif
+#    if defined(__STDCPP_FLOAT64_T__)
+_LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, const char* __last, float64_t& __value, chars_format __fmt = chars_format::general) {
+  double __temporary;
+  from_chars_result __result = std::from_chars(__first, __last, __temporary, __fmt);
+  if (__result.ec != errc::invalid_argument) __value = static_cast<float64_t>(__temporary);
+  return __result;
+}
+#    endif
+#    if defined(__STDCPP_FLOAT16_T__)
+_LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, const char* __last, float16_t& __value, chars_format __fmt = chars_format::general) {
+  // Parse at the widest supported precision before rounding to binary16.
+  long double __temporary;
+  from_chars_result __result = std::from_chars(__first, __last, __temporary, __fmt);
+  if (__result.ec != errc::invalid_argument) __value = static_cast<float16_t>(__temporary);
+  return __result;
+}
+#    endif
+#    if defined(__STDCPP_BFLOAT16_T__)
+_LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, const char* __last, bfloat16_t& __value, chars_format __fmt = chars_format::general) {
+  // Parse at the widest supported precision before rounding to bfloat16.
+  long double __temporary;
+  from_chars_result __result = std::from_chars(__first, __last, __temporary, __fmt);
+  if (__result.ec != errc::invalid_argument) __value = static_cast<bfloat16_t>(__temporary);
+  return __result;
+}
+#    endif
+#  endif
 
 #endif // _LIBCPP_STD_VER >= 17
 
