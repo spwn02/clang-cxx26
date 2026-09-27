@@ -18,7 +18,13 @@
 _LIBCPP_PUSH_MACROS
 #include <__undef_macros>
 
-#if _LIBCPP_HAS_EXPERIMENTAL_PSTL && _LIBCPP_STD_VER >= 17
+// P2976R1 requires only the execution-policy tag types (is_execution_policy/is_execution_policy_v,
+// declared elsewhere) to be freestanding, not the actual parallel-dispatch algorithm overloads this
+// file provides. Making the whole file a no-op under freestanding is a single, centralized guard --
+// several ranges_*.h algorithm headers (e.g. ranges_adjacent_find.h) #include this file directly and
+// unconditionally, bypassing any freestanding gate at their own call site, so gating each caller
+// individually would be both more error-prone and incomplete.
+#if _LIBCPP_HAS_EXPERIMENTAL_PSTL && _LIBCPP_STD_VER >= 17 && !defined(_LIBCPP_FREESTANDING)
 
 #  include <__functional/operations.h>
 #  include <__iterator/cpp17_iterator_concepts.h>

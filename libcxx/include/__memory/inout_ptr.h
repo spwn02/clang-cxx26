@@ -13,7 +13,9 @@
 #include <__config>
 #include <__memory/addressof.h>
 #include <__memory/pointer_traits.h>
-#include <__memory/shared_ptr.h>
+#if !defined(_LIBCPP_FREESTANDING)
+#  include <__memory/shared_ptr.h>
+#endif
 #include <__memory/unique_ptr.h>
 #include <__type_traits/is_pointer.h>
 #include <__type_traits/is_same.h>
@@ -36,7 +38,9 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 template <class _Smart, class _Pointer, class... _Args>
 class inout_ptr_t {
+#if !defined(_LIBCPP_FREESTANDING)
   static_assert(!__is_specialization_v<_Smart, shared_ptr>, "std::shared_ptr<> is not supported with std::inout_ptr.");
+#endif
 
 public:
   _LIBCPP_HIDE_FROM_ABI explicit inout_ptr_t(_Smart& __smart, _Args... __args)

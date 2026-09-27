@@ -40,7 +40,9 @@
 #include <__utility/integer_sequence.h>
 #include <array>
 #include <span>
-#include <stdexcept>
+#if !defined(_LIBCPP_FREESTANDING)
+#  include <stdexcept>
+#endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -222,6 +224,7 @@ public:
     }(make_index_sequence<rank()>());
   }
 
+#  if !defined(_LIBCPP_FREESTANDING)
   template <class... _OtherIndexTypes>
     requires((is_convertible_v<_OtherIndexTypes, index_type> && ...) &&
              (is_nothrow_constructible_v<index_type, _OtherIndexTypes> && ...) &&
@@ -249,6 +252,7 @@ public:
       return at(__indices[_Idxs]...);
     }(make_index_sequence<rank()>());
   }
+#  endif // !defined(_LIBCPP_FREESTANDING)
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr size_type size() const noexcept {
     // Could leave this as only checked in debug mode: semantically size() is never

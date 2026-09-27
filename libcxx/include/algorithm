@@ -1902,7 +1902,9 @@ template <class BidirectionalIterator, class Compare>
 #  include <__algorithm/generate.h>
 #  include <__algorithm/generate_n.h>
 #  include <__algorithm/includes.h>
-#  include <__algorithm/inplace_merge.h>
+#  if !defined(_LIBCPP_FREESTANDING)
+#    include <__algorithm/inplace_merge.h>
+#  endif
 #  include <__algorithm/is_heap.h>
 #  include <__algorithm/is_heap_until.h>
 #  include <__algorithm/is_partitioned.h>
@@ -1955,8 +1957,10 @@ template <class BidirectionalIterator, class Compare>
 #  include <__algorithm/shuffle.h>
 #  include <__algorithm/sort.h>
 #  include <__algorithm/sort_heap.h>
-#  include <__algorithm/stable_partition.h>
-#  include <__algorithm/stable_sort.h>
+#  if !defined(_LIBCPP_FREESTANDING)
+#    include <__algorithm/stable_partition.h>
+#    include <__algorithm/stable_sort.h>
+#  endif
 #  include <__algorithm/swap_ranges.h>
 #  include <__algorithm/transform.h>
 #  include <__algorithm/unique.h>
@@ -1966,7 +1970,9 @@ template <class BidirectionalIterator, class Compare>
 #  if _LIBCPP_STD_VER >= 17
 #    include <__algorithm/clamp.h>
 #    include <__algorithm/for_each_n.h>
-#    include <__algorithm/pstl.h>
+#    if !defined(_LIBCPP_FREESTANDING)
+#      include <__algorithm/pstl.h>
+#    endif
 #    include <__algorithm/sample.h>
 #  endif // _LIBCPP_STD_VER >= 17
 
@@ -2006,7 +2012,9 @@ template <class BidirectionalIterator, class Compare>
 #    include <__algorithm/ranges_generate.h>
 #    include <__algorithm/ranges_generate_n.h>
 #    include <__algorithm/ranges_includes.h>
-#    include <__algorithm/ranges_inplace_merge.h>
+#    if !defined(_LIBCPP_FREESTANDING)
+#      include <__algorithm/ranges_inplace_merge.h>
+#    endif
 #    include <__algorithm/ranges_is_heap.h>
 #    include <__algorithm/ranges_is_heap_until.h>
 #    include <__algorithm/ranges_is_partitioned.h>
@@ -2059,8 +2067,10 @@ template <class BidirectionalIterator, class Compare>
 #    include <__algorithm/ranges_shuffle.h>
 #    include <__algorithm/ranges_sort.h>
 #    include <__algorithm/ranges_sort_heap.h>
-#    include <__algorithm/ranges_stable_partition.h>
-#    include <__algorithm/ranges_stable_sort.h>
+#    if !defined(_LIBCPP_FREESTANDING)
+#      include <__algorithm/ranges_stable_partition.h>
+#      include <__algorithm/ranges_stable_sort.h>
+#    endif
 #    include <__algorithm/ranges_swap_ranges.h>
 #    include <__algorithm/ranges_transform.h>
 #    include <__algorithm/ranges_unique.h>
