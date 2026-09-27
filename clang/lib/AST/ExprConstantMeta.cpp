@@ -3816,6 +3816,44 @@ bool substitute(APValue &Result, ASTContext &C, MetaActions &Meta,
 }
 
 
+/// Can \p From be converted to \p To by a qualification conversion
+/// ([conv.qual]), where function types also match when \p From merely has a
+/// stronger exception specification? With \p TopLevelMatters, the outermost
+/// cv-qualifiers take part as well (the check for a reference result, which
+/// is_convertible_v<U(*)[], T(*)[]> performs); otherwise they are ignored (a
+/// prvalue result).
+static bool isExtractCompatible(ASTContext &C, QualType From, QualType To,
+                                bool TopLevelMatters) {
+  From = From.getCanonicalType();
+  To = To.getCanonicalType();
+  bool First = !TopLevelMatters;
+  bool AllConst = true;
+  while (true) {
+    unsigned F = From.getCVRQualifiers(), T = To.getCVRQualifiers();
+    if (!First) {
+      if (F & ~T)
+        return false;
+      if (F != T && !AllConst)
+        return false;
+      if (!(T & Qualifiers::Const))
+        AllConst = false;
+    }
+    First = false;
+    From = From.getUnqualifiedType();
+    To = To.getUnqualifiedType();
+    QualType F2 = From, T2 = To;
+    if (!C.UnwrapSimilarTypes(F2, T2, /*AllowPiMismatch=*/false)) {
+      if (From->isFunctionProtoType() && To->isFunctionProtoType() &&
+          C.hasSameFunctionTypeIgnoringExceptionSpec(From, To))
+        // Only the exception specification may be dropped, never added.
+        return From == To || !To->castAs<FunctionProtoType>()->isNothrow();
+      return From == To;
+    }
+    From = F2;
+    To = T2;
+  }
+}
+
 bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
              EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
              QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
@@ -3867,8 +3905,7 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
         RD && RD->isLambda() && ResultTy->isPointerType())
       return extractLambda(Result, RD);
 
-    if (ObjectTy.getCanonicalType().getTypePtr() !=
-        ResultTy.getCanonicalType().getTypePtr())
+    if (!isExtractCompatible(C, ObjectTy, ResultTy, ReturnsLValue))
       return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
           << 1 << ObjectTy << ReturnsLValue << ResultTy << Range;
 
@@ -3886,8 +3923,7 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
       return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
           << 1 << DescriptionOf(RV) << Range;
 
-    if (ValueTy.getCanonicalType().getTypePtr() !=
-        ResultTy.getCanonicalType().getTypePtr())
+    if (!isExtractCompatible(C, ValueTy, ResultTy, /*TopLevelMatters=*/false))
       return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
           << 0 << ValueTy << ReturnsLValue << ResultTy << Range;
 
@@ -3903,8 +3939,8 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
         RD && RD->isLambda() && ResultTy->isPointerType())
       return extractLambda(Result, RD);
 
-    if (A->getArg()->getType().getCanonicalType().getTypePtr() !=
-        ResultTy.getCanonicalType().getTypePtr())
+    if (!isExtractCompatible(C, A->getArg()->getType(), ResultTy,
+                             /*TopLevelMatters=*/false))
       return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
           << 3 << A->getArg()->getType() << ReturnsLValue << ResultTy << Range;
 
@@ -3989,16 +4025,18 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
       } else {
         // We have a reflection of a (possibly local) non-reference variable.
         // Synthesize an lvalue by reaching up the call stack.
-        if (ResultTy.getCanonicalType().getTypePtr() !=
-            Decl->getType().getCanonicalType().getTypePtr())
+        if (!isExtractCompatible(C, Decl->getType(), ResultTy, ReturnsLValue))
           return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
               << 0 << Decl->getType() << ReturnsLValue << ResultTy << Range;
 
-        Synthesized = ExtractLValueExpr::Create(C, Range, ResultTy, Decl);
+        // The lvalue has the variable's own type; a qualification conversion to
+        // the result type changes nothing about the value.
+        Synthesized = ExtractLValueExpr::Create(C, Range, Decl->getType(), Decl);
       }
 
-      if (Synthesized->getType().getCanonicalType().getTypePtr() !=
-          ResultTy.getCanonicalType().getTypePtr())
+      if (!isa<ExtractLValueExpr>(Synthesized) &&
+          Synthesized->getType().getCanonicalType().getTypePtr() !=
+              ResultTy.getCanonicalType().getTypePtr())
         return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
             << 0 << Decl->getType() << ReturnsLValue << ResultTy << Range;
       return !Evaluator(Result, Synthesized, !ReturnsLValue);
@@ -4015,7 +4053,7 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
       // those would die in later code path otherwise...
       if (CXXMethodDecl* meth = dyn_cast<CXXMethodDecl>(Decl); meth && meth->isStatic()) {
         QualType funcPtrType = C.getPointerType(meth->getType());
-        if (funcPtrType.getCanonicalType().getTypePtr() != ResultTy.getCanonicalType().getTypePtr()) {
+        if (!isExtractCompatible(C, funcPtrType, ResultTy, false)) {
           return Diagnoser(Range.getBegin(), diag::metafn_extract_entity_type_mismatch) << ResultTy << DescriptionOf(RV) << funcPtrType << Range;
         }
         APValue StaticFuncPtrLV(Decl, CharUnits::Zero(), {}, false, false);
@@ -4043,8 +4081,7 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
 
       QualType MemPtrTy = C.getMemberPointerType(Decl->getType(), std::nullopt,
                                                  cast<CXXRecordDecl>(ObjDC));
-      if (MemPtrTy.getCanonicalType().getTypePtr() !=
-          ResultTy.getCanonicalType().getTypePtr())
+      if (!isExtractCompatible(C, MemPtrTy, ResultTy, false))
         return Diagnoser(Range.getBegin(),
                          diag::metafn_extract_entity_type_mismatch)
             << ResultTy << DescriptionOf(RV) << MemPtrTy << Range;
@@ -4060,8 +4097,7 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
       return SetAndSucceed(Result, APValue(ECD->getInitVal()));
     } else {
       QualType FnPtrTy = C.getPointerType(Decl->getType());
-      if (FnPtrTy.getCanonicalType().getTypePtr() !=
-          ResultTy.getCanonicalType().getTypePtr())
+      if (!isExtractCompatible(C, FnPtrTy, ResultTy, false))
         return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
             << 0 << Decl->getType() << ReturnsLValue << ResultTy << Range;
 

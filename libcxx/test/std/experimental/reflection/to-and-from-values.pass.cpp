@@ -177,7 +177,9 @@ namespace extract_ref_semantics {
   const int constGlobal = 2;
 
   static_assert(&extract<int &>(^^nonConstGlobal) == &nonConstGlobal);
-  static_assert(extract<int &>(^^constGlobal) == 2);
+  // [meta.reflection.extract]p5.2: only a qualification conversion from the variable's type is allowed,
+  // so `int&` cannot be extracted from a `const int` variable (see extract-qualification.pass.cpp).
+  static_assert(extract<const int &>(^^constGlobal) == 2);
 
   const int &constGlobalRef = constGlobal;
   static_assert(&extract<const int &>(^^constGlobalRef) == &constGlobal);

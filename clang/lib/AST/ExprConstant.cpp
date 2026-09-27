@@ -6805,6 +6805,17 @@ static EvalStmtResult EvaluateStmt(StmtResult &Result, EvalInfo &Info,
         }
       }
 
+      if (!ExDecl) {
+        // catch(...) names no object, but the exception object is still
+        // destroyed when the handler exits ([except.handle]p10); give it
+        // storage that the handler's scope destroys so that anything it
+        // owns (e.g. a std::string message) is not reported as leaked.
+        LValue ObjLV;
+        APValue &ObjSlot = Info.CurrentCall->createTemporary(
+            Exc.ObjectKey, Exc.Ty, ScopeKind::Block, ObjLV);
+        ObjSlot = Exc.Value;
+      }
+
       ESR = EvaluateStmt(Result, Info, Handler->getHandlerBlock());
       if (ESR != ESR_Failed && !Scope.destroy())
         return ESR_Failed;
