@@ -102,3 +102,22 @@ baseline) because `is_floating_point` and `<cmath>` overloads are include-order 
 
 Effort: milestone 1-2 is a substantial compiler change (about the size of the `_Float16` bring-up); milestone 3-4 is
 mostly mechanical but wide. Roughly four to six focused sessions in total.
+
+
+## Implemented (2026-09-27)
+
+* **Language (L1/L2, `de47e5bb7729`):** `__float32`/`__float64` distinct builtin types, suffixes `f16 f32 f64 f128 bf16`,
+  `__CLANG_STDCPP_*_T__` macros (the standard `__STDCPP_*_T__` macros are left to the library — predefining them broke
+  libstdc++), conversion ranks/subranks, the unordered-rank diagnostic, `[over.ics.rank]p4.3`, Itanium mangling `DF32_`/`DF64_`.
+* **Library M1 (`f375b6c4f72f`):** `<stdfloat>`, `is_floating_point` and dependent traits, `numeric_limits`, `hash`, module
+  export, `__cpp_lib_stdfloat`.
+* **Library M2a (`0f2dbdcd3f95`):** `<cmath>` overloads for float16_t/bfloat16_t (compute through float), float32_t/float64_t
+  (their own format via builtins, or through float/double), float128_t (abs/fabs/sqrt/classification only — no quad libm);
+  mixed-argument promotion through `__promote_t`; `<atomic>`/`atomic_ref` floating fetch ops; `<ostream>`/`<istream>`
+  inserters/extractors (through float/double).
+* **Not done:** `<charconv>`/`<format>` for the extended types (a Luna attempt converts through `float`, so the shortest
+  round-trip may show excess digits for float16_t/bfloat16_t — not merged, needs a real implementation); `<complex>` for
+  the extended types beyond what already worked from the primary template (a Sol attempt broke compilation trying to add
+  conversion-constructor explicitness and was discarded; #93's `<cmath>` merge itself may have introduced ambiguity in
+  generic complex code calling `hypot`/`atan2`/`sin` on `_Float16`/`__float128` — re-check before attempting M3 again);
+  C++17 special math functions (`assoc_laguerre`, `riemann_zeta`, ...) for the extended types.
