@@ -16,6 +16,9 @@
 
 #include <__concepts/same_as.h>
 #include <__config>
+#if _LIBCPP_STD_VER >= 23
+#  include <stdfloat>
+#endif
 #include <__cstddef/size_t.h>
 #include <__format/concepts.h>
 #include <__format/format_arg.h>
@@ -107,6 +110,24 @@ template <class, same_as<long double> _Tp>
 consteval __arg_t __determine_arg_t() {
   return __arg_t::__long_double;
 }
+#  if _LIBCPP_STD_VER >= 23
+#    if defined(__STDCPP_FLOAT16_T__)
+template <class, same_as<float16_t> _Tp>
+consteval __arg_t __determine_arg_t() { return __arg_t::__float; }
+#    endif
+#    if defined(__STDCPP_BFLOAT16_T__)
+template <class, same_as<bfloat16_t> _Tp>
+consteval __arg_t __determine_arg_t() { return __arg_t::__float; }
+#    endif
+#    if defined(__STDCPP_FLOAT32_T__)
+template <class, same_as<float32_t> _Tp>
+consteval __arg_t __determine_arg_t() { return __arg_t::__float; }
+#    endif
+#    if defined(__STDCPP_FLOAT64_T__)
+template <class, same_as<float64_t> _Tp>
+consteval __arg_t __determine_arg_t() { return __arg_t::__double; }
+#    endif
+#  endif
 
 // Char pointer
 template <class _Context, class _Tp>
@@ -190,6 +211,24 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI basic_format_arg<_Context> _
     return basic_format_arg<_Context>{__arg, static_cast<unsigned>(__value)};
   else if constexpr (__arg == __arg_t::__unsigned_long_long)
     return basic_format_arg<_Context>{__arg, static_cast<unsigned long long>(__value)};
+#  if _LIBCPP_STD_VER >= 23
+#    if defined(__STDCPP_FLOAT16_T__)
+  else if constexpr (same_as<_Dp, float16_t>)
+    return basic_format_arg<_Context>{__arg, static_cast<float>(__value)};
+#    endif
+#    if defined(__STDCPP_BFLOAT16_T__)
+  else if constexpr (same_as<_Dp, bfloat16_t>)
+    return basic_format_arg<_Context>{__arg, static_cast<float>(__value)};
+#    endif
+#    if defined(__STDCPP_FLOAT32_T__)
+  else if constexpr (same_as<_Dp, float32_t>)
+    return basic_format_arg<_Context>{__arg, static_cast<float>(__value)};
+#    endif
+#    if defined(__STDCPP_FLOAT64_T__)
+  else if constexpr (same_as<_Dp, float64_t>)
+    return basic_format_arg<_Context>{__arg, static_cast<double>(__value)};
+#    endif
+#  endif
   else if constexpr (__arg == __arg_t::__string_view)
     // Using std::size on a character array will add the NUL-terminator to the size.
     if constexpr (__is_bounded_array_of<_Dp, __context_char_type>) {

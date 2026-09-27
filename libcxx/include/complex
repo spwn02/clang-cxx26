@@ -266,7 +266,9 @@ template<class T> complex<T> tanh (const complex<T>&);
 #  include <__tuple/tuple_element.h>
 #  include <__tuple/tuple_size.h>
 #  include <__type_traits/conditional.h>
+#  include <__type_traits/is_same.h>
 #  include <__utility/move.h>
+#  include <__utility/declval.h>
 #  include <cmath>
 #  include <limits>
 #  include <version>
@@ -321,7 +323,11 @@ public:
   complex(const value_type& __re = value_type(), const value_type& __im = value_type())
       : __re_(__re), __im_(__im) {}
   template <class _Xp>
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 complex(const complex<_Xp>& __c)
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14
+#  if _LIBCPP_STD_VER >= 23
+  explicit(!is_same<decltype(std::declval<value_type>() + std::declval<_Xp>()), value_type>::value)
+#  endif
+  complex(const complex<_Xp>& __c)
       : __re_(__c.real()), __im_(__c.imag()) {}
 
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 value_type real() const { return __re_; }
