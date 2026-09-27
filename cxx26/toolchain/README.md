@@ -158,7 +158,18 @@ It also enables the current reference-fork reflection mode automatically. Consum
 
    Rebuild `std.pcm` whenever the toolchain changes: a BMI from a different compiler revision is rejected.
 
-With both in place, `clangd --check=<module interface unit>` is clean for a unit that does `import std;`. Importing *your own* modules (`import Demo;`) additionally needs their BMIs: `clangd` 22's `--experimental-modules-support` is meant to build them from the compilation database using `clang-scan-deps` (shipped in this toolchain), but this was **not** verified to resolve project modules with `--check`; treat it as experimental, and see spwn02/clang-cxx26#108.
+With both in place, `clangd --check=<module interface unit>` is clean for a unit that does `import std;`.
+
+3. **Importing your own modules (`import Demo;`, `import :Types;`) needs `--experimental-modules-support`,
+   AND every module-providing file must have its own entry in `compile_commands.json`.** Pass
+   `--experimental-modules-support` (builds project BMIs on demand via `clang-scan-deps`, shipped in this
+   toolchain) — verified working, in both `--check` mode and a live LSP session, for plain named-module
+   imports and module-partition imports, as long as the compilation database has an entry for *every*
+   `.cppm`/partition file the import graph touches, not just the consumer `.cpp`. A compile database missing
+   the provider's own entry reproduces exactly the `module 'X' not found` failure — this is a project/build-
+   system configuration gap (many build systems don't emit compile-commands entries for module interface
+   units by default), not a clangd or toolchain bug. If a module import fails to resolve, check
+   `compile_commands.json` for the missing provider file first.
 
 ## Package metadata
 
