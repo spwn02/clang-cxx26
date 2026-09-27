@@ -98,8 +98,8 @@ _LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, c
 #    endif
 #    if defined(__STDCPP_FLOAT16_T__)
 _LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, const char* __last, float16_t& __value, chars_format __fmt = chars_format::general) {
-  // Parse at the widest supported precision before rounding to binary16.
-  long double __temporary;
+  // Parse to float, then perform one correctly-rounded narrowing conversion.
+  float __temporary;
   from_chars_result __result = std::from_chars(__first, __last, __temporary, __fmt);
   if (__result.ec != errc::invalid_argument) __value = static_cast<float16_t>(__temporary);
   return __result;
@@ -107,8 +107,8 @@ _LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, c
 #    endif
 #    if defined(__STDCPP_BFLOAT16_T__)
 _LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, const char* __last, bfloat16_t& __value, chars_format __fmt = chars_format::general) {
-  // Parse at the widest supported precision before rounding to bfloat16.
-  long double __temporary;
+  // Parse to float, then perform one correctly-rounded narrowing conversion.
+  float __temporary;
   from_chars_result __result = std::from_chars(__first, __last, __temporary, __fmt);
   if (__result.ec != errc::invalid_argument) __value = static_cast<bfloat16_t>(__temporary);
   return __result;
