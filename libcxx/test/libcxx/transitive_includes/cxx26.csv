@@ -85,6 +85,7 @@ ccomplex limits
 ccomplex ratio
 ccomplex sstream
 ccomplex stdexcept
+ccomplex stdfloat
 ccomplex streambuf
 ccomplex string
 ccomplex string_view
@@ -95,6 +96,7 @@ charconv cerrno
 charconv cstdint
 charconv initializer_list
 charconv limits
+charconv stdfloat
 charconv version
 chrono array
 chrono bitset
@@ -124,6 +126,7 @@ chrono optional
 chrono ratio
 chrono sstream
 chrono stdexcept
+chrono stdfloat
 chrono streambuf
 chrono string
 chrono string_view
@@ -179,6 +182,7 @@ complex limits
 complex ratio
 complex sstream
 complex stdexcept
+complex stdfloat
 complex streambuf
 complex string
 complex string_view
@@ -230,6 +234,7 @@ ctgmath limits
 ctgmath ratio
 ctgmath sstream
 ctgmath stdexcept
+ctgmath stdfloat
 ctgmath streambuf
 ctgmath string
 ctgmath string_view
@@ -291,6 +296,7 @@ execution optional
 execution ratio
 execution sstream
 execution stdexcept
+execution stdfloat
 execution streambuf
 execution string
 execution string_view
@@ -326,6 +332,7 @@ experimental/iterator iterator
 experimental/iterator limits
 experimental/iterator ratio
 experimental/iterator stdexcept
+experimental/iterator stdfloat
 experimental/iterator streambuf
 experimental/iterator string
 experimental/iterator string_view
@@ -461,6 +468,7 @@ format limits
 format optional
 format ratio
 format stdexcept
+format stdfloat
 format string
 format string_view
 format tuple
@@ -497,6 +505,7 @@ fstream istream
 fstream limits
 fstream ratio
 fstream stdexcept
+fstream stdfloat
 fstream streambuf
 fstream string
 fstream string_view
@@ -541,6 +550,7 @@ future optional
 future ratio
 future sstream
 future stdexcept
+future stdfloat
 future streambuf
 future string
 future string_view
@@ -729,6 +739,7 @@ iostream ostream
 iostream print
 iostream ratio
 iostream stdexcept
+iostream stdfloat
 iostream streambuf
 iostream string
 iostream string_view
@@ -755,6 +766,7 @@ istream iosfwd
 istream limits
 istream ratio
 istream stdexcept
+istream stdfloat
 istream streambuf
 istream string
 istream string_view
@@ -812,6 +824,7 @@ linalg ratio
 linalg span
 linalg sstream
 linalg stdexcept
+linalg stdfloat
 linalg streambuf
 linalg string
 linalg string_view
@@ -988,6 +1001,7 @@ ostream optional
 ostream print
 ostream ratio
 ostream stdexcept
+ostream stdfloat
 ostream streambuf
 ostream string
 ostream string_view
@@ -1016,6 +1030,7 @@ print limits
 print optional
 print ratio
 print stdexcept
+print stdfloat
 print string
 print string_view
 print tuple
@@ -1199,6 +1214,7 @@ simd limits
 simd ratio
 simd sstream
 simd stdexcept
+simd stdfloat
 simd streambuf
 simd string
 simd string_view
@@ -1239,6 +1255,7 @@ spanstream print
 spanstream ratio
 spanstream span
 spanstream stdexcept
+spanstream stdfloat
 spanstream streambuf
 spanstream string
 spanstream string_view
@@ -1266,6 +1283,7 @@ sstream istream
 sstream limits
 sstream ratio
 sstream stdexcept
+sstream stdfloat
 sstream streambuf
 sstream string
 sstream string_view
@@ -1397,6 +1415,7 @@ strstream istream
 strstream limits
 strstream ratio
 strstream stdexcept
+strstream stdfloat
 strstream streambuf
 strstream string
 strstream string_view
@@ -1431,6 +1450,7 @@ syncstream print
 syncstream ratio
 syncstream shared_mutex
 syncstream stdexcept
+syncstream stdfloat
 syncstream streambuf
 syncstream string
 syncstream string_view
@@ -1493,6 +1513,7 @@ thread optional
 thread ratio
 thread sstream
 thread stdexcept
+thread stdfloat
 thread streambuf
 thread string
 thread string_view

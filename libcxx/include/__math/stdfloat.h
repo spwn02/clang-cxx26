@@ -507,14 +507,14 @@ _LIBCPP_HIDE_FROM_ABI inline _Float frexp(_Float __value, int* __exponent) _NOEX
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI inline _Float modf(_Float __value, _Float* __integral) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>) {
-    double __part;
-    double __result = __builtin_modf(static_cast<double>(__value), &__part);
-    *__integral     = static_cast<_Float>(__part);
+    double __int_part;
+    double __result = __builtin_modf(static_cast<double>(__value), &__int_part);
+    *__integral     = static_cast<_Float>(__int_part);
     return static_cast<_Float>(__result);
   } else {
-    float __part;
-    float __result = __builtin_modff(static_cast<float>(__value), &__part);
-    *__integral    = static_cast<_Float>(__part);
+    float __int_part;
+    float __result = __builtin_modff(static_cast<float>(__value), &__int_part);
+    *__integral    = static_cast<_Float>(__int_part);
     return static_cast<_Float>(__result);
   }
 }
