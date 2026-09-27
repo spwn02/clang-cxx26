@@ -10,10 +10,22 @@
 
 #include <complex>
 #include <cassert>
+#include <sstream>
 #include <stdfloat>
 #include <type_traits>
 
 #include "test_macros.h"
+
+template <class T>
+void test_stream_roundtrip(T re, T im) {
+  std::complex<T> x(re, im);
+  std::ostringstream oss;
+  oss << x;
+  std::istringstream iss(oss.str());
+  std::complex<T> y;
+  iss >> y;
+  assert(x == y);
+}
 
 static_assert(sizeof(std::complex<float>) == 2 * sizeof(float));
 static_assert(alignof(std::complex<float>) == alignof(float));
@@ -105,5 +117,10 @@ int main(int, char**) {
 
   std::complex<std::float16_t> h(1.0f, 2.0f);
   assert((h + h).real() == 2.0f);
+
+  test_stream_roundtrip(std::float32_t(1.5), std::float32_t(2.5));
+  test_stream_roundtrip(std::float64_t(3.0), std::float64_t(-4.0));
+  test_stream_roundtrip(std::float16_t(1), std::float16_t(2));
+  test_stream_roundtrip(std::bfloat16_t(1), std::bfloat16_t(2));
   return 0;
 }

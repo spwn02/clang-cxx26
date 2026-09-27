@@ -115,9 +115,23 @@ mostly mechanical but wide. Roughly four to six focused sessions in total.
   (their own format via builtins, or through float/double), float128_t (abs/fabs/sqrt/classification only — no quad libm);
   mixed-argument promotion through `__promote_t`; `<atomic>`/`atomic_ref` floating fetch ops; `<ostream>`/`<istream>`
   inserters/extractors (through float/double).
-* **Not done:** `<charconv>`/`<format>` for the extended types (a Luna attempt converts through `float`, so the shortest
-  round-trip may show excess digits for float16_t/bfloat16_t — not merged, needs a real implementation); `<complex>` for
-  the extended types beyond what already worked from the primary template (a Sol attempt broke compilation trying to add
-  conversion-constructor explicitness and was discarded; #93's `<cmath>` merge itself may have introduced ambiguity in
-  generic complex code calling `hypot`/`atan2`/`sin` on `_Float16`/`__float128` — re-check before attempting M3 again);
-  C++17 special math functions (`assoc_laguerre`, `riemann_zeta`, ...) for the extended types.
+* **M2b (`ee6dd8a1b025`):** `<charconv>` `to_chars`/`from_chars` for all four required extended types. float32_t/float64_t
+  reuse the existing Ryu-based float/double implementation exactly (bit-identical formats, cast in and out). float16_t/
+  bfloat16_t search increasing precision (1-5 significant digits) through the float path, round-trip-verifying each
+  candidate, to find the genuinely shortest representation — not the earlier discarded convert-through-float
+  approximation, which could show excess digits. float128_t explicitly out of scope (no quad libm).
+* **M2c/M3 (`97ebd18b609c`):** `<format>` — `format_arg_store.h` classifies float16_t/bfloat16_t/float32_t as
+  `__arg_t::__float` and float64_t as `__arg_t::__double`, each gated on its `__STDCPP_*_T__` macro; full runtime test
+  (default/precision/presentation-type, `format_to`, `vformat`, mixed-type calls). `<complex>` — added the C++23
+  converting constructor from `complex<X>` to `complex<T>` with `explicit(...)` computed from the common arithmetic
+  type of `T`/`X` per [complex.members] (explicit iff `rank(T) < rank(X)`); confirmed the earlier-suspected `<cmath>`
+  ambiguity for `hypot`/`atan2`/`sin` on `_Float16`/`__bf16`/`float32_t`/`float64_t` does **not** actually exist —
+  arithmetic, `abs`/`arg`/`norm`/`conj`/`proj`/`polar`, and all the required transcendentals instantiate and run
+  correctly for the four required types.
+* **Still not done (real, scoped-out remainder):** `float128_t` for `<charconv>`/`<format>`/`<complex>` (blocked on the
+  same pre-existing `<cmath>` `hypot`/`atan2`/`sin` ambiguity for `__float128`, confirmed still present and unrelated
+  to this session's `<complex>` work — a `<cmath>` fix, not a `<complex>`/`<charconv>` one); the C++17 special math
+  functions (`assoc_laguerre`, `riemann_zeta`, ...) for any extended type — never attempted, no known blocker, just
+  not yet done. `<complex>` stream insertion/extraction round-trip: confirmed working at runtime with the live
+  toolchain for all four required types (the earlier compile-only check used the frozen snapshot compiler, which
+  can't link) and a permanent regression test is now in `complex.stdfloat.pass.cpp`.
