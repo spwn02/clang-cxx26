@@ -1010,6 +1010,12 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _A1 __constexpr_copysign(_A1 __lcpp_x, _
 #  else
     return copysignl(__lcpp_x, __lcpp_y);
 #  endif
+#  if defined(__STDCPP_FLOAT128_T__)
+  } else if constexpr (is_same<_A1, __float128>::value) {
+    // __builtin_copysign's `double` parameter would silently truncate a wider __float128
+    // argument (unlike float/long double above, which only ever widen into it).
+    return __builtin_copysignf128(__lcpp_x, __lcpp_y);
+#  endif
   } else {
 #  if __has_builtin(__builtin_copysign)
     return __builtin_copysign(__lcpp_x, __lcpp_y);
@@ -1033,6 +1039,11 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _A1 __constexpr_fabs(_A1 __lcpp_x) _NOEX
     return __builtin_fabsl(__lcpp_x);
 #  else
     return fabsl(__lcpp_x);
+#  endif
+#  if defined(__STDCPP_FLOAT128_T__)
+  } else if constexpr (is_same<_A1, __float128>::value) {
+    // Same rationale as __constexpr_copysign's __float128 branch above.
+    return __builtin_fabsf128(__lcpp_x);
 #  endif
   } else {
 #  if __has_builtin(__builtin_fabs)

@@ -14,6 +14,10 @@
 #include <__type_traits/is_same.h>
 #include <__type_traits/promote.h>
 
+#if defined(__GLIBC__)
+#  include <features.h>
+#endif
+
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
 #endif
@@ -543,6 +547,120 @@ _LIBCPP_HIDE_FROM_ABI inline _Float nexttoward(_Float __left, long double __righ
   else
     return static_cast<_Float>(__builtin_nexttowardf(static_cast<float>(__left), __right));
 }
+
+// glibc exposes the IEEE binary128 libm ABI with an `f128` suffix. Clang has
+// no corresponding builtins, so declare and call those ABI entry points.
+#  if defined(__STDCPP_FLOAT128_T__) && defined(__GLIBC__) && __GLIBC_PREREQ(2, 26)
+extern "C" {
+#    define _LIBCPP_F128_UNARY_DECL(__name) __float128 __name##f128(__float128) noexcept;
+_LIBCPP_F128_UNARY_DECL(acos)
+_LIBCPP_F128_UNARY_DECL(asin)
+_LIBCPP_F128_UNARY_DECL(atan)
+_LIBCPP_F128_UNARY_DECL(acosh)
+_LIBCPP_F128_UNARY_DECL(asinh)
+_LIBCPP_F128_UNARY_DECL(atanh)
+_LIBCPP_F128_UNARY_DECL(cos)
+_LIBCPP_F128_UNARY_DECL(cosh)
+_LIBCPP_F128_UNARY_DECL(sin)
+_LIBCPP_F128_UNARY_DECL(sinh)
+_LIBCPP_F128_UNARY_DECL(tan)
+_LIBCPP_F128_UNARY_DECL(tanh)
+_LIBCPP_F128_UNARY_DECL(exp)
+_LIBCPP_F128_UNARY_DECL(exp2)
+_LIBCPP_F128_UNARY_DECL(expm1)
+_LIBCPP_F128_UNARY_DECL(log)
+_LIBCPP_F128_UNARY_DECL(log2)
+_LIBCPP_F128_UNARY_DECL(log10)
+_LIBCPP_F128_UNARY_DECL(log1p)
+_LIBCPP_F128_UNARY_DECL(cbrt)
+_LIBCPP_F128_UNARY_DECL(ceil)
+_LIBCPP_F128_UNARY_DECL(floor)
+_LIBCPP_F128_UNARY_DECL(round)
+_LIBCPP_F128_UNARY_DECL(trunc)
+_LIBCPP_F128_UNARY_DECL(nearbyint)
+_LIBCPP_F128_UNARY_DECL(rint)
+_LIBCPP_F128_UNARY_DECL(erf)
+_LIBCPP_F128_UNARY_DECL(erfc)
+_LIBCPP_F128_UNARY_DECL(tgamma)
+_LIBCPP_F128_UNARY_DECL(lgamma)
+_LIBCPP_F128_UNARY_DECL(logb)
+_LIBCPP_F128_UNARY_DECL(j0)
+_LIBCPP_F128_UNARY_DECL(j1)
+_LIBCPP_F128_UNARY_DECL(y0)
+_LIBCPP_F128_UNARY_DECL(y1)
+#    undef _LIBCPP_F128_UNARY_DECL
+__float128 atan2f128(__float128, __float128) noexcept;
+__float128 hypotf128(__float128, __float128) noexcept;
+__float128 powf128(__float128, __float128) noexcept;
+__float128 fmodf128(__float128, __float128) noexcept;
+__float128 remainderf128(__float128, __float128) noexcept;
+__float128 copysignf128(__float128, __float128) noexcept;
+__float128 fdimf128(__float128, __float128) noexcept;
+__float128 fmaxf128(__float128, __float128) noexcept;
+__float128 fminf128(__float128, __float128) noexcept;
+__float128 nextafterf128(__float128, __float128) noexcept;
+__float128 fmaf128(__float128, __float128, __float128) noexcept;
+__float128 remquof128(__float128, __float128, int*) noexcept;
+__float128 frexpf128(__float128, int*) noexcept;
+__float128 modff128(__float128, __float128*) noexcept;
+__float128 ldexpf128(__float128, int) noexcept;
+__float128 scalbnf128(__float128, int) noexcept;
+}
+
+#    define _LIBCPP_F128_UNARY(__name) \
+      _LIBCPP_HIDE_FROM_ABI inline __float128 __name(__float128 __value) noexcept { return __name##f128(__value); }
+_LIBCPP_F128_UNARY(acos)
+_LIBCPP_F128_UNARY(asin)
+_LIBCPP_F128_UNARY(atan)
+_LIBCPP_F128_UNARY(acosh)
+_LIBCPP_F128_UNARY(asinh)
+_LIBCPP_F128_UNARY(atanh)
+_LIBCPP_F128_UNARY(cos)
+_LIBCPP_F128_UNARY(cosh)
+_LIBCPP_F128_UNARY(sin)
+_LIBCPP_F128_UNARY(sinh)
+_LIBCPP_F128_UNARY(tan)
+_LIBCPP_F128_UNARY(tanh)
+_LIBCPP_F128_UNARY(exp)
+_LIBCPP_F128_UNARY(exp2)
+_LIBCPP_F128_UNARY(expm1)
+_LIBCPP_F128_UNARY(log)
+_LIBCPP_F128_UNARY(log2)
+_LIBCPP_F128_UNARY(log10)
+_LIBCPP_F128_UNARY(log1p)
+_LIBCPP_F128_UNARY(cbrt)
+_LIBCPP_F128_UNARY(ceil)
+_LIBCPP_F128_UNARY(floor)
+_LIBCPP_F128_UNARY(round)
+_LIBCPP_F128_UNARY(trunc)
+_LIBCPP_F128_UNARY(nearbyint)
+_LIBCPP_F128_UNARY(rint)
+_LIBCPP_F128_UNARY(erf)
+_LIBCPP_F128_UNARY(erfc)
+_LIBCPP_F128_UNARY(tgamma)
+_LIBCPP_F128_UNARY(lgamma)
+_LIBCPP_F128_UNARY(logb)
+#    undef _LIBCPP_F128_UNARY
+#    define _LIBCPP_F128_BINARY(__name) \
+      _LIBCPP_HIDE_FROM_ABI inline __float128 __name(__float128 __left, __float128 __right) noexcept { return __name##f128(__left, __right); }
+_LIBCPP_F128_BINARY(atan2)
+_LIBCPP_F128_BINARY(hypot)
+_LIBCPP_F128_BINARY(pow)
+_LIBCPP_F128_BINARY(fmod)
+_LIBCPP_F128_BINARY(remainder)
+_LIBCPP_F128_BINARY(copysign)
+_LIBCPP_F128_BINARY(fdim)
+_LIBCPP_F128_BINARY(fmax)
+_LIBCPP_F128_BINARY(fmin)
+_LIBCPP_F128_BINARY(nextafter)
+#    undef _LIBCPP_F128_BINARY
+_LIBCPP_HIDE_FROM_ABI inline __float128 fma(__float128 __x, __float128 __y, __float128 __z) noexcept { return fmaf128(__x, __y, __z); }
+_LIBCPP_HIDE_FROM_ABI inline __float128 frexp(__float128 __value, int* __exponent) noexcept { return frexpf128(__value, __exponent); }
+_LIBCPP_HIDE_FROM_ABI inline __float128 modf(__float128 __value, __float128* __integer) noexcept { return modff128(__value, __integer); }
+_LIBCPP_HIDE_FROM_ABI inline __float128 ldexp(__float128 __value, int __exponent) noexcept { return ldexpf128(__value, __exponent); }
+_LIBCPP_HIDE_FROM_ABI inline __float128 scalbn(__float128 __value, int __exponent) noexcept { return scalbnf128(__value, __exponent); }
+_LIBCPP_HIDE_FROM_ABI inline __float128 remquo(__float128 __value, __float128 __denominator, int* __quotient) noexcept { return remquof128(__value, __denominator, __quotient); }
+#  endif
 } // namespace __math
 _LIBCPP_END_NAMESPACE_STD
 #endif // _LIBCPP_STD_VER >= 23
