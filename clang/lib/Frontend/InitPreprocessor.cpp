@@ -750,6 +750,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
   if (LangOpts.CPlusPlus26) {
     Builder.defineMacro("__cpp_template_parameters", "202502L");
     Builder.defineMacro("__cpp_trivial_union", "202502L");
+    Builder.defineMacro("__cpp_constexpr_virtual_inheritance", "202506L");
   }
 
   if (LangOpts.Char8)

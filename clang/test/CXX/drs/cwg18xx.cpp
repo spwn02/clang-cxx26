@@ -490,10 +490,16 @@ namespace cwg1872 { // cwg1872: 9
 #if __cplusplus >= 202002L
   static_assert(y2 == 0);
 #endif
+#if __cplusplus > 202302L
+  // C++26 (P3533R2): virtual base classes are permitted in constant expressions.
+  constexpr int z = A<Z>().f();
+  static_assert(z == 0);
+#else
   constexpr int z = A<Z>().f();
   // since-cxx11-error@-1 {{constexpr variable 'z' must be initialized by a constant expression}}
   //   cxx11-20-note@-2 {{non-literal type 'A<Z>' cannot be used in a constant expression}}
   //   since-cxx23-note@-3 {{cannot construct object of type 'A<cwg1872::Z>' with virtual base class in a constant expression}}
+#endif
 #endif
 } // namespace cwg1872
 

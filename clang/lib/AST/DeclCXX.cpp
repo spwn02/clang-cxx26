@@ -334,8 +334,12 @@ CXXRecordDecl::setBases(CXXBaseSpecifier const * const *Bases,
       //   In the definition of a constexpr function [...]
       //    -- if the function is a constructor or destructor,
       //       its class shall not have any virtual base classes
-      data().DefaultedDefaultConstructorIsConstexpr = false;
-      data().DefaultedDestructorIsConstexpr = false;
+      //
+      // C++26 (P3533R2) removes that restriction.
+      if (!C.getLangOpts().CPlusPlus26) {
+        data().DefaultedDefaultConstructorIsConstexpr = false;
+        data().DefaultedDestructorIsConstexpr = false;
+      }
 
       // C++1z [class.copy]p8:
       //   The implicitly-declared copy constructor for a class X will have

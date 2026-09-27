@@ -49,6 +49,10 @@
 #error "wrong value for __cpp_template_parameters"
 #endif
 
+#if check(constexpr_virtual_inheritance, 0, 0, 0, 0, 0, 0, 202506)
+#error "wrong value for __cpp_constexpr_virtual_inheritance"
+#endif
+
 #if check(trivial_union, 0, 0, 0, 0, 0, 0, 202502)
 #error "wrong value for __cpp_trivial_union"
 #endif

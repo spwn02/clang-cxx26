@@ -533,10 +533,15 @@ namespace cwg644 { // cwg644: partial
   static_assert(__is_literal_type(B), "");
 
   struct C : virtual A {};
-  static_assert(!__is_literal_type(C), "");
-
   struct D { C c; };
+#if __cplusplus > 202302L
+  // C++26 (P3533R2) lifts the restriction on virtual bases.
+  static_assert(__is_literal_type(C), "");
+  static_assert(__is_literal_type(D), "");
+#else
+  static_assert(!__is_literal_type(C), "");
   static_assert(!__is_literal_type(D), "");
+#endif
 
   // FIXME: According to CWG644, E<C> is a literal type despite having virtual
   // base classes. This appears to be a wording defect.
@@ -544,7 +549,11 @@ namespace cwg644 { // cwg644: partial
   struct E : T {
     constexpr E() = default;
   };
+#if __cplusplus > 202302L
+  static_assert(__is_literal_type(E<C>), "");
+#else
   static_assert(!__is_literal_type(E<C>), "");
+#endif
 #endif
 } // namespace cwg644
 

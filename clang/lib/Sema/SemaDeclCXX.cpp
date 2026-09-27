@@ -1933,7 +1933,9 @@ bool Sema::CheckConstexprFunctionDefinition(const FunctionDecl *NewFD,
     // FIXME: This only applies to constructors and destructors, not arbitrary
     // member functions.
     const CXXRecordDecl *RD = MD->getParent();
-    if (RD->getNumVBases()) {
+    // C++26 (P3533R2) allows constexpr constructors and destructors of classes
+    // with virtual bases.
+    if (RD->getNumVBases() && !getLangOpts().CPlusPlus26) {
       if (Kind == CheckConstexprKind::CheckValid)
         return false;
 
@@ -2486,7 +2488,8 @@ static bool CheckConstexprFunctionBody(Sema &SemaRef, const FunctionDecl *Dcl,
       }
     } else if (!Constructor->isDependentContext() &&
                !Constructor->isDelegatingConstructor()) {
-      assert(RD->getNumVBases() == 0 && "constexpr ctor with virtual bases");
+      assert((RD->getNumVBases() == 0 || SemaRef.getLangOpts().CPlusPlus26) &&
+             "constexpr ctor with virtual bases");
 
       // Skip detailed checking if we have enough initializers, and we would
       // allow at most one initializer per member.
@@ -7625,7 +7628,7 @@ static bool defaultedSpecialMemberIsConstexpr(
                : true;
 
   //   -- the class shall not have any virtual base classes;
-  if (Ctor && ClassDecl->getNumVBases())
+  if (Ctor && ClassDecl->getNumVBases() && !S.getLangOpts().CPlusPlus26)
     return false;
 
   // C++1y [class.copy]p26:

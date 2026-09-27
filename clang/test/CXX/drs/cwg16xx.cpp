@@ -264,6 +264,18 @@ namespace cwg1658 { // cwg1658: 5
 
   namespace CopyCtorParamType {
     struct A { A(A&); };
+#if __cplusplus > 202302L
+    // C++26 (P3533R2): classes with virtual bases have constexpr special members too.
+    struct B : virtual A { virtual void f() = 0; }; // since-cxx23-note {{previous declaration is here}}
+    struct C : virtual A { virtual void f(); }; // since-cxx23-note {{previous declaration is here}}
+    struct D : A { virtual void f() = 0; }; // since-cxx23-note {{previous declaration is here}}
+
+    struct X {
+      friend B::B(const B&) throw(); // since-cxx23-error {{non-constexpr declaration of 'B' follows constexpr declaration}}
+      friend C::C(C&); // since-cxx23-error {{non-constexpr declaration of 'C' follows constexpr declaration}}
+      friend D::D(D&); // since-cxx23-error {{non-constexpr declaration of 'D' follows constexpr declaration}}
+    };
+#else
     struct B : virtual A { virtual void f() = 0; };
     struct C : virtual A { virtual void f(); };
     struct D : A { virtual void f() = 0; }; // since-cxx23-note {{previous declaration is here}}
@@ -273,6 +285,7 @@ namespace cwg1658 { // cwg1658: 5
       friend C::C(C&);
       friend D::D(D&); // since-cxx23-error {{non-constexpr declaration of 'D' follows constexpr declaration}}
     };
+#endif
   }
 
   namespace CopyCtor {

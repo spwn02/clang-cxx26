@@ -1,6 +1,6 @@
 # P3533R2 constexpr virtual inheritance — design note (#45)
 
-Status: **plan only**, nothing implemented. Probed 2026-09-25 on HEAD `b1811f61aca4` (assertions build).
+Status: **implemented in C++26 mode** (2026-09-27, see "Implemented" at the end). Original probe: 2026-09-25 on HEAD `b1811f61aca4`.
 Primary source: https://wg21.link/P3533R2 (adopted for C++26).
 
 ## What the paper changes
@@ -86,3 +86,28 @@ the memory notes about APValue apply); `-std=c++23` still rejects with today's d
 - Upstream Clang has no implementation; expect to be the reference.
 
 Effort: milestone 1 is small (an afternoon); the evaluator (2-3) is a multi-session compiler change with the highest risk of subtle bugs.
+
+## Implemented (2026-09-27)
+
+`__cpp_constexpr_virtual_inheritance == 202506L`, C++26 only; earlier modes keep the old diagnostics.
+
+* **Sema/AST**: `err_constexpr_virtual_base`, `note_non_literal_virtual_base`, the "class with virtual bases has no constexpr
+  default constructor/destructor" bookkeeping in `CXXRecordDecl::setBases` and `defaultedSpecialMemberIsConstexpr` are gated off in C++26.
+* **APValue layout**: a struct APValue has `NumBases + NumVBases` base slots. Direct virtual bases leave their direct slot unused;
+  the virtual bases of a class live in the slots after the direct bases, in `CXXRecordDecl::vbases()` order, and only the most derived
+  object fills them (base-class subobjects leave their own vbase slots empty; `CheckEvaluationResult` skips empty ones).
+  `getVBaseSlot()` is the index; `findSubobject` uses it for a virtual designator entry (which `HandleLValueBase` always places on the
+  most derived object).
+* **Constructors**: `HandleConstructorCall` decides from the `CXXConstructExpr` construction kind (delegating constructors inherit the
+  answer of the caller, `CallStackFrame::IsCompleteObjectCtor`) whether it constructs a complete object; only then are the virtual-base
+  mem-initializers run (they come first in `inits()`), so the most derived class's initializer wins and each vbase is built once.
+* **Destructors**: `HandleDestructionImpl` gets an `IsCompleteObject` argument; the destructor of a complete object destroys the
+  virtual bases after the direct bases, in reverse order.
+* **Virtual dispatch**: `HandleVirtualDispatch` finds the final overrider over the whole hierarchy of the dynamic type when it has
+  virtual bases (a diamond's overrider is not on the path), then adjusts `this`; covariant returns across virtual bases are still
+  rejected. `isBaseClassPublic` accepts indirect virtual bases (`dynamic_cast`).
+* **CodeGen**: `ConstStructBuilder::Build` emits the virtual bases (at `getVBaseClassOffset`, with their vtable pointers) when it builds
+  the complete object, so `constexpr` objects of such classes are constants, not dynamic initializers.
+* Not changed: member-pointer casts through virtual bases (still guarded), the bytecode interpreter (rejects cleanly, tested).
+* Tests: `SemaCXX/cxx26-constexpr-virtual-inheritance{,-2,-3}.cpp`, `CodeGenCXX/cxx26-constexpr-virtual-inheritance.cpp`,
+  `PCH/cxx26-constexpr-virtual-inheritance.cpp`, updated `CXX/drs/cwg{644,1658,1872}` expectations, `Lexer/cxx-features.cpp`.

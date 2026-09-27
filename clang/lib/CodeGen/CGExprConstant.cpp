@@ -864,10 +864,22 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
     unsigned BaseNo = 0;
     for (CXXRecordDecl::base_class_const_iterator Base = CD->bases_begin(),
          BaseEnd = CD->bases_end(); Base != BaseEnd; ++Base, ++BaseNo) {
-      assert(!Base->isVirtual() && "should not have virtual bases here");
+      // The virtual bases of a class are laid out (and constant-evaluated) by
+      // the complete object (C++26, P3533R2), below.
+      if (Base->isVirtual())
+        continue;
       const CXXRecordDecl *BD = Base->getType()->getAsCXXRecordDecl();
       CharUnits BaseOffset = Layout.getBaseClassOffset(BD);
       Bases.push_back(BaseInfo(BD, BaseOffset, BaseNo));
+    }
+    // The complete object also holds its virtual bases, in the APValue slots
+    // after the direct bases.
+    if (declaresSameEntity(CD, VTableClass)) {
+      unsigned Slot = CD->getNumBases();
+      for (const CXXBaseSpecifier &VBase : CD->vbases()) {
+        const CXXRecordDecl *BD = VBase.getType()->getAsCXXRecordDecl();
+        Bases.push_back(BaseInfo(BD, Layout.getVBaseClassOffset(BD), Slot++));
+      }
     }
     llvm::stable_sort(Bases);
 
