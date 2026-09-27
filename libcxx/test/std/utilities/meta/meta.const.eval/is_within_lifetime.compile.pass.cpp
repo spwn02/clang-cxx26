@@ -89,7 +89,8 @@ consteval bool f() {
       int member1;
       int member2;
     };
-    assert(!std::is_within_lifetime(&member1) && !std::is_within_lifetime(&member2));
+    // P3074R7: the trivial default constructor begins the lifetime of the first variant member.
+    assert(std::is_within_lifetime(&member1) && !std::is_within_lifetime(&member2));
     member1 = 1;
     assert(std::is_within_lifetime(&member1) && !std::is_within_lifetime(&member2));
     member2 = 1;
@@ -103,7 +104,8 @@ consteval bool f() {
         int member2;
       };
     } x;
-    assert(!std::is_within_lifetime(&x.member1) && !std::is_within_lifetime(&x.member2));
+    // P3074R7: the trivial default constructor begins the lifetime of the first variant member.
+    assert(std::is_within_lifetime(&x.member1) && !std::is_within_lifetime(&x.member2));
     x.member1 = 1;
     assert(std::is_within_lifetime(&x.member1) && !std::is_within_lifetime(&x.member2));
     x.member2 = 1;
@@ -115,7 +117,8 @@ consteval bool f() {
       int member1;
       int member2;
     } x;
-    assert(!std::is_within_lifetime(&x.member1) && !std::is_within_lifetime(&x.member2));
+    // P3074R7: the trivial default constructor begins the lifetime of the first variant member.
+    assert(std::is_within_lifetime(&x.member1) && !std::is_within_lifetime(&x.member2));
     x.member1 = 1;
     assert(std::is_within_lifetime(&x.member1) && !std::is_within_lifetime(&x.member2));
     x.member2 = 1;

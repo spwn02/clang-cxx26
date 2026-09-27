@@ -2224,14 +2224,14 @@ consteval auto add_rvalue_reference(info type) -> info {
 }
 
 consteval auto make_signed(info type) -> info {
-  if (!(is_integral_type(type) || is_enum_type(type)) || remove_cv(dealias(type)) == ^^bool)
+  if (!(is_integral_type(type) || is_enum_type(type)) || remove_cv(detail::__underlying_entity_of(type)) == ^^bool)
     throw exception(u8"bad type", ^^make_signed);
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^make_signed_t, {type})));
 }
 
 consteval auto make_unsigned(info type) -> info {
-  if (!(is_integral_type(type) || is_enum_type(type)) || remove_cv(dealias(type)) == ^^bool)
+  if (!(is_integral_type(type) || is_enum_type(type)) || remove_cv(detail::__underlying_entity_of(type)) == ^^bool)
     throw exception(u8"bad type", ^^make_unsigned);
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^make_unsigned_t, {type})));

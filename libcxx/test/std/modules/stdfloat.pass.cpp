@@ -15,20 +15,21 @@
 
 import std;
 
-#if _LIBCPP_STD_VER >= 23
-#  if defined(__STDCPP_FLOAT16_T__)
+// Macros are not exported by the module; use the compiler's own availability macros.
+#if __cplusplus >= 202302L
+#  if defined(__CLANG_STDCPP_FLOAT16_T__)
 std::float16_t value16;
 #  endif
-#  if defined(__STDCPP_FLOAT32_T__)
+#  if defined(__CLANG_STDCPP_FLOAT32_T__)
 std::float32_t value32;
 #  endif
-#  if defined(__STDCPP_FLOAT64_T__)
+#  if defined(__CLANG_STDCPP_FLOAT64_T__)
 std::float64_t value64;
 #  endif
-#  if defined(__STDCPP_FLOAT128_T__)
+#  if defined(__CLANG_STDCPP_FLOAT128_T__)
 std::float128_t value128;
 #  endif
-#  if defined(__STDCPP_BFLOAT16_T__)
+#  if defined(__CLANG_STDCPP_BFLOAT16_T__)
 std::bfloat16_t value_bf16;
 #  endif
 #endif
