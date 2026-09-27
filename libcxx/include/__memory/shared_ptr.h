@@ -1739,7 +1739,8 @@ atomic_compare_exchange_strong(shared_ptr<_Tp>* __p, shared_ptr<_Tp>* __v, share
   shared_ptr<_Tp> __temp;
   __sp_mut& __m = std::__get_sp_mut(__p);
   __m.lock();
-  if (__p->__owner_equivalent(*__v)) {
+  // LWG2980: equivalent means the same stored pointer value and shared ownership (or both empty).
+  if (__p->get() == __v->get() && __p->__owner_equivalent(*__v)) {
     std::swap(__temp, *__p);
     *__p = __w;
     __m.unlock();

@@ -22,6 +22,8 @@
 #include <__type_traits/enable_if.h>
 #include <__type_traits/has_unique_object_representation.h>
 #include <__type_traits/is_constant_evaluated.h>
+#include <__type_traits/is_constructible.h>
+#include <__type_traits/is_assignable.h>
 #include <__type_traits/is_floating_point.h>
 #include <__type_traits/is_function.h>
 #include <__type_traits/is_integral.h>
@@ -395,6 +397,15 @@ template <typename _Tp>
 struct __check_atomic_mandates {
   using type _LIBCPP_NODEBUG = _Tp;
   static_assert(is_trivially_copyable<_Tp>::value, "std::atomic<T> requires that 'T' be a trivially copyable type");
+  // The cv-qualified case is diagnosed below; do not pile the constructibility mandates on top of it.
+  static_assert(!is_same<_Tp, __remove_cv_t<_Tp> >::value || is_copy_constructible<_Tp>::value,
+                "std::atomic<T> requires that 'T' be copy constructible");
+  static_assert(!is_same<_Tp, __remove_cv_t<_Tp> >::value || is_move_constructible<_Tp>::value,
+                "std::atomic<T> requires that 'T' be move constructible");
+  static_assert(!is_same<_Tp, __remove_cv_t<_Tp> >::value || is_copy_assignable<_Tp>::value,
+                "std::atomic<T> requires that 'T' be copy assignable");
+  static_assert(!is_same<_Tp, __remove_cv_t<_Tp> >::value || is_move_assignable<_Tp>::value,
+                "std::atomic<T> requires that 'T' be move assignable");
   // P3323R1: atomic<volatile int> is served by volatile atomic<int> instead -- std::atomic<T> itself is
   // restricted to cv-unqualified T.
   static_assert(is_same<_Tp, __remove_cv_t<_Tp> >::value, "std::atomic<T> requires that 'T' be cv-unqualified");
