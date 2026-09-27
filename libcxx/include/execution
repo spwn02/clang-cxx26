@@ -198,6 +198,7 @@ _LIBCPP_END_NAMESPACE_STD
 #    include <__execution/stopped_as_error.h>
 #    include <__execution/stopped_as_optional.h>
 #    include <__execution/sync_wait.h>
+#    include <__execution/system_context_replaceability.h>
 #    include <__execution/task.h>
 #    include <__execution/task_scheduler.h>
 #    include <__execution/then.h>

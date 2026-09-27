@@ -16,9 +16,11 @@
 //   parallel_scheduler get_parallel_scheduler() noexcept;
 // }
 //
-// Pass 1 only (see docs/design/parallel_scheduler_p2079.md): the pool, parallel_scheduler,
-// get_parallel_scheduler(), and schedule(). bulk() customization and the
-// system_context_replaceability ABI are follow-up work, not tested here.
+// Pass 1 (see docs/design/parallel_scheduler_p2079.md): the pool, parallel_scheduler,
+// get_parallel_scheduler(), and schedule(). bulk() customization is tested in
+// parallel_scheduler_bulk.pass.cpp; the system_context_replaceability ABI is tested in
+// parallel_scheduler_system_context_replaceability.pass.cpp and
+// parallel_scheduler_system_context_replaceability.replaceable.pass.cpp.
 
 #include <atomic>
 #include <cassert>

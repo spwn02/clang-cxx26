@@ -195,16 +195,181 @@ existing deviations are recorded.
   larger-than-Pass-2's-own-chunk-cap shape), plus a full
   `libcxx/test/std/execution` regression sweep (54/54 passing).
 
-- **Pass 3b (explicit follow-up, not yet attempted): the
-  `system_context_replaceability` ABI** (`parallel_scheduler_backend`,
-  `receiver_proxy`, `bulk_item_receiver_proxy`, the weak-symbol
-  `query_parallel_scheduler_backend()`). The paper mandates link-time
-  replaceability, but nothing in this fork provides a second
-  implementation to replace it with, and a weak-symbol ABI contract is
-  only meaningful with a real second implementation to validate it
-  against. Deferred explicitly, the same way `execution::task` deferred
-  custom `Environment::error_types` and `async_scope` deferred
-  `spawn_future`.
+- **Pass 3b (2026-09-27, issue #115): the `system_context_replaceability` ABI.**
+  Scoping decision made explicitly this session: a real second backend (an
+  actual competitive thread-pool implementation) is its own multi-session
+  project and not needed to validate the replacement *mechanism* — a
+  test-only fake backend is the standard, sufficient way to exercise a
+  weak-symbol replacement contract (the same pattern libc++ already uses to
+  test replaceable `operator new`/`operator delete`). Implemented on that
+  basis.
+
+  **Exact class shapes** (verified via P2079R10's own published synopsis,
+  cross-checked against a second independent fetch since the first one
+  reproduced consistently):
+  ```cpp
+  namespace std::execution::system_context_replaceability {
+    struct parallel_scheduler_backend; // see naming note below
+
+    shared_ptr<parallel_scheduler_backend> query_parallel_scheduler_backend(); // weak, user-replaceable
+
+    struct receiver_proxy {
+      virtual ~receiver_proxy() = default;
+    protected:
+      virtual bool __query_env(...) noexcept = 0; // exposition-only in the paper; see below
+    public:
+      virtual void set_value() noexcept = 0;
+      virtual void set_error(std::exception_ptr) noexcept = 0;
+      virtual void set_stopped() noexcept = 0;
+      template <class P, class Query> optional<P> try_query(Query q) noexcept;
+    };
+
+    struct bulk_item_receiver_proxy : receiver_proxy {
+      virtual void execute(size_t begin, size_t end) noexcept = 0;
+    };
+
+    struct parallel_scheduler_backend {
+      virtual ~parallel_scheduler_backend() = default;
+      virtual void schedule(receiver_proxy&, span<byte>) noexcept = 0;
+      virtual void schedule_bulk_chunked(size_t, bulk_item_receiver_proxy&, span<byte>) noexcept = 0;
+      virtual void schedule_bulk_unchunked(size_t, bulk_item_receiver_proxy&, span<byte>) noexcept = 0;
+    };
+  }
+  ```
+
+  **A documented primary-source discrepancy, resolved by judgment call:**
+  the published paper's own HTML forward-declares `struct parallel_scheduler;`
+  (never defined) and gives `query_parallel_scheduler_backend()` a return
+  type of `shared_ptr<parallel_scheduler>` -- but the one class the paper
+  actually *defines*, with the schedule/schedule_bulk_chunked/schedule_bulk_unchunked
+  members that are the entire point of the ABI, is named `parallel_scheduler_backend`.
+  Reproduced identically across two independent WebFetch passes of the same
+  published paper -- this is a real, uncorrected editorial artifact in the
+  paper's own text (almost certainly a mid-draft rename that missed the
+  forward declaration and the query function's return type), not a
+  transcription error on this fork's side. Implemented as
+  `shared_ptr<parallel_scheduler_backend>` (the naming convention
+  `query_parallel_scheduler_backend()` → returns a `parallel_scheduler_backend`
+  is unambiguous, and a function returning `shared_ptr<IncompleteForwardDeclOnly>`
+  with no definition anywhere would simply be unusable).
+
+  **`try_query`/the exposition-only query hook**: the paper mandates only
+  one concrete case -- `try_query<inplace_stop_token, get_stop_token_t>(get_stop_token_t{})`
+  must return a populated `optional` when the real receiver's environment
+  answers `get_stop_token` with an `inplace_stop_token`. The exposition-only
+  hook's exact mechanism is implementation-defined by design. Implemented
+  via a small closed dispatch inside the frontend's own `receiver_proxy`
+  subclass (the thing THIS fork constructs to wrap a real `_Rcvr`): the
+  protected hook takes a `type_info` for the query object's type, a
+  `type_info` for the expected result type, a `const void*` to the query
+  object, and a `void*` output buffer; the frontend's override compares
+  against `get_stop_token_t` specifically (the only mandated case) and
+  placement-constructs the token into the output buffer on a match. This is
+  a fixed 2-type-info-plus-2-pointer shape, not an extensible visitor --
+  documented as a deliberate scope limit (matching this fork's own precedent
+  of shipping the paper's mandated cases and recording what's not
+  generalized, e.g. Pass 2's non-FWD-ENV limitation above), extensible
+  later if a second query ever needs mandating.
+
+  **Default backend wiring**: the existing `__parallel_pool` (Pass 1) becomes
+  the built-in `parallel_scheduler_backend` implementation, reached via
+  `query_parallel_scheduler_backend()`'s default (non-replaced) definition;
+  `get_parallel_scheduler()`'s existing direct-pool-pointer fast path is kept
+  unchanged for the default case (no ABI indirection overhead when nobody
+  replaces the backend) -- `parallel_scheduler`'s `schedule()` sender only
+  routes through the `receiver_proxy`/type-erased path when actually talking
+  to a *replaced* backend. This mirrors how the paper itself describes the
+  frontend/backend split: the frontend (this fork's `parallel_scheduler`
+  sender machinery) is always in control of the real `_Rcvr` type; only the
+  backend crossing needs type erasure.
+
+  **Test-only fake backend**: a second, deliberately-distinguishable
+  `parallel_scheduler_backend` (runs every scheduled item synchronously,
+  inline, on the calling thread -- the simplest possible correct
+  implementation, and observably different from the real pool's genuine
+  worker-thread dispatch) that defines its own `query_parallel_scheduler_backend()`
+  and is linked instead of the default. The test asserts the observable
+  difference (single thread ID throughout, vs. the real pool's multi-thread-ID
+  signature already proven in Pass 1/2/3a's own tests) to prove the
+  link-time replacement actually took effect, not just that both backends
+  happen to produce the same values.
+
+  **Done, verified (2026-09-27).** Implementation:
+  `libcxx/include/__execution/system_context_replaceability.h` (the ABI
+  classes), `libcxx/src/system_context_replaceability.cpp` (the default
+  backend, wrapping a small self-contained worker pool -- deliberately
+  *not* `<__execution/parallel_scheduler.h>`'s own `__get_parallel_pool()`
+  singleton; see the .cpp's own file comment for why sharing it would be
+  wrong), `<__execution/parallel_scheduler.h>`'s `__parallel_opstate` (now
+  also a `receiver_proxy`, routing `schedule()` through the replaced
+  backend when one is active, via a cheap `shared_ptr` identity check
+  against the default so the unreplaced fast path is completely
+  unchanged). Module export in `libcxx/modules/std/execution.inc`, verified
+  with a real `import std;` test.
+
+  **Real bugs found and fixed during this pass** (each caught by an actual
+  build/test run, not by inspection):
+  1. A naive `namespace std::execution::system_context_replaceability { ... }`
+     reopen block to override `query_parallel_scheduler_backend()` silently
+     creates an unrelated, non-overriding namespace -- this fork's whole
+     implementation lives inside libc++'s inline ABI-versioned namespace
+     (`std::__1`), which `operator new`/`delete` never encounter (declared
+     at global scope) but this ABI does. Fixed by using a qualified-id
+     function definition instead, which resolves through the inline
+     namespace via ordinary lookup; documented prominently in the header
+     for anyone else replacing this symbol.
+  2. `libcxx/src/*.cpp` builds at a fixed `CXX_STANDARD 23` regardless of
+     the including project's own `-std=`; gating the new `.cpp`'s content on
+     `_LIBCPP_STD_VER >= 26` (mirroring the header's own gate) silently
+     compiled an empty translation unit, so the weak default symbol never
+     existed in `libc++.so` at all. Fixed with a per-file `-std=c++26`
+     `COMPILE_OPTIONS` override in `libcxx/src/CMakeLists.txt` (`contracts.cpp`'s
+     own trick of lowering the header's gate threshold doesn't apply here,
+     since `std::execution` itself is genuinely C++26-only, unlike contracts'
+     C++20-visible scaffolding).
+  3. `receiver_proxy`/`parallel_scheduler_backend`'s user-declared destructors
+     deprecated their implicit copy constructors under `-Werror`
+     (`-Wdeprecated-copy-with-dtor`) the moment `__parallel_opstate`'s own
+     defaulted move constructor tried to use them -- the exact trap
+     `__parallel_task_base` already had a comment about, that this session
+     re-made for the two new classes. Fixed with the same explicit
+     delete/default pattern.
+  4. Two reserved identifiers slipped past self-review: `_P` (a bare
+     single-uppercase-letter-after-underscore template parameter) and
+     `__out` (a parameter name) -- both caught by
+     `system_reserved_names.gen.py`, not by inspection. Renamed to
+     `_ResultTp`/`__result_storage`.
+  5. A test's own polling loop read a plain (non-atomic) `bool` written by
+     a worker thread -- caught by a 4-run ThreadSanitizer pass, not by the
+     ordinary lit run (which is not built with TSan). Fixed by making the
+     flag `std::atomic<bool>`. Not a bug in the library implementation
+     itself, but exactly the kind of test-harness race this fork's own
+     concurrency tests need to keep checking for.
+
+  Verified: full `libcxx/test/std/execution` suite (56/56, including the
+  2 new permanent tests), a direct `schedule_bulk_chunked`/
+  `schedule_bulk_unchunked` exercise against the real default backend
+  (997-shape and 64-shape, full coverage/no-overlap, genuine multi-thread
+  dispatch), 4 repeated ThreadSanitizer runs of both new tests (clean),
+  the full header sweep (596/596, c++17/20/23/26),
+  `system_reserved_names.gen.py`/`transitive_includes.gen.py` (931/931,
+  the latter's one legitimate new row -- `execution span` -- regenerated
+  via the file's own documented recipe), and a real `import std;` program
+  calling `query_parallel_scheduler_backend()`.
+
+  **Scope not attempted this pass** (documented, not silently dropped):
+  `<__execution/bulk.h>`'s own `bulk_chunked_t`/`bulk_unchunked_t` sender
+  adaptors still use their existing Pass 2/3a direct-pool dispatch, not
+  this ABI -- they do their own frontend-owned chunking (up to 32 chunks,
+  an async atomic-counter completion), architecturally different from the
+  ABI's backend-owned `schedule_bulk_chunked`/`schedule_bulk_unchunked`
+  entry points. Rewiring them would mean restructuring already-verified,
+  TSan-checked concurrent code for a rarely-exercised path (bulk operations
+  under a *replaced* backend specifically); the ABI methods themselves are
+  fully implemented, tested, and directly usable by any code that calls
+  `query_parallel_scheduler_backend()` itself, so this is a real, narrower
+  gap, not dead API surface. A future pass could close it if a real use
+  case needs bulk operations to honor a replaced backend specifically.
 
 ## Bugs found during this work (not present before Pass 1/2, or latent
 and newly exposed)

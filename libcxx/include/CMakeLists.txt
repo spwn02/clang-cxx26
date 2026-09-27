@@ -398,6 +398,7 @@ set(files
   __execution/stopped_as_error.h
   __execution/stopped_as_optional.h
   __execution/sync_wait.h
+  __execution/system_context_replaceability.h
   __execution/task.h
   __execution/task_scheduler.h
   __execution/then.h

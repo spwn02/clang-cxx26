@@ -253,11 +253,18 @@ export namespace std::execution {
   using std::execution::task_scheduler;
 
 #if _LIBCPP_HAS_THREADS
-  // [exec.parallel.scheduler] -- Pass 1 only (the pool/parallel_scheduler/schedule()); bulk()
-  // customization and the system_context_replaceability ABI are follow-up work, see
-  // docs/design/parallel_scheduler_p2079.md.
+  // [exec.parallel.scheduler] -- Pass 1/2/3a (the pool, parallel_scheduler, schedule(),
+  // bulk_chunked_t/bulk_unchunked_t customization); see docs/design/parallel_scheduler_p2079.md.
   using std::execution::get_parallel_scheduler;
   using std::execution::parallel_scheduler;
+
+  // [exec.sysctx.replaceability] -- Pass 3b.
+  namespace system_context_replaceability {
+    using std::execution::system_context_replaceability::bulk_item_receiver_proxy;
+    using std::execution::system_context_replaceability::parallel_scheduler_backend;
+    using std::execution::system_context_replaceability::query_parallel_scheduler_backend;
+    using std::execution::system_context_replaceability::receiver_proxy;
+  } // namespace system_context_replaceability
 #endif
 
 #if _LIBCPP_HAS_THREADS

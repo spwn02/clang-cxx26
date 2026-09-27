@@ -294,6 +294,7 @@ execution memory
 execution new
 execution optional
 execution ratio
+execution span
 execution sstream
 execution stdexcept
 execution stdfloat

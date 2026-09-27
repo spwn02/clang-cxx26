@@ -76,6 +76,7 @@ if (LIBCXX_ENABLE_THREADS)
     mutex_destructor.cpp
     mutex.cpp
     shared_mutex.cpp
+    system_context_replaceability.cpp
     thread.cpp
     )
 endif()
@@ -177,6 +178,15 @@ split_list(LIBCXX_COMPILE_FLAGS)
 split_list(LIBCXX_LINK_FLAGS)
 
 include(FindLibcCommonUtils)
+
+if (LIBCXX_ENABLE_THREADS)
+  # system_context_replaceability.cpp implements a C++26-only <execution> facility
+  # (std::execution::system_context_replaceability); the rest of libcxx/src builds at a fixed
+  # CXX_STANDARD 23 (set below), which would make every _LIBCPP_STD_VER >= 26 guard this file
+  # depends on (via <__execution/system_context_replaceability.h>) evaluate false and silently
+  # compile an empty translation unit. Override the standard for this one file specifically.
+  set_source_files_properties(system_context_replaceability.cpp PROPERTIES COMPILE_OPTIONS "-std=c++26")
+endif()
 
 # Build the shared library.
 add_library(cxx_shared SHARED ${LIBCXX_SOURCES} ${LIBCXX_HEADERS})
