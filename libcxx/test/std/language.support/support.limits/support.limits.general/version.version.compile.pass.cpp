@@ -992,6 +992,10 @@
 #    error "__cpp_lib_stdatomic_h should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_stdfloat
+#    error "__cpp_lib_stdfloat should not be defined before c++23"
+#  endif
+
 #  ifdef __cpp_lib_string_contains
 #    error "__cpp_lib_string_contains should not be defined before c++23"
 #  endif
@@ -2133,6 +2137,10 @@
 
 #  ifdef __cpp_lib_stdatomic_h
 #    error "__cpp_lib_stdatomic_h should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_stdfloat
+#    error "__cpp_lib_stdfloat should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_string_contains
@@ -3450,6 +3458,10 @@
 
 #  ifdef __cpp_lib_stdatomic_h
 #    error "__cpp_lib_stdatomic_h should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_stdfloat
+#    error "__cpp_lib_stdfloat should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_string_contains
@@ -5022,6 +5034,10 @@
 
 #  ifdef __cpp_lib_stdatomic_h
 #    error "__cpp_lib_stdatomic_h should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_stdfloat
+#    error "__cpp_lib_stdfloat should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_string_contains
@@ -6795,6 +6811,13 @@
 #  endif
 #  if __cpp_lib_stdatomic_h != 202011L
 #    error "__cpp_lib_stdatomic_h should have the value 202011L in c++23"
+#  endif
+
+#  ifndef __cpp_lib_stdfloat
+#    error "__cpp_lib_stdfloat should be defined in c++23"
+#  endif
+#  if __cpp_lib_stdfloat != 202207L
+#    error "__cpp_lib_stdfloat should have the value 202207L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_string_contains
@@ -8979,6 +9002,13 @@
 #  endif
 #  if __cpp_lib_stdatomic_h != 202011L
 #    error "__cpp_lib_stdatomic_h should have the value 202011L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_stdfloat
+#    error "__cpp_lib_stdfloat should be defined in c++26"
+#  endif
+#  if __cpp_lib_stdfloat != 202207L
+#    error "__cpp_lib_stdfloat should have the value 202207L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_string_contains

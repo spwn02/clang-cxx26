@@ -4148,6 +4148,11 @@ module std [system] {
     export *
   }
 
+  module stdfloat {
+    header "stdfloat"
+    export *
+  }
+
   module stop_token {
     module atomic_unique_lock {
       header "__stop_token/atomic_unique_lock.h"

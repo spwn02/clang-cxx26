@@ -117,6 +117,7 @@ module;
 #include <stack>
 #include <stacktrace>
 #include <stdexcept>
+#include <stdfloat>
 #include <stop_token>
 #include <streambuf>
 #include <string>
@@ -147,9 +148,6 @@ module;
 // into thinking that libc++ provides the header.
 //
 #ifndef _WIN32
-#  if __has_include(<stdfloat>)
-#    error "please update the header information for <stdfloat> in headers_not_available in utils/libcxx/header_information.py"
-#  endif // __has_include(<stdfloat>)
 #endif // _WIN32
 
 #undef _LIBCPP_BUILDING_STD_MODULE

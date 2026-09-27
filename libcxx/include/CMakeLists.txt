@@ -1213,6 +1213,7 @@ set(files
   stdckdint.h
   stddef.h
   stdexcept
+  stdfloat
   stdio.h
   stdlib.h
   stop_token

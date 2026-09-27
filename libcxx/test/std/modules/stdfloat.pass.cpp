@@ -7,22 +7,30 @@
 //
 //===----------------------------------------------------------------------===//
 
-export namespace std {
+// UNSUPPORTED: c++03, c++11, c++14, c++17, c++20
+// UNSUPPORTED: clang-modules-build
+// UNSUPPORTED: gcc
+// XFAIL: has-no-cxx-module-support
+// MODULE_DEPENDENCIES: std
+
+import std;
+
 #if _LIBCPP_STD_VER >= 23
 #  if defined(__STDCPP_FLOAT16_T__)
-  using std::float16_t;
+std::float16_t value16;
 #  endif
 #  if defined(__STDCPP_FLOAT32_T__)
-  using std::float32_t;
+std::float32_t value32;
 #  endif
 #  if defined(__STDCPP_FLOAT64_T__)
-  using std::float64_t;
+std::float64_t value64;
 #  endif
 #  if defined(__STDCPP_FLOAT128_T__)
-  using std::float128_t;
+std::float128_t value128;
 #  endif
 #  if defined(__STDCPP_BFLOAT16_T__)
-  using std::bfloat16_t;
+std::bfloat16_t value_bf16;
 #  endif
 #endif
-} // namespace std
+
+int main(int, char**) { return 0; }

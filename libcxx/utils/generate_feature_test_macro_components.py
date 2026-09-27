@@ -1566,6 +1566,11 @@ feature_test_macros = [
             "headers": ["stdatomic.h"],
         },
         {
+            "name": "__cpp_lib_stdfloat",
+            "values": {"c++23": 202207},
+            "headers": ["stdfloat"],
+        },
+        {
             "name": "__cpp_lib_string_contains",
             "values": {"c++23": 202011},
             "headers": ["string", "string_view"],

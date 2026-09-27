@@ -24,6 +24,35 @@ template <class _Tp> inline const bool __is_floating_point_impl              = f
 template <>          inline const bool __is_floating_point_impl<float>       = true;
 template <>          inline const bool __is_floating_point_impl<double>      = true;
 template <>          inline const bool __is_floating_point_impl<long double> = true;
+#if _LIBCPP_STD_VER >= 23
+#  if defined(__STDCPP_FLOAT16_T__)
+template <> inline const bool __is_floating_point_impl<_Float16> = true;
+#  endif
+#  if defined(__STDCPP_FLOAT32_T__)
+#    if defined(__clang__)
+template <> inline const bool __is_floating_point_impl<__float32> = true;
+#    else
+template <> inline const bool __is_floating_point_impl<_Float32> = true;
+#    endif
+#  endif
+#  if defined(__STDCPP_FLOAT64_T__)
+#    if defined(__clang__)
+template <> inline const bool __is_floating_point_impl<__float64> = true;
+#    else
+template <> inline const bool __is_floating_point_impl<_Float64> = true;
+#    endif
+#  endif
+#  if defined(__STDCPP_FLOAT128_T__)
+#    if defined(__clang__)
+template <> inline const bool __is_floating_point_impl<__float128> = true;
+#    else
+template <> inline const bool __is_floating_point_impl<_Float128> = true;
+#    endif
+#  endif
+#  if defined(__STDCPP_BFLOAT16_T__)
+template <> inline const bool __is_floating_point_impl<__bf16> = true;
+#  endif
+#endif
 // clang-format on
 
 template <class _Tp>

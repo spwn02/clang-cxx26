@@ -162,9 +162,7 @@ module_c_headers = [h for h in all_headers if h.has_cxx20_module() and h.is_cstd
 # These headers are required by the latest (draft) Standard but have not been
 # implemented yet. They are used in the generated module input. The C++23 standard
 # modules will fail to build if a header is added but this list is not updated.
-headers_not_available = list(map(Header, [
-    "stdfloat",
-]))
+headers_not_available = []
 
 header_restrictions = {
     # headers with #error directives
