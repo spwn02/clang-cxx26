@@ -9485,11 +9485,9 @@ TreeTransform<Derived>::TransformCXXDestructurableExpansionStmt(
   DeclStmt *ExpansionVarStmt = cast<DeclStmt>(SR.get());
 
   // Transform the expression referencing the template parameter.
-  SR = getDerived().TransformStmt(S->getTParamRef(),
-                                  StmtDiscardKind::NotDiscarded);
-  if (SR.isInvalid())
+  ExprResult TParamRef = getDerived().TransformExpr(S->getTParamRef());
+  if (TParamRef.isInvalid())
     return StmtError();
-  DeclRefExpr *TParamRef = cast<DeclRefExpr>(SR.get());
 
   // Build a new expansion statement.
   SR = SemaRef.BuildCXXDestructurableExpansionStmt(S->getTemplateKWLoc(),
@@ -9498,7 +9496,7 @@ TreeTransform<Derived>::TransformCXXDestructurableExpansionStmt(
                                                    ExpansionVarStmt,
                                                    S->getColonLoc(),
                                                    S->getRParenLoc(),
-                                                   TParamRef);
+                                                   TParamRef.get());
   if (SR.isInvalid())
     return StmtError();
   Stmt *Rebuilt = SR.get();
