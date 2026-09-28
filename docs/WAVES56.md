@@ -85,3 +85,7 @@ reboot/logout persistence is not claimed (user lingering is disabled).
   cluster; the older five-failure count is not the current gate baseline.
   Archive stamp `check-clang-20260928T232136Z-c4bce44feeeb-waves56-baseline`.
   Full libc++ correctness baseline started with benchmarks excluded.
+- 2026-09-29: Six supervisor tests pass; missing executable/worktree now
+  records infrastructure failure and stops instead of restart-looping.
+  Initial libc++ failures match the preceding gate's known valarray
+  nodiscard and print bounded-write failures; the full run remains active.

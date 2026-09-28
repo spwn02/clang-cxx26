@@ -105,8 +105,13 @@ def run(state_path, executable):
             errors = []
             completed = False
             with error_log.open('w') as stderr, log.open('a') as output:
-                process = subprocess.Popen(args, cwd=task['cwd'], stdin=subprocess.PIPE,
-                                           stdout=subprocess.PIPE, stderr=stderr, text=True)
+                try:
+                    process = subprocess.Popen(args, cwd=task['cwd'], stdin=subprocess.PIPE,
+                                               stdout=subprocess.PIPE, stderr=stderr, text=True)
+                except OSError as error:
+                    task.update(status='infrastructure_failure', error=str(error), finished_at=time.time())
+                    save(state_path, state)
+                    return
                 task['worker_pid'] = process.pid
                 save(state_path, state)
                 try:

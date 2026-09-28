@@ -52,6 +52,16 @@ class SupervisorTests(unittest.TestCase):
                 result = subprocess.run(['python3', str(SCRIPT), str(state)], capture_output=True)
                 self.assertNotEqual(result.returncode, 0)
 
+    def test_missing_executable_stops_without_retry(self):
+        with tempfile.TemporaryDirectory() as folder:
+            state = Path(folder) / 'state.json'
+            module.save(state, {'tasks': [{'name': 'one', 'cwd': folder,
+                                          'prompt': 'test', 'status': 'pending'}]})
+            subprocess.run(['python3', str(SCRIPT), str(state), '--codex', folder + '/missing'], check=True)
+            task = json.loads(state.read_text())['tasks'][0]
+            self.assertEqual(task['status'], 'infrastructure_failure')
+            self.assertEqual(task['attempts'], 1)
+
     def test_limit_preserves_session_and_does_not_dispatch_more(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
