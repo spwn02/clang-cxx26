@@ -51,16 +51,9 @@ inline constexpr __simd_size_type uninit_element = -2;
 // requiring IdxMap to be callable this way correctly excludes it, leaving dynamic permute as the
 // sole match for `permute(v, some_vec)`.
 //
-// KNOWN DEVIATION: the clause's Mandates additionally requires gen-fn(i) to be a constant
-// expression whose value lies in {zero_element, uninit_element} union [0, V::size()) for every i,
-// making an out-of-range index ill-formed, no diagnostic required, at compile time. This
-// implementation evaluates gen-fn(i) as a constant expression when idxmap is itself
-// constexpr-callable (the ordinary case), which already catches most violations as genuine compile
-// errors; what it does NOT do is force compile-time evaluation for an idxmap that isn't
-// constexpr-callable at all, nor diagnose exactly per the Mandates wording. What IS implemented
-// precisely regardless: the three-way Returns semantics -- zero_element yields value_type(),
-// uninit_element yields a valid-but-unspecified value, and any in-range value returns v[value]; an
-// out-of-range value is caught by a diagnosed runtime assertion.
+// Evaluate each generated index through the unknown reference (P2280). This permits
+// constexpr maps that do not read their runtime object, while rejecting non-constexpr
+// calls and maps whose results depend on runtime state. Keep the input vector at runtime.
 template <class _IdxMap>
 concept __idx_map_1arg = requires(_IdxMap& __m, __simd_size_type __i) {
   { __m(__i) } -> integral;
@@ -73,11 +66,11 @@ template <class _IdxMap>
 concept __idx_map_like = __idx_map_1arg<_IdxMap> || __idx_map_2arg<_IdxMap>;
 
 template <class _IdxMap, __simd_size_type _Size>
-_LIBCPP_HIDE_FROM_ABI constexpr __simd_size_type __permute_gen_fn(_IdxMap& __idxmap, __simd_size_type __i) {
-  if constexpr (__idx_map_2arg<_IdxMap>)
-    return static_cast<__simd_size_type>(__idxmap(__i, _Size));
+_LIBCPP_HIDE_FROM_ABI constexpr auto __permute_gen_fn(_IdxMap& __idxmap, __simd_size_type __i) {
+  if constexpr (requires { __idxmap(__i, _Size); })
+    return __idxmap(__i, _Size);
   else
-    return static_cast<__simd_size_type>(__idxmap(__i));
+    return __idxmap(__i);
 }
 
 template <__simd_size_type _Np, __simd_vec_type _Vp, __idx_map_like _IdxMap>
@@ -85,12 +78,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Np, _Vp> permute(const _Vp& __v, _IdxM
   using _Result = resize_t<_Np, _Vp>;
   using _Tp     = typename _Vp::value_type;
   return _Result([&]<class _Ic>(_Ic) {
-    const __simd_size_type __src_ix = __permute_gen_fn<_IdxMap, _Vp::size()>(__idxmap, _Ic::value);
-    if (__src_ix == zero_element)
+    constexpr auto __src_ix = __permute_gen_fn<_IdxMap, _Vp::size()>(__idxmap, _Ic::value);
+    static_assert(__src_ix == zero_element || __src_ix == uninit_element || (__src_ix >= 0 && __src_ix < _Vp::size()),
+                  "simd::permute: index must be zero_element, uninit_element, or in range");
+    if constexpr (__src_ix == zero_element)
       return _Tp();
-    if (__src_ix == uninit_element)
+    if constexpr (__src_ix == uninit_element)
       return _Tp(); // "unspecified value": default is a conforming choice.
-    _LIBCPP_ASSERT_VALID_INPUT_RANGE(__src_ix >= 0 && __src_ix < _Vp::size(), "simd::permute: index out of range");
     return __v[__src_ix];
   });
 }
@@ -104,12 +98,13 @@ template <__simd_size_type _Np, __simd_mask_type _Vp, __idx_map_like _IdxMap>
 _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Np, _Vp> permute(const _Vp& __v, _IdxMap&& __idxmap) {
   using _Result = resize_t<_Np, _Vp>;
   return _Result([&]<class _Ic>(_Ic) -> bool {
-    const __simd_size_type __src_ix = __permute_gen_fn<_IdxMap, _Vp::size()>(__idxmap, _Ic::value);
-    if (__src_ix == zero_element)
+    constexpr auto __src_ix = __permute_gen_fn<_IdxMap, _Vp::size()>(__idxmap, _Ic::value);
+    static_assert(__src_ix == zero_element || __src_ix == uninit_element || (__src_ix >= 0 && __src_ix < _Vp::size()),
+                  "simd::permute: index must be zero_element, uninit_element, or in range");
+    if constexpr (__src_ix == zero_element)
       return false;
-    if (__src_ix == uninit_element)
+    if constexpr (__src_ix == uninit_element)
       return false;
-    _LIBCPP_ASSERT_VALID_INPUT_RANGE(__src_ix >= 0 && __src_ix < _Vp::size(), "simd::permute: index out of range");
     return __v[__src_ix];
   });
 }

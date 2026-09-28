@@ -23,6 +23,7 @@
 #include <cassert>
 #include <concepts>
 #include <cstddef>
+#include <type_traits>
 #include <simd>
 
 // A bare `requires { ... }` at non-template (function-body) scope hard-errors in this toolchain
@@ -37,11 +38,48 @@ concept permute2_viable = requires(const Vec& v, Arg a) { std::simd::permute(v, 
 template <std::ptrdiff_t Np, class Vec, class Arg>
 concept permuteN_viable = requires(const Vec& v, Arg a) { std::simd::permute<Np>(v, a); };
 
+struct stateless_map {
+  stateless_map() = delete;
+  constexpr explicit stateless_map(int) {}
+  constexpr int operator()(std::ptrdiff_t i) const { return 3 - static_cast<int>(i); }
+};
+
+struct both_arity_map {
+  constexpr int operator()(std::ptrdiff_t i) const { return static_cast<int>(i); }
+  constexpr int operator()(std::ptrdiff_t i, std::ptrdiff_t n) const {
+    return (static_cast<int>(i) + n - 1) % n;
+  }
+};
+
+constexpr std::simd::vec<int, 4> constexpr_input([](auto i) { return static_cast<int>(i) + 10; });
+constexpr auto constexpr_permuted = std::simd::permute(constexpr_input, stateless_map{0});
+static_assert(constexpr_permuted[0] == 13 && constexpr_permuted[3] == 10);
+constexpr auto constexpr_two_arg = std::simd::permute<4>(constexpr_input, [](auto i, auto n) {
+  return (static_cast<int>(i) + 1) % n;
+});
+static_assert(constexpr_two_arg[0] == 11 && constexpr_two_arg[3] == 10);
+
 int main(int, char**) {
   using vec = std::simd::vec<int, 4>;
   using idx = std::simd::vec<int, 4>;
 
   vec v([](auto i) { return static_cast<int>(i) + 10; }); // {10, 11, 12, 13}
+
+  // A constexpr map can be evaluated while the input remains a runtime value.
+  auto constexpr_map_runtime_input = std::simd::permute(v, stateless_map{0});
+  assert(constexpr_map_runtime_input[0] == 13 && constexpr_map_runtime_input[3] == 10);
+
+  // The two-argument form wins when a map supports both signatures.
+  {
+    auto both = std::simd::permute(v, both_arity_map{});
+    assert(both[0] == 13 && both[3] == 12);
+  }
+
+  // zero_element and uninit_element are valid static indices.
+  {
+    auto special = std::simd::permute<4>(v, [](auto i) { return i == 0 ? std::simd::zero_element : std::simd::uninit_element; });
+    assert(special[0] == 0);
+  }
 
   // [simd.permute.static]: IdxMap is a callable, found via __idx_map_1arg (gen(i)) or
   // __idx_map_2arg (gen(i, n)). Neither idx (a simd-integral vec, no operator()) nor a plain int
