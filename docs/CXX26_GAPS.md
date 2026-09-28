@@ -7532,6 +7532,11 @@ blocked, what's next. Do not remove old entries.
   before sentinel equality. Added a negative maximum-value case and positive
   unsigned-map runtime coverage. Full-suite validation restarts from this fix.
 
+- **2026-09-29 (Waves 5/6 closure started)**: Active implementation and
+  validation plan in `docs/WAVES56.md` covers #23, #118, #148 and #30.
+  Added persistent Luna/low worker supervision; #116 stays deferred.
+  These issues remain open pending reviewed implementation and full gates.
+
 - **2026-09-29 (Wave 7 and #79 final gate)**: All 133 focused SIMD,
   freestanding, and generated feature-macro tests passed. Full libc++ correctness
   gate excluded 134 benchmarks and selected 12,607 tests: 11,489 passed,

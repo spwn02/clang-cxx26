@@ -1,0 +1,62 @@
+# Waves 5 and 6 closure
+
+Active since 2026-09-29. Issues #23, #118, #148, #30 remain open until
+implementation, review, full correctness gates, and publication finish.
+Issue #116 remains deferred. Preserve ABI, upstream authorship and licenses.
+
+## Required work
+
+- #23: finish P2198R7, P2338R4, P2013R5, P2407R5, P2937R0,
+  P2833R2 and P2976R1. Audit adopted declarations/deletion rules,
+  optional global allocation and detection, generator-owned macros,
+  exception/thread-disabled configurations and module exports.
+- #118: discover installed MPFR 4.2.2 through CMake, document dependency
+  licensing separately, implement outstanding P1383 operations with exact
+  APFloat/MPFR conversion and target rounding. Test all supported formats,
+  exceptional values, large arguments, boundary rounding and rejected
+  domain/range errors. Preserve runtime calls; do not advertise incomplete
+  P0533/P1383 support.
+- #148: stable evaluator exception identity and shared lifetime; compiler
+  operations for capture/retain/release/rethrow, constexpr library paths
+  preserving runtime ABI and symbols. Retain `optional<const E&>` cast
+  interface, reuse handler matching, destroy exactly once, reject escapes.
+- #30: freestanding `<utility>` checkpoint and generated macro, compiler
+  builtin and LLVM intrinsic preserving the defined observable prefix even
+  against later UB. Remove only at final machine-code lowering. Cover I/O
+  and contract boundaries, optimizer inference, LTO, instrumentation and
+  debug information. A memory barrier alone does not satisfy P1494R5.
+
+## Coordination and gates
+
+Only gpt-6-luna workers at low reasoning effort. Sparse isolated worktrees
+hold proposals; orchestrator owns review, shared builds, integration,
+focused tests, commits and publication. No worker may modify shared builds.
+Archive current full Clang/libc++ baselines before integration. Exclude
+benchmarks; investigate every introduced failure/ICE and pursue discovered
+bugs to resolution, even after filing them. After AST/Sema changes rebuild
+Clang and explicitly clean/rebuild libc++. All Ninja commands use `-j$(nproc)`.
+Commit coherent validated steps with tracker updates. Push validated
+milestones, close issues/waves, publish annotated prerelease tag, finish
+with a clean working tree.
+
+## Continuation
+
+`cxx26/dev/wave-supervisor.py` runs as a host systemd user service. Its
+state, session IDs, prompts, attempts, retry times, JSONL logs and sparse
+worktrees live in `.git/waves56/`. A file lock excludes duplicate runners;
+systemd's control-group cleanup kills prior workers before restarting.
+Only an explicit usage-limit error schedules retry at the reported reset
+time (five hours when absent). Other execution failures stop for inspection.
+Successful worker turns require integration review, never issue closure.
+Use `systemctl --user status cxx26-waves56` and inspect `state.json`/logs.
+Stop through `systemctl --user stop cxx26-waves56`; a `STOP` file also stops
+dispatch between turns. User service survives interactive session closure;
+reboot/logout persistence is not claimed (user lingering is disabled).
+
+## Session log
+
+- 2026-09-29: Clean starting SHA `fc70a4e11032`. Installed MPFR reports
+  4.2.2; Release build trees, Clang assertions enabled. Validated Luna/low
+  access and host service launch. Added durable serial worker supervisor
+  with recovery/limit tests. Infrastructure and worker launch validation
+  underway; no feature or issue is claimed complete.
