@@ -24,6 +24,11 @@ def save(path, state):
         stream.flush()
         os.fsync(stream.fileno())
     temporary.replace(path)
+    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
 
 
 def limit_delay(message, now):
@@ -40,6 +45,23 @@ def limit_delay(message, now):
     match = re.search(r'(?:try again|retry|resets?) in\s+(\d+)\s*(seconds?|minutes?|hours?)', message, re.I)
     if match:
         return max(60, int(match[1]) * {'s': 1, 'm': 60, 'h': 3600}[match[2][0].lower()])
+    match = re.search(r'(?:try again|retry|resets?) at\s+(.+)', message, re.I)
+    if match:
+        reported = re.sub(r'(\d)(st|nd|rd|th)\b', r'\1', match[1], flags=re.I)
+        reported = reported.split('"')[0].strip().rstrip('.')
+        local_now = dt.datetime.fromtimestamp(now)
+        for pattern in ('%b %d, %Y %I:%M %p', '%B %d, %Y %I:%M %p',
+                        '%I:%M %p on %b %d, %Y', '%Y-%m-%d %H:%M',
+                        '%I:%M %p', '%H:%M'):
+            try:
+                reset = dt.datetime.strptime(reported, pattern)
+            except ValueError:
+                continue
+            if pattern in ('%I:%M %p', '%H:%M'):
+                reset = reset.replace(year=local_now.year, month=local_now.month, day=local_now.day)
+                if reset.timestamp() <= now:
+                    reset += dt.timedelta(days=1)
+            return max(60, reset.timestamp() - now)
     return 5 * 3600
 
 

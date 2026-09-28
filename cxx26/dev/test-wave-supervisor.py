@@ -2,6 +2,7 @@
 """Exercise limit handling, durable sessions, recovery, and duplicate exclusion."""
 import importlib.util
 import fcntl
+import datetime as dt
 import json
 from pathlib import Path
 import subprocess
@@ -20,6 +21,9 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(module.limit_delay('usage_limit reached', 1000), 18000)
         self.assertEqual(module.limit_delay('usage limit; retry in 2 hours', 1000), 7200)
         self.assertEqual(module.limit_delay('usage limit resets_at: 2000000000', 1999999000), 1000)
+        now = dt.datetime(2026, 9, 29, 8, 0).timestamp()
+        self.assertEqual(module.limit_delay('usage limit. Try again at 9:30 AM', now), 5400)
+        self.assertEqual(module.limit_delay('usage limit. Try again at Sep 29th, 2026 9:30 AM', now), 5400)
 
     def test_recover_session_and_stop_on_failure(self):
         with tempfile.TemporaryDirectory() as folder:

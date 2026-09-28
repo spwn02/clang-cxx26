@@ -3,6 +3,9 @@
 Active since 2026-09-29. Issues #23, #118, #148, #30 remain open until
 implementation, review, full correctness gates, and publication finish.
 Issue #116 remains deferred. Preserve ABI, upstream authorship and licenses.
+GitHub milestone 6 is "Wave 5 — Atomics" (only #118 remains open);
+milestone 7 is "Wave 6 — Long tail" (#23, #30 and #148 remain open).
+Verified against GitHub on 2026-09-29; #116 belongs to neither milestone.
 
 ## Required work
 
@@ -72,3 +75,13 @@ reboot/logout persistence is not claimed (user lingering is disabled).
   session preservation and required integration evidence. First live worker
   saved session `01a0ea53-a7f5-7702-958a-8772cd302c52`; implementation
   and baseline validation are running, not complete.
+- 2026-09-29: Verified live supervisor restart resumed the same saved Luna
+  session and sparse worktree. Added directory fsync for durable state and
+  recognition of local clock/date reset messages, with focused coverage.
+  No new frontend/library implementation has been integrated yet.
+- 2026-09-29: Current archived full Clang baseline: 44,706 PASS, 25 XFAIL,
+  5,171 UNSUPPORTED and one FAIL (`SemaCXX/cxx2b-consteval-propagate.cpp`).
+  This known failure is part of the previously recorded immediate-invocation
+  cluster; the older five-failure count is not the current gate baseline.
+  Archive stamp `check-clang-20260928T232136Z-c4bce44feeeb-waves56-baseline`.
+  Full libc++ correctness baseline started with benchmarks excluded.
