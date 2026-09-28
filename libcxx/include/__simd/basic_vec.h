@@ -196,33 +196,36 @@ public:
 
   // [simd.ctor]/11-15 -- range construction.
   //
-  // KNOWN DEVIATION: [simd.ctor]/12.2 additionally Constrains these on ranges::size(r) being a
-  // constant expression, and /12.3 on it being equal to size(). Neither is expressible without a
-  // usable constant-evaluable range object, so the size equality is enforced as a precondition
-  // below instead of as a constraint. See the handoff notes.
+  // P2280 permits constant evaluation through an unknown reference when the result does not
+  // depend on its value. Test size on that reference, preserving non-default-constructible
+  // ranges and excluding dynamic extents without reading the runtime elements.
   template <class _Rp, class... _Flags>
-    requires(ranges::contiguous_range<_Rp> && ranges::sized_range<_Rp> &&
-             __vectorizable<ranges::range_value_t<_Rp>> && __explicitly_convertible_to<ranges::range_value_t<_Rp>, _Tp>)
+    requires(ranges::contiguous_range<_Rp> && ranges::sized_range<_Rp> && __vectorizable<ranges::range_value_t<_Rp>> &&
+             __explicitly_convertible_to<ranges::range_value_t<_Rp>, _Tp> &&
+             requires(_Rp&& __r) {
+               typename integral_constant<size_t, ranges::size(__r)>;
+               requires(ranges::size(__r) == __size_);
+             })
   _LIBCPP_HIDE_FROM_ABI constexpr basic_vec(_Rp&& __r, flags<_Flags...> = {}) {
     static_assert(__flags_have_convert<_Flags...> || __value_preserving_conversion<ranges::range_value_t<_Rp>, _Tp>,
                   "simd::basic_vec range constructor: the conversion from the range's value type to "
                   "value_type is not value-preserving; pass simd::flag_convert to allow it");
-    _LIBCPP_ASSERT_VALID_INPUT_RANGE(static_cast<__simd_size_type>(ranges::size(__r)) == __size_,
-                                     "simd::basic_vec range constructor: ranges::size(r) must equal size()");
     auto* __p = ranges::data(__r);
     for (__simd_size_type __i = 0; __i != __size_; ++__i)
       __storage_[__i] = static_cast<_Tp>(__p[__i]);
   }
 
   template <class _Rp, class... _Flags>
-    requires(ranges::contiguous_range<_Rp> && ranges::sized_range<_Rp> &&
-             __vectorizable<ranges::range_value_t<_Rp>> && __explicitly_convertible_to<ranges::range_value_t<_Rp>, _Tp>)
+    requires(ranges::contiguous_range<_Rp> && ranges::sized_range<_Rp> && __vectorizable<ranges::range_value_t<_Rp>> &&
+             __explicitly_convertible_to<ranges::range_value_t<_Rp>, _Tp> &&
+             requires(_Rp&& __r) {
+               typename integral_constant<size_t, ranges::size(__r)>;
+               requires(ranges::size(__r) == __size_);
+             })
   _LIBCPP_HIDE_FROM_ABI constexpr basic_vec(_Rp&& __r, const mask_type& __mask, flags<_Flags...> = {}) {
     static_assert(__flags_have_convert<_Flags...> || __value_preserving_conversion<ranges::range_value_t<_Rp>, _Tp>,
                   "simd::basic_vec range constructor: the conversion from the range's value type to "
                   "value_type is not value-preserving; pass simd::flag_convert to allow it");
-    _LIBCPP_ASSERT_VALID_INPUT_RANGE(static_cast<__simd_size_type>(ranges::size(__r)) == __size_,
-                                     "simd::basic_vec range constructor: ranges::size(r) must equal size()");
     auto* __p = ranges::data(__r);
     for (__simd_size_type __i = 0; __i != __size_; ++__i)
       __storage_[__i] = __mask[__i] ? static_cast<_Tp>(__p[__i]) : _Tp();
@@ -408,7 +411,8 @@ basic_vec(basic_mask<_Bytes, _Abi>) -> basic_vec<__integer_from<_Bytes>, _Abi>;
 
 // [simd.ctor]/16-17
 template <class _Rp, class... _Ts>
-  requires(ranges::contiguous_range<_Rp> && ranges::sized_range<_Rp>)
+  requires(ranges::contiguous_range<_Rp> && ranges::sized_range<_Rp> &&
+           requires(_Rp&& __r) { typename integral_constant<size_t, ranges::size(__r)>; })
 basic_vec(_Rp&& __r, _Ts...)
     -> basic_vec<ranges::range_value_t<_Rp>,
                  __deduce_abi_t<ranges::range_value_t<_Rp>, static_cast<__simd_size_type>(ranges::size(__r))>>;
