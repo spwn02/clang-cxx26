@@ -2576,7 +2576,7 @@ Lower priority (niche embedded/kernel audience), but self-contained.
 
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
-| [x] | P1642R11 | Freestanding utilities, ranges, iterators, and memory | **Complete 2026-09-28 (#79).** Nine-header surface sweep landed; registered its eight existing feature macros with the generator so regeneration preserves them and emits header/version checks. `__cpp_lib_freestanding_atomic` is retained as an existing fork extension. P1642 requires at least the freestanding entities; optional hosted `<memory>` facilities are permitted, so their exclusion is not a conformance blocker. Fixed the iterator positive test's unrelated CTAD warning. Focused freestanding/SIMD/feature-macro gate passed all 133 tests after correcting the iterator test; full libc++ gate remains required for milestone closure. |
+| [x] | P1642R11 | Freestanding utilities, ranges, iterators, and memory | **Complete 2026-09-28 (#79).** Nine-header surface sweep landed; registered its eight existing feature macros with the generator so regeneration preserves them and emits header/version checks. `__cpp_lib_freestanding_atomic` is retained as an existing fork extension. P1642 requires at least the freestanding entities; optional hosted `<memory>` facilities are permitted, so their exclusion is not a conformance blocker. Fixed the iterator positive test's unrelated CTAD warning. Focused freestanding/SIMD/feature-macro gate passed all 133 tests after correcting the iterator test; Full libc++ gate completed 2026-09-29 with no introduced failures; see the final session entry below. |
 | [ ] | P2198R7 | Freestanding feature-test macros | Audited 2026-09-16 against R7: required freestanding FTM inventory and meta/operator-new detection remain open. |
 | [ ] | P2338R4 | Freestanding character primitives & C library | |
 | [ ] | P2013R5 | Freestanding optional `::operator new` | Audited 2026-09-16 against R5: core-language/runtime-platform contract, not a safe libc++-only gate; depends on P2198 detection. |
@@ -7531,3 +7531,16 @@ blocked, what's next. Do not remove old entries.
   equal to the negative sentinels after usual arithmetic conversion. Check sign
   before sentinel equality. Added a negative maximum-value case and positive
   unsigned-map runtime coverage. Full-suite validation restarts from this fix.
+
+- **2026-09-29 (Wave 7 and #79 final gate)**: All 133 focused SIMD,
+  freestanding, and generated feature-macro tests passed. Full libc++ correctness
+  gate excluded 134 benchmarks and selected 12,607 tests: 11,489 passed,
+  26 expected failures, 1,089 unsupported, three preexisting failures. Valarray
+  nodiscard diagnostics and print nonlocking formatter assertions reproduced
+  with pre-task headers from `8a91d836b609`. The third failure was an existing
+  missing modulemap registration for `__execution/system_context_replaceability.h`;
+  added it and passed the full affected header-module/registration surface
+  (150 passed, one unsupported). No introduced failures remain. Full gate's
+  start stamp is `92da86fc39f4`; its tested worktree included the unsigned-index
+  fix subsequently committed as `ad8e794a4340`. Wave 7 (#36/#37) and P1642
+  (#79) are ready for publication and closure. No frontend changes were needed.

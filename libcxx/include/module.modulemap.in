@@ -2321,6 +2321,7 @@ module std [system] {
     module stopped_as_error               { header "__execution/stopped_as_error.h" export * }
     module stopped_as_optional            { header "__execution/stopped_as_optional.h" export * }
     module sync_wait                      { header "__execution/sync_wait.h" export * }
+    module system_context_replaceability  { header "__execution/system_context_replaceability.h" export * }
     module task                           { header "__execution/task.h" export * }
     module task_scheduler                 { header "__execution/task_scheduler.h" export * }
     module then                           { header "__execution/then.h" export * }

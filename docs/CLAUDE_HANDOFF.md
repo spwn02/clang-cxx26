@@ -1,3 +1,28 @@
+# Handoff — session 2026-09-29
+
+## Wave 7 and P1642 complete
+
+- Wave 7: #36 constant-size SIMD range constraints; #37 constant permutation
+  indices, full-width validation, and sign-safe sentinel checks. Existing P2280
+  support suffices; no frontend changes.
+- #79: P1642 freestanding sweep complete; feature macros now survive regeneration.
+  Optional hosted facilities are allowed by the adopted compliance wording.
+- Fixed two existing module defects exposed by validation: special math imports
+  its stdfloat dependencies; execution system-context header is registered.
+- Focused SIMD/freestanding/feature-macro gate: 133 passed.
+- Full libc++ correctness gate (benchmarks excluded): 12,607 selected;
+  11,489 passed, 26 expected failures, 1,089 unsupported, three preexisting failures.
+  Two reproduce with pre-task headers: valarray nodiscard diagnostics and print
+  nonlocking formatter assertions. The third, execution header registration,
+  is repaired; all 150 affected module/registration tests passed (one unsupported).
+- Remaining waves: Wave 5 #118; Wave 6 #23, #30, #148. Other open work:
+  #144 clang-tidy crash. Keep #116 final conformance review deferred until all
+  other issues close. Waves 0–4 and 7–9 have no open issues.
+- Full gate began at 92da86fc39f4 with the final unsigned-index fix in the
+  worktree, subsequently committed as ad8e794a4340; raw archive stamp retained.
+
+## Previous handoff (historical)
+
 # Handoff — session 2026-09-27 (continuation)
 
 ## Status: Waves 8 and 9 fully closed
