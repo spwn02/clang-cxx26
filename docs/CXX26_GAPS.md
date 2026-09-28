@@ -7526,3 +7526,8 @@ blocked, what's next. Do not remove old entries.
   classification without importing their declaring header. Added the direct
   `__math/stdfloat.h` include. The failing `<format>` Clang-module compilation
   passed using an isolated patched header overlay; the module-suite gate follows.
+- **2026-09-29 (Wave 7 index validation review)**: Tightened static-permutation
+  mandates for unsigned maps: maximum unsigned values could otherwise compare
+  equal to the negative sentinels after usual arithmetic conversion. Check sign
+  before sentinel equality. Added a negative maximum-value case and positive
+  unsigned-map runtime coverage. Full-suite validation restarts from this fix.

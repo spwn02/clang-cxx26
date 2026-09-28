@@ -54,6 +54,8 @@ inline constexpr __simd_size_type uninit_element = -2;
 // Evaluate each generated index through the unknown reference (P2280). This permits
 // constexpr maps that do not read their runtime object, while rejecting non-constexpr
 // calls and maps whose results depend on runtime state. Keep the input vector at runtime.
+// The sentinels are negative: check the sign before comparing, so unsigned maxima cannot
+// masquerade as sentinel values through the usual arithmetic conversions.
 template <class _IdxMap>
 concept __idx_map_1arg = requires(_IdxMap& __m, __simd_size_type __i) {
   { __m(__i) } -> integral;
@@ -79,7 +81,8 @@ _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Np, _Vp> permute(const _Vp& __v, _IdxM
   using _Tp     = typename _Vp::value_type;
   return _Result([&]<class _Ic>(_Ic) {
     constexpr auto __src_ix = __permute_gen_fn<_IdxMap, _Vp::size()>(__idxmap, _Ic::value);
-    static_assert(__src_ix == zero_element || __src_ix == uninit_element || (__src_ix >= 0 && __src_ix < _Vp::size()),
+    static_assert((__src_ix < 0 && (__src_ix == zero_element || __src_ix == uninit_element)) ||
+                      (__src_ix >= 0 && __src_ix < _Vp::size()),
                   "simd::permute: index must be zero_element, uninit_element, or in range");
     if constexpr (__src_ix == zero_element)
       return _Tp();
@@ -99,7 +102,8 @@ _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Np, _Vp> permute(const _Vp& __v, _IdxM
   using _Result = resize_t<_Np, _Vp>;
   return _Result([&]<class _Ic>(_Ic) -> bool {
     constexpr auto __src_ix = __permute_gen_fn<_IdxMap, _Vp::size()>(__idxmap, _Ic::value);
-    static_assert(__src_ix == zero_element || __src_ix == uninit_element || (__src_ix >= 0 && __src_ix < _Vp::size()),
+    static_assert((__src_ix < 0 && (__src_ix == zero_element || __src_ix == uninit_element)) ||
+                      (__src_ix >= 0 && __src_ix < _Vp::size()),
                   "simd::permute: index must be zero_element, uninit_element, or in range");
     if constexpr (__src_ix == zero_element)
       return false;

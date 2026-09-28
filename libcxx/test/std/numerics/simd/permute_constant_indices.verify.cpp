@@ -10,6 +10,7 @@
 
 // <simd>
 
+#include <limits>
 #include <simd>
 
 using vec  = std::simd::vec<int, 1>;
@@ -45,6 +46,9 @@ void test(vec v, mask m, int runtime) {
   (void)std::simd::permute(v, [](auto i, auto) { return i == 0 ? -3 : 0; }); // expected-error@*:* 1 {{simd::permute: index must be zero_element, uninit_element, or in range}}
   (void)std::simd::permute<1>(m, [](auto i) { return i == 0 ? 4 : 0; }); // expected-error@*:* 1 {{simd::permute: index must be zero_element, uninit_element, or in range}}
   (void)std::simd::permute(m, [](auto i, auto) { return i == 0 ? -3 : 0; }); // expected-error@*:* 1 {{simd::permute: index must be zero_element, uninit_element, or in range}}
+
+  // Unsigned maximum values must not compare equal to the negative sentinels.
+  (void)std::simd::permute(v, [](auto) { return std::numeric_limits<unsigned long long>::max(); }); // expected-error@*:* 1 {{simd::permute: index must be zero_element, uninit_element, or in range}}
 
   // Diagnose an invalid index on a later lane without producing errors for earlier lanes.
   four_vec four([](auto i) { return static_cast<int>(i); });

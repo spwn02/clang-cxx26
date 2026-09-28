@@ -69,6 +69,9 @@ int main(int, char**) {
   auto constexpr_map_runtime_input = std::simd::permute(v, stateless_map{0});
   assert(constexpr_map_runtime_input[0] == 13 && constexpr_map_runtime_input[3] == 10);
 
+  auto unsigned_map = std::simd::permute(v, [](auto i) { return static_cast<unsigned long long>(i); });
+  assert(unsigned_map[0] == 10 && unsigned_map[3] == 13);
+
   // The two-argument form wins when a map supports both signatures.
   {
     auto both = std::simd::permute(v, both_arity_map{});
