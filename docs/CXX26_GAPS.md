@@ -7520,3 +7520,9 @@ blocked, what's next. Do not remove old entries.
   allowed; their removal is not required to close this paper. The combined
   133-test gate passed after fixing its sole iterator-test warning; the corrected
   test also passed independently. Full-suite validation follows before GitHub closure.
+- **2026-09-28 (full-gate module repair)**: The Wave 7/#79 full gate
+  exposed an existing extended-float special-math module regression from
+  `5d8086c0ea48`: `__math/special_functions.h` used stdfloat traits and quad
+  classification without importing their declaring header. Added the direct
+  `__math/stdfloat.h` include. The failing `<format>` Clang-module compilation
+  passed using an isolated patched header overlay; the module-suite gate follows.

@@ -19,6 +19,7 @@
 #include <__math/modulo.h>
 #include <__math/roots.h>
 #include <__math/rounding_functions.h>
+#include <__math/stdfloat.h>
 #include <__math/traits.h>
 #include <__math/trigonometric_functions.h>
 #include <__type_traits/enable_if.h>
