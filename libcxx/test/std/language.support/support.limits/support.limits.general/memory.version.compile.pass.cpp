@@ -56,6 +56,10 @@
 #    error "__cpp_lib_enable_shared_from_this should not be defined before c++17"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_shared_ptr_array
 #    error "__cpp_lib_hardened_shared_ptr_array should not be defined before c++26"
 #  endif
@@ -156,6 +160,10 @@
 
 #  ifdef __cpp_lib_enable_shared_from_this
 #    error "__cpp_lib_enable_shared_from_this should not be defined before c++17"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardened_shared_ptr_array
@@ -273,6 +281,10 @@
 #  endif
 #  if __cpp_lib_enable_shared_from_this != 201603L
 #    error "__cpp_lib_enable_shared_from_this should have the value 201603L in c++17"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardened_shared_ptr_array
@@ -411,6 +423,10 @@
 #  endif
 #  if __cpp_lib_enable_shared_from_this != 201603L
 #    error "__cpp_lib_enable_shared_from_this should have the value 201603L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardened_shared_ptr_array
@@ -567,6 +583,10 @@
 #  endif
 #  if __cpp_lib_enable_shared_from_this != 201603L
 #    error "__cpp_lib_enable_shared_from_this should have the value 201603L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardened_shared_ptr_array
@@ -729,6 +749,13 @@
 #  endif
 #  if __cpp_lib_enable_shared_from_this != 201603L
 #    error "__cpp_lib_enable_shared_from_this should have the value 201603L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_memory != 202306L
+#    error "__cpp_lib_freestanding_memory should have the value 202306L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE

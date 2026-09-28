@@ -44,6 +44,10 @@
 #    error "__cpp_lib_copyable_function should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_function_ref
 #    error "__cpp_lib_function_ref should not be defined before c++26"
 #  endif
@@ -108,6 +112,10 @@
 
 #  ifdef __cpp_lib_copyable_function
 #    error "__cpp_lib_copyable_function should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_function_ref
@@ -183,6 +191,10 @@
 
 #  ifdef __cpp_lib_copyable_function
 #    error "__cpp_lib_copyable_function should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_function_ref
@@ -273,6 +285,10 @@
 
 #  ifdef __cpp_lib_copyable_function
 #    error "__cpp_lib_copyable_function should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_function_ref
@@ -372,6 +388,10 @@
 
 #  ifdef __cpp_lib_copyable_function
 #    error "__cpp_lib_copyable_function should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_function_ref
@@ -480,6 +500,13 @@
 #  endif
 #  if __cpp_lib_copyable_function != 202306L
 #    error "__cpp_lib_copyable_function should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_functional != 202306L
+#    error "__cpp_lib_freestanding_functional should have the value 202306L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_function_ref

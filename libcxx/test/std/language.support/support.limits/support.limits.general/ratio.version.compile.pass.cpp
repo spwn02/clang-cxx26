@@ -20,11 +20,19 @@
 
 #if TEST_STD_VER < 14
 
+#  ifdef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ratio
 #    error "__cpp_lib_ratio should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 14
+
+#  ifdef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should not be defined before c++26"
+#  endif
 
 #  ifdef __cpp_lib_ratio
 #    error "__cpp_lib_ratio should not be defined before c++26"
@@ -32,11 +40,19 @@
 
 #elif TEST_STD_VER == 17
 
+#  ifdef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ratio
 #    error "__cpp_lib_ratio should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 20
+
+#  ifdef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should not be defined before c++26"
+#  endif
 
 #  ifdef __cpp_lib_ratio
 #    error "__cpp_lib_ratio should not be defined before c++26"
@@ -44,11 +60,22 @@
 
 #elif TEST_STD_VER == 23
 
+#  ifdef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ratio
 #    error "__cpp_lib_ratio should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER > 23
+
+#  ifndef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_ratio != 202306L
+#    error "__cpp_lib_freestanding_ratio should have the value 202306L in c++26"
+#  endif
 
 #  ifndef __cpp_lib_ratio
 #    error "__cpp_lib_ratio should be defined in c++26"

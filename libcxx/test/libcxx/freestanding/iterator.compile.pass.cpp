@@ -41,7 +41,7 @@ void test_iterator() {
   static_assert(std::contiguous_iterator<int*>);
   static_assert(std::same_as<std::iterator_traits<int*>::value_type, int>);
   int values[] = {1, 2, 3};
-  std::reverse_iterator reverse(values + 3);
+  std::reverse_iterator<int*> reverse(values + 3);
   std::move_iterator moved(values);
   using Common = std::common_iterator<int*, Sentinel>;
   using Counted = std::counted_iterator<int*>;

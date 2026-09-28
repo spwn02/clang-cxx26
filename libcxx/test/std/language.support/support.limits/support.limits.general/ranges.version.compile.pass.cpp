@@ -24,6 +24,10 @@
 #    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_view_interface
 #    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
 #  endif
@@ -104,6 +108,10 @@
 
 #  ifdef __cpp_lib_default_template_type_for_algorithm_values
 #    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardened_view_interface
@@ -188,6 +196,10 @@
 #    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_view_interface
 #    error "__cpp_lib_hardened_view_interface should not be defined before c++26"
 #  endif
@@ -268,6 +280,10 @@
 
 #  ifdef __cpp_lib_default_template_type_for_algorithm_values
 #    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardened_view_interface
@@ -353,6 +369,10 @@
 
 #  ifdef __cpp_lib_default_template_type_for_algorithm_values
 #    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardened_view_interface
@@ -477,6 +497,13 @@
 #  endif
 #  if __cpp_lib_default_template_type_for_algorithm_values != 202403L
 #    error "__cpp_lib_default_template_type_for_algorithm_values should have the value 202403L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_ranges != 202306L
+#    error "__cpp_lib_freestanding_ranges should have the value 202306L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE

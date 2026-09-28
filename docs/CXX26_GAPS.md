@@ -2576,6 +2576,7 @@ Lower priority (niche embedded/kernel audience), but self-contained.
 
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
+| [x] | P1642R11 | Freestanding utilities, ranges, iterators, and memory | **Complete 2026-09-28 (#79).** Nine-header surface sweep landed; registered its eight existing feature macros with the generator so regeneration preserves them and emits header/version checks. `__cpp_lib_freestanding_atomic` is retained as an existing fork extension. P1642 requires at least the freestanding entities; optional hosted `<memory>` facilities are permitted, so their exclusion is not a conformance blocker. Fixed the iterator positive test's unrelated CTAD warning. Focused freestanding/SIMD/feature-macro gate passed all 133 tests after correcting the iterator test; full libc++ gate remains required for milestone closure. |
 | [ ] | P2198R7 | Freestanding feature-test macros | Audited 2026-09-16 against R7: required freestanding FTM inventory and meta/operator-new detection remain open. |
 | [ ] | P2338R4 | Freestanding character primitives & C library | |
 | [ ] | P2013R5 | Freestanding optional `::operator new` | Audited 2026-09-16 against R5: core-language/runtime-platform contract, not a safe libc++-only gate; depends on P2198 detection. |
@@ -7509,3 +7510,13 @@ blocked, what's next. Do not remove old entries.
   two-argument call wins whenever well-formed. Corrected the earlier compiler-
   support blocker assessment: existing P2280 evaluation suffices. All 11 SIMD
   tests passed. The full libc++ gate is required before closing the wave.
+- **2026-09-28 (issue #79 close-out preparation)**: Registered the eight
+  freestanding feature macros added by the completed nine-header sweep in the
+  generator. Regeneration previously erased every one of them. Generated
+  header/version tests now exercise their values across language modes. Retained
+  the existing atomic macro as a fork extension. Fixed a CTAD warning in the
+  freestanding iterator positive test. Adopted P1642R11 [compliance] requires
+  at least the listed entities, so optional hosted memory facilities are
+  allowed; their removal is not required to close this paper. The combined
+  133-test gate passed after fixing its sole iterator-test warning; the corrected
+  test also passed independently. Full-suite validation follows before GitHub closure.

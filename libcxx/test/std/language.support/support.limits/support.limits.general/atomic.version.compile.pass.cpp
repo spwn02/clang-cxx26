@@ -68,6 +68,10 @@
 #    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 14
 
 #  ifdef __cpp_lib_atomic_flag_test
@@ -116,6 +120,10 @@
 
 #  ifdef __cpp_lib_constexpr_atomic
 #    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 17
@@ -169,6 +177,10 @@
 
 #  ifdef __cpp_lib_constexpr_atomic
 #    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 20
@@ -254,6 +266,10 @@
 #    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 23
 
 #  ifndef __cpp_lib_atomic_flag_test
@@ -335,6 +351,10 @@
 
 #  ifdef __cpp_lib_constexpr_atomic
 #    error "__cpp_lib_constexpr_atomic should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER > 23
@@ -427,6 +447,13 @@
 #  endif
 #  if __cpp_lib_constexpr_atomic != 202411L
 #    error "__cpp_lib_constexpr_atomic should have the value 202411L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_atomic != 202306L
+#    error "__cpp_lib_freestanding_atomic should have the value 202306L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

@@ -48,6 +48,10 @@
 #    error "__cpp_lib_forward_like should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_integer_comparison_functions
 #    error "__cpp_lib_integer_comparison_functions should not be defined before c++20"
 #  endif
@@ -107,6 +111,10 @@
 
 #  ifdef __cpp_lib_forward_like
 #    error "__cpp_lib_forward_like should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_integer_comparison_functions
@@ -177,6 +185,10 @@
 
 #  ifdef __cpp_lib_forward_like
 #    error "__cpp_lib_forward_like should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_integer_comparison_functions
@@ -253,6 +265,10 @@
 
 #  ifdef __cpp_lib_forward_like
 #    error "__cpp_lib_forward_like should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_integer_comparison_functions
@@ -335,6 +351,10 @@
 #  endif
 #  if __cpp_lib_forward_like != 202207L
 #    error "__cpp_lib_forward_like should have the value 202207L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_integer_comparison_functions
@@ -435,6 +455,13 @@
 #  endif
 #  if __cpp_lib_forward_like != 202207L
 #    error "__cpp_lib_forward_like should have the value 202207L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_utility != 202306L
+#    error "__cpp_lib_freestanding_utility should have the value 202306L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_integer_comparison_functions

@@ -32,6 +32,10 @@
 #    error "__cpp_lib_constrained_equality should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_make_from_tuple
 #    error "__cpp_lib_make_from_tuple should not be defined before c++17"
 #  endif
@@ -64,6 +68,10 @@
 
 #  ifdef __cpp_lib_constrained_equality
 #    error "__cpp_lib_constrained_equality should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_make_from_tuple
@@ -107,6 +115,10 @@
 
 #  ifdef __cpp_lib_constrained_equality
 #    error "__cpp_lib_constrained_equality should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_make_from_tuple
@@ -158,6 +170,10 @@
 #    error "__cpp_lib_constrained_equality should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_make_from_tuple
 #    error "__cpp_lib_make_from_tuple should be defined in c++20"
 #  endif
@@ -205,6 +221,10 @@
 
 #  ifdef __cpp_lib_constrained_equality
 #    error "__cpp_lib_constrained_equality should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_make_from_tuple
@@ -263,6 +283,13 @@
 #  endif
 #  if __cpp_lib_constrained_equality != 202411L
 #    error "__cpp_lib_constrained_equality should have the value 202411L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_tuple != 202306L
+#    error "__cpp_lib_freestanding_tuple should have the value 202306L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_make_from_tuple

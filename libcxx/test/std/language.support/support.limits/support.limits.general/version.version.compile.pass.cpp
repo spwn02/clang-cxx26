@@ -388,6 +388,10 @@
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should not be defined before c++26"
 #  endif
@@ -396,16 +400,44 @@
 #    error "__cpp_lib_freestanding_expected should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_iterator
+#    error "__cpp_lib_freestanding_iterator should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_mdspan
 #    error "__cpp_lib_freestanding_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_string_view
 #    error "__cpp_lib_freestanding_string_view should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_variant
@@ -1487,6 +1519,10 @@
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should not be defined before c++26"
 #  endif
@@ -1495,16 +1531,44 @@
 #    error "__cpp_lib_freestanding_expected should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_iterator
+#    error "__cpp_lib_freestanding_iterator should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_mdspan
 #    error "__cpp_lib_freestanding_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_string_view
 #    error "__cpp_lib_freestanding_string_view should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_variant
@@ -2706,6 +2770,10 @@
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should not be defined before c++26"
 #  endif
@@ -2714,16 +2782,44 @@
 #    error "__cpp_lib_freestanding_expected should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_iterator
+#    error "__cpp_lib_freestanding_iterator should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_mdspan
 #    error "__cpp_lib_freestanding_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_string_view
 #    error "__cpp_lib_freestanding_string_view should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_variant
@@ -4183,6 +4279,10 @@
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should not be defined before c++26"
 #  endif
@@ -4191,16 +4291,44 @@
 #    error "__cpp_lib_freestanding_expected should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_iterator
+#    error "__cpp_lib_freestanding_iterator should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_mdspan
 #    error "__cpp_lib_freestanding_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_string_view
 #    error "__cpp_lib_freestanding_string_view should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_variant
@@ -5846,6 +5974,10 @@
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should not be defined before c++26"
 #  endif
@@ -5854,16 +5986,44 @@
 #    error "__cpp_lib_freestanding_expected should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_iterator
+#    error "__cpp_lib_freestanding_iterator should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_mdspan
 #    error "__cpp_lib_freestanding_mdspan should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_string_view
 #    error "__cpp_lib_freestanding_string_view should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_variant
@@ -7725,6 +7885,13 @@
 #    error "__cpp_lib_freestanding_array should have the value 202311L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_freestanding_atomic
+#    error "__cpp_lib_freestanding_atomic should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_atomic != 202306L
+#    error "__cpp_lib_freestanding_atomic should have the value 202306L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should be defined in c++26"
 #  endif
@@ -7739,11 +7906,32 @@
 #    error "__cpp_lib_freestanding_expected should have the value 202311L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_freestanding_functional
+#    error "__cpp_lib_freestanding_functional should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_functional != 202306L
+#    error "__cpp_lib_freestanding_functional should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_iterator
+#    error "__cpp_lib_freestanding_iterator should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_iterator != 202306L
+#    error "__cpp_lib_freestanding_iterator should have the value 202306L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_freestanding_mdspan
 #    error "__cpp_lib_freestanding_mdspan should be defined in c++26"
 #  endif
 #  if __cpp_lib_freestanding_mdspan != 202311L
 #    error "__cpp_lib_freestanding_mdspan should have the value 202311L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_memory
+#    error "__cpp_lib_freestanding_memory should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_memory != 202306L
+#    error "__cpp_lib_freestanding_memory should have the value 202306L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_optional
@@ -7753,11 +7941,39 @@
 #    error "__cpp_lib_freestanding_optional should have the value 202311L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_ranges != 202306L
+#    error "__cpp_lib_freestanding_ranges should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_ratio
+#    error "__cpp_lib_freestanding_ratio should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_ratio != 202306L
+#    error "__cpp_lib_freestanding_ratio should have the value 202306L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_freestanding_string_view
 #    error "__cpp_lib_freestanding_string_view should be defined in c++26"
 #  endif
 #  if __cpp_lib_freestanding_string_view != 202311L
 #    error "__cpp_lib_freestanding_string_view should have the value 202311L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_tuple
+#    error "__cpp_lib_freestanding_tuple should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_tuple != 202306L
+#    error "__cpp_lib_freestanding_tuple should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_utility
+#    error "__cpp_lib_freestanding_utility should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_utility != 202306L
+#    error "__cpp_lib_freestanding_utility should have the value 202306L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)

@@ -663,6 +663,12 @@ feature_test_macros = [
             "headers": ["array"],
         },
         {
+            "name": "__cpp_lib_freestanding_atomic",
+            # libc++ extension; no standardized per-header atomic macro exists.
+            "values": {"c++26": 202306},
+            "headers": ["atomic"],
+        },
+        {
             "name": "__cpp_lib_freestanding_cstring",
             "values": {
                 "c++26": 202311  # P2937R0 Freestanding: Remove strtok
@@ -677,11 +683,26 @@ feature_test_macros = [
             "headers": ["expected"],
         },
         {
+            "name": "__cpp_lib_freestanding_functional",
+            "values": {"c++26": 202306},  # P2198R7 Freestanding Feature-Test Macros
+            "headers": ["functional"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_iterator",
+            "values": {"c++26": 202306},  # P2198R7 Freestanding Feature-Test Macros
+            "headers": ["iterator"],
+        },
+        {
             "name": "__cpp_lib_freestanding_mdspan",
             "values": {
                 "c++26": 202311  # P2833R2 Freestanding Library: inout expected span
             },
             "headers": ["mdspan"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_memory",
+            "values": {"c++26": 202306},  # P2198R7 Freestanding Feature-Test Macros
+            "headers": ["memory"],
         },
         {
             "name": "__cpp_lib_freestanding_optional",
@@ -691,11 +712,31 @@ feature_test_macros = [
             "headers": ["optional"],
         },
         {
+            "name": "__cpp_lib_freestanding_ranges",
+            "values": {"c++26": 202306},  # P2198R7 Freestanding Feature-Test Macros
+            "headers": ["ranges"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_ratio",
+            "values": {"c++26": 202306},  # P2198R7 Freestanding Feature-Test Macros
+            "headers": ["ratio"],
+        },
+        {
             "name": "__cpp_lib_freestanding_string_view",
             "values": {
                 "c++26": 202311  # P2407R5 Freestanding Library: Partial Classes
             },
             "headers": ["string_view"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_tuple",
+            "values": {"c++26": 202306},  # P2198R7 Freestanding Feature-Test Macros
+            "headers": ["tuple"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_utility",
+            "values": {"c++26": 202306},  # P2198R7 Freestanding Feature-Test Macros
+            "headers": ["utility"],
         },
         {
             "name": "__cpp_lib_freestanding_variant",
