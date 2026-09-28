@@ -69,6 +69,28 @@ class SupervisorTests(unittest.TestCase):
             self.assertGreater(tasks[0]['retry_at'], tasks[0]['finished_at'] + 17900)
             self.assertEqual(tasks[1]['status'], 'pending')
 
+    def test_integration_requires_fresh_result(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            fake = root / 'codex'
+            fake.write_text('#!/usr/bin/env python3\nimport sys,json\nsys.stdin.read()\n'
+                            'print(json.dumps({"type":"turn.completed"}))\n')
+            fake.chmod(0o755)
+            state = root / 'state.json'
+            task = {'name': 'integration', 'cwd': folder, 'prompt': 'test',
+                    'status': 'pending', 'result_path': str(root / 'result.json')}
+            # Successful CLI execution alone cannot imply objective completion.
+            module.save(state, {'tasks': [task]})
+            subprocess.run(['python3', str(SCRIPT), str(state), '--codex', str(fake)], check=True)
+            self.assertEqual(json.loads(state.read_text())['tasks'][0]['status'], 'needs_attention')
+            fake.write_text('#!/usr/bin/env python3\nimport sys,json\nfrom pathlib import Path\n'
+                            'sys.stdin.read()\n'
+                            'Path("result.json").write_text(json.dumps({"complete":True,"evidence":["test"]}))\n'
+                            'print(json.dumps({"type":"turn.completed"}))\n')
+            module.save(state, {'tasks': [task]})
+            subprocess.run(['python3', str(SCRIPT), str(state), '--codex', str(fake)], check=True)
+            self.assertEqual(json.loads(state.read_text())['tasks'][0]['status'], 'reported_complete')
+
 
 if __name__ == '__main__':
     unittest.main()

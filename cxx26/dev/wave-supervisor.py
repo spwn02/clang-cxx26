@@ -74,7 +74,7 @@ def run(state_path, executable):
             if task.get('session_id'):
                 args += ['resume', task['session_id']]
             else:
-                args += ['-s', 'workspace-write', '--approve-for-me']
+                args += ['--approve-for-me']
             args += ['-m', 'gpt-6-luna', '-c', 'model_reasoning_effort="low"', '--json', '-']
             prompt = task['prompt']
             if task.get('session_id'):
@@ -87,8 +87,12 @@ def run(state_path, executable):
                                            stdout=subprocess.PIPE, stderr=stderr, text=True)
                 task['worker_pid'] = process.pid
                 save(state_path, state)
-                process.stdin.write(prompt)
-                process.stdin.close()
+                try:
+                    process.stdin.write(prompt)
+                    process.stdin.close()
+                except BrokenPipeError:
+                    # CLI argument/auth failures can exit before consuming stdin.
+                    pass
                 for line in process.stdout:
                     output.write(line)
                     output.flush()
@@ -113,6 +117,21 @@ def run(state_path, executable):
                 save(state_path, state)
                 continue
             task['status'] = 'review_required' if completed and rc == 0 else 'infrastructure_failure'
+            if task['status'] == 'review_required' and task.get('result_path'):
+                result_path = Path(task['result_path'])
+                try:
+                    result = json.loads(result_path.read_text())
+                    if result_path.stat().st_mtime < task['started_at']:
+                        raise ValueError('stale integration result')
+                    if result.get('complete') is True:
+                        task['status'] = 'reported_complete'
+                    elif result.get('continue') is True:
+                        task.update(status='pending', retry_at=time.time() + 60)
+                    else:
+                        task['status'] = 'needs_attention'
+                    task['result'] = result
+                except (OSError, ValueError) as error:
+                    task.update(status='needs_attention', error=str(error))
             if task['status'] == 'infrastructure_failure':
                 task['error'] = message or error_log.read_text()[-4000:]
             save(state_path, state)

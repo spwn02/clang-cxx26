@@ -48,6 +48,10 @@ systemd's control-group cleanup kills prior workers before restarting.
 Only an explicit usage-limit error schedules retry at the reported reset
 time (five hours when absent). Other execution failures stop for inspection.
 Successful worker turns require integration review, never issue closure.
+The integration task must produce a fresh structured result; incomplete work
+with further progress available resumes its saved session after one minute.
+Missing/stale results or an explicit blocker require inspection. Reported
+completion records evidence and remains subject to review.
 Use `systemctl --user status cxx26-waves56` and inspect `state.json`/logs.
 Stop through `systemctl --user stop cxx26-waves56`; a `STOP` file also stops
 dispatch between turns. User service survives interactive session closure;
@@ -60,3 +64,11 @@ reboot/logout persistence is not claimed (user lingering is disabled).
   access and host service launch. Added durable serial worker supervisor
   with recovery/limit tests. Infrastructure and worker launch validation
   underway; no feature or issue is claimed complete.
+- 2026-09-29: Launched detached `cxx26-waves56-baseline` (Clang followed
+  by libc++ correctness gates) and `cxx26-waves56` (four isolated proposals,
+  then integration). Corrected mutually exclusive CLI launch flags and
+  added safe handling when a worker exits before consuming stdin. Five
+  supervisor tests pass, covering recovery, duplicate exclusion, usage-limit
+  session preservation and required integration evidence. First live worker
+  saved session `01a0ea53-a7f5-7702-958a-8772cd302c52`; implementation
+  and baseline validation are running, not complete.
