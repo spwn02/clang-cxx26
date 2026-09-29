@@ -9,6 +9,9 @@ module std_config [system] {
   textual header "__configuration/experimental.h"
   textual header "__configuration/hardening.h"
   textual header "__configuration/language.h"
+  textual header "__algorithm/pstl_freestanding.h"
+  textual header "__memory/pstl_freestanding.h"
+  textual header "__numeric/pstl_freestanding.h"
   textual header "__configuration/platform.h"
   textual header "version"
   export *
@@ -4478,6 +4481,10 @@ module std [system] {
     }
     module no_destroy {
       header "__utility/no_destroy.h"
+      export *
+    }
+    module observable_checkpoint {
+      header "__utility/observable_checkpoint.h"
       export *
     }
     module pair                            {

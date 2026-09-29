@@ -6,9 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-// Compile with -ffreestanding.
+// UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
+// ADDITIONAL_COMPILE_FLAGS: -ffreestanding -fno-exceptions -D_LIBCPP_HAS_NO_THREADS
 
 #include <random>
+#include <version>
+
+static_assert(__cpp_lib_freestanding_random == 202502L);
 
 void test_freestanding_random_surface() {
   std::minstd_rand0 first;

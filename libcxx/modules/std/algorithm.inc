@@ -371,11 +371,13 @@ export namespace std {
     using std::ranges::sort;
   }
 
+#if !defined(_LIBCPP_FREESTANDING)
   using std::stable_sort;
 
   namespace ranges {
     using std::ranges::stable_sort;
   }
+#endif
 
   using std::partial_sort;
 
@@ -442,11 +444,13 @@ export namespace std {
     using std::ranges::partition;
   }
 
+#if !defined(_LIBCPP_FREESTANDING)
   using std::stable_partition;
 
   namespace ranges {
     using std::ranges::stable_partition;
   }
+#endif
 
   using std::partition_copy;
 
@@ -467,10 +471,14 @@ export namespace std {
     using std::ranges::merge_result;
   } // namespace ranges
 
+#if !defined(_LIBCPP_FREESTANDING)
   using std::inplace_merge;
+#endif
 
   namespace ranges {
+#if !defined(_LIBCPP_FREESTANDING)
     using std::ranges::inplace_merge;
+#endif
   }
 
   // [alg.set.operations], set operations

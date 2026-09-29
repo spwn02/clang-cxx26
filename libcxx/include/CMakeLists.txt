@@ -74,6 +74,7 @@ set(files
   __algorithm/pop_heap.h
   __algorithm/prev_permutation.h
   __algorithm/pstl.h
+  __algorithm/pstl_freestanding.h
   __algorithm/push_heap.h
   __algorithm/radix_sort.h
   __algorithm/ranges_adjacent_find.h
@@ -671,6 +672,7 @@ set(files
   __memory/out_ptr.h
   __memory/pointer_traits.h
   __memory/polymorphic.h
+  __memory/pstl_freestanding.h
   __memory/ranges_construct_at.h
   __memory/ranges_destroy.h
   __memory/ranges_uninitialized_algorithms.h
@@ -718,6 +720,7 @@ set(files
   __numeric/midpoint.h
   __numeric/partial_sum.h
   __numeric/pstl.h
+  __numeric/pstl_freestanding.h
   __numeric/ranges_iota.h
   __numeric/reduce.h
   __numeric/saturation_arithmetic.h
@@ -1060,6 +1063,7 @@ set(files
   __utility/lazy_synth_three_way_comparator.h
   __utility/move.h
   __utility/no_destroy.h
+  __utility/observable_checkpoint.h
   __utility/pair.h
   __utility/piecewise_construct.h
   __utility/priority_tag.h

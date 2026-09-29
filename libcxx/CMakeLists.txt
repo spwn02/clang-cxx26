@@ -289,6 +289,8 @@ option(LIBCXX_ENABLE_NEW_DELETE_DEFINITIONS
    defined in libc++abi, but this option can be used to define them in libc++
    instead. If you define them in libc++, make sure they are NOT defined in
    libc++abi. Doing otherwise is an ODR violation." OFF)
+option(LIBCXX_FREESTANDING_OPERATOR_NEW
+  "Report that the configured default global replaceable allocation functions have hosted semantics in freestanding mode. Set this only when the selected runtime provides those definitions." OFF)
 # Build libc++abi with libunwind. We need this option to determine whether to
 # link with libunwind or libgcc_s while running the test cases.
 option(LIBCXXABI_USE_LLVM_UNWINDER "Build and use the LLVM unwinder." ON)
@@ -751,6 +753,16 @@ config_define(${LIBCXX_ABI_FORCE_MICROSOFT} _LIBCPP_ABI_FORCE_MICROSOFT)
 config_define(${LIBCXX_ENABLE_THREADS} _LIBCPP_HAS_THREADS)
 config_define(${LIBCXX_ENABLE_MONOTONIC_CLOCK} _LIBCPP_HAS_MONOTONIC_CLOCK)
 config_define(${LIBCXX_HAS_TERMINAL_AVAILABLE} _LIBCPP_HAS_TERMINAL)
+if (LIBCXX_ENABLE_NEW_DELETE_DEFINITIONS
+    OR (LIBCXX_CXX_ABI STREQUAL "libcxxabi" AND LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS)
+    OR LIBCXX_FREESTANDING_OPERATOR_NEW)
+  # libc++'s own new.cpp and the in-tree ABI runtimes provide the standard
+  # replaceable allocation definitions. Other runtimes require explicit
+  # confirmation because libc++ does not control their configuration.
+  config_define(202306L _LIBCPP_FREESTANDING_OPERATOR_NEW_VALUE)
+else()
+  config_define(0L _LIBCPP_FREESTANDING_OPERATOR_NEW_VALUE)
+endif()
 if (NOT LIBCXX_TYPEINFO_COMPARISON_IMPLEMENTATION STREQUAL "default")
   config_define("${LIBCXX_TYPEINFO_COMPARISON_IMPLEMENTATION}" _LIBCPP_TYPEINFO_COMPARISON_IMPLEMENTATION)
 endif()

@@ -21,8 +21,10 @@ export namespace std {
   using std::subtract_with_carry_engine;
 
 #if _LIBCPP_STD_VER >= 26
+#if !defined(_LIBCPP_FREESTANDING)
   // [rand.eng.philox], class template philox_engine
   using std::philox_engine;
+#endif
 #endif
 
   // [rand.adapt.disc], class template discard_block_engine
@@ -31,31 +33,40 @@ export namespace std {
   // [rand.adapt.ibits], class template independent_bits_engine
   using std::independent_bits_engine;
 
+#if !defined(_LIBCPP_FREESTANDING)
   // [rand.adapt.shuf], class template shuffle_order_engine
   using std::shuffle_order_engine;
+#endif
 
   // [rand.predef], engines and engine adaptors with predefined parameters
+#if !defined(_LIBCPP_FREESTANDING)
   using std::knuth_b;
+#endif
   using std::minstd_rand;
   using std::minstd_rand0;
   using std::mt19937;
   using std::mt19937_64;
 #if _LIBCPP_STD_VER >= 26
+#if !defined(_LIBCPP_FREESTANDING)
   using std::philox4x32;
   using std::philox4x64;
+#endif
 #endif
   using std::ranlux24;
   using std::ranlux24_base;
   using std::ranlux48;
   using std::ranlux48_base;
 
+#if !defined(_LIBCPP_FREESTANDING)
   using std::default_random_engine;
+#endif
 
-#if _LIBCPP_HAS_RANDOM_DEVICE
+#if _LIBCPP_HAS_RANDOM_DEVICE && !defined(_LIBCPP_FREESTANDING)
   // [rand.device], class random_device
   using std::random_device;
 #endif
 
+#if !defined(_LIBCPP_FREESTANDING)
   // [rand.util.seedseq], class seed_seq
   using std::seed_seq;
 
@@ -68,10 +79,12 @@ export namespace std {
     using std::ranges::generate_random;
   } // namespace ranges
 #endif
+#endif // !_LIBCPP_FREESTANDING
 
   // [rand.dist.uni.int], class template uniform_int_distribution
   using std::uniform_int_distribution;
 
+#if !defined(_LIBCPP_FREESTANDING)
   // [rand.dist.uni.real], class template uniform_real_distribution
   using std::uniform_real_distribution;
 
@@ -128,4 +141,5 @@ export namespace std {
 
   // [rand.dist.samp.plinear], class template piecewise_linear_distribution
   using std::piecewise_linear_distribution;
+#endif // !_LIBCPP_FREESTANDING
 } // namespace std

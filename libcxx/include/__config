@@ -11,6 +11,12 @@
 #define _LIBCPP___CONFIG
 
 #include <__config_site>
+
+// P2198R7 ties this value to the configured default global allocation runtime.
+// Unconfigured header-only use must conservatively report that it is unavailable.
+#ifndef _LIBCPP_FREESTANDING_OPERATOR_NEW_VALUE
+#  define _LIBCPP_FREESTANDING_OPERATOR_NEW_VALUE 0L
+#endif
 #include <__configuration/abi.h>
 #include <__configuration/availability.h>
 #include <__configuration/compiler.h>

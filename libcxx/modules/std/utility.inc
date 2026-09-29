@@ -8,6 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 export namespace std {
+#if _LIBCPP_STD_VER >= 26 && __has_builtin(__builtin_observable_checkpoint)
+  using std::observable_checkpoint;
+#endif
   // [utility.swap], swap
   using std::swap;
 

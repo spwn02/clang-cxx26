@@ -7,7 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef _LIBCPP_ENABLE_EXPERIMENTAL
 export namespace std {
   // [execpol.type], execution policy type trait
   using std::is_execution_policy;
@@ -33,8 +32,6 @@ export namespace std::execution {
   using std::execution::seq;
   using std::execution::unseq;
 } // namespace std::execution
-#endif // _LIBCPP_ENABLE_EXPERIMENTAL
-
 #if _LIBCPP_STD_VER >= 26
 export namespace std {
   // [exec.queryable]

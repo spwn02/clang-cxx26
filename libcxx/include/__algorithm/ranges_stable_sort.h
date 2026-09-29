@@ -37,7 +37,7 @@
 _LIBCPP_PUSH_MACROS
 #include <__undef_macros>
 
-#if _LIBCPP_STD_VER >= 20
+#if _LIBCPP_STD_VER >= 20 && !defined(_LIBCPP_FREESTANDING)
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 

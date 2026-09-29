@@ -2,9 +2,9 @@
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
-// ADDITIONAL_COMPILE_FLAGS: -ffreestanding
+// ADDITIONAL_COMPILE_FLAGS: -ffreestanding -fno-exceptions
 
-// P1642R11 [memory.syn]: selected memory facilities are freestanding.
+// P1642R11 and P2976R1 [memory.syn]: selected facilities are freestanding.
 
 #include <memory>
 #include <atomic>
@@ -15,7 +15,7 @@
 #  error "-ffreestanding must select libc++ freestanding mode"
 #endif
 
-#if !defined(__cpp_lib_freestanding_memory) || __cpp_lib_freestanding_memory != 202306L
+#if !defined(__cpp_lib_freestanding_memory) || __cpp_lib_freestanding_memory != 202502L
 #  error "missing or wrong __cpp_lib_freestanding_memory"
 #endif
 

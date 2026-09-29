@@ -1,6 +1,6 @@
 //===----------------------------------------------------------------------===//
 // UNSUPPORTED: c++03
-// ADDITIONAL_COMPILE_FLAGS: -ffreestanding
+// ADDITIONAL_COMPILE_FLAGS: -ffreestanding -fno-exceptions -D_LIBCPP_HAS_NO_THREADS
 //===----------------------------------------------------------------------===//
 
 // P2976R1: freestanding <algorithm> -- every algorithm remains available under
@@ -9,6 +9,8 @@
 // those three need auxiliary heap storage this fork's freestanding mode can't guarantee).
 
 #include <algorithm>
+#include <version>
+
 
 void test_freestanding_algorithm_surface(int* first, int* last, int* middle) {
   std::sort(first, last);
