@@ -23,81 +23,81 @@ namespace __math {
 
 // log
 
-inline _LIBCPP_HIDE_FROM_ABI float log(float __x) _NOEXCEPT { return __builtin_logf(__x); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 float log(float __x) _NOEXCEPT { return __builtin_logf(__x); }
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI double log(double __x) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 double log(double __x) _NOEXCEPT {
   return __builtin_log(__x);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI long double log(long double __x) _NOEXCEPT { return __builtin_logl(__x); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 long double log(long double __x) _NOEXCEPT { return __builtin_logl(__x); }
 
 template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
-inline _LIBCPP_HIDE_FROM_ABI double log(_A1 __x) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 double log(_A1 __x) _NOEXCEPT {
   return __builtin_log((double)__x);
 }
 
 // log10
 
-inline _LIBCPP_HIDE_FROM_ABI float log10(float __x) _NOEXCEPT { return __builtin_log10f(__x); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 float log10(float __x) _NOEXCEPT { return __builtin_log10f(__x); }
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI double log10(double __x) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 double log10(double __x) _NOEXCEPT {
   return __builtin_log10(__x);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI long double log10(long double __x) _NOEXCEPT { return __builtin_log10l(__x); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 long double log10(long double __x) _NOEXCEPT { return __builtin_log10l(__x); }
 
 template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
-inline _LIBCPP_HIDE_FROM_ABI double log10(_A1 __x) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 double log10(_A1 __x) _NOEXCEPT {
   return __builtin_log10((double)__x);
 }
 
 // ilogb
 
-inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 int ilogb(float __x) _NOEXCEPT { return __builtin_ilogbf(__x); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 int ilogb(float __x) _NOEXCEPT { return __builtin_ilogbf(__x); }
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 int ilogb(double __x) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 int ilogb(double __x) _NOEXCEPT {
   return __builtin_ilogb(__x);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 int ilogb(long double __x) _NOEXCEPT { return __builtin_ilogbl(__x); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 int ilogb(long double __x) _NOEXCEPT { return __builtin_ilogbl(__x); }
 
 template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
-inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 int ilogb(_A1 __x) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 int ilogb(_A1 __x) _NOEXCEPT {
   return __builtin_ilogb((double)__x);
 }
 
 // log1p
 
-inline _LIBCPP_HIDE_FROM_ABI float log1p(float __x) _NOEXCEPT { return __builtin_log1pf(__x); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 float log1p(float __x) _NOEXCEPT { return __builtin_log1pf(__x); }
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI double log1p(double __x) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 double log1p(double __x) _NOEXCEPT {
   return __builtin_log1p(__x);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI long double log1p(long double __x) _NOEXCEPT { return __builtin_log1pl(__x); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 long double log1p(long double __x) _NOEXCEPT { return __builtin_log1pl(__x); }
 
 template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
-inline _LIBCPP_HIDE_FROM_ABI double log1p(_A1 __x) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 double log1p(_A1 __x) _NOEXCEPT {
   return __builtin_log1p((double)__x);
 }
 
 // log2
 
-inline _LIBCPP_HIDE_FROM_ABI float log2(float __x) _NOEXCEPT { return __builtin_log2f(__x); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 float log2(float __x) _NOEXCEPT { return __builtin_log2f(__x); }
 
 template <class = int>
-_LIBCPP_HIDE_FROM_ABI double log2(double __x) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 double log2(double __x) _NOEXCEPT {
   return __builtin_log2(__x);
 }
 
-inline _LIBCPP_HIDE_FROM_ABI long double log2(long double __x) _NOEXCEPT { return __builtin_log2l(__x); }
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 long double log2(long double __x) _NOEXCEPT { return __builtin_log2l(__x); }
 
 template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
-inline _LIBCPP_HIDE_FROM_ABI double log2(_A1 __x) _NOEXCEPT {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 double log2(_A1 __x) _NOEXCEPT {
   return __builtin_log2((double)__x);
 }
 

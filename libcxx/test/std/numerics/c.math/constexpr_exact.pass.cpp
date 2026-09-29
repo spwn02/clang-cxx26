@@ -11,7 +11,7 @@
 // <cmath>
 
 // P0533R9: the functions of <cmath> whose results are exactly computable are constexpr in C++23.
-// (div/ldiv/lldiv, remquo and the C-named float/long double variants are not covered yet.)
+// (div/ldiv/lldiv and the C-named float/long double variants are not covered yet.)
 
 #include <cmath>
 #include <type_traits>
@@ -50,6 +50,13 @@ static_assert(std::isless(1, 2.0f));
 static_assert(std::islessequal(1.0, 2.0));
 static_assert(std::islessgreater(1.0, 2.0));
 static_assert(std::isunordered(__builtin_nan(""), 1.0));
+
+constexpr bool test_large_remquo_quotient() {
+  int quotient = -1;
+  double remainder = std::remquo(0x1p100, 0x1p5, &quotient);
+  return remainder == 0.0 && (quotient & 7) == 0;
+}
+static_assert(test_large_remquo_quotient());
 
 constexpr bool test_out_parameters() {
   int e = 0;
