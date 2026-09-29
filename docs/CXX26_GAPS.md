@@ -2577,13 +2577,13 @@ Lower priority (niche embedded/kernel audience), but self-contained.
 | Status | Paper | Feature | Notes |
 |---|---|---|---|
 | [x] | P1642R11 | Freestanding utilities, ranges, iterators, and memory | **Complete 2026-09-28 (#79).** Nine-header surface sweep landed; registered its eight existing feature macros with the generator so regeneration preserves them and emits header/version checks. `__cpp_lib_freestanding_atomic` is retained as an existing fork extension. P1642 requires at least the freestanding entities; optional hosted `<memory>` facilities are permitted, so their exclusion is not a conformance blocker. Fixed the iterator positive test's unrelated CTAD warning. Focused freestanding/SIMD/feature-macro gate passed all 133 tests after correcting the iterator test; Full libc++ gate completed 2026-09-29 with no introduced failures; see the final session entry below. |
-| [ ] | P2198R7 | Freestanding feature-test macros | Audited 2026-09-16 against R7: required freestanding FTM inventory and meta/operator-new detection remain open. |
-| [ ] | P2338R4 | Freestanding character primitives & C library | |
-| [ ] | P2013R5 | Freestanding optional `::operator new` | Audited 2026-09-16 against R5: core-language/runtime-platform contract, not a safe libc++-only gate; depends on P2198 detection. |
-| [x] | P2407R5 | Freestanding partial classes | Complete 2026-09-29: all eight `variant::get` index/type free-function overloads are deleted freestanding; `get_if`, emplacement and constexpr visitation survive. Existing array/string_view/optional boundaries retained. Generator-owned variant macro and focused hosted/freestanding/macro gate: 56 passed. #23 remains open for other papers. |
+| [ ] | P2198R7 | Freestanding feature-test macros | **Implementation ready for root gates 2026-09-29.** Registered and regenerated the required generator-owned macros. `__cpp_lib_freestanding_operator_new` now reports only configured 0/202306L values; CMake detects libc++/in-tree libc++abi definitions, unknown runtimes default to zero, and verified external runtimes can opt in. Config-site substitution and both generated values were checked. |
+| [ ] | P2338R4 | Freestanding character primitives & C library | **Implementation ready for root gates 2026-09-29.** Added declaration-level compile coverage for integral `charconv`, all five required `char_traits` character types, required C string/C library/wide functions, `errc` and errno macros. Hosted floating overloads retain hosted semantics. Focused no-exceptions/no-threads syntax check passed. |
+| [ ] | P2013R5 | Freestanding optional `::operator new` | **Implementation ready for root gates 2026-09-29.** Audited default libc++ and in-tree libc++abi malloc/free-backed replaceable definitions. Added target config detection and explicit external-runtime opt-in; unknown runtime reports macro value 0. Both macro branches and replaceable overload declaration paths passed focused syntax checks. |
+| [x] | P2407R5 | Freestanding partial classes | **Complete 2026-09-29.** Freestanding `variant::get` overloads are declared deleted in `__fwd/variant.h` and omitted from the full implementation; `get_if`/`visit` remain available. Enabled the generated variant FTM. Added compile-positive and compile-fail coverage, and expanded partial-class tests across array/optional/expected/span/string_view deletion rules and surviving string_view operations. |
 | [x] | P2937R0 | Freestanding: remove `strtok` | Complete 2026-09-16; `<cstring>` omits `std::strtok` under `_LIBCPP_FREESTANDING` and has negative requires-expression coverage. |
-| [ ] | P2833R2 | Freestanding `expected`/`span` | Partial. `span::at` and `expected::value` are gated and tested; `out_ptr`/`inout_ptr` remain open. |
-| [ ] | P2976R1 | Freestanding `algorithm`/`numeric`/`random` | Audited 2026-09-16 against R1; execution-policy/allocating algorithm exclusions, random subset gating, and execution/random FTMs remain open. |
+| [x] | P2833R2 | Freestanding `expected`/`span` | **Complete 2026-09-29.** Existing span/expected partial surfaces and `mdspan` pass focused freestanding compiles; `out_ptr`/`inout_ptr` compile for `unique_ptr`, and their `shared_ptr` Mandates stay hosted-only. Added no-exceptions/no-threads compile coverage for both adaptors. |
+| [ ] | P2976R1 | Freestanding `algorithm`/`numeric`/`random` | **Implementation ready for root gates 2026-09-29.** Registered algorithm/memory/numeric/execution/random FTMs at 202502L. Added deleted algorithm, numeric and memory policy overloads; hosted-gated all three allocating algorithms including their ranges forms; gated numeric PSTL implementations in freestanding mode; exposed the required integer random subset and excluded optional/hosted random facilities. Header, module, C++17/C++26 focused syntax, and expected-failure checks passed. |
 
 ### Tier 6 — Long tail (small, independent items)
 
@@ -7573,3 +7573,43 @@ blocked, what's next. Do not remove old entries.
   start stamp is `92da86fc39f4`; its tested worktree included the unsigned-index
   fix subsequently committed as `ad8e794a4340`. Wave 7 (#36/#37) and P1642
   (#79) are ready for publication and closure. No frontend changes were needed.
+- **2026-09-29 (issue #23, freestanding close-up)**: Added the P2198 meta
+  feature-test macro; registered P2338 character/C-library FTMs and P2976
+  execution/numeric/random FTMs; kept allocation detection and the incomplete
+  algorithm FTM disabled. Completed P2407's `variant::get` deletion and P2833's
+  out/inout pointer validation. Direct syntax checks passed for focused
+  freestanding tests with `-fno-exceptions`, including a separately configured
+  no-threads header overlay. That run exposed and fixed `atomic<shared_ptr>` and
+  `atomic<weak_ptr>` wait/notify bodies that referenced missing thread wait
+  symbols in no-threads builds. Remaining blockers: P2013/P2198 target-aware
+  default-operator-new detection, exhaustive P2338 declaration audit, and
+  P2976's algorithm parallel-overload deletion surface. No full lit/build gate
+  was run; see `docs/waves56-freestanding-report.md` for commands and details.
+- **2026-09-29 (issue #23, implementation close-up)**: Completed the P2198,
+  P2338, P2013 and P2976 implementation inventories. Added target-configured
+  allocation FTM propagation (unknown runtimes report 0), declaration and
+  overload tests for the P2338 C primitives, deleted P2976 policy overloads,
+  excluded all classic/ranges allocating algorithm forms, and aligned header
+  and module exports. Fixed a missing config-site substitution, a ranges
+  allocation-algorithm exposure, and an ungated numeric PSTL implementation.
+  The focused no-exceptions/no-threads matrix, generated macro tests, C++17
+  policy checks, and source module parses pass. Full configured build/lit gates
+  remain root-owned; no issue closure is claimed.
+- **2026-09-29 (Waves 5/6 integrated gate update)**: Full Clang and
+  libc++ correctness archives now include the integrated implementation. The
+  Clang comparison found no new compiler failures; three added Python 3.14 lit
+  helper failures are sandbox forkserver socket denials. The clean-rebuilt
+  libc++ comparison found no new feature failures; three added failures are
+  sandbox restrictions (GDB ptrace and two Unix socket binds). Focused math,
+  exception, checkpoint, freestanding and macro coverage passed. Full suite
+  validation is therefore clean against baseline except for those identified
+  environment failures, but final feature-review items and publication remain;
+  #23, #118, #148 and #30 and their milestones remain open. #116 remains
+  deferred. See `docs/WAVES56.md` and the per-feature reports.
+
+- **2026-09-29 (Waves 5/6 continuation infrastructure)**: Rechecked the
+  persisted supervisor state after integrated validation. The recorded PID is
+  absent, `systemctl --user` cannot access the user bus, and the task queue has
+  no pending worker work. Overnight continuation is not available or verified;
+  resume requires a functioning user service or active session. Current gate
+  results and remaining criteria are in `docs/WAVES56.md`.

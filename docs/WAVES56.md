@@ -44,26 +44,17 @@ with a clean working tree.
 
 ## Continuation
 
-`cxx26/dev/wave-supervisor.py` runs as a host systemd user service. Its
-state, session IDs, prompts, attempts, retry times and JSONL logs live in
+`cxx26/dev/wave-supervisor.py` was designed for a host systemd user service.
+Its state, session IDs, prompts, attempts, retry times and JSONL logs live in
 `build-waves56-state/`; isolated sparse worktrees live in
 `build-waves56-worktrees/`. Baseline archives remain in `.git/waves56/archive/`.
-A file lock excludes duplicate runners;
-systemd's control-group cleanup kills prior workers before restarting.
-Only an explicit usage-limit error schedules retry at the reported reset
-time (five hours when absent). Other execution failures stop for inspection.
-Successful worker turns require integration review, never issue closure.
-Workers must produce a fresh structured result; incomplete work
-with further progress available resumes its saved session after one minute.
-Missing/stale results or an explicit blocker require inspection. Reported
-completion records evidence and remains subject to review.
-Use `systemctl --user status cxx26-waves56` and inspect `state.json`/logs.
-Stop through `systemctl --user stop cxx26-waves56`; a `STOP` file also stops
-dispatch between turns. User service survives interactive session closure;
-reboot/logout persistence is not claimed (user lingering is disabled).
-The supervisor stays alive while idle and accepts newly queued worker tasks.
-Root orchestrator owns integration and Git publication; a worker's inability
-to stage protected Git metadata does not block source implementation.
+The runner has recovery, duplicate-exclusion and explicit usage-limit tests.
+However, the live continuation is currently unavailable: `state.json` says the
+supervisor should stay alive with PID 1610517, but that PID is absent, and
+`systemctl --user` cannot connect to the user bus in this environment. The saved
+freestanding task is complete; no other tasks are queued. Therefore no overnight
+wake-up is currently verified or claimed. Resume work explicitly when the
+execution environment is available. Root owns integration and publication.
 
 ## Session log
 
@@ -113,3 +104,32 @@ to stage protected Git metadata does not block source implementation.
   configuration-independent wait/notify regression test; no-threads config
   overlay compiles and executes, hosted smart-pointer atomic gate reports
   two passes and one unsupported test. Compiler integration remains active.
+- 2026-09-29: P2407 and discovered #150 commits pushed through
+  `a7ca98e7709d`; #150 closed after no-threads/hosted validation. Rechecked
+  LLVM22 C++03 using its required frozen-header configuration: utility,
+  fstream and sstream smoke passes; #151 closed as a configuration correction.
+  Shared compiler rebuild remains active. Integrated math/exception/checkpoint
+  review fixes; old-compiler C++26 exception runtime copy/move/rethrow probe
+  passes after correcting declaration guards and fallback equality definition.
+  Original issues and both waves remain open pending full validation.
+- 2026-09-29: Closed the seven previously open GitHub milestones with
+  zero open issues (Waves 0–4, 8, and 9). Waves 5 and 6 remain open.
+
+- 2026-09-29: Integrated Wave 5/6 implementation passes focused compiler tests
+  for MPFR math, constexpr exception handles and observable checkpoints;
+  focused libc++ coverage passes 133/133. Freestanding audit reports 10
+  positives, 18 expected negatives, macro checks and hosted/freestanding
+  module parses passing. The clean-rebuilt full libc++ archive has 11,497
+  PASS, 26 XFAIL, 1,089 UNSUPPORTED; its three new failures are sandbox-only
+  (GDB ptrace and two Unix socket binds). Full Clang comparison has no new
+  compiler failures; three Python 3.14 lit helper failures are sandbox socket
+  denials. Reports are under `docs/waves56-*-report.md`. Issues #23, #118,
+  #148 and #30 and milestones 6/7 remain open; implementation review, residual
+  acceptance criteria, commits and publication are still required. No issue
+  or wave completion is claimed. #116 remains deferred.
+
+- 2026-09-29: Rechecked continuation infrastructure. The supervisor PID saved
+  in state is absent and `systemctl --user` is denied access to the user bus;
+  only the completed freestanding task is recorded and the queue is empty. The
+  planned overnight wake-up is unavailable in this environment. The worker
+  reports completion but it does not close issues.

@@ -77,7 +77,15 @@ Ninja
 Python 3
 GNU tar
 zstd
+MPFR 4.2.2 development headers and library
+GMP development headers and library
 ```
+
+Clang's constexpr `<cmath>` evaluator links against the system MPFR and GMP
+libraries. These are external build and runtime dependencies; the toolchain
+snapshot does not bundle or vendor either library. Install both development
+packages before building, and ensure the resulting MPFR/GMP shared libraries
+are available to the installed compiler at runtime.
 
 From the repository root:
 
