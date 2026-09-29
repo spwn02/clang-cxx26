@@ -10767,9 +10767,38 @@ void ASTReader::finishPendingActions() {
   }
   PendingBodies.clear();
 
-  // Inform any classes that had members added that they now have more members.
+  // Inform any classes that had members added that they now have more
+  // members. An implicit member added to an imported class by a *different*
+  // module (see ASTWriter::AddedCXXImplicitMember's isImportedDeclContext
+  // check) is deserialized here as a standalone Decl that was never spliced
+  // into its class's lexical decl chain -- splice it in now, matching what
+  // DeclContext::addHiddenDecl would have done had the member been added
+  // locally, before updating the class's member-presence bits.
+  //
+  // Two or more modules can independently synthesize "the same" implicit
+  // member for a class they all import (e.g. two modules each first using a
+  // particular inheriting-constructor overload); the reader's usual
+  // redeclaration merging then chains those distinct Decls together as
+  // redeclarations of one entity, even though each is individually pending
+  // here. Guard on the whole redeclaration chain, not just MD itself, so a
+  // later module's copy doesn't get spliced in a second time once an earlier
+  // module's copy (or any other path) already linked one into this context.
   for (auto [RD, MD] : PendingAddedClassMembers) {
-    RD->addedMember(MD);
+    DeclContext *LexicalDC = MD->getLexicalDeclContext();
+    bool AlreadyLinked = false;
+    if (LexicalDC) {
+      for (Decl *Redecl = MD->getMostRecentDecl(); Redecl;
+           Redecl = Redecl->getPreviousDecl()) {
+        if (LexicalDC->containsDecl(Redecl)) {
+          AlreadyLinked = true;
+          break;
+        }
+      }
+    }
+    if (LexicalDC && !AlreadyLinked)
+      LexicalDC->addHiddenDecl(MD);
+    else
+      RD->addedMember(MD);
   }
   PendingAddedClassMembers.clear();
 
