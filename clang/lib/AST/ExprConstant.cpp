@@ -62,6 +62,7 @@
 #include "llvm/ADT/APFixedPoint.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/SmallBitVector.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
@@ -74,6 +75,8 @@
 #include <functional>
 #include <limits>
 #include <optional>
+#include <string>
+#include <mpfr.h>
 
 #define DEBUG_TYPE "exprconstant"
 
@@ -690,6 +693,10 @@ static bool HandleDestruction(EvalInfo &Info, const Expr *E,
 static bool HandleDestruction(EvalInfo &Info, SourceLocation Loc,
                               APValue::LValueBase LVBase, APValue &Value,
                               QualType T);
+static bool HandleConstructorCall(const Expr *E, const LValue &This,
+                                  CallRef Call,
+                                  const CXXConstructorDecl *Definition,
+                                  EvalInfo &Info, APValue &Result);
 
 namespace {
   /// A cleanup, and a flag indicating whether it is lifetime-extended.
@@ -802,6 +809,19 @@ namespace {
     }
   };
 
+  struct ExceptionObjectInfo {
+    QualType Type;
+    unsigned HandleCount = 0;
+    unsigned HandlerCount = 0;
+    bool IsInFlight = true;
+    const Expr *ThrowExpr = nullptr;
+    const Expr *ObjectKey = nullptr;
+    SmallVector<PartialDiagnosticAt, 4> CallStackNotes;
+    std::string MetaReason;
+
+    explicit ExceptionObjectInfo(QualType T) : Type(T) {}
+  };
+
   /// EvalInfo - This is a private struct used by the evaluator to capture
   /// information about a subexpression as it is folded.  It retains information
   /// about the AST context, but also maintains information about the folded
@@ -885,6 +905,12 @@ namespace {
     /// for the stored APValues.
     std::map<DynamicAllocLValue, DynAlloc, DynAllocOrder> HeapAllocs;
 
+    /// Exception objects live independently of the throw-expression's call
+    /// frame. The allocation key is stable across nested handlers and is also
+    /// the identity retained by constexpr exception_ptr handles.
+    std::map<DynamicAllocLValue, ExceptionObjectInfo, DynAllocOrder>
+        ExceptionObjects;
+
     /// The number of heap allocations performed so far in this evaluation.
     unsigned NumHeapAllocs = 0;
 
@@ -902,6 +928,7 @@ namespace {
       /// normally the throw operand, but evaluator-originated exceptions have
       /// no CXXThrowExpr and supply their owning expression directly.
       const Expr *ObjectKey;
+      DynamicAllocLValue ObjectAlloc;
       /// The "in call to" backtrace notes for the call stack as it existed
       /// at the moment of the throw, captured eagerly because by the time
       /// it's known whether this exception is actually uncaught, every
@@ -913,6 +940,11 @@ namespace {
       std::string MetaReason;
     };
     std::optional<PendingExceptionInfo> PendingException;
+
+    /// Exceptions whose handlers are currently executing. This is distinct
+    /// from PendingException: a caught exception is no longer propagating,
+    /// but remains the operand of a permitted `throw;` rethrow.
+    SmallVector<PendingExceptionInfo, 4> ActiveExceptions;
 
     struct EvaluatingConstructorRAII {
       EvalInfo &EI;
@@ -6819,27 +6851,19 @@ static EvalStmtResult EvaluateStmt(StmtResult &Result, EvalInfo &Info,
           ObjTy = RefTy->getPointeeType();
 
         if (CatchTy->isReferenceType()) {
-          // An LValueBase's effective type is permanently tied to its key
-          // expression's own static type (re-derived from scratch every
-          // time the LValue is reloaded from storage), so the exception
-          // object's backing storage must be keyed by the original throw
-          // operand (whose static type is exactly Exc.Ty), not a synthetic
-          // expression. Bind the reference to it, applying an ordinary
-          // derived-to-base cast (same as any other base-class reference
-          // binding) when the handler catches a base class rather than the
-          // exact type -- this deliberately does not preserve the thrown
-          // object's identity across multiple catches of the same
-          // exception (V1 has no support for rethrow, so nothing can
-          // observe the difference between this and a "real" reference to
-          // the original exception object).
-          const Expr *ObjKey = Exc.ObjectKey;
+          // Bind directly to the retained exception allocation so reference
+          // catches, exception_ptr_cast, and rethrows all observe one stable
+          // object. Apply the ordinary derived-to-base adjustment when the
+          // handler catches a base class rather than the exact type.
           LValue ObjLV;
-          APValue &ObjSlot = Info.CurrentCall->createTemporary(
-              ObjKey, Exc.Ty, ScopeKind::Block, ObjLV);
-          ObjSlot = Exc.Value;
+          auto Alloc = Info.lookupDynamicAlloc(Exc.ObjectAlloc);
+          if (!Alloc)
+            return ESR_Failed;
+          ObjLV.set(APValue::LValueBase::getDynamicAlloc(Exc.ObjectAlloc,
+                                                          Exc.Ty));
 
           if (!Info.Ctx.hasSameUnqualifiedType(Exc.Ty, ObjTy) &&
-              !CastToBaseClass(Info, ObjKey, ObjLV,
+              !CastToBaseClass(Info, Exc.ThrowExpr, ObjLV,
                                Exc.Ty->getAsCXXRecordDecl(),
                                ObjTy->getAsCXXRecordDecl()))
             return ESR_Failed;
@@ -6849,31 +6873,92 @@ static EvalStmtResult EvaluateStmt(StmtResult &Result, EvalInfo &Info,
               ExDecl, CatchTy, ScopeKind::Block, RefLV);
           ObjLV.moveInto(RefSlot);
         } else {
-          // A by-value catch's storage is keyed by the exception-declaration
-          // itself, whose static type already exactly matches CatchTy, so a
-          // direct (possibly base-slicing) copy of the exception value is
-          // sufficient -- no addressability concerns here.
+          // Initialize the handler parameter from the exception object. A
+          // non-trivial copy constructor must run here; copying APValue alone
+          // would lose observable copy effects and could skip its destructor.
           LValue LV;
           APValue &Slot = Info.CurrentCall->createTemporary(
               ExDecl, CatchTy, ScopeKind::Block, LV);
-          Slot = ExtractCaughtSubobject(Exc.Ty, ObjTy, Exc.Value);
+          auto Alloc = Info.lookupDynamicAlloc(Exc.ObjectAlloc);
+          if (!Alloc)
+            return ESR_Failed;
+          APValue &ExceptionValue = (*Alloc)->Value;
+          const CXXRecordDecl *CatchRD = ObjTy->getAsCXXRecordDecl();
+          const CXXConstructorDecl *CopyCtor = nullptr;
+          if (CatchRD)
+            for (const CXXConstructorDecl *Ctor : CatchRD->ctors())
+              if (Ctor->isCopyConstructor() && !Ctor->isDeleted()) {
+                CopyCtor = Ctor;
+                break;
+              }
+          if (CopyCtor && !CopyCtor->isTrivial()) {
+            LValue SourceLV;
+            SourceLV.set(APValue::LValueBase::getDynamicAlloc(
+                Exc.ObjectAlloc, Exc.Ty));
+            if (!Info.Ctx.hasSameUnqualifiedType(Exc.Ty, ObjTy) &&
+                !CastToBaseClass(Info, Exc.ThrowExpr, SourceLV,
+                                 Exc.Ty->getAsCXXRecordDecl(),
+                                 ObjTy->getAsCXXRecordDecl()))
+              return ESR_Failed;
+
+            CallScopeRAII CopyScope(Info);
+            CallRef CopyCall = Info.CurrentCall->createCall(CopyCtor);
+            LValue ParamLV;
+            APValue &Param = Info.CurrentCall->createParam(
+                CopyCall, CopyCtor->getParamDecl(0), ParamLV);
+            SourceLV.moveInto(Param);
+            if (!HandleConstructorCall(Exc.ThrowExpr, LV, CopyCall, CopyCtor,
+                                       Info, Slot) ||
+                !CopyScope.destroy()) {
+              Info.cancelCleanup(Slot);
+              return ESR_Failed;
+            }
+          } else {
+            Slot = ExtractCaughtSubobject(Exc.Ty, ObjTy, ExceptionValue);
+          }
         }
       }
 
-      if (!ExDecl) {
-        // catch(...) names no object, but the exception object is still
-        // destroyed when the handler exits ([except.handle]p10); give it
-        // storage that the handler's scope destroys so that anything it
-        // owns (e.g. a std::string message) is not reported as leaked.
-        LValue ObjLV;
-        APValue &ObjSlot = Info.CurrentCall->createTemporary(
-            Exc.ObjectKey, Exc.Ty, ScopeKind::Block, ObjLV);
-        ObjSlot = Exc.Value;
-      }
-
+      Info.ActiveExceptions.push_back(Exc);
+      auto ActiveIt = Info.ExceptionObjects.find(Exc.ObjectAlloc);
+      if (ActiveIt != Info.ExceptionObjects.end())
+        ++ActiveIt->second.HandlerCount;
       ESR = EvaluateStmt(Result, Info, Handler->getHandlerBlock());
-      if (ESR != ESR_Failed && !Scope.destroy())
+      bool ScopeDestroyed = Scope.destroy();
+      Info.ActiveExceptions.pop_back();
+      // Handler evaluation can allocate/release exception objects. Re-find by
+      // identity instead of retaining a container iterator across that work.
+      ActiveIt = Info.ExceptionObjects.find(Exc.ObjectAlloc);
+      if (ActiveIt != Info.ExceptionObjects.end())
+        --ActiveIt->second.HandlerCount;
+      if (!ScopeDestroyed)
         return ESR_Failed;
+      const bool HandlerExitsException =
+          ESR != ESR_Failed ||
+          (Info.PendingException &&
+           Info.PendingException->ObjectAlloc.getIndex() !=
+               Exc.ObjectAlloc.getIndex());
+      if (HandlerExitsException) {
+        // The exception object has one owner while it propagates and is
+        // destroyed after the matching handler, unless an exception_ptr has
+        // retained it. Heap storage gives references returned by casts a
+        // stable identity throughout that lifetime.
+        auto It = Info.ExceptionObjects.find(Exc.ObjectAlloc);
+        if (It != Info.ExceptionObjects.end() && !It->second.HandleCount &&
+            !It->second.HandlerCount) {
+          auto Alloc = Info.lookupDynamicAlloc(Exc.ObjectAlloc);
+          if (Alloc &&
+              !HandleDestruction(Info, Handler->getBeginLoc(),
+                                 APValue::LValueBase::getDynamicAlloc(
+                                     Exc.ObjectAlloc, Exc.Ty),
+                                 (*Alloc)->Value, Exc.Ty))
+            return ESR_Failed;
+          Info.HeapAllocs.erase(Exc.ObjectAlloc);
+          Info.ExceptionObjects.erase(It);
+        } else if (It != Info.ExceptionObjects.end()) {
+          It->second.IsInFlight = false;
+        }
+      }
       return ESR;
     }
 
@@ -9274,8 +9359,13 @@ protected:
 
   bool IsConstantEvaluatedBuiltinCall(const CallExpr *E) {
     unsigned BuiltinOp = E->getBuiltinCallee();
-    return BuiltinOp != 0 &&
-           Info.Ctx.BuiltinInfo.isConstantEvaluated(BuiltinOp);
+    if (BuiltinOp == 0)
+      return false;
+    const bool CXX26Constexpr =
+        Info.Ctx.BuiltinInfo.isCXX26ConstantEvaluated(BuiltinOp);
+    if (CXX26Constexpr)
+      return Info.Ctx.getLangOpts().CPlusPlus26;
+    return Info.Ctx.BuiltinInfo.isConstantEvaluated(BuiltinOp);
   }
 
 public:
@@ -9312,17 +9402,24 @@ public:
   bool VisitCXXThrowExpr(const CXXThrowExpr *E) {
     const Expr *SubExpr = E->getSubExpr();
     if (!SubExpr) {
-      // Bare `throw;` (rethrow). Not supported: this would need to track
-      // which exception is "currently being handled" (a separate, narrower
-      // notion than Info.PendingException, which only tracks in-flight
-      // propagation) per [expr.const.core]p2.25. Failing here is a safe
-      // under-approximation -- it rejects a valid program rather than
-      // accepting an invalid one.
-      return Error(E);
+      // Rethrow the currently handled exception. Preserve its original type,
+      // object key, and diagnostic provenance so enclosing handlers use the
+      // same matching and lifetime machinery as an ordinary propagation.
+      if (Info.ActiveExceptions.empty())
+        return Error(E);
+      EvalInfo::PendingExceptionInfo Exc = Info.ActiveExceptions.back();
+      auto Alloc = Info.lookupDynamicAlloc(Exc.ObjectAlloc);
+      if (!Alloc)
+        return Error(E);
+      Exc.Value = (*Alloc)->Value;
+      Info.PendingException.emplace(std::move(Exc));
+      return false;
     }
 
     APValue Val;
-    QualType Ty = SubExpr->getType();
+    // [except.throw] removes top-level cv-qualification from the exception
+    // object type even when the thrown operand is a const lvalue.
+    QualType Ty = SubExpr->getType().getUnqualifiedType();
     if (!Evaluate(Val, Info, SubExpr))
       return false;
     // Ownership of the completed throw operand moves into PendingException.
@@ -9336,8 +9433,22 @@ public:
     SmallVector<PartialDiagnosticAt, 4> CallStackNotes;
     CaptureCallStackNotes(Info, CallStackNotes);
 
+    LValue ObjectLV;
+    APValue *Object = Info.createHeapAlloc(E, Ty, ObjectLV);
+    if (!Object)
+      return false;
+    *Object = Val;
+    DynamicAllocLValue ObjectAlloc =
+        ObjectLV.getLValueBase().get<DynamicAllocLValue>();
+    auto It = Info.ExceptionObjects
+                  .try_emplace(ObjectAlloc, ExceptionObjectInfo{Ty})
+                  .first;
+    It->second.ThrowExpr = E;
+    It->second.ObjectKey = SubExpr;
+    It->second.CallStackNotes = CallStackNotes;
     Info.PendingException.emplace(EvalInfo::PendingExceptionInfo{
-        std::move(Val), Ty, E, SubExpr, std::move(CallStackNotes)});
+        std::move(Val), Ty, E, SubExpr, ObjectAlloc,
+        std::move(CallStackNotes), {}});
     return false;
   }
 
@@ -9542,6 +9653,13 @@ public:
     const Expr *Callee = E->getCallee()->IgnoreParens();
     QualType CalleeType = Callee->getType();
 
+    const unsigned Intrinsic = E->getBuiltinCallee();
+    const bool IsExceptionHandleBuiltin =
+        Intrinsic == Builtin::BI__builtin_constexpr_exception_capture ||
+        Intrinsic == Builtin::BI__builtin_constexpr_exception_retain ||
+        Intrinsic == Builtin::BI__builtin_constexpr_exception_release ||
+        Intrinsic == Builtin::BI__builtin_constexpr_exception_rethrow;
+
     const FunctionDecl *FD = nullptr;
     LValue *This = nullptr, ObjectArg;
     auto Args = ArrayRef(E->getArgs(), E->getNumArgs());
@@ -9549,8 +9667,14 @@ public:
 
     CallRef Call;
 
-    // Extract function decl and 'this' pointer from the callee.
-    if (CalleeType->isSpecificBuiltinType(BuiltinType::BoundMember)) {
+    // These evaluator-only intrinsics are not callable function addresses.
+    // Resolve their declaration directly rather than trying to evaluate the
+    // BuiltinFnToFnPtr callee expression as a regular function pointer.
+    if (IsExceptionHandleBuiltin) {
+      FD = E->getDirectCallee();
+      if (!FD)
+        return Error(E);
+    } else if (CalleeType->isSpecificBuiltinType(BuiltinType::BoundMember)) {
       const CXXMethodDecl *Member = nullptr;
       if (const MemberExpr *ME = dyn_cast<MemberExpr>(Callee)) {
         // Explicit bound member calls, such as x.f() or p->g();
@@ -9692,12 +9816,118 @@ public:
     } else
       return Error(E);
 
-    // Evaluate the arguments now if we've not already done so.
+    // Evaluate the arguments now if we've not already done so. The exception
+    // handle hooks need the exact APValue produced for their pointer argument;
+    // some immediate builtin calls do not leave that slot reachable through
+    // CallRef after argument evaluation, so preserve it directly here.
+    APValue *ExceptionHandleArg = nullptr;
+    APValue DirectExceptionHandleArg;
+    bool IsExceptionHandleOperation =
+        Intrinsic == Builtin::BI__builtin_constexpr_exception_retain ||
+        Intrinsic == Builtin::BI__builtin_constexpr_exception_release ||
+        Intrinsic == Builtin::BI__builtin_constexpr_exception_rethrow;
     if (!Call) {
       Call = Info.CurrentCall->createCall(FD);
-      if (!EvaluateArgs(Args, Call, Info, FD, /*RightToLeft*/ false,
-                        &ObjectArg))
+      if (IsExceptionHandleOperation) {
+        if (Args.size() != 1 || FD->getNumParams() != 1)
+          return false;
+        if (Args[0]->isGLValue()) {
+          LValue HandleLV;
+          if (!EvaluateLValue(Args[0], HandleLV, Info) ||
+              !handleLValueToRValueConversion(
+                  Info, Args[0], Args[0]->getType(), HandleLV,
+                  DirectExceptionHandleArg))
+            return false;
+        } else if (!Evaluate(DirectExceptionHandleArg, Info, Args[0])) {
+          return false;
+        }
+        ExceptionHandleArg = &DirectExceptionHandleArg;
+      } else if (!EvaluateArgs(Args, Call, Info, FD, /*RightToLeft*/ false,
+                               &ObjectArg)) {
         return false;
+      }
+    } else if (IsExceptionHandleOperation && FD->getNumParams() == 1) {
+      ExceptionHandleArg =
+          Info.getParamSlot(Call, FD->getParamDecl(0));
+    }
+
+    // These evaluator intrinsics are the constexpr-only half of libc++'s
+    // exception_ptr implementation. Their runtime definitions remain ordinary
+    // ABI functions; constant evaluation maps handles directly to the stable
+    // exception-object allocation retained in EvalInfo.
+    if (Intrinsic == Builtin::BI__builtin_constexpr_exception_capture) {
+      if (Info.ActiveExceptions.empty()) {
+        LValue Null;
+        Null.setNull(Info.Ctx, E->getType());
+        Null.moveInto(Result);
+        return CallScope.destroy();
+      }
+      DynamicAllocLValue DA = Info.ActiveExceptions.back().ObjectAlloc;
+      auto It = Info.ExceptionObjects.find(DA);
+      if (It == Info.ExceptionObjects.end())
+        return Error(E);
+      ++It->second.HandleCount;
+      LValue Handle;
+      Handle.set(APValue::LValueBase::getDynamicAlloc(DA, It->second.Type));
+      Handle.moveInto(Result);
+      return CallScope.destroy();
+    }
+    if (Intrinsic == Builtin::BI__builtin_constexpr_exception_retain ||
+        Intrinsic == Builtin::BI__builtin_constexpr_exception_release ||
+        Intrinsic == Builtin::BI__builtin_constexpr_exception_rethrow) {
+      LValue Handle;
+      if (E->getNumArgs() != 1)
+        return false;
+      APValue *HandleValue = ExceptionHandleArg;
+      if (!HandleValue || !HandleValue->isLValue())
+        return Error(E);
+      Handle.setFrom(Info.Ctx, *HandleValue);
+      DynamicAllocLValue DA =
+          Handle.getLValueBase().dyn_cast<DynamicAllocLValue>();
+      if (Handle.isNullPointer() &&
+          (Intrinsic == Builtin::BI__builtin_constexpr_exception_retain ||
+           Intrinsic == Builtin::BI__builtin_constexpr_exception_release))
+        return CallScope.destroy();
+      auto It = Info.ExceptionObjects.find(DA);
+      if (It == Info.ExceptionObjects.end())
+        return Error(E);
+      if (Intrinsic == Builtin::BI__builtin_constexpr_exception_retain) {
+        ++It->second.HandleCount;
+        return CallScope.destroy();
+      }
+      if (Intrinsic == Builtin::BI__builtin_constexpr_exception_release) {
+        if (!It->second.HandleCount)
+          return Error(E);
+        --It->second.HandleCount;
+        if (!It->second.HandleCount && !It->second.IsInFlight &&
+            !It->second.HandlerCount) {
+          auto Alloc = Info.lookupDynamicAlloc(DA);
+          if (Alloc &&
+              !HandleDestruction(Info, E->getExprLoc(),
+                                 APValue::LValueBase::getDynamicAlloc(
+                                              DA, It->second.Type),
+                                 (*Alloc)->Value, It->second.Type))
+            return false;
+          Info.HeapAllocs.erase(DA);
+          Info.ExceptionObjects.erase(It);
+        }
+        return CallScope.destroy();
+      }
+
+      auto Alloc = Info.lookupDynamicAlloc(DA);
+      if (!Alloc)
+        return Error(E);
+      It->second.IsInFlight = true;
+      const Expr *ThrowExpr = It->second.ThrowExpr
+                                  ? It->second.ThrowExpr
+                                  : E;
+      const Expr *ObjectKey = It->second.ObjectKey
+                                  ? It->second.ObjectKey
+                                  : E;
+      Info.PendingException.emplace(EvalInfo::PendingExceptionInfo{
+          (*Alloc)->Value, It->second.Type, ThrowExpr, ObjectKey, DA,
+          It->second.CallStackNotes, It->second.MetaReason});
+      return false;
     }
 
     SmallVector<QualType, 4> CovariantAdjustmentPath;
@@ -11394,6 +11624,19 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     return Success(E);
 
   switch (BuiltinOp) {
+  case Builtin::BI__builtin_constexpr_exception_capture: {
+    if (Info.ActiveExceptions.empty()) {
+      Result.setNull(Info.Ctx, E->getType());
+      return true;
+    }
+    DynamicAllocLValue DA = Info.ActiveExceptions.back().ObjectAlloc;
+    auto It = Info.ExceptionObjects.find(DA);
+    if (It == Info.ExceptionObjects.end())
+      return Error(E);
+    ++It->second.HandleCount;
+    Result.set(APValue::LValueBase::getDynamicAlloc(DA, It->second.Type));
+    return true;
+  }
   case Builtin::BIaddressof:
   case Builtin::BI__addressof:
   case Builtin::BI__builtin_addressof:
@@ -17605,7 +17848,10 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
 
   case Builtin::BI__builtin_abs:
   case Builtin::BI__builtin_labs:
-  case Builtin::BI__builtin_llabs: {
+  case Builtin::BI__builtin_llabs:
+  case Builtin::BIabs:
+  case Builtin::BIlabs:
+  case Builtin::BIllabs: {
     APSInt Val;
     if (!EvaluateInteger(E->getArg(0), Val, Info))
       return false;
@@ -20426,6 +20672,207 @@ static bool TryEvaluateBuiltinNaN(const ASTContext &Context,
   return true;
 }
 
+// Transfer APFloat values through their mathematical binary representation.
+// In particular, neither conversion passes through a host floating type, whose
+// precision and exponent range may differ from the target format.
+static bool setMPFR(mpfr_t Out, const APFloat &Value) {
+  if (Value.isNaN()) { mpfr_set_nan(Out); return true; }
+  if (Value.isInfinity()) {
+    mpfr_set_inf(Out, Value.isNegative() ? -1 : 1);
+    return true;
+  }
+  if (Value.isZero()) {
+    mpfr_set_zero(Out, Value.isNegative() ? -1 : 1);
+    return true;
+  }
+  if (&Value.getSemantics() == &APFloat::PPCDoubleDouble()) {
+    // IBM double-double is a sum of two binary64 components, not a single
+    // 106-bit significand: the low component may sit far below bit 106 of the
+    // high component. Preserve both raw IEEE encodings and add them at enough
+    // MPFR precision to retain the complete binary64 exponent span.
+    APInt Raw = Value.bitcastToAPInt();
+    APFloat High(APFloat::IEEEdouble(), Raw.trunc(64));
+    APFloat Low(APFloat::IEEEdouble(), Raw.lshr(64).trunc(64));
+    mpfr_t HighMPFR, LowMPFR;
+    mpfr_init2(HighMPFR, mpfr_get_prec(Out));
+    mpfr_init2(LowMPFR, mpfr_get_prec(Out));
+    bool Exact = setMPFR(HighMPFR, High) && setMPFR(LowMPFR, Low);
+    if (Exact)
+      mpfr_add(Out, HighMPFR, LowMPFR, MPFR_RNDN);
+    mpfr_clear(HighMPFR);
+    mpfr_clear(LowMPFR);
+    return Exact;
+  }
+  APFloat Abs = Value;
+  Abs.clearSign();
+  const unsigned Precision = APFloat::semanticsPrecision(Value.getSemantics());
+  APFloat Scaled = scalbn(Abs, static_cast<int>(Precision) - 1 - ilogb(Abs),
+                          llvm::RoundingMode::NearestTiesToEven);
+  APSInt Mantissa(Precision, /*isUnsigned=*/true);
+  bool Exact = false;
+  if ((Scaled.convertToInteger(Mantissa, llvm::RoundingMode::TowardZero,
+                               &Exact) & APFloat::opInvalidOp) || !Exact)
+    return false;
+  mpz_t Integer;
+  mpz_init(Integer);
+  for (unsigned I = Mantissa.getBitWidth(); I != 0; --I) {
+    mpz_mul_2exp(Integer, Integer, 1);
+    if (Mantissa[I - 1]) mpz_add_ui(Integer, Integer, 1);
+  }
+  mpfr_set_z(Out, Integer, MPFR_RNDN);
+  mpfr_mul_2si(Out, Out, ilogb(Abs) - static_cast<mpfr_exp_t>(Precision) + 1,
+               MPFR_RNDN);
+  if (Value.isNegative()) mpfr_neg(Out, Out, MPFR_RNDN);
+  mpz_clear(Integer);
+  return true;
+}
+
+static bool getAPFloat(APFloat &Out, mpfr_srcptr Value,
+                       llvm::RoundingMode RM,
+                       APFloat::opStatus *ConversionStatus = nullptr) {
+  if (ConversionStatus)
+    *ConversionStatus = APFloat::opOK;
+  if (mpfr_nan_p(Value)) {
+    Out = APFloat::getQNaN(Out.getSemantics(), mpfr_signbit(Value));
+    return true;
+  }
+  if (mpfr_inf_p(Value)) {
+    Out = APFloat::getInf(Out.getSemantics(), mpfr_signbit(Value));
+    return true;
+  }
+  if (mpfr_zero_p(Value)) {
+    Out = APFloat::getZero(Out.getSemantics(), mpfr_signbit(Value));
+    return true;
+  }
+  mpz_t Integer;
+  mpz_init(Integer);
+  mpfr_exp_t Exponent = mpfr_get_z_2exp(Integer, Value);
+  bool Negative = mpz_sgn(Integer) < 0;
+  if (Negative) mpz_neg(Integer, Integer);
+  std::string Digits(mpz_sizeinbase(Integer, 16) + 2, '\0');
+  mpz_get_str(Digits.data(), 16, Integer);
+  Digits.resize(Digits.find('\0'));
+  llvm::SmallString<256> Spelling;
+  if (Negative) Spelling += '-';
+  Spelling += "0x";
+  Spelling += Digits;
+  Spelling += 'p';
+  Spelling += llvm::itostr(Exponent);
+  auto Parsed = Out.convertFromString(Spelling, RM);
+  if (!Parsed) {
+    llvm::consumeError(Parsed.takeError());
+    mpz_clear(Integer);
+    return false;
+  }
+  APFloat::opStatus Status = *Parsed;
+  if (ConversionStatus)
+    *ConversionStatus = Status;
+  if (Status & APFloat::opInvalidOp) {
+    mpz_clear(Integer);
+    return false;
+  }
+  mpz_clear(Integer);
+  return true;
+}
+
+enum class MPFROp { Sqrt, Cbrt, Pow, Exp, Exp2, Expm1, Log, Log10, Log1p,
+                    Log2, Sin, Cos, Tan, Asin, Acos, Atan, Atan2, Sinh,
+                    Cosh, Tanh, Asinh, Acosh, Atanh, Hypot, Erf, Erfc,
+                    Lgamma, Tgamma };
+
+static bool evaluateMPFROp(APFloat &Result, const APFloat &X,
+                           const APFloat *Y, MPFROp Op,
+                           llvm::RoundingMode RM) {
+  mpfr_t A, B, Lo, Hi;
+  mpfr_prec_t Precision = std::max<mpfr_prec_t>(
+      128, APFloat::semanticsPrecision(Result.getSemantics()) + 32);
+  if (&Result.getSemantics() == &APFloat::PPCDoubleDouble() ||
+      &X.getSemantics() == &APFloat::PPCDoubleDouble() ||
+      (Y && &Y->getSemantics() == &APFloat::PPCDoubleDouble()))
+    Precision = std::max<mpfr_prec_t>(Precision, 2304);
+  mpfr_init2(A, Precision); mpfr_init2(B, Precision);
+  mpfr_init2(Lo, Precision); mpfr_init2(Hi, Precision);
+  bool OK = setMPFR(A, X) && (!Y || setMPFR(B, *Y));
+  if (OK) {
+    // MPFR's directed modes bound the exact result. Increase precision until
+    // both bounds round to the same target value in the active mode (Ziv's
+    // strategy). This proves the returned APFloat rounding, including ties
+    // and subnormal boundaries, instead of relying on a guard-bit heuristic.
+    for (unsigned Iteration = 0; Iteration != 8; ++Iteration) {
+      auto Apply = [&](mpfr_ptr Out, mpfr_rnd_t Direction) {
+        switch (Op) {
+        case MPFROp::Sqrt: return mpfr_sqrt(Out, A, Direction);
+        case MPFROp::Cbrt: return mpfr_cbrt(Out, A, Direction);
+        case MPFROp::Pow: return mpfr_pow(Out, A, B, Direction);
+        case MPFROp::Exp: return mpfr_exp(Out, A, Direction);
+        case MPFROp::Exp2: return mpfr_exp2(Out, A, Direction);
+        case MPFROp::Expm1: return mpfr_expm1(Out, A, Direction);
+        case MPFROp::Log: return mpfr_log(Out, A, Direction);
+        case MPFROp::Log10: return mpfr_log10(Out, A, Direction);
+        case MPFROp::Log1p: return mpfr_log1p(Out, A, Direction);
+        case MPFROp::Log2: return mpfr_log2(Out, A, Direction);
+        case MPFROp::Sin: return mpfr_sin(Out, A, Direction);
+        case MPFROp::Cos: return mpfr_cos(Out, A, Direction);
+        case MPFROp::Tan: return mpfr_tan(Out, A, Direction);
+        case MPFROp::Asin: return mpfr_asin(Out, A, Direction);
+        case MPFROp::Acos: return mpfr_acos(Out, A, Direction);
+        case MPFROp::Atan: return mpfr_atan(Out, A, Direction);
+        case MPFROp::Atan2: return mpfr_atan2(Out, A, B, Direction);
+        case MPFROp::Sinh: return mpfr_sinh(Out, A, Direction);
+        case MPFROp::Cosh: return mpfr_cosh(Out, A, Direction);
+        case MPFROp::Tanh: return mpfr_tanh(Out, A, Direction);
+        case MPFROp::Asinh: return mpfr_asinh(Out, A, Direction);
+        case MPFROp::Acosh: return mpfr_acosh(Out, A, Direction);
+        case MPFROp::Atanh: return mpfr_atanh(Out, A, Direction);
+        case MPFROp::Hypot: return mpfr_hypot(Out, A, B, Direction);
+        case MPFROp::Erf: return mpfr_erf(Out, A, Direction);
+        case MPFROp::Erfc: return mpfr_erfc(Out, A, Direction);
+        case MPFROp::Lgamma: { int Sign = 0; return mpfr_lgamma(Out, &Sign, A, Direction); }
+        case MPFROp::Tgamma: return mpfr_gamma(Out, A, Direction);
+        }
+        llvm_unreachable("unhandled MPFR operation");
+      };
+      Apply(Lo, MPFR_RNDD);
+      Apply(Hi, MPFR_RNDU);
+      APFloat Low(Result.getSemantics()), High(Result.getSemantics());
+      APFloat::opStatus LowStatus, HighStatus;
+      OK = getAPFloat(Low, Lo, RM, &LowStatus) &&
+           getAPFloat(High, Hi, RM, &HighStatus);
+      if (!OK) break;
+      if (mpfr_nan_p(Lo) && mpfr_nan_p(Hi)) {
+        OK = false;
+        break;
+      }
+      if (mpfr_inf_p(Lo) && mpfr_inf_p(Hi) &&
+          mpfr_signbit(Lo) == mpfr_signbit(Hi)) {
+        if (X.isFinite() && (!Y || Y->isFinite())) {
+          OK = false; // finite-argument overflow or a finite-input pole
+          break;
+        }
+        Result = APFloat::getInf(Result.getSemantics(), mpfr_signbit(Lo));
+        break;
+      }
+      if (Low.bitcastToAPInt() == High.bitcastToAPInt()) {
+        if ((LowStatus | HighStatus) & (APFloat::opOverflow | APFloat::opUnderflow)) {
+          OK = false;
+          break;
+        }
+        Result = Low;
+        break;
+      }
+      OK = false;
+      if (Iteration != 7) {
+        Precision *= 2;
+        mpfr_set_prec(A, Precision); mpfr_set_prec(B, Precision);
+        mpfr_set_prec(Lo, Precision); mpfr_set_prec(Hi, Precision);
+        if (!(setMPFR(A, X) && (!Y || setMPFR(B, *Y)))) break;
+      }
+    }
+  }
+  mpfr_clear(A); mpfr_clear(B); mpfr_clear(Lo); mpfr_clear(Hi);
+  return OK;
+}
+
 bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   if (!IsConstantEvaluatedBuiltinCall(E))
     return ExprEvaluatorBaseTy::VisitCallExpr(E);
@@ -20433,6 +20880,152 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   switch (E->getBuiltinCallee()) {
   default:
     return false;
+
+  // MPFR handles exceptional values with the C math/IEC 60559 conventions.
+  // Domain and pole errors are deliberately rejected as constant expressions
+  // so their runtime libm behavior remains observable.
+#define EVAL_MPFR1(ID, OP) case Builtin::BI__builtin_##ID: case Builtin::BI##ID: \
+  case Builtin::BI__builtin_##ID##f: case Builtin::BI##ID##f: \
+  case Builtin::BI__builtin_##ID##l: case Builtin::BI##ID##l: \
+    if (!EvaluateFloat(E->getArg(0), Result, Info)) return false; \
+    if (Result.isNaN()) return true; \
+    if (((OP) == MPFROp::Sqrt && Result.isNegative() && !Result.isZero()) || \
+        (((OP) == MPFROp::Log || (OP) == MPFROp::Log10 || (OP) == MPFROp::Log2) && (Result.isNegative() || Result.isZero())) || \
+        ((OP) == MPFROp::Log1p && (Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpLessThan || Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpEqual)) || \
+        (((OP) == MPFROp::Asin || (OP) == MPFROp::Acos) && (Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpLessThan || Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpGreaterThan)) || \
+        ((OP) == MPFROp::Acosh && Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpLessThan) || \
+        ((OP) == MPFROp::Atanh && (Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpLessThan || Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpGreaterThan || Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpEqual || Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpEqual))) \
+      return Info.FFDiag(E), false; \
+    if (!evaluateMPFROp(Result, Result, nullptr, OP, getActiveRoundingMode(Info, E))) return Info.FFDiag(E), false; \
+    return true;
+#define EVAL_MPFR_ALIASES(ID, OP) \
+  case Builtin::BI__builtin_##ID##f16: case Builtin::BI__builtin_##ID##f128: \
+    if (!EvaluateFloat(E->getArg(0), Result, Info)) return false; \
+    if (Result.isNaN()) return true; \
+    if (((OP) == MPFROp::Log || (OP) == MPFROp::Log10 || (OP) == MPFROp::Log2) && (Result.isNegative() || Result.isZero())) return Info.FFDiag(E), false; \
+    if (((OP) == MPFROp::Asin || (OP) == MPFROp::Acos) && (Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpLessThan || Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpGreaterThan)) return Info.FFDiag(E), false; \
+    if (((OP) == MPFROp::Asin || (OP) == MPFROp::Acos) && (Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpLessThan || ((OP) == MPFROp::Acos && Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpGreaterThan))) return Info.FFDiag(E), false; \
+    if ((OP) == MPFROp::Acosh && Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpLessThan) return Info.FFDiag(E), false; \
+    if ((OP) == MPFROp::Log1p && (Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpLessThan || Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpEqual)) return Info.FFDiag(E), false; \
+    if ((OP) == MPFROp::Atanh && (Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpLessThan || Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpEqual || Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpEqual || Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpGreaterThan)) return Info.FFDiag(E), false; \
+    if (!evaluateMPFROp(Result, Result, nullptr, OP, getActiveRoundingMode(Info, E))) return Info.FFDiag(E), false; \
+    return true;
+#define EVAL_MPFR2_ALIASES(ID, OP) \
+  case Builtin::BI__builtin_##ID##f16: case Builtin::BI__builtin_##ID##f128: { \
+    APFloat Y(Result.getSemantics()); \
+    if (!EvaluateFloat(E->getArg(0), Result, Info) || !EvaluateFloat(E->getArg(1), Y, Info)) return false; \
+    if ((OP) == MPFROp::Hypot && (Result.isInfinity() || Y.isInfinity())) { Result = APFloat::getInf(Result.getSemantics()); return true; } \
+    if (Result.isNaN()) return true; \
+    if (Y.isNaN()) { Result = Y; return true; } \
+    if ((OP) == MPFROp::Pow && (Y.isZero() || (Result.isFinite() && Result == APFloat::getOne(Result.getSemantics())))) { Result = APFloat::getOne(Result.getSemantics()); return true; } \
+    if ((OP) == MPFROp::Pow && Result.isNegative() && !Result.isZero() && !Y.isInteger()) return Info.FFDiag(E), false; \
+    if ((OP) == MPFROp::Pow && Result.isZero() && Y.isNegative()) return Info.FFDiag(E), false; \
+    if (!evaluateMPFROp(Result, Result, &Y, OP, getActiveRoundingMode(Info, E))) return Info.FFDiag(E), false; \
+    return true; }
+#define EVAL_MPFR_F128(ID, OP) \
+  case Builtin::BI__builtin_##ID##f128: \
+    if (!EvaluateFloat(E->getArg(0), Result, Info)) return false; \
+    if (Result.isNaN()) return true; \
+    if (((OP) == MPFROp::Asin || (OP) == MPFROp::Acos) && \
+        (Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpLessThan || \
+         Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpGreaterThan)) \
+      return Info.FFDiag(E), false; \
+    if (((OP) == MPFROp::Acosh && Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpLessThan) || \
+        ((OP) == MPFROp::Atanh && (Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpLessThan || Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpGreaterThan || Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpEqual || Result.compare(APFloat::getOne(Result.getSemantics())) == APFloat::cmpEqual)) || \
+        ((OP) == MPFROp::Log1p && (Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpLessThan || Result.compare(APFloat::getOne(Result.getSemantics(), true)) == APFloat::cmpEqual))) \
+      return Info.FFDiag(E), false; \
+    if (!evaluateMPFROp(Result, Result, nullptr, OP, getActiveRoundingMode(Info, E))) return Info.FFDiag(E), false; \
+    return true;
+#define EVAL_MPFR2(ID, OP) case Builtin::BI__builtin_##ID: case Builtin::BI##ID: \
+  case Builtin::BI__builtin_##ID##f: case Builtin::BI##ID##f: \
+  case Builtin::BI__builtin_##ID##l: case Builtin::BI##ID##l: { \
+    APFloat Y(Result.getSemantics()); \
+    if (!EvaluateFloat(E->getArg(0), Result, Info) || !EvaluateFloat(E->getArg(1), Y, Info)) return false; \
+    if ((OP) == MPFROp::Pow && (Y.isZero() || (Result.isFinite() && Result == APFloat::getOne(Result.getSemantics())))) { \
+      Result = APFloat::getOne(Result.getSemantics()); return true; \
+    } \
+    if ((OP) == MPFROp::Hypot && (Result.isInfinity() || Y.isInfinity())) { Result = APFloat::getInf(Result.getSemantics()); return true; } \
+    if (Result.isNaN()) return true; \
+    if (Y.isNaN()) { Result = Y; return true; } \
+    if (((OP) == MPFROp::Pow && Result.isZero() && Y.isNegative()) || \
+        ((OP) == MPFROp::Pow && Result.isNegative() && !Result.isZero() && !Y.isInteger())) return Info.FFDiag(E), false; \
+    if (!evaluateMPFROp(Result, Result, &Y, OP, getActiveRoundingMode(Info, E))) return Info.FFDiag(E), false; \
+    return true; }
+
+  EVAL_MPFR1(sqrt, MPFROp::Sqrt)
+  EVAL_MPFR1(cbrt, MPFROp::Cbrt)
+  EVAL_MPFR1(exp, MPFROp::Exp)
+  EVAL_MPFR1(exp2, MPFROp::Exp2)
+  EVAL_MPFR1(expm1, MPFROp::Expm1)
+  EVAL_MPFR1(log, MPFROp::Log)
+  EVAL_MPFR1(log10, MPFROp::Log10)
+  EVAL_MPFR1(log1p, MPFROp::Log1p)
+  EVAL_MPFR1(log2, MPFROp::Log2)
+  EVAL_MPFR1(sin, MPFROp::Sin)
+  EVAL_MPFR1(cos, MPFROp::Cos)
+  EVAL_MPFR1(tan, MPFROp::Tan)
+  EVAL_MPFR1(asin, MPFROp::Asin)
+  EVAL_MPFR1(acos, MPFROp::Acos)
+  EVAL_MPFR1(atan, MPFROp::Atan)
+  EVAL_MPFR1(sinh, MPFROp::Sinh)
+  EVAL_MPFR1(cosh, MPFROp::Cosh)
+  EVAL_MPFR1(tanh, MPFROp::Tanh)
+  EVAL_MPFR1(asinh, MPFROp::Asinh)
+  EVAL_MPFR1(acosh, MPFROp::Acosh)
+  EVAL_MPFR1(atanh, MPFROp::Atanh)
+  EVAL_MPFR1(erf, MPFROp::Erf)
+  EVAL_MPFR1(erfc, MPFROp::Erfc)
+  EVAL_MPFR1(lgamma, MPFROp::Lgamma)
+  EVAL_MPFR1(tgamma, MPFROp::Tgamma)
+  EVAL_MPFR_F128(erf, MPFROp::Erf)
+  EVAL_MPFR_F128(erfc, MPFROp::Erfc)
+  EVAL_MPFR_F128(lgamma, MPFROp::Lgamma)
+  EVAL_MPFR_F128(tgamma, MPFROp::Tgamma)
+  EVAL_MPFR_F128(acosh, MPFROp::Acosh)
+  EVAL_MPFR_F128(asinh, MPFROp::Asinh)
+  EVAL_MPFR_F128(atanh, MPFROp::Atanh)
+  EVAL_MPFR_F128(cbrt, MPFROp::Cbrt)
+  EVAL_MPFR_F128(expm1, MPFROp::Expm1)
+  EVAL_MPFR_F128(log1p, MPFROp::Log1p)
+  EVAL_MPFR_ALIASES(sqrt, MPFROp::Sqrt)
+  EVAL_MPFR_ALIASES(exp, MPFROp::Exp)
+  EVAL_MPFR_ALIASES(exp2, MPFROp::Exp2)
+  EVAL_MPFR_ALIASES(log, MPFROp::Log)
+  EVAL_MPFR_ALIASES(log10, MPFROp::Log10)
+  EVAL_MPFR_ALIASES(log2, MPFROp::Log2)
+  EVAL_MPFR_ALIASES(sin, MPFROp::Sin)
+  EVAL_MPFR_ALIASES(cos, MPFROp::Cos)
+  EVAL_MPFR_ALIASES(tan, MPFROp::Tan)
+  EVAL_MPFR_ALIASES(asin, MPFROp::Asin)
+  EVAL_MPFR_ALIASES(acos, MPFROp::Acos)
+  EVAL_MPFR_ALIASES(atan, MPFROp::Atan)
+  EVAL_MPFR_ALIASES(sinh, MPFROp::Sinh)
+  EVAL_MPFR_ALIASES(cosh, MPFROp::Cosh)
+  EVAL_MPFR_ALIASES(tanh, MPFROp::Tanh)
+  EVAL_MPFR2(pow, MPFROp::Pow)
+  EVAL_MPFR2(atan2, MPFROp::Atan2)
+  EVAL_MPFR2(hypot, MPFROp::Hypot)
+  EVAL_MPFR2_ALIASES(pow, MPFROp::Pow)
+  EVAL_MPFR2_ALIASES(atan2, MPFROp::Atan2)
+  case Builtin::BI__builtin_hypotf128: {
+    APFloat Y(Result.getSemantics());
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluateFloat(E->getArg(1), Y, Info)) return false;
+    if (Result.isInfinity() || Y.isInfinity()) {
+      Result = APFloat::getInf(Result.getSemantics());
+      return true;
+    }
+    if (Result.isNaN()) return true;
+    if (Y.isNaN()) { Result = Y; return true; }
+    if (!evaluateMPFROp(Result, Result, &Y, MPFROp::Hypot,
+                        getActiveRoundingMode(Info, E))) return false;
+    return true;
+  }
+#undef EVAL_MPFR1
+#undef EVAL_MPFR2
+#undef EVAL_MPFR_ALIASES
+#undef EVAL_MPFR_F128
+#undef EVAL_MPFR2_ALIASES
 
   case Builtin::BI__builtin_huge_val:
   case Builtin::BI__builtin_huge_valf:
@@ -20706,7 +21299,9 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
     // The C library reports at least the three low bits of the integral
     // quotient; which further bits are reported varies, so fold only when the
     // quotient is small enough for every implementation to agree.
-    int Quo = 0;
+    QualType QuoTy = E->getArg(2)->getType()->getPointeeType();
+    unsigned QuoWidth = Info.Ctx.getIntWidth(QuoTy);
+    APInt QuoBits(QuoWidth, 0);
     if (!Y.isInfinity() && !Result.isZero()) {
       unsigned P = APFloat::semanticsPrecision(Result.getSemantics());
       auto Decompose = [&](const APFloat &V, APInt &Mant, int &Exp) {
@@ -20738,20 +21333,19 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
       APInt Twice = R << 1;
       if (Twice.ugt(D) || (Twice == D && Q[0]))
         ++Q;
-      if (Q.getActiveBits() > 3)
-        return Info.FFDiag(E), false;
-      Quo = static_cast<int>(Q.getZExtValue());
+      // The C library guarantees the three low quotient bits; any further
+      // bits are implementation-defined. Preserve the guaranteed bits and
+      // leave the rest clear, including for large quotient magnitudes.
+      QuoBits = Q.zextOrTrunc(3).zext(QuoWidth);
       if (Result.isNegative() != Y.isNegative())
-        Quo = -Quo;
+        QuoBits.negate();
     }
     bool WasNegative = Result.isNegative();
     (void)Result.remainder(Y);
     if (Result.isZero() && Result.isNegative() != WasNegative)
       Result.changeSign();
 
-    QualType QuoTy = E->getArg(2)->getType()->getPointeeType();
-    APSInt QuoVal(Info.Ctx.getIntWidth(QuoTy), /*isUnsigned=*/false);
-    QuoVal = Quo;
+    APSInt QuoVal(QuoBits, /*IsUnsigned=*/false);
     APValue APV(QuoVal);
     return handleAssignment(Info, E, QuoLV, QuoTy, APV);
   }
@@ -21759,6 +22353,13 @@ public:
 
     case Builtin::BI__builtin_operator_delete:
       return HandleOperatorDeleteCall(Info, E);
+
+    case Builtin::BI__builtin_constexpr_exception_retain:
+    case Builtin::BI__builtin_constexpr_exception_release:
+    case Builtin::BI__builtin_constexpr_exception_rethrow: {
+      APValue Result;
+      return ExprEvaluatorBaseTy::handleCallExpr(E, Result, nullptr);
+    }
 
     default:
       return false;

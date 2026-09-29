@@ -381,8 +381,13 @@ std::string renderAttributes(const Record *Builtin, BuiltinType BT) {
       OS << 'f';
     } else {
       OS << 'F';
-      if (Builtin->getValueAsBit("OnlyBuiltinPrefixedAliasIsConstexpr"))
-        OS << 'E';
+      if (Builtin->getValueAsBit("OnlyBuiltinPrefixedAliasIsConstexpr")) {
+        bool CXX26Constexpr = llvm::any_of(
+            Builtin->getValueAsListOfDefs("Attributes"), [](const Record *Attr) {
+              return Attr->getValueAsString("Mangling") == "Z";
+            });
+        OS << (CXX26Constexpr ? 'Z' : 'E');
+      }
     }
   }
 

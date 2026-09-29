@@ -369,6 +369,8 @@ void CodeGenFunction::EmitContractStmtAsCatchBody(const ContractStmt &S) {
         CreateConstantInt(*this, CurInfo->Semantic),
         CreateConstantInt(*this, ExceptionRaised), CurInfo->ViolationInfoGV,
         /*IsNoReturn=*/CurInfo->Semantic == Enforce);
+    if (CurInfo->Semantic == Observe)
+      Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::observable_checkpoint));
   } else if (CurInfo->Semantic == QuickEnforce) {
     CreateTrap(*this);
   } else {
@@ -504,6 +506,8 @@ void CodeGenFunction::EmitContractStmtAsFullStmt(const ContractStmt &S) {
                                     CreateConstantInt(*this, PredicateFailed),
                                     CurContract()->ViolationInfoGV,
                                     /*IsNoReturn=*/Semantic == Enforce);
+    if (Semantic == Observe)
+      Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::observable_checkpoint));
     if (Semantic != Enforce)
       Builder.CreateBr(End);
   }

@@ -89,6 +89,8 @@ class VScanfFormat<int I> : IndexedAttribute<"S", I>;
 
 // Builtin can be constant evaluated
 def Constexpr : Attribute<"E">;
+// Builtin can be constant evaluated only in C++26 and later modes.
+def CXX26Constexpr : Attribute<"Z">;
 // Builtin is immediate and must be constant evaluated. Implies Constexpr, and will only be supported in C++20 mode.
 def Consteval : Attribute<"EG">;
 

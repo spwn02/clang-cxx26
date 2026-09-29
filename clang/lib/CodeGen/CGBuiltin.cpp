@@ -3889,6 +3889,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         llvm::MetadataAsValue::get(Ctx, llvm::MDString::get(Ctx, Kind)));
     return RValue::get(Allow);
   }
+  case Builtin::BI__builtin_observable_checkpoint:
+    Builder.CreateCall(CGM.getIntrinsic(Intrinsic::observable_checkpoint));
+    return RValue::get(nullptr);
   case Builtin::BI__builtin_allow_sanitize_check: {
     Intrinsic::ID IntrID = Intrinsic::not_intrinsic;
     StringRef Name =

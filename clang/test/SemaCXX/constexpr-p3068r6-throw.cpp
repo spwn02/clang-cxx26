@@ -150,18 +150,43 @@ constexpr int f9(int x) {
 }
 static_assert(f9(0) == 2);
 
-// Bare `throw;` (rethrow) is deliberately unsupported: rejecting a valid
-// program is a safe under-approximation.
+// Bare `throw;` preserves the original exception through nested handlers.
 constexpr int f10() {
   try {
     throw 1;
   } catch (int) {
-    throw; // expected-note {{subexpression not valid in a constant expression}}
+    throw;
   }
   return 0;
 }
-static_assert(f10() == 0); // expected-error {{not an integral constant expression}} \
-                           // expected-note {{in call to 'f10()'}}
+constexpr int f10_outer() {
+  try {
+    try {
+      throw Derived{};
+    } catch (const Base &) {
+      throw;
+    }
+  } catch (const Derived &d) {
+    return d.tag2;
+  }
+  return 0;
+}
+static_assert(f10_outer() == 2);
+
+constexpr int f10_from_callee() {
+  try {
+    try {
+      throw 37;
+    } catch (int &) {
+      auto rethrow = [] { throw; };
+      rethrow();
+    }
+  } catch (int value) {
+    return value;
+  }
+  return 0;
+}
+static_assert(f10_from_callee() == 37);
 
 // catch(...) as a genuine fallback after real handlers don't match.
 struct A {};

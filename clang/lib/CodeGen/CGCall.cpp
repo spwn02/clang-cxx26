@@ -27,12 +27,15 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/Basic/Builtins.h"
 #include "clang/Basic/CodeGenOptions.h"
+#include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/CodeGen/SwiftCallingConv.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Assumptions.h"
@@ -6187,6 +6190,64 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // should happen after any return-value munging.
   if (CallArgs.hasWritebacks())
     EmitWritebacks(CallArgs);
+
+  // P1494R5 makes returns from input/output operations observable
+  // checkpoints.  Keep this after the call's ABI writebacks so that the
+  // checkpoint represents the completed operation.  Buffer-only formatting
+  // functions are deliberately excluded.
+  if (getLangOpts().CPlusPlus26) {
+    if (const auto *FD = dyn_cast_or_null<FunctionDecl>(TargetDecl)) {
+      // fpos_t and wint_t are target-dependent and have no builtin-prototype
+      // encoding. Match these standard C-linkage declarations by name instead
+      // of synthesizing potentially ABI-incompatible builtin declarations.
+      unsigned BuiltinID = FD->getBuiltinID();
+      std::string BuiltinName;
+      StringRef Name;
+      if (BuiltinID) {
+        BuiltinName = CGM.getContext().BuiltinInfo.getName(BuiltinID);
+        Name = BuiltinName;
+        if (Name.starts_with("__builtin_"))
+          Name = Name.drop_front(10);
+      } else if (const IdentifierInfo *II = FD->getIdentifier()) {
+        Name = II->getName();
+      }
+
+      bool IsStdIO = llvm::StringSwitch<bool>(Name)
+                         .Cases({"printf", "fprintf", "vprintf", "vfprintf"},
+                                true)
+                         .Cases({"__printf_chk", "__fprintf_chk",
+                                 "__vprintf_chk", "__vfprintf_chk"},
+                                true)
+                         .Cases({"scanf", "fscanf", "vscanf", "vfscanf"},
+                                true)
+                         .Cases({"fread", "fwrite", "fclose", "fflush"},
+                                true)
+                         .Cases({"fopen", "freopen", "remove", "rename"},
+                                true)
+                         .Cases({"tmpfile", "tmpnam", "fgetc", "fgets"},
+                                true)
+                         .Cases({"fputc", "fputs", "getc", "getchar"}, true)
+                         .Cases({"gets", "putc", "putchar", "puts"}, true)
+                         .Cases({"ungetc", "fseek", "ftell", "rewind"}, true)
+                         .Cases({"perror", "fwprintf", "fwscanf", "wprintf"},
+                                true)
+                         .Cases({"wscanf", "vfwprintf", "vfwscanf", "vwprintf"},
+                                true)
+                         .Cases({"vwscanf", "fgetws", "fputws"}, true)
+                         .Default(false);
+      bool IsTargetTypedIO =
+          FD->getLanguageLinkage() == CLanguageLinkage &&
+          (Name == "fgetpos" || Name == "fsetpos" || Name == "fgetwc" ||
+           Name == "getwc" || Name == "getwchar" || Name == "fputwc" ||
+           Name == "putwc" || Name == "putwchar" || Name == "ungetwc");
+      if (((IsStdIO &&
+            (BuiltinID || FD->getLanguageLinkage() == CLanguageLinkage)) ||
+           IsTargetTypedIO) &&
+          !CI->doesNotReturn())
+        Builder.CreateCall(
+            CGM.getIntrinsic(llvm::Intrinsic::observable_checkpoint));
+    }
+  }
 
   // The stack cleanup for inalloca arguments has to run out of the normal
   // lexical order, so deactivate it and run it manually here.

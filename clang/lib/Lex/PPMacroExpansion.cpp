@@ -1856,7 +1856,9 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
             return false;
           unsigned BuiltinOp = II->getBuiltinID();
           return BuiltinOp != 0 &&
-                 this->getBuiltinInfo().isConstantEvaluated(BuiltinOp);
+                 (this->getBuiltinInfo().isConstantEvaluated(BuiltinOp) ||
+                  (getLangOpts().CPlusPlus26 &&
+                   this->getBuiltinInfo().isCXX26ConstantEvaluated(BuiltinOp)));
         });
   } else if (II == Ident__is_identifier) {
     EvaluateFeatureLikeBuiltinMacro(OS, Tok, II, *this, false,

@@ -4068,7 +4068,9 @@ static bool interp__builtin_ia32_gfni_mul(InterpState &S, CodePtr OpPC,
 
 bool InterpretBuiltin(InterpState &S, CodePtr OpPC, const CallExpr *Call,
                       uint32_t BuiltinID) {
-  if (!S.getASTContext().BuiltinInfo.isConstantEvaluated(BuiltinID))
+  if (!S.getASTContext().BuiltinInfo.isConstantEvaluated(BuiltinID) &&
+      !(S.getASTContext().getLangOpts().CPlusPlus26 &&
+        S.getASTContext().BuiltinInfo.isCXX26ConstantEvaluated(BuiltinID)))
     return Invalid(S, OpPC);
 
   const InterpFrame *Frame = S.Current;
