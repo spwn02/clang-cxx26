@@ -204,6 +204,7 @@ typedef basic_fstream<wchar_t> wfstream;
 #    include <__type_traits/enable_if.h>
 #    include <__type_traits/is_same.h>
 #    include <__utility/move.h>
+#    include <__utility/observable_checkpoint.h>
 #    include <__utility/swap.h>
 #    include <__utility/unreachable.h>
 #    include <cstdio>
@@ -713,7 +714,9 @@ basic_filebuf<_CharT, _Traits>* basic_filebuf<_CharT, _Traits>::open(const char*
   if (!__mdstr)
     return nullptr;
 
-  return __do_open(std::fopen(__s, __mdstr), __mode);
+  basic_filebuf* __result = __do_open(std::fopen(__s, __mdstr), __mode);
+  __libcpp_detail::__observable_checkpoint();
+  return __result;
 }
 
 template <class _CharT, class _Traits>
@@ -724,7 +727,9 @@ inline basic_filebuf<_CharT, _Traits>* basic_filebuf<_CharT, _Traits>::__open(in
   if (!__mdstr)
     return nullptr;
 
-  return __do_open(fdopen(__fd, __mdstr), __mode);
+  basic_filebuf* __result = __do_open(fdopen(__fd, __mdstr), __mode);
+  __libcpp_detail::__observable_checkpoint();
+  return __result;
 }
 
 #    if _LIBCPP_HAS_OPEN_WITH_WCHAR
@@ -738,7 +743,9 @@ basic_filebuf<_CharT, _Traits>* basic_filebuf<_CharT, _Traits>::open(const wchar
   if (!__mdstr)
     return nullptr;
 
-  return __do_open(_wfopen(__s, __mdstr), __mode);
+  basic_filebuf* __result = __do_open(_wfopen(__s, __mdstr), __mode);
+  __libcpp_detail::__observable_checkpoint();
+  return __result;
 }
 #    endif
 
@@ -765,6 +772,7 @@ basic_filebuf<_CharT, _Traits>* basic_filebuf<_CharT, _Traits>::close() {
     this->setg(nullptr, nullptr, nullptr);
     this->setp(nullptr, nullptr);
     __cm_ = __no_io_operations;
+    __libcpp_detail::__observable_checkpoint();
   }
   return __rt;
 }

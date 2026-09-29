@@ -42,6 +42,7 @@ namespace std {
 #  include <__config>
 #  include <__system_error/throw_system_error.h>
 #  include <__utility/forward.h>
+#  include <__utility/observable_checkpoint.h>
 #  include <cerrno>
 #  include <cstdio>
 #  include <format>
@@ -376,6 +377,7 @@ print(FILE* _LIBCPP_DIAGNOSE_NULLPTR __stream, format_string<_Args...> __fmt, _A
   else
     __print::__vprint_nonunicode_buffered(__stream, __fmt.get(), std::make_format_args(__args...), false);
 #    endif // _LIBCPP_HAS_UNICODE
+  __libcpp_detail::__observable_checkpoint();
 }
 
 template <class... _Args>
@@ -406,6 +408,7 @@ println(FILE* _LIBCPP_DIAGNOSE_NULLPTR __stream, format_string<_Args...> __fmt, 
   else
     __print::__vprint_nonunicode_buffered(__stream, __fmt.get(), std::make_format_args(__args...), true);
 #    endif // _LIBCPP_HAS_UNICODE
+  __libcpp_detail::__observable_checkpoint();
 }
 
 template <class = void> // TODO PRINT template or availability markup fires too eagerly (http://llvm.org/PR61563).
@@ -428,6 +431,7 @@ template <class = void> // TODO PRINT template or availability markup fires too 
 _LIBCPP_HIDE_FROM_ABI inline void
 vprint_unicode(FILE* _LIBCPP_DIAGNOSE_NULLPTR __stream, string_view __fmt, format_args __args) {
   __print::__vprint_unicode_buffered(__stream, __fmt, __args, false);
+  __libcpp_detail::__observable_checkpoint();
 }
 
 template <class = void> // TODO PRINT template or availability markup fires too eagerly (http://llvm.org/PR61563).
@@ -441,6 +445,7 @@ template <class = void> // TODO PRINT template or availability markup fires too 
 _LIBCPP_HIDE_FROM_ABI inline void
 vprint_nonunicode(FILE* _LIBCPP_DIAGNOSE_NULLPTR __stream, string_view __fmt, format_args __args) {
   __print::__vprint_nonunicode_buffered(__stream, __fmt, __args, false);
+  __libcpp_detail::__observable_checkpoint();
 }
 
 template <class = void> // TODO PRINT template or availability markup fires too eagerly (http://llvm.org/PR61563).

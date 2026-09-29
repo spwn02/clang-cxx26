@@ -867,6 +867,16 @@
 {'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt17rethrow_exceptionSt13exception_ptr', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
 {'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt18uncaught_exceptionv', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
 {'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt19uncaught_exceptionsv', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
+{'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt27__current_exception_runtimev', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
+{'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt27__rethrow_exception_runtimeSt13exception_ptr', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
+{'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt28__exception_ptr_copy_runtimePSt13exception_ptrRKS_', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
+{'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt28__exception_ptr_swap_runtimePSt13exception_ptrS0_', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
+{'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt29__exception_ptr_equal_runtimePKSt13exception_ptrS1_', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
+{'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt30__exception_ptr_assign_runtimePSt13exception_ptrRKS_', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
+{'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt31__exception_ptr_default_runtimePSt13exception_ptr', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
+{'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt31__exception_ptr_destroy_runtimePSt13exception_ptr', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
+{'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt31__exception_ptr_to_bool_runtimePKSt13exception_ptr', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
+{'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt35__exception_ptr_assign_null_runtimePSt13exception_ptr', 'storage_mapping_class': 'DS', 'type': 'FUNC'}
 {'import_export': 'EXP', 'is_defined': True, 'name': '_ZSt7nothrow', 'storage_mapping_class': 'RO', 'type': 'OBJECT'}
 {'import_export': 'EXP', 'is_defined': True, 'name': '_ZTCNSt3__110istrstreamE0_NS_13basic_istreamIcNS_11char_traitsIcEEEE', 'storage_mapping_class': 'RW', 'type': 'OBJECT'}
 {'import_export': 'EXP', 'is_defined': True, 'name': '_ZTCNSt3__110ostrstreamE0_NS_13basic_ostreamIcNS_11char_traitsIcEEEE', 'storage_mapping_class': 'RW', 'type': 'OBJECT'}

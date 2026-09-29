@@ -35,8 +35,16 @@ _LIBCPP_EXPORTED_FROM_ABI terminate_handler set_terminate(terminate_handler) _NO
 
 class _LIBCPP_EXPORTED_FROM_ABI exception_ptr;
 
+#if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_BUILDING_LIBRARY) && \
+    __has_builtin(__builtin_constexpr_exception_capture) && \
+    __has_builtin(__builtin_constexpr_exception_retain) && \
+    __has_builtin(__builtin_constexpr_exception_release) && \
+    __has_builtin(__builtin_constexpr_exception_rethrow)
+// The C++26 constexpr declarations are made after exception_ptr is complete.
+#else
 [[__nodiscard__]] _LIBCPP_EXPORTED_FROM_ABI exception_ptr current_exception() _NOEXCEPT;
 [[__noreturn__]] _LIBCPP_EXPORTED_FROM_ABI void rethrow_exception(exception_ptr);
+#endif
 _LIBCPP_END_UNVERSIONED_NAMESPACE_STD
 
 #endif // _LIBCPP___EXCEPTION_OPERATIONS_H

@@ -4,6 +4,16 @@
 {'is_defined': False, 'name': '_ZNSt13runtime_errorD2Ev', 'type': 'FUNC'}
 {'is_defined': False, 'name': '_ZNSt8bad_castD2Ev', 'type': 'FUNC'}
 {'is_defined': False, 'name': '_ZNSt9exceptionD2Ev', 'type': 'FUNC'}
+{'is_defined': True, 'name': '_ZSt27__current_exception_runtimev', 'type': 'FUNC'}
+{'is_defined': True, 'name': '_ZSt27__rethrow_exception_runtimeSt13exception_ptr', 'type': 'FUNC'}
+{'is_defined': True, 'name': '_ZSt28__exception_ptr_copy_runtimePSt13exception_ptrRKS_', 'type': 'FUNC'}
+{'is_defined': True, 'name': '_ZSt28__exception_ptr_swap_runtimePSt13exception_ptrS0_', 'type': 'FUNC'}
+{'is_defined': True, 'name': '_ZSt29__exception_ptr_equal_runtimePKSt13exception_ptrS1_', 'type': 'FUNC'}
+{'is_defined': True, 'name': '_ZSt30__exception_ptr_assign_runtimePSt13exception_ptrRKS_', 'type': 'FUNC'}
+{'is_defined': True, 'name': '_ZSt31__exception_ptr_default_runtimePSt13exception_ptr', 'type': 'FUNC'}
+{'is_defined': True, 'name': '_ZSt31__exception_ptr_destroy_runtimePSt13exception_ptr', 'type': 'FUNC'}
+{'is_defined': True, 'name': '_ZSt31__exception_ptr_to_bool_runtimePKSt13exception_ptr', 'type': 'FUNC'}
+{'is_defined': True, 'name': '_ZSt35__exception_ptr_assign_null_runtimePSt13exception_ptr', 'type': 'FUNC'}
 {'is_defined': False, 'name': '_ZSt9terminatev', 'type': 'FUNC'}
 {'is_defined': False, 'name': '_ZTISt11logic_error', 'size': 0, 'type': 'OBJECT'}
 {'is_defined': False, 'name': '_ZTISt13runtime_error', 'size': 0, 'type': 'OBJECT'}

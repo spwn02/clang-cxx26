@@ -73,9 +73,15 @@ public:
 
 class _LIBCPP_EXPORTED_FROM_ABI exception {
 public:
+#  if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI constexpr exception() _NOEXCEPT {}
+  _LIBCPP_HIDE_FROM_ABI constexpr exception(const exception&) _NOEXCEPT            = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr exception& operator=(const exception&) _NOEXCEPT = default;
+#  elif __cplusplus >= 201103L
   _LIBCPP_HIDE_FROM_ABI constexpr exception() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI exception(const exception&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI exception& operator=(const exception&) _NOEXCEPT = default;
+#  endif
 
 #  if _LIBCPP_STD_VER >= 26
   virtual constexpr ~exception() _NOEXCEPT {}
@@ -87,9 +93,15 @@ public:
 
 class _LIBCPP_EXPORTED_FROM_ABI bad_exception : public exception {
 public:
+#  if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_exception() _NOEXCEPT {}
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_exception(const bad_exception&) _NOEXCEPT            = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_exception& operator=(const bad_exception&) _NOEXCEPT = default;
+#  elif __cplusplus >= 201103L
   _LIBCPP_HIDE_FROM_ABI bad_exception() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI bad_exception(const bad_exception&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI bad_exception& operator=(const bad_exception&) _NOEXCEPT = default;
+#  endif
   ~bad_exception() _NOEXCEPT override;
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
 };
