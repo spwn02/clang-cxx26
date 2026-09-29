@@ -66,6 +66,20 @@ features = [
         name="has-fconstexpr-ops-limit",
         when=lambda cfg: hasCompileFlag(cfg, "-fconstexpr-ops-limit=1"),
     ),
+    # P1383R2's transcendental <cmath> builtins (sqrt/exp/log/trig/hyperbolic/
+    # erf/gamma) are only constexpr-evaluable when this clang was built with
+    # MPFR/GMP support (CLANG_ENABLE_MPFR_CONSTEXPR_MATH, optional).
+    Feature(
+        name="has-constexpr-mpfr-math",
+        when=lambda cfg: sourceBuilds(
+            cfg,
+            """
+            constexpr double x = __builtin_sqrt(4.0);
+            static_assert(x == 2.0);
+            int main(int, char**) { return 0; }
+            """,
+        ),
+    ),
     Feature(name="has-fblocks", when=lambda cfg: hasCompileFlag(cfg, "-fblocks")),
     Feature(
         name="fdelayed-template-parsing",

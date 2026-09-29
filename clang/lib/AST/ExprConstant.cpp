@@ -59,6 +59,7 @@
 #include "clang/Basic/EricWFDebug.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
+#include "clang/Config/config.h"
 #include "llvm/ADT/APFixedPoint.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/SmallBitVector.h"
@@ -76,7 +77,9 @@
 #include <limits>
 #include <optional>
 #include <string>
+#if CLANG_HAVE_MPFR
 #include <mpfr.h>
+#endif
 
 #define DEBUG_TYPE "exprconstant"
 
@@ -20672,6 +20675,7 @@ static bool TryEvaluateBuiltinNaN(const ASTContext &Context,
   return true;
 }
 
+#if CLANG_HAVE_MPFR
 // Transfer APFloat values through their mathematical binary representation.
 // In particular, neither conversion passes through a host floating type, whose
 // precision and exponent range may differ from the target format.
@@ -20872,6 +20876,7 @@ static bool evaluateMPFROp(APFloat &Result, const APFloat &X,
   mpfr_clear(A); mpfr_clear(B); mpfr_clear(Lo); mpfr_clear(Hi);
   return OK;
 }
+#endif // CLANG_HAVE_MPFR
 
 bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   if (!IsConstantEvaluatedBuiltinCall(E))
@@ -20881,6 +20886,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   default:
     return false;
 
+#if CLANG_HAVE_MPFR
   // MPFR handles exceptional values with the C math/IEC 60559 conventions.
   // Domain and pole errors are deliberately rejected as constant expressions
   // so their runtime libm behavior remains observable.
@@ -21026,6 +21032,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
 #undef EVAL_MPFR_ALIASES
 #undef EVAL_MPFR_F128
 #undef EVAL_MPFR2_ALIASES
+#endif // CLANG_HAVE_MPFR
 
   case Builtin::BI__builtin_huge_val:
   case Builtin::BI__builtin_huge_valf:

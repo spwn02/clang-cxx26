@@ -215,6 +215,9 @@ if have_host_jit_feature_support('jit'):
     if have_host_out_of_process_jit_feature_support():
         config.available_features.add("host-supports-out-of-process-jit")
 
+if config.clang_have_mpfr:
+    config.available_features.add("mpfr")
+
 if config.clang_staticanalyzer:
     config.available_features.add("staticanalyzer")
     tools.append("clang-check")

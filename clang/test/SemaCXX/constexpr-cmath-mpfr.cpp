@@ -2,6 +2,8 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -DTEST_X87_LONG_DOUBLE -std=c++26 -fsyntax-only -verify %s
 // RUN: %clang_cc1 -triple powerpc64le-unknown-linux-gnu -DTEST_PPC_DOUBLE_DOUBLE -std=c++26 -fsyntax-only -verify %s
 //
+// REQUIRES: mpfr
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 

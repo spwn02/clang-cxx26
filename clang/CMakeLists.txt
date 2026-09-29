@@ -182,6 +182,26 @@ if(CLANG_ENABLE_LIBXML2)
   endif()
 endif()
 
+# P1383R2's constexpr evaluation of the <cmath> transcendental builtins
+# (sqrt/exp/log/trig/hyperbolic/erf/gamma) is backed by MPFR/GMP. This is
+# an optional dependency: when it isn't found (or is explicitly disabled),
+# clang still builds and those builtins simply aren't usable in a constant
+# expression, same as before this feature existed.
+option(CLANG_ENABLE_MPFR_CONSTEXPR_MATH
+  "Whether the constant expression evaluator may depend on MPFR/GMP for P1383R2 transcendental math" ON)
+
+set(CLANG_HAVE_MPFR 0)
+if(CLANG_ENABLE_MPFR_CONSTEXPR_MATH)
+  find_path(MPFR_INCLUDE_DIR mpfr.h)
+  find_library(MPFR_LIBRARY NAMES mpfr)
+  find_path(GMP_INCLUDE_DIR gmp.h)
+  find_library(GMP_LIBRARY NAMES gmp)
+  if(MPFR_INCLUDE_DIR AND MPFR_LIBRARY AND GMP_INCLUDE_DIR AND GMP_LIBRARY)
+    set(CLANG_HAVE_MPFR 1)
+  endif()
+  mark_as_advanced(MPFR_INCLUDE_DIR MPFR_LIBRARY GMP_INCLUDE_DIR GMP_LIBRARY)
+endif()
+
 if(CLANG_ENABLE_CIR)
   if (CLANG_BUILT_STANDALONE)
     message(FATAL_ERROR

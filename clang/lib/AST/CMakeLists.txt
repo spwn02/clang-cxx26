@@ -7,12 +7,12 @@ set(LLVM_LINK_COMPONENTS
   TargetParser
   )
 
-# Constant evaluation of the P1383 transcendental builtins uses MPFR. This is
-# an explicit external build dependency; it is not part of LLVM's source tree.
-find_path(MPFR_INCLUDE_DIR mpfr.h REQUIRED)
-find_library(MPFR_LIBRARY NAMES mpfr REQUIRED)
-find_path(GMP_INCLUDE_DIR gmp.h REQUIRED)
-find_library(GMP_LIBRARY NAMES gmp REQUIRED)
+# Constant evaluation of the P1383 transcendental builtins uses MPFR when
+# it's available (CLANG_HAVE_MPFR, computed in the top-level clang/CMakeLists.txt
+# from the optional CLANG_ENABLE_MPFR_CONSTEXPR_MATH). It is not part of
+# LLVM's source tree and, unlike most of clangAST's dependencies, isn't
+# required: without it, those builtins just aren't usable in a constant
+# expression (see the #if CLANG_HAVE_MPFR guards in ExprConstant.cpp).
 
 # FIXME: the entry points to the interpreter should be moved out of clangAST
 # into the parser or Sema in order to allow the interpreter to be moved to
@@ -160,5 +160,7 @@ add_clang_library(clangAST
   target_parser_gen
 )
 
-target_include_directories(clangAST SYSTEM PRIVATE ${MPFR_INCLUDE_DIR} ${GMP_INCLUDE_DIR})
-target_link_libraries(clangAST PRIVATE ${MPFR_LIBRARY} ${GMP_LIBRARY})
+if(CLANG_HAVE_MPFR)
+  target_include_directories(clangAST SYSTEM PRIVATE ${MPFR_INCLUDE_DIR} ${GMP_INCLUDE_DIR})
+  target_link_libraries(clangAST PRIVATE ${MPFR_LIBRARY} ${GMP_LIBRARY})
+endif()

@@ -54,6 +54,10 @@
 /* Define if we have libxml2 */
 #cmakedefine CLANG_HAVE_LIBXML ${CLANG_HAVE_LIBXML}
 
+/* Define if we have MPFR/GMP, enabling constexpr evaluation of the P1383R2
+   transcendental math builtins. */
+#cmakedefine01 CLANG_HAVE_MPFR
+
 /* Define if we have sys/resource.h (rlimits) */
 #cmakedefine CLANG_HAVE_RLIMITS ${CLANG_HAVE_RLIMITS}
 
