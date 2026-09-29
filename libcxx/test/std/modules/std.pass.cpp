@@ -52,6 +52,7 @@ int main(int, char**) {
   // std::constant_wrapper/std::cw (P2781R9) at all.
   static_assert(std::cw<5> + std::cw<3> == std::cw<8>);
   static_assert(std::same_as<decltype(std::cw<5>), const std::constant_wrapper<5>>);
+  std::observable_checkpoint();
 
   // Regression test: libcxx/modules/std/execution.inc exported
   // std::this_thread::sync_wait but not its CPO tag type sync_wait_t.

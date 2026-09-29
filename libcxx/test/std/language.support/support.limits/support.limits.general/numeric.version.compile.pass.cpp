@@ -28,6 +28,10 @@
 #    error "__cpp_lib_constexpr_numeric should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_gcd_lcm
 #    error "__cpp_lib_gcd_lcm should not be defined before c++17"
 #  endif
@@ -58,6 +62,10 @@
 #    error "__cpp_lib_constexpr_numeric should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_gcd_lcm
 #    error "__cpp_lib_gcd_lcm should not be defined before c++17"
 #  endif
@@ -86,6 +94,10 @@
 
 #  ifdef __cpp_lib_constexpr_numeric
 #    error "__cpp_lib_constexpr_numeric should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_gcd_lcm
@@ -131,6 +143,10 @@
 #  endif
 #  if __cpp_lib_constexpr_numeric != 201911L
 #    error "__cpp_lib_constexpr_numeric should have the value 201911L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_gcd_lcm
@@ -182,6 +198,10 @@
 #  endif
 #  if __cpp_lib_constexpr_numeric != 201911L
 #    error "__cpp_lib_constexpr_numeric should have the value 201911L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_gcd_lcm
@@ -236,6 +256,13 @@
 #  endif
 #  if __cpp_lib_constexpr_numeric != 201911L
 #    error "__cpp_lib_constexpr_numeric should have the value 201911L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_numeric != 202502L
+#    error "__cpp_lib_freestanding_numeric should have the value 202502L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_gcd_lcm

@@ -294,6 +294,7 @@ template <class T>
 #  endif
 
 #  if _LIBCPP_STD_VER >= 26
+#    include <__utility/observable_checkpoint.h>
 #    include <__utility/constant_wrapper.h>
 #    include <__variant/monostate.h>
 #  endif

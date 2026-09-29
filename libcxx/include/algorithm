@@ -1970,9 +1970,8 @@ template <class BidirectionalIterator, class Compare>
 #  if _LIBCPP_STD_VER >= 17
 #    include <__algorithm/clamp.h>
 #    include <__algorithm/for_each_n.h>
-#    if !defined(_LIBCPP_FREESTANDING)
-#      include <__algorithm/pstl.h>
-#    endif
+#    include <__algorithm/pstl.h>
+#    include <__algorithm/pstl_freestanding.h>
 #    include <__algorithm/sample.h>
 #  endif // _LIBCPP_STD_VER >= 17
 

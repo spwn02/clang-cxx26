@@ -130,16 +130,26 @@ __cpp_lib_format_ranges                                 202207L <format>
 __cpp_lib_format_uchar                                  202311L <format>
 __cpp_lib_formatters                                    202302L <stacktrace> <thread>
 __cpp_lib_forward_like                                  202207L <utility>
-__cpp_lib_freestanding_algorithm                        202311L <algorithm>
+__cpp_lib_freestanding_algorithm                        202502L <algorithm>
 __cpp_lib_freestanding_array                            202311L <array>
 __cpp_lib_freestanding_atomic                           202306L <atomic>
+__cpp_lib_freestanding_char_traits                      202306L <string>
+__cpp_lib_freestanding_charconv                         202306L <charconv>
+__cpp_lib_freestanding_cstdlib                          202306L <cmath> <cstdlib>
 __cpp_lib_freestanding_cstring                          202311L <cstring>
+__cpp_lib_freestanding_cwchar                           202306L <cwchar>
+__cpp_lib_freestanding_errc                             202306L <cerrno> <system_error>
+__cpp_lib_freestanding_execution                        202502L <execution>
 __cpp_lib_freestanding_expected                         202311L <expected>
+__cpp_lib_freestanding_feature_test_macros              202306L <version>
 __cpp_lib_freestanding_functional                       202306L <functional>
 __cpp_lib_freestanding_iterator                         202306L <iterator>
 __cpp_lib_freestanding_mdspan                           202311L <mdspan>
-__cpp_lib_freestanding_memory                           202306L <memory>
+__cpp_lib_freestanding_memory                           202502L <memory>
+__cpp_lib_freestanding_numeric                          202502L <numeric>
+__cpp_lib_freestanding_operator_new                     202306L <new>
 __cpp_lib_freestanding_optional                         202311L <optional>
+__cpp_lib_freestanding_random                           202502L <random>
 __cpp_lib_freestanding_ranges                           202306L <ranges>
 __cpp_lib_freestanding_ratio                            202306L <ratio>
 __cpp_lib_freestanding_string_view                      202311L <string_view>
@@ -230,6 +240,7 @@ __cpp_lib_not_fn                                        202306L <functional>
                                                         201603L // C++17
 __cpp_lib_nothrow_convertible                           201806L <type_traits>
 __cpp_lib_null_iterators                                201304L <iterator>
+__cpp_lib_observable_checkpoint                         202506L <utility>
 __cpp_lib_optional                                      202506L <optional>
                                                         202110L // C++23
                                                         202106L // C++20
@@ -654,22 +665,34 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_copyable_function                    202306L
 # define __cpp_lib_debugging                            202403L
 # define __cpp_lib_default_template_type_for_algorithm_values 202403L
-// # define __cpp_lib_exception_ptr_cast                   202603L
+# if !defined(_LIBCPP_HAS_NO_EXCEPTIONS) && __has_builtin(__builtin_constexpr_exception_capture) && __has_builtin(__builtin_constexpr_exception_retain) && __has_builtin(__builtin_constexpr_exception_release) && __has_builtin(__builtin_constexpr_exception_rethrow)
+#   define __cpp_lib_exception_ptr_cast                 202603L
+# endif
 # if _LIBCPP_AVAILABILITY_HAS_TO_CHARS_FLOATING_POINT
 # undef  __cpp_lib_format
 #   define __cpp_lib_format                             202311L
 # endif
 # define __cpp_lib_format_path                          202403L
-// # define __cpp_lib_freestanding_algorithm               202311L
+# define __cpp_lib_freestanding_algorithm               202502L
 # define __cpp_lib_freestanding_array                   202311L
 # define __cpp_lib_freestanding_atomic                  202306L
+# define __cpp_lib_freestanding_char_traits             202306L
+# define __cpp_lib_freestanding_charconv                202306L
+# define __cpp_lib_freestanding_cstdlib                 202306L
 # define __cpp_lib_freestanding_cstring                 202311L
+# define __cpp_lib_freestanding_cwchar                  202306L
+# define __cpp_lib_freestanding_errc                    202306L
+# define __cpp_lib_freestanding_execution               202502L
 # define __cpp_lib_freestanding_expected                202311L
+# define __cpp_lib_freestanding_feature_test_macros     202306L
 # define __cpp_lib_freestanding_functional              202306L
 # define __cpp_lib_freestanding_iterator                202306L
 # define __cpp_lib_freestanding_mdspan                  202311L
-# define __cpp_lib_freestanding_memory                  202306L
+# define __cpp_lib_freestanding_memory                  202502L
+# define __cpp_lib_freestanding_numeric                 202502L
+# define __cpp_lib_freestanding_operator_new            _LIBCPP_FREESTANDING_OPERATOR_NEW_VALUE
 # define __cpp_lib_freestanding_optional                202311L
+# define __cpp_lib_freestanding_random                  202502L
 # define __cpp_lib_freestanding_ranges                  202306L
 # define __cpp_lib_freestanding_ratio                   202306L
 # define __cpp_lib_freestanding_string_view             202311L
@@ -756,6 +779,9 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_mdspan                               202406L
 # undef  __cpp_lib_not_fn
 # define __cpp_lib_not_fn                               202306L
+# if __has_builtin(__builtin_observable_checkpoint)
+#   define __cpp_lib_observable_checkpoint              202506L
+# endif
 # undef  __cpp_lib_optional
 # define __cpp_lib_optional                             202506L
 # if _LIBCPP_HAS_EXPERIMENTAL_OPTIONAL_ITERATOR

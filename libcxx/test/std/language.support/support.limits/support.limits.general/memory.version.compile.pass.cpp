@@ -754,8 +754,8 @@
 #  ifndef __cpp_lib_freestanding_memory
 #    error "__cpp_lib_freestanding_memory should be defined in c++26"
 #  endif
-#  if __cpp_lib_freestanding_memory != 202306L
-#    error "__cpp_lib_freestanding_memory should have the value 202306L in c++26"
+#  if __cpp_lib_freestanding_memory != 202502L
+#    error "__cpp_lib_freestanding_memory should have the value 202502L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE

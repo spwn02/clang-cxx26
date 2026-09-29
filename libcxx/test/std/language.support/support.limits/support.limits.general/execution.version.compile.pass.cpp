@@ -24,6 +24,10 @@
 #    error "__cpp_lib_execution should not be defined before c++17"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_senders
 #    error "__cpp_lib_senders should not be defined before c++26"
 #  endif
@@ -32,6 +36,10 @@
 
 #  ifdef __cpp_lib_execution
 #    error "__cpp_lib_execution should not be defined before c++17"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_senders
@@ -53,6 +61,10 @@
 #    endif
 #  endif
 
+#  ifdef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_senders
 #    error "__cpp_lib_senders should not be defined before c++26"
 #  endif
@@ -70,6 +82,10 @@
 #    ifdef __cpp_lib_execution
 #      error "__cpp_lib_execution should not be defined because it is unimplemented in libc++!"
 #    endif
+#  endif
+
+#  ifdef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_senders
@@ -91,6 +107,10 @@
 #    endif
 #  endif
 
+#  ifdef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_senders
 #    error "__cpp_lib_senders should not be defined before c++26"
 #  endif
@@ -108,6 +128,13 @@
 #    ifdef __cpp_lib_execution
 #      error "__cpp_lib_execution should not be defined because it is unimplemented in libc++!"
 #    endif
+#  endif
+
+#  ifndef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_execution != 202502L
+#    error "__cpp_lib_freestanding_execution should have the value 202502L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_senders

@@ -24,6 +24,10 @@
 #    error "__cpp_lib_constexpr_charconv should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_to_chars
 #    error "__cpp_lib_to_chars should not be defined before c++17"
 #  endif
@@ -34,6 +38,10 @@
 #    error "__cpp_lib_constexpr_charconv should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_to_chars
 #    error "__cpp_lib_to_chars should not be defined before c++17"
 #  endif
@@ -42,6 +50,10 @@
 
 #  ifdef __cpp_lib_constexpr_charconv
 #    error "__cpp_lib_constexpr_charconv should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should not be defined before c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)
@@ -61,6 +73,10 @@
 
 #  ifdef __cpp_lib_constexpr_charconv
 #    error "__cpp_lib_constexpr_charconv should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should not be defined before c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)
@@ -85,6 +101,10 @@
 #    error "__cpp_lib_constexpr_charconv should have the value 202207L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should not be defined before c++26"
+#  endif
+
 #  if !defined(_LIBCPP_VERSION)
 #    ifndef __cpp_lib_to_chars
 #      error "__cpp_lib_to_chars should be defined in c++23"
@@ -105,6 +125,13 @@
 #  endif
 #  if __cpp_lib_constexpr_charconv != 202207L
 #    error "__cpp_lib_constexpr_charconv should have the value 202207L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_charconv != 202306L
+#    error "__cpp_lib_freestanding_charconv should have the value 202306L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)

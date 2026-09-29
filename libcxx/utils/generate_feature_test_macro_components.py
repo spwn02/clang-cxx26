@@ -558,12 +558,32 @@ feature_test_macros = [
             # optional<const E&>. GCC's shipped exception_ptr_cast at this value is
             # constexpr (i.e. P3748R0's constexpr requirement is baked into the value,
             # even though GCC's own version.def comment doesn't cite P3748R0 by number).
-            # This fork's exception_ptr_cast is real and tested but NOT constexpr --
-            # rethrow/catch has no compile-time evaluator support -- so it isn't a
-            # conforming implementation of what this FTM value actually promises yet.
+            "libcxx_guard": " && ".join(
+                ["!defined(_LIBCPP_HAS_NO_EXCEPTIONS)"]
+                + [
+                    "__has_builtin(%s)" % builtin
+                    for builtin in (
+                    "__builtin_constexpr_exception_capture",
+                    "__builtin_constexpr_exception_retain",
+                    "__builtin_constexpr_exception_release",
+                    "__builtin_constexpr_exception_rethrow",
+                    )
+                ]
+            ),
+            "test_suite_guard": " && ".join(
+                ["!defined(_LIBCPP_HAS_NO_EXCEPTIONS)"]
+                + [
+                    "__has_builtin(%s)" % builtin
+                    for builtin in (
+                    "__builtin_constexpr_exception_capture",
+                    "__builtin_constexpr_exception_retain",
+                    "__builtin_constexpr_exception_release",
+                    "__builtin_constexpr_exception_rethrow",
+                    )
+                ]
+            ),
             "values": {"c++26": 202603},
             "headers": ["exception"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_exchange_function",
@@ -649,11 +669,8 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_freestanding_algorithm",
-            "values": {
-                "c++26": 202311  # P2407R5 Freestanding Library: Partial Classes
-            },
+            "values": {"c++26": 202502},  # P2976R1: freestanding algorithms
             "headers": ["algorithm"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_freestanding_array",
@@ -669,6 +686,21 @@ feature_test_macros = [
             "headers": ["atomic"],
         },
         {
+            "name": "__cpp_lib_freestanding_char_traits",
+            "values": {"c++26": 202306},  # P2338R4: freestanding character primitives
+            "headers": ["string"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_charconv",
+            "values": {"c++26": 202306},  # P2338R4: freestanding character primitives
+            "headers": ["charconv"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_cstdlib",
+            "values": {"c++26": 202306},  # P2338R4: freestanding C library
+            "headers": ["cmath", "cstdlib"],
+        },
+        {
             "name": "__cpp_lib_freestanding_cstring",
             "values": {
                 "c++26": 202311  # P2937R0 Freestanding: Remove strtok
@@ -676,11 +708,31 @@ feature_test_macros = [
             "headers": ["cstring"],
         },
         {
+            "name": "__cpp_lib_freestanding_cwchar",
+            "values": {"c++26": 202306},  # P2338R4: freestanding C library
+            "headers": ["cwchar"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_errc",
+            "values": {"c++26": 202306},  # P2338R4: freestanding error codes
+            "headers": ["cerrno", "system_error"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_execution",
+            "values": {"c++26": 202502},  # P2976R1: execution policy tags
+            "headers": ["execution"],
+        },
+        {
             "name": "__cpp_lib_freestanding_expected",
             "values": {
                 "c++26": 202311  # P2833R2 Freestanding Library: inout expected span
             },
             "headers": ["expected"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_feature_test_macros",
+            "values": {"c++26": 202306},  # P2198R7: accurately identify freestanding feature-test macros
+            "headers": ["version"],
         },
         {
             "name": "__cpp_lib_freestanding_functional",
@@ -701,8 +753,21 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_freestanding_memory",
-            "values": {"c++26": 202306},  # P2198R7 Freestanding Feature-Test Macros
+            "values": {"c++26": 202502},  # P2976R1: freestanding memory algorithms
             "headers": ["memory"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_numeric",
+            "values": {"c++26": 202502},  # P2976R1: freestanding numeric algorithms
+            "headers": ["numeric"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_operator_new",
+            "values": {"c++26": 202306},  # P2198R7: defaults have hosted allocation semantics, or value is zero
+            "headers": ["new"],
+            "macro_definition": "_LIBCPP_FREESTANDING_OPERATOR_NEW_VALUE",
+            "display_value": "202306L or 0L, based on configured global allocation support",
+            "allowed_values": [0, 202306],
         },
         {
             "name": "__cpp_lib_freestanding_optional",
@@ -710,6 +775,11 @@ feature_test_macros = [
                 "c++26": 202311  # P2407R5 Freestanding Library: Partial Classes
             },
             "headers": ["optional"],
+        },
+        {
+            "name": "__cpp_lib_freestanding_random",
+            "values": {"c++26": 202502},  # P2976R1: freestanding random subset
+            "headers": ["random"],
         },
         {
             "name": "__cpp_lib_freestanding_ranges",
@@ -1219,6 +1289,13 @@ feature_test_macros = [
             "name": "__cpp_lib_null_iterators",
             "values": {"c++14": 201304},
             "headers": ["iterator"],
+        },
+        {
+            "name": "__cpp_lib_observable_checkpoint",
+            "values": {"c++26": 202506},  # P3641R0, P1494R5
+            "headers": ["utility"],
+            "test_suite_guard": "__has_builtin(__builtin_observable_checkpoint)",
+            "libcxx_guard": "__has_builtin(__builtin_observable_checkpoint)",
         },
         {
             "name": "__cpp_lib_optional",
@@ -1782,7 +1859,8 @@ assert feature_test_macros == sorted(feature_test_macros, key=lambda tc: tc["nam
 for tc in feature_test_macros:
     assert tc["headers"] == sorted(tc["headers"]), tc
     assert ("libcxx_guard" in tc) == ("test_suite_guard" in tc), tc
-    valid_keys = ["name", "values", "headers", "libcxx_guard", "test_suite_guard", "unimplemented"]
+    valid_keys = ["name", "values", "headers", "libcxx_guard", "test_suite_guard", "unimplemented",
+                  "macro_definition", "display_value", "allowed_values"]
     assert all(key in valid_keys for key in tc.keys()), tc
 
 # Map from each header to the Lit annotations that should be used for
@@ -1897,7 +1975,10 @@ def produce_macros_definition_for_std(std):
             result += "# undef  %s\n" % tc["name"]
         line = "#%sdefine %s" % ((" " * inner_indent), tc["name"])
         line += " " * (indent - len(line))
-        line += " %sL" % tc["values"][std]
+        if "macro_definition" in tc:
+            line += " %s" % tc["macro_definition"]
+        else:
+            line += " %sL" % tc["values"][std]
         if "unimplemented" in tc.keys():
             line = "// " + line
         result += line
@@ -2065,6 +2146,14 @@ test_types = {
 #    error "{name} should have the value {value} in {std}"
 #  endif
 """,
+    "allowed_values": """
+#  ifndef {name}
+#    error "{name} should be defined in {std}"
+#  endif
+#  if {checks}
+#    error "{name} has an invalid value in {std}"
+#  endif
+""",
 }
 
 
@@ -2082,6 +2171,9 @@ def generate_std_test(test_list, std):
             result += test_types["unimplemented"].format(
                 name=tc["name"], value=val, std=std
             )
+        elif "allowed_values" in tc.keys():
+            checks = " && ".join("%s != %sL" % (tc["name"], value) for value in tc["allowed_values"])
+            result += test_types["allowed_values"].format(name=tc["name"], std=std, checks=checks)
         elif "test_suite_guard" in tc.keys():
             result += test_types["test_suite_guard"].format(
                 name=tc["name"],
@@ -2253,6 +2345,8 @@ def get_status_table():
             value = "``%sL``" % tc["values"][std]
             if "unimplemented" in tc.keys():
                 value = "*unimplemented*"
+            elif "display_value" in tc:
+                value = tc["display_value"]
             table += [["``%s``" % tc["name"], value]]
     return table
 

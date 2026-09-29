@@ -392,12 +392,40 @@
 #    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_cwchar
+#    error "__cpp_lib_freestanding_cwchar should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_errc
+#    error "__cpp_lib_freestanding_errc should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_expected
 #    error "__cpp_lib_freestanding_expected should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_feature_test_macros
+#    error "__cpp_lib_freestanding_feature_test_macros should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_functional
@@ -416,8 +444,20 @@
 #    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_random
+#    error "__cpp_lib_freestanding_random should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_ranges
@@ -754,6 +794,10 @@
 
 #  ifdef __cpp_lib_null_iterators
 #    error "__cpp_lib_null_iterators should not be defined before c++14"
+#  endif
+
+#  ifdef __cpp_lib_observable_checkpoint
+#    error "__cpp_lib_observable_checkpoint should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_optional
@@ -1523,12 +1567,40 @@
 #    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_cwchar
+#    error "__cpp_lib_freestanding_cwchar should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_errc
+#    error "__cpp_lib_freestanding_errc should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_expected
 #    error "__cpp_lib_freestanding_expected should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_feature_test_macros
+#    error "__cpp_lib_freestanding_feature_test_macros should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_functional
@@ -1547,8 +1619,20 @@
 #    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_random
+#    error "__cpp_lib_freestanding_random should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_ranges
@@ -1909,6 +1993,10 @@
 #  endif
 #  if __cpp_lib_null_iterators != 201304L
 #    error "__cpp_lib_null_iterators should have the value 201304L in c++14"
+#  endif
+
+#  ifdef __cpp_lib_observable_checkpoint
+#    error "__cpp_lib_observable_checkpoint should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_optional
@@ -2774,12 +2862,40 @@
 #    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_cwchar
+#    error "__cpp_lib_freestanding_cwchar should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_errc
+#    error "__cpp_lib_freestanding_errc should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_expected
 #    error "__cpp_lib_freestanding_expected should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_feature_test_macros
+#    error "__cpp_lib_freestanding_feature_test_macros should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_functional
@@ -2798,8 +2914,20 @@
 #    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_random
+#    error "__cpp_lib_freestanding_random should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_ranges
@@ -3220,6 +3348,10 @@
 #  endif
 #  if __cpp_lib_null_iterators != 201304L
 #    error "__cpp_lib_null_iterators should have the value 201304L in c++17"
+#  endif
+
+#  ifdef __cpp_lib_observable_checkpoint
+#    error "__cpp_lib_observable_checkpoint should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_optional
@@ -4283,12 +4415,40 @@
 #    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_cwchar
+#    error "__cpp_lib_freestanding_cwchar should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_errc
+#    error "__cpp_lib_freestanding_errc should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_expected
 #    error "__cpp_lib_freestanding_expected should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_feature_test_macros
+#    error "__cpp_lib_freestanding_feature_test_macros should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_functional
@@ -4307,8 +4467,20 @@
 #    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_random
+#    error "__cpp_lib_freestanding_random should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_ranges
@@ -4783,6 +4955,10 @@
 #  endif
 #  if __cpp_lib_null_iterators != 201304L
 #    error "__cpp_lib_null_iterators should have the value 201304L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_observable_checkpoint
+#    error "__cpp_lib_observable_checkpoint should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_optional
@@ -5978,12 +6154,40 @@
 #    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_cwchar
+#    error "__cpp_lib_freestanding_cwchar should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_errc
+#    error "__cpp_lib_freestanding_errc should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_expected
 #    error "__cpp_lib_freestanding_expected should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_feature_test_macros
+#    error "__cpp_lib_freestanding_feature_test_macros should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_functional
@@ -6002,8 +6206,20 @@
 #    error "__cpp_lib_freestanding_memory should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_random
+#    error "__cpp_lib_freestanding_random should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_ranges
@@ -6508,6 +6724,10 @@
 #  endif
 #  if __cpp_lib_null_iterators != 201304L
 #    error "__cpp_lib_null_iterators should have the value 201304L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_observable_checkpoint
+#    error "__cpp_lib_observable_checkpoint should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_optional
@@ -7744,7 +7964,7 @@
 #    error "__cpp_lib_erase_if should have the value 202002L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_HAS_NO_EXCEPTIONS) && __has_builtin(__builtin_constexpr_exception_capture) && __has_builtin(__builtin_constexpr_exception_retain) && __has_builtin(__builtin_constexpr_exception_release) && __has_builtin(__builtin_constexpr_exception_rethrow)
 #    ifndef __cpp_lib_exception_ptr_cast
 #      error "__cpp_lib_exception_ptr_cast should be defined in c++26"
 #    endif
@@ -7753,7 +7973,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_exception_ptr_cast
-#      error "__cpp_lib_exception_ptr_cast should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_exception_ptr_cast should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_EXCEPTIONS) && __has_builtin(__builtin_constexpr_exception_capture) && __has_builtin(__builtin_constexpr_exception_retain) && __has_builtin(__builtin_constexpr_exception_release) && __has_builtin(__builtin_constexpr_exception_rethrow)' is not met!"
 #    endif
 #  endif
 
@@ -7865,17 +8085,11 @@
 #    error "__cpp_lib_forward_like should have the value 202207L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_algorithm
-#      error "__cpp_lib_freestanding_algorithm should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_algorithm != 202311L
-#      error "__cpp_lib_freestanding_algorithm should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_algorithm
-#      error "__cpp_lib_freestanding_algorithm should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_algorithm
+#    error "__cpp_lib_freestanding_algorithm should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_algorithm != 202502L
+#    error "__cpp_lib_freestanding_algorithm should have the value 202502L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_array
@@ -7892,6 +8106,27 @@
 #    error "__cpp_lib_freestanding_atomic should have the value 202306L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_char_traits != 202306L
+#    error "__cpp_lib_freestanding_char_traits should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_charconv != 202306L
+#    error "__cpp_lib_freestanding_charconv should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_cstdlib != 202306L
+#    error "__cpp_lib_freestanding_cstdlib should have the value 202306L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_freestanding_cstring
 #    error "__cpp_lib_freestanding_cstring should be defined in c++26"
 #  endif
@@ -7899,11 +8134,39 @@
 #    error "__cpp_lib_freestanding_cstring should have the value 202311L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_freestanding_cwchar
+#    error "__cpp_lib_freestanding_cwchar should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_cwchar != 202306L
+#    error "__cpp_lib_freestanding_cwchar should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_errc
+#    error "__cpp_lib_freestanding_errc should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_errc != 202306L
+#    error "__cpp_lib_freestanding_errc should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_execution != 202502L
+#    error "__cpp_lib_freestanding_execution should have the value 202502L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_freestanding_expected
 #    error "__cpp_lib_freestanding_expected should be defined in c++26"
 #  endif
 #  if __cpp_lib_freestanding_expected != 202311L
 #    error "__cpp_lib_freestanding_expected should have the value 202311L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_feature_test_macros
+#    error "__cpp_lib_freestanding_feature_test_macros should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_feature_test_macros != 202306L
+#    error "__cpp_lib_freestanding_feature_test_macros should have the value 202306L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_functional
@@ -7930,8 +8193,22 @@
 #  ifndef __cpp_lib_freestanding_memory
 #    error "__cpp_lib_freestanding_memory should be defined in c++26"
 #  endif
-#  if __cpp_lib_freestanding_memory != 202306L
-#    error "__cpp_lib_freestanding_memory should have the value 202306L in c++26"
+#  if __cpp_lib_freestanding_memory != 202502L
+#    error "__cpp_lib_freestanding_memory should have the value 202502L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_numeric
+#    error "__cpp_lib_freestanding_numeric should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_numeric != 202502L
+#    error "__cpp_lib_freestanding_numeric should have the value 202502L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_operator_new != 0L && __cpp_lib_freestanding_operator_new != 202306L
+#    error "__cpp_lib_freestanding_operator_new has an invalid value in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_optional
@@ -7939,6 +8216,13 @@
 #  endif
 #  if __cpp_lib_freestanding_optional != 202311L
 #    error "__cpp_lib_freestanding_optional should have the value 202311L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_random
+#    error "__cpp_lib_freestanding_random should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_random != 202502L
+#    error "__cpp_lib_freestanding_random should have the value 202502L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_ranges
@@ -8683,6 +8967,19 @@
 #  endif
 #  if __cpp_lib_null_iterators != 201304L
 #    error "__cpp_lib_null_iterators should have the value 201304L in c++26"
+#  endif
+
+#  if __has_builtin(__builtin_observable_checkpoint)
+#    ifndef __cpp_lib_observable_checkpoint
+#      error "__cpp_lib_observable_checkpoint should be defined in c++26"
+#    endif
+#    if __cpp_lib_observable_checkpoint != 202506L
+#      error "__cpp_lib_observable_checkpoint should have the value 202506L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_observable_checkpoint
+#      error "__cpp_lib_observable_checkpoint should not be defined when the requirement '__has_builtin(__builtin_observable_checkpoint)' is not met!"
+#    endif
 #  endif
 
 #  ifndef __cpp_lib_optional

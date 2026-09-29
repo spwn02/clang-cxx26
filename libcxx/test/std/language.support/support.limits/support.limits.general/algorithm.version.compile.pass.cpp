@@ -428,17 +428,11 @@
 #    error "__cpp_lib_default_template_type_for_algorithm_values should have the value 202403L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_algorithm
-#      error "__cpp_lib_freestanding_algorithm should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_algorithm != 202311L
-#      error "__cpp_lib_freestanding_algorithm should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_algorithm
-#      error "__cpp_lib_freestanding_algorithm should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_algorithm
+#    error "__cpp_lib_freestanding_algorithm should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_algorithm != 202502L
+#    error "__cpp_lib_freestanding_algorithm should have the value 202502L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION)

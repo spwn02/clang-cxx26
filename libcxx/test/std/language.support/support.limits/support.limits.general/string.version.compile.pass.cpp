@@ -44,6 +44,10 @@
 #    error "__cpp_lib_erase_if should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_basic_string
 #    error "__cpp_lib_hardened_basic_string should not be defined before c++26"
 #  endif
@@ -104,6 +108,10 @@
 
 #  ifdef __cpp_lib_erase_if
 #    error "__cpp_lib_erase_if should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardened_basic_string
@@ -172,6 +180,10 @@
 
 #  ifdef __cpp_lib_erase_if
 #    error "__cpp_lib_erase_if should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardened_basic_string
@@ -261,6 +273,10 @@
 #  endif
 #  if __cpp_lib_erase_if != 202002L
 #    error "__cpp_lib_erase_if should have the value 202002L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardened_basic_string
@@ -356,6 +372,10 @@
 #  endif
 #  if __cpp_lib_erase_if != 202002L
 #    error "__cpp_lib_erase_if should have the value 202002L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_hardened_basic_string
@@ -460,6 +480,13 @@
 #  endif
 #  if __cpp_lib_erase_if != 202002L
 #    error "__cpp_lib_erase_if should have the value 202002L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_char_traits
+#    error "__cpp_lib_freestanding_char_traits should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_char_traits != 202306L
+#    error "__cpp_lib_freestanding_char_traits should have the value 202306L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE

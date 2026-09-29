@@ -24,6 +24,10 @@
 #    error "__cpp_lib_constexpr_cmath should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hypot
 #    error "__cpp_lib_hypot should not be defined before c++17"
 #  endif
@@ -42,6 +46,10 @@
 #    error "__cpp_lib_constexpr_cmath should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hypot
 #    error "__cpp_lib_hypot should not be defined before c++17"
 #  endif
@@ -58,6 +66,10 @@
 
 #  ifdef __cpp_lib_constexpr_cmath
 #    error "__cpp_lib_constexpr_cmath should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_hypot
@@ -82,6 +94,10 @@
 
 #  ifdef __cpp_lib_constexpr_cmath
 #    error "__cpp_lib_constexpr_cmath should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_hypot
@@ -120,6 +136,10 @@
 #    endif
 #  endif
 
+#  ifdef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_hypot
 #    error "__cpp_lib_hypot should be defined in c++23"
 #  endif
@@ -154,6 +174,13 @@
 #    ifdef __cpp_lib_constexpr_cmath
 #      error "__cpp_lib_constexpr_cmath should not be defined because it is unimplemented in libc++!"
 #    endif
+#  endif
+
+#  ifndef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_cstdlib != 202306L
+#    error "__cpp_lib_freestanding_cstdlib should have the value 202306L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_hypot

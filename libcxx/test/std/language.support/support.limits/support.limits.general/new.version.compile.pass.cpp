@@ -28,6 +28,10 @@
 #    error "__cpp_lib_destroying_delete should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardware_interference_size
 #    error "__cpp_lib_hardware_interference_size should not be defined before c++17"
 #  endif
@@ -46,6 +50,10 @@
 #    error "__cpp_lib_destroying_delete should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardware_interference_size
 #    error "__cpp_lib_hardware_interference_size should not be defined before c++17"
 #  endif
@@ -62,6 +70,10 @@
 
 #  ifdef __cpp_lib_destroying_delete
 #    error "__cpp_lib_destroying_delete should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_hardware_interference_size
@@ -97,6 +109,10 @@
 #    endif
 #  endif
 
+#  ifdef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_hardware_interference_size
 #    error "__cpp_lib_hardware_interference_size should be defined in c++20"
 #  endif
@@ -128,6 +144,10 @@
 #    ifdef __cpp_lib_destroying_delete
 #      error "__cpp_lib_destroying_delete should not be defined when the requirement 'TEST_STD_VER > 17 && defined(__cpp_impl_destroying_delete) && __cpp_impl_destroying_delete >= 201806L' is not met!"
 #    endif
+#  endif
+
+#  ifdef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_hardware_interference_size
@@ -170,6 +190,13 @@
 #    ifdef __cpp_lib_destroying_delete
 #      error "__cpp_lib_destroying_delete should not be defined when the requirement 'TEST_STD_VER > 17 && defined(__cpp_impl_destroying_delete) && __cpp_impl_destroying_delete >= 201806L' is not met!"
 #    endif
+#  endif
+
+#  ifndef __cpp_lib_freestanding_operator_new
+#    error "__cpp_lib_freestanding_operator_new should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_operator_new != 0L && __cpp_lib_freestanding_operator_new != 202306L
+#    error "__cpp_lib_freestanding_operator_new has an invalid value in c++26"
 #  endif
 
 #  ifndef __cpp_lib_hardware_interference_size
