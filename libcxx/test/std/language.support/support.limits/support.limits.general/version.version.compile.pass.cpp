@@ -7976,17 +7976,11 @@
 #    error "__cpp_lib_freestanding_utility should have the value 202306L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_variant
-#      error "__cpp_lib_freestanding_variant should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_variant != 202311L
-#      error "__cpp_lib_freestanding_variant should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_variant
-#      error "__cpp_lib_freestanding_variant should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_variant
+#    error "__cpp_lib_freestanding_variant should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_variant != 202311L
+#    error "__cpp_lib_freestanding_variant should have the value 202311L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || (_LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION)

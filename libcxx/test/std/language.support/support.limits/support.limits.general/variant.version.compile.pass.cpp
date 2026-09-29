@@ -106,17 +106,11 @@
 #    error "__cpp_lib_constrained_equality should have the value 202411L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_freestanding_variant
-#      error "__cpp_lib_freestanding_variant should be defined in c++26"
-#    endif
-#    if __cpp_lib_freestanding_variant != 202311L
-#      error "__cpp_lib_freestanding_variant should have the value 202311L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_freestanding_variant
-#      error "__cpp_lib_freestanding_variant should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_freestanding_variant
+#    error "__cpp_lib_freestanding_variant should be defined in c++26"
+#  endif
+#  if __cpp_lib_freestanding_variant != 202311L
+#    error "__cpp_lib_freestanding_variant should have the value 202311L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_variant

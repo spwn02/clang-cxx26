@@ -1334,6 +1334,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto&& __generic_get(_Vp&& __v) {
   return __variant::__get_alt<_Ip>(std::forward<_Vp>(__v)).__value;
 }
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <size_t _Ip, class... _Types>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr variant_alternative_t<_Ip, variant<_Types...>>&
 get(variant<_Types...>& __v) {
@@ -1389,6 +1390,7 @@ template <class _Tp, class... _Types>
   static_assert(!is_void_v<_Tp>);
   return std::get<__find_exactly_one_t<_Tp, _Types...>::value>(std::move(__v));
 }
+#endif
 
 template <size_t _Ip, class _Vp>
 _LIBCPP_HIDE_FROM_ABI constexpr auto* __generic_get_if(_Vp* __v) noexcept {

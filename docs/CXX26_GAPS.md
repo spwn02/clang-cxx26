@@ -2580,7 +2580,7 @@ Lower priority (niche embedded/kernel audience), but self-contained.
 | [ ] | P2198R7 | Freestanding feature-test macros | Audited 2026-09-16 against R7: required freestanding FTM inventory and meta/operator-new detection remain open. |
 | [ ] | P2338R4 | Freestanding character primitives & C library | |
 | [ ] | P2013R5 | Freestanding optional `::operator new` | Audited 2026-09-16 against R5: core-language/runtime-platform contract, not a safe libc++-only gate; depends on P2198 detection. |
-| [ ] | P2407R5 | Freestanding partial classes | Optional completed; `variant` remains. |
+| [x] | P2407R5 | Freestanding partial classes | Complete 2026-09-29: all eight `variant::get` index/type free-function overloads are deleted freestanding; `get_if`, emplacement and constexpr visitation survive. Existing array/string_view/optional boundaries retained. Generator-owned variant macro and focused hosted/freestanding/macro gate: 56 passed. #23 remains open for other papers. |
 | [x] | P2937R0 | Freestanding: remove `strtok` | Complete 2026-09-16; `<cstring>` omits `std::strtok` under `_LIBCPP_FREESTANDING` and has negative requires-expression coverage. |
 | [ ] | P2833R2 | Freestanding `expected`/`span` | Partial. `span::at` and `expected::value` are gated and tested; `out_ptr`/`inout_ptr` remain open. |
 | [ ] | P2976R1 | Freestanding `algorithm`/`numeric`/`random` | Audited 2026-09-16 against R1; execution-policy/allocating algorithm exclusions, random subset gating, and execution/random FTMs remain open. |
@@ -7552,6 +7552,14 @@ blocked, what's next. Do not remove old entries.
   ownership of integration/builds/commits. Current full baselines are one
   known Clang failure and two known libc++ failures; benchmarks excluded.
   All four issues remain open; active work is recorded in `docs/WAVES56.md`.
+
+- **2026-09-29 (P2407R5 variant closure)**: Integrated freestanding variant
+  get deletion in forward declarations and excluded hosted definitions.
+  Enabled generator-owned `__cpp_lib_freestanding_variant` (202311L).
+  Dependent-expression tests reject all eight overloads; constexpr positive
+  tests exercise get_if, emplacement, holds_alternative and both visit forms.
+  Hosted variant plus freestanding and generated macro gate: 56 passed.
+  Other #23 papers and the overall wave gate remain active.
 
 - **2026-09-29 (Wave 7 and #79 final gate)**: All 133 focused SIMD,
   freestanding, and generated feature-macro tests passed. Full libc++ correctness

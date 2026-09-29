@@ -102,3 +102,9 @@ to stage protected Git metadata does not block source implementation.
   retained integration/commits at the root. Luna/low math, exceptions and
   checkpoints implementation resumes in parallel; root validates variant
   independently. No issue or wave closure is claimed.
+- 2026-09-29: Integrated and validated P2407R5 variant boundary: eight
+  deleted get overloads, surviving constexpr get_if/visitation/emplacement,
+  regenerated feature macro. All 56 focused hosted/freestanding/macro tests
+  pass. Math and checkpoint compiler core build is running; review corrected
+  checkpoint terminator ordering, willreturn suppression and MPFR conversion
+  double rounding before validation. Other feature work remains active.
