@@ -1387,6 +1387,7 @@ bool FastISel::selectIntrinsicCall(const IntrinsicInst *II) {
   case Intrinsic::donothing:
   // Neither does the sideeffect intrinsic.
   case Intrinsic::sideeffect:
+  case Intrinsic::observable_checkpoint:
   // Neither does the assume intrinsic; it's also OK not to codegen its operand.
   case Intrinsic::assume:
   // Neither does the llvm.experimental.noalias.scope.decl intrinsic

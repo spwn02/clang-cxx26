@@ -3762,6 +3762,10 @@ struct AAWillReturn
                          AAWillReturn> {
   AAWillReturn(const IRPosition &IRP, Attributor &A) : IRAttribute(IRP) {}
 
+  /// Return true if the function associated with \p IRP contains an
+  /// observable checkpoint, which may terminate even if it is readonly.
+  LLVM_ABI static bool containsObservableCheckpoint(const IRPosition &IRP);
+
   static bool isImpliedByIR(Attributor &A, const IRPosition &IRP,
                             Attribute::AttrKind ImpliedAttributeKind,
                             bool IgnoreSubsumingPositions = false) {
@@ -3780,6 +3784,8 @@ struct AAWillReturn
   /// Check for `mustprogress` and `readonly` as they imply `willreturn`.
   static bool isImpliedByMustprogressAndReadonly(Attributor &A,
                                                  const IRPosition &IRP) {
+    if (containsObservableCheckpoint(IRP))
+      return false;
     // Check for `mustprogress` in the scope and the associated function which
     // might be different if this is a call site.
     if (!A.hasAttr(IRP, {Attribute::MustProgress}))

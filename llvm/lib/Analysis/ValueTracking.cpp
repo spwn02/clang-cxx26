@@ -7945,6 +7945,11 @@ bool llvm::isGuaranteedToTransferExecutionToSuccessor(const Instruction *I) {
 
   // An instruction that returns without throwing must transfer control flow
   // to a successor.
+  // Observable checkpoints are deliberately modeled as possible termination
+  // points: subsequent UB must not invalidate the preceding defined prefix.
+  if (auto *II = dyn_cast<IntrinsicInst>(I))
+    if (II->getIntrinsicID() == Intrinsic::observable_checkpoint)
+      return false;
   return !I->mayThrow() && I->willReturn();
 }
 

@@ -340,7 +340,6 @@ CodeGenIntrinsic::CodeGenIntrinsic(const Record *R,
 
   // Set default properties to true.
   setDefaultProperties(Ctx.DefaultProperties);
-
   // Also record the SDPatternOperator Properties.
   Properties = parseSDPatternOperatorProperties(R);
 
@@ -355,8 +354,17 @@ void CodeGenIntrinsic::setDefaultProperties(
   if (TheDef->getValueAsBit("DisableDefaultAttributes"))
     return;
 
-  for (const Record *Rec : DefaultProperties)
+  const auto *Properties = TheDef->getValueAsListInit("IntrProperties");
+  bool SuppressWillReturn = llvm::any_of(
+      Properties->getValues(), [](const Init *I) {
+        const auto *R = dyn_cast<DefInit>(I);
+        return R && R->getDef()->getName() == "IntrNoWillReturn";
+      });
+  for (const Record *Rec : DefaultProperties) {
+    if (SuppressWillReturn && Rec->getName() == "IntrWillReturn")
+      continue;
     setProperty(Rec);
+  }
 }
 
 void CodeGenIntrinsic::setProperty(const Record *R) {
@@ -404,6 +412,8 @@ void CodeGenIntrinsic::setProperty(const Record *R) {
     isConvergent = true;
   else if (R->getName() == "IntrNoReturn")
     isNoReturn = true;
+  else if (R->getName() == "IntrNoWillReturn")
+    isNoWillReturn = true;
   else if (R->getName() == "IntrNoCallback")
     isNoCallback = true;
   else if (R->getName() == "IntrNoSync")
@@ -411,7 +421,7 @@ void CodeGenIntrinsic::setProperty(const Record *R) {
   else if (R->getName() == "IntrNoFree")
     isNoFree = true;
   else if (R->getName() == "IntrWillReturn")
-    isWillReturn = !isNoReturn;
+    isWillReturn = !isNoReturn && !isNoWillReturn;
   else if (R->getName() == "IntrCold")
     isCold = true;
   else if (R->getName() == "IntrSpeculatable")

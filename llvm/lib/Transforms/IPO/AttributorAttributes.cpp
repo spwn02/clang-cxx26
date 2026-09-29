@@ -3325,6 +3325,8 @@ struct AAWillReturnImpl : public AAWillReturn {
 
   /// Check for `mustprogress` and `readonly` as they imply `willreturn`.
   bool isImpliedByMustprogressAndReadonly(Attributor &A, bool KnownOnly) {
+    if (AAWillReturn::containsObservableCheckpoint(getIRPosition()))
+      return false;
     if (!A.hasAttr(getIRPosition(), {Attribute::MustProgress}))
       return false;
 
@@ -3336,10 +3338,30 @@ struct AAWillReturnImpl : public AAWillReturn {
 
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
+    if (AAWillReturn::containsObservableCheckpoint(getIRPosition()))
+      return indicatePessimisticFixpoint();
+    // The readonly + mustprogress shortcut below normally implies
+    // willreturn, but a checkpoint is an explicit possible-termination point
+    // even when it does not access ordinary memory.
+    if (getIRPosition().getPositionKind() == IRPosition::IRP_FUNCTION) {
+      const Function *F = getIRPosition().getAssociatedFunction();
+      if (F && any_of(instructions(*F), [](const Instruction &I) {
+            const auto *II = dyn_cast<IntrinsicInst>(&I);
+            return II &&
+                   II->getIntrinsicID() == Intrinsic::observable_checkpoint;
+          }))
+        return indicatePessimisticFixpoint();
+    }
+
     if (isImpliedByMustprogressAndReadonly(A, /* KnownOnly */ false))
       return ChangeStatus::UNCHANGED;
 
     auto CheckForWillReturn = [&](Instruction &I) {
+      if (auto *CB = dyn_cast<CallBase>(&I))
+        if (CB->getCalledFunction() &&
+            CB->getCalledFunction()->getIntrinsicID() ==
+                Intrinsic::observable_checkpoint)
+          return false;
       IRPosition IPos = IRPosition::callsite_function(cast<CallBase>(I));
       bool IsKnown;
       if (AA::hasAssumedIRAttr<Attribute::WillReturn>(
@@ -13663,6 +13685,18 @@ const char AANonNull::ID = 0;
 const char AAMustProgress::ID = 0;
 const char AANoRecurse::ID = 0;
 const char AANonConvergent::ID = 0;
+bool AAWillReturn::containsObservableCheckpoint(const IRPosition &IRP) {
+  // For a callsite position getAssociatedFunction() names the known callee.
+  // A checkpoint elsewhere in the caller does not affect this call's return.
+  const Function *F = IRP.getAssociatedFunction();
+  if (!F || F->isDeclaration())
+    return false;
+  return any_of(instructions(*F), [](const Instruction &I) {
+    const auto *II = dyn_cast<IntrinsicInst>(&I);
+    return II && II->getIntrinsicID() == Intrinsic::observable_checkpoint;
+  });
+}
+
 const char AAWillReturn::ID = 0;
 const char AAUndefinedBehavior::ID = 0;
 const char AANoAlias::ID = 0;

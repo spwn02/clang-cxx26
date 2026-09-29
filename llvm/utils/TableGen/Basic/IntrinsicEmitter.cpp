@@ -441,8 +441,9 @@ static bool compareFnAttributes(const CodeGenIntrinsic *L,
                                 const CodeGenIntrinsic *R) {
   auto TieBoolAttributes = [](const CodeGenIntrinsic *I) -> auto {
     // Sort throwing intrinsics after non-throwing intrinsics.
-    return std::tie(I->canThrow, I->isNoDuplicate, I->isNoMerge, I->isNoReturn,
+  return std::tie(I->canThrow, I->isNoDuplicate, I->isNoMerge, I->isNoReturn,
                     I->isNoCallback, I->isNoSync, I->isNoFree, I->isWillReturn,
+                    I->isNoWillReturn,
                     I->isCold, I->isConvergent, I->isSpeculatable,
                     I->hasSideEffects, I->isStrictFP,
                     I->isNoCreateUndefOrPoison);
@@ -468,8 +469,9 @@ static bool compareFnAttributes(const CodeGenIntrinsic *L,
 // intrinsic has NoUnwind attribute.
 static bool hasFnAttributes(const CodeGenIntrinsic &Int) {
   return !Int.canThrow || Int.isNoReturn || Int.isNoCallback || Int.isNoSync ||
-         Int.isNoFree || Int.isWillReturn || Int.isCold || Int.isNoDuplicate ||
-         Int.isNoMerge || Int.isConvergent || Int.isSpeculatable ||
+         Int.isNoFree || Int.isWillReturn || Int.isNoWillReturn || Int.isCold ||
+         Int.isNoDuplicate || Int.isNoMerge || Int.isConvergent ||
+         Int.isSpeculatable ||
          Int.isStrictFP || Int.isNoCreateUndefOrPoison ||
          getEffectiveME(Int) != MemoryEffects::unknown();
 }

@@ -86,6 +86,9 @@ struct CodeGenIntrinsic {
   /// True if the intrinsic is no-return.
   bool isNoReturn = false;
 
+  /// True if the intrinsic must not be assumed to return.
+  bool isNoWillReturn = false;
+
   /// True if the intrinsic is no-callback.
   bool isNoCallback = false;
 

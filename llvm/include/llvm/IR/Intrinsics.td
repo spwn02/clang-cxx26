@@ -182,6 +182,10 @@ class ArgInfo<ArgIndex idx, list<ArgProperty> arg_properties> : IntrinsicPropert
 
 def IntrNoReturn : IntrinsicProperty;
 
+// IntrNoWillReturn - This intrinsic may return normally but must not be
+// assumed to return. Unlike IntrNoReturn, it does not make the call noreturn.
+def IntrNoWillReturn : IntrinsicProperty;
+
 // Applied by default.
 def IntrNoCallback : IntrinsicProperty<1>;
 
@@ -1934,6 +1938,13 @@ def int_donothing : DefaultAttrsIntrinsic<[], [], [IntrNoMem]>;
 // that they are not removed even if they turn out to be empty, for languages
 // which specify that infinite loops must be preserved.
 def int_sideeffect : DefaultAttrsIntrinsic<[], [], [IntrInaccessibleMemOnly]>;
+
+// An observable checkpoint is a possible termination point. It has an opaque
+// side effect so it cannot be removed, and deliberately lacks willreturn so
+// UB reasoning cannot propagate backwards across it. CodeGen removes it after
+// all optimization (including LTO) has finished.
+def int_observable_checkpoint : DefaultAttrsIntrinsic<[], [],
+    [IntrInaccessibleMemOnly, IntrNoDuplicate, IntrNoMerge, IntrNoWillReturn]>;
 
 // The pseudoprobe intrinsic works as a place holder to the block it probes.
 // Like the sideeffect intrinsic defined above, this intrinsic is treated by the

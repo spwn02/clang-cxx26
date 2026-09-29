@@ -2204,6 +2204,14 @@ static bool functionWillReturn(const Function &F) {
   if (!F.hasExactDefinition())
     return false;
 
+  // A checkpoint may terminate even when the function is readonly and
+  // mustprogress. Check this before the implication shortcut below.
+  if (any_of(instructions(F), [](const Instruction &I) {
+        const auto *II = dyn_cast<IntrinsicInst>(&I);
+        return II && II->getIntrinsicID() == Intrinsic::observable_checkpoint;
+      }))
+    return false;
+
   // Must-progress function without side-effects must return.
   if (F.mustProgress() && F.onlyReadsMemory())
     return true;
