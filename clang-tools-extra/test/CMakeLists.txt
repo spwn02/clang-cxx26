@@ -33,6 +33,7 @@ set(CLANG_TOOLS_TEST_DEPS
   llvm-bcanalyzer
 
   # Individual tools we test.
+  clang
   clang-apply-replacements
   clang-change-namespace
   clang-doc
