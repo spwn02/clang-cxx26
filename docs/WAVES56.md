@@ -108,3 +108,8 @@ to stage protected Git metadata does not block source implementation.
   pass. Math and checkpoint compiler core build is running; review corrected
   checkpoint terminator ordering, willreturn suppression and MPFR conversion
   double rounding before validation. Other feature work remains active.
+- 2026-09-29: Discovered and fixed #150: no-threads atomic shared/weak
+  pointer wait/notify referenced omitted contention-table functions. Added
+  configuration-independent wait/notify regression test; no-threads config
+  overlay compiles and executes, hosted smart-pointer atomic gate reports
+  two passes and one unsupported test. Compiler integration remains active.

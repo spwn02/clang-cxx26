@@ -117,16 +117,32 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI void wait(shared_ptr<_Tp> __old, memory_order __order = memory_order_seq_cst) const _NOEXCEPT
       _LIBCPP_CHECK_WAIT_MEMORY_ORDER(__order) {
+#  if _LIBCPP_HAS_THREADS
     while (__equivalent(load(__order), __old)) {
       __cxx_contention_t __monitor = std::__atomic_monitor_global(this);
       if (!__equivalent(load(__order), __old))
         return;
       std::__atomic_wait_global_table(this, __monitor);
     }
+#  else
+    // With threads disabled there is no contention table to wait on. Preserve
+    // the wait condition with a polling loop so this specialization remains
+    // well-formed in configurations where no other C++ thread can update it.
+    while (__equivalent(load(__order), __old)) {
+    }
+#  endif
   }
 
-  _LIBCPP_HIDE_FROM_ABI void notify_one() _NOEXCEPT { std::__atomic_notify_one_global_table(this); }
-  _LIBCPP_HIDE_FROM_ABI void notify_all() _NOEXCEPT { std::__atomic_notify_all_global_table(this); }
+  _LIBCPP_HIDE_FROM_ABI void notify_one() _NOEXCEPT {
+#  if _LIBCPP_HAS_THREADS
+    std::__atomic_notify_one_global_table(this);
+#  endif
+  }
+  _LIBCPP_HIDE_FROM_ABI void notify_all() _NOEXCEPT {
+#  if _LIBCPP_HAS_THREADS
+    std::__atomic_notify_all_global_table(this);
+#  endif
+  }
 
 private:
   _LIBCPP_HIDE_FROM_ABI static memory_order __fail_order(memory_order __order) _NOEXCEPT {
@@ -223,15 +239,30 @@ public:
   }
   _LIBCPP_HIDE_FROM_ABI void wait(weak_ptr<_Tp> __old, memory_order __order = memory_order_seq_cst) const _NOEXCEPT
       _LIBCPP_CHECK_WAIT_MEMORY_ORDER(__order) {
+#  if _LIBCPP_HAS_THREADS
     while (__equivalent(load(__order), __old)) {
       __cxx_contention_t __monitor = std::__atomic_monitor_global(this);
       if (!__equivalent(load(__order), __old))
         return;
       std::__atomic_wait_global_table(this, __monitor);
     }
+#  else
+    // Keep the wait condition usable without a contention table when this
+    // library is configured without thread support.
+    while (__equivalent(load(__order), __old)) {
+    }
+#  endif
   }
-  _LIBCPP_HIDE_FROM_ABI void notify_one() _NOEXCEPT { std::__atomic_notify_one_global_table(this); }
-  _LIBCPP_HIDE_FROM_ABI void notify_all() _NOEXCEPT { std::__atomic_notify_all_global_table(this); }
+  _LIBCPP_HIDE_FROM_ABI void notify_one() _NOEXCEPT {
+#  if _LIBCPP_HAS_THREADS
+    std::__atomic_notify_one_global_table(this);
+#  endif
+  }
+  _LIBCPP_HIDE_FROM_ABI void notify_all() _NOEXCEPT {
+#  if _LIBCPP_HAS_THREADS
+    std::__atomic_notify_all_global_table(this);
+#  endif
+  }
 
 private:
   _LIBCPP_HIDE_FROM_ABI static memory_order __fail_order(memory_order __order) _NOEXCEPT {
