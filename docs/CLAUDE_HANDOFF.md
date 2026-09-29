@@ -15,9 +15,13 @@
   Two reproduce with pre-task headers: valarray nodiscard diagnostics and print
   nonlocking formatter assertions. The third, execution header registration,
   is repaired; all 150 affected module/registration tests passed (one unsupported).
-- Remaining waves: Wave 5 #118; Wave 6 #23, #30, #148. Other open work:
-  #144 clang-tidy crash. Keep #116 final conformance review deferred until all
-  other issues close. Waves 0–4 and 7–9 have no open issues.
+- Remaining waves: Wave 5 #118; Wave 6 #23, #30, #148. #144 (clang-tidy
+  orphan-node crash) closed 2026-09-30: root-caused to ASTReader replaying a
+  cross-module implicit-member update without splicing it into the class's
+  lexical decl chain (see `clang/lib/Serialization/ASTReader.cpp`,
+  `finishPendingActions`, and issue #144's closing comment). Keep #116 final
+  conformance review deferred until all other issues close. Waves 0–4 and
+  7–9 have no open issues.
 - Full gate began at 92da86fc39f4 with the final unsigned-index fix in the
   worktree, subsequently committed as ad8e794a4340; raw archive stamp retained.
 
