@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Persist a serial Luna work queue; run under a systemd user service.
 
-State and JSONL logs belong outside the checkout. Successful implementation
+State and JSONL logs must use a writable directory outside Git metadata.
+Successful implementation
 turns await integration review; they never imply issue completion. Non-limit
 failures stop the queue for inspection instead of repeatedly spending usage.
 """
@@ -79,8 +80,14 @@ def run(state_path, executable):
         while True:
             if (state_path.parent / 'STOP').exists():
                 return
+            # Accept newly queued tasks while idle; never dispatch a second
+            # worker while the current worker owns its worktree.
+            state = json.loads(state_path.read_text())
             task = next((t for t in state['tasks'] if t['status'] in ('pending', 'waiting_limit')), None)
             if task is None:
+                if state.get('stay_alive', False):
+                    time.sleep(30)
+                    continue
                 return
             if any(t['status'] == 'infrastructure_failure' for t in state['tasks']):
                 return
@@ -92,7 +99,7 @@ def run(state_path, executable):
             error_log = log.with_suffix('.stderr')
             task.update(status='running', started_at=time.time(), log=str(log))
             save(state_path, state)
-            args = [executable, 'exec']
+            args = [executable, 'exec', '-C', task['cwd']]
             if task.get('session_id'):
                 args += ['resume', task['session_id']]
             else:

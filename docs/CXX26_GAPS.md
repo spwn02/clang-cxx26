@@ -7537,6 +7537,22 @@ blocked, what's next. Do not remove old entries.
   Added persistent Luna/low worker supervision; #116 stays deferred.
   These issues remain open pending reviewed implementation and full gates.
 
+- **2026-09-29 (Waves 5/6 integration review)**: Archived baseline completed
+  before shared source/build changes. Baseline has one known Clang failure
+  (`cxx2b-consteval-propagate.cpp`) and two libc++ failures
+  (`numarray/nodiscard.verify.cpp`, `print/bounded_writes.pass.cpp`). Worker
+  proposals were reviewed in isolated worktrees: #23 has partial changes,
+  #118 lacks a correct-rounding proof, #148 has no implementation, and #30
+  lacks optimizer/I/O/runtime validation. No proposal is considered complete;
+  issues remain open and no source patch was integrated in this review step.
+
+- **2026-09-29 (Waves 5/6 active continuation)**: Initial worker proposals
+  did not finish scope. Repaired protected-metadata continuation paths,
+  resumed implementation with Luna/low isolated workers, and retained root
+  ownership of integration/builds/commits. Current full baselines are one
+  known Clang failure and two known libc++ failures; benchmarks excluded.
+  All four issues remain open; active work is recorded in `docs/WAVES56.md`.
+
 - **2026-09-29 (Wave 7 and #79 final gate)**: All 133 focused SIMD,
   freestanding, and generated feature-macro tests passed. Full libc++ correctness
   gate excluded 134 benchmarks and selected 12,607 tests: 11,489 passed,

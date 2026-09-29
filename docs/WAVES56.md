@@ -45,13 +45,15 @@ with a clean working tree.
 ## Continuation
 
 `cxx26/dev/wave-supervisor.py` runs as a host systemd user service. Its
-state, session IDs, prompts, attempts, retry times, JSONL logs and sparse
-worktrees live in `.git/waves56/`. A file lock excludes duplicate runners;
+state, session IDs, prompts, attempts, retry times and JSONL logs live in
+`build-waves56-state/`; isolated sparse worktrees live in
+`build-waves56-worktrees/`. Baseline archives remain in `.git/waves56/archive/`.
+A file lock excludes duplicate runners;
 systemd's control-group cleanup kills prior workers before restarting.
 Only an explicit usage-limit error schedules retry at the reported reset
 time (five hours when absent). Other execution failures stop for inspection.
 Successful worker turns require integration review, never issue closure.
-The integration task must produce a fresh structured result; incomplete work
+Workers must produce a fresh structured result; incomplete work
 with further progress available resumes its saved session after one minute.
 Missing/stale results or an explicit blocker require inspection. Reported
 completion records evidence and remains subject to review.
@@ -59,6 +61,9 @@ Use `systemctl --user status cxx26-waves56` and inspect `state.json`/logs.
 Stop through `systemctl --user stop cxx26-waves56`; a `STOP` file also stops
 dispatch between turns. User service survives interactive session closure;
 reboot/logout persistence is not claimed (user lingering is disabled).
+The supervisor stays alive while idle and accepts newly queued worker tasks.
+Root orchestrator owns integration and Git publication; a worker's inability
+to stage protected Git metadata does not block source implementation.
 
 ## Session log
 
@@ -89,3 +94,11 @@ reboot/logout persistence is not claimed (user lingering is disabled).
   records infrastructure failure and stops instead of restart-looping.
   Initial libc++ failures match the preceding gate's known valarray
   nodiscard and print bounded-write failures; the full run remains active.
+- 2026-09-29: Both baselines finished: libc++ 11,490 PASS, 26 XFAIL,
+  1,089 UNSUPPORTED, two known failures and 134 excluded benchmarks.
+  Initial worker queue stopped with incomplete proposals and an unwritable
+  integration-result path under Git metadata. Moved state/worktrees into
+  writable ignored build directories, resumed freestanding session, and
+  retained integration/commits at the root. Luna/low math, exceptions and
+  checkpoints implementation resumes in parallel; root validates variant
+  independently. No issue or wave closure is claimed.
