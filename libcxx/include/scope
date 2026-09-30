@@ -25,10 +25,10 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 template <class _EF>
 class scope_exit {
 public:
-  explicit scope_exit(_EF __exit_function) noexcept(is_nothrow_move_constructible_v<_EF>)
+  explicit scope_exit(_EF __exit_function) noexcept(is_nothrow_move_constructible<_EF>::value)
       : __exit_function_(std::move(__exit_function)) {}
 
-  scope_exit(scope_exit&& __other) noexcept(is_nothrow_move_constructible_v<_EF>)
+  scope_exit(scope_exit&& __other) noexcept(is_nothrow_move_constructible<_EF>::value)
       : __exit_function_(std::move(__other.__exit_function_)), __active_(__other.__active_) {
     __other.release();
   }
@@ -49,16 +49,18 @@ private:
   bool __active_ = true;
 };
 
+#if _LIBCPP_STD_VER >= 17
 template <class _EF>
 scope_exit(_EF) -> scope_exit<_EF>;
+#endif
 
 template <class _EF>
 class scope_fail {
 public:
-  explicit scope_fail(_EF __exit_function) noexcept(is_nothrow_move_constructible_v<_EF>)
+  explicit scope_fail(_EF __exit_function) noexcept(is_nothrow_move_constructible<_EF>::value)
       : __exit_function_(std::move(__exit_function)), __uncaught_(uncaught_exceptions()) {}
 
-  scope_fail(scope_fail&& __other) noexcept(is_nothrow_move_constructible_v<_EF>)
+  scope_fail(scope_fail&& __other) noexcept(is_nothrow_move_constructible<_EF>::value)
       : __exit_function_(std::move(__other.__exit_function_)),
         __uncaught_(__other.__uncaught_), __active_(__other.__active_) {
     __other.release();
@@ -81,16 +83,18 @@ private:
   bool __active_ = true;
 };
 
+#if _LIBCPP_STD_VER >= 17
 template <class _EF>
 scope_fail(_EF) -> scope_fail<_EF>;
+#endif
 
 template <class _EF>
 class scope_success {
 public:
-  explicit scope_success(_EF __exit_function) noexcept(is_nothrow_move_constructible_v<_EF>)
+  explicit scope_success(_EF __exit_function) noexcept(is_nothrow_move_constructible<_EF>::value)
       : __exit_function_(std::move(__exit_function)), __uncaught_(uncaught_exceptions()) {}
 
-  scope_success(scope_success&& __other) noexcept(is_nothrow_move_constructible_v<_EF>)
+  scope_success(scope_success&& __other) noexcept(is_nothrow_move_constructible<_EF>::value)
       : __exit_function_(std::move(__other.__exit_function_)),
         __uncaught_(__other.__uncaught_), __active_(__other.__active_) {
     __other.release();
@@ -113,8 +117,10 @@ private:
   bool __active_ = true;
 };
 
+#if _LIBCPP_STD_VER >= 17
 template <class _EF>
 scope_success(_EF) -> scope_success<_EF>;
+#endif
 
 _LIBCPP_END_NAMESPACE_STD
 

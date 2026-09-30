@@ -2656,10 +2656,34 @@ basic_regex(_ForwardIterator, _ForwardIterator, regex_constants::syntax_option_t
     -> basic_regex<typename iterator_traits<_ForwardIterator>::value_type>;
 #    endif
 
-// icase/nosubs/optimize/collate/ECMAScript/basic/extended/awk/grep/egrep/multiline
-// are `static constexpr` (P0607R0), which are implicitly inline since C++17 --
-// no out-of-class definition needed or provided (this header targets C++11+
-// only; C++03 goes through the separate __cxx03/regex frozen header instead).
+// icase/nosubs/optimize/collate/ECMAScript/basic/extended/awk/grep/egrep/multiline are
+// `static constexpr` (P0607R0), which are implicitly inline since C++17. Before C++17 they still
+// need an out-of-class definition so that ODR-using them (e.g. taking their address) links.
+// (This header targets C++11+; C++03 goes through the separate __cxx03/regex frozen header.)
+#    if _LIBCPP_STD_VER < 17
+template <class _CharT, class _Traits>
+constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::icase;
+template <class _CharT, class _Traits>
+constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::nosubs;
+template <class _CharT, class _Traits>
+constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::optimize;
+template <class _CharT, class _Traits>
+constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::collate;
+template <class _CharT, class _Traits>
+constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::ECMAScript;
+template <class _CharT, class _Traits>
+constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::basic;
+template <class _CharT, class _Traits>
+constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::extended;
+template <class _CharT, class _Traits>
+constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::awk;
+template <class _CharT, class _Traits>
+constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::grep;
+template <class _CharT, class _Traits>
+constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::egrep;
+template <class _CharT, class _Traits>
+constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::multiline;
+#    endif // _LIBCPP_STD_VER < 17
 
 template <class _CharT, class _Traits>
 void basic_regex<_CharT, _Traits>::swap(basic_regex& __r) {

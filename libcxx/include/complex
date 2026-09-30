@@ -950,6 +950,10 @@ imag(_Tp) {
   return 0;
 }
 
+// These helpers are only reachable from the `if consteval` paths below, which are C++26-only, and
+// their bodies use loops and multiple statements, which a C++11 constexpr function cannot have.
+#if _LIBCPP_STD_VER >= 26
+
 // ======================= Constexpr-only real-valued math primitives =======================
 //
 // P1383R2 ("More constexpr for <cmath> and <complex>") requires the transcendental complex
@@ -1237,6 +1241,8 @@ _LIBCPP_HIDE_FROM_ABI constexpr _Tp __complex_constexpr_cosh(_Tp __x) {
   return (std::__complex_constexpr_exp(__x) + std::__complex_constexpr_exp(-__x)) / 2;
   // NOLINTEND(readability-identifier-naming)
 }
+
+#endif // _LIBCPP_STD_VER >= 26
 
 // `if consteval` dispatchers: route each real-scalar primitive to the hand-rolled constexpr version
 // above during constant evaluation, and to the ordinary (builtin-backed, presumably more accurate
