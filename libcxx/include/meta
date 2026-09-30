@@ -12,6 +12,8 @@
 #ifndef _LIBCPP_META
 #define _LIBCPP_META
 
+#include <version>
+
 /*
     meta synopsis
 

@@ -948,6 +948,10 @@
 #    error "__cpp_lib_reference_wrapper should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_reflection
+#    error "__cpp_lib_reflection should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_remove_cvref
 #    error "__cpp_lib_remove_cvref should not be defined before c++20"
 #  endif
@@ -2154,6 +2158,10 @@
 
 #  ifdef __cpp_lib_reference_wrapper
 #    error "__cpp_lib_reference_wrapper should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_reflection
+#    error "__cpp_lib_reflection should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_remove_cvref
@@ -3524,6 +3532,10 @@
 
 #  ifdef __cpp_lib_reference_wrapper
 #    error "__cpp_lib_reference_wrapper should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_reflection
+#    error "__cpp_lib_reflection should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_remove_cvref
@@ -5143,6 +5155,10 @@
 
 #  ifdef __cpp_lib_reference_wrapper
 #    error "__cpp_lib_reference_wrapper should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_reflection
+#    error "__cpp_lib_reflection should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_remove_cvref
@@ -6978,6 +6994,10 @@
 
 #  ifdef __cpp_lib_reference_wrapper
 #    error "__cpp_lib_reference_wrapper should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_reflection
+#    error "__cpp_lib_reflection should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_remove_cvref
@@ -9269,6 +9289,19 @@
 #  endif
 #  if __cpp_lib_reference_wrapper != 202403L
 #    error "__cpp_lib_reference_wrapper should have the value 202403L in c++26"
+#  endif
+
+#  if __has_feature(reflection)
+#    ifndef __cpp_lib_reflection
+#      error "__cpp_lib_reflection should be defined in c++26"
+#    endif
+#    if __cpp_lib_reflection != 202603L
+#      error "__cpp_lib_reflection should have the value 202603L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_reflection
+#      error "__cpp_lib_reflection should not be defined when the requirement '__has_feature(reflection)' is not met!"
+#    endif
 #  endif
 
 #  ifndef __cpp_lib_remove_cvref

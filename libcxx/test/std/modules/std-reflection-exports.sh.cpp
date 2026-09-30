@@ -62,6 +62,15 @@ consteval bool exception_is_a_std_exception() {
   return false;
 }
 
+consteval bool synthesized_meta_exception_is_catchable() {
+  try {
+    (void)std::meta::type_of(^^int);
+  } catch (const std::meta::exception&) {
+    return true;
+  }
+  return false;
+}
+
 // Names <meta> declares in std::meta.
 static_assert(std::meta::has_parent(^^S::i));
 static_assert(!std::meta::has_parent(^^::));
@@ -88,6 +97,7 @@ static_assert(std::meta::value_of(std::meta::reflect_value(1)) ==
 
 // std::meta::exception, which is-a std::exception.
 static_assert(exception_is_a_std_exception());
+static_assert(synthesized_meta_exception_is_catchable());
 static_assert(std::is_base_of_v<std::exception, std::meta::exception>);
 
 // Names <meta> declares in std.

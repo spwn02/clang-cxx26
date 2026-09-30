@@ -16,6 +16,7 @@ export namespace std {
 
   namespace meta {
     inline namespace reflection_v2 {
+      using std::meta::reflection_v2::__make_exception;
       using std::meta::reflection_v2::info;
       using std::meta::reflection_v2::reflection_range;
       using std::meta::reflection_v2::AttributeNamespace;

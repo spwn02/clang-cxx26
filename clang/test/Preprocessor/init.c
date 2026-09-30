@@ -17,6 +17,8 @@
 //
 // RUN: %clang_cc1 -x c++ -fgnuc-version=4.2.1 -std=c++26 -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix CXX26 %s
 // RUN: %clang_cc1 -x c++ -fgnuc-version=4.2.1 -std=c++2c -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix CXX26 %s
+// RUN: %clang_cc1 -x c++ -std=c++26 -freflection -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix REFLECTION %s
+// RUN: %clang_cc1 -x c++ -std=c++26 -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix NO-REFLECTION %s
 //
 // CXX26:#define __GNUG__ 4
 // CXX26:#define __GXX_EXPERIMENTAL_CXX0X__ 1
@@ -24,6 +26,8 @@
 // CXX26:#define __GXX_WEAK__ 1
 // CXX26:#define __cplusplus 202400L
 // CXX26:#define __private_extern__ extern
+// REFLECTION:#define __cpp_impl_reflection 202603L
+// NO-REFLECTION-NOT:#define __cpp_impl_reflection
 //
 // RUN: %clang_cc1 -x c++ -fgnuc-version=4.2.1 -std=c++23 -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix CXX2B %s
 // RUN: %clang_cc1 -x c++ -fgnuc-version=4.2.1 -std=c++2b -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix CXX2B %s

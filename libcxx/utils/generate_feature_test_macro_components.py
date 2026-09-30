@@ -1515,6 +1515,13 @@ feature_test_macros = [
             "headers": ["functional"],
         },
         {
+            "name": "__cpp_lib_reflection",
+            "values": {"c++26": 202603},
+            "headers": ["meta"],
+            "test_suite_guard": "__has_feature(reflection)",
+            "libcxx_guard": "__has_feature(reflection)",
+        },
+        {
             "name": "__cpp_lib_remove_cvref",
             "values": {"c++20": 201711},
             "headers": ["type_traits"],
