@@ -7739,7 +7739,7 @@ ExprResult Sema::BuildMemberMacroInvocation(
               bool HadMultipleCandidates) {
             Result = BuildMacroCandidateExpansion(
                 Best, MacroArgs, LParenLoc, RParenLoc, HadMultipleCandidates,
-                InstantiationPattern);
+                InstantiationPattern, NameInfo.getLoc());
             return Result.isInvalid();
           }))
     return ExprError();
