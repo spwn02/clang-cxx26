@@ -19,9 +19,12 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
-#include <numbers>
 
 #include "type_algorithms.h"
+
+// std::numbers is C++20; these C++17 special math functions must stay testable in C++17.
+template <class T>
+inline constexpr T test_pi_v = static_cast<T>(3.14159265358979323846264338327950288L);
 
 // Preconditions require -1 <= k <= 1 ([sf.cmath]).
 template <class T>
@@ -85,7 +88,7 @@ void test() {
   { // phi == pi/2 reduces to the complete elliptic integral of the first kind.
     const CompareFloatingValues<Real> compare;
     for (Real k : k_points<Real>())
-      assert(compare(std::ellint_1(k, std::numbers::pi_v<Real> / 2), std::comp_ellint_1(k)));
+      assert(compare(std::ellint_1(k, test_pi_v<Real> / 2), std::comp_ellint_1(k)));
   }
 
   { // Independent oracle spot checks for k = 0.5.

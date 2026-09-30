@@ -22,9 +22,12 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
-#include <numbers>
 
 #include "type_algorithms.h"
+
+// std::numbers is C++20; these C++17 special math functions must stay testable in C++17.
+template <class T>
+inline constexpr T test_pi_v = static_cast<T>(3.14159265358979323846264338327950288L);
 
 // Preconditions require -1 <= k <= 1 ([sf.cmath]).
 template <class T>
@@ -69,7 +72,7 @@ void test() {
 
   { // K(0) == pi/2, an exact closed-form boundary value.
     const CompareFloatingValues<Real> compare;
-    assert(compare(std::comp_ellint_1(Real(0)), std::numbers::pi_v<Real> / 2));
+    assert(compare(std::comp_ellint_1(Real(0)), test_pi_v<Real> / 2));
   }
 
   { // K(k) == K(-k): comp_ellint_1 depends on k only through k^2.

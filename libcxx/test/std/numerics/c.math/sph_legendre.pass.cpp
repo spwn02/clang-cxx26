@@ -22,9 +22,12 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
-#include <numbers>
 
 #include "type_algorithms.h"
+
+// std::numbers is C++20; these C++17 special math functions must stay testable in C++17.
+template <class T>
+inline constexpr T test_pi_v = static_cast<T>(3.14159265358979323846264338327950288L);
 
 template <class T>
 std::array<T, 5> sample_points() {
@@ -72,7 +75,7 @@ void test() {
     for (Real theta : sample_points<Real>())
       for (unsigned l = 0; l < 15; ++l) {
         Real expected =
-            std::sqrt((2 * static_cast<Real>(l) + 1) / (4 * std::numbers::pi_v<Real>)) *
+            std::sqrt((2 * static_cast<Real>(l) + 1) / (4 * test_pi_v<Real>)) *
             std::legendre(l, std::cos(theta));
         assert(compare(std::sph_legendre(l, 0u, theta), expected));
       }
@@ -81,7 +84,7 @@ void test() {
   { // Closed form for l=2, m=1: Y_2^1(theta) = -sqrt(15/(8*pi)) * sin(theta) * cos(theta).
     const CompareFloatingValues<Real> compare;
     for (Real theta : sample_points<Real>()) {
-      Real expected = -std::sqrt(Real(15) / (8 * std::numbers::pi_v<Real>)) * std::sin(theta) * std::cos(theta);
+      Real expected = -std::sqrt(Real(15) / (8 * test_pi_v<Real>)) * std::sin(theta) * std::cos(theta);
       assert(compare(std::sph_legendre(2u, 1u, theta), expected));
     }
   }
@@ -89,7 +92,7 @@ void test() {
   { // Closed form for l=1, m=1: Y_1^1(theta) = -sqrt(3/(8*pi)) * sin(theta).
     const CompareFloatingValues<Real> compare;
     for (Real theta : sample_points<Real>()) {
-      Real expected = -std::sqrt(Real(3) / (8 * std::numbers::pi_v<Real>)) * std::sin(theta);
+      Real expected = -std::sqrt(Real(3) / (8 * test_pi_v<Real>)) * std::sin(theta);
       assert(compare(std::sph_legendre(1u, 1u, theta), expected));
     }
   }

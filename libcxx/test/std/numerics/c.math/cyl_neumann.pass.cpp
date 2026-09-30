@@ -19,9 +19,12 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
-#include <numbers>
 
 #include "type_algorithms.h"
+
+// std::numbers is C++20; these C++17 special math functions must stay testable in C++17.
+template <class T>
+inline constexpr T test_pi_v = static_cast<T>(3.14159265358979323846264338327950288L);
 
 // Preconditions require nu >= 0, x > 0 ([sf.cmath]: Y_nu has a singularity at x == 0).
 template <class T>
@@ -102,7 +105,7 @@ void test() {
       for (Real x : x_points<Real>()) {
         Real lhs = std::cyl_bessel_j(nu, x) * std::cyl_neumann(nu - 1, x) -
                    std::cyl_bessel_j(nu - 1, x) * std::cyl_neumann(nu, x);
-        Real rhs = 2 / (std::numbers::pi_v<Real> * x);
+        Real rhs = 2 / (test_pi_v<Real> * x);
         assert(compare(lhs, rhs));
       }
     }

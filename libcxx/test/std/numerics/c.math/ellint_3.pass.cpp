@@ -19,9 +19,12 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
-#include <numbers>
 
 #include "type_algorithms.h"
+
+// std::numbers is C++20; these C++17 special math functions must stay testable in C++17.
+template <class T>
+inline constexpr T test_pi_v = static_cast<T>(3.14159265358979323846264338327950288L);
 
 // Preconditions require -1 <= k <= 1, nu < 1 ([sf.cmath]).
 template <class T>
@@ -94,7 +97,7 @@ void test() {
     const CompareFloatingValues<Real> compare;
     for (Real k : k_points<Real>())
       for (Real nu : nu_points<Real>())
-        assert(compare(std::ellint_3(k, nu, std::numbers::pi_v<Real> / 2), std::comp_ellint_3(k, nu)));
+        assert(compare(std::ellint_3(k, nu, test_pi_v<Real> / 2), std::comp_ellint_3(k, nu)));
   }
 
   { // Independent oracle spot checks for (k, nu) = (0.5, 0.2).
