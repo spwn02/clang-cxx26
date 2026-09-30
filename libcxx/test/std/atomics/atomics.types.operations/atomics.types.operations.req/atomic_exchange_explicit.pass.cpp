@@ -35,7 +35,10 @@ struct TestFn {
     assert(std::atomic_exchange_explicit(&t, T(2), std::memory_order_seq_cst)
            == T(1));
     assert(t == T(2));
-    if constexpr (A::is_always_lock_free) {
+#if TEST_STD_VER >= 20
+    if constexpr (A::is_always_lock_free)
+#endif
+    {
       volatile A vt(T(3));
       assert(std::atomic_exchange_explicit(&vt, T(4), std::memory_order_seq_cst)
              == T(3));

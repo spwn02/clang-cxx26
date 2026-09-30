@@ -50,7 +50,10 @@ struct TestFn {
         ASSERT_NOEXCEPT(std::atomic_compare_exchange_strong_explicit(&a, &t, T(3), std::memory_order_seq_cst,
                                                                      std::memory_order_seq_cst));
     }
+#if TEST_STD_VER >= 20
     if constexpr (std::atomic<T>::is_always_lock_free)
+#endif
+
     {
         typedef std::atomic<T> A;
         T t(T(1));

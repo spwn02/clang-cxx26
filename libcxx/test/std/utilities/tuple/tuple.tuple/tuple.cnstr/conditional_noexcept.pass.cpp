@@ -21,11 +21,11 @@ struct ThrowingCopy {
   constexpr ThrowingCopy(const ThrowingCopy&) noexcept(false) {}
 };
 
-static_assert(noexcept(std::tuple<NothrowCopy>(std::declval<const NothrowCopy&>())));
-static_assert(!noexcept(std::tuple<ThrowingCopy>(std::declval<const ThrowingCopy&>())));
-static_assert(noexcept(std::tuple<NothrowCopy>(NothrowCopy{})));
-static_assert(!noexcept(std::tuple<ThrowingCopy>(ThrowingCopy{})));
+static_assert(noexcept(std::tuple<NothrowCopy>(std::declval<const NothrowCopy&>())), "");
+static_assert(!noexcept(std::tuple<ThrowingCopy>(std::declval<const ThrowingCopy&>())), "");
+static_assert(noexcept(std::tuple<NothrowCopy>(NothrowCopy{})), "");
+static_assert(!noexcept(std::tuple<ThrowingCopy>(ThrowingCopy{})), "");
 static_assert(!noexcept(std::tuple<NothrowCopy, ThrowingCopy>(
-    std::declval<const NothrowCopy&>(), std::declval<const ThrowingCopy&>())));
+    std::declval<const NothrowCopy&>(), std::declval<const ThrowingCopy&>())), "");
 
 int main(int, char**) { return 0; }

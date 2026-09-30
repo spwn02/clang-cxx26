@@ -32,7 +32,10 @@ struct TestFn {
     A t;
     std::atomic_store(&t, T(1));
     assert(t == T(1));
-    if constexpr (A::is_always_lock_free) {
+#if TEST_STD_VER >= 20
+    if constexpr (A::is_always_lock_free)
+#endif
+    {
       volatile A vt;
       std::atomic_store(&vt, T(2));
       assert(vt == T(2));

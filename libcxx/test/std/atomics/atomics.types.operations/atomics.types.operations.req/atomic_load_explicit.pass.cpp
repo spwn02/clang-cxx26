@@ -31,7 +31,10 @@ struct TestFn {
     typedef std::atomic<T> A;
     A t(T(1));
     assert(std::atomic_load_explicit(&t, std::memory_order_seq_cst) == T(1));
-    if constexpr (A::is_always_lock_free) {
+#if TEST_STD_VER >= 20
+    if constexpr (A::is_always_lock_free)
+#endif
+    {
       volatile A vt(T(2));
       assert(std::atomic_load_explicit(&vt, std::memory_order_seq_cst) == T(2));
       ASSERT_NOEXCEPT(std::atomic_load_explicit(&vt, std::memory_order_seq_cst));
