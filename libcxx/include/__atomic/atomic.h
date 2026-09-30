@@ -84,7 +84,7 @@ private:
       memory_order __failure) noexcept {
     if constexpr (
 #  if __has_builtin(__builtin_clear_padding)
-        has_unique_object_representations_v<_Tp> || is_floating_point_v<_Tp>
+        __has_unique_object_representations(_Tp) || is_floating_point<_Tp>::value
 #  else
         true // NOLINT(readability-simplify-boolean-expr)
 #  endif

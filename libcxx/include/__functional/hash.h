@@ -49,6 +49,10 @@ inline _LIBCPP_HIDE_FROM_ABI _Size __loadword(const void* __p) {
 // evaluation, not match the runtime value. __builtin_bit_cast to a same-size byte array is
 // constexpr-friendly (unlike the union/memcpy punning above) for any trivially copyable
 // scalar type.
+// Only used from the `if consteval` paths below, which are C++26-only. The body uses a
+// local struct, a range-for and multiple statements, none of which are allowed in a
+// C++11 constexpr function.
+#if _LIBCPP_STD_VER >= 26
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr size_t __constexpr_scalar_hash(_Tp __v) _NOEXCEPT {
   struct _Bytes {
@@ -60,6 +64,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr size_t __constexpr_scalar_hash(_Tp __v) _NOEXCEP
     __h = __h * 131 + __byte;
   return __h;
 }
+#endif // _LIBCPP_STD_VER >= 26
 
 // We use murmur2 when size_t is 32 bits, and cityhash64 when size_t
 // is 64 bits.  This is because cityhash64 uses 64bit x 64bit
