@@ -336,9 +336,7 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     ConsumeToken();
 
     if (OpToken.is(tok::caretcaret)) {
-      assert(getLangOpts().Reflection &&
-             "should not have '^^'-token without reflection");
-      if (getLangOpts().Blocks) {
+      if (getLangOpts().Reflection && getLangOpts().Blocks) {
         OpToken.setKind(tok::caret);
         Token T;
         {
@@ -351,6 +349,8 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
         PP.EnterToken(T, /*IsReinject=*/true);
         return ParseRHSOfBinaryExpression(LHS, MinPrec);
       }
+      Diag(OpToken, diag::err_expected_expression);
+      return ExprError();
     }
 
     // If we're potentially in a template-id, we may now be able to determine

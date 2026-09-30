@@ -62,6 +62,15 @@ A a;
 B b;
 C c;
 
+// Non-class reflected types have no CXXRecordDecl and are not final.
+using int_alias = int;
+using info = decltype(^^int);
+static_assert (!std::meta::is_final (^^int));
+static_assert (!std::meta::is_final (^^int*));
+static_assert (!std::meta::is_final (^^info));
+static_assert (!std::meta::is_final (^^int_alias));
+static_assert (!std::meta::is_final (^^void()));
+
 static_assert (!std::meta::is_final (^^::));
 static_assert (!std::meta::is_final (^^a));
 static_assert (!std::meta::is_final (^^b));

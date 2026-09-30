@@ -4444,7 +4444,9 @@ bool is_final(APValue &Result, ASTContext &C, MetaActions &Meta,
 
   bool result = false;
   if (RV.isReflectedType()) {
-    if (auto * recordDecl = dyn_cast<CXXRecordDecl>(RV.getReflectedType()->getAsCXXRecordDecl())) {
+    if (auto *recordDecl =
+            dyn_cast_or_null<CXXRecordDecl>(
+                RV.getReflectedType()->getAsCXXRecordDecl())) {
       result = recordDecl->hasAttr<FinalAttr>();
     }
   } else if (RV.isReflectedDecl()) {
