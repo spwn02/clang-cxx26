@@ -204,7 +204,7 @@ consteval auto is_union_type(info) -> bool;
 consteval auto is_class_type(info) -> bool;
 consteval auto __is_closure_type(info) -> bool;
 consteval auto is_function_type(info) -> bool;
-consetval auto is_reflection_type(info) -> bool;
+consteval auto is_reflection_type(info) -> bool;
 
 // composite type categories
 consteval auto is_reference_type(info) -> bool;
@@ -227,6 +227,7 @@ consteval auto is_abstract_type(info) -> bool;
 consteval auto is_final_type(info) -> bool;
 consteval auto is_aggregate_type(info) -> bool;
 consteval auto is_consteval_only_type(info) -> bool;
+consteval auto is_implicit_lifetime_type(info) -> bool;
 consteval auto is_signed_type(info) -> bool;
 consteval auto is_unsigned_type(info) -> bool;
 consteval auto is_bounded_array_type(info) -> bool;
@@ -274,14 +275,12 @@ consteval auto is_nothrow_swappable_type(info) -> bool;
 
 consteval auto is_nothrow_destructible_type(info) -> bool;
 
-consteval auto is_implicit_lifetime_type(info) -> bool;
-
 consteval auto has_virtual_destructor(info) -> bool;
 
 consteval auto has_unique_object_representations(info) -> bool;
 
-consteval auto reference_constructs_from_temporary(info) -> bool;
-consteval auto reference_converts_from_temporary(info) -> bool;
+consteval auto reference_constructs_from_temporary(info, info) -> bool;
+consteval auto reference_converts_from_temporary(info, info) -> bool;
 
 // type property queries
 consteval auto rank(info) -> size_t;
@@ -290,6 +289,7 @@ consteval auto extent(info type, unsigned i) -> size_t;
 // type relations
 consteval auto is_same_type(info, info) -> bool;
 consteval auto is_base_of_type(info, info) -> bool;
+consteval auto is_virtual_base_of_type(info, info) -> bool;
 consteval auto is_convertible_type(info, info) -> bool;
 consteval auto is_nothrow_convertible_type(info, info) -> bool;
 consteval auto is_layout_compatible_type(info, info) -> bool;
@@ -2086,10 +2086,23 @@ consteval auto is_nothrow_destructible_type(info r) -> bool {
   return extract<bool>(substitute(^^is_nothrow_destructible_v, {r}));
 }
 
-// TODO(CXX26): Not yet implemented in libc++.
-/*consteval auto is_implicit_lifetime_type(info r) -> bool {
+consteval auto is_implicit_lifetime_type(info r) -> bool {
   return extract<bool>(substitute(^^is_implicit_lifetime_v, {r}));
-}*/
+}
+
+consteval auto is_virtual_base_of_type(info base, info derived) -> bool {
+  return extract<bool>(substitute(^^is_virtual_base_of_v, {base, derived}));
+}
+
+consteval auto is_layout_compatible_type(info type1, info type2) -> bool {
+  return extract<bool>(substitute(^^is_layout_compatible_v, {type1, type2}));
+}
+
+consteval auto is_pointer_interconvertible_base_of_type(info base,
+                                                        info derived) -> bool {
+  return extract<bool>(substitute(^^is_pointer_interconvertible_base_of_v,
+                                  {base, derived}));
+}
 
 consteval auto has_virtual_destructor(info r) -> bool {
   return extract<bool>(substitute(^^has_virtual_destructor_v, {r}));
@@ -2099,16 +2112,15 @@ consteval auto has_unique_object_representations(info r) -> bool {
   return extract<bool>(substitute(^^has_unique_object_representations_v, {r}));
 }
 
-// TODO(CXX26): Not yet implemented in libc++.
-/*consteval auto reference_constructs_from_temporary(info r) -> bool {
+consteval auto reference_constructs_from_temporary(info dst, info src) -> bool {
   return extract<bool>(substitute(^^reference_constructs_from_temporary_v,
-                                  {r}));
-}*/
+                                  {dst, src}));
+}
 
-// TODO({2996): Not yet implemented in libc++.
-/*consteval auto reference_converts_from_temporary(info r) -> bool {
-  return extract<bool>(substitute(^^reference_converts_from_temporary_v, {r}));
-}*/
+consteval auto reference_converts_from_temporary(info dst, info src) -> bool {
+  return extract<bool>(substitute(^^reference_converts_from_temporary_v,
+                                  {dst, src}));
+}
 
 consteval auto rank(info r) -> size_t {
   return extract<size_t>(substitute(^^rank_v, {r}));
@@ -2133,18 +2145,6 @@ consteval auto is_convertible_type(info r, info s) -> bool {
 consteval auto is_nothrow_convertible_type(info r, info s) -> bool {
   return extract<bool>(substitute(^^is_nothrow_convertible_v, {r, s}));
 }
-
-// TODO(CXX26): Not yet implemented in libc++.
-/*consteval auto is_layout_compatible_type(info r, info s) -> bool {
-  return extract<bool>(substitute(^^is_layout_compatible_v, {r, s}));
-}*/
-
-// TODO(CXX26): Not yet implemented in libc++.
-/*consteval auto is_pointer_interconvertible_base_of_type(info r,
-                                                        info s) -> bool {
-  return extract<bool>(substitute(^^is_pointer_interconvertible_base_of_v,
-                                  {r, s}));
-}*/
 
 template <reflection_range R = initializer_list<info>>
 consteval auto is_invocable_type(info type, R &&args) {

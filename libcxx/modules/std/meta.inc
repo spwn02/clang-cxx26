@@ -187,6 +187,12 @@ export namespace std {
       _LIBCPP_META_EXPORT_PREDICATE(is_nothrow_swappable_with_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_nothrow_swappable_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_nothrow_destructible_type)
+      _LIBCPP_META_EXPORT_PREDICATE(is_implicit_lifetime_type)
+      _LIBCPP_META_EXPORT_PREDICATE(is_virtual_base_of_type)
+      _LIBCPP_META_EXPORT_PREDICATE(is_layout_compatible_type)
+      _LIBCPP_META_EXPORT_PREDICATE(is_pointer_interconvertible_base_of_type)
+      using std::meta::reflection_v2::reference_constructs_from_temporary;
+      using std::meta::reflection_v2::reference_converts_from_temporary;
       _LIBCPP_META_EXPORT_PREDICATE(has_virtual_destructor)
       _LIBCPP_META_EXPORT_PREDICATE(has_unique_object_representations)
       using std::meta::reflection_v2::rank;

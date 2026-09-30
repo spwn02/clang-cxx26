@@ -9,7 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
-// ADDITIONAL_COMPILE_FLAGS: -freflection
+// ADDITIONAL_COMPILE_FLAGS: -freflection-latest
 
 // <experimental/reflection>
 //
@@ -32,6 +32,13 @@ class FC final {};
 struct WithCtor { WithCtor(int, bool) noexcept {} };
 
 struct Triv { int i; bool b; };
+
+struct VBase { virtual void f(); };
+struct VDerived : virtual VBase {};
+struct PlainBase { int member; };
+struct PlainDerived : PlainBase {};
+struct OtherLayout { int member; };
+struct NonLayout { char first; int second; };
 
 class VDtor { virtual ~VDtor() {} };
 
@@ -116,6 +123,81 @@ static_assert(is_nothrow_swappable_with_type(^^int&, ^^int&));
 static_assert(is_nothrow_swappable_type(^^int));
 
 static_assert(is_nothrow_destructible_type(^^C));
+
+static_assert(is_implicit_lifetime_type(^^int));
+static_assert(is_implicit_lifetime_type(^^Triv));
+static_assert(is_implicit_lifetime_type(^^WithCtor));
+static_assert(is_virtual_base_of_type(^^VBase, ^^VDerived));
+static_assert(!is_virtual_base_of_type(^^PlainBase, ^^PlainDerived));
+static_assert(is_layout_compatible_type(^^PlainBase, ^^OtherLayout));
+static_assert(!is_layout_compatible_type(^^PlainBase, ^^NonLayout));
+static_assert(is_pointer_interconvertible_base_of_type(^^PlainBase,
+                                                       ^^PlainDerived));
+static_assert(!is_pointer_interconvertible_base_of_type(^^VBase,
+                                                        ^^VDerived));
+static_assert(reference_constructs_from_temporary(^^const int&, ^^int));
+static_assert(!reference_constructs_from_temporary(^^int&, ^^int));
+static_assert(reference_converts_from_temporary(^^const int&, ^^int));
+static_assert(!reference_converts_from_temporary(^^int&, ^^int));
+
+consteval bool test_trait_operand_exceptions() {
+  bool implicit_lifetime = false;
+  bool virtual_base = false;
+  bool layout_compatible = false;
+  bool pointer_interconvertible = false;
+  unsigned constructs_temporary = 0;
+  unsigned converts_temporary = 0;
+  try {
+    (void)is_implicit_lifetime_type(std::meta::reflect_constant(1));
+  } catch (const std::meta::exception&) {
+    implicit_lifetime = true;
+  }
+  try {
+    (void)is_virtual_base_of_type(std::meta::reflect_constant(1), ^^VBase);
+  } catch (const std::meta::exception&) {
+    virtual_base = true;
+  }
+  try {
+    (void)is_layout_compatible_type(std::meta::reflect_constant(1), ^^int);
+  } catch (const std::meta::exception&) {
+    layout_compatible = true;
+  }
+  try {
+    (void)is_pointer_interconvertible_base_of_type(std::meta::reflect_constant(1),
+                                                    ^^PlainDerived);
+  } catch (const std::meta::exception&) {
+    pointer_interconvertible = true;
+  }
+  try {
+    (void)reference_constructs_from_temporary(std::meta::reflect_constant(1),
+                                             ^^int);
+  } catch (const std::meta::exception&) {
+    ++constructs_temporary;
+  }
+  try {
+    (void)reference_constructs_from_temporary(^^int&,
+                                             std::meta::reflect_constant(1));
+  } catch (const std::meta::exception&) {
+    ++constructs_temporary;
+  }
+  try {
+    (void)reference_converts_from_temporary(std::meta::reflect_constant(1),
+                                           ^^int);
+  } catch (const std::meta::exception&) {
+    ++converts_temporary;
+  }
+  try {
+    (void)reference_converts_from_temporary(^^int&,
+                                           std::meta::reflect_constant(1));
+  } catch (const std::meta::exception&) {
+    ++converts_temporary;
+  }
+  return implicit_lifetime && virtual_base && layout_compatible &&
+         pointer_interconvertible && constructs_temporary == 2 &&
+         converts_temporary == 2;
+}
+
+static_assert(test_trait_operand_exceptions());
 
 static_assert(has_virtual_destructor(^^VDtor));
 
