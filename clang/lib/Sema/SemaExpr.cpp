@@ -18598,9 +18598,10 @@ static void RemoveNestedImmediateInvocation(
 // logic wasn't correct for the broader space of ordinary reflection
 // declarations. User flagged the dispatch had burned ~93% of a 5-hour
 // Codex usage window in ~15-20 minutes; interrupted before full
-// verification, diff not recoverable (never committed). Full evidence:
-// docs/reflection-audit/codex-closeup-item1-escalation-report.md in the
-// Reflection Closeup epic's history.
+// verification, diff not recoverable (never committed). This attempt's
+// own report was never written (interrupted before it could be); see
+// GitHub issue #1 (closed 2026-09-12, fixed by commit 7cce8e55d08d after
+// this and 6 other attempts) for the eventual resolution.
 //
 // Attempt 5 (2026-09-10, same epic, Claude working directly -- no Codex
 // usage spent): revisited Attempt 2's "the manifestly-constant-evaluated

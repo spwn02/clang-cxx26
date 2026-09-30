@@ -2,10 +2,14 @@
 
 ## Project Overview
 
-**CXX26 Clang** is an experimental LLVM fork focused on implementing C++26 and
-earlier C++ standards. Its experimental static-reflection implementation
-includes metafunctions, reflection operators, and splice expressions; see
-[`docs/REFLECTION.md`](docs/REFLECTION.md).
+**CXX26 Clang** is an experimental LLVM fork implementing C++26 and earlier
+C++ standards, including static reflection (metafunctions, reflection
+operators, splice expressions — see `clang/lib/AST/ExprConstantMeta.cpp`,
+`clang/include/clang/AST/Metafunction.h`) and contracts (P2900R14). As of
+2026-09-30, every C++26 paper/library facility has either landed or has a
+GitHub issue tracking its remaining gap; the one open issue is **#116**,
+the fork-wide final-review conformance audit that precedes the first
+release. See the Trackers section below.
 
 This repository preserves the Apache-2.0 WITH LLVM-exception license, upstream
 source headers and Git authorship, and the history of the Bloomberg-originated
@@ -14,8 +18,8 @@ not imply Bloomberg endorses this fork.
 
 ## Command Dispatch
 
-- `Continue`: read `docs/CXX26_GAPS.md` and `docs/REFLECTION.md`, then resume their recorded active work. (The LLVM 22 synchronization epic tracked in `docs/LLVM22_SYNC.md` finished 2026-08-30 and that file was deleted; see `docs/CXX26_GAPS.md`'s "Post-Contracts TODO" section for the fork regressions it left open. The Contracts (P2900R14) port epic tracked in `docs/CONTRACTS_PORT.md` finished 2026-09-04 and that file was deleted too; see `docs/CXX26_GAPS.md`'s Scope section and Tier 2 table for the status flip, and `git log` — commits prefixed `contracts:` — for full technical history.)
-- `Begin PXXXX`: locate the requested paper in `docs/CXX26_GAPS.md`, `docs/REFLECTION.md`, and any linked status files; research its requirements, implement autonomously, run focused tests, update the active tracker, and commit. Begin work without introductory narration.
+- `Continue`: GitHub Issues (`gh issue list --repo spwn02/clang-cxx26 --state open`) is the living tracker — as of 2026-09-30 the only open issue is **#116** (fork-wide final-review conformance audit) plus whatever it has since spawned under its "Final Review Audit" milestone (`gh issue list --repo spwn02/clang-cxx26 --milestone "Final Review Audit"`). Resume that work; do not create a new parallel tracking doc. (All prior epic-specific tracking docs under `docs/` — `LLVM22_SYNC.md`, `CONTRACTS_PORT.md`, `REFLECTION.md`/`REFLECTION_GAPS.md`/`REFLECTION_CLOSEUP.md`, and finally `CXX26_GAPS.md` itself — were deleted at their epics' close-outs once GitHub Issues fully absorbed their content; see `git log -- docs/` for that history if needed.)
+- `Begin PXXXX`: search `gh issue list --repo spwn02/clang-cxx26 --state all --search "P<number>"` for the paper; if an issue exists, resume it. If none exists, this is new-paper triage: fetch the adopted wording from wg21.link/eel.is, research its requirements, implement autonomously, run focused tests, and commit — filing a fresh issue only if the work spans more than one session or needs to be handed off. Begin work without introductory narration.
 
 ## Build Architecture
 
@@ -29,6 +33,18 @@ Both use Ninja and Release builds. Check actual configurations with:
 ```bash
 grep CMAKE_BUILD_TYPE build-nyx/CMakeCache.txt build-libcxx/CMakeCache.txt
 ```
+
+**Two configure-time traps:**
+- `-DLLVM_INCLUDE_TESTS=ON` alone is not enough to get a `check-clang`
+  target — `CLANG_INCLUDE_TESTS` is a separate cached CMake option that
+  only defaults from `LLVM_INCLUDE_TESTS` on a *fresh* configure; once
+  cached `OFF` it stays `OFF` regardless of `LLVM_INCLUDE_TESTS`. Pass both
+  explicitly: `cmake -S llvm -B build-nyx -DLLVM_INCLUDE_TESTS=ON -DCLANG_INCLUDE_TESTS=ON`.
+- A bare `-DCMAKE_CXX_FLAGS=...` on an already-configured cache **replaces**
+  a toolchain file's `_INIT` flags rather than appending to them (e.g.
+  re-injecting `-fcontracts` alone silently drops the toolchain's
+  `-std=c++26 -stdlib=libc++ -freflection-latest`) — replicate the full
+  flag set explicitly, don't assume append semantics.
 
 ## Building
 
@@ -76,57 +92,38 @@ ninja -C build-nyx check-clang
 
 ### Known pre-existing baseline failures (not regressions — check here before re-investigating)
 
-As of 2026-09-10 (Reflection Closure Epic M6 gate, `docs/REFLECTION_GAPS.md` before its
-own eventual deletion at that epic's M7 — recorded here so the information survives):
+**This section is stale by construction and due for a fresh pass** —
+Phase 1 of issue #116's audit plan (milestone "Final Review Audit")
+establishes a current baseline against `HEAD` on a clean Release build;
+until that lands, don't trust a frozen list here, re-run the suite and
+isolate via `git stash` against an unmodified checkout (see below) before
+attributing a failure to your own change.
 
-- **`check-clang` (`clang/test`, assertions-enabled build): exactly 5 `SemaCXX` failures**
-  — `PR98671.cpp`, `builtin-is-within-lifetime.cpp`, `constant-expression-cxx11.cpp`,
-  `cxx2a-constexpr-dynalloc.cpp`, `cxx2b-consteval-propagate.cpp`. All five are the
-  consteval self-reference escalation cluster documented in
-  `clang/lib/Sema/SemaExpr.cpp`'s `HandleImmediateInvocations` (a general C++23
-  immediate-function-context defect from the LLVM 22 merge, not reflection-specific).
-  Separately, a distinct 18-test ASTUnit/libclang PCH-loading cluster exists (PCH loads
-  fine via `-include-pch` but is rejected by `c-index-test -module-file`/ASTUnit) — not
-  part of the standard `check-clang` lit target, a separate test surface, pre-existing and
-  not further diagnosed as of this writing.
-- **`libcxx/test/std/experimental/reflection/`: exactly 7 failures**, all pre-existing
-  warning/verify mismatches, none behavioral: `attributed-function-type-queries.pass.cpp`,
-  `entity-proxies.pass.cpp`, `entity-proxy-member-queries.pass.cpp`,
-  `namespace-reflection-equality-reopened.pass.cpp` (all four fail on
-  `-Werror,-Wdeprecated-declarations` for the header's own deprecated `dealias` alias to
-  `underlying_entity_of`), `m5-p2996-batch13.verify.cpp`, `m5-p2996-p3096-batch12.verify.cpp`,
-  `m5-p3491-batch15.verify.cpp` (unused-variable/verify-expectation mismatches). Confirmed
-  via `git stash` isolation against an unmodified checkout — not caused by any reflection
-  epic fix, safe to treat as baseline in any future gate.
-- **`libcxx/test`, full suite minus `benchmarks/`** (the `benchmarks` subtree actually
-  *executes* ~134 real Google Benchmark microbenchmarks under `enable-benchmarks=run`,
-  20s+ each — exclude via `--filter-out 'benchmarks/'` for a pure correctness gate,
-  matching upstream LLVM's own `check-cxx` scope): the 7 reflection-suite failures above,
-  nothing else, as of the M6 gate.
+What's confirmed live as of 2026-09-30, individually tracked (not a
+frozen baseline list, but real open issues — check their current state):
+- `clang/test/SemaCXX/cxx2b-consteval-propagate.cpp`'s `escalating<int>`
+  heap-allocation-diagnostic sub-case — issue #158.
+- Two libc++ tests carried as "known/expected" across many sessions with
+  no prior root-cause: `numerics/numarray/nodiscard.verify.cpp` and
+  `input.output/iostream.format/print.fun/bounded_writes.pass.cpp` — issue
+  #159.
+- 132 `check-cxx` failures under `benchmarks/`, caused by the vendored
+  `libbenchmark.a` going ABI-stale against a freshly rebuilt libc++ (not a
+  real regression) — exclude via `--filter-out 'benchmarks/'` for a pure
+  correctness gate, matching upstream LLVM's own `check-cxx` scope — issue
+  #162 tracks actually fixing the vendored copy.
 
-`clang/test/Reflection/splice-exprs.cpp` was previously noted here as failing — that was
-fixed 2026-09-08 (a stale test expectation, not a compiler regression: an anonymous-union
-member splice through a base expression is supposed to succeed since commit `f33742c88aa3`).
-Verify current state directly (`llvm-lit -v <path>`) rather than trusting either this note
-or `docs/CXX26_GAPS.md`'s older Tier 0 entry if either looks stale by the time you read this.
-
-**Reconfirmed 2026-09-11** (Reflection Closeup epic's own CU5 final gate, after fixing 8 of the
-14 deferred items and escalating 3 — `docs/reflection-audit/` has the full per-item history):
-`check-clang` still exactly 5 `SemaCXX` failures (same tests, same cause), `check-cxx` still
-exactly the same 7 named `libcxx/test/std/experimental/reflection/` failures — both baselines
-above are unchanged by this epic's fixes, and can be trusted as-is. One genuine, non-baseline
-regression *was* found and fixed during this reconfirmation
-(`libcxx/headers_in_modulemap.sh.py`, a modulemap-registration gap from the earlier emergency
-`<stacktrace>` port — see commit `ac4086ad878d`), which is why re-running the full gate
-periodically (not just targeted subdirectories) is worth doing even when a change looks
-narrowly scoped.
+Isolation method that's still correct and worth keeping: to confirm a
+failure predates your change, `git stash` your diff, rebuild the minimum
+needed target, and re-run just the failing test against the unmodified
+tree before attributing it to your own work.
 
 ### Archived test runs (`cxx26/dev/`)
 
-Built for the Contracts epic (`docs/CONTRACTS_PORT.md`, deleted on
-completion) but generically useful for any future gate that needs to prove
-"zero new failures vs. a known-good baseline" rather than eyeballing a
-failure list:
+Built for the (now-complete) Contracts epic but generically useful for any
+future gate that needs to prove "zero new failures vs. a known-good
+baseline" rather than eyeballing a failure list — exactly the kind of gate
+issue #116's audit phases need:
 
 ```bash
 # Run a suite, archive its stamped JSON result under
@@ -171,35 +168,53 @@ Enable reflection with `-std=c++26 -freflection`. Extended features require addi
 
 ## Trackers
 
-- `docs/CXX26_GAPS.md` is the living C++26 conformance tracker. Static reflection had its own tracker (`REFLECTION.md`/`REFLECTION_GAPS.md`) through the 2026-09-08 through 2026-09-10 Reflection Closure Epic; both were deleted at that epic's M7 close-out once all seven of the epic plan's completion criteria were met. The release tag cut at that close-out (see `git tag -l 'cxx26-2026.09.10*'` or the repo's release list) carries the final summary in its annotation, including the one criterion that needed a documented scope correction rather than a fix (a consteval self-reference escalation cluster, reclassified as a general C++23 compiler defect outside reflection's own scope — see `clang/lib/Sema/SemaExpr.cpp`'s `HandleImmediateInvocations` for the full technical writeup). This file's "Known pre-existing baseline failures" section above plus source comments (`SemaExpr.cpp`'s `HandleImmediateInvocations`, `clang/include/clang/AST/MetaActions.h`, `clang/lib/AST/ItaniumMangle.cpp`'s `mangleReflection`, `libcxx/include/meta`'s `reflect_constant`) are what's left of that tracker's load-bearing content.
-- The Reflection Closure Epic deferred 14 concrete items; a follow-on **Reflection Closeup epic**
-  (2026-09-10 through 2026-09-11) closed all 14 of them and its own tracker
-  (`docs/REFLECTION_CLOSEUP.md`) was deleted at close-out, same pattern as above. 10 items got a
-  genuine fix (each with its own source-comment writeup at the fix site — see e.g.
-  `libcxx/include/meta`'s `reflect_constant_array`/`FixedNDArray` for the CWG 3111 nested-array
-  fix, `clang/lib/AST/APValue.cpp`'s `unwrapReflectedType` for the closure-type-alias identity
-  fix, `clang/lib/AST/ExprConstant.cpp`'s `EvalInfo::cancelCleanup` for a general P3068
-  constexpr-exceptions bug found along the way). 4 items resisted a full fix even at this epic's
-  escalation ceiling (Terra/Codex, since a prior round found Astra burns Codex usage too fast to
-  use routinely — see `feedback_avoid_astra_prefer_direct_work` in the assistant's own memory) and
-  remain genuinely open, escalated rather than closed under a lesser bar: the consteval
-  self-reference escalation cluster (same root cause as the prior epic's own escalation, still
-  unresolved — `SemaExpr.cpp`'s `HandleImmediateInvocations` comment has the full multi-attempt
-  history), upstream issue #180 (`static_assert(false)` silently ignored in a specific
-  function-template instantiation context — `docs/reflection-audit/issue-180-minimal-repro.cpp`),
-  P3560R2 strategy 2's remaining ~20 `Throws`-bearing metafunctions (blocked on a missing
-  evaluator API to construct a `meta::exception` from an arbitrary throw site, plus a genuine
-  evaluator abort down a different path — `docs/reflection-audit/item9-strategy2-stop-report.md`),
-  and upstream issue #275 (a `clangd`-specific crash with two independent, compounding causes,
-  only the first of which has an isolated fix — `docs/reflection-audit/cu4-needs-reproducer-report.md`).
-  The release tag cut at this epic's own close-out carries the final summary in its annotation.
-  Separately, the same session also fixed an emergency production bug reported directly by a
-  downstream user — unrelated to any of the 14 items, but on the same tree — where
-  `RecursiveASTVisitor`'s reflection support (`clang/include/clang/AST/RecursiveASTVisitor.h`)
-  recursed without bound into every reflected declaration's own body; see that file's
-  `DEF_TRAVERSE_STMT(CXXReflectExpr, ...)` comment for the fix.
-- Update the active tracker in place when status changes and append a dated session-log entry before ending a work session.
-- `std::execution` (P2300R10) requires a dedicated sub-plan; consult Tier 2 notes before starting. Contracts (P2900R14) was completed 2026-09-04, reopened by a production bug and fully hardened as of 2026-09-05 (see `docs/CXX26_GAPS.md`'s Scope section for both epics' full history); no sub-plan needed going forward.
+**GitHub Issues (`spwn02/clang-cxx26`) is the single source of truth.**
+`docs/CXX26_GAPS.md` (the prior living C++26 conformance tracker) and the
+entire `docs/` tracking apparatus — every per-epic tracker
+(`REFLECTION.md`/`REFLECTION_GAPS.md`/`REFLECTION_CLOSEUP.md`,
+`LLVM22_SYNC.md`, `CONTRACTS_PORT.md`, `WAVES56.md`/`WAVES56_HANDOFF.md`,
+`CLAUDE_HANDOFF.md`), every per-paper design/report doc, and the
+`reflection-audit/` archive — were deleted 2026-09-30 once a full audit
+(issue #116's Phase 0) confirmed every still-relevant fact in them was
+either already reflected in a GitHub issue or freshly filed as one (issues
+#152-164, milestone "Final Review Audit"). Do not recreate a parallel
+`docs/`-based tracker; file or update a GitHub issue instead.
+
+As of 2026-09-30, the reflection escalation cluster that both the
+Reflection Closure Epic (2026-09-08–10) and its Reflection Closeup
+follow-on (2026-09-10–11) left open is **fully resolved or tracked**:
+- The consteval self-reference escalation cluster → issue #1, closed
+  2026-09-12 (`7cce8e55d08d`, after 7 documented attempts — see
+  `clang/lib/Sema/SemaExpr.cpp`'s `HandleImmediateInvocations` for the full
+  multi-attempt history, still the right place to look for that specific
+  bug's technical detail).
+- P3560R2 strategy 2's ~20 remaining `Throws`-bearing metafunctions →
+  issue #88, closed 2026-09-14 across 5 commits.
+- Upstream `bloomberg/clang-p2996#180` (`static_assert(false)` silently
+  ignored in a consteval function template) → now tracked as this fork's
+  own issue #152, still open, confirmed still reproducing 2026-09-30.
+- Upstream `bloomberg/clang-p2996#275` (clangd crash, two independent
+  causes) → now tracked as issue #153, still open; one cause may already
+  be resolved by #121, needs re-verification.
+- Two more reflection gaps surfaced by the same audit, previously
+  undocumented anywhere except session archives: upstream
+  `bloomberg/clang-p2996#120` (Windows/MSVC mangling `llvm_unreachable` for
+  reflection NTTPs) → issue #154; `reflect_constant_string`'s missing
+  long-string chunking path (`bloomberg/clang-p2996#254`) → issue #155;
+  `std::meta::data_member_spec(^^void, {})` wrongly accepted → issue #156.
+
+`std::execution` (P2300R10) and Contracts (P2900R14) are both complete —
+consult closed issues #10-13 and the `git log` `contracts:`-prefixed
+commits respectively for history if needed; neither needs a live sub-plan
+going forward.
+
+**Status CSV mechanics:** `libcxx/docs/Status/Cxx2cPapers.csv` and
+`Cxx2cIssues.csv` are hand-edited directly by this fork's commits (a
+`synchronize_csv_status_files.py` GitHub-sync script exists but isn't the
+normal path — ignore it unless specifically reconciling with the upstream
+GitHub project board). Status vocabulary: empty string (not started),
+`|In Progress|`, `|Partial|`, `|Complete|`, `|Nothing To Do|`. Update the
+CSV row in the same commit that changes implementation status.
 
 ## Code Review Guidance
 
@@ -210,12 +225,27 @@ Recent work focuses on C++26 standard-library conformance. Header/module exports
 ## Commit and Release Policy
 
 - Commit every coherent minor implementation step after its focused tests.
-- Update the active tracker in the same commit whenever status changes.
+- Update the relevant GitHub issue (comment or close) in the same session
+  whenever status changes — see Trackers above.
 - Commit and push every completed major milestone after its required test gate.
 - Never push a knowingly broken milestone state.
 - Create and push annotated prerelease tags after completed epics or other release-worthy checkpoints.
 - Use `cxx26-YYYY.MM.DD`, then `.2`, `.3`, and so on for additional tags on the same day.
 - Stage only files belonging to the current change; never stage unrelated user changes implicitly.
+
+**Commit message shape** (see `git log --oneline` for examples):
+- Subject: `[libc++] <Verb> ...` or `[clang] <Verb> ...`, imperative mood
+  (Implement / Rewrite / Add / Fix / Complete ...), with a trailing
+  `(#NNN)` GitHub issue reference where one applies.
+- Body: prose, not a template. Cover what paper/LWG issue/GitHub issue
+  drove the change; a concrete list of what changed and why; how it was
+  tested, narrated inline (e.g. "differential testing against std::list",
+  "concretely reproduced the prior crash") — no separate "Test coverage:"
+  header required, though one is fine if it aids clarity.
+- If the change updates a CSV status row, say so explicitly, e.g. "Marked
+  P0447R28 Complete in Cxx2cPapers.csv."
+- Trailer per the attribution instructions given at session start (model
+  name may vary by session).
 
 ## Answer Style
 
