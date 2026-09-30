@@ -62,14 +62,14 @@ ExprResult makeIterableExpansionSizeExpr(Sema &S, VarDecl *RangeVar) {
                                 RangeLoc);
   LookupResult BeginLR(S, BeginName, Sema::LookupMemberName);
   {
-    if (auto *RD = RangeVar->getType()->getAsCXXRecordDecl())
+    if (auto *RD = RangeVar->getType().getNonReferenceType()->getAsCXXRecordDecl())
       S.LookupQualifiedName(BeginLR, RD);
   }
 
   DeclarationNameInfo EndName(&S.PP.getIdentifierTable().get("end"), RangeLoc);
   LookupResult EndLR(S, EndName, Sema::LookupMemberName);
   {
-    if (auto *RD = RangeVar->getType()->getAsCXXRecordDecl())
+    if (auto *RD = RangeVar->getType().getNonReferenceType()->getAsCXXRecordDecl())
       S.LookupQualifiedName(EndLR, RD);
   }
 
@@ -151,7 +151,7 @@ bool tryMakeCXXIterableExpansionSelectExpr(
                                 RangeLoc);
   LookupResult BeginLR(S, BeginName, Sema::LookupMemberName);
   {
-    if (auto *RD = Range->getType()->getAsCXXRecordDecl())
+    if (auto *RD = Range->getType().getNonReferenceType()->getAsCXXRecordDecl())
       S.LookupQualifiedName(BeginLR, RD);
   }
 
@@ -176,21 +176,13 @@ bool tryMakeCXXIterableExpansionSelectExpr(
     // though the destructurable path below never needed a copy at all (see
     // issue #181).
     //
-    // The fix is *not* to switch unconditionally to a forwarding reference
-    // (mirroring ordinary range-based for's 'auto&& __range = range-init'):
-    // a reference bound to a temporary needs its lifetime properly extended
-    // to remain usable, including inside a manifestly-constant-evaluated
-    // 'constexpr' expansion variable's initializer -- and plumbing that
-    // correctly turned out to regress working cases (e.g. a prvalue
-    // define_static_array(...) result bound in a 'template for (constexpr
-    // ... : ...)') whose type is perfectly copyable and was never the
-    // problem to begin with. Instead, speculatively check copy-
-    // constructibility first (via a trial InitializationSequence, which
-    // unlike the real AddInitializerToDecl call never commits/diagnoses) and
-    // only fall back to the reference when the type genuinely can't be
-    // copied -- preserving the by-value behavior (and its constexpr-
-    // friendliness) for every case that already worked, and only changing
-    // behavior for the one that didn't.
+    // An lvalue range denotes the original object and must not be copied:
+    // besides making mutations visible, preserving its cv-qualification
+    // allows the usual begin()/end() overload resolution. Keep the existing
+    // by-value path for non-lvalues, whose lifetime and constant-evaluation
+    // behavior is relied on by prvalue reflection ranges. In particular,
+    // this also avoids instantiating a copy for non-copyable tuple-like
+    // ranges, where this function is tried before destructuring (issue #181).
     QualType CopyQT = Range->getType().withConst();
     // 'void' can't be copy-constructed OR referenced (deducing 'auto&&'
     // against it is its own hard error, "cannot form a reference to
@@ -200,14 +192,19 @@ bool tryMakeCXXIterableExpansionSelectExpr(
     // produce elsewhere (e.g. an unresolved-overloaded-function recovery
     // expression) instead of pre-empting it with a less specific one.
     bool CanCopyConstruct = Range->getType()->isVoidType();
-    if (!CanCopyConstruct) {
+    if (!CanCopyConstruct && !Range->isLValue()) {
       InitializedEntity Entity = InitializedEntity::InitializeTemporary(CopyQT);
       InitializationKind Kind = InitializationKind::CreateCopy(
           Range->getBeginLoc(), Range->getBeginLoc());
       InitializationSequence Seq(S, Entity, Kind, Range);
       CanCopyConstruct = !Seq.Failed();
     }
-    QualType QT = CanCopyConstruct ? CopyQT : S.Context.getAutoRRefDeductType();
+    bool BindByReference = Range->isLValue() && !ExpansionVar->isConstexpr();
+    QualType QT = !BindByReference ? CopyQT
+                                   : S.BuildReferenceType(Range->getType(),
+                                                          /*SpelledAsLValue=*/true,
+                                                          Range->getBeginLoc(),
+                                                          DeclarationName());
     TypeSourceInfo *TSI = S.Context.getTrivialTypeSourceInfo(QT);
 
     RangeVar = VarDecl::Create(S.Context, DC, Range->getBeginLoc(),
@@ -224,16 +221,10 @@ bool tryMakeCXXIterableExpansionSelectExpr(
     RangeVar->setImplicit();
     if (ExpansionVar->isConstexpr())
       RangeVar->setConstexpr(true);
-    // Lifetime extension (P2718R0-style, mirroring ordinary range-based
-    // for's BuildCXXForRangeStmt in SemaStmt.cpp) only makes sense when
-    // '__range' is itself a reference bound to a temporary -- extending a
-    // temporary's lifetime to match a BY-VALUE variable is meaningless (the
-    // value was already copied out of it) and, empirically, confuses the
-    // constant evaluator's own allocation/temporary tracking when applied to
-    // the copy case anyway (observed as a spurious "allocation ... was not
-    // deallocated" diagnostic on an otherwise-valid constexpr copy). Only
-    // apply it when QT above chose the reference-binding fallback.
-    if (!CanCopyConstruct && !LifetimeExtendTemps.empty()) {
+    // Lvalue references need no lifetime extension. The non-lvalue path
+    // remains by-value, so its source temporary is not the range variable.
+    if (!BindByReference && !CanCopyConstruct &&
+        !LifetimeExtendTemps.empty()) {
       InitializedEntity Entity =
           InitializedEntity::InitializeVariable(RangeVar);
       for (auto *MTE : LifetimeExtendTemps)
@@ -245,8 +236,9 @@ bool tryMakeCXXIterableExpansionSelectExpr(
       return false;
 
     DeclarationNameInfo Name(II, Range->getBeginLoc());
-    VarRef = S.BuildDeclRefExpr(RangeVar, Range->getType(), VK_LValue, Name,
-                                nullptr, RangeVar);
+    VarRef = S.BuildDeclRefExpr(RangeVar,
+                                RangeVar->getType().getNonReferenceType(),
+                                VK_LValue, Name, nullptr, RangeVar);
   }
 
   ExprResult BeginResult;
