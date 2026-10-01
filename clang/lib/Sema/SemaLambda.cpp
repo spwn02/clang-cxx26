@@ -278,6 +278,11 @@ Sema::createLambdaClosureType(SourceRange IntroducerRange, TypeSourceInfo *Info,
   CXXRecordDecl *Class = CXXRecordDecl::CreateLambda(
       Context, DC, Info, IntroducerRange.getBegin(), LambdaDependencyKind,
       IsGenericLambda, CaptureDefault);
+  // The parser gives a consteval block's synthesized lambda a singular
+  // introducer range at the consteval keyword, rather than a pair of brackets.
+  // TreeTransform preserves this range when instantiating the closure.
+  Class->setIsConstevalBlock(IntroducerRange.getBegin() ==
+                            IntroducerRange.getEnd());
   DC->addDecl(Class);
 
   return Class;

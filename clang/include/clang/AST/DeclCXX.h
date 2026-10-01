@@ -403,6 +403,10 @@ private:
     LLVM_PREFERRED_TYPE(bool)
     unsigned IsGenericLambda : 1;
 
+    /// Whether this closure was synthesized for a consteval block.
+    LLVM_PREFERRED_TYPE(bool)
+    unsigned IsConstevalBlock : 1;
+
     /// The Default Capture.
     LLVM_PREFERRED_TYPE(LambdaCaptureDefault)
     unsigned CaptureDefault : 2;
@@ -443,7 +447,7 @@ private:
     LambdaDefinitionData(CXXRecordDecl *D, TypeSourceInfo *Info, unsigned DK,
                          bool IsGeneric, LambdaCaptureDefault CaptureDefault)
         : DefinitionData(D), DependencyKind(DK), IsGenericLambda(IsGeneric),
-          CaptureDefault(CaptureDefault), NumCaptures(0),
+          IsConstevalBlock(false), CaptureDefault(CaptureDefault), NumCaptures(0),
           NumExplicitCaptures(0), HasKnownInternalLinkage(0), ManglingNumber(0),
           IndexInContext(0), MethodTyInfo(Info) {
       IsLambda = true;
@@ -1028,6 +1032,15 @@ public:
     // An update record can't turn a non-lambda into a lambda.
     auto *DD = DefinitionData;
     return DD && DD->IsLambda;
+  }
+
+  /// Whether this closure was synthesized for a consteval block.
+  bool isConstevalBlock() const {
+    return isLambda() && getLambdaData().IsConstevalBlock;
+  }
+
+  void setIsConstevalBlock(bool Value) {
+    getLambdaData().IsConstevalBlock = Value;
   }
 
   /// Determine whether this class describes a generic

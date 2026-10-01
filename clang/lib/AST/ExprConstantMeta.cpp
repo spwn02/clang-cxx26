@@ -7152,6 +7152,19 @@ bool annotate(APValue &Result, ASTContext &C, MetaActions &Meta,
   llvm_unreachable("unknown reflection kind");
 }
 
+// [meta.reflection.scope]/3.5: consteval blocks introduce implementation
+// closures, but their evaluation point inhabits the enclosing scope. Stop at
+// an ordinary lambda (or any other declaration context).
+static Decl *skipConstevalBlockScopes(Decl *Ctx) {
+  while (auto *Method = dyn_cast<CXXMethodDecl>(Ctx)) {
+    auto *Closure = Method->getParent();
+    if (!Closure->isConstevalBlock())
+      break;
+    Ctx = cast<Decl>(Closure->getDeclContext());
+  }
+  return Ctx;
+}
+
 bool current_access_context(APValue &Result, ASTContext &C, MetaActions &Meta,
                             EvalFn Evaluator, DiagFn Diagnoser,
                             bool AllowInjection, QualType ResultTy,
@@ -7165,6 +7178,8 @@ bool current_access_context(APValue &Result, ASTContext &C, MetaActions &Meta,
     return true;
   else if (Ctx = Result.getReflectedDecl(); !Ctx)
     Ctx = Meta.CurrentCtx();
+
+  Ctx = skipConstevalBlockScopes(Ctx);
 
   if (auto *Ctor = dyn_cast<CXXConstructorDecl>(Ctx);
       Ctor && Ctor->isInheritingConstructor())
@@ -7186,6 +7201,8 @@ static bool current_scope(APValue &Result, ASTContext &C, MetaActions &Meta,
   Decl *Ctx = Result.getReflectedDecl();
   if (!Ctx)
     Ctx = Meta.CurrentCtx();
+
+  Ctx = skipConstevalBlockScopes(Ctx);
 
   if (auto *Ctor = dyn_cast<CXXConstructorDecl>(Ctx);
       Ctor && Ctor->isInheritingConstructor())

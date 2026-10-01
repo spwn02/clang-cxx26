@@ -7363,6 +7363,7 @@ void ASTRecordWriter::AddCXXDefinitionData(const CXXRecordDecl *D) {
     LambdaBits.addBit(Lambda.HasKnownInternalLinkage);
     Record->push_back(LambdaBits);
 
+    Record->push_back(Lambda.IsConstevalBlock);
     Record->push_back(Lambda.NumExplicitCaptures);
     Record->push_back(Lambda.ManglingNumber);
     Record->push_back(D->getDeviceLambdaManglingNumber());

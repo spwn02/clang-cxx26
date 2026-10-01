@@ -2086,6 +2086,7 @@ void ASTDeclReader::ReadCXXDefinitionData(
     Lambda.NumCaptures = LambdaBits.getNextBits(/*Width=*/15);
     Lambda.HasKnownInternalLinkage = LambdaBits.getNextBit();
 
+    Lambda.IsConstevalBlock = Record.readInt();
     Lambda.NumExplicitCaptures = Record.readInt();
     Lambda.ManglingNumber = Record.readInt();
     if (unsigned DeviceManglingNumber = Record.readInt())
