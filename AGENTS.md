@@ -165,7 +165,7 @@ Enable reflection with `-std=c++26 -freflection`. Extended features require addi
 - Reflection core (`clang/lib/AST/`): `ExprConstantMeta.cpp`, `Metafunction.h`; parsing via `CXXReflectExpr`, `CXXSpliceSpecifierExpr`, and `CXXMetafunctionExpr`.
 - Metafunction table: `clang/include/clang/AST/Metafunction.h` (60+ functions, each with a `Metafunction::evaluate` implementation).
 - Splice desugaring: reflection contexts (`Sema::isReflectionContext()`) handle special parsing rules for `^E` and `[:R:]`.
-- PCH and C++20 module round trips of reflection work (`CXXMetafunctionExpr`'s callback is re-bound by `MetaFnID` on load). Known remaining serialization gap: dependent splice nested-name-specifiers (`typename [:R:]::t`) and dependent namespace aliases (`namespace A = [:R:];`) in templates — issue #198.
+- PCH and C++20 module round trips of reflection work (`CXXMetafunctionExpr`'s callback is re-bound by `MetaFnID` on load). Dependent splice nested-name-specifiers (`typename [:R:]::t`) and dependent namespace aliases (`namespace A = [:R:];`) in templates also round-trip (issue #198).
 
 ## Trackers
 
