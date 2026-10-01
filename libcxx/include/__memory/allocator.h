@@ -19,7 +19,6 @@
 #include <__new/exceptions.h>
 #include <__type_traits/is_const.h>
 #include <__type_traits/is_constant_evaluated.h>
-#include <__type_traits/is_consteval_only.h>
 #include <__type_traits/is_same.h>
 #include <__type_traits/is_void.h>
 #include <__type_traits/is_volatile.h>
@@ -90,7 +89,9 @@ public:
     if (__libcpp_is_constant_evaluated()) {
       return static_cast<_Tp*>(::operator new(__n * sizeof(_Tp)));
 #if _LIBCPP_STD_VER >= 26
-    } else if constexpr (is_consteval_only_v<_Tp>) {
+    // Retain the private compiler guard until value-based reflection CodeGen
+    // supports runtime allocation of null reflection values (P4101R1).
+    } else if constexpr (__is_consteval_only(_Tp)) {
       return nullptr;
 #endif
     } else {
@@ -109,7 +110,7 @@ public:
     if (__libcpp_is_constant_evaluated()) {
       ::operator delete(__p);
 #if _LIBCPP_STD_VER >= 26
-    } else if constexpr (!is_consteval_only_v<_Tp>) {
+    } else if constexpr (!__is_consteval_only(_Tp)) {
 #else
     } else {
 #endif

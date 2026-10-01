@@ -154,7 +154,6 @@ export namespace std {
       _LIBCPP_META_EXPORT_PREDICATE(is_abstract_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_final_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_aggregate_type)
-      _LIBCPP_META_EXPORT_PREDICATE(is_consteval_only_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_signed_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_unsigned_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_bounded_array_type)
