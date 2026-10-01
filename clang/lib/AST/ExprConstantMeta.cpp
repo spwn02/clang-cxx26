@@ -6759,7 +6759,8 @@ bool get_ith_parameter_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
   case ReflectionKind::Attribute:
-    return true;
+    return Meta.ThrowMetaException(Range.getBegin(),
+                                   "invalid reflection operand");
   }
   return Meta.ThrowMetaException(Range.getBegin(),
                                  "invalid reflection operand");
@@ -6959,7 +6960,8 @@ bool variable_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     CurrentFD = dyn_cast<FunctionDecl>(Meta.CurrentCtx());
 
   if (!CurrentFD || CurrentFD->getCanonicalDecl() != FD->getCanonicalDecl())
-    return true;
+    return Meta.ThrowMetaException(Range.getBegin(),
+                                   "invalid reflection operand");
   assert(FD->getDefinition());
   PVD = FD->getDefinition()->getParamDecl(PVD->getFunctionScopeIndex());
 
