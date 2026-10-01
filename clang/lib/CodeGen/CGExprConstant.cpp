@@ -2482,6 +2482,11 @@ ConstantEmitter::tryEmitPrivate(const APValue &Value, QualType DestType,
     return llvm::ConstantStruct::get(STy, Complex);
   }
   case APValue::Reflection: {
+    // Null reflections have a runtime representation. Use the same zero
+    // representation as value-initialization, including in aggregates.
+    if (Value.isNullReflection())
+      return CGM.EmitNullConstant(DestType);
+
     // FIXME: This emits an unused garbage value, but there's not much
     // meaningful we can emit here. This seems okay, as the value only
     // seems to be used in debug builds...But perhaps we can do better?
