@@ -130,7 +130,7 @@ static_assert(extract<int>(annotations_of(^^TCls<^^non_dependent::S>)[0]) == 3);
 
 namespace comparison {
 struct [[=42, =42.0f]] S1;
-struct [[=42  =40]] S2;
+struct [[=42, =40]] S2;
 
 static_assert(annotations_of(^^S1)[0] == annotations_of(^^S1)[0]);
 static_assert(annotations_of(^^S1)[0] != annotations_of(^^S2)[0]);

@@ -3212,6 +3212,12 @@ void Parser::ParseAnnotationSpecifier(ParsedAttributes &Attrs,
   if (AnnotExpr.isInvalid() || AnnotExpr.get()->containsErrors())
     return;
 
+  if (Tok.is(tok::ellipsis)) {
+    AnnotExpr = Actions.ActOnPackExpansion(AnnotExpr.get(), ConsumeToken());
+    if (AnnotExpr.isInvalid())
+      return;
+  }
+
   IdentifierTable &IT = Actions.PP.getIdentifierTable();
   IdentifierInfo &Placeholder = IT.get("__annotation_placeholder");
 

@@ -14130,4 +14130,8 @@ def err_cuda_device_kernel_launch_not_supported
 def err_cuda_device_kernel_launch_require_rdc
     : Error<"kernel launch from __device__ or __global__ function requires "
             "relocatable device code (i.e. requires -fgpu-rdc)">;
+// C++26 annotation appertainment ([dcl.attr.annotation]).
+def err_annotation_appertainment : Error<
+  "annotation cannot be applied to %select{a declaration whose host scope differs from its target scope|a non-defining friend declaration|a void parameter}0">;
+
 } // end of sema component.

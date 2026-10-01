@@ -4826,6 +4826,7 @@ void Parser::ParseCXX11AttributeSpecifierInternal(ParsedAttributes &Attrs,
         }
          else {
           ParseAnnotationSpecifier(Attrs, EndLoc);
+          AttrParsed = true;
         }
         continue;
       } else {

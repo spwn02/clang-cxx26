@@ -30,6 +30,7 @@
 #include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Basic/DiagnosticMetafn.h"
 #include "clang/Basic/IdentifierTable.h"
+#include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Sema/ParsedAttr.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -6976,35 +6977,45 @@ bool get_ith_annotation_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   assert(Args[0]->getType()->isReflectionType());
   assert(ResultTy == C.MetaInfoTy);
 
-  auto findAnnotation = [&](Decl *D, size_t idx, APValue Sentinel) {
-    if (auto *PVD = dyn_cast_or_null<ParmVarDecl>(D)) {
+  auto findAnnotation = [&](Decl *D, size_t idx, APValue Sentinel,
+                            bool IsParameter = false) {
+    llvm::SmallVector<Decl *, 4> Decls;
+    if (IsParameter) {
+      auto *PVD = cast<ParmVarDecl>(D);
       const unsigned ParamIdx = PVD->getFunctionScopeIndex();
-      FunctionDecl *FD = cast<FunctionDecl>(PVD->getDeclContext());
+      auto *FD = cast<FunctionDecl>(PVD->getDeclContext());
       llvm::SmallPtrSet<ParmVarDecl *, 4> Seen;
-
       for (FD = FD->getMostRecentDecl(); FD; FD = FD->getPreviousDecl()) {
         PVD = FD->getParamDecl(ParamIdx);
-        if (!Seen.insert(PVD).second)
-          continue;
-        for (const Attr *A : PVD->attrs())
-          if (const auto *Annotation = dyn_cast<CXX26AnnotationAttr>(A);
-              Annotation && !Annotation->isInherited())
-            if (idx-- == 0)
-              return makeReflection(const_cast<CXX26AnnotationAttr *>(Annotation));
+        if (Seen.insert(PVD).second)
+          Decls.push_back(PVD);
       }
-      return Sentinel;
+    } else if (isa_and_nonnull<ParmVarDecl>(D)) {
+      // A parameter variable denotes only its own declaration, whereas a
+      // parameter reflection denotes the corresponding parameter of every
+      // declaration of the function ([dcl.attr.annotation]).
+      Decls.push_back(D);
+    } else {
+      for (D = D ? D->getMostRecentDecl() : D; D; D = D->getPreviousDecl())
+        Decls.push_back(D);
     }
 
-    D = D ? D->getMostRecentDecl() : D;
+    llvm::SmallVector<CXX26AnnotationAttr *, 4> Annotations;
+    for (Decl *Redecl : llvm::reverse(Decls))
+      for (Attr *A : Redecl->attrs())
+        if (auto *Annotation = dyn_cast<CXX26AnnotationAttr>(A);
+            Annotation && !Annotation->isInherited())
+          Annotations.push_back(Annotation);
 
-    while (D) {
-      auto Annots = D->attrs();
-      for (auto It = Annots.begin(); It != Annots.end(); ++It)
-        if (isa<CXX26AnnotationAttr>(*It))
-          if (idx-- == 0)
-            return makeReflection(dyn_cast<CXX26AnnotationAttr>(*It));
-      D = D->getPreviousDecl();
-    }
+    // Instantiated annotations can be attached after the specialization's
+    // own annotations. Order by the annotation's source position, rather
+    // than its position in a declaration's attribute list.
+    llvm::stable_sort(Annotations, [&](const auto *L, const auto *R) {
+      return C.getSourceManager().isBeforeInTranslationUnit(L->getEqLoc(),
+                                                          R->getEqLoc());
+    });
+    if (idx < Annotations.size())
+      return makeReflection(Annotations[idx]);
     return Sentinel;
   };
 
@@ -7046,8 +7057,8 @@ bool get_ith_annotation_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     return SetAndSucceed(Result, findAnnotation(D, idx, Sentinel));
   }
   case ReflectionKind::Parameter:
-    return SetAndSucceed(Result,
-                         findAnnotation(RV.getReflectedParameter(), idx, Sentinel));
+    return SetAndSucceed(
+        Result, findAnnotation(RV.getReflectedParameter(), idx, Sentinel, true));
   // Disallow reflecting annotations of unspecialized templates, as they might
   // contain a dependent name.
   case ReflectionKind::Template: /*{

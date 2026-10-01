@@ -2300,7 +2300,31 @@ static void handleCXX2CAnnotation(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
+  if (auto *TD = dyn_cast<TagDecl>(D); TD && TD->getFriendObjectKind()) {
+    S.Diag(AL.getLoc(), diag::err_annotation_appertainment) << 1;
+    return;
+  }
+  if (isa<VarDecl, TagDecl>(D) && !isa<ParmVarDecl>(D) &&
+      D->getLexicalDeclContext()->getRedeclContext() !=
+          D->getDeclContext()->getRedeclContext()) {
+    S.Diag(AL.getLoc(), diag::err_annotation_appertainment) << 0;
+    return;
+  }
+  if (auto *P = dyn_cast<ParmVarDecl>(D); P && P->getType()->isVoidType()) {
+    S.Diag(AL.getLoc(), diag::err_annotation_appertainment) << 2;
+    return;
+  }
+
   Expr *CE = AL.getArgAsExpr(0);
+  if (isa<PackExpansionExpr>(CE)) {
+    auto *Annot = CXX26AnnotationAttr::Create(S.Context, CE, AL);
+    Annot->setEqLoc(AL.getLoc());
+    D->addAttr(Annot);
+    return;
+  }
+  if (S.DiagnoseUnexpandedParameterPack(CE))
+    return;
+
   if (CE->isLValue()) {
     if (CE->getType()->isRecordType()) {
       InitializedEntity Entity =

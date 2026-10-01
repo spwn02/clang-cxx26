@@ -38,8 +38,8 @@ constexpr auto count = parameters_of(^^configure)[0];
 constexpr auto timeout = parameters_of(^^configure)[1];
 
 static_assert(annotations_of(count).size() == 2);
-static_assert(extract<int>(annotations_of(count)[0]) == 3);
-static_assert(extract<int>(annotations_of(count)[1]) == 1);
+static_assert(extract<int>(annotations_of(count)[0]) == 1);
+static_assert(extract<int>(annotations_of(count)[1]) == 3);
 static_assert(extract<int>(annotations_of(timeout)[0]) == 2);
 } // namespace redeclarations
 

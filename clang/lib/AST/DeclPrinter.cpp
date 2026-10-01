@@ -281,7 +281,14 @@ DeclPrinter::prettyPrintAttributes(const Decl *D,
              "Default not a valid for an attribute location");
       if (Pos == AttrPosAsWritten::Default || Pos == APos) {
         AOut << LS;
-        A->printPretty(AOut, Policy);
+        if (const auto *Annotation = dyn_cast<CXX26AnnotationAttr>(A)) {
+          AOut << "[[=";
+          Annotation->getArg()->printPretty(AOut, nullptr, Policy, Indentation,
+                                            "\n", &Context);
+          AOut << "]]";
+        } else {
+          A->printPretty(AOut, Policy);
+        }
       }
       break;
     }
@@ -685,6 +692,19 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
       printTemplateParameters(D->getTemplateParameterList(I));
   }
 
+  if (D->getDescribedFunctionTemplate() ||
+      D->isFunctionTemplateSpecialization()) {
+    // Leading annotations belong after the template head.
+    for (const auto *A : D->specific_attrs<CXX26AnnotationAttr>()) {
+      if (A->isInherited() || A->isImplicit() ||
+          getPosAsWritten(A, D) != AttrPosAsWritten::Left)
+        continue;
+      Out << "[[=";
+      A->getArg()->printPretty(Out, nullptr, Policy, Indentation, "\n", &Context);
+      Out << "]] ";
+    }
+  }
+
   CXXConstructorDecl *CDecl = dyn_cast<CXXConstructorDecl>(D);
   CXXConversionDecl *ConversionDecl = dyn_cast<CXXConversionDecl>(D);
   CXXDeductionGuideDecl *GuideDecl = dyn_cast<CXXDeductionGuideDecl>(D);
@@ -1079,6 +1099,8 @@ void DeclPrinter::VisitNamespaceDecl(NamespaceDecl *D) {
     Out << "inline ";
 
   Out << "namespace ";
+  if (std::optional<std::string> Attrs = prettyPrintAttributes(D))
+    Out << *Attrs << ' ';
   if (D->getDeclName())
     Out << D->getDeclName() << ' ';
   Out << "{\n";

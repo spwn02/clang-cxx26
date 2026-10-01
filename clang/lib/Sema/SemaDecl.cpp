@@ -10706,6 +10706,21 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
   // Handle attributes.
   ProcessDeclAttributes(S, NewFD, D);
+  // For parameter annotations, X in [dcl.attr.annotation] is the function
+  // declaration. A defining friend is permitted to declare a namespace member.
+  if ((isFriend && !D.isFunctionDefinition()) ||
+      (!isFriend && NewFD->getLexicalDeclContext()->getRedeclContext() !=
+                        NewFD->getDeclContext()->getRedeclContext())) {
+    auto DiagnoseAnnotations = [&](Decl *Annotated) {
+      for (const auto *A : Annotated->specific_attrs<CXX26AnnotationAttr>())
+        if (!A->isInherited())
+          Diag(A->getLocation(), diag::err_annotation_appertainment)
+              << (isFriend ? 1 : 0);
+    };
+    DiagnoseAnnotations(NewFD);
+    for (ParmVarDecl *P : NewFD->parameters())
+      DiagnoseAnnotations(P);
+  }
   const auto *NewTVA = NewFD->getAttr<TargetVersionAttr>();
   if (Context.getTargetInfo().getTriple().isAArch64() && NewTVA &&
       !NewTVA->isDefaultVersion() &&

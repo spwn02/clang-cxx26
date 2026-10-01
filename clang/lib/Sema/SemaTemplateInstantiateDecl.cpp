@@ -807,6 +807,69 @@ static void instantiateDependentMallocSpanAttr(Sema &S,
     New->addAttr(Attr->clone(S.getASTContext()));
 }
 
+// An annotation pack expansion is represented by its argument expression, so
+// the ordinary expression-pack substitution also handles empty and retained
+// expansions without adding another AST representation.
+static bool instantiateAnnotationExpansion(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const Attr *A, Decl *New) {
+  const auto *Annotation = dyn_cast<CXX26AnnotationAttr>(A);
+  if (!Annotation || !isa<PackExpansionExpr>(Annotation->getArg()))
+    return false;
+
+  EnterExpressionEvaluationContext Evaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  Expr *Pattern = Annotation->getArg();
+  SmallVector<Expr *, 4> Args;
+  if (S.SubstExprs(ArrayRef<Expr *>(&Pattern, 1), /*IsCall=*/false,
+                   TemplateArgs, Args))
+    return true;
+
+  for (Expr *Arg : Args) {
+    if (Arg->isLValue()) {
+      ExprResult Converted;
+      if (Arg->getType()->isRecordType()) {
+        InitializedEntity Entity = InitializedEntity::InitializeTemporary(
+            Arg->getType().getUnqualifiedType());
+        InitializationKind Kind =
+            InitializationKind::CreateCopy(Arg->getExprLoc(), SourceLocation());
+        InitializationSequence Seq(S, Entity, Kind, Arg);
+        Converted = Seq.Perform(S, Entity, Kind, Arg);
+      } else {
+        Converted = S.DefaultLvalueConversion(Arg);
+      }
+      if (Converted.isInvalid())
+        continue;
+      Arg = Converted.get();
+    }
+    Expr::EvalResult Value;
+    SmallVector<PartialDiagnosticAt, 4> Notes;
+    Value.Diag = &Notes;
+    if (!Arg->isValueDependent()) {
+      ConstantExprKind Kind = Arg->getType()->isClassType()
+                                  ? ConstantExprKind::ClassTemplateArgument
+                                  : ConstantExprKind::NonClassTemplateArgument;
+      if (!Arg->EvaluateAsConstantExpr(Value, S.Context, Kind)) {
+        S.Diag(Arg->getBeginLoc(), diag::err_attribute_argument_type)
+            << "C++26 annotation" << 4 << Arg->getSourceRange();
+        for (const auto &Note : Notes)
+          S.Diag(Note.first, Note.second);
+        continue;
+      }
+      if (!Arg->getType()->isStructuralType()) {
+        S.Diag(Arg->getBeginLoc(), diag::err_attribute_argument_type)
+            << "C++26 annotation" << 5 << Arg->getSourceRange();
+        continue;
+      }
+    }
+    auto *Result = CXX26AnnotationAttr::Create(S.Context, Arg, *Annotation);
+    Result->setEqLoc(Annotation->getEqLoc());
+    Result->setValue(Value.Val);
+    New->addAttr(Result);
+  }
+  return true;
+}
+
 void Sema::InstantiateAttrsForDecl(
     const MultiLevelTemplateArgumentList &TemplateArgs, const Decl *Tmpl,
     Decl *New, LateInstantiatedAttrVec *LateAttrs,
@@ -823,6 +886,9 @@ void Sema::InstantiateAttrsForDecl(
       if (isa<CXX26AnnotationAttr>(TmplAttr) && !AddAnnotations)
         // See https://github.com/llvm/llvm-project/issues/138596
         // Just skip here to avoid duplication of the attribute.
+        continue;
+
+      if (instantiateAnnotationExpansion(*this, TemplateArgs, TmplAttr, New))
         continue;
 
       // FIXME: If any of the special case versions from InstantiateAttrs become
@@ -863,7 +929,25 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                             LateInstantiatedAttrVec *LateAttrs,
                             LocalInstantiationScope *OuterMostScope) {
   bool AddAnnotations = New->attrs().empty();
-  for (const auto *TmplAttr : Tmpl->attrs()) {
+  SmallVector<const Attr *, 8> TemplateAttrs;
+  if (const auto *FD = dyn_cast<FunctionDecl>(Tmpl);
+      FD && isa<FunctionDecl>(New)) {
+    // S(F) includes every declaration of the templated function, not only
+    // the declaration used as the instantiation pattern.
+    SmallVector<const FunctionDecl *, 4> Decls;
+    for (FD = FD->getMostRecentDecl(); FD; FD = FD->getPreviousDecl())
+      Decls.push_back(FD);
+    for (const FunctionDecl *Redecl : llvm::reverse(Decls))
+      for (const Attr *A : Redecl->attrs())
+        if (isa<CXX26AnnotationAttr>(A) && !A->isInherited())
+          TemplateAttrs.push_back(A);
+    for (const Attr *A : Tmpl->attrs())
+      if (!isa<CXX26AnnotationAttr>(A))
+        TemplateAttrs.push_back(A);
+  } else {
+    TemplateAttrs.append(Tmpl->attr_begin(), Tmpl->attr_end());
+  }
+  for (const auto *TmplAttr : TemplateAttrs) {
     if (!isRelevantAttr(*this, New, TmplAttr))
       continue;
 
@@ -981,9 +1065,21 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       continue;
     }
 
-    if (isa<CXX26AnnotationAttr>(TmplAttr) && !AddAnnotations)
-      // See https://github.com/llvm/llvm-project/issues/138596
-      // Just skip here to avoid duplication of the attribute.
+    if (const auto *Annotation = dyn_cast<CXX26AnnotationAttr>(TmplAttr)) {
+      if (auto *FD = dyn_cast<FunctionDecl>(New)) {
+        bool AlreadyInstantiated = false;
+        for (const FunctionDecl *Redecl : FD->redecls())
+          for (const auto *A : Redecl->specific_attrs<CXX26AnnotationAttr>())
+            AlreadyInstantiated |= A->getEqLoc() == Annotation->getEqLoc();
+        if (AlreadyInstantiated)
+          continue;
+      } else if (!AddAnnotations) {
+        // See https://github.com/llvm/llvm-project/issues/138596.
+        continue;
+      }
+    }
+
+    if (instantiateAnnotationExpansion(*this, TemplateArgs, TmplAttr, New))
       continue;
 
     // Existing DLL attribute on the instantiation takes precedence.
