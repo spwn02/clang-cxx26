@@ -707,6 +707,52 @@ bool Sema::BuildCXXNestedNameSpecifier(Scope *S, NestedNameSpecInfo &IdInfo,
     }
 
     if (NamespaceAliasDecl *Alias = dyn_cast<NamespaceAliasDecl>(SD)) {
+      // An alias whose target depends on a splice (`namespace A = [:R:];` or
+      // `namespace A = [:R:]::M;` in a template) has no canonical namespace
+      // to name, so the alias cannot be stored in the scope as-is. Rebuild
+      // the dependent scope that the alias stands for instead; it is
+      // substituted when the enclosing template is instantiated.
+      if (Alias->isDependent()) {
+        // Find what the (possibly chained) alias ultimately denotes.
+        NamespaceBaseDecl *Aliased = Alias;
+        NamespaceAliasDecl *Qualified = nullptr;
+        while (auto *AD = dyn_cast<NamespaceAliasDecl>(Aliased)) {
+          if (AD->getQualifier()) {
+            Qualified = AD;
+            break;
+          }
+          Aliased = AD->getAliasedNamespace();
+        }
+
+        if (!SS.isEmpty()) {
+          // Dependent aliases are block-scope declarations in templates, so
+          // they can only be found by unqualified lookup.
+          Diag(IdInfo.IdentifierLoc, diag::err_expected_class_or_namespace)
+              << IdInfo.Identifier << getLangOpts().CPlusPlus;
+          return true;
+        }
+
+        if (Qualified) {
+          // `A` is `Q::M` where `Q` is dependent: model it as the dependent
+          // name `M` in the scope `Q`.
+          QualType DTN = Context.getDependentNameType(
+              ElaboratedTypeKeyword::None, Qualified->getQualifier(),
+              Qualified->getNamespace()->getIdentifier());
+          TypeLocBuilder TLB;
+          auto DTNL = TLB.push<DependentNameTypeLoc>(DTN);
+          DTNL.setElaboratedKeywordLoc(SourceLocation());
+          DTNL.setNameLoc(Qualified->getTargetNameLoc());
+          DTNL.setQualifierLoc(Qualified->getQualifierLoc());
+          SS.Make(Context, TLB.getTypeLocInContext(Context, DTN),
+                  IdInfo.CCLoc);
+          return false;
+        }
+
+        auto *DNSD = cast<DependentNamespaceDecl>(Aliased);
+        SS.MakeSpliceScopeSpecifier(Context, SourceLocation(),
+                                    DNSD->getSplice(), IdInfo.CCLoc);
+        return false;
+      }
       SS.Extend(Context, Alias, IdInfo.IdentifierLoc, IdInfo.CCLoc);
       return false;
     }
