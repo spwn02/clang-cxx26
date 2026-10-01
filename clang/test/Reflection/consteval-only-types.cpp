@@ -41,46 +41,51 @@ consteval void cfn2() { (void) static_cast<const void *>(p2); }
                            // ======================
 
 namespace non_consteval_contexts {
-info r1;  // expected-error {{consteval-only type must either be constexpr}}
-info r2 {};  // expected-error {{consteval-only type must either be constexpr}}
+// Null reflections have no consteval-only constituent value ([expr.const]).
+info r1;
+info r2 {};
 info r3 = ^^int;
-// expected-error@-1 {{consteval-only type must either be constexpr}}
+// expected-error@-1 {{is not associated with a constexpr variable}}
 info r4 = valid_cases::cfn1();
-// expected-error@-1 {{consteval-only type must either be constexpr}}
+// expected-error@-1 {{is not associated with a constexpr variable}}
 unsigned sz = sizeof(^^int);  // ok
 
-S s1;  // expected-error {{consteval-only type must either be constexpr}}
-S s2{};  // expected-error {{consteval-only type must either be constexpr}}
+// Aggregates containing only null reflections are ordinary objects.
+S s1;
+S s2{};
 S s3 = {^^int};
-// expected-error@-1 {{consteval-only type must either be constexpr}}
+// expected-error@-1 {{is not associated with a constexpr variable}}
 
+// A zero-initialized pointer does not establish an immediate object.
 const info *p1;
-// expected-error@-1 {{consteval-only type must either be constexpr}}
 const info *p2 = &valid_cases::r1;
-// expected-error@-1 {{consteval-only type must either be constexpr}}
+// expected-error@-1 {{is not associated with a constexpr variable}}
 
 info fn1() { return ^^int; }
-// expected-error@-1 {{expressions of consteval-only type}}
+// expected-error@-1 {{consteval-only value is only allowed}}
 
 info fn2() { return valid_cases::cfn1(); }
-// expected-error@-1 {{expressions of consteval-only type}}
+// expected-error@-1 {{consteval-only value is only allowed}}
 
 void fn3() { (void) valid_cases::r1; }
-// expected-error@-1 {{expressions of consteval-only type}}
+// expected-error@-1 {{consteval-only value is only allowed}}
 
+// s1 contains a null reflection, so this does not use an immediate object.
 void fn4() { (void) valid_cases::s1.m; }
-// expected-error@-1 {{expressions of consteval-only type}}
+void fn4_immediate() { (void) valid_cases::s3.m; }
+// expected-error@-1 {{consteval-only value is only allowed}}
 
 void fn5() { (void) static_cast<const void *>(valid_cases::p2); }
-// expected-error@-1 {{expressions of consteval-only type}}
+// expected-error@-1 {{consteval-only value is only allowed}}
 
 void fn6() { (void) [:^^valid_cases::r1:]; }
-// expected-error@-1 {{expressions of consteval-only type}}
+// expected-error@-1 {{consteval-only value is only allowed}}
 
 void fn7() {
-  (void) info{}; // expected-error {{expressions of consteval-only type}}
-  (void) ^^int; // expected-error {{expressions of consteval-only type}}
-  (void) new info{}; // expected-error {{expressions of consteval-only type}}
+  // Null reflections are permitted at runtime, including in allocated objects.
+  (void) info{};
+  (void) ^^int; // expected-error {{consteval-only value is only allowed}}
+  (void) new info{};
 }
 
 consteval bool is_null(info R) {
@@ -143,17 +148,19 @@ consteval const Base &fn1() {
   static constexpr Derived d;
   return d;
 }
+// [expr.const]: constexpr references may refer to immediate objects,
+// including an empty base subobject of an immediate complete object.
 constexpr auto &ref = fn1();
-// expected-error@-1 {{'ref' must be initialized by a constant expression}}
-// expected-note@-2 {{reference into an object of consteval-only type}}
+const Base &use1() { return ref; } // expected-error {{consteval-only value is only allowed}}
 
 consteval void *fn2() {
   static constexpr auto v = ^^int;
   return (void *)&v;
 }
+// [expr.const]: constexpr objects may contain consteval-only pointers;
+// erasing the pointee type does not permit their values to escape at runtime.
 constexpr const void *ptr = fn2();
-// expected-error@-1 {{'ptr' must be initialized by a constant expression}}
-// expected-note@-2 {{pointer into an object of consteval-only type}}
+const void *use2() { return ptr; } // expected-error {{consteval-only value is only allowed}}
 
 }  // namespace alias_smuggling
 

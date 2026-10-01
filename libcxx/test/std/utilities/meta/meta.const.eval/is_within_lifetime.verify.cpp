@@ -31,3 +31,19 @@ void test() {
   // expected-error@+1 {{no matching function for call to 'is_within_lifetime'}}
   std::is_within_lifetime<void()>(&f);
 }
+
+// [expr.const]: an immediate function pointer makes its containing object
+// immediate. This distinguishes a consteval function from a constexpr function.
+constexpr auto permitted = &std::is_within_lifetime<int>;
+template <auto> struct Address {};
+Address<&std::is_within_lifetime<int>> argument;
+auto runtime = &std::is_within_lifetime<int>; // expected-error {{immediate object associated with variable 'runtime' is not associated with a constexpr variable}}
+
+// Check the consteval-propagating property as well.
+template <typename T>
+constexpr void does_escalate(T p) {
+  (void)std::is_within_lifetime(p);
+}
+constexpr auto propagated = &does_escalate<int*>;
+Address<&does_escalate<int*>> propagated_argument;
+auto runtime_propagated = &does_escalate<int*>; // expected-error {{immediate object associated with variable 'runtime_propagated' is not associated with a constexpr variable}}

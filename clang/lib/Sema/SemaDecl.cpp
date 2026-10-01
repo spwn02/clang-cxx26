@@ -15,6 +15,7 @@
 #include "TypeLocBuilder.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/ConstevalOnly.h"
 #include "clang/AST/ASTLambda.h"
 #include "clang/AST/CXXInheritance.h"
 #include "clang/AST/CharUnits.h"
@@ -14873,39 +14874,6 @@ StmtResult Sema::ActOnCXXForRangeIdentifier(Scope *S, SourceLocation IdentLoc,
 void Sema::CheckCompleteVariableDeclaration(VarDecl *var) {
   if (var->isInvalidDecl()) return;
 
-  if (var->getType()->isConstevalOnly() &&
-      !isCheckingDefaultArgumentOrInitializer() &&
-      !RebuildingImmediateInvocation && !isUnevaluatedContext() &&
-      !isImmediateFunctionContext() && !isAlwaysConstantEvaluatedContext()) {
-    const Expr *Init = var->getInit();
-    while (const auto *EWC = dyn_cast_or_null<ExprWithCleanups>(Init))
-      Init = EWC->getSubExpr();
-
-    // An expansion statement's per-iteration variable is a compile-time
-    // substitution: its selection is already checked in an immediate
-    // context while the expansion is synthesized (see MarkDeclRefReferenced
-    // and TreeTransform's expansion-selector handling), and it is consumed
-    // entirely by the compiler while unrolling the loop body -- unlike an
-    // ordinary local of consteval-only type, it never needs a real per-call
-    // stack slot in the generated code. It must not force the enclosing
-    // function to escalate either.
-    if (!isa_and_nonnull<CXXIndeterminateExpansionSelectExpr,
-                         CXXIterableExpansionSelectExpr,
-                         CXXDestructurableExpansionSelectExpr,
-                         CXXExpansionInitListSelectExpr>(Init)) {
-      if (!ExprEvalContexts.back().InImmediateEscalatingFunctionContext) {
-        // A constexpr variable's initializer is already constant-evaluated,
-        // so it doesn't need this diagnostic. But it can still be a variable
-        // of automatic storage duration needing a per-call stack slot that
-        // CodeGen cannot represent (consteval-only types have no runtime
-        // representation), so the enclosing context still needs to escalate;
-        // see the FoundImmediateEscalatingConstruct branch below.
-        if (!var->isConstexpr())
-          Diag(var->getLocation(), diag::err_decl_consteval_only_type) << var;
-      } else if (FunctionScopeInfo *FI = getCurFunction())
-        FI->FoundImmediateEscalatingConstruct = true;
-    }
-  }
 
   CUDA().MaybeAddConstantAttr(var);
 
@@ -15215,6 +15183,47 @@ void Sema::CheckCompleteVariableDeclaration(VarDecl *var) {
       }
     }
   }
+
+  // Classify after ordinary constant-initialization checking: evaluation can
+  // cache temporary values, and must not preempt that check.
+  if (getLangOpts().CPlusPlus26 &&
+      !isCheckingDefaultArgumentOrInitializer() &&
+      !RebuildingImmediateInvocation && !isUnevaluatedContext() &&
+      (!isImmediateFunctionContext() || var->hasGlobalStorage()) &&
+      (!isAlwaysConstantEvaluatedContext() || var->hasGlobalStorage()) &&
+      ([&] {
+        if (const APValue *Value = var->getEvaluatedValue();
+            Value && Value->hasValue())
+          return isImmediateObject(*Value, var->getType(), Context);
+        return !var->isConstexpr() && hasImmediateValue(var->getInit(), Context);
+      }())) {
+    const Expr *Init = var->getInit();
+    while (const auto *EWC = dyn_cast_or_null<ExprWithCleanups>(Init))
+      Init = EWC->getSubExpr();
+
+    // An expansion statement's per-iteration variable is a compile-time
+    // substitution: its selection is already checked in an immediate
+    // context while the expansion is synthesized (see MarkDeclRefReferenced
+    // and TreeTransform's expansion-selector handling), and it is consumed
+    // entirely by the compiler while unrolling the loop body -- unlike an
+    // ordinary local of consteval-only type, it never needs a real per-call
+    // stack slot in the generated code. It must not force the enclosing
+    // function to escalate either.
+    if (!isa_and_nonnull<CXXIndeterminateExpansionSelectExpr,
+                         CXXIterableExpansionSelectExpr,
+                         CXXDestructurableExpansionSelectExpr,
+                         CXXExpansionInitListSelectExpr>(Init)) {
+      if (!ExprEvalContexts.back().InImmediateEscalatingFunctionContext ||
+          var->hasGlobalStorage()) {
+        if (!var->isConstexpr()) {
+          Diag(var->getLocation(), diag::err_decl_consteval_only_type) << var;
+          var->setInvalidDecl();
+        }
+      } else if (FunctionScopeInfo *FI = getCurFunction())
+        FI->FoundImmediateEscalatingConstruct = true;
+    }
+  }
+
 
   // Apply section attributes and pragmas to global variables.
   if (GlobalStorage && var->isThisDeclarationADefinition() &&

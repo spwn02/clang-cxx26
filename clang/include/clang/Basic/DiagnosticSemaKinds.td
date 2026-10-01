@@ -3219,11 +3219,9 @@ def err_placeholder_constraints_not_satisfied : Error<
 
 // Reflection (CXX26)
 def err_expr_consteval_only_type : Error<
-  "expressions of consteval-only type are only allowed in constant-evaluated "
-  "contexts">;
+  "consteval-only value is only allowed in an immediate function context">;
 def err_decl_consteval_only_type : Error<
-  "variable %0 of consteval-only type must either be constexpr or in a "
-  "constant-evaluated context">;
+  "immediate object associated with variable %0 is not associated with a constexpr variable">;
 
 def err_reflect_general_expression : Error<
   "reflection operand must be a named entity">;

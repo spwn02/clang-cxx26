@@ -5,11 +5,13 @@
 consteval int id(int i) { return i; }
 constexpr char id(char c) { return c; }
 
-template <class T> constexpr int f(T t) {   // expected-note {{here}}
-  return t + id(t); // expected-note {{consteval function 'id'}}
+template <class T> constexpr int f(T t) {
+  return t + id(t);
 }
 auto a = &f<char>; // OK, f<char> is not an immediate function
-auto b = &f<int>;  // expected-error {{outside of an immediate invocation}}
+// The immediate-object diagnostic reports the invalid variable initializer;
+// it does not diagnose taking the address of f<int> or explain its escalation.
+auto b = &f<int>;  // expected-error {{immediate object associated with variable 'b' is not associated with a constexpr variable}}
 
 static_assert(f(3) == 6); // OK
 

@@ -133,19 +133,21 @@ consteval bool f() {
 }
 static_assert(f());
 
-// Check that it is a consteval (and consteval-propagating) function
-// (i.e., taking the address of below will fail because it will be an immediate function)
+// P4101 permits pointers to immediate functions in template arguments, even
+// when the function became immediate through consteval propagation.
+// is_within_lifetime.verify.cpp separately checks that non-constexpr address
+// holders are rejected, proving that the function is immediate.
 template <typename T>
 constexpr void does_escalate(T p) {
   (void)std::is_within_lifetime(p);
 }
 template <typename T, void (*)(T) = &does_escalate<T>>
-constexpr bool check_escalated(int) {
-  return false;
-}
-template <typename T>
-constexpr bool check_escalated(long) {
+constexpr bool accepts_address(int) {
   return true;
 }
-static_assert(check_escalated<int*>(0), "");
-static_assert(check_escalated<void*>(0), "");
+template <typename T>
+constexpr bool accepts_address(long) {
+  return false;
+}
+static_assert(accepts_address<int*>(0), "");
+static_assert(accepts_address<void*>(0), "");

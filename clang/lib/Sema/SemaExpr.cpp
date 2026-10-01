@@ -17,6 +17,7 @@
 #include "UsedDeclVisitor.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/ConstevalOnly.h"
 #include "clang/AST/ASTDiagnostic.h"
 #include "clang/AST/ASTLambda.h"
 #include "clang/AST/ASTMutationListener.h"
@@ -18331,7 +18332,7 @@ ExprResult Sema::CheckForImmediateInvocation(ExprResult E, FunctionDecl *Decl) {
   /// in order to remove any arguments of consteval-only type nested in the
   /// argument expressions.
   ExprEvalContexts.back().ImmediateInvocationCandidates.emplace_back(Res, 0);
-  if (Res->getType()->isConstevalOnly())
+  if (getLangOpts().CPlusPlus26 || Res->getType()->isConstevalOnly())
     ExprEvalContexts.back().ConstevalOnly.insert(Res);
 
   return Res;
@@ -19049,6 +19050,11 @@ HandleImmediateInvocations(Sema &SemaRef,
   // near the top of this function).
   if (SkipDiagnosticLoops)
     return;
+  if (SemaRef.getLangOpts().CPlusPlus26 &&
+      CurRec.ExprContext ==
+          Sema::ExpressionEvaluationContextRecord::EK_VariableInit &&
+      cast<VarDecl>(CurRec.ManglingContextDecl)->isInvalidDecl())
+    return;
 
   for (auto *DR : CurRec.ReferenceToConsteval) {
     // If the expression is immediate escalating, it is not an error;
@@ -19097,6 +19103,9 @@ HandleImmediateInvocations(Sema &SemaRef,
   }
   for (auto *E : CurRec.ConstevalOnly) {
     if (E->isImmediateEscalating())
+      continue;
+    if (SemaRef.getLangOpts().CPlusPlus26 &&
+        !hasImmediateValue(E, SemaRef.Context))
       continue;
 
     bool ImmediateEscalating = false;
@@ -21139,8 +21148,11 @@ ExprResult Sema::CheckLValueToRValueConversionOperand(Expr *E) {
   if (E->getType().isVolatileQualified() || E->getType()->isRecordType())
     return E;
 
-  bool ReplaceConstevalOnly = E->getType()->isConstevalOnly() &&
-                              ExprEvalContexts.back().ConstevalOnly.contains(E);
+  // A constant lvalue-to-rvalue conversion can avoid odr-use while still
+  // producing a consteval-only value, including a type-erased pointer.
+  bool ReplaceConstevalOnly =
+      (getLangOpts().CPlusPlus26 || E->getType()->isConstevalOnly()) &&
+      ExprEvalContexts.back().ConstevalOnly.contains(E);
 
   ExprResult Result =
       rebuildPotentialResultsAsNonOdrUsed(*this, E, NOUR_Constant);
@@ -21567,7 +21579,10 @@ void Sema::MarkDeclRefReferenced(DeclRefExpr *E, const Expr *Base) {
       if (FD->getType()->isConstevalOnly())
         ExprEvalContexts.back().ConstevalOnly.insert(E);
     } else if (auto *VD = dyn_cast<VarDecl>(E->getDecl());
-               VD && !VD->isInvalidDecl() && VD->getType()->isConstevalOnly()) {
+               VD && !VD->isInvalidDecl() &&
+               (getLangOpts().CPlusPlus26
+                    ? hasImmediateValue(E, Context)
+                    : VD->getType()->isConstevalOnly())) {
       const Expr *Init = VD->getInit();
       while (const auto *EWC = dyn_cast_or_null<ExprWithCleanups>(Init))
         Init = EWC->getSubExpr();

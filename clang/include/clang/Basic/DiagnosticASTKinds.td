@@ -69,6 +69,8 @@ def note_constexpr_dynamic_alloc : Note<
 def note_consteval_address_accessible : Note<
   "%select{pointer|reference}0 to a consteval declaration "
   "is not a constant expression">;
+def note_constexpr_immediate_object : Note<
+  "immediate object associated with %0 is not associated with a constexpr variable">;
 def note_consteval_only_smuggling : Note<
   "%select{pointer|reference}0 into an object of consteval-only type is not "
   "a constant expression unless it also has consteval-only type">;

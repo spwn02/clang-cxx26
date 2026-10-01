@@ -44,6 +44,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/AST/CXXInheritance.h"
 #include "clang/AST/CharUnits.h"
+#include "clang/AST/ConstevalOnly.h"
 #include "clang/AST/CurrentSourceLocExprScope.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/InferAlloc.h"
@@ -2471,14 +2472,14 @@ static bool CheckLValueConstantExpression(EvalInfo &Info, SourceLocation Loc,
   }
 
   if (auto *FD = dyn_cast_or_null<FunctionDecl>(BaseVD);
-      FD && FD->isImmediateFunction()) {
+      FD && FD->isImmediateFunction() && !Info.getLangOpts().CPlusPlus26) {
     Info.FFDiag(Loc, diag::note_consteval_address_accessible)
         << !Type->isAnyPointerType();
     Info.Note(FD->getLocation(), diag::note_declared_at);
     return false;
   }
 
-  if (!Type->isConstevalOnly() &&
+  if (!Info.getLangOpts().CPlusPlus26 && !Type->isConstevalOnly() &&
       ((BaseE && BaseE->getType()->isConstevalOnly()) ||
        (BaseVD && BaseVD->getType()->isConstevalOnly()))) {
     Info.FFDiag(Loc, diag::note_consteval_only_smuggling)
@@ -2631,7 +2632,7 @@ static bool CheckMemberPointerConstantExpression(EvalInfo &Info,
   const auto *FD = dyn_cast_or_null<CXXMethodDecl>(Member);
   if (!FD)
     return true;
-  if (FD->isImmediateFunction()) {
+  if (FD->isImmediateFunction() && !Info.getLangOpts().CPlusPlus26) {
     Info.FFDiag(Loc, diag::note_consteval_address_accessible) << /*pointer*/ 0;
     Info.Note(FD->getLocation(), diag::note_declared_at);
     return false;
@@ -23050,13 +23051,22 @@ bool Expr::EvaluateAsInitializer(APValue &Value, const ASTContext &Ctx,
   SourceLocation DeclLoc = VD->getLocation();
   QualType DeclTy = VD->getType();
 
+  auto CheckInitializer = [&] {
+    if (Ctx.getLangOpts().CPlusPlus26 && !VD->isConstexpr() &&
+        isImmediateObject(Value, DeclTy, Ctx)) {
+      Info.FFDiag(DeclLoc, diag::note_constexpr_immediate_object) << VD;
+      return false;
+    }
+    return CheckConstantExpression(Info, DeclLoc, DeclTy, Value,
+                                   ConstantExprKind::Normal);
+  };
+
   if (Info.EnableNewConstInterp) {
     auto &InterpCtx = const_cast<ASTContext &>(Ctx).getInterpContext();
     if (!InterpCtx.evaluateAsInitializer(Info, VD, this, Value))
       return false;
 
-    return CheckConstantExpression(Info, DeclLoc, DeclTy, Value,
-                                   ConstantExprKind::Normal);
+    return CheckInitializer();
   } else {
     LValue LVal;
     LVal.set(VD);
@@ -23095,9 +23105,7 @@ bool Expr::EvaluateAsInitializer(APValue &Value, const ASTContext &Ctx,
   if (!CheckUncaughtException(Info))
     return false;
 
-  return CheckConstantExpression(Info, DeclLoc, DeclTy, Value,
-                                 ConstantExprKind::Normal) &&
-         CheckMemoryLeaks(Info);
+  return CheckInitializer() && CheckMemoryLeaks(Info);
 }
 
 bool VarDecl::evaluateDestruction(
@@ -24201,3 +24209,125 @@ std::optional<bool> EvaluateBuiltinIsWithinLifetime(IntExprEvaluator &IEE,
   return findSubobject(Info, E, CO, Val.getLValueDesignator(), handler);
 }
 } // namespace
+
+namespace {
+class ImmediateObjectClassifier {
+  const ASTContext &Context;
+  llvm::SmallPtrSet<const ValueDecl *, 16> Visiting;
+  llvm::SmallPtrSet<const Expr *, 8> VisitingTemporaries;
+
+public:
+  explicit ImmediateObjectClassifier(const ASTContext &Context)
+      : Context(Context) {}
+
+  bool check(const APValue &Value, QualType Type) {
+    if (Value.isReflection())
+      return !Value.isNullReflection();
+    if (Value.isMemberPointer()) {
+      const auto *FD = dyn_cast_or_null<FunctionDecl>(Value.getMemberPointerDecl());
+      return FD && FD->isImmediateFunction();
+    }
+    if (Value.isLValue()) {
+      // The base denotes the complete object, including for subobject and
+      // one-past pointers. All its subobjects are immediate together.
+      auto Base = Value.getLValueBase();
+      if (const auto *VD = Base.dyn_cast<const ValueDecl *>()) {
+        if (const auto *FD = dyn_cast<FunctionDecl>(VD))
+          return FD->isImmediateFunction();
+        if (!Visiting.insert(VD).second)
+          return false;
+        const APValue *ObjectValue = nullptr;
+        if (const auto *Var = dyn_cast<VarDecl>(VD)) {
+          ObjectValue = Var->getEvaluatedValue();
+        } else if (const auto *Param = dyn_cast<TemplateParamObjectDecl>(VD)) {
+          ObjectValue = &Param->getValue();
+        }
+        bool Result = ObjectValue && check(*ObjectValue, VD->getType());
+        Visiting.erase(VD);
+        return Result;
+      }
+      if (const auto *E = Base.dyn_cast<const Expr *>()) {
+        if (!VisitingTemporaries.insert(E).second)
+          return false;
+        bool Result = false;
+        if (const auto *MTE = dyn_cast<MaterializeTemporaryExpr>(E))
+          if (const auto *Temp = MTE->getLifetimeExtendedTemporaryDecl())
+            if (const APValue *V = Temp->getValue())
+              Result = check(*V, MTE->getType());
+        VisitingTemporaries.erase(E);
+        return Result;
+      }
+      return false;
+    }
+    if (const auto *AT = Type->getAs<AtomicType>())
+      Type = AT->getValueType();
+    if (Value.isArray()) {
+      QualType ElementType = Context.getAsArrayType(Type)->getElementType();
+      for (unsigned I = 0, N = Value.getArrayInitializedElts(); I != N; ++I)
+        if (check(Value.getArrayInitializedElt(I), ElementType))
+          return true;
+      return Value.hasArrayFiller() && check(Value.getArrayFiller(), ElementType);
+    }
+    if (Value.isUnion())
+      return Value.getUnionField() &&
+             check(Value.getUnionValue(), Value.getUnionField()->getType());
+    if (Value.isStruct()) {
+      const auto *RD = Type->castAsRecordDecl();
+      if (const auto *CD = dyn_cast<CXXRecordDecl>(RD)) {
+        unsigned I = 0;
+        for (const auto &Base : CD->bases()) {
+          if (!Base.isVirtual() && check(Value.getStructBase(I), Base.getType()))
+            return true;
+          ++I;
+        }
+        for (const auto &Base : CD->vbases())
+          if (check(Value.getStructBase(I++), Base.getType()))
+            return true;
+      }
+      for (const auto *Field : RD->fields())
+        if (!Field->isUnnamedBitField() &&
+            check(Value.getStructField(Field->getFieldIndex()), Field->getType()))
+          return true;
+    }
+    return false;
+  }
+};
+} // namespace
+
+bool clang::isImmediateObject(const APValue &Value, QualType Type,
+                              const ASTContext &Context) {
+  return ImmediateObjectClassifier(Context).check(Value, Type);
+}
+
+bool clang::hasImmediateValue(const Expr *E, const ASTContext &Context) {
+  if (!E || E->isValueDependent() || E->isTypeDependent() ||
+      E->containsErrors())
+    return false;
+  Expr::EvalResult Result;
+  // This speculative evaluation can run while Sema is still building a
+  // function body. Do not populate the bytecode interpreter's persistent
+  // program with declarations that have not finished semantic analysis.
+  EvalInfo Info(Context, Result, EvaluationMode::ConstantFold);
+  Info.EnableNewConstInterp = false;
+  if (E->isGLValue()) {
+    LValue LV;
+    CheckedTemporaries CheckedTemps;
+    if (EvaluateLValue(E, LV, Info) && Info.discardCleanups() &&
+        !Result.HasSideEffects &&
+        CheckLValueConstantExpression(
+            Info, E->getExprLoc(), Context.getLValueReferenceType(E->getType()),
+            LV, ConstantExprKind::Normal, CheckedTemps)) {
+      LV.moveInto(Result.Val);
+      if (isImmediateObject(Result.Val,
+                            Context.getLValueReferenceType(E->getType()),
+                            Context))
+        return true;
+    }
+  }
+  Expr::EvalResult RValueResult;
+  EvalInfo RValueInfo(Context, RValueResult, EvaluationMode::IgnoreSideEffects);
+  RValueInfo.EnableNewConstInterp = false;
+  RValueInfo.InConstantContext = true;
+  return ::EvaluateAsRValue(E, RValueResult, Context, RValueInfo) &&
+         isImmediateObject(RValueResult.Val, E->getType(), Context);
+}

@@ -16,6 +16,7 @@
 #include "clang/AST/APValue.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/ConstevalOnly.h"
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/MetaActions.h"
 #include "clang/AST/Metafunction.h"
@@ -1055,7 +1056,8 @@ Sema::ConstevalOnlyRecorder::~ConstevalOnlyRecorder() {
   if (!S.isUnevaluatedContext() && !S.isImmediateFunctionContext() &&
       !S.isConstantEvaluatedContext() &&
       !S.isCheckingDefaultArgumentOrInitializer() &&
-      !S.RebuildingImmediateInvocation && !TheExpr->isValueDependent())
+      !S.RebuildingImmediateInvocation && !TheExpr->isValueDependent() &&
+      hasImmediateValue(TheExpr, S.Context))
     S.ExprEvalContexts.back().ConstevalOnly.insert(TheExpr);
 }
 
