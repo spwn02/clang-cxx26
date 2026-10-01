@@ -15,30 +15,9 @@
 //
 // [reflection]
 //
-// Regression test: building a reflection from a 'Decl *' must yield
-// ReflectionKind::Parameter for a function parameter.
-//
-// 'makeReflection' in ExprConstantMeta.cpp (the path taken by 'parameters_of')
-// maps a ParmVarDecl to ReflectionKind::Parameter, but the parallel mapping in
-// 'Sema::BuildCXXReflectExpr(SourceLocation, SourceLocation, Decl *)' handled
-// only namespaces and entity proxies, so a parameter fell through to
-// ReflectionKind::Declaration. Two symptoms followed:
-//
-//   1. A source-level '^^param' reflected as a declaration, so
-//      'is_function_parameter' was false.
-//
-//   2. TreeTransform::TransformCXXReflectExpr rebuilds a Parameter reflection
-//      through that same overload. Synthesizing an expansion statement body
-//      rebuilds the body's expressions, so a 'std::meta::info' template
-//      argument naming a parameter was silently rewritten from Parameter to
-//      Declaration *inside* the body. It then compared unequal to the
-//      reflection 'parameters_of' produced for that same parameter -- while
-//      the identical comparison just outside the 'template for' compared
-//      equal.
-//
-// Field shape: a 'template for' over cached parameter metadata, matching each
-// element against a parameter passed as a template argument, silently matched
-// nothing and every parameter looked unannotated.
+// Function-parameter reflections produced by parameters_of must retain their
+// kind when TreeTransform synthesizes expansion statement bodies. A source
+// reflection ^^param instead represents the parameter variable (P3096R12).
 
 #include <experimental/meta>
 #include <vector>
@@ -47,9 +26,10 @@ int fn(int a, double b);
 
 constexpr auto params = std::define_static_array(std::meta::parameters_of(^^fn));
 
-// Symptom 1: a source-level '^^param' is a reflection of a parameter.
+// A source-level '^^param' reflects the variable, not the function parameter.
 consteval auto directlyReflected([[maybe_unused]] int a) -> bool {
-  return std::meta::is_function_parameter(^^a);
+  return std::meta::is_variable(^^a) &&
+         !std::meta::is_function_parameter(^^a);
 }
 static_assert(directlyReflected(0));
 

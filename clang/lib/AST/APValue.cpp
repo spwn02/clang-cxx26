@@ -514,17 +514,8 @@ static void profileReflection(llvm::FoldingSetNodeID &ID, APValue V) {
   while (V.getReflectionDepth() > 0)
     V = V.Lower();
 
-  // A function parameter reflected as 'Declaration' (e.g. via 'variable_of')
-  // and the same parameter reflected as 'Parameter' (e.g. via '^^param' or
-  // 'parameters_of') denote the same entity and must compare equal -- keep
-  // this in sync with the analogous normalization in 'BuildCXXReflectExpr'
-  // (SemaReflect.cpp) and the ParmVarDecl handling below, which both already
-  // treat these two kinds as interchangeable for the same underlying decl.
-  ReflectionKind ProfiledKind = V.getReflectionKind();
-  if (ProfiledKind == ReflectionKind::Declaration &&
-      isa<ParmVarDecl>(V.getReflectedDecl()))
-    ProfiledKind = ReflectionKind::Parameter;
-  ID.AddInteger(static_cast<int>(ProfiledKind));
+  // Parameter variables and function parameters are distinct reflection entities.
+  ID.AddInteger(static_cast<int>(V.getReflectionKind()));
 
   switch (V.getReflectionKind()) {
   case ReflectionKind::Null:

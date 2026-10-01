@@ -9174,11 +9174,14 @@ TreeTransform<Derived>::TransformCXXReflectExpr(CXXReflectExpr *E) {
   }
   case ReflectionKind::Parameter: {
     Decl *Transformed = getDerived().TransformDecl(E->getExprLoc(),
-                                                   RV.getReflectedParameter());
-    return RecordConstevalOnly.RecordAndReturn(
-            getSema().BuildCXXReflectExpr(E->getOperatorLoc(),
-                                          E->getOperandRange().getBegin(),
-                                          Transformed));
+                                                  RV.getReflectedParameter());
+    if (!Transformed)
+      return ExprError();
+    // Preserve a synthesized function-parameter reflection; ^^param instead
+    // reflects the parameter variable.
+    return RecordConstevalOnly.RecordAndReturn(CXXReflectExpr::Create(
+        getSema().Context, E->getOperatorLoc(), E->getOperandRange(),
+        APValue(ReflectionKind::Parameter, Transformed)));
   }
   case ReflectionKind::Namespace: {
     Decl *Transformed =

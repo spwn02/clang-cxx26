@@ -296,6 +296,8 @@ consteval int fn(int p) {
   static_assert(!is_variable(rp));
   static_assert(is_variable(rv));
   static_assert(^^p == rv);
+  static_assert(^^p != rp);
+  static_assert(!is_function_parameter(^^p));
 
   return [:variable_of(parameters_of(^^fn)[0]):];
 }
@@ -303,5 +305,61 @@ consteval int fn(int p) {
 static_assert(fn(42) == 42);
 
 }  // namespace variable_of_tests
+
+// P3096R12 section 8.6: the adjusted function parameter and the
+// parameter variable in the definition are distinct entities.
+namespace parameter_variables {
+int fun(int a, int b);
+int fun(int const c, int b) {
+  constexpr auto p = parameters_of(^^fun)[0];
+  static_assert(type_of(p) == ^^int);
+  static_assert(!is_const(p));
+  static_assert(p != ^^c);
+  static_assert(variable_of(p) == ^^c);
+  static_assert(is_const(variable_of(p)));
+  static_assert(type_of(^^c) == ^^const int);
+  static_assert(is_variable(^^c));
+  static_assert(!is_function_parameter(^^c));
+  static_assert(identifier_of(^^c) == "c");
+  static_assert(has_identifier(^^c));
+  static_assert(!has_identifier(p)); // declarations use different names
+  static_assert(parent_of(^^c) == ^^fun);
+  static_assert(parent_of(p) == ^^fun);
+  static_assert(has_automatic_storage_duration(^^c));
+  static_assert(!has_automatic_storage_duration(p));
+  static_assert(!has_default_argument(^^c));
+  return c + b;
+}
+void defaulted([[maybe_unused]] int a = 1) {
+  constexpr auto p = parameters_of(^^defaulted)[0];
+  static_assert(identifier_of(p) == "a");
+  static_assert(identifier_of(^^a) == "a");
+  static_assert(has_default_argument(p));
+  static_assert(!has_default_argument(^^a));
+}
+constexpr auto lambda = [](int const x) {
+  constexpr auto p = parameters_of(parent_of(^^x))[0];
+  static_assert(is_function_parameter(p));
+  static_assert(type_of(p) == ^^int);
+  static_assert(p != ^^x);
+  static_assert(is_variable(^^x));
+  static_assert(!is_function_parameter(^^x));
+  static_assert(type_of(^^x) == ^^const int);
+  static_assert(is_const(^^x));
+  return x;
+};
+constexpr auto generic = [](auto const x) {
+  constexpr auto p = parameters_of(parent_of(^^x))[0];
+  static_assert(is_function_parameter(p));
+  static_assert(type_of(p) == ^^int);
+  static_assert(p != ^^x);
+  static_assert(is_variable(^^x));
+  static_assert(!is_function_parameter(^^x));
+  static_assert(type_of(^^x) == ^^const int);
+  return x;
+};
+static_assert(lambda(1) == 1);
+static_assert(generic(2) == 2);
+} // namespace parameter_variables
 
 int main() { }

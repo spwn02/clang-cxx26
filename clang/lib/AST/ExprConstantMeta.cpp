@@ -1675,7 +1675,7 @@ unsigned parentOf(APValue &Result, Decl *D) {
     return SetAndSucceed(Result,
                          makeReflection(RD->getASTContext().getCanonicalTagType(RD)));
 
-  return SetAndSucceed(Result, makeReflection(cast<Decl>(DC)));
+  return SetAndSucceed(Result, makeReflection(cast<Decl>(DC)->getCanonicalDecl()));
 }
 
 bool isSpecialMember(FunctionDecl *FD) {
@@ -2900,9 +2900,11 @@ bool has_identifier(APValue &Result, ASTContext &C, MetaActions &Meta,
     else if (isa<VarTemplateSpecializationDecl>(D))
       break;
     else if (auto *PVD = dyn_cast<ParmVarDecl>(D)) {
-      std::string Name;
-      (void) getParameterName(PVD, Name);
-      HasIdentifier = !Name.empty();
+      // The variable's own name is independent of other declarations of F.
+      // Variables instantiated from parameter packs have no identifier.
+      auto *STTPT = dyn_cast<SubstTemplateTypeParmType>(PVD->getType());
+      HasIdentifier = PVD->getIdentifier() &&
+                      !(STTPT && STTPT->getPackIndex());
     }
     else if (auto *ND = dyn_cast<NamedDecl>(D))
       HasIdentifier = (ND->getIdentifier() != nullptr);
@@ -4671,10 +4673,6 @@ bool has_automatic_storage_duration(APValue &Result, ASTContext &C,
   if (RV.isReflectedDecl()) {
     if (const auto *VD = dyn_cast<VarDecl>(RV.getReflectedDecl()))
       result = VD->getStorageDuration() == SD_Automatic;
-  } else if (RV.isReflectedParameter()) {
-    // A function parameter reflects as ReflectionKind::Parameter, never as
-    // ReflectionKind::Declaration, so it does not reach the branch above.
-    result = RV.getReflectedParameter()->getStorageDuration() == SD_Automatic;
   }
 
   return SetAndSucceed(Result, makeBool(C, result));
