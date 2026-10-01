@@ -1007,6 +1007,8 @@ consteval auto symbol_of(operators op) -> string_view {
       "*=", "/=", "%=", "^=", "&=", "|=", "==", "!=", "<", ">", "<=", ">=",
       "<=>", "&&", "||", "<<", ">>", "<<=", ">>=", "++", "--", ","
   };
+  if (int(op) < int(op_new) || int(op) > int(op_comma))
+    throw exception(u8"bad operator", ^^symbol_of);
   return op_names[int(op)];
 }
 
@@ -1019,6 +1021,8 @@ consteval auto u8symbol_of(operators op) -> u8string_view {
       u8"<=>", u8"&&", u8"||", u8"<<", u8">>", u8"<<=", u8">>=", u8"++",
       u8"--", u8","
   };
+  if (int(op) < int(op_new) || int(op) > int(op_comma))
+    throw exception(u8"bad operator", ^^u8symbol_of);
   return op_names[int(op)];
 }
 
@@ -1272,7 +1276,7 @@ consteval auto is_namespace(info r) -> bool {
 
 consteval auto __bases_of(info r, access_context ctx, info from) -> vector<info> {
   if (is_namespace(r))
-    throw "Namespaces cannot have base classes";
+    throw exception(u8"Namespaces cannot have base classes", from);
 
   using iterator =
     __range_of_infos::iterator<__range_of_infos::front_base_of_fn,
@@ -1296,7 +1300,8 @@ consteval auto is_variable(info r) -> bool {
 consteval auto static_data_members_of(info r,
                                       access_context ctx) -> vector<info> {
   if (is_namespace(r))
-    throw "Namespaces cannot have static data members";
+    throw exception(u8"Namespaces cannot have static data members",
+                    ^^static_data_members_of);
 
   return __filtered(__members_of(r, ctx, ^^static_data_members_of),
                     is_variable);
@@ -1305,7 +1310,8 @@ consteval auto static_data_members_of(info r,
 consteval auto nonstatic_data_members_of(info r,
                                          access_context ctx) -> vector<info> {
   if (is_namespace(r))
-    throw "Namespaces cannot have non-static data members";
+    throw exception(u8"Namespaces cannot have non-static data members",
+                    ^^nonstatic_data_members_of);
 
   return __filtered(__members_of(r, ctx, ^^nonstatic_data_members_of),
                     is_nonstatic_data_member);
@@ -1326,7 +1332,8 @@ consteval auto is_enumerable_type(info r) -> bool {
 }
 
 consteval auto enumerators_of(info r) -> vector<info> {
-  if (!is_enumerable_type(r))
+  if (!__metafunction(detail::__metafn_is_type, r) ||
+      !extract<bool>(substitute(^^is_enum_v, {r})) || !is_enumerable_type(r))
     throw exception(u8"bad enumeration", ^^enumerators_of);
 
   using iterator =
@@ -1761,6 +1768,9 @@ struct member_offset {
 consteval auto offset_of(info r) -> member_offset {
   if (!is_nonstatic_data_member(r) && !is_base(r))
     throw exception(u8"bad member", ^^offset_of);
+  if (is_base(r) && is_virtual(r) &&
+      extract<bool>(substitute(^^is_abstract_v, {parent_of(r)})))
+    throw exception(u8"virtual base of an abstract class", ^^offset_of);
   return member_offset {
       __metafunction(detail::__metafn_offset_of, ^^ptrdiff_t, r),
       __metafunction(detail::__metafn_bit_offset_of, ^^ptrdiff_t, r)
@@ -1801,7 +1811,8 @@ consteval auto alignment_of(info r) -> size_t {
   } else if (is_object(r) || is_base(r) || is_data_member_spec(r)) {
     // valid
   } else if (is_variable(r)) {
-    // valid
+    if (extract<bool>(substitute(^^is_reference_v, {type_of(r)})))
+      throw exception(u8"bad reference", ^^alignment_of);
   } else if (!is_nonstatic_data_member(r) || is_bit_field(r)) {
     throw exception(u8"bad", ^^alignment_of);
   }
@@ -2299,8 +2310,21 @@ consteval auto unwrap_ref_decay(info type) -> info {
                                                    {type}));
 }
 
+namespace detail {
+template <class T>
+constexpr bool __has_tuple_size = requires {
+  typename integral_constant<size_t, std::tuple_size<T>::value>;
+};
+template <class T>
+constexpr bool __has_variant_size = requires {
+  typename integral_constant<size_t, std::variant_size<T>::value>;
+};
+} // namespace detail
+
 consteval auto tuple_size(info type) -> size_t {
   if (!is_complete_type(type))
+    throw exception(u8"bad type", ^^tuple_size);
+  if (!extract<bool>(substitute(^^detail::__has_tuple_size, {type})))
     throw exception(u8"bad type", ^^tuple_size);
   return extract<size_t>(substitute(^^tuple_size_v, {type}));
 }
@@ -2340,6 +2364,8 @@ consteval info apply_result(info fn, info tuple) {
 
 consteval auto variant_size(info type) -> size_t {
   if (!is_complete_type(type))
+    throw exception(u8"bad type", ^^variant_size);
+  if (!extract<bool>(substitute(^^detail::__has_variant_size, {type})))
     throw exception(u8"bad type", ^^variant_size);
   return extract<size_t>(substitute(^^variant_size_v, {type}));
 }

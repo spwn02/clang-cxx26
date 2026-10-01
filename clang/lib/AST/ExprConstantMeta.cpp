@@ -3374,6 +3374,15 @@ bool object_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
           << 1 << DescriptionOf(RV) << Range;
 
+    if (const auto *Object = Value.getLValueBase().dyn_cast<const ValueDecl *>()) {
+      if (const auto *ObjectVD = dyn_cast<VarDecl>(Object);
+          ObjectVD && ObjectVD->getStorageDuration() != SD_Static)
+        return Meta.ThrowMetaException(Range.getBegin(),
+                                       "object does not have static storage duration");
+    } else if (Value.getLValueCallIndex()) {
+      return Meta.ThrowMetaException(Range.getBegin(),
+                                     "object does not have static storage duration");
+    }
     APValue OV = Value.Lift(QualType{});
     return SetAndSucceed(Result, OV);
   }
@@ -3691,9 +3700,8 @@ bool substitute(APValue &Result, ASTContext &C, MetaActions &Meta,
         return true;
       Unwrapped = MaybeUnproxy(C, Unwrapped);
       if (!CanActAsTemplateArg(Unwrapped))
-        return NoDiagnose ? ElideDiagnosis() :
-               Diagnoser(Range.getBegin(), diag::metafn_cannot_be_arg)
-                 << DescriptionOf(Unwrapped) << 1 << Range;
+        return Meta.ThrowMetaException(Range.getBegin(),
+                                       "reflection cannot be a template argument");
 
       TemplateArgument TArg = TArgFromReflection(C, Meta, Evaluator, Unwrapped,
                                                  Range.getBegin());
@@ -5878,8 +5886,18 @@ bool reflect_result(APValue &Result, ASTContext &C, MetaActions &Meta,
     return Diagnoser(Range.getBegin(), diag::metafn_value_not_structural_type)
         << ArgTy.getReflectedType() << Range;
 
+  // Validate pointer values as template arguments below, rather than first
+  // requiring them to be constant expressions in the current evaluation.
+  // That earlier check would make a pointer to a local hard-error before the
+  // metafunction can throw its required exception.
+  Expr *Input = Args[1];
+  bool PointerValue = !IsLValue && Input->getType()->isPointerType();
+  if (PointerValue && Input->isGLValue())
+    Input = ImplicitCastExpr::Create(C, Input->getType(), CK_LValueToRValue,
+                                    Input, nullptr, VK_PRValue,
+                                    FPOptionsOverride());
   APValue Arg;
-  if (!Evaluator(Arg, Args[1], !IsLValue))
+  if (!Evaluator(Arg, Input, !IsLValue && !PointerValue))
     return true;
 
   // Construct an expression whose result is 'Arg', and evaluate it to check if

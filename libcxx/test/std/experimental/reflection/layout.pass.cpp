@@ -80,7 +80,12 @@ alignas(64) int i1;
 alignas(128) int &r1 = i1;
 
 static_assert(alignment_of(^^i1) == 64);
-static_assert(alignment_of(^^r1) == 128);
+consteval bool reference_alignment_throws() {
+  try { (void)alignment_of(^^r1); }
+  catch (std::meta::exception&) { return true; }
+  return false;
+}
+static_assert(reference_alignment_throws());
 
 struct Align {
     alignas(1) char a1;
