@@ -9263,7 +9263,8 @@ TreeTransform<Derived>::TransformCXXSpliceExpr(CXXSpliceExpr *E) {
 
   return getSema().BuildReflectionSpliceExpr(E->getTemplateKeywordLoc(),
                                              SR.get(),
-                                             E->allowMemberReference());
+                                             E->allowMemberReference(),
+                                             E->isMemberAccess());
 }
 
 template <typename Derived>

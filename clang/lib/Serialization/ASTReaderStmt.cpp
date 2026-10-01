@@ -539,6 +539,7 @@ void ASTStmtReader::VisitCXXSpliceExpr(CXXSpliceExpr *E) {
   E->setSplice(Record.readSpliceSpecifierRef());
   E->setModel(Record.readExpr());
   E->setAllowMemberReference(Record.readBool());
+  E->setIsMemberAccess(Record.readBool());
 }
 
 void ASTStmtReader::VisitCXXDependentMemberSpliceExpr(

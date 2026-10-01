@@ -252,7 +252,8 @@ bool Parser::ParseSpliceSpecifier(bool TryParseSpecialization) {
 }
 
 ExprResult Parser::ParseCXXSpliceAsExpr(SourceLocation TemplateKWLoc,
-                                        bool AllowMemberReference) {
+                                        bool AllowMemberReference,
+                                      bool IsMemberAccess) {
   assert(Tok.is(tok::annot_splice) && "expected a splice annotation");
 
   SpliceResult SR = getSpliceAnnotation(Tok);
@@ -265,7 +266,7 @@ ExprResult Parser::ParseCXXSpliceAsExpr(SourceLocation TemplateKWLoc,
   ConsumeAnnotationToken();
 
   return Actions.ActOnCXXSpliceExpression(TemplateKWLoc, Splice,
-                                          AllowMemberReference);
+                                          AllowMemberReference, IsMemberAccess);
 }
 
 TypeResult Parser::ParseCXXSpliceAsType(SourceLocation TypenameKWLoc,

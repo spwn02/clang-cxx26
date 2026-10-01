@@ -517,6 +517,7 @@ void ASTStmtWriter::VisitCXXSpliceExpr(CXXSpliceExpr *E) {
   Record.AddSpliceSpecifier(E->getSplice());
   Record.AddStmt(E->getModel());
   Record.writeBool(E->allowMemberReference());
+  Record.writeBool(E->isMemberAccess());
 
   Code = serialization::EXPR_SPLICE;
 }

@@ -36,12 +36,12 @@ void write(Derived& d) {
   d.[:base:].value = 42;
 }
 
-void rejects_virtual(VirtualDerived& d) {
-  (void)d.[:virtual_base:]; // expected-error {{virtual base class subobject}}
+void accepts_virtual(VirtualDerived& d) {
+  (void)d.[:virtual_base:];
 }
 
-void rejects_array_element(Derived (&d)[1]) {
-  (void)d[0].[:base:]; // expected-error {{array element}}
+void accepts_array_element(Derived (&d)[1]) {
+  (void)d[0].[:base:];
 }
 
 void rejects_non_base(Derived& d) {
@@ -54,4 +54,52 @@ int main() {
     return 1;
   write(d);
   return d.Base::value != 42;
+}
+
+struct Indirect : Base {};
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winaccessible-base"
+struct Diamond : Base, Indirect {};
+#pragma clang diagnostic pop
+struct Private : private Base {};
+struct Protected : protected Base {};
+constexpr auto diamond_base = std::meta::bases_of(^^Diamond, ctx)[0];
+constexpr auto private_base = std::meta::bases_of(^^Private, ctx)[0];
+constexpr auto protected_base = std::meta::bases_of(^^Protected, ctx)[0];
+int diamond(Diamond& d) { return d.[:diamond_base:].value; }
+int private_access(Private& d) { return d.[:private_base:].value; }
+int protected_access(Protected& d) { return d.[:protected_base:].value; }
+int arrow(Derived* d) { return d->[:base:].value; }
+template<class T, auto R> int dependent(T& t) { return t.[:R:].value; }
+int instantiate(Derived& d) { return dependent<Derived, base>(d); }
+template<class T> struct TemplateDerived : Derived {
+  int get() { return this->[:std::meta::bases_of(^^TemplateDerived, ctx)[0]:].value; }
+};
+int instantiate_this() { TemplateDerived<int> d{}; return d.get(); }
+struct Other {};
+int unrelated(Other& o) {
+  return o.[:base:].value; // expected-error {{not derived from splice class}}
+}
+void standalone() {
+  (void)[:base:]; // expected-error {{must be the second operand of a member access}}
+  (void)&[:base:]; // expected-error {{must be the second operand of a member access}}
+  (void)sizeof([:base:]); // expected-error {{must be the second operand of a member access}}
+  (void)sizeof(decltype([:base:])); // expected-error {{must be the second operand of a member access}}
+}
+template<auto R> void dependent_standalone() {
+  (void)&[:R:]; // expected-error {{must be the second operand of a member access}}
+}
+template void dependent_standalone<base>();
+template<class T, auto R> int dependent_unrelated(T& t) {
+  return t.[:R:].value; // expected-error {{not derived from splice class}}
+}
+template int dependent_unrelated<Other, base>(Other&);
+static_assert(__is_same(decltype((Derived{}.[:base:])), Base&&));
+static_assert(__is_same(decltype((std::declval<Derived&>().[:base:])), Base&));
+template<class T> int known_base(T& t) { return t.[:base:].value; }
+template int known_base<Derived>(Derived&);
+template<class T> int dependent_arrow(T* t) { return t->[:base:].value; }
+template int dependent_arrow<Derived>(Derived*);
+template<class T> void known_standalone() {
+  (void)[:base:]; // expected-error {{must be the second operand of a member access}}
 }

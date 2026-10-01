@@ -5868,6 +5868,7 @@ class CXXSpliceExpr final : public Expr {
   SpliceSpecifier *Splice;
   Expr *Model;
   bool AllowMemberReference;
+  bool IsMemberAccess = false;
 
   CXXSpliceExpr(QualType ResultTy, ExprValueKind ValueKind,
                 SourceLocation TemplateKWLoc, SpliceSpecifier *Splice,
@@ -5888,6 +5889,9 @@ public:
 
   Expr *getModel() const { return Model; }
   void setModel(Expr *M) { Model = M; }
+
+  bool isMemberAccess() const { return IsMemberAccess; }
+  void setIsMemberAccess(bool IsMember) { IsMemberAccess = IsMember; }
 
   bool allowMemberReference() const { return AllowMemberReference; }
   void setAllowMemberReference(bool Allow) { AllowMemberReference = Allow; }

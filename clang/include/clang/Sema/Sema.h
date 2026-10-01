@@ -16018,7 +16018,8 @@ public:
 
   ExprResult ActOnCXXSpliceExpression(SourceLocation TemplateKWLoc,
                                       SpliceSpecifier *Splice,
-                                      bool AllowMemberReference);
+                                      bool AllowMemberReference,
+                                      bool IsMemberAccess = false);
   TypeResult ActOnCXXSpliceTypeSpecifier(SourceLocation TypenameKWLoc,
                                          SpliceSpecifier *Splice,
                                          bool Complain);
@@ -16077,7 +16078,8 @@ public:
                                         bool Complain);
   ExprResult BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
                                        SpliceSpecifier *Splice,
-                                       bool AllowMemberReference);
+                                       bool AllowMemberReference,
+                                      bool IsMemberAccess = false);
   DeclResult BuildReflectionSpliceNamespace(SpliceSpecifier *Splice);
 
   ExprResult BuildMemberReferenceExpr(Scope *S, Expr *Base,

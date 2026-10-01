@@ -8424,7 +8424,8 @@ private:
   bool ParseSpliceSpecifier(bool TryParseSpecialization = false);
 
   ExprResult ParseCXXSpliceAsExpr(SourceLocation TemplateKWLoc,
-                                  bool AllowMemberReference);
+                                  bool AllowMemberReference,
+                                      bool IsMemberAccess = false);
   TypeResult ParseCXXSpliceAsType(SourceLocation TypenameKWLoc,
                                   bool AllowDependent, bool Complain);
   DeclResult ParseCXXSpliceAsNamespace();

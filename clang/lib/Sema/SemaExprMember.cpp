@@ -1253,7 +1253,7 @@ Sema::BuildMemberReferenceExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
         << Base->getType() << int(IsArrow) << Base->getSourceRange()
         << FixItHint::CreateReplacement(OpLoc, Suggestion);
       return ExprError();
-    } else if (!IsRecord && !IsRHSDependent) {
+    } else if (!IsRecord && !IsRHSDependent && !Base->isTypeDependent()) {
         Diag(OpLoc, diag::err_typecheck_member_reference_struct_union)
           << Base->getType() << Base->getSourceRange()
           << RHS->getSourceRange();
@@ -1265,9 +1265,8 @@ Sema::BuildMemberReferenceExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
     return BuildDependentMemberSpliceExpr(Base, OpLoc, IsArrow, RHS);
   }
 
-  // A base-class reflection spliced after '.' designates the corresponding
-  // base subobject, rather than a named member.  Build the same
-  // derived-to-base conversion used by an implicit base conversion.  The
+  // A base-class reflection designates a particular direct base subobject
+  // of the reflected derived class, rather than a named member. The
   // reflection is evaluated here because CXXSpliceExpr's model is only an
   // expression-shaped placeholder; the CXXBaseSpecifier itself lives in the
   // reflected APValue.
@@ -1275,36 +1274,51 @@ Sema::BuildMemberReferenceExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
     SmallVector<PartialDiagnosticAt, 4> Diags;
     Expr::EvalResult ER;
     ER.Diag = &Diags;
-    if (!RHS->getSplice()->getOperand()->EvaluateAsConstantExpr(ER, Context))
+    if (!RHS->getSplice()->getOperand()->EvaluateAsConstantExpr(ER, Context)) {
+      Diag(RHS->getExprLoc(), diag::err_splice_operand_not_constexpr);
+      for (PartialDiagnosticAt PD : Diags)
+        Diag(PD.first, PD.second);
       return ExprError();
+    }
     if (ER.Val.isReflection()) {
       APValue Refl = ER.Val;
       if (Refl.isReflectedBaseSpecifier()) {
         CXXBaseSpecifier *BaseSpec = Refl.getReflectedBaseSpecifier();
-        if (BaseSpec->isVirtual()) {
-          Diag(RHS->getExprLoc(), diag::err_splice_virtual_base);
-          return ExprError();
-        }
-
-        if (isa<ArraySubscriptExpr>(Base->IgnoreParenImpCasts())) {
-          Diag(Base->getExprLoc(), diag::err_splice_array_element);
-          return ExprError();
-        }
-
+        if (Base->isTypeDependent())
+          return BuildDependentMemberSpliceExpr(Base, OpLoc, IsArrow, RHS);
         if (IsArrow) {
-          Diag(RHS->getExprLoc(),
-               diag::err_unexpected_reflection_kind_in_splice)
-              << 1 << RHS->getSourceRange();
-          return ExprError();
+          ExprResult Object = BuildUnaryOp(nullptr, OpLoc, UO_Deref, Base);
+          if (Object.isInvalid())
+            return ExprError();
+          Base = Object.get();
         }
-
+        if (Base->isPRValue()) {
+          ExprResult Materialized = TemporaryMaterializationConversion(Base);
+          if (Materialized.isInvalid())
+            return ExprError();
+          Base = Materialized.get();
+        }
+        QualType DerivedType = Context.getQualifiedType(
+            Context.getCanonicalTagType(BaseSpec->getDerived()),
+            Base->getType().getQualifiers());
+        if (!Context.hasSameUnqualifiedType(Base->getType(), DerivedType)) {
+          if (!IsDerivedFrom(Base->getExprLoc(), Base->getType(), DerivedType)) {
+            Diag(Base->getExprLoc(), diag::err_splice_base_unrelated)
+                << Base->getType() << DerivedType;
+            return ExprError();
+          }
+          CXXCastPath Path;
+          if (CheckDerivedToBaseConversion(Base->getType(), DerivedType,
+                                          Base->getExprLoc(),
+                                          Base->getSourceRange(), &Path))
+            return ExprError();
+          Base = ImpCastExprToType(Base, DerivedType, CK_DerivedToBase,
+                                   Base->getValueKind(), &Path).get();
+        }
         QualType BaseType = Context.getQualifiedType(
             BaseSpec->getType(), Base->getType().getQualifiers());
         CXXCastPath BasePath;
-        if (CheckDerivedToBaseConversion(
-                Base->getType(), BaseType, Base->getExprLoc(),
-                Base->getSourceRange(), &BasePath))
-          return ExprError();
+        BasePath.push_back(BaseSpec);
         return ImpCastExprToType(Base, BaseType, CK_DerivedToBase,
                                  Base->getValueKind(), &BasePath);
       }

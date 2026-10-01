@@ -3267,6 +3267,10 @@ def err_member_access_splice_not_class_member : Error<
   "member of a class">;
 def err_splice_unnamed_bit_field : Error<
   "cannot splice a reflection of an unnamed bit-field">;
+def err_splice_base_not_member : Error<
+  "base class subobject splice must be the second operand of a member access">;
+def err_splice_base_unrelated : Error<
+  "class %0 is not derived from splice class %1">;
 def err_splice_virtual_base : Error<
   "cannot splice a reflection of a virtual base class subobject">;
 def err_splice_array_element : Error<

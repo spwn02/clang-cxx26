@@ -2096,7 +2096,8 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         Name.setIdentifier(Id, Loc);
       } else if (Tok.is(tok::annot_splice)) {
         ExprResult Res = ParseCXXSpliceAsExpr(TemplateKWLoc,
-                                              /*AllowMemberReference=*/true);
+                                              /*AllowMemberReference=*/true,
+                                              /*IsMemberAccess=*/true);
         if (!Res.isInvalid()) {
           LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(), OpLoc,
                                               OpKind,

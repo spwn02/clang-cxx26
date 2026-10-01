@@ -1355,8 +1355,10 @@ SpliceResult Sema::ActOnSpliceSpecifier(SourceLocation LSpliceLoc,
 
 ExprResult Sema::ActOnCXXSpliceExpression(SourceLocation TemplateKWLoc,
                                           SpliceSpecifier *Splice,
-                                          bool AllowMemberReference) {
-  return BuildReflectionSpliceExpr(TemplateKWLoc, Splice, AllowMemberReference);
+                                          bool AllowMemberReference,
+                                      bool IsMemberAccess) {
+  return BuildReflectionSpliceExpr(TemplateKWLoc, Splice, AllowMemberReference,
+                                   IsMemberAccess);
 }
 
 TypeResult Sema::ActOnCXXSpliceTypeSpecifier(SourceLocation TypenameLoc,
@@ -1872,7 +1874,8 @@ static ValueDecl *normalizeSplicedMemberDecl(ValueDecl *VD) {
 
 ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
                                            SpliceSpecifier *Splice,
-                                           bool AllowMemberReference) {
+                                           bool AllowMemberReference,
+                                      bool IsMemberAccess) {
   if (Splice->getDependence() == SpliceSpecifierDependence::None) {
     SmallVector<PartialDiagnosticAt, 4> Diags;
     Expr::EvalResult ER;
@@ -2054,8 +2057,8 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
           << 1 << Splice->getSourceRange();
       return ExprError();
     case ReflectionKind::BaseSpecifier: {
-      if (Refl.getReflectedBaseSpecifier()->isVirtual()) {
-        Diag(Splice->getBeginLoc(), diag::err_splice_virtual_base);
+      if (!IsMemberAccess) {
+        Diag(Splice->getBeginLoc(), diag::err_splice_base_not_member);
         return ExprError();
       }
       CXXBaseSpecifier *Base = Refl.getReflectedBaseSpecifier();
@@ -2076,10 +2079,13 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
     case ReflectionKind::EntityProxy:
       llvm_unreachable("proxies should already have been unwrapped");
     }
+    cast<CXXSpliceExpr>(Result)->setIsMemberAccess(IsMemberAccess);
     return Result;
   }
-  return CXXSpliceExpr::Create(Context, VK_PRValue, TemplateKWLoc,
-                               Splice, nullptr, AllowMemberReference);
+  auto *Result = CXXSpliceExpr::Create(Context, VK_PRValue, TemplateKWLoc,
+                                     Splice, nullptr, AllowMemberReference);
+  Result->setIsMemberAccess(IsMemberAccess);
+  return Result;
 }
 
 DeclResult Sema::BuildReflectionSpliceNamespace(SpliceSpecifier *Splice) {
