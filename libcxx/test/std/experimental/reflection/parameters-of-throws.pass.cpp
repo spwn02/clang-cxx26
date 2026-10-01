@@ -121,4 +121,20 @@ consteval bool nested([[maybe_unused]] int c) {
 }
 static_assert(nested(0));
 
+
+// Helpers preserve the evaluation context of the static_assert in g.
+consteval bool variable_throws_twice(info r) {
+  return variable_throws(r);
+}
+void g([[maybe_unused]] int c, [[maybe_unused]] int d) {
+  constexpr auto p = std::meta::parameters_of(^^g)[0];
+  static_assert(!variable_throws(p));
+  static_assert(!variable_throws_twice(p));
+  static_assert([](info r) consteval { return !variable_throws(r); }(p));
+  static_assert(std::meta::variable_of(p) == ^^c);
+  static_assert([]() consteval { return !variable_throws_twice(p); }());
+}
+static_assert(variable_throws(std::meta::parameters_of(^^g)[0]));
+static_assert(variable_throws_twice(std::meta::parameters_of(^^g)[0]));
+
 int main() {}

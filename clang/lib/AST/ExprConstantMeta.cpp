@@ -6959,7 +6959,12 @@ bool variable_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (!CurrentFD)
     CurrentFD = dyn_cast<FunctionDecl>(Meta.CurrentCtx());
 
-  if (!CurrentFD || CurrentFD->getCanonicalDecl() != FD->getCanonicalDecl())
+  // A helper call does not replace the point of the enclosing manifestly
+  // constant-evaluated expression in the reflection evaluation context.
+  auto *EvaluationFD = dyn_cast<FunctionDecl>(Meta.CurrentCtx());
+  if ((!CurrentFD || CurrentFD->getCanonicalDecl() != FD->getCanonicalDecl()) &&
+      (!EvaluationFD ||
+       EvaluationFD->getCanonicalDecl() != FD->getCanonicalDecl()))
     return Meta.ThrowMetaException(Range.getBegin(),
                                    "invalid reflection operand");
   assert(FD->getDefinition());
