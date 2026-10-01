@@ -1873,8 +1873,12 @@ consteval auto is_function_type(info r) -> bool {
   return extract<bool>(substitute(^^is_function_v, {r}));
 }
 
+consteval auto remove_cv(info) -> info;
+
 consteval auto is_reflection_type(info r) -> bool {
-  return detail::__underlying_entity_of(r) == detail::__underlying_entity_of(^^info);
+  if (!is_type(r))
+    throw exception(u8"not a type", ^^is_reflection_type);
+  return detail::__underlying_entity_of(remove_cv(r)) == detail::__underlying_entity_of(^^info);
 }
 
 consteval auto is_reference_type(info r) -> bool {

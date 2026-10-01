@@ -447,6 +447,10 @@ module std_core [system] {
       header "__type_traits/is_reference_wrapper.h"
       export *
     }
+    module is_reflection {
+      header "__type_traits/is_reflection.h"
+      export *
+    }
     module is_reference {
       header "__type_traits/is_reference.h"
       export *
@@ -481,6 +485,10 @@ module std_core [system] {
     }
     module is_standard_layout {
       header "__type_traits/is_standard_layout.h"
+      export *
+    }
+    module is_structural {
+      header "__type_traits/is_structural.h"
       export *
     }
     module is_swappable {

@@ -986,6 +986,7 @@ set(files
   __type_traits/is_pointer_interconvertible_with_class.h
   __type_traits/is_polymorphic.h
   __type_traits/is_primary_template.h
+  __type_traits/is_reflection.h
   __type_traits/is_reference.h
   __type_traits/is_reference_wrapper.h
   __type_traits/is_referenceable.h
@@ -996,6 +997,7 @@ set(files
   __type_traits/is_similar.h
   __type_traits/is_specialization.h
   __type_traits/is_standard_layout.h
+  __type_traits/is_structural.h
   __type_traits/is_swappable.h
   __type_traits/is_trivial.h
   __type_traits/is_trivially_assignable.h

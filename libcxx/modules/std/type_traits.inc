@@ -21,6 +21,9 @@ export namespace std {
   using std::is_enum;
   using std::is_floating_point;
   using std::is_function;
+#if _LIBCPP_STD_VER >= 26 && __has_feature(reflection)
+  using std::is_reflection;
+#endif
   using std::is_integral;
   using std::is_lvalue_reference;
   using std::is_member_function_pointer;
@@ -43,6 +46,9 @@ export namespace std {
   // [meta.unary.prop], type properties
   using std::is_abstract;
   using std::is_aggregate;
+#if _LIBCPP_STD_VER >= 26 && __has_builtin(__is_structural)
+  using std::is_structural;
+#endif
   using std::is_const;
   using std::is_empty;
   using std::is_final;
@@ -224,6 +230,9 @@ export namespace std {
   using std::is_enum_v;
   using std::is_floating_point_v;
   using std::is_function_v;
+#if _LIBCPP_STD_VER >= 26 && __has_feature(reflection)
+  using std::is_reflection_v;
+#endif
   using std::is_integral_v;
   using std::is_lvalue_reference_v;
   using std::is_member_function_pointer_v;
@@ -248,6 +257,9 @@ export namespace std {
   using std::has_virtual_destructor_v;
   using std::is_abstract_v;
   using std::is_aggregate_v;
+#if _LIBCPP_STD_VER >= 26 && __has_builtin(__is_structural)
+  using std::is_structural_v;
+#endif
   using std::is_assignable_v;
   using std::is_bounded_array_v;
   using std::is_const_v;

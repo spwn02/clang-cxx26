@@ -423,6 +423,7 @@ static bool CheckUnaryTypeTraitTypeCompleteness(Sema &S, TypeTrait UTT,
 
     // has_unique_object_representations<T>
     // remove_all_extents_t<T> shall be a complete type or cv void (LWG4113).
+  case UTT_IsStructural:
   case UTT_HasUniqueObjectRepresentations:
     ArgTy = QualType(ArgTy->getBaseElementTypeUnsafe(), 0);
     if (ArgTy->isVoidType())
@@ -736,6 +737,8 @@ static bool EvaluateUnaryTypeTrait(Sema &Self, TypeTrait UTT,
     if (const CXXRecordDecl *RD = T->getAsCXXRecordDecl())
       return !RD->isUnion() && RD->isAbstract();
     return false;
+  case UTT_IsStructural:
+    return T->isStructuralType();
   case UTT_IsAggregate:
     // Report vector extensions and complex types as aggregates because they
     // support aggregate initialization. GCC mirrors this behavior for vectors

@@ -1970,6 +1970,8 @@ The following type trait primitives are supported by Clang. Those traits marked
 * ``__has_virtual_destructor`` (C++, GNU, Microsoft, Embarcadero)
 * ``__is_abstract`` (C++, GNU, Microsoft, Embarcadero)
 * ``__is_aggregate`` (C++, GNU, Microsoft)
+* ``__is_structural`` (C++): whether the type is structural, as defined in
+  C++20 [temp.param]. The base element type must be complete or cv void.
 * ``__is_arithmetic`` (C++, Embarcadero)
 * ``__is_array`` (C++, Embarcadero)
 * ``__is_assignable`` (C++, MSVC 2015)
