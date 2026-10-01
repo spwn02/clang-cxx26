@@ -79,6 +79,7 @@ namespace clang {
     void VisitNamespaceDecl(NamespaceDecl *D);
     void VisitUsingDirectiveDecl(UsingDirectiveDecl *D);
     void VisitNamespaceAliasDecl(NamespaceAliasDecl *D);
+    void VisitDependentNamespaceDecl(DependentNamespaceDecl *D);
     void VisitTypeDecl(TypeDecl *D);
     void VisitTypedefNameDecl(TypedefNameDecl *D);
     void VisitTypedefDecl(TypedefDecl *D);
@@ -1599,13 +1600,19 @@ void ASTDeclWriter::VisitNamespaceDecl(NamespaceDecl *D) {
   }
 }
 
+void ASTDeclWriter::VisitDependentNamespaceDecl(DependentNamespaceDecl *D) {
+  VisitNamespaceDecl(D);
+  Record.AddSpliceSpecifier(D->getSplice());
+  Code = serialization::DECL_DEPENDENT_NAMESPACE;
+}
+
 void ASTDeclWriter::VisitNamespaceAliasDecl(NamespaceAliasDecl *D) {
   VisitRedeclarable(D);
   VisitNamedDecl(D);
   Record.AddSourceLocation(D->getNamespaceLoc());
   Record.AddSourceLocation(D->getTargetNameLoc());
   Record.AddNestedNameSpecifierLoc(D->getQualifierLoc());
-  Record.AddDeclRef(D->getNamespace());
+  Record.AddDeclRef(D->getAliasedNamespace());
   Code = serialization::DECL_NAMESPACE_ALIAS;
 }
 

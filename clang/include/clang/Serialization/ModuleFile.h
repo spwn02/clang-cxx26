@@ -37,6 +37,8 @@
 
 namespace clang {
 
+class SpliceSpecifier;
+
 namespace serialization {
 
 /// Specifies the kind of module that has been loaded.
@@ -129,6 +131,9 @@ public:
 /// other modules.
 class ModuleFile {
 public:
+  /// Preserve splice identity when a qualifier occurs in multiple records.
+  llvm::DenseMap<unsigned, SpliceSpecifier *> SpliceSpecifiers;
+
   ModuleFile(ModuleKind Kind, FileEntryRef File, unsigned Generation)
       : Kind(Kind), File(File), Generation(Generation) {}
   ~ModuleFile();

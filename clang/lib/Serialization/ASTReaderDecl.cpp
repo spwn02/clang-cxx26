@@ -323,6 +323,7 @@ public:
   void VisitHLSLBufferDecl(HLSLBufferDecl *D);
   void VisitUsingDirectiveDecl(UsingDirectiveDecl *D);
   void VisitNamespaceAliasDecl(NamespaceAliasDecl *D);
+  void VisitDependentNamespaceDecl(DependentNamespaceDecl *D);
   void VisitTypeDecl(TypeDecl *TD);
   RedeclarableResult VisitTypedefNameDecl(TypedefNameDecl *TD);
   void VisitTypedefDecl(TypedefDecl *TD);
@@ -1929,6 +1930,11 @@ void ASTDeclReader::VisitHLSLBufferDecl(HLSLBufferDecl *D) {
   D->KwLoc = readSourceLocation();
   D->LBraceLoc = readSourceLocation();
   D->RBraceLoc = readSourceLocation();
+}
+
+void ASTDeclReader::VisitDependentNamespaceDecl(DependentNamespaceDecl *D) {
+  VisitNamespaceDecl(D);
+  D->Splice = Record.readSpliceSpecifierRef();
 }
 
 void ASTDeclReader::VisitNamespaceAliasDecl(NamespaceAliasDecl *D) {
@@ -4036,6 +4042,9 @@ Decl *ASTReader::ReadDeclRecord(GlobalDeclID ID) {
     break;
   case DECL_NAMESPACE:
     D = NamespaceDecl::CreateDeserialized(Context, ID);
+    break;
+  case DECL_DEPENDENT_NAMESPACE:
+    D = DependentNamespaceDecl::CreateDeserialized(Context, ID);
     break;
   case DECL_NAMESPACE_ALIAS:
     D = NamespaceAliasDecl::CreateDeserialized(Context, ID);

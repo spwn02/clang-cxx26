@@ -104,6 +104,9 @@ public:
   using RecordDataRef = ArrayRef<uint64_t>;
 
 private:
+  /// File-local identities shared by splice qualifiers and their TypeLocs.
+  llvm::DenseMap<const SpliceSpecifier *, unsigned> SpliceSpecifierIDs;
+
   /// Map that provides the ID numbers of each type within the
   /// output stream, plus those deserialized from a chained PCH.
   ///

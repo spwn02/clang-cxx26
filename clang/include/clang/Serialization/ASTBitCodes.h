@@ -1559,7 +1559,10 @@ enum DeclCode {
   /// A contract specifier sequence on a function
   DECL_CONTRACT_SPECIFIER,
 
-  DECL_LAST = DECL_CONTRACT_SPECIFIER
+  /// A DependentNamespaceDecl record.
+  DECL_DEPENDENT_NAMESPACE,
+
+  DECL_LAST = DECL_DEPENDENT_NAMESPACE
 };
 
 /// Record codes for each kind of statement or expression.

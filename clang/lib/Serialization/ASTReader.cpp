@@ -7488,6 +7488,7 @@ ConceptReference *ASTRecordReader::readConceptReference() {
 }
 
 SpliceSpecifier *ASTRecordReader::readSpliceSpecifierRef() {
+  unsigned ID = readInt();
   auto LSpliceLoc = readSourceLocation();
   auto *Operand = readExpr();
   auto RSpliceLoc = readSourceLocation();
@@ -7496,8 +7497,10 @@ SpliceSpecifier *ASTRecordReader::readSpliceSpecifierRef() {
   if (readBool())
     TArgs = readASTTemplateArgumentListInfo();
 
-  auto *Splice = SpliceSpecifier::Create(getContext(), LSpliceLoc, Operand,
-                                         RSpliceLoc, TArgs);
+  auto &Splice = F->SpliceSpecifiers[ID];
+  if (!Splice)
+    Splice = SpliceSpecifier::Create(getContext(), LSpliceLoc, Operand,
+                                     RSpliceLoc, TArgs);
   return Splice;
 }
 

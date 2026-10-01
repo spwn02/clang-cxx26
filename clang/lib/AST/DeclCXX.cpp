@@ -3412,8 +3412,10 @@ void DependentNamespaceDecl::anchor() {}
 
 DependentNamespaceDecl::DependentNamespaceDecl(
       ASTContext &C, DeclContext *DC, SpliceSpecifier *Splice)
-    : NamespaceDecl(DependentNamespace, C, DC, false, Splice->getBeginLoc(),
-                    Splice->getBeginLoc(), nullptr, nullptr, false),
+    : NamespaceDecl(DependentNamespace, C, DC, false,
+                    Splice ? Splice->getBeginLoc() : SourceLocation(),
+                    Splice ? Splice->getBeginLoc() : SourceLocation(), nullptr,
+                    nullptr, false),
       Splice(Splice) {}
 
 DependentNamespaceDecl *DependentNamespaceDecl::Create(

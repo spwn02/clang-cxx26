@@ -560,6 +560,10 @@ void ASTRecordWriter::AddConceptReference(const ConceptReference *CR) {
 
 void ASTRecordWriter::AddSpliceSpecifier(const SpliceSpecifier *Splice) {
   assert(Splice);
+  auto [It, Inserted] = Writer->SpliceSpecifierIDs.try_emplace(
+      Splice, Writer->SpliceSpecifierIDs.size() + 1);
+  Record->push_back(It->second);
+  // Repeat the payload: records can be read in a different order than written.
   AddSourceLocation(Splice->getLSpliceLoc());
   AddStmt(Splice->getOperand());
   AddSourceLocation(Splice->getRSpliceLoc());
