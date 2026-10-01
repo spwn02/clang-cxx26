@@ -88,7 +88,7 @@ Expr *CreateRefToDecl(Sema &S, ValueDecl *D, SourceLocation ExprLoc) {
       ValueKind = VK_PRValue;
     else if (auto *MD = dyn_cast<CXXMethodDecl>(D); MD && !MD->isStatic())
       ValueKind = VK_PRValue;
-    else if (auto *RT = dyn_cast<ReferenceType>(QT)) {
+    else if (auto *RT = QT->getAs<ReferenceType>()) {
       QT = RT->getPointeeType();
       ValueKind = VK_LValue;
     }
@@ -1099,7 +1099,8 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc,
   } else if (TemplateKWLoc.isValid() && !TArgs) {
     TemplateTy Template;
     TemplateNameKind TNK = ActOnTemplateName(getCurScope(), SS, TemplateKWLoc,
-                                             Id, ParsedType(), false, Template);
+                                             Id, ParsedType(), false, Template,
+                                             /*AllowInjectedClassName=*/true);
     // The other kinds are "undeclared templates" and "non-templates".
     // As far as I can tell, neither can reach this point.
     assert(TNK == TNK_Dependent_template_name || TNK == TNK_Function_template ||
@@ -1760,6 +1761,13 @@ QualType Sema::BuildReflectionSpliceType(SourceLocation TypenameKWLoc,
   }
   APValue Refl = MaybeUnproxy(Context, ER.Val);
 
+  if (Splice->isSpecialization() && !Refl.isReflectedTemplate()) {
+    if (Complain)
+      Diag(Splice->getBeginLoc(),
+           diag::err_unexpected_reflection_kind_in_splice) << 3;
+    return QualType();
+  }
+
   QualType ReflectedTy;
   if (Refl.isReflectedTemplate() &&
       !isa<ConceptDecl>(Refl.getReflectedTemplate().getAsTemplateDecl())) {
@@ -1909,16 +1917,16 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
     case ReflectionKind::Declaration: {
       Decl *TheDecl = Refl.getReflectedDecl();
 
-      if (isa<CXXConstructorDecl>(TheDecl)) {
+      if (isa<CXXConstructorDecl, CXXDestructorDecl>(TheDecl)) {
         Diag(Splice->getBeginLoc(),
              diag::err_unexpected_reflection_kind_in_splice)
-          << 0 << Splice->getSourceRange();
+          << 1 << Splice->getSourceRange();
         return ExprError();
       }
 
       // Class members may not be implicitly referenced through a splice.
       if (!AllowMemberReference &&
-          (isa<FieldDecl>(TheDecl) ||
+          ((isa<FieldDecl>(TheDecl) && !isUnevaluatedContext()) ||
            (isa<CXXMethodDecl>(TheDecl) &&
             dyn_cast<CXXMethodDecl>(TheDecl)->isInstance()))) {
         Diag(Splice->getBeginLoc(),

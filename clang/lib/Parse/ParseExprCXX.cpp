@@ -260,6 +260,15 @@ bool Parser::ParseOptionalCXXScopeSpecifier(
       }
       return false;
     }
+    // A specialization used as a scope requires template unless preceded
+    // by typename, even in an otherwise type-only context.
+    if (Splice->isSpecialization() && !IsTypename) {
+      Diag(Splice->getLAngleLoc(), diag::err_expected_template);
+      ConsumeAnnotationToken();
+      SourceLocation CCLoc = ConsumeToken();
+      SS.SetInvalid(SourceRange(Splice->getBeginLoc(), CCLoc));
+      return true;
+    }
     // We have a splice-scope-specifier.
     ConsumeAnnotationToken();
 

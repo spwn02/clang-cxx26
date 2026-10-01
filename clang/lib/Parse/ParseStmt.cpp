@@ -261,6 +261,9 @@ Retry:
   }
 
   case tok::kw_template: {
+    if (getLangOpts().Reflection && NextToken().is(tok::l_splice))
+      return ParseExprStatement(StmtCtx);
+
     if (NextToken().is(tok::kw_for)) {  // C++26: Expansion statement
       ExpansionStmtDecl *ExpansionDecl =
           cast<ExpansionStmtDecl>(

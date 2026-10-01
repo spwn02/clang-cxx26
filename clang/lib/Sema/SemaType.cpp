@@ -9798,6 +9798,14 @@ QualType Sema::getDecltypeForExpr(Expr *E) {
   if (E->isTypeDependent())
     return Context.DependentTy;
 
+  // C++26 [dcl.type.decltype]: an unparenthesized splice yields the
+  // declared type of its designated entity, including reference qualifiers.
+  if (const auto *Splice = dyn_cast<CXXSpliceExpr>(IDExpr)) {
+    if (const auto *DRE = dyn_cast<DeclRefExpr>(Splice->getModel()))
+      return DRE->getDecl()->getType();
+    return Splice->getModel()->getType();
+  }
+
   // C++11 [dcl.type.simple]p4:
   //   The type denoted by decltype(e) is defined as follows:
 

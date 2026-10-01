@@ -6360,6 +6360,21 @@ bool Sema::diagnoseQualifiedDeclaration(CXXScopeSpec &SS, DeclContext *DC,
                                         bool IsMemberSpecialization) {
   assert(SS.isValid() && "diagnoseQualifiedDeclaration called for declaration "
                          "without nested-name-specifier");
+  // [expr.prim.id.qual]: a declarative nested-name-specifier shall
+  // not contain a splice-scope-specifier. Inspect prefixes as well.
+  for (NestedNameSpecifier NNS = SS.getScopeRep(); NNS;) {
+    if (NNS.getAsSplice()) {
+      Diag(Loc, diag::err_splice_in_declarative_nns) << SS.getRange();
+      return true;
+    }
+    if (NNS.getKind() == NestedNameSpecifier::Kind::Type)
+      NNS = NNS.getAsType()->getPrefix();
+    else if (NNS.getKind() == NestedNameSpecifier::Kind::Namespace)
+      NNS = NNS.getAsNamespaceAndPrefix().Prefix;
+    else
+      break;
+  }
+
   DeclContext *Cur = CurContext;
   while (isa<LinkageSpecDecl>(Cur) || isa<CapturedDecl>(Cur))
     Cur = Cur->getParent();

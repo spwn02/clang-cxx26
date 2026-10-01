@@ -579,8 +579,16 @@ void LookupResult::resolveKind() {
       auto UniqueResult = UniqueTypes.insert(
           std::make_pair(getSema().Context.getCanonicalTypeDeclType(TD), I));
       if (!UniqueResult.second) {
-        // The type is not unique.
-        ExistingI = UniqueResult.first->second;
+        // Reflection names distinguish aliases in different target scopes,
+        // even when ordinary type lookup would merge their identical types.
+        unsigned Previous = UniqueResult.first->second;
+        const NamedDecl *Other = Decls[Previous]->getUnderlyingDecl();
+        if (getLookupKind() != Sema::LookupReflectOperandName ||
+            (!isa<TypedefNameDecl>(TD) && !isa<TypedefNameDecl>(Other)) ||
+            isa<TemplateTypeParmDecl>(TD) || isa<TemplateTypeParmDecl>(Other) ||
+            getContextForScopeMatching(TD)->Equals(
+                getContextForScopeMatching(Other)))
+          ExistingI = Previous;
       }
     }
 
@@ -2609,8 +2617,12 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
         // C++ [class.member.lookup]p3:
         //   type declarations (including injected-class-names) are replaced by
         //   the types they designate
-        if (const TypeDecl *TD = dyn_cast<TypeDecl>(ND->getUnderlyingDecl()))
+        if (const TypeDecl *TD = dyn_cast<TypeDecl>(ND->getUnderlyingDecl())) {
+          if (R.getLookupKind() == LookupReflectOperandName &&
+              isa<TypedefNameDecl>(TD))
+            return TD->getCanonicalDecl();
           return Context.getCanonicalTypeDeclType(TD).getAsOpaquePtr();
+        }
 
         return ND->getUnderlyingDecl()->getCanonicalDecl();
       }

@@ -9049,6 +9049,8 @@ def ext_template_after_declarative_nns : ExtWarn<
 def ext_alias_template_in_declarative_nns : ExtWarn<
   "a declarative nested name specifier cannot name an alias template">,
   InGroup<DiagGroup<"alias-template-in-declaration-name">>;
+def err_splice_in_declarative_nns : Error<
+  "a splice specifier cannot be used in a declarative nested name specifier">;
 def err_computed_type_in_declarative_nns  : Error<
   "a %select{pack indexing|'decltype'}0 specifier cannot be used in "
   "a declarative nested name specifier">;
