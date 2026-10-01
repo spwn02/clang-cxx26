@@ -98,6 +98,10 @@ static_assert(std::meta::u8symbol_of(std::meta::op_plus) == u8"+");
 // Deprecated names that <meta> still declares.
 static_assert(std::meta::value_of(std::meta::reflect_value(1)) ==
               std::meta::reflect_constant(1));
+void varargs_fn(int, ...);
+static_assert(std::meta::has_ellipsis_parameter(^^varargs_fn) ==
+              std::meta::is_vararg_function(^^varargs_fn));
+static_assert(std::meta::is_vararg_function(^^varargs_fn));
 
 // std::meta::exception, which is-a std::exception.
 static_assert(exception_is_a_std_exception());

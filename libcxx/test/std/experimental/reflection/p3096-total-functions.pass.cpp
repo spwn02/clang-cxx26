@@ -16,7 +16,7 @@
 //
 // [reflection]
 //
-// P3096R12 [meta.reflection.parameter]: has_ellipsis_parameter and
+// P3096R12 [meta.reflection.parameter]: is_vararg_function and
 // has_default_argument are total functions over 'info' (no Constant When
 // clause -- has_default_argument's was explicitly removed per a LEWG poll
 // in R12), so both must return false for any reflection that isn't
@@ -34,20 +34,20 @@ int f(int a, ...);
 void g(int a = 5);
 void h(int a);
 
-static_assert(has_ellipsis_parameter(^^int) == false);
+static_assert(is_vararg_function(^^int) == false);
 static_assert(has_default_argument(^^int) == false);
-static_assert(has_ellipsis_parameter(^^S) == false);
+static_assert(is_vararg_function(^^S) == false);
 static_assert(has_default_argument(^^S) == false);
-static_assert(has_ellipsis_parameter(^^S::x) == false);
+static_assert(is_vararg_function(^^S::x) == false);
 static_assert(has_default_argument(^^S::x) == false);
 
-static_assert(has_ellipsis_parameter(^^f) == true);
+static_assert(is_vararg_function(^^f) == true);
 static_assert(has_default_argument(^^f) == false);
 
-static_assert(has_ellipsis_parameter(^^g) == false);
+static_assert(is_vararg_function(^^g) == false);
 static_assert(has_default_argument(parameters_of(^^g)[0]) == true);
 
-static_assert(has_ellipsis_parameter(parameters_of(^^h)[0]) == false);
+static_assert(is_vararg_function(parameters_of(^^h)[0]) == false);
 static_assert(has_default_argument(parameters_of(^^h)[0]) == false);
 
 int main() {

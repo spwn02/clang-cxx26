@@ -683,11 +683,11 @@ static bool get_ith_parameter_of(APValue &Result, ASTContext &C,
                                  QualType ResultTy, SourceRange Range,
                                  ArrayRef<Expr *> Args, Decl *ContainingDecl);
 
-static bool has_ellipsis_parameter(APValue &Result, ASTContext &C,
-                                   MetaActions &Meta, EvalFn Evaluator,
-                                   DiagFn Diagnoser, bool AllowInjection,
-                                   QualType ResultTy, SourceRange Range,
-                                   ArrayRef<Expr *> Args, Decl *ContainingDecl);
+static bool is_vararg_function(APValue &Result, ASTContext &C,
+                              MetaActions &Meta, EvalFn Evaluator,
+                              DiagFn Diagnoser, bool AllowInjection,
+                              QualType ResultTy, SourceRange Range,
+                              ArrayRef<Expr *> Args, Decl *ContainingDecl);
 
 static bool has_default_argument(APValue &Result, ASTContext &C,
                                  MetaActions &Meta, EvalFn Evaluator,
@@ -974,7 +974,7 @@ static constexpr Metafunction Metafunctions[] = {
 
   // P3096 metafunction extensions
   { Metafunction::MFRK_metaInfo, 4, 4, get_ith_parameter_of, true },
-  { Metafunction::MFRK_bool, 1, 1, has_ellipsis_parameter },
+  { Metafunction::MFRK_bool, 1, 1, is_vararg_function },
   { Metafunction::MFRK_bool, 1, 1, has_default_argument },
   { Metafunction::MFRK_bool, 1, 1, is_explicit_object_parameter },
   { Metafunction::MFRK_bool, 1, 1, is_function_parameter },
@@ -6784,15 +6784,14 @@ bool get_ith_parameter_of(APValue &Result, ASTContext &C, MetaActions &Meta,
                                  "invalid reflection operand");
 }
 
-// P3096R12 [meta.reflection.parameter]: has_ellipsis_parameter is a total
-// function over 'info' -- no Constant When clause, "Otherwise, false" for
-// every reflection that isn't a function/function-type with an ellipsis
-// parameter. Must never diagnose.
-bool has_ellipsis_parameter(APValue &Result, ASTContext &C, MetaActions &Meta,
-                            EvalFn Evaluator, DiagFn Diagnoser,
-                            bool AllowInjection, QualType ResultTy,
-                            SourceRange Range, ArrayRef<Expr *> Args,
-                            Decl *ContainingDecl) {
+// [meta.reflection.queries]: is_vararg_function is a total function over
+// 'info': return false for every reflection that isn't a vararg function or
+// function type. There is no Throws clause.
+bool is_vararg_function(APValue &Result, ASTContext &C, MetaActions &Meta,
+                        EvalFn Evaluator, DiagFn Diagnoser,
+                        bool AllowInjection, QualType ResultTy,
+                        SourceRange Range, ArrayRef<Expr *> Args,
+                        Decl *ContainingDecl) {
   assert(Args[0]->getType()->isReflectionType());
   assert(ResultTy == C.BoolTy);
 
@@ -6821,7 +6820,7 @@ bool has_ellipsis_parameter(APValue &Result, ASTContext &C, MetaActions &Meta,
     return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Declaration: {
     if (auto *FD = dyn_cast<FunctionDecl>(RV.getReflectedDecl())) {
-      bool HasEllipsis = FD->getEllipsisLoc().isValid();
+      bool HasEllipsis = FD->isVariadic();
       return SetAndSucceed(Result, makeBool(C, HasEllipsis));
     }
     return SetAndSucceed(Result, makeBool(C, false));

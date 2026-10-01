@@ -231,9 +231,9 @@ export namespace std {
       using std::meta::reflection_v2::tuple_element;
       using std::meta::reflection_v2::variant_size;
       using std::meta::reflection_v2::variant_alternative;
+      using std::meta::reflection_v2::is_vararg_function;
 #if __has_feature(parameter_reflection)
       using std::meta::reflection_v2::parameters_of;
-      using std::meta::reflection_v2::has_ellipsis_parameter;
       using std::meta::reflection_v2::has_default_argument;
       using std::meta::reflection_v2::is_explicit_object_parameter;
       using std::meta::reflection_v2::is_function_parameter;
@@ -303,6 +303,7 @@ export namespace std {
       using std::meta::reflection_v2::define_class;
       using std::meta::reflection_v2::reflect_result;
       using std::meta::reflection_v2::reflect_value;
+      using std::meta::reflection_v2::has_ellipsis_parameter;
       using std::meta::reflection_v2::value_of;
       using std::meta::reflection_v2::test_trait;
       using std::meta::reflection_v2::test_type;

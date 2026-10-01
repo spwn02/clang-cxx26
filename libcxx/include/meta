@@ -359,7 +359,7 @@ consteval auto is_entity_proxy(info) -> bool;
 
 // function parameters (P3096)
 consteval auto parameters_of(info) -> vector<info>;
-consteval auto has_ellipsis_parameter(info) -> bool;
+consteval auto is_vararg_function(info) -> bool;
 consteval auto has_default_argument(info) -> bool;
 consteval auto is_explicit_object_parameter(info) -> bool;
 consteval auto is_function_parameter(info) -> bool;
@@ -644,7 +644,7 @@ enum : unsigned {
 
   // P3096 parameter reflection metafunctions
   __metafn_get_ith_parameter_of,
-  __metafn_has_ellipsis_parameter,
+  __metafn_is_vararg_function,
   __metafn_has_default_argument,
   __metafn_is_explicit_object_parameter,
   __metafn_is_function_parameter,
@@ -2394,6 +2394,10 @@ consteval auto __workaround_expand_compiler_builtins(info type) -> info {
 
 }  // namespace detail
 
+consteval auto is_vararg_function(info r) -> bool {
+  return __metafunction(detail::__metafn_is_vararg_function, r);
+}
+
 #if __has_feature(parameter_reflection)
 
 consteval auto parameters_of(info r) -> vector<info> {
@@ -2404,10 +2408,6 @@ consteval auto parameters_of(info r) -> vector<info> {
   using range = __range_of_infos::range<iterator>;
   auto rng = range{r, ^^parameters_of};
   return vector<info>{rng.begin(), rng.end()};
-}
-
-consteval auto has_ellipsis_parameter(info r) -> bool {
-  return __metafunction(detail::__metafn_has_ellipsis_parameter, r);
 }
 
 consteval auto has_default_argument(info r) -> bool {
@@ -2909,6 +2909,11 @@ consteval auto reflect_value(const T &r) -> info {
 [[deprecated("renamed to 'constant_of' in reflection revision 12")]]
 consteval auto value_of(info r) -> info {
   return constant_of(r);
+}
+
+[[deprecated("renamed to 'is_vararg_function' in the current draft")]]
+consteval auto has_ellipsis_parameter(info r) -> bool {
+  return is_vararg_function(r);
 }
 
 template <reflection_range R = initializer_list<info>>

@@ -30,7 +30,7 @@ static_assert(std::meta::variable_of(^^S) == std::meta::info{});
 
 // 3096-04 and 3096-05 are total functions (P3096R12): invalid domains return
 // false rather than producing a diagnostic.
-static_assert(!std::meta::has_ellipsis_parameter(^^S));
+static_assert(!std::meta::is_vararg_function(^^S));
 static_assert(!std::meta::has_default_argument(^^S));
 
 // 3096-06: ordinary declaration queries remain valid for non-parameter
