@@ -8182,6 +8182,7 @@ private:
   /// \endverbatim
   ///
   NamedDecl *ParseTemplateParameter(unsigned Depth, unsigned Position);
+  void DiagnoseTemplateParameterAnnotations();
 
   /// ParseTypeParameter - Parse a template type parameter (C++ [temp.param]).
   /// Other kinds of template parameters are parsed in

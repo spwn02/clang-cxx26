@@ -14132,6 +14132,6 @@ def err_cuda_device_kernel_launch_require_rdc
             "relocatable device code (i.e. requires -fgpu-rdc)">;
 // C++26 annotation appertainment ([dcl.attr.annotation]).
 def err_annotation_appertainment : Error<
-  "annotation cannot be applied to %select{a declaration whose host scope differs from its target scope|a non-defining friend declaration|a void parameter}0">;
+  "annotation cannot be applied to %select{a declaration whose host scope differs from its target scope|a non-defining friend declaration|a void parameter|a template parameter}0">;
 
 } // end of sema component.

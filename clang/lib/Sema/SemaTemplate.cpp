@@ -1525,6 +1525,15 @@ NamedDecl *Sema::ActOnNonTypeTemplateParameter(Scope *S, Declarator &D,
                                           unsigned Position,
                                           SourceLocation EqualLoc,
                                           Expr *Default) {
+  // Unlike function parameters, template parameters are not annotation
+  // targets. Other attributes retain their existing handling here.
+  for (const ParsedAttr &AL : D.getAttributes())
+    if (AL.getKind() == ParsedAttr::AnnotationAttribute)
+      Diag(AL.getLoc(), diag::err_annotation_appertainment) << 3;
+  for (const ParsedAttr &AL : D.getDeclSpec().getAttributes())
+    if (AL.getKind() == ParsedAttr::AnnotationAttribute)
+      Diag(AL.getLoc(), diag::err_annotation_appertainment) << 3;
+
   TypeSourceInfo *TInfo = GetTypeForDeclarator(D);
 
   // Check that we have valid decl-specifiers specified.

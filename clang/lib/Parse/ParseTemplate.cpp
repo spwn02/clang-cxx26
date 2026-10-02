@@ -406,6 +406,11 @@ Parser::TPResult Parser::isStartOfTemplateTypeParameter() {
       return TPResult::False;
     }
 
+    if (GetLookAheadToken(2).is(tok::l_square) &&
+        GetLookAheadToken(3).is(tok::l_square) &&
+        GetLookAheadToken(4).is(tok::equal))
+      return TPResult::True;
+
     switch (GetLookAheadToken(2).getKind()) {
     case tok::equal:
     case tok::comma:
@@ -446,6 +451,12 @@ Parser::TPResult Parser::isStartOfTemplateTypeParameter() {
   if (Next.getKind() == tok::identifier)
     Next = GetLookAheadToken(2);
 
+  unsigned AnnotationOffset = NextToken().is(tok::identifier) ? 2 : 1;
+  if (Next.is(tok::l_square) &&
+      GetLookAheadToken(AnnotationOffset + 1).is(tok::l_square) &&
+      GetLookAheadToken(AnnotationOffset + 2).is(tok::equal))
+    return TPResult::True;
+
   switch (Next.getKind()) {
   case tok::equal:
   case tok::comma:
@@ -463,6 +474,20 @@ Parser::TPResult Parser::isStartOfTemplateTypeParameter() {
 
   default:
     return TPResult::False;
+  }
+}
+
+// The type-parameter and template-template-parameter grammars have no
+// attribute-specifier-seq. Recover annotations here to give a targeted error,
+// without changing how ordinary attributes are parsed.
+void Parser::DiagnoseTemplateParameterAnnotations() {
+  while (Tok.is(tok::l_square) && NextToken().is(tok::l_square) &&
+         GetLookAheadToken(2).is(tok::equal)) {
+    ParsedAttributes Attrs(AttrFactory);
+    MaybeParseCXX11Attributes(Attrs);
+    for (const ParsedAttr &AL : Attrs)
+      if (AL.getKind() == ParsedAttr::AnnotationAttribute)
+        Diag(AL.getLoc(), diag::err_annotation_appertainment) << 3;
   }
 }
 
@@ -654,6 +679,8 @@ NamedDecl *Parser::ParseTypeParameter(unsigned Depth, unsigned Position) {
   if (TryConsumeToken(tok::ellipsis, EllipsisLoc))
     DiagnoseMisplacedEllipsis(EllipsisLoc, NameLoc, AlreadyHasEllipsis, true);
 
+  DiagnoseTemplateParameterAnnotations();
+
   // Grab a default argument (if available).
   // Per C++0x [basic.scope.pdecl]p9, we parse the default argument before
   // we introduce the type parameter into the local scope.
@@ -798,6 +825,8 @@ NamedDecl *Parser::ParseTemplateTemplateParameter(unsigned Depth,
   bool AlreadyHasEllipsis = EllipsisLoc.isValid();
   if (TryConsumeToken(tok::ellipsis, EllipsisLoc))
     DiagnoseMisplacedEllipsis(EllipsisLoc, NameLoc, AlreadyHasEllipsis, true);
+
+  DiagnoseTemplateParameterAnnotations();
 
   TemplateParameterList *ParamList = Actions.ActOnTemplateParameterList(
       Depth, SourceLocation(), TemplateLoc, LAngleLoc, TemplateParams,
