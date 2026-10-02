@@ -2353,27 +2353,15 @@ consteval auto tuple_element(size_t index, info type) -> info {
 }
 
 consteval bool is_applicable_type(info fn, info tuple) {
-  vector<info> args;
-  for (size_t i = 0; i != tuple_size(tuple); ++i)
-    args.push_back(tuple_element(i, tuple));
-  return is_invocable_type(fn, args);
+  return extract<bool>(substitute(^^is_applicable_v, {fn, tuple}));
 }
 
 consteval bool is_nothrow_applicable_type(info fn, info tuple) {
-  vector<info> args;
-  for (size_t i = 0; i != tuple_size(tuple); ++i)
-    args.push_back(tuple_element(i, tuple));
-  return is_nothrow_invocable_type(fn, args);
+  return extract<bool>(substitute(^^is_nothrow_applicable_v, {fn, tuple}));
 }
 
 consteval info apply_result(info fn, info tuple) {
-  vector<info> args;
-  for (size_t i = 0; i != tuple_size(tuple); ++i)
-    args.push_back(tuple_element(i, tuple));
-  vector<info> targs(args);
-  targs.insert(targs.begin(), fn);
-  return detail::__underlying_entity_of(
-      substitute(^^invoke_result_t, targs));
+  return detail::__underlying_entity_of(substitute(^^apply_result_t, {fn, tuple}));
 }
 
 consteval auto variant_size(info type) -> size_t {

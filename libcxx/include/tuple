@@ -1756,8 +1756,22 @@ struct __apply_result<_Fn, _Tuple, __void_t<__apply_result_t<_Fn, _Tuple>>> {
   using type = __apply_result_t<_Fn, _Tuple>;
 };
 
+#    if _LIBCPP_STD_VER >= 20
+// [tuple.apply]: apply_result<Fn, Tuple> has a member 'type' only if is_applicable_v<Fn, Tuple>, which
+// requires tuple-like<Tuple>. Check that first: for a type without a tuple_size specialization,
+// instantiating tuple_size_v inside __apply_result_t is a hard error, not a substitution failure.
+template <class _Fn, class _Tuple, bool = __tuple_like<_Tuple>>
+struct __apply_result_checked {};
+
+template <class _Fn, class _Tuple>
+struct __apply_result_checked<_Fn, _Tuple, true> : __apply_result<_Fn, _Tuple> {};
+
+template <class _Fn, class _Tuple>
+struct apply_result : __apply_result_checked<_Fn, _Tuple> {};
+#    else
 template <class _Fn, class _Tuple>
 struct apply_result : __apply_result<_Fn, _Tuple> {};
+#    endif
 
 // P1317R2 [meta.rel]: is_applicable<Fn, Tuple> is true iff apply(declval<Fn>(), declval<Tuple>())
 // would be well-formed, i.e. apply_result_t<Fn, Tuple> names a type. Mirrors __apply_result's own
@@ -1768,8 +1782,20 @@ struct __is_applicable_impl : false_type {};
 template <class _Fn, class _Tuple>
 struct __is_applicable_impl<_Fn, _Tuple, __void_t<__apply_result_t<_Fn, _Tuple>>> : true_type {};
 
+#    if _LIBCPP_STD_VER >= 20
+// [meta.rel]: is_applicable additionally requires tuple-like<Tuple>; false (not a hard error) otherwise.
+template <class _Fn, class _Tuple, bool = __tuple_like<_Tuple>>
+struct __is_applicable_checked : false_type {};
+
+template <class _Fn, class _Tuple>
+struct __is_applicable_checked<_Fn, _Tuple, true> : __is_applicable_impl<_Fn, _Tuple> {};
+
+template <class _Fn, class _Tuple>
+struct is_applicable : __is_applicable_checked<_Fn, _Tuple> {};
+#    else
 template <class _Fn, class _Tuple>
 struct is_applicable : __is_applicable_impl<_Fn, _Tuple> {};
+#    endif
 
 template <class _Fn, class _Tuple>
 inline constexpr bool is_applicable_v = is_applicable<_Fn, _Tuple>::value;
