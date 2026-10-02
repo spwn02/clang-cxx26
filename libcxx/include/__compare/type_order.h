@@ -23,7 +23,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 // [compare.type], type ordering
 template <class _Tp, class _Up>
 struct _LIBCPP_NO_SPECIALIZATIONS type_order {
-  static constexpr strong_ordering value = __builtin_type_order(_Tp, _Up);
+  static constexpr strong_ordering value = __builtin_type_order(_Tp, _Up) <=> 0;
   using value_type                       = strong_ordering;
 
   _LIBCPP_HIDE_FROM_ABI constexpr operator value_type() const noexcept { return value; }
@@ -31,7 +31,7 @@ struct _LIBCPP_NO_SPECIALIZATIONS type_order {
 };
 
 template <class _Tp, class _Up>
-constexpr strong_ordering type_order_v = __builtin_type_order(_Tp, _Up);
+constexpr strong_ordering type_order_v = __builtin_type_order(_Tp, _Up) <=> 0;
 
 #endif // _LIBCPP_STD_VER >= 26 && __has_builtin(__builtin_type_order)
 

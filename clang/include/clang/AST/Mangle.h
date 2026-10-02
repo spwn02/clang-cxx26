@@ -65,6 +65,7 @@ private:
 
   llvm::DenseMap<const BlockDecl *, unsigned> GlobalBlockIds;
   llvm::DenseMap<const BlockDecl *, unsigned> LocalBlockIds;
+  bool TypeOrdering = false;
   llvm::DenseMap<const NamedDecl *, uint64_t> AnonStructIds;
   llvm::DenseMap<const FunctionDecl *, unsigned> FuncAnonStructSize;
 
@@ -93,8 +94,14 @@ public:
     return Result.first->second;
   }
 
+  /// Use reproducible discriminators for translation-unit-local types.
+  void setTypeOrdering() { TypeOrdering = true; }
+  bool isTypeOrdering() const { return TypeOrdering; }
+
   uint64_t getAnonymousStructId(const NamedDecl *D,
                                 const FunctionDecl *FD = nullptr) {
+    if (TypeOrdering)
+      return D->getCanonicalDecl()->getLocation().getRawEncoding();
     auto FindResult = AnonStructIds.find(D);
     if (FindResult != AnonStructIds.end())
       return FindResult->second;

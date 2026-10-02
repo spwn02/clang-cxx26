@@ -155,6 +155,14 @@ public:
       return true;
     }
 
+    // Type ordering cannot assign discriminators in query order. These
+    // declarations are TU-local, so their source identities suffice; externally
+    // visible declarations above continue to use their ABI-stable numbers.
+    if (isTypeOrdering()) {
+      disc = ND->getCanonicalDecl()->getLocation().getRawEncoding();
+      return true;
+    }
+
     // Make up a reasonable number for internal decls.
     unsigned &discriminator = Uniquifier[ND];
     if (!discriminator) {
@@ -3546,6 +3554,22 @@ StringRef CXXNameMangler::getCallingConvQualifierName(CallingConv CC) {
 }
 
 void CXXNameMangler::mangleExtFunctionInfo(const FunctionType *T) {
+  if (Context.isTypeOrdering()) {
+    // ABI mangling deliberately omits some canonical function-type flags.
+    // Type ordering must distinguish them, including calling conventions
+    // which currently have no ABI qualifier spelling.
+    FunctionType::ExtInfo Info = T->getExtInfo();
+    std::string Flags;
+    llvm::raw_string_ostream OS(Flags);
+    OS << "type_order_fn_" << unsigned(Info.getCC()) << '_'
+       << Info.getNoReturn() << Info.getProducesResult()
+       << Info.getNoCallerSavedRegs() << Info.getNoCfCheck()
+       << Info.getCmseNSCall() << Info.getHasRegParm() << '_'
+       << Info.getRegParm();
+    mangleVendorQualifier(Flags);
+    return;
+  }
+
   // Fast path.
   if (T->getExtInfo() == FunctionType::ExtInfo())
     return;
@@ -3629,6 +3653,12 @@ void CXXNameMangler::mangleSMEAttrs(unsigned SMEAttrs) {
 
 void
 CXXNameMangler::mangleExtParameterInfo(FunctionProtoType::ExtParameterInfo PI) {
+  if (Context.isTypeOrdering()) {
+    mangleVendorQualifier("type_order_param_" +
+                          llvm::utostr(PI.getOpaqueValue()));
+    return;
+  }
+
   // Vendor-specific qualifiers are emitted in reverse alphabetical order.
 
   // Note that these are *not* substitution candidates.  Demanglers might
@@ -4285,6 +4315,11 @@ void CXXNameMangler::mangleRISCVFixedRVVVectorType(
 //                         ::= p # AltiVec vector pixel
 //                         ::= b # Altivec vector bool
 void CXXNameMangler::mangleType(const VectorType *T) {
+  if (Context.isTypeOrdering())
+    mangleVendorQualifier("type_order_vector_" +
+                          llvm::utostr(T->getTypeClass()) + "_" +
+                          llvm::utostr(unsigned(T->getVectorKind())));
+
   if ((T->getVectorKind() == VectorKind::Neon ||
        T->getVectorKind() == VectorKind::NeonPoly)) {
     llvm::Triple Target = getASTContext().getTargetInfo().getTriple();

@@ -2139,6 +2139,26 @@ A simplistic usage example as might be seen in standard C++ headers follows:
   #endif
 
 
+__builtin_type_order (C++)
+--------------------------
+
+``__builtin_type_order(T, U)`` accepts two (possibly incomplete) types and
+returns an ``int`` constant expression: -1 if ``T`` precedes ``U``, 0 if they
+are identical types, and 1 otherwise. Dependent arguments are evaluated at
+template instantiation. The builtin is available independently of reflection
+and can be detected with ``__has_builtin(__builtin_type_order)``.
+
+The implementation-defined ordering is lexicographical on the full canonical
+Itanium type encodings, without integer normalization, on every target.
+Qualifiers and references are retained. Ordering-specific vendor qualifiers
+also distinguish vector kinds and function flags that normal ABI mangling
+omits. For types with external linkage the
+ordering is consistent across translation units and independent of declaration,
+lookup, and query order. Translation-unit-local unnamed types and local-name
+discriminators use canonical declaration source identities to distinguish
+otherwise identical encodings; their ordering across translation units is
+unobservable. Variably modified types are not supported.
+
 .. _builtin_structured_binding_size-doc:
 
 __builtin_structured_binding_size (C++)

@@ -2409,7 +2409,8 @@ void ASTStmtWriter::VisitTypeTraitExpr(TypeTraitExpr *E) {
   if (E->TypeTraitExprBits.IsBooleanTypeTrait)
     Record.push_back(E->TypeTraitExprBits.Value);
   else
-    Record.AddAPValue(E->getAPValue());
+    // A dependent non-boolean trait has an absent APValue.
+    Record.AddAPValue(*E->getTrailingObjects<APValue>());
 
   Record.AddSourceRange(E->getSourceRange());
   for (unsigned I = 0, N = E->getNumArgs(); I != N; ++I)

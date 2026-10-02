@@ -71,6 +71,11 @@ consteval bool synthesized_meta_exception_is_catchable() {
   return false;
 }
 
+// Type ordering is exported from both <compare> and <meta>.
+static_assert(std::type_order_v<int, char> != 0);
+static_assert(std::type_order<int, int>::value == std::strong_ordering::equal);
+static_assert(std::meta::type_order(^^int, ^^char) == std::type_order_v<int, char>);
+
 // Names <meta> declares in std::meta.
 static_assert(std::meta::has_parent(^^S::i));
 static_assert(!std::meta::has_parent(^^::));

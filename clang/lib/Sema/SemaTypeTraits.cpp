@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/DeclCXX.h"
+#include "clang/AST/Mangle.h"
 #include "clang/AST/TemplateBase.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/DiagnosticIDs.h"
@@ -1448,9 +1449,12 @@ bool Sema::CheckTypeTraitArity(unsigned Arity, SourceLocation Loc, size_t N) {
 enum class TypeTraitReturnType {
   Bool,
   SizeT,
+  Int,
 };
 
 static TypeTraitReturnType GetReturnType(TypeTrait Kind) {
+  if (Kind == BTT_TypeOrder)
+    return TypeTraitReturnType::Int;
   if (Kind == TypeTrait::UTT_StructuredBindingSize)
     return TypeTraitReturnType::SizeT;
   return TypeTraitReturnType::Bool;
@@ -1477,6 +1481,43 @@ ExprResult Sema::BuildTypeTrait(TypeTrait Kind, SourceLocation KWLoc,
   }
 
   switch (GetReturnType(Kind)) {
+  case TypeTraitReturnType::Int: {
+    APValue Result;
+    if (!Dependent) {
+      for (const TypeSourceInfo *Arg : Args) {
+        if (Arg->getType()->isVariablyModifiedType()) {
+          Diag(Arg->getTypeLoc().getBeginLoc(), diag::err_vla_unsupported)
+              << 1 << tok::kw___builtin_type_order;
+          return ExprError();
+        }
+      }
+      QualType LHS = Context.getCanonicalType(Args[0]->getType());
+      QualType RHS = Context.getCanonicalType(Args[1]->getType());
+      int Order = 0;
+      if (LHS != RHS) {
+        // Use full type encodings, retaining cv-qualifiers and references.
+        // A fresh mangler makes substitutions independent of earlier queries.
+        std::unique_ptr<MangleContext> Mangler(
+            ItaniumMangleContext::create(Context, Context.getDiagnostics()));
+        Mangler->setTypeOrdering();
+        std::string Left, Right;
+        llvm::raw_string_ostream LeftOS(Left), RightOS(Right);
+        Mangler->mangleCanonicalTypeName(LHS, LeftOS);
+        Mangler->mangleCanonicalTypeName(RHS, RightOS);
+        if (Left == Right) {
+          unsigned ID = Context.getDiagnostics().getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "cannot distinguish types %0 and %1 in '__builtin_type_order'");
+          Diag(KWLoc, ID) << LHS << RHS;
+          return ExprError();
+        }
+        Order = Left < Right ? -1 : 1;
+      }
+      Result = APValue(Context.MakeIntValue(Order, Context.IntTy));
+    }
+    return TypeTraitExpr::Create(Context, Context.IntTy, KWLoc, Kind, Args,
+                                 RParenLoc, Result);
+  }
   case TypeTraitReturnType::Bool: {
     bool Result = EvaluateBooleanTypeTrait(*this, Kind, KWLoc, Args, RParenLoc,
                                            Dependent);

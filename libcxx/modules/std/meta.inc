@@ -197,6 +197,9 @@ export namespace std {
       using std::meta::reflection_v2::rank;
       using std::meta::reflection_v2::extent;
       _LIBCPP_META_EXPORT_PREDICATE(is_same_type)
+#if _LIBCPP_STD_VER >= 26 && __has_builtin(__builtin_type_order)
+      using std::meta::reflection_v2::type_order;
+#endif
       _LIBCPP_META_EXPORT_PREDICATE(is_base_of_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_convertible_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_nothrow_convertible_type)

@@ -9306,7 +9306,8 @@ ExpectedStmt ASTNodeImporter::VisitTypeTraitExpr(TypeTraitExpr *E) {
   }
   return TypeTraitExpr::Create(Importer.getToContext(), ToType, ToBeginLoc,
                                E->getTrait(), ToArgs, ToEndLoc,
-                               E->getAPValue());
+                               E->isValueDependent() ? APValue()
+                                                     : E->getAPValue());
 }
 
 ExpectedStmt ASTNodeImporter::VisitCXXTypeidExpr(CXXTypeidExpr *E) {

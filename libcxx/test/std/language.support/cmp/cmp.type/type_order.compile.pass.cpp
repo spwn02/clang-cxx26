@@ -8,8 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 
-// These compilers do not support __builtin_type_order
-// UNSUPPORTED: clang-21, clang-22, clang-23, apple-clang-21
 // UNSUPPORTED: gcc-15
 
 // <compare>
@@ -21,6 +19,7 @@
 
 #include <compare>
 #include <concepts>
+#include <array>
 #include "test_macros.h"
 
 template <class T, class U>
@@ -73,3 +72,44 @@ static_assert(ne<incomplete, A>);
 template <auto>
 constexpr bool test_template_arg = true;
 static_assert(test_template_arg<std::type_order<A, incomplete>{}>);
+
+// Check the complete ordering relation, without assuming a particular order.
+
+struct Inc;
+template <class> struct Box {};
+enum class Enum {};
+union Union { int n; };
+using Closure = decltype([] {});
+
+template <class... T>
+struct type_list {};
+
+template <class T, class... U>
+constexpr auto order_row(type_list<U...>) {
+  return std::array{(std::type_order_v<T, U> < 0 ? -1 : std::type_order_v<T, U> > 0 ? 1 : 0)...};
+}
+
+template <class... T>
+constexpr bool check_order(type_list<T...> types) {
+  const std::array table{order_row<T>(types)...};
+  for (unsigned i = 0; i != sizeof...(T); ++i) {
+    if (table[i][i] != 0)
+      return false;
+    for (unsigned j = 0; j != sizeof...(T); ++j) {
+      if (table[i][j] != -table[j][i] || (i != j && table[i][j] == 0))
+        return false;
+      for (unsigned k = 0; k != sizeof...(T); ++k)
+        if (table[i][j] < 0 && table[j][k] < 0 && table[i][k] >= 0)
+          return false;
+    }
+  }
+  return true;
+}
+
+constexpr bool test_local_type() {
+  struct Local {};
+  return check_order(type_list<int, char, const int, int&, int&&, int*, int[3], void,
+                              void(), A, Inc, Box<int>, Closure, Local, Enum, Union, int A::*>{});
+}
+static_assert(test_local_type());
+static_assert(std::type_order_v<int, char> != 0);

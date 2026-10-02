@@ -8,8 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 
-// These compilers do not support __builtin_type_order
-// UNSUPPORTED: clang-21, clang-22, clang-23, apple-clang-21
 // UNSUPPORTED: gcc-15
 
 // <compare>
