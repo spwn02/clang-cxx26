@@ -29,6 +29,7 @@ constexpr NonCopyable noncopyable{};
 // 2996-01: reflect_constant<T> requires T to be copy-constructible.
 constexpr auto r1 = std::meta::reflect_constant(noncopyable);
 // expected-error@-1 {{call to deleted constructor of 'p2996_batch1::NonCopyable'}}
+// expected-error@meta:* {{reflect_constant requires a copy-constructible type}}
 
 // 2996-02: an explicitly supplied reference type is not permitted.
 constexpr int value = 42;
@@ -45,6 +46,6 @@ constexpr auto r3 = std::meta::reflect_constant((const char*)"fails");
 // 2996-04: reflect_object<T> requires T to be an object type.
 void function();
 constexpr auto r4 = std::meta::reflect_object(function);
-// expected-error@-1 {{no matching function for call to 'reflect_object'}}
+// expected-error@meta:* {{reflect_object requires an object type}}
 
 } // namespace p2996_batch1

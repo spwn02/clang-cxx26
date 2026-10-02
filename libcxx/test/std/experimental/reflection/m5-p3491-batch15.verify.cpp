@@ -26,7 +26,7 @@ public:
 
 // P3491R3: the structural-type requirement is a Mandates: a hard error at the call.
 // expected-error@*:* {{reflect_constant_array requires a structural element type}}
-// expected-error@*:* {{no matching function for call to 'reflect_constant'}}
+// expected-error@meta:* {{reflect_constant requires a cv-unqualified structural non-reference type}}
 constexpr auto bad_structural = std::meta::reflect_constant_array(
     std::array{NonStructural{1}});
 // expected-error@-2 {{constexpr variable 'bad_structural' must be initialized by a constant expression}}

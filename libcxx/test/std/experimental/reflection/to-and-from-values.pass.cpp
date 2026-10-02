@@ -368,15 +368,16 @@ static_assert(reflectValueCallable<std::nullptr_t>);
 // literal class type with all non-static member vars public & non-mutable
 static_assert(reflectValueCallable<StructuralTypeClass>);
 
-// references are not allowed
-static_assert(!reflectValueCallable<int&>);
-static_assert(!reflectValueCallable<const int&>);
-static_assert(!reflectValueCallable<int&&>);
-static_assert(!reflectValueCallable<const int&&>);
+// Mandates are checked when instantiated, not by requires expressions.
+// References and non-structural types remain callable in unevaluated contexts.
+static_assert(reflectValueCallable<int&>);
+static_assert(reflectValueCallable<const int&>);
+static_assert(reflectValueCallable<int&&>);
+static_assert(reflectValueCallable<const int&&>);
 
 // non structural class types
-static_assert(!reflectValueCallable<NonStructuralTypeClass>);
-static_assert(!reflectValueCallable<NonStructuralTypeClass2>);
+static_assert(reflectValueCallable<NonStructuralTypeClass>);
+static_assert(reflectValueCallable<NonStructuralTypeClass2>);
 }  // namespace reflect_constant_callable
 
                           // ========================

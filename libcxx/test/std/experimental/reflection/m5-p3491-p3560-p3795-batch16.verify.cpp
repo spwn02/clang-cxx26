@@ -30,7 +30,7 @@ constexpr auto non_structural_array = std::define_static_array(
 // P3491R3: the structural-type requirement is a Mandates (a hard error at the call).
 // expected-error@*:* {{define_static_array requires a structural element type}}
 // expected-error@*:* {{reflect_constant_array requires a structural element type}}
-// expected-error@*:* {{no matching function for call to 'reflect_constant'}}
+// expected-error@meta:* {{reflect_constant requires a cv-unqualified structural non-reference type}}
 
 // 3795-04: generated-member annotations retain source annotation constraints.
 struct Annotated;
@@ -40,7 +40,7 @@ consteval {
                                .annotations = {std::meta::reflect_constant(
                                    std::string{"not structural"})}})});
 }
-// expected-error@-3 {{no matching function for call to 'reflect_constant'}}
+// expected-error@meta:* {{reflect_constant requires a cv-unqualified structural non-reference type}}
 // expected-error@-7 {{evaluating expression of a consteval block must be a constant expression}}
 
 } // namespace batch16

@@ -31,7 +31,7 @@ constexpr auto bad_object = [] {
 // 2996-06: reflect_function requires a function type.
 int object = 0;
 constexpr auto bad_function_type = std::meta::reflect_function(object);
-// expected-error@-1 {{no matching function for call to 'reflect_function'}}
+// expected-error@meta:* {{reflect_function requires a function type}}
 
 void target() {}
 

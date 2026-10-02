@@ -10,6 +10,9 @@
 // ADDITIONAL_COMPILE_FLAGS: -freflection-latest
 
 #include <meta>
+#include <array>
+#include <span>
+#include <vector>
 #include <string_view>
 
 using namespace std::literals;
@@ -52,6 +55,19 @@ static_assert(std::define_static_string(u8"utf8")[4] == u8'\0');
 static_assert(std::define_static_string(u"utf16")[5] == u'\0');
 static_assert(std::define_static_string(U"utf32")[5] == U'\0');
 
+constexpr std::array<int, 3> values{1, 2, 3};
+constexpr int raw[3]{4, 5, 6};
+static_assert(std::define_static_array(values).extent == 3);
+static_assert(std::define_static_array(raw).extent == 3);
+static_assert(std::define_static_array(std::span(raw)).extent == 3);
+static_assert(std::define_static_array(std::array<int, 0>{}).extent == 0);
+static_assert(std::define_static_array(std::span<const int>(raw)).extent == std::dynamic_extent);
+static_assert(std::define_static_array(std::vector<int>{1, 2, 3}).extent == std::dynamic_extent);
+static_assert(std::define_static_array(values)[2] == 3);
+constexpr int rows[2][3]{{1, 2, 3}, {4, 5, 6}};
+static_assert(std::define_static_array(rows).extent == 2);
+static_assert(std::define_static_array(rows)[1][2] == 6);
+
 struct point {
   int x;
   int y;
@@ -64,5 +80,25 @@ static_assert(*scalar == 42);
 static_assert(object->x == 1 && object->y == 2);
 
 } // namespace p3491
+
+union value_union {
+  int integer;
+  float real;
+};
+constexpr value_union a_union{.integer = 3};
+static_assert(std::define_static_object(a_union)->integer == 3);
+static_assert(std::define_static_object(a_union) ==
+              &std::meta::extract<const value_union&>(std::meta::reflect_constant(a_union)));
+
+// A string literal decays to a pointer to a string-literal object, which is not a valid template argument.
+consteval bool literal_constant_throws() {
+  try {
+    (void)std::meta::reflect_constant("literal");
+  } catch (const std::meta::exception&) {
+    return true;
+  }
+  return false;
+}
+static_assert(literal_constant_throws());
 
 int main(int, char**) { return 0; }

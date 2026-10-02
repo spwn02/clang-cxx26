@@ -90,7 +90,7 @@ template <reflection_range R = initializer_list<info>>
 
 // reflect expression results
 template <typename T>
-  consteval auto reflect_constant(const T&) -> info;
+  consteval auto reflect_constant(T) -> info;
 template <typename T>
   consteval auto reflect_object(T &) -> info;
 template <typename T>
@@ -1687,72 +1687,37 @@ template <typename T, size_t N>
 inline constexpr bool __reflect_constant_array_structural_v<T[N]> =
     __reflect_constant_array_structural_v<T>;
 
-// Forward declaration: a template parameter of array type cannot be formed
-// through the ordinary template-parameter-object mechanism (CWG 3111), so
-// the array-typed overload of 'reflect_constant' just below routes through
-// 'reflect_constant_array' instead, which builds an addressable backing
-// object via 'substitute' and reflects that. A nested (multi-dimensional)
-// array can't be handled by naively recursing one dimension at a time and
-// copying each row's own backing object into a NTTP-reference pack, the
-// way an earlier version of this fix attempted: arrays are never
-// copy-list-initializable from another array object (there's no such
-// conversion in the language -- 'int a[2][3] = {row0, row1};' is just as
-// ill-formed in ordinary, non-reflective code), so a row-by-row NTTP-
-// reference approach can never work regardless of how it's wired up. What
-// *does* work is brace elision ([dcl.init.aggr]): a nested array can be
-// initialized from one fully-flattened, row-major list of *scalar*
-// leaves, e.g. 'int a[2][3] = {1,2,3,4,5,6};'. So the definition below
-// flattens all the way down to the ultimate non-array leaf type first,
-// gathers every dimension's extent (outermost first), and reconstructs
-// the correctly-nested array type via '__nd_array_shape' (ordinary
-// template recursion over the extents pack, not limited by declarator
-// syntax -- unlike a declarator, a pack expansion can't spell out an
-// arbitrary number of '[N]' pairs directly) before substituting the flat
-// leaves into that shape. Defined further below.
-template <ranges::input_range R>
-consteval auto reflect_constant_array(R &&elems) -> info;
-
-// Returns a reflection of an array held by the provided argument (CWG 3111).
-//
-// A separate overload (rather than folding this into the primary
-// 'reflect_constant(T r)' below) because the array case needs the argument
-// by reference: a by-value array-typed parameter would array-to-pointer
-// adjust before this could ever see it as an array. Handles arbitrarily
-// nested (multi-dimensional) arrays, e.g. 'int[2][3]': 'T' here (the outer
-// array's *element* type, deduced from 'const T(&)[N]') may itself be an
-// array type -- 'reflect_constant_array' below flattens through every
-// level itself, so this overload doesn't need to recurse. Reference
-// binding is preferred by ordinary overload resolution over the primary
-// 'reflect_constant(T r)' below's implicit array-to-pointer decay whenever
-// both are viable, so this overload always wins for an array-typed
-// argument without needing an explicit 'requires (!is_array_v<T>)'
-// exclusion (an earlier, narrower version of this fix used one, and only
-// handled a single level of nesting).
-template <typename T, size_t N>
-consteval auto reflect_constant(const T (&r)[N]) -> info {
-  return reflect_constant_array(r);
-}
-
 // Returns a reflection of the value held by the provided argument.
 template <typename T>
-  requires (!is_reference_v<T> && is_structural_type(^^T))
 consteval auto reflect_constant(T r) -> info {
-  return __metafunction(detail::__metafn_reflect_result, ^^T, r,
-                        ^^reflect_constant<T>);
+  static_assert(is_copy_constructible_v<T>, "reflect_constant requires a copy-constructible type");
+  static_assert(is_same_v<T, remove_cv_t<T>> && !is_reference_v<T> && is_structural_type(^^T),
+                "reflect_constant requires a cv-unqualified structural non-reference type");
+  if constexpr (is_copy_constructible_v<T> && is_same_v<T, remove_cv_t<T>> &&
+                !is_reference_v<T> && is_structural_type(^^T))
+    return __metafunction(detail::__metafn_reflect_result, ^^T, r, ^^reflect_constant<T>);
+  else
+    return {};
 }
 
 // Returns a reflection of the object designated by the provided argument.
-template <typename T> requires (!is_function_v<remove_reference_t<T>>)
+template <typename T>
 consteval auto reflect_object(T &r) -> info {
-  return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r,
-                        ^^reflect_object);
+  static_assert(is_object_v<T>, "reflect_object requires an object type");
+  if constexpr (is_object_v<T>)
+    return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r, ^^reflect_object);
+  else
+    return {};
 }
 
 // Returns a reflection of the object designated by the provided argument.
-template <typename T> requires (is_function_v<remove_reference_t<T>>)
+template <typename T>
 consteval auto reflect_function(T &r) -> info {
-  return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r,
-                        ^^reflect_function);
+  static_assert(is_function_v<T>, "reflect_function requires a function type");
+  if constexpr (is_function_v<T>)
+    return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r, ^^reflect_function);
+  else
+    return {};
 }
 
 struct member_offset {
@@ -3152,9 +3117,20 @@ consteval bool is_string_literal(const char32_t *p) {
   return meta::__is_string_literal(p);
 }
 
+namespace __define_static {
+// An unknown reference may be used in a constant expression when size() does
+// not read the object (e.g. arrays, std::array, and fixed-extent spans). Keep
+// the parameter unevaluated at the call site; declval itself is not constexpr.
+template <class R>
+auto __static_array_extent(R &r) -> integral_constant<size_t, static_cast<size_t>(ranges::size(r))>;
+auto __static_array_extent(...) -> integral_constant<size_t, dynamic_extent>;
+template <class R>
+inline constexpr size_t __static_array_extent_v = decltype(__static_array_extent(declval<R &>()))::value;
+} // namespace __define_static
+
 template <ranges::input_range R>
 consteval auto define_static_array(R &&elems)
-    -> span<const ranges::range_value_t<R>> {
+    -> span<const ranges::range_value_t<R>, __define_static::__static_array_extent_v<R>> {
   // P3491R3: these are Mandates, i.e. ill-formed at the call, not a constraint that removes the overload.
   static_assert(meta::__reflect_constant_array_structural_v<ranges::range_value_t<R>>,
                 "define_static_array requires a structural element type");
@@ -3163,6 +3139,7 @@ consteval auto define_static_array(R &&elems)
                     : is_constructible_v<ranges::range_value_t<R>, ranges::range_reference_t<R>>,
                 "define_static_array requires the element type to be constructible from the range reference type");
   using ValTy  = ranges::range_value_t<R>;
+  using Result = span<const ValTy, __define_static::__static_array_extent_v<R>>;
   meta::info array = meta::reflect_constant_array(elems);
   if constexpr (is_array_v<ValTy>) {
     // A reflection of a (possibly nested) multi-dimensional array object
@@ -3194,11 +3171,11 @@ consteval auto define_static_array(R &&elems)
     // constant, not something that needs computing from a runtime value.
     constexpr size_t Extent = extent_v<remove_reference_t<R>, 0>;
     auto &whole = extract<const ValTy (&)[Extent]>(array);
-    return span<const ValTy>(&whole[0], Extent);
+    return Result(&whole[0], Extent);
   } else if (meta::is_array_type(meta::type_of(array))) {
-    return span<const ValTy>(extract<const ValTy*>(array), meta::extent(type_of(array)));
+    return Result(extract<const ValTy*>(array), meta::extent(type_of(array)));
   } else {
-    return span<const ValTy>();
+    return Result(static_cast<const ValTy*>(nullptr), 0);
   }
 }
 
@@ -3211,7 +3188,7 @@ consteval auto define_static_string(R &&r) -> const ranges::range_value_t<R> * {
 template <class T>
 consteval auto define_static_object(T &&t) -> const remove_cvref_t<T> * {
   using U = remove_cvref_t<T>;
-  if constexpr (is_class_v<U>)
+  if constexpr (is_class_v<U> || is_union_v<U>)
     return addressof(extract<const U &>(meta::reflect_constant(std::forward<T>(t))));
   else
     return define_static_array(span(addressof(t), 1)).data();
