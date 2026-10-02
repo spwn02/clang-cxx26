@@ -986,10 +986,10 @@ set(files
   __type_traits/is_pointer_interconvertible_with_class.h
   __type_traits/is_polymorphic.h
   __type_traits/is_primary_template.h
-  __type_traits/is_reflection.h
   __type_traits/is_reference.h
   __type_traits/is_reference_wrapper.h
   __type_traits/is_referenceable.h
+  __type_traits/is_reflection.h
   __type_traits/is_replaceable.h
   __type_traits/is_same.h
   __type_traits/is_scalar.h
