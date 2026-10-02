@@ -9785,8 +9785,17 @@ QualType Sema::BuildCountAttributedArrayOrPointerType(QualType WrappedTy,
 QualType Sema::getDecltypeForExpr(Expr *E) {
 
   Expr *IDExpr = E;
-  if (auto *ImplCastExpr = dyn_cast<ImplicitCastExpr>(E))
+  if (auto *ImplCastExpr = dyn_cast<ImplicitCastExpr>(E)) {
+    // An unparenthesized base-class splice member access (E1.[:base:]) is a
+    // derived-to-base conversion; its type is the base type, not the type of
+    // the object expression underneath ([expr.ref]: "The type of E1.E2 is cv B").
+    if (getLangOpts().Reflection &&
+        (ImplCastExpr->getCastKind() == CK_DerivedToBase ||
+         ImplCastExpr->getCastKind() == CK_UncheckedDerivedToBase) &&
+        !E->isTypeDependent())
+      return E->getType();
     IDExpr = ImplCastExpr->getSubExpr();
+  }
 
   if (auto *PackExpr = dyn_cast<PackIndexingExpr>(E)) {
     if (E->isInstantiationDependent())
