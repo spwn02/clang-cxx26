@@ -278,11 +278,14 @@ Retry:
         TemplateParameterDepthRAII TParamDepthGuard(TemplateParameterDepth);
         ++TParamDepthGuard;
 
+        unsigned Errors = Diags.getNumErrors();
         StmtResult SR = ParseForStatement(TrailingElseLoc, PrecedingLabel);
         if (SR.isInvalid())
           return SR;
         Expansion = cast<CXXExpansionStmt>(SR.get());
         ExpansionDecl->setStmt(Expansion);
+        if (Diags.getNumErrors() != Errors)
+          ExpansionDecl->setInvalidDecl();
       }
 
       DeclSpec DS(AttrFactory);
@@ -834,8 +837,14 @@ StmtResult Parser::ParseCaseStatement(ParsedStmtContext StmtCtx,
                                            ConsumeToken();  // eat the 'case'.
     ColonLoc = SourceLocation();
 
-    if (isa<ExpansionStmtDecl>(Actions.CurContext))
-      Diag(CaseLoc, diag::err_expanded_case_label);
+    for (Scope *S = getCurScope(); S; S = S->getParent()) {
+      if (S->getFlags() & (Scope::SwitchScope | Scope::FnScope))
+        break;
+      if (S->getFlags() & Scope::ExpansionStmtScope) {
+        Diag(CaseLoc, diag::err_expanded_case_label);
+        break;
+      }
+    }
 
     if (Tok.is(tok::code_completion)) {
       cutOffParsing();
@@ -959,8 +968,14 @@ StmtResult Parser::ParseDefaultStatement(ParsedStmtContext StmtCtx) {
 
   SourceLocation DefaultLoc = ConsumeToken();  // eat the 'default'.
 
-  if (isa<ExpansionStmtDecl>(Actions.CurContext))
-    Diag(DefaultLoc, diag::err_expanded_case_label);
+  for (Scope *S = getCurScope(); S; S = S->getParent()) {
+    if (S->getFlags() & (Scope::SwitchScope | Scope::FnScope))
+      break;
+    if (S->getFlags() & Scope::ExpansionStmtScope) {
+      Diag(DefaultLoc, diag::err_expanded_case_label);
+      break;
+    }
+  }
 
   SourceLocation ColonLoc;
   if (TryConsumeToken(tok::colon, ColonLoc)) {
@@ -1982,7 +1997,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
   if (C99orCXXorObjC)
     ScopeFlags = Scope::DeclScope | Scope::ControlScope;
   if (TemplateKWLoc.isValid())
-    ScopeFlags |= Scope::TemplateParamScope;
+    ScopeFlags |= Scope::TemplateParamScope | Scope::ExpansionStmtScope;
 
   ParseScope ForScope(this, ScopeFlags);
 

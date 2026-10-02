@@ -169,6 +169,12 @@ public:
 
       for (const Stmt *SubStmt : S->children())
         Visit(SubStmt);
+
+      if (const auto *Expansion = dyn_cast<CXXExpansionStmt>(S);
+          Expansion && !Expansion->hasDependentSize() && Traversal == TK_AsIs)
+        for (unsigned I = 0; I != Expansion->getNumInstantiations(); ++I)
+          if (const Stmt *Instantiation = Expansion->getInstantiation(I))
+            Visit(Instantiation, "instantiation");
     });
   }
 
@@ -607,6 +613,8 @@ public:
   void VisitFileScopeAsmDecl(const FileScopeAsmDecl *D) {
     Visit(D->getAsmStringExpr());
   }
+
+  void VisitExpansionStmtDecl(const ExpansionStmtDecl *D) { Visit(D->getStmt()); }
 
   void VisitTopLevelStmtDecl(const TopLevelStmtDecl *D) { Visit(D->getStmt()); }
 

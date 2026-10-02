@@ -753,6 +753,9 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_constexpr_virtual_inheritance", "202506L");
   }
 
+  if (LangOpts.ExpansionStatements)
+    Builder.defineMacro("__cpp_expansion_statements", "202506L");
+
   if (LangOpts.Reflection)
     Builder.defineMacro("__cpp_impl_reflection", "202603L");
 

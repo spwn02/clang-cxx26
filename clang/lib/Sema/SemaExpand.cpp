@@ -232,8 +232,10 @@ bool tryMakeCXXIterableExpansionSelectExpr(
     }
 
     S.AddInitializerToDecl(RangeVar, Range, false);
-    if (RangeVar->isInvalidDecl())
-      return false;
+    if (RangeVar->isInvalidDecl()) {
+      SelectResult = ExprError();
+      return true;
+    }
 
     DeclarationNameInfo Name(II, Range->getBeginLoc());
     VarRef = S.BuildDeclRefExpr(RangeVar,
@@ -304,8 +306,15 @@ ExprResult makeCXXDestructurableExpansionSelectExpr(
 
   UnsignedOrNone Arity = S.GetDecompositionElementCount(Range->getType(),
                                                         Range->getBeginLoc());
-  if (!Arity)
+  if (!Arity) {
+    // The count query can fail silently for scalar and union types. Use the
+    // structured binding diagnostic for these invalid expansion initializers.
+    const CXXRecordDecl *RD = Range->getType()->getAsCXXRecordDecl();
+    if (!RD || RD->isUnion())
+      S.Diag(Range->getBeginLoc(), diag::err_decomp_decl_unbindable_type)
+          << DeclarationName() << !RD << Range->getType();
     return ExprError();
+  }
 
   QualType QT = S.Context.getAutoDeductType();
   if (ExpansionVar->getType()->isReferenceType())

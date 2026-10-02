@@ -232,6 +232,21 @@ static ScopePair GetDiagForGotoScopeDecl(Sema &S, const Decl *D) {
 
 /// Build scope information for a declaration that is part of a DeclStmt.
 void JumpScopeChecker::BuildScopeInformation(Decl *D, unsigned &ParentScope) {
+  if (auto *ESD = dyn_cast<ExpansionStmtDecl>(D)) {
+    CXXExpansionStmt *Expansion = ESD->getStmt();
+    if (ESD->isInvalidDecl() || !Expansion || Expansion->hasDependentSize())
+      return;
+    // The expansion's init and instantiated bodies form a compound statement.
+    // Its scopes do not extend beyond the expansion declaration.
+    unsigned ExpansionScope = ParentScope;
+    if (Stmt *Init = Expansion->getInit())
+      BuildScopeInformation(Init, ExpansionScope);
+    for (unsigned I = 0; I != Expansion->getNumInstantiations(); ++I)
+      if (Stmt *Body = Expansion->getInstantiation(I))
+        BuildScopeInformation(Body, ExpansionScope);
+    return;
+  }
+
   // If this decl causes a new scope, push and switch to it.
   std::pair<unsigned,unsigned> Diags = GetDiagForGotoScopeDecl(S, D);
   if (Diags.first || Diags.second) {

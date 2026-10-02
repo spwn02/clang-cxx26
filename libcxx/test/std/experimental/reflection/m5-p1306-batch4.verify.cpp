@@ -19,12 +19,17 @@ struct one_member { int value; };
 
 constexpr int values[] = {1, 2};
 
-int runtime_value();
+struct runtime_range {
+  const int* begin() const;
+  const int* end() const;
+};
+runtime_range runtime_value();
 
 void nonconstant_range() {
   // P1306R5 [stmt.expand]/5.2: the range must be a constant expression.
   template for (constexpr auto value : runtime_value()) {}
   // expected-error@-1 {{constexpr variable '__range' must be initialized by a constant expression}}
+  // expected-error@-2 {{could not compute size of expansion}}
 }
 
 void invalid_range() {

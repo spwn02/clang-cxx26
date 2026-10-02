@@ -4492,7 +4492,10 @@ LabelDecl *Sema::LookupExistingLabel(IdentifierInfo *II, SourceLocation Loc) {
                                     RedeclarationKind::NotForRedeclaration);
   // If we found a label, check to see if it is in the same context as us.
   // When in a Block, we don't want to reuse a label in an enclosing function.
-  if (!Res || Res->getDeclContext() != CurContext)
+  DeclContext *LabelContext = CurContext;
+  while (isa<ExpansionStmtDecl>(LabelContext))
+    LabelContext = LabelContext->getParent();
+  if (!Res || Res->getDeclContext() != LabelContext)
     return nullptr;
   return cast<LabelDecl>(Res);
 }
@@ -4511,7 +4514,11 @@ LabelDecl *Sema::LookupOrCreateLabel(IdentifierInfo *II, SourceLocation Loc,
   LabelDecl *Res = LookupExistingLabel(II, Loc);
   if (!Res) {
     // If not forward referenced or defined already, create the backing decl.
-    Res = LabelDecl::Create(Context, CurContext, Loc, II);
+    DeclContext *LabelContext = CurContext;
+    while (isa<ExpansionStmtDecl>(LabelContext))
+      LabelContext = LabelContext->getParent();
+    Res = LabelDecl::Create(Context, LabelContext, Loc, II);
+    ContextRAII LabelContextGuard(*this, LabelContext, /*NewThis=*/false);
     Scope *S = CurScope->getFnParent();
     assert(S && "Not in a function?");
     PushOnScopeChains(Res, S, true);
