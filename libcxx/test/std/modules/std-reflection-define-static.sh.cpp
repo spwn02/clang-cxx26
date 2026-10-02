@@ -43,4 +43,10 @@ static_assert(std::meta::is_value(std::meta::reflect_constant(5)));
 static_assert(std::meta::type_of(std::meta::reflect_constant(raw)) == ^^const int*);
 static_assert(std::define_static_object(a_union)->integer == 7);
 
+static_assert(std::meta::is_object(std::meta::reflect_constant_array(raw)));
+static_assert(std::meta::type_of(std::meta::reflect_constant_array(raw)) == ^^const int[3]);
+static_assert((*std::define_static_object(raw))[2] == 3);
+static_assert((*std::define_static_object("hi"))[0] == 'h');
+static_assert(std::meta::is_object(std::meta::constant_of(^^raw)));
+
 int main(int, char**) { return 0; }

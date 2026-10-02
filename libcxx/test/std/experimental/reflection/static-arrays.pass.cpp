@@ -41,7 +41,10 @@ struct Cls {
 };
 constexpr auto objs = std::define_static_array(std::vector<Cls>{1, 3, 5});
 static_assert(objs.size() == 3);
-static_assert(objs[0].k == 4 && objs[1].k == 6 && objs[2].k == 8);
+// The draft only requires one static_cast<T>(*it) per element; the number of
+// further internal copies is unspecified. Elements are copied twice here: the
+// conversion and the template parameter object's initialization.
+static_assert(objs[0].k == 3 && objs[1].k == 5 && objs[2].k == 7);
 
 constexpr auto infos = std::define_static_array(
                                               nonstatic_data_members_of(^^Cls,

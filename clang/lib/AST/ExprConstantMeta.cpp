@@ -3429,7 +3429,8 @@ bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
     return SetAndSucceed(Result, RV);
   case ReflectionKind::Object: {
-    if (!RV.getTypeOfReflectedResult(C)->isStructuralType())
+    if (!C.getBaseElementType(RV.getTypeOfReflectedResult(C))
+             ->isStructuralType())
       return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
           << 2 << "an object of non-structural type" << Range;
 
@@ -3445,7 +3446,8 @@ bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     APValue Constant = ER.Val;
     QualType ConstantTy = ComputeResultType(RV.getTypeOfReflectedResult(C),
                                             Constant);
-    if (ConstantTy->isRecordType()) {
+    // Arrays reflect their template parameter object, like reflect_constant_array.
+    if (ConstantTy->isRecordType() || ConstantTy->isConstantArrayType()) {
       auto *TPO = C.getTemplateParamObjectDecl(ConstantTy, Constant);
       Constant = APValue(APValue::LValueBase{TPO}, CharUnits::Zero(), {}, false,
                     false);
@@ -3504,7 +3506,7 @@ bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     }
 
     QualType ConstantTy = ComputeResultType(QT, Constant);
-    if (ConstantTy->isRecordType()) {
+    if (ConstantTy->isRecordType() || ConstantTy->isConstantArrayType()) {
       auto *TPO = C.getTemplateParamObjectDecl(ConstantTy, Constant);
       Constant = APValue(APValue::LValueBase{TPO}, CharUnits::Zero(), {}, false,
                     false);

@@ -1694,7 +1694,6 @@ inline constexpr bool __reflect_constant_array_structural_v<T[N]> =
 template <typename T>
 consteval info __reflect_array_object(const size_t* dims, size_t rank,
                                       const T* data, size_t count) {
-  static_assert(is_structural_type(^^T));
   return __metafunction(detail::__metafn_reflect_array_object, ^^T,
                         dims, rank, data, count, ^^__reflect_array_object<T>);
 }
@@ -2948,141 +2947,62 @@ consteval auto has_complete_definition(info r) -> bool {
 }
 
 namespace __define_static {
-
-template <typename ValTy, ValTy... Vals>
-inline constexpr ValTy FixedArray[sizeof...(Vals)] = {Vals...};
-
-template <typename ValTy, ValTy... Vals>
-inline constexpr std::array<ValTy, 0> EmptyArray = {};
-
-// Computes the correctly-nested array TYPE for a multi-dimensional backing
-// object (CWG 3111 residual): 'Extents...' is the list of per-dimension
-// sizes, outermost first (e.g. <2, 3> for 'int[2][3]'). Built via ordinary
-// template recursion over the extents pack, one dimension at a time --
-// unlike a declarator, which can't spell out an arbitrary, pack-driven
-// number of '[N]' pairs, type-level recursion like this has no such limit,
-// so arbitrarily deep nesting is supported.
-template <typename ValTy, size_t... Extents>
-struct __nd_array_shape;
-template <typename ValTy>
-struct __nd_array_shape<ValTy> {
-  using type = ValTy;
-};
-template <typename ValTy, size_t E0, size_t... ERest>
-struct __nd_array_shape<ValTy, E0, ERest...> {
-  using type = typename __nd_array_shape<ValTy, ERest...>::type[E0];
-};
-
-// Backing template for a (possibly multi-dimensional) array (CWG 3111): a
-// row-typed non-type template parameter can't be used here to hold whole
-// rows at once (see the fuller explanation on 'reflect_constant_array'
-// below for why a NTTP-reference-to-row design doesn't work) -- instead,
-// 'Vals' is the *fully flattened*, row-major sequence of scalar leaf
-// values, and 'Shape::type' (via '__nd_array_shape' above) supplies the
-// real, correctly-nested array type that the flattened list initializes
-// via ordinary aggregate-initialization brace elision ([dcl.init.aggr]),
-// exactly like 'int a[2][3] = {1,2,3,4,5,6};' does in non-reflective code.
-// ('Shape' carries the extents as a single type, rather than 'Extents...'
-// being a second parameter pack here directly, because a class/variable
-// template may have at most one trailing parameter pack -- see
-// 'reflect_constant_array' below for how 'Shape' actually gets built.)
-// The intentional brace elision above ([dcl.init.aggr]) is exactly what
-// 'int a[2][3] = {1,2,3,4,5,6};' does too, and triggers the same
-// '-Wmissing-braces' suggestion to add redundant nested braces that
-// ordinary code triggers for that -- suppressed here since the flat
-// initializer is required (an arbitrary-rank 'Shape::type' can't be
-// spelled with the right number of nested brace levels generically).
-_LIBCPP_DIAGNOSTIC_PUSH
-_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wmissing-braces")
-template <typename ValTy, typename Shape, ValTy... Vals>
-inline constexpr typename Shape::type FixedNDArray = {Vals...};
-_LIBCPP_DIAGNOSTIC_POP
-
-// Appends the fully-flattened, row-major sequence of 'reflect_constant'-ed
-// scalar leaf values for 'V' onto 'Args' -- 'V's static type may itself be
-// an array, recursively, for a multi-dimensional row.
-template <typename T>
-consteval void __flatten_reflect_constant(vector<info> &Args, const T &V) {
+// Validate before the internal builder: invalid template arguments must throw
+// meta::exception, including pointer members of structural class leaves.
+template <class Leaf, class T>
+consteval void __append_leaves(vector<Leaf>& values, const T& value) {
   if constexpr (is_array_v<T>) {
-    for (const auto &Elem : V)
-      __flatten_reflect_constant(Args, Elem);
+    for (const auto& element : value)
+      __append_leaves(values, element);
   } else {
-    Args.push_back(reflect_constant(static_cast<T>(V)));
+    (void)reflect_constant(static_cast<Leaf>(value));
+    // One conversion per element, as in the draft's static_cast<T>(*it).
+    values.emplace_back(value);
   }
 }
-}  // namespace __define_static
+} // namespace __define_static
 
-// Returns a reflection of an array held by the provided range's elements
-// (CWG 3111). Handles arbitrarily nested (multi-dimensional) arrays: when
-// 'ranges::range_value_t<R>' is itself an array type -- reachable via
-// 'reflect_constant's array overload above delegating here for a
-// multi-dimensional 'const T(&)[N]' argument -- a naive one-dimension-at-a-
-// time recursive design (build each row's own backing object first, then
-// collect a pack of *references* to those row objects as a non-type
-// template argument pack, mirroring how the flat/scalar case below collects
-// a pack of scalar *values*) looks appealing, since [temp.param]p6 does
-// permit a reference non-type template parameter to bind to an array
-// object. It doesn't work, though: the natural next step -- copying each
-// referenced row into a fresh, contiguous backing array via an initializer
-// like '{Rows...}' -- silently isn't actually initializing what it looks
-// like it's initializing. Arrays are never copy-list-initializable from
-// another array object; there's no such conversion in the language at all
-// ('int a[2][3] = {row0, row1};' is exactly as ill-formed in ordinary,
-// non-reflective code as it is here), so brace elision instead tries to
-// initialize the new array's individual *scalar* elements directly from
-// each whole row object and fails. So instead, every level of nesting is
-// flattened all the way down to the ultimate non-array leaf type up front
-// (via '__define_static::__flatten_reflect_constant'), every dimension's
-// extent is gathered along the way (outermost -- the range's own element
-// count -- first, then each further dimension straight from 'ValTy's own
-// static array bounds), and '__define_static::__nd_array_shape'
-// reconstructs the correctly-nested array type from that flat extent list.
-// Brace elision then *does* correctly fill a nested array from one flat,
-// row-major list of scalars -- see 'FixedNDArray' above -- which is what
-// finally makes the multi-dimensional case work.
 template <ranges::input_range R>
 consteval auto reflect_constant_array(R &&elems) -> info {
-  // P3491R3: these are Mandates, i.e. ill-formed at the call, not a constraint that removes the overload.
-  static_assert(__reflect_constant_array_structural_v<ranges::range_value_t<R>>,
-                "reflect_constant_array requires a structural element type");
-  static_assert(is_array_v<ranges::range_value_t<R>>
-                    ? __reflect_constant_array_row_ok_v<ranges::range_value_t<R>>
-                    : is_constructible_v<ranges::range_value_t<R>, ranges::range_reference_t<R>>,
-                "reflect_constant_array requires the element type to be constructible from the range reference type");
   using ValTy = ranges::range_value_t<R>;
-  if constexpr (is_array_v<ValTy>) {
-    using LeafTy = remove_all_extents_t<ValTy>;
-    vector Args = {^^LeafTy};
-    size_t OuterCount = 0;
-    for (const auto &V : elems) {
-      ++OuterCount;
-      __define_static::__flatten_reflect_constant(Args, V);
+  using LeafTy = remove_all_extents_t<ValTy>;
+  static_assert(__reflect_constant_array_structural_v<ValTy>,
+                "reflect_constant_array requires a structural element type");
+  static_assert(is_array_v<ValTy> ? __reflect_constant_array_row_ok_v<ValTy>
+                                 : is_constructible_v<ValTy, ranges::range_reference_t<R>>,
+                "reflect_constant_array requires the element type to be constructible from the range reference type");
+  vector<LeafTy> values;
+  // Avoid reallocation, which would copy (and be observable for) class elements.
+  if constexpr (ranges::sized_range<R> && !is_array_v<ValTy>)
+    values.reserve(static_cast<size_t>(ranges::size(elems)));
+  size_t count = 0;
+  for (auto&& value : elems) {
+    ++count;
+    if constexpr (is_array_v<ValTy>) {
+      __define_static::__append_leaves(values, value);
+    } else {
+      // LWG 4432: convert range proxies to the actual element type.
+      (void)reflect_constant(static_cast<ValTy>(value));
+      values.emplace_back(value);
     }
-    vector<size_t> Dims = {OuterCount};
-    [&]<size_t... Is>(index_sequence<Is...>) {
-      (Dims.push_back(extent_v<ValTy, Is>), ...);
-    }(make_index_sequence<rank_v<ValTy>>());
-    vector ShapeArgs = {^^LeafTy};
-    for (size_t D : Dims)
-      ShapeArgs.push_back(reflect_constant(D));
-    info Shape = substitute(^^__define_static::__nd_array_shape, ShapeArgs);
-    vector NDArgs = {^^LeafTy, Shape};
-    for (size_t I = 1; I < Args.size(); ++I)
-      NDArgs.push_back(Args[I]);
-    return substitute(^^__define_static::FixedNDArray, NDArgs);
+  }
+  if (count == 0)
+    return reflect_constant(std::array<LeafTy, 0>{});
+  vector<size_t> dims = {count};
+  [&]<size_t... Is>(index_sequence<Is...>) {
+    (dims.push_back(extent_v<ValTy, Is>), ...);
+  }(make_index_sequence<rank_v<ValTy>>());
+  if constexpr (is_same_v<LeafTy, bool>) {
+    // vector<bool> has no contiguous data buffer.
+    allocator<bool> alloc;
+    bool* data = alloc.allocate(values.size());
+    for (size_t i = 0; i != values.size(); ++i)
+      construct_at(data + i, static_cast<bool>(values[i]));
+    info result = __reflect_array_object(dims.data(), dims.size(), data, values.size());
+    alloc.deallocate(data, values.size());
+    return result;
   } else {
-    vector Args = {^^ValTy};
-    for (const auto &V : elems) {
-      // LWG 4432: each element is 'static_cast<ValTy>(*it)' before being
-      // reflected, so a range whose reference type isn't plain 'ValTy&'
-      // (e.g. a proxy reference from a transform_view, or 'vector<bool>')
-      // converts to the array's actual element type rather than deducing
-      // 'reflect_constant's T from the reference/proxy type itself.
-      Args.push_back(reflect_constant(static_cast<ValTy>(V)));
-    }
-    return Args.size() == 1
-               ? substitute(^^__define_static::EmptyArray, Args)
-               : substitute(^^__define_static::FixedArray, Args);
+    return __reflect_array_object(dims.data(), dims.size(), values.data(), values.size());
   }
 }
 
@@ -3093,16 +3013,17 @@ consteval auto reflect_constant_string(R &&r) -> info {
                 same_as<CharT, char8_t> || same_as<CharT, char16_t> ||
                 same_as<CharT, char32_t>);
 
-  vector Args = {^^CharT};
-  for (auto &&C : r)
-    Args.push_back(reflect_constant(static_cast<CharT>(C)));
-
-  bool add_null = true;
+  vector<CharT> values;
+  for (auto&& c : r)
+    values.push_back(static_cast<CharT>(c));
+  bool literal = false;
   if constexpr (requires { std::is_string_literal(r); })
-    add_null = !std::is_string_literal(r);
-  if (add_null)
-    Args.push_back(reflect_constant(CharT{}));
-  return substitute(^^__define_static::FixedArray, Args);
+    literal = std::is_string_literal(r);
+  if (literal)
+    values.pop_back();
+  values.push_back(CharT{});
+  size_t size = values.size();
+  return __reflect_array_object(&size, 1, values.data(), size);
 }
 
 template <class CharT>
@@ -3154,38 +3075,7 @@ consteval auto define_static_array(R &&elems)
   using ValTy  = ranges::range_value_t<R>;
   using Result = span<const ValTy, __define_static::__static_array_extent_v<R>>;
   meta::info array = meta::reflect_constant_array(elems);
-  if constexpr (is_array_v<ValTy>) {
-    // A reflection of a (possibly nested) multi-dimensional array object
-    // (CWG 3111 residual) can't be extracted directly as a decayed
-    // 'const ValTy*' row-pointer here -- unlike the flat/scalar case below,
-    // whose backing object's own reflection kind supports that one-level
-    // array-to-pointer decay via 'extract', a multi-dimensional backing
-    // object doesn't (only its *whole* array type extracts reliably). So
-    // extract the whole array by reference instead, then decay to a row
-    // pointer ourselves via '&whole[0]', exactly what the row-pointer
-    // extraction would have produced if it had worked directly.
-    //
-    // The outer extent has to be spelled as a literal in the reference
-    // type below (an array bound is a required-constant-expression,
-    // evaluated independently of the ambient consteval evaluation, so it
-    // can't be read from an ordinary local or parameter here -- e.g.
-    // 'meta::extent(meta::type_of(array))' -- even though 'array's value
-    // is already known at this point ([expr.const]: a 'constexpr'
-    // variable's -- or, identically, an array bound's -- initializer must
-    // be its own standalone constant expression, and 'array' isn't itself
-    // declared 'constexpr' or a template parameter). Getting it from 'R'
-    // itself sidesteps this entirely: 'is_array_v<ValTy>' is only ever
-    // true when 'R' is (modulo reference) itself a genuine raw C array
-    // type -- a range whose 'range_value_t' is a raw array can only
-    // arise from indexing/dereferencing a raw (possibly multi-dimensional)
-    // C array in the first place, an ordinary container can't hold
-    // array-typed elements -- so the outer extent is already encoded
-    // directly in the template parameter 'R', a genuine compile-time
-    // constant, not something that needs computing from a runtime value.
-    constexpr size_t Extent = extent_v<remove_reference_t<R>, 0>;
-    auto &whole = extract<const ValTy (&)[Extent]>(array);
-    return Result(&whole[0], Extent);
-  } else if (meta::is_array_type(meta::type_of(array))) {
+  if (meta::is_array_type(meta::type_of(array))) {
     return Result(extract<const ValTy*>(array), meta::extent(type_of(array)));
   } else {
     return Result(static_cast<const ValTy*>(nullptr), 0);
@@ -3203,6 +3093,8 @@ consteval auto define_static_object(T &&t) -> const remove_cvref_t<T> * {
   using U = remove_cvref_t<T>;
   if constexpr (is_class_v<U> || is_union_v<U>)
     return addressof(extract<const U &>(meta::reflect_constant(std::forward<T>(t))));
+  else if constexpr (is_array_v<U>)
+    return addressof(extract<const U &>(meta::reflect_constant_array(std::forward<T>(t))));
   else
     return define_static_array(span(addressof(t), 1)).data();
 }
