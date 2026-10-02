@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// RUN: %clang_cc1 -std=c++2c -freflection-latest -fexpansion-statements -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++2c -freflection-latest -fexpansion-statements -fsyntax-only -Wno-expansion-stmt-non-compound-body -verify %s
 
 void f();          // expected-note {{possible target for call}}
 void f(int) {      // expected-note {{possible target for call}}

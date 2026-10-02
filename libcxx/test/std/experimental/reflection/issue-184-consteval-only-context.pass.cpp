@@ -8,6 +8,7 @@
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
 // ADDITIONAL_COMPILE_FLAGS: -freflection-latest -Wno-unused-variable
+// ADDITIONAL_COMPILE_FLAGS: -Wno-expansion-stmt-non-compound-body
 
 // Upstream bloomberg/clang-p2996#184: a function-template NTTP of
 // consteval-only reflection type was spuriously diagnosed when named from the

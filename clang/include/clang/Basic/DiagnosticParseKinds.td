@@ -1910,4 +1910,11 @@ def err_hlsl_number_literal_underflow : Error<
   "float literal has a magnitude that is too small to be represented as a float type">;
 def err_hlsl_rootsig_non_zero_flag : Error<"flag value is neither a literal 0 nor a named value">;
 
+// P1306R5 [stmt.expand]: the body of an expansion statement is a
+// compound-statement. Upstream Clang accepts any statement, so this is an
+// extension warning that defaults to an error and can be disabled.
+def ext_expansion_stmt_non_compound_body : ExtWarn<
+  "body of an expansion statement should be a compound-statement">,
+  InGroup<DiagGroup<"expansion-stmt-non-compound-body">>, DefaultError;
+
 } // end of Parser diagnostics

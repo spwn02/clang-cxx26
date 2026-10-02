@@ -2333,6 +2333,8 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
   MisleadingIndentationChecker MIChecker(*this, MSK_for, ForLoc);
 
   // Read the body statement.
+  if (ForRangeInfo.ExpansionStmt && Tok.isNot(tok::l_brace))
+    Diag(Tok, diag::ext_expansion_stmt_non_compound_body);
   StmtResult Body(ParseStatement(TrailingElseLoc));
 
   if (Body.isUsable())

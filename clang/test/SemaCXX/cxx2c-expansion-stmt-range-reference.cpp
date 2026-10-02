@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection-latest -fexpansion-statements -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -freflection-latest -fexpansion-statements -fsyntax-only -Wno-expansion-stmt-non-compound-body -verify %s
 // expected-no-diagnostics
 
 struct Range {
