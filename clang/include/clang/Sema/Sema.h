@@ -6212,15 +6212,26 @@ public:
   // C++ Derived Classes
   //
 
+  /// Validate and build an annotation, including after substitution.
+  CXX26AnnotationAttr *BuildCXX26Annotation(Expr *Arg,
+                                            const AttributeCommonInfo &Info,
+                                            SourceLocation EqLoc,
+                                            bool AllowUnexpandedPacks = false);
+
+  /// Substitute annotations on a base-specifier.
+  bool SubstBaseAnnotations(CXXBaseSpecifier &Base,
+                            const CXXBaseSpecifier &Pattern,
+                            const MultiLevelTemplateArgumentList &TemplateArgs);
+
   /// Check the validity of a C++ base class specifier.
   ///
   /// \returns a new CXXBaseSpecifier if well-formed, emits diagnostics
   /// and returns NULL otherwise.
-  CXXBaseSpecifier *CheckBaseSpecifier(CXXRecordDecl *Class,
-                                       SourceRange SpecifierRange, bool Virtual,
-                                       AccessSpecifier Access,
-                                       TypeSourceInfo *TInfo,
-                                       SourceLocation EllipsisLoc);
+  CXXBaseSpecifier *
+  CheckBaseSpecifier(CXXRecordDecl *Class, SourceRange SpecifierRange,
+                     bool Virtual, AccessSpecifier Access,
+                     TypeSourceInfo *TInfo, SourceLocation EllipsisLoc,
+                     ArrayRef<const CXX26AnnotationAttr *> Annotations = {});
 
   /// ActOnBaseSpecifier - Parsed a base specifier. A base specifier is
   /// one entry in the base class list of a class specifier, for

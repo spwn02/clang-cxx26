@@ -2805,6 +2805,11 @@ void TextNodeDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
       dumpType(I.getType());
       if (I.isPackExpansion())
         OS << "...";
+      for (const auto *Annotation : I.getAnnotations())
+        AddChild([=] {
+          Visit(Annotation);
+          AddChild([=] { Visit(Annotation->getArg()); });
+        });
     });
   }
 }

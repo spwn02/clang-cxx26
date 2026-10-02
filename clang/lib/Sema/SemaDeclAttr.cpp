@@ -2315,34 +2315,40 @@ static void handleCXX2CAnnotation(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
-  Expr *CE = AL.getArgAsExpr(0);
-  if (isa<PackExpansionExpr>(CE)) {
-    auto *Annot = CXX26AnnotationAttr::Create(S.Context, CE, AL);
-    Annot->setEqLoc(AL.getLoc());
+  if (auto *Annot = S.BuildCXX26Annotation(AL.getArgAsExpr(0), AL, AL.getLoc()))
     D->addAttr(Annot);
-    return;
+}
+
+CXX26AnnotationAttr *Sema::BuildCXX26Annotation(Expr *CE,
+                                                const AttributeCommonInfo &Info,
+                                                SourceLocation EqLoc,
+                                                bool AllowUnexpandedPacks) {
+
+  if (isa<PackExpansionExpr>(CE)) {
+    auto *Annot = CXX26AnnotationAttr::Create(Context, CE, Info);
+    Annot->setEqLoc(EqLoc);
+    return Annot;
   }
-  if (S.DiagnoseUnexpandedParameterPack(CE))
-    return;
+  if (!AllowUnexpandedPacks && DiagnoseUnexpandedParameterPack(CE))
+    return nullptr;
 
   if (CE->isLValue()) {
     if (CE->getType()->isRecordType()) {
-      InitializedEntity Entity =
-          InitializedEntity::InitializeTemporary(
-              CE->getType().getUnqualifiedType());
+      InitializedEntity Entity = InitializedEntity::InitializeTemporary(
+          CE->getType().getUnqualifiedType());
       InitializationKind Kind =
           InitializationKind::CreateCopy(CE->getExprLoc(), SourceLocation());
-      InitializationSequence Seq(S, Entity, Kind, CE);
+      InitializationSequence Seq(*this, Entity, Kind, CE);
 
-      ExprResult CopyResult = Seq.Perform(S, Entity, Kind, CE);
+      ExprResult CopyResult = Seq.Perform(*this, Entity, Kind, CE);
       if (CopyResult.isInvalid())
-        return;
+        return nullptr;
 
       CE = CopyResult.get();
     } else {
-      ExprResult RVExprResult = S.DefaultLvalueConversion(AL.getArgAsExpr(0));
+      ExprResult RVExprResult = DefaultLvalueConversion(CE);
       if (RVExprResult.isInvalid() || !RVExprResult.get())
-        return;
+        return nullptr;
 
       CE = RVExprResult.get();
     }
@@ -2354,27 +2360,28 @@ static void handleCXX2CAnnotation(Sema &S, Decl *D, const ParsedAttr &AL) {
   Result.Diag = &Notes;
 
   if (!CE->isValueDependent()) {
-    ConstantExprKind CEKind = (CE->getType()->isClassType() ?
-                               ConstantExprKind::ClassTemplateArgument :
-                               ConstantExprKind::NonClassTemplateArgument);
+    ConstantExprKind CEKind =
+        (CE->getType()->isClassType()
+             ? ConstantExprKind::ClassTemplateArgument
+             : ConstantExprKind::NonClassTemplateArgument);
 
-    if (!CE->EvaluateAsConstantExpr(Result, S.Context, CEKind)) {
-      S.Diag(CE->getBeginLoc(), diag::err_attribute_argument_type)
+    if (!CE->EvaluateAsConstantExpr(Result, Context, CEKind)) {
+      Diag(CE->getBeginLoc(), diag::err_attribute_argument_type)
           << "C++26 annotation" << 4 << CE->getSourceRange();
       for (auto P : Notes)
-        S.Diag(P.first, P.second);
+        Diag(P.first, P.second);
 
-      return;
+      return nullptr;
     } else if (!CE->getType()->isStructuralType()) {
-      S.Diag(CE->getBeginLoc(), diag::err_attribute_argument_type)
+      Diag(CE->getBeginLoc(), diag::err_attribute_argument_type)
           << "C++26 annotation" << 5 << CE->getSourceRange();
-      return;
+      return nullptr;
     }
   }
-  auto *Annot = CXX26AnnotationAttr::Create(S.Context, CE, AL);
+  auto *Annot = CXX26AnnotationAttr::Create(Context, CE, Info);
   Annot->setValue(Result.Val);
-  Annot->setEqLoc(AL.getLoc());
-  D->addAttr(Annot);
+  Annot->setEqLoc(EqLoc);
+  return Annot;
 }
 
 static void handleInstantiationDependentAttr(Sema &S, Decl *D,

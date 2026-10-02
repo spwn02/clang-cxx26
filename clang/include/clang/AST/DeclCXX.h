@@ -53,6 +53,8 @@
 
 namespace clang {
 
+class CXX26AnnotationAttr;
+
 class ASTContext;
 class ClassTemplateDecl;
 class ConstructorUsingShadowDecl;
@@ -181,6 +183,8 @@ class CXXBaseSpecifier {
   /// The derived record type that this base specifier applies to.
   CXXRecordDecl *Derived;
 
+  ArrayRef<const CXX26AnnotationAttr *> Annotations;
+
 public:
   CXXBaseSpecifier() = default;
   CXXBaseSpecifier(SourceRange R, bool V, AccessSpecifier A,
@@ -251,6 +255,12 @@ public:
   QualType getType() const {
     return BaseTypeInfo->getType().getUnqualifiedType();
   }
+
+  ArrayRef<const CXX26AnnotationAttr *> getAnnotations() const {
+    return Annotations;
+  }
+  void setAnnotations(ASTContext &Context,
+                      ArrayRef<const CXX26AnnotationAttr *> Attrs);
 
   CXXRecordDecl *getDerived() const { return Derived; }
 

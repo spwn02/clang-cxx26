@@ -55,6 +55,11 @@ using namespace clang;
 // Decl Allocation/Deallocation Method Implementations
 //===----------------------------------------------------------------------===//
 
+void CXXBaseSpecifier::setAnnotations(
+    ASTContext &Context, ArrayRef<const CXX26AnnotationAttr *> Attrs) {
+  Annotations = Attrs.copy(Context);
+}
+
 void AccessSpecDecl::anchor() {}
 
 AccessSpecDecl *AccessSpecDecl::CreateDeserialized(ASTContext &C,

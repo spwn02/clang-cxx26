@@ -7241,6 +7241,9 @@ void ASTRecordWriter::AddCXXBaseSpecifier(const CXXBaseSpecifier &Base) {
   AddSourceRange(Base.getSourceRange());
   AddSourceLocation(Base.isPackExpansion()? Base.getEllipsisLoc()
                                           : SourceLocation());
+  Record->push_back(Base.getAnnotations().size());
+  for (const auto *Annotation : Base.getAnnotations())
+    AddAttr(Annotation);
 }
 
 static uint64_t EmitCXXBaseSpecifiers(ASTContext &Context, ASTWriter &W,

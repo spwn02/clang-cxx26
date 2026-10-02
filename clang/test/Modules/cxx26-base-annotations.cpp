@@ -1,0 +1,40 @@
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+// RUN: split-file %s %t
+// RUN: %clang_cc1 -std=c++26 -freflection -fannotation-attributes -I%S/../PCH/Inputs -emit-module-interface %t/BaseAnnotations.cppm -o %t/BaseAnnotations.pcm
+// RUN: %clang_cc1 -std=c++26 -freflection -fannotation-attributes -fmodule-file=BaseAnnotations=%t/BaseAnnotations.pcm -verify %t/Use.cpp
+
+//--- BaseAnnotations.cppm
+export module BaseAnnotations;
+export {
+#include "cxx26-base-annotations.h"
+}
+
+//--- Use.cpp
+// expected-no-diagnostics
+import BaseAnnotations;
+static_assert(value(base(^^D1), 0) == 13);
+static_assert(value(base(^^D1), 1) == 21);
+static_assert(value(base(^^D1), 2) == 13);
+static_assert(annotation(base(^^D1), 3) == ^^sentinel);
+static_assert(annotation(base(^^D1, 1), 0) == ^^sentinel);
+static_assert(annotation(base(^^D1), 0) != annotation(base(^^D1), 2));
+static_assert(value(base(^^Dep<2>), 0) == 2);
+static_assert(value(base(^^Dep<3>), 0) == 3);
+static_assert(value(base(^^Pack<B0, B1>), 0) == 1);
+static_assert(value(base(^^Pack<B0, B1>, 1), 0) == 1);
+static_assert(annotation(base(^^Pack<B0, B1>), 0) !=
+              annotation(base(^^Pack<B0, B1>, 1), 0));
+
+static_assert(value(base(^^AnnotationPack<4, 5>), 0) == 4);
+static_assert(value(base(^^AnnotationPack<4, 5>), 1) == 5);
+static_assert(value(base(^^AnnotationPack<6, 7>), 0) == 6);
+static_assert(value(base(^^AnnotationPack<6, 7>), 1) == 7);
+static_assert(annotation(base(^^AnnotationPack<6, 7>), 2) == ^^sentinel);
+static_assert(annotation(base(^^AnnotationPack<>), 0) == ^^sentinel);
+
+static_assert(is_annotation(annotation(base(^^D1), 0)));
+static_assert([:constant(annotation(base(^^D1), 0)):] == 13);
+static_assert([:constant(annotation(base(^^Dep<3>), 0)):] == 3);

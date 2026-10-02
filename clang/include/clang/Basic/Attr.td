@@ -1062,13 +1062,7 @@ public:
   }];
 
   let AdditionalInstantiationStmts = [{
-    Expr::EvalResult V;
-    if (!Result->getArg()->isValueDependent() &&
-        !Result->getArg()->EvaluateAsRValue(V, C, true))
-      llvm_unreachable("failed to evaluate annotation expression");
-
-    Result->setValue(V.Val);
-    Result->setEqLoc(A->getEqLoc());
+    Result = S.BuildCXX26Annotation(Result->getArg(), *A, A->getEqLoc());
   }];
 
   let HasCustomParsing = 1;

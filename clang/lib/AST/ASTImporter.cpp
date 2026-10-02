@@ -2625,6 +2625,14 @@ Error ASTNodeImporter::ImportDefinition(
               *TSIOrErr,
               Base1.getDerived(),
               EllipsisLoc));
+      SmallVector<const CXX26AnnotationAttr *, 4> Annotations;
+      for (const auto *Annotation : Base1.getAnnotations()) {
+        auto ToAnnotation = import(Annotation);
+        if (!ToAnnotation)
+          return ToAnnotation.takeError();
+        Annotations.push_back(cast<CXX26AnnotationAttr>(*ToAnnotation));
+      }
+      Bases.back()->setAnnotations(Importer.getToContext(), Annotations);
     }
     if (!Bases.empty())
       ToCXX->setBases(Bases.data(), Bases.size());
@@ -9763,6 +9771,26 @@ public:
 Expected<Attr *> ASTImporter::Import(const Attr *FromAttr) {
   AttrImporter AI(*this);
 
+  if (const auto *From = dyn_cast<CXX26AnnotationAttr>(FromAttr)) {
+    auto ToArg = Import(From->getArg());
+    if (!ToArg)
+      return ToArg.takeError();
+    auto ToValue = Import(From->getValue());
+    if (!ToValue)
+      return ToValue.takeError();
+    auto ToEqLoc = Import(From->getEqLoc());
+    if (!ToEqLoc)
+      return ToEqLoc.takeError();
+    AI.importAttr(From, cast<Expr>(*ToArg));
+    auto ToAttr = std::move(AI).getResult();
+    if (!ToAttr)
+      return ToAttr.takeError();
+    auto *Annotation = cast<CXX26AnnotationAttr>(*ToAttr);
+    Annotation->setValue(std::move(*ToValue));
+    Annotation->setEqLoc(*ToEqLoc);
+    return Annotation;
+  }
+
   // FIXME: Is there some kind of AttrVisitor to use here?
   switch (FromAttr->getKind()) {
   case attr::Aligned: {
@@ -10604,6 +10632,14 @@ ASTImporter::Import(const CXXBaseSpecifier *BaseSpec) {
       BaseSpec->getAccessSpecifierAsWritten(), *ToTSI, BaseSpec->getDerived(),
       *ToEllipsisLoc);
   ImportedCXXBaseSpecifiers[BaseSpec] = Imported;
+  SmallVector<const CXX26AnnotationAttr *, 4> Annotations;
+  for (const auto *Annotation : BaseSpec->getAnnotations()) {
+    auto ToAnnotation = Import(Annotation);
+    if (!ToAnnotation)
+      return ToAnnotation.takeError();
+    Annotations.push_back(cast<CXX26AnnotationAttr>(*ToAnnotation));
+  }
+  Imported->setAnnotations(ToContext, Annotations);
   return Imported;
 }
 

@@ -1167,6 +1167,13 @@ void DeclPrinter::VisitCXXRecordDecl(CXXRecordDecl *D) {
         if (Base != D->bases_begin())
           Out << ", ";
 
+        for (const auto *Annotation : Base->getAnnotations()) {
+          Out << "[[=";
+          Annotation->getArg()->printPretty(Out, nullptr, Policy, Indentation,
+                                            "\n", &Context);
+          Out << "]] ";
+        }
+
         if (Base->isVirtual())
           Out << "virtual ";
 

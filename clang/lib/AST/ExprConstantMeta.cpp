@@ -7288,6 +7288,14 @@ bool get_ith_annotation_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
     return SetAndSucceed(
         Result, findAnnotation(RV.getReflectedParameter(), idx, Sentinel, true));
+  case ReflectionKind::BaseSpecifier: {
+    auto Annotations = RV.getReflectedBaseSpecifier()->getAnnotations();
+    return SetAndSucceed(
+        Result, idx < Annotations.size()
+                    ? makeReflection(
+                          const_cast<CXX26AnnotationAttr *>(Annotations[idx]))
+                    : Sentinel);
+  }
   // Disallow reflecting annotations of unspecialized templates, as they might
   // contain a dependent name.
   case ReflectionKind::Template: /*{
@@ -7298,7 +7306,6 @@ bool get_ith_annotation_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Null:
   case ReflectionKind::Object:
   case ReflectionKind::Value:
-  case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
   case ReflectionKind::Attribute:

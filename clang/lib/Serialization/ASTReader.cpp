@@ -18,6 +18,7 @@
 #include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/ASTStructuralEquivalence.h"
 #include "clang/AST/ASTUnresolvedSet.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/AbstractTypeReader.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclBase.h"
@@ -10135,6 +10136,10 @@ ASTRecordReader::readCXXBaseSpecifier() {
   SourceLocation EllipsisLoc = readSourceLocation();
   CXXBaseSpecifier Result(Range, isVirtual, AS, TInfo, Derived, EllipsisLoc);
   Result.setInheritConstructors(inheritConstructors);
+  SmallVector<const CXX26AnnotationAttr *, 4> Annotations;
+  for (unsigned I = 0, E = readInt(); I != E; ++I)
+    Annotations.push_back(cast<CXX26AnnotationAttr>(readAttr()));
+  Result.setAnnotations(getContext(), Annotations);
   return Result;
 }
 

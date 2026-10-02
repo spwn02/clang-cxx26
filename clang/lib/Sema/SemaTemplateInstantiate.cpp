@@ -3372,13 +3372,16 @@ PreparePackForExpansion(Sema &S, const CXXBaseSpecifier &Base,
   SourceRange BaseSourceRange = Base.getSourceRange();
   SourceLocation BaseEllipsisLoc = Base.getEllipsisLoc();
   Info.Ellipsis = Base.getEllipsisLoc();
-  auto ComputeInfo = [&S, &TemplateArgs, BaseSourceRange, BaseEllipsisLoc](
-                         TypeSourceInfo *BaseTypeInfo,
-                         bool IsLateExpansionAttempt, UnexpandedInfo &Info) {
+  auto ComputeInfo = [&S, &Base, &TemplateArgs, BaseSourceRange,
+                      BaseEllipsisLoc](TypeSourceInfo *BaseTypeInfo,
+                                       bool IsLateExpansionAttempt,
+                                       UnexpandedInfo &Info) {
     // This is a pack expansion. See whether we should expand it now, or
     // wait until later.
     SmallVector<UnexpandedParameterPack, 2> Unexpanded;
     S.collectUnexpandedParameterPacks(BaseTypeInfo->getTypeLoc(), Unexpanded);
+    for (const auto *Annotation : Base.getAnnotations())
+      S.collectUnexpandedParameterPacks(Annotation->getArg(), Unexpanded);
     if (IsLateExpansionAttempt) {
       // Request expansion only when there is an opportunity to expand a pack
       // that required a substituion first.
@@ -3429,6 +3432,33 @@ PreparePackForExpansion(Sema &S, const CXXBaseSpecifier &Base,
   return false;
 }
 
+bool Sema::SubstBaseAnnotations(
+    CXXBaseSpecifier &Base, const CXXBaseSpecifier &Pattern,
+    const MultiLevelTemplateArgumentList &TemplateArgs) {
+  EnterExpressionEvaluationContext Evaluated(
+      *this, ExpressionEvaluationContext::ConstantEvaluated);
+  SmallVector<const CXX26AnnotationAttr *, 4> Annotations;
+  bool Invalid = false;
+  for (const auto *Annotation : Pattern.getAnnotations()) {
+    Expr *PatternArg = Annotation->getArg();
+    SmallVector<Expr *, 4> Args;
+    if (SubstExprs(ArrayRef<Expr *>(&PatternArg, 1), /*IsCall=*/false,
+                   TemplateArgs, Args)) {
+      Invalid = true;
+      continue;
+    }
+    for (Expr *Arg : Args) {
+      if (auto *A = BuildCXX26Annotation(
+              Arg, *Annotation, Annotation->getEqLoc(), Base.isPackExpansion()))
+        Annotations.push_back(A);
+      else
+        Invalid = true;
+    }
+  }
+  Base.setAnnotations(Context, Annotations);
+  return Invalid;
+}
+
 bool
 Sema::SubstBaseSpecifiers(CXXRecordDecl *Instantiation,
                           CXXRecordDecl *Pattern,
@@ -3436,13 +3466,14 @@ Sema::SubstBaseSpecifiers(CXXRecordDecl *Instantiation,
   bool Invalid = false;
   SmallVector<CXXBaseSpecifier*, 4> InstantiatedBases;
   for (const auto &Base : Pattern->bases()) {
-    if (!Base.getType()->isDependentType()) {
+    if (!Base.getType()->isDependentType() && !Base.isPackExpansion()) {
       if (const CXXRecordDecl *RD = Base.getType()->getAsCXXRecordDecl()) {
         if (RD->isInvalidDecl())
           Instantiation->setInvalidDecl();
       }
       CXXBaseSpecifier *Specifier = new (Context) CXXBaseSpecifier(Base);
       Specifier->setDerived(Instantiation);
+      Invalid |= SubstBaseAnnotations(*Specifier, Base, TemplateArgs);
       InstantiatedBases.push_back(Specifier);
       continue;
     }
@@ -3478,9 +3509,11 @@ Sema::SubstBaseSpecifiers(CXXRecordDecl *Instantiation,
           if (CXXBaseSpecifier *InstantiatedBase = CheckBaseSpecifier(
                   Instantiation, Base.getSourceRange(), Base.isVirtual(),
                   Base.getAccessSpecifierAsWritten(), Expanded,
-                  SourceLocation()))
+                  SourceLocation())) {
+            Invalid |=
+                SubstBaseAnnotations(*InstantiatedBase, Base, TemplateArgs);
             InstantiatedBases.push_back(InstantiatedBase);
-          else
+          } else
             Invalid = true;
         }
 
@@ -3505,15 +3538,13 @@ Sema::SubstBaseSpecifiers(CXXRecordDecl *Instantiation,
       continue;
     }
 
-    if (CXXBaseSpecifier *InstantiatedBase
-          = CheckBaseSpecifier(Instantiation,
-                               Base.getSourceRange(),
-                               Base.isVirtual(),
-                               Base.getAccessSpecifierAsWritten(),
-                               BaseTypeLoc,
-                               EllipsisLoc))
+    if (CXXBaseSpecifier *InstantiatedBase = CheckBaseSpecifier(
+            Instantiation, Base.getSourceRange(), Base.isVirtual(),
+            Base.getAccessSpecifierAsWritten(), BaseTypeLoc, EllipsisLoc,
+            Base.getAnnotations())) {
+      Invalid |= SubstBaseAnnotations(*InstantiatedBase, Base, TemplateArgs);
       InstantiatedBases.push_back(InstantiatedBase);
-    else
+    } else
       Invalid = true;
   }
 

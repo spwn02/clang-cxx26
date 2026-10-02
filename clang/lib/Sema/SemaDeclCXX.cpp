@@ -2772,11 +2772,11 @@ bool Sema::isCurrentClassNameTypo(IdentifierInfo *&II, const CXXScopeSpec *SS) {
   return false;
 }
 
-CXXBaseSpecifier *Sema::CheckBaseSpecifier(CXXRecordDecl *Class,
-                                           SourceRange SpecifierRange,
-                                           bool Virtual, AccessSpecifier Access,
-                                           TypeSourceInfo *TInfo,
-                                           SourceLocation EllipsisLoc) {
+CXXBaseSpecifier *
+Sema::CheckBaseSpecifier(CXXRecordDecl *Class, SourceRange SpecifierRange,
+                         bool Virtual, AccessSpecifier Access,
+                         TypeSourceInfo *TInfo, SourceLocation EllipsisLoc,
+                         ArrayRef<const CXX26AnnotationAttr *> Annotations) {
   QualType BaseType = TInfo->getType();
   SourceLocation BaseLoc = TInfo->getTypeLoc().getBeginLoc();
   if (BaseType->containsErrors()) {
@@ -2784,9 +2784,13 @@ CXXBaseSpecifier *Sema::CheckBaseSpecifier(CXXRecordDecl *Class,
     return nullptr;
   }
 
-  if (EllipsisLoc.isValid() && !BaseType->containsUnexpandedParameterPack()) {
+  bool HasAnnotationPack = llvm::any_of(Annotations, [](const auto *A) {
+    return A->getArg()->containsUnexpandedParameterPack();
+  });
+  if (EllipsisLoc.isValid() && !BaseType->containsUnexpandedParameterPack() &&
+      !HasAnnotationPack) {
     Diag(EllipsisLoc, diag::err_pack_expansion_without_parameter_packs)
-      << TInfo->getTypeLoc().getSourceRange();
+        << TInfo->getTypeLoc().getSourceRange();
     EllipsisLoc = SourceLocation();
   }
 
@@ -2894,8 +2898,10 @@ CXXBaseSpecifier *Sema::CheckBaseSpecifier(CXXRecordDecl *Class,
     Access = AS_public;
 
   // Create the base specifier.
-  return new (Context) CXXBaseSpecifier(SpecifierRange, Virtual, Access,
-                                        TInfo, Class, EllipsisLoc);
+  auto *Base = new (Context) CXXBaseSpecifier(SpecifierRange, Virtual, Access,
+                                              TInfo, Class, EllipsisLoc);
+  Base->setAnnotations(Context, Annotations);
+  return Base;
 }
 
 BaseResult Sema::ActOnBaseSpecifier(Decl *classdecl, SourceRange SpecifierRange,
@@ -2914,12 +2920,15 @@ BaseResult Sema::ActOnBaseSpecifier(Decl *classdecl, SourceRange SpecifierRange,
   // We haven't yet attached the base specifiers.
   Class->setIsParsingBaseSpecifiers();
 
-  // We do not support any C++11 attributes on base-specifiers yet.
-  // Diagnose any attributes we see.
+  SmallVector<const CXX26AnnotationAttr *, 4> Annotations;
   for (const ParsedAttr &AL : Attributes) {
     if (AL.isInvalid() || AL.getKind() == ParsedAttr::IgnoredAttribute)
       continue;
-    if (AL.getKind() == ParsedAttr::UnknownAttribute)
+    if (AL.getKind() == ParsedAttr::AnnotationAttribute) {
+      if (auto *A = BuildCXX26Annotation(AL.getArgAsExpr(0), AL, AL.getLoc(),
+                                         EllipsisLoc.isValid()))
+        Annotations.push_back(A);
+    } else if (AL.getKind() == ParsedAttr::UnknownAttribute)
       DiagnoseUnknownAttribute(AL);
     else
       Diag(AL.getLoc(), diag::err_base_specifier_attribute)
@@ -2942,10 +2951,11 @@ BaseResult Sema::ActOnBaseSpecifier(Decl *classdecl, SourceRange SpecifierRange,
     return true;
   }
 
-  if (CXXBaseSpecifier *BaseSpec = CheckBaseSpecifier(Class, SpecifierRange,
-                                                      Virtual, Access, TInfo,
-                                                      EllipsisLoc))
+  if (CXXBaseSpecifier *BaseSpec =
+          CheckBaseSpecifier(Class, SpecifierRange, Virtual, Access, TInfo,
+                             EllipsisLoc, Annotations)) {
     return BaseSpec;
+  }
 
   Class->setInvalidDecl();
   return true;

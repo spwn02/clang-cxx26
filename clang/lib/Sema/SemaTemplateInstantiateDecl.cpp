@@ -826,46 +826,9 @@ static bool instantiateAnnotationExpansion(
     return true;
 
   for (Expr *Arg : Args) {
-    if (Arg->isLValue()) {
-      ExprResult Converted;
-      if (Arg->getType()->isRecordType()) {
-        InitializedEntity Entity = InitializedEntity::InitializeTemporary(
-            Arg->getType().getUnqualifiedType());
-        InitializationKind Kind =
-            InitializationKind::CreateCopy(Arg->getExprLoc(), SourceLocation());
-        InitializationSequence Seq(S, Entity, Kind, Arg);
-        Converted = Seq.Perform(S, Entity, Kind, Arg);
-      } else {
-        Converted = S.DefaultLvalueConversion(Arg);
-      }
-      if (Converted.isInvalid())
-        continue;
-      Arg = Converted.get();
-    }
-    Expr::EvalResult Value;
-    SmallVector<PartialDiagnosticAt, 4> Notes;
-    Value.Diag = &Notes;
-    if (!Arg->isValueDependent()) {
-      ConstantExprKind Kind = Arg->getType()->isClassType()
-                                  ? ConstantExprKind::ClassTemplateArgument
-                                  : ConstantExprKind::NonClassTemplateArgument;
-      if (!Arg->EvaluateAsConstantExpr(Value, S.Context, Kind)) {
-        S.Diag(Arg->getBeginLoc(), diag::err_attribute_argument_type)
-            << "C++26 annotation" << 4 << Arg->getSourceRange();
-        for (const auto &Note : Notes)
-          S.Diag(Note.first, Note.second);
-        continue;
-      }
-      if (!Arg->getType()->isStructuralType()) {
-        S.Diag(Arg->getBeginLoc(), diag::err_attribute_argument_type)
-            << "C++26 annotation" << 5 << Arg->getSourceRange();
-        continue;
-      }
-    }
-    auto *Result = CXX26AnnotationAttr::Create(S.Context, Arg, *Annotation);
-    Result->setEqLoc(Annotation->getEqLoc());
-    Result->setValue(Value.Val);
-    New->addAttr(Result);
+    if (auto *Result =
+            S.BuildCXX26Annotation(Arg, *Annotation, Annotation->getEqLoc()))
+      New->addAttr(Result);
   }
   return true;
 }
