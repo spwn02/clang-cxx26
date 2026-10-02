@@ -699,9 +699,11 @@ StmtResult Sema::FinishCXXExpansionStmt(Stmt *Heading, Stmt *Body) {
                                             Expansion->getEndLoc());
 
   ExpansionStmtDecl *StmtDecl = cast<ExpansionStmtDecl>(CurContext);
-  DeclContext *DC = CurContext;
-  while (isa<ExpansionStmtDecl>(DC))
-    DC = DC->getParent();
+  // Substitute only this expansion's index. An enclosing expansion may
+  // still be dependent, so retain its context until its own substitution.
+  // Otherwise lambdas in this body appear nondependent even when their
+  // capture fields still have the expansion variable's undeduced type.
+  DeclContext *DC = CurContext->getParent();
 
   // Expand the body for each instantiation.
   SmallVector<Stmt *, 4> Instantiations;
