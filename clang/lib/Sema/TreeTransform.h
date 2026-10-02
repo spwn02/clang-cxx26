@@ -859,7 +859,7 @@ public:
 
   /// Parse the arguments of \p E, captured as tokens, according to the now
   /// known shape \p RawParams, and transform them.
-  bool TransformDeferredMacroArguments(ArrayRef<bool> RawParams,
+  bool TransformDeferredMacroArguments(ArrayRef<MacroParamKind> RawParams,
                                        CXXMacroInvocationExpr *E,
                                        SmallVectorImpl<Expr *> &Args);
   /// Give \p New, a rebuilt invocation of still unknown shape, the
@@ -9397,7 +9397,7 @@ TreeTransform<Derived>::TransformCXXBuiltinTokenizeExpr(
 
 template <typename Derived>
 bool TreeTransform<Derived>::TransformDeferredMacroArguments(
-    ArrayRef<bool> RawParams, CXXMacroInvocationExpr *E,
+    ArrayRef<MacroParamKind> RawParams, CXXMacroInvocationExpr *E,
     SmallVectorImpl<Expr *> &Args) {
   // The arguments are parsed as part of the template they were written in,
   // then transformed like the rest of it.
@@ -9430,7 +9430,7 @@ ExprResult TreeTransform<Derived>::TransformCXXMacroInvocationExpr(
       // The arguments were captured as tokens, the shape being unknown.
       const IdentifierInfo *II =
           E->getMemberNameInfo().getName().getAsIdentifierInfo();
-      SmallVector<bool, 4> RawParams;
+      SmallVector<MacroParamKind, 4> RawParams;
       bool ShapeUnknown = false;
       if (getSema().GetMemberMacroParameterShape(
               Base.get(), E->isArrow() ? tok::arrow : tok::period, II,
@@ -9474,7 +9474,7 @@ ExprResult TreeTransform<Derived>::TransformCXXMacroInvocationExpr(
     if (!QualifierLoc)
       return ExprError();
     UnresolvedLookupExpr *Callee = nullptr;
-    SmallVector<bool, 4> RawParams;
+    SmallVector<MacroParamKind, 4> RawParams;
     bool StillDependent = false;
     if (getSema().LookupDeferredQualifiedMacro(QualifierLoc, Old->getNameInfo(),
                                                Callee, RawParams,
