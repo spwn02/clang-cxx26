@@ -3804,7 +3804,7 @@ defm parameter_reflection : BoolFOption<"parameter-reflection",
 defm attribute_reflection : BoolFOption<"attribute-reflection",
   LangOpts<"AttributeReflection">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option],
-          "Enable C++26 standard attribute reflection">,
+          "Enable attribute reflection (P3385, targets C++29; an extension, not C++26)">,
   NegFlag<SetFalse>>;
 defm expansion_statements : BoolFOption<"expansion-statements",
   LangOpts<"ExpansionStatements">, DefaultFalse,
