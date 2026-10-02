@@ -58,4 +58,20 @@ consteval bool constant_of_invalid_array_throws() {
 }
 static_assert(constant_of_invalid_array_throws());
 
+// Valid arrays of pointers to static objects are accepted; class elements are
+// validated too.
+constexpr int g = 1;
+[[maybe_unused]] constexpr const int* ptrs[] = {&g};
+struct PtrHolder { const int* p; };
+[[maybe_unused]] constexpr PtrHolder holders[] = {{&g}};
+struct StrHolder { const char* p; };
+[[maybe_unused]] constexpr StrHolder bad_holders[1]{{"x"}};
+static_assert(is_object(constant_of(^^ptrs)));
+static_assert(is_object(constant_of(^^holders)));
+consteval bool constant_of_invalid_class_array_throws() {
+  try { (void)constant_of(^^bad_holders); } catch (std::meta::exception&) { return true; }
+  return false;
+}
+static_assert(constant_of_invalid_class_array_throws());
+
 int main(int, char**) { return 0; }
