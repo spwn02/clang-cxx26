@@ -602,6 +602,12 @@ static bool reflect_result(APValue &Result, ASTContext &C, MetaActions &Meta,
                            SourceRange Range, ArrayRef<Expr *> Args,
                            Decl *ContainingDecl);
 
+static bool reflect_array_object(APValue &Result, ASTContext &C,
+                                 MetaActions &Meta, EvalFn Evaluator,
+                                 DiagFn Diagnoser, bool AllowInjection,
+                                 QualType ResultTy, SourceRange Range,
+                                 ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
 static bool data_member_spec(APValue &Result, ASTContext &C, MetaActions &Meta,
                              EvalFn Evaluator, DiagFn Diagnoser,
                              bool AllowInjection, QualType ResultTy,
@@ -1010,6 +1016,7 @@ static constexpr Metafunction Metafunctions[] = {
 
   { Metafunction::MFRK_bool, 1, 1, is_closure_type },
   { Metafunction::MFRK_bool, 1, 1, is_string_literal },
+  { Metafunction::MFRK_metaInfo, 6, 6, reflect_array_object, true },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
                                             sizeof(Metafunction);
@@ -3929,6 +3936,19 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
         RD && RD->isLambda() && ResultTy->isPointerType())
       return extractLambda(Result, RD);
 
+    if (!ReturnsLValue && ObjectTy->isArrayType() && ResultTy->isPointerType()) {
+      QualType PointerTy = C.getArrayDecayedType(ObjectTy);
+      if (!isExtractCompatible(C, PointerTy, ResultTy, true))
+        return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
+            << 1 << ObjectTy << ReturnsLValue << ResultTy << Range;
+      Expr *OVE = new (C) OpaqueValueExpr(Range.getBegin(), ObjectTy, VK_LValue);
+      Expr *CE = ConstantExpr::Create(C, OVE, RV.getReflectedObject());
+      Expr *Decay = ImplicitCastExpr::Create(
+          C, PointerTy, CK_ArrayToPointerDecay, CE, nullptr, VK_PRValue,
+          FPOptionsOverride());
+      return !Evaluator(Result, Decay, true);
+    }
+
     if (!isExtractCompatible(C, ObjectTy, ResultTy, ReturnsLValue))
       return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
           << 1 << ObjectTy << ReturnsLValue << ResultTy << Range;
@@ -5971,6 +5991,114 @@ bool reflect_result(APValue &Result, ASTContext &C, MetaActions &Meta,
   }
 
   return SetAndSucceed(Result, Arg.Lift(ReflTy));
+}
+
+// The caller supplies converted leaf values in row-major order. In particular,
+// class values are read directly, without creating intermediate class TPOs.
+bool reflect_array_object(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl) {
+  APValue Leaf, Rank, Count;
+  if (!Evaluator(Leaf, Args[0], true) ||
+      !Evaluator(Rank, Args[2], true) ||
+      !Evaluator(Count, Args[4], true))
+    return true;
+  if (!Leaf.isReflectedType())
+    return DiagnoseReflectionKind(Diagnoser, Range, "a type",
+                                  DescriptionOf(Leaf));
+  QualType LeafTy = C.getCanonicalType(Leaf.getReflectedType());
+  if (!LeafTy->isStructuralType() || LeafTy->isArrayType())
+    return Diagnoser(Range.getBegin(), diag::metafn_value_not_structural_type)
+        << LeafTy << Range;
+  if (!Args[3]->getType()->isPointerType() ||
+      !C.hasSameUnqualifiedType(Args[3]->getType()->getPointeeType(), LeafTy))
+    return Meta.ThrowMetaException(Range.getBegin(),
+                                   "array buffer has incorrect leaf type");
+
+  auto Read = [&](Expr *Buffer, QualType Ty, uint64_t Index, APValue &Value) {
+    if (Buffer->isGLValue())
+      Buffer = ImplicitCastExpr::Create(
+          C, Buffer->getType(), CK_LValueToRValue, Buffer, nullptr, VK_PRValue,
+          FPOptionsOverride());
+    Expr *Idx = IntegerLiteral::Create(
+        C, llvm::APInt(C.getTypeSize(C.getSizeType()), Index), C.getSizeType(),
+        Range.getBegin());
+    Expr *Elt = new (C) ArraySubscriptExpr(Buffer, Idx, Ty, VK_LValue,
+                                          OK_Ordinary, Range.getBegin());
+    if (Ty->isRecordType() || Ty->isNullPtrType())
+      return Evaluator(Value, Elt, true);
+    // Load in the active evaluation, then validate the resulting leaf as a
+    // template argument below. A premature constant-expression result check
+    // would hard-error on local pointers before we can throw meta::exception.
+    Elt = ImplicitCastExpr::Create(
+        C, Ty.getUnqualifiedType(), CK_LValueToRValue, Elt, nullptr, VK_PRValue,
+        FPOptionsOverride());
+    return Evaluator(Value, Elt, false);
+  };
+  uint64_t NumDims = Rank.getInt().getZExtValue();
+  uint64_t NumLeaves = Count.getInt().getZExtValue();
+  if (!NumDims || !NumLeaves)
+    return Meta.ThrowMetaException(Range.getBegin(),
+                                   "array object requires nonzero extents");
+  SmallVector<uint64_t, 4> Dims;
+  uint64_t Product = 1;
+  for (uint64_t I = 0; I != NumDims; ++I) {
+    APValue Extent;
+    if (!Read(Args[1], Args[1]->getType()->getPointeeType(), I, Extent))
+      return true;
+    uint64_t N = Extent.getInt().getZExtValue();
+    if (!N || N > NumLeaves / Product)
+      return Meta.ThrowMetaException(Range.getBegin(),
+                                     "array extents do not match buffer size");
+    Product *= N;
+    Dims.push_back(N);
+  }
+  if (Product != NumLeaves)
+    return Meta.ThrowMetaException(Range.getBegin(),
+                                   "array extents do not match buffer size");
+
+  SmallVector<APValue, 8> Values;
+  for (uint64_t I = 0; I != NumLeaves; ++I) {
+    APValue Value;
+    if (!Read(Args[3], Args[3]->getType()->getPointeeType(), I, Value))
+      return true;
+    // Apply the same template-argument value validation as reflect_constant,
+    // including pointer members of structural class leaves.
+    Expr *OVE = new (C) OpaqueValueExpr(Range.getBegin(), LeafTy, VK_PRValue);
+    Expr *CE = ConstantExpr::Create(C, OVE, Value);
+    OVE = new (C) OpaqueValueExpr(Range.getBegin(), LeafTy, VK_PRValue,
+                                 OK_Ordinary, CE);
+    Expr::EvalResult Discarded;
+    auto Kind = LeafTy->isRecordType()
+                    ? ConstantExprKind::ClassTemplateArgument
+                    : ConstantExprKind::NonClassTemplateArgument;
+    if (!OVE->EvaluateAsConstantExpr(Discarded, C, Kind))
+      return Diagnoser(Range.getBegin(), diag::metafn_result_not_representable)
+          << 0 << Range;
+    Values.push_back(std::move(Value));
+  }
+
+  uint64_t Next = 0;
+  std::function<APValue(unsigned)> Build = [&](unsigned Depth) -> APValue {
+    if (Depth == Dims.size())
+      return std::move(Values[Next++]);
+    unsigned N = Dims[Depth];
+    APValue Array(APValue::UninitArray{}, N, N);
+    for (unsigned I = 0; I != N; ++I)
+      Array.getArrayInitializedElt(I) = Build(Depth + 1);
+    return Array;
+  };
+  QualType Ty = LeafTy;
+  for (uint64_t N : llvm::reverse(Dims))
+    Ty = C.getConstantArrayType(Ty, llvm::APInt(64, N), nullptr,
+                               ArraySizeModifier::Normal, 0);
+  APValue Value = Build(0);
+  auto *TPO = C.getTemplateParamObjectDecl(Ty, Value);
+  return SetAndSucceed(
+      Result, APValue(APValue::LValueBase{TPO}, CharUnits::Zero(), {}, false,
+                      false).Lift(QualType{}));
 }
 
 bool data_member_spec(APValue &Result, ASTContext &C, MetaActions &Meta,

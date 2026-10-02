@@ -684,6 +684,7 @@ enum : unsigned {
 
   // P3491R3 string-literal helper
   __metafn_is_string_literal,
+  __metafn_reflect_array_object,
 };
 
 consteval auto __workaround_expand_compiler_builtins(info type) -> info;
@@ -1686,6 +1687,17 @@ inline constexpr bool __reflect_constant_array_structural_v = is_structural_type
 template <typename T, size_t N>
 inline constexpr bool __reflect_constant_array_structural_v<T[N]> =
     __reflect_constant_array_structural_v<T>;
+
+// Reflects the canonical array template parameter object for converted,
+// contiguous leaf values in row-major order. Extents must be nonzero and their
+// product must equal count. Empty arrays are handled separately by the library.
+template <typename T>
+consteval info __reflect_array_object(const size_t* dims, size_t rank,
+                                      const T* data, size_t count) {
+  static_assert(is_structural_type(^^T));
+  return __metafunction(detail::__metafn_reflect_array_object, ^^T,
+                        dims, rank, data, count, ^^__reflect_array_object<T>);
+}
 
 // Returns a reflection of the value held by the provided argument.
 template <typename T>

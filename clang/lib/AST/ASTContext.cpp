@@ -14119,11 +14119,21 @@ ASTContext::getUnnamedGlobalConstantDecl(QualType Ty,
 
 TemplateParamObjectDecl *
 ASTContext::getTemplateParamObjectDecl(QualType T, const APValue &V) const {
-  assert(T->isRecordType() && "template param object of unexpected type");
+  assert((T->isRecordType() || getAsConstantArrayType(T)) &&
+         "template param object of unexpected type");
 
   // C++ [temp.param]p8:
   //   [...] a static storage duration object of type 'const T' [...]
-  T.addConst();
+  if (const auto *AT = getAsConstantArrayType(T)) {
+    // Array cv-qualifiers belong to the element type. Normalize before
+    // profiling so array sugar and already-qualified arrays share an object.
+    T = getConstantArrayType(
+        getCanonicalType(getConstType(AT->getElementType())), AT->getSize(),
+        nullptr, AT->getSizeModifier(), AT->getIndexTypeCVRQualifiers());
+    T = getCanonicalType(T);
+  } else {
+    T.addConst();
+  }
 
   llvm::FoldingSetNodeID ID;
   TemplateParamObjectDecl::Profile(ID, T, V);
