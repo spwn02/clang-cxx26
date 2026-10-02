@@ -1740,7 +1740,7 @@ QualType ComputeResultType(QualType ExprTy, const APValue &V) {
 
     for (auto p = V.getLValuePath().begin();
          p != V.getLValuePath().end(); ++p) {
-      const Decl *D = V.getLValuePath().back().getAsBaseOrMember().getPointer();
+      const Decl *D = p->getAsBaseOrMember().getPointer();
       if (D) {  // base or member case
         if (auto *VD = dyn_cast<FieldDecl>(D)) {
           QualType QT = VD->getType();
@@ -1757,7 +1757,7 @@ QualType ComputeResultType(QualType ExprTy, const APValue &V) {
 
         llvm_unreachable("unknown lvalue path kind");
       } else { // array case
-        QualType QT = cast<ArrayType>(SQT.Ty)->getElementType();
+        QualType QT = SQT.Ty->getAsArrayTypeUnsafe()->getElementType();
         SQT.Ty = QT.getTypePtr();
         if (QT.isConstQualified()) SQT.Quals.addConst();
         if (QT.isVolatileQualified()) SQT.Quals.addVolatile();
