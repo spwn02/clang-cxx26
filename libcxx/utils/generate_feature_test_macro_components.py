@@ -521,6 +521,13 @@ feature_test_macros = [
             "headers": ["algorithm", "deque", "forward_list", "list", "ranges", "string", "vector"],
         },
         {
+            "name": "__cpp_lib_define_static",
+            "values": {"c++26": 202506},
+            "headers": ["meta"],
+            "test_suite_guard": "__has_feature(reflection)",
+            "libcxx_guard": "__has_feature(reflection)",
+        },
+        {
             "name": "__cpp_lib_destroying_delete",
             "values": {"c++20": 201806},
             "headers": ["new"],

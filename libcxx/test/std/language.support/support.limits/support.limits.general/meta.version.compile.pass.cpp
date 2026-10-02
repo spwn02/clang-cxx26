@@ -20,11 +20,19 @@
 
 #if TEST_STD_VER < 14
 
+#  ifdef __cpp_lib_define_static
+#    error "__cpp_lib_define_static should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_reflection
 #    error "__cpp_lib_reflection should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 14
+
+#  ifdef __cpp_lib_define_static
+#    error "__cpp_lib_define_static should not be defined before c++26"
+#  endif
 
 #  ifdef __cpp_lib_reflection
 #    error "__cpp_lib_reflection should not be defined before c++26"
@@ -32,11 +40,19 @@
 
 #elif TEST_STD_VER == 17
 
+#  ifdef __cpp_lib_define_static
+#    error "__cpp_lib_define_static should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_reflection
 #    error "__cpp_lib_reflection should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 20
+
+#  ifdef __cpp_lib_define_static
+#    error "__cpp_lib_define_static should not be defined before c++26"
+#  endif
 
 #  ifdef __cpp_lib_reflection
 #    error "__cpp_lib_reflection should not be defined before c++26"
@@ -44,11 +60,28 @@
 
 #elif TEST_STD_VER == 23
 
+#  ifdef __cpp_lib_define_static
+#    error "__cpp_lib_define_static should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_reflection
 #    error "__cpp_lib_reflection should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER > 23
+
+#  if __has_feature(reflection)
+#    ifndef __cpp_lib_define_static
+#      error "__cpp_lib_define_static should be defined in c++26"
+#    endif
+#    if __cpp_lib_define_static != 202506L
+#      error "__cpp_lib_define_static should have the value 202506L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_define_static
+#      error "__cpp_lib_define_static should not be defined when the requirement '__has_feature(reflection)' is not met!"
+#    endif
+#  endif
 
 #  if __has_feature(reflection)
 #    ifndef __cpp_lib_reflection
