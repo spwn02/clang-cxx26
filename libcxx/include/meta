@@ -691,6 +691,7 @@ enum : unsigned {
   __metafn_template_parameter_list_for,
   __metafn_template_argument_list_for,
   __metafn_argument_list_for,
+  __metafn_expand_at_instantiation,
 };
 
 consteval auto __workaround_expand_compiler_builtins(info __type) -> info;
@@ -4015,6 +4016,31 @@ consteval auto as_lvalue(info r) -> info {
 // ordinary constant expression is an error.
 consteval auto macro_expansion_context() -> info {
   return __metafunction(detail::__metafn_macro_expansion_context);
+}
+
+// Makes the macro being expanded wait for template instantiation. In a
+// templated context (a function template, a member of a class template, a
+// generic lambda, ...), the invocation is not expanded where it appears: it
+// becomes a dependent expression, and the macro is evaluated again for each
+// instantiation, where this call does nothing. Outside templates it does
+// nothing at all.
+//
+// For a macro whose expansion needs the instantiated context even though its
+// arguments are not dependent -- e.g. naming a local that only an
+// instantiation-time injection declares:
+//
+//   __macro id(token_sequence name) {
+//     std::meta::expand_at_instantiation();
+//     return name;
+//   }
+//
+// Call it before anything else in the body: the evaluation it ends is thrown
+// away.
+//
+// Only meaningful inside a macro body; evaluating it in an ordinary constant
+// expression is an error.
+consteval auto expand_at_instantiation() -> void {
+  (void)__metafunction(detail::__metafn_expand_at_instantiation);
 }
 
 // Naming policy for declaration_of.

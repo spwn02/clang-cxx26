@@ -15695,13 +15695,11 @@ ExprResult Sema::BuildCXXMemberCallExpr(Expr *E, NamedDecl *FoundDecl,
   return CheckForImmediateInvocation(CE, CE->getDirectCallee());
 }
 
-ExprResult Sema::BuildMacroCandidateExpansion(const OverloadCandidate &Best,
-                                              ArrayRef<Expr *> Args,
-                                              SourceLocation Loc,
-                                              SourceLocation RParenLoc,
-                                              bool HadMultipleCandidates,
-                                              const Stmt *InstantiationPattern,
-                                              SourceLocation NameLoc) {
+ExprResult Sema::BuildMacroCandidateExpansion(
+    const OverloadCandidate &Best, ArrayRef<Expr *> Args, SourceLocation Loc,
+    SourceLocation RParenLoc, bool HadMultipleCandidates,
+    const Stmt *InstantiationPattern, SourceLocation NameLoc,
+    llvm::function_ref<ExprResult()> Defer) {
   FunctionDecl *Macro = Best.Function;
   if (Macro->isInvalidDecl())
     return ExprError();
@@ -15732,7 +15730,7 @@ ExprResult Sema::BuildMacroCandidateExpansion(const OverloadCandidate &Best,
 
   return BuildExpressionMacroExpansion(
       Fn.get(), Macro, Loc, Args, RParenLoc,
-      static_cast<CallExpr::ADLCallKind>(Best.IsADLCandidate));
+      static_cast<CallExpr::ADLCallKind>(Best.IsADLCandidate), Defer);
 }
 
 bool Sema::EvaluateMacroCandidate(const OverloadCandidate &Best,
