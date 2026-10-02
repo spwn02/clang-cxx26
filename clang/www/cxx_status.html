@@ -290,25 +290,29 @@ C++23, informally referred to as C++26.</p>
  </tr>
  <!-- Bulgaria, Spring 2025 -->
  <tr>
-  <td rowspan="5">Reflection</td>
+  <td rowspan="6">Reflection</td>
   <td><a href="https://wg21.link/P2996">P2996R13</a></td>
-  <td class="none" align="center">No</td>
+  <td class="partial" align="center">Partial</td>
  </tr>
  <tr>
   <td><a href="https://wg21.link/P3394">P3394R4</a></td>
-  <td class="none" align="center">No</td>
+  <td class="partial" align="center">Partial</td>
  </tr>
  <tr>
   <td><a href="https://wg21.link/P3293">P3293R3</a></td>
-  <td class="none" align="center">No</td>
+  <td class="partial" align="center">Partial</td>
  </tr>
  <tr>
   <td><a href="https://wg21.link/P3491">P3491R3</a></td>
-  <td class="none" align="center">No</td>
+  <td class="partial" align="center">Partial</td>
  </tr>
  <tr>
   <td><a href="https://wg21.link/P3096">P3096R12</a></td>
-  <td class="none" align="center">No</td>
+  <td class="partial" align="center">Partial</td>
+ </tr>
+ <tr>
+  <td><a href="https://wg21.link/P3795">P3795R2</a></td>
+  <td class="partial" align="center">Partial</td>
  </tr>
  <tr>
   <td>Attaching main to the global module</td>
@@ -318,7 +322,7 @@ C++23, informally referred to as C++26.</p>
  <tr>
   <td>Expansion Statements</td>
   <td><a href="https://wg21.link/P1306">P1306R5</a></td>
-  <td class="none" align="center">No</td>
+  <td class="partial" align="center">Partial</td>
   </tr>
   <tr>
    <td>constexpr virtual inheritance</td>
@@ -331,6 +335,12 @@ C++23, informally referred to as C++26.</p>
    <td class="none" align="center">No</td>
   </tr>
 </table>
+<p><b>Not C++26:</b> this fork also implements reflection features that target C++29 and
+are <em>not</em> part of the C++26 draft: attribute reflection
+(<a href="https://wg21.link/P3385">P3385</a>, <code>-fattribute-reflection</code>, enabled by
+<code>-freflection-latest</code>) and <code>define_enum</code> / <code>enumerator_spec</code>
+(<a href="https://wg21.link/P4033">P4033</a>, available with <code>-freflection</code>).
+They are extensions and must not be read as C++26 conformance.</p>
 </details>
 
 <h2 id="cxx23">C++23 implementation status</h2>
