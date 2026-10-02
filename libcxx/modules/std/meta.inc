@@ -269,6 +269,7 @@ export namespace std {
       using std::meta::reflection_v2::is_accessible;
       using std::meta::reflection_v2::has_inaccessible_nonstatic_data_members;
       using std::meta::reflection_v2::has_inaccessible_bases;
+      using std::meta::reflection_v2::has_inaccessible_subobjects;
       using std::meta::reflection_v2::is_access_specified;
       using std::meta::reflection_v2::reflect_invoke;
 

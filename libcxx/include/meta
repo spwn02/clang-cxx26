@@ -1171,18 +1171,18 @@ consteval auto is_final(info r) -> bool {
   return __metafunction(detail::__metafn_is_final, r);
 }
 
-class access_context {
+// [meta.reflection.access.context]: a structural, non-aggregate struct. The data
+// members are public (structural) but non-const so the type is assignable.
+struct access_context {
+private:
   consteval access_context(info scope, info designating_class) noexcept
       : d_scope{scope}, d_designating_class{designating_class} { }
 
 public:
-  const info d_scope;
-  const info d_designating_class;
+  info d_scope;
+  info d_designating_class;
 
   consteval access_context() = delete;
-
-  consteval access_context(const access_context &) noexcept = default;
-  consteval access_context(access_context &&) noexcept = default;
 
   consteval info scope() const { return d_scope; }
   consteval info designating_class() const { return d_designating_class; }
@@ -2617,6 +2617,12 @@ consteval auto has_inaccessible_bases(info r, access_context ctx) -> bool {
   if (!is_class_type(r))
     throw exception(u8"bad type", ^^has_inaccessible_bases);
   return __any_inaccessible(bases_of(r, access_context::unchecked()), ctx);
+}
+
+// [meta.reflection.access.queries]
+consteval auto has_inaccessible_subobjects(info r, access_context ctx) -> bool {
+  return has_inaccessible_bases(r, ctx) ||
+         has_inaccessible_nonstatic_data_members(r, ctx);
 }
 
              // ===================================================

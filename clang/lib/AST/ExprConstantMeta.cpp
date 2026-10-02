@@ -7521,6 +7521,10 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
                                      "invalid reflection operand");
   }
 
+  // Only an explicit designating class (ctx.designating_class()) restricts
+  // membership; otherwise it defaults to the member's own parent class.
+  const bool HasExplicitDesignating = NamingCls != nullptr;
+
   APValue RV;
   if (!Evaluator(RV, Args[0], true))
     return true;
@@ -7537,6 +7541,25 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
     return false;
   };
 
+  // [meta.reflection.access.queries]: a class member that is not a (possibly
+  // indirect) member of the designating class is inaccessible, regardless of
+  // the access context's scope.
+  auto notMemberOfDesignating = [&](Decl *D, CXXRecordDecl *Designating) {
+    DeclContext *Ctx = D->getDeclContext();
+    // Members of anonymous structs/unions are (variant) members of the
+    // enclosing class.
+    while (auto *RD = dyn_cast<CXXRecordDecl>(Ctx)) {
+      if (!RD->isAnonymousStructOrUnion())
+        break;
+      Ctx = RD->getDeclContext();
+    }
+    auto *DC = dyn_cast<CXXRecordDecl>(Ctx);
+    if (!HasExplicitDesignating || !DC || !Designating)
+      return false;
+    return !(DC->getCanonicalDecl() == Designating->getCanonicalDecl() ||
+             Designating->isDerivedFrom(DC));
+  };
+
   switch (RV.getReflectionKind()) {
   case ReflectionKind::Type: {
     NamedDecl *D = findTypeDecl(RV.getReflectedType());
@@ -7545,6 +7568,8 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
     else if (!NamingCls)
       return SetAndSucceed(Result, makeBool(C, true));
 
+    if (notMemberOfDesignating(D, NamingCls))
+      return SetAndSucceed(Result, makeBool(C, false));
     bool Accessible = UnconditionalAccess ||
                       Meta.IsAccessible(D, AccessDC, NamingCls);
     return SetAndSucceed(Result, makeBool(C, Accessible));
@@ -7556,6 +7581,8 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
     else if (!NamingCls)
       return SetAndSucceed(Result, makeBool(C, true));
 
+    if (notMemberOfDesignating(D, NamingCls))
+      return SetAndSucceed(Result, makeBool(C, false));
     bool Accessible = UnconditionalAccess ||
                       Meta.IsAccessible(RV.getReflectedDecl(), AccessDC,
                                         NamingCls);
@@ -7568,6 +7595,8 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
     else if (!NamingCls)
       return SetAndSucceed(Result, makeBool(C, true));
 
+    if (notMemberOfDesignating(D, NamingCls))
+      return SetAndSucceed(Result, makeBool(C, false));
     bool Accessible = UnconditionalAccess ||
                       Meta.IsAccessible(D, AccessDC, NamingCls);
     return SetAndSucceed(Result, makeBool(C, Accessible));
@@ -7598,6 +7627,12 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
           << DerivedDecl << Range;
     QualType DerivedTy =
         DerivedDecl->getASTContext().getCanonicalTagType(DerivedDecl);
+
+    // The relationship's parent must be the designating class or a base of it.
+    if (HasExplicitDesignating && NamingCls &&
+        DerivedDecl->getCanonicalDecl() != NamingCls->getCanonicalDecl() &&
+        !NamingCls->isDerivedFrom(DerivedDecl))
+      return SetAndSucceed(Result, makeBool(C, false));
 
     CXXBasePathElement bpe = { BaseSpec, BaseSpec->getDerived(), 0 };
     CXXBasePath path;
