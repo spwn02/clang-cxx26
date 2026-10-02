@@ -2677,13 +2677,11 @@ struct data_member_options {
 
   optional<name_type> name = nullopt;
   optional<int> alignment = nullopt;
-  optional<int> width = nullopt;
+  optional<int> bit_width = nullopt;
+  bool no_unique_address = false;
   vector<info> annotations = {};
 #if __has_feature(attribute_reflection)
-  [[deprecated("Use .attributes = { ^^[[no_unique_address]] }")]] bool no_unique_address = false;
   vector<meta::info> attributes = {};
-#else
-  bool no_unique_address = false;
 #endif
 };
 
@@ -2741,45 +2739,48 @@ consteval auto define_unscoped_enum(info targetEnum, R&& members) {
 consteval auto data_member_spec(info member_type,
                                 data_member_options options = {}) -> info {
   if (!is_type(member_type))
-    throw "'member_type' must represent a type";
+    throw exception(u8"member type must represent an object or reference type", ^^data_member_spec);
+  member_type = detail::__underlying_entity_of(member_type);
+  if (!is_object_type(member_type) && !is_reference_type(member_type))
+    throw exception(u8"member type must represent an object or reference type", ^^data_member_spec);
 
   bool has_name = options.name.has_value();
   int alignment = options.alignment.value_or(0);
-  int width = options.width.value_or(0);
-  for (info annotation : options.annotations) {
-    if (!is_value(annotation) && !is_object(annotation))
-      throw exception(u8"annotation must reflect a constant", ^^data_member_spec);
-    if (is_array_type(type_of(annotation)))
-      throw exception(u8"annotation must not have array type", ^^data_member_spec);
-    (void)constant_of(annotation);
-  }
-  // 'no_unique_address' is intentionally deprecated in favor of
-  // '.attributes = { ^^[[no_unique_address]] }', but is still honored here for
-  // backward compatibility; suppress the deprecation warning at this read site.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  int width = options.bit_width.value_or(0);
   bool no_unique_address = options.no_unique_address;
-#pragma clang diagnostic pop
-
-  if (width) {
-    if (alignment)
-      throw "Cannot specify both width and alignment for data member";
-    if (no_unique_address)
-      throw "Cannot specify both width and no_unique_address for data member";
-    if (width < 0)
-      throw "Cannot specify a negative width for data member";
-    if (!is_integral_type(member_type) && !is_enum_type(member_type))
-      throw "Bit field must have integral or enumeration type";
-  } else {
-    if (options.width.has_value() && has_name)
-      throw "Bit-fields of zero width must be unnamed";
+  if (!has_name && (!options.bit_width.has_value() || !options.annotations.empty()))
+    throw exception(u8"unnamed member must be a bit-field without annotations", ^^data_member_spec);
+  for (info& annotation : options.annotations) {
+    // Annotation failures belong to data_member_spec, including failures in
+    // type_of and constant_of. Store the value required by the description.
+    info type = __metafunction(detail::__metafn_type_of, annotation, ^^data_member_spec);
+    if (!is_object_type(type) || is_array_type(type))
+      throw exception(u8"annotation must have non-array object type", ^^data_member_spec);
+    annotation = __metafunction(detail::__metafn_constant_of, annotation, ^^data_member_spec);
   }
 
-  if (alignment) {
-    if (alignment < int(alignment_of(member_type)))
-      throw "Cannot specify an alignment less than that of the member type";
+  if (options.bit_width.has_value()) {
+    if (!is_integral_type(member_type) && !is_enum_type(member_type))
+      throw exception(u8"bit-field must have integral or enumeration type", ^^data_member_spec);
+    if (options.alignment.has_value())
+      throw exception(u8"cannot specify both bit width and alignment", ^^data_member_spec);
+    if (no_unique_address)
+      throw exception(u8"cannot specify both bit width and no_unique_address", ^^data_member_spec);
+    if (width < 0)
+      throw exception(u8"bit width must not be negative", ^^data_member_spec);
+    if (width == 0 && has_name)
+      throw exception(u8"zero-width bit-field must be unnamed", ^^data_member_spec);
+    if (!has_name && (is_const(member_type) || is_volatile(member_type)))
+      throw exception(u8"unnamed bit-field must not be cv-qualified", ^^data_member_spec);
+  }
+
+  if (options.alignment.has_value()) {
     if (alignment <= 0 || ((alignment - 1) & alignment))
-      throw "Alignment specifier must be a non-negative power of 2";
+      throw exception(u8"alignment must be a positive power of two", ^^data_member_spec);
+    if (!is_complete_type(member_type))
+      throw exception(u8"alignment requires a complete member type", ^^data_member_spec);
+    if (alignment < int(alignment_of(member_type)))
+      throw exception(u8"alignment must not be less than that of the member type", ^^data_member_spec);
   }
 
   if (has_name) {
@@ -2787,9 +2788,9 @@ consteval auto data_member_spec(info member_type,
       const u8string &s = options.name->u8;
       return __metafunction(detail::__metafn_data_member_spec,
                             member_type,
-                            !s.empty(), s.size(), ^^const char8_t, s.data(),
+                            true, s.size(), ^^const char8_t, s.data(),
                             options.alignment.has_value(), alignment,
-                            options.width.has_value(), width,
+                            options.bit_width.has_value(), width,
                             no_unique_address,
                             options.annotations.size(), options.annotations.data(),
 #if __has_feature(attribute_reflection)
@@ -2802,9 +2803,9 @@ consteval auto data_member_spec(info member_type,
       const string &s = options.name->s;
       return __metafunction(detail::__metafn_data_member_spec,
                             member_type,
-                            !s.empty(), s.size(), ^^const char, s.data(),
+                            true, s.size(), ^^const char, s.data(),
                             options.alignment.has_value(), alignment,
-                            options.width.has_value(), width,
+                            options.bit_width.has_value(), width,
                             no_unique_address,
                             options.annotations.size(), options.annotations.data(),
 #if __has_feature(attribute_reflection)
@@ -2819,7 +2820,7 @@ consteval auto data_member_spec(info member_type,
       member_type,
       false, 0, ^^const char, "",
       options.alignment.has_value(), alignment,
-      options.width.has_value(), width,
+      options.bit_width.has_value(), width,
       no_unique_address,
       options.annotations.size(), options.annotations.data(),
 #if __has_feature(attribute_reflection)

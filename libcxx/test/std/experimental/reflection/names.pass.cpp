@@ -309,13 +309,17 @@ static_assert(display_string_of(^^S::operator new) == "operator new");
 }  // namespace Ops
 
 namespace DataMemberSpecs {
-constexpr auto a = data_member_spec(^^int, {});
-constexpr auto b = data_member_spec(^^int, {.name=""});
+constexpr auto a = data_member_spec(^^int, {.bit_width=3});
+consteval bool rejects_empty_name() {
+  try { (void)data_member_spec(^^int, {.name=""}); }
+  catch (std::meta::exception&) { return true; }
+  return false;
+}
 constexpr auto c = data_member_spec(^^int, {.name="ident"});
 constexpr auto d = data_member_spec(^^int, {.name=u8"ident"});
 
 static_assert(!has_identifier(a));
-static_assert(!has_identifier(b));
+static_assert(rejects_empty_name());
 static_assert(has_identifier(c));
 static_assert(has_identifier(d));
 

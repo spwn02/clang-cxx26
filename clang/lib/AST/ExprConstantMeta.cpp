@@ -6031,7 +6031,9 @@ bool data_member_spec(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (Name) {
     Lexer Lex(Range.getBegin(), C.getLangOpts(), Name->data(), Name->data(),
               Name->data() + Name->size(), false);
-    if (!Lex.validateIdentifier(*Name))
+    if (Name->find('\\') != std::string::npos ||
+        !Lex.validateIdentifier(*Name) ||
+        C.Idents.get(*Name).getTokenID() != tok::identifier)
       return Diagnoser(Range.getBegin(), diag::metafn_name_invalid_identifier)
           << *Name << Range;
   }
@@ -6365,6 +6367,10 @@ bool define_aggregate(APValue &Result, ASTContext &C, MetaActions &Meta,
     return DiagnoseReflectionKind(Diagnoser, Range, "a class type",
                                   DescriptionOf(Scratch));
 
+  if (ToComplete.isConstQualified() || ToComplete.isVolatileQualified())
+    return DiagnoseReflectionKind(Diagnoser, Range, "a cv-unqualified class type",
+                                  DescriptionOf(Scratch));
+
   // Evaluate the number of members provided.
   if (!Evaluator(Scratch, Args[1], true))
     return true;
@@ -6394,7 +6400,13 @@ bool define_aggregate(APValue &Result, ASTContext &C, MetaActions &Meta,
     MemberSpecs.push_back(Scratch.getReflectedDataMemberSpec());
     Scratch.Profile(ID);
 
-    if (MemberSpecs.back()->Name &&
+    if (Decl *TypeDecl = findTypeDecl(C.getBaseElementType(MemberSpecs.back()->Ty)))
+      (void)Meta.EnsureInstantiated(TypeDecl, Range);
+    if (MemberSpecs.back()->Ty->isIncompleteType())
+      return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
+          << 4 << 0 << Range;
+
+    if (MemberSpecs.back()->Name && *MemberSpecs.back()->Name != "_" &&
         !MemberNames.insert(*MemberSpecs.back()->Name).second)
       return Diagnoser(Range.getBegin(), diag::metafn_duplicate_member_names)
           << *MemberSpecs.back()->Name << Range;

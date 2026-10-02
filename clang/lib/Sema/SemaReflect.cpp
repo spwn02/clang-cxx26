@@ -841,7 +841,6 @@ public:
     AttributePool AttrPool(AttrFactory);
 
     // Iterate over member specs.
-    unsigned AnonMemCtr = 0;
     for (TagDataMemberSpec *MemberSpec : MemberSpecs) {
       // Build the member declaration.
       unsigned DiagID;
@@ -885,12 +884,9 @@ public:
       // Create declarator for the member.
       Declarator MemberDeclarator(DS, MemberAttrs, DeclaratorContext::Member);
 
-      // Set the identifier, unless this is a zero-width bit-field.
-      if (!MemberSpec->BitWidth || *MemberSpec->BitWidth > 0) {
-        std::string MemberName = MemberSpec->Name.value_or(
-              "__" + llvm::toString(llvm::APSInt::get(AnonMemCtr++), 10));
-        IdentifierInfo &II = S.Context.Idents.get(MemberName);
-
+      // An absent name denotes an unnamed bit-field.
+      if (MemberSpec->Name) {
+        IdentifierInfo &II = S.Context.Idents.get(*MemberSpec->Name);
         MemberDeclarator.SetIdentifier(&II, DefinitionLoc);
       }
 

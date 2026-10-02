@@ -20,16 +20,16 @@ constexpr auto bad_type = std::meta::data_member_spec(std::meta::reflect_constan
 constexpr auto bad_name = std::meta::data_member_spec(^^int, {.name = "1bad"});
 // expected-error@-1 {{must be initialized by a constant expression}}
 constexpr auto both_width_alignment = std::meta::data_member_spec(
-    ^^int, {.alignment = 8, .width = 1});
+    ^^int, {.alignment = 8, .bit_width = 1});
 // expected-error@-2 {{must be initialized by a constant expression}}
 constexpr auto negative_width = std::meta::data_member_spec(
-    ^^int, {.width = -1});
+    ^^int, {.bit_width = -1});
 // expected-error@-2 {{must be initialized by a constant expression}}
 constexpr auto bad_alignment = std::meta::data_member_spec(
     ^^int, {.alignment = 3});
 // expected-error@-2 {{must be initialized by a constant expression}}
 constexpr auto bad_bitfield_type = std::meta::data_member_spec(
-    ^^float, {.width = 1});
+    ^^float, {.bit_width = 1});
 // expected-error@-2 {{must be initialized by a constant expression}}
 
 } // namespace p2996_batch11

@@ -65,31 +65,32 @@ consteval {
   define_aggregate(^^S, {
     data_member_spec(^^int, {.name="count", .alignment=16}),
     data_member_spec(^^bool, {.name="flag"}),
-    data_member_spec(^^int, {.width=0}),
-    data_member_spec(^^int, {.width=5}),
+    data_member_spec(^^int, {.bit_width=0}),
+    data_member_spec(^^int, {.bit_width=5}),
   });
 }
 static_assert(is_complete_type(^^S));
 // unnamed bitfields are not nonstatic data members.
-static_assert(nonstatic_data_members_of(^^S, ctx).size() == 3);
+static_assert(nonstatic_data_members_of(^^S, ctx).size() == 2);
 static_assert(alignment_of(^^S::count) == 16);
-static_assert(bit_size_of(nonstatic_data_members_of(^^S, ctx)[2]) == 5);
+static_assert(!has_identifier(members_of(^^S, ctx)[2]));
+static_assert(!has_identifier(members_of(^^S, ctx)[3]));
 static_assert((members_of(^^S, ctx) |
                std::views::filter(std::meta::is_bit_field) |
                std::views::transform(std::meta::bit_size_of) |
                std::ranges::to<std::vector>()) == std::vector<size_t> {0, 5});
 
-constexpr S s = {14, true, 11};
+constexpr S s = {14, true};
 static_assert(s.count == 14);
 static_assert(s.flag);
-static_assert(s.[:nonstatic_data_members_of(^^S, ctx)[2]:] == 11);
+
 
 struct Empty {};
 struct WithEmpty;
 consteval {
   define_aggregate(^^WithEmpty, {
-    data_member_spec(^^int, {}),
-    data_member_spec(^^Empty, {.no_unique_address=true}),
+    data_member_spec(^^int, {.name="member"}),
+    data_member_spec(^^Empty, {.name="empty", .no_unique_address=true}),
   });
 }
 static_assert(sizeof(WithEmpty) == sizeof(int));
@@ -253,7 +254,7 @@ consteval {
       {
         std::make_pair(true, std::meta::data_member_spec(^^int, {.name="i"})),
       }, {
-        std::make_pair(false, std::meta::data_member_spec(^^std::string)),
+        std::make_pair(false, std::meta::data_member_spec(^^std::string, {.name="unused"})),
         std::make_pair(true, std::meta::data_member_spec(^^bool, {.name="b"})),
       }
     }) |
@@ -291,19 +292,23 @@ static_assert(identifier_of(nonstatic_data_members_of(^^Cls1, ctx)[0]) ==
                          // ===========================
 
 namespace data_member_spec_comparison {
-static_assert(data_member_spec(^^int, {}) != ^^int);
-static_assert(data_member_spec(^^int, {}) == data_member_spec(^^int, {}));
-static_assert(data_member_spec(^^int, {}) !=
+static_assert(data_member_spec(^^int, {.name="member"}) != ^^int);
+static_assert(data_member_spec(^^int, {.name="member"}) == data_member_spec(^^int, {.name="member"}));
+static_assert(data_member_spec(^^int, {.name="member"}) !=
               data_member_spec(^^int, {.name="i"}));
 static_assert(data_member_spec(^^int, {.name=u8"i"}) ==
               data_member_spec(^^int, {.name="i"}));
 static_assert(data_member_spec(^^int, {.name="i", .alignment=4}) !=
               data_member_spec(^^int, {.name="i"}));
-static_assert(data_member_spec(^^int, {.name=""}) ==
-              data_member_spec(^^int, {}));
+consteval bool rejects_empty_name() {
+  try { (void)data_member_spec(^^int, {.name=""}); }
+  catch (std::meta::exception&) { return true; }
+  return false;
+}
+static_assert(rejects_empty_name());
 
 using Alias = int;
-static_assert(data_member_spec(^^Alias, {}) != data_member_spec(^^int, {}));
+static_assert(data_member_spec(^^Alias, {.name="member"}) == data_member_spec(^^int, {.name="member"}));
 }  // namespace data_member_spec_comparison
 
                             // ====================
