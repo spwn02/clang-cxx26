@@ -12814,6 +12814,12 @@ bool RecordExprEvaluator::VisitLambdaExpr(const LambdaExpr *E) {
     if (!CurFieldInit || CurFieldInit->containsErrors())
       return Error(E);
 
+    // A capture initializer can still be value-dependent while an enclosing
+    // expansion statement is only partially instantiated; it cannot be
+    // evaluated yet.
+    if (CurFieldInit->isValueDependent())
+      return Error(E);
+
     LValue Subobject = This;
 
     if (!HandleLValueMember(Info, E, Subobject, Field, &Layout))
