@@ -1761,7 +1761,10 @@ consteval auto offset_of(info r) -> member_offset {
 
 consteval auto __is_size_operand(info r, bool allow_bit_field) -> bool {
   if (is_type(r))
-    return is_complete_type(r);
+    // sizeof is ill-formed for a function type, and the draft's Returns is
+    // sizeof(T): reject it instead of returning a bogus value.
+    return is_complete_type(r) &&
+           !extract<bool>(substitute(^^is_function_v, {r}));
   if (is_object(r) || is_value(r) || is_base(r) || is_data_member_spec(r))
     return true;
   if (is_bit_field(r))
@@ -1788,7 +1791,8 @@ consteval auto bit_size_of(info r) -> size_t {
 
 consteval auto alignment_of(info r) -> size_t {
   if (is_type(r)) {
-    if (!is_complete_type(r))
+    if (!is_complete_type(r) ||
+        extract<bool>(substitute(^^is_function_v, {r})))
       throw exception(u8"bad", ^^alignment_of);
   } else if (is_object(r) || is_base(r) || is_data_member_spec(r)) {
     // valid

@@ -73,4 +73,32 @@ consteval bool variable_of_in_lambda_throws(int) {
 }
 static_assert(variable_of_in_lambda_throws(1));
 
+// parameters_of throws unless given a function or function type.
+template <class> struct TT {};
+template <class> void ft();
+static_assert(parameters_of_throws(info{}));
+static_assert(parameters_of_throws(^^::));
+static_assert(parameters_of_throws(^^ft));
+static_assert(parameters_of_throws(^^TT));
+static_assert(parameters_of_throws(reflect_constant(1)));
+static_assert(parameters_of_throws(^^int));
+consteval bool variable_of_other_function_throws() {
+  try { (void)variable_of(parameters_of(^^fn)[0]); } catch (std::meta::exception&) { return true; }
+  return false;
+}
+static_assert(variable_of_other_function_throws());
+
+// size_of / alignment_of / bit_size_of throw for a function type, whose sizeof
+// is ill-formed (#195).
+consteval bool size_query_throws(info r) {
+  bool a = false, b = false, c = false;
+  try { (void)size_of(r); } catch (std::meta::exception&) { a = true; }
+  try { (void)alignment_of(r); } catch (std::meta::exception&) { b = true; }
+  try { (void)bit_size_of(r); } catch (std::meta::exception&) { c = true; }
+  return a && b && c;
+}
+static_assert(size_query_throws(^^void()) && size_query_throws(^^void(int)));
+static_assert(size_of(^^int) == sizeof(int) && alignment_of(^^long) == alignof(long) &&
+              bit_size_of(^^char) == 8);
+
 int main(int, char**) { return 0; }
