@@ -20374,6 +20374,14 @@ bool Sema::tryCaptureVariable(
   bool Explicit = (Kind != TryCaptureKind::Implicit);
   unsigned FunctionScopesIndex = MaxFunctionScopesIndex;
   bool TraversedExpansionStmt = false;
+
+  // Expansion statements do not introduce a capturing scope. Compute the
+  // context with them removed once, so that the comparison against the lambda
+  // call operator below stays fixed across iterations, as it does for CurContext.
+  DeclContext *CurContextNoExpansion = CurContext;
+  while (isa<ExpansionStmtDecl>(CurContextNoExpansion))
+    CurContextNoExpansion = CurContextNoExpansion->getParent();
+
   do {
 
     LambdaScopeInfo *LSI = nullptr;
@@ -20381,12 +20389,12 @@ bool Sema::tryCaptureVariable(
       LSI = dyn_cast_or_null<LambdaScopeInfo>(
           FunctionScopes[FunctionScopesIndex]);
 
-    // Expansion statements do not introduce a capturing scope. In a generic
-    // lambda specialization AfterParameterList can be false, so use the
-    // context with those intervening DeclContexts removed when checking
-    // whether we are in the call operator's body.
+    // In a generic lambda specialization AfterParameterList can be false, so
+    // check whether we are in the call operator's body using the context with
+    // expansion statements removed.
     bool IsInScopeDeclarationContext =
-        !LSI || LSI->AfterParameterList || DC == LSI->CallOperator;
+        !LSI || LSI->AfterParameterList ||
+        CurContextNoExpansion == LSI->CallOperator;
 
     if (LSI && !LSI->AfterParameterList) {
       // This allows capturing parameters from a default value which does not
