@@ -176,7 +176,9 @@ namespace extract_ref_semantics {
   int nonConstGlobal = 1;
   const int constGlobal = 2;
 
-  static_assert(&extract<int &>(^^nonConstGlobal) == &nonConstGlobal);
+  // extract-ref throws for a variable not usable in constant expressions
+  // ([meta.reflection.extract]); its object reflection can be extracted.
+  static_assert(&extract<int &>(std::meta::reflect_object(nonConstGlobal)) == &nonConstGlobal);
   // [meta.reflection.extract]p5.2: only a qualification conversion from the variable's type is allowed,
   // so `int&` cannot be extracted from a `const int` variable (see extract-qualification.pass.cpp).
   static_assert(extract<const int &>(^^constGlobal) == 2);
@@ -521,7 +523,7 @@ int main() {
   extract<decltype(g)>(^^g)(3);
 
   // RUN: grep "updated-extract-global: 42" %t.stdout
-  int &ref = extract<int &>(^^extract_ref_semantics::nonConstGlobal);
+  int &ref = extract<int &>(std::meta::reflect_object(extract_ref_semantics::nonConstGlobal));
   ref = 42;
   std::println("updated-extract-global: {}",
                extract_ref_semantics::nonConstGlobal);

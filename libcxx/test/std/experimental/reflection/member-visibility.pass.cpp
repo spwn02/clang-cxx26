@@ -137,14 +137,19 @@ public:
 
 struct Derived : Access {
   static constexpr auto ctx = access_context::current();
-  static constexpr auto obj_ctx = access_context::current().via(^^Derived);
 
   static_assert(is_accessible(^^Access::PublicBase::mem, ctx));
   static_assert(is_accessible(^^Access::ProtectedBase::mem, ctx));
   static_assert(is_accessible(^^::PrivateBase::mem, ctx));
-  static_assert(!is_accessible(^^::PrivateBase::mem, obj_ctx));
   static_assert(!is_accessible(Access::r_prot, ctx));
-  static_assert(is_accessible(Access::r_prot, obj_ctx));
+
+  // access_context::via requires a complete class ([meta.reflection.access.context]),
+  // so it is used from a member function body, a complete-class context.
+  static consteval void check_via() {
+    constexpr auto obj_ctx = access_context::current().via(^^Derived);
+    static_assert(!is_accessible(^^::PrivateBase::mem, obj_ctx));
+    static_assert(is_accessible(Access::r_prot, obj_ctx));
+  }
 };
 
 static constexpr auto gctx = access_context::current();

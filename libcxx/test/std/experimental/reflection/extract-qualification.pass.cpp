@@ -54,8 +54,11 @@ static_assert(ok<int>(reflect_constant(5)));
 static_assert(ok<const int>(reflect_constant(5)));
 
 // references bind with a qualification conversion only
-static_assert(ok<int&>(^^gi));
-static_assert(ok<const int&>(^^gi));
+// [meta.reflection.extract] extract-ref: a variable that is not usable in
+// constant expressions cannot be extracted by reference; an object reflection can.
+static_assert(!ok<int&>(^^gi));
+static_assert(ok<int&>(reflect_object(gi)));
+static_assert(ok<const int&>(reflect_object(gi)));
 static_assert(!ok<int&>(^^gci));
 static_assert(ok<const int&>(^^gci));
 

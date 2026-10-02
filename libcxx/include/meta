@@ -1201,7 +1201,11 @@ public:
   }
 
   consteval access_context via(info new_designating_class) const {
-    if (!is_class_type(new_designating_class))
+    // [meta.reflection.access.context]: throws unless the argument is the null
+    // reflection or a reflection of a complete class type.
+    if (new_designating_class != info{} &&
+        (!is_class_type(new_designating_class) ||
+         !is_complete_type(new_designating_class)))
       throw exception(u8"bad type", ^^access_context::via);
 
     return access_context{d_scope, new_designating_class};

@@ -4096,6 +4096,18 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
           return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
               << 0 << Decl->getType() << ReturnsLValue << ResultTy << Range;
 
+        // extract-ref throws unless the variable is usable in constant
+        // expressions or its lifetime began within the evaluation. A variable
+        // with static or thread storage duration cannot have begun its lifetime
+        // in the current evaluation, so it must be usable in constant
+        // expressions.
+        if (ReturnsLValue)
+          if (auto *VD = dyn_cast<VarDecl>(Decl);
+              VD && (VD->hasGlobalStorage() || VD->getTLSKind() != VarDecl::TLS_None) &&
+              !VD->isUsableInConstantExpressions(C))
+            return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
+                << 1 << DescriptionOf(RV) << Range;
+
         // The lvalue has the variable's own type; a qualification conversion to
         // the result type changes nothing about the value.
         Synthesized = ExtractLValueExpr::Create(C, Range, Decl->getType(), Decl);
@@ -6940,7 +6952,12 @@ bool get_ith_parameter_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       if (idx >= numParams)
         return SetAndSucceed(Result, Sentinel);
 
-      return SetAndSucceed(Result, makeReflection(FT->getParamType(idx)));
+      // Like type_of(parameter): the parameter type, with aliases unwrapped.
+      return SetAndSucceed(
+          Result, makeReflection(desugarType(FT->getParamType(idx),
+                                             /*UnwrapAliases=*/true,
+                                             /*DropCV=*/true,
+                                             /*DropRefs=*/false)));
     }
     return Meta.ThrowMetaException(Range.getBegin(),
                                    "invalid reflection operand");
