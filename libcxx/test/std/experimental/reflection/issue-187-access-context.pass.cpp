@@ -44,4 +44,9 @@ struct AllPublic { int a; };
 static_assert(has_inaccessible_subobjects(^^Mixed, access_context::unprivileged()));
 static_assert(!has_inaccessible_subobjects(^^AllPublic, access_context::unprivileged()));
 
+// access_context is structural: usable as a template argument.
+static_assert(is_structural_type(^^access_context));
+template <access_context C> struct UsesContext { static constexpr info scope = C.scope(); };
+static_assert(UsesContext<access_context::unprivileged()>::scope == ^^::);
+
 int main(int, char**) { return 0; }

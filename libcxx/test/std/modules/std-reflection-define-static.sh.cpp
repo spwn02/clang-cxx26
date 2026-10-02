@@ -49,4 +49,9 @@ static_assert((*std::define_static_object(raw))[2] == 3);
 static_assert((*std::define_static_object("hi"))[0] == 'h');
 static_assert(std::meta::is_object(std::meta::constant_of(^^raw)));
 
+struct PublicOnly { int a; };
+static_assert(!std::meta::has_inaccessible_subobjects(^^PublicOnly, std::meta::access_context::unprivileged()));
+constexpr auto an_access_context = std::meta::access_context::unprivileged();
+static_assert(std::meta::is_structural_type(std::meta::type_of(std::meta::reflect_object(an_access_context))));
+
 int main(int, char**) { return 0; }
