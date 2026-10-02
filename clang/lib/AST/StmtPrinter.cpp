@@ -2428,6 +2428,13 @@ void StmtPrinter::VisitLambdaExpr(LambdaExpr *Node) {
           (Policy.CleanUglifiedParameters && P->getIdentifier())
               ? P->getIdentifier()->deuglifiedName().str()
               : P->getNameAsString();
+      // Annotations on a lambda parameter ([[=expr]]) are printed ahead of the
+      // type, like the declaration printer does for function parameters.
+      for (const auto *A : P->specific_attrs<CXX26AnnotationAttr>()) {
+        OS << "[[=";
+        PrintExpr(A->getArg());
+        OS << "]] ";
+      }
       P->getOriginalType().print(OS, Policy, ParamStr);
     }
     if (Method->isVariadic()) {
