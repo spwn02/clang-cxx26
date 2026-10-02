@@ -180,7 +180,7 @@ struct member_offset {
   ptrdiff_t bytes;
   ptrdiff_t bits;
 
-  constexpr size_t total_bits() const;
+  constexpr ptrdiff_t total_bits() const;
   auto operator<=>(member_offset const&) const = default;
 };
 consteval auto offset_of(info) -> member_offset;
@@ -1004,7 +1004,7 @@ consteval auto has_identifier(info r) -> bool {
 // Returns the string representation of the operator.
 consteval auto symbol_of(operators op) -> string_view {
   static constexpr string_view op_names[45] = {
-      {}, "new", "delete", "new[]", "delete[]", "coawait", "()", "[]", "->",
+      {}, "new", "delete", "new[]", "delete[]", "co_await", "()", "[]", "->",
       "->*", "~", "!", "+", "-", "*", "/", "%", "^", "&", "|", "=", "+=", "-=",
       "*=", "/=", "%=", "^=", "&=", "|=", "==", "!=", "<", ">", "<=", ">=",
       "<=>", "&&", "||", "<<", ">>", "<<=", ">>=", "++", "--", ","
@@ -1016,7 +1016,7 @@ consteval auto symbol_of(operators op) -> string_view {
 
 consteval auto u8symbol_of(operators op) -> u8string_view {
   static constexpr u8string_view op_names[45] = {
-      {}, u8"new", u8"delete", u8"new[]", u8"delete[]", u8"coawait", u8"()",
+      {}, u8"new", u8"delete", u8"new[]", u8"delete[]", u8"co_await", u8"()",
       u8"[]", u8"->", u8"->*", u8"~", u8"!", u8"+", u8"-", u8"*", u8"/", u8"%",
       u8"^", u8"&", u8"|", u8"=", u8"+=", u8"-=", u8"*=", u8"/=", u8"%=",
       u8"^=", u8"&=", u8"|=", u8"==", u8"!=", u8"<", u8">", u8"<=", u8">=",
@@ -1759,7 +1759,7 @@ struct member_offset {
   ptrdiff_t bytes;
   ptrdiff_t bits;
 
-  constexpr auto total_bits() -> ptrdiff_t {
+  constexpr auto total_bits() const -> ptrdiff_t {
     return bytes * CHAR_BIT + bits;
   }
 
@@ -3849,7 +3849,10 @@ template <typename CharT>
 template <info R>  // Variables, data members, enumerators.
     requires (is_variable(R) || is_nonstatic_data_member(R) || is_enumerator(R))
 consteval auto pretty_printer<CharT>::tprint_impl::render() -> string_t {
-  return string_t {identifier_helper(R)};
+  if constexpr (has_identifier(R))
+    return string_t {identifier_helper(R)};
+  else
+    return string_constant("(unnamed-member)");
 }
 }  // namespace detail
 

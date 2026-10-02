@@ -2743,7 +2743,8 @@ bool identifier_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   switch (RV.getReflectionKind()) {
   case ReflectionKind::Type: {
     QualType QT = RV.getReflectedType();
-    if (isTemplateSpecialization(QT))
+    if (isTemplateSpecialization(QT) ||
+        (!isTypeAlias(QT) && QT.hasQualifiers()))
       return Diagnoser(Range.getBegin(), diag::metafn_name_is_not_identifier)
           << 0 << Range;
 
@@ -2873,7 +2874,8 @@ bool has_identifier(APValue &Result, ASTContext &C, MetaActions &Meta,
   switch (RV.getReflectionKind()) {
   case ReflectionKind::Type: {
     QualType QT = RV.getReflectedType();
-    if (isTemplateSpecialization(QT))
+    if (isTemplateSpecialization(QT) ||
+        (!isTypeAlias(QT) && QT.hasQualifiers()))
       break;
 
     if (auto *D = findTypeDecl(QT))
@@ -2907,7 +2909,8 @@ bool has_identifier(APValue &Result, ASTContext &C, MetaActions &Meta,
                       !(STTPT && STTPT->getPackIndex());
     }
     else if (auto *ND = dyn_cast<NamedDecl>(D))
-      HasIdentifier = (ND->getIdentifier() != nullptr);
+      HasIdentifier = ND->getIdentifier() ||
+                      ND->getDeclName().getCXXLiteralIdentifier();
 
     break;
   }
@@ -3445,6 +3448,16 @@ bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   }
   case ReflectionKind::Declaration: {
     ValueDecl *Decl = RV.getReflectedDecl();
+    if (auto *FD = dyn_cast<FunctionDecl>(Decl)) {
+      // A function splice must be a valid expression, rather than a
+      // reference to a deleted function or an unbound member function.
+      auto *MD = dyn_cast<CXXMethodDecl>(FD);
+      if (FD->isDeleted() || (MD && MD->isImplicitObjectMemberFunction()) ||
+          !Meta.HasSatisfiedConstraints(FD))
+        return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
+            << 2 << DescriptionOf(RV) << Range;
+      return SetAndSucceed(Result, RV);
+    }
 
     APValue Constant;
     QualType QT;
@@ -5193,6 +5206,11 @@ bool is_enumerable_type(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (!Evaluator(RV, Args[0], true))
     return true;
 
+  if (RV.isReflectedType())
+    RV = makeReflection(desugarType(RV.getReflectedType(),
+                                    /*UnwrapAliases=*/true, /*DropCV=*/true,
+                                    /*DropRefs=*/false));
+
   bool result = false;
   switch (RV.getReflectionKind()) {
   case ReflectionKind::Type:
@@ -6470,6 +6488,9 @@ bool size_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (!Evaluator(RV, Args[0], true))
     return true;
 
+  if (RV.isReflectedBaseSpecifier())
+    RV = makeReflection(RV.getReflectedBaseSpecifier()->getType());
+
   switch (RV.getReflectionKind()) {
   case ReflectionKind::Type: {
     QualType QT = RV.getReflectedType();
@@ -6604,6 +6625,9 @@ bool bit_size_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (!Evaluator(RV, Args[0], true))
     return true;
 
+  if (RV.isReflectedBaseSpecifier())
+    RV = makeReflection(RV.getReflectedBaseSpecifier()->getType());
+
   switch (RV.getReflectionKind()) {
   case ReflectionKind::Type: {
     QualType QT = RV.getReflectedType();
@@ -6665,6 +6689,9 @@ bool alignment_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   APValue RV;
   if (!Evaluator(RV, Args[0], true))
     return true;
+
+  if (RV.isReflectedBaseSpecifier())
+    RV = makeReflection(RV.getReflectedBaseSpecifier()->getType());
 
   switch (RV.getReflectionKind()) {
   case ReflectionKind::Type: {
