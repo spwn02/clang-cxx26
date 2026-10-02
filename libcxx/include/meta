@@ -1670,8 +1670,8 @@ consteval auto is_structural_type(info r) -> bool {
 // different, recursive check instead: an array type is fine here as long as
 // its element type is, all the way down to whatever scalar/class type
 // bottoms out the nesting, and that bottom type is copy-constructible (what
-// 'FixedArray'/'FixedArrayOfRows' further below actually need in order to
-// copy it into a static backing object).
+// '__reflect_array_object' needs in order to copy it into the array's
+// template parameter object).
 template <typename T>
 inline constexpr bool __reflect_constant_array_row_ok_v = is_copy_constructible_v<T>;
 template <typename T, size_t N>

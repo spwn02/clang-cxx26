@@ -47,4 +47,15 @@ static_assert(is_object(constant_of(^^m2)));
 static_assert(constant_of(^^m2) == reflect_constant_array(m2));
 static_assert(is_object(constant_of(reflect_object(arr))));
 
+// Empty ranges reflect the template parameter object of const array<T, 0>.
+static_assert(type_of(reflect_constant_array(std::vector<int>{})) == ^^const std::array<int, 0>);
+
+// constant_of of an array must throw where reflect_constant_array throws.
+[[maybe_unused]] constexpr const char* names[] = {"a", "b"};
+consteval bool constant_of_invalid_array_throws() {
+  try { (void)constant_of(^^names); } catch (std::meta::exception&) { return true; }
+  return false;
+}
+static_assert(constant_of_invalid_array_throws());
+
 int main(int, char**) { return 0; }

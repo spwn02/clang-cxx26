@@ -31,14 +31,10 @@
 // those row objects as a non-type template argument pack) can't work --
 // arrays are never copy-list-initializable from another array object, so
 // there's no way to copy referenced rows into a fresh contiguous backing
-// array. The actual fix flattens all the way down to the ultimate scalar
-// leaf type, gathers every dimension's extent along the way, and
-// reconstructs the correctly-nested array type from that flat extent list
-// (see 'libcxx/include/meta's 'reflect_constant_array' and
-// '__define_static::__nd_array_shape'/'FixedNDArray' for the full design) --
-// ordinary aggregate-initialization brace elision then fills the nested
-// array correctly from one flat, row-major scalar list, exactly like
-// 'int a[2][3] = {1,2,3,4,5,6};' does in non-reflective code.
+// array. The fix flattens all the way down to the ultimate leaf type and
+// gathers every dimension's extent; the compiler then builds the nested array
+// object ('meta::__reflect_array_object' in libcxx/include/meta) from one
+// flat, row-major leaf list.
 
 #include <meta>
 #include <vector>

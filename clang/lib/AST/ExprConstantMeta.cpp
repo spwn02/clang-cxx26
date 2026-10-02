@@ -1738,6 +1738,19 @@ static bool isVolatileQualifiedType(QualType QT) {
   return result;
 }
 
+// Whether an array value could be the value of a template parameter object
+// (e.g. no pointers to string literals), as reflect_constant_array requires.
+static bool isValidArrayTemplateArgument(ASTContext &C, SourceRange Range,
+                                         QualType Ty, const APValue &V) {
+  Expr *OVE = new (C) OpaqueValueExpr(Range.getBegin(), Ty, VK_PRValue);
+  Expr *CE = ConstantExpr::Create(C, OVE, V);
+  OVE = new (C) OpaqueValueExpr(Range.getBegin(), Ty, VK_PRValue, OK_Ordinary,
+                                CE);
+  Expr::EvalResult Discarded;
+  return OVE->EvaluateAsConstantExpr(
+      Discarded, C, ConstantExprKind::NonClassTemplateArgument);
+}
+
 QualType ComputeResultType(QualType ExprTy, const APValue &V) {
   SplitQualType SQT;
 
@@ -3447,6 +3460,10 @@ bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     QualType ConstantTy = ComputeResultType(RV.getTypeOfReflectedResult(C),
                                             Constant);
     // Arrays reflect their template parameter object, like reflect_constant_array.
+    if (ConstantTy->isConstantArrayType() &&
+        !isValidArrayTemplateArgument(C, Range, ConstantTy, Constant))
+      return Diagnoser(Range.getBegin(), diag::metafn_result_not_representable)
+          << 0 << Range;
     if (ConstantTy->isRecordType() || ConstantTy->isConstantArrayType()) {
       auto *TPO = C.getTemplateParamObjectDecl(ConstantTy, Constant);
       Constant = APValue(APValue::LValueBase{TPO}, CharUnits::Zero(), {}, false,
@@ -3506,6 +3523,10 @@ bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     }
 
     QualType ConstantTy = ComputeResultType(QT, Constant);
+    if (ConstantTy->isConstantArrayType() &&
+        !isValidArrayTemplateArgument(C, Range, ConstantTy, Constant))
+      return Diagnoser(Range.getBegin(), diag::metafn_result_not_representable)
+          << 0 << Range;
     if (ConstantTy->isRecordType() || ConstantTy->isConstantArrayType()) {
       auto *TPO = C.getTemplateParamObjectDecl(ConstantTy, Constant);
       Constant = APValue(APValue::LValueBase{TPO}, CharUnits::Zero(), {}, false,
