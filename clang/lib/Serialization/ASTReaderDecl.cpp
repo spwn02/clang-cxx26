@@ -2829,7 +2829,7 @@ void ASTDeclReader::VisitStaticAssertDecl(StaticAssertDecl *D) {
   VisitDecl(D);
   D->AssertExprAndFailed.setPointer(Record.readExpr());
   D->AssertExprAndFailed.setInt(Record.readInt());
-  D->Message = cast_or_null<StringLiteral>(Record.readExpr());
+  D->Message = Record.readExpr();
   D->RParenLoc = readSourceLocation();
 }
 
