@@ -138,7 +138,8 @@ consteval bool catches_ast_validation_failures() {
   }
   try { (void)std::meta::extract<int>(^^int); }
   catch (const std::meta::exception& e) {
-    extract = e.from() == ^^std::meta::extract;
+    // [meta.syn]: E.from() represents the function template specialization F.
+    extract = e.from() == ^^std::meta::extract<int>;
   }
   try { (void)std::meta::reflect_constant((const char *)"fails"); }
   catch (const std::meta::exception& e) {

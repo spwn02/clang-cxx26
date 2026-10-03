@@ -40,6 +40,9 @@ enum class AttributeNamespace {
 };
 
 // concept reflection_range
+[[clang::instantiation_dependent]]
+consteval info current_function();
+
 template <typename R>
 concept reflection_range = see below;
 
@@ -483,6 +486,12 @@ class exception : public std::exception {
   info from_;
   source_location where_;
 
+  // Preserve the active exception and diagnostic payload when a public
+  // metafunction delegates to another function that throws.
+  friend consteval void __set_exception_from(exception& e, info from) {
+    e.from_ = from;
+  }
+
 public:
   consteval exception(u8string_view what, info from,
                       source_location where = source_location::current()) noexcept
@@ -516,6 +525,9 @@ public:
 _LIBCPP_HIDE_FROM_ABI consteval info __make_exception(info from, const char* what) {
   throw exception(string_view(what), from);
 }
+
+[[clang::instantiation_dependent]]
+consteval info current_function();
 
 template <typename R>
 concept reflection_range =
@@ -1117,11 +1129,11 @@ consteval auto can_substitute(info templ, R &&args) -> bool {
   if constexpr (ranges::contiguous_range<R>) {
     sub = __metafunction(detail::__metafn_substitute, templ,
                          ranges::data(args), ranges::size(args), false,
-                         ^^can_substitute);
+                         current_function());
   } else {
     vector vargs(from_range, args);
     sub = __metafunction(detail::__metafn_substitute, templ,
-                         vargs.data(), vargs.size(), false, ^^can_substitute);
+                         vargs.data(), vargs.size(), false, current_function());
   }
   return sub != info{};
 }
@@ -1133,11 +1145,11 @@ consteval auto substitute(info templ, R &&args) -> info {
   if constexpr (ranges::contiguous_range<R>) {
     return __metafunction(detail::__metafn_substitute, templ,
                           ranges::data(args), ranges::size(args), true,
-                          ^^substitute);
+                          current_function());
   } else {
     vector vargs(from_range, args);
     return __metafunction(detail::__metafn_substitute, templ, vargs.data(),
-                          vargs.size(), true, ^^substitute);
+                          vargs.size(), true, current_function());
   }
 }
 
@@ -1145,11 +1157,14 @@ consteval auto substitute(info templ, R &&args) -> info {
 // or object having type 'T'.
 template <typename Ty> requires (!is_rvalue_reference_v<Ty>)
 consteval auto extract(info r) -> Ty {
-  return __metafunction(detail::__metafn_extract, ^^Ty, r, ^^extract);
+  return __metafunction(detail::__metafn_extract, ^^Ty, r, current_function());
 }
 
-consteval auto is_class_type(info r) -> bool {
+consteval auto is_class_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_class_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, ^^is_class_type);
+  throw;
 }
 
 consteval auto __is_closure_type(info r) -> bool {
@@ -1223,7 +1238,7 @@ consteval info current_function() {
 }
 
 [[clang::instantiation_dependent]]
-consteval info current_class() {
+consteval info current_class() try {
   info scope = __metafunction(detail::__metafn_current_class);
   if (is_function(scope))
     scope = parent_of(scope);
@@ -1231,6 +1246,9 @@ consteval info current_class() {
     throw exception(u8"current scope does not represent a class nor a member function",
                     ^^current_class);
   return scope;
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 [[clang::instantiation_dependent]]
@@ -1269,11 +1287,11 @@ consteval auto __members_of(info r, access_context ctx, info from) -> vector<inf
                     [=](info r) { return is_accessible(r, ctx); });
 }
 
-consteval auto members_of(info r, access_context ctx) -> vector<info> {
-  // The public name is overloaded, and this compiler cannot reflect an
-  // overload selected by a cast.  Use the unique implementation function as
-  // the closest stable source reflection for this overload.
-  return __members_of(r, ctx, ^^__members_of);
+consteval auto members_of(info r, access_context ctx) -> vector<info> try {
+  return __members_of(r, ctx, current_function());
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 // Returns whether the reflected entity is a namespace.
@@ -1295,8 +1313,11 @@ consteval auto __bases_of(info r, access_context ctx, info from) -> vector<info>
                     [=](info r) { return is_accessible(r, ctx); });
 }
 
-consteval auto bases_of(info r, access_context ctx) -> vector<info> {
-  return __bases_of(r, ctx, ^^__bases_of);
+consteval auto bases_of(info r, access_context ctx) -> vector<info> try {
+  return __bases_of(r, ctx, current_function());
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 // Returns whether the reflected entity is a variable.
@@ -1305,32 +1326,41 @@ consteval auto is_variable(info r) -> bool {
 }
 
 consteval auto static_data_members_of(info r,
-                                      access_context ctx) -> vector<info> {
+                                      access_context ctx) -> vector<info> try {
   if (is_namespace(r))
     throw exception(u8"Namespaces cannot have static data members",
                     ^^static_data_members_of);
 
   return __filtered(__members_of(r, ctx, ^^static_data_members_of),
                     is_variable);
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 consteval auto nonstatic_data_members_of(info r,
-                                         access_context ctx) -> vector<info> {
+                                         access_context ctx) -> vector<info> try {
   if (is_namespace(r))
     throw exception(u8"Namespaces cannot have non-static data members",
                     ^^nonstatic_data_members_of);
 
   return __filtered(__members_of(r, ctx, ^^nonstatic_data_members_of),
                     is_nonstatic_data_member);
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto subobjects_of(info r, access_context ctx) -> vector<info> {
+consteval auto subobjects_of(info r, access_context ctx) -> vector<info> try {
   if (!is_class_type(r))
     throw exception(u8"bad class", ^^subobjects_of);
   vector<info> result = bases_of(r, ctx);
   for (info subobject : nonstatic_data_members_of(r, ctx))
     result.push_back(subobject);
   return result;
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 // Returns true if the reflected entity is an enumerable type.
@@ -1338,7 +1368,7 @@ consteval auto is_enumerable_type(info r) -> bool {
   return __metafunction(detail::__metafn_is_enumerable_type, r);
 }
 
-consteval auto enumerators_of(info r) -> vector<info> {
+consteval auto enumerators_of(info r) -> vector<info> try {
   if (!__metafunction(detail::__metafn_is_type, r) ||
       !extract<bool>(substitute(^^is_enum_v, {r})) || !is_enumerable_type(r))
     throw exception(u8"bad enumeration", ^^enumerators_of);
@@ -1350,6 +1380,9 @@ consteval auto enumerators_of(info r) -> vector<info> {
   using range = __range_of_infos::range<iterator>;
   auto rng = range{r};
   return vector<info>{rng.begin(), rng.end()};
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 // Returns whether the reflected entity is a public class member.
@@ -1660,6 +1693,8 @@ consteval auto is_user_declared(info r) -> bool {
 }
 
 consteval auto is_structural_type(info r) -> bool {
+  if (!is_type(r))
+    throw exception(u8"not a type", ^^is_structural_type);
   return __metafunction(detail::__metafn_is_structural_type, r);
 }
 
@@ -1697,9 +1732,12 @@ inline constexpr bool __reflect_constant_array_structural_v<T[N]> =
 // product must equal count. Empty arrays are handled separately by the library.
 template <typename T>
 consteval info __reflect_array_object(const size_t* dims, size_t rank,
-                                      const T* data, size_t count) {
+                                      const T* data, size_t count,
+                                      info from = info{}) {
+  if (from == info{})
+    from = current_function();
   return __metafunction(detail::__metafn_reflect_array_object, ^^T,
-                        dims, rank, data, count, ^^__reflect_array_object<T>);
+                        dims, rank, data, count, from);
 }
 
 // Returns a reflection of the value held by the provided argument.
@@ -1720,7 +1758,7 @@ template <typename T>
 consteval auto reflect_object(T &r) -> info {
   static_assert(is_object_v<T>, "reflect_object requires an object type");
   if constexpr (is_object_v<T>)
-    return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r, ^^reflect_object);
+    return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r, current_function());
   else
     return {};
 }
@@ -1730,7 +1768,7 @@ template <typename T>
 consteval auto reflect_function(T &r) -> info {
   static_assert(is_function_v<T>, "reflect_function requires a function type");
   if constexpr (is_function_v<T>)
-    return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r, ^^reflect_function);
+    return __metafunction(detail::__metafn_reflect_result, type_of(^^r), r, current_function());
   else
     return {};
 }
@@ -1747,7 +1785,7 @@ struct member_offset {
 };
 
 // Returns the offset of the reflected entity.
-consteval auto offset_of(info r) -> member_offset {
+consteval auto offset_of(info r) -> member_offset try {
   if (!is_nonstatic_data_member(r) && !is_base(r))
     throw exception(u8"bad member", ^^offset_of);
   if (is_base(r) && is_virtual(r) &&
@@ -1757,6 +1795,9 @@ consteval auto offset_of(info r) -> member_offset {
       __metafunction(detail::__metafn_offset_of, ^^ptrdiff_t, r),
       __metafunction(detail::__metafn_bit_offset_of, ^^ptrdiff_t, r)
   };
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 consteval auto __is_size_operand(info r, bool allow_bit_field) -> bool {
@@ -1789,7 +1830,7 @@ consteval auto bit_size_of(info r) -> size_t {
   return __metafunction(detail::__metafn_bit_size_of, r);
 }
 
-consteval auto alignment_of(info r) -> size_t {
+consteval auto alignment_of(info r) -> size_t try {
   if (is_type(r)) {
     if (!is_complete_type(r) ||
         extract<bool>(substitute(^^is_function_v, {r})))
@@ -1803,60 +1844,102 @@ consteval auto alignment_of(info r) -> size_t {
     throw exception(u8"bad", ^^alignment_of);
   }
   return __metafunction(detail::__metafn_alignment_of, r);
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 // Type trait wrappers
 
-consteval auto is_void_type(info r) -> bool {
+consteval auto is_void_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_void_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_null_pointer_type(info r) -> bool {
+consteval auto is_null_pointer_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_null_pointer_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_integral_type(info r) -> bool {
+consteval auto is_integral_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_integral_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_floating_point_type(info r) -> bool {
+consteval auto is_floating_point_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_floating_point_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_array_type(info r) -> bool {
+consteval auto is_array_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_array_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_pointer_type(info r) -> bool {
+consteval auto is_pointer_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_pointer_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_lvalue_reference_type(info r) -> bool {
+consteval auto is_lvalue_reference_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_lvalue_reference_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_rvalue_reference_type(info r) -> bool {
+consteval auto is_rvalue_reference_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_rvalue_reference_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_member_object_pointer_type(info r) -> bool {
+consteval auto is_member_object_pointer_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_member_object_pointer_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_member_function_pointer_type(info r) -> bool {
+consteval auto is_member_function_pointer_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_member_function_pointer_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_enum_type(info r) -> bool {
+consteval auto is_enum_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_enum_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_union_type(info r) -> bool {
+consteval auto is_union_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_union_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_function_type(info r) -> bool {
+consteval auto is_function_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_function_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 consteval auto remove_cv(info) -> info;
@@ -1867,445 +1950,718 @@ consteval auto is_reflection_type(info r) -> bool {
   return detail::__underlying_entity_of(remove_cv(r)) == detail::__underlying_entity_of(^^info);
 }
 
-consteval auto is_reference_type(info r) -> bool {
+consteval auto is_reference_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_reference_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_arithmetic_type(info r) -> bool {
+consteval auto is_arithmetic_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_arithmetic_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_fundamental_type(info r) -> bool {
+consteval auto is_fundamental_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_fundamental_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_object_type(info r) -> bool {
+consteval auto is_object_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_object_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_scalar_type(info r) -> bool {
+consteval auto is_scalar_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_scalar_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_compound_type(info r) -> bool {
+consteval auto is_compound_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_compound_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_member_pointer_type(info r) -> bool {
+consteval auto is_member_pointer_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_member_pointer_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_const_type(info r) -> bool {
+consteval auto is_const_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_const_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_volatile_type(info r) -> bool {
+consteval auto is_volatile_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_volatile_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 consteval auto is_trivial_type(info r) -> bool {
   return extract<bool>(substitute(^^is_trivial_v, {r}));
 }
 
-consteval auto is_trivially_copyable_type(info r) -> bool {
+consteval auto is_trivially_copyable_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_trivially_copyable_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_standard_layout_type(info r) -> bool {
+consteval auto is_standard_layout_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_standard_layout_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_empty_type(info r) -> bool {
+consteval auto is_empty_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_empty_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_polymorphic_type(info r) -> bool {
+consteval auto is_polymorphic_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_polymorphic_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_abstract_type(info r) -> bool {
+consteval auto is_abstract_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_abstract_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_final_type(info r) -> bool {
+consteval auto is_final_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_final_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_aggregate_type(info r) -> bool {
+consteval auto is_aggregate_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_aggregate_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_signed_type(info r) -> bool {
+consteval auto is_signed_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_signed_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_unsigned_type(info r) -> bool {
+consteval auto is_unsigned_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_unsigned_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_bounded_array_type(info r) -> bool {
+consteval auto is_bounded_array_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_bounded_array_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_unbounded_array_type(info r) -> bool {
+consteval auto is_unbounded_array_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_unbounded_array_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_scoped_enum_type(info r) -> bool {
+consteval auto is_scoped_enum_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_scoped_enum_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <reflection_range R = initializer_list<info>>
-consteval auto is_constructible_type(info type, R &&type_args) {
+consteval auto is_constructible_type(info type, R &&type_args) try {
   vector<info> args(from_range, type_args);
   args.insert(args.begin(), type);
 
   return extract<bool>(substitute(^^is_constructible_v, args));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_default_constructible_type(info r) -> bool {
+consteval auto is_default_constructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_default_constructible_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_copy_constructible_type(info r) -> bool {
+consteval auto is_copy_constructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_copy_constructible_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_move_constructible_type(info r) -> bool {
+consteval auto is_move_constructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_move_constructible_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_assignable_type(info dst, info src) -> bool {
+consteval auto is_assignable_type(info dst, info src) -> bool try {
   return extract<bool>(substitute(^^is_assignable_v, {dst, src}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_copy_assignable_type(info r) -> bool {
+consteval auto is_copy_assignable_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_copy_assignable_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_move_assignable_type(info r) -> bool {
+consteval auto is_move_assignable_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_move_assignable_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_swappable_with_type(info dst, info src) -> bool {
+consteval auto is_swappable_with_type(info dst, info src) -> bool try {
   return extract<bool>(substitute(^^is_swappable_with_v, {dst, src}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_swappable_type(info r) -> bool {
+consteval auto is_swappable_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_swappable_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_destructible_type(info r) -> bool {
+consteval auto is_destructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_destructible_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <reflection_range R = initializer_list<info>>
-consteval auto is_trivially_constructible_type(info type, R &&type_args) {
+consteval auto is_trivially_constructible_type(info type, R &&type_args) try {
   vector<info> args(from_range, type_args);
   args.insert(args.begin(), type);
 
   return extract<bool>(substitute(^^is_trivially_constructible_v, args));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_trivially_default_constructible_type(info r) -> bool {
+consteval auto is_trivially_default_constructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_trivially_default_constructible_v,
                                   {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_trivially_copy_constructible_type(info r) -> bool {
+consteval auto is_trivially_copy_constructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_trivially_copy_constructible_v,
                                   {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_trivially_move_constructible_type(info r) -> bool {
+consteval auto is_trivially_move_constructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_trivially_move_constructible_v,
                                   {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_trivially_assignable_type(info dst, info src) -> bool {
+consteval auto is_trivially_assignable_type(info dst, info src) -> bool try {
   return extract<bool>(substitute(^^is_trivially_assignable_v, {dst, src}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_trivially_copy_assignable_type(info r) -> bool {
+consteval auto is_trivially_copy_assignable_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_trivially_copy_assignable_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_trivially_move_assignable_type(info r) -> bool {
+consteval auto is_trivially_move_assignable_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_trivially_move_assignable_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_trivially_destructible_type(info r) -> bool {
+consteval auto is_trivially_destructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_trivially_destructible_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <reflection_range R = initializer_list<info>>
-consteval auto is_nothrow_constructible_type(info type, R &&type_args) {
+consteval auto is_nothrow_constructible_type(info type, R &&type_args) try {
   vector<info> args(from_range, type_args);
   args.insert(args.begin(), type);
 
   return extract<bool>(substitute(^^is_nothrow_constructible_v, args));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_nothrow_default_constructible_type(info r) -> bool {
+consteval auto is_nothrow_default_constructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_nothrow_default_constructible_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_nothrow_copy_constructible_type(info r) -> bool {
+consteval auto is_nothrow_copy_constructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_nothrow_copy_constructible_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_nothrow_move_constructible_type(info r) -> bool {
+consteval auto is_nothrow_move_constructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_nothrow_move_constructible_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_nothrow_assignable_type(info dst, info src) -> bool {
+consteval auto is_nothrow_assignable_type(info dst, info src) -> bool try {
   return extract<bool>(substitute(^^is_nothrow_assignable_v, {dst, src}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_nothrow_copy_assignable_type(info r) -> bool {
+consteval auto is_nothrow_copy_assignable_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_nothrow_copy_assignable_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_nothrow_move_assignable_type(info r) -> bool {
+consteval auto is_nothrow_move_assignable_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_nothrow_move_assignable_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_nothrow_swappable_with_type(info dst, info src) -> bool {
+consteval auto is_nothrow_swappable_with_type(info dst, info src) -> bool try {
   return extract<bool>(substitute(^^is_nothrow_swappable_with_v, {dst, src}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_nothrow_swappable_type(info r) -> bool {
+consteval auto is_nothrow_swappable_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_nothrow_swappable_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_nothrow_destructible_type(info r) -> bool {
+consteval auto is_nothrow_destructible_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_nothrow_destructible_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_implicit_lifetime_type(info r) -> bool {
+consteval auto is_implicit_lifetime_type(info r) -> bool try {
   return extract<bool>(substitute(^^is_implicit_lifetime_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_virtual_base_of_type(info base, info derived) -> bool {
+consteval auto is_virtual_base_of_type(info base, info derived) -> bool try {
   return extract<bool>(substitute(^^is_virtual_base_of_v, {base, derived}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_layout_compatible_type(info type1, info type2) -> bool {
+consteval auto is_layout_compatible_type(info type1, info type2) -> bool try {
   return extract<bool>(substitute(^^is_layout_compatible_v, {type1, type2}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 consteval auto is_pointer_interconvertible_base_of_type(info base,
-                                                        info derived) -> bool {
+                                                        info derived) -> bool try {
   return extract<bool>(substitute(^^is_pointer_interconvertible_base_of_v,
                                   {base, derived}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto has_virtual_destructor(info r) -> bool {
+consteval auto has_virtual_destructor(info r) -> bool try {
   return extract<bool>(substitute(^^has_virtual_destructor_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto has_unique_object_representations(info r) -> bool {
+consteval auto has_unique_object_representations(info r) -> bool try {
   return extract<bool>(substitute(^^has_unique_object_representations_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto reference_constructs_from_temporary(info dst, info src) -> bool {
+consteval auto reference_constructs_from_temporary(info dst, info src) -> bool try {
   return extract<bool>(substitute(^^reference_constructs_from_temporary_v,
                                   {dst, src}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto reference_converts_from_temporary(info dst, info src) -> bool {
+consteval auto reference_converts_from_temporary(info dst, info src) -> bool try {
   return extract<bool>(substitute(^^reference_converts_from_temporary_v,
                                   {dst, src}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto rank(info r) -> size_t {
+consteval auto rank(info r) -> size_t try {
   return extract<size_t>(substitute(^^rank_v, {r}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto extent(info r, unsigned i = 0) -> size_t {
+consteval auto extent(info r, unsigned i = 0) -> size_t try {
   return extract<size_t>(substitute(^^extent_v, {r, reflect_constant(i)}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_same_type(info r, info s) -> bool {
+consteval auto is_same_type(info r, info s) -> bool try {
   return extract<bool>(substitute(^^is_same_v, {r, s}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 #if _LIBCPP_STD_VER >= 26 && __has_builtin(__builtin_type_order)
-consteval auto type_order(info r, info s) -> strong_ordering {
+consteval auto type_order(info r, info s) -> strong_ordering try {
   if (!is_type(r) || !is_type(s))
     throw exception(u8"not a type", ^^type_order);
   return extract<strong_ordering>(substitute(^^type_order_v, {r, s}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 #endif
 
-consteval auto is_base_of_type(info r, info s) -> bool {
+consteval auto is_base_of_type(info r, info s) -> bool try {
   return extract<bool>(substitute(^^is_base_of_v, {r, s}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_convertible_type(info r, info s) -> bool {
+consteval auto is_convertible_type(info r, info s) -> bool try {
   return extract<bool>(substitute(^^is_convertible_v, {r, s}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto is_nothrow_convertible_type(info r, info s) -> bool {
+consteval auto is_nothrow_convertible_type(info r, info s) -> bool try {
   return extract<bool>(substitute(^^is_nothrow_convertible_v, {r, s}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <reflection_range R = initializer_list<info>>
-consteval auto is_invocable_type(info type, R &&args) {
+consteval auto is_invocable_type(info type, R &&args) try {
   vector<info> targs(from_range, args);
   targs.insert(targs.begin(), type);
 
   return extract<bool>(substitute(^^is_invocable_v, targs));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <reflection_range R = initializer_list<info>>
-consteval auto is_invocable_r_type(info result, info type, R &&args) {
+consteval auto is_invocable_r_type(info result, info type, R &&args) try {
   vector<info> targs(from_range, args);
   targs.insert(targs.begin(), type);
   targs.insert(targs.begin(), result);
 
   return extract<bool>(substitute(^^is_invocable_r_v, targs));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <reflection_range R = initializer_list<info>>
-consteval auto is_nothrow_invocable_type(info type, R &&args) {
+consteval auto is_nothrow_invocable_type(info type, R &&args) try {
   vector<info> targs(from_range, args);
   targs.insert(targs.begin(), type);
 
   return extract<bool>(substitute(^^is_nothrow_invocable_v, targs));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <reflection_range R = initializer_list<info>>
 consteval auto is_nothrow_invocable_r_type(info result, info type,
-                                           R &&args) {
+                                           R &&args) try {
   vector<info> targs(from_range, args);
   targs.insert(targs.begin(), type);
   targs.insert(targs.begin(), result);
 
   return extract<bool>(substitute(^^is_nothrow_invocable_r_v, targs));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto remove_const(info type) -> info {
+consteval auto remove_const(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^remove_const_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto remove_volatile(info type) -> info {
+consteval auto remove_volatile(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^remove_volatile_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto remove_cv(info type) -> info {
+consteval auto remove_cv(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^remove_cv_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, ^^remove_cv);
+  throw;
 }
 
-consteval auto add_const(info type) -> info {
+consteval auto add_const(info type) -> info try {
   return detail::__underlying_entity_of(substitute(^^add_const_t, {type}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto add_volatile(info type) -> info {
+consteval auto add_volatile(info type) -> info try {
   return detail::__underlying_entity_of(substitute(^^add_volatile_t, {type}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto add_cv(info type) -> info {
+consteval auto add_cv(info type) -> info try {
   return detail::__underlying_entity_of(substitute(^^add_cv_t, {type}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto remove_reference(info type) -> info {
+consteval auto remove_reference(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^remove_reference_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto add_lvalue_reference(info type) -> info {
+consteval auto add_lvalue_reference(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^add_lvalue_reference_t,
                                                 {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto add_rvalue_reference(info type) -> info {
+consteval auto add_rvalue_reference(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^add_rvalue_reference_t,
                                                 {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto make_signed(info type) -> info {
+consteval auto make_signed(info type) -> info try {
   if (!(is_integral_type(type) || is_enum_type(type)) || remove_cv(detail::__underlying_entity_of(type)) == ^^bool)
     throw exception(u8"bad type", ^^make_signed);
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^make_signed_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto make_unsigned(info type) -> info {
+consteval auto make_unsigned(info type) -> info try {
   if (!(is_integral_type(type) || is_enum_type(type)) || remove_cv(detail::__underlying_entity_of(type)) == ^^bool)
     throw exception(u8"bad type", ^^make_unsigned);
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^make_unsigned_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto remove_extent(info type) -> info {
+consteval auto remove_extent(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^remove_extent_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto remove_all_extents(info type) -> info {
+consteval auto remove_all_extents(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^remove_all_extents_t,
                                                 {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto remove_pointer(info type) -> info {
+consteval auto remove_pointer(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^remove_pointer_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto add_pointer(info type) -> info {
+consteval auto add_pointer(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^add_pointer_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto remove_cvref(info type) -> info {
+consteval auto remove_cvref(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^remove_cvref_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto decay(info type) -> info {
+consteval auto decay(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^decay_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <reflection_range R = initializer_list<info>>
-consteval auto common_type(R &&args) -> info {
+consteval auto common_type(R &&args) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^common_type_t, args)));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <reflection_range R = initializer_list<info>>
-consteval auto common_reference(R &&args) -> info {
+consteval auto common_reference(R &&args) -> info try {
   return detail::__underlying_entity_of(substitute(^^common_reference_t, args));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto underlying_type(info type) -> info {
+consteval auto underlying_type(info type) -> info try {
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^underlying_type_t, {type})));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <reflection_range R = initializer_list<info>>
-consteval auto invoke_result(info type, R &&args) -> info {
+consteval auto invoke_result(info type, R &&args) -> info try {
   vector<info> targs(from_range, args);
   targs.insert(targs.begin(), type);
 
   return detail::__underlying_entity_of(substitute(^^invoke_result_t, targs));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto unwrap_reference(info type) -> info {
+consteval auto unwrap_reference(info type) -> info try {
   return detail::__underlying_entity_of(substitute(^^unwrap_reference_t,
                                                    {type}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto unwrap_ref_decay(info type) -> info {
+consteval auto unwrap_ref_decay(info type) -> info try {
   return detail::__underlying_entity_of(substitute(^^unwrap_ref_decay_t,
                                                    {type}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 namespace detail {
@@ -2319,50 +2675,71 @@ constexpr bool __has_variant_size = requires {
 };
 } // namespace detail
 
-consteval auto tuple_size(info type) -> size_t {
+consteval auto tuple_size(info type) -> size_t try {
   if (!is_complete_type(type))
     throw exception(u8"bad type", ^^tuple_size);
   if (!extract<bool>(substitute(^^detail::__has_tuple_size, {type})))
     throw exception(u8"bad type", ^^tuple_size);
   return extract<size_t>(substitute(^^tuple_size_v, {type}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto tuple_element(size_t index, info type) -> info {
+consteval auto tuple_element(size_t index, info type) -> info try {
   if (!is_complete_type(type))
     throw exception(u8"bad type", ^^tuple_element);
   if (index >= tuple_size(type))
     throw exception(u8"bad index", ^^tuple_element);
   return detail::__underlying_entity_of(substitute(^^tuple_element_t,
                             {reflect_constant(index), type}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval bool is_applicable_type(info fn, info tuple) {
+consteval bool is_applicable_type(info fn, info tuple) try {
   return extract<bool>(substitute(^^is_applicable_v, {fn, tuple}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval bool is_nothrow_applicable_type(info fn, info tuple) {
+consteval bool is_nothrow_applicable_type(info fn, info tuple) try {
   return extract<bool>(substitute(^^is_nothrow_applicable_v, {fn, tuple}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval info apply_result(info fn, info tuple) {
+consteval info apply_result(info fn, info tuple) try {
   return detail::__underlying_entity_of(substitute(^^apply_result_t, {fn, tuple}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto variant_size(info type) -> size_t {
+consteval auto variant_size(info type) -> size_t try {
   if (!is_complete_type(type))
     throw exception(u8"bad type", ^^variant_size);
   if (!extract<bool>(substitute(^^detail::__has_variant_size, {type})))
     throw exception(u8"bad type", ^^variant_size);
   return extract<size_t>(substitute(^^variant_size_v, {type}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto variant_alternative(size_t index, info type) -> info {
+consteval auto variant_alternative(size_t index, info type) -> info try {
   if (!is_complete_type(type))
     throw exception(u8"bad type", ^^variant_alternative);
   if (index >= variant_size(type))
     throw exception(u8"bad index", ^^variant_alternative);
   return detail::__underlying_entity_of(substitute(^^variant_alternative_t,
                  {reflect_constant(index), type}));
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 
@@ -2426,24 +2803,33 @@ consteval auto __annotations_of(info r, info from) -> vector<info> {
   return vector<info>{rng.begin(), rng.end()};
 }
 
-consteval auto annotations_of(info r) -> vector<info> {
+consteval auto annotations_of(info r) -> vector<info> try {
   return __annotations_of(r, ^^annotations_of);
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto annotations_of(info r, info ty) -> vector<info> {
+consteval auto annotations_of(info r, info ty) -> vector<info> try {
   if (!is_type(ty))
     throw "Expected a reflection of a type";
 
-  return __filtered(__annotations_of(r, ^^__annotations_of), [=](info annot) {
+  return __filtered(__annotations_of(r, current_function()), [=](info annot) {
     return remove_const(type_of(annot)) == remove_const(ty);
   });
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 // Returns annotations of the reflected entity whose type matches ty.
-consteval auto annotations_of_with_type(info r, info ty) -> vector<info> {
+consteval auto annotations_of_with_type(info r, info ty) -> vector<info> try {
   if (!is_type(ty) || !is_complete_type(ty))
     throw exception(u8"bad type", ^^annotations_of_with_type);
   return annotations_of(r, ty);
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template<typename T>
@@ -2607,22 +2993,31 @@ consteval auto __any_inaccessible(vector<info> const& r, access_context ctx) -> 
 
 consteval auto has_inaccessible_nonstatic_data_members(
         info r,
-        access_context ctx) -> bool {
+        access_context ctx) -> bool try {
   if (!is_class_type(r) || __is_closure_type(r))
     throw exception(u8"bad type", ^^has_inaccessible_nonstatic_data_members);
   return __any_inaccessible(nonstatic_data_members_of(r, access_context::unchecked()), ctx);
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
-consteval auto has_inaccessible_bases(info r, access_context ctx) -> bool {
+consteval auto has_inaccessible_bases(info r, access_context ctx) -> bool try {
   if (!is_class_type(r))
     throw exception(u8"bad type", ^^has_inaccessible_bases);
   return __any_inaccessible(bases_of(r, access_context::unchecked()), ctx);
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 // [meta.reflection.access.queries]
-consteval auto has_inaccessible_subobjects(info r, access_context ctx) -> bool {
+consteval auto has_inaccessible_subobjects(info r, access_context ctx) -> bool try {
   return has_inaccessible_bases(r, ctx) ||
          has_inaccessible_nonstatic_data_members(r, ctx);
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
              // ===================================================
@@ -2977,7 +3372,7 @@ consteval void __append_leaves(vector<Leaf>& values, const T& value) {
 } // namespace __define_static
 
 template <ranges::input_range R>
-consteval auto reflect_constant_array(R &&elems) -> info {
+consteval auto reflect_constant_array(R &&elems) -> info try {
   using ValTy = ranges::range_value_t<R>;
   using LeafTy = remove_all_extents_t<ValTy>;
   static_assert(__reflect_constant_array_structural_v<ValTy>,
@@ -3012,16 +3407,21 @@ consteval auto reflect_constant_array(R &&elems) -> info {
     bool* data = alloc.allocate(values.size());
     for (size_t i = 0; i != values.size(); ++i)
       construct_at(data + i, static_cast<bool>(values[i]));
-    info result = __reflect_array_object(dims.data(), dims.size(), data, values.size());
+    info result = __reflect_array_object(dims.data(), dims.size(), data,
+                                        values.size(), current_function());
     alloc.deallocate(data, values.size());
     return result;
   } else {
-    return __reflect_array_object(dims.data(), dims.size(), values.data(), values.size());
+    return __reflect_array_object(dims.data(), dims.size(), values.data(),
+                                  values.size(), current_function());
   }
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <ranges::input_range R>
-consteval auto reflect_constant_string(R &&r) -> info {
+consteval auto reflect_constant_string(R &&r) -> info try {
   using CharT = ranges::range_value_t<R>;
   static_assert(same_as<CharT, char> || same_as<CharT, wchar_t> ||
                 same_as<CharT, char8_t> || same_as<CharT, char16_t> ||
@@ -3037,7 +3437,10 @@ consteval auto reflect_constant_string(R &&r) -> info {
     values.pop_back();
   values.push_back(CharT{});
   size_t size = values.size();
-  return __reflect_array_object(&size, 1, values.data(), size);
+  return __reflect_array_object(&size, 1, values.data(), size, current_function());
+} catch (exception& e) {
+  __set_exception_from(e, current_function());
+  throw;
 }
 
 template <class CharT>
@@ -3078,7 +3481,7 @@ inline constexpr size_t __static_array_extent_v = decltype(__static_array_extent
 
 template <ranges::input_range R>
 consteval auto define_static_array(R &&elems)
-    -> span<const ranges::range_value_t<R>, __define_static::__static_array_extent_v<R>> {
+    -> span<const ranges::range_value_t<R>, __define_static::__static_array_extent_v<R>> try {
   // P3491R3: these are Mandates, i.e. ill-formed at the call, not a constraint that removes the overload.
   static_assert(meta::__reflect_constant_array_structural_v<ranges::range_value_t<R>>,
                 "define_static_array requires a structural element type");
@@ -3094,16 +3497,22 @@ consteval auto define_static_array(R &&elems)
   } else {
     return Result(static_cast<const ValTy*>(nullptr), 0);
   }
+} catch (meta::exception& e) {
+  __set_exception_from(e, meta::current_function());
+  throw;
 }
 
 template <ranges::input_range R>
-consteval auto define_static_string(R &&r) -> const ranges::range_value_t<R> * {
+consteval auto define_static_string(R &&r) -> const ranges::range_value_t<R> * try {
   using CharT = ranges::range_value_t<R>;
   return extract<const CharT *>(meta::reflect_constant_string(r));
+} catch (meta::exception& e) {
+  __set_exception_from(e, meta::current_function());
+  throw;
 }
 
 template <class T>
-consteval auto define_static_object(T &&t) -> const remove_cvref_t<T> * {
+consteval auto define_static_object(T &&t) -> const remove_cvref_t<T> * try {
   using U = remove_cvref_t<T>;
   if constexpr (is_class_v<U> || is_union_v<U>)
     return addressof(extract<const U &>(meta::reflect_constant(std::forward<T>(t))));
@@ -3111,6 +3520,9 @@ consteval auto define_static_object(T &&t) -> const remove_cvref_t<T> * {
     return addressof(extract<const U &>(meta::reflect_constant_array(std::forward<T>(t))));
   else
     return define_static_array(span(addressof(t), 1)).data();
+} catch (meta::exception& e) {
+  __set_exception_from(e, meta::current_function());
+  throw;
 }
 
 _LIBCPP_END_NAMESPACE_STD

@@ -1749,17 +1749,19 @@ static bool isVolatileQualifiedType(QualType QT) {
   return result;
 }
 
-// Whether an array value could be the value of a template parameter object
-// (e.g. no pointers to string literals), as reflect_constant_array requires.
-static bool isValidArrayTemplateArgument(ASTContext &C, SourceRange Range,
-                                         QualType Ty, const APValue &V) {
+// Whether a value can be represented as a template argument (e.g. no pointers
+// to string literals), as reflect_constant and reflect_constant_array require.
+static bool isValidTemplateArgument(ASTContext &C, SourceRange Range,
+                                    QualType Ty, const APValue &V) {
   Expr *OVE = new (C) OpaqueValueExpr(Range.getBegin(), Ty, VK_PRValue);
   Expr *CE = ConstantExpr::Create(C, OVE, V);
   OVE = new (C) OpaqueValueExpr(Range.getBegin(), Ty, VK_PRValue, OK_Ordinary,
                                 CE);
   Expr::EvalResult Discarded;
   return OVE->EvaluateAsConstantExpr(
-      Discarded, C, ConstantExprKind::NonClassTemplateArgument);
+      Discarded, C, Ty->isRecordType()
+                        ? ConstantExprKind::ClassTemplateArgument
+                        : ConstantExprKind::NonClassTemplateArgument);
 }
 
 QualType ComputeResultType(QualType ExprTy, const APValue &V) {
@@ -3470,9 +3472,10 @@ bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     APValue Constant = ER.Val;
     QualType ConstantTy = ComputeResultType(RV.getTypeOfReflectedResult(C),
                                             Constant);
-    // Arrays reflect their template parameter object, like reflect_constant_array.
-    if (ConstantTy->isConstantArrayType() &&
-        !isValidArrayTemplateArgument(C, Range, ConstantTy, Constant))
+    // Records and arrays reflect valid template parameter objects, like
+    // reflect_constant and reflect_constant_array respectively.
+    if ((ConstantTy->isRecordType() || ConstantTy->isConstantArrayType()) &&
+        !isValidTemplateArgument(C, Range, ConstantTy, Constant))
       return Diagnoser(Range.getBegin(), diag::metafn_result_not_representable)
           << 0 << Range;
     if (ConstantTy->isRecordType() || ConstantTy->isConstantArrayType()) {
@@ -3534,8 +3537,8 @@ bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     }
 
     QualType ConstantTy = ComputeResultType(QT, Constant);
-    if (ConstantTy->isConstantArrayType() &&
-        !isValidArrayTemplateArgument(C, Range, ConstantTy, Constant))
+    if ((ConstantTy->isRecordType() || ConstantTy->isConstantArrayType()) &&
+        !isValidTemplateArgument(C, Range, ConstantTy, Constant))
       return Diagnoser(Range.getBegin(), diag::metafn_result_not_representable)
           << 0 << Range;
     if (ConstantTy->isRecordType() || ConstantTy->isConstantArrayType()) {
@@ -4054,6 +4057,28 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
       return extractLambda(Result, RD);
 
     if (isa<VarDecl, TemplateParamObjectDecl>(Decl)) {
+      // This applies to reference variables too: their own lifetime and
+      // constant-expression usability matter, independently of the referent.
+      if (ReturnsLValue) {
+        if (auto *VD = dyn_cast<VarDecl>(Decl);
+            VD && !VD->isUsableInConstantExpressions(C)) {
+          if (VD->hasGlobalStorage())
+            return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
+                << 1 << DescriptionOf(RV) << Range;
+
+          // ExtractLValueExpr identifies locals in the active evaluator's
+          // frames. A zero call index means the declaration was not found in
+          // this evaluation, so its lifetime cannot have begun here.
+          APValue Lifetime;
+          Expr *Probe = ExtractLValueExpr::Create(C, Range, VD->getType(), VD);
+          if (!Evaluator(Lifetime, Probe, false))
+            return true;
+          if (!Lifetime.isLValue() || !Lifetime.getLValueCallIndex())
+            return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
+                << 1 << DescriptionOf(RV) << Range;
+        }
+      }
+
       Expr *Synthesized;
       if (isa<LValueReferenceType>(Decl->getType().getCanonicalType())) {
         // We have a reflection of an object with reference type.
@@ -4106,18 +4131,6 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
         if (!isExtractCompatible(C, Decl->getType(), ResultTy, ReturnsLValue))
           return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
               << 0 << Decl->getType() << ReturnsLValue << ResultTy << Range;
-
-        // extract-ref throws unless the variable is usable in constant
-        // expressions or its lifetime began within the evaluation. A variable
-        // with static or thread storage duration cannot have begun its lifetime
-        // in the current evaluation, so it must be usable in constant
-        // expressions.
-        if (ReturnsLValue)
-          if (auto *VD = dyn_cast<VarDecl>(Decl);
-              VD && (VD->hasGlobalStorage() || VD->getTLSKind() != VarDecl::TLS_None) &&
-              !VD->isUsableInConstantExpressions(C))
-            return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
-                << 1 << DescriptionOf(RV) << Range;
 
         // The lvalue has the variable's own type; a qualification conversion to
         // the result type changes nothing about the value.
