@@ -4072,11 +4072,16 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
           // ExtractLValueExpr identifies locals in the active evaluator's
           // frames. A zero call index means the declaration was not found in
           // this evaluation, so its lifetime cannot have begun here.
+          // A reference variable is checked below, from the lookup that
+          // reaches the object it is bound to.
           APValue Lifetime;
-          Expr *Probe = ExtractLValueExpr::Create(C, Range, VD->getType(), VD);
-          if (!Evaluator(Lifetime, Probe, false))
+          Expr *Probe = ExtractLValueExpr::Create(
+              C, Range, VD->getType().getNonReferenceType(), VD);
+          if (!VD->getType()->isReferenceType() &&
+              !Evaluator(Lifetime, Probe, false))
             return true;
-          if (!Lifetime.isLValue() || !Lifetime.getLValueCallIndex())
+          if (!VD->getType()->isReferenceType() &&
+              (!Lifetime.isLValue() || !Lifetime.getLValueCallIndex()))
             return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
                 << 1 << DescriptionOf(RV) << Range;
         }
@@ -4105,10 +4110,37 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
                   C.getCanonicalTagType(ParentClsDecl), 0);
           NNSLocBuilder.Make(C, TSI->getTypeLoc(), Range.getBegin());
         }
-        Synthesized = DeclRefExpr::Create(C, NNSLocBuilder.getTemporary(),
-                                          SourceLocation(), Decl, false,
-                                          Range.getBegin(), Referee, VK_LValue,
-                                          Decl, nullptr);
+        auto *RefVD = dyn_cast<VarDecl>(Decl);
+        bool InLiveFrame = false;
+        if (RefVD && RefVD->hasLocalStorage() && !RefVD->isStaticLocal()) {
+          // A local reference variable may live in an evaluation frame: reach
+          // up the call stack for the object it is bound to. If the variable
+          // is in no live frame the lookup falls back to the variable itself
+          // (call index zero).
+          Expr *FrameLookup = ExtractLValueExpr::Create(C, Range, Referee, Decl);
+          APValue Bound;
+          if (!Evaluator(Bound, FrameLookup, false))
+            return true;
+          InLiveFrame = Bound.isLValue() &&
+                        !(Bound.getLValueBase().dyn_cast<const ValueDecl *>() ==
+                              Decl &&
+                          !Bound.getLValueCallIndex());
+          if (InLiveFrame)
+            Synthesized = FrameLookup;
+          else if (!RefVD->isUsableInConstantExpressions(C) ||
+                   // Usable only within its own function: the object it is
+                   // bound to is an automatic one that no longer exists.
+                   (RefVD->getEvaluatedValue() &&
+                    RefVD->getEvaluatedValue()->containsAutomaticObject()))
+            return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
+                   << 1 << DescriptionOf(RV) << Range;
+        }
+        if (!InLiveFrame) {
+          Synthesized = DeclRefExpr::Create(C, NNSLocBuilder.getTemporary(),
+                                            SourceLocation(), Decl, false,
+                                            Range.getBegin(), Referee,
+                                            VK_LValue, Decl, nullptr);
+        }
       } else if (auto *ArrTy = dyn_cast<ArrayType>(Decl->getType())) {
         QualType Elt = ArrTy->getElementType();
         if (auto *VD = dyn_cast<VarDecl>(Decl)) {

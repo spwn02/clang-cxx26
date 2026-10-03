@@ -11286,9 +11286,17 @@ bool LValueExprEvaluator::VisitBinAssign(const BinaryOperator *E) {
 }
 
 bool LValueExprEvaluator::VisitExtractLValueExpr(const ExtractLValueExpr *E) {
+  // An expression typed as the referenced type (not the reference type) of a
+  // reference variable designates the object the reference is bound to
+  // ([meta.reflection.extract], extract-ref); one typed as the variable's own
+  // type designates the variable itself, which is how its lifetime is probed.
+  bool DesignatesReferee = E->getValueDecl()->getType()->isReferenceType() &&
+                           !E->getType()->isReferenceType();
   CallStackFrame *Frame = Info.CurrentCall;
   do {
-    if (Frame->getCurrentTemporary(E->getValueDecl())) {
+    if (APValue *Bound = Frame->getCurrentTemporary(E->getValueDecl())) {
+      if (DesignatesReferee && Bound->isLValue())
+        return Success(*Bound, E);
       unsigned Version = Frame->getCurrentTemporaryVersion(E->getValueDecl());
 
       APValue::LValueBase LV(E->getValueDecl(), Frame->Index, Version);

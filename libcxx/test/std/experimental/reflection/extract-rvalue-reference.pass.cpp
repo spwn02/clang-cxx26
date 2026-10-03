@@ -90,4 +90,31 @@ consteval bool reference_variable_throws() {
 }
 static_assert(reference_variable_throws());
 
+// A local reference variable of a live frame: the object it is bound to is
+// extracted (lifetime began within the evaluation); in a dead frame it throws.
+consteval int local_reference_variable() {
+  int x = 3;
+  int& r = x;
+  const int& c = extract<const int&>(^^r);
+  const int&& rv = extract<const int&&>(^^r);
+  x = 4;
+  return c + rv;
+}
+static_assert(local_reference_variable() == 8);
+
+consteval int reference_parameter(int& p) { return extract<int&>(^^p); }
+consteval int call_reference_parameter() { int z = 9; return reference_parameter(z); }
+static_assert(call_reference_parameter() == 9);
+
+consteval info dead_reference() {
+  int y = 1;
+  int& q = y;
+  return ^^q;
+}
+consteval bool dead_reference_throws() {
+  try { (void)extract<int&>(dead_reference()); } catch (const exception&) { return true; }
+  return false;
+}
+static_assert(dead_reference_throws());
+
 int main(int, char**) {}
