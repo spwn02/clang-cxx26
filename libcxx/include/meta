@@ -1832,7 +1832,9 @@ consteval auto __is_size_operand(info r, bool allow_bit_field) -> bool {
     // sizeof(T): reject it instead of returning a bogus value.
     return is_complete_type(r) &&
            !extract<bool>(substitute(^^is_function_v, {r}));
-  if (is_object(r) || is_value(r) || is_base(r) || is_data_member_spec(r))
+  if (is_data_member_spec(r))
+    return allow_bit_field || !is_bit_field(r);
+  if (is_object(r) || is_value(r) || is_base(r))
     return true;
   if (is_bit_field(r))
     return allow_bit_field;
@@ -1861,7 +1863,10 @@ consteval auto alignment_of(info r) -> size_t try {
     if (!is_complete_type(r) ||
         extract<bool>(substitute(^^is_function_v, {r})))
       throw __lib_exception(u8"bad", ^^alignment_of, source_location::current(__builtin_meta_call_origin()));
-  } else if (is_object(r) || is_base(r) || is_data_member_spec(r)) {
+  } else if (is_data_member_spec(r)) {
+    if (is_bit_field(r))
+      throw __lib_exception(u8"bad", ^^alignment_of, source_location::current(__builtin_meta_call_origin()));
+  } else if (is_object(r) || is_base(r)) {
     // valid
   } else if (is_variable(r)) {
     if (extract<bool>(substitute(^^is_reference_v, {type_of(r)})))

@@ -1358,7 +1358,8 @@ static QualType desugarType(QualType QT, bool UnwrapAliases, bool DropCV,
     else if (auto *TST = dyn_cast<TemplateSpecializationType>(QT);
              TST && UnwrapAliases && TST->isTypeAlias())
       QT = TST->getAliasedType();
-    else if (auto *AT = dyn_cast<AutoType>(QT))
+    else if (auto *AT = dyn_cast<AutoType>(QT); AT && AT->isDeduced())
+      // An undeduced placeholder desugars to itself: stripping it would loop.
       QT = AT->desugar();
     else if (auto *DT = dyn_cast<DecltypeType>(QT))
       // Like AutoType/SubstTemplateTypeParmType below, a 'decltype(expr)'
@@ -3394,18 +3395,42 @@ bool object_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     Meta.EnsureInstantiated(VD, Args[0]->getSourceRange());
 
     QualType QT = VD->getType();
+    bool IsReference = false;
     if (auto *LVRT = dyn_cast<LValueReferenceType>(QT)) {
       QT = LVRT->getPointeeType();
+      IsReference = true;
     }
 
-    Expr *Synthesized = DeclRefExpr::Create(C,
-                                            NestedNameSpecifierLoc(),
-                                            SourceLocation(), VD, false,
-                                            Range.getBegin(), QT,
-                                            VK_LValue, VD, nullptr);
+    // [meta.reflection.queries]: if the variable is a reference R, then either
+    // R is usable in constant expressions or the lifetime of R began within the
+    // core constant expression under evaluation.
     APValue Value;
-    if (!Evaluator(Value, Synthesized, false))
-      return true;
+    bool FromLiveFrame = false;
+    if (IsReference && !VD->isUsableInConstantExpressions(C)) {
+      if (VD->hasLocalStorage() && !VD->isStaticLocal()) {
+        Expr *FrameLookup = ExtractLValueExpr::Create(C, Range, QT, VD);
+        if (!Evaluator(Value, FrameLookup, false))
+          return true;
+        FromLiveFrame = Value.isLValue() &&
+                        !(Value.getLValueBase().dyn_cast<const ValueDecl *>() ==
+                              VD &&
+                          !Value.getLValueCallIndex());
+      }
+      if (!FromLiveFrame)
+        return Meta.ThrowMetaException(
+            Range.getBegin(),
+            "reference variable is not usable in constant expressions");
+    }
+
+    if (!FromLiveFrame) {
+      Expr *Synthesized = DeclRefExpr::Create(C,
+                                              NestedNameSpecifierLoc(),
+                                              SourceLocation(), VD, false,
+                                              Range.getBegin(), QT,
+                                              VK_LValue, VD, nullptr);
+      if (!Evaluator(Value, Synthesized, false))
+        return true;
+    }
     if (!Value.isLValue())
       return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
           << 1 << DescriptionOf(RV) << Range;
@@ -7194,7 +7219,10 @@ bool return_type_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   }
   case ReflectionKind::Declaration:
     if (auto *FD = dyn_cast<FunctionDecl>(RV.getReflectedDecl());
-        FD && !isa<CXXConstructorDecl>(FD) && !isa<CXXDestructorDecl>(FD)) {
+        FD && !isa<CXXConstructorDecl>(FD) && !isa<CXXDestructorDecl>(FD) &&
+        // [meta.reflection.queries]: has-type(r) must hold, so a function whose
+        // return type has not been deduced has no return type to report.
+        !FD->getReturnType()->isUndeducedType()) {
       QualType QT =
           desugarType(FD->getReturnType(), /*UnwrapAliases=*/ true,
                       /*DropCV=*/false, /*DropRefs=*/false);

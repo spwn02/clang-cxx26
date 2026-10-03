@@ -125,8 +125,17 @@ constexpr auto dms4 = data_member_spec(^^int, {.name="member", .alignment=8});
 static_assert(alignment_of(dms1) == alignof(int));
 static_assert(alignment_of(dms4) == 8);
 static_assert(size_of(dms1) == sizeof(int));
-static_assert(size_of(dms2) == sizeof(int));
-static_assert(size_of(dms3) == sizeof(int));
+// size_of requires a data member description whose bit width is absent.
+static_assert([] consteval {
+  for (auto r : {dms2, dms3}) {
+    try {
+      (void)size_of(r);
+      return false;
+    } catch (const std::meta::exception&) {
+    }
+  }
+  return true;
+}());
 static_assert(size_of(dms4) == sizeof(int));
 static_assert(bit_size_of(dms1) == sizeof(int) * 8);
 static_assert(bit_size_of(dms2) == 0);
