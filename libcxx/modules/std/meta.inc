@@ -258,6 +258,13 @@ export namespace std {
       using std::meta::reflection_v2::has_attribute_namespace;
       using std::meta::reflection_v2::has_attribute;
       using std::meta::reflection_v2::attribute_comparison;
+      using std::meta::reflection_v2::operator|;
+      using std::meta::reflection_v2::operator&;
+      using std::meta::reflection_v2::operator^;
+      using std::meta::reflection_v2::operator~;
+      using std::meta::reflection_v2::operator|=;
+      using std::meta::reflection_v2::operator&=;
+      using std::meta::reflection_v2::operator^=;
       using std::meta::reflection_v2::u8attribute_namespace_of;
       using std::meta::reflection_v2::u8attribute_token_of;
       using std::meta::reflection_v2::is_unscoped_attribute;

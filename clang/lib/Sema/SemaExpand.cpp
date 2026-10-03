@@ -205,12 +205,18 @@ bool tryMakeCXXIterableExpansionSelectExpr(
     // reference must be constexpr-referenceable (P2686R5): a static object or
     // an automatic object of the same function parameter scope; anything else
     // is ill-formed rather than silently iterating a copy.
+    // An xvalue range gives 'T&&' (decltype((xvalue)) is 'T&&'): it denotes the
+    // original object too. Only a prvalue is materialized by value.
     bool BindByReference = Range->isLValue();
-    QualType QT = !BindByReference ? CopyQT
-                                   : S.BuildReferenceType(Range->getType(),
-                                                          /*SpelledAsLValue=*/true,
-                                                          Range->getBeginLoc(),
-                                                          DeclarationName());
+    bool BindByRvalueReference = Range->isXValue();
+    QualType QT =
+        BindByRvalueReference
+            ? S.BuildReferenceType(Range->getType(), /*SpelledAsLValue=*/false,
+                                   Range->getBeginLoc(), DeclarationName())
+        : !BindByReference
+            ? CopyQT
+            : S.BuildReferenceType(Range->getType(), /*SpelledAsLValue=*/true,
+                                   Range->getBeginLoc(), DeclarationName());
     TypeSourceInfo *TSI = S.Context.getTrivialTypeSourceInfo(QT);
 
     RangeVar = VarDecl::Create(S.Context, DC, Range->getBeginLoc(),
@@ -229,7 +235,7 @@ bool tryMakeCXXIterableExpansionSelectExpr(
       RangeVar->setConstexpr(true);
     // Lvalue references need no lifetime extension. The non-lvalue path
     // remains by-value, so its source temporary is not the range variable.
-    if (!BindByReference && !CanCopyConstruct &&
+    if (!BindByReference && !BindByRvalueReference && !CanCopyConstruct &&
         !LifetimeExtendTemps.empty()) {
       InitializedEntity Entity =
           InitializedEntity::InitializeVariable(RangeVar);

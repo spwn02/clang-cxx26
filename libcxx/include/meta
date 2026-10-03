@@ -2908,6 +2908,30 @@ constexpr attribute_comparison operator|(attribute_comparison a, attribute_compa
     static_cast<int64_t>(a) | static_cast<int64_t>(b));
 }
 
+constexpr attribute_comparison operator&(attribute_comparison a, attribute_comparison b) noexcept {
+  return static_cast<attribute_comparison>(static_cast<int64_t>(a) & static_cast<int64_t>(b));
+}
+
+constexpr attribute_comparison operator^(attribute_comparison a, attribute_comparison b) noexcept {
+  return static_cast<attribute_comparison>(static_cast<int64_t>(a) ^ static_cast<int64_t>(b));
+}
+
+constexpr attribute_comparison operator~(attribute_comparison a) noexcept {
+  return static_cast<attribute_comparison>(~static_cast<int64_t>(a));
+}
+
+constexpr attribute_comparison& operator|=(attribute_comparison& a, attribute_comparison b) noexcept {
+  return a = a | b;
+}
+
+constexpr attribute_comparison& operator&=(attribute_comparison& a, attribute_comparison b) noexcept {
+  return a = a & b;
+}
+
+constexpr attribute_comparison& operator^=(attribute_comparison& a, attribute_comparison b) noexcept {
+  return a = a ^ b;
+}
+
 // Return true if the given 'entity' has the given 'attribute' appertained
 // to it
 consteval auto has_attribute(
@@ -3131,23 +3155,43 @@ struct data_member_options {
   optional<name_type> name = nullopt;
   optional<int> alignment = nullopt;
   optional<int> bit_width = nullopt;
+#if __has_feature(attribute_reflection)
+  [[deprecated("Use .attributes")]]
+#endif
   bool no_unique_address = false;
-  vector<info> annotations = {};
 #if __has_feature(attribute_reflection)
   vector<meta::info> attributes = {};
 #endif
+  vector<info> annotations = {};
 };
 
+// P4033R1 [meta.reflection.define.enum] (the wording, not the design section,
+// which lists them the other way round): attributes precede annotations.
 struct enumerator_options {
   string name;
   info value = info{};
-  vector<info> annotations = {};
 #if __has_feature(attribute_reflection)
   vector<info> attributes = {};
 #endif
+  vector<info> annotations = {};
 };
 
 consteval info enumerator_spec(enumerator_options props) {
+  for (info& annotation : props.annotations) {
+    info type = __metafunction(detail::__metafn_type_of, annotation, ^^enumerator_spec);
+    if (!is_object_type(type) || is_array_type(type))
+      throw __lib_exception(u8"annotation must have non-array object type",
+                            ^^enumerator_spec,
+                            source_location::current(__builtin_meta_call_origin()));
+    annotation = __metafunction(detail::__metafn_constant_of, annotation, ^^enumerator_spec);
+  }
+#if __has_feature(attribute_reflection)
+  for (info attribute : props.attributes)
+    if (!is_attribute(attribute))
+      throw __lib_exception(u8"attribute must represent an attribute",
+                            ^^enumerator_spec,
+                            source_location::current(__builtin_meta_call_origin()));
+#endif
   return __metafunction(detail::__metafn_enumerator_spec,
                          ^^const char, props.name.size(), props.name.data(), // TODO support utf8 ?
                         props.value,
@@ -3165,13 +3209,14 @@ consteval bool is_enumerator_spec(info r) {
 }
 
 template <reflection_range R = initializer_list<info>>
-consteval auto define_enum(info targetEnum, R&& members) {
-  return __metafunction(
+consteval info define_enum(info targetEnum, R&& members) {
+  (void)__metafunction(
     detail::__metafn_define_enum,
     targetEnum,
     ranges::size(members),
     ranges::data(members)
   );
+  return targetEnum;
 }
 
 // Like 'define_enum', but completes an unscoped (C-style) enum instead of a
@@ -3204,7 +3249,10 @@ consteval auto data_member_spec(info member_type,
   bool has_name = options.name.has_value();
   int alignment = options.alignment.value_or(0);
   int width = options.bit_width.value_or(0);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   bool no_unique_address = options.no_unique_address;
+#pragma clang diagnostic pop
   if (!has_name && (!options.bit_width.has_value() || !options.annotations.empty()))
     throw __lib_exception(u8"unnamed member must be a bit-field without annotations",
                     ^^data_member_spec,
