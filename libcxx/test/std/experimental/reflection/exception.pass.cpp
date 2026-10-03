@@ -98,7 +98,7 @@ consteval bool test_access_context_via_catch_and_inspect() {
     auto ctx = std::meta::access_context::current().via(^^int);
     (void)ctx;
   } catch (const exception& e) {
-    caught = std::string_view(e.what()) == "bad type" &&
+    caught = std::string_view(e.what()) == "access_context::via requires a null reflection or complete class type" &&
              e.from() == (^^std::meta::access_context::via) &&
              e.where().line() != 0;
   }

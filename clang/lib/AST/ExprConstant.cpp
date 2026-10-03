@@ -3092,8 +3092,12 @@ static APValue ExtractCaughtSubobject(QualType ExceptionTy, QualType CatchTy,
 /// all of its implicit copies) must be destroyed within the evaluation of
 /// the enclosing expression. Unlike CheckMemoryLeaks, this is not optional:
 /// an uncaught exception unconditionally makes the evaluation ill-formed.
+static std::string ReadMetaExceptionReason(EvalInfo &Info);
+
 static bool CheckUncaughtException(EvalInfo &Info) {
   if (Info.PendingException) {
+    if (Info.PendingException->MetaReason.empty())
+      Info.PendingException->MetaReason = ReadMetaExceptionReason(Info);
     Info.FFDiag(Info.PendingException->ThrowExpr,
                diag::note_constexpr_uncaught_exception)
         << Info.PendingException->ThrowExpr->getSourceRange();
@@ -8106,6 +8110,66 @@ static bool HandleFunctionCall(SourceLocation CallLoc,
   if (ESR == ESR_Returned)
     return EvaluatePostContracts(Info, Callee, Result, ResultSlot);
   return false;
+}
+
+// Read the public observer rather than depending on a particular string or
+// optional layout. This also handles both short and heap-backed messages.
+static std::string ReadMetaExceptionReason(EvalInfo &Info) {
+  const auto &Exc = *Info.PendingException;
+  const auto *RD = Exc.Ty->getAsCXXRecordDecl();
+  if (!RD || RD->getName() != "exception")
+    return {};
+  const DeclContext *DC = RD->getDeclContext();
+  while (const auto *NS = dyn_cast<NamespaceDecl>(DC)) {
+    if (!NS->isInline())
+      break;
+    DC = NS->getParent();
+  }
+  const auto *Meta = dyn_cast<NamespaceDecl>(DC);
+  if (!Meta || Meta->getName() != "meta" || !Meta->isInStdNamespace())
+    return {};
+  const CXXMethodDecl *What = nullptr;
+  for (const auto *MD : RD->methods())
+    if (MD->getIdentifier() && MD->getName() == "what" &&
+        MD->getNumParams() == 0 && MD->hasBody()) {
+      What = MD;
+      break;
+    }
+  if (!What)
+    return {};
+
+  auto Pending = std::move(Info.PendingException);
+  Info.PendingException.reset();
+  SpeculativeEvaluationRAII Speculate(Info);
+  LValue This;
+  This.set(APValue::LValueBase::getDynamicAlloc(Pending->ObjectAlloc,
+                                             Pending->Ty));
+  const Expr *E = Pending->ThrowExpr;
+  APValue Result;
+  std::string Reason;
+  if (HandleFunctionCall(E->getExprLoc(), What, &This, E, {}, CallRef(),
+                         What->getBody(), Info, Result, nullptr) &&
+      Result.isLValue()) {
+    LValue String;
+    String.setFrom(Info.Ctx, Result);
+    for (;;) {
+      APValue Char;
+      if (!handleLValueToRValueConversion(Info, E, Info.Ctx.CharTy, String,
+                                          Char) || !Char.isInt()) {
+        Reason.clear();
+        break;
+      }
+      if (!Char.getInt())
+        break;
+      Reason.push_back(static_cast<char>(Char.getInt().getExtValue()));
+      if (!HandleLValueArrayAdjustment(Info, E, String, Info.Ctx.CharTy, 1)) {
+        Reason.clear();
+        break;
+      }
+    }
+  }
+  Info.PendingException = std::move(Pending);
+  return Reason;
 }
 
 /// Does the constructor call \p E construct a complete object (as opposed to
