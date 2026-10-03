@@ -3155,9 +3155,8 @@ struct data_member_options {
   optional<name_type> name = nullopt;
   optional<int> alignment = nullopt;
   optional<int> bit_width = nullopt;
-#if __has_feature(attribute_reflection)
-  [[deprecated("Use .attributes")]]
-#endif
+  // P3385R8 would deprecate this in favour of .attributes, but it is an
+  // unadopted C++29-target proposal and the C++26 draft does not deprecate it.
   bool no_unique_address = false;
 #if __has_feature(attribute_reflection)
   vector<meta::info> attributes = {};
@@ -3249,10 +3248,7 @@ consteval auto data_member_spec(info member_type,
   bool has_name = options.name.has_value();
   int alignment = options.alignment.value_or(0);
   int width = options.bit_width.value_or(0);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   bool no_unique_address = options.no_unique_address;
-#pragma clang diagnostic pop
   if (!has_name && (!options.bit_width.has_value() || !options.annotations.empty()))
     throw __lib_exception(u8"unnamed member must be a bit-field without annotations",
                     ^^data_member_spec,

@@ -10487,8 +10487,19 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
         Reason = std::string(Buf);
     }
 
-    Expr *ExceptionExpr = Meta.SynthesizeMetaExceptionCall(
-        E->getArg(E->getNumArgs() - 1), Reason);
+    Expr *From = E->getArg(E->getNumArgs() - 1);
+    // Extension wrappers predating their Throws specification do not pass
+    // an explicit origin reflection. Use the active wrapper declaration.
+    if (!From->getType()->isReflectionType()) {
+      const FunctionDecl *Callee = Info.CurrentCall->Callee;
+      if (!Callee)
+        return true;
+      From = CXXReflectExpr::Create(
+          Info.Ctx, E->getExprLoc(), E->getSourceRange(),
+          APValue(ReflectionKind::Declaration,
+                  static_cast<void *>(const_cast<FunctionDecl *>(Callee))));
+    }
+    Expr *ExceptionExpr = Meta.SynthesizeMetaExceptionCall(From, Reason);
     if (!ExceptionExpr)
       return true;
 

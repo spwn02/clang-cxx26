@@ -7,8 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23
-// ADDITIONAL_COMPILE_FLAGS: -freflection-latest -Wno-deprecated-declarations
-// P3385R8 deprecates no_unique_address; retain coverage of its legacy behavior.
+// ADDITIONAL_COMPILE_FLAGS: -freflection-latest
 
 // Regression for #185: exceptions must be catchable during constant evaluation.
 #include <meta>

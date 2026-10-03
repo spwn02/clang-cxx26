@@ -978,7 +978,7 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 1, 1, is_user_declared },
   { Metafunction::MFRK_metaInfo, 3, 3, reflect_result, true },
   { Metafunction::MFRK_metaInfo, 15, 15, data_member_spec, true },
-  { Metafunction::MFRK_metaInfo, 8, 8, enumerator_spec },
+  { Metafunction::MFRK_metaInfo, 8, 8, enumerator_spec, true },
   { Metafunction::MFRK_bool, 1, 1, is_enumerator_spec },
   { Metafunction::MFRK_metaInfo, 3, 3, define_aggregate },
   { Metafunction::MFRK_metaInfo, 3, 3, define_enum },
@@ -1006,7 +1006,7 @@ static constexpr Metafunction Metafunctions[] = {
   // P3385 attributes reflection
   { Metafunction::MFRK_metaInfo, 3, 3, get_ith_attribute_of },
   { Metafunction::MFRK_bool, 1, 1, is_attribute },
-  { Metafunction::MFRK_bool, 3, 3, has_attribute },
+  { Metafunction::MFRK_bool, 3, 3, has_attribute, true },
   { Metafunction::MFRK_bool, 1, 1, has_attribute_namespace },
   { Metafunction::MFRK_spliceFromArg, 3, 3, attribute_token_of },
   { Metafunction::MFRK_spliceFromArg, 3, 3, attribute_namespace_of },
@@ -2195,7 +2195,8 @@ bool has_attribute(APValue &Result, ASTContext &C,
     return true;
   }
   if (RV.getReflectionKind() != ReflectionKind::Attribute) {
-    return SetAndSucceed(Result, makeBool(C, false));
+    return DiagnoseReflectionKind(Diagnoser, Range, "an attribute",
+                                  DescriptionOf(RV));
   }
   const ParsedAttr* testAttr = RV.getReflectedAttribute();
 
@@ -2869,13 +2870,21 @@ bool identifier_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     }
     break;
   }
+  case ReflectionKind::Attribute: {
+    const ParsedAttr *A = RV.getReflectedAttribute();
+    if (const IdentifierInfo *Scope = A->getScopeName()) {
+      Name = Scope->getName().str();
+      Name += "::";
+    }
+    Name += A->getAttrName()->getName();
+    break;
+  }
   case ReflectionKind::Null:
     return Diagnoser(Range.getBegin(),
                      diag::metafn_name_of_unnamed_singleton) << 0 << Range;
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_have_name)
         << DescriptionOf(RV) << Range;
   case ReflectionKind::EntityProxy:
@@ -6404,7 +6413,6 @@ bool enumerator_spec(APValue &Result, ASTContext &C, MetaActions &Meta,
     return true;
   size_t nameLen = Scratch.getInt().getExtValue();
   Name.resize(nameLen);
-  Name[nameLen]='\0';
   // Why cant i make EvaluateCharRangeAsString work ?...
   for (uint64_t k = 0; k < nameLen; ++k) {
     llvm::APInt Idx(C.getTypeSize(C.getSizeType()), k, false);
@@ -6422,6 +6430,16 @@ bool enumerator_spec(APValue &Result, ASTContext &C, MetaActions &Meta,
 
     Name[k] = static_cast<char>(Scratch.getInt().getExtValue());
   }
+  // P4033R1 uses the same identifier and keyword constraints as
+  // data_member_spec, including contextual keywords and Unicode identifiers.
+  Lexer Lex(Range.getBegin(), C.getLangOpts(), Name.data(), Name.data(),
+            Name.data() + Name.size(), false);
+  if (Name.find('\\') != std::string::npos ||
+      !Lex.validateIdentifier(Name) ||
+      C.Idents.get(Name).getTokenID() != tok::identifier)
+    return Diagnoser(Range.getBegin(), diag::metafn_name_invalid_identifier)
+        << Name << Range;
+
   ArgIdx++;
   // Value of the enumerator
   APValue Val;

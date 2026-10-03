@@ -105,7 +105,11 @@ ExprResult Parser::ParseCXXReflectExpression(SourceLocation OpLoc) {
       // Reflects expression of unsupported attribute is ill formed
       auto * attribute = &Attrs.back();
       bool isReflectable = isAttributeWithReflectableVariant(attribute->getParsedKind());
-      if (!isReflectable) {
+      // P3385R8 [expr.reflect] excludes assume even though its syntax can
+      // be represented by the experimental attribute reflection machinery.
+      if (!isReflectable ||
+          (attribute->getParsedKind() == ParsedAttr::AT_CXXAssume &&
+           !attribute->getScopeName())) {
         Diag(OpLoc, diag::p3385_warn_unsupported_attribute) << attribute->getAttrName()->getName();
         return ExprError();
       }

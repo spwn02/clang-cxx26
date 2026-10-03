@@ -213,16 +213,13 @@ static_assert(std::meta::is_complete_type(^^TestDefineAggregate::Impl));
 static_assert(std::meta::attributes_of(std::meta::nonstatic_data_members_of(
                   ^^TestDefineAggregate::Impl, std::meta::access_context::current())[0]).size() == 2);
 
-consteval bool testAssumeAttribute() {
-  static_assert(std::meta::is_attribute(^^[[assume(true)]]));
+// P3385R8 [expr.reflect] forbids assume reflections; diagnosed in
+// clang/test/Reflection/p3385-compiler-assume.cpp. The scoped extension
+// attribute-token clang::assume remains supported.
+consteval bool testClangAssumeAttribute() {
   static_assert(std::meta::is_attribute(^^[[clang::assume(true)]]));
-
-  static_assert(^^[[assume(true)]] == ^^[[assume(true)]]);
-  static_assert(^^[[assume(true)]] != ^^[[assume(false)]]);
-  int i = 0;
-  static_assert(^^[[assume(i > 0)]] != ^^[[assume(i == 0)]]);
-  static_assert(^^[[assume(i != 0)]] == ^^[[assume(i != 0)]]);
-
+  static_assert(^^[[clang::assume(true)]] == ^^[[clang::assume(true)]]);
+  static_assert(^^[[clang::assume(true)]] != ^^[[clang::assume(false)]]);
   return true;
 }
 
