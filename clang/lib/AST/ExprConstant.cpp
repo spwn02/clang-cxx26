@@ -10423,7 +10423,7 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
                                                  const CXXMetafunctionExpr *E) {
   EvalInfo &Info = this->Info;
   auto Evaluator = [&Info](APValue &Result, const Expr *E,
-                           bool ConvertToRValue) {
+                           int ConvertToRValue) {
     assert(!E->isValueDependent());
 
     if (E->getType().isNull())
@@ -10447,6 +10447,10 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
         if (!handleLValueToRValueConversion(Info, E, E->getType(), LV, Result))
           return false;
       }
+
+      // The metafunction validates the value itself when asked not to check.
+      if (ConvertToRValue == 2)
+        return true;
 
       // Check this core constant expression is a constant expression.
       return CheckConstantExpression(Info, E->getExprLoc(), E->getType(),

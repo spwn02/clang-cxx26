@@ -3931,9 +3931,12 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
 
   bool ReturnsLValue = false;
   QualType RawResultTy = ResultTy;
-  if (auto *LVRT = dyn_cast<LValueReferenceType>(ResultTy)) {
+  // The result of extract<T&> and extract<T&&> designates the object itself
+  // ([meta.reflection.extract], extract-ref); the expression's value category
+  // (lvalue or xvalue) is set where the expression is built.
+  if (auto *RT = dyn_cast<ReferenceType>(ResultTy)) {
     ReturnsLValue = true;
-    ResultTy = LVRT->getPointeeType();
+    ResultTy = RT->getPointeeType();
   }
 
   auto extractLambda = [&](APValue &Out, CXXRecordDecl *RD) -> bool {
@@ -4080,15 +4083,20 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
       }
 
       Expr *Synthesized;
-      if (isa<LValueReferenceType>(Decl->getType().getCanonicalType())) {
+      bool QualificationMayDiffer = false;
+      if (isa<ReferenceType>(Decl->getType().getCanonicalType())) {
         // We have a reflection of an object with reference type.
         // Synthesize a 'DeclRefExpr' designating the object, such that constant
-        // evaluation resolves the underlying referenced entity.
+        // evaluation resolves the underlying referenced entity. The object
+        // referred to is extracted, so only a qualification conversion from
+        // the referenced type to the result type is allowed
+        // ([meta.reflection.extract], extract-ref).
         ReturnsLValue = true;
-        if (RawResultTy.getCanonicalType().getTypePtr() !=
-            Decl->getType().getCanonicalType().getTypePtr())
+        QualType Referee = Decl->getType().getNonReferenceType();
+        if (!isExtractCompatible(C, Referee, ResultTy, ReturnsLValue))
           return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
               << 1 << Decl->getType() << 1 << ResultTy << Range;
+        QualificationMayDiffer = true;
 
         NestedNameSpecifierLocBuilder NNSLocBuilder;
         if (auto *ParentClsDecl = dyn_cast_or_null<CXXRecordDecl>(
@@ -4099,7 +4107,7 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
         }
         Synthesized = DeclRefExpr::Create(C, NNSLocBuilder.getTemporary(),
                                           SourceLocation(), Decl, false,
-                                          Range.getBegin(), ResultTy, VK_LValue,
+                                          Range.getBegin(), Referee, VK_LValue,
                                           Decl, nullptr);
       } else if (auto *ArrTy = dyn_cast<ArrayType>(Decl->getType())) {
         QualType Elt = ArrTy->getElementType();
@@ -4137,7 +4145,7 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
         Synthesized = ExtractLValueExpr::Create(C, Range, Decl->getType(), Decl);
       }
 
-      if (!isa<ExtractLValueExpr>(Synthesized) &&
+      if (!isa<ExtractLValueExpr>(Synthesized) && !QualificationMayDiffer &&
           Synthesized->getType().getCanonicalType().getTypePtr() !=
               ResultTy.getCanonicalType().getTypePtr())
         return Diagnoser(Range.getBegin(), diag::metafn_extract_type_mismatch)
@@ -5984,18 +5992,13 @@ bool reflect_result(APValue &Result, ASTContext &C, MetaActions &Meta,
     return Diagnoser(Range.getBegin(), diag::metafn_value_not_structural_type)
         << ArgTy.getReflectedType() << Range;
 
-  // Validate pointer values as template arguments below, rather than first
-  // requiring them to be constant expressions in the current evaluation.
-  // That earlier check would make a pointer to a local hard-error before the
-  // metafunction can throw its required exception.
-  Expr *Input = Args[1];
-  bool PointerValue = !IsLValue && Input->getType()->isPointerType();
-  if (PointerValue && Input->isGLValue())
-    Input = ImplicitCastExpr::Create(C, Input->getType(), CK_LValueToRValue,
-                                    Input, nullptr, VK_PRValue,
-                                    FPOptionsOverride());
+  // Validate values as template arguments below, rather than first requiring
+  // them to be constant expressions in the current evaluation. That earlier
+  // check would make a pointer to a local, whether a value of its own or held
+  // by a class value, hard-error before the metafunction can throw its required
+  // exception (reflect_constant throws unless TCls<V> would be valid).
   APValue Arg;
-  if (!Evaluator(Arg, Input, !IsLValue && !PointerValue))
+  if (!Evaluator(Arg, Args[1], IsLValue ? 0 : 2))
     return true;
 
   // Construct an expression whose result is 'Arg', and evaluate it to check if

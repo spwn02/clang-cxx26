@@ -1175,7 +1175,7 @@ consteval auto substitute(info templ, R &&args) -> info {
 
 // Returns the value or object from 'r' if 'r' is a reflection of a value
 // or object having type 'T'.
-template <typename Ty> requires (!is_rvalue_reference_v<Ty>)
+template <typename Ty>
 consteval auto extract(info r) -> Ty {
   return __metafunction(detail::__metafn_extract, ^^Ty, r, current_function());
 }

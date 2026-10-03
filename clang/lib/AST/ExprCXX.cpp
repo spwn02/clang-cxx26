@@ -2012,8 +2012,8 @@ CXXReflectExpr *CXXReflectExpr::CreateEmpty(const ASTContext &Ctx) {
 }
 
 static QualType UnwrapCXXMetafunctionExprReturnType(QualType QT) {
-  if (auto *LVRT = dyn_cast<LValueReferenceType>(QT))
-    QT = LVRT->getPointeeType();
+  if (auto *RT = dyn_cast<ReferenceType>(QT))
+    QT = RT->getPointeeType();
 
   return QT;
 }
@@ -2049,8 +2049,9 @@ CXXMetafunctionExpr *CXXMetafunctionExpr::Create(ASTContext &C,
   Expr **args = new (C) Expr *[Args.size()];
   std::copy(Args.begin(), Args.end(), args);
 
-  ExprValueKind VK = isa<LValueReferenceType>(ResultType) ? VK_LValue :
-                                                            VK_PRValue;
+  ExprValueKind VK = isa<LValueReferenceType>(ResultType)    ? VK_LValue
+                     : isa<RValueReferenceType>(ResultType) ? VK_XValue
+                                                            : VK_PRValue;
   return new (C) CXXMetafunctionExpr(MetaFnID, Impl, ResultType, VK, args,
                                      Args.size(), KwLoc, LParenLoc, RParenLoc);
 }

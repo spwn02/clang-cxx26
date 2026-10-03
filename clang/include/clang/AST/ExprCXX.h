@@ -5628,8 +5628,12 @@ class CXXMetafunctionExpr : public Expr {
 public:
   // Type of callback provided to executing metafunctions to help evaluate an
   // expression in the current constant evaluation context.
+  /// Evaluates an argument. \p ConvertToRValue is 0 to leave a glvalue as an
+  /// lvalue, 1 to convert it to an rvalue and check the result is a constant
+  /// expression, or 2 to convert it without that final check (the metafunction
+  /// then validates the value itself and can throw a catchable exception).
   using EvaluateFn = std::function<bool(APValue &, const Expr *,
-                                        bool ConvertToRValue)>;
+                                        int ConvertToRValue)>;
 
   // Type of callback provided to report a diagnostic to the evaluation context.
   using DiagnoseFn = std::function<PartialDiagnostic &(SourceLocation,
