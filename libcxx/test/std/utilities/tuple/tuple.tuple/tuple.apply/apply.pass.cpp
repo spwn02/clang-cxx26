@@ -29,7 +29,9 @@ template <class F, class T>
 struct is_applicable<F, T, std::void_t<decltype(std::apply(std::declval<F>(), std::declval<T>()))>>
     : std::true_type {};
 
+#if TEST_STD_VER >= 26 // P1317R2 apply_result
 static_assert(std::is_same_v<std::apply_result_t<int (&)(int), std::tuple<int>&>, int>);
+#endif
 static_assert(!is_applicable<void (*)(), std::tuple<int>>::value);
 
 constexpr int constexpr_sum_fn() { return 0; }

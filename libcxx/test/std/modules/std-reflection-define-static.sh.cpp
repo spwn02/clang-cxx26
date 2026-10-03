@@ -54,4 +54,11 @@ static_assert(!std::meta::has_inaccessible_subobjects(^^PublicOnly, std::meta::a
 constexpr auto an_access_context = std::meta::access_context::unprivileged();
 static_assert(std::meta::is_structural_type(std::meta::type_of(std::meta::reflect_object(an_access_context))));
 
+// P1317R2 traits are exported by <tuple> in C++26.
+struct Callable { void operator()(int) const {} };
+static_assert(std::is_applicable_v<Callable, std::tuple<int>>);
+static_assert(!std::is_applicable_v<Callable, int>);
+static_assert(std::is_same_v<std::apply_result_t<int (&)(int), std::tuple<int>>, int>);
+static_assert(std::is_nothrow_applicable_v<int (&)(int) noexcept, std::tuple<int>>);
+
 int main(int, char**) { return 0; }

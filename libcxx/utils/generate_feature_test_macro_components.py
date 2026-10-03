@@ -140,7 +140,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_apply",
-            "values": {"c++17": 201603},
+            "values": {"c++17": 201603, "c++26": 202603},
             "headers": ["tuple"],
         },
         {

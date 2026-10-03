@@ -7487,8 +7487,8 @@
 #  ifndef __cpp_lib_apply
 #    error "__cpp_lib_apply should be defined in c++26"
 #  endif
-#  if __cpp_lib_apply != 201603L
-#    error "__cpp_lib_apply should have the value 201603L in c++26"
+#  if __cpp_lib_apply != 202603L
+#    error "__cpp_lib_apply should have the value 202603L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_array_constexpr

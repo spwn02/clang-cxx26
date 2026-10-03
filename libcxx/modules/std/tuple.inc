@@ -29,6 +29,14 @@ export namespace std {
 
   // [tuple.apply], calling a function with a tuple of arguments
   using std::apply;
+#if _LIBCPP_STD_VER >= 26
+  using std::apply_result;
+  using std::apply_result_t;
+  using std::is_applicable;
+  using std::is_applicable_v;
+  using std::is_nothrow_applicable;
+  using std::is_nothrow_applicable_v;
+#endif
 
   using std::make_from_tuple;
 

@@ -24,7 +24,8 @@ __cpp_lib_allocator_traits_is_always_equal              201411L <deque> <forward
                                                                 <set> <string> <unordered_map>
                                                                 <unordered_set> <vector>
 __cpp_lib_any                                           201606L <any>
-__cpp_lib_apply                                         201603L <tuple>
+__cpp_lib_apply                                         202603L <tuple>
+                                                        201603L // C++17
 __cpp_lib_array_constexpr                               201811L <array> <iterator>
                                                         201603L // C++17
 __cpp_lib_as_const                                      201510L <utility>
@@ -636,6 +637,8 @@ __cpp_lib_void_t                                        201411L <type_traits>
 
 #if _LIBCPP_STD_VER >= 26
 # define __cpp_lib_aligned_accessor                     202411L
+# undef  __cpp_lib_apply
+# define __cpp_lib_apply                                202603L
 # define __cpp_lib_associative_heterogeneous_insertion  202306L
 # define __cpp_lib_atomic_min_max                       202506L
 # define __cpp_lib_atomic_reductions                    202506L
