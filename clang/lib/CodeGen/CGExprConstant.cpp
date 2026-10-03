@@ -2442,6 +2442,9 @@ ConstantLValueEmitter::VisitCXXTypeidExpr(const CXXTypeidExpr *E) {
 ConstantLValue
 ConstantLValueEmitter::VisitMaterializeTemporaryExpr(
                                             const MaterializeTemporaryExpr *E) {
+  if (CGM.getLangOpts().CPlusPlus26 &&
+      E->getStorageDuration() != SD_Static)
+    return nullptr;
   assert(E->getStorageDuration() == SD_Static);
   const Expr *Inner = E->getSubExpr()->skipRValueSubobjectAdjustments();
   return CGM.GetAddrOfGlobalTemporary(E, Inner);

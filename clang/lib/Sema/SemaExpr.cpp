@@ -2361,6 +2361,28 @@ static bool isCapturingReferenceToHostVarInCUDADeviceLambda(const Sema &S,
   return false;
 }
 
+// Constant-initialized C++26 variables can contain automatic addresses. They
+// are constexpr-representable only within their enclosing function; a lambda
+// in that function has its own function parameter scope and needs a capture.
+static bool isConstexprRepresentableInCurrentFunction(Sema &S,
+                                                      const VarDecl *VD) {
+  if (!S.getLangOpts().CPlusPlus26)
+    return true;
+  const APValue *Value = VD->getEvaluatedValue();
+  if (!Value || !Value->containsAutomaticObject())
+    return true;
+  // Blocks and outlined (captured) regions are separate functions after
+  // lowering, so they delimit the scope like a function does.
+  auto Scope = [](const DeclContext *DC) -> const DeclContext * {
+    for (; DC; DC = DC->getParent())
+      if (DC->isFunctionOrMethod())
+        return DC;
+    return nullptr;
+  };
+  const DeclContext *VarScope = Scope(VD->getDeclContext());
+  return VarScope && VarScope == Scope(S.CurContext);
+}
+
 NonOdrUseReason Sema::getNonOdrUseReasonInCurrentContext(ValueDecl *D) {
   // A declaration named in an unevaluated operand never constitutes an odr-use.
   if (isUnevaluatedContext())
@@ -2380,8 +2402,11 @@ NonOdrUseReason Sema::getNonOdrUseReasonInCurrentContext(ValueDecl *D) {
     if (VD->getType()->isReferenceType() &&
         !(getLangOpts().OpenMP && OpenMP().isOpenMPCapturedDecl(D)) &&
         !isCapturingReferenceToHostVarInCUDADeviceLambda(*this, VD) &&
-        VD->isUsableInConstantExpressions(Context))
+        VD->isUsableInConstantExpressions(Context)) {
+      if (!isConstexprRepresentableInCurrentFunction(*this, VD))
+        return NOUR_None;
       return NOUR_Constant;
+    }
   }
 
   // All remaining non-variable cases constitute an odr-use. For variables, we
@@ -20579,9 +20604,16 @@ bool Sema::tryCaptureVariable(
       // consteval-only type (not regular structs).
       bool InExpansionStmt = IsSynthesizingExpansionStmt || TraversedExpansionStmt;
       if (VD && VD->isConstexpr() && VD->isUsableInConstantExpressions(Context)) {
-        bool AllowSkipCapture = InExpansionStmt ||
+        // A value holding addresses of automatic objects is not
+        // constexpr-representable in the nested function, so the variable is
+        // odr-used there and must be captured (P2686R5, [basic.def.odr]).
+        const APValue *VDValue = VD->getEvaluatedValue();
+        bool HoldsAutomaticAddress = getLangOpts().CPlusPlus26 && VDValue &&
+                                     VDValue->containsAutomaticObject();
+        bool AllowSkipCapture = !HoldsAutomaticAddress &&
+                                (InExpansionStmt ||
                                  Var->getType()->isScalarType() ||
-                                 Var->getType()->isConstevalOnly();
+                                 Var->getType()->isConstevalOnly());
         if (AllowSkipCapture) {
           // Constexpr expansion variables (or other compile-time constants)
           // don't need to be captured.
@@ -20854,7 +20886,8 @@ static ExprResult rebuildPotentialResultsAsNonOdrUsed(Sema &S, Expr *E,
       if (auto *RD = VD->getType()->getAsCXXRecordDecl())
         if (RD->hasDefinition() && RD->hasMutableFields())
           return true;
-      if (!VD->isUsableInConstantExpressions(S.Context))
+      if (!VD->isUsableInConstantExpressions(S.Context) ||
+          !isConstexprRepresentableInCurrentFunction(S, VD))
         return true;
       break;
 

@@ -2092,9 +2092,17 @@ static bool ShouldDiagnoseUnusedDecl(const LangOptions &LangOpts,
               dyn_cast<CXXConstructExpr>(Init->IgnoreImpCasts());
           if (Construct && !Construct->isElidable()) {
             const CXXConstructorDecl *CD = Construct->getConstructor();
-            if (!CD->isTrivial() && !RD->hasAttr<WarnUnusedAttr>() &&
-                (VD->getInit()->isValueDependent() || !VD->evaluateValue()))
-              return false;
+            // A value that only became constant because C++26 permits
+            // addresses of automatic objects (P2686R5) does not make the
+            // construction free of side effects for this heuristic.
+            if (!CD->isTrivial() && !RD->hasAttr<WarnUnusedAttr>()) {
+              const APValue *Value = nullptr;
+              if (!VD->getInit()->isValueDependent())
+                Value = VD->evaluateValue();
+              if (!Value || (LangOpts.CPlusPlus26 &&
+                             Value->containsAutomaticObject()))
+                return false;
+            }
           }
 
           // Suppress the warning if we don't know how this is constructed, and

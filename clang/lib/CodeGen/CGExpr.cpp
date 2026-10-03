@@ -1989,6 +1989,11 @@ CodeGenFunction::tryEmitAsConstant(const DeclRefExpr *RefExpr) {
     }
   }
 
+  // C++26 constant initialization can contain function-relative addresses.
+  // Load these from the runtime object instead of emitting the cached value.
+  if (getLangOpts().CPlusPlus26 && result.Val.containsAutomaticObject())
+    return ConstantEmission();
+
   // Emit as a constant.
   llvm::Constant *C = ConstantEmitter(*this).emitAbstract(
       RefExpr->getLocation(), result.Val, resultType);
@@ -3438,7 +3443,10 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
     // we're not permitted to emit a reference to it in general, and it might
     // not be captured if capture would be necessary for a use. Emit the
     // constant value directly instead.
-    if (E->isNonOdrUse() == NOUR_Constant &&
+    const APValue *CachedValue = VD->getEvaluatedValue();
+    bool HasAutomaticAddress = getLangOpts().CPlusPlus26 && CachedValue &&
+                               CachedValue->containsAutomaticObject();
+    if (!HasAutomaticAddress && E->isNonOdrUse() == NOUR_Constant &&
         (VD->getType()->isReferenceType() ||
          !canEmitSpuriousReferenceToVariable(*this, E, VD))) {
       VD->getAnyInitializer(VD);

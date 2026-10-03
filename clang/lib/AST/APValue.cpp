@@ -1800,3 +1800,40 @@ void APValue::setReflection(ReflectionKind RK, const void *Ptr) {
   }
   assert(RK == ReflectionKind::Null && "unknown reflection kind");
 }
+
+bool APValue::containsAutomaticObject() const {
+  if (isLValue()) {
+    LValueBase Base = getLValueBase();
+    if (const auto *D = Base.dyn_cast<const ValueDecl *>()) {
+      if (const auto *VD = dyn_cast<VarDecl>(D))
+        return VD->hasLocalStorage();
+      if (const auto *Temp = dyn_cast<LifetimeExtendedTemporaryDecl>(D))
+        return Temp->getStorageDuration() == SD_Automatic;
+    }
+    if (const auto *MTE = dyn_cast_or_null<MaterializeTemporaryExpr>(
+            Base.dyn_cast<const Expr *>()))
+      return MTE->getStorageDuration() == SD_Automatic;
+    return false;
+  }
+  if (isArray()) {
+    for (unsigned I = 0; I != getArrayInitializedElts(); ++I)
+      if (getArrayInitializedElt(I).containsAutomaticObject())
+        return true;
+    return hasArrayFiller() && getArrayFiller().containsAutomaticObject();
+  }
+  if (isStruct()) {
+    for (unsigned I = 0; I != getStructNumBases(); ++I)
+      if (getStructBase(I).containsAutomaticObject())
+        return true;
+    for (unsigned I = 0; I != getStructNumFields(); ++I)
+      if (getStructField(I).containsAutomaticObject())
+        return true;
+  }
+  if (isUnion() && getUnionField())
+    return getUnionValue().containsAutomaticObject();
+  if (isVector())
+    for (unsigned I = 0; I != getVectorLength(); ++I)
+      if (getVectorElt(I).containsAutomaticObject())
+        return true;
+  return false;
+}

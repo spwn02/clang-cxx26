@@ -525,6 +525,10 @@ public:
   bool isIndeterminate() const { return Kind == Indeterminate; }
   bool hasValue() const { return Kind != None && Kind != Indeterminate; }
 
+  /// Whether any constituent pointer or reference designates an automatic
+  /// object. Such a value needs a runtime address when emitted by CodeGen.
+  bool containsAutomaticObject() const;
+
   bool isInt() const { return !isReflection() && Kind == Int; }
   bool isFloat() const { return !isReflection() && Kind == Float; }
   bool isFixedPoint() const { return !isReflection() && Kind == FixedPoint; }

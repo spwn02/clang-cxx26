@@ -1170,10 +1170,13 @@ namespace cwg684 { // cwg684: sup 1454
 #if __cplusplus >= 201103L
   void f() {
     int a;  // #cwg684-a
-    constexpr int *p = &a;
-    // since-cxx11-error@-1 {{constexpr variable 'p' must be initialized by a constant expression}}
-    //   since-cxx11-note@-2 {{pointer to 'a' is not a constant expression}}
+    constexpr int *p = &a; // #cwg684-p
+#if __cplusplus <= 202302L
+    // since-cxx11-error@#cwg684-p {{constexpr variable 'p' must be initialized by a constant expression}}
+    //   since-cxx11-note@#cwg684-p {{pointer to 'a' is not a constant expression}}
     //   since-cxx11-note@#cwg684-a {{here}}
+#endif
+    // P2686R5 permits this automatic address in C++26.
   }
 #endif
 } // namespace cwg684

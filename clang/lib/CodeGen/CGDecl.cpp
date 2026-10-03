@@ -1533,7 +1533,11 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     // isConstantInitializer produces wrong answers for structs with
     // reference or bitfield members, and a few other cases, and checking
     // for POD-ness protects us from some of these.
-    if (D.getInit() && (Ty->isArrayType() || Ty->isRecordType()) &&
+    const APValue *CachedValue = D.getEvaluatedValue();
+    bool HasAutomaticAddress = getLangOpts().CPlusPlus26 && CachedValue &&
+                               CachedValue->containsAutomaticObject();
+    if (!HasAutomaticAddress && D.getInit() &&
+        (Ty->isArrayType() || Ty->isRecordType()) &&
         (D.isConstexpr() ||
          ((Ty.isPODType(getContext()) ||
            getContext().getBaseElementType(Ty)->isObjCObjectPointerType()) &&

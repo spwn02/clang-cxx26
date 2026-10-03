@@ -2496,9 +2496,57 @@ static bool CheckEvaluationResult(CheckEvaluationResultKind CERK,
                                   const FieldDecl *SubobjectDecl,
                                   CheckedTemporaries &CheckedTemps);
 
-/// Check that this reference or pointer core constant expression is a valid
-/// value for an address or reference constant expression. Return true if we
-/// can fold this expression, whether or not it's a constant expression.
+/// The innermost function parameter scope enclosing \p DC. Block scopes and
+/// requirement-parameter-list scopes are skipped ([expr.const.defns]); a
+/// lambda's call operator is a function of its own. Blocks and outlined
+/// (captured) regions become separate functions after lowering, so they are
+/// conservatively scopes of their own as well.
+static const DeclContext *getEnclosingFunctionScope(const DeclContext *DC) {
+  for (; DC; DC = DC->getParent())
+    if (DC->isFunctionOrMethod())
+      return DC;
+  return nullptr;
+}
+
+/// [expr.const.defns] constexpr-referenceable, for an object with automatic
+/// storage duration: the variable v of the object (or the variable whose
+/// lifetime extends the object's) and the point P must have the same
+/// enclosing function parameter scope. P is the variable being initialized.
+static bool isConstexprReferenceableFromEvaluatingDecl(
+    EvalInfo &Info, const APValue::LValueBase &Base) {
+  if (!Info.getLangOpts().CPlusPlus26)
+    return false;
+  const auto *Initialized =
+      dyn_cast_or_null<VarDecl>(Info.EvaluatingDecl.dyn_cast<const ValueDecl *>());
+  if (!Initialized || !Initialized->hasLocalStorage() ||
+      Initialized->isStaticLocal() || Initialized->getTLSKind())
+    return false;
+
+  const ValueDecl *Owner = nullptr;
+  if (const auto *VD = Base.dyn_cast<const ValueDecl *>()) {
+    if (const auto *LETD = dyn_cast<LifetimeExtendedTemporaryDecl>(VD))
+      Owner = LETD->getExtendingDecl();
+    else
+      Owner = VD;
+  } else if (const auto *E = Base.dyn_cast<const Expr *>()) {
+    if (const auto *MTE = dyn_cast<MaterializeTemporaryExpr>(E))
+      Owner = MTE->getExtendingDecl();
+  }
+  if (const auto *Binding = dyn_cast_or_null<BindingDecl>(Owner))
+    Owner = Binding->getDecomposedDecl();
+  const auto *OwnerVar = dyn_cast_or_null<VarDecl>(Owner);
+  if (!OwnerVar || !OwnerVar->hasLocalStorage() || OwnerVar->isStaticLocal() ||
+      OwnerVar->getTLSKind())
+    return false;
+
+  const DeclContext *Scope =
+      getEnclosingFunctionScope(Initialized->getDeclContext());
+  return Scope && Scope == getEnclosingFunctionScope(OwnerVar->getDeclContext());
+}
+
+/// Check whether each constituent pointer/reference is constexpr-referenceable
+/// at the initializing declaration (or has a permitted constant-expression
+/// result value when no variable is being initialized).
 static bool CheckLValueConstantExpression(EvalInfo &Info, SourceLocation Loc,
                                           QualType Type, const LValue &LVal,
                                           ConstantExprKind Kind,
@@ -2553,10 +2601,15 @@ static bool CheckLValueConstantExpression(EvalInfo &Info, SourceLocation Loc,
     return false;
   }
 
-  // Check that the object is a global. Note that the fake 'this' object we
-  // manufacture when checking potential constant expressions is conservatively
-  // assumed to be global here.
-  if (!IsGlobalLValue(Base)) {
+  // Automatic variable initialization in C++26 also permits objects in the
+  // same function parameter scope. Requiring global objects otherwise enforces
+  // representability at the following namespace-scope point for static/thread
+  // variables. The fake 'this' used for potential constant expressions is
+  // conservatively assumed to be global here.
+  bool IsGlobal = IsGlobalLValue(Base);
+  bool IsFrameLocal = !IsGlobal && !isTemplateArgument(Kind) &&
+                     isConstexprReferenceableFromEvaluatingDecl(Info, Base);
+  if (!IsGlobal && !IsFrameLocal) {
     if (Info.getLangOpts().CPlusPlus11) {
       Info.FFDiag(Loc, diag::note_constexpr_non_global, 1)
           << IsReferenceType << !Designator.Entries.empty() << !!BaseVD
@@ -2580,9 +2633,19 @@ static bool CheckLValueConstantExpression(EvalInfo &Info, SourceLocation Loc,
     // Don't allow references to temporaries to escape.
     return false;
   }
-  assert((Info.checkingPotentialConstantExpression() ||
+  assert((Info.checkingPotentialConstantExpression() || IsFrameLocal ||
           LVal.getLValueCallIndex() == 0) &&
          "have call index for global lvalue");
+
+  // A function-relative address must not outlive the evaluation frame that
+  // produced it. A zero call index denotes a declaration-time address.
+  if (IsFrameLocal && Base.getCallIndex() &&
+      !Info.getCallFrameAndDepth(Base.getCallIndex()).first) {
+    Info.FFDiag(Loc, diag::note_constexpr_lifetime_ended, 1)
+        << AK_Dereference << Base.is<const ValueDecl *>();
+    NoteLValueLocation(Info, Base);
+    return false;
+  }
 
   if (LVal.allowConstexprUnknown()) {
     if (BaseVD) {
@@ -2649,7 +2712,7 @@ static bool CheckLValueConstantExpression(EvalInfo &Info, SourceLocation Loc,
                  dyn_cast_or_null<MaterializeTemporaryExpr>(BaseE)) {
     if (CheckedTemps.insert(MTE).second) {
       QualType TempType = getType(Base);
-      if (TempType.isDestructedType()) {
+      if (TempType.isDestructedType() && !IsFrameLocal) {
         Info.FFDiag(MTE->getExprLoc(),
                     diag::note_constexpr_unsupported_temporary_nontrivial_dtor)
             << TempType;
@@ -2657,6 +2720,12 @@ static bool CheckLValueConstantExpression(EvalInfo &Info, SourceLocation Loc,
       }
 
       APValue *V = MTE->getOrCreateValue(false);
+      if (!V && IsFrameLocal) {
+        // Only the classic evaluator caches the value of an automatic
+        // temporary; with another evaluator it is not a constant.
+        Info.FFDiag(MTE->getExprLoc());
+        return false;
+      }
       assert(V && "evasluation result refers to uninitialised temporary");
       if (!CheckEvaluationResult(CheckEvaluationResultKind::ConstantExpression,
                                  Info, MTE->getExprLoc(), TempType, *V, Kind,
@@ -3817,6 +3886,28 @@ static const DeclContext *skipExpansionStmts(const DeclContext *DC) {
   return DC;
 }
 
+// For a declaration-time read in a lambda body, there is no live call frame
+// recording the point of use. DeclRefExpr records whether the named variable
+// belongs to an enclosing function; follow member/element access to that name.
+static bool refersToEnclosingVariable(const Expr *E) {
+  E = E->IgnoreParenImpCasts();
+  if (const auto *DRE = dyn_cast<DeclRefExpr>(E))
+    return DRE->refersToEnclosingVariableOrCapture();
+  if (const auto *ME = dyn_cast<MemberExpr>(E))
+    return refersToEnclosingVariable(ME->getBase());
+  if (const auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
+    return refersToEnclosingVariable(ASE->getBase());
+  return false;
+}
+
+static bool isReadInOtherFunction(EvalInfo &Info, const Expr *E,
+                                  const VarDecl *VD) {
+  if (Info.CurrentCall->Callee)
+    return getEnclosingFunctionScope(VD->getDeclContext()) !=
+           static_cast<const DeclContext *>(Info.CurrentCall->Callee);
+  return refersToEnclosingVariable(E);
+}
+
 /// Try to evaluate the initializer for a variable declaration.
 ///
 /// \param Info   Information about the ongoing evaluation.
@@ -4014,6 +4105,13 @@ static bool evaluateVarDeclInit(EvalInfo &Info, const Expr *E,
   }
 
   Result = VD->getEvaluatedValue();
+
+  // A reference that is not representable at this point is constexpr-unknown
+  // (P2280), even if its declaration has a cached constant initializer.
+  if (Info.getLangOpts().CPlusPlus26 && VD->getType()->isReferenceType() &&
+      Result && Result->containsAutomaticObject() &&
+      isReadInOtherFunction(Info, E, VD))
+    Result = nullptr;
 
   if (!Result && !AllowConstexprUnknown)
     return false;
@@ -5260,7 +5358,9 @@ static CompleteObject findCompleteObject(EvalInfo &Info, const Expr *E,
     if (!Frame) {
       if (const MaterializeTemporaryExpr *MTE =
               dyn_cast_or_null<MaterializeTemporaryExpr>(Base)) {
-        assert(MTE->getStorageDuration() == SD_Static &&
+        assert((MTE->getStorageDuration() == SD_Static ||
+                (Info.getLangOpts().CPlusPlus26 &&
+                 MTE->getStorageDuration() == SD_Automatic)) &&
                "should have a frame for a non-global materialized temporary");
 
         // C++20 [expr.const]p4: [DR2126]
@@ -5413,7 +5513,29 @@ handleLValueToRValueConversion(EvalInfo &Info, const Expr *Conv, QualType Type,
     }
   }
   CompleteObject Obj = findCompleteObject(Info, Conv, AK, LVal, Type);
-  return Obj && extractSubobject(Info, Conv, Obj, LVal.Designator, RVal, AK);
+  if (!Obj || !extractSubobject(Info, Conv, Obj, LVal.Designator, RVal, AK))
+    return false;
+
+  // [expr.const.init] checks the object/subobject being read, rather than its
+  // complete object: a numeric member can remain usable even when a sibling
+  // pointer member is not constexpr-representable in this function. Objects
+  // whose lifetime began in this evaluation can also be read normally.
+  if (Info.getLangOpts().CPlusPlus26 && !LVal.getLValueCallIndex() &&
+      !lifetimeStartedInEvaluation(Info, LVal.Base) &&
+      RVal.containsAutomaticObject()) {
+    const VarDecl *VD = dyn_cast_or_null<VarDecl>(
+        LVal.Base.dyn_cast<const ValueDecl *>());
+    if (const auto *MTE = dyn_cast_or_null<MaterializeTemporaryExpr>(Base))
+      VD = dyn_cast_or_null<VarDecl>(MTE->getExtendingDecl());
+    if (VD && isReadInOtherFunction(Info, Conv, VD)) {
+      // Diagnose the non-referenceable constituent with the existing notes.
+      llvm::SaveAndRestore<APValue::LValueBase> EvaluatingDecl(
+          Info.EvaluatingDecl, APValue::LValueBase());
+      return CheckConstantExpression(Info, Conv->getExprLoc(), Type, RVal,
+                                     ConstantExprKind::Normal);
+    }
+  }
+  return true;
 }
 
 static bool hlslElementwiseCastHelper(EvalInfo &Info, const Expr *E,
@@ -10847,11 +10969,15 @@ bool LValueExprEvaluator::VisitMaterializeTemporaryExpr(
     if (!EvaluateIgnoredValue(Info, E))
       return false;
 
-  // A materialized temporary with static storage duration can appear within the
-  // result of a constant expression evaluation, so we need to preserve its
-  // value for use outside this evaluation.
+  // Preserve static temporaries and C++26 automatic lifetime-extended
+  // temporaries initialized independently of any call frame. During a real
+  // function evaluation, keep automatic temporaries in that frame instead.
   APValue *Value;
-  if (E->getStorageDuration() == SD_Static) {
+  if (E->getStorageDuration() == SD_Static ||
+      (Info.getLangOpts().CPlusPlus26 &&
+       E->getStorageDuration() == SD_Automatic &&
+       !Info.CurrentCall->Callee &&
+       isConstexprReferenceableFromEvaluatingDecl(Info, E))) {
     if (Info.EvalMode == EvaluationMode::ConstantFold)
       return false;
     // FIXME: What about SD_Thread?

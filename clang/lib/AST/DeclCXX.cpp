@@ -3458,13 +3458,19 @@ StorageDuration LifetimeExtendedTemporaryDecl::getStorageDuration() const {
 }
 
 APValue *LifetimeExtendedTemporaryDecl::getOrCreateValue(bool MayCreate) const {
-  assert(getStorageDuration() == SD_Static &&
-         "don't need to cache the computed value for this temporary");
+  assert((getStorageDuration() == SD_Static ||
+          (getASTContext().getLangOpts().CPlusPlus26 &&
+           getStorageDuration() == SD_Automatic)) &&
+         "only cache lifetime-extended constant-initialized temporaries");
   if (MayCreate && !Value) {
     Value = (new (getASTContext()) APValue);
     getASTContext().addDestruction(Value);
   }
-  assert(Value && "may not be null");
+  // An automatic temporary's value is cached only by the classic evaluator
+  // (C++26 constexpr-referenceable temporaries); other evaluators leave it
+  // unset, and callers must then treat the temporary as not constant.
+  assert((Value || getStorageDuration() == SD_Automatic) &&
+         "may not be null");
   return Value;
 }
 
