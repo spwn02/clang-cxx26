@@ -199,27 +199,13 @@ bool tryMakeCXXIterableExpansionSelectExpr(
       InitializationSequence Seq(S, Entity, Kind, Range);
       CanCopyConstruct = !Seq.Failed();
     }
-    // A constexpr expansion variable needs a constexpr reference to the range,
-    // which only exists for an object with static storage duration (not thread-local); other
-    // lvalues (e.g. a local constexpr object) keep iterating a by-value copy.
+    // [stmt.expand]: the range variable is 'decltype(auto) range =
+    // (expansion-initializer)', so an lvalue range always denotes the
+    // original object by reference. For a constexpr expansion variable the
+    // reference must be constexpr-referenceable (P2686R5): a static object or
+    // an automatic object of the same function parameter scope; anything else
+    // is ill-formed rather than silently iterating a copy.
     bool BindByReference = Range->isLValue();
-    if (BindByReference && ExpansionVar->isConstexpr()) {
-      // Walk to the object the lvalue is a subobject of.
-      const Expr *Base = Range->IgnoreParenImpCasts();
-      while (true) {
-        if (const auto *ME = dyn_cast<MemberExpr>(Base); ME && !ME->isArrow())
-          Base = ME->getBase()->IgnoreParenImpCasts();
-        else if (const auto *ASE = dyn_cast<ArraySubscriptExpr>(Base);
-                 ASE && ASE->getBase()->IgnoreParenImpCasts()->getType()
-                            ->isArrayType())
-          Base = ASE->getBase()->IgnoreParenImpCasts();
-        else
-          break;
-      }
-      const auto *DRE = dyn_cast<DeclRefExpr>(Base);
-      const auto *VD = DRE ? dyn_cast<VarDecl>(DRE->getDecl()) : nullptr;
-      BindByReference = VD && VD->getStorageDuration() == SD_Static;
-    }
     QualType QT = !BindByReference ? CopyQT
                                    : S.BuildReferenceType(Range->getType(),
                                                           /*SpelledAsLValue=*/true,

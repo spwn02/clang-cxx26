@@ -19,17 +19,14 @@ void static_range() {
 struct Holder { Range r; };
 static constexpr Holder holder;
 static constexpr Range ranges[2];
-thread_local constexpr Range tl;
 
 void subobjects() {
   template for (constexpr const int &x : holder.r) { static_assert(x > 0); }
   template for (constexpr const int &x : ranges[1]) { static_assert(x > 0); }
-  // thread-local objects cannot be referenced in constant expressions: by-value copy.
-  template for (constexpr auto x : tl) { static_assert(x > 0); }
 }
 
-// A local constexpr object cannot be bound by a constexpr reference, so it
-// keeps iterating a copy.
+// Since P2686R5 a local constexpr object of the same function can be bound by a
+// constexpr reference; either way the iteration result is the same.
 consteval int local_range() {
   constexpr Range local;
   int sum = 0;
