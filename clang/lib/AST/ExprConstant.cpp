@@ -52,6 +52,7 @@
 #include "clang/AST/OSLog.h"
 #include "clang/AST/OptionalDiagnostic.h"
 #include "clang/AST/RecordLayout.h"
+#include "clang/AST/ReflectionEvaluationContext.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
@@ -68,6 +69,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/SipHash.h"
@@ -76,6 +78,7 @@
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <mutex>
 #include <optional>
 #include <string>
 #if CLANG_HAVE_MPFR
@@ -85,6 +88,67 @@
 #define DEBUG_TYPE "exprconstant"
 
 using namespace clang;
+
+namespace clang {
+struct ReflectionEvaluationState {
+  ASTContext *Context;
+  uint64_t Sequence = 0;
+  llvm::DenseMap<const Decl *, uint64_t> InjectedDeclarations;
+  ReflectionEvaluationScope *Active = nullptr;
+
+  explicit ReflectionEvaluationState(ASTContext &C) : Context(&C) {}
+};
+
+// Keep the evaluator's side table out of ASTContext's common interface. The
+// registry is synchronized because separate AST contexts can be evaluated on
+// different threads, and an AST context need not be destroyed on its creating
+// thread. Evaluation of a given AST context is still serialized, like its other
+// semantic mutations.
+struct ReflectionEvaluationRegistry {
+  std::mutex Mutex;
+  llvm::DenseMap<ASTContext *, ReflectionEvaluationState *> States;
+};
+static llvm::ManagedStatic<ReflectionEvaluationRegistry> ReflectionEvaluations;
+
+static ReflectionEvaluationState &reflectionEvaluationState(ASTContext &C) {
+  std::lock_guard<std::mutex> Lock(ReflectionEvaluations->Mutex);
+  auto [It, Inserted] = ReflectionEvaluations->States.try_emplace(&C, nullptr);
+  if (Inserted) {
+    It->second = new ReflectionEvaluationState(C);
+    C.AddDeallocation([](void *Data) {
+      auto *State = static_cast<ReflectionEvaluationState *>(Data);
+      std::lock_guard<std::mutex> Lock(ReflectionEvaluations->Mutex);
+      ReflectionEvaluations->States.erase(State->Context);
+      delete State;
+    }, It->second);
+  }
+  return *It->second;
+}
+
+ReflectionEvaluationScope::ReflectionEvaluationScope(ASTContext &C)
+    : State(reflectionEvaluationState(C)), Previous(State.Active),
+      Baseline(Previous ? Previous->Baseline : State.Sequence),
+      FirstProduced(State.Sequence + 1) {
+  State.Active = this;
+}
+
+ReflectionEvaluationScope::~ReflectionEvaluationScope() {
+  State.Active = Previous;
+}
+
+void recordReflectionInjection(ASTContext &C, const Decl *D) {
+  auto &State = reflectionEvaluationState(C);
+  State.InjectedDeclarations.try_emplace(D->getCanonicalDecl(), ++State.Sequence);
+}
+
+bool isReflectionDefinitionVisible(ASTContext &C, const Decl *D) {
+  auto &State = reflectionEvaluationState(C);
+  uint64_t Sequence = State.InjectedDeclarations.lookup(D->getCanonicalDecl());
+  return !Sequence || !State.Active || Sequence <= State.Active->Baseline ||
+         Sequence >= State.Active->FirstProduced;
+}
+} // namespace clang
+
 using llvm::APFixedPoint;
 using llvm::APInt;
 using llvm::APSInt;
@@ -843,6 +907,7 @@ namespace {
   class EvalInfo : public interp::State {
   public:
     ASTContext &Ctx;
+    ReflectionEvaluationScope ReflectionEvaluation;
 
     /// EvalStatus - Contains information about the evaluation.
     Expr::EvalStatus &EvalStatus;
@@ -1017,7 +1082,8 @@ namespace {
     bool HasFoldFailureDiagnostic;
 
     EvalInfo(const ASTContext &C, Expr::EvalStatus &S, EvaluationMode Mode)
-        : Ctx(const_cast<ASTContext &>(C)), EvalStatus(S), CurrentCall(nullptr),
+        : Ctx(const_cast<ASTContext &>(C)), ReflectionEvaluation(Ctx),
+          EvalStatus(S), CurrentCall(nullptr),
           CallStackDepth(0), NextCallIndex(1),
           StepsLeft(C.getLangOpts().ConstexprStepLimit),
           EnableNewConstInterp(C.getLangOpts().EnableNewConstInterp),
@@ -6047,6 +6113,13 @@ static bool EvaluateVarDecl(EvalInfo &Info, const VarDecl *VD) {
   if (InitE->isValueDependent())
     return false;
 
+  // The initializer of a variable usable in constant expressions is a
+  // nested manifestly constant-evaluated expression, not an ordinary call in
+  // the enclosing evaluation. Its context excludes the enclosing injections.
+  std::optional<ReflectionEvaluationScope> ReflectionScope;
+  if (VD->isUsableInConstantExpressions(Info.Ctx))
+    ReflectionScope.emplace(Info.Ctx);
+
   // For references to objects, check they do not designate a one-past-the-end
   // object.
   if (VD->getType()->isReferenceType()) {
@@ -6566,9 +6639,13 @@ static EvalStmtResult EvaluateStmt(StmtResult &Result, EvalInfo &Info,
       // to true.
       if (!Info.InConstantContext)
         Cond = !Cond;
-    } else if (!EvaluateCond(Info, IS->getConditionVariable(), IS->getCond(),
-                             Cond))
-      return ESR_Failed;
+    } else {
+      std::optional<ReflectionEvaluationScope> ReflectionScope;
+      if (IS->isConstexpr())
+        ReflectionScope.emplace(Info.Ctx);
+      if (!EvaluateCond(Info, IS->getConditionVariable(), IS->getCond(), Cond))
+        return ESR_Failed;
+    }
 
     if (const Stmt *SubStmt = Cond ? IS->getThen() : IS->getElse()) {
       EvalStmtResult ESR = EvaluateStmt(Result, Info, SubStmt);
@@ -9468,6 +9545,7 @@ public:
     if (E->hasAPValueResult())
       return DerivedSuccess(E->getAPValueResult(), E);
 
+    ReflectionEvaluationScope ReflectionScope(Info.Ctx);
     return StmtVisitorTy::Visit(E->getSubExpr());
   }
 

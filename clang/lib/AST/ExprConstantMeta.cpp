@@ -26,6 +26,7 @@
 #include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/Reflection.h"
+#include "clang/AST/ReflectionEvaluationContext.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Basic/DiagnosticMetafn.h"
@@ -391,6 +392,16 @@ static bool is_entity_proxy(APValue &Result, ASTContext &C, MetaActions &Meta,
                             bool AllowInjection, QualType ResultTy,
                             SourceRange Range, ArrayRef<Expr *> Args,
                             Decl *ContainingDecl);
+
+// An injected definition can exist in the AST without its synthesized point
+// belonging to the active evaluation context ([expr.const.reflect]).
+static bool isIncompleteInReflectionContext(ASTContext &C, QualType QT) {
+  if (QT->isIncompleteType())
+    return true;
+  if (const auto *RD = C.getBaseElementType(QT)->getAsCXXRecordDecl())
+    return !isReflectionDefinitionVisible(C, RD);
+  return false;
+}
 
 static bool is_complete_type(APValue &Result, ASTContext &C, MetaActions &Meta,
                              EvalFn Evaluator, DiagFn Diagnoser,
@@ -2473,7 +2484,7 @@ bool get_ith_base_of(APValue &Result, ASTContext &C, MetaActions &Meta,
 
     if (auto cxxRecordDecl = dyn_cast_or_null<CXXRecordDecl>(typeDecl)) {
       Meta.EnsureInstantiated(typeDecl, Range);
-      if (RV.getReflectedType()->isIncompleteType())
+      if (isIncompleteInReflectionContext(C, RV.getReflectedType()))
         return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
             << 0 << 0 << Range;
 
@@ -2609,7 +2620,7 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     if (!Meta.EnsureInstantiated(typeDecl, Range))
       return true;
 
-    if (QT->isIncompleteType())
+    if (isIncompleteInReflectionContext(C, QT))
       return Meta.ThrowMetaException(Range.getBegin(),
                                      "invalid reflection operand");
       // NOTE(CXX26): Uncomment to allow 'members_of' within member
@@ -5178,7 +5189,7 @@ bool is_complete_type(APValue &Result, ASTContext &C, MetaActions &Meta,
     if (Decl *typeDecl = findTypeDecl(QT))
       (void) Meta.EnsureInstantiated(typeDecl, Range);
 
-    result = !QT->isIncompleteType();
+    result = !isIncompleteInReflectionContext(C, QT);
   }
   return SetAndSucceed(Result, makeBool(C, result));
 }
@@ -5272,7 +5283,8 @@ bool is_enumerable_type(APValue &Result, ASTContext &C, MetaActions &Meta,
     if (Decl *typeDecl = findTypeDecl(RV.getReflectedType())) {
       if (auto *TD = dyn_cast<TagDecl>(typeDecl)) {
         (void) Meta.EnsureInstantiated(TD, Range);
-        result = (TD->getDefinition() != nullptr &&
+        result = (isReflectionDefinitionVisible(C, TD) &&
+                  TD->getDefinition() != nullptr &&
                   !TD->getDefinition()->isBeingDefined());
       }
     }
@@ -6602,6 +6614,7 @@ bool define_aggregate(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (!Definition)
     return true;
 
+  recordReflectionInjection(C, Definition);
   C.recordClassMemberSpecHash(ToComplete, MemberSpecHash);
   return SetAndSucceed(Result, makeReflection(ToComplete));
 }
@@ -6674,7 +6687,7 @@ bool size_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     if (typeDecl)
       Meta.EnsureInstantiated(typeDecl, Range);
 
-    if (QT->isIncompleteType())
+    if (isIncompleteInReflectionContext(C, QT))
       return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
           << 4 << 0 << Range;
 
@@ -6811,7 +6824,7 @@ bool bit_size_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     if (typeDecl)
       Meta.EnsureInstantiated(typeDecl, Range);
 
-    if (QT->isIncompleteType())
+    if (isIncompleteInReflectionContext(C, QT))
       return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
           << 4 << 0 << Range;
 
@@ -6871,7 +6884,7 @@ bool alignment_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   switch (RV.getReflectionKind()) {
   case ReflectionKind::Type: {
     QualType QT = RV.getReflectedType();
-    if (QT->isIncompleteType())
+    if (isIncompleteInReflectionContext(C, QT))
       return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
           << 3 << 0 << Range;
 
@@ -7390,6 +7403,27 @@ bool annotate(APValue &Result, ASTContext &C, MetaActions &Meta,
   llvm_unreachable("unknown reflection kind");
 }
 
+static Decl *scopeAtPoint(Decl *Ctx, SourceLocation Point, ASTContext &C) {
+  // Constraint substitution uses the function as CurContext to make its
+  // parameters available, but the trailing requires-clause's scope is its
+  // enclosing scope ([meta.reflection.scope]).
+  if (auto *FD = dyn_cast<FunctionDecl>(Ctx)) {
+    if (auto Requires = FD->getTrailingRequiresClause(); Requires &&
+        Point.isValid()) {
+      SourceRange Range = Requires.ConstraintExpr->getSourceRange();
+      auto &SM = C.getSourceManager();
+      if (!SM.isBeforeInTranslationUnit(Point, Range.getBegin()) &&
+          !SM.isBeforeInTranslationUnit(Range.getEnd(), Point)) {
+        // ctx-scope of a lambda scope is its call operator's parameter scope.
+        if (auto *MD = dyn_cast<CXXMethodDecl>(FD); MD && MD->getParent()->isLambda())
+          return MD->getParent()->getLambdaCallOperator();
+        return cast<Decl>(FD->getDeclContext());
+      }
+    }
+  }
+  return Ctx;
+}
+
 // [meta.reflection.scope]/3.5: consteval blocks introduce implementation
 // closures, but their evaluation point inhabits the enclosing scope. Stop at
 // an ordinary lambda (or any other declaration context).
@@ -7415,7 +7449,7 @@ bool current_access_context(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (!Evaluator(Result, SLE, true) || !Result.isReflectedDecl())
     return true;
   else if (Ctx = Result.getReflectedDecl(); !Ctx)
-    Ctx = Meta.CurrentCtx();
+    Ctx = scopeAtPoint(Meta.CurrentCtx(), Range.getBegin(), C);
 
   Ctx = skipConstevalBlockScopes(Ctx);
 
@@ -7431,14 +7465,14 @@ bool current_access_context(APValue &Result, ASTContext &C, MetaActions &Meta,
 
 static bool current_scope(APValue &Result, ASTContext &C, MetaActions &Meta,
                           EvalFn Evaluator, QualType ResultTy,
-                          ArrayRef<Expr *> Args) {
+                          SourceRange Range, ArrayRef<Expr *> Args) {
   assert(ResultTy == C.MetaInfoTy);
   StackLocationExpr *SLE = StackLocationExpr::Create(C, SourceRange(), 1);
   if (!Evaluator(Result, SLE, true) || !Result.isReflectedDecl())
     return true;
   Decl *Ctx = Result.getReflectedDecl();
   if (!Ctx)
-    Ctx = Meta.CurrentCtx();
+    Ctx = scopeAtPoint(Meta.CurrentCtx(), Range.getBegin(), C);
 
   Ctx = skipConstevalBlockScopes(Ctx);
 
@@ -7456,7 +7490,7 @@ static bool current_function(APValue &Result, ASTContext &C, MetaActions &Meta,
                              bool AllowInjection, QualType ResultTy,
                              SourceRange Range, ArrayRef<Expr *> Args,
                              Decl *ContainingDecl) {
-  return current_scope(Result, C, Meta, Evaluator, ResultTy, Args);
+  return current_scope(Result, C, Meta, Evaluator, ResultTy, Range, Args);
 }
 
 static bool current_class(APValue &Result, ASTContext &C, MetaActions &Meta,
@@ -7464,7 +7498,7 @@ static bool current_class(APValue &Result, ASTContext &C, MetaActions &Meta,
                           bool AllowInjection, QualType ResultTy,
                           SourceRange Range, ArrayRef<Expr *> Args,
                           Decl *ContainingDecl) {
-  return current_scope(Result, C, Meta, Evaluator, ResultTy, Args);
+  return current_scope(Result, C, Meta, Evaluator, ResultTy, Range, Args);
 }
 
 static bool current_namespace(APValue &Result, ASTContext &C,
@@ -7472,7 +7506,7 @@ static bool current_namespace(APValue &Result, ASTContext &C,
                               DiagFn Diagnoser, bool AllowInjection,
                               QualType ResultTy, SourceRange Range,
                               ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  return current_scope(Result, C, Meta, Evaluator, ResultTy, Args);
+  return current_scope(Result, C, Meta, Evaluator, ResultTy, Range, Args);
 }
 
 bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,

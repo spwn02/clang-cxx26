@@ -217,6 +217,11 @@ public:
 
   Expr *SynthesizeMetaExceptionCall(Expr *From,
                                     llvm::StringRef Message) override {
+    // This call is evaluated by the active constant evaluator. In particular,
+    // its consteval-only source reflection must not escape through the
+    // unrelated Sema context in which a nested initializer was requested.
+    EnterExpressionEvaluationContext EvaluationContext(
+        S, Sema::ExpressionEvaluationContext::ImmediateFunctionContext);
     NamespaceDecl *Std = S.getStdNamespace();
     if (!Std)
       return nullptr;
