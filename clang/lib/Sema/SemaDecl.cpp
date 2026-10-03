@@ -10732,9 +10732,11 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   ProcessDeclAttributes(S, NewFD, D);
   // For parameter annotations, X in [dcl.attr.annotation] is the function
   // declaration. A defining friend is permitted to declare a namespace member.
+  // The host scope differs from the target scope only for a block-scope
+  // function declaration ([basic.scope.scope]); a qualified out-of-class
+  // definition inhabits and targets the same scope.
   if ((isFriend && !D.isFunctionDefinition()) ||
-      (!isFriend && NewFD->getLexicalDeclContext()->getRedeclContext() !=
-                        NewFD->getDeclContext()->getRedeclContext())) {
+      (!isFriend && NewFD->getLexicalDeclContext()->isFunctionOrMethod())) {
     auto DiagnoseAnnotations = [&](Decl *Annotated) {
       for (const auto *A : Annotated->specific_attrs<CXX26AnnotationAttr>())
         if (!A->isInherited())

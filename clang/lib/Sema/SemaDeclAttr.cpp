@@ -2304,9 +2304,14 @@ static void handleCXX2CAnnotation(Sema &S, Decl *D, const ParsedAttr &AL) {
     S.Diag(AL.getLoc(), diag::err_annotation_appertainment) << 1;
     return;
   }
-  if (isa<VarDecl, TagDecl>(D) && !isa<ParmVarDecl>(D) &&
-      D->getLexicalDeclContext()->getRedeclContext() !=
-          D->getDeclContext()->getRedeclContext()) {
+  // [basic.scope.scope]: the host scope of a declaration is the inhabited scope
+  // if that is a block scope and the target scope otherwise, so it differs from
+  // the target scope only for declarations that inhabit a block scope but target
+  // a larger one (block-scope extern or function declarations). A qualified
+  // out-of-class definition inhabits and targets the same scope.
+  if (auto *VD = dyn_cast<VarDecl>(D);
+      VD && !isa<ParmVarDecl>(VD) && VD->getStorageClass() == SC_Extern &&
+      VD->getLexicalDeclContext()->isFunctionOrMethod()) {
     S.Diag(AL.getLoc(), diag::err_annotation_appertainment) << 0;
     return;
   }
