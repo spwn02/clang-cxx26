@@ -485,12 +485,20 @@ class exception : public std::exception {
   u8string u8what_;
   info from_;
   source_location where_;
+  // Set only for exceptions the library itself originates. User-constructed
+  // exceptions that propagate through a metafunction are never rewritten.
+  bool library_ = false;
 
-  // Preserve the active exception and diagnostic payload when a public
-  // metafunction delegates to another function that throws.
+  // Attribute both observers to the public metafunction without replacing
+  // the active exception or its diagnostic message when a delegate throws.
   friend consteval void __set_exception_from(exception& e, info from) {
+    if (!e.library_)
+      return;
     e.from_ = from;
+    e.where_ = source_location::current(__builtin_meta_call_origin());
   }
+  friend consteval exception __lib_exception(u8string_view, info, source_location);
+  friend consteval exception __lib_exception(string_view, info, source_location);
 
 public:
   consteval exception(u8string_view what, info from,
@@ -518,12 +526,24 @@ public:
   consteval source_location where() const noexcept { return where_; }
 };
 
+consteval exception __lib_exception(u8string_view what, info from, source_location where) {
+  exception e(what, from, where);
+  e.library_ = true;
+  return e;
+}
+
+consteval exception __lib_exception(string_view what, info from, source_location where) {
+  exception e(what, from, where);
+  e.library_ = true;
+  return e;
+}
+
 // Compiler entry point for P3560R2 failures that originate inside a
 // metafunction rather than in library code.  Keeping construction here gives
 // the constant evaluator an ordinary, fully type-checked call expression to
 // evaluate; in particular, it must not synthesize a constructor AST by hand.
 _LIBCPP_HIDE_FROM_ABI consteval info __make_exception(info from, const char* what) {
-  throw exception(string_view(what), from);
+  throw __lib_exception(string_view(what), from, source_location::current(__builtin_meta_call_origin()));
 }
 
 [[clang::instantiation_dependent]]
@@ -1005,7 +1025,7 @@ using enum operators;
 // operator function template.
 consteval auto operator_of(info r) -> operators {
   if (!is_operator_function(r) && !is_operator_function_template(r))
-    throw exception(u8"bad operator", ^^operator_of);
+    throw __lib_exception(u8"bad operator", ^^operator_of, source_location::current(__builtin_meta_call_origin()));
   return operators(__metafunction(detail::__metafn_operator_of, r));
 }
 
@@ -1023,7 +1043,7 @@ consteval auto symbol_of(operators op) -> string_view {
       "<=>", "&&", "||", "<<", ">>", "<<=", ">>=", "++", "--", ","
   };
   if (int(op) < int(op_new) || int(op) > int(op_comma))
-    throw exception(u8"bad operator", ^^symbol_of);
+    throw __lib_exception(u8"bad operator", ^^symbol_of, source_location::current(__builtin_meta_call_origin()));
   return op_names[int(op)];
 }
 
@@ -1037,7 +1057,7 @@ consteval auto u8symbol_of(operators op) -> u8string_view {
       u8"--", u8","
   };
   if (int(op) < int(op_new) || int(op) > int(op_comma))
-    throw exception(u8"bad operator", ^^u8symbol_of);
+    throw __lib_exception(u8"bad operator", ^^u8symbol_of, source_location::current(__builtin_meta_call_origin()));
   return op_names[int(op)];
 }
 
@@ -1078,13 +1098,13 @@ consteval auto has_template_arguments(info r) -> bool;
 
 consteval auto template_of(info r) -> info {
   if (!has_template_arguments(r))
-    throw exception(u8"bad template", ^^template_of);
+    throw __lib_exception(u8"bad template", ^^template_of, source_location::current(__builtin_meta_call_origin()));
   return __metafunction(detail::__metafn_template_of, r);
 }
 
 consteval auto template_arguments_of(info r) -> vector<info> {
   if (!has_template_arguments(r))
-    throw exception(u8"bad template", ^^template_arguments_of);
+    throw __lib_exception(u8"bad template", ^^template_arguments_of, source_location::current(__builtin_meta_call_origin()));
   using iterator =
       __range_of_infos::iterator<__range_of_infos::front_targ_fn,
                                  __range_of_infos::next_targ_fn,
@@ -1221,7 +1241,7 @@ public:
     if (new_designating_class != info{} &&
         (!is_class_type(new_designating_class) ||
          !is_complete_type(new_designating_class)))
-      throw exception(u8"bad type", ^^access_context::via);
+      throw __lib_exception(u8"bad type", ^^access_context::via, source_location::current(__builtin_meta_call_origin()));
 
     return access_context{d_scope, new_designating_class};
   }
@@ -1232,8 +1252,9 @@ public:
 consteval info current_function() {
   info scope = __metafunction(detail::__metafn_current_function);
   if (!is_function(scope))
-    throw exception(u8"current scope does not represent a function",
-                    ^^current_function);
+    throw __lib_exception(u8"current scope does not represent a function",
+                    ^^current_function,
+                    source_location::current(__builtin_meta_call_origin()));
   return scope;
 }
 
@@ -1243,8 +1264,9 @@ consteval info current_class() try {
   if (is_function(scope))
     scope = parent_of(scope);
   if (!is_class_type(scope))
-    throw exception(u8"current scope does not represent a class nor a member function",
-                    ^^current_class);
+    throw __lib_exception(u8"current scope does not represent a class nor a member function",
+                    ^^current_class,
+                    source_location::current(__builtin_meta_call_origin()));
   return scope;
 } catch (exception& e) {
   __set_exception_from(e, current_function());
@@ -1301,7 +1323,8 @@ consteval auto is_namespace(info r) -> bool {
 
 consteval auto __bases_of(info r, access_context ctx, info from) -> vector<info> {
   if (is_namespace(r))
-    throw exception(u8"Namespaces cannot have base classes", from);
+    throw __lib_exception(
+        u8"Namespaces cannot have base classes", from, source_location::current(__builtin_meta_call_origin()));
 
   using iterator =
     __range_of_infos::iterator<__range_of_infos::front_base_of_fn,
@@ -1328,8 +1351,9 @@ consteval auto is_variable(info r) -> bool {
 consteval auto static_data_members_of(info r,
                                       access_context ctx) -> vector<info> try {
   if (is_namespace(r))
-    throw exception(u8"Namespaces cannot have static data members",
-                    ^^static_data_members_of);
+    throw __lib_exception(u8"Namespaces cannot have static data members",
+                    ^^static_data_members_of,
+                    source_location::current(__builtin_meta_call_origin()));
 
   return __filtered(__members_of(r, ctx, ^^static_data_members_of),
                     is_variable);
@@ -1341,8 +1365,9 @@ consteval auto static_data_members_of(info r,
 consteval auto nonstatic_data_members_of(info r,
                                          access_context ctx) -> vector<info> try {
   if (is_namespace(r))
-    throw exception(u8"Namespaces cannot have non-static data members",
-                    ^^nonstatic_data_members_of);
+    throw __lib_exception(u8"Namespaces cannot have non-static data members",
+                    ^^nonstatic_data_members_of,
+                    source_location::current(__builtin_meta_call_origin()));
 
   return __filtered(__members_of(r, ctx, ^^nonstatic_data_members_of),
                     is_nonstatic_data_member);
@@ -1353,7 +1378,7 @@ consteval auto nonstatic_data_members_of(info r,
 
 consteval auto subobjects_of(info r, access_context ctx) -> vector<info> try {
   if (!is_class_type(r))
-    throw exception(u8"bad class", ^^subobjects_of);
+    throw __lib_exception(u8"bad class", ^^subobjects_of, source_location::current(__builtin_meta_call_origin()));
   vector<info> result = bases_of(r, ctx);
   for (info subobject : nonstatic_data_members_of(r, ctx))
     result.push_back(subobject);
@@ -1371,7 +1396,7 @@ consteval auto is_enumerable_type(info r) -> bool {
 consteval auto enumerators_of(info r) -> vector<info> try {
   if (!__metafunction(detail::__metafn_is_type, r) ||
       !extract<bool>(substitute(^^is_enum_v, {r})) || !is_enumerable_type(r))
-    throw exception(u8"bad enumeration", ^^enumerators_of);
+    throw __lib_exception(u8"bad enumeration", ^^enumerators_of, source_location::current(__builtin_meta_call_origin()));
 
   using iterator =
     __range_of_infos::iterator<__range_of_infos::front_enumerator_of_fn,
@@ -1694,7 +1719,7 @@ consteval auto is_user_declared(info r) -> bool {
 
 consteval auto is_structural_type(info r) -> bool {
   if (!is_type(r))
-    throw exception(u8"not a type", ^^is_structural_type);
+    throw __lib_exception(u8"not a type", ^^is_structural_type, source_location::current(__builtin_meta_call_origin()));
   return __metafunction(detail::__metafn_is_structural_type, r);
 }
 
@@ -1787,10 +1812,11 @@ struct member_offset {
 // Returns the offset of the reflected entity.
 consteval auto offset_of(info r) -> member_offset try {
   if (!is_nonstatic_data_member(r) && !is_base(r))
-    throw exception(u8"bad member", ^^offset_of);
+    throw __lib_exception(u8"bad member", ^^offset_of, source_location::current(__builtin_meta_call_origin()));
   if (is_base(r) && is_virtual(r) &&
       extract<bool>(substitute(^^is_abstract_v, {parent_of(r)})))
-    throw exception(u8"virtual base of an abstract class", ^^offset_of);
+    throw __lib_exception(
+        u8"virtual base of an abstract class", ^^offset_of, source_location::current(__builtin_meta_call_origin()));
   return member_offset {
       __metafunction(detail::__metafn_offset_of, ^^ptrdiff_t, r),
       __metafunction(detail::__metafn_bit_offset_of, ^^ptrdiff_t, r)
@@ -1819,14 +1845,14 @@ consteval auto __is_size_operand(info r, bool allow_bit_field) -> bool {
 // Returns the size of the reflected entity.
 consteval auto size_of(info r) -> size_t {
   if (!__is_size_operand(r, false))
-    throw exception(u8"bad", ^^size_of);
+    throw __lib_exception(u8"bad", ^^size_of, source_location::current(__builtin_meta_call_origin()));
   return __metafunction(detail::__metafn_size_of, r);
 }
 
 // Returns the size of the reflected entity in bits.
 consteval auto bit_size_of(info r) -> size_t {
   if (!__is_size_operand(r, true))
-    throw exception(u8"bad", ^^bit_size_of);
+    throw __lib_exception(u8"bad", ^^bit_size_of, source_location::current(__builtin_meta_call_origin()));
   return __metafunction(detail::__metafn_bit_size_of, r);
 }
 
@@ -1834,14 +1860,14 @@ consteval auto alignment_of(info r) -> size_t try {
   if (is_type(r)) {
     if (!is_complete_type(r) ||
         extract<bool>(substitute(^^is_function_v, {r})))
-      throw exception(u8"bad", ^^alignment_of);
+      throw __lib_exception(u8"bad", ^^alignment_of, source_location::current(__builtin_meta_call_origin()));
   } else if (is_object(r) || is_base(r) || is_data_member_spec(r)) {
     // valid
   } else if (is_variable(r)) {
     if (extract<bool>(substitute(^^is_reference_v, {type_of(r)})))
-      throw exception(u8"bad reference", ^^alignment_of);
+      throw __lib_exception(u8"bad reference", ^^alignment_of, source_location::current(__builtin_meta_call_origin()));
   } else if (!is_nonstatic_data_member(r) || is_bit_field(r)) {
-    throw exception(u8"bad", ^^alignment_of);
+    throw __lib_exception(u8"bad", ^^alignment_of, source_location::current(__builtin_meta_call_origin()));
   }
   return __metafunction(detail::__metafn_alignment_of, r);
 } catch (exception& e) {
@@ -1946,7 +1972,7 @@ consteval auto remove_cv(info) -> info;
 
 consteval auto is_reflection_type(info r) -> bool {
   if (!is_type(r))
-    throw exception(u8"not a type", ^^is_reflection_type);
+    throw __lib_exception(u8"not a type", ^^is_reflection_type, source_location::current(__builtin_meta_call_origin()));
   return detail::__underlying_entity_of(remove_cv(r)) == detail::__underlying_entity_of(^^info);
 }
 
@@ -2396,7 +2422,7 @@ consteval auto is_same_type(info r, info s) -> bool try {
 #if _LIBCPP_STD_VER >= 26 && __has_builtin(__builtin_type_order)
 consteval auto type_order(info r, info s) -> strong_ordering try {
   if (!is_type(r) || !is_type(s))
-    throw exception(u8"not a type", ^^type_order);
+    throw __lib_exception(u8"not a type", ^^type_order, source_location::current(__builtin_meta_call_origin()));
   return extract<strong_ordering>(substitute(^^type_order_v, {r, s}));
 } catch (exception& e) {
   __set_exception_from(e, current_function());
@@ -2545,7 +2571,7 @@ consteval auto add_rvalue_reference(info type) -> info try {
 
 consteval auto make_signed(info type) -> info try {
   if (!(is_integral_type(type) || is_enum_type(type)) || remove_cv(detail::__underlying_entity_of(type)) == ^^bool)
-    throw exception(u8"bad type", ^^make_signed);
+    throw __lib_exception(u8"bad type", ^^make_signed, source_location::current(__builtin_meta_call_origin()));
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^make_signed_t, {type})));
 } catch (exception& e) {
@@ -2555,7 +2581,7 @@ consteval auto make_signed(info type) -> info try {
 
 consteval auto make_unsigned(info type) -> info try {
   if (!(is_integral_type(type) || is_enum_type(type)) || remove_cv(detail::__underlying_entity_of(type)) == ^^bool)
-    throw exception(u8"bad type", ^^make_unsigned);
+    throw __lib_exception(u8"bad type", ^^make_unsigned, source_location::current(__builtin_meta_call_origin()));
   return detail::__workaround_expand_compiler_builtins(
       detail::__underlying_entity_of(substitute(^^make_unsigned_t, {type})));
 } catch (exception& e) {
@@ -2677,9 +2703,9 @@ constexpr bool __has_variant_size = requires {
 
 consteval auto tuple_size(info type) -> size_t try {
   if (!is_complete_type(type))
-    throw exception(u8"bad type", ^^tuple_size);
+    throw __lib_exception(u8"bad type", ^^tuple_size, source_location::current(__builtin_meta_call_origin()));
   if (!extract<bool>(substitute(^^detail::__has_tuple_size, {type})))
-    throw exception(u8"bad type", ^^tuple_size);
+    throw __lib_exception(u8"bad type", ^^tuple_size, source_location::current(__builtin_meta_call_origin()));
   return extract<size_t>(substitute(^^tuple_size_v, {type}));
 } catch (exception& e) {
   __set_exception_from(e, current_function());
@@ -2688,9 +2714,9 @@ consteval auto tuple_size(info type) -> size_t try {
 
 consteval auto tuple_element(size_t index, info type) -> info try {
   if (!is_complete_type(type))
-    throw exception(u8"bad type", ^^tuple_element);
+    throw __lib_exception(u8"bad type", ^^tuple_element, source_location::current(__builtin_meta_call_origin()));
   if (index >= tuple_size(type))
-    throw exception(u8"bad index", ^^tuple_element);
+    throw __lib_exception(u8"bad index", ^^tuple_element, source_location::current(__builtin_meta_call_origin()));
   return detail::__underlying_entity_of(substitute(^^tuple_element_t,
                             {reflect_constant(index), type}));
 } catch (exception& e) {
@@ -2721,9 +2747,9 @@ consteval info apply_result(info fn, info tuple) try {
 
 consteval auto variant_size(info type) -> size_t try {
   if (!is_complete_type(type))
-    throw exception(u8"bad type", ^^variant_size);
+    throw __lib_exception(u8"bad type", ^^variant_size, source_location::current(__builtin_meta_call_origin()));
   if (!extract<bool>(substitute(^^detail::__has_variant_size, {type})))
-    throw exception(u8"bad type", ^^variant_size);
+    throw __lib_exception(u8"bad type", ^^variant_size, source_location::current(__builtin_meta_call_origin()));
   return extract<size_t>(substitute(^^variant_size_v, {type}));
 } catch (exception& e) {
   __set_exception_from(e, current_function());
@@ -2732,9 +2758,9 @@ consteval auto variant_size(info type) -> size_t try {
 
 consteval auto variant_alternative(size_t index, info type) -> info try {
   if (!is_complete_type(type))
-    throw exception(u8"bad type", ^^variant_alternative);
+    throw __lib_exception(u8"bad type", ^^variant_alternative, source_location::current(__builtin_meta_call_origin()));
   if (index >= variant_size(type))
-    throw exception(u8"bad index", ^^variant_alternative);
+    throw __lib_exception(u8"bad index", ^^variant_alternative, source_location::current(__builtin_meta_call_origin()));
   return detail::__underlying_entity_of(substitute(^^variant_alternative_t,
                  {reflect_constant(index), type}));
 } catch (exception& e) {
@@ -2825,7 +2851,7 @@ consteval auto annotations_of(info r, info ty) -> vector<info> try {
 // Returns annotations of the reflected entity whose type matches ty.
 consteval auto annotations_of_with_type(info r, info ty) -> vector<info> try {
   if (!is_type(ty) || !is_complete_type(ty))
-    throw exception(u8"bad type", ^^annotations_of_with_type);
+    throw __lib_exception(u8"bad type", ^^annotations_of_with_type, source_location::current(__builtin_meta_call_origin()));
   return annotations_of(r, ty);
 } catch (exception& e) {
   __set_exception_from(e, current_function());
@@ -2995,7 +3021,9 @@ consteval auto has_inaccessible_nonstatic_data_members(
         info r,
         access_context ctx) -> bool try {
   if (!is_class_type(r) || __is_closure_type(r))
-    throw exception(u8"bad type", ^^has_inaccessible_nonstatic_data_members);
+    throw __lib_exception(u8"bad type",
+                    ^^has_inaccessible_nonstatic_data_members,
+                    source_location::current(__builtin_meta_call_origin()));
   return __any_inaccessible(nonstatic_data_members_of(r, access_context::unchecked()), ctx);
 } catch (exception& e) {
   __set_exception_from(e, current_function());
@@ -3004,7 +3032,7 @@ consteval auto has_inaccessible_nonstatic_data_members(
 
 consteval auto has_inaccessible_bases(info r, access_context ctx) -> bool try {
   if (!is_class_type(r))
-    throw exception(u8"bad type", ^^has_inaccessible_bases);
+    throw __lib_exception(u8"bad type", ^^has_inaccessible_bases, source_location::current(__builtin_meta_call_origin()));
   return __any_inaccessible(bases_of(r, access_context::unchecked()), ctx);
 } catch (exception& e) {
   __set_exception_from(e, current_function());
@@ -3159,48 +3187,74 @@ consteval auto define_unscoped_enum(info targetEnum, R&& members) {
 consteval auto data_member_spec(info member_type,
                                 data_member_options options) -> info {
   if (!is_type(member_type))
-    throw exception(u8"member type must represent an object or reference type", ^^data_member_spec);
+    throw __lib_exception(u8"member type must represent an object or reference type",
+                    ^^data_member_spec,
+                    source_location::current(__builtin_meta_call_origin()));
   member_type = detail::__underlying_entity_of(member_type);
   if (!is_object_type(member_type) && !is_reference_type(member_type))
-    throw exception(u8"member type must represent an object or reference type", ^^data_member_spec);
+    throw __lib_exception(u8"member type must represent an object or reference type",
+                    ^^data_member_spec,
+                    source_location::current(__builtin_meta_call_origin()));
 
   bool has_name = options.name.has_value();
   int alignment = options.alignment.value_or(0);
   int width = options.bit_width.value_or(0);
   bool no_unique_address = options.no_unique_address;
   if (!has_name && (!options.bit_width.has_value() || !options.annotations.empty()))
-    throw exception(u8"unnamed member must be a bit-field without annotations", ^^data_member_spec);
+    throw __lib_exception(u8"unnamed member must be a bit-field without annotations",
+                    ^^data_member_spec,
+                    source_location::current(__builtin_meta_call_origin()));
   for (info& annotation : options.annotations) {
     // Annotation failures belong to data_member_spec, including failures in
     // type_of and constant_of. Store the value required by the description.
     info type = __metafunction(detail::__metafn_type_of, annotation, ^^data_member_spec);
     if (!is_object_type(type) || is_array_type(type))
-      throw exception(u8"annotation must have non-array object type", ^^data_member_spec);
+      throw __lib_exception(u8"annotation must have non-array object type",
+                      ^^data_member_spec,
+                      source_location::current(__builtin_meta_call_origin()));
     annotation = __metafunction(detail::__metafn_constant_of, annotation, ^^data_member_spec);
   }
 
   if (options.bit_width.has_value()) {
     if (!is_integral_type(member_type) && !is_enum_type(member_type))
-      throw exception(u8"bit-field must have integral or enumeration type", ^^data_member_spec);
+      throw __lib_exception(u8"bit-field must have integral or enumeration type",
+                      ^^data_member_spec,
+                      source_location::current(__builtin_meta_call_origin()));
     if (options.alignment.has_value())
-      throw exception(u8"cannot specify both bit width and alignment", ^^data_member_spec);
+      throw __lib_exception(u8"cannot specify both bit width and alignment",
+                      ^^data_member_spec,
+                      source_location::current(__builtin_meta_call_origin()));
     if (no_unique_address)
-      throw exception(u8"cannot specify both bit width and no_unique_address", ^^data_member_spec);
+      throw __lib_exception(u8"cannot specify both bit width and no_unique_address",
+                      ^^data_member_spec,
+                      source_location::current(__builtin_meta_call_origin()));
     if (width < 0)
-      throw exception(u8"bit width must not be negative", ^^data_member_spec);
+      throw __lib_exception(u8"bit width must not be negative",
+                      ^^data_member_spec,
+                      source_location::current(__builtin_meta_call_origin()));
     if (width == 0 && has_name)
-      throw exception(u8"zero-width bit-field must be unnamed", ^^data_member_spec);
+      throw __lib_exception(u8"zero-width bit-field must be unnamed",
+                      ^^data_member_spec,
+                      source_location::current(__builtin_meta_call_origin()));
     if (!has_name && (is_const(member_type) || is_volatile(member_type)))
-      throw exception(u8"unnamed bit-field must not be cv-qualified", ^^data_member_spec);
+      throw __lib_exception(u8"unnamed bit-field must not be cv-qualified",
+                      ^^data_member_spec,
+                      source_location::current(__builtin_meta_call_origin()));
   }
 
   if (options.alignment.has_value()) {
     if (alignment <= 0 || ((alignment - 1) & alignment))
-      throw exception(u8"alignment must be a positive power of two", ^^data_member_spec);
+      throw __lib_exception(u8"alignment must be a positive power of two",
+                      ^^data_member_spec,
+                      source_location::current(__builtin_meta_call_origin()));
     if (!is_complete_type(member_type))
-      throw exception(u8"alignment requires a complete member type", ^^data_member_spec);
+      throw __lib_exception(u8"alignment requires a complete member type",
+                      ^^data_member_spec,
+                      source_location::current(__builtin_meta_call_origin()));
     if (alignment < int(alignment_of(member_type)))
-      throw exception(u8"alignment must not be less than that of the member type", ^^data_member_spec);
+      throw __lib_exception(u8"alignment must not be less than that of the member type",
+                      ^^data_member_spec,
+                      source_location::current(__builtin_meta_call_origin()));
   }
 
   if (has_name) {

@@ -11706,6 +11706,61 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     return Success(E);
 
   switch (BuiltinOp) {
+  case Builtin::BI__builtin_meta_call_origin: {
+    SourceLocation Loc = E->getBeginLoc();
+    DeclContext *Context = Info.Ctx.getTranslationUnitDecl();
+    if (Info.CurrentCall->Callee)
+      Context = const_cast<FunctionDecl *>(Info.CurrentCall->Callee);
+    // [meta.syn]: E.where() represents from where the call to F originated.
+    // Walk outward through the library's own frames (std::meta, and the std
+    // facilities it delegates to) and stop at the first frame of user code, so
+    // the location is the call into the API even when the API was reached from
+    // user code running inside another metafunction.
+    auto IsInStd = [](const FunctionDecl *FD, bool &IsMeta) {
+      IsMeta = false;
+      for (const DeclContext *DC = FD->getDeclContext(); DC;
+           DC = DC->getParent()) {
+        const auto *NS = dyn_cast<NamespaceDecl>(DC);
+        if (!NS)
+          continue;
+        if (NS->getName() == "meta") {
+          const DeclContext *Parent = NS->getParent();
+          while (const auto *PN = dyn_cast<NamespaceDecl>(Parent)) {
+            if (!PN->isInline())
+              break;
+            Parent = PN->getParent();
+          }
+          const auto *Std = dyn_cast<NamespaceDecl>(Parent);
+          IsMeta = Std && Std->isStdNamespace();
+          if (IsMeta)
+            return true;
+        }
+        if (NS->isStdNamespace())
+          return true;
+      }
+      return false;
+    };
+    bool SawMeta = false;
+    for (auto *Frame = Info.CurrentCall; Frame; Frame = Frame->Caller) {
+      if (!Frame->Callee)
+        continue;
+      bool IsMeta;
+      bool InStd = IsInStd(Frame->Callee, IsMeta);
+      if (!InStd && SawMeta)
+        break;
+      if (IsMeta && Frame->CallRange.getBegin().isValid()) {
+        SawMeta = true;
+        Loc = Frame->CallRange.getBegin();
+        Context = Info.Ctx.getTranslationUnitDecl();
+        if (Frame->Caller && Frame->Caller->Callee)
+          Context = const_cast<FunctionDecl *>(Frame->Caller->Callee);
+      }
+    }
+    SourceLocExpr Origin(Info.Ctx, SourceLocIdentKind::SourceLocStruct,
+                         E->getType(), Loc, Loc, Context);
+    Result.setFrom(Info.Ctx, Origin.EvaluateInContext(Info.Ctx, nullptr));
+    return true;
+  }
   case Builtin::BI__builtin_constexpr_exception_capture: {
     if (Info.ActiveExceptions.empty()) {
       Result.setNull(Info.Ctx, E->getType());

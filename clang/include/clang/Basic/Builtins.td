@@ -5509,3 +5509,13 @@ def CountedByRef : Builtin {
   let Attributes = [NoThrow, CustomTypeChecking];
   let Prototype = "int(...)";
 }
+
+// Internal <meta> exception support. Return the source_location::__impl pointer
+// for the outermost call into std::meta in the constant-evaluation call stack,
+// or the builtin call itself when no such frame exists. Constant evaluation
+// is required because the origin depends on its active call stack.
+def MetaCallOrigin : Builtin {
+  let Spellings = ["__builtin_meta_call_origin"];
+  let Attributes = [NoThrow, CustomTypeChecking, Consteval];
+  let Prototype = "void const * (...)";
+}

@@ -2722,6 +2722,17 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
 
   FPOptions FPO;
   switch (BuiltinID) {
+  case Builtin::BI__builtin_meta_call_origin: {
+    if (checkArgCount(TheCall, 0))
+      return ExprError();
+    RecordDecl *Impl = lookupStdSourceLocationImpl(TheCall->getBeginLoc());
+    if (!Impl)
+      return ExprError();
+    TheCall->setType(
+        Context.getPointerType(Context.getCanonicalTagType(Impl).withConst()));
+    break;
+  }
+
   case Builtin::BI__builtin_cpu_supports:
   case Builtin::BI__builtin_cpu_is:
     if (BuiltinCpu(*this, Context.getTargetInfo(), TheCall,
