@@ -1191,8 +1191,12 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc,
     return ExprError();
 
   if (isa<VarDecl, BindingDecl, FunctionDecl, FieldDecl, EnumConstantDecl,
-          NonTypeTemplateParmDecl, UnresolvedUsingValueDecl>(ND))
+          NonTypeTemplateParmDecl, UnresolvedUsingValueDecl>(ND)) {
+    // Naming an entity through ^^ is a reference (not an odr-use) to it, so
+    // e.g. -Wunused-variable/-parameter/-function must not fire for it.
+    MarkAnyDeclReferenced(NameInfo.getBeginLoc(), ND, /*OdrUse=*/false);
     return BuildCXXReflectExpr(OpLoc, NameInfo.getBeginLoc(), ND);
+  }
 
   if (auto *TD = dyn_cast<TemplateDecl>(ND))
     return BuildCXXReflectExpr(OpLoc, NameInfo.getBeginLoc(),

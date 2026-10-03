@@ -1,6 +1,7 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fsyntax-only -Wunused-local-typedef -verify %s
+// RUN: %clang_cc1 -std=c++26 -freflection -fsyntax-only -Wunused-local-typedef -Wunused-variable -Wunused-parameter -Wunused-function -Wno-unneeded-internal-declaration -verify %s
 
-// A local alias used only as a reflection operand is a use of that alias.
+// A local alias, variable, parameter or function named only as a reflection
+// operand is referenced, so the -Wunused-* warnings must not fire for it.
 using info = decltype(^^int);
 
 template <class T> consteval bool in_template() {
@@ -38,7 +39,37 @@ template <class T> void really_unused() {
   using Unused = T; // expected-warning {{unused type alias 'Unused'}}
 }
 
-constexpr bool use_all = in_template<int>() && in_template_splice<int>() &&
+[[maybe_unused]] constexpr bool use_all = in_template<int>() && in_template_splice<int>() &&
                          in_template_decltype<int>() && generic_lambda() &&
                          non_template();
 void instantiate() { really_unused<int>(); }
+
+namespace {
+consteval bool helper() { return true; }
+consteval bool helper2() { return true; }
+consteval bool never_named() { return true; } // expected-warning {{unused function 'never_named'}}
+} // namespace
+
+template <class T> consteval bool names_entities(int p) {
+  int x = 0;
+  constexpr info rx = ^^x;
+  constexpr info rp = ^^p;
+  constexpr info rh = ^^helper;
+  return rx != rp && rh != rx;
+}
+
+consteval bool names_entities_plain(int p) {
+  int x = 0;
+  constexpr info rx = ^^x;
+  constexpr info rp = ^^p;
+  constexpr info rh = ^^helper2;
+  return rx != rp && rh != rx;
+}
+
+consteval bool unused_controls(int p) { // expected-warning {{unused parameter 'p'}}
+  int y = 0; // expected-warning {{unused variable 'y'}}
+  return true;
+}
+
+[[maybe_unused]] constexpr bool use_entities = names_entities<int>(1) && names_entities_plain(1) &&
+                              unused_controls(1);
