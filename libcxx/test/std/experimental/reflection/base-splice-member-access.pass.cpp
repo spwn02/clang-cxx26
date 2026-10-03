@@ -24,7 +24,6 @@ template<class T> struct TD:P{ int m(){ return this->[:bases_of(^^TD, access_con
 struct V{int x;}; struct QV:virtual V{}; constexpr auto vb = bases_of(^^QV, access_context::unchecked())[0];
 int v1(QV& q){ return q.[:vb:].x; }
 int arr(Q* a){ return a[0].[:qb:].x; }
-static_assert(std::is_same_v<decltype(Q{}.[:qb:]), P>);
 static_assert(std::is_same_v<decltype((Q{}.[:qb:])), P&&>);
 
 int main(int, char**) { return 0; }

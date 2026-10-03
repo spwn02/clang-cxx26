@@ -15,7 +15,7 @@
 
 namespace p2996_batch11 {
 
-constexpr auto bad_type = std::meta::data_member_spec(std::meta::reflect_constant(1));
+constexpr auto bad_type = std::meta::data_member_spec(std::meta::reflect_constant(1), {.name = "x"});
 // expected-error@-1 {{must be initialized by a constant expression}}
 constexpr auto bad_name = std::meta::data_member_spec(^^int, {.name = "1bad"});
 // expected-error@-1 {{must be initialized by a constant expression}}

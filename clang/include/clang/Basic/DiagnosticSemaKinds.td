@@ -3312,6 +3312,9 @@ def err_expansion_stmt_range_is_function : Error<
   "with no arguments?">;
 def err_expanded_identifier_label : Error<
   "identifier labels are not allowed in expansion statements">;
+def err_decltype_base_splice_no_entity : Error<
+  "'decltype' of an unparenthesized member access designating a direct base "
+  "class relationship names no entity; parenthesize the expression">;
 def err_expanded_case_label : Error<
   "case and default labels are not allowed in expansion statements">;
 

@@ -9785,17 +9785,8 @@ QualType Sema::BuildCountAttributedArrayOrPointerType(QualType WrappedTy,
 QualType Sema::getDecltypeForExpr(Expr *E) {
 
   Expr *IDExpr = E;
-  if (auto *ImplCastExpr = dyn_cast<ImplicitCastExpr>(E)) {
-    // An unparenthesized base-class splice member access (E1.[:base:]) is a
-    // derived-to-base conversion; its type is the base type, not the type of
-    // the object expression underneath ([expr.ref]: "The type of E1.E2 is cv B").
-    if (getLangOpts().Reflection &&
-        (ImplCastExpr->getCastKind() == CK_DerivedToBase ||
-         ImplCastExpr->getCastKind() == CK_UncheckedDerivedToBase) &&
-        !E->isTypeDependent())
-      return E->getType();
+  if (auto *ImplCastExpr = dyn_cast<ImplicitCastExpr>(E))
     IDExpr = ImplCastExpr->getSubExpr();
-  }
 
   if (auto *PackExpr = dyn_cast<PackIndexingExpr>(E)) {
     if (E->isInstantiationDependent())
@@ -9874,6 +9865,19 @@ QualType Sema::getDecltypeForExpr(Expr *E) {
 
 QualType Sema::BuildDecltypeType(Expr *E, bool AsUnevaluated) {
   assert(!E->hasPlaceholderType() && "unexpected placeholder");
+
+  // [dcl.type.decltype]: for an unparenthesized class member access,
+  // decltype(E) is the type of the entity named by E and the program is
+  // ill-formed if there is no such entity. A direct base class relationship
+  // ([basic.pre]) is not an entity, so E1.[:base:] names none.
+  if (getLangOpts().Reflection && !E->isTypeDependent())
+    if (const auto *ICE = dyn_cast<ImplicitCastExpr>(E);
+        ICE && (ICE->getCastKind() == CK_DerivedToBase ||
+                ICE->getCastKind() == CK_UncheckedDerivedToBase)) {
+      Diag(E->getExprLoc(), diag::err_decltype_base_splice_no_entity)
+          << E->getSourceRange();
+      return QualType();
+    }
 
   if (AsUnevaluated && CodeSynthesisContexts.empty() &&
       !E->isInstantiationDependent() && E->HasSideEffects(Context, false)) {
