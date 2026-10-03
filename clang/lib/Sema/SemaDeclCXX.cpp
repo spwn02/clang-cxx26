@@ -12886,6 +12886,12 @@ Decl *Sema::ActOnUsingEnumDeclaration(Scope *S, AccessSpecifier AS,
                                       SourceLocation IdentLoc,
                                       QualType EnumTy,
                                       TypeSourceInfo *TSI) {
+  // [enum.udecl]: the declarator shall designate a non-dependent type.
+  if (EnumTy->isDependentType()) {
+    Diag(IdentLoc, diag::err_using_enum_is_dependent);
+    return nullptr;
+  }
+
   auto *Enum = dyn_cast_if_present<EnumDecl>(EnumTy->getAsTagDecl());
   if (!Enum) {
     Diag(IdentLoc, diag::err_using_enum_not_enum) << EnumTy;

@@ -264,3 +264,4 @@
 "`LWG3456 <https://wg21.link/LWG3456>`__","Pattern used by ``std::from_chars`` is underspecified (option B)","Not Adopted Yet","|Complete|","20","`#118370 <https://github.com/llvm/llvm-project/issues/118370>`__",""
 "`LWG3882 <https://wg21.link/LWG3882>`__","``tuple`` relational operators have confused friendships","Not Adopted Yet","|Complete|","22","","The comparison operators are constrained harder than the proposed resolution. libstdc++ and MSVC STL do the same."
 "`LWG4555 <https://wg21.link/LWG4555>`__","Remove ``is_consteval_only``","","|Complete|","","","Public type-based predicates and obsolete private library guards removed for P4101R1 (#196)."
+"`LWG4567 <https://wg21.link/LWG4567>`__","Feature test macro value for ``apply_result``, ``is_applicable``","","|Complete|","","","``__cpp_lib_apply`` is 202603L in C++26; the traits are C++26-only (#202)."
