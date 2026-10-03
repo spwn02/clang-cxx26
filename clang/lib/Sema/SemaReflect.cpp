@@ -1164,6 +1164,9 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc,
   }
 
   if (auto *TD = dyn_cast<TypeDecl>(ND)) {
+    // Naming a type through ^^ is a use of that declaration (e.g. a local
+    // alias used only as a reflection operand must not be "unused").
+    MarkAnyDeclReferenced(NameInfo.getBeginLoc(), TD, /*OdrUse=*/false);
     QualType QT = Context.getTypeDeclType(TD);
     return BuildCXXReflectExpr(OpLoc, NameInfo.getBeginLoc(), QT);
   }
