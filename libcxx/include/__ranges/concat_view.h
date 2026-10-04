@@ -160,6 +160,24 @@ public:
     }
   }
 
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint()
+    requires(approximately_sized_range<_Views> && ...)
+  {
+    return std::apply(
+        [](auto... __sizes) { return (__make_unsigned_like_t<common_type_t<decltype(__sizes)...>>(__sizes) + ...); },
+        std::apply([](auto&... __views) { return tuple{ranges::reserve_hint(__views)...}; }, __views_));
+  }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint() const
+    requires(approximately_sized_range<const _Views> && ...)
+  {
+    return std::apply(
+        [](auto... __sizes) { return (__make_unsigned_like_t<common_type_t<decltype(__sizes)...>>(__sizes) + ...); },
+        std::apply([](auto const&... __views) { return tuple{ranges::reserve_hint(__views)...}; }, __views_));
+  }
+#  endif
+
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto size()
     requires(sized_range<_Views> && ...)
   {

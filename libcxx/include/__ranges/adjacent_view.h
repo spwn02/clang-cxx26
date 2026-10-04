@@ -120,6 +120,29 @@ public:
     }
   }
 
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint()
+    requires approximately_sized_range<_View>
+  {
+    using _DT = range_difference_t<decltype((__base_))>;
+    using _CT = common_type_t<_DT, size_t>;
+    auto __sz = static_cast<_CT>(ranges::reserve_hint(__base_));
+    __sz -= std::min<_CT>(__sz, _Np - 1);
+    return std::__to_unsigned_like(__sz);
+  }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint() const
+    requires approximately_sized_range<const _View>
+  {
+    using _DT = range_difference_t<decltype((__base_))>;
+    using _CT = common_type_t<_DT, size_t>;
+    auto __sz = static_cast<_CT>(ranges::reserve_hint(__base_));
+    __sz -= std::min<_CT>(__sz, _Np - 1);
+    return std::__to_unsigned_like(__sz);
+  }
+
+#  endif
+
   _LIBCPP_HIDE_FROM_ABI constexpr auto size()
     requires sized_range<_View>
   {

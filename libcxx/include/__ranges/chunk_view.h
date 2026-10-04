@@ -93,6 +93,23 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI constexpr default_sentinel_t end() const noexcept { return std::default_sentinel; }
 
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint()
+    requires approximately_sized_range<_View>
+  {
+    auto __s = static_cast<range_difference_t<decltype((__base_))>>(ranges::reserve_hint(__base_));
+    return std::__to_unsigned_like(ranges::__div_ceil(__s, __n_));
+  }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint() const
+    requires approximately_sized_range<const _View>
+  {
+    auto __s = static_cast<range_difference_t<decltype((__base_))>>(ranges::reserve_hint(__base_));
+    return std::__to_unsigned_like(ranges::__div_ceil(__s, __n_));
+  }
+
+#  endif
+
   _LIBCPP_HIDE_FROM_ABI constexpr auto size()
     requires sized_range<_View>
   {
@@ -171,6 +188,12 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr __inner_iterator begin() const noexcept { return __inner_iterator(*__parent_); }
 
   _LIBCPP_HIDE_FROM_ABI constexpr default_sentinel_t end() const noexcept { return default_sentinel; }
+
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint() const noexcept {
+    return std::__to_unsigned_like(__parent_->__remainder_);
+  }
+#  endif
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto size() const
     requires sized_sentinel_for<sentinel_t<_View>, iterator_t<_View>>
@@ -305,6 +328,23 @@ public:
     else
       return default_sentinel;
   }
+
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint()
+    requires approximately_sized_range<_View>
+  {
+    auto __s = static_cast<range_difference_t<decltype((__base_))>>(ranges::reserve_hint(__base_));
+    return std::__to_unsigned_like(ranges::__div_ceil(__s, __n_));
+  }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint() const
+    requires approximately_sized_range<const _View>
+  {
+    auto __s = static_cast<range_difference_t<decltype((__base_))>>(ranges::reserve_hint(__base_));
+    return std::__to_unsigned_like(ranges::__div_ceil(__s, __n_));
+  }
+
+#  endif
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto size()
     requires sized_range<_View>

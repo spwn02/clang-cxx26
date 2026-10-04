@@ -78,6 +78,21 @@ public:
     return ranges::empty(__r_);
   }
 
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint()
+    requires approximately_sized_range<_Rp>
+  {
+    return ranges::reserve_hint(__r_);
+  }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint() const
+    requires approximately_sized_range<const _Rp>
+  {
+    return ranges::reserve_hint(__r_);
+  }
+
+#  endif
+
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto size()
     requires sized_range<_Rp>
   {

@@ -118,6 +118,23 @@ public:
       return default_sentinel;
   }
 
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint()
+    requires approximately_sized_range<_View>
+  {
+    auto __s = static_cast<range_difference_t<decltype((__base_))>>(ranges::reserve_hint(__base_));
+    return std::__to_unsigned_like(__s / __stride_ + (__s % __stride_ != 0));
+  }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint() const
+    requires approximately_sized_range<const _View>
+  {
+    auto __s = static_cast<range_difference_t<decltype((__base_))>>(ranges::reserve_hint(__base_));
+    return std::__to_unsigned_like(__s / __stride_ + (__s % __stride_ != 0));
+  }
+
+#  endif
+
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto size()
     requires __stride_view_can_size<_View>
   {

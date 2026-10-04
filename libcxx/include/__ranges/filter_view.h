@@ -64,7 +64,9 @@ class _LIBCPP_ABI_LLVM18_NO_UNIQUE_ADDRESS filter_view : public view_interface<f
   using _Cache _LIBCPP_NODEBUG    = _If<_UseCache, __non_propagating_cache<iterator_t<_View>>, __empty_cache>;
   _LIBCPP_NO_UNIQUE_ADDRESS _Cache __cached_begin_ = _Cache();
 
+  template <bool _Const>
   class __iterator;
+  template <bool _Const>
   class __sentinel;
 
 public:
@@ -85,7 +87,7 @@ public:
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Pred const& pred() const { return *__pred_; }
 
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __iterator begin() {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __iterator<false> begin() {
     // Note: this duplicates a check in `optional` but provides a better error message.
     _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
         __pred_.__has_value(), "Trying to call begin() on a filter_view that does not have a valid predicate.");
@@ -101,10 +103,27 @@ public:
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto end() {
     if constexpr (common_range<_View>)
-      return __iterator{*this, ranges::end(__base_)};
+      return __iterator<false>{*this, ranges::end(__base_)};
     else
-      return __sentinel{*this};
+      return __sentinel<false>{*this};
   }
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __iterator<true> begin() const
+    requires(input_range<const _View> && !forward_range<const _View> &&
+             indirect_unary_predicate<const _Pred, iterator_t<const _View>>)
+  {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
+        __pred_.__has_value(), "Trying to call begin() on a filter_view that does not have a valid predicate.");
+    return {*this, ranges::find_if(__base_, std::ref(*__pred_))};
+  }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __sentinel<true> end() const
+    requires(input_range<const _View> && !forward_range<const _View> &&
+             indirect_unary_predicate<const _Pred, iterator_t<const _View>>)
+  {
+    return __sentinel<true>{*this};
+  }
+#  endif
 };
 
 template <class _Range, class _Pred>
@@ -126,34 +145,46 @@ struct __filter_iterator_category<_View> {
 
 template <input_range _View, indirect_unary_predicate<iterator_t<_View>> _Pred>
   requires view<_View> && is_object_v<_Pred>
-class filter_view<_View, _Pred>::__iterator : public __filter_iterator_category<_View> {
+template <bool _Const>
+class filter_view<_View, _Pred>::__iterator : public __filter_iterator_category<_If<_Const, const _View, _View>> {
+  using _Base _LIBCPP_NODEBUG   = _If<_Const, const _View, _View>;
+  using _Parent _LIBCPP_NODEBUG = _If<_Const, const filter_view, filter_view>;
+  template <bool>
+  friend class __iterator;
+
 public:
-  _LIBCPP_NO_UNIQUE_ADDRESS iterator_t<_View> __current_ = iterator_t<_View>();
-  _LIBCPP_NO_UNIQUE_ADDRESS filter_view* __parent_       = nullptr;
+  _LIBCPP_NO_UNIQUE_ADDRESS iterator_t<_Base> __current_ = iterator_t<_Base>();
+  _LIBCPP_NO_UNIQUE_ADDRESS _Parent* __parent_           = nullptr;
 
   using iterator_concept =
-      _If<bidirectional_range<_View>,
-          bidirectional_iterator_tag,
-          _If<forward_range<_View>,
-              forward_iterator_tag,
-              /* else */ input_iterator_tag >>;
+      _If<_Const,
+          input_iterator_tag,
+          _If<bidirectional_range<_Base>,
+              bidirectional_iterator_tag,
+              _If<forward_range<_Base>,
+                  forward_iterator_tag,
+                  /* else */ input_iterator_tag >>>;
   // using iterator_category = inherited;
-  using value_type      = range_value_t<_View>;
-  using difference_type = range_difference_t<_View>;
+  using value_type      = range_value_t<_Base>;
+  using difference_type = range_difference_t<_Base>;
 
   _LIBCPP_HIDE_FROM_ABI __iterator()
-    requires default_initializable<iterator_t<_View>>
+    requires default_initializable<iterator_t<_Base>>
   = default;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr __iterator(filter_view& __parent, iterator_t<_View> __current)
+  _LIBCPP_HIDE_FROM_ABI constexpr __iterator(_Parent& __parent, iterator_t<_Base> __current)
       : __current_(std::move(__current)), __parent_(std::addressof(__parent)) {}
 
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr iterator_t<_View> const& base() const& noexcept { return __current_; }
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr iterator_t<_View> base() && { return std::move(__current_); }
+  _LIBCPP_HIDE_FROM_ABI constexpr __iterator(__iterator<!_Const> __other)
+    requires _Const && convertible_to<iterator_t<_View>, iterator_t<_Base>>
+      : __current_(std::move(__other.__current_)), __parent_(__other.__parent_) {}
 
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr range_reference_t<_View> operator*() const { return *__current_; }
-  _LIBCPP_HIDE_FROM_ABI constexpr iterator_t<_View> operator->() const
-    requires __has_arrow<iterator_t<_View>> && copyable<iterator_t<_View>>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr iterator_t<_Base> const& base() const& noexcept { return __current_; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr iterator_t<_Base> base() && { return std::move(__current_); }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr range_reference_t<_Base> operator*() const { return *__current_; }
+  _LIBCPP_HIDE_FROM_ABI constexpr iterator_t<_Base> operator->() const
+    requires __has_arrow<iterator_t<_Base>> && copyable<iterator_t<_Base>>
   {
     return __current_;
   }
@@ -165,7 +196,7 @@ public:
   }
   _LIBCPP_HIDE_FROM_ABI constexpr void operator++(int) { ++*this; }
   _LIBCPP_HIDE_FROM_ABI constexpr __iterator operator++(int)
-    requires forward_range<_View>
+    requires forward_range<_Base>
   {
     auto __tmp = *this;
     ++*this;
@@ -173,7 +204,7 @@ public:
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr __iterator& operator--()
-    requires bidirectional_range<_View>
+    requires bidirectional_range<_Base>
   {
     do {
       --__current_;
@@ -181,7 +212,7 @@ public:
     return *this;
   }
   _LIBCPP_HIDE_FROM_ABI constexpr __iterator operator--(int)
-    requires bidirectional_range<_View>
+    requires bidirectional_range<_Base>
   {
     auto __tmp = *this;
     --*this;
@@ -189,12 +220,12 @@ public:
   }
 
   _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(__iterator const& __x, __iterator const& __y)
-    requires equality_comparable<iterator_t<_View>>
+    requires equality_comparable<iterator_t<_Base>>
   {
     return __x.__current_ == __y.__current_;
   }
 
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr range_rvalue_reference_t<_View>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend constexpr range_rvalue_reference_t<_Base>
   iter_move(__iterator const& __it) noexcept(noexcept(ranges::iter_move(__it.__current_))) {
     return ranges::iter_move(__it.__current_);
   }
@@ -202,7 +233,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI friend constexpr void
   iter_swap(__iterator const& __x,
             __iterator const& __y) noexcept(noexcept(ranges::iter_swap(__x.__current_, __y.__current_)))
-    requires indirectly_swappable<iterator_t<_View>>
+    requires indirectly_swappable<iterator_t<_Base>>
   {
     return ranges::iter_swap(__x.__current_, __y.__current_);
   }
@@ -210,17 +241,27 @@ public:
 
 template <input_range _View, indirect_unary_predicate<iterator_t<_View>> _Pred>
   requires view<_View> && is_object_v<_Pred>
+template <bool _Const>
 class filter_view<_View, _Pred>::__sentinel {
+  using _Base _LIBCPP_NODEBUG   = _If<_Const, const _View, _View>;
+  using _Parent _LIBCPP_NODEBUG = _If<_Const, const filter_view, filter_view>;
+
 public:
-  sentinel_t<_View> __end_ = sentinel_t<_View>();
+  sentinel_t<_Base> __end_ = sentinel_t<_Base>();
 
   _LIBCPP_HIDE_FROM_ABI __sentinel() = default;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit __sentinel(filter_view& __parent) : __end_(ranges::end(__parent.__base_)) {}
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __sentinel(_Parent& __parent) : __end_(ranges::end(__parent.__base_)) {}
 
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr sentinel_t<_View> base() const { return __end_; }
+  _LIBCPP_HIDE_FROM_ABI constexpr __sentinel(__sentinel<!_Const> __other)
+    requires _Const && convertible_to<sentinel_t<_View>, sentinel_t<_Base>>
+      : __end_(std::move(__other.__end_)) {}
 
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(__iterator const& __x, __sentinel const& __y) {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr sentinel_t<_Base> base() const { return __end_; }
+
+  template <bool _OtherConst>
+    requires sentinel_for<sentinel_t<_Base>, iterator_t<_If<_OtherConst, const _View, _View>>>
+  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(__iterator<_OtherConst> const& __x, __sentinel const& __y) {
     return __x.__current_ == __y.__end_;
   }
 };

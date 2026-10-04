@@ -48,6 +48,21 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto begin() const requires range<const _View> { return __iterator<true>(ranges::begin(__base_)); }
   _LIBCPP_HIDE_FROM_ABI constexpr auto end() requires(!__simple_view<_View>) { return ranges::end(__base_); }
   _LIBCPP_HIDE_FROM_ABI constexpr auto end() const requires range<const _View> { return ranges::end(__base_); }
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint()
+    requires approximately_sized_range<_View>
+  {
+    return ranges::reserve_hint(__base_);
+  }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto reserve_hint() const
+    requires approximately_sized_range<const _View>
+  {
+    return ranges::reserve_hint(__base_);
+  }
+
+#  endif
+
   _LIBCPP_HIDE_FROM_ABI constexpr auto size() requires sized_range<_View> { return ranges::size(__base_); }
   _LIBCPP_HIDE_FROM_ABI constexpr auto size() const requires sized_range<const _View> { return ranges::size(__base_); }
 };
