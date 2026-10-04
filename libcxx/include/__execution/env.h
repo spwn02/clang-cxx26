@@ -11,6 +11,7 @@
 
 #include <__config>
 #include <__execution/queryable.h>
+#include <__concepts/invocable.h>
 #include <__tuple/tuple_element.h>
 #include <__type_traits/is_nothrow_constructible.h>
 #include <__type_traits/unwrap_ref.h>
@@ -31,17 +32,21 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace execution {
 
-// [exec.prop]
-// A queryable object that answers exactly one query, `_Query{}`, with a fixed `_Value`.
+template <class _Value>
+struct __prop_like {
+  const _Value& query(auto) const noexcept;
+};
+
+struct __prop_nonassign {};
+
+// [exec.prop]: preserve aggregate initialization and implicit move construction.
 template <class _Query, class _Value>
 class prop {
+  static_assert(invocable<_Query, __prop_like<_Value>>, "Mandates: callable<QueryTag, prop-like<ValueType>>.");
 public:
-  // `const`-qualified so that `prop` remains an aggregate (no user-declared constructors,
-  // matching [exec.prop]'s synopsis) while implicitly deleting copy/move assignment (per
-  // [exec.prop]: "prop is not assignable") without an explicit `operator=` declaration —
-  // the latter would make the implicit copy constructor deprecated ([depr.impldec]).
-  _LIBCPP_NO_UNIQUE_ADDRESS const _Query __query_;
-  _LIBCPP_NO_UNIQUE_ADDRESS const _Value __value_;
+  _LIBCPP_NO_UNIQUE_ADDRESS _Query __query_;
+  _LIBCPP_NO_UNIQUE_ADDRESS _Value __value_;
+  _LIBCPP_NO_UNIQUE_ADDRESS const __prop_nonassign __nonassign_{};
 
   template <class... _Args>
   _LIBCPP_HIDE_FROM_ABI constexpr const _Value& query(_Query, _Args&&...) const noexcept {
@@ -52,9 +57,13 @@ public:
 template <class _Query, class _Value>
 prop(_Query, _Value) -> prop<_Query, unwrap_reference_t<_Value>>;
 
+// Clang may retry parenthesized aggregate CTAD with the defaulted marker initializer.
+template <class _Query, class _Value>
+prop(_Query, _Value, __prop_nonassign) -> prop<_Query, unwrap_reference_t<_Value>>;
+
 template <class _Env, class _Query, class... _Args>
 concept __has_query =
-    requires(const _Env& __e, _Query __q, _Args&&... __args) { __e.query(__q, std::forward<_Args>(__args)...); };
+    requires(const _Env& __e, _Args&&... __args) { __e.query(_Query(), std::forward<_Args>(__args)...); };
 
 // [exec.env]
 // A queryable object that combines several queryable objects; `query(q, args...)` is

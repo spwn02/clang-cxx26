@@ -23,7 +23,7 @@
 #include <type_traits>
 #include <utility>
 
-struct QueryA {};
+struct QueryA { template <class E> constexpr decltype(auto) operator()(const E& e) const noexcept { return e.query(*this); } };
 
 struct HasEnv {
   constexpr std::execution::env<std::execution::prop<QueryA, int>> get_env() const noexcept {

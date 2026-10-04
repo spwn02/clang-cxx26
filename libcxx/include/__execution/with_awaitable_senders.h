@@ -11,6 +11,7 @@
 
 #include <__concepts/same_as.h>
 #include <__config>
+#include <__type_traits/is_class.h>
 #include <__coroutine/coroutine_handle.h>
 #include <__execution/as_awaitable.h>
 #include <__utility/forward.h>
@@ -38,6 +39,7 @@ namespace execution {
 // `continuation` for both the private data member and the public accessor method, which is
 // exposition shorthand, not literal C++ (a real implementation needs two distinct names).
 template <class _Promise>
+  requires is_class_v<_Promise>
 struct with_awaitable_senders {
   template <class _OtherPromise>
     requires(!same_as<_OtherPromise, void>)

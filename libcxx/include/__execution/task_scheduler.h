@@ -16,6 +16,10 @@
 #include <__execution/connect.h>
 #include <__execution/env.h>
 #include <__execution/get_forward_progress_guarantee.h>
+#include <__execution/get_scheduler.h>
+#include <__execution/get_stop_token.h>
+#include <__stop_token/stoppable_token.h>
+#include <__type_traits/is_nothrow_constructible.h>
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
 #include <__execution/schedule.h>
@@ -77,7 +81,9 @@ class __inline_opstate {
 public:
   using operation_state_concept = operation_state_tag;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit __inline_opstate(_Rcvr&& __rcvr) noexcept : __rcvr_(std::move(__rcvr)) {}
+  template <class _Receiver>
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __inline_opstate(_Receiver&& __rcvr)
+      noexcept(is_nothrow_constructible_v<_Rcvr, _Receiver>) : __rcvr_(std::forward<_Receiver>(__rcvr)) {}
 
   // Movable (not just in-place-constructible): __task_scheduler_opstate_model (below) receives
   // an already-materialized opstate object through a forwarding-reference constructor
@@ -103,11 +109,12 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr env<> get_env() const noexcept { return {}; }
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr __inline_opstate<remove_cvref_t<_Rcvr>> connect(_Rcvr&& __rcvr) const {
+  _LIBCPP_HIDE_FROM_ABI constexpr __inline_opstate<remove_cvref_t<_Rcvr>> connect(_Rcvr&& __rcvr) const
+      noexcept(is_nothrow_constructible_v<remove_cvref_t<_Rcvr>, _Rcvr>) {
     return __inline_opstate<remove_cvref_t<_Rcvr>>(std::forward<_Rcvr>(__rcvr));
   }
 
-  template <class _Self, class _Env>
+  template <class _Self, class... _Env>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
     return completion_signatures<set_value_t()>{};
   }
@@ -156,9 +163,15 @@ struct __task_scheduler_rcvr_model final : __task_scheduler_rcvr_base {
 
   _LIBCPP_HIDE_FROM_ABI void __complete_value() noexcept override { execution::set_value(std::move(__rcvr_)); }
   _LIBCPP_HIDE_FROM_ABI void __complete_error(exception_ptr __ep) noexcept override {
-    execution::set_error(std::move(__rcvr_), std::move(__ep));
+    (void)__ep;
+    std::terminate();
   }
-  _LIBCPP_HIDE_FROM_ABI void __complete_stopped() noexcept override { execution::set_stopped(std::move(__rcvr_)); }
+  _LIBCPP_HIDE_FROM_ABI void __complete_stopped() noexcept override {
+    if constexpr (requires { execution::set_stopped(std::move(__rcvr_)); })
+      execution::set_stopped(std::move(__rcvr_));
+    else
+      std::terminate();
+  }
 };
 
 // Concrete (non-template) receiver connected to the *real*, wrapped scheduler's own
@@ -197,7 +210,8 @@ template <class _RealOp>
 struct __task_scheduler_opstate_model final : __task_scheduler_opstate_base {
   _RealOp __op_;
 
-  _LIBCPP_HIDE_FROM_ABI explicit __task_scheduler_opstate_model(_RealOp&& __op) : __op_(std::move(__op)) {}
+  template <class _Factory>
+  _LIBCPP_HIDE_FROM_ABI explicit __task_scheduler_opstate_model(_Factory __make) : __op_(__make()) {}
   _LIBCPP_HIDE_FROM_ABI void __start() noexcept override { execution::start(__op_); }
 };
 
@@ -232,7 +246,7 @@ struct __task_scheduler_model final : __task_scheduler_concept {
   __connect(unique_ptr<__task_scheduler_rcvr_base> __rcvr) const override {
     using __real_op_t = connect_result_t<schedule_result_t<const _Sch&>, __task_scheduler_bridge_rcvr>;
     return std::make_unique<__task_scheduler_opstate_model<__real_op_t>>(
-        execution::connect(execution::schedule(__sch_), __task_scheduler_bridge_rcvr{std::move(__rcvr)}));
+        [&] { return execution::connect(execution::schedule(__sch_), __task_scheduler_bridge_rcvr{std::move(__rcvr)}); });
   }
 
   _LIBCPP_HIDE_FROM_ABI bool __equals(const __task_scheduler_concept& __other) const noexcept override {
@@ -245,6 +259,8 @@ struct __task_scheduler_model final : __task_scheduler_concept {
   }
 };
 
+class __task_scheduler_domain : public default_domain {};
+
 class __task_scheduler_sender {
 public:
   using sender_concept = sender_tag;
@@ -252,7 +268,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI explicit __task_scheduler_sender(shared_ptr<const __task_scheduler_concept> __holder) noexcept
       : __holder_(std::move(__holder)) {}
 
-  _LIBCPP_HIDE_FROM_ABI env<> get_env() const noexcept { return {}; }
+  _LIBCPP_HIDE_FROM_ABI auto get_env() const noexcept;
 
   template <class _Rcvr>
   _LIBCPP_HIDE_FROM_ABI __task_scheduler_opstate connect(_Rcvr&& __rcvr) const {
@@ -263,7 +279,10 @@ public:
 
   template <class _Self, class _Env>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    return __task_scheduler_sigs{};
+    if constexpr (unstoppable_token<stop_token_of_t<_Env>>)
+      return completion_signatures<set_value_t()>{};
+    else
+      return completion_signatures<set_value_t(), set_stopped_t()>{};
   }
 
 private:
@@ -284,15 +303,42 @@ public:
     return __x.__holder_ == __y.__holder_ || __x.__holder_->__equals(*__y.__holder_);
   }
 
+  template <scheduler _Sch>
+    requires (!same_as<task_scheduler, _Sch>)
+  _LIBCPP_HIDE_FROM_ABI friend bool operator==(const task_scheduler& __lhs, const _Sch& __rhs) noexcept {
+    auto* __p = dynamic_cast<const __task_scheduler_model<_Sch>*>(__lhs.__holder_.get());
+    return __p != nullptr && __p->__sch_ == __rhs;
+  }
+
   _LIBCPP_HIDE_FROM_ABI __task_scheduler_sender schedule() const noexcept { return __task_scheduler_sender(__holder_); }
 
   _LIBCPP_HIDE_FROM_ABI forward_progress_guarantee query(get_forward_progress_guarantee_t) const noexcept {
     return __holder_->__fwd_progress();
   }
+  _LIBCPP_HIDE_FROM_ABI __task_scheduler_domain query(get_completion_domain_t<set_value_t>) const noexcept {
+    return {};
+  }
 
 private:
+  friend class __task_scheduler_sender;
+  _LIBCPP_HIDE_FROM_ABI explicit task_scheduler(shared_ptr<const __task_scheduler_concept> __holder)
+      : __holder_(std::move(__holder)) {}
   shared_ptr<const __task_scheduler_concept> __holder_;
 };
+
+// Query representation follows the current fork; #220 owns CPO/domain resolution changes.
+_LIBCPP_HIDE_FROM_ABI inline auto __task_scheduler_sender::get_env() const noexcept {
+  struct __environment {
+    task_scheduler __scheduler;
+    _LIBCPP_HIDE_FROM_ABI task_scheduler query(get_completion_scheduler_t<set_value_t>) const noexcept {
+      return __scheduler;
+    }
+    _LIBCPP_HIDE_FROM_ABI __task_scheduler_domain query(get_completion_domain_t<set_value_t>) const noexcept {
+      return {};
+    }
+  };
+  return __environment{task_scheduler(__holder_)};
+}
 
 } // namespace execution
 

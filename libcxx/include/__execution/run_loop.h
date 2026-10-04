@@ -26,6 +26,7 @@
 #include <__mutex/unique_lock.h>
 #include <__stop_token/stoppable_token.h>
 #include <__type_traits/is_same.h>
+#include <__type_traits/is_nothrow_constructible.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
@@ -128,7 +129,8 @@ public:
   }
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr __run_loop_opstate<remove_cvref_t<_Rcvr>> connect(_Rcvr&& __rcvr) &&;
+  _LIBCPP_HIDE_FROM_ABI constexpr __run_loop_opstate<remove_cvref_t<_Rcvr>> connect(_Rcvr&& __rcvr) const
+      noexcept(is_nothrow_constructible_v<remove_cvref_t<_Rcvr>, _Rcvr>);
 
   // [exec.run.loop.types]p6: completion_signatures_of_t<run-loop-sender, E> is
   // completion_signatures<set_value_t()> if unstoppable_token<stop_token_of_t<E>> is true,
@@ -160,8 +162,10 @@ class __run_loop_opstate final : private __run_loop_opstate_base {
 public:
   using operation_state_concept = operation_state_tag;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr __run_loop_opstate(run_loop* __loop, _Rcvr&& __rcvr)
-      : __run_loop_opstate_base(__loop), __rcvr_(std::move(__rcvr)) {}
+  template <class _Receiver>
+  _LIBCPP_HIDE_FROM_ABI constexpr __run_loop_opstate(run_loop* __loop, _Receiver&& __rcvr)
+      noexcept(is_nothrow_constructible_v<_Rcvr, _Receiver>)
+      : __run_loop_opstate_base(__loop), __rcvr_(std::forward<_Receiver>(__rcvr)) {}
 
   __run_loop_opstate(const __run_loop_opstate&)            = delete;
   __run_loop_opstate& operator=(const __run_loop_opstate&) = delete;
@@ -172,14 +176,9 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr void start() & noexcept;
 
 private:
-  // [exec.run.loop.types]p10.2. The clause literally writes `get_stop_token(REC(o))`, but
-  // get_stop_token ([exec.get.stop.token]) is defined in terms of a *queryable environment*
-  // (`env.query(get_stop_token)`), not a receiver -- a receiver only becomes queryable via
-  // its own get_env(). Read as shorthand for `get_stop_token(get_env(REC(o)))`, matching how
-  // every other stop-token consumer in the draft (and every other query CPO applied "to a
-  // receiver" throughout [exec]) is actually spelled.
+  // [exec.run.loop.types]: get_stop_token(REC(o)), directly on the receiver.
   _LIBCPP_HIDE_FROM_ABI void __execute() noexcept override {
-    if (std::get_stop_token(execution::get_env(__rcvr_)).stop_requested()) {
+    if (std::get_stop_token(__rcvr_).stop_requested()) {
       execution::set_stopped(std::move(__rcvr_));
     } else {
       execution::set_value(std::move(__rcvr_));
@@ -190,7 +189,8 @@ private:
 };
 
 template <class _Rcvr>
-_LIBCPP_HIDE_FROM_ABI constexpr __run_loop_opstate<remove_cvref_t<_Rcvr>> __run_loop_sender::connect(_Rcvr&& __rcvr) && {
+_LIBCPP_HIDE_FROM_ABI constexpr __run_loop_opstate<remove_cvref_t<_Rcvr>> __run_loop_sender::connect(_Rcvr&& __rcvr) const
+    noexcept(is_nothrow_constructible_v<remove_cvref_t<_Rcvr>, _Rcvr>) {
   return __run_loop_opstate<remove_cvref_t<_Rcvr>>(__loop_, std::forward<_Rcvr>(__rcvr));
 }
 

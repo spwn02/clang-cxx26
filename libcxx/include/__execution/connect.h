@@ -44,6 +44,8 @@ namespace execution {
 
 template <class _Sndr, class _Rcvr>
 _LIBCPP_HIDE_FROM_ABI constexpr auto __connect_impl(_Sndr&& __sndr, _Rcvr&& __rcvr)
+    noexcept(noexcept(execution::transform_sender(std::forward<_Sndr>(__sndr), execution::get_env(__rcvr))
+                          .connect(std::forward<_Rcvr>(__rcvr))))
     -> decltype(execution::transform_sender(std::forward<_Sndr>(__sndr), execution::get_env(__rcvr))
                     .connect(std::forward<_Rcvr>(__rcvr))) {
   return execution::transform_sender(std::forward<_Sndr>(__sndr), execution::get_env(__rcvr))
@@ -186,6 +188,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __connect_dispatch(_Sndr&& __sndr, _Rcvr&& 
 
 template <class _Sndr, class _Rcvr>
 _LIBCPP_HIDE_FROM_ABI constexpr auto __connect_dispatch(_Sndr&& __sndr, _Rcvr&& __rcvr)
+    noexcept(noexcept(execution::__connect_impl(std::forward<_Sndr>(__sndr), std::forward<_Rcvr>(__rcvr))))
     -> decltype(execution::__connect_impl(std::forward<_Sndr>(__sndr), std::forward<_Rcvr>(__rcvr))) {
   return execution::__connect_impl(std::forward<_Sndr>(__sndr), std::forward<_Rcvr>(__rcvr));
 }

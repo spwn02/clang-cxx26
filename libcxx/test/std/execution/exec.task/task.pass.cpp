@@ -46,7 +46,7 @@ task<void> awaits_inner_sender() {
 task<int> throws_exception() { throw std::runtime_error("boom"); }
 
 task<int> yields_error() {
-  co_yield with_error<std::runtime_error>(std::runtime_error("yielded"));
+  co_yield with_error{std::make_exception_ptr(std::runtime_error("yielded"))};
   co_return 0; // unreachable
 }
 

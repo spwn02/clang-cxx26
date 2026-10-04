@@ -24,7 +24,9 @@
 #include <functional>
 #include <type_traits>
 
-struct SomeQuery {};
+struct SomeQuery {
+  template <class E> constexpr decltype(auto) operator()(const E& e) const noexcept { return e.query(*this); }
+};
 
 constexpr bool test() {
   std::execution::prop<SomeQuery, int> p{SomeQuery{}, 42};

@@ -25,9 +25,15 @@
 #include <type_traits>
 #include <utility>
 
-struct QueryA {};
-struct QueryB {};
-struct QueryC {};
+struct QueryA {
+  template <class E> constexpr decltype(auto) operator()(const E& e) const noexcept { return e.query(*this); }
+};
+struct QueryB {
+  template <class E> constexpr decltype(auto) operator()(const E& e) const noexcept { return e.query(*this); }
+};
+struct QueryC {
+  template <class E> constexpr decltype(auto) operator()(const E& e) const noexcept { return e.query(*this); }
+};
 
 // A `requires{ e.query(q); }` written with `e`/`q` naming concrete (non-dependent) entities
 // is evaluated eagerly, not as a substitution-failure-is-fine probe: an invalid expression

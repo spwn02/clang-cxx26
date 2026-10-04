@@ -14,6 +14,7 @@
 #include <__execution/awaitable.h>
 #include <__execution/completion_functions.h>
 #include <__execution/connect.h>
+#include <__execution/domain.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
@@ -140,9 +141,11 @@ struct as_awaitable_t {
       // (7.3): already directly awaitable, without going through Promise's await_transform.
       return static_cast<_Expr&&>(__expr);
     } else if constexpr (sender_in<_Expr, env_of_t<_Promise>> &&
-                          requires { typename __single_sender_value_type<remove_cvref_t<_Expr>, env_of_t<_Promise>>; }) {
+                          requires { typename __single_sender_value_type<_Expr, env_of_t<_Promise>>; }) {
       // (7.4)
-      return __sender_awaitable<remove_cvref_t<_Expr>, _Promise>{std::forward<_Expr>(__expr), __p};
+      using _Transformed = decltype(execution::transform_sender(std::forward<_Expr>(__expr), execution::get_env(__p)));
+      return __sender_awaitable<_Transformed, _Promise>{
+          execution::transform_sender(std::forward<_Expr>(__expr), execution::get_env(__p)), __p};
     } else {
       // (7.5)
       return static_cast<_Expr&&>(__expr);
