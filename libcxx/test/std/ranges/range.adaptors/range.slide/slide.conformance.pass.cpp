@@ -27,6 +27,42 @@ namespace v = std::views;
 template <class T>
 concept const_iterable = requires(const T& x) { x.begin(); x.end(); };
 
+
+// A forward, non-common, non-sized base whose sentinel is a sized sentinel; increments are counted.
+struct counting_iter {
+  using value_type        = int;
+  using difference_type   = std::ptrdiff_t;
+  using iterator_concept  = std::forward_iterator_tag;
+  int* p{};
+  int* count{};
+  constexpr int& operator*() const { return *p; }
+  constexpr counting_iter& operator++() {
+    ++p;
+    if (count)
+      ++*count;
+    return *this;
+  }
+  constexpr counting_iter operator++(int) {
+    auto t = *this;
+    ++*this;
+    return t;
+  }
+  friend constexpr bool operator==(counting_iter x, counting_iter y) { return x.p == y.p; }
+};
+struct counting_sentinel {
+  int* p{};
+  friend constexpr bool operator==(counting_iter i, counting_sentinel s) { return i.p == s.p; }
+  friend constexpr std::ptrdiff_t operator-(counting_sentinel s, counting_iter i) { return s.p - i.p; }
+  friend constexpr std::ptrdiff_t operator-(counting_iter i, counting_sentinel s) { return i.p - s.p; }
+};
+struct counting_view : r::view_base {
+  int* b{};
+  int* e{};
+  int* count{};
+  constexpr counting_iter begin() { return {b, count}; }
+  constexpr counting_sentinel end() { return {e}; }
+};
+
 constexpr bool test() {
   // [range.slide.overview] example: prints [1, 2] [2, 3] [3, 4]
   {
@@ -111,6 +147,27 @@ constexpr bool test() {
   }
   // [range.slide.view]: the class has no default constructor.
   static_assert(!std::default_initializable<r::slide_view<r::ref_view<std::vector<int>>>>);
+  // [range.slide.view]: begin() of a slide-caches-first view caches the first-window boundary
+  // (n - 1 increments, once); [range.slide.sentinel]: sized subtraction in both directions uses last_ele_.
+  {
+    int a[10]{}, count = 0;
+    counting_view base;
+    base.b     = a;
+    base.e     = a + 10;
+    base.count = &count;
+    auto x     = v::slide(base, 5);
+    static_assert(!r::common_range<decltype(x)>);
+    (void)x.begin();
+    int first = count;
+    assert(first == 4);
+    (void)x.begin();
+    assert(count == first);
+    auto it = x.begin();
+    auto sn = x.end();
+    assert(sn - it == 6);
+    assert(it - sn == -6);
+    assert(!(it == sn));
+  }
   // slide-caches-nothing: random-access + sized base gives a const-iterable view.
   {
     std::vector<int> vec{1, 2, 3, 4, 5};
@@ -118,6 +175,17 @@ constexpr bool test() {
     static_assert(const_iterable<decltype(s)>);
     assert(s.size() == 4 && (s.end() - s.begin()) == 4);
   }
+#if __cplusplus > 202302L
+  // [range.slide.view]: reserve_hint, max(0, base reserve hint - n + 1).
+  {
+    std::vector<int> vec{1, 2, 3, 4, 5};
+    auto s = vec | v::slide(3);
+    assert(r::reserve_hint(s) == 3);
+    const auto cs = s;
+    assert(r::reserve_hint(cs) == 3);
+    assert(r::reserve_hint(vec | v::slide(9)) == 0);
+  }
+#endif
   return true;
 }
 
