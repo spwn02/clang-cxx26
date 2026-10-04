@@ -1953,6 +1953,13 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
       // was parsed in an unevaluated context (but a splice expression is not
       // necessarily, and frequently not, in such a context).
       Result = CreateRefToDecl(*this, VD, Splice->getBeginLoc());
+      // [expr.prim.splice] gives outside variables and bindings type const T
+      // in a predicate, just as an id-expression would have.
+      if (getContractConstification(VD) == CC_ApplyConst) {
+        Result->setType(Result->getType().withConst());
+        cast<DeclRefExpr>(Result)->setIsConstified(true);
+        cast<DeclRefExpr>(Result)->setIsInContractContext(true);
+      }
       MarkDeclRefReferenced(cast<DeclRefExpr>(Result), nullptr);
       Result = CXXSpliceExpr::Create(Context, Result->getValueKind(),
                                      TemplateKWLoc, Splice, Result,

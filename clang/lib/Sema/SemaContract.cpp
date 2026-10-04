@@ -744,7 +744,8 @@ public:
     DS_None = -1,
     DS_Array = 0,
     DS_Function = 1,
-    DS_NotConst = 2
+    DS_NotConst = 2,
+    DS_Coroutine = 3
   };
 
   DiagSelector classifyDiagnosableParmVar(const ParmVarDecl *PVD,
@@ -771,6 +772,13 @@ public:
     //   parameter...
     if (PVD->getType()->isReferenceType() || Usage->isNonOdrUse())
       return DS_None;
+
+    // [dcl.fct.def.coroutine] removes top-level cv-qualifiers from the
+    // parameter declarations of the definition. Thus even a written const
+    // parameter cannot satisfy [dcl.contract.func] after an odr-use in a post.
+    if (Actions.getCurFunction() && Actions.getCurFunction()->isCoroutine() &&
+        Actions.CurContext == FD)
+      return DS_Coroutine;
 
     QualType PVDType = PVD->getOriginalType();
 
@@ -1178,6 +1186,10 @@ void Sema::ActOnContractsOnFinishFunctionBody(FunctionDecl *Def) {
       Def->setInvalidDecl(true);
   }
 
+  if (Def->hasContracts() && getCurFunction()->isCoroutine() &&
+      !Def->getContracts()->isInvalidDecl())
+    diagnoseParamTypes(*this, Def, Def->getContracts());
+
   if (const LambdaScopeInfo *LSI =
           dyn_cast<LambdaScopeInfo>(getCurFunction())) {
     llvm::DenseMap<const ValueDecl *, ContractCapturePair> CheckedCaptures;
@@ -1211,8 +1223,39 @@ bool Sema::isUsageAcrossContract(const ValueDecl *VD) {
   if (isContractAssertionContext())
     return true;
 
-  if (isa<VarDecl>(VD) && !cast<VarDecl>(VD)->isLocalVarDeclOrParm())
-    return false;
+  if (const auto *Binding = dyn_cast<BindingDecl>(VD))
+    VD = Binding->getDecomposedDecl();
+
+  // Non-local variables and reference template parameters are also covered by
+  // [expr.prim.id.unqual]; neither requires a lambda capture.
+  if (isa<NonTypeTemplateParmDecl>(VD) ||
+      (isa<VarDecl>(VD) && !cast<VarDecl>(VD)->isLocalVarDeclOrParm()))
+    return true;
+
+  // Parameters in a function declarator are not yet parented to its
+  // FunctionDecl. The declaration-context walk cannot find their contract
+  // boundary, but the contract's function-scope index can. A copy capture
+  // within C replaces the original entity; reference captures do not.
+  if (isa<ParmVarDecl>(VD) && !VD->getDeclContext()->isFunctionOrMethod()) {
+    const auto *CSR = getCurrentContractEntry();
+    // FunctionIndex is 0 both for "outermost function scope" and "no function
+    // scope yet"; HadNoFunctionScope tells them apart.
+    unsigned FirstScope = CSR->HadNoFunctionScope ? 0 : CSR->FunctionIndex + 1;
+    for (unsigned I = FirstScope; I < FunctionScopes.size(); ++I) {
+      auto *CSI = dyn_cast<CapturingScopeInfo>(FunctionScopes[I]);
+      if (!CSI)
+        continue;
+      if (CSI->isCaptured(const_cast<ValueDecl *>(VD))) {
+        if (CSI->getCapture(const_cast<ValueDecl *>(VD)).isCopyCapture())
+          return false;
+      } else if (const auto *LSI = dyn_cast<LambdaScopeInfo>(CSI);
+                 LSI && LSI->ImpCaptureStyle == LambdaScopeInfo::ImpCap_LambdaByval) {
+        // The first reference can precede recording its implicit capture.
+        return false;
+      }
+    }
+    return true;
+  }
 
   assert(VD);
   return getInterveningContractEntry(*this, VD) != nullptr;
@@ -1257,7 +1300,7 @@ bool Sema::isUsageAcrossContract(const ValueDecl *VD) {
 
 /// [basic.contract.general]
 /// Within the predicate of a contract assertion, id-expressions referring to
-/// variables with automatic storage duration are const ([expr.prim.id.unqual])
+/// variables declared outside the assertion are const ([expr.prim.id.unqual]).
 ContractConstification Sema::getContractConstification(const ValueDecl *VD) {
   //WalkUpContractScopesTest();
   auto &S = *this;
@@ -1320,34 +1363,19 @@ ContractConstification Sema::getContractConstification(const ValueDecl *VD) {
   if (isa<ResultNameDecl>(VD))
     return CC_ApplyConst;
 
-  // — a structured binding of type T whose corresponding variable has automatic
-  // storage
-  //  duration, or
-  if (auto *Bound = dyn_cast<BindingDecl>(VD)) {
-    if (!Bound->getHoldingVar())
-      return CC_None;
-    auto Var = Bound->getHoldingVar();
-    if (Var->isLocalVarDeclOrParm() &&
-        (Var->getStorageDuration() == SD_Automatic ||
-         Var->getKind() == Decl::ParmVar))
-      return CC_ApplyConst;
-    return CC_None;
-  }
+  // [expr.prim.id.unqual]: "a structured binding of type T whose
+  // corresponding variable is declared outside of C".
+  if (isa<BindingDecl>(VD))
+    return CC_ApplyConst;
 
-  // — a variable with automatic storage duration ...
-  if (auto Var = dyn_cast<VarDecl>(VD);
-      Var && Var->isLocalVarDeclOrParm() &&
-      (Var->getStorageDuration() == SD_Automatic ||
-       Var->getKind() == Decl::ParmVar)) {
-    // ... of object type T, or
-    if (Var->getType()->isObjectType())
-      return CC_ApplyConst;
-
-    // of type 'reference to T'
-    if (Var->getType()->isReferenceType() &&
-        Var->getType().getNonReferenceType()->isObjectType())
-      return CC_ApplyConst;
-  }
+  // Storage duration is immaterial. Reference template parameters are covered
+  // along with reference variables; applying cv-qualification to a function
+  // type has no effect.
+  if (isa<VarDecl>(VD) && VD->getType()->isObjectType())
+    return CC_ApplyConst;
+  if (isa<VarDecl, NonTypeTemplateParmDecl>(VD) &&
+      VD->getType()->isReferenceType())
+    return CC_ApplyConst;
 
   return CC_None;
 }
@@ -1401,6 +1429,17 @@ QualType Sema::adjustCXXThisTypeForContracts(QualType QT) {
   //      }();
   //   }};
   // ```
+  // A copy of *this captured inside C is a new object declared inside C.
+  // Preserve its ordinary lambda cv-qualification, including mutable copies.
+  const auto *CSR = getCurrentContractEntry();
+  unsigned FirstScope = CSR->HadNoFunctionScope ? 0 : CSR->FunctionIndex + 1;
+  for (unsigned I = FunctionScopes.size(); I > FirstScope; --I) {
+    auto *LSI = dyn_cast<LambdaScopeInfo>(FunctionScopes[I - 1]);
+    if (LSI && LSI->isCXXThisCaptured() &&
+        LSI->getCXXThisCapture().isCopyCapture())
+      return QT;
+  }
+
   const DeclContext *ContractContext =
       walkUpDeclContextToFunction(getCurrentContractEntry()->ContextAtPush);
   if (!ContractContext)

@@ -13,14 +13,15 @@ constexpr int do_test() {
 constexpr int anchor = do_test(); // expected-error {{must be initialized}}
 // expected-note@-1 {{in call}}
 
-// not constified.
+// [expr.prim.id.unqual]: "a variable declared outside of C of object type T"
+// ... "then the type of the expression is const T" (including globals).
 int *y = nullptr;
 
 int foo() {
   int x = 42;
   contract_assert(
     ++x && // expected-error {{it is considered 'const'}}
-    (y = &x)); // expected-error {{discards qualifiers}}
+    (y = &x)); // expected-error {{considered 'const'}}
 }
 
 template <class T, class U>
@@ -58,7 +59,9 @@ struct A {
 };
 void f(A& x) {
   auto [a, b] = x;
-  contract_assert(++a);
+  // [expr.prim.id.unqual]: "a structured binding of type T whose
+  // corresponding variable is declared outside of C" ... "const T".
+  contract_assert(++a); // expected-error {{considered 'const'}}
 }
 
 }

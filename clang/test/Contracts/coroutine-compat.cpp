@@ -95,3 +95,18 @@ void dependent_coawait(T n) {
   contract_assert((co_await n, true)); // expected-error {{'co_await' cannot be used inside a contract}}
   contract_assert((co_yield n, true)); // expected-error {{'co_yield' cannot be used inside a contract}}
 }
+
+// [dcl.fct.def.coroutine]: "the top-level cv-qualifiers in all
+// parameter-declarations in the declarator of its function-definition were
+// removed". [dcl.contract.func]: an odr-used non-reference parameter in a
+// postcondition "shall have const type". Thus the draft's note says:
+// "An odr-use of a non-reference parameter in a postcondition assertion
+// of a coroutine is ill-formed".
+void post_value(const int n) // expected-note {{parameter of type 'const int' is declared here}}
+  post(n > 0) { // expected-error {{cannot be odr-used in a coroutine postcondition}}
+  co_return 0;
+}
+// Reference parameters are excluded by "a non-reference parameter".
+void post_reference(int &n) post(n > 0) { co_return 0; }
+// [basic.def.odr]: sizeof is an unevaluated operand; no odr-use.
+void post_unevaluated(int n) post(sizeof(n) == sizeof(int)) { co_return 0; }

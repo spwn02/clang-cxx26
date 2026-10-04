@@ -6,10 +6,17 @@
 #include "contracts_handler.h"
 
 
+// [expr.prim.id.unqual]: a variable declared outside a contract assertion is
+// const inside its predicate, so the counters are bumped through a function.
+template <TStr Key>
+auto bump() {
+  return ++KV<Key>;
+}
+
 namespace fn_template_test {
 template <class T>
-void f(T v) pre(++KV<"Pre">&& v != 1024) post(++KV<"Post">) pre(++KV<std::is_same_v<T, int> ? "Int" : "NotInt">) {
-  contract_assert(++KV<"CS">);
+void f(T v) pre(bump<"Pre">()&& v != 1024) post(bump<"Post">()) pre(bump<std::is_same_v<T, int> ? "Int" : "NotInt">()) {
+  contract_assert(bump<"CS">());
 }
 
 REGISTER_TEST(fn_template_test) {
@@ -28,36 +35,36 @@ REGISTER_TEST(fn_template_test) {
 namespace basic_member_test {
 
 struct S {
-  S() pre(++KV<"Pre">) post(++KV<"Post">) { contract_assert(++KV<"CS">); }
+  S() pre(bump<"Pre">()) post(bump<"Post">()) { contract_assert(bump<"CS">()); }
 
-  void f() pre(++KV<"Pre">) post(++KV<"Post">) { contract_assert(++KV<"CS">); }
+  void f() pre(bump<"Pre">()) post(bump<"Post">()) { contract_assert(bump<"CS">()); }
 
   template <class T>
-  T tf(T v) pre(++KV<"Pre">) post(++KV<"Post">) pre(++KV<std::is_same_v<T, int> ? "Int" : "NotInt">) {
-    contract_assert(++KV<"CS">);
+  T tf(T v) pre(bump<"Pre">()) post(bump<"Post">()) pre(bump<std::is_same_v<T, int> ? "Int" : "NotInt">()) {
+    contract_assert(bump<"CS">());
     return v;
   }
 
-  ~S() pre(++KV<"Pre">) post(++KV<"Post">) { contract_assert(++KV<"CS">); }
+  ~S() pre(bump<"Pre">()) post(bump<"Post">()) { contract_assert(bump<"CS">()); }
 };
 
 template <class T>
 struct C {
-  C() pre(++KV<"Pre">) post(++KV<"Post">) { contract_assert(++KV<"CS">); }
+  C() pre(bump<"Pre">()) post(bump<"Post">()) { contract_assert(bump<"CS">()); }
 
-  void f() pre(++KV<"Pre">) post(++KV<"Post">) pre(++KV<std::is_same_v<T, int> ? "Int" : "NotInt">) {
-    contract_assert(++KV<"CS">);
+  void f() pre(bump<"Pre">()) post(bump<"Post">()) pre(bump<std::is_same_v<T, int> ? "Int" : "NotInt">()) {
+    contract_assert(bump<"CS">());
   }
 
   template <class U>
-  U tf(U v) pre(++KV<"Pre">) post(++KV<"Post">) pre(++KV<std::is_same_v<T, int> ? "Int" : "NotInt">)
-      pre(++KV<std::is_same_v<U, int> ? "Int" : "NotInt">) {
-    contract_assert(++KV<"CS">);
+  U tf(U v) pre(bump<"Pre">()) post(bump<"Post">()) pre(bump<std::is_same_v<T, int> ? "Int" : "NotInt">())
+      pre(bump<std::is_same_v<U, int> ? "Int" : "NotInt">()) {
+    contract_assert(bump<"CS">());
     return v;
   }
 
-  ~C() pre(++KV<"Pre">) post(++KV<"Post">) pre(++KV<std::is_same_v<T, int> ? "Int" : "NotInt">) {
-    contract_assert(++KV<"CS">);
+  ~C() pre(bump<"Pre">()) post(bump<"Post">()) pre(bump<std::is_same_v<T, int> ? "Int" : "NotInt">()) {
+    contract_assert(bump<"CS">());
   }
 };
 
@@ -179,13 +186,16 @@ REGISTER_TEST(lifetime_test) {
 
 namespace order_test {
 auto& OrdC = KV<"OrderCounter">;
+// [expr.prim.id.unqual]: OrdC is declared outside the assertions, so it is
+// const in their predicates; step it through a function.
+inline int ord_next() { return OrdC++; }
 
-void foo() pre(OrdC++ == 0) pre(OrdC++ == 1) post(OrdC++ == 4) pre(OrdC++ == 2) post(OrdC++ == 5) {
-  contract_assert(OrdC++ == 3);
+void foo() pre(ord_next() == 0) pre(ord_next() == 1) post(ord_next() == 4) pre(ord_next() == 2) post(ord_next() == 5) {
+  contract_assert(ord_next() == 3);
 }
 template <class T>
-void ft(T) pre(OrdC++ == 0) pre(OrdC++ == 1) post(OrdC++ == 4) pre(OrdC++ == 2) post(OrdC++ == 5) {
-  contract_assert(OrdC++ == 3);
+void ft(T) pre(ord_next() == 0) pre(ord_next() == 1) post(ord_next() == 4) pre(ord_next() == 2) post(ord_next() == 5) {
+  contract_assert(ord_next() == 3);
 }
 
 REGISTER_TEST(order_test) {

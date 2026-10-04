@@ -700,7 +700,7 @@ inline bool count(bool value) {
 
 
 template <class... Args, class T>
-inline bool eq(std::tuple<Args...>& list, std::initializer_list<T> il) {
+inline bool eq(const std::tuple<Args...>& list, std::initializer_list<T> il) {
   auto initlist_to_tuple = [](auto il) {
     constexpr int N = sizeof...(Args);
     assert(il.size() == N);

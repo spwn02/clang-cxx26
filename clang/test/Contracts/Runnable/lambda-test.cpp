@@ -6,16 +6,23 @@
 #include "my_assert.h"
 #include "contracts-runtime.h"
 
+// [expr.prim.id.unqual]: outside object variables have expression type
+// "const T"; [expr.prim.id.unqual] Y example: "++(*p) // OK".
+// Mutate the pointer through a returned reference rather than assigning an
+// id-expression that names an outside variable in the predicate.
 const int *fz = nullptr;
-constexpr int f(int x) pre([x=x](int y) { static int z(0);  z = x; fz = &z; return y > x; }(1000)) {
+const int *&fz_slot() { return fz; }
+constexpr int f(int x) pre([x=x](int y) { static int z(0);  z = x; fz_slot() = &z; return y > x; }(1000)) {
   return x;
 }
 
 template <class T>
 const T* gz = nullptr;
+template <class T>
+const T *&gz_slot() { return gz<T>; }
 
 template <class T>
-constexpr T g(T x) pre([x=x](T y) { static T z(0); z = x;  gz<T> = &z; return y > x; }(1000)) {
+constexpr T g(T x) pre([x=x](T y) { static T z(0); z = x;  gz_slot<T>() = &z; return y > x; }(1000)) {
   return x;
 }
 template int g(int);
@@ -24,7 +31,7 @@ template long g(long);
 struct A {
   constexpr A() : z(0) {}
 
-  int f(int x) pre([=,this](int y) { static A a; gz<A> = &a; a.z = z; return y > x; }(1000)) {
+  int f(int x) pre([=,this](int y) { static A a; gz_slot<A>() = &a; a.z = z; return y > x; }(1000)) {
     return x;
   }
 
@@ -35,7 +42,7 @@ struct A {
 struct B {
   constexpr B() : z(0) {}
 
-  int f(int x) pre([z=z]() { static B a; gz<B> = &a; a.z = z; return true; }()) {
+  int f(int x) pre([z=z]() { static B a; gz_slot<B>() = &a; a.z = z; return true; }()) {
     return x;
   }
 

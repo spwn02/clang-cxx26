@@ -12992,7 +12992,7 @@ def warn_contract_always_evaluates_to : Warning<
   InGroup<ContractViolation>;
 
 def err_contract_postcondition_parameter_type_invalid : Error<
-    "parameter %0 referenced in contract postcondition %select{cannot have an array type|cannot have a function type|must be declared const}1">;
+    "parameter %0 referenced in contract postcondition %select{cannot have an array type|cannot have a function type|must be declared const|cannot be odr-used in a coroutine postcondition}1">;
 def note_parameter_with_name : Note<
   "parameter %0 is declared here">;
 def note_parameter_with_name_and_type : Note<
