@@ -756,6 +756,10 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
   if (LangOpts.ExpansionStatements)
     Builder.defineMacro("__cpp_expansion_statements", "202506L");
 
+  // [cpp.predefined]: defined when contract assertions are supported.
+  if (LangOpts.Contracts)
+    Builder.defineMacro("__cpp_contracts", "202606L");
+
   if (LangOpts.Reflection)
     Builder.defineMacro("__cpp_impl_reflection", "202603L");
 

@@ -499,6 +499,11 @@ feature_test_macros = [
             ],
         },
         {
+            "name": "__cpp_lib_contracts",
+            "values": {"c++26": 202502},
+            "headers": ["contracts"],
+        },
+        {
             "name": "__cpp_lib_copyable_function",
             "values": {"c++26": 202306},  # P2548R6 copyable_function
             "headers": ["functional"],
@@ -1532,6 +1537,11 @@ feature_test_macros = [
             "name": "__cpp_lib_remove_cvref",
             "values": {"c++20": 201711},
             "headers": ["type_traits"],
+        },
+        {
+            "name": "__cpp_lib_replaceable_contract_violation_handler",
+            "values": {"c++26": 202603},
+            "headers": ["contracts"],
         },
         {
             "name": "__cpp_lib_result_of_sfinae",

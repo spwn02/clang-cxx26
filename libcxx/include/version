@@ -103,6 +103,7 @@ __cpp_lib_containers_ranges                             202202L <deque> <forward
                                                                 <map> <queue> <set>
                                                                 <stack> <string> <unordered_map>
                                                                 <unordered_set> <vector>
+__cpp_lib_contracts                                     202502L <contracts>
 __cpp_lib_copyable_function                             202306L <functional>
 __cpp_lib_coroutine                                     201902L <coroutine>
 __cpp_lib_debugging                                     202403L <debugging>
@@ -289,6 +290,7 @@ __cpp_lib_reference_from_temporary                      202202L <type_traits>
 __cpp_lib_reference_wrapper                             202403L <functional>
 __cpp_lib_reflection                                    202603L <meta>
 __cpp_lib_remove_cvref                                  201711L <type_traits>
+__cpp_lib_replaceable_contract_violation_handler        202603L <contracts>
 __cpp_lib_result_of_sfinae                              201210L <functional> <type_traits>
 __cpp_lib_robust_nonmodifying_seq_ops                   201304L <algorithm>
 __cpp_lib_sample                                        201603L <algorithm>
@@ -667,6 +669,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # endif
 # define __cpp_lib_constexpr_queue                      202502L
 # define __cpp_lib_constrained_equality                 202411L
+# define __cpp_lib_contracts                            202502L
 # define __cpp_lib_copyable_function                    202306L
 # define __cpp_lib_debugging                            202403L
 # define __cpp_lib_default_template_type_for_algorithm_values 202403L
@@ -814,6 +817,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # if __has_feature(reflection)
 #   define __cpp_lib_reflection                         202603L
 # endif
+# define __cpp_lib_replaceable_contract_violation_handler 202603L
 # define __cpp_lib_saturation_arithmetic                202311L
 # define __cpp_lib_senders                              202406L
 # define __cpp_lib_simd                                 202603L

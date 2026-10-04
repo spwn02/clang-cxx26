@@ -74,18 +74,16 @@ enum class ContractAssertionKind {
 /// Contract evaluation mode. Determines whether to check contracts, and
 // whether contract failures cause compile errors.
 //
-// These values match up with std::contracts::evaluation_semantic. However, only
-// `enforce` and `observe` actually appear in STL enum.
+// These values match up with std::contracts::evaluation_semantic
+// ([contracts.syn]): ignore = 1, observe = 2, enforce = 3, quick_enforce = 4.
 enum class ContractEvaluationSemantic {
   // Contracts are parsed, syntax checked and type checked, but never evaluated.
-  // FIXME(EricWF): This doesn't yet map to an actual enumerator in
-  //  std::contracts::evaluation_semantic
-  Ignore = 0,
+  Ignore = 1,
 
   // Contracts are run, failures are reported, and when a contract fails the
   // program is terminated. The compiler can assume after contracts statements
   // that the contracts hold.
-  Enforce = 1,
+  Enforce = 3,
 
   // Contracts are run, and failures are reported, but contract failures do not
   // logically stop execution of the program, nor can the compiler assume
@@ -93,9 +91,7 @@ enum class ContractEvaluationSemantic {
   Observe = 2,
 
   // Contracts are run, failures cause an immediate trap
-  // FIXME(EricWF): This doesn't yet map to an actual enumerator in
-  //  std::contracts::evaluation_semantic
-  QuickEnforce = 3,
+  QuickEnforce = 4,
 };
 
 /// The result of checking a contract. The second two values match

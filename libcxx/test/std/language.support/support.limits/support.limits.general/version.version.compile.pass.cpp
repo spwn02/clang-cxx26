@@ -296,6 +296,10 @@
 #    error "__cpp_lib_containers_ranges should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_contracts
+#    error "__cpp_lib_contracts should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_copyable_function
 #    error "__cpp_lib_copyable_function should not be defined before c++26"
 #  endif
@@ -960,6 +964,10 @@
 #    error "__cpp_lib_remove_cvref should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_replaceable_contract_violation_handler
+#    error "__cpp_lib_replaceable_contract_violation_handler should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_result_of_sfinae
 #    error "__cpp_lib_result_of_sfinae should not be defined before c++14"
 #  endif
@@ -1474,6 +1482,10 @@
 
 #  ifdef __cpp_lib_containers_ranges
 #    error "__cpp_lib_containers_ranges should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_contracts
+#    error "__cpp_lib_contracts should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_copyable_function
@@ -2176,6 +2188,10 @@
 #    error "__cpp_lib_remove_cvref should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_replaceable_contract_violation_handler
+#    error "__cpp_lib_replaceable_contract_violation_handler should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_result_of_sfinae
 #    error "__cpp_lib_result_of_sfinae should be defined in c++14"
 #  endif
@@ -2756,6 +2772,10 @@
 
 #  ifdef __cpp_lib_containers_ranges
 #    error "__cpp_lib_containers_ranges should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_contracts
+#    error "__cpp_lib_contracts should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_copyable_function
@@ -3554,6 +3574,10 @@
 #    error "__cpp_lib_remove_cvref should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_replaceable_contract_violation_handler
+#    error "__cpp_lib_replaceable_contract_violation_handler should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_result_of_sfinae
 #    error "__cpp_lib_result_of_sfinae should be defined in c++17"
 #  endif
@@ -4287,6 +4311,10 @@
 
 #  ifdef __cpp_lib_containers_ranges
 #    error "__cpp_lib_containers_ranges should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_contracts
+#    error "__cpp_lib_contracts should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_copyable_function
@@ -5184,6 +5212,10 @@
 #    error "__cpp_lib_remove_cvref should have the value 201711L in c++20"
 #  endif
 
+#  ifdef __cpp_lib_replaceable_contract_violation_handler
+#    error "__cpp_lib_replaceable_contract_violation_handler should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_result_of_sfinae
 #    error "__cpp_lib_result_of_sfinae should be defined in c++20"
 #  endif
@@ -6010,6 +6042,10 @@
 #  endif
 #  if __cpp_lib_containers_ranges != 202202L
 #    error "__cpp_lib_containers_ranges should have the value 202202L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_contracts
+#    error "__cpp_lib_contracts should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_copyable_function
@@ -7027,6 +7063,10 @@
 #    error "__cpp_lib_remove_cvref should have the value 201711L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_replaceable_contract_violation_handler
+#    error "__cpp_lib_replaceable_contract_violation_handler should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_result_of_sfinae
 #    error "__cpp_lib_result_of_sfinae should be defined in c++23"
 #  endif
@@ -7940,6 +7980,13 @@
 #  endif
 #  if __cpp_lib_containers_ranges != 202202L
 #    error "__cpp_lib_containers_ranges should have the value 202202L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_contracts
+#    error "__cpp_lib_contracts should be defined in c++26"
+#  endif
+#  if __cpp_lib_contracts != 202502L
+#    error "__cpp_lib_contracts should have the value 202502L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_copyable_function
@@ -9342,6 +9389,13 @@
 #  endif
 #  if __cpp_lib_remove_cvref != 201711L
 #    error "__cpp_lib_remove_cvref should have the value 201711L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_replaceable_contract_violation_handler
+#    error "__cpp_lib_replaceable_contract_violation_handler should be defined in c++26"
+#  endif
+#  if __cpp_lib_replaceable_contract_violation_handler != 202603L
+#    error "__cpp_lib_replaceable_contract_violation_handler should have the value 202603L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_result_of_sfinae

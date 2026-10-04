@@ -5,6 +5,12 @@
 
 using namespace std::contracts;
 
+// [basic.contract.handler]: no standard library header declares the default
+// contract-violation handler, and a replacement may have a non-throwing exception
+// specification. Declare it here, weakly, for the runtime only (the exception
+// specification is not part of the mangled name).
+__attribute__((weak)) void handle_contract_violation(const std::contracts::contract_violation&);
+
 struct std::contracts::_ContractViolationImpl {
   _AssertKind kind              = _AssertKind::assert;
   _EvaluationSemantic semantic  = _EvaluationSemantic::enforce;

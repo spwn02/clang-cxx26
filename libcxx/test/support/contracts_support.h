@@ -64,13 +64,16 @@ constexpr std::string_view enum_to_string(AssertKind K) {
 }
 constexpr std::string_view enum_to_string(Semantic S) {
   switch (S) {
+  case Semantic::ignore:
+    return "ignore";
   case observe:
     return "observe";
   case enforce:
     return "enforce";
-  case Semantic::__unknown:
-    return "<unknown>";
+  case Semantic::quick_enforce:
+    return "quick_enforce";
   }
+  return "<unknown>";
 }
 constexpr std::string_view enum_to_string(DetectionKind D) {
   switch (D) {
