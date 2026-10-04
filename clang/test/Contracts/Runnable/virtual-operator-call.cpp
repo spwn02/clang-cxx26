@@ -19,11 +19,29 @@ struct D : B {
   bool operator==(const B &) const override pre((putchar('g'), true)) post((putchar('h'), true)) { return true; }
 };
 
+// Argument values reach the statically chosen function's assertions; the
+// object is argument 0 of an operator call expression.
+struct V {
+  virtual int operator()(const int v) pre((putchar('p'), v == 7)) post(r: (putchar('q'), r == v + 1)) { return v + 1; }
+  virtual bool operator!() const pre((putchar('n'), true)) { return true; }
+  virtual ~V() = default;
+};
+struct W : V {
+  int operator()(int v) override { return v + 1; }
+  bool operator!() const override pre((putchar('m'), true)) { return false; }
+};
+
 int main() {
   D d;
   B &r = d;
   r(1); puts("");
   (void)(r == r); puts("");
+  W w;
+  V &v = w;
+  (void)v(7); puts("");
+  (void)!v; puts("");
 }
 // CHECK: aefb
 // CHECK-NEXT: cghd
+// CHECK-NEXT: pq
+// CHECK-NEXT: nm
