@@ -118,7 +118,7 @@ struct Container {
   }
 
   template <class T>
-  constexpr ElementType* emplace(ElementType* where, T val)
+  constexpr ElementType* emplace_hint(ElementType* where, T val)
     requires(Inserter >= InserterChoice::Emplace)
   {
     inserter_choice = InserterChoice::Emplace;
