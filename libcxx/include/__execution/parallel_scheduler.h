@@ -65,7 +65,7 @@ struct __parallel_task_base {
   _LIBCPP_HIDE_FROM_ABI constexpr __parallel_task_base(__parallel_task_base&&) noexcept = default;
   __parallel_task_base(const __parallel_task_base&)                                     = delete;
   __parallel_task_base& operator=(const __parallel_task_base&)                          = delete;
-  __parallel_task_base& operator=(__parallel_task_base&&)                                = delete;
+  __parallel_task_base& operator=(__parallel_task_base&&)                               = delete;
 
   virtual void __execute() noexcept = 0;
   __parallel_task_base* __next      = nullptr;
@@ -142,34 +142,24 @@ private:
 // Thread count is explicitly implementation-defined per the paper (no configuration API
 // exists) -- hardware_concurrency(), floored at 1 since it may report 0 when undetectable.
 _LIBCPP_HIDE_FROM_ABI inline __parallel_pool& __get_parallel_pool() {
-  static __parallel_pool* __pool = new __parallel_pool(std::thread::hardware_concurrency() == 0
-                                                             ? 1
-                                                             : static_cast<size_t>(std::thread::hardware_concurrency()));
+  static __parallel_pool* __pool = new __parallel_pool(
+      std::thread::hardware_concurrency() == 0 ? 1 : static_cast<size_t>(std::thread::hardware_concurrency()));
   return *__pool;
 }
 
-// [exec.parallel.scheduler]: parallel_scheduler. A handle, not an owner -- copyable, not
-// default-constructible (no implicit "empty" state; only get_parallel_scheduler() below
-// produces one), equality-comparable by backend identity. Holds a raw, non-owning pointer to
-// the process-wide __parallel_pool singleton, which is safe precisely because that singleton
-// is deliberately leaked (see __get_parallel_pool() above) -- no shared_ptr/refcounting needed
-// since the pointee never goes away. Defined here (immediately after __parallel_pool, before
-// anything that embeds a parallel_scheduler by value) rather than after __parallel_sender, the
-// same ordering <__execution/run_loop.h> uses for __run_loop_scheduler: schedule()'s return
-// type is only forward-declared at this point, so its body is defined out-of-line below, once
-// __parallel_sender is complete -- matching run_loop.h's own __run_loop_scheduler::schedule().
+// [exec.par.scheduler]: retain the backend queried when the scheduler is obtained.
+// Copies and senders share that backend; equality compares the backend object identity.
 class parallel_scheduler {
 public:
   using scheduler_concept = scheduler_tag;
 
   parallel_scheduler() = delete;
 
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool
-  operator==(const parallel_scheduler& __x, const parallel_scheduler& __y) noexcept {
-    return __x.__pool_ == __y.__pool_;
+  _LIBCPP_HIDE_FROM_ABI friend bool operator==(const parallel_scheduler& __x, const parallel_scheduler& __y) noexcept {
+    return __x.__backend_ == __y.__backend_;
   }
 
-  _LIBCPP_HIDE_FROM_ABI constexpr __parallel_sender schedule() const noexcept;
+  _LIBCPP_HIDE_FROM_ABI __parallel_sender schedule() const noexcept;
 
   // [exec.parallel.scheduler]p2: query(get_forward_progress_guarantee_t) is parallel --
   // independent worker threads, but (Pass 1) no work-stealing/helping guarantee that would
@@ -180,12 +170,14 @@ public:
   }
 
 private:
-  friend _LIBCPP_HIDE_FROM_ABI parallel_scheduler get_parallel_scheduler() noexcept;
+  friend _LIBCPP_HIDE_FROM_ABI parallel_scheduler get_parallel_scheduler();
   friend class __parallel_sndr_env;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit parallel_scheduler(__parallel_pool* __pool) noexcept : __pool_(__pool) {}
+  _LIBCPP_HIDE_FROM_ABI explicit parallel_scheduler(
+      shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend> __backend) noexcept
+      : __backend_(std::move(__backend)) {}
 
-  __parallel_pool* __pool_;
+  shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend> __backend_;
 };
 
 // [exec.parallel.scheduler]p3: the environment of schedule(parallel-scheduler) answers
@@ -197,40 +189,27 @@ private:
 // so this direct probe is the documented, pragmatic replacement for it.
 class __parallel_sndr_env {
 public:
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit __parallel_sndr_env(parallel_scheduler __sch) noexcept;
+  _LIBCPP_HIDE_FROM_ABI explicit __parallel_sndr_env(parallel_scheduler __sch) noexcept;
 
   template <class _Tag>
     requires is_same_v<_Tag, set_value_t>
-  _LIBCPP_HIDE_FROM_ABI constexpr parallel_scheduler query(get_completion_scheduler_t<_Tag>) const noexcept;
+  _LIBCPP_HIDE_FROM_ABI parallel_scheduler query(get_completion_scheduler_t<_Tag>) const noexcept;
 
 private:
   parallel_scheduler __sch_;
 };
 
-// [exec.parallel.scheduler]: parallel-scheduler's operation state. Unlike run_loop's opstate
-// (single draining thread, chosen by whoever calls run()), __execute() here runs on whichever
-// worker thread pops this item off the pool's queue -- genuine concurrency, the first in this
-// fork. Mirrors run_loop's stop-token check: a schedule() sender can complete set_stopped_t()
-// if the receiver's environment already carries a requested stop, matching
-// [exec.parallel.scheduler]'s completion-signature set; nothing in Pass 1 can produce
-// set_error_t (no user code runs as part of schedule()'s own completion), so -- matching
-// run_loop.h's and task_scheduler.h's own precedent of only declaring what's reachable -- it
-// is intentionally not declared here.
-// [exec.sysctx.replaceability], Pass 3b (see docs/design/parallel_scheduler_p2079.md): also a
-// system_context_replaceability::receiver_proxy, so this opstate can be dispatched through a
-// REPLACED parallel_scheduler_backend instead of the default pool. Exactly one of __execute()
-// (default backend, unchanged fast path) or set_value()/set_stopped() (replaced backend) is
-// ever invoked for a given opstate -- both paths complete __rcvr_ exactly once, matching this
-// opstate's existing single-use invariant.
+// Dispatch through the bound backend, keeping it alive through operation completion.
 template <class _Rcvr>
-class __parallel_opstate final : public __parallel_task_base, public execution::system_context_replaceability::receiver_proxy {
+class __parallel_opstate final : public execution::parallel_scheduler_replacement::receiver_proxy {
   using _StopToken = decltype(std::get_stop_token(execution::get_env(std::declval<_Rcvr&>())));
 
 public:
   using operation_state_concept = operation_state_tag;
 
-  _LIBCPP_HIDE_FROM_ABI explicit __parallel_opstate(__parallel_pool* __pool, _Rcvr&& __rcvr) noexcept
-      : __pool_(__pool), __rcvr_(std::move(__rcvr)) {}
+  _LIBCPP_HIDE_FROM_ABI explicit __parallel_opstate(
+      shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend> __backend, _Rcvr&& __rcvr) noexcept
+      : __backend_(std::move(__backend)), __rcvr_(std::move(__rcvr)) {}
 
   // Movable, matching <__execution/task_scheduler.h>'s __inline_opstate: __task_scheduler_model
   // ::__connect receives an already-materialized opstate through a forwarding-reference
@@ -240,47 +219,28 @@ public:
   // <__execution/run_loop.h>'s __run_loop_opstate, whose connect() returns a bare prvalue).
   // Any scheduler wrapped by task_scheduler (as parallel_scheduler will be) needs this.
   _LIBCPP_HIDE_FROM_ABI __parallel_opstate(__parallel_opstate&&) noexcept = default;
-  __parallel_opstate(const __parallel_opstate&)                          = delete;
-  __parallel_opstate& operator=(const __parallel_opstate&)               = delete;
-  __parallel_opstate& operator=(__parallel_opstate&&)                    = delete;
+  __parallel_opstate(const __parallel_opstate&)                           = delete;
+  __parallel_opstate& operator=(const __parallel_opstate&)                = delete;
+  __parallel_opstate& operator=(__parallel_opstate&&)                     = delete;
 
-  // Pass 3b: check whether the process has replaced the default backend (a cheap shared_ptr
-  // identity comparison) before falling back to the default pool -- keeps the exact Pass-1
-  // dispatch, zero ABI indirection, for the overwhelmingly common (unreplaced) case.
   _LIBCPP_HIDE_FROM_ABI void start() & noexcept {
-    namespace __scr  = execution::system_context_replaceability;
-    auto __active    = __scr::query_parallel_scheduler_backend();
-    if (__active == __scr::__get_default_parallel_scheduler_backend()) {
-      __pool_->__schedule(this);
-    } else {
-      __active->schedule(*this, span<byte>(__backend_storage_, sizeof(__backend_storage_)));
-    }
+    __backend_->schedule(*this, span<byte>(__backend_storage_, sizeof(__backend_storage_)));
   }
 
 private:
-  _LIBCPP_HIDE_FROM_ABI void __execute() noexcept override {
-    if (std::get_stop_token(execution::get_env(__rcvr_)).stop_requested()) {
-      execution::set_stopped(std::move(__rcvr_));
-    } else {
-      execution::set_value(std::move(__rcvr_));
-    }
-  }
-
-  // system_context_replaceability::receiver_proxy overrides -- only reached via a REPLACED
-  // backend's schedule(), never via __execute() above (and vice versa).
   _LIBCPP_HIDE_FROM_ABI void set_value() noexcept override { execution::set_value(std::move(__rcvr_)); }
   _LIBCPP_HIDE_FROM_ABI void set_stopped() noexcept override { execution::set_stopped(std::move(__rcvr_)); }
   // [exec.parallel.scheduler]'s completion-signature set for schedule(parallel-scheduler) never
   // includes set_error_t (see this class's own top comment) -- a conforming backend cannot
   // reach this.
   _LIBCPP_HIDE_FROM_ABI void set_error(std::exception_ptr) noexcept override {
-    _LIBCPP_ASSERT_INTERNAL(false, "parallel_scheduler_backend::set_error reached for a sender that never completes with set_error_t");
+    _LIBCPP_ASSERT_INTERNAL(
+        false, "parallel_scheduler_backend::set_error reached for a sender that never completes with set_error_t");
   }
 
-  _LIBCPP_HIDE_FROM_ABI bool __query_env(const type_info& __query_type,
-                                          const type_info& __result_type,
-                                          const void*,
-                                          void* __result_storage) noexcept override {
+  _LIBCPP_HIDE_FROM_ABI bool
+  __query_env(const type_info& __query_type, const type_info& __result_type, const void*, void* __result_storage)
+      const noexcept override {
     if (__query_type == typeid(get_stop_token_t) && __result_type == typeid(_StopToken)) {
       ::new (__result_storage) _StopToken(std::get_stop_token(execution::get_env(__rcvr_)));
       return true;
@@ -288,11 +248,9 @@ private:
     return false;
   }
 
-  __parallel_pool* __pool_;
+  shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend> __backend_;
   _Rcvr __rcvr_;
-  // Scratch storage for a REPLACED backend's own scheduling metadata (e.g. an intrusive
-  // task-list node); this fork's own default backend never uses this path (it goes through
-  // __execute() above instead). Sized generously for a pointer-plus-vtable-shaped node.
+  // Preallocated scratch storage for the bound backend.
   alignas(max_align_t) byte __backend_storage_[64];
 };
 
@@ -301,14 +259,16 @@ class __parallel_sender {
 public:
   using sender_concept = sender_tag;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit __parallel_sender(__parallel_pool* __pool, parallel_scheduler __sch) noexcept
-      : __pool_(__pool), __sch_(__sch) {}
+  _LIBCPP_HIDE_FROM_ABI explicit __parallel_sender(
+      shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend> __backend,
+      parallel_scheduler __sch) noexcept
+      : __backend_(std::move(__backend)), __sch_(std::move(__sch)) {}
 
-  _LIBCPP_HIDE_FROM_ABI constexpr __parallel_sndr_env get_env() const noexcept { return __parallel_sndr_env(__sch_); }
+  _LIBCPP_HIDE_FROM_ABI __parallel_sndr_env get_env() const noexcept { return __parallel_sndr_env(__sch_); }
 
   template <class _Rcvr>
   _LIBCPP_HIDE_FROM_ABI __parallel_opstate<remove_cvref_t<_Rcvr>> connect(_Rcvr&& __rcvr) const {
-    return __parallel_opstate<remove_cvref_t<_Rcvr>>(__pool_, std::forward<_Rcvr>(__rcvr));
+    return __parallel_opstate<remove_cvref_t<_Rcvr>>(__backend_, std::forward<_Rcvr>(__rcvr));
   }
 
   // Same Env-dependent shape as run_loop.h's own get_completion_signatures -- see that file's
@@ -324,28 +284,28 @@ public:
   }
 
 private:
-  __parallel_pool* __pool_;
+  shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend> __backend_;
   parallel_scheduler __sch_;
 };
 
-_LIBCPP_HIDE_FROM_ABI constexpr __parallel_sndr_env::__parallel_sndr_env(parallel_scheduler __sch) noexcept
-    : __sch_(__sch) {}
+inline _LIBCPP_HIDE_FROM_ABI __parallel_sndr_env::__parallel_sndr_env(parallel_scheduler __sch) noexcept : __sch_(__sch) {}
 
 template <class _Tag>
   requires is_same_v<_Tag, set_value_t>
-_LIBCPP_HIDE_FROM_ABI constexpr parallel_scheduler __parallel_sndr_env::query(get_completion_scheduler_t<_Tag>) const noexcept {
+_LIBCPP_HIDE_FROM_ABI parallel_scheduler __parallel_sndr_env::query(get_completion_scheduler_t<_Tag>) const noexcept {
   return __sch_;
 }
 
-_LIBCPP_HIDE_FROM_ABI constexpr __parallel_sender parallel_scheduler::schedule() const noexcept {
-  return __parallel_sender(__pool_, *this);
+inline _LIBCPP_HIDE_FROM_ABI __parallel_sender parallel_scheduler::schedule() const noexcept {
+  return __parallel_sender(__backend_, *this);
 }
 
-// [exec.parallel.scheduler]p1: the only way to obtain a parallel_scheduler. Every call returns
-// a handle to the same process-wide pool (verified by operator== comparing the pool pointer),
-// matching the paper's own description of a typically-shared backend.
-_LIBCPP_HIDE_FROM_ABI inline parallel_scheduler get_parallel_scheduler() noexcept {
-  return parallel_scheduler(&__get_parallel_pool());
+// [exec.par.scheduler]: query once and terminate if no backend is available.
+_LIBCPP_HIDE_FROM_ABI inline parallel_scheduler get_parallel_scheduler() {
+  auto __backend = parallel_scheduler_replacement::query_parallel_scheduler_backend();
+  if (!__backend)
+    std::terminate();
+  return parallel_scheduler(std::move(__backend));
 }
 
 } // namespace execution

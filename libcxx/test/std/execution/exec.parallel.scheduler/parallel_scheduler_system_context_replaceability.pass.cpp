@@ -31,7 +31,7 @@
 #include <thread>
 #include <vector>
 
-namespace scr = std::execution::system_context_replaceability;
+namespace scr = std::execution::parallel_scheduler_replacement;
 
 namespace {
 
@@ -70,7 +70,7 @@ public:
   size_t thread_count() const { return tids_.size(); }
 
 protected:
-  bool __query_env(const std::type_info&, const std::type_info&, const void*, void*) noexcept override {
+  bool __query_env(const std::type_info&, const std::type_info&, const void*, void*) const noexcept override {
     return false; // this test never checks for a stop request
   }
 
@@ -89,7 +89,7 @@ public:
   std::atomic<bool> value_called_ = false;
 
 protected:
-  bool __query_env(const std::type_info&, const std::type_info&, const void*, void*) noexcept override {
+  bool __query_env(const std::type_info&, const std::type_info&, const void*, void*) const noexcept override {
     return false;
   }
 };

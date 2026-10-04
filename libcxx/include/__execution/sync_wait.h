@@ -144,10 +144,13 @@ struct sync_wait_with_variant_t {
         execution::__completion_domain(__sndr, __sync_wait_env{nullptr}), *this, std::forward<_Sndr>(__sndr));
   }
 
-  // [exec.sync.wait.var]p3: apply_sender(sndr) is equivalent to sync_wait(into_variant(sndr)).
+  // [exec.sync.wait.var]: unwrap the single variant value returned by sync_wait.
   template <class _Sndr>
   _LIBCPP_HIDE_FROM_ABI auto apply_sender(_Sndr&& __sndr) const {
-    return this_thread::sync_wait(execution::into_variant(std::forward<_Sndr>(__sndr)));
+    using __result_t = optional<execution::value_types_of_t<_Sndr, __sync_wait_env>>;
+    if (auto __value = this_thread::sync_wait(execution::into_variant(std::forward<_Sndr>(__sndr))))
+      return __result_t(std::move(std::get<0>(*__value)));
+    return __result_t(nullopt);
   }
 };
 

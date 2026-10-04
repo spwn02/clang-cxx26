@@ -39,7 +39,7 @@
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace execution {
-namespace system_context_replaceability {
+namespace parallel_scheduler_replacement {
 
 namespace {
 
@@ -204,7 +204,7 @@ _LIBCPP_WEAK shared_ptr<parallel_scheduler_backend> query_parallel_scheduler_bac
   return __get_default_parallel_scheduler_backend();
 }
 
-} // namespace system_context_replaceability
+} // namespace parallel_scheduler_replacement
 } // namespace execution
 
 _LIBCPP_END_NAMESPACE_STD

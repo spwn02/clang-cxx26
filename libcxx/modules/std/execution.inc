@@ -256,12 +256,12 @@ export namespace std::execution {
   using std::execution::parallel_scheduler;
 
   // [exec.sysctx.replaceability] -- Pass 3b.
-  namespace system_context_replaceability {
-    using std::execution::system_context_replaceability::bulk_item_receiver_proxy;
-    using std::execution::system_context_replaceability::parallel_scheduler_backend;
-    using std::execution::system_context_replaceability::query_parallel_scheduler_backend;
-    using std::execution::system_context_replaceability::receiver_proxy;
-  } // namespace system_context_replaceability
+  namespace parallel_scheduler_replacement {
+    using std::execution::parallel_scheduler_replacement::bulk_item_receiver_proxy;
+    using std::execution::parallel_scheduler_replacement::parallel_scheduler_backend;
+    using std::execution::parallel_scheduler_replacement::query_parallel_scheduler_backend;
+    using std::execution::parallel_scheduler_replacement::receiver_proxy;
+  } // namespace parallel_scheduler_replacement
 #endif
 
 #if _LIBCPP_HAS_THREADS
@@ -278,6 +278,7 @@ export namespace std::execution {
   using std::execution::associate;
   using std::execution::associate_t;
   using std::execution::counting_scope;
+  using std::execution::scope_association;
   using std::execution::scope_token;
   using std::execution::simple_counting_scope;
   using std::execution::spawn;

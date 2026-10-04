@@ -80,16 +80,16 @@ struct stops_sndr {
 };
 
 int main(int, char**) {
-  // sync_wait_with_variant(sndr) is sync_wait(into_variant(sndr)), and sync_wait's own
-  // result type always wraps its completion args in a tuple -- so the result here is
-  // optional<tuple<variant<...>>>, not optional<variant<...>> directly. into_variant's
-  // single value-completion argument (the variant) becomes that lone tuple element.
+  // [exec.sync.wait.var]: "For a value completion, the result datums are returned
+  // in an engaged optional object that contains a variant of tuples."
+  static_assert(std::is_same_v<decltype(std::this_thread::sync_wait_with_variant(just(1))),
+                              std::optional<std::variant<std::tuple<int>>>>);
 
   // Value completion, first alternative.
   {
     auto r = std::this_thread::sync_wait_with_variant(two_shapes_sndr{/*send_int=*/true});
     assert(r.has_value());
-    auto& v = std::get<0>(*r);
+    auto& v = *r;
     using V = std::decay_t<decltype(v)>;
     static_assert(std::variant_size_v<V> == 2);
     assert(std::holds_alternative<std::tuple<int>>(v));
@@ -99,7 +99,7 @@ int main(int, char**) {
   {
     auto r = std::this_thread::sync_wait_with_variant(two_shapes_sndr{/*send_int=*/false});
     assert(r.has_value());
-    auto& v = std::get<0>(*r);
+    auto& v = *r;
     assert(std::holds_alternative<std::tuple<std::string>>(v));
     assert(std::get<std::tuple<std::string>>(v) == std::tuple<std::string>("hello"));
   }
@@ -112,8 +112,7 @@ int main(int, char**) {
   {
     auto r1 = std::this_thread::sync_wait_with_variant(two_shapes_sndr{/*send_int=*/true});
     auto r2 = std::this_thread::sync_wait(into_variant(two_shapes_sndr{/*send_int=*/true}));
-    static_assert(std::is_same_v<decltype(r1), decltype(r2)>);
-    assert(r1 == r2);
+    assert(r1 && r2 && *r1 == std::get<0>(*r2));
   }
   return 0;
 }

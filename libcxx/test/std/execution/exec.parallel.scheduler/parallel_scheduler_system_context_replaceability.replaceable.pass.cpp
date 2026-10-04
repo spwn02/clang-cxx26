@@ -33,7 +33,7 @@
 #include <execution>
 #include <thread>
 
-namespace scr = std::execution::system_context_replaceability;
+namespace scr = std::execution::parallel_scheduler_replacement;
 
 namespace {
 std::atomic<int> g_schedule_calls{0};

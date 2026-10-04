@@ -36,13 +36,20 @@
 
 using namespace std::execution;
 
+// [exec.simple.counting.ctor]: "If state is not one of joined, unused, or
+// unused-and-closed, invokes terminate." Join after operation states have died.
+template <class Scope> struct join_guard {
+  Scope& scope;
+  ~join_guard() { std::this_thread::sync_wait(scope.join()); }
+};
+
 struct capture_rcvr {
   using receiver_concept = receiver_tag;
   bool* flag;
 
   void set_value() && noexcept { *flag = true; }
   void set_stopped() && noexcept { assert(false); }
-  auto get_env() const noexcept { return env<>{}; }
+  auto get_env() const noexcept { return prop(get_start_scheduler, inline_scheduler{}); }
 };
 
 struct stopped_rcvr {
@@ -58,14 +65,17 @@ static_assert(scope_token<simple_counting_scope::token>);
 
 void test_basic_token() {
   simple_counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
-  assert(token.try_associate());
-  token.disassociate();
+  auto assoc = token.try_associate();
+  assert(assoc);
+  assoc = {};
 }
 
 // A closed scope rejects new associations.
 void test_try_associate_after_close() {
   simple_counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   scope.close();
   assert(!token.try_associate());
@@ -73,6 +83,7 @@ void test_try_associate_after_close() {
 
 void test_associate_success() {
   simple_counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   bool ran = false;
   auto op = connect(associate(just(), token), capture_rcvr{&ran});
@@ -83,6 +94,7 @@ void test_associate_success() {
 // associate() on a closed scope completes with set_stopped(), never running the child sender.
 void test_associate_closed() {
   simple_counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   scope.close();
   bool stopped = false;
@@ -94,6 +106,7 @@ void test_associate_closed() {
 // join() takes its synchronous fast path when nothing is outstanding.
 void test_spawn_and_join_synchronous() {
   simple_counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   spawn(just(), token);
   bool joined = false;
@@ -109,6 +122,7 @@ void test_spawn_and_join_synchronous() {
 void test_spawn_and_join_deferred() {
   run_loop loop;
   simple_counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   spawn(schedule(loop.get_scheduler()), token);
 
@@ -129,13 +143,16 @@ static_assert(scope_token<counting_scope::token>);
 
 void test_counting_scope_basic_token() {
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
-  assert(token.try_associate());
-  token.disassociate();
+  auto assoc = token.try_associate();
+  assert(assoc);
+  assoc = {};
 }
 
 void test_counting_scope_try_associate_after_close() {
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   scope.close();
   assert(!token.try_associate());
@@ -144,6 +161,7 @@ void test_counting_scope_try_associate_after_close() {
 void test_counting_scope_spawn_and_join_deferred() {
   run_loop loop;
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   spawn(schedule(loop.get_scheduler()), token);
 
@@ -161,10 +179,12 @@ void test_counting_scope_spawn_and_join_deferred() {
 // senders observe, not association bookkeeping.
 void test_counting_scope_request_stop_independent_of_associate() {
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   scope.request_stop();
-  assert(token.try_associate());
-  token.disassociate();
+  auto assoc = token.try_associate();
+  assert(assoc);
+  assoc = {};
 }
 
 // A receiver providing no stop token of its own (env<>{}, same as every other test above)
@@ -182,6 +202,7 @@ struct stop_token_capture_rcvr {
 
 void test_counting_scope_wrap_unstoppable_branch() {
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
 
   std::optional<std::inplace_stop_token> captured;
@@ -215,6 +236,7 @@ struct external_stop_token_rcvr {
 
 void test_counting_scope_wrap_combined_branch_scope_side() {
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   std::inplace_stop_source external_source;
 
@@ -231,6 +253,7 @@ void test_counting_scope_wrap_combined_branch_scope_side() {
 
 void test_counting_scope_wrap_combined_branch_external_side() {
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   std::inplace_stop_source external_source;
 
@@ -266,6 +289,7 @@ struct capture_value_rcvr {
 // takes its "already complete" fast path (dispatching the stored result immediately).
 void test_spawn_future_value_synchronous() {
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
 
   std::optional<int> value;
@@ -283,6 +307,7 @@ void test_spawn_future_value_synchronous() {
 // never started at all and the future completes with set_stopped() -- independent of the child.
 void test_spawn_future_closed_scope_is_stopped() {
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   scope.close();
 
@@ -325,6 +350,7 @@ struct throwing_sndr {
 
 void test_spawn_future_error() {
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
 
   std::optional<int> value;
@@ -367,6 +393,7 @@ void test_spawn_future_error() {
 void test_spawn_future_abandon_requests_stop() {
   run_loop loop;
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
 
   {
@@ -389,6 +416,7 @@ void test_spawn_future_abandon_requests_stop() {
 // it explicitly here by discarding the returned sender outright.
 void test_spawn_future_abandon_after_synchronous_completion() {
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
   spawn_future(just(1), token); // discarded immediately; already completed by the time it is
 }
@@ -401,6 +429,7 @@ void test_spawn_future_abandon_after_synchronous_completion() {
 void test_spawn_future_consume_then_complete_deferred() {
   run_loop loop;
   counting_scope scope;
+  join_guard guard{scope};
   auto token = scope.get_token();
 
   std::optional<int> value;
