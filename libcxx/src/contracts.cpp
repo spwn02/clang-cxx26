@@ -37,9 +37,9 @@ static void __default_violation_handler(const contract_violation& violation) {
     case _AssertKind::cassert:
       return {"assert(", ")"};
     case _AssertKind::manual:
-    case _AssertKind::__unknown:
       return {"", ""};
     }
+    return {"", ""};
   }();
   std::cerr << assert_str.first << violation.comment() << assert_str.second;
   if (violation.detection_mode() == _DetectionMode::predicate_false) {

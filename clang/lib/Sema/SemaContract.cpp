@@ -1227,9 +1227,18 @@ bool Sema::isUsageAcrossContract(const ValueDecl *VD) {
     VD = Binding->getDecomposedDecl();
 
   // Non-local variables and reference template parameters are also covered by
-  // [expr.prim.id.unqual]; neither requires a lambda capture.
-  if (isa<NonTypeTemplateParmDecl>(VD) ||
-      (isa<VarDecl>(VD) && !cast<VarDecl>(VD)->isLocalVarDeclOrParm()))
+  // [expr.prim.id.unqual]; neither requires a lambda capture. A template
+  // parameter of a lambda written inside C is declared inside C, though.
+  if (const auto *NTTP = dyn_cast<NonTypeTemplateParmDecl>(VD)) {
+    const auto *CSR = getCurrentContractEntry();
+    unsigned FirstScope = CSR->HadNoFunctionScope ? 0 : CSR->FunctionIndex + 1;
+    for (unsigned I = FirstScope; I < FunctionScopes.size(); ++I)
+      if (const auto *LSI = dyn_cast<LambdaScopeInfo>(FunctionScopes[I]))
+        if (llvm::is_contained(LSI->TemplateParams, NTTP))
+          return false;
+    return true;
+  }
+  if (isa<VarDecl>(VD) && !cast<VarDecl>(VD)->isLocalVarDeclOrParm())
     return true;
 
   // Parameters in a function declarator are not yet parented to its

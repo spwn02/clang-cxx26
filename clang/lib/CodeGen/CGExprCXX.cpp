@@ -495,7 +495,8 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
   if (!ContractMD->hasContracts())
     ContractMD = cast<CXXMethodDecl>(MD->getFirstDecl());
   bool NeedsStaticContracts =
-      CanUseVirtualCall && isa<CXXMemberCallExpr>(CE) &&
+      CanUseVirtualCall && CE &&
+      (isa<CXXMemberCallExpr>(CE) || isa<CXXOperatorCallExpr>(CE)) &&
       ContractMD->hasContracts() &&
       llvm::any_of(ContractMD->contracts(),
                    [&](const ContractStmt *CS) {

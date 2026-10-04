@@ -66,9 +66,11 @@ enum class ContractAssertionKind {
 
   Assert = 3,
 
-  Manual = 4,
+  // Fork extensions: [support.contract.enum] says implementation-defined
+  // enumerators should have a minimum value of 1000.
+  Manual = 1000,
 
-  CAssert = 5
+  CAssert = 1001
 };
 
 /// Contract evaluation mode. Determines whether to check contracts, and
@@ -97,9 +99,10 @@ enum class ContractEvaluationSemantic {
 /// The result of checking a contract. The second two values match
 /// std::contracts::detection_mode.
 enum class ContractDetectionMode {
-  Unspecified = 0,
   PredicateFailed = 1,
-  ExceptionRaised = 2
+  ExceptionRaised = 2,
+  // Fork extension (see ContractAssertionKind).
+  Unspecified = 1000
 };
 
 /// The code generation style for the contract. Inline

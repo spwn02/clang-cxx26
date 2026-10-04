@@ -58,9 +58,8 @@ constexpr std::string_view enum_to_string(AssertKind K) {
     return "manual";
   case AssertKind::cassert:
   return "assert";
-  case AssertKind::__unknown:
-    return "<unknown>";
   }
+  return "<unknown>";
 }
 constexpr std::string_view enum_to_string(Semantic S) {
   switch (S) {
