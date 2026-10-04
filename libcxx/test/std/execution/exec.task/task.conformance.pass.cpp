@@ -77,8 +77,7 @@ ex::task<int, errors_environment> custom_error(std::allocator_arg_t, allocator<s
 ex::task<int&, environment> reference(std::allocator_arg_t, allocator<std::byte>, ex::run_loop& loop, int& v) {
   co_await ex::schedule(loop.get_scheduler()); co_return v;
 }
-ex::task<int, environment> stop_token(std::allocator_arg_t, allocator<std::byte>, ex::run_loop& loop) {
-  co_await ex::schedule(loop.get_scheduler());
+ex::task<int, environment> stop_token(std::allocator_arg_t, allocator<std::byte>, ex::run_loop&) {
   auto token = co_await ex::read_env(std::get_stop_token);
   co_return token.stop_requested();
 }
@@ -105,7 +104,9 @@ int main(int, char**) {
     ex::run_loop loop;
     counters c;
     int result = 0, v = 77; int* ref = nullptr;
-    std::inplace_stop_source source; source.request_stop();
+    // A requested stop is also observed by the run_loop operation a task schedules on, so only the
+    // stop-token case runs with a stop request and without scheduling.
+    std::inplace_stop_source source; if (kind == 5) source.request_stop();
     receiver r{&c, &result, source.get_token(), &ref};
     auto run = [&](auto t) {
       // [task.state]: "own-env with own-env-t(get_env(rcvr)) ... environment with Environment(own-env)"
@@ -129,7 +130,11 @@ int main(int, char**) {
     // [task.class]: "T is void, a reference type, or a cv-unqualified non-array object type"
     if (kind == 4) { run(reference(std::allocator_arg, allocator<std::byte>(&c), loop, v)); assert(ref == &v); }
     // [task.state]: "If same_as<...> is true, returns get_stop_token(get_env(rcvr))."
-    if (kind == 5) { run(stop_token(std::allocator_arg, allocator<std::byte>(&c), loop)); assert(result == 1); }
+    if (kind == 5) {
+      auto op = ex::connect(stop_token(std::allocator_arg, allocator<std::byte>(&c), loop), r);
+      ex::start(op);
+      assert(result == 1 && c.deallocations == 1);
+    }
     assert(c.deallocations == 1);
   }
   return 0;

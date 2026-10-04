@@ -176,9 +176,16 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr void start() & noexcept;
 
 private:
-  // [exec.run.loop.types]: get_stop_token(REC(o)), directly on the receiver.
+  // [exec.run.loop.types]p10.2 literally writes `get_stop_token(REC(o))`, directly on the
+  // receiver (the wording is unchanged from P2300R10 and looks like a leftover of the
+  // pre-R5 design where receivers themselves were queryable). A receiver that answers the
+  // query itself therefore completes with set_stopped, as written. Every standard receiver
+  // exposes its stop token through get_env instead, so cancellation of work queued on a
+  // run_loop would silently be lost if only the literal form were checked: the stop token
+  // of the receiver's environment is honoured as well.
   _LIBCPP_HIDE_FROM_ABI void __execute() noexcept override {
-    if (std::get_stop_token(__rcvr_).stop_requested()) {
+    if (std::get_stop_token(__rcvr_).stop_requested() ||
+        std::get_stop_token(execution::get_env(__rcvr_)).stop_requested()) {
       execution::set_stopped(std::move(__rcvr_));
     } else {
       execution::set_value(std::move(__rcvr_));

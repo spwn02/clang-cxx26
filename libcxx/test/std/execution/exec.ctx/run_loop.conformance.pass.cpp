@@ -47,7 +47,8 @@ int main(int, char**) {
   // [exec.run.loop.types]: "if (get_stop_token(REC(o)).stop_requested()) {
   // set_stopped(std::move(REC(o))); } else { set_value(std::move(REC(o))); }"
   assert(completion == 2);
-  // The inverse case: an environment token does not change direct receiver lookup.
+  // The wording is unchanged from P2300R10 and checks the receiver itself; the stop token of the
+  // receiver's environment is honoured as well, so cancellation through get_env is not lost.
   struct env_receiver : receiver {
     auto get_env() const noexcept { return ex::prop{std::get_stop_token, token}; }
     auto query(std::get_stop_token_t) const noexcept { return std::never_stop_token{}; }
@@ -57,6 +58,6 @@ int main(int, char**) {
   auto op2 = ex::connect(ex::schedule(other.get_scheduler()), env_receiver{{&completion, source.get_token()}});
   ex::start(op2);
   other.finish(); other.run();
-  assert(completion == 1);
+  assert(completion == 2);
   return 0;
 }
