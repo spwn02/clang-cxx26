@@ -11,6 +11,7 @@ algorithm iosfwd
 algorithm limits
 algorithm optional
 algorithm ratio
+algorithm stdexcept
 algorithm tuple
 algorithm version
 any cstdint
@@ -33,6 +34,7 @@ atomic ctime
 atomic initializer_list
 atomic limits
 atomic ratio
+atomic stdexcept
 atomic typeinfo
 atomic version
 barrier climits
@@ -199,6 +201,7 @@ condition_variable ctime
 condition_variable initializer_list
 condition_variable limits
 condition_variable ratio
+condition_variable stdexcept
 condition_variable typeinfo
 condition_variable version
 contracts cstdint
@@ -482,6 +485,7 @@ forward_list cwchar
 forward_list cwctype
 forward_list initializer_list
 forward_list limits
+forward_list stdexcept
 forward_list tuple
 forward_list version
 fstream bitset
@@ -603,6 +607,7 @@ hazard_pointer limits
 hazard_pointer memory
 hazard_pointer mutex
 hazard_pointer ratio
+hazard_pointer stdexcept
 hazard_pointer tuple
 hazard_pointer typeinfo
 hazard_pointer utility
@@ -785,6 +790,7 @@ iterator cwctype
 iterator initializer_list
 iterator iosfwd
 iterator limits
+iterator stdexcept
 iterator variant
 iterator version
 latch climits
@@ -843,6 +849,7 @@ list cwchar
 list cwctype
 list initializer_list
 list limits
+list stdexcept
 list tuple
 list version
 locale cctype
@@ -900,6 +907,7 @@ memory cstdint
 memory cstring
 memory initializer_list
 memory limits
+memory stdexcept
 memory tuple
 memory typeinfo
 memory version
@@ -969,6 +977,7 @@ numeric initializer_list
 numeric limits
 numeric optional
 numeric ratio
+numeric stdexcept
 numeric tuple
 numeric version
 optional compare
@@ -1180,6 +1189,7 @@ set cwctype
 set initializer_list
 set limits
 set optional
+set stdexcept
 set tuple
 set version
 shared_mutex cerrno
@@ -1342,6 +1352,7 @@ stop_token ctime
 stop_token initializer_list
 stop_token limits
 stop_token ratio
+stop_token stdexcept
 stop_token typeinfo
 stop_token version
 streambuf cctype
@@ -1549,6 +1560,7 @@ unordered_set cstring
 unordered_set initializer_list
 unordered_set limits
 unordered_set optional
+unordered_set stdexcept
 unordered_set tuple
 unordered_set version
 utility compare
@@ -1561,6 +1573,7 @@ valarray cmath
 valarray cstdint
 valarray initializer_list
 valarray limits
+valarray stdexcept
 valarray version
 variant compare
 variant cstdint

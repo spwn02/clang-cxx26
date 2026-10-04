@@ -15,6 +15,7 @@
 #include <__concepts/same_as.h>
 #include <__config>
 #include <__iterator/concepts.h>
+#include <__iterator/distance.h>
 #include <__iterator/iterator_traits.h>
 #include <__iterator/prev.h>
 #include <__memory/pointer_traits.h>
@@ -25,6 +26,10 @@
 #include <__type_traits/is_class.h>
 #include <__type_traits/make_unsigned.h>
 #include <__type_traits/remove_cv.h>
+
+#if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
+#  include <stdexcept>
+#endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -177,6 +182,25 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) operator[](range_difference_t<_RARange> __index) const {
     return ranges::begin(__derived())[__index];
   }
+
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
+  // [view.interface.members]: returns (*this)[n]; throws out_of_range if n < 0 or n >= ranges::distance(derived()).
+  template <random_access_range _RARange = _Derived>
+    requires sized_range<_RARange>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) at(range_difference_t<_RARange> __index) {
+    if (__index < 0 || __index >= ranges::distance(__derived()))
+      std::__throw_out_of_range("view_interface::at");
+    return (*this)[__index];
+  }
+
+  template <random_access_range _RARange = const _Derived>
+    requires sized_range<_RARange>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) at(range_difference_t<_RARange> __index) const {
+    if (__index < 0 || __index >= ranges::distance(__derived()))
+      std::__throw_out_of_range("view_interface::at");
+    return (*this)[__index];
+  }
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 } // namespace ranges
