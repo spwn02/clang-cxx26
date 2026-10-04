@@ -70,6 +70,7 @@ struct __reverse {
 #  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires permutable<_Iter>
   _LIBCPP_HIDE_FROM_ABI _Iter operator()(_Ep&& __exec, _Iter __first, _Sent __last) const {
     _Iter __end = __first + (__last - __first);
     std::reverse(std::forward<_Ep>(__exec), __first, __end);
@@ -77,7 +78,7 @@ struct __reverse {
   }
   template <class _Ep, random_access_range _Range, class _RawPolicy = __remove_cvref_t<_Ep>,
             enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-    requires sized_range<_Range>
+    requires sized_range<_Range> && permutable<iterator_t<_Range>>
   _LIBCPP_HIDE_FROM_ABI borrowed_iterator_t<_Range> operator()(_Ep&& __exec, _Range&& __range) const {
     return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::end(__range));
   }

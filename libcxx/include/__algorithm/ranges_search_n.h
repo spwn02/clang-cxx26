@@ -121,16 +121,19 @@ struct __search_n {
   template <class _Ep,
             random_access_iterator _Iter,
             sized_sentinel_for<_Iter> _Sent,
-            class _Size,
-            class _Type,
             class _Pred                                        = ranges::equal_to,
             class _Proj                                        = identity,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<_Iter, _Proj>
+#  endif
+            ,
             class _RawPolicy                                   = __remove_cvref_t<_Ep>,
             enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires indirectly_comparable<_Iter, const _Type*, _Pred, _Proj>
   _LIBCPP_HIDE_FROM_ABI subrange<_Iter>
-  operator()(_Ep&& __exec, _Iter __first, _Sent __last, _Size __count, const _Type& __value, _Pred __pred = {},
-             _Proj __proj = {}) const {
+  operator()(_Ep&& __exec, _Iter __first, _Sent __last, iter_difference_t<_Iter> __count, const _Type& __value,
+             _Pred __pred = {}, _Proj __proj = {}) const {
     _Iter __end = __first + (__last - __first);
     if (__count <= 0)
       return {__first, __first};
@@ -144,15 +147,18 @@ struct __search_n {
 
   template <class _Ep,
             random_access_range _Range,
-            class _Size,
-            class _Type,
             class _Pred                                        = ranges::equal_to,
             class _Proj                                        = identity,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<iterator_t<_Range>, _Proj>
+#  endif
+            ,
             class _RawPolicy                                   = __remove_cvref_t<_Ep>,
             enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires sized_range<_Range> && indirectly_comparable<iterator_t<_Range>, const _Type*, _Pred, _Proj>
   _LIBCPP_HIDE_FROM_ABI borrowed_subrange_t<_Range>
-  operator()(_Ep&& __exec, _Range&& __r, _Size __count, const _Type& __value, _Pred __pred = {},
+  operator()(_Ep&& __exec, _Range&& __r, range_difference_t<_Range> __count, const _Type& __value, _Pred __pred = {},
              _Proj __proj = {}) const {
     return (*this)(
         std::forward<_Ep>(__exec), ranges::begin(__r), ranges::end(__r), __count, __value, std::move(__pred),

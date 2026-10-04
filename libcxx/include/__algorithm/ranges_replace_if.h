@@ -78,7 +78,11 @@ struct __replace_if {
 
 #  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent, class _Proj = identity,
-            class _Type, indirect_unary_predicate<projected<_Iter, _Proj>> _Pred,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<_Iter, _Proj>
+#  endif
+           , indirect_unary_predicate<projected<_Iter, _Proj>> _Pred,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires indirectly_writable<_Iter, const _Type&>
   _LIBCPP_HIDE_FROM_ABI _Iter operator()(
@@ -91,7 +95,12 @@ struct __replace_if {
     return __end;
   }
 
-  template <class _Ep, random_access_range _Range, class _Type, class _Proj = identity,
+  template <class _Ep, random_access_range _Range, class _Proj = identity,
+            class _Type
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<iterator_t<_Range>, _Proj>
+#  endif
+           ,
             indirect_unary_predicate<projected<iterator_t<_Range>, _Proj>> _Pred,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires sized_range<_Range> && indirectly_writable<iterator_t<_Range>, const _Type&>

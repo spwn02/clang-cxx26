@@ -80,7 +80,15 @@ struct __replace {
 
 #  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent, class _Proj = identity,
-            class _Type1, class _Type2, class _RawPolicy = __remove_cvref_t<_Ep>,
+            class _Type1
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<_Iter, _Proj>
+#  endif
+           , class _Type2
+#  if _LIBCPP_STD_VER >= 26
+            = _Type1
+#  endif
+           , class _RawPolicy = __remove_cvref_t<_Ep>,
             enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires indirectly_writable<_Iter, const _Type2&> &&
              indirect_binary_predicate<ranges::equal_to, projected<_Iter, _Proj>, const _Type1*>
@@ -95,7 +103,16 @@ struct __replace {
     return __end;
   }
 
-  template <class _Ep, random_access_range _Range, class _Proj = identity, class _Type1, class _Type2,
+  template <class _Ep, random_access_range _Range, class _Proj = identity,
+            class _Type1
+#  if _LIBCPP_STD_VER >= 26
+            = projected_value_t<iterator_t<_Range>, _Proj>
+#  endif
+           , class _Type2
+#  if _LIBCPP_STD_VER >= 26
+            = _Type1
+#  endif
+           ,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires sized_range<_Range> && indirectly_writable<iterator_t<_Range>, const _Type2&> &&
              indirect_binary_predicate<ranges::equal_to, projected<iterator_t<_Range>, _Proj>, const _Type1*>

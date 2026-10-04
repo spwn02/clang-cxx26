@@ -71,6 +71,7 @@ struct __unique {
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
             class _Comp = ranges::equal_to, class _Proj = identity,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires indirect_equivalence_relation<_Comp, projected<_Iter, _Proj>> && permutable<_Iter>
   _LIBCPP_HIDE_FROM_ABI subrange<_Iter> operator()(_Ep&& __exec, _Iter __first, _Sent __last, _Comp __comp = {},
                                                    _Proj __proj = {}) const {
     _Iter __end = __first + (__last - __first);
@@ -83,7 +84,8 @@ struct __unique {
   template <class _Ep, random_access_range _Range, class _Comp = ranges::equal_to, class _Proj = identity,
             class _RawPolicy = __remove_cvref_t<_Ep>,
             enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-    requires sized_range<_Range>
+    requires sized_range<_Range> && indirect_equivalence_relation<_Comp, projected<iterator_t<_Range>, _Proj>> &&
+             permutable<iterator_t<_Range>>
   _LIBCPP_HIDE_FROM_ABI borrowed_subrange_t<_Range> operator()(_Ep&& __exec, _Range&& __range, _Comp __comp = {},
                                                                _Proj __proj = {}) const {
     return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::end(__range), std::move(__comp), std::move(__proj));
