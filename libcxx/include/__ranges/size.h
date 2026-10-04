@@ -140,37 +140,41 @@ namespace ranges {
 namespace __reserve_hint {
 void reserve_hint() = delete;
 
+// [range.prim.size.hint]
 template <class _Tp>
 concept __sized = requires(_Tp&& __t) { ranges::size(__t); };
 
 template <class _Tp>
-concept __member = requires(_Tp&& __t) { { __t.reserve_hint() } -> __integer_like; };
+concept __member = requires(_Tp&& __t) {
+  { auto(__t.reserve_hint()) } -> __integer_like;
+};
 
 template <class _Tp>
 concept __adl = __class_or_enum<remove_cvref_t<_Tp>> && requires(_Tp&& __t) {
-  { reserve_hint(__t) } -> __integer_like;
+  { auto(reserve_hint(__t)) } -> __integer_like;
 };
 
 struct __fn {
+  // "If ranges::size(E) is a valid expression, ranges::reserve_hint(E) is expression-equivalent to
+  // ranges::size(E)": the result is integer-like, which includes integer-class types.
   template <class _Tp>
     requires __sized<_Tp>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr integral auto operator()(_Tp&& __t) const
-      noexcept(noexcept(ranges::size(__t))) {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Tp&& __t) const noexcept(noexcept(ranges::size(__t))) {
     return ranges::size(__t);
   }
 
   template <class _Tp>
     requires(!__sized<_Tp> && __member<_Tp>)
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __integer_like auto operator()(_Tp&& __t) const
-      noexcept(noexcept(__t.reserve_hint())) {
-    return __t.reserve_hint();
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Tp&& __t) const
+      noexcept(noexcept(auto(__t.reserve_hint()))) {
+    return auto(__t.reserve_hint());
   }
 
   template <class _Tp>
     requires(!__sized<_Tp> && !__member<_Tp> && __adl<_Tp>)
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __integer_like auto operator()(_Tp&& __t) const
-      noexcept(noexcept(reserve_hint(__t))) {
-    return reserve_hint(__t);
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Tp&& __t) const
+      noexcept(noexcept(auto(reserve_hint(__t)))) {
+    return auto(reserve_hint(__t));
   }
 };
 } // namespace __reserve_hint

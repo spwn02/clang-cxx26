@@ -10,6 +10,7 @@
 
 // std::ranges::reserve_hint
 
+#include <concepts>
 #include <ranges>
 
 #include <cassert>
@@ -116,7 +117,35 @@ struct NoexceptSize {
 };
 static_assert(noexcept(std::ranges::reserve_hint(std::declval<NoexceptSize&>())));
 
+// [range.prim.size.hint]: "if auto(t.reserve_hint()) is a valid expression of integer-like type" /
+// "auto(reserve_hint(t)) is a valid expression of integer-like type": a reference result is decayed.
+struct MemberRef {
+  int n = 7;
+  constexpr int& reserve_hint() noexcept { return n; }
+};
+static_assert(requires(MemberRef& m) { std::ranges::reserve_hint(m); });
+static_assert(std::same_as<decltype(std::ranges::reserve_hint(std::declval<MemberRef&>())), int>);
+constexpr bool testMemberReference() {
+  MemberRef m;
+  return std::ranges::reserve_hint(m) == 7;
+}
+
+struct AdlRef {
+  int n = 7;
+  friend constexpr int& reserve_hint(AdlRef& a) noexcept { return a.n; }
+};
+static_assert(requires(AdlRef& a) { std::ranges::reserve_hint(a); });
+constexpr bool testAdlReference() {
+  AdlRef a;
+  return std::ranges::reserve_hint(a) == 7;
+}
+
 int main(int, char**) {
+  testMemberReference();
+  static_assert(testMemberReference());
+  testAdlReference();
+  static_assert(testAdlReference());
+
   testSizeWins();
   static_assert(testSizeWins());
 

@@ -10,9 +10,9 @@
 
 // <ranges>
 
-// template<input_range R> using const_iterator_t = const_iterator<iterator_t<R>>;
-// template<range R> using const_sentinel_t = const_sentinel<sentinel_t<R>>;     (LWG 3770)
-// template<input_range R> using range_const_reference_t = iter_const_reference_t<iterator_t<R>>;
+// template<range R> using const_iterator_t = decltype(ranges::cbegin(declval<R&>()));
+// template<range R> using const_sentinel_t = decltype(ranges::cend(declval<R&>()));
+// template<range R> using range_const_reference_t = iter_const_reference_t<iterator_t<R>>;
 
 #include <array>
 #include <concepts>
@@ -20,20 +20,18 @@
 #include <ranges>
 #include <vector>
 
-// int* is not a constant iterator, so it is wrapped (ranges::cbegin(array) returns const int* because it applies
-// possibly-const-range first, but const_iterator_t<R> starts from iterator_t<R>).
-static_assert(std::same_as<std::ranges::const_iterator_t<int[3]>, std::basic_const_iterator<int*>>);
-static_assert(std::same_as<std::ranges::const_sentinel_t<int[3]>, std::basic_const_iterator<int*>>);
-static_assert(std::same_as<std::ranges::const_iterator_t<int (&)[3]>, std::basic_const_iterator<int*>>);
-static_assert(std::same_as<std::ranges::const_sentinel_t<int (&)[3]>, std::basic_const_iterator<int*>>);
+// [ranges.syn]: the aliases name the result of ranges::cbegin / ranges::cend, which apply
+// possibly-const-range first (so an array of int yields const int*).
+static_assert(std::same_as<std::ranges::const_iterator_t<int[3]>, const int*>);
+static_assert(std::same_as<std::ranges::const_sentinel_t<int[3]>, const int*>);
+static_assert(std::same_as<std::ranges::const_iterator_t<int (&)[3]>, const int*>);
+static_assert(std::same_as<std::ranges::const_sentinel_t<int (&)[3]>, const int*>);
 static_assert(std::same_as<std::ranges::const_iterator_t<const int[3]>, const int*>);
 static_assert(std::same_as<std::ranges::const_sentinel_t<const int[3]>, const int*>);
 static_assert(std::same_as<std::ranges::range_const_reference_t<int[3]>, const int&>);
 
-static_assert(std::same_as<std::ranges::const_iterator_t<std::vector<int>>,
-                           std::basic_const_iterator<std::vector<int>::iterator>>);
-static_assert(std::same_as<std::ranges::const_sentinel_t<std::vector<int>>,
-                           std::basic_const_iterator<std::vector<int>::iterator>>);
+static_assert(std::same_as<std::ranges::const_iterator_t<std::vector<int>>, std::vector<int>::const_iterator>);
+static_assert(std::same_as<std::ranges::const_sentinel_t<std::vector<int>>, std::vector<int>::const_iterator>);
 static_assert(std::same_as<std::ranges::const_iterator_t<const std::vector<int>>, std::vector<int>::const_iterator>);
 static_assert(std::same_as<std::ranges::range_const_reference_t<std::vector<int>>, const int&>);
 static_assert(std::same_as<std::ranges::range_const_reference_t<const std::vector<int>>, const int&>);
@@ -45,7 +43,7 @@ static_assert(std::same_as<std::ranges::range_const_reference_t<Iota>, int>);
 using Unbounded = std::ranges::iota_view<int>;
 static_assert(std::same_as<std::ranges::const_sentinel_t<Unbounded>, std::unreachable_sentinel_t>);
 
-// A range that is not an input range has no const_iterator_t, but a sentinel type may still exist.
+// A range that is not an input range still has the aliases (they only need a range).
 struct NotInput {
   int* begin();
   int* end();

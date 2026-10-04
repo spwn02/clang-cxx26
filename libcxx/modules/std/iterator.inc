@@ -188,16 +188,15 @@ export namespace std {
 
   // [const.iterators], constant iterators and sentinels
   // [const.iterators.alias], alias templates
-  //  using std::const_iterator;
-  //  using std::const_sentinel;
-  //  using std::iter_const_reference_t;
+  using std::const_iterator;
+  using std::const_sentinel;
+  using std::iter_const_reference_t;
 
   // [const.iterators.iterator], class template basic_const_iterator
-  //  using std::basic_const_iterator;
+  using std::basic_const_iterator;
 
-  // using std::common_type;
-
-  //  using std::make_const_iterator;
+  using std::make_const_iterator;
+  using std::make_const_sentinel;
 
   // [move.iterators], move iterators and sentinels
   using std::move_iterator;

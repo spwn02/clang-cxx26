@@ -66,7 +66,7 @@ export namespace std {
     // [range.refinements], other range refinements
     using std::ranges::bidirectional_range;
     using std::ranges::common_range;
-    // using std::ranges::constant_range;
+    using std::ranges::constant_range;
     using std::ranges::contiguous_range;
     using std::ranges::forward_range;
     using std::ranges::input_range;
@@ -288,13 +288,11 @@ export namespace std {
     } // namespace views
 
     // [range.as.const], as const view
-#if 0
     using std::ranges::as_const_view;
 
     namespace views {
       using std::ranges::views::as_const;
     } // namespace views
-#endif
     // [range.elements], elements view
     using std::ranges::elements_view;
 

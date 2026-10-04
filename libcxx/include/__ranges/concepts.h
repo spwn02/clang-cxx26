@@ -87,19 +87,30 @@ template <range _Rp>
 using range_common_reference_t = iter_common_reference_t<iterator_t<_Rp>>;
 
 #  if _LIBCPP_STD_VER >= 23
-template <input_range _Rp>
-using const_iterator_t = const_iterator<iterator_t<_Rp>>;
+// [ranges.syn]: the current draft defines these in terms of ranges::cbegin / ranges::cend.
+template <range _Rp>
+using const_iterator_t = decltype(ranges::cbegin(std::declval<_Rp&>()));
 
 template <range _Rp>
-using const_sentinel_t = const_sentinel<sentinel_t<_Rp>>;
+using const_sentinel_t = decltype(ranges::cend(std::declval<_Rp&>()));
 
-template <input_range _Rp>
+template <range _Rp>
 using range_const_reference_t = iter_const_reference_t<iterator_t<_Rp>>;
 #  endif // _LIBCPP_STD_VER >= 23
 
 // [range.sized]
+#  if _LIBCPP_STD_VER >= 26
+// [range.approximately.sized]
+template <class _Tp>
+concept approximately_sized_range = range<_Tp> && requires(_Tp& __t) { ranges::reserve_hint(__t); };
+
+// [range.sized]: sized_range refines approximately_sized_range
+template <class _Tp>
+concept sized_range = approximately_sized_range<_Tp> && requires(_Tp& __t) { ranges::size(__t); };
+#  else
 template <class _Tp>
 concept sized_range = range<_Tp> && requires(_Tp& __t) { ranges::size(__t); };
+#  endif
 
 template <sized_range _Rp>
 using range_size_t = decltype(ranges::size(std::declval<_Rp&>()));
@@ -153,11 +164,6 @@ concept viewable_range =
      (!view<remove_cvref_t<_Tp>> &&
       (is_lvalue_reference_v<_Tp> ||
        (movable<remove_reference_t<_Tp>> && !__is_std_initializer_list<remove_cvref_t<_Tp>>))));
-
-#  if _LIBCPP_STD_VER >= 26
-template <class _Tp>
-concept approximately_sized_range = range<_Tp> && requires(_Tp& __t) { ranges::reserve_hint(__t); };
-#  endif
 
 #  if _LIBCPP_STD_VER >= 23
 
