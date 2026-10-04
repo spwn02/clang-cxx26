@@ -80,6 +80,16 @@ bool Parser::LateParseFunctionContractSpecifier(CachedTokens &Toks) {
   Token StartTok = Tok;
   SourceRange ContractRange = SourceRange(ConsumeToken());
 
+  Toks.push_back(StartTok);
+  // Attributes belong to the assertion and must survive delayed parsing.
+  while (Tok.is(tok::l_square) && NextToken().is(tok::l_square)) {
+    Toks.push_back(Tok);
+    ConsumeBracket();
+    if (!ConsumeAndStoreUntil(tok::r_square, Toks, /*StopAtSemi=*/true,
+                             /*ConsumeFinalToken=*/true))
+      return false;
+  }
+
   // Check for a '('.
   if (!Tok.is(tok::l_paren)) {
     // If this is a bare 'noexcept', we're done.
@@ -90,7 +100,6 @@ bool Parser::LateParseFunctionContractSpecifier(CachedTokens &Toks) {
 
   // Cache the tokens for the exception-specification.
 
-  Toks.push_back(StartTok);             // 'throw' or 'noexcept'
   Toks.push_back(Tok);                  // '('
   ContractRange.setEnd(ConsumeParen()); // '('
 
@@ -295,13 +304,19 @@ StmtResult Parser::ParseFunctionContractSpecifierImpl(
   // FIXME(EricWF): We allow parsing the result name declarator in `pre` so we
   // can diagnose it but we don't do the same for contract assert... Should we?
   if ((CK != ContractKind::Assert) && Tok.is(tok::identifier) &&
-      NextToken().is(tok::colon)) {
+      (NextToken().is(tok::colon) ||
+       (NextToken().is(tok::l_square) &&
+        GetLookAheadToken(2).is(tok::l_square)))) {
     // Let this parse for non-post contracts. We'll diagnose it later.
 
     IdentifierInfo *Id = Tok.getIdentifierInfo();
     SourceLocation IdLoc = ConsumeToken();
 
-    ExprLoc = ConsumeToken();
+    ParsedAttributes ResultAttrs(AttrFactory);
+    MaybeParseCXX11Attributes(ResultAttrs);
+    if (ExpectAndConsume(tok::colon))
+      return StmtError();
+    ExprLoc = Tok.getLocation();
     QualType ReturnType;
     if (ReturnTypeResolver)
       ReturnType = ReturnTypeResolver();
@@ -312,6 +327,7 @@ StmtResult Parser::ParseFunctionContractSpecifierImpl(
     if (!RND)
       return StmtError();
 
+    Actions.ProcessDeclAttributeList(getCurScope(), RND, ResultAttrs);
     if (RND->isInvalidDecl())
       IsInvalid = true;
   }

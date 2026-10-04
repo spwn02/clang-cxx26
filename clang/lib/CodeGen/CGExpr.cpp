@@ -3430,8 +3430,16 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
   // store alive for scalar returns -- without it, this alloca can be a
   // dead store's target by the time a postcondition reads it (see
   // docs/CONTRACTS_HARDENING.md M3).
-  if (isa<ResultNameDecl>(ND))
+  if (isa<ResultNameDecl>(ND)) {
+    if (E->refersToEnclosingVariableOrCapture())
+      if (auto *Field = LambdaCaptureFields.lookup(cast<ValueDecl>(ND)))
+        return EmitCapturedFieldLValue(*this, Field, CXXABIThisValue);
+    if (cast<ValueDecl>(ND)->getType()->isReferenceType())
+      return EmitLoadOfReferenceLValue(ReturnValue,
+                                      cast<ValueDecl>(ND)->getType(),
+                                      AlignmentSource::Decl);
     return MakeAddrLValue(ReturnValue, T, AlignmentSource::Decl);
+  }
 
   if (const auto *VD = dyn_cast<VarDecl>(ND)) {
     // Global Named registers access via intrinsics only

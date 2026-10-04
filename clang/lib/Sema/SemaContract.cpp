@@ -176,6 +176,11 @@ StmtResult Sema::ActOnContractAssert(ContractKind CK, SourceLocation KeywordLoc,
                                      Expr *Cond, ResultNameDecl *RND,
                                      ParsedAttributes &ContractAttrs) {
 
+  // The parser diagnoses malformed result bindings before finishing the
+  // predicate. Do not construct a precondition with a postcondition-only node.
+  if (RND && CK != ContractKind::Post)
+    return StmtError();
+
   DeclStmt *RNDStmt = nullptr;
   if (RND) {
     StmtResult NewDeclStmt = ActOnDeclStmt(
@@ -237,28 +242,43 @@ ResultNameDecl *Sema::ActOnResultNameDeclarator(ContractKind CK, Scope *S,
   if (IsInvalid)
     New->isInvalidDecl();
 
-  // Check for redeclaration of parameters, e.g. int foo(int x, int x);
-  if (II) {
-    LookupResult R(*this, II, IDLoc, LookupOrdinaryName,
-                   RedeclarationKind::ForVisibleRedeclaration); // FIXME(EricWF)
-    LookupName(R, S);
-    if (!R.empty()) {
-      NamedDecl *PrevDecl = *R.begin();
-      if (R.isSingleResult() && PrevDecl->isTemplateParameter()) {
-        // Maybe we will complain about the shadowed template parameter.
-        // DiagnoseTemplateParameterShadow(D.getIdentifierLoc(), PrevDecl);
-        // Just pretend that we didn't see the previous declaration.
-        PrevDecl = nullptr;
+  // [basic.scope.contract]: only F's parameter scope and, for a lambda
+  // declarator, its nearest lambda scope participate in this conflict.
+  NamedDecl *Conflict = nullptr;
+  if (S) {
+    if (auto *FD = dyn_cast<FunctionDecl>(CurContext))
+      for (auto *Param : FD->parameters())
+        if (Param->getIdentifier() == II)
+          Conflict = Param;
+    for (Scope *P = S->getParent(); P; P = P->getParent()) {
+      for (Decl *D : P->decls()) {
+        auto *ND = dyn_cast<NamedDecl>(D);
+        if (ND && ND->getIdentifier() == II && isa<ParmVarDecl>(ND))
+          Conflict = ND;
       }
-      // FIXME(EricWF): Diagnose lookup conflicts with lambda captures and
-      // parameter declarations.
-      if (auto *PVD = dyn_cast<ParmVarDecl>(PrevDecl)) {
-        Diag(IDLoc, diag::err_result_name_shadows_param)
-            << II; // FIXME(EricWF): Change the diagnostic here.
-        Diag(PVD->getLocation(), diag::note_previous_declaration);
-        New->setInvalidDecl(true);
+      if (P->getFlags() & Scope::LambdaScope) {
+        if (auto *LSI = getCurLambda())
+          for (const auto &Capture : LSI->Captures)
+            if (Capture.isVariableCapture() &&
+                Capture.getVariable()->getIdentifier() == II)
+              Conflict = Capture.getVariable();
+        break;
       }
+      if (!P->isFunctionPrototypeScope() && !P->isTemplateParamScope())
+        break;
     }
+  }
+  if (auto *LSI = getCurLambda(); S && LSI && LSI->CallOperator == CurContext)
+    for (const auto &Capture : LSI->Captures)
+      if (Capture.isVariableCapture() &&
+          Capture.getVariable()->getIdentifier() == II)
+        Conflict = Capture.getVariable();
+  if (Conflict) {
+    Diag(IDLoc, isa<ParmVarDecl>(Conflict)
+                    ? diag::err_result_name_shadows_param
+                    : diag::err_result_name_conflicts_capture) << II;
+    Diag(Conflict->getLocation(), diag::note_previous_declaration);
+    New->setInvalidDecl();
   }
 
   if (CK != ContractKind::Post) {
@@ -760,11 +780,11 @@ public:
     assert(!PVD->getOriginalType()->isArrayType());
 
     // or function type...
-    if (PVDType->isFunctionPointerType())
+    if (PVDType->isFunctionType())
       return DS_Function;
 
     // ...and that parameter shall be declared const
-    if (!PVDType.isConstQualified())
+    if (!PVD->getType().isConstQualified())
       return DS_NotConst;
 
     return DS_None;
@@ -820,6 +840,15 @@ static void diagnoseParamTypes(Sema &S, FunctionDecl *FD,
 void Sema::CheckFunctionContracts(FunctionDecl *FD, bool IsDefinition, bool IsInstantiation) {
   assert(FD && FD->hasContracts());
 
+  if (!FD->isInvalidDecl() &&
+      (FD->isDeletedAsWritten() ||
+       (FD->isExplicitlyDefaulted() && !FD->getPreviousDecl()))) {
+    Diag(FD->getContracts()->getLocation(),
+         diag::err_contract_on_deleted_or_defaulted_function)
+        << unsigned(!FD->isDeletedAsWritten());
+    FD->setInvalidDecl();
+    return;
+  }
   diagnoseParamTypes(*this, FD, FD->getContracts());
 }
 
@@ -910,12 +939,12 @@ void Sema::ActOnContractsOnFinishFunctionDecl(FunctionDecl *D,
 
 
 
-  // If the definition has omitted the contracts, but the first declaration has
-  // them, we need to rebuild the contracts to refer to the parameters of the
-  // definition.
+  // If a redeclaration omits the contracts, rebind them to its parameters.
+  // This also checks the postcondition const-parameter rule on declarations
+  // without a definition.
   //
   // For function templates, we'll create a copy when we instantiate the definition.
-  if (First->hasContracts() && !FD->hasContracts() && IsDefinition &&
+  if (First->hasContracts() && !FD->hasContracts() &&
       !FD->isTemplateInstantiation() && !IsTemplateSpecialization) {
     // Note: This case is mutually exclusive with the NonDependentPlaceholders
     // case, since we can't have a placeholder return type on a declaration that

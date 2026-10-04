@@ -5738,6 +5738,41 @@ FunctionDecl *Sema::InstantiateFunctionDeclaration(
   return cast_or_null<FunctionDecl>(SubstDecl(FD, FD->getParent(), MArgs));
 }
 
+void Sema::InstantiateFunctionContracts(SourceLocation PointOfInstantiation,
+                                        FunctionDecl *Function) {
+  if (Function->isInvalidDecl() || Function->isDependentContext() ||
+      Function->getTemplateSpecializationKind() == TSK_ExplicitSpecialization)
+    return;
+  const FunctionDecl *Pattern =
+      Function->getTemplateInstantiationPattern(/*ForDefinition=*/false);
+  if (!Pattern)
+    return;
+  Pattern = Pattern->getFirstDecl();
+  if (!Pattern->hasContracts())
+    return;
+  // Member instantiation can initially share the pattern's specifier. An
+  // independently owned specifier has already been substituted (including
+  // the empty recovery sentinel while substitution is in progress).
+  if (Function->hasContracts() &&
+      Function->getContracts() != Pattern->getContracts())
+    return;
+
+  NonSFINAEContext NonSFINAE(*this);
+  InstantiatingTemplate Inst(*this, PointOfInstantiation, Function);
+  if (Inst.isInvalid())
+    return;
+  ContextRAII SavedContext(*this, Function);
+  LocalInstantiationScope Scope(*this, true);
+  auto TemplateArgs = getTemplateInstantiationArgs(
+      Function, Function->getLexicalDeclContext(), /*Final=*/false,
+      /*Innermost=*/std::nullopt, /*RelativeToPrimary=*/true);
+  if (addInstantiatedParametersToScope(Function, Pattern, Scope, TemplateArgs))
+    return;
+  Function->setContracts(BuildContractSpecifierDecl(
+      {}, Function, Pattern->getContracts()->getLocation(), true));
+  InstantiateContractSpecifier(PointOfInstantiation, Function, Pattern,
+                               TemplateArgs);
+}
 void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
                                          FunctionDecl *Function,
                                          bool Recursive,
@@ -6158,7 +6193,9 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
 
       if (Body.isInvalid())
         Function->setInvalidDecl();
-      if (PatternDecl->hasContracts())
+      if (PatternDecl->hasContracts() &&
+          (!Function->hasContracts() ||
+           Function->getContracts() == PatternDecl->getContracts()))
         InstantiateContractSpecifier(PointOfInstantiation, Function,
                                      PatternDecl, TemplateArgs);
     }

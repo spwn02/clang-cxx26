@@ -3251,6 +3251,9 @@ public:
   DeclResult
   RebuildContractsWithPlaceholderReturnType(FunctionDecl *Definition);
 
+  void InstantiateFunctionContracts(SourceLocation PointOfInstantiation,
+                                    FunctionDecl *Function);
+
   void InstantiateContractSpecifier(
       SourceLocation PointOfInstantiation, FunctionDecl *Instantiation,
       const FunctionDecl *Pattern,

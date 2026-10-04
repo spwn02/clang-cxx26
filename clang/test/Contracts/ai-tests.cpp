@@ -26,8 +26,9 @@ int test_array(const int arr[]) // expected-note {{parameter of type 'const int[
 }
 
 // Test 4: Postcondition with function parameter (should fail)
+// [dcl.contract.func]: the odr-used non-reference parameter "shall have const type".
 int test_function(int (*func)()) // expected-note {{parameter of type 'int (*)()' is declared here}}
-    post(r: r == func()) // expected-error {{parameter 'func' referenced in contract postcondition cannot have a function type}}
+    post(r: r == func()) // expected-error {{parameter 'func' referenced in contract postcondition must be declared const}}
 {
     return func();
 }

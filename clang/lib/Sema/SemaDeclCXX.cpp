@@ -18739,6 +18739,11 @@ void Sema::SetDeclDeleted(Decl *Dcl, SourceLocation DelLoc,
     return;
   }
 
+  if (Fn->hasContracts()) {
+    Diag(DelLoc, diag::err_contract_on_deleted_or_defaulted_function) << 0;
+    Fn->setInvalidDecl();
+  }
+
   // Deleted function does not have a body.
   Fn->setWillHaveBody(false);
 
@@ -18821,6 +18826,12 @@ void Sema::SetDeclDefaulted(Decl *Dcl, SourceLocation DefaultLoc) {
     Diag(DefaultLoc, getLangOpts().CPlusPlus20
                          ? diag::warn_cxx17_compat_defaulted_comparison
                          : diag::ext_defaulted_comparison);
+  }
+
+  if (FD->hasContracts() && !FD->getPreviousDecl()) {
+    Diag(DefaultLoc, diag::err_contract_on_deleted_or_defaulted_function) << 1;
+    FD->setInvalidDecl();
+    return;
   }
 
   FD->setDefaulted();

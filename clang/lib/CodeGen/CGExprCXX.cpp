@@ -82,6 +82,57 @@ commonEmitCXXMemberOrOperatorCall(CodeGenFunction &CGF, GlobalDecl GD,
   return {required, PrefixSize};
 }
 
+// Caller-side checks use the parameter objects prepared for the call. Pass
+// their addresses, rather than constructing a second set of by-value objects.
+// A separate CodeGenFunction also permits calls with contracts inside
+// predicates.
+llvm::Function *
+CodeGenFunction::getVirtualContractHelper(const CXXMethodDecl *MD,
+                                          bool IsPost) {
+  std::string Name =
+      (CGM.getMangledName(MD) + (IsPost ? ".contract.post" : ".contract.pre"))
+          .str();
+  if (auto *Fn = CGM.getModule().getFunction(Name))
+    return Fn;
+  ASTContext &C = CGM.getContext();
+  FunctionArgList Params;
+  // this, parameter storage, and (for a postcondition) result storage.
+  unsigned Count = 1 + MD->getNumParams() + unsigned(IsPost);
+  for (unsigned I = 0; I != Count; ++I) {
+    Params.push_back(
+        ImplicitParamDecl::Create(C, C.VoidPtrTy, ImplicitParamKind::Other));
+  }
+  const auto &FI =
+      CGM.getTypes().arrangeBuiltinFunctionDeclaration(C.VoidTy, Params);
+  auto *Fn = llvm::Function::Create(CGM.getTypes().GetFunctionType(FI),
+                                    llvm::GlobalValue::InternalLinkage, Name,
+                                    &CGM.getModule());
+  CGM.SetInternalFunctionAttributes(GlobalDecl(), Fn, FI);
+  CodeGenFunction Helper(CGM);
+  Helper.StartFunction(GlobalDecl(), C.VoidTy, Fn, FI, Params,
+                       MD->getLocation(), MD->getLocation());
+  auto LoadPointer = [&](unsigned I) {
+    return Helper.Builder.CreateLoad(Helper.GetAddrOfLocalVar(Params[I]));
+  };
+  Helper.CXXThisValue = Helper.CXXABIThisValue = LoadPointer(0);
+  for (unsigned I = 0; I != MD->getNumParams(); ++I) {
+    const auto *P = MD->getParamDecl(I);
+    Helper.setAddrOfLocalVar(P, Address(LoadPointer(I + 1),
+                                        Helper.ConvertTypeForMem(P->getType()),
+                                        C.getDeclAlign(P)));
+  }
+  if (IsPost && !MD->getReturnType()->isVoidType())
+    Helper.ReturnValue = Address(LoadPointer(Count - 1),
+                                 Helper.ConvertTypeForMem(MD->getReturnType()),
+                                 C.getTypeAlignInChars(MD->getReturnType()));
+  Helper.CurFuncDecl = MD;
+  for (const auto *CS : IsPost ? MD->postconditions() : MD->preconditions())
+    Helper.EmitStmt(CS);
+  Helper.CurFuncDecl = nullptr;
+  Helper.ReturnValue = Address::invalid();
+  Helper.FinishFunction();
+  return Fn;
+}
 RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
     const CXXMethodDecl *MD, const CGCallee &Callee,
     ReturnValueSlot ReturnValue, llvm::Value *This, llvm::Value *ImplicitParam,
@@ -231,7 +282,11 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
     assert(DevirtualizedMethod);
     const CXXRecordDecl *DevirtualizedClass = DevirtualizedMethod->getParent();
     const Expr *Inner = Base->IgnoreParenBaseCasts();
-    if (DevirtualizedMethod->getReturnType().getCanonicalType() !=
+    if ((MD->hasContracts() || MD->getFirstDecl()->hasContracts()) &&
+        DevirtualizedMethod->getCanonicalDecl() != MD->getCanonicalDecl())
+      // Preserve the static subobject for caller-side contract predicates.
+      DevirtualizedMethod = nullptr;
+    else if (DevirtualizedMethod->getReturnType().getCanonicalType() !=
         MD->getReturnType().getCanonicalType())
       // If the return types are not the same, this might be a case where more
       // code needs to run to compensate for it. For example, the derived
@@ -428,6 +483,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
     }
   }
 
+  llvm::Value *ContractThis = This.getPointer(*this);
   if (MD->isVirtual()) {
     Address NewThisAddr =
         CGM.getCXXABI().adjustThisArgumentForVirtualFunctionCall(
@@ -435,9 +491,102 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
     This.setAddress(NewThisAddr);
   }
 
-  return EmitCXXMemberOrOperatorCall(
-      CalleeDecl, Callee, ReturnValue, This.getPointer(*this),
-      /*ImplicitParam=*/nullptr, QualType(), CE, RtlArgs, CallOrInvoke);
+  const auto *ContractMD = MD;
+  if (!ContractMD->hasContracts())
+    ContractMD = cast<CXXMethodDecl>(MD->getFirstDecl());
+  bool NeedsStaticContracts =
+      CanUseVirtualCall && isa<CXXMemberCallExpr>(CE) &&
+      ContractMD->hasContracts() &&
+      llvm::any_of(ContractMD->contracts(),
+                   [&](const ContractStmt *CS) {
+                     return CS->getSemantic(getContext()) !=
+                            ContractEvaluationSemantic::Ignore;
+                   }) &&
+      (!DevirtualizedMethod ||
+       DevirtualizedMethod->getCanonicalDecl() != MD->getCanonicalDecl());
+  if (!NeedsStaticContracts)
+    return EmitCXXMemberOrOperatorCall(
+        CalleeDecl, Callee, ReturnValue, This.getPointer(*this),
+        /*ImplicitParam=*/nullptr, QualType(), CE, RtlArgs, CallOrInvoke);
+
+  CallArgList Args;
+  auto CallInfo = commonEmitCXXMemberOrOperatorCall(
+      *this, CalleeDecl, This.getPointer(*this), nullptr, QualType(), CE, Args,
+      RtlArgs);
+  const auto &FI = CGM.getTypes().arrangeCXXMethodCall(
+      Args, CalleeDecl->getType()->castAs<FunctionProtoType>(),
+      CallInfo.ReqArgs, CallInfo.PrefixSize);
+  CGCallee ConcreteCallee = Callee.prepareConcreteCallee(*this);
+  llvm::Value *CheckStatic = Builder.getTrue();
+  // When static and dynamic selection designate the same function, its
+  // assertions are checked by the callee. Pure virtual functions cannot be
+  // that dynamic target and need not have a definition to take its address.
+  if (!MD->isPureVirtual() && !DevirtualizedMethod)
+    CheckStatic = Builder.CreateICmpNE(ConcreteCallee.getFunctionPointer(),
+                                       CGM.GetAddrOfFunction(MD));
+
+  SmallVector<llvm::Value *, 8> ContractArgs;
+  // The predicates' this pointer has the statically chosen class type.
+  // Devirtualization to a different class must not alter this subobject.
+  ContractArgs.push_back(ContractThis);
+  for (unsigned I = 0; I != ContractMD->getNumParams(); ++I) {
+    const auto *P = ContractMD->getParamDecl(I);
+    auto &Arg = Args[I + 1];
+    Address Storage = Address::invalid();
+    if (Arg.hasLValue())
+      Storage = Arg.getKnownLValue().getAddress();
+    else {
+      RValue RV = Arg.getKnownRValue();
+      if (RV.isAggregate())
+        Storage = RV.getAggregateAddress();
+      else {
+        Storage = CreateMemTemp(P->getType(), "contract.param");
+        EmitStoreThroughLValue(RV, MakeAddrLValue(Storage, P->getType()));
+      }
+    }
+    ContractArgs.push_back(Storage.emitRawPointer(*this));
+  }
+  auto EmitChecks = [&](bool IsPost, llvm::Value *Result) {
+    auto Checks =
+        IsPost ? ContractMD->postconditions() : ContractMD->preconditions();
+    if (Checks.empty())
+      return;
+    auto *CheckBlock = createBasicBlock("contract.static.check");
+    auto *EndBlock = createBasicBlock("contract.static.end");
+    Builder.CreateCondBr(CheckStatic, CheckBlock, EndBlock);
+    EmitBlock(CheckBlock);
+    CallArgList HelperArgs;
+    for (auto *V : ContractArgs)
+      HelperArgs.add(RValue::get(V), C.VoidPtrTy);
+    if (IsPost)
+      HelperArgs.add(RValue::get(Result), C.VoidPtrTy);
+    const auto &HelperFI =
+        CGM.getTypes().arrangeBuiltinFunctionCall(C.VoidTy, HelperArgs);
+    auto *Helper = getVirtualContractHelper(ContractMD, IsPost);
+    EmitCall(HelperFI, CGCallee::forDirect(Helper), ReturnValueSlot(),
+             HelperArgs);
+    EmitBranch(EndBlock);
+    EmitBlock(EndBlock);
+  };
+  EmitChecks(false, nullptr);
+  RValue RV = EmitCall(FI, ConcreteCallee, ReturnValue, Args, CallOrInvoke,
+                       CE == MustTailCall, CE->getExprLoc());
+  if (HaveInsertPoint()) {
+    llvm::Value *Result = llvm::ConstantPointerNull::get(VoidPtrTy);
+    if (!ContractMD->getReturnType()->isVoidType()) {
+      Address Storage = Address::invalid();
+      if (RV.isAggregate())
+        Storage = RV.getAggregateAddress();
+      else {
+        Storage = CreateMemTemp(ContractMD->getReturnType(), "contract.result");
+        EmitStoreThroughLValue(
+            RV, MakeAddrLValue(Storage, ContractMD->getReturnType()));
+      }
+      Result = Storage.emitRawPointer(*this);
+    }
+    EmitChecks(true, Result);
+  }
+  return RV;
 }
 
 RValue

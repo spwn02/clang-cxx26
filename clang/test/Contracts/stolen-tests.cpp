@@ -42,8 +42,10 @@ namespace parsing_default_delete_pure_test {
   const bool a = true, b = true, c = true;
 
   struct X {
-    X() pre(a) = default;
-    X(const X&) pre(b) = delete;
+    // [dcl.contract.func]: "A deleted function, or a function defaulted on its
+    // first declaration shall not have a function-contract-specifier-seq."
+    X() pre(a) = default; // expected-error {{function defaulted on its first declaration cannot have a function-contract-specifier-seq}}
+    X(const X&) pre(b) = delete; // expected-error {{a deleted function cannot have a function-contract-specifier-seq}}
     virtual void f() pre(c) = 0;
   };
 }

@@ -2420,7 +2420,7 @@ Sema::BuildDeclRefExpr(ValueDecl *D, QualType Ty, ExprValueKind VK,
                        NestedNameSpecifierLoc NNS, NamedDecl *FoundD,
                        SourceLocation TemplateKWLoc,
                        const TemplateArgumentListInfo *TemplateArgs) {
-  bool RefersToCapturedVariable = isa<VarDecl, BindingDecl>(D) &&
+  bool RefersToCapturedVariable = isa<VarDecl, BindingDecl, ResultNameDecl>(D) &&
                                   NeedToCaptureVariable(D, NameInfo.getLoc());
 
   DeclRefExpr *E = DeclRefExpr::Create(
@@ -3454,6 +3454,7 @@ ExprResult Sema::BuildDeclarationNameExpr(
 
 
   case Decl::ImplicitParam:
+  case Decl::ResultName:
   case Decl::ParmVar: {
     // These are always l-values.
     valueKind = VK_LValue;
@@ -3471,11 +3472,6 @@ ExprResult Sema::BuildDeclarationNameExpr(
     break;
   }
 
-  case Decl::ResultName: {// FIXME(EricWF): Is this even close to correct?
-    valueKind = VK_LValue;
-    type = type.getNonReferenceType();
-    break;
- }
 
   case Decl::Function: {
     if (unsigned BID = cast<FunctionDecl>(VD)->getBuiltinID()) {
@@ -19483,6 +19479,11 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
   if (getLangOpts().CUDA)
     CUDA().CheckCall(Loc, Func);
 
+  // [dcl.contract.func]: assertions are needed when the function is odr-used,
+  // independently of whether a definition is available.
+  if (OdrUse != OdrUseContext::None)
+    InstantiateFunctionContracts(Loc, Func);
+
   // If we need a definition, try to create one.
   if (NeedDefinition && !Func->getBody()) {
     runWithSufficientStackSpace(Loc, [&] {
@@ -19854,7 +19855,9 @@ static DeclContext *getParentOfCapturingContextOrNull(DeclContext *DC,
   if (isa<ExpansionStmtDecl>(DC))
     return DC->getParent();
 
-  VarDecl *Underlying = Var->getPotentiallyDecomposedVarDecl();
+  VarDecl *Underlying = isa<VarDecl, BindingDecl>(Var)
+                            ? Var->getPotentiallyDecomposedVarDecl()
+                            : nullptr;
   if (Underlying) {
     if (Underlying->hasLocalStorage() && Diagnose) {
       diagnoseUncapturableValueReferenceOrBinding(S, Loc, Var);
@@ -19869,7 +19872,7 @@ static DeclContext *getParentOfCapturingContextOrNull(DeclContext *DC,
 static bool isVariableCapturable(CapturingScopeInfo *CSI, ValueDecl *Var,
                                  SourceLocation Loc, const bool Diagnose,
                                  Sema &S) {
-  assert((isa<VarDecl, BindingDecl>(Var)) &&
+  assert((isa<VarDecl, BindingDecl, ResultNameDecl>(Var)) &&
          "Only variables and structured bindings can be captured");
 
   bool IsBlock = isa<BlockScopeInfo>(CSI);
@@ -20332,7 +20335,11 @@ bool Sema::tryCaptureVariable(
   // Exception: Function parameters are not tied to the function's DeclContext
   // until we enter the function definition. Capturing them anyway would result
   // in an out-of-bounds error while traversing DC and its parents.
-  if (isa<ParmVarDecl>(Var) && !VarDC->isFunctionOrMethod())
+  bool IsContractPrototypeParameter =
+      isa<ParmVarDecl>(Var) && !VarDC->isFunctionOrMethod() &&
+      getContractScopeForContext(VarDC);
+  if (isa<ParmVarDecl>(Var) && !VarDC->isFunctionOrMethod() &&
+      !IsContractPrototypeParameter)
     return true;
 
   const auto *VD = dyn_cast<VarDecl>(Var);
@@ -20346,9 +20353,10 @@ bool Sema::tryCaptureVariable(
         IsSynthesizingExpansionStmt)
       return true;
   } else {
-    VD = Var->getPotentiallyDecomposedVarDecl();
+    if (isa<BindingDecl>(Var))
+      VD = Var->getPotentiallyDecomposedVarDecl();
   }
-  assert(VD && "Cannot capture a null variable");
+  assert((VD || isa<ResultNameDecl>(Var)) && "Cannot capture a null variable");
 
   const unsigned MaxFunctionScopesIndex = FunctionScopeIndexToStopAt
       ? *FunctionScopeIndexToStopAt : FunctionScopes.size() - 1;
@@ -20376,7 +20384,7 @@ bool Sema::tryCaptureVariable(
 
   // Capture global variables if it is required to use private copy of this
   // variable.
-  bool IsGlobal = !VD->hasLocalStorage();
+  bool IsGlobal = VD && !VD->hasLocalStorage();
   if (IsGlobal && !(LangOpts.OpenMP &&
                     OpenMP().isOpenMPCapturedDecl(Var, /*CheckScopeInfo=*/true,
                                                   MaxFunctionScopesIndex)))
@@ -20424,7 +20432,8 @@ bool Sema::tryCaptureVariable(
     if (LSI && !LSI->AfterParameterList) {
       // This allows capturing parameters from a default value which does not
       // seems correct
-      if (isa<ParmVarDecl>(Var) && !Var->getDeclContext()->isFunctionOrMethod()) {
+      if (isa<ParmVarDecl>(Var) && !Var->getDeclContext()->isFunctionOrMethod() &&
+          !IsContractPrototypeParameter) {
         assert(false);
         return true;
       }
@@ -21570,6 +21579,17 @@ MarkExprReferenced(Sema &SemaRef, SourceLocation Loc, Decl *D, Expr *E,
     return;
   }
 
+  if (auto *Result = dyn_cast<ResultNameDecl>(D)) {
+    Result->setReferenced();
+    if (!Result->isInvalidDecl() &&
+        isOdrUseContext(SemaRef) == OdrUseContext::Used) {
+      QualType CaptureType, DeclRefType;
+      SemaRef.tryCaptureVariable(Result, Loc, TryCaptureKind::Implicit,
+                                SourceLocation(), true, CaptureType,
+                                DeclRefType, nullptr);
+    }
+    return;
+  }
   if (BindingDecl *Decl = dyn_cast<BindingDecl>(D)) {
     DoMarkBindingDeclReferenced(SemaRef, Loc, Decl, E);
     if (SemaRef.getLangOpts().CPlusPlus)

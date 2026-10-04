@@ -4734,6 +4734,8 @@ public:
   void callCStructCopyAssignmentOperator(LValue Dst, LValue Src);
   void callCStructMoveAssignmentOperator(LValue Dst, LValue Src);
 
+  llvm::Function *getVirtualContractHelper(const CXXMethodDecl *MD,
+                                          bool IsPost);
   RValue EmitCXXMemberOrOperatorCall(
       const CXXMethodDecl *Method, const CGCallee &Callee,
       ReturnValueSlot ReturnValue, llvm::Value *This,

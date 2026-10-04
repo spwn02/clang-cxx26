@@ -12918,6 +12918,11 @@ def warn_ericwf_fixme : Warning<
   "woops... FIXME(EricWF): %0"
 >, InGroup<EricWFFixme>;
 
+def err_contract_on_deleted_or_defaulted_function : Error<
+  "a %select{deleted function|function defaulted on its first declaration}0 "
+  "cannot have a function-contract-specifier-seq">;
+def err_result_name_conflicts_capture : Error<
+  "declaration of result name %0 conflicts with lambda capture">;
 def err_result_name_shadows_param : Error<
   "declaration of result name %0 shadows parameter">;
 def err_void_result_name : Error<

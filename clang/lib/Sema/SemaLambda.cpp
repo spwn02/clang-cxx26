@@ -1320,6 +1320,8 @@ void Sema::ActOnLambdaExpressionAfterIntroducer(LambdaIntroducer &Intro,
 
       if (auto *BD = R.getAsSingle<BindingDecl>())
         Var = BD;
+      else if (auto *Result = R.getAsSingle<ResultNameDecl>())
+        Var = Result;
       else if (R.getAsSingle<FieldDecl>()) {
         Diag(C->Loc, diag::err_capture_class_member_does_not_name_variable)
             << C->Id;
@@ -1365,9 +1367,11 @@ void Sema::ActOnLambdaExpressionAfterIntroducer(LambdaIntroducer &Intro,
     if (Var->isInvalidDecl())
       continue;
 
-    VarDecl *Underlying = Var->getPotentiallyDecomposedVarDecl();
+    VarDecl *Underlying = isa<VarDecl, BindingDecl>(Var)
+                              ? Var->getPotentiallyDecomposedVarDecl()
+                              : nullptr;
 
-    if (!Underlying->hasLocalStorage()) {
+    if (Underlying && !Underlying->hasLocalStorage()) {
       Diag(C->Loc, diag::err_capture_non_automatic_variable) << C->Id;
       Diag(Var->getLocation(), diag::note_previous_decl) << C->Id;
       continue;
@@ -1430,6 +1434,7 @@ void Sema::ActOnLambdaClosureQualifiers(LambdaIntroducer &Intro,
   
   if (Intro.Default != LCD_None &&
       !Parent->isFunctionOrMethod() &&
+      !getContractScopeForContext(Parent) &&
       (getCurrentThisType().isNull() ||
        CheckCXXThisCapture(SourceLocation(), /*Explicit=*/true,
                            /*BuildAndDiagnose=*/false)))
