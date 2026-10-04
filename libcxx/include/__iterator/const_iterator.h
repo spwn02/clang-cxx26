@@ -125,6 +125,19 @@ public:
   constexpr basic_const_iterator(_Tp&& __current) noexcept(is_nothrow_constructible_v<_It, _Tp>)
       : __current_(std::forward<_Tp>(__current)) {}
 
+  // [const.iterators.iterator]: conversion to a different constant iterator.
+  template <__not_a_const_iterator _CI>
+    requires constant_iterator<_CI> && convertible_to<_It const&, _CI>
+  constexpr operator _CI() const& {
+    return __current_;
+  }
+
+  template <__not_a_const_iterator _CI>
+    requires constant_iterator<_CI> && convertible_to<_It, _CI>
+  constexpr operator _CI() && {
+    return static_cast<_It&&>(__current_);
+  }
+
   constexpr const _It& base() const& noexcept { return __current_; }
   constexpr _It base() && noexcept(is_nothrow_move_constructible_v<_It>) { return static_cast<_It&&>(__current_); }
 

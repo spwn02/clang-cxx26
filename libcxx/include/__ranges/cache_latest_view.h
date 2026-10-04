@@ -17,6 +17,7 @@
 #include <__ranges/range_adaptor.h>
 #include <__ranges/view_interface.h>
 #include <__type_traits/conditional.h>
+#include <__utility/as_lvalue.h>
 #include <__utility/forward.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -78,7 +79,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr range_reference_t<_View>& operator*() const {
     if constexpr (is_reference_v<range_reference_t<_View>>) {
       if (!__parent_->__cache_.__has_value())
-        __parent_->__cache_.__emplace(std::addressof(*__current_));
+        __parent_->__cache_.__emplace(std::addressof(std::__as_lvalue(*__current_)));
       return **__parent_->__cache_;
     } else {
       if (!__parent_->__cache_.__has_value())

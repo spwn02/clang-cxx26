@@ -126,7 +126,7 @@ public:
   }
 
   template <class _I2 = _Iter>
-  _LIBCPP_HIDE_FROM_ABI auto operator->() const
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator->() const
     requires indirectly_readable<const _I2> && (requires(const _I2& __i) {
                __i.operator->();
              } || is_reference_v<iter_reference_t<_I2>> || constructible_from<iter_value_t<_I2>, iter_reference_t<_I2>>)
@@ -143,14 +143,14 @@ public:
     }
   }
 
-  _LIBCPP_HIDE_FROM_ABI common_iterator& operator++() {
+  _LIBCPP_HIDE_FROM_ABI constexpr common_iterator& operator++() {
     _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
         std::holds_alternative<_Iter>(__hold_), "Attempted to increment a non-dereferenceable common_iterator");
     ++std::__unchecked_get<_Iter>(__hold_);
     return *this;
   }
 
-  _LIBCPP_HIDE_FROM_ABI decltype(auto) operator++(int) {
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) operator++(int) {
     _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
         std::holds_alternative<_Iter>(__hold_), "Attempted to increment a non-dereferenceable common_iterator");
     if constexpr (forward_iterator<_Iter>) {
