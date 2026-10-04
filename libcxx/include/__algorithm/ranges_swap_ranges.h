@@ -68,12 +68,29 @@ struct __swap_ranges {
     std::swap_ranges(std::forward<_Ep>(__exec), __first1, __end1, __first2);
     return {std::move(__end1), std::move(__end2)};
   }
+  template <class _Ep, random_access_iterator _I1, sized_sentinel_for<_I1> _S1,
+            random_access_iterator _I2, sized_sentinel_for<_I2> _S2,
+            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires indirectly_swappable<_I1, _I2>
+  _LIBCPP_HIDE_FROM_ABI swap_ranges_result<_I1, _I2>
+  operator()(_Ep&& __exec, _I1 __first1, _S1 __last1, _I2 __first2, _S2 __last2) const {
+    auto __count1 = __last1 - __first1;
+    auto __count2 = __last2 - __first2;
+    auto __count = __count1 < __count2 ? __count1 : __count2;
+    _I1 __end1 = __first1 + __count;
+    _I2 __end2 = __first2 + __count;
+    std::swap_ranges(std::forward<_Ep>(__exec), __first1, __end1, __first2);
+    return {std::move(__end1), std::move(__end2)};
+  }
   template <class _Ep, random_access_range _R1, random_access_range _R2,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires sized_range<_R1> && sized_range<_R2> && indirectly_swappable<iterator_t<_R1>, iterator_t<_R2>>
   _LIBCPP_HIDE_FROM_ABI swap_ranges_result<borrowed_iterator_t<_R1>, borrowed_iterator_t<_R2>>
   operator()(_Ep&& __exec, _R1&& __r1, _R2&& __r2) const {
-    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__r1), ranges::end(__r1), ranges::begin(__r2));
+    auto __first1 = ranges::begin(__r1);
+    auto __first2 = ranges::begin(__r2);
+    return (*this)(std::forward<_Ep>(__exec), __first1, __first1 + ranges::size(__r1),
+                   __first2, __first2 + ranges::size(__r2));
   }
 #  endif
 };

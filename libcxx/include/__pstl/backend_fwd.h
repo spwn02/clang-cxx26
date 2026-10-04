@@ -154,6 +154,8 @@ struct __ranges_bounded_set_difference;
 template <class _Backend, class _ExecutionPolicy>
 struct __ranges_bounded_set_symmetric_difference;
 template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_remove_copy_if;
+template <class _Backend, class _ExecutionPolicy>
 struct __ranges_bounded_unique_copy;
 
 template <class _Backend, class _ExecutionPolicy>

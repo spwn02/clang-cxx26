@@ -165,6 +165,24 @@ struct __ranges_bounded_set_symmetric_difference<__default_backend_tag, _Executi
 };
 
 template <class _ExecutionPolicy>
+struct __ranges_bounded_remove_copy_if<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _Iter, class _Sent, class _OutIter, class _OutSent, class _Pred, class _Proj>
+  _LIBCPP_HIDE_FROM_ABI optional<ranges::in_out_result<_Iter, _OutIter>> operator()(
+      _Policy&&, _Iter __first, _Sent __last, _OutIter __result, _OutSent __result_last,
+      _Pred __pred, _Proj __proj) const noexcept {
+    for (; __first != __last; ++__first) {
+      if (!std::invoke(__pred, std::invoke(__proj, *__first))) {
+        if (__result == __result_last)
+          break;
+        *__result = *__first;
+        ++__result;
+      }
+    }
+    return ranges::in_out_result<_Iter, _OutIter>{__first, __result};
+  }
+};
+
+template <class _ExecutionPolicy>
 struct __ranges_bounded_unique_copy<__default_backend_tag, _ExecutionPolicy> {
   template <class _Policy, class _Iter, class _Sent, class _OutIter, class _OutSent, class _Comp, class _Proj>
   _LIBCPP_HIDE_FROM_ABI optional<ranges::in_out_result<_Iter, _OutIter>> operator()(
