@@ -6526,6 +6526,14 @@ bool ASTReader::ParseLanguageOptions(const RecordData &Record,
 
   LangOpts.OMPHostIRFile = ReadString(Record, Idx);
 
+  LangOpts.ContractOpts.DefaultSemantic =
+      static_cast<ContractEvaluationSemantic>(Record[Idx++]);
+  for (unsigned N = Record[Idx++]; N; --N) {
+    std::string Group = ReadString(Record, Idx);
+    LangOpts.ContractOpts.SemanticsByGroup[Group] =
+        static_cast<ContractEvaluationSemantic>(Record[Idx++]);
+  }
+
   return Listener.ReadLanguageOptions(LangOpts, ModuleFilename, Complain,
                                       AllowCompatibleDifferences);
 }
