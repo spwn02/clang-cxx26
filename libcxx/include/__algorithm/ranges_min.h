@@ -84,7 +84,7 @@ struct __min {
       return __result;
     }
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_range _Rp,
             class _Proj                                                         = identity,

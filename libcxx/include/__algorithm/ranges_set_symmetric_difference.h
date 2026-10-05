@@ -101,7 +101,7 @@ struct __set_symmetric_difference {
     return {std::move(__ret.__in1_), std::move(__ret.__in2_), std::move(__ret.__out_)};
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _InIter1, sized_sentinel_for<_InIter1> _Sent1,
             random_access_iterator _InIter2, sized_sentinel_for<_InIter2> _Sent2, weakly_incrementable _OutIter,
             class _Comp = ranges::less, class _Proj1 = identity, class _Proj2 = identity,

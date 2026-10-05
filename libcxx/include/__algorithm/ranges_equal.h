@@ -88,7 +88,7 @@ struct __equal {
         std::move(__ufirst1), std::move(__ulast1), std::move(__ufirst2), std::move(__ulast2), __pred, __proj1, __proj2);
   }
   // P3179R9 requires random-access, sized ranges for policy overloads.
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter1, sized_sentinel_for<_Iter1> _Sent1,
             random_access_iterator _Iter2, sized_sentinel_for<_Iter2> _Sent2,
             class _Pred = ranges::equal_to, class _Proj1 = identity, class _Proj2 = identity,

@@ -114,7 +114,7 @@ struct __search_n {
 
     return __ranges_search_n_impl(ranges::begin(__range), ranges::end(__range), __count, __value, __pred, __proj);
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   // NOTE: the non-policy overloads above return a subrange spanning exactly the found
   // __count-length match ([found, found + __count)), not [found, source-last) -- reconstruct
   // that same shape here rather than the wider (and wrong) span to the source's own end.

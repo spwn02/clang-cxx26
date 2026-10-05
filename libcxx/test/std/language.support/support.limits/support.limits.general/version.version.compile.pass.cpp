@@ -9140,8 +9140,8 @@
 #    ifndef __cpp_lib_parallel_algorithm
 #      error "__cpp_lib_parallel_algorithm should be defined in c++26"
 #    endif
-#    if __cpp_lib_parallel_algorithm != 201603L
-#      error "__cpp_lib_parallel_algorithm should have the value 201603L in c++26"
+#    if __cpp_lib_parallel_algorithm != 202506L
+#      error "__cpp_lib_parallel_algorithm should have the value 202506L in c++26"
 #    endif
 #  else
 #    ifdef __cpp_lib_parallel_algorithm

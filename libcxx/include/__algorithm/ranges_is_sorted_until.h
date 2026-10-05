@@ -69,7 +69,7 @@ struct __is_sorted_until {
   operator()(_Range&& __range, _Comp __comp = {}, _Proj __proj = {}) const {
     return ranges::__is_sorted_until_impl(ranges::begin(__range), ranges::end(__range), __comp, __proj);
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _Iter,
             sized_sentinel_for<_Iter> _Sent,

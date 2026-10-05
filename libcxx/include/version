@@ -252,7 +252,8 @@ __cpp_lib_optional                                      202506L <optional>
 __cpp_lib_optional_range_support                        202406L <optional>
 __cpp_lib_out_ptr                                       202311L <memory>
                                                         202106L // C++23
-__cpp_lib_parallel_algorithm                            201603L <algorithm> <numeric>
+__cpp_lib_parallel_algorithm                            202506L <algorithm> <numeric>
+                                                        201603L // C++17
 __cpp_lib_philox_engine                                 202406L <random>
 __cpp_lib_polymorphic                                   202502L <memory>
 __cpp_lib_polymorphic_allocator                         201902L <memory_resource>
@@ -802,6 +803,8 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # endif
 # undef  __cpp_lib_out_ptr
 # define __cpp_lib_out_ptr                              202311L
+# undef  __cpp_lib_parallel_algorithm
+// # define __cpp_lib_parallel_algorithm                   202506L
 # define __cpp_lib_philox_engine                        202406L
 # define __cpp_lib_polymorphic                          202502L
 # if _LIBCPP_AVAILABILITY_HAS_TO_CHARS_FLOATING_POINT

@@ -158,6 +158,8 @@ struct __ranges_bounded_remove_copy_if;
 template <class _Backend, class _ExecutionPolicy>
 struct __ranges_bounded_unique_copy;
 template <class _Backend, class _ExecutionPolicy>
+struct __ranges_partial_sort_copy;
+template <class _Backend, class _ExecutionPolicy>
 struct __ranges_bounded_copy;
 template <class _Backend, class _ExecutionPolicy>
 struct __ranges_bounded_copy_n;

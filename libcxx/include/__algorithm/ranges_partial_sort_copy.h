@@ -14,6 +14,9 @@
 #include <__algorithm/make_projected.h>
 #include <__algorithm/partial_sort_copy.h>
 #include <__algorithm/pstl.h>
+#include <__pstl/dispatch.h>
+#include <__pstl/handle_exception.h>
+#include <__pstl/ranges_bounded.h>
 #include <__config>
 #include <__functional/identity.h>
 #include <__functional/invoke.h>
@@ -99,7 +102,7 @@ struct __partial_sort_copy {
     return {std::move(__result.first), std::move(__result.second)};
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter1, sized_sentinel_for<_Iter1> _Sent1,
             random_access_iterator _Iter2, sized_sentinel_for<_Iter2> _Sent2,
             class _Comp = ranges::less, class _Proj1 = identity, class _Proj2 = identity,
@@ -109,15 +112,11 @@ struct __partial_sort_copy {
   _LIBCPP_HIDE_FROM_ABI partial_sort_copy_result<_Iter1, _Iter2> operator()(
       _Ep&& __exec, _Iter1 __first, _Sent1 __last, _Iter2 __result_first, _Sent2 __result_last,
       _Comp __comp = {}, _Proj1 __proj1 = {}, _Proj2 __proj2 = {}) const {
-    _Iter1 __end1 = __first + (__last - __first);
-    _Iter2 __end2 = __result_first + (__result_last - __result_first);
-    _Iter2 __result_end = std::partial_sort_copy(
-        std::forward<_Ep>(__exec), __first, __end1, __result_first, __end2,
-        [&__comp, &__proj1, &__proj2](auto&& __a, auto&& __b) {
-          return std::invoke(__comp, std::invoke(__proj1, std::forward<decltype(__a)>(__a)),
-                             std::invoke(__proj2, std::forward<decltype(__b)>(__b)));
-        });
-    return {std::move(__end1), std::move(__result_end)};
+    using _Implementation = __pstl::__dispatch<__pstl::__ranges_partial_sort_copy,
+                                                __pstl::__current_configuration, _RawPolicy>;
+    return __pstl::__handle_exception<_Implementation>(
+        std::forward<_Ep>(__exec), std::move(__first), std::move(__last), std::move(__result_first),
+        std::move(__result_last), std::move(__comp), std::move(__proj1), std::move(__proj2));
   }
 
   template <class _Ep, random_access_range _Range1, random_access_range _Range2,

@@ -46,7 +46,7 @@ struct __generate_n {
     return std::__generate_n(std::move(__first), __n, __gen);
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _OutIter, copy_constructible _Func,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires invocable<_Func&> && indirectly_writable<_OutIter, invoke_result_t<_Func&>>

@@ -64,7 +64,7 @@ struct __fill {
     return (*this)(ranges::begin(__range), ranges::end(__range), __value);
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent, class _Type
 #    if _LIBCPP_STD_VER >= 26
             = iter_value_t<_Iter>

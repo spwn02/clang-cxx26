@@ -54,7 +54,7 @@ struct __min_element {
   operator()(_Rp&& __r, _Comp __comp = {}, _Proj __proj = {}) const {
     return std::__min_element(ranges::begin(__r), ranges::end(__r), __comp, __proj);
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _Iter,
             sized_sentinel_for<_Iter> _Sent,

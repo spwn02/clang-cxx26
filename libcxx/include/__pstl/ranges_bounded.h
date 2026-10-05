@@ -12,6 +12,8 @@
 #include <__algorithm/in_in_out_result.h>
 #include <__algorithm/in_out_out_result.h>
 #include <__algorithm/in_out_result.h>
+#include <__algorithm/iterator_operations.h>
+#include <__algorithm/partial_sort_copy.h>
 #include <__config>
 #include <__functional/invoke.h>
 #include <__iterator/iter_move.h>
@@ -252,6 +254,22 @@ struct __ranges_bounded_remove_copy_if<__default_backend_tag, _ExecutionPolicy> 
   }
 };
 
+// [partial.sort.copy]: the comparisons are comp(proj1(input), proj2(output)) and comp(proj2(output), proj2(output)),
+// so both projections have to reach the algorithm; it returns {last, result_first + N}.
+template <class _ExecutionPolicy>
+struct __ranges_partial_sort_copy<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _Iter1, class _Sent1, class _Iter2, class _Sent2,
+            class _Comp, class _Proj1, class _Proj2>
+  _LIBCPP_HIDE_FROM_ABI optional<ranges::in_out_result<_Iter1, _Iter2>> operator()(
+      _Policy&&, _Iter1 __first, _Sent1 __last, _Iter2 __result_first, _Sent2 __result_last,
+      _Comp __comp, _Proj1 __proj1, _Proj2 __proj2) const {
+    auto __result = std::__partial_sort_copy<_RangeAlgPolicy>(
+        std::move(__first), std::move(__last), std::move(__result_first), std::move(__result_last),
+        __comp, __proj1, __proj2);
+    return ranges::in_out_result<_Iter1, _Iter2>{std::move(__result.first), std::move(__result.second)};
+  }
+};
+
 template <class _ExecutionPolicy>
 struct __ranges_bounded_unique_copy<__default_backend_tag, _ExecutionPolicy> {
   template <class _Policy, class _Iter, class _Sent, class _OutIter, class _OutSent, class _Comp, class _Proj>
@@ -265,7 +283,7 @@ struct __ranges_bounded_unique_copy<__default_backend_tag, _ExecutionPolicy> {
     _Iter __previous = __first;
     ++__first;
     while (__first != __last) {
-      if (!std::invoke(__comp, std::invoke(__proj, *__first), std::invoke(__proj, *__previous))) {
+      if (!std::invoke(__comp, std::invoke(__proj, *__previous), std::invoke(__proj, *__first))) {
         if (__result == __result_last)
           break;
         *__result = *__first;

@@ -54,7 +54,7 @@ struct __is_sorted {
     return ranges::__is_sorted_until_impl(ranges::begin(__range), __last, __comp, __proj) == __last;
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent,
             class _Proj = identity,
             indirect_strict_weak_order<projected<_Iter, _Proj>> _Comp = ranges::less,

@@ -49,7 +49,7 @@ struct __for_each_n {
     return {std::move(__last), std::move(__func)};
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _Iter,
             class _Proj = identity,
