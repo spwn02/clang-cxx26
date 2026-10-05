@@ -43,10 +43,21 @@ public:
   using const_iterator = typename basic_string_view<_CharT>::const_iterator;
   using iterator       = const_iterator;
 
-  // [format.parse.ctx]: num_args_ is 0, so calls of next_arg_id, check_arg_id and check_dynamic_spec on a context built
-  // by this constructor are never core constant expressions.
+#  if _LIBCPP_STD_VER >= 26
+  // [format.parse.ctx] (P2757R3): num_args_ is 0, so calls of next_arg_id, check_arg_id and check_dynamic_spec on a
+  // context built by this constructor are never core constant expressions.
   _LIBCPP_HIDE_FROM_ABI constexpr explicit basic_format_parse_context(basic_string_view<_CharT> __fmt) noexcept
       : __begin_(__fmt.begin()), __end_(__fmt.end()), __indexing_(__unknown), __next_arg_id_(0), __num_args_(0) {}
+#  else
+  // C++20 and C++23 [format.parse.ctx]: the number of arguments is part of the public interface.
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit basic_format_parse_context(
+      basic_string_view<_CharT> __fmt, size_t __num_args = 0) noexcept
+      : __begin_(__fmt.begin()),
+        __end_(__fmt.end()),
+        __indexing_(__unknown),
+        __next_arg_id_(0),
+        __num_args_(__num_args) {}
+#  endif
 
   basic_format_parse_context(const basic_format_parse_context&)            = delete;
   basic_format_parse_context& operator=(const basic_format_parse_context&) = delete;

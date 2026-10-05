@@ -10,9 +10,13 @@
 
 // <format>
 
-// constexpr explicit basic_format_parse_context(basic_string_view<charT> fmt) noexcept
+// constexpr explicit
+// basic_format_parse_context(basic_string_view<charT> fmt,
+//                            size_t num_args = 0) noexcept       // C++20, C++23
 //
-// The draft has no constructor taking a number of arguments: a context built by the public constructor has
+// constexpr explicit basic_format_parse_context(basic_string_view<charT> fmt) noexcept   // C++26, P2757R3
+//
+// From C++26 there is no constructor taking a number of arguments: a context built by the public constructor has
 // num_args_ == 0, so calls of next_arg_id, check_arg_id and check_dynamic_spec on it are never constant expressions.
 
 #include <format>
@@ -41,8 +45,12 @@ constexpr void test(const CharT* fmt) {
       !std::is_move_assignable_v<std::basic_format_parse_context<CharT> >);
 
   ASSERT_NOEXCEPT(std::basic_format_parse_context{std::basic_string_view<CharT>{}});
+#if TEST_STD_VER < 26
+  ASSERT_NOEXCEPT(std::basic_format_parse_context{std::basic_string_view<CharT>{}, 42});
+#else
   static_assert(!std::is_constructible_v<std::basic_format_parse_context<CharT>, std::basic_string_view<CharT>, std::size_t>);
   static_assert(!std::is_constructible_v<std::basic_format_parse_context<CharT>, std::basic_string_view<CharT>, int>);
+#endif
   static_assert(std::is_constructible_v<std::basic_format_parse_context<CharT>, std::basic_string_view<CharT>>);
 
   {

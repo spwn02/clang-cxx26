@@ -24,13 +24,17 @@
 // [format.syn]: the facilities of <format> that the current draft requires, as seen through `import std;`.
 #include <cassert>
 
+#include "test_macros.h"
+
 import std;
 
 int main(int, char**) {
   // P3953R3: dynamic_format (the former runtime_format).
   assert(std::format(std::dynamic_format("{}"), 42) == "42");
   assert(std::format(std::dynamic_format("{:?}"), "x") == "\"x\"");
+#ifndef TEST_HAS_NO_WIDE_CHARACTERS
   assert(std::format(L"{}", 1) == L"1");
   assert(std::format(std::dynamic_format(L"{}"), 7) == L"7");
+#endif
   return 0;
 }

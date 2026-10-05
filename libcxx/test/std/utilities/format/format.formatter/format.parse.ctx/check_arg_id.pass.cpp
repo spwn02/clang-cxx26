@@ -21,8 +21,17 @@
 
 #include "test_macros.h"
 
-// A context built by the public constructor has num_args_ == 0: the call works at run time but is never a constant
-// expression (see check_arg_id.verify.cpp).
+#if TEST_STD_VER < 26
+constexpr bool test() {
+  std::format_parse_context context("", 10);
+  for (std::size_t i = 0; i < 10; ++i)
+    context.check_arg_id(i);
+
+  return true;
+}
+#else
+// From C++26 the public constructor has no number of arguments (num_args_ == 0): the call works at run time but is
+// never a constant expression (see check_arg_id.verify.cpp).
 bool test() {
   std::format_parse_context context("");
   for (std::size_t i = 0; i < 10; ++i)
@@ -30,10 +39,15 @@ bool test() {
 
   return true;
 }
+#endif
 
 void test_exception() {
   [] {
+#if TEST_STD_VER < 26
+    std::format_parse_context context("", 1);
+#else
     std::format_parse_context context("");
+#endif
     TEST_IGNORE_NODISCARD context.next_arg_id();
     try {
       context.check_arg_id(0);
@@ -45,15 +59,29 @@ void test_exception() {
     assert(false);
   }();
 
+#if TEST_STD_VER < 26
+  auto test_arg = [](std::size_t num_args) {
+    std::format_parse_context context("", num_args);
+    // Out of bounds access is valid if !std::is_constant_evaluated()
+    for (std::size_t i = 0; i <= num_args; ++i)
+      context.check_arg_id(i);
+  };
+  for (std::size_t i = 0; i < 10; ++i)
+    test_arg(i);
+#else
   // Any id is accepted at run time.
   std::format_parse_context context("");
   for (std::size_t i = 0; i <= 10; ++i)
     context.check_arg_id(i);
+#endif
 }
 
 int main(int, char**) {
   test();
   test_exception();
+#if TEST_STD_VER < 26
+  static_assert(test());
+#endif
 
   return 0;
 }

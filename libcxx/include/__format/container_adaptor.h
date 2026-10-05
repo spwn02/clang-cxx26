@@ -48,7 +48,7 @@ public:
   }
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
   format(__maybe_const_adaptor& __adaptor, _FormatContext& __ctx) const {
     return __underlying_.format(__adaptor.__get_container(), __ctx);
   }

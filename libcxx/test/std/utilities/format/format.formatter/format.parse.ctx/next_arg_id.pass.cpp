@@ -21,8 +21,17 @@
 
 #include "test_macros.h"
 
-// A context built by the public constructor has num_args_ == 0: the calls work at run time but are never constant
-// expressions (see next_arg_id.verify.cpp).
+#if TEST_STD_VER < 26
+constexpr bool test() {
+  std::format_parse_context context("", 10);
+  for (std::size_t i = 0; i < 10; ++i)
+    assert(i == context.next_arg_id());
+
+  return true;
+}
+#else
+// From C++26 the public constructor has no number of arguments (num_args_ == 0): the calls work at run time but are
+// never constant expressions (see next_arg_id.verify.cpp).
 bool test() {
   std::format_parse_context context("");
   for (std::size_t i = 0; i < 10; ++i)
@@ -30,9 +39,14 @@ bool test() {
 
   return true;
 }
+#endif
 
 void test_exception() {
+#if TEST_STD_VER < 26
+  std::format_parse_context context("", 1);
+#else
   std::format_parse_context context("");
+#endif
   context.check_arg_id(0);
 
   try {
@@ -48,6 +62,9 @@ void test_exception() {
 int main(int, char**) {
   test();
   test_exception();
+#if TEST_STD_VER < 26
+  static_assert(test());
+#endif
 
   return 0;
 }
