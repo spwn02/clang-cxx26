@@ -23,7 +23,6 @@
 #include <__execution/sender.h>
 #include <__type_traits/is_void.h>
 #include <__utility/declval.h>
-#include <__utility/exchange.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
 #include <__utility/unreachable.h>
@@ -98,12 +97,8 @@ struct __operation_state_task {
   using promise_type            = __connect_awaitable_promise<_DS, _DR>;
 
   _LIBCPP_HIDE_FROM_ABI explicit __operation_state_task(coroutine_handle<> __h) noexcept : __coro_(__h) {}
-  _LIBCPP_HIDE_FROM_ABI __operation_state_task(__operation_state_task&& __o) noexcept
-      : __coro_(std::exchange(__o.__coro_, {})) {}
-  _LIBCPP_HIDE_FROM_ABI ~__operation_state_task() {
-    if (__coro_)
-      __coro_.destroy();
-  }
+  __operation_state_task(__operation_state_task&&) = delete;
+  _LIBCPP_HIDE_FROM_ABI ~__operation_state_task() { __coro_.destroy(); }
 
   _LIBCPP_HIDE_FROM_ABI void start() & noexcept { __coro_.resume(); }
 

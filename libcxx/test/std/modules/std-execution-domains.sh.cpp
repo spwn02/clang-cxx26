@@ -37,4 +37,7 @@ static_assert(std::forwarding_query(ex::get_completion_domain<ex::set_error_t>))
 static_assert(std::forwarding_query(ex::get_completion_scheduler<ex::set_stopped_t>));
 static_assert(std::is_base_of_v<std::forwarding_query_t, ex::get_completion_domain_t<void>>);
 static_assert(std::same_as<ex::get_completion_domain_t<>, ex::get_completion_domain_t<void>>);
+static_assert(!ex::dependent_sender<int>);
+static_assert(ex::dependent_sender<decltype(ex::read_env(std::get_stop_token))>);
+static_assert(!ex::dependent_sender<decltype(ex::just())>);
 int main(int, char**) { return 0; }

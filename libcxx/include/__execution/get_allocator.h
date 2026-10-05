@@ -77,7 +77,7 @@ template <class _Tp, class _Alloc, size_t... _Is>
 _LIBCPP_HIDE_FROM_ABI constexpr auto __allocator_aware_product(_Tp&& __obj,
                                                                 const _Alloc& __alloc,
                                                                 index_sequence<_Is...>) {
-  return _Tp(std::make_obj_using_allocator<tuple_element_t<_Is, remove_cvref_t<_Tp>>>(
+  return remove_cvref_t<_Tp>(std::make_obj_using_allocator<tuple_element_t<_Is, remove_cvref_t<_Tp>>>(
       __alloc, std::forward_like<_Tp>(std::get<_Is>(std::forward<_Tp>(__obj))))...);
 }
 

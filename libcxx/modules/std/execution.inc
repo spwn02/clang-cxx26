@@ -87,6 +87,7 @@ export namespace std::execution {
 
   // [exec.snd.concepts]
   using std::execution::enable_sender;
+  using std::execution::dependent_sender;
   using std::execution::sender;
   using std::execution::sender_tag;
   using std::execution::tag_of_t;

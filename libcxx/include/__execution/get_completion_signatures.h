@@ -17,6 +17,7 @@
 #include <__execution/env.h>
 #include <__execution/queryable.h>
 #include <__execution/sender.h>
+#include <__type_traits/integral_constant.h>
 #include <__type_traits/decay.h>
 #include <__type_traits/is_same.h>
 #include <__type_traits/remove_reference.h>
@@ -37,50 +38,21 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 namespace execution {
 
 // [exec.getcomplsigs]
-// The standard's Effects clause can fall through to throwing `dependent_sender_error` (for
-// a sender whose signatures genuinely depend on Env) or an unspecified `except` (any other
-// unresolvable case), both evaluated inside an atomic constraint (a nested-requirement /
-// concept check) at consteval time. This is **permanently blocked at the standard-wording
-// level, confirmed via primary-source investigation (2026-09-17,
-// docs/design/dependent_sender_atomic_constraint_investigation.md), not a fork-specific or
-// even Clang-specific gap**: a `throw` escaping uncaught from an otherwise-fully-resolvable
-// `consteval` call, when that call sits inside an atomic constraint's evaluation, is
-// diagnosed identically to *any other* reason an atomic constraint's expression fails to be
-// a constant expression (confirmed by testing a division-by-zero case side-by-side, and
-// cross-checked against 4 of Clang's own pre-existing test files —
-// `clang/test/CXX/expr/expr.prim/expr.prim.id/p3.cpp`,
-// `clang/test/CXX/expr/expr.prim/expr.prim.req/nested-requirement.cpp`,
-// `clang/test/SemaCXX/cxx23-assume.cpp`,
-// `clang/test/SemaCXX/requires-nested-non-constant.cpp` — all of which assert this exact
-// "substitution into constraint expression resulted in a non-constant expression" diagnostic
-// as *intended* behavior). [temp.constr.atomic]'s graceful "not satisfied" treatment applies
-// to *substitution* failures (forming an invalid type/expression from template arguments,
-// classic SFINAE); it does not extend to an otherwise-well-formed expression that merely
-// fails to *evaluate* as a constant expression, whether via an escaping exception or any
-// other non-constant-expression cause. P3557R3's `is-dependent-sender-helper` mechanism
-// requires the former; this is the latter. A throw *contained and caught within* a single
-// consteval function's own body works fine on this Clang (verified separately;
-// `dependent_sender_error` itself is unaffected by any of this) — what's blocked is
-// specifically an *uncaught* throw used as an atomic-constraint-satisfaction signal. Making
-// this work would need new standard machinery (a P3068-successor or similar), not a Clang
-// bug fix — there is nothing here for a future session to patch in this compiler.
-// `dependent_sender_error` itself is declared regardless since downstream wording names it,
-// but the throwing fallback paths are omitted: a sender with no viable
-// get_completion_signatures dispatch (and that isn't itself awaitable, once M6 adds that)
-// simply has no viable get_completion_signatures<Sndr, Env...>() overload, making
-// sender_in false for it (the ordinary, non-dependent "not a sender_in" case) rather than
-// hard-erroring -- see __has_completion_signatures below. The one real behavioral deviation
-// this causes is for truly *dependent* senders (whose signatures can only be known once
-// connected to a real environment, e.g. read_env's zero-env case in M3): rather than
-// reporting `dependent_sender<Sndr>` as true, `sender_in<Sndr>` (zero-Env) will simply be
-// false for them on this fork. Tracked as a standard-level gap, not scope-excluded, in
-// docs/CXX26_GAPS.md.
+// The Effects of get_completion_signatures fall through to throwing `dependent_sender_error` (for a sender whose
+// completion signatures depend on the environment, when asked without one) or an unspecified exception derived from
+// `exception` (for any other unusable sender), evaluated in constant evaluation. `sender_in` asks whether the call is a
+// constant expression, and an exception that escapes constant evaluation makes it one that is not.
 struct dependent_sender_error : exception {};
 
+// [exec.snd.general]: the exception object of the other cases: a handler of type exception matches, a handler of type
+// dependent_sender_error does not.
+struct __unspecified_exception : exception {};
+
+// [exec.getcomplsigs]: get-complsigs<Sndr, Env...>() is `remove_reference_t<Sndr>::template
+// get_completion_signatures<Sndr, Env...>()`; whether that is well-formed does not depend on the type it returns.
 template <class _Sndr, class... _Env>
-concept __has_member_get_completion_signatures = requires {
-  { remove_reference_t<_Sndr>::template get_completion_signatures<_Sndr, _Env...>() } -> __valid_completion_signatures;
-};
+concept __has_member_get_completion_signatures =
+    requires { remove_reference_t<_Sndr>::template get_completion_signatures<_Sndr, _Env...>(); };
 
 // [exec.snd.concepts]: SET-VALUE-SIG(T) -- set_value_t() if T is void, otherwise set_value_t(T).
 // Partial specialization rather than conditional_t<is_void_v<_Tp>, set_value_t(), set_value_t(_Tp)>:
@@ -117,28 +89,66 @@ using __get_compl_sigs_new_sndr_t = decltype(execution::__get_compl_sigs_new_snd
 template <class _Sndr, class... _Env>
 concept __get_compl_sigs_awaitable_fallback = __is_awaitable<_Sndr, __env_promise<_Env>...>;
 
-// [exec.getcomplsigs]
+// A constant expression of type `__constant_probe<expr>` can only be named if `expr` is a constant expression, which in
+// a requires-expression is a substitution failure (and not a hard error) when it is not: it is the is-constant concept
+// of [exec.snd.concepts] (a concept-id whose argument is unused is not substituted by this compiler, a class template-id is).
+template <auto>
+struct __constant_probe {};
+
+// [exec.getcomplsigs]: CHECKED-COMPLSIGS(e) is e if e is a core constant expression whose type satisfies
+// valid-completion-signatures, and (e, throw except, completion_signatures()) otherwise.
 template <class _Sndr, class... _Env>
-  requires(sizeof...(_Env) <= 1) &&
-          (__has_member_get_completion_signatures<__get_compl_sigs_new_sndr_t<_Sndr, _Env...>, _Env...> ||
-           __has_member_get_completion_signatures<__get_compl_sigs_new_sndr_t<_Sndr, _Env...>> ||
-           __get_compl_sigs_awaitable_fallback<__get_compl_sigs_new_sndr_t<_Sndr, _Env...>, _Env...>)
-consteval __valid_completion_signatures auto get_completion_signatures() {
-  using _NewSndr = __get_compl_sigs_new_sndr_t<_Sndr, _Env...>;
-  if constexpr (__has_member_get_completion_signatures<_NewSndr, _Env...>) {
-    return remove_reference_t<_NewSndr>::template get_completion_signatures<_NewSndr, _Env...>();
-  } else if constexpr (__has_member_get_completion_signatures<_NewSndr>) {
-    return remove_reference_t<_NewSndr>::template get_completion_signatures<_NewSndr>();
+_LIBCPP_HIDE_FROM_ABI consteval auto __checked_complsigs() {
+  using _Result = decltype(remove_reference_t<_Sndr>::template get_completion_signatures<_Sndr, _Env...>());
+  if constexpr (__valid_completion_signatures<_Result>) {
+    return remove_reference_t<_Sndr>::template get_completion_signatures<_Sndr, _Env...>();
   } else {
-    using _Vp = __await_result_type<_NewSndr, __env_promise<_Env>...>;
-    return completion_signatures<__set_value_sig_t<_Vp>, set_error_t(exception_ptr), set_stopped_t()>{};
+    (void)remove_reference_t<_Sndr>::template get_completion_signatures<_Sndr, _Env...>();
+    throw __unspecified_exception();
+    return completion_signatures<>();
   }
 }
 
+// [exec.getcomplsigs]
+template <class _Sndr, class... _Env>
+  requires(sizeof...(_Env) <= 1) && requires { typename __get_compl_sigs_new_sndr_t<_Sndr, _Env...>; }
+consteval __valid_completion_signatures auto get_completion_signatures() {
+  using _NewSndr = __get_compl_sigs_new_sndr_t<_Sndr, _Env...>;
+  if constexpr (__has_member_get_completion_signatures<_NewSndr, _Env...>) {
+    return execution::__checked_complsigs<_NewSndr, _Env...>();
+  } else if constexpr (__has_member_get_completion_signatures<_NewSndr>) {
+    return execution::__checked_complsigs<_NewSndr>();
+  } else if constexpr (__get_compl_sigs_awaitable_fallback<_NewSndr, _Env...>) {
+    using _Vp = __await_result_type<_NewSndr, __env_promise<_Env>...>;
+    return completion_signatures<__set_value_sig_t<_Vp>, set_error_t(exception_ptr), set_stopped_t()>{};
+  } else if constexpr (sizeof...(_Env) == 0) {
+    throw dependent_sender_error();
+    return completion_signatures<>();
+  } else {
+    throw __unspecified_exception();
+    return completion_signatures<>();
+  }
+}
+
+// [exec.snd.concepts]
 template <class _Sndr, class... _Env>
 concept sender_in =
     sender<_Sndr> && (sizeof...(_Env) <= 1) && (__queryable<_Env> && ...) &&
-    requires { execution::get_completion_signatures<_Sndr, _Env...>(); };
+    requires { typename __constant_probe<execution::get_completion_signatures<_Sndr, _Env...>()>; };
+
+// [exec.snd.concepts]: is-dependent-sender-helper and dependent_sender.
+template <class _Sndr>
+_LIBCPP_HIDE_FROM_ABI consteval bool __is_dependent_sender_helper() try {
+  execution::get_completion_signatures<_Sndr>();
+  return false;
+} catch (dependent_sender_error&) {
+  return true;
+}
+
+template <class _Sndr>
+concept dependent_sender = sender<_Sndr> && requires {
+  requires bool_constant<execution::__is_dependent_sender_helper<_Sndr>()>::value;
+};
 
 template <class _Sndr, class... _Env>
   requires sender_in<_Sndr, _Env...>

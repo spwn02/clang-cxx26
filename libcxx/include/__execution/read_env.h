@@ -108,16 +108,12 @@ public:
     return __read_env_opstate<_Query, remove_cvref_t<_Rcvr>>(std::move(data), std::forward<_Rcvr>(__rcvr));
   }
 
-  // [exec.read.env]p4-5: "Let Q be decay_t<data-type<Sndr>>. Throws: an exception ... if the expression
-  // Q()(env) is ill-formed or has type void." This fork can't throw from a consteval function (M2
-  // deviation 2, docs/CXX26_GAPS.md), so instead of hard-erroring/throwing, this overload simply doesn't
-  // participate (via the nested `requires{}` below, checked in template-declaration substitution -- NOT
-  // via body-instantiation, which M2's deviation 4 found to be a *hard* error outside "immediate context"
-  // for this fork's Clang) when Q()(env) is ill-formed or void. That includes the zero-Env case: with no
-  // Env supplied, `_Env` can't be deduced (this template has no function parameters to deduce it from) --
-  // a plain, safely-SFINAE'd deduction failure -- so sender_in<read_env_sndr<Query>> (no Env) is false,
-  // matching M2's documented "dependent-sender-as-soft-failure" deviation instead of reporting
-  // dependent_sender<Sndr> as true.
+  // [exec.read.env]p4-5 (check-types): "Let Q be decay_t<data-type<Sndr>>. Throws: an exception of type
+  // unspecified-exception if the expression Q()(env) is ill-formed or has type void." This overload does not
+  // participate in that case (the requirement below), and get_completion_signatures then throws an unspecified
+  // exception ([exec.getcomplsigs]: no member candidate, not awaitable, an environment was given). Without an
+  // environment `_Env` cannot be deduced, there is no candidate either, and the exception is dependent_sender_error:
+  // read_env(q) is a dependent sender.
   template <class _Self, class _Env>
     requires requires(const _Env& __env) {
       { _Query()(__env) };

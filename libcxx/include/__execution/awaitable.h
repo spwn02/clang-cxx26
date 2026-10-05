@@ -11,6 +11,8 @@
 
 #include <__config>
 #include <__coroutine/coroutine_handle.h>
+#include <__type_traits/is_class.h>
+#include <__type_traits/is_final.h>
 #include <__type_traits/is_same.h>
 #include <__type_traits/is_void.h>
 #include <__utility/declval.h>
@@ -44,44 +46,80 @@ inline constexpr bool __is_specialization_of_coroutine_handle<coroutine_handle<_
 template <class _Tp>
 concept __await_suspend_result = is_void_v<_Tp> || is_same_v<_Tp, bool> || __is_specialization_of_coroutine_handle<_Tp>;
 
-// [exec.awaitable]p2: the operator co_await half of GET-AWAITER -- member operator co_await,
-// then non-member operator co_await, then the identity fallback.
+// [exec.awaitable]p2: the operator co_await half of GET-AWAITER -- the operator co_await picked by overload
+// resolution among the member and the non-member candidates, if any, otherwise the operand itself ([expr.await]).
+// Overload resolution between a member and a non-member candidate is not reproduced: if both are viable the
+// expression is treated as ambiguous (ill-formed), which is what happens whenever their conversion sequences for the
+// operand are equal. A candidate that is better for the operand's value category (e.g. a `&&`-qualified member against
+// a non-member taking `const X&`) is therefore wrongly rejected.
 template <class _Awaiter>
-_LIBCPP_HIDE_FROM_ABI decltype(auto) __exec_co_await_transform(_Awaiter&& __a) {
-  if constexpr (requires { std::forward<_Awaiter>(__a).operator co_await(); }) {
-    return std::forward<_Awaiter>(__a).operator co_await();
-  } else if constexpr (requires { operator co_await(std::forward<_Awaiter>(__a)); }) {
-    return operator co_await(std::forward<_Awaiter>(__a));
-  } else {
-    return std::forward<_Awaiter>(__a);
-  }
+concept __has_member_co_await = requires(_Awaiter&& __a) { std::forward<_Awaiter>(__a).operator co_await(); };
+template <class _Awaiter>
+concept __has_non_member_co_await = requires(_Awaiter&& __a) { operator co_await(std::forward<_Awaiter>(__a)); };
+
+template <class _Awaiter>
+  requires __has_member_co_await<_Awaiter> && (!__has_non_member_co_await<_Awaiter>)
+_LIBCPP_HIDE_FROM_ABI auto __exec_co_await_transform(_Awaiter&& __a)
+    -> decltype(std::forward<_Awaiter>(__a).operator co_await()) {
+  return std::forward<_Awaiter>(__a).operator co_await();
 }
 
-// [exec.awaitable]p2: GET-AWAITER(c, p) -- the series of transformations applied to `c` as
-// the operand of an await-expression in a coroutine whose promise `p` has type Promise.
+template <class _Awaiter>
+  requires(!__has_member_co_await<_Awaiter>) && __has_non_member_co_await<_Awaiter>
+_LIBCPP_HIDE_FROM_ABI auto __exec_co_await_transform(_Awaiter&& __a)
+    -> decltype(operator co_await(std::forward<_Awaiter>(__a))) {
+  return operator co_await(std::forward<_Awaiter>(__a));
+}
+
+template <class _Awaiter>
+  requires(!__has_member_co_await<_Awaiter>) && (!__has_non_member_co_await<_Awaiter>)
+_LIBCPP_HIDE_FROM_ABI _Awaiter&& __exec_co_await_transform(_Awaiter&& __a) noexcept {
+  return std::forward<_Awaiter>(__a);
+}
+
+// Whether member lookup of `await_transform` in a promise type finds a declaration: a name that is declared in both a
+// base class and the promise is ambiguous in a class derived from the two, whatever it declares.
+struct __await_transform_probe {
+  void await_transform();
+};
+template <class _Promise>
+struct __await_transform_probe_derived : _Promise, __await_transform_probe {};
+template <class _Promise>
+concept __has_await_transform_member =
+    is_class_v<_Promise> && (!is_final_v<_Promise>) &&
+    (!requires { &__await_transform_probe_derived<_Promise>::await_transform; });
+
+// [exec.awaitable]p2: GET-AWAITER(c, p) -- the series of transformations applied to `c` as the operand of an
+// await-expression in a coroutine whose promise `p` has type Promise.
 //
-// The standard's rule for the await_transform step is "if this search is performed and
-// finds at least one declaration, a = p.await_transform(c)" -- meaning a promise declaring
-// *some* await_transform member that is not callable with this particular `c` is a hard
-// (non-SFINAE) error, not a fallback to `a = c`. `requires{ p.await_transform(c); }` cannot
-// distinguish "no such member" from "member exists but unusable here"; this implementation
-// accepts that divergence -- the same class of approximation as __valid_completion_for's
-// callable-for-invocable substitution (receiver.h) -- rather than reproducing member-lookup
-// fidelity.
+// [expr.await]p3: if the promise type has an await_transform member (a search that finds at least one declaration),
+// the operand is p.await_transform(c), and the expression is ill-formed if that is not valid for `c`; there is no
+// fallback to `c`. Otherwise the operand is `c`.
 template <class _Cp, class _Promise>
-_LIBCPP_HIDE_FROM_ABI decltype(auto) __get_awaiter(_Cp&& __c, _Promise& __p) {
-  if constexpr (requires { __p.await_transform(std::forward<_Cp>(__c)); }) {
-    return execution::__exec_co_await_transform(__p.await_transform(std::forward<_Cp>(__c)));
-  } else {
-    return execution::__exec_co_await_transform(std::forward<_Cp>(__c));
+  requires __has_await_transform_member<_Promise> &&
+           requires(_Cp&& __c, _Promise& __p) {
+             execution::__exec_co_await_transform(__p.await_transform(std::forward<_Cp>(__c)));
+           }
+_LIBCPP_HIDE_FROM_ABI auto __get_awaiter(_Cp&& __c, _Promise& __p)
+    -> decltype(execution::__exec_co_await_transform(__p.await_transform(std::forward<_Cp>(__c)))) {
+  return execution::__exec_co_await_transform(__p.await_transform(std::forward<_Cp>(__c)));
+}
+
+template <class _Cp, class _Promise>
+  requires(!__has_await_transform_member<_Promise>) && requires(_Cp&& __c) {
+    execution::__exec_co_await_transform(std::forward<_Cp>(__c));
   }
+_LIBCPP_HIDE_FROM_ABI auto __get_awaiter(_Cp&& __c, _Promise&)
+    -> decltype(execution::__exec_co_await_transform(std::forward<_Cp>(__c))) {
+  return execution::__exec_co_await_transform(std::forward<_Cp>(__c));
 }
 
 // [exec.awaitable]p2: GET-AWAITER(c) == GET-AWAITER(c, q) for an unspecified none-such q.
 template <class _Cp>
-_LIBCPP_HIDE_FROM_ABI decltype(auto) __get_awaiter(_Cp&& __c) {
-  __exec_none_such __q;
-  return execution::__get_awaiter(std::forward<_Cp>(__c), __q);
+  requires requires(_Cp&& __c) { execution::__exec_co_await_transform(std::forward<_Cp>(__c)); }
+_LIBCPP_HIDE_FROM_ABI auto __get_awaiter(_Cp&& __c)
+    -> decltype(execution::__exec_co_await_transform(std::forward<_Cp>(__c))) {
+  return execution::__exec_co_await_transform(std::forward<_Cp>(__c));
 }
 
 // [exec.awaitable]p3: is-awaiter.
