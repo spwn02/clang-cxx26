@@ -27,7 +27,9 @@
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
 #include <__execution/sender.h>
+#include <__execution/sender_adaptor_closure.h>
 #include <__execution/stop_when.h>
+#include <__functional/bind_back.h>
 #include <__memory/allocator.h>
 #include <__memory/allocator_traits.h>
 #include <__memory/unique_ptr.h>
@@ -439,6 +441,12 @@ struct associate_t {
     using __assoc_t   = decltype(__token.try_associate());
     return __associate_sndr<associate_t, __assoc_t, __wrapped_t>{
         {}, __associate_data<__wrapped_t, __assoc_t>(__token, std::forward<_Sndr>(__sndr))};
+  }
+
+  // [exec.adapt.obj]: the partial application associate(token) is a pipeable sender adaptor closure.
+  template <scope_token _Token>
+  auto operator()(_Token __token) const {
+    return execution::__pipeable(std::__bind_back(*this, std::move(__token)));
   }
 };
 inline constexpr associate_t associate{};

@@ -68,12 +68,11 @@ namespace execution {
 //   }
 // `call-with-default` is a fallback wrapper (answer the query if present, else substitute a stub
 // scheduler that fails cleanly) that exists so *forming* a transform_sender rewrite never hard-errors
-// even when the query is unanswered -- a compile-time safety net for domain-based dispatch that this fork's
-// senders never reach (they are not routed through a tag's own transform_sender, see
-// <__execution/starts_on.h>). Since both sender classes below compute their composition
-// directly inside connect() instead (env is available there, from the real receiver, unlike at CPO-call
-// time -- this is exactly why `on`, unlike <__execution/starts_on.h>, needs real sender/opstate types
-// rather than a pure call-time composition), the query is called directly, matching [exec.on]p7/p8's
+// even when the query is unanswered -- a compile-time safety net for the transform_sender of `on`, which this
+// file does not implement as such: both sender classes below compute their composition
+// directly inside connect() instead (env is available there, from the real receiver -- this is
+// why `on`, unlike <__execution/starts_on.h>, has real sender/opstate types of its own
+// rather than lowering to a composition of other senders), the query is called directly, matching [exec.on]p7/p8's
 // literal (non-transform_sender) operational wording exactly, with no `call-with-default` fallback. If
 // nothing in the relevant environment answers the query, this is simply ill-formed -- matching the
 // established pattern (e.g. <__execution/let.h>'s let-env, <__execution/domain.h>) of "soft-fail via

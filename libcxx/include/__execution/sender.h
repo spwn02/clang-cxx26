@@ -11,6 +11,7 @@
 
 #include <__concepts/constructible.h>
 #include <__concepts/derived_from.h>
+#include <__concepts/same_as.h>
 #include <__concepts/movable.h>
 #include <__config>
 #include <__execution/awaitable.h>
@@ -68,6 +69,10 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __sender_tag_of(_Sndr&& __sndr) {
 
 template <class _Sndr>
 using tag_of_t = typename decltype(execution::__sender_tag_of(std::declval<_Sndr>()))::type;
+
+// [exec.snd.concepts]: sender-for<Sndr, Tag>.
+template <class _Sndr, class _Tag>
+concept __sender_for = sender<_Sndr> && same_as<tag_of_t<_Sndr>, _Tag>;
 
 } // namespace execution
 

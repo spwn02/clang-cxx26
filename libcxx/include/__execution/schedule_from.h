@@ -76,17 +76,29 @@ private:
   _Rcvr __rcvr_;
 };
 
-// A single public `child` member, rather than the usual `tag`/`data`/`child` triple used by adaptors with
-// real per-instance data (<__execution/then.h>, <__execution/let.h>) or at least a stateless tag
-// (<__execution/continues_on.h>'s own `__continues_on_sndr`): schedule_from's own `data` is always `{}` per
-// [exec.schedule.from]p1, and nothing in scope through M5 decomposes a schedule_from sender via
-// tag_of_t/structured bindings, so there's nothing to gain from carrying a `tag` field just for shape
-// symmetry with those other adaptors.
+struct schedule_from_t;
+
+// make-sender(schedule_from, {}, sndr): an aggregate with public `tag`/`data`/`child` members, matching the
+// (tag, data, ...children) shape tag_of_t decomposes. schedule_from defines no behaviour of its own
+// ([exec.schedule.from]: it is customized by the domain of a scheduler), so the default is the one of a sender with a
+// single child: it forwards the completions of the child.
+struct __schedule_from_data {};
+
+template <class _Sndr>
+class __schedule_from_sndr;
+
+struct schedule_from_t {
+  template <sender _Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndr&& __sndr) const;
+};
+
 template <class _Sndr>
 class __schedule_from_sndr {
 public:
   using sender_concept = sender_tag;
 
+  _LIBCPP_NO_UNIQUE_ADDRESS schedule_from_t tag;
+  _LIBCPP_NO_UNIQUE_ADDRESS __schedule_from_data data;
   _Sndr child;
 
   template <class _Rcvr>
@@ -105,13 +117,10 @@ public:
   }
 };
 
-struct schedule_from_t {
-  template <sender _Sndr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndr&& __sndr) const
-      -> __schedule_from_sndr<remove_cvref_t<_Sndr>> {
-    return __schedule_from_sndr<remove_cvref_t<_Sndr>>{std::forward<_Sndr>(__sndr)};
-  }
-};
+template <sender _Sndr>
+_LIBCPP_HIDE_FROM_ABI constexpr auto schedule_from_t::operator()(_Sndr&& __sndr) const {
+  return __schedule_from_sndr<remove_cvref_t<_Sndr>>{{}, {}, std::forward<_Sndr>(__sndr)};
+}
 
 inline constexpr schedule_from_t schedule_from{};
 

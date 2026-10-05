@@ -44,7 +44,7 @@ namespace execution {
 // disengaged optional<V> and its (single) value completion into an engaged one, where V is
 // single-sender-value-type<child, Env> (<__execution/get_completion_signatures.h>'s
 // __single_sender_value_type). Unlike <__execution/stopped_as_error.h>'s and
-// <__execution/starts_on.h>'s call-time compositions -- neither of which needs Env to build
+// <__execution/starts_on.h>'s lowerings -- neither of which needs Env to build
 // its result -- V genuinely depends on Env, which isn't known until connect()/
 // get_completion_signatures() see a real receiver/queried environment. So this needs its own
 // hand-rolled sender type: pin V once Env is available, then build and

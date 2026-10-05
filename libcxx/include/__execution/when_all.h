@@ -32,6 +32,7 @@
 #include <__type_traits/is_same.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/integer_sequence.h>
 #include <__utility/move.h>
 #include <atomic>
@@ -63,9 +64,8 @@ namespace execution {
 // engine on this fork; see the M3 entry in docs/CXX26_GAPS.md), but structurally new: shared
 // mutable state across N concurrently-racing child operations, not a single linear pipeline.
 //
-// `when_all_with_variant` (p18/p19 of the clause -- a pure call-time composition,
-// `when_all(into_variant(sndrs)...)`) is deliberately deferred to a follow-up commit; this
-// file implements `when_all` alone.
+// `when_all_with_variant` (p18/p19 of the clause) is a sender of its own tag, lowered by transform_sender to
+// `when_all(into_variant(sndrs)...)` (defined at the end of this file).
 //
 // check-types ([exec.when.all]p8/p9, the Mandates-throwing consteval helper that diagnoses a
 // child with 2+ set_value completions) is not implemented -- same P3068 constexpr-exceptions
@@ -556,12 +556,8 @@ private:
 };
 
 // ---------------------------------------------------------------------------------------------
-// An aggregate with public `tag`/`children` members. Deliberately does *not* satisfy
-// tag_of_t's (tag, data, ...children) structured-binding decomposition -- tag_of_t is only
-// probed by <__execution/domain.h>'s default_domain::transform_sender, where a sender that
-// cannot be decomposed simply is not transformed. Same precedent as
-// <__execution/starts_on.h>/<__execution/stopped_as_error.h>/<__execution/schedule_from.h>,
-// which document the identical omission for the same reason.
+// An aggregate with public `tag`/`children` members (children are one tuple, so tag_of_t's (tag, data, ...children)
+// structured-binding decomposition sees the tag and one data member).
 //
 // when_all_t is defined in full first (its operator() only *declared*, trailing-return-type
 // naming the not-yet-complete __when_all_sndr, which is fine -- a trailing return type doesn't
@@ -617,24 +613,57 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto when_all_t::operator()(_Sndrs&&... __sndrs)
   return __when_all_sndr<remove_cvref_t<_Sndrs>...>{{}, tuple<remove_cvref_t<_Sndrs>...>(std::forward<_Sndrs>(__sndrs)...)};
 }
 
-// [exec.when.all]p18/p19: when_all_with_variant(sndrs...) is expression-equivalent to
-// make-sender(when_all_with_variant, {}, sndrs...), whose transform_sender is specified as
-// `when_all(into_variant(sndrs)...)`. The standard's own mechanism for reaching that
-// transform_sender -- domain-based per-tag dispatch, `tag_of_t<Sndr>().transform_sender(...)`
-// -- is not used by this fork's senders. So, like <__execution/stopped_as_error.h>'s/
-// <__execution/starts_on.h>'s own compositions, this is computed directly at CPO-call time --
-// `operator()` returns `when_all(into_variant(sndrs)...)`'s own concrete sender type outright,
-// rather than producing a distinct when_all_with_variant_t-tagged sender that is rewritten by a
-// transform_sender at connect time. Same tag_of_t deviation as those two files: the result's
-// tag_of_t is when_all_t's, not when_all_with_variant_t's; nothing inspects tag_of_t/sender-for
-// on a when_all_with_variant result.
+// [exec.when.all]p18/p19: when_all_with_variant(sndrs...) is make-sender(when_all_with_variant, {}, sndrs...), an
+// aggregate with public `tag`/`children` members, whose transform_sender(set_value, sndr, env) is
+// `when_all(into_variant(sndrs)...)`: the sender is lowered when it is connected to a receiver whose domain does not
+// customize when_all_with_variant.
+struct when_all_with_variant_t;
+
+template <class... _Sndrs>
+class __when_all_with_variant_sndr;
+
 struct when_all_with_variant_t {
   template <sender... _Sndrs>
     requires(sizeof...(_Sndrs) > 0)
-  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndrs&&... __sndrs) const {
-    return execution::when_all(execution::into_variant(std::forward<_Sndrs>(__sndrs))...);
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndrs&&... __sndrs) const;
+
+  template <class _Sndr, class _Env>
+    requires __sender_for<_Sndr, when_all_with_variant_t>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto transform_sender(set_value_t, _Sndr&& __sndr, const _Env&) {
+    auto&& [__tag, __children] = __sndr;
+    return std::apply(
+        [](auto&&... __child) {
+          return execution::when_all(execution::into_variant(std::forward<decltype(__child)>(__child))...);
+        },
+        std::forward_like<_Sndr>(__children));
   }
 };
+
+template <class... _Sndrs>
+class __when_all_with_variant_sndr {
+public:
+  using sender_concept = sender_tag;
+
+  _LIBCPP_NO_UNIQUE_ADDRESS when_all_with_variant_t tag;
+  tuple<_Sndrs...> children;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept { return env<>{}; }
+
+  // Only reached for a sender that was not transformed, which cannot happen: the transformation has no constraints
+  // but the shape of the sender.
+  template <class _Self, class _Env>
+  _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
+    throw __unspecified_exception();
+    return completion_signatures<>();
+  }
+};
+
+template <sender... _Sndrs>
+  requires(sizeof...(_Sndrs) > 0)
+_LIBCPP_HIDE_FROM_ABI constexpr auto when_all_with_variant_t::operator()(_Sndrs&&... __sndrs) const {
+  return __when_all_with_variant_sndr<remove_cvref_t<_Sndrs>...>{
+      {}, tuple<remove_cvref_t<_Sndrs>...>(std::forward<_Sndrs>(__sndrs)...)};
+}
 
 inline constexpr when_all_with_variant_t when_all_with_variant{};
 

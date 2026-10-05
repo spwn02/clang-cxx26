@@ -13,6 +13,7 @@
 #include <__concepts/constructible.h>
 #include <__concepts/same_as.h>
 #include <__config>
+#include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
 #include <__execution/env.h>
@@ -26,6 +27,7 @@
 #include <__execution/receiver.h>
 #include <__execution/sender.h>
 #include <__execution/sender_adaptor_closure.h>
+#include <__functional/bind_back.h>
 #include <__functional/invoke.h>
 #include <__mutex/lock_guard.h>
 #include <__mutex/mutex.h>
@@ -35,6 +37,7 @@
 #include <__type_traits/is_nothrow_constructible.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/move.h>
 #include <algorithm>
 #include <atomic>
@@ -60,19 +63,10 @@ namespace execution {
 // an index space [0, shape). bulk_chunked and bulk_unchunked are the two "real" adaptors here
 // (each hand-rolled -- own connect()/get_completion_signatures(), not routed through the
 // draft's basic-sender/impls-for/make-sender machinery, per the M3 precedent in
-// docs/CXX26_GAPS.md); bulk is a pure call-time composition over bulk_chunked
-// ([exec.bulk]p4's `new_f` transform, literally: invoke f once per index by looping inside a
-// single bulk_chunked-style chunk).
-//
-// [exec.bulk]p4's own mechanism for expressing that composition is domain-based
-// transform_sender customization (`bulk.transform_sender(set_value, sndr, env)`, dispatched
-// via `tag_of_t<Sndr>().transform_sender(...)`, which default_domain::transform_sender does
-// implement). Same precedent as <__execution/when_all.h>'s `when_all_with_variant`/
-// <__execution/stopped_as_error.h>: `bulk_t::operator()` returns `bulk_chunked(sndr, policy,
-// shape, new_f)`'s own concrete type directly, rather than producing a distinct
-// bulk_t-tagged sender that is rewritten by a transform_sender at connect time. Same
-// tag_of_t/sender_for deviation as those files: nothing inspects tag_of_t/sender-for on a
-// bulk(...) result.
+// docs/CXX26_GAPS.md); bulk is a make-sender-shaped sender of its own tag (tag/data/child), lowered by
+// `bulk.transform_sender(set_value, sndr, env)` ([exec.bulk]p4's `new_f` transform, literally: invoke f
+// once per index by looping inside a single bulk_chunked chunk) when it is connected, through
+// default_domain::transform_sender (`tag_of_t<Sndr>().transform_sender(...)`).
 //
 // check-types ([exec.bulk]p6/p8, the Mandates-throwing consteval helper that diagnoses a
 // child value datum Func isn't invocable with) is not implemented -- same P3068
@@ -101,6 +95,23 @@ struct __bulk_data {
   _LIBCPP_NO_UNIQUE_ADDRESS __policy_storage_t policy;
   _Shape shape;
   _Func f;
+};
+
+// The closure object returned by the partial application bulk-algo(policy, shape, f): a perfect forwarding call wrapper
+// ([exec.adapt.obj]) over the policy, shape and function, which stay valid when the closure is called more than once:
+// an lvalue closure passes them as lvalues (the function is copied), an rvalue one may move the function.
+template <class _Algo, class _Data>
+struct __bulk_closure {
+  _Data __data;
+
+  template <class _Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndr&& __sndr) const& {
+    return _Algo{}(std::forward<_Sndr>(__sndr), __data.policy, __data.shape, __data.f);
+  }
+  template <class _Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndr&& __sndr) && {
+    return _Algo{}(std::forward<_Sndr>(__sndr), __data.policy, __data.shape, std::move(__data.f));
+  }
 };
 
 // Also reused directly by the pipe-form (3-arg) overloads below, as the lambda-captured state:
@@ -544,7 +555,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __bulk_make_sndr(_Sndr&& __sndr, _Policy&& 
       std::forward<_Sndr>(__sndr)};
 }
 
-struct bulk_chunked_t : sender_adaptor_closure<bulk_chunked_t> {
+struct bulk_chunked_t {
   template <sender _Sndr, class _Policy, integral _Shape, class _Func>
     requires is_execution_policy_v<remove_cvref_t<_Policy>> && copy_constructible<decay_t<_Func>>
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndr&& __sndr, _Policy&& __policy, _Shape __shape, _Func&& __f) const {
@@ -556,15 +567,12 @@ struct bulk_chunked_t : sender_adaptor_closure<bulk_chunked_t> {
     requires is_execution_policy_v<remove_cvref_t<_Policy>> && copy_constructible<decay_t<_Func>>
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Policy&& __policy, _Shape __shape, _Func&& __f) const {
     using __data_t = __bulk_data<remove_cvref_t<_Policy>, _Shape, decay_t<_Func>>;
-    return execution::__pipeable(
-        [__data = __data_t{std::forward<_Policy>(__policy), __shape, decay_t<_Func>(std::forward<_Func>(__f))}](
-            auto&& __sndr) mutable {
-          return bulk_chunked_t{}(std::forward<decltype(__sndr)>(__sndr), __data.policy, __data.shape, std::move(__data.f));
-        });
+    return execution::__pipeable(__bulk_closure<bulk_chunked_t, __data_t>{
+        __data_t{std::forward<_Policy>(__policy), __shape, decay_t<_Func>(std::forward<_Func>(__f))}});
   }
 };
 
-struct bulk_unchunked_t : sender_adaptor_closure<bulk_unchunked_t> {
+struct bulk_unchunked_t {
   template <sender _Sndr, class _Policy, integral _Shape, class _Func>
     requires is_execution_policy_v<remove_cvref_t<_Policy>> && copy_constructible<decay_t<_Func>>
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndr&& __sndr, _Policy&& __policy, _Shape __shape, _Func&& __f) const {
@@ -576,50 +584,87 @@ struct bulk_unchunked_t : sender_adaptor_closure<bulk_unchunked_t> {
     requires is_execution_policy_v<remove_cvref_t<_Policy>> && copy_constructible<decay_t<_Func>>
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Policy&& __policy, _Shape __shape, _Func&& __f) const {
     using __data_t = __bulk_data<remove_cvref_t<_Policy>, _Shape, decay_t<_Func>>;
-    return execution::__pipeable(
-        [__data = __data_t{std::forward<_Policy>(__policy), __shape, decay_t<_Func>(std::forward<_Func>(__f))}](
-            auto&& __sndr) mutable {
-          return bulk_unchunked_t{}(std::forward<decltype(__sndr)>(__sndr), __data.policy, __data.shape, std::move(__data.f));
-        });
+    return execution::__pipeable(__bulk_closure<bulk_unchunked_t, __data_t>{
+        __data_t{std::forward<_Policy>(__policy), __shape, decay_t<_Func>(std::forward<_Func>(__f))}});
   }
 };
 
 inline constexpr bulk_chunked_t bulk_chunked{};
 inline constexpr bulk_unchunked_t bulk_unchunked{};
 
-// [exec.bulk]p4: bulk(sndr, policy, shape, f) is expression-equivalent (on this fork, per the
-// file-level deviation note above) to
-// `bulk_chunked(sndr, policy, shape, new_f)`, where `new_f(begin, end, vs...)` invokes
-// `f(i, vs...)` for every `i` in `[begin, end)` -- reproducing bulk's own "invoke f(i,
-// args...) for every i from 0 to shape" semantics through bulk_chunked's single-chunk-per-call
-// default behavior (see the `__bulk_rcvr` comment above): since bulk_chunked here always
-// invokes its own Func exactly once with the *whole* [0, shape) range, `new_f`'s internal loop
-// ends up covering every index exactly once, matching bulk's contract precisely.
-struct bulk_t : sender_adaptor_closure<bulk_t> {
+// [exec.bulk]p4: bulk(sndr, policy, shape, f) is make-sender(bulk, product-type{policy, shape, f}, sndr), an aggregate
+// with public `tag`/`data`/`child` members. When it is connected to a receiver whose domain does not customize bulk
+// it is lowered by bulk.transform_sender(set_value, sndr, env) to
+// `bulk_chunked(child, policy, shape, new_f)`, where `new_f(begin, end, vs...)` invokes `f(i, vs...)` for every `i` in
+// `[begin, end)`.
+struct bulk_t;
+
+template <class _Policy, class _Shape, class _Func, class _Sndr>
+class __bulk_front_sndr;
+
+struct bulk_t {
   template <sender _Sndr, class _Policy, integral _Shape, class _Func>
     requires is_execution_policy_v<remove_cvref_t<_Policy>> && copy_constructible<decay_t<_Func>>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndr&& __sndr, _Policy&& __policy, _Shape __shape, _Func&& __f) const {
-    return execution::bulk_chunked(
-        std::forward<_Sndr>(__sndr), std::forward<_Policy>(__policy), __shape,
-        [__func = decay_t<_Func>(std::forward<_Func>(__f))](_Shape __begin, _Shape __end, auto&... __vs) mutable
-            noexcept(is_nothrow_invocable_v<decay_t<_Func>&, _Shape, decltype(__vs)...>) {
-          while (__begin != __end) {
-            __func(__begin++, __vs...);
-          }
-        });
-  }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndr&& __sndr, _Policy&& __policy, _Shape __shape, _Func&& __f) const;
 
   template <class _Policy, integral _Shape, class _Func>
     requires is_execution_policy_v<remove_cvref_t<_Policy>> && copy_constructible<decay_t<_Func>>
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Policy&& __policy, _Shape __shape, _Func&& __f) const {
     using __data_t = __bulk_data<remove_cvref_t<_Policy>, _Shape, decay_t<_Func>>;
-    return execution::__pipeable(
-        [__data = __data_t{std::forward<_Policy>(__policy), __shape, decay_t<_Func>(std::forward<_Func>(__f))}](
-            auto&& __sndr) mutable {
-          return bulk_t{}(std::forward<decltype(__sndr)>(__sndr), __data.policy, __data.shape, std::move(__data.f));
+    return execution::__pipeable(__bulk_closure<bulk_t, __data_t>{
+        __data_t{std::forward<_Policy>(__policy), __shape, decay_t<_Func>(std::forward<_Func>(__f))}});
+  }
+
+  // [exec.bulk]p5: bulk.transform_sender(set_value, sndr, env), for a sender of this tag.
+  template <class _Sndr, class _Env>
+    requires __sender_for<_Sndr, bulk_t>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto transform_sender(set_value_t, _Sndr&& __sndr, const _Env&) {
+    auto&& [__tag, __data, __child] = __sndr;
+    using _Shape = remove_cvref_t<decltype(__data.shape)>;
+    using _Func  = remove_cvref_t<decltype(__data.f)>;
+    return execution::bulk_chunked(
+        std::forward_like<_Sndr>(__child), __data.policy, __data.shape,
+        [__func = std::forward_like<_Sndr>(__data.f)](_Shape __begin, _Shape __end, auto&... __vs) mutable
+        noexcept(is_nothrow_invocable_v<_Func&, _Shape, decltype(__vs)...>) {
+          while (__begin != __end) {
+            __func(__begin++, __vs...);
+          }
         });
   }
 };
+
+template <class _Policy, class _Shape, class _Func, class _Sndr>
+class __bulk_front_sndr {
+public:
+  using sender_concept = sender_tag;
+
+  _LIBCPP_NO_UNIQUE_ADDRESS bulk_t tag;
+  __bulk_data<_Policy, _Shape, _Func> data;
+  _Sndr child;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
+    return execution::__sender_attrs_fn(execution::get_env(child));
+  }
+
+  // Only reached for a sender that was not transformed, which cannot happen: the transformation has no constraints
+  // but the shape of the sender.
+  template <class _Self, class _Env>
+  _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
+    throw __unspecified_exception();
+    return completion_signatures<>();
+  }
+};
+
+template <sender _Sndr, class _Policy, integral _Shape, class _Func>
+  requires is_execution_policy_v<remove_cvref_t<_Policy>> && copy_constructible<decay_t<_Func>>
+_LIBCPP_HIDE_FROM_ABI constexpr auto bulk_t::operator()(_Sndr&& __sndr, _Policy&& __policy, _Shape __shape, _Func&& __f) const {
+  using __policy_t = remove_cvref_t<_Policy>;
+  using __data_t   = __bulk_data<__policy_t, _Shape, decay_t<_Func>>;
+  return __bulk_front_sndr<__policy_t, _Shape, decay_t<_Func>, remove_cvref_t<_Sndr>>{
+      {},
+      __data_t{std::forward<_Policy>(__policy), __shape, decay_t<_Func>(std::forward<_Func>(__f))},
+      std::forward<_Sndr>(__sndr)};
+}
 
 inline constexpr bulk_t bulk{};
 
