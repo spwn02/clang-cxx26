@@ -222,7 +222,11 @@ inline constexpr auto fold_left_first = __fold_left_first();
 struct __fold_right {
   template <bidirectional_iterator _Ip,
             sentinel_for<_Ip> _Sp,
-            class _Tp,
+            class _Tp
+#  if _LIBCPP_STD_VER >= 26
+            = iter_value_t<_Ip>
+#  endif
+            ,
             __indirectly_binary_right_foldable<_Tp, _Ip> _Fp>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static constexpr auto operator()(_Ip __first, _Sp __last, _Tp __init, _Fp __f) {
     using _Up = decay_t<invoke_result_t<_Fp&, iter_reference_t<_Ip>, _Tp>>;
@@ -240,7 +244,13 @@ struct __fold_right {
     return __accum;
   }
 
-  template <bidirectional_range _Rp, class _Tp, __indirectly_binary_right_foldable<_Tp, iterator_t<_Rp>> _Fp>
+  template <bidirectional_range _Rp,
+            class _Tp
+#  if _LIBCPP_STD_VER >= 26
+            = range_value_t<_Rp>
+#  endif
+            ,
+            __indirectly_binary_right_foldable<_Tp, iterator_t<_Rp>> _Fp>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static constexpr auto operator()(_Rp&& __r, _Tp __init, _Fp __f) {
     return operator()(ranges::begin(__r), ranges::end(__r), std::move(__init), std::ref(__f));
   }

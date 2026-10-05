@@ -23,6 +23,7 @@
 #include <__ranges/dangling.h>
 #include <__ranges/subrange.h>
 #include <__type_traits/invoke.h>
+#include <__type_traits/is_arithmetic.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
@@ -60,7 +61,7 @@ struct __generate_random {
 
   template <class _Rp, class _Gp, class _Dp>
     requires output_range<_Rp, invoke_result_t<_Dp&, _Gp&>> && invocable<_Dp&, _Gp&> &&
-             uniform_random_bit_generator<remove_cvref_t<_Gp>>
+             uniform_random_bit_generator<remove_cvref_t<_Gp>> && is_arithmetic_v<invoke_result_t<_Dp&, _Gp&>>
   _LIBCPP_HIDE_FROM_ABI constexpr borrowed_iterator_t<_Rp> operator()(_Rp&& __r, _Gp&& __g, _Dp&& __d) const {
     if constexpr (requires { __d.generate_random(std::forward<_Rp>(__r), __g); }) {
       __d.generate_random(std::forward<_Rp>(__r), __g);
@@ -71,7 +72,8 @@ struct __generate_random {
   }
 
   template <class _Gp, class _Dp, output_iterator<invoke_result_t<_Dp&, _Gp&>> _Op, sentinel_for<_Op> _Sp>
-    requires invocable<_Dp&, _Gp&> && uniform_random_bit_generator<remove_cvref_t<_Gp>>
+    requires invocable<_Dp&, _Gp&> && uniform_random_bit_generator<remove_cvref_t<_Gp>> &&
+             is_arithmetic_v<invoke_result_t<_Dp&, _Gp&>>
   _LIBCPP_HIDE_FROM_ABI constexpr _Op operator()(_Op __first, _Sp __last, _Gp&& __g, _Dp&& __d) const {
     return (*this)(subrange<_Op, _Sp>(std::move(__first), __last), __g, __d);
   }

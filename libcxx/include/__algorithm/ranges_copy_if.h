@@ -17,6 +17,7 @@
 #include <__functional/invoke.h>
 #include <__iterator/concepts.h>
 #include <__iterator/projected.h>
+#include <__pstl/ranges_bounded.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
@@ -63,37 +64,41 @@ struct __copy_if {
     auto __res = std::__copy_if(ranges::begin(__r), ranges::end(__r), std::move(__result), __pred, __proj);
     return {std::move(__res.first), std::move(__res.second)};
   }
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
-            random_access_iterator _Iter,
-            sized_sentinel_for<_Iter> _Sent,
-            class _OutIter,
-            class _Pred,
-            class _Proj                                          = identity,
-            class _RawPolicy                                     = __remove_cvref_t<_Ep>,
-            enable_if_t<is_execution_policy_v<_RawPolicy>, int>   = 0>
-    requires indirectly_copyable<_Iter, _OutIter>
-  _LIBCPP_HIDE_FROM_ABI copy_if_result<_Iter, _OutIter>
-  operator()(_Ep&& __exec, _Iter __first, _Sent __last, _OutIter __result, _Pred __pred, _Proj __proj = {}) const {
-    _Iter __end = __first + (__last - __first);
-    auto __res  = std::copy_if(
-        std::forward<_Ep>(__exec), __first, __end, std::move(__result),
-        [&__pred, &__proj](auto&& __elem) { return std::invoke(__pred, std::invoke(__proj, __elem)); });
-    return {std::move(__end), std::move(__res)};
+            random_access_iterator _InIter,
+            sized_sentinel_for<_InIter> _Sent,
+            random_access_iterator _OutIter,
+            sized_sentinel_for<_OutIter> _OutSent,
+            class _Proj = identity,
+            indirect_unary_predicate<projected<_InIter, _Proj>> _Pred,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires indirectly_copyable<_InIter, _OutIter>
+  _LIBCPP_HIDE_FROM_ABI copy_if_result<_InIter, _OutIter> operator()(
+      _Ep&& __exec, _InIter __first, _Sent __last, _OutIter __result, _OutSent __result_last, _Pred __pred, _Proj __proj = {}) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__ranges_bounded_copy_if, __pstl::__current_configuration, _RawPolicy>;
+    return __pstl::__handle_exception<_Implementation>(std::forward<_Ep>(__exec), std::move(__first), std::move(__last), std::move(__result), std::move(__result_last), std::move(__pred), std::move(__proj));
   }
 
   template <class _Ep,
             random_access_range _Range,
-            class _OutIter,
-            class _Pred,
-            class _Proj                                        = identity,
-            class _RawPolicy                                   = __remove_cvref_t<_Ep>,
+            random_access_range _OutRange,
+            class _Proj = identity,
+            indirect_unary_predicate<projected<iterator_t<_Range>, _Proj>> _Pred,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
             enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-    requires sized_range<_Range> && indirectly_copyable<iterator_t<_Range>, _OutIter>
-  _LIBCPP_HIDE_FROM_ABI copy_if_result<borrowed_iterator_t<_Range>, _OutIter>
-  operator()(_Ep&& __exec, _Range&& __r, _OutIter __result, _Pred __pred, _Proj __proj = {}) const {
+    requires sized_range<_Range> && sized_range<_OutRange> &&
+             indirectly_copyable<iterator_t<_Range>, iterator_t<_OutRange>>
+  _LIBCPP_HIDE_FROM_ABI copy_if_result<borrowed_iterator_t<_Range>, borrowed_iterator_t<_OutRange>>
+  operator()(_Ep&& __exec, _Range&& __range, _OutRange&& __result_range, _Pred __pred, _Proj __proj = {}) const {
     return (*this)(
-        std::forward<_Ep>(__exec), ranges::begin(__r), ranges::end(__r), std::move(__result), std::move(__pred),
+        std::forward<_Ep>(__exec),
+        ranges::begin(__range),
+        ranges::begin(__range) + ranges::size(__range),
+        ranges::begin(__result_range),
+        ranges::begin(__result_range) + ranges::size(__result_range),
+        std::move(__pred),
         std::move(__proj));
   }
 #  endif

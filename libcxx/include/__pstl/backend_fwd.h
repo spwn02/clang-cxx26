@@ -157,6 +157,28 @@ template <class _Backend, class _ExecutionPolicy>
 struct __ranges_bounded_remove_copy_if;
 template <class _Backend, class _ExecutionPolicy>
 struct __ranges_bounded_unique_copy;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_copy;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_copy_n;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_move;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_copy_if;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_replace_copy_if;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_unary_transform;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_binary_transform;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_reverse_copy;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_rotate_copy;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_merge;
+template <class _Backend, class _ExecutionPolicy>
+struct __ranges_bounded_partition_copy;
 
 template <class _Backend, class _ExecutionPolicy>
 struct __is_heap;

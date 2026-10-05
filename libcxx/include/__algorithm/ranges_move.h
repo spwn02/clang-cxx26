@@ -15,6 +15,7 @@
 #include <__algorithm/pstl.h>
 #include <__config>
 #include <__iterator/concepts.h>
+#include <__pstl/ranges_bounded.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
@@ -61,23 +62,36 @@ struct __move {
     return __move_impl(ranges::begin(__range), ranges::end(__range), std::move(__result));
   }
 
-#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
-  template <class _Ep, random_access_iterator _InIter, sized_sentinel_for<_InIter> _Sent, weakly_incrementable _OutIter,
-            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            random_access_iterator _InIter,
+            sized_sentinel_for<_InIter> _Sent,
+            random_access_iterator _OutIter,
+            sized_sentinel_for<_OutIter> _OutSent,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
     requires indirectly_movable<_InIter, _OutIter>
   _LIBCPP_HIDE_FROM_ABI move_result<_InIter, _OutIter>
-  operator()(_Ep&& __exec, _InIter __first, _Sent __last, _OutIter __result) const {
-    _InIter __end = __first + (__last - __first);
-    _OutIter __result_end = std::move(std::forward<_Ep>(__exec), std::move(__first), __end, std::move(__result));
-    return {std::move(__end), std::move(__result_end)};
+  operator()(_Ep&& __exec, _InIter __first, _Sent __last, _OutIter __result, _OutSent __result_last) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__ranges_bounded_move, __pstl::__current_configuration, _RawPolicy>;
+    return __pstl::__handle_exception<_Implementation>(std::forward<_Ep>(__exec), std::move(__first), std::move(__last), std::move(__result), std::move(__result_last));
   }
 
-  template <class _Ep, random_access_range _Range, weakly_incrementable _OutIter,
-            class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-    requires sized_range<_Range> && indirectly_movable<iterator_t<_Range>, _OutIter>
-  _LIBCPP_HIDE_FROM_ABI move_result<borrowed_iterator_t<_Range>, _OutIter>
-  operator()(_Ep&& __exec, _Range&& __range, _OutIter __result) const {
-    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::end(__range), std::move(__result));
+  template <class _Ep,
+            random_access_range _Range,
+            random_access_range _OutRange,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires sized_range<_Range> && sized_range<_OutRange> &&
+             indirectly_movable<iterator_t<_Range>, iterator_t<_OutRange>>
+  _LIBCPP_HIDE_FROM_ABI move_result<borrowed_iterator_t<_Range>, borrowed_iterator_t<_OutRange>>
+  operator()(_Ep&& __exec, _Range&& __range, _OutRange&& __result_range) const {
+    return (*this)(
+        std::forward<_Ep>(__exec),
+        ranges::begin(__range),
+        ranges::begin(__range) + ranges::size(__range),
+        ranges::begin(__result_range),
+        ranges::begin(__result_range) + ranges::size(__result_range));
   }
 #  endif
 };
