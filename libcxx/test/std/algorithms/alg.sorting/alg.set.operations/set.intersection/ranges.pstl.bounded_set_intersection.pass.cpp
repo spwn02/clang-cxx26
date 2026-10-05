@@ -31,6 +31,19 @@ void test(Policy&& policy) {
   assert(partial.in1 == left.begin() + 2 && partial.in2 == right.begin() + 2);
   assert(partial.out == short_output.end() && short_output[0] == 2);
 
+  // when the whole intersection fits, elements after its last element are neither copied nor skipped
+  std::array<int, 3> trailing_left{1, 2, 3};
+  std::array<int, 2> trailing_right{1, 9};
+  std::array<int, 2> trailing_output{};
+  auto trailing = std::ranges::set_intersection(policy, trailing_left, trailing_right, trailing_output);
+  assert(trailing.in1 == trailing_left.begin() + 1 && trailing.in2 == trailing_right.begin() + 1 &&
+         trailing.out == trailing_output.begin() + 1);
+  // an empty intersection copies and skips nothing
+  std::array<int, 2> disjoint_right{7, 9};
+  auto disjoint = std::ranges::set_intersection(policy, trailing_left, disjoint_right, trailing_output);
+  assert(disjoint.in1 == trailing_left.begin() && disjoint.in2 == disjoint_right.begin() &&
+         disjoint.out == trailing_output.begin());
+
   std::array<int, 0> empty{};
   auto none = std::ranges::set_intersection(policy, left, right, empty);
   assert(none.in1 == left.begin() + 1 && none.in2 == right.begin() + 1);
@@ -41,7 +54,8 @@ void test(Policy&& policy) {
   std::array<Value, 2> projected_output{};
   auto projected = std::ranges::set_intersection(policy, projected_left, projected_right, projected_output,
                                                   std::ranges::greater{}, &Value::key, &Value::key);
-  assert(projected.in1 == projected_left.begin() + 2 && projected.in2 == projected_right.end());
+  // the 2 that follows the last element of the intersection is neither copied nor skipped
+  assert(projected.in1 == projected_left.begin() + 2 && projected.in2 == projected_right.begin() + 2);
   assert(projected.out == projected_output.end());
   assert(projected_output[0].key == 5 && projected_output[0].source == 1);
   assert(projected_output[1].key == 3 && projected_output[1].source == 1);

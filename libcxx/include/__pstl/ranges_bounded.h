@@ -82,11 +82,16 @@ struct __ranges_bounded_set_union<__default_backend_tag, _ExecutionPolicy> {
 
 template <class _ExecutionPolicy>
 struct __ranges_bounded_set_intersection<__default_backend_tag, _ExecutionPolicy> {
+  // [alg.set.intersection]: when the whole intersection fits, the positions are those after the last element of the
+  // intersection (an element of a range that follows it is neither copied nor skipped); when the output is full,
+  // they are the positions of the next element of the intersection and of its equivalent element.
   template <class _Policy, class _Iter1, class _Sent1, class _Iter2, class _Sent2,
             class _OutIter, class _OutSent, class _Comp, class _Proj1, class _Proj2>
   _LIBCPP_HIDE_FROM_ABI optional<ranges::in_in_out_result<_Iter1, _Iter2, _OutIter>> operator()(
       _Policy&&, _Iter1 __first1, _Sent1 __last1, _Iter2 __first2, _Sent2 __last2,
       _OutIter __result, _OutSent __result_last, _Comp __comp, _Proj1 __proj1, _Proj2 __proj2) const noexcept {
+    _Iter1 __after1 = __first1;
+    _Iter2 __after2 = __first2;
     while (__first1 != __last1 && __first2 != __last2) {
       if (std::invoke(__comp, std::invoke(__proj1, *__first1), std::invoke(__proj2, *__first2))) {
         ++__first1;
@@ -94,22 +99,19 @@ struct __ranges_bounded_set_intersection<__default_backend_tag, _ExecutionPolicy
         ++__first2;
       } else {
         if (__result == __result_last)
-          break;
+          return ranges::in_in_out_result<_Iter1, _Iter2, _OutIter>{__first1, __first2, __result};
         *__result = *__first1;
         ++__first1;
         ++__first2;
         ++__result;
+        __after1 = __first1;
+        __after2 = __first2;
       }
     }
-    return ranges::in_in_out_result<_Iter1, _Iter2, _OutIter>{__first1, __first2, __result};
+    return ranges::in_in_out_result<_Iter1, _Iter2, _OutIter>{__after1, __after2, __result};
   }
 };
 
-// [alg.set.difference]: with M the size of the sorted difference and N = min(M, output size), the result reports
-// {last1, first2 + B, result + N} when N == M and {first1 + A, first2 + B, result_last} otherwise, where A and B count the
-// copied or skipped elements of each input. The elements paired with an equivalent element of the other range are
-// skipped, and an unpaired element of the second range is also skipped if it compares less than the min(N + 1, M)-th
-// element of the difference.
 template <class _ExecutionPolicy>
 struct __ranges_bounded_set_difference<__default_backend_tag, _ExecutionPolicy> {
   template <class _Policy, class _Iter1, class _Sent1, class _Iter2, class _Sent2,

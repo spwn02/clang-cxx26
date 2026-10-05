@@ -10,6 +10,8 @@
 #define _LIBCPP___ALGORITHM_RANGES_MAX_H
 
 #include <__algorithm/min_element.h>
+#include <__algorithm/pstl.h>
+#include <__algorithm/ranges_max_element.h>
 #include <__assert>
 #include <__concepts/copyable.h>
 #include <__config>
@@ -20,7 +22,11 @@
 #include <__iterator/projected.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
+#include <__ranges/size.h>
+#include <__type_traits/is_execution_policy.h>
 #include <__type_traits/is_trivially_copyable.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
 #include <__utility/move.h>
 #include <initializer_list>
 
@@ -85,6 +91,20 @@ struct __max {
       return __result;
     }
   }
+#  if _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            random_access_range _Rp,
+            class _Proj                                                         = identity,
+            indirect_strict_weak_order<projected<iterator_t<_Rp>, _Proj>> _Comp = ranges::less,
+            class _RawPolicy                                                    = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int>                 = 0>
+    requires sized_range<_Rp> && indirectly_copyable_storable<iterator_t<_Rp>, range_value_t<_Rp>*>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI range_value_t<_Rp>
+  operator()(_Ep&& __exec, _Rp&& __r, _Comp __comp = {}, _Proj __proj = {}) const {
+    _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(ranges::size(__r) != 0, "range must contain at least one element");
+    return *ranges::max_element(std::forward<_Ep>(__exec), __r, std::move(__comp), std::move(__proj));
+  }
+#  endif
 };
 
 inline namespace __cpo {
