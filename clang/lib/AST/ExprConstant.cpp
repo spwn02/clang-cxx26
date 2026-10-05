@@ -4768,12 +4768,15 @@ findSubobject(EvalInfo &Info, const Expr *E, const CompleteObject &Obj,
 
   // Walk the designator's path to find the subobject.
   for (unsigned I = 0, N = Sub.Entries.size(); /**/; ++I) {
-    // Constructing an element of an array that has not been created yet: arrays
-    // are implicit-lifetime types ([intro.object]), so the array comes into
-    // existence (with none of its elements alive) when one of its elements is
-    // constructed, e.g. the int[3] elements of the storage std::allocator<int[3]>
-    // provides while its ints are constructed one by one.
-    if (O->isAbsent() && handler.AccessKind == AK_Construct && I < N)
+    // Constructing an element of an array that has not been created yet inside
+    // storage from std::allocator: the allocation implicitly creates objects of
+    // implicit-lifetime types ([intro.object]), so the array elements of an
+    // array of arrays exist (with none of their own elements alive) when one of
+    // their elements is constructed, e.g. the int[3] elements of the storage
+    // std::allocator<int[3]> provides while its ints are constructed one by one.
+    // Elsewhere an array that is not alive stays an error.
+    if (O->isAbsent() && handler.AccessKind == AK_Construct && I < N &&
+        Obj.Base.is<DynamicAllocLValue>())
       if (const ConstantArrayType *CAT = Info.Ctx.getAsConstantArrayType(ObjType))
         *O = APValue(APValue::UninitArray(), 0, CAT->getZExtSize());
 

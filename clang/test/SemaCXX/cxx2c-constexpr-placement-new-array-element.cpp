@@ -122,3 +122,13 @@ constexpr int read_unconstructed() {
 }
 constexpr int use_read_unconstructed = read_unconstructed(); // expected-error {{must be initialized by a constant expression}} \
                                                              // expected-note {{in call to}}
+
+// Outside the storage std::allocator provides, an array that has not begun its lifetime is not created implicitly:
+// here a is initialized after b, so a[0][1] cannot be constructed yet.
+struct Early {
+  int b;
+  int a[2][3];
+  constexpr Early() : b((::new (static_cast<void*>(&a[0][1])) int(5), 0)), a{} {} // expected-note {{construction of subobject of object outside its lifetime is not allowed in a constant expression}}
+};
+constexpr Early early; // expected-error {{must be initialized by a constant expression}} \
+                       // expected-note {{in call to 'Early()'}}
