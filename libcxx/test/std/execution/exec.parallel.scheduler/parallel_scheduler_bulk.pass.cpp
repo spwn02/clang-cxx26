@@ -20,6 +20,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <chrono>
 #include <execution>
 #include <mutex>
 #include <set>
@@ -64,8 +65,18 @@ int main(int, char**) {
 
     auto r = std::this_thread::sync_wait(schedule(get_parallel_scheduler()) |
                                           bulk_chunked(par, kShape, [&](int, int) {
-                                            std::lock_guard<std::mutex> lock(mtx);
-                                            ids.insert(std::this_thread::get_id());
+                                            {
+                                              std::lock_guard<std::mutex> lock(mtx);
+                                              ids.insert(std::this_thread::get_id());
+                                            }
+                                            // Wait (bounded) for a second thread to arrive, so the assertion below does
+                                            // not depend on how the OS schedules the workers under load.
+                                            auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+                                            while (std::chrono::steady_clock::now() < deadline) {
+                                              std::lock_guard<std::mutex> lock(mtx);
+                                              if (ids.size() > 1)
+                                                break;
+                                            }
                                           }));
     assert(r.has_value());
     assert(ids.size() > 1);

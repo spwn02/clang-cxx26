@@ -25,6 +25,7 @@
 // program's lifetime.
 
 #include <cassert>
+#include <chrono>
 #include <execution>
 #include <mutex>
 #include <set>
@@ -39,15 +40,24 @@ namespace {
 // full-coverage-no-overlap and genuine multi-threaded dispatch.
 class recording_bulk_proxy final : public scr::bulk_item_receiver_proxy {
 public:
-  explicit recording_bulk_proxy(size_t n) : seen_(n, false) {}
+  // With `rendezvous`, execute() waits (bounded) until a second thread has also executed a chunk, so that observing
+  // more than one thread does not depend on how the OS happens to schedule the workers under load.
+  explicit recording_bulk_proxy(size_t n, bool rendezvous = false) : seen_(n, false), rendezvous_(rendezvous) {}
 
   void execute(size_t begin, size_t end) noexcept override {
-    std::lock_guard<std::mutex> lock(mtx_);
-    for (size_t i = begin; i < end; ++i) {
-      assert(!seen_[i]); // no two chunks may cover the same index
-      seen_[i] = true;
+    {
+      std::lock_guard<std::mutex> lock(mtx_);
+      for (size_t i = begin; i < end; ++i) {
+        assert(!seen_[i]); // no two chunks may cover the same index
+        seen_[i] = true;
+      }
+      tids_.insert(std::this_thread::get_id());
     }
-    tids_.insert(std::this_thread::get_id());
+    if (rendezvous_) {
+      auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+      while (thread_count() < 2 && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::yield();
+    }
   }
 
   void set_value() noexcept override {
@@ -67,7 +77,10 @@ public:
         return false;
     return true;
   }
-  size_t thread_count() const { return tids_.size(); }
+  size_t thread_count() const {
+    std::lock_guard<std::mutex> lock(mtx_);
+    return tids_.size();
+  }
 
 protected:
   bool __query_env(const std::type_info&, const std::type_info&, const void*, void*) const noexcept override {
@@ -78,6 +91,7 @@ private:
   mutable std::mutex mtx_;
   std::vector<bool> seen_;
   std::set<std::thread::id> tids_;
+  bool rendezvous_;
   bool done_ = false;
 };
 
@@ -121,13 +135,15 @@ int main(int, char**) {
   // schedule_bulk_chunked(): full coverage, no overlap, genuine parallelism for a large shape.
   {
     constexpr size_t n = 997;
-    recording_bulk_proxy proxy(n);
+    const bool parallel = std::thread::hardware_concurrency() > 1;
+    recording_bulk_proxy proxy(n, parallel);
     alignas(std::max_align_t) std::byte storage[64];
     backend->schedule_bulk_chunked(n, proxy, std::span<std::byte>(storage, sizeof(storage)));
     wait_until([](void* p) { return static_cast<recording_bulk_proxy*>(p)->done(); }, &proxy);
     assert(proxy.done());
     assert(proxy.all_seen());
-    assert(proxy.thread_count() > 1);
+    if (parallel)
+      assert(proxy.thread_count() > 1);
   }
 
   // schedule_bulk_unchunked(): same contract, one logical index per execute() call.
