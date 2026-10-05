@@ -314,12 +314,9 @@ layout_left_padded<_PaddingValue>::mapping<_Extents>::__submdspan_mapping_impl(_
     constexpr size_t __sub_rank      = _SubExtents::rank();
     constexpr auto __kinds           = array<__mdspan_detail::__slice_kind, _Extents::rank()>{
         __mdspan_detail::__slice_kind_of<_SliceSpecifiers>()...};
-    // [mdspan.sub.map.leftpad]/2 returns layout_left for every slice of a rank-one mapping. That is only correct when
-    // the slice has unit stride (a strided slice would lose its stride), so a strided slice is treated like any other
-    // result that is not contiguous.
     constexpr bool __is_contiguous =
-        __sub_rank == 0 || (_Extents::rank() == 1 ? __mdspan_detail::__is_unit_stride_kind(__kinds[0])
-                                                  : (__sub_rank == 1 && __mdspan_detail::__is_unit_stride_kind(__kinds[0])));
+        __sub_rank == 0 || _Extents::rank() == 1 ||
+        (__sub_rank == 1 && __mdspan_detail::__is_unit_stride_kind(__kinds[0]));
     if constexpr (__is_contiguous) {
       using _Result = layout_left::mapping<_SubExtents>;
       return submdspan_mapping_result<_Result>{_Result(__common.__extents), __common.__offset};
@@ -353,10 +350,9 @@ layout_right_padded<_PaddingValue>::mapping<_Extents>::__submdspan_mapping_impl(
     constexpr size_t __rank          = _Extents::rank();
     constexpr auto __kinds           = array<__mdspan_detail::__slice_kind, __rank>{
         __mdspan_detail::__slice_kind_of<_SliceSpecifiers>()...};
-    // See layout_left_padded: a strided slice of a rank-one mapping cannot return layout_right.
     constexpr bool __is_contiguous =
-        __sub_rank == 0 || (__rank == 1 ? __mdspan_detail::__is_unit_stride_kind(__kinds[0])
-                                        : (__sub_rank == 1 && __mdspan_detail::__is_unit_stride_kind(__kinds[__rank - 1])));
+        __sub_rank == 0 || __rank == 1 ||
+        (__sub_rank == 1 && __mdspan_detail::__is_unit_stride_kind(__kinds[__rank - 1]));
     if constexpr (__is_contiguous) {
       using _Result = layout_right::mapping<_SubExtents>;
       return submdspan_mapping_result<_Result>{_Result(__common.__extents), __common.__offset};

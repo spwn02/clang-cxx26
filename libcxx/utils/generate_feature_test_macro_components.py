@@ -1745,7 +1745,8 @@ feature_test_macros = [
             "values": {
                 # 202306 P2630R4/P3355R2: submdspan
                 # 202403 P2642R6: Padded mdspan layouts
-                "c++26": 202511,  # P3663R3: Future-proof submdspan_mapping
+                # 202511 P3663R3: Future-proof submdspan_mapping
+                "c++26": 202603,  # value of [version.syn] in the adopted C++26 draft
             },
             "headers": ["mdspan"],
         },

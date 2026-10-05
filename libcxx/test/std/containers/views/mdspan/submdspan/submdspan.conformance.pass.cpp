@@ -123,16 +123,18 @@ void test_result_layouts() {
     static_assert(same<typename decltype(w)::layout_type, std::layout_left_padded<8>>);
     assert(w.stride(1) == 8 && w.data_handle() == b + 1 + 8);
   }
-  // rank-one padded mappings: only a unit-stride slice stays contiguous
+  // rank-one padded mappings: [mdspan.sub.map.leftpad]/2 and [mdspan.sub.map.rightpad]/2 return layout_left and
+  // layout_right respectively for every slice (an LWG candidate for strided slices, which lose their stride).
   {
     int a[8] = {};
     std::mdspan<int, std::extents<int, 8>, std::layout_left_padded<4>> m(a);
     auto s = std::submdspan(m, std::pair{1, 5});
     static_assert(same<typename decltype(s)::layout_type, std::layout_left>);
     auto t = std::submdspan(m, std::extent_slice{0, std::cw<4>, std::cw<2>});
-    static_assert(same<typename decltype(t)::layout_type, std::layout_stride>);
-    assert(t.stride(0) == 2);
-    assert((&t[3] == a + 6));
+    static_assert(same<typename decltype(t)::layout_type, std::layout_left>);
+    std::mdspan<int, std::extents<int, 8>, std::layout_right_padded<4>> r(a);
+    auto u = std::submdspan(r, std::extent_slice{0, std::cw<4>, std::cw<2>});
+    static_assert(same<typename decltype(u)::layout_type, std::layout_right>);
   }
   // rank-zero results
   {
@@ -152,7 +154,7 @@ constexpr bool test_empty_end_slice() {
   auto r = submdspan_mapping(m, std::full_extent, std::extent_slice{6, 0, 1});
   assert(r.offset == 24);
   assert(r.mapping.extents().extent(1) == 0);
-  auto r2 = submdspan_mapping(m, 4, std::full_extent);
+  auto r2 = submdspan_mapping(m, std::extent_slice{4, 0, 1}, std::full_extent);
   assert(r2.offset == 24);
   return true;
 }
