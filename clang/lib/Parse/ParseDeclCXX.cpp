@@ -3482,7 +3482,7 @@ ExprResult Parser::ParseCXXMemberInitializer(Decl *D, bool IsFunction,
             << 0 /* default */;
       else
         Diag(ConsumeToken(), diag::err_default_special_members)
-            << getLangOpts().CPlusPlus20;
+            << (getLangOpts().CPlusPlus26 ? 2 : getLangOpts().CPlusPlus20);
       return ExprError();
     }
   }

@@ -19542,6 +19542,12 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
           DefineDefaultedComparison(Loc, Func, DCK);
       }
 
+      if (Func->isDefaulted() && !Func->isDeleted()) {
+        if (DefaultedFunctionKind DFK = getDefaultedFunctionKind(Func);
+            DFK.isPostfixIncDec())
+          DefineDefaultedPostfixIncDec(Loc, Func, DFK.asPostfixIncDec());
+      }
+
       // Implicit instantiation of function templates and member functions of
       // class templates.
       if (Func->isImplicitlyInstantiable()) {

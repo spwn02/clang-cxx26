@@ -208,6 +208,10 @@ C++ Language Changes
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
+- Implemented `P3668R4 <https://wg21.link/P3668R4>`_ Defaulting postfix increment and decrement operations.
+  A postfix ``operator++``/``operator--`` can be explicitly defaulted (as a member, a friend or a non-member function);
+  its definition is ``C tmp(c); ++c; return tmp;`` and it is defined as deleted when that is ill-formed.
+
 - Started the implementation of `P2686R5 <https://wg21.link/P2686R5>`_ Constexpr structured bindings.
   At this time, references to constexpr and decomposition of *tuple-like* types are not supported
   (only arrays and aggregates are).
