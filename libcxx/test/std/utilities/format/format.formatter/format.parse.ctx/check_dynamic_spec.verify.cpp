@@ -20,7 +20,7 @@
 
 // Mandates: the types in Ts... are unique.
 void mandates_unique() {
-  std::format_parse_context ctx("", 1);
+  std::format_parse_context ctx("");
   // expected-error@*:* {{the types in Ts... must be unique}}
   ctx.check_dynamic_spec<int, int>(0);
 }
@@ -33,7 +33,7 @@ void mandates_unique() {
 // immediate function for this instantiation -- hence the second error below,
 // in addition to the static_assert itself.
 void mandates_allowed_type() {
-  std::format_parse_context ctx("", 1);
+  std::format_parse_context ctx("");
   // expected-error@*:* {{check_dynamic_spec<Ts...>: each type in Ts... must be one of}}
   // expected-error@+1 {{call to immediate function}}
   ctx.check_dynamic_spec<std::string>(0);
@@ -44,7 +44,7 @@ void mandates_allowed_type() {
 // validation threads that through), so check_dynamic_spec is never a core
 // constant expression there -- same boundary as an out-of-range id.
 constexpr bool direct_construction_always_fails() {
-  std::format_parse_context ctx("", 5);
+  std::format_parse_context ctx("");
   ctx.check_dynamic_spec_integral(0);
   return true;
 }

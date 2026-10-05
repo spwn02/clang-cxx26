@@ -16,7 +16,7 @@ constexpr bool test() {
   // [format.parse.ctx]/11
   // Remarks: Call expressions where id >= num_args_ are not
   // core constant expressions ([expr.const]).
-  std::format_parse_context context("", 0);
+  std::format_parse_context context("");
   context.check_arg_id(1);
 
   return true;

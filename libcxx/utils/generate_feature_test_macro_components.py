@@ -640,7 +640,8 @@ feature_test_macros = [
                 # 202305 P2757R3 Type-checking format args
                 # 202306 P2637R3 Member visit
                 # 202311 P2918R2 Runtime format strings II
-                "c++26": 202311,
+                # 202603 P3953R3 Rename std::runtime_format (to dynamic_format)
+                "c++26": 202603,
             },
             "headers": ["format"],
             # Trying to use `std::format` where to_chars floating-point is not

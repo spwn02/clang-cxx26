@@ -119,44 +119,48 @@ void test_P1361() {
 // In libc++ std:::ostringstream requires localization support.
 #ifndef TEST_HAS_NO_LOCALIZATION
 
-  // P3235R3: duration's trait is inherited from its representation type.
+  // P3235R3, [format.formatter.spec]: unless specified otherwise the trait is true for every type with a library
+  // formatter; [time.format] specifies otherwise only for duration (inherited from its representation type) and
+  // zoned_time (true with the default time zone pointer).
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::seconds>);
+  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::duration<std::vector<int>, std::ratio<1>>>);
   static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::microseconds>);
 
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::sys_time<std::chrono::microseconds>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::sys_time<std::chrono::microseconds>>);
 #  if !defined(TEST_HAS_NO_EXPERIMENTAL_TZDB) && !defined(TEST_HAS_NO_TIME_ZONE_DATABASE) &&                           \
       !defined(TEST_HAS_NO_FILESYSTEM)
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::utc_time<std::chrono::microseconds>>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::tai_time<std::chrono::microseconds>>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::gps_time<std::chrono::microseconds>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::utc_time<std::chrono::microseconds>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::tai_time<std::chrono::microseconds>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::gps_time<std::chrono::microseconds>>);
 #  endif // !defined(TEST_HAS_NO_EXPERIMENTAL_TZDB) && !defined(TEST_HAS_NO_TIME_ZONE_DATABASE) &&
          // !defined(TEST_HAS_NO_FILESYSTEM)
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::file_time<std::chrono::microseconds>>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::local_time<std::chrono::microseconds>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::file_time<std::chrono::microseconds>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::local_time<std::chrono::microseconds>>);
 
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::day>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::month>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::year>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::day>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::month>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::year>);
 
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::weekday>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::weekday_indexed>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::weekday_last>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::weekday>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::weekday_indexed>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::weekday_last>);
 
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::month_day>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::month_day_last>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::month_weekday>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::month_weekday_last>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::month_day>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::month_day_last>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::month_weekday>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::month_weekday_last>);
 
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::year_month>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::year_month_day>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::year_month_day_last>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::year_month_weekday>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::year_month_weekday_last>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::year_month>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::year_month_day>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::year_month_day_last>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::year_month_weekday>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::year_month_weekday_last>);
 
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::hh_mm_ss<std::chrono::microseconds>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::hh_mm_ss<std::chrono::microseconds>>);
 
 #  if !defined(TEST_HAS_NO_EXPERIMENTAL_TZDB)
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::sys_info>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::chrono::local_info>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::sys_info>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::local_info>);
 
 #    if !defined(TEST_HAS_NO_TIME_ZONE_DATABASE) && !defined(TEST_HAS_NO_FILESYSTEM)
   // P3235R3: zoned_time with the default TimeZonePtr is opted in.
@@ -217,8 +221,14 @@ void test_P2286() {
 
   static_assert(!std::enable_nonlocking_formatter_optimization<std::valarray<int>>);
 
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::pair<int, int>>);
-  static_assert(!std::enable_nonlocking_formatter_optimization<std::tuple<int>>);
+  // LWG4399: pair and tuple enable the optimization when all their (remove_cvref_t of the) element types do.
+  static_assert(std::enable_nonlocking_formatter_optimization<std::pair<int, int>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::tuple<int>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::tuple<>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::pair<const int&, volatile int&&>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<std::tuple<int, std::pair<int, double>, const char*>>);
+  static_assert(!std::enable_nonlocking_formatter_optimization<std::pair<int, std::vector<int>>>);
+  static_assert(!std::enable_nonlocking_formatter_optimization<std::tuple<int, std::pair<int, std::vector<int>>>>);
 
   test_P2286_vector_bool<std::vector<bool>>();
   test_P2286_vector_bool<std::vector<bool, std::allocator<bool>>>();
@@ -234,6 +244,9 @@ struct not_formattable_nonlocking_enabled {};
 template <>
 inline constexpr bool std::enable_nonlocking_formatter_optimization<not_formattable_nonlocking_enabled> = true;
 static_assert(std::enable_nonlocking_formatter_optimization<not_formattable_nonlocking_enabled>);
+// A pair or tuple follows a user specialization of its element types.
+static_assert(std::enable_nonlocking_formatter_optimization<std::pair<not_formattable_nonlocking_enabled, int>>);
+static_assert(!std::enable_nonlocking_formatter_optimization<std::pair<not_formattable_nonlocking_disabled, int>>);
 
 void test() {
   test_P0645<char>();

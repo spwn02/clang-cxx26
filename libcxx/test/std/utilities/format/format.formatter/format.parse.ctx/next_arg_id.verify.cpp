@@ -17,7 +17,7 @@ constexpr bool test() {
   // Let cur-arg-id be the value of next_arg_id_ prior to this call. Call
   // expressions where cur-arg-id >= num_args_ is true are not core constant
   // expressions (7.7 [expr.const]).
-  std::format_parse_context context("", 0);
+  std::format_parse_context context("");
   context.next_arg_id();
 
   return true;

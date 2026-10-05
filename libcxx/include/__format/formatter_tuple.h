@@ -141,6 +141,16 @@ struct formatter<pair<_Args...>, _CharT> : public __formatter_tuple<_CharT, pair
 template <__fmt_char_type _CharT, formattable<_CharT>... _Args>
 struct formatter<tuple<_Args...>, _CharT> : public __formatter_tuple<_CharT, tuple<_Args...>, _Args...> {};
 
+// [format.tuple], LWG4399: the optimization is enabled for a pair or tuple whose (remove_cvref_t of the) element types
+// all enable it.
+template <class... _Ts>
+inline constexpr bool __enable_nonlocking_formatter_optimization<pair<_Ts...>> =
+    (enable_nonlocking_formatter_optimization<remove_cvref_t<_Ts>> && ...);
+
+template <class... _Ts>
+inline constexpr bool __enable_nonlocking_formatter_optimization<tuple<_Ts...>> =
+    (enable_nonlocking_formatter_optimization<remove_cvref_t<_Ts>> && ...);
+
 #endif // _LIBCPP_STD_VER >= 23
 
 _LIBCPP_END_NAMESPACE_STD

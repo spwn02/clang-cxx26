@@ -31,6 +31,9 @@ namespace __format {
 // basic_format_parse_context needs -- including format_arg.h here would be
 // circular (format_arg.h includes this header).
 enum class __arg_t : uint8_t;
+
+// Builds the parse contexts the library itself uses; the number of arguments is not part of the public interface.
+struct __parse_context_access;
 } // namespace __format
 
 template <class _CharT>
@@ -40,13 +43,10 @@ public:
   using const_iterator = typename basic_string_view<_CharT>::const_iterator;
   using iterator       = const_iterator;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit basic_format_parse_context(
-      basic_string_view<_CharT> __fmt, size_t __num_args = 0) noexcept
-      : __begin_(__fmt.begin()),
-        __end_(__fmt.end()),
-        __indexing_(__unknown),
-        __next_arg_id_(0),
-        __num_args_(__num_args) {}
+  // [format.parse.ctx]: num_args_ is 0, so calls of next_arg_id, check_arg_id and check_dynamic_spec on a context built
+  // by this constructor are never core constant expressions.
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit basic_format_parse_context(basic_string_view<_CharT> __fmt) noexcept
+      : __begin_(__fmt.begin()), __end_(__fmt.end()), __indexing_(__unknown), __next_arg_id_(0), __num_args_(0) {}
 
   basic_format_parse_context(const basic_format_parse_context&)            = delete;
   basic_format_parse_context& operator=(const basic_format_parse_context&) = delete;
@@ -133,7 +133,18 @@ private:
 
   template <class, class...>
   friend struct basic_format_string;
+  friend struct __format::__parse_context_access;
 };
+
+namespace __format {
+struct __parse_context_access {
+  template <class _CharT>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static constexpr basic_format_parse_context<_CharT>
+  __make(basic_string_view<_CharT> __fmt, size_t __num_args) noexcept {
+    return basic_format_parse_context<_CharT>(__fmt, __num_args, nullptr);
+  }
+};
+} // namespace __format
 _LIBCPP_CTAD_SUPPORTED_FOR_TYPE(basic_format_parse_context);
 
 using format_parse_context = basic_format_parse_context<char>;

@@ -1081,15 +1081,10 @@ public:
 
 #    endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
-// [time.format]: the adopted wording for P3235R3 only specifies
-// enable_nonlocking_formatter_optimization for chrono::duration (inherited
-// from its representation, since Rep can be a user-defined type) and
-// chrono::zoned_time with the default TimeZonePtr. Calendar types, the
-// other clock-based time_point specializations, and hh_mm_ss are
-// deliberately NOT opted in by the standard (verified against
-// eel.is/c++draft/time.format directly) -- do not add specializations for
-// them here, see enable_nonlocking_formatter_optimization.compile.pass.cpp's
-// static_asserts, which encode this exact boundary.
+// [format.formatter.spec]: unless specified otherwise, enable_nonlocking_formatter_optimization is true for every type
+// for which the library provides a formatter. [time.format] specifies otherwise for chrono::duration (inherited from its
+// representation, since Rep can be a user-defined type) and chrono::zoned_time (true with the default TimeZonePtr only);
+// all the other chrono types listed below use the general rule.
 #    if _LIBCPP_STD_VER >= 23
 template <class _Rep, class _Period>
 inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::duration<_Rep, _Period>> =
@@ -1099,6 +1094,61 @@ inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::duratio
 template <class _Duration>
 inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::zoned_time<_Duration, const chrono::time_zone*>> =
     true;
+#    endif
+
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::day> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::month> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::year> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::weekday> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::weekday_indexed> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::weekday_last> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::month_day> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::month_day_last> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::month_weekday> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::month_weekday_last> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::year_month> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::year_month_day> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::year_month_day_last> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::year_month_weekday> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::year_month_weekday_last> = true;
+
+template <class _Duration>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::sys_time<_Duration>> = true;
+template <class _Duration>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::file_time<_Duration>> = true;
+template <class _Duration>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::local_time<_Duration>> = true;
+template <class _Duration>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::hh_mm_ss<_Duration>> = true;
+
+#    if _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_EXPERIMENTAL_TZDB
+template <class _Duration>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::utc_time<_Duration>> = true;
+template <class _Duration>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::tai_time<_Duration>> = true;
+template <class _Duration>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::gps_time<_Duration>> = true;
+#    endif
+#    if _LIBCPP_HAS_EXPERIMENTAL_TZDB
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::sys_info> = true;
+template <>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::local_info> = true;
 #    endif
 #    endif // _LIBCPP_STD_VER >= 23
 

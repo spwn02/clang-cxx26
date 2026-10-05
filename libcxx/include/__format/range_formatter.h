@@ -121,7 +121,8 @@ struct range_formatter {
   template <ranges::input_range _Rp, class _FormatContext>
     requires formattable<ranges::range_reference_t<_Rp>, _CharT> &&
              same_as<remove_cvref_t<ranges::range_reference_t<_Rp>>, _Tp>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(_Rp&& __range, _FormatContext& __ctx) const {
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  format(_Rp&& __range, _FormatContext& __ctx) const {
     __format_spec::__parsed_specifications<_CharT> __specs = __parser_.__get_parsed_std_specifications(__ctx);
 
     if (!__specs.__has_width())
@@ -152,7 +153,7 @@ struct range_formatter {
   }
 
   template <ranges::input_range _Rp, class _FormatContext>
-  typename _FormatContext::iterator _LIBCPP_HIDE_FROM_ABI
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 typename _FormatContext::iterator _LIBCPP_HIDE_FROM_ABI
   __format_range(_Rp&& __range, _FormatContext& __ctx, __format_spec::__parsed_specifications<_CharT> __specs) const {
     if constexpr (same_as<_Tp, _CharT>) {
       switch (__specs.__std_.__type_) {
@@ -167,7 +168,7 @@ struct range_formatter {
   }
 
   template <ranges::input_range _Rp, class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
   __format_as_string(_Rp&& __range, _FormatContext& __ctx, bool __debug_format) const {
     // When the range is contiguous use a basic_string_view instead to avoid a
     // copy of the underlying data. The basic_string_view formatter
@@ -191,7 +192,7 @@ struct range_formatter {
   }
 
   template <ranges::input_range _Rp, class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
   __format_as_sequence(_Rp&& __range, _FormatContext& __ctx) const {
     __ctx.advance_to(ranges::copy(__opening_bracket_, __ctx.out()).out);
     bool __use_separator = false;

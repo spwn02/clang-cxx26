@@ -283,7 +283,22 @@ __handle_replacement_field(_Iterator __begin, _Iterator __end, _ParseCtx& __pars
             std::__throw_format_error("The argument index value is too large for the number of arguments supplied");
           else if constexpr (same_as<decltype(__arg), typename basic_format_arg<_Ctx>::handle>)
             __arg.format(__parse_ctx, __ctx);
-          else {
+          else if constexpr (same_as<decltype(__arg), const void*>) {
+            // A nullptr_t argument is stored as a null const void*. formatter<nullptr_t> is the constexpr-enabled
+            // pointer formatter ([format.formatter.spec]) and produces the same text, so a null pointer is formatted
+            // with it: std::format("{}", nullptr) is usable in constant expressions ([format.functions]).
+            if (__arg == nullptr) {
+              formatter<nullptr_t, _CharT> __formatter;
+              if (__parse)
+                __parse_ctx.advance_to(__formatter.parse(__parse_ctx));
+              __ctx.advance_to(__formatter.format(nullptr, __ctx));
+            } else {
+              formatter<const void*, _CharT> __formatter;
+              if (__parse)
+                __parse_ctx.advance_to(__formatter.parse(__parse_ctx));
+              __ctx.advance_to(__formatter.format(__arg, __ctx));
+            }
+          } else {
             formatter<decltype(__arg), _CharT> __formatter;
             if (__parse)
               __parse_ctx.advance_to(__formatter.parse(__parse_ctx));
@@ -344,7 +359,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr typename _Ctx::iterator __vformat_to(_ParseCtx&&
 
 #  if _LIBCPP_STD_VER >= 26
 template <class _CharT>
-struct __runtime_format_string {
+struct __dynamic_format_string {
 private:
   basic_string_view<_CharT> __str_;
 
@@ -352,20 +367,20 @@ private:
   friend struct basic_format_string;
 
 public:
-  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI __runtime_format_string(basic_string_view<_CharT> __s) noexcept
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI __dynamic_format_string(basic_string_view<_CharT> __s) noexcept
       : __str_(__s) {}
 
-  __runtime_format_string(const __runtime_format_string&)            = delete;
-  __runtime_format_string& operator=(const __runtime_format_string&) = delete;
+  __dynamic_format_string(const __dynamic_format_string&)            = delete;
+  __dynamic_format_string& operator=(const __dynamic_format_string&) = delete;
 };
 
-_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI inline __runtime_format_string<char>
-runtime_format(string_view __fmt) noexcept {
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI inline __dynamic_format_string<char>
+dynamic_format(string_view __fmt) noexcept {
   return __fmt;
 }
 #    if _LIBCPP_HAS_WIDE_CHARACTERS
-_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI inline __runtime_format_string<wchar_t>
-runtime_format(wstring_view __fmt) noexcept {
+_LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI inline __dynamic_format_string<wchar_t>
+dynamic_format(wstring_view __fmt) noexcept {
   return __fmt;
 }
 #    endif
@@ -382,7 +397,7 @@ struct basic_format_string {
 
   _LIBCPP_HIDE_FROM_ABI constexpr basic_string_view<_CharT> get() const noexcept { return __str_; }
 #  if _LIBCPP_STD_VER >= 26
-  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI basic_format_string(__runtime_format_string<_CharT> __s) noexcept
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI basic_format_string(__dynamic_format_string<_CharT> __s) noexcept
       : __str_(__s.__str_) {}
 #  endif
 
@@ -419,10 +434,10 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI _OutIt __vformat_to(_OutIt _
                                           basic_format_args<basic_format_context<_FormatOutIt, _CharT>> __args) {
   if constexpr (same_as<_OutIt, _FormatOutIt>)
     return std::__format::__vformat_to(
-        basic_format_parse_context{__fmt, __args.__size()}, std::__format_context_create(std::move(__out_it), __args));
+        __format::__parse_context_access::__make(__fmt, __args.__size()), std::__format_context_create(std::move(__out_it), __args));
   else {
     typename __format::__buffer_selector<_OutIt, _CharT>::type __buffer{std::move(__out_it)};
-    std::__format::__vformat_to(basic_format_parse_context{__fmt, __args.__size()},
+    std::__format::__vformat_to(__format::__parse_context_access::__make(__fmt, __args.__size()),
                                 std::__format_context_create(__buffer.__make_output_iterator(), __args));
     return std::move(__buffer).__out_it();
   }
@@ -542,7 +557,7 @@ __vformat_to_n(_OutIt __out_it,
                basic_string_view<_CharT> __fmt,
                basic_format_args<_Context> __args) {
   __format::__format_to_n_buffer<_OutIt, _CharT> __buffer{std::move(__out_it), __n};
-  std::__format::__vformat_to(basic_format_parse_context{__fmt, __args.__size()},
+  std::__format::__vformat_to(__format::__parse_context_access::__make(__fmt, __args.__size()),
                               std::__format_context_create(__buffer.__make_output_iterator(), __args));
   return std::move(__buffer).__result();
 }
@@ -564,7 +579,7 @@ format_to_n(_OutIt __out_it, iter_difference_t<_OutIt> __n, wformat_string<_Args
 template <class _CharT>
 _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI size_t __vformatted_size(basic_string_view<_CharT> __fmt, auto __args) {
   __format::__formatted_size_buffer<_CharT> __buffer;
-  std::__format::__vformat_to(basic_format_parse_context{__fmt, __args.__size()},
+  std::__format::__vformat_to(__format::__parse_context_access::__make(__fmt, __args.__size()),
                               std::__format_context_create(__buffer.__make_output_iterator(), __args));
   return std::move(__buffer).__result();
 }
@@ -593,12 +608,12 @@ _LIBCPP_HIDE_FROM_ABI _OutIt __vformat_to(
     basic_string_view<_CharT> __fmt,
     basic_format_args<basic_format_context<_FormatOutIt, _CharT>> __args) {
   if constexpr (same_as<_OutIt, _FormatOutIt>)
-    return std::__format::__vformat_to(basic_format_parse_context{__fmt, __args.__size()},
+    return std::__format::__vformat_to(__format::__parse_context_access::__make(__fmt, __args.__size()),
                                        std::__format_context_create(std::move(__out_it), __args, std::move(__loc)));
   else {
     typename __format::__buffer_selector<_OutIt, _CharT>::type __buffer{std::move(__out_it)};
     std::__format::__vformat_to(
-        basic_format_parse_context{__fmt, __args.__size()},
+        __format::__parse_context_access::__make(__fmt, __args.__size()),
         std::__format_context_create(__buffer.__make_output_iterator(), __args, std::move(__loc)));
     return std::move(__buffer).__out_it();
   }
@@ -677,7 +692,7 @@ _LIBCPP_HIDE_FROM_ABI format_to_n_result<_OutIt> __vformat_to_n(
     basic_format_args<_Context> __args) {
   __format::__format_to_n_buffer<_OutIt, _CharT> __buffer{std::move(__out_it), __n};
   std::__format::__vformat_to(
-      basic_format_parse_context{__fmt, __args.__size()},
+      __format::__parse_context_access::__make(__fmt, __args.__size()),
       std::__format_context_create(__buffer.__make_output_iterator(), __args, std::move(__loc)));
   return std::move(__buffer).__result();
 }
@@ -702,7 +717,7 @@ template <class _CharT>
 _LIBCPP_HIDE_FROM_ABI size_t __vformatted_size(locale __loc, basic_string_view<_CharT> __fmt, auto __args) {
   __format::__formatted_size_buffer<_CharT> __buffer;
   std::__format::__vformat_to(
-      basic_format_parse_context{__fmt, __args.__size()},
+      __format::__parse_context_access::__make(__fmt, __args.__size()),
       std::__format_context_create(__buffer.__make_output_iterator(), __args, std::move(__loc)));
   return std::move(__buffer).__result();
 }

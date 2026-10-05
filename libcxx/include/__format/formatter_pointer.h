@@ -40,6 +40,13 @@ public:
 
   template <class _FormatContext>
   _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(const void* __ptr, _FormatContext& __ctx) const {
+    return __format_address(reinterpret_cast<uintptr_t>(__ptr), __ctx);
+  }
+
+  // Shared with the constexpr-enabled formatter<nullptr_t> ([format.formatter.spec]), whose value needs no cast.
+  template <class _FormatContext>
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  __format_address(uintptr_t __address, _FormatContext& __ctx) const {
     __format_spec::__parsed_specifications<_CharT> __specs = __parser_.__get_parsed_std_specifications(__ctx);
     __specs.__std_.__alternate_form_                       = true;
     __specs.__std_.__type_ =
@@ -47,7 +54,7 @@ public:
             ? __format_spec::__type::__hexadecimal_upper_case
             : __format_spec::__type::__hexadecimal_lower_case;
 
-    return __formatter::__format_integer(reinterpret_cast<uintptr_t>(__ptr), __ctx, __specs);
+    return __formatter::__format_integer(__address, __ctx, __specs);
   }
 
   __format_spec::__parser<_CharT> __parser_;
@@ -59,7 +66,14 @@ public:
 // - template<> struct formatter<void*, charT>;
 // - template<> struct formatter<const void*, charT>;
 template <__fmt_char_type _CharT>
-struct formatter<nullptr_t, _CharT> : public __formatter_pointer<_CharT> {};
+struct formatter<nullptr_t, _CharT> : public __formatter_pointer<_CharT> {
+  // [format.formatter.spec]: the constexpr-enabled pointer type specialization.
+  template <class _FormatContext>
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  format(nullptr_t, _FormatContext& __ctx) const {
+    return this->__format_address(0, __ctx);
+  }
+};
 template <__fmt_char_type _CharT>
 struct formatter<void*, _CharT> : public __formatter_pointer<_CharT> {};
 template <__fmt_char_type _CharT>

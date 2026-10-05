@@ -80,7 +80,7 @@ public:
   }
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
   format(__maybe_const_r& __range, _FormatContext& __ctx) const {
     return __underlying_.format(__range, __ctx);
   }
@@ -108,7 +108,7 @@ public:
   }
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
   format(__maybe_const_map& __range, _FormatContext& __ctx) const {
     return __underlying_.format(__range, __ctx);
   }
@@ -132,7 +132,7 @@ public:
   }
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
   format(__maybe_const_set& __range, _FormatContext& __ctx) const {
     return __underlying_.format(__range, __ctx);
   }
@@ -158,7 +158,7 @@ public:
   }
 
   template <class _FormatContext>
-  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
   format(conditional_t<ranges::input_range<const _Rp>, const _Rp&, _Rp&> __range, _FormatContext& __ctx) const {
     // When the range is contiguous use a basic_string_view instead to avoid a
     // copy of the underlying data. The basic_string_view formatter
