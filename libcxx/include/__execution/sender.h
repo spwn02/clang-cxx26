@@ -17,7 +17,9 @@
 #include <__execution/env.h>
 #include <__execution/get_env.h>
 #include <__execution/queryable.h>
+#include <__type_traits/decay.h>
 #include <__type_traits/remove_cvref.h>
+#include <__type_traits/type_identity.h>
 #include <__utility/declval.h>
 #include <__utility/forward.h>
 
@@ -52,16 +54,20 @@ concept sender = enable_sender<remove_cvref_t<_Sndr>> && requires(const remove_c
 } && move_constructible<remove_cvref_t<_Sndr>> && constructible_from<remove_cvref_t<_Sndr>, _Sndr>;
 
 // [exec.snd.concepts]p6: tag_of_t<Sndr> is decltype(auto(tag)) where `auto&& [tag, data,
-// ...children] = sndr;` would be well-formed; otherwise it's ill-formed (not required to
-// be SFINAE-friendly).
+// ...children] = sndr;` would be well-formed; otherwise it is ill-formed. [exec.domain.default] probes it
+// ("if that expression is well-formed") for every sender, so it must not hard-error for a type that cannot be
+// decomposed: `__builtin_structured_binding_size` is a SFINAE-friendly test for that (it is ill-formed for a type
+// that has no usable decomposition), and the declaration needs at least a tag and a data element. The tag type
+// is named through `decltype`, so the body never copies the tag.
 template <class _Sndr>
+  requires(__builtin_structured_binding_size(remove_cvref_t<_Sndr>) >= 2)
 _LIBCPP_HIDE_FROM_ABI constexpr auto __sender_tag_of(_Sndr&& __sndr) {
   auto&& [__tag, __data, ...__children] = std::forward<_Sndr>(__sndr);
-  return auto(__tag);
+  return type_identity<decay_t<decltype(__tag)>>{};
 }
 
 template <class _Sndr>
-using tag_of_t = decltype(execution::__sender_tag_of(std::declval<_Sndr>()));
+using tag_of_t = typename decltype(execution::__sender_tag_of(std::declval<_Sndr>()))::type;
 
 } // namespace execution
 

@@ -186,7 +186,7 @@ public:
   // attribute object equal to FWD-ENV(get_env(sndr)) -- stop-when doesn't customize its own
   // attributes (only the environment its child is connected through, mirroring write_env).
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__fwd_env_fn(execution::get_env(child));
+    return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
   // Delegates to write_env's own already-correct join-env computation for whichever branch

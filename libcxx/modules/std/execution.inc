@@ -101,10 +101,13 @@ export namespace std::execution {
   using std::execution::sends_stopped;
   using std::execution::value_types_of_t;
 
-  // [exec.domain.default], [exec.get.domain]
+  // [exec.domain.default], [exec.domain.indeterminate], [exec.get.domain], [exec.get.compl.domain]
   using std::execution::default_domain;
+  using std::execution::get_completion_domain;
+  using std::execution::get_completion_domain_t;
   using std::execution::get_domain;
   using std::execution::get_domain_t;
+  using std::execution::indeterminate_domain;
 
   // [exec.snd.transform], [exec.snd.apply]
   using std::execution::apply_sender;

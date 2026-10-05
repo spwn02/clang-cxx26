@@ -38,10 +38,9 @@ namespace execution {
 // (at connect time, via domain dispatch) to:
 //   let_value(continues_on(just(), sch),
 //             [sndr = std::forward_like<OutSndr>(sndr)]() mutable { return std::move(sndr); });
-// This fork's <__execution/domain.h> documents that default_domain::transform_sender always takes the
-// identity "otherwise" branch (it never checks whether a sender's own tag type defines a per-tag
-// transform_sender) -- so a starts_on_t-tagged sender built the usual way would never actually be rewritten
-// into working code on this fork. Rather than build that dead-on-arrival intermediate sender, this computes
+// The senders of this fork are not shaped as (tag, data, children), so default_domain::transform_sender does not
+// reach a tag's own transform_sender for them -- a starts_on_t-tagged sender built the usual way would never
+// actually be rewritten into working code on this fork. Rather than build that intermediate sender, this computes
 // the *result* of the rewrite directly, at CPO-call time: starts_on(sch, sndr) here literally returns
 // let_value(continues_on(just(), sch), ...), matching [exec.starts.on]p4's algorithm body exactly (unlike
 // starts_on's own scheduling contract -- p5's "start sndr on sch's execution resource" -- which is genuinely

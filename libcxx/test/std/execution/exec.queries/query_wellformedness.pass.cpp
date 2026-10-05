@@ -63,6 +63,17 @@ static_assert(!has_get_completion_scheduler_with_env<int, ex::inline_scheduler>)
 static_assert(has_get_completion_scheduler_with_env<ex::set_value_t, ex::inline_scheduler>);
 static_assert(!has_get_completion_scheduler<ex::inline_scheduler>);
 
+// [exec.get.start.scheduler], [exec.get.delegation.scheduler]: the result is the one of the query expression, a
+// reference stays a reference.
+struct ReferenceEnv {
+  ex::inline_scheduler s;
+  const ex::inline_scheduler& query(ex::get_start_scheduler_t) const noexcept { return s; }
+  const ex::inline_scheduler& query(ex::get_delegation_scheduler_t) const noexcept { return s; }
+};
+static_assert(std::same_as<decltype(ex::get_start_scheduler(std::declval<ReferenceEnv>())), const ex::inline_scheduler&>);
+static_assert(std::same_as<decltype(ex::get_delegation_scheduler(std::declval<ReferenceEnv>())),
+                           const ex::inline_scheduler&>);
+
 // [exec.opstate.start]: ill-formed for an rvalue.
 struct Op {
   using operation_state_concept = ex::operation_state_tag;

@@ -30,6 +30,20 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace execution {
 
+// get_completion_scheduler_t and get_completion_domain_t are defined in <__execution/get_scheduler.h> and
+// <__execution/domain.h>, which include this header's users; the sender attributes below only need to recognize them.
+template <class _Cpo>
+struct get_completion_scheduler_t;
+template <class _Tag = void>
+struct get_completion_domain_t;
+
+template <class _Query>
+inline constexpr bool __is_completion_query_v = false;
+template <class _Cpo>
+inline constexpr bool __is_completion_query_v<get_completion_scheduler_t<_Cpo>> = true;
+template <class _Tag>
+inline constexpr bool __is_completion_query_v<get_completion_domain_t<_Tag>> = true;
+
 // [exec.snd.expos]p4: FWD-ENV(env). A queryable adaptor over env that only forwards queries
 // q for which forwarding_query(q) is true -- everything else is ill-formed. Per
 // [exec.adapt.general]p3.2/3.4, this is the environment a single-child sender adaptor
@@ -72,6 +86,37 @@ template <class _Env>
 _LIBCPP_HIDE_FROM_ABI constexpr auto __fwd_env_fn(_Env&& __env) noexcept(
     is_nothrow_constructible_v<__fwd_env<remove_cvref_t<_Env>>, _Env>) {
   return __fwd_env<remove_cvref_t<_Env>>(std::forward<_Env>(__env));
+}
+
+// The attributes of a parent sender with a single child sender ([exec.adapt.general]p3.2 and [exec.snd.general]): the
+// attributes of the child, forwarded as FWD-ENV does, except for the get_completion_scheduler and get_completion_domain
+// queries, which "are handled as described in [exec.snd.general]": they report where the completion operations of the
+// parent run, which in general is not where the child completes. This type does not answer them; an adaptor that can
+// determine them uses a type of its own.
+template <class _Env>
+class __sender_attrs {
+public:
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __sender_attrs(_Env __env) noexcept(is_nothrow_move_constructible_v<_Env>)
+      : __env_(std::move(__env)) {}
+
+  template <class _Tag, class... _Args>
+    requires(std::forwarding_query(_Tag())) && (!__is_completion_query_v<_Tag>) &&
+            requires(const _Env& __env, _Tag __tag, _Args&&... __args) {
+              __env.query(__tag, std::forward<_Args>(__args)...);
+            }
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) query(_Tag __tag, _Args&&... __args) const
+      noexcept(noexcept(__env_.query(__tag, std::forward<_Args>(__args)...))) {
+    return __env_.query(__tag, std::forward<_Args>(__args)...);
+  }
+
+private:
+  _Env __env_;
+};
+
+template <class _Env>
+_LIBCPP_HIDE_FROM_ABI constexpr auto __sender_attrs_fn(_Env&& __env) noexcept(
+    is_nothrow_constructible_v<__sender_attrs<remove_cvref_t<_Env>>, _Env>) {
+  return __sender_attrs<remove_cvref_t<_Env>>(std::forward<_Env>(__env));
 }
 
 } // namespace execution

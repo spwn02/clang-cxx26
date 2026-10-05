@@ -40,8 +40,8 @@ namespace execution {
 // "schedule_from is used by schedulers to control how to transition off of their schedulers' associated
 // execution contexts"). Its entire behavior comes from domain-based customization: a real scheduler's
 // domain would specialize `schedule_from_t`'s own `.transform_sender()` to insert real transition logic.
-// This fork's <__execution/domain.h> documents that default_domain's transform_sender always takes the
-// identity "otherwise" branch (never checks a tag's own transform_sender) -- so on this fork,
+// No domain of this fork specializes `schedule_from_t`'s own `.transform_sender()` (default_domain's
+// transform_sender does dispatch to a tag's own transform_sender, but this sender's tag has none) -- so on this fork,
 // schedule_from(sndr) is unconditionally identity-forwarding: same completion signatures as sndr, same
 // attributes, and connect() just relays straight through to sndr's own connect(), wrapping the receiver
 // only to apply FWD-ENV (matching every other single-child adaptor's [exec.adapt.general]p3.4 obligation).
@@ -95,7 +95,7 @@ public:
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__fwd_env_fn(execution::get_env(child));
+    return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
   template <class _Self, class _Env>

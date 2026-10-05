@@ -66,15 +66,13 @@ namespace execution {
 //
 // [exec.bulk]p4's own mechanism for expressing that composition is domain-based
 // transform_sender customization (`bulk.transform_sender(set_value, sndr, env)`, dispatched
-// via `tag_of_t<Sndr>().transform_sender(...)`) -- exactly the branch
-// <__execution/domain.h>'s M2 deviation 4 permanently disables in this fork
-// (`default_domain::transform_sender` always takes the "otherwise" static_cast path). Same
-// precedent as <__execution/when_all.h>'s `when_all_with_variant`/
+// via `tag_of_t<Sndr>().transform_sender(...)`, which default_domain::transform_sender does
+// implement). Same precedent as <__execution/when_all.h>'s `when_all_with_variant`/
 // <__execution/stopped_as_error.h>: `bulk_t::operator()` returns `bulk_chunked(sndr, policy,
 // shape, new_f)`'s own concrete type directly, rather than producing a distinct
-// bulk_t-tagged sender that would rely on a transform_sender indirection this fork never
-// fires. Same tag_of_t/sender_for deviation as those files: nothing in scope through M5
-// inspects tag_of_t/sender-for on a bulk(...) result.
+// bulk_t-tagged sender that is rewritten by a transform_sender at connect time. Same
+// tag_of_t/sender_for deviation as those files: nothing inspects tag_of_t/sender-for on a
+// bulk(...) result.
 //
 // check-types ([exec.bulk]p6/p8, the Mandates-throwing consteval helper that diagnoses a
 // child value datum Func isn't invocable with) is not implemented -- same P3068
@@ -525,7 +523,7 @@ public:
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
   // attribute object equal to FWD-ENV(get_env(sndr)).
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__fwd_env_fn(execution::get_env(child));
+    return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
   template <class _Self, class _Env>

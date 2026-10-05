@@ -352,7 +352,7 @@ public:
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated attribute object
   // equal to FWD-ENV(get_env(sndr)).
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__fwd_env_fn(execution::get_env(child));
+    return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
   // [exec.continues.on]p6 (check-types) is not implemented -- same P3068 constexpr-exceptions gap as every

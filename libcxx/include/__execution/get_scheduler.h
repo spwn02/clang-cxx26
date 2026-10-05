@@ -11,7 +11,6 @@
 
 #include <__config>
 #include <__execution/completion_functions.h>
-#include <__execution/domain.h>
 #include <__execution/forwarding_query.h>
 #include <__execution/queryable.h>
 #include <__execution/scheduler.h>
@@ -40,6 +39,7 @@ namespace execution {
 // type), matching the forward-declare-for-type-identity-only pattern <__execution/just.h>
 // already established for just_t/just_error_t/just_stopped_t.
 struct get_scheduler_t;
+struct get_domain_t; // <__execution/domain.h>
 
 // [exec.queries.expos]: HIDE-SCHED(q). An adaptor over a queryable object q that makes the
 // get_scheduler_t and get_domain_t queries ill-formed, forwarding everything else to q
@@ -99,27 +99,16 @@ __try_query(const _Qp& __q, _Tag __tag, _Args&&...) noexcept(noexcept(std::as_co
 // down, after get_completion_scheduler is complete, since its body needs to name that
 // variable template) so that get_completion_scheduler_t::operator() below can call it.
 //
-// Per spec, when sch1 and the freshly re-queried sch2 have the *same type*, the choice
-// between "stop, return sch1" and "recurse again with sch2" is a runtime equality
-// comparison; when they differ in type, recursion is mandatory. Nothing in scope through at
-// least M5 ever has TRY-QUERY produce a same-typed-but-unequal scheduler (the only scheduler
-// that answers this query at all right now is run-loop-scheduler, <__execution/run_loop.h>,
-// whose own completion scheduler is itself, so the very first re-query is already ill-formed
-// and recursion terminates at the base case) -- so, matching the documented simplifications
-// already made for domain resolution in <__execution/domain.h>, the same-type case here
-// always returns sch1 without modeling the runtime comparison. Revisit if a future
-// scheduler's completion-scheduler chain needs it. Deliberately a single function with an
-// internal `if constexpr` (unlike __try_query's split overloads above): this function is
-// only ever called unconditionally, after the caller has already confirmed via a `requires`
-// probe that the TRY-QUERY step it depends on succeeds, so its own `decltype(auto)` return
-// is never itself the subject of a callability probe -- the M2 "deviation 4" body-
-// instantiation hazard that motivated splitting __try_query does not apply here.
+// When sch1 and the freshly re-queried sch2 have the same type, whether to stop or to recurse
+// is decided by comparing them at run time ([exec.get.compl.sched]p4); when they differ in
+// type, the recursion is mandatory. The result is a prvalue (a decayed copy), so that it never
+// refers to a temporary of a deeper step of the recursion.
 template <class _Sch1, class... _Envs>
-_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __recurse_query(_Sch1&& __sch1, const _Envs&... __envs) noexcept;
+_LIBCPP_HIDE_FROM_ABI constexpr auto __recurse_query(_Sch1&& __sch1, const _Envs&... __envs) noexcept;
 
 // [exec.get.compl.sched]
 template <class _Cpo>
-struct get_completion_scheduler_t {
+struct get_completion_scheduler_t : forwarding_query_t {
   template <class _Qp, class... _Envs>
     requires(is_same_v<_Cpo, set_value_t> || is_same_v<_Cpo, set_error_t> || is_same_v<_Cpo, set_stopped_t>) &&
             (requires(const _Qp& __q, const get_completion_scheduler_t& __self, const _Envs&... __envs) {
@@ -131,11 +120,11 @@ struct get_completion_scheduler_t {
       // envs...)); Mandates: the type of the expression satisfies scheduler.
       static_assert(noexcept(execution::__try_query(__q, *this, __envs...)),
                     "Mandates: the query expression of get_completion_scheduler is noexcept.");
-      decltype(auto) __sch1 = execution::__try_query(__q, *this, __envs...);
-      using __result_t      = decltype(execution::__recurse_query(std::forward<decltype(__sch1)>(__sch1), __envs...));
-      static_assert(scheduler<remove_cvref_t<__result_t>>,
+      auto&& __sch1   = execution::__try_query(__q, *this, __envs...);
+      using __result_t = decltype(execution::__recurse_query(__sch1, __envs...));
+      static_assert(scheduler<__result_t>,
                     "Mandates: the type of the expression get_completion_scheduler<tag>(q, envs...) satisfies scheduler.");
-      return execution::__recurse_query(std::forward<decltype(__sch1)>(__sch1), __envs...);
+      return execution::__recurse_query(__sch1, __envs...);
     } else {
       return auto(__q);
     }
@@ -146,18 +135,24 @@ template <class _Cpo>
 inline constexpr get_completion_scheduler_t<_Cpo> get_completion_scheduler{};
 
 template <class _Sch1, class... _Envs>
-_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __recurse_query(_Sch1&& __sch1, const _Envs&... __envs) noexcept {
+_LIBCPP_HIDE_FROM_ABI constexpr auto __recurse_query(_Sch1&& __sch1, const _Envs&... __envs) noexcept {
   if constexpr (requires { execution::__try_query(__sch1, execution::get_completion_scheduler<set_value_t>, __envs...); }) {
     static_assert(noexcept(execution::__try_query(__sch1, execution::get_completion_scheduler<set_value_t>, __envs...)),
                   "Mandates: the query expression of get_completion_scheduler is noexcept.");
-    decltype(auto) __sch2 = execution::__try_query(__sch1, execution::get_completion_scheduler<set_value_t>, __envs...);
-    if constexpr (is_same_v<remove_cvref_t<decltype(__sch2)>, remove_cvref_t<_Sch1>>) {
-      return static_cast<_Sch1&&>(__sch1);
+    auto&& __sch2 = execution::__try_query(__sch1, execution::get_completion_scheduler<set_value_t>, __envs...);
+    if constexpr (is_same_v<remove_cvref_t<decltype(__sch2)>, remove_cvref_t<_Sch1>> &&
+                  requires { static_cast<bool>(__sch1 == __sch2); }) {
+      // [exec.get.compl.sched]p4: the recursion ends when sch1 and sch2 have the same type and compare equal.
+      if (static_cast<bool>(__sch1 == __sch2))
+        return auto(__sch1);
+      return execution::__recurse_query(__sch2, __envs...);
+    } else if constexpr (is_same_v<remove_cvref_t<decltype(__sch2)>, remove_cvref_t<_Sch1>>) {
+      return auto(__sch1);
     } else {
-      return execution::__recurse_query(std::forward<decltype(__sch2)>(__sch2), __envs...);
+      return execution::__recurse_query(__sch2, __envs...);
     }
   } else {
-    return static_cast<_Sch1&&>(__sch1);
+    return auto(__sch1);
   }
 }
 
@@ -179,7 +174,7 @@ inline constexpr get_scheduler_t get_scheduler{};
 struct get_start_scheduler_t : forwarding_query_t {
   template <class _Env>
     requires requires(const _Env& __env, const get_start_scheduler_t& __self) { __env.query(__self); }
-  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) operator()(const _Env& __env) const noexcept {
     static_assert(noexcept(__env.query(*this)), "Mandates: the expression env.query(get_start_scheduler) is noexcept.");
     static_assert(scheduler<remove_cvref_t<decltype(__env.query(*this))>>,
                   "Mandates: the type of env.query(get_start_scheduler) satisfies scheduler.");
@@ -193,7 +188,7 @@ inline constexpr get_start_scheduler_t get_start_scheduler{};
 struct get_delegation_scheduler_t : forwarding_query_t {
   template <class _Env>
     requires requires(const _Env& __env, const get_delegation_scheduler_t& __self) { __env.query(__self); }
-  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) operator()(const _Env& __env) const noexcept {
     static_assert(noexcept(__env.query(*this)),
                   "Mandates: the expression env.query(get_delegation_scheduler) is noexcept.");
     static_assert(scheduler<remove_cvref_t<decltype(__env.query(*this))>>,

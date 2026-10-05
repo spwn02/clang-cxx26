@@ -14,6 +14,7 @@
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
+#include <__execution/domain.h>
 #include <__execution/env.h>
 #include <__execution/get_forward_progress_guarantee.h>
 #include <__execution/get_scheduler.h>
@@ -55,6 +56,25 @@ namespace execution {
 // working default scheduler_type value rather than a stub.
 class __inline_sender;
 
+// [exec.snd.expos]: inline-attrs<Tag>. The completion scheduler of an inline operation is the scheduler of the
+// environment it is started in, its completion domain is the domain of that environment.
+template <class _Tag>
+struct __inline_attrs {
+  template <class _Env>
+    requires requires(const _Env& __env) { execution::get_scheduler(__env); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_scheduler_t<_Tag>, const _Env& __env) const
+      noexcept(noexcept(execution::get_scheduler(__env))) {
+    return execution::get_scheduler(__env);
+  }
+
+  template <class _Env>
+    requires requires(const _Env& __env) { execution::get_domain(__env); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_domain_t<_Tag>, const _Env& __env) const
+      noexcept(noexcept(execution::get_domain(__env))) {
+    return execution::get_domain(__env);
+  }
+};
+
 class inline_scheduler {
 public:
   using scheduler_concept = scheduler_tag;
@@ -73,6 +93,16 @@ public:
   // wherever start() happens to be called).
   _LIBCPP_HIDE_FROM_ABI constexpr forward_progress_guarantee query(get_forward_progress_guarantee_t) const noexcept {
     return forward_progress_guarantee::concurrent;
+  }
+
+  // [exec.inline.scheduler]p2: sch.query(q, args...) is expression-equivalent to inline-attrs<set_value_t>().query(q, args...).
+  template <class _Query, class... _Args>
+    requires requires(_Query __q, _Args&&... __args) {
+      __inline_attrs<set_value_t>().query(__q, std::forward<_Args>(__args)...);
+    }
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) query(_Query __q, _Args&&... __args) const
+      noexcept(noexcept(__inline_attrs<set_value_t>().query(__q, std::forward<_Args>(__args)...))) {
+    return __inline_attrs<set_value_t>().query(__q, std::forward<_Args>(__args)...);
   }
 };
 
@@ -106,7 +136,7 @@ class __inline_sender {
 public:
   using sender_concept = sender_tag;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr env<> get_env() const noexcept { return {}; }
+  _LIBCPP_HIDE_FROM_ABI constexpr __inline_attrs<set_value_t> get_env() const noexcept { return {}; }
 
   template <class _Rcvr>
   _LIBCPP_HIDE_FROM_ABI constexpr __inline_opstate<remove_cvref_t<_Rcvr>> connect(_Rcvr&& __rcvr) const

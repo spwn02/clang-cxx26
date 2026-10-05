@@ -15,7 +15,9 @@
 #include <__execution/env.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_completion_signatures.h>
+#include <__execution/domain.h>
 #include <__execution/get_env.h>
+#include <__execution/get_scheduler.h>
 #include <__execution/operation_state.h>
 #include <__execution/queryable.h>
 #include <__execution/receiver.h>
@@ -130,6 +132,49 @@ struct __write_env_t {
   }
 };
 
+// The attributes of a write_env sender: those of the child, whose completion operations are those of write_env. The child
+// is connected through JOIN-ENV(data, FWD-ENV(env)), so that is the environment the completion queries of the child are
+// asked with; the other forwarding queries are forwarded as by FWD-ENV.
+template <class _Env, class _ChildAttrs>
+class __write_env_attrs {
+public:
+  _LIBCPP_HIDE_FROM_ABI constexpr __write_env_attrs(_Env __env, _ChildAttrs __attrs) noexcept(
+      is_nothrow_move_constructible_v<_Env> && is_nothrow_move_constructible_v<_ChildAttrs>)
+      : __env_(std::move(__env)), __attrs_(std::move(__attrs)) {}
+
+  template <class _Query, class... _Args>
+    requires(std::forwarding_query(_Query())) && (!__is_completion_query_v<_Query>) &&
+            requires(const _ChildAttrs& __attrs, _Query __query, _Args&&... __args) {
+              __attrs.query(__query, std::forward<_Args>(__args)...);
+            }
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) query(_Query __query, _Args&&... __args) const
+      noexcept(noexcept(std::declval<const _ChildAttrs&>().query(__query, std::forward<_Args>(__args)...))) {
+    return __attrs_.query(__query, std::forward<_Args>(__args)...);
+  }
+
+  template <class _Cpo, class... _Envs>
+    requires requires(const _ChildAttrs& __attrs, const _Env& __env, const _Envs&... __envs) {
+      get_completion_scheduler_t<_Cpo>()(__attrs, execution::__write_env_join(__env, execution::__fwd_env_fn(__envs))...);
+    }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_scheduler_t<_Cpo>, const _Envs&... __envs) const noexcept {
+    return get_completion_scheduler_t<_Cpo>()(
+        __attrs_, execution::__write_env_join(__env_, execution::__fwd_env_fn(__envs))...);
+  }
+
+  template <class _Tag, class... _Envs>
+    requires requires(const _ChildAttrs& __attrs, const _Env& __env, const _Envs&... __envs) {
+      get_completion_domain_t<_Tag>()(__attrs, execution::__write_env_join(__env, execution::__fwd_env_fn(__envs))...);
+    }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_domain_t<_Tag>, const _Envs&... __envs) const noexcept {
+    return get_completion_domain_t<_Tag>()(
+        __attrs_, execution::__write_env_join(__env_, execution::__fwd_env_fn(__envs))...);
+  }
+
+private:
+  _Env __env_;
+  _ChildAttrs __attrs_;
+};
+
 // An aggregate with public `tag`/`data`/`child` members, matching the (tag, data, ...children)
 // shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings. Not routed
 // through the draft's generic basic-sender/impls-for machinery: see the M3 entry in
@@ -151,8 +196,12 @@ public:
 
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
   // attribute object equal to FWD-ENV(get_env(sndr)) -- write_env doesn't customize its own
-  // attributes (only the environment its child is connected through), same as then/read_env.
-  _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept { return execution::__fwd_env_fn(execution::get_env(child)); }
+  // attributes (only the environment its child is connected through), but its completion queries are the
+  // ones of the child asked with that environment (see __write_env_attrs).
+  _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
+    return __write_env_attrs<_Env, remove_cvref_t<decltype(execution::get_env(child))>>(
+        data, execution::get_env(child));
+  }
 
   // [exec.write.env]p5 (check-types): with State = data-type<Sndr> and
   // JoinEnv = decltype(join-env(declval<State>(), FWD-ENV(declval<Env>()))), this is

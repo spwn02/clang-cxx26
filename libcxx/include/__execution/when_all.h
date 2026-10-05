@@ -557,11 +557,9 @@ private:
 
 // ---------------------------------------------------------------------------------------------
 // An aggregate with public `tag`/`children` members. Deliberately does *not* satisfy
-// tag_of_t's (tag, data, ...children) structured-binding decomposition -- confirmed by reading
-// <__execution/domain.h>'s default_domain::transform_sender in full: its tag-dispatch branch
-// (the only caller of tag_of_t anywhere in this tree) unconditionally takes the "otherwise"
-// path per the M2 deviation recorded there, so tag_of_t is never actually invoked on any
-// sender's connect()/get_completion_signatures() path in this fork. Same precedent as
+// tag_of_t's (tag, data, ...children) structured-binding decomposition -- tag_of_t is only
+// probed by <__execution/domain.h>'s default_domain::transform_sender, where a sender that
+// cannot be decomposed simply is not transformed. Same precedent as
 // <__execution/starts_on.h>/<__execution/stopped_as_error.h>/<__execution/schedule_from.h>,
 // which document the identical omission for the same reason.
 //
@@ -623,15 +621,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto when_all_t::operator()(_Sndrs&&... __sndrs)
 // make-sender(when_all_with_variant, {}, sndrs...), whose transform_sender is specified as
 // `when_all(into_variant(sndrs)...)`. The standard's own mechanism for reaching that
 // transform_sender -- domain-based per-tag dispatch, `tag_of_t<Sndr>().transform_sender(...)`
-// -- is exactly the branch <__execution/domain.h>'s M2 deviation 4 permanently disables in
-// this fork (`default_domain::transform_sender` always takes the "otherwise" static_cast
-// path, never calling tag_of_t). So, like <__execution/stopped_as_error.h>'s/
+// -- is not used by this fork's senders. So, like <__execution/stopped_as_error.h>'s/
 // <__execution/starts_on.h>'s own compositions, this is computed directly at CPO-call time --
 // `operator()` returns `when_all(into_variant(sndrs)...)`'s own concrete sender type outright,
-// rather than producing a distinct when_all_with_variant_t-tagged sender that would rely on a
-// transform_sender indirection this fork never fires. Same tag_of_t deviation as those two
-// files: the result's tag_of_t is when_all_t's, not when_all_with_variant_t's; nothing in
-// scope through M5 inspects tag_of_t/sender-for on a when_all_with_variant result.
+// rather than producing a distinct when_all_with_variant_t-tagged sender that is rewritten by a
+// transform_sender at connect time. Same tag_of_t deviation as those two files: the result's
+// tag_of_t is when_all_t's, not when_all_with_variant_t's; nothing inspects tag_of_t/sender-for
+// on a when_all_with_variant result.
 struct when_all_with_variant_t {
   template <sender... _Sndrs>
     requires(sizeof...(_Sndrs) > 0)

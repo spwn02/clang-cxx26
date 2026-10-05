@@ -68,9 +68,9 @@ namespace execution {
 //   }
 // `call-with-default` is a fallback wrapper (answer the query if present, else substitute a stub
 // scheduler that fails cleanly) that exists so *forming* a transform_sender rewrite never hard-errors
-// even when the query is unanswered -- a compile-time safety net for domain-based dispatch this fork's
-// <__execution/domain.h> never invokes in the first place (default_domain::transform_sender always takes
-// the identity branch, documented there). Since both sender classes below compute their composition
+// even when the query is unanswered -- a compile-time safety net for domain-based dispatch that this fork's
+// senders never reach (they are not routed through a tag's own transform_sender, see
+// <__execution/starts_on.h>). Since both sender classes below compute their composition
 // directly inside connect() instead (env is available there, from the real receiver, unlike at CPO-call
 // time -- this is exactly why `on`, unlike <__execution/starts_on.h>, needs real sender/opstate types
 // rather than a pure call-time composition), the query is called directly, matching [exec.on]p7/p8's
@@ -104,7 +104,7 @@ public:
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated attribute object
   // equal to FWD-ENV(get_env(sndr)).
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__fwd_env_fn(execution::get_env(child));
+    return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
   // Mirrors connect()'s composition exactly, at the type level: get_start_scheduler is looked up against
@@ -150,7 +150,7 @@ public:
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__fwd_env_fn(execution::get_env(child));
+    return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
   // Mirrors connect()'s composition exactly, at the type level -- see __on_sndr::get_completion_signatures

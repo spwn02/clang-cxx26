@@ -184,9 +184,9 @@ private:
 // get_completion_scheduler<set_value_t> with the parallel_scheduler instance schedule() was
 // called on. <__execution/bulk.h>'s bulk_chunked_t probes this (Pass 2, see the design note)
 // to detect when it should dispatch across the pool instead of running inline -- the standard's
-// own domain-based transform_sender customization mechanism for this is permanently disabled on
-// this fork (see <__execution/domain.h>'s M2 deviation and <__execution/bulk.h>'s own comment),
-// so this direct probe is the documented, pragmatic replacement for it.
+// own domain-based transform_sender customization mechanism for this is not used by this fork's
+// senders (see <__execution/bulk.h>'s own comment), so this direct probe is the documented,
+// pragmatic replacement for it.
 class __parallel_sndr_env {
 public:
   _LIBCPP_HIDE_FROM_ABI explicit __parallel_sndr_env(parallel_scheduler __sch) noexcept;
