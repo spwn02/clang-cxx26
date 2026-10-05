@@ -4768,6 +4768,15 @@ findSubobject(EvalInfo &Info, const Expr *E, const CompleteObject &Obj,
 
   // Walk the designator's path to find the subobject.
   for (unsigned I = 0, N = Sub.Entries.size(); /**/; ++I) {
+    // Constructing an element of an array that has not been created yet: arrays
+    // are implicit-lifetime types ([intro.object]), so the array comes into
+    // existence (with none of its elements alive) when one of its elements is
+    // constructed, e.g. the int[3] elements of the storage std::allocator<int[3]>
+    // provides while its ints are constructed one by one.
+    if (O->isAbsent() && handler.AccessKind == AK_Construct && I < N)
+      if (const ConstantArrayType *CAT = Info.Ctx.getAsConstantArrayType(ObjType))
+        *O = APValue(APValue::UninitArray(), 0, CAT->getZExtSize());
+
     // Reading an indeterminate value is undefined, but assigning over one is OK.
     if ((O->isAbsent() && !(handler.AccessKind == AK_Construct && I == N)) ||
         (O->isIndeterminate() &&
@@ -12411,6 +12420,12 @@ bool PointerExprEvaluator::VisitCXXNewExpr(const CXXNewExpr *E) {
   const InitListExpr *ResizedArrayILE = nullptr;
   const CXXConstructExpr *ResizedArrayCCE = nullptr;
   bool ValueInit = false;
+  // For `new (p) T[1]` (with or without a value-initializer) where p designates an object of type T, the array has
+  // one element at the storage of that object: the single T is constructed in place (std::construct_at of an array
+  // type does this with `T[1]()`).
+  QualType ArrayElementType;
+  bool ArrayBoundIsOne = false;
+  bool SingleElementArray = false;
 
   if (std::optional<const Expr *> ArraySize = E->getArraySize()) {
     const Expr *Stripped = *ArraySize;
@@ -12423,6 +12438,8 @@ bool PointerExprEvaluator::VisitCXXNewExpr(const CXXNewExpr *E) {
     llvm::APSInt ArrayBound;
     if (!EvaluateInteger(Stripped, ArrayBound, Info))
       return false;
+    ArrayElementType = AllocType;
+    ArrayBoundIsOne = ArrayBound == 1;
 
     // C++ [expr.new]p9:
     //   The expression is erroneous if:
@@ -12499,6 +12516,9 @@ bool PointerExprEvaluator::VisitCXXNewExpr(const CXXNewExpr *E) {
       QualType AllocType;
       const AccessKinds AccessKind;
       APValue *Value;
+      QualType ArrayElementType;
+      bool MaySingleElement;
+      bool SingleElement = false;
 
       typedef bool result_type;
       bool failed() { return false; }
@@ -12514,6 +12534,25 @@ bool PointerExprEvaluator::VisitCXXNewExpr(const CXXNewExpr *E) {
           return false;
         // FIXME: Reject the cases where [basic.life]p8 would not permit the
         // old name of the object to be used to name the new object.
+        if (MaySingleElement && SubobjType->isArrayType() &&
+            Info.Ctx.hasSimilarType(SubobjType, ArrayElementType) &&
+            Info.Ctx.hasSimilarType(Info.Ctx.getBaseElementType(SubobjType),
+                                    Info.Ctx.getBaseElementType(AllocType))) {
+          SingleElement = true;
+          Value = &Subobj;
+          return true;
+        }
+        // An array of arrays can only be placed over an array of the same
+        // element type: the sizes below are compared level by level.
+        if (AllocType->isArrayType() && SubobjType->isArrayType() &&
+            Info.Ctx.getAsArrayType(AllocType)->getElementType()->isArrayType() &&
+            !Info.Ctx.hasSimilarType(
+                Info.Ctx.getAsArrayType(SubobjType)->getElementType(),
+                Info.Ctx.getAsArrayType(AllocType)->getElementType())) {
+          Info.FFDiag(E, diag::note_constexpr_placement_new_wrong_type)
+              << SubobjType << AllocType;
+          return false;
+        }
         unsigned SubobjectSize = 1;
         unsigned AllocSize = 1;
         if (auto *CAT = dyn_cast<ConstantArrayType>(AllocType))
@@ -12538,13 +12577,20 @@ bool PointerExprEvaluator::VisitCXXNewExpr(const CXXNewExpr *E) {
         Info.FFDiag(E, diag::note_constexpr_construct_complex_elem);
         return false;
       }
-    } Handler = {Info, E, AllocType, AK, nullptr};
+    } Handler = {Info, E, AllocType, AK, nullptr, ArrayElementType,
+                 ArrayBoundIsOne && !ArrayElementType.isNull() &&
+                     !ResizedArrayILE && !ResizedArrayCCE &&
+                     (!Init || ValueInit)};
 
     CompleteObject Obj = findCompleteObject(Info, E, AK, Result, AllocType);
     if (!Obj || !findSubobject(Info, E, Obj, Result.Designator, Handler))
       return false;
 
     Val = Handler.Value;
+    if (Handler.SingleElement) {
+      SingleElementArray = true;
+      AllocType = ArrayElementType;
+    }
 
     // [basic.life]p1:
     //   The lifetime of an object o of type T ends when [...] the storage
@@ -12579,8 +12625,9 @@ bool PointerExprEvaluator::VisitCXXNewExpr(const CXXNewExpr *E) {
 
   // Array new returns a pointer to the first element, not a pointer to the
   // array.
-  if (auto *AT = AllocType->getAsArrayTypeUnsafe())
-    Result.addArray(Info, E, cast<ConstantArrayType>(AT));
+  if (!SingleElementArray)
+    if (auto *AT = AllocType->getAsArrayTypeUnsafe())
+      Result.addArray(Info, E, cast<ConstantArrayType>(AT));
 
   return true;
 }
@@ -22683,6 +22730,7 @@ static bool EvaluateAtomic(const Expr *E, const LValue *This, APValue &Result,
 //===----------------------------------------------------------------------===//
 
 namespace {
+bool EvaluateBuiltinStartLifetime(EvalInfo &Info, const CallExpr *E);
 class VoidExprEvaluator
   : public ExprEvaluatorBase<VoidExprEvaluator> {
 public:
@@ -22713,6 +22761,9 @@ public:
 
     case Builtin::BI__builtin_operator_delete:
       return HandleOperatorDeleteCall(Info, E);
+
+    case Builtin::BI__builtin_start_lifetime:
+      return EvaluateBuiltinStartLifetime(Info, E);
 
     case Builtin::BI__builtin_constexpr_exception_retain:
     case Builtin::BI__builtin_constexpr_exception_release:
@@ -24559,6 +24610,58 @@ std::optional<bool> EvaluateBuiltinIsWithinLifetime(IntExprEvaluator &IEE,
     return false;
   IsWithinLifetimeHandler handler{Info};
   return findSubobject(Info, E, CO, Val.getLValueDesignator(), handler);
+}
+} // namespace
+
+namespace {
+// [obj.lifetime] std::start_lifetime: begins the lifetime of the object the pointer designates; if it is already within
+// its lifetime nothing happens. No initialization is performed and no subobject begins its lifetime.
+struct StartLifetimeHandler {
+  EvalInfo &Info;
+  const Expr *E;
+  static constexpr AccessKinds AccessKind = AccessKinds::AK_Construct;
+  using result_type = bool;
+  bool failed() { return false; }
+  bool found(APValue &Subobj, QualType SubobjType) {
+    if (!Subobj.isAbsent())
+      return true; // already within its lifetime
+    if (const RecordDecl *RD = SubobjType->getAsRecordDecl()) {
+      if (RD->isUnion())
+        Subobj = APValue((const FieldDecl *)nullptr);
+      else
+        Subobj = APValue(APValue::UninitStruct(),
+                         getNumStructBaseSlots(dyn_cast<CXXRecordDecl>(RD)),
+                         RD->getNumFields());
+      return true;
+    }
+    if (const auto *CAT = Info.Ctx.getAsConstantArrayType(SubobjType)) {
+      Subobj = APValue(APValue::UninitArray(), 0, CAT->getZExtSize());
+      return true;
+    }
+    Info.FFDiag(E, diag::note_constexpr_construct_complex_elem);
+    return false;
+  }
+  bool found(APSInt &, QualType) { return true; }
+  bool found(APFloat &, QualType) { return true; }
+};
+
+bool EvaluateBuiltinStartLifetime(EvalInfo &Info, const CallExpr *E) {
+  const Expr *Arg = E->getArg(0);
+  LValue Ptr;
+  if (!EvaluatePointer(Arg, Ptr, Info))
+    return false;
+  if (Ptr.Designator.Invalid)
+    return false;
+  if (Ptr.isNullPointer()) {
+    Info.FFDiag(E, diag::note_constexpr_access_null) << AK_Construct;
+    return false;
+  }
+  QualType T = Arg->getType()->getPointeeType();
+  CompleteObject CO = findCompleteObject(Info, E, AK_Construct, Ptr, T);
+  if (!CO)
+    return false;
+  StartLifetimeHandler Handler{Info, E};
+  return findSubobject(Info, E, CO, Ptr.Designator, Handler);
 }
 } // namespace
 

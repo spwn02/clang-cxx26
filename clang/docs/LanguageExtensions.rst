@@ -3122,6 +3122,26 @@ argument whose value is the alignment constraint, as a power of 2 in *bits*.
 
 Query for this feature with ``__has_builtin(__builtin_alloca_with_align)``.
 
+.. _langext-__builtin_start_lifetime:
+
+``__builtin_start_lifetime``
+----------------------------
+
+``__builtin_start_lifetime`` is the compiler support of ``std::start_lifetime`` ([obj.lifetime]).
+
+**Syntax**:
+
+.. code-block:: c++
+
+    void __builtin_start_lifetime(T* p)
+
+**Description**:
+
+``p`` has to be a pointer to a complete object type. In a constant expression, if the object ``p`` points to is not
+within its lifetime, its lifetime begins: no initialization is performed and no subobject begins its lifetime. If the
+object is a member of a union it becomes the active member. If the object is already within its lifetime nothing
+happens. At run time the builtin does nothing (the argument is evaluated).
+
 .. _langext-__builtin_assume:
 
 ``__builtin_assume``

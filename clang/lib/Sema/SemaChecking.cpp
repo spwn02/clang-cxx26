@@ -1988,6 +1988,39 @@ static ExprResult BuiltinIsWithinLifetime(Sema &S, CallExpr *TheCall) {
   return TheCall;
 }
 
+/// __builtin_start_lifetime(p): begins the lifetime of the object p points to (the library's std::start_lifetime).
+/// The argument has to be a pointer to a complete object type.
+static ExprResult BuiltinStartLifetime(Sema &S, CallExpr *TheCall) {
+  if (S.checkArgCount(TheCall, 1))
+    return ExprError();
+
+  ExprResult Arg = S.DefaultFunctionArrayLvalueConversion(TheCall->getArg(0));
+  if (Arg.isInvalid())
+    return ExprError();
+  QualType ParamTy = Arg.get()->getType();
+  TheCall->setArg(0, Arg.get());
+  TheCall->setType(S.Context.VoidTy);
+
+  const auto *PT = ParamTy->getAs<PointerType>();
+  if (!PT) {
+    S.Diag(TheCall->getArg(0)->getExprLoc(),
+           diag::err_builtin_start_lifetime_invalid_arg)
+        << 0;
+    return ExprError();
+  }
+  QualType Pointee = PT->getPointeeType();
+  if (Pointee->isFunctionType() || Pointee->isVoidType()) {
+    S.Diag(TheCall->getArg(0)->getExprLoc(),
+           diag::err_builtin_start_lifetime_invalid_arg)
+        << (Pointee->isFunctionType() ? 1 : 2);
+    return ExprError();
+  }
+  if (S.RequireCompleteType(TheCall->getArg(0)->getExprLoc(), Pointee,
+                            diag::err_incomplete_type))
+    return ExprError();
+  return TheCall;
+}
+
 /// Common checking of __builtin_is_corresponding_member and
 /// __builtin_is_pointer_interconvertible_with_class: each argument must be a
 /// pointer to a non-static data member of a complete class.
@@ -2945,6 +2978,8 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     return BuiltinLaunder(*this, TheCall);
   case Builtin::BI__builtin_is_within_lifetime:
     return BuiltinIsWithinLifetime(*this, TheCall);
+  case Builtin::BI__builtin_start_lifetime:
+    return BuiltinStartLifetime(*this, TheCall);
   case Builtin::BI__builtin_is_corresponding_member:
     return BuiltinMemberPointerQuery(*this, TheCall, 2,
                                      "__builtin_is_corresponding_member");

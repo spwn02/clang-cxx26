@@ -1002,6 +1002,12 @@ def IsWithinLifetime : LangBuiltin<"CXX_LANG"> {
   let Prototype = "bool(void*)";
 }
 
+def StartLifetime : LangBuiltin<"CXX_LANG"> {
+  let Spellings = ["__builtin_start_lifetime"];
+  let Attributes = [NoThrow, CustomTypeChecking, Constexpr, CXX26Only];
+  let Prototype = "void(void*)";
+}
+
 def IsCorrespondingMember : LangBuiltin<"CXX_LANG"> {
   let Spellings = ["__builtin_is_corresponding_member"];
   let Attributes = [NoThrow, CustomTypeChecking, Constexpr];

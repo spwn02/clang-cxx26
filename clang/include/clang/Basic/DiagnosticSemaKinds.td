@@ -13342,6 +13342,9 @@ def err_builtin_member_pointer_class_arg : Error<
   "argument %0 to '%1' must be a pointer to a non-static data member of a "
   "complete class, not %2">;
 
+def err_builtin_start_lifetime_invalid_arg : Error<
+  "%select{non-|function |void }0pointer argument to '__builtin_start_lifetime' "
+  "is not allowed">;
 def err_builtin_is_within_lifetime_invalid_arg : Error<
   "%select{non-|function }0pointer argument to '__builtin_is_within_lifetime' "
   "is not allowed">;

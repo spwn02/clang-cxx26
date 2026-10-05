@@ -212,6 +212,15 @@ C++2c Feature Support
   A postfix ``operator++``/``operator--`` can be explicitly defaulted (as a member, a friend or a non-member function);
   its definition is ``C tmp(c); ++c; return tmp;`` and it is defined as deleted when that is ill-formed.
 
+- Added the ``__builtin_start_lifetime(p)`` builtin, the compiler support of ``std::start_lifetime`` from
+  `P3726R2 <https://wg21.link/P3726R2>`_. In a constant expression it begins the lifetime of the object ``p`` points to
+  (no initialization, no subobject begins its lifetime; a member of a union becomes the active member); it does nothing at
+  run time.
+
+- Constant evaluation of placement ``new T[1]()`` over storage that holds an object of array type ``T`` no longer crashes
+  (``std::construct_at`` of an array type is specified this way), and constructing an element of an array whose own
+  elements are arrays, one leaf at a time, creates the enclosing array implicitly (arrays are implicit-lifetime types).
+
 - Started the implementation of `P2686R5 <https://wg21.link/P2686R5>`_ Constexpr structured bindings.
   At this time, references to constexpr and decomposition of *tuple-like* types are not supported
   (only arrays and aggregates are).
