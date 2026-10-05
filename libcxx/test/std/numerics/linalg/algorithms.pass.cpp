@@ -10,6 +10,7 @@
 
 // <linalg>
 
+#include <functional>
 #include <linalg>
 
 #include <cmath>
@@ -49,14 +50,15 @@ constexpr bool test() {
   std::mdspan sum(sum_data, 3);
   std::linalg::add(lhs, rhs, sum);
   if (sum[0] != 5 || sum[1] != 7 || sum[2] != 8 || std::linalg::dot(lhs, rhs) != 26 ||
-       std::linalg::dot(lhs, rhs, 10) != 36 || std::linalg::vector_two_norm(lhs) != 3 ||
-       std::linalg::vector_two_norm(lhs, 4) != 5 || std::linalg::vector_abs_sum(lhs) != 5 ||
+       std::linalg::dot(lhs, rhs, 10) != 36 || std::linalg::vector_abs_sum(lhs) != 5 ||
        std::linalg::vector_abs_sum(lhs, 10) != 15 || std::linalg::vector_idx_abs_max(lhs) != 1)
     return false;
 
-  auto sum_of_squares = std::linalg::vector_sum_of_squares(
-      lhs, std::linalg::sum_of_squares_result<double>{2.0, 3.0});
-  if (sum_of_squares.scaling_factor != 2.0 || sum_of_squares.scaled_sum_of_squares != 5.25)
+  // [linalg.algs.blas1.nrm2]: the value type and Scalar are floating-point or complex.
+  double norm_data[] = {1.0, 2.0, 2.0};
+  std::mdspan norm_vector(norm_data, 3);
+  static_assert(std::is_same_v<decltype(std::linalg::vector_two_norm(norm_vector)), double>);
+  if (std::linalg::vector_two_norm(norm_vector) != 3.0 || std::linalg::vector_two_norm(norm_vector, 4.0) != 5.0)
     return false;
 
   std::complex<double> complex_lhs_data[] = {{1.0, 2.0}, {3.0, -1.0}};
@@ -69,11 +71,9 @@ constexpr bool test() {
 
   adl_test::complex adl_data[] = {{-3, 4}, {1, -2}};
   std::mdspan adl_vector(adl_data, 2);
-  // adl_test::abs returns int, so T is decltype(a * a) == int and the norm is
-  // truncated to int per [linalg.algs.blas1.nrm2]; sqrt(10) == 3.16... -> 3.
-  static_assert(std::is_same_v<decltype(std::linalg::vector_two_norm(adl_vector)), int>);
-  if (std::linalg::vector_two_norm(adl_vector) != 3 || std::linalg::vector_abs_sum(adl_vector) != 10 ||
-      std::linalg::vector_idx_abs_max(adl_vector) != 0)
+  // The norms require floating-point or std::complex values, but the sums and the index of the maximum accept
+  // user-defined complex types found through ADL.
+  if (std::linalg::vector_abs_sum(adl_vector) != 10 || std::linalg::vector_idx_abs_max(adl_vector) != 0)
     return false;
 
   double givens_x_data[] = {3.0, 0.0};
@@ -97,12 +97,7 @@ constexpr bool test() {
   int vector_data[] = {2, 1, -1};
   int result_data[] = {0, 0};
   std::mdspan matrix(matrix_data, 2, 3);
-  // The norms return Scalar, so an int matrix yields int: sqrt(91) == 9.53...
-  // -> 9, and with init 2, sqrt(4 + 91) == 9.74... -> 9.
-  static_assert(std::is_same_v<decltype(std::linalg::matrix_frob_norm(matrix)), int>);
-  static_assert(std::is_same_v<decltype(std::linalg::matrix_frob_norm(matrix, 2)), int>);
-  if (std::linalg::matrix_frob_norm(matrix) != 9 || std::linalg::matrix_frob_norm(matrix, 2) != 9 ||
-      std::linalg::matrix_one_norm(matrix) != 9 || std::linalg::matrix_one_norm(matrix, 10) != 19 ||
+  if (std::linalg::matrix_one_norm(matrix) != 9 || std::linalg::matrix_one_norm(matrix, 10) != 19 ||
       std::linalg::matrix_inf_norm(matrix) != 15 || std::linalg::matrix_inf_norm(matrix, 10) != 25)
     return false;
 
@@ -138,8 +133,10 @@ constexpr bool test() {
   std::mdspan triangular(triangular_data, 2, 2);
   std::mdspan solve_rhs(rhs_data_solve, 2);
   std::mdspan solution(solution_data, 2);
+  // The out-of-place overloads without a divide operation are ambiguous with the in-place overloads that take one
+  // ([linalg.syn] constrains neither BinaryDivideOp nor the in-place vector), so the divide operation is explicit.
   std::linalg::triangular_matrix_vector_solve(
-      triangular, std::linalg::lower_triangle, std::linalg::explicit_diagonal, solve_rhs, solution);
+      triangular, std::linalg::lower_triangle, std::linalg::explicit_diagonal, solve_rhs, solution, std::divides<void>{});
   if (solution[0] != 2 || solution[1] != 2)
     return false;
 

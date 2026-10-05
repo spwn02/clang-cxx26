@@ -43,8 +43,6 @@ using std::linalg::scale;
 using std::linalg::swap_elements;
 using std::linalg::dot;
 using std::linalg::dotc;
-using std::linalg::sum_of_squares_result;
-using std::linalg::vector_sum_of_squares;
 using std::linalg::vector_two_norm;
 using std::linalg::vector_abs_sum;
 using std::linalg::vector_idx_abs_max;

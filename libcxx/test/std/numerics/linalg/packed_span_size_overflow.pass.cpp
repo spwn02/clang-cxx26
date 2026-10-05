@@ -9,10 +9,8 @@
 
 // <linalg>
 
-// layout_blas_packed::mapping::required_span_size() is N*(N+1)/2. With a narrow
-// index_type the halved result can be representable even though the
-// intermediate N*(N+1) is not, so the representability check must not reject
-// those extents.
+// [linalg.layout.packed.overview]: for static extents, N * (N + 1) (not only its half, the required span size) must be
+// representable as index_type, so a narrow index_type bounds N below sqrt(max).
 
 #include <linalg>
 
@@ -21,27 +19,17 @@
 
 using upper_col = std::linalg::layout_blas_packed<std::linalg::upper_triangle_t, std::linalg::column_major_t>;
 
-// With index_type = uint8_t and N = 22: N*(N+1) == 506 overflows uint8_t, but
-// required_span_size() == 253 fits comfortably.
-using narrow_extents = std::extents<std::uint8_t, 22, 22>;
+// With index_type = uint8_t and N = 15: N*(N+1) == 240 is representable and required_span_size() == 120.
+using narrow_extents = std::extents<std::uint8_t, 15, 15>;
 using narrow_mapping = upper_col::mapping<narrow_extents>;
 
-static_assert(narrow_mapping{}.required_span_size() == 253);
-
-// N = 21 is the odd counterpart: 21*22 == 462 also overflows uint8_t, while
-// required_span_size() == 231 fits.
-using odd_extents = std::extents<std::uint8_t, 21, 21>;
-using odd_mapping = upper_col::mapping<odd_extents>;
-
-static_assert(odd_mapping{}.required_span_size() == 231);
+static_assert(narrow_mapping{}.required_span_size() == 120);
 
 constexpr bool test() {
-  // The mapping still addresses every stored element within the span for the
-  // narrow case.
   narrow_mapping m{narrow_extents{}};
-  if (m.required_span_size() != 253)
+  if (m.required_span_size() != 120)
     return false;
-  for (std::uint8_t j = 0; j != 22; ++j)
+  for (std::uint8_t j = 0; j != 15; ++j)
     for (std::uint8_t i = 0; i <= j; ++i)
       if (m(i, j) >= m.required_span_size())
         return false;

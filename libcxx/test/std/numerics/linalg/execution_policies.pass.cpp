@@ -15,6 +15,7 @@
 // satisfies them with the permitted serial fallback, so each policy overload
 // must agree with its sequential counterpart.
 
+#include <functional>
 #include <linalg>
 
 #include <cmath>
@@ -46,15 +47,15 @@ static bool test_blas1() {
   if (sum[0] != 5 || sum[1] != 7 || sum[2] != 8)
     return false;
 
-  if (std::linalg::dot(ex::seq, lhs, rhs) != 26 || std::linalg::dot(ex::seq, lhs, rhs, 10) != 36 ||
-      std::linalg::vector_two_norm(ex::seq, lhs) != 3 || std::linalg::vector_two_norm(ex::seq, lhs, 4) != 5 ||
-      std::linalg::vector_abs_sum(ex::seq, lhs) != 5 || std::linalg::vector_abs_sum(ex::seq, lhs, 10) != 15 ||
-      std::linalg::vector_idx_abs_max(ex::seq, lhs) != 1)
+  double norm_data[] = {1.0, 2.0, 2.0};
+  std::mdspan norm_vector(norm_data, 3);
+  if (std::linalg::vector_two_norm(ex::seq, norm_vector) != 3.0 ||
+      std::linalg::vector_two_norm(ex::seq, norm_vector, 4.0) != 5.0)
     return false;
 
-  auto sum_of_squares =
-      std::linalg::vector_sum_of_squares(ex::seq, lhs, std::linalg::sum_of_squares_result<double>{2.0, 3.0});
-  if (sum_of_squares.scaling_factor != 2.0 || sum_of_squares.scaled_sum_of_squares != 5.25)
+  if (std::linalg::dot(ex::seq, lhs, rhs) != 26 || std::linalg::dot(ex::seq, lhs, rhs, 10) != 36 ||
+      std::linalg::vector_abs_sum(ex::seq, lhs) != 5 || std::linalg::vector_abs_sum(ex::seq, lhs, 10) != 15 ||
+      std::linalg::vector_idx_abs_max(ex::seq, lhs) != 1)
     return false;
 
   std::complex<double> complex_lhs_data[] = {{1.0, 2.0}, {3.0, -1.0}};
@@ -90,9 +91,7 @@ static bool test_norms_and_products() {
   std::mdspan vector(vector_data, 3);
   std::mdspan result(result_data, 2);
 
-  // int matrix -> int norms, matching the sequential overloads.
-  if (std::linalg::matrix_frob_norm(ex::seq, matrix) != 9 || std::linalg::matrix_frob_norm(ex::seq, matrix, 2) != 9 ||
-      std::linalg::matrix_one_norm(ex::seq, matrix) != 9 || std::linalg::matrix_one_norm(ex::seq, matrix, 10) != 19 ||
+  if (std::linalg::matrix_one_norm(ex::seq, matrix) != 9 || std::linalg::matrix_one_norm(ex::seq, matrix, 10) != 19 ||
       std::linalg::matrix_inf_norm(ex::seq, matrix) != 15 || std::linalg::matrix_inf_norm(ex::seq, matrix, 10) != 25)
     return false;
 
@@ -121,7 +120,7 @@ static bool test_norms_and_products() {
   std::mdspan solve_rhs(rhs_data_solve, 2);
   std::mdspan solution(solution_data, 2);
   std::linalg::triangular_matrix_vector_solve(
-      ex::seq, triangular, std::linalg::lower_triangle, std::linalg::explicit_diagonal, solve_rhs, solution);
+      ex::seq, triangular, std::linalg::lower_triangle, std::linalg::explicit_diagonal, solve_rhs, solution, std::divides<void>{});
   if (solution[0] != 2 || solution[1] != 2)
     return false;
 
@@ -165,14 +164,7 @@ static bool test_add_ranks() {
   if (output[1, 1] != 44)
     return false;
 
-  int scalar_left = 3, scalar_right = 4, scalar_out = 0;
-  std::mdspan<int, std::extents<size_t>> sl(&scalar_left);
-  std::mdspan<int, std::extents<size_t>> sr(&scalar_right);
-  std::mdspan<int, std::extents<size_t>> so(&scalar_out);
-  std::linalg::add(sl, sr, so);
-  if (scalar_out != 7)
-    return false;
-
+  // [linalg.helpers.concepts]: rank-zero mdspans are not in-object/out-object.
   return true;
 }
 

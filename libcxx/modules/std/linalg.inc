@@ -54,8 +54,6 @@ export namespace std::linalg {
   using std::linalg::dot;
   using std::linalg::dotc;
 
-  using std::linalg::sum_of_squares_result;
-  using std::linalg::vector_sum_of_squares;
 
   using std::linalg::vector_two_norm;
 
