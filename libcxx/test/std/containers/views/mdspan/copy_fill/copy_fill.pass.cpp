@@ -114,6 +114,10 @@ void test_fill() {
   // the default for T is Dst::value_type, so a braced value deduces nothing and a conversion applies
   std::fill(m, 2.9);
   assert((a == std::vector<int>(6, 2)));
+  std::fill(m, {3});
+  assert((a == std::vector<int>(6, 3)));
+  std::fill(std::execution::seq, m, {5});
+  assert((a == std::vector<int>(6, 5)));
   // rank 0 and empty
   int x = 0;
   std::fill(std::mdspan<int, std::extents<int>>(&x), 8);

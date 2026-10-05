@@ -108,6 +108,19 @@ int main(int, char**) {
   static_assert(std::same_as<typename decltype(r.mapping)::layout_type, std::layout_stride>);
   assert(r.offset == 24);
 
+  // [mdspan.copy]
+  int src[6] = {1, 2, 3, 4, 5, 6}, dst[6] = {};
+  std::mdspan ms(src, 2, 3), md(dst, 2, 3);
+  std::copy(ms, md);
+  assert(dst[0] == 1 && dst[5] == 6);
+  std::fill(md, 4);
+  assert(dst[0] == 4 && dst[5] == 4);
+  std::fill(md, {7});
+  assert(dst[2] == 7);
+  std::copy(std::execution::seq, ms, md);
+  std::fill(std::execution::par, md, {9});
+  assert(dst[3] == 9);
+
   // sliceable and non-sliceable user layouts
   static_assert(can_submdspan<std::mdspan<int, E, derived_layout>, std::full_extent_t, int>);
   static_assert(can_submdspan_mapping<derived_layout::mapping<E>, std::full_extent_t, std::full_extent_t>);
