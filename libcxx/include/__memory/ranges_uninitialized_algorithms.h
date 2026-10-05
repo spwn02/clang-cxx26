@@ -11,10 +11,6 @@
 #define _LIBCPP___MEMORY_RANGES_UNINITIALIZED_ALGORITHMS_H
 
 #include <__algorithm/min.h>
-#include <__pstl/backend_fwd.h>
-#include <__pstl/dispatch.h>
-#include <__pstl/handle_exception.h>
-#include <__pstl/memory_algorithms.h>
 #include <__type_traits/common_type.h>
 #include <__type_traits/enable_if.h>
 #include <__type_traits/is_execution_policy.h>
@@ -44,6 +40,12 @@
 
 _LIBCPP_PUSH_MACROS
 #include <__undef_macros>
+#if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  include <__pstl/backend_fwd.h>
+#  include <__pstl/dispatch.h>
+#  include <__pstl/handle_exception.h>
+#  include <__pstl/memory_algorithms.h>
+#endif
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 

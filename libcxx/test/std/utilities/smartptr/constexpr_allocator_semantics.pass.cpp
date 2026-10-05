@@ -21,12 +21,13 @@
 struct Del { constexpr void operator()(int* p) const { delete p; } };
 template <class T> struct CAlloc {
   using value_type = T;
-  int* allocs; int* deallocs; int* constructs;
-  constexpr CAlloc(int* a, int* d, int* c) : allocs(a), deallocs(d), constructs(c) {}
-  template <class U> constexpr CAlloc(const CAlloc<U>& o) : allocs(o.allocs), deallocs(o.deallocs), constructs(o.constructs) {}
+  int* allocs; int* deallocs; int* constructs; int* destroys;
+  constexpr CAlloc(int* a, int* d, int* c, int* y) : allocs(a), deallocs(d), constructs(c), destroys(y) {}
+  template <class U> constexpr CAlloc(const CAlloc<U>& o) : allocs(o.allocs), deallocs(o.deallocs), constructs(o.constructs), destroys(o.destroys) {}
   constexpr T* allocate(std::size_t n) { ++*allocs; return std::allocator<T>{}.allocate(n); }
   constexpr void deallocate(T* p, std::size_t n) { ++*deallocs; std::allocator<T>{}.deallocate(p, n); }
   template <class U, class... A> constexpr void construct(U* p, A&&... a) { ++*constructs; std::construct_at(p, std::forward<A>(a)...); }
+  template <class U> constexpr void destroy(U* p) { ++*destroys; std::destroy_at(p); }
   template <class U> constexpr bool operator==(const CAlloc<U>&) const { return true; }
 };
 
@@ -34,15 +35,15 @@ template <class T> struct CAlloc {
   constexpr bool name() { return __VA_ARGS__; }                                                                        \
   static_assert(name(), #name);
 
-CASE(ctor_alloc_used, []{ int a=0,d=0,c=0; { std::shared_ptr<int> p(new int(1), Del{}, CAlloc<int>(&a,&d,&c)); if (a != 1) return false; } return a == 1 && d == 1; }())
-CASE(ctor_nullptr_alloc_used, []{ int a=0,d=0,c=0; { std::shared_ptr<int> p(nullptr, Del{}, CAlloc<int>(&a,&d,&c)); } return a == 1 && d == 1; }())
-CASE(alloc_shared_used, []{ int a=0,d=0,c=0; { auto p = std::allocate_shared<int>(CAlloc<int>(&a,&d,&c), 5); if (*p != 5) return false; } return a >= 1 && a == d && c == 1; }())
-CASE(alloc_shared_arr_used, []{ int a=0,d=0,c=0; { auto p = std::allocate_shared<int[]>(CAlloc<int>(&a,&d,&c), 3); } return a >= 1 && a == d && c == 3; }())
-CASE(alloc_shared_md_used, []{ int a=0,d=0,c=0; { auto p = std::allocate_shared<int[2][3]>(CAlloc<int>(&a,&d,&c)); if (p[1][2] != 0) return false; } return a >= 1 && a == d && c == 6; }())
-CASE(overwrite_no_construct, []{ int a=0,d=0,c=0; { auto p = std::allocate_shared_for_overwrite<int>(CAlloc<int>(&a,&d,&c)); *p = 3; } return a >= 1 && a == d && c == 0; }())
-CASE(overwrite_arr_no_construct, []{ int a=0,d=0,c=0; { auto p = std::allocate_shared_for_overwrite<int[]>(CAlloc<int>(&a,&d,&c), 3); p[0] = 1; } return a >= 1 && a == d && c == 0; }())
-CASE(overwrite_bounded_no_construct, []{ int a=0,d=0,c=0; { auto p = std::allocate_shared_for_overwrite<int[3]>(CAlloc<int>(&a,&d,&c)); p[0] = 1; } return a >= 1 && a == d && c == 0; }())
-CASE(overwrite_md_no_construct, []{ int a=0,d=0,c=0; { auto p = std::allocate_shared_for_overwrite<int[2][3]>(CAlloc<int>(&a,&d,&c)); p[1][2] = 1; } return a >= 1 && a == d && c == 0; }())
+CASE(ctor_alloc_used, []{ int a=0,d=0,c=0,y=0; { std::shared_ptr<int> p(new int(1), Del{}, CAlloc<int>(&a,&d,&c,&y)); if (a != 1) return false; } return a == 1 && d == 1; }())
+CASE(ctor_nullptr_alloc_used, []{ int a=0,d=0,c=0,y=0; { std::shared_ptr<int> p(nullptr, Del{}, CAlloc<int>(&a,&d,&c,&y)); } return a == 1 && d == 1; }())
+CASE(alloc_shared_used, []{ int a=0,d=0,c=0,y=0; { auto p = std::allocate_shared<int>(CAlloc<int>(&a,&d,&c,&y), 5); if (*p != 5) return false; } return a >= 1 && a == d && c == 1 && y == 1; }())
+CASE(alloc_shared_arr_used, []{ int a=0,d=0,c=0,y=0; { auto p = std::allocate_shared<int[]>(CAlloc<int>(&a,&d,&c,&y), 3); } return a >= 1 && a == d && c == 3 && y == 3; }())
+CASE(alloc_shared_md_used, []{ int a=0,d=0,c=0,y=0; { auto p = std::allocate_shared<int[2][3]>(CAlloc<int>(&a,&d,&c,&y)); if (p[1][2] != 0) return false; } return a >= 1 && a == d && c == 6 && y == 6; }())
+CASE(overwrite_no_construct, []{ int a=0,d=0,c=0,y=0; { auto p = std::allocate_shared_for_overwrite<int>(CAlloc<int>(&a,&d,&c,&y)); *p = 3; } return a >= 1 && a == d && c == 0 && y == 0; }())
+CASE(overwrite_arr_no_construct, []{ int a=0,d=0,c=0,y=0; { auto p = std::allocate_shared_for_overwrite<int[]>(CAlloc<int>(&a,&d,&c,&y), 3); p[0] = 1; } return a >= 1 && a == d && c == 0 && y == 0; }())
+CASE(overwrite_bounded_no_construct, []{ int a=0,d=0,c=0,y=0; { auto p = std::allocate_shared_for_overwrite<int[3]>(CAlloc<int>(&a,&d,&c,&y)); p[0] = 1; } return a >= 1 && a == d && c == 0 && y == 0; }())
+CASE(overwrite_md_no_construct, []{ int a=0,d=0,c=0,y=0; { auto p = std::allocate_shared_for_overwrite<int[2][3]>(CAlloc<int>(&a,&d,&c,&y)); p[1][2] = 1; } return a >= 1 && a == d && c == 0 && y == 0; }())
 
 int main(int, char**) {
   assert(ctor_alloc_used());

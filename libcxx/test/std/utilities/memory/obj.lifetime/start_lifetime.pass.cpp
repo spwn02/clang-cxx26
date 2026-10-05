@@ -44,7 +44,36 @@ static_assert(can_start<Agg>);
 static_assert(noexcept(std::start_lifetime(std::declval<Agg&>())));
 static_assert(std::is_same_v<decltype(std::start_lifetime(std::declval<Agg&>())), void>);
 
+// The example of [basic.life] (P3726R2): arr becomes the active member and its elements are created one by one.
+struct Example {
+  struct X {
+    int i;
+    int j;
+  };
+  struct Y {
+    X x1;
+    X x2;
+  };
+  union {
+    int i;
+    int arr[4];
+    Y y;
+  };
+};
+
+constexpr bool draft_example() {
+  Example a;
+  std::start_lifetime(a.arr); // arr is now the active element of the union
+  std::construct_at(&a.arr[1], 1);
+  std::construct_at(&a.arr[2], 2);
+  // The draft writes `a.arr[2] = 2;` for the second element: assigning to a union elemental subobject that is not within
+  // its lifetime begins it (the union-elemental part of P3726R2, tracked in #250, is not implemented yet).
+  return a.arr[1] == 1 && a.arr[2] == 2;
+}
+
 constexpr bool test() {
+  if (!draft_example())
+    return false;
   // already within its lifetime: no effect
   {
     Agg agg{1, 2};
