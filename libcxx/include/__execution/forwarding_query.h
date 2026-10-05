@@ -31,9 +31,12 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 struct forwarding_query_t {
   template <class _Query>
   _LIBCPP_HIDE_FROM_ABI constexpr bool operator()(const _Query& __query) const noexcept {
-    if constexpr (requires {
-                    { __query.query(*this) } -> same_as<bool>;
-                  }) {
+    if constexpr (requires { __query.query(*this); }) {
+      // [exec.fwd.env]p2.1: MANDATE-NOTHROW(q.query(forwarding_query)); Mandates: the expression has type bool. The
+      // other Mandates (a core constant expression if q is one) cannot be observed from inside the function.
+      static_assert(same_as<decltype(__query.query(*this)), bool>,
+                    "Mandates: the expression q.query(forwarding_query) has type bool.");
+      static_assert(noexcept(__query.query(*this)), "Mandates: the expression q.query(forwarding_query) is noexcept.");
       return __query.query(*this);
     } else {
       return derived_from<_Query, forwarding_query_t>;

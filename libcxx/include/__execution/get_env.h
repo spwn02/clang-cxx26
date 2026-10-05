@@ -28,18 +28,17 @@ namespace execution {
 // [exec.get.env]
 struct get_env_t {
   template <class _Tp>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Tp&& __t) const
-      noexcept(noexcept(std::as_const(__t).get_env())) -> decltype(std::as_const(__t).get_env())
-    requires requires { { std::as_const(__t).get_env() } -> __queryable; }
-  {
-    return std::as_const(__t).get_env();
-  }
-
-  template <class _Tp>
-  _LIBCPP_HIDE_FROM_ABI constexpr env<> operator()(_Tp&&) const noexcept
-    requires(!requires(const _Tp& __t) { { __t.get_env() } -> __queryable; })
-  {
-    return env<>{};
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) operator()(_Tp&& __t) const noexcept {
+    // [exec.get.env]p1: MANDATE-NOTHROW(AS-CONST(o).get_env()) if that expression is well-formed, otherwise env<>{}.
+    // Mandates: the type of the expression satisfies queryable.
+    if constexpr (requires { std::as_const(__t).get_env(); }) {
+      static_assert(noexcept(std::as_const(__t).get_env()), "Mandates: the expression o.get_env() is noexcept.");
+      static_assert(__queryable<decltype(std::as_const(__t).get_env())>,
+                    "Mandates: the type of o.get_env() satisfies queryable.");
+      return std::as_const(__t).get_env();
+    } else {
+      return env<>{};
+    }
   }
 };
 

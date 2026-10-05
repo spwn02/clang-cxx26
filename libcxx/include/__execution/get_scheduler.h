@@ -81,7 +81,8 @@ template <class _Qp, class _Tag, class... _Args>
   requires requires(const _Qp& __q, _Tag __tag, _Args&&... __args) {
     std::as_const(__q).query(__tag, std::forward<_Args>(__args)...);
   }
-_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __try_query(const _Qp& __q, _Tag __tag, _Args&&... __args) {
+_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __try_query(const _Qp& __q, _Tag __tag, _Args&&... __args) noexcept(
+    noexcept(std::as_const(__q).query(__tag, std::forward<_Args>(__args)...))) {
   return std::as_const(__q).query(__tag, std::forward<_Args>(__args)...);
 }
 
@@ -89,7 +90,8 @@ template <class _Qp, class _Tag, class... _Args>
   requires(!requires(const _Qp& __q, _Tag __tag, _Args&&... __args) {
     std::as_const(__q).query(__tag, std::forward<_Args>(__args)...);
   }) && requires(const _Qp& __q, _Tag __tag) { std::as_const(__q).query(__tag); }
-_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __try_query(const _Qp& __q, _Tag __tag, _Args&&...) {
+_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto)
+__try_query(const _Qp& __q, _Tag __tag, _Args&&...) noexcept(noexcept(std::as_const(__q).query(__tag))) {
   return std::as_const(__q).query(__tag);
 }
 
@@ -119,14 +121,22 @@ _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __recurse_query(_Sch1&& __sch1, c
 template <class _Cpo>
 struct get_completion_scheduler_t {
   template <class _Qp, class... _Envs>
-    requires(is_same_v<_Cpo, set_value_t> || is_same_v<_Cpo, set_error_t> || is_same_v<_Cpo, set_stopped_t>)
+    requires(is_same_v<_Cpo, set_value_t> || is_same_v<_Cpo, set_error_t> || is_same_v<_Cpo, set_stopped_t>) &&
+            (requires(const _Qp& __q, const get_completion_scheduler_t& __self, const _Envs&... __envs) {
+              execution::__try_query(__q, __self, __envs...);
+            } || (scheduler<_Qp> && sizeof...(_Envs) > 0))
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Qp& __q, const _Envs&... __envs) const noexcept {
     if constexpr (requires { execution::__try_query(__q, *this, __envs...); }) {
+      // [exec.get.compl.sched]p5: MANDATE-NOTHROW(RECURSE-QUERY(TRY-QUERY(q, get_completion_scheduler<tag>, envs...),
+      // envs...)); Mandates: the type of the expression satisfies scheduler.
+      static_assert(noexcept(execution::__try_query(__q, *this, __envs...)),
+                    "Mandates: the query expression of get_completion_scheduler is noexcept.");
       decltype(auto) __sch1 = execution::__try_query(__q, *this, __envs...);
+      using __result_t      = decltype(execution::__recurse_query(std::forward<decltype(__sch1)>(__sch1), __envs...));
+      static_assert(scheduler<remove_cvref_t<__result_t>>,
+                    "Mandates: the type of the expression get_completion_scheduler<tag>(q, envs...) satisfies scheduler.");
       return execution::__recurse_query(std::forward<decltype(__sch1)>(__sch1), __envs...);
     } else {
-      static_assert(scheduler<_Qp>, "Mandates: the type of q satisfies scheduler.");
-      static_assert(sizeof...(_Envs) > 0, "Mandates: envs is not an empty pack.");
       return auto(__q);
     }
   }
@@ -138,6 +148,8 @@ inline constexpr get_completion_scheduler_t<_Cpo> get_completion_scheduler{};
 template <class _Sch1, class... _Envs>
 _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __recurse_query(_Sch1&& __sch1, const _Envs&... __envs) noexcept {
   if constexpr (requires { execution::__try_query(__sch1, execution::get_completion_scheduler<set_value_t>, __envs...); }) {
+    static_assert(noexcept(execution::__try_query(__sch1, execution::get_completion_scheduler<set_value_t>, __envs...)),
+                  "Mandates: the query expression of get_completion_scheduler is noexcept.");
     decltype(auto) __sch2 = execution::__try_query(__sch1, execution::get_completion_scheduler<set_value_t>, __envs...);
     if constexpr (is_same_v<remove_cvref_t<decltype(__sch2)>, remove_cvref_t<_Sch1>>) {
       return static_cast<_Sch1&&>(__sch1);
@@ -152,7 +164,9 @@ _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __recurse_query(_Sch1&& __sch1, c
 // [exec.get.scheduler]
 struct get_scheduler_t : forwarding_query_t {
   template <class _Env>
-    requires requires(const _Env& __env, const get_scheduler_t& __self) { __env.query(__self); }
+    requires requires(const _Env& __env, const get_scheduler_t& __self) {
+      execution::get_completion_scheduler<set_value_t>(__env.query(__self), execution::__hide_sched_fn(__env));
+    }
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept {
     static_assert(noexcept(__env.query(*this)), "Mandates: the expression env.query(get_scheduler) is noexcept.");
     return execution::get_completion_scheduler<set_value_t>(__env.query(*this), execution::__hide_sched_fn(__env));
@@ -164,10 +178,11 @@ inline constexpr get_scheduler_t get_scheduler{};
 // [exec.get.start.scheduler]
 struct get_start_scheduler_t : forwarding_query_t {
   template <class _Env>
-    requires requires(const _Env& __env, const get_start_scheduler_t& __self) {
-      { __env.query(__self) } -> scheduler;
-    }
-  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept(noexcept(__env.query(*this))) {
+    requires requires(const _Env& __env, const get_start_scheduler_t& __self) { __env.query(__self); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept {
+    static_assert(noexcept(__env.query(*this)), "Mandates: the expression env.query(get_start_scheduler) is noexcept.");
+    static_assert(scheduler<remove_cvref_t<decltype(__env.query(*this))>>,
+                  "Mandates: the type of env.query(get_start_scheduler) satisfies scheduler.");
     return __env.query(*this);
   }
 };
@@ -177,10 +192,12 @@ inline constexpr get_start_scheduler_t get_start_scheduler{};
 // [exec.get.delegation.scheduler]
 struct get_delegation_scheduler_t : forwarding_query_t {
   template <class _Env>
-    requires requires(const _Env& __env, const get_delegation_scheduler_t& __self) {
-      { __env.query(__self) } -> scheduler;
-    }
-  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept(noexcept(__env.query(*this))) {
+    requires requires(const _Env& __env, const get_delegation_scheduler_t& __self) { __env.query(__self); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept {
+    static_assert(noexcept(__env.query(*this)),
+                  "Mandates: the expression env.query(get_delegation_scheduler) is noexcept.");
+    static_assert(scheduler<remove_cvref_t<decltype(__env.query(*this))>>,
+                  "Mandates: the type of env.query(get_delegation_scheduler) satisfies scheduler.");
     return __env.query(*this);
   }
 };

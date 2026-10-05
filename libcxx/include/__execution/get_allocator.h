@@ -51,11 +51,13 @@ struct get_allocator_t : forwarding_query_t {
   // because the *reference* is const. operator() itself already returns by decayed `auto`
   // (a fresh copy), so only the constraint needed to match that intent.
   template <class _Env>
-    requires requires(const _Env& __env, const get_allocator_t& __self) {
-      { __env.query(__self) };
-      requires __simple_allocator<remove_cvref_t<decltype(__env.query(__self))>>;
-    }
-  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept(noexcept(__env.query(*this))) {
+    requires requires(const _Env& __env, const get_allocator_t& __self) { __env.query(__self); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept {
+    // [exec.get.allocator]p2: MANDATE-NOTHROW(AS-CONST(env).query(get_allocator)); Mandates: the type of the expression
+    // satisfies simple-allocator.
+    static_assert(noexcept(__env.query(*this)), "Mandates: the expression env.query(get_allocator) is noexcept.");
+    static_assert(__simple_allocator<remove_cvref_t<decltype(__env.query(*this))>>,
+                  "Mandates: the type of env.query(get_allocator) satisfies simple-allocator.");
     return __env.query(*this);
   }
 };

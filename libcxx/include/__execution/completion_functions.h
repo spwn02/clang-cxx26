@@ -14,6 +14,7 @@
 #include <__type_traits/is_const.h>
 #include <__type_traits/is_reference.h>
 #include <__type_traits/is_same.h>
+#include <__type_traits/is_void.h>
 #include <__utility/forward.h>
 #include <exception>
 #include <system_error>
@@ -60,6 +61,8 @@ struct set_value_t {
   _LIBCPP_HIDE_FROM_ABI constexpr void operator()(_Rcvr&& __rcvr, _Args&&... __args) const noexcept {
     static_assert(noexcept(std::forward<_Rcvr>(__rcvr).set_value(std::forward<_Args>(__args)...)),
                   "Mandates: the expression rcvr.set_value(vs...) is noexcept.");
+    static_assert(is_void_v<decltype(std::forward<_Rcvr>(__rcvr).set_value(std::forward<_Args>(__args)...))>,
+                  "Mandates: the type of the expression rcvr.set_value(...) is void.");
     std::forward<_Rcvr>(__rcvr).set_value(std::forward<_Args>(__args)...);
   }
 };
@@ -71,6 +74,8 @@ struct set_error_t {
   _LIBCPP_HIDE_FROM_ABI constexpr void operator()(_Rcvr&& __rcvr, _Err&& __err) const noexcept {
     static_assert(noexcept(std::forward<_Rcvr>(__rcvr).set_error(std::forward<_Err>(__err))),
                   "Mandates: the expression rcvr.set_error(err) is noexcept.");
+    static_assert(is_void_v<decltype(std::forward<_Rcvr>(__rcvr).set_error(std::forward<_Err>(__err)))>,
+                  "Mandates: the type of the expression rcvr.set_error(...) is void.");
     std::forward<_Rcvr>(__rcvr).set_error(std::forward<_Err>(__err));
   }
 };
@@ -82,6 +87,8 @@ struct set_stopped_t {
   _LIBCPP_HIDE_FROM_ABI constexpr void operator()(_Rcvr&& __rcvr) const noexcept {
     static_assert(noexcept(std::forward<_Rcvr>(__rcvr).set_stopped()),
                   "Mandates: the expression rcvr.set_stopped() is noexcept.");
+    static_assert(is_void_v<decltype(std::forward<_Rcvr>(__rcvr).set_stopped())>,
+                  "Mandates: the type of the expression rcvr.set_stopped(...) is void.");
     std::forward<_Rcvr>(__rcvr).set_stopped();
   }
 };

@@ -36,15 +36,11 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 namespace execution {
 
 // [exec.sched]
-struct scheduler_tag {};
-
+// scheduler_tag and __scheduler_without_progress are in <__execution/get_forward_progress_guarantee.h>.
 template <class _Sch>
-concept scheduler =
-    derived_from<typename remove_cvref_t<_Sch>::scheduler_concept, scheduler_tag> && __queryable<_Sch> &&
-    requires(_Sch&& __sch) {
-      { execution::schedule(std::forward<_Sch>(__sch)) } -> sender;
-      { execution::get_forward_progress_guarantee(__sch) } -> same_as<forward_progress_guarantee>;
-    } && equality_comparable<remove_cvref_t<_Sch>> && copyable<remove_cvref_t<_Sch>>;
+concept scheduler = __scheduler_without_progress<_Sch> && requires(_Sch&& __sch) {
+  { execution::get_forward_progress_guarantee(__sch) } -> same_as<forward_progress_guarantee>;
+};
 
 template <scheduler _Sch>
 using schedule_result_t = decltype(execution::schedule(std::declval<_Sch>()));

@@ -9,8 +9,16 @@
 #ifndef _LIBCPP___EXECUTION_GET_FORWARD_PROGRESS_GUARANTEE_H
 #define _LIBCPP___EXECUTION_GET_FORWARD_PROGRESS_GUARANTEE_H
 
+#include <__concepts/copyable.h>
+#include <__concepts/derived_from.h>
+#include <__concepts/equality_comparable.h>
 #include <__concepts/same_as.h>
 #include <__config>
+#include <__execution/queryable.h>
+#include <__execution/schedule.h>
+#include <__execution/sender.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -40,13 +48,27 @@ enum class forward_progress_guarantee {
 // freshly-constructed `get_forward_progress_guarantee_t{}`: the latter would require this class to be a
 // complete type at the point its own trailing requires-clause is checked, which it isn't yet (a member
 // function template's requires-clause is not a complete-class context the way a member function body is).
+struct scheduler_tag {};
+
+// All the requirements of [exec.sched] but the one on get_forward_progress_guarantee. [exec.get.fwd.progress] makes
+// get_forward_progress_guarantee ill-formed for a type that does not satisfy scheduler, which is itself defined in
+// terms of get_forward_progress_guarantee: the query is constrained with this concept, which is what breaks the cycle.
+template <class _Sch>
+concept __scheduler_without_progress =
+    derived_from<typename remove_cvref_t<_Sch>::scheduler_concept, scheduler_tag> && __queryable<_Sch> &&
+    requires(_Sch&& __sch) {
+      { execution::schedule(std::forward<_Sch>(__sch)) } -> sender;
+    } && equality_comparable<remove_cvref_t<_Sch>> && copyable<remove_cvref_t<_Sch>>;
+
 struct get_forward_progress_guarantee_t {
   template <class _Sch>
-    requires requires(const _Sch& __sch, const get_forward_progress_guarantee_t& __self) {
-      { __sch.query(__self) } -> same_as<forward_progress_guarantee>;
-    }
+    requires __scheduler_without_progress<_Sch> &&
+             requires(const _Sch& __sch, const get_forward_progress_guarantee_t& __self) { __sch.query(__self); }
   _LIBCPP_HIDE_FROM_ABI constexpr forward_progress_guarantee operator()(const _Sch& __sch) const noexcept {
-    static_assert(noexcept(__sch.query(*this)), "Mandates: the expression sch.query(get_forward_progress_guarantee) is noexcept.");
+    static_assert(noexcept(__sch.query(*this)),
+                  "Mandates: the expression sch.query(get_forward_progress_guarantee) is noexcept.");
+    static_assert(same_as<decltype(__sch.query(*this)), forward_progress_guarantee>,
+                  "Mandates: the type of sch.query(get_forward_progress_guarantee) is forward_progress_guarantee.");
     return __sch.query(*this);
   }
 };

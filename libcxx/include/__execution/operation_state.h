@@ -11,6 +11,8 @@
 
 #include <__concepts/derived_from.h>
 #include <__config>
+#include <__type_traits/is_reference.h>
+#include <__type_traits/is_void.h>
 #include <__utility/forward.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -31,9 +33,10 @@ struct operation_state_tag {};
 // otherwise it is expression-equivalent to MANDATE-NOTHROW(op.start()).
 struct start_t {
   template <class _Op>
-    requires requires(_Op& __op) { __op.start(); }
-  _LIBCPP_HIDE_FROM_ABI constexpr void operator()(_Op& __op) const noexcept {
+    requires(is_lvalue_reference_v<_Op>) && requires(_Op&& __op) { __op.start(); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void operator()(_Op&& __op) const noexcept {
     static_assert(noexcept(__op.start()), "Mandates: the expression op.start() is noexcept.");
+    static_assert(is_void_v<decltype(__op.start())>, "Mandates: the type of the expression op.start() is void.");
     __op.start();
   }
 };

@@ -24,11 +24,25 @@ static_assert(std::is_enum_v<forward_progress_guarantee>);
 static_assert(forward_progress_guarantee::concurrent != forward_progress_guarantee::parallel);
 static_assert(forward_progress_guarantee::parallel != forward_progress_guarantee::weakly_parallel);
 
+struct Sender {
+  using sender_concept = sender_tag;
+  auto get_env() const noexcept { return env<>{}; }
+  template <class Self, class... Env>
+  static consteval auto get_completion_signatures() {
+    return completion_signatures<set_value_t()>{};
+  }
+};
+
+// [exec.get.fwd.progress]p2: the query is ill-formed for a type that does not satisfy scheduler.
 struct HasGuarantee {
+  using scheduler_concept = scheduler_tag;
+  Sender schedule() const noexcept { return Sender{}; }
   constexpr forward_progress_guarantee query(get_forward_progress_guarantee_t) const noexcept {
     return forward_progress_guarantee::parallel;
   }
+  bool operator==(const HasGuarantee&) const = default;
 };
+static_assert(scheduler<HasGuarantee>);
 static_assert(noexcept(get_forward_progress_guarantee(HasGuarantee{})));
 static_assert(std::is_same_v<decltype(get_forward_progress_guarantee(HasGuarantee{})), forward_progress_guarantee>);
 
@@ -42,6 +56,15 @@ struct NoGuarantee {};
 template <class T>
 concept __has_get_forward_progress_guarantee = requires(T t) { get_forward_progress_guarantee(t); };
 static_assert(!__has_get_forward_progress_guarantee<NoGuarantee>);
+
+// Has the query but is not a scheduler.
+struct NotAScheduler {
+  constexpr forward_progress_guarantee query(get_forward_progress_guarantee_t) const noexcept {
+    return forward_progress_guarantee::parallel;
+  }
+};
+static_assert(!scheduler<NotAScheduler>);
+static_assert(!__has_get_forward_progress_guarantee<NotAScheduler>);
 
 int main(int, char**) {
   assert(get_forward_progress_guarantee(HasGuarantee{}) == forward_progress_guarantee::parallel);

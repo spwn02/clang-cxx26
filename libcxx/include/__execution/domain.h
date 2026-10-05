@@ -103,8 +103,10 @@ struct get_domain_t : forwarding_query_t {
   template <class _Env>
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(const _Env& __env) const noexcept {
     if constexpr (requires { auto(__env.query(*this)); }) {
-      static_assert(noexcept(auto(__env.query(*this))), "Mandates: env.query(get_domain) is noexcept.");
-      return auto(__env.query(*this));
+      // MANDATE-NOTHROW(D()): only the default construction of the domain type is required to be noexcept.
+      using _Dom = decltype(auto(__env.query(*this)));
+      static_assert(noexcept(_Dom()), "Mandates: the default construction of the domain type is noexcept.");
+      return _Dom();
     } else {
       static_assert(noexcept(default_domain()));
       return default_domain();
