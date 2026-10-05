@@ -1813,7 +1813,7 @@ Parser::TryAnnotateName(CorrectionCandidateCallback *CCC,
   // expression parser: the macro has to be found before its arguments can be
   // parsed.
   if (getLangOpts().Reflection && Next.is(tok::exclaim) &&
-      isMacroArgumentListOpener(GetLookAheadToken(2).getKind())) {
+      isMacroInvocationContinuation(GetLookAheadToken(2).getKind())) {
     if (SS.isNotEmpty())
       AnnotateScopeToken(SS, !WasScopeAnnotation);
     return AnnotatedNameKind::Unresolved;
