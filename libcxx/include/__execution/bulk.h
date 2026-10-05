@@ -68,15 +68,10 @@ namespace execution {
 // once per index by looping inside a single bulk_chunked chunk) when it is connected, through
 // default_domain::transform_sender (`tag_of_t<Sndr>().transform_sender(...)`).
 //
-// check-types ([exec.bulk]p6/p8, the Mandates-throwing consteval helper that diagnoses a
-// child value datum Func isn't invocable with) is not implemented -- same P3068
-// constexpr-exceptions gap as every other adaptor in this sub-plan; a Func that isn't
-// invocable with a particular set_value shape's datums simply makes that shape's own
-// nothrow-invocability check (used by the completion-signature transform below) evaluate
-// `is_nothrow_invocable_v` as false (well-formed either way) rather than reporting a
-// dedicated diagnostic -- the completion signature still advertises that set_value shape
-// unchanged, plus a spurious set_error_t(exception_ptr), and the real failure only surfaces
-// as a hard compile error if that particular shape's receiver is ever actually instantiated.
+// check-types ([exec.bulk]p6/p8) is a constraint on get_completion_signatures: a Func that isn't
+// invocable (as an lvalue) with every set_value shape of the child makes the member not viable, so the
+// generic [exec.getcomplsigs] fallback throws and sender_in is false; a child that never completes with
+// set_value is unconstrained.
 struct bulk_chunked_t;
 struct bulk_unchunked_t;
 
@@ -149,6 +144,17 @@ struct __bulk_closure {
 // not a compiler limitation.
 template <bool _Chunked, class _Func, class _Shape, class... _Args>
 struct __bulk_nothrow_invocable;
+
+template <bool _Chunked, class _Func, class _Shape, class _List>
+struct __bulk_invocable_one;
+template <class _Func, class _Shape, class... _Args>
+struct __bulk_invocable_one<true, _Func, _Shape, type_list<_Args...>> {
+  static constexpr bool value = invocable<_Func&, _Shape, _Shape, _Args&...>;
+};
+template <class _Func, class _Shape, class... _Args>
+struct __bulk_invocable_one<false, _Func, _Shape, type_list<_Args...>> {
+  static constexpr bool value = invocable<_Func&, _Shape, _Args&...>;
+};
 template <class _Func, class _Shape, class... _Args>
 struct __bulk_nothrow_invocable<true, _Func, _Shape, _Args...> {
   static constexpr bool value = is_nothrow_invocable_v<_Func&, _Shape, _Shape, _Args&...>;
@@ -157,6 +163,16 @@ template <class _Func, class _Shape, class... _Args>
 struct __bulk_nothrow_invocable<false, _Func, _Shape, _Args...> {
   static constexpr bool value = is_nothrow_invocable_v<_Func&, _Shape, _Args&...>;
 };
+
+// check-types helper: whether `_Func&` is invocable for every value completion (`_Lists`: type_list of the datum lists).
+template <bool _Chunked, class _Func, class _Shape, class _Lists>
+inline constexpr bool __bulk_invocable_v = false;
+template <class _Func, class _Shape, class... _Lists>
+inline constexpr bool __bulk_invocable_v<true, _Func, _Shape, type_list<_Lists...>> =
+    (__bulk_invocable_one<true, _Func, _Shape, _Lists>::value && ...);
+template <class _Func, class _Shape, class... _Lists>
+inline constexpr bool __bulk_invocable_v<false, _Func, _Shape, type_list<_Lists...>> =
+    (__bulk_invocable_one<false, _Func, _Shape, _Lists>::value && ...);
 
 template <bool _Chunked, class _Func, class _Shape>
 struct __bulk_sig_transform {
@@ -496,7 +512,23 @@ public:
   _Sndr child;
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && {
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
+  }
+
+  template <class _Rcvr>
+    requires copy_constructible<__bulk_data<_Policy, _Shape, _Func>> && copy_constructible<_Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  // (potentially throwing, as the receiver of the parallel scheduler path allocates)
+  template <class _Self, class _Rcvr>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr) {
+    using __data_t = __bulk_data<_Policy, _Shape, _Func>;
 #if _LIBCPP_HAS_THREADS
     // Pass 2/3 (P2079R10): probe child's completion scheduler via the same __try_query
     // primitive <__execution/get_scheduler.h>'s own get_completion_scheduler_t uses
@@ -509,38 +541,46 @@ public:
     // bulk_unchunked_t take this branch identically -- __bulk_parallel_job's own _Chunked
     // dispatch (see __invoke_chunk above) is what makes each worker do the right thing per tag.
     if constexpr (requires {
-                    execution::__try_query(execution::get_env(child), get_completion_scheduler<set_value_t>);
+                    execution::__try_query(execution::get_env(__self.child), get_completion_scheduler<set_value_t>);
                   }) {
       using __child_sch_t =
-          remove_cvref_t<decltype(execution::__try_query(execution::get_env(child), get_completion_scheduler<set_value_t>))>;
+          remove_cvref_t<decltype(execution::__try_query(execution::get_env(__self.child), get_completion_scheduler<set_value_t>))>;
       if constexpr (same_as<__child_sch_t, parallel_scheduler>) {
         return execution::connect(
-            std::move(child), __bulk_parallel_rcvr<_Chunked, _Policy, _Shape, _Func, remove_cvref_t<_Rcvr>>(
-                                   std::move(data), std::forward<_Rcvr>(__rcvr),
-                                   execution::__try_query(execution::get_env(child), get_completion_scheduler<set_value_t>)));
+            std::forward_like<_Self>(__self.child), __bulk_parallel_rcvr<_Chunked, _Policy, _Shape, _Func, remove_cvref_t<_Rcvr>>(
+                                   __data_t(std::forward_like<_Self>(__self.data)), std::forward<_Rcvr>(__rcvr),
+                                   execution::__try_query(execution::get_env(__self.child), get_completion_scheduler<set_value_t>)));
       } else {
-        return execution::connect(std::move(child),
+        return execution::connect(std::forward_like<_Self>(__self.child),
                                    __bulk_rcvr<_Chunked, _Policy, _Shape, _Func, remove_cvref_t<_Rcvr>>(
-                                       std::move(data), std::forward<_Rcvr>(__rcvr)));
+                                       __data_t(std::forward_like<_Self>(__self.data)), std::forward<_Rcvr>(__rcvr)));
       }
     } else
 #endif // _LIBCPP_HAS_THREADS
     {
-      return execution::connect(std::move(child), __bulk_rcvr<_Chunked, _Policy, _Shape, _Func, remove_cvref_t<_Rcvr>>(
-                                                        std::move(data), std::forward<_Rcvr>(__rcvr)));
+      return execution::connect(std::forward_like<_Self>(__self.child), __bulk_rcvr<_Chunked, _Policy, _Shape, _Func, remove_cvref_t<_Rcvr>>(
+                                                        __data_t(std::forward_like<_Self>(__self.data)), std::forward<_Rcvr>(__rcvr)));
     }
   }
 
+public:
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
   // attribute object equal to FWD-ENV(get_env(sndr)).
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
     return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
-  template <class _Self, class _Env>
-    requires sender_in<_Sndr, __fwd_env<remove_cvref_t<_Env>>>
+  // check-types ([exec.bulk]p6, p8): the function is invocable with (shape, args...) or (begin, end, args...) for the
+  // result datums (lvalues) of every value completion.
+  template <class _Self, class... _Env>
+    requires sender_in<_Sndr, __fwd_env_of_first_t<_Env...>> &&
+             __bulk_invocable_v<_Chunked, _Func, _Shape,
+                                __gather_signatures<set_value_t,
+                                                    completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>,
+                                                    type_list,
+                                                    type_list>>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    using __child_sigs = completion_signatures_of_t<_Sndr, __fwd_env<remove_cvref_t<_Env>>>;
+    using __child_sigs = completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>;
     return __bulk_signatures_t<_Chunked, _Func, _Shape, __child_sigs>{};
   }
 };
@@ -602,6 +642,23 @@ struct bulk_t;
 template <class _Policy, class _Shape, class _Func, class _Sndr>
 class __bulk_front_sndr;
 
+// [exec.bulk]p5's new_f: invokes f(i, vs...) for every i in [begin, end). A class rather than a lambda: it is constrained on
+// f being invocable, which must be a soft failure for check-types (a lambda with such a constraint trips an assertion of
+// this compiler when it is created in a function template that is instantiated during overload resolution).
+template <class _Func, class _Shape>
+struct __bulk_chunk_fn {
+  _Func __func_;
+
+  template <class... _Vs>
+    requires invocable<_Func&, _Shape, _Vs&...>
+  _LIBCPP_HIDE_FROM_ABI constexpr void operator()(_Shape __begin, _Shape __end, _Vs&... __vs) noexcept(
+      is_nothrow_invocable_v<_Func&, _Shape, _Vs&...>) {
+    while (__begin != __end) {
+      __func_(__begin++, __vs...);
+    }
+  }
+};
+
 struct bulk_t {
   template <sender _Sndr, class _Policy, integral _Shape, class _Func>
     requires is_execution_policy_v<remove_cvref_t<_Policy>> && copy_constructible<decay_t<_Func>>
@@ -619,17 +676,14 @@ struct bulk_t {
   template <class _Sndr, class _Env>
     requires __sender_for<_Sndr, bulk_t>
   _LIBCPP_HIDE_FROM_ABI static constexpr auto transform_sender(set_value_t, _Sndr&& __sndr, const _Env&) {
-    auto&& [__tag, __data, __child] = __sndr;
-    using _Shape = remove_cvref_t<decltype(__data.shape)>;
+    // (no structured binding here: a constrained lambda that captures one trips an assertion of the compiler)
+    auto&& __data  = __sndr.data;
+    auto&& __child = __sndr.child;
+    using _Shape   = remove_cvref_t<decltype(__data.shape)>;
     using _Func  = remove_cvref_t<decltype(__data.f)>;
     return execution::bulk_chunked(
         std::forward_like<_Sndr>(__child), __data.policy, __data.shape,
-        [__func = std::forward_like<_Sndr>(__data.f)](_Shape __begin, _Shape __end, auto&... __vs) mutable
-        noexcept(is_nothrow_invocable_v<_Func&, _Shape, decltype(__vs)...>) {
-          while (__begin != __end) {
-            __func(__begin++, __vs...);
-          }
-        });
+        __bulk_chunk_fn<_Func, _Shape>{std::forward_like<_Sndr>(__data.f)});
   }
 };
 
@@ -648,10 +702,14 @@ public:
 
   // Only reached for a sender that was not transformed, which cannot happen: the transformation has no constraints
   // but the shape of the sender.
-  template <class _Self, class _Env>
+  template <class _Self, class... _Env>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    throw __unspecified_exception();
-    return completion_signatures<>();
+    if constexpr (sizeof...(_Env) == 0) {
+      return execution::__lowered_signatures_without_env<_Self>();
+    } else {
+      throw __unspecified_exception();
+      return completion_signatures<>();
+    }
   }
 };
 

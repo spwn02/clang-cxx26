@@ -67,22 +67,14 @@ namespace execution {
 // `when_all_with_variant` (p18/p19 of the clause) is a sender of its own tag, lowered by transform_sender to
 // `when_all(into_variant(sndrs)...)` (defined at the end of this file).
 //
-// check-types ([exec.when.all]p8/p9, the Mandates-throwing consteval helper that diagnoses a
-// child with 2+ set_value completions) is not implemented -- same P3068 constexpr-exceptions
-// gap as every other adaptor in this sub-plan. Per p13's own literal wording, a child with
-// zero *or* two-or-more set_value shapes both make `value_types_of_t<..., optional>` (the
-// `_Variant` argument spelled `optional`, which only accepts exactly one type argument)
-// ill-formed to name -- so both cases collapse into the same "otherwise tuple<>" fallback
-// (values_tuple becomes tuple<>, and this when_all's own value completion becomes the
-// datum-less set_value_t()) rather than a hard Mandates diagnostic for the 2+ case
-// specifically. Implemented by classifying each child's own completion_signatures via
-// ordinary partial specialization on the always-well-formed shape gathered by
-// value_types_of_t<..., __decayed_tuple, type_list> (0, 1, or N elements, never ill-formed
-// regardless of arity), rather than naming `optional<Ts...>` directly for the wrong arity --
-// the exact "gather into something always well-formed, then pattern-match the shape" lesson
-// <__execution/get_completion_signatures.h>'s __single_sender_value_type already established
-// (naming the ill-formed alias directly hard-errors deep inside __gather_signatures_impl's
-// implicit instantiation, not SFINAE-safely, for the same reason recorded there).
+// check-types ([exec.when.all]p8/p9): a child with two or more set_value completions, or with result datums
+// that are not decay-copyable, makes the get_completion_signatures member not viable (so the generic [exec.getcomplsigs] fallback throws and
+// sender_in is false); a child with no set_value completion is fine and makes when_all's own value
+// completion set_value_t() (values_tuple is tuple<>). Implemented by classifying each child's own
+// completion_signatures via ordinary partial specialization on the always-well-formed shape
+// (0, 1, or N set_value signatures, never ill-formed regardless of arity), the "gather into something
+// always well-formed, then pattern-match the shape" lesson <__execution/get_completion_signatures.h>'s
+// __single_sender_value_type already established.
 
 enum class __when_all_disposition { __started, __error, __stopped };
 
@@ -191,6 +183,16 @@ template <class _Tp>
 inline constexpr bool __when_all_is_single_value_v = false;
 template <class... _Args>
 inline constexpr bool __when_all_is_single_value_v<__when_all_single_value<_Args...>> = true;
+
+template <class _Tp>
+inline constexpr bool __when_all_is_multiple_value_v = is_same_v<_Tp, __when_all_multiple_value>;
+
+// [exec.when.all]p9 check-types: a child with two or more set_value completions is an error.
+// ...and every child's result datums (set_value, set_error) must be decay-copyable.
+template <class _Env, class... _Sndrs>
+inline constexpr bool __when_all_valid_children =
+    (!__when_all_is_multiple_value_v<__when_all_child_shape_t<_Sndrs, _Env>> && ...) &&
+    (__decay_copyable_datums_v<completion_signatures_of_t<_Sndrs, _Env>> && ...);
 
 template <class _Env, class... _Sndrs>
 inline constexpr bool __when_all_all_single_value =
@@ -593,15 +595,33 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept { return env<>{}; }
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && {
-    return __when_all_opstate<remove_cvref_t<_Rcvr>, index_sequence_for<_Sndrs...>, _Sndrs...>(
-        std::move(children), std::forward<_Rcvr>(__rcvr));
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
   }
 
-  template <class _Self, class _Env>
-    requires(sender_in<_Sndrs, __fwd_env<remove_cvref_t<_Env>>> && ...)
+  template <class _Rcvr>
+    requires (copy_constructible<_Sndrs> && ...)
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  template <class _Self, class _Rcvr>
+  // (potentially throwing: the operation state connects the children in its constructor)
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr) {
+    return __when_all_opstate<remove_cvref_t<_Rcvr>, index_sequence_for<_Sndrs...>, _Sndrs...>(
+        tuple<_Sndrs...>(std::forward_like<_Self>(__self.children)), std::forward<_Rcvr>(__rcvr));
+  }
+
+public:
+
+  template <class _Self, class... _Env>
+    requires(sender_in<_Sndrs, __fwd_env_of_first_t<_Env...>> && ...) &&
+            __when_all_valid_children<__fwd_env_of_first_t<_Env...>, _Sndrs...>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    using __env_t = __fwd_env<remove_cvref_t<_Env>>;
+    using __env_t = __fwd_env_of_first_t<_Env...>;
     return __when_all_completion_signatures<__env_t, _Sndrs...>{};
   }
 };
@@ -651,10 +671,14 @@ public:
 
   // Only reached for a sender that was not transformed, which cannot happen: the transformation has no constraints
   // but the shape of the sender.
-  template <class _Self, class _Env>
+  template <class _Self, class... _Env>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    throw __unspecified_exception();
-    return completion_signatures<>();
+    if constexpr (sizeof...(_Env) == 0) {
+      return execution::__lowered_signatures_without_env<_Self>();
+    } else {
+      throw __unspecified_exception();
+      return completion_signatures<>();
+    }
   }
 };
 

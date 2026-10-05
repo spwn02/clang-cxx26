@@ -19,6 +19,7 @@
 #include <__execution/sender.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -102,18 +103,37 @@ public:
   _Sndr child;
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && {
-    return execution::connect(std::move(child), __schedule_from_rcvr<remove_cvref_t<_Rcvr>>(std::forward<_Rcvr>(__rcvr)));
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
   }
+
+  template <class _Rcvr>
+    requires copy_constructible<_Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  template <class _Self, class _Rcvr>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr) noexcept(
+      noexcept(execution::connect(std::forward_like<_Self>(__self.child),
+                                  std::declval<__schedule_from_rcvr<remove_cvref_t<_Rcvr>>>()))) {
+    return execution::connect(
+        std::forward_like<_Self>(__self.child), __schedule_from_rcvr<remove_cvref_t<_Rcvr>>(std::forward<_Rcvr>(__rcvr)));
+  }
+
+public:
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
     return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
-  template <class _Self, class _Env>
-    requires sender_in<_Sndr, __fwd_env<remove_cvref_t<_Env>>>
+  template <class _Self, class... _Env>
+    requires sender_in<_Sndr, __fwd_env_of_first_t<_Env...>>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    return completion_signatures_of_t<_Sndr, __fwd_env<remove_cvref_t<_Env>>>{};
+    return completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>{};
   }
 };
 

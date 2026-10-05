@@ -82,10 +82,14 @@ public:
 
   // Only reached for a sender that was not transformed, which cannot happen: the transformation has no constraints
   // but the shape of the sender.
-  template <class _Self, class _Env>
+  template <class _Self, class... _Env>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    throw __unspecified_exception();
-    return completion_signatures<>();
+    if constexpr (sizeof...(_Env) == 0) {
+      return execution::__lowered_signatures_without_env<_Self>();
+    } else {
+      throw __unspecified_exception();
+      return completion_signatures<>();
+    }
   }
 };
 

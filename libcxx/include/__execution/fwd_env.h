@@ -10,6 +10,7 @@
 #define _LIBCPP___EXECUTION_FWD_ENV_H
 
 #include <__config>
+#include <__execution/env.h>
 #include <__execution/forwarding_query.h>
 #include <__execution/queryable.h>
 #include <__type_traits/is_nothrow_constructible.h>
@@ -57,6 +58,17 @@ inline constexpr bool __is_completion_query_v<get_completion_domain_t<_Tag>> = t
 // full-expression ends, since nothing else keeps the temporary alive past it. Every env type
 // in scope through at least M5 (env<...>, prop<...>, and similar small structs) is cheap to
 // copy, so this isn't a meaningful cost.
+// [exec.snd.expos] basic-sender::get_completion_signatures: the type of the environment of the receiver that the
+// completion signatures are computed for is the first type in the list `Env..., env<>`.
+template <class _Default, class... _Env>
+struct __first_env_or {
+  using type = _Default;
+};
+template <class _Default, class _First, class... _Rest>
+struct __first_env_or<_Default, _First, _Rest...> {
+  using type = _First;
+};
+
 template <class _Env>
 class __fwd_env {
 public:
@@ -87,6 +99,11 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __fwd_env_fn(_Env&& __env) noexcept(
     is_nothrow_constructible_v<__fwd_env<remove_cvref_t<_Env>>, _Env>) {
   return __fwd_env<remove_cvref_t<_Env>>(std::forward<_Env>(__env));
 }
+
+// FWD-ENV-T(E) for the environment E of the receiver completion signatures are computed for: the first type of
+// `Env..., env<>` ([exec.snd.expos] basic-sender::get_completion_signatures), forwarded.
+template <class... _Env>
+using __fwd_env_of_first_t = __fwd_env<typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type>;
 
 // The attributes of a parent sender with a single child sender ([exec.adapt.general]p3.2 and [exec.snd.general]): the
 // attributes of the child, forwarded as FWD-ENV does, except for the get_completion_scheduler and get_completion_domain

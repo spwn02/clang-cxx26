@@ -36,6 +36,7 @@
 #include <__type_traits/is_void.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/move.h>
 #include <exception>
 
@@ -398,12 +399,32 @@ public:
   _Sndr child;
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && {
-    return execution::connect(
-        std::move(child), __then_rcvr<_Tag, _Fn, remove_cvref_t<_Rcvr>>(
-                              std::__allocator_aware_forward(std::move(data), __rcvr),
-                              std::forward<_Rcvr>(__rcvr)));
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
   }
+
+  template <class _Rcvr>
+    requires copy_constructible<_Fn> && copy_constructible<_Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  template <class _Self, class _Rcvr>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr) noexcept(
+      is_nothrow_constructible_v<_Fn, decltype(std::forward_like<_Self>(__self.data))> &&
+      noexcept(execution::connect(std::forward_like<_Self>(__self.child),
+                                  std::declval<__then_rcvr<_Tag, _Fn, remove_cvref_t<_Rcvr>>>()))) {
+    return execution::connect(
+        std::forward_like<_Self>(__self.child),
+        __then_rcvr<_Tag, _Fn, remove_cvref_t<_Rcvr>>(
+            _Fn(std::__allocator_aware_forward(std::forward_like<_Self>(__self.data), __rcvr)),
+            std::forward<_Rcvr>(__rcvr)));
+  }
+
+public:
 
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
   // attribute object equal to FWD-ENV(get_env(sndr)).
@@ -413,12 +434,10 @@ public:
     return __then_attrs<_Tag, _Fn, _Sndr, __child_attrs_t>(execution::get_env(child));
   }
 
-  // [exec.then]p5 (check-types, the Mandates-throwing consteval helper) is not implemented --
-  // same P3068 constexpr-exceptions gap as <__execution/get_completion_signatures.h>'s
-  // dependent_sender_error (M2 deviation 2, docs/CXX26_GAPS.md); an `Fn` that isn't
-  // invocable with the intercepted datums simply makes this whole overload not participate
-  // (via invoke_result_t/is_nothrow_invocable_v being ill-formed inside __then_sig_transform),
-  // rather than reporting a dedicated diagnostic.
+  // [exec.then]p5 (check-types) is a constraint: an `Fn` that isn't invocable with the
+  // intercepted datums makes this overload not viable, so the generic [exec.getcomplsigs]
+  // fallback throws and sender_in is false (the draft throws an unspecified exception from
+  // the member itself; a dependent child's dependent_sender_error propagates as specified).
   //
   // `_Self` is accepted (matching [exec.getcomplsigs]'s call shape) but not used to vary
   // behavior, same as <__execution/just.h> and <__execution/read_env.h>: the child's
@@ -427,10 +446,16 @@ public:
   // ([exec.adapt.general]p3.4). A single, non-variadic _Env parameter means the zero-Env
   // case simply has no viable overload -- the same "dependent-sender-as-soft-failure"
   // deviation <__execution/read_env.h> documents.
-  template <class _Self, class _Env>
-    requires sender_in<_Sndr, __fwd_env<remove_cvref_t<_Env>>>
+  // check-types ([exec.then]p5): fn is invocable with the datums of every completion that is intercepted.
+  template <class _Self, class... _Env>
+    requires sender_in<_Sndr, __fwd_env_of_first_t<_Env...>> &&
+             __all_invocable_v<_Fn,
+                               __gather_signatures<__then_set_cpo_t<_Tag>,
+                                                   completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>,
+                                                   type_list,
+                                                   type_list>>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    using __child_sigs = completion_signatures_of_t<_Sndr, __fwd_env<remove_cvref_t<_Env>>>;
+    using __child_sigs = completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>;
     return __then_signatures_t<_Tag, _Fn, __child_sigs>{};
   }
 };

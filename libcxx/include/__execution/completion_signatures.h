@@ -9,8 +9,11 @@
 #ifndef _LIBCPP___EXECUTION_COMPLETION_SIGNATURES_H
 #define _LIBCPP___EXECUTION_COMPLETION_SIGNATURES_H
 
+#include <__concepts/invocable.h>
 #include <__config>
 #include <__execution/completion_functions.h>
+#include <__type_traits/decay.h>
+#include <__type_traits/is_constructible.h>
 #include <__type_traits/is_function.h>
 #include <__type_traits/is_void.h>
 
@@ -44,8 +47,16 @@ _LIBCPP_HIDE_FROM_ABI void __completion_signature_test(set_error_t (*)(_Err))
   requires(!is_function_v<_Err> && !is_void_v<_Err>);
 _LIBCPP_HIDE_FROM_ABI void __completion_signature_test(set_stopped_t (*)());
 
+// The permitted forms have no noexcept specifier, but a pointer to a noexcept function converts to the pointer the test
+// takes, so that has to be excluded separately.
 template <class _Fn>
-concept __completion_signature = requires(_Fn* __fn) { execution::__completion_signature_test(__fn); };
+inline constexpr bool __is_noexcept_function_type = false;
+template <class _Ret, class... _Args>
+inline constexpr bool __is_noexcept_function_type<_Ret(_Args...) noexcept> = true;
+
+template <class _Fn>
+concept __completion_signature =
+    (!__is_noexcept_function_type<_Fn>) && requires(_Fn* __fn) { execution::__completion_signature_test(__fn); };
 
 template <__completion_signature... _Fns>
 struct completion_signatures {};
@@ -123,6 +134,32 @@ template <class _Tag,
           template <class...> class _Tuple,
           template <class...> class _Variant>
 using __gather_signatures = typename __gather_signatures_impl<_Tag, _Completions, _Tuple, _Variant>::type;
+
+// The conditions the check-types of the adaptors ([exec.snd.expos], [exec.then], [exec.bulk], ...) test, expressed as
+// constraints of get_completion_signatures: an adaptor whose child does not satisfy them has no completion signatures.
+
+// Whether `_Fn` is invocable with each of the argument lists of `_Lists` (a type_list of type_lists, as
+// gathering the signatures of a completion tag with type_list as Tuple and Variant gives).
+template <class _Fn, class _List>
+inline constexpr bool __invocable_with_v = false;
+template <class _Fn, class... _Ts>
+inline constexpr bool __invocable_with_v<_Fn, type_list<_Ts...>> = invocable<_Fn, _Ts...>;
+
+template <class _Fn, class _Lists>
+inline constexpr bool __all_invocable_v = false;
+template <class _Fn, class... _Lists>
+inline constexpr bool __all_invocable_v<_Fn, type_list<_Lists...>> = (__invocable_with_v<_Fn, _Lists> && ...);
+
+// [exec.snd.expos] decay-copyable-result-datums: every result datum of every completion signature can be decay-copied.
+template <class _Sig>
+inline constexpr bool __sig_decay_copyable_v = false;
+template <class _Tag, class... _Ts>
+inline constexpr bool __sig_decay_copyable_v<_Tag(_Ts...)> = (is_constructible_v<decay_t<_Ts>, _Ts> && ...);
+
+template <class _Sigs>
+inline constexpr bool __decay_copyable_datums_v = false;
+template <class... _Sigs>
+inline constexpr bool __decay_copyable_datums_v<completion_signatures<_Sigs...>> = (__sig_decay_copyable_v<_Sigs> && ...);
 
 } // namespace execution
 

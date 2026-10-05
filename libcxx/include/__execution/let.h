@@ -16,10 +16,13 @@
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
+#include <__execution/domain.h>
+#include <__execution/env.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_allocator.h>
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
+#include <__execution/get_scheduler.h>
 #include <__execution/movable_value.h>
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
@@ -34,6 +37,7 @@
 #include <__type_traits/is_same.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/in_place.h>
 #include <__utility/move.h>
 #include <exception>
@@ -65,26 +69,11 @@ namespace execution {
 // hand-written, concrete adaptation of it, not routed through impls-for/basic-sender, same
 // as every other adaptor in this sub-plan; see the M3 entry in docs/CXX26_GAPS.md for why).
 //
-// **Deliberate simplification, documented once here (applies to all three CPOs):**
-// [exec.let]p2's `let-env(sndr, env)` is the first well-formed of three branches:
-// (2.1) SCHED-ENV(get_completion_scheduler<set-cpo>(get_env(sndr), FWD-ENV(env))) -- giving
-//       the continuation sender the *same scheduler* the child completed on;
-// (2.2) MAKE-ENV(get_domain, get_completion_domain<set-cpo>(...)) -- same idea, for domains;
-// (2.3) (void(sndr), env<>{}) -- the unconditionally-well-formed fallback.
-// This implementation always takes (2.3). Branch 2.2 needs `MAKE-ENV`/`get_completion_domain`
-// (the latter is a query-only stub in <__execution/domain.h> with no `operator()`, per the M2
-// deviation) -- genuinely not buildable yet. Branch 2.1 is *not* similarly blocked: M4 already
-// built `get_completion_scheduler_t`, and `SCHED-ENV(sched)` is nothing more than
-// `prop<get_scheduler_t, Sched>` (M1) -- a future session wiring up `continues_on`/`on`/
-// `schedule_from` later in this same milestone (which *do* need scheduler affinity to be
-// meaningful) should reach for branch 2.1 there rather than assuming it's blocked. It's
-// skipped here only because nothing in let_value/let_error/let_stopped's own contract
-// requires it. With let-env always env<>{}, [exec.let]p8's `receiver2::get_env()` --
-// "env.query(q,...) if valid, else get_env(rcvr).query(q,...) if q is forwarding" -- collapses
-// exactly to <__execution/fwd_env.h>'s FWD-ENV(get_env(rcvr)): env<>{} never has a valid
-// query, so the first branch is always ill-formed and every call falls through to the
-// forwarding-query-gated second branch, which is FWD-ENV's entire definition. Reused directly
-// below as `__let_cont_rcvr`, rather than reimplementing the two-branch dispatch.
+// [exec.let]p2's `let-env(sndr, env)` is the environment the continuation sender is connected through, besides
+// FWD-ENV(env): the first well-formed of the SCHED-ENV of the completion scheduler of the child for set-cpo (the
+// continuation starts where the child completed), a MAKE-ENV of its completion domain, and env<>{}. [exec.let]p8's
+// `receiver2::get_env()` is `let-env.query(q, ...)` if valid, else `get_env(rcvr).query(q, ...)` if q is a forwarding
+// query: the let-env joined in front of FWD-ENV(get_env(rcvr)).
 struct let_value_t;
 struct let_error_t;
 struct let_stopped_t;
@@ -131,6 +120,68 @@ struct __let_args_variant_impl {
 template <class... _Ts>
 using __let_args_variant = typename __let_args_variant_impl<_Ts...>::type;
 
+// [exec.snd.expos] SCHED-ENV(sch): an environment whose get_start_scheduler is sch and whose get_domain is the one of sch.
+template <class _Sch>
+class __sched_env {
+public:
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __sched_env(_Sch __sch) noexcept(is_nothrow_move_constructible_v<_Sch>)
+      : __sch_(std::move(__sch)) {}
+
+  _LIBCPP_HIDE_FROM_ABI constexpr _Sch query(get_start_scheduler_t) const noexcept(is_nothrow_copy_constructible_v<_Sch>) {
+    return __sch_;
+  }
+
+  template <class _Tag = get_domain_t>
+    requires requires(const _Sch& __sch, _Tag __tag) { __sch.query(__tag); }
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) query(get_domain_t __tag) const
+      noexcept(noexcept(std::declval<const _Sch&>().query(__tag))) {
+    return __sch_.query(__tag);
+  }
+
+private:
+  _Sch __sch_;
+};
+
+// [exec.let]p2: let-env(sndr, env) for the completion function set-cpo.
+template <class _SetCpo, class _Sndr, class _Env>
+_LIBCPP_HIDE_FROM_ABI constexpr auto __let_env(const _Sndr& __sndr, const _Env& __env) noexcept {
+  if constexpr (requires {
+                  execution::get_completion_scheduler<_SetCpo>(execution::get_env(__sndr), execution::__fwd_env_fn(__env));
+                }) {
+    return __sched_env<remove_cvref_t<decltype(execution::get_completion_scheduler<_SetCpo>(
+        execution::get_env(__sndr), execution::__fwd_env_fn(__env)))>>(
+        execution::get_completion_scheduler<_SetCpo>(execution::get_env(__sndr), execution::__fwd_env_fn(__env)));
+  } else if constexpr (requires {
+                         execution::get_completion_domain<_SetCpo>(execution::get_env(__sndr), execution::__fwd_env_fn(__env));
+                       }) {
+    return execution::prop(
+        get_domain,
+        execution::get_completion_domain<_SetCpo>(execution::get_env(__sndr), execution::__fwd_env_fn(__env)));
+  } else {
+    return env<>{};
+  }
+}
+
+template <class _SetCpo, class _Sndr, class _Env>
+using __let_env_t = decltype(execution::__let_env<_SetCpo>(std::declval<const _Sndr&>(), std::declval<const _Env&>()));
+
+// [exec.let]p5 receiver2's environment: JOIN-ENV(let-env, FWD-ENV(get_env(rcvr))), that is let-env first.
+template <class _LetEnv, class _Env>
+using __let_joined_env_t = decltype(execution::env(std::declval<const _LetEnv&>(), std::declval<__fwd_env<_Env>>()));
+
+// A receiver of the environment `_Env` that accepts every completion, standing in for the receiver of
+// get_completion_signatures<Sndr, Env> ([exec.snd.expos]: "the type of a receiver whose environment has type E").
+template <class _Env>
+struct __let_probe_rcvr {
+  using receiver_concept = receiver_tag;
+  template <class... _Args>
+  _LIBCPP_HIDE_FROM_ABI void set_value(_Args&&...) && noexcept {}
+  template <class _Err>
+  _LIBCPP_HIDE_FROM_ABI void set_error(_Err&&) && noexcept {}
+  _LIBCPP_HIDE_FROM_ABI void set_stopped() && noexcept {}
+  _LIBCPP_HIDE_FROM_ABI _Env get_env() const noexcept { __builtin_unreachable(); } // only named in unevaluated operands
+};
+
 // [exec.let]p9/p12's completion-signature transform: every non-intercepted signature passes
 // through unchanged; an intercepted `set-cpo(Args...)` is replaced by the *continuation*
 // sender's own completion signatures (invoke_result_t<Fn, decay_t<Args>&...>, computed
@@ -138,9 +189,17 @@ using __let_args_variant = typename __let_args_variant_impl<_Ts...>::type;
 // set_error_t(exception_ptr) unless both decay-copying Args and invoking Fn are statically
 // nothrow (mirrors <__execution/then.h>'s TRY-SET-VALUE nothrow check; see __let_opstate's
 // __intercept below for why the *runtime* path doesn't mirror this exactly).
-template <class _SetCpo, class _Fn, class _Env>
+template <class _Rcvr, class _LetEnv>
+class __let_cont_rcvr;
+
+template <class _SetCpo, class _Fn, class _Child, class _Env>
 class __let_sig_transform {
 public:
+  // The environment the continuation sender is connected through, for a receiver with the environment _Env.
+  using __let_env_type = __let_env_t<_SetCpo, _Child, _Env>;
+  using __cont_env     = __let_joined_env_t<__let_env_type, _Env>;
+  using __probe_rcvr   = __let_probe_rcvr<_Env>;
+
   template <class _Sig>
   struct __one {
     using type = type_list<_Sig>;
@@ -156,9 +215,14 @@ public:
   template <class... _Args>
   struct __one<_SetCpo(_Args...)> {
     using __cont_sndr = invoke_result_t<_Fn, decay_t<_Args>&...>;
-    using __cont_list = typename __sigs_to_list<completion_signatures_of_t<__cont_sndr, __fwd_env<_Env>>>::type;
+    using __cont_list = typename __sigs_to_list<completion_signatures_of_t<__cont_sndr, __cont_env>>::type;
+    // [exec.let]p5 let-state::impl: no exception completion if decay-copying the datums, invoking the function and
+    // connecting the continuation sender are all noexcept.
     static constexpr bool __nothrow =
-        is_nothrow_constructible_v<__decayed_tuple<_Args...>, _Args...> && is_nothrow_invocable_v<_Fn, decay_t<_Args>&...>;
+        is_nothrow_constructible_v<__decayed_tuple<_Args...>, _Args...> &&
+        is_nothrow_invocable_v<_Fn, decay_t<_Args>&...> &&
+        noexcept(execution::connect(std::declval<__cont_sndr>(),
+                                    std::declval<__let_cont_rcvr<__probe_rcvr, __let_env_type>>()));
     using type = __conditional_t<__nothrow,
                                   __cont_list,
                                   typename __concat_type_lists<__cont_list, type_list<set_error_t(exception_ptr)>>::type>;
@@ -187,22 +251,39 @@ public:
   };
 };
 
-template <class _Tag, class _Fn, class _Env, class _Completions>
-using __let_signatures_t =
-    typename __let_sig_transform<__let_set_cpo_t<_Tag>, _Fn, _Env>::template __impl<_Completions>::type;
+// check-types ([exec.let]p9, is-valid-let-sender): for the datums `_Ts` of an intercepted completion the function can be
+// called with decayed copies, returns a sender, and that sender is a sender_in the environment of the continuation.
+template <class _Fn, class _ContEnv, class... _Ts>
+concept __let_valid_args =
+    (constructible_from<decay_t<_Ts>, _Ts> && ...) && invocable<_Fn, decay_t<_Ts>&...> &&
+    sender<invoke_result_t<_Fn, decay_t<_Ts>&...>> && sender_in<invoke_result_t<_Fn, decay_t<_Ts>&...>, _ContEnv>;
 
-// [exec.let]p8's `receiver2`, specialized to this implementation's env<>{}-only let-env (see
-// the deviation note above): the receiver used to connect the sender `fn` returns, forwarding
-// every completion straight through to the outer receiver, with FWD-ENV(get_env(rcvr)) as its
-// environment. Stores its own reference to the *outer* receiver (not a pointer to
+template <class _Fn, class _ContEnv, class _List>
+inline constexpr bool __let_valid_v = false;
+template <class _Fn, class _ContEnv, class... _Ts>
+inline constexpr bool __let_valid_v<_Fn, _ContEnv, type_list<_Ts...>> = __let_valid_args<_Fn, _ContEnv, _Ts...>;
+
+template <class _Fn, class _ContEnv, class _Lists>
+inline constexpr bool __let_all_valid_v = false;
+template <class _Fn, class _ContEnv, class... _Lists>
+inline constexpr bool __let_all_valid_v<_Fn, _ContEnv, type_list<_Lists...>> = (__let_valid_v<_Fn, _ContEnv, _Lists> && ...);
+
+template <class _Tag, class _Fn, class _Child, class _Env, class _Completions>
+using __let_signatures_t =
+    typename __let_sig_transform<__let_set_cpo_t<_Tag>, _Fn, _Child, _Env>::template __impl<_Completions>::type;
+
+// [exec.let]p8's `receiver2`: the receiver used to connect the sender `fn` returns, forwarding
+// every completion straight through to the outer receiver, with the let-env joined in front of
+// FWD-ENV(get_env(rcvr)) as its environment. Stores its own reference to the *outer* receiver (not a pointer to
 // __let_opstate) since it outlives the child operation state entirely -- unlike
 // __let_child_rcvr below, it has no need to reach back into __let_opstate's other storage.
-template <class _Rcvr>
+template <class _Rcvr, class _LetEnv>
 class __let_cont_rcvr {
 public:
   using receiver_concept = receiver_tag;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit __let_cont_rcvr(_Rcvr& __rcvr) noexcept : __rcvr_(__rcvr) {}
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __let_cont_rcvr(_Rcvr& __rcvr, const _LetEnv& __env) noexcept
+      : __rcvr_(__rcvr), __env_(__env) {}
 
   template <class... _Args>
   _LIBCPP_HIDE_FROM_ABI constexpr void set_value(_Args&&... __args) && noexcept {
@@ -217,11 +298,12 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr void set_stopped() && noexcept { execution::set_stopped(std::move(__rcvr_)); }
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__fwd_env_fn(execution::get_env(__rcvr_));
+    return execution::env(__env_, execution::__fwd_env_fn(execution::get_env(__rcvr_)));
   }
 
 private:
   _Rcvr& __rcvr_;
+  _LetEnv __env_;
 };
 
 // [exec.let]p8's `let-state::receiver`: the receiver used to connect the *original* child
@@ -276,7 +358,8 @@ template <class _Tag, class _Fn, class _Sndr, class _Rcvr>
 class __let_opstate {
   using __set_cpo      = __let_set_cpo_t<_Tag>;
   using __child_rcvr_t = __let_child_rcvr<__let_opstate, _Rcvr>;
-  using __cont_rcvr_t  = __let_cont_rcvr<_Rcvr>;
+  using __let_env_type = __let_env_t<__set_cpo, _Sndr, env_of_t<_Rcvr>>;
+  using __cont_rcvr_t  = __let_cont_rcvr<_Rcvr, __let_env_type>;
   using __child_op_t   = connect_result_t<_Sndr, __child_rcvr_t>;
 
   // completion_signatures_of_t<Sndr, FWD-ENV-T(env_of_t<Rcvr>)>, per [exec.let]p12 -- note
@@ -354,7 +437,7 @@ class __let_opstate {
     __ops_.template emplace<monostate>();
     auto&& __sndr2 = std::apply(std::move(__fn_), __tuple);
     __ops_.template emplace<__cont_op_t>(__emplace_from{[&] {
-      return execution::connect(std::forward<__cont_sndr_t>(__sndr2), __cont_rcvr_t(__rcvr_));
+      return execution::connect(std::forward<__cont_sndr_t>(__sndr2), __cont_rcvr_t(__rcvr_, __env_));
     }});
     execution::start(std::get<__cont_op_t>(__ops_));
   }
@@ -362,6 +445,7 @@ class __let_opstate {
   _Fn __fn_;
   _Rcvr __rcvr_;
   __args_variant_t __args_;
+  __let_env_type __env_;
   __ops_variant_t __ops_;
 
   template <class, class>
@@ -373,6 +457,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr __let_opstate(_Fn&& __fn, _Sndr&& __sndr, _Rcvr&& __rcvr)
       : __fn_(std::move(__fn)),
         __rcvr_(std::move(__rcvr)),
+        __env_(execution::__let_env<__set_cpo>(__sndr, execution::get_env(__rcvr_))),
         __ops_(in_place_type<__child_op_t>, __emplace_from{[&] {
                  return execution::connect(std::move(__sndr), __child_rcvr_t(this, __rcvr_));
                }}) {}
@@ -425,12 +510,30 @@ public:
   _Sndr child;
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) &&
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
+  }
+
+  template <class _Rcvr>
+    requires copy_constructible<_Fn> && copy_constructible<_Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  template <class _Self, class _Rcvr>
+  // (potentially throwing: the operation state connects the child in its constructor)
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr)
       -> __let_opstate<_Tag, _Fn, _Sndr, remove_cvref_t<_Rcvr>> {
     return __let_opstate<_Tag, _Fn, _Sndr, remove_cvref_t<_Rcvr>>(
-        std::__allocator_aware_forward(std::move(data), __rcvr),
-        std::move(child), std::forward<_Rcvr>(__rcvr));
+        _Fn(std::__allocator_aware_forward(std::forward_like<_Self>(__self.data), __rcvr)),
+        _Sndr(std::forward_like<_Self>(__self.child)),
+        std::forward<_Rcvr>(__rcvr));
   }
+
+public:
 
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
   // attribute object equal to FWD-ENV(get_env(sndr)).
@@ -438,15 +541,25 @@ public:
     return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
-  // [exec.let]p9 (check-types) is not implemented -- same P3068 constexpr-exceptions gap as
-  // <__execution/then.h>'s deviation for the same reason; an `Fn` that isn't invocable with
-  // the intercepted datums, or whose result isn't itself a sender, simply makes this whole
-  // overload not participate rather than reporting a dedicated diagnostic.
-  template <class _Self, class _Env>
-    requires sender_in<_Sndr, __fwd_env<remove_cvref_t<_Env>>>
+  // [exec.let]p9 (check-types) is the requires-clause below: an `Fn` that isn't invocable with
+  // the intercepted datums, or whose result isn't itself a sender, makes this overload not
+  // viable, so the generic [exec.getcomplsigs] fallback throws and sender_in is false.
+  template <class _Self, class... _Env>
+    requires sender_in<_Sndr, __fwd_env<typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type>> &&
+             __let_all_valid_v<
+                 _Fn,
+                 __let_joined_env_t<
+                     __let_env_t<__let_set_cpo_t<_Tag>, _Sndr, typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type>,
+                     typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type>,
+                 __gather_signatures<
+                     __let_set_cpo_t<_Tag>,
+                     completion_signatures_of_t<_Sndr, __fwd_env<typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type>>,
+                     type_list,
+                     type_list>>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    using __child_sigs = completion_signatures_of_t<_Sndr, __fwd_env<remove_cvref_t<_Env>>>;
-    return __let_signatures_t<_Tag, _Fn, remove_cvref_t<_Env>, __child_sigs>{};
+    using __env_t      = typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type;
+    using __child_sigs = completion_signatures_of_t<_Sndr, __fwd_env<__env_t>>;
+    return __let_signatures_t<_Tag, _Fn, _Sndr, __env_t, __child_sigs>{};
   }
 };
 

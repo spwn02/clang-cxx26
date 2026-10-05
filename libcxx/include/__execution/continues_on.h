@@ -28,6 +28,7 @@
 #include <__type_traits/is_nothrow_constructible.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/move.h>
 #include <exception>
 #include <tuple>
@@ -343,11 +344,30 @@ public:
   _Sndr child;
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) &&
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
+  }
+
+  template <class _Rcvr>
+    requires copy_constructible<_Sch> && copy_constructible<_Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  template <class _Self, class _Rcvr>
+  // (potentially throwing: the operation state connects the child in its constructor)
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr)
       -> __continues_on_opstate<_Sch, _Sndr, remove_cvref_t<_Rcvr>> {
     return __continues_on_opstate<_Sch, _Sndr, remove_cvref_t<_Rcvr>>(
-        std::move(data), std::move(child), std::forward<_Rcvr>(__rcvr));
+        _Sch(std::forward_like<_Self>(__self.data)),
+        _Sndr(std::forward_like<_Self>(__self.child)),
+        std::forward<_Rcvr>(__rcvr));
   }
+
+public:
 
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated attribute object
   // equal to FWD-ENV(get_env(sndr)).
@@ -355,16 +375,16 @@ public:
     return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
-  // [exec.continues.on]p6 (check-types) is not implemented -- same P3068 constexpr-exceptions gap as every
-  // other adaptor in this sub-plan; a Sch/Sndr combination that doesn't actually work simply makes this
-  // whole overload not participate (via the requires-clause below) rather than reporting a dedicated
-  // diagnostic.
-  template <class _Self, class _Env>
-    requires sender_in<_Sndr, __fwd_env<remove_cvref_t<_Env>>> &&
-             sender_in<schedule_result_t<_Sch>, __fwd_env<remove_cvref_t<_Env>>>
+  // [exec.continues.on]p6 (check-types) is the requires-clause below: a Sch/Sndr combination that
+  // doesn't work makes this overload not viable, so the generic [exec.getcomplsigs] fallback throws
+  // and sender_in is false.
+  template <class _Self, class... _Env>
+    requires sender_in<_Sndr, __fwd_env_of_first_t<_Env...>> &&
+             sender_in<schedule_result_t<_Sch>, __fwd_env_of_first_t<_Env...>> &&
+             __decay_copyable_datums_v<completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    using __child_sigs = completion_signatures_of_t<_Sndr, __fwd_env<remove_cvref_t<_Env>>>;
-    using __sched_sigs = completion_signatures_of_t<schedule_result_t<_Sch>, __fwd_env<remove_cvref_t<_Env>>>;
+    using __child_sigs = completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>;
+    using __sched_sigs = completion_signatures_of_t<schedule_result_t<_Sch>, __fwd_env_of_first_t<_Env...>>;
     return __continues_on_signatures_t<__child_sigs, __sched_sigs>{};
   }
 };

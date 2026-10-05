@@ -26,6 +26,7 @@
 #include <__type_traits/is_nothrow_constructible.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -189,10 +190,30 @@ public:
   _Sndr child;
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && {
-    return execution::connect(
-        std::move(child), __write_env_rcvr<_Env, remove_cvref_t<_Rcvr>>(std::move(data), std::forward<_Rcvr>(__rcvr)));
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
   }
+
+  template <class _Rcvr>
+    requires copy_constructible<_Env> && copy_constructible<_Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  template <class _Self, class _Rcvr>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr) noexcept(
+      is_nothrow_constructible_v<_Env, decltype(std::forward_like<_Self>(__self.data))> &&
+      noexcept(execution::connect(std::forward_like<_Self>(__self.child),
+                                  std::declval<__write_env_rcvr<_Env, remove_cvref_t<_Rcvr>>>()))) {
+    return execution::connect(
+        std::forward_like<_Self>(__self.child),
+        __write_env_rcvr<_Env, remove_cvref_t<_Rcvr>>(_Env(std::forward_like<_Self>(__self.data)), std::forward<_Rcvr>(__rcvr)));
+  }
+
+public:
 
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
   // attribute object equal to FWD-ENV(get_env(sndr)) -- write_env doesn't customize its own
@@ -209,12 +230,12 @@ public:
   // the child's own signatures, computed against the joined environment type instead of Env
   // directly. `_Self` is accepted (matching [exec.getcomplsigs]'s call shape) but not used to
   // vary behavior, same as every other M5 adaptor's get_completion_signatures.
-  template <class _Self, class _Env2>
+  template <class _Self, class... _Env2>
     requires sender_in<_Sndr, decltype(execution::__write_env_join(
-                                   std::declval<const _Env&>(), std::declval<__fwd_env<remove_cvref_t<_Env2>>>()))>
+                                   std::declval<const _Env&>(), std::declval<__fwd_env_of_first_t<_Env2...>>()))>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
     using __joined_env =
-        decltype(execution::__write_env_join(std::declval<const _Env&>(), std::declval<__fwd_env<remove_cvref_t<_Env2>>>()));
+        decltype(execution::__write_env_join(std::declval<const _Env&>(), std::declval<__fwd_env_of_first_t<_Env2...>>()));
     return completion_signatures_of_t<_Sndr, __joined_env>{};
   }
 };

@@ -19,7 +19,11 @@
 using namespace std::execution;
 
 struct get_value_t {
-  constexpr int operator()(const auto& env) const noexcept { return env.query(get_value_t{}); }
+  template <class Env, class Self = get_value_t>
+    requires requires(const Env& env) { env.query(Self{}); }
+  constexpr int operator()(const Env& env) const noexcept {
+    return env.query(Self{});
+  }
 };
 inline constexpr get_value_t get_value{};
 
@@ -40,12 +44,12 @@ struct MyReceiver {
 
 using ReadValueSndr = decltype(read_env(get_value));
 
-// sender is true unconditionally; sender_in (which requires computing completion signatures with no Env)
-// is false, since read_env's signatures genuinely depend on the receiver's environment -- this fork's
-// documented "dependent-sender-as-soft-failure" deviation (docs/CXX26_GAPS.md, M2's deviation 2 and M3's
-// read_env note) rather than dependent_sender<Sndr> reporting true.
+// sender is true unconditionally; without an environment the signatures are computed for env<>{}
+// ([exec.snd.expos] basic-sender::get_completion_signatures), which has no such query: not a sender_in, and the
+// exception is the unspecified one of check-types, so it is not a dependent_sender either.
 static_assert(sender<ReadValueSndr>);
 static_assert(!sender_in<ReadValueSndr>);
+static_assert(!dependent_sender<ReadValueSndr>);
 
 static_assert(sender_in<ReadValueSndr, env_of_t<MyReceiver>>);
 static_assert(std::is_same_v<completion_signatures_of_t<ReadValueSndr, env_of_t<MyReceiver>>,

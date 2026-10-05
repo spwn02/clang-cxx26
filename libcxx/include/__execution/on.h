@@ -24,6 +24,7 @@
 #include <__type_traits/remove_cvref.h>
 #include <__utility/declval.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/move.h>
 #include <tuple>
 
@@ -93,12 +94,31 @@ public:
   _Sndr child;
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && {
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
+  }
+
+  template <class _Rcvr>
+    requires copy_constructible<_Sch> && copy_constructible<_Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  // (potentially throwing, as the composition connects senders)
+  template <class _Self, class _Rcvr>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr) {
     auto __orig_sch = execution::get_start_scheduler(execution::get_env(__rcvr));
     return execution::connect(
-        execution::continues_on(execution::starts_on(std::move(data), std::move(child)), std::move(__orig_sch)),
+        execution::continues_on(
+            execution::starts_on(_Sch(std::forward_like<_Self>(__self.data)), _Sndr(std::forward_like<_Self>(__self.child))),
+            std::move(__orig_sch)),
         std::forward<_Rcvr>(__rcvr));
   }
+
+public:
 
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated attribute object
   // equal to FWD-ENV(get_env(sndr)).
@@ -134,20 +154,39 @@ public:
   _Sndr child;
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && {
-    auto& [__sch, __closure] = data;
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
+  }
+
+  template <class _Rcvr>
+    requires copy_constructible<_Sch> && copy_constructible<_Closure> && copy_constructible<_Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  // (potentially throwing, as the composition connects senders)
+  template <class _Self, class _Rcvr>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr) {
+    auto&& [__sch, __closure] = std::forward_like<_Self>(__self.data);
     // [exec.on]p8.1: computed from sndr's own env, *not* the outer receiver's -- this is the scheduler
     // sndr itself completes on, unlike form 1's get_start_scheduler(get_env(rcvr)) (the scheduler in
     // effect when the whole `on` operation was started). get_env(child) must happen before child is
     // moved-from below, so this is its own statement rather than inlined into the return expression,
     // where argument evaluation order would be unspecified.
-    auto __orig_sch = execution::get_completion_scheduler<set_value_t>(execution::get_env(child), execution::get_env(__rcvr));
+    auto __orig_sch =
+        execution::get_completion_scheduler<set_value_t>(execution::get_env(__self.child), execution::get_env(__rcvr));
     return execution::connect(
         execution::continues_on(
-            std::move(__closure)(execution::continues_on(std::move(child), std::move(__sch))), std::move(__orig_sch)),
+            std::forward_like<_Self>(__closure)(
+                execution::continues_on(_Sndr(std::forward_like<_Self>(__self.child)), _Sch(std::forward_like<_Self>(__sch)))),
+            std::move(__orig_sch)),
         std::forward<_Rcvr>(__rcvr));
   }
 
+public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
     return execution::__sender_attrs_fn(execution::get_env(child));
   }

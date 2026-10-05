@@ -21,6 +21,7 @@
 #include <__type_traits/is_nothrow_constructible.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/move.h>
 #include <exception>
 
@@ -50,12 +51,10 @@ namespace execution {
 // precedent, not routed through the draft's basic-sender/impls-for/make-sender machinery (see
 // the M3 entry in docs/CXX26_GAPS.md for why that engine isn't buildable on this fork yet).
 //
-// [exec.into.variant]p4's check-types (decay-copyable-result-datums) is not implemented --
-// same P3068 constexpr-exceptions gap as every other adaptor in this sub-plan; a child sender
-// whose value datums aren't all decay-copyable simply makes get_completion_signatures's
-// __decayed_tuple instantiation itself ill-formed rather than reporting a dedicated
-// diagnostic (the same "hard error instead of a clean Mandates diagnostic" shape already
-// documented for every other adaptor here, not a new gap).
+// [exec.into.variant]p4's check-types (decay-copyable-result-datums) is a constraint here: a
+// child sender whose value datums aren't all decay-copyable makes the get_completion_signatures
+// member not viable, so the generic [exec.getcomplsigs] fallback throws and sender_in is
+// false.
 //
 // into_variant_t is defined in full first (its operator() only *declared*, trailing-return-
 // type naming the not-yet-complete __into_variant_sndr, which is fine -- a trailing return
@@ -162,12 +161,29 @@ public:
   _Sndr child;
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && {
-    using __env_t     = __fwd_env<env_of_t<remove_cvref_t<_Rcvr>>>;
-    using __variant_t = value_types_of_t<_Sndr, __env_t>;
-    return execution::connect(
-        std::move(child), __into_variant_rcvr<__variant_t, remove_cvref_t<_Rcvr>>(std::forward<_Rcvr>(__rcvr)));
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
   }
+
+  template <class _Rcvr>
+    requires copy_constructible<_Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  template <class _Rcvr>
+  using __rcvr_for = __into_variant_rcvr<value_types_of_t<_Sndr, __fwd_env<env_of_t<remove_cvref_t<_Rcvr>>>>, remove_cvref_t<_Rcvr>>;
+
+  template <class _Self, class _Rcvr>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr) noexcept(
+      noexcept(execution::connect(std::forward_like<_Self>(__self.child), std::declval<__rcvr_for<_Rcvr>>()))) {
+    return execution::connect(std::forward_like<_Self>(__self.child), __rcvr_for<_Rcvr>(std::forward<_Rcvr>(__rcvr)));
+  }
+
+public:
 
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
   // attribute object equal to FWD-ENV(get_env(sndr)).
@@ -175,10 +191,11 @@ public:
     return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
-  template <class _Self, class _Env>
-    requires sender_in<_Sndr, __fwd_env<remove_cvref_t<_Env>>>
+  template <class _Self, class... _Env>
+    requires sender_in<_Sndr, __fwd_env_of_first_t<_Env...>> &&
+             __decay_copyable_datums_v<completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    using __env_t       = __fwd_env<remove_cvref_t<_Env>>;
+    using __env_t       = __fwd_env_of_first_t<_Env...>;
     using __variant_t   = value_types_of_t<_Sndr, __env_t>;
     using __child_sigs  = completion_signatures_of_t<_Sndr, __env_t>;
     return typename __into_variant_signatures<__variant_t, __child_sigs>::type{};

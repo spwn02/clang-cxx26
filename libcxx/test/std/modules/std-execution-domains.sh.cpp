@@ -38,7 +38,15 @@ static_assert(std::forwarding_query(ex::get_completion_scheduler<ex::set_stopped
 static_assert(std::is_base_of_v<std::forwarding_query_t, ex::get_completion_domain_t<void>>);
 static_assert(std::same_as<ex::get_completion_domain_t<>, ex::get_completion_domain_t<void>>);
 static_assert(!ex::dependent_sender<int>);
-static_assert(ex::dependent_sender<decltype(ex::read_env(std::get_stop_token))>);
+struct DepSender {
+  using sender_concept = ex::sender_tag;
+  ex::env<> get_env() const noexcept { return {}; }
+  template <class Self, class Env>
+  static consteval auto get_completion_signatures() {
+    return ex::completion_signatures<ex::set_value_t()>{};
+  }
+};
+static_assert(ex::dependent_sender<DepSender>);
 static_assert(!ex::dependent_sender<decltype(ex::just())>);
 struct Op;
 struct InlinableRcvr {

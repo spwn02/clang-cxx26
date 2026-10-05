@@ -13,6 +13,8 @@
 #include <__config>
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
+#include <__execution/fwd_env.h>
+#include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
 #include <__execution/movable_value.h>
 #include <__execution/operation_state.h>
@@ -23,6 +25,7 @@
 #include <__type_traits/remove_cvref.h>
 #include <__utility/declval.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/move.h>
 #include <exception>
 
@@ -105,9 +108,28 @@ public:
   _Query data;
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && -> __read_env_opstate<_Query, remove_cvref_t<_Rcvr>> {
-    return __read_env_opstate<_Query, remove_cvref_t<_Rcvr>>(std::move(data), std::forward<_Rcvr>(__rcvr));
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
   }
+
+  template <class _Rcvr>
+    requires copy_constructible<_Query>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  template <class _Self, class _Rcvr>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr)
+      noexcept(is_nothrow_constructible_v<_Query, decltype(std::forward_like<_Self>(__self.data))>)
+          -> __read_env_opstate<_Query, remove_cvref_t<_Rcvr>> {
+    return __read_env_opstate<_Query, remove_cvref_t<_Rcvr>>(
+        _Query(std::forward_like<_Self>(__self.data)), std::forward<_Rcvr>(__rcvr));
+  }
+
+public:
 
   // [exec.affine] (recommended): read_env completes in its start operation, on the agent it was started on.
   _LIBCPP_HIDE_FROM_ABI constexpr __read_env_sndr affine() && noexcept(is_nothrow_move_constructible_v<__read_env_sndr>) {
@@ -121,20 +143,23 @@ public:
 
   // [exec.read.env]p4-5 (check-types): "Let Q be decay_t<data-type<Sndr>>. Throws: an exception of type
   // unspecified-exception if the expression Q()(env) is ill-formed or has type void." This overload does not
-  // participate in that case (the requirement below), and get_completion_signatures then throws an unspecified
-  // exception ([exec.getcomplsigs]: no member candidate, not awaitable, an environment was given). Without an
-  // environment `_Env` cannot be deduced, there is no candidate either, and the exception is dependent_sender_error:
-  // read_env(q) is a dependent sender.
-  template <class _Self, class _Env>
-    requires requires(const _Env& __env) {
-      { _Query()(__env) };
-      requires !is_void_v<decltype(_Query()(__env))>;
-    }
+  // throw the exception in that case. Like for every sender made with make-sender, the environment is the first of
+  // `Env..., env<>` ([exec.snd.expos] basic-sender::get_completion_signatures): without an environment the query is
+  // asked of env<>{}.
+  template <class _Self, class... _Env>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    if constexpr (noexcept(_Query()(std::declval<const _Env&>()))) {
-      return completion_signatures<set_value_t(decltype(_Query()(std::declval<const _Env&>())))>{};
+    using __env_t = typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type;
+    if constexpr (!requires(const __env_t& __env) {
+                    { _Query()(__env) };
+                    requires !is_void_v<decltype(_Query()(__env))>;
+                  }) {
+      throw __unspecified_exception();
+      return completion_signatures<>();
+    } else if constexpr (noexcept(_Query()(std::declval<const __env_t&>()))) {
+      return completion_signatures<set_value_t(decltype(_Query()(std::declval<const __env_t&>())))>{};
     } else {
-      return completion_signatures<set_value_t(decltype(_Query()(std::declval<const _Env&>()))), set_error_t(exception_ptr)>{};
+      return completion_signatures<set_value_t(decltype(_Query()(std::declval<const __env_t&>()))),
+                                   set_error_t(exception_ptr)>{};
     }
   }
 };

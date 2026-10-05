@@ -154,6 +154,20 @@ template <class _Sndr, class... _Env>
   requires sender_in<_Sndr, _Env...>
 using completion_signatures_of_t = decltype(execution::get_completion_signatures<_Sndr, _Env...>());
 
+// The completion signatures without an environment of a sender that transform_sender lowers to another one
+// (bulk, starts_on, stopped_as_error, when_all_with_variant): those of the lowered sender, a dependent sender if the
+// lowered sender is one.
+template <class _Sndr>
+_LIBCPP_HIDE_FROM_ABI consteval auto __lowered_signatures_without_env() {
+  using _Lowered = decltype(execution::transform_sender(std::declval<_Sndr>(), std::declval<env<>>()));
+  if constexpr (sender_in<_Lowered>) {
+    return completion_signatures_of_t<_Lowered>{};
+  } else {
+    throw dependent_sender_error();
+    return completion_signatures<>();
+  }
+}
+
 // [exec.cmplsig]: decayed-tuple and variant-or-empty.
 template <class... _Ts>
 using __decayed_tuple = tuple<decay_t<_Ts>...>;

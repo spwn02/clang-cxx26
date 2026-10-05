@@ -22,6 +22,7 @@
 #include <__type_traits/is_nothrow_constructible.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/move.h>
 #include <tuple>
 
@@ -98,10 +99,19 @@ public:
   _LIBCPP_NO_UNIQUE_ADDRESS _Tag tag;
   tuple<_Ts...> data;
 
+  // [exec.snd.general]: a library sender always has a connect that takes an rvalue sender, and one that takes an lvalue
+  // sender if it is copy constructible; the exception specification is that of constructing the operation state.
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && -> __just_opstate<_Tag, remove_cvref_t<_Rcvr>, _Ts...> {
-    return __just_opstate<_Tag, remove_cvref_t<_Rcvr>, _Ts...>(
-        std::forward<_Rcvr>(__rcvr), std::__allocator_aware_forward(std::move(data), __rcvr));
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr)))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
+  }
+
+  template <class _Rcvr>
+    requires copy_constructible<tuple<_Ts...>>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::forward<_Rcvr>(__rcvr)))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
   }
 
   // [exec.affine] (recommended): just, just_error and just_stopped resume on the scheduler where they were started, so
@@ -115,6 +125,18 @@ public:
     return *this;
   }
 
+private:
+  template <class _Self, class _Rcvr>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr)
+      noexcept(is_nothrow_constructible_v<tuple<_Ts...>, decltype(std::__allocator_aware_forward(
+                                                             std::forward_like<_Self>(__self.data), __rcvr))>)
+          -> __just_opstate<_Tag, remove_cvref_t<_Rcvr>, _Ts...> {
+    return __just_opstate<_Tag, remove_cvref_t<_Rcvr>, _Ts...>(
+        std::forward<_Rcvr>(__rcvr),
+        tuple<_Ts...>(std::__allocator_aware_forward(std::forward_like<_Self>(__self.data), __rcvr)));
+  }
+
+public:
   // Env-independent (just/just_error/just_stopped's completions never depend on the receiver's
   // environment), so this participates unconditionally -- no SFINAE gating needed here, unlike read_env.
   template <class _Self, class... _Env>

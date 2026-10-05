@@ -23,6 +23,7 @@
 #include <__type_traits/remove_cvref.h>
 #include <__utility/declval.h>
 #include <__utility/forward.h>
+#include <__utility/forward_like.h>
 #include <__utility/in_place.h>
 #include <__utility/move.h>
 #include <optional>
@@ -55,10 +56,10 @@ namespace execution {
 // this fork yet.
 //
 // [exec.stopped.opt]p3's check-types (Mandates: single-sender-value-type<child, Env> is not
-// void) is not implemented -- same P3068 constexpr-exceptions gap as every other adaptor in
-// this sub-plan; a child sender whose single value type is void, or that isn't a
-// __single_sender at all, simply makes get_completion_signatures's overload not participate
-// (sender_in false) rather than reporting a dedicated diagnostic.
+// void) is a constraint here: a child sender whose single value type is void, or that isn't a
+// __single_sender at all, makes the get_completion_signatures member not viable, so the
+// generic [exec.getcomplsigs] fallback throws and sender_in is false (the draft throws an
+// unspecified exception from the member itself; the observable result is the same).
 //
 // stopped_as_optional_t is defined (in full) below, *before* __stopped_as_optional_sndr --
 // matching <__execution/write_env.h>'s own __write_env_t/__write_env_sndr ordering, for the
@@ -101,11 +102,29 @@ public:
   }
 
   template <class _Rcvr>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && {
-    using __env_t = __fwd_env<env_of_t<remove_cvref_t<_Rcvr>>>;
-    using __v_t   = __single_sender_value_type<_Sndr, __env_t>;
-    return execution::connect(__compose<__v_t>(std::move(child)), std::forward<_Rcvr>(__rcvr));
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
+      noexcept(__connect_with(std::move(*this), std::declval<_Rcvr>()))) {
+    return __connect_with(std::move(*this), std::forward<_Rcvr>(__rcvr));
   }
+
+  template <class _Rcvr>
+    requires copy_constructible<_Sndr>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) const& noexcept(
+      noexcept(__connect_with(*this, std::declval<_Rcvr>()))) {
+    return __connect_with(*this, std::forward<_Rcvr>(__rcvr));
+  }
+
+private:
+  template <class _Rcvr>
+  using __v_for = __single_sender_value_type<_Sndr, __fwd_env<env_of_t<remove_cvref_t<_Rcvr>>>>;
+
+  template <class _Self, class _Rcvr>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr) noexcept(
+      noexcept(execution::connect(__compose<__v_for<_Rcvr>>(std::forward_like<_Self>(__self.child)), std::declval<_Rcvr>()))) {
+    return execution::connect(__compose<__v_for<_Rcvr>>(std::forward_like<_Self>(__self.child)), std::forward<_Rcvr>(__rcvr));
+  }
+
+public:
 
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
   // attribute object equal to FWD-ENV(get_env(sndr)).
@@ -113,11 +132,11 @@ public:
     return execution::__sender_attrs_fn(execution::get_env(child));
   }
 
-  template <class _Self, class _Env>
-    requires __single_sender<_Sndr, __fwd_env<remove_cvref_t<_Env>>> &&
-             (!same_as<void, __single_sender_value_type<_Sndr, __fwd_env<remove_cvref_t<_Env>>>>)
+  template <class _Self, class... _Env>
+    requires __single_sender<_Sndr, __fwd_env_of_first_t<_Env...>> &&
+             (!same_as<void, __single_sender_value_type<_Sndr, __fwd_env_of_first_t<_Env...>>>)
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
-    using __env_t = __fwd_env<remove_cvref_t<_Env>>;
+    using __env_t = __fwd_env_of_first_t<_Env...>;
     using __v_t   = __single_sender_value_type<_Sndr, __env_t>;
     return completion_signatures_of_t<decltype(__compose<__v_t>(std::declval<_Sndr>())), __env_t>{};
   }
