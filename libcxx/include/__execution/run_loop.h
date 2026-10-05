@@ -93,6 +93,17 @@ public:
     return forward_progress_guarantee::parallel;
   }
 
+  // [exec.sched]p6: the scheduler answers the completion queries of the attributes of schedule(*this) (also without an
+  // environment), the sender only completes with set_value and set_stopped.
+  template <class _Tag>
+    requires(is_same_v<_Tag, set_value_t> || is_same_v<_Tag, set_stopped_t>)
+  _LIBCPP_HIDE_FROM_ABI constexpr __run_loop_scheduler query(get_completion_scheduler_t<_Tag>) const noexcept {
+    return *this;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr default_domain query(get_completion_domain_t<set_value_t>) const noexcept {
+    return {};
+  }
+
 private:
   friend class __run_loop_sender;
   run_loop* __loop_;

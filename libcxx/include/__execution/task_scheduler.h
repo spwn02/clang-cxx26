@@ -353,6 +353,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI __task_scheduler_domain query(get_completion_domain_t<set_value_t>) const noexcept {
     return {};
   }
+  // [exec.sched]p6: the same completion scheduler as the attributes of schedule(*this), also without an environment.
+  _LIBCPP_HIDE_FROM_ABI task_scheduler query(get_completion_scheduler_t<set_value_t>) const noexcept { return *this; }
 
 private:
   friend class __task_scheduler_sender;
@@ -361,18 +363,26 @@ private:
   shared_ptr<const __task_scheduler_concept> __holder_;
 };
 
-// Query representation follows the current fork; #220 owns CPO/domain resolution changes.
+// The attributes of schedule(task_scheduler): the completion scheduler of the value completion is the scheduler itself,
+// the completion domain its ts-domain; the sender only completes with set_stopped for an environment with a stoppable
+// token.
+struct __task_scheduler_sender_env {
+  task_scheduler __scheduler;
+  _LIBCPP_HIDE_FROM_ABI task_scheduler query(get_completion_scheduler_t<set_value_t>) const noexcept {
+    return __scheduler;
+  }
+  template <class _Env>
+    requires(!unstoppable_token<stop_token_of_t<_Env>>)
+  _LIBCPP_HIDE_FROM_ABI task_scheduler query(get_completion_scheduler_t<set_stopped_t>, const _Env&) const noexcept {
+    return __scheduler;
+  }
+  _LIBCPP_HIDE_FROM_ABI __task_scheduler_domain query(get_completion_domain_t<set_value_t>) const noexcept {
+    return {};
+  }
+};
+
 _LIBCPP_HIDE_FROM_ABI inline auto __task_scheduler_sender::get_env() const noexcept {
-  struct __environment {
-    task_scheduler __scheduler;
-    _LIBCPP_HIDE_FROM_ABI task_scheduler query(get_completion_scheduler_t<set_value_t>) const noexcept {
-      return __scheduler;
-    }
-    _LIBCPP_HIDE_FROM_ABI __task_scheduler_domain query(get_completion_domain_t<set_value_t>) const noexcept {
-      return {};
-    }
-  };
-  return __environment{task_scheduler(__holder_)};
+  return __task_scheduler_sender_env{task_scheduler(__holder_)};
 }
 
 } // namespace execution

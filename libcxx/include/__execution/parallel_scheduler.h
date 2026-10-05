@@ -169,6 +169,11 @@ public:
     return forward_progress_guarantee::parallel;
   }
 
+  // [exec.sched]p6: the scheduler answers the completion queries of the attributes of schedule(*this) (also without an
+  // environment).
+  _LIBCPP_HIDE_FROM_ABI parallel_scheduler query(get_completion_scheduler_t<set_value_t>) const noexcept { return *this; }
+  _LIBCPP_HIDE_FROM_ABI default_domain query(get_completion_domain_t<set_value_t>) const noexcept { return {}; }
+
 private:
   friend _LIBCPP_HIDE_FROM_ABI parallel_scheduler get_parallel_scheduler();
   friend class __parallel_sndr_env;
@@ -194,6 +199,13 @@ public:
   template <class _Tag>
     requires is_same_v<_Tag, set_value_t>
   _LIBCPP_HIDE_FROM_ABI parallel_scheduler query(get_completion_scheduler_t<_Tag>) const noexcept;
+
+  // The sender completes with set_stopped only for an environment with a stoppable token (its completion signatures).
+  template <class _Tag, class _Env>
+    requires(is_same_v<_Tag, set_stopped_t> && !unstoppable_token<stop_token_of_t<_Env>>)
+  _LIBCPP_HIDE_FROM_ABI parallel_scheduler query(get_completion_scheduler_t<_Tag>, const _Env&) const noexcept {
+    return __sch_;
+  }
 
 private:
   parallel_scheduler __sch_;
