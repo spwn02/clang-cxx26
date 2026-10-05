@@ -40,4 +40,13 @@ static_assert(std::same_as<ex::get_completion_domain_t<>, ex::get_completion_dom
 static_assert(!ex::dependent_sender<int>);
 static_assert(ex::dependent_sender<decltype(ex::read_env(std::get_stop_token))>);
 static_assert(!ex::dependent_sender<decltype(ex::just())>);
+struct Op;
+struct InlinableRcvr {
+  using receiver_concept = ex::receiver_tag;
+  void set_value() && noexcept {}
+  static InlinableRcvr make_receiver_for(Op*) noexcept { return {}; }
+};
+static_assert(ex::inlinable_receiver<InlinableRcvr, Op>);
+static_assert(std::forwarding_query(ex::get_await_completion_adaptor));
+static_assert(std::is_class_v<ex::get_await_completion_adaptor_t>);
 int main(int, char**) { return 0; }

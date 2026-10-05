@@ -42,6 +42,13 @@ concept receiver =
     } && move_constructible<remove_cvref_t<_Rcvr>> && constructible_from<remove_cvref_t<_Rcvr>, _Rcvr> &&
     is_nothrow_move_constructible_v<remove_cvref_t<_Rcvr>>;
 
+// [exec.recv.concepts]p5: a receiver that can be reconstructed on demand from a pointer to the operation state created
+// when it was connected to a sender. ChildOp may be an incomplete type.
+template <class _Rcvr, class _ChildOp>
+concept inlinable_receiver = receiver<_Rcvr> && requires(_ChildOp* __child) {
+  { remove_cvref_t<_Rcvr>::make_receiver_for(__child) } noexcept -> same_as<remove_cvref_t<_Rcvr>>;
+};
+
 // Mirrors the standard's own generic-lambda-plus-pointer-to-function-type idiom so this
 // stays a soft, per-instantiation SFINAE probe (see the eager-`requires{}`-evaluation
 // finding recorded for M1 in docs/CXX26_GAPS.md: this pattern is required whenever the

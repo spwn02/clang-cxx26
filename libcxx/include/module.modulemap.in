@@ -2302,6 +2302,7 @@ module std [system] {
     module forwarding_query               { header "__execution/forwarding_query.h" export * }
     module fwd_env                        { header "__execution/fwd_env.h" export * }
     module get_allocator                  { header "__execution/get_allocator.h" export * }
+    module get_await_completion_adaptor   { header "__execution/get_await_completion_adaptor.h" export * }
     module get_completion_signatures      { header "__execution/get_completion_signatures.h" export * }
     module get_env                        { header "__execution/get_env.h" export * }
     module get_forward_progress_guarantee { header "__execution/get_forward_progress_guarantee.h" export * }

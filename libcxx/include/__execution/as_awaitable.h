@@ -16,13 +16,16 @@
 #include <__execution/connect.h>
 #include <__execution/domain.h>
 #include <__execution/fwd_env.h>
+#include <__execution/get_await_completion_adaptor.h>
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
 #include <__execution/sender.h>
 #include <__type_traits/conditional.h>
+#include <__type_traits/is_reference.h>
 #include <__type_traits/is_void.h>
+#include <__type_traits/remove_reference.h>
 #include <__type_traits/remove_cvref.h>
 #include <__memory/addressof.h>
 #include <__utility/forward.h>
@@ -118,15 +121,35 @@ public:
   }
 };
 
-// [exec.as.awaitable]p7-8: as_awaitable. Branches (7.2) and (8.1) both route through
-// get_await_completion_adaptor/adapt-for-await-completion, which are out of scope (no
-// scheduler in this fork customizes a completion adaptor -- see docs/CXX26_GAPS.md's M6
-// entry); adapt-for-await-completion(s) therefore always takes the (8.2) fallback (s
-// unchanged), which collapses (7.2)'s condition onto (7.1)'s (both test whether the same
-// object has a `.as_awaitable(p)` member) -- so (7.2) never fires when (7.1) doesn't and is
-// omitted below. The `awaitable-sender<Sndr, Promise>` concept referenced in this subclause's
-// exposition is likewise not implemented: it is never cited by (7.1)-(7.5)'s own dispatch
-// conditions, only by the exposition block introducing sender-awaitable.
+// [exec.as.awaitable]p8: adapt-for-await-completion(s) is get_await_completion_adaptor(get_env(s))(s) if that is
+// well-formed, except that s is evaluated only once, and s otherwise.
+template <class _Sndr>
+  requires requires(_Sndr&& __s) { execution::get_await_completion_adaptor(execution::get_env(__s))(__s); }
+_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __adapt_for_await_completion(_Sndr&& __s) {
+  return execution::get_await_completion_adaptor(execution::get_env(__s))(__s);
+}
+
+template <class _Sndr>
+  requires(!requires(_Sndr&& __s) { execution::get_await_completion_adaptor(execution::get_env(__s))(__s); })
+_LIBCPP_HIDE_FROM_ABI constexpr _Sndr&& __adapt_for_await_completion(_Sndr&& __s) noexcept {
+  return std::forward<_Sndr>(__s);
+}
+
+// [exec.as.awaitable]p7: as_awaitable(expr, p) is expr.as_awaitable(p) if that is well-formed (7.1); otherwise
+// adapt-for-await-completion(transform_sender(expr, get_env(p))).as_awaitable(p) if that is well-formed and expr is a
+// sender in env_of_t<Promise> with a single-sender-value-type (7.2); otherwise (void(p), expr) if GET-AWAITER(expr) is an
+// awaiter for Promise (7.3); otherwise sender-awaitable{adapt-for-await-completion(transform_sender(expr, get_env(p))), p}
+// for such a sender (7.4), and (void(p), expr) (7.5). The awaitable-sender concept of the exposition is not needed by
+// the dispatch below.
+template <class _Expr, class _Promise>
+concept __has_adapted_as_awaitable = sender_in<_Expr, env_of_t<_Promise>> &&
+                                      requires { typename __single_sender_value_type<_Expr, env_of_t<_Promise>>; } &&
+                                      requires(_Expr&& __expr, _Promise& __p) {
+                                        execution::__adapt_for_await_completion(
+                                            execution::transform_sender(std::forward<_Expr>(__expr), execution::get_env(__p)))
+                                            .as_awaitable(__p);
+                                      };
+
 struct as_awaitable_t {
   template <class _Expr, class _Promise>
   _LIBCPP_HIDE_FROM_ABI auto operator()(_Expr&& __expr, _Promise& __p) const -> decltype(auto) {
@@ -135,6 +158,11 @@ struct as_awaitable_t {
       using __a_t = decltype(std::forward<_Expr>(__expr).as_awaitable(__p));
       static_assert(__is_awaitable<__a_t, _Promise>, "Mandates: is-awaitable<A, Promise>.");
       return std::forward<_Expr>(__expr).as_awaitable(__p);
+    } else if constexpr (__has_adapted_as_awaitable<_Expr, _Promise>) {
+      // (7.2)
+      return execution::__adapt_for_await_completion(
+                 execution::transform_sender(std::forward<_Expr>(__expr), execution::get_env(__p)))
+          .as_awaitable(__p);
     } else if constexpr (requires {
                             { execution::__get_awaiter(std::forward<_Expr>(__expr)) } -> __is_awaiter<_Promise>;
                           }) {
@@ -143,9 +171,14 @@ struct as_awaitable_t {
     } else if constexpr (sender_in<_Expr, env_of_t<_Promise>> &&
                           requires { typename __single_sender_value_type<_Expr, env_of_t<_Promise>>; }) {
       // (7.4)
-      using _Transformed = decltype(execution::transform_sender(std::forward<_Expr>(__expr), execution::get_env(__p)));
-      return __sender_awaitable<_Transformed, _Promise>{
-          execution::transform_sender(std::forward<_Expr>(__expr), execution::get_env(__p)), __p};
+      using _AdaptedRef = decltype(execution::__adapt_for_await_completion(
+          execution::transform_sender(std::forward<_Expr>(__expr), execution::get_env(__p))));
+      // the sender is moved into the awaitable: name the object type of an rvalue, as for the transformed sender itself
+      using _Adapted = conditional_t<is_rvalue_reference_v<_AdaptedRef>, remove_reference_t<_AdaptedRef>, _AdaptedRef>;
+      return __sender_awaitable<_Adapted, _Promise>{
+          execution::__adapt_for_await_completion(
+              execution::transform_sender(std::forward<_Expr>(__expr), execution::get_env(__p))),
+          __p};
     } else {
       // (7.5)
       return static_cast<_Expr&&>(__expr);

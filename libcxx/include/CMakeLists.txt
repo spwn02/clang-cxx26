@@ -373,6 +373,7 @@ set(files
   __execution/forwarding_query.h
   __execution/fwd_env.h
   __execution/get_allocator.h
+  __execution/get_await_completion_adaptor.h
   __execution/get_completion_signatures.h
   __execution/get_env.h
   __execution/get_forward_progress_guarantee.h

@@ -11,9 +11,11 @@
 
 #include <__concepts/constructible.h>
 #include <__concepts/movable.h>
+#include <__concepts/same_as.h>
 #include <__config>
 #include <__type_traits/decay.h>
 #include <__type_traits/is_array.h>
+#include <__type_traits/is_class.h>
 #include <__type_traits/remove_reference.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -30,6 +32,13 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 template <class _Tp>
 concept __movable_value =
     move_constructible<decay_t<_Tp>> && constructible_from<decay_t<_Tp>, _Tp> && !is_array_v<remove_reference_t<_Tp>>;
+
+// [exec.general]: decays-to and class-type.
+template <class _From, class _To>
+concept __decays_to = same_as<decay_t<_From>, _To>;
+
+template <class _Tp>
+concept __class_type = __decays_to<_Tp, _Tp> && is_class_v<_Tp>;
 
 #endif // _LIBCPP_STD_VER >= 26
 

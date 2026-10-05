@@ -13,6 +13,7 @@
 #include <__concepts/invocable.h>
 #include <__concepts/same_as.h>
 #include <__config>
+#include <__execution/movable_value.h>
 #include <__execution/sender.h>
 #include <__functional/compose.h>
 #include <__functional/invoke.h>
@@ -38,7 +39,7 @@ namespace execution {
 // [exec.adapt.obj]: sender_adaptor_closure. Mirrors <__ranges/range_adaptor.h>'s
 // range_adaptor_closure/__range_adaptor_closure split, substituting "is a sender" for
 // "is a range" as the disqualifying case (p2: "T does not satisfy sender").
-template <class _Tp>
+template <__class_type _Tp>
 struct sender_adaptor_closure {};
 
 // Wraps an arbitrary function object to make it a pipeable sender adaptor closure, i.e.

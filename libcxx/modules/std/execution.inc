@@ -75,6 +75,7 @@ export namespace std::execution {
   using std::execution::completion_signatures;
 
   // [exec.recv.concepts]
+  using std::execution::inlinable_receiver;
   using std::execution::receiver;
   using std::execution::receiver_of;
   using std::execution::receiver_tag;
@@ -104,6 +105,8 @@ export namespace std::execution {
 
   // [exec.domain.default], [exec.domain.indeterminate], [exec.get.domain], [exec.get.compl.domain]
   using std::execution::default_domain;
+  using std::execution::get_await_completion_adaptor;
+  using std::execution::get_await_completion_adaptor_t;
   using std::execution::get_completion_domain;
   using std::execution::get_completion_domain_t;
   using std::execution::get_domain;

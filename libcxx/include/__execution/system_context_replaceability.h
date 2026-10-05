@@ -11,8 +11,13 @@
 
 #include <__config>
 #include <__exception/exception_ptr.h>
+#include <__execution/movable_value.h>
 #include <__memory/shared_ptr.h>
 #include <__type_traits/decay.h>
+#include <__type_traits/is_array.h>
+#include <__type_traits/is_const.h>
+#include <__type_traits/is_object.h>
+#include <__type_traits/is_volatile.h>
 #include <__utility/move.h>
 #include <cstddef>
 #include <new>
@@ -59,8 +64,10 @@ public:
   // optional when the real receiver's environment answers get_stop_token with an
   // inplace_stop_token -- see the frontend's __receiver_proxy_impl in
   // <__execution/system_context_default_backend.h> for the one case this fork implements.
-  template <class _ResultTp, class _Query>
+  template <class _ResultTp, __class_type _Query>
   _LIBCPP_HIDE_FROM_ABI optional<_ResultTp> try_query(_Query __q) const noexcept {
+    static_assert(is_object_v<_ResultTp> && !is_array_v<_ResultTp> && !is_const_v<_ResultTp> && !is_volatile_v<_ResultTp>,
+                  "Mandates: P is a cv-unqualified non-array object type.");
     alignas(_ResultTp) unsigned char __storage[sizeof(_ResultTp)];
     if (__query_env(typeid(_Query), typeid(_ResultTp), std::addressof(__q), static_cast<void*>(__storage))) {
       _ResultTp* __p = std::launder(reinterpret_cast<_ResultTp*>(__storage));
