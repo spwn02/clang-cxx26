@@ -2514,6 +2514,21 @@ bool allowImplicitCompletion(llvm::StringRef Content, unsigned Offset) {
       isIncludeFile(Content))
     return true;
 
+  // Complete after the `<` that opens a template argument list: `std::vector<`,
+  // `static_cast<`, `templated<`. The `<` must directly follow an identifier;
+  // `a <`, `x << ` and `1<` are not template argument lists.
+  if (Content.ends_with("<")) {
+    llvm::StringRef Before = Content.drop_back();
+    size_t IdentLen = 0;
+    while (IdentLen < Before.size() &&
+           isAsciiIdentifierContinue(Before[Before.size() - 1 - IdentLen],
+                                     /*AllowDollar=*/true))
+      ++IdentLen;
+    if (IdentLen != 0 && isAsciiIdentifierStart(Before[Before.size() - IdentLen],
+                                                /*AllowDollar=*/true))
+      return true;
+  }
+
   // Complete words. Give non-ascii characters the benefit of the doubt.
   return !Content.empty() && (isAsciiIdentifierContinue(Content.back()) ||
                               !llvm::isASCII(Content.back()));

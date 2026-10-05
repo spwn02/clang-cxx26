@@ -4111,6 +4111,11 @@ TEST(AllowImplicitCompletion, All) {
       "  #  include <^foo.h>",
       "#import <foo/^bar.h>",
       "#include_next \"^",
+      "std::vector<^int>",
+      "static_cast<^int>(x)",
+      "  return templated<^",
+      "foo<bar<^",
+      "x_1<^",
   };
   const char *No[] = {
       "foo>^bar",
@@ -4120,6 +4125,11 @@ TEST(AllowImplicitCompletion, All) {
       "#include \"foo.h\"^",
       "#error <^",
       "#<^",
+      "a <^",
+      "x << ^",
+      "x<<^",
+      "1<^",
+      "foo(<^",
   };
   for (const char *Test : Yes) {
     llvm::Annotations A(Test);

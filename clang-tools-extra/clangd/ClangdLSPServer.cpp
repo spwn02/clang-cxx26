@@ -1137,9 +1137,14 @@ void ClangdLSPServer::onCompletion(const CompletionParams &Params,
                                    Callback<CompletionList> Reply) {
   if (!shouldRunCompletion(Params)) {
     // Clients sometimes auto-trigger completions in undesired places (e.g.
-    // 'a >^ '), we return empty results in those cases.
+    // 'a >^ '), we return empty results in those cases. The list is marked
+    // incomplete: a complete empty list makes clients cache it and filter it
+    // locally while the user keeps typing, so they would never ask again and
+    // only show their own buffer words until completion is re-triggered.
     vlog("ignored auto-triggered completion, preceding char did not match");
-    return Reply(CompletionList());
+    CompletionList Ignored;
+    Ignored.isIncomplete = true;
+    return Reply(std::move(Ignored));
   }
   auto Opts = this->Opts.CodeComplete;
   if (Params.limit && *Params.limit >= 0)
