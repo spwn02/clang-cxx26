@@ -3,7 +3,9 @@
 
 // [over.inc.default], P3668R4: defaulted postfix increment and decrement operators.
 
-// expected-note@* 0+ {{}}
+// The overload candidates listed with a use of a deleted or incompatible operator:
+// expected-note@* 0+ {{candidate function}}
+// expected-note@* 0+ {{forward declaration of}}
 
 
 #if __cplusplus > 202302L
@@ -115,6 +117,133 @@ struct FuncTemplate {
   FuncTemplate& operator++();
   template <class U> FuncTemplate operator++(U) = default; // expected-error {{template cannot be defaulted}}
 };
+
+
+// [dcl.fct.def.default]: a function explicitly defaulted on its first declaration is implicitly inline and implicitly
+// constexpr if it is constexpr-suitable.
+struct IC {
+  int v = 0;
+  constexpr IC& operator++() { ++v; return *this; }
+  IC operator++(int) = default;
+};
+static_assert([] { IC i; IC o = i++; return o.v == 0 && i.v == 1; }());
+struct NC {
+  int v = 0;
+};
+constexpr NC& operator++(NC& n) { ++n.v; return n; }
+NC operator++(NC&, int) = default;
+static_assert([] { NC n; NC o = n++; return o.v == 0 && n.v == 1; }());
+// not constexpr-suitable: the prefix operator is not constexpr, so the function is not implicitly constexpr
+struct NS {
+  int v = 0;
+  NS& operator++() { ++v; return *this; }
+  NS operator++(int) = default; // expected-note {{declared here}}
+};
+constexpr bool use_ns() { NS n; NS o = n++; return o.v == 0; } // expected-note {{non-constexpr function 'operator++' cannot be used in a constant expression}}
+static_assert(use_ns()); // expected-error {{static assertion expression is not an integral constant expression}} \
+                         // expected-note {{in call to 'use_ns()'}}
+
+// An explicit object parameter.
+struct XO {
+  int v = 0;
+  constexpr XO& operator++() { ++v; return *this; }
+  constexpr XO operator++(this XO& self, int) = default;
+};
+static_assert([] { XO x; XO o = x++; return o.v == 0 && x.v == 1; }());
+struct XV {
+  XV& operator++();
+  XV operator++(this XV self, int) = default; // expected-error {{invalid first parameter type}}
+};
+
+// Why the function is deleted: the copy, the destructor or the prefix operator.
+struct NoCopy {
+  NoCopy(const NoCopy&) = delete;
+  NoCopy& operator++();
+  NoCopy operator++(int) = default;
+  // expected-note@-1 {{explicitly defaulted function was implicitly deleted here}}
+  // expected-note@-2 {{implicitly deleted because 'NoCopy' cannot be copy-initialized from an lvalue}}
+};
+struct DeletedDtor {
+  DeletedDtor(const DeletedDtor&) = default;
+  ~DeletedDtor() = delete;
+  DeletedDtor& operator++();
+  DeletedDtor operator++(int) = default;
+  // expected-note@-1 {{explicitly defaulted function was implicitly deleted here}}
+  // expected-note@-2 {{implicitly deleted because 'DeletedDtor' has a deleted or inaccessible destructor}}
+};
+struct NoPrefix {
+  NoPrefix operator++(int) = default;
+  // expected-note@-1 {{explicitly defaulted function was implicitly deleted here}}
+  // expected-note@-2 {{implicitly deleted because the prefix increment operator is not usable on an lvalue of type 'NoPrefix'}}
+};
+struct NoPrefixDec {
+  NoPrefixDec operator--(int) = default;
+  // expected-note@-1 {{explicitly defaulted function was implicitly deleted here}}
+  // expected-note@-2 {{implicitly deleted because the prefix decrement operator is not usable on an lvalue of type 'NoPrefixDec'}}
+};
+void explain() {
+  NoCopy (NoCopy::*a)(int) = &NoCopy::operator++;                   // expected-error {{attempt to use a deleted function}}
+  DeletedDtor (DeletedDtor::*b)(int) = &DeletedDtor::operator++;    // expected-error {{attempt to use a deleted function}}
+  NoPrefix (NoPrefix::*d)(int) = &NoPrefix::operator++;             // expected-error {{attempt to use a deleted function}}
+  NoPrefixDec (NoPrefixDec::*e)(int) = &NoPrefixDec::operator--;    // expected-error {{attempt to use a deleted function}}
+}
+void calls(NoCopy& a, DeletedDtor& b) {
+  a.operator++(0); // expected-error {{call to deleted member function 'operator++'}}
+  b.operator++(0); // expected-error {{call to deleted member function 'operator++'}}
+}
+
+// A non-member cannot use a private destructor; a member can (access is checked from the function body).
+class PrivateDtor {
+  PrivateDtor(const PrivateDtor&) = default;
+public:
+  PrivateDtor() = default;
+private:
+  ~PrivateDtor() = default;
+  friend PrivateDtor& operator++(PrivateDtor&);
+};
+PrivateDtor& operator++(PrivateDtor&);
+PrivateDtor operator++(PrivateDtor&, int) = default; // OK, defined as deleted
+// expected-note@-1 {{explicitly defaulted function was implicitly deleted here}}
+// expected-note@-2 {{implicitly deleted because 'PrivateDtor' has a deleted or inaccessible destructor}}
+void use_private_dtor() { PrivateDtor (*p)(PrivateDtor&, int) = &operator++; } // expected-error {{attempt to use a deleted function}}
+
+// Access is checked from the function body.
+class PrivCopy {
+  PrivCopy(const PrivCopy&) = default;
+public:
+  PrivCopy() = default;
+  PrivCopy& operator++();
+  PrivCopy operator++(int) = default;                  // a member can use the private copy constructor
+  friend PrivCopy& operator--(PrivCopy&);
+  friend PrivCopy operator--(PrivCopy&, int) = default; // so can a friend
+};
+class PrivCopy2 {
+  PrivCopy2(const PrivCopy2&) = default;
+public:
+  PrivCopy2() = default;
+};
+PrivCopy2& operator++(PrivCopy2&);
+PrivCopy2 operator++(PrivCopy2&, int) = default; // OK, defined as deleted: a non-member cannot copy
+// expected-note@-1 {{explicitly defaulted function was implicitly deleted here}}
+// expected-note@-2 {{implicitly deleted because 'PrivCopy2' cannot be copy-initialized from an lvalue}}
+void access(PrivCopy& p) {
+  p.operator++(0);
+  operator--(p, 0);
+  PrivCopy2 (*q)(PrivCopy2&, int) = &operator++; // expected-error {{attempt to use a deleted function}}
+}
+
+// A function defaulted after its first declaration is user-provided: it is defined there and must not be deleted.
+struct OutOfLine {
+  OutOfLine& operator++();
+  OutOfLine operator++(int);
+};
+OutOfLine OutOfLine::operator++(int) = default;
+struct OutOfLineDeleted {
+  OutOfLineDeleted(const OutOfLineDeleted&) = delete;
+  OutOfLineDeleted& operator++();
+  OutOfLineDeleted operator++(int);
+};
+OutOfLineDeleted OutOfLineDeleted::operator++(int) = default; // expected-error {{would delete it}} // expected-note {{cannot be copy-initialized}}
 
 #else
 

@@ -10545,6 +10545,9 @@ def err_defaulted_postfix_incdec_return : Error<
 def err_defaulted_postfix_incdec_default_arg : Error<
   "defaulted postfix %select{increment|decrement}0 operator cannot have a "
   "default argument">;
+def err_defaulted_postfix_incdec_would_delete : Error<
+  "defaulting this postfix %select{increment|decrement}0 operator after its "
+  "first declaration would delete it">;
 def err_defaulted_postfix_incdec_not_first : Error<
   "defaulted postfix %select{increment|decrement}0 operator defined in a class "
   "must be the first declaration of the function">;

@@ -9408,7 +9408,13 @@ static DefaultedPostfixShape getDefaultedPostfixShape(Sema &S,
 static PostfixDeletedReason
 analyzeDefaultedPostfixIncDec(Sema &S, FunctionDecl *FD,
                               Sema::DefaultedPostfixKind Kind,
-                              const DefaultedPostfixShape &Shape) {
+                              const DefaultedPostfixShape &Shape,
+                              bool *ConstexprSuitable = nullptr) {
+  if (ConstexprSuitable)
+    *ConstexprSuitable = false;
+  // [dcl.fct.def.default]: the function is constexpr-suitable if the type is a
+  // literal type and the copy and the prefix operator it calls are constexpr.
+  bool Suitable = Shape.C->isLiteralType(S.Context);
   SourceLocation Loc = FD->getLocation();
   // Name lookup and access checks are performed from the function body.
   Sema::ContextRAII SavedContext(S, FD);
@@ -9421,13 +9427,6 @@ analyzeDefaultedPostfixIncDec(Sema &S, FunctionDecl *FD,
   Expr *Arg = &Operand;
 
   if (CXXRecordDecl *RD = Shape.C->getAsCXXRecordDecl()) {
-    // 'C tmp(c)' has a usable candidate.
-    InitializedEntity Entity = InitializedEntity::InitializeTemporary(Shape.C);
-    InitializationKind InitKind = InitializationKind::CreateDirect(Loc, Loc, Loc);
-    InitializationSequence Seq(S, Entity, InitKind, Arg);
-    if (Seq.Failed() || Trap.hasErrorOccurred())
-      return PostfixDeletedReason::CopyUnusable;
-
     // The destructor is neither deleted nor inaccessible.
     CXXDestructorDecl *Dtor = S.LookupDestructor(RD);
     if (!Dtor || Dtor->isDeleted() ||
@@ -9436,6 +9435,20 @@ analyzeDefaultedPostfixIncDec(Sema &S, FunctionDecl *FD,
             Sema::AR_accessible ||
         Trap.hasErrorOccurred())
       return PostfixDeletedReason::DestructorUnusable;
+
+    // 'C tmp(c)' has a usable candidate.
+    InitializedEntity Entity = InitializedEntity::InitializeTemporary(Shape.C);
+    InitializationKind InitKind = InitializationKind::CreateDirect(Loc, Loc, Loc);
+    InitializationSequence Seq(S, Entity, InitKind, Arg);
+    if (Seq.Failed() || Trap.hasErrorOccurred())
+      return PostfixDeletedReason::CopyUnusable;
+    ExprResult Copy = Seq.Perform(S, Entity, InitKind, Arg);
+    if (Copy.isInvalid() || Trap.hasErrorOccurred())
+      return PostfixDeletedReason::CopyUnusable;
+    if (auto *Construct =
+            dyn_cast<CXXConstructExpr>(Copy.get()->IgnoreImplicit());
+        Construct && !Construct->getConstructor()->isConstexpr())
+      Suitable = false;
   }
 
   // '++c' / '--c' has a usable candidate.
@@ -9445,6 +9458,13 @@ analyzeDefaultedPostfixIncDec(Sema &S, FunctionDecl *FD,
       Arg);
   if (Prefix.isInvalid() || Trap.hasErrorOccurred())
     return PostfixDeletedReason::PrefixUnusable;
+  if (auto *Call = dyn_cast<CXXOperatorCallExpr>(Prefix.get()->IgnoreImplicit())) {
+    if (const auto *Callee = dyn_cast_or_null<FunctionDecl>(Call->getCalleeDecl());
+        Callee && !Callee->isConstexpr())
+      Suitable = false;
+  }
+  if (ConstexprSuitable)
+    *ConstexprSuitable = Suitable;
   return PostfixDeletedReason::None;
 }
 
@@ -9523,10 +9543,32 @@ bool Sema::CheckExplicitlyDefaultedPostfixIncDec(FunctionDecl *FD,
     return true;
   }
 
-  if (analyzeDefaultedPostfixIncDec(*this, FD, Kind, Shape) !=
+  bool ConstexprSuitable = false;
+  bool IsFirstDeclaration = !FD->getPreviousDecl();
+  if (analyzeDefaultedPostfixIncDec(*this, FD, Kind, Shape,
+                                    &ConstexprSuitable) !=
       PostfixDeletedReason::None) {
+    // A function explicitly defaulted after its first declaration is
+    // user-provided: it is defined where it is defaulted and the program is
+    // ill-formed if that definition would be deleted.
+    if (!IsFirstDeclaration) {
+      Diag(FD->getLocation(), diag::err_defaulted_postfix_incdec_would_delete)
+          << IsDecrement;
+      ExplainDeletedPostfixIncDec(*this, FD, Kind);
+      return true;
+    }
     if (!FD->isDeleted())
       SetDeclDeleted(FD, FD->getLocation());
+    return false;
+  }
+
+  // [dcl.fct.def.default]: a function explicitly defaulted on its first
+  // declaration is implicitly inline, and implicitly constexpr if it is
+  // constexpr-suitable.
+  if (IsFirstDeclaration) {
+    FD->setImplicitlyInline();
+    if (ConstexprSuitable && !FD->isConstexpr())
+      FD->setConstexprKind(ConstexprSpecKind::Constexpr);
   }
   return false;
 }
@@ -9613,6 +9655,10 @@ void Sema::DefineDefaultedPostfixIncDec(SourceLocation UseLoc, FunctionDecl *FD,
   }
   FD->setBody(Body.get());
   FD->markUsed(Context);
+
+  if (FD->isConstexpr() &&
+      !CheckConstexprFunctionDefinition(FD, CheckConstexprKind::Diagnose))
+    FD->setInvalidDecl();
 
   if (ASTMutationListener *L = getASTMutationListener())
     L->CompletedImplicitDefinition(FD);

@@ -43,3 +43,25 @@ long test2(Wide& w) { return (w++).a; }
 // CHECK-LABEL: define linkonce_odr {{.*}} @_ZppR4Widei(
 // CHECK: call void @llvm.memcpy
 // CHECK: call {{.*}} @_ZppR4Wide(
+
+// A function explicitly defaulted on its first declaration is implicitly inline.
+namespace N {
+struct W {
+  int a = 0;
+};
+W& operator++(W& w) { ++w.a; return w; }
+W operator++(W&, int) = default;
+int use(W& w) { return (w++).a; }
+} // namespace N
+// CHECK-LABEL: define linkonce_odr {{.*}} @_ZN1NppERNS_1WEi(
+
+// A function defaulted after its first declaration is user-provided: it is defined there, with external linkage,
+// even if nothing in the translation unit uses it.
+struct OutOfLine {
+  int a = 0;
+  OutOfLine& operator++() { ++a; return *this; }
+  OutOfLine operator++(int);
+};
+OutOfLine OutOfLine::operator++(int) = default;
+// CHECK-LABEL: define dso_local {{.*}} @_ZN9OutOfLineppEi(
+// CHECK: call {{.*}} @_ZN9OutOfLineppEv(
