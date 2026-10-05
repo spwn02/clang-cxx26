@@ -9,6 +9,7 @@
 #ifndef _LIBCPP___EXECUTION_READ_ENV_H
 #define _LIBCPP___EXECUTION_READ_ENV_H
 
+#include <__concepts/constructible.h>
 #include <__config>
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
@@ -106,6 +107,16 @@ public:
   template <class _Rcvr>
   _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && -> __read_env_opstate<_Query, remove_cvref_t<_Rcvr>> {
     return __read_env_opstate<_Query, remove_cvref_t<_Rcvr>>(std::move(data), std::forward<_Rcvr>(__rcvr));
+  }
+
+  // [exec.affine] (recommended): read_env completes in its start operation, on the agent it was started on.
+  _LIBCPP_HIDE_FROM_ABI constexpr __read_env_sndr affine() && noexcept(is_nothrow_move_constructible_v<__read_env_sndr>) {
+    return std::move(*this);
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __read_env_sndr affine() const& noexcept(is_nothrow_copy_constructible_v<__read_env_sndr>)
+    requires copy_constructible<__read_env_sndr>
+  {
+    return *this;
   }
 
   // [exec.read.env]p4-5 (check-types): "Let Q be decay_t<data-type<Sndr>>. Throws: an exception of type

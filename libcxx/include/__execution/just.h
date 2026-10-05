@@ -10,6 +10,7 @@
 #define _LIBCPP___EXECUTION_JUST_H
 
 #include <__concepts/same_as.h>
+#include <__concepts/constructible.h>
 #include <__config>
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
@@ -101,6 +102,17 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && -> __just_opstate<_Tag, remove_cvref_t<_Rcvr>, _Ts...> {
     return __just_opstate<_Tag, remove_cvref_t<_Rcvr>, _Ts...>(
         std::forward<_Rcvr>(__rcvr), std::__allocator_aware_forward(std::move(data), __rcvr));
+  }
+
+  // [exec.affine] (recommended): just, just_error and just_stopped resume on the scheduler where they were started, so
+  // affine of one is the sender itself ([exec.affine]).
+  _LIBCPP_HIDE_FROM_ABI constexpr __just_sndr affine() && noexcept(is_nothrow_move_constructible_v<__just_sndr>) {
+    return std::move(*this);
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __just_sndr affine() const& noexcept(is_nothrow_copy_constructible_v<__just_sndr>)
+    requires copy_constructible<__just_sndr>
+  {
+    return *this;
   }
 
   // Env-independent (just/just_error/just_stopped's completions never depend on the receiver's

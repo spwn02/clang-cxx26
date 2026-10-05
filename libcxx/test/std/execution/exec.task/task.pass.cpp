@@ -22,9 +22,9 @@
 //
 // This pass's scope cuts (see docs/design/execution_task_p3552.md): every task<T, Environment>
 // completes with exactly set_error_t(exception_ptr) regardless of Environment (a custom
-// Environment::error_types is not supported), and affine_on's same-resource fast path (an
-// allowed optimization per the adopted wording) is not implemented -- every scheduling hop is
-// taken unconditionally. Both are exercised indirectly below (every error path still works;
+// Environment::error_types is not supported), and the scheduling hop of affine is skipped only for
+// the senders that have an affine member (just, just_error, just_stopped, read_env) -- every other
+// hop is taken unconditionally. Both are exercised indirectly below (every error path still works;
 // scheduling still completes correctly, just always through one extra hop).
 
 #include <cassert>

@@ -19,6 +19,7 @@
 #include <__execution/get_forward_progress_guarantee.h>
 #include <__execution/get_scheduler.h>
 #include <__execution/get_stop_token.h>
+#include <__execution/infallible_scheduler.h>
 #include <__stop_token/stoppable_token.h>
 #include <__type_traits/is_nothrow_constructible.h>
 #include <__execution/operation_state.h>
@@ -327,7 +328,11 @@ public:
     requires(!same_as<task_scheduler, remove_cvref_t<_Sch>>) && scheduler<remove_cvref_t<_Sch>>
   _LIBCPP_HIDE_FROM_ABI explicit task_scheduler(_Sch&& __sch, const _Allocator& __alloc = {})
       : __holder_(std::allocate_shared<__task_scheduler_model<remove_cvref_t<_Sch>>>(
-            __alloc, std::forward<_Sch>(__sch))) {}
+            __alloc, std::forward<_Sch>(__sch))) {
+    // [exec.task.scheduler]: Mandates: Sch satisfies infallible-scheduler<env<>>.
+    static_assert(__infallible_scheduler<remove_cvref_t<_Sch>, env<>>,
+                  "Mandates: Sch satisfies infallible-scheduler<env<>>.");
+  }
 
   _LIBCPP_HIDE_FROM_ABI friend bool operator==(const task_scheduler& __x, const task_scheduler& __y) noexcept {
     return __x.__holder_ == __y.__holder_ || __x.__holder_->__equals(*__y.__holder_);

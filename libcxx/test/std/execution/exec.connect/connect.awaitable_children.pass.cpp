@@ -42,7 +42,7 @@ int main(int, char**) {
   T("write_env", ex::write_env(Awaiter{}, ex::env<>{}));
   T("unstoppable", ex::unstoppable(Awaiter{}));
   T("bulk", ex::bulk(Awaiter{}, std::execution::seq, 2, [](int, int){}));
-  T("affine_on", ex::affine_on(Awaiter{}, ex::inline_scheduler{}));
+  T("affine", ex::affine(Awaiter{}));
   { auto v = std::this_thread::sync_wait(Awaiter{}); assert(v && std::get<0>(*v) == 42); }
   { ex::counting_scope sc; auto f = ex::spawn_future(Awaiter{}, sc.get_token()); auto v = std::this_thread::sync_wait(std::move(f)); std::this_thread::sync_wait(sc.join()); assert(v && std::get<0>(*v) == 42); }
   { ex::counting_scope sc; auto s = ex::associate(Awaiter{}, sc.get_token()); T("associate", std::move(s)); std::this_thread::sync_wait(sc.join()); }

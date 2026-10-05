@@ -359,7 +359,7 @@ set(files
   __exception/nested_exception.h
   __exception/operations.h
   __exception/terminate.h
-  __execution/affine_on.h
+  __execution/affine.h
   __execution/as_awaitable.h
   __execution/async_scope.h
   __execution/awaitable.h
@@ -379,6 +379,7 @@ set(files
   __execution/get_forward_progress_guarantee.h
   __execution/get_scheduler.h
   __execution/get_stop_token.h
+  __execution/infallible_scheduler.h
   __execution/into_variant.h
   __execution/just.h
   __execution/let.h

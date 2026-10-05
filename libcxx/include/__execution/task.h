@@ -16,7 +16,7 @@
 #include <__coroutine/coroutine_handle.h>
 #include <__coroutine/noop_coroutine_handle.h>
 #include <__coroutine/trivial_awaitables.h>
-#include <__execution/affine_on.h>
+#include <__execution/affine.h>
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
@@ -545,28 +545,20 @@ public:
   // than participate in the same overload set.
   using with_awaitable_senders<promise_type>::await_transform;
 
-  // [exec.task.promise]: a sender co_await-ed from within the coroutine body completes on
-  // __scheduler_ (via affine_on), then is delivered the ordinary way (as_awaitable, via the
-  // base class's await_transform). affine_on(sndr, __scheduler_) is unconditional here even
-  // when __scheduler_ is already an inline one -- the paper's own same-resource fast path is a
-  // documented, deferred optimization (see this file's top comment), not a correctness
-  // requirement.
+  // [exec.task.promise]: if the start scheduler is an inline_scheduler the sender is delivered the ordinary way
+  // (as_awaitable), otherwise it is first adapted with affine so that it completes on the start scheduler of the
+  // environment of this promise.
   template <sender _Sndr>
   _LIBCPP_HIDE_FROM_ABI decltype(auto) await_transform(_Sndr&& __sndr) {
     if constexpr (same_as<start_scheduler_type, inline_scheduler>)
       return execution::as_awaitable(std::forward<_Sndr>(__sndr), *this);
     else
-      return with_awaitable_senders<promise_type>::await_transform(
-          execution::affine_on(std::forward<_Sndr>(__sndr), __scheduler_));
+      return execution::as_awaitable(execution::affine(std::forward<_Sndr>(__sndr)), *this);
   }
 
   struct __promise_env {
     const promise_type* __promise_;
     _LIBCPP_HIDE_FROM_ABI scheduler_type query(get_start_scheduler_t) const noexcept {
-      return __promise_->__scheduler_;
-    }
-    // Preserve the fork's affine_on integration until #222 supplies affine.
-    _LIBCPP_HIDE_FROM_ABI scheduler_type query(get_scheduler_t) const noexcept {
       return __promise_->__scheduler_;
     }
     _LIBCPP_HIDE_FROM_ABI allocator_type query(get_allocator_t) const noexcept {

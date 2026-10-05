@@ -199,9 +199,9 @@ export namespace std::execution {
   using std::execution::continues_on;
   using std::execution::continues_on_t;
 
-  // [exec.affine.on]
-  using std::execution::affine_on;
-  using std::execution::affine_on_t;
+  // [exec.affine]
+  using std::execution::affine;
+  using std::execution::affine_t;
 
   // [exec.on]
   using std::execution::on;

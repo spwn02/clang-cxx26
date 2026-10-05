@@ -48,5 +48,8 @@ struct InlinableRcvr {
 };
 static_assert(ex::inlinable_receiver<InlinableRcvr, Op>);
 static_assert(std::forwarding_query(ex::get_await_completion_adaptor));
+static_assert(std::is_class_v<ex::affine_t>);
+static_assert(ex::sender<decltype(ex::affine(ex::just(1)))>);
+static_assert(std::same_as<ex::tag_of_t<decltype(ex::affine(ex::just(1)))>, ex::affine_t>);
 static_assert(std::is_class_v<ex::get_await_completion_adaptor_t>);
 int main(int, char**) { return 0; }
