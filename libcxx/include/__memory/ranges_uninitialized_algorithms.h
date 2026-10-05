@@ -10,6 +10,18 @@
 #ifndef _LIBCPP___MEMORY_RANGES_UNINITIALIZED_ALGORITHMS_H
 #define _LIBCPP___MEMORY_RANGES_UNINITIALIZED_ALGORITHMS_H
 
+#include <__algorithm/min.h>
+#include <__pstl/backend_fwd.h>
+#include <__pstl/dispatch.h>
+#include <__pstl/handle_exception.h>
+#include <__pstl/memory_algorithms.h>
+#include <__type_traits/common_type.h>
+#include <__type_traits/enable_if.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
+#include <__type_traits/type_identity.h>
+#include <__utility/forward.h>
+#include <__concepts/destructible.h>
 #include <__algorithm/in_out_result.h>
 #include <__concepts/constructible.h>
 #include <__config>
@@ -56,6 +68,32 @@ struct __uninitialized_default_construct {
   operator()(_ForwardRange&& __range) const {
     return (*this)(ranges::begin(__range), ranges::end(__range));
   }
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            __nothrow_random_access_iterator _Iter,
+            __nothrow_sized_sentinel_for<_Iter> _Sent,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires default_initializable<iter_value_t<_Iter>>
+  _LIBCPP_HIDE_FROM_ABI _Iter operator()(_Ep&& __exec, _Iter __first, _Sent __last) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__memory_default_construct_n, __pstl::__current_configuration, _RawPolicy>;
+    auto __n = __last - __first;
+    return __pstl::__handle_exception<_Implementation>(
+        std::forward<_Ep>(__exec),
+        std::move(__first),
+        __n,
+        __type_identity<remove_reference_t<iter_reference_t<_Iter>>>());
+  }
+
+  template <class _Ep,
+            __nothrow_sized_random_access_range _Range,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires default_initializable<range_value_t<_Range>>
+  _LIBCPP_HIDE_FROM_ABI borrowed_iterator_t<_Range> operator()(_Ep&& __exec, _Range&& __range) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::begin(__range) + static_cast<range_difference_t<_Range>>(ranges::size(__range)));
+  }
+#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -72,6 +110,21 @@ struct __uninitialized_default_construct_n {
     using _ValueType = remove_reference_t<iter_reference_t<_ForwardIterator>>;
     return std::__uninitialized_default_construct_n<_ValueType>(std::move(__first), __n);
   }
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            __nothrow_random_access_iterator _Iter,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires default_initializable<iter_value_t<_Iter>>
+  _LIBCPP_HIDE_FROM_ABI _Iter operator()(_Ep&& __exec, _Iter __first, iter_difference_t<_Iter> __n) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__memory_default_construct_n, __pstl::__current_configuration, _RawPolicy>;
+    return __pstl::__handle_exception<_Implementation>(
+        std::forward<_Ep>(__exec),
+        std::move(__first),
+        __n,
+        __type_identity<remove_reference_t<iter_reference_t<_Iter>>>());
+  }
+#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -95,6 +148,32 @@ struct __uninitialized_value_construct {
   operator()(_ForwardRange&& __range) const {
     return (*this)(ranges::begin(__range), ranges::end(__range));
   }
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            __nothrow_random_access_iterator _Iter,
+            __nothrow_sized_sentinel_for<_Iter> _Sent,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires default_initializable<iter_value_t<_Iter>>
+  _LIBCPP_HIDE_FROM_ABI _Iter operator()(_Ep&& __exec, _Iter __first, _Sent __last) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__memory_value_construct_n, __pstl::__current_configuration, _RawPolicy>;
+    auto __n = __last - __first;
+    return __pstl::__handle_exception<_Implementation>(
+        std::forward<_Ep>(__exec),
+        std::move(__first),
+        __n,
+        __type_identity<remove_reference_t<iter_reference_t<_Iter>>>());
+  }
+
+  template <class _Ep,
+            __nothrow_sized_random_access_range _Range,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires default_initializable<range_value_t<_Range>>
+  _LIBCPP_HIDE_FROM_ABI borrowed_iterator_t<_Range> operator()(_Ep&& __exec, _Range&& __range) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::begin(__range) + static_cast<range_difference_t<_Range>>(ranges::size(__range)));
+  }
+#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -111,6 +190,21 @@ struct __uninitialized_value_construct_n {
     using _ValueType = remove_reference_t<iter_reference_t<_ForwardIterator>>;
     return std::__uninitialized_value_construct_n<_ValueType>(std::move(__first), __n);
   }
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            __nothrow_random_access_iterator _Iter,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires default_initializable<iter_value_t<_Iter>>
+  _LIBCPP_HIDE_FROM_ABI _Iter operator()(_Ep&& __exec, _Iter __first, iter_difference_t<_Iter> __n) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__memory_value_construct_n, __pstl::__current_configuration, _RawPolicy>;
+    return __pstl::__handle_exception<_Implementation>(
+        std::forward<_Ep>(__exec),
+        std::move(__first),
+        __n,
+        __type_identity<remove_reference_t<iter_reference_t<_Iter>>>());
+  }
+#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -120,7 +214,13 @@ inline constexpr auto uninitialized_value_construct_n = __uninitialized_value_co
 // uninitialized_fill
 
 struct __uninitialized_fill {
-  template <__nothrow_forward_iterator _ForwardIterator, __nothrow_sentinel_for<_ForwardIterator> _Sentinel, class _Tp>
+  template <__nothrow_forward_iterator _ForwardIterator,
+            __nothrow_sentinel_for<_ForwardIterator> _Sentinel,
+            class _Tp
+#if _LIBCPP_STD_VER >= 26
+            = iter_value_t<_ForwardIterator> // P2248R8
+#endif
+            >
     requires constructible_from<iter_value_t<_ForwardIterator>, const _Tp&>
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _ForwardIterator
   operator()(_ForwardIterator __first, _Sentinel __last, const _Tp& __x) const {
@@ -128,12 +228,46 @@ struct __uninitialized_fill {
     return std::__uninitialized_fill<_ValueType>(std::move(__first), std::move(__last), __x);
   }
 
-  template <__nothrow_forward_range _ForwardRange, class _Tp>
+  template <__nothrow_forward_range _ForwardRange,
+            class _Tp
+#if _LIBCPP_STD_VER >= 26
+            = range_value_t<_ForwardRange> // P2248R8
+#endif
+            >
     requires constructible_from<range_value_t<_ForwardRange>, const _Tp&>
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 borrowed_iterator_t<_ForwardRange>
   operator()(_ForwardRange&& __range, const _Tp& __x) const {
     return (*this)(ranges::begin(__range), ranges::end(__range), __x);
   }
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            __nothrow_random_access_iterator _Iter,
+            __nothrow_sized_sentinel_for<_Iter> _Sent,
+            class _Tp = iter_value_t<_Iter>,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires constructible_from<iter_value_t<_Iter>, const _Tp&>
+  _LIBCPP_HIDE_FROM_ABI _Iter operator()(_Ep&& __exec, _Iter __first, _Sent __last, const _Tp& __x) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__memory_fill_n, __pstl::__current_configuration, _RawPolicy>;
+    auto __n = __last - __first;
+    return __pstl::__handle_exception<_Implementation>(
+        std::forward<_Ep>(__exec),
+        std::move(__first),
+        __n,
+        __x,
+        __type_identity<remove_reference_t<iter_reference_t<_Iter>>>());
+  }
+
+  template <class _Ep,
+            __nothrow_sized_random_access_range _Range,
+            class _Tp = range_value_t<_Range>,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires constructible_from<range_value_t<_Range>, const _Tp&>
+  _LIBCPP_HIDE_FROM_ABI borrowed_iterator_t<_Range> operator()(_Ep&& __exec, _Range&& __range, const _Tp& __x) const {
+    return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::begin(__range) + static_cast<range_difference_t<_Range>>(ranges::size(__range)), __x);
+  }
+#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -143,13 +277,36 @@ inline constexpr auto uninitialized_fill = __uninitialized_fill{};
 // uninitialized_fill_n
 
 struct __uninitialized_fill_n {
-  template <__nothrow_forward_iterator _ForwardIterator, class _Tp>
+  template <__nothrow_forward_iterator _ForwardIterator,
+            class _Tp
+#if _LIBCPP_STD_VER >= 26
+            = iter_value_t<_ForwardIterator> // P2248R8
+#endif
+            >
     requires constructible_from<iter_value_t<_ForwardIterator>, const _Tp&>
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _ForwardIterator
   operator()(_ForwardIterator __first, iter_difference_t<_ForwardIterator> __n, const _Tp& __x) const {
     using _ValueType = remove_reference_t<iter_reference_t<_ForwardIterator>>;
     return std::__uninitialized_fill_n<_ValueType>(std::move(__first), __n, __x);
   }
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            __nothrow_random_access_iterator _Iter,
+            class _Tp = iter_value_t<_Iter>,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires constructible_from<iter_value_t<_Iter>, const _Tp&>
+  _LIBCPP_HIDE_FROM_ABI _Iter
+  operator()(_Ep&& __exec, _Iter __first, iter_difference_t<_Iter> __n, const _Tp& __x) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__memory_fill_n, __pstl::__current_configuration, _RawPolicy>;
+    return __pstl::__handle_exception<_Implementation>(
+        std::forward<_Ep>(__exec),
+        std::move(__first),
+        __n,
+        __x,
+        __type_identity<remove_reference_t<iter_reference_t<_Iter>>>());
+  }
+#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -185,6 +342,47 @@ struct __uninitialized_copy {
     return (*this)(
         ranges::begin(__in_range), ranges::end(__in_range), ranges::begin(__out_range), ranges::end(__out_range));
   }
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            random_access_iterator _InIter,
+            sized_sentinel_for<_InIter> _InSent,
+            __nothrow_random_access_iterator _OutIter,
+            __nothrow_sized_sentinel_for<_OutIter> _OutSent,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires constructible_from<iter_value_t<_OutIter>, iter_reference_t<_InIter>>
+  _LIBCPP_HIDE_FROM_ABI uninitialized_copy_result<_InIter, _OutIter>
+  operator()(_Ep&& __exec, _InIter __ifirst, _InSent __ilast, _OutIter __ofirst, _OutSent __olast) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__memory_copy_n, __pstl::__current_configuration, _RawPolicy>;
+    using _Diff = common_type_t<iter_difference_t<_InIter>, iter_difference_t<_OutIter>>;
+    _Diff __n   = std::min<_Diff>(__ilast - __ifirst, __olast - __ofirst);
+    auto __r    = __pstl::__handle_exception<_Implementation>(
+        std::forward<_Ep>(__exec),
+        std::move(__ifirst),
+        __n,
+        std::move(__ofirst),
+        __type_identity<remove_reference_t<iter_reference_t<_OutIter>>>()
+);
+    return {std::move(__r.first), std::move(__r.second)};
+  }
+
+  template <class _Ep,
+            class _InRange,
+            class _OutRange,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires random_access_range<_InRange> && sized_range<_InRange> && __nothrow_sized_random_access_range<_OutRange> &&
+             constructible_from<range_value_t<_OutRange>, range_reference_t<_InRange>>
+  _LIBCPP_HIDE_FROM_ABI uninitialized_copy_result<borrowed_iterator_t<_InRange>, borrowed_iterator_t<_OutRange>>
+  operator()(_Ep&& __exec, _InRange&& __in_range, _OutRange&& __out_range) const {
+    return (*this)(
+        std::forward<_Ep>(__exec),
+        ranges::begin(__in_range),
+        ranges::begin(__in_range) + static_cast<range_difference_t<_InRange>>(ranges::size(__in_range)),
+        ranges::begin(__out_range),
+        ranges::begin(__out_range) + static_cast<range_difference_t<_OutRange>>(ranges::size(__out_range)));
+  }
+#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -212,6 +410,28 @@ struct __uninitialized_copy_n {
         std::__uninitialized_copy_n<_ValueType>(std::move(__ifirst), __n, std::move(__ofirst), __stop_copying);
     return {std::move(__result.first), std::move(__result.second)};
   }
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            random_access_iterator _InIter,
+            __nothrow_random_access_iterator _OutIter,
+            __nothrow_sized_sentinel_for<_OutIter> _OutSent,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires constructible_from<iter_value_t<_OutIter>, iter_reference_t<_InIter>>
+  _LIBCPP_HIDE_FROM_ABI uninitialized_copy_n_result<_InIter, _OutIter>
+  operator()(_Ep&& __exec, _InIter __ifirst, iter_difference_t<_InIter> __n, _OutIter __ofirst, _OutSent __olast) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__memory_copy_n, __pstl::__current_configuration, _RawPolicy>;
+    using _Diff = common_type_t<iter_difference_t<_InIter>, iter_difference_t<_OutIter>>;
+    _Diff __count = std::min<_Diff>(__n, __olast - __ofirst);
+    auto __r      = __pstl::__handle_exception<_Implementation>(
+        std::forward<_Ep>(__exec),
+        std::move(__ifirst),
+        __count,
+        std::move(__ofirst),
+        __type_identity<remove_reference_t<iter_reference_t<_OutIter>>>());
+    return {std::move(__r.first), std::move(__r.second)};
+  }
+#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -247,6 +467,47 @@ struct __uninitialized_move {
     return (*this)(
         ranges::begin(__in_range), ranges::end(__in_range), ranges::begin(__out_range), ranges::end(__out_range));
   }
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            random_access_iterator _InIter,
+            sized_sentinel_for<_InIter> _InSent,
+            __nothrow_random_access_iterator _OutIter,
+            __nothrow_sized_sentinel_for<_OutIter> _OutSent,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires constructible_from<iter_value_t<_OutIter>, iter_rvalue_reference_t<_InIter>>
+  _LIBCPP_HIDE_FROM_ABI uninitialized_move_result<_InIter, _OutIter>
+  operator()(_Ep&& __exec, _InIter __ifirst, _InSent __ilast, _OutIter __ofirst, _OutSent __olast) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__memory_move_n, __pstl::__current_configuration, _RawPolicy>;
+    using _Diff = common_type_t<iter_difference_t<_InIter>, iter_difference_t<_OutIter>>;
+    _Diff __n   = std::min<_Diff>(__ilast - __ifirst, __olast - __ofirst);
+    auto __r    = __pstl::__handle_exception<_Implementation>(
+        std::forward<_Ep>(__exec),
+        std::move(__ifirst),
+        __n,
+        std::move(__ofirst),
+        __type_identity<remove_reference_t<iter_reference_t<_OutIter>>>(),
+        [](auto&& __iter) -> decltype(auto) { return ranges::iter_move(__iter); });
+    return {std::move(__r.first), std::move(__r.second)};
+  }
+
+  template <class _Ep,
+            class _InRange,
+            class _OutRange,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires random_access_range<_InRange> && sized_range<_InRange> && __nothrow_sized_random_access_range<_OutRange> &&
+             constructible_from<range_value_t<_OutRange>, range_rvalue_reference_t<_InRange>>
+  _LIBCPP_HIDE_FROM_ABI uninitialized_move_result<borrowed_iterator_t<_InRange>, borrowed_iterator_t<_OutRange>>
+  operator()(_Ep&& __exec, _InRange&& __in_range, _OutRange&& __out_range) const {
+    return (*this)(
+        std::forward<_Ep>(__exec),
+        ranges::begin(__in_range),
+        ranges::begin(__in_range) + static_cast<range_difference_t<_InRange>>(ranges::size(__in_range)),
+        ranges::begin(__out_range),
+        ranges::begin(__out_range) + static_cast<range_difference_t<_OutRange>>(ranges::size(__out_range)));
+  }
+#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -275,6 +536,29 @@ struct __uninitialized_move_n {
         std::move(__ifirst), __n, std::move(__ofirst), __stop_moving, __iter_move);
     return {std::move(__result.first), std::move(__result.second)};
   }
+#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+  template <class _Ep,
+            random_access_iterator _InIter,
+            __nothrow_random_access_iterator _OutIter,
+            __nothrow_sized_sentinel_for<_OutIter> _OutSent,
+            class _RawPolicy = __remove_cvref_t<_Ep>,
+            enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+    requires constructible_from<iter_value_t<_OutIter>, iter_rvalue_reference_t<_InIter>>
+  _LIBCPP_HIDE_FROM_ABI uninitialized_move_n_result<_InIter, _OutIter>
+  operator()(_Ep&& __exec, _InIter __ifirst, iter_difference_t<_InIter> __n, _OutIter __ofirst, _OutSent __olast) const {
+    using _Implementation = __pstl::__dispatch<__pstl::__memory_move_n, __pstl::__current_configuration, _RawPolicy>;
+    using _Diff = common_type_t<iter_difference_t<_InIter>, iter_difference_t<_OutIter>>;
+    _Diff __count = std::min<_Diff>(__n, __olast - __ofirst);
+    auto __r      = __pstl::__handle_exception<_Implementation>(
+        std::forward<_Ep>(__exec),
+        std::move(__ifirst),
+        __count,
+        std::move(__ofirst),
+        __type_identity<remove_reference_t<iter_reference_t<_OutIter>>>(),
+        [](auto&& __iter) -> decltype(auto) { return ranges::iter_move(__iter); });
+    return {std::move(__r.first), std::move(__r.second)};
+  }
+#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {

@@ -43,7 +43,7 @@ class out_ptr_t {
 #endif
 
 public:
-  _LIBCPP_HIDE_FROM_ABI explicit out_ptr_t(_Smart& __smart, _Args... __args)
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 explicit out_ptr_t(_Smart& __smart, _Args... __args)
       : __s_(__smart), __a_(std::forward<_Args>(__args)...), __p_() {
     using _Ptr = decltype(__smart);
     if constexpr (__resettable_smart_pointer<_Ptr>) {
@@ -58,7 +58,7 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI out_ptr_t(const out_ptr_t&) = delete;
 
-  _LIBCPP_HIDE_FROM_ABI ~out_ptr_t() {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 ~out_ptr_t() {
     if (!__p_) {
       return;
     }
@@ -75,7 +75,9 @@ public:
     }
   }
 
-  _LIBCPP_HIDE_FROM_ABI operator _Pointer*() const noexcept { return std::addressof(const_cast<_Pointer&>(__p_)); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 operator _Pointer*() const noexcept {
+    return std::addressof(const_cast<_Pointer&>(__p_));
+  }
 
   _LIBCPP_HIDE_FROM_ABI operator void**() const noexcept
     requires(!is_same_v<_Pointer, void*>)
@@ -92,7 +94,7 @@ private:
 };
 
 template <class _Pointer = void, class _Smart, class... _Args>
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI auto out_ptr(_Smart& __s, _Args&&... __args) {
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 auto out_ptr(_Smart& __s, _Args&&... __args) {
   using _Ptr = conditional_t<is_void_v<_Pointer>, __pointer_of_t<_Smart>, _Pointer>;
   return std::out_ptr_t<_Smart, _Ptr, _Args&&...>(__s, std::forward<_Args>(__args)...);
 }

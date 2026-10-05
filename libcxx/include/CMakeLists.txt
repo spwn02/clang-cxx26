@@ -675,12 +675,14 @@ set(files
   __memory/pointer_traits.h
   __memory/polymorphic.h
   __memory/pstl_freestanding.h
+  __memory/pstl_uninitialized_algorithms.h
   __memory/ranges_construct_at.h
   __memory/ranges_destroy.h
   __memory/ranges_uninitialized_algorithms.h
   __memory/raw_storage_iterator.h
   __memory/shared_count.h
   __memory/shared_ptr.h
+  __memory/start_lifetime.h
   __memory/start_lifetime_as.h
   __memory/swap_allocator.h
   __memory/temp_value.h
@@ -749,6 +751,7 @@ set(files
   __pstl/cpu_algos/transform_reduce.h
   __pstl/dispatch.h
   __pstl/handle_exception.h
+  __pstl/memory_algorithms.h
   __pstl/ranges_bounded.h
   __random/bernoulli_distribution.h
   __random/binomial_distribution.h

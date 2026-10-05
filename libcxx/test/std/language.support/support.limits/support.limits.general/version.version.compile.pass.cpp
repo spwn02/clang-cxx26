@@ -28,6 +28,10 @@
 #    error "__cpp_lib_addressof_constexpr should not be defined before c++17"
 #  endif
 
+#  ifdef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_algorithm_iterator_requirements
 #    error "__cpp_lib_algorithm_iterator_requirements should not be defined before c++23"
 #  endif
@@ -310,10 +314,6 @@
 
 #  ifdef __cpp_lib_debugging
 #    error "__cpp_lib_debugging should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_define_static
@@ -1076,6 +1076,10 @@
 #    error "__cpp_lib_stacktrace should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_start_lifetime
+#    error "__cpp_lib_start_lifetime should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_start_lifetime_as
 #    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
 #  endif
@@ -1212,6 +1216,10 @@
 
 #  ifdef __cpp_lib_addressof_constexpr
 #    error "__cpp_lib_addressof_constexpr should not be defined before c++17"
+#  endif
+
+#  ifdef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_algorithm_iterator_requirements
@@ -1502,10 +1510,6 @@
 
 #  ifdef __cpp_lib_debugging
 #    error "__cpp_lib_debugging should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_define_static
@@ -2319,6 +2323,10 @@
 #    error "__cpp_lib_stacktrace should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_start_lifetime
+#    error "__cpp_lib_start_lifetime should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_start_lifetime_as
 #    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
 #  endif
@@ -2473,6 +2481,10 @@
 #  endif
 #  if __cpp_lib_addressof_constexpr != 201603L
 #    error "__cpp_lib_addressof_constexpr should have the value 201603L in c++17"
+#  endif
+
+#  ifdef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_algorithm_iterator_requirements
@@ -2796,10 +2808,6 @@
 
 #  ifdef __cpp_lib_debugging
 #    error "__cpp_lib_debugging should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_define_static
@@ -3736,6 +3744,10 @@
 #    error "__cpp_lib_stacktrace should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_start_lifetime
+#    error "__cpp_lib_start_lifetime should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_start_lifetime_as
 #    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
 #  endif
@@ -3917,6 +3929,10 @@
 #  endif
 #  if __cpp_lib_addressof_constexpr != 201603L
 #    error "__cpp_lib_addressof_constexpr should have the value 201603L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_algorithm_iterator_requirements
@@ -4342,10 +4358,6 @@
 
 #  ifdef __cpp_lib_debugging
 #    error "__cpp_lib_debugging should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_define_static
@@ -5405,6 +5417,10 @@
 #    error "__cpp_lib_stacktrace should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_start_lifetime
+#    error "__cpp_lib_start_lifetime should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_start_lifetime_as
 #    error "__cpp_lib_start_lifetime_as should not be defined before c++23"
 #  endif
@@ -5616,6 +5632,10 @@
 #  endif
 #  if __cpp_lib_addressof_constexpr != 201603L
 #    error "__cpp_lib_addressof_constexpr should have the value 201603L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_algorithm_iterator_requirements
@@ -6077,10 +6097,6 @@
 
 #  ifdef __cpp_lib_debugging
 #    error "__cpp_lib_debugging should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_define_static
@@ -7272,6 +7288,10 @@
 #    error "__cpp_lib_stacktrace should have the value 202011L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_start_lifetime
+#    error "__cpp_lib_start_lifetime should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_start_lifetime_as
 #    error "__cpp_lib_start_lifetime_as should be defined in c++23"
 #  endif
@@ -7507,6 +7527,13 @@
 #  endif
 #  if __cpp_lib_addressof_constexpr != 201603L
 #    error "__cpp_lib_addressof_constexpr should have the value 201603L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should be defined in c++26"
+#  endif
+#  if __cpp_lib_algorithm_default_value_type != 202603L
+#    error "__cpp_lib_algorithm_default_value_type should have the value 202603L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_algorithm_iterator_requirements
@@ -8028,13 +8055,6 @@
 #  endif
 #  if __cpp_lib_debugging != 202403L
 #    error "__cpp_lib_debugging should have the value 202403L in c++26"
-#  endif
-
-#  ifndef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should be defined in c++26"
-#  endif
-#  if __cpp_lib_default_template_type_for_algorithm_values != 202403L
-#    error "__cpp_lib_default_template_type_for_algorithm_values should have the value 202403L in c++26"
 #  endif
 
 #  if __has_feature(reflection)
@@ -9635,6 +9655,13 @@
 #  endif
 #  if __cpp_lib_stacktrace != 202011L
 #    error "__cpp_lib_stacktrace should have the value 202011L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_start_lifetime
+#    error "__cpp_lib_start_lifetime should be defined in c++26"
+#  endif
+#  if __cpp_lib_start_lifetime != 202603L
+#    error "__cpp_lib_start_lifetime should have the value 202603L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_start_lifetime_as

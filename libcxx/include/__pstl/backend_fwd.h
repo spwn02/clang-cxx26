@@ -159,6 +159,29 @@ template <class _Backend, class _ExecutionPolicy>
 struct __ranges_bounded_unique_copy;
 template <class _Backend, class _ExecutionPolicy>
 struct __ranges_partial_sort_copy;
+// The execution-policy overloads of the algorithms of [specialized.algorithms] ([memory.syn]): every overload is
+// expressed with a count, the front ends compute it from the iterators and sentinels.
+//
+// optional<pair<_InIter, _OutIter>> __memory_copy_n(_Policy&&, _InIter, _Size, _OutIter, __type_identity<_ValueType>)
+template <class _Backend, class _ExecutionPolicy>
+struct __memory_copy_n;
+// optional<pair<_InIter, _OutIter>>
+//   __memory_move_n(_Policy&&, _InIter, _Size, _OutIter, __type_identity<_ValueType>, _IterMove)
+template <class _Backend, class _ExecutionPolicy>
+struct __memory_move_n;
+// optional<_Iter> __memory_fill_n(_Policy&&, _Iter, _Size, const _Tp&, __type_identity<_ValueType>)
+template <class _Backend, class _ExecutionPolicy>
+struct __memory_fill_n;
+// optional<_Iter> __memory_default_construct_n(_Policy&&, _Iter, _Size, __type_identity<_ValueType>)
+template <class _Backend, class _ExecutionPolicy>
+struct __memory_default_construct_n;
+// optional<_Iter> __memory_value_construct_n(_Policy&&, _Iter, _Size, __type_identity<_ValueType>)
+template <class _Backend, class _ExecutionPolicy>
+struct __memory_value_construct_n;
+// optional<_Iter> __memory_destroy_n(_Policy&&, _Iter, _Size)
+template <class _Backend, class _ExecutionPolicy>
+struct __memory_destroy_n;
+
 template <class _Backend, class _ExecutionPolicy>
 struct __ranges_bounded_copy;
 template <class _Backend, class _ExecutionPolicy>

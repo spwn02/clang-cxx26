@@ -20,6 +20,10 @@
 
 #if TEST_STD_VER < 14
 
+#  ifdef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_allocator_traits_is_always_equal
 #    error "__cpp_lib_allocator_traits_is_always_equal should not be defined before c++17"
 #  endif
@@ -30,10 +34,6 @@
 
 #  ifdef __cpp_lib_containers_ranges
 #    error "__cpp_lib_containers_ranges should not be defined before c++23"
-#  endif
-
-#  ifdef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_erase_if
@@ -58,6 +58,10 @@
 
 #elif TEST_STD_VER == 14
 
+#  ifdef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_allocator_traits_is_always_equal
 #    error "__cpp_lib_allocator_traits_is_always_equal should not be defined before c++17"
 #  endif
@@ -68,10 +72,6 @@
 
 #  ifdef __cpp_lib_containers_ranges
 #    error "__cpp_lib_containers_ranges should not be defined before c++23"
-#  endif
-
-#  ifdef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_erase_if
@@ -96,6 +96,10 @@
 
 #elif TEST_STD_VER == 17
 
+#  ifdef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_allocator_traits_is_always_equal
 #    error "__cpp_lib_allocator_traits_is_always_equal should be defined in c++17"
 #  endif
@@ -109,10 +113,6 @@
 
 #  ifdef __cpp_lib_containers_ranges
 #    error "__cpp_lib_containers_ranges should not be defined before c++23"
-#  endif
-
-#  ifdef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_erase_if
@@ -143,6 +143,10 @@
 
 #elif TEST_STD_VER == 20
 
+#  ifdef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_allocator_traits_is_always_equal
 #    error "__cpp_lib_allocator_traits_is_always_equal should be defined in c++20"
 #  endif
@@ -156,10 +160,6 @@
 
 #  ifdef __cpp_lib_containers_ranges
 #    error "__cpp_lib_containers_ranges should not be defined before c++23"
-#  endif
-
-#  ifdef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_erase_if
@@ -196,6 +196,10 @@
 
 #elif TEST_STD_VER == 23
 
+#  ifdef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_allocator_traits_is_always_equal
 #    error "__cpp_lib_allocator_traits_is_always_equal should be defined in c++23"
 #  endif
@@ -212,10 +216,6 @@
 #  endif
 #  if __cpp_lib_containers_ranges != 202202L
 #    error "__cpp_lib_containers_ranges should have the value 202202L in c++23"
-#  endif
-
-#  ifdef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_erase_if
@@ -252,6 +252,13 @@
 
 #elif TEST_STD_VER > 23
 
+#  ifndef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should be defined in c++26"
+#  endif
+#  if __cpp_lib_algorithm_default_value_type != 202603L
+#    error "__cpp_lib_algorithm_default_value_type should have the value 202603L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_allocator_traits_is_always_equal
 #    error "__cpp_lib_allocator_traits_is_always_equal should be defined in c++26"
 #  endif
@@ -271,13 +278,6 @@
 #  endif
 #  if __cpp_lib_containers_ranges != 202202L
 #    error "__cpp_lib_containers_ranges should have the value 202202L in c++26"
-#  endif
-
-#  ifndef __cpp_lib_default_template_type_for_algorithm_values
-#    error "__cpp_lib_default_template_type_for_algorithm_values should be defined in c++26"
-#  endif
-#  if __cpp_lib_default_template_type_for_algorithm_values != 202403L
-#    error "__cpp_lib_default_template_type_for_algorithm_values should have the value 202403L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_erase_if

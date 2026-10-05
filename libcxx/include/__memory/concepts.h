@@ -54,6 +54,27 @@ concept __nothrow_forward_iterator =
 template <class _Rp>
 concept __nothrow_forward_range = __nothrow_input_range<_Rp> && __nothrow_forward_iterator<iterator_t<_Rp>>;
 
+template <class _Sp, class _Ip>
+concept __nothrow_sized_sentinel_for = __nothrow_sentinel_for<_Sp, _Ip> && sized_sentinel_for<_Sp, _Ip>;
+
+template <class _Ip>
+concept __nothrow_bidirectional_iterator = __nothrow_forward_iterator<_Ip> && bidirectional_iterator<_Ip>;
+
+template <class _Rp>
+concept __nothrow_bidirectional_range =
+    __nothrow_forward_range<_Rp> && __nothrow_bidirectional_iterator<iterator_t<_Rp>>;
+
+template <class _Ip>
+concept __nothrow_random_access_iterator =
+    __nothrow_bidirectional_iterator<_Ip> && random_access_iterator<_Ip> && __nothrow_sized_sentinel_for<_Ip, _Ip>;
+
+template <class _Rp>
+concept __nothrow_random_access_range =
+    __nothrow_bidirectional_range<_Rp> && __nothrow_random_access_iterator<iterator_t<_Rp>>;
+
+template <class _Rp>
+concept __nothrow_sized_random_access_range = __nothrow_random_access_range<_Rp> && sized_range<_Rp>;
+
 } // namespace ranges
 
 #endif // _LIBCPP_STD_VER >= 20

@@ -31,6 +31,9 @@ export namespace std {
 #endif
 
   // [obj.lifetime], explicit lifetime management
+#if _LIBCPP_STD_VER >= 26
+  using std::start_lifetime;
+#endif
   using std::start_lifetime_as;
   using std::start_lifetime_as_array;
 

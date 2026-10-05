@@ -99,6 +99,13 @@ feature_test_macros = [
             "headers": ["memory"],
         },
         {
+            "name": "__cpp_lib_algorithm_default_value_type",
+            "values": {
+                "c++26": 202603  # P2248R8 Enabling list-initialization for algorithms (202403), P3787R2 adjoints: uninitialized_fill (202603)
+            },
+            "headers": ["algorithm", "deque", "forward_list", "list", "memory", "ranges", "string", "vector"],
+        },
+        {
             "name": "__cpp_lib_algorithm_iterator_requirements",
             "values": {"c++23": 202207},  # P2408R5 Ranges iterators as inputs to non-Ranges algorithms
             "headers": ["algorithm", "memory", "numeric"],
@@ -519,11 +526,6 @@ feature_test_macros = [
                 "c++26": 202403, # P2810R4: is_debugger_present is_replaceable
             },
             "headers": ["debugging"],
-        },
-        {
-            "name": "__cpp_lib_default_template_type_for_algorithm_values",
-            "values": {"c++26": 202403}, # P2248R8: Enabling list-initialization for algorithms
-            "headers": ["algorithm", "deque", "forward_list", "list", "ranges", "string", "vector"],
         },
         {
             "name": "__cpp_lib_define_static",
@@ -1699,6 +1701,11 @@ feature_test_macros = [
             # P0881R7 adopted <stacktrace> for C++23.
             "values": {"c++23": 202011},
             "headers": ["stacktrace"],
+        },
+        {
+            "name": "__cpp_lib_start_lifetime",
+            "values": {"c++26": 202603},  # P3726R2 Adjustments to Union Lifetime Rules (std::start_lifetime)
+            "headers": ["memory"],
         },
         {
             "name": "__cpp_lib_start_lifetime_as",

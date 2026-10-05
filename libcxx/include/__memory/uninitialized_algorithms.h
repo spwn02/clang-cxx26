@@ -114,7 +114,12 @@ __uninitialized_fill(_ForwardIterator __first, _Sentinel __last, const _Tp& __x)
   return __idx;
 }
 
-template <class _ForwardIterator, class _Tp>
+template <class _ForwardIterator,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type // P2248R8
+#endif
+          >
 inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
 uninitialized_fill(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __x) {
   typedef typename iterator_traits<_ForwardIterator>::value_type _ValueType;
@@ -135,7 +140,13 @@ __uninitialized_fill_n(_ForwardIterator __first, _Size __n, const _Tp& __x) {
   return __idx;
 }
 
-template <class _ForwardIterator, class _Size, class _Tp>
+template <class _ForwardIterator,
+          class _Size,
+          class _Tp
+#if _LIBCPP_STD_VER >= 26
+          = typename iterator_traits<_ForwardIterator>::value_type // P2248R8
+#endif
+          >
 inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _ForwardIterator
 uninitialized_fill_n(_ForwardIterator __first, _Size __n, const _Tp& __x) {
   typedef typename iterator_traits<_ForwardIterator>::value_type _ValueType;

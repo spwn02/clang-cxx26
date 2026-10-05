@@ -77,14 +77,28 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 template <class _Tp>
 struct atomic;
 
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class _LIBCPP_EXPORTED_FROM_ABI bad_weak_ptr : public std::exception {
 public:
+#if _LIBCPP_STD_VER >= 26
+  // [util.smartptr.weak.bad], [exception]: constexpr special member functions and what() (P3378R2).
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_weak_ptr() _NOEXCEPT                               = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_weak_ptr(const bad_weak_ptr&) _NOEXCEPT            = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_weak_ptr& operator=(const bad_weak_ptr&) _NOEXCEPT = default;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr ~bad_weak_ptr() _NOEXCEPT override {}
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr const char* what() const _NOEXCEPT override {
+    return "bad_weak_ptr";
+  }
+#else
   _LIBCPP_HIDE_FROM_ABI bad_weak_ptr() _NOEXCEPT                               = default;
   _LIBCPP_HIDE_FROM_ABI bad_weak_ptr(const bad_weak_ptr&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI bad_weak_ptr& operator=(const bad_weak_ptr&) _NOEXCEPT = default;
   ~bad_weak_ptr() _NOEXCEPT override;
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
+#endif
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 [[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI void __throw_bad_weak_ptr() {
 #if _LIBCPP_HAS_EXCEPTIONS
@@ -99,6 +113,7 @@ class weak_ptr;
 
 template <class _Tp, class _Dp, class _Alloc>
 class __shared_ptr_pointer : public __shared_weak_count {
+protected:
   _LIBCPP_COMPRESSED_TRIPLE(_Tp, __ptr_, _Dp, __deleter_, _Alloc, __alloc_);
 
 public:
@@ -149,6 +164,27 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 void __shared_ptr_pointer<_Tp, _Dp, _Alloc>::__on_
   __alloc_.~_Alloc();
   __a.deallocate(_PTraits::pointer_to(*this), 1);
 }
+
+#if _LIBCPP_STD_VER >= 26
+// The constructors of shared_ptr taking an allocator allocate the control block with that allocator. During constant
+// evaluation the block is released through the same allocator (the base class deletes it with `delete`, which is only
+// valid for blocks created with `new`).
+template <class _Tp, class _Dp, class _Alloc>
+class __shared_ptr_pointer_allocated final : public __shared_ptr_pointer<_Tp, _Dp, _Alloc> {
+public:
+  using __shared_ptr_pointer<_Tp, _Dp, _Alloc>::__shared_ptr_pointer;
+
+private:
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 void __on_zero_shared_weak() _NOEXCEPT override {
+    typedef typename __allocator_traits_rebind<_Alloc, __shared_ptr_pointer_allocated>::type _Al;
+    typedef allocator_traits<_Al> _ATraits;
+    typedef pointer_traits<typename _ATraits::pointer> _PTraits;
+    _Al __a(this->__alloc_);
+    this->__alloc_.~_Alloc();
+    __a.deallocate(_PTraits::pointer_to(*this), 1);
+  }
+};
+#endif // _LIBCPP_STD_VER >= 26
 
 // This tag is used to instantiate an allocator type. The various shared_ptr control blocks
 // detect that the allocator has been instantiated for this type and perform alternative
@@ -377,24 +413,43 @@ public:
     __guard.__complete();
   }
 
+  // Allocates a control block with the allocator and constructs it there.
+  template <class _CntrlBlk, class _Pp, class _Dp, class _Alloc>
+  _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR_SINCE_CXX26 __shared_weak_count*
+  __make_allocated_control_block(_Pp __p, _Dp __d, _Alloc __a) {
+    typedef typename __allocator_traits_rebind<_Alloc, _CntrlBlk>::type _A2;
+    typedef __allocator_destructor<_A2> _D2;
+    _A2 __a2(__a);
+    unique_ptr<_CntrlBlk, _D2> __hold2(__a2.allocate(1), _D2(__a2, 1));
+    ::new ((void*)std::addressof(*__hold2.get())) _CntrlBlk(__p, std::move(__d), __a);
+    return std::addressof(*__hold2.release());
+  }
+
   template <class _Yp,
             class _Dp,
             class _Alloc,
             __enable_if_t<__shared_ptr_deleter_ctor_reqs<_Dp, _Yp, _Tp>::value, int> = 0>
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 shared_ptr(_Yp* __p, _Dp __d, _Alloc __a) : __ptr_(__p) {
     auto __guard = std::__make_exception_guard([&] { __d(__p); });
-    typedef __shared_ptr_pointer<_Yp*, _Dp, _Alloc> _CntrlBlk;
-    typedef typename __allocator_traits_rebind<_Alloc, _CntrlBlk>::type _A2;
-    typedef __allocator_destructor<_A2> _D2;
-    _A2 __a2(__a);
-    unique_ptr<_CntrlBlk, _D2> __hold2(__a2.allocate(1), _D2(__a2, 1));
-    ::new ((void*)std::addressof(*__hold2.get()))
+#if _LIBCPP_STD_VER >= 26
+    if consteval {
+      __cntrl_ = __make_allocated_control_block<__shared_ptr_pointer_allocated<_Yp*, _Dp, _Alloc> >(__p, std::move(__d), __a);
+    } else
+#endif
+    {
+      typedef __shared_ptr_pointer<_Yp*, _Dp, _Alloc> _CntrlBlk;
+      typedef typename __allocator_traits_rebind<_Alloc, _CntrlBlk>::type _A2;
+      typedef __allocator_destructor<_A2> _D2;
+      _A2 __a2(__a);
+      unique_ptr<_CntrlBlk, _D2> __hold2(__a2.allocate(1), _D2(__a2, 1));
+      ::new ((void*)std::addressof(*__hold2.get()))
 #ifndef _LIBCPP_CXX03_LANG
-        _CntrlBlk(__p, std::move(__d), __a);
+          _CntrlBlk(__p, std::move(__d), __a);
 #else
-        _CntrlBlk(__p, __d, __a);
+          _CntrlBlk(__p, __d, __a);
 #endif // not _LIBCPP_CXX03_LANG
-    __cntrl_ = std::addressof(*__hold2.release());
+      __cntrl_ = std::addressof(*__hold2.release());
+    }
     __enable_weak_this(__p, __p);
     __guard.__complete();
   }
@@ -424,18 +479,25 @@ public:
       __enable_if_t<__shared_ptr_nullptr_deleter_ctor_reqs<_Dp>::value, __nullptr_sfinae_tag> = __nullptr_sfinae_tag())
       : __ptr_(nullptr) {
     auto __guard = std::__make_exception_guard([&] { __d(__p); });
-    typedef __shared_ptr_pointer<nullptr_t, _Dp, _Alloc> _CntrlBlk;
-    typedef typename __allocator_traits_rebind<_Alloc, _CntrlBlk>::type _A2;
-    typedef __allocator_destructor<_A2> _D2;
-    _A2 __a2(__a);
-    unique_ptr<_CntrlBlk, _D2> __hold2(__a2.allocate(1), _D2(__a2, 1));
-    ::new ((void*)std::addressof(*__hold2.get()))
+#if _LIBCPP_STD_VER >= 26
+    if consteval {
+      __cntrl_ = __make_allocated_control_block<__shared_ptr_pointer_allocated<nullptr_t, _Dp, _Alloc> >(__p, std::move(__d), __a);
+    } else
+#endif
+    {
+      typedef __shared_ptr_pointer<nullptr_t, _Dp, _Alloc> _CntrlBlk;
+      typedef typename __allocator_traits_rebind<_Alloc, _CntrlBlk>::type _A2;
+      typedef __allocator_destructor<_A2> _D2;
+      _A2 __a2(__a);
+      unique_ptr<_CntrlBlk, _D2> __hold2(__a2.allocate(1), _D2(__a2, 1));
+      ::new ((void*)std::addressof(*__hold2.get()))
 #ifndef _LIBCPP_CXX03_LANG
-        _CntrlBlk(__p, std::move(__d), __a);
+          _CntrlBlk(__p, std::move(__d), __a);
 #else
-        _CntrlBlk(__p, __d, __a);
+          _CntrlBlk(__p, __d, __a);
 #endif // not _LIBCPP_CXX03_LANG
-    __cntrl_ = std::addressof(*__hold2.release());
+      __cntrl_ = std::addressof(*__hold2.release());
+    }
     __guard.__complete();
   }
 
@@ -746,7 +808,22 @@ allocate_shared(const _Alloc& __a, _Args&&... __args) {
   // a real constant expression for an arbitrary custom allocator; nothing
   // in this fork's scope for P3037R6 requires that yet.
   if consteval {
-    if constexpr (is_same<_Alloc, allocator<__remove_cv_t<_Tp> > >::value) {
+    if constexpr (is_same<typename _Alloc::value_type, __for_overwrite_tag>::value) {
+      // allocate_shared_for_overwrite ([util.smartptr.shared.create]): the object is default-initialized with a
+      // placement new, the allocator's construct is not used. The allocator is the user's, rebound to the tag type.
+      using _Val       = __remove_cv_t<_Tp>;
+      using _TpAlloc   = typename __allocator_traits_rebind<_Alloc, _Val>::type;
+      using _TpPointer = typename allocator_traits<_TpAlloc>::pointer;
+      _TpAlloc __tmp(__a);
+      _TpPointer __fancy_p = allocator_traits<_TpAlloc>::allocate(__tmp, 1);
+      ::new (static_cast<void*>(std::addressof(*__fancy_p))) _Val;
+      _Tp* __p = std::addressof(*__fancy_p);
+      return shared_ptr<_Tp>(__p, [__tmp, __fancy_p](_Tp*) mutable {
+        _TpAlloc __d(__tmp);
+        std::destroy_at(std::addressof(*__fancy_p));
+        allocator_traits<_TpAlloc>::deallocate(__d, __fancy_p, 1);
+      });
+    } else if constexpr (is_same<_Alloc, allocator<__remove_cv_t<_Tp> > >::value) {
       return shared_ptr<_Tp>(new _Tp(std::forward<_Args>(__args)...));
     } else {
       // allocator_traits<_TpAlloc>::pointer is not necessarily a raw
@@ -784,14 +861,15 @@ template <class _Tp, class... _Args, __enable_if_t<!is_array<_Tp>::value, int> =
 #if _LIBCPP_STD_VER >= 20
 
 template <class _Tp, class _Alloc, __enable_if_t<!is_array<_Tp>::value, int> = 0>
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI shared_ptr<_Tp> allocate_shared_for_overwrite(const _Alloc& __a) {
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 shared_ptr<_Tp>
+allocate_shared_for_overwrite(const _Alloc& __a) {
   using _ForOverwriteAllocator = __allocator_traits_rebind_t<_Alloc, __for_overwrite_tag>;
   _ForOverwriteAllocator __alloc(__a);
   return std::allocate_shared<_Tp>(__alloc);
 }
 
 template <class _Tp, __enable_if_t<!is_array<_Tp>::value, int> = 0>
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI shared_ptr<_Tp> make_shared_for_overwrite() {
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 shared_ptr<_Tp> make_shared_for_overwrite() {
   return std::allocate_shared_for_overwrite<_Tp>(allocator<__remove_cv_t<_Tp>>());
 }
 
@@ -895,7 +973,7 @@ private:
 // path, just without the extra control-block indirection, which isn't
 // needed here since shared_ptr's (pointer, deleter) constructor already
 // creates its own control block for the reference count.
-template <class _Elem, class _Alloc>
+template <class _Elem, class _Alloc, bool _ForOverwrite = false>
 struct __consteval_array_deleter {
   _LIBCPP_NO_UNIQUE_ADDRESS _Alloc __alloc_;
   size_t __count_;
@@ -908,7 +986,13 @@ struct __consteval_array_deleter {
     _Alloc __value_alloc(__alloc_);
     using _PointerTraits = pointer_traits<typename allocator_traits<_Alloc>::pointer>;
     auto __fancy         = _PointerTraits::pointer_to(*__p);
-    std::__allocator_destroy_multidimensional(__value_alloc, __fancy, __fancy + __count_);
+    if constexpr (_ForOverwrite) {
+      // [util.smartptr.shared.create]: the elements of a for_overwrite array were default-initialized without the
+      // allocator, they are destroyed without it too.
+      std::__reverse_destroy(__fancy, __fancy + __count_);
+    } else {
+      std::__allocator_destroy_multidimensional(__value_alloc, __fancy, __fancy + __count_);
+    }
     allocator_traits<_Alloc>::deallocate(__value_alloc, __fancy, __count_);
   }
 };
@@ -934,12 +1018,19 @@ _LIBCPP_HIDE_FROM_ABI constexpr shared_ptr<_Array> __allocate_shared_array_const
   // itself always stores a raw pointer, so convert once construction is
   // done (the deleter reconstructs the fancy pointer via pointer_to).
   auto __fancy_result = allocator_traits<_ValueAlloc>::allocate(__value_alloc, __n);
-  if constexpr (sizeof...(_Arg) == 0)
-    std::__uninitialized_allocator_value_construct_n_multidimensional(__value_alloc, __fancy_result, __n);
-  else
+  constexpr bool __for_overwrite = is_same<typename _Alloc::value_type, __for_overwrite_tag>::value;
+  if constexpr (sizeof...(_Arg) == 0) {
+    if constexpr (__for_overwrite) {
+      // We are purposefully not using an allocator-aware default construction because the spec says so.
+      std::uninitialized_default_construct_n(__fancy_result, __n);
+    } else {
+      std::__uninitialized_allocator_value_construct_n_multidimensional(__value_alloc, __fancy_result, __n);
+    }
+  } else {
     std::__uninitialized_allocator_fill_n_multidimensional(__value_alloc, __fancy_result, __n, __arg...);
+  }
   _Elem* __result = std::to_address(__fancy_result);
-  return shared_ptr<_Array>(__result, __consteval_array_deleter<_Elem, _ValueAlloc>{__value_alloc, __n});
+  return shared_ptr<_Array>(__result, __consteval_array_deleter<_Elem, _ValueAlloc, __for_overwrite>{__value_alloc, __n});
 }
 #endif // _LIBCPP_STD_VER >= 26
 
@@ -1592,19 +1683,19 @@ struct owner_hash {
 
 struct owner_equal {
   template <class _Tp, class _Up>
-  _LIBCPP_HIDE_FROM_ABI bool operator()(shared_ptr<_Tp> const& __x, shared_ptr<_Up> const& __y) const _NOEXCEPT {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool operator()(shared_ptr<_Tp> const& __x, shared_ptr<_Up> const& __y) const _NOEXCEPT {
     return __x.owner_equal(__y);
   }
   template <class _Tp, class _Up>
-  _LIBCPP_HIDE_FROM_ABI bool operator()(shared_ptr<_Tp> const& __x, weak_ptr<_Up> const& __y) const _NOEXCEPT {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool operator()(shared_ptr<_Tp> const& __x, weak_ptr<_Up> const& __y) const _NOEXCEPT {
     return __x.owner_equal(__y);
   }
   template <class _Tp, class _Up>
-  _LIBCPP_HIDE_FROM_ABI bool operator()(weak_ptr<_Tp> const& __x, shared_ptr<_Up> const& __y) const _NOEXCEPT {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool operator()(weak_ptr<_Tp> const& __x, shared_ptr<_Up> const& __y) const _NOEXCEPT {
     return __x.owner_equal(__y);
   }
   template <class _Tp, class _Up>
-  _LIBCPP_HIDE_FROM_ABI bool operator()(weak_ptr<_Tp> const& __x, weak_ptr<_Up> const& __y) const _NOEXCEPT {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool operator()(weak_ptr<_Tp> const& __x, weak_ptr<_Up> const& __y) const _NOEXCEPT {
     return __x.owner_equal(__y);
   }
 
