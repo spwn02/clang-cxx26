@@ -3237,6 +3237,10 @@ module std [system] {
       header "__mdspan/layout_left_padded.h"
       export *
     }
+    module layout_padded_helpers {
+      header "__mdspan/layout_padded_helpers.h"
+      export *
+    }
     module layout_right {
       header "__mdspan/layout_right.h"
       export *

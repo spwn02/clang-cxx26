@@ -19,6 +19,7 @@
 
 #include <__config>
 #include <__cstddef/size_t.h>
+#include <__fwd/span.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -49,24 +50,16 @@ struct layout_stride {
   class mapping;
 };
 
-template <size_t _PaddingValue>
+template <size_t _PaddingValue = dynamic_extent>
 struct layout_left_padded {
   template <class _Extents>
   class mapping;
-  template <class _Extents>
-  mapping(const _Extents&) -> mapping<_Extents>;
-  template <class _Extents, class _Padding>
-  mapping(const _Extents&, _Padding) -> mapping<_Extents>;
 };
 
-template <size_t _PaddingValue>
+template <size_t _PaddingValue = dynamic_extent>
 struct layout_right_padded {
   template <class _Extents>
   class mapping;
-  template <class _Extents>
-  mapping(const _Extents&) -> mapping<_Extents>;
-  template <class _Extents, class _Padding>
-  mapping(const _Extents&, _Padding) -> mapping<_Extents>;
 };
 
 #endif // _LIBCPP_STD_VER >= 23

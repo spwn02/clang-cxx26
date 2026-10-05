@@ -22,6 +22,7 @@
 #include <__cstddef/size_t.h>
 #include <__fwd/mdspan.h>
 #include <__mdspan/extents.h>
+#include <__mdspan/layout_padded_helpers.h>
 #include <__memory/addressof.h>
 #include <__type_traits/common_type.h>
 #include <__type_traits/is_constructible.h>
@@ -109,6 +110,31 @@ public:
         "layout_right::mapping converting ctor: other.required_span_size() must be representable as index_type.");
   }
 
+#  if _LIBCPP_STD_VER >= 26
+  template <class _LayoutRightPaddedMapping>
+    requires(__mdspan_detail::__is_layout_right_padded_mapping_of<_LayoutRightPaddedMapping> &&
+             is_constructible_v<extents_type, typename _LayoutRightPaddedMapping::extents_type>)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit(!is_convertible_v<typename _LayoutRightPaddedMapping::extents_type, extents_type>)
+      mapping(const _LayoutRightPaddedMapping& __other) noexcept
+      : __extents_(__other.extents()) {
+    if constexpr (extents_type::rank() > 1 && extents_type::static_extent(extents_type::rank() - 1) != dynamic_extent &&
+                  __mdspan_detail::__padded_static_stride<_LayoutRightPaddedMapping, false> != dynamic_extent)
+      static_assert(extents_type::static_extent(extents_type::rank() - 1) ==
+                        __mdspan_detail::__padded_static_stride<_LayoutRightPaddedMapping, false>,
+                    "layout_right::mapping from layout_right_padded: static last extent must equal the static "
+                    "padding stride.");
+    if constexpr (extents_type::rank() > 1)
+      _LIBCPP_ASSERT_UNCATEGORIZED(
+          static_cast<size_t>(__other.stride(extents_type::rank() - 2)) ==
+              static_cast<size_t>(__other.extents().extent(extents_type::rank() - 1)),
+          "layout_right::mapping from layout_right_padded: other.stride(rank - 2) must equal the last extent.");
+    _LIBCPP_ASSERT_UNCATEGORIZED(
+        __mdspan_detail::__is_representable_as<index_type>(__other.required_span_size()),
+        "layout_right::mapping from layout_right_padded: other.required_span_size() must be representable as "
+        "index_type.");
+  }
+#  endif // _LIBCPP_STD_VER >= 26
+
   template <class _OtherExtents>
     requires(is_constructible_v<extents_type, _OtherExtents>)
   _LIBCPP_HIDE_FROM_ABI constexpr explicit(extents_type::rank() > 0)
@@ -189,6 +215,17 @@ public:
   }
 
 private:
+#  if _LIBCPP_STD_VER >= 26
+  template <class... _SliceSpecifiers>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto __submdspan_mapping_impl(_SliceSpecifiers... __slices) const;
+
+  template <class... _SliceSpecifiers>
+    requires(sizeof...(_SliceSpecifiers) == extents_type::rank())
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto submdspan_mapping(const mapping& __src, _SliceSpecifiers... __slices) {
+    return __src.__submdspan_mapping_impl(__slices...);
+  }
+
+#  endif
   _LIBCPP_NO_UNIQUE_ADDRESS extents_type __extents_{};
 };
 

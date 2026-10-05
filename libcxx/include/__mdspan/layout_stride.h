@@ -22,6 +22,7 @@
 #include <__config>
 #include <__fwd/mdspan.h>
 #include <__mdspan/extents.h>
+#include <__mdspan/layout_padded_helpers.h>
 #include <__memory/addressof.h>
 #include <__type_traits/common_type.h>
 #include <__type_traits/is_constructible.h>
@@ -48,10 +49,6 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #if _LIBCPP_STD_VER >= 23
 
 namespace __mdspan_detail {
-template <class _Layout, class _Mapping>
-constexpr bool __is_mapping_of =
-    is_same_v<typename _Layout::template mapping<typename _Mapping::extents_type>, _Mapping>;
-
 template <class _Mapping>
 concept __layout_mapping_alike = requires {
   requires __is_mapping_of<typename _Mapping::layout_type, _Mapping>;
@@ -357,6 +354,17 @@ public:
   }
 
 private:
+#  if _LIBCPP_STD_VER >= 26
+  template <class... _SliceSpecifiers>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto __submdspan_mapping_impl(_SliceSpecifiers... __slices) const;
+
+  template <class... _SliceSpecifiers>
+    requires(sizeof...(_SliceSpecifiers) == extents_type::rank())
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto submdspan_mapping(const mapping& __src, _SliceSpecifiers... __slices) {
+    return __src.__submdspan_mapping_impl(__slices...);
+  }
+
+#  endif
   _LIBCPP_NO_UNIQUE_ADDRESS extents_type __extents_{};
   _LIBCPP_NO_UNIQUE_ADDRESS __mdspan_detail::__possibly_empty_array<index_type, __rank_> __strides_{};
 };

@@ -49,7 +49,6 @@ export namespace std {
   using std::canonical_slices;
   using std::subextents;
   using std::submdspan_mapping_result;
-  using std::submdspan_mapping;
   using std::submdspan;
 #  endif // _LIBCPP_STD_VER >= 26
 #endif // _LIBCPP_STD_VER >= 23

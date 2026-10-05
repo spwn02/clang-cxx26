@@ -642,6 +642,7 @@ set(files
   __mdspan/extents.h
   __mdspan/layout_left.h
   __mdspan/layout_left_padded.h
+  __mdspan/layout_padded_helpers.h
   __mdspan/layout_right.h
   __mdspan/layout_right_padded.h
   __mdspan/layout_stride.h
