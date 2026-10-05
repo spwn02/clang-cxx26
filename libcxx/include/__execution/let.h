@@ -200,6 +200,16 @@ public:
   using __cont_env     = __let_joined_env_t<__let_env_type, _Env>;
   using __probe_rcvr   = __let_probe_rcvr<_Env>;
 
+  // [exec.let]p5 let-state::impl: no exception completion if decay-copying the datums, invoking the function and
+  // connecting the continuation sender are all noexcept. The runtime path (__let_opstate::__intercept) uses the same
+  // value, so that it never completes with an error that is not advertised.
+  template <class... _Args>
+  static constexpr bool __nothrow_for =
+      is_nothrow_constructible_v<__decayed_tuple<_Args...>, _Args...> &&
+      is_nothrow_invocable_v<_Fn, decay_t<_Args>&...> &&
+      noexcept(execution::connect(std::declval<invoke_result_t<_Fn, decay_t<_Args>&...>>(),
+                                  std::declval<__let_cont_rcvr<__probe_rcvr, __let_env_type>>()));
+
   template <class _Sig>
   struct __one {
     using type = type_list<_Sig>;
@@ -216,13 +226,7 @@ public:
   struct __one<_SetCpo(_Args...)> {
     using __cont_sndr = invoke_result_t<_Fn, decay_t<_Args>&...>;
     using __cont_list = typename __sigs_to_list<completion_signatures_of_t<__cont_sndr, __cont_env>>::type;
-    // [exec.let]p5 let-state::impl: no exception completion if decay-copying the datums, invoking the function and
-    // connecting the continuation sender are all noexcept.
-    static constexpr bool __nothrow =
-        is_nothrow_constructible_v<__decayed_tuple<_Args...>, _Args...> &&
-        is_nothrow_invocable_v<_Fn, decay_t<_Args>&...> &&
-        noexcept(execution::connect(std::declval<__cont_sndr>(),
-                                    std::declval<__let_cont_rcvr<__probe_rcvr, __let_env_type>>()));
+    static constexpr bool __nothrow = __nothrow_for<_Args...>;
     using type = __conditional_t<__nothrow,
                                   __cont_list,
                                   typename __concat_type_lists<__cont_list, type_list<set_error_t(exception_ptr)>>::type>;
@@ -400,22 +404,19 @@ class __let_opstate {
 
   template <class... _Args>
   _LIBCPP_HIDE_FROM_ABI constexpr void __intercept(_Args&&... __args) {
-    // Unconditionally guarded, unlike <__execution/then.h>'s nothrow fast path: besides
-    // decay-copying __args and invoking __fn_ (which then.h's equivalent check already
-    // covers), this also calls execution::connect() on the continuation sender, and no
-    // sender's connect() in this tree is declared noexcept (confirmed: just.h, then.h,
-    // read_env.h, run_loop.h all return plain `auto`/a named type with no noexcept-specifier)
-    // -- so a static nothrow check here would almost never trigger the fast path anyway, and
-    // *would* be a real soundness gap for any future sender whose connect() can genuinely
-    // throw. get_completion_signatures (via __let_sig_transform above) still uses the
-    // then-style static nothrow check (args-construction + fn-invocation only) to decide
-    // whether to advertise set_error_t(exception_ptr); this makes the runtime strictly safer
-    // than what's advertised (it always catches), never the reverse, which is the direction
-    // that matters.
-    try {
+    // The error completion is only reachable (and only advertised by get_completion_signatures, through
+    // __let_sig_transform::__nothrow_for) if decay-copying __args, invoking __fn_ or connecting the continuation
+    // sender can throw.
+    using __transform_t      = __let_sig_transform<__set_cpo, _Fn, _Sndr, env_of_t<_Rcvr>>;
+    constexpr bool __nothrow = __transform_t::template __nothrow_for<_Args...>;
+    if constexpr (__nothrow) {
       __start_continuation(std::forward<_Args>(__args)...);
-    } catch (...) {
-      execution::set_error(std::move(__rcvr_), std::current_exception());
+    } else {
+      try {
+        __start_continuation(std::forward<_Args>(__args)...);
+      } catch (...) {
+        execution::set_error(std::move(__rcvr_), std::current_exception());
+      }
     }
   }
 

@@ -23,6 +23,7 @@
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
 #include <__execution/get_scheduler.h>
+#include <__execution/get_stop_token.h>
 #include <__execution/just.h>
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
@@ -37,6 +38,7 @@
 #include <__mutex/mutex.h>
 #include <__stop_token/inplace_stop_source.h>
 #include <__stop_token/inplace_stop_token.h>
+#include <__stop_token/stoppable_token.h>
 #include <__type_traits/conditional.h>
 #include <__type_traits/is_nothrow_constructible.h>
 #include <__type_traits/remove_cvref.h>
@@ -274,7 +276,7 @@ public:
     return __join_opstate<remove_cvref_t<_Rcvr>>(__scope_, std::forward<_Rcvr>(__rcvr));
   }
 
-  template <class _Self, class _Env>
+  template <class _Self, class... _Env>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
     return completion_signatures<set_value_t()>{};
   }
@@ -428,9 +430,14 @@ public:
         __associate_data<_Sndr, _Assoc>(data), std::forward<_Rcvr>(__rcvr));
   }
   auto get_env() const noexcept { return env<>{}; }
-  template <class _Self, class _Env>
+  // [exec.associate] check-types: the wrapped sender's signatures against FWD-ENV-T(Env)...; the completions are those of
+  // the child connected to the receiver (environment: the first of Env..., env<>) plus set_stopped_t() (no association).
+  template <class _Self, class... _Env>
+    requires sender_in<_Sndr, __fwd_env_of_first_t<_Env...>> &&
+             sender_in<_Sndr, typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type>
   static consteval auto get_completion_signatures() {
-    return typename __associate_sigs<completion_signatures_of_t<_Sndr, _Env>>::type{};
+    return typename __associate_sigs<
+        completion_signatures_of_t<_Sndr, typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type>>::type{};
   }
 };
 
@@ -657,11 +664,19 @@ struct __spawn_future_outer_sigs_for<completion_signatures<_Sigs...>> {
 template <class _Completions>
 using __spawn_future_outer_sigs_t = typename __spawn_future_outer_sigs_for<_Completions>::type;
 
+// [exec.spawn.future]p2: try-cancelable.
+struct __try_cancelable {
+  _LIBCPP_HIDE_FROM_ABI virtual void __try_cancel() noexcept = 0;
+
+protected:
+  _LIBCPP_HIDE_FROM_ABI ~__try_cancelable() = default;
+};
+
 // [exec.spawn.future]p3: spawn-future-state-base. Owns the result storage so the receiver (which
 // only needs to populate it and signal completion) doesn't need to know the concrete state type,
 // only this base -- mirrors __spawn_op_base's own role in spawn() above.
 template <class _Completions>
-struct __spawn_future_state_base {
+struct __spawn_future_state_base : __try_cancelable {
   __spawn_future_variant_t<_Completions> __result;
   _LIBCPP_HIDE_FROM_ABI virtual void __complete() noexcept = 0;
 
@@ -669,12 +684,13 @@ protected:
   _LIBCPP_HIDE_FROM_ABI ~__spawn_future_state_base() = default;
 };
 
-// The virtual sink a registered consume() call completes through once complete() eventually
-// fires -- the state doesn't know the concrete receiver type, only this. Same role as
-// simple_counting_scope::__join_sink_base in Pass 1.
+// The virtual sink a registered consume() call completes through once complete() or
+// try-set-stopped() eventually fires -- the state doesn't know the concrete receiver type, only
+// this. Both operations first deregister the stop callback of the receiver, then complete it.
 template <class _Completions>
 struct __spawn_future_consume_sink {
   _LIBCPP_HIDE_FROM_ABI virtual void __on_complete() noexcept = 0;
+  _LIBCPP_HIDE_FROM_ABI virtual void __on_stopped() noexcept  = 0;
 
 protected:
   _LIBCPP_HIDE_FROM_ABI ~__spawn_future_consume_sink() = default;
@@ -760,132 +776,138 @@ public:
   __spawn_future_state& operator=(const __spawn_future_state&) = delete;
 
   // [exec.spawn.future]p9. Called from __rcvr_t's set_complete, i.e. whenever the wrapped
-  // sender's operation finishes -- possibly synchronously, nested inside __abandon()'s own call
-  // to request_stop() (a callback firing inline because the token was already stop-requested by
-  // something else, or because the child reacts to the request without ever suspending), or
-  // possibly much later and fully asynchronously (a genuinely deferred operation, e.g. scheduled
-  // on a run_loop, completing only once something eventually drains it -- request_stop() itself
-  // returned long ago in that case, its own call frame gone).
+  // sender's operation finishes -- possibly synchronously, nested inside a request_stop() call of
+  // __try_cancel()/__abandon() (a callback firing inline), or possibly much later and fully
+  // asynchronously. The state is destroyed once the operation has finished *and* nothing is left
+  // to tell: a registered receiver is completed with the result first.
   _LIBCPP_HIDE_FROM_ABI void __complete() noexcept override {
     __spawn_future_consume_sink<__sigs_t>* __to_call = nullptr;
     bool __do_destroy                                = false;
     {
       lock_guard<mutex> __lock(__mtx_);
-      switch (__phase_) {
-      case __phase::__initial:
-        __phase_ = __phase::__completed;
-        break;
-      case __phase::__consumed:
-        // Transition to __completed even though the result is being dispatched immediately
-        // below, not stored for a later consume() -- __completed is also "there is nothing left
-        // to wait for," which is exactly what __abandon() needs to see later, once the outer
-        // opstate (and the unique_ptr it owns) is eventually destroyed: __abandon()'s own
-        // __completed branch is "just tear down," the correct action once the registered
-        // receiver has already been (or is about to be) notified. Without this, __phase_ would
-        // stay stuck at __consumed forever, __abandon() would silently no-op on it (its switch
-        // has no __consumed case, since abandonment before consumption and after are the only
-        // two states it's ever meant to observe), and the state -- along with its scope
-        // association -- would never be destroyed at all.
-        __phase_  = __phase::__completed;
-        __to_call = __registered_;
-        break;
-      case __phase::__abandoned:
-        if (__request_stop_in_progress_) {
-          // Running synchronously inside __abandon()'s own still-unwinding call to
-          // request_stop() -- destroying *this now would free __ssource_ out from under that
-          // call. Defer: __abandon() re-checks this flag right after request_stop() returns.
-          __complete_seen_while_abandoned_ = true;
-        } else {
-          // The ordinary case: request_stop() already fully returned (possibly long ago) on a
-          // stack that's gone -- nothing is relying on __ssource_ staying alive, so it's safe to
-          // tear down directly, right here, without waiting for anyone to re-check anything.
-          __do_destroy = true;
-        }
-        break;
-      default:
-        break; // unreachable: complete() cannot fire twice, nor after __completed itself
+      __completed_ = true;
+      if (__registered_) {
+        __to_call        = std::exchange(__registered_, nullptr);
+        __receiver_done_  = true;
+      } else if (__receiver_done_ || __abandoned_) {
+        __do_destroy = true;
       }
+      // Otherwise the result is stored until consume() (or abandon()) arrives.
     }
-    // Nothing below this point may touch any member if __to_call fires and its completion
-    // (transitively) leads to *this being destroyed, nor after __destroy() -- both must be the
-    // last thing this function does with `this`.
     if (__to_call) {
       __to_call->__on_complete();
+      __request_destroy();
     } else if (__do_destroy) {
-      __destroy();
+      __request_destroy();
     }
   }
 
-  // [exec.spawn.future]p10. Called from the outer sender's own opstate::start().
+  // [exec.spawn.future]p10. Called from the outer opstate's start(), which has handed over its
+  // ownership of *this (it is destroyed by complete(), not by the opstate).
   _LIBCPP_HIDE_FROM_ABI void __consume(__spawn_future_consume_sink<__sigs_t>* __sink) noexcept {
-    bool __call_now = false;
+    bool __deliver_result = false;
+    bool __deliver_stop   = false;
     {
       lock_guard<mutex> __lock(__mtx_);
-      switch (__phase_) {
-      case __phase::__initial:
-        __phase_      = __phase::__consumed;
+      __consumed_ = true;
+      if (__completed_) {
+        __deliver_result = true;
+        __receiver_done_ = true;
+      } else if (__stop_pending_) {
+        __deliver_stop   = true;
+        __receiver_done_ = true;
+      } else {
         __registered_ = __sink;
-        break;
-      case __phase::__completed:
-        __call_now = true;
-        break;
-      default:
-        break; // unreachable: consume() is only ever called once, by the one outer opstate
       }
     }
-    if (__call_now) {
+    if (__deliver_result) {
       __sink->__on_complete();
+      __request_destroy();
+    } else if (__deliver_stop) {
+      // The operation has not finished: complete() destroys the state when it does.
+      __sink->__on_stopped();
     }
   }
 
-  // [exec.spawn.future]p11, called from __spawn_future_deleter -- never a direct delete.
-  _LIBCPP_HIDE_FROM_ABI void __abandon() noexcept {
-    bool __request_stop_needed = false;
-    bool __destroy_now         = false;
+  // [exec.spawn.future]p11: stop requested through the consuming receiver's stop token.
+  _LIBCPP_HIDE_FROM_ABI void __try_cancel() noexcept override {
     {
       lock_guard<mutex> __lock(__mtx_);
-      switch (__phase_) {
-      case __phase::__initial:
-        __phase_              = __phase::__abandoned;
-        __request_stop_needed = true;
-        break;
-      case __phase::__completed:
+      ++__busy_;
+    }
+    __ssource_.request_stop();
+    __try_set_stopped();
+    __release_busy();
+  }
+
+  // [exec.spawn.future]p12. Deviation from the literal wording: the draft's try-set-stopped also invokes destroy(), which
+  // would destroy a state whose wrapped operation may still be running (a member), and complete()'s last bullet would
+  // then destroy it a second time. Here the state is destroyed once, by complete(), when the operation has finished.
+  // (No existing LWG issue found for this.)
+  _LIBCPP_HIDE_FROM_ABI void __try_set_stopped() noexcept {
+    __spawn_future_consume_sink<__sigs_t>* __to_call = nullptr;
+    {
+      lock_guard<mutex> __lock(__mtx_);
+      if (__registered_) {
+        __to_call        = std::exchange(__registered_, nullptr);
+        __receiver_done_ = true;
+        __stop_pending_  = true;
+      } else if (!__consumed_ && !__completed_) {
+        __stop_pending_ = true; // consume() will complete the receiver with set_stopped
+      }
+    }
+    if (__to_call) {
+      __to_call->__on_stopped();
+    }
+  }
+
+  // [exec.spawn.future]p13, called from __spawn_future_deleter when the state was never consumed.
+  _LIBCPP_HIDE_FROM_ABI void __abandon() noexcept {
+    bool __destroy_now = false;
+    {
+      lock_guard<mutex> __lock(__mtx_);
+      __abandoned_ = true;
+      if (__completed_) {
         __destroy_now = true;
-        break;
-      default:
-        break; // unreachable: abandon() only ever fires via the unique_ptr's own single deleter
+      } else {
+        ++__busy_;
       }
     }
     if (__destroy_now) {
-      __destroy();
-      return;
-    }
-    if (__request_stop_needed) {
-      {
-        lock_guard<mutex> __lock(__mtx_);
-        __request_stop_in_progress_ = true;
-      }
+      __request_destroy();
+    } else {
       __ssource_.request_stop();
-      // __complete() may have already fired synchronously, from within the call above, while
-      // this function was inside it -- deferring the destroy decision here rather than racing
-      // request_stop()'s own still-unwinding stack. Safe to act on that now: the flag flip below
-      // happens-before any later, asynchronous __complete() could observe
-      // __request_stop_in_progress_ as false and destroy directly itself instead (see
-      // __complete()'s own __phase::__abandoned branch) -- exactly one of the two ever destroys.
-      bool __destroy_after_stop;
-      {
-        lock_guard<mutex> __lock(__mtx_);
-        __request_stop_in_progress_ = false;
-        __destroy_after_stop        = __complete_seen_while_abandoned_;
-      }
-      if (__destroy_after_stop) {
-        __destroy();
-      }
+      __release_busy();
     }
   }
 
 private:
-  // [exec.spawn.future]p12.
+  // Destroy now unless a request_stop() of __try_cancel()/__abandon() is still on the stack
+  // (it would run on a destroyed __ssource_): then the last of those destroys.
+  _LIBCPP_HIDE_FROM_ABI void __request_destroy() noexcept {
+    {
+      lock_guard<mutex> __lock(__mtx_);
+      if (__busy_ != 0) {
+        __destroy_pending_ = true;
+        return;
+      }
+    }
+    __destroy();
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void __release_busy() noexcept {
+    bool __destroy_now;
+    {
+      lock_guard<mutex> __lock(__mtx_);
+      --__busy_;
+      __destroy_now = __busy_ == 0 && __destroy_pending_;
+    }
+    if (__destroy_now) {
+      __destroy();
+    }
+  }
+
+  // [exec.spawn.future]p14.
   _LIBCPP_HIDE_FROM_ABI void __destroy() noexcept {
     auto __associated = std::move(__associated_);
     __alloc_t __a(__alloc_);
@@ -893,40 +915,67 @@ private:
     allocator_traits<__alloc_t>::deallocate(__a, this, 1);
   }
 
-  enum class __phase : unsigned char { __initial, __consumed, __abandoned, __completed };
-
   _Alloc __alloc_;
   inplace_stop_source __ssource_;
   connect_result_t<__wrapped_t, __rcvr_t> __op_;
   decltype(std::declval<_Token>().try_associate()) __associated_;
   mutex __mtx_;
-  __phase __phase_                                     = __phase::__initial;
   __spawn_future_consume_sink<__sigs_t>* __registered_ = nullptr;
-  bool __complete_seen_while_abandoned_                = false;
-  bool __request_stop_in_progress_                     = false;
+  unsigned __busy_                                     = 0;
+  bool __completed_                                    = false; // the wrapped operation has finished
+  bool __consumed_                                     = false; // consume() was called
+  bool __receiver_done_                                = false; // the receiver was completed (result or stopped)
+  bool __stop_pending_                                 = false; // stop was requested before consume()
+  bool __abandoned_                                    = false;
+  bool __destroy_pending_                              = false;
 };
 
-// [exec.spawn.future]p14: the outer sender's own opstate. Owns the unique_ptr (so the state is
-// abandon()ed -- not directly deleted -- whether this opstate is destroyed before start() is
-// ever called, after it, or never at all), and doubles as the consume-sink __complete() dispatches
-// through once a registered receiver's result is ready.
+// [exec.spawn.future]p15: the outer sender's own opstate. Owns the unique_ptr until start() (so the
+// state is abandon()ed -- not directly deleted -- if this opstate is destroyed before start()), then
+// hands the state over to itself: from then on the state destroys itself once the operation has
+// finished. Doubles as the consume-sink the state completes the receiver through, and owns the
+// registration of the receiver's stop callback (a stop request cancels the future: try-cancel).
 template <class _State, class _Rcvr>
 class __spawn_future_opstate final : public __spawn_future_consume_sink<typename _State::__sigs_t> {
+  struct __callback {
+    __try_cancelable* __state_;
+    _LIBCPP_HIDE_FROM_ABI void operator()() noexcept { __state_->__try_cancel(); }
+  };
+  using __stop_token_t    = stop_token_of_t<env_of_t<_Rcvr>>;
+  using __stop_callback_t = stop_callback_for_t<__stop_token_t, __callback>;
+
 public:
   using operation_state_concept = operation_state_tag;
 
   _LIBCPP_HIDE_FROM_ABI
   __spawn_future_opstate(unique_ptr<_State, __spawn_future_deleter<_State>> __state, _Rcvr&& __rcvr)
-      : __state_(std::move(__state)), __rcvr_(std::move(__rcvr)) {}
+      : __state_(std::move(__state)), __raw_(__state_.get()), __rcvr_(std::move(__rcvr)) {}
 
   __spawn_future_opstate(const __spawn_future_opstate&)            = delete;
   __spawn_future_opstate& operator=(const __spawn_future_opstate&) = delete;
 
-  _LIBCPP_HIDE_FROM_ABI void start() & noexcept { __state_->__consume(this); }
+  _LIBCPP_HIDE_FROM_ABI void start() & noexcept {
+    constexpr bool __nothrow = is_nothrow_constructible_v<__stop_callback_t, __stop_token_t, __callback>;
+    try {
+      // The draft writes get_stop_token(rcvr) here, which is ill-formed against its own stop-token-t =
+      // stop_token_of_t<env_of_t<Rcvr>> for a stoppable token; the environment's token is meant (unlike
+      // run_loop's literal get_stop_token(REC(o)), which compiles and is kept as written). Like the draft, a throwing
+      // callback construction completes with set_error(exception_ptr) even though the signatures only advertise it
+      // for throwing datums (dead code for the standard stop tokens).
+      __stop_cb_.emplace(std::get_stop_token(execution::get_env(__rcvr_)), __callback{__raw_});
+    } catch (...) {
+      if constexpr (!__nothrow) {
+        execution::set_error(std::move(__rcvr_), std::current_exception());
+        return;
+      }
+    }
+    __state_.release()->__consume(this);
+  }
 
 private:
   _LIBCPP_HIDE_FROM_ABI void __on_complete() noexcept override {
-    std::move(__state_->__result).visit([this](auto&& __tup) noexcept {
+    __stop_cb_.reset();
+    std::move(__raw_->__result).visit([this](auto&& __tup) noexcept {
       if constexpr (!same_as<remove_cvref_t<decltype(__tup)>, monostate>) {
         std::apply([this](auto __cpo,
                           auto&&... __vals) { __cpo(std::move(__rcvr_), std::forward<decltype(__vals)>(__vals)...); },
@@ -935,8 +984,15 @@ private:
     });
   }
 
+  _LIBCPP_HIDE_FROM_ABI void __on_stopped() noexcept override {
+    __stop_cb_.reset();
+    execution::set_stopped(std::move(__rcvr_));
+  }
+
   unique_ptr<_State, __spawn_future_deleter<_State>> __state_;
+  _State* __raw_;
   _Rcvr __rcvr_;
+  optional<__stop_callback_t> __stop_cb_;
 };
 
 // [exec.spawn.future]p16.3: make-sender(spawn_future, std::move(u)) -- a leaf sender (no child:
@@ -994,7 +1050,7 @@ public:
   // The completion signatures were already fixed the moment spawn_future(sndr, token, env) was
   // called (Env is baked into _State's own type) -- unlike an ordinary adaptor, they don't
   // additionally depend on whatever environment this sender is eventually connected through.
-  template <class _Self, class _Env>
+  template <class _Self, class... _Env>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
     return __spawn_future_outer_sigs_t<typename _State::__sigs_t>{};
   }
