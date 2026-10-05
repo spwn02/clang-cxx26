@@ -256,6 +256,8 @@ struct CodeCompletion {
 raw_ostream &operator<<(raw_ostream &, const CodeCompletion &);
 struct CodeCompleteResult {
   std::vector<CodeCompletion> Completions;
+  // Whether the list is incomplete: more candidates exist than were returned, or
+  // the results are heuristic (see RanParser) and the client should ask again.
   bool HasMore = false;
   CodeCompletionContext::Kind Context = CodeCompletionContext::CCC_Other;
   // The text that is being directly completed.

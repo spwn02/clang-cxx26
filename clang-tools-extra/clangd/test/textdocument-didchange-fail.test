@@ -26,13 +26,25 @@
 {"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"test:///main.cpp"},"contentChanges":[{"range":{"start":{"line":100,"character":0},"end":{"line":100,"character":0}},"text": "foo"}]}}
 ---
 {"jsonrpc":"2.0","id":1,"method":"textDocument/definition","params":{"textDocument":{"uri":"test:///main.cpp"},"position":{"line":0,"character":6}}}
-#      CHECK:  "error": {
-# CHECK-NEXT:    "code": -32602,
-# CHECK-NEXT:    "message": "trying to get AST for non-added document"
-# CHECK-NEXT:  },
-# CHECK-NEXT:  "id": 1,
-# CHECK-NEXT:  "jsonrpc": "2.0"
-# CHECK-NEXT:}
+# A failed incremental change must not drop the draft: the document stays open
+# with its previous contents, so later requests (and changes) still work.
+#      CHECK:  "id": 1,
+# CHECK-NEXT:  "jsonrpc": "2.0",
+# CHECK-NEXT:  "result": [
+# CHECK-NEXT:    {
+# CHECK-NEXT:      "range": {
+# CHECK-NEXT:        "end": {
+# CHECK-NEXT:          "character": 8,
+# CHECK-NEXT:          "line": 0
+# CHECK-NEXT:        },
+# CHECK-NEXT:        "start": {
+# CHECK-NEXT:          "character": 4,
+# CHECK-NEXT:          "line": 0
+# CHECK-NEXT:        }
+# CHECK-NEXT:      },
+# CHECK-NEXT:      "uri": "file://{{.*}}/clangd-test/main.cpp"
+# CHECK-NEXT:    }
+# CHECK-NEXT:  ]
 ---
 {"jsonrpc":"2.0","id":4,"method":"shutdown"}
 ---

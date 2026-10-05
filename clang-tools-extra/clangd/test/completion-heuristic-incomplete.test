@@ -1,0 +1,23 @@
+# RUN: clangd -lit-test -completion-parse=never < %s | FileCheck -strict-whitespace %s
+# RUN: clangd -lit-test -completion-parse=always < %s | FileCheck -strict-whitespace --check-prefix=PARSED %s
+# Completion that does not run the parser (here forced, in practice when the
+# preamble is not ready yet) returns identifier-only candidates; it must be
+# reported as incomplete so clients ask again on the next keystroke instead of
+# filtering the heuristic list locally.
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":123,"rootPath":"clangd","capabilities":{},"trace":"off"}}
+---
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"test:///main.cpp","languageId":"cpp","version":1,"text":"template <class Function> void f() {\n  int function_value;\n  func\n}\n"}}}
+---
+{"jsonrpc":"2.0","id":1,"method":"textDocument/completion","params":{"textDocument":{"uri":"test:///main.cpp"},"position":{"line":2,"character":6}}}
+#      CHECK:  "id": 1,
+# CHECK-NEXT:  "jsonrpc": "2.0",
+# CHECK-NEXT:  "result": {
+# CHECK-NEXT:    "isIncomplete": true,
+#      PARSED:  "id": 1,
+# PARSED-NEXT:  "jsonrpc": "2.0",
+# PARSED-NEXT:  "result": {
+# PARSED-NEXT:    "isIncomplete": false,
+---
+{"jsonrpc":"2.0","id":2,"method":"shutdown"}
+---
+{"jsonrpc":"2.0","method":"exit"}

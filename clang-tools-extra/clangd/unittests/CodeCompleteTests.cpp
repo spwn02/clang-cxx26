@@ -4002,6 +4002,24 @@ TEST(NoCompileCompletionTest, Basic) {
                                    named("xyz"), named("abc")));
 }
 
+// Heuristic completion (no parse, e.g. the preamble is not ready yet) must be
+// reported as incomplete so that clients re-query instead of caching the
+// identifier-only list; parsed completion of a small file is complete.
+TEST(NoCompileCompletionTest, IsIncomplete) {
+  const char *Code = R"cpp(
+    template <class Function> void f() {
+      int function;
+      ^
+    }
+  )cpp";
+  auto NoCompile = completionsNoCompile(Code);
+  EXPECT_FALSE(NoCompile.RanParser);
+  EXPECT_TRUE(NoCompile.HasMore);
+  auto Parsed = completions(Code);
+  EXPECT_TRUE(Parsed.RanParser);
+  EXPECT_FALSE(Parsed.HasMore);
+}
+
 TEST(NoCompileCompletionTest, WithFilter) {
   auto Results = completionsNoCompile(R"cpp(
     void func() {

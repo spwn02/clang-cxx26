@@ -1802,6 +1802,11 @@ public:
     CodeCompleteResult Output = toCodeCompleteResult(mergeResults(
         /*SemaResults=*/{}, IndexResults, IdentifierResults));
     Output.RanParser = false;
+    // These results are heuristic (e.g. the preamble is not ready yet). Tell the
+    // client they are provisional so that it asks again on the next keystroke
+    // instead of filtering this list locally, otherwise it keeps showing
+    // identifier-only candidates until completion is re-triggered by hand.
+    Output.HasMore = true;
     logResults(Output, Tracer);
     return Output;
   }
