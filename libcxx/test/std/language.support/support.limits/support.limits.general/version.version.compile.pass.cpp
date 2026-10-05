@@ -768,6 +768,10 @@
 #    error "__cpp_lib_mdspan should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_mdspan_copy
+#    error "__cpp_lib_mdspan_copy should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_memory_resource
 #    error "__cpp_lib_memory_resource should not be defined before c++17"
 #  endif
@@ -1978,6 +1982,10 @@
 
 #  ifdef __cpp_lib_mdspan
 #    error "__cpp_lib_mdspan should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_mdspan_copy
+#    error "__cpp_lib_mdspan_copy should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_memory_resource
@@ -3331,6 +3339,10 @@
 
 #  ifdef __cpp_lib_mdspan
 #    error "__cpp_lib_mdspan should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_mdspan_copy
+#    error "__cpp_lib_mdspan_copy should not be defined before c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_PMR
@@ -4948,6 +4960,10 @@
 
 #  ifdef __cpp_lib_mdspan
 #    error "__cpp_lib_mdspan should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_mdspan_copy
+#    error "__cpp_lib_mdspan_copy should not be defined before c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_PMR
@@ -6727,6 +6743,10 @@
 #  endif
 #  if __cpp_lib_mdspan != 202207L
 #    error "__cpp_lib_mdspan should have the value 202207L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_mdspan_copy
+#    error "__cpp_lib_mdspan_copy should not be defined before c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_PMR
@@ -8998,6 +9018,13 @@
 #  endif
 #  if __cpp_lib_mdspan != 202406L
 #    error "__cpp_lib_mdspan should have the value 202406L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_mdspan_copy
+#    error "__cpp_lib_mdspan_copy should be defined in c++26"
+#  endif
+#  if __cpp_lib_mdspan_copy != 202606L
+#    error "__cpp_lib_mdspan_copy should have the value 202606L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_PMR

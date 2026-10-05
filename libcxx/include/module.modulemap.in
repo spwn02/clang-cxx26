@@ -3217,6 +3217,10 @@ module std [system] {
       header "__mdspan/aligned_accessor.h"
       export *
     }
+    module copy_fill {
+      header "__mdspan/copy_fill.h"
+      export *
+    }
     module default_accessor {
       header "__mdspan/default_accessor.h"
       export *

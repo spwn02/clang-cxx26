@@ -1240,6 +1240,11 @@ feature_test_macros = [
             "headers": ["mdspan"],
         },
         {
+            "name": "__cpp_lib_mdspan_copy",
+            "values": {"c++26": 202606},  # P3242R4 Copy and fill for mdspan
+            "headers": ["mdspan"],
+        },
+        {
             "name": "__cpp_lib_memory_resource",
             "values": {"c++17": 201603},
             "headers": ["memory_resource"],

@@ -638,6 +638,7 @@ set(files
   __math/trigonometric_functions.h
   __mbstate_t.h
   __mdspan/aligned_accessor.h
+  __mdspan/copy_fill.h
   __mdspan/default_accessor.h
   __mdspan/extents.h
   __mdspan/layout_left.h
