@@ -1820,6 +1820,10 @@ module std [system] {
       header "__chrono/local_info.h"
       export *
     }
+    module local_time_format {
+      header "__chrono/local_time_format.h"
+      export *
+    }
     module month_weekday {
       header "__chrono/month_weekday.h"
       export *

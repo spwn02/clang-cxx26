@@ -1121,6 +1121,7 @@ namespace std {
 #    include <__chrono/is_clock.h>
 #    include <__chrono/literals.h>
 #    include <__chrono/local_info.h>
+#    include <__chrono/local_time_format.h>
 #    include <__chrono/month.h>
 #    include <__chrono/month_weekday.h>
 #    include <__chrono/monthday.h>

@@ -136,6 +136,8 @@ void test_P1361() {
          // !defined(TEST_HAS_NO_FILESYSTEM)
   static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::file_time<std::chrono::microseconds>>);
   static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::local_time<std::chrono::microseconds>>);
+  static_assert(std::enable_nonlocking_formatter_optimization<
+                decltype(std::chrono::local_time_format(std::chrono::local_time<std::chrono::microseconds>{}))>);
 
   static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::day>);
   static_assert(std::enable_nonlocking_formatter_optimization<std::chrono::month>);

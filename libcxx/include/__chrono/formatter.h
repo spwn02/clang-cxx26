@@ -24,6 +24,7 @@
 #  include <__chrono/gps_clock.h>
 #  include <__chrono/hh_mm_ss.h>
 #  include <__chrono/local_info.h>
+#  include <__chrono/local_time_format.h>
 #  include <__chrono/month.h>
 #  include <__chrono/month_weekday.h>
 #  include <__chrono/monthday.h>
@@ -231,6 +232,13 @@ struct _LIBCPP_HIDE_FROM_ABI __time_zone {
   chrono::seconds __offset;
 };
 
+// The abbreviation and the offset a local-time-format-t carries ([time.format]); a null pointer is "not supplied", which
+// makes the use of %Z (the abbreviation) or %z (the offset) an error.
+struct _LIBCPP_HIDE_FROM_ABI __local_zone_info {
+  const string* __abbrev_;
+  const chrono::seconds* __offset_;
+};
+
 // The ordinary character literal encoding is known at compile time. Clang
 // defines this as UTF-8 on the platforms supported by this fork.
 _LIBCPP_HIDE_FROM_ABI consteval bool __literal_encoding_is_utf8() {
@@ -303,9 +311,14 @@ _LIBCPP_HIDE_FROM_ABI __time_zone __convert_to_time_zone([[maybe_unused]] const 
 
 template <class _CharT, class _Tp>
 _LIBCPP_HIDE_FROM_ABI void __format_chrono_using_chrono_specs(
-    basic_stringstream<_CharT>& __sstr, const _Tp& __value, basic_string_view<_CharT> __chrono_specs) {
-  tm __t              = std::__convert_to_tm<tm>(__value);
-  __time_zone __z     = __formatter::__convert_to_time_zone(__value);
+    basic_stringstream<_CharT>& __sstr,
+    const _Tp& __value,
+    basic_string_view<_CharT> __chrono_specs,
+    const __local_zone_info* __zone_info = nullptr) {
+  tm __t          = std::__convert_to_tm<tm>(__value);
+  __time_zone __z = __zone_info ? __time_zone{__zone_info->__abbrev_ ? *__zone_info->__abbrev_ : string(),
+                                              __zone_info->__offset_ ? *__zone_info->__offset_ : chrono::seconds{0}}
+                                : __formatter::__convert_to_time_zone(__value);
   const auto& __facet = std::use_facet<time_put<_CharT>>(__sstr.getloc());
   for (auto __it = __chrono_specs.begin(); __it != __chrono_specs.end(); ++__it) {
     if (*__it == _CharT('%')) {
@@ -427,10 +440,14 @@ _LIBCPP_HIDE_FROM_ABI void __format_chrono_using_chrono_specs(
         break;
 
       case _CharT('z'):
+        if (__zone_info && !__zone_info->__offset_)
+          std::__throw_format_error("The offset of a local_time_format is needed to format %z");
         __formatter::__format_zone_offset(__sstr, __z.__offset, false);
         break;
 
       case _CharT('Z'):
+        if (__zone_info && !__zone_info->__abbrev_)
+          std::__throw_format_error("The abbreviation of a local_time_format is needed to format %Z");
         // __abbrev is always a char so the copy may convert.
         ranges::copy(__z.__abbrev, std::ostreambuf_iterator<_CharT>{__sstr});
         break;
@@ -454,6 +471,8 @@ _LIBCPP_HIDE_FROM_ABI void __format_chrono_using_chrono_specs(
       case _CharT('E'):
         ++__it;
         if (*__it == 'z') {
+          if (__zone_info && !__zone_info->__offset_)
+            std::__throw_format_error("The offset of a local_time_format is needed to format %Ez or %Oz");
           __formatter::__format_zone_offset(__sstr, __z.__offset, true);
           break;
         }
@@ -674,7 +693,8 @@ _LIBCPP_HIDE_FROM_ABI auto
 __format_chrono(const _Tp& __value,
                 _FormatContext& __ctx,
                 __format_spec::__parsed_specifications<_CharT> __specs,
-                basic_string_view<_CharT> __chrono_specs) {
+                basic_string_view<_CharT> __chrono_specs,
+                const __local_zone_info* __zone_info = nullptr) {
   basic_stringstream<_CharT> __sstr;
   // [time.format]/2
   // 2.1 - the "C" locale if the L option is not present in chrono-format-spec, otherwise
@@ -743,7 +763,7 @@ __format_chrono(const _Tp& __value,
           __sstr << _CharT('-');
       }
 
-      __formatter::__format_chrono_using_chrono_specs(__sstr, __value, __chrono_specs);
+      __formatter::__format_chrono_using_chrono_specs(__sstr, __value, __chrono_specs, __zone_info);
     }
   }
 
@@ -840,6 +860,35 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr typename _ParseContext::iterator parse(_ParseContext& __ctx) {
     // The flags are not __clock since there is no associated time-zone.
     return _Base::__parse(__ctx, __format_spec::__fields_chrono, __format_spec::__flags::__date_time);
+  }
+};
+
+// [time.format]: formatter<local-time-format-t<Duration>, charT>. The chrono-specs default to "%F %T %Z"; %Z and %z use the
+// abbreviation and the offset that were supplied to local_time_format (and are errors if they were not).
+template <class _Duration, __fmt_char_type _CharT>
+struct formatter<chrono::__local_time_format_t<_Duration>, _CharT> : public __formatter_chrono<_CharT> {
+public:
+  using _Base _LIBCPP_NODEBUG = __formatter_chrono<_CharT>;
+
+  template <class _ParseContext>
+  _LIBCPP_HIDE_FROM_ABI constexpr typename _ParseContext::iterator parse(_ParseContext& __ctx) {
+    // The flags are __clock, the zone information is part of the value.
+    return _Base::__parse(__ctx, __format_spec::__fields_chrono, __format_spec::__flags::__clock);
+  }
+
+  template <class _FormatContext>
+  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  format(const chrono::__local_time_format_t<_Duration>& __value, _FormatContext& __ctx) const {
+    __formatter::__local_zone_info __zone{__value.__abbrev_, __value.__offset_sec_};
+    basic_string_view<_CharT> __chrono_specs = _Base::__parser_.__chrono_specs_;
+    if (__chrono_specs.empty())
+      __chrono_specs = _LIBCPP_STATICALLY_WIDEN(_CharT, "%F %T %Z");
+    return __formatter::__format_chrono(
+        __value.__time_,
+        __ctx,
+        _Base::__parser_.__parser_.__get_parsed_chrono_specifications(__ctx),
+        __chrono_specs,
+        std::addressof(__zone));
   }
 };
 
@@ -1133,6 +1182,8 @@ template <class _Duration>
 inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::file_time<_Duration>> = true;
 template <class _Duration>
 inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::local_time<_Duration>> = true;
+template <class _Duration>
+inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::__local_time_format_t<_Duration>> = true;
 template <class _Duration>
 inline constexpr bool __enable_nonlocking_formatter_optimization<chrono::hh_mm_ss<_Duration>> = true;
 

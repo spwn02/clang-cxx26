@@ -132,6 +132,9 @@ export namespace std {
     using std::chrono::local_t;
     using std::chrono::local_time;
 
+    // [time.format], formatting (local-time-format-t is exposition only)
+    using std::chrono::local_time_format;
+
     // [time.clock.cast], time_point conversions
     // using std::chrono::clock_time_conversion;
 
@@ -244,10 +247,6 @@ export namespace std {
     // [time.zone.link], class time_zone_link
     using std::chrono::time_zone_link;
 
-#    if 0
-    // [time.format], formatting
-    using std::chrono::local_time_format;
-#    endif
 #  endif //  _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
 #endif   // _LIBCPP_ENABLE_EXPERIMENTAL
 

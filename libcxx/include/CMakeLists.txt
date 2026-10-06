@@ -273,6 +273,7 @@ set(files
   __chrono/leap_second.h
   __chrono/literals.h
   __chrono/local_info.h
+  __chrono/local_time_format.h
   __chrono/month.h
   __chrono/month_weekday.h
   __chrono/monthday.h
