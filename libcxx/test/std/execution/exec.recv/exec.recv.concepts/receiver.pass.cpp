@@ -12,8 +12,7 @@
 
 // template<class Rcvr>
 //   concept receiver = ...;
-// template<class Rcvr, class Completions>
-//   concept receiver_of = ...;
+// (receiver-of<Rcvr, Completions> is exposition-only since P4159R0; it is checked through this implementation's name.)
 // struct set_value_t { ... };
 // struct set_error_t { ... };
 // struct set_stopped_t { ... };
@@ -40,7 +39,7 @@ struct MyReceiver {
   auto get_env() const noexcept { return env<>{}; }
 };
 static_assert(receiver<MyReceiver>);
-static_assert(receiver_of<MyReceiver, CS>);
+static_assert(__receiver_of<MyReceiver, CS>); // receiver-of
 
 struct NotAReceiver {};
 static_assert(!receiver<NotAReceiver>);
@@ -51,7 +50,7 @@ struct MissingCompletion {
   auto get_env() const noexcept { return env<>{}; }
 };
 static_assert(receiver<MissingCompletion>);
-static_assert(!receiver_of<MissingCompletion, CS>); // CS also needs set_value(int,float)/set_error(int)/set_stopped()
+static_assert(!__receiver_of<MissingCompletion, CS>); // CS also needs set_value(int,float)/set_error(int)/set_stopped()
 
 // set_value/set_error/set_stopped are ill-formed on lvalues and const rvalues.
 template <class Rcvr>

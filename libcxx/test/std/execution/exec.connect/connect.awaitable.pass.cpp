@@ -57,7 +57,7 @@ struct ThrowingAwaitable {
 // await_resume()'s `int` return (never actually reached -- unhandled_stopped() returns
 // noop_coroutine(), so the coroutine never resumes past this await-point) exists only so
 // this awaitable's await-result-type matches MyReceiver's set_value(int): connect-awaitable's
-// own receiver_of<DR, Sigs> Mandate is a purely structural, compile-time check against the
+// own receiver-of<DR, Sigs> Mandate is a purely structural, compile-time check against the
 // await-expression's static result type, independent of which branch actually runs.
 struct StoppedAwaitable {
   bool await_ready() noexcept { return false; }

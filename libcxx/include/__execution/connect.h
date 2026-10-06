@@ -139,7 +139,7 @@ _LIBCPP_HIDE_FROM_ABI auto __suspend_complete(_Fun __fun, _Ts&&... __as) noexcep
 
 // [exec.connect]p5: connect-awaitable.
 template <class _DS, class _DR>
-  requires receiver_of<_DR, __connect_awaitable_sigs<_DS, _DR>>
+  requires __receiver_of<_DR, __connect_awaitable_sigs<_DS, _DR>>
 _LIBCPP_HIDE_FROM_ABI __operation_state_task<_DS, _DR> __connect_awaitable(_DS __sndr, _DR __rcvr) {
   using _Vp = __connect_awaitable_value_t<_DS, _DR>;
   exception_ptr __ep;
@@ -196,8 +196,8 @@ struct connect_t {
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Sndr&& __sndr, _Rcvr&& __rcvr) const
       noexcept(noexcept(execution::__connect_dispatch(std::forward<_Sndr>(__sndr), std::forward<_Rcvr>(__rcvr)))) {
     static_assert(sender_in<_Sndr, env_of_t<_Rcvr>>, "Mandates: sender_in<Sndr, env_of_t<Rcvr>>.");
-    static_assert(receiver_of<_Rcvr, completion_signatures_of_t<_Sndr, env_of_t<_Rcvr>>>,
-                  "Mandates: receiver_of<Rcvr, completion_signatures_of_t<Sndr, env_of_t<Rcvr>>>.");
+    static_assert(__receiver_of<_Rcvr, completion_signatures_of_t<_Sndr, env_of_t<_Rcvr>>>,
+                  "Mandates: __receiver_of<Rcvr, completion_signatures_of_t<Sndr, env_of_t<Rcvr>>>.");
     return execution::__connect_dispatch(std::forward<_Sndr>(__sndr), std::forward<_Rcvr>(__rcvr));
   }
 };
@@ -209,7 +209,7 @@ using connect_result_t = decltype(execution::connect(std::declval<_Sndr>(), std:
 
 // [exec.snd.concepts]: sender-to.
 template <class _Sndr, class _Rcvr>
-concept __sender_to = sender_in<_Sndr, env_of_t<_Rcvr>> && receiver_of<_Rcvr, completion_signatures_of_t<_Sndr, env_of_t<_Rcvr>>> &&
+concept __sender_to = sender_in<_Sndr, env_of_t<_Rcvr>> && __receiver_of<_Rcvr, completion_signatures_of_t<_Sndr, env_of_t<_Rcvr>>> &&
                        requires(_Sndr&& __sndr, _Rcvr&& __rcvr) {
                          execution::connect(std::forward<_Sndr>(__sndr), std::forward<_Rcvr>(__rcvr));
                        };
