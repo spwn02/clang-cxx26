@@ -182,7 +182,7 @@ public:
   swap(exception_ptr& __x, exception_ptr& __y) _NOEXCEPT;
 
 #  if defined(_LIBCPP_HAS_CONSTEXPR_EXCEPTION_PTR)
-  friend _LIBCPP_HIDE_FROM_ABI constexpr exception_ptr current_exception() _NOEXCEPT;
+  friend _LIBCPP_HIDE_FROM_ABI constexpr exception_ptr __current_exception() _NOEXCEPT;
   friend __attribute__((noreturn)) _LIBCPP_HIDE_FROM_ABI constexpr void
   rethrow_exception(exception_ptr);
 #  else
@@ -192,7 +192,9 @@ public:
 };
 
 #  if defined(_LIBCPP_HAS_CONSTEXPR_EXCEPTION_PTR)
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr exception_ptr current_exception() _NOEXCEPT;
+// [propagation] (P3842R2): current-exception() is constexpr, current_exception() is not
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr exception_ptr __current_exception() _NOEXCEPT;
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI exception_ptr current_exception() _NOEXCEPT;
 __attribute__((noreturn)) _LIBCPP_HIDE_FROM_ABI constexpr void
 rethrow_exception(exception_ptr);
 #  endif
@@ -268,7 +270,7 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_EXCEPTION_PTR exception_ptr make_excepti
     try {
       throw __e;
     } catch (...) {
-      return current_exception();
+      return std::__current_exception();
     }
   }
 #endif
@@ -402,7 +404,7 @@ public:
   }
   friend _LIBCPP_HIDE_FROM_ABI constexpr bool operator==(const exception_ptr&, const exception_ptr&) _NOEXCEPT;
   friend _LIBCPP_HIDE_FROM_ABI constexpr void swap(exception_ptr&, exception_ptr&) _NOEXCEPT;
-  friend _LIBCPP_HIDE_FROM_ABI constexpr exception_ptr current_exception() _NOEXCEPT;
+  friend _LIBCPP_HIDE_FROM_ABI constexpr exception_ptr __current_exception() _NOEXCEPT;
   friend _LIBCPP_HIDE_FROM_ABI constexpr void rethrow_exception(exception_ptr)
       __attribute__((noreturn));
 #  else
@@ -417,7 +419,9 @@ public:
 };
 
 #  if defined(_LIBCPP_HAS_CONSTEXPR_EXCEPTION_PTR)
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr exception_ptr current_exception() _NOEXCEPT;
+// [propagation] (P3842R2): current-exception() is constexpr, current_exception() is not
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr exception_ptr __current_exception() _NOEXCEPT;
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI exception_ptr current_exception() _NOEXCEPT;
 _LIBCPP_HIDE_FROM_ABI constexpr void rethrow_exception(exception_ptr)
     __attribute__((noreturn));
 #  endif
@@ -471,7 +475,7 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_EXCEPTION_PTR exception_ptr make_excepti
     try {
       throw __e;
     } catch (...) {
-      return current_exception();
+      return std::__current_exception();
     }
   }
 #endif
@@ -481,7 +485,7 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_EXCEPTION_PTR exception_ptr make_excepti
 #endif // _LIBCPP_ABI_MICROSOFT
 
 #if defined(_LIBCPP_HAS_CONSTEXPR_EXCEPTION_PTR)
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr exception_ptr current_exception() _NOEXCEPT {
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr exception_ptr __current_exception() _NOEXCEPT {
   if consteval {
     exception_ptr __result;
 #  ifndef _LIBCPP_ABI_MICROSOFT
@@ -495,6 +499,8 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_EXCEPTION_PTR exception_ptr make_excepti
     return __current_exception_runtime();
   }
 }
+
+[[nodiscard]] inline _LIBCPP_HIDE_FROM_ABI exception_ptr current_exception() _NOEXCEPT { return std::__current_exception(); }
 
 __attribute__((noreturn)) _LIBCPP_HIDE_FROM_ABI constexpr void
 rethrow_exception(exception_ptr __p) {
