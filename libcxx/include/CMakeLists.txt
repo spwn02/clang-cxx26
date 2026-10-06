@@ -381,6 +381,7 @@ set(files
   __execution/get_scheduler.h
   __execution/get_stop_token.h
   __execution/infallible_scheduler.h
+  __execution/inline_scheduler.h
   __execution/into_variant.h
   __execution/just.h
   __execution/let.h

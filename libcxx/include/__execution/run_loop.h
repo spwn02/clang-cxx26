@@ -13,6 +13,7 @@
 #include <__config>
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
+#include <__execution/domain.h>
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
 #include <__execution/get_forward_progress_guarantee.h>

@@ -2310,6 +2310,7 @@ module std [system] {
     module get_scheduler                  { header "__execution/get_scheduler.h" export * }
     module get_stop_token                 { header "__execution/get_stop_token.h" export * }
     module infallible_scheduler           { header "__execution/infallible_scheduler.h" export * }
+    module inline_scheduler               { header "__execution/inline_scheduler.h" export * }
     module into_variant                   { header "__execution/into_variant.h" export * }
     module just                           { header "__execution/just.h" export * }
     module let                            { header "__execution/let.h" export * }
