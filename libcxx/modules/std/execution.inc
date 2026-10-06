@@ -199,9 +199,11 @@ export namespace std::execution {
   using std::execution::continues_on;
   using std::execution::continues_on_t;
 
+#if _LIBCPP_HAS_THREADS
   // [exec.affine]
   using std::execution::affine;
   using std::execution::affine_t;
+#endif
 
   // [exec.on]
   using std::execution::on;
@@ -254,7 +256,9 @@ export namespace std::execution {
 
   // [exec.task.scheduler]
   using std::execution::inline_scheduler;
+#if _LIBCPP_HAS_THREADS
   using std::execution::task_scheduler;
+#endif
 
 #if _LIBCPP_HAS_THREADS
   // [exec.parallel.scheduler] -- Pass 1/2/3a (the pool, parallel_scheduler, schedule(),
