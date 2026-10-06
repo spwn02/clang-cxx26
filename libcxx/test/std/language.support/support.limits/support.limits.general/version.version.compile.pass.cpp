@@ -1056,10 +1056,6 @@
 #    error "__cpp_lib_span_at should not be defined before c++26"
 #  endif
 
-#  ifdef __cpp_lib_span_initializer_list
-#    error "__cpp_lib_span_initializer_list should not be defined before c++26"
-#  endif
-
 #  ifdef __cpp_lib_spanstream
 #    error "__cpp_lib_spanstream should not be defined before c++23"
 #  endif
@@ -2301,10 +2297,6 @@
 
 #  ifdef __cpp_lib_span_at
 #    error "__cpp_lib_span_at should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_span_initializer_list
-#    error "__cpp_lib_span_initializer_list should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_spanstream
@@ -3722,10 +3714,6 @@
 
 #  ifdef __cpp_lib_span_at
 #    error "__cpp_lib_span_at should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_span_initializer_list
-#    error "__cpp_lib_span_initializer_list should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_spanstream
@@ -5392,10 +5380,6 @@
 
 #  ifdef __cpp_lib_span_at
 #    error "__cpp_lib_span_at should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_span_initializer_list
-#    error "__cpp_lib_span_initializer_list should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_spanstream
@@ -7253,10 +7237,6 @@
 #    error "__cpp_lib_span_at should not be defined before c++26"
 #  endif
 
-#  ifdef __cpp_lib_span_initializer_list
-#    error "__cpp_lib_span_initializer_list should not be defined before c++26"
-#  endif
-
 #  if _LIBCPP_HAS_LOCALIZATION
 #    ifndef __cpp_lib_spanstream
 #      error "__cpp_lib_spanstream should be defined in c++23"
@@ -7720,8 +7700,8 @@
 #  ifndef __cpp_lib_bitops
 #    error "__cpp_lib_bitops should be defined in c++26"
 #  endif
-#  if __cpp_lib_bitops != 201907L
-#    error "__cpp_lib_bitops should have the value 201907L in c++26"
+#  if __cpp_lib_bitops != 202607L
+#    error "__cpp_lib_bitops should have the value 202607L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_bitset
@@ -8928,8 +8908,8 @@
 #    ifndef __cpp_lib_is_within_lifetime
 #      error "__cpp_lib_is_within_lifetime should be defined in c++26"
 #    endif
-#    if __cpp_lib_is_within_lifetime != 202306L
-#      error "__cpp_lib_is_within_lifetime should have the value 202306L in c++26"
+#    if __cpp_lib_is_within_lifetime != 202603L
+#      error "__cpp_lib_is_within_lifetime should have the value 202603L in c++26"
 #    endif
 #  else
 #    ifdef __cpp_lib_is_within_lifetime
@@ -9469,8 +9449,8 @@
 #  ifndef __cpp_lib_saturation_arithmetic
 #    error "__cpp_lib_saturation_arithmetic should be defined in c++26"
 #  endif
-#  if __cpp_lib_saturation_arithmetic != 202311L
-#    error "__cpp_lib_saturation_arithmetic should have the value 202311L in c++26"
+#  if __cpp_lib_saturation_arithmetic != 202603L
+#    error "__cpp_lib_saturation_arithmetic should have the value 202603L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
@@ -9614,13 +9594,6 @@
 #  endif
 #  if __cpp_lib_span_at != 202311L
 #    error "__cpp_lib_span_at should have the value 202311L in c++26"
-#  endif
-
-#  ifndef __cpp_lib_span_initializer_list
-#    error "__cpp_lib_span_initializer_list should be defined in c++26"
-#  endif
-#  if __cpp_lib_span_initializer_list != 202311L
-#    error "__cpp_lib_span_initializer_list should have the value 202311L in c++26"
 #  endif
 
 #  if _LIBCPP_HAS_LOCALIZATION

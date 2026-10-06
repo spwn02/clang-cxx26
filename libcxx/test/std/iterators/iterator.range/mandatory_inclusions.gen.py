@@ -8,9 +8,10 @@
 
 # In addition to being available via inclusion of the <iterator> header,
 # the function templates in [iterator.range] are available when any of the following
-# headers are included: <array>, <deque>, <flat_map>, <flat_set>, <forward_list>,
-# <list>, <map>, <regex>, <set>, <span>, <string>, <string_view>, <unordered_map>,
-# <unordered_set>, <vector>.
+# headers are included: <array>, <deque>, <flat_map>, <flat_set>, <forward_list>, <hive>,
+# <inplace_vector>, <list>, <map>, <optional>, <regex>, <set>, <simd>, <span>,
+# <stacktrace>, <string>, <string_view>, <unordered_map>, <unordered_set>, <valarray>,
+# <vector>.
 
 # UNSUPPORTED: c++03
 
@@ -35,25 +36,38 @@ headers = list(
             "flat_map",
             "flat_set",
             "forward_list",
+            "hive",
+            "inplace_vector",
             "list",
             "map",
+            "optional",
             "regex",
             "set",
+            "simd",
             "span",
+            "stacktrace",
             "string",
             "string_view",
             "unordered_map",
             "unordered_set",
+            "valarray",
             "vector",
         ],
     )
 )
 
+# Headers whose [iterator.range] availability is new in C++26 (P3016R6: <valarray>, P3168R2: <optional>).
+since_cxx26 = {"optional", "valarray"}
+
 for header in headers:
+    extra = (
+        "// UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23" if str(header) in since_cxx26 else ""
+    )
     print(
         f"""\
 //--- {header}.pass.cpp
 {lit_header_restrictions.get(header, '')}
+{extra}
 {lit_header_undeprecations.get(header, '')}
 
 #include <{header}>

@@ -10,34 +10,32 @@
 
 // <type_traits>
 
-// template<class T>
+// template<class U = void, class T>
 //   consteval bool is_within_lifetime(const T* p) noexcept; // C++26
 //
-// Constraints: is_function_v<T> is false.
+// Mandates: static_cast<const volatile U*>(p) is well-formed.
 
 #include <type_traits>
 
 void f();
+struct Unrelated {};
 
 void test() {
-  // Explicit template argument forces T = void() rather than letting
-  // deduction against `const T*` fail first, matching how
-  // clang/test/SemaCXX/builtin-is-within-lifetime.cpp exercises the same
-  // constraint. The rejection notes ("constraints not satisfied ...
-  // because '!is_function_v<void ()>' evaluated to false") live inside
-  // <type_traits> itself, not this file, so only the top-level diagnostic
-  // is checked here to avoid coupling this test to the header's exact
-  // line numbers.
-  // expected-error@+1 {{no matching function for call to 'is_within_lifetime'}}
-  std::is_within_lifetime<void()>(&f);
+  // const T* cannot be deduced from a function pointer
+  (void)std::is_within_lifetime(&f); // expected-error {{no matching function for call to 'is_within_lifetime'}}
+
+  int i = 0;
+  // U has to be related to the pointee: the Mandates element
+  // expected-error@*:* {{is_within_lifetime requires static_cast<const volatile U*>(p) to be well-formed}}
+  (void)std::is_within_lifetime<Unrelated>(&i); // expected-error {{call to consteval function 'std::is_within_lifetime<Unrelated, int>' is not a constant expression}}
 }
 
 // [expr.const]: an immediate function pointer makes its containing object
 // immediate. This distinguishes a consteval function from a constexpr function.
-constexpr auto permitted = &std::is_within_lifetime<int>;
+constexpr auto permitted = &std::is_within_lifetime<void, int>;
 template <auto> struct Address {};
-Address<&std::is_within_lifetime<int>> argument;
-auto runtime = &std::is_within_lifetime<int>; // expected-error {{immediate object associated with variable 'runtime' is not associated with a constexpr variable}}
+Address<&std::is_within_lifetime<void, int>> argument;
+auto runtime = &std::is_within_lifetime<void, int>; // expected-error {{immediate object associated with variable 'runtime' is not associated with a constexpr variable}}
 
 // Check the consteval-propagating property as well.
 template <typename T>

@@ -472,7 +472,7 @@ namespace std
 
       // [meta.const.eval], constant evaluation context
       constexpr bool is_constant_evaluated() noexcept;                   // C++20
-      template<class T>
+      template<class U = void, class T>
         consteval bool is_within_lifetime(const T*) noexcept;            // C++26
 }
 

@@ -10,7 +10,7 @@
 
 // <type_traits>
 
-// template<class T>
+// template<class U = void, class T>
 //   consteval bool is_within_lifetime(const T* p) noexcept; // C++26
 
 #include <type_traits>
@@ -81,6 +81,32 @@ consteval bool test_void_pointer() {
   return std::is_within_lifetime(static_cast<const void*>(&i));
 }
 static_assert(test_void_pointer());
+
+// P3450R1: the optional first template argument U (default void): static_cast<const volatile U*>(p) must be
+// well-formed.
+static_assert(__cpp_lib_is_within_lifetime >= 202603L);
+
+struct Base {
+  int b = 1;
+};
+struct Derived : Base {
+  int d = 2;
+};
+
+consteval bool test_explicit_u() {
+  int i = 0;
+  Derived derived;
+  const Derived* pd = &derived;
+  const Base* pb    = &derived;
+  return std::is_within_lifetime<void>(&i) && std::is_within_lifetime<int>(&i) &&
+         std::is_within_lifetime<const volatile int>(&i) && std::is_within_lifetime<Base>(pd) &&
+         std::is_within_lifetime<Derived>(pd) && std::is_within_lifetime<Base>(pb) &&
+         std::is_within_lifetime<Derived>(pb);
+}
+static_assert(test_explicit_u());
+
+// U is the first template parameter, T is deduced
+static_assert(std::is_same_v<decltype(std::is_within_lifetime<void>((const int*)nullptr)), bool>);
 
 #endif // __cpp_lib_is_within_lifetime
 

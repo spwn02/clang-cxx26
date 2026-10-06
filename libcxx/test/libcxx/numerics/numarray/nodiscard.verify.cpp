@@ -89,8 +89,16 @@ void test() {
   std::tan(va);       // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
   std::tanh(va);      // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
 
+#if TEST_STD_VER < 26
   std::begin(va);  // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
   std::begin(cva); // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
   std::end(va);    // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
   std::end(cva);   // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
+#else
+  // P3016R6: the non-member begin/end overloads are replaced by the member functions.
+  va.begin();  // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
+  cva.begin(); // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
+  va.end();    // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
+  cva.end();   // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
+#endif
 }

@@ -263,7 +263,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_bitops",
-            "values": {"c++20": 201907},
+            "values": {"c++20": 201907, "c++26": 202607},  # P3104R6 Bit permutations
             "headers": ["bit"],
         },
         {
@@ -1161,7 +1161,7 @@ feature_test_macros = [
             # Note this name was changed from "__cpp_lib_within_lifetime" when the paper was adopted
             # https://github.com/cplusplus/draft/commit/0facada4cadd97e1ba15bfaea76a804f1dc5c309
             "values": {
-                "c++26": 202306  # P2641R4 Checking if a union alternative is active
+                "c++26": 202603  # P2641R4 Checking if a union alternative is active, P3450R1 Extend std::is_within_lifetime
             },
             "headers": ["type_traits"],
             "test_suite_guard": "__has_builtin(__builtin_is_within_lifetime)",
@@ -1571,7 +1571,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_saturation_arithmetic",
-            "values": {"c++26": 202311},  # P0543R3 Saturation arithmetic
+            "values": {"c++26": 202603},  # P0543R3 Saturation arithmetic, P4052R0 Renaming saturation arithmetic functions
             "headers": ["numeric"],
         },
         {
@@ -1670,11 +1670,6 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_span_at",
             "values": {"c++26": 202311},  # P2821R3 span.at()
-            "headers": ["span"],
-        },
-        {
-            "name": "__cpp_lib_span_initializer_list",
-            "values": {"c++26": 202311},  # P2447R6 std::span over an initializer list
             "headers": ["span"],
         },
         {

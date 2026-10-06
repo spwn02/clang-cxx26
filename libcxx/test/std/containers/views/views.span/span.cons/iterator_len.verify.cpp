@@ -12,8 +12,6 @@
 // template <class It>
 // constexpr explicit(Extent != dynamic_extent) span(It first, size_type count);
 //  If Extent is not equal to dynamic_extent, then count shall be equal to Extent.
-//
-// constexpr explicit(extent != dynamic_extent) span(std::initializer_list<value_type> il); // Since C++26
 
 #include <span>
 #include <cstddef>

@@ -33,6 +33,14 @@ export namespace std {
   using std::countr_zero;
   using std::popcount;
 
+#if _LIBCPP_STD_VER >= 26
+  // [bit.permute], permutation
+  using std::bit_compress;
+  using std::bit_expand;
+  using std::bit_repeat;
+  using std::bit_reverse;
+#endif
+
   // [bit.endian], endian
   using std::endian;
 } // namespace std

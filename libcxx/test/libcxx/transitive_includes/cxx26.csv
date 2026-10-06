@@ -268,6 +268,7 @@ exception cstring
 exception initializer_list
 exception limits
 exception optional
+exception stdexcept
 exception typeinfo
 exception version
 execution algorithm
@@ -987,6 +988,7 @@ optional cstdint
 optional cstring
 optional initializer_list
 optional limits
+optional stdexcept
 optional version
 ostream array
 ostream bitset
@@ -1166,6 +1168,7 @@ scope exception
 scope initializer_list
 scope limits
 scope optional
+scope stdexcept
 scope type_traits
 scope typeinfo
 scope utility
