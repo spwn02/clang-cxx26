@@ -396,6 +396,9 @@ public:
 
   template <receiver _Rcvr>
   _LIBCPP_HIDE_FROM_ABI __task_opstate<promise_type, _Tp, _Environment, remove_cvref_t<_Rcvr>> connect(_Rcvr&& __rcvr) && {
+    static_assert(requires { allocator_type(std::get_allocator(execution::get_env(__rcvr))); } ||
+                      requires { allocator_type(); },
+                  "Mandates: allocator_type(get_allocator(get_env(rcvr))) or allocator_type() is well-formed");
     return __task_opstate<promise_type, _Tp, _Environment, remove_cvref_t<_Rcvr>>(
         std::exchange(__coro_, {}), std::forward<_Rcvr>(__rcvr));
   }
@@ -447,22 +450,8 @@ class task<_Tp, _Environment>::promise_type : public with_awaitable_senders<prom
 public:
   _LIBCPP_HIDE_FROM_ABI promise_type() = default;
 
-  // [exec.task.promise]: allocator-extracting constructors, matching the argument-matching
-  // convention operator new (below) uses -- if the coroutine function's own argument list
-  // begins with allocator_arg_t + an allocator (optionally preceded by an implicit object
-  // parameter for a member-function coroutine), this constructor initializes __alloc_ from it.
-  template <class _Alloc, class... _Args>
-    requires constructible_from<allocator_type, const _Alloc&>
-  _LIBCPP_HIDE_FROM_ABI promise_type(allocator_arg_t, const _Alloc& __alloc, const _Args&...) noexcept(
-      is_nothrow_constructible_v<allocator_type, const _Alloc&>)
-      : __alloc_(__alloc) {}
-
-  template <class _This, class _Alloc, class... _Args>
-    requires constructible_from<allocator_type, const _Alloc&>
-  _LIBCPP_HIDE_FROM_ABI promise_type(_This&, allocator_arg_t, const _Alloc& __alloc, const _Args&...) noexcept(
-      is_nothrow_constructible_v<allocator_type, const _Alloc&>)
-      : __alloc_(__alloc) {}
-
+  // P3980R1: the promise has no constructor taking the coroutine arguments; the allocator of the environment is the
+  // allocator of the receiver (see __promise_env) and allocator_arg_t arguments only reach operator new.
   _LIBCPP_HIDE_FROM_ABI task get_return_object() noexcept {
     return task(coroutine_handle<promise_type>::from_promise(*this));
   }
@@ -605,24 +594,25 @@ public:
     execution::start(*__sched_op_);
   }
 
-  // [exec.task.promise]: allocator-aware operator new/delete, extracting the allocator from an
-  // allocator_arg_t-led argument list the same way the constructors above do. A single
+  // [exec.task.promise]: allocator-aware operator new/delete (P3980R1). The allocator is taken from an
+  // allocator_arg_t-led argument list of the coroutine function (optionally preceded by the implicit object
+  // parameter of a member-function coroutine). A single
   // non-template operator delete can't itself be templated on the (call-site-only-known)
   // allocator type, so the allocated block stores a small, fixed-layout header immediately
   // before the coroutine frame recording (a) a type-erased deallocation thunk and (b) how far
   // back the actual (variable-sized, rebound-to-byte) allocator object sits -- letting delete
   // locate and invoke both without ever needing to name the allocator type itself.
+  _LIBCPP_HIDE_FROM_ABI static void* operator new(size_t __frame_sz) {
+    return operator new(__frame_sz, allocator_arg, allocator_type());
+  }
   template <class _Alloc, class... _Args>
-  _LIBCPP_HIDE_FROM_ABI static void* operator new(size_t __frame_sz, allocator_arg_t, const _Alloc& __alloc, _Args&...) {
+  _LIBCPP_HIDE_FROM_ABI static void* operator new(size_t __frame_sz, allocator_arg_t, _Alloc __alloc, _Args&&...) {
     return __allocate_with(__frame_sz, __alloc);
   }
   template <class _This, class _Alloc, class... _Args>
   _LIBCPP_HIDE_FROM_ABI static void*
-  operator new(size_t __frame_sz, _This&, allocator_arg_t, const _Alloc& __alloc, _Args&...) {
+  operator new(size_t __frame_sz, const _This&, allocator_arg_t, _Alloc __alloc, _Args&&...) {
     return __allocate_with(__frame_sz, __alloc);
-  }
-  _LIBCPP_HIDE_FROM_ABI static void* operator new(size_t __frame_sz) {
-    return __allocate_with(__frame_sz, allocator_type());
   }
 
   _LIBCPP_HIDE_FROM_ABI static void operator delete(void* __p, size_t) noexcept {
@@ -682,7 +672,6 @@ private:
   }
 
   scheduler_type __scheduler_ = __task_default_scheduler<_Environment>();
-  allocator_type __alloc_{};
   stop_source_type __stop_source_{};
   __task_result_sink<_Tp, _Environment>* __sink_ = nullptr;
   optional<__sched_op_t> __sched_op_{};
