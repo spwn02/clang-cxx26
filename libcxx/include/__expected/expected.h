@@ -825,6 +825,9 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr explicit operator bool() const noexcept { return this->__has_val(); }
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool has_value() const noexcept { return this->__has_val(); }
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool has_error() const noexcept { return !this->__has_val(); } // P3798R1
+#  endif
 
 #  if !defined(_LIBCPP_FREESTANDING)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const _Tp& value() const& {
@@ -1604,6 +1607,9 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr explicit operator bool() const noexcept { return this->__has_val(); }
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool has_value() const noexcept { return this->__has_val(); }
+#  if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool has_error() const noexcept { return !this->__has_val(); } // P3798R1
+#  endif
 
   _LIBCPP_HIDE_FROM_ABI constexpr void operator*() const noexcept {
     _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(

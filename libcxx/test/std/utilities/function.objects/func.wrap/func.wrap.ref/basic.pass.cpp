@@ -40,18 +40,18 @@ inline constexpr auto GlobalLambda        = [](int value) { return value + 1; };
 constexpr std::function_ref<int(int)> ConstexprFR = GlobalLambda;
 
 int main(int, char**) {
-  static_assert(__cpp_lib_function_ref == 202306L);
+  static_assert(__cpp_lib_function_ref == 202604L);
 
   static_assert(std::is_trivially_copyable_v<std::function_ref<int(int)>>);
   static_assert(std::is_copy_constructible_v<std::function_ref<int(int)>>);
 
-  // Deleted operator=(T) carve-outs: same type, pointer, constant_arg_t.
+  // Deleted operator=(T) carve-outs: the same type or a convertible specialization, a pointer, a constant_wrapper.
   static_assert(std::is_assignable_v<std::function_ref<int(int)>&, std::function_ref<int(int)>>);
   static_assert(std::is_assignable_v<std::function_ref<int(int)>&, decltype(free_function)>); // decays to a pointer
-  static_assert(std::is_assignable_v<std::function_ref<int(int)>&, decltype(std::constant_arg<free_function>)>);
+  static_assert(std::is_assignable_v<std::function_ref<int(int)>&, decltype(std::cw<free_function>)>);
   {
     auto lambda = [](int value) { return value; };
-    // Not a pointer, not constant_arg_t, not function_ref: assignment stays deleted
+    // Not a pointer, not a constant_wrapper, not function_ref: assignment stays deleted
     // to guard against binding a dangling temporary.
     static_assert(!std::is_assignable_v<std::function_ref<int(int)>&, decltype(lambda)>);
   }
@@ -85,23 +85,23 @@ int main(int, char**) {
     assert(fr(1) == 3);
   }
 
-  // constant_arg_t<f> constructor: bind a free function at compile time
+  // constant_wrapper constructor: bind a free function at compile time
   {
-    std::function_ref<int(int)> fr{std::constant_arg<free_function>};
+    std::function_ref<int(int)> fr{std::cw<free_function>};
     assert(fr(4) == 5);
   }
 
-  // constant_arg_t<f>, U&& constructor: bind a pointer-to-member-function to an lvalue object
+  // constant_wrapper, U&& constructor: bind a pointer-to-member-function to an lvalue object
   {
     HasMemberFunction object{10};
-    std::function_ref<int(int)> fr{std::constant_arg<&HasMemberFunction::get>, object};
+    std::function_ref<int(int)> fr{std::cw<&HasMemberFunction::get>, object};
     assert(fr(5) == 15);
   }
 
-  // constant_arg_t<f>, cv T* constructor: bind a pointer-to-member-function to an object pointer
+  // constant_wrapper, cv T* constructor: bind a pointer-to-member-function to an object pointer
   {
     HasMemberFunction object{100};
-    std::function_ref<int(int)> fr{std::constant_arg<&HasMemberFunction::get>, &object};
+    std::function_ref<int(int)> fr{std::cw<&HasMemberFunction::get>, &object};
     assert(fr(1) == 101);
   }
 
@@ -119,7 +119,7 @@ int main(int, char**) {
     std::function_ref<int(int)> fr = lambda;
     fr                            = free_function;
     assert(fr(1) == 2);
-    fr = std::constant_arg<free_function>;
+    fr = std::cw<free_function>;
     assert(fr(4) == 5);
   }
 

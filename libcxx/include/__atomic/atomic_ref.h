@@ -30,6 +30,7 @@
 #include <__cstddef/byte.h>
 #include <__cstddef/ptrdiff_t.h>
 #include <__memory/addressof.h>
+#include <__type_traits/copy_cv.h>
 #include <__type_traits/has_unique_object_representation.h>
 #include <__type_traits/is_const.h>
 #include <__type_traits/is_constant_evaluated.h>
@@ -367,7 +368,9 @@ public:
   }
 
 #  if _LIBCPP_STD_VER >= 26
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp* address() const noexcept { return __ptr_; }
+  // P3936R1: address() returns COPYCV(T, void)*
+  using __address_return_type = __copy_cv_t<_Tp, void>*;
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __address_return_type address() const noexcept { return __ptr_; }
 #  endif // _LIBCPP_STD_VER >= 26
 
 protected:
@@ -416,7 +419,7 @@ struct atomic_ref : public __atomic_ref_base<_Tp> {
   template <class _Up>
     requires(__is_similar_v<_Tp, _Up> && is_convertible_v<_Up*, _Tp*>)
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 atomic_ref(const atomic_ref<_Up>& __ref) noexcept
-      : __base(*__ref.address()) {}
+      : __base(*static_cast<_Up*>(__ref.address())) {}
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 __base::value_type
   operator=(__base::value_type __desired) const noexcept
@@ -457,7 +460,7 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
   template <class _Up>
     requires(__is_similar_v<_Tp, _Up> && is_convertible_v<_Up*, _Tp*>)
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 atomic_ref(const atomic_ref<_Up>& __ref) noexcept
-      : __base(*__ref.address()) {}
+      : __base(*static_cast<_Up*>(__ref.address())) {}
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type operator=(value_type __desired) const noexcept
     requires(!is_const_v<_Tp>)
@@ -637,7 +640,7 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
   template <class _Up>
     requires(__is_similar_v<_Tp, _Up> && is_convertible_v<_Up*, _Tp*>)
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 atomic_ref(const atomic_ref<_Up>& __ref) noexcept
-      : __base(*__ref.address()) {}
+      : __base(*static_cast<_Up*>(__ref.address())) {}
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type operator=(value_type __desired) const noexcept
     requires(!is_const_v<_Tp>)
@@ -794,7 +797,7 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
   template <class _Up>
     requires(__is_similar_v<_Tp, _Up> && is_convertible_v<_Up*, _Tp*>)
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 atomic_ref(const atomic_ref<_Up>& __ref) noexcept
-      : __base(*__ref.address()) {}
+      : __base(*static_cast<_Up*>(__ref.address())) {}
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type operator=(value_type __desired) const noexcept
     requires(!is_const_v<_Tp>)

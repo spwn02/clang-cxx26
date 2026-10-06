@@ -12,6 +12,8 @@
 
 #include <__bit/bit_ceil.h>
 #include <__bit/bit_floor.h>
+#include <__bit/bit_permutations.h>
+#include <__bit/bit_shift.h>
 #include <__bit/bit_width.h>
 #include <__bit/byteswap.h>
 #include <__bit/countl.h>
@@ -25,6 +27,7 @@
 #include <__simd/basic_vec.h>
 #include <__simd/concepts.h>
 #include <__simd/traits.h>
+#include <__type_traits/integer_traits.h>
 #include <__type_traits/make_signed.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -115,6 +118,75 @@ _LIBCPP_SIMD_BIT_COUNT(countr_one)
 _LIBCPP_SIMD_BIT_COUNT(popcount)
 
 #  undef _LIBCPP_SIMD_BIT_COUNT
+
+// [simd.bit] (P3772R2): bit_reverse, bit_repeat, bit_compress, bit_expand.
+template <__simd_integral _Vp>
+  requires unsigned_integral<typename _Vp::value_type>
+_LIBCPP_HIDE_FROM_ABI constexpr _Vp bit_reverse(const _Vp& __v) noexcept {
+  return _Vp([&](auto __i) { return std::bit_reverse(__v[__i]); });
+}
+
+template <__simd_integral _V0, __simd_integral _V1>
+  requires(unsigned_integral<typename _V0::value_type> && _V0::size() == _V1::size() &&
+           sizeof(typename _V0::value_type) == sizeof(typename _V1::value_type))
+_LIBCPP_HIDE_FROM_ABI constexpr _V0 bit_repeat(const _V0& __v0, const _V1& __v1) {
+  return _V0([&](auto __i) { return std::bit_repeat(__v0[__i], static_cast<int>(__v1[__i])); });
+}
+
+template <__simd_integral _Vp>
+  requires unsigned_integral<typename _Vp::value_type>
+_LIBCPP_HIDE_FROM_ABI constexpr _Vp bit_repeat(const _Vp& __v, int __l) {
+  return _Vp([&](auto __i) { return std::bit_repeat(__v[__i], __l); });
+}
+
+template <__simd_integral _Vp>
+  requires unsigned_integral<typename _Vp::value_type>
+_LIBCPP_HIDE_FROM_ABI constexpr _Vp bit_compress(const _Vp& __v, const _Vp& __m) noexcept {
+  return _Vp([&](auto __i) { return std::bit_compress(__v[__i], __m[__i]); });
+}
+
+template <__simd_integral _Vp>
+  requires unsigned_integral<typename _Vp::value_type>
+_LIBCPP_HIDE_FROM_ABI constexpr _Vp bit_expand(const _Vp& __v, const _Vp& __m) noexcept {
+  return _Vp([&](auto __i) { return std::bit_expand(__v[__i], __m[__i]); });
+}
+
+template <__simd_integral _Vp>
+  requires unsigned_integral<typename _Vp::value_type>
+_LIBCPP_HIDE_FROM_ABI constexpr _Vp bit_compress(const _Vp& __v, typename _Vp::value_type __m) noexcept {
+  return _Vp([&](auto __i) { return std::bit_compress(__v[__i], __m); });
+}
+
+template <__simd_integral _Vp>
+  requires unsigned_integral<typename _Vp::value_type>
+_LIBCPP_HIDE_FROM_ABI constexpr _Vp bit_expand(const _Vp& __v, typename _Vp::value_type __m) noexcept {
+  return _Vp([&](auto __i) { return std::bit_expand(__v[__i], __m); });
+}
+
+// [simd.bit] (P3793R2): shl and shr, by a per-lane count of an equally wide integer vector, or by a scalar count.
+template <__simd_integral _VX, __simd_integral _VS>
+  requires(_VX::size() == _VS::size() && sizeof(typename _VX::value_type) == sizeof(typename _VS::value_type))
+_LIBCPP_HIDE_FROM_ABI constexpr _VX shl(const _VX& __x, const _VS& __s) noexcept {
+  return _VX([&](auto __i) { return std::shl(__x[__i], __s[__i]); });
+}
+
+template <__simd_integral _Vp, class _Sp>
+  requires(__signed_integer<_Sp> || __unsigned_integer<_Sp>)
+_LIBCPP_HIDE_FROM_ABI constexpr _Vp shl(const _Vp& __x, _Sp __s) noexcept {
+  return _Vp([&](auto __i) { return std::shl(__x[__i], __s); });
+}
+
+template <__simd_integral _VX, __simd_integral _VS>
+  requires(_VX::size() == _VS::size() && sizeof(typename _VX::value_type) == sizeof(typename _VS::value_type))
+_LIBCPP_HIDE_FROM_ABI constexpr _VX shr(const _VX& __x, const _VS& __s) noexcept {
+  return _VX([&](auto __i) { return std::shr(__x[__i], __s[__i]); });
+}
+
+template <__simd_integral _Vp, class _Sp>
+  requires(__signed_integer<_Sp> || __unsigned_integer<_Sp>)
+_LIBCPP_HIDE_FROM_ABI constexpr _Vp shr(const _Vp& __x, _Sp __s) noexcept {
+  return _Vp([&](auto __i) { return std::shr(__x[__i], __s); });
+}
 
 } // namespace simd
 

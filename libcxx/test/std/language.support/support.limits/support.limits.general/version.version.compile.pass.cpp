@@ -752,6 +752,10 @@
 #    error "__cpp_lib_make_unique should not be defined before c++14"
 #  endif
 
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_map_try_emplace
 #    error "__cpp_lib_map_try_emplace should not be defined before c++17"
 #  endif
@@ -892,6 +896,10 @@
 #    error "__cpp_lib_ranges_enumerate should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_find_last
 #    error "__cpp_lib_ranges_find_last should not be defined before c++23"
 #  endif
@@ -1022,6 +1030,10 @@
 
 #  ifdef __cpp_lib_simd
 #    error "__cpp_lib_simd should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_bitops
+#    error "__cpp_lib_simd_bitops should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_simd_complex
@@ -1202,6 +1214,10 @@
 
 #  ifdef __cpp_lib_variant
 #    error "__cpp_lib_variant should not be defined before c++17"
+#  endif
+
+#  ifdef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_void_t
@@ -1972,6 +1988,10 @@
 #    error "__cpp_lib_make_unique should have the value 201304L in c++14"
 #  endif
 
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_map_try_emplace
 #    error "__cpp_lib_map_try_emplace should not be defined before c++17"
 #  endif
@@ -2124,6 +2144,10 @@
 #    error "__cpp_lib_ranges_enumerate should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_find_last
 #    error "__cpp_lib_ranges_find_last should not be defined before c++23"
 #  endif
@@ -2269,6 +2293,10 @@
 
 #  ifdef __cpp_lib_simd
 #    error "__cpp_lib_simd should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_bitops
+#    error "__cpp_lib_simd_bitops should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_simd_complex
@@ -2464,6 +2492,10 @@
 
 #  ifdef __cpp_lib_variant
 #    error "__cpp_lib_variant should not be defined before c++17"
+#  endif
+
+#  ifdef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_void_t
@@ -3327,6 +3359,10 @@
 #    error "__cpp_lib_make_unique should have the value 201304L in c++17"
 #  endif
 
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_map_try_emplace
 #    error "__cpp_lib_map_try_emplace should be defined in c++17"
 #  endif
@@ -3515,6 +3551,10 @@
 #    error "__cpp_lib_ranges_enumerate should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_find_last
 #    error "__cpp_lib_ranges_find_last should not be defined before c++23"
 #  endif
@@ -3690,6 +3730,10 @@
 
 #  ifdef __cpp_lib_simd
 #    error "__cpp_lib_simd should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_bitops
+#    error "__cpp_lib_simd_bitops should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_simd_complex
@@ -3909,6 +3953,10 @@
 #  endif
 #  if __cpp_lib_variant != 202102L
 #    error "__cpp_lib_variant should have the value 202102L in c++17"
+#  endif
+
+#  ifdef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_void_t
@@ -4949,6 +4997,10 @@
 #    error "__cpp_lib_make_unique should have the value 201304L in c++20"
 #  endif
 
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_map_try_emplace
 #    error "__cpp_lib_map_try_emplace should be defined in c++20"
 #  endif
@@ -5158,6 +5210,10 @@
 #    error "__cpp_lib_ranges_enumerate should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_find_last
 #    error "__cpp_lib_ranges_find_last should not be defined before c++23"
 #  endif
@@ -5348,6 +5404,10 @@
 
 #  ifdef __cpp_lib_simd
 #    error "__cpp_lib_simd should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_bitops
+#    error "__cpp_lib_simd_bitops should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_simd_complex
@@ -5609,6 +5669,10 @@
 #  endif
 #  if __cpp_lib_variant != 202106L
 #    error "__cpp_lib_variant should have the value 202106L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_void_t
@@ -6733,6 +6797,10 @@
 #    error "__cpp_lib_make_unique should have the value 201304L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_map_try_emplace
 #    error "__cpp_lib_map_try_emplace should be defined in c++23"
 #  endif
@@ -6984,6 +7052,10 @@
 #    error "__cpp_lib_ranges_enumerate should have the value 202302L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_ranges_find_last
 #    error "__cpp_lib_ranges_find_last should be defined in c++23"
 #  endif
@@ -7207,6 +7279,10 @@
 
 #  ifdef __cpp_lib_simd
 #    error "__cpp_lib_simd should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_simd_bitops
+#    error "__cpp_lib_simd_bitops should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_simd_complex
@@ -7504,6 +7580,10 @@
 #  endif
 #  if __cpp_lib_variant != 202106L
 #    error "__cpp_lib_variant should have the value 202106L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_void_t
@@ -8140,8 +8220,8 @@
 #  ifndef __cpp_lib_expected
 #    error "__cpp_lib_expected should be defined in c++26"
 #  endif
-#  if __cpp_lib_expected != 202211L
-#    error "__cpp_lib_expected should have the value 202211L in c++26"
+#  if __cpp_lib_expected != 202606L
+#    error "__cpp_lib_expected should have the value 202606L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_FILESYSTEM
@@ -8423,8 +8503,8 @@
 #  ifndef __cpp_lib_function_ref
 #    error "__cpp_lib_function_ref should be defined in c++26"
 #  endif
-#  if __cpp_lib_function_ref != 202306L
-#    error "__cpp_lib_function_ref should have the value 202306L in c++26"
+#  if __cpp_lib_function_ref != 202604L
+#    error "__cpp_lib_function_ref should have the value 202604L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_gcd_lcm
@@ -8726,8 +8806,8 @@
 #  ifndef __cpp_lib_hazard_pointer
 #    error "__cpp_lib_hazard_pointer should be defined in c++26"
 #  endif
-#  if __cpp_lib_hazard_pointer != 202306L
-#    error "__cpp_lib_hazard_pointer should have the value 202306L in c++26"
+#  if __cpp_lib_hazard_pointer != 202606L
+#    error "__cpp_lib_hazard_pointer should have the value 202606L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_hive
@@ -8761,8 +8841,8 @@
 #  ifndef __cpp_lib_inplace_vector
 #    error "__cpp_lib_inplace_vector should be defined in c++26"
 #  endif
-#  if __cpp_lib_inplace_vector != 202406L
-#    error "__cpp_lib_inplace_vector should have the value 202406L in c++26"
+#  if __cpp_lib_inplace_vector != 202603L
+#    error "__cpp_lib_inplace_vector should have the value 202603L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_int_pow2
@@ -9010,6 +9090,13 @@
 #  endif
 #  if __cpp_lib_make_unique != 201304L
 #    error "__cpp_lib_make_unique should have the value 201304L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should be defined in c++26"
+#  endif
+#  if __cpp_lib_map_lookup != 202606L
+#    error "__cpp_lib_map_lookup should have the value 202606L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_map_try_emplace
@@ -9299,6 +9386,13 @@
 #    error "__cpp_lib_ranges_enumerate should have the value 202302L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should be defined in c++26"
+#  endif
+#  if __cpp_lib_ranges_filter != 202603L
+#    error "__cpp_lib_ranges_filter should have the value 202603L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_ranges_find_last
 #    error "__cpp_lib_ranges_find_last should be defined in c++26"
 #  endif
@@ -9556,8 +9650,15 @@
 #  ifndef __cpp_lib_simd
 #    error "__cpp_lib_simd should be defined in c++26"
 #  endif
-#  if __cpp_lib_simd != 202603L
-#    error "__cpp_lib_simd should have the value 202603L in c++26"
+#  if __cpp_lib_simd != 202606L
+#    error "__cpp_lib_simd should have the value 202606L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_simd_bitops
+#    error "__cpp_lib_simd_bitops should be defined in c++26"
+#  endif
+#  if __cpp_lib_simd_bitops != 202607L
+#    error "__cpp_lib_simd_bitops should have the value 202607L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_simd_complex
@@ -9903,6 +10004,13 @@
 #  endif
 #  if __cpp_lib_variant != 202306L
 #    error "__cpp_lib_variant should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should be defined in c++26"
+#  endif
+#  if __cpp_lib_view_interface != 202606L
+#    error "__cpp_lib_view_interface should have the value 202606L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_void_t

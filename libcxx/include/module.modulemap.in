@@ -1651,6 +1651,10 @@ module std [system] {
       header "__bit/bit_permutations.h"
       export *
     }
+    module bit_shift {
+      header "__bit/bit_shift.h"
+      export *
+    }
     module bit_log2 {
       header "__bit/bit_log2.h"
       export *

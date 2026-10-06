@@ -25,7 +25,11 @@ export namespace std::simd {
   using std::simd::basic_mask;
   using std::simd::basic_vec;
   using std::simd::bit_ceil;
+  using std::simd::bit_compress;
+  using std::simd::bit_expand;
   using std::simd::bit_floor;
+  using std::simd::bit_repeat;
+  using std::simd::bit_reverse;
   using std::simd::bit_width;
   using std::simd::byteswap;
   using std::simd::cat;
@@ -122,6 +126,8 @@ export namespace std::simd {
   using std::simd::rint;
   using std::simd::rotl;
   using std::simd::rotr;
+  using std::simd::shl;
+  using std::simd::shr;
   using std::simd::round;
   using std::simd::scalbln;
   using std::simd::scalbn;

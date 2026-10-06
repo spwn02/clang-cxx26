@@ -3,8 +3,8 @@
 // RUN: %clang_cc1 -std=c++14 -triple x86_64-unknown-unknown %s -verify=expected,cxx11-14,since-cxx11 -fexceptions -fcxx-exceptions -pedantic-errors
 // RUN: %clang_cc1 -std=c++17 -triple x86_64-unknown-unknown %s -verify=expected,since-cxx11 -fexceptions -fcxx-exceptions -pedantic-errors
 // RUN: %clang_cc1 -std=c++20 -triple x86_64-unknown-unknown %s -verify=expected,since-cxx11,since-cxx20 -fexceptions -fcxx-exceptions -pedantic-errors
-// RUN: %clang_cc1 -std=c++23 -triple x86_64-unknown-unknown %s -verify=expected,since-cxx11,since-cxx20,since-cxx23 -fexceptions -fcxx-exceptions -pedantic-errors
-// RUN: %clang_cc1 -std=c++2c -triple x86_64-unknown-unknown %s -verify=expected,since-cxx11,since-cxx20,since-cxx23 -fexceptions -fcxx-exceptions -pedantic-errors
+// RUN: %clang_cc1 -std=c++23 -triple x86_64-unknown-unknown %s -verify=expected,since-cxx11,since-cxx20,since-cxx23,cxx23 -fexceptions -fcxx-exceptions -pedantic-errors
+// RUN: %clang_cc1 -std=c++2c -triple x86_64-unknown-unknown %s -verify=expected,since-cxx11,since-cxx20,since-cxx23,since-cxx26 -fexceptions -fcxx-exceptions -pedantic-errors
 
 namespace std {
 struct type_info{};
@@ -306,12 +306,15 @@ struct X {
   X& operator=(this X&&, X&&) = default;
   // FIXME: The notes could be clearer on *how* the type differs
   // e.g., "if an explicit object parameter is used it must be of type reference to 'X'"
+  // (P2953R5: ill-formed since C++26, deleted before.)
   X& operator=(this int, const X&) = default;
-  // since-cxx23-warning@-1 {{explicitly defaulted copy assignment operator is implicitly deleted}}
-  //   since-cxx23-note@-2 {{function is implicitly deleted because its declared type does not match the type of an implicit copy assignment operator}}
+  // cxx23-warning@-1 {{explicitly defaulted copy assignment operator is implicitly deleted}}
+  //   cxx23-note@-2 {{function is implicitly deleted because its declared type does not match the type of an implicit copy assignment operator}}
+  // since-cxx26-error@-3 {{the type of the explicit object parameter of an explicitly-defaulted copy assignment operator should be reference to 'X'}}
   X& operator=(this X, const X&) = default;
-  // since-cxx23-warning@-1 {{explicitly defaulted copy assignment operator is implicitly deleted}}
-  //   since-cxx23-note@-2 {{function is implicitly deleted because its declared type does not match the type of an implicit copy assignment operator}}
+  // cxx23-warning@-1 {{explicitly defaulted copy assignment operator is implicitly deleted}}
+  //   cxx23-note@-2 {{function is implicitly deleted because its declared type does not match the type of an implicit copy assignment operator}}
+  // since-cxx26-error@-3 {{the type of the explicit object parameter of an explicitly-defaulted copy assignment operator should be reference to 'X'}}
 };
 struct Y {
   void operator=(this int, const Y&); // This is copy constructor, suppresses implicit declaration

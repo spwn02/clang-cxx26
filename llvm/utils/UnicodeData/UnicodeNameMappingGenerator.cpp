@@ -59,12 +59,9 @@ loadDataFiles(const std::string &NamesFile, const std::string &AliasesFile) {
         continue;
       }
 
-      // Some aliases are ignored for compatibility with C++
-      if (IsAliasFile) {
-        std::string Kind = Line.substr(SecondSemiPos + 1);
-        if (Kind != "control" && Kind != "correction" && Kind != "alternate")
-          continue;
-      }
+      // All the aliases are kept: C++26 (P3733R1) accepts every character name
+      // alias in a named universal character escape, not only the ones of type
+      // control, correction and alternate.
 
       auto InsertUnique = [&](char32_t CP, std::string Name) {
         auto It = CollectedCharacters.find(CP);

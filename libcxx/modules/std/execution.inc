@@ -77,7 +77,6 @@ export namespace std::execution {
   // [exec.recv.concepts]
   using std::execution::inlinable_receiver;
   using std::execution::receiver;
-  using std::execution::receiver_of;
   using std::execution::receiver_tag;
 
   // [exec.opstate.general], [exec.opstate.start]

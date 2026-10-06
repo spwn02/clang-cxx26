@@ -714,7 +714,8 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_consteval", "202211L");
     Builder.defineMacro("__cpp_constexpr_dynamic_alloc", "201907L");
     Builder.defineMacro("__cpp_constinit", "201907L");
-    Builder.defineMacro("__cpp_impl_coroutine", "201902L");
+    Builder.defineMacro("__cpp_impl_coroutine",
+                        LangOpts.CPlusPlus26 ? "202606L" : "201902L");
     Builder.defineMacro("__cpp_designated_initializers", "201707L");
     Builder.defineMacro("__cpp_impl_three_way_comparison", "201907L");
     // Intentionally to set __cpp_modules to 1.
@@ -737,7 +738,8 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
   // we also define their feature test macros.
   if (LangOpts.CPlusPlus11)
     Builder.defineMacro("__cpp_static_call_operator", "202207L");
-  Builder.defineMacro("__cpp_named_character_escapes", "202207L");
+  Builder.defineMacro("__cpp_named_character_escapes",
+                      LangOpts.CPlusPlus26 ? "202606L" : "202207L");
   Builder.defineMacro("__cpp_placeholder_variables", "202306L");
 
   // C++26 features supported in earlier language modes.

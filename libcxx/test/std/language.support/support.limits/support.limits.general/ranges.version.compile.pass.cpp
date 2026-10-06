@@ -72,6 +72,10 @@
 #    error "__cpp_lib_ranges_enumerate should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should not be defined before c++26"
 #  endif
@@ -102,6 +106,10 @@
 
 #  ifdef __cpp_lib_ranges_zip
 #    error "__cpp_lib_ranges_zip should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 14
@@ -158,6 +166,10 @@
 #    error "__cpp_lib_ranges_enumerate should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should not be defined before c++26"
 #  endif
@@ -188,6 +200,10 @@
 
 #  ifdef __cpp_lib_ranges_zip
 #    error "__cpp_lib_ranges_zip should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 17
@@ -244,6 +260,10 @@
 #    error "__cpp_lib_ranges_enumerate should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should not be defined before c++26"
 #  endif
@@ -274,6 +294,10 @@
 
 #  ifdef __cpp_lib_ranges_zip
 #    error "__cpp_lib_ranges_zip should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 20
@@ -333,6 +357,10 @@
 #    error "__cpp_lib_ranges_enumerate should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should not be defined before c++26"
 #  endif
@@ -363,6 +391,10 @@
 
 #  ifdef __cpp_lib_ranges_zip
 #    error "__cpp_lib_ranges_zip should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 23
@@ -440,6 +472,10 @@
 #    error "__cpp_lib_ranges_enumerate should have the value 202302L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should not be defined before c++26"
 #  endif
@@ -488,6 +524,10 @@
 #  endif
 #  if __cpp_lib_ranges_zip != 202110L
 #    error "__cpp_lib_ranges_zip should have the value 202110L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER > 23
@@ -589,6 +629,13 @@
 #    error "__cpp_lib_ranges_enumerate should have the value 202302L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should be defined in c++26"
+#  endif
+#  if __cpp_lib_ranges_filter != 202603L
+#    error "__cpp_lib_ranges_filter should have the value 202603L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should be defined in c++26"
 #  endif
@@ -643,6 +690,13 @@
 #  endif
 #  if __cpp_lib_ranges_zip != 202110L
 #    error "__cpp_lib_ranges_zip should have the value 202110L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_view_interface
+#    error "__cpp_lib_view_interface should be defined in c++26"
+#  endif
+#  if __cpp_lib_view_interface != 202606L
+#    error "__cpp_lib_view_interface should have the value 202606L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

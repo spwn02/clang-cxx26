@@ -44,6 +44,10 @@
 #    error "__cpp_lib_generic_associative_lookup should not be defined before c++14"
 #  endif
 
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_map_try_emplace
 #    error "__cpp_lib_map_try_emplace should not be defined before c++17"
 #  endif
@@ -87,6 +91,10 @@
 #  endif
 #  if __cpp_lib_generic_associative_lookup != 201304L
 #    error "__cpp_lib_generic_associative_lookup should have the value 201304L in c++14"
+#  endif
+
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_map_try_emplace
@@ -135,6 +143,10 @@
 #  endif
 #  if __cpp_lib_generic_associative_lookup != 201304L
 #    error "__cpp_lib_generic_associative_lookup should have the value 201304L in c++17"
+#  endif
+
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_map_try_emplace
@@ -195,6 +207,10 @@
 #  endif
 #  if __cpp_lib_generic_associative_lookup != 201304L
 #    error "__cpp_lib_generic_associative_lookup should have the value 201304L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_map_try_emplace
@@ -261,6 +277,10 @@
 #  endif
 #  if __cpp_lib_generic_associative_lookup != 201304L
 #    error "__cpp_lib_generic_associative_lookup should have the value 201304L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_map_try_emplace
@@ -333,6 +353,13 @@
 #  endif
 #  if __cpp_lib_generic_associative_lookup != 201304L
 #    error "__cpp_lib_generic_associative_lookup should have the value 201304L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should be defined in c++26"
+#  endif
+#  if __cpp_lib_map_lookup != 202606L
+#    error "__cpp_lib_map_lookup should have the value 202606L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_map_try_emplace

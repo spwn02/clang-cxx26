@@ -561,11 +561,6 @@ public:
 };
 
 // [func.wrap.ref], class template function_ref                       // since C++26
-template<auto V> struct constant_arg_t {
-  explicit constant_arg_t() = default;
-};
-template<auto V> constexpr constant_arg_t<V> constant_arg{};
-
 template<class... S> class function_ref; // not defined
 
 // Each specialization below stands for the cross product of cv (either
@@ -575,9 +570,9 @@ class function_ref<R(ArgTypes...) cv noexcept(noex)> {
 public:
   template<class F> function_ref(F*) noexcept;
   template<class F> constexpr function_ref(F&&) noexcept;
-  template<auto f> constexpr function_ref(constant_arg_t<f>) noexcept;
-  template<auto f, class U> constexpr function_ref(constant_arg_t<f>, U&&) noexcept;
-  template<auto f, class T> constexpr function_ref(constant_arg_t<f>, cv T*) noexcept;
+  template<auto c, class F> constexpr function_ref(constant_wrapper<c, F>) noexcept;
+  template<auto c, class F, class U> constexpr function_ref(constant_wrapper<c, F>, U&&) noexcept;
+  template<auto c, class F, class T> constexpr function_ref(constant_wrapper<c, F>, cv T*) noexcept;
 
   constexpr function_ref(const function_ref&) noexcept = default;
   constexpr function_ref& operator=(const function_ref&) noexcept = default;
@@ -586,6 +581,10 @@ public:
 
   R operator()(ArgTypes...) const noexcept(noex);
 };
+
+template<class F> function_ref(F*) -> function_ref<F>;
+template<auto c, class F0> function_ref(constant_wrapper<c, F0>) -> function_ref<see below>;
+template<auto c, class F, class T> function_ref(constant_wrapper<c, F>, T&&) -> function_ref<see below>;
 
 }  // std
 

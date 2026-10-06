@@ -6765,6 +6765,11 @@ public:
   SmallVector<std::pair<FunctionDecl *, FunctionDecl *>, 2>
       DelayedEquivalentExceptionSpecChecks;
 
+  /// Deallocation functions declared in a class whose exception specification
+  /// has not been parsed yet; they are checked once the class is complete
+  /// (P3424R2).
+  SmallVector<FunctionDecl *, 2> DelayedDeallocationExceptionSpecChecks;
+
   /// Determine if we're in a case where we need to (incorrectly) eagerly
   /// parse an exception specification to work around a libstdc++ bug.
   bool isLibstdcxxEagerExceptionSpecHack(const Declarator &D);

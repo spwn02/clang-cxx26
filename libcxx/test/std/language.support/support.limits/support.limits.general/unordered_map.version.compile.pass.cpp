@@ -44,6 +44,10 @@
 #    error "__cpp_lib_generic_unordered_lookup should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_node_extract
 #    error "__cpp_lib_node_extract should not be defined before c++17"
 #  endif
@@ -84,6 +88,10 @@
 
 #  ifdef __cpp_lib_generic_unordered_lookup
 #    error "__cpp_lib_generic_unordered_lookup should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_node_extract
@@ -129,6 +137,10 @@
 
 #  ifdef __cpp_lib_generic_unordered_lookup
 #    error "__cpp_lib_generic_unordered_lookup should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_node_extract
@@ -189,6 +201,10 @@
 #  endif
 #  if __cpp_lib_generic_unordered_lookup != 201811L
 #    error "__cpp_lib_generic_unordered_lookup should have the value 201811L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_node_extract
@@ -255,6 +271,10 @@
 #  endif
 #  if __cpp_lib_generic_unordered_lookup != 201811L
 #    error "__cpp_lib_generic_unordered_lookup should have the value 201811L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_node_extract
@@ -327,6 +347,13 @@
 #  endif
 #  if __cpp_lib_generic_unordered_lookup != 201811L
 #    error "__cpp_lib_generic_unordered_lookup should have the value 201811L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should be defined in c++26"
+#  endif
+#  if __cpp_lib_map_lookup != 202606L
+#    error "__cpp_lib_map_lookup should have the value 202606L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_node_extract

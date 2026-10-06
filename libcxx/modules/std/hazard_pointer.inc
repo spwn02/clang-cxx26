@@ -14,7 +14,9 @@ export namespace std {
   // 4.1.4, class hazard_pointer
   using std::hazard_pointer;
   // 4.1.5, Construct non-empty hazard_pointer
+  using std::clear_hazard_pointer_batch;
   using std::make_hazard_pointer;
+  using std::make_hazard_pointer_batch;
   // 4.1.6, Hazard pointer swap
   using std::swap;
 #endif // _LIBCPP_STD_VER >= 26

@@ -69,7 +69,7 @@ concept __has_completions = requires(_Completions* __completions) {
 };
 
 template <class _Rcvr, class _Completions>
-concept receiver_of = receiver<_Rcvr> && __has_completions<_Rcvr, _Completions>;
+concept __receiver_of = receiver<_Rcvr> && __has_completions<_Rcvr, _Completions>;
 
 } // namespace execution
 

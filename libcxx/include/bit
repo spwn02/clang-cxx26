@@ -59,6 +59,12 @@ namespace std {
   template<class T>
     constexpr int popcount(T x) noexcept;     // C++20
 
+  // [bit.shift], shifting
+  template<class T, class S>
+    constexpr T shl(T x, S s) noexcept;     // C++26
+  template<class T, class S>
+    constexpr T shr(T x, S s) noexcept;     // C++26
+
   // [bit.endian], endian
   enum class endian {
     little = see below,        // C++20
@@ -80,6 +86,7 @@ namespace std {
 #    include <__bit/bit_ceil.h>
 #    include <__bit/bit_floor.h>
 #    include <__bit/bit_permutations.h>
+#    include <__bit/bit_shift.h>
 #    include <__bit/bit_log2.h>
 #    include <__bit/bit_width.h>
 #    include <__bit/countl.h>

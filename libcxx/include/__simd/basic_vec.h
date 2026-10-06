@@ -32,6 +32,7 @@
 #include <__type_traits/is_same.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/integer_sequence.h>
+#include <limits>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -50,6 +51,31 @@ concept __constexpr_wrapper_like =
     convertible_to<_Tp, const decltype(_Tp::value)&> && equality_comparable_with<_Tp, decltype(_Tp::value)> &&
     bool_constant<_Tp() == _Tp::value>::value &&
     bool_constant<static_cast<decltype(_Tp::value)>(_Tp()) == _Tp::value>::value;
+
+// P4012R1: the value v of an arithmetic type is representable by the arithmetic type _To: converting it to _To and back
+// gives v again (a NaN is representable by every floating-point type), and the conversion neither overflows nor changes
+// the sign.
+template <class _To, class _From>
+_LIBCPP_HIDE_FROM_ABI consteval bool __representable_by(_From __v) {
+  if constexpr (is_same_v<_From, _To>) {
+    return true;
+  } else if constexpr (floating_point<_From> && floating_point<_To>) {
+    return __v != __v || static_cast<_From>(static_cast<_To>(__v)) == __v;
+  } else if constexpr (floating_point<_From>) {
+    // to an integer: the value must be integral and within range (compared in the wider floating-point type)
+    if (__v != __v)
+      return false;
+    return static_cast<long double>(__v) >= static_cast<long double>(numeric_limits<_To>::lowest()) &&
+           static_cast<long double>(__v) <= static_cast<long double>(numeric_limits<_To>::max()) &&
+           static_cast<_From>(static_cast<_To>(__v)) == __v;
+  } else if constexpr (floating_point<_To>) {
+    // an integer to a floating-point type: exact round trip
+    return static_cast<_From>(static_cast<_To>(__v)) == __v;
+  } else {
+    // integer to integer
+    return static_cast<_From>(static_cast<_To>(__v)) == __v && ((__v < _From(0)) == (static_cast<_To>(__v) < _To(0)));
+  }
+}
 
 // [simd.ctor]/6: the converting constructor is explicit when the conversion loses information or
 // when the source has the greater conversion rank. Rank is deliberately not sizeof: long and long
@@ -165,7 +191,7 @@ public:
              (is_arithmetic_v<remove_cvref_t<_Up>> && __value_preserving_conversion<remove_cvref_t<_Up>, _Tp>) ||
              (__constexpr_wrapper_like<remove_cvref_t<_Up>> &&
               is_arithmetic_v<remove_cvref_t<decltype(remove_cvref_t<_Up>::value)>> &&
-              __value_preserving_conversion<remove_cvref_t<decltype(remove_cvref_t<_Up>::value)>, _Tp>))
+              __representable_by<_Tp>(remove_cvref_t<_Up>::value)))
   _LIBCPP_HIDE_FROM_ABI constexpr basic_vec(_Up&& __value) noexcept {
     const auto __converted = static_cast<_Tp>(__value);
     for (__simd_size_type __i = 0; __i != __size_; ++__i)

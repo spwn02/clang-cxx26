@@ -207,11 +207,12 @@ int \N{Λ} = 0;
 // expected-error@-2 {{expected unqualified-id}}
 const char* emoji = "\N{🤡}";
 // expected-error@-1 {{'🤡' is not a valid Unicode character name}}
-//   expected-note@-2 {{did you mean OX ('🐂' U+1F402)?}}
-//   expected-note@-3 {{did you mean ANT ('🐜' U+1F41C)?}}
-//   expected-note@-4 {{did you mean ARC ('⌒' U+2312)?}}
-//   expected-note@-5 {{did you mean AXE ('🪓' U+1FA93)?}}
-//   expected-note@-6 {{did you mean BAT ('🦇' U+1F987)?}}
+//   expected-note@-2 {{did you mean BS ('<U+0008>' U+8)?}}
+//   expected-note@-3 {{did you mean CR}}
+//   expected-note@-4 {{did you mean EM ('<U+0019>' U+19)?}}
+//   expected-note@-5 {{did you mean FF}}
+//   expected-note@-6 {{did you mean FS ('<U+001C>' U+1C)?}}
+// (The suggestions include the abbreviation aliases since P3733R1.)
 
 #define z(x) 0
 #define cwg2640_a z(

@@ -86,8 +86,8 @@
 #  ifndef __cpp_lib_inplace_vector
 #    error "__cpp_lib_inplace_vector should be defined in c++26"
 #  endif
-#  if __cpp_lib_inplace_vector != 202406L
-#    error "__cpp_lib_inplace_vector should have the value 202406L in c++26"
+#  if __cpp_lib_inplace_vector != 202603L
+#    error "__cpp_lib_inplace_vector should have the value 202603L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

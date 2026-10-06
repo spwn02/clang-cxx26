@@ -612,7 +612,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_expected",
-            "values": {"c++23": 202211},
+            "values": {"c++23": 202211, "c++26": 202606},  # P3798R1 The unexpected in std::expected
             "headers": ["expected"],
         },
         {
@@ -840,7 +840,7 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_function_ref",
             "values": {
-                "c++26": 202306  # P0792R14 function_ref: a type-erased callable reference
+                "c++26": 202604  # P0792R14 function_ref: a type-erased callable reference, P3774R1, P3948R1 (constant_wrapper), P3961R1
             },
             "headers": ["functional"],
         },
@@ -1014,7 +1014,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_hazard_pointer",
-            "values": {"c++26": 202306},  # P2530R3 Hazard Pointers for C++26
+            "values": {"c++26": 202606},  # P2530R3 Hazard Pointers for C++26, P3428R4 Hazard Pointer Batches
             "headers": ["hazard_pointer"],
         },
         {
@@ -1039,7 +1039,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_inplace_vector",
-            "values": {"c++26": 202406},  # P0843R14 inplace_vector
+            "values": {"c++26": 202603},  # P0843R14 inplace_vector, P3981R2 (optional<reference> from try_emplace_back/try_push_back)
             "headers": ["inplace_vector"],
         },
         {
@@ -1218,6 +1218,11 @@ feature_test_macros = [
             "name": "__cpp_lib_make_unique",
             "values": {"c++14": 201304},
             "headers": ["memory"],
+        },
+        {
+            "name": "__cpp_lib_map_lookup",
+            "values": {"c++26": 202606},  # P3091R6 Better Lookups for map, unordered_map, and flat_map
+            "headers": ["flat_map", "map", "unordered_map"],
         },
         {
             "name": "__cpp_lib_map_try_emplace",
@@ -1453,6 +1458,11 @@ feature_test_macros = [
             "headers": ["ranges"],
         },
         {
+            "name": "__cpp_lib_ranges_filter",
+            "values": {"c++26": 202603},  # P3725R3 Filter View Extensions for Safer Use
+            "headers": ["ranges"],
+        },
+        {
             "name": "__cpp_lib_ranges_find_last",
             "values": {"c++23": 202207},
             "headers": ["algorithm"],
@@ -1624,7 +1634,12 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_simd",
-            "values": {"c++26": 202603},  # P1928R15 std::simd -- merge data-parallel types from the Parallelism TS 2
+            "values": {"c++26": 202606},  # P1928R15 std::simd, with the post-Kona changes (P3690R1, P3319R6, P4012R1, ...)
+            "headers": ["simd"],
+        },
+        {
+            "name": "__cpp_lib_simd_bitops",
+            "values": {"c++26": 202607},  # P3772R2 std::simd overloads for bit permutations, P3793R2 shl/shr
             "headers": ["simd"],
         },
         {
@@ -1889,6 +1904,11 @@ feature_test_macros = [
                 "c++26": 202306,  # P2637R3 Member visit
             },
             "headers": ["variant"],
+        },
+        {
+            "name": "__cpp_lib_view_interface",
+            "values": {"c++26": 202606},  # P3052R2 view_interface::at()
+            "headers": ["ranges"],
         },
         {
             "name": "__cpp_lib_void_t",

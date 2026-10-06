@@ -28,6 +28,10 @@
 #    error "__cpp_lib_flat_map should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 14
 
 #  ifdef __cpp_lib_constexpr_flat_map
@@ -36,6 +40,10 @@
 
 #  ifdef __cpp_lib_flat_map
 #    error "__cpp_lib_flat_map should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 17
@@ -48,6 +56,10 @@
 #    error "__cpp_lib_flat_map should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 20
 
 #  ifdef __cpp_lib_constexpr_flat_map
@@ -56,6 +68,10 @@
 
 #  ifdef __cpp_lib_flat_map
 #    error "__cpp_lib_flat_map should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 23
@@ -69,6 +85,10 @@
 #  endif
 #  if __cpp_lib_flat_map != 202511L
 #    error "__cpp_lib_flat_map should have the value 202511L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER > 23
@@ -85,6 +105,13 @@
 #  endif
 #  if __cpp_lib_flat_map != 202511L
 #    error "__cpp_lib_flat_map should have the value 202511L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_map_lookup
+#    error "__cpp_lib_map_lookup should be defined in c++26"
+#  endif
+#  if __cpp_lib_map_lookup != 202606L
+#    error "__cpp_lib_map_lookup should have the value 202606L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

@@ -53,8 +53,8 @@
 #  ifndef __cpp_lib_hazard_pointer
 #    error "__cpp_lib_hazard_pointer should be defined in c++26"
 #  endif
-#  if __cpp_lib_hazard_pointer != 202306L
-#    error "__cpp_lib_hazard_pointer should have the value 202306L in c++26"
+#  if __cpp_lib_hazard_pointer != 202606L
+#    error "__cpp_lib_hazard_pointer should have the value 202606L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

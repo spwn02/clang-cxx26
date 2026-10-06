@@ -137,25 +137,25 @@ constexpr bool test_constexpr_by_value_catch_runs_copy_constructor() {
 }
 static_assert(test_constexpr_by_value_catch_runs_copy_constructor());
 
+// std::current_exception() is not constexpr (P3842R2): the exception_ptr comes from make_exception_ptr.
 constexpr bool test_constexpr_exception_ptr_last_release_in_nested_handlers() {
   int destructions = 0;
-  try {
-    throw Tracked{11, &destructions};
-  } catch (const Tracked&) {
-    auto outer = std::current_exception();
+  {
+    auto outer     = std::make_exception_ptr(Tracked{11, &destructions});
+    const int base = destructions; // the by-value parameter of make_exception_ptr
     try {
       std::rethrow_exception(outer);
     } catch (const Tracked&) {
-      auto inner = std::current_exception();
-      outer = nullptr;
-      inner = nullptr;
-      if (destructions != 0)
+      auto inner = outer;
+      outer      = nullptr;
+      inner      = nullptr;
+      if (destructions != base)
         return false;
     }
-    if (destructions != 0)
+    if (destructions != base + 1)
       return false;
   }
-  return destructions == 1;
+  return destructions == 2;
 }
 static_assert(test_constexpr_exception_ptr_last_release_in_nested_handlers());
 

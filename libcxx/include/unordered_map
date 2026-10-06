@@ -219,6 +219,10 @@ public:
     const mapped_type& at(const key_type& k) const;
     template<class K>       mapped_type& at(const K& x);       // C++26
     template<class K> const mapped_type& at(const K& x) const; // C++26
+    optional<mapped_type&>       lookup(const key_type& x);                              // C++26
+    optional<const mapped_type&> lookup(const key_type& x) const;                        // C++26
+    template<class K> optional<mapped_type&>       lookup(const K& x);                   // C++26
+    template<class K> optional<const mapped_type&> lookup(const K& x) const;             // C++26
 
     size_type bucket_count() const noexcept;
     size_type max_bucket_count() const noexcept;
@@ -1364,6 +1368,36 @@ public:
     if (__i == end())
       std::__throw_out_of_range("unordered_map::at: key not found");
     return __i->second;
+  }
+
+  // [unord.map.elem], P3091R6
+  [[__nodiscard__]] _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI optional<mapped_type&> lookup(const key_type& __k) {
+    iterator __i = find(__k);
+    if (__i == end())
+      return nullopt;
+    return optional<mapped_type&>(__i->second);
+  }
+  [[__nodiscard__]] _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI optional<const mapped_type&>
+  lookup(const key_type& __k) const {
+    const_iterator __i = find(__k);
+    if (__i == end())
+      return nullopt;
+    return optional<const mapped_type&>(__i->second);
+  }
+  template <class _K2, __enable_if_t<__is_transparent_v<hasher, _K2> && __is_transparent_v<key_equal, _K2>, int> = 0>
+  [[__nodiscard__]] _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI optional<mapped_type&> lookup(const _K2& __k) {
+    iterator __i = find(__k);
+    if (__i == end())
+      return nullopt;
+    return optional<mapped_type&>(__i->second);
+  }
+  template <class _K2, __enable_if_t<__is_transparent_v<hasher, _K2> && __is_transparent_v<key_equal, _K2>, int> = 0>
+  [[__nodiscard__]] _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI optional<const mapped_type&>
+  lookup(const _K2& __k) const {
+    const_iterator __i = find(__k);
+    if (__i == end())
+      return nullopt;
+    return optional<const mapped_type&>(__i->second);
   }
 #  endif
 

@@ -694,24 +694,30 @@ coro<bad_promise_5> bad_final_suspend() { // expected-error {{no member named 'a
   co_await a; // expected-note {{function is a coroutine due to use of 'co_await' here}}
 }
 
-struct bad_promise_6 {
-  coro<bad_promise_6> get_return_object();
+// P3950R1: return_void and return_value are not mutually exclusive.
+struct good_promise_6 {
+  coro<good_promise_6> get_return_object();
   suspend_always initial_suspend();
   suspend_always final_suspend() noexcept;
   void unhandled_exception();
-  void return_void();           // expected-note 2 {{member 'return_void' first declared here}}
-  void return_value(int) const; // expected-note 2 {{member 'return_value' first declared here}}
+  void return_void();
+  void return_value(int) const;
   void return_value(int);
 };
-coro<bad_promise_6> bad_implicit_return() { // expected-error {{'bad_promise_6' declares both 'return_value' and 'return_void'}}
+coro<good_promise_6> implicit_return_with_both() {
   co_await a;
+}
+coro<good_promise_6> explicit_returns_with_both(bool b) {
+  if (b)
+    co_return 1;
+  co_return;
 }
 
 template <class T>
-coro<T> bad_implicit_return_dependent(T) { // expected-error {{'bad_promise_6' declares both 'return_value' and 'return_void'}}
+coro<T> implicit_return_with_both_dependent(T) {
   co_await a;
 }
-template coro<bad_promise_6> bad_implicit_return_dependent(bad_promise_6); // expected-note {{in instantiation}}
+template coro<good_promise_6> implicit_return_with_both_dependent(good_promise_6);
 
 struct bad_promise_7 { // expected-note 2 {{defined here}}
   coro<bad_promise_7> get_return_object();

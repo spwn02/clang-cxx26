@@ -64,6 +64,9 @@
 #include <__utility/scope_guard.h>
 #include <__vector/vector.h>
 #include <initializer_list>
+#if _LIBCPP_STD_VER >= 26
+#  include <optional>
+#endif
 #include <stdexcept>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -522,6 +525,38 @@ public:
     }
     return __it->second;
   }
+
+#  if _LIBCPP_STD_VER >= 26
+  // P3091R6
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr optional<mapped_type&> lookup(const key_type& __x) {
+    auto __it = find(__x);
+    if (__it == end())
+      return nullopt;
+    return optional<mapped_type&>(__it->second);
+  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr optional<const mapped_type&> lookup(const key_type& __x) const {
+    auto __it = find(__x);
+    if (__it == end())
+      return nullopt;
+    return optional<const mapped_type&>(__it->second);
+  }
+  template <class _Kp>
+    requires __is_compare_transparent
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr optional<mapped_type&> lookup(const _Kp& __x) {
+    auto __it = find(__x);
+    if (__it == end())
+      return nullopt;
+    return optional<mapped_type&>(__it->second);
+  }
+  template <class _Kp>
+    requires __is_compare_transparent
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr optional<const mapped_type&> lookup(const _Kp& __x) const {
+    auto __it = find(__x);
+    if (__it == end())
+      return nullopt;
+    return optional<const mapped_type&>(__it->second);
+  }
+#  endif // _LIBCPP_STD_VER >= 26
 
   // [flat.map.modifiers], modifiers
   template <class... _Args>
