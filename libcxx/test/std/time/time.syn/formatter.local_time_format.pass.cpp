@@ -95,7 +95,9 @@ int main(int, char**) {
   test<wchar_t>();
 #endif
 
+#if TEST_STD_VER >= 23
   static_assert(std::formattable<decltype(std::chrono::local_time_format(std::chrono::local_seconds{})), char>);
+#endif
 
   return 0;
 }

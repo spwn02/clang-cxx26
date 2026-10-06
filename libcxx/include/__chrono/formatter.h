@@ -1113,16 +1113,20 @@ public:
   }
 };
 #      if _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM
-// Note due to how libc++'s formatters are implemented there is no need to add
-// the exposition only local-time-format-t abstraction.
+// [time.format]: formatter<zoned_time<Duration, TimeZonePtr>, charT> derives from the formatter of
+// local-time-format-t<common_type_t<Duration, seconds>> and formats {local time, &info.abbrev, &info.offset} of the
+// sys_info of the zoned time with it.
 template <class _Duration, class _TimeZonePtr, __fmt_char_type _CharT>
-struct formatter<chrono::zoned_time<_Duration, _TimeZonePtr>, _CharT> : public __formatter_chrono<_CharT> {
+struct formatter<chrono::zoned_time<_Duration, _TimeZonePtr>, _CharT>
+    : public formatter<chrono::__local_time_format_t<common_type_t<_Duration, chrono::seconds>>, _CharT> {
 public:
-  using _Base _LIBCPP_NODEBUG = __formatter_chrono<_CharT>;
+  using _Base _LIBCPP_NODEBUG = formatter<chrono::__local_time_format_t<common_type_t<_Duration, chrono::seconds>>, _CharT>;
 
-  template <class _ParseContext>
-  _LIBCPP_HIDE_FROM_ABI constexpr typename _ParseContext::iterator parse(_ParseContext& __ctx) {
-    return _Base::__parse(__ctx, __format_spec::__fields_chrono, __format_spec::__flags::__clock);
+  template <class _FormatContext>
+  _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
+  format(const chrono::zoned_time<_Duration, _TimeZonePtr>& __tp, _FormatContext& __ctx) const {
+    chrono::sys_info __info = __tp.get_info();
+    return _Base::format({__tp.get_local_time(), std::addressof(__info.abbrev), std::addressof(__info.offset)}, __ctx);
   }
 };
 
