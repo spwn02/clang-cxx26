@@ -12,6 +12,7 @@
 #include <__concepts/same_as.h>
 #include <__config>
 #include <__execution/fwd_env.h>
+#include <__execution/completion_attrs.h>
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
 #include <__execution/just.h>
@@ -129,7 +130,11 @@ public:
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
   // attribute object equal to FWD-ENV(get_env(sndr)).
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    // the stopped completion of the child becomes a value completion (an empty optional), the value completions are
+    // decay-copied into an optional
+    return __completion_attrs<__decay_copy_contrib<set_stopped_t, set_value_t>, _Sndr, __child_attrs_t>(
+        execution::get_env(child));
   }
 
   template <class _Self, class... _Env>

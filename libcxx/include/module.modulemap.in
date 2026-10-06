@@ -2293,6 +2293,7 @@ module std [system] {
     module async_scope                    { header "__execution/async_scope.h" export * }
     module awaitable                      { header "__execution/awaitable.h" export * }
     module bulk                           { header "__execution/bulk.h" export * }
+    module completion_attrs               { header "__execution/completion_attrs.h" export * }
     module completion_functions           { header "__execution/completion_functions.h" export * }
     module completion_signatures          { header "__execution/completion_signatures.h" export * }
     module connect                        { header "__execution/connect.h" export * }

@@ -11,7 +11,10 @@
 
 #include <__concepts/same_as.h>
 #include <__config>
+#include <__execution/completion_attrs.h>
 #include <__execution/completion_signatures.h>
+#include <__execution/domain.h>
+#include <__execution/fwd_env.h>
 #include <__execution/continues_on.h>
 #include <__execution/env.h>
 #include <__execution/get_completion_signatures.h>
@@ -106,6 +109,65 @@ struct affine_t : sender_adaptor_closure<affine_t> {
   }
 };
 
+// The attributes of affine(sndr): those of the child, but for the completion queries. [exec.affine] says that the
+// completion operations are executed on an agent of the resource of the scheduler sch = get_start_scheduler(env) (a child's
+// own affine() member is an optimization that has to keep that), so the completion scheduler of every tag the sender
+// completes with is sch itself (the completion of the lowering goes through UNSTOPPABLE-SCHEDULER(sch), which compares
+// equal to it) and the completion domain that of sch. The query needs an environment, as sch comes from it.
+template <class _Child, class _ChildAttrs>
+class __affine_attrs {
+  template <class _Cpo, class... _Envs>
+  static consteval bool __answers() {
+    if constexpr (sizeof...(_Envs) == 1 && (is_same_v<_Cpo, set_value_t> || is_same_v<_Cpo, set_error_t> ||
+                                            is_same_v<_Cpo, set_stopped_t>)) {
+      using _Env = remove_cvref_t<_Envs...[0]>;
+      if constexpr (requires(const _Env& __env) { execution::get_start_scheduler(__env); } &&
+                    requires { typename completion_signatures_of_t<_Child, __fwd_env<_Env>>; }) {
+        using __sigs = completion_signatures_of_t<_Child, __fwd_env<_Env>>;
+        if constexpr (is_same_v<_Cpo, set_error_t>) {
+          // the exception of a failing decay copy is an error completion too
+          return !same_as<type_list<>, __gather_signatures<_Cpo, __sigs, type_list, type_list>> ||
+                 __decay_copy_may_throw_v<set_value_t, __sigs> || __decay_copy_may_throw_v<set_error_t, __sigs>;
+        } else {
+          return !same_as<type_list<>, __gather_signatures<_Cpo, __sigs, type_list, type_list>>;
+        }
+      }
+    }
+    return false;
+  }
+
+public:
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __affine_attrs(_ChildAttrs __attrs) noexcept(
+      is_nothrow_move_constructible_v<_ChildAttrs>)
+      : __attrs_(std::move(__attrs)) {}
+
+  template <class _Query, class... _Args>
+    requires(std::forwarding_query(_Query())) && (!__is_completion_query_v<_Query>) &&
+            requires(const _ChildAttrs& __attrs, _Query __query, _Args&&... __args) {
+              __attrs.query(__query, std::forward<_Args>(__args)...);
+            }
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) query(_Query __query, _Args&&... __args) const
+      noexcept(noexcept(std::declval<const _ChildAttrs&>().query(__query, std::forward<_Args>(__args)...))) {
+    return __attrs_.query(__query, std::forward<_Args>(__args)...);
+  }
+
+  template <class _Cpo, class _Env>
+    requires(__answers<_Cpo, _Env>())
+  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_scheduler_t<_Cpo>, const _Env& __env) const noexcept {
+    return execution::get_start_scheduler(__env);
+  }
+
+  template <class _Cpo, class _Env>
+    requires(__answers<_Cpo, _Env>())
+  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_domain_t<_Cpo>, const _Env& __env) const noexcept {
+    // the lowering's continues_on is connected to a receiver without an environment
+    return execution::get_completion_domain<set_value_t>(execution::get_start_scheduler(__env), env<>());
+  }
+
+private:
+  _ChildAttrs __attrs_;
+};
+
 // make-sender(affine, env<>(), sndr): an aggregate with public `tag`/`data`/`child` members, matching the
 // (tag, data, ...children) shape tag_of_t decomposes. It is always transformed (affine_t::transform_sender) before it
 // is connected; one that cannot be transformed (the environment has no infallible start scheduler) has no signatures.
@@ -119,7 +181,8 @@ public:
   _Sndr child;
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    return __affine_attrs<_Sndr, __child_attrs_t>(execution::get_env(child));
   }
 
   // [exec.affine]p9: if get_start_scheduler(get_env(rcvr)) is ill-formed or is not an infallible-scheduler<Env>, the

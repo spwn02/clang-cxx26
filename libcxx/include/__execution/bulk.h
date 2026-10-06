@@ -14,6 +14,7 @@
 #include <__concepts/same_as.h>
 #include <__config>
 #include <__execution/completion_functions.h>
+#include <__execution/completion_attrs.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
 #include <__execution/env.h>
@@ -173,6 +174,31 @@ inline constexpr bool __bulk_invocable_v<true, _Func, _Shape, type_list<_Lists..
 template <class _Func, class _Shape, class... _Lists>
 inline constexpr bool __bulk_invocable_v<false, _Func, _Shape, type_list<_Lists...>> =
     (__bulk_invocable_one<false, _Func, _Shape, _Lists>::value && ...);
+
+// The contributors of bulk/bulk_chunked/bulk_unchunked: the function is invoked where the child completed with
+// set_value and its exception, if it can throw, is an error completion in the same place; all completions of the child
+// are otherwise forwarded.
+template <bool _Chunked, class _Func, class _Shape>
+struct __bulk_contrib {
+  template <class _Lists>
+  struct __throws;
+  template <class... _Lists>
+  struct __throws<type_list<_Lists...>> {
+    template <class _List>
+    struct __one;
+    template <class... _Args>
+    struct __one<type_list<_Args...>> {
+      static constexpr bool value = !__bulk_nothrow_invocable<_Chunked, _Func, _Shape, _Args...>::value;
+    };
+    static constexpr bool value = (__one<_Lists>::value || ... || false);
+  };
+
+  template <class _ChildSigs, class _Out>
+  static consteval unsigned __mask() {
+    constexpr bool __may_throw = __throws<__gather_signatures<set_value_t, _ChildSigs, type_list, type_list>>::value;
+    return __intercept_contributors<set_value_t, set_value_t, __may_throw, _ChildSigs>::template __mask<_Out>();
+  }
+};
 
 template <bool _Chunked, class _Func, class _Shape>
 struct __bulk_sig_transform {
@@ -564,10 +590,10 @@ private:
   }
 
 public:
-  // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
-  // attribute object equal to FWD-ENV(get_env(sndr)).
+  // [exec.adapt.general]p3.2 and [exec.snd.general]: the attributes of the child, but for the completion queries.
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    return __completion_attrs<__bulk_contrib<_Chunked, _Func, _Shape>, _Sndr, __child_attrs_t>(execution::get_env(child));
   }
 
   // check-types ([exec.bulk]p6, p8): the function is invocable with (shape, args...) or (begin, end, args...) for the
@@ -697,7 +723,8 @@ public:
   _Sndr child;
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    return __completion_attrs<__bulk_contrib<false, _Func, _Shape>, _Sndr, __child_attrs_t>(execution::get_env(child));
   }
 
   // Only reached for a sender that was not transformed, which cannot happen: the transformation has no constraints

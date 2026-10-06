@@ -12,6 +12,7 @@
 #include <__concepts/constructible.h>
 #include <__concepts/same_as.h>
 #include <__config>
+#include <__execution/completion_attrs.h>
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
@@ -208,25 +209,12 @@ private:
   _Rcvr __rcvr_;
 };
 
-// [exec.snd.general]p9-10 (and its example with then): which completion operations of the child run on the same
-// execution agents as the completion operations with tag O of then/upon_error/upon_stopped. A bit set of the child's
-// completion tags (1: value, 2: error, 4: stopped).
-//   - a completion of the child with a tag other than the intercepted one is forwarded with the same tag;
-//   - the invocation of fn happens where the child completed with the intercepted tag, and its result is a value
-//     completion (so the value completions of upon_error/upon_stopped come from two places);
-//   - if the invocation of fn can throw, the exception is an error completion that happens in the same place.
-template <class _Tag, class _Fn, class _ChildSigs>
-struct __then_contributors {
-  static constexpr bool __has_value   = !same_as<type_list<>, __gather_signatures<set_value_t, _ChildSigs, type_list, type_list>>;
-  static constexpr bool __has_error   = !same_as<type_list<>, __gather_signatures<set_error_t, _ChildSigs, type_list, type_list>>;
-  static constexpr bool __has_stopped = !same_as<type_list<>, __gather_signatures<set_stopped_t, _ChildSigs, type_list, type_list>>;
-
+// [exec.snd.general]p9-10: the contributors of then/upon_error/upon_stopped (see __intercept_contributors): the
+// invocation of fn happens where the child completed with the intercepted tag, its result is a value completion, and
+// if the invocation can throw the exception is an error completion in the same place.
+template <class _Tag, class _Fn>
+struct __then_contrib {
   using __set_cpo = __then_set_cpo_t<_Tag>;
-
-  template <class _Tg>
-  static constexpr bool __has = same_as<_Tg, set_value_t>   ? __has_value
-                              : same_as<_Tg, set_error_t>   ? __has_error
-                                                            : __has_stopped;
 
   template <class _Lists>
   struct __throws;
@@ -240,150 +228,17 @@ struct __then_contributors {
   struct __any_throws<type_list<_Lists...>> {
     static constexpr bool value = (__throws<_Lists>::value || ... || false);
   };
-  static constexpr bool __may_throw =
-      __any_throws<__gather_signatures<__set_cpo, _ChildSigs, type_list, type_list>>::value;
 
-  template <class _Tg>
-  static constexpr unsigned __bit = same_as<_Tg, set_value_t> ? 1u : same_as<_Tg, set_error_t> ? 2u : 4u;
-
-  template <class _Out>
-  static constexpr unsigned __mask() {
-    unsigned __m = 0;
-    if constexpr (!same_as<_Out, __set_cpo>) {
-      if constexpr (__has<_Out>)
-        __m |= __bit<_Out>;
-    }
-    if constexpr (same_as<_Out, set_value_t>) {
-      if constexpr (__has<__set_cpo>)
-        __m |= __bit<__set_cpo>;
-    }
-    if constexpr (same_as<_Out, set_error_t>) {
-      if constexpr (__may_throw)
-        __m |= __bit<__set_cpo>;
-    }
-    return __m;
+  template <class _ChildSigs, class _Out>
+  static consteval unsigned __mask() {
+    constexpr bool __may_throw =
+        __any_throws<__gather_signatures<__set_cpo, _ChildSigs, type_list, type_list>>::value;
+    return __intercept_contributors<__set_cpo, set_value_t, __may_throw, _ChildSigs>::template __mask<_Out>();
   }
 };
 
-// The attributes of a then/upon_error/upon_stopped sender: those of the child, but for the completion queries, which
-// are answered from the completion queries of the child as described by __then_contributors.
 template <class _Tag, class _Fn, class _Child, class _ChildAttrs>
-class __then_attrs {
-private:
-  _ChildAttrs __attrs_;
-
-  template <class... _Envs>
-  using __child_sigs_t =
-      completion_signatures_of_t<_Child, __fwd_env<remove_cvref_t<_Envs>>...>;
-
-  // The completion tags (as a bit set) whose agents the completions with tag _Cpo happen on, empty if that cannot be
-  // determined (the signatures of the child need an environment, or the environment has no such query).
-  template <class _Cpo, class... _Envs>
-  static consteval unsigned __contributors() {
-    if constexpr (sizeof...(_Envs) <= 1 && requires { typename __child_sigs_t<_Envs...>; } &&
-                  (is_same_v<_Cpo, set_value_t> || is_same_v<_Cpo, set_error_t> || is_same_v<_Cpo, set_stopped_t>)) {
-      return __then_contributors<_Tag, _Fn, __child_sigs_t<_Envs...>>::template __mask<_Cpo>();
-    } else {
-      return 0;
-    }
-  }
-
-  template <unsigned _Mask, class _Query, class... _Envs>
-  static consteval bool __child_answers() {
-    return requires(const _ChildAttrs& __attrs, const _Envs&... __envs) {
-      _Query()(__attrs, execution::__fwd_env_fn(__envs)...);
-    };
-  }
-
-  // For a scheduler there must be exactly one place.
-  template <class _Cpo, class... _Envs>
-  static consteval unsigned __sched_plan() {
-    constexpr unsigned __m = __contributors<_Cpo, _Envs...>();
-    if constexpr (__m == 1)
-      return __child_answers<1, get_completion_scheduler_t<set_value_t>, _Envs...>() ? 1 : 0;
-    else if constexpr (__m == 2)
-      return __child_answers<2, get_completion_scheduler_t<set_error_t>, _Envs...>() ? 2 : 0;
-    else if constexpr (__m == 4)
-      return __child_answers<4, get_completion_scheduler_t<set_stopped_t>, _Envs...>() ? 4 : 0;
-    else
-      return 0;
-  }
-
-  // For a domain: every place has to have one, and the result is their COMMON-DOMAIN.
-  template <class _Cpo, class... _Envs>
-  static consteval unsigned __domain_plan() {
-    constexpr unsigned __m = __contributors<_Cpo, _Envs...>();
-    if constexpr (__m == 0)
-      return 0;
-    else
-      return ((__m & 1) == 0 || __child_answers<1, get_completion_domain_t<set_value_t>, _Envs...>()) &&
-                     ((__m & 2) == 0 || __child_answers<2, get_completion_domain_t<set_error_t>, _Envs...>()) &&
-                     ((__m & 4) == 0 || __child_answers<4, get_completion_domain_t<set_stopped_t>, _Envs...>())
-                 ? __m
-                 : 0;
-  }
-
-  template <class _Cpo, class... _Envs>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto __child_domain(const _Envs&... __envs) const noexcept {
-    return execution::get_completion_domain<_Cpo>(__attrs_, execution::__fwd_env_fn(__envs)...);
-  }
-
-  template <unsigned _Mask, class... _Envs>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto __domain_of(const _Envs&... __envs) const noexcept {
-    using _V = set_value_t;
-    using _E = set_error_t;
-    using _S = set_stopped_t;
-    if constexpr (_Mask == 1)
-      return __child_domain<_V>(__envs...);
-    else if constexpr (_Mask == 2)
-      return __child_domain<_E>(__envs...);
-    else if constexpr (_Mask == 4)
-      return __child_domain<_S>(__envs...);
-    else if constexpr (_Mask == 3)
-      return execution::__common_domain(__child_domain<_V>(__envs...), __child_domain<_E>(__envs...));
-    else if constexpr (_Mask == 5)
-      return execution::__common_domain(__child_domain<_V>(__envs...), __child_domain<_S>(__envs...));
-    else if constexpr (_Mask == 6)
-      return execution::__common_domain(__child_domain<_E>(__envs...), __child_domain<_S>(__envs...));
-    else
-      return execution::__common_domain(
-          __child_domain<_V>(__envs...), __child_domain<_E>(__envs...), __child_domain<_S>(__envs...));
-  }
-
-public:
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit __then_attrs(_ChildAttrs __attrs) noexcept(
-      is_nothrow_move_constructible_v<_ChildAttrs>)
-      : __attrs_(std::move(__attrs)) {}
-
-  template <class _Query, class... _Args>
-    requires(std::forwarding_query(_Query())) && (!__is_completion_query_v<_Query>) &&
-            requires(const _ChildAttrs& __attrs, _Query __query, _Args&&... __args) {
-              __attrs.query(__query, std::forward<_Args>(__args)...);
-            }
-  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) query(_Query __query, _Args&&... __args) const
-      noexcept(noexcept(std::declval<const _ChildAttrs&>().query(__query, std::forward<_Args>(__args)...))) {
-    return __attrs_.query(__query, std::forward<_Args>(__args)...);
-  }
-
-  template <class _Cpo, class... _Envs>
-    requires(__sched_plan<_Cpo, _Envs...>() != 0)
-  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_scheduler_t<_Cpo>, const _Envs&... __envs) const noexcept {
-    constexpr unsigned __m = __sched_plan<_Cpo, _Envs...>();
-    if constexpr (__m == 1)
-      return execution::get_completion_scheduler<set_value_t>(__attrs_, execution::__fwd_env_fn(__envs)...);
-    else if constexpr (__m == 2)
-      return execution::get_completion_scheduler<set_error_t>(__attrs_, execution::__fwd_env_fn(__envs)...);
-    else
-      return execution::get_completion_scheduler<set_stopped_t>(__attrs_, execution::__fwd_env_fn(__envs)...);
-  }
-
-  template <class _Cpo, class... _Envs>
-    requires(__domain_plan<_Cpo, _Envs...>() != 0)
-  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_domain_t<_Cpo>, const _Envs&... __envs) const noexcept {
-    constexpr unsigned __m = __domain_plan<_Cpo, _Envs...>();
-    return __domain_of<__m>(__envs...);
-  }
-};
+using __then_attrs = __completion_attrs<__then_contrib<_Tag, _Fn>, _Child, _ChildAttrs>;
 
 // An aggregate with public `tag`/`data`/`child` members, matching the (tag, data,
 // ...children) shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings.

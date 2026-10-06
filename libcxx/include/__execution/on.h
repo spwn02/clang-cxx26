@@ -11,6 +11,10 @@
 
 #include <__config>
 #include <__execution/continues_on.h>
+#include <__execution/schedule.h>
+#include <__execution/completion_signatures.h>
+#include <__execution/domain.h>
+#include <__execution/env.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
@@ -84,6 +88,92 @@ struct on_t;
 // A template parameter purely for the forward-declared-CPO-type ordering trick <__execution/then.h> and
 // <__execution/let.h> established (see <__execution/continues_on.h>'s own __continues_on_sndr for the
 // identical reasoning) -- only `on_t` ever instantiates either sender template in this file.
+// The attributes of on(sch, sndr) and on(sndr, sch, closure): those of the child, but for the completion queries
+// ([exec.snd.general]). Both forms complete through a final continues_on to a scheduler (see transform_sender / connect):
+// on(sch, sndr) to the scheduler the operation was started on, get_start_scheduler(env), and on(sndr, sch, closure) to
+// the completion scheduler of sndr, get_completion_scheduler<set_value_t>(get_env(sndr), env). The value completions
+// and the stopped completions (when there can be some: the child's, or those of a scheduling operation) happen on that
+// scheduler, with its domain. The error completions, some of which happen on an unspecified agent (a failing
+// scheduling operation), are not answered.
+template <bool _FromChild, class _Child, class _Sch, class _ChildAttrs>
+class __on_attrs {
+  template <class _Env>
+  static consteval bool __has_scheduler() {
+    if constexpr (_FromChild)
+      return requires(const _ChildAttrs& __attrs, const _Env& __env) {
+        execution::get_completion_scheduler<set_value_t>(__attrs, __env);
+      };
+    else
+      return requires(const _Env& __env) { execution::get_start_scheduler(__env); };
+  }
+
+  template <class _Env>
+  _LIBCPP_HIDE_FROM_ABI constexpr auto __scheduler(const _Env& __env) const noexcept {
+    if constexpr (_FromChild)
+      return execution::get_completion_scheduler<set_value_t>(__attrs_, __env);
+    else
+      return execution::get_start_scheduler(__env);
+  }
+
+  template <class _Sigs>
+  static constexpr bool __has_stopped_v = !same_as<type_list<>, __gather_signatures<set_stopped_t, _Sigs, type_list, type_list>>;
+
+  template <class _Env>
+  static consteval bool __stopped_possible() {
+    if constexpr (requires { typename completion_signatures_of_t<_Child, __fwd_env<_Env>>; } &&
+                  requires { typename completion_signatures_of_t<schedule_result_t<_Sch>, _Env>; }) {
+      using __final_t = remove_cvref_t<decltype(std::declval<const __on_attrs&>().__scheduler(std::declval<const _Env&>()))>;
+      if constexpr (requires { typename completion_signatures_of_t<schedule_result_t<__final_t>, _Env>; })
+        return __has_stopped_v<completion_signatures_of_t<_Child, __fwd_env<_Env>>> ||
+               __has_stopped_v<completion_signatures_of_t<schedule_result_t<_Sch>, _Env>> ||
+               __has_stopped_v<completion_signatures_of_t<schedule_result_t<__final_t>, _Env>>;
+    }
+    return false;
+  }
+
+  template <class _Cpo, class _Env>
+  static consteval bool __answers() {
+    if constexpr (is_same_v<_Cpo, set_value_t>)
+      return __has_scheduler<_Env>();
+    else if constexpr (is_same_v<_Cpo, set_stopped_t>) {
+      if constexpr (__has_scheduler<_Env>())
+        return __stopped_possible<_Env>();
+    }
+    return false;
+  }
+
+public:
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __on_attrs(_ChildAttrs __attrs) noexcept(
+      is_nothrow_move_constructible_v<_ChildAttrs>)
+      : __attrs_(std::move(__attrs)) {}
+
+  template <class _Query, class... _Args>
+    requires(std::forwarding_query(_Query())) && (!__is_completion_query_v<_Query>) &&
+            requires(const _ChildAttrs& __attrs, _Query __query, _Args&&... __args) {
+              __attrs.query(__query, std::forward<_Args>(__args)...);
+            }
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) query(_Query __query, _Args&&... __args) const
+      noexcept(noexcept(std::declval<const _ChildAttrs&>().query(__query, std::forward<_Args>(__args)...))) {
+    return __attrs_.query(__query, std::forward<_Args>(__args)...);
+  }
+
+  template <class _Cpo, class _Env>
+    requires(__answers<_Cpo, _Env>())
+  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_scheduler_t<_Cpo>, const _Env& __env) const noexcept {
+    return __scheduler(__env);
+  }
+
+  template <class _Cpo, class _Env>
+    requires(__answers<_Cpo, _Env>())
+  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_domain_t<_Cpo>, const _Env& __env) const noexcept {
+    // the final continuation is connected to a receiver without an environment
+    return execution::get_completion_domain<set_value_t>(__scheduler(__env), env<>());
+  }
+
+private:
+  _ChildAttrs __attrs_;
+};
+
 template <class _Tag, class _Sch, class _Sndr>
 class __on_sndr {
 public:
@@ -123,7 +213,8 @@ public:
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated attribute object
   // equal to FWD-ENV(get_env(sndr)).
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    return __on_attrs<false, _Sndr, _Sch, __child_attrs_t>(execution::get_env(child));
   }
 
   // Mirrors connect()'s composition exactly, at the type level: get_start_scheduler is looked up against
@@ -188,7 +279,8 @@ private:
 
 public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    return __on_attrs<true, _Sndr, _Sch, __child_attrs_t>(execution::get_env(child));
   }
 
   // Mirrors connect()'s composition exactly, at the type level -- see __on_sndr::get_completion_signatures

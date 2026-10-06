@@ -10,6 +10,7 @@
 #define _LIBCPP___EXECUTION_SCHEDULE_FROM_H
 
 #include <__config>
+#include <__execution/completion_attrs.h>
 #include <__execution/connect.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_completion_signatures.h>
@@ -127,7 +128,8 @@ private:
 public:
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    return __completion_attrs<__identity_contrib, _Sndr, __child_attrs_t>(execution::get_env(child));
   }
 
   template <class _Self, class... _Env>

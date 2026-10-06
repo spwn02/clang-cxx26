@@ -10,8 +10,10 @@
 #define _LIBCPP___EXECUTION_WHEN_ALL_H
 
 #include <__config>
+#include <__execution/completion_attrs.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
+#include <__execution/domain.h>
 #include <__execution/forwarding_query.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_completion_signatures.h>
@@ -581,6 +583,91 @@ struct when_all_t {
 
 inline constexpr when_all_t when_all{};
 
+// The completion domain contributed by one child to the completions of when_all with tag _Tg.
+template <class _Tg, class _Env, class _Sndr>
+inline constexpr bool __when_all_domain_ok = requires(const _Sndr& __sndr, const __fwd_env<_Env>& __env) {
+  execution::get_completion_domain<_Tg>(execution::get_env(__sndr), __env);
+};
+
+template <class _Tg, class _Env, class _Sndr, bool _Active>
+struct __when_all_child_domain {
+  static constexpr bool __ok = true;
+  using type                 = type_list<>;
+};
+template <class _Tg, class _Env, class _Sndr>
+  requires __when_all_domain_ok<_Tg, _Env, _Sndr>
+struct __when_all_child_domain<_Tg, _Env, _Sndr, true> {
+  static constexpr bool __ok = true;
+  using type                 = type_list<decltype(execution::get_completion_domain<_Tg>(
+      execution::get_env(std::declval<const _Sndr&>()), std::declval<const __fwd_env<_Env>&>()))>;
+};
+template <class _Tg, class _Env, class _Sndr>
+  requires(!__when_all_domain_ok<_Tg, _Env, _Sndr>)
+struct __when_all_child_domain<_Tg, _Env, _Sndr, true> {
+  static constexpr bool __ok = false;
+  using type                 = type_list<>;
+};
+
+// The attributes of when_all(sndrs...) (and of the senders it lowers to): no state, and the only query answered is the
+// completion domain, per [exec.snd.general]: the completions with tag T happen wherever a child completes with T, so it
+// is the common domain of the completion domains of those children; an error completion from the exception of a
+// throwing decay copy of the datums of a value completion happens where that child completed with set_value.
+// The completion scheduler is not answered: which child completes last is only known at run time.
+template <class... _Sndrs>
+class __when_all_attrs {
+  template <class _Cpo, class _Env, class _Sndr>
+  static constexpr bool __child_has =
+      requires { typename completion_signatures_of_t<_Sndr, __fwd_env<_Env>>; } &&
+      !same_as<type_list<>,
+               __gather_signatures<_Cpo, completion_signatures_of_t<_Sndr, __fwd_env<_Env>>, type_list, type_list>>;
+
+  template <class _Cpo, class _Env, class _Sndr>
+  static consteval bool __exception_from_value() {
+    if constexpr (same_as<_Cpo, set_error_t> && __child_has<set_value_t, _Env, _Sndr>)
+      return __decay_copy_may_throw_v<set_value_t, completion_signatures_of_t<_Sndr, __fwd_env<_Env>>>;
+    else
+      return false;
+  }
+
+  template <class _Cpo, class _Env>
+  struct __plan {
+    static constexpr bool __ok =
+        (__when_all_child_domain<_Cpo, _Env, _Sndrs, __child_has<_Cpo, _Env, _Sndrs>>::__ok && ...) &&
+        (__when_all_child_domain<set_value_t, _Env, _Sndrs, __exception_from_value<_Cpo, _Env, _Sndrs>()>::__ok && ...);
+    using __all = typename __concat_type_lists<
+        typename __when_all_child_domain<_Cpo, _Env, _Sndrs, __child_has<_Cpo, _Env, _Sndrs>>::type...,
+        typename __when_all_child_domain<set_value_t, _Env, _Sndrs, __exception_from_value<_Cpo, _Env, _Sndrs>()>::type...>::type;
+
+    template <class... _Ds>
+    static constexpr auto __common(type_list<_Ds...>*) noexcept {
+      return execution::__common_domain(_Ds()...);
+    }
+  };
+
+  template <class _Cpo, class... _Envs>
+  static consteval bool __answers() {
+    if constexpr (sizeof...(_Envs) <= 1 && (is_same_v<_Cpo, set_value_t> || is_same_v<_Cpo, set_error_t> ||
+                                            is_same_v<_Cpo, set_stopped_t>)) {
+      using _Env = typename __first_env_or<env<>, remove_cvref_t<_Envs>...>::type;
+      if constexpr ((requires { typename completion_signatures_of_t<_Sndrs, __fwd_env<_Env>>; } && ...)) {
+        using _Plan = __plan<_Cpo, _Env>;
+        if constexpr (_Plan::__ok)
+          return !same_as<type_list<>, typename _Plan::__all>;
+      }
+    }
+    return false;
+  }
+
+public:
+  template <class _Cpo, class... _Envs>
+    requires(__answers<_Cpo, _Envs...>())
+  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_domain_t<_Cpo>, const _Envs&...) const noexcept {
+    using _Env  = typename __first_env_or<env<>, remove_cvref_t<_Envs>...>::type;
+    using _Plan = __plan<_Cpo, _Env>;
+    return _Plan::__common(static_cast<typename _Plan::__all*>(nullptr));
+  }
+};
+
 template <class... _Sndrs>
 class __when_all_sndr {
 public:
@@ -592,7 +679,7 @@ public:
   // No natural single child to forward attributes from, and nothing in scope through M5
   // queries when_all's own pre-connect attributes -- matches <__execution/just.h>'s/
   // <__execution/read_env.h>'s "no interesting attributes" precedent.
-  _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept { return env<>{}; }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept { return __when_all_attrs<_Sndrs...>(); }
 
   template <class _Rcvr>
   _LIBCPP_HIDE_FROM_ABI constexpr auto connect(_Rcvr&& __rcvr) && noexcept(
@@ -667,7 +754,8 @@ public:
   _LIBCPP_NO_UNIQUE_ADDRESS when_all_with_variant_t tag;
   tuple<_Sndrs...> children;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept { return env<>{}; }
+  // the senders it is lowered to: when_all(into_variant(sndrs)...)
+  _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept { return __when_all_attrs<__into_variant_sndr<_Sndrs>...>(); }
 
   // Only reached for a sender that was not transformed, which cannot happen: the transformation has no constraints
   // but the shape of the sender.

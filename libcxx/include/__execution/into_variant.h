@@ -10,6 +10,7 @@
 #define _LIBCPP___EXECUTION_INTO_VARIANT_H
 
 #include <__config>
+#include <__execution/completion_attrs.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
 #include <__execution/fwd_env.h>
@@ -188,7 +189,9 @@ public:
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
   // attribute object equal to FWD-ENV(get_env(sndr)).
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    return __completion_attrs<__decay_copy_contrib<set_value_t, set_value_t>, _Sndr, __child_attrs_t>(
+        execution::get_env(child));
   }
 
   template <class _Self, class... _Env>

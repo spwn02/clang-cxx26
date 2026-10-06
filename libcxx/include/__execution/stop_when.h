@@ -11,6 +11,7 @@
 
 #include <__concepts/invocable.h>
 #include <__config>
+#include <__execution/completion_attrs.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
 #include <__execution/env.h>
@@ -182,11 +183,12 @@ public:
         std::move(data), std::move(child), std::forward<_Rcvr>(__rcvr));
   }
 
-  // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
-  // attribute object equal to FWD-ENV(get_env(sndr)) -- stop-when doesn't customize its own
-  // attributes (only the environment its child is connected through, mirroring write_env).
+  // [exec.adapt.general]p3.2: the attributes of the child; it completes where the child completes, so the completion
+  // queries are the child's as well (stop-when only changes the environment its child is connected through,
+  // mirroring write_env).
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    return __completion_attrs<__identity_contrib, _Sndr, __child_attrs_t>(execution::get_env(child));
   }
 
   // Delegates to write_env's own already-correct join-env computation for whichever branch

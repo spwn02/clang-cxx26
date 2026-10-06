@@ -12,6 +12,7 @@
 #include <__concepts/same_as.h>
 #include <__config>
 #include <__execution/completion_functions.h>
+#include <__execution/domain.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
 #include <__execution/fwd_env.h>
@@ -334,6 +335,69 @@ public:
 // type -- before `continues_on_t` itself is complete, mirroring <__execution/then.h>'s and
 // <__execution/let.h>'s identical forward-declared-CPO-type ordering trick; only `continues_on_t` ever
 // instantiates it (unlike then.h/let.h, which share one sender template across three CPOs).
+// The attributes of continues_on(sndr, sch): those of the child, but for the completion queries ([exec.snd.general]):
+// the value completions (those of the child, decay-copied, delivered by the scheduling operation) and the stopped
+// completions (the child's, and those of the scheduling operation) all happen on the agents of sch, so those queries
+// answer sch and the completion domain of sch. The error completions come from several places, one of them on an
+// unspecified agent (a failing scheduling operation, [exec.continues.on]), and are not answered.
+template <class _Sch, class _Child, class _ChildAttrs>
+class __continues_on_attrs {
+  template <class _Cpo, class... _Envs>
+  static consteval bool __answers() {
+    if constexpr (sizeof...(_Envs) <= 1 && (is_same_v<_Cpo, set_value_t> || is_same_v<_Cpo, set_stopped_t>)) {
+      if constexpr (requires {
+                      typename completion_signatures_of_t<_Child, __fwd_env_of_first_t<_Envs...>>;
+                      typename completion_signatures_of_t<schedule_result_t<_Sch>, __fwd_env_of_first_t<_Envs...>>;
+                    }) {
+        using __child_sigs = completion_signatures_of_t<_Child, __fwd_env_of_first_t<_Envs...>>;
+        using __sched_sigs = completion_signatures_of_t<schedule_result_t<_Sch>, __fwd_env_of_first_t<_Envs...>>;
+        constexpr auto __has = []<class _Sigs>() consteval {
+          return !same_as<type_list<>, __gather_signatures<_Cpo, _Sigs, type_list, type_list>>;
+        };
+        if constexpr (is_same_v<_Cpo, set_value_t>)
+          return __has.template operator()<__child_sigs>();
+        else
+          return __has.template operator()<__child_sigs>() || __has.template operator()<__sched_sigs>();
+      }
+    }
+    return false;
+  }
+
+
+public:
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __continues_on_attrs(_Sch __sch, _ChildAttrs __attrs) noexcept(
+      is_nothrow_move_constructible_v<_Sch> && is_nothrow_move_constructible_v<_ChildAttrs>)
+      : __sch_(std::move(__sch)), __attrs_(std::move(__attrs)) {}
+
+  template <class _Query, class... _Args>
+    requires(std::forwarding_query(_Query())) && (!__is_completion_query_v<_Query>) &&
+            requires(const _ChildAttrs& __attrs, _Query __query, _Args&&... __args) {
+              __attrs.query(__query, std::forward<_Args>(__args)...);
+            }
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) query(_Query __query, _Args&&... __args) const
+      noexcept(noexcept(std::declval<const _ChildAttrs&>().query(__query, std::forward<_Args>(__args)...))) {
+    return __attrs_.query(__query, std::forward<_Args>(__args)...);
+  }
+
+  template <class _Cpo, class... _Envs>
+    requires(__answers<_Cpo, _Envs...>())
+  _LIBCPP_HIDE_FROM_ABI constexpr _Sch query(get_completion_scheduler_t<_Cpo>, const _Envs&...) const
+      noexcept(is_nothrow_copy_constructible_v<_Sch>) {
+    return __sch_;
+  }
+
+  template <class _Cpo, class... _Envs>
+    requires(__answers<_Cpo, _Envs...>())
+  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_domain_t<_Cpo>, const _Envs&...) const noexcept {
+    // the scheduling operation is connected to a receiver without an environment
+    return execution::get_completion_domain<set_value_t>(__sch_, env<>());
+  }
+
+private:
+  _Sch __sch_;
+  _ChildAttrs __attrs_;
+};
+
 template <class _Tag, class _Sch, class _Sndr>
 class __continues_on_sndr {
 public:
@@ -372,7 +436,8 @@ public:
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated attribute object
   // equal to FWD-ENV(get_env(sndr)).
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    return __continues_on_attrs<_Sch, _Sndr, __child_attrs_t>(data, execution::get_env(child));
   }
 
   // [exec.continues.on]p6 (check-types) is the requires-clause below: a Sch/Sndr combination that

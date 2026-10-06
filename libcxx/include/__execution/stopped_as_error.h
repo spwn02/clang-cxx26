@@ -12,6 +12,7 @@
 #include <__concepts/constructible.h>
 #include <__config>
 #include <__execution/completion_functions.h>
+#include <__execution/completion_attrs.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_completion_signatures.h>
@@ -76,6 +77,15 @@ struct stopped_as_error_t {
   }
 };
 
+// The completions of the child with tag set_stopped become error completions (just_error(err) after let_stopped), in the
+// same place; the other completions are forwarded.
+struct __stopped_as_error_contrib {
+  template <class _ChildSigs, class _Out>
+  static consteval unsigned __mask() {
+    return __intercept_contributors<set_stopped_t, set_error_t, false, _ChildSigs>::template __mask<_Out>();
+  }
+};
+
 template <class _Err, class _Sndr>
 class __stopped_as_error_sndr {
 public:
@@ -86,7 +96,8 @@ public:
   _Sndr child;
 
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    return __completion_attrs<__stopped_as_error_contrib, _Sndr, __child_attrs_t>(execution::get_env(child));
   }
 
   // Only reached for a sender that was not transformed, which cannot happen: the transformation has no constraints

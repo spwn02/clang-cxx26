@@ -142,24 +142,24 @@ private:
   _Sch __sch_;
 };
 
-// [exec.let]p2: let-env(sndr, env) for the completion function set-cpo.
-template <class _SetCpo, class _Sndr, class _Env>
-_LIBCPP_HIDE_FROM_ABI constexpr auto __let_env(const _Sndr& __sndr, const _Env& __env) noexcept {
-  if constexpr (requires {
-                  execution::get_completion_scheduler<_SetCpo>(execution::get_env(__sndr), execution::__fwd_env_fn(__env));
-                }) {
+// [exec.let]p2: let-env(sndr, env) for the completion function set-cpo, given the attributes of sndr.
+template <class _SetCpo, class _Attrs, class _Env>
+_LIBCPP_HIDE_FROM_ABI constexpr auto __let_env_of_attrs(const _Attrs& __attrs, const _Env& __env) noexcept {
+  if constexpr (requires { execution::get_completion_scheduler<_SetCpo>(__attrs, execution::__fwd_env_fn(__env)); }) {
     return __sched_env<remove_cvref_t<decltype(execution::get_completion_scheduler<_SetCpo>(
-        execution::get_env(__sndr), execution::__fwd_env_fn(__env)))>>(
-        execution::get_completion_scheduler<_SetCpo>(execution::get_env(__sndr), execution::__fwd_env_fn(__env)));
-  } else if constexpr (requires {
-                         execution::get_completion_domain<_SetCpo>(execution::get_env(__sndr), execution::__fwd_env_fn(__env));
-                       }) {
+        __attrs, execution::__fwd_env_fn(__env)))>>(
+        execution::get_completion_scheduler<_SetCpo>(__attrs, execution::__fwd_env_fn(__env)));
+  } else if constexpr (requires { execution::get_completion_domain<_SetCpo>(__attrs, execution::__fwd_env_fn(__env)); }) {
     return execution::prop(
-        get_domain,
-        execution::get_completion_domain<_SetCpo>(execution::get_env(__sndr), execution::__fwd_env_fn(__env)));
+        get_domain, execution::get_completion_domain<_SetCpo>(__attrs, execution::__fwd_env_fn(__env)));
   } else {
     return env<>{};
   }
+}
+
+template <class _SetCpo, class _Sndr, class _Env>
+_LIBCPP_HIDE_FROM_ABI constexpr auto __let_env(const _Sndr& __sndr, const _Env& __env) noexcept {
+  return execution::__let_env_of_attrs<_SetCpo>(execution::get_env(__sndr), __env);
 }
 
 template <class _SetCpo, class _Sndr, class _Env>
@@ -501,6 +501,198 @@ public:
 // shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings. Not routed
 // through the draft's generic basic-sender/impls-for machinery: see the M3 entry in
 // docs/CXX26_GAPS.md for why that engine isn't buildable on this fork yet.
+// The domains of the continuation senders ([exec.let]) for the completions with tag _Cpo, accumulated over the lists of
+// datum types of the child's set-cpo completions: the continuation sender of a list _Args... is
+// invoke_result_t<_Fn, decay_t<_Args>&...>, connected through _ContEnv.
+template <class _Cpo, class _Fn, class _ContEnv, class... _Args>
+inline constexpr bool __let_cont_has = false;
+template <class _Cpo, class _Fn, class _ContEnv, class... _Args>
+  requires requires { typename completion_signatures_of_t<invoke_result_t<_Fn, decay_t<_Args>&...>, _ContEnv>; }
+inline constexpr bool __let_cont_has<_Cpo, _Fn, _ContEnv, _Args...> =
+    !same_as<type_list<>,
+             __gather_signatures<_Cpo,
+                                 completion_signatures_of_t<invoke_result_t<_Fn, decay_t<_Args>&...>, _ContEnv>,
+                                 type_list,
+                                 type_list>>;
+
+template <class _Cpo, class _Fn, class _ContEnv, class _Acc, class... _Lists>
+struct __let_cont_domains;
+template <class _Cpo, class _Fn, class _ContEnv, class _Acc>
+struct __let_cont_domains<_Cpo, _Fn, _ContEnv, _Acc> {
+  static constexpr bool __ok = true;
+  using type                 = _Acc;
+};
+template <class _Cpo, class _Fn, class _ContEnv, class... _Acc, class... _Args, class... _Rest>
+  requires(!__let_cont_has<_Cpo, _Fn, _ContEnv, _Args...>)
+struct __let_cont_domains<_Cpo, _Fn, _ContEnv, type_list<_Acc...>, type_list<_Args...>, _Rest...>
+    : __let_cont_domains<_Cpo, _Fn, _ContEnv, type_list<_Acc...>, _Rest...> {};
+template <class _Cpo, class _Fn, class _ContEnv, class... _Acc, class... _Args, class... _Rest>
+  requires(__let_cont_has<_Cpo, _Fn, _ContEnv, _Args...> &&
+           requires(const invoke_result_t<_Fn, decay_t<_Args>&...>& __cont, const _ContEnv& __env) {
+             execution::get_completion_domain<_Cpo>(execution::get_env(__cont), __env);
+           })
+struct __let_cont_domains<_Cpo, _Fn, _ContEnv, type_list<_Acc...>, type_list<_Args...>, _Rest...>
+    : __let_cont_domains<
+          _Cpo,
+          _Fn,
+          _ContEnv,
+          type_list<_Acc...,
+                    decltype(execution::get_completion_domain<_Cpo>(
+                        execution::get_env(std::declval<const invoke_result_t<_Fn, decay_t<_Args>&...>&>()),
+                        std::declval<const _ContEnv&>()))>,
+          _Rest...> {};
+template <class _Cpo, class _Fn, class _ContEnv, class... _Acc, class... _Args, class... _Rest>
+  requires(__let_cont_has<_Cpo, _Fn, _ContEnv, _Args...> &&
+           !requires(const invoke_result_t<_Fn, decay_t<_Args>&...>& __cont, const _ContEnv& __env) {
+             execution::get_completion_domain<_Cpo>(execution::get_env(__cont), __env);
+           })
+struct __let_cont_domains<_Cpo, _Fn, _ContEnv, type_list<_Acc...>, type_list<_Args...>, _Rest...> {
+  static constexpr bool __ok = false;
+  using type                 = type_list<>;
+};
+
+// The attributes of a let_value/let_error/let_stopped sender: those of the child, but for the completion queries
+// ([exec.snd.general]). The completions of the continuation senders happen wherever those say, which is only known
+// at run time for a scheduler (so no completion scheduler is answered), but the completion domain is the common domain
+// of the domains of every place a completion with that tag can happen in: the continuation senders (for every tag),
+// the forwarded completions of the child (the tags other than set-cpo) and, for the error completion that a throwing
+// function or datum copy produces, the place where the child completed with set-cpo.
+template <class _Tag, class _Fn, class _Child, class _ChildAttrs>
+class __let_attrs {
+  using __set_cpo = __let_set_cpo_t<_Tag>;
+
+  template <class _Env>
+  using __child_sigs_t = completion_signatures_of_t<_Child, __fwd_env<_Env>>;
+  template <class _Env>
+  using __lists_t = __gather_signatures<__set_cpo, __child_sigs_t<_Env>, type_list, type_list>;
+  template <class _Env>
+  using __cont_env_t =
+      __let_joined_env_t<decltype(execution::__let_env_of_attrs<__set_cpo>(std::declval<const _ChildAttrs&>(),
+                                                                         std::declval<const _Env&>())),
+                         _Env>;
+
+  template <class _Cpo, class _Env>
+  static constexpr bool __child_has =
+      !same_as<type_list<>, __gather_signatures<_Cpo, __child_sigs_t<_Env>, type_list, type_list>>;
+
+  // Does any continuation (or the decay copy of the datums, or the function) possibly throw?
+  template <class _Env, class _Lists>
+  struct __may_throw;
+  template <class _Env, class... _Lists>
+  struct __may_throw<_Env, type_list<_Lists...>> {
+    template <class _List>
+    struct __one;
+    template <class... _Args>
+    struct __one<type_list<_Args...>> {
+      static constexpr bool value = !__let_sig_transform<__set_cpo, _Fn, _Child, _Env>::template __nothrow_for<_Args...>;
+    };
+    static constexpr bool value = (__one<_Lists>::value || ... || false);
+  };
+
+  template <class _Cpo, class _Env, class _Lists>
+  struct __plan;
+  template <class _Cpo, class _Env, class... _Lists>
+  struct __plan<_Cpo, _Env, type_list<_Lists...>> {
+    using __cont = __let_cont_domains<_Cpo, _Fn, __cont_env_t<_Env>, type_list<>, _Lists...>;
+
+    template <class _Tg>
+    static constexpr bool __child_domain_ok = requires(const _ChildAttrs& __attrs, const __fwd_env<_Env>& __env) {
+      execution::get_completion_domain<_Tg>(__attrs, __env);
+    };
+    template <class _Tg>
+    using __child_domain_t = decltype(execution::get_completion_domain<_Tg>(
+        std::declval<const _ChildAttrs&>(), std::declval<const __fwd_env<_Env>&>()));
+
+    // the forwarded completions of the child
+    static constexpr bool __forward = !same_as<_Cpo, __set_cpo> && __child_has<_Cpo, _Env>;
+    // the exception of the function or of a datum copy, an error completion in the place of set-cpo
+    static consteval bool __exception_fn() {
+      if constexpr (same_as<_Cpo, set_error_t> && __child_has<__set_cpo, _Env>)
+        return __may_throw<_Env, __lists_t<_Env>>::value;
+      else
+        return false;
+    }
+    static constexpr bool __exception = __exception_fn();
+
+    static consteval bool __ok() {
+      if constexpr (!__cont::__ok) {
+        return false;
+      } else {
+        if constexpr (__forward && !__child_domain_ok<_Cpo>)
+          return false;
+        if constexpr (__exception && !__child_domain_ok<__set_cpo>)
+          return false;
+        return true;
+      }
+    }
+
+    template <class... _Ds>
+    static constexpr auto __common(type_list<_Ds...>*) noexcept {
+      return execution::__common_domain(_Ds()...);
+    }
+
+    template <bool _Use, class _Tg>
+    struct __child_list {
+      using type = type_list<>;
+    };
+    template <class _Tg>
+    struct __child_list<true, _Tg> {
+      using type = type_list<__child_domain_t<_Tg>>;
+    };
+    using __forward_list   = typename __child_list<__forward && __child_domain_ok<_Cpo>, _Cpo>::type;
+    using __exception_list = typename __child_list<__exception && __child_domain_ok<__set_cpo>, __set_cpo>::type;
+    using __all =
+        typename __concat_type_lists<typename __cont::type, __forward_list, __exception_list>::type;
+  };
+
+  template <class _Cpo, class... _Envs>
+  static consteval bool __answers() {
+    if constexpr (sizeof...(_Envs) <= 1 && (is_same_v<_Cpo, set_value_t> || is_same_v<_Cpo, set_error_t> ||
+                                            is_same_v<_Cpo, set_stopped_t>)) {
+      using _Env = typename __first_env_or<env<>, remove_cvref_t<_Envs>...>::type;
+      if constexpr (requires { typename __lists_t<_Env>; typename __cont_env_t<_Env>; }) {
+        // only for a valid sender (the check-types of get_completion_signatures)
+        if constexpr (__let_all_valid_v<_Fn, __cont_env_t<_Env>, __lists_t<_Env>>) {
+          using _Plan = __plan<_Cpo, _Env, __lists_t<_Env>>;
+          if constexpr (_Plan::__ok())
+            return !same_as<type_list<>, typename _Plan::__all>;
+        }
+      }
+    }
+    return false;
+  }
+
+  template <class _Cpo, class _Env>
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto __domain() noexcept {
+    using _Plan = __plan<_Cpo, _Env, __lists_t<_Env>>;
+    return _Plan::__common(static_cast<typename _Plan::__all*>(nullptr));
+  }
+
+public:
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __let_attrs(_ChildAttrs __attrs) noexcept(
+      is_nothrow_move_constructible_v<_ChildAttrs>)
+      : __attrs_(std::move(__attrs)) {}
+
+  template <class _Query, class... _Args>
+    requires(std::forwarding_query(_Query())) && (!__is_completion_query_v<_Query>) &&
+            requires(const _ChildAttrs& __attrs, _Query __query, _Args&&... __args) {
+              __attrs.query(__query, std::forward<_Args>(__args)...);
+            }
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) query(_Query __query, _Args&&... __args) const
+      noexcept(noexcept(std::declval<const _ChildAttrs&>().query(__query, std::forward<_Args>(__args)...))) {
+    return __attrs_.query(__query, std::forward<_Args>(__args)...);
+  }
+
+  template <class _Cpo, class... _Envs>
+    requires(__answers<_Cpo, _Envs...>())
+  _LIBCPP_HIDE_FROM_ABI constexpr auto query(get_completion_domain_t<_Cpo>, const _Envs&...) const noexcept {
+    return __domain<_Cpo, typename __first_env_or<env<>, remove_cvref_t<_Envs>...>::type>();
+  }
+
+private:
+  _ChildAttrs __attrs_;
+};
+
 template <class _Tag, class _Fn, class _Sndr>
 class __let_sndr {
 public:
@@ -539,7 +731,8 @@ public:
   // [exec.adapt.general]p3.2: a parent sender with a single child sndr has an associated
   // attribute object equal to FWD-ENV(get_env(sndr)).
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept {
-    return execution::__sender_attrs_fn(execution::get_env(child));
+    using __child_attrs_t = remove_cvref_t<decltype(execution::get_env(child))>;
+    return __let_attrs<_Tag, _Fn, _Sndr, __child_attrs_t>(execution::get_env(child));
   }
 
   // [exec.let]p9 (check-types) is the requires-clause below: an `Fn` that isn't invocable with

@@ -364,6 +364,7 @@ set(files
   __execution/async_scope.h
   __execution/awaitable.h
   __execution/bulk.h
+  __execution/completion_attrs.h
   __execution/completion_functions.h
   __execution/completion_signatures.h
   __execution/connect.h
