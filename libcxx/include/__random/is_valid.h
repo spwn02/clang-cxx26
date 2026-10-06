@@ -23,10 +23,11 @@
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-// [rand.req.genl]/1.4:
-// The effect of instantiating a template that has a template type parameter
-// named RealType is undefined unless the corresponding template argument is
-// cv-unqualified and is one of float, double, or long double.
+// [rand.req.genl]/1.4 (P4037R1):
+// If a template argument corresponding to a template parameter named RealType
+// is neither a standard floating-point type nor a member of an
+// implementation-defined subset of the extended floating-point types, the
+// program is ill-formed. (This implementation accepts float, double and long double.)
 
 template <class>
 struct __libcpp_random_is_valid_realtype : false_type {};
@@ -37,16 +38,18 @@ struct __libcpp_random_is_valid_realtype<double> : true_type {};
 template <>
 struct __libcpp_random_is_valid_realtype<long double> : true_type {};
 
-// [rand.req.genl]/1.5:
-// The effect of instantiating a template that has a template type parameter
-// named IntType is undefined unless the corresponding template argument is
-// cv-unqualified and is one of short, int, long, long long, unsigned short,
-// unsigned int, unsigned long, or unsigned long long.
+// [rand.req.genl]/1.5 (P4037R1):
+// If a template argument corresponding to a template parameter named IntType is
+// neither a standard signed nor a standard unsigned integer type, nor an
+// extended integer type whose width is at least that of char and at most that
+// of long long, nor a member of an implementation-defined subset of the integer
+// types, the program is ill-formed. So signed char and unsigned char (int8_t and
+// uint8_t below) are required; __int128 is an extension.
 
 template <class>
 struct __libcpp_random_is_valid_inttype : false_type {};
 template <>
-struct __libcpp_random_is_valid_inttype<int8_t> : true_type {}; // extension
+struct __libcpp_random_is_valid_inttype<int8_t> : true_type {};
 template <>
 struct __libcpp_random_is_valid_inttype<short> : true_type {};
 template <>
@@ -56,7 +59,7 @@ struct __libcpp_random_is_valid_inttype<long> : true_type {};
 template <>
 struct __libcpp_random_is_valid_inttype<long long> : true_type {};
 template <>
-struct __libcpp_random_is_valid_inttype<uint8_t> : true_type {}; // extension
+struct __libcpp_random_is_valid_inttype<uint8_t> : true_type {};
 template <>
 struct __libcpp_random_is_valid_inttype<unsigned short> : true_type {};
 template <>
