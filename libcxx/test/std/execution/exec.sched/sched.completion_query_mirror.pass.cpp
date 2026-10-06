@@ -16,8 +16,9 @@
 // type and value, and likewise get_completion_domain<T>. This checks the library schedulers in every case where the
 // queries of the scheduler and of its schedule sender can agree. They cannot for:
 //  - the error tag: the draft's second bullet makes the scheduler query always well-formed for a non-empty envs, while
-//    the schedule senders of inline_scheduler, task_scheduler and run_loop never complete with set_error (the
-//    parallel_scheduler sender's completion signatures are not specified, although its backend proxy has set_error);
+//    the schedule senders never complete with set_error ([exec.task.scheduler] and [exec.run.loop.types] say so; the
+//    parallel_scheduler sender's signatures are not in the draft: P2079R10's exposition-only sender has
+//    set_error(exception_ptr), but then task_scheduler(parallel_scheduler) would violate infallible-scheduler);
 //  - set_stopped for an environment whose stop token is unstoppable (the sender has no such completion, so answering
 //    the query would make the program ill-formed, [exec.get.compl.sched]p7);
 //  - inline_scheduler with an environment without a scheduler (inline-attrs answers get_scheduler(env)).
