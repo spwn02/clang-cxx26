@@ -243,13 +243,13 @@ public:
 private:
   _LIBCPP_HIDE_FROM_ABI void set_value() noexcept override { execution::set_value(std::move(__rcvr_)); }
   _LIBCPP_HIDE_FROM_ABI void set_stopped() noexcept override { execution::set_stopped(std::move(__rcvr_)); }
-  // [exec.parallel.scheduler]'s completion-signature set for schedule(parallel-scheduler) never
-  // includes set_error_t (see this class's own top comment) -- a conforming backend cannot
-  // reach this.
-  _LIBCPP_HIDE_FROM_ABI void set_error(std::exception_ptr) noexcept override {
-    _LIBCPP_ASSERT_INTERNAL(
-        false, "parallel_scheduler_backend::set_error reached for a sender that never completes with set_error_t");
-  }
+  // [exec.par.scheduler]: "r.set_error(e) has effects equivalent to set_error(std::move(rcvr), std::move(e))", but the
+  // draft gives the schedule sender no error completion (task_scheduler needs an infallible-scheduler; LWG candidate
+  // on #263, #270): the library advertises none, so a receiver cannot be assumed to handle one (the forwarding
+  // receivers of the adaptors would fail to compile for a receiver that does not). A backend that reports a scheduling
+  // error is therefore a contract violation of the advertised signatures: terminate deterministically (before, the
+  // receiver was never completed unless hardening was enabled).
+  [[noreturn]] _LIBCPP_HIDE_FROM_ABI void set_error(std::exception_ptr) noexcept override { std::terminate(); }
 
   _LIBCPP_HIDE_FROM_ABI bool
   __query_env(const type_info& __query_type, const type_info& __result_type, const void*, void* __result_storage)
