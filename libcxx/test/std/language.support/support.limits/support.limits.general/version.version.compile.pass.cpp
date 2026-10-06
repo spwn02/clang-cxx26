@@ -1124,6 +1124,10 @@
 #    error "__cpp_lib_text_encoding should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_thread_attributes
+#    error "__cpp_lib_thread_attributes should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_three_way_comparison
 #    error "__cpp_lib_three_way_comparison should not be defined before c++20"
 #  endif
@@ -2368,6 +2372,10 @@
 
 #  ifdef __cpp_lib_text_encoding
 #    error "__cpp_lib_text_encoding should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_thread_attributes
+#    error "__cpp_lib_thread_attributes should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_three_way_comparison
@@ -3788,6 +3796,10 @@
 
 #  ifdef __cpp_lib_text_encoding
 #    error "__cpp_lib_text_encoding should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_thread_attributes
+#    error "__cpp_lib_thread_attributes should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_three_way_comparison
@@ -5469,6 +5481,10 @@
 
 #  ifdef __cpp_lib_text_encoding
 #    error "__cpp_lib_text_encoding should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_thread_attributes
+#    error "__cpp_lib_thread_attributes should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_three_way_comparison
@@ -7351,6 +7367,10 @@
 
 #  ifdef __cpp_lib_text_encoding
 #    error "__cpp_lib_text_encoding should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_thread_attributes
+#    error "__cpp_lib_thread_attributes should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_three_way_comparison
@@ -9725,6 +9745,19 @@
 #  endif
 #  if __cpp_lib_text_encoding != 202306L
 #    error "__cpp_lib_text_encoding should have the value 202306L in c++26"
+#  endif
+
+#  if _LIBCPP_HAS_THREADS
+#    ifndef __cpp_lib_thread_attributes
+#      error "__cpp_lib_thread_attributes should be defined in c++26"
+#    endif
+#    if __cpp_lib_thread_attributes != 202606L
+#      error "__cpp_lib_thread_attributes should have the value 202606L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_thread_attributes
+#      error "__cpp_lib_thread_attributes should not be defined when the requirement '_LIBCPP_HAS_THREADS' is not met!"
+#    endif
 #  endif
 
 #  ifndef __cpp_lib_three_way_comparison

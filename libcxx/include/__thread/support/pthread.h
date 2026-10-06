@@ -182,6 +182,54 @@ inline _LIBCPP_HIDE_FROM_ABI int __libcpp_thread_create(__libcpp_thread_t* __t, 
   return pthread_create(__t, nullptr, __func, __arg);
 }
 
+// [thread.attributes.size]: the stack size is a hint, it is adjusted up to what the platform needs; zero is ignored.
+inline _LIBCPP_HIDE_FROM_ABI int
+__libcpp_thread_create_with_stack_size(__libcpp_thread_t* __t, void* (*__func)(void*), void* __arg, size_t __stack_size) {
+  if (__stack_size == 0)
+    return pthread_create(__t, nullptr, __func, __arg);
+  pthread_attr_t __attr;
+  int __ec = pthread_attr_init(&__attr);
+  if (__ec != 0)
+    return __ec;
+  size_t __min_size = static_cast<size_t>(PTHREAD_STACK_MIN);
+  if (__stack_size < __min_size)
+    __stack_size = __min_size;
+  // a hint: a size the platform rejects (or cannot allocate) is adjusted to the default rather than failing the construction
+  __ec = pthread_attr_setstacksize(&__attr, __stack_size);
+  if (__ec == 0)
+    __ec = pthread_create(__t, &__attr, __func, __arg);
+  if (__ec != 0)
+    __ec = pthread_create(__t, nullptr, __func, __arg);
+  pthread_attr_destroy(&__attr);
+  return __ec;
+}
+
+// [thread.attributes.hint]: sets the name of the calling thread, a hint: a name that the platform cannot take (too long,
+// no support) is silently dropped (the name is truncated to what the platform accepts).
+inline _LIBCPP_HIDE_FROM_ABI void __libcpp_thread_set_current_name(const char* __name, size_t __length) {
+#if defined(__linux__) || defined(__ANDROID__)
+  constexpr size_t __max = 15; // TASK_COMM_LEN - 1
+#else
+  constexpr size_t __max = 63;
+#endif
+  char __buffer[__max + 1];
+  size_t __n = __length < __max ? __length : __max;
+  for (size_t __i = 0; __i != __n; ++__i)
+    __buffer[__i] = __name[__i];
+  __buffer[__n] = '\0';
+#if defined(__linux__) || defined(__ANDROID__) || defined(__GLIBC__)
+  (void)pthread_setname_np(pthread_self(), __buffer);
+#elif defined(__APPLE__)
+  (void)pthread_setname_np(__buffer);
+#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+  pthread_set_name_np(pthread_self(), __buffer);
+#elif defined(__NetBSD__)
+  (void)pthread_setname_np(pthread_self(), "%s", __buffer);
+#else
+  (void)__buffer;
+#endif
+}
+
 inline _LIBCPP_HIDE_FROM_ABI __libcpp_thread_id __libcpp_thread_get_current_id() {
   const __libcpp_thread_t __current_thread = pthread_self();
   return __libcpp_thread_get_id(&__current_thread);

@@ -100,6 +100,13 @@ _LIBCPP_EXPORTED_FROM_ABI bool __libcpp_thread_isnull(const __libcpp_thread_t* _
 
 _LIBCPP_EXPORTED_FROM_ABI int __libcpp_thread_create(__libcpp_thread_t* __t, void* (*__func)(void*), void* __arg);
 
+inline _LIBCPP_HIDE_FROM_ABI int
+__libcpp_thread_create_with_stack_size(__libcpp_thread_t* __t, void* (*__func)(void*), void* __arg, size_t) {
+  return __libcpp_thread_create(__t, __func, __arg); // the stack size is a hint (not supported by this thread API)
+}
+
+inline _LIBCPP_HIDE_FROM_ABI void __libcpp_thread_set_current_name(const char*, size_t) {} // a hint, not supported
+
 _LIBCPP_EXPORTED_FROM_ABI __libcpp_thread_id __libcpp_thread_get_current_id();
 
 _LIBCPP_EXPORTED_FROM_ABI __libcpp_thread_id __libcpp_thread_get_id(const __libcpp_thread_t* __t);

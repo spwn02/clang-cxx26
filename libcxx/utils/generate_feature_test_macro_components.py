@@ -1776,6 +1776,13 @@ feature_test_macros = [
             "headers": ["text_encoding"],
         },
         {
+            "name": "__cpp_lib_thread_attributes",
+            "values": {"c++26": 202606},  # P2019R9 Thread attributes
+            "headers": ["thread"],
+            "test_suite_guard": "_LIBCPP_HAS_THREADS",
+            "libcxx_guard": "_LIBCPP_HAS_THREADS",
+        },
+        {
             "name": "__cpp_lib_three_way_comparison",
             "values": {"c++20": 201907},
             "headers": ["compare"],
