@@ -1973,6 +1973,13 @@ Decl *TemplateDeclInstantiator::VisitFieldDecl(FieldDecl *D) {
       SemaRef.Diag(D->getLocation(), diag::err_field_instantiates_to_function)
           << TSI->getType();
       Invalid = true;
+    } else if (TSI->getType()->isDependentType() && !Owner->isDependentContext() &&
+               SemaRef.hasUncompilableErrorOccurred()) {
+      // Every template argument is known, so a type that is still dependent
+      // is the leftover of an error that has been diagnosed (e.g. a member
+      // alias whose substitution failed). The field, and with it the class,
+      // is invalid: a dependent type must not reach the layout of the class.
+      Invalid = true;
     }
   } else {
     SemaRef.MarkDeclarationsReferencedInType(D->getLocation(), TSI->getType());
