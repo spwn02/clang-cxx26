@@ -40,21 +40,21 @@ struct AwSched {
 };
 
 void test() {
-  { // expected-error@*:* 0+ {{}}
+  {
     ex::task_scheduler ts{AwSched{}};
     auto r = std::this_thread::sync_wait(ex::schedule(ts) | ex::then([] { return 5; }));
     (void)r;
   }
-  { // expected-error@*:* 0+ {{}}
+  {
     auto r = std::this_thread::sync_wait(ex::starts_on(AwSched{}, ex::just(3)));
     (void)r;
   }
-  { // expected-error@*:* 0+ {{}}
+  {
     auto r = std::this_thread::sync_wait(ex::continues_on(ex::just(4), AwSched{}));
     (void)r;
   }
 }
 
-// expected-error@*:* 0+ {{}}
+// expected-error@*:* 1+ {{}}
 // expected-note@*:* 0+ {{}}
 // expected-warning@*:* 0+ {{}}
