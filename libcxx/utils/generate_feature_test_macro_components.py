@@ -840,7 +840,7 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_function_ref",
             "values": {
-                "c++26": 202306  # P0792R14 function_ref: a type-erased callable reference
+                "c++26": 202604  # P0792R14 function_ref: a type-erased callable reference, P3774R1, P3948R1 (constant_wrapper), P3961R1
             },
             "headers": ["functional"],
         },
@@ -1039,7 +1039,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_inplace_vector",
-            "values": {"c++26": 202406},  # P0843R14 inplace_vector
+            "values": {"c++26": 202603},  # P0843R14 inplace_vector, P3981R2 (optional<reference> from try_emplace_back/try_push_back)
             "headers": ["inplace_vector"],
         },
         {
@@ -1453,6 +1453,11 @@ feature_test_macros = [
             "headers": ["ranges"],
         },
         {
+            "name": "__cpp_lib_ranges_filter",
+            "values": {"c++26": 202603},  # P3725R3 Filter View Extensions for Safer Use
+            "headers": ["ranges"],
+        },
+        {
             "name": "__cpp_lib_ranges_find_last",
             "values": {"c++23": 202207},
             "headers": ["algorithm"],
@@ -1624,7 +1629,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_simd",
-            "values": {"c++26": 202603},  # P1928R15 std::simd -- merge data-parallel types from the Parallelism TS 2
+            "values": {"c++26": 202603},  # P1928R15 std::simd -- merge data-parallel types from the Parallelism TS 2, P3690R1
             "headers": ["simd"],
         },
         {

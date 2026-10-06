@@ -512,8 +512,8 @@
 #  ifndef __cpp_lib_function_ref
 #    error "__cpp_lib_function_ref should be defined in c++26"
 #  endif
-#  if __cpp_lib_function_ref != 202306L
-#    error "__cpp_lib_function_ref should have the value 202306L in c++26"
+#  if __cpp_lib_function_ref != 202604L
+#    error "__cpp_lib_function_ref should have the value 202604L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_invoke
