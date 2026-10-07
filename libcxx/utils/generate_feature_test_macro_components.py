@@ -400,6 +400,13 @@ feature_test_macros = [
             "headers": ["memory"],
         },
         {
+            "name": "__cpp_lib_constexpr_exceptions",
+            "values": {"c++26": 202502},  # P3068R6, P3378R2 constexpr exceptions
+            "headers": ["exception", "expected", "format", "optional", "stdexcept", "variant"],
+            "test_suite_guard": "__has_builtin(__builtin_constexpr_exception_capture)",
+            "libcxx_guard": "__has_builtin(__builtin_constexpr_exception_capture)",
+        },
+        {
             "name": "__cpp_lib_constexpr_flat_map",
             "values": {"c++26": 202502},
             "headers": ["flat_map"],

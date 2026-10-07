@@ -345,12 +345,20 @@ namespace std // purposefully not using versioning namespace
 
 class _LIBCPP_EXPORTED_FROM_ABI bad_optional_access : public exception {
 public:
+#    if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_optional_access() _NOEXCEPT                                      = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_optional_access(const bad_optional_access&) _NOEXCEPT            = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_optional_access& operator=(const bad_optional_access&) _NOEXCEPT = default;
+  constexpr ~bad_optional_access() _NOEXCEPT override {}
+  [[__nodiscard__]] constexpr const char* what() const _NOEXCEPT override { return "bad_optional_access"; }
+#    else
   _LIBCPP_HIDE_FROM_ABI bad_optional_access() _NOEXCEPT                                      = default;
   _LIBCPP_HIDE_FROM_ABI bad_optional_access(const bad_optional_access&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI bad_optional_access& operator=(const bad_optional_access&) _NOEXCEPT = default;
   // Get the key function ~bad_optional_access() into the dylib
   ~bad_optional_access() _NOEXCEPT override;
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
+#    endif
 };
 
 } // namespace std
@@ -359,7 +367,7 @@ public:
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-[[noreturn]] inline _LIBCPP_HIDE_FROM_ABI void __throw_bad_optional_access() {
+[[noreturn]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline void __throw_bad_optional_access() {
 #    if _LIBCPP_HAS_EXCEPTIONS
   throw bad_optional_access();
 #    else

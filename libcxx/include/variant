@@ -288,7 +288,12 @@ _LIBCPP_BEGIN_UNVERSIONED_NAMESPACE_STD
 
 class _LIBCPP_EXPORTED_FROM_ABI bad_variant_access : public exception {
 public:
+#    if _LIBCPP_STD_VER >= 26
+  constexpr ~bad_variant_access() _NOEXCEPT override {}
+  [[__nodiscard__]] constexpr const char* what() const _NOEXCEPT override { return "bad_variant_access"; }
+#    else
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
+#    endif
 };
 
 _LIBCPP_END_UNVERSIONED_NAMESPACE_STD
@@ -307,7 +312,7 @@ struct __farray {
   _LIBCPP_HIDE_FROM_ABI constexpr const _Tp& operator[](size_t __n) const noexcept { return __buf_[__n]; }
 };
 
-[[noreturn]] inline _LIBCPP_HIDE_FROM_ABI void __throw_bad_variant_access() {
+[[noreturn]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline void __throw_bad_variant_access() {
 #    if _LIBCPP_HAS_EXCEPTIONS
   throw bad_variant_access();
 #    else

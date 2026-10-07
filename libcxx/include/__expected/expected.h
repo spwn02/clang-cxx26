@@ -73,7 +73,7 @@ struct __expected_construct_in_place_from_invoke_tag {};
 struct __expected_construct_unexpected_from_invoke_tag {};
 
 template <class _Err, class _Arg>
-_LIBCPP_HIDE_FROM_ABI void __throw_bad_expected_access(_Arg&& __arg) {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_bad_expected_access(_Arg&& __arg) {
 #  if _LIBCPP_HAS_EXCEPTIONS
   throw bad_expected_access<_Err>(std::forward<_Arg>(__arg));
 #  else

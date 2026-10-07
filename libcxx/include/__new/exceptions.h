@@ -28,20 +28,36 @@ _LIBCPP_BEGIN_UNVERSIONED_NAMESPACE_STD
 
 class _LIBCPP_EXPORTED_FROM_ABI bad_alloc : public exception {
 public:
+#  if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_alloc() _NOEXCEPT {}
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_alloc(const bad_alloc&) _NOEXCEPT            = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_alloc& operator=(const bad_alloc&) _NOEXCEPT = default;
+  constexpr ~bad_alloc() _NOEXCEPT override {}
+  [[__nodiscard__]] constexpr const char* what() const _NOEXCEPT override { return "std::bad_alloc"; }
+#  else
   bad_alloc() _NOEXCEPT;
   _LIBCPP_HIDE_FROM_ABI bad_alloc(const bad_alloc&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI bad_alloc& operator=(const bad_alloc&) _NOEXCEPT = default;
   ~bad_alloc() _NOEXCEPT override;
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
+#  endif
 };
 
 class _LIBCPP_EXPORTED_FROM_ABI bad_array_new_length : public bad_alloc {
 public:
+#  if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_array_new_length() _NOEXCEPT {}
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_array_new_length(const bad_array_new_length&) _NOEXCEPT            = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr bad_array_new_length& operator=(const bad_array_new_length&) _NOEXCEPT = default;
+  constexpr ~bad_array_new_length() _NOEXCEPT override {}
+  [[__nodiscard__]] constexpr const char* what() const _NOEXCEPT override { return "bad_array_new_length"; }
+#  else
   bad_array_new_length() _NOEXCEPT;
   _LIBCPP_HIDE_FROM_ABI bad_array_new_length(const bad_array_new_length&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI bad_array_new_length& operator=(const bad_array_new_length&) _NOEXCEPT = default;
   ~bad_array_new_length() _NOEXCEPT override;
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
+#  endif
 };
 
 #elif defined(_HAS_EXCEPTIONS) && _HAS_EXCEPTIONS == 0 // !_LIBCPP_ABI_VCRUNTIME

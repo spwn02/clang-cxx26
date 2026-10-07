@@ -228,6 +228,10 @@
 #    error "__cpp_lib_constexpr_dynamic_alloc should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_exceptions
+#    error "__cpp_lib_constexpr_exceptions should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_flat_map
 #    error "__cpp_lib_constexpr_flat_map should not be defined before c++26"
 #  endif
@@ -1474,6 +1478,10 @@
 
 #  ifdef __cpp_lib_constexpr_dynamic_alloc
 #    error "__cpp_lib_constexpr_dynamic_alloc should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_exceptions
+#    error "__cpp_lib_constexpr_exceptions should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_flat_map
@@ -2824,6 +2832,10 @@
 
 #  ifdef __cpp_lib_constexpr_dynamic_alloc
 #    error "__cpp_lib_constexpr_dynamic_alloc should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_exceptions
+#    error "__cpp_lib_constexpr_exceptions should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_flat_map
@@ -4396,6 +4408,10 @@
 #  endif
 #  if __cpp_lib_constexpr_dynamic_alloc != 201907L
 #    error "__cpp_lib_constexpr_dynamic_alloc should have the value 201907L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_exceptions
+#    error "__cpp_lib_constexpr_exceptions should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_flat_map
@@ -6181,6 +6197,10 @@
 #  endif
 #  if __cpp_lib_constexpr_dynamic_alloc != 201907L
 #    error "__cpp_lib_constexpr_dynamic_alloc should have the value 201907L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_exceptions
+#    error "__cpp_lib_constexpr_exceptions should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_flat_map
@@ -8155,6 +8175,19 @@
 #  endif
 #  if __cpp_lib_constexpr_dynamic_alloc != 201907L
 #    error "__cpp_lib_constexpr_dynamic_alloc should have the value 201907L in c++26"
+#  endif
+
+#  if __has_builtin(__builtin_constexpr_exception_capture)
+#    ifndef __cpp_lib_constexpr_exceptions
+#      error "__cpp_lib_constexpr_exceptions should be defined in c++26"
+#    endif
+#    if __cpp_lib_constexpr_exceptions != 202502L
+#      error "__cpp_lib_constexpr_exceptions should have the value 202502L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_constexpr_exceptions
+#      error "__cpp_lib_constexpr_exceptions should not be defined when the requirement '__has_builtin(__builtin_constexpr_exception_capture)' is not met!"
+#    endif
 #  endif
 
 #  ifndef __cpp_lib_constexpr_flat_map

@@ -84,6 +84,8 @@ __cpp_lib_constexpr_complex                             202306L <complex>
                                                         201711L // C++20
 __cpp_lib_constexpr_deque                               202502L <deque>
 __cpp_lib_constexpr_dynamic_alloc                       201907L <memory>
+__cpp_lib_constexpr_exceptions                          202502L <exception> <expected> <format>
+                                                                <optional> <stdexcept> <variant>
 __cpp_lib_constexpr_flat_map                            202502L <flat_map>
 __cpp_lib_constexpr_flat_set                            202502L <flat_set>
 __cpp_lib_constexpr_format                              202511L <format>
@@ -682,6 +684,9 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # undef  __cpp_lib_constexpr_complex
 # define __cpp_lib_constexpr_complex                    202306L
 # define __cpp_lib_constexpr_deque                      202502L
+# if __has_builtin(__builtin_constexpr_exception_capture)
+#   define __cpp_lib_constexpr_exceptions               202502L
+# endif
 # define __cpp_lib_constexpr_flat_map                   202502L
 # define __cpp_lib_constexpr_flat_set                   202502L
 # define __cpp_lib_constexpr_format                     202511L
