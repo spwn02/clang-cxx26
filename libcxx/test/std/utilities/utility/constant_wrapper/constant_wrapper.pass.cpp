@@ -173,6 +173,6 @@ static_assert((CA{} <<= CA2{}).value.value == 28);
 static_assert((CA{} >>= CA2{}).value.value == 1);
 static_assert(is_cw<decltype(CA{} += CA2{})>::value);
 
-static_assert(__cpp_lib_constant_wrapper == 202606L);
+static_assert(__cpp_lib_constant_wrapper == 202603L);
 
 int main() {}

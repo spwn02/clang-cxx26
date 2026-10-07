@@ -10,6 +10,7 @@
 #define _LIBCPP___UTILITY_CONSTANT_WRAPPER_H
 
 #include <__config>
+#include <__cstddef/size_t.h>
 #include <__functional/invoke.h>
 #include <__type_traits/invoke.h>
 #include <__type_traits/is_constructible.h>
@@ -17,6 +18,7 @@
 #include <__type_traits/remove_cvref.h>
 #include <__utility/declval.h>
 #include <__utility/forward.h>
+#include <__utility/integer_sequence.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -26,7 +28,32 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26
 
-template <auto _Xp, class = decltype(_Xp)>
+// [const.wrap.class] (C++26, before P4206R0): cw-fixed-value<T> wraps the value; the array specialization lets a string
+// literal (or any array) be the template argument.
+template <class _Tp>
+struct __cw_fixed_value {
+  using type = _Tp;
+  _LIBCPP_HIDE_FROM_ABI constexpr __cw_fixed_value(type __v) noexcept : __data(__v) {}
+  _Tp __data;
+};
+
+template <class _Tp, size_t _Extent>
+struct __cw_fixed_value<_Tp[_Extent]> {
+  using type = _Tp[_Extent];
+  _LIBCPP_HIDE_FROM_ABI constexpr __cw_fixed_value(_Tp (&__arr)[_Extent]) noexcept
+      : __cw_fixed_value(__arr, make_index_sequence<_Extent>()) {}
+  _Tp __data[_Extent];
+
+private:
+  template <size_t... _Is>
+  _LIBCPP_HIDE_FROM_ABI constexpr __cw_fixed_value(_Tp (&__arr)[_Extent], index_sequence<_Is...>) noexcept
+      : __data{__arr[_Is]...} {}
+};
+
+template <class _Tp, size_t _Extent>
+__cw_fixed_value(_Tp (&)[_Extent]) -> __cw_fixed_value<_Tp[_Extent]>;
+
+template <__cw_fixed_value _Xp, class = typename decltype(_Xp)::type>
 struct constant_wrapper;
 
 template <class _Tp>
@@ -135,11 +162,11 @@ struct __constant_wrapper_operators {
 
 };
 
-template <auto _Xp, class _Tp>
+template <__cw_fixed_value _Xp, class _Tp>
 struct constant_wrapper : __constant_wrapper_operators {
-  static constexpr decltype(auto) value = (_Xp);
+  static constexpr const auto& value = _Xp.__data;
   using type       = constant_wrapper;
-  using value_type = decltype(_Xp);
+  using value_type = typename decltype(_Xp)::type;
 
   static_assert(is_same_v<_Tp, value_type>);
 
@@ -177,7 +204,7 @@ struct constant_wrapper : __constant_wrapper_operators {
 
 };
 
-template <auto _Xp>
+template <__cw_fixed_value _Xp>
 inline constexpr auto cw = constant_wrapper<_Xp>{};
 
 #endif // _LIBCPP_STD_VER >= 26
