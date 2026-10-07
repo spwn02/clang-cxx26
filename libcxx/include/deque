@@ -228,6 +228,7 @@ template <class T, class Allocator, class Predicate>
 #  include <__type_traits/is_convertible.h>
 #  include <__type_traits/is_nothrow_assignable.h>
 #  include <__type_traits/is_nothrow_constructible.h>
+#  include <__type_traits/is_pointer.h>
 #  include <__type_traits/is_same.h>
 #  include <__type_traits/is_swappable.h>
 #  include <__type_traits/is_trivially_relocatable.h>
@@ -510,7 +511,17 @@ public:
   using __map _LIBCPP_NODEBUG                     = __split_buffer<pointer, __pointer_allocator>;
   using __map_alloc_traits _LIBCPP_NODEBUG        = allocator_traits<__pointer_allocator>;
   using __map_pointer _LIBCPP_NODEBUG             = typename __map_alloc_traits::pointer;
+#  if _LIBCPP_STD_VER >= 26
+  // Converting a pointer to the map's pointers into a pointer to const_pointers type-puns the pointed-to objects through
+  // void*, which a constant expression cannot do for a pointer type that is a class. A const pointer to the map's own
+  // pointers is a valid map pointer for the const iterators.
+  using __map_const_pointer _LIBCPP_NODEBUG =
+      __conditional_t<is_pointer<__map_pointer>::value,
+                      typename allocator_traits<__const_pointer_allocator>::const_pointer,
+                      typename __map_alloc_traits::const_pointer>;
+#  else
   using __map_const_pointer _LIBCPP_NODEBUG       = typename allocator_traits<__const_pointer_allocator>::const_pointer;
+#  endif
   using __map_const_iterator _LIBCPP_NODEBUG      = typename __map::const_iterator;
 
   using reference       = value_type&;

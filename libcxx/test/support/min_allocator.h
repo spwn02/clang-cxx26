@@ -180,14 +180,14 @@ class min_pointer<const void, ID> {
 
 public:
   min_pointer() TEST_NOEXCEPT = default;
-  min_pointer(std::nullptr_t) TEST_NOEXCEPT : ptr_(nullptr) {}
+  TEST_CONSTEXPR_CXX14 min_pointer(std::nullptr_t) TEST_NOEXCEPT : ptr_(nullptr) {}
   template <class T>
-  min_pointer(min_pointer<T, ID> p) TEST_NOEXCEPT : ptr_(p.ptr_) {}
+  TEST_CONSTEXPR_CXX14 min_pointer(min_pointer<T, ID> p) TEST_NOEXCEPT : ptr_(p.ptr_) {}
 
-  explicit operator bool() const { return ptr_ != nullptr; }
+  TEST_CONSTEXPR_CXX14 explicit operator bool() const { return ptr_ != nullptr; }
 
-  friend bool operator==(min_pointer x, min_pointer y) { return x.ptr_ == y.ptr_; }
-  friend bool operator!=(min_pointer x, min_pointer y) { return !(x == y); }
+  TEST_CONSTEXPR_CXX14 friend bool operator==(min_pointer x, min_pointer y) { return x.ptr_ == y.ptr_; }
+  TEST_CONSTEXPR_CXX14 friend bool operator!=(min_pointer x, min_pointer y) { return !(x == y); }
   template <class U, class XID>
   friend class min_pointer;
 };
