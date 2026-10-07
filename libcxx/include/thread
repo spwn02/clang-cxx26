@@ -23,15 +23,8 @@ public:
     class id;
     typedef pthread_t native_handle_type;
 
-    // thread attributes (C++26)
-    template <same_as<char> T> class name_hint;
-    template <class T> name_hint(const T*) -> name_hint<T>;
-    template <class T> name_hint(basic_string<T>) -> name_hint<T>;
-    class stack_size_hint;
-
     thread() noexcept;
-    template <class F, class ...Args> explicit thread(F&& f, Args&&... args);        // until C++26
-    template <class... Args> explicit thread(Args&&... args);                        // since C++26: attributes, then f and its arguments
+    template <class F, class ...Args> explicit thread(F&& f, Args&&... args);
     ~thread();
 
     thread(const thread&) = delete;

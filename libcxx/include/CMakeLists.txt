@@ -234,7 +234,6 @@ set(files
   __bit/bit_ceil.h
   __bit/bit_floor.h
   __bit/bit_log2.h
-  __bit/bit_permutations.h
   __bit/bit_width.h
   __bit/blsr.h
   __bit/byteswap.h
@@ -644,7 +643,6 @@ set(files
   __math/trigonometric_functions.h
   __mbstate_t.h
   __mdspan/aligned_accessor.h
-  __mdspan/copy_fill.h
   __mdspan/default_accessor.h
   __mdspan/extents.h
   __mdspan/layout_left.h

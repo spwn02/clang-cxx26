@@ -804,10 +804,6 @@
 #    error "__cpp_lib_mdspan should not be defined before c++23"
 #  endif
 
-#  ifdef __cpp_lib_mdspan_copy
-#    error "__cpp_lib_mdspan_copy should not be defined before c++26"
-#  endif
-
 #  ifdef __cpp_lib_memory_resource
 #    error "__cpp_lib_memory_resource should not be defined before c++17"
 #  endif
@@ -1174,10 +1170,6 @@
 
 #  ifdef __cpp_lib_text_encoding
 #    error "__cpp_lib_text_encoding should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_thread_attributes
-#    error "__cpp_lib_thread_attributes should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_three_way_comparison
@@ -2080,10 +2072,6 @@
 #    error "__cpp_lib_mdspan should not be defined before c++23"
 #  endif
 
-#  ifdef __cpp_lib_mdspan_copy
-#    error "__cpp_lib_mdspan_copy should not be defined before c++26"
-#  endif
-
 #  ifdef __cpp_lib_memory_resource
 #    error "__cpp_lib_memory_resource should not be defined before c++17"
 #  endif
@@ -2480,10 +2468,6 @@
 
 #  ifdef __cpp_lib_text_encoding
 #    error "__cpp_lib_text_encoding should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_thread_attributes
-#    error "__cpp_lib_thread_attributes should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_three_way_comparison
@@ -3497,10 +3481,6 @@
 #    error "__cpp_lib_mdspan should not be defined before c++23"
 #  endif
 
-#  ifdef __cpp_lib_mdspan_copy
-#    error "__cpp_lib_mdspan_copy should not be defined before c++26"
-#  endif
-
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_PMR
 #    ifndef __cpp_lib_memory_resource
 #      error "__cpp_lib_memory_resource should be defined in c++17"
@@ -3960,10 +3940,6 @@
 
 #  ifdef __cpp_lib_text_encoding
 #    error "__cpp_lib_text_encoding should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_thread_attributes
-#    error "__cpp_lib_thread_attributes should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_three_way_comparison
@@ -5178,10 +5154,6 @@
 #    error "__cpp_lib_mdspan should not be defined before c++23"
 #  endif
 
-#  ifdef __cpp_lib_mdspan_copy
-#    error "__cpp_lib_mdspan_copy should not be defined before c++26"
-#  endif
-
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_PMR
 #    ifndef __cpp_lib_memory_resource
 #      error "__cpp_lib_memory_resource should be defined in c++20"
@@ -5701,10 +5673,6 @@
 
 #  ifdef __cpp_lib_text_encoding
 #    error "__cpp_lib_text_encoding should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_thread_attributes
-#    error "__cpp_lib_thread_attributes should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_three_way_comparison
@@ -7021,10 +6989,6 @@
 #    error "__cpp_lib_mdspan should have the value 202207L in c++23"
 #  endif
 
-#  ifdef __cpp_lib_mdspan_copy
-#    error "__cpp_lib_mdspan_copy should not be defined before c++26"
-#  endif
-
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_PMR
 #    ifndef __cpp_lib_memory_resource
 #      error "__cpp_lib_memory_resource should be defined in c++23"
@@ -7645,10 +7609,6 @@
 #    error "__cpp_lib_text_encoding should not be defined before c++26"
 #  endif
 
-#  ifdef __cpp_lib_thread_attributes
-#    error "__cpp_lib_thread_attributes should not be defined before c++26"
-#  endif
-
 #  ifndef __cpp_lib_three_way_comparison
 #    error "__cpp_lib_three_way_comparison should be defined in c++23"
 #  endif
@@ -8000,8 +7960,8 @@
 #  ifndef __cpp_lib_bitops
 #    error "__cpp_lib_bitops should be defined in c++26"
 #  endif
-#  if __cpp_lib_bitops != 202607L
-#    error "__cpp_lib_bitops should have the value 202607L in c++26"
+#  if __cpp_lib_bitops != 201907L
+#    error "__cpp_lib_bitops should have the value 201907L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_bitset
@@ -9389,13 +9349,6 @@
 #    error "__cpp_lib_mdspan should have the value 202406L in c++26"
 #  endif
 
-#  ifndef __cpp_lib_mdspan_copy
-#    error "__cpp_lib_mdspan_copy should be defined in c++26"
-#  endif
-#  if __cpp_lib_mdspan_copy != 202606L
-#    error "__cpp_lib_mdspan_copy should have the value 202606L in c++26"
-#  endif
-
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_PMR
 #    ifndef __cpp_lib_memory_resource
 #      error "__cpp_lib_memory_resource should be defined in c++26"
@@ -10122,19 +10075,6 @@
 #  endif
 #  if __cpp_lib_text_encoding != 202306L
 #    error "__cpp_lib_text_encoding should have the value 202306L in c++26"
-#  endif
-
-#  if _LIBCPP_HAS_THREADS
-#    ifndef __cpp_lib_thread_attributes
-#      error "__cpp_lib_thread_attributes should be defined in c++26"
-#    endif
-#    if __cpp_lib_thread_attributes != 202606L
-#      error "__cpp_lib_thread_attributes should have the value 202606L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_thread_attributes
-#      error "__cpp_lib_thread_attributes should not be defined when the requirement '_LIBCPP_HAS_THREADS' is not met!"
-#    endif
 #  endif
 
 #  ifndef __cpp_lib_three_way_comparison

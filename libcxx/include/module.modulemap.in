@@ -1647,10 +1647,6 @@ module std [system] {
       header "__bit/bit_floor.h"
       export *
     }
-    module bit_permutations {
-      header "__bit/bit_permutations.h"
-      export *
-    }
     module bit_log2 {
       header "__bit/bit_log2.h"
       export *
@@ -3227,10 +3223,6 @@ module std [system] {
   module mdspan {
     module aligned_accessor {
       header "__mdspan/aligned_accessor.h"
-      export *
-    }
-    module copy_fill {
-      header "__mdspan/copy_fill.h"
       export *
     }
     module default_accessor {

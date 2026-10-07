@@ -29,15 +29,6 @@ namespace std {
     constexpr T bit_ceil(T x);                   // C++20
   template <class T>
     constexpr T bit_floor(T x) noexcept;         // C++20
-
-    template<class T>
-      constexpr T bit_reverse(T x) noexcept;       // C++26
-    template<class T>
-      constexpr T bit_repeat(T x, int l);          // C++26
-    template<class T>
-      constexpr T bit_compress(T x, T m) noexcept; // C++26
-    template<class T>
-      constexpr T bit_expand(T x, T m) noexcept;   // C++26
   template <class T>
     constexpr int bit_width(T x) noexcept;       // C++20
 
@@ -79,7 +70,6 @@ namespace std {
 #    include <__bit/bit_cast.h>
 #    include <__bit/bit_ceil.h>
 #    include <__bit/bit_floor.h>
-#    include <__bit/bit_permutations.h>
 #    include <__bit/bit_log2.h>
 #    include <__bit/bit_width.h>
 #    include <__bit/countl.h>
