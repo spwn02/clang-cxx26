@@ -9195,12 +9195,14 @@ TreeTransform<Derived>::TransformCXXReflectExpr(CXXReflectExpr *E) {
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Attribute:
-    return E;
+  // A reflection value (std::meta::info) that was substituted for a non-type
+  // template parameter is wrapped in a CXXReflectExpr whatever its kind. These
+  // kinds have nothing that depends on a template parameter.
   case ReflectionKind::Null:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-    llvm_unreachable("reflect expression should not have this reflection kind");
+    return E;
   }
   llvm_unreachable("invalid reflection");
 }
