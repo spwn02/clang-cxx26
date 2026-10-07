@@ -1617,6 +1617,12 @@ void CodeGenFunction::EmitCXXExpansionStmt(const CXXExpansionStmt &S,
       BreakContinueStack.pop_back();
     }
   }
+
+  // The expansion exit is outside of the scope of the range/decomposition
+  // variable, so a 'break' or the final 'continue' branches through that
+  // variable's cleanups (lifetime markers, destructors). Emit them before the
+  // exit block, as for a 'for' statement.
+  InitScope.ForceCleanup();
   EmitBlock(ExpandExit.getBlock(), true);
 }
 
