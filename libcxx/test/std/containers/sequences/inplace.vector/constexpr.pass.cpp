@@ -10,9 +10,8 @@
 
 // <inplace_vector>
 
-// Trivial element types can be constructed, mutated, and destroyed entirely
-// at compile time, since storage for them is a plain array rather than
-// lazily-activated raw bytes.
+// inplace_vector of trivial element types and (P3074R7 trivial unions, P3726R2 start_lifetime) of types with non-trivial
+// constructors, copies and destructors can be constructed, mutated and destroyed entirely at compile time.
 
 #include <inplace_vector>
 

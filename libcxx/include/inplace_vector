@@ -14,6 +14,7 @@
 #include <__config>
 #include <__iterator/distance.h>
 #include <__memory/construct_at.h>
+#include <__memory/start_lifetime.h>
 #include <__ranges/container_compatible_range.h>
 #include <__ranges/dangling.h>
 #include <__ranges/from_range.h>
@@ -39,27 +40,56 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26
 
-// Storage for inplace_vector<T, N>, N > 0. If is_trivial_v<T> is true, a
-// plain array is used: forming/advancing pointers into it never needs a
-// reinterpret_cast (banned in constant evaluation), so the whole container
-// stays usable in constant expressions -- this is exactly the condition the
-// standard imposes on when inplace_vector's member functions must be
-// constexpr-usable ([containers.sequences.inplace.vector.overview]p4). For
-// any other T, we fall back to raw bytes activated via placement-new; this
-// works at runtime but not in a constant expression, for the same reason
-// (there's no portable way to get a real contiguous T* into lazily-activated
-// storage inside a constant expression without dynamic allocation, which
-// would defeat the point of an in-place container).
+// Storage for inplace_vector<T, N>, N > 0. If T is trivially copyable and trivially default constructible, a plain array
+// is used, all of whose elements are always alive. Otherwise the elements live in the array member of an anonymous union:
+// since P3074R7 (trivial unions) the union does not construct or destroy them, and std::start_lifetime (P3726R2) makes the
+// array the active member without initializing its elements, which are then created and destroyed one by one with
+// construct_at and destroy_at. This works in constant expressions too ([containers.sequences.inplace.vector.overview],
+// __cpp_lib_constexpr_inplace_vector).
 template <class _Tp, size_t _Cap, bool = is_trivially_copyable_v<_Tp> && is_trivially_default_constructible_v<_Tp>>
 struct __inplace_vector_storage {
-  alignas(_Tp) unsigned char __data_[_Cap == 0 ? 1 : _Cap * sizeof(_Tp)];
+  union {
+    _Tp __data_[_Cap == 0 ? 1 : _Cap];
+  };
 
-  _LIBCPP_HIDE_FROM_ABI constexpr auto __get() noexcept -> _Tp* {
-    return std::launder(reinterpret_cast<_Tp*>(__data_));
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_storage() noexcept { std::start_lifetime(__data_); }
+
+  // The special members are trivial exactly when the ones of T are, so that the container can be trivially copyable,
+  // movable and destructible when T is; otherwise the elements are copied or moved one by one by the container, never as
+  // part of the storage, which only makes its array the active member.
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_storage(const __inplace_vector_storage&) noexcept
+    requires(!is_trivially_copy_constructible_v<_Tp>)
+  {
+    std::start_lifetime(__data_);
   }
-  _LIBCPP_HIDE_FROM_ABI constexpr auto __get() const noexcept -> const _Tp* {
-    return std::launder(reinterpret_cast<const _Tp*>(__data_));
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_storage(const __inplace_vector_storage&) = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_storage(__inplace_vector_storage&&) noexcept
+    requires(!is_trivially_move_constructible_v<_Tp>)
+  {
+    std::start_lifetime(__data_);
   }
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_storage(__inplace_vector_storage&&) = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_storage& operator=(const __inplace_vector_storage&) noexcept
+    requires(!(is_trivially_copy_constructible_v<_Tp> && is_trivially_copy_assignable_v<_Tp> &&
+               is_trivially_destructible_v<_Tp>))
+  {
+    return *this;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_storage& operator=(const __inplace_vector_storage&) = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_storage& operator=(__inplace_vector_storage&&) noexcept
+    requires(!(is_trivially_move_constructible_v<_Tp> && is_trivially_move_assignable_v<_Tp> &&
+               is_trivially_destructible_v<_Tp>))
+  {
+    return *this;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_storage& operator=(__inplace_vector_storage&&) = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr ~__inplace_vector_storage()
+    requires(!is_trivially_destructible_v<_Tp>)
+  {}
+  _LIBCPP_HIDE_FROM_ABI constexpr ~__inplace_vector_storage() = default;
+
+  _LIBCPP_HIDE_FROM_ABI constexpr auto __get() noexcept -> _Tp* { return __data_; }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto __get() const noexcept -> const _Tp* { return __data_; }
 
   template <class... _Args>
   _LIBCPP_HIDE_FROM_ABI constexpr void __construct(_Tp* __p, _Args&&... __args) {
@@ -593,7 +623,8 @@ public:
     // state.
     _Tp __tmp(std::forward<_Args>(__args)...);
     unchecked_push_back(std::move(data()[size() - 1]));
-    for (size_type __i = size() - 1; __i > __idx; --__i)
+    // the old last element has been moved to the new slot; shift the ones between __idx and it up by one
+    for (size_type __i = size() - 2; __i > __idx; --__i)
       data()[__i] = std::move(data()[__i - 1]);
     data()[__idx] = std::move(__tmp);
     return data() + __idx;
