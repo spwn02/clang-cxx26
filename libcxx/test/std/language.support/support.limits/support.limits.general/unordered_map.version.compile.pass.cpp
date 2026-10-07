@@ -32,6 +32,10 @@
 #    error "__cpp_lib_associative_heterogeneous_insertion should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_containers_ranges
 #    error "__cpp_lib_containers_ranges should not be defined before c++23"
 #  endif
@@ -72,6 +76,10 @@
 
 #  ifdef __cpp_lib_associative_heterogeneous_insertion
 #    error "__cpp_lib_associative_heterogeneous_insertion should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_containers_ranges
@@ -117,6 +125,10 @@
 
 #  ifdef __cpp_lib_associative_heterogeneous_insertion
 #    error "__cpp_lib_associative_heterogeneous_insertion should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_containers_ranges
@@ -171,6 +183,10 @@
 
 #  ifdef __cpp_lib_associative_heterogeneous_insertion
 #    error "__cpp_lib_associative_heterogeneous_insertion should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_containers_ranges
@@ -234,6 +250,10 @@
 
 #  ifdef __cpp_lib_associative_heterogeneous_insertion
 #    error "__cpp_lib_associative_heterogeneous_insertion should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_containers_ranges
@@ -306,6 +326,13 @@
 #  endif
 #  if __cpp_lib_associative_heterogeneous_insertion != 202306L
 #    error "__cpp_lib_associative_heterogeneous_insertion should have the value 202306L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_unordered_map != 202502L
+#    error "__cpp_lib_constexpr_unordered_map should have the value 202502L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_containers_ranges

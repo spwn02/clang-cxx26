@@ -463,8 +463,8 @@
 #  ifndef __cpp_lib_bind_back
 #    error "__cpp_lib_bind_back should be defined in c++26"
 #  endif
-#  if __cpp_lib_bind_back != 202202L
-#    error "__cpp_lib_bind_back should have the value 202202L in c++26"
+#  if __cpp_lib_bind_back != 202306L
+#    error "__cpp_lib_bind_back should have the value 202306L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_bind_front

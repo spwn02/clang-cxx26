@@ -220,6 +220,10 @@
 #    error "__cpp_lib_constexpr_complex should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_dynamic_alloc
 #    error "__cpp_lib_constexpr_dynamic_alloc should not be defined before c++20"
 #  endif
@@ -244,12 +248,20 @@
 #    error "__cpp_lib_constexpr_functional should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_iterator
 #    error "__cpp_lib_constexpr_iterator should not be defined before c++20"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_list
 #    error "__cpp_lib_constexpr_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_map
+#    error "__cpp_lib_constexpr_map should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_memory
@@ -268,6 +280,14 @@
 #    error "__cpp_lib_constexpr_queue should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_set
+#    error "__cpp_lib_constexpr_set should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_stack
+#    error "__cpp_lib_constexpr_stack should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_string
 #    error "__cpp_lib_constexpr_string should not be defined before c++20"
 #  endif
@@ -282,6 +302,14 @@
 
 #  ifdef __cpp_lib_constexpr_typeinfo
 #    error "__cpp_lib_constexpr_typeinfo should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_set
+#    error "__cpp_lib_constexpr_unordered_set should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_utility
@@ -504,10 +532,6 @@
 #    error "__cpp_lib_gcd_lcm should not be defined before c++17"
 #  endif
 
-#  ifdef __cpp_lib_generate_random
-#    error "__cpp_lib_generate_random should not be defined before c++26"
-#  endif
-
 #  ifdef __cpp_lib_generator
 #    error "__cpp_lib_generator should not be defined before c++23"
 #  endif
@@ -624,6 +648,10 @@
 #    error "__cpp_lib_indirect should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_initializer_list
+#    error "__cpp_lib_initializer_list should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_inplace_vector
 #    error "__cpp_lib_inplace_vector should not be defined before c++26"
 #  endif
@@ -698,6 +726,10 @@
 
 #  ifdef __cpp_lib_is_scoped_enum
 #    error "__cpp_lib_is_scoped_enum should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_is_sufficiently_aligned
@@ -904,6 +936,10 @@
 #    error "__cpp_lib_ranges_fold should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_generate_random
+#    error "__cpp_lib_ranges_generate_random should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should not be defined before c++26"
 #  endif
@@ -1092,6 +1128,14 @@
 #    error "__cpp_lib_stdatomic_h should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_stdbit_h
+#    error "__cpp_lib_stdbit_h should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_stdckdint_h
+#    error "__cpp_lib_stdckdint_h should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_stdfloat
 #    error "__cpp_lib_stdfloat should not be defined before c++23"
 #  endif
@@ -1202,6 +1246,10 @@
 
 #  ifdef __cpp_lib_unwrap_ref
 #    error "__cpp_lib_unwrap_ref should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_variant
@@ -1420,6 +1468,10 @@
 #    error "__cpp_lib_constexpr_complex should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_dynamic_alloc
 #    error "__cpp_lib_constexpr_dynamic_alloc should not be defined before c++20"
 #  endif
@@ -1444,12 +1496,20 @@
 #    error "__cpp_lib_constexpr_functional should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_iterator
 #    error "__cpp_lib_constexpr_iterator should not be defined before c++20"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_list
 #    error "__cpp_lib_constexpr_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_map
+#    error "__cpp_lib_constexpr_map should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_memory
@@ -1468,6 +1528,14 @@
 #    error "__cpp_lib_constexpr_queue should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_set
+#    error "__cpp_lib_constexpr_set should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_stack
+#    error "__cpp_lib_constexpr_stack should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_string
 #    error "__cpp_lib_constexpr_string should not be defined before c++20"
 #  endif
@@ -1482,6 +1550,14 @@
 
 #  ifdef __cpp_lib_constexpr_typeinfo
 #    error "__cpp_lib_constexpr_typeinfo should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_set
+#    error "__cpp_lib_constexpr_unordered_set should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_utility
@@ -1707,10 +1783,6 @@
 #    error "__cpp_lib_gcd_lcm should not be defined before c++17"
 #  endif
 
-#  ifdef __cpp_lib_generate_random
-#    error "__cpp_lib_generate_random should not be defined before c++26"
-#  endif
-
 #  ifdef __cpp_lib_generator
 #    error "__cpp_lib_generator should not be defined before c++23"
 #  endif
@@ -1830,6 +1902,10 @@
 #    error "__cpp_lib_indirect should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_initializer_list
+#    error "__cpp_lib_initializer_list should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_inplace_vector
 #    error "__cpp_lib_inplace_vector should not be defined before c++26"
 #  endif
@@ -1916,6 +1992,10 @@
 
 #  ifdef __cpp_lib_is_scoped_enum
 #    error "__cpp_lib_is_scoped_enum should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_is_sufficiently_aligned
@@ -2140,6 +2220,10 @@
 #    error "__cpp_lib_ranges_fold should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_generate_random
+#    error "__cpp_lib_ranges_generate_random should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should not be defined before c++26"
 #  endif
@@ -2343,6 +2427,14 @@
 #    error "__cpp_lib_stdatomic_h should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_stdbit_h
+#    error "__cpp_lib_stdbit_h should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_stdckdint_h
+#    error "__cpp_lib_stdckdint_h should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_stdfloat
 #    error "__cpp_lib_stdfloat should not be defined before c++23"
 #  endif
@@ -2468,6 +2560,10 @@
 
 #  ifdef __cpp_lib_unwrap_ref
 #    error "__cpp_lib_unwrap_ref should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_variant
@@ -2722,6 +2818,10 @@
 #    error "__cpp_lib_constexpr_complex should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_dynamic_alloc
 #    error "__cpp_lib_constexpr_dynamic_alloc should not be defined before c++20"
 #  endif
@@ -2746,12 +2846,20 @@
 #    error "__cpp_lib_constexpr_functional should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_iterator
 #    error "__cpp_lib_constexpr_iterator should not be defined before c++20"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_list
 #    error "__cpp_lib_constexpr_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_map
+#    error "__cpp_lib_constexpr_map should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_memory
@@ -2770,6 +2878,14 @@
 #    error "__cpp_lib_constexpr_queue should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_set
+#    error "__cpp_lib_constexpr_set should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_stack
+#    error "__cpp_lib_constexpr_stack should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_string
 #    error "__cpp_lib_constexpr_string should not be defined before c++20"
 #  endif
@@ -2784,6 +2900,14 @@
 
 #  ifdef __cpp_lib_constexpr_typeinfo
 #    error "__cpp_lib_constexpr_typeinfo should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_set
+#    error "__cpp_lib_constexpr_unordered_set should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_utility
@@ -3033,10 +3157,6 @@
 #    error "__cpp_lib_gcd_lcm should have the value 201606L in c++17"
 #  endif
 
-#  ifdef __cpp_lib_generate_random
-#    error "__cpp_lib_generate_random should not be defined before c++26"
-#  endif
-
 #  ifdef __cpp_lib_generator
 #    error "__cpp_lib_generator should not be defined before c++23"
 #  endif
@@ -3168,6 +3288,10 @@
 #    error "__cpp_lib_indirect should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_initializer_list
+#    error "__cpp_lib_initializer_list should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_inplace_vector
 #    error "__cpp_lib_inplace_vector should not be defined before c++26"
 #  endif
@@ -3263,6 +3387,10 @@
 
 #  ifdef __cpp_lib_is_scoped_enum
 #    error "__cpp_lib_is_scoped_enum should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_is_sufficiently_aligned
@@ -3535,6 +3663,10 @@
 #    error "__cpp_lib_ranges_fold should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_generate_random
+#    error "__cpp_lib_ranges_generate_random should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should not be defined before c++26"
 #  endif
@@ -3768,6 +3900,14 @@
 #    error "__cpp_lib_stdatomic_h should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_stdbit_h
+#    error "__cpp_lib_stdbit_h should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_stdckdint_h
+#    error "__cpp_lib_stdckdint_h should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_stdfloat
 #    error "__cpp_lib_stdfloat should not be defined before c++23"
 #  endif
@@ -3914,6 +4054,10 @@
 
 #  ifdef __cpp_lib_unwrap_ref
 #    error "__cpp_lib_unwrap_ref should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_variant
@@ -4243,6 +4387,10 @@
 #    error "__cpp_lib_constexpr_complex should have the value 201711L in c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_constexpr_dynamic_alloc
 #    error "__cpp_lib_constexpr_dynamic_alloc should be defined in c++20"
 #  endif
@@ -4273,6 +4421,10 @@
 #    error "__cpp_lib_constexpr_functional should have the value 201907L in c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_constexpr_iterator
 #    error "__cpp_lib_constexpr_iterator should be defined in c++20"
 #  endif
@@ -4282,6 +4434,10 @@
 
 #  ifdef __cpp_lib_constexpr_list
 #    error "__cpp_lib_constexpr_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_map
+#    error "__cpp_lib_constexpr_map should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_memory
@@ -4304,6 +4460,14 @@
 
 #  ifdef __cpp_lib_constexpr_queue
 #    error "__cpp_lib_constexpr_queue should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_set
+#    error "__cpp_lib_constexpr_set should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_stack
+#    error "__cpp_lib_constexpr_stack should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_string
@@ -4329,6 +4493,14 @@
 
 #  ifdef __cpp_lib_constexpr_typeinfo
 #    error "__cpp_lib_constexpr_typeinfo should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_set
+#    error "__cpp_lib_constexpr_unordered_set should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_utility
@@ -4614,10 +4786,6 @@
 #    error "__cpp_lib_gcd_lcm should have the value 201606L in c++20"
 #  endif
 
-#  ifdef __cpp_lib_generate_random
-#    error "__cpp_lib_generate_random should not be defined before c++26"
-#  endif
-
 #  ifdef __cpp_lib_generator
 #    error "__cpp_lib_generator should not be defined before c++23"
 #  endif
@@ -4752,6 +4920,10 @@
 #    error "__cpp_lib_indirect should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_initializer_list
+#    error "__cpp_lib_initializer_list should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_inplace_vector
 #    error "__cpp_lib_inplace_vector should not be defined before c++26"
 #  endif
@@ -4868,6 +5040,10 @@
 
 #  ifdef __cpp_lib_is_scoped_enum
 #    error "__cpp_lib_is_scoped_enum should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_is_sufficiently_aligned
@@ -5182,6 +5358,10 @@
 #    error "__cpp_lib_ranges_fold should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_generate_random
+#    error "__cpp_lib_ranges_generate_random should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should not be defined before c++26"
 #  endif
@@ -5448,6 +5628,14 @@
 #    error "__cpp_lib_stdatomic_h should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_stdbit_h
+#    error "__cpp_lib_stdbit_h should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_stdckdint_h
+#    error "__cpp_lib_stdckdint_h should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_stdfloat
 #    error "__cpp_lib_stdfloat should not be defined before c++23"
 #  endif
@@ -5618,6 +5806,10 @@
 #  endif
 #  if __cpp_lib_unwrap_ref != 201811L
 #    error "__cpp_lib_unwrap_ref should have the value 201811L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_variant
@@ -5980,6 +6172,10 @@
 #    error "__cpp_lib_constexpr_complex should have the value 201711L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_constexpr_dynamic_alloc
 #    error "__cpp_lib_constexpr_dynamic_alloc should be defined in c++23"
 #  endif
@@ -6010,6 +6206,10 @@
 #    error "__cpp_lib_constexpr_functional should have the value 201907L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_constexpr_iterator
 #    error "__cpp_lib_constexpr_iterator should be defined in c++23"
 #  endif
@@ -6019,6 +6219,10 @@
 
 #  ifdef __cpp_lib_constexpr_list
 #    error "__cpp_lib_constexpr_list should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_map
+#    error "__cpp_lib_constexpr_map should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_memory
@@ -6041,6 +6245,14 @@
 
 #  ifdef __cpp_lib_constexpr_queue
 #    error "__cpp_lib_constexpr_queue should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_set
+#    error "__cpp_lib_constexpr_set should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_stack
+#    error "__cpp_lib_constexpr_stack should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_string
@@ -6069,6 +6281,14 @@
 #  endif
 #  if __cpp_lib_constexpr_typeinfo != 202106L
 #    error "__cpp_lib_constexpr_typeinfo should have the value 202106L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_unordered_set
+#    error "__cpp_lib_constexpr_unordered_set should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_utility
@@ -6381,10 +6601,6 @@
 #    error "__cpp_lib_gcd_lcm should have the value 201606L in c++23"
 #  endif
 
-#  ifdef __cpp_lib_generate_random
-#    error "__cpp_lib_generate_random should not be defined before c++26"
-#  endif
-
 #  ifndef __cpp_lib_generator
 #    error "__cpp_lib_generator should be defined in c++23"
 #  endif
@@ -6522,6 +6738,10 @@
 #    error "__cpp_lib_indirect should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_initializer_list
+#    error "__cpp_lib_initializer_list should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_inplace_vector
 #    error "__cpp_lib_inplace_vector should not be defined before c++26"
 #  endif
@@ -6656,6 +6876,10 @@
 #  endif
 #  if __cpp_lib_is_scoped_enum != 202011L
 #    error "__cpp_lib_is_scoped_enum should have the value 202011L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_is_sufficiently_aligned
@@ -7018,6 +7242,10 @@
 #    error "__cpp_lib_ranges_fold should have the value 202207L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_ranges_generate_random
+#    error "__cpp_lib_ranges_generate_random should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should not be defined before c++26"
 #  endif
@@ -7329,6 +7557,14 @@
 #    error "__cpp_lib_stdatomic_h should have the value 202011L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_stdbit_h
+#    error "__cpp_lib_stdbit_h should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_stdckdint_h
+#    error "__cpp_lib_stdckdint_h should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_stdfloat
 #    error "__cpp_lib_stdfloat should be defined in c++23"
 #  endif
@@ -7519,6 +7755,10 @@
 #    error "__cpp_lib_unwrap_ref should have the value 201811L in c++23"
 #  endif
 
+#  ifdef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should not be defined before c++26"
+#  endif
+
 #  ifndef __cpp_lib_variant
 #    error "__cpp_lib_variant should be defined in c++23"
 #  endif
@@ -7678,8 +7918,8 @@
 #  ifndef __cpp_lib_atomic_ref
 #    error "__cpp_lib_atomic_ref should be defined in c++26"
 #  endif
-#  if __cpp_lib_atomic_ref != 202411L
-#    error "__cpp_lib_atomic_ref should have the value 202411L in c++26"
+#  if __cpp_lib_atomic_ref != 202603L
+#    error "__cpp_lib_atomic_ref should have the value 202603L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_atomic_shared_ptr
@@ -7719,8 +7959,8 @@
 #  ifndef __cpp_lib_bind_back
 #    error "__cpp_lib_bind_back should be defined in c++26"
 #  endif
-#  if __cpp_lib_bind_back != 202202L
-#    error "__cpp_lib_bind_back should have the value 202202L in c++26"
+#  if __cpp_lib_bind_back != 202306L
+#    error "__cpp_lib_bind_back should have the value 202306L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_bind_front
@@ -7851,8 +8091,8 @@
 #  ifndef __cpp_lib_constant_wrapper
 #    error "__cpp_lib_constant_wrapper should be defined in c++26"
 #  endif
-#  if __cpp_lib_constant_wrapper != 202606L
-#    error "__cpp_lib_constant_wrapper should have the value 202606L in c++26"
+#  if __cpp_lib_constant_wrapper != 202603L
+#    error "__cpp_lib_constant_wrapper should have the value 202603L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_algorithms
@@ -7903,6 +8143,13 @@
 #    error "__cpp_lib_constexpr_complex should have the value 202306L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_deque != 202502L
+#    error "__cpp_lib_constexpr_deque should have the value 202502L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_constexpr_dynamic_alloc
 #    error "__cpp_lib_constexpr_dynamic_alloc should be defined in c++26"
 #  endif
@@ -7945,6 +8192,13 @@
 #    error "__cpp_lib_constexpr_functional should have the value 201907L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_inplace_vector != 202502L
+#    error "__cpp_lib_constexpr_inplace_vector should have the value 202502L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_constexpr_iterator
 #    error "__cpp_lib_constexpr_iterator should be defined in c++26"
 #  endif
@@ -7957,6 +8211,13 @@
 #  endif
 #  if __cpp_lib_constexpr_list != 202502L
 #    error "__cpp_lib_constexpr_list should have the value 202502L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_constexpr_map
+#    error "__cpp_lib_constexpr_map should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_map != 202502L
+#    error "__cpp_lib_constexpr_map should have the value 202502L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_memory
@@ -7993,6 +8254,20 @@
 #    error "__cpp_lib_constexpr_queue should have the value 202502L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_constexpr_set
+#    error "__cpp_lib_constexpr_set should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_set != 202502L
+#    error "__cpp_lib_constexpr_set should have the value 202502L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_constexpr_stack
+#    error "__cpp_lib_constexpr_stack should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_stack != 202502L
+#    error "__cpp_lib_constexpr_stack should have the value 202502L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_constexpr_string
 #    error "__cpp_lib_constexpr_string should be defined in c++26"
 #  endif
@@ -8019,6 +8294,20 @@
 #  endif
 #  if __cpp_lib_constexpr_typeinfo != 202106L
 #    error "__cpp_lib_constexpr_typeinfo should have the value 202106L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_constexpr_unordered_map
+#    error "__cpp_lib_constexpr_unordered_map should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_unordered_map != 202502L
+#    error "__cpp_lib_constexpr_unordered_map should have the value 202502L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_constexpr_unordered_set
+#    error "__cpp_lib_constexpr_unordered_set should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_unordered_set != 202502L
+#    error "__cpp_lib_constexpr_unordered_set should have the value 202502L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_utility
@@ -8454,13 +8743,6 @@
 #    error "__cpp_lib_gcd_lcm should have the value 201606L in c++26"
 #  endif
 
-#  ifndef __cpp_lib_generate_random
-#    error "__cpp_lib_generate_random should be defined in c++26"
-#  endif
-#  if __cpp_lib_generate_random != 202403L
-#    error "__cpp_lib_generate_random should have the value 202403L in c++26"
-#  endif
-
 #  ifndef __cpp_lib_generator
 #    error "__cpp_lib_generator should be defined in c++26"
 #  endif
@@ -8778,6 +9060,13 @@
 #    error "__cpp_lib_indirect should have the value 202502L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_initializer_list
+#    error "__cpp_lib_initializer_list should be defined in c++26"
+#  endif
+#  if __cpp_lib_initializer_list != 202511L
+#    error "__cpp_lib_initializer_list should have the value 202511L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_inplace_vector
 #    error "__cpp_lib_inplace_vector should be defined in c++26"
 #  endif
@@ -8915,6 +9204,13 @@
 #  endif
 #  if __cpp_lib_is_scoped_enum != 202011L
 #    error "__cpp_lib_is_scoped_enum should have the value 202011L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should be defined in c++26"
+#  endif
+#  if __cpp_lib_is_structural != 202603L
+#    error "__cpp_lib_is_structural should have the value 202603L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_is_sufficiently_aligned
@@ -9340,6 +9636,13 @@
 #    error "__cpp_lib_ranges_fold should have the value 202207L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_ranges_generate_random
+#    error "__cpp_lib_ranges_generate_random should be defined in c++26"
+#  endif
+#  if __cpp_lib_ranges_generate_random != 202403L
+#    error "__cpp_lib_ranges_generate_random should have the value 202403L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_ranges_indices
 #    error "__cpp_lib_ranges_indices should be defined in c++26"
 #  endif
@@ -9420,8 +9723,8 @@
 #  ifndef __cpp_lib_raw_memory_algorithms
 #    error "__cpp_lib_raw_memory_algorithms should be defined in c++26"
 #  endif
-#  if __cpp_lib_raw_memory_algorithms != 201606L
-#    error "__cpp_lib_raw_memory_algorithms should have the value 201606L in c++26"
+#  if __cpp_lib_raw_memory_algorithms != 202411L
+#    error "__cpp_lib_raw_memory_algorithms should have the value 202411L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_rcu
@@ -9705,6 +10008,20 @@
 #    error "__cpp_lib_stdatomic_h should have the value 202011L in c++26"
 #  endif
 
+#  ifndef __cpp_lib_stdbit_h
+#    error "__cpp_lib_stdbit_h should be defined in c++26"
+#  endif
+#  if __cpp_lib_stdbit_h != 202603L
+#    error "__cpp_lib_stdbit_h should have the value 202603L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_stdckdint_h
+#    error "__cpp_lib_stdckdint_h should be defined in c++26"
+#  endif
+#  if __cpp_lib_stdckdint_h != 202603L
+#    error "__cpp_lib_stdckdint_h should have the value 202603L in c++26"
+#  endif
+
 #  ifndef __cpp_lib_stdfloat
 #    error "__cpp_lib_stdfloat should be defined in c++26"
 #  endif
@@ -9923,6 +10240,13 @@
 #  endif
 #  if __cpp_lib_unwrap_ref != 201811L
 #    error "__cpp_lib_unwrap_ref should have the value 201811L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should be defined in c++26"
+#  endif
+#  if __cpp_lib_valarray != 202511L
+#    error "__cpp_lib_valarray should have the value 202511L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_variant

@@ -24,10 +24,18 @@
 #    error "__cpp_lib_hardened_valarray should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 14
 
 #  ifdef __cpp_lib_hardened_valarray
 #    error "__cpp_lib_hardened_valarray should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 17
@@ -36,16 +44,28 @@
 #    error "__cpp_lib_hardened_valarray should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 20
 
 #  ifdef __cpp_lib_hardened_valarray
 #    error "__cpp_lib_hardened_valarray should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 23
 
 #  ifdef __cpp_lib_hardened_valarray
 #    error "__cpp_lib_hardened_valarray should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER > 23
@@ -61,6 +81,13 @@
 #    ifdef __cpp_lib_hardened_valarray
 #      error "__cpp_lib_hardened_valarray should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
 #    endif
+#  endif
+
+#  ifndef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should be defined in c++26"
+#  endif
+#  if __cpp_lib_valarray != 202511L
+#    error "__cpp_lib_valarray should have the value 202511L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

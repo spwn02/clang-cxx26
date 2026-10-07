@@ -24,6 +24,10 @@
 #    error "__cpp_lib_define_static should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_reflection
 #    error "__cpp_lib_reflection should not be defined before c++26"
 #  endif
@@ -32,6 +36,10 @@
 
 #  ifdef __cpp_lib_define_static
 #    error "__cpp_lib_define_static should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_reflection
@@ -44,6 +52,10 @@
 #    error "__cpp_lib_define_static should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_reflection
 #    error "__cpp_lib_reflection should not be defined before c++26"
 #  endif
@@ -54,6 +66,10 @@
 #    error "__cpp_lib_define_static should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_reflection
 #    error "__cpp_lib_reflection should not be defined before c++26"
 #  endif
@@ -62,6 +78,10 @@
 
 #  ifdef __cpp_lib_define_static
 #    error "__cpp_lib_define_static should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_reflection
@@ -81,6 +101,13 @@
 #    ifdef __cpp_lib_define_static
 #      error "__cpp_lib_define_static should not be defined when the requirement '__has_feature(reflection)' is not met!"
 #    endif
+#  endif
+
+#  ifndef __cpp_lib_is_structural
+#    error "__cpp_lib_is_structural should be defined in c++26"
+#  endif
+#  if __cpp_lib_is_structural != 202603L
+#    error "__cpp_lib_is_structural should have the value 202603L in c++26"
 #  endif
 
 #  if __has_feature(reflection)

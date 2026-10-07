@@ -20,6 +20,10 @@
 
 #if TEST_STD_VER < 14
 
+#  ifdef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_inplace_vector
 #    error "__cpp_lib_hardened_inplace_vector should not be defined before c++26"
 #  endif
@@ -29,6 +33,10 @@
 #  endif
 
 #elif TEST_STD_VER == 14
+
+#  ifdef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should not be defined before c++26"
+#  endif
 
 #  ifdef __cpp_lib_hardened_inplace_vector
 #    error "__cpp_lib_hardened_inplace_vector should not be defined before c++26"
@@ -40,6 +48,10 @@
 
 #elif TEST_STD_VER == 17
 
+#  ifdef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_inplace_vector
 #    error "__cpp_lib_hardened_inplace_vector should not be defined before c++26"
 #  endif
@@ -49,6 +61,10 @@
 #  endif
 
 #elif TEST_STD_VER == 20
+
+#  ifdef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should not be defined before c++26"
+#  endif
 
 #  ifdef __cpp_lib_hardened_inplace_vector
 #    error "__cpp_lib_hardened_inplace_vector should not be defined before c++26"
@@ -60,6 +76,10 @@
 
 #elif TEST_STD_VER == 23
 
+#  ifdef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_hardened_inplace_vector
 #    error "__cpp_lib_hardened_inplace_vector should not be defined before c++26"
 #  endif
@@ -69,6 +89,13 @@
 #  endif
 
 #elif TEST_STD_VER > 23
+
+#  ifndef __cpp_lib_constexpr_inplace_vector
+#    error "__cpp_lib_constexpr_inplace_vector should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_inplace_vector != 202502L
+#    error "__cpp_lib_constexpr_inplace_vector should have the value 202502L in c++26"
+#  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
 #    ifndef __cpp_lib_hardened_inplace_vector

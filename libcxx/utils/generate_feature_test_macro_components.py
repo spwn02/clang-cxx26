@@ -214,7 +214,7 @@ feature_test_macros = [
             "name": "__cpp_lib_atomic_ref",
             "values": {
                 "c++20": 201806,
-                "c++26": 202411,  # P2835R7: Expose std::atomic_ref's object address
+                "c++26": 202603,  # P2835R7: Expose std::atomic_ref's object address, P3936R1
             },
             "headers": ["atomic"],
         },
@@ -244,7 +244,7 @@ feature_test_macros = [
             "name": "__cpp_lib_bind_back",
             "values": {
                 "c++23": 202202,
-                # "c++26": 202306,  # P2714R1 Bind front and back to NTTP callables
+                "c++26": 202306,  # P2714R1 Bind front and back to NTTP callables
             },
             "headers": ["functional"],
         },
@@ -352,7 +352,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_constant_wrapper",
-            "values": {"c++26": 202606},
+            "values": {"c++26": 202603},  # P3948R1, P3978R3 (string literals: P4206R0 is C++29)
             "headers": ["utility"],
         },
         {
@@ -390,6 +390,11 @@ feature_test_macros = [
             "headers": ["complex"],
         },
         {
+            "name": "__cpp_lib_constexpr_deque",
+            "values": {"c++26": 202502},  # P3372R3 constexpr containers and adaptors
+            "headers": ["deque"],
+        },
+        {
             "name": "__cpp_lib_constexpr_dynamic_alloc",
             "values": {"c++20": 201907},
             "headers": ["memory"],
@@ -420,6 +425,11 @@ feature_test_macros = [
             "headers": ["functional"],
         },
         {
+            "name": "__cpp_lib_constexpr_inplace_vector",
+            "values": {"c++26": 202502},  # P3074R7 trivial unions: inplace_vector of non-trivial types in constant expressions
+            "headers": ["inplace_vector"],
+        },
+        {
             "name": "__cpp_lib_constexpr_iterator",
             "values": {"c++20": 201811},
             "headers": ["iterator"],
@@ -428,6 +438,11 @@ feature_test_macros = [
             "name": "__cpp_lib_constexpr_list",
             "values": {"c++26": 202502},
             "headers": ["list"],
+        },
+        {
+            "name": "__cpp_lib_constexpr_map",
+            "values": {"c++26": 202502},  # P3372R3 constexpr containers and adaptors
+            "headers": ["map"],
         },
         {
             "name": "__cpp_lib_constexpr_memory",
@@ -452,6 +467,16 @@ feature_test_macros = [
             "headers": ["queue"],
         },
         {
+            "name": "__cpp_lib_constexpr_set",
+            "values": {"c++26": 202502},  # P3372R3 constexpr containers and adaptors
+            "headers": ["set"],
+        },
+        {
+            "name": "__cpp_lib_constexpr_stack",
+            "values": {"c++26": 202502},  # P3372R3 constexpr containers and adaptors
+            "headers": ["stack"],
+        },
+        {
             "name": "__cpp_lib_constexpr_string",
             "values": {"c++20": 201907},
             "headers": ["string"],
@@ -470,6 +495,16 @@ feature_test_macros = [
             "name": "__cpp_lib_constexpr_typeinfo",
             "values": {"c++23": 202106},
             "headers": ["typeinfo"],
+        },
+        {
+            "name": "__cpp_lib_constexpr_unordered_map",
+            "values": {"c++26": 202502},  # P3372R3 constexpr containers and adaptors
+            "headers": ["unordered_map"],
+        },
+        {
+            "name": "__cpp_lib_constexpr_unordered_set",
+            "values": {"c++26": 202502},  # P3372R3 constexpr containers and adaptors
+            "headers": ["unordered_set"],
         },
         {
             "name": "__cpp_lib_constexpr_utility",
@@ -850,11 +885,6 @@ feature_test_macros = [
             "headers": ["numeric"],
         },
         {
-            "name": "__cpp_lib_generate_random",
-            "values": {"c++26": 202403}, # P1068R11: Vector API for random number generation
-            "headers": ["random"],
-        },
-        {
             "name": "__cpp_lib_generator",
             "values": {"c++23": 202207},  # P2502R2, P2787R1
             "headers": ["generator"],
@@ -1038,6 +1068,11 @@ feature_test_macros = [
             "headers": ["memory"],
         },
         {
+            "name": "__cpp_lib_initializer_list",
+            "values": {"c++26": 202511},  # P3016R6 Resolve inconsistencies in begin/end for valarray and braced initializer lists
+            "headers": ["initializer_list"],
+        },
+        {
             "name": "__cpp_lib_inplace_vector",
             "values": {"c++26": 202603},  # P0843R14 inplace_vector, P3981R2 (optional<reference> from try_emplace_back/try_push_back)
             "headers": ["inplace_vector"],
@@ -1136,6 +1171,11 @@ feature_test_macros = [
             "name": "__cpp_lib_is_scoped_enum",
             "values": {"c++23": 202011},
             "headers": ["type_traits"],
+        },
+        {
+            "name": "__cpp_lib_is_structural",
+            "values": {"c++26": 202603},  # P3856R8 is_structural, is_structural_type
+            "headers": ["meta", "type_traits"],
         },
         {
             "name": "__cpp_lib_is_sufficiently_aligned",
@@ -1468,6 +1508,11 @@ feature_test_macros = [
             "headers": ["algorithm"],
         },
         {
+            "name": "__cpp_lib_ranges_generate_random",
+            "values": {"c++26": 202403},  # P1068R11: Vector API for random number generation (named like this in the draft)
+            "headers": ["random"],
+        },
+        {
             "name": "__cpp_lib_ranges_indices",
             "values": {"c++26": 202506},
             "headers": ["ranges"],
@@ -1524,7 +1569,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_raw_memory_algorithms",
-            "values": {"c++17": 201606},
+            "values": {"c++17": 201606, "c++26": 202411},  # P3369R0 constexpr uninitialized_default_construct
             "headers": ["memory"],
         },
         {
@@ -1723,6 +1768,16 @@ feature_test_macros = [
             "headers": ["stdatomic.h"],
         },
         {
+            "name": "__cpp_lib_stdbit_h",
+            "values": {"c++26": 202603},
+            "headers": ["stdbit.h"],
+        },
+        {
+            "name": "__cpp_lib_stdckdint_h",
+            "values": {"c++26": 202603},
+            "headers": ["stdckdint.h"],
+        },
+        {
             "name": "__cpp_lib_stdfloat",
             "values": {"c++23": 202207},
             "headers": ["stdfloat"],
@@ -1885,6 +1940,11 @@ feature_test_macros = [
             "name": "__cpp_lib_unwrap_ref",
             "values": {"c++20": 201811},
             "headers": ["functional"],
+        },
+        {
+            "name": "__cpp_lib_valarray",
+            "values": {"c++26": 202511},  # P3016R6
+            "headers": ["valarray"],
         },
         {
             "name": "__cpp_lib_variant",
