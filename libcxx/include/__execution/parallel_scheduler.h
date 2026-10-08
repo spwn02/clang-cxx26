@@ -66,8 +66,7 @@ struct __parallel_scheduler_domain {
   }
 };
 
-// See docs/design/parallel_scheduler_p2079.md for the full design rationale. Intrusive
-// singly-linked task list, matching <__execution/run_loop.h>'s __run_loop_opstate_base shape
+// Intrusive singly-linked task list, matching <__execution/run_loop.h>'s __run_loop_opstate_base shape
 // (a class with a pure virtual member can't be an aggregate, hence the small constructor).
 struct __parallel_task_base {
   _LIBCPP_HIDE_FROM_ABI constexpr __parallel_task_base() noexcept = default;
@@ -176,7 +175,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI __parallel_sender schedule() const noexcept;
 
   // [exec.parallel.scheduler]p2: query(get_forward_progress_guarantee_t) is parallel --
-  // independent worker threads, but (Pass 1) no work-stealing/helping guarantee that would
+  // independent worker threads, but no work-stealing/helping guarantee that would
   // justify the stronger "concurrent" answer inline_scheduler gives for its own, different
   // reason (completing synchronously on the caller's own agent).
   _LIBCPP_HIDE_FROM_ABI constexpr forward_progress_guarantee query(get_forward_progress_guarantee_t) const noexcept {

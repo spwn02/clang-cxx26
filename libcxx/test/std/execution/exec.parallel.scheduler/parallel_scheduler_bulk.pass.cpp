@@ -12,7 +12,7 @@
 
 // <execution>
 //
-// Pass 2/3 (P2079R10, see docs/design/parallel_scheduler_p2079.md): bulk_chunked_t's and
+// P2079R10: bulk_chunked_t's and
 // bulk_unchunked_t's parallel_scheduler completion-scheduler probe/dispatch. Both share the
 // same worker-pool job machinery (see <__execution/bulk.h>'s __bulk_parallel_job); they differ
 // only in whether each worker invokes f once for its whole sub-range (chunked) or once per
@@ -131,7 +131,7 @@ int main(int, char**) {
     assert((chunks[0] == std::pair(0, 5)));
   }
 
-  // bulk_unchunked_t: same parallel_scheduler probe as bulk_chunked_t (Pass 3), but each worker
+  // bulk_unchunked_t: same parallel_scheduler probe as bulk_chunked_t, but each worker
   // invokes f once per index in its own sub-range rather than once for the whole sub-range --
   // correctness: every index in [0, shape) is invoked exactly once, shape again deliberately not
   // divisible by any small chunk count.

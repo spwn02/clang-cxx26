@@ -53,8 +53,7 @@ namespace execution {
 
 // [exec.task.scheduler]: task_scheduler. A type-erasing wrapper holding any type satisfying
 // `scheduler`, used as execution::task<T, Environment>::scheduler_type's default. Per the
-// adopted text (verified directly, not re-derived from memory -- see
-// docs/design/execution_task_p3552.md), task_scheduler has exactly one constructor --
+// adopted text, task_scheduler has exactly one constructor --
 // `explicit task_scheduler(Sch&&, Allocator = {})`, constrained on scheduler<Sch> -- and is
 // NOT default-constructible: there is no implicit "empty" state, so every task<T,Environment>
 // whose Environment doesn't supply its own scheduler_type must explicitly construct

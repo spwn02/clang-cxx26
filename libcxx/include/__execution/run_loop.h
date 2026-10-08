@@ -253,8 +253,7 @@ public:
   // in flight, a genuine use-after-free race. Only latent until parallel_scheduler existed:
   // every prior run_loop user drove finish()/run() from the same thread that later destroyed
   // the loop, so no second thread was ever around to race the notify against. First caught by
-  // a real ThreadSanitizer run exercising this_thread::sync_wait(schedule(parallel_scheduler))
-  // -- see docs/design/parallel_scheduler_p2079.md.
+  // a real ThreadSanitizer run exercising this_thread::sync_wait(schedule(parallel_scheduler)).
   _LIBCPP_HIDE_FROM_ABI void finish() noexcept {
     lock_guard<mutex> __lock(__mtx_);
     __state_ = __finishing;

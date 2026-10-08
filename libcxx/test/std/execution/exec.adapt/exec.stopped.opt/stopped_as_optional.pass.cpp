@@ -90,8 +90,8 @@ int main(int, char**) {
     static_assert(!sends_stopped<decltype(stopped_as_optional(value_or_stopped_sndr{false})), env<>>);
   }
   // [exec.stopped.opt]p3's Mandates (single-sender-value-type<child, Env> is not void) is
-  // enforced via SFINAE non-participation (docs/CXX26_GAPS.md's P3068 deviation, applied here
-  // the same way <__execution/then.h>/<__execution/let.h> apply it) rather than a diagnostic:
+  // enforced via SFINAE non-participation, as in <__execution/then.h>/<__execution/let.h>,
+  // rather than a diagnostic:
   // just_stopped() advertises no set_value completion at all, so its single-sender-value-type
   // is void, and the resulting stopped_as_optional sender simply isn't a sender_in.
   static_assert(!sender_in<decltype(stopped_as_optional(just_stopped())), env<>>);

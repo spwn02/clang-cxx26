@@ -24,8 +24,7 @@
 //   inline constexpr spawn_future_t spawn_future{};
 // }
 //
-// Pass 1 (simple_counting_scope/associate/spawn/join), Pass 2 (counting_scope), and Pass 3
-// (spawn_future) are all tested here (see docs/design/async_scope_p3149.md).
+// simple_counting_scope, associate, spawn, join, counting_scope, and spawn_future are tested here.
 
 #include <cassert>
 #include <execution>
@@ -136,8 +135,8 @@ void test_spawn_and_join_deferred() {
   assert(joined);
 }
 
-// [exec.scope.counting] (Pass 2): counting_scope has the same association/close/join behavior
-// as simple_counting_scope -- these mirror the Pass 1 tests above exactly, just through
+// [exec.scope.counting]: counting_scope has the same association/close/join behavior
+// as simple_counting_scope -- these mirror the tests above exactly, just through
 // counting_scope, to confirm wrap()'s added stop-when composition doesn't disturb any of it.
 static_assert(scope_token<counting_scope::token>);
 
@@ -268,7 +267,7 @@ void test_counting_scope_wrap_combined_branch_external_side() {
   assert(captured->stop_requested());
 }
 
-// [exec.spawn.future] (Pass 3): a receiver capturing whichever of set_value/set_error/set_stopped
+// [exec.spawn.future]: a receiver capturing whichever of set_value/set_error/set_stopped
 // the returned future sender completes with. Templated on the expected value type so the same
 // helper covers every value-completing test below.
 template <class T>

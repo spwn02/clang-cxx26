@@ -15,8 +15,8 @@
 // backed by __tree, which already used the union-based deferred-init node
 // pattern list/forward_list rely on. Unlike unordered_map, there is no
 // bucket array and std::less has none of std::hash's type-punning, so this
-// avoids most boundaries documented for unordered_map/unordered_set in
-// docs/CXX26_GAPS.md -- including duplicate-key insertion, which works fine
+// avoids most constant-evaluation limitations of unordered_map/unordered_set,
+// including duplicate-key insertion, which works fine
 // here (no goto-based fast path in __tree's lookup). It does hit the same
 // const_cast-based in-place key reuse during same-size copy-assignment that
 // unordered_map does (__tree:1469, same shape as __hash_table:1103), which

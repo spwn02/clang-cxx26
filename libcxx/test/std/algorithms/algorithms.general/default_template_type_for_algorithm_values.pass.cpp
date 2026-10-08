@@ -18,7 +18,7 @@
 // ranges::fold_right is unimplementable here (a separate, pre-existing
 // gap from P2322R6, not this paper) and ranges::find_last_if/
 // find_last_if_not take a predicate rather than a value, so neither
-// needed the treatment. See docs/CXX26_GAPS.md Tier 6.
+// needed the treatment.
 //
 // This test exercises the actual capability the paper is for: calling
 // each affected algorithm/erase() with a braced-init-list value, which

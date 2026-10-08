@@ -52,7 +52,7 @@ static_assert(test_set_node());
 
 constexpr bool test_unordered_map_node() {
   std::unordered_map<int, int> m;
-  m.reserve(4); // power-of-two growth avoids __next_prime, see docs/CXX26_GAPS.md
+  m.reserve(4); // power-of-two growth avoids __next_prime during constant evaluation
   m.emplace(1, 100);
   m.emplace(2, 200);
   auto nh = m.extract(1);

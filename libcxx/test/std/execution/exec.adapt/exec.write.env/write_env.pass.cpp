@@ -89,8 +89,8 @@ static_assert(std::is_same_v<completion_signatures_of_t<decltype(write_env(read_
                               completion_signatures<set_value_t(int)>>);
 
 // state answers nothing (env<>{}), and neither does Env: the joined env can't answer either, so
-// sender_in is false -- not a hard error, matching read_env's own "dependent-sender-as-soft-
-// failure" deviation (docs/CXX26_GAPS.md, M2 deviation 2), which write_env inherits by
+// sender_in is false -- not a hard error, matching read_env's behavior for dependent senders,
+// which write_env inherits by
 // delegating straight to the child's own get_completion_signatures over the joined type.
 static_assert(!sender_in<decltype(write_env(read_env(read_value), env<>{})), env<>>);
 

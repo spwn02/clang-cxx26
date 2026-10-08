@@ -18,7 +18,7 @@
 //   shared_ptr<parallel_scheduler_backend> query_parallel_scheduler_backend();
 // }
 //
-// Pass 3b (see docs/design/parallel_scheduler_p2079.md): the default (unreplaced) backend.
+// The default (unreplaced) backend.
 // Actual link-time replacement is tested separately in
 // parallel_scheduler_system_context_replaceability.replaceable.pass.cpp, since overriding
 // query_parallel_scheduler_backend() affects every parallel_scheduler use for the rest of the

@@ -23,8 +23,8 @@
 #  include <typeinfo>
 #  include <vector>
 
-// See docs/design/parallel_scheduler_p2079.md, Pass 3b: this default backend is deliberately
-// self-contained, with its OWN worker pool -- NOT a reuse of
+// This default backend is deliberately self-contained, with its own worker pool rather than
+// reusing
 // <__execution/parallel_scheduler.h>'s __get_parallel_pool() singleton, which is
 // _LIBCPP_HIDE_FROM_ABI/hidden-visibility and therefore gets a SEPARATE per-DSO copy of its
 // function-local static (by design, for header-only consumers); reusing it here, in code

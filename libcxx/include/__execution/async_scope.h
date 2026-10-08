@@ -287,7 +287,7 @@ private:
 
 _LIBCPP_HIDE_FROM_ABI inline auto simple_counting_scope::join() noexcept { return __join_sender(this); }
 
-// [exec.scope.counting] (Pass 2, P3149R11): counting_scope behaves like a
+// [exec.scope.counting] (P3149R11): counting_scope behaves like a
 // simple_counting_scope augmented with a stop source. Implemented exactly as the paper's own
 // [exec.scope.counting]p2 "as if implemented like so" reference implementation: composition
 // over a private simple_counting_scope member plus an inplace_stop_source, not a parallel
@@ -461,7 +461,7 @@ inline constexpr associate_t associate{};
 // [exec.scope.spawn]. Unlike associate(), spawn is NOT connect()/start() from the caller's
 // side at all -- there is no outer receiver, nothing for the caller to hold onto. It owns its
 // own dynamically-allocated operation state and destroys itself on completion. Teardown order
-// on completion is significant (see docs/design/async_scope_p3149.md): destroy the connected
+// on completion is significant: destroy the connected
 // child operation state, deallocate its storage, *then* disassociate -- in that order, since
 // the allocator used to free the storage must still be valid when it does so.
 struct __spawn_op_base {
@@ -571,7 +571,7 @@ struct spawn_t {
 
 inline constexpr spawn_t spawn{};
 
-// [exec.spawn.future] (Pass 3, P3149R11): spawn_future attempts to associate the given input
+// [exec.spawn.future] (P3149R11): spawn_future attempts to associate the given input
 // sender with the given token's async scope and, on success, eagerly starts the input sender;
 // the returned sender, when connected and started, completes with either the result of the
 // eagerly-started input sender or with set_stopped if the input sender was never started
@@ -584,11 +584,11 @@ inline constexpr spawn_t spawn{};
 // operations" appearing "to occur in a single total order" -- i.e. whichever of {complete,
 // consume, abandon} happens first on a given spawn-future-state determines what the others do.
 // Implemented with a plain mutex (matching simple_counting_scope's own established idiom for a
-// structurally similar race in Pass 1, not lock-free atomics -- this isn't a per-index hot path
+// structurally similar race in simple_counting_scope, not lock-free atomics -- this isn't a per-index hot path
 // the way parallel_scheduler's bulk dispatch is).
 //
 // [exec.stop.when]'s stop-when gets applied TWICE here, independently: once inside
-// token.wrap(sndr) (this scope's own stop source, Pass 2), and again inside this state's own
+// token.wrap(sndr) (this scope's own stop source), and again inside this state's own
 // constructor using its own private inplace_stop_source (so abandoning *this particular future*
 // requests stop without requesting stop on every other operation associated with the scope).
 // <__execution/stop_when.h> supports this nesting with no changes needed -- each application

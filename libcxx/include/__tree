@@ -1490,7 +1490,7 @@ private:
       // value category, so an unadorned forward would always bind the key's *copy*
       // constructor. This is only reachable (and only ever actually constant-evaluated)
       // for the key types this fork's constexpr container support targets
-      // (integral/enum/nullptr_t, docs/CXX26_GAPS.md), whose move "constructors" are
+      // (integral, enumeration, and nullptr types), whose move "constructors" are
       // trivial copies and never write through the source -- unlike a hypothetical
       // move-only key with a mutating move constructor, for which this exact construct,
       // if actually evaluated at compile time, would legitimately fail to constant-evaluate
