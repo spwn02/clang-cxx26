@@ -1037,64 +1037,84 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bool __constexpr_signbit(_A1 __lcpp_x) _
   return std::signbit(__lcpp_x);
 }
 
-template <class _A1, __enable_if_t<is_floating_point<_A1>::value, int> = 0>
-_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _A1 __constexpr_copysign(_A1 __lcpp_x, _A1 __lcpp_y) _NOEXCEPT {
-  // __builtin_copysign's parameter type is `double`, so a `float`/`long double` argument must be
-  // dispatched to the size-suffixed variant to avoid an implicit narrowing/widening conversion.
-  if constexpr (is_same<_A1, float>::value) {
-#  if __has_builtin(__builtin_copysignf)
-    return __builtin_copysignf(__lcpp_x, __lcpp_y);
-#  else
-    return copysignf(__lcpp_x, __lcpp_y);
-#  endif
-  } else if constexpr (is_same<_A1, long double>::value) {
-#  if __has_builtin(__builtin_copysignl)
-    return __builtin_copysignl(__lcpp_x, __lcpp_y);
-#  else
-    return copysignl(__lcpp_x, __lcpp_y);
-#  endif
-#  if defined(__STDCPP_FLOAT128_T__)
-  } else if constexpr (is_same<_A1, __float128>::value) {
-    // __builtin_copysign's `double` parameter would silently truncate a wider __float128
-    // argument (unlike float/long double above, which only ever widen into it).
-    return __builtin_copysignf128(__lcpp_x, __lcpp_y);
-#  endif
-  } else {
+// __builtin_copysign's and __builtin_fabs's parameter type is `double`, so a `float`/`long double` (or wider) argument
+// must be dispatched to the size-suffixed variant to avoid an implicit narrowing/widening conversion. (A class
+// template rather than `if constexpr`: this header is also compiled as C++03.)
+template <class _Tp>
+struct __constexpr_builtin_math {
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _Tp __copysign(_Tp __x, _Tp __y) _NOEXCEPT {
 #  if __has_builtin(__builtin_copysign)
-    return __builtin_copysign(__lcpp_x, __lcpp_y);
+    return __builtin_copysign(__x, __y);
 #  else
-    return copysign(__lcpp_x, __lcpp_y);
+    return copysign(__x, __y);
 #  endif
   }
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _Tp __fabs(_Tp __x) _NOEXCEPT {
+#  if __has_builtin(__builtin_fabs)
+    return __builtin_fabs(__x);
+#  else
+    return fabs(__x);
+#  endif
+  }
+};
+
+template <>
+struct __constexpr_builtin_math<float> {
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR float __copysign(float __x, float __y) _NOEXCEPT {
+#  if __has_builtin(__builtin_copysignf)
+    return __builtin_copysignf(__x, __y);
+#  else
+    return copysignf(__x, __y);
+#  endif
+  }
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR float __fabs(float __x) _NOEXCEPT {
+#  if __has_builtin(__builtin_fabsf)
+    return __builtin_fabsf(__x);
+#  else
+    return fabsf(__x);
+#  endif
+  }
+};
+
+template <>
+struct __constexpr_builtin_math<long double> {
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR long double __copysign(long double __x, long double __y) _NOEXCEPT {
+#  if __has_builtin(__builtin_copysignl)
+    return __builtin_copysignl(__x, __y);
+#  else
+    return copysignl(__x, __y);
+#  endif
+  }
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR long double __fabs(long double __x) _NOEXCEPT {
+#  if __has_builtin(__builtin_fabsl)
+    return __builtin_fabsl(__x);
+#  else
+    return fabsl(__x);
+#  endif
+  }
+};
+
+#  if defined(__STDCPP_FLOAT128_T__)
+// The `double` parameter would silently truncate a wider __float128 argument.
+template <>
+struct __constexpr_builtin_math<__float128> {
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR __float128 __copysign(__float128 __x, __float128 __y) _NOEXCEPT {
+    return __builtin_copysignf128(__x, __y);
+  }
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR __float128 __fabs(__float128 __x) _NOEXCEPT {
+    return __builtin_fabsf128(__x);
+  }
+};
+#  endif
+
+template <class _A1, __enable_if_t<is_floating_point<_A1>::value, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _A1 __constexpr_copysign(_A1 __lcpp_x, _A1 __lcpp_y) _NOEXCEPT {
+  return __constexpr_builtin_math<_A1>::__copysign(__lcpp_x, __lcpp_y);
 }
 
 template <class _A1, __enable_if_t<is_floating_point<_A1>::value, int> = 0>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _A1 __constexpr_fabs(_A1 __lcpp_x) _NOEXCEPT {
-  // Same rationale as __constexpr_copysign above: __builtin_fabs takes a `double` parameter.
-  if constexpr (is_same<_A1, float>::value) {
-#  if __has_builtin(__builtin_fabsf)
-    return __builtin_fabsf(__lcpp_x);
-#  else
-    return fabsf(__lcpp_x);
-#  endif
-  } else if constexpr (is_same<_A1, long double>::value) {
-#  if __has_builtin(__builtin_fabsl)
-    return __builtin_fabsl(__lcpp_x);
-#  else
-    return fabsl(__lcpp_x);
-#  endif
-#  if defined(__STDCPP_FLOAT128_T__)
-  } else if constexpr (is_same<_A1, __float128>::value) {
-    // Same rationale as __constexpr_copysign's __float128 branch above.
-    return __builtin_fabsf128(__lcpp_x);
-#  endif
-  } else {
-#  if __has_builtin(__builtin_fabs)
-    return __builtin_fabs(__lcpp_x);
-#  else
-    return fabs(__lcpp_x);
-#  endif
-  }
+  return __constexpr_builtin_math<_A1>::__fabs(__lcpp_x);
 }
 
 #  if _LIBCPP_STD_VER >= 20

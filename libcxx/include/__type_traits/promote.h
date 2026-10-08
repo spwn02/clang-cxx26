@@ -11,6 +11,7 @@
 
 #include <__config>
 #include <__type_traits/enable_if.h>
+#include <__type_traits/integral_constant.h>
 #include <__type_traits/is_arithmetic.h>
 #include <__type_traits/is_floating_point.h>
 #include <__type_traits/is_same.h>
@@ -36,10 +37,15 @@ double __promote_impl(__uint128_t);
 double __promote_impl(double);
 long double __promote_impl(long double);
 
+#if _LIBCPP_STD_VER >= 14
 template <class _Tp>
-inline constexpr bool __is_extended_floating_point_v =
-    is_floating_point<_Tp>::value && !is_same<_Tp, float>::value && !is_same<_Tp, double>::value &&
-    !is_same<_Tp, long double>::value;
+struct __is_extended_floating_point
+    : public integral_constant<bool,
+                               is_floating_point<_Tp>::value && !is_same<_Tp, float>::value &&
+                                   !is_same<_Tp, double>::value && !is_same<_Tp, long double>::value> {};
+
+template <class _Tp>
+inline constexpr bool __is_extended_floating_point_v = __is_extended_floating_point<_Tp>::value;
 
 template <class... _Args, __enable_if_t<!(__is_extended_floating_point_v<_Args> || ...), int> = 0>
 auto __promote_result(_Args...) -> decltype((std::__promote_impl(_Args()) + ...));
@@ -52,6 +58,12 @@ auto __promote_result(_Args...) -> decltype((_Args() + ...));
 template <class... _Args>
 using __promote_t _LIBCPP_NODEBUG =
     decltype((__enable_if_t<(is_arithmetic<_Args>::value && ...)>)0, std::__promote_result(_Args()...));
+#else
+// (compiled as C++03/C++11 too: no extended floating-point types, no variable templates)
+template <class... _Args>
+using __promote_t _LIBCPP_NODEBUG =
+    decltype((__enable_if_t<(is_arithmetic<_Args>::value && ...)>)0, (std::__promote_impl(_Args()) + ...));
+#endif
 
 _LIBCPP_END_NAMESPACE_STD
 
