@@ -92,7 +92,7 @@
 #error "wrong value for __cpp_static_call_operator"
 #endif
 
-#if check(named_character_escapes, 202207, 202207, 202207, 202207, 202207, 202207, 202207)
+#if check(named_character_escapes, 202207, 202207, 202207, 202207, 202207, 202207, 202606)
 #error "wrong value for __cpp_named_character_escapes"
 #endif
 
@@ -154,7 +154,7 @@
 #error "wrong value for __cpp_impl_three_way_comparison"
 #endif
 
-#if check(impl_coroutine, 0, 0, 0, 0, 201902L, 201902L, 201902L)
+#if check(impl_coroutine, 0, 0, 0, 0, 201902L, 201902L, 202606L)
 #error "wrong value for __cpp_impl_coroutine"
 #endif
 

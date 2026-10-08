@@ -205,10 +205,11 @@ TEST(Unicode, nameToCodepointStrict) {
   EXPECT_EQ(0xFFFFFFFFu, map("CJK COMPATIBILITY IDEOGRAPH-1"));
   EXPECT_EQ(0xFFFFFFFFu, map("ZERO WIDTH NO BREAK SPACE"));
 
-  // Should not support abbreviations or figments
-  EXPECT_EQ(0xFFFFFFFFu, map("FVS1"));
-  EXPECT_EQ(0xFFFFFFFFu, map("HIGH OCTET PRESET"));
-  EXPECT_EQ(0xFFFFFFFFu, map("BEL"));
+  // All the name aliases are supported (C++26, P3733R1), including the
+  // abbreviations and the figments
+  EXPECT_EQ(0x180Bu, map("FVS1"));
+  EXPECT_EQ(0x0081u, map("HIGH OCTET PRESET"));
+  EXPECT_EQ(0x0007u, map("BEL"));
 }
 
 TEST(Unicode, nameToCodepointLoose) {
@@ -372,11 +373,11 @@ TEST(Unicode, nearestMatchesForCodepointName) {
   using ::testing::ElementsAre;
   using M = MatchForCodepointName;
 
-  ASSERT_THAT(L(""), ElementsAre(M{"OX", 2, 0x1F402}, M{"ANT", 3, 0x1F41C},
-                                 M{"ARC", 3, 0x2312}));
+  ASSERT_THAT(L(""), ElementsAre(M{"BS", 2, 0x8}, M{"CR", 2, 0xD},
+                                 M{"EM", 2, 0x19}));
   // shortest name
   ASSERT_THAT(L("OX"), ElementsAre(M{"OX", 0, 0x1F402}, M{"AXE", 2, 0x1FA93},
-                                   M{"BOY", 2, 0x1F466}));
+                                   M{"BOM", 2, 0xFEFF}));
 
   // longest name
   ASSERT_THAT(L("ARABIC LIGATURE UIGHUR KIRGHIZ YEH WITH HAMZA ABOVE WITH ALEF "

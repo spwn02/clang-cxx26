@@ -208,6 +208,11 @@ C++ Language Changes
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
+- Implemented the defect reports `P3950R1 <https://wg21.link/P3950R1>`_ (``return_value`` and
+  ``return_void`` can both be declared by a coroutine promise) and `P3733R1
+  <https://wg21.link/P3733R1>`_ (named universal character escapes accept all Unicode character name aliases).
+  Both defect reports apply retroactively to C++26.
+
 - Added the ``__builtin_start_lifetime(p)`` builtin, the compiler support of ``std::start_lifetime`` from
   `P3726R2 <https://wg21.link/P3726R2>`_. In a constant expression it begins the lifetime of the object ``p`` points to
   (no initialization, no subobject begins its lifetime; a member of a union becomes the active member); it does nothing at

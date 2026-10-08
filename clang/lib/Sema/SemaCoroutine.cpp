@@ -1709,33 +1709,52 @@ bool CoroutineStmtBuilder::makeOnFallthrough() {
   assert(!IsPromiseDependentType &&
          "cannot make statement while the promise type is dependent");
 
-  // [dcl.fct.def.coroutine]/p6
-  // If searches for the names return_void and return_value in the scope of
-  // the promise type each find any declarations, the program is ill-formed.
-  // [Note 1: If return_void is found, flowing off the end of a coroutine is
-  // equivalent to a co_return with no operand. Otherwise, flowing off the end
-  // of a coroutine results in undefined behavior ([stmt.return.coroutine]). —
-  // end note]
-  bool HasRVoid, HasRValue;
+  // [stmt.return.coroutine]/p3 (P3950R1): a promise type may declare both
+  // return_void and return_value. If overload resolution for p.return_void()
+  // succeeds, flowing off the end of the coroutine is equivalent to a
+  // co_return with no operand; otherwise flowing off the end results in
+  // undefined behavior.
+  bool HasRVoid;
   LookupResult LRVoid =
       lookupMember(S, "return_void", PromiseRecordDecl, Loc, HasRVoid);
-  LookupResult LRValue =
-      lookupMember(S, "return_value", PromiseRecordDecl, Loc, HasRValue);
 
   StmtResult Fallthrough;
-  if (HasRVoid && HasRValue) {
-    // FIXME Improve this diagnostic
-    S.Diag(FD.getLocation(),
-           diag::err_coroutine_promise_incompatible_return_functions)
-        << PromiseRecordDecl;
-    S.Diag(LRVoid.getRepresentativeDecl()->getLocation(),
-           diag::note_member_first_declared_here)
-        << LRVoid.getLookupName();
-    S.Diag(LRValue.getRepresentativeDecl()->getLocation(),
-           diag::note_member_first_declared_here)
-        << LRValue.getLookupName();
-    return false;
-  } else if (!HasRVoid && !HasRValue) {
+  if (HasRVoid) {
+    // Run overload resolution for p.return_void(); a failure to find a
+    // function is not an error here (it only makes flowing off the end of the
+    // coroutine undefined behavior), but a selected function that is deleted,
+    // inaccessible or unavailable is diagnosed when the call is built.
+    // A member that is not a function (e.g. a data member of function pointer
+    // type) is called as before.
+    bool AllFunctions = true;
+    for (NamedDecl *D : LRVoid) {
+      NamedDecl *Underlying = D->getUnderlyingDecl();
+      AllFunctions &= isa<CXXMethodDecl>(Underlying) ||
+                      isa<FunctionTemplateDecl>(Underlying);
+    }
+    OverloadingResult OR = OR_Success;
+    if (AllFunctions) {
+      QualType PromiseType = S.Context.getCanonicalTagType(PromiseRecordDecl);
+      OverloadCandidateSet Candidates(Loc, OverloadCandidateSet::CSK_Normal);
+      for (NamedDecl *D : LRVoid)
+        S.AddMethodCandidate(DeclAccessPair::make(D, D->getAccess()),
+                             PromiseType,
+                             Expr::Classification::makeSimpleLValue(), {},
+                             Candidates);
+      OverloadCandidateSet::iterator Best;
+      OR = Candidates.BestViableFunction(S, Loc, Best);
+    }
+    if (OR == OR_Success || OR == OR_Deleted) {
+      Fallthrough = S.BuildCoreturnStmt(FD.getLocation(), nullptr,
+                                        /*IsImplicit=*/true);
+      Fallthrough = S.ActOnFinishFullStmt(Fallthrough.get());
+      if (Fallthrough.isInvalid())
+        return false;
+    }
+  }
+  bool HasRValue;
+  lookupMember(S, "return_value", PromiseRecordDecl, Loc, HasRValue);
+  if (!Fallthrough.get() && !HasRValue) {
     // We need to set 'Fallthrough'. Otherwise the other analysis part might
     // think the coroutine has defined a return_value method. So it might emit
     // **false** positive warning. e.g.,
@@ -1747,12 +1766,6 @@ bool CoroutineStmtBuilder::makeOnFallthrough() {
     // Then AnalysisBasedWarning would emit a warning about `foo()` lacking a
     // co_return statements, which isn't correct.
     Fallthrough = S.ActOnNullStmt(PromiseRecordDecl->getLocation());
-    if (Fallthrough.isInvalid())
-      return false;
-  } else if (HasRVoid) {
-    Fallthrough = S.BuildCoreturnStmt(FD.getLocation(), nullptr,
-                                      /*IsImplicit=*/true);
-    Fallthrough = S.ActOnFinishFullStmt(Fallthrough.get());
     if (Fallthrough.isInvalid())
       return false;
   }
