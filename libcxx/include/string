@@ -596,7 +596,9 @@ basic_string<char32_t> operator""s( const char32_t *str, size_t len );          
 #  include <__algorithm/remove.h>
 #  include <__algorithm/remove_if.h>
 #  include <__assert>
-#  include <__charconv/to_chars.h>
+#  if _LIBCPP_STD_VER >= 26
+#    include <__charconv/to_chars_integral.h>
+#  endif
 #  include <__config>
 #  include <__debug_utils/sanitizers.h>
 #  include <__format/enable_insertable.h>
