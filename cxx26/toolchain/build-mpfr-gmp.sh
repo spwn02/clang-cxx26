@@ -42,8 +42,15 @@ fetch "https://ftp.gnu.org/gnu/mpfr/mpfr-${mpfr_version}.tar.xz" "${mpfr_sha256}
 export CFLAGS="-O2 -fPIC -std=gnu17"
 (
   cd "${work}/gmp-${gmp_version}"
-  # --enable-fat: select the CPU-specific code at run time instead of tuning to the build host
-  ./configure --prefix="${prefix}" --enable-static --disable-shared --with-pic --enable-fat
+  # GMP's assembly needs m4. --enable-fat selects the CPU-specific code at run time instead of tuning it to the
+  # build host (which could otherwise fault on an older CPU); without m4 (or with CXX26_GMP_NO_ASM=1) fall back to
+  # the portable C implementation.
+  if [[ -z "${CXX26_GMP_NO_ASM:-}" ]] && command -v m4 >/dev/null; then
+    gmp_cpu_flags=(--enable-fat)
+  else
+    gmp_cpu_flags=(--disable-assembly)
+  fi
+  ./configure --prefix="${prefix}" --enable-static --disable-shared --with-pic "${gmp_cpu_flags[@]}"
   make -j"${jobs}"
   make install
 )
