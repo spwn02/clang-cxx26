@@ -20,6 +20,10 @@
 
 #if TEST_STD_VER < 14
 
+#  ifdef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_execution
 #    error "__cpp_lib_execution should not be defined before c++17"
 #  endif
@@ -28,12 +32,24 @@
 #    error "__cpp_lib_freestanding_execution should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_parallel_scheduler
+#    error "__cpp_lib_parallel_scheduler should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_senders
 #    error "__cpp_lib_senders should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_task
+#    error "__cpp_lib_task should not be defined before c++26"
 #  endif
 
 #elif TEST_STD_VER == 14
 
+#  ifdef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_execution
 #    error "__cpp_lib_execution should not be defined before c++17"
 #  endif
@@ -42,11 +58,23 @@
 #    error "__cpp_lib_freestanding_execution should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_parallel_scheduler
+#    error "__cpp_lib_parallel_scheduler should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_senders
 #    error "__cpp_lib_senders should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_task
+#    error "__cpp_lib_task should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 17
+
+#  ifdef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should not be defined before c++26"
+#  endif
 
 #  if !defined(_LIBCPP_VERSION)
 #    ifndef __cpp_lib_execution
@@ -65,11 +93,23 @@
 #    error "__cpp_lib_freestanding_execution should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_parallel_scheduler
+#    error "__cpp_lib_parallel_scheduler should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_senders
 #    error "__cpp_lib_senders should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_task
+#    error "__cpp_lib_task should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 20
+
+#  ifdef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should not be defined before c++26"
+#  endif
 
 #  if !defined(_LIBCPP_VERSION)
 #    ifndef __cpp_lib_execution
@@ -88,11 +128,23 @@
 #    error "__cpp_lib_freestanding_execution should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_parallel_scheduler
+#    error "__cpp_lib_parallel_scheduler should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_senders
 #    error "__cpp_lib_senders should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_task
+#    error "__cpp_lib_task should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER == 23
+
+#  ifdef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should not be defined before c++26"
+#  endif
 
 #  if !defined(_LIBCPP_VERSION)
 #    ifndef __cpp_lib_execution
@@ -111,11 +163,26 @@
 #    error "__cpp_lib_freestanding_execution should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_parallel_scheduler
+#    error "__cpp_lib_parallel_scheduler should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_senders
 #    error "__cpp_lib_senders should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_task
+#    error "__cpp_lib_task should not be defined before c++26"
+#  endif
+
 #elif TEST_STD_VER > 23
+
+#  ifndef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should be defined in c++26"
+#  endif
+#  if __cpp_lib_counting_scope != 202506L
+#    error "__cpp_lib_counting_scope should have the value 202506L in c++26"
+#  endif
 
 #  if !defined(_LIBCPP_VERSION)
 #    ifndef __cpp_lib_execution
@@ -137,11 +204,31 @@
 #    error "__cpp_lib_freestanding_execution should have the value 202502L in c++26"
 #  endif
 
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
+#    ifndef __cpp_lib_parallel_scheduler
+#      error "__cpp_lib_parallel_scheduler should be defined in c++26"
+#    endif
+#    if __cpp_lib_parallel_scheduler != 202506L
+#      error "__cpp_lib_parallel_scheduler should have the value 202506L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_parallel_scheduler
+#      error "__cpp_lib_parallel_scheduler should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS' is not met!"
+#    endif
+#  endif
+
 #  ifndef __cpp_lib_senders
 #    error "__cpp_lib_senders should be defined in c++26"
 #  endif
 #  if __cpp_lib_senders != 202406L
 #    error "__cpp_lib_senders should have the value 202406L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_task
+#    error "__cpp_lib_task should be defined in c++26"
+#  endif
+#  if __cpp_lib_task != 202506L
+#    error "__cpp_lib_task should have the value 202506L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

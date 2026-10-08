@@ -235,7 +235,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_barrier",
-            "values": {"c++20": 201907},
+            "values": {"c++20": 201907},  # 202302 (P2588R3 barrier's phase completion guarantees) is not defined until the implementation is checked against the wording
             "headers": ["barrier"],
             "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS",
             "libcxx_guard": "_LIBCPP_HAS_THREADS",
@@ -561,6 +561,11 @@ feature_test_macros = [
             "name": "__cpp_lib_coroutine",
             "values": {"c++20": 201902},
             "headers": ["coroutine"],
+        },
+        {
+            "name": "__cpp_lib_counting_scope",
+            "values": {"c++26": 202506},  # P3149R11 async_scope: simple_counting_scope and counting_scope
+            "headers": ["execution"],
         },
         {
             "name": "__cpp_lib_debugging",
@@ -1394,6 +1399,13 @@ feature_test_macros = [
             "unimplemented": True,
         },
         {
+            "name": "__cpp_lib_parallel_scheduler",
+            "values": {"c++26": 202506},  # P2079R10 parallel_scheduler
+            "headers": ["execution"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS",
+            "libcxx_guard": "_LIBCPP_HAS_THREADS",
+        },
+        {
             "name": "__cpp_lib_philox_engine",
             "values": {
                 "c++26": 202406
@@ -1444,8 +1456,8 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_ranges_as_const",
             "values": {
-                "c++23": 202207  # P2278R4 cbegin should always return a constant iterator
-                #        202311  # DR P2836R1 std::basic_const_iterator should follow its underlying type’s convertibility
+                "c++23": 202207,  # P2278R4 cbegin should always return a constant iterator
+                "c++26": 202311,  # DR P2836R1 std::basic_const_iterator should follow its underlying type’s convertibility
             },
             "headers": ["ranges"],
         },
@@ -1642,7 +1654,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_senders",
-            "values": {"c++26": 202406},  # P2300R10 std::execution
+            "values": {"c++26": 202406},  # P2300R10 std::execution (N5050 has 202506; the papers behind that bump are not identified yet)
             "headers": ["execution"],
         },
         {
@@ -1829,6 +1841,11 @@ feature_test_macros = [
             "headers": ["syncstream"],
             "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM",
             "libcxx_guard": "_LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM",
+        },
+        {
+            "name": "__cpp_lib_task",
+            "values": {"c++26": 202506},  # P3552R3 std::execution::task
+            "headers": ["execution"],
         },
         {
             "name": "__cpp_lib_text_encoding",

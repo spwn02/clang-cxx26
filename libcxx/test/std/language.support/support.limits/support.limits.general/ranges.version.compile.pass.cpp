@@ -549,8 +549,8 @@
 #  ifndef __cpp_lib_ranges_as_const
 #    error "__cpp_lib_ranges_as_const should be defined in c++26"
 #  endif
-#  if __cpp_lib_ranges_as_const != 202207L
-#    error "__cpp_lib_ranges_as_const should have the value 202207L in c++26"
+#  if __cpp_lib_ranges_as_const != 202311L
+#    error "__cpp_lib_ranges_as_const should have the value 202311L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_ranges_as_input

@@ -344,6 +344,10 @@
 #    error "__cpp_lib_coroutine should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_debugging
 #    error "__cpp_lib_debugging should not be defined before c++26"
 #  endif
@@ -860,6 +864,10 @@
 #    error "__cpp_lib_parallel_algorithm should not be defined before c++17"
 #  endif
 
+#  ifdef __cpp_lib_parallel_scheduler
+#    error "__cpp_lib_parallel_scheduler should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_philox_engine
 #    error "__cpp_lib_philox_engine should not be defined before c++26"
 #  endif
@@ -1166,6 +1174,10 @@
 
 #  ifdef __cpp_lib_syncbuf
 #    error "__cpp_lib_syncbuf should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_task
+#    error "__cpp_lib_task should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_text_encoding
@@ -1586,6 +1598,10 @@
 
 #  ifdef __cpp_lib_coroutine
 #    error "__cpp_lib_coroutine should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_debugging
@@ -2131,6 +2147,10 @@
 #    error "__cpp_lib_parallel_algorithm should not be defined before c++17"
 #  endif
 
+#  ifdef __cpp_lib_parallel_scheduler
+#    error "__cpp_lib_parallel_scheduler should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_philox_engine
 #    error "__cpp_lib_philox_engine should not be defined before c++26"
 #  endif
@@ -2464,6 +2484,10 @@
 
 #  ifdef __cpp_lib_syncbuf
 #    error "__cpp_lib_syncbuf should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_task
+#    error "__cpp_lib_task should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_text_encoding
@@ -2932,6 +2956,10 @@
 
 #  ifdef __cpp_lib_coroutine
 #    error "__cpp_lib_coroutine should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_debugging
@@ -3570,6 +3598,10 @@
 #    endif
 #  endif
 
+#  ifdef __cpp_lib_parallel_scheduler
+#    error "__cpp_lib_parallel_scheduler should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_philox_engine
 #    error "__cpp_lib_philox_engine should not be defined before c++26"
 #  endif
@@ -3936,6 +3968,10 @@
 
 #  ifdef __cpp_lib_syncbuf
 #    error "__cpp_lib_syncbuf should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_task
+#    error "__cpp_lib_task should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_text_encoding
@@ -4530,6 +4566,10 @@
 #  endif
 #  if __cpp_lib_coroutine != 201902L
 #    error "__cpp_lib_coroutine should have the value 201902L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_debugging
@@ -5249,6 +5289,10 @@
 #    endif
 #  endif
 
+#  ifdef __cpp_lib_parallel_scheduler
+#    error "__cpp_lib_parallel_scheduler should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_philox_engine
 #    error "__cpp_lib_philox_engine should not be defined before c++26"
 #  endif
@@ -5669,6 +5713,10 @@
 #    ifdef __cpp_lib_syncbuf
 #      error "__cpp_lib_syncbuf should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM' is not met!"
 #    endif
+#  endif
+
+#  ifdef __cpp_lib_task
+#    error "__cpp_lib_task should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_text_encoding
@@ -6317,6 +6365,10 @@
 #  endif
 #  if __cpp_lib_coroutine != 201902L
 #    error "__cpp_lib_coroutine should have the value 201902L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_debugging
@@ -7093,6 +7145,10 @@
 #    endif
 #  endif
 
+#  ifdef __cpp_lib_parallel_scheduler
+#    error "__cpp_lib_parallel_scheduler should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_philox_engine
 #    error "__cpp_lib_philox_engine should not be defined before c++26"
 #  endif
@@ -7603,6 +7659,10 @@
 #    ifdef __cpp_lib_syncbuf
 #      error "__cpp_lib_syncbuf should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM' is not met!"
 #    endif
+#  endif
+
+#  ifdef __cpp_lib_task
+#    error "__cpp_lib_task should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_text_encoding
@@ -8350,6 +8410,13 @@
 #  endif
 #  if __cpp_lib_coroutine != 201902L
 #    error "__cpp_lib_coroutine should have the value 201902L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should be defined in c++26"
+#  endif
+#  if __cpp_lib_counting_scope != 202506L
+#    error "__cpp_lib_counting_scope should have the value 202506L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_debugging
@@ -9471,6 +9538,19 @@
 #    endif
 #  endif
 
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
+#    ifndef __cpp_lib_parallel_scheduler
+#      error "__cpp_lib_parallel_scheduler should be defined in c++26"
+#    endif
+#    if __cpp_lib_parallel_scheduler != 202506L
+#      error "__cpp_lib_parallel_scheduler should have the value 202506L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_parallel_scheduler
+#      error "__cpp_lib_parallel_scheduler should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS' is not met!"
+#    endif
+#  endif
+
 #  ifndef __cpp_lib_philox_engine
 #    error "__cpp_lib_philox_engine should be defined in c++26"
 #  endif
@@ -9534,8 +9614,8 @@
 #  ifndef __cpp_lib_ranges_as_const
 #    error "__cpp_lib_ranges_as_const should be defined in c++26"
 #  endif
-#  if __cpp_lib_ranges_as_const != 202207L
-#    error "__cpp_lib_ranges_as_const should have the value 202207L in c++26"
+#  if __cpp_lib_ranges_as_const != 202311L
+#    error "__cpp_lib_ranges_as_const should have the value 202311L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_ranges_as_input
@@ -10068,6 +10148,13 @@
 #    ifdef __cpp_lib_syncbuf
 #      error "__cpp_lib_syncbuf should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM' is not met!"
 #    endif
+#  endif
+
+#  ifndef __cpp_lib_task
+#    error "__cpp_lib_task should be defined in c++26"
+#  endif
+#  if __cpp_lib_task != 202506L
+#    error "__cpp_lib_task should have the value 202506L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_text_encoding
