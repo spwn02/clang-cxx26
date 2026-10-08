@@ -10,7 +10,10 @@
 #define _LIBCPP___ALGORITHM_UNWRAP_ITER_H
 
 #include <__config>
+#include <__iterator/bounded_iter.h>
 #include <__iterator/iterator_traits.h>
+#include <__cstddef/size_t.h>
+#include <__iterator/static_bounded_iter.h>
 #include <__memory/pointer_traits.h>
 #include <__type_traits/enable_if.h>
 #include <__type_traits/is_constructible.h>
@@ -40,8 +43,32 @@ struct __unwrap_iter_impl {
   static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _Iter __unwrap(_Iter __i) _NOEXCEPT { return __i; }
 };
 
-// TODO(hardening): make sure that the following unwrapping doesn't unexpectedly turn hardened iterators into raw
-// pointers.
+// A bounded iterator carries the bounds of its container so that accesses through it are checked. Unwrapping it to a raw
+// pointer would drop them: a memmove-based algorithm such as std::copy would write through the whole output range
+// before any check could run. Bounded iterators are therefore never unwrapped (the algorithms fall back to the
+// element-wise loops, which dereference the iterator).
+template <class _Iter>
+struct __unwrap_iter_impl<__bounded_iter<_Iter>, true> {
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR __bounded_iter<_Iter>
+  __rewrap(__bounded_iter<_Iter>, __bounded_iter<_Iter> __iter) {
+    return __iter;
+  }
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR __bounded_iter<_Iter> __unwrap(__bounded_iter<_Iter> __i) _NOEXCEPT {
+    return __i;
+  }
+};
+
+template <class _Iter, size_t _Size>
+struct __unwrap_iter_impl<__static_bounded_iter<_Iter, _Size>, true> {
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR __static_bounded_iter<_Iter, _Size>
+  __rewrap(__static_bounded_iter<_Iter, _Size>, __static_bounded_iter<_Iter, _Size> __iter) {
+    return __iter;
+  }
+  static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR __static_bounded_iter<_Iter, _Size>
+  __unwrap(__static_bounded_iter<_Iter, _Size> __i) _NOEXCEPT {
+    return __i;
+  }
+};
 
 // It's a contiguous iterator, so we can use a raw pointer instead
 template <class _Iter>
