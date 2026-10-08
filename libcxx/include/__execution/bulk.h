@@ -26,6 +26,7 @@
 #include <__execution/operation_state.h>
 #include <__execution/parallel_scheduler.h>
 #include <__execution/system_context_replaceability.h>
+#include <__execution/task_scheduler.h>
 #include <__execution/receiver.h>
 #include <__execution/sender.h>
 #include <__execution/sender_adaptor_closure.h>
@@ -464,7 +465,7 @@ private:
                   }) {
       using __child_sch_t =
           remove_cvref_t<decltype(execution::__try_query(execution::get_env(__self.child), get_completion_scheduler<set_value_t>))>;
-      if constexpr (same_as<__child_sch_t, parallel_scheduler>) {
+      if constexpr (same_as<__child_sch_t, parallel_scheduler> || same_as<__child_sch_t, task_scheduler>) {
         return execution::connect(
             std::forward_like<_Self>(__self.child), __bulk_backend_rcvr<_Chunked, _Policy, _Shape, _Func, remove_cvref_t<_Rcvr>>(
                                    __data_t(std::forward_like<_Self>(__self.data)), std::forward<_Rcvr>(__rcvr),
@@ -645,6 +646,88 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto bulk_t::operator()(_Sndr&& __sndr, _Policy&
 }
 
 inline constexpr bulk_t bulk{};
+
+#if _LIBCPP_HAS_THREADS
+// The task scheduler's erased backend starts a sender formed with the wrapped
+// scheduler. This lets its domain select a bulk implementation before erasure.
+template <class _Sch>
+class __task_scheduler_backend final : public parallel_scheduler_replacement::parallel_scheduler_backend {
+  _Sch __sch_;
+
+  struct __just_sender {
+    using sender_concept = sender_tag;
+    struct __attrs {
+      _Sch __sch;
+      _LIBCPP_HIDE_FROM_ABI _Sch query(get_completion_scheduler_t<set_value_t>) const noexcept { return __sch; }
+      _LIBCPP_HIDE_FROM_ABI auto query(get_completion_domain_t<set_value_t>) const noexcept
+        requires requires(const _Sch& __s) { __s.query(get_completion_domain<set_value_t>); }
+      { return __sch.query(get_completion_domain<set_value_t>); }
+    };
+    const _Sch* __sch;
+    _LIBCPP_HIDE_FROM_ABI __attrs get_env() const noexcept { return {*__sch}; }
+    template <class _Rcvr>
+    struct __op {
+      using operation_state_concept = operation_state_tag;
+      _Rcvr __rcvr;
+      _LIBCPP_HIDE_FROM_ABI void start() & noexcept { execution::set_value(std::move(__rcvr)); }
+    };
+    template <class _Rcvr>
+    _LIBCPP_HIDE_FROM_ABI auto connect(_Rcvr&& __r) const {
+      return __op<remove_cvref_t<_Rcvr>>{std::forward<_Rcvr>(__r)};
+    }
+    template <class, class...>
+    _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
+      return completion_signatures<set_value_t()>{};
+    }
+  };
+
+  template <class _Sndr>
+  struct __state final : __task_backend_completion {
+    using __op_t = connect_result_t<_Sndr, __task_backend_receiver>;
+    __op_t __op_;
+    parallel_scheduler_replacement::receiver_proxy* __rcvr_;
+
+    _LIBCPP_HIDE_FROM_ABI __state(_Sndr&& __sndr, parallel_scheduler_replacement::receiver_proxy& __r)
+        : __op_(execution::connect(std::move(__sndr), __task_backend_receiver{this})), __rcvr_(&__r) {}
+    _LIBCPP_HIDE_FROM_ABI void __value() noexcept override {
+      __rcvr_->set_value();
+      delete this;
+    }
+    _LIBCPP_HIDE_FROM_ABI void __error(exception_ptr __err) noexcept override {
+      __rcvr_->set_error(std::move(__err));
+      delete this;
+    }
+    _LIBCPP_HIDE_FROM_ABI void __stopped() noexcept override {
+      __rcvr_->set_stopped();
+      delete this;
+    }
+  };
+
+  template <class _Sndr>
+  _LIBCPP_HIDE_FROM_ABI static void __launch(_Sndr&& __sndr, parallel_scheduler_replacement::receiver_proxy& __r) noexcept {
+    auto* __st = new __state<remove_cvref_t<_Sndr>>(std::forward<_Sndr>(__sndr), __r);
+    execution::start(__st->__op_);
+  }
+
+public:
+  _LIBCPP_HIDE_FROM_ABI explicit __task_scheduler_backend(_Sch __sch) : __sch_(std::move(__sch)) {}
+  _LIBCPP_HIDE_FROM_ABI void schedule(parallel_scheduler_replacement::receiver_proxy& __r, span<byte>) noexcept override {
+    __launch(execution::schedule(__sch_), __r);
+  }
+  _LIBCPP_HIDE_FROM_ABI void schedule_bulk_chunked(
+      size_t __shape, parallel_scheduler_replacement::bulk_item_receiver_proxy& __r, span<byte>) noexcept override {
+    auto __fn = [&__r](size_t __begin, size_t __end) { __r.execute(__begin, __end); };
+    __launch(execution::transform_sender(
+                 execution::bulk_chunked(__just_sender{&__sch_}, execution::par, __shape, __fn), env<>{}), __r);
+  }
+  _LIBCPP_HIDE_FROM_ABI void schedule_bulk_unchunked(
+      size_t __shape, parallel_scheduler_replacement::bulk_item_receiver_proxy& __r, span<byte>) noexcept override {
+    auto __fn = [&__r](size_t __i) { __r.execute(__i, __i + 1); };
+    __launch(execution::transform_sender(
+                 execution::bulk_unchunked(__just_sender{&__sch_}, execution::par, __shape, __fn), env<>{}), __r);
+  }
+};
+#endif
 
 } // namespace execution
 

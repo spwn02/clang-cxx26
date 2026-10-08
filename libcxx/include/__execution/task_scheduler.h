@@ -24,10 +24,12 @@
 #include <__stop_token/stoppable_token.h>
 #include <__type_traits/is_nothrow_constructible.h>
 #include <__execution/operation_state.h>
+#include <__execution/parallel_scheduler.h>
 #include <__execution/receiver.h>
 #include <__execution/schedule.h>
 #include <__execution/scheduler.h>
 #include <__execution/sender.h>
+#include <__execution/system_context_replaceability.h>
 #include <__memory/allocator.h>
 #include <__memory/allocator_traits.h>
 #include <__type_traits/remove_cvref.h>
@@ -37,6 +39,7 @@
 #include <exception>
 #include <memory>
 #include <typeinfo>
+#include <span>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -50,6 +53,9 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_THREADS
 
 namespace execution {
+
+struct bulk_chunked_t;
+struct bulk_unchunked_t;
 
 // [exec.task.scheduler]: task_scheduler. A type-erasing wrapper holding any type satisfying
 // `scheduler`, used as execution::task<T, Environment>::scheduler_type's default. Per the
@@ -162,7 +168,32 @@ struct __task_scheduler_concept {
   __connect(unique_ptr<__task_scheduler_rcvr_base>) const                                      = 0;
   _LIBCPP_HIDE_FROM_ABI virtual bool __equals(const __task_scheduler_concept&) const noexcept   = 0;
   _LIBCPP_HIDE_FROM_ABI virtual forward_progress_guarantee __fwd_progress() const noexcept      = 0;
+  _LIBCPP_HIDE_FROM_ABI virtual shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
+  __bulk_backend() const = 0;
 };
+
+// A completion receiver keeps the wrapped scheduler's operation alive until it
+// finishes. The backend callback may be asynchronous, including for user schedulers.
+struct __task_backend_completion {
+  virtual ~__task_backend_completion() = default;
+  virtual void __value() noexcept = 0;
+  virtual void __error(exception_ptr) noexcept = 0;
+  virtual void __stopped() noexcept = 0;
+};
+
+struct __task_backend_receiver {
+  using receiver_concept = receiver_tag;
+  __task_backend_completion* __state;
+  _LIBCPP_HIDE_FROM_ABI void set_value() && noexcept { __state->__value(); }
+  template <class _Err>
+  _LIBCPP_HIDE_FROM_ABI void set_error(_Err&& __err) && noexcept {
+    __state->__error(execution::__as_except_ptr(std::forward<_Err>(__err)));
+  }
+  _LIBCPP_HIDE_FROM_ABI void set_stopped() && noexcept { __state->__stopped(); }
+  _LIBCPP_HIDE_FROM_ABI auto get_env() const noexcept { return env<>{}; }
+};
+
+template <class _Sch> class __task_scheduler_backend;
 
 template <class _Sch>
 struct __task_scheduler_model final : __task_scheduler_concept {
@@ -185,9 +216,25 @@ struct __task_scheduler_model final : __task_scheduler_concept {
   _LIBCPP_HIDE_FROM_ABI forward_progress_guarantee __fwd_progress() const noexcept override {
     return execution::get_forward_progress_guarantee(__sch_);
   }
+
+  _LIBCPP_HIDE_FROM_ABI shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
+  __bulk_backend() const override {
+    if constexpr (same_as<_Sch, parallel_scheduler>)
+      return __sch_.__get_backend();
+    else
+      return std::make_shared<__task_scheduler_backend<_Sch>>(__sch_);
+  }
 };
 
-class __task_scheduler_domain : public default_domain {};
+class __task_scheduler_domain : public default_domain {
+public:
+  using default_domain::transform_sender;
+  template <class _Sndr, class _Env>
+    requires(__sender_for<_Sndr, bulk_chunked_t> || __sender_for<_Sndr, bulk_unchunked_t>)
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) transform_sender(set_value_t, _Sndr&& __sndr, const _Env&) const noexcept {
+    return std::forward<_Sndr>(__sndr);
+  }
+};
 
 class __task_scheduler_sender {
 public:
@@ -252,6 +299,9 @@ public:
   }
   // [exec.sched]p6: the same completion scheduler as the attributes of schedule(*this), also without an environment.
   _LIBCPP_HIDE_FROM_ABI task_scheduler query(get_completion_scheduler_t<set_value_t>) const noexcept { return *this; }
+
+  _LIBCPP_HIDE_FROM_ABI shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
+  __get_backend() const { return __holder_->__bulk_backend(); }
 
 private:
   friend class __task_scheduler_sender;
