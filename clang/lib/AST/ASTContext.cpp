@@ -7642,6 +7642,9 @@ static bool isLayoutCompatible(const ASTContext &C, const EnumDecl *ED1,
   if (!ED1->isComplete() || !ED2->isComplete() ||
       !C.hasSameType(ED1->getIntegerType(), ED2->getIntegerType()))
     return false;
+  // HLSL's scalarized layout compatibility only looks at the underlying types.
+  if (C.getLangOpts().HLSL)
+    return true;
 
   auto HasSameValues = [](const EnumDecl *A, const EnumDecl *B) {
     return llvm::all_of(A->enumerators(), [B](const EnumConstantDecl *EA) {
