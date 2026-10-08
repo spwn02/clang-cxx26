@@ -133,6 +133,10 @@ class LibBuiltin<string header, string languages = "ALL_LANGUAGES"> : Builtin {
   string Languages = languages;
   bit AddBuiltinPrefixedAlias = 0;
   bit OnlyBuiltinPrefixedAliasIsConstexpr = 0;
+  // The library spelling (e.g. fabsf) is constant-evaluated from C++23 (resp.
+  // C++26) on; the __builtin_ alias keeps its unconditional constexpr support.
+  bit LibraryNameIsCXX23Constexpr = 0;
+  bit LibraryNameIsCXX26Constexpr = 0;
 }
 
 class MSLibBuiltin<string header> : LibBuiltin<header, "ALL_MS_LANGUAGES">;

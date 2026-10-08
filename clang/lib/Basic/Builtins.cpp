@@ -120,6 +120,18 @@ void Builtin::Context::InitializeTarget(const TargetInfo &Target,
   }
 }
 
+bool Builtin::Context::isConstantEvaluated(unsigned ID,
+                                           const LangOptions &LangOpts) const {
+  const char *Attrs = getAttributesString(ID);
+  if (strchr(Attrs, 'E'))
+    return true;
+  if (strchr(Attrs, 'X'))
+    return LangOpts.CPlusPlus23;
+  if (strchr(Attrs, 'Z'))
+    return LangOpts.CPlusPlus26;
+  return false;
+}
+
 bool Builtin::Context::isBuiltinFunc(llvm::StringRef FuncName) {
   bool InStdNamespace = FuncName.consume_front("std-");
   for (const auto &Shard : {InfosShard{&BuiltinStrings, BuiltinInfos}})

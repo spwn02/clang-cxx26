@@ -3833,6 +3833,7 @@ def Copysign : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Fabs : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -3841,6 +3842,7 @@ def Fabs : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Finite : FPMathTemplate, GNULibBuiltin<"math.h"> {
@@ -3862,6 +3864,7 @@ def Fmod : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Frexp : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -3870,6 +3873,7 @@ def Frexp : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, int*)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Sincos : FPMathTemplate, GNULibBuiltin<"math.h"> {
@@ -3891,6 +3895,7 @@ def Ldexp : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, int)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Modf : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -3899,6 +3904,7 @@ def Modf : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T*)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Nan : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -3979,6 +3985,7 @@ def Ceil : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Cos : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4051,6 +4058,7 @@ def Fdim : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Floor : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4059,6 +4067,7 @@ def Floor : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Fma : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4067,6 +4076,7 @@ def Fma : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T, T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Fmax : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4075,6 +4085,7 @@ def Fmax : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Fmin : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4083,6 +4094,7 @@ def Fmin : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def FmaximumNum : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4091,6 +4103,7 @@ def FmaximumNum : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX26Constexpr = 1;
 }
 
 def FminimumNum : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4099,6 +4112,25 @@ def FminimumNum : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX26Constexpr = 1;
+}
+
+def Fmaximum : FPMathTemplate, LibBuiltin<"math.h"> {
+  let Spellings = ["fmaximum"];
+  let Attributes = [NoThrow, Const];
+  let Prototype = "T(T, T)";
+  let AddBuiltinPrefixedAlias = 1;
+  let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX26Constexpr = 1;
+}
+
+def Fminimum : FPMathTemplate, LibBuiltin<"math.h"> {
+  let Spellings = ["fminimum"];
+  let Attributes = [NoThrow, Const];
+  let Prototype = "T(T, T)";
+  let AddBuiltinPrefixedAlias = 1;
+  let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX26Constexpr = 1;
 }
 
 def Hypot : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4115,6 +4147,7 @@ def Ilogb : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "int(T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Lgamma : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4179,6 +4212,7 @@ def Logb : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Lrint : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4211,6 +4245,7 @@ def Nextafter : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Nexttoward : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4219,6 +4254,25 @@ def Nexttoward : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, long double)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
+}
+
+def Nextup : FPMathTemplate, LibBuiltin<"math.h"> {
+  let Spellings = ["nextup"];
+  let Attributes = [NoThrow, ConstIgnoringErrnoAndExceptions];
+  let Prototype = "T(T)";
+  let AddBuiltinPrefixedAlias = 1;
+  let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX26Constexpr = 1;
+}
+
+def Nextdown : FPMathTemplate, LibBuiltin<"math.h"> {
+  let Spellings = ["nextdown"];
+  let Attributes = [NoThrow, ConstIgnoringErrnoAndExceptions];
+  let Prototype = "T(T)";
+  let AddBuiltinPrefixedAlias = 1;
+  let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX26Constexpr = 1;
 }
 
 def Remainder : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4227,6 +4281,7 @@ def Remainder : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Remquo : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4235,6 +4290,7 @@ def Remquo : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, T, int*)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Rint : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4251,6 +4307,7 @@ def Round : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def RoundEven : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4266,6 +4323,7 @@ def Scalbln : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, long int)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Scalbn : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4274,6 +4332,7 @@ def Scalbn : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T, int)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Sin : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4330,6 +4389,7 @@ def Trunc : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "T(T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Cabs : FPMathTemplate, LibBuiltin<"complex.h"> {

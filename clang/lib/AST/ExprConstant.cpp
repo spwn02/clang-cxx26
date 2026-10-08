@@ -9640,11 +9640,8 @@ protected:
     unsigned BuiltinOp = E->getBuiltinCallee();
     if (BuiltinOp == 0)
       return false;
-    const bool CXX26Constexpr =
-        Info.Ctx.BuiltinInfo.isCXX26ConstantEvaluated(BuiltinOp);
-    if (CXX26Constexpr)
-      return Info.Ctx.getLangOpts().CPlusPlus26;
-    return Info.Ctx.BuiltinInfo.isConstantEvaluated(BuiltinOp);
+    return Info.Ctx.BuiltinInfo.isConstantEvaluated(BuiltinOp,
+                                                    Info.Ctx.getLangOpts());
   }
 
 public:
@@ -18270,8 +18267,11 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
   }
 
   case Builtin::BI__builtin_ilogb:
+  case Builtin::BIilogb:
   case Builtin::BI__builtin_ilogbf:
+  case Builtin::BIilogbf:
   case Builtin::BI__builtin_ilogbl:
+  case Builtin::BIilogbl:
   case Builtin::BI__builtin_ilogbf128: {
     APFloat Val(0.0);
     if (!EvaluateFloat(E->getArg(0), Val, Info))
@@ -21477,8 +21477,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
 
   case Builtin::BI__builtin_elementwise_abs:
   case Builtin::BI__builtin_fabs:
+  case Builtin::BIfabs:
   case Builtin::BI__builtin_fabsf:
+  case Builtin::BIfabsf:
   case Builtin::BI__builtin_fabsl:
+  case Builtin::BIfabsl:
   case Builtin::BI__builtin_fabsf128:
     // The C standard says "fabs raises no floating-point exceptions,
     // even if x is a signaling NaN. The returned value is independent of
@@ -21493,8 +21496,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
     return true;
 
   case Builtin::BI__builtin_floor:
+  case Builtin::BIfloor:
   case Builtin::BI__builtin_floorf:
+  case Builtin::BIfloorf:
   case Builtin::BI__builtin_floorl:
+  case Builtin::BIfloorl:
   case Builtin::BI__builtin_floorf16:
   case Builtin::BI__builtin_floorf128:
     if (!EvaluateFloat(E->getArg(0), Result, Info))
@@ -21504,7 +21510,9 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
 
   case Builtin::BI__builtin_ceil:
   case Builtin::BI__builtin_ceilf:
+  case Builtin::BIceilf:
   case Builtin::BI__builtin_ceill:
+  case Builtin::BIceill:
   case Builtin::BI__builtin_ceilf16:
   case Builtin::BI__builtin_ceilf128:
     if (!EvaluateFloat(E->getArg(0), Result, Info))
@@ -21513,8 +21521,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
     return true;
 
   case Builtin::BI__builtin_trunc:
+  case Builtin::BItrunc:
   case Builtin::BI__builtin_truncf:
+  case Builtin::BItruncf:
   case Builtin::BI__builtin_truncl:
+  case Builtin::BItruncl:
   case Builtin::BI__builtin_truncf16:
   case Builtin::BI__builtin_truncf128:
     if (!EvaluateFloat(E->getArg(0), Result, Info))
@@ -21523,8 +21534,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
     return true;
 
   case Builtin::BI__builtin_round:
+  case Builtin::BIround:
   case Builtin::BI__builtin_roundf:
+  case Builtin::BIroundf:
   case Builtin::BI__builtin_roundl:
+  case Builtin::BIroundl:
   case Builtin::BI__builtin_roundf16:
   case Builtin::BI__builtin_roundf128:
     if (!EvaluateFloat(E->getArg(0), Result, Info))
@@ -21547,8 +21561,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
     return true;
 
   case Builtin::BI__builtin_fmod:
+  case Builtin::BIfmod:
   case Builtin::BI__builtin_fmodf:
+  case Builtin::BIfmodf:
   case Builtin::BI__builtin_fmodl:
+  case Builtin::BIfmodl:
   case Builtin::BI__builtin_fmodf16:
   case Builtin::BI__builtin_fmodf128: {
     APFloat RHS(0.);
@@ -21560,8 +21577,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   }
 
   case Builtin::BI__builtin_remainder:
+  case Builtin::BIremainder:
   case Builtin::BI__builtin_remainderf:
+  case Builtin::BIremainderf:
   case Builtin::BI__builtin_remainderl:
+  case Builtin::BIremainderl:
   case Builtin::BI__builtin_remainderf128: {
     APFloat RHS(0.);
     if (!EvaluateFloat(E->getArg(0), Result, Info) ||
@@ -21572,8 +21592,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   }
 
   case Builtin::BI__builtin_fdim:
+  case Builtin::BIfdim:
   case Builtin::BI__builtin_fdimf:
+  case Builtin::BIfdimf:
   case Builtin::BI__builtin_fdiml:
+  case Builtin::BIfdiml:
   case Builtin::BI__builtin_fdimf128: {
     APFloat RHS(0.);
     if (!EvaluateFloat(E->getArg(0), Result, Info) ||
@@ -21595,8 +21618,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   }
 
   case Builtin::BI__builtin_fma:
+  case Builtin::BIfma:
   case Builtin::BI__builtin_fmaf:
-  case Builtin::BI__builtin_fmal: {
+  case Builtin::BIfmaf:
+  case Builtin::BI__builtin_fmal:
+  case Builtin::BIfmal: {
     APFloat Y(0.), Z(0.);
     if (!EvaluateFloat(E->getArg(0), Result, Info) ||
         !EvaluateFloat(E->getArg(1), Y, Info) ||
@@ -21611,16 +21637,25 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   }
 
   case Builtin::BI__builtin_ldexp:
+  case Builtin::BIldexp:
   case Builtin::BI__builtin_ldexpf:
+  case Builtin::BIldexpf:
   case Builtin::BI__builtin_ldexpl:
+  case Builtin::BIldexpl:
   case Builtin::BI__builtin_ldexpf128:
   case Builtin::BI__builtin_scalbln:
+  case Builtin::BIscalbln:
   case Builtin::BI__builtin_scalblnf:
+  case Builtin::BIscalblnf:
   case Builtin::BI__builtin_scalblnl:
+  case Builtin::BIscalblnl:
   case Builtin::BI__builtin_scalblnf128:
   case Builtin::BI__builtin_scalbn:
+  case Builtin::BIscalbn:
   case Builtin::BI__builtin_scalbnf:
+  case Builtin::BIscalbnf:
   case Builtin::BI__builtin_scalbnl:
+  case Builtin::BIscalbnl:
   case Builtin::BI__builtin_scalbnf128: {
     APSInt Exp;
     if (!EvaluateFloat(E->getArg(0), Result, Info) ||
@@ -21634,8 +21669,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   }
 
   case Builtin::BI__builtin_logb:
+  case Builtin::BIlogb:
   case Builtin::BI__builtin_logbf:
+  case Builtin::BIlogbf:
   case Builtin::BI__builtin_logbl:
+  case Builtin::BIlogbl:
   case Builtin::BI__builtin_logbf128: {
     if (!EvaluateFloat(E->getArg(0), Result, Info))
       return false;
@@ -21653,12 +21691,18 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   }
 
   case Builtin::BI__builtin_nextafter:
+  case Builtin::BInextafter:
   case Builtin::BI__builtin_nextafterf:
+  case Builtin::BInextafterf:
   case Builtin::BI__builtin_nextafterl:
+  case Builtin::BInextafterl:
   case Builtin::BI__builtin_nextafterf128:
   case Builtin::BI__builtin_nexttoward:
+  case Builtin::BInexttoward:
   case Builtin::BI__builtin_nexttowardf:
+  case Builtin::BInexttowardf:
   case Builtin::BI__builtin_nexttowardl:
+  case Builtin::BInexttowardl:
   case Builtin::BI__builtin_nexttowardf128: {
     APFloat Toward(0.);
     if (!EvaluateFloat(E->getArg(0), Result, Info) ||
@@ -21692,9 +21736,44 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
     return true;
   }
 
+  case Builtin::BI__builtin_nextup:
+  case Builtin::BInextup:
+  case Builtin::BI__builtin_nextupf:
+  case Builtin::BInextupf:
+  case Builtin::BI__builtin_nextupl:
+  case Builtin::BInextupl:
+  case Builtin::BI__builtin_nextdown:
+  case Builtin::BInextdown:
+  case Builtin::BI__builtin_nextdownf:
+  case Builtin::BInextdownf:
+  case Builtin::BI__builtin_nextdownl:
+  case Builtin::BInextdownl: {
+    if (!EvaluateFloat(E->getArg(0), Result, Info))
+      return false;
+    if (Result.isNaN())
+      return true;
+    switch (E->getBuiltinCallee()) {
+    case Builtin::BI__builtin_nextdown:
+    case Builtin::BInextdown:
+    case Builtin::BI__builtin_nextdownf:
+    case Builtin::BInextdownf:
+    case Builtin::BI__builtin_nextdownl:
+    case Builtin::BInextdownl:
+      (void)Result.next(/*nextDown=*/true);
+      break;
+    default:
+      (void)Result.next(/*nextDown=*/false);
+      break;
+    }
+    return true;
+  }
+
   case Builtin::BI__builtin_remquo:
+  case Builtin::BIremquo:
   case Builtin::BI__builtin_remquof:
+  case Builtin::BIremquof:
   case Builtin::BI__builtin_remquol:
+  case Builtin::BIremquol:
   case Builtin::BI__builtin_remquof128: {
     APFloat Y(0.);
     LValue QuoLV;
@@ -21762,7 +21841,9 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
 
   case Builtin::BI__builtin_modf:
   case Builtin::BI__builtin_modff:
+  case Builtin::BImodff:
   case Builtin::BI__builtin_modfl:
+  case Builtin::BImodfl:
   case Builtin::BI__builtin_modff128: {
     LValue IntLV;
     if (!EvaluateFloat(E->getArg(0), Result, Info) ||
@@ -21785,8 +21866,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   }
 
   case Builtin::BI__builtin_frexp:
+  case Builtin::BIfrexp:
   case Builtin::BI__builtin_frexpf:
+  case Builtin::BIfrexpf:
   case Builtin::BI__builtin_frexpl:
+  case Builtin::BIfrexpl:
   case Builtin::BI__builtin_frexpf128: {
     LValue ExpLV;
     if (!EvaluateFloat(E->getArg(0), Result, Info) ||
@@ -21812,8 +21896,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   // FIXME: Builtin::BI__builtin_powil
 
   case Builtin::BI__builtin_copysign:
+  case Builtin::BIcopysign:
   case Builtin::BI__builtin_copysignf:
+  case Builtin::BIcopysignf:
   case Builtin::BI__builtin_copysignl:
+  case Builtin::BIcopysignl:
   case Builtin::BI__builtin_copysignf128: {
     APFloat RHS(0.);
     if (!EvaluateFloat(E->getArg(0), Result, Info) ||
@@ -21824,8 +21911,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   }
 
   case Builtin::BI__builtin_fmax:
+  case Builtin::BIfmax:
   case Builtin::BI__builtin_fmaxf:
+  case Builtin::BIfmaxf:
   case Builtin::BI__builtin_fmaxl:
+  case Builtin::BIfmaxl:
   case Builtin::BI__builtin_fmaxf16:
   case Builtin::BI__builtin_fmaxf128: {
     APFloat RHS(0.);
@@ -21837,8 +21927,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   }
 
   case Builtin::BI__builtin_fmin:
+  case Builtin::BIfmin:
   case Builtin::BI__builtin_fminf:
+  case Builtin::BIfminf:
   case Builtin::BI__builtin_fminl:
+  case Builtin::BIfminl:
   case Builtin::BI__builtin_fminf16:
   case Builtin::BI__builtin_fminf128: {
     APFloat RHS(0.);
@@ -21849,8 +21942,39 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
     return true;
   }
 
+  case Builtin::BI__builtin_fmaximum:
+  case Builtin::BIfmaximum:
+  case Builtin::BI__builtin_fmaximumf:
+  case Builtin::BIfmaximumf:
+  case Builtin::BI__builtin_fmaximuml:
+  case Builtin::BIfmaximuml: {
+    APFloat RHS(0.);
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluateFloat(E->getArg(1), RHS, Info))
+      return false;
+    Result = maximum(Result, RHS);
+    return true;
+  }
+
+  case Builtin::BI__builtin_fminimum:
+  case Builtin::BIfminimum:
+  case Builtin::BI__builtin_fminimumf:
+  case Builtin::BIfminimumf:
+  case Builtin::BI__builtin_fminimuml:
+  case Builtin::BIfminimuml: {
+    APFloat RHS(0.);
+    if (!EvaluateFloat(E->getArg(0), Result, Info) ||
+        !EvaluateFloat(E->getArg(1), RHS, Info))
+      return false;
+    Result = minimum(Result, RHS);
+    return true;
+  }
+
   case Builtin::BI__builtin_fmaximum_num:
+  case Builtin::BIfmaximum_num:
   case Builtin::BI__builtin_fmaximum_numf:
+  case Builtin::BIfmaximum_numf:
+  case Builtin::BIfmaximum_numl:
   case Builtin::BI__builtin_fmaximum_numl:
   case Builtin::BI__builtin_fmaximum_numf16:
   case Builtin::BI__builtin_fmaximum_numf128: {
@@ -21863,7 +21987,10 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   }
 
   case Builtin::BI__builtin_fminimum_num:
+  case Builtin::BIfminimum_num:
   case Builtin::BI__builtin_fminimum_numf:
+  case Builtin::BIfminimum_numf:
+  case Builtin::BIfminimum_numl:
   case Builtin::BI__builtin_fminimum_numl:
   case Builtin::BI__builtin_fminimum_numf16:
   case Builtin::BI__builtin_fminimum_numf128: {

@@ -460,10 +460,11 @@ public:
     return strchr(getAttributesString(ID), 'E') != nullptr;
   }
 
-  /// Return true if this builtin's constexpr support is specific to C++26.
-  bool isCXX26ConstantEvaluated(unsigned ID) const {
-    return strchr(getAttributesString(ID), 'Z') != nullptr;
-  }
+  /// Return true if this builtin can be constant evaluated in the given
+  /// language mode: unconditionally constexpr builtins always, library
+  /// spellings whose constexpr support starts with C++23 ('X') or C++26 ('Z')
+  /// only from that standard on.
+  bool isConstantEvaluated(unsigned ID, const LangOptions &LangOpts) const;
 
   /// Returns true if this is an immediate (consteval) function
   bool isImmediate(unsigned ID) const {

@@ -379,6 +379,10 @@ std::string renderAttributes(const Record *Builtin, BuiltinType BT) {
   if (Builtin->isSubClassOf("LibBuiltin")) {
     if (BT == BuiltinType::LibBuiltin) {
       OS << 'f';
+      if (Builtin->getValueAsBit("LibraryNameIsCXX23Constexpr"))
+        OS << 'X';
+      if (Builtin->getValueAsBit("LibraryNameIsCXX26Constexpr"))
+        OS << 'Z';
     } else {
       OS << 'F';
       if (Builtin->getValueAsBit("OnlyBuiltinPrefixedAliasIsConstexpr")) {
