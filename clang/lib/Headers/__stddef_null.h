@@ -17,12 +17,7 @@
 #undef NULL
 
 #ifdef __cplusplus
-// LWG4182: NULL is a null pointer constant that is a literal, which __null is not. nullptr is a literal that
-// is accepted as the sentinel of variadic functions and has the size of a pointer. MinGW and MSVC have always
-// used 0.
-#if __cplusplus >= 201103L && !defined(__MINGW32__) && !defined(_MSC_VER)
-#define NULL nullptr
-#elif !defined(__MINGW32__) && !defined(_MSC_VER)
+#if !defined(__MINGW32__) && !defined(_MSC_VER)
 #define NULL __null
 #else
 #define NULL 0

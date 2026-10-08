@@ -30,10 +30,6 @@ max_align_t m2; // expected-error{{unknown}}
 ptrdiff_t p3;
 size_t s3;
 void* v3 = NULL;
-#if __cplusplus >= 201103L && !defined(_MSC_VER) && !defined(__MINGW32__)
-// LWG4182: NULL is a literal.
-static_assert(__is_same(decltype(NULL), decltype(nullptr)), "C++ NULL must expand to the literal nullptr");
-#endif
 wint_t w3; // expected-error{{unknown}}
 max_align_t m3; // expected-error{{unknown}}
 
