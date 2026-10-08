@@ -56,7 +56,7 @@ inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 __promote_t<_A1, _A2>
 //    If the square of an argument might run into issues, we scale the arguments appropriately.
 // See https://llvm.org/PR92782 for a detailed discussion and summary.
 template <class _Real>
-_LIBCPP_HIDE_FROM_ABI _Real __hypot(_Real __x, _Real __y, _Real __z) {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Real __hypot(_Real __x, _Real __y, _Real __z) {
   // Factors needed to determine if over-/underflow might happen
   constexpr int __exp              = std::numeric_limits<_Real>::max_exponent / 2;
   const _Real __overflow_threshold = __math::ldexp(_Real(1), __exp);
