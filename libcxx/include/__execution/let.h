@@ -65,9 +65,8 @@ namespace execution {
 // synchronously with its result), this needs real operation-state lifetime management: the
 // type of both the args and the continuation operation state depend on *which* of possibly
 // several signatures the child completes with, so both are stored in a `variant` sized to
-// every possibility -- mirroring the standard's own exposition-only `let-state` (this is a
-// hand-written, concrete adaptation of it, not routed through impls-for/basic-sender, same
-// as every other adaptor in this sub-plan; see the M3 entry in docs/CXX26_GAPS.md for why).
+// every possibility -- mirroring the standard's own exposition-only `let-state`. This sender
+// is a concrete implementation with environment-dependent completion signatures.
 //
 // [exec.let]p2's `let-env(sndr, env)` is the environment the continuation sender is connected through, besides
 // FWD-ENV(env): the first well-formed of the SCHED-ENV of the completion scheduler of the child for set-cpo (the
@@ -498,9 +497,8 @@ public:
 };
 
 // An aggregate with public `tag`/`data`/`child` members, matching the (tag, data, ...children)
-// shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings. Not routed
-// through the draft's generic basic-sender/impls-for machinery: see the M3 entry in
-// docs/CXX26_GAPS.md for why that engine isn't buildable on this fork yet.
+// shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings. This sender
+// stores its tag, function, and child and implements connection directly.
 // The domains of the continuation senders ([exec.let]) for the completions with tag _Cpo, accumulated over the lists of
 // datum types of the child's set-cpo completions: the continuation sender of a list _Args... is
 // invoke_result_t<_Fn, decay_t<_Args>&...>, connected through _ContEnv.

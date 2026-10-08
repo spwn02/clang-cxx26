@@ -163,9 +163,8 @@ private:
 };
 
 // An aggregate with public `tag`/`data`/`child` members, matching the (tag, data, ...children)
-// shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings -- not routed
-// through the draft's generic basic-sender/impls-for machinery: see the M3 entry in
-// docs/CXX26_GAPS.md for why that engine isn't buildable on this fork yet.
+// shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings. This sender
+// owns the input sender and stop token and implements connection directly.
 template <class _Token, class _Sndr>
 class __stop_when_sndr {
 public:

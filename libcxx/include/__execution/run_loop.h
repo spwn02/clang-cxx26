@@ -148,7 +148,7 @@ public:
   // completion_signatures<set_value_t()> if unstoppable_token<stop_token_of_t<E>> is true,
   // otherwise completion_signatures<set_value_t(), set_stopped_t()>. Genuinely
   // Env-dependent, so -- matching <__execution/read_env.h>'s documented "dependent-sender-
-  // as-soft-failure" deviation (docs/CXX26_GAPS.md, M2) -- a single, non-variadic _Env
+  // as-soft-failure behavior -- a single, non-variadic _Env
   // parameter (rather than 0-or-1) means the zero-Env case simply has no viable overload
   // instead of reporting dependent_sender_error.
   template <class _Self, class _Env>

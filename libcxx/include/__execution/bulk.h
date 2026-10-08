@@ -62,9 +62,8 @@ namespace execution {
 
 // [exec.bulk]. bulk, bulk_chunked, and bulk_unchunked run a task repeatedly for every index in
 // an index space [0, shape). bulk_chunked and bulk_unchunked are the two "real" adaptors here
-// (each hand-rolled -- own connect()/get_completion_signatures(), not routed through the
-// draft's basic-sender/impls-for/make-sender machinery, per the M3 precedent in
-// docs/CXX26_GAPS.md); bulk is a make-sender-shaped sender of its own tag (tag/data/child), lowered by
+// (each with its own connect()/get_completion_signatures()); bulk is a make-sender-shaped sender
+// of its own tag (tag/data/child), lowered by
 // `bulk.transform_sender(set_value, sndr, env)` ([exec.bulk]p4's `new_f` transform, literally: invoke f
 // once per index by looping inside a single bulk_chunked chunk) when it is connected, through
 // default_domain::transform_sender (`tag_of_t<Sndr>().transform_sender(...)`).
@@ -140,9 +139,8 @@ struct __bulk_closure {
 // under the *wrong* (untaken) arity is a hard compile error, not a graceful "not invocable"
 // answer. Confirmed empirically: this was a real, reproduced bug during this file's own
 // development (`bulk_t`'s pipe-form test hard-errored here on the first attempt), the same
-// "immediate context" family of pitfall this sub-plan has hit repeatedly elsewhere (see
-// docs/CXX26_GAPS.md's M1/M2 entries) -- but self-inflicted this time (a ternary I wrote),
-// not a compiler limitation.
+// "immediate context" family of pitfall: the original ternary made invalid expressions hard
+// errors instead of substitution failures.
 template <bool _Chunked, class _Func, class _Shape, class... _Args>
 struct __bulk_nothrow_invocable;
 
@@ -243,8 +241,8 @@ using __bulk_signatures_t = typename __bulk_sig_transform<_Chunked, _Func, _Shap
 // [exec.bulk]p5/p7's `complete` lambda. On a set_value completion, invokes f -- once with
 // (Shape(0), shape, args...) for bulk_chunked (the "invoke exactly one chunk covering the
 // whole [0, shape) range" instance the spec's own wording permits, matching what a
-// single-threaded fallback with no real parallel-scheduler machinery in scope through M5
-// naturally does), or shape times with (i, args...) for i in [0, shape) for bulk_unchunked --
+// single-threaded fallback naturally does), or shape times with (i, args...) for i in [0, shape)
+// for bulk_unchunked --
 // with the *original* args (by lvalue reference, per [exec.bulk]p9's "args is a pack of
 // lvalue subexpressions") forwarded onward to the outer receiver's set_value unchanged
 // afterward. Every other completion tag forwards through unchanged. TRY-EVAL semantics: on a
@@ -518,9 +516,7 @@ private:
 #endif // _LIBCPP_HAS_THREADS
 
 // An aggregate with public `tag`/`data`/`child` members, matching the (tag, data, ...children)
-// shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings -- not routed
-// through the draft's generic basic-sender/impls-for machinery: see the M3 entry in
-// docs/CXX26_GAPS.md for why that engine isn't buildable on this fork yet. `_Tag` is a
+// shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings. `_Tag` is a
 // template parameter (bulk_chunked_t or bulk_unchunked_t), mirroring
 // <__execution/then.h>'s `_Tag`-templated `__then_sndr` shape: since `_Tag` is dependent here
 // (not a concrete, non-dependent member type the way <__execution/into_variant.h>'s/
@@ -561,7 +557,7 @@ private:
     // internally -- calling the full get_completion_scheduler CPO directly here would be
     // unsafe: with no fallback env supplied, its own body hard-fails (a static_assert, not a
     // SFINAE-friendly substitution failure) when the query isn't answered at all, exactly the
-    // "immediate context" pitfall documented in docs/CXX26_GAPS.md's M1/M2 entries.
+    // "immediate context" pitfall: probing the constrained overload remains substitution-safe.
     // __try_query's two overloads are individually requires-constrained, so probing whether
     // this call is well-formed at all is genuinely SFINAE-safe. Both bulk_chunked_t and
     // bulk_unchunked_t take this branch identically -- __bulk_parallel_job's own _Chunked

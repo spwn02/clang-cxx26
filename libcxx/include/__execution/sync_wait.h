@@ -116,8 +116,8 @@ struct sync_wait_t {
   }
 
   // [exec.sync.wait]p10: `sync_wait.apply_sender(sndr)` -- reached via default_domain's
-  // fallback dispatch (<__execution/domain.h>), since nothing in scope through M4 provides a
-  // completion domain that would override it.
+  // fallback dispatch (<__execution/domain.h>) when the sender has no completion-domain
+  // customization for sync_wait.
   template <class _Sndr>
   _LIBCPP_HIDE_FROM_ABI auto apply_sender(_Sndr&& __sndr) const -> __sync_wait_result_type<remove_cvref_t<_Sndr>> {
     __sync_wait_state<remove_cvref_t<_Sndr>> __state;

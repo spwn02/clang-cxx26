@@ -50,9 +50,7 @@ concept inlinable_receiver = receiver<_Rcvr> && requires(_ChildOp* __child) {
 };
 
 // Mirrors the standard's own generic-lambda-plus-pointer-to-function-type idiom so this
-// stays a soft, per-instantiation SFINAE probe (see the eager-`requires{}`-evaluation
-// finding recorded for M1 in docs/CXX26_GAPS.md: this pattern is required whenever the
-// entities under test are otherwise concrete/non-dependent). The draft's own wording
+// stays a soft, per-instantiation SFINAE probe for concrete, non-dependent entities. The draft's own wording
 // constrains this with a concept spelled `callable<Tag, remove_cvref_t<Rcvr>, Args...>`
 // that does not appear defined anywhere in <concepts> or [exec]; `invocable` is used here
 // as the closest standard equivalent (checking that `Tag{}(rcvr, args...)` is callable).

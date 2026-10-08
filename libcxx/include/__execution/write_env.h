@@ -61,7 +61,7 @@ namespace execution {
 // p4's shape and would therefore have to be unconditionally pipeable (p4's own last sentence:
 // a one-argument pipeable sender adaptor object *is* a pipeable sender adaptor closure object,
 // no partial application even needed) if the shape alone were sufficient. It isn't implemented
-// that way (see <__execution/schedule_from.h>, an earlier M5 session, no pipe support), which
+// that way (see <__execution/schedule_from.h>, which has no pipe overload), which
 // settles the reading: p4 defines the *term*, and a clause's own "denotes a pipeable sender
 // adaptor object" is the actual per-CPO grant, not an automatic consequence of matching the
 // shape. write_env and unstoppable don't have that phrase, so __write_env_t below has only the
@@ -177,9 +177,8 @@ private:
 };
 
 // An aggregate with public `tag`/`data`/`child` members, matching the (tag, data, ...children)
-// shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings. Not routed
-// through the draft's generic basic-sender/impls-for machinery: see the M3 entry in
-// docs/CXX26_GAPS.md for why that engine isn't buildable on this fork yet.
+// shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings. The sender
+// implements the environment overlay directly and stores its child sender in `child`.
 template <class _Env, class _Sndr>
 class __write_env_sndr {
 public:
@@ -229,7 +228,7 @@ public:
   // expression-equivalent to get_completion_signatures<child-type<Sndr>, JoinEnv>() -- i.e.
   // the child's own signatures, computed against the joined environment type instead of Env
   // directly. `_Self` is accepted (matching [exec.getcomplsigs]'s call shape) but not used to
-  // vary behavior, same as every other M5 adaptor's get_completion_signatures.
+  // vary behavior, since its completion signatures do not depend on the sender object.
   template <class _Self, class... _Env2>
     requires sender_in<_Sndr, decltype(execution::__write_env_join(
                                    std::declval<const _Env&>(), std::declval<__fwd_env_of_first_t<_Env2...>>()))>

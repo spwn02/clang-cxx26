@@ -246,9 +246,8 @@ inline constexpr bool sends_stopped =
 // and forming it happens *inside* __gather_one's implicit class-template instantiation
 // (<__execution/completion_signatures.h>), not in the immediate context of any surrounding
 // alias-template substitution -- so that failure is a hard error, not a SFINAE-droppable one
-// (confirmed empirically: it turns out the "immediate context" pitfall this sub-plan's M1
-// session flagged for `requires{}` simple-requirements on concrete objects also bites plain
-// implicit class-template instantiation the same way, not just that one construct). Working
+// (an invalid arity here is a hard error because it occurs during implicit class-template
+// instantiation, outside the immediate context of the surrounding alias substitution). Working
 // entirely off the always-well-formed decayed-tuple gathering sidesteps this: every branch
 // below forms its result via ordinary (SFINAE-safe) partial-specialization matching instead.
 template <class _List>

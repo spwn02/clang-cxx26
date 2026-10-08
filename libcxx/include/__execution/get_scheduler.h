@@ -73,8 +73,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __hide_sched_fn(const _Env& __env) noexcept
 // function with an `if constexpr` inside would need its return type deduced -- i.e. its body
 // instantiated -- to determine whether the *call itself* is well-formed, and body
 // instantiation is not protected by SFINAE the way a trailing requires-clause substitution
-// failure is (the exact pitfall <__execution/sender.h>'s `__sender_tag_of`/`tag_of_t` hit,
-// recorded as the M2 "deviation 4" finding in docs/CXX26_GAPS.md). Two overloads, each valid
+// failure is. Two overloads, each valid
 // only where its own requires-clause holds, sidesteps this: overload resolution rejects the
 // inapplicable one via its (SFINAE-safe) constraint, without ever deducing its return type.
 template <class _Qp, class _Tag, class... _Args>

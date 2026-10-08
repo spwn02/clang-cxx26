@@ -287,7 +287,8 @@ public:
 
   // Same Env-dependent shape as run_loop.h's own get_completion_signatures -- see that file's
   // comment on why a single non-variadic _Env parameter (rather than 0-or-1) is the right
-  // match for this fork's "dependent-sender-as-soft-failure" deviation (docs/CXX26_GAPS.md, M2).
+  // match for the dependent-sender-as-soft-failure behavior: an absent environment makes
+  // the overload non-viable rather than producing a dependent error result.
   template <class _Self, class _Env>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
     if constexpr (unstoppable_token<stop_token_of_t<_Env>>) {

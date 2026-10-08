@@ -44,8 +44,8 @@ struct sender_adaptor_closure {};
 
 // Wraps an arbitrary function object to make it a pipeable sender adaptor closure, i.e.
 // something usable via `sndr | f` notation -- used by the `operator|(closure, closure)`
-// composition overload below, and by every M5 adaptor's single-argument (partial
-// application) overload via std::__bind_back, matching views::transform's own
+// composition overload below and by adaptors that support single-argument partial
+// application via std::__bind_back, matching views::transform's own
 // __pipeable(std::__bind_back(*this, ...)) pattern in <__ranges/transform_view.h>.
 template <class _Fn>
 struct __pipeable : _Fn, sender_adaptor_closure<__pipeable<_Fn>> {

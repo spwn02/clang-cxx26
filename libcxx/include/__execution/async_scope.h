@@ -997,8 +997,7 @@ private:
 
 // [exec.spawn.future]p16.3: make-sender(spawn_future, std::move(u)) -- a leaf sender (no child:
 // the input sender was already consumed into the eagerly-started state above), holding only the
-// unique_ptr. Not routed through the draft's basic-sender/impls-for/make-sender machinery, same
-// M3 deviation as every other hand-rolled sender in this fork.
+// unique_ptr. Its sender type implements connection and completion-signature queries directly.
 //
 // spawn_future_t is defined in full here, before __spawn_future_sndr, since the latter's `tag`
 // member names it non-dependently -- same ordering constraint (and reason) as

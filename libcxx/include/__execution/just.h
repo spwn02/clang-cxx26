@@ -89,8 +89,7 @@ private:
 
 // An aggregate with public `tag`/`data` members, matching the (tag, data, ...children) shape that
 // tag_of_t (<__execution/sender.h>) decomposes via structured bindings -- just/just_error/just_stopped have
-// no child senders. Not routed through the draft's generic basic-sender/impls-for machinery: see the M3
-// entry in docs/CXX26_GAPS.md for why that engine isn't buildable on this fork yet.
+// no child senders. The sender stores its completion data and provides its own connection logic.
 template <class _Tag, class... _Ts>
 class __just_sndr {
 public:

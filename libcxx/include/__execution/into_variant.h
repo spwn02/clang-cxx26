@@ -48,9 +48,7 @@ namespace execution {
 // needed). Every set_error_t/set_stopped_t completion passes through unchanged. Like
 // <__execution/stopped_as_optional.h>'s V, this V genuinely depends on Env (not known until
 // connect()/get_completion_signatures() see a real receiver/queried environment), so this
-// needs its own hand-rolled sender type rather than a composition of other senders -- same
-// precedent, not routed through the draft's basic-sender/impls-for/make-sender machinery (see
-// the M3 entry in docs/CXX26_GAPS.md for why that engine isn't buildable on this fork yet).
+// needs its own sender type rather than a composition of other senders.
 //
 // [exec.into.variant]p4's check-types (decay-copyable-result-datums) is a constraint here: a
 // child sender whose value datums aren't all decay-copyable makes the get_completion_signatures

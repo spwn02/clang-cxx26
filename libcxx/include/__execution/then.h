@@ -242,8 +242,7 @@ using __then_attrs = __completion_attrs<__then_contrib<_Tag, _Fn>, _Child, _Chil
 
 // An aggregate with public `tag`/`data`/`child` members, matching the (tag, data,
 // ...children) shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings.
-// Not routed through the draft's generic basic-sender/impls-for machinery: see the M3 entry
-// in docs/CXX26_GAPS.md for why that engine isn't buildable on this fork yet.
+// The sender stores its tag, function, and child and implements connection directly.
 template <class _Tag, class _Fn, class _Sndr>
 class __then_sndr {
 public:

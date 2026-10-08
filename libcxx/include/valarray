@@ -440,16 +440,16 @@ class indirect_array;
 // member begin()/end() instead (a non-member overload alongside a member of
 // the same name would otherwise make unqualified calls ambiguous).
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI _Tp* begin(valarray<_Tp>& __v);
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _Tp* begin(valarray<_Tp>& __v);
 
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI const _Tp* begin(const valarray<_Tp>& __v);
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI const _Tp* begin(const valarray<_Tp>& __v);
 
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI _Tp* end(valarray<_Tp>& __v);
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _Tp* end(valarray<_Tp>& __v);
 
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI const _Tp* end(const valarray<_Tp>& __v);
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI const _Tp* end(const valarray<_Tp>& __v);
 #  endif // _LIBCPP_STD_VER < 26
 
 template <class _Op, class _A0>

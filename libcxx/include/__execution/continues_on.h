@@ -59,9 +59,8 @@ namespace execution {
 // *two* connected child operations simultaneously: the input sender (connected immediately, started first)
 // and `schedule(sch)` (connected immediately but started only once the input sender completes). This is a
 // hand-adaptation of the standard's own exposition-only `impls-for<continues_on_t>::get-state`/`::complete`
-// and their `state-type`/`receiver-type` -- not routed through the draft's generic basic-sender/impls-for
-// machinery, same as every other adaptor in this sub-plan (see the M3 entry in docs/CXX26_GAPS.md for why
-// that engine isn't buildable on this fork yet).
+// and their `state-type`/`receiver-type`. Its operation state owns the input and scheduling
+// child operations and forwards the captured completion after scheduling finishes.
 struct continues_on_t;
 
 // [exec.continues.on]p9's is-nothrow-decay-copy-sig<Tag(Args...)>: whether decay-copying every argument of

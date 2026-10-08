@@ -97,8 +97,7 @@ inline constexpr __read_env_t read_env{};
 
 // An aggregate with public `tag`/`data` members, matching the (tag, data, ...children) shape that
 // tag_of_t (<__execution/sender.h>) decomposes via structured bindings -- read_env has no child senders.
-// Not routed through the draft's generic basic-sender/impls-for machinery: see the M3 entry in
-// docs/CXX26_GAPS.md for why that engine isn't buildable on this fork yet.
+// The sender directly stores its query tag and provides its own connection and signature logic.
 template <class _Query>
 class __read_env_sndr {
 public:

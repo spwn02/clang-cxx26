@@ -60,11 +60,9 @@ namespace execution {
 // completes when all input senders have completed: on success, it concatenates every input
 // sender's value-completion datums into one value completion; on the first error or stopped
 // completion from any child, it requests stop on every other child and, once all have
-// finished, completes with that error (or stopped, if no error occurred). Genuinely the first
-// *multi*-child adaptor in this sub-plan (M1 through the rest of M5 have all had exactly one
-// child) -- hand-rolled per this sub-plan's established precedent (no impls-for/basic-sender
-// engine on this fork; see the M3 entry in docs/CXX26_GAPS.md), but structurally new: shared
-// mutable state across N concurrently-racing child operations, not a single linear pipeline.
+// finished, completes with that error (or stopped, if no error occurred). As the first
+// multi-child adaptor, it uses a dedicated sender type with shared mutable state across N
+// concurrently-racing child operations rather than a single linear pipeline.
 //
 // `when_all_with_variant` (p18/p19 of the clause) is a sender of its own tag, lowered by transform_sender to
 // `when_all(into_variant(sndrs)...)` (defined at the end of this file).
@@ -409,8 +407,7 @@ struct __when_all_state {
 // ---------------------------------------------------------------------------------------------
 // Per-child receiver ([exec.when.all]p17). Stores direct pointers to the (already-complete,
 // ordinary) shared State and outer Rcvr -- not a pointer back to the enclosing operation-state
-// class template, which is what <__execution/let.h>'s own "real engineering hazard" note
-// (docs/CXX26_GAPS.md, M5) warns is unsafe while that enclosing template is still incomplete
+// class template, which would be unsafe while that enclosing template is still incomplete
 // during a child's own connect()-time constraint-checking. State and Rcvr are both ordinary,
 // already-complete types at the point children are connected, so this sidesteps the hazard
 // entirely rather than needing let.h's two-member workaround.
@@ -676,9 +673,9 @@ public:
   _LIBCPP_NO_UNIQUE_ADDRESS when_all_t tag;
   tuple<_Sndrs...> children;
 
-  // No natural single child to forward attributes from, and nothing in scope through M5
-  // queries when_all's own pre-connect attributes -- matches <__execution/just.h>'s/
-  // <__execution/read_env.h>'s "no interesting attributes" precedent.
+  // With no natural single child to forward attributes from, when_all has no pre-connect
+  // attributes of its own -- matching <__execution/just.h>'s/<__execution/read_env.h>'s
+  // "no interesting attributes" precedent.
   _LIBCPP_HIDE_FROM_ABI constexpr auto get_env() const noexcept { return __when_all_attrs<_Sndrs...>(); }
 
   template <class _Rcvr>

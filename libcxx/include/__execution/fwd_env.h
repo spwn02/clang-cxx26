@@ -50,14 +50,13 @@ inline constexpr bool __is_completion_query_v<get_completion_domain_t<_Tag>> = t
 // [exec.adapt.general]p3.2/3.4, this is the environment a single-child sender adaptor
 // exposes as its own attributes (from its child's attributes), and the one it connects its
 // child through (from its receiver's environment) -- the first consumer is
-// <__execution/then.h>; every M5 adaptor with children needs the same shape.
+// <__execution/then.h> and the other single-child adaptors use the same shape.
 //
 // Stores env *by value* (a copy), not by reference: __fwd_env_fn below is meant to be called
 // directly in a `return` statement (e.g. `return __fwd_env_fn(get_env(rcvr_));`), where
 // get_env's own result is a temporary -- a reference member would dangle the moment that
-// full-expression ends, since nothing else keeps the temporary alive past it. Every env type
-// in scope through at least M5 (env<...>, prop<...>, and similar small structs) is cheap to
-// copy, so this isn't a meaningful cost.
+// full-expression ends, since nothing else keeps the temporary alive past it. These environment
+// objects are small value types, so copying them is inexpensive.
 // [exec.snd.expos] basic-sender::get_completion_signatures: the type of the environment of the receiver that the
 // completion signatures are computed for is the first type in the list `Env..., env<>`.
 template <class _Default, class... _Env>

@@ -52,9 +52,8 @@ namespace execution {
 // hand-rolled sender type: pin V once Env is available, then build and
 // connect()/get_completion_signatures() against `let_stopped(then(child, value-lambda<V>),
 // stopped-lambda<V>)` -- [exec.stopped.opt]p3's transform_sender body, verbatim, parameterized
-// on the pinned V. Not routed through the draft's generic basic-sender/impls-for/make-sender
-// machinery: see the M3 entry in docs/CXX26_GAPS.md for why that engine isn't buildable on
-// this fork yet.
+// on the pinned V. Its sender type directly implements that lowering and pins V when the
+// receiver environment is available.
 //
 // [exec.stopped.opt]p3's check-types (Mandates: single-sender-value-type<child, Env> is not
 // void) is a constraint here: a child sender whose single value type is void, or that isn't a
