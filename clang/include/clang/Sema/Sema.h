@@ -6179,17 +6179,6 @@ public:
                                              SourceLocation DefaultLoc);
   void CheckDelayedMemberExceptionSpecs();
 
-  /// Kinds of defaulted postfix increment and decrement operator functions
-  /// ([over.inc.default]).
-  enum class DefaultedPostfixKind : unsigned char {
-    /// This is not a defaultable postfix increment or decrement operator.
-    None,
-    /// This is a postfix operator++.
-    Increment,
-    /// This is a postfix operator--.
-    Decrement,
-  };
-
   /// Kinds of defaulted comparison operator functions.
   enum class DefaultedComparisonKind : unsigned char {
     /// This is not a defaultable comparison operator.
@@ -6214,16 +6203,6 @@ public:
                                          FunctionDecl *Spaceship);
   void DefineDefaultedComparison(SourceLocation Loc, FunctionDecl *FD,
                                  DefaultedComparisonKind DCK);
-
-  /// Check an explicitly defaulted postfix increment or decrement operator
-  /// function ([over.inc.default]); returns true on error. Marks the function
-  /// as deleted when its definition would be ill-formed.
-  bool CheckExplicitlyDefaultedPostfixIncDec(FunctionDecl *FD,
-                                             DefaultedPostfixKind Kind);
-  /// Define a defaulted postfix increment or decrement operator function as
-  /// 'C tmp(c); ++c; return tmp;' (or '--c').
-  void DefineDefaultedPostfixIncDec(SourceLocation Loc, FunctionDecl *FD,
-                                    DefaultedPostfixKind Kind);
 
   void CheckExplicitObjectMemberFunction(Declarator &D, DeclarationName Name,
                                          QualType R, bool IsLambda,
@@ -6495,25 +6474,17 @@ public:
     LLVM_PREFERRED_TYPE(CXXSpecialMemberKind)
     unsigned SpecialMember : 8;
     unsigned Comparison : 8;
-    unsigned PostfixIncDec : 8;
 
   public:
     DefaultedFunctionKind()
         : SpecialMember(llvm::to_underlying(CXXSpecialMemberKind::Invalid)),
-          Comparison(llvm::to_underlying(DefaultedComparisonKind::None)),
-          PostfixIncDec(llvm::to_underlying(DefaultedPostfixKind::None)) {}
+          Comparison(llvm::to_underlying(DefaultedComparisonKind::None)) {}
     DefaultedFunctionKind(CXXSpecialMemberKind CSM)
         : SpecialMember(llvm::to_underlying(CSM)),
-          Comparison(llvm::to_underlying(DefaultedComparisonKind::None)),
-          PostfixIncDec(llvm::to_underlying(DefaultedPostfixKind::None)) {}
+          Comparison(llvm::to_underlying(DefaultedComparisonKind::None)) {}
     DefaultedFunctionKind(DefaultedComparisonKind Comp)
         : SpecialMember(llvm::to_underlying(CXXSpecialMemberKind::Invalid)),
-          Comparison(llvm::to_underlying(Comp)),
-          PostfixIncDec(llvm::to_underlying(DefaultedPostfixKind::None)) {}
-    DefaultedFunctionKind(DefaultedPostfixKind Postfix)
-        : SpecialMember(llvm::to_underlying(CXXSpecialMemberKind::Invalid)),
-          Comparison(llvm::to_underlying(DefaultedComparisonKind::None)),
-          PostfixIncDec(llvm::to_underlying(Postfix)) {}
+          Comparison(llvm::to_underlying(Comp)) {}
 
     bool isSpecialMember() const {
       return static_cast<CXXSpecialMemberKind>(SpecialMember) !=
@@ -6524,13 +6495,8 @@ public:
              DefaultedComparisonKind::None;
     }
 
-    bool isPostfixIncDec() const {
-      return static_cast<DefaultedPostfixKind>(PostfixIncDec) !=
-             DefaultedPostfixKind::None;
-    }
-
     explicit operator bool() const {
-      return isSpecialMember() || isComparison() || isPostfixIncDec();
+      return isSpecialMember() || isComparison();
     }
 
     CXXSpecialMemberKind asSpecialMember() const {
@@ -6538,9 +6504,6 @@ public:
     }
     DefaultedComparisonKind asComparison() const {
       return static_cast<DefaultedComparisonKind>(Comparison);
-    }
-    DefaultedPostfixKind asPostfixIncDec() const {
-      return static_cast<DefaultedPostfixKind>(PostfixIncDec);
     }
 
     /// Get the index of this function kind for use in diagnostics.

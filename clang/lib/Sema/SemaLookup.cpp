@@ -5204,14 +5204,6 @@ static void AddKeywordsToConsumer(Sema &SemaRef,
         Consumer.addKeywordResult("decltype");
         Consumer.addKeywordResult("thread_local");
       }
-
-      // 'consteval' and 'constinit' are declaration specifiers just like
-      // 'constexpr'; without them a misspelled 'consteval' is "corrected" to
-      // the semantically different 'constexpr'.
-      if (SemaRef.getLangOpts().CPlusPlus20) {
-        Consumer.addKeywordResult("consteval");
-        Consumer.addKeywordResult("constinit");
-      }
     }
 
     if (SemaRef.getLangOpts().GNUKeywords)

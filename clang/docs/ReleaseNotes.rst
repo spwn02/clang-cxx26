@@ -208,10 +208,6 @@ C++ Language Changes
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
-- Implemented `P3668R4 <https://wg21.link/P3668R4>`_ Defaulting postfix increment and decrement operations.
-  A postfix ``operator++``/``operator--`` can be explicitly defaulted (as a member, a friend or a non-member function);
-  its definition is ``C tmp(c); ++c; return tmp;`` and it is defined as deleted when that is ill-formed.
-
 - Added the ``__builtin_start_lifetime(p)`` builtin, the compiler support of ``std::start_lifetime`` from
   `P3726R2 <https://wg21.link/P3726R2>`_. In a constant expression it begins the lifetime of the object ``p`` points to
   (no initialization, no subobject begins its lifetime; a member of a union becomes the active member); it does nothing at

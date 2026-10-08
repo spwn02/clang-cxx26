@@ -10534,33 +10534,6 @@ def warn_cxx17_compat_defaulted_comparison : Warning<
   "before C++20">, InGroup<CXXPre20Compat>, DefaultIgnore;
 def err_defaulted_comparison_template : Error<
   "comparison operator template cannot be defaulted">;
-def err_defaulted_postfix_incdec_template : Error<
-  "postfix %select{increment|decrement}0 operator template cannot be defaulted">;
-def err_defaulted_postfix_incdec_param : Error<
-  "invalid first parameter type %1 for defaulted postfix "
-  "%select{increment|decrement}0 operator; expected a reference to "
-  "'%2' or 'volatile %2'">;
-def err_defaulted_postfix_incdec_return : Error<
-  "defaulted postfix %select{increment|decrement}0 operator must return %1">;
-def err_defaulted_postfix_incdec_default_arg : Error<
-  "defaulted postfix %select{increment|decrement}0 operator cannot have a "
-  "default argument">;
-def err_defaulted_postfix_incdec_would_delete : Error<
-  "defaulting this postfix %select{increment|decrement}0 operator after its "
-  "first declaration would delete it">;
-def err_defaulted_postfix_incdec_not_first : Error<
-  "defaulted postfix %select{increment|decrement}0 operator defined in a class "
-  "must be the first declaration of the function">;
-def note_defaulted_postfix_incdec_deleted_copy : Note<
-  "defaulted postfix %select{increment|decrement}0 operator is implicitly "
-  "deleted because %1 cannot be copy-initialized from an lvalue">;
-def note_defaulted_postfix_incdec_deleted_dtor : Note<
-  "defaulted postfix %select{increment|decrement}0 operator is implicitly "
-  "deleted because %1 has a deleted or inaccessible destructor">;
-def note_defaulted_postfix_incdec_deleted_prefix : Note<
-  "defaulted postfix %select{increment|decrement}0 operator is implicitly "
-  "deleted because the prefix %select{increment|decrement}0 operator is not "
-  "usable on an lvalue of type %1">;
 def err_defaulted_comparison_num_args : Error<
   "%select{non-member|member}0 %sub{select_defaulted_comparison_kind}1"
   " must have %select{2|1}0 parameters">;
