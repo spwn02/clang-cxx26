@@ -2840,6 +2840,13 @@ void StmtPrinter::VisitExplDependentCallExpr(ExplDependentCallExpr *S) {
   PrintExpr(S->getSubExpr());
 }
 
+// The initializer of an expansion variable can be wrapped in ExprWithCleanups.
+static const Expr *ignoreExpansionCleanups(const Expr *E) {
+  if (const auto *WithCleanups = dyn_cast<ExprWithCleanups>(E))
+    return WithCleanups->getSubExpr();
+  return E;
+}
+
 void StmtPrinter::VisitCXXIndeterminateExpansionStmt(
                                           CXXIndeterminateExpansionStmt *Node) {
   Indent() << "template for (";
@@ -2850,7 +2857,7 @@ void StmtPrinter::VisitCXXIndeterminateExpansionStmt(
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
   PrintExpr(cast<CXXIndeterminateExpansionSelectExpr>(
-                Node->getExpansionVariable()->getInit())->getRangeExpr());
+                ignoreExpansionCleanups(Node->getExpansionVariable()->getInit()))->getRangeExpr());
   OS << ")";
   PrintControlledStmt(Node->getBody());
 }
@@ -2865,7 +2872,7 @@ void StmtPrinter::VisitCXXDestructurableExpansionStmt(
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
   PrintExpr(cast<CXXDestructurableExpansionSelectExpr>(
-                Node->getExpansionVariable()->getInit())
+                ignoreExpansionCleanups(Node->getExpansionVariable()->getInit()))
                 ->getDecompositionDecl()->getInit());
   OS << ")";
   PrintControlledStmt(Node->getBody());
@@ -2881,7 +2888,7 @@ void StmtPrinter::VisitCXXIterableExpansionStmt(
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
   PrintExpr(cast<CXXIterableExpansionSelectExpr>(
-                Node->getExpansionVariable()->getInit())
+                ignoreExpansionCleanups(Node->getExpansionVariable()->getInit()))
                 ->getRangeVar()->getInit());
   OS << ")";
   PrintControlledStmt(Node->getBody());
@@ -2897,7 +2904,7 @@ void StmtPrinter::VisitCXXInitListExpansionStmt(
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
   PrintExpr(cast<CXXExpansionInitListSelectExpr>(
-                Node->getExpansionVariable()->getInit())->getRangeExpr());
+                ignoreExpansionCleanups(Node->getExpansionVariable()->getInit()))->getRangeExpr());
   OS << ")";
   PrintControlledStmt(Node->getBody());
 }

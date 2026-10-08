@@ -549,7 +549,14 @@ ExprResult Sema::BuildCXXExpansionSelectExpr(
   if (Range->containsErrors())
     return ExprError();
 
-  if (auto *EILE = dyn_cast<CXXExpansionInitListExpr>(Range))
+  // The braced list is wrapped in ExprWithCleanups when an element creates a
+  // temporary with a non-trivial destructor, e.g. {std::string("a"), ...}. The
+  // elements are used as the initializers of the expansion variable of each
+  // instantiation, so the wrapper is of no use here.
+  Expr *RangeNoCleanups = Range;
+  if (auto *WithCleanups = dyn_cast<ExprWithCleanups>(RangeNoCleanups))
+    RangeNoCleanups = WithCleanups->getSubExpr();
+  if (auto *EILE = dyn_cast<CXXExpansionInitListExpr>(RangeNoCleanups))
     return BuildCXXExpansionInitListSelectExpr(EILE, TParamRef);
 
   if (Range->isTypeDependent())

@@ -229,13 +229,22 @@ CXXDestructurableExpansionStmt *CXXDestructurableExpansionStmt::Create(
   return new (C) CXXDestructurableExpansionStmt(Empty);
 }
 
+// The initializer of an expansion variable can be wrapped in ExprWithCleanups
+// when the expansion range creates temporaries with non-trivial destructors.
+static const Expr *ignoreExpansionCleanups(const Expr *E) {
+  if (const auto *WithCleanups = dyn_cast<ExprWithCleanups>(E))
+    return WithCleanups->getSubExpr();
+  return E;
+}
+
 bool CXXDestructurableExpansionStmt::hasDependentSize() const {
   return false;
 }
 
 unsigned CXXDestructurableExpansionStmt::getNumInstantiations() const {
   const VarDecl *VD = getExpansionVariable();
-  auto *Selector = cast<CXXDestructurableExpansionSelectExpr>(VD->getInit());
+  auto *Selector = cast<CXXDestructurableExpansionSelectExpr>(
+      ignoreExpansionCleanups(VD->getInit()));
 
   return Selector->getDecompositionDecl()->bindings().size();
 }
@@ -257,13 +266,13 @@ CXXInitListExpansionStmt *CXXInitListExpansionStmt::Create(const ASTContext &C,
 
 bool CXXInitListExpansionStmt::hasDependentSize() const {
   const auto *Init = cast<CXXExpansionInitListSelectExpr>(
-      getExpansionVariable()->getInit());
+      ignoreExpansionCleanups(getExpansionVariable()->getInit()));
   return cast<CXXExpansionInitListExpr>(Init->getRangeExpr())->containsPack();
 }
 
 unsigned CXXInitListExpansionStmt::getNumInstantiations() const {
   const auto *Init = cast<CXXExpansionInitListSelectExpr>(
-      getExpansionVariable()->getInit());
+      ignoreExpansionCleanups(getExpansionVariable()->getInit()));
   return cast<CXXExpansionInitListExpr>(Init->getRangeExpr())
       ->getSubExprs().size();
 }
