@@ -33,14 +33,18 @@ Types:
 clock_t clock();
 double difftime(time_t time1, time_t time0);
 time_t mktime(tm* timeptr);
+time_t timegm(tm* timeptr);                  // C++26
 time_t time(time_t* timer);
 char* asctime(const tm* timeptr);
 char* ctime(const time_t* timer);
 tm*    gmtime(const time_t* timer);
 tm* localtime(const time_t* timer);
+tm* gmtime_r(const time_t* timer, tm* buf);    // C++26
+tm* localtime_r(const time_t* timer, tm* buf); // C++26
 size_t strftime(char* restrict s, size_t maxsize, const char* restrict format,
                 const tm* restrict timeptr);
 int timespec_get( struct timespec *ts, int base); // C++17
+int timespec_getres(struct timespec *ts, int base); // C++26
 }  // std
 
 */
@@ -82,6 +86,12 @@ using ::localtime _LIBCPP_USING_IF_EXISTS;
 using ::strftime _LIBCPP_USING_IF_EXISTS;
 #  if _LIBCPP_STD_VER >= 17
 using ::timespec_get _LIBCPP_USING_IF_EXISTS;
+#  endif
+#  if _LIBCPP_STD_VER >= 26
+using ::gmtime_r _LIBCPP_USING_IF_EXISTS;
+using ::localtime_r _LIBCPP_USING_IF_EXISTS;
+using ::timegm _LIBCPP_USING_IF_EXISTS;
+using ::timespec_getres _LIBCPP_USING_IF_EXISTS;
 #  endif
 
 _LIBCPP_END_NAMESPACE_STD
