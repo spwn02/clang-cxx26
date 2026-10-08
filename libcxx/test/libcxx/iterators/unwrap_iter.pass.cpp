@@ -41,10 +41,18 @@ TEST_CONSTEXPR_CXX20 bool test() {
   std::string str = "Banane";
   using Iter = std::string::iterator;
 
+#ifdef _LIBCPP_ABI_BOUNDED_ITERATORS_IN_STRING
+  // A bounded iterator is never unwrapped to a raw pointer, so that the algorithms keep checking the bounds.
+  assert(std::__unwrap_iter(str.begin()) == str.begin());
+  assert(std::__unwrap_iter(str.end()) == str.end());
+  assert(std::__unwrap_iter(rev_rev_iter<Iter>(rev_iter<Iter>(str.begin()))) == str.begin());
+  assert(std::__unwrap_iter(rev_rev_iter<Iter>(rev_iter<Iter>(str.end()))) == str.end());
+#else
   assert(std::__unwrap_iter(str.begin()) == str.data());
   assert(std::__unwrap_iter(str.end()) == str.data() + str.size());
   assert(std::__unwrap_iter(rev_rev_iter<Iter>(rev_iter<Iter>(str.begin()))) == str.data());
   assert(std::__unwrap_iter(rev_rev_iter<Iter>(rev_iter<Iter>(str.end()))) == str.data() + str.size());
+#endif
 
   return true;
 }

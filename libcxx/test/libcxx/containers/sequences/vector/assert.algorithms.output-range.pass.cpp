@@ -14,7 +14,8 @@
 
 // REQUIRES: has-unix-headers
 // UNSUPPORTED: libcpp-hardening-mode=none, c++03
-// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_ABI_BOUNDED_ITERATORS_IN_VECTOR -D_LIBCPP_ABI_BOUNDED_ITERATORS_IN_STD_ARRAY
+// (Empty definitions: identical to the ones of a __config_site that already enables the bounded iterators.)
+// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_ABI_BOUNDED_ITERATORS_IN_VECTOR= -D_LIBCPP_ABI_BOUNDED_ITERATORS_IN_STD_ARRAY=
 
 #include <algorithm>
 #include <array>
