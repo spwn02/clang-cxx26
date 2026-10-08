@@ -124,14 +124,14 @@ int main(int, char**) {
   ASSERT_CONSTEXPR_CXX23(std::lround(1.0f) == 1L);
   ASSERT_CONSTEXPR_CXX23(std::lround(1.0) == 1L);
   ASSERT_CONSTEXPR_CXX23(std::lround(1.0L) == 1L);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::lroundf(1.0f) == 1L);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::lroundl(1.0L) == 1L);
+  ASSERT_CONSTEXPR_CXX23(std::lroundf(1.0f) == 1L);
+  ASSERT_CONSTEXPR_CXX23(std::lroundl(1.0L) == 1L);
 
   ASSERT_CONSTEXPR_CXX23(std::llround(1.0f) == 1LL);
   ASSERT_CONSTEXPR_CXX23(std::llround(1.0) == 1LL);
   ASSERT_CONSTEXPR_CXX23(std::llround(1.0L) == 1LL);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::llroundf(1.0f) == 1LL);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::llroundl(1.0L) == 1LL);
+  ASSERT_CONSTEXPR_CXX23(std::llroundf(1.0f) == 1LL);
+  ASSERT_CONSTEXPR_CXX23(std::llroundl(1.0L) == 1LL);
 
   ASSERT_CONSTEXPR_CXX23(std::trunc(1.0f) == 1.0f);
   ASSERT_CONSTEXPR_CXX23(std::trunc(1.0) == 1.0);
@@ -199,9 +199,9 @@ int main(int, char**) {
   ASSERT_CONSTEXPR_CXX23(std::fmaf(1.0f, 1.0f, 1.0f) == 2.0f);
   ASSERT_CONSTEXPR_CXX23(std::fmal(1.0L, 1.0L, 1.0L) == 2.0L);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::fpclassify(-1.0f) == FP_NORMAL);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::fpclassify(-1.0) == FP_NORMAL);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::fpclassify(-1.0L) == FP_NORMAL);
+  ASSERT_CONSTEXPR_CXX23(std::fpclassify(-1.0f) == FP_NORMAL);
+  ASSERT_CONSTEXPR_CXX23(std::fpclassify(-1.0) == FP_NORMAL);
+  ASSERT_CONSTEXPR_CXX23(std::fpclassify(-1.0L) == FP_NORMAL);
 
   ASSERT_CONSTEXPR_CXX23(std::isfinite(-1.0f) == 1);
   ASSERT_CONSTEXPR_CXX23(std::isfinite(-1.0) == 1);

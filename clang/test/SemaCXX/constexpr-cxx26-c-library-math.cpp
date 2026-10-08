@@ -16,6 +16,12 @@ long double fmal(long double, long double, long double);
 float nextafterf(float, float);
 long double nextafterl(long double, long double);
 float fabsf(float);
+double ceil(double);
+double modf(double, double *);
+long lround(double);
+long long llround(double);
+long lroundf(float);
+long long llroundl(long double);
 double frexp(double, int *);
 double nextup(double);                 // cxx23-note {{declared here}} cxx20-note {{declared here}}
 float nextupf(float);
@@ -40,6 +46,10 @@ static_assert(fmaf(0.1f, 10.0f, -1.0f) != 0.0f); // a single rounding
 static_assert(nextafterf(1.0f, 2.0f) == 1.0000001f);
 static_assert(nextafterl(1.0L, 0.0L) < 1.0L);
 static_assert(fabsf(-2.5f) == 2.5f);
+static_assert(ceil(1.5) == 2.0);
+constexpr bool modf_ok() { double i = 0; return modf(2.5, &i) == 0.5 && i == 2.0; }
+static_assert(modf_ok());
+static_assert(lround(-2.5) == -3 && llround(2.5) == 3 && lroundf(1.4f) == 1 && llroundl(0.5L) == 1);
 #else
 constexpr float old_fmaf = fmaf(2.0f, 3.0f, 1.0f); // old-error {{must be initialized by a constant expression}} \
                                                    // old-note {{non-constexpr function 'fmaf' cannot be used in a constant expression}}

@@ -29,11 +29,22 @@ static_assert(std::nextafterl(1.0L, 0.0L) < 1.0L);
 static_assert(::fabsf(-2.5f) == 2.5f);
 static_assert(::fmal(2.0L, 3.0L, 1.0L) == 7.0L);
 static_assert(::nextafterf(1.0f, 2.0f) == 1.0000001f);
+static_assert(std::lroundf(-2.5f) == -3L);
+static_assert(std::llroundl(2.5L) == 3LL);
+static_assert(::lround(2.5) == 3L);
+static_assert(::llroundf(1.4f) == 1LL);
+static_assert(::ceil(1.5) == 2.0);
+static_assert(std::fpclassify(1.5f) == FP_NORMAL);
+static_assert(std::fpclassify(0.0) == FP_ZERO);
+static_assert(std::fpclassify(static_cast<long double>(INFINITY)) == FP_INFINITE);
+static_assert(std::fpclassify(1) == FP_NORMAL);
 
 constexpr bool modf_ok() {
   float f   = 0;
   long double l = 0;
-  return std::modff(2.5f, &f) == 0.5f && f == 2.0f && std::modfl(2.5L, &l) == 0.5L && l == 2.0L;
+  double d = 0;
+  return std::modff(2.5f, &f) == 0.5f && f == 2.0f && std::modfl(2.5L, &l) == 0.5L && l == 2.0L &&
+         ::modf(2.5, &d) == 0.5 && d == 2.0;
 }
 static_assert(modf_ok());
 

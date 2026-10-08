@@ -18284,12 +18284,18 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
   }
 
   case Builtin::BI__builtin_lround:
+  case Builtin::BIlround:
   case Builtin::BI__builtin_lroundf:
+  case Builtin::BIlroundf:
   case Builtin::BI__builtin_lroundl:
+  case Builtin::BIlroundl:
   case Builtin::BI__builtin_lroundf128:
   case Builtin::BI__builtin_llround:
+  case Builtin::BIllround:
   case Builtin::BI__builtin_llroundf:
+  case Builtin::BIllroundf:
   case Builtin::BI__builtin_llroundl:
+  case Builtin::BIllroundl:
   case Builtin::BI__builtin_llroundf128:
   case Builtin::BI__builtin_lrint:
   case Builtin::BI__builtin_lrintf:
@@ -18304,12 +18310,18 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       return false;
 
     bool IsRound = BuiltinOp == Builtin::BI__builtin_lround ||
+                   BuiltinOp == Builtin::BIlround ||
                    BuiltinOp == Builtin::BI__builtin_lroundf ||
+                   BuiltinOp == Builtin::BIlroundf ||
                    BuiltinOp == Builtin::BI__builtin_lroundl ||
+                   BuiltinOp == Builtin::BIlroundl ||
                    BuiltinOp == Builtin::BI__builtin_lroundf128 ||
                    BuiltinOp == Builtin::BI__builtin_llround ||
+                   BuiltinOp == Builtin::BIllround ||
                    BuiltinOp == Builtin::BI__builtin_llroundf ||
+                   BuiltinOp == Builtin::BIllroundf ||
                    BuiltinOp == Builtin::BI__builtin_llroundl ||
+                   BuiltinOp == Builtin::BIllroundl ||
                    BuiltinOp == Builtin::BI__builtin_llroundf128;
     Val.roundToIntegral(IsRound ? llvm::RoundingMode::NearestTiesToAway
                                 : getActiveRoundingMode(Info, E));
@@ -21509,6 +21521,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
     return true;
 
   case Builtin::BI__builtin_ceil:
+  case Builtin::BIceil:
   case Builtin::BI__builtin_ceilf:
   case Builtin::BIceilf:
   case Builtin::BI__builtin_ceill:
@@ -21840,6 +21853,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
   }
 
   case Builtin::BI__builtin_modf:
+  case Builtin::BImodf:
   case Builtin::BI__builtin_modff:
   case Builtin::BImodff:
   case Builtin::BI__builtin_modfl:

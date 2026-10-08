@@ -4172,6 +4172,7 @@ def Llround : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "long long int(T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Log : FPMathTemplate, LibBuiltin<"math.h"> {
@@ -4229,6 +4230,7 @@ def Lround : FPMathTemplate, LibBuiltin<"math.h"> {
   let Prototype = "long int(T)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
+  let LibraryNameIsCXX23Constexpr = 1;
 }
 
 def Nearbyint : FPMathTemplate, LibBuiltin<"math.h"> {
