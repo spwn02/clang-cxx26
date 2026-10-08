@@ -841,7 +841,6 @@ static void diagnoseParamTypes(Sema &S, FunctionDecl *FD,
   ParamReferenceChecker Checker(S, FD);
   for (auto *CS : CSD->postconditions()) {
     Checker.TraverseContractStmt(CS);
-    // FIXME(EricWF): DIagnose non-const function param types.
   }
 }
 

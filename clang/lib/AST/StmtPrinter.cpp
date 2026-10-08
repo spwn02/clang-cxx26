@@ -259,6 +259,11 @@ void StmtPrinter::VisitNullStmt(NullStmt *Node) {
 }
 
 void StmtPrinter::VisitDeclStmt(DeclStmt *Node) {
+  if (Node->isSingleDecl() &&
+      isa<ExpansionStmtDecl>(Node->getSingleDecl())) {
+    PrintRawDeclStmt(Node);
+    return;
+  }
   Indent();
   PrintRawDeclStmt(Node);
   // Certain pragma declarations shouldn't have a semi-colon after them.
@@ -2844,8 +2849,8 @@ void StmtPrinter::VisitCXXIndeterminateExpansionStmt(
   SubPolicy.SuppressInitializers = true;
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
-  // TODO(CXX26).
-  OS << "<range>"; //PrintExpr(Node->getRange());
+  PrintExpr(cast<CXXIndeterminateExpansionSelectExpr>(
+                Node->getExpansionVariable()->getInit())->getRangeExpr());
   OS << ")";
   PrintControlledStmt(Node->getBody());
 }
@@ -2859,8 +2864,9 @@ void StmtPrinter::VisitCXXDestructurableExpansionStmt(
   SubPolicy.SuppressInitializers = true;
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
-  // TODO(CXX26).
-  OS << "<range>"; //PrintExpr(Node->getRange());
+  PrintExpr(cast<CXXDestructurableExpansionSelectExpr>(
+                Node->getExpansionVariable()->getInit())
+                ->getDecompositionDecl()->getInit());
   OS << ")";
   PrintControlledStmt(Node->getBody());
 }
@@ -2874,8 +2880,9 @@ void StmtPrinter::VisitCXXIterableExpansionStmt(
   SubPolicy.SuppressInitializers = true;
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
-  // TODO(CXX26).
-  OS << "<range>"; //PrintExpr(Node->getRange());
+  PrintExpr(cast<CXXIterableExpansionSelectExpr>(
+                Node->getExpansionVariable()->getInit())
+                ->getRangeVar()->getInit());
   OS << ")";
   PrintControlledStmt(Node->getBody());
 }
@@ -2889,8 +2896,8 @@ void StmtPrinter::VisitCXXInitListExpansionStmt(
   SubPolicy.SuppressInitializers = true;
   Node->getExpansionVariable()->print(OS, SubPolicy, IndentLevel);
   OS << " : ";
-  // TODO(CXX26).
-  OS << "<range>"; //PrintExpr(Node->getRange());
+  PrintExpr(cast<CXXExpansionInitListSelectExpr>(
+                Node->getExpansionVariable()->getInit())->getRangeExpr());
   OS << ")";
   PrintControlledStmt(Node->getBody());
 }
@@ -2916,17 +2923,23 @@ void StmtPrinter::VisitCXXExpansionInitListSelectExpr(
 
 void StmtPrinter::VisitCXXIterableExpansionSelectExpr(
         CXXIterableExpansionSelectExpr *Node) {
-  // TODO(CXX26): Implement this.
+  PrintExpr(Node->getImplExpr());
 }
 
 void StmtPrinter::VisitCXXDestructurableExpansionSelectExpr(
         CXXDestructurableExpansionSelectExpr *Node) {
-  // TODO(CXX26): Implement this.
+  PrintExpr(Node->getDecompositionDecl()->getInit());
+  OS << "[";
+  PrintExpr(Node->getIdxExpr());
+  OS << "]";
 }
 
 void StmtPrinter::VisitCXXIndeterminateExpansionSelectExpr(
         CXXIndeterminateExpansionSelectExpr *Node) {
-  // TODO(CXX26): Implement this.
+  PrintExpr(Node->getRangeExpr());
+  OS << "[";
+  PrintExpr(Node->getIdxExpr());
+  OS << "]";
 }
 
 // C++ contracts

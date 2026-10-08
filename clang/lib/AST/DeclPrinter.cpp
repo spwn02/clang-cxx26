@@ -77,6 +77,7 @@ namespace {
     void VisitResultNameDecl(ResultNameDecl *D);
     void VisitFileScopeAsmDecl(FileScopeAsmDecl *D);
     void VisitTopLevelStmtDecl(TopLevelStmtDecl *D);
+    void VisitExpansionStmtDecl(ExpansionStmtDecl *D);
     void VisitImportDecl(ImportDecl *D);
     void VisitStaticAssertDecl(StaticAssertDecl *D);
     void VisitNamespaceDecl(NamespaceDecl *D);
@@ -1071,6 +1072,11 @@ void DeclPrinter::VisitFileScopeAsmDecl(FileScopeAsmDecl *D) {
 }
 
 void DeclPrinter::VisitTopLevelStmtDecl(TopLevelStmtDecl *D) {
+  assert(D->getStmt());
+  D->getStmt()->printPretty(Out, nullptr, Policy, Indentation, "\n", &Context);
+}
+
+void DeclPrinter::VisitExpansionStmtDecl(ExpansionStmtDecl *D) {
   assert(D->getStmt());
   D->getStmt()->printPretty(Out, nullptr, Policy, Indentation, "\n", &Context);
 }
