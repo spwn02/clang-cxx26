@@ -234,6 +234,19 @@ public:
   constexpr bool operator>=(const _It2& __y) const
       requires random_access_iterator<_It> && totally_ordered_with<_It, _It2> { return __current_ >= __y; }
 
+  template <__not_a_const_iterator _It2, same_as<_It> _It3>
+  friend constexpr bool operator<(const _It2& __x, const basic_const_iterator<_It3>& __y)
+      requires random_access_iterator<_It> && totally_ordered_with<_It, _It2> { return __x < __y.__current_; }
+  template <__not_a_const_iterator _It2, same_as<_It> _It3>
+  friend constexpr bool operator>(const _It2& __x, const basic_const_iterator<_It3>& __y)
+      requires random_access_iterator<_It> && totally_ordered_with<_It, _It2> { return __x > __y.__current_; }
+  template <__not_a_const_iterator _It2, same_as<_It> _It3>
+  friend constexpr bool operator<=(const _It2& __x, const basic_const_iterator<_It3>& __y)
+      requires random_access_iterator<_It> && totally_ordered_with<_It, _It2> { return __x <= __y.__current_; }
+  template <__not_a_const_iterator _It2, same_as<_It> _It3>
+  friend constexpr bool operator>=(const _It2& __x, const basic_const_iterator<_It3>& __y)
+      requires random_access_iterator<_It> && totally_ordered_with<_It, _It2> { return __x >= __y.__current_; }
+
   friend constexpr basic_const_iterator operator+(const basic_const_iterator& __i, difference_type __n)
       requires random_access_iterator<_It> { return basic_const_iterator(__i.__current_ + __n); }
   friend constexpr basic_const_iterator operator+(difference_type __n, const basic_const_iterator& __i)

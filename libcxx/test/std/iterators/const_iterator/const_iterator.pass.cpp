@@ -36,6 +36,14 @@ constexpr bool test() {
 
 int main() {
   static_assert(test());
+  {
+    int values[] = {1, 2, 3};
+    std::basic_const_iterator<int*> ci(values + 1);
+    assert(values < ci);
+    assert(values + 2 > ci);
+    assert(values <= ci);
+    assert(values + 1 >= ci);
+  }
   static_assert(test_p2836r1_conversion());
   assert(test_p2836r1_conversion());
 

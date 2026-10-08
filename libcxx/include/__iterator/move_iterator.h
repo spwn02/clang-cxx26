@@ -121,9 +121,7 @@ public:
   }
 
 #if _LIBCPP_STD_VER >= 20
-  _LIBCPP_HIDE_FROM_ABI constexpr move_iterator()
-    requires is_constructible_v<_Iter>
-      : __current_() {}
+  _LIBCPP_HIDE_FROM_ABI constexpr move_iterator() requires default_initializable<_Iter> = default;
 
   template <class _Up>
     requires(!_IsSame<_Up, _Iter>::value) && convertible_to<const _Up&, _Iter>
@@ -246,7 +244,7 @@ private:
   template <class _It2>
   friend class move_iterator;
 
-  _Iter __current_;
+  _Iter __current_ = _Iter();
 };
 _LIBCPP_CTAD_SUPPORTED_FOR_TYPE(move_iterator);
 

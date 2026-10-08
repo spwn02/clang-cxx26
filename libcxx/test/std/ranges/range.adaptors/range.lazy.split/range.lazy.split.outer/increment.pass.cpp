@@ -73,6 +73,18 @@ constexpr bool test() {
       i++;
       assert(std::ranges::equal(*i, "def"s));
     }
+
+    // LWG4249: an input range ending with the delimiter yields a trailing empty piece.
+    {
+      SplitViewInput trailing("a,", ',');
+      auto outer = trailing.begin();
+      assert(std::ranges::equal(*outer, "a"s));
+      ++outer;
+      assert(outer != trailing.end());
+      assert(std::ranges::equal(*outer, ""s));
+      ++outer;
+      assert(outer == trailing.end());
+    }
   }
 
   // LWG3505

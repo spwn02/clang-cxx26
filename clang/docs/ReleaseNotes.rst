@@ -250,6 +250,13 @@ C++17 Feature Support
 Resolutions to C++ Defect Reports
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- Implemented LWG 4125, 4182, 4218, 4249, and 4531.
+  ``move_iterator`` now has a constrained defaulted constructor, C++ ``NULL``
+  expands to the integer literal ``0``, reverse comparisons with
+  ``basic_const_iterator`` are provided, and ``lazy_split_view`` handles
+  consuming its final input element. Updated ``__cpp_lib_constexpr_string``
+  to ``202511L`` per LWG 4531.
+
 C Language Changes
 ------------------
 
