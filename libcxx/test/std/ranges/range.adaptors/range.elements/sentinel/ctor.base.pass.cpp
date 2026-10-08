@@ -23,12 +23,12 @@ struct Sent {
 
 struct Range : std::ranges::view_base {
   std::tuple<int>* begin() const;
-  Sent end();
+  constexpr Sent end() { return Sent{5}; }
 };
 
 // Test explicit
 
-static_assert(std::is_constructible_v<std::ranges::sentinel_t<std::ranges::elements_view<Range, 0>>, Sent>);
+static_assert(!std::is_constructible_v<std::ranges::sentinel_t<std::ranges::elements_view<Range, 0>>, Sent>);
 static_assert(!std::is_convertible_v<Sent, std::ranges::sentinel_t<std::ranges::elements_view<Range, 0>>>);
 
 constexpr bool test() {
@@ -37,7 +37,8 @@ constexpr bool test() {
     using R        = std::ranges::elements_view<Range, 0>;
     using Sentinel = std::ranges::sentinel_t<R>;
 
-    Sentinel s1(Sent{5});
+    R view{Range{}};
+    Sentinel s1 = view.end();
     assert(s1.base().i == 5);
   }
 

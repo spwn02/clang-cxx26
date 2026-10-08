@@ -27,7 +27,9 @@ constexpr bool test() {
   using EleRange  = std::ranges::elements_view<BaseRange, 0>;
   using EleSent   = std::ranges::sentinel_t<EleRange>;
 
-  const EleSent st{Sent{5}};
+  BaseRange base_range{static_cast<std::tuple<int>*>(nullptr), Sent{5}};
+  EleRange range{base_range};
+  const EleSent st = range.end();
   std::same_as<Sent> decltype(auto) base = st.base();
   assert(base.i == 5);
 

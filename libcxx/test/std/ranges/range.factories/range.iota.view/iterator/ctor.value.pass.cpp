@@ -20,18 +20,18 @@
 constexpr bool test() {
   {
     using Iter = std::ranges::iterator_t<std::ranges::iota_view<int>>;
-    auto iter = Iter(42);
+    auto iter = std::ranges::iota_view<int>{42}.begin();
     assert(*iter == 42);
   }
   {
     using Iter = std::ranges::iterator_t<std::ranges::iota_view<SomeInt>>;
-    auto iter = Iter(SomeInt(42));
+    auto iter = std::ranges::iota_view<SomeInt>{SomeInt(42)}.begin();
     assert(*iter == SomeInt(42));
   }
   {
     using Iter = std::ranges::iterator_t<std::ranges::iota_view<SomeInt>>;
     static_assert(!std::is_convertible_v<Iter, SomeInt>);
-    static_assert( std::is_constructible_v<Iter, SomeInt>);
+    static_assert(!std::is_constructible_v<Iter, SomeInt>);
   }
 
   return true;

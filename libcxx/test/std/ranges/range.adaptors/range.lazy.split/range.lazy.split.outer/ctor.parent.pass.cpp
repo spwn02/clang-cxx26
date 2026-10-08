@@ -26,7 +26,8 @@ static_assert(!std::is_constructible_v<OuterIterForward, SplitViewForward&>);
 constexpr bool test() {
   InputView input;
   SplitViewInput v(input, ForwardTinyView());
-  [[maybe_unused]] OuterIterInput i(v);
+  [[maybe_unused]] OuterIterInput i = v.begin();
+  static_assert(!std::is_constructible_v<OuterIterInput, SplitViewInput&>);
 
   return true;
 }

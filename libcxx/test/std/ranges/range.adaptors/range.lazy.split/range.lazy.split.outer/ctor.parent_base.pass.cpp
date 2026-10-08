@@ -23,7 +23,8 @@ static_assert(!std::is_constructible_v<OuterIterInput, SplitViewInput&, std::ran
 constexpr bool test() {
   ForwardView input("abc");
   SplitViewForward v(std::move(input), " ");
-  [[maybe_unused]] OuterIterForward i(v, input.begin());
+  [[maybe_unused]] OuterIterForward i = v.begin();
+  static_assert(!std::is_constructible_v<OuterIterForward, SplitViewForward&, decltype(input.begin())>);
 
   return true;
 }

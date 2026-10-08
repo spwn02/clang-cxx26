@@ -147,10 +147,13 @@ template <input_range _View, indirect_unary_predicate<iterator_t<_View>> _Pred>
   requires view<_View> && is_object_v<_Pred>
 template <bool _Const>
 class filter_view<_View, _Pred>::__iterator : public __filter_iterator_category<_If<_Const, const _View, _View>> {
+  friend class filter_view;
   using _Base _LIBCPP_NODEBUG   = _If<_Const, const _View, _View>;
   using _Parent _LIBCPP_NODEBUG = _If<_Const, const filter_view, filter_view>;
   template <bool>
   friend class __iterator;
+  _LIBCPP_HIDE_FROM_ABI constexpr __iterator(_Parent& __parent, iterator_t<_Base> __current)
+      : __current_(std::move(__current)), __parent_(std::addressof(__parent)) {}
 
 public:
   _LIBCPP_NO_UNIQUE_ADDRESS iterator_t<_Base> __current_ = iterator_t<_Base>();
@@ -172,8 +175,6 @@ public:
     requires default_initializable<iterator_t<_Base>>
   = default;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr __iterator(_Parent& __parent, iterator_t<_Base> __current)
-      : __current_(std::move(__current)), __parent_(std::addressof(__parent)) {}
 
   _LIBCPP_HIDE_FROM_ABI constexpr __iterator(__iterator<!_Const> __other)
     requires _Const && convertible_to<iterator_t<_View>, iterator_t<_Base>>
@@ -243,15 +244,16 @@ template <input_range _View, indirect_unary_predicate<iterator_t<_View>> _Pred>
   requires view<_View> && is_object_v<_Pred>
 template <bool _Const>
 class filter_view<_View, _Pred>::__sentinel {
+  friend class filter_view;
   using _Base _LIBCPP_NODEBUG   = _If<_Const, const _View, _View>;
   using _Parent _LIBCPP_NODEBUG = _If<_Const, const filter_view, filter_view>;
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __sentinel(_Parent& __parent) : __end_(ranges::end(__parent.__base_)) {}
 
 public:
   sentinel_t<_Base> __end_ = sentinel_t<_Base>();
 
   _LIBCPP_HIDE_FROM_ABI __sentinel() = default;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit __sentinel(_Parent& __parent) : __end_(ranges::end(__parent.__base_)) {}
 
   _LIBCPP_HIDE_FROM_ABI constexpr __sentinel(__sentinel<!_Const> __other)
     requires _Const && convertible_to<sentinel_t<_View>, sentinel_t<_Base>>

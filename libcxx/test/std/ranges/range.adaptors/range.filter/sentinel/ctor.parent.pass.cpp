@@ -33,13 +33,12 @@ constexpr void test() {
   std::array<int, 5> array{0, 1, 2, 3, 4};
   FilterView view = make_filter_view(array.data(), array.data() + array.size(), AlwaysTrue{});
 
-  FilterSentinel sent(view);
+  FilterSentinel sent = view.end();
   assert(base(base(sent.base())) == base(base(view.end().base())));
 
   static_assert(!std::is_constructible_v<FilterSentinel, FilterView const&>);
   static_assert(!std::is_constructible_v<FilterSentinel, FilterView>);
-  static_assert( std::is_constructible_v<FilterSentinel, FilterView&> &&
-                !std::is_convertible_v<FilterView&, FilterSentinel>);
+  static_assert(!std::is_constructible_v<FilterSentinel, FilterView&>);
 }
 
 constexpr bool tests() {

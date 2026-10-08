@@ -202,6 +202,9 @@ class transform_view<_View, _Fn>::__iterator
 
   template <bool>
   friend class transform_view<_View, _Fn>::__sentinel;
+  friend class transform_view;
+  _LIBCPP_HIDE_FROM_ABI constexpr __iterator(_Parent& __parent, iterator_t<_Base> __current)
+      : __parent_(std::addressof(__parent)), __current_(std::move(__current)) {}
 
 public:
   iterator_t<_Base> __current_ = iterator_t<_Base>();
@@ -213,9 +216,6 @@ public:
   _LIBCPP_HIDE_FROM_ABI __iterator()
     requires default_initializable<iterator_t<_Base>>
   = default;
-
-  _LIBCPP_HIDE_FROM_ABI constexpr __iterator(_Parent& __parent, iterator_t<_Base> __current)
-      : __parent_(std::addressof(__parent)), __current_(std::move(__current)) {}
 
   // Note: `__i` should always be `__iterator<false>`, but directly using
   // `__iterator<false>` is ill-formed when `_Const` is false
@@ -363,11 +363,11 @@ class transform_view<_View, _Fn>::__sentinel {
 
   template <bool>
   friend class transform_view<_View, _Fn>::__sentinel;
+  friend class transform_view;
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __sentinel(sentinel_t<_Base> __end) : __end_(__end) {}
 
 public:
   _LIBCPP_HIDE_FROM_ABI __sentinel() = default;
-
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit __sentinel(sentinel_t<_Base> __end) : __end_(__end) {}
 
   // Note: `__i` should always be `__sentinel<false>`, but directly using
   // `__sentinel<false>` is ill-formed when `_Const` is false

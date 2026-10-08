@@ -26,10 +26,10 @@ constexpr void test() {
 
   std::array<int, 10> array{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
   View view(Iter(array.data()), Sent(Iter(array.data() + array.size())));
-  Iter iter = view.begin();
 
   FilterView filter_view(std::move(view), AlwaysTrue{});
-  FilterIterator filter_iter(filter_view, std::move(iter));
+  static_assert(!std::is_constructible_v<FilterIterator, FilterView&, Iter>);
+  FilterIterator filter_iter = filter_view.begin();
   assert(base(filter_iter.base()) == array.data());
 }
 

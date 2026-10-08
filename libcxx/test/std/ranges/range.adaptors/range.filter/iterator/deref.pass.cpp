@@ -36,7 +36,7 @@ constexpr void test() {
   FilterView view = make_filter_view(array.data(), array.data() + array.size(), AlwaysTrue{});
 
   for (std::size_t n = 0; n != array.size(); ++n) {
-    FilterIterator const iter(view, Iter(array.data() + n));
+    FilterIterator const iter = std::ranges::next(view.begin(), n);
     ValueType& result = *iter;
     ASSERT_SAME_TYPE(ValueType&, decltype(*iter));
     assert(&result == array.data() + n);

@@ -140,11 +140,15 @@ class iota_view : public view_interface<iota_view<_Start, _BoundSentinel>> {
 
     _Start __value_ = _Start();
 
+  private:
+    _LIBCPP_HIDE_FROM_ABI constexpr explicit __iterator(_Start __value) : __value_(std::move(__value)) {}
+
+  public:
+
     _LIBCPP_HIDE_FROM_ABI __iterator()
       requires default_initializable<_Start>
     = default;
 
-    _LIBCPP_HIDE_FROM_ABI constexpr explicit __iterator(_Start __value) : __value_(std::move(__value)) {}
 
     [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Start operator*() const
         noexcept(is_nothrow_copy_constructible_v<_Start>) {
@@ -295,11 +299,11 @@ class iota_view : public view_interface<iota_view<_Start, _BoundSentinel>> {
 
   private:
     _BoundSentinel __bound_sentinel_ = _BoundSentinel();
+    _LIBCPP_HIDE_FROM_ABI constexpr explicit __sentinel(_BoundSentinel __bound_sentinel)
+        : __bound_sentinel_(std::move(__bound_sentinel)) {}
 
   public:
     _LIBCPP_HIDE_FROM_ABI __sentinel() = default;
-    _LIBCPP_HIDE_FROM_ABI constexpr explicit __sentinel(_BoundSentinel __bound_sentinel)
-        : __bound_sentinel_(std::move(__bound_sentinel)) {}
 
     _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const __iterator& __x, const __sentinel& __y) {
       return __x.__value_ == __y.__bound_sentinel_;

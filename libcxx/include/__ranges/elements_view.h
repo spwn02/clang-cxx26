@@ -199,6 +199,9 @@ class elements_view<_View, _Np>::__iterator
     }
   }
 
+  friend class elements_view;
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __iterator(iterator_t<_Base> __current) : __current_(std::move(__current)) {}
+
   static consteval auto __get_iterator_concept() {
     if constexpr (random_access_range<_Base>) {
       return random_access_iterator_tag{};
@@ -219,8 +222,6 @@ public:
   _LIBCPP_HIDE_FROM_ABI __iterator()
     requires default_initializable<iterator_t<_Base>>
   = default;
-
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit __iterator(iterator_t<_Base> __current) : __current_(std::move(__current)) {}
 
   _LIBCPP_HIDE_FROM_ABI constexpr __iterator(__iterator<!_Const> __i)
     requires _Const && convertible_to<iterator_t<_View>, iterator_t<_Base>>
@@ -355,6 +356,8 @@ private:
 
   template <bool>
   friend class __sentinel;
+  friend class elements_view;
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __sentinel(sentinel_t<_Base> __end) : __end_(std::move(__end)) {}
 
   template <bool _AnyConst>
   _LIBCPP_HIDE_FROM_ABI static constexpr decltype(auto) __get_current(const __iterator<_AnyConst>& __iter) {
@@ -363,8 +366,6 @@ private:
 
 public:
   _LIBCPP_HIDE_FROM_ABI __sentinel() = default;
-
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit __sentinel(sentinel_t<_Base> __end) : __end_(std::move(__end)) {}
 
   _LIBCPP_HIDE_FROM_ABI constexpr __sentinel(__sentinel<!_Const> __other)
     requires _Const && convertible_to<sentinel_t<_View>, sentinel_t<_Base>>

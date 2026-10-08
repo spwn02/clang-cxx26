@@ -53,9 +53,10 @@ constexpr bool test() {
     using TakeView             = std::ranges::take_view<MoveOnlyView>;
     using Sentinel             = std::ranges::sentinel_t<TakeView>;
     sentinel_wrapper<int*> sw1 = MoveOnlyView(buffer).end();
-    static_assert(std::is_constructible_v<Sentinel, sentinel_wrapper<int*>>);
+    static_assert(!std::is_constructible_v<Sentinel, sentinel_wrapper<int*>>);
     static_assert(!std::is_convertible_v<sentinel_wrapper<int*>, Sentinel>);
-    auto s                                        = Sentinel(sw1);
+    TakeView tv(MoveOnlyView(buffer), 4);
+    auto s = tv.end();
     std::same_as<sentinel_wrapper<int*>> auto sw2 = s.base();
     assert(base(sw2) == base(sw1));
   }

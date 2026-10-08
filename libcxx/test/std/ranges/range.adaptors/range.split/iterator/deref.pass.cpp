@@ -20,6 +20,10 @@ struct Iter : ForwardIterBase<Iter> {
   int i;
   constexpr Iter() = default;
   constexpr Iter(int ii) : i(ii) {}
+  constexpr int operator*() const { return i; }
+  constexpr Iter& operator++() { ++i; return *this; }
+  constexpr Iter operator++(int) { auto old = *this; ++*this; return old; }
+  friend constexpr bool operator==(const Iter& x, const Iter& y) { return x.i == y.i; }
 };
 
 constexpr bool test() {
@@ -27,10 +31,8 @@ constexpr bool test() {
   using SplitIter = std::ranges::iterator_t<SplitView>;
 
   {
-    SplitView sv;
-    Iter current{5};
-    std::ranges::subrange next{Iter{6}, Iter{7}};
-    const SplitIter it{sv, current, next};
+    SplitView sv{std::ranges::subrange{Iter{5}, Iter{7}}, std::ranges::subrange{Iter{6}, Iter{7}}};
+    const SplitIter it = sv.begin();
     std::same_as<std::ranges::subrange<Iter>> decltype(auto) value = *it;
     assert(value.begin().i == 5);
     assert(value.end().i == 6);

@@ -34,8 +34,8 @@ struct ConstSent {
 
 struct Range : std::ranges::view_base {
   std::tuple<int>* begin() const;
-  Sent end();
-  ConstSent end() const;
+  constexpr Sent end() { return Sent{5}; }
+  constexpr ConstSent end() const { return ConstSent{5}; }
 };
 
 struct NonConvertConstSent {
@@ -72,7 +72,8 @@ constexpr bool test() {
     using ConstSentinel = std::ranges::sentinel_t<const R>;
     static_assert(!std::same_as<Sentinel, ConstSentinel>);
 
-    Sentinel s1(Sent{5});
+    R view{Range{}};
+    Sentinel s1 = view.end();
     ConstSentinel s2 = s1;
     assert(s2.base().i == 5);
   }

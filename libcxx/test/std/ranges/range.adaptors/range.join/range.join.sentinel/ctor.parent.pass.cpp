@@ -22,7 +22,7 @@ constexpr bool test() {
   CopyableChild children[4] = {CopyableChild(buffer[0]), CopyableChild(buffer[1]), CopyableChild(buffer[2]), CopyableChild(buffer[3])};
   CopyableParent parent{children};
   std::ranges::join_view jv(parent);
-  std::ranges::sentinel_t<decltype(jv)> sent(jv);
+  std::ranges::sentinel_t<decltype(jv)> sent = jv.end();
   assert(sent == std::ranges::next(jv.begin(), 16));
 
   return true;
@@ -35,7 +35,7 @@ int main(int, char**) {
   {
     // Test explicitness.
     using Parent = std::ranges::join_view<ParentView<ChildView>>;
-    static_assert( std::is_constructible_v<std::ranges::sentinel_t<Parent>, Parent&>);
+    static_assert(!std::is_constructible_v<std::ranges::sentinel_t<Parent>, Parent&>);
     static_assert(!std::is_convertible_v<std::ranges::sentinel_t<Parent>, Parent&>);
   }
 

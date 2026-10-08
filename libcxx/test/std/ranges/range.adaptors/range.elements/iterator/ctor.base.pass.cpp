@@ -20,7 +20,7 @@
 using BaseIter     = std::tuple<int>*;
 using ElementsIter = std::ranges::iterator_t<std::ranges::elements_view<std::ranges::subrange<BaseIter, BaseIter>, 0>>;
 
-static_assert(std::is_constructible_v<ElementsIter, BaseIter>);
+static_assert(!std::is_constructible_v<ElementsIter, BaseIter>);
 static_assert(!std::is_convertible_v<BaseIter, ElementsIter>);
 
 struct TracedMoveIter : IterBase<TracedMoveIter>{
@@ -34,13 +34,14 @@ struct TracedMoveIter : IterBase<TracedMoveIter>{
 };
 
 struct TracedMoveView : std::ranges::view_base {
-  TracedMoveIter begin() const;
-  TracedMoveIter end() const;
+  constexpr TracedMoveIter begin() const { return {}; }
+  constexpr TracedMoveIter end() const { return {}; }
 };
 
 constexpr bool test() {
   using Iter = std::ranges::iterator_t<std::ranges::elements_view<TracedMoveView, 0>>;
-  Iter iter{TracedMoveIter{}};
+  std::ranges::elements_view<TracedMoveView, 0> view{TracedMoveView{}};
+  Iter iter = view.begin();
   assert(iter.base().moved);
 
   return true;

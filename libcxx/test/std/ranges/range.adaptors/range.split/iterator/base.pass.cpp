@@ -28,32 +28,36 @@ constexpr bool test() {
 
   // const &
   {
-    SplitView sv;
-    const SplitIter it{sv, Iter{5}, {}};
+    Iter start{5};
+    SplitView sv{std::ranges::subrange{start, Iter{6}}, std::ranges::subrange{Iter{9}, Iter{10}}};
+    const SplitIter it = sv.begin();
     std::same_as<Iter> decltype(auto) base = it.base();
     assert(base.i == 5);
   }
 
   // &
   {
-    SplitView sv;
-    SplitIter it{sv, Iter{5}, {}};
+    Iter start{5};
+    SplitView sv{std::ranges::subrange{start, Iter{6}}, std::ranges::subrange{Iter{9}, Iter{10}}};
+    SplitIter it = sv.begin();
     std::same_as<Iter> decltype(auto) base = it.base();
     assert(base.i == 5);
   }
 
   // &&
   {
-    SplitView sv;
-    SplitIter it{sv, Iter{5}, {}};
+    Iter start{5};
+    SplitView sv{std::ranges::subrange{start, Iter{6}}, std::ranges::subrange{Iter{9}, Iter{10}}};
+    SplitIter it = sv.begin();
     std::same_as<Iter> decltype(auto) base = std::move(it).base();
     assert(base.i == 5);
   }
 
   // const &&
   {
-    SplitView sv;
-    const SplitIter it{sv, Iter{5}, {}};
+    Iter start{5};
+    SplitView sv{std::ranges::subrange{start, Iter{6}}, std::ranges::subrange{Iter{9}, Iter{10}}};
+    const SplitIter it = sv.begin();
     std::same_as<Iter> decltype(auto) base = std::move(it).base();
     assert(base.i == 5);
   }

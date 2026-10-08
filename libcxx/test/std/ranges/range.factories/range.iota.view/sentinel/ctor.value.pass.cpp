@@ -21,19 +21,21 @@ constexpr bool test() {
   {
     using Sent = std::ranges::sentinel_t<std::ranges::iota_view<int, IntSentinelWith<int>>>;
     using Iter = std::ranges::iterator_t<std::ranges::iota_view<int, IntSentinelWith<int>>>;
-    auto sent = Sent(IntSentinelWith<int>(42));
-    assert(sent == Iter(42));
+    auto view = std::ranges::iota_view<int, IntSentinelWith<int>>{42, IntSentinelWith<int>(42)};
+    auto sent = view.end();
+    assert(sent == view.begin());
   }
   {
     using Sent = std::ranges::sentinel_t<std::ranges::iota_view<SomeInt, IntSentinelWith<SomeInt>>>;
     using Iter = std::ranges::iterator_t<std::ranges::iota_view<SomeInt, IntSentinelWith<SomeInt>>>;
-    auto sent = Sent(IntSentinelWith<SomeInt>(SomeInt(42)));
-    assert(sent == Iter(SomeInt(42)));
+    auto view = std::ranges::iota_view<SomeInt, IntSentinelWith<SomeInt>>{SomeInt(42), IntSentinelWith<SomeInt>(SomeInt(42))};
+    auto sent = view.end();
+    assert(sent == view.begin());
   }
   {
     using Sent = std::ranges::sentinel_t<std::ranges::iota_view<SomeInt, IntSentinelWith<SomeInt>>>;
     static_assert(!std::is_convertible_v<Sent, IntSentinelWith<SomeInt>>);
-    static_assert( std::is_constructible_v<Sent, IntSentinelWith<SomeInt>>);
+    static_assert(!std::is_constructible_v<Sent, IntSentinelWith<SomeInt>>);
   }
 
   return true;

@@ -61,13 +61,12 @@ private:
 template <movable _Val, class _CharT, class _Traits>
   requires default_initializable<_Val> && __stream_extractable<_Val, _CharT, _Traits>
 class basic_istream_view<_Val, _CharT, _Traits>::__iterator {
+  friend class basic_istream_view;
 public:
   using iterator_concept = input_iterator_tag;
   using difference_type  = ptrdiff_t;
   using value_type       = _Val;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit __iterator(basic_istream_view<_Val, _CharT, _Traits>& __parent) noexcept
-      : __parent_(std::addressof(__parent)) {}
 
   __iterator(const __iterator&)                  = delete;
   _LIBCPP_HIDE_FROM_ABI __iterator(__iterator&&) = default;
@@ -89,6 +88,8 @@ public:
   }
 
 private:
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __iterator(basic_istream_view<_Val, _CharT, _Traits>& __parent) noexcept
+      : __parent_(std::addressof(__parent)) {}
   basic_istream_view<_Val, _CharT, _Traits>* __parent_;
 
   _LIBCPP_HIDE_FROM_ABI constexpr basic_istream<_CharT, _Traits>* __get_parent_stream() const {

@@ -18,7 +18,7 @@ static_assert(!std::is_constructible_v<InnerIterNonConst, OuterIterConst>);
 
 template <class Inner, class Outer>
 constexpr void test_impl() {
-  [[maybe_unused]] Inner i(Outer{});
+  static_assert(!std::is_constructible_v<Inner, Outer>);
   // Verify that the constructor is `explicit`.
   static_assert(!std::is_convertible_v<Outer, Inner>);
 }

@@ -37,13 +37,14 @@ void test() {
     assert(*it == 123);
   }
 
-  // LWG 3568. basic_istream_view needs to initialize value_
+  // begin extracts the first value before returning the iterator.
   {
     auto iss = make_string_stream<CharT>("123");
     std::ranges::basic_istream_view<int, CharT> isv{iss};
     using Iter = std::ranges::iterator_t<decltype(isv)>;
-    Iter iter{isv};
-    assert(*iter == 0);
+    static_assert(!std::is_constructible_v<Iter, decltype(isv)&>);
+    auto iter = isv.begin();
+    assert(*iter == 123);
   }
 }
 

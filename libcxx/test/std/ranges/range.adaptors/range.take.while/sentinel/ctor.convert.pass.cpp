@@ -33,8 +33,8 @@ struct ConstSent {
 
 struct Range : std::ranges::view_base {
   int* begin() const;
-  Sent end();
-  ConstSent end() const;
+  constexpr Sent end() { return Sent{5}; }
+  constexpr ConstSent end() const { return ConstSent{5}; }
 };
 
 struct Pred {
@@ -50,8 +50,8 @@ struct NonConvertConstSent {
 
 struct NonConvertConstSentRange : std::ranges::view_base {
   int* begin() const;
-  Sent end();
-  NonConvertConstSent end() const;
+  constexpr Sent end() { return Sent{5}; }
+  constexpr NonConvertConstSent end() const { return NonConvertConstSent{5}; }
 };
 
 // Test Constraint
@@ -75,7 +75,8 @@ constexpr bool test() {
     using ConstSentinel = std::ranges::sentinel_t<const R>;
     static_assert(!std::same_as<Sentinel, ConstSentinel>);
 
-    Sentinel s1(Sent{5}, nullptr);
+    R view{Range{}, +[](int){ return true; }};
+    Sentinel s1 = view.end();
     ConstSentinel s2 = s1;
     assert(s2.base().i == 5);
   }
@@ -95,7 +96,8 @@ constexpr bool test() {
 
     int i     = 10;
     int* iter = &i;
-    Sentinel s1(Sent{0}, &pred);
+    R view{Range{}, pred};
+    Sentinel s1 = view.end();
     ConstSentinel s2 = s1;
 
     [[maybe_unused]] bool b = iter == s2;
@@ -113,8 +115,8 @@ constexpr bool test() {
 
     struct Rng : std::ranges::view_base {
       int* begin() const;
-      Sent end();
-      MoveOnlyConvert end() const;
+      constexpr Sent end() { return Sent{5}; }
+      constexpr MoveOnlyConvert end() const { return MoveOnlyConvert{Sent{5}}; }
     };
 
     using R             = std::ranges::take_while_view<Rng, Pred>;
@@ -122,7 +124,8 @@ constexpr bool test() {
     using ConstSentinel = std::ranges::sentinel_t<const R>;
     static_assert(!std::same_as<Sentinel, ConstSentinel>);
 
-    Sentinel s1(Sent{5}, nullptr);
+    R view{Rng{}, Pred{}};
+    Sentinel s1 = view.end();
     ConstSentinel s2 = s1;
     assert(s2.base().i == 5);
   }

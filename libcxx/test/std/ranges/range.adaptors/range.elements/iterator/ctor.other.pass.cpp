@@ -35,11 +35,11 @@ struct ConvertibleIter : IterBase<ConvertibleIter<Const>> {
 
 template <class Iter, class ConstIter>
 struct BasicView : std::ranges::view_base {
-  Iter begin();
-  Iter end();
+  constexpr Iter begin() { if constexpr (std::is_constructible_v<Iter, int>) return Iter{5}; else return Iter{}; }
+  constexpr Iter end() { if constexpr (std::is_constructible_v<Iter, int>) return Iter{5}; else return Iter{}; }
 
-  ConstIter begin() const;
-  ConstIter end() const;
+  constexpr ConstIter begin() const { if constexpr (std::is_constructible_v<ConstIter, int>) return ConstIter{5}; else return ConstIter{}; }
+  constexpr ConstIter end() const { if constexpr (std::is_constructible_v<ConstIter, int>) return ConstIter{5}; else return ConstIter{}; }
 };
 
 template <class View>
@@ -57,7 +57,8 @@ static_assert(!std::is_constructible_v<ConstElemIter<NonConvertibleView>, ElemIt
 static_assert(!std::is_constructible_v<ElemIter<NonConvertibleView>, ConstElemIter<NonConvertibleView>>);
 
 constexpr bool test() {
-  ElemIter<ConvertibleView> iter{ConvertibleIter<false>{5}};
+  std::ranges::elements_view<ConvertibleView, 0> view{ConvertibleView{}};
+  ElemIter<ConvertibleView> iter = view.begin();
   ConstElemIter<ConvertibleView> constIter = iter; // implicit
   assert(constIter.base().movedFromOtherConst);
   assert(constIter.base().i == 5);

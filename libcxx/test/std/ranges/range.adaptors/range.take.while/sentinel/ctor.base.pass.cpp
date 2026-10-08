@@ -24,7 +24,7 @@ struct Sent {
 
 struct Range : std::ranges::view_base {
   int* begin() const;
-  Sent end();
+  constexpr Sent end() { return Sent{5}; }
 };
 
 struct Pred {
@@ -39,7 +39,7 @@ template <class T, class... Args>
 concept ImplicitlyConstructible = requires(Args&&... args) { conversion_test<T>({std::forward<Args>(args)...}); };
 static_assert(ImplicitlyConstructible<int, int>);
 
-static_assert(std::is_constructible_v<std::ranges::sentinel_t<std::ranges::take_while_view<Range, Pred>>,
+static_assert(!std::is_constructible_v<std::ranges::sentinel_t<std::ranges::take_while_view<Range, Pred>>,
                                       std::ranges::sentinel_t<Range>,
                                       const Pred*>);
 static_assert(!ImplicitlyConstructible<std::ranges::sentinel_t<std::ranges::take_while_view<Range, Pred>>,
@@ -52,7 +52,8 @@ constexpr bool test() {
     using R        = std::ranges::take_while_view<Range, bool (*)(int)>;
     using Sentinel = std::ranges::sentinel_t<R>;
 
-    Sentinel s1(Sent{5}, nullptr);
+    R view{Range{}, +[](int){ return true; }};
+    Sentinel s1 = view.end();
     assert(s1.base().i == 5);
   }
 
@@ -69,7 +70,8 @@ constexpr bool test() {
 
     int i     = 10;
     int* iter = &i;
-    Sentinel s(Sent{0}, &pred);
+    R view{Range{}, pred};
+    Sentinel s = view.end();
 
     bool b = iter == s;
     assert(called);
