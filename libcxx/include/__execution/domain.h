@@ -329,12 +329,19 @@ _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __transform_recurse(_Dom __dom, _
     return execution::__transformed_sndr(__dom, __tag, std::forward<_Sndr>(__sndr), __env);
   } else {
     decltype(auto) __s2 = execution::__transformed_sndr(__dom, __tag, std::forward<_Sndr>(__sndr), __env);
-    if constexpr (is_same_v<_Tag, start_t>) {
-      return execution::__transform_recurse(
-          execution::__start_domain(__env), __tag, std::forward<decltype(__s2)>(__s2), __env);
+    auto __next_dom     = [&] {
+      if constexpr (is_same_v<_Tag, start_t>)
+        return execution::__start_domain(__env);
+      else
+        return execution::__completion_domain(__s2, __env);
+    }();
+    using __next_t = decltype(execution::__transform_recurse(__next_dom, __tag, std::forward<decltype(__s2)>(__s2), __env));
+    if constexpr (!is_reference_v<__s2_t> && is_reference_v<__next_t>) {
+      // The recursion hands back the (forwarded) sender it was given, which here is the local __s2: return it by value.
+      return remove_cvref_t<__next_t>(
+          execution::__transform_recurse(__next_dom, __tag, std::forward<decltype(__s2)>(__s2), __env));
     } else {
-      return execution::__transform_recurse(
-          execution::__completion_domain(__s2, __env), __tag, std::forward<decltype(__s2)>(__s2), __env);
+      return execution::__transform_recurse(__next_dom, __tag, std::forward<decltype(__s2)>(__s2), __env);
     }
   }
 }
