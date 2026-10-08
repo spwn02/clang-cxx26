@@ -53,6 +53,18 @@ namespace execution {
 
 class parallel_scheduler;
 class __parallel_sender;
+struct bulk_chunked_t;
+struct bulk_unchunked_t;
+
+// The completion domain of schedule(parallel_scheduler). Bulk senders retain their
+// shape for the domain transform; their connect operation uses the bound backend.
+struct __parallel_scheduler_domain {
+  template <class _Tag, class _Sndr, class _Env>
+    requires(is_same_v<_Tag, bulk_chunked_t> || is_same_v<_Tag, bulk_unchunked_t>)
+  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) transform_sender(_Tag, _Sndr&& __sndr, const _Env&) const noexcept {
+    return std::forward<_Sndr>(__sndr);
+  }
+};
 
 // See docs/design/parallel_scheduler_p2079.md for the full design rationale. Intrusive
 // singly-linked task list, matching <__execution/run_loop.h>'s __run_loop_opstate_base shape
@@ -174,7 +186,10 @@ public:
   // [exec.sched]p6: the scheduler answers the completion queries of the attributes of schedule(*this) (also without an
   // environment).
   _LIBCPP_HIDE_FROM_ABI parallel_scheduler query(get_completion_scheduler_t<set_value_t>) const noexcept { return *this; }
-  _LIBCPP_HIDE_FROM_ABI default_domain query(get_completion_domain_t<set_value_t>) const noexcept { return {}; }
+  _LIBCPP_HIDE_FROM_ABI __parallel_scheduler_domain query(get_completion_domain_t<set_value_t>) const noexcept { return {}; }
+
+  _LIBCPP_HIDE_FROM_ABI shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
+  __get_backend() const noexcept { return __backend_; }
 
 private:
   friend _LIBCPP_HIDE_FROM_ABI parallel_scheduler get_parallel_scheduler();
@@ -187,13 +202,8 @@ private:
   shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend> __backend_;
 };
 
-// [exec.parallel.scheduler]p3: the environment of schedule(parallel-scheduler) answers
-// get_completion_scheduler<set_value_t> with the parallel_scheduler instance schedule() was
-// called on. <__execution/bulk.h>'s bulk_chunked_t probes this (Pass 2, see the design note)
-// to detect when it should dispatch across the pool instead of running inline -- the standard's
-// own domain-based transform_sender customization mechanism for this is not used by this fork's
-// senders (see <__execution/bulk.h>'s own comment), so this direct probe is the documented,
-// pragmatic replacement for it.
+// The schedule sender's completion attributes identify the scheduler whose
+// backend must receive subsequent bulk work.
 class __parallel_sndr_env {
 public:
   _LIBCPP_HIDE_FROM_ABI explicit __parallel_sndr_env(parallel_scheduler __sch) noexcept;
