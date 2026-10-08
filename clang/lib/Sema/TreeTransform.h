@@ -1168,7 +1168,9 @@ public:
   QualType RebuildDeducedTemplateSpecializationType(
       ElaboratedTypeKeyword Keyword, TemplateName Template, QualType Deduced) {
     return SemaRef.Context.getDeducedTemplateSpecializationType(
-        Keyword, Template, Deduced, /*IsDependent*/ false);
+        Keyword, Template, Deduced,
+        /*IsDependent=*/isa_and_nonnull<TemplateTemplateParmDecl>(
+            Template.getAsTemplateDecl()));
   }
 
   /// Build a new template specialization type.

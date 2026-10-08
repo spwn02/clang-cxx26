@@ -9294,6 +9294,13 @@ public:
   llvm::DenseMap<unsigned, CXXDeductionGuideDecl *>
       AggregateDeductionCandidates;
 
+  /// The alias templates synthesized for placeholders of deduced class type
+  /// that designate a type template template parameter, per (parameter,
+  /// template argument).
+  llvm::DenseMap<std::pair<const TemplateTemplateParmDecl *, const TemplateDecl *>,
+                 TypeAliasTemplateDecl *>
+      CTADTemplateTemplateParamAliases;
+
   bool IsStringInit(Expr *Init, const ArrayType *AT);
 
   /// Determine whether we can perform aggregate initialization for the purposes
@@ -13285,6 +13292,16 @@ public:
   FunctionTemplateDecl *DeclareAggregateDeductionGuideFromInitList(
       TemplateDecl *Template, MutableArrayRef<QualType> ParamTypes,
       SourceLocation Loc);
+
+  /// [over.match.class.deduct] (P3865R3): when the placeholder for a deduced
+  /// class type designates a type template template parameter P, the alias
+  /// template whose template parameter list is that of P and whose
+  /// defining-type-id is the template argument for P applied to the template
+  /// parameters of P is used instead of the template-name. Returns that alias
+  /// template for a substituted type template template parameter, or null.
+  TypeAliasTemplateDecl *
+  getDeducibleAliasForTemplateTemplateParameter(TemplateName Name,
+                                                SourceLocation Loc);
 
   ///@}
 

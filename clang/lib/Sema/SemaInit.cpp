@@ -10107,6 +10107,16 @@ QualType Sema::DeduceTemplateSpecializationFromInitializer(
   if (TemplateName.isDependent())
     return SubstAutoTypeSourceInfoDependent(TSInfo)->getType();
 
+  // [over.match.class.deduct] (P3865R3): the placeholder designates a type
+  // template template parameter, deduce through the alias template that applies
+  // the template argument to the template parameters of the parameter.
+  // (Before C++26 the placeholder deduces through the template argument itself.)
+  if (getLangOpts().CPlusPlus26)
+    if (TypeAliasTemplateDecl *ParamAlias =
+            getDeducibleAliasForTemplateTemplateParameter(
+                TemplateName, TSInfo->getTypeLoc().getBeginLoc()))
+      TemplateName = clang::TemplateName(ParamAlias);
+
   // We can only perform deduction for class templates or alias templates.
   auto *Template =
       dyn_cast_or_null<ClassTemplateDecl>(TemplateName.getAsTemplateDecl());
@@ -10114,7 +10124,9 @@ QualType Sema::DeduceTemplateSpecializationFromInitializer(
   if (!Template) {
     if (auto *AliasTemplate = dyn_cast_or_null<TypeAliasTemplateDecl>(
             TemplateName.getAsTemplateDecl())) {
-      DiagCompat(Kind.getLocation(), diag_compat::ctad_for_alias_templates);
+      // (The alias template synthesized for a template template parameter is not written by the user.)
+      if (!AliasTemplate->isImplicit())
+        DiagCompat(Kind.getLocation(), diag_compat::ctad_for_alias_templates);
       LookupTemplateDecl = AliasTemplate;
       auto UnderlyingType = AliasTemplate->getTemplatedDecl()
                                 ->getUnderlyingType()

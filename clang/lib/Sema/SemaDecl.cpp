@@ -582,7 +582,8 @@ ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
           SS ? SS->getScopeRep() : std::nullopt, /*TemplateKeyword=*/false,
           FoundUsingShadow ? TemplateName(FoundUsingShadow) : TemplateName(TD));
       QualType T = Context.getDeducedTemplateSpecializationType(
-          ElaboratedTypeKeyword::None, Template, QualType(), false);
+          ElaboratedTypeKeyword::None, Template, QualType(),
+          isa<TemplateTemplateParmDecl>(TD));
       auto TL = TLB.push<DeducedTemplateSpecializationTypeLoc>(T);
       TL.setElaboratedKeywordLoc(SourceLocation());
       TL.setNameLoc(NameLoc);

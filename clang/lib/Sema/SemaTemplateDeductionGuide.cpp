@@ -2194,6 +2194,75 @@ FunctionTemplateDecl *Sema::DeclareAggregateDeductionGuideFromInitList(
   return FTD;
 }
 
+TypeAliasTemplateDecl *Sema::getDeducibleAliasForTemplateTemplateParameter(
+    TemplateName Name, SourceLocation Loc) {
+  SubstTemplateTemplateParmStorage *Subst = Name.getAsSubstTemplateTemplateParm();
+  if (!Subst)
+    return nullptr;
+  TemplateTemplateParmDecl *Param = Subst->getParameter();
+  TemplateDecl *Replacement = Subst->getReplacement().getAsTemplateDecl();
+  if (!Param || !Replacement ||
+      !isa<ClassTemplateDecl, TypeAliasTemplateDecl>(Replacement))
+    return nullptr;
+
+  auto Key = std::make_pair(Param, Replacement);
+  if (auto It = CTADTemplateTemplateParamAliases.find(Key);
+      It != CTADTemplateTemplateParamAliases.end())
+    return It->second;
+
+  // The template parameter list is that of P, moved to the outermost depth.
+  DeclContext *DC = Context.getTranslationUnitDecl();
+  TemplateParameterList *ParamList = Param->getTemplateParameters();
+  unsigned OldDepth = Param->getDepth() + 1;
+  LocalInstantiationScope Scope(*this);
+  Sema::ArgPackSubstIndexRAII PackSubstReset(*this, std::nullopt);
+  SmallVector<NamedDecl *> NewParams;
+  SmallVector<TemplateArgument, 8> NewArgs(ParamList->size());
+  for (NamedDecl *TP : *ParamList) {
+    MultiLevelTemplateArgumentList Args;
+    Args.setKind(TemplateSubstitutionKind::Rewrite);
+    Args.addOuterTemplateArguments(NewArgs);
+    Args.addOuterRetainedLevels(OldDepth);
+    NamedDecl *NewParam = transformTemplateParameter(
+        *this, DC, TP, Args, /*NewIndex=*/NewParams.size(), /*NewDepth=*/0);
+    NewParams.push_back(NewParam);
+    NewArgs[NewParams.size() - 1] = Context.getInjectedTemplateArg(NewParam);
+  }
+
+  // The defining-type-id: the template argument applied to the template
+  // parameters of P.
+  TemplateArgumentListInfo ArgsInfo;
+  for (const TemplateArgument &Arg : NewArgs) {
+    // A template parameter pack is applied as the pack expansion it injects.
+    if (Arg.getKind() == TemplateArgument::Pack) {
+      for (const TemplateArgument &Element : Arg.pack_elements())
+        ArgsInfo.addArgument(
+            getTrivialTemplateArgumentLoc(Element, QualType(), Loc));
+      continue;
+    }
+    ArgsInfo.addArgument(getTrivialTemplateArgumentLoc(Arg, QualType(), Loc));
+  }
+  QualType Underlying = CheckTemplateIdType(
+      ElaboratedTypeKeyword::None, TemplateName(Replacement), Loc, ArgsInfo,
+      /*Scope=*/nullptr, /*ForNestedNameSpecifier=*/false);
+  if (Underlying.isNull())
+    return nullptr;
+
+  auto *NewList = TemplateParameterList::Create(
+      Context, ParamList->getTemplateLoc(), ParamList->getLAngleLoc(),
+      NewParams, ParamList->getRAngleLoc(), /*RequiresClause=*/nullptr);
+  auto *AliasDecl = TypeAliasDecl::Create(
+      Context, DC, Loc, Loc, Param->getIdentifier(),
+      Context.getTrivialTypeSourceInfo(Underlying, Loc));
+  AliasDecl->setImplicit();
+  auto *Alias = TypeAliasTemplateDecl::Create(Context, DC, Loc, Param->getDeclName(),
+                                             NewList, AliasDecl);
+  AliasDecl->setDescribedAliasTemplate(Alias);
+  Alias->setImplicit();
+  CTADTemplateTemplateParamAliases[Key] = Alias;
+  return Alias;
+}
+
 void Sema::DeclareImplicitDeductionGuides(TemplateDecl *Template,
                                           SourceLocation Loc) {
   if (auto *AliasTemplate = llvm::dyn_cast<TypeAliasTemplateDecl>(Template)) {

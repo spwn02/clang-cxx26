@@ -11423,7 +11423,8 @@ Sema::CheckTypenameType(ElaboratedTypeKeyword Keyword,
             QualifierLoc.getNestedNameSpecifier(), /*TemplateKeyword=*/false,
             TemplateName(TD));
         return Context.getDeducedTemplateSpecializationType(
-            Keyword, Name, /*DeducedType=*/QualType(), /*IsDependent=*/false);
+            Keyword, Name, /*DeducedType=*/QualType(),
+            /*IsDependent=*/isa<TemplateTemplateParmDecl>(TD));
       }
     }
 
