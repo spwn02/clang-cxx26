@@ -18116,9 +18116,13 @@ Decl *Sema::BuildStaticAssertDeclaration(SourceLocation StaticAssertLoc,
     // CWG2518
     // [dcl.pre]/p10  If [...] the expression is evaluated in the context of a
     // template definition, the declaration has no effect.
+    // The scope belongs to the parser: while a template is being instantiated
+    // (e.g. by a constant evaluation in the body of another template that is
+    // being parsed) it says nothing about the declaration being instantiated.
     bool InTemplateDefinition =
-        getLangOpts().CPlusPlus && (CurContext->isDependentContext() ||
-                                    CurScope->getTemplateParamParent());
+        getLangOpts().CPlusPlus &&
+        (CurContext->isDependentContext() ||
+         (!inTemplateInstantiation() && CurScope->getTemplateParamParent()));
 
     if (!Failed && !Cond && !InTemplateDefinition) {
       SmallString<256> MsgBuffer;
