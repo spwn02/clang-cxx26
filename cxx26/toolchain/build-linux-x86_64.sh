@@ -15,6 +15,11 @@ compiler_launcher="${CXX26_COMPILER_LAUNCHER:-}"
 
 rm -rf "${install_prefix}" "${build_dir}"
 
+# MPFR/GMP back the constexpr evaluation of the P1383R2 transcendental
+# <cmath> functions; they are linked statically (see build-mpfr-gmp.sh).
+mpfr_prefix="${CXX26_MPFR_PREFIX:-${build_dir}-mpfr-gmp}"
+"${repo_root}/cxx26/toolchain/build-mpfr-gmp.sh" "${mpfr_prefix}"
+
 runtime_components="cxx;cxxabi;unwind"
 # NOTE: "compiler-rt" itself must NOT appear in runtime_distribution_components:
 # it's already a full entry in LLVM_ENABLE_RUNTIMES, which makes the runtimes
@@ -39,6 +44,10 @@ fi
   -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX="${install_prefix}" \
+  -DMPFR_INCLUDE_DIR="${mpfr_prefix}/include" \
+  -DMPFR_LIBRARY="${mpfr_prefix}/lib/libmpfr.a" \
+  -DGMP_INCLUDE_DIR="${mpfr_prefix}/include" \
+  -DGMP_LIBRARY="${mpfr_prefix}/lib/libgmp.a" \
   -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" \
   -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind;compiler-rt" \
   -DLLVM_TARGETS_TO_BUILD="X86" \
@@ -76,8 +85,16 @@ fi
   -DLLVM_DISTRIBUTION_COMPONENTS="${distribution_components}" \
   "${launcher_args[@]}"
 
+if ! grep -q '#define CLANG_HAVE_MPFR 1' "${build_dir}/tools/clang/include/clang/Config/config.h"; then
+  echo "clang was configured without MPFR/GMP: no constexpr transcendental <cmath>" >&2
+  exit 1
+fi
+
 "${cmake_bin}" --build "${build_dir}" --target distribution --parallel "${jobs}"
 "${cmake_bin}" --build "${build_dir}" --target install-distribution --parallel "${jobs}"
+
+mkdir -p "${install_prefix}/share/clang-cxx26/licenses"
+cp -r "${mpfr_prefix}/share/licenses/." "${install_prefix}/share/clang-cxx26/licenses/"
 
 test -x "${install_prefix}/bin/clang"
 test -x "${install_prefix}/bin/clang++"

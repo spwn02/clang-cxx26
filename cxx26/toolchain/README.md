@@ -77,15 +77,17 @@ Ninja
 Python 3
 GNU tar
 zstd
-MPFR 4.2.2 development headers and library
-GMP development headers and library
+curl, xz, m4 and a C compiler (to build the pinned GMP/MPFR)
 ```
 
-Clang's constexpr `<cmath>` evaluator links against the system MPFR and GMP
-libraries. These are external build and runtime dependencies; the toolchain
-snapshot does not bundle or vendor either library. Install both development
-packages before building, and ensure the resulting MPFR/GMP shared libraries
-are available to the installed compiler at runtime.
+Clang's constexpr `<cmath>` evaluator (the P1383R2 transcendental functions)
+uses MPFR and GMP. `build-linux-x86_64.sh` builds the pinned GMP 6.3.0 and
+MPFR 4.2.1 releases (checksum-verified, `build-mpfr-gmp.sh`) as static
+position-independent libraries and links them into the compiler, so the
+snapshot has no MPFR/GMP runtime dependency and the build fails if clang was
+configured without them. Set `CXX26_MPFR_PREFIX` to reuse a prebuilt prefix.
+GMP and MPFR are LGPL-licensed (GMP: LGPLv3 or GPLv2+; MPFR: LGPLv3+); the
+sources are the unmodified upstream tarballs named in `build-mpfr-gmp.sh`.
 
 From the repository root:
 
