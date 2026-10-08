@@ -285,6 +285,11 @@ floating_point fmin (arithmetic x, arithmetic y);
 float          fminf(float x, float y);
 long double    fminl(long double x, long double y);
 
+floating_point fmaximum (arithmetic x, arithmetic y);                      // C++26
+floating_point fmaximum_num (arithmetic x, arithmetic y);                  // C++26
+floating_point fminimum (arithmetic x, arithmetic y);                      // C++26
+floating_point fminimum_num (arithmetic x, arithmetic y);                  // C++26
+
 double         hermite(unsigned n, double x);                    // C++17
 float          hermite(unsigned n, float x);                     // C++17
 long double    hermite(unsigned n, long double x);               // C++17
@@ -368,6 +373,14 @@ long double    nextafterl(long double x, long double y);
 floating_point nexttoward (arithmetic x, long double y);
 float          nexttowardf(float x, long double y);
 long double    nexttowardl(long double x, long double y);
+
+floating_point nextup (arithmetic x);                                                         // C++26
+float          nextupf(float x);                                                              // C++26
+long double    nextupl(long double x);                                                        // C++26
+
+floating_point nextdown (arithmetic x);                                                       // C++26
+float          nextdownf(float x);                                                            // C++26
+long double    nextdownl(long double x);                                                      // C++26
 
 floating_point remainder (arithmetic x, arithmetic y);
 float          remainderf(float x, float y);
@@ -649,6 +662,24 @@ using __math::fmin;
 using ::fmin _LIBCPP_USING_IF_EXISTS;
 #  endif
 using ::fminf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 26
+using __math::fmaximum;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double fmaximum(double __x, double __y) _NOEXCEPT {
+  return __math::fmaximum(__x, __y);
+}
+using __math::fmaximum_num;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double fmaximum_num(double __x, double __y) _NOEXCEPT {
+  return __math::fmaximum_num(__x, __y);
+}
+using __math::fminimum;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double fminimum(double __x, double __y) _NOEXCEPT {
+  return __math::fminimum(__x, __y);
+}
+using __math::fminimum_num;
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double fminimum_num(double __x, double __y) _NOEXCEPT {
+  return __math::fminimum_num(__x, __y);
+}
+#  endif
 using ::hypot _LIBCPP_USING_IF_EXISTS;
 using ::hypotf _LIBCPP_USING_IF_EXISTS;
 #  if _LIBCPP_STD_VER >= 23
@@ -732,6 +763,14 @@ _LIBCPP_HIDE_FROM_ABI constexpr double nexttoward(double __x, long double __y) _
 using ::nexttoward _LIBCPP_USING_IF_EXISTS;
 #  endif
 using ::nexttowardf _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 26
+using __math::nextup;
+_LIBCPP_HIDE_FROM_ABI constexpr double nextup(double __x) _NOEXCEPT { return __builtin_nextafter(__x, __builtin_inf()); }
+using __math::nextdown;
+_LIBCPP_HIDE_FROM_ABI constexpr double nextdown(double __x) _NOEXCEPT { return __builtin_nextafter(__x, -__builtin_inf()); }
+using ::nextupf _LIBCPP_USING_IF_EXISTS;
+using ::nextdownf _LIBCPP_USING_IF_EXISTS;
+#  endif
 #  if _LIBCPP_STD_VER >= 23
 using __math::remainder;
 using __math::remquo;
@@ -853,6 +892,10 @@ using ::nanl _LIBCPP_USING_IF_EXISTS;
 using ::nearbyintl _LIBCPP_USING_IF_EXISTS;
 using ::nextafterl _LIBCPP_USING_IF_EXISTS;
 using ::nexttowardl _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 26
+using ::nextupl _LIBCPP_USING_IF_EXISTS;
+using ::nextdownl _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::remainderl _LIBCPP_USING_IF_EXISTS;
 using ::remquol _LIBCPP_USING_IF_EXISTS;
 using ::rintl _LIBCPP_USING_IF_EXISTS;

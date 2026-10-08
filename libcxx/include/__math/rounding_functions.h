@@ -207,6 +207,46 @@ inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 double nexttoward(_A1
   return __builtin_nexttoward((double)__x, __y);
 }
 
+// nextup
+
+#if _LIBCPP_STD_VER >= 26
+inline _LIBCPP_HIDE_FROM_ABI constexpr float nextup(float __x) _NOEXCEPT { return __builtin_nextafterf(__x, __builtin_inf()); }
+
+template <class = int>
+_LIBCPP_HIDE_FROM_ABI constexpr double nextup(double __x) _NOEXCEPT {
+  return __builtin_nextafter(__x, __builtin_inf());
+}
+
+inline _LIBCPP_HIDE_FROM_ABI constexpr long double nextup(long double __x) _NOEXCEPT {
+  return __builtin_nextafterl(__x, __builtin_inf());
+}
+
+template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI constexpr double nextup(_A1 __x) _NOEXCEPT {
+  return __builtin_nextafter((double)__x, __builtin_inf());
+}
+#endif // _LIBCPP_STD_VER >= 26
+
+// nextdown
+
+#if _LIBCPP_STD_VER >= 26
+inline _LIBCPP_HIDE_FROM_ABI constexpr float nextdown(float __x) _NOEXCEPT { return __builtin_nextafterf(__x, -__builtin_inf()); }
+
+template <class = int>
+_LIBCPP_HIDE_FROM_ABI constexpr double nextdown(double __x) _NOEXCEPT {
+  return __builtin_nextafter(__x, -__builtin_inf());
+}
+
+inline _LIBCPP_HIDE_FROM_ABI constexpr long double nextdown(long double __x) _NOEXCEPT {
+  return __builtin_nextafterl(__x, -__builtin_inf());
+}
+
+template <class _A1, __enable_if_t<is_integral<_A1>::value, int> = 0>
+inline _LIBCPP_HIDE_FROM_ABI constexpr double nextdown(_A1 __x) _NOEXCEPT {
+  return __builtin_nextafter((double)__x, -__builtin_inf());
+}
+#endif // _LIBCPP_STD_VER >= 26
+
 // rint
 
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 float rint(float __x) _NOEXCEPT {

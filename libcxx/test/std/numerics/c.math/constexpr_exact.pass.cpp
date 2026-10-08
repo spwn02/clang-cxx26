@@ -11,7 +11,7 @@
 // <cmath>
 
 // P0533R9: the functions of <cmath> whose results are exactly computable are constexpr in C++23.
-// (div/ldiv/lldiv and the C-named float/long double variants are not covered yet.)
+// (div/ldiv/lldiv are not constexpr; the C-named float/long double variants are covered by constexpr_c_names.pass.cpp.)
 
 #include <cmath>
 #include <type_traits>

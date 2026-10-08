@@ -201,6 +201,11 @@ floating_point fmin (arithmetic x, arithmetic y);
 float          fminf(float x, float y);
 long double    fminl(long double x, long double y);
 
+floating_point fmaximum (arithmetic x, arithmetic y);                      // C++26
+floating_point fmaximum_num (arithmetic x, arithmetic y);                  // C++26
+floating_point fminimum (arithmetic x, arithmetic y);                      // C++26
+floating_point fminimum_num (arithmetic x, arithmetic y);                  // C++26
+
 floating_point hypot (arithmetic x, arithmetic y);
 float          hypotf(float x, float y);
 long double    hypotl(long double x, long double y);
@@ -256,6 +261,14 @@ long double    nextafterl(long double x, long double y);
 floating_point nexttoward (arithmetic x, long double y);
 float          nexttowardf(float x, long double y);
 long double    nexttowardl(long double x, long double y);
+
+floating_point nextup (arithmetic x);                                                         // C++26
+float          nextupf(float x);                                                              // C++26
+long double    nextupl(long double x);                                                        // C++26
+
+floating_point nextdown (arithmetic x);                                                       // C++26
+float          nextdownf(float x);                                                            // C++26
+long double    nextdownl(long double x);                                                      // C++26
 
 floating_point remainder (arithmetic x, arithmetic y);
 float          remainderf(float x, float y);
@@ -477,6 +490,12 @@ using std::__math::floor;
 using std::__math::fma;
 using std::__math::fmax;
 using std::__math::fmin;
+#  if _LIBCPP_STD_VER >= 26
+using std::__math::fmaximum;
+using std::__math::fmaximum_num;
+using std::__math::fminimum;
+using std::__math::fminimum_num;
+#  endif
 using std::__math::fmod;
 using std::__math::frexp;
 using std::__math::hypot;
@@ -496,6 +515,10 @@ using std::__math::modf;
 using std::__math::nearbyint;
 using std::__math::nextafter;
 using std::__math::nexttoward;
+#  if _LIBCPP_STD_VER >= 26
+using std::__math::nextup;
+using std::__math::nextdown;
+#  endif
 using std::__math::pow;
 using std::__math::remainder;
 using std::__math::remquo;

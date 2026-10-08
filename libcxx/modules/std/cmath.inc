@@ -229,6 +229,13 @@ export namespace std {
   using std::nexttowardf _LIBCPP_USING_IF_EXISTS;
   using std::nexttowardl _LIBCPP_USING_IF_EXISTS;
 
+  using std::nextup _LIBCPP_USING_IF_EXISTS;
+  using std::nextupf _LIBCPP_USING_IF_EXISTS;
+  using std::nextupl _LIBCPP_USING_IF_EXISTS;
+  using std::nextdown _LIBCPP_USING_IF_EXISTS;
+  using std::nextdownf _LIBCPP_USING_IF_EXISTS;
+  using std::nextdownl _LIBCPP_USING_IF_EXISTS;
+
   using std::fdim _LIBCPP_USING_IF_EXISTS;
   using std::fdimf _LIBCPP_USING_IF_EXISTS;
   using std::fdiml _LIBCPP_USING_IF_EXISTS;
@@ -240,6 +247,11 @@ export namespace std {
   using std::fmin _LIBCPP_USING_IF_EXISTS;
   using std::fminf _LIBCPP_USING_IF_EXISTS;
   using std::fminl _LIBCPP_USING_IF_EXISTS;
+
+  using std::fmaximum _LIBCPP_USING_IF_EXISTS;
+  using std::fmaximum_num _LIBCPP_USING_IF_EXISTS;
+  using std::fminimum _LIBCPP_USING_IF_EXISTS;
+  using std::fminimum_num _LIBCPP_USING_IF_EXISTS;
 
   using std::fma _LIBCPP_USING_IF_EXISTS;
   using std::fmaf _LIBCPP_USING_IF_EXISTS;
