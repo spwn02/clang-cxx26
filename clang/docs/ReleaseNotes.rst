@@ -256,7 +256,13 @@ Resolutions to C++ Defect Reports
   ``basic_const_iterator`` are provided, and ``lazy_split_view`` handles
   consuming its final input element. Updated ``__cpp_lib_constexpr_string``
   to ``202511L`` per LWG 4531.
+- Implemented CWG3159: an incomplete array variable's definition is
+  instantiated when its bound is needed to determine an expression's type,
+  even if the variable is not odr-used.
 
+- Implemented `CWG3046 <https://cplusplus.github.io/CWG/issues/3046.html>`_:
+  layout-compatible enumeration types must have the same underlying type and
+  the same enumerator values. This also affects common initial sequences.
 C Language Changes
 ------------------
 

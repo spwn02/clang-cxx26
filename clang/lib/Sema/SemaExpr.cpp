@@ -537,6 +537,11 @@ ExprResult Sema::DefaultFunctionArrayConversion(Expr *E, bool Diagnose) {
     E = ImpCastExprToType(E, Context.getPointerType(Ty),
                           CK_FunctionToPointerDecay).get();
   } else if (Ty->isArrayType()) {
+    // CWG3159: forming the type of the result of array-to-pointer conversion
+    // can require instantiating the array's definition to complete its bound,
+    // even when the array is not odr-used (for example, in decltype).
+    if (getLangOpts().CPlusPlus && Ty->isIncompleteArrayType())
+      Ty = getCompletedType(E);
     // In C90 mode, arrays only promote to pointers if the array expression is
     // an lvalue.  The relevant legalese is C90 6.2.2.1p3: "an lvalue that has
     // type 'array of type' is converted to an expression that has type 'pointer

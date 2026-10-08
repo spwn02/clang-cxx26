@@ -7637,11 +7637,22 @@ static bool isLayoutCompatible(const ASTContext &C, QualType T1, QualType T2);
 /// Check if two enumeration types are layout-compatible.
 static bool isLayoutCompatible(const ASTContext &C, const EnumDecl *ED1,
                                const EnumDecl *ED2) {
-  // C++11 [dcl.enum] p8:
-  // Two enumeration types are layout-compatible if they have the same
-  // underlying type.
-  return ED1->isComplete() && ED2->isComplete() &&
-         C.hasSameType(ED1->getIntegerType(), ED2->getIntegerType());
+  // CWG3046 [dcl.enum]: the underlying types and sets of enumerator values
+  // must both match. Repeated values and declaration order do not matter.
+  if (!ED1->isComplete() || !ED2->isComplete() ||
+      !C.hasSameType(ED1->getIntegerType(), ED2->getIntegerType()))
+    return false;
+
+  auto HasSameValues = [](const EnumDecl *A, const EnumDecl *B) {
+    return llvm::all_of(A->enumerators(), [B](const EnumConstantDecl *EA) {
+      return llvm::any_of(B->enumerators(),
+                          [EA](const EnumConstantDecl *EB) {
+                            return llvm::APSInt::isSameValue(EA->getInitVal(),
+                                                              EB->getInitVal());
+                          });
+    });
+  };
+  return HasSameValues(ED1, ED2) && HasSameValues(ED2, ED1);
 }
 
 /// Check if two fields are layout-compatible.
