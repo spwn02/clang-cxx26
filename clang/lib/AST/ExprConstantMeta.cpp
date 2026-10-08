@@ -7522,11 +7522,20 @@ static Decl *scopeAtPoint(Decl *Ctx, SourceLocation Point, ASTContext &C) {
 // closures, but their evaluation point inhabits the enclosing scope. Stop at
 // an ordinary lambda (or any other declaration context).
 static Decl *skipConstevalBlockScopes(Decl *Ctx) {
-  while (auto *Method = dyn_cast<CXXMethodDecl>(Ctx)) {
-    auto *Closure = Method->getParent();
-    if (!Closure->isConstevalBlock())
+  while (true) {
+    if (auto *Method = dyn_cast<CXXMethodDecl>(Ctx)) {
+      auto *Closure = Method->getParent();
+      if (!Closure->isConstevalBlock())
+        break;
+      Ctx = cast<Decl>(Closure->getDeclContext());
+      continue;
+    }
+    // The body of an expansion statement, the body of a requires-expression,
+    // a linkage specification, ... are declaration contexts that are not
+    // entities: the scope of the evaluation point is the enclosing entity.
+    if (isa<NamedDecl, TranslationUnitDecl>(Ctx))
       break;
-    Ctx = cast<Decl>(Closure->getDeclContext());
+    Ctx = cast<Decl>(Ctx->getDeclContext());
   }
   return Ctx;
 }
