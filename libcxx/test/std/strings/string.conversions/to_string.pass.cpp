@@ -25,6 +25,20 @@
 #include "parse_integer.h"
 #include "test_macros.h"
 
+#if TEST_STD_VER >= 26
+static_assert(std::to_string(0) == "0");
+static_assert(std::to_string(-42) == "-42");
+static_assert(std::to_string(std::numeric_limits<int>::min()) == "-2147483648");
+static_assert(std::to_string(std::numeric_limits<int>::max()) == "2147483647");
+static_assert(std::to_string(std::numeric_limits<unsigned>::max()) == "4294967295");
+static_assert(std::to_string(std::numeric_limits<long>::min()) == "-9223372036854775808");
+static_assert(std::to_string(std::numeric_limits<long>::max()) == "9223372036854775807");
+static_assert(std::to_string(std::numeric_limits<unsigned long>::max()) == "18446744073709551615");
+static_assert(std::to_string(std::numeric_limits<long long>::min()) == "-9223372036854775808");
+static_assert(std::to_string(std::numeric_limits<long long>::max()) == "9223372036854775807");
+static_assert(std::to_string(std::numeric_limits<unsigned long long>::max()) == "18446744073709551615");
+#endif
+
 template <class T>
 void test_signed() {
   {
