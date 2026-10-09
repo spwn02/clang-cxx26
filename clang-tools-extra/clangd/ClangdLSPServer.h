@@ -204,6 +204,10 @@ private:
   LSPBinder::OutgoingNotification<ProgressParams<WorkDoneProgressEnd>>
       EndWorkDoneProgress;
   LSPBinder::OutgoingMethod<NoParams, std::nullptr_t> SemanticTokensRefresh;
+  // Asks the client to tell us about changes to module units and compilation
+  // databases on disk (only if the client can register for them).
+  LSPBinder::OutgoingMethod<RegistrationParams, std::nullptr_t>
+      RegisterWatchedFiles;
 
   void applyEdit(WorkspaceEdit WE, llvm::json::Value Success,
                  Callback<llvm::json::Value> Reply);

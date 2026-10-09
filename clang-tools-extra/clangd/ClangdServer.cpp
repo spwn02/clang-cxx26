@@ -938,8 +938,24 @@ void ClangdServer::outgoingCalls(
 }
 
 void ClangdServer::onFileEvent(const DidChangeWatchedFilesParams &Params) {
-  // FIXME: Do nothing for now. This will be used for indexing and potentially
-  // invalidating other caches.
+  // A module unit or a compilation database changed on disk. The open files
+  // that import the module unit (or are built with the changed commands) have
+  // to be checked again: their preambles are only reused while the module files
+  // they were built with are still valid.
+  // FIXME: Use this for indexing and for invalidating other caches too.
+  if (!ModulesManager)
+    return;
+  bool Relevant = false;
+  for (const FileEvent &Event : Params.changes) {
+    llvm::StringRef Path = Event.uri.file();
+    llvm::StringRef Ext = llvm::sys::path::extension(Path);
+    llvm::StringRef Name = llvm::sys::path::filename(Path);
+    if (Ext == ".ixx" || Ext == ".cppm" || Ext == ".cxxm" || Ext == ".c++m" ||
+        Name == "compile_commands.json" || Name == "compile_flags.txt")
+      Relevant = true;
+  }
+  if (Relevant)
+    reparseOpenFilesIfNeeded([](llvm::StringRef) { return true; });
 }
 
 void ClangdServer::workspaceSymbols(

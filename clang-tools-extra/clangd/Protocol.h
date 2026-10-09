@@ -558,6 +558,10 @@ struct ClientCapabilities {
   /// server to the client.
   bool SemanticTokenRefreshSupport = false;
 
+  /// Client supports dynamic registration of workspace/didChangeWatchedFiles.
+  /// workspace.didChangeWatchedFiles.dynamicRegistration
+  bool DidChangeWatchedFilesDynamicRegistration = false;
+
   /// The client supports versioned document changes for WorkspaceEdit.
   bool DocumentChanges = false;
   
@@ -834,6 +838,23 @@ struct DidChangeWatchedFilesParams {
 };
 bool fromJSON(const llvm::json::Value &, DidChangeWatchedFilesParams &,
               llvm::json::Path);
+
+/// A request to the client to start sending file events for files that match
+/// glob patterns (client/registerCapability for
+/// workspace/didChangeWatchedFiles).
+struct FileSystemWatcher {
+  /// The glob pattern to watch, e.g. "**/*.cppm".
+  std::string globPattern;
+};
+struct DidChangeWatchedFilesRegistration {
+  std::vector<FileSystemWatcher> watchers;
+};
+struct RegistrationParams {
+  /// Identifies the registration (and would be used to unregister it).
+  std::string id;
+  DidChangeWatchedFilesRegistration options;
+};
+llvm::json::Value toJSON(const RegistrationParams &);
 
 struct DidChangeConfigurationParams {
   ConfigurationSettings settings;

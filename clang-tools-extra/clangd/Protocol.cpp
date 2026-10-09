@@ -481,6 +481,10 @@ bool fromJSON(const llvm::json::Value &Params, ClientCapabilities &R,
       if (auto RefreshSupport = SemanticTokens->getBoolean("refreshSupport"))
         R.SemanticTokenRefreshSupport = *RefreshSupport;
     }
+    if (auto *Watched = Workspace->getObject("didChangeWatchedFiles")) {
+      if (auto Dynamic = Watched->getBoolean("dynamicRegistration"))
+        R.DidChangeWatchedFilesDynamicRegistration = *Dynamic;
+    }
     if (auto *WorkspaceEdit = Workspace->getObject("workspaceEdit")) {
       if (auto DocumentChanges = WorkspaceEdit->getBoolean("documentChanges"))
         R.DocumentChanges = *DocumentChanges;
@@ -997,6 +1001,19 @@ bool fromJSON(const llvm::json::Value &Params, TweakArgs &A,
 llvm::json::Value toJSON(const TweakArgs &A) {
   return llvm::json::Object{
       {"tweakID", A.tweakID}, {"selection", A.selection}, {"file", A.file}};
+}
+
+llvm::json::Value toJSON(const RegistrationParams &Params) {
+  llvm::json::Array Watchers;
+  for (const FileSystemWatcher &W : Params.options.watchers)
+    Watchers.push_back(llvm::json::Object{{"globPattern", W.globPattern}});
+  return llvm::json::Object{
+      {"registrations",
+       llvm::json::Array{llvm::json::Object{
+           {"id", Params.id},
+           {"method", "workspace/didChangeWatchedFiles"},
+           {"registerOptions",
+            llvm::json::Object{{"watchers", std::move(Watchers)}}}}}}};
 }
 
 llvm::json::Value toJSON(const ApplyWorkspaceEditParams &Params) {

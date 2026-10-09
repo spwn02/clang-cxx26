@@ -709,7 +709,24 @@ void ClangdLSPServer::onInitialize(const InitializeParams &Params,
   applyConfiguration(Params.initializationOptions.ConfigSettings);
 }
 
-void ClangdLSPServer::onInitialized(const InitializedParams &Params) {}
+void ClangdLSPServer::onInitialized(const InitializedParams &Params) {
+  // Module units change on disk without the files being open (a branch switch,
+  // another editor, a generator), and a module unit that is open elsewhere in
+  // the workspace may have importers that are open here. Ask the client to
+  // watch them.
+  if (RegisterWatchedFiles) {
+    RegistrationParams Registration;
+    Registration.id = "clangd-watch-modules";
+    for (llvm::StringRef Glob :
+         {"**/*.{ixx,cppm,cxxm,c++m}", "**/compile_commands.json",
+          "**/compile_flags.txt"})
+      Registration.options.watchers.push_back({Glob.str()});
+    RegisterWatchedFiles(Registration, [](llvm::Expected<std::nullptr_t> E) {
+      if (!E)
+        elog("Failed to register for file events: {0}", E.takeError());
+    });
+  }
+}
 
 void ClangdLSPServer::onShutdown(const NoParams &,
                                  Callback<std::nullptr_t> Reply) {
@@ -1743,6 +1760,9 @@ void ClangdLSPServer::bindMethods(LSPBinder &Bind,
   EndWorkDoneProgress = Bind.outgoingNotification("$/progress");
   if(Caps.SemanticTokenRefreshSupport)
     SemanticTokensRefresh = Bind.outgoingMethod("workspace/semanticTokens/refresh");
+  if (Caps.DidChangeWatchedFilesDynamicRegistration &&
+      Opts.EnableExperimentalModulesSupport)
+    RegisterWatchedFiles = Bind.outgoingMethod("client/registerCapability");
   // clang-format on
 }
 

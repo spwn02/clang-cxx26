@@ -14,10 +14,13 @@
 #include "Annotations.h"
 #include "CodeComplete.h"
 #include "Compiler.h"
+#include "ClangdServer.h"
 #include "ModulesBuilder.h"
 #include "ScanningProjectModules.h"
+#include "SyncAPI.h"
 #include "TestTU.h"
 #include "support/ThreadsafeFS.h"
+#include "support/Path.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
@@ -467,6 +470,62 @@ TEST_F(PrerequisiteModulesTests, ScansOfUnchangedFilesAreKeptBetweenRequests) {
     Info->adjustHeaderSearchOptions(HSOpts);
     EXPECT_FALSE(HSOpts.PrebuiltModuleFiles.count("Late"));
   }
+}
+
+// Records the errors of the last diagnostics of each file.
+class ErrorRecorder : public ClangdServer::Callbacks {
+public:
+  void onDiagnosticsReady(PathRef File, llvm::StringRef Version,
+                          llvm::ArrayRef<Diag> Diagnostics) override {
+    std::lock_guard<std::mutex> Lock(Mutex);
+    std::vector<std::string> &Errors = Last[File];
+    Errors.clear();
+    for (const Diag &D : Diagnostics)
+      if (D.Severity >= DiagnosticsEngine::Error)
+        Errors.push_back(D.Message);
+  }
+
+  std::vector<std::string> errors(PathRef File) {
+    std::lock_guard<std::mutex> Lock(Mutex);
+    return Last[File];
+  }
+
+private:
+  std::mutex Mutex;
+  llvm::StringMap<std::vector<std::string>> Last;
+};
+
+TEST_F(PrerequisiteModulesTests, EditsOfAModuleUnitReachItsOpenImporters) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("M.cppm", "export module M;\nexport int g();\n");
+  CDB.addFile("Use.cpp", "import M;\nint f() { return g(); }\n");
+
+  ModulesBuilder Builder(CDB);
+  ClangdServer::Options Opts = ClangdServer::optsForTest();
+  Opts.ModulesManager = &Builder;
+  ErrorRecorder Recorder;
+  ClangdServer Server(CDB, FS, Opts, &Recorder);
+
+  std::string UsePath = getFullPath("Use.cpp");
+  runAddDocument(Server, UsePath, "import M;\nint f() { return g(); }\n");
+  EXPECT_THAT(Recorder.errors(UsePath), ::testing::IsEmpty());
+
+  // The module unit is edited on disk (and saved by the editor): g is gone.
+  CDB.addFile("M.cppm", "export module M;\nexport int hh();\n");
+  Server.reparseOpenFilesIfNeeded([](llvm::StringRef) { return true; });
+  ASSERT_TRUE(Server.blockUntilIdleForTest());
+  EXPECT_THAT(Recorder.errors(UsePath), ::testing::Not(::testing::IsEmpty()));
+
+  // A change that the editor reports as a file event (another tool, a branch
+  // switch) reaches the importer too.
+  CDB.addFile("M.cppm", "export module M;\nexport int g();\nexport int h2();\n");
+  DidChangeWatchedFilesParams Event;
+  Event.changes.push_back(
+      {URIForFile::canonicalize(getFullPath("M.cppm"), TestDir),
+       FileChangeType::Changed});
+  Server.onFileEvent(Event);
+  ASSERT_TRUE(Server.blockUntilIdleForTest());
+  EXPECT_THAT(Recorder.errors(UsePath), ::testing::IsEmpty());
 }
 
 TEST_F(PrerequisiteModulesTests, ModuleWithoutDepTest) {
