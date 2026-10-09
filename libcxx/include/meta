@@ -884,7 +884,8 @@ struct front_parameter_of_fn {
 
 #endif  // __has_feature(parameter_reflection)
 
-// TODO(CXX26): Guard on feature flag.
+// Annotations are part of C++26 reflection ([meta.reflection.annotation]); -freflection-latest enables them together
+// with the rest, so there is no separate feature to guard on.
 
 struct next_annotation_of {
   consteval info operator()(auto /*currItrInfo */, info reflectedEntity,
