@@ -25,6 +25,7 @@
 #include <__execution/movable_value.h>
 #include <__execution/operation_state.h>
 #include <__execution/parallel_scheduler.h>
+#include <__execution/policies.h>
 #include <__execution/system_context_replaceability.h>
 #include <__execution/task_scheduler.h>
 #include <__execution/receiver.h>

@@ -390,6 +390,7 @@ set(files
   __execution/on.h
   __execution/operation_state.h
   __execution/parallel_scheduler.h
+  __execution/policies.h
   __execution/queryable.h
   __execution/read_env.h
   __execution/receiver.h

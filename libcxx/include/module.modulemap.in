@@ -2322,6 +2322,7 @@ module std [system] {
     module on                             { header "__execution/on.h" export * }
     module operation_state                { header "__execution/operation_state.h" export * }
     module parallel_scheduler             { header "__execution/parallel_scheduler.h" export * }
+    module policies                       { header "__execution/policies.h" export * }
     module queryable                      { header "__execution/queryable.h" export * }
     module read_env                       { header "__execution/read_env.h" export * }
     module receiver                       { header "__execution/receiver.h" export * }
