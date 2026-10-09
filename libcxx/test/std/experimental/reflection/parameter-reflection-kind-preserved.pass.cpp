@@ -19,7 +19,7 @@
 // kind when TreeTransform synthesizes expansion statement bodies. A source
 // reflection ^^param instead represents the parameter variable (P3096R12).
 
-#include <experimental/meta>
+#include <meta>
 #include <vector>
 
 int fn(int a, double b);

@@ -74,6 +74,12 @@ def public_headers(include_dir):
         p = os.path.join(include_dir, e)
         if os.path.isfile(p) and not e.startswith(('_', '.')) and '.' not in e and e not in ('version',):
             names.append(e)
+    # Technical-specification headers: none is in the draft, so every one has to be allow-listed with its TS reference.
+    exp = os.path.join(include_dir, 'experimental')
+    if os.path.isdir(exp):
+        for e in sorted(os.listdir(exp)):
+            if os.path.isfile(os.path.join(exp, e)) and not e.startswith(('_', '.')) and '.' not in e:
+                names.append('experimental/' + e)
     return names
 
 
@@ -140,6 +146,9 @@ def main():
         for line in r.stdout.splitlines():
             q = line.strip()
             if not q.startswith('std'):
+                continue
+            # std::experimental is the Technical Specifications' namespace; its headers are audited as headers.
+            if q.startswith('std::experimental'):
                 continue
             comps = q.split('::')
             if any(reserved(c) or '(' in c or '<' in c or c.startswith(('operator', '~')) for c in comps):

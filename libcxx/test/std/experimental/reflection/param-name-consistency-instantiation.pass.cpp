@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 // ADDITIONAL_COMPILE_FLAGS: -freflection-latest -fparameter-reflection -Wno-unused-parameter -Wno-deprecated-declarations
 
-// <experimental/meta>
+// <meta>
 
 // RUN: %{build}
 // RUN: %{exec} %t.exe
@@ -19,7 +19,7 @@
 // not change the answer. The consistency walk goes through the template
 // pattern's full declaration chain.
 
-#include <experimental/meta>
+#include <meta>
 #include <string_view>
 
 using namespace std::meta;

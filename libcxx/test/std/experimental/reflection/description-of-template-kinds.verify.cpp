@@ -14,7 +14,7 @@
 // A failing metafunction throws std::meta::exception; the constant evaluator
 // adds the reason as a "reflection failure" note (spwn02/clang-cxx26#126).
 
-#include <experimental/meta>
+#include <meta>
 
 consteval std::meta::info find_builtin_template() {
   for (auto m : std::meta::members_of(

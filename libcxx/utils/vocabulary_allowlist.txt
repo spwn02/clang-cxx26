@@ -5,3 +5,13 @@
 header codecvt      # [depr.locale.stdcvt] before C++26
 # Deprecated, but still part of the standard.
 header strstream    # [depr.strstream], Annex D
+#
+# Technical Specification headers (namespace std::experimental), none of them is part of the C++ draft.
+header experimental/iterator       # Library Fundamentals TS v2, [iterator.ostream.joiner] (ostream_joiner)
+header experimental/memory         # Library Fundamentals TS v2, [memory.observer.ptr] (observer_ptr)
+header experimental/propagate_const # Library Fundamentals TS v2, [propagate_const]
+header experimental/simd           # Parallelism TS v2, [parallel.simd] (the draft has <simd> for the C++26 version)
+header experimental/type_traits    # Library Fundamentals TS v1/v2, [meta] (detected idiom, is_detected, ...)
+header experimental/utility        # Library Fundamentals TS v1, [utility] (erased_type)
+header experimental/scope          # Library Fundamentals TS v3, [scopeguard], [exception.scope.guard], [unique.resource]
+macro __cpp_lib_experimental_scope # Library Fundamentals TS v3, SD-6 table of the TS

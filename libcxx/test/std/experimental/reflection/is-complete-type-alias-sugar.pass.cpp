@@ -23,7 +23,7 @@
 // its direct spelling first flipped the answer: order-dependent results.
 // The members_of family always desugared; is_complete_type was the gap.
 
-#include <experimental/meta>
+#include <meta>
 
 template <class T> struct Box { T v; };
 

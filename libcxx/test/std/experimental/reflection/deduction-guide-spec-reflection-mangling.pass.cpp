@@ -23,7 +23,7 @@
 // mangleUnqualifiedName and hit "Can't mangle a deduction guide name!".
 // Distinct specializations must also mangle DISTINCTLY (no linker folding).
 
-#include <experimental/meta>
+#include <meta>
 
 namespace demo {
 template <class T> struct Box { Box(T); };

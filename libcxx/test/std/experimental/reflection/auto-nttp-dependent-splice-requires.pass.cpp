@@ -22,7 +22,7 @@
 // model and trip "dyn_cast on a non-existent value" at parse time. The
 // classification now falls back to the splice's own value kind.
 
-#include <experimental/meta>
+#include <meta>
 
 template <auto> struct probe;
 template <long double> struct probe_fixed;

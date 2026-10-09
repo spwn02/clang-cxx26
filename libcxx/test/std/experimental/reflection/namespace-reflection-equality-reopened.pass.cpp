@@ -29,7 +29,7 @@
 // dealias distinction): canonicalization is to the alias's own first
 // declaration, not to its target.
 
-#include <experimental/meta>
+#include <meta>
 
 // A namespace declared once.
 namespace single {

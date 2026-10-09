@@ -1158,7 +1158,6 @@ set(files
   experimental/__simd/vec_ext.h
   experimental/iterator
   experimental/memory
-  experimental/meta
   experimental/propagate_const
   experimental/scope
   experimental/simd
