@@ -104,7 +104,6 @@ module;
 #include <ratio>
 #include <rcu>
 #include <regex>
-#include <scope>
 #include <scoped_allocator>
 #include <semaphore>
 #include <set>

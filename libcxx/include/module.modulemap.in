@@ -4082,11 +4082,6 @@ module std [system] {
     export std.iterator.reverse_iterator
   }
 
-  module scope {
-    header "scope"
-    export *
-  }
-
   module scoped_allocator {
     header "scoped_allocator"
     export *
@@ -4643,6 +4638,10 @@ module std [system] {
     }
     module propagate_const {
       header "experimental/propagate_const"
+      export *
+    }
+    module scope {
+      header "experimental/scope"
       export *
     }
     module type_traits {

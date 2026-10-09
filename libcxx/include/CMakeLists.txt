@@ -1160,6 +1160,7 @@ set(files
   experimental/memory
   experimental/meta
   experimental/propagate_const
+  experimental/scope
   experimental/simd
   experimental/type_traits
   experimental/utility
@@ -1212,7 +1213,6 @@ set(files
   ratio
   rcu
   regex
-  scope
   scoped_allocator
   semaphore
   set

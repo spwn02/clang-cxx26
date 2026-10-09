@@ -1,0 +1,447 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_EXPERIMENTAL_SCOPE
+#define _LIBCPP_EXPERIMENTAL_SCOPE
+
+/*
+    experimental/scope synopsis
+
+// C++20
+
+#include <functional>
+#include <type_traits>
+
+namespace std::experimental::inline fundamentals_v3 {
+
+  // Scope guards and unique_resource of P0052R10, as specified by
+  // [scopeguard] of the Library Fundamentals TS, version 3 (ISO/IEC TS 19568:2024).
+  // They are not part of the C++ International Standard.
+  template <class EF>
+    class scope_exit;
+  template <class EF>
+    class scope_fail;
+  template <class EF>
+    class scope_success;
+
+  template <class R, class D>
+    class unique_resource;
+
+  template <class R, class D, class S = decay_t<R>>
+    unique_resource<decay_t<R>, decay_t<D>>
+      make_unique_resource_checked(R&& r, const S& invalid, D&& d) noexcept(see below);
+
+} // namespace std::experimental::inline fundamentals_v3
+
+#define __cpp_lib_experimental_scope 201902L
+
+*/
+
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
+
+#  if _LIBCPP_STD_VER >= 20
+
+#    include <exception>
+#    include <functional>
+#    include <type_traits>
+#    include <utility>
+
+_LIBCPP_PUSH_MACROS
+#    include <__undef_macros>
+
+#    define __cpp_lib_experimental_scope 201902L
+
+_LIBCPP_BEGIN_NAMESPACE_LFTS_V3
+
+// [scopeguard.exit]
+template <class _EF>
+class scope_exit;
+template <class _EF>
+class scope_fail;
+template <class _EF>
+class scope_success;
+
+// The three guards share one implementation; __kind selects when the exit function is called.
+enum class __scope_guard_kind { __exit, __fail, __success };
+
+template <class _EF, __scope_guard_kind _Kind>
+class __scope_guard {
+  _EF __exit_function_;
+  bool __execute_on_destruction_{true};
+  int __uncaught_on_creation_{std::uncaught_exceptions()};
+
+  template <class _EFP>
+  _LIBCPP_HIDE_FROM_ABI static _EF __make(_EFP&& __f) {
+    if constexpr (!is_lvalue_reference_v<_EFP> && is_nothrow_constructible_v<_EF, _EFP>)
+      return _EF(std::forward<_EFP>(__f));
+    else
+      return _EF(__f);
+  }
+
+public:
+  template <class _EFP>
+    requires(!is_same_v<remove_cvref_t<_EFP>, __scope_guard> && is_constructible_v<_EF, _EFP>)
+  _LIBCPP_HIDE_FROM_ABI explicit __scope_guard(_EFP&& __f) noexcept(
+      is_nothrow_constructible_v<_EF, _EFP> || is_nothrow_constructible_v<_EF, _EFP&>)
+      : __exit_function_(__construct(std::forward<_EFP>(__f))) {}
+
+  _LIBCPP_HIDE_FROM_ABI __scope_guard(__scope_guard&& __rhs) noexcept(
+      is_nothrow_move_constructible_v<_EF> || is_nothrow_copy_constructible_v<_EF>)
+    requires(is_nothrow_move_constructible_v<_EF> || is_copy_constructible_v<_EF>)
+      : __exit_function_(__move_or_copy(__rhs)),
+        __execute_on_destruction_(__rhs.__execute_on_destruction_),
+        __uncaught_on_creation_(__rhs.__uncaught_on_creation_) {
+    __rhs.release();
+  }
+
+  __scope_guard(const __scope_guard&)            = delete;
+  __scope_guard& operator=(const __scope_guard&) = delete;
+  __scope_guard& operator=(__scope_guard&&)      = delete;
+
+  _LIBCPP_HIDE_FROM_ABI ~__scope_guard() noexcept(_Kind == __scope_guard_kind::__success
+                                                      ? noexcept(std::declval<_EF&>()())
+                                                      : true) {
+    if constexpr (_Kind == __scope_guard_kind::__exit) {
+      if (__execute_on_destruction_)
+        __exit_function_();
+    } else if constexpr (_Kind == __scope_guard_kind::__fail) {
+      if (__execute_on_destruction_ && std::uncaught_exceptions() > __uncaught_on_creation_)
+        __exit_function_();
+    } else {
+      if (__execute_on_destruction_ && std::uncaught_exceptions() <= __uncaught_on_creation_)
+        __exit_function_();
+    }
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void release() noexcept { __execute_on_destruction_ = false; }
+
+private:
+  // Initialization of the exit function: for scope_exit and scope_fail the function is called if
+  // that initialization throws; scope_success does not call it.
+  template <class _EFP>
+  _LIBCPP_HIDE_FROM_ABI static _EF __construct(_EFP&& __f) {
+    if constexpr (_Kind == __scope_guard_kind::__success) {
+      return __make(std::forward<_EFP>(__f));
+    } else {
+#    if _LIBCPP_HAS_EXCEPTIONS
+      try {
+        return __make(std::forward<_EFP>(__f));
+      } catch (...) {
+        __f();
+        throw;
+      }
+#    else
+      return __make(std::forward<_EFP>(__f));
+#    endif
+    }
+  }
+
+  _LIBCPP_HIDE_FROM_ABI static _EF __move_or_copy(__scope_guard& __rhs) {
+    if constexpr (is_nothrow_move_constructible_v<_EF>)
+      return _EF(std::forward<_EF>(__rhs.__exit_function_));
+    else
+      return _EF(__rhs.__exit_function_);
+  }
+};
+
+template <class _EF>
+class scope_exit : public __scope_guard<_EF, __scope_guard_kind::__exit> {
+  using __base = __scope_guard<_EF, __scope_guard_kind::__exit>;
+
+public:
+  using __base::__base;
+};
+template <class _EF>
+scope_exit(_EF) -> scope_exit<_EF>;
+
+template <class _EF>
+class scope_fail : public __scope_guard<_EF, __scope_guard_kind::__fail> {
+  using __base = __scope_guard<_EF, __scope_guard_kind::__fail>;
+
+public:
+  using __base::__base;
+};
+template <class _EF>
+scope_fail(_EF) -> scope_fail<_EF>;
+
+template <class _EF>
+class scope_success : public __scope_guard<_EF, __scope_guard_kind::__success> {
+  using __base = __scope_guard<_EF, __scope_guard_kind::__success>;
+
+public:
+  using __base::__base;
+};
+template <class _EF>
+scope_success(_EF) -> scope_success<_EF>;
+
+// [scopeguard.uniqueres]
+template <class _R, class _D>
+class unique_resource;
+
+template <class _R, class _D, class _S = decay_t<_R>>
+_LIBCPP_HIDE_FROM_ABI unique_resource<decay_t<_R>, decay_t<_D>>
+make_unique_resource_checked(_R&& __resource, const _S& __invalid, _D&& __d) noexcept(
+    is_nothrow_constructible_v<decay_t<_R>, _R> && is_nothrow_constructible_v<decay_t<_D>, _D>);
+
+template <class _R, class _D>
+class unique_resource {
+  using __r1 = conditional_t<is_reference_v<_R>, reference_wrapper<remove_reference_t<_R>>, _R>;
+
+  __r1 __resource_;
+  _D __deleter_;
+  bool __execute_on_reset_{true};
+
+  _LIBCPP_HIDE_FROM_ABI decltype(auto) __get_resource() noexcept {
+    if constexpr (is_reference_v<_R>)
+      return __resource_.get();
+    else
+      return (__resource_);
+  }
+  _LIBCPP_HIDE_FROM_ABI decltype(auto) __get_resource() const noexcept {
+    if constexpr (is_reference_v<_R>)
+      return __resource_.get();
+    else
+      return (__resource_);
+  }
+
+public:
+  _LIBCPP_HIDE_FROM_ABI unique_resource()
+    requires(is_default_constructible_v<_R> && is_default_constructible_v<_D>)
+      : __resource_(), __deleter_(), __execute_on_reset_(false) {}
+
+  template <class _RR, class _DD>
+    requires(is_constructible_v<__r1, _RR> && is_constructible_v<_D, _DD> &&
+             (is_nothrow_constructible_v<__r1, _RR> || is_constructible_v<__r1, _RR&>) &&
+             (is_nothrow_constructible_v<_D, _DD> || is_constructible_v<_D, _DD&>))
+  _LIBCPP_HIDE_FROM_ABI unique_resource(_RR&& __r, _DD&& __d) noexcept(
+      (is_nothrow_constructible_v<__r1, _RR> || is_nothrow_constructible_v<__r1, _RR&>) &&
+      (is_nothrow_constructible_v<_D, _DD> || is_nothrow_constructible_v<_D, _DD&>))
+      : unique_resource(__tag{}, std::forward<_RR>(__r), std::forward<_DD>(__d), true) {}
+
+  _LIBCPP_HIDE_FROM_ABI unique_resource(unique_resource&& __rhs) noexcept(
+      is_nothrow_move_constructible_v<__r1> && is_nothrow_move_constructible_v<_D>)
+      : __resource_(__move_or_copy_member(__rhs.__resource_)),
+        __deleter_(__init_deleter_from_move(__rhs)),
+        __execute_on_reset_(std::exchange(__rhs.__execute_on_reset_, false)) {}
+
+  _LIBCPP_HIDE_FROM_ABI ~unique_resource() { reset(); }
+
+  _LIBCPP_HIDE_FROM_ABI unique_resource& operator=(unique_resource&& __rhs) noexcept(
+      is_nothrow_move_assignable_v<__r1> && is_nothrow_move_assignable_v<_D>) {
+    reset();
+    if constexpr (is_nothrow_move_assignable_v<__r1>) {
+      if constexpr (is_nothrow_move_assignable_v<_D>) {
+        __resource_ = std::move(__rhs.__resource_);
+        __deleter_  = std::move(__rhs.__deleter_);
+      } else {
+        __deleter_  = __rhs.__deleter_;
+        __resource_ = std::move(__rhs.__resource_);
+      }
+    } else {
+      if constexpr (is_nothrow_move_assignable_v<_D>) {
+        __resource_ = __rhs.__resource_;
+        __deleter_  = std::move(__rhs.__deleter_);
+      } else {
+        __resource_ = __rhs.__resource_;
+        __deleter_  = __rhs.__deleter_;
+      }
+    }
+    __execute_on_reset_ = std::exchange(__rhs.__execute_on_reset_, false);
+    return *this;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void reset() noexcept {
+    if (__execute_on_reset_) {
+      __execute_on_reset_ = false;
+      __deleter_(__get_resource());
+    }
+  }
+
+  template <class _RR>
+    requires(is_nothrow_assignable_v<__r1&, _RR> ? is_assignable_v<__r1&, _RR>
+                                                  : is_assignable_v<__r1&, const remove_cvref_t<_RR>&>)
+  _LIBCPP_HIDE_FROM_ABI void reset(_RR&& __r) {
+    static_assert(requires(_D& __d) { __d(__r); }, "the deleter must be callable with the new resource");
+    reset();
+#    if _LIBCPP_HAS_EXCEPTIONS
+    try {
+      __assign_resource(std::forward<_RR>(__r));
+    } catch (...) {
+      __deleter_(__r);
+      throw;
+    }
+#    else
+    __assign_resource(std::forward<_RR>(__r));
+#    endif
+    __execute_on_reset_ = true;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void release() noexcept { __execute_on_reset_ = false; }
+
+  _LIBCPP_HIDE_FROM_ABI const _R& get() const noexcept { return __get_resource(); }
+
+  _LIBCPP_HIDE_FROM_ABI add_lvalue_reference_t<remove_pointer_t<_R>> operator*() const noexcept
+    requires(is_pointer_v<_R> && !is_void_v<remove_pointer_t<_R>>)
+  {
+    return *get();
+  }
+
+  _LIBCPP_HIDE_FROM_ABI _R operator->() const noexcept
+    requires is_pointer_v<_R>
+  {
+    return get();
+  }
+
+  _LIBCPP_HIDE_FROM_ABI const _D& get_deleter() const noexcept { return __deleter_; }
+
+private:
+  struct __tag {};
+
+  // The resource is initialized first and the deleter second; when an initialization throws,
+  // the deleter is called for the resource unless __call_deleter_on_failure is false.
+  template <class _RR, class _DD>
+  _LIBCPP_HIDE_FROM_ABI unique_resource(__tag, _RR&& __r, _DD&& __d, bool __execute) noexcept(
+      (is_nothrow_constructible_v<__r1, _RR> || is_nothrow_constructible_v<__r1, _RR&>) &&
+      (is_nothrow_constructible_v<_D, _DD> || is_nothrow_constructible_v<_D, _DD&>))
+      : __resource_(__init_resource(std::forward<_RR>(__r), __d, __execute)),
+        __deleter_(__init_deleter(std::forward<_DD>(__d), __resource_, __execute)),
+        __execute_on_reset_(__execute) {}
+
+  template <class _R2, class _D2, class _S2>
+  friend unique_resource<decay_t<_R2>, decay_t<_D2>> make_unique_resource_checked(_R2&&, const _S2&, _D2&&) noexcept(
+      is_nothrow_constructible_v<decay_t<_R2>, _R2> && is_nothrow_constructible_v<decay_t<_D2>, _D2>);
+
+  template <class _RR>
+  _LIBCPP_HIDE_FROM_ABI void __assign_resource(_RR&& __r) {
+    if constexpr (is_nothrow_assignable_v<__r1&, _RR>)
+      __resource_ = std::forward<_RR>(__r);
+    else
+      __resource_ = std::as_const(__r);
+  }
+
+  // If the initialization of the resource throws, the deleter is called with the argument.
+  template <class _RR, class _DD>
+  _LIBCPP_HIDE_FROM_ABI static __r1 __init_resource(_RR&& __r, _DD& __d, bool __call_deleter_on_failure) {
+#    if _LIBCPP_HAS_EXCEPTIONS
+    try {
+      if constexpr (is_nothrow_constructible_v<__r1, _RR>)
+        return __r1(std::forward<_RR>(__r));
+      else
+        return __r1(__r);
+    } catch (...) {
+      if (__call_deleter_on_failure)
+        __d(__r);
+      throw;
+    }
+#    else
+    (void)__d;
+    (void)__call_deleter_on_failure;
+    if constexpr (is_nothrow_constructible_v<__r1, _RR>)
+      return __r1(std::forward<_RR>(__r));
+    else
+      return __r1(__r);
+#    endif
+  }
+
+  // If the initialization of the deleter throws, it is called with the (initialized) resource.
+  template <class _DD>
+  _LIBCPP_HIDE_FROM_ABI static _D __init_deleter(_DD&& __d, __r1& __res, bool __call_deleter_on_failure) {
+#    if _LIBCPP_HAS_EXCEPTIONS
+    try {
+      if constexpr (is_nothrow_constructible_v<_D, _DD>)
+        return _D(std::forward<_DD>(__d));
+      else
+        return _D(__d);
+    } catch (...) {
+      if (__call_deleter_on_failure)
+        __d(__unwrap(__res));
+      throw;
+    }
+#    else
+    (void)__res;
+    (void)__call_deleter_on_failure;
+    if constexpr (is_nothrow_constructible_v<_D, _DD>)
+      return _D(std::forward<_DD>(__d));
+    else
+      return _D(__d);
+#    endif
+  }
+
+  _LIBCPP_HIDE_FROM_ABI static decltype(auto) __unwrap(__r1& __res) noexcept {
+    if constexpr (is_reference_v<_R>)
+      return __res.get();
+    else
+      return (__res);
+  }
+
+  _LIBCPP_HIDE_FROM_ABI static __r1 __move_or_copy_member(__r1& __m) {
+    if constexpr (is_nothrow_move_constructible_v<__r1>)
+      return __r1(std::move(__m));
+    else
+      return __r1(__m);
+  }
+
+  _LIBCPP_HIDE_FROM_ABI static _D __init_deleter_from_move(unique_resource& __rhs) {
+#    if _LIBCPP_HAS_EXCEPTIONS
+    try {
+      if constexpr (is_nothrow_move_constructible_v<_D>)
+        return _D(std::move(__rhs.__deleter_));
+      else
+        return _D(__rhs.__deleter_);
+    } catch (...) {
+      if constexpr (is_nothrow_move_constructible_v<__r1>) {
+        if (__rhs.__execute_on_reset_) {
+          __rhs.__deleter_(__unwrap(__rhs.__resource_));
+          __rhs.release();
+        }
+      }
+      throw;
+    }
+#    else
+    if constexpr (is_nothrow_move_constructible_v<_D>)
+      return _D(std::move(__rhs.__deleter_));
+    else
+      return _D(__rhs.__deleter_);
+#    endif
+  }
+};
+
+template <class _R, class _D>
+unique_resource(_R, _D) -> unique_resource<_R, _D>;
+
+template <class _R, class _D, class _S>
+_LIBCPP_HIDE_FROM_ABI unique_resource<decay_t<_R>, decay_t<_D>>
+make_unique_resource_checked(_R&& __resource, const _S& __invalid, _D&& __d) noexcept(
+    is_nothrow_constructible_v<decay_t<_R>, _R> && is_nothrow_constructible_v<decay_t<_D>, _D>) {
+  static_assert(requires { (__resource == __invalid ? true : false); },
+                "the expression (resource == invalid ? true : false) must be well-formed");
+  const bool __execute = !bool(__resource == __invalid);
+  return unique_resource<decay_t<_R>, decay_t<_D>>(
+      typename unique_resource<decay_t<_R>, decay_t<_D>>::__tag{},
+      std::forward<_R>(__resource),
+      std::forward<_D>(__d),
+      __execute);
+}
+
+_LIBCPP_END_NAMESPACE_LFTS_V3
+
+_LIBCPP_POP_MACROS
+
+#  endif // _LIBCPP_STD_VER >= 20
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+
+#endif // _LIBCPP_EXPERIMENTAL_SCOPE

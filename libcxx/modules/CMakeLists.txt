@@ -87,7 +87,6 @@ set(LIBCXX_MODULE_STD_SOURCES
   std/simd.inc
   std/regex.inc
   std/scoped_allocator.inc
-  std/scope.inc
   std/semaphore.inc
   std/set.inc
   std/shared_mutex.inc
