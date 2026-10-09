@@ -482,6 +482,10 @@ void Sema::DiagnoseSentinelCalls(const NamedDecl *D, SourceLocation Loc,
     return;
   if (Context.isSentinelNullExpr(SentinelExpr))
     return;
+  // NULL is a literal in C++ (LWG4182) and has the width of a pointer, so it is
+  // still a correct sentinel.
+  if (isNULLMacroLiteral(SentinelExpr->IgnoreParens()))
+    return;
 
   // Pick a reasonable string to insert.  Optimistically use 'nil', 'nullptr',
   // or 'NULL' if those are actually defined in the context.  Only use
@@ -506,6 +510,30 @@ void Sema::DiagnoseSentinelCalls(const NamedDecl *D, SourceLocation Loc,
         << FixItHint::CreateInsertion(MissingNilLoc, ", " + NullValue);
   Diag(D->getLocation(), diag::note_sentinel_here)
       << int(CalleeKind) << Attr->getRange();
+}
+
+bool Sema::isNULLMacroLiteral(const Expr *E) const {
+  if (!getLangOpts().CPlusPlus)
+    return false;
+  const auto *IL = dyn_cast<IntegerLiteral>(E);
+  if (!IL || !IL->getValue().isZero() ||
+      Context.getTypeSize(IL->getType()) !=
+          Context.getTypeSize(Context.VoidPtrTy) ||
+      !IL->getBeginLoc().isMacroID())
+    return false;
+  // The literal has to be spelled in the definition of the NULL macro (also
+  // when the macro is used through the arguments of other macros).
+  const MacroInfo *MI =
+      PP.getMacroInfo(&PP.getIdentifierTable().get("NULL"));
+  if (!MI)
+    return false;
+  SourceLocation Spelling = SourceMgr.getSpellingLoc(IL->getBeginLoc());
+  SourceLocation Begin = MI->getDefinitionLoc(),
+                 End = MI->getDefinitionEndLoc();
+  return Begin.isValid() && End.isValid() &&
+         SourceMgr.isWrittenInSameFile(Begin, Spelling) &&
+         !SourceMgr.isBeforeInTranslationUnit(Spelling, Begin) &&
+         !SourceMgr.isBeforeInTranslationUnit(End, Spelling);
 }
 
 SourceRange Sema::getExprRange(Expr *E) const {
@@ -10919,8 +10947,10 @@ static void checkArithmeticNull(Sema &S, ExprResult &LHS, ExprResult &RHS,
   // The canonical way to check for a GNU null is with isNullPointerConstant,
   // but we use a bit of a hack here for speed; this is a relatively
   // hot path, and isNullPointerConstant is slow.
-  bool LHSNull = isa<GNUNullExpr>(LHS.get()->IgnoreParenImpCasts());
-  bool RHSNull = isa<GNUNullExpr>(RHS.get()->IgnoreParenImpCasts());
+  const Expr *LHSE = LHS.get()->IgnoreParenImpCasts();
+  const Expr *RHSE = RHS.get()->IgnoreParenImpCasts();
+  bool LHSNull = isa<GNUNullExpr>(LHSE) || S.isNULLMacroLiteral(LHSE);
+  bool RHSNull = isa<GNUNullExpr>(RHSE) || S.isNULLMacroLiteral(RHSE);
 
   QualType NonNullType = LHSNull ? RHS.get()->getType() : LHS.get()->getType();
 

@@ -717,7 +717,7 @@ void Sema::diagnoseZeroToNullptrConversion(CastKind Kind, const Expr *E) {
   const Expr *EStripped = E->IgnoreParenImpCasts();
   if (EStripped->getType()->isNullPtrType())
     return;
-  if (isa<GNUNullExpr>(EStripped))
+  if (isa<GNUNullExpr>(EStripped) || isNULLMacroLiteral(EStripped))
     return;
 
   if (Diags.isIgnored(diag::warn_zero_as_null_pointer_constant,

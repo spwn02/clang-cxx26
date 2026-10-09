@@ -12632,7 +12632,7 @@ static void DiagnoseNullConversion(Sema &S, Expr *E, QualType T,
 
   // Check for NULL (GNUNull) or nullptr (CXX11_nullptr).
   const Expr *NewE = E->IgnoreParenImpCasts();
-  bool IsGNUNullExpr = isa<GNUNullExpr>(NewE);
+  bool IsGNUNullExpr = isa<GNUNullExpr>(NewE) || S.isNULLMacroLiteral(NewE);
   bool HasNullPtrType = NewE->getType()->isNullPtrType();
   if (!IsGNUNullExpr && !HasNullPtrType)
     return;

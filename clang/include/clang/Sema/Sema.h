@@ -15889,6 +15889,12 @@ public:
                                              SourceLocation Loc) const;
   std::string getFixItZeroLiteralForType(QualType T, SourceLocation Loc) const;
 
+  /// Whether \p E (parentheses and implicit casts already ignored) is the
+  /// integer literal zero that the NULL macro expands to in C++, where NULL is
+  /// a literal with the width of a pointer (LWG4182) instead of __null. The
+  /// diagnostics that treat __null as a null constant treat it the same way.
+  bool isNULLMacroLiteral(const Expr *E) const;
+
   ///@}
 
   /// \name Function Effects

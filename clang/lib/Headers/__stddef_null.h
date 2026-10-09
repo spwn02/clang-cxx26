@@ -17,8 +17,16 @@
 #undef NULL
 
 #ifdef __cplusplus
-#if !defined(__MINGW32__) && !defined(_MSC_VER)
-#define NULL __null
+/* [support.types.nullptr]: NULL is an implementation-defined null pointer
+ * constant that is a literal (LWG4182); __null is a keyword, not a literal.
+ * The literal has the width of a pointer, like __null, so that it can still be
+ * passed through a variable argument list as a sentinel. */
+#if defined(__MINGW32__) || defined(_MSC_VER)
+#define NULL 0
+#elif __SIZEOF_POINTER__ == __SIZEOF_LONG__
+#define NULL 0L
+#elif __SIZEOF_POINTER__ == __SIZEOF_LONG_LONG__
+#define NULL 0LL
 #else
 #define NULL 0
 #endif
