@@ -2968,11 +2968,17 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++17"
 #  endif
 
-#  ifndef __cpp_lib_execution
-#    error "__cpp_lib_execution should be defined in c++17"
-#  endif
-#  if __cpp_lib_execution != 201603L
-#    error "__cpp_lib_execution should have the value 201603L in c++17"
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#    ifndef __cpp_lib_execution
+#      error "__cpp_lib_execution should be defined in c++17"
+#    endif
+#    if __cpp_lib_execution != 201603L
+#      error "__cpp_lib_execution should have the value 201603L in c++17"
+#    endif
+#  else
+#    ifdef __cpp_lib_execution
+#      error "__cpp_lib_execution should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
+#    endif
 #  endif
 
 #  ifdef __cpp_lib_expected
@@ -4565,11 +4571,17 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++20"
 #  endif
 
-#  ifndef __cpp_lib_execution
-#    error "__cpp_lib_execution should be defined in c++20"
-#  endif
-#  if __cpp_lib_execution != 201902L
-#    error "__cpp_lib_execution should have the value 201902L in c++20"
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#    ifndef __cpp_lib_execution
+#      error "__cpp_lib_execution should be defined in c++20"
+#    endif
+#    if __cpp_lib_execution != 201902L
+#      error "__cpp_lib_execution should have the value 201902L in c++20"
+#    endif
+#  else
+#    ifdef __cpp_lib_execution
+#      error "__cpp_lib_execution should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
+#    endif
 #  endif
 
 #  ifdef __cpp_lib_expected
@@ -6333,11 +6345,17 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++23"
 #  endif
 
-#  ifndef __cpp_lib_execution
-#    error "__cpp_lib_execution should be defined in c++23"
-#  endif
-#  if __cpp_lib_execution != 201902L
-#    error "__cpp_lib_execution should have the value 201902L in c++23"
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#    ifndef __cpp_lib_execution
+#      error "__cpp_lib_execution should be defined in c++23"
+#    endif
+#    if __cpp_lib_execution != 201902L
+#      error "__cpp_lib_execution should have the value 201902L in c++23"
+#    endif
+#  else
+#    ifdef __cpp_lib_execution
+#      error "__cpp_lib_execution should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
+#    endif
 #  endif
 
 #  ifndef __cpp_lib_expected
@@ -8368,11 +8386,17 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++26"
 #  endif
 
-#  ifndef __cpp_lib_execution
-#    error "__cpp_lib_execution should be defined in c++26"
-#  endif
-#  if __cpp_lib_execution != 201902L
-#    error "__cpp_lib_execution should have the value 201902L in c++26"
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
+#    ifndef __cpp_lib_execution
+#      error "__cpp_lib_execution should be defined in c++26"
+#    endif
+#    if __cpp_lib_execution != 201902L
+#      error "__cpp_lib_execution should have the value 201902L in c++26"
+#    endif
+#  else
+#    ifdef __cpp_lib_execution
+#      error "__cpp_lib_execution should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
+#    endif
 #  endif
 
 #  ifndef __cpp_lib_expected

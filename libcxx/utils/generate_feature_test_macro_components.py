@@ -655,6 +655,8 @@ feature_test_macros = [
             "name": "__cpp_lib_execution",
             "values": {"c++17": 201603, "c++20": 201902},
             "headers": ["execution"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL",
+            "libcxx_guard": "_LIBCPP_HAS_EXPERIMENTAL_PSTL",
         },
         {
             "name": "__cpp_lib_expected",
