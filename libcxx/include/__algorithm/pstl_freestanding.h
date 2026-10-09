@@ -659,6 +659,54 @@ partial_sort_copy(_ExecutionPolicy&& __policy, _ForwardIterator __first, _Forwar
 template <class _ExecutionPolicy, class _ForwardIterator, class _Compare,
           class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
           enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _ForwardIterator
+is_sorted_until(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, _Compare __comp) = delete;
+
+template <class _ExecutionPolicy, class _ForwardIterator,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI _ForwardIterator
+is_sorted_until(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last) = delete;
+
+template <class _ExecutionPolicy, class _ForwardIterator, class _ForwardOutIterator, class _Predicate,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _ForwardOutIterator remove_copy_if(
+    _ExecutionPolicy&& __policy,
+    _ForwardIterator __first,
+    _ForwardIterator __last,
+    _ForwardOutIterator __result,
+    _Predicate __pred) = delete;
+
+template <class _ExecutionPolicy, class _ForwardIterator, class _ForwardOutIterator, class _Tp,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _ForwardOutIterator remove_copy(
+    _ExecutionPolicy&& __policy,
+    _ForwardIterator __first,
+    _ForwardIterator __last,
+    _ForwardOutIterator __result,
+    const _Tp& __value) = delete;
+
+template <class _ExecutionPolicy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryPredicate,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _ForwardOutIterator unique_copy(
+    _ExecutionPolicy&& __policy,
+    _ForwardIterator __first,
+    _ForwardIterator __last,
+    _ForwardOutIterator __result,
+    _BinaryPredicate __pred) = delete;
+
+template <class _ExecutionPolicy, class _ForwardIterator, class _ForwardOutIterator,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI _ForwardOutIterator
+unique_copy(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __result) = delete;
+
+template <class _ExecutionPolicy, class _ForwardIterator, class _Compare,
+          class _RawPolicy                                    = __remove_cvref_t<_ExecutionPolicy>,
+          enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool
 is_sorted(_ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, _Compare __comp) = delete;
 

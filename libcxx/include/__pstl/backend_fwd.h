@@ -346,6 +346,14 @@ struct __partial_sort_copy;
 template <class _Backend, class _ExecutionPolicy>
 struct __is_sorted;
 template <class _Backend, class _ExecutionPolicy>
+struct __is_sorted_until;
+template <class _Backend, class _ExecutionPolicy>
+struct __remove_copy;
+template <class _Backend, class _ExecutionPolicy>
+struct __remove_copy_if;
+template <class _Backend, class _ExecutionPolicy>
+struct __unique_copy;
+template <class _Backend, class _ExecutionPolicy>
 struct __nth_element;
 template <class _Backend, class _ExecutionPolicy>
 struct __inplace_merge;

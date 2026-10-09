@@ -17,6 +17,7 @@
 #include <__algorithm/search_n.h>
 #include <__algorithm/stable_partition.h>
 #include <__algorithm/is_sorted.h>
+#include <__algorithm/is_sorted_until.h>
 #include <__algorithm/inplace_merge.h>
 #include <__algorithm/includes.h>
 #include <__algorithm/nth_element.h>
@@ -25,6 +26,8 @@
 #include <__algorithm/for_each_n.h>
 #include <__algorithm/partition.h>
 #include <__algorithm/remove.h>
+#include <__algorithm/remove_copy.h>
+#include <__algorithm/remove_copy_if.h>
 #include <__algorithm/remove_if.h>
 #include <__algorithm/reverse.h>
 #include <__algorithm/rotate.h>
@@ -42,6 +45,7 @@
 #include <__algorithm/shift_right.h>
 #include <__algorithm/swap_ranges.h>
 #include <__algorithm/unique.h>
+#include <__algorithm/unique_copy.h>
 #include <__config>
 #include <__functional/identity.h>
 #include <__functional/not_fn.h>
@@ -1029,6 +1033,47 @@ struct __is_sorted<__default_backend_tag, _ExecutionPolicy> {
   _LIBCPP_HIDE_FROM_ABI optional<bool> operator()(
       _Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Compare&& __comp) const noexcept {
     return std::is_sorted(std::move(__first), std::move(__last), std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __is_sorted_until<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _Compare>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _Compare&& __comp) const noexcept {
+    return std::is_sorted_until(std::move(__first), std::move(__last), std::forward<_Compare>(__comp));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __remove_copy_if<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Predicate>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __result,
+             _Predicate&& __pred) const noexcept {
+    return std::remove_copy_if(
+        std::move(__first), std::move(__last), std::move(__result), std::forward<_Predicate>(__pred));
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __remove_copy<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Tp>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __result,
+             const _Tp& __value) const noexcept {
+    return std::remove_copy(std::move(__first), std::move(__last), std::move(__result), __value);
+  }
+};
+
+template <class _ExecutionPolicy>
+struct __unique_copy<__default_backend_tag, _ExecutionPolicy> {
+  template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _BinaryPredicate>
+  _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
+  operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last, _ForwardOutIterator __result,
+             _BinaryPredicate&& __pred) const noexcept {
+    return std::unique_copy(
+        std::move(__first), std::move(__last), std::move(__result), std::forward<_BinaryPredicate>(__pred));
   }
 };
 
