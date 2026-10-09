@@ -290,12 +290,6 @@ public:
     return __result;
   }
 
-  // These hooks allow the synchronized-stream manipulators to recognize a
-  // basic_syncbuf without depending on RTTI or its allocator type. They are
-  // no-ops for every other stream buffer.
-  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __set_emit_on_sync(bool) noexcept {}
-  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual bool __emit_on_flush() { return true; }
-
 protected:
   basic_streambuf() {}
   basic_streambuf(const basic_streambuf& __sb)
@@ -450,6 +444,17 @@ protected:
     _LIBCPP_ASSERT_INTERNAL(eback() <= gptr(), "this is an invariant of the class");
     _LIBCPP_ASSERT_INTERNAL(gptr() <= egptr(), "this is an invariant of the class");
   }
+
+public:
+  // These hooks allow the synchronized-stream manipulators to recognize a
+  // basic_syncbuf without depending on RTTI or its allocator type. They are
+  // no-ops for every other stream buffer.
+  //
+  // They are declared after all the standard virtual functions on purpose: the virtual function table of
+  // basic_streambuf is shared with the frozen C++03 headers (and with any code compiled against an earlier
+  // libc++), so new virtual functions can only be appended.
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __set_emit_on_sync(bool) noexcept {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual bool __emit_on_flush() { return true; }
 
 private:
   locale __loc_;
