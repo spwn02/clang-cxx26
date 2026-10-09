@@ -27,7 +27,7 @@ one entry per line:  <kind> <name>  # reason, with kind in header/name/macro.
 
 Usage:
   vocabulary_audit.py --draft <draft checkout> --clang <clang++> \
-      --include <installed libc++ include dir> [--std c++26] [--allow FILE]
+      --include <installed libc++ include dir> [--std c++26] [--allow FILE] [--sd6 FILE]
 Exit status is 1 if there is an unexplained entry.
 """
 
@@ -93,6 +93,7 @@ def main():
     ap.add_argument('--include', required=True)
     ap.add_argument('--std', default='c++26')
     ap.add_argument('--allow')
+    ap.add_argument('--sd6', help='saved copy of the SD-6 feature-test table; its __cpp_lib_* names are accepted too')
     ap.add_argument('--flags', default='-freflection')
     args = ap.parse_args()
 
@@ -105,6 +106,8 @@ def main():
                 allow.add((kind, name.strip()))
 
     ref, draft_headers, draft_lib_macros = draft_reference(args.draft)
+    if args.sd6:
+        draft_lib_macros.update(re.findall(r'__cpp_lib_[a-z0-9_]+', open(args.sd6, errors='replace').read()))
     ref.add('std')
     problems = []
 
@@ -160,6 +163,7 @@ def main():
             elif not name.startswith('_') and name not in ref and ('macro', name) not in allow:
                 problems.append(('macro', name))
 
+    problems = list(dict.fromkeys(problems))
     for kind, name in problems:
         print('%s %s' % (kind, name))
     sys.stderr.write('%d unexplained entries\n' % len(problems))
