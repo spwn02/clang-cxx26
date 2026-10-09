@@ -6,6 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// Bounded iterators check every element of the output range, which makes the constant evaluation longer.
+// ADDITIONAL_COMPILE_FLAGS(has-fconstexpr-steps): -fconstexpr-steps=5000000
+
 // UNSUPPORTED: c++03, c++11, c++14, c++17
 
 // <algorithm>
