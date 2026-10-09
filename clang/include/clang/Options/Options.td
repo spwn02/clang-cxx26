@@ -3819,7 +3819,7 @@ defm annotation_attributes : BoolFOption<"annotation-attributes",
 defm entity_proxy_reflection : BoolFOption<"entity-proxy-reflection",
   LangOpts<"EntityProxyReflection">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option],
-          "Enable C++26 entity-proxy reflection">,
+          "Enable entity-proxy reflection (not adopted by WG21; an extension, not C++26)">,
   NegFlag<SetFalse>>;
 defm reflection_latest : BoolFOption<"reflection-latest",
   LangOpts<"ReflectionLatest">, DefaultFalse,
