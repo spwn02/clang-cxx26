@@ -15,6 +15,7 @@
 #include "clang/Tooling/CompilationDatabase.h"
 
 #include <memory>
+#include <optional>
 
 namespace clang {
 namespace clangd {
@@ -45,6 +46,15 @@ public:
   virtual std::string getModuleNameForSource(PathRef File) = 0;
   virtual std::string getSourceForModuleName(llvm::StringRef ModuleName,
                                              PathRef RequiredSrcFile) = 0;
+
+  /// The compile command to build the module unit \param File with, if the
+  /// project does not have it in its compilation database. This is the case for
+  /// the module units of the standard library (std, std.compat), which live in
+  /// the toolchain and are built with the flags of the file that imports them.
+  virtual std::optional<tooling::CompileCommand>
+  getCompileCommandForSource(PathRef File) {
+    return std::nullopt;
+  }
 
   virtual void setCommandMangler(CommandMangler Mangler) {}
 

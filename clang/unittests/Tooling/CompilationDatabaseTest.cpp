@@ -847,6 +847,21 @@ TEST_F(InterpolateTest, Language) {
             "clang -D dir/aux.cpp -x objective-c++-header -std=c++17");
 }
 
+TEST_F(InterpolateTest, ModuleUnits) {
+  // C++ module units are C++: the standard is transferred between them and
+  // the -x c++-module that the build system gives them is not an obstacle.
+  add("dir/Types.ixx", "-x c++-module -std=c++26 -fmodule-output=Types.pcm");
+  add("dir/main.cpp", "-std=c++20");
+  EXPECT_EQ(getCommand("dir/Predicates.ixx"),
+            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++26");
+  EXPECT_EQ(getCommand("dir/Other.cppm"),
+            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++26");
+  // A module unit proxies a plain source file of the same language too.
+  Entries.erase(path(StringRef("dir/main.cpp")));
+  EXPECT_EQ(getCommand("dir/util.cpp"),
+            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++26");
+}
+
 TEST_F(InterpolateTest, Strip) {
   add("dir/foo.cpp", "-o foo.o -Wall");
   // the -o option and the input file are removed, but -Wall is preserved.

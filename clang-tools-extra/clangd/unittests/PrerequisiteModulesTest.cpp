@@ -18,6 +18,7 @@
 #include "ScanningProjectModules.h"
 #include "TestTU.h"
 #include "support/ThreadsafeFS.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
@@ -45,6 +46,11 @@ public:
     Underlying->setCommandMangler(std::move(Mangler));
   }
 
+  std::optional<tooling::CompileCommand>
+  getCompileCommandForSource(PathRef File) override {
+    return Underlying->getCompileCommandForSource(File);
+  }
+
   std::string getSourceForModuleName(llvm::StringRef ModuleName,
                                      PathRef RequiredSrcFile) override {
     Count++;
@@ -67,6 +73,29 @@ public:
   }
 
   void addFile(llvm::StringRef Path, llvm::StringRef Contents);
+
+  // Write a file to the working testing directory that the compilation
+  // database does not list (a file the build system has not seen yet).
+  void addUnlistedFile(llvm::StringRef Path, llvm::StringRef Contents);
+
+  // The program name in the compile commands, if not "clang".
+  std::string FakeCompiler;
+
+  std::optional<tooling::CompileCommand>
+  getCompileCommand(PathRef File) const override {
+    auto Cmd = MockCompilationDatabase::getCompileCommand(File);
+    if (!Cmd)
+      return Cmd;
+    // Like a real database, name the file by its path relative to the working
+    // directory of the command, which differs from the file name in a
+    // subdirectory.
+    if (llvm::sys::path::is_absolute(File) && File.starts_with(Cmd->Directory))
+      Cmd->Filename = llvm::sys::path::relative_path(
+                          File.drop_front(Cmd->Directory.size())).str();
+    if (!FakeCompiler.empty())
+      Cmd->CommandLine.front() = FakeCompiler;
+    return Cmd;
+  }
 
   std::unique_ptr<ProjectModules> getProjectModules(PathRef) const override {
     return std::make_unique<GlobalScanningCounterProjectModules>(
@@ -103,6 +132,22 @@ private:
 
   mutable std::atomic<unsigned> GlobalScanningCount;
 };
+
+void MockDirectoryCompilationDatabase::addUnlistedFile(
+    llvm::StringRef Path, llvm::StringRef Contents) {
+  ASSERT_FALSE(llvm::sys::path::is_absolute(Path));
+
+  SmallString<256> AbsPath(Directory);
+  llvm::sys::path::append(AbsPath, Path);
+
+  ASSERT_FALSE(
+      llvm::sys::fs::create_directories(llvm::sys::path::parent_path(AbsPath)));
+
+  std::error_code EC;
+  llvm::raw_fd_ostream OS(AbsPath, EC);
+  ASSERT_FALSE(EC);
+  OS << Contents;
+}
 
 // Add files to the working testing directory and the compilation database.
 void MockDirectoryCompilationDatabase::addFile(llvm::StringRef Path,
@@ -198,19 +243,178 @@ void use() {
   EXPECT_TRUE(NonModularInfo->canReuse(*Invocation, FS.view(TestDir)));
 }
 
+// Writes M.cppm and Use.cpp ("import M;") into the directory of the CDB and
+// returns the path of a module file for M that the compiler can use.
+class BuiltModuleForM {
+public:
+  BuiltModuleForM(PrerequisiteModulesTests &T, const ThreadsafeFS &FS,
+                  llvm::StringRef Contents = "export module M;\n")
+      : CDB(T.TestDir, FS), Builder(CDB) {
+    CDB.addFile("M.cppm", Contents);
+    CDB.addFile("Use.cpp", "import M;\n");
+    Info = Builder.buildPrerequisiteModulesFor(T.getFullPath("Use.cpp"), FS);
+    HeaderSearchOptions HS(T.TestDir);
+    Info->adjustHeaderSearchOptions(HS);
+    Path = HS.PrebuiltModuleFiles["M"];
+  }
+  // The module file stays on disk while this object lives.
+  std::string Path;
+
+private:
+  MockDirectoryCompilationDatabase CDB;
+  ModulesBuilder Builder;
+  std::unique_ptr<PrerequisiteModules> Info;
+};
+
 TEST_F(PrerequisiteModulesTests, BuildSystemProvidedModules) {
+  BuiltModuleForM Built(*this, FS);
+  ASSERT_FALSE(Built.Path.empty());
+
+  // The build system gives a module file that is usable: clangd uses it as it
+  // is and does not scan the project.
   MockDirectoryCompilationDatabase CDB(TestDir, FS);
-  CDB.ExtraClangFlags.push_back("-fmodule-file=M=/tmp/M.pcm");
+  CDB.ExtraClangFlags.push_back("-fmodule-file=M=" + Built.Path);
+  CDB.addFile("M.cppm", "export module M;\n");
   CDB.addFile("Use.cpp", "import M;\n");
 
   ModulesBuilder Builder(CDB);
   auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
-
-  EXPECT_TRUE(Info);
+  ASSERT_TRUE(Info);
   EXPECT_EQ(CDB.getGlobalScanningCount(), 0u);
-  HeaderSearchOptions HSOpts;
+  HeaderSearchOptions HSOpts(TestDir);
   Info->adjustHeaderSearchOptions(HSOpts);
-  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.empty());
+  EXPECT_EQ(HSOpts.PrebuiltModuleFiles["M"], Built.Path);
+  auto Invocation =
+      buildCompilerInvocation(getInputs("Use.cpp", CDB), DiagConsumer);
+  EXPECT_TRUE(Info->canReuse(*Invocation, FS.view(TestDir)));
+}
+
+TEST_F(PrerequisiteModulesTests, BuildSystemModulesThatAreMissingAreNotUsed) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.ExtraClangFlags.push_back("-fmodule-file=M=/nonexistent/M.pcm");
+  CDB.addFile("M.cppm", "export module M;\n");
+  CDB.addFile("Use.cpp", "import M;\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Info);
+  // clangd scanned the project and built M itself.
+  EXPECT_GT(CDB.getGlobalScanningCount(), 0u);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_TRUE(StringRef(HSOpts.PrebuiltModuleFiles["M"]).ends_with(".pcm"));
+  EXPECT_NE(HSOpts.PrebuiltModuleFiles["M"], "/nonexistent/M.pcm");
+}
+
+TEST_F(PrerequisiteModulesTests, BuildSystemModulesInAnUnreadableFormatAreNotUsed) {
+  // A module file written by another version of the compiler cannot be read.
+  SmallString<256> Bad(TestDir);
+  llvm::sys::path::append(Bad, "bad.pcm");
+  {
+    std::error_code EC;
+    llvm::raw_fd_ostream OS(Bad, EC);
+    ASSERT_FALSE(EC);
+    OS << "this is not a module file";
+  }
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.ExtraClangFlags.push_back("-fmodule-file=M=" + Bad.str().str());
+  CDB.addFile("M.cppm", "export module M;\n");
+  CDB.addFile("Use.cpp", "import M;\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Info);
+  EXPECT_GT(CDB.getGlobalScanningCount(), 0u);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_NE(HSOpts.PrebuiltModuleFiles["M"], Bad.str().str());
+}
+
+TEST_F(PrerequisiteModulesTests, BuildSystemModulesOlderThanTheirSourcesAreNotUsed) {
+  BuiltModuleForM Built(*this, FS);
+  ASSERT_FALSE(Built.Path.empty());
+
+  // The module unit changes after the build system built its module file.
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.ExtraClangFlags.push_back("-fmodule-file=M=" + Built.Path);
+  CDB.addFile("M.cppm", "export module M;\nexport int changed();\n");
+  CDB.addFile("Use.cpp", "import M;\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Info);
+  EXPECT_GT(CDB.getGlobalScanningCount(), 0u);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_NE(HSOpts.PrebuiltModuleFiles["M"], Built.Path);
+}
+
+TEST_F(PrerequisiteModulesTests, StandardLibraryModulesFromTheManifest) {
+  // A toolchain with the manifest libc++ installs; the project does not have
+  // the module unit of std in its compilation database.
+  SmallString<256> ToolchainDir;
+  ASSERT_FALSE(llvm::sys::fs::createUniqueDirectory("modules-toolchain", ToolchainDir));
+  auto Cleanup = llvm::make_scope_exit(
+      [&] { llvm::sys::fs::remove_directories(ToolchainDir); });
+  auto Write = [&](llvm::StringRef Rel, llvm::StringRef Contents) {
+    SmallString<256> Abs(ToolchainDir);
+    llvm::sys::path::append(Abs, Rel);
+    ASSERT_FALSE(llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Abs)));
+    std::error_code EC;
+    llvm::raw_fd_ostream OS(Abs, EC);
+    ASSERT_FALSE(EC);
+    OS << Contents;
+  };
+  Write("tc/lib/libc++.modules.json", R"json({
+  "version": 1, "revision": 1,
+  "modules": [
+    {"logical-name": "std", "source-path": "../share/std.cppm", "is-std-library": true},
+    {"logical-name": "std.compat", "source-path": "../share/std.compat.cppm", "is-std-library": true}
+  ]
+})json");
+  Write("tc/share/std.cppm", "export module std;\nexport namespace std { inline int one() { return 1; } }\n");
+  Write("tc/share/std.compat.cppm", "export module std.compat;\nexport import std;\n");
+
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  SmallString<256> Compiler(ToolchainDir);
+  llvm::sys::path::append(Compiler, "tc", "bin", "clang++");
+  CDB.FakeCompiler = std::string(Compiler);
+  CDB.addFile("Use.cpp", "import std.compat;\nint f() { return std::one(); }\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Info);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("std"));
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("std.compat"));
+
+  auto Inputs = getInputs("Use.cpp", CDB);
+  auto Invocation = buildCompilerInvocation(Inputs, DiagConsumer);
+  EXPECT_TRUE(Info->canReuse(*Invocation, FS.view(TestDir)));
+}
+
+TEST_F(PrerequisiteModulesTests, ModuleUnitsThatTheDatabaseDoesNotList) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+
+  // The build system has not seen these yet: a module unit next to the listed
+  // files and one in a directory below, and an interface unit in a .cpp file.
+  CDB.addFile("Use.cpp", "import Fresh;\nimport Fresh.Part;\nimport InCpp;\n");
+  CDB.addUnlistedFile("Fresh.cppm", "export module Fresh;\nexport import Fresh.Part;\n");
+  CDB.addUnlistedFile("sub/Part.ixx", "export module Fresh.Part;\n");
+  CDB.addUnlistedFile("InCpp.cpp", "// comment\nexport module InCpp;\n");
+  // Not a module unit, and a build directory: ignored.
+  CDB.addUnlistedFile("plain.cpp", "int x;\n");
+  CDB.addUnlistedFile("build/Stale.cppm", "export module Fresh;\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Info);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("Fresh"));
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("Fresh.Part"));
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("InCpp"));
 }
 
 TEST_F(PrerequisiteModulesTests, ModuleWithoutDepTest) {

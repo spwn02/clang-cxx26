@@ -236,6 +236,40 @@ private:
   llvm::StringSet<> BuiltModuleNames;
 };
 
+// BuildSystemPrerequisiteModules - the module files that the build system gave
+// to the compiler (-fmodule-file=) and that were found usable: they exist, the
+// compiler can read them and none of their inputs changed. clangd uses them as
+// they are (the compile command already names them), but it keeps checking that
+// they stay usable, since the build system may rebuild them or the user may edit
+// the module units they were built from. A stale or missing module file is not
+// trusted: clangd scans the project and builds its own module files then.
+class BuildSystemPrerequisiteModules : public PrerequisiteModules {
+public:
+  /// Name is empty for -fmodule-file=<path>; Path is absolute.
+  struct ModuleFileRef {
+    std::string Name;
+    std::string Path;
+  };
+
+  explicit BuildSystemPrerequisiteModules(std::vector<ModuleFileRef> ModuleFiles)
+      : ModuleFiles(std::move(ModuleFiles)) {}
+
+  void adjustHeaderSearchOptions(HeaderSearchOptions &Options) const override {
+    // The compile command names them already (possibly relative to the working
+    // directory); this makes the paths absolute.
+    for (const ModuleFileRef &MF : ModuleFiles)
+      if (!MF.Name.empty())
+        Options.PrebuiltModuleFiles.insert_or_assign(MF.Name, MF.Path);
+  }
+
+  bool canReuse(const CompilerInvocation &CI,
+                llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS)
+      const override;
+
+private:
+  std::vector<ModuleFileRef> ModuleFiles;
+};
+
 bool IsModuleFileUpToDate(PathRef ModuleFilePath,
                           const PrerequisiteModules &RequisiteModules,
                           llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS) {
@@ -308,9 +342,12 @@ bool IsModuleFilesUpToDate(
 llvm::Expected<std::shared_ptr<BuiltModuleFile>>
 buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
                 const GlobalCompilationDatabase &CDB, const ThreadsafeFS &TFS,
-                const ReusablePrerequisiteModules &BuiltModuleFiles) {
+                const ReusablePrerequisiteModules &BuiltModuleFiles,
+                std::optional<tooling::CompileCommand> CommandOverride =
+                    std::nullopt) {
   // Try cheap operation earlier to boil-out cheaply if there are problems.
-  auto Cmd = CDB.getCompileCommand(ModuleUnitFileName);
+  auto Cmd = CommandOverride ? std::move(CommandOverride)
+                             : CDB.getCompileCommand(ModuleUnitFileName);
   if (!Cmd)
     return llvm::createStringError(
         llvm::formatv("No compile command for {0}", ModuleUnitFileName));
@@ -332,7 +369,11 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
   auto FS = Inputs.TFS->view(Inputs.CompileCommand.Directory);
   auto Buf = FS->getBufferForFile(Inputs.CompileCommand.Filename);
   if (!Buf)
-    return llvm::createStringError("Failed to create buffer");
+    return llvm::createStringError(
+        llvm::formatv("Failed to create buffer for {0} (in {1}): {2}",
+                      Inputs.CompileCommand.Filename,
+                      Inputs.CompileCommand.Directory,
+                      Buf.getError().message()));
 
   // In clang's driver, we will suppress the check for ODR violation in GMF.
   // See the implementation of RenderModulesOptions in Clang.cpp.
@@ -393,6 +434,53 @@ bool ReusablePrerequisiteModules::canReuse(
   for (auto &MF : RequiredModules)
     BMIPaths.push_back(MF->getModuleFilePath());
   return IsModuleFilesUpToDate(BMIPaths, *this, VFS);
+}
+
+bool BuildSystemPrerequisiteModules::canReuse(
+    const CompilerInvocation &CI,
+    llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS) const {
+  ReusablePrerequisiteModules NoOtherModules;
+  return llvm::all_of(ModuleFiles, [&](const ModuleFileRef &MF) {
+    return IsModuleFileUpToDate(MF.Path, NoOtherModules, VFS);
+  });
+}
+
+/// The module files that the compile command of \param Cmd asks for with
+/// -fmodule-file=, if every one of them is usable. Returns null if there is
+/// none or if one of them is not usable.
+std::unique_ptr<BuildSystemPrerequisiteModules>
+getUsableBuildSystemModules(const tooling::CompileCommand &Cmd,
+                            const ThreadsafeFS &TFS) {
+  ParseInputs Inputs;
+  Inputs.TFS = &TFS;
+  Inputs.CompileCommand = Cmd;
+  IgnoreDiagnostics IgnoreDiags;
+  auto CI = buildCompilerInvocation(Inputs, IgnoreDiags);
+  if (!CI)
+    return nullptr;
+
+  std::vector<BuildSystemPrerequisiteModules::ModuleFileRef> Paths;
+  auto Add = [&](llvm::StringRef Name, llvm::StringRef Path) {
+    llvm::SmallString<256> Abs(Path);
+    llvm::sys::path::make_absolute(Cmd.Directory, Abs);
+    llvm::sys::path::remove_dots(Abs, /*remove_dot_dot=*/true);
+    Paths.push_back({Name.str(), std::string(Abs)});
+  };
+  for (const auto &[Name, Path] : CI->getHeaderSearchOpts().PrebuiltModuleFiles)
+    Add(Name, Path);
+  for (const std::string &Path : CI->getFrontendOpts().ModuleFiles)
+    Add("", Path);
+  if (Paths.empty())
+    return nullptr;
+
+  auto Result = std::make_unique<BuildSystemPrerequisiteModules>(std::move(Paths));
+  if (!Result->canReuse(*CI, TFS.view(Cmd.Directory))) {
+    log("The module files that the build system gave for {0} are missing or "
+        "out of date; clangd builds its own",
+        Cmd.Filename);
+    return nullptr;
+  }
+  return Result;
 }
 
 class ModuleFileCache {
@@ -479,6 +567,11 @@ public:
 
   std::string getModuleNameForSource(PathRef File) override {
     return MDB->getModuleNameForSource(File);
+  }
+
+  std::optional<tooling::CompileCommand>
+  getCompileCommandForSource(PathRef File) override {
+    return MDB->getCompileCommandForSource(File);
   }
 
   std::string getSourceForModuleName(llvm::StringRef ModuleName,
@@ -638,7 +731,8 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
     std::string ReqFileName =
         MDB.getSourceForModuleName(ReqModuleName, RequiredSource);
     llvm::Expected<std::shared_ptr<BuiltModuleFile>> MF = buildModuleFile(
-        ReqModuleName, ReqFileName, getCDB(), TFS, BuiltModuleFiles);
+        ReqModuleName, ReqFileName, getCDB(), TFS, BuiltModuleFiles,
+        MDB.getCompileCommandForSource(ReqFileName));
     if (llvm::Error Err = MF.takeError())
       return Err;
 
@@ -655,12 +749,17 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
                                             const ThreadsafeFS &TFS) {
   // Build systems may provide all module mappings directly. In that case the
   // compiler invocation already knows which BMIs to use, and rebuilding them
-  // after globally scanning the project is both redundant and expensive.
+  // after globally scanning the project is both redundant and expensive. They
+  // are only used while they are usable: a module file that is missing, was
+  // written by another version of the compiler or is older than its sources
+  // sends us down the scanning path below.
   if (auto Cmd = Impl->getCDB().getCompileCommand(File)) {
     if (llvm::any_of(Cmd->CommandLine, [](llvm::StringRef Arg) {
           return Arg.starts_with("-fmodule-file=");
-        }))
-      return std::make_unique<ReusablePrerequisiteModules>();
+        })) {
+      if (auto Provided = getUsableBuildSystemModules(*Cmd, TFS))
+        return Provided;
+    }
   }
 
   std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File);
