@@ -1476,8 +1476,14 @@ namespace {
     /// (#268); an alias is transparent, so substitute its underlying type.
     QualType TransformTypedefType(TypeLocBuilder &TLB, TypedefTypeLoc TL) {
       TypedefNameDecl *TD = TL.getDecl();
-      if (TD->getDeclContext()->isFunctionOrMethod() &&
-          TD->getDeclContext()->isDependentContext() &&
+      DeclContext *DC = TD->getDeclContext();
+      // The same test as Sema::FindInstantiatedDecl uses to decide that the
+      // declaration is a local of the substitution; the typedefs of deduction
+      // guides are instantiated on demand there and left to it.
+      unsigned Retained = TemplateArgs.getNumRetainedOuterLevels();
+      if (DC->isFunctionOrMethod() && !isa<CXXDeductionGuideDecl>(DC) &&
+          DC->isDependentContext() &&
+          (!Retained || cast<Decl>(DC)->getTemplateDepth() > Retained) &&
           SemaRef.CurrentInstantiationScope &&
           !SemaRef.CurrentInstantiationScope->getInstantiationOfIfExists(TD))
         if (TypeSourceInfo *Underlying = TD->getTypeSourceInfo())

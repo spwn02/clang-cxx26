@@ -33,6 +33,20 @@ auto transform2(S&&) {
   };
 }
 
+// The alias may name a local variable's type, or the constraint may name the variable directly.
+template <class S>
+auto transform3(S&&) {
+  auto v = typename S::type{};
+  using T = decltype(v);
+  return []<class... Vs>(Vs&... vs) requires invocable_with<T, Vs&...> { return sizeof...(vs); };
+}
+
+template <class S>
+auto transform4(S&&) {
+  auto v = typename S::type{};
+  return []<class... Vs>(Vs&... vs) requires invocable_with<decltype(v), Vs&...> { return sizeof...(vs); };
+}
+
 template <class L>
 concept call1 = requires(L& l, int& x) { l(x); };
 template <class L>
@@ -41,8 +55,10 @@ concept call2 = requires(L& l, int& x) { l(x, x); };
 int main() {
   auto l = transform(Holder{});
   auto m = transform2(Holder{});
+  auto n = transform3(Holder{});
+  auto o = transform4(Holder{});
   int x = 0;
-  static_assert(call1<decltype(l)> && call1<decltype(m)>);
-  static_assert(!call2<decltype(l)> && !call2<decltype(m)>);
-  return static_cast<int>(l(x) + m(x)) - 2;
+  static_assert(call1<decltype(l)> && call1<decltype(m)> && call1<decltype(n)> && call1<decltype(o)>);
+  static_assert(!call2<decltype(l)> && !call2<decltype(m)> && !call2<decltype(n)> && !call2<decltype(o)>);
+  return static_cast<int>(l(x) + m(x) + n(x) + o(x)) - 4;
 }
