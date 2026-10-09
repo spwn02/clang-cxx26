@@ -294,9 +294,27 @@ ClangdServer::~ClangdServer() {
   }
 }
 
+static bool isModuleUnitPath(llvm::StringRef Path) {
+  llvm::StringRef Ext = llvm::sys::path::extension(Path);
+  return Ext == ".ixx" || Ext == ".cppm" || Ext == ".cxxm" || Ext == ".c++m";
+}
+
 void ClangdServer::addDocument(PathRef File, llvm::StringRef Contents,
                                llvm::StringRef Version,
                                WantDiagnostics WantDiags, bool ForceRebuild) {
+  addDocumentImpl(File, Contents, Version, WantDiags, ForceRebuild);
+  // The other open files may import this module unit: they see its new
+  // contents the next time they are checked.
+  if (ModulesManager && isModuleUnitPath(File) && !PropagatingModuleEdit)
+    reparseOpenFilesIfNeeded([&](llvm::StringRef Other) {
+      return Other != File;
+    });
+}
+
+void ClangdServer::addDocumentImpl(PathRef File, llvm::StringRef Contents,
+                                   llvm::StringRef Version,
+                                   WantDiagnostics WantDiags,
+                                   bool ForceRebuild) {
   std::string ActualVersion = DraftMgr.addDraft(File, Version, Contents);
   ParseOptions Opts;
   Opts.PreambleParseForwardingFunctions = PreambleParseForwardingFunctions;
@@ -313,6 +331,8 @@ void ClangdServer::addDocument(PathRef File, llvm::StringRef Contents,
   Inputs.ClangTidyProvider = ClangTidyProvider;
   Inputs.FeatureModules = FeatureModules;
   Inputs.ModulesManager = ModulesManager;
+  if (ModulesManager)
+    Inputs.ModulesTFS = DirtyFS.get();
   bool NewFile = WorkScheduler->update(File, Inputs, WantDiags);
   // If we loaded Foo.h, we want to make sure Foo.cpp is indexed.
   if (NewFile && BackgroundIdx)
@@ -322,11 +342,16 @@ void ClangdServer::addDocument(PathRef File, llvm::StringRef Contents,
 void ClangdServer::reparseOpenFilesIfNeeded(
     llvm::function_ref<bool(llvm::StringRef File)> Filter) {
   // Reparse only opened files that were modified.
+  // A reparse does not change anything for the files that import the file being
+  // reparsed that the reparse of the file that triggered it did not.
+  bool Previous = PropagatingModuleEdit;
+  PropagatingModuleEdit = true;
   for (const Path &FilePath : DraftMgr.getActiveFiles())
     if (Filter(FilePath))
       if (auto Draft = DraftMgr.getDraft(FilePath)) // else disappeared in race?
         addDocument(FilePath, *Draft->Contents, Draft->Version,
                     WantDiagnostics::Auto);
+  PropagatingModuleEdit = Previous;
 }
 
 std::shared_ptr<const std::string> ClangdServer::getDraft(PathRef File) const {

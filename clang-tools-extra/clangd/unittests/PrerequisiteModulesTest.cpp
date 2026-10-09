@@ -548,6 +548,33 @@ TEST_F(PrerequisiteModulesTests, ModulesThatExistAreUsedWhenAnotherIsMissing) {
   EXPECT_FALSE(Info->canReuse(*Invocation, FS.view(TestDir)));
 }
 
+TEST_F(PrerequisiteModulesTests, UnsavedEditsOfAModuleUnitReachItsOpenImporters) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("M.cppm", "export module M;\nexport int g();\n");
+  CDB.addFile("Use.cpp", "import M;\nint f() { return g(); }\n");
+
+  ModulesBuilder Builder(CDB);
+  ClangdServer::Options Opts = ClangdServer::optsForTest();
+  Opts.ModulesManager = &Builder;
+  ErrorRecorder Recorder;
+  ClangdServer Server(CDB, FS, Opts, &Recorder);
+
+  std::string UsePath = getFullPath("Use.cpp");
+  std::string MPath = getFullPath("M.cppm");
+  runAddDocument(Server, MPath, "export module M;\nexport int g();\n");
+  runAddDocument(Server, UsePath, "import M;\nint f() { return g(); }\n");
+  EXPECT_THAT(Recorder.errors(UsePath), ::testing::IsEmpty());
+
+  // The edit is only in the editor's buffer: the file on disk still declares g.
+  runAddDocument(Server, MPath, "export module M;\nexport int h();\n");
+  ASSERT_TRUE(Server.blockUntilIdleForTest());
+  EXPECT_THAT(Recorder.errors(UsePath), ::testing::Not(::testing::IsEmpty()));
+
+  runAddDocument(Server, MPath, "export module M;\nexport int g();\nexport int k();\n");
+  ASSERT_TRUE(Server.blockUntilIdleForTest());
+  EXPECT_THAT(Recorder.errors(UsePath), ::testing::IsEmpty());
+}
+
 TEST_F(PrerequisiteModulesTests, ModuleWithoutDepTest) {
   MockDirectoryCompilationDatabase CDB(TestDir, FS);
 

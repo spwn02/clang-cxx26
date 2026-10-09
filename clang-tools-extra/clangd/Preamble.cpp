@@ -679,8 +679,8 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
       WallTimer PrerequisiteModuleTimer;
       PrerequisiteModuleTimer.startTimer();
       Result->RequiredModules =
-          Inputs.ModulesManager->buildPrerequisiteModulesFor(FileName,
-                                                             *Inputs.TFS);
+          Inputs.ModulesManager->buildPrerequisiteModulesFor(
+              FileName, Inputs.ModulesTFS ? *Inputs.ModulesTFS : *Inputs.TFS);
       PrerequisiteModuleTimer.stopTimer();
 
       log("Built prerequisite modules for file {0} in {1} seconds", FileName,
@@ -733,7 +733,10 @@ bool isPreambleCompatible(const PreambleData &Preamble,
                                  Preamble.CompileCommand) &&
          Preamble.Preamble.CanReuse(CI, *ContentsBuffer, Bounds, *VFS) &&
          (!Preamble.RequiredModules ||
-          Preamble.RequiredModules->canReuse(CI, VFS));
+          Preamble.RequiredModules->canReuse(
+              CI, Inputs.ModulesTFS
+                      ? Inputs.ModulesTFS->view(Inputs.CompileCommand.Directory)
+                      : VFS));
 }
 
 void escapeBackslashAndQuotes(llvm::StringRef Text, llvm::raw_ostream &OS) {

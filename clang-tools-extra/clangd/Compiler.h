@@ -63,6 +63,10 @@ struct ParseInputs {
   FeatureModuleSet *FeatureModules = nullptr;
   // Used to build and manage (C++) modules.
   ModulesBuilder *ModulesManager = nullptr;
+  // The file system to build and validate module files with, if it differs from
+  // TFS: module units that are open in the editor are the module units, saved
+  // or not, so that an unsaved edit of one reaches the files that import it.
+  const ThreadsafeFS *ModulesTFS = nullptr;
 };
 
 /// Clears \p CI from options that are not supported by clangd, like codegen or

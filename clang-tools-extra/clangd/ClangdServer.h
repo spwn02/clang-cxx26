@@ -497,6 +497,11 @@ private:
   std::vector<std::unique_ptr<SymbolIndex>> MergedIdx;
   // Manage module files.
   ModulesBuilder *ModulesManager = nullptr;
+  // Set while the open files are reparsed because a module unit changed.
+  bool PropagatingModuleEdit = false;
+  void addDocumentImpl(PathRef File, llvm::StringRef Contents,
+                       llvm::StringRef Version, WantDiagnostics WD,
+                       bool ForceRebuild);
 
   // When set, provides clang-tidy options for a specific file.
   TidyProviderRef ClangTidyProvider;
