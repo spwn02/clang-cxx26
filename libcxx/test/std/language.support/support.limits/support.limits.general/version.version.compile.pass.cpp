@@ -8467,8 +8467,8 @@
 #  ifndef __cpp_lib_format_path
 #    error "__cpp_lib_format_path should be defined in c++26"
 #  endif
-#  if __cpp_lib_format_path != 202403L
-#    error "__cpp_lib_format_path should have the value 202403L in c++26"
+#  if __cpp_lib_format_path != 202506L
+#    error "__cpp_lib_format_path should have the value 202506L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_format_ranges
@@ -8627,8 +8627,8 @@
 #  ifndef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should be defined in c++26"
 #  endif
-#  if __cpp_lib_freestanding_optional != 202311L
-#    error "__cpp_lib_freestanding_optional should have the value 202311L in c++26"
+#  if __cpp_lib_freestanding_optional != 202506L
+#    error "__cpp_lib_freestanding_optional should have the value 202506L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_random
@@ -9802,8 +9802,8 @@
 #  ifndef __cpp_lib_senders
 #    error "__cpp_lib_senders should be defined in c++26"
 #  endif
-#  if __cpp_lib_senders != 202406L
-#    error "__cpp_lib_senders should have the value 202406L in c++26"
+#  if __cpp_lib_senders != 202506L
+#    error "__cpp_lib_senders should have the value 202506L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS

@@ -701,7 +701,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_format_path",
-            "values": {"c++26": 202403},  # P2845R8: Formatting of std::filesystem::path
+            "values": {"c++26": 202506},  # P2845R8: Formatting of std::filesystem::path, P2319R5 Prevent path presentation problems
             "headers": ["filesystem"],
         },
         {
@@ -828,7 +828,7 @@ feature_test_macros = [
         {
             "name": "__cpp_lib_freestanding_optional",
             "values": {
-                "c++26": 202311  # P2407R5 Freestanding Library: Partial Classes
+                "c++26": 202506  # P2407R5 Freestanding Library: Partial Classes
             },
             "headers": ["optional"],
         },
@@ -1648,7 +1648,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_senders",
-            "values": {"c++26": 202406},  # P2300R10 std::execution (N5050 has 202506; the papers behind that bump are not identified yet)
+            "values": {"c++26": 202506},  # P2300R10 std::execution, P3570R2 optional variants in sender/receiver (get_await_completion_adaptor)
             "headers": ["execution"],
         },
         {

@@ -220,8 +220,8 @@
 #  ifndef __cpp_lib_senders
 #    error "__cpp_lib_senders should be defined in c++26"
 #  endif
-#  if __cpp_lib_senders != 202406L
-#    error "__cpp_lib_senders should have the value 202406L in c++26"
+#  if __cpp_lib_senders != 202506L
+#    error "__cpp_lib_senders should have the value 202506L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_task

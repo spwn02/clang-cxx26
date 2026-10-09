@@ -140,7 +140,7 @@ __cpp_lib_flat_set                                      202511L <flat_set>
 __cpp_lib_format                                        202603L <format>
                                                         202207L // C++23
                                                         202110L // C++20
-__cpp_lib_format_path                                   202403L <filesystem>
+__cpp_lib_format_path                                   202506L <filesystem>
 __cpp_lib_format_ranges                                 202207L <format>
 __cpp_lib_format_uchar                                  202311L <format>
 __cpp_lib_formatters                                    202302L <stacktrace> <thread>
@@ -162,7 +162,7 @@ __cpp_lib_freestanding_mdspan                           202311L <mdspan>
 __cpp_lib_freestanding_memory                           202502L <memory>
 __cpp_lib_freestanding_numeric                          202502L <numeric>
 __cpp_lib_freestanding_operator_new                     202306L <new>
-__cpp_lib_freestanding_optional                         202311L <optional>
+__cpp_lib_freestanding_optional                         202506L <optional>
 __cpp_lib_freestanding_random                           202502L <random>
 __cpp_lib_freestanding_ranges                           202306L <ranges>
 __cpp_lib_freestanding_ratio                            202306L <ratio>
@@ -315,7 +315,7 @@ __cpp_lib_sample                                        201603L <algorithm>
 __cpp_lib_saturation_arithmetic                         202603L <numeric>
 __cpp_lib_scoped_lock                                   201703L <mutex>
 __cpp_lib_semaphore                                     201907L <semaphore>
-__cpp_lib_senders                                       202406L <execution>
+__cpp_lib_senders                                       202506L <execution>
 __cpp_lib_shared_mutex                                  201505L <shared_mutex>
 __cpp_lib_shared_ptr_arrays                             201707L <memory>
                                                         201611L // C++17
@@ -715,7 +715,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # undef  __cpp_lib_format
 #   define __cpp_lib_format                             202603L
 # endif
-# define __cpp_lib_format_path                          202403L
+# define __cpp_lib_format_path                          202506L
 # define __cpp_lib_freestanding_algorithm               202502L
 # define __cpp_lib_freestanding_array                   202311L
 # define __cpp_lib_freestanding_char_traits             202306L
@@ -733,7 +733,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_freestanding_memory                  202502L
 # define __cpp_lib_freestanding_numeric                 202502L
 # define __cpp_lib_freestanding_operator_new            _LIBCPP_FREESTANDING_OPERATOR_NEW_VALUE
-# define __cpp_lib_freestanding_optional                202311L
+# define __cpp_lib_freestanding_optional                202506L
 # define __cpp_lib_freestanding_random                  202502L
 # define __cpp_lib_freestanding_ranges                  202306L
 # define __cpp_lib_freestanding_ratio                   202306L
@@ -862,7 +862,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # endif
 # define __cpp_lib_replaceable_contract_violation_handler 202603L
 # define __cpp_lib_saturation_arithmetic                202603L
-# define __cpp_lib_senders                              202406L
+# define __cpp_lib_senders                              202506L
 # define __cpp_lib_simd                                 202603L
 # define __cpp_lib_simd_complex                         202502L
 # define __cpp_lib_simd_permutations                    202506L

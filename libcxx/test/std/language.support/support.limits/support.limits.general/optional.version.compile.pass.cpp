@@ -182,8 +182,8 @@
 #  ifndef __cpp_lib_freestanding_optional
 #    error "__cpp_lib_freestanding_optional should be defined in c++26"
 #  endif
-#  if __cpp_lib_freestanding_optional != 202311L
-#    error "__cpp_lib_freestanding_optional should have the value 202311L in c++26"
+#  if __cpp_lib_freestanding_optional != 202506L
+#    error "__cpp_lib_freestanding_optional should have the value 202506L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
