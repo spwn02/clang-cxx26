@@ -106,7 +106,13 @@ public:
 
 #if !defined(_LIBCPP_MSVCRT_LIKE)
 // Declared under a reserved name so that no non-standard name appears in namespace std.
-extern "C" double __libcpp_lgamma_r(double, int*) _LIBCPP_LGAMMA_R_NOEXCEPT __asm__("lgamma_r");
+// The asm label is the C symbol; Mach-O prefixes C symbols with an underscore.
+#  if defined(__APPLE__)
+#    define _LIBCPP_LGAMMA_R_SYMBOL "_lgamma_r"
+#  else
+#    define _LIBCPP_LGAMMA_R_SYMBOL "lgamma_r"
+#  endif
+extern "C" double __libcpp_lgamma_r(double, int*) _LIBCPP_LGAMMA_R_NOEXCEPT __asm__(_LIBCPP_LGAMMA_R_SYMBOL);
 #endif
 
 inline _LIBCPP_HIDE_FROM_ABI double __libcpp_lgamma(double __d) {

@@ -35,12 +35,14 @@ struct Thrower {
   void operator()() const { ++*calls; }
 };
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
 struct ThrowsOnCopy {
   int* calls;
   ThrowsOnCopy(int* c) : calls(c) {}
   ThrowsOnCopy(const ThrowsOnCopy&) { throw 1; }
   void operator()() const { ++*calls; }
 };
+#endif
 
 int free_calls = 0;
 void bump() { ++free_calls; }
