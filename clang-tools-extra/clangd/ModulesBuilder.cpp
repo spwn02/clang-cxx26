@@ -201,6 +201,11 @@ public:
   ~ReusablePrerequisiteModules() override = default;
 
   void adjustHeaderSearchOptions(HeaderSearchOptions &Options) const override {
+    // The module files that the compile command names and that cannot be used
+    // would make the file fail to load them (a fatal error that ends the
+    // parse), where an import that finds no module file is an ordinary error.
+    for (const std::string &Name : StaleModuleNames)
+      Options.PrebuiltModuleFiles.erase(Name);
     // Appending all built module files.
     for (const auto &RequiredModule : RequiredModules)
       Options.PrebuiltModuleFiles.insert_or_assign(
@@ -230,8 +235,14 @@ public:
     RequiredModules.emplace_back(std::move(MF));
   }
 
+  /// Names of module files in the compile command that must not be used.
+  void setStaleModuleNames(std::vector<std::string> Names) {
+    StaleModuleNames = std::move(Names);
+  }
+
 private:
   llvm::SmallVector<std::shared_ptr<const ModuleFile>, 8> RequiredModules;
+  std::vector<std::string> StaleModuleNames;
   // A helper class to speedup the query if a module is built.
   llvm::StringSet<> BuiltModuleNames;
 };
@@ -341,18 +352,26 @@ bool IsModuleFileUpToDate(PathRef ModuleFilePath,
   // listener.
   Reader.setListener(nullptr);
 
-  if (Reader.ReadAST(ModuleFilePath, serialization::MK_MainFile,
-                     SourceLocation(),
-                     ASTReader::ARR_None) != ASTReader::Success)
+  if (auto Result = Reader.ReadAST(ModuleFilePath, serialization::MK_MainFile,
+                                   SourceLocation(), ASTReader::ARR_None);
+      Result != ASTReader::Success) {
+    vlog("Module file {0} cannot be read (reader result {1})", ModuleFilePath,
+         static_cast<int>(Result));
     return false;
+  }
 
   bool UpToDate = true;
   Reader.getModuleManager().visit([&](serialization::ModuleFile &MF) -> bool {
     Reader.visitInputFiles(
         MF, /*IncludeSystem=*/false, /*Complain=*/false,
         [&](const serialization::InputFile &IF, bool isSystem) {
-          if (!IF.getFile() || IF.isOutOfDate())
+          if (!IF.getFile() || IF.isOutOfDate()) {
+            vlog("Module file {0} is out of date: input {1} of {2}",
+                 ModuleFilePath,
+                 IF.getFile() ? IF.getFile()->getName() : StringRef("<missing>"),
+                 MF.FileName);
             UpToDate = false;
+          }
         });
     return !UpToDate;
   });
@@ -471,9 +490,11 @@ bool ReusablePrerequisiteModules::canReuse(
 bool BuildSystemPrerequisiteModules::canReuse(
     const CompilerInvocation &CI,
     llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS) const {
-  ReusablePrerequisiteModules NoOtherModules;
+  // The module files import one another by the paths they were built with,
+  // which are relative to the directory of the build system; the absolute paths
+  // that the compile command names for them are used instead.
   return llvm::all_of(ModuleFiles, [&](const ModuleFileRef &MF) {
-    return IsModuleFileUpToDate(MF.Path, NoOtherModules, VFS);
+    return IsModuleFileUpToDate(MF.Path, *this, VFS);
   });
 }
 
@@ -513,6 +534,33 @@ getUsableBuildSystemModules(const tooling::CompileCommand &Cmd,
     return nullptr;
   }
   return Result;
+}
+
+/// The names of the module files in the compile command of \param Cmd that are
+/// not usable (see getUsableBuildSystemModules).
+std::vector<std::string>
+getUnusableBuildSystemModuleNames(const tooling::CompileCommand &Cmd,
+                                  const ThreadsafeFS &TFS) {
+  ParseInputs Inputs;
+  Inputs.TFS = &TFS;
+  Inputs.CompileCommand = Cmd;
+  IgnoreDiagnostics IgnoreDiags;
+  auto CI = buildCompilerInvocation(Inputs, IgnoreDiags);
+  std::vector<std::string> Names;
+  if (!CI)
+    return Names;
+  std::vector<BuildSystemPrerequisiteModules::ModuleFileRef> Refs;
+  for (const auto &[Name, Path] : CI->getHeaderSearchOpts().PrebuiltModuleFiles) {
+    llvm::SmallString<256> Abs(Path);
+    llvm::sys::path::make_absolute(Cmd.Directory, Abs);
+    llvm::sys::path::remove_dots(Abs, /*remove_dot_dot=*/true);
+    Refs.push_back({Name, std::string(Abs)});
+  }
+  BuildSystemPrerequisiteModules All(Refs);
+  for (const auto &Ref : Refs)
+    if (!IsModuleFileUpToDate(Ref.Path, All, TFS.view(Cmd.Directory)))
+      Names.push_back(Ref.Name);
+  return Names;
 }
 
 class ModuleFileCache {
@@ -709,12 +757,15 @@ void ModulesBuilder::ModulesBuilderImpl::getPrebuiltModuleFile(
     if (BuiltModuleFiles.isModuleUnitBuilt(ModuleName))
       continue;
 
-    if (IsModuleFileUpToDate(ModuleFilePath, BuiltModuleFiles,
-                             TFS.view(std::nullopt))) {
+    llvm::SmallString<256> AbsoluteModuleFilePath(ModuleFilePath);
+    llvm::sys::path::make_absolute(Inputs.CompileCommand.Directory,
+                                   AbsoluteModuleFilePath);
+    if (IsModuleFileUpToDate(AbsoluteModuleFilePath, BuiltModuleFiles,
+                             TFS.view(Inputs.CompileCommand.Directory))) {
       log("Reusing prebuilt module file {0} of module {1} for {2}",
           ModuleFilePath, ModuleName, ModuleUnitFileName);
       BuiltModuleFiles.addModuleFile(
-          PrebuiltModuleFile::make(ModuleName, ModuleFilePath));
+          PrebuiltModuleFile::make(ModuleName, AbsoluteModuleFilePath));
     }
   }
 }
@@ -785,12 +836,14 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
   // are only used while they are usable: a module file that is missing, was
   // written by another version of the compiler or is older than its sources
   // sends us down the scanning path below.
+  std::vector<std::string> StaleModuleNames;
   if (auto Cmd = Impl->getCDB().getCompileCommand(File)) {
     if (llvm::any_of(Cmd->CommandLine, [](llvm::StringRef Arg) {
           return Arg.starts_with("-fmodule-file=");
         })) {
       if (auto Provided = getUsableBuildSystemModules(*Cmd, TFS))
         return Provided;
+      StaleModuleNames = getUnusableBuildSystemModuleNames(*Cmd, TFS);
     }
   }
 
@@ -804,10 +857,14 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
 
   std::vector<std::string> RequiredModuleNames =
       CachedMDB.getRequiredModules(File);
-  if (RequiredModuleNames.empty())
-    return std::make_unique<ReusablePrerequisiteModules>();
+  if (RequiredModuleNames.empty()) {
+    auto None = std::make_unique<ReusablePrerequisiteModules>();
+    None->setStaleModuleNames(std::move(StaleModuleNames));
+    return None;
+  }
 
   auto RequiredModules = std::make_unique<ReusablePrerequisiteModules>();
+  RequiredModules->setStaleModuleNames(std::move(StaleModuleNames));
   bool AllBuilt = true;
   for (llvm::StringRef RequiredModuleName : RequiredModuleNames) {
     // A module that cannot be built does not stop the others: the file still

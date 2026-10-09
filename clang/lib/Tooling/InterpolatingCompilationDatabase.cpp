@@ -181,8 +181,10 @@ struct TransferableCommand {
 
       const llvm::opt::Option &Opt = Arg->getOption();
 
-      // Strip input and output files.
+      // Strip input and output files, including the module file a module unit
+      // writes: it names the output of the proxy, not of this file.
       if (Opt.matches(OPT_INPUT) || Opt.matches(OPT_o) ||
+          Opt.matches(OPT_fmodule_output) || Opt.matches(OPT_fmodule_output_EQ) ||
           (ClangCLMode && (Opt.matches(OPT__SLASH_Fa) ||
                            Opt.matches(OPT__SLASH_Fe) ||
                            Opt.matches(OPT__SLASH_Fi) ||

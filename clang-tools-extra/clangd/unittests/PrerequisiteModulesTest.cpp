@@ -575,6 +575,23 @@ TEST_F(PrerequisiteModulesTests, UnsavedEditsOfAModuleUnitReachItsOpenImporters)
   EXPECT_THAT(Recorder.errors(UsePath), ::testing::IsEmpty());
 }
 
+TEST_F(PrerequisiteModulesTests, UnusableBuildSystemModulesAreDroppedFromTheInvocation) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  // A module file that is not usable and a module that clangd cannot build.
+  CDB.ExtraClangFlags.push_back("-fmodule-file=Gone=/nonexistent/Gone.pcm");
+  CDB.addFile("Use.cpp", "import Gone;\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Info);
+  // The file must not load the stale module file (that is a fatal error): the
+  // import finds no module, which is an ordinary error.
+  HeaderSearchOptions HSOpts(TestDir);
+  HSOpts.PrebuiltModuleFiles["Gone"] = "/nonexistent/Gone.pcm";
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_FALSE(HSOpts.PrebuiltModuleFiles.count("Gone"));
+}
+
 TEST_F(PrerequisiteModulesTests, ModuleWithoutDepTest) {
   MockDirectoryCompilationDatabase CDB(TestDir, FS);
 

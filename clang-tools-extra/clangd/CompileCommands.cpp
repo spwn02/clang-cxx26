@@ -180,6 +180,23 @@ static std::string resolveDriver(llvm::StringRef Driver, bool FollowSymlink,
     if (!llvm::sys::fs::real_path(Driver, Resolved))
       return SiblingOf(Resolved);
   }
+  // A compilation database written by a build system that has been configured
+  // for a toolchain that was moved or removed since: the standard library and
+  // the other things the driver finds relative to itself are not there. Use the
+  // toolchain that clangd belongs to, with the basename of the driver.
+  if (!llvm::sys::fs::exists(Driver)) {
+    static int StaticForMainAddr;
+    std::string Self =
+        llvm::sys::fs::getMainExecutable("clangd", (void *)&StaticForMainAddr);
+    if (!Self.empty()) {
+      llvm::SmallString<128> Own = llvm::sys::path::parent_path(Self);
+      llvm::sys::path::append(Own, llvm::sys::path::filename(Driver));
+      if (llvm::sys::fs::exists(Own))
+        return Own.str().str();
+    }
+    if (ClangPath)
+      return SiblingOf(*ClangPath);
+  }
   return Driver.str();
 }
 

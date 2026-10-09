@@ -129,6 +129,10 @@ resolveStandardLibraryModule(llvm::StringRef ModuleName,
               ++I;
             continue;
           }
+          if (Arg == "-x") {
+            ++I; // the language of the importer is not the one of the module unit
+            continue;
+          }
           if (Arg.starts_with("-fmodule-output") ||
               Arg.starts_with("-fmodule-file=std=") ||
               Arg.starts_with("-fmodule-file=std.compat="))
@@ -213,15 +217,11 @@ public:
 
   /// Get the source file from the module name. Note that the language
   /// guarantees all the module names are unique in a valid program.
-  /// This function should only be called after globalScan.
+  /// Finds the modules of the standard library too, which are not part of the
+  /// project, with the flags of \param ImportingFile.
   ///
   /// TODO: We should handle the case that there are multiple source files
   /// declaring the same module.
-  PathRef getSourceForModuleName(llvm::StringRef ModuleName) const;
-
-  /// Like getSourceForModuleName, but also finds the modules of the standard
-  /// library, which are not part of the project, with the flags of
-  /// \param ImportingFile.
   std::string getSourceForModuleName(llvm::StringRef ModuleName,
                                      PathRef ImportingFile,
                                      const ProjectModules::CommandMangler &Mangler);
@@ -488,20 +488,6 @@ void ModuleDependencyScanner::globalScan(
     scan(File, Mangler);
 
   GlobalScanned = true;
-}
-
-PathRef ModuleDependencyScanner::getSourceForModuleName(
-    llvm::StringRef ModuleName) const {
-  assert(
-      GlobalScanned &&
-      "We should only call getSourceForModuleName after calling globalScan()");
-
-  std::lock_guard<std::mutex> Lock(Cache->Mu);
-  if (auto It = Cache->ModuleNameToSource.find(ModuleName);
-      It != Cache->ModuleNameToSource.end())
-    return It->second;
-
-  return {};
 }
 
 std::optional<std::string> ModuleDependencyScanner::validatedSourceForModuleName(

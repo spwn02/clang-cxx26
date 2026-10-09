@@ -849,17 +849,18 @@ TEST_F(InterpolateTest, Language) {
 
 TEST_F(InterpolateTest, ModuleUnits) {
   // C++ module units are C++: the standard is transferred between them and
-  // the -x c++-module that the build system gives them is not an obstacle.
+  // the -x c++-module that the build system gives them is not an obstacle. The
+  // module file that the proxy writes is not an output of the file.
   add("dir/Types.ixx", "-x c++-module -std=c++26 -fmodule-output=Types.pcm");
   add("dir/main.cpp", "-std=c++20");
   EXPECT_EQ(getCommand("dir/Predicates.ixx"),
-            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++2c");
+            "clang -D dir/Types.ixx -std=c++2c");
   EXPECT_EQ(getCommand("dir/Other.cppm"),
-            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++2c");
+            "clang -D dir/Types.ixx -std=c++2c");
   // A module unit proxies a plain source file of the same language too.
   Entries.erase(path(StringRef("dir/main.cpp")));
   EXPECT_EQ(getCommand("dir/util.cpp"),
-            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++2c");
+            "clang -D dir/Types.ixx -std=c++2c");
 }
 
 TEST_F(InterpolateTest, Strip) {
