@@ -194,8 +194,6 @@ static std::string resolveDriver(llvm::StringRef Driver, bool FollowSymlink,
       if (llvm::sys::fs::exists(Own))
         return Own.str().str();
     }
-    if (ClangPath)
-      return SiblingOf(*ClangPath);
   }
   return Driver.str();
 }
