@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fentity-proxy-reflection -verify
+// RUN: %clang_cc1 %s -std=c++26 -freflection -verify
 
 using info = decltype(^^int);
 

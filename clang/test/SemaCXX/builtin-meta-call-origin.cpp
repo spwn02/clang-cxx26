@@ -17,7 +17,7 @@ consteval void test() {
 static_assert(__is_same(decltype(__builtin_meta_call_origin()),
                         const std::source_location::__impl *));
 namespace std::meta {
-inline namespace reflection_v2 {
+inline namespace __reflection_v2 {
 consteval const source_location::__impl *inner() {
   return __builtin_meta_call_origin();
 }

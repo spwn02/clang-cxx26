@@ -7090,7 +7090,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_reflection_latest, false)) {
     CmdArgs.push_back("-freflection");
     CmdArgs.push_back("-fparameter-reflection");
-    CmdArgs.push_back("-fattribute-reflection");
     CmdArgs.push_back("-fannotation-attributes");
     CmdArgs.push_back("-fexpansion-statements");
   }
@@ -7433,14 +7432,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                     options::OPT_fno_reflection);
   Args.addOptInFlag(CmdArgs, options::OPT_fparameter_reflection,
                     options::OPT_fno_parameter_reflection);
-  Args.addOptInFlag(CmdArgs, options::OPT_fattribute_reflection,
-                    options::OPT_fno_attribute_reflection);
   Args.addOptInFlag(CmdArgs, options::OPT_fexpansion_statements,
                     options::OPT_fno_expansion_statements);
   Args.addOptInFlag(CmdArgs, options::OPT_fannotation_attributes,
                     options::OPT_fno_annotation_attributes);
-  Args.addOptInFlag(CmdArgs, options::OPT_fentity_proxy_reflection,
-                    options::OPT_fno_entity_proxy_reflection);
   Args.addOptInFlag(CmdArgs, options::OPT_freflection_latest,
                     options::OPT_fno_reflection_latest);
 

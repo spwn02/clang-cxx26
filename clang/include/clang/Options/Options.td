@@ -3824,7 +3824,7 @@ defm entity_proxy_reflection : BoolFOption<"entity-proxy-reflection",
 defm reflection_latest : BoolFOption<"reflection-latest",
   LangOpts<"ReflectionLatest">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option],
-          "Enable all experimental Clang reflection features, including C++29-target extensions">,
+          "Enable the C++26 reflection features: reflection, parameter reflection, annotations and expansion statements">,
   NegFlag<SetFalse>>;
 defm sized_deallocation : BoolFOption<"sized-deallocation",
   LangOpts<"SizedDeallocation">, Default<cpp14.KeyPath>,

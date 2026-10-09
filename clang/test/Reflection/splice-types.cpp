@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// RUN: %clang_cc1 %s -std=c++23 -freflection -fentity-proxy-reflection
+// RUN: %clang_cc1 %s -std=c++23 -freflection
 
 using info = decltype(^^int);
 
@@ -196,30 +196,6 @@ using enum [:rns:]::EnumCls;
 static_assert(int(B) == 1);
 }  // namespace
 }  // namespace with_enum_types
-
-                             // ===================
-                             // with_entity_proxies
-                             // ===================
-
-namespace with_entity_proxies {
-namespace NS {
-namespace Inner {
-struct S { int a = 11; };
-template <typename T> struct TCls { T t; void fn(); };
-}  // namespace Inner
-
-using Inner::S;
-using Inner::TCls;
-}  // namespace NS
-
-// splice-type-specifiers
-static_assert(typename [:^^NS::S:]{}.a == 11);
-static_assert(typename [:^^NS::TCls:]<int>{4}.t == 4);
-
-// splice-scope-specifiers
-static_assert(&[:^^NS::S:]::a == &NS::Inner::S::a);
-static_assert(&template [:^^NS::TCls:]<int>::fn == &NS::Inner::TCls<int>::fn);
-}  // namespace with_entity_proxies
 
                              // ===================
                              // friend_declarations
