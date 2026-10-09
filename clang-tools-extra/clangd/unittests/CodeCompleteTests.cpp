@@ -152,6 +152,24 @@ CodeCompleteResult completions(llvm::StringRef Text,
                      std::move(Opts));
 }
 
+TEST(CompletionTest, ReflectionOperatorOperand) {
+  // After ^^ the names that can be reflected are offered (#280).
+  Annotations Test(R"cpp(
+    namespace evaluation_ns { struct evaluator {}; }
+    struct Evaluator {};
+    void f() {
+      int eval_local = 0;
+      constexpr auto r = ^^eva$p^;
+    }
+  )cpp");
+  auto TU = TestTU::withCode(Test.code());
+  TU.ExtraArgs = {"-std=c++26", "-freflection"};
+  auto Results = completions(TU, Test.point("p"));
+  EXPECT_THAT(Results.Completions,
+              AllOf(Contains(named("eval_local")), Contains(named("Evaluator")),
+                    Contains(named("evaluation_ns"))));
+}
+
 // Runs code completion without the clang parser.
 CodeCompleteResult completionsNoCompile(llvm::StringRef Text,
                                         std::vector<Symbol> IndexSymbols = {},
