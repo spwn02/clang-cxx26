@@ -528,6 +528,25 @@ TEST_F(PrerequisiteModulesTests, EditsOfAModuleUnitReachItsOpenImporters) {
   EXPECT_THAT(Recorder.errors(UsePath), ::testing::IsEmpty());
 }
 
+TEST_F(PrerequisiteModulesTests, ModulesThatExistAreUsedWhenAnotherIsMissing) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("M.cppm", "export module M;\n");
+  CDB.addFile("Use.cpp", "import M;\nimport Missing;\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Info);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  // M is available, so that the only error is the module that does not exist.
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("M"));
+  EXPECT_FALSE(HSOpts.PrebuiltModuleFiles.count("Missing"));
+  // The preamble is built again next time: the missing module may exist then.
+  auto Invocation =
+      buildCompilerInvocation(getInputs("Use.cpp", CDB), DiagConsumer);
+  EXPECT_FALSE(Info->canReuse(*Invocation, FS.view(TestDir)));
+}
+
 TEST_F(PrerequisiteModulesTests, ModuleWithoutDepTest) {
   MockDirectoryCompilationDatabase CDB(TestDir, FS);
 

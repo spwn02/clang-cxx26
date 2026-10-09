@@ -236,6 +236,28 @@ private:
   llvm::StringSet<> BuiltModuleNames;
 };
 
+// PartialPrerequisiteModules - the module files that could be built when some of
+// the required modules could not. They are used so that the file sees what
+// exists, but the file is never considered up to date: the next update builds
+// the preamble again, which finds a module that exists by then.
+class PartialPrerequisiteModules : public PrerequisiteModules {
+public:
+  explicit PartialPrerequisiteModules(const ReusablePrerequisiteModules &Built)
+      : Built(Built) {}
+
+  void adjustHeaderSearchOptions(HeaderSearchOptions &Options) const override {
+    Built.adjustHeaderSearchOptions(Options);
+  }
+
+  bool canReuse(const CompilerInvocation &CI,
+                llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>) const override {
+    return false;
+  }
+
+private:
+  ReusablePrerequisiteModules Built;
+};
+
 // BuildSystemPrerequisiteModules - the module files that the build system gave
 // to the compiler (-fmodule-file=) and that were found usable: they exist, the
 // compiler can read them and none of their inputs changed. clangd uses them as
@@ -776,16 +798,21 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
     return std::make_unique<ReusablePrerequisiteModules>();
 
   auto RequiredModules = std::make_unique<ReusablePrerequisiteModules>();
+  bool AllBuilt = true;
   for (llvm::StringRef RequiredModuleName : RequiredModuleNames) {
-    // Return early if there is any error.
+    // A module that cannot be built does not stop the others: the file still
+    // gets the module files that exist, and the diagnostics point at the
+    // modules that are really missing.
     if (llvm::Error Err = Impl->getOrBuildModuleFile(
             File, RequiredModuleName, TFS, CachedMDB, *RequiredModules.get())) {
       elog("Failed to build module {0}; due to {1}", RequiredModuleName,
            toString(std::move(Err)));
-      return std::make_unique<FailedPrerequisiteModules>();
+      AllBuilt = false;
     }
   }
 
+  if (!AllBuilt)
+    return std::make_unique<PartialPrerequisiteModules>(*RequiredModules);
   return std::move(RequiredModules);
 }
 
