@@ -48,7 +48,7 @@ __cpp_lib_atomic_ref                                    202603L <atomic>
 __cpp_lib_atomic_shared_ptr                             201711L <atomic>
 __cpp_lib_atomic_value_initialization                   201911L <atomic> <memory>
 __cpp_lib_atomic_wait                                   201907L <atomic>
-__cpp_lib_barrier                                       201907L <barrier>
+__cpp_lib_barrier                                       202302L <barrier>
 __cpp_lib_bind_back                                     202306L <functional>
                                                         202202L // C++23
 __cpp_lib_bind_front                                    202306L <functional>
@@ -493,7 +493,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_atomic_value_initialization          201911L
 # define __cpp_lib_atomic_wait                          201907L
 # if _LIBCPP_HAS_THREADS
-#   define __cpp_lib_barrier                            201907L
+#   define __cpp_lib_barrier                            202302L
 # endif
 # define __cpp_lib_bind_front                           201907L
 # define __cpp_lib_bit_cast                             201806L

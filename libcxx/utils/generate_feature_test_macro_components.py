@@ -235,7 +235,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_barrier",
-            "values": {"c++20": 201907},  # 202302 (P2588R3 barrier's phase completion guarantees) is not defined until the implementation is checked against the wording
+            "values": {"c++20": 202302},  # P2588R3 barrier's phase completion guarantees (a C++20 DR; the implementation runs the completion function inline, which the relaxed wording permits)ing
             "headers": ["barrier"],
             "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS",
             "libcxx_guard": "_LIBCPP_HAS_THREADS",

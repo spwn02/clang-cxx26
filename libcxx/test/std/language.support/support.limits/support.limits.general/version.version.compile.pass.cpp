@@ -4197,8 +4197,8 @@
 #    ifndef __cpp_lib_barrier
 #      error "__cpp_lib_barrier should be defined in c++20"
 #    endif
-#    if __cpp_lib_barrier != 201907L
-#      error "__cpp_lib_barrier should have the value 201907L in c++20"
+#    if __cpp_lib_barrier != 202302L
+#      error "__cpp_lib_barrier should have the value 202302L in c++20"
 #    endif
 #  else
 #    ifdef __cpp_lib_barrier
@@ -5950,8 +5950,8 @@
 #    ifndef __cpp_lib_barrier
 #      error "__cpp_lib_barrier should be defined in c++23"
 #    endif
-#    if __cpp_lib_barrier != 201907L
-#      error "__cpp_lib_barrier should have the value 201907L in c++23"
+#    if __cpp_lib_barrier != 202302L
+#      error "__cpp_lib_barrier should have the value 202302L in c++23"
 #    endif
 #  else
 #    ifdef __cpp_lib_barrier
@@ -7898,8 +7898,8 @@
 #    ifndef __cpp_lib_barrier
 #      error "__cpp_lib_barrier should be defined in c++26"
 #    endif
-#    if __cpp_lib_barrier != 201907L
-#      error "__cpp_lib_barrier should have the value 201907L in c++26"
+#    if __cpp_lib_barrier != 202302L
+#      error "__cpp_lib_barrier should have the value 202302L in c++26"
 #    endif
 #  else
 #    ifdef __cpp_lib_barrier
