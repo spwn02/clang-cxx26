@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-//  This file implements all metafunctions from the <experimental/meta> header.
+//  This file implements all metafunctions from the <meta> header.
 //
 //===----------------------------------------------------------------------===//
 
@@ -866,7 +866,7 @@ static bool is_string_literal(APValue &Result, ASTContext &C, MetaActions &Meta,
 // Metafunction table
 //
 // Order of entries MUST be kept in sync with order of declarations in the
-//   <experimental/meta>
+//   <meta>
 // header file.
 // -----------------------------------------------------------------------------
 

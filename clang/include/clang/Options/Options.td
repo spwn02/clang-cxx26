@@ -3801,11 +3801,6 @@ defm parameter_reflection : BoolFOption<"parameter-reflection",
   PosFlag<SetTrue, [], [ClangOption, CC1Option],
           "Enable C++26 function parameter reflection">,
   NegFlag<SetFalse>>;
-defm attribute_reflection : BoolFOption<"attribute-reflection",
-  LangOpts<"AttributeReflection">, DefaultFalse,
-  PosFlag<SetTrue, [], [ClangOption, CC1Option],
-          "Enable attribute reflection (P3385, targets C++29; an extension, not C++26)">,
-  NegFlag<SetFalse>>;
 defm expansion_statements : BoolFOption<"expansion-statements",
   LangOpts<"ExpansionStatements">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option],
@@ -3815,11 +3810,6 @@ defm annotation_attributes : BoolFOption<"annotation-attributes",
   LangOpts<"AnnotationAttributes">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option],
           "Enable C++26 annotation attributes">,
-  NegFlag<SetFalse>>;
-defm entity_proxy_reflection : BoolFOption<"entity-proxy-reflection",
-  LangOpts<"EntityProxyReflection">, DefaultFalse,
-  PosFlag<SetTrue, [], [ClangOption, CC1Option],
-          "Enable entity-proxy reflection (not adopted by WG21; an extension, not C++26)">,
   NegFlag<SetFalse>>;
 defm reflection_latest : BoolFOption<"reflection-latest",
   LangOpts<"ReflectionLatest">, DefaultFalse,
