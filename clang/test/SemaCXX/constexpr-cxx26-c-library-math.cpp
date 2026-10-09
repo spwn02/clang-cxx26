@@ -16,6 +16,9 @@ long double fmal(long double, long double, long double);
 float nextafterf(float, float);
 long double nextafterl(long double, long double);
 float fabsf(float);
+int abs(int);
+long labs(long);
+long long llabs(long long);
 double ceil(double);
 double modf(double, double *);
 long lround(double);
@@ -46,6 +49,7 @@ static_assert(fmaf(0.1f, 10.0f, -1.0f) != 0.0f); // a single rounding
 static_assert(nextafterf(1.0f, 2.0f) == 1.0000001f);
 static_assert(nextafterl(1.0L, 0.0L) < 1.0L);
 static_assert(fabsf(-2.5f) == 2.5f);
+static_assert(abs(-3) == 3 && labs(-3L) == 3L && llabs(-3LL) == 3LL);
 static_assert(ceil(1.5) == 2.0);
 constexpr bool modf_ok() { double i = 0; return modf(2.5, &i) == 0.5 && i == 2.0; }
 static_assert(modf_ok());
