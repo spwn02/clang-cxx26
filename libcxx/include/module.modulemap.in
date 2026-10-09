@@ -2108,6 +2108,7 @@ module std [system] {
   }
 
   module ccomplex {
+    requires !cplusplus20
     header "ccomplex"
     export *
   }
@@ -2138,6 +2139,7 @@ module std [system] {
   }
 
   module ciso646 {
+    requires !cplusplus20
     header "ciso646"
     export *
   }
@@ -2169,6 +2171,7 @@ module std [system] {
   }
 
   module cstdalign {
+    requires !cplusplus20
     header "cstdalign"
     export *
   }
@@ -2179,6 +2182,7 @@ module std [system] {
   }
 
   module cstdbool {
+    requires !cplusplus20
     header "cstdbool"
     export *
   }
@@ -2204,6 +2208,7 @@ module std [system] {
   }
 
   module ctgmath {
+    requires !cplusplus20
     header "ctgmath"
     export *
   }

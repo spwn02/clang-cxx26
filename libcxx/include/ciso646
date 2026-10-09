@@ -20,6 +20,11 @@
 #else
 #  include <__config>
 
+#  if _LIBCPP_STD_VER >= 20
+#    error "<ciso646> was removed in C++20. Include <version> instead."
+#  endif
+#  include <__config>
+
 #  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #    pragma GCC system_header
 #  endif

@@ -10,6 +10,8 @@
 
 // ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS
 
+// The header was removed in C++20.
+// UNSUPPORTED: c++20, c++23, c++26
 #include <ctgmath>
 
 #include "test_macros.h"

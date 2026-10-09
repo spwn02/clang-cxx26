@@ -21,6 +21,11 @@
 #if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 #  include <__cxx03/ctgmath>
 #else
+#  include <__config>
+
+#  if _LIBCPP_STD_VER >= 20
+#    error "<ctgmath> was removed in C++20. Include <cmath> and <complex> instead."
+#  endif
 #  include <cmath>
 #  include <complex>
 

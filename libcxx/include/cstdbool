@@ -24,6 +24,11 @@ Macros:
 #else
 #  include <__config>
 
+#  if _LIBCPP_STD_VER >= 20
+#    error "<cstdbool> was removed in C++20."
+#  endif
+#  include <__config>
+
 #  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #    pragma GCC system_header
 #  endif

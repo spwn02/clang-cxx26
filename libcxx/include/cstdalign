@@ -25,6 +25,11 @@ Macros:
 #else
 #  include <__config>
 
+#  if _LIBCPP_STD_VER >= 20
+#    error "<cstdalign> was removed in C++20."
+#  endif
+#  include <__config>
+
 // <stdalign.h> is not provided by libc++
 #  if __has_include(<stdalign.h>)
 #    include <stdalign.h>

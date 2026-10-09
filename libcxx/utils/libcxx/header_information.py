@@ -171,6 +171,12 @@ header_restrictions = {
 }
 
 lit_header_restrictions = {
+    # Removed in C++20: including them is an error since then.
+    "ccomplex": "// UNSUPPORTED: c++20, c++23, c++26",
+    "ciso646": "// UNSUPPORTED: c++20, c++23, c++26",
+    "cstdalign": "// UNSUPPORTED: c++20, c++23, c++26",
+    "cstdbool": "// UNSUPPORTED: c++20, c++23, c++26",
+    "ctgmath": "// UNSUPPORTED: c++20, c++23, c++26",
     "barrier": "// UNSUPPORTED: no-threads, c++03, c++11, c++14, c++17",
     "coroutine": "// UNSUPPORTED: c++03, c++11, c++14, c++17",
     "cwchar": "// UNSUPPORTED: no-wide-characters",
