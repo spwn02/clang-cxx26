@@ -2177,7 +2177,8 @@ CXXExpansionInitListExpr::CXXExpansionInitListExpr(
 }
 
 CXXExpansionInitListExpr::CXXExpansionInitListExpr(EmptyShell Empty)
-  : Expr(CXXExpansionInitListExprClass, Empty) {
+  : Expr(CXXExpansionInitListExprClass, Empty), SubExprs(nullptr),
+    NumSubExprs(0), ContainsPack(false) {
 }
 
 CXXExpansionInitListExpr *CXXExpansionInitListExpr::Create(

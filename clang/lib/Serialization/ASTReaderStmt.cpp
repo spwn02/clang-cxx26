@@ -659,6 +659,14 @@ void ASTStmtReader::VisitCXXExpansionInitListExpr(CXXExpansionInitListExpr *E) {
   for (size_t k = 0; k < E->NumSubExprs; ++k)
     SubExprs[k] = Record.readExpr();
   E->SubExprs = SubExprs;
+
+  // Not serialized: it is derived from the elements.
+  E->ContainsPack = false;
+  for (size_t k = 0; k < E->NumSubExprs; ++k)
+    if (isa<PackExpansionExpr>(SubExprs[k])) {
+      E->ContainsPack = true;
+      break;
+    }
 }
 
 void ASTStmtReader::VisitDependentCoawaitExpr(DependentCoawaitExpr *E) {
