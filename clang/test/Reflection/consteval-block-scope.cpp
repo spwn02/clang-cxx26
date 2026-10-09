@@ -9,10 +9,10 @@ using info = decltype(^^int);
 
 // The raw scope metafunctions back current_function, current_class,
 // current_namespace and access_context::current in <meta>.
-[[clang::instantiation_dependent]] consteval info scope() { return __metafunction(123); }
-[[clang::instantiation_dependent]] consteval info function_scope() { return __metafunction(124); }
-[[clang::instantiation_dependent]] consteval info class_scope() { return __metafunction(125); }
-[[clang::instantiation_dependent]] consteval info namespace_scope() { return __metafunction(126); }
+[[clang::instantiation_dependent]] consteval info scope() { return __metafunction(122); }
+[[clang::instantiation_dependent]] consteval info function_scope() { return __metafunction(123); }
+[[clang::instantiation_dependent]] consteval info class_scope() { return __metafunction(124); }
+[[clang::instantiation_dependent]] consteval info namespace_scope() { return __metafunction(125); }
 #define CHECK_SCOPE(S)                                                        \
   static_assert(scope() == S);                                                \
   static_assert(function_scope() == S);                                       \

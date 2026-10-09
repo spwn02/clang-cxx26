@@ -26,7 +26,7 @@ constexpr auto timeout = parameters_of(^^configure)[1];
 
 static_assert(extract<Inject>(annotations_of(count)[0]).slot == 7);
 static_assert(extract<Inject>(annotations_of(timeout)[0]).slot == 11);
-static_assert(annotations_of(count, ^^Inject).size() == 1);
+static_assert(annotations_of_with_type(count, ^^Inject).size() == 1);
 } // namespace direct
 
 namespace redeclarations {

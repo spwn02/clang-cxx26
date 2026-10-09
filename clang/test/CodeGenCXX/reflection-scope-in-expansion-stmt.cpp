@@ -7,8 +7,8 @@
 
 using info = decltype(^^int);
 
-[[clang::instantiation_dependent]] consteval info scope() { return __metafunction(123); }
-[[clang::instantiation_dependent]] consteval info function_scope() { return __metafunction(124); }
+[[clang::instantiation_dependent]] consteval info scope() { return __metafunction(122); }
+[[clang::instantiation_dependent]] consteval info function_scope() { return __metafunction(123); }
 
 struct Context {
   info scope;

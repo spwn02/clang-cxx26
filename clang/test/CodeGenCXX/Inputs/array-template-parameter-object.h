@@ -8,7 +8,7 @@ using size_t = decltype(sizeof(0));
 template <class T>
 consteval info array_object(const size_t* dims, size_t rank, const T* data,
                            size_t count) {
-  return __metafunction(133, ^^T, dims, rank, data, count, ^^array_object<T>);
+  return __metafunction(132, ^^T, dims, rank, data, count, ^^array_object<T>);
 }
 template <class T> consteval T extract(info r) {
   return __metafunction(25, ^^T, r, ^^extract<T>);

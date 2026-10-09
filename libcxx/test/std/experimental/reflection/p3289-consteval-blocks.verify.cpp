@@ -36,22 +36,6 @@ template<typename... Ts> struct Tuple {
 Tuple<int, bool, char> tup;
 }  // namespace consteval_block_tuple
 
-                         // ===========================
-                         // consteval_block_annotations
-                         // ===========================
-
-namespace consteval_block_annotations {
-
-struct S {
-  consteval {
-    annotate(^^S, std::meta::reflect_constant(42));
-  }
-};
-
-static_assert(extract<int>(annotations_of(^^S)[0]) == 42);
-
-}  // namespace consteval_block_annotations
-
                              // ==================
                              // non_void_returning
                              // ==================

@@ -246,9 +246,7 @@ export namespace std {
 #if __has_feature(annotation_attributes)
       using std::meta::reflection_v2::annotations_of;
       using std::meta::reflection_v2::annotations_of_with_type;
-      using std::meta::reflection_v2::annotation_of_type;
       using std::meta::reflection_v2::is_annotation;
-      using std::meta::reflection_v2::annotate;
 #endif // __has_feature(annotation_attributes)
 #if __has_feature(attribute_reflection)
       using std::meta::reflection_v2::is_attribute;

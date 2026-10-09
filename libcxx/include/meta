@@ -372,12 +372,8 @@ consteval auto variable_of(info) -> info;
 
 // annotations (P3394)
 consteval auto annotations_of(info) -> vector<info>;
-consteval auto annotations_of(info, info) -> vector<info>;
 consteval auto annotations_of_with_type(info, info) -> vector<info>;
-template <typename T>
-  consteval auto annotation_of_type(info) -> optional<info>;
 consteval auto is_annotation(info) -> bool;
-consteval auto annotate(info) -> info;
 
 // Attributes reflection (P3385)
 consteval auto is_attribute(info) -> bool;
@@ -691,7 +687,6 @@ enum : unsigned {
   // P3394 annotation metafunctions
   __metafn_get_ith_annotation_of,
   __metafn_is_annotation,
-  __metafn_annotate,
 
   // P3385 attributes reflection
   __metafn_get_ith_attribute_of,
@@ -2844,10 +2839,10 @@ consteval auto annotations_of(info r) -> vector<info> try {
   throw;
 }
 
-consteval auto annotations_of(info r, info ty) -> vector<info> try {
-  if (!is_type(ty))
-    throw "Expected a reflection of a type";
-
+// Returns annotations of the reflected entity whose type matches ty.
+consteval auto annotations_of_with_type(info r, info ty) -> vector<info> try {
+  if (!is_type(ty) || !is_complete_type(ty))
+    throw __lib_exception(u8"annotations_of_with_type requires a complete type", ^^annotations_of_with_type, source_location::current(__builtin_meta_call_origin()));
   return __filtered(__annotations_of(r, current_function()), [=](info annot) {
     return remove_const(type_of(annot)) == remove_const(ty);
   });
@@ -2856,38 +2851,8 @@ consteval auto annotations_of(info r, info ty) -> vector<info> try {
   throw;
 }
 
-// Returns annotations of the reflected entity whose type matches ty.
-consteval auto annotations_of_with_type(info r, info ty) -> vector<info> try {
-  if (!is_type(ty) || !is_complete_type(ty))
-    throw __lib_exception(u8"annotations_of_with_type requires a complete type", ^^annotations_of_with_type, source_location::current(__builtin_meta_call_origin()));
-  return annotations_of(r, ty);
-} catch (exception& e) {
-  __set_exception_from(e, current_function());
-  throw;
-}
-
-template<typename T>
-consteval optional<T> annotation_of_type(info r) {
-  auto v = annotations_of(r, ^^T);
-  optional<T> result{};
-  for (info a: v) {
-    if (result.has_value()) {
-      if (extract<T>(a) != result) {
-        throw "inconsistent annotations";
-      }
-    } else {
-      result = extract<T>(a);
-    }
-  }
-  return result;
-}
-
 consteval auto is_annotation(info r) -> bool {
   return __metafunction(detail::__metafn_is_annotation, r);
-}
-
-consteval auto annotate(info entity, info val) -> info {
-  return __metafunction(detail::__metafn_annotate, entity, val);
 }
 
 #endif  // __has_feature(annotation_attributes)

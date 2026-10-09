@@ -748,11 +748,6 @@ static bool is_annotation(APValue &Result, ASTContext &C, MetaActions &Meta,
                           SourceRange Range, ArrayRef<Expr *> Args,
                           Decl *ContainingDecl);
 
-static bool annotate(APValue &Result, ASTContext &C, MetaActions &Meta,
-                     EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
-                     QualType ResultTy, SourceRange Range,
-                     ArrayRef<Expr *> Args, Decl *ContainingDecl);
-
 // -----------------------------------------------------------------------------
 // P3385 Metafunction declarations
 // -----------------------------------------------------------------------------
@@ -998,10 +993,9 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_metaInfo, 2, 2, return_type_of, true },
   { Metafunction::MFRK_metaInfo, 2, 2, variable_of, true },
 
-  // P3394 annotation metafunction extensions
+  // P3394 annotation metafunctions
   { Metafunction::MFRK_metaInfo, 4, 4, get_ith_annotation_of, true },
   { Metafunction::MFRK_bool, 1, 1, is_annotation },
-  { Metafunction::MFRK_metaInfo, 2, 2, annotate },
 
   // P3385 attributes reflection
   { Metafunction::MFRK_metaInfo, 3, 3, get_ith_attribute_of },
@@ -7434,67 +7428,6 @@ bool is_annotation(APValue &Result, ASTContext &C, MetaActions &Meta,
     return true;
 
   return SetAndSucceed(Result, makeBool(C, RV.isReflectedAnnotation()));
-}
-
-bool annotate(APValue &Result, ASTContext &C, MetaActions &Meta,
-              EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
-              QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
-              Decl *ContainingDecl) {
-  assert(Args[0]->getType()->isReflectionType());
-  assert(Args[1]->getType()->isReflectionType());
-  assert(ResultTy == C.MetaInfoTy);
-
-  APValue Appertainee;
-  if (!Evaluator(Appertainee, Args[0], true))
-    return true;
-
-  APValue Value;
-  if (!Evaluator(Value, Args[1], true) || !Value.isReflectedValue())
-    return true;
-
-  if (!AllowInjection)
-    return Diagnoser(Range.getBegin(),
-                     diag::metafn_injected_decl_non_plainly_consteval);
-
-  switch (Appertainee.getReflectionKind()) {
-  case ReflectionKind::Type: {
-    Decl *D = findTypeDecl(Appertainee.getReflectedType());
-    if (auto *Annot = Meta.Annotate(D->getMostRecentDecl(), Value,
-                                    ContainingDecl, Range.getBegin()))
-      return SetAndSucceed(Result, makeReflection(Annot));
-    return true;
-  }
-  case ReflectionKind::Declaration: {
-    Decl *D = Appertainee.getReflectedDecl();
-    if (!isa<VarDecl, FunctionDecl>(D))
-      return true;
-
-    if (auto *Annot = Meta.Annotate(D->getMostRecentDecl(), Value,
-                                    ContainingDecl, Range.getBegin()))
-      return SetAndSucceed(Result, makeReflection(Annot));
-    return true;
-  }
-  case ReflectionKind::Namespace: {
-    Decl *D = Appertainee.getReflectedNamespace();
-    if (auto *Annot = Meta.Annotate(D->getMostRecentDecl(), Value,
-                                    ContainingDecl, Range.getBegin()))
-      return SetAndSucceed(Result, makeReflection(Annot));
-    return true;
-  }
-  case ReflectionKind::Null:
-  case ReflectionKind::Object:
-  case ReflectionKind::Value:
-  case ReflectionKind::Template:
-  case ReflectionKind::BaseSpecifier:
-  case ReflectionKind::Parameter:
-  case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::Annotation:
-  case ReflectionKind::EntityProxy:
-  case ReflectionKind::Attribute:
-    return Diagnoser(Range.getBegin(), diag::metafn_cannot_annotate)
-        << DescriptionOf(Appertainee) << Range;
-  }
-  llvm_unreachable("unknown reflection kind");
 }
 
 static Decl *scopeAtPoint(Decl *Ctx, SourceLocation Point, ASTContext &C) {
