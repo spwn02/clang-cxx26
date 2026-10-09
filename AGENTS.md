@@ -151,14 +151,13 @@ repeated runs.
 
 ## Experimental reflection flags
 
-Enable reflection with `-std=c++26 -freflection`. Extended features require additional flags:
+Enable reflection with `-std=c++26 -freflection`. The C++26 features beyond the core require additional flags (nothing that is not in the C++ draft is available; the vocabulary audit of the release build enforces it, issue #283):
 
-- `-freflection-latest`: all experimental features (recommended for testing); the driver expands it to `-freflection -fparameter-reflection -fattribute-reflection -fannotation-attributes -fexpansion-statements`
+- `-freflection-latest`: all the C++26 reflection features (recommended for testing); the driver expands it to `-freflection -fparameter-reflection -fannotation-attributes -fexpansion-statements`
 - `-fparameter-reflection`: P3096 parameter reflection in metafunctions (gates only the libc++ surface)
 - `-fexpansion-statements`: P1306 expansion statements (`template for`: enumerating, iterable and destructuring forms)
 - `-fannotation-attributes`: P3394 annotations (`[[=expr]]`)
-- `-fattribute-reflection`: P3385 attributes reflection (targets C++29, not in the C++26 draft)
-- P4033 `define_enum` has no flag of its own: it is exposed under plain `-freflection` (targets C++29)
+- P3385 attribute reflection, entity proxies and P4033 `define_enum` are not in the C++26 draft: their flags and library interfaces were removed (issue #283; the dead compiler code is tracked by #284)
 
 ## Code Organization
 
