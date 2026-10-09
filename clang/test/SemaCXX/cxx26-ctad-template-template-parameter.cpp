@@ -134,3 +134,17 @@ template <template <typename> class X> void f() {
 }
 template void f<NoGuide>(); // expected-note {{in instantiation}}
 } // namespace not_deducible
+
+namespace variadic_parameter_nonvariadic_alias {
+// A pack of the template template parameter cannot be applied to the single parameter of an alias template; the
+// deduction then goes through the template argument itself (std::ranges::to<Alias> relies on this).
+template <typename T> struct W {
+  W(T);
+};
+template <typename T> using WA = W<T>;
+template <template <typename...> class C> auto f1() { return C(1); }
+template <template <typename...> class C, typename U> auto f2(U u) { return C(u); }
+static_assert(is_same<decltype(f1<W>()), W<int>>::value, "");
+static_assert(is_same<decltype(f1<WA>()), W<int>>::value, "");
+static_assert(is_same<decltype(f2<WA>(2.0)), W<double>>::value, "");
+} // namespace variadic_parameter_nonvariadic_alias

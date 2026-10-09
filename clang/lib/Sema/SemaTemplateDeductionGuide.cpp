@@ -2242,11 +2242,25 @@ TypeAliasTemplateDecl *Sema::getDeducibleAliasForTemplateTemplateParameter(
     }
     ArgsInfo.addArgument(getTrivialTemplateArgumentLoc(Arg, QualType(), Loc));
   }
-  QualType Underlying = CheckTemplateIdType(
-      ElaboratedTypeKeyword::None, TemplateName(Replacement), Loc, ArgsInfo,
-      /*Scope=*/nullptr, /*ForNestedNameSpecifier=*/false);
-  if (Underlying.isNull())
+  // The application can be ill-formed, e.g. a pack of P applied to a template
+  // argument that has no pack parameter at that position (the alias template
+  // `template <class T> using Vec = std::vector<T>` for `template <class...>
+  // class C`). Then there is no alias to deduce through and the placeholder
+  // deduces through the template argument itself, as before C++26; this must
+  // not be diagnosed.
+  QualType Underlying;
+  {
+    Sema::SFINAETrap Trap(*this, /*WithAccessChecking=*/false);
+    Underlying = CheckTemplateIdType(
+        ElaboratedTypeKeyword::None, TemplateName(Replacement), Loc, ArgsInfo,
+        /*Scope=*/nullptr, /*ForNestedNameSpecifier=*/false);
+    if (Trap.hasErrorOccurred())
+      Underlying = QualType();
+  }
+  if (Underlying.isNull()) {
+    CTADTemplateTemplateParamAliases[Key] = nullptr;
     return nullptr;
+  }
 
   auto *NewList = TemplateParameterList::Create(
       Context, ParamList->getTemplateLoc(), ParamList->getLAngleLoc(),
