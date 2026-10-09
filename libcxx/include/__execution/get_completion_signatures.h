@@ -182,8 +182,8 @@ struct __type_list_append_unique {
 };
 template <class... _Ts, class _Tp>
   requires(!(is_same_v<_Ts, _Tp> || ...))
-struct __type_list_append_unique<type_list<_Ts...>, _Tp> {
-  using type = type_list<_Ts..., _Tp>;
+struct __type_list_append_unique<__exec_type_list<_Ts...>, _Tp> {
+  using type = __exec_type_list<_Ts..., _Tp>;
 };
 
 template <class _List, class... _Ts>
@@ -195,14 +195,14 @@ struct __type_list_dedup<_List, _Tp, _Rest...>
     : __type_list_dedup<typename __type_list_append_unique<_List, _Tp>::type, _Rest...> {};
 
 template <class... _Ts>
-using __dedup_type_list_t = typename __type_list_dedup<type_list<>, _Ts...>::type;
+using __dedup_type_list_t = typename __type_list_dedup<__exec_type_list<>, _Ts...>::type;
 
 template <class... _Ts>
 struct __variant_or_empty_impl {
   template <class>
   struct __to_variant;
   template <class... _Us>
-  struct __to_variant<type_list<_Us...>> {
+  struct __to_variant<__exec_type_list<_Us...>> {
     using type = variant<_Us...>;
   };
   using type = typename __to_variant<__dedup_type_list_t<decay_t<_Ts>...>>::type;
@@ -230,7 +230,7 @@ using error_types_of_t =
 template <class _Sndr, class _Env = env<>>
   requires sender_in<_Sndr, _Env>
 inline constexpr bool sends_stopped =
-    !same_as<type_list<>, __gather_signatures<set_stopped_t, completion_signatures_of_t<_Sndr, _Env>, type_list, type_list>>;
+    !same_as<__exec_type_list<>, __gather_signatures<set_stopped_t, completion_signatures_of_t<_Sndr, _Env>, __exec_type_list, __exec_type_list>>;
 
 // [exec.snd.expos]: single-sender-value-type<Sndr, Env> is the first of three alternatives that's
 // well-formed: (1) gather-signatures<set_value_t, CS, decay_t, type_identity_t> -- exactly one
@@ -238,8 +238,8 @@ inline constexpr bool sends_stopped =
 // tuple/variant) has zero datums; (3) gather-signatures<set_value_t, CS, decayed-tuple, type_identity_t>
 // -- exactly one set_value completion shape, tupled.
 //
-// Implemented against `value_types_of_t<Sndr, Env, __decayed_tuple, type_list>` -- a
-// `type_list` of one decayed-tuple per set_value completion signature, always well-formed
+// Implemented against `value_types_of_t<Sndr, Env, __decayed_tuple, __exec_type_list>` -- a
+// `__exec_type_list` of one decayed-tuple per set_value completion signature, always well-formed
 // since __decayed_tuple (unlike decay_t) accepts any arity -- rather than gathering directly
 // with `decay_t`/`type_identity_t` the way the standard's own (2.1) alternative literally
 // spells it. `decay_t<Args...>` is ill-formed whenever a signature's arity isn't exactly one,
@@ -254,29 +254,29 @@ template <class _List>
 struct __single_sender_value_type_impl {}; // more than one set_value shape: ill-formed, (2.4).
 
 template <>
-struct __single_sender_value_type_impl<type_list<>> {
+struct __single_sender_value_type_impl<__exec_type_list<>> {
   using type = void; // no set_value completion at all: (2.2)'s variant<> case.
 };
 
 template <class... _Args>
-struct __single_sender_value_type_impl<type_list<tuple<_Args...>>> {
+struct __single_sender_value_type_impl<__exec_type_list<tuple<_Args...>>> {
   using type = tuple<_Args...>; // (2.3): the single completion's decayed-tuple shape.
 };
 
 template <>
-struct __single_sender_value_type_impl<type_list<tuple<>>> {
+struct __single_sender_value_type_impl<__exec_type_list<tuple<>>> {
   using type = void; // (2.2)'s variant<tuple<>> case: the single completion has zero datums.
 };
 
 template <class _Arg>
-struct __single_sender_value_type_impl<type_list<tuple<_Arg>>> {
+struct __single_sender_value_type_impl<__exec_type_list<tuple<_Arg>>> {
   using type = _Arg; // (2.1): the single completion's single datum, unwrapped.
 };
 
 template <class _Sndr, class _Env = env<>>
   requires sender_in<_Sndr, _Env>
 using __single_sender_value_type =
-    typename __single_sender_value_type_impl<value_types_of_t<_Sndr, _Env, __decayed_tuple, type_list>>::type;
+    typename __single_sender_value_type_impl<value_types_of_t<_Sndr, _Env, __decayed_tuple, __exec_type_list>>::type;
 
 // [exec.snd.expos]: the exposition-only single-sender concept.
 template <class _Sndr, class _Env = env<>>

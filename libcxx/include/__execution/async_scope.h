@@ -610,14 +610,14 @@ struct __spawn_future_as_tuple<_Tag(_Args...)> {
 template <class _List>
 struct __spawn_future_to_variant;
 template <class... _Ts>
-struct __spawn_future_to_variant<type_list<_Ts...>> {
+struct __spawn_future_to_variant<__exec_type_list<_Ts...>> {
   using type = variant<_Ts...>;
 };
 
 template <class _List>
 struct __spawn_future_to_sigs;
 template <class... _Sigs>
-struct __spawn_future_to_sigs<type_list<_Sigs...>> {
+struct __spawn_future_to_sigs<__exec_type_list<_Sigs...>> {
   using type = completion_signatures<_Sigs...>;
 };
 

@@ -151,11 +151,11 @@ struct __bulk_nothrow_invocable;
 template <bool _Chunked, class _Func, class _Shape, class _List>
 struct __bulk_invocable_one;
 template <class _Func, class _Shape, class... _Args>
-struct __bulk_invocable_one<true, _Func, _Shape, type_list<_Args...>> {
+struct __bulk_invocable_one<true, _Func, _Shape, __exec_type_list<_Args...>> {
   static constexpr bool value = invocable<_Func&, _Shape, _Shape, _Args&...>;
 };
 template <class _Func, class _Shape, class... _Args>
-struct __bulk_invocable_one<false, _Func, _Shape, type_list<_Args...>> {
+struct __bulk_invocable_one<false, _Func, _Shape, __exec_type_list<_Args...>> {
   static constexpr bool value = invocable<_Func&, _Shape, _Args&...>;
 };
 template <class _Func, class _Shape, class... _Args>
@@ -167,14 +167,14 @@ struct __bulk_nothrow_invocable<false, _Func, _Shape, _Args...> {
   static constexpr bool value = is_nothrow_invocable_v<_Func&, _Shape, _Args&...>;
 };
 
-// check-types helper: whether `_Func&` is invocable for every value completion (`_Lists`: type_list of the datum lists).
+// check-types helper: whether `_Func&` is invocable for every value completion (`_Lists`: __exec_type_list of the datum lists).
 template <bool _Chunked, class _Func, class _Shape, class _Lists>
 inline constexpr bool __bulk_invocable_v = false;
 template <class _Func, class _Shape, class... _Lists>
-inline constexpr bool __bulk_invocable_v<true, _Func, _Shape, type_list<_Lists...>> =
+inline constexpr bool __bulk_invocable_v<true, _Func, _Shape, __exec_type_list<_Lists...>> =
     (__bulk_invocable_one<true, _Func, _Shape, _Lists>::value && ...);
 template <class _Func, class _Shape, class... _Lists>
-inline constexpr bool __bulk_invocable_v<false, _Func, _Shape, type_list<_Lists...>> =
+inline constexpr bool __bulk_invocable_v<false, _Func, _Shape, __exec_type_list<_Lists...>> =
     (__bulk_invocable_one<false, _Func, _Shape, _Lists>::value && ...);
 
 // The contributors of bulk/bulk_chunked/bulk_unchunked: the function is invoked where the child completed with
@@ -185,11 +185,11 @@ struct __bulk_contrib {
   template <class _Lists>
   struct __throws;
   template <class... _Lists>
-  struct __throws<type_list<_Lists...>> {
+  struct __throws<__exec_type_list<_Lists...>> {
     template <class _List>
     struct __one;
     template <class... _Args>
-    struct __one<type_list<_Args...>> {
+    struct __one<__exec_type_list<_Args...>> {
       static constexpr bool value = !__bulk_nothrow_invocable<_Chunked, _Func, _Shape, _Args...>::value;
     };
     static constexpr bool value = (__one<_Lists>::value || ... || false);
@@ -197,7 +197,7 @@ struct __bulk_contrib {
 
   template <class _ChildSigs, class _Out>
   static consteval unsigned __mask() {
-    constexpr bool __may_throw = __throws<__gather_signatures<set_value_t, _ChildSigs, type_list, type_list>>::value;
+    constexpr bool __may_throw = __throws<__gather_signatures<set_value_t, _ChildSigs, __exec_type_list, __exec_type_list>>::value;
     return __intercept_contributors<set_value_t, set_value_t, __may_throw, _ChildSigs>::template __mask<_Out>();
   }
 };
@@ -206,27 +206,27 @@ template <bool _Chunked, class _Func, class _Shape>
 struct __bulk_sig_transform {
   template <class _Sig>
   struct __one {
-    using type = type_list<_Sig>;
+    using type = __exec_type_list<_Sig>;
   };
 
   template <class... _Args>
   struct __one<set_value_t(_Args...)> {
     static constexpr bool __nothrow = __bulk_nothrow_invocable<_Chunked, _Func, _Shape, _Args...>::value;
-    using type = __conditional_t<__nothrow, type_list<set_value_t(_Args...)>,
-                                  type_list<set_value_t(_Args...), set_error_t(exception_ptr)>>;
+    using type = __conditional_t<__nothrow, __exec_type_list<set_value_t(_Args...)>,
+                                  __exec_type_list<set_value_t(_Args...), set_error_t(exception_ptr)>>;
   };
 
   template <class _List>
   struct __dedup;
   template <class... _Ts>
-  struct __dedup<type_list<_Ts...>> {
+  struct __dedup<__exec_type_list<_Ts...>> {
     using type = __dedup_type_list_t<_Ts...>;
   };
 
   template <class _List>
   struct __to_completion_signatures;
   template <class... _Sigs>
-  struct __to_completion_signatures<type_list<_Sigs...>> {
+  struct __to_completion_signatures<__exec_type_list<_Sigs...>> {
     using type = completion_signatures<_Sigs...>;
   };
 
@@ -498,8 +498,8 @@ public:
              __bulk_invocable_v<_Chunked, _Func, _Shape,
                                 __gather_signatures<set_value_t,
                                                     completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>,
-                                                    type_list,
-                                                    type_list>>
+                                                    __exec_type_list,
+                                                    __exec_type_list>>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
     using __child_sigs = completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>;
     return __bulk_signatures_t<_Chunked, _Func, _Shape, __child_sigs>{};

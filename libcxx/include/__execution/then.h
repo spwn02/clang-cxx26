@@ -82,7 +82,7 @@ public:
   // Non-intercepted completion signatures pass through unchanged.
   template <class _Sig>
   struct __one {
-    using type = type_list<_Sig>;
+    using type = __exec_type_list<_Sig>;
   };
 
   // A `void` specialization is required here, rather than picking between `set_value_t()`
@@ -109,21 +109,21 @@ public:
   struct __one<_SetCpo(_Args...)> {
     using __value_sig = typename __then_value_sig<invoke_result_t<_Fn, _Args...>>::type;
     using type =
-        __conditional_t<is_nothrow_invocable_v<_Fn, _Args...>, type_list<__value_sig>,
-                         type_list<__value_sig, set_error_t(exception_ptr)>>;
+        __conditional_t<is_nothrow_invocable_v<_Fn, _Args...>, __exec_type_list<__value_sig>,
+                         __exec_type_list<__value_sig, set_error_t(exception_ptr)>>;
   };
 
   template <class _List>
   struct __dedup;
   template <class... _Ts>
-  struct __dedup<type_list<_Ts...>> {
+  struct __dedup<__exec_type_list<_Ts...>> {
     using type = __dedup_type_list_t<_Ts...>;
   };
 
   template <class _List>
   struct __to_completion_signatures;
   template <class... _Sigs>
-  struct __to_completion_signatures<type_list<_Sigs...>> {
+  struct __to_completion_signatures<__exec_type_list<_Sigs...>> {
     using type = completion_signatures<_Sigs...>;
   };
 
@@ -219,20 +219,20 @@ struct __then_contrib {
   template <class _Lists>
   struct __throws;
   template <class... _Args>
-  struct __throws<type_list<_Args...>> {
+  struct __throws<__exec_type_list<_Args...>> {
     static constexpr bool value = !is_nothrow_invocable_v<_Fn, _Args...>;
   };
   template <class _Gathered>
   struct __any_throws;
   template <class... _Lists>
-  struct __any_throws<type_list<_Lists...>> {
+  struct __any_throws<__exec_type_list<_Lists...>> {
     static constexpr bool value = (__throws<_Lists>::value || ... || false);
   };
 
   template <class _ChildSigs, class _Out>
   static consteval unsigned __mask() {
     constexpr bool __may_throw =
-        __any_throws<__gather_signatures<__set_cpo, _ChildSigs, type_list, type_list>>::value;
+        __any_throws<__gather_signatures<__set_cpo, _ChildSigs, __exec_type_list, __exec_type_list>>::value;
     return __intercept_contributors<__set_cpo, set_value_t, __may_throw, _ChildSigs>::template __mask<_Out>();
   }
 };
@@ -306,8 +306,8 @@ public:
              __all_invocable_v<_Fn,
                                __gather_signatures<__then_set_cpo_t<_Tag>,
                                                    completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>,
-                                                   type_list,
-                                                   type_list>>
+                                                   __exec_type_list,
+                                                   __exec_type_list>>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
     using __child_sigs = completion_signatures_of_t<_Sndr, __fwd_env_of_first_t<_Env...>>;
     return __then_signatures_t<_Tag, _Fn, __child_sigs>{};

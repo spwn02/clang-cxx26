@@ -127,20 +127,20 @@ template <class _VariantT, class... _Fns>
 struct __into_variant_signatures<_VariantT, completion_signatures<_Fns...>> {
   template <class _Sig>
   struct __one {
-    using type = type_list<_Sig>;
+    using type = __exec_type_list<_Sig>;
   };
   template <class... _Args>
   struct __one<set_value_t(_Args...)> {
-    using type = type_list<>;
+    using type = __exec_type_list<>;
   };
 
   using __gathered =
-      typename __concat_type_lists<type_list<set_value_t(_VariantT)>, typename __one<_Fns>::type...>::type;
+      typename __concat_type_lists<__exec_type_list<set_value_t(_VariantT)>, typename __one<_Fns>::type...>::type;
 
   template <class _List>
   struct __to_completion_signatures;
   template <class... _Sigs>
-  struct __to_completion_signatures<type_list<_Sigs...>> {
+  struct __to_completion_signatures<__exec_type_list<_Sigs...>> {
     using type = completion_signatures<_Sigs...>;
   };
 

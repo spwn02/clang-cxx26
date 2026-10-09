@@ -432,10 +432,6 @@
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
 #  endif
 
-#  ifdef __cpp_lib_freestanding_atomic
-#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
-#  endif
-
 #  ifdef __cpp_lib_freestanding_char_traits
 #    error "__cpp_lib_freestanding_char_traits should not be defined before c++26"
 #  endif
@@ -1080,10 +1076,6 @@
 #    error "__cpp_lib_simd_permutations should not be defined before c++26"
 #  endif
 
-#  ifdef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should not be defined before c++20"
-#  endif
-
 #  ifdef __cpp_lib_smart_ptr_for_overwrite
 #    error "__cpp_lib_smart_ptr_for_overwrite should not be defined before c++20"
 #  endif
@@ -1098,10 +1090,6 @@
 
 #  ifdef __cpp_lib_span
 #    error "__cpp_lib_span should not be defined before c++20"
-#  endif
-
-#  ifdef __cpp_lib_span_at
-#    error "__cpp_lib_span_at should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_spanstream
@@ -1142,10 +1130,6 @@
 
 #  ifdef __cpp_lib_stdckdint_h
 #    error "__cpp_lib_stdckdint_h should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_stdfloat
-#    error "__cpp_lib_stdfloat should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_string_contains
@@ -1689,10 +1673,6 @@
 
 #  ifdef __cpp_lib_freestanding_array
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_freestanding_atomic
-#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_char_traits
@@ -2387,10 +2367,6 @@
 #    error "__cpp_lib_simd_permutations should not be defined before c++26"
 #  endif
 
-#  ifdef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should not be defined before c++20"
-#  endif
-
 #  ifdef __cpp_lib_smart_ptr_for_overwrite
 #    error "__cpp_lib_smart_ptr_for_overwrite should not be defined before c++20"
 #  endif
@@ -2405,10 +2381,6 @@
 
 #  ifdef __cpp_lib_span
 #    error "__cpp_lib_span should not be defined before c++20"
-#  endif
-
-#  ifdef __cpp_lib_span_at
-#    error "__cpp_lib_span_at should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_spanstream
@@ -2449,10 +2421,6 @@
 
 #  ifdef __cpp_lib_stdckdint_h
 #    error "__cpp_lib_stdckdint_h should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_stdfloat
-#    error "__cpp_lib_stdfloat should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_string_contains
@@ -3068,10 +3036,6 @@
 
 #  ifdef __cpp_lib_freestanding_array
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_freestanding_atomic
-#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_char_traits
@@ -3868,10 +3832,6 @@
 #    error "__cpp_lib_simd_permutations should not be defined before c++26"
 #  endif
 
-#  ifdef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should not be defined before c++20"
-#  endif
-
 #  ifdef __cpp_lib_smart_ptr_for_overwrite
 #    error "__cpp_lib_smart_ptr_for_overwrite should not be defined before c++20"
 #  endif
@@ -3886,10 +3846,6 @@
 
 #  ifdef __cpp_lib_span
 #    error "__cpp_lib_span should not be defined before c++20"
-#  endif
-
-#  ifdef __cpp_lib_span_at
-#    error "__cpp_lib_span_at should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_spanstream
@@ -3930,10 +3886,6 @@
 
 #  ifdef __cpp_lib_stdckdint_h
 #    error "__cpp_lib_stdckdint_h should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_stdfloat
-#    error "__cpp_lib_stdfloat should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_string_contains
@@ -4705,10 +4657,6 @@
 
 #  ifdef __cpp_lib_freestanding_array
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_freestanding_atomic
-#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_char_traits
@@ -5586,13 +5534,6 @@
 #    error "__cpp_lib_simd_permutations should not be defined before c++26"
 #  endif
 
-#  ifndef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should be defined in c++20"
-#  endif
-#  if __cpp_lib_smart_ptr_default_init != 201811L
-#    error "__cpp_lib_smart_ptr_default_init should have the value 201811L in c++20"
-#  endif
-
 #  ifndef __cpp_lib_smart_ptr_for_overwrite
 #    error "__cpp_lib_smart_ptr_for_overwrite should be defined in c++20"
 #  endif
@@ -5616,10 +5557,6 @@
 #  endif
 #  if __cpp_lib_span != 202002L
 #    error "__cpp_lib_span should have the value 202002L in c++20"
-#  endif
-
-#  ifdef __cpp_lib_span_at
-#    error "__cpp_lib_span_at should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_spanstream
@@ -5666,10 +5603,6 @@
 
 #  ifdef __cpp_lib_stdckdint_h
 #    error "__cpp_lib_stdckdint_h should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_stdfloat
-#    error "__cpp_lib_stdfloat should not be defined before c++23"
 #  endif
 
 #  ifdef __cpp_lib_string_contains
@@ -6528,10 +6461,6 @@
 
 #  ifdef __cpp_lib_freestanding_array
 #    error "__cpp_lib_freestanding_array should not be defined before c++26"
-#  endif
-
-#  ifdef __cpp_lib_freestanding_atomic
-#    error "__cpp_lib_freestanding_atomic should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_char_traits
@@ -7505,13 +7434,6 @@
 #    error "__cpp_lib_simd_permutations should not be defined before c++26"
 #  endif
 
-#  ifndef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should be defined in c++23"
-#  endif
-#  if __cpp_lib_smart_ptr_default_init != 201811L
-#    error "__cpp_lib_smart_ptr_default_init should have the value 201811L in c++23"
-#  endif
-
 #  ifndef __cpp_lib_smart_ptr_for_overwrite
 #    error "__cpp_lib_smart_ptr_for_overwrite should be defined in c++23"
 #  endif
@@ -7535,10 +7457,6 @@
 #  endif
 #  if __cpp_lib_span != 202002L
 #    error "__cpp_lib_span should have the value 202002L in c++23"
-#  endif
-
-#  ifdef __cpp_lib_span_at
-#    error "__cpp_lib_span_at should not be defined before c++26"
 #  endif
 
 #  if _LIBCPP_HAS_LOCALIZATION
@@ -7603,13 +7521,6 @@
 
 #  ifdef __cpp_lib_stdckdint_h
 #    error "__cpp_lib_stdckdint_h should not be defined before c++26"
-#  endif
-
-#  ifndef __cpp_lib_stdfloat
-#    error "__cpp_lib_stdfloat should be defined in c++23"
-#  endif
-#  if __cpp_lib_stdfloat != 202207L
-#    error "__cpp_lib_stdfloat should have the value 202207L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_string_contains
@@ -8606,13 +8517,6 @@
 #  endif
 #  if __cpp_lib_freestanding_array != 202311L
 #    error "__cpp_lib_freestanding_array should have the value 202311L in c++26"
-#  endif
-
-#  ifndef __cpp_lib_freestanding_atomic
-#    error "__cpp_lib_freestanding_atomic should be defined in c++26"
-#  endif
-#  if __cpp_lib_freestanding_atomic != 202306L
-#    error "__cpp_lib_freestanding_atomic should have the value 202306L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_char_traits
@@ -9970,13 +9874,6 @@
 #    error "__cpp_lib_simd_permutations should have the value 202506L in c++26"
 #  endif
 
-#  ifndef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should be defined in c++26"
-#  endif
-#  if __cpp_lib_smart_ptr_default_init != 201811L
-#    error "__cpp_lib_smart_ptr_default_init should have the value 201811L in c++26"
-#  endif
-
 #  ifndef __cpp_lib_smart_ptr_for_overwrite
 #    error "__cpp_lib_smart_ptr_for_overwrite should be defined in c++26"
 #  endif
@@ -10003,13 +9900,6 @@
 #  endif
 #  if __cpp_lib_span != 202311L
 #    error "__cpp_lib_span should have the value 202311L in c++26"
-#  endif
-
-#  ifndef __cpp_lib_span_at
-#    error "__cpp_lib_span_at should be defined in c++26"
-#  endif
-#  if __cpp_lib_span_at != 202311L
-#    error "__cpp_lib_span_at should have the value 202311L in c++26"
 #  endif
 
 #  if _LIBCPP_HAS_LOCALIZATION
@@ -10086,13 +9976,6 @@
 #  endif
 #  if __cpp_lib_stdckdint_h != 202603L
 #    error "__cpp_lib_stdckdint_h should have the value 202603L in c++26"
-#  endif
-
-#  ifndef __cpp_lib_stdfloat
-#    error "__cpp_lib_stdfloat should be defined in c++26"
-#  endif
-#  if __cpp_lib_stdfloat != 202207L
-#    error "__cpp_lib_stdfloat should have the value 202207L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_string_contains

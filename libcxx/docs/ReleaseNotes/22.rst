@@ -111,6 +111,24 @@ Deprecations and Removals
 Potentially breaking changes
 ----------------------------
 
+- Public names that are not in the C++ working draft (N5050) were removed so that ``std`` exposes the standard's
+  vocabulary only (``libcxx/utils/vocabulary_audit.py`` checks this):
+
+  - ``<scope>`` and ``std::scope_exit``/``scope_fail``/``scope_success`` are gone. The scope guards and
+    ``unique_resource`` of the Library Fundamentals TS v3 are provided by ``<experimental/scope>`` in
+    ``std::experimental`` (C++20 and later). They are not exported by ``import std``.
+  - ``<meta>``: ``annotate``, the two-argument ``annotations_of``, ``annotation_of_type``, ``reflect_invoke``,
+    ``reflect_value``, ``reflect_result``, ``value_of``, ``test_type``/``test_types``/``test_trait``, ``define_class``,
+    ``define_unscoped_enum``, ``has_complete_definition``, ``has_ellipsis_parameter``, ``is_access_specified``,
+    ``is_trivial_type`` and the one-argument ``members_of``/``bases_of``/``static_data_members_of``/
+    ``nonstatic_data_members_of`` were removed. ``define_enum`` and ``enumerator_spec`` (P4033, not adopted) need
+    ``-freflection-latest``. ``std::meta::detail`` and ``std::meta::reflection_v2`` now have reserved spellings.
+  - ``execution::change_coroutine_scheduler``, ``contracts::handle_observed_contract_violation``,
+    ``contracts::handle_enforced_contract_violation`` and the ``atomic_store_fmaximum``/``atomic_store_fminimum``
+    free functions were removed.
+  - The feature-test macros ``__cpp_lib_smart_ptr_default_init``, ``__cpp_lib_stdfloat``,
+    ``__cpp_lib_freestanding_atomic`` and ``__cpp_lib_span_at`` are no longer defined.
+
 - The algorithm for ``multi{map,set}::find`` has been modified such that it doesn't necessarily return an iterator to
   the first equal element in the container. This was never guaranteed by the Standard, but libc++ previously happened to
   always return the first equal element, like other implementations do. Starting with this release, code relying on the

@@ -276,7 +276,6 @@ export namespace std::execution {
 
 #if _LIBCPP_HAS_THREADS
   // [exec.task]
-  using std::execution::change_coroutine_scheduler;
   using std::execution::task;
   using std::execution::with_error;
 

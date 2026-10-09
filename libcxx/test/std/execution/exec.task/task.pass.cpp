@@ -16,8 +16,6 @@
 //   class task { ... };
 //   template <class Err>
 //   struct with_error { ... };
-//   template <class Sch>
-//   struct change_coroutine_scheduler { ... };
 // }
 //
 // Every task<T, Environment>
@@ -48,11 +46,6 @@ task<int> throws_exception() { throw std::runtime_error("boom"); }
 task<int> yields_error() {
   co_yield with_error{std::make_exception_ptr(std::runtime_error("yielded"))};
   co_return 0; // unreachable
-}
-
-task<int> changes_scheduler() {
-  co_await change_coroutine_scheduler<task_scheduler>{task_scheduler(inline_scheduler{})};
-  co_return 7;
 }
 
 task<int> gets_stopped() {
@@ -106,14 +99,6 @@ int main(int, char**) {
       caught = true;
     }
     assert(caught);
-  }
-
-  // co_await change_coroutine_scheduler{sch} switches schedulers mid-body and execution
-  // continues correctly afterward.
-  {
-    auto result = std::this_thread::sync_wait(changes_scheduler());
-    assert(result.has_value());
-    assert(std::get<0>(*result) == 7);
   }
 
   // A co_await-ed sender that completes with set_stopped short-circuits the rest of the body

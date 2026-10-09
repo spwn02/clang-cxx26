@@ -16,7 +16,7 @@ struct Base { int b; };
 struct Out : Base { In in; int m[2][2]; std::array<std::array<int,2>,2> aa; };
 inline constexpr std::array<int,3> values{4,5,6};
 inline constexpr Out o{{7},{8,{9,10}},{{11,12},{13,14}},{{{15,16},{17,18}}}};
-consteval int viaObj(info r){ return extract<int>(reflect_invoke(^^get,{r})); }
+consteval int viaObj(info r){ return get(extract<const int&>(r)); }
 static_assert(viaObj(reflect_object(values[2])) == 6);
 static_assert(viaObj(reflect_object(o.in.arr[1])) == 10);
 static_assert(viaObj(reflect_object(o.in.a)) == 8);
@@ -48,7 +48,6 @@ static_assert(viaObj(reflect_object(cps[1].x))==7);
 
 consteval bool positive(const int& value) { return value > 0; }
 inline constexpr std::array one{1};
-static_assert(std::meta::extract<bool>(
-    std::meta::reflect_invoke(^^positive, {std::meta::reflect_object(one[0])})));
+static_assert(positive(std::meta::extract<const int&>(std::meta::reflect_object(one[0]))));
 
 int main(int, char**) { return 0; }

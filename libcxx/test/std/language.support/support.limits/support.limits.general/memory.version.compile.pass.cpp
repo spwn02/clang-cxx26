@@ -104,10 +104,6 @@
 #    error "__cpp_lib_shared_ptr_weak_type should not be defined before c++17"
 #  endif
 
-#  ifdef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should not be defined before c++20"
-#  endif
-
 #  ifdef __cpp_lib_smart_ptr_for_overwrite
 #    error "__cpp_lib_smart_ptr_for_overwrite should not be defined before c++20"
 #  endif
@@ -219,10 +215,6 @@
 
 #  ifdef __cpp_lib_shared_ptr_weak_type
 #    error "__cpp_lib_shared_ptr_weak_type should not be defined before c++17"
-#  endif
-
-#  ifdef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should not be defined before c++20"
 #  endif
 
 #  ifdef __cpp_lib_smart_ptr_for_overwrite
@@ -357,10 +349,6 @@
 #  endif
 #  if __cpp_lib_shared_ptr_weak_type != 201606L
 #    error "__cpp_lib_shared_ptr_weak_type should have the value 201606L in c++17"
-#  endif
-
-#  ifdef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should not be defined before c++20"
 #  endif
 
 #  ifdef __cpp_lib_smart_ptr_for_overwrite
@@ -510,13 +498,6 @@
 #  endif
 #  if __cpp_lib_shared_ptr_weak_type != 201606L
 #    error "__cpp_lib_shared_ptr_weak_type should have the value 201606L in c++20"
-#  endif
-
-#  ifndef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should be defined in c++20"
-#  endif
-#  if __cpp_lib_smart_ptr_default_init != 201811L
-#    error "__cpp_lib_smart_ptr_default_init should have the value 201811L in c++20"
 #  endif
 
 #  ifndef __cpp_lib_smart_ptr_for_overwrite
@@ -681,13 +662,6 @@
 #  endif
 #  if __cpp_lib_shared_ptr_weak_type != 201606L
 #    error "__cpp_lib_shared_ptr_weak_type should have the value 201606L in c++23"
-#  endif
-
-#  ifndef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should be defined in c++23"
-#  endif
-#  if __cpp_lib_smart_ptr_default_init != 201811L
-#    error "__cpp_lib_smart_ptr_default_init should have the value 201811L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_smart_ptr_for_overwrite
@@ -879,13 +853,6 @@
 #  endif
 #  if __cpp_lib_shared_ptr_weak_type != 201606L
 #    error "__cpp_lib_shared_ptr_weak_type should have the value 201606L in c++26"
-#  endif
-
-#  ifndef __cpp_lib_smart_ptr_default_init
-#    error "__cpp_lib_smart_ptr_default_init should be defined in c++26"
-#  endif
-#  if __cpp_lib_smart_ptr_default_init != 201811L
-#    error "__cpp_lib_smart_ptr_default_init should have the value 201811L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_smart_ptr_for_overwrite

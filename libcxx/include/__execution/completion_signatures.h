@@ -32,7 +32,7 @@ namespace execution {
 // body per the synopsis (`template<class... Ts> struct type-list;`) -- it's only ever
 // used as a pattern-matched/compared type, never instantiated as an object.
 template <class... _Ts>
-struct type_list;
+struct __exec_type_list;
 
 // A type `Fn` satisfies completion-signature iff it is a function type of one of the
 // forms set_value_t(Vs...), set_error_t(Err), or set_stopped_t(), where Vs/Err are
@@ -87,27 +87,27 @@ using __meta_apply = typename __indirect_meta_apply<__always_true<_As...>>::temp
 
 // Per-signature step of gather-signatures: if `_Fn`'s return type is `_Tag`, wrap its
 // argument list (via META-APPLY, so `_Tuple` need not be variadic) in a one-element
-// `type_list`; otherwise contribute nothing.
+// `__exec_type_list`; otherwise contribute nothing.
 template <class _Tag, class _Fn, template <class...> class _Tuple>
 struct __gather_one {
-  using type = type_list<>;
+  using type = __exec_type_list<>;
 };
 template <class _Tag, class... _Args, template <class...> class _Tuple>
 struct __gather_one<_Tag, _Tag(_Args...), _Tuple> {
-  using type = type_list<__meta_apply<_Tuple, _Args...>>;
+  using type = __exec_type_list<__meta_apply<_Tuple, _Args...>>;
 };
 
 template <class... _Ls>
 struct __concat_type_lists {
-  using type = type_list<>;
+  using type = __exec_type_list<>;
 };
 template <class... _Ts>
-struct __concat_type_lists<type_list<_Ts...>> {
-  using type = type_list<_Ts...>;
+struct __concat_type_lists<__exec_type_list<_Ts...>> {
+  using type = __exec_type_list<_Ts...>;
 };
 template <class... _Ts, class... _Us, class... _Rest>
-struct __concat_type_lists<type_list<_Ts...>, type_list<_Us...>, _Rest...>
-    : __concat_type_lists<type_list<_Ts..., _Us...>, _Rest...> {};
+struct __concat_type_lists<__exec_type_list<_Ts...>, __exec_type_list<_Us...>, _Rest...>
+    : __concat_type_lists<__exec_type_list<_Ts..., _Us...>, _Rest...> {};
 
 template <class _Tag, class _Completions, template <class...> class _Tuple, template <class...> class _Variant>
 struct __gather_signatures_impl;
@@ -120,7 +120,7 @@ private:
   template <class>
   struct __apply_variant;
   template <class... _Ts>
-  struct __apply_variant<type_list<_Ts...>> {
+  struct __apply_variant<__exec_type_list<_Ts...>> {
     using type = __meta_apply<_Variant, _Ts...>;
   };
 
@@ -138,17 +138,17 @@ using __gather_signatures = typename __gather_signatures_impl<_Tag, _Completions
 // The conditions the check-types of the adaptors ([exec.snd.expos], [exec.then], [exec.bulk], ...) test, expressed as
 // constraints of get_completion_signatures: an adaptor whose child does not satisfy them has no completion signatures.
 
-// Whether `_Fn` is invocable with each of the argument lists of `_Lists` (a type_list of type_lists, as
-// gathering the signatures of a completion tag with type_list as Tuple and Variant gives).
+// Whether `_Fn` is invocable with each of the argument lists of `_Lists` (a __exec_type_list of type_lists, as
+// gathering the signatures of a completion tag with __exec_type_list as Tuple and Variant gives).
 template <class _Fn, class _List>
 inline constexpr bool __invocable_with_v = false;
 template <class _Fn, class... _Ts>
-inline constexpr bool __invocable_with_v<_Fn, type_list<_Ts...>> = invocable<_Fn, _Ts...>;
+inline constexpr bool __invocable_with_v<_Fn, __exec_type_list<_Ts...>> = invocable<_Fn, _Ts...>;
 
 template <class _Fn, class _Lists>
 inline constexpr bool __all_invocable_v = false;
 template <class _Fn, class... _Lists>
-inline constexpr bool __all_invocable_v<_Fn, type_list<_Lists...>> = (__invocable_with_v<_Fn, _Lists> && ...);
+inline constexpr bool __all_invocable_v<_Fn, __exec_type_list<_Lists...>> = (__invocable_with_v<_Fn, _Lists> && ...);
 
 // [exec.snd.expos] decay-copyable-result-datums: every result datum of every completion signature can be decay-copied.
 template <class _Sig>

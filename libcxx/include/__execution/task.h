@@ -79,13 +79,6 @@ struct with_error {
 template <class _Err>
 with_error(_Err) -> with_error<_Err>;
 
-// [exec.task.change.sched]. An explicit await_transform target letting a task's body switch
-// which scheduler it resumes on for the remainder of its execution.
-template <class _Sch>
-struct change_coroutine_scheduler {
-  _LIBCPP_NO_UNIQUE_ADDRESS _Sch scheduler;
-};
-
 // Detection idiom for Environment's optional nested types. allocator_type/scheduler_type/
 // stop_source_type are genuinely customizable, matching [exec.task.type]; error_types is
 // deliberately NOT detected here -- see this file's top comment.
@@ -513,24 +506,8 @@ public:
     return __error_awaiter{_Error(std::move(__e.error))};
   }
 
-  // [exec.task.change.sched]: co_await change_coroutine_scheduler{sch} switches which
-  // scheduler the remainder of the coroutine body resumes on.
-  _LIBCPP_HIDE_FROM_ABI auto await_transform(change_coroutine_scheduler<scheduler_type> __c) noexcept {
-    struct __awaiter {
-      promise_type* __p_;
-      scheduler_type __new_sch_;
-      _LIBCPP_HIDE_FROM_ABI static constexpr bool await_ready() noexcept { return false; }
-      _LIBCPP_HIDE_FROM_ABI void await_suspend(coroutine_handle<promise_type> __h) noexcept {
-        __p_->__scheduler_ = std::move(__new_sch_);
-        __p_->__schedule_resume(__h);
-      }
-      _LIBCPP_HIDE_FROM_ABI void await_resume() noexcept {}
-    };
-    return __awaiter{this, std::move(__c.scheduler)};
-  }
-
   // Brings with_awaitable_senders's generic await_transform(Value&&) into this scope
-  // alongside the two overloads below -- without this, they would hide it entirely rather
+  // alongside the overloads below -- without this, they would hide it entirely rather
   // than participate in the same overload set.
   using with_awaitable_senders<promise_type>::await_transform;
 
@@ -574,8 +551,7 @@ public:
     __result_ = __sink->__result_storage();
   }
 
-  // Called once by __task_opstate::start() (the real, receiver-triggered start of execution)
-  // and again by change_coroutine_scheduler's awaiter (to switch schedulers mid-body):
+  // Called once by __task_opstate::start() (the real, receiver-triggered start of execution):
   // connects+starts schedule(__scheduler_), whose receiver resumes __h once that completes.
   // Not called from initial_suspend -- see that method's own comment for why.
   _LIBCPP_HIDE_FROM_ABI void __start(coroutine_handle<promise_type> __h) {

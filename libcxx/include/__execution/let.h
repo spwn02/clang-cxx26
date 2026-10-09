@@ -111,7 +111,7 @@ struct __let_args_variant_impl {
   template <class>
   struct __to_variant;
   template <class... _Us>
-  struct __to_variant<type_list<_Us...>> {
+  struct __to_variant<__exec_type_list<_Us...>> {
     using type = variant<monostate, _Us...>;
   };
   using type = typename __to_variant<__dedup_type_list_t<_Ts...>>::type;
@@ -211,14 +211,14 @@ public:
 
   template <class _Sig>
   struct __one {
-    using type = type_list<_Sig>;
+    using type = __exec_type_list<_Sig>;
   };
 
   template <class _Sigs>
   struct __sigs_to_list;
   template <class... _Ss>
   struct __sigs_to_list<completion_signatures<_Ss...>> {
-    using type = type_list<_Ss...>;
+    using type = __exec_type_list<_Ss...>;
   };
 
   template <class... _Args>
@@ -228,20 +228,20 @@ public:
     static constexpr bool __nothrow = __nothrow_for<_Args...>;
     using type = __conditional_t<__nothrow,
                                   __cont_list,
-                                  typename __concat_type_lists<__cont_list, type_list<set_error_t(exception_ptr)>>::type>;
+                                  typename __concat_type_lists<__cont_list, __exec_type_list<set_error_t(exception_ptr)>>::type>;
   };
 
   template <class _List>
   struct __dedup;
   template <class... _Ts>
-  struct __dedup<type_list<_Ts...>> {
+  struct __dedup<__exec_type_list<_Ts...>> {
     using type = __dedup_type_list_t<_Ts...>;
   };
 
   template <class _List>
   struct __to_completion_signatures;
   template <class... _Sigs>
-  struct __to_completion_signatures<type_list<_Sigs...>> {
+  struct __to_completion_signatures<__exec_type_list<_Sigs...>> {
     using type = completion_signatures<_Sigs...>;
   };
 
@@ -264,12 +264,12 @@ concept __let_valid_args =
 template <class _Fn, class _ContEnv, class _List>
 inline constexpr bool __let_valid_v = false;
 template <class _Fn, class _ContEnv, class... _Ts>
-inline constexpr bool __let_valid_v<_Fn, _ContEnv, type_list<_Ts...>> = __let_valid_args<_Fn, _ContEnv, _Ts...>;
+inline constexpr bool __let_valid_v<_Fn, _ContEnv, __exec_type_list<_Ts...>> = __let_valid_args<_Fn, _ContEnv, _Ts...>;
 
 template <class _Fn, class _ContEnv, class _Lists>
 inline constexpr bool __let_all_valid_v = false;
 template <class _Fn, class _ContEnv, class... _Lists>
-inline constexpr bool __let_all_valid_v<_Fn, _ContEnv, type_list<_Lists...>> = (__let_valid_v<_Fn, _ContEnv, _Lists> && ...);
+inline constexpr bool __let_all_valid_v<_Fn, _ContEnv, __exec_type_list<_Lists...>> = (__let_valid_v<_Fn, _ContEnv, _Lists> && ...);
 
 template <class _Tag, class _Fn, class _Child, class _Env, class _Completions>
 using __let_signatures_t =
@@ -385,16 +385,16 @@ class __let_opstate {
   // ops_variant_t ([exec.let]p13): variant<monostate, child_op_t, continuation-op-per-
   // intercepted-signature...> (deduped -- required for correctness, not just compactness:
   // __intercept below emplaces by *type*, which is ill-formed if two alternatives collide).
-  using __cont_ops_list = __gather_signatures<__set_cpo, __child_sigs, __cont_op_for, type_list>;
+  using __cont_ops_list = __gather_signatures<__set_cpo, __child_sigs, __cont_op_for, __exec_type_list>;
 
   template <class _List>
   struct __ops_variant_from;
   template <class... _Ts>
-  struct __ops_variant_from<type_list<_Ts...>> {
+  struct __ops_variant_from<__exec_type_list<_Ts...>> {
     template <class>
     struct __to_variant;
     template <class... _Us>
-    struct __to_variant<type_list<_Us...>> {
+    struct __to_variant<__exec_type_list<_Us...>> {
       using type = variant<_Us...>;
     };
     using type = typename __to_variant<__dedup_type_list_t<monostate, __child_op_t, _Ts...>>::type;
@@ -507,11 +507,11 @@ inline constexpr bool __let_cont_has = false;
 template <class _Cpo, class _Fn, class _ContEnv, class... _Args>
   requires requires { typename completion_signatures_of_t<invoke_result_t<_Fn, decay_t<_Args>&...>, _ContEnv>; }
 inline constexpr bool __let_cont_has<_Cpo, _Fn, _ContEnv, _Args...> =
-    !same_as<type_list<>,
+    !same_as<__exec_type_list<>,
              __gather_signatures<_Cpo,
                                  completion_signatures_of_t<invoke_result_t<_Fn, decay_t<_Args>&...>, _ContEnv>,
-                                 type_list,
-                                 type_list>>;
+                                 __exec_type_list,
+                                 __exec_type_list>>;
 
 template <class _Cpo, class _Fn, class _ContEnv, class _Acc, class... _Lists>
 struct __let_cont_domains;
@@ -522,19 +522,19 @@ struct __let_cont_domains<_Cpo, _Fn, _ContEnv, _Acc> {
 };
 template <class _Cpo, class _Fn, class _ContEnv, class... _Acc, class... _Args, class... _Rest>
   requires(!__let_cont_has<_Cpo, _Fn, _ContEnv, _Args...>)
-struct __let_cont_domains<_Cpo, _Fn, _ContEnv, type_list<_Acc...>, type_list<_Args...>, _Rest...>
-    : __let_cont_domains<_Cpo, _Fn, _ContEnv, type_list<_Acc...>, _Rest...> {};
+struct __let_cont_domains<_Cpo, _Fn, _ContEnv, __exec_type_list<_Acc...>, __exec_type_list<_Args...>, _Rest...>
+    : __let_cont_domains<_Cpo, _Fn, _ContEnv, __exec_type_list<_Acc...>, _Rest...> {};
 template <class _Cpo, class _Fn, class _ContEnv, class... _Acc, class... _Args, class... _Rest>
   requires(__let_cont_has<_Cpo, _Fn, _ContEnv, _Args...> &&
            requires(const invoke_result_t<_Fn, decay_t<_Args>&...>& __cont, const _ContEnv& __env) {
              execution::get_completion_domain<_Cpo>(execution::get_env(__cont), __env);
            })
-struct __let_cont_domains<_Cpo, _Fn, _ContEnv, type_list<_Acc...>, type_list<_Args...>, _Rest...>
+struct __let_cont_domains<_Cpo, _Fn, _ContEnv, __exec_type_list<_Acc...>, __exec_type_list<_Args...>, _Rest...>
     : __let_cont_domains<
           _Cpo,
           _Fn,
           _ContEnv,
-          type_list<_Acc...,
+          __exec_type_list<_Acc...,
                     decltype(execution::get_completion_domain<_Cpo>(
                         execution::get_env(std::declval<const invoke_result_t<_Fn, decay_t<_Args>&...>&>()),
                         std::declval<const _ContEnv&>()))>,
@@ -544,9 +544,9 @@ template <class _Cpo, class _Fn, class _ContEnv, class... _Acc, class... _Args, 
            !requires(const invoke_result_t<_Fn, decay_t<_Args>&...>& __cont, const _ContEnv& __env) {
              execution::get_completion_domain<_Cpo>(execution::get_env(__cont), __env);
            })
-struct __let_cont_domains<_Cpo, _Fn, _ContEnv, type_list<_Acc...>, type_list<_Args...>, _Rest...> {
+struct __let_cont_domains<_Cpo, _Fn, _ContEnv, __exec_type_list<_Acc...>, __exec_type_list<_Args...>, _Rest...> {
   static constexpr bool __ok = false;
-  using type                 = type_list<>;
+  using type                 = __exec_type_list<>;
 };
 
 // The attributes of a let_value/let_error/let_stopped sender: those of the child, but for the completion queries
@@ -562,7 +562,7 @@ class __let_attrs {
   template <class _Env>
   using __child_sigs_t = completion_signatures_of_t<_Child, __fwd_env<_Env>>;
   template <class _Env>
-  using __lists_t = __gather_signatures<__set_cpo, __child_sigs_t<_Env>, type_list, type_list>;
+  using __lists_t = __gather_signatures<__set_cpo, __child_sigs_t<_Env>, __exec_type_list, __exec_type_list>;
   template <class _Env>
   using __cont_env_t =
       __let_joined_env_t<decltype(execution::__let_env_of_attrs<__set_cpo>(std::declval<const _ChildAttrs&>(),
@@ -571,17 +571,17 @@ class __let_attrs {
 
   template <class _Cpo, class _Env>
   static constexpr bool __child_has =
-      !same_as<type_list<>, __gather_signatures<_Cpo, __child_sigs_t<_Env>, type_list, type_list>>;
+      !same_as<__exec_type_list<>, __gather_signatures<_Cpo, __child_sigs_t<_Env>, __exec_type_list, __exec_type_list>>;
 
   // Does any continuation (or the decay copy of the datums, or the function) possibly throw?
   template <class _Env, class _Lists>
   struct __may_throw;
   template <class _Env, class... _Lists>
-  struct __may_throw<_Env, type_list<_Lists...>> {
+  struct __may_throw<_Env, __exec_type_list<_Lists...>> {
     template <class _List>
     struct __one;
     template <class... _Args>
-    struct __one<type_list<_Args...>> {
+    struct __one<__exec_type_list<_Args...>> {
       static constexpr bool value = !__let_sig_transform<__set_cpo, _Fn, _Child, _Env>::template __nothrow_for<_Args...>;
     };
     static constexpr bool value = (__one<_Lists>::value || ... || false);
@@ -590,8 +590,8 @@ class __let_attrs {
   template <class _Cpo, class _Env, class _Lists>
   struct __plan;
   template <class _Cpo, class _Env, class... _Lists>
-  struct __plan<_Cpo, _Env, type_list<_Lists...>> {
-    using __cont = __let_cont_domains<_Cpo, _Fn, __cont_env_t<_Env>, type_list<>, _Lists...>;
+  struct __plan<_Cpo, _Env, __exec_type_list<_Lists...>> {
+    using __cont = __let_cont_domains<_Cpo, _Fn, __cont_env_t<_Env>, __exec_type_list<>, _Lists...>;
 
     template <class _Tg>
     static constexpr bool __child_domain_ok = requires(const _ChildAttrs& __attrs, const __fwd_env<_Env>& __env) {
@@ -625,17 +625,17 @@ class __let_attrs {
     }
 
     template <class... _Ds>
-    static constexpr auto __common(type_list<_Ds...>*) noexcept {
+    static constexpr auto __common(__exec_type_list<_Ds...>*) noexcept {
       return execution::__common_domain(_Ds()...);
     }
 
     template <bool _Use, class _Tg>
     struct __child_list {
-      using type = type_list<>;
+      using type = __exec_type_list<>;
     };
     template <class _Tg>
     struct __child_list<true, _Tg> {
-      using type = type_list<__child_domain_t<_Tg>>;
+      using type = __exec_type_list<__child_domain_t<_Tg>>;
     };
     using __forward_list   = typename __child_list<__forward && __child_domain_ok<_Cpo>, _Cpo>::type;
     using __exception_list = typename __child_list<__exception && __child_domain_ok<__set_cpo>, __set_cpo>::type;
@@ -653,7 +653,7 @@ class __let_attrs {
         if constexpr (__let_all_valid_v<_Fn, __cont_env_t<_Env>, __lists_t<_Env>>) {
           using _Plan = __plan<_Cpo, _Env, __lists_t<_Env>>;
           if constexpr (_Plan::__ok())
-            return !same_as<type_list<>, typename _Plan::__all>;
+            return !same_as<__exec_type_list<>, typename _Plan::__all>;
         }
       }
     }
@@ -746,8 +746,8 @@ public:
                  __gather_signatures<
                      __let_set_cpo_t<_Tag>,
                      completion_signatures_of_t<_Sndr, __fwd_env<typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type>>,
-                     type_list,
-                     type_list>>
+                     __exec_type_list,
+                     __exec_type_list>>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
     using __env_t      = typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type;
     using __child_sigs = completion_signatures_of_t<_Sndr, __fwd_env<__env_t>>;

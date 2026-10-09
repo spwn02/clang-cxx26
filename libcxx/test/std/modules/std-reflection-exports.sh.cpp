@@ -13,14 +13,11 @@
 // XFAIL: has-no-cxx-module-support
 
 // Regression test: libcxx/modules/std/meta.inc did not export every name that
-// <meta> declares (e.g. has_parent, current_function, is_final, define_enum,
+// <meta> declares (e.g. has_parent, current_function, is_final,
 // subobjects_of, the op_* constants, std::meta::exception, is_string_literal),
 // so `import std;` could not see them even though `#include <meta>` could.
 //
-// std.pcm is built without any warning suppression, so that exporting the
-// deprecated names does not itself warn (as it would under -Werror). Only the
-// consumer suppresses -Wdeprecated-declarations, because it deliberately uses
-// a few deprecated names to check that they are exported too.
+// std.pcm is built without any warning suppression.
 //
 // This is a hand-rolled module build for the reason given in
 // std-reflection-bare-freflection.sh.cpp: the module-dependency directive does
@@ -88,7 +85,6 @@ static_assert(std::is_structural_v<int>);
 static_assert(std::is_structural<const int>::value);
 static_assert(std::is_reflection_v<std::meta::info>);
 static_assert(std::is_reflection<const volatile std::meta::info>::value);
-static_assert(std::meta::has_complete_definition(^^S));
 static_assert(std::meta::has_c_language_linkage(^^S::i) == false);
 static_assert(std::meta::current_namespace() == ^^::);
 static_assert(current_function_works());
@@ -100,12 +96,7 @@ static_assert(std::meta::op_plus == std::meta::operators::op_plus);
 static_assert(std::meta::symbol_of(std::meta::op_plus) == "+");
 static_assert(std::meta::u8symbol_of(std::meta::op_plus) == u8"+");
 
-// Deprecated names that <meta> still declares.
-static_assert(std::meta::value_of(std::meta::reflect_value(1)) ==
-              std::meta::reflect_constant(1));
 void varargs_fn(int, ...);
-static_assert(std::meta::has_ellipsis_parameter(^^varargs_fn) ==
-              std::meta::is_vararg_function(^^varargs_fn));
 static_assert(std::meta::is_vararg_function(^^varargs_fn));
 
 // std::meta::exception, which is-a std::exception.

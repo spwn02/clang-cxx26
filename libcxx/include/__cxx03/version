@@ -222,7 +222,6 @@ __cpp_lib_smart_ptr_for_overwrite                       202002L <memory>
 __cpp_lib_smart_ptr_owner_equality                      202306L <memory>
 __cpp_lib_source_location                               201907L <source_location>
 __cpp_lib_span                                          202002L <span>
-__cpp_lib_span_at                                       202311L <span>
 __cpp_lib_span_initializer_list                         202311L <span>
 __cpp_lib_spanstream                                    202106L <spanstream>
 __cpp_lib_ssize                                         201902L <iterator>

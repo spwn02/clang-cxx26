@@ -126,10 +126,10 @@ class __affine_attrs {
         using __sigs = completion_signatures_of_t<_Child, __fwd_env<_Env>>;
         if constexpr (is_same_v<_Cpo, set_error_t>) {
           // the exception of a failing decay copy is an error completion too
-          return !same_as<type_list<>, __gather_signatures<_Cpo, __sigs, type_list, type_list>> ||
+          return !same_as<__exec_type_list<>, __gather_signatures<_Cpo, __sigs, __exec_type_list, __exec_type_list>> ||
                  __decay_copy_may_throw_v<set_value_t, __sigs> || __decay_copy_may_throw_v<set_error_t, __sigs>;
         } else {
-          return !same_as<type_list<>, __gather_signatures<_Cpo, __sigs, type_list, type_list>>;
+          return !same_as<__exec_type_list<>, __gather_signatures<_Cpo, __sigs, __exec_type_list, __exec_type_list>>;
         }
       }
     }

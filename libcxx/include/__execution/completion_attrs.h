@@ -46,9 +46,9 @@ namespace execution {
 //   - if the interception can throw, the exception is an error completion that happens in the same place.
 template <class _SetCpo, class _ToCpo, bool _MayThrow, class _ChildSigs>
 struct __intercept_contributors {
-  static constexpr bool __has_value   = !same_as<type_list<>, __gather_signatures<set_value_t, _ChildSigs, type_list, type_list>>;
-  static constexpr bool __has_error   = !same_as<type_list<>, __gather_signatures<set_error_t, _ChildSigs, type_list, type_list>>;
-  static constexpr bool __has_stopped = !same_as<type_list<>, __gather_signatures<set_stopped_t, _ChildSigs, type_list, type_list>>;
+  static constexpr bool __has_value   = !same_as<__exec_type_list<>, __gather_signatures<set_value_t, _ChildSigs, __exec_type_list, __exec_type_list>>;
+  static constexpr bool __has_error   = !same_as<__exec_type_list<>, __gather_signatures<set_error_t, _ChildSigs, __exec_type_list, __exec_type_list>>;
+  static constexpr bool __has_stopped = !same_as<__exec_type_list<>, __gather_signatures<set_stopped_t, _ChildSigs, __exec_type_list, __exec_type_list>>;
 
   template <class _Tg>
   static constexpr bool __has = same_as<_Tg, set_value_t>   ? __has_value

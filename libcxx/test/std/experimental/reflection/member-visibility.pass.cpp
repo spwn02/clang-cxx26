@@ -46,16 +46,10 @@ private:
     void complete_class_context() {
         // Public members.
         static_assert(is_public(^^pub));
-        static_assert(!is_access_specified(^^pub));
         static_assert(is_public(^^PublicCls));
-        static_assert(is_access_specified(^^PublicCls));
         static_assert(is_public(^^PublicTFn));
-        static_assert(is_access_specified(^^PublicTFn));
         static_assert(is_public(bases_of(^^Access,
                                          access_context::unchecked())[0]));
-        static_assert(
-                !is_access_specified(bases_of(^^Access,
-                                              access_context::unchecked())[0]));
 
         // Not public members.
         static_assert(!is_public(^^prot));

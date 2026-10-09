@@ -100,7 +100,7 @@ using iterator_t = decltype(ranges::begin(std::declval<_Tp&>()));
 
 #  if _LIBCPP_STD_VER >= 23
 template <class _Tp>
-concept __constant_range = requires { typename iterator_t<_Tp>; } && constant_iterator<iterator_t<_Tp>>;
+concept __constant_range = requires { typename iterator_t<_Tp>; } && __constant_iterator<iterator_t<_Tp>>;
 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr auto& __possibly_const_range(_Tp& __t) noexcept {

@@ -1,0 +1,14 @@
+# Entries accepted by vocabulary_audit.py: <header|name|macro> <entry>   # justification (clause or opt-in macro)
+#
+# Headers the standard no longer lists. They are upstream libc++ compatibility headers; each only includes
+# nothing but <version>/the C header and diagnoses its removal with a warning when
+# _LIBCPP_DIAGNOSE_DEPRECATED_HEADERS is on. Owner decision pending (2026-10-09, #283): remove them in C++20+?
+header ccomplex     # removed in C++20 ([diff.cpp17.library]); <complex> is the replacement
+header ciso646      # removed in C++20 ([diff.cpp17.library])
+header cstdalign    # removed in C++20 ([diff.cpp17.library])
+header cstdbool     # removed in C++20 ([diff.cpp17.library])
+header ctgmath      # removed in C++20 ([diff.cpp17.library])
+# Removed in C++26 (P2871R3); the header is empty in C++26 unless _LIBCPP_ENABLE_CXX26_REMOVED_CODECVT is defined.
+header codecvt      # [depr.locale.stdcvt] before C++26
+# Deprecated feature that is still in the standard.
+header strstream    # [depr.strstream], Annex D

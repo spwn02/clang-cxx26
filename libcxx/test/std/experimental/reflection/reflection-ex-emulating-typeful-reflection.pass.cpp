@@ -54,24 +54,15 @@ struct unmatched {
 // Returns the given reflection "enriched" with a more descriptive type.
 template <typename... Choices>
 consteval std::meta::info enrich(std::meta::info r) {
-  // Because we control the type, we know that the constructor taking info is
-  // the first constructor. The copy/move constructors are added at the }, so
-  // will be the last ones in the list.
-  std::array ctors = {
-      (members_of(^^Choices, std::meta::access_context::current()) |
-           std::views::filter(std::meta::is_constructor) |
-           std::views::filter(std::meta::is_user_provided)).front()...,
-      (members_of(^^unmatched, std::meta::access_context::current()) |
-           std::views::filter(std::meta::is_constructor) |
-           std::views::filter(std::meta::is_user_provided)).front()
-  };
-  std::array checks = {^^Choices::check..., ^^unmatched::check};
-
-  for (auto [check, ctor] : std::views::zip(checks, ctors))
-    if (extract<bool>(reflect_invoke(check, {reflect_constant(r)})))
-      return reflect_invoke(ctor, {reflect_constant(r)});
-
-  std::unreachable();
+  std::meta::info result;
+  bool found = false;
+  ((!found && Choices::check(r)
+        ? (found = true, result = std::meta::reflect_constant(Choices(r)))
+        : result),
+   ...);
+  if (!found)
+    result = std::meta::reflect_constant(unmatched(r));
+  return result;
 }
 
 using type_t = metatype<^^std::meta::is_type>;

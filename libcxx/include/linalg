@@ -358,9 +358,9 @@ public:
     using size_type           = typename extents_type::size_type;
     using rank_type           = typename extents_type::rank_type;
     using layout_type         = layout_transpose;
-    using nested_mapping_type = __nested_mapping;
+    using __nested_mapping_type = __nested_mapping;
 
-    _LIBCPP_HIDE_FROM_ABI constexpr explicit mapping(const nested_mapping_type& __mapping)
+    _LIBCPP_HIDE_FROM_ABI constexpr explicit mapping(const __nested_mapping_type& __mapping)
         : __nested_mapping_(__mapping), __extents_(__mapping.extents().extent(1), __mapping.extents().extent(0)) {}
 
     _LIBCPP_HIDE_FROM_ABI constexpr const extents_type& extents() const noexcept { return __extents_; }
@@ -368,25 +368,25 @@ public:
       return __nested_mapping_.required_span_size();
     }
     template <class _Index0, class _Index1>
-      requires requires(const nested_mapping_type& __mapping, _Index0 __ind0, _Index1 __ind1) {
+      requires requires(const __nested_mapping_type& __mapping, _Index0 __ind0, _Index1 __ind1) {
         __mapping(__ind1, __ind0);
       }
     _LIBCPP_HIDE_FROM_ABI constexpr index_type operator()(_Index0 __ind0, _Index1 __ind1) const
         noexcept(noexcept(__nested_mapping_(__ind1, __ind0))) {
       return __nested_mapping_(__ind1, __ind0);
     }
-    _LIBCPP_HIDE_FROM_ABI constexpr const nested_mapping_type& nested_mapping() const noexcept {
+    _LIBCPP_HIDE_FROM_ABI constexpr const __nested_mapping_type& nested_mapping() const noexcept {
       return __nested_mapping_;
     }
 
     _LIBCPP_HIDE_FROM_ABI static constexpr bool is_always_unique() noexcept {
-      return nested_mapping_type::is_always_unique();
+      return __nested_mapping_type::is_always_unique();
     }
     _LIBCPP_HIDE_FROM_ABI static constexpr bool is_always_exhaustive() noexcept {
-      return nested_mapping_type::is_always_exhaustive();
+      return __nested_mapping_type::is_always_exhaustive();
     }
     _LIBCPP_HIDE_FROM_ABI static constexpr bool is_always_strided() noexcept {
-      return nested_mapping_type::is_always_strided();
+      return __nested_mapping_type::is_always_strided();
     }
     _LIBCPP_HIDE_FROM_ABI constexpr bool is_unique() const noexcept { return __nested_mapping_.is_unique(); }
     _LIBCPP_HIDE_FROM_ABI constexpr bool is_exhaustive() const noexcept { return __nested_mapping_.is_exhaustive(); }
@@ -398,7 +398,7 @@ public:
     }
 
   private:
-    _LIBCPP_NO_UNIQUE_ADDRESS nested_mapping_type __nested_mapping_;
+    _LIBCPP_NO_UNIQUE_ADDRESS __nested_mapping_type __nested_mapping_;
     _LIBCPP_NO_UNIQUE_ADDRESS extents_type __extents_;
   };
 };

@@ -87,14 +87,14 @@ struct __continues_on_as_tuple<_Tag(_Args...)> {
 template <class _List>
 struct __continues_on_dedup;
 template <class... _Ts>
-struct __continues_on_dedup<type_list<_Ts...>> {
+struct __continues_on_dedup<__exec_type_list<_Ts...>> {
   using type = __dedup_type_list_t<_Ts...>;
 };
 
 template <class _List>
 struct __continues_on_to_sigs;
 template <class... _Sigs>
-struct __continues_on_to_sigs<type_list<_Sigs...>> {
+struct __continues_on_to_sigs<__exec_type_list<_Sigs...>> {
   using type = completion_signatures<_Sigs...>;
 };
 
@@ -108,16 +108,16 @@ template <class _Completions>
 struct __continues_on_variant_impl;
 template <class... _Sigs>
 struct __continues_on_variant_impl<completion_signatures<_Sigs...>> {
-  using __tuples                    = type_list<typename __continues_on_as_tuple<_Sigs>::type...>;
+  using __tuples                    = __exec_type_list<typename __continues_on_as_tuple<_Sigs>::type...>;
   static constexpr bool __all_nothrow = (__continues_on_nothrow_sig<_Sigs> && ...);
-  using __err_list  = __conditional_t<__all_nothrow, type_list<>, type_list<tuple<set_error_t, exception_ptr>>>;
+  using __err_list  = __conditional_t<__all_nothrow, __exec_type_list<>, __exec_type_list<tuple<set_error_t, exception_ptr>>>;
   using __gathered  = typename __concat_type_lists<__tuples, __err_list>::type;
   using __deduped   = typename __continues_on_dedup<__gathered>::type;
 
   template <class>
   struct __to_variant;
   template <class... _Ts>
-  struct __to_variant<type_list<_Ts...>> {
+  struct __to_variant<__exec_type_list<_Ts...>> {
     using type = variant<monostate, _Ts...>;
   };
   using type = typename __to_variant<__deduped>::type;
@@ -136,19 +136,19 @@ struct __continues_on_child_one;
 template <class _Tag, class... _Args>
 struct __continues_on_child_one<_Tag(_Args...)> {
   using __value_sig = _Tag(decay_t<_Args>...);
-  using type = __conditional_t<__continues_on_nothrow_sig<_Tag(_Args...)>, type_list<__value_sig>,
-                                type_list<__value_sig, set_error_t(exception_ptr)>>;
+  using type = __conditional_t<__continues_on_nothrow_sig<_Tag(_Args...)>, __exec_type_list<__value_sig>,
+                                __exec_type_list<__value_sig, set_error_t(exception_ptr)>>;
 };
 
 // schedule(sch)'s own set_value_t() completion never propagates as-is (it only triggers the captured-result
 // redispatch); its set_error_t/set_stopped_t completions (a scheduling failure) propagate directly.
 template <class _Sig>
 struct __continues_on_sched_one {
-  using type = type_list<_Sig>;
+  using type = __exec_type_list<_Sig>;
 };
 template <class... _Args>
 struct __continues_on_sched_one<set_value_t(_Args...)> {
-  using type = type_list<>;
+  using type = __exec_type_list<>;
 };
 
 template <class _Completions>
@@ -351,7 +351,7 @@ class __continues_on_attrs {
         using __child_sigs = completion_signatures_of_t<_Child, __fwd_env_of_first_t<_Envs...>>;
         using __sched_sigs = completion_signatures_of_t<schedule_result_t<_Sch>, __fwd_env_of_first_t<_Envs...>>;
         constexpr auto __has = []<class _Sigs>() consteval {
-          return !same_as<type_list<>, __gather_signatures<_Cpo, _Sigs, type_list, type_list>>;
+          return !same_as<__exec_type_list<>, __gather_signatures<_Cpo, _Sigs, __exec_type_list, __exec_type_list>>;
         };
         if constexpr (is_same_v<_Cpo, set_value_t>)
           return __has.template operator()<__child_sigs>();

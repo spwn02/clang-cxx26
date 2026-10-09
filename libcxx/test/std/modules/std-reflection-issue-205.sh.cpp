@@ -29,7 +29,6 @@ import std;
 consteval bool positive(const int& value) { return value > 0; }
 inline constexpr std::array values{1};
 
-static_assert(std::meta::extract<bool>(
-    std::meta::reflect_invoke(^^positive, {std::meta::reflect_object(values[0])})));
+static_assert(positive(std::meta::extract<const int&>(std::meta::reflect_object(values[0]))));
 
 int main(int, char**) { return 0; }

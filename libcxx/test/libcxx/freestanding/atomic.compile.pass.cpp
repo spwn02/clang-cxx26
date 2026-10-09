@@ -15,10 +15,6 @@
 #  error "-ffreestanding must select libc++ freestanding mode"
 #endif
 
-#if !defined(__cpp_lib_freestanding_atomic) || __cpp_lib_freestanding_atomic != 202306L
-#  error "missing or wrong __cpp_lib_freestanding_atomic"
-#endif
-
 enum class __color { red, green, blue };
 
 void test() {

@@ -105,7 +105,8 @@ public:
 #endif
 
 #if !defined(_LIBCPP_MSVCRT_LIKE)
-extern "C" double lgamma_r(double, int*) _LIBCPP_LGAMMA_R_NOEXCEPT;
+// Declared under a reserved name so that no non-standard name appears in namespace std.
+extern "C" double __libcpp_lgamma_r(double, int*) _LIBCPP_LGAMMA_R_NOEXCEPT __asm__("lgamma_r");
 #endif
 
 inline _LIBCPP_HIDE_FROM_ABI double __libcpp_lgamma(double __d) {
@@ -113,7 +114,7 @@ inline _LIBCPP_HIDE_FROM_ABI double __libcpp_lgamma(double __d) {
   return lgamma(__d);
 #else
   int __sign;
-  return lgamma_r(__d, &__sign);
+  return __libcpp_lgamma_r(__d, &__sign);
 #endif
 }
 

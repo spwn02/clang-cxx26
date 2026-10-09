@@ -45,11 +45,6 @@ consteval bool check_member_queries() {
       return false;
     if (is_enumerable_type(m))
       return false;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    if (has_complete_definition(m))
-      return false;
-#pragma clang diagnostic pop
   }
   return proxies == 6;
 }

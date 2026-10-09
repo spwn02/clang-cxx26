@@ -742,12 +742,6 @@ feature_test_macros = [
             "headers": ["array"],
         },
         {
-            "name": "__cpp_lib_freestanding_atomic",
-            # libc++ extension; no standardized per-header atomic macro exists.
-            "values": {"c++26": 202306},
-            "headers": ["atomic"],
-        },
-        {
             "name": "__cpp_lib_freestanding_char_traits",
             "values": {"c++26": 202306},  # P2338R4: freestanding character primitives
             "headers": ["string"],
@@ -1702,11 +1696,6 @@ feature_test_macros = [
             "headers": ["simd"],
         },
         {
-            "name": "__cpp_lib_smart_ptr_default_init",
-            "values": {"c++20": 201811},
-            "headers": ["memory"],
-        },
-        {
             "name": "__cpp_lib_smart_ptr_for_overwrite",
             "values": {"c++20": 202002},
             "headers": ["memory"],
@@ -1729,11 +1718,6 @@ feature_test_macros = [
                 "c++20": 202002,
                 "c++26": 202311,  # P2833R2 Freestanding Library: inout expected span
             },
-            "headers": ["span"],
-        },
-        {
-            "name": "__cpp_lib_span_at",
-            "values": {"c++26": 202311},  # P2821R3 span.at()
             "headers": ["span"],
         },
         {
@@ -1790,11 +1774,6 @@ feature_test_macros = [
             "name": "__cpp_lib_stdckdint_h",
             "values": {"c++26": 202603},
             "headers": ["stdckdint.h"],
-        },
-        {
-            "name": "__cpp_lib_stdfloat",
-            "values": {"c++23": 202207},
-            "headers": ["stdfloat"],
         },
         {
             "name": "__cpp_lib_string_contains",

@@ -2,7 +2,7 @@
 // fragment.  Re-export its public declarations explicitly; a textual include
 // alone does not make declarations visible to importers of std.
 //
-// <meta>'s reflection_v2 namespace and define_static_array/string are
+// <meta>'s __reflection_v2 namespace and define_static_array/string are
 // themselves guarded by `#if __has_feature(reflection)` (i.e. -freflection);
 // mirror that guard here so this partition's export list matches what <meta>
 // actually declares when reflection is not enabled, instead of failing to
@@ -15,39 +15,38 @@ export namespace std {
   using std::is_string_literal;
 
   namespace meta {
-    inline namespace reflection_v2 {
-      using std::meta::reflection_v2::__make_exception;
-      using std::meta::reflection_v2::info;
-      using std::meta::reflection_v2::reflection_range;
-      using std::meta::reflection_v2::AttributeNamespace;
-      using std::meta::reflection_v2::identifier_of;
-      using std::meta::reflection_v2::display_string_of;
-      using std::meta::reflection_v2::u8identifier_of;
-      using std::meta::reflection_v2::u8display_string_of;
-      using std::meta::reflection_v2::has_identifier;
-      using std::meta::reflection_v2::operators;
-      using std::meta::reflection_v2::operator_of;
-      using std::meta::reflection_v2::source_location_of;
-      using std::meta::reflection_v2::type_of;
-      using std::meta::reflection_v2::parent_of;
-      using std::meta::reflection_v2::dealias;
-      using std::meta::reflection_v2::object_of;
-      using std::meta::reflection_v2::constant_of;
-      using std::meta::reflection_v2::template_of;
-      using std::meta::reflection_v2::template_arguments_of;
-      using std::meta::reflection_v2::members_of;
-      using std::meta::reflection_v2::bases_of;
-      using std::meta::reflection_v2::static_data_members_of;
-      using std::meta::reflection_v2::nonstatic_data_members_of;
-      using std::meta::reflection_v2::enumerators_of;
-      using std::meta::reflection_v2::can_substitute;
-      using std::meta::reflection_v2::substitute;
-      using std::meta::reflection_v2::reflect_constant;
-      using std::meta::reflection_v2::reflect_object;
-      using std::meta::reflection_v2::reflect_function;
-      using std::meta::reflection_v2::extract;
+    inline namespace __reflection_v2 {
+      using std::meta::__reflection_v2::__make_exception;
+      using std::meta::__reflection_v2::info;
+      using std::meta::__reflection_v2::reflection_range;
+      using std::meta::__reflection_v2::identifier_of;
+      using std::meta::__reflection_v2::display_string_of;
+      using std::meta::__reflection_v2::u8identifier_of;
+      using std::meta::__reflection_v2::u8display_string_of;
+      using std::meta::__reflection_v2::has_identifier;
+      using std::meta::__reflection_v2::operators;
+      using std::meta::__reflection_v2::operator_of;
+      using std::meta::__reflection_v2::source_location_of;
+      using std::meta::__reflection_v2::type_of;
+      using std::meta::__reflection_v2::parent_of;
+      using std::meta::__reflection_v2::dealias;
+      using std::meta::__reflection_v2::object_of;
+      using std::meta::__reflection_v2::constant_of;
+      using std::meta::__reflection_v2::template_of;
+      using std::meta::__reflection_v2::template_arguments_of;
+      using std::meta::__reflection_v2::members_of;
+      using std::meta::__reflection_v2::bases_of;
+      using std::meta::__reflection_v2::static_data_members_of;
+      using std::meta::__reflection_v2::nonstatic_data_members_of;
+      using std::meta::__reflection_v2::enumerators_of;
+      using std::meta::__reflection_v2::can_substitute;
+      using std::meta::__reflection_v2::substitute;
+      using std::meta::__reflection_v2::reflect_constant;
+      using std::meta::__reflection_v2::reflect_object;
+      using std::meta::__reflection_v2::reflect_function;
+      using std::meta::__reflection_v2::extract;
 
-#define _LIBCPP_META_EXPORT_PREDICATE(name) using std::meta::reflection_v2::name;
+#define _LIBCPP_META_EXPORT_PREDICATE(name) using std::meta::__reflection_v2::name;
       _LIBCPP_META_EXPORT_PREDICATE(is_public)
       _LIBCPP_META_EXPORT_PREDICATE(is_protected)
       _LIBCPP_META_EXPORT_PREDICATE(is_private)
@@ -114,13 +113,13 @@ export namespace std {
       _LIBCPP_META_EXPORT_PREDICATE(is_user_provided)
       _LIBCPP_META_EXPORT_PREDICATE(is_user_declared)
       _LIBCPP_META_EXPORT_PREDICATE(data_member_spec)
-      using std::meta::reflection_v2::data_member_options;
-      using std::meta::reflection_v2::define_aggregate;
-      using std::meta::reflection_v2::member_offset;
-      using std::meta::reflection_v2::offset_of;
-      using std::meta::reflection_v2::size_of;
-      using std::meta::reflection_v2::alignment_of;
-      using std::meta::reflection_v2::bit_size_of;
+      using std::meta::__reflection_v2::data_member_options;
+      using std::meta::__reflection_v2::define_aggregate;
+      using std::meta::__reflection_v2::member_offset;
+      using std::meta::__reflection_v2::offset_of;
+      using std::meta::__reflection_v2::size_of;
+      using std::meta::__reflection_v2::alignment_of;
+      using std::meta::__reflection_v2::bit_size_of;
 
       _LIBCPP_META_EXPORT_PREDICATE(is_void_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_null_pointer_type)
@@ -146,7 +145,6 @@ export namespace std {
       _LIBCPP_META_EXPORT_PREDICATE(is_member_pointer_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_const_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_volatile_type)
-      _LIBCPP_META_EXPORT_PREDICATE(is_trivial_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_trivially_copyable_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_standard_layout_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_empty_type)
@@ -159,7 +157,7 @@ export namespace std {
       _LIBCPP_META_EXPORT_PREDICATE(is_bounded_array_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_unbounded_array_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_scoped_enum_type)
-      using std::meta::reflection_v2::is_constructible_type;
+      using std::meta::__reflection_v2::is_constructible_type;
       _LIBCPP_META_EXPORT_PREDICATE(is_default_constructible_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_copy_constructible_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_move_constructible_type)
@@ -176,7 +174,7 @@ export namespace std {
       _LIBCPP_META_EXPORT_PREDICATE(is_trivially_copy_assignable_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_trivially_move_assignable_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_trivially_destructible_type)
-      using std::meta::reflection_v2::is_nothrow_constructible_type;
+      using std::meta::__reflection_v2::is_nothrow_constructible_type;
       _LIBCPP_META_EXPORT_PREDICATE(is_nothrow_default_constructible_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_nothrow_copy_constructible_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_nothrow_move_constructible_type)
@@ -190,137 +188,128 @@ export namespace std {
       _LIBCPP_META_EXPORT_PREDICATE(is_virtual_base_of_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_layout_compatible_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_pointer_interconvertible_base_of_type)
-      using std::meta::reflection_v2::reference_constructs_from_temporary;
-      using std::meta::reflection_v2::reference_converts_from_temporary;
+      using std::meta::__reflection_v2::reference_constructs_from_temporary;
+      using std::meta::__reflection_v2::reference_converts_from_temporary;
       _LIBCPP_META_EXPORT_PREDICATE(has_virtual_destructor)
       _LIBCPP_META_EXPORT_PREDICATE(has_unique_object_representations)
-      using std::meta::reflection_v2::rank;
-      using std::meta::reflection_v2::extent;
+      using std::meta::__reflection_v2::rank;
+      using std::meta::__reflection_v2::extent;
       _LIBCPP_META_EXPORT_PREDICATE(is_same_type)
 #if _LIBCPP_STD_VER >= 26 && __has_builtin(__builtin_type_order)
-      using std::meta::reflection_v2::type_order;
+      using std::meta::__reflection_v2::type_order;
 #endif
       _LIBCPP_META_EXPORT_PREDICATE(is_base_of_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_convertible_type)
       _LIBCPP_META_EXPORT_PREDICATE(is_nothrow_convertible_type)
-      using std::meta::reflection_v2::is_invocable_type;
-      using std::meta::reflection_v2::is_invocable_r_type;
-      using std::meta::reflection_v2::is_nothrow_invocable_type;
-      using std::meta::reflection_v2::is_nothrow_invocable_r_type;
-      using std::meta::reflection_v2::remove_const;
-      using std::meta::reflection_v2::remove_volatile;
-      using std::meta::reflection_v2::remove_cv;
-      using std::meta::reflection_v2::add_const;
-      using std::meta::reflection_v2::add_volatile;
-      using std::meta::reflection_v2::add_cv;
-      using std::meta::reflection_v2::remove_reference;
-      using std::meta::reflection_v2::add_lvalue_reference;
-      using std::meta::reflection_v2::add_rvalue_reference;
-      using std::meta::reflection_v2::make_signed;
-      using std::meta::reflection_v2::make_unsigned;
-      using std::meta::reflection_v2::remove_extent;
-      using std::meta::reflection_v2::remove_all_extents;
-      using std::meta::reflection_v2::remove_pointer;
-      using std::meta::reflection_v2::add_pointer;
-      using std::meta::reflection_v2::remove_cvref;
-      using std::meta::reflection_v2::decay;
-      using std::meta::reflection_v2::common_type;
-      using std::meta::reflection_v2::common_reference;
-      using std::meta::reflection_v2::underlying_type;
-      using std::meta::reflection_v2::invoke_result;
-      using std::meta::reflection_v2::unwrap_reference;
-      using std::meta::reflection_v2::unwrap_ref_decay;
-      using std::meta::reflection_v2::tuple_size;
-      using std::meta::reflection_v2::tuple_element;
-      using std::meta::reflection_v2::variant_size;
-      using std::meta::reflection_v2::variant_alternative;
-      using std::meta::reflection_v2::is_vararg_function;
+      using std::meta::__reflection_v2::is_invocable_type;
+      using std::meta::__reflection_v2::is_invocable_r_type;
+      using std::meta::__reflection_v2::is_nothrow_invocable_type;
+      using std::meta::__reflection_v2::is_nothrow_invocable_r_type;
+      using std::meta::__reflection_v2::remove_const;
+      using std::meta::__reflection_v2::remove_volatile;
+      using std::meta::__reflection_v2::remove_cv;
+      using std::meta::__reflection_v2::add_const;
+      using std::meta::__reflection_v2::add_volatile;
+      using std::meta::__reflection_v2::add_cv;
+      using std::meta::__reflection_v2::remove_reference;
+      using std::meta::__reflection_v2::add_lvalue_reference;
+      using std::meta::__reflection_v2::add_rvalue_reference;
+      using std::meta::__reflection_v2::make_signed;
+      using std::meta::__reflection_v2::make_unsigned;
+      using std::meta::__reflection_v2::remove_extent;
+      using std::meta::__reflection_v2::remove_all_extents;
+      using std::meta::__reflection_v2::remove_pointer;
+      using std::meta::__reflection_v2::add_pointer;
+      using std::meta::__reflection_v2::remove_cvref;
+      using std::meta::__reflection_v2::decay;
+      using std::meta::__reflection_v2::common_type;
+      using std::meta::__reflection_v2::common_reference;
+      using std::meta::__reflection_v2::underlying_type;
+      using std::meta::__reflection_v2::invoke_result;
+      using std::meta::__reflection_v2::unwrap_reference;
+      using std::meta::__reflection_v2::unwrap_ref_decay;
+      using std::meta::__reflection_v2::tuple_size;
+      using std::meta::__reflection_v2::tuple_element;
+      using std::meta::__reflection_v2::variant_size;
+      using std::meta::__reflection_v2::variant_alternative;
+      using std::meta::__reflection_v2::is_vararg_function;
 #if __has_feature(parameter_reflection)
-      using std::meta::reflection_v2::parameters_of;
-      using std::meta::reflection_v2::has_default_argument;
-      using std::meta::reflection_v2::is_explicit_object_parameter;
-      using std::meta::reflection_v2::is_function_parameter;
-      using std::meta::reflection_v2::return_type_of;
-      using std::meta::reflection_v2::variable_of;
+      using std::meta::__reflection_v2::parameters_of;
+      using std::meta::__reflection_v2::has_default_argument;
+      using std::meta::__reflection_v2::is_explicit_object_parameter;
+      using std::meta::__reflection_v2::is_function_parameter;
+      using std::meta::__reflection_v2::return_type_of;
+      using std::meta::__reflection_v2::variable_of;
 #endif // __has_feature(parameter_reflection)
 #if __has_feature(annotation_attributes)
-      using std::meta::reflection_v2::annotations_of;
-      using std::meta::reflection_v2::annotations_of_with_type;
-      using std::meta::reflection_v2::is_annotation;
+      using std::meta::__reflection_v2::annotations_of;
+      using std::meta::__reflection_v2::annotations_of_with_type;
+      using std::meta::__reflection_v2::is_annotation;
 #endif // __has_feature(annotation_attributes)
+#if __has_feature(reflection_latest)
+      // P4033R1 (not adopted): only with -freflection-latest.
+      using std::meta::__reflection_v2::enumerator_options;
+      using std::meta::__reflection_v2::enumerator_spec;
+      using std::meta::__reflection_v2::define_enum;
+      _LIBCPP_META_EXPORT_PREDICATE(is_enumerator_spec)
+#endif // __has_feature(reflection_latest)
 #if __has_feature(attribute_reflection)
-      using std::meta::reflection_v2::is_attribute;
-      using std::meta::reflection_v2::attributes_of;
-      using std::meta::reflection_v2::attribute_namespace_of;
-      using std::meta::reflection_v2::attribute_token_of;
-      using std::meta::reflection_v2::has_attribute_namespace;
-      using std::meta::reflection_v2::has_attribute;
-      using std::meta::reflection_v2::attribute_comparison;
-      using std::meta::reflection_v2::operator|;
-      using std::meta::reflection_v2::operator&;
-      using std::meta::reflection_v2::operator^;
-      using std::meta::reflection_v2::operator~;
-      using std::meta::reflection_v2::operator|=;
-      using std::meta::reflection_v2::operator&=;
-      using std::meta::reflection_v2::operator^=;
-      using std::meta::reflection_v2::u8attribute_namespace_of;
-      using std::meta::reflection_v2::u8attribute_token_of;
-      using std::meta::reflection_v2::is_unscoped_attribute;
-      using std::meta::reflection_v2::is_clang_attribute;
-      using std::meta::reflection_v2::is_gcc_attribute;
-      using std::meta::reflection_v2::is_msvc_attribute;
+      using std::meta::__reflection_v2::AttributeNamespace;
+      using std::meta::__reflection_v2::is_attribute;
+      using std::meta::__reflection_v2::attributes_of;
+      using std::meta::__reflection_v2::attribute_namespace_of;
+      using std::meta::__reflection_v2::attribute_token_of;
+      using std::meta::__reflection_v2::has_attribute_namespace;
+      using std::meta::__reflection_v2::has_attribute;
+      using std::meta::__reflection_v2::attribute_comparison;
+      using std::meta::__reflection_v2::operator|;
+      using std::meta::__reflection_v2::operator&;
+      using std::meta::__reflection_v2::operator^;
+      using std::meta::__reflection_v2::operator~;
+      using std::meta::__reflection_v2::operator|=;
+      using std::meta::__reflection_v2::operator&=;
+      using std::meta::__reflection_v2::operator^=;
+      using std::meta::__reflection_v2::u8attribute_namespace_of;
+      using std::meta::__reflection_v2::u8attribute_token_of;
+      using std::meta::__reflection_v2::is_unscoped_attribute;
+      using std::meta::__reflection_v2::is_clang_attribute;
+      using std::meta::__reflection_v2::is_gcc_attribute;
+      using std::meta::__reflection_v2::is_msvc_attribute;
 #endif // __has_feature(attribute_reflection)
-      using std::meta::reflection_v2::access_context;
-      using std::meta::reflection_v2::is_accessible;
-      using std::meta::reflection_v2::has_inaccessible_nonstatic_data_members;
-      using std::meta::reflection_v2::has_inaccessible_bases;
-      using std::meta::reflection_v2::has_inaccessible_subobjects;
-      using std::meta::reflection_v2::is_access_specified;
-      using std::meta::reflection_v2::reflect_invoke;
+      using std::meta::__reflection_v2::access_context;
+      using std::meta::__reflection_v2::is_accessible;
+      using std::meta::__reflection_v2::has_inaccessible_nonstatic_data_members;
+      using std::meta::__reflection_v2::has_inaccessible_bases;
+      using std::meta::__reflection_v2::has_inaccessible_subobjects;
 
       // The enumerators of `operators` (`op_plus`, ...) are introduced into
       // the namespace by a using-enum-declaration in <meta>.
-      using enum std::meta::reflection_v2::operators;
+      using enum std::meta::__reflection_v2::operators;
 
-      using std::meta::reflection_v2::exception;
-      using std::meta::reflection_v2::current_function;
-      using std::meta::reflection_v2::current_class;
-      using std::meta::reflection_v2::current_namespace;
-      using std::meta::reflection_v2::has_parent;
-      using std::meta::reflection_v2::has_complete_definition;
-      using std::meta::reflection_v2::has_c_language_linkage;
-      using std::meta::reflection_v2::subobjects_of;
-      using std::meta::reflection_v2::symbol_of;
-      using std::meta::reflection_v2::u8symbol_of;
-      using std::meta::reflection_v2::enumerator_options;
-      using std::meta::reflection_v2::enumerator_spec;
-      using std::meta::reflection_v2::define_enum;
-      using std::meta::reflection_v2::define_unscoped_enum;
-      using std::meta::reflection_v2::reflect_constant_array;
-      using std::meta::reflection_v2::reflect_constant_string;
-      using std::meta::reflection_v2::is_applicable_type;
-      using std::meta::reflection_v2::is_nothrow_applicable_type;
-      using std::meta::reflection_v2::apply_result;
-      using std::meta::reflection_v2::is_trivially_constructible_type;
-      _LIBCPP_META_EXPORT_PREDICATE(is_enumerator_spec)
+      using std::meta::__reflection_v2::exception;
+      using std::meta::__reflection_v2::current_function;
+      using std::meta::__reflection_v2::current_class;
+      using std::meta::__reflection_v2::current_namespace;
+      using std::meta::__reflection_v2::has_parent;
+      using std::meta::__reflection_v2::has_c_language_linkage;
+      using std::meta::__reflection_v2::subobjects_of;
+      using std::meta::__reflection_v2::symbol_of;
+      using std::meta::__reflection_v2::u8symbol_of;
+      using std::meta::__reflection_v2::reflect_constant_array;
+      using std::meta::__reflection_v2::reflect_constant_string;
+      using std::meta::__reflection_v2::is_applicable_type;
+      using std::meta::__reflection_v2::is_nothrow_applicable_type;
+      using std::meta::__reflection_v2::apply_result;
+      using std::meta::__reflection_v2::is_trivially_constructible_type;
       _LIBCPP_META_EXPORT_PREDICATE(is_final)
       _LIBCPP_META_EXPORT_PREDICATE(is_object)
       _LIBCPP_META_EXPORT_PREDICATE(is_value)
       _LIBCPP_META_EXPORT_PREDICATE(is_structural_type)
 
-      // Deprecated names, which <meta> still declares.
-      using std::meta::reflection_v2::define_class;
-      using std::meta::reflection_v2::reflect_result;
-      using std::meta::reflection_v2::reflect_value;
-      using std::meta::reflection_v2::has_ellipsis_parameter;
-      using std::meta::reflection_v2::value_of;
-      using std::meta::reflection_v2::test_trait;
-      using std::meta::reflection_v2::test_type;
-      using std::meta::reflection_v2::test_types;
 #if __has_feature(entity_proxy_reflection)
-      using std::meta::reflection_v2::is_entity_proxy;
-      using std::meta::reflection_v2::proxied_entity_of;
-      using std::meta::reflection_v2::underlying_entity_of;
+      using std::meta::__reflection_v2::is_entity_proxy;
+      using std::meta::__reflection_v2::proxied_entity_of;
+      using std::meta::__reflection_v2::underlying_entity_of;
 #endif // __has_feature(entity_proxy_reflection)
 #undef _LIBCPP_META_EXPORT_PREDICATE
     }

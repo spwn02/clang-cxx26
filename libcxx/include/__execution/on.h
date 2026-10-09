@@ -116,7 +116,7 @@ class __on_attrs {
   }
 
   template <class _Sigs>
-  static constexpr bool __has_stopped_v = !same_as<type_list<>, __gather_signatures<set_stopped_t, _Sigs, type_list, type_list>>;
+  static constexpr bool __has_stopped_v = !same_as<__exec_type_list<>, __gather_signatures<set_stopped_t, _Sigs, __exec_type_list, __exec_type_list>>;
 
   template <class _Env>
   static consteval bool __stopped_possible() {

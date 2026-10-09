@@ -297,9 +297,9 @@ struct __inplace_vector_move_assign_base<_Tp, _Cap, false> : __inplace_vector_co
 template <class _Tp, size_t _Cap>
 using __inplace_vector_base = __inplace_vector_move_assign_base<_Tp, _Cap>;
 
-template <class _Tp, size_t Capacity>
-class inplace_vector : private __inplace_vector_base<_Tp, Capacity> {
-  using __base = __inplace_vector_base<_Tp, Capacity>;
+template <class _Tp, size_t _Capacity>
+class inplace_vector : private __inplace_vector_base<_Tp, _Capacity> {
+  using __base = __inplace_vector_base<_Tp, _Capacity>;
 
 public:
   using value_type             = _Tp;
@@ -332,7 +332,7 @@ public:
     // range too large for our fixed capacity must be a compile error, not a
     // runtime bad_alloc.
     if constexpr (requires { requires ranges::size(__rg) >= 0; }) {
-      static_assert(ranges::size(__rg) <= Capacity, "inplace_vector(from_range_t, R&&): range too large for capacity");
+      static_assert(ranges::size(__rg) <= _Capacity, "inplace_vector(from_range_t, R&&): range too large for capacity");
     }
     __append_range(std::forward<_Range>(__rg));
   }
@@ -438,11 +438,11 @@ public:
 
   [[nodiscard]] constexpr auto empty() const noexcept -> bool { return size() == 0; }
   [[nodiscard]] constexpr auto size() const noexcept -> size_type { return this->__size_; }
-  [[nodiscard]] static constexpr auto max_size() noexcept -> size_type { return Capacity; }
-  [[nodiscard]] static constexpr auto capacity() noexcept -> size_type { return Capacity; }
+  [[nodiscard]] static constexpr auto max_size() noexcept -> size_type { return _Capacity; }
+  [[nodiscard]] static constexpr auto capacity() noexcept -> size_type { return _Capacity; }
 
   constexpr void resize(size_type __sz) {
-    if (__sz > Capacity)
+    if (__sz > _Capacity)
       std::__throw_bad_alloc();
     if (__sz < size()) {
       while (size() > __sz)
@@ -453,7 +453,7 @@ public:
   }
 
   constexpr void resize(size_type __sz, const _Tp& __value) {
-    if (__sz > Capacity)
+    if (__sz > _Capacity)
       std::__throw_bad_alloc();
     if (__sz < size()) {
       while (size() > __sz)
@@ -464,9 +464,9 @@ public:
   }
 
   // reserve/shrink_to_fit are static: there is no notion of extra capacity
-  // to request or release beyond the fixed Capacity itself.
+  // to request or release beyond the fixed _Capacity itself.
   static constexpr void reserve(size_type __n) {
-    if (__n > Capacity)
+    if (__n > _Capacity)
       std::__throw_bad_alloc();
   }
 
@@ -475,7 +475,7 @@ public:
   // modifiers
 
   constexpr auto try_push_back(const _Tp& __value) -> optional<reference> {
-    if (size() >= Capacity)
+    if (size() >= _Capacity)
       return nullopt;
     this->__construct_elem(data() + size(), __value);
     ++this->__size_;
@@ -483,7 +483,7 @@ public:
   }
 
   constexpr auto try_push_back(_Tp&& __value) -> optional<reference> {
-    if (size() >= Capacity)
+    if (size() >= _Capacity)
       return nullopt;
     this->__construct_elem(data() + size(), std::move(__value));
     ++this->__size_;
@@ -492,7 +492,7 @@ public:
 
   template <class... _Args>
   constexpr auto try_emplace_back(_Args&&... __args) -> optional<reference> {
-    if (size() >= Capacity)
+    if (size() >= _Capacity)
       return nullopt;
     this->__construct_elem(data() + size(), std::forward<_Args>(__args)...);
     ++this->__size_;
@@ -532,7 +532,7 @@ public:
   template <_ContainerCompatibleRange<_Tp> _Range>
   constexpr void append_range(_Range&& __rg) {
     for (auto&& __v : __rg) {
-      if (size() >= Capacity)
+      if (size() >= _Capacity)
         std::__throw_bad_alloc();
       unchecked_push_back(std::forward<decltype(__v)>(__v));
     }
@@ -571,7 +571,7 @@ public:
 
   constexpr auto insert(const_iterator __pos, size_type __n, const _Tp& __value) -> iterator {
     size_type __idx = static_cast<size_type>(__pos - cbegin());
-    if (size() + __n > Capacity)
+    if (size() + __n > _Capacity)
       std::__throw_bad_alloc();
     for (size_type __i = 0; __i < __n; ++__i)
       unchecked_push_back(__value);
@@ -609,7 +609,7 @@ public:
   template <class... _Args>
   constexpr auto emplace(const_iterator __pos, _Args&&... __args) -> iterator {
     size_type __idx = static_cast<size_type>(__pos - cbegin());
-    if (size() >= Capacity)
+    if (size() >= _Capacity)
       std::__throw_bad_alloc();
     if (__idx == size()) {
       unchecked_emplace_back(std::forward<_Args>(__args)...);
@@ -656,7 +656,7 @@ public:
   // Preconditions (LWG 4151): T is Cpp17MoveConstructible, and for each
   // n < min(size(), x.size()), (*this)[n] is swappable with x[n].
   constexpr void swap(inplace_vector& __other) noexcept(
-      Capacity == 0 || (is_nothrow_swappable_v<_Tp> && is_nothrow_move_constructible_v<_Tp>)) {
+      _Capacity == 0 || (is_nothrow_swappable_v<_Tp> && is_nothrow_move_constructible_v<_Tp>)) {
     size_type __this_original  = size();
     size_type __other_original = __other.size();
     size_type __common         = std::min(size(), __other.size());
@@ -703,14 +703,14 @@ public:
 
 private:
   constexpr void __append_default(size_type __n) {
-    if (size() + __n > Capacity)
+    if (size() + __n > _Capacity)
       std::__throw_bad_alloc();
     for (size_type __i = 0; __i < __n; ++__i)
       unchecked_emplace_back();
   }
 
   constexpr void __append_fill(size_type __n, const _Tp& __value) {
-    if (size() + __n > Capacity)
+    if (size() + __n > _Capacity)
       std::__throw_bad_alloc();
     for (size_type __i = 0; __i < __n; ++__i)
       unchecked_push_back(__value);
@@ -727,7 +727,7 @@ private:
 // is both trivial and empty." A trivial class can't have a data member with
 // a default member initializer (that alone makes the implicit default
 // constructor non-trivial), so N == 0 needs its own specialization rather
-// than just parameterizing the Capacity==0 case through the general storage
+// than just parameterizing the _Capacity==0 case through the general storage
 // machinery above -- there is genuinely no state to store, since size() is
 // always 0 and no element can ever be constructed.
 template <class _Tp>
@@ -967,20 +967,20 @@ public:
   }
 };
 
-template <class _Tp, size_t Capacity, class _Up = _Tp>
-constexpr auto erase(inplace_vector<_Tp, Capacity>& __c, const _Up& __value) ->
-    typename inplace_vector<_Tp, Capacity>::size_type {
+template <class _Tp, size_t _Capacity, class _Up = _Tp>
+constexpr auto erase(inplace_vector<_Tp, _Capacity>& __c, const _Up& __value) ->
+    typename inplace_vector<_Tp, _Capacity>::size_type {
   auto __it = std::remove(__c.begin(), __c.end(), __value);
-  auto __r  = static_cast<typename inplace_vector<_Tp, Capacity>::size_type>(__c.end() - __it);
+  auto __r  = static_cast<typename inplace_vector<_Tp, _Capacity>::size_type>(__c.end() - __it);
   __c.erase(__it, __c.end());
   return __r;
 }
 
-template <class _Tp, size_t Capacity, class Predicate>
-constexpr auto erase_if(inplace_vector<_Tp, Capacity>& __c, Predicate __pred) ->
-    typename inplace_vector<_Tp, Capacity>::size_type {
+template <class _Tp, size_t _Capacity, class Predicate>
+constexpr auto erase_if(inplace_vector<_Tp, _Capacity>& __c, Predicate __pred) ->
+    typename inplace_vector<_Tp, _Capacity>::size_type {
   auto __it = std::remove_if(__c.begin(), __c.end(), __pred);
-  auto __r  = static_cast<typename inplace_vector<_Tp, Capacity>::size_type>(__c.end() - __it);
+  auto __r  = static_cast<typename inplace_vector<_Tp, _Capacity>::size_type>(__c.end() - __it);
   __c.erase(__it, __c.end());
   return __r;
 }

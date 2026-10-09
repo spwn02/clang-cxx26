@@ -101,11 +101,11 @@ public:
   }
   [[nodiscard]] inline _LIBCPP_HIDE_FROM_ABI bool try_wait() const noexcept {
     auto __value = __a_.load(memory_order_acquire);
-    return try_wait_impl(__value);
+    return __try_wait_impl(__value);
   }
   inline _LIBCPP_HIDE_FROM_ABI void wait() const {
     std::__atomic_wait_unless(__a_, memory_order_acquire, [this](ptrdiff_t& __value) -> bool {
-      return try_wait_impl(__value);
+      return __try_wait_impl(__value);
     });
   }
   inline _LIBCPP_HIDE_FROM_ABI void arrive_and_wait(ptrdiff_t __update = 1) {
@@ -117,7 +117,7 @@ public:
   }
 
 private:
-  _LIBCPP_HIDE_FROM_ABI bool try_wait_impl(ptrdiff_t& __value) const noexcept { return __value == 0; }
+  _LIBCPP_HIDE_FROM_ABI bool __try_wait_impl(ptrdiff_t& __value) const noexcept { return __value == 0; }
 };
 
 _LIBCPP_END_NAMESPACE_STD

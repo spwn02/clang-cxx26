@@ -81,8 +81,6 @@ static_assert(!is_namespace_member(^^Enum::Red));
 static_assert(is_namespace_member(^^InnerNS::Red));
 
 static_assert(extract<int>(annotations_of(^^G::m)[0]) == 32);
-static_assert(!is_access_specified(^^G::m));
-static_assert(is_access_specified(^^G::n));
 
 static_assert(underlying_entity_of(^^H::n) == ^^F::n);
 

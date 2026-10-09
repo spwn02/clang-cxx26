@@ -1251,10 +1251,6 @@ _LIBCPP_ATOMIC_STORE_REDUCTION(or, typename atomic<_Tp>::value_type)
 _LIBCPP_ATOMIC_STORE_REDUCTION(xor, typename atomic<_Tp>::value_type)
 _LIBCPP_ATOMIC_STORE_REDUCTION(max, typename atomic<_Tp>::value_type)
 _LIBCPP_ATOMIC_STORE_REDUCTION(min, typename atomic<_Tp>::value_type)
-_LIBCPP_ATOMIC_STORE_REDUCTION(fmaximum, typename atomic<_Tp>::value_type)
-_LIBCPP_ATOMIC_STORE_REDUCTION(fminimum, typename atomic<_Tp>::value_type)
-_LIBCPP_ATOMIC_STORE_REDUCTION(fmaximum_num, typename atomic<_Tp>::value_type)
-_LIBCPP_ATOMIC_STORE_REDUCTION(fminimum_num, typename atomic<_Tp>::value_type)
 #undef _LIBCPP_ATOMIC_STORE_REDUCTION
 #endif
 

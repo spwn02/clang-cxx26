@@ -218,7 +218,7 @@ template <class _Tuple>
 struct __when_all_tuple_to_list;
 template <class... _Args>
 struct __when_all_tuple_to_list<tuple<_Args...>> {
-  using type = type_list<_Args...>;
+  using type = __exec_type_list<_Args...>;
 };
 
 template <bool _AllSingle, class _Env, class... _Sndrs>
@@ -233,7 +233,7 @@ struct __when_all_value_sig_impl<true, _Env, _Sndrs...> {
   template <class _List>
   struct __to_sig;
   template <class... _Args>
-  struct __to_sig<type_list<_Args...>> {
+  struct __to_sig<__exec_type_list<_Args...>> {
     using type = set_value_t(_Args...);
   };
 
@@ -274,21 +274,21 @@ using __when_all_copy_fail_t =
     __conditional_t<__when_all_all_children_nothrow_copy<_Env, _Sndrs...>, __when_all_none_such, exception_ptr>;
 
 // errors_variant: variant<none-such, copy-fail, Es...>, deduped, where Es is every child's own
-// decayed error types (via the existing error_types_of_t alias, gathered as a type_list so it
+// decayed error types (via the existing error_types_of_t alias, gathered as a __exec_type_list so it
 // concatenates with <__execution/completion_signatures.h>'s __concat_type_lists directly).
 template <class _Env, class... _Sndrs>
 using __when_all_errors_concat_t = typename __concat_type_lists<
-    type_list<__when_all_none_such, __when_all_copy_fail_t<_Env, _Sndrs...>>,
-    error_types_of_t<_Sndrs, _Env, type_list>...>::type;
+    __exec_type_list<__when_all_none_such, __when_all_copy_fail_t<_Env, _Sndrs...>>,
+    error_types_of_t<_Sndrs, _Env, __exec_type_list>...>::type;
 
 template <class _List>
 struct __when_all_dedup_errors;
 template <class... _Ts>
-struct __when_all_dedup_errors<type_list<_Ts...>> {
+struct __when_all_dedup_errors<__exec_type_list<_Ts...>> {
   template <class>
   struct __to_variant;
   template <class... _Us>
-  struct __to_variant<type_list<_Us...>> {
+  struct __to_variant<__exec_type_list<_Us...>> {
     using type = variant<_Us...>;
   };
   using type = typename __to_variant<__dedup_type_list_t<_Ts...>>::type;
@@ -316,25 +316,25 @@ template <class _Sigs>
 struct __when_all_sigs_to_list;
 template <class... _Fns>
 struct __when_all_sigs_to_list<completion_signatures<_Fns...>> {
-  using type = type_list<_Fns...>;
+  using type = __exec_type_list<_Fns...>;
 };
 
 template <class _List>
 struct __when_all_list_to_sigs;
 template <class... _Fns>
-struct __when_all_list_to_sigs<type_list<_Fns...>> {
+struct __when_all_list_to_sigs<__exec_type_list<_Fns...>> {
   using type = completion_signatures<_Fns...>;
 };
 
 template <bool _SendsStopped, class _ValueSig, class _ErrorSigs>
 struct __when_all_final_sigs_impl {
   using type = typename __when_all_list_to_sigs<
-      typename __concat_type_lists<type_list<_ValueSig>, typename __when_all_sigs_to_list<_ErrorSigs>::type>::type>::type;
+      typename __concat_type_lists<__exec_type_list<_ValueSig>, typename __when_all_sigs_to_list<_ErrorSigs>::type>::type>::type;
 };
 template <class _ValueSig, class _ErrorSigs>
 struct __when_all_final_sigs_impl<true, _ValueSig, _ErrorSigs> {
   using type = typename __when_all_list_to_sigs<typename __concat_type_lists<
-      type_list<_ValueSig>, typename __when_all_sigs_to_list<_ErrorSigs>::type, type_list<set_stopped_t()>>::type>::type;
+      __exec_type_list<_ValueSig>, typename __when_all_sigs_to_list<_ErrorSigs>::type, __exec_type_list<set_stopped_t()>>::type>::type;
 };
 
 template <class _Env, class... _Sndrs>
@@ -589,20 +589,20 @@ inline constexpr bool __when_all_domain_ok = requires(const _Sndr& __sndr, const
 template <class _Tg, class _Env, class _Sndr, bool _Active>
 struct __when_all_child_domain {
   static constexpr bool __ok = true;
-  using type                 = type_list<>;
+  using type                 = __exec_type_list<>;
 };
 template <class _Tg, class _Env, class _Sndr>
   requires __when_all_domain_ok<_Tg, _Env, _Sndr>
 struct __when_all_child_domain<_Tg, _Env, _Sndr, true> {
   static constexpr bool __ok = true;
-  using type                 = type_list<decltype(execution::get_completion_domain<_Tg>(
+  using type                 = __exec_type_list<decltype(execution::get_completion_domain<_Tg>(
       execution::get_env(std::declval<const _Sndr&>()), std::declval<const __fwd_env<_Env>&>()))>;
 };
 template <class _Tg, class _Env, class _Sndr>
   requires(!__when_all_domain_ok<_Tg, _Env, _Sndr>)
 struct __when_all_child_domain<_Tg, _Env, _Sndr, true> {
   static constexpr bool __ok = false;
-  using type                 = type_list<>;
+  using type                 = __exec_type_list<>;
 };
 
 // The attributes of when_all(sndrs...) (and of the senders it lowers to): no state, and the only query answered is the
@@ -615,8 +615,8 @@ class __when_all_attrs {
   template <class _Cpo, class _Env, class _Sndr>
   static constexpr bool __child_has =
       requires { typename completion_signatures_of_t<_Sndr, __fwd_env<_Env>>; } &&
-      !same_as<type_list<>,
-               __gather_signatures<_Cpo, completion_signatures_of_t<_Sndr, __fwd_env<_Env>>, type_list, type_list>>;
+      !same_as<__exec_type_list<>,
+               __gather_signatures<_Cpo, completion_signatures_of_t<_Sndr, __fwd_env<_Env>>, __exec_type_list, __exec_type_list>>;
 
   template <class _Cpo, class _Env, class _Sndr>
   static consteval bool __exception_from_value() {
@@ -636,7 +636,7 @@ class __when_all_attrs {
         typename __when_all_child_domain<set_value_t, _Env, _Sndrs, __exception_from_value<_Cpo, _Env, _Sndrs>()>::type...>::type;
 
     template <class... _Ds>
-    static constexpr auto __common(type_list<_Ds...>*) noexcept {
+    static constexpr auto __common(__exec_type_list<_Ds...>*) noexcept {
       return execution::__common_domain(_Ds()...);
     }
   };
@@ -649,7 +649,7 @@ class __when_all_attrs {
       if constexpr ((requires { typename completion_signatures_of_t<_Sndrs, __fwd_env<_Env>>; } && ...)) {
         using _Plan = __plan<_Cpo, _Env>;
         if constexpr (_Plan::__ok)
-          return !same_as<type_list<>, typename _Plan::__all>;
+          return !same_as<__exec_type_list<>, typename _Plan::__all>;
       }
     }
     return false;

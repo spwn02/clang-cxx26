@@ -41,7 +41,7 @@ template <indirectly_readable _It>
 using iter_const_reference_t = common_reference_t<const iter_value_t<_It>&&, iter_reference_t<_It>>;
 
 template <class _It>
-concept constant_iterator = input_iterator<_It> && same_as<iter_const_reference_t<_It>, iter_reference_t<_It>>;
+concept __constant_iterator = input_iterator<_It> && same_as<iter_const_reference_t<_It>, iter_reference_t<_It>>;
 
 template <input_iterator _It>
 class basic_const_iterator;
@@ -67,7 +67,7 @@ template <indirectly_readable _It>
 using __iter_const_rvalue_reference_t = common_reference_t<const iter_value_t<_It>&&, iter_rvalue_reference_t<_It>>;
 
 template <input_iterator _It>
-using const_iterator = conditional_t<constant_iterator<_It>, _It, basic_const_iterator<_It>>;
+using const_iterator = conditional_t<__constant_iterator<_It>, _It, basic_const_iterator<_It>>;
 
 template <class _Sent>
 struct __const_sentinel {
@@ -127,13 +127,13 @@ public:
 
   // [const.iterators.iterator]: conversion to a different constant iterator.
   template <__not_a_const_iterator _CI>
-    requires constant_iterator<_CI> && convertible_to<_It const&, _CI>
+    requires __constant_iterator<_CI> && convertible_to<_It const&, _CI>
   constexpr operator _CI() const& {
     return __current_;
   }
 
   template <__not_a_const_iterator _CI>
-    requires constant_iterator<_CI> && convertible_to<_It, _CI>
+    requires __constant_iterator<_CI> && convertible_to<_It, _CI>
   constexpr operator _CI() && {
     return static_cast<_It&&>(__current_);
   }

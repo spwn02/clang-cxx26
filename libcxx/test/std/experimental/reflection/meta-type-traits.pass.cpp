@@ -71,7 +71,6 @@ static_assert(is_member_pointer_type(^^int (C::*)));
 
 static_assert(is_const_type(^^const int));
 static_assert(is_volatile_type(^^volatile int));
-static_assert(is_trivial_type(^^int));
 static_assert(is_trivially_copyable_type(^^C));
 static_assert(is_standard_layout_type(^^int));
 static_assert(is_empty_type(^^C));
