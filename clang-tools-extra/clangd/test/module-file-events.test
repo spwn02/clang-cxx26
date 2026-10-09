@@ -1,0 +1,28 @@
+# With modules support and a client that can register for file events, clangd
+# asks to be told about changes to module units and compilation databases.
+# RUN: clangd -experimental-modules-support -lit-test < %s | FileCheck -strict-whitespace %s
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"capabilities":{
+  "workspace":{"didChangeWatchedFiles":{"dynamicRegistration":true}}
+}}}
+---
+{"jsonrpc":"2.0","method":"initialized","params":{}}
+# CHECK:      "method": "client/registerCapability",
+# CHECK-NEXT: "params": {
+# CHECK-NEXT:   "registrations": [
+# CHECK-NEXT:     {
+# CHECK-NEXT:       "id": "clangd-watch-modules",
+# CHECK-NEXT:       "method": "workspace/didChangeWatchedFiles",
+# CHECK-NEXT:       "registerOptions": {
+# CHECK-NEXT:         "watchers": [
+# CHECK-NEXT:           {
+# CHECK-NEXT:             "globPattern": "**/*.{ixx,cppm,cxxm,c++m}"
+# CHECK-NEXT:           },
+# CHECK-NEXT:           {
+# CHECK-NEXT:             "globPattern": "**/compile_commands.json"
+# CHECK-NEXT:           },
+# CHECK-NEXT:           {
+# CHECK-NEXT:             "globPattern": "**/compile_flags.txt"
+---
+{"jsonrpc":"2.0","id":1,"method":"shutdown"}
+---
+{"jsonrpc":"2.0","method":"exit"}
