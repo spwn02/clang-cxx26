@@ -46,7 +46,7 @@ static_assert(!has_string_view_pos_compare_with_range<std::string_view>);
 static_assert(!has_string_view_pos_compare_c_string<std::string_view>);
 static_assert(!has_string_view_pos_compare_c_string_with_length<std::string_view>);
 static_assert(__cpp_lib_freestanding_expected == 202311L);
-static_assert(__cpp_lib_freestanding_optional == 202311L);
+static_assert(__cpp_lib_freestanding_optional == 202506L);
 
 void test_freestanding_partial_classes() {
   std::array<int, 1> array{42};
