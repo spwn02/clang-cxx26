@@ -1,3 +1,5 @@
+// UNSUPPORTED: c++03
+
 // <regex>
 
 #include <regex>

@@ -175,24 +175,24 @@ private:
 
   template <unsigned _Mask, class... _Envs>
   _LIBCPP_HIDE_FROM_ABI constexpr auto __domain_of(const _Envs&... __envs) const noexcept {
-    using _V = set_value_t;
-    using _E = set_error_t;
-    using _S = set_stopped_t;
+    using _Val = set_value_t;
+    using _Err = set_error_t;
+    using _Stp = set_stopped_t;
     if constexpr (_Mask == 1)
-      return __child_domain<_V>(__envs...);
+      return __child_domain<_Val>(__envs...);
     else if constexpr (_Mask == 2)
-      return __child_domain<_E>(__envs...);
+      return __child_domain<_Err>(__envs...);
     else if constexpr (_Mask == 4)
-      return __child_domain<_S>(__envs...);
+      return __child_domain<_Stp>(__envs...);
     else if constexpr (_Mask == 3)
-      return execution::__common_domain(__child_domain<_V>(__envs...), __child_domain<_E>(__envs...));
+      return execution::__common_domain(__child_domain<_Val>(__envs...), __child_domain<_Err>(__envs...));
     else if constexpr (_Mask == 5)
-      return execution::__common_domain(__child_domain<_V>(__envs...), __child_domain<_S>(__envs...));
+      return execution::__common_domain(__child_domain<_Val>(__envs...), __child_domain<_Stp>(__envs...));
     else if constexpr (_Mask == 6)
-      return execution::__common_domain(__child_domain<_E>(__envs...), __child_domain<_S>(__envs...));
+      return execution::__common_domain(__child_domain<_Err>(__envs...), __child_domain<_Stp>(__envs...));
     else
       return execution::__common_domain(
-          __child_domain<_V>(__envs...), __child_domain<_E>(__envs...), __child_domain<_S>(__envs...));
+          __child_domain<_Val>(__envs...), __child_domain<_Err>(__envs...), __child_domain<_Stp>(__envs...));
   }
 
 public:
