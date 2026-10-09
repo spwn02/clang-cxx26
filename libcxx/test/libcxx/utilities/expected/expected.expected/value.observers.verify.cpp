@@ -128,5 +128,8 @@ void test() {
 // These diagnostics can also additionally be produced by static_assert (see GH150601).
 // expected-error-re@*:* 0-2{{call to deleted constructor of{{.*}}}}
 // expected-error-re@*:* 0-2{{call to deleted constructor of{{.*}}}}
+// Since C++26 the helper that throws bad_expected_access is constexpr (P3378R2), so a specialization whose
+// instantiation failed is not found by the later calls with the same error type.
+// expected-error@*:* 0-4{{no matching function for call to '__throw_bad_expected_access'}}
 }
 // clang-format on
