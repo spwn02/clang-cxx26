@@ -27,8 +27,19 @@ from libcxx.header_information import (
 
 standards = ["c++17", "c++20", "c++23", "c++26"]
 
+# Headers the standard removed: including them is an error from the given mode on.
+removed_in = {
+    "ccomplex": "c++20",
+    "ciso646": "c++20",
+    "cstdalign": "c++20",
+    "cstdbool": "c++20",
+    "ctgmath": "c++20",
+}
+
 for header in public_headers:
     for std in standards:
+        if header in removed_in and standards.index(std) >= standards.index(removed_in[header]):
+            continue
         print(
             f"""\
 //--- {header}.{std.replace('+', 'x')}.sh.cpp
