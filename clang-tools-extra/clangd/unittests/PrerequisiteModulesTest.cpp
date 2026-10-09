@@ -510,8 +510,9 @@ TEST_F(PrerequisiteModulesTests, EditsOfAModuleUnitReachItsOpenImporters) {
   runAddDocument(Server, UsePath, "import M;\nint f() { return g(); }\n");
   EXPECT_THAT(Recorder.errors(UsePath), ::testing::IsEmpty());
 
-  // The module unit is edited on disk (and saved by the editor): g is gone.
-  CDB.addFile("M.cppm", "export module M;\nexport int hh();\n");
+  // The module unit is edited on disk (and saved by the editor): g is gone. The
+  // file keeps its size, so that only its time tells that it changed.
+  CDB.addFile("M.cppm", "export module M;\nexport int h();\n");
   Server.reparseOpenFilesIfNeeded([](llvm::StringRef) { return true; });
   ASSERT_TRUE(Server.blockUntilIdleForTest());
   EXPECT_THAT(Recorder.errors(UsePath), ::testing::Not(::testing::IsEmpty()));

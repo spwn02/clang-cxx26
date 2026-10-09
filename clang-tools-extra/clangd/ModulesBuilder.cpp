@@ -324,8 +324,18 @@ bool IsModuleFileUpToDate(PathRef ModuleFilePath,
   std::shared_ptr<ModuleCache> ModCache = createCrossProcessModuleCache();
   PCHContainerOperations PCHOperations;
   CodeGenOptions CodeGenOpts;
+  // The reader compares the content of the input files with the hashes in the
+  // module file only if it is asked to (HSOpts.ValidateASTInputFilesContent
+  // alone is not enough): the size and the modification time, which is in
+  // seconds, do not tell an edit that keeps the size within the same second.
   ASTReader Reader(PP, *ModCache, /*ASTContext=*/nullptr,
-                   PCHOperations.getRawReader(), CodeGenOpts, {});
+                   PCHOperations.getRawReader(), CodeGenOpts, {},
+                   /*isysroot=*/"", DisableValidationForModuleKind::None,
+                   /*AllowASTWithCompilerErrors=*/false,
+                   /*AllowConfigurationMismatch=*/false,
+                   /*ValidateSystemInputs=*/false,
+                   /*ForceValidateUserInputs=*/true,
+                   /*ValidateASTInputFilesContent=*/true);
 
   // We don't need any listener here. By default it will use a validator
   // listener.
