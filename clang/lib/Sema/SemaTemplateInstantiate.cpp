@@ -1470,6 +1470,21 @@ namespace {
     /// this declaration.
     Decl *TransformDecl(SourceLocation Loc, Decl *D);
 
+    /// A type alias local to a function template that is named by a
+    /// constraint or lambda substituted after the instantiation of that
+    /// function has finished is no longer in the local instantiation scope
+    /// (#268); an alias is transparent, so substitute its underlying type.
+    QualType TransformTypedefType(TypeLocBuilder &TLB, TypedefTypeLoc TL) {
+      TypedefNameDecl *TD = TL.getDecl();
+      if (TD->getDeclContext()->isFunctionOrMethod() &&
+          TD->getDeclContext()->isDependentContext() &&
+          SemaRef.CurrentInstantiationScope &&
+          !SemaRef.CurrentInstantiationScope->getInstantiationOfIfExists(TD))
+        if (TypeSourceInfo *Underlying = TD->getTypeSourceInfo())
+          return getDerived().TransformType(TLB, Underlying->getTypeLoc());
+      return inherited::TransformTypedefType(TLB, TL);
+    }
+
     void transformAttrs(Decl *Old, Decl *New) {
       SemaRef.InstantiateAttrs(TemplateArgs, Old, New);
     }
