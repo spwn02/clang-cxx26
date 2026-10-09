@@ -36,6 +36,8 @@ public:
   int schedule_calls = 0;
   int chunked_calls = 0;
   int unchunked_calls = 0;
+  int executes = 0;
+  size_t last_count = 0;
   completion result = completion::value;
 
   void schedule(scr::receiver_proxy& proxy, std::span<std::byte>) noexcept override {
@@ -55,6 +57,7 @@ public:
 
 private:
   void complete(size_t count, scr::bulk_item_receiver_proxy& proxy, bool chunked) noexcept {
+    last_count = count;
     if (result == completion::error) {
       proxy.set_error(std::make_exception_ptr(42));
       return;
@@ -64,11 +67,15 @@ private:
       return;
     }
     if (chunked) {
-      if (count != 0)
+      if (count != 0) {
+        ++executes;
         proxy.execute(0, count);
+      }
     } else {
-      for (size_t i = 0; i < count; ++i)
+      for (size_t i = 0; i < count; ++i) {
+        ++executes;
         proxy.execute(i, i + 1);
+      }
     }
     proxy.set_value();
   }
@@ -158,6 +165,65 @@ int main(int, char**) {
     assert(backend->chunked_calls == 4);
   }
 
-  assert(backend->schedule_calls == 7);
+  backend->result = completion::value;
+
+  // [exec.par.scheduler]: "p" is true only for parallel_policy and parallel_unsequenced_policy. The backend is
+  // asked for `shape` items when p and for one item otherwise, and that one execute call runs the whole range.
+  {
+    backend->executes = 0;
+    int calls = 0, lo = -1, hi = -1;
+    auto result = std::this_thread::sync_wait(ex::schedule(sch) | ex::bulk_chunked(ex::seq, 9, [&](int b, int e) {
+                                                ++calls;
+                                                lo = b;
+                                                hi = e;
+                                              }));
+    assert(result.has_value());
+    assert(backend->last_count == 1 && backend->executes == 1);
+    assert(calls == 1 && lo == 0 && hi == 9);
+  }
+  {
+    backend->executes = 0;
+    std::vector<int> hits(9);
+    auto result = std::this_thread::sync_wait(ex::schedule(sch) | ex::bulk_unchunked(ex::seq, 9, [&](int i) {
+                                                ++hits[i];
+                                              }));
+    assert(result.has_value());
+    assert(backend->last_count == 1 && backend->executes == 1);
+    for (int hit : hits)
+      assert(hit == 1);
+  }
+  {
+    backend->executes = 0;
+    std::vector<int> hits(9);
+    auto result = std::this_thread::sync_wait(ex::schedule(sch) | ex::bulk(ex::unseq, 9, [&](int i) { ++hits[i]; }));
+    assert(result.has_value());
+    assert(backend->last_count == 1 && backend->executes == 1);
+    for (int hit : hits)
+      assert(hit == 1);
+  }
+  {
+    backend->executes = 0;
+    std::vector<int> hits(9);
+    auto result = std::this_thread::sync_wait(ex::schedule(sch) | ex::bulk_unchunked(ex::par, 9, [&](int i) {
+                                                ++hits[i];
+                                              }));
+    assert(result.has_value());
+    assert(backend->last_count == 9 && backend->executes == 9);
+    for (int hit : hits)
+      assert(hit == 1);
+  }
+  {
+    backend->executes = 0;
+    int lo = -1, hi = -1;
+    auto result = std::this_thread::sync_wait(ex::schedule(sch) | ex::bulk_chunked(ex::par_unseq, 9, [&](int b, int e) {
+                                                lo = b;
+                                                hi = e;
+                                              }));
+    assert(result.has_value());
+    assert(backend->last_count == 9 && backend->executes == 1);
+    assert(lo == 0 && hi == 9);
+  }
+
+  assert(backend->schedule_calls == 12);
   return 0;
 }

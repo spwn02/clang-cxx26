@@ -56,15 +56,12 @@ class __parallel_sender;
 struct bulk_chunked_t;
 struct bulk_unchunked_t;
 
-// The completion domain of schedule(parallel_scheduler). Bulk senders retain their
-// shape for the domain transform; their connect operation uses the bound backend.
-struct __parallel_scheduler_domain {
-  template <class _Tag, class _Sndr, class _Env>
-    requires(is_same_v<_Tag, bulk_chunked_t> || is_same_v<_Tag, bulk_unchunked_t>)
-  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) transform_sender(_Tag, _Sndr&& __sndr, const _Env&) const noexcept {
-    return std::forward<_Sndr>(__sndr);
-  }
-};
+// The completion domain of schedule(parallel_scheduler) ([exec.par.scheduler]: parallel-scheduler-domain).
+// The draft gives it transform_sender(set_value_t, ...) overloads that run bulk_chunked and bulk_unchunked through
+// the backend; this library does that when the bulk sender is connected instead (<__execution/bulk.h>,
+// __bulk_backend_rcvr), where the scheduler that the child completes on is known, so the domain itself does not
+// customize anything.
+struct __parallel_scheduler_domain {};
 
 // Intrusive singly-linked task list, matching <__execution/run_loop.h>'s __run_loop_opstate_base shape
 // (a class with a pure virtual member can't be an aggregate, hence the small constructor).

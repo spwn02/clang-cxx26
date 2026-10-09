@@ -308,7 +308,10 @@ private:
 // the backend completes the operation.
 // The backend owns partitioning and calls execute for each range. It may call
 // execute concurrently; completion is delivered once after all calls return.
-template <bool _Chunked, class _Shape, class _Func, class _Rcvr, class... _Args>
+// [exec.par.scheduler]: _Par is "p": true only for parallel_policy and parallel_unsequenced_policy (the policy
+// types of an implementation-defined execution policy are treated as false). The backend is asked for `shape`
+// items when p, for a single item otherwise; that single execute call then runs the whole range sequentially.
+template <bool _Chunked, bool _Par, class _Shape, class _Func, class _Rcvr, class... _Args>
 class __bulk_backend_job final : public parallel_scheduler_replacement::bulk_item_receiver_proxy {
   using _StopToken = decltype(std::get_stop_token(execution::get_env(std::declval<_Rcvr&>())));
 
@@ -321,25 +324,34 @@ public:
         __backend_(std::move(__backend)), __shape_(__shape) {}
 
   _LIBCPP_HIDE_FROM_ABI void __start() noexcept {
+    const size_t __count = _Par ? static_cast<size_t>(__shape_) : size_t(1);
     if constexpr (_Chunked)
-      __backend_->schedule_bulk_chunked(static_cast<size_t>(__shape_), *this,
-                                        span<byte>(__backend_storage_, sizeof(__backend_storage_)));
+      __backend_->schedule_bulk_chunked(__count, *this, span<byte>(__backend_storage_, sizeof(__backend_storage_)));
     else
-      __backend_->schedule_bulk_unchunked(static_cast<size_t>(__shape_), *this,
-                                          span<byte>(__backend_storage_, sizeof(__backend_storage_)));
+      __backend_->schedule_bulk_unchunked(__count, *this, span<byte>(__backend_storage_, sizeof(__backend_storage_)));
   }
 
 private:
   _LIBCPP_HIDE_FROM_ABI void execute(size_t __begin, size_t __end) noexcept override {
     try {
       if constexpr (_Chunked) {
+        // r.execute(i, j) is f(i, j, args...) if p, and f(0, shape, args...) otherwise.
         std::apply([&](_Args&... __a) {
-          std::invoke(__f_, static_cast<_Shape>(__begin), static_cast<_Shape>(__end), __a...);
+          if constexpr (_Par)
+            std::invoke(__f_, static_cast<_Shape>(__begin), static_cast<_Shape>(__end), __a...);
+          else
+            std::invoke(__f_, _Shape(0), __shape_, __a...);
         }, __args_);
       } else {
+        // r.execute(i, i + 1) is f(i, args...) if p, and the loop over [0, shape) otherwise.
         std::apply([&](_Args&... __a) {
-          for (size_t __i = __begin; __i != __end; ++__i)
-            std::invoke(__f_, static_cast<_Shape>(__i), __a...);
+          if constexpr (_Par) {
+            for (size_t __i = __begin; __i != __end; ++__i)
+              std::invoke(__f_, static_cast<_Shape>(__i), __a...);
+          } else {
+            for (_Shape __i = 0; __i < __shape_; ++__i)
+              std::invoke(__f_, __i, __a...);
+          }
         }, __args_);
       }
     } catch (...) {
@@ -399,7 +411,8 @@ public:
 
   template <class... _Args>
   _LIBCPP_HIDE_FROM_ABI void set_value(_Args&&... __args) && noexcept {
-    using __job_t = __bulk_backend_job<_Chunked, _Shape, _Func, _Rcvr, decay_t<_Args>...>;
+    using __job_t =
+        __bulk_backend_job<_Chunked, __is_parallel_execution_policy_v<_Policy>, _Shape, _Func, _Rcvr, decay_t<_Args>...>;
     auto* __job = new __job_t(std::move(__data_.f), __data_.shape, std::move(__rcvr_),
                               std::move(__backend_), std::forward<_Args>(__args)...);
     __job->__start();
