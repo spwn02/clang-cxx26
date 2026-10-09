@@ -349,9 +349,6 @@ consteval info apply_result(info fn, info tuple);
 consteval auto variant_size(info) -> size_t;
 consteval auto variant_alternative(size_t, info) -> info;
 
-// entity proxies (PXYZ)
-consteval auto is_entity_proxy(info) -> bool;
-
 // function parameters (P3096)
 consteval auto parameters_of(info) -> vector<info>;
 consteval auto is_vararg_function(info) -> bool;
@@ -365,13 +362,6 @@ consteval auto variable_of(info) -> info;
 consteval auto annotations_of(info) -> vector<info>;
 consteval auto annotations_of_with_type(info, info) -> vector<info>;
 consteval auto is_annotation(info) -> bool;
-
-// Attributes reflection (P3385)
-consteval auto is_attribute(info) -> bool;
-consteval auto attributes_of(info r) -> vector<info>;
-consteval auto attribute_namespace_of(info r) -> string_view;
-consteval auto attribute_token_of(info r) -> string_view;
-consteval auto has_attribute_namespace(info r) -> bool;
 
 // modeling access control (P3547)
 struct access_context {
@@ -533,14 +523,6 @@ concept reflection_range =
   same_as<ranges::range_value_t<R>, info> &&
   same_as<remove_cvref_t<ranges::range_reference_t<R>>, info>;
 
-#if __has_feature(attribute_reflection)
-enum class AttributeNamespace {
-  None,
-  Clang, // Exposition only
-  GCC,   // Exposition only
-  MSVC,  // Exposition only
-};
-#endif
 
 namespace __detail {
 enum : unsigned {
@@ -919,24 +901,6 @@ struct front_annotation_of {
   }
 };
 
-#if __has_feature(attribute_reflection)
-
-struct front_attribute_of {
-  consteval info operator()(info reflectedEntity, info) const {
-    return __metafunction(__detail::__metafn_get_ith_attribute_of,
-                          reflectedEntity, ^^sentinel, 0);
-  }
-};
-
-struct next_attribute_of {
-  consteval info operator()(auto /*currItrInfo */, info reflectedEntity,
-                            size_t idx, info) const {
-    return __metafunction(__detail::__metafn_get_ith_attribute_of,
-                          reflectedEntity, ^^sentinel, idx);
-  }
-};
-
-#endif // __has_feature(attribute_reflection)
 
 }  // namespace __range_of_infos
 
@@ -948,23 +912,10 @@ consteval auto is_operator_function(info) -> bool;
 consteval auto is_operator_function_template(info) -> bool;
 
 // Returns a reflection of the canonical type for the reflected type.
-#if __has_feature(entity_proxy_reflection)
-[[deprecated("renamed to 'underlying_entity_of' in PXYZ")]]
-#endif
 consteval auto dealias(info r) -> info {
   return __metafunction(__detail::__metafn_underlying_entity_of, r, ^^dealias);
 }
 
-#if __has_feature(entity_proxy_reflection)
-consteval auto underlying_entity_of(info r) -> info {
-  return __metafunction(__detail::__metafn_underlying_entity_of, r,
-                        ^^underlying_entity_of);
-}
-
-consteval auto proxied_entity_of(info r) -> info {
-  return __metafunction(__detail::__metafn_proxied_entity_of, r);
-}
-#endif
 
 // Returns the identifier for the represented entity. If the entity is a
 // literal operator or literal operator template, then this is the identifier
@@ -1544,12 +1495,6 @@ consteval auto is_namespace_alias(info r) -> bool {
   return is_namespace(r) && __metafunction(__detail::__metafn_is_alias, r);
 }
 
-#if __has_feature(entity_proxy_reflection)
-// Returns true if the reflected entity is an entity proxy.
-consteval auto is_entity_proxy(info r) -> bool {
-  return __metafunction(__detail::__metafn_is_entity_proxy, r);
-}
-#endif
 
 // Returns true if the reflected entity is a template.
 consteval auto is_template(info r) -> bool {
@@ -2834,153 +2779,6 @@ consteval auto is_annotation(info r) -> bool {
 
 #endif  // __has_feature(annotation_attributes)
 
-#if __has_feature(attribute_reflection)
-
-// Returns whether the reflected entity is an attribute.
-consteval auto is_attribute(info r) -> bool {
-  return __metafunction(__detail::__metafn_is_attribute, r);
-}
-
-
-enum class attribute_comparison : int64_t {
-  /* 0 is default constructed */
-  ignore_namespace = 1 << 1, // Namespace is ignored during the comparison
-  ignore_argument  = 1 << 2, // The argument is ignored during the comparison
-};
-
-constexpr attribute_comparison operator|(attribute_comparison a, attribute_comparison b) noexcept {
-  return static_cast<attribute_comparison>(
-    static_cast<int64_t>(a) | static_cast<int64_t>(b));
-}
-
-constexpr attribute_comparison operator&(attribute_comparison a, attribute_comparison b) noexcept {
-  return static_cast<attribute_comparison>(static_cast<int64_t>(a) & static_cast<int64_t>(b));
-}
-
-constexpr attribute_comparison operator^(attribute_comparison a, attribute_comparison b) noexcept {
-  return static_cast<attribute_comparison>(static_cast<int64_t>(a) ^ static_cast<int64_t>(b));
-}
-
-constexpr attribute_comparison operator~(attribute_comparison a) noexcept {
-  return static_cast<attribute_comparison>(~static_cast<int64_t>(a));
-}
-
-constexpr attribute_comparison& operator|=(attribute_comparison& a, attribute_comparison b) noexcept {
-  return a = a | b;
-}
-
-constexpr attribute_comparison& operator&=(attribute_comparison& a, attribute_comparison b) noexcept {
-  return a = a & b;
-}
-
-constexpr attribute_comparison& operator^=(attribute_comparison& a, attribute_comparison b) noexcept {
-  return a = a ^ b;
-}
-
-// Return true if the given 'entity' has the given 'attribute' appertained
-// to it
-consteval auto has_attribute(
-  info entity,
-  info attribute
-) -> bool {
-  return __metafunction(__detail::__metafn_has_attribute, entity, attribute, attribute_comparison{});
-}
-
-// Return true if the given 'entity' has the given 'attribute' appertained
-// to it. The given 'policy' dictates what participates to the comparisons
-consteval auto has_attribute(
-  info entity,
-  info attribute,
-  attribute_comparison policy
-) -> bool {
-  return __metafunction(__detail::__metafn_has_attribute, entity, attribute, policy);
-}
-
-consteval auto has_attribute_namespace(info entity) -> bool {
-  return __metafunction(__detail::__metafn_has_attribute_namespace, entity);
-}
-
-consteval auto attribute_token_of(info entity) -> string_view {
-  return __metafunction(__detail::__metafn_attribute_token_of, ^^const char *,
-                        entity, /*UTF8=*/false);
-}
-
-consteval auto attribute_namespace_of(info entity) -> string_view {
-  return __metafunction(__detail::__metafn_attribute_namespace_of, ^^const char *,
-                        entity, /*UTF8=*/false);
-}
-
-consteval auto u8attribute_token_of(info entity) -> u8string_view {
-  return __metafunction(__detail::__metafn_attribute_token_of, ^^const char8_t *,
-                        entity, /*UTF8=*/true);
-}
-
-consteval auto u8attribute_namespace_of(info entity) -> u8string_view {
-  return __metafunction(__detail::__metafn_attribute_namespace_of, ^^const char8_t *,
-                        entity, /*UTF8=*/true);
-}
-
-// Returns whether the reflected entity is a clang scoped attribute.
-consteval auto is_unscoped_attribute(info r) -> bool {
-  return __metafunction(__detail::__metafn_is_unscoped_attribute, r);
-}
-
-// Returns whether the reflected entity is a clang scoped attribute.
-consteval auto is_clang_attribute(info r) -> bool {
-  return __metafunction(__detail::__metafn_is_clang_attribute, r);
-}
-
-// Returns whether the reflected entity is a gcc scoped attribute.
-consteval auto is_gcc_attribute(info r) -> bool {
-  return __metafunction(__detail::__metafn_is_gcc_attribute, r);
-}
-
-// Returns whether the reflected entity is a msvc scoped attribute.
-consteval auto is_msvc_attribute(info r) -> bool {
-  return __metafunction(__detail::__metafn_is_msvc_attribute, r);
-}
-
-// Return list of attribtes appertaining to r
-consteval auto attributes_of(info r) -> vector<info> {
-  using iterator =
-  __range_of_infos::iterator<__range_of_infos::front_attribute_of,
-                             __range_of_infos::next_attribute_of,
-                             __range_of_infos::map_identity_fn>;
-  using range = __range_of_infos::range<iterator>;
-  auto rng = range{r};
-  return vector<info>{rng.begin(), rng.end()};
-}
-
-// Return list of attribtes appertaining to r, filtering on namespace and identifier
-consteval auto attributes_of(info r,
-                             std::string_view    name,
-                             AttributeNamespace ns = AttributeNamespace::None) -> vector<info> {
-  auto all = attributes_of(r);
-  vector<info> result;
-  for (auto attribute : all) {
-    bool match = false;
-    switch (ns) {
-      case AttributeNamespace::None:
-        match = is_unscoped_attribute(attribute) && attribute_token_of(attribute) == name;
-        break;
-      case AttributeNamespace::Clang:
-        match = is_clang_attribute(attribute) && attribute_token_of(attribute) == name;
-        break;
-      case AttributeNamespace::GCC:
-        match = is_gcc_attribute(attribute) && attribute_token_of(attribute) == name;
-        break;
-      case AttributeNamespace::MSVC:
-        match = is_msvc_attribute(attribute) && attribute_token_of(attribute) == name;
-        break;
-      default: break;
-    }
-    if (match)
-      result.push_back(attribute);
-  }
-  return result;
-}
-
-#endif
 
 consteval auto __any_inaccessible(vector<info> const& r, access_context ctx) -> bool {
   for (info i : r) {
@@ -3095,71 +2893,10 @@ struct data_member_options {
   optional<__name_type> name = nullopt;
   optional<int> alignment = nullopt;
   optional<int> bit_width = nullopt;
-  // P3385R8 would deprecate this in favour of .attributes, but it is an
-  // unadopted C++29-target proposal and the C++26 draft does not deprecate it.
   bool no_unique_address = false;
-#if __has_feature(attribute_reflection)
-  vector<meta::info> attributes = {};
-#endif
   vector<info> annotations = {};
 };
 
-#if __has_feature(reflection_latest)
-// P4033R1 is not adopted by WG21: available only with -freflection-latest.
-// P4033R1 [meta.reflection.define.enum] (the wording, not the design section,
-// which lists them the other way round): attributes precede annotations.
-struct enumerator_options {
-  string name;
-  info value = info{};
-#if __has_feature(attribute_reflection)
-  vector<info> attributes = {};
-#endif
-  vector<info> annotations = {};
-};
-
-consteval info enumerator_spec(enumerator_options props) {
-  for (info& annotation : props.annotations) {
-    info type = __metafunction(__detail::__metafn_type_of, annotation, ^^enumerator_spec);
-    if (!is_object_type(type) || is_array_type(type))
-      throw __lib_exception(u8"annotation must have non-array object type",
-                            ^^enumerator_spec,
-                            source_location::current(__builtin_meta_call_origin()));
-    annotation = __metafunction(__detail::__metafn_constant_of, annotation, ^^enumerator_spec);
-  }
-#if __has_feature(attribute_reflection)
-  for (info attribute : props.attributes)
-    if (!is_attribute(attribute))
-      throw __lib_exception(u8"attribute must represent an attribute",
-                            ^^enumerator_spec,
-                            source_location::current(__builtin_meta_call_origin()));
-#endif
-  return __metafunction(__detail::__metafn_enumerator_spec,
-                         ^^const char, props.name.size(), props.name.data(), // TODO support utf8 ?
-                        props.value,
-                        props.annotations.size(), props.annotations.data(),
-#if __has_feature(attribute_reflection)
-                        props.attributes.size(), props.attributes.data()
-#else
-                        size_t(0), (const info *)nullptr
-#endif
-                        );
-}
-
-consteval bool is_enumerator_spec(info r) {
-  return __metafunction(__detail::__metafn_is_enumerator_spec, r);
-}
-
-template <reflection_range R = initializer_list<info>>
-consteval info define_enum(info targetEnum, R&& members) {
-  (void)__metafunction(
-    __detail::__metafn_define_enum,
-    targetEnum,
-    ranges::size(members),
-    ranges::data(members)
-  );
-  return targetEnum;
-}
-#endif // __has_feature(reflection_latest)
 
 // Returns a reflection representing a description of a data member, which may
 // be used with 'define_aggregate' to define a record type.
@@ -3246,11 +2983,7 @@ consteval auto data_member_spec(info member_type,
                             options.bit_width.has_value(), width,
                             no_unique_address,
                             options.annotations.size(), options.annotations.data(),
-#if __has_feature(attribute_reflection)
-                            options.attributes.size(), options.attributes.data(),
-#else
                             size_t(0), (const info *)nullptr,
-#endif
                             ^^data_member_spec);
     } else {
       const string &s = options.name->__s;
@@ -3261,11 +2994,7 @@ consteval auto data_member_spec(info member_type,
                             options.bit_width.has_value(), width,
                             no_unique_address,
                             options.annotations.size(), options.annotations.data(),
-#if __has_feature(attribute_reflection)
-                            options.attributes.size(), options.attributes.data(),
-#else
                             size_t(0), (const info *)nullptr,
-#endif
                             ^^data_member_spec);
     }
   } else {
@@ -3276,11 +3005,7 @@ consteval auto data_member_spec(info member_type,
       options.bit_width.has_value(), width,
       no_unique_address,
       options.annotations.size(), options.annotations.data(),
-#if __has_feature(attribute_reflection)
-      options.attributes.size(), options.attributes.data(),
-#else
       size_t(0), (const info *)nullptr,
-#endif
       ^^data_member_spec);
   }
 }

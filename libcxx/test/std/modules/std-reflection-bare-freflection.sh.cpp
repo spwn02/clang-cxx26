@@ -14,9 +14,9 @@
 
 // Regression test for issue #5: libcxx/modules/std/meta.inc guarded its
 // exports with a single `#if __has_feature(reflection)`, but <meta> itself
-// gates several members (parameters_of, annotations_of, attributes_of, and
-// friends) behind the finer-grained `parameter_reflection`,
-// `annotation_attributes`, and `attribute_reflection` feature flags. Under
+// gates several members (parameters_of, annotations_of, and friends) behind
+// the finer-grained `parameter_reflection` and `annotation_attributes`
+// feature flags. Under
 // bare `-freflection` (without also enabling those finer flags, as
 // `-freflection-latest` does), those `using` declarations named entities
 // that <meta> simply never declared, so `import std;` failed outright with
@@ -43,7 +43,7 @@ import std;
 int main(int, char**) {
   // Exercise only the base reflection facilities that require nothing more
   // than `-freflection` -- deliberately not touching parameters_of/
-  // annotations_of/attributes_of and friends, which correctly remain
+  // annotations_of and friends, which correctly remain
   // unavailable without their own finer-grained flags.
   constexpr auto r = ^^int;
   static_assert(std::meta::is_type(r));

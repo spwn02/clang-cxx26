@@ -246,36 +246,6 @@ export namespace std {
       using std::meta::__reflection_v2::annotations_of_with_type;
       using std::meta::__reflection_v2::is_annotation;
 #endif // __has_feature(annotation_attributes)
-#if __has_feature(reflection_latest)
-      // P4033R1 (not adopted): only with -freflection-latest.
-      using std::meta::__reflection_v2::enumerator_options;
-      using std::meta::__reflection_v2::enumerator_spec;
-      using std::meta::__reflection_v2::define_enum;
-      _LIBCPP_META_EXPORT_PREDICATE(is_enumerator_spec)
-#endif // __has_feature(reflection_latest)
-#if __has_feature(attribute_reflection)
-      using std::meta::__reflection_v2::AttributeNamespace;
-      using std::meta::__reflection_v2::is_attribute;
-      using std::meta::__reflection_v2::attributes_of;
-      using std::meta::__reflection_v2::attribute_namespace_of;
-      using std::meta::__reflection_v2::attribute_token_of;
-      using std::meta::__reflection_v2::has_attribute_namespace;
-      using std::meta::__reflection_v2::has_attribute;
-      using std::meta::__reflection_v2::attribute_comparison;
-      using std::meta::__reflection_v2::operator|;
-      using std::meta::__reflection_v2::operator&;
-      using std::meta::__reflection_v2::operator^;
-      using std::meta::__reflection_v2::operator~;
-      using std::meta::__reflection_v2::operator|=;
-      using std::meta::__reflection_v2::operator&=;
-      using std::meta::__reflection_v2::operator^=;
-      using std::meta::__reflection_v2::u8attribute_namespace_of;
-      using std::meta::__reflection_v2::u8attribute_token_of;
-      using std::meta::__reflection_v2::is_unscoped_attribute;
-      using std::meta::__reflection_v2::is_clang_attribute;
-      using std::meta::__reflection_v2::is_gcc_attribute;
-      using std::meta::__reflection_v2::is_msvc_attribute;
-#endif // __has_feature(attribute_reflection)
       using std::meta::__reflection_v2::access_context;
       using std::meta::__reflection_v2::is_accessible;
       using std::meta::__reflection_v2::has_inaccessible_nonstatic_data_members;
@@ -306,11 +276,6 @@ export namespace std {
       _LIBCPP_META_EXPORT_PREDICATE(is_value)
       _LIBCPP_META_EXPORT_PREDICATE(is_structural_type)
 
-#if __has_feature(entity_proxy_reflection)
-      using std::meta::__reflection_v2::is_entity_proxy;
-      using std::meta::__reflection_v2::proxied_entity_of;
-      using std::meta::__reflection_v2::underlying_entity_of;
-#endif // __has_feature(entity_proxy_reflection)
 #undef _LIBCPP_META_EXPORT_PREDICATE
     }
   }

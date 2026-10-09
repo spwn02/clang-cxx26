@@ -25,11 +25,10 @@
 
 // RUN: mkdir %t
 // RUN: %{cxx} %{compile_flags} -std=c++26 -freflection-latest \
-// RUN:     -fentity-proxy-reflection \
 // RUN:     -Wno-reserved-module-identifier -Wno-reserved-user-defined-literal \
 // RUN:     --precompile -o %t/std.pcm -c %{module-dir}/std.cppm
 // RUN: %{cxx} %{compile_flags} %{link_flags} -std=c++26 -freflection-latest \
-// RUN:     -fentity-proxy-reflection -Wno-deprecated-declarations \
+// RUN:     -Wno-deprecated-declarations \
 // RUN:     -fmodule-file=std=%t/std.pcm %t/std.pcm \
 // RUN:     %s -o %t/std-reflection-exports.sh.cpp.tsk
 // RUN: %{exec} %t/std-reflection-exports.sh.cpp.tsk
@@ -41,7 +40,6 @@ struct S {
   void f() {}
 };
 constexpr int global_object = 1;
-[[nodiscard]] int attributed();
 struct Base {};
 struct Derived final : Base {};
 enum class E { a };
@@ -107,17 +105,5 @@ static_assert(std::is_base_of_v<std::exception, std::meta::exception>);
 // Names <meta> declares in std.
 static_assert(std::is_string_literal("literal"));
 static_assert(std::define_static_object(42) != nullptr);
-
-// entity_proxy_reflection
-static_assert(std::meta::underlying_entity_of(^^S) == ^^S);
-
-// attribute_reflection
-constexpr auto attribute = std::meta::attributes_of(^^attributed)[0];
-static_assert(std::meta::is_unscoped_attribute(attribute));
-static_assert(!std::meta::is_clang_attribute(attribute));
-static_assert(std::meta::has_attribute(^^attributed, attribute));
-static_assert(std::meta::has_attribute(
-    ^^attributed, attribute, std::meta::attribute_comparison::ignore_argument));
-static_assert(std::meta::u8attribute_token_of(attribute) == u8"nodiscard");
 
 int main(int, char**) { return 0; }
