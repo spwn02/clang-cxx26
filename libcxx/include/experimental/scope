@@ -188,30 +188,30 @@ template <class _EF>
 scope_success(_EF) -> scope_success<_EF>;
 
 // [scopeguard.uniqueres]
-template <class _R, class _D>
+template <class _Rp, class _Dp>
 class unique_resource;
 
-template <class _R, class _D, class _S = decay_t<_R>>
-_LIBCPP_HIDE_FROM_ABI unique_resource<decay_t<_R>, decay_t<_D>>
-make_unique_resource_checked(_R&& __resource, const _S& __invalid, _D&& __d) noexcept(
-    is_nothrow_constructible_v<decay_t<_R>, _R> && is_nothrow_constructible_v<decay_t<_D>, _D>);
+template <class _Rp, class _Dp, class _Sp = decay_t<_Rp>>
+_LIBCPP_HIDE_FROM_ABI unique_resource<decay_t<_Rp>, decay_t<_Dp>>
+make_unique_resource_checked(_Rp&& __resource, const _Sp& __invalid, _Dp&& __d) noexcept(
+    is_nothrow_constructible_v<decay_t<_Rp>, _Rp> && is_nothrow_constructible_v<decay_t<_Dp>, _Dp>);
 
-template <class _R, class _D>
+template <class _Rp, class _Dp>
 class unique_resource {
-  using __r1 = conditional_t<is_reference_v<_R>, reference_wrapper<remove_reference_t<_R>>, _R>;
+  using __r1 = conditional_t<is_reference_v<_Rp>, reference_wrapper<remove_reference_t<_Rp>>, _Rp>;
 
   __r1 __resource_;
-  _D __deleter_;
+  _Dp __deleter_;
   bool __execute_on_reset_{true};
 
   _LIBCPP_HIDE_FROM_ABI decltype(auto) __get_resource() noexcept {
-    if constexpr (is_reference_v<_R>)
+    if constexpr (is_reference_v<_Rp>)
       return __resource_.get();
     else
       return (__resource_);
   }
   _LIBCPP_HIDE_FROM_ABI decltype(auto) __get_resource() const noexcept {
-    if constexpr (is_reference_v<_R>)
+    if constexpr (is_reference_v<_Rp>)
       return __resource_.get();
     else
       return (__resource_);
@@ -219,20 +219,20 @@ class unique_resource {
 
 public:
   _LIBCPP_HIDE_FROM_ABI unique_resource()
-    requires(is_default_constructible_v<_R> && is_default_constructible_v<_D>)
+    requires(is_default_constructible_v<_Rp> && is_default_constructible_v<_Dp>)
       : __resource_(), __deleter_(), __execute_on_reset_(false) {}
 
   template <class _RR, class _DD>
-    requires(is_constructible_v<__r1, _RR> && is_constructible_v<_D, _DD> &&
+    requires(is_constructible_v<__r1, _RR> && is_constructible_v<_Dp, _DD> &&
              (is_nothrow_constructible_v<__r1, _RR> || is_constructible_v<__r1, _RR&>) &&
-             (is_nothrow_constructible_v<_D, _DD> || is_constructible_v<_D, _DD&>))
+             (is_nothrow_constructible_v<_Dp, _DD> || is_constructible_v<_Dp, _DD&>))
   _LIBCPP_HIDE_FROM_ABI unique_resource(_RR&& __r, _DD&& __d) noexcept(
       (is_nothrow_constructible_v<__r1, _RR> || is_nothrow_constructible_v<__r1, _RR&>) &&
-      (is_nothrow_constructible_v<_D, _DD> || is_nothrow_constructible_v<_D, _DD&>))
+      (is_nothrow_constructible_v<_Dp, _DD> || is_nothrow_constructible_v<_Dp, _DD&>))
       : unique_resource(__tag{}, std::forward<_RR>(__r), std::forward<_DD>(__d), true) {}
 
   _LIBCPP_HIDE_FROM_ABI unique_resource(unique_resource&& __rhs) noexcept(
-      is_nothrow_move_constructible_v<__r1> && is_nothrow_move_constructible_v<_D>)
+      is_nothrow_move_constructible_v<__r1> && is_nothrow_move_constructible_v<_Dp>)
       : __resource_(__move_or_copy_member(__rhs.__resource_)),
         __deleter_(__init_deleter_from_move(__rhs)),
         __execute_on_reset_(std::exchange(__rhs.__execute_on_reset_, false)) {}
@@ -240,10 +240,10 @@ public:
   _LIBCPP_HIDE_FROM_ABI ~unique_resource() { reset(); }
 
   _LIBCPP_HIDE_FROM_ABI unique_resource& operator=(unique_resource&& __rhs) noexcept(
-      is_nothrow_move_assignable_v<__r1> && is_nothrow_move_assignable_v<_D>) {
+      is_nothrow_move_assignable_v<__r1> && is_nothrow_move_assignable_v<_Dp>) {
     reset();
     if constexpr (is_nothrow_move_assignable_v<__r1>) {
-      if constexpr (is_nothrow_move_assignable_v<_D>) {
+      if constexpr (is_nothrow_move_assignable_v<_Dp>) {
         __resource_ = std::move(__rhs.__resource_);
         __deleter_  = std::move(__rhs.__deleter_);
       } else {
@@ -251,7 +251,7 @@ public:
         __resource_ = std::move(__rhs.__resource_);
       }
     } else {
-      if constexpr (is_nothrow_move_assignable_v<_D>) {
+      if constexpr (is_nothrow_move_assignable_v<_Dp>) {
         __resource_ = __rhs.__resource_;
         __deleter_  = std::move(__rhs.__deleter_);
       } else {
@@ -274,7 +274,7 @@ public:
     requires(is_nothrow_assignable_v<__r1&, _RR> ? is_assignable_v<__r1&, _RR>
                                                   : is_assignable_v<__r1&, const remove_cvref_t<_RR>&>)
   _LIBCPP_HIDE_FROM_ABI void reset(_RR&& __r) {
-    static_assert(requires(_D& __d) { __d(__r); }, "the deleter must be callable with the new resource");
+    static_assert(requires(_Dp& __d) { __d(__r); }, "the deleter must be callable with the new resource");
     reset();
 #    if _LIBCPP_HAS_EXCEPTIONS
     try {
@@ -291,21 +291,21 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI void release() noexcept { __execute_on_reset_ = false; }
 
-  _LIBCPP_HIDE_FROM_ABI const _R& get() const noexcept { return __get_resource(); }
+  _LIBCPP_HIDE_FROM_ABI const _Rp& get() const noexcept { return __get_resource(); }
 
-  _LIBCPP_HIDE_FROM_ABI add_lvalue_reference_t<remove_pointer_t<_R>> operator*() const noexcept
-    requires(is_pointer_v<_R> && !is_void_v<remove_pointer_t<_R>>)
+  _LIBCPP_HIDE_FROM_ABI add_lvalue_reference_t<remove_pointer_t<_Rp>> operator*() const noexcept
+    requires(is_pointer_v<_Rp> && !is_void_v<remove_pointer_t<_Rp>>)
   {
     return *get();
   }
 
-  _LIBCPP_HIDE_FROM_ABI _R operator->() const noexcept
-    requires is_pointer_v<_R>
+  _LIBCPP_HIDE_FROM_ABI _Rp operator->() const noexcept
+    requires is_pointer_v<_Rp>
   {
     return get();
   }
 
-  _LIBCPP_HIDE_FROM_ABI const _D& get_deleter() const noexcept { return __deleter_; }
+  _LIBCPP_HIDE_FROM_ABI const _Dp& get_deleter() const noexcept { return __deleter_; }
 
 private:
   struct __tag {};
@@ -315,7 +315,7 @@ private:
   template <class _RR, class _DD>
   _LIBCPP_HIDE_FROM_ABI unique_resource(__tag, _RR&& __r, _DD&& __d, bool __execute) noexcept(
       (is_nothrow_constructible_v<__r1, _RR> || is_nothrow_constructible_v<__r1, _RR&>) &&
-      (is_nothrow_constructible_v<_D, _DD> || is_nothrow_constructible_v<_D, _DD&>))
+      (is_nothrow_constructible_v<_Dp, _DD> || is_nothrow_constructible_v<_Dp, _DD&>))
       : __resource_(__init_resource(std::forward<_RR>(__r), __d, __execute)),
         __deleter_(__init_deleter(std::forward<_DD>(__d), __resource_, __execute)),
         __execute_on_reset_(__execute) {}
@@ -358,13 +358,13 @@ private:
 
   // If the initialization of the deleter throws, it is called with the (initialized) resource.
   template <class _DD>
-  _LIBCPP_HIDE_FROM_ABI static _D __init_deleter(_DD&& __d, __r1& __res, bool __call_deleter_on_failure) {
+  _LIBCPP_HIDE_FROM_ABI static _Dp __init_deleter(_DD&& __d, __r1& __res, bool __call_deleter_on_failure) {
 #    if _LIBCPP_HAS_EXCEPTIONS
     try {
-      if constexpr (is_nothrow_constructible_v<_D, _DD>)
-        return _D(std::forward<_DD>(__d));
+      if constexpr (is_nothrow_constructible_v<_Dp, _DD>)
+        return _Dp(std::forward<_DD>(__d));
       else
-        return _D(__d);
+        return _Dp(__d);
     } catch (...) {
       if (__call_deleter_on_failure)
         __d(__unwrap(__res));
@@ -373,15 +373,15 @@ private:
 #    else
     (void)__res;
     (void)__call_deleter_on_failure;
-    if constexpr (is_nothrow_constructible_v<_D, _DD>)
-      return _D(std::forward<_DD>(__d));
+    if constexpr (is_nothrow_constructible_v<_Dp, _DD>)
+      return _Dp(std::forward<_DD>(__d));
     else
-      return _D(__d);
+      return _Dp(__d);
 #    endif
   }
 
   _LIBCPP_HIDE_FROM_ABI static decltype(auto) __unwrap(__r1& __res) noexcept {
-    if constexpr (is_reference_v<_R>)
+    if constexpr (is_reference_v<_Rp>)
       return __res.get();
     else
       return (__res);
@@ -394,13 +394,13 @@ private:
       return __r1(__m);
   }
 
-  _LIBCPP_HIDE_FROM_ABI static _D __init_deleter_from_move(unique_resource& __rhs) {
+  _LIBCPP_HIDE_FROM_ABI static _Dp __init_deleter_from_move(unique_resource& __rhs) {
 #    if _LIBCPP_HAS_EXCEPTIONS
     try {
-      if constexpr (is_nothrow_move_constructible_v<_D>)
-        return _D(std::move(__rhs.__deleter_));
+      if constexpr (is_nothrow_move_constructible_v<_Dp>)
+        return _Dp(std::move(__rhs.__deleter_));
       else
-        return _D(__rhs.__deleter_);
+        return _Dp(__rhs.__deleter_);
     } catch (...) {
       if constexpr (is_nothrow_move_constructible_v<__r1>) {
         if (__rhs.__execute_on_reset_) {
@@ -411,28 +411,28 @@ private:
       throw;
     }
 #    else
-    if constexpr (is_nothrow_move_constructible_v<_D>)
-      return _D(std::move(__rhs.__deleter_));
+    if constexpr (is_nothrow_move_constructible_v<_Dp>)
+      return _Dp(std::move(__rhs.__deleter_));
     else
-      return _D(__rhs.__deleter_);
+      return _Dp(__rhs.__deleter_);
 #    endif
   }
 };
 
-template <class _R, class _D>
-unique_resource(_R, _D) -> unique_resource<_R, _D>;
+template <class _Rp, class _Dp>
+unique_resource(_Rp, _Dp) -> unique_resource<_Rp, _Dp>;
 
-template <class _R, class _D, class _S>
-_LIBCPP_HIDE_FROM_ABI unique_resource<decay_t<_R>, decay_t<_D>>
-make_unique_resource_checked(_R&& __resource, const _S& __invalid, _D&& __d) noexcept(
-    is_nothrow_constructible_v<decay_t<_R>, _R> && is_nothrow_constructible_v<decay_t<_D>, _D>) {
+template <class _Rp, class _Dp, class _Sp>
+_LIBCPP_HIDE_FROM_ABI unique_resource<decay_t<_Rp>, decay_t<_Dp>>
+make_unique_resource_checked(_Rp&& __resource, const _Sp& __invalid, _Dp&& __d) noexcept(
+    is_nothrow_constructible_v<decay_t<_Rp>, _Rp> && is_nothrow_constructible_v<decay_t<_Dp>, _Dp>) {
   static_assert(requires { (__resource == __invalid ? true : false); },
                 "the expression (resource == invalid ? true : false) must be well-formed");
   const bool __execute = !bool(__resource == __invalid);
-  return unique_resource<decay_t<_R>, decay_t<_D>>(
-      typename unique_resource<decay_t<_R>, decay_t<_D>>::__tag{},
-      std::forward<_R>(__resource),
-      std::forward<_D>(__d),
+  return unique_resource<decay_t<_Rp>, decay_t<_Dp>>(
+      typename unique_resource<decay_t<_Rp>, decay_t<_Dp>>::__tag{},
+      std::forward<_Rp>(__resource),
+      std::forward<_Dp>(__d),
       __execute);
 }
 
