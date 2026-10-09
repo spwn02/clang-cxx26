@@ -853,13 +853,13 @@ TEST_F(InterpolateTest, ModuleUnits) {
   add("dir/Types.ixx", "-x c++-module -std=c++26 -fmodule-output=Types.pcm");
   add("dir/main.cpp", "-std=c++20");
   EXPECT_EQ(getCommand("dir/Predicates.ixx"),
-            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++26");
+            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++2c");
   EXPECT_EQ(getCommand("dir/Other.cppm"),
-            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++26");
+            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++2c");
   // A module unit proxies a plain source file of the same language too.
   Entries.erase(path(StringRef("dir/main.cpp")));
   EXPECT_EQ(getCommand("dir/util.cpp"),
-            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++26");
+            "clang -D dir/Types.ixx -fmodule-output=Types.pcm -std=c++2c");
 }
 
 TEST_F(InterpolateTest, Strip) {
