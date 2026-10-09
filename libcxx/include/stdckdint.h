@@ -28,7 +28,10 @@ Functions (declared at global scope):
 
 */
 
-#include <__config>
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -62,5 +65,7 @@ _LIBCPP_HIDE_FROM_ABI inline bool ckd_mul(_Tp1* __result, _Tp2 __a, _Tp3 __b) {
 }
 
 #endif // _LIBCPP_STD_VER >= 26
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 
 #endif // _LIBCPP_STDCKDINT_H

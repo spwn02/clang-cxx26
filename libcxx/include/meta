@@ -431,7 +431,10 @@ template <reflection_range R1 = initializer_list<info>,
 
 */
 
-#include <__config>
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
 #include <__memory/addressof.h>
 #include <bit>
 #include <compare>
@@ -4278,5 +4281,7 @@ consteval auto u8display_string_of(info R) -> u8string_view {
 _LIBCPP_END_NAMESPACE_REFLECTION_V2
 
 #endif  // __has_feature(reflection)
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 
 #endif  // _LIBCPP_META

@@ -1,7 +1,10 @@
 #ifndef _LIBCPP_CONTRACTS
 #define _LIBCPP_CONTRACTS
 
-#include <__config>
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
 #include <source_location>
 #include <version>
 #include <__new/nothrow_t.h>
@@ -102,5 +105,7 @@ __handle_manual_contract_violation(assertion_kind::manual,
 } // namespace std::contracts
 
 #endif // _LIBCPP_STD_VER >= 20
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 
 #endif // _LIBCPP_CONTRACTS

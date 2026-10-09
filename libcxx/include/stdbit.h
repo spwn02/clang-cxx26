@@ -40,7 +40,10 @@ function template, all declared at global scope):
 
 */
 
-#include <__config>
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -335,5 +338,7 @@ _LIBCPP_HIDE_FROM_ABI inline unsigned long long stdc_bit_ceil_ull(unsigned long 
 }
 
 #endif // _LIBCPP_STD_VER >= 26
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 
 #endif // _LIBCPP_STDBIT_H

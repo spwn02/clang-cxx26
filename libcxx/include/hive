@@ -64,7 +64,10 @@
 #ifndef _LIBCPP_HIVE
 #define _LIBCPP_HIVE
 
-#include <__config>
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
 #include <__iterator/iterator_traits.h>
 #include <__iterator/move_iterator.h>
 #include <__memory/allocator.h>
@@ -1130,5 +1133,7 @@ _LIBCPP_END_NAMESPACE_STD
 #endif
 
 _LIBCPP_POP_MACROS
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 
 #endif // _LIBCPP_HIVE

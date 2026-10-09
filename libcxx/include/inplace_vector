@@ -9,9 +9,12 @@
 #ifndef _LIBCPP_INPLACE_VECTOR
 #define _LIBCPP_INPLACE_VECTOR
 
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
 #include <__assert>
 #include <__compare/synth_three_way.h>
-#include <__config>
 #include <__iterator/distance.h>
 #include <__memory/construct_at.h>
 #include <__memory/start_lifetime.h>
@@ -991,5 +994,7 @@ constexpr auto erase_if(inplace_vector<_Tp, Capacity>& __c, Predicate __pred) ->
 _LIBCPP_END_NAMESPACE_STD
 
 _LIBCPP_POP_MACROS
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 
 #endif // _LIBCPP_INPLACE_VECTOR

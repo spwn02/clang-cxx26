@@ -8,7 +8,10 @@
 #ifndef _LIBCPP_SCOPE
 #define _LIBCPP_SCOPE
 
-#include <__config>
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
 #include <exception>
 #include <type_traits>
 #include <utility>
@@ -125,5 +128,7 @@ scope_success(_EF) -> scope_success<_EF>;
 _LIBCPP_END_NAMESPACE_STD
 
 _LIBCPP_POP_MACROS
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 
 #endif // _LIBCPP_SCOPE

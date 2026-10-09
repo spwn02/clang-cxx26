@@ -9,7 +9,10 @@
 #ifndef _LIBCPP_DEBUGGING
 #define _LIBCPP_DEBUGGING
 
-#include <__config>
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -37,5 +40,7 @@ _LIBCPP_HIDE_FROM_ABI inline void breakpoint_if_debugging() noexcept {
 _LIBCPP_END_NAMESPACE_STD
 
 #endif // _LIBCPP_STD_VER >= 26
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 
 #endif // _LIBCPP_DEBUGGING
