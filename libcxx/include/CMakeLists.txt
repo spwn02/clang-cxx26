@@ -1810,6 +1810,7 @@ set(files
   __cxx03/sstream
   __cxx03/stack
   __cxx03/stdatomic.h
+  __cxx03/stdbool.h
   __cxx03/stdexcept
   __cxx03/stdint.h
   __cxx03/stdlib.h

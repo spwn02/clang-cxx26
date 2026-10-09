@@ -136,7 +136,9 @@ class _LIBCPP_EXPORTED_FROM_ABI __shared_count {
 
 protected:
   long __shared_owners_;
-  virtual ~__shared_count();
+  // Defined inline: the main (non-frozen) <__memory/shared_count.h> no longer defines the destructors out of line in
+  // the dylib (it needs them inline for constexpr shared_ptr), so there is nothing to link against.
+  virtual ~__shared_count() {}
 
 private:
   virtual void __on_zero_shared() _NOEXCEPT = 0;
@@ -169,7 +171,7 @@ public:
         __shared_weak_owners_(__refs) {}
 
 protected:
-  ~__shared_weak_count() override;
+  ~__shared_weak_count() override {}
 
 public:
 #if defined(_LIBCPP_SHARED_PTR_DEFINE_LEGACY_INLINE_FUNCTIONS)
