@@ -6435,7 +6435,7 @@
 #    error "__cpp_lib_format_uchar should have the value 202311L in c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
 #    ifndef __cpp_lib_formatters
 #      error "__cpp_lib_formatters should be defined in c++23"
 #    endif
@@ -6444,7 +6444,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_formatters
-#      error "__cpp_lib_formatters should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_formatters should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS' is not met!"
 #    endif
 #  endif
 
@@ -8485,7 +8485,7 @@
 #    error "__cpp_lib_format_uchar should have the value 202311L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
 #    ifndef __cpp_lib_formatters
 #      error "__cpp_lib_formatters should be defined in c++26"
 #    endif
@@ -8494,7 +8494,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_formatters
-#      error "__cpp_lib_formatters should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_formatters should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS' is not met!"
 #    endif
 #  endif
 

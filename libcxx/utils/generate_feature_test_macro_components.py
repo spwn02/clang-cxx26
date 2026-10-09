@@ -720,9 +720,10 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_formatters",
-            "values": {"c++23": 202302},
+            "values": {"c++23": 202302},  # P2693R1 formatting thread::id and stacktrace
             "headers": ["stacktrace", "thread"],
-            "unimplemented": True,
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS",
+            "libcxx_guard": "_LIBCPP_HAS_THREADS",
         },
         {
             "name": "__cpp_lib_forward_like",

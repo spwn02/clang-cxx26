@@ -76,7 +76,7 @@
 
 #elif TEST_STD_VER == 23
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
 #    ifndef __cpp_lib_formatters
 #      error "__cpp_lib_formatters should be defined in c++23"
 #    endif
@@ -85,7 +85,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_formatters
-#      error "__cpp_lib_formatters should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_formatters should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS' is not met!"
 #    endif
 #  endif
 
@@ -102,7 +102,7 @@
 
 #elif TEST_STD_VER > 23
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
 #    ifndef __cpp_lib_formatters
 #      error "__cpp_lib_formatters should be defined in c++26"
 #    endif
@@ -111,7 +111,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_formatters
-#      error "__cpp_lib_formatters should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_formatters should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS' is not met!"
 #    endif
 #  endif
 
