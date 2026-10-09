@@ -11708,8 +11708,8 @@ QualType Sema::CheckSubtractionOperands(ExprResult &LHS, ExprResult &RHS,
       QualType rpointee = RHSPTy->getPointeeType();
 
       if (getLangOpts().CPlusPlus) {
-        // Pointee types must be the same: C++ [expr.add]
-        if (!Context.hasSameUnqualifiedType(lpointee, rpointee)) {
+        // Pointee types must be similar: C++ [expr.add] (CWG3184)
+        if (!Context.hasSimilarType(lpointee, rpointee)) {
           diagnosePointerIncompatibility(*this, Loc, LHS.get(), RHS.get());
         }
       } else {
