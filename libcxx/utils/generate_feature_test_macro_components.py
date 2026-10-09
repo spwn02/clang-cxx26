@@ -1856,7 +1856,6 @@ feature_test_macros = [
                 "c++26": 202306,  # P2497R0 Testing for success or failure of <charconv> functions
             },
             "headers": ["charconv"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_to_string",

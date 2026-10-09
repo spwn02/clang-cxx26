@@ -473,7 +473,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_shared_ptr_arrays                    201611L
 # define __cpp_lib_shared_ptr_weak_type                 201606L
 # define __cpp_lib_string_view                          201606L
-// # define __cpp_lib_to_chars                             201611L
+# define __cpp_lib_to_chars                             201611L
 # undef  __cpp_lib_transparent_operators
 # define __cpp_lib_transparent_operators                201510L
 # define __cpp_lib_type_trait_variable_templates        201510L
@@ -886,7 +886,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_task                                 202506L
 # define __cpp_lib_text_encoding                        202306L
 # undef  __cpp_lib_to_chars
-// # define __cpp_lib_to_chars                             202306L
+# define __cpp_lib_to_chars                             202306L
 # define __cpp_lib_to_string                            202306L
 # undef  __cpp_lib_tuple_like
 # define __cpp_lib_tuple_like                           202311L
