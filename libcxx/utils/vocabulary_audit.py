@@ -27,7 +27,7 @@ one entry per line:  <kind> <name>  # reason, with kind in header/name/macro.
 
 Usage:
   vocabulary_audit.py --draft <draft checkout> --clang <clang++> \
-      --include <installed libc++ include dir> [--std c++26] [--allow FILE] [--sd6 FILE]
+      --include <installed libc++ include dir> [--std c++26] [--allow FILE] [--sd6 FILE] [--extra-include DIR]
 Exit status is 1 if there is an unexplained entry.
 """
 
@@ -78,8 +78,7 @@ def public_headers(include_dir):
 
 
 def run(cmd, **kw):
-    r = subprocess.run(cmd, capture_output=True, text=True, **kw)
-    return r
+    return subprocess.run(cmd, capture_output=True, text=True, **kw)
 
 
 def reserved(c):
@@ -91,6 +90,7 @@ def main():
     ap.add_argument('--draft', required=True)
     ap.add_argument('--clang', required=True)
     ap.add_argument('--include', required=True)
+    ap.add_argument('--extra-include', action='append', default=[], help='more include directories (e.g. the one holding __config_site)')
     ap.add_argument('--std', default='c++26')
     ap.add_argument('--allow')
     ap.add_argument('--sd6', help='saved copy of the SD-6 feature-test table; its __cpp_lib_* names are accepted too')
@@ -113,9 +113,17 @@ def main():
 
     # 1. headers
     headers = public_headers(args.include)
+    base_cmd = [args.clang, '-std=' + args.std, '-nostdinc++', '-I', args.include] + [x for d in args.extra_include for x in ('-I', d)] + args.flags.split()
+    usable_headers = []
     for h in headers:
+        # A header that the standard no longer has but which reports an error when included is not exposed.
+        probe = run(base_cmd + ['-fsyntax-only', '-x', 'c++', '-'], input='#include <%s>\n' % h)
+        if probe.returncode != 0:
+            continue
+        usable_headers.append(h)
         if h not in draft_headers and ('header', h) not in allow:
             problems.append(('header', h))
+    headers = usable_headers
 
     # 2. names
     with tempfile.TemporaryDirectory() as td:
@@ -123,7 +131,7 @@ def main():
         with open(tu, 'w') as f:
             for h in headers:
                 f.write('#if __has_include(<%s>)\n#include <%s>\n#endif\n' % (h, h))
-        base = [args.clang, '-std=' + args.std, '-nostdinc++', '-I', args.include] + args.flags.split()
+        base = base_cmd
         r = run(base + ['-fsyntax-only', '-Xclang', '-ast-list', tu])
         if r.returncode != 0 and not r.stdout:
             sys.stderr.write(r.stderr[:2000])

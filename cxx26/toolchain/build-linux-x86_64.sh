@@ -110,3 +110,25 @@ if ! find "${install_prefix}" -name 'libclang_rt.ubsan_standalone*' -print -quit
   echo "reference toolchain install does not contain the UBSan runtime (libclang_rt.ubsan_standalone)" >&2
   exit 1
 fi
+
+# Release gate (#283): nothing that the C++ draft does not mention may be public. Every build that
+# can become a published prerelease or release runs the vocabulary audit against the installed
+# toolchain and fails on any unexplained header, name or macro. The reference is the draft tag the
+# release targets.
+draft_tag="${CXX26_DRAFT_TAG:-n5050}"
+draft_dir="${CXX26_DRAFT_DIR:-${build_dir}-draft}"
+if [[ ! -d "${draft_dir}/source" ]]; then
+  git clone --quiet --depth 1 --branch "${draft_tag}" https://github.com/cplusplus/draft.git "${draft_dir}"
+fi
+libcxx_include="${install_prefix}/include/c++/v1"
+extra_includes=()
+for dir in "${install_prefix}"/include/*/c++/v1; do
+  [[ -d "${dir}" ]] && extra_includes+=(--extra-include "${dir}")
+done
+python3 -I "${repo_root}/libcxx/utils/vocabulary_audit.py" \
+  --draft "${draft_dir}" \
+  --sd6 "${repo_root}/libcxx/utils/sd6_lib_macros.txt" \
+  --allow "${repo_root}/libcxx/utils/vocabulary_allowlist.txt" \
+  --clang "${install_prefix}/bin/clang++" \
+  --include "${libcxx_include}" ${extra_includes[@]+"${extra_includes[@]}"} \
+  "--flags=-freflection-latest"
