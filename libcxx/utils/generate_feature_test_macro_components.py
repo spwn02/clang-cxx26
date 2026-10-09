@@ -655,7 +655,6 @@ feature_test_macros = [
             "name": "__cpp_lib_execution",
             "values": {"c++17": 201603, "c++20": 201902},
             "headers": ["execution"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_expected",
@@ -1391,7 +1390,8 @@ feature_test_macros = [
                 "c++26": 202506,  # P3179R9 Parallel Range Algorithms
             },
             "headers": ["algorithm", "numeric"],
-            "unimplemented": True,
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL",
+            "libcxx_guard": "_LIBCPP_HAS_EXPERIMENTAL_PSTL",
         },
         {
             "name": "__cpp_lib_parallel_scheduler",

@@ -2968,17 +2968,11 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++17"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_execution
-#      error "__cpp_lib_execution should be defined in c++17"
-#    endif
-#    if __cpp_lib_execution != 201603L
-#      error "__cpp_lib_execution should have the value 201603L in c++17"
-#    endif
-#  else
-#    ifdef __cpp_lib_execution
-#      error "__cpp_lib_execution should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_execution
+#    error "__cpp_lib_execution should be defined in c++17"
+#  endif
+#  if __cpp_lib_execution != 201603L
+#    error "__cpp_lib_execution should have the value 201603L in c++17"
 #  endif
 
 #  ifdef __cpp_lib_expected
@@ -3549,7 +3543,7 @@
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
 #    ifndef __cpp_lib_parallel_algorithm
 #      error "__cpp_lib_parallel_algorithm should be defined in c++17"
 #    endif
@@ -3558,7 +3552,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
 #    endif
 #  endif
 
@@ -4577,17 +4571,11 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++20"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_execution
-#      error "__cpp_lib_execution should be defined in c++20"
-#    endif
-#    if __cpp_lib_execution != 201902L
-#      error "__cpp_lib_execution should have the value 201902L in c++20"
-#    endif
-#  else
-#    ifdef __cpp_lib_execution
-#      error "__cpp_lib_execution should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_execution
+#    error "__cpp_lib_execution should be defined in c++20"
+#  endif
+#  if __cpp_lib_execution != 201902L
+#    error "__cpp_lib_execution should have the value 201902L in c++20"
 #  endif
 
 #  ifdef __cpp_lib_expected
@@ -5224,7 +5212,7 @@
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
 #    ifndef __cpp_lib_parallel_algorithm
 #      error "__cpp_lib_parallel_algorithm should be defined in c++20"
 #    endif
@@ -5233,7 +5221,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
 #    endif
 #  endif
 
@@ -6357,17 +6345,11 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_execution
-#      error "__cpp_lib_execution should be defined in c++23"
-#    endif
-#    if __cpp_lib_execution != 201902L
-#      error "__cpp_lib_execution should have the value 201902L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_execution
-#      error "__cpp_lib_execution should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_execution
+#    error "__cpp_lib_execution should be defined in c++23"
+#  endif
+#  if __cpp_lib_execution != 201902L
+#    error "__cpp_lib_execution should have the value 201902L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_expected
@@ -7061,7 +7043,7 @@
 #    error "__cpp_lib_out_ptr should have the value 202106L in c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
 #    ifndef __cpp_lib_parallel_algorithm
 #      error "__cpp_lib_parallel_algorithm should be defined in c++23"
 #    endif
@@ -7070,7 +7052,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
 #    endif
 #  endif
 
@@ -8404,17 +8386,11 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_execution
-#      error "__cpp_lib_execution should be defined in c++26"
-#    endif
-#    if __cpp_lib_execution != 201902L
-#      error "__cpp_lib_execution should have the value 201902L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_execution
-#      error "__cpp_lib_execution should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_execution
+#    error "__cpp_lib_execution should be defined in c++26"
+#  endif
+#  if __cpp_lib_execution != 201902L
+#    error "__cpp_lib_execution should have the value 201902L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_expected
@@ -9429,7 +9405,7 @@
 #    error "__cpp_lib_out_ptr should have the value 202311L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
 #    ifndef __cpp_lib_parallel_algorithm
 #      error "__cpp_lib_parallel_algorithm should be defined in c++26"
 #    endif
@@ -9438,7 +9414,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
 #    endif
 #  endif
 

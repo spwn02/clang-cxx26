@@ -111,7 +111,7 @@
 #    error "__cpp_lib_interpolate should not be defined before c++20"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
 #    ifndef __cpp_lib_parallel_algorithm
 #      error "__cpp_lib_parallel_algorithm should be defined in c++17"
 #    endif
@@ -120,7 +120,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
 #    endif
 #  endif
 
@@ -163,7 +163,7 @@
 #    error "__cpp_lib_interpolate should have the value 201902L in c++20"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
 #    ifndef __cpp_lib_parallel_algorithm
 #      error "__cpp_lib_parallel_algorithm should be defined in c++20"
 #    endif
@@ -172,7 +172,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
 #    endif
 #  endif
 
@@ -218,7 +218,7 @@
 #    error "__cpp_lib_interpolate should have the value 201902L in c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
 #    ifndef __cpp_lib_parallel_algorithm
 #      error "__cpp_lib_parallel_algorithm should be defined in c++23"
 #    endif
@@ -227,7 +227,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
 #    endif
 #  endif
 
@@ -279,7 +279,7 @@
 #    error "__cpp_lib_interpolate should have the value 201902L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
 #    ifndef __cpp_lib_parallel_algorithm
 #      error "__cpp_lib_parallel_algorithm should be defined in c++26"
 #    endif
@@ -288,7 +288,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined because it is unimplemented in libc++!"
+#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
 #    endif
 #  endif
 
