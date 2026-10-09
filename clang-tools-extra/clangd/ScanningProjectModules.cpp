@@ -16,9 +16,41 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Regex.h"
+#include <chrono>
+#include <mutex>
 #include <set>
 
 namespace clang::clangd {
+
+/// What the scans of one compilation database found, kept across requests. An
+/// entry for a file is used while the file (its size and modification time) and
+/// the command it is scanned with stay the same; everything else is rescanned.
+class ModuleScanCache {
+public:
+  struct FileScan {
+    llvm::sys::TimePoint<> ModificationTime;
+    uint64_t Size = 0;
+    size_t CommandHash = 0;
+    bool Succeeded = false;
+    std::optional<std::string> ModuleName;
+    std::vector<std::string> RequiredModules;
+  };
+
+  std::mutex Mu;
+  llvm::StringMap<FileScan> Files;
+  // Map module name to source file path.
+  llvm::StringMap<std::string> ModuleNameToSource;
+  // Commands for module units that are not in the compilation database.
+  llvm::StringMap<tooling::CompileCommand> ExtraCommands;
+  // When the directories of the project were last searched for module units
+  // that the database does not list.
+  std::optional<std::chrono::steady_clock::time_point> LastDiscovery;
+};
+
+std::shared_ptr<ModuleScanCache> createModuleScanCache() {
+  return std::make_shared<ModuleScanCache>();
+}
+
 namespace {
 
 /// Find the module unit of a module of the standard library (std, std.compat)
@@ -147,8 +179,8 @@ class ModuleDependencyScanner {
 public:
   ModuleDependencyScanner(
       std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
-      const ThreadsafeFS &TFS)
-      : CDB(CDB), TFS(TFS),
+      const ThreadsafeFS &TFS, std::shared_ptr<ModuleScanCache> Cache)
+      : CDB(CDB), TFS(TFS), Cache(std::move(Cache)),
         Service(dependencies::ScanningMode::CanonicalPreprocessing,
                 dependencies::ScanningOutputFormat::P1689) {}
 
@@ -212,27 +244,31 @@ private:
   // Whether the scanner has scanned the project globally.
   bool GlobalScanned = false;
 
-  // Whether the scanner looked for module units outside the database.
-  bool Discovered = false;
+  // The results of the scans of earlier requests.
+  std::shared_ptr<ModuleScanCache> Cache;
 
+  // The scanner's own view of the file system (its cache of file contents)
+  // lives as long as the scanner: a new request sees the files as they are.
   clang::dependencies::DependencyScanningService Service;
 
-  // TODO: Add a scanning cache.
-
-  // Map module name to source file path.
-  llvm::StringMap<std::string> ModuleNameToSource;
-
-  // Commands for module units that are not in the compilation database.
-  llvm::StringMap<tooling::CompileCommand> ExtraCommands;
+  /// The path in the cache for \param ModuleName, if the file still declares
+  /// that module. A path whose file changed or disappeared is dropped.
+  std::optional<std::string>
+  validatedSourceForModuleName(llvm::StringRef ModuleName,
+                               const ProjectModules::CommandMangler &Mangler);
 };
 
 std::optional<ModuleDependencyScanner::ModuleDependencyInfo>
 ModuleDependencyScanner::scan(PathRef FilePath,
                               const ProjectModules::CommandMangler &Mangler) {
   std::vector<tooling::CompileCommand> Candidates;
-  if (auto It = ExtraCommands.find(FilePath); It != ExtraCommands.end())
-    Candidates.push_back(It->second);
-  else
+  {
+    std::lock_guard<std::mutex> Lock(Cache->Mu);
+    if (auto It = Cache->ExtraCommands.find(FilePath);
+        It != Cache->ExtraCommands.end())
+      Candidates.push_back(It->second);
+  }
+  if (Candidates.empty())
     Candidates = CDB->getCompileCommands(FilePath);
   if (Candidates.empty())
     return std::nullopt;
@@ -246,6 +282,35 @@ ModuleDependencyScanner::scan(PathRef FilePath,
     Mangler(Cmd, FilePath);
 
   using namespace clang::tooling;
+
+  // The result of an earlier scan stands while neither the file nor the command
+  // changed. Files that cannot be examined (relative paths of a test database)
+  // are scanned every time.
+  ModuleScanCache::FileScan Key;
+  Key.CommandHash = llvm::hash_combine_range(Cmd.CommandLine.begin(),
+                                             Cmd.CommandLine.end());
+  Key.CommandHash = llvm::hash_combine(Key.CommandHash, Cmd.Directory);
+  bool CanCache = false;
+  if (llvm::sys::path::is_absolute(FilePath))
+    if (auto Status = TFS.view(std::nullopt)->status(FilePath)) {
+      Key.ModificationTime = Status->getLastModificationTime();
+      Key.Size = Status->getSize();
+      CanCache = true;
+    }
+  auto ToInfo = [](const ModuleScanCache::FileScan &Scan)
+      -> std::optional<ModuleDependencyInfo> {
+    if (!Scan.Succeeded)
+      return std::nullopt;
+    return ModuleDependencyInfo{Scan.ModuleName, Scan.RequiredModules};
+  };
+  if (CanCache) {
+    std::lock_guard<std::mutex> Lock(Cache->Mu);
+    auto It = Cache->Files.find(FilePath);
+    if (It != Cache->Files.end() &&
+        It->second.ModificationTime == Key.ModificationTime &&
+        It->second.Size == Key.Size && It->second.CommandHash == Key.CommandHash)
+      return ToInfo(It->second);
+  }
 
   llvm::SmallString<128> FilePathDir(FilePath);
   llvm::sys::path::remove_filename(FilePathDir);
@@ -261,33 +326,45 @@ ModuleDependencyScanner::scan(PathRef FilePath,
       ScanningTool.getP1689ModuleDependencyFile(Cmd, Cmd.Directory,
                                                 DiagConsumer);
 
+  ModuleScanCache::FileScan Scan = Key;
   if (!ScanningResult) {
     elog("Scanning modules dependencies for {0} failed: {1}", FilePath, S);
-    return std::nullopt;
+  } else {
+    Scan.Succeeded = true;
+    if (ScanningResult->Provides)
+      Scan.ModuleName = ScanningResult->Provides->ModuleName;
+    for (auto &Required : ScanningResult->Requires)
+      Scan.RequiredModules.push_back(Required.ModuleName);
   }
 
-  ModuleDependencyInfo Result;
+  {
+    std::lock_guard<std::mutex> Lock(Cache->Mu);
+    // A file that stopped declaring the module it used to declare no longer
+    // provides it.
+    if (CanCache) {
+      auto It = Cache->Files.find(FilePath);
+      if (It != Cache->Files.end() && It->second.ModuleName &&
+          It->second.ModuleName != Scan.ModuleName) {
+        auto Old = Cache->ModuleNameToSource.find(*It->second.ModuleName);
+        if (Old != Cache->ModuleNameToSource.end() && Old->second == FilePath)
+          Cache->ModuleNameToSource.erase(Old);
+      }
+      Cache->Files[FilePath] = Scan;
+    }
+    if (Scan.ModuleName) {
+      auto [Iter, Inserted] =
+          Cache->ModuleNameToSource.try_emplace(*Scan.ModuleName, FilePath);
 
-  if (ScanningResult->Provides) {
-    Result.ModuleName = ScanningResult->Provides->ModuleName;
-
-    auto [Iter, Inserted] = ModuleNameToSource.try_emplace(
-        ScanningResult->Provides->ModuleName, FilePath);
-
-    if (!Inserted && Iter->second != FilePath) {
-      elog("Detected multiple source files ({0}, {1}) declaring the same "
-           "module: '{2}'. "
-           "Now clangd may find the wrong source in such case.",
-           Iter->second, FilePath, ScanningResult->Provides->ModuleName);
+      if (!Inserted && Iter->second != FilePath) {
+        elog("Detected multiple source files ({0}, {1}) declaring the same "
+             "module: '{2}'. "
+             "Now clangd may find the wrong source in such case.",
+             Iter->second, FilePath, *Scan.ModuleName);
+      }
     }
   }
-
-  for (auto &Required : ScanningResult->Requires)
-    Result.RequiredModules.push_back(Required.ModuleName);
-
-  return Result;
+  return ToInfo(Scan);
 }
-
 
 namespace {
 // Directories that hold build products or third-party code rather than the
@@ -312,9 +389,16 @@ bool hasSourceExtension(llvm::StringRef Path) {
 
 void ModuleDependencyScanner::discoverUnlistedModules(
     const ProjectModules::CommandMangler &Mangler) {
-  if (Discovered)
-    return;
-  Discovered = true;
+  // The search is not repeated for every lookup of a module that does not
+  // exist; what it found stays in the cache.
+  constexpr auto MinInterval = std::chrono::seconds(1);
+  {
+    std::lock_guard<std::mutex> Lock(Cache->Mu);
+    auto Now = std::chrono::steady_clock::now();
+    if (Cache->LastDiscovery && Now - *Cache->LastDiscovery < MinInterval)
+      return;
+    Cache->LastDiscovery = Now;
+  }
 
   constexpr unsigned MaxDepth = 8;
   constexpr unsigned MaxDirectories = 4000;
@@ -412,24 +496,55 @@ PathRef ModuleDependencyScanner::getSourceForModuleName(
       GlobalScanned &&
       "We should only call getSourceForModuleName after calling globalScan()");
 
-  if (auto It = ModuleNameToSource.find(ModuleName);
-      It != ModuleNameToSource.end())
+  std::lock_guard<std::mutex> Lock(Cache->Mu);
+  if (auto It = Cache->ModuleNameToSource.find(ModuleName);
+      It != Cache->ModuleNameToSource.end())
     return It->second;
 
   return {};
+}
+
+std::optional<std::string> ModuleDependencyScanner::validatedSourceForModuleName(
+    llvm::StringRef ModuleName, const ProjectModules::CommandMangler &Mangler) {
+  std::string Source;
+  {
+    std::lock_guard<std::mutex> Lock(Cache->Mu);
+    auto It = Cache->ModuleNameToSource.find(ModuleName);
+    if (It == Cache->ModuleNameToSource.end())
+      return std::nullopt;
+    Source = It->second;
+  }
+  // The file may have changed or disappeared since it was scanned.
+  auto Info = scan(Source, Mangler);
+  if (Info && Info->ModuleName == ModuleName)
+    return Source;
+  std::lock_guard<std::mutex> Lock(Cache->Mu);
+  auto It = Cache->ModuleNameToSource.find(ModuleName);
+  if (It != Cache->ModuleNameToSource.end() && It->second == Source)
+    Cache->ModuleNameToSource.erase(It);
+  return std::nullopt;
 }
 
 std::string ModuleDependencyScanner::getSourceForModuleName(
     llvm::StringRef ModuleName, PathRef ImportingFile,
     const ProjectModules::CommandMangler &Mangler) {
   globalScan(Mangler);
-  if (PathRef Source = getSourceForModuleName(ModuleName); !Source.empty())
-    return Source.str();
+  if (auto Source = validatedSourceForModuleName(ModuleName, Mangler))
+    return *Source;
+
+  // The file that declared the module is gone or declares something else now:
+  // another file may declare it.
+  if (GlobalScanned) {
+    GlobalScanned = false;
+    globalScan(Mangler);
+    if (auto Source = validatedSourceForModuleName(ModuleName, Mangler))
+      return *Source;
+  }
 
   // A module unit that the database does not know about yet.
   discoverUnlistedModules(Mangler);
-  if (PathRef Source = getSourceForModuleName(ModuleName); !Source.empty())
-    return Source.str();
+  if (auto Source = validatedSourceForModuleName(ModuleName, Mangler))
+    return *Source;
 
   if (ModuleName != "std" && ModuleName != "std.compat")
     return {};
@@ -443,14 +558,18 @@ std::string ModuleDependencyScanner::getSourceForModuleName(
   auto Cmd = resolveStandardLibraryModule(ModuleName, Importer, Source);
   if (!Cmd)
     return {};
-  ModuleNameToSource.try_emplace(ModuleName, Source);
-  ExtraCommands[Source] = std::move(*Cmd);
+  {
+    std::lock_guard<std::mutex> Lock(Cache->Mu);
+    Cache->ModuleNameToSource[ModuleName] = Source;
+    Cache->ExtraCommands[Source] = std::move(*Cmd);
+  }
   return Source;
 }
 
 std::optional<tooling::CompileCommand>
 ModuleDependencyScanner::getCompileCommandForSource(PathRef File) const {
-  if (auto It = ExtraCommands.find(File); It != ExtraCommands.end())
+  std::lock_guard<std::mutex> Lock(Cache->Mu);
+  if (auto It = Cache->ExtraCommands.find(File); It != Cache->ExtraCommands.end())
     return It->second;
   return std::nullopt;
 }
@@ -476,8 +595,8 @@ class ScanningAllProjectModules : public ProjectModules {
 public:
   ScanningAllProjectModules(
       std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
-      const ThreadsafeFS &TFS)
-      : Scanner(CDB, TFS) {}
+      const ThreadsafeFS &TFS, std::shared_ptr<ModuleScanCache> Cache)
+      : Scanner(CDB, TFS, std::move(Cache)) {}
 
   ~ScanningAllProjectModules() override = default;
 
@@ -517,8 +636,10 @@ private:
 
 std::unique_ptr<ProjectModules> scanningProjectModules(
     std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
-    const ThreadsafeFS &TFS) {
-  return std::make_unique<ScanningAllProjectModules>(CDB, TFS);
+    const ThreadsafeFS &TFS, std::shared_ptr<ModuleScanCache> Cache) {
+  if (!Cache)
+    Cache = createModuleScanCache();
+  return std::make_unique<ScanningAllProjectModules>(CDB, TFS, std::move(Cache));
 }
 
 } // namespace clang::clangd

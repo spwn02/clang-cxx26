@@ -15,10 +15,19 @@
 namespace clang {
 namespace clangd {
 
-/// Providing modules information for the project by scanning every file.
+/// What the scans of one compilation database found. Share one between the
+/// ProjectModules of the same database to avoid scanning files again that did
+/// not change.
+class ModuleScanCache;
+std::shared_ptr<ModuleScanCache> createModuleScanCache();
+
+/// Providing modules information for the project by scanning every file. Files
+/// that the database does not list (a new module unit) are found in the
+/// directories of the files it lists.
 std::unique_ptr<ProjectModules> scanningProjectModules(
     std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
-    const ThreadsafeFS &TFS);
+    const ThreadsafeFS &TFS,
+    std::shared_ptr<ModuleScanCache> Cache = nullptr);
 
 } // namespace clangd
 } // namespace clang

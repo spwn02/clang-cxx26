@@ -10,6 +10,7 @@
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_GLOBALCOMPILATIONDATABASE_H
 
 #include "ProjectModules.h"
+#include "ScanningProjectModules.h"
 #include "support/Function.h"
 #include "support/Path.h"
 #include "support/Threading.h"
@@ -180,6 +181,15 @@ private:
 
   class BroadcastThread;
   std::unique_ptr<BroadcastThread> Broadcaster;
+
+  // What the module scans of the compilation database found, kept across
+  // requests: one per database (a reloaded database starts afresh).
+  struct ModuleScanCacheEntry {
+    std::weak_ptr<const tooling::CompilationDatabase> CDB;
+    std::shared_ptr<ModuleScanCache> Cache;
+  };
+  mutable llvm::StringMap<ModuleScanCacheEntry> ModuleScanCaches;
+  mutable std::mutex ModuleScanCachesMutex;
 
   // Performs broadcast on governed files.
   void broadcastCDB(CDBLookupResult Res) const;

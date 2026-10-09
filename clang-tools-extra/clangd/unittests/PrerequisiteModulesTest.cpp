@@ -99,7 +99,8 @@ public:
 
   std::unique_ptr<ProjectModules> getProjectModules(PathRef) const override {
     return std::make_unique<GlobalScanningCounterProjectModules>(
-        scanningProjectModules(MockedCDBPtr, TFS), GlobalScanningCount);
+        scanningProjectModules(MockedCDBPtr, TFS, ScanCache),
+        GlobalScanningCount);
   }
 
   unsigned getGlobalScanningCount() const { return GlobalScanningCount; }
@@ -129,6 +130,8 @@ private:
 
   std::shared_ptr<MockClangCompilationDatabase> MockedCDBPtr;
   const ThreadsafeFS &TFS;
+  // Shared by the requests, like the one of the directory-based database.
+  std::shared_ptr<ModuleScanCache> ScanCache = createModuleScanCache();
 
   mutable std::atomic<unsigned> GlobalScanningCount;
 };
@@ -415,6 +418,55 @@ TEST_F(PrerequisiteModulesTests, ModuleUnitsThatTheDatabaseDoesNotList) {
   EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("Fresh"));
   EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("Fresh.Part"));
   EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("InCpp"));
+}
+
+TEST_F(PrerequisiteModulesTests, ScansOfUnchangedFilesAreKeptBetweenRequests) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("M.cppm", "export module M;\n");
+  CDB.addFile("Use.cpp", "import M;\n");
+
+  ModulesBuilder Builder(CDB);
+  {
+    auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+    HeaderSearchOptions HSOpts(TestDir);
+    Info->adjustHeaderSearchOptions(HSOpts);
+    EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("M"));
+  }
+
+  // The module unit now declares another module and the importer follows: the
+  // cached scan of M.cppm must not be used for the old name.
+  CDB.addFile("M.cppm", "export module M2;\n");
+  CDB.addFile("Use.cpp", "import M2;\n");
+  {
+    auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+    ASSERT_TRUE(Info);
+    HeaderSearchOptions HSOpts(TestDir);
+    Info->adjustHeaderSearchOptions(HSOpts);
+    EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("M2"));
+    EXPECT_FALSE(HSOpts.PrebuiltModuleFiles.count("M"));
+  }
+
+  // A module unit that appears after an earlier request is found.
+  CDB.addUnlistedFile("sub/Late.cppm", "export module Late;\n");
+  CDB.addFile("Use.cpp", "import M2;\nimport Late;\n");
+  {
+    auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+    ASSERT_TRUE(Info);
+    HeaderSearchOptions HSOpts(TestDir);
+    Info->adjustHeaderSearchOptions(HSOpts);
+    EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("Late"));
+  }
+
+  // And one that is deleted is not used any more.
+  llvm::sys::fs::remove(getFullPath("sub/Late.cppm"));
+  CDB.addFile("Use.cpp", "import Late;\n");
+  {
+    auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+    ASSERT_TRUE(Info);
+    HeaderSearchOptions HSOpts(TestDir);
+    Info->adjustHeaderSearchOptions(HSOpts);
+    EXPECT_FALSE(HSOpts.PrebuiltModuleFiles.count("Late"));
+  }
 }
 
 TEST_F(PrerequisiteModulesTests, ModuleWithoutDepTest) {

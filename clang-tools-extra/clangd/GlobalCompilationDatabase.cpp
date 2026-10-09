@@ -766,13 +766,26 @@ DirectoryBasedGlobalCompilationDatabase::getProjectModules(PathRef File) const {
   CDBLookupRequest Req;
   Req.FileName = File;
   Req.ShouldBroadcast = false;
-  Req.FreshTime = Req.FreshTimeMissing =
-      std::chrono::steady_clock::time_point::min();
+  // The database is revalidated like it is for compile commands: a module unit
+  // added to a regenerated compile_commands.json is found.
+  auto Now = std::chrono::steady_clock::now();
+  Req.FreshTime = Now - Opts.RevalidateAfter;
+  Req.FreshTimeMissing = Now - Opts.RevalidateMissingAfter;
   auto Res = lookupCDB(Req);
   if (!Res)
     return {};
 
-  return scanningProjectModules(Res->CDB, Opts.TFS);
+  std::shared_ptr<ModuleScanCache> Cache;
+  {
+    std::lock_guard<std::mutex> Lock(ModuleScanCachesMutex);
+    ModuleScanCacheEntry &Entry = ModuleScanCaches[Res->PI.SourceRoot];
+    if (Entry.CDB.lock() != Res->CDB || !Entry.Cache) {
+      Entry.CDB = Res->CDB;
+      Entry.Cache = createModuleScanCache();
+    }
+    Cache = Entry.Cache;
+  }
+  return scanningProjectModules(Res->CDB, Opts.TFS, std::move(Cache));
 }
 
 OverlayCDB::OverlayCDB(const GlobalCompilationDatabase *Base,
