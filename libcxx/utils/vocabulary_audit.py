@@ -125,11 +125,20 @@ def main():
         # A header that the standard no longer has but which reports an error when included is not exposed.
         probe = run(base_cmd + ['-fsyntax-only', '-x', 'c++', '-'], input='#include <%s>\n' % h)
         if probe.returncode != 0:
+            # Only the deliberate "was removed in C++NN" #error means "not exposed"; any other failure would hide the
+            # header (and everything it declares) from the audit, so it is reported instead.
+            if 'was removed in C++' not in probe.stderr:
+                problems.append(('header-does-not-compile', h))
             continue
         usable_headers.append(h)
         if h not in draft_headers and ('header', h) not in allow:
             problems.append(('header', h))
     headers = usable_headers
+    # Fail closed: a broken invocation (wrong include path, missing __config_site) must not look like a clean audit.
+    for canary in ('vector', 'algorithm', 'string'):
+        if canary not in headers:
+            sys.stderr.write('audit setup is broken: <%s> does not compile with %s\n' % (canary, ' '.join(base_cmd)))
+            return 2
 
     # 2. names
     with tempfile.TemporaryDirectory() as td:
