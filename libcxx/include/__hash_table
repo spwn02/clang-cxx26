@@ -80,17 +80,17 @@ _LIBCPP_EXPORTED_FROM_ABI size_t __next_prime(size_t __n);
 // copy is used only while constant evaluating, where a call to a compiled
 // definition cannot be evaluated.
 inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _LIBCPP_HIDE_FROM_ABI size_t __next_prime_constexpr(size_t __n) {
-  constexpr unsigned __small_primes[] = {
+  _LIBCPP_CONSTEXPR unsigned __small_primes[] = {
       0,   2,   3,   5,   7,   11,  13,  17,  19,  23,  29,  31,  37,  41,  43,  47,
       53,  59,  61,  67,  71,  73,  79,  83,  89,  97,  101, 103, 107, 109, 113, 127,
       131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211};
-  constexpr unsigned __indices[] = {
+  _LIBCPP_CONSTEXPR unsigned __indices[] = {
       1,   11,  13,  17,  19,  23,  29,  31,  37,  41,  43,  47,  53,  59,  61,  67,
       71,  73,  79,  83,  89,  97,  101, 103, 107, 109, 113, 121, 127, 131, 137, 139,
       143, 149, 151, 157, 163, 167, 169, 173, 179, 181, 187, 191, 193, 197, 199, 209};
-  constexpr size_t __L = 210;
-  constexpr size_t __N = sizeof(__small_primes) / sizeof(__small_primes[0]);
-  constexpr size_t __M = sizeof(__indices) / sizeof(__indices[0]);
+  _LIBCPP_CONSTEXPR size_t __L = 210;
+  _LIBCPP_CONSTEXPR size_t __N = sizeof(__small_primes) / sizeof(__small_primes[0]);
+  _LIBCPP_CONSTEXPR size_t __M = sizeof(__indices) / sizeof(__indices[0]);
   if (__n <= __small_primes[__N - 1])
     return *std::lower_bound(__small_primes, __small_primes + __N, __n);
   size_t __k = __n / __L;

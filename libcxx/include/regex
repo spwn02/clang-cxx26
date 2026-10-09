@@ -2265,6 +2265,13 @@ __exit:
 template <class _CharT, class _Traits>
 class __lookahead;
 
+// In C++03 the constants are `static const` (an in-class initializer is fine for an enumeration type).
+#    ifdef _LIBCPP_CXX03_LANG
+#      define _LIBCPP_REGEX_CONSTEXPR_OR_CONST const
+#    else
+#      define _LIBCPP_REGEX_CONSTEXPR_OR_CONST constexpr
+#    endif
+
 template <class _CharT, class _Traits = regex_traits<_CharT> >
 class basic_regex;
 
@@ -2297,17 +2304,17 @@ private:
 
 public:
   // constants:
-  static constexpr regex_constants::syntax_option_type icase      = regex_constants::icase;
-  static constexpr regex_constants::syntax_option_type nosubs     = regex_constants::nosubs;
-  static constexpr regex_constants::syntax_option_type optimize   = regex_constants::optimize;
-  static constexpr regex_constants::syntax_option_type collate    = regex_constants::collate;
-  static constexpr regex_constants::syntax_option_type ECMAScript = regex_constants::ECMAScript;
-  static constexpr regex_constants::syntax_option_type basic      = regex_constants::basic;
-  static constexpr regex_constants::syntax_option_type extended   = regex_constants::extended;
-  static constexpr regex_constants::syntax_option_type awk        = regex_constants::awk;
-  static constexpr regex_constants::syntax_option_type grep       = regex_constants::grep;
-  static constexpr regex_constants::syntax_option_type egrep      = regex_constants::egrep;
-  static constexpr regex_constants::syntax_option_type multiline  = regex_constants::multiline;
+  static _LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type icase      = regex_constants::icase;
+  static _LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type nosubs     = regex_constants::nosubs;
+  static _LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type optimize   = regex_constants::optimize;
+  static _LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type collate    = regex_constants::collate;
+  static _LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type ECMAScript = regex_constants::ECMAScript;
+  static _LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic      = regex_constants::basic;
+  static _LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type extended   = regex_constants::extended;
+  static _LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type awk        = regex_constants::awk;
+  static _LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type grep       = regex_constants::grep;
+  static _LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type egrep      = regex_constants::egrep;
+  static _LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type multiline  = regex_constants::multiline;
 
   // construct/copy/destroy:
   _LIBCPP_HIDE_FROM_ABI basic_regex()
@@ -2659,30 +2666,29 @@ basic_regex(_ForwardIterator, _ForwardIterator, regex_constants::syntax_option_t
 // icase/nosubs/optimize/collate/ECMAScript/basic/extended/awk/grep/egrep/multiline are
 // `static constexpr` (P0607R0), which are implicitly inline since C++17. Before C++17 they still
 // need an out-of-class definition so that ODR-using them (e.g. taking their address) links.
-// (This header targets C++11+; C++03 goes through the separate __cxx03/regex frozen header.)
 #    if _LIBCPP_STD_VER < 17
 template <class _CharT, class _Traits>
-constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::icase;
+_LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::icase;
 template <class _CharT, class _Traits>
-constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::nosubs;
+_LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::nosubs;
 template <class _CharT, class _Traits>
-constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::optimize;
+_LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::optimize;
 template <class _CharT, class _Traits>
-constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::collate;
+_LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::collate;
 template <class _CharT, class _Traits>
-constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::ECMAScript;
+_LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::ECMAScript;
 template <class _CharT, class _Traits>
-constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::basic;
+_LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::basic;
 template <class _CharT, class _Traits>
-constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::extended;
+_LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::extended;
 template <class _CharT, class _Traits>
-constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::awk;
+_LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::awk;
 template <class _CharT, class _Traits>
-constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::grep;
+_LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::grep;
 template <class _CharT, class _Traits>
-constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::egrep;
+_LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::egrep;
 template <class _CharT, class _Traits>
-constexpr regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::multiline;
+_LIBCPP_REGEX_CONSTEXPR_OR_CONST regex_constants::syntax_option_type basic_regex<_CharT, _Traits>::multiline;
 #    endif // _LIBCPP_STD_VER < 17
 
 template <class _CharT, class _Traits>

@@ -49,6 +49,13 @@
 #  define _LIBCPP_ATOMIC_VOLATILE_REQUIRES(_Cond)
 #endif
 
+// The branch below is selected at compile time in C++17 and later; C++03/11/14 compile both branches.
+#if _LIBCPP_STD_VER >= 17
+#  define _LIBCPP_ATOMIC_IF_CONSTEXPR if constexpr
+#else
+#  define _LIBCPP_ATOMIC_IF_CONSTEXPR if
+#endif
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 template <class _Tp, bool = is_integral<_Tp>::value && !is_same<_Tp, bool>::value>
@@ -59,14 +66,14 @@ struct __atomic_base // false
   using value_type = _Tp;
 
 private:
-  _LIBCPP_HIDE_FROM_ABI static _Tp* __clear_padding(_Tp& __value) noexcept {
+  _LIBCPP_HIDE_FROM_ABI static _Tp* __clear_padding(_Tp& __value) _NOEXCEPT {
 #  if __has_builtin(__builtin_clear_padding)
     __builtin_clear_padding(std::addressof(__value));
 #  endif
     return std::addressof(__value);
   }
 
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR static _Tp __clear_padding_value(_Tp __value) noexcept {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR static _Tp __clear_padding_value(_Tp __value) _NOEXCEPT {
 #  if __has_builtin(__builtin_clear_padding)
     if (!__libcpp_is_constant_evaluated())
       __builtin_clear_padding(std::addressof(__value));
@@ -81,8 +88,8 @@ private:
       _Tp __desired,
       bool __is_weak,
       memory_order __success,
-      memory_order __failure) noexcept {
-    if constexpr (
+      memory_order __failure) _NOEXCEPT {
+    _LIBCPP_ATOMIC_IF_CONSTEXPR (
 #  if __has_builtin(__builtin_clear_padding)
         __has_unique_object_representations(_Tp) || is_floating_point<_Tp>::value
 #  else
