@@ -20,10 +20,21 @@
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
 #include "clang/Sema/Ownership.h"
 #include "clang/Sema/ParsedAttr.h"
+#include "clang/Sema/SemaCodeCompletion.h"
 using namespace clang;
 
 ExprResult Parser::ParseCXXReflectExpression(SourceLocation OpLoc) {
   SourceLocation OperandLoc = Tok.getLocation();
+
+  // '^^' followed by the completion point (or by a prefix of a name): offer the
+  // names that can be reflected. Without this the operand is parsed as a name
+  // that does not exist and only the recovery completion is produced, which
+  // clangd ignores.
+  if (Tok.is(tok::code_completion)) {
+    cutOffParsing();
+    Actions.CodeCompletion().CodeCompleteReflectOperand(getCurScope());
+    return ExprError();
+  }
 
   Sema::ConstevalOnlyRecorder RecordConstevalOnly(Actions);
   EnterExpressionEvaluationContext EvalContext(

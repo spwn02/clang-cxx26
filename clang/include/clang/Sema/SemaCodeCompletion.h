@@ -102,6 +102,10 @@ public:
                             bool IsTrailingReturnType = false);
 
   struct CodeCompleteExpressionData;
+  /// Completion of the operand of the reflection operator ^^: any name that
+  /// can be reflected (namespaces, types, templates, functions, variables,
+  /// enumerators, members) and the keywords of builtin types.
+  void CodeCompleteReflectOperand(Scope *S);
   void CodeCompleteExpression(Scope *S, const CodeCompleteExpressionData &Data);
   void CodeCompleteExpression(Scope *S, QualType PreferredType,
                               bool IsParenthesized = false);

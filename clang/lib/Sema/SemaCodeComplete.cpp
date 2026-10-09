@@ -5215,6 +5215,26 @@ void SemaCodeCompletion::CodeCompleteExpression(
                             Results.size());
 }
 
+void SemaCodeCompletion::CodeCompleteReflectOperand(Scope *S) {
+  ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
+                        CodeCompleter->getCodeCompletionTUInfo(),
+                        CodeCompletionContext::CCC_Expression);
+  Results.setFilter(&ResultBuilder::IsOrdinaryName);
+
+  CodeCompletionDeclConsumer Consumer(Results, SemaRef.CurContext);
+  SemaRef.LookupVisibleDecls(S, Sema::LookupOrdinaryName, Consumer,
+                             CodeCompleter->includeGlobals(),
+                             CodeCompleter->loadExternal());
+
+  Results.EnterNewScope();
+  AddTypeSpecifierResults(getLangOpts(), Results);
+  Results.ExitScope();
+
+  HandleCodeCompleteResults(&SemaRef, CodeCompleter,
+                            Results.getCompletionContext(), Results.data(),
+                            Results.size());
+}
+
 void SemaCodeCompletion::CodeCompleteExpression(Scope *S,
                                                 QualType PreferredType,
                                                 bool IsParenthesized) {
