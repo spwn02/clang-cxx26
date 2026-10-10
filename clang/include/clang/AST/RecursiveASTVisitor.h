@@ -3184,7 +3184,6 @@ DEF_TRAVERSE_STMT(CXXReflectExpr, {
     // it here doesn't lose that, any more than an ordinary call expression
     // loses it for the function it calls.
     case ReflectionKind::Declaration:
-    case ReflectionKind::EntityProxy:
     case ReflectionKind::Parameter:
     case ReflectionKind::Null:
     case ReflectionKind::Object:
@@ -3192,7 +3191,6 @@ DEF_TRAVERSE_STMT(CXXReflectExpr, {
     case ReflectionKind::Namespace:
     case ReflectionKind::BaseSpecifier:
     case ReflectionKind::DataMemberSpec:
-    case ReflectionKind::Attribute:
       break;
     }
   }

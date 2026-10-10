@@ -28,12 +28,10 @@
 #include "clang/AST/Reflection.h"
 #include "clang/AST/ReflectionEvaluationContext.h"
 #include "clang/AST/Type.h"
-#include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Basic/DiagnosticMetafn.h"
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
-#include "clang/Sema/ParsedAttr.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -148,11 +146,6 @@ static bool underlying_entity_of(APValue &Result, ASTContext &C,
                                  QualType ResultTy, SourceRange Range,
                                  ArrayRef<Expr *> Args, Decl *ContainingDecl);
 
-static bool proxied_entity_of(APValue &Result, ASTContext &C, MetaActions &Meta,
-                              EvalFn Evaluator, DiagFn Diagnoser,
-                              bool AllowInjection, QualType ResultTy,
-                              SourceRange Range, ArrayRef<Expr *> Args,
-                              Decl *ContainingDecl);
 
 static bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
                         EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
@@ -387,11 +380,6 @@ static bool is_alias(APValue &Result, ASTContext &C, MetaActions &Meta,
                      QualType ResultTy, SourceRange Range,
                      ArrayRef<Expr *> Args, Decl *ContainingDecl);
 
-static bool is_entity_proxy(APValue &Result, ASTContext &C, MetaActions &Meta,
-                            EvalFn Evaluator, DiagFn Diagnoser,
-                            bool AllowInjection, QualType ResultTy,
-                            SourceRange Range, ArrayRef<Expr *> Args,
-                            Decl *ContainingDecl);
 
 // An injected definition can exist in the AST without its synthesized point
 // belonging to the active evaluation context ([expr.const.reflect]).
@@ -625,35 +613,11 @@ static bool data_member_spec(APValue &Result, ASTContext &C, MetaActions &Meta,
                              SourceRange Range, ArrayRef<Expr *> Args,
                              Decl *ContainingDecl);
 
-static bool enumerator_spec(APValue &Result, ASTContext &C, MetaActions &Meta,
-                             EvalFn Evaluator, DiagFn Diagnoser,
-                             bool AllowInjection, QualType ResultTy,
-                             SourceRange Range, ArrayRef<Expr *> Args,
-                             Decl *ContainingDecl);
-
-static bool is_enumerator_spec(APValue &Result, ASTContext &C,
-                                MetaActions &Meta, EvalFn Evaluator,
-                                DiagFn Diagnoser, bool AllowInjection,
-                                QualType ResultTy, SourceRange Range,
-                                ArrayRef<Expr *> Args, Decl *ContainingDecl);
-
 static bool define_aggregate(APValue &Result, ASTContext &C, MetaActions &Meta,
                              EvalFn Evaluator, DiagFn Diagnoser,
                              bool AllowInjection, QualType ResultTy,
                              SourceRange Range, ArrayRef<Expr *> Args,
                              Decl *ContainingDecl);
-
-static bool define_enum(APValue &Result, ASTContext &C, MetaActions &Meta,
-                             EvalFn Evaluator, DiagFn Diagnoser,
-                             bool AllowInjection, QualType ResultTy,
-                             SourceRange Range, ArrayRef<Expr *> Args,
-                             Decl *ContainingDecl);
-
-static bool define_unscoped_enum(APValue &Result, ASTContext &C,
-                             MetaActions &Meta, EvalFn Evaluator,
-                             DiagFn Diagnoser, bool AllowInjection,
-                             QualType ResultTy, SourceRange Range,
-                             ArrayRef<Expr *> Args, Decl *ContainingDecl);
 
 static bool offset_of(APValue &Result, ASTContext &C, MetaActions &Meta,
                       EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
@@ -749,65 +713,7 @@ static bool is_annotation(APValue &Result, ASTContext &C, MetaActions &Meta,
                           Decl *ContainingDecl);
 
 // -----------------------------------------------------------------------------
-// P3385 Metafunction declarations
-// -----------------------------------------------------------------------------
-
-static bool get_ith_attribute_of(APValue &Result, ASTContext &C,
-                                 MetaActions &Meta, EvalFn Evaluator,
-                                 DiagFn Diagnoser, bool AllowInjection,
-                                 QualType ResultTy, SourceRange Range,
-                                 ArrayRef<Expr *> Args, Decl *ContainingDecl);
-static bool is_unscoped_attribute(APValue &Result, ASTContext &C,
-                                  MetaActions &Meta, EvalFn Evaluator,
-                                  DiagFn Diagnoser, bool AllowInjection,
-                                  QualType ResultTy, SourceRange Range,
-                                  ArrayRef<Expr *> Args, Decl *ContainingDecl);
-static bool is_clang_attribute(APValue &Result, ASTContext &C,
-                               MetaActions &Meta, EvalFn Evaluator,
-                               DiagFn Diagnoser, bool AllowInjection,
-                               QualType ResultTy, SourceRange Range,
-                               ArrayRef<Expr *> Args, Decl *ContainingDecl);
-static bool is_gcc_attribute(APValue &Result, ASTContext &C,
-                             MetaActions &Meta, EvalFn Evaluator,
-                             DiagFn Diagnoser, bool AllowInjection,
-                             QualType ResultTy, SourceRange Range,
-                             ArrayRef<Expr *> Args, Decl *ContainingDecl);
-static bool is_msvc_attribute(APValue &Result, ASTContext &C,
-                              MetaActions &Meta, EvalFn Evaluator,
-                              DiagFn Diagnoser, bool AllowInjection,
-                              QualType ResultTy, SourceRange Range,
-                              ArrayRef<Expr *> Args, Decl *ContainingDecl);
-static bool is_attribute(APValue &Result, ASTContext &C,
-                         MetaActions &Meta, EvalFn Evaluator,
-                         DiagFn Diagnoser, bool AllowInjection,
-                         QualType ResultTy, SourceRange Range,
-                         ArrayRef<Expr *> Args, Decl *ContainingDecl);
-
-static bool has_attribute(APValue &Result, ASTContext &C,
-                         MetaActions &Meta, EvalFn Evaluator,
-                         DiagFn Diagnoser, bool AllowInjection,
-                         QualType ResultTy, SourceRange Range,
-                         ArrayRef<Expr *> Args, Decl *ContainingDecl);
-
-static bool has_attribute_namespace(APValue &Result, ASTContext &C,
-                         MetaActions &Meta, EvalFn Evaluator,
-                         DiagFn Diagnoser, bool AllowInjection,
-                         QualType ResultTy, SourceRange Range,
-                         ArrayRef<Expr *> Args, Decl *ContainingDecl);
-
-static bool attribute_token_of(APValue &Result, ASTContext &C,
-                         MetaActions &Meta, EvalFn Evaluator,
-                         DiagFn Diagnoser, bool AllowInjection,
-                         QualType ResultTy, SourceRange Range,
-                         ArrayRef<Expr *> Args, Decl *ContainingDecl);
-
-static bool attribute_namespace_of(APValue &Result, ASTContext &C,
-                         MetaActions &Meta, EvalFn Evaluator,
-                         DiagFn Diagnoser, bool AllowInjection,
-                         QualType ResultTy, SourceRange Range,
-                         ArrayRef<Expr *> Args, Decl *ContainingDecl);
-
-                          // =========================
+// =========================
                           // Accessibility API (P3493)
                           // =========================
 
@@ -882,10 +788,6 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_metaInfo, 3, 3, get_next_member_decl_of, true },
   { Metafunction::MFRK_bool, 1, 1, is_structural_type },
   { Metafunction::MFRK_metaInfo, 1, 1, map_decl_to_entity },
-  { Metafunction::MFRK_bool, 1, 1, is_unscoped_attribute },
-  { Metafunction::MFRK_bool, 1, 1, is_clang_attribute },
-  { Metafunction::MFRK_bool, 1, 1, is_msvc_attribute },
-  { Metafunction::MFRK_bool, 1, 1, is_gcc_attribute },
 
   // exposed metafunctions
   { Metafunction::MFRK_spliceFromArg, 5, 5, identifier_of, true },
@@ -896,7 +798,6 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_metaInfo, 2, 2, parent_of, true },
   { Metafunction::MFRK_bool, 1, 1, has_parent },
   { Metafunction::MFRK_metaInfo, 2, 2, underlying_entity_of, true },
-  { Metafunction::MFRK_metaInfo, 1, 1, proxied_entity_of },
   { Metafunction::MFRK_metaInfo, 2, 2, object_of, true },
   { Metafunction::MFRK_metaInfo, 2, 2, constant_of, true },
   { Metafunction::MFRK_metaInfo, 1, 1, template_of },
@@ -938,7 +839,6 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 1, 1, is_variable },
   { Metafunction::MFRK_bool, 1, 1, is_type },
   { Metafunction::MFRK_bool, 1, 1, is_alias },
-  { Metafunction::MFRK_bool, 1, 1, is_entity_proxy },
   { Metafunction::MFRK_bool, 1, 1, is_complete_type },
   { Metafunction::MFRK_bool, 1, 1, has_complete_definition },
   { Metafunction::MFRK_bool, 1, 1, is_enumerable_type },
@@ -972,11 +872,8 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 1, 1, is_user_provided },
   { Metafunction::MFRK_bool, 1, 1, is_user_declared },
   { Metafunction::MFRK_metaInfo, 3, 3, reflect_result, true },
-  { Metafunction::MFRK_metaInfo, 15, 15, data_member_spec, true },
-  { Metafunction::MFRK_metaInfo, 8, 8, enumerator_spec, true },
-  { Metafunction::MFRK_bool, 1, 1, is_enumerator_spec },
+  { Metafunction::MFRK_metaInfo, 13, 13, data_member_spec, true },
   { Metafunction::MFRK_metaInfo, 3, 3, define_aggregate },
-  { Metafunction::MFRK_metaInfo, 3, 3, define_enum },
   { Metafunction::MFRK_spliceFromArg, 2, 2, offset_of },
   { Metafunction::MFRK_sizeT, 1, 1, size_of },
   { Metafunction::MFRK_spliceFromArg, 2, 2, bit_offset_of },
@@ -997,13 +894,6 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_metaInfo, 4, 4, get_ith_annotation_of, true },
   { Metafunction::MFRK_bool, 1, 1, is_annotation },
 
-  // P3385 attributes reflection
-  { Metafunction::MFRK_metaInfo, 3, 3, get_ith_attribute_of },
-  { Metafunction::MFRK_bool, 1, 1, is_attribute },
-  { Metafunction::MFRK_bool, 3, 3, has_attribute, true },
-  { Metafunction::MFRK_bool, 1, 1, has_attribute_namespace },
-  { Metafunction::MFRK_spliceFromArg, 3, 3, attribute_token_of },
-  { Metafunction::MFRK_spliceFromArg, 3, 3, attribute_namespace_of },
 
   // P3493 accessibility extensions
   { Metafunction::MFRK_metaInfo, 0, 0, current_access_context },
@@ -1016,8 +906,6 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 1, 1, is_access_specified },
   { Metafunction::MFRK_metaInfo, 5, 5, reflect_invoke },
 
-  // P4033 extension: completing unscoped (C-style) enums
-  { Metafunction::MFRK_metaInfo, 3, 3, define_unscoped_enum },
 
   { Metafunction::MFRK_bool, 1, 1, is_closure_type },
   { Metafunction::MFRK_bool, 1, 1, is_string_literal },
@@ -1083,8 +971,6 @@ static APValue makeReflection(Decl *D) {
     return APValue(ReflectionKind::Namespace, D);
   else if (isa<TemplateDecl>(D))
     return APValue(ReflectionKind::Template, D);
-  else if (isa<UsingShadowDecl>(D))
-    return APValue(ReflectionKind::EntityProxy, D);
   else if (isa<ParmVarDecl>(D))
     return APValue(ReflectionKind::Parameter, D);
 
@@ -1103,16 +989,8 @@ static APValue makeReflection(TagDataMemberSpec *TDMS) {
   return APValue(ReflectionKind::DataMemberSpec, TDMS);
 }
 
-static APValue makeReflection(EnumeratorSpec *EMS) {
-  return APValue(ReflectionKind::EnumeratorSpec, EMS);
-}
-
 static APValue makeReflection(CXX26AnnotationAttr *A) {
   return APValue(ReflectionKind::Annotation, A);
-}
-
-static APValue makeReflection(const ParsedAttr * Attr) {
-  return APValue(ReflectionKind::Attribute, Attr);
 }
 
 static Expr *makeStrLiteral(StringRef Str, ASTContext &C, bool Utf8) {
@@ -1325,15 +1203,6 @@ static bool findAnnotLoc(APValue &Result, ASTContext &C, EvalFn Evaluator,
   SourceLocExpr *SLE =
           new (C) SourceLocExpr(C, SourceLocIdentKind::SourceLocStruct,
                                 ResultTy, A->getEqLoc(), SourceLocation(),
-                                nullptr);
-  return !Evaluator(Result, SLE, true);
-}
-
-static bool findAttrLoc(APValue &Result, ASTContext &C, EvalFn Evaluator,
-                         QualType ResultTy, AttributeCommonInfo *A) {
-  SourceLocExpr *SLE =
-          new (C) SourceLocExpr(C, SourceLocIdentKind::SourceLocStruct,
-                                ResultTy, A->getLoc(), SourceLocation(),
                                 nullptr);
   return !Evaluator(Result, SLE, true);
 }
@@ -1578,9 +1447,6 @@ static bool isReflectableDecl(MetaActions &Meta, ASTContext &C, Decl *D) {
            UsingShadowDecl>(D))
     return false;
 
-  if (isa<UsingShadowDecl>(D) && !C.getLangOpts().EntityProxyReflection)
-    return false;
-
   if (auto *Class = dyn_cast<CXXRecordDecl>(D))
     if (Class->isInjectedClassName() || Class->isLambda())
       return false;
@@ -1798,30 +1664,6 @@ QualType ComputeResultType(QualType ExprTy, const APValue &V) {
                      /*DropRefs=*/true);
 }
 
-static APValue MaybeUnproxy(ASTContext &C, APValue RV, bool Dealias = true) {
-  assert(RV.isReflection());
-
-  if (!RV.isReflectedEntityProxy())
-    return RV;
-
-  NamedDecl *ND = RV.getReflectedEntityProxy()->getTargetDecl();
-  ND = cast<NamedDecl>(ND->getCanonicalDecl());
-
-  if (auto *T = dyn_cast<TypeDecl>(ND)) {
-    QualType QT = C.getTypeDeclType(T);
-    if (Dealias)
-      QT = desugarType(QT, /*UnwrapAlias=*/true, /*DropCV=*/false,
-                       /*DropRefs=*/false);
-
-    return APValue(ReflectionKind::Type, QT.getAsOpaquePtr());
-  } else if (auto *T = dyn_cast<TemplateDecl>(ND)) {
-    return APValue(ReflectionKind::Template, T);
-  }
-
-  return APValue(ReflectionKind::Declaration, ND);
-}
-
-
 // -----------------------------------------------------------------------------
 // Diagnostic helper function
 // -----------------------------------------------------------------------------
@@ -1900,9 +1742,6 @@ StringRef DescriptionOf(APValue RV, bool Granular = true) {
     else if (isa<NamespaceDecl>(D)) return "a namespace";
     llvm_unreachable("unhandled namespace kind");
   }
-  case ReflectionKind::EntityProxy: {
-    return "an entity proxy";
-  }
   case ReflectionKind::BaseSpecifier: {
     return "a base class specifier";
   }
@@ -1914,9 +1753,6 @@ StringRef DescriptionOf(APValue RV, bool Granular = true) {
   }
   case ReflectionKind::Annotation: {
     return "an annotation";
-  }
-  case ReflectionKind::Attribute: {
-    return "an attribute";
   }
   }
 }
@@ -1934,430 +1770,9 @@ bool DiagnoseReflectionKind(DiagFn Diagnoser, SourceRange Range,
   return true;
 }
 
-llvm::SmallVector<const Attr*, 8> static collectUniqueCxx11Attrs(const Decl *D) {
-  llvm::SmallVector<const Attr*, 8> Result;
-  llvm::SmallSet<std::string, 8> SeenKinds;
-
-  for (const Decl *RD : D->redecls()) {
-    if (!RD->hasAttrs()) {
-      continue;
-    }
-    for (const Attr *A : RD->getAttrs()) {
-      if (!isAttributeWithReflectableVariant(A->getParsedKind())) {
-        continue;
-      }
-
-      if (SeenKinds.insert(std::string(A->getSpelling())).second) {
-        Result.push_back(A);
-      }
-    }
-  }
-
-  return Result;
-}
-
-struct AttributeScratchpad {
-  AttributeFactory factory;
-  AttributePool pool;
-  AttributeScratchpad() : factory(), pool(factory) {}
-};
-
 // -----------------------------------------------------------------------------
 // Metafunction implementations
 // -----------------------------------------------------------------------------
-
-bool has_attribute_namespace(APValue &Result, ASTContext &C,
-                         MetaActions &Meta, EvalFn Evaluator,
-                         DiagFn Diagnoser, bool AllowInjection,
-                         QualType ResultTy, SourceRange Range,
-                         ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  assert(Args[0]->getType()->isReflectionType());
-  assert(ResultTy == C.BoolTy);
-  APValue RV;
-  if (!Evaluator(RV, Args[0], true))
-    return true;
-  if (RV.getReflectionKind() != ReflectionKind::Attribute) {
-    return SetAndSucceed(Result, makeBool(C, false));
-  }
-  ParsedAttr *attr = RV.getReflectedAttribute();
-
-  return SetAndSucceed(
-    Result,
-    makeBool(C, attr->getForm().getSyntax() == AttributeCommonInfo::Syntax::AS_CXX11 && attr->hasScope())
-  );
-}
-
-bool attribute_namespace_of(APValue &Result, ASTContext &C,
-                         MetaActions &Meta, EvalFn Evaluator,
-                         DiagFn Diagnoser, bool AllowInjection,
-                         QualType ResultTy, SourceRange Range,
-                         ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  assert(Args[0]->getType()->isReflectionType());
-
-  APValue RV;
-  if (!Evaluator(RV, Args[1], true))
-    return true;
-
-  bool IsUtf8;
-  {
-    APValue Scratch;
-    if (!Evaluator(Scratch, Args[2], true))
-      return true;
-    IsUtf8 = Scratch.getInt().getBoolValue();
-  }
-
-  if (RV.getReflectionKind() != ReflectionKind::Attribute)
-    return DiagnoseReflectionKind(Diagnoser, Range, "an attribute", DescriptionOf(RV));
-
-  auto name(RV.getReflectedAttribute()->getNormalizedScopeName());
-  if (name.empty())
-    return Diagnoser(Range.getBegin(), diag::metafn_anonymous_entity) << DescriptionOf(RV) << Range;
-
-  Expr *StrLit = makeStrLiteral(name, C, IsUtf8);
-  APValue::LValuePathEntry Path[1] = {APValue::LValuePathEntry::ArrayIndex(0)};
-  return SetAndSucceed(Result, APValue(StrLit, CharUnits::Zero(), Path, false));
-}
-
-bool attribute_token_of(APValue &Result, ASTContext &C,
-                         MetaActions &Meta, EvalFn Evaluator,
-                         DiagFn Diagnoser, bool AllowInjection,
-                         QualType ResultTy, SourceRange Range,
-                         ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  assert(Args[0]->getType()->isReflectionType());
-
-  APValue RV;
-  if (!Evaluator(RV, Args[1], true))
-    return true;
-
-  bool IsUtf8;
-  {
-    APValue Scratch;
-    if (!Evaluator(Scratch, Args[2], true))
-      return true;
-    IsUtf8 = Scratch.getInt().getBoolValue();
-  }
-
-  if (RV.getReflectionKind() != ReflectionKind::Attribute)
-    return DiagnoseReflectionKind(Diagnoser, Range, "an attribute", DescriptionOf(RV));
-
-  auto name(RV.getReflectedAttribute()->getAttrName()->getName());
-  if (name.empty())
-    return Diagnoser(Range.getBegin(), diag::metafn_anonymous_entity) << DescriptionOf(RV) << Range;
-
-  Expr *StrLit = makeStrLiteral(name, C, IsUtf8);
-  APValue::LValuePathEntry Path[1] = {APValue::LValuePathEntry::ArrayIndex(0)};
-  return SetAndSucceed(Result, APValue(StrLit, CharUnits::Zero(), Path, false));
-}
-
-bool is_unscoped_attribute(APValue &Result, ASTContext &C,
-                         MetaActions &Meta, EvalFn Evaluator,
-                         DiagFn Diagnoser, bool AllowInjection,
-                         QualType ResultTy, SourceRange Range,
-                         ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  assert(Args[0]->getType()->isReflectionType());
-  assert(ResultTy == C.BoolTy);
-  APValue RV;
-  if (!Evaluator(RV, Args[0], true))
-    return true;
-  if (RV.getReflectionKind() != ReflectionKind::Attribute) {
-    return SetAndSucceed(Result, makeBool(C, false));
-  }
-  ParsedAttr *attr = RV.getReflectedAttribute();
-  const bool isClang = attr->getForm().getSyntax() == AttributeCommonInfo::Syntax::AS_CXX11
-    && !attr->hasScope();
-  return SetAndSucceed(Result, makeBool(C, isClang));
-}
-
-bool is_clang_attribute(APValue &Result, ASTContext &C,
-                      MetaActions &Meta, EvalFn Evaluator,
-                      DiagFn Diagnoser, bool AllowInjection,
-                      QualType ResultTy, SourceRange Range,
-                      ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  assert(Args[0]->getType()->isReflectionType());
-  assert(ResultTy == C.BoolTy);
-  APValue RV;
-  if (!Evaluator(RV, Args[0], true))
-    return true;
-  if (RV.getReflectionKind() != ReflectionKind::Attribute) {
-    return SetAndSucceed(Result, makeBool(C, false));
-  }
-  ParsedAttr *attr = RV.getReflectedAttribute();
-  const bool isClang = attr->getForm().getSyntax() == AttributeCommonInfo::Syntax::AS_CXX11
-    && attr->isClangScope();
-  return SetAndSucceed(Result, makeBool(C, isClang));
-}
-
-bool is_gcc_attribute(APValue &Result, ASTContext &C,
-                    MetaActions &Meta, EvalFn Evaluator,
-                    DiagFn Diagnoser, bool AllowInjection,
-                    QualType ResultTy, SourceRange Range,
-                    ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  assert(Args[0]->getType()->isReflectionType());
-  assert(ResultTy == C.BoolTy);
-  APValue RV;
-  if (!Evaluator(RV, Args[0], true))
-    return true;
-  if (RV.getReflectionKind() != ReflectionKind::Attribute) {
-    return SetAndSucceed(Result, makeBool(C, false));
-  }
-  ParsedAttr *attr = RV.getReflectedAttribute();
-  const bool isGnu = attr->getForm().getSyntax() == AttributeCommonInfo::Syntax::AS_CXX11
-    && attr->isGNUScope();
-  return SetAndSucceed(Result, makeBool(C, isGnu));
-}
-
-bool is_msvc_attribute(APValue &Result, ASTContext &C,
-                    MetaActions &Meta, EvalFn Evaluator,
-                    DiagFn Diagnoser, bool AllowInjection,
-                    QualType ResultTy, SourceRange Range,
-                    ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  assert(Args[0]->getType()->isReflectionType());
-  assert(ResultTy == C.BoolTy);
-  APValue RV;
-  if (!Evaluator(RV, Args[0], true))
-    return true;
-  if (RV.getReflectionKind() != ReflectionKind::Attribute) {
-    return SetAndSucceed(Result, makeBool(C, false));
-  }
-  ParsedAttr *attr = RV.getReflectedAttribute();
-  const bool isGnu = attr->getForm().getSyntax() == AttributeCommonInfo::Syntax::AS_CXX11
-    && attr->isMsvcScope();
-  return SetAndSucceed(Result, makeBool(C, isGnu));
-}
-
-// Synthesize back a ParsedAttr from an Attr, the best I can...
-// Return a nullptr if the process met an error
-static const ParsedAttr* toSyntacticForm(const Attr* val, ASTContext * C) {
-  static AttributeScratchpad scratchpad;
-  ParsedAttr * recoveredAttr = nullptr;
-  auto onArgs = [&](
-      IdentifierInfo * attrName,
-      SmallVector<llvm::PointerUnion<Expr *, IdentifierLoc *>, 2> argExprs,
-      SmallVector<void *, 2> typeArgs,
-      AttributeCommonInfo::Form /* Do we need this fed back to us at all ?...*/
-    ) {
-      AttributeScopeInfo scope;
-      if (val->hasScope())
-        scope = AttributeScopeInfo(val->getScopeName(), val->getLoc());
-      if (!typeArgs.empty() && argExprs.size() == 1 && argExprs[0].isNull()) {
-        ParsedType pt = ParsedType::getFromOpaquePtr(typeArgs[0]);
-        recoveredAttr = scratchpad.pool.createTypeAttribute(
-          attrName, val->getRange(), scope, pt, val->getForm(),
-          SourceLocation());
-      } else {
-        recoveredAttr = scratchpad.pool.create(
-          attrName, val->getRange(), scope,
-          argExprs.data(), argExprs.size(), val->getForm());
-      }
-      return recoveredAttr != nullptr;
-    };
-    // FIXME why is this not just returning the vector of args...
-    // Did I worry about lifetime... ?
-    if (!extractSyntacticArguments(val, *C, onArgs, val->getLocation())) {
-      recoveredAttr = nullptr;
-    }
-    return recoveredAttr;
-}
-
-enum class AttributeComparison : int64_t {
-  /* 0 = include all */
-  IgnoreNamespace = 1 << 1, // Namespace is ignored during the comparison
-  IgnoreArgument  = 1 << 2, // The argument is ignored during the comparison
-};
-
-bool has_attribute(APValue &Result, ASTContext &C,
-                  MetaActions &Meta, EvalFn Evaluator,
-                  DiagFn Diagnoser, bool AllowInjection,
-                  QualType ResultTy, SourceRange Range,
-                  ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  APValue RV;
-
-  assert(ResultTy == C.BoolTy);
-
-  // Policy
-  assert(Args[2]->getType()->isIntegralOrEnumerationType());
-  if (!Evaluator(RV, Args[2], true)) {
-    return true;
-  }
-  const int64_t policy = RV.getInt().getExtValue();
-  const bool isContributingNamespace = (policy & static_cast<int64_t>(AttributeComparison::IgnoreNamespace)) == 0;
-  const bool isContributingArgument = (policy & static_cast<int64_t>(AttributeComparison::IgnoreArgument)) == 0;
-
-  // Attribute to look for
-  assert(Args[1]->getType()->isReflectionType());
-  if (!Evaluator(RV, Args[1], true)) {
-    return true;
-  }
-  if (RV.getReflectionKind() != ReflectionKind::Attribute) {
-    return DiagnoseReflectionKind(Diagnoser, Range, "an attribute",
-                                  DescriptionOf(RV));
-  }
-  const ParsedAttr* testAttr = RV.getReflectedAttribute();
-
-  // Entity to inspect
-  assert(Args[0]->getType()->isReflectionType());
-  if (!Evaluator(RV, Args[0], true)) {
-    return true;
-  }
-
-  auto findMatchingAttribute = [&](Decl* decl, const ParsedAttr* testAttr) -> bool {
-    llvm::FoldingSetNodeID providedAttrID;
-    testAttr->profile(providedAttrID, isContributingNamespace, isContributingArgument);
-
-    auto cxx11Attrs = collectUniqueCxx11Attrs(decl);
-    if (cxx11Attrs.empty()) {
-      return false;
-    }
-    for (const auto * val : cxx11Attrs) {
-      assert(val);
-      const ParsedAttr * recoveredAttr = toSyntacticForm(val, &C);
-      llvm::FoldingSetNodeID recoveredAttrID;
-      recoveredAttr->profile(recoveredAttrID, isContributingNamespace, isContributingArgument);
-      if (recoveredAttrID == providedAttrID) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  switch (RV.getReflectionKind()) {
-    default: return DiagnoseReflectionKind(Diagnoser, Range, "variable, attribute, function, namespace", DescriptionOf(RV));
-    case ReflectionKind::Attribute: { // Somewhat useless...
-      llvm::FoldingSetNodeID testAttrID;
-      testAttr->profile(testAttrID);
-      const ParsedAttr* reflectedAttr = RV.getReflectedAttribute();
-      llvm::FoldingSetNodeID reflectedAttrID;
-      reflectedAttr->profile(reflectedAttrID);
-
-      return SetAndSucceed(Result, makeBool(C, reflectedAttrID == testAttrID));
-    }
-    case ReflectionKind::Type: {
-      QualType qType = RV.getReflectedType();
-      Decl *D = findTypeDecl(qType)->getMostRecentDecl();
-      if (!D) {
-        return Diagnoser(Range.getBegin(), diag::metafn_p3385_no_declaration_for_type)
-          << DescriptionOf(RV);
-      }
-      return SetAndSucceed(Result, makeBool(C, findMatchingAttribute(D, testAttr)));
-    }
-    case ReflectionKind::Declaration: {
-      ValueDecl *D = RV.getReflectedDecl();
-      if (!D) {
-        return DiagnoseReflectionKind(
-          Diagnoser, Range, "attribute, type, declaration", DescriptionOf(RV));
-      }
-      return SetAndSucceed(Result, makeBool(C, findMatchingAttribute(D, testAttr)));
-    }
-    case ReflectionKind::Namespace: {
-      Decl* D = RV.getReflectedNamespace()->getMostRecentDecl();
-      if (!D) {
-        return DiagnoseReflectionKind(
-          Diagnoser, Range, "attribute, type, declaration", DescriptionOf(RV));
-      }
-      return SetAndSucceed(Result, makeBool(C, findMatchingAttribute(D, testAttr)));
-    }
-  }
-}
-
-bool get_ith_attribute_of(APValue &Result, ASTContext &C,
-                          MetaActions &Meta, EvalFn Evaluator,
-                          DiagFn Diagnoser, bool AllowInjection,
-                          QualType ResultTy, SourceRange Range,
-                          ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  assert(Args[0]->getType()->isReflectionType());
-  assert(ResultTy == C.MetaInfoTy);
-
-  APValue RV;
-  if (!Evaluator(RV, Args[0], true))
-    return true;
-
-  APValue Sentinel;
-  if (!Evaluator(Sentinel, Args[1], true))
-    return true;
-  assert(Sentinel.isReflectedType());
-
-  APValue Idx;
-  if (!Evaluator(Idx, Args[2], true))
-    return true;
-  size_t idx = Idx.getInt().getExtValue();
-
-  auto buildIthParsedAttrFromDecl = [&](size_t i, Decl* decl, const ParsedAttr* &result) -> bool {
-    auto cxx11Attrs = collectUniqueCxx11Attrs(decl);
-    if (i + 1 > cxx11Attrs.size()) {
-      result = nullptr;
-      return true;
-    }
-    const Attr * val = cxx11Attrs[i];
-    assert(val);
-    result = toSyntacticForm(val, &C);
-    return result != nullptr;
-  };
-
-  switch (RV.getReflectionKind()) {
-    default: return DiagnoseReflectionKind(Diagnoser, Range, "variable, attribute, function, namespace", DescriptionOf(RV));
-    case ReflectionKind::Attribute: {
-      if (idx != 0) {
-        return SetAndSucceed(Result, Sentinel);
-      }
-      ParsedAttr *attr = RV.getReflectedAttribute();
-      if (attr->getForm().getSyntax() == AttributeCommonInfo::Syntax::AS_CXX11) {
-        return SetAndSucceed(Result, makeReflection(attr));
-      }
-      return Diagnoser(Range.getBegin(), diag::metafn_p3385_non_standard_attribute)
-        << attr->getAttrName();
-    }
-    case ReflectionKind::Type: {
-      QualType qType = RV.getReflectedType();
-      Decl *D = findTypeDecl(qType);
-      if (!D) {
-        return Diagnoser(Range.getBegin(), diag::metafn_p3385_no_declaration_for_type)
-          << DescriptionOf(RV);
-      }
-
-      if (const ParsedAttr* fetchedAttribute{}; buildIthParsedAttrFromDecl(idx, D, fetchedAttribute)) {
-        if (fetchedAttribute) {
-          return SetAndSucceed(Result, makeReflection(fetchedAttribute));
-        }
-        // Reached the end
-        return SetAndSucceed(Result, Sentinel);
-      }
-      return true;
-    }
-    case ReflectionKind::Declaration: {
-      ValueDecl *D = RV.getReflectedDecl();
-      if (!D) {
-        return DiagnoseReflectionKind(
-          Diagnoser, Range, "attribute, type, variable, namespace", DescriptionOf(RV));
-      }
-
-      if (const ParsedAttr* fetchedAttribute{}; buildIthParsedAttrFromDecl(idx, D, fetchedAttribute)) {
-        if (fetchedAttribute) {
-          return SetAndSucceed(Result, makeReflection(fetchedAttribute));
-        }
-        return SetAndSucceed(Result, Sentinel);
-      }
-      return true;
-    }
-    case ReflectionKind::Namespace: {
-      Decl* D = RV.getReflectedNamespace();
-      if (!D) {
-        return DiagnoseReflectionKind(
-          Diagnoser, Range, "attribute, type, variable, namespace", DescriptionOf(RV));
-      }
-      if (const ParsedAttr* fetchedAttribute{}; buildIthParsedAttrFromDecl(idx, D, fetchedAttribute)) {
-        if (fetchedAttribute) {
-          return SetAndSucceed(Result, makeReflection(fetchedAttribute));
-        }
-        return SetAndSucceed(Result, Sentinel);
-      }
-      return true;
-    }
-    case ReflectionKind::Null:
-      return Diagnoser(Range.getBegin(), diag::metafn_p3385_attributes_of_null) << Range;
-  }
-  llvm_unreachable("unknown reflection kind");
-  return false;
-}
 
 bool get_begin_enumerator_decl_of(APValue &Result, ASTContext &C,
                                   MetaActions &Meta, EvalFn Evaluator,
@@ -2395,11 +1810,10 @@ bool get_begin_enumerator_decl_of(APValue &Result, ASTContext &C,
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Annotation: {
     return DiagnoseReflectionKind(Diagnoser, Range, "an enum type",
                                   DescriptionOf(RV));
@@ -2439,11 +1853,10 @@ bool get_next_enumerator_decl_of(APValue &Result, ASTContext &C,
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Annotation: {
     llvm_unreachable("should have failed in 'get_begin_enumerator_decl_of'");
   }
@@ -2503,12 +1916,11 @@ bool get_ith_base_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return DiagnoseReflectionKind(Diagnoser, Range, "a class type",
                                   DescriptionOf(RV));
   }
@@ -2566,12 +1978,11 @@ bool get_ith_template_argument_of(APValue &Result, ASTContext &C,
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return DiagnoseReflectionKind(Diagnoser, Range, "a template specialization",
                                   DescriptionOf(RV));
   }
@@ -2656,7 +2067,6 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   }
   case ReflectionKind::Null:
   case ReflectionKind::Declaration:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::Template:
   case ReflectionKind::Object:
@@ -2664,7 +2074,7 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return Meta.ThrowMetaException(Range.getBegin(),
                                    "invalid reflection operand");
   }
@@ -2766,7 +2176,6 @@ bool identifier_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     EnforceConsistent = Scratch.getInt().getBoolValue();
   }
 
-  RV = MaybeUnproxy(C, RV, /*Dealias=*/false);
 
   std::string Name;
   switch (RV.getReflectionKind()) {
@@ -2864,15 +2273,6 @@ bool identifier_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     }
     break;
   }
-  case ReflectionKind::Attribute: {
-    const ParsedAttr *A = RV.getReflectedAttribute();
-    if (const IdentifierInfo *Scope = A->getScopeName()) {
-      Name = Scope->getName().str();
-      Name += "::";
-    }
-    Name += A->getAttrName()->getName();
-    break;
-  }
   case ReflectionKind::Null:
     return Diagnoser(Range.getBegin(),
                      diag::metafn_name_of_unnamed_singleton) << 0 << Range;
@@ -2881,7 +2281,6 @@ bool identifier_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Annotation:
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_have_name)
         << DescriptionOf(RV) << Range;
-  case ReflectionKind::EntityProxy:
     llvm_unreachable("proxies should already have been unwrapped");
   }
   if (Name.empty())
@@ -2905,7 +2304,6 @@ bool has_identifier(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (!Evaluator(RV, Args[0], true))
     return true;
 
-  RV = MaybeUnproxy(C, RV, /*Dealias=*/false);
 
   bool HasIdentifier = false;
   switch (RV.getReflectionKind()) {
@@ -2970,18 +2368,12 @@ bool has_identifier(APValue &Result, ASTContext &C, MetaActions &Meta,
     HasIdentifier = TDMS->Name && !TDMS->Name->empty();
     break;
   }
-  case ReflectionKind::Attribute: {
-    // FIXME deal with ^^ [[ ]]
-    HasIdentifier = true;
-    break;
-  }
   case ReflectionKind::Null:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Annotation:
     break;
-  case ReflectionKind::EntityProxy:
     llvm_unreachable("proxies should already have been unwrapped");
   }
 
@@ -3023,7 +2415,6 @@ bool operator_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (!Evaluator(RV, Args[0], true))
     return true;
 
-  RV = MaybeUnproxy(C, RV);
 
   size_t OperatorId = 0;
   if (RV.isReflectedTemplate()) {
@@ -3067,9 +2458,6 @@ bool source_location_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Namespace:
     return findDeclLoc(Result, C, Evaluator, ResultTy,
                        RV.getReflectedNamespace());
-  case ReflectionKind::EntityProxy:
-    return findDeclLoc(Result, C, Evaluator, ResultTy,
-                       RV.getReflectedEntityProxy());
   case ReflectionKind::Parameter:
     return findDeclLoc(Result, C, Evaluator, ResultTy,
                        RV.getReflectedParameter());
@@ -3079,9 +2467,7 @@ bool source_location_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Annotation:
     return findAnnotLoc(Result, C, Evaluator, ResultTy,
                         RV.getReflectedAnnotation());
-  case ReflectionKind::Attribute:
-    return findAttrLoc(Result, C, Evaluator, ResultTy,
-                        RV.getReflectedAttribute());
+
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Null:
@@ -3104,10 +2490,9 @@ bool type_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   switch (RV.getReflectionKind()) {
   case ReflectionKind::Null:
   case ReflectionKind::Type:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
     return Diagnoser(Range.getBegin(), diag::metafn_no_associated_property)
         << DescriptionOf(RV) << 0 << Range;
   case ReflectionKind::Object:
@@ -3197,7 +2582,7 @@ bool parent_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     if (Diagnoser)
       return Diagnoser(Range.getBegin(), diag::metafn_no_associated_property)
           << DescriptionOf(RV) << 1 << Range;
@@ -3231,8 +2616,6 @@ bool parent_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       return true;
     }
     return DiagWrapper(parentOf(Result, RV.getReflectedNamespace()));
-  case ReflectionKind::EntityProxy:
-    return DiagWrapper(parentOf(Result, RV.getReflectedEntityProxy()));
   case ReflectionKind::BaseSpecifier: {
     CXXRecordDecl *RD = RV.getReflectedBaseSpecifier()->getDerived();
     QualType QT = desugarType(RD->getASTContext().getCanonicalTagType(RD),
@@ -3255,7 +2638,6 @@ bool has_parent(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (!Evaluator(RV, Args[0], true))
     return true;
 
-  RV = MaybeUnproxy(C, RV);
   APValue Parent;
   unsigned Error = 0;
   switch (RV.getReflectionKind()) {
@@ -3285,9 +2667,6 @@ bool has_parent(APValue &Result, ASTContext &C, MetaActions &Meta,
     else
       Error = diag::metafn_parent_of_undeclared;
     break;
-  case ReflectionKind::EntityProxy:
-    Error = parentOf(Parent, RV.getReflectedEntityProxy());
-    break;
   case ReflectionKind::BaseSpecifier:
     return SetAndSucceed(Result, makeBool(C, true));
   case ReflectionKind::Null:
@@ -3295,7 +2674,7 @@ bool has_parent(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     Error = diag::metafn_parent_of_undeclared;
     break;
   }
@@ -3324,7 +2703,7 @@ bool underlying_entity_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return SetAndSucceed(Result, RV);
   case ReflectionKind::Type: {
     QualType QT = RV.getReflectedType();
@@ -3338,39 +2717,7 @@ bool underlying_entity_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       NS = A->getNamespace();
     return SetAndSucceed(Result, makeReflection(NS));
   }
-  case ReflectionKind::EntityProxy:
-    return SetAndSucceed(Result, MaybeUnproxy(C, RV));
-  }
-  llvm_unreachable("unknown reflection kind");
-}
-
-bool proxied_entity_of(APValue &Result, ASTContext &C, MetaActions &Meta,
-                       EvalFn Evaluator, DiagFn Diagnoser,bool AllowInjection,
-                       QualType ResultTy, SourceRange Range,
-                       ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  assert(Args[0]->getType()->isReflectionType());
-  assert(ResultTy == C.MetaInfoTy);
-
-  APValue RV;
-  if (!Evaluator(RV, Args[0], true))
-    return true;
-
-  switch (RV.getReflectionKind()) {
-  case ReflectionKind::Null:
-  case ReflectionKind::Type:
-  case ReflectionKind::Object:
-  case ReflectionKind::Value:
-  case ReflectionKind::Declaration:
-  case ReflectionKind::Namespace:
-  case ReflectionKind::Template:
-  case ReflectionKind::BaseSpecifier:
-  case ReflectionKind::Parameter:
-  case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
-    return DiagnoseReflectionKind(Diagnoser, Range, "an entity proxy");
-  case ReflectionKind::EntityProxy:
-    return SetAndSucceed(Result, MaybeUnproxy(C, RV, false));
+    return SetAndSucceed(Result, RV);
   }
   llvm_unreachable("unknown reflection kind");
 }
@@ -3454,13 +2801,12 @@ bool object_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::Type:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::Template:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
         << 1 << DescriptionOf(RV) << Range;
   }
@@ -3593,12 +2939,10 @@ bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     }
     return SetAndSucceed(Result, Constant.Lift(ConstantTy));
   }
-  case ReflectionKind::Attribute: // TODO P3385 anything to do ?
   case ReflectionKind::Null:
   case ReflectionKind::Type:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
@@ -3641,12 +2985,11 @@ bool template_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return DiagnoseReflectionKind(Diagnoser, Range, "a template specialization",
                                   DescriptionOf(RV));
     return true;
@@ -3671,10 +3014,9 @@ static bool CanActAsTemplateArg(const APValue &RV) {
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Null:
     return false;
-  case ReflectionKind::EntityProxy:
     llvm_unreachable("expected proxies to have been unwrapped before calling");
   }
   llvm_unreachable("unknown reflection kind");
@@ -3722,7 +3064,6 @@ static TemplateArgument TArgFromReflection(ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Template:
     return TemplateArgument(RV.getReflectedTemplate());
     break;
-  case ReflectionKind::EntityProxy:
     llvm_unreachable("expected proxies to have been unwrapped before calling");
   default:
     llvm_unreachable("unimplemented for template argument kind");
@@ -3783,7 +3124,6 @@ bool substitute(APValue &Result, ASTContext &C, MetaActions &Meta,
       if (!Evaluator(Unwrapped, Synthesized, true) ||
           !Unwrapped.isReflection())
         return true;
-      Unwrapped = MaybeUnproxy(C, Unwrapped);
       if (!CanActAsTemplateArg(Unwrapped))
         return Meta.ThrowMetaException(Range.getBegin(),
                                        "reflection cannot be a template argument");
@@ -4280,8 +3620,7 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Type:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
@@ -4314,11 +3653,6 @@ bool is_ACCESS(APValue &Result, ASTContext &C, MetaActions &Meta,
     bool HasTargetAccess = (RV.getReflectedDecl()->getAccess() == Specifier);
     return SetAndSucceed(Result, makeBool(C, HasTargetAccess));
   }
-  case ReflectionKind::EntityProxy: {
-    bool HasTargetAccess = (RV.getReflectedEntityProxy()->getAccess() ==
-                            Specifier);
-    return SetAndSucceed(Result, makeBool(C, HasTargetAccess));
-  }
   case ReflectionKind::Template: {
     const Decl *D = RV.getReflectedTemplate().getAsTemplateDecl();
 
@@ -4337,7 +3671,7 @@ bool is_ACCESS(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::Annotation:
   case ReflectionKind::Namespace:
-  case ReflectionKind::Attribute:
+
     return SetAndSucceed(Result, makeBool(C, false));
   }
   llvm_unreachable("invalid reflection type");
@@ -4429,11 +3763,10 @@ bool is_virtual(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return SetAndSucceed(Result, makeBool(C, IsVirtual));
   }
   llvm_unreachable("invalid reflection type");
@@ -4646,12 +3979,11 @@ bool is_const(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Null:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Type: {
     bool result = isConstQualifiedType(RV.getReflectedType());
@@ -4685,11 +4017,10 @@ bool is_volatile(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Null:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Annotation:
     return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Type: {
@@ -5077,9 +4408,8 @@ bool is_static_member(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return SetAndSucceed(Result, makeBool(C, result));
-  case ReflectionKind::EntityProxy:
     return SetAndSucceed(Result, makeBool(C, false));
   }
   llvm_unreachable("unknown reflection kind");
@@ -5126,20 +4456,6 @@ bool is_namespace(APValue &Result, ASTContext &C, MetaActions &Meta,
     return true;
 
   return SetAndSucceed(Result, makeBool(C, RV.isReflectedNamespace()));
-}
-
-bool is_attribute(APValue &Result, ASTContext &C,
-                  MetaActions &Meta, EvalFn Evaluator,
-                  DiagFn Diagnoser, bool AllowInjection,
-                  QualType ResultTy, SourceRange Range,
-                  ArrayRef<Expr *> Args, Decl *ContainingDecl){
-  assert(Args[0]->getType()->isReflectionType());
-  assert(ResultTy == C.BoolTy);
-  APValue RV;
-  if (!Evaluator(RV, Args[0], true))
-    return true;
-
-  return SetAndSucceed(Result, makeBool(C, RV.isReflectedAttribute()));
 }
 
 bool is_function(APValue &Result, ASTContext &C, MetaActions &Meta,
@@ -5223,25 +4539,10 @@ bool is_alias(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Parameter:
   case ReflectionKind::Annotation:
-  case ReflectionKind::EntityProxy:
-  case ReflectionKind::Attribute:
+
     return SetAndSucceed(Result, makeBool(C, false));
   }
   llvm_unreachable("unknown reflection kind");
-}
-
-bool is_entity_proxy(APValue &Result, ASTContext &C, MetaActions &Meta,
-                     EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
-                     QualType ResultTy, SourceRange Range,
-                     ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  assert(Args[0]->getType()->isReflectionType());
-  assert(ResultTy == C.BoolTy);
-
-  APValue RV;
-  if (!Evaluator(RV, Args[0], true))
-    return true;
-
-  return SetAndSucceed(Result, makeBool(C, RV.isReflectedEntityProxy()));
 }
 
 bool is_complete_type(APValue &Result, ASTContext &C, MetaActions &Meta,
@@ -5333,9 +4634,8 @@ bool has_complete_definition(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     break;
-  case ReflectionKind::EntityProxy:
     break;
   }
 
@@ -5380,9 +4680,8 @@ bool is_enumerable_type(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     break;
-  case ReflectionKind::EntityProxy:
     break;
   }
 
@@ -5672,12 +4971,11 @@ bool has_template_arguments(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return SetAndSucceed(Result, makeBool(C, false));
   }
   llvm_unreachable("unknown reflection kind");
@@ -5785,14 +5083,13 @@ bool is_constructor(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Annotation:
     return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Declaration: {
     bool result = isa<CXXConstructorDecl>(RV.getReflectedDecl());
     return SetAndSucceed(Result, makeBool(C, result));
   }
-  case ReflectionKind::EntityProxy:
     return SetAndSucceed(Result, makeBool(C, false));
   }
   llvm_unreachable("invalid reflection type");
@@ -5936,14 +5233,13 @@ bool is_destructor(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Annotation:
     return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Declaration: {
     bool result = isa<CXXDestructorDecl>(RV.getReflectedDecl());
     return SetAndSucceed(Result, makeBool(C, result));
   }
-  case ReflectionKind::EntityProxy:
     return SetAndSucceed(Result, makeBool(C, false));
   }
   llvm_unreachable("invalid reflection type");
@@ -5970,7 +5266,7 @@ bool is_special_member_function(APValue &Result, ASTContext &C,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Annotation:
     return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Declaration: {
@@ -5987,7 +5283,6 @@ bool is_special_member_function(APValue &Result, ASTContext &C,
       result = isSpecialMember(FTD->getTemplatedDecl());
     return SetAndSucceed(Result, makeBool(C, result));
   }
-  case ReflectionKind::EntityProxy:
     return SetAndSucceed(Result, makeBool(C, false));
   }
   llvm_unreachable("invalid reflection type");
@@ -6356,257 +5651,10 @@ bool data_member_spec(APValue &Result, ASTContext &C, MetaActions &Meta,
   }
   ArgIdx++;
 
-  // Next is `N` and then { attr_i, ..., attr_N }
-  if (!Evaluator(Scratch, Args[ArgIdx++], true))
-    return true;
-  llvm::SmallVector<ParsedAttr *, 2> Attributes;
-  if (int64_t N = Scratch.getInt().getExtValue(); N > 0) {
-    for (int64_t i = 0; i < N; ++i) {
-      llvm::APInt Idx(C.getTypeSize(C.getSizeType()), i, false);
-      Expr *indexExpr = IntegerLiteral::Create(C, Idx, C.getSizeType(),
-                                               Args[ArgIdx]->getExprLoc());
-      Expr *arraySubExpr =
-          new (C) ArraySubscriptExpr(Args[ArgIdx], indexExpr, C.getUnsignedWCharType(), VK_LValue,
-                                     OK_Ordinary, Range.getBegin());
-      if (!Evaluator(Scratch, arraySubExpr, true))
-        return true;
-      if (!Scratch.isReflectedAttribute()) {
-        return DiagnoseReflectionKind(Diagnoser, Range, "a reflection of an attribute", DescriptionOf(Scratch));
-      }
-      Attributes.push_back(Scratch.getReflectedAttribute());
-    }
-  }
-
   TagDataMemberSpec *TDMS = new (C) TagDataMemberSpec {
-    MemberTy, Name, Alignment, BitWidth, NoUniqueAddress, Annotations,
-    Attributes
+    MemberTy, Name, Alignment, BitWidth, NoUniqueAddress, Annotations
   };
   return SetAndSucceed(Result, makeReflection(TDMS));
-}
-
-bool enumerator_spec(APValue &Result, ASTContext &C, MetaActions &Meta,
-                      EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
-                      QualType ResultTy, SourceRange Range,
-                      ArrayRef<Expr *> Args, Decl *ContainingDecl) {
-  // ARGS: {
-  //   ^^const char, s.size(), s.data(),
-  //   val,
-  //   annotations.size(), annotations.begin(),
-  //   attributes.size(), attributes.begin());
-  // }
-  APValue Scratch;
-  int ArgIdx = 0;
-
-  // Evaluate the character type.
-  if (!Evaluator(Scratch, Args[ArgIdx++], true))
-    return true;
-  QualType CharTy = Scratch.getReflectedType();
-
-  std::string Name;
-  if (!Evaluator(Scratch, Args[ArgIdx++], true))
-    return true;
-  size_t nameLen = Scratch.getInt().getExtValue();
-  Name.resize(nameLen);
-  // Why cant i make EvaluateCharRangeAsString work ?...
-  for (uint64_t k = 0; k < nameLen; ++k) {
-    llvm::APInt Idx(C.getTypeSize(C.getSizeType()), k, false);
-    Expr *Synthesized = IntegerLiteral::Create(C, Idx, C.getSizeType(),
-                                                Args[ArgIdx]->getExprLoc());
-
-    Synthesized = new (C) ArraySubscriptExpr(Args[ArgIdx], Synthesized,
-                                              CharTy, VK_LValue, OK_Ordinary,
-                                              Range.getBegin());
-    if (Synthesized->isValueDependent() || Synthesized->isTypeDependent())
-      return true;
-
-    if (!Evaluator(Scratch, Synthesized, true))
-      return true;
-
-    Name[k] = static_cast<char>(Scratch.getInt().getExtValue());
-  }
-  // P4033R1 uses the same identifier and keyword constraints as
-  // data_member_spec, including contextual keywords and Unicode identifiers.
-  Lexer Lex(Range.getBegin(), C.getLangOpts(), Name.data(), Name.data(),
-            Name.data() + Name.size(), false);
-  if (Name.find('\\') != std::string::npos ||
-      !Lex.validateIdentifier(Name) ||
-      C.Idents.get(Name).getTokenID() != tok::identifier)
-    return Diagnoser(Range.getBegin(), diag::metafn_name_invalid_identifier)
-        << Name << Range;
-
-  ArgIdx++;
-  // Value of the enumerator
-  APValue Val;
-  if (!Evaluator(Val, Args[ArgIdx++], true))
-    return true;
-
-  // annotations.size(), annotations.begin()
-  if (!Evaluator(Scratch, Args[ArgIdx++], true))
-    return true;
-  size_t nbAnnotReflections = Scratch.getInt().getExtValue();
-  SmallVector<APValue*, 2> annotations;
-  for (uint64_t k = 0; k < nbAnnotReflections; ++k) {
-    llvm::APInt Idx(C.getTypeSize(C.getSizeType()), k, false);
-    Expr *Synthesized = IntegerLiteral::Create(C, Idx, C.getSizeType(), Args[ArgIdx]->getExprLoc());
-
-    Synthesized = new (C) ArraySubscriptExpr(Args[ArgIdx], Synthesized,
-                                              C.getUnsignedWCharType(), VK_LValue, OK_Ordinary,
-                                              Range.getBegin());
-    if (Synthesized->isValueDependent() || Synthesized->isTypeDependent())
-      return true;
-    if (!Evaluator(Scratch, Synthesized, true))
-      return true;
-    if (!Scratch.isReflectedValue() && !Scratch.isReflectedObject()) {
-      return DiagnoseReflectionKind(Diagnoser, Range, "a reflected constant", DescriptionOf(Scratch));
-    }
-    annotations.push_back(new (C) APValue(Scratch));
-  }
-  ArgIdx++;
-
-  // attributes.size(), // attributes.begin()
-  if (!Evaluator(Scratch, Args[ArgIdx++], true))
-    return true;
-  size_t nbAttrReflections = Scratch.getInt().getExtValue();
-  SmallVector<APValue*, 2> attributes;
-  for (uint64_t k = 0; k < nbAttrReflections; ++k) {
-    llvm::APInt Idx(C.getTypeSize(C.getSizeType()), k, false);
-    Expr *Synthesized = IntegerLiteral::Create(C, Idx, C.getSizeType(), Args[ArgIdx]->getExprLoc());
-
-    Synthesized = new (C) ArraySubscriptExpr(Args[ArgIdx], Synthesized,
-                                              C.MetaInfoTy, VK_LValue, OK_Ordinary,
-                                              Range.getBegin());
-    if (Synthesized->isValueDependent() || Synthesized->isTypeDependent())
-      return true;
-    if (!Evaluator(Scratch, Synthesized, true))
-      return true;
-    if (!Scratch.isReflectedAttribute()) {
-      return DiagnoseReflectionKind(Diagnoser, Range, "a reflection of an attribute", DescriptionOf(Scratch));
-    }
-    attributes.push_back(new (C) APValue(ReflectionKind::Attribute, Scratch.getReflectedAttribute()));
-  }
-  ArgIdx++; // = end()
-
-  EnumeratorSpec * ES = new (C) EnumeratorSpec{
-    Name,
-    !Val.isNullReflection(),
-    Val.isNullReflection() ? 0: Val.getInt().getExtValue(),
-    annotations,
-    attributes
-  };
-  return SetAndSucceed(Result, makeReflection(ES));
-}
-
-bool is_enumerator_spec(APValue &Result, ASTContext &C,
-                         MetaActions &Meta, EvalFn Evaluator,
-                         DiagFn Diagnoser, bool AllowInjection,
-                         QualType ResultTy, SourceRange Range,
-                         ArrayRef<Expr *> Args, Decl *ContainingDecl)
-{
-  assert(Args[0]->getType()->isReflectionType());
-  assert(ResultTy == C.BoolTy);
-
-  APValue RV;
-  if (!Evaluator(RV, Args[0], true))
-    return true;
-
-  return SetAndSucceed(Result, makeBool(C, RV.isReflectedEnumMemberSpec()));
-}
-
-static bool defineEnumImpl(APValue &Result, ASTContext &C, MetaActions &Meta,
-                           EvalFn Evaluator, DiagFn Diagnoser,
-                           bool AllowInjection, SourceRange Range,
-                           ArrayRef<Expr *> Args, Decl *ContainingDecl,
-                           bool RequireScoped) {
-  if (!AllowInjection) {
-    return Diagnoser(Range.getBegin(),
-                     diag::metafn_injected_decl_non_plainly_consteval);
-  }
-  assert(Args[0]->getType()->isReflectionType());
-  APValue Scratch;
-  if (!Evaluator(Scratch, Args[0], true)) {
-    return true;
-  }
-
-  // Checking we have the reflection of an enum type as first arg.
-  if (!Scratch.isReflectedType()) {
-    return DiagnoseReflectionKind(Diagnoser, Range, "an enum type",
-                                  DescriptionOf(Scratch));
-  }
-  QualType TargetEnum = Scratch.getReflectedType();
-  EnumDecl *foundDecl = llvm::dyn_cast<EnumDecl>(findTypeDecl(TargetEnum));
-  if (!foundDecl) {
-    return DiagnoseReflectionKind(Diagnoser, Range, "an enum type",
-                                  DescriptionOf(Scratch));
-  }
-
-  // define_enum only completes scoped enums; define_unscoped_enum only
-  // completes unscoped (C-style) enums.
-  if (foundDecl->isScoped() != RequireScoped) {
-    return Diagnoser(Range.getBegin(),
-                     RequireScoped ? diag::metafn_enum_not_scoped
-                                   : diag::metafn_enum_not_unscoped)
-           << TargetEnum.getAsString();
-  }
-
-  // Need to check we only have a fwd declare enum
-  if (!foundDecl->enumerators().empty()) {
-    // Diagnostic on found enumerators
-    return Diagnoser(Range.getBegin(), diag::metafn_enum_already_complete)
-           << TargetEnum.getAsString();
-  }
-
-  // Get nb of enumerators spec.
-  if (!Evaluator(Scratch, Args[1], true))
-    return true;
-  size_t NumEnumerators = static_cast<size_t>(Scratch.getInt().getExtValue());
-  SmallVector<EnumeratorSpec *, 8> EnumSpecs;
-  llvm::FoldingSetNodeID ID;
-  llvm::StringSet<> MemberNames;
-  for (size_t k = 0; k < NumEnumerators; ++k) {
-    // Extract the reflection from the list of member specs.
-    llvm::APInt Idx(C.getTypeSize(C.getSizeType()), k, false);
-    Expr *Synthesized =
-        IntegerLiteral::Create(C, Idx, C.getSizeType(), Args[2]->getExprLoc());
-
-    Synthesized =
-        new (C) ArraySubscriptExpr(Args[2], Synthesized, C.MetaInfoTy,
-                                   VK_LValue, OK_Ordinary, Range.getBegin());
-    if (Synthesized->isValueDependent() || Synthesized->isTypeDependent())
-      return true;
-
-    if (!Evaluator(Scratch, Synthesized, true))
-      return true;
-    if (!Scratch.isReflectedEnumMemberSpec())
-      return DiagnoseReflectionKind(
-          Diagnoser, Range, "a description of an enumerator for 'define_enum'",
-          DescriptionOf(Scratch));
-    EnumSpecs.push_back(Scratch.getReflectedEnumeratorSpec());
-  }
-
-  EnumDecl *completedEnum =
-      Meta.DefineEnum(foundDecl, EnumSpecs, ContainingDecl,
-                                TargetEnum, nullptr, Args[0]->getExprLoc());
-  if (!completedEnum) {
-    return true;
-  }
-  return SetAndSucceed(Result, makeReflection(completedEnum));
-}
-
-bool define_enum(APValue &Result, ASTContext &C, MetaActions &Meta,
-                 EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
-                 QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
-                 Decl *ContainingDecl) {
-  return defineEnumImpl(Result, C, Meta, Evaluator, Diagnoser, AllowInjection,
-                        Range, Args, ContainingDecl, /*RequireScoped=*/true);
-}
-
-bool define_unscoped_enum(APValue &Result, ASTContext &C, MetaActions &Meta,
-                          EvalFn Evaluator, DiagFn Diagnoser,
-                          bool AllowInjection, QualType ResultTy,
-                          SourceRange Range, ArrayRef<Expr *> Args,
-                          Decl *ContainingDecl) {
-  return defineEnumImpl(Result, C, Meta, Evaluator, Diagnoser, AllowInjection,
-                        Range, Args, ContainingDecl, /*RequireScoped=*/false);
 }
 
 bool define_aggregate(APValue &Result, ASTContext &C, MetaActions &Meta,
@@ -6721,10 +5769,9 @@ bool offset_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Annotation:
     return DiagnoseReflectionKind(Diagnoser, Range, "a non-static data member",
                                   DescriptionOf(RV));
@@ -6798,10 +5845,9 @@ bool size_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Null:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Annotation:
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
         << 3 << DescriptionOf(RV);
@@ -6826,10 +5872,9 @@ bool bit_offset_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Annotation:
     return DiagnoseReflectionKind(Diagnoser, Range, "a non-static data member",
                                   DescriptionOf(RV));
@@ -6941,10 +5986,9 @@ bool bit_size_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Null:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
-  case ReflectionKind::Attribute:
+
   case ReflectionKind::Annotation:
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
         << 3 << DescriptionOf(RV);
@@ -7010,11 +6054,10 @@ bool alignment_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Null:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
         << 4 << DescriptionOf(RV) << Range;
   }
@@ -7076,12 +6119,11 @@ bool get_ith_parameter_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return Meta.ThrowMetaException(Range.getBegin(),
                                    "invalid reflection operand");
   }
@@ -7110,12 +6152,11 @@ bool is_vararg_function(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Type:
     if (const auto *FPT = RV.getReflectedType()->getAs<FunctionProtoType>()) {
@@ -7163,11 +6204,10 @@ bool has_default_argument(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return SetAndSucceed(Result, makeBool(C, false));
   }
   llvm_unreachable("unknown reflection kind");
@@ -7246,12 +6286,11 @@ bool return_type_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
         << 6 << DescriptionOf(RV) << Range;
   }
@@ -7381,11 +6420,6 @@ bool get_ith_annotation_of(APValue &Result, ASTContext &C, MetaActions &Meta,
 
     return SetAndSucceed(Result, findAnnotation(D, idx, Sentinel));
   }
-  case ReflectionKind::EntityProxy: {
-    Decl *D = RV.getReflectedEntityProxy()->getIntroducer();
-
-    return SetAndSucceed(Result, findAnnotation(D, idx, Sentinel));
-  }
   case ReflectionKind::Parameter:
     return SetAndSucceed(
         Result, findAnnotation(RV.getReflectedParameter(), idx, Sentinel, true));
@@ -7409,7 +6443,7 @@ bool get_ith_annotation_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return Meta.ThrowMetaException(Range.getBegin(),
                                    "invalid reflection operand");
   }
@@ -7585,7 +6619,6 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
   CXXRecordDecl *NamingCls = nullptr;
   if (!Evaluator(Scratch, Args[2], true) || !Scratch.isReflection())
     return true;
-  Scratch = MaybeUnproxy(C, Scratch);
   assert(Scratch.isNullReflection() || Scratch.isReflectedType());
   if (Scratch.isReflectedType()) {
     NamingCls = cast<CXXRecordDecl>(findTypeDecl(Scratch.getReflectedType()));
@@ -7678,17 +6711,6 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
                       Meta.IsAccessible(D, AccessDC, NamingCls);
     return SetAndSucceed(Result, makeBool(C, Accessible));
   }
-  case ReflectionKind::EntityProxy: {
-    UsingShadowDecl *USD = RV.getReflectedEntityProxy();
-    if (validate(USD, NamingCls))
-      return true;
-    else if (!NamingCls)
-      return SetAndSucceed(Result, makeBool(C, true));
-
-    bool Accessible = UnconditionalAccess ||
-                      Meta.IsAccessible(USD, AccessDC, NamingCls);
-    return SetAndSucceed(Result, makeBool(C, Accessible));
-  }
   case ReflectionKind::BaseSpecifier: {
     CXXBaseSpecifier *BaseSpec = RV.getReflectedBaseSpecifier();
 
@@ -7728,7 +6750,7 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return SetAndSucceed(Result, makeBool(C, false));
   }
   llvm_unreachable("invalid reflection type");
@@ -7775,12 +6797,6 @@ bool is_access_specified(APValue &Result, ASTContext &C, MetaActions &Meta,
     bool IsSpecified = findAccessSpec(D) != AS_none;
     return SetAndSucceed(Result, makeBool(C, IsSpecified));
   }
-  case ReflectionKind::EntityProxy: {
-    Decl *D = RV.getReflectedEntityProxy()->getIntroducer();
-
-    bool IsSpecified = findAccessSpec(D) != AS_none;
-    return SetAndSucceed(Result, makeBool(C, IsSpecified));
-  }
   case ReflectionKind::BaseSpecifier: {
     CXXBaseSpecifier *Base = RV.getReflectedBaseSpecifier();
     bool IsSpecified = (Base->getAccessSpecifierAsWritten() != AS_none);
@@ -7793,7 +6809,7 @@ bool is_access_specified(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return SetAndSucceed(Result, makeBool(C, false));
   }
   llvm_unreachable("invalid reflection type");
@@ -7892,7 +6908,6 @@ bool reflect_invoke(APValue &Result, ASTContext &C, MetaActions &Meta,
 
       if (!Evaluator(Scratch, Synthesized, true) || !Scratch.isReflection())
         return false;
-      Scratch = MaybeUnproxy(C, Scratch);
       Out.push_back(Scratch);
     }
 
@@ -7902,7 +6917,6 @@ bool reflect_invoke(APValue &Result, ASTContext &C, MetaActions &Meta,
   APValue FnRefl;
   if (!Evaluator(FnRefl, Args[0], true))
     return true;
-  FnRefl = MaybeUnproxy(C, FnRefl);
 
   SmallVector<TemplateArgument, 4> ExplicitTArgs;
   {
@@ -7971,7 +6985,7 @@ bool reflect_invoke(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
+
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_invoke)
         << DescriptionOf(FnRefl) << Range;
   case ReflectionKind::Object: {
@@ -8033,7 +7047,6 @@ bool reflect_invoke(APValue &Result, ASTContext &C, MetaActions &Meta,
                                     VK_LValue, Spec, nullptr);
     break;
   }
-  case ReflectionKind::EntityProxy:
     llvm_unreachable("proxies should already have been unwrapped");
   }
 

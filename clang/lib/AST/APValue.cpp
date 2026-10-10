@@ -573,16 +573,10 @@ static void profileReflection(llvm::FoldingSetNodeID &ID, APValue V) {
     // (the dealias distinction).
     ID.AddPointer(V.getReflectedNamespace()->getCanonicalDecl());
     return;
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Annotation:
     ID.AddPointer(V.getOpaqueReflectionData());
     return;
-  case ReflectionKind::Attribute: {
-    ParsedAttr* attr = V.getReflectedAttribute();
-    attr->profile(ID);
-    return;
-  }
   case ReflectionKind::DataMemberSpec: {
     TagDataMemberSpec *TDMS = V.getReflectedDataMemberSpec();
     TDMS->Ty.Profile(ID);
@@ -595,18 +589,6 @@ static void profileReflection(llvm::FoldingSetNodeID &ID, APValue V) {
     ID.AddBoolean(TDMS->BitWidth.has_value());
     if (TDMS->BitWidth)
       ID.AddInteger(TDMS->BitWidth.value());
-    return;
-  }
-  case ReflectionKind::EnumeratorSpec: {
-    EnumeratorSpec *ES = V.getReflectedEnumeratorSpec();
-    ID.AddString(ES->name);
-    ID.AddBoolean(ES->hasValue);
-    if (ES->hasValue)
-      ID.AddInteger(ES->val);
-    for (APValue *Ann : ES->annotations)
-      Ann->Profile(ID);
-    for (APValue *Attr : ES->attributes)
-      Attr->Profile(ID);
     return;
   }
   case ReflectionKind::Object:
@@ -965,13 +947,6 @@ Decl *APValue::getReflectedNamespace() const {
           const_cast<void *>(getOpaqueReflectionData()));
 }
 
-UsingShadowDecl *APValue::getReflectedEntityProxy() const {
-  assert(getReflectionKind() == ReflectionKind::EntityProxy &&
-         "not a reflection of an entity proxy");
-  return reinterpret_cast<UsingShadowDecl *>(
-          const_cast<void *>(getOpaqueReflectionData()));
-}
-
 ParmVarDecl *APValue::getReflectedParameter() const {
   assert(getReflectionKind() == ReflectionKind::Parameter &&
          "not a reflection of a parameter");
@@ -993,13 +968,6 @@ TagDataMemberSpec *APValue::getReflectedDataMemberSpec() const {
           const_cast<void *>(getOpaqueReflectionData()));
 }
 
-EnumeratorSpec *APValue::getReflectedEnumeratorSpec() const {
-  assert(getReflectionKind() == ReflectionKind::EnumeratorSpec &&
-         "not a reflection of a description of an enum for define");
-  return reinterpret_cast<EnumeratorSpec *>(
-          const_cast<void *>(getOpaqueReflectionData()));
-}
-
 CXX26AnnotationAttr *APValue::getReflectedAnnotation() const {
   assert(getReflectionKind() == ReflectionKind::Annotation &&
          "not a reflection of an annotation");
@@ -1014,13 +982,6 @@ const Attr *APValue::getReflectedAnnotationAsAttr() const {
 APValue APValue::MakeAnnotationReflection(const Attr *A) {
   return APValue(ReflectionKind::Annotation,
                  static_cast<const void *>(cast<CXX26AnnotationAttr>(A)));
-}
-
-ParsedAttr *APValue::getReflectedAttribute() const {
-  assert(getReflectionKind() == ReflectionKind::Attribute &&
-         "not a reflection of an attribute");
-  return reinterpret_cast<ParsedAttr *>(
-          const_cast<void *>(getOpaqueReflectionData()));
 }
 
 static double GetApproxValue(const llvm::APFloat &F) {
@@ -1367,9 +1328,6 @@ void APValue::printPretty(raw_ostream &Out, const PrintingPolicy &Policy,
     case ReflectionKind::Namespace:
       Repr = "namespace";
       break;
-    case ReflectionKind::EntityProxy:
-      Repr = "entity-proxy";
-      break;
     case ReflectionKind::Parameter:
       Repr = "parameter";
       break;
@@ -1379,14 +1337,8 @@ void APValue::printPretty(raw_ostream &Out, const PrintingPolicy &Policy,
     case ReflectionKind::DataMemberSpec:
       Repr = "data-member-spec";
       break;
-    case ReflectionKind::EnumeratorSpec:
-      Repr = "enumerator-spec";
-      break;
     case ReflectionKind::Annotation:
       Repr = "annotation";
-      break;
-    case ReflectionKind::Attribute:
-      Repr = "attribute";
       break;
     }
     Out << "^^(" << Repr << ")";
@@ -1634,13 +1586,10 @@ LinkageInfo LinkageComputer::getLVForValue(const APValue &V,
     case ReflectionKind::Value:
       llvm_unreachable("lowered value should never represent a value or "
                         "object");
-    case ReflectionKind::EntityProxy:
     case ReflectionKind::Parameter:
     case ReflectionKind::BaseSpecifier:
     case ReflectionKind::Annotation:
-    case ReflectionKind::Attribute:
     case ReflectionKind::DataMemberSpec:
-    case ReflectionKind::EnumeratorSpec:
       return LinkageInfo::internal();
     }
     return LV;
@@ -1784,13 +1733,10 @@ void APValue::setReflection(ReflectionKind RK, const void *Ptr) {
   case ReflectionKind::Declaration:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
-  case ReflectionKind::EntityProxy:
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::EnumeratorSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
     SelfData.Kind = RK;
     SelfData.Data = Ptr;
     return;

@@ -16,10 +16,10 @@ constexpr info __make_exception(info from, const char *what) {
 
 struct sentinel {};
 consteval info parameter(info r, unsigned index = 0) {
-  return __metafunction(107, r, ^^sentinel, index, ^^parameter);
+  return __metafunction(98, r, ^^sentinel, index, ^^parameter);
 }
 consteval info variable(info r) {
-  return __metafunction(113, r, ^^variable);
+  return __metafunction(104, r, ^^variable);
 }
 constexpr info parameter_origin = ^^parameter;
 constexpr info variable_origin = ^^variable;

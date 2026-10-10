@@ -1831,15 +1831,6 @@ def err_splice_template_argument : Error<
   "unparenthesized splice expression cannot be used as a template argument">;
 }
 
-let CategoryName = "P3385" in {
-
-def p3385_trace_empty_attributes_list : Warning<
-  "empty attribute found when building reflection">,
-  InGroup<DiagGroup<"p3385-empty-attributes-list">>;
-def p3385_err_attributes_list : Error<
-  "found %0 attributes in reflection list, single attribute expected">;
-}
-
 let CategoryName = "Generics Issue" in {
 
 def err_objc_expected_type_parameter : Error<

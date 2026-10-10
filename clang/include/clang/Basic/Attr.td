@@ -741,8 +741,6 @@ class Attr {
   // our existing general parsing we need to have a separate flag that
   // opts an attribute into strict parsing of attribute parameters
   bit StrictEnumParameters = 0;
-  // We may want to opt out of reflection even in case where it would be supported
-  bit EscapeReflection = 0;
   // Set to true for attributes which have Sema checks which requires the type
   // to be deduced.
   // When `IsTypeDependent` is set to true, you should add an `ActOn*Attr`

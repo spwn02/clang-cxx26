@@ -9,13 +9,12 @@ using info = decltype(^^int);
 using size_t = __SIZE_TYPE__;
 // Intrinsic IDs match the table in ExprConstantMeta.cpp.
 consteval info spec(info type, const char* name, size_t length, bool bitfield = false, int width = 0) {
-  return __metafunction(96, type, name != nullptr, length, ^^const char, static_cast<const char*>(name),
+  return __metafunction(90, type, name != nullptr, length, ^^const char, static_cast<const char*>(name),
                        false, 0, bitfield, width, false,
-                       size_t(0), (const info*)nullptr,
                        size_t(0), (const info*)nullptr, ^^spec);
 }
 consteval info define(info type, const info* fields, size_t count) {
-  return __metafunction(99, type, count, static_cast<const info*>(fields));
+  return __metafunction(91, type, count, static_cast<const info*>(fields));
 }
 struct A;
 consteval {

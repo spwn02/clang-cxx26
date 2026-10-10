@@ -10,14 +10,14 @@ constexpr info __make_exception(info from, const char* what) {
 }
 
 consteval info object(info r) {
-  return __metafunction(21, r, ^^object);
+  return __metafunction(16, r, ^^object);
 }
 consteval info substitution(info templ, const info* args, unsigned count,
                            bool diagnose) {
-  return __metafunction(24, templ, static_cast<const info*>(args), count, diagnose, ^^substitution);
+  return __metafunction(19, templ, static_cast<const info*>(args), count, diagnose, ^^substitution);
 }
 template<class T> consteval info constant(T value) {
-  return __metafunction(95, ^^T, value, ^^constant<T>);
+  return __metafunction(89, ^^T, value, ^^constant<T>);
 }
 
 template<class> struct TT {};

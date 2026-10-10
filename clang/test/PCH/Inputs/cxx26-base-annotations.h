@@ -11,17 +11,17 @@ consteval info base(info r, unsigned i = 0) {
   return __metafunction(2, r, ^^sentinel, i, ^^base);
 }
 consteval info annotation(info r, unsigned i) {
-  return __metafunction(114, r, ^^sentinel, i, ^^annotation);
+  return __metafunction(105, r, ^^sentinel, i, ^^annotation);
 }
 consteval int value(info r, unsigned i) {
-  return __metafunction(25, ^^int, annotation(r, i), ^^value);
+  return __metafunction(20, ^^int, annotation(r, i), ^^value);
 }
 
 consteval info constant(info r) {
-  return __metafunction(22, r, ^^constant);
+  return __metafunction(17, r, ^^constant);
 }
 consteval bool is_annotation(info r) {
-  return __metafunction(115, r);
+  return __metafunction(106, r);
 }
 
 struct B0 {};

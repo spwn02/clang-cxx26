@@ -97,37 +97,6 @@ ExprResult Parser::ParseCXXReflectExpression(SourceLocation OpLoc) {
   }
   TentativeAction.Revert();
 
-  // Check for attribute
-  {
-    size_t last = Attrs.size();
-    if (MaybeParseCXX11Attributes(Attrs)) {
-      size_t newLast = Attrs.size();
-
-      // Reflect expression of empty attribute list is ill formed
-      if (last == newLast) {
-        Diag(OperandLoc, diag::p3385_trace_empty_attributes_list);
-        return ExprError();
-      }
-      // Reflect expression of multiple attributes is ill formed
-      if (newLast - last > 1) {
-        Diag(OperandLoc, diag::p3385_err_attributes_list) << (newLast - last);
-        return ExprError();
-      }
-      // Reflects expression of unsupported attribute is ill formed
-      auto * attribute = &Attrs.back();
-      bool isReflectable = isAttributeWithReflectableVariant(attribute->getParsedKind());
-      // P3385R8 [expr.reflect] excludes assume even though its syntax can
-      // be represented by the experimental attribute reflection machinery.
-      if (!isReflectable ||
-          (attribute->getParsedKind() == ParsedAttr::AT_CXXAssume &&
-           !attribute->getScopeName())) {
-        Diag(OpLoc, diag::p3385_warn_unsupported_attribute) << attribute->getAttrName()->getName();
-        return ExprError();
-      }
-      return Actions.ActOnCXXReflectExpr(OpLoc, attribute);
-    }
-  }
-
   if (SS.isSet() &&
       TryAnnotateTypeOrScopeTokenAfterScopeSpec(SS, true,
                                                 ImplicitTypenameContext::No)) {

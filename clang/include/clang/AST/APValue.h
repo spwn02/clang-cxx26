@@ -47,7 +47,6 @@ template <typename T> class BasicReaderBase;
   struct PrintingPolicy;
   class TemplateName;
   struct TagDataMemberSpec;
-  struct EnumeratorSpec;
   class Type;
   class UsingShadowDecl;
   class ValueDecl;
@@ -572,9 +571,6 @@ public:
   bool isReflectedNamespace() const {
     return isReflection() && getReflectionKind() == ReflectionKind::Namespace;
   }
-  bool isReflectedEntityProxy() const {
-    return isReflection() && getReflectionKind() == ReflectionKind::EntityProxy;
-  }
   bool isReflectedParameter() const {
     return isReflection() && getReflectionKind() == ReflectionKind::Parameter;
   }
@@ -586,17 +582,10 @@ public:
     return isReflection() &&
            getReflectionKind() == ReflectionKind::DataMemberSpec;
   }
-  bool isReflectedEnumMemberSpec() const {
-    return isReflection() &&
-          getReflectionKind() == ReflectionKind::EnumeratorSpec;
-  }
   bool isReflectedAnnotation() const {
     return isReflection() && getReflectionKind() == ReflectionKind::Annotation;
   }
 
-  bool isReflectedAttribute() const {
-    return isReflection() && getReflectionKind() == ReflectionKind::Attribute;
-  }
 
   void dump() const;
   void dump(raw_ostream &OS, const ASTContext &Context) const;
@@ -784,13 +773,10 @@ public:
   ValueDecl *getReflectedDecl() const;
   const TemplateName getReflectedTemplate() const;
   Decl *getReflectedNamespace() const;
-  UsingShadowDecl *getReflectedEntityProxy() const;
   ParmVarDecl *getReflectedParameter() const;
   CXXBaseSpecifier *getReflectedBaseSpecifier() const;
   TagDataMemberSpec *getReflectedDataMemberSpec() const;
-  EnumeratorSpec *getReflectedEnumeratorSpec() const;
   CXX26AnnotationAttr *getReflectedAnnotation() const;
-  ParsedAttr *getReflectedAttribute() const;
 
   /// The annotation of a reflection of an annotation, as its base class.
   /// Used to serialize such reflections, where the derived type is unknown.

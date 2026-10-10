@@ -21,7 +21,6 @@ namespace clang {
 
 class APValue;
 class CXXBaseSpecifier;
-class ParsedAttr;
 
 /// Description of a hypothetical data member used by `define_class`.
 struct TagDataMemberSpec {
@@ -31,19 +30,9 @@ struct TagDataMemberSpec {
   std::optional<size_t> BitWidth;
   bool NoUniqueAddress;
   llvm::SmallVector<APValue *, 2> Annotations;
-  llvm::SmallVector<ParsedAttr *, 2> Attributes;
 
   bool operator==(const TagDataMemberSpec &Rhs) const;
   bool operator!=(const TagDataMemberSpec &Rhs) const;
-};
-
-/// Description of an enumerator used by `define_enum`.
-struct EnumeratorSpec {
-  std::string name;
-  bool hasValue;
-  int64_t val;
-  llvm::SmallVector<APValue *, 2> annotations;
-  llvm::SmallVector<APValue *, 2> attributes;
 };
 
 } // namespace clang

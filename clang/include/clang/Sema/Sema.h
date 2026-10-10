@@ -16037,7 +16037,6 @@ public:
   ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc,
                                  ParsedTemplateArgument Template);
   ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, CXXSpliceExpr *E);
-  ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, ParsedAttr *a);
 
   ExprResult ActOnCXXMetafunction(SourceLocation KwLoc,
                                   SourceLocation LParenLoc,
@@ -16083,7 +16082,6 @@ public:
   ExprResult BuildCXXReflectExpr(SourceLocation OperatorLoc,
                                  SourceLocation OperandLoc,
                                  TemplateName Template);
-  ExprResult BuildCXXReflectExpr(SourceLocation OperatorLoc, ParsedAttr *A);
 
   // Reflection of expression operands.
   ExprResult BuildCXXReflectExpr(SourceLocation OperatorLoc, Expr *E);

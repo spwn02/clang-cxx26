@@ -110,7 +110,6 @@ class CXXRecordDecl;
 class Decl;
 class DeclContext;
 class DeclRefExpr;
-class EnumeratorSpec;
 class Expr;
 class FunctionDecl;
 class FunctionTemplateDecl;
@@ -120,7 +119,6 @@ class TemplateDecl;
 class TypeAliasTemplateDecl;
 class VarDecl;
 class VarTemplateDecl;
-class ParsedAttributesView;
 
 // Interface for actions requiring semantic analysis from C++26 reflection
 // functions (i.e., metafunctions).
@@ -242,14 +240,6 @@ public:
                                  ArrayRef<TagDataMemberSpec *> MemberSpecs,
                                  Decl *ContainingDecl,
                                  SourceLocation DefinitionLoc) = 0;
-
-  virtual EnumDecl *
-  DefineEnum(EnumDecl *ED,
-             SmallVector<EnumeratorSpec *, 8> EnumSpecs,
-             Decl *ContainingDecl,
-             QualType TargetEnumType,
-             const ParsedAttributesView *Attrs,
-             SourceLocation DefinitionLoc) = 0;
 
   // ============================
   // Annotation Synthesis Support

@@ -536,10 +536,6 @@ enum : unsigned {
   __metafn_get_next_member_decl_of,
   __metafn_is_structural_type,
   __metafn_map_decl_to_entity,
-  __metafn_is_unscoped_attribute,
-  __metafn_is_clang_attribute,
-  __metafn_is_msvc_attribute,
-  __metafn_is_gcc_attribute,
 
   // CXX26 metafunctions
   __metafn_identifier_of,
@@ -550,7 +546,6 @@ enum : unsigned {
   __metafn_parent_of,
   __metafn_has_parent,
   __metafn_underlying_entity_of,
-  __metafn_proxied_entity_of,
   __metafn_object_of,
   __metafn_constant_of,
   __metafn_template_of,
@@ -592,7 +587,6 @@ enum : unsigned {
   __metafn_is_variable,
   __metafn_is_type,
   __metafn_is_alias,
-  __metafn_is_entity_proxy,
   __metafn_is_complete_type,
   __metafn_has_complete_definition,
   __metafn_is_enumerable_type,
@@ -627,10 +621,7 @@ enum : unsigned {
   __metafn_is_user_declared,
   __metafn_reflect_result,
   __metafn_data_member_spec,
-  __metafn_enumerator_spec,
-  __metafn_is_enumerator_spec,
   __metafn_define_aggregate,
-  __metafn_define_enum,
   __metafn_offset_of,
   __metafn_size_of,
   __metafn_bit_offset_of,
@@ -651,14 +642,6 @@ enum : unsigned {
   __metafn_get_ith_annotation_of,
   __metafn_is_annotation,
 
-  // P3385 attributes reflection
-  __metafn_get_ith_attribute_of,
-  __metafn_is_attribute,
-  __metafn_has_attribute,
-  __metafn_has_attribute_namespace,
-  __metafn_attribute_token_of,
-  __metafn_attribute_namespace_of,
-
   // P3493 accessibility metafunctions
   __metafn_access_context,
   __metafn_current_function,
@@ -671,7 +654,6 @@ enum : unsigned {
   __metafn_reflect_invoke,
 
   // P4033 extension: completing unscoped (C-style) enums
-  __metafn_define_unscoped_enum,
 
   __metafn_is_closure_type,
 
@@ -2984,7 +2966,6 @@ consteval auto data_member_spec(info member_type,
                             options.bit_width.has_value(), width,
                             no_unique_address,
                             options.annotations.size(), options.annotations.data(),
-                            size_t(0), (const info *)nullptr,
                             ^^data_member_spec);
     } else {
       const string &s = options.name->__s;
@@ -2995,7 +2976,6 @@ consteval auto data_member_spec(info member_type,
                             options.bit_width.has_value(), width,
                             no_unique_address,
                             options.annotations.size(), options.annotations.data(),
-                            size_t(0), (const info *)nullptr,
                             ^^data_member_spec);
     }
   } else {
@@ -3006,7 +2986,6 @@ consteval auto data_member_spec(info member_type,
       options.bit_width.has_value(), width,
       no_unique_address,
       options.annotations.size(), options.annotations.data(),
-      size_t(0), (const info *)nullptr,
       ^^data_member_spec);
   }
 }

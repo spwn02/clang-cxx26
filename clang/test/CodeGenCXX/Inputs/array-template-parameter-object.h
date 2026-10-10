@@ -8,18 +8,18 @@ using size_t = decltype(sizeof(0));
 template <class T>
 consteval info array_object(const size_t* dims, size_t rank, const T* data,
                            size_t count) {
-  return __metafunction(132, ^^T, dims, rank, data, count, ^^array_object<T>);
+  return __metafunction(116, ^^T, dims, rank, data, count, ^^array_object<T>);
 }
 template <class T> consteval T extract(info r) {
-  return __metafunction(25, ^^T, r, ^^extract<T>);
+  return __metafunction(20, ^^T, r, ^^extract<T>);
 }
 constexpr size_t dims[] = {3};
 constexpr int values[] = {1, 2, 3};
 constexpr info r = array_object(dims, 1, values, 3);
 constexpr const int* pointer = extract<const int*>(r);
 inline constexpr auto& reference = extract<const int(&)[3]>(r);
-static_assert(__metafunction(78, r));
-static_assert(__metafunction(16, r, ^^array_object<int>) == ^^const int[3]);
+static_assert(__metafunction(72, r));
+static_assert(__metafunction(12, r, ^^array_object<int>) == ^^const int[3]);
 static_assert(pointer[2] == 3);
 static_assert(&reference[0] == pointer);
 template <const int(&V)[3]> struct W {

@@ -10,10 +10,10 @@ consteval info base(info r) {
   return __metafunction(2, r, ^^sentinel, 0, ^^base);
 }
 consteval info annotation(info r, unsigned i) {
-  return __metafunction(114, r, ^^sentinel, i, ^^annotation);
+  return __metafunction(105, r, ^^sentinel, i, ^^annotation);
 }
 consteval int value(info r, unsigned i) {
-  return __metafunction(25, ^^int, annotation(r, i), ^^value);
+  return __metafunction(20, ^^int, annotation(r, i), ^^value);
 }
 
 static_assert(value(base(^^D), 0) == 13);

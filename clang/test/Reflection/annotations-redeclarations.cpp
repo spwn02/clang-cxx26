@@ -4,16 +4,16 @@
 using info = decltype(^^int);
 struct sentinel {};
 consteval info annotation(info r, unsigned i) {
-  return __metafunction(114, r, ^^sentinel, i, ^^annotation);
+  return __metafunction(105, r, ^^sentinel, i, ^^annotation);
 }
 consteval int value(info r, unsigned i) {
-  return __metafunction(25, ^^int, annotation(r, i), ^^value);
+  return __metafunction(20, ^^int, annotation(r, i), ^^value);
 }
 consteval info parameter(info r) {
-  return __metafunction(107, r, ^^sentinel, 0, ^^parameter);
+  return __metafunction(98, r, ^^sentinel, 0, ^^parameter);
 }
 consteval info variable(info r) {
-  return __metafunction(113, r, ^^variable);
+  return __metafunction(104, r, ^^variable);
 }
 
 [[=10]] void h();

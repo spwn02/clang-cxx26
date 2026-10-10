@@ -162,26 +162,6 @@ bool CheckSpliceVar(Sema &S, VarDecl *VD, SourceRange Range) {
   return false;
 }
 
-APValue MaybeUnproxy(ASTContext &C, APValue RV) {
-  assert(RV.isReflection());
-
-  if (!RV.isReflectedEntityProxy())
-    return RV;
-
-  NamedDecl *ND = RV.getReflectedEntityProxy()->getTargetDecl();
-  if (auto *T = dyn_cast<TypedefNameDecl>(ND)) {
-    QualType QT = T->getUnderlyingType();
-    return APValue(ReflectionKind::Type, QT.getAsOpaquePtr());
-  } else if (auto *T = dyn_cast<TypeDecl>(ND)) {
-    QualType QT = C.getTypeDeclType(T);
-    return APValue(ReflectionKind::Type, QT.getAsOpaquePtr());
-  } else if (auto *T = dyn_cast<TemplateDecl>(ND)) {
-    return APValue(ReflectionKind::Template, T);
-  }
-
-  return APValue(ReflectionKind::Declaration, ND);
-}
-
 class MetaActionsImpl : public MetaActions {
   Sema &S;
   ThrowCallback Throw;
@@ -602,92 +582,6 @@ public:
     return Result.get();
   }
 
-  EnumDecl *DefineEnum(EnumDecl *ED, SmallVector<EnumeratorSpec *, 8> EnumSpecs,
-                       Decl *ContainingDecl, QualType TargetEnumType,
-                       const ParsedAttributesView *Attrs,
-                       SourceLocation DefinitionLoc) override {
-    // Copypasta from define_aggregate, seems aplicable enough
-    class RestoreDeclContextTy {
-      Sema &S;
-      DeclContext *DC;
-    public:
-      RestoreDeclContextTy(Sema &S) : S(S), DC(S.CurContext) {}
-      ~RestoreDeclContextTy() { S.CurContext = DC; }
-    } RestoreDC(S);
-
-    // We set the context (Sema) to be the one where the enum was declared
-    S.CurContext = ED->getDeclContext();
-
-    Scope EnumScope(S.getCurScope(), Scope::EnumScope | Scope::DeclScope, S.Diags);
-    ED->startDefinition();
-    S.ActOnTagStartDefinition(&EnumScope, ED);
-
-    Decl* LastEnumConstDecl = nullptr;
-    SmallVector<Decl *, 32> EnumConstantDecls;
-    for (const auto &enumSpec : EnumSpecs) {
-      IdentifierInfo *II = &(S.Context.Idents.get(enumSpec->name));
-      Expr *Val = enumSpec->hasValue
-                      ? IntegerLiteral::Create(
-                            S.Context, llvm::APSInt::get(enumSpec->val),
-                            S.Context.getSizeType(), DefinitionLoc)
-                      : nullptr;
-      ParsedAttributesView attrs;
-      for (APValue * attr: enumSpec->attributes) {
-        attrs.addAtEnd(attr->getReflectedAttribute());
-      }
-      Decl *EnumConstDecl =
-          S.ActOnEnumConstant(&EnumScope, ED, LastEnumConstDecl, DefinitionLoc,
-                              II, attrs, DefinitionLoc, Val);
-      if (!EnumConstDecl) {
-        // TODO any rollback we need to do ?...
-        S.Diag(DefinitionLoc, diag::p4033_sema_define_enum_enumerator) << enumSpec->name;
-        return nullptr;
-      }
-
-      // Attach annotations as CXX26AnnotationAttr directly on the decl.
-      for (APValue *annotVal : enumSpec->annotations) {
-        APValue LoweredVal = annotVal->isReflectedValue()
-                                 ? annotVal->getReflectedValue()
-                                 : annotVal->getReflectedObject();
-        Expr *OVE = new (S.Context) OpaqueValueExpr(
-            DefinitionLoc,
-            annotVal->getTypeOfReflectedResult(S.Context),
-            VK_PRValue);
-        Expr *CE = ConstantExpr::Create(S.Context, OVE, LoweredVal);
-
-        AttributeFactory AttrFactory;
-        ParsedAttributes ParsedAttrs(AttrFactory);
-        SourceRange Range(DefinitionLoc, DefinitionLoc);
-        IdentifierInfo &AnnotII = S.Context.Idents.get("__annotation_placeholder");
-        AttributeCommonInfo *ACI = ParsedAttrs.addNew(
-            &AnnotII, Range, {}, nullptr, 0,
-            ParsedAttr::Form::Annotation(), DefinitionLoc);
-
-        auto *Annot = CXX26AnnotationAttr::Create(S.Context, CE, *ACI);
-        Annot->setValue(LoweredVal);
-        Annot->setEqLoc(DefinitionLoc);
-        EnumConstDecl->addAttr(Annot);
-      }
-
-      EnumConstantDecls.push_back(EnumConstDecl);
-      LastEnumConstDecl = EnumConstDecl;
-    }
-
-    S.ActOnEnumBody(DefinitionLoc, SourceRange{}, ED, EnumConstantDecls,
-                    &EnumScope, {});
-
-
-    S.ActOnPopScope(DefinitionLoc, &EnumScope);
-    S.ActOnTagFinishDefinition(S.getCurScope(), ED, DefinitionLoc);
-
-    // If this enum is a member of a template instantiation, mark it as explicitly specialized
-    // define_enum provides its own definition rather than inheriting one from the template pattern
-    if (ED->getMemberSpecializationInfo()) {
-      ED->setTemplateSpecializationKind(TSK_ExplicitSpecialization, DefinitionLoc);
-    }
-    return ED;
-  }
-
   CXXRecordDecl *DefineAggregate(CXXRecordDecl *IncompleteDecl,
                                  ArrayRef<TagDataMemberSpec *> MemberSpecs,
                                  Decl *ContainingDecl,
@@ -880,10 +774,6 @@ public:
         SourceRange Range(DefinitionLoc, DefinitionLoc);
         MemberAttrs.addAtEnd(AttrPool.create(&II, Range, {}, nullptr, 0,
                                              ParsedAttr::Form::CXX11()));
-      }
-
-      for (ParsedAttr *PA : MemberSpec->Attributes) {
-        MemberAttrs.addAtEnd(PA);
       }
 
       // Create declarator for the member.
@@ -1092,8 +982,6 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc,
   NamedDecl *ND = Found.getRepresentativeDecl();
 
   if (auto *USD = dyn_cast<UsingShadowDecl>(ND)) {
-    if (getLangOpts().EntityProxyReflection)
-      return BuildCXXReflectExpr(OpLoc, NameInfo.getBeginLoc(), USD);
     if (isReflectionNameForm(NameInfo.getName(), TArgs)) {
       Diag(SS.getBeginLoc(), diag::err_reflect_using_declarator);
       return ExprError();
@@ -1176,11 +1064,6 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc,
 ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OperatorLoc,
                                      CXXSpliceExpr *E) {
   return BuildCXXReflectExpr(OperatorLoc, E);
-}
-
-ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OperatorLoc,
-                                     ParsedAttr *A) {
-  return BuildCXXReflectExpr(OperatorLoc, A);
 }
 
 /// Returns an expression representing the result of a metafunction operating
@@ -1352,12 +1235,8 @@ Decl *Sema::ActOnConstevalBlockDeclaration(SourceLocation ConstevalLoc,
 ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
                                      SourceLocation OperandLoc, QualType T) {
   if (auto *UT = dyn_cast<UsingType>(T)) {
-    if (Context.getLangOpts().EntityProxyReflection)
-      return BuildCXXReflectExpr(OperatorLoc, OperandLoc, UT->getDecl());
-    else {
-      Diag(OperandLoc, diag::err_reflect_using_declarator);
-      return ExprError();
-    }
+    Diag(OperandLoc, diag::err_reflect_using_declarator);
+    return ExprError();
   }
 
   if (auto *STTPTy = T->getAs<SubstTemplateTypeParmType>())
@@ -1379,8 +1258,7 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
     }
     UsingShadowDecl *USD = *UD->shadow_begin();
     D = USD;
-    if (!getLangOpts().EntityProxyReflection &&
-        !isReflectionNameForm(UD->getDeclName(), /*HasTemplateArgs=*/false))
+    if (!isReflectionNameForm(UD->getDeclName(), /*HasTemplateArgs=*/false))
       D = USD->getTargetDecl();
   }
 
@@ -1390,11 +1268,8 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
   if (isa<TranslationUnitDecl, NamespaceDecl, NamespaceAliasDecl>(D))
     RK = ReflectionKind::Namespace;
   else if (isa<UsingShadowDecl>(D)) {
-    if (!getLangOpts().EntityProxyReflection) {
-      Diag(OperandLoc, diag::err_reflect_using_declarator);
-      return ExprError();
-    }
-    RK = ReflectionKind::EntityProxy;
+    Diag(OperandLoc, diag::err_reflect_using_declarator);
+    return ExprError();
   }
 
   APValue RV(RK, D);
@@ -1432,8 +1307,7 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc, Expr *E) {
     Decl *D = DRE->getDecl();
     if (auto *F = DRE->getFoundDecl();
         isa<UsingShadowDecl>(F) &&
-        (getLangOpts().EntityProxyReflection ||
-         isReflectionNameForm(DRE->getNameInfo().getName(),
+        (isReflectionNameForm(DRE->getNameInfo().getName(),
                               DRE->hasExplicitTemplateArgs())))
       D = F;
 
@@ -1571,13 +1445,6 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
                                 ER.Val);
 }
 
-ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
-                                     ParsedAttr *A) {
-  return CXXReflectExpr::Create(
-      Context, OperatorLoc, A->getRange(),
-      APValue{ReflectionKind::Attribute, static_cast<void *>(A)});
-}
-
 ExprResult Sema::BuildCXXMetafunctionExpr(
       SourceLocation KwLoc, SourceLocation LParenLoc, SourceLocation RParenLoc,
       unsigned MetaFnID, const CXXMetafunctionExpr::ImplFn &Impl,
@@ -1699,7 +1566,7 @@ QualType Sema::BuildReflectionSpliceType(SourceLocation TypenameKWLoc,
     Diag(Splice->getBeginLoc(), diag::err_splice_operand_not_reflection);
     return QualType();
   }
-  APValue Refl = MaybeUnproxy(Context, ER.Val);
+  APValue Refl = ER.Val;
 
   if (Splice->isSpecialization() && !Refl.isReflectedTemplate()) {
     if (Complain)
@@ -1842,7 +1709,7 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
       Diag(Splice->getBeginLoc(), diag::err_splice_operand_not_reflection);
       return ExprError();
     }
-    APValue Refl = MaybeUnproxy(Context, ER.Val);
+    APValue Refl = ER.Val;
 
     bool RequireTemplate = TemplateKWLoc.isValid() ||
                            Splice->isSpecialization();
@@ -2028,13 +1895,10 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
     case ReflectionKind::Parameter:
     case ReflectionKind::DataMemberSpec:
     case ReflectionKind::Annotation:
-    case ReflectionKind::Attribute:
       Diag(Splice->getBeginLoc(),
            diag::err_unexpected_reflection_kind_in_splice)
           << 1 << Splice->getSourceRange();
       return ExprError();
-    case ReflectionKind::EntityProxy:
-      llvm_unreachable("proxies should already have been unwrapped");
     }
     cast<CXXSpliceExpr>(Result)->setIsMemberAccess(IsMemberAccess);
     return Result;
@@ -2114,7 +1978,7 @@ DeclContext *Sema::TryFindDeclContextOf(SpliceSpecifier *Splice) {
       Diag(PD.first, PD.second);
     return nullptr;
   }
-  APValue Refl = MaybeUnproxy(Context, ER.Val);
+  APValue Refl = ER.Val;
 
   switch (Refl.getReflectionKind()) {
   case ReflectionKind::Type: {
@@ -2171,12 +2035,9 @@ DeclContext *Sema::TryFindDeclContextOf(SpliceSpecifier *Splice) {
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
   case ReflectionKind::Annotation:
-  case ReflectionKind::Attribute:
     Diag(Splice->getBeginLoc(), diag::err_expected_class_or_namespace)
         << "spliced entity" << getLangOpts().CPlusPlus;
     return nullptr;
-  case ReflectionKind::EntityProxy:
-    llvm_unreachable("proxies should already have been unwrapped");
   }
   llvm_unreachable("unknown reflection kind");
 }

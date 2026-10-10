@@ -9165,15 +9165,6 @@ TreeTransform<Derived>::TransformCXXReflectExpr(CXXReflectExpr *E) {
                                           E->getOperandRange().getBegin(),
                                           Template));
   }
-  case ReflectionKind::EntityProxy: {
-    Decl *Transformed =
-        getDerived().TransformDecl(E->getExprLoc(),
-                                   RV.getReflectedEntityProxy());
-    return RecordConstevalOnly.RecordAndReturn(
-            getSema().BuildCXXReflectExpr(E->getOperatorLoc(),
-                                          E->getOperandRange().getBegin(),
-                                          cast<UsingShadowDecl>(Transformed)));
-  }
   case ReflectionKind::Parameter: {
     Decl *Transformed = getDerived().TransformDecl(E->getExprLoc(),
                                                   RV.getReflectedParameter());
@@ -9196,7 +9187,6 @@ TreeTransform<Derived>::TransformCXXReflectExpr(CXXReflectExpr *E) {
   }
   case ReflectionKind::Object:
   case ReflectionKind::Value:
-  case ReflectionKind::Attribute:
   // A reflection value (std::meta::info) that was substituted for a non-type
   // template parameter is wrapped in a CXXReflectExpr whatever its kind. These
   // kinds have nothing that depends on a template parameter.

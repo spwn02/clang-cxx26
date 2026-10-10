@@ -3318,13 +3318,6 @@ def err_decltype_base_splice_no_entity : Error<
 def err_expanded_case_label : Error<
   "case and default labels are not allowed in expansion statements">;
 
-// P3385
-def p3385_warn_unsupported_attribute : Error<
-  "reflecting over the unsupported '%0' attribute is ill-formed">;
-
-// P4033
-def p4033_sema_define_enum_enumerator : Error<"could not create enumerator %0">;
-
 // C++11 char16_t/char32_t
 def warn_cxx98_compat_unicode_type : Warning<
   "'%0' type specifier is incompatible with C++98">,

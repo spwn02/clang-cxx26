@@ -958,21 +958,7 @@ ExprDependence clang::computeDependence(CXXReflectExpr *E,
 
   ExprDependence D = ExprDependence::None;
 
-  // Unwrap entity proxies.
   APValue RV = E->getReflection();
-  if (RV.isReflectedEntityProxy()) {
-    NamedDecl *ND = RV.getReflectedEntityProxy()->getTargetDecl();
-
-    if (auto *T = dyn_cast<TypeDecl>(ND)) {
-      QualType QT = Ctx.getTypeDeclType(T);
-      RV = APValue(ReflectionKind::Type, QT.getAsOpaquePtr());
-    } else if (auto *T = dyn_cast<TemplateDecl>(ND)) {
-      RV = APValue(ReflectionKind::Template, T);
-    } else {
-      RV = APValue(ReflectionKind::Declaration, ND);
-    }
-  }
-
   switch (RV.getReflectionKind()) {
   case ReflectionKind::Type: {
     QualType T = RV.getReflectedType();
@@ -1020,11 +1006,7 @@ ExprDependence clang::computeDependence(CXXReflectExpr *E,
   case ReflectionKind::Namespace:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
-  case ReflectionKind::EnumeratorSpec:
-  case ReflectionKind::Attribute:
     return ExprDependence::None;
-  case ReflectionKind::EntityProxy:
-    llvm_unreachable("should already have been unwrapped");
   }
   llvm_unreachable("unknown reflection kind while computing dependence");
 }
