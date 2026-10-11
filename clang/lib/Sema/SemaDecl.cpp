@@ -16567,9 +16567,6 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D,
       getCurLexicalContext()->getDeclKind() != Decl::ObjCImplementation)
     Diag(FD->getLocation(), diag::warn_function_def_in_objc_container);
 
-   // FIXME(EricWF): Remove this
-  // ActOnContractsOnStartOfFunctionDef()
-
   maybeAddDeclWithEffects(FD);
 
 
