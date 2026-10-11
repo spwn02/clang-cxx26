@@ -3462,6 +3462,8 @@ ExprResult Parser::ParseCXXMemberInitializer(Decl *D, bool IsFunction,
   }
 
   EnterExpressionEvaluationContext Context(Actions, Ctx, D);
+  if (Ctx == Sema::ExpressionEvaluationContext::ImmediateFunctionContext)
+    Actions.ExprEvalContexts.back().IsSynthesizedConstexprVarInitContext = true;
 
   // CWG2760
   // Default member initializers used to initialize a base or member subobject

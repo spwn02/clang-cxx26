@@ -38,12 +38,15 @@ static_assert(null_capture_outside_handler());
 
 consteval void *escape_exception_handle() {
   try {
-    throw 17; // expected-note {{heap allocation performed here}}
+    throw 17; // expected-note 2{{heap allocation performed here}}
   } catch (int) {
     return __builtin_constexpr_exception_capture();
   }
 }
-constexpr void *EscapedHandle = escape_exception_handle(); // expected-error {{constant expression}} expected-note {{pointer to heap-allocated object is not a constant expression}}
+constexpr void *EscapedHandle = escape_exception_handle();
+// expected-error@-1 {{constexpr variable 'EscapedHandle' must be initialized by a constant expression}}
+// expected-error@-2 {{call to consteval function 'escape_exception_handle' is not a constant expression}}
+// expected-note@-3 2{{pointer to heap-allocated object is not a constant expression}}
 
 consteval const int *escape_exception_reference() {
   try {
@@ -52,7 +55,10 @@ consteval const int *escape_exception_reference() {
     return &Caught;
   }
 }
-constexpr const int *EscapedReference = escape_exception_reference(); // expected-error {{constant expression}} expected-note {{pointer to heap-allocated object is not a constant expression}}
+constexpr const int *EscapedReference = escape_exception_reference();
+// expected-error@-1 {{constexpr variable 'EscapedReference' must be initialized by a constant expression}}
+// expected-error@-2 {{call to consteval function 'escape_exception_reference' is not a constant expression}}
+// expected-note@-3 2{{pointer to heap-allocated object is not a constant expression}}
 
 consteval bool invalid_rethrow() {
   __builtin_constexpr_exception_rethrow(nullptr); // expected-note {{subexpression not valid in a constant expression}}

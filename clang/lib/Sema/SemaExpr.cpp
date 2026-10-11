@@ -6740,7 +6740,11 @@ ExprResult Sema::ActOnCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
     Call = OpenMP().ActOnOpenMPCall(Call, Scope, LParenLoc, ArgExprs, RParenLoc,
                                     ExecConfig);
   if (LangOpts.CPlusPlus) {
-    if (const auto *CE = dyn_cast<CallExpr>(Call.get())) {
+    auto *Immediate = dyn_cast<ConstantExpr>(Call.get());
+    Expr *CallToInspect = Immediate && Immediate->isImmediateInvocation()
+                              ? Immediate->getSubExpr()->IgnoreImplicit()
+                              : Call.get();
+    if (const auto *CE = dyn_cast<CallExpr>(CallToInspect)) {
       DiagnosedUnqualifiedCallsToStdFunctions(*this, CE);
 
       if (auto *Fn = CE->getCalleeDecl();
@@ -6750,8 +6754,25 @@ ExprResult Sema::ActOnCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
           if (cast<Decl>(DC)->getDescribedTemplateParams())
             ++TemplateDepth;
 
-        Call = BuildExplDependentCallExpr(cast<CallExpr>(Call.get()),
-                                          TemplateDepth);
+        // Immediate-invocation tracking may already have wrapped the call.
+        // Preserve explicit dependence inside that wrapper too; otherwise
+        // access_context::current() is folded in a template's pattern scope.
+        ExprResult Dependent = BuildExplDependentCallExpr(
+            Immediate ? Immediate->getSubExpr() : Call.get(), TemplateDepth);
+        if (Immediate) {
+          auto *Deferred = ConstantExpr::Create(
+              Context, Dependent.get(), Immediate->getResultStorageKind(),
+              /*IsImmediateInvocation=*/true);
+          auto &Evaluation = currentEvaluationContext();
+          for (auto &Candidate : Evaluation.ImmediateInvocationCandidates)
+            if (Candidate.getPointer() == Immediate)
+              Candidate.setPointer(Deferred);
+          if (Evaluation.ConstevalOnly.erase(Immediate))
+            Evaluation.ConstevalOnly.insert(Deferred);
+          Call = Deferred;
+        } else {
+          Call = Dependent;
+        }
       }
     }
 
@@ -18280,37 +18301,17 @@ ExprResult Sema::CheckForImmediateInvocation(ExprResult E, FunctionDecl *Decl) {
       isCheckingDefaultArgumentOrInitializer() || RebuildingImmediateInvocation)
     return E;
 
-  // Both isAlwaysConstantEvaluatedContext() and isImmediateFunctionContext()
-  // read true for the synthetic ImmediateFunctionContext push around a
-  // C++23+ constexpr/constinit variable's own initializer
-  // (ActOnCXXEnterDeclInitializer/InstantiateVariableInitializer), same as
-  // for a genuine immediate-function-body/constant-evaluated context. For an
-  // ORDINARY (non-self-referential) call there, that's exactly the behavior
-  // we want: it'll be diagnosed once, by the ordinary whole-initializer
-  // constant-expression check, and registering it as its own independent
-  // ImmediateInvocationCandidate here would only produce a redundant/
-  // divergent second evaluation (see Attempt 5's sub-issue (b) in the KNOWN
-  // BUG comment above HandleImmediateInvocations). But when the call is
-  // SELF-referential -- it (transitively) names the very variable whose
-  // initializer is being checked, e.g.
-  // `constexpr bool self = __builtin_is_within_lifetime(&self);` -- the
-  // ordinary whole-initializer check alone produces only the generic
-  // "must be initialized by a constant expression" diagnostic; standard
-  // C++23 behavior additionally expects the specific
-  // "call to consteval function ... is not a constant expression"
-  // diagnostic that only coming through this candidate machinery provides.
-  // So: keep the ordinary bailout for every case except this one narrow
-  // self-referential carve-out.
+  // Synthesized constexpr/constinit initializer contexts must still track
+  // immediate calls. If constant evaluation fails, the initializer is not
+  // manifestly constant-evaluated. Track consteval-only calls too so that
+  // their nested invocations can be removed before evaluating candidates;
+  // their own diagnostics remain the whole initializer's responsibility.
   const ExpressionEvaluationContextRecord &CurCtx = ExprEvalContexts.back();
-  bool IsSelfReferential =
-      CurCtx.IsSynthesizedConstexprVarInitContext &&
-      CurCtx.ManglingContextDecl &&
-      (exprReferencesDecl(E.get(), CurCtx.ManglingContextDecl) ||
-       exprConstructsDecl(E.get(), CurCtx.ManglingContextDecl));
   bool GenuinelyAlwaysConstantEvaluated =
       (CurCtx.Context == ExpressionEvaluationContext::ConstantEvaluated ||
        isConstantEvaluatedOverride ||
-       (isImmediateFunctionContext() && !IsSelfReferential)) &&
+       (isImmediateFunctionContext() &&
+        !CurCtx.IsSynthesizedConstexprVarInitContext)) &&
       !CurCtx.InConditionallyConstantEvaluateContext;
   if (GenuinelyAlwaysConstantEvaluated)
     return E;
@@ -18349,6 +18350,7 @@ ExprResult Sema::CheckForImmediateInvocation(ExprResult E, FunctionDecl *Decl) {
   };
 
   if (!E.get()->isValueDependent() &&
+      !ExprEvalContexts.back().IsSynthesizedConstexprVarInitContext &&
       ExprEvalContexts.back().InImmediateEscalatingFunctionContext &&
       !CheckConstantExpressionAndKeepResult()) {
     MarkExpressionAsImmediateEscalating(E.get());
@@ -18939,6 +18941,19 @@ static void RemoveNestedImmediateInvocation(
 //     own still-open builtin-is-within-lifetime.cpp gap above, so a future
 //     fix attempt should investigate both together.
 //
+// Issue #158 (2026-10-11): the self-reference-only candidate carve-out
+// also suppressed ordinary failing calls, including GH65985's static member
+// initializer and a call returning an escaping heap pointer. Register calls
+// in synthesized variable-init contexts, deduplicate nested invocations, and
+// retain whole-initializer handling for non-self-referential consteval-only
+// calls. Tracking those calls is needed to suppress their nested candidates.
+// ParseCXXMemberInitializer must mark its synthesized context too; otherwise
+// the in-class static initializer still takes the genuine-context bailout.
+// Failed ordinary calls now retain their immediate-invocation diagnostic as
+// well as the constexpr-variable diagnostic, including the exception-pointer
+// and define_static_array negative tests. The earlier attempt history above
+// describes the narrower self-reference fix and its then-current baseline.
+//
 // Issue #103, fixed: the missing GH66324 diagnostic needed a genuinely new
 // distinction, not a toggle between escalating and independently
 // registering. Two prior attempts (both reverted, kept here for the
@@ -19006,7 +19021,7 @@ HandleImmediateInvocations(Sema &SemaRef,
   // spurious consteval-only-type diagnostic (see the KNOWN BUG comment above
   // CheckForImmediateInvocation). But in that second case we still need to
   // evaluate this Record's own ImmediateInvocationCandidates -- that's what
-  // diagnoses a self-referential immediate call inside the initializer
+  // diagnoses an ordinary or self-referential immediate call in the initializer
   // (e.g. `constexpr bool self = __builtin_is_within_lifetime(&self);`) --
   // while still skipping the ReferenceToConsteval/ConstevalOnly loops below,
   // which is what protects the P2996 idiom. SkipDiagnosticLoops tracks that
@@ -19041,10 +19056,11 @@ HandleImmediateInvocations(Sema &SemaRef,
   /// Otherwise we only need to remove ReferenceToConsteval in the immediate
   /// invocation.
   ///
-  /// This dedup logic only feeds the ReferenceToConsteval/ConstevalOnly
-  /// diagnostic loops below, so it's pointless work when those are skipped.
-  if (!SkipDiagnosticLoops && (Rec.ImmediateInvocationCandidates.size() > 1 ||
-      !SemaRef.FailedImmediateInvocations.empty())) {
+  /// Nested invocation candidates must be removed even when the
+  /// ReferenceToConsteval/ConstevalOnly diagnostic loops are suppressed:
+  /// allocation may escape an inner call but be released by its outer call.
+  if (Rec.ImmediateInvocationCandidates.size() > 1 ||
+      !SemaRef.FailedImmediateInvocations.empty()) {
 
     /// Prevent sema calls during the tree transform from adding pointers that
     /// are already in the sets.
@@ -19103,8 +19119,26 @@ HandleImmediateInvocations(Sema &SemaRef,
        Idx < SemaRef.currentEvaluationContext().ImmediateInvocationCandidates.size();
        ++Idx) {
     auto CE = SemaRef.currentEvaluationContext().ImmediateInvocationCandidates[Idx];
-    if (!CE.getInt() && !CE.getPointer()->isValueDependent())
-      EvaluateAndDiagnoseImmediateInvocation(SemaRef, CE);
+    if (CE.getInt() || CE.getPointer()->isValueDependent())
+      continue;
+
+    const auto &Current = SemaRef.currentEvaluationContext();
+    if (Current.IsSynthesizedConstexprVarInitContext) {
+      Expr *Call = CE.getPointer()->getSubExpr()->IgnoreImplicit();
+      FunctionDecl *Callee = nullptr;
+      if (auto *Invoke = dyn_cast<CallExpr>(Call))
+        Callee = Invoke->getDirectCallee();
+      else if (auto *Construct = dyn_cast<CXXConstructExpr>(Call))
+        Callee = Construct->getConstructor();
+      bool IsConstevalOnly = Call->getType()->isConstevalOnly() ||
+                            (Callee && Callee->getType()->isConstevalOnly());
+      if (IsConstevalOnly &&
+          (!Current.ManglingContextDecl ||
+           (!exprReferencesDecl(Call, Current.ManglingContextDecl) &&
+            !exprConstructsDecl(Call, Current.ManglingContextDecl))))
+        continue;
+    }
+    EvaluateAndDiagnoseImmediateInvocation(SemaRef, CE);
   }
   // Re-acquire after the reentrant evaluation above; Rec may now be dangling.
   Sema::ExpressionEvaluationContextRecord &CurRec =

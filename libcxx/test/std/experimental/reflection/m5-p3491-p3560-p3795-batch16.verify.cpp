@@ -16,6 +16,7 @@ int runtime_value();
 constexpr auto bad_array = std::define_static_array(
     std::array{runtime_value()});
 // expected-error@-2 {{must be initialized by a constant expression}}
+// expected-error@-3 {{call to consteval function 'std::define_static_array<std::array<int, 1>>' is not a constant expression}}
 
 // 3491-05: array elements must be structural, not merely copyable.
 struct non_structural {
@@ -27,6 +28,7 @@ public:
 constexpr auto non_structural_array = std::define_static_array(
     std::array{non_structural{}});
 // expected-error@-2 {{constexpr variable 'non_structural_array' must be initialized by a constant expression}}
+// expected-error@-3 {{call to consteval function 'std::define_static_array<std::array<batch16::non_structural, 1>>' is not a constant expression}}
 // P3491R3: the structural-type requirement is a Mandates (a hard error at the call).
 // expected-error@*:* {{define_static_array requires a structural element type}}
 // expected-error@*:* {{reflect_constant_array requires a structural element type}}
