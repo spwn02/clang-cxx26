@@ -554,8 +554,7 @@ bool Parser::isCXXTypeId(TentativeCXXTypeIdContext Context, bool &isAmbiguous) {
   assert(Tok.is(tok::l_paren) && "Expected '('");
 
   bool BeginsWithFunctionDeclarator = false;
-  if (Context == TentativeCXXTypeIdContext::InParensNoFun &&
-      !MayHaveTrailingReturnType) {
+  if (Context == TentativeCXXTypeIdContext::InParensNoFun) {
     // Is the '(' that follows the type-specifier-seq the parenthesis of a
     // nested abstract declarator, as in 'int (*)()' or 'int (A::*)()'? If not
     // it starts a parameter list.
@@ -578,21 +577,23 @@ bool Parser::isCXXTypeId(TentativeCXXTypeIdContext Context, bool &isAmbiguous) {
                            /*mayHaveDirectInit=*/false,
                            MayHaveTrailingReturnType);
 
+  // A nofun-type-id does not begin with a function declarator, with or without
+  // a trailing-return-type, so what is left is an expression ([dcl.name],
+  // [dcl.ambig.res], CWG2228).
+  if (BeginsWithFunctionDeclarator &&
+      (TPR == TPResult::Ambiguous || TPR == TPResult::True))
+    TPR = TPResult::False;
+
   // In case of an error, let the declaration parsing code handle it.
   if (TPR == TPResult::Error)
     TPR = TPResult::True;
 
   if (TPR == TPResult::Ambiguous) {
-    // A nofun-type-id does not begin with a function declarator unless that
-    // has a trailing-return-type, so what is left is an expression
-    // ([dcl.ambig.res], CWG2228).
-    if (BeginsWithFunctionDeclarator) {
-      TPR = TPResult::False;
     // We are supposed to be inside parens, so if after the abstract declarator
     // we encounter a ')' this is a type-id, otherwise it's an expression.
-    } else if ((Context == TentativeCXXTypeIdContext::InParens ||
-                Context == TentativeCXXTypeIdContext::InParensNoFun) &&
-               Tok.is(tok::r_paren)) {
+    if ((Context == TentativeCXXTypeIdContext::InParens ||
+         Context == TentativeCXXTypeIdContext::InParensNoFun) &&
+        Tok.is(tok::r_paren)) {
       TPR = TPResult::True;
       isAmbiguous = true;
 

@@ -29,8 +29,12 @@ void (*fp)() = (void (*)())nullptr;
 auto *np = new (int (*)());
 void (*fp2)(int) = (void (*)(int))(void (*)())nullptr;
 
-// A function type with a trailing-return-type is a type-id.
-static_assert(sizeof(auto() -> int) == 1); // expected-error {{invalid application of 'sizeof' to a function type}}
+// A function declarator with a trailing-return-type is a nofun-declarator only
+// when it is preceded by a noptr-nofun-declarator.
+static_assert(sizeof(auto (*)() -> int) == sizeof(void *));
+static_assert(sizeof(auto(a)) == sizeof(int));
+auto bad1 = sizeof(auto() -> int); // expected-error {{initializer for functional-style cast to 'auto' is empty}} expected-error {{expected unqualified-id}}
+auto bad2 = (auto() -> int)a; // expected-error {{initializer for functional-style cast to 'auto' is empty}} expected-error {{expected unqualified-id}}
 
 // alignas(nofun-type-id) has the effect of alignas(alignof(nofun-type-id)).
 struct alignas(int()) AI { char c; };

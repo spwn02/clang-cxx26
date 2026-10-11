@@ -80,8 +80,16 @@ void g() {
     A a(B ()->C);
     A b(auto ()->C);
     static_assert(sizeof(B ()->C[1] == sizeof(int)), "");
+    // CWG2228: a function declarator is not a nofun-type-id, so this is an
+    // ill-formed expression.
+#if __cplusplus >= 202302L
+    sizeof(auto () -> C[1]);
+    // since-cxx23-error@-1 {{initializer for functional-style cast to 'auto' is empty}}
+    // since-cxx23-error@-2 {{expected unqualified-id}}
+#else
     sizeof(auto () -> C[1]);
     // since-cxx11-error@-1 {{function cannot return array type 'C[1]' (aka 'struct BB[1]')}}
+#endif
 }
 #endif
 } // namespace cwg1223
