@@ -16,17 +16,17 @@ namespace N {
   template<typename T> class C;
 }
 
-extern "C" { // expected-note 3 {{extern "C" language linkage specification begins here}}
-  template<typename T> class D; // expected-error{{templates must have C++ linkage}}
-  template<typename T> class A<T **>; // expected-error{{templates must have C++ linkage}}
-  template<> class A<int[3]>; // expected-error{{templates must have C++ linkage}}
+extern "C" {
+  template<typename T> class D;
+  template<typename T> class A<T **>;
+  template<> class A<int[3]>;
   template class A<int[4]>; // OK (surprisingly) FIXME: Should we warn on this?
 }
 
-extern "C" { // expected-note 2 {{extern "C" language linkage specification begins here}}
+extern "C" {
   class PR17968 {
-    template<typename T> class D; // expected-error{{templates must have C++ linkage}}
-    template<typename T> void f(); // expected-error{{templates must have C++ linkage}}
+    template<typename T> class D;
+    template<typename T> void f();
   };
 }
 
@@ -155,8 +155,8 @@ namespace redecl {
   };
 }
 
-extern "C" template <typename T> // expected-error{{templates must have C++ linkage}}
-void DontCrashOnThis() { // expected-note@-1 {{extern "C" language linkage specification begins here}}
+extern "C" template <typename T>
+void DontCrashOnThis() {
   T &pT = T();
   pT;
 }

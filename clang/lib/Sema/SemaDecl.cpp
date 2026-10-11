@@ -7517,6 +7517,17 @@ static bool isIncompleteDeclExternC(Sema &S, const T *D) {
   return D->isExternC();
 }
 
+static bool isTemplateSpecialization(const NamedDecl *D) {
+  if (const auto *FD = dyn_cast<FunctionDecl>(D))
+    return FD->isFunctionTemplateSpecialization() ||
+           (FD->getTemplateSpecializationKind() != TSK_Undeclared &&
+            !FD->getDescribedFunctionTemplate());
+  if (const auto *VD = dyn_cast<VarDecl>(D))
+    return isa<VarTemplateSpecializationDecl>(VD) ||
+           VD->getTemplateSpecializationKind() != TSK_Undeclared;
+  return isa<ClassTemplateSpecializationDecl>(D);
+}
+
 static bool shouldConsiderLinkage(const VarDecl *VD) {
   const DeclContext *DC = VD->getDeclContext()->getRedeclContext();
   if (DC->isFunctionOrMethod() || isa<OMPDeclareReductionDecl>(DC) ||
@@ -8874,6 +8885,15 @@ static bool checkGlobalOrExternCConflict(
 template<typename T>
 static bool checkForConflictWithNonVisibleExternC(Sema &S, const T *ND,
                                                   LookupResult &Previous) {
+  // Template specializations and the templates themselves are not functions or
+  // variables with C language linkage that are identified by name
+  // ([dcl.link]).
+  if (isTemplateSpecialization(ND))
+    return false;
+  if (const auto *FD = dyn_cast<FunctionDecl>(ND); FD && FD->getDescribedFunctionTemplate())
+    return false;
+  if (const auto *VD = dyn_cast<VarDecl>(ND); VD && VD->getDescribedVarTemplate())
+    return false;
   if (!S.getLangOpts().CPlusPlus) {
     // In C, when declaring a global variable, look for a corresponding 'extern'
     // variable declared in function scope. We don't need this in C++, because
@@ -12303,6 +12323,20 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
   bool MayNeedOverloadableChecks = false;
 
   inferLifetimeCaptureByAttribute(NewFD);
+  // A function template with C language linkage is not a function with C
+  // language linkage that is identified by name ([dcl.link]): it overloads
+  // the non-template functions of the same name instead of redeclaring them.
+  if (NewFD->getDescribedFunctionTemplate() && NewFD->isInExternCContext() &&
+      !Previous.empty()) {
+    LookupResult::Filter Filter = Previous.makeFilter();
+    while (Filter.hasNext()) {
+      NamedDecl *Prev = Filter.next();
+      if (isa<FunctionDecl>(Prev) &&
+          !cast<FunctionDecl>(Prev)->getDescribedFunctionTemplate())
+        Filter.erase();
+    }
+    Filter.done();
+  }
   // Merge or overload the declaration with an existing declaration of
   // the same name, if appropriate.
   if (!Previous.empty()) {
@@ -12606,7 +12640,10 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
     // the function returns a UDT (class, struct, or union type) that is not C
     // compatible, and if it does, warn the user.
     // But, issue any diagnostic on the first declaration only.
-    if (Previous.empty() && NewFD->isExternC()) {
+    // Templates and their specializations are not callable from C.
+    if (Previous.empty() && NewFD->isExternC() &&
+        !NewFD->getDescribedFunctionTemplate() &&
+        !NewFD->isFunctionTemplateSpecialization()) {
       QualType R = NewFD->getReturnType();
       if (R->isIncompleteType() && !R->isVoidType())
         Diag(NewFD->getLocation(), diag::warn_return_value_udt_incomplete)

@@ -164,6 +164,13 @@ Parser::DeclGroupPtrTy Parser::ParseDeclarationAfterTemplate(
   assert(TemplateInfo.Kind != ParsedTemplateKind::NonTemplate &&
          "Template information required");
 
+  if (Tok.is(tok::kw_extern) && NextToken().is(tok::string_literal)) {
+    Diag(Tok.getLocation(), diag::err_linkage_spec_in_template)
+        << TemplateInfo.getSourceRange();
+    SkipUntil(tok::semi);
+    return nullptr;
+  }
+
   if (Tok.is(tok::kw_static_assert)) {
     // A static_assert declaration may not be templated.
     Diag(Tok.getLocation(), diag::err_templated_invalid_declaration)

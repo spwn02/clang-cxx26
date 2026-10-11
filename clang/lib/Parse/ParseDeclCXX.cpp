@@ -359,6 +359,16 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, DeclaratorContext Context) {
     DS.SetRangeEnd(SourceLocation());
     // ... but anyway remember that such an "extern" was seen.
     DS.setExternInLinkageSpec(true);
+    if (Tok.is(tok::kw_template)) {
+      SourceLocation DeclEnd;
+      DeclGroupPtrTy Group = ParseDeclarationStartingWithTemplate(
+          Context, DeclEnd, DeclAttrs);
+      if (LinkageSpec)
+        Actions.ActOnFinishLinkageSpecification(getCurScope(), LinkageSpec,
+                                               SourceLocation());
+      DeclGroupRef Decls = Group.get();
+      return Decls.isSingleDecl() ? Decls.getSingleDecl() : nullptr;
+    }
     ParseExternalDeclaration(DeclAttrs, DeclSpecAttrs, &DS);
     return LinkageSpec ? Actions.ActOnFinishLinkageSpecification(
                              getCurScope(), LinkageSpec, SourceLocation())

@@ -895,6 +895,8 @@ def warn_cxx98_compat_two_right_angle_brackets : Warning<
   InGroup<CXX98Compat>, DefaultIgnore;
 def err_templated_invalid_declaration : Error<
   "a static_assert declaration cannot be a template">;
+def err_linkage_spec_in_template : Error<
+  "a linkage-specification cannot appear within a template declaration">;
 def err_multiple_template_declarators : Error<
   "%select{|a template declaration|an explicit template specialization|"
   "an explicit template instantiation}0 can "

@@ -517,6 +517,9 @@ MicrosoftMangleContextImpl::MicrosoftMangleContextImpl(ASTContext &Context,
 
 bool MicrosoftMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+    if (FD->isFunctionTemplateSpecialization() ||
+        FD->getTemplateSpecializationKind() != TSK_Undeclared)
+      return true;
     LanguageLinkage L = FD->getLanguageLinkage();
     // Overloadable functions need mangling.
     if (FD->hasAttr<OverloadableAttr>())
@@ -550,6 +553,9 @@ bool MicrosoftMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
 
   const VarDecl *VD = dyn_cast<VarDecl>(D);
   if (VD && !isa<DecompositionDecl>(D)) {
+    if (isa<VarTemplateSpecializationDecl>(VD) ||
+        VD->getTemplateSpecializationKind() != TSK_Undeclared)
+      return true;
     // C variables are not mangled.
     if (VD->isExternC())
       return false;

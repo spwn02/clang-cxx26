@@ -8450,20 +8450,7 @@ Sema::CheckTemplateDeclScope(Scope *S, TemplateParameterList *TemplateParams) {
   // Find the nearest enclosing declaration scope.
   S = S->getDeclParent();
 
-  // C++ [temp.pre]p6: [P2096]
-  //   A template, explicit specialization, or partial specialization shall not
-  //   have C linkage.
   DeclContext *Ctx = S->getEntity();
-  if (Ctx && Ctx->isExternCContext()) {
-    SourceRange Range =
-        TemplateParams->getTemplateLoc().isInvalid() && TemplateParams->size()
-            ? TemplateParams->getParam(0)->getSourceRange()
-            : TemplateParams->getSourceRange();
-    Diag(Range.getBegin(), diag::err_template_linkage) << Range;
-    if (const LinkageSpecDecl *LSD = Ctx->getExternCContext())
-      Diag(LSD->getExternLoc(), diag::note_extern_c_begins_here);
-    return true;
-  }
   Ctx = Ctx ? Ctx->getRedeclContext() : nullptr;
 
   // C++ [temp]p2:

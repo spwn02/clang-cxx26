@@ -737,6 +737,9 @@ bool ItaniumMangleContextImpl::isUniqueInternalLinkageDecl(
 
 bool ItaniumMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
   if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
+    if (FD->isFunctionTemplateSpecialization() ||
+        FD->getTemplateSpecializationKind() != TSK_Undeclared)
+      return true;
     LanguageLinkage L = FD->getLanguageLinkage();
     // Overloadable functions need mangling.
     if (FD->hasAttr<OverloadableAttr>())
@@ -773,6 +776,9 @@ bool ItaniumMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
     return false;
 
   if (const auto *VD = dyn_cast<VarDecl>(D)) {
+    if (isa<VarTemplateSpecializationDecl>(VD) ||
+        VD->getTemplateSpecializationKind() != TSK_Undeclared)
+      return true;
     // Decompositions are mangled.
     if (isa<DecompositionDecl>(VD))
       return true;
