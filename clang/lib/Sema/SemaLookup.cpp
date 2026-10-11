@@ -580,7 +580,7 @@ void LookupResult::resolveKind() {
           std::make_pair(getSema().Context.getCanonicalTypeDeclType(TD), I));
       if (!UniqueResult.second) {
         // Reflection names distinguish aliases in different target scopes,
-        // even when ordinary type lookup would merge their identical types.
+        // even when ordinary lookup would merge their identical targets.
         unsigned Previous = UniqueResult.first->second;
         const NamedDecl *Other = Decls[Previous]->getUnderlyingDecl();
         if (getLookupKind() != Sema::LookupReflectOperandName ||
@@ -598,7 +598,17 @@ void LookupResult::resolveKind() {
       auto UniqueResult = Unique.insert(std::make_pair(D, I));
       if (!UniqueResult.second) {
         // We've seen this entity before.
-        ExistingI = UniqueResult.first->second;
+        // A namespace alias is found as the namespace it denotes; for a
+        // reflection operand all the declarations found must have the same
+        // target scope ([expr.reflect]), so aliases declared in different
+        // scopes stay separate results.
+        unsigned Previous = UniqueResult.first->second;
+        if (getLookupKind() != Sema::LookupReflectOperandName ||
+            (!isa<NamespaceAliasDecl>(Decls[I].getDecl()) &&
+             !isa<NamespaceAliasDecl>(Decls[Previous].getDecl())) ||
+            getContextForScopeMatching(Decls[I])->Equals(
+                getContextForScopeMatching(Decls[Previous])))
+          ExistingI = Previous;
       }
     }
 
