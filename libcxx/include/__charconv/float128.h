@@ -711,7 +711,7 @@ _LIBCPP_HIDE_FROM_ABI inline bool __digits_round_trip(const char* __digs, int __
 }
 
 _LIBCPP_HIDE_FROM_ABI inline __shortest_digits __find_shortest(const __decomposed& __d, __u128 __magnitude_bits) {
-  __shortest_digits __out{};
+  __shortest_digits __shortest_result{};
   __expansion __base;
   __base.__init(__d.__mant, __d.__exp2);
   int __x0 = __skip_to_first_digit(__base);
@@ -760,15 +760,15 @@ _LIBCPP_HIDE_FROM_ABI inline __shortest_digits __find_shortest(const __decompose
     }
     if (__pick) {
       for (int __i = 0; __i < __n; ++__i)
-        __out.__digs[__i] = __pick[__i];
-      __out.__n = __n;
-      __out.__x = __pick_x;
-      return __out;
+        __shortest_result.__digs[__i] = __pick[__i];
+      __shortest_result.__n = __n;
+      __shortest_result.__x = __pick_x;
+      return __shortest_result;
     }
   }
   // Not reached: 36 digits always round-trip.
-  __out.__n = 0;
-  return __out;
+  __shortest_result.__n = 0;
+  return __shortest_result;
 }
 
 // Prints shortest digits in the given notation. fixed with a non-negative decimal exponent of the last digit prints the
