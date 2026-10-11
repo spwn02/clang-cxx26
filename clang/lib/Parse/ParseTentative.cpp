@@ -563,6 +563,17 @@ bool Parser::isCXXTypeId(TentativeCXXTypeIdContext Context, bool &isAmbiguous) {
     TrySkipAttributes();
     if (Tok.is(tok::r_paren)) {
       BeginsWithFunctionDeclarator = true;
+    } else if (Tok.isOneOf(tok::kw___declspec, tok::kw___cdecl,
+                           tok::kw___stdcall, tok::kw___fastcall,
+                           tok::kw___thiscall, tok::kw___regcall,
+                           tok::kw___vectorcall, tok::kw___w64, tok::kw___sptr,
+                           tok::kw___uptr, tok::kw___ptr64, tok::kw___ptr32,
+                           tok::kw___unaligned, tok::kw__Nonnull,
+                           tok::kw__Nullable, tok::kw__Nullable_result,
+                           tok::kw__Null_unspecified)) {
+      // Calling conventions, attributes and qualifiers inside the parentheses
+      // belong to a nested declarator ('void (__stdcall *)(int)').
+      BeginsWithFunctionDeclarator = false;
     } else {
       TPResult NestedTPR = TryParseDeclarator(/*mayBeAbstract=*/true,
                                               /*mayHaveIdentifier=*/false);
