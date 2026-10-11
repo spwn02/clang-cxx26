@@ -449,7 +449,7 @@ namespace compound_assign {
   constexpr bool test_overflow() {
     T a = 1;
     while (a != a / 2)
-      a *= 2; // expected-note {{value 2147483648 is outside the range}} expected-note {{ 9223372036854775808 }}
+      a *= 2; // expected-note {{value 2147483648 is outside the range}} expected-note {{ 9223372036854775808 }} expected-note 2 {{produces an infinity}}
     return true;
   }
 
@@ -459,8 +459,8 @@ namespace compound_assign {
   static_assert(test_overflow<unsigned short>(), ""); // ok
   static_assert(test_overflow<unsigned long long>(), ""); // ok
   static_assert(test_overflow<long long>(), ""); // expected-error {{constant}} expected-note {{call}}
-  static_assert(test_overflow<float>(), ""); // ok
-  static_assert(test_overflow<double>(), ""); // ok
+  static_assert(test_overflow<float>(), ""); // expected-error {{constant}} expected-note {{call}}  (P3899R3: finite operands, non-finite result)
+  static_assert(test_overflow<double>(), ""); // expected-error {{constant}} expected-note {{call}}
 
   constexpr short test_promotion(short k) {
     short s = k;

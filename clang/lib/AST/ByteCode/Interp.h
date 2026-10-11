@@ -205,8 +205,14 @@ bool CheckDivRem(InterpState &S, CodePtr OpPC, const T &LHS, const T &RHS) {
 
 /// Checks if the result of a floating-point operation is valid
 /// in the current context.
+/// For an arithmetic expression the operands are given as well: [expr.const.core]
+/// rejects an expression with a signaling NaN operand, one that has finite
+/// operands but a non-finite result, and one whose result is a NaN although no
+/// operand is a NaN.
 bool CheckFloatResult(InterpState &S, CodePtr OpPC, const Floating &Result,
-                      APFloat::opStatus Status, FPOptions FPO);
+                      APFloat::opStatus Status, FPOptions FPO,
+                      const Floating *LHS = nullptr,
+                      const Floating *RHS = nullptr);
 
 /// Checks why the given DeclRefExpr is invalid.
 bool CheckDeclRef(InterpState &S, CodePtr OpPC, const DeclRefExpr *DR);
@@ -323,7 +329,7 @@ inline bool Addf(InterpState &S, CodePtr OpPC, uint32_t FPOI) {
   Floating Result = S.allocFloat(LHS.getSemantics());
   auto Status = Floating::add(LHS, RHS, getRoundingMode(FPO), &Result);
   S.Stk.push<Floating>(Result);
-  return CheckFloatResult(S, OpPC, Result, Status, FPO);
+  return CheckFloatResult(S, OpPC, Result, Status, FPO, &LHS, &RHS);
 }
 
 template <PrimType Name, class T = typename PrimConv<Name>::T>
@@ -343,7 +349,7 @@ inline bool Subf(InterpState &S, CodePtr OpPC, uint32_t FPOI) {
   Floating Result = S.allocFloat(LHS.getSemantics());
   auto Status = Floating::sub(LHS, RHS, getRoundingMode(FPO), &Result);
   S.Stk.push<Floating>(Result);
-  return CheckFloatResult(S, OpPC, Result, Status, FPO);
+  return CheckFloatResult(S, OpPC, Result, Status, FPO, &LHS, &RHS);
 }
 
 template <PrimType Name, class T = typename PrimConv<Name>::T>
@@ -365,7 +371,7 @@ inline bool Mulf(InterpState &S, CodePtr OpPC, uint32_t FPOI) {
   auto Status = Floating::mul(LHS, RHS, getRoundingMode(FPO), &Result);
 
   S.Stk.push<Floating>(Result);
-  return CheckFloatResult(S, OpPC, Result, Status, FPO);
+  return CheckFloatResult(S, OpPC, Result, Status, FPO, &LHS, &RHS);
 }
 
 template <PrimType Name, class T = typename PrimConv<Name>::T>
@@ -633,7 +639,7 @@ inline bool Divf(InterpState &S, CodePtr OpPC, uint32_t FPOI) {
   auto Status = Floating::div(LHS, RHS, getRoundingMode(FPO), &Result);
 
   S.Stk.push<Floating>(Result);
-  return CheckFloatResult(S, OpPC, Result, Status, FPO);
+  return CheckFloatResult(S, OpPC, Result, Status, FPO, &LHS, &RHS);
 }
 
 //===----------------------------------------------------------------------===//
@@ -655,6 +661,14 @@ bool Neg(InterpState &S, CodePtr OpPC) {
   const T &Value = S.Stk.pop<T>();
 
   if constexpr (std::is_same_v<T, Floating>) {
+    // [expr.const.core] (P3899R3): a signaling NaN operand of an arithmetic
+    // expression (unary minus included) is not a core constant expression.
+    if (Value.isSignaling() && S.getLangOpts().CPlusPlus) {
+      const SourceInfo &E = S.Current->getSource(OpPC);
+      S.CCEDiag(E, diag::note_constexpr_float_arithmetic)
+          << /*NaN=*/true << S.Current->getRange(OpPC);
+      return S.noteUndefinedBehavior();
+    }
     T Result = S.allocFloat(Value.getSemantics());
 
     if (!T::neg(Value, &Result)) {

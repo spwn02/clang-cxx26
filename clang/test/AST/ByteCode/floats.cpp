@@ -214,10 +214,7 @@ namespace nan {
   constexpr double nan = __builtin_nan("");
   static_assert(nan);
 
-  constexpr double D1 = 1 + nan; // ref-error {{must be initialized by a constant expression}} \
-                                 // ref-note {{produces a NaN}} \
-                                 // expected-error {{must be initialized by a constant expression}} \
-                                 // expected-note {{produces a NaN}}
+  constexpr double D1 = 1 + nan; // a quiet NaN operand is propagated (P3899R3)
 
   constexpr double D2 = __builtin_inf() / __builtin_inf(); // ref-error {{must be initialized by a constant expression}} \
                                                            // ref-note {{produces a NaN}} \

@@ -271,17 +271,29 @@ namespace UndefinedBehavior {
 
     // Floating-point overflow and NaN.
     constexpr float f1 = 1e38f * 3.4028f; // ok
-    constexpr float f2 = 1e38f * 3.4029f; // ok, +inf is in range of representable values
+    // P3899R3: all operands are finite and the result is not finite
+    constexpr float f2 = 1e38f * 3.4029f; // expected-error {{constant expression}} expected-note {{produces an infinity}}
     constexpr float f3 = 1e38f / -.2939f; // ok
-    constexpr float f4 = 1e38f / -.2938f; // ok, -inf is in range of representable values
-    constexpr float f5 = 2e38f + 2e38f; // ok, +inf is in range of representable values
-    constexpr float f6 = -2e38f - 2e38f; // ok, -inf is in range of representable values
+    constexpr float f4 = 1e38f / -.2938f; // expected-error {{constant expression}} expected-note {{produces an infinity}}
+    constexpr float f5 = 2e38f + 2e38f; // expected-error {{constant expression}} expected-note {{produces an infinity}}
+    constexpr float f6 = -2e38f - 2e38f; // expected-error {{constant expression}} expected-note {{produces an infinity}}
     constexpr float f7 = 0.f / 0.f; // expected-error {{constant expression}} expected-note {{division by zero}}
     constexpr float f8 = 1.f / 0.f; // expected-error {{constant expression}} expected-note {{division by zero}}
-    constexpr float f9 = 1e308 / 1e-308; // ok, +inf
-    constexpr float f10 = f2 - f2; // expected-error {{constant expression}} expected-note {{produces a NaN}}
-    constexpr float f11 = f2 + f4; // expected-error {{constant expression}} expected-note {{produces a NaN}}
-    constexpr float f12 = f2 / f2; // expected-error {{constant expression}} expected-note {{produces a NaN}}
+    constexpr float f9 = 1e308 / 1e-308; // expected-error {{constant expression}} expected-note {{produces an infinity}}
+    // An infinity that is an operand is fine, a NaN produced from non-NaN operands is not.
+    constexpr float pinf = __builtin_inff();
+    constexpr float ninf = -__builtin_inff();
+    constexpr float f13 = pinf * 2; // ok, +inf
+    constexpr float f14 = ninf + 1; // ok, -inf
+    constexpr float f10 = pinf - pinf; // expected-error {{constant expression}} expected-note {{produces a NaN}}
+    constexpr float f11 = pinf + ninf; // expected-error {{constant expression}} expected-note {{produces a NaN}}
+    constexpr float f12 = pinf / pinf; // expected-error {{constant expression}} expected-note {{produces a NaN}}
+    constexpr float f15 = pinf * 0; // expected-error {{constant expression}} expected-note {{produces a NaN}}
+    // A NaN operand propagates, a signaling NaN operand is not a constant expression.
+    constexpr float f16 = __builtin_nanf("") * 2; // ok
+    constexpr float f17 = 1 + __builtin_nanf(""); // ok
+    constexpr float f18 = __builtin_nansf("") + 1; // expected-error {{constant expression}} expected-note {{produces a NaN}}
+    constexpr float f19 = -__builtin_nansf(""); // expected-error {{constant expression}} expected-note {{produces a NaN}}
 #pragma float_control(push)
 #pragma float_control(except, on)
 constexpr float pi = 3.14f;
@@ -293,12 +305,9 @@ constexpr float fabspi = __builtin_fabs(pi); // no error expected
 constexpr float negpi = -pi; // expect no error on unary operator
 #pragma float_control(pop)
     static_assert(!isinf(f1), "");
-    static_assert(isinf(f2), "");
     static_assert(!isinf(f3), "");
-    static_assert(isinf(f4), "");
-    static_assert(isinf(f5), "");
-    static_assert(isinf(f6), "");
-    static_assert(isinf(f9), "");
+    static_assert(isinf(f13), "");
+    static_assert(isinf(f14), "");
   }
 
 #if __cplusplus >= 201703L

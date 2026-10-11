@@ -3478,6 +3478,9 @@ static bool handleFloatFloatBinOp(EvalInfo &Info, const BinaryOperator *E,
                                   const APFloat &RHS) {
   llvm::RoundingMode RM = getActiveRoundingMode(Info, E);
   APFloat::opStatus St;
+  const bool OperandIsNaN        = LHS.isNaN() || RHS.isNaN();
+  const bool OperandIsSignaling  = LHS.isSignaling() || RHS.isSignaling();
+  const bool OperandsAreFinite   = LHS.isFinite() && RHS.isFinite();
   switch (Opcode) {
   default:
     Info.FFDiag(E);
@@ -3500,12 +3503,26 @@ static bool handleFloatFloatBinOp(EvalInfo &Info, const BinaryOperator *E,
     break;
   }
 
-  // [expr.pre]p4:
-  //   If during the evaluation of an expression, the result is not
-  //   mathematically defined [...], the behavior is undefined.
-  // FIXME: C++ rules require us to not conform to IEEE 754 here.
-  if (LHS.isNaN()) {
-    Info.CCEDiag(E, diag::note_constexpr_float_arithmetic) << LHS.isNaN();
+  // [expr.const.core] (P3899R3): an arithmetic expression is not a core
+  // constant expression if
+  // - all operands are finite and the result is not finite,
+  // - any operand is a signaling NaN, or
+  // - no operand is NaN and the result is NaN.
+  // A NaN that is propagated from a quiet NaN operand and an infinity computed
+  // from an infinite operand are fine.
+  if (Info.Ctx.getLangOpts().CPlusPlus) {
+    if (OperandIsSignaling || (LHS.isNaN() && !OperandIsNaN)) {
+      Info.CCEDiag(E, diag::note_constexpr_float_arithmetic) << /*NaN=*/true;
+      return Info.noteUndefinedBehavior();
+    }
+    if (OperandsAreFinite && LHS.isInfinity()) {
+      Info.CCEDiag(E, diag::note_constexpr_float_arithmetic)
+          << /*infinity=*/false;
+      return Info.noteUndefinedBehavior();
+    }
+  } else if (LHS.isNaN()) {
+    // [expr.pre]p4 (C): the result is not mathematically defined.
+    Info.CCEDiag(E, diag::note_constexpr_float_arithmetic) << /*NaN=*/true;
     return Info.noteUndefinedBehavior();
   }
 
@@ -21036,6 +21053,8 @@ public:
   bool VisitCallExpr(const CallExpr *E);
 
   bool VisitUnaryOperator(const UnaryOperator *E);
+  bool VisitUnaryPlus(const UnaryOperator *E);
+  bool checkSignalingNaNOperand(const UnaryOperator *E);
   bool VisitBinaryOperator(const BinaryOperator *E);
   bool VisitFloatingLiteral(const FloatingLiteral *E);
   bool VisitCastExpr(const CastExpr *E);
@@ -22072,16 +22091,34 @@ bool FloatExprEvaluator::VisitUnaryImag(const UnaryOperator *E) {
   return true;
 }
 
+// [expr.const.core] (P3899R3): an arithmetic expression, a unary plus or minus
+// included, with a signaling NaN operand is not a core constant expression.
+bool FloatExprEvaluator::checkSignalingNaNOperand(const UnaryOperator *E) {
+  if (Info.Ctx.getLangOpts().CPlusPlus && Result.isSignaling()) {
+    Info.CCEDiag(E, diag::note_constexpr_float_arithmetic) << /*NaN=*/true;
+    return Info.noteUndefinedBehavior();
+  }
+  return true;
+}
+
+bool FloatExprEvaluator::VisitUnaryPlus(const UnaryOperator *E) {
+  if (!EvaluateFloat(E->getSubExpr(), Result, Info))
+    return false;
+  return checkSignalingNaNOperand(E);
+}
+
 bool FloatExprEvaluator::VisitUnaryOperator(const UnaryOperator *E) {
   switch (E->getOpcode()) {
   default: return Error(E);
   case UO_Plus:
-    return EvaluateFloat(E->getSubExpr(), Result, Info);
+    return VisitUnaryPlus(E);
   case UO_Minus:
     // In C standard, WG14 N2478 F.3 p4
     // "the unary - raises no floating point exceptions,
     // even if the operand is signalling."
     if (!EvaluateFloat(E->getSubExpr(), Result, Info))
+      return false;
+    if (!checkSignalingNaNOperand(E))
       return false;
     Result.changeSign();
     return true;

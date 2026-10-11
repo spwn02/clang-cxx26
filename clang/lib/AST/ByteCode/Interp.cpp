@@ -1089,12 +1089,33 @@ bool CheckThis(InterpState &S, CodePtr OpPC) {
 }
 
 bool CheckFloatResult(InterpState &S, CodePtr OpPC, const Floating &Result,
-                      APFloat::opStatus Status, FPOptions FPO) {
-  // [expr.pre]p4:
-  //   If during the evaluation of an expression, the result is not
-  //   mathematically defined [...], the behavior is undefined.
-  // FIXME: C++ rules require us to not conform to IEEE 754 here.
-  if (Result.isNan()) {
+                      APFloat::opStatus Status, FPOptions FPO,
+                      const Floating *LHS, const Floating *RHS) {
+  if (LHS && S.getLangOpts().CPlusPlus) {
+    // [expr.const.core] (P3899R3): an arithmetic expression is not a core
+    // constant expression if any operand is a signaling NaN, if no operand is
+    // a NaN and the result is, or if all operands are finite and the result is
+    // not. A NaN propagated from a quiet NaN operand is fine.
+    bool OperandIsNaN = LHS->isNan() || (RHS && RHS->isNan());
+    bool OperandIsSignaling =
+        LHS->isSignaling() || (RHS && RHS->isSignaling());
+    bool OperandsAreFinite = LHS->isFinite() && (!RHS || RHS->isFinite());
+    if (OperandIsSignaling || (Result.isNan() && !OperandIsNaN)) {
+      const SourceInfo &E = S.Current->getSource(OpPC);
+      S.CCEDiag(E, diag::note_constexpr_float_arithmetic)
+          << /*NaN=*/true << S.Current->getRange(OpPC);
+      return S.noteUndefinedBehavior();
+    }
+    if (OperandsAreFinite && Result.isInf()) {
+      const SourceInfo &E = S.Current->getSource(OpPC);
+      S.CCEDiag(E, diag::note_constexpr_float_arithmetic)
+          << /*infinity=*/false << S.Current->getRange(OpPC);
+      return S.noteUndefinedBehavior();
+    }
+  } else if (Result.isNan()) {
+    // [expr.pre]p4:
+    //   If during the evaluation of an expression, the result is not
+    //   mathematically defined [...], the behavior is undefined.
     const SourceInfo &E = S.Current->getSource(OpPC);
     S.CCEDiag(E, diag::note_constexpr_float_arithmetic)
         << /*NaN=*/true << S.Current->getRange(OpPC);
