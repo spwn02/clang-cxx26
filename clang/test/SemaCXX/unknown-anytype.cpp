@@ -31,7 +31,7 @@ namespace test3 {
   extern __unknown_anytype foo;
   void test() {
     foo(); // expected-error {{call to unsupported expression with unknown type}}
-    ((void(void)) foo)(); // expected-error {{variable 'foo' with unknown type cannot be given a function type}}
+    ((void(void)) foo)(); // expected-error {{expected '(' for function-style cast or type construction}}
   }
 }
 

@@ -149,6 +149,10 @@ enum class IfExistsBehavior {
 /// disambiguation will occur.
 enum class TentativeCXXTypeIdContext {
   InParens,
+  // The operand of sizeof, alignof, alignas, a cast or new: a nofun-type-id
+  // ([dcl.name]), which is never a function type spelled without a declarator
+  // that has a nested abstract declarator or a trailing-return-type.
+  InParensNoFun,
   Unambiguous,
   AsTemplateArgument,
   InTrailingReturnType,
@@ -5075,16 +5079,27 @@ private:
   /// isTypeIdInParens - Assumes that a '(' was parsed and now we want to know
   /// whether the parens contain an expression or a type-id.
   /// Returns true for a type-id and false for an expression.
-  bool isTypeIdInParens(bool &isAmbiguous) {
+  ///
+  /// The operands of sizeof, alignof, alignas, casts and new are a
+  /// nofun-type-id ([dcl.name], CWG2228); the operands of typeid, __uuidof and
+  /// the GNU operators accept any type-id (AllowFunctionType).
+  bool isTypeIdInParens(bool &isAmbiguous, bool AllowFunctionType = false) {
     if (getLangOpts().CPlusPlus)
-      return isCXXTypeId(TentativeCXXTypeIdContext::InParens, isAmbiguous);
+      return isCXXTypeId(AllowFunctionType
+                             ? TentativeCXXTypeIdContext::InParens
+                             : TentativeCXXTypeIdContext::InParensNoFun,
+                         isAmbiguous);
     isAmbiguous = false;
     return isTypeSpecifierQualifier();
   }
-  bool isTypeIdInParens() {
+  bool isTypeIdInParens(bool AllowFunctionType = false) {
     bool isAmbiguous;
-    return isTypeIdInParens(isAmbiguous);
+    return isTypeIdInParens(isAmbiguous, AllowFunctionType);
   }
+
+  /// Set by the callers of ParseParenExpression whose operand may be any
+  /// type-id (the GNU operators); consumed by the next ParseParenExpression.
+  bool AllowFunctionTypeIdInNextParens = false;
 
   /// Finish parsing a C++ unqualified-id that is a template-id of
   /// some form.

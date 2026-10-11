@@ -44,14 +44,14 @@ S4<int(1)> y; // expected-error{{must be a type}}
 void foo5() 
 { 
   (void)sizeof(int(1)); //expression 
-  (void)sizeof(int()); // expected-error{{function type}}
+  (void)sizeof(int()); // expression (CWG2228)
 }
 
 // [dcl.ambig.res]p6:
 void foo6() 
 { 
   (void)(int(1)); //expression 
-  (void)(int())1; // expected-error{{to 'int ()'}}
+  (void)((int())+1); // expression (CWG2228)
 } 
 
 // [dcl.ambig.res]p7:

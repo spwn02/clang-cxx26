@@ -21,8 +21,8 @@ void f() {
   typeof(int()+1) a2; // expected-error {{extension used}}
   (int(1)); // expected-warning {{expression result unused}}
 
-  // type-id
-  (int())1; // expected-error {{C-style cast from 'int' to 'int ()' is not allowed}}
+  // expression: a function type is not a nofun-type-id (CWG2228)
+  (int())+1; // expected-warning {{expression result unused}}
 
   // Declarations.
   int fd(T(a)); // expected-warning {{disambiguated as a function declaration}} expected-note{{add a pair of parentheses}}

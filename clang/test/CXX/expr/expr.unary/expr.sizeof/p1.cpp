@@ -22,7 +22,7 @@ void test(A *a) {
 void test2() {
   int x;
   x = sizeof(void); // expected-error {{invalid application of 'sizeof' to an incomplete type 'void'}}
-  x = sizeof(int()); // expected-error {{invalid application of 'sizeof' to a function type}}
+  x = sizeof(int()); // CWG2228: an expression, not a function type
   x = sizeof(test2()); // expected-error {{invalid application of 'sizeof' to an incomplete type 'void'}}
   x = sizeof(test2); // expected-error {{invalid application of 'sizeof' to a function type}}
 }

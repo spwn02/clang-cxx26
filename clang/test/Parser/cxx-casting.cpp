@@ -143,7 +143,7 @@ void PR19748() {
 void PR19751(int n) {
   struct T { void operator++(int); };
   (T())++; // ok, not an ill-formed cast to function type
-  (T())++n; // expected-error {{C-style cast from 'int' to 'T ()' is not allowed}}
+  (T())++n; // expected-error {{expected ';' after expression}} expected-warning {{expression result unused}}
 }
 
 // PR13619. Must be at end of file.

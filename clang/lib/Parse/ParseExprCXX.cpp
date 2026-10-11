@@ -1723,7 +1723,7 @@ ExprResult Parser::ParseCXXTypeid() {
       Actions, Sema::ExpressionEvaluationContext::Unevaluated,
       Sema::ReuseLambdaContextDecl);
 
-  if (isTypeIdInParens()) {
+  if (isTypeIdInParens(/*AllowFunctionType=*/true)) {
     TypeResult Ty = ParseTypeName();
 
     // Match the ')'.
@@ -1766,7 +1766,7 @@ ExprResult Parser::ParseCXXUuidof() {
 
   ExprResult Result;
 
-  if (isTypeIdInParens()) {
+  if (isTypeIdInParens(/*AllowFunctionType=*/true)) {
     TypeResult Ty = ParseTypeName();
 
     // Match the ')'.

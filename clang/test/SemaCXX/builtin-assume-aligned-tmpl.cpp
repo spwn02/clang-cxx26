@@ -34,7 +34,7 @@ void test20() {
   atest2<32, 4>();
 }
 
-// expected-error@+1 {{invalid application of 'sizeof' to a function type}}
+// expected-error@+1 {{functional-style cast from 'void' to 'int' is not allowed}}
 template<typename T> __attribute__((assume_aligned(sizeof(int(T()))))) T *f();
 void test21() {
   void *p = f<void>(); // expected-note {{in instantiation of function template specialization 'f<void>' requested here}}

@@ -553,6 +553,26 @@ bool Parser::isCXXTypeId(TentativeCXXTypeIdContext Context, bool &isAmbiguous) {
   TryConsumeDeclarationSpecifier();
   assert(Tok.is(tok::l_paren) && "Expected '('");
 
+  bool BeginsWithFunctionDeclarator = false;
+  if (Context == TentativeCXXTypeIdContext::InParensNoFun &&
+      !MayHaveTrailingReturnType) {
+    // Is the '(' that follows the type-specifier-seq the parenthesis of a
+    // nested abstract declarator, as in 'int (*)()' or 'int (A::*)()'? If not
+    // it starts a parameter list.
+    RevertingTentativeParsingAction GroupPA(*this);
+    ConsumeParen();
+    TrySkipAttributes();
+    if (Tok.is(tok::r_paren)) {
+      BeginsWithFunctionDeclarator = true;
+    } else {
+      TPResult NestedTPR = TryParseDeclarator(/*mayBeAbstract=*/true,
+                                              /*mayHaveIdentifier=*/false);
+      BeginsWithFunctionDeclarator = NestedTPR == TPResult::False ||
+                                     NestedTPR == TPResult::Error ||
+                                     Tok.isNot(tok::r_paren);
+    }
+  }
+
   // declarator
   TPR = TryParseDeclarator(true /*mayBeAbstract*/, false /*mayHaveIdentifier*/,
                            /*mayHaveDirectInit=*/false,
@@ -563,12 +583,19 @@ bool Parser::isCXXTypeId(TentativeCXXTypeIdContext Context, bool &isAmbiguous) {
     TPR = TPResult::True;
 
   if (TPR == TPResult::Ambiguous) {
+    // A nofun-type-id does not begin with a function declarator unless that
+    // has a trailing-return-type, so what is left is an expression
+    // ([dcl.ambig.res], CWG2228).
+    if (BeginsWithFunctionDeclarator) {
+      TPR = TPResult::False;
     // We are supposed to be inside parens, so if after the abstract declarator
     // we encounter a ')' this is a type-id, otherwise it's an expression.
-    if (Context == TentativeCXXTypeIdContext::InParens &&
-        Tok.is(tok::r_paren)) {
+    } else if ((Context == TentativeCXXTypeIdContext::InParens ||
+                Context == TentativeCXXTypeIdContext::InParensNoFun) &&
+               Tok.is(tok::r_paren)) {
       TPR = TPResult::True;
       isAmbiguous = true;
+
     // We are supposed to be inside the first operand to a _Generic selection
     // expression, so if we find a comma after the declarator, we've found a
     // type and not an expression.

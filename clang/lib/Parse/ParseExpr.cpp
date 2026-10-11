@@ -2238,6 +2238,9 @@ Parser::ParseExprAfterUnaryExprOrTypeTrait(const Token &OpTok,
     ParenParseOption ExprType = ParenParseOption::CastExpr;
     SourceLocation LParenLoc = Tok.getLocation(), RParenLoc;
 
+    // Only the operands of sizeof and alignof are a nofun-type-id.
+    AllowFunctionTypeIdInNextParens = !OpTok.isOneOf(
+        tok::kw_sizeof, tok::kw___alignof, tok::kw_alignof, tok::kw__Alignof);
     Operand = ParseParenExpression(
         ExprType, /*StopIfCastExr=*/true,
         ParenKnownToBeNonCast ? ParenExprKind::PartOfOperator
@@ -2726,6 +2729,8 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool StopIfCastExpr,
                              TypoCorrectionTypeBehavior CorrectionBehavior,
                              ParsedType &CastTy, SourceLocation &RParenLoc) {
   assert(Tok.is(tok::l_paren) && "Not a paren expr!");
+  bool AllowFunctionTypeId =
+      std::exchange(AllowFunctionTypeIdInNextParens, false);
   ColonProtectionRAIIObject ColonProtection(*this, false);
   BalancedDelimiterTracker T(*this, tok::l_paren);
   if (T.consumeOpen())
@@ -2837,7 +2842,7 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool StopIfCastExpr,
                                                BridgeKeywordLoc, Ty.get(),
                                                RParenLoc, SubExpr.get());
   } else if (ExprType >= ParenParseOption::CompoundLiteral &&
-             isTypeIdInParens(isAmbiguousTypeId)) {
+             isTypeIdInParens(isAmbiguousTypeId, AllowFunctionTypeId)) {
 
     // Otherwise, this is a compound literal expression or cast expression.
 

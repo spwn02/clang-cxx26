@@ -4,10 +4,11 @@ void f() {
   typedef int T;
   int x, *px;
   
-  // Type id.
-  (T())x;    // expected-error {{cast from 'int' to 'T ()'}}
-  (T())+x;   // expected-error {{cast from 'int' to 'T ()'}}
-  (T())*px;  // expected-error {{cast from 'int' to 'T ()'}}
+  // A function type is not a nofun-type-id, so these are expressions
+  // (CWG2228).
+  (T())x;    // expected-error {{expected ';' after expression}} expected-warning 2 {{expression result unused}}
+  (T())+x;   // expected-warning {{expression result unused}}
+  (T())*px;  // expected-error {{invalid operands to binary expression}}
   
   // Expression.
   x = (T());
@@ -27,7 +28,7 @@ void f() {
   struct X { int &operator++(int); X operator[](int); int &operator++(); };
   int &postfix_incr = (X()[3])++;
   (X())++ ++; // ok, not a C-style cast
-  (X())++ ++X(); // expected-error {{C-style cast from 'int' to 'X ()'}}
+  (X())++ ++X(); // expected-error {{expected ';' after expression}}
   int q = (int)++(x);
 }
 

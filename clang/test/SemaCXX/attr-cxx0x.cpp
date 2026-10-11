@@ -44,7 +44,9 @@ static_assert(alignof(align_class_temp_pack_type<short, int, long>) == alignof(l
 static_assert(alignof(align_class_temp_pack_expr<8, 16, 32>) == 32, "template's alignment is wrong");
 static_assert(alignof(outer<int,char>::inner<double,short>) == alignof(int) * alignof(double), "template's alignment is wrong");
 
-static_assert(alignof(int(int)) >= 1, "alignof(function) not positive"); // expected-error{{invalid application of 'alignof' to a function type}}
+// A function type is not a nofun-type-id (CWG2228): this is an ill-formed
+// expression, not the alignof of a function type.
+static_assert(alignof(int(int)) >= 1, "alignof(function) not positive"); // expected-error{{expected '(' for function-style cast or type construction}} expected-warning{{'alignof' applied to an expression is a GNU extension}}
 
 [[__carries_dependency__]]
 void func(void);
