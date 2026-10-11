@@ -97,22 +97,52 @@ _LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, c
   return __result;
 }
 #    endif
+#    if defined(__SIZEOF_INT128__)
+// binary16 and bfloat16 are parsed exactly (a single correct rounding of the decimal or hexadecimal value, ties to even);
+// going through float would round twice.
+template <class _Fp>
+_LIBCPP_HIDE_FROM_ABI inline from_chars_result __from_chars_narrow(
+    const char* __first, const char* __last, _Fp& __value, chars_format __fmt, const __f128::__fp_format& __format) {
+  __f128::__fmt_kind __kind = __f128::__fmt_kind::__general;
+  if (__fmt == chars_format::scientific)
+    __kind = __f128::__fmt_kind::__scientific;
+  else if (__fmt == chars_format::fixed)
+    __kind = __f128::__fmt_kind::__fixed;
+  else if (__fmt == chars_format::hex)
+    __kind = __f128::__fmt_kind::__hex;
+  __f128::__from_chars_out __r = __f128::__from_chars(__first, __last, __kind, __format);
+  if (__r.__status == __f128::__fc_status::__invalid)
+    return {__first, errc::invalid_argument};
+  if (__r.__status == __f128::__fc_status::__out_of_range)
+    return {__r.__ptr, errc::result_out_of_range};
+  __value = __builtin_bit_cast(_Fp, static_cast<unsigned short>(__r.__bits));
+  return {__r.__ptr, errc{}};
+}
+#    endif
 #    if defined(__STDCPP_FLOAT16_T__)
 _LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, const char* __last, float16_t& __value, chars_format __fmt = chars_format::general) {
-  // Parse to float, then perform one correctly-rounded narrowing conversion.
+#      if defined(__SIZEOF_INT128__)
+  return std::__from_chars_narrow(__first, __last, __value, __fmt, __f128::__binary16);
+#      else
+  // Parse to float, then perform one narrowing conversion.
   float __temporary;
   from_chars_result __result = std::from_chars(__first, __last, __temporary, __fmt);
   if (__result.ec != errc::invalid_argument) __value = static_cast<float16_t>(__temporary);
   return __result;
+#      endif
 }
 #    endif
 #    if defined(__STDCPP_BFLOAT16_T__)
 _LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, const char* __last, bfloat16_t& __value, chars_format __fmt = chars_format::general) {
-  // Parse to float, then perform one correctly-rounded narrowing conversion.
+#      if defined(__SIZEOF_INT128__)
+  return std::__from_chars_narrow(__first, __last, __value, __fmt, __f128::__bfloat16);
+#      else
+  // Parse to float, then perform one narrowing conversion.
   float __temporary;
   from_chars_result __result = std::from_chars(__first, __last, __temporary, __fmt);
   if (__result.ec != errc::invalid_argument) __value = static_cast<bfloat16_t>(__temporary);
   return __result;
+#      endif
 }
 #    endif
 #    if defined(__STDCPP_FLOAT128_T__)

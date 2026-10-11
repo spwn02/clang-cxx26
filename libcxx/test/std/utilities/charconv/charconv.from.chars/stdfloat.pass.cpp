@@ -45,9 +45,56 @@ void check_narrow(_Fp __value, const char* __expected) {
 }
 #endif
 
+#if TEST_STD_VER >= 23
+// binary16 and bfloat16 are parsed with a single correct rounding (ties to even); going through float rounds twice.
+template <class _Fp>
+void check_parse(const char* text, std::errc ec, unsigned short bits = 0, std::chars_format fmt = std::chars_format::general) {
+  _Fp value = static_cast<_Fp>(5);
+  std::from_chars_result r = std::from_chars(text, text + __builtin_strlen(text), value, fmt);
+  assert(r.ec == ec);
+  if (ec == std::errc{})
+    assert(__builtin_bit_cast(unsigned short, value) == bits);
+  else
+    assert(value == static_cast<_Fp>(5)); // unmodified
+}
+
+template <class _Fp>
+void check_exhaustive() {
+  for (unsigned int i = 0; i <= 0xffff; ++i) {
+    _Fp value = __builtin_bit_cast(_Fp, static_cast<unsigned short>(i));
+    if (value != value || value - value != 0) // NaN and infinities
+      continue;
+    for (std::chars_format fmt : {std::chars_format::general, std::chars_format::scientific, std::chars_format::hex}) {
+      char buffer[64];
+      auto out = std::to_chars(buffer, buffer + sizeof(buffer), value, fmt);
+      assert(out.ec == std::errc{});
+      _Fp parsed = static_cast<_Fp>(5);
+      auto in = std::from_chars(buffer, out.ptr, parsed, fmt);
+      assert(in.ec == std::errc{} && in.ptr == out.ptr);
+      assert(__builtin_bit_cast(unsigned short, parsed) == i);
+    }
+  }
+}
+#endif
+
 int main(int, char**) {
 #if TEST_STD_VER >= 23
 #  if defined(__STDCPP_FLOAT16_T__)
+  check_exhaustive<std::float16_t>();
+  check_parse<std::float16_t>("65504", std::errc{}, 0x7bff);
+  check_parse<std::float16_t>("65519.99999", std::errc{}, 0x7bff);
+  check_parse<std::float16_t>("65520", std::errc::result_out_of_range); // rounds to infinity
+  check_parse<std::float16_t>("1e10", std::errc::result_out_of_range);
+  check_parse<std::float16_t>("1e-10", std::errc::result_out_of_range); // rounds to zero
+  check_parse<std::float16_t>("1.00048828125", std::errc{}, 0x3c00);     // exactly half way between 1 and the next value: even
+  check_parse<std::float16_t>("1.000488281250000000001", std::errc{}, 0x3c01);
+  check_parse<std::float16_t>("1.00048828125001", std::errc{}, 0x3c01);  // rounding twice (via float) gives 1
+  check_parse<std::float16_t>("5.9604644775390625e-8", std::errc{}, 0x0001);
+  check_parse<std::float16_t>("2.98023223876953125e-08", std::errc::result_out_of_range); // half of the smallest subnormal: ties to zero
+  check_parse<std::float16_t>("2.980232238769531251e-08", std::errc{}, 0x0001);
+  check_parse<std::float16_t>("1.8p+0", std::errc{}, 0x3e00, std::chars_format::hex);
+  check_parse<std::float16_t>("1.ffcp+15", std::errc{}, 0x7bff, std::chars_format::hex);
+  check_parse<std::float16_t>("1.ffep+15", std::errc::result_out_of_range, 0, std::chars_format::hex);
   check_narrow(std::float16_t(1.0), "1");
   check_narrow(std::float16_t(0.1), "0.1");
   check(std::numeric_limits<std::float16_t>::min());
@@ -56,6 +103,12 @@ int main(int, char**) {
   check(std::float16_t(65504.0));
 #  endif
 #  if defined(__STDCPP_BFLOAT16_T__)
+  check_exhaustive<std::bfloat16_t>();
+  check_parse<std::bfloat16_t>("1e40", std::errc::result_out_of_range);
+  check_parse<std::bfloat16_t>("1e-50", std::errc::result_out_of_range);
+  check_parse<std::bfloat16_t>("1.00390625", std::errc{}, 0x3f80);        // half way between 1 and the next value: even
+  check_parse<std::bfloat16_t>("1.0039062500001", std::errc{}, 0x3f81);
+  check_parse<std::bfloat16_t>("3.3895313892515355e38", std::errc{}, 0x7f7f);
   check_narrow(std::bfloat16_t(1.0), "1");
   check_narrow(std::bfloat16_t(0.1), "0.1");
   check(std::numeric_limits<std::bfloat16_t>::min());

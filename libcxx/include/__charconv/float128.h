@@ -156,6 +156,21 @@ struct __bignum {
 inline constexpr int __mant_bits = 112; // stored fraction bits
 inline constexpr int __exp_bias  = 16383;
 inline constexpr int __min_exp2  = -16494; // exponent of the least significant bit of a subnormal
+
+// An IEEE binary interchange format (or bfloat16) described by its precision (significand bits including the hidden
+// bit), the largest exponent, the widths of the stored fields and the decimal magnitudes outside of which a value
+// certainly overflows or underflows (a conservative filter in front of the exact computation).
+struct __fp_format {
+  int __p;
+  int __emax;
+  int __frac_bits;
+  int __exp_bits;
+  int __max_mag10;
+  int __min_mag10;
+};
+inline constexpr __fp_format __binary128{113, 16383, 112, 15, 4934, -4970};
+inline constexpr __fp_format __binary16{11, 15, 10, 5, 6, -9};
+inline constexpr __fp_format __bfloat16{8, 127, 7, 8, 40, -46};
 inline constexpr int __max_digits10_exp = 4932;
 
 struct __decomposed {
@@ -296,20 +311,22 @@ struct __expansion {
 
 // value = q * 2^e (+ a positive fraction below one unit of q when sticky is set); q != 0, q < 2^127.
 // Returns false when the result overflows. Underflow to zero is reported through 'is_zero'.
-_LIBCPP_HIDE_FROM_ABI inline bool __assemble(bool __neg, __u128 __q, int __e, bool __sticky, __u128& __bits, bool& __underflow_to_zero) {
+_LIBCPP_HIDE_FROM_ABI inline bool __assemble(
+    const __fp_format& __f, bool __neg, __u128 __q, int __e, bool __sticky, __u128& __bits, bool& __underflow_to_zero) {
+  const int __sign_shift = __f.__frac_bits + __f.__exp_bits;
   __underflow_to_zero = false;
   int __bl = 0;
   for (__u128 __t = __q; __t; __t >>= 1)
     ++__bl;
   int __exp_unbiased = __e + __bl - 1; // exponent of the leading bit
-  if (__exp_unbiased > __exp_bias) {
+  if (__exp_unbiased > __f.__emax) {
     return false;
   }
-  int __keep = 113;
+  int __keep = __f.__p;
   bool __subnormal = false;
-  if (__exp_unbiased < 1 - __exp_bias) {
+  if (__exp_unbiased < 1 - __f.__emax) {
     __subnormal = true;
-    __keep      = 113 - ((1 - __exp_bias) - __exp_unbiased);
+    __keep      = __f.__p - ((1 - __f.__emax) - __exp_unbiased);
   }
   __u128 __rounded;
   if (__keep >= __bl) {
@@ -325,7 +342,7 @@ _LIBCPP_HIDE_FROM_ABI inline bool __assemble(bool __neg, __u128 __q, int __e, bo
     if (__keep < 0) {
       // Far below the smallest subnormal: rounds to zero (the value is below half of the least significant bit).
       __underflow_to_zero = true;
-      __bits              = static_cast<__u128>(__neg) << 127;
+      __bits              = static_cast<__u128>(__neg) << __sign_shift;
       return true;
     }
     __rounded       = __drop >= 128 ? 0 : (__q >> __drop);
@@ -343,34 +360,44 @@ _LIBCPP_HIDE_FROM_ABI inline bool __assemble(bool __neg, __u128 __q, int __e, bo
   }
   __u128 __mag;
   if (__subnormal) {
-    // 'rounded' counts units of 2^-16494; reaching 2^112 is the smallest normal number (exponent field 1).
+    // 'rounded' counts units of the least significant subnormal bit; reaching 2^frac_bits is the smallest normal
+    // number (exponent field 1).
     __mag = __rounded;
     if (__mag == 0)
       __underflow_to_zero = true;
   } else {
-    int __biased = __exp_unbiased + __exp_bias;
-    if (__rounded == (static_cast<__u128>(1) << 113)) {
+    int __biased = __exp_unbiased + __f.__emax;
+    if (__rounded == (static_cast<__u128>(1) << __f.__p)) {
       __rounded >>= 1;
       ++__biased;
     }
-    if (__biased >= 0x7fff)
+    if (__biased >= (1 << __f.__exp_bits) - 1)
       return false;
-    __mag = (static_cast<__u128>(__biased) << __mant_bits) + (__rounded - (static_cast<__u128>(1) << __mant_bits));
+    __mag = (static_cast<__u128>(__biased) << __f.__frac_bits) +
+            (__rounded - (static_cast<__u128>(1) << __f.__frac_bits));
   }
-  __bits = __mag | (static_cast<__u128>(__neg) << 127);
+  __bits = __mag | (static_cast<__u128>(__neg) << __sign_shift);
   return true;
 }
 
 // value = D * 10^e10 where D is the integer written by digs[0..n) (no leading zeros needed) and 'sticky' says that a
 // further non-zero fraction below one unit of the last digit was dropped. Returns false on overflow.
-_LIBCPP_HIDE_FROM_ABI inline bool __decimal_to_bits(bool __neg, const char* __digs, int __n, bool __sticky, long __e10, __u128& __bits,
-                                 bool& __underflow_to_zero) {
+_LIBCPP_HIDE_FROM_ABI inline bool __decimal_to_bits(
+    const __fp_format& __f,
+    bool __neg,
+    const char* __digs,
+    int __n,
+    bool __sticky,
+    long __e10,
+    __u128& __bits,
+    bool& __underflow_to_zero) {
+  const int __sign_shift = __f.__frac_bits + __f.__exp_bits;
   __underflow_to_zero = false;
   int __first = 0;
   while (__first < __n && __digs[__first] == '0')
     ++__first;
   if (__first == __n) {
-    __bits = static_cast<__u128>(__neg) << 127;
+    __bits = static_cast<__u128>(__neg) << __sign_shift;
     return true;
   }
   __digs += __first;
@@ -381,11 +408,11 @@ _LIBCPP_HIDE_FROM_ABI inline bool __decimal_to_bits(bool __neg, const char* __di
   }
   // Magnitude check.
   long __mag10 = static_cast<long>(__n) + __e10 + (__sticky ? 1 : 0);
-  if (__mag10 > 4934)
+  if (__mag10 > __f.__max_mag10)
     return false;
-  if (__mag10 < -4970) {
+  if (__mag10 < __f.__min_mag10) {
     __underflow_to_zero = true;
-    __bits              = static_cast<__u128>(__neg) << 127;
+    __bits              = static_cast<__u128>(__neg) << __sign_shift;
     return true;
   }
   __bignum<2100> __num, __den;
@@ -441,7 +468,7 @@ _LIBCPP_HIDE_FROM_ABI inline bool __decimal_to_bits(bool __neg, const char* __di
     __d.__shr1();
   }
   bool __rem_nonzero = !__num.__is_zero();
-  return __assemble(__neg, __q, -__shift, __rem_nonzero, __bits, __underflow_to_zero);
+  return __assemble(__f, __neg, __q, -__shift, __rem_nonzero, __bits, __underflow_to_zero);
 }
 
 
@@ -678,7 +705,7 @@ struct __shortest_digits {
 _LIBCPP_HIDE_FROM_ABI inline bool __digits_round_trip(const char* __digs, int __n, int __x, __u128 __magnitude_bits) {
   __u128 __bits;
   bool __uz;
-  if (!__decimal_to_bits(false, __digs, __n, false, static_cast<long>(__x) - (__n - 1), __bits, __uz))
+  if (!__decimal_to_bits(__binary128, false, __digs, __n, false, static_cast<long>(__x) - (__n - 1), __bits, __uz))
     return false;
   return !__uz && __bits == __magnitude_bits;
 }
@@ -1035,11 +1062,16 @@ _LIBCPP_HIDE_FROM_ABI inline __exponent_parse __parse_exponent(const char* __p, 
   return {__p, 0, false};
 }
 
-_LIBCPP_HIDE_FROM_ABI inline __from_chars_out __make_inf(bool __neg, const char* __ptr) {
-  return {__ptr, __fc_status::__ok, (static_cast<__u128>(0x7fff) << 112) | (static_cast<__u128>(__neg) << 127)};
+_LIBCPP_HIDE_FROM_ABI inline __from_chars_out __make_inf(const __fp_format& __f, bool __neg, const char* __ptr) {
+  return {__ptr,
+          __fc_status::__ok,
+          (((static_cast<__u128>(1) << __f.__exp_bits) - 1) << __f.__frac_bits) |
+              (static_cast<__u128>(__neg) << (__f.__frac_bits + __f.__exp_bits))};
 }
 
-_LIBCPP_HIDE_FROM_ABI inline __from_chars_out __from_chars(const char* __first, const char* __last, __fmt_kind __kind) {
+_LIBCPP_HIDE_FROM_ABI inline __from_chars_out
+__from_chars(const char* __first, const char* __last, __fmt_kind __kind, const __fp_format& __f = __binary128) {
+  const int __sign_shift = __f.__frac_bits + __f.__exp_bits;
   if (__first == __last)
     return {__first, __fc_status::__invalid, 0};
   const char* __p = __first;
@@ -1058,7 +1090,7 @@ _LIBCPP_HIDE_FROM_ABI inline __from_chars_out __from_chars(const char* __first, 
     if (__last - __q >= 5 && __ascii_lower(__q[0]) == 'i' && __ascii_lower(__q[1]) == 'n' && __ascii_lower(__q[2]) == 'i' &&
         __ascii_lower(__q[3]) == 't' && __ascii_lower(__q[4]) == 'y')
       __q += 5;
-    return __make_inf(__neg, __q);
+    return __make_inf(__f, __neg, __q);
   }
   if (__c0 == 'n') {
     const char* __q = __p + 1;
@@ -1078,7 +1110,8 @@ _LIBCPP_HIDE_FROM_ABI inline __from_chars_out __from_chars(const char* __first, 
       } while (__q + __off != __last);
     }
     return {__q, __fc_status::__ok,
-            (static_cast<__u128>(0x7fff) << 112) | (static_cast<__u128>(1) << 111) | (static_cast<__u128>(__neg) << 127)};
+            (((static_cast<__u128>(1) << __f.__exp_bits) - 1) << __f.__frac_bits) |
+                (static_cast<__u128>(1) << (__f.__frac_bits - 1)) | (static_cast<__u128>(__neg) << __sign_shift)};
   }
 
   if (__kind == __fmt_kind::__hex) {
@@ -1122,7 +1155,7 @@ _LIBCPP_HIDE_FROM_ABI inline __from_chars_out __from_chars(const char* __first, 
     __q                 = __ep.__ptr;
     __exp2 += __ep.__value;
     if (__h == 0)
-      return {__q, __fc_status::__ok, static_cast<__u128>(__neg) << 127};
+      return {__q, __fc_status::__ok, static_cast<__u128>(__neg) << __sign_shift};
     int __bl = 0;
     for (__u128 __t = __h; __t; __t >>= 1)
       ++__bl;
@@ -1133,7 +1166,7 @@ _LIBCPP_HIDE_FROM_ABI inline __from_chars_out __from_chars(const char* __first, 
     }
     __u128 __bits;
     bool __uz;
-    if (!__assemble(__neg, __h, static_cast<int>(__exp2 < -100000 ? -100000 : (__exp2 > 100000 ? 100000 : __exp2)), __sticky, __bits, __uz))
+    if (!__assemble(__f, __neg, __h, static_cast<int>(__exp2 < -100000 ? -100000 : (__exp2 > 100000 ? 100000 : __exp2)), __sticky, __bits, __uz))
       return {__q, __fc_status::__out_of_range, 0};
     if (__uz)
       return {__q, __fc_status::__out_of_range, 0};
@@ -1186,10 +1219,10 @@ _LIBCPP_HIDE_FROM_ABI inline __from_chars_out __from_chars(const char* __first, 
     __exp10 = __ep.__value;
   }
   if (__count == 0)
-    return {__q, __fc_status::__ok, static_cast<__u128>(__neg) << 127};
+    return {__q, __fc_status::__ok, static_cast<__u128>(__neg) << __sign_shift};
   __u128 __bits;
   bool __uz;
-  if (!__decimal_to_bits(__neg, __digs, __count, __sticky, __e10 + __exp10, __bits, __uz))
+  if (!__decimal_to_bits(__f, __neg, __digs, __count, __sticky, __e10 + __exp10, __bits, __uz))
     return {__q, __fc_status::__out_of_range, 0};
   if (__uz)
     return {__q, __fc_status::__out_of_range, 0};
