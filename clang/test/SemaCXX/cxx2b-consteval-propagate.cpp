@@ -334,6 +334,7 @@ S s(0); // expected-note {{in the default initializer of 'j'}}
 }
 
 namespace GH65985 {
+#if __cplusplus < 202302L
 consteval int invalid(); // expected-note 2{{declared here}}
 constexpr int escalating(auto) {
     return invalid();
@@ -345,6 +346,21 @@ struct S {
     // expected-error@-1 {{call to immediate function 'GH65985::escalating<int>' is not a constant expression}}
     // expected-error@-2 {{constexpr variable 'a' must be initialized by a constant expression}}
 };
+#else
+// In C++23 the initializer of a constexpr variable is a manifestly
+// constant-evaluated expression, so the call is in an immediate function
+// context and is not an immediate invocation ([expr.const.imm]); the
+// initializer as a whole is diagnosed.
+consteval int invalid(); // expected-note {{declared here}}
+constexpr int escalating(auto) {
+    return invalid();
+    // expected-note@-1 {{undefined function 'invalid' cannot be used in a constant expression}}
+}
+struct S {
+    static constexpr int a = escalating(0); // expected-note {{in call to}}
+    // expected-error@-1 {{constexpr variable 'a' must be initialized by a constant expression}}
+};
+#endif
 
 }
 
@@ -403,7 +419,7 @@ namespace lvalue_to_rvalue_init_from_heap {
 
 struct S {
     int *value;
-    constexpr S(int v) : value(new int {v}) {}  // expected-note 2 {{heap allocation performed here}}
+    constexpr S(int v) : value(new int {v}) {}  // expected-note {{heap allocation performed here}}
     constexpr ~S() { delete value; }
 };
 consteval S fn() { return S(5); }
@@ -415,9 +431,7 @@ const int c = *fn().value;
 int d = *fn().value;
 
 constexpr int e = *fn().value + fn2(); // expected-error {{must be initialized by a constant expression}} \
-                                       // expected-error {{call to consteval function 'lvalue_to_rvalue_init_from_heap::fn' is not a constant expression}} \
-                                       // expected-note {{non-constexpr function 'fn2'}} \
-                                       // expected-note {{pointer to heap-allocated object}}
+                                       // expected-note {{non-constexpr function 'fn2'}}
 
 int f = *fn().value + fn2();  // expected-error {{call to consteval function 'lvalue_to_rvalue_init_from_heap::fn' is not a constant expression}} \
                               // expected-note {{pointer to heap-allocated object}}
