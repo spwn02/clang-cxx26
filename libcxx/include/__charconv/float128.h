@@ -382,6 +382,7 @@ _LIBCPP_HIDE_FROM_ABI inline bool __assemble(
 
 // value = D * 10^e10 where D is the integer written by digs[0..n) (no leading zeros needed) and 'sticky' says that a
 // further non-zero fraction below one unit of the last digit was dropped. Returns false on overflow.
+template <int _Cap = 2100>
 _LIBCPP_HIDE_FROM_ABI inline bool __decimal_to_bits(
     const __fp_format& __f,
     bool __neg,
@@ -415,7 +416,7 @@ _LIBCPP_HIDE_FROM_ABI inline bool __decimal_to_bits(
     __bits              = static_cast<__u128>(__neg) << __sign_shift;
     return true;
   }
-  __bignum<2100> __num, __den;
+  __bignum<_Cap> __num, __den;
   __num.__zero();
   __den.__zero();
   __num.__n = 0;
@@ -457,7 +458,7 @@ _LIBCPP_HIDE_FROM_ABI inline bool __decimal_to_bits(
   int __qbits = __num.__bit_length() - __den.__bit_length() + 1;
   // long division
   __u128 __q = 0;
-  __bignum<2100> __d;
+  __bignum<_Cap> __d;
   __d = __den;
   __d.__shl(__qbits - 1);
   for (int __i = __qbits - 1; __i >= 0; --__i) {
@@ -702,15 +703,22 @@ struct __shortest_digits {
   int __x; // decimal exponent of the first digit
 };
 
-_LIBCPP_HIDE_FROM_ABI inline bool __digits_round_trip(const char* __digs, int __n, int __x, __u128 __magnitude_bits) {
+_LIBCPP_HIDE_FROM_ABI inline bool __digits_round_trip(
+    const char* __digs, int __n, int __x, __u128 __magnitude_bits, const __fp_format& __f = __binary128) {
   __u128 __bits;
   bool __uz;
-  if (!__decimal_to_bits(__binary128, false, __digs, __n, false, static_cast<long>(__x) - (__n - 1), __bits, __uz))
+  bool __valid;
+  if (__f.__p == __binary128.__p)
+    __valid = __decimal_to_bits<2100>(__f, false, __digs, __n, false, static_cast<long>(__x) - (__n - 1), __bits, __uz);
+  else
+    __valid = __decimal_to_bits<128>(__f, false, __digs, __n, false, static_cast<long>(__x) - (__n - 1), __bits, __uz);
+  if (!__valid)
     return false;
   return !__uz && __bits == __magnitude_bits;
 }
 
-_LIBCPP_HIDE_FROM_ABI inline __shortest_digits __find_shortest(const __decomposed& __d, __u128 __magnitude_bits) {
+_LIBCPP_HIDE_FROM_ABI inline __shortest_digits __find_shortest(
+    const __decomposed& __d, __u128 __magnitude_bits, const __fp_format& __f = __binary128) {
   __shortest_digits __shortest_result{};
   __expansion __base;
   __base.__init(__d.__mant, __d.__exp2);
@@ -751,11 +759,11 @@ _LIBCPP_HIDE_FROM_ABI inline __shortest_digits __find_shortest(const __decompose
     int __second_x         = __r.__up ? __x0 : __ux;
     const char* __pick     = nullptr;
     int __pick_x           = 0;
-    if (__digits_round_trip(__first_c, __n, __first_x, __magnitude_bits)) {
-      __pick = __first_c;
+    if (__digits_round_trip(__first_c, __n, __first_x, __magnitude_bits, __f)) {
+      __pick   = __first_c;
       __pick_x = __first_x;
-    } else if (__digits_round_trip(__second_c, __n, __second_x, __magnitude_bits)) {
-      __pick = __second_c;
+    } else if (__digits_round_trip(__second_c, __n, __second_x, __magnitude_bits, __f)) {
+      __pick   = __second_c;
       __pick_x = __second_x;
     }
     if (__pick) {
@@ -896,7 +904,20 @@ _LIBCPP_HIDE_FROM_ABI inline __to_chars_out __format_hex(char* __first, char* __
 // ---------------------------------------------------------------------------------------------------------------------
 // to_chars entry point.
 // ---------------------------------------------------------------------------------------------------------------------
-_LIBCPP_HIDE_FROM_ABI inline __to_chars_out __to_chars(char* __first, char* __last, __u128 __bits, __fmt_kind __kind, bool __has_precision, int __precision) {
+_LIBCPP_HIDE_FROM_ABI inline __fmt_kind __shortest_notation(const __shortest_digits& __s, int __e10, __fmt_kind __kind) {
+  if (__kind == __fmt_kind::__plain) {
+    long __lower = __s.__n == 1 ? -3 : -(static_cast<long>(__s.__n) + 3);
+    long __upper = __s.__n == 1 ? 4 : 5;
+    return (__lower <= __e10 && __e10 <= __upper) ? __fmt_kind::__fixed : __fmt_kind::__scientific;
+  }
+  if (__kind == __fmt_kind::__general)
+    return (-4 <= __s.__x && __s.__x < 6) ? __fmt_kind::__fixed : __fmt_kind::__scientific;
+  return __kind;
+}
+
+_LIBCPP_HIDE_FROM_ABI inline __to_chars_out __to_chars(
+    char* __first, char* __last, __u128 __bits, __fmt_kind __kind, bool __has_precision, int __precision,
+    const __fp_format& __round_trip_format = __binary128, __u128 __round_trip_bits = ~static_cast<__u128>(0)) {
   __decomposed __d = __decompose(__bits);
   if (__d.__is_inf || __d.__is_nan) {
     const char* __str;
@@ -981,29 +1002,53 @@ _LIBCPP_HIDE_FROM_ABI inline __to_chars_out __to_chars(char* __first, char* __la
     }
   }
   // shortest
-  __u128 __mag_bits = __bits & ~(static_cast<__u128>(1) << 127);
-  __shortest_digits __s = __find_shortest(__d, __mag_bits);
+  __u128 __mag_bits = __round_trip_bits == ~static_cast<__u128>(0) ? __bits & ~(static_cast<__u128>(1) << 127)
+                                                                   : __round_trip_bits;
+  __shortest_digits __s = __find_shortest(__d, __mag_bits, __round_trip_format);
   int __e10 = __s.__x - (__s.__n - 1);
-  __fmt_kind __use = __kind;
-  if (__kind == __fmt_kind::__plain) {
-    long __lower, __upper;
-    if (__s.__n == 1) {
-      __lower = -3;
-      __upper = 4;
-    } else {
-      __lower = -(static_cast<long>(__s.__n) + 3);
-      __upper = 5;
-    }
-    __use = (__lower <= __e10 && __e10 <= __upper) ? __fmt_kind::__fixed : __fmt_kind::__scientific;
-  } else if (__kind == __fmt_kind::__general) {
-    __use = (-4 <= __s.__x && __s.__x < 6) ? __fmt_kind::__fixed : __fmt_kind::__scientific;
-  }
+  __fmt_kind __use = __shortest_notation(__s, __e10, __kind);
   if (__use == __fmt_kind::__scientific)
     return __print_shortest_scientific(__first, __last, __d.__neg, __s);
   // fixed
   if (__e10 >= 0 && __kind == __fmt_kind::__fixed)
     return __format_fixed(__first, __last, __d, 0, false); // exact integer value
   return __print_shortest_fixed(__first, __last, __d.__neg, __s);
+}
+
+_LIBCPP_HIDE_FROM_ABI inline __u128 __widen_narrow(__u128 __bits, const __fp_format& __f) {
+  const int __sign_pos = __f.__frac_bits + __f.__exp_bits;
+  const __u128 __sign = (__bits >> __sign_pos) & 1;
+  const __u128 __frac_mask = (static_cast<__u128>(1) << __f.__frac_bits) - 1;
+  const __u128 __frac = __bits & __frac_mask;
+  const __u128 __exp_mask = (static_cast<__u128>(1) << __f.__exp_bits) - 1;
+  const __u128 __exp = (__bits >> __f.__frac_bits) & __exp_mask;
+  const __u128 __sign128 = __sign << 127;
+  if (__exp == __exp_mask) {
+    __u128 __fraction = __frac << (112 - __f.__frac_bits);
+    return __sign128 | (static_cast<__u128>(0x7fff) << 112) | __fraction;
+  }
+  if (__exp == 0 && __frac == 0)
+    return __sign128;
+  int __exp_unbiased;
+  __u128 __significand;
+  if (__exp == 0) {
+    int __bl = 0;
+    for (__u128 __v = __frac; __v; __v >>= 1)
+      ++__bl;
+    __significand = __frac << (113 - __bl);
+    __exp_unbiased = 1 - __f.__emax - (__f.__frac_bits + 1 - __bl);
+  } else {
+    __significand = ((static_cast<__u128>(1) << __f.__frac_bits) | __frac) << (112 - __f.__frac_bits);
+    __exp_unbiased = static_cast<int>(__exp) - __f.__emax;
+  }
+  __u128 __biased = static_cast<__u128>(__exp_unbiased + 16383);
+  return __sign128 | (__biased << 112) | (__significand & ((static_cast<__u128>(1) << 112) - 1));
+}
+
+_LIBCPP_HIDE_FROM_ABI inline __to_chars_out __to_chars_narrow(
+    char* __first, char* __last, __u128 __bits, __fmt_kind __kind, const __fp_format& __f) {
+  __u128 __wide_bits = __widen_narrow(__bits, __f);
+  return __to_chars(__first, __last, __wide_bits, __kind, false, 0, __f, __bits & 0x7fff);
 }
 
 
@@ -1069,6 +1114,7 @@ _LIBCPP_HIDE_FROM_ABI inline __from_chars_out __make_inf(const __fp_format& __f,
               (static_cast<__u128>(__neg) << (__f.__frac_bits + __f.__exp_bits))};
 }
 
+template <int _MaxDigits = __max_retained_digits>
 _LIBCPP_HIDE_FROM_ABI inline __from_chars_out
 __from_chars(const char* __first, const char* __last, __fmt_kind __kind, const __fp_format& __f = __binary128) {
   const int __sign_shift = __f.__frac_bits + __f.__exp_bits;
@@ -1174,8 +1220,8 @@ __from_chars(const char* __first, const char* __last, __fmt_kind __kind, const _
   }
 
   // decimal
-  static_assert(__max_retained_digits > 0, "");
-  char __digs[__max_retained_digits];
+  static_assert(_MaxDigits > 0, "");
+  char __digs[_MaxDigits];
   int __count   = 0;
   long __e10    = 0;
   bool __sticky = false;
@@ -1190,7 +1236,7 @@ __from_chars(const char* __first, const char* __last, __fmt_kind __kind, const _
       if (__count == 0 && __dv == 0) {
         if (__fraction)
           --__e10;
-      } else if (__count < __max_retained_digits) {
+      } else if (__count < _MaxDigits) {
         __digs[__count++] = __c;
         if (__fraction)
           --__e10;
@@ -1222,8 +1268,12 @@ __from_chars(const char* __first, const char* __last, __fmt_kind __kind, const _
     return {__q, __fc_status::__ok, static_cast<__u128>(__neg) << __sign_shift};
   __u128 __bits;
   bool __uz;
-  if (!__decimal_to_bits(__f, __neg, __digs, __count, __sticky, __e10 + __exp10, __bits, __uz))
+  if constexpr (_MaxDigits == 400) {
+    if (!__decimal_to_bits<128>(__f, __neg, __digs, __count, __sticky, __e10 + __exp10, __bits, __uz))
+      return {__q, __fc_status::__out_of_range, 0};
+  } else if (!__decimal_to_bits<2100>(__f, __neg, __digs, __count, __sticky, __e10 + __exp10, __bits, __uz)) {
     return {__q, __fc_status::__out_of_range, 0};
+  }
   if (__uz)
     return {__q, __fc_status::__out_of_range, 0};
   return {__q, __fc_status::__ok, __bits};

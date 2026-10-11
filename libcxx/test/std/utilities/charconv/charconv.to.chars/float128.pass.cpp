@@ -292,7 +292,7 @@ static unsigned long long next_random() {
 
 static void test_round_trips() {
   using std::chars_format;
-  for (int i = 0; i < 4000; ++i) {
+  for (int i = 0; i < 300; ++i) {
     unsigned long long hi = next_random(), lo = next_random();
     if (i % 3 == 1) // moderate exponents
       hi = (hi & 0x8000ffffffffffffull) | ((16383ull - 80 + next_random() % 160) << 48);

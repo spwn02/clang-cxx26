@@ -110,7 +110,7 @@ _LIBCPP_HIDE_FROM_ABI inline from_chars_result __from_chars_narrow(
     __kind = __f128::__fmt_kind::__fixed;
   else if (__fmt == chars_format::hex)
     __kind = __f128::__fmt_kind::__hex;
-  __f128::__from_chars_out __r = __f128::__from_chars(__first, __last, __kind, __format);
+  __f128::__from_chars_out __r = __f128::__from_chars<400>(__first, __last, __kind, __format);
   if (__r.__status == __f128::__fc_status::__invalid)
     return {__first, errc::invalid_argument};
   if (__r.__status == __f128::__fc_status::__out_of_range)

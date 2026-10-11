@@ -13,7 +13,9 @@
 
 #include <charconv>
 #include <cassert>
+#include <format>
 #include <limits>
+#include <string>
 
 #include "test_macros.h"
 
@@ -73,6 +75,24 @@ void check_exhaustive() {
       assert(in.ec == std::errc{} && in.ptr == out.ptr);
       assert(__builtin_bit_cast(unsigned short, parsed) == i);
     }
+    char buffer[64];
+    auto plain = std::to_chars(buffer, buffer + sizeof(buffer), value);
+    assert(plain.ec == std::errc{});
+    assert(std::format("{}", value) == std::string(buffer, plain.ptr));
+    auto scientific = std::to_chars(buffer, buffer + sizeof(buffer), value, std::chars_format::scientific);
+    assert(scientific.ec == std::errc{});
+    unsigned digits = 0;
+    for (char* p = buffer; p != scientific.ptr && *p != 'e'; ++p)
+      if (*p >= '0' && *p <= '9')
+        ++digits;
+    if (digits > 1) {
+      auto short_precision = std::to_chars(buffer, buffer + sizeof(buffer), value, std::chars_format::scientific, digits - 2);
+      assert(short_precision.ec == std::errc{});
+      _Fp short_parsed = 0;
+      auto short_in = std::from_chars(buffer, short_precision.ptr, short_parsed, std::chars_format::scientific);
+      assert(short_in.ec != std::errc{} || short_in.ptr != short_precision.ptr ||
+             __builtin_bit_cast(unsigned short, short_parsed) != i);
+    }
   }
 }
 #endif
@@ -97,6 +117,22 @@ int main(int, char**) {
   check_parse<std::float16_t>("1.ffep+15", std::errc::result_out_of_range, 0, std::chars_format::hex);
   check_narrow(std::float16_t(1.0), "1");
   check_narrow(std::float16_t(0.1), "0.1");
+  {
+    char buffer[64];
+    auto out = std::to_chars(buffer, buffer + sizeof(buffer), 1.1f16, std::chars_format::scientific);
+    assert(std::string(buffer, out.ptr) == "1.1e+00");
+    out = std::to_chars(buffer, buffer + sizeof(buffer), 1.1f16, std::chars_format::fixed);
+    assert(std::string(buffer, out.ptr) == "1.1");
+    out = std::to_chars(buffer, buffer + sizeof(buffer), 1.1f16, std::chars_format::general);
+    assert(std::string(buffer, out.ptr) == "1.1");
+    // 65500 is the shortest decimal that parses back to the largest finite binary16 value (65504).
+    out = std::to_chars(buffer, buffer + sizeof(buffer), 65504.0f16);
+    assert(std::string(buffer, out.ptr) == "65500");
+    out = std::to_chars(buffer, buffer + sizeof(buffer), 65504.0f16, std::chars_format::scientific);
+    assert(std::string(buffer, out.ptr) == "6.55e+04");
+    out = std::to_chars(buffer, buffer + sizeof(buffer), 5.9604645e-8f16);
+    assert(std::string(buffer, out.ptr) == "6e-08");
+  }
   check(std::numeric_limits<std::float16_t>::min());
   check(std::numeric_limits<std::float16_t>::max());
   check(std::numeric_limits<std::float16_t>::denorm_min());
@@ -111,6 +147,17 @@ int main(int, char**) {
   check_parse<std::bfloat16_t>("3.3895313892515355e38", std::errc{}, 0x7f7f);
   check_narrow(std::bfloat16_t(1.0), "1");
   check_narrow(std::bfloat16_t(0.1), "0.1");
+  {
+    char buffer[64];
+    auto out = std::to_chars(buffer, buffer + sizeof(buffer), 1.1bf16, std::chars_format::scientific);
+    assert(std::string(buffer, out.ptr) == "1.1e+00");
+    out = std::to_chars(buffer, buffer + sizeof(buffer), 1.1bf16, std::chars_format::fixed);
+    assert(std::string(buffer, out.ptr) == "1.1");
+    out = std::to_chars(buffer, buffer + sizeof(buffer), 1.1bf16, std::chars_format::general);
+    assert(std::string(buffer, out.ptr) == "1.1");
+    out = std::to_chars(buffer, buffer + sizeof(buffer), std::numeric_limits<std::bfloat16_t>::denorm_min());
+    assert(std::string(buffer, out.ptr) == "9e-41");
+  }
   check(std::numeric_limits<std::bfloat16_t>::min());
   check(std::numeric_limits<std::bfloat16_t>::max());
   check(std::numeric_limits<std::bfloat16_t>::denorm_min());
