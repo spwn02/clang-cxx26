@@ -22,11 +22,16 @@
 
 namespace clang {
 
+// [dcl.fct]: a single unnamed parameter whose type is the same as void is an
+// empty parameter list; a type that depends on a template parameter (such as
+// std::void_t<T*>) is not, even if it is void after substitution.
 inline bool
 FTIHasSingleVoidParameter(const DeclaratorChunk::FunctionTypeInfo &FTI) {
-  return FTI.NumParams == 1 && !FTI.isVariadic &&
-         FTI.Params[0].Ident == nullptr && FTI.Params[0].Param &&
-         cast<ParmVarDecl>(FTI.Params[0].Param)->getType()->isVoidType();
+  if (FTI.NumParams != 1 || FTI.isVariadic || FTI.Params[0].Ident ||
+      !FTI.Params[0].Param)
+    return false;
+  QualType ParamTy = cast<ParmVarDecl>(FTI.Params[0].Param)->getType();
+  return ParamTy->isVoidType() && !ParamTy->isInstantiationDependentType();
 }
 
 inline bool

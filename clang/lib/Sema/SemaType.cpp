@@ -5260,6 +5260,10 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
           // function with no other parameters (C99 6.7.5.3p10).  We record
           // int(void) as a FunctionProtoType with an empty parameter list.
           if (ParamTy->isVoidType()) {
+            if (ParamTy->isInstantiationDependentType()) {
+              ParamTys.push_back(ParamTy);
+              continue;
+            }
             // If this is something like 'float(int, void)', reject it.  'void'
             // is an incomplete type (C99 6.2.5p19) and function decls cannot
             // have parameters of incomplete type.
