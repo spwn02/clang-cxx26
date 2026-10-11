@@ -12,6 +12,7 @@
 
 #include <__assert>
 #include <__charconv/chars_format.h>
+#include <__charconv/float128.h>
 #include <__charconv/from_chars_result.h>
 #include <__config>
 #include <__cstddef/ptrdiff_t.h>
@@ -112,6 +113,25 @@ _LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, c
   from_chars_result __result = std::from_chars(__first, __last, __temporary, __fmt);
   if (__result.ec != errc::invalid_argument) __value = static_cast<bfloat16_t>(__temporary);
   return __result;
+}
+#    endif
+#    if defined(__STDCPP_FLOAT128_T__)
+_LIBCPP_HIDE_FROM_ABI inline from_chars_result
+from_chars(const char* __first, const char* __last, float128_t& __value, chars_format __fmt = chars_format::general) {
+  __f128::__fmt_kind __kind = __f128::__fmt_kind::__general;
+  if (__fmt == chars_format::scientific)
+    __kind = __f128::__fmt_kind::__scientific;
+  else if (__fmt == chars_format::fixed)
+    __kind = __f128::__fmt_kind::__fixed;
+  else if (__fmt == chars_format::hex)
+    __kind = __f128::__fmt_kind::__hex;
+  __f128::__from_chars_out __r = __f128::__from_chars(__first, __last, __kind);
+  if (__r.__status == __f128::__fc_status::__invalid)
+    return {__first, errc::invalid_argument};
+  if (__r.__status == __f128::__fc_status::__out_of_range)
+    return {__r.__ptr, errc::result_out_of_range};
+  __value = __builtin_bit_cast(float128_t, __r.__bits);
+  return {__r.__ptr, errc{}};
 }
 #    endif
 #  endif

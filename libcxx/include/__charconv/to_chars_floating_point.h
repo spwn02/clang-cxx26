@@ -11,6 +11,7 @@
 #define _LIBCPP___CHARCONV_TO_CHARS_FLOATING_POINT_H
 
 #include <__charconv/chars_format.h>
+#include <__charconv/float128.h>
 #include <__charconv/from_chars_floating_point.h>
 #include <__charconv/to_chars_result.h>
 #include <__config>
@@ -113,6 +114,41 @@ _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __las
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value) { return std::__to_chars_narrow_float(__first, __last, __value); }
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value, chars_format __fmt) { return std::to_chars(__first, __last, static_cast<float>(__value), __fmt); }
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value, chars_format __fmt, int __precision) { return std::to_chars(__first, __last, static_cast<float>(__value), __fmt, __precision); }
+#    endif
+#    if defined(__STDCPP_FLOAT128_T__)
+// binary128 has no hardware or library support to build on: exact conversions with a small big integer
+// (<__charconv/float128.h>) produce the shortest representation and the correctly rounded precision forms.
+_LIBCPP_HIDE_FROM_ABI inline to_chars_result __to_chars_float128(
+    char* __first, char* __last, float128_t __value, __f128::__fmt_kind __kind, bool __has_precision, int __precision) {
+  __f128::__to_chars_out __r = __f128::__to_chars(
+      __first, __last, __builtin_bit_cast(__f128::__u128, __value), __kind, __has_precision, __precision);
+  return {__r.__ptr, __r.__too_large ? errc::value_too_large : errc{}};
+}
+
+_LIBCPP_HIDE_FROM_ABI inline __f128::__fmt_kind __to_chars_float128_kind(chars_format __fmt) {
+  switch (__fmt) {
+  case chars_format::scientific:
+    return __f128::__fmt_kind::__scientific;
+  case chars_format::fixed:
+    return __f128::__fmt_kind::__fixed;
+  case chars_format::hex:
+    return __f128::__fmt_kind::__hex;
+  default:
+    return __f128::__fmt_kind::__general;
+  }
+}
+
+_LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, float128_t __value) {
+  return std::__to_chars_float128(__first, __last, __value, __f128::__fmt_kind::__plain, false, 0);
+}
+_LIBCPP_HIDE_FROM_ABI inline to_chars_result
+to_chars(char* __first, char* __last, float128_t __value, chars_format __fmt) {
+  return std::__to_chars_float128(__first, __last, __value, std::__to_chars_float128_kind(__fmt), false, 0);
+}
+_LIBCPP_HIDE_FROM_ABI inline to_chars_result
+to_chars(char* __first, char* __last, float128_t __value, chars_format __fmt, int __precision) {
+  return std::__to_chars_float128(__first, __last, __value, std::__to_chars_float128_kind(__fmt), true, __precision);
+}
 #    endif
 #  endif // _LIBCPP_STD_VER >= 23
 #endif // _LIBCPP_STD_VER >= 17

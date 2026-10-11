@@ -1706,6 +1706,10 @@ module std [system] {
       header "__charconv/chars_format.h"
       export *
     }
+    module float128 {
+      header "__charconv/float128.h"
+      export *
+    }
     module from_chars_floating_point {
       header "__charconv/from_chars_floating_point.h"
       export *
@@ -2291,8 +2295,7 @@ module std [system] {
     // symbols from several tightly-coupled siblings (e.g. completion_functions'
     // set_value_t/set_error_t are used throughout), so — matching this file's
     // existing `allocator`/`unique_temporary_buffer`/`high_resolution_clock`
-    // precedent for the same shape of problem (see their own TODOs referencing
-    // https://github.com/llvm/llvm-project/issues/120108) — every submodule here
+    // precedent for the same shape of problem — every submodule here
     // re-exports everything it imports rather than hand-enumerating each
     // cross-header symbol, since the latter was verified (see this file's own
     // history) to under-export and produce "declaration must be imported"

@@ -813,6 +813,24 @@ _LIBCPP_HIDE_FROM_ABI double __narrow_float_argument(_Tp __value, __format_spec:
   return __parsed;
 }
 } // namespace __formatter
+#    if defined(__STDCPP_FLOAT128_T__)
+namespace __formatter {
+// IEEE binary128: 113 bit significand, exponent range [-16382, 16383]. The digit counts follow the same derivation as
+// for long double (see <cfloat>).
+template <>
+struct __traits<float128_t> {
+  static constexpr int __max_integral         = 4932;
+  static constexpr int __max_fractional       = 16494;
+  static constexpr int __max_fractional_value = 5;
+  static constexpr size_t __stack_buffer_size = 1024;
+
+  static constexpr int __hex_precision_digits = 5;
+};
+} // namespace __formatter
+
+template <__fmt_char_type _CharT>
+struct formatter<float128_t, _CharT> : public __formatter_floating_point<_CharT> {};
+#    endif
 #    if defined(__STDCPP_FLOAT16_T__)
 template <__fmt_char_type _CharT>
 struct formatter<float16_t, _CharT> : public __formatter_floating_point<_CharT> {
