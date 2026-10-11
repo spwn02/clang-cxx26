@@ -21,6 +21,7 @@ static_assert(std::formattable<std::bfloat16_t, char>);
 
 int main(int, char**) {
   assert(std::format("{}", 1.5f16) == "1.5");
+  assert(std::format("{} {}", 1.1f16, 1.1bf16) == "1.1 1.1");
   assert(std::format("{:+08.2f}", 1.5bf16) == "+0001.50");
   assert(std::format("{:^8.3}", 1.5f32) == "  1.5   ");
   assert(std::format("{:e}", 1.5f64) == "1.500000e+00"); // {:e} defaults to precision 6, same as double

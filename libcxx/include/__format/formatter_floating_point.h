@@ -18,6 +18,7 @@
 #include <__algorithm/transform.h>
 #include <__assert>
 #include <__charconv/chars_format.h>
+#include <__charconv/from_chars_floating_point.h>
 #include <__charconv/to_chars_floating_point.h>
 #include <__charconv/to_chars_integral.h>
 #include <__charconv/to_chars_result.h>
@@ -795,6 +796,23 @@ template <__fmt_char_type _CharT>
 struct formatter<long double, _CharT> : public __formatter_floating_point<_CharT> {};
 
 #  if _LIBCPP_STD_VER >= 23
+namespace __formatter {
+// P1467R9 [format.string.std]: without a precision and type the value is formatted as
+// to_chars(first, last, value) of its own type, which for binary16 and bfloat16 is shorter than the digits of the
+// float the value promotes to. Every other form is exact when done on the promoted float. The shortest decimal of
+// the narrow type has at most five digits, so the double parsed from it prints those same digits.
+template <class _Tp, class _CharT>
+_LIBCPP_HIDE_FROM_ABI double __narrow_float_argument(_Tp __value, __format_spec::__parsed_specifications<_CharT> __specs) {
+  if (__specs.__has_precision() || __specs.__std_.__type_ != __format_spec::__type::__default)
+    return static_cast<float>(__value);
+  char __buffer[64];
+  to_chars_result __r = std::to_chars(__buffer, __buffer + sizeof(__buffer), __value);
+  double __parsed     = static_cast<float>(__value);
+  if (__r.ec == errc{})
+    std::from_chars(__buffer, __r.ptr, __parsed);
+  return __parsed;
+}
+} // namespace __formatter
 #    if defined(__STDCPP_FLOAT16_T__)
 template <__fmt_char_type _CharT>
 struct formatter<float16_t, _CharT> : public __formatter_floating_point<_CharT> {
@@ -802,7 +820,8 @@ struct formatter<float16_t, _CharT> : public __formatter_floating_point<_CharT> 
   using __base::parse;
   template <class _FormatContext>
   _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(float16_t __value, _FormatContext& __ctx) const {
-    return __base::format(static_cast<float>(__value), __ctx);
+    return __base::format(__formatter::__narrow_float_argument(__value, this->__parser_.__get_parsed_std_specifications(__ctx)),
+                          __ctx);
   }
 };
 #    endif
@@ -835,7 +854,8 @@ struct formatter<bfloat16_t, _CharT> : public __formatter_floating_point<_CharT>
   using __base::parse;
   template <class _FormatContext>
   _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(bfloat16_t __value, _FormatContext& __ctx) const {
-    return __base::format(static_cast<float>(__value), __ctx);
+    return __base::format(__formatter::__narrow_float_argument(__value, this->__parser_.__get_parsed_std_specifications(__ctx)),
+                          __ctx);
   }
 };
 #    endif
