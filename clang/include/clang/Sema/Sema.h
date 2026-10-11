@@ -6900,6 +6900,11 @@ public:
 
     MaybeODRUseExprSet SavedMaybeODRUseExprs;
 
+    sema::LambdaScopeInfo *PotentialCaptureContext = nullptr;
+    unsigned NumPotentialVariableCaptures = 0;
+    unsigned NumPotentialThisCaptures = 0;
+    SourceLocation PotentialThisCaptureLocation;
+
     /// The lambdas that are present within this context, if it
     /// is indeed an unevaluated context.
     SmallVector<LambdaExpr *, 2> Lambdas;
@@ -7331,6 +7336,7 @@ public:
                                          unsigned CapturingScopeIndex);
 
   ExprResult CheckLValueToRValueConversionOperand(Expr *E);
+  ExprResult CheckDiscardedValueExpression(Expr *E);
   void CleanupVarDeclMarking();
 
   /// Try to capture the given variable.
