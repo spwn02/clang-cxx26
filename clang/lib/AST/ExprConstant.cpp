@@ -5207,8 +5207,9 @@ static CompleteObject findCompleteObject(EvalInfo &Info, const Expr *E,
       APValue *Val = Frame->getTemporary(RND, LVal.Base.getVersion());
 
       if (!Val) {
-        Info.CCEDiag(RND->getLocation(), diag::err_ericwf_fixme)
-            << "Failing to find completed object";
+        // The result of the function is not available here: reading it is not
+        // a constant expression.
+        Info.FFDiag(E, diag::note_constexpr_lifetime_ended, 1) << AK << 0;
         return CompleteObject();
       }
       return CompleteObject(LVal.Base, Val, RND->getType());

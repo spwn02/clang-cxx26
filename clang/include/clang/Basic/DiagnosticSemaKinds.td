@@ -12892,23 +12892,6 @@ def select_contract_kind : TextSubstitution<
   "%select{pre|post|contract_assert}0">;
 
 let CategoryName = "Contract Issue" in {
-def err_ericwf_unimplemented : Error<
-  "contract feature %0 is not yet implemented (complain to eric@efcs.ca)"
->;
-def warn_ericwf_unimplemented : Warning<
-  "contract feature %0 is not yet _correctly_ implemented (Danm it Eric!)"
->, InGroup<EricWFFixme>;
-
-def err_ericwf_fixme : Error<
-  "woops... FIXME(EricWF): %0"
->;
-def err_ericwf_generic : Error<"%0">;
-def note_ericwf_generic : Note<"%0">;
-
-def warn_ericwf_fixme : Warning<
-  "woops... FIXME(EricWF): %0"
->, InGroup<EricWFFixme>;
-
 def err_contract_on_deleted_or_defaulted_function : Error<
   "a %select{deleted function|function defaulted on its first declaration}0 "
   "cannot have a function-contract-specifier-seq">;

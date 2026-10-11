@@ -159,10 +159,6 @@ ExprResult Sema::ActOnContractAssertCondition(Expr *Cond)  {
     return ExprError();
   Cond = Res.get().second;
   assert(Cond);
-  if (auto KnownValue = Res.getKnownValue(); KnownValue.has_value()) {
-    Diag(Cond->getExprLoc(), diag::warn_ericwf_fixme) <<
-      (std::string("Condition always evaluates to ") + (*KnownValue ? "true" : "false")) << Cond;
-  }
   return Cond;
 }
 
@@ -1087,11 +1083,9 @@ DeclResult Sema::RebuildContractsWithPlaceholderReturnType(FunctionDecl *FD) {
     if (FD->getReturnType()->isUndeducedType()) {
       assert(!FD->isInvalidDecl());
       assert(!CSD->isInvalidDecl());
-      if (DeduceReturnType(FD, Loc, true)) {
-        Diag(CSD->getLocation(), diag::err_ericwf_unimplemented)
-            << "IDK what's wrong";
+      // DeduceReturnType has diagnosed the failure.
+      if (DeduceReturnType(FD, Loc, true))
         return true;
-      }
     }
     assert(!FD->getReturnType()->isUndeducedType());
     Replacement = FD->getReturnType();
