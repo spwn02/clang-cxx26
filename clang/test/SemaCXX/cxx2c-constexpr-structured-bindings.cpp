@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify -fexperimental-new-constant-interpreter %s
 // P2686R5: constexpr structured bindings, including references to automatic objects.
 
 struct S { int a; int b; };

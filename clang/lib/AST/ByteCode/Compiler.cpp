@@ -233,11 +233,11 @@ bool Compiler<Emitter>::VisitCastExpr(const CastExpr *CE) {
         bool IsReference = D->getType()->isReferenceType();
 
         if (!IsReference) {
-          if (Context::shouldBeGloballyIndexed(D)) {
+          if (auto It = Locals.find(D); It != Locals.end()) {
+            return this->emitGetLocal(*SubExprT, It->second.Offset, CE);
+          } else if (Context::shouldBeGloballyIndexed(D)) {
             if (auto GlobalIndex = P.getGlobal(D))
               return this->emitGetGlobal(*SubExprT, *GlobalIndex, CE);
-          } else if (auto It = Locals.find(D); It != Locals.end()) {
-            return this->emitGetLocal(*SubExprT, It->second.Offset, CE);
           } else if (const auto *PVD = dyn_cast<ParmVarDecl>(D)) {
             if (auto It = this->Params.find(PVD); It != this->Params.end()) {
               return this->emitGetParam(*SubExprT, It->second.Offset, CE);
@@ -4913,7 +4913,13 @@ Compiler<Emitter>::visitVarDecl(const VarDecl *VD, const Expr *Init,
   if (Init && Init->isValueDependent())
     return false;
 
-  if (Context::shouldBeGloballyIndexed(VD)) {
+  // An automatic constexpr variable has an object in each invocation.
+  // C++26 also permits its value to refer to other automatic objects here.
+  // Do not reuse dummy pointers from standalone initializer evaluation or
+  // values from another frame.
+  bool NeedsInvocationStorage = Ctx.getLangOpts().CPlusPlus && !Toplevel &&
+                                VD->isConstexpr() && VD->hasLocalStorage();
+  if (Context::shouldBeGloballyIndexed(VD) && !NeedsInvocationStorage) {
     auto checkDecl = [&]() -> bool {
       bool NeedsOp = !Toplevel && VD->isLocalVarDecl() && VD->isStaticLocal();
       return !NeedsOp || this->emitCheckDecl(VD, VD);
