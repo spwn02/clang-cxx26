@@ -7152,6 +7152,30 @@ bool Compiler<Emitter>::visitDeclRef(const ValueDecl *D, const Expr *E) {
       return this->emitGetThisFieldPtr(Offset, E);
     return this->emitGetPtrThisField(Offset, E);
   }
+  // Before P2686R5 (C++26) a standalone evaluation cannot refer to an
+  // automatic object through a local reference: its storage does not exist
+  // outside of an invocation, so the pointer cached for the declaration would
+  // dangle.
+  if (IsReference && !Ctx.getLangOpts().CPlusPlus26) {
+    if (const auto *RefVD = dyn_cast<VarDecl>(D);
+        RefVD && RefVD->isLocalVarDecl() && !RefVD->isStaticLocal() &&
+        RefVD->getInit() && !RefVD->getInit()->isValueDependent()) {
+      const Expr *Init = RefVD->getInit();
+      if (const auto *EWC = dyn_cast<ExprWithCleanups>(Init))
+        Init = EWC->getSubExpr();
+      Init = Init->IgnoreParens();
+      bool RefersToAutomatic = false;
+      if (const auto *MTE = dyn_cast<MaterializeTemporaryExpr>(Init))
+        RefersToAutomatic = MTE->getStorageDuration() == SD_Automatic;
+      else if (const auto *Ref =
+                   dyn_cast<DeclRefExpr>(Init->IgnoreParenImpCasts()))
+        if (const auto *BaseVar = dyn_cast<VarDecl>(Ref->getDecl()))
+          RefersToAutomatic = BaseVar->hasLocalStorage();
+      if (RefersToAutomatic)
+        return this->emitInvalidDeclRef(cast<DeclRefExpr>(E),
+                                        /*InitializerFailed=*/true, E);
+    }
+  }
   // Global variables.
   if (auto GlobalIndex = P.getGlobal(D)) {
     if (IsReference) {
