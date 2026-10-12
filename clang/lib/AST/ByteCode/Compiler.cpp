@@ -2931,10 +2931,34 @@ bool Compiler<Emitter>::VisitMaterializeTemporaryExpr(
   if (DiscardResult)
     return this->discard(SubExpr);
 
-  // When we're initializing a global variable *or* the storage duration of
-  // the temporary is explicitly static, create a global variable.
+  // Standalone C++26 declaration evaluation must preserve lifetime-extended
+  // automatic temporaries for later constant evaluation. During a function
+  // invocation they still belong to that invocation's local scope.
+  auto PreserveAutomaticTemporary = [&]() {
+    if (!Ctx.getLangOpts().CPlusPlus26 || CompilingFunction ||
+        E->getStorageDuration() != SD_Automatic)
+      return false;
+    const auto *Initialized = dyn_cast_or_null<VarDecl>(InitializingDecl);
+    const ValueDecl *Owner = E->getExtendingDecl();
+    if (const auto *Binding = dyn_cast_or_null<BindingDecl>(Owner))
+      Owner = Binding->getDecomposedDecl();
+    const auto *OwnerVar = dyn_cast_or_null<VarDecl>(Owner);
+    if (!Initialized || !Initialized->hasLocalStorage() ||
+        Initialized->isStaticLocal() || Initialized->getTLSKind() ||
+        !OwnerVar || !OwnerVar->hasLocalStorage() || OwnerVar->isStaticLocal() ||
+        OwnerVar->getTLSKind())
+      return false;
+    auto FunctionScope = [](const DeclContext *DC) {
+      while (DC && !DC->isFunctionOrMethod())
+        DC = DC->getParent();
+      return DC;
+    };
+    const DeclContext *Scope = FunctionScope(Initialized->getDeclContext());
+    return Scope && Scope == FunctionScope(OwnerVar->getDeclContext());
+  };
+
   OptPrimType SubExprT = classify(SubExpr);
-  if (E->getStorageDuration() == SD_Static) {
+  if (E->getStorageDuration() == SD_Static || PreserveAutomaticTemporary()) {
     UnsignedOrNone GlobalIndex = P.createGlobal(E);
     if (!GlobalIndex)
       return false;
