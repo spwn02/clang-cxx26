@@ -600,6 +600,38 @@ static bool interp__builtin_frexp(InterpState &S, CodePtr OpPC,
   return true;
 }
 
+static bool interp__builtin_ilogb(InterpState &S, CodePtr OpPC) {
+  Floating X = S.Stk.pop<Floating>();
+  if (!X.isFinite() || X.isZero())
+    return false;
+  int Exponent;
+  (void)llvm::frexp(X.getAPFloat(), Exponent,
+                    llvm::RoundingMode::NearestTiesToEven);
+  pushInteger(S, Exponent - 1, S.getASTContext().IntTy);
+  return true;
+}
+
+static bool interp__builtin_logb(InterpState &S, CodePtr OpPC,
+                                 const CallExpr *Call) {
+  Floating X = S.Stk.pop<Floating>();
+  if (!X.isFinite() || X.isZero()) {
+    S.FFDiag(Call);
+    return false;
+  }
+  int BinaryExponent;
+  (void)llvm::frexp(X.getAPFloat(), BinaryExponent,
+                    llvm::RoundingMode::NearestTiesToEven);
+  APSInt Exponent(APInt(64, static_cast<int64_t>(BinaryExponent - 1), true),
+                  /*isUnsigned=*/false);
+  APFloat Value(X.getSemantics());
+  (void)Value.convertFromAPInt(Exponent, /*IsSigned=*/true,
+                               llvm::RoundingMode::NearestTiesToEven);
+  Floating Result = S.allocFloat(Value.getSemantics());
+  Result.copy(Value);
+  S.Stk.push<Floating>(Result);
+  return true;
+}
+
 static bool interp__builtin_fmin(InterpState &S, CodePtr OpPC,
                                  const InterpFrame *Frame, bool IsNumBuiltin,
                                  bool PropagateNaN = false) {
@@ -4316,6 +4348,24 @@ bool InterpretBuiltin(InterpState &S, CodePtr OpPC, const CallExpr *Call,
   case Builtin::BIfrexpl:
   case Builtin::BI__builtin_frexpf128:
     return interp__builtin_frexp(S, OpPC, Call);
+
+  case Builtin::BI__builtin_ilogb:
+  case Builtin::BIilogb:
+  case Builtin::BI__builtin_ilogbf:
+  case Builtin::BIilogbf:
+  case Builtin::BI__builtin_ilogbl:
+  case Builtin::BIilogbl:
+  case Builtin::BI__builtin_ilogbf128:
+    return interp__builtin_ilogb(S, OpPC);
+
+  case Builtin::BI__builtin_logb:
+  case Builtin::BIlogb:
+  case Builtin::BI__builtin_logbf:
+  case Builtin::BIlogbf:
+  case Builtin::BI__builtin_logbl:
+  case Builtin::BIlogbl:
+  case Builtin::BI__builtin_logbf128:
+    return interp__builtin_logb(S, OpPC, Call);
 
   case Builtin::BI__builtin_fmin:
   case Builtin::BIfmin:
