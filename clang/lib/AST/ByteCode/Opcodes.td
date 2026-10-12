@@ -670,6 +670,10 @@ def Neg: Opcode {
   let HasGroup = 1;
 }
 
+// Unary plus of a floating-point value: checks the operand, leaves it in place.
+// [Float] -> [Float]
+def Plusf : Opcode;
+
 // [Real] -> [Real]
 def Comp: Opcode {
   let Types = [IntegerTypeClass];

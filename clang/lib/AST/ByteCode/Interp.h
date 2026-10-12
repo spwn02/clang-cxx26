@@ -663,6 +663,20 @@ inline bool Inv(InterpState &S, CodePtr OpPC) {
 // Neg
 //===----------------------------------------------------------------------===//
 
+/// Unary plus of a floating-point value. The value stays on the stack; a
+/// signaling NaN operand of an arithmetic expression is not a core constant
+/// expression ([expr.const.core], P3899R3).
+inline bool Plusf(InterpState &S, CodePtr OpPC) {
+  const Floating &Value = S.Stk.peek<Floating>();
+  if (Value.isSignaling() && S.getLangOpts().CPlusPlus) {
+    const SourceInfo &E = S.Current->getSource(OpPC);
+    S.CCEDiag(E, diag::note_constexpr_float_arithmetic)
+        << /*NaN=*/true << S.Current->getRange(OpPC);
+    return S.noteUndefinedBehavior();
+  }
+  return true;
+}
+
 template <PrimType Name, class T = typename PrimConv<Name>::T>
 bool Neg(InterpState &S, CodePtr OpPC) {
   const T &Value = S.Stk.pop<T>();

@@ -57,10 +57,8 @@ constexpr double s2 = 2 * snan; // expected-error {{must be initialized by a con
                                 // expected-note {{floating point arithmetic produces a NaN}}
 constexpr double s3 = -snan; // expected-error {{must be initialized by a constant expression}} \
                              // expected-note {{floating point arithmetic produces a NaN}}
-#ifndef BYTECODE // FIXME: the bytecode interpreter does not check the operand of a unary plus
 constexpr double s4 = +snan; // expected-error {{must be initialized by a constant expression}} \
                              // expected-note {{floating point arithmetic produces a NaN}}
-#endif
 
 // Division by zero is undefined.
 constexpr double z = 1.0 / 0.0; // expected-error {{must be initialized by a constant expression}} \

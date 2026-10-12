@@ -6812,7 +6812,10 @@ bool Compiler<Emitter>::VisitUnaryOperator(const UnaryOperator *E) {
     if (!T)
       return this->emitError(E);
 
-    if (!this->visit(SubExpr)) // noop
+    if (!this->visit(SubExpr))
+      return false;
+    // Only a floating-point operand needs checking (signaling NaN).
+    if (*T == PT_Float && !this->emitPlusf(E))
       return false;
     return DiscardResult ? this->emitPop(*T, E) : true;
   case UO_AddrOf: // &x
