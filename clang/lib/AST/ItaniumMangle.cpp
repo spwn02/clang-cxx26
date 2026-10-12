@@ -5170,6 +5170,14 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
                                Func->getFirstDecl()));
       mangleNumber(PVD->getFunctionScopeIndex());
       Out << '_';
+      // Each declaration of the function writes its own parameter
+      // annotations: count the earlier declarations only (see below).
+      unsigned FuncRedeclIndex = 0;
+      for (const FunctionDecl *D = Func->getPreviousDecl(); D;
+           D = D->getPreviousDecl())
+        ++FuncRedeclIndex;
+      mangleNumber(FuncRedeclIndex);
+      Out << '_';
     } else {
       if (const auto *RD = dyn_cast<CXXRecordDecl>(Owner)) {
         Out << 'd';

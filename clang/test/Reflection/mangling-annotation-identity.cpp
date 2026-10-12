@@ -42,6 +42,9 @@ template <class T> struct [[=1]] W { [[=1]] void m(); [[=1]] T v; };
 // fewer declarations.
 void header_repeated();
 void header_repeated();
+int param_repeated([[=1]] int value);
+int param_repeated([[=1]] int value);
+int param_repeated(int value);
 W<int> wi;
 W<char> wc;
 
@@ -69,6 +72,10 @@ int u = code<annotation(^^W<int>::v, 0)>();
 int v = code<annotation(^^W<char>::v, 0)>();
 int w = code<annotation(^^header_repeated, 0)>();
 int x = code<annotation(^^header_repeated, 1)>();
-// CHECK-COUNT-24: define {{.*}}@{{"?}}_Z4codeI
+int y = code<annotation(parameter(^^param_repeated), 0)>();
+int z = code<annotation(parameter(^^param_repeated), 1)>();
+// CHECK-COUNT-26: define {{.*}}@{{"?}}_Z4codeI
 // SYM-DAG: define {{.*}}@_Z4codeIMaMd_Z15header_repeatedvE0_0_Li1EEEiv
 // SYM-DAG: define {{.*}}@_Z4codeIMaMd_Z15header_repeatedvE1_0_Li1EEEiv
+// SYM-DAG: define {{.*}}@_Z4codeIMapMd_Z14param_repeatediE0_0_0_Li1EEEiv
+// SYM-DAG: define {{.*}}@_Z4codeIMapMd_Z14param_repeatediE0_1_0_Li1EEEiv
