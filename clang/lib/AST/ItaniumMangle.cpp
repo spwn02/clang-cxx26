@@ -34,6 +34,7 @@
 #include "clang/Basic/Thunk.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/RISCVTargetParser.h"
 #include <optional>
@@ -76,6 +77,7 @@ class ItaniumMangleContextImpl : public ItaniumMangleContext {
   NamespaceDecl *StdNamespace = nullptr;
 
   bool NeedsUniqueInternalLinkageNames = false;
+  bool StructuralUnnamedNumbering = false;
 
 public:
   explicit ItaniumMangleContextImpl(
@@ -136,6 +138,12 @@ public:
   void mangleModuleInitializer(const Module *Module, raw_ostream &) override;
   void mangleReflectionTemplateArgument(const APValue &R,
                                        raw_ostream &) override;
+
+  /// Set while mangling a reflection payload that is embedded in a Microsoft
+  /// name: unnamed tags are then numbered structurally.
+  bool usesStructuralUnnamedNumbering() const {
+    return StructuralUnnamedNumbering;
+  }
 
   bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
     // Lambda closure types are already numbered.
@@ -1663,6 +1671,22 @@ void CXXNameMangler::mangleUnqualifiedName(
     if (TD->isExternallyVisible()) {
       unsigned UnnamedMangle =
           getASTContext().getManglingNumber(TD, Context.isAux());
+      // The Microsoft ABI's numbering does not tell unnamed tags apart, but
+      // this encoding is also embedded in Microsoft names of reflections (see
+      // MicrosoftMangle.cpp), where distinct entities need distinct symbols:
+      // number the tag by its position among the unnamed tags of its context.
+      if (Context.usesStructuralUnnamedNumbering()) {
+        UnnamedMangle = 1;
+        for (const Decl *Sibling :
+             TD->getDeclContext()->getRedeclContext()->decls()) {
+          const auto *STD = dyn_cast<TagDecl>(Sibling);
+          if (!STD || STD->getIdentifier() || STD->getTypedefNameForAnonDecl())
+            continue;
+          if (STD->getCanonicalDecl() == TD->getCanonicalDecl())
+            break;
+          ++UnnamedMangle;
+        }
+      }
       Out << "Ut";
       if (UnnamedMangle > 1)
         Out << UnnamedMangle - 2;
@@ -7986,6 +8010,7 @@ void ItaniumMangleContextImpl::mangleModuleInitializer(const Module *M,
 
 void ItaniumMangleContextImpl::mangleReflectionTemplateArgument(
     const APValue &R, raw_ostream &Out) {
+  llvm::SaveAndRestore<bool> Structural(StructuralUnnamedNumbering, true);
   CXXNameMangler Mangler(*this, Out);
   Mangler.mangleReflectionValue(R);
 }
