@@ -3076,17 +3076,42 @@ consteval auto reflect_constant_string(R &&r) -> info try {
                 same_as<CharT, char8_t> || same_as<CharT, char16_t> ||
                 same_as<CharT, char32_t>);
 
-  vector<CharT> values;
-  for (auto&& c : r)
-    values.push_back(static_cast<CharT>(c));
   bool literal = false;
   if constexpr (requires { std::is_string_literal(r); })
     literal = std::is_string_literal(r);
-  if (literal)
-    values.pop_back();
-  values.push_back(CharT{});
-  size_t size = values.size();
-  return __reflect_array_object(&size, 1, values.data(), size, current_function());
+  if constexpr (ranges::sized_range<R> && ranges::contiguous_range<R>) {
+    size_t count = static_cast<size_t>(ranges::size(r));
+    if (literal)
+      --count;
+    size_t size = count + 1;
+    if (literal) {
+      return __reflect_array_object(&size, 1, ranges::data(r), size,
+                                    current_function());
+    }
+    // One exact-size allocation and a single bulk copy: much cheaper in
+    // constant evaluation than growing a vector one character at a time.
+    allocator<CharT> alloc;
+    CharT* values = alloc.allocate(size);
+    try {
+      std::uninitialized_copy_n(ranges::data(r), count, values);
+      std::construct_at(values + count);
+      info result = __reflect_array_object(&size, 1, values, size, current_function());
+      alloc.deallocate(values, size);
+      return result;
+    } catch (...) {
+      alloc.deallocate(values, size);
+      throw;
+    }
+  } else {
+    vector<CharT> values;
+    for (auto&& c : r)
+      values.push_back(static_cast<CharT>(c));
+    if (literal)
+      values.pop_back();
+    values.push_back(CharT{});
+    size_t size = values.size();
+    return __reflect_array_object(&size, 1, values.data(), size, current_function());
+  }
 } catch (exception& e) {
   __set_exception_from(e, current_function());
   throw;
