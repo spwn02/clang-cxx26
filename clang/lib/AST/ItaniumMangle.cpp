@@ -134,6 +134,8 @@ public:
   void mangleLambdaSig(const CXXRecordDecl *Lambda, raw_ostream &) override;
 
   void mangleModuleInitializer(const Module *Module, raw_ostream &) override;
+  void mangleReflectionTemplateArgument(const APValue &R,
+                                       raw_ostream &) override;
 
   bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
     // Lambda closure types are already numbered.
@@ -451,6 +453,8 @@ public:
   }
 
   raw_ostream &getStream() { return Out; }
+
+  void mangleReflectionValue(const APValue &R) { mangleReflection(R); }
 
   void disableDerivedAbiTags() { DisableDerivedAbiTags = true; }
   static bool shouldHaveAbiTags(ItaniumMangleContextImpl &C, const VarDecl *VD);
@@ -7969,6 +7973,12 @@ void ItaniumMangleContextImpl::mangleModuleInitializer(const Module *M,
         StringRef(&M->Name[Partition + 1], M->Name.size() - Partition - 1),
         /*IsPartition*/ true);
   }
+}
+
+void ItaniumMangleContextImpl::mangleReflectionTemplateArgument(
+    const APValue &R, raw_ostream &Out) {
+  CXXNameMangler Mangler(*this, Out);
+  Mangler.mangleReflectionValue(R);
 }
 
 ItaniumMangleContext *ItaniumMangleContext::create(ASTContext &Context,

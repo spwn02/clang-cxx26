@@ -146,11 +146,13 @@ class MicrosoftMangleContextImpl : public MicrosoftMangleContext {
   llvm::DenseMap<GlobalDecl, unsigned> SEHFilterIds;
   llvm::DenseMap<GlobalDecl, unsigned> SEHFinallyIds;
   SmallString<16> AnonymousNamespaceHash;
+  std::unique_ptr<ItaniumMangleContext> ReflectionMangler;
 
 public:
   MicrosoftMangleContextImpl(ASTContext &Context, DiagnosticsEngine &Diags,
                              bool IsAux = false);
   bool shouldMangleCXXName(const NamedDecl *D) override;
+  void mangleReflectionTemplateArgument(const APValue &R, raw_ostream &Out);
   bool shouldMangleStringLiteral(const StringLiteral *SL) override;
   void mangleCXXName(GlobalDecl GD, raw_ostream &Out) override;
   void mangleVirtualMemPtrThunk(const CXXMethodDecl *MD,
@@ -573,6 +575,14 @@ bool MicrosoftMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
   }
 
   return true;
+}
+
+void MicrosoftMangleContextImpl::mangleReflectionTemplateArgument(
+    const APValue &R, raw_ostream &Out) {
+  if (!ReflectionMangler)
+    ReflectionMangler.reset(ItaniumMangleContext::create(
+        getASTContext(), getDiags()));
+  ReflectionMangler->mangleReflectionTemplateArgument(R, Out);
 }
 
 bool
@@ -2174,8 +2184,24 @@ void MicrosoftCXXNameMangler::mangleTemplateArgValue(QualType T,
     return;
   }
 
-  case APValue::Reflection:
-    llvm_unreachable("reflection arguments should be separately handled");
+  case APValue::Reflection: {
+    if (WithScalarType)
+      mangleType(T, SourceRange(), QMM_Escape);
+    SmallString<128> Payload;
+    llvm::raw_svector_ostream PayloadOS(Payload);
+    auto *MC = cast<MicrosoftMangleContextImpl>(&Context);
+    MC->mangleReflectionTemplateArgument(V, PayloadOS);
+    // Reflections have no Microsoft ABI. $$r (lowercase: the Microsoft
+    // productions only use uppercase letters after $$, e.g. $$R is a volatile
+    // rvalue reference) frames the Itanium reflection encoding; the length
+    // prefix and hex encoding keep the embedded payload unambiguous.
+    Out << "$$r" << Payload.size() << '_';
+    constexpr char Hex[] = "0123456789abcdef";
+    for (unsigned char C : Payload) {
+      Out << Hex[C >> 4] << Hex[C & 15];
+    }
+    return;
+  }
   }
 }
 

@@ -222,6 +222,10 @@ public:
 
   virtual void mangleModuleInitializer(const Module *Module, raw_ostream &) = 0;
 
+  /// Mangles a reflection value using the Itanium reflection encoding.
+  virtual void mangleReflectionTemplateArgument(const APValue &R,
+                                               raw_ostream &) = 0;
+
   // This has to live here, otherwise the CXXNameMangler won't have access to
   // it.
   virtual DiscriminatorOverrideTy getDiscriminatorOverride() const = 0;
