@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -fexperimental-new-constant-interpreter -verify -verify-ignore-unexpected=note %s
 // P2686R5 / [basic.def.odr]: odr-use of variables whose value holds the address of automatic objects.
 // [basic.def.odr]: a variable whose value holds the address of an automatic
 // object is not constexpr-representable inside a nested function scope, so

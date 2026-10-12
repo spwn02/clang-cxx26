@@ -86,7 +86,7 @@ public:
                                    const Expr *Init = nullptr);
 
   /// Returns or creates a dummy value for unknown declarations.
-  unsigned getOrCreateDummy(const DeclTy &D);
+  unsigned getOrCreateDummy(const DeclTy &D, bool IsConstexprUnknown = false);
 
   /// Creates a global and returns its index.
   UnsignedOrNone createGlobal(const ValueDecl *VD, const Expr *Init);
@@ -221,6 +221,9 @@ private:
 
   /// Dummy parameter to generate pointers from.
   llvm::DenseMap<const void *, unsigned> DummyVariables;
+  /// Unknown references denote unspecified objects, not placeholders to be
+  /// redirected when the named declaration gets concrete storage.
+  llvm::DenseMap<const void *, unsigned> ConstexprUnknownReferences;
 
   /// Creates a new descriptor.
   template <typename... Ts> Descriptor *allocateDescriptor(Ts &&...Args) {

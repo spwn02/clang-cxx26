@@ -762,10 +762,121 @@ static bool CheckWeak(InterpState &S, CodePtr OpPC, const Block *B) {
   return false;
 }
 
-// The list of checks here is just the one from CheckLoad, but with the
-// ones removed that are impossible on primitive global values.
-// For example, since those can't be members of structs, they also can't
-// be mutable.
+static bool refersToEnclosingVariable(const Expr *E) {
+  if (!E)
+    return false;
+  E = E->IgnoreParenImpCasts();
+  if (const auto *DRE = dyn_cast<DeclRefExpr>(E))
+    return DRE->refersToEnclosingVariableOrCapture();
+  if (const auto *ME = dyn_cast<MemberExpr>(E))
+    return refersToEnclosingVariable(ME->getBase());
+  if (const auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
+    return refersToEnclosingVariable(ASE->getBase());
+  return false;
+}
+
+static bool isReadInOtherFunction(InterpState &S, CodePtr OpPC,
+                                  const Block *B) {
+  const ValueDecl *OwnerDecl = B->getDescriptor()->asValueDecl();
+  if (const auto *MTE = dyn_cast_if_present<MaterializeTemporaryExpr>(
+          B->getDescriptor()->asExpr()))
+    OwnerDecl = MTE->getExtendingDecl();
+  if (const auto *Binding = dyn_cast_or_null<BindingDecl>(OwnerDecl))
+    OwnerDecl = Binding->getDecomposedDecl();
+  const auto *Owner = dyn_cast_or_null<VarDecl>(OwnerDecl);
+  if (!Owner)
+    return false;
+  if (const FunctionDecl *Callee = S.Current->getCallee()) {
+    const DeclContext *DC = Owner->getDeclContext();
+    while (DC && !DC->isFunctionOrMethod())
+      DC = DC->getParent();
+    return DC != Callee;
+  }
+  return refersToEnclosingVariable(S.Current->getExpr(OpPC));
+}
+
+// Check only the value being loaded. A numeric member of an aggregate can
+// remain usable even when a sibling reference is not representable here.
+static bool CheckRepresentableValue(InterpState &S, CodePtr OpPC,
+                                    const Pointer &Ptr) {
+  const Descriptor *Desc = Ptr.getFieldDesc();
+  if ((Desc->isPrimitive() ||
+       (Desc->isPrimitiveArray() && Ptr.isArrayElement())) &&
+      Desc->getPrimType() == PT_Ptr) {
+    const Pointer &Value = Ptr.deref<Pointer>();
+    APValue APV = Value.toAPValue(S.getASTContext());
+    if (!APV.containsAutomaticObject())
+      return true;
+
+    auto Base = APV.getLValueBase();
+    const auto *VD = Base.dyn_cast<const ValueDecl *>();
+    S.FFDiag(S.Current->getSource(OpPC), diag::note_constexpr_non_global, 1)
+        << Ptr.getType()->isReferenceType() << !APV.getLValuePath().empty()
+        << !!VD << VD;
+    if (const auto *Var = dyn_cast_or_null<VarDecl>(VD)) {
+      if (Var->isConstexpr())
+        S.Note(Var->getLocation(), diag::note_constexpr_not_static) << Var;
+      else
+        S.Note(Var->getLocation(), diag::note_declared_at);
+    } else if (const Expr *E = Base.dyn_cast<const Expr *>()) {
+      S.Note(E->getExprLoc(), diag::note_constexpr_temporary_here);
+    }
+    return false;
+  }
+  if (const Record *R = Desc->ElemRecord) {
+    for (const Record::Field &F : R->fields()) {
+      Pointer Field = Ptr.atField(F.Offset);
+      if (F.Decl->isUnnamedBitField() || !Field.isInitialized() ||
+          (R->getDecl()->isUnion() && !Field.isActive()))
+        continue;
+      if (!CheckRepresentableValue(S, OpPC, Field))
+        return false;
+    }
+    for (const Record::Base &B : R->bases())
+      if (!CheckRepresentableValue(S, OpPC, Ptr.atField(B.Offset)))
+        return false;
+    if (!Ptr.isBaseClass())
+      for (const Record::Base &B : R->virtual_bases())
+        if (!CheckRepresentableValue(S, OpPC, Ptr.atField(B.Offset)))
+          return false;
+  } else if (Desc->isPrimitiveArray() && Desc->getPrimType() == PT_Ptr) {
+    for (unsigned I = 0; I != Desc->getNumElems(); ++I) {
+      Pointer Element = Ptr.atIndex(I).narrow();
+      if (Element.isInitialized() && !CheckRepresentableValue(S, OpPC, Element))
+        return false;
+    }
+  } else if (Desc->isCompositeArray()) {
+    for (unsigned I = 0; I != Desc->getNumElems(); ++I)
+      if (!CheckRepresentableValue(S, OpPC, Ptr.atIndex(I).narrow()))
+        return false;
+  }
+  return true;
+}
+
+static bool CheckRepresentableRead(InterpState &S, CodePtr OpPC,
+                                   const Pointer &Ptr) {
+  // Program storage holds declaration-time values, even when a declaration
+  // was revisited in this evaluation. Real invocation locals are exempt.
+  if (!S.getLangOpts().CPlusPlus26 || !Ptr.isStatic() || !Ptr.getDeclID() ||
+      S.P.getCurrentDecl() == Ptr.getDeclID() ||
+      !isReadInOtherFunction(S, OpPC, Ptr.block()))
+    return true;
+  return CheckRepresentableValue(S, OpPC, Ptr);
+}
+
+Pointer ReadGlobalReference(InterpState &S, CodePtr OpPC, const Block *B) {
+  const Pointer &Value = B->deref<Pointer>();
+  if (S.getLangOpts().CPlusPlus26 && isReadInOtherFunction(S, OpPC, B) &&
+      Value.toAPValue(S.getASTContext()).containsAutomaticObject()) {
+    const VarDecl *VD = B->getDescriptor()->asVarDecl();
+    assert(VD);
+    unsigned Index = S.P.getOrCreateDummy(VD, /*IsConstexprUnknown=*/true);
+    return S.P.getPtrGlobal(Index);
+  }
+  return Value;
+}
+
+// Direct global loads are primitive and cannot read mutable fields.
 bool CheckGlobalLoad(InterpState &S, CodePtr OpPC, const Block *B) {
   const auto &Desc = B->getBlockDesc<GlobalInlineDescriptor>();
   if (!B->isAccessible()) {
@@ -794,7 +905,7 @@ bool CheckGlobalLoad(InterpState &S, CodePtr OpPC, const Block *B) {
     S.Note(D->getLocation(), diag::note_constexpr_volatile_here) << 1;
     return false;
   }
-  return true;
+  return CheckRepresentableRead(S, OpPC, Pointer(const_cast<Block *>(B)));
 }
 
 // Similarly, for local loads.
@@ -864,7 +975,7 @@ bool CheckLoad(InterpState &S, CodePtr OpPC, const Pointer &Ptr,
     return false;
   if (!Ptr.isConst() && !S.inConstantContext() && isConstexprUnknown(Ptr))
     return false;
-  return true;
+  return CheckRepresentableRead(S, OpPC, Ptr);
 }
 
 /// This is not used by any of the opcodes directly. It's used by
@@ -897,7 +1008,7 @@ bool CheckFinalLoad(InterpState &S, CodePtr OpPC, const Pointer &Ptr) {
     return false;
   if (!CheckMutable(S, OpPC, Ptr))
     return false;
-  return true;
+  return CheckRepresentableRead(S, OpPC, Ptr);
 }
 
 bool CheckStore(InterpState &S, CodePtr OpPC, const Pointer &Ptr,
@@ -1223,6 +1334,15 @@ bool CheckDummy(InterpState &S, CodePtr OpPC, const Block *B, AccessKinds AK) {
   const ValueDecl *D = B->getDescriptor()->asValueDecl();
   if (!D)
     return false;
+
+  if (S.getLangOpts().CPlusPlus26 && D->getType()->isReferenceType() &&
+      B->getDescriptor()->IsConstexprUnknown) {
+    S.FFDiag(S.Current->getSource(OpPC),
+             diag::note_constexpr_access_unknown_variable, 1)
+        << AK << D;
+    S.Note(D->getLocation(), diag::note_declared_at);
+    return false;
+  }
 
   if (AK == AK_Read || AK == AK_Increment || AK == AK_Decrement)
     return diagnoseUnknownDecl(S, OpPC, D);

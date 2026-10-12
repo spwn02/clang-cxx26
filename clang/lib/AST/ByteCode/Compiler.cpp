@@ -232,7 +232,7 @@ bool Compiler<Emitter>::VisitCastExpr(const CastExpr *CE) {
         const ValueDecl *D = DRE->getDecl();
         bool IsReference = D->getType()->isReferenceType();
 
-        if (!IsReference) {
+        if (!IsReference && !this->LambdaCaptures.contains(D)) {
           if (auto It = Locals.find(D); It != Locals.end()) {
             return this->emitGetLocal(*SubExprT, It->second.Offset, CE);
           } else if (Context::shouldBeGloballyIndexed(D)) {
@@ -7140,6 +7140,15 @@ bool Compiler<Emitter>::visitDeclRef(const ValueDecl *D, const Expr *E) {
       return this->emitGetLocal(classifyPrim(E), Offset, E);
     return this->emitGetPtrLocal(Offset, E);
   }
+  // Captures have their own storage, even when the captured declaration has
+  // a cached constant initializer.
+  if (auto It = this->LambdaCaptures.find(D);
+      It != this->LambdaCaptures.end()) {
+    auto [Offset, IsPtr] = It->second;
+    if (IsPtr)
+      return this->emitGetThisFieldPtr(Offset, E);
+    return this->emitGetPtrThisField(Offset, E);
+  }
   // Global variables.
   if (auto GlobalIndex = P.getGlobal(D)) {
     if (IsReference) {
@@ -7167,16 +7176,6 @@ bool Compiler<Emitter>::visitDeclRef(const ValueDecl *D, const Expr *E) {
     // Retry.
     return this->visitDeclRef(D, E);
   };
-
-  // Lambda captures.
-  if (auto It = this->LambdaCaptures.find(D);
-      It != this->LambdaCaptures.end()) {
-    auto [Offset, IsPtr] = It->second;
-
-    if (IsPtr)
-      return this->emitGetThisFieldPtr(Offset, E);
-    return this->emitGetPtrThisField(Offset, E);
-  }
 
   if (const auto *DRE = dyn_cast<DeclRefExpr>(E);
       DRE && DRE->refersToEnclosingVariableOrCapture()) {

@@ -1,5 +1,7 @@
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected,classic %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -fexperimental-new-constant-interpreter -verify=expected,ref %s
 // RUN: %clang_cc1 -std=c++23 -fsyntax-only -verify=cxx23 %s
+// RUN: %clang_cc1 -std=c++23 -fsyntax-only -fexperimental-new-constant-interpreter -verify=cxx23 %s
 
 #if __cplusplus <= 202302L
 void old_rules() {
@@ -101,13 +103,13 @@ constexpr int loop_frames() {
 static_assert(loop_frames() == 10);
 
 void different_functions() {
-  constexpr int a = 3; // expected-note 2 {{address of non-static constexpr variable 'a' may differ on each invocation}}
+  constexpr int a = 3; // expected-note 2 {{address of non-static constexpr variable 'a' may differ on each invocation}} ref-note {{address of non-static constexpr variable 'a' may differ on each invocation}}
   auto lambda = [&a] {
     constexpr const int &r = a; // expected-error {{must be initialized by a constant expression}} expected-note {{reference to 'a' is not a constant expression}}
   };
   auto nested = [p = &a] {
-    constexpr const int *q = p; // expected-error {{must be initialized by a constant expression}} expected-note {{read of non-constexpr variable 'p' is not allowed in a constant expression}}
-  }; // expected-note@-2 {{declared here}}
+    constexpr const int *q = p; // expected-error {{must be initialized by a constant expression}} classic-note {{read of non-constexpr variable 'p' is not allowed in a constant expression}} ref-note {{pointer to 'a' is not a constant expression}}
+  }; // classic-note@-2 {{declared here}}
   static constexpr const int *p = &a; // expected-error {{must be initialized by a constant expression}} expected-note {{pointer to 'a' is not a constant expression}}
   constexpr auto local = [] {
     constexpr int ay = 7;
@@ -137,6 +139,30 @@ void reads_at_point_of_use(int x) {
   auto member = [&] {
     static_assert(b.r != nullptr); // expected-error {{static assertion expression is not an integral constant expression}} expected-note {{reference to temporary is not a constant expression}}
     static_assert(b.n == 7);
+  };
+}
+
+// Representability applies to the selected subobject, including array
+// elements and inherited members, rather than to the complete aggregate.
+void nested_subobjects() {
+  constexpr int a = 3; // expected-note 3 {{address of non-static constexpr variable 'a' may differ on each invocation}}
+  struct Base { const int *p; };
+  struct Nest : Base { struct Inner { const int *p; int n; } inner; };
+  constexpr Nest nest{{&a}, {&a, 7}};
+  constexpr const int *arr[] = {nullptr, &a};
+  auto lambda = [&] {
+    static_assert(nest.inner.n == 7);
+    static_assert(nest.inner.p != nullptr); // expected-error {{static assertion expression is not an integral constant expression}} expected-note {{pointer to 'a' is not a constant expression}}
+    static_assert(nest.p != nullptr); // expected-error {{static assertion expression is not an integral constant expression}} expected-note {{pointer to 'a' is not a constant expression}}
+    static_assert(arr[0] == nullptr);
+    static_assert(arr[1] != nullptr); // expected-error {{static assertion expression is not an integral constant expression}} expected-note {{pointer to 'a' is not a constant expression}}
+  };
+  constexpr const int &r = a;
+  auto unknown = [&] {
+    static_assert(sizeof(r) == sizeof(int));
+    static_assert(__is_same(decltype(r), const int &));
+    constexpr auto size = [](const int &ref) { return sizeof(ref); };
+    static_assert(size(r) == sizeof(int));
   };
 }
 

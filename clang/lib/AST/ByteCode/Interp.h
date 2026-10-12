@@ -74,6 +74,9 @@ bool DiagnoseUninitialized(InterpState &S, CodePtr OpPC, bool Extern,
 bool CheckGlobalLoad(InterpState &S, CodePtr OpPC, const Block *B);
 bool CheckLocalLoad(InterpState &S, CodePtr OpPC, const Block *B);
 
+/// Read a cached reference, preserving constexpr-unknown reference semantics.
+Pointer ReadGlobalReference(InterpState &S, CodePtr OpPC, const Block *B);
+
 /// Checks if a value can be stored in a block.
 bool CheckStore(InterpState &S, CodePtr OpPC, const Pointer &Ptr,
                 bool WillBeActivated = false);
@@ -1507,6 +1510,12 @@ bool GetGlobalUnchecked(InterpState &S, CodePtr OpPC, uint32_t I) {
     return DiagnoseUninitialized(S, OpPC, B->isExtern(), B->getDescriptor(),
                                  AK_Read);
 
+  if constexpr (Name == PT_Ptr) {
+    if (B->getDescriptor()->getType()->isReferenceType()) {
+      S.Stk.push<Pointer>(ReadGlobalReference(S, OpPC, B));
+      return true;
+    }
+  }
   S.Stk.push<T>(B->deref<T>());
   return true;
 }

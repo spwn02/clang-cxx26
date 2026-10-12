@@ -121,11 +121,12 @@ UnsignedOrNone Program::getOrCreateGlobal(const ValueDecl *VD,
   return std::nullopt;
 }
 
-unsigned Program::getOrCreateDummy(const DeclTy &D) {
+unsigned Program::getOrCreateDummy(const DeclTy &D, bool IsConstexprUnknown) {
   assert(D);
+  auto &Variables =
+      IsConstexprUnknown ? ConstexprUnknownReferences : DummyVariables;
   // Dedup blocks since they are immutable and pointers cannot be compared.
-  if (auto It = DummyVariables.find(D.getOpaqueValue());
-      It != DummyVariables.end())
+  if (auto It = Variables.find(D.getOpaqueValue()); It != Variables.end())
     return It->second;
 
   QualType QT;
@@ -152,6 +153,7 @@ unsigned Program::getOrCreateDummy(const DeclTy &D) {
     Desc = allocateDescriptor(D);
 
   assert(Desc);
+  Desc->IsConstexprUnknown = IsConstexprUnknown;
 
   // Allocate a block for storage.
   unsigned I = Globals.size();
@@ -163,7 +165,7 @@ unsigned Program::getOrCreateDummy(const DeclTy &D) {
   assert(G->block()->isDummy());
 
   Globals.push_back(G);
-  DummyVariables[D.getOpaqueValue()] = I;
+  Variables[D.getOpaqueValue()] = I;
   return I;
 }
 
