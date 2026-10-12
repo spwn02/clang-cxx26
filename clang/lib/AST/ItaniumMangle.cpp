@@ -4974,7 +4974,7 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
 
     Decl *D = R.getReflectedDecl();
     if (auto *ED = dyn_cast<EnumConstantDecl>(D)) {
-      mangleIntegerLiteral(ED->getType(), ED->getInitVal());
+      mangleNameWithAbiTags(ED, nullptr);
     } else if (auto *CD = dyn_cast<CXXConstructorDecl>(D)) {
       GlobalDecl GD(CD, Ctor_Complete);
       mangle(GD);
@@ -5023,9 +5023,11 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
     if (const FunctionDecl *Func
         = dyn_cast<FunctionDecl>(PVD->getDeclContext())) {
       Out << 'p';
-      unsigned Num = Func->getNumParams() - PVD->getFunctionScopeIndex();
-      if (Num > 1)
-        mangleNumber(Num - 2);
+      // Match reflection equality's redeclaration normalization. Reuse the
+      // declaration encoding for constructor and deduction-guide owners too.
+      mangleReflection(
+          APValue(ReflectionKind::Declaration, Func->getFirstDecl()));
+      mangleNumber(PVD->getFunctionScopeIndex());
       Out << '_';
     }
     break;
@@ -5120,8 +5122,16 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
   }
   case ReflectionKind::BaseSpecifier: {
     Out << 'b';
-    Context.mangleCanonicalTypeName(R.getReflectedBaseSpecifier()->getType(),
-                                    Out, false);
+    const CXXBaseSpecifier *Base = R.getReflectedBaseSpecifier();
+    const CXXRecordDecl *Derived = Base->getDerived()->getDefinitionOrSelf();
+    Context.mangleCanonicalTypeName(
+        getASTContext().getCanonicalTagType(Derived), Out, false);
+    auto It =
+        llvm::find_if(Derived->bases(),
+                      [Base](const CXXBaseSpecifier &B) { return &B == Base; });
+    assert(It != Derived->bases_end() && "base belongs to its derived owner");
+    mangleNumber(std::distance(Derived->bases_begin(), It));
+    Out << '_';
     break;
   }
   case ReflectionKind::DataMemberSpec: {
