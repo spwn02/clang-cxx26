@@ -4,4 +4,6 @@
 [[=1]] int annotated_variable;
 struct [[=1]] AnnotatedType {};
 struct Derived : [[=1]] AnnotatedType {};
+[[=1]] void header_repeated();
+[[=1]] void header_repeated();
 #endif

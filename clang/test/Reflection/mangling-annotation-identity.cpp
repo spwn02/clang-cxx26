@@ -3,6 +3,8 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -freflection -fannotation-attributes -fparameter-reflection -include-pch %t.pch -emit-llvm -o %t.pch.ll %s
 // RUN: FileCheck %s < %t.direct.ll
 // RUN: FileCheck %s < %t.pch.ll
+// RUN: FileCheck %s --check-prefix=SYM < %t.direct.ll
+// RUN: FileCheck %s --check-prefix=SYM < %t.pch.ll
 
 // Annotation reflections of distinct annotations keep distinct specializations
 // even when the annotation values are identical; compiling at all proves it,
@@ -35,6 +37,11 @@ namespace [[=1]] N2 {}
 enum E { first [[=1]], second [[=1]] };
 struct S { [[=1]] int x; [[=1]] int y; };
 template <class T> struct [[=1]] W { [[=1]] void m(); [[=1]] T v; };
+// Redeclarations after the annotated ones (here, after the header's) must not
+// change the symbol of an earlier annotation: other translation units may see
+// fewer declarations.
+void header_repeated();
+void header_repeated();
 W<int> wi;
 W<char> wc;
 
@@ -60,4 +67,8 @@ int s = code<annotation(^^W<int>::m, 0)>();
 int t = code<annotation(^^W<char>::m, 0)>();
 int u = code<annotation(^^W<int>::v, 0)>();
 int v = code<annotation(^^W<char>::v, 0)>();
-// CHECK-COUNT-22: define {{.*}}@{{"?}}_Z4codeI
+int w = code<annotation(^^header_repeated, 0)>();
+int x = code<annotation(^^header_repeated, 1)>();
+// CHECK-COUNT-24: define {{.*}}@{{"?}}_Z4codeI
+// SYM-DAG: define {{.*}}@_Z4codeIMaMd_Z15header_repeatedvE0_0_Li1EEEiv
+// SYM-DAG: define {{.*}}@_Z4codeIMaMd_Z15header_repeatedvE1_0_Li1EEEiv

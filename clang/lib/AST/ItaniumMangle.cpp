@@ -5185,12 +5185,13 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
             ReflectionKind::Declaration,
             const_cast<Decl *>(Owner)->getCanonicalDecl()));
       }
+      // Position of the writing declaration in declaration order: count the
+      // earlier declarations only, so later redeclarations (possibly absent in
+      // other translation units) cannot change the symbol.
       unsigned RedeclIndex = 0;
-      for (const Decl *D : Owner->getCanonicalDecl()->redecls()) {
-        if (D == Owner)
-          break;
+      for (const Decl *D = Owner->getPreviousDecl(); D;
+           D = D->getPreviousDecl())
         ++RedeclIndex;
-      }
       mangleNumber(RedeclIndex);
       Out << '_';
     }
