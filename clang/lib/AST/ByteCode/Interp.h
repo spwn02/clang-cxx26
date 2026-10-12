@@ -978,7 +978,9 @@ bool IncDecFloatHelper(InterpState &S, CodePtr OpPC, const Pointer &Ptr,
 
   Ptr.deref<Floating>() = Result;
 
-  return CheckFloatResult(S, OpPC, Result, Status, FPO);
+  // The operand takes part in the P3899R3 checks ([expr.const.core]): a NaN
+  // propagated from a quiet NaN operand is fine.
+  return CheckFloatResult(S, OpPC, Result, Status, FPO, &Value);
 }
 
 inline bool Incf(InterpState &S, CodePtr OpPC, uint32_t FPOI) {

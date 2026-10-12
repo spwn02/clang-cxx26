@@ -80,4 +80,34 @@ constexpr double increments() {
   return d;
 }
 static_assert(increments() == inf, "");
+
+// Increment and decrement are arithmetic too: a quiet NaN operand propagates,
+// a signaling NaN operand and a finite operand overflowing to infinity do not.
+constexpr double qnan = __builtin_nan("");
+constexpr bool incdec_quiet_nan() {
+  double a = qnan, b = qnan, c = qnan, d = qnan;
+  ++a;
+  --b;
+  c++;
+  d--;
+  return a != a && b != b && c != c && d != d;
+}
+static_assert(incdec_quiet_nan(), "");
+constexpr double inc_inf() { double d = inf; ++d; d--; return d; }
+static_assert(inc_inf() == inf, "");
+constexpr double inc_signaling() {
+  double d = snan;
+  ++d; // expected-note {{floating point arithmetic produces a NaN}}
+  return d;
+}
+constexpr double is1 = inc_signaling(); // expected-error {{must be initialized by a constant expression}} \
+                                        // expected-note {{in call to 'inc_signaling()'}}
+constexpr double dec_overflow() {
+  double d = -__DBL_MAX__ * 1;
+  --d; // fine: stays finite
+  d = __DBL_MAX__;
+  d++; // fine: rounds back to the same finite value
+  return d;
+}
+static_assert(dec_overflow() == __DBL_MAX__, "");
 #endif

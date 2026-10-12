@@ -5860,11 +5860,27 @@ struct IncDecSubobjectHandler {
 
     APFloat One(Value.getSemantics(), 1);
     llvm::RoundingMode RM = getActiveRoundingMode(Info, E);
+    const bool OperandIsNaN = Value.isNaN();
+    const bool OperandIsSignaling = Value.isSignaling();
+    const bool OperandIsFinite = Value.isFinite();
     APFloat::opStatus St;
     if (AccessKind == AK_Increment)
       St = Value.add(One, RM);
     else
       St = Value.subtract(One, RM);
+    // [expr.const.core] (P3899R3): increment and decrement are arithmetic
+    // expressions; see handleFloatFloatBinOp.
+    if (Info.Ctx.getLangOpts().CPlusPlus) {
+      if (OperandIsSignaling || (Value.isNaN() && !OperandIsNaN)) {
+        Info.CCEDiag(E, diag::note_constexpr_float_arithmetic) << /*NaN=*/true;
+        return Info.noteUndefinedBehavior();
+      }
+      if (OperandIsFinite && Value.isInfinity()) {
+        Info.CCEDiag(E, diag::note_constexpr_float_arithmetic)
+            << /*infinity=*/false;
+        return Info.noteUndefinedBehavior();
+      }
+    }
     return checkFloatingPointResult(Info, E, St);
   }
   bool foundPointer(APValue &Subobj, QualType SubobjType) {
