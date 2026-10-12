@@ -1040,6 +1040,10 @@ def CXX26Annotation : InheritableParamAttr {
 private:
   APValue Value;
   SourceLocation EqLoc;
+  const Decl *Owner = nullptr;
+  unsigned BaseSpecifierIndex = 0;
+  unsigned BaseAnnotationIndex = 0;
+  bool IsBaseSpecifierAnnotation = false;
 
 public:
   static CXX26AnnotationAttr *Create(ASTContext &Ctx, \
@@ -1057,6 +1061,21 @@ public:
 
   SourceLocation getEqLoc() const { return EqLoc; }
   void setEqLoc(SourceLocation Loc) { EqLoc = Loc; }
+  const Decl *getOwner() const { return Owner; }
+  void setOwner(const Decl *D) { Owner = D; }
+  unsigned getBaseSpecifierIndex() const { return BaseSpecifierIndex; }
+  bool isBaseSpecifierAnnotation() const { return IsBaseSpecifierAnnotation; }
+  unsigned getBaseAnnotationIndex() const { return BaseAnnotationIndex; }
+  void setBaseSpecifierOwner(const Decl *D, unsigned Index) {
+    Owner = D;
+    BaseSpecifierIndex = Index;
+    IsBaseSpecifierAnnotation = true;
+  }
+  void setBaseSpecifierOwner(const Decl *D, unsigned Index,
+                             unsigned AnnotationIndex) {
+    setBaseSpecifierOwner(D, Index);
+    BaseAnnotationIndex = AnnotationIndex;
+  }
   }];
 
   let AdditionalInstantiationStmts = [{

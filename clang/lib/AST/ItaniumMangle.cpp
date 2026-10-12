@@ -5149,10 +5149,60 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
   }
   case ReflectionKind::Annotation: {
     Out << 'a';
-
-    // TODO(CXX26): This is insufficient. Some representation of the annotated
-    // entity will probably have to be mangled alongside the annotation. Or
-    // perhaps just mangle some 'entity$index'-schema, idk.
+    const CXX26AnnotationAttr *Annotation = R.getReflectedAnnotation();
+    const Decl *Owner = Annotation->getOwner();
+    assert(Owner && "annotation reflection must have an owner");
+    if (Annotation->isBaseSpecifierAnnotation()) {
+      Out << 'b';
+      const auto *Derived = cast<CXXRecordDecl>(Owner)->getDefinitionOrSelf();
+      Context.mangleCanonicalTypeName(
+          getASTContext().getCanonicalTagType(Derived), Out, false);
+      mangleNumber(Annotation->getBaseSpecifierIndex());
+      Out << '_';
+    } else if (const auto *PVD = dyn_cast<ParmVarDecl>(Owner)) {
+      const auto *Func = cast<FunctionDecl>(PVD->getDeclContext());
+      Out << 'p';
+      mangleReflection(APValue(ReflectionKind::Declaration,
+                               Func->getFirstDecl()));
+      mangleNumber(PVD->getFunctionScopeIndex());
+      Out << '_';
+    } else {
+      if (const auto *RD = dyn_cast<CXXRecordDecl>(Owner)) {
+        Out << 'd';
+        Context.mangleCanonicalTypeName(
+            getASTContext().getCanonicalTagType(RD->getCanonicalDecl()), Out,
+            false);
+      } else if (isa<NamespaceDecl>(Owner)) {
+        mangleReflection(APValue(
+            ReflectionKind::Namespace,
+            static_cast<const void *>(Owner->getCanonicalDecl())));
+      } else {
+        mangleReflection(APValue(
+            ReflectionKind::Declaration,
+            const_cast<Decl *>(Owner)->getCanonicalDecl()));
+      }
+      unsigned RedeclIndex = 0;
+      for (const Decl *D : Owner->getCanonicalDecl()->redecls()) {
+        if (D == Owner)
+          break;
+        ++RedeclIndex;
+      }
+      mangleNumber(RedeclIndex);
+      Out << '_';
+    }
+    unsigned Ordinal = 0;
+    if (Annotation->isBaseSpecifierAnnotation()) {
+      Ordinal = Annotation->getBaseAnnotationIndex();
+    } else {
+      for (const Attr *A : Owner->attrs()) {
+        if (A == Annotation)
+          break;
+        if (isa<CXX26AnnotationAttr>(A) && !A->isInherited())
+          ++Ordinal;
+      }
+    }
+    mangleNumber(Ordinal);
+    Out << '_';
     mangleExpression(R.getReflectedAnnotation()->getArg());
     break;
   }

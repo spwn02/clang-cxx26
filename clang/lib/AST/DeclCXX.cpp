@@ -58,6 +58,10 @@ using namespace clang;
 void CXXBaseSpecifier::setAnnotations(
     ASTContext &Context, ArrayRef<const CXX26AnnotationAttr *> Attrs) {
   Annotations = Attrs.copy(Context);
+  unsigned AnnotationIndex = 0;
+  for (const CXX26AnnotationAttr *A : Annotations)
+    const_cast<CXX26AnnotationAttr *>(A)->setBaseSpecifierOwner(
+        Derived, 0, AnnotationIndex++);
 }
 
 void AccessSpecDecl::anchor() {}
@@ -215,6 +219,12 @@ CXXRecordDecl::setBases(CXXBaseSpecifier const * const *Bases,
   data().NumBases = NumBases;
   for (unsigned i = 0; i < NumBases; ++i) {
     data().getBases()[i] = *Bases[i];
+    for (unsigned AnnotationIndex = 0;
+         AnnotationIndex < data().getBases()[i].getAnnotations().size();
+         ++AnnotationIndex)
+      const_cast<CXX26AnnotationAttr *>(
+          data().getBases()[i].getAnnotations()[AnnotationIndex])
+          ->setBaseSpecifierOwner(this, i, AnnotationIndex);
     // Keep track of inherited vbases for this base class.
     const CXXBaseSpecifier *Base = Bases[i];
     QualType BaseType = Base->getType();

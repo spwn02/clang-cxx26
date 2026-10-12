@@ -8248,8 +8248,15 @@ CXXBaseSpecifier *ASTReader::GetExternalCXXBaseSpecifiers(uint64_t Offset) {
   unsigned NumBases = Record.readInt();
   void *Mem = Context.Allocate(sizeof(CXXBaseSpecifier) * NumBases);
   CXXBaseSpecifier *Bases = new (Mem) CXXBaseSpecifier [NumBases];
-  for (unsigned I = 0; I != NumBases; ++I)
+  for (unsigned I = 0; I != NumBases; ++I) {
     Bases[I] = Record.readCXXBaseSpecifier();
+    for (unsigned AnnotationIndex = 0;
+         AnnotationIndex < Bases[I].getAnnotations().size();
+         ++AnnotationIndex)
+      const_cast<CXX26AnnotationAttr *>(
+          Bases[I].getAnnotations()[AnnotationIndex])
+          ->setBaseSpecifierOwner(Bases[I].getDerived(), I, AnnotationIndex);
+  }
   return Bases;
 }
 

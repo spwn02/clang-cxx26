@@ -1048,6 +1048,10 @@ void Decl::setAttrsImpl(const AttrVec &attrs, ASTContext &Ctx) {
   assert(AttrBlank.empty() && "HasAttrs was wrong?");
 
   AttrBlank = attrs;
+  for (Attr *A : AttrBlank)
+    if (auto *Annotation = dyn_cast<CXX26AnnotationAttr>(A);
+        Annotation && !A->isInherited())
+      Annotation->setOwner(this);
   HasAttrs = true;
 }
 
@@ -1066,6 +1070,8 @@ void Decl::addAttr(Attr *A) {
 
   AttrVec &Attrs = getAttrs();
   if (!A->isInherited()) {
+    if (auto *Annotation = dyn_cast<CXX26AnnotationAttr>(A))
+      Annotation->setOwner(this);
     Attrs.push_back(A);
     return;
   }
