@@ -14,6 +14,7 @@
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
+#include "clang/Frontend/ASTUnit.h"
 #include "clang/Tooling/Tooling.h"
 #include "gtest/gtest.h"
 #include <map>
@@ -152,5 +153,44 @@ TEST(EvaluateAsRValue, LValueToRValueConversionWorks) {
                                       "constexpr int a = 20;\n"
                                       "static_assert(a == 20, \"\");\n",
                                       Args));
+  }
+}
+
+TEST(EvaluateAsRValue, FusedMathRespectsFloatingEnvironment) {
+  const char *Code = R"cpp(
+    #pragma STDC FENV_ACCESS ON
+    void f() {
+      double Exact = __builtin_fma(2.0, 3.0, 1.0);
+      double Inexact = __builtin_fma(1.0, 1.0, 0x1p-54);
+      constexpr double Manifest = __builtin_fma(1.0, 1.0, 0x1p-54);
+      static_assert(Manifest == 1.0);
+    }
+  )cpp";
+  for (bool ByteCode : {false, true}) {
+    std::vector<std::string> Args = {"-std=c++26", "-frounding-math",
+                                     "-ffp-exception-behavior=strict"};
+    if (ByteCode)
+      Args.push_back("-fexperimental-new-constant-interpreter");
+    auto AST = buildASTFromCodeWithArgs(Code, Args);
+    ASSERT_TRUE(AST);
+    class Visitor : public clang::DynamicRecursiveASTVisitor {
+    public:
+      unsigned Visited = 0;
+      bool VisitVarDecl(clang::VarDecl *VD) override {
+        const clang::Expr *Init = VD->getInit();
+        if (!Init)
+          return true;
+        ++Visited;
+        clang::Expr::EvalResult Folded;
+        EXPECT_EQ(VD->getName() == "Exact",
+                  Init->EvaluateAsRValue(Folded, VD->getASTContext(), false));
+        clang::Expr::EvalResult Constant;
+        EXPECT_TRUE(
+            Init->EvaluateAsRValue(Constant, VD->getASTContext(), true));
+        return true;
+      }
+    } Evaluator;
+    Evaluator.TraverseDecl(AST->getASTContext().getTranslationUnitDecl());
+    EXPECT_EQ(3u, Evaluator.Visited);
   }
 }

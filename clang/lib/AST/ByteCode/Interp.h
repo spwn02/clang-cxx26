@@ -217,6 +217,10 @@ bool CheckFloatResult(InterpState &S, CodePtr OpPC, const Floating &Result,
                       const Floating *LHS = nullptr,
                       const Floating *RHS = nullptr);
 
+/// Check floating environment dependence without arithmetic-operator rules.
+bool CheckFloatEnvironment(InterpState &S, CodePtr OpPC,
+                           APFloat::opStatus Status, FPOptions FPO);
+
 /// Checks why the given DeclRefExpr is invalid.
 bool CheckDeclRef(InterpState &S, CodePtr OpPC, const DeclRefExpr *DR);
 

@@ -8,6 +8,7 @@
 #include "../ExprConstShared.h"
 #include "Boolean.h"
 #include "EvalEmitter.h"
+#include "Interp.h"
 #include "InterpBuiltinBitCast.h"
 #include "InterpHelpers.h"
 #include "PrimType.h"
@@ -22,6 +23,8 @@
 #include "llvm/Support/AllocToken.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SipHash.h"
+#include <algorithm>
+#include <climits>
 
 namespace clang {
 namespace interp {
@@ -490,13 +493,123 @@ static bool interp__builtin_copysign(InterpState &S, CodePtr OpPC,
   return true;
 }
 
+static bool interp__builtin_fma(InterpState &S, CodePtr OpPC,
+                                const CallExpr *Call) {
+  Floating Z = S.Stk.pop<Floating>();
+  Floating Y = S.Stk.pop<Floating>();
+  Floating X = S.Stk.pop<Floating>();
+  APFloat Value = X.getAPFloat();
+  FPOptions FPO = Call->getFPFeaturesInEffect(S.getLangOpts());
+  APFloat::opStatus Status = Value.fusedMultiplyAdd(
+      Y.getAPFloat(), Z.getAPFloat(), getRoundingMode(FPO));
+  if ((Status & APFloat::opInvalidOp) ||
+      !CheckFloatEnvironment(S, OpPC, Status, FPO))
+    return false;
+  Floating Result = S.allocFloat(Value.getSemantics());
+  Result.copy(Value);
+  S.Stk.push<Floating>(Result);
+  return true;
+}
+
+static bool interp__builtin_ldexp(InterpState &S, CodePtr OpPC,
+                                  const CallExpr *Call) {
+  APSInt Exponent = popToAPSInt(S, Call->getArg(1));
+  Floating X = S.Stk.pop<Floating>();
+  int N = static_cast<int>(
+      Exponent.isSigned()
+          ? std::clamp<int64_t>(Exponent.getSExtValue(), INT_MIN, INT_MAX)
+          : std::min<uint64_t>(Exponent.getZExtValue(), INT_MAX));
+  Floating Result = S.allocFloat(X.getSemantics());
+  Result.copy(llvm::scalbn(
+      X.getAPFloat(), N,
+      getRoundingMode(Call->getFPFeaturesInEffect(S.getLangOpts()))));
+  S.Stk.push<Floating>(Result);
+  return true;
+}
+
+static bool interp__builtin_nextafter(InterpState &S, CodePtr OpPC) {
+  Floating Y = S.Stk.pop<Floating>();
+  Floating X = S.Stk.pop<Floating>();
+  APFloat Value = X.getAPFloat();
+  APFloat Toward = Y.getAPFloat();
+  if (!Value.isNaN()) {
+    bool Ignored;
+    if (Toward.isNaN()) {
+      Toward.convert(Value.getSemantics(), APFloat::rmNearestTiesToEven,
+                     &Ignored);
+      Value = Toward;
+    } else {
+      // The registered prototypes use long double (or the same f128 type)
+      // for the direction, so widening the first argument is exact.
+      APFloat Wide = Value;
+      if (&Toward.getSemantics() != &Value.getSemantics())
+        Wide.convert(Toward.getSemantics(), APFloat::rmNearestTiesToEven,
+                     &Ignored);
+      APFloat::cmpResult Cmp = Wide.compare(Toward);
+      if (Cmp == APFloat::cmpEqual) {
+        // Equal zero arguments retain the direction argument's sign.
+        Toward.convert(Value.getSemantics(), APFloat::rmNearestTiesToEven,
+                       &Ignored);
+        Value = Toward;
+      } else {
+        (void)Value.next(/*nextDown=*/Cmp == APFloat::cmpGreaterThan);
+      }
+    }
+  }
+  Floating Result = S.allocFloat(Value.getSemantics());
+  Result.copy(Value);
+  S.Stk.push<Floating>(Result);
+  return true;
+}
+
+static bool interp__builtin_nextupdown(InterpState &S, CodePtr OpPC,
+                                       bool NextDown) {
+  Floating X = S.Stk.pop<Floating>();
+  APFloat Value = X.getAPFloat();
+  if (!Value.isNaN())
+    (void)Value.next(NextDown);
+  Floating Result = S.allocFloat(Value.getSemantics());
+  Result.copy(Value);
+  S.Stk.push<Floating>(Result);
+  return true;
+}
+
+static bool interp__builtin_frexp(InterpState &S, CodePtr OpPC,
+                                  const CallExpr *Call) {
+  Pointer Dest = S.Stk.pop<Pointer>();
+  Floating X = S.Stk.pop<Floating>();
+  if (!X.isFinite()) {
+    S.FFDiag(Call);
+    return false;
+  }
+  if (!CheckLive(S, OpPC, Dest, AK_Assign) || !CheckStore(S, OpPC, Dest))
+    return false;
+  int Exponent;
+  APFloat Value = llvm::frexp(
+      X.getAPFloat(), Exponent,
+      getRoundingMode(Call->getFPFeaturesInEffect(S.getLangOpts())));
+  QualType ExponentType = Call->getArg(1)->getType()->getPointeeType();
+  APSInt ExponentValue(S.getASTContext().getIntWidth(ExponentType),
+                       /*isUnsigned=*/false);
+  ExponentValue = Exponent;
+  assignInteger(S, Dest, *S.getContext().classify(ExponentType), ExponentValue);
+  Dest.initialize();
+  Floating Result = S.allocFloat(Value.getSemantics());
+  Result.copy(Value);
+  S.Stk.push<Floating>(Result);
+  return true;
+}
+
 static bool interp__builtin_fmin(InterpState &S, CodePtr OpPC,
-                                 const InterpFrame *Frame, bool IsNumBuiltin) {
+                                 const InterpFrame *Frame, bool IsNumBuiltin,
+                                 bool PropagateNaN = false) {
   const Floating &RHS = S.Stk.pop<Floating>();
   const Floating &LHS = S.Stk.pop<Floating>();
   Floating Result = S.allocFloat(LHS.getSemantics());
 
-  if (IsNumBuiltin)
+  if (PropagateNaN)
+    Result.copy(llvm::minimum(LHS.getAPFloat(), RHS.getAPFloat()));
+  else if (IsNumBuiltin)
     Result.copy(llvm::minimumnum(LHS.getAPFloat(), RHS.getAPFloat()));
   else
     Result.copy(minnum(LHS.getAPFloat(), RHS.getAPFloat()));
@@ -505,12 +618,15 @@ static bool interp__builtin_fmin(InterpState &S, CodePtr OpPC,
 }
 
 static bool interp__builtin_fmax(InterpState &S, CodePtr OpPC,
-                                 const InterpFrame *Frame, bool IsNumBuiltin) {
+                                 const InterpFrame *Frame, bool IsNumBuiltin,
+                                 bool PropagateNaN = false) {
   const Floating &RHS = S.Stk.pop<Floating>();
   const Floating &LHS = S.Stk.pop<Floating>();
   Floating Result = S.allocFloat(LHS.getSemantics());
 
-  if (IsNumBuiltin)
+  if (PropagateNaN)
+    Result.copy(llvm::maximum(LHS.getAPFloat(), RHS.getAPFloat()));
+  else if (IsNumBuiltin)
     Result.copy(llvm::maximumnum(LHS.getAPFloat(), RHS.getAPFloat()));
   else
     Result.copy(maxnum(LHS.getAPFloat(), RHS.getAPFloat()));
@@ -4129,33 +4245,135 @@ bool InterpretBuiltin(InterpState &S, CodePtr OpPC, const CallExpr *Call,
   case Builtin::BI__builtin_copysignf128:
     return interp__builtin_copysign(S, OpPC, Frame);
 
+  case Builtin::BI__builtin_fma:
+  case Builtin::BIfma:
+  case Builtin::BI__builtin_fmaf:
+  case Builtin::BIfmaf:
+  case Builtin::BI__builtin_fmal:
+  case Builtin::BIfmal:
+    return interp__builtin_fma(S, OpPC, Call);
+
+  case Builtin::BI__builtin_ldexp:
+  case Builtin::BIldexp:
+  case Builtin::BI__builtin_ldexpf:
+  case Builtin::BIldexpf:
+  case Builtin::BI__builtin_ldexpl:
+  case Builtin::BIldexpl:
+  case Builtin::BI__builtin_ldexpf128:
+  case Builtin::BI__builtin_scalbln:
+  case Builtin::BIscalbln:
+  case Builtin::BI__builtin_scalblnf:
+  case Builtin::BIscalblnf:
+  case Builtin::BI__builtin_scalblnl:
+  case Builtin::BIscalblnl:
+  case Builtin::BI__builtin_scalblnf128:
+  case Builtin::BI__builtin_scalbn:
+  case Builtin::BIscalbn:
+  case Builtin::BI__builtin_scalbnf:
+  case Builtin::BIscalbnf:
+  case Builtin::BI__builtin_scalbnl:
+  case Builtin::BIscalbnl:
+  case Builtin::BI__builtin_scalbnf128:
+    return interp__builtin_ldexp(S, OpPC, Call);
+
+  case Builtin::BI__builtin_nextafter:
+  case Builtin::BInextafter:
+  case Builtin::BI__builtin_nextafterf:
+  case Builtin::BInextafterf:
+  case Builtin::BI__builtin_nextafterl:
+  case Builtin::BInextafterl:
+  case Builtin::BI__builtin_nextafterf128:
+  case Builtin::BI__builtin_nexttoward:
+  case Builtin::BInexttoward:
+  case Builtin::BI__builtin_nexttowardf:
+  case Builtin::BInexttowardf:
+  case Builtin::BI__builtin_nexttowardl:
+  case Builtin::BInexttowardl:
+  case Builtin::BI__builtin_nexttowardf128:
+    return interp__builtin_nextafter(S, OpPC);
+
+  case Builtin::BI__builtin_nextup:
+  case Builtin::BInextup:
+  case Builtin::BI__builtin_nextupf:
+  case Builtin::BInextupf:
+  case Builtin::BI__builtin_nextupl:
+  case Builtin::BInextupl:
+    return interp__builtin_nextupdown(S, OpPC, /*NextDown=*/false);
+
+  case Builtin::BI__builtin_nextdown:
+  case Builtin::BInextdown:
+  case Builtin::BI__builtin_nextdownf:
+  case Builtin::BInextdownf:
+  case Builtin::BI__builtin_nextdownl:
+  case Builtin::BInextdownl:
+    return interp__builtin_nextupdown(S, OpPC, /*NextDown=*/true);
+
+  case Builtin::BI__builtin_frexp:
+  case Builtin::BIfrexp:
+  case Builtin::BI__builtin_frexpf:
+  case Builtin::BIfrexpf:
+  case Builtin::BI__builtin_frexpl:
+  case Builtin::BIfrexpl:
+  case Builtin::BI__builtin_frexpf128:
+    return interp__builtin_frexp(S, OpPC, Call);
+
   case Builtin::BI__builtin_fmin:
+  case Builtin::BIfmin:
   case Builtin::BI__builtin_fminf:
+  case Builtin::BIfminf:
   case Builtin::BI__builtin_fminl:
+  case Builtin::BIfminl:
   case Builtin::BI__builtin_fminf16:
   case Builtin::BI__builtin_fminf128:
     return interp__builtin_fmin(S, OpPC, Frame, /*IsNumBuiltin=*/false);
 
   case Builtin::BI__builtin_fminimum_num:
+  case Builtin::BIfminimum_num:
   case Builtin::BI__builtin_fminimum_numf:
+  case Builtin::BIfminimum_numf:
+  case Builtin::BIfminimum_numl:
   case Builtin::BI__builtin_fminimum_numl:
   case Builtin::BI__builtin_fminimum_numf16:
   case Builtin::BI__builtin_fminimum_numf128:
     return interp__builtin_fmin(S, OpPC, Frame, /*IsNumBuiltin=*/true);
 
+  case Builtin::BI__builtin_fminimum:
+  case Builtin::BIfminimum:
+  case Builtin::BI__builtin_fminimumf:
+  case Builtin::BIfminimumf:
+  case Builtin::BI__builtin_fminimuml:
+  case Builtin::BIfminimuml:
+    return interp__builtin_fmin(S, OpPC, Frame, /*IsNumBuiltin=*/false,
+                                /*PropagateNaN=*/true);
+
   case Builtin::BI__builtin_fmax:
+  case Builtin::BIfmax:
   case Builtin::BI__builtin_fmaxf:
+  case Builtin::BIfmaxf:
   case Builtin::BI__builtin_fmaxl:
+  case Builtin::BIfmaxl:
   case Builtin::BI__builtin_fmaxf16:
   case Builtin::BI__builtin_fmaxf128:
     return interp__builtin_fmax(S, OpPC, Frame, /*IsNumBuiltin=*/false);
 
   case Builtin::BI__builtin_fmaximum_num:
+  case Builtin::BIfmaximum_num:
   case Builtin::BI__builtin_fmaximum_numf:
+  case Builtin::BIfmaximum_numf:
+  case Builtin::BIfmaximum_numl:
   case Builtin::BI__builtin_fmaximum_numl:
   case Builtin::BI__builtin_fmaximum_numf16:
   case Builtin::BI__builtin_fmaximum_numf128:
     return interp__builtin_fmax(S, OpPC, Frame, /*IsNumBuiltin=*/true);
+
+  case Builtin::BI__builtin_fmaximum:
+  case Builtin::BIfmaximum:
+  case Builtin::BI__builtin_fmaximumf:
+  case Builtin::BIfmaximumf:
+  case Builtin::BI__builtin_fmaximuml:
+  case Builtin::BIfmaximuml:
+    return interp__builtin_fmax(S, OpPC, Frame, /*IsNumBuiltin=*/false,
+                                /*PropagateNaN=*/true);
 
   case Builtin::BI__builtin_isnan:
     return interp__builtin_isnan(S, OpPC, Frame, Call);

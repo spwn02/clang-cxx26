@@ -1233,6 +1233,11 @@ bool CheckFloatResult(InterpState &S, CodePtr OpPC, const Floating &Result,
     return S.noteUndefinedBehavior();
   }
 
+  return CheckFloatEnvironment(S, OpPC, Status, FPO);
+}
+
+bool CheckFloatEnvironment(InterpState &S, CodePtr OpPC,
+                           APFloat::opStatus Status, FPOptions FPO) {
   // In a constant context, assume that any dynamic rounding mode or FP
   // exception state matches the default floating-point environment.
   if (S.inConstantContext())
