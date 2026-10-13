@@ -3823,6 +3823,17 @@ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
     return false;
   }
 
+  // While a template is instantiated, a function that is not dependent cannot
+  // have a type-dependent return operand: after an error in the instantiation of
+  // a nested class or function the operand can be an unresolved leftover. Deducing the return type from it
+  // would give the function a dependent 'auto' that its callers take for a
+  // deduced type, and the dependence would spread (to member aliases, fields,
+  // locals) of an otherwise non-dependent instantiation. The error is already
+  // diagnosed, so the deduction fails here.
+  if (RetExpr && RetExpr->isTypeDependent() && inTemplateInstantiation() &&
+      !CurContext->isDependentContext() && Diags.hasErrorOccurred())
+    return true;
+
   TypeLoc OrigResultType = getReturnTypeLoc(FD);
   //  In the case of a return with no operand, the initializer is considered
   //  to be void().
