@@ -24,6 +24,7 @@
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -86,6 +87,8 @@ public:
 
   std::optional<tooling::CompileCommand>
   getCompileCommand(PathRef File) const override {
+    // The real database requires a real file name (it asserts on a relative one).
+    assert(!File.empty() && "no file to ask a compile command for");
     auto Cmd = MockCompilationDatabase::getCompileCommand(File);
     if (!Cmd)
       return Cmd;
@@ -546,6 +549,23 @@ TEST_F(PrerequisiteModulesTests, ModulesThatExistAreUsedWhenAnotherIsMissing) {
   auto Invocation =
       buildCompilerInvocation(getInputs("Use.cpp", CDB), DiagConsumer);
   EXPECT_FALSE(Info->canReuse(*Invocation, FS.view(TestDir)));
+}
+
+TEST_F(PrerequisiteModulesTests, ModuleThatImportsAMissingModuleIsNotBuilt) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  // M exists, but a module that it needs does not (a third-party module whose
+  // interface is not in the database, e.g. std of a removed toolchain). This used
+  // to ask the database for the command of an empty file name.
+  CDB.addFile("M.cppm", "export module M;\nimport Missing;\n");
+  CDB.addFile("Use.cpp", "import M;\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  if (Info) {
+    HeaderSearchOptions HSOpts(TestDir);
+    Info->adjustHeaderSearchOptions(HSOpts);
+    EXPECT_FALSE(HSOpts.PrebuiltModuleFiles.count("Missing"));
+  }
 }
 
 TEST_F(PrerequisiteModulesTests, UnsavedEditsOfAModuleUnitReachItsOpenImporters) {

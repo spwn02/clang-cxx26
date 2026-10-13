@@ -813,6 +813,12 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
 
     std::string ReqFileName =
         MDB.getSourceForModuleName(ReqModuleName, RequiredSource);
+    // A required module whose unit cannot be found (a third-party module such
+    // as std when its interface is not in the database or its toolchain was
+    // removed) cannot be built; there is no source to ask a command for.
+    if (ReqFileName.empty())
+      return llvm::createStringError(llvm::formatv(
+          "Don't get the module unit for module {0}", ReqModuleName));
     llvm::Expected<std::shared_ptr<BuiltModuleFile>> MF = buildModuleFile(
         ReqModuleName, ReqFileName, getCDB(), TFS, BuiltModuleFiles,
         MDB.getCompileCommandForSource(ReqFileName));

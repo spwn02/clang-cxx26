@@ -261,6 +261,9 @@ private:
 std::optional<ModuleDependencyScanner::ModuleDependencyInfo>
 ModuleDependencyScanner::scan(PathRef FilePath,
                               const ProjectModules::CommandMangler &Mangler) {
+  // No file (the source of a module that no unit declares): nothing to scan.
+  if (FilePath.empty())
+    return std::nullopt;
   std::vector<tooling::CompileCommand> Candidates;
   {
     std::lock_guard<std::mutex> Lock(Cache->Mu);
