@@ -6822,7 +6822,10 @@ bool TreeTransform<Derived>::TransformExceptionSpec(
     EnterExpressionEvaluationContext Unevaluated(
         getSema(), Sema::ExpressionEvaluationContext::ConstantEvaluated);
     ExprResult NoexceptExpr = getDerived().TransformExpr(ESI.NoexceptExpr);
-    if (NoexceptExpr.isInvalid())
+    // An operand that is only a recovery expression (an error already
+    // diagnosed in the instantiation of what it names) would make the function
+    // type dependent although everything is known; fail like an invalid one.
+    if (NoexceptExpr.isInvalid() || NoexceptExpr.get()->containsErrors())
       return true;
 
     ExceptionSpecificationType EST = ESI.Type;
