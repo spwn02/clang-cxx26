@@ -50,8 +50,9 @@ namespace simd {
 //
 // The calls the clause allows with a *mixed* argument list (V is deduced from the operands in the V positions,
 // every other operand converts implicitly through the non-deduced deduced-vec-t<V> parameter) are provided by
-// one constrained overload per function (the _MIXED macros): the operands must not all have one type, and some
-// operand must be a vector type that all the operands convert to. Every valid call under the full clause
+// one constrained overload per function (inside the BINARY/TERNARY/MASK macros, hand-written for lerp and
+// remquo): the operands must not all have one type, and some operand must be a vector type that all the
+// operands convert to. Every valid call under the full clause
 // therefore resolves, with the same result.
 template <__math_floating_point _Vp>
 using __math_result_t _LIBCPP_NODEBUG = __deduced_vec_t<_Vp>;
