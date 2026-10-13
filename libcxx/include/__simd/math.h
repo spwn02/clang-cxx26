@@ -56,14 +56,14 @@ namespace simd {
 template <__math_floating_point _Vp>
 using __math_result_t _LIBCPP_NODEBUG = __deduced_vec_t<_Vp>;
 
-// The deduced type V of a mixed call: the first operand type that is a math vector and to which every
-// operand converts implicitly (void if there is none). An operand in a V position of the declared
+// The deduced type V of a mixed call: the first operand type that is a math vector and whose deduced-vec-t
+// every operand converts to implicitly (void if there is none). An operand in a V position of the declared
 // overloads has exactly type V; every other operand only has to convert to deduced-vec-t<V>.
 template <class... _Ts>
 struct __math_pack {};
 
-// Every operand converts implicitly to deduced-vec-t<_Candidate> (a vector operand of the exact type
-// _Candidate included); false for a candidate that is not a math vector, without evaluating deduced-vec-t on it.
+// Every operand converts implicitly to deduced-vec-t<_Candidate> (an operand of the exact type _Candidate
+// included); false for a candidate that is not a math vector, without evaluating deduced-vec-t on it.
 template <class _Candidate, class... _Ts>
 inline constexpr bool __math_all_convert_v = false;
 template <__math_floating_point _Candidate, class... _Ts>
