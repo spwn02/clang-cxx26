@@ -893,6 +893,17 @@ private:
 TokenBuffer TokenCollector::consume() && {
   PP.setTokenWatcher(nullptr);
   Collector->disable();
+  // The preprocessor stops before the end of the main file after a fatal error
+  // (e.g. a module file that cannot be loaded): terminate the expanded stream
+  // so that it is well-formed; the unlexed rest of the file maps to nothing.
+  if (Expanded.empty() || Expanded.back().kind() != tok::eof) {
+    clang::Token Eof;
+    Eof.startToken();
+    Eof.setKind(tok::eof);
+    const SourceManager &SM = PP.getSourceManager();
+    Eof.setLocation(SM.getLocForEndOfFile(SM.getMainFileID()));
+    Expanded.push_back(syntax::Token(Eof));
+  }
   return Builder(std::move(Expanded), std::move(Expansions),
                  PP.getSourceManager(), PP.getLangOpts())
       .build();

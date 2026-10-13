@@ -29,6 +29,8 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TokenKinds.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/Frontend/FrontendAction.h"
 #include "clang/Tooling/Syntax/Tokens.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Testing/Annotations/Annotations.h"
@@ -792,6 +794,60 @@ TEST(ParsedASTTest, PreambleWithDifferentTarget) {
   // We use the target from preamble, not with the most-recent flags.
   EXPECT_EQ(AST->getASTContext().getTargetInfo().getTriple().getArchName(),
             llvm::StringRef(kPreambleTarget));
+}
+
+// The preprocessor stops before the end of the file after a fatal error (e.g. a
+// module file named by -fmodule-file= that cannot be loaded). The token buffer
+// must still be well-formed: it asserted on the missing eof token.
+TEST(ParsedASTTest, TokenBufferWhenPreprocessorStopsEarly) {
+  class StopEarly : public ASTFrontendAction {
+  public:
+    explicit StopEarly(std::optional<syntax::TokenBuffer> &Result)
+        : Result(Result) {}
+    bool BeginSourceFileAction(CompilerInstance &CI) override {
+      Collector.emplace(CI.getPreprocessor());
+      return true;
+    }
+    void ExecuteAction() override {
+      Preprocessor &PP = getCompilerInstance().getPreprocessor();
+      PP.EnterMainSourceFile();
+      Token Tok;
+      PP.Lex(Tok); // int
+      PP.Lex(Tok); // a
+    }
+    void EndSourceFileAction() override {
+      Result = std::move(*Collector).consume();
+    }
+    std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &,
+                                                   llvm::StringRef) override {
+      return std::make_unique<ASTConsumer>();
+    }
+
+  private:
+    std::optional<syntax::TokenBuffer> &Result;
+    std::optional<syntax::TokenCollector> Collector;
+  };
+
+  TestTU TU;
+  TU.Code = "int a = 1; int b;\n";
+  MockFS FS;
+  ParseInputs Inputs = TU.inputs(FS);
+  StoreDiags Diags;
+  auto CI = buildCompilerInvocation(Inputs, Diags);
+  ASSERT_TRUE(CI);
+  auto Clang = prepareCompilerInstance(
+      std::move(CI), nullptr, llvm::MemoryBuffer::getMemBufferCopy(TU.Code),
+      FS.view(std::nullopt), Diags);
+  ASSERT_TRUE(Clang);
+  std::optional<syntax::TokenBuffer> Buffer;
+  StopEarly Action(Buffer);
+  ASSERT_TRUE(Action.BeginSourceFile(*Clang, Clang->getFrontendOpts().Inputs[0]));
+  ASSERT_FALSE(Action.Execute());
+  Action.EndSourceFile();
+  ASSERT_TRUE(Buffer);
+  ASSERT_FALSE(Buffer->expandedTokens().empty());
+  EXPECT_EQ(Buffer->expandedTokens().back().kind(), tok::eof);
+  EXPECT_EQ(Buffer->expandedTokens().size(), 3u); // int a <eof>
 }
 } // namespace
 } // namespace clangd
