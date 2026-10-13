@@ -1238,6 +1238,15 @@ void Sema::ActOnEndOfTranslationUnit() {
   if (PP.isCodeCompletionEnabled())
     return;
 
+  // Expressions that no full-expression ever completed (e.g. the operand of an
+  // OpenMP directive at namespace scope) are still waiting for the decision
+  // whether they odr-use their variable: treat them as odr-uses, so that the
+  // delayed instantiations of the variables they name are requested.
+  if (!MaybeODRUseExprs.empty())
+    CleanupVarDeclMarking();
+  assert(MaybeODRUseVarInstantiations.empty() &&
+         "Leftover delayed variable instantiations");
+
   // Complete translation units and modules define vtables and perform implicit
   // instantiations. PCH files do not.
   if (TUKind != TU_Prefix) {
