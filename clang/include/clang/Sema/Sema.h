@@ -6883,6 +6883,12 @@ public:
   using MaybeODRUseExprSet = llvm::SmallSetVector<Expr *, 4>;
   MaybeODRUseExprSet MaybeODRUseExprs;
 
+  /// The implicit instantiation of the definition of a variable named by an
+  /// expression in MaybeODRUseExprs, delayed until the expression is known to
+  /// be an odr-use (a discarded-value expression does not odr-use it).
+  llvm::DenseMap<Expr *, std::pair<VarDecl *, SourceLocation>>
+      MaybeODRUseVarInstantiations;
+
   using ImmediateInvocationCandidate = llvm::PointerIntPair<ConstantExpr *, 1>;
 
   /// Data structure used to record current or nested

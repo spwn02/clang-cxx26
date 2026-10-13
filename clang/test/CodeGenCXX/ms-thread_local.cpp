@@ -43,7 +43,7 @@ thread_local A &c = b;
 thread_local A &d = c;
 
 A f() {
-  (void)a<void>;
+  (void)&a<void>;
   (void)b;
   return c;
 }

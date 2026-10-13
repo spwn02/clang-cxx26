@@ -137,11 +137,9 @@ struct Foo {
 void run() {
   // All we want here are ODR uses. Anything that requires that the type is
   // complete is uninteresting.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-value"
-  Foo<Marker1>::bar;
-#pragma clang diagnostic pop
-  static_cast<void>(Foo<Marker2>::bar);
+  // A discarded-value expression is not an odr-use ([basic.def.odr]), so take the address.
+  (void)&Foo<Marker1>::bar;
+  (void)&Foo<Marker2>::bar;
 }
 
 // CHECK-LABEL: define {{.*}}global_var_init{{.*}}comdat

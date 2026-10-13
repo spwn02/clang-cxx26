@@ -63,7 +63,7 @@ int main() {
   foo.non_static_member_function2();                   // expected-note{{in instantiation of}}
   Foo<Empty>::static_member_function1();               // expected-note{{in instantiation of}}
   Foo<Empty>::static_member_function2();               // expected-note{{in instantiation of}}
-  (void)foo.static_data_member;                        // expected-note{{in instantiation of}}
+  (void)&foo.static_data_member;                       // expected-note{{in instantiation of}}
   Foo<Empty>::member_class1::static_member_function(); // expected-note{{in instantiation of}}
   Foo<Empty>::member_class2::static_member_function(); // expected-note{{in instantiation of}}
 }

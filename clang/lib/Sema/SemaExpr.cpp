@@ -19305,11 +19305,17 @@ void Sema::PopExpressionEvaluationContext() {
   ExprEvalContexts.pop_back();
 }
 
+static void RequestDelayedVarDefinition(Sema &S, Expr *E);
+
 void Sema::DiscardCleanupsInEvaluationContext() {
   ExprCleanupObjects.erase(
          ExprCleanupObjects.begin() + ExprEvalContexts.back().NumCleanupObjects,
          ExprCleanupObjects.end());
   Cleanup.reset();
+  // Whether these are odr-uses will not be decided any more: keep the
+  // definitions whose instantiation was delayed for them.
+  for (Expr *E : MaybeODRUseExprs)
+    RequestDelayedVarDefinition(*this, E);
   MaybeODRUseExprs.clear();
 }
 
@@ -20983,6 +20989,10 @@ static ExprResult rebuildPotentialResultsAsNonOdrUsed(Sema &S, Expr *E,
     case NOUR_Discarded:
       if (VD->getType()->isReferenceType())
         return true;
+      // [expr.context]: the lvalue-to-rvalue conversion is applied to a
+      // discarded id-expression of volatile-qualified type.
+      if (VD->getType().isVolatileQualified())
+        return true;
       break;
     }
     return false;
@@ -21008,6 +21018,7 @@ static ExprResult rebuildPotentialResultsAsNonOdrUsed(Sema &S, Expr *E,
   auto MarkNotOdrUsed = [&] {
     if (!MaybeCUDAODRUsed()) {
       S.MaybeODRUseExprs.remove(E);
+      S.MaybeODRUseVarInstantiations.erase(E);
       S.ExprEvalContexts.back().ConstevalOnly.erase(E);
       if (LambdaScopeInfo *LSI = S.getCurLambda())
         LSI->markVariableExprAsNonODRUsed(E, NOUR);
@@ -21342,8 +21353,9 @@ ExprResult Sema::CheckLValueToRValueConversionOperand(Expr *E) {
 }
 
 ExprResult Sema::CheckDiscardedValueExpression(Expr *E) {
-  // Blocks and captured statements have their own capture requirements.
-  if (!getCurLambda())
+  // Blocks and captured statements have their own capture requirements. Outside
+  // lambdas only the delayed instantiations of variable definitions need it.
+  if (!getCurLambda() && MaybeODRUseVarInstantiations.empty())
     return E;
 
   ExprResult Result =
@@ -21364,6 +21376,20 @@ ExprResult Sema::ActOnConstantExpression(ExprResult Res) {
   return CheckLValueToRValueConversionOperand(Res.get());
 }
 
+static void RequestImplicitVarDefinition(Sema &SemaRef, SourceLocation Loc,
+                                         VarDecl *Var, Expr *E);
+
+/// The use \p E turned out to be an odr-use: request the definition whose
+/// instantiation DoMarkVarDeclReferenced delayed.
+static void RequestDelayedVarDefinition(Sema &S, Expr *E) {
+  auto It = S.MaybeODRUseVarInstantiations.find(E);
+  if (It == S.MaybeODRUseVarInstantiations.end())
+    return;
+  auto [Var, Loc] = It->second;
+  S.MaybeODRUseVarInstantiations.erase(It);
+  RequestImplicitVarDefinition(S, Loc, Var, E);
+}
+
 void Sema::CleanupVarDeclMarking() {
   // Iterate through a local copy in case MarkVarDeclODRUsed makes a recursive
   // call.
@@ -21371,6 +21397,7 @@ void Sema::CleanupVarDeclMarking() {
   std::swap(LocalMaybeODRUseExprs, MaybeODRUseExprs);
 
   for (Expr *E : LocalMaybeODRUseExprs) {
+    RequestDelayedVarDefinition(*this, E);
     if (auto *DRE = dyn_cast<DeclRefExpr>(E)) {
       MarkVarDeclODRUsed(cast<VarDecl>(DRE->getDecl()),
                          DRE->getLocation(), *this);
@@ -21436,6 +21463,89 @@ static bool isDeclaredInExpansionStmtDecl(const Decl *D) {
   return false;
 }
 
+/// Request the implicit instantiation of the definition of the variable (template
+/// specialization or static data member of a class template) \p Var named by
+/// \p E at \p Loc. Shared by DoMarkVarDeclReferenced and the delayed requests of
+/// uses that may turn out not to be odr-uses.
+static void RequestImplicitVarDefinition(Sema &SemaRef, SourceLocation Loc,
+                                         VarDecl *Var, Expr *E) {
+  auto *MSI = Var->getMemberSpecializationInfo();
+  TemplateSpecializationKind TSK = MSI ? MSI->getTemplateSpecializationKind()
+                                       : Var->getTemplateSpecializationKind();
+  if (!isTemplateInstantiation(TSK))
+    return;
+  bool UsableInConstantExpr =
+      Var->mightBeUsableInConstantExpressions(SemaRef.Context);
+  // Per C++17 [temp.explicit]p10, we may instantiate despite an explicit
+  // instantiation declaration if a variable is usable in a constant
+  // expression (among other cases).
+  bool TryInstantiating =
+      TSK == TSK_ImplicitInstantiation ||
+      (TSK == TSK_ExplicitInstantiationDeclaration && UsableInConstantExpr);
+
+  if (TryInstantiating) {
+    SourceLocation PointOfInstantiation =
+        MSI ? MSI->getPointOfInstantiation() : Var->getPointOfInstantiation();
+    bool FirstInstantiation = PointOfInstantiation.isInvalid();
+    if (FirstInstantiation) {
+      PointOfInstantiation = Loc;
+      if (MSI)
+        MSI->setPointOfInstantiation(PointOfInstantiation);
+        // FIXME: Notify listener.
+      else
+        Var->setTemplateSpecializationKind(TSK, PointOfInstantiation);
+    }
+
+    if (UsableInConstantExpr || Var->getType()->isUndeducedType()) {
+      // Do not defer instantiations of variables that could be used in a
+      // constant expression.
+      // The type deduction also needs a complete initializer.
+      SemaRef.runWithSufficientStackSpace(PointOfInstantiation, [&] {
+        SemaRef.InstantiateVariableDefinition(PointOfInstantiation, Var);
+      });
+
+      // The size of an incomplete array type can be updated by
+      // instantiating the initializer. The DeclRefExpr's type should be
+      // updated accordingly too, or users of it would be confused!
+      if (E)
+        SemaRef.getCompletedType(E);
+
+      // Re-set the member to trigger a recomputation of the dependence bits
+      // for the expression.
+      if (auto *DRE = dyn_cast_or_null<DeclRefExpr>(E))
+        DRE->setDecl(DRE->getDecl());
+      else if (auto *ME = dyn_cast_or_null<MemberExpr>(E))
+        ME->setMemberDecl(ME->getMemberDecl());
+    } else if (FirstInstantiation) {
+      SemaRef.PendingInstantiations
+          .push_back(std::make_pair(Var, PointOfInstantiation));
+    } else {
+      bool Inserted = false;
+      for (auto &I : SemaRef.SavedPendingInstantiations) {
+        auto Iter = llvm::find_if(
+            I, [Var](const Sema::PendingImplicitInstantiation &P) {
+              return P.first == Var;
+            });
+        if (Iter != I.end()) {
+          SemaRef.PendingInstantiations.push_back(*Iter);
+          I.erase(Iter);
+          Inserted = true;
+          break;
+        }
+      }
+
+      // FIXME: For a specialization of a variable template, we don't
+      // distinguish between "declaration and type implicitly instantiated"
+      // and "implicit instantiation of definition requested", so we have
+      // no direct way to avoid enqueueing the pending instantiation
+      // multiple times.
+      if (isa<VarTemplateSpecializationDecl>(Var) && !Inserted)
+        SemaRef.PendingInstantiations
+          .push_back(std::make_pair(Var, PointOfInstantiation));
+    }
+  }
+}
+
 static void DoMarkVarDeclReferenced(
     Sema &SemaRef, SourceLocation Loc, VarDecl *Var, Expr *E,
     llvm::DenseMap<const VarDecl *, int> &RefsMinusAssignments) {
@@ -21475,6 +21585,19 @@ static void DoMarkVarDeclReferenced(
   assert(!isa<VarTemplatePartialSpecializationDecl>(Var) &&
          "Can't instantiate a partial template specialization.");
 
+  // C++ [basic.def.odr]: a non-reference variable named by a potential result of
+  // a discarded-value expression is not odr-used, so its definition need not be
+  // instantiated. Delay the request for such candidates (see
+  // MaybeODRUseVarInstantiations); everything else is requested right away. A
+  // const-qualified variable may be a constexpr variable by its out-of-line
+  // definition, which makes it needed for constant evaluation: not delayed.
+  bool DelayInstantiation =
+      E && OdrUse == OdrUseContext::Used && TSK == TSK_ImplicitInstantiation &&
+      !UsableInConstantExpr && !Var->isConstexpr() &&
+      !Var->getType().isConstQualified() && !Var->getType()->isReferenceType() &&
+      !Var->getType()->isUndeducedType() && !SemaRef.isSynthesizingExpansionStmt() &&
+      !Var->isLocalVarDeclOrParm();
+
   // If this might be a member specialization of a static data member, check
   // the specialization is visible. We already did the checks for variable
   // template specializations when we created them.
@@ -21487,73 +21610,14 @@ static void DoMarkVarDeclReferenced(
   // instantiations of variable templates, except for those that could be used
   // in a constant expression.
   if (NeedDefinition && isTemplateInstantiation(TSK)) {
-    // Per C++17 [temp.explicit]p10, we may instantiate despite an explicit
-    // instantiation declaration if a variable is usable in a constant
-    // expression (among other cases).
-    bool TryInstantiating =
-        TSK == TSK_ImplicitInstantiation ||
-        (TSK == TSK_ExplicitInstantiationDeclaration && UsableInConstantExpr);
-
-    if (TryInstantiating) {
-      SourceLocation PointOfInstantiation =
-          MSI ? MSI->getPointOfInstantiation() : Var->getPointOfInstantiation();
-      bool FirstInstantiation = PointOfInstantiation.isInvalid();
-      if (FirstInstantiation) {
-        PointOfInstantiation = Loc;
-        if (MSI)
-          MSI->setPointOfInstantiation(PointOfInstantiation);
-          // FIXME: Notify listener.
-        else
-          Var->setTemplateSpecializationKind(TSK, PointOfInstantiation);
-      }
-
-      if (UsableInConstantExpr || Var->getType()->isUndeducedType()) {
-        // Do not defer instantiations of variables that could be used in a
-        // constant expression.
-        // The type deduction also needs a complete initializer.
-        SemaRef.runWithSufficientStackSpace(PointOfInstantiation, [&] {
-          SemaRef.InstantiateVariableDefinition(PointOfInstantiation, Var);
-        });
-
-        // The size of an incomplete array type can be updated by
-        // instantiating the initializer. The DeclRefExpr's type should be
-        // updated accordingly too, or users of it would be confused!
-        if (E)
-          SemaRef.getCompletedType(E);
-
-        // Re-set the member to trigger a recomputation of the dependence bits
-        // for the expression.
-        if (auto *DRE = dyn_cast_or_null<DeclRefExpr>(E))
-          DRE->setDecl(DRE->getDecl());
-        else if (auto *ME = dyn_cast_or_null<MemberExpr>(E))
-          ME->setMemberDecl(ME->getMemberDecl());
-      } else if (FirstInstantiation) {
-        SemaRef.PendingInstantiations
-            .push_back(std::make_pair(Var, PointOfInstantiation));
-      } else {
-        bool Inserted = false;
-        for (auto &I : SemaRef.SavedPendingInstantiations) {
-          auto Iter = llvm::find_if(
-              I, [Var](const Sema::PendingImplicitInstantiation &P) {
-                return P.first == Var;
-              });
-          if (Iter != I.end()) {
-            SemaRef.PendingInstantiations.push_back(*Iter);
-            I.erase(Iter);
-            Inserted = true;
-            break;
-          }
-        }
-
-        // FIXME: For a specialization of a variable template, we don't
-        // distinguish between "declaration and type implicitly instantiated"
-        // and "implicit instantiation of definition requested", so we have
-        // no direct way to avoid enqueueing the pending instantiation
-        // multiple times.
-        if (isa<VarTemplateSpecializationDecl>(Var) && !Inserted)
-          SemaRef.PendingInstantiations
-            .push_back(std::make_pair(Var, PointOfInstantiation));
-      }
+    if (DelayInstantiation) {
+      // The variable is not usable in constant expressions: whether its
+      // definition is needed depends on whether this expression is an odr-use
+      // (it is not for a discarded-value expression), which is only known
+      // when the full-expression is complete.
+      SemaRef.MaybeODRUseVarInstantiations[E] = {Var, Loc};
+    } else {
+      RequestImplicitVarDefinition(SemaRef, Loc, Var, E);
     }
   }
 
@@ -21576,7 +21640,8 @@ static void DoMarkVarDeclReferenced(
   // potential lambda captures without a capture-default so a discarded-value
   // expression can obviate their capture. Preserve eager capture elsewhere,
   // including capture order and captures in blocks and captured statements.
-  // FIXME: Implement the third bullet for non-capturing contexts too.
+  // The instantiation of the definition of a variable template specialization
+  // or static data member is delayed the same way (DelayInstantiation).
 
   // If we already know this isn't an odr-use, there's nothing more to do.
   if (DeclRefExpr *DRE = dyn_cast_or_null<DeclRefExpr>(E))
@@ -21608,6 +21673,7 @@ static void DoMarkVarDeclReferenced(
         getLambdaForPotentialCapture(SemaRef, Var);
     if (E &&
         (Var->isUsableInConstantExpressions(SemaRef.Context) ||
+         DelayInstantiation ||
          (!Var->getType()->isReferenceType() && PotentialCaptureLSI &&
           PotentialCaptureLSI == SemaRef.getCurLambda() &&
           PotentialCaptureLSI->AfterParameterList &&

@@ -224,7 +224,7 @@ namespace DynamicDLLImportInitVSMangling {
 void force_usage() {
   UnreachableStatic();
   getS();
-  (void)B<int>::foo;  // (void) - force usage
+  (void)&B<int>::foo;  // odr-use (a discarded-value expression would not instantiate it)
   enum_in_function();
   (void)&T::enum_in_struct;
   switch_test(1);

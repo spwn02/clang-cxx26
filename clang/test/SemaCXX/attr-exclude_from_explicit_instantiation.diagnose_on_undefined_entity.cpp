@@ -28,7 +28,7 @@ void use() {
   Foo<int>::static_member_function(); // expected-warning{{instantiation of function 'Foo<int>::static_member_function' required here, but no definition is available}}
   // expected-note@-1 {{add an explicit instantiation}}
 
-  (void)Foo<int>::static_data_member; // expected-warning{{instantiation of variable 'Foo<int>::static_data_member' required here, but no definition is available}}
+  (void)&Foo<int>::static_data_member; // expected-warning{{instantiation of variable 'Foo<int>::static_data_member' required here, but no definition is available}}
   // expected-note@-1 {{add an explicit instantiation}}
 
   Foo<int>::nested::static_member_function(); // expected-warning{{instantiation of function 'Foo<int>::nested::static_member_function' required here, but no definition is available}}
