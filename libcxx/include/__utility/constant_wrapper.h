@@ -41,7 +41,7 @@ template <class _Tp, size_t _Extent>
 struct __cw_fixed_value<_Tp[_Extent]> {
   using type = _Tp[_Extent];
   _LIBCPP_HIDE_FROM_ABI constexpr __cw_fixed_value(_Tp (&__arr)[_Extent]) noexcept
-      : __cw_fixed_value(__arr, make_index_sequence<_Extent>()) {}
+      : __cw_fixed_value(__arr, std::make_index_sequence<_Extent>()) {}
   _Tp __data[_Extent];
 
 private:

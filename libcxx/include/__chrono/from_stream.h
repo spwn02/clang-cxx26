@@ -30,6 +30,7 @@
 #  include <__cstddef/size_t.h>
 #  include <__fwd/istream.h>
 #  include <__locale>
+#  include <__memory/addressof.h>
 #  include <__type_traits/is_floating_point.h>
 #  include <__utility/declval.h>
 #  include <climits>
@@ -117,8 +118,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI __reader(basic_istream<_CharT, _Traits>& __is)
       : __is_(__is),
         __sb_(__is.rdbuf()),
-        __ct_(use_facet<ctype<_CharT>>(__is.getloc())),
-        __np_(use_facet<numpunct<_CharT>>(__is.getloc())) {}
+        __ct_(std::use_facet<ctype<_CharT>>(__is.getloc())),
+        __np_(std::use_facet<numpunct<_CharT>>(__is.getloc())) {}
 
   _LIBCPP_HIDE_FROM_ABI bool __at_eof() {
     if (_Traits::eq_int_type(__sb_->sgetc(), _Traits::eof())) {
@@ -787,7 +788,7 @@ _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>& __from_stream_impl(
     __parsed_fields __f;
     basic_string<_CharT, _Traits, _Alloc> __abbrev_value;
     bool __ok = __from_stream_detail::__parse_format(
-        __r, __fmt, __f, __abbrev != nullptr ? &__abbrev_value : nullptr, __is_duration, __frac_width);
+        __r, __fmt, __f, __abbrev != nullptr ? std::addressof(__abbrev_value) : nullptr, __is_duration, __frac_width);
     __state |= __r.__state_;
     if (__ok)
       __ok = __convert(__f);
@@ -1209,7 +1210,9 @@ template <class _CharT, class _Traits, class _Alloc, class _Parsable>
   requires requires(basic_istream<_CharT, _Traits>& __is,
                     const _CharT* __f,
                     _Parsable& __tp,
-                    basic_string<_CharT, _Traits, _Alloc>& __abbrev) { from_stream(__is, __f, __tp, &__abbrev); }
+                    basic_string<_CharT, _Traits, _Alloc>& __abbrev) {
+    from_stream(__is, __f, __tp, std::addressof(__abbrev));
+  }
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI auto
 parse(const _CharT* __fmt, _Parsable& __tp, basic_string<_CharT, _Traits, _Alloc>& __abbrev) {
   return __from_stream_detail::__parse_manip<_CharT, _Parsable, basic_string<_CharT, _Traits, _Alloc>, true, false>(
@@ -1220,11 +1223,13 @@ template <class _CharT, class _Traits, class _Alloc, class _Parsable>
   requires requires(basic_istream<_CharT, _Traits>& __is,
                     const _CharT* __f,
                     _Parsable& __tp,
-                    basic_string<_CharT, _Traits, _Alloc>& __abbrev) { from_stream(__is, __f, __tp, &__abbrev); }
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI auto parse(
-    const basic_string<_CharT, _Traits, _Alloc>& __fmt,
-    _Parsable& __tp,
-    basic_string<_CharT, _Traits, _Alloc>& __abbrev) {
+                    basic_string<_CharT, _Traits, _Alloc>& __abbrev) {
+    from_stream(__is, __f, __tp, std::addressof(__abbrev));
+  }
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI auto
+parse(const basic_string<_CharT, _Traits, _Alloc>& __fmt,
+      _Parsable& __tp,
+      basic_string<_CharT, _Traits, _Alloc>& __abbrev) {
   return __from_stream_detail::__parse_manip<_CharT, _Parsable, basic_string<_CharT, _Traits, _Alloc>, true, false>(
       __fmt.c_str(), __tp, std::addressof(__abbrev), nullptr);
 }
@@ -1255,28 +1260,30 @@ parse(const basic_string<_CharT, _Traits, _Alloc>& __fmt, _Parsable& __tp, minut
 }
 
 template <class _CharT, class _Traits, class _Alloc, class _Parsable>
-  requires requires(basic_istream<_CharT, _Traits>& __is,
-                    const _CharT* __f,
-                    _Parsable& __tp,
-                    basic_string<_CharT, _Traits, _Alloc>& __abbrev,
-                    minutes& __offset) { from_stream(__is, __f, __tp, &__abbrev, &__offset); }
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI auto parse(
-    const _CharT* __fmt, _Parsable& __tp, basic_string<_CharT, _Traits, _Alloc>& __abbrev, minutes& __offset) {
+  requires requires(
+      basic_istream<_CharT, _Traits>& __is,
+      const _CharT* __f,
+      _Parsable& __tp,
+      basic_string<_CharT, _Traits, _Alloc>& __abbrev,
+      minutes& __offset) { from_stream(__is, __f, __tp, std::addressof(__abbrev), std::addressof(__offset)); }
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI auto
+parse(const _CharT* __fmt, _Parsable& __tp, basic_string<_CharT, _Traits, _Alloc>& __abbrev, minutes& __offset) {
   return __from_stream_detail::__parse_manip<_CharT, _Parsable, basic_string<_CharT, _Traits, _Alloc>, true, true>(
       __fmt, __tp, std::addressof(__abbrev), std::addressof(__offset));
 }
 
 template <class _CharT, class _Traits, class _Alloc, class _Parsable>
-  requires requires(basic_istream<_CharT, _Traits>& __is,
-                    const _CharT* __f,
-                    _Parsable& __tp,
-                    basic_string<_CharT, _Traits, _Alloc>& __abbrev,
-                    minutes& __offset) { from_stream(__is, __f, __tp, &__abbrev, &__offset); }
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI auto parse(
-    const basic_string<_CharT, _Traits, _Alloc>& __fmt,
-    _Parsable& __tp,
-    basic_string<_CharT, _Traits, _Alloc>& __abbrev,
-    minutes& __offset) {
+  requires requires(
+      basic_istream<_CharT, _Traits>& __is,
+      const _CharT* __f,
+      _Parsable& __tp,
+      basic_string<_CharT, _Traits, _Alloc>& __abbrev,
+      minutes& __offset) { from_stream(__is, __f, __tp, std::addressof(__abbrev), std::addressof(__offset)); }
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI auto
+parse(const basic_string<_CharT, _Traits, _Alloc>& __fmt,
+      _Parsable& __tp,
+      basic_string<_CharT, _Traits, _Alloc>& __abbrev,
+      minutes& __offset) {
   return __from_stream_detail::__parse_manip<_CharT, _Parsable, basic_string<_CharT, _Traits, _Alloc>, true, true>(
       __fmt.c_str(), __tp, std::addressof(__abbrev), std::addressof(__offset));
 }

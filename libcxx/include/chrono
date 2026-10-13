@@ -1204,7 +1204,7 @@ struct clock_time_conversion<_DestClock, system_clock> {
   }
 };
 
-#  if defined(_LIBCPP_HAS_EXPERIMENTAL_TZDB) && _LIBCPP_HAS_EXPERIMENTAL_TZDB &&                                   \
+#  if _LIBCPP_HAS_EXPERIMENTAL_TZDB &&                                   \
       _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
 
 template <>
@@ -1268,7 +1268,7 @@ concept __clock_cast_via_sys = requires(const time_point<_SourceClock, _Duration
       clock_time_conversion<system_clock, _SourceClock>{}(__time));
 };
 
-#  if defined(_LIBCPP_HAS_EXPERIMENTAL_TZDB) && _LIBCPP_HAS_EXPERIMENTAL_TZDB &&                                   \
+#  if _LIBCPP_HAS_EXPERIMENTAL_TZDB &&                                   \
       _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
 
 template <class _DestClock, class _SourceClock, class _Duration>

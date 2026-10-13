@@ -21,6 +21,7 @@
 #include <__execution/receiver.h>
 #include <__execution/run_loop.h>
 #include <__execution/sender.h>
+#include <__memory/addressof.h>
 #include <__type_traits/decay.h>
 #include <__type_traits/is_same.h>
 #include <__type_traits/remove_cvref.h>
@@ -99,7 +100,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr void set_stopped() && noexcept { __state_->__loop.finish(); }
 
   _LIBCPP_HIDE_FROM_ABI constexpr __sync_wait_env get_env() const noexcept {
-    return __sync_wait_env{&__state_->__loop};
+    return __sync_wait_env{std::addressof(__state_->__loop)};
   }
 
 private:

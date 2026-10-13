@@ -302,7 +302,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr array<index_type, __rank_> strides() const noexcept {
     return [&]<size_t... _Pos>(index_sequence<_Pos...>) {
       return array<index_type, __rank_>{stride(_Pos)...};
-    }(make_index_sequence<__rank_>());
+    }(std::make_index_sequence<__rank_>());
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr index_type required_span_size() const noexcept {
@@ -311,7 +311,7 @@ public:
         return 0;
     return [&]<size_t... _Pos>(index_sequence<_Pos...>) {
       return (*this)(static_cast<index_type>(__extents_.extent(_Pos) - index_type(1))...) + index_type(1);
-    }(make_index_sequence<__rank_>());
+    }(std::make_index_sequence<__rank_>());
   }
 
   template <class... _Indices>
@@ -322,7 +322,7 @@ public:
                                  "layout_right_padded::mapping: out of bounds indexing");
     return [&]<size_t... _Pos>(index_sequence<_Pos...>) {
       return ((static_cast<index_type>(__idxs) * stride(_Pos)) + ... + index_type(0));
-    }(make_index_sequence<__rank_>());
+    }(std::make_index_sequence<__rank_>());
   }
 
   _LIBCPP_HIDE_FROM_ABI static constexpr bool is_always_unique() noexcept { return true; }

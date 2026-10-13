@@ -33,6 +33,7 @@
 #include <__execution/task_scheduler.h>
 #include <__functional/bind_back.h>
 #include <__functional/invoke.h>
+#include <__memory/addressof.h>
 #include <__mutex/lock_guard.h>
 #include <__mutex/mutex.h>
 #include <__type_traits/conditional.h>
@@ -731,14 +732,18 @@ public:
   _LIBCPP_HIDE_FROM_ABI void schedule_bulk_chunked(
       size_t __shape, parallel_scheduler_replacement::bulk_item_receiver_proxy& __r, span<byte>) noexcept override {
     auto __fn = [&__r](size_t __begin, size_t __end) { __r.execute(__begin, __end); };
-    __launch(execution::transform_sender(
-                 execution::bulk_chunked(__just_sender{&__sch_}, execution::par, __shape, __fn), env<>{}), __r);
+    __launch(
+        execution::transform_sender(
+            execution::bulk_chunked(__just_sender{std::addressof(__sch_)}, execution::par, __shape, __fn), env<>{}),
+        __r);
   }
   _LIBCPP_HIDE_FROM_ABI void schedule_bulk_unchunked(
       size_t __shape, parallel_scheduler_replacement::bulk_item_receiver_proxy& __r, span<byte>) noexcept override {
     auto __fn = [&__r](size_t __i) { __r.execute(__i, __i + 1); };
-    __launch(execution::transform_sender(
-                 execution::bulk_unchunked(__just_sender{&__sch_}, execution::par, __shape, __fn), env<>{}), __r);
+    __launch(
+        execution::transform_sender(
+            execution::bulk_unchunked(__just_sender{std::addressof(__sch_)}, execution::par, __shape, __fn), env<>{}),
+        __r);
   }
 };
 #endif

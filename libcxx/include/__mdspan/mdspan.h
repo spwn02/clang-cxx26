@@ -208,7 +208,7 @@ public:
       _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__mdspan_detail::__is_multidimensional_index_in(extents(), __indices[_Idxs]...),
                                           "mdspan: operator[] out of bounds access");
       return __acc_.access(__ptr_, __map_(__indices[_Idxs]...));
-    }(make_index_sequence<rank()>());
+    }(std::make_index_sequence<rank()>());
   }
 
   template <class _OtherIndexType>
@@ -221,7 +221,7 @@ public:
       _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(__mdspan_detail::__is_multidimensional_index_in(extents(), __indices[_Idxs]...),
                                           "mdspan: operator[] out of bounds access");
       return __acc_.access(__ptr_, __map_(__indices[_Idxs]...));
-    }(make_index_sequence<rank()>());
+    }(std::make_index_sequence<rank()>());
   }
 
 #  if !defined(_LIBCPP_FREESTANDING)
@@ -241,7 +241,7 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr reference at(const array<_OtherIndexType, rank()>& __indices) const {
     return [&]<size_t... _Idxs>(index_sequence<_Idxs...>) -> decltype(auto) {
       return at(__indices[_Idxs]...);
-    }(make_index_sequence<rank()>());
+    }(std::make_index_sequence<rank()>());
   }
 
   template <class _OtherIndexType>
@@ -250,7 +250,7 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr reference at(span<_OtherIndexType, rank()> __indices) const {
     return [&]<size_t... _Idxs>(index_sequence<_Idxs...>) -> decltype(auto) {
       return at(__indices[_Idxs]...);
-    }(make_index_sequence<rank()>());
+    }(std::make_index_sequence<rank()>());
   }
 #  endif // !defined(_LIBCPP_FREESTANDING)
 
@@ -261,17 +261,17 @@ public:
         false == ([&]<size_t... _Idxs>(index_sequence<_Idxs...>) {
           size_type __prod = 1;
           return (__builtin_mul_overflow(__prod, extent(_Idxs), std::addressof(__prod)) || ... || false);
-        }(make_index_sequence<rank()>())),
+        }(std::make_index_sequence<rank()>())),
         "mdspan: size() is not representable as size_type");
     return [&]<size_t... _Idxs>(index_sequence<_Idxs...>) {
       return ((static_cast<size_type>(__map_.extents().extent(_Idxs))) * ... * size_type(1));
-    }(make_index_sequence<rank()>());
+    }(std::make_index_sequence<rank()>());
   }
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool empty() const noexcept {
     return [&]<size_t... _Idxs>(index_sequence<_Idxs...>) {
       return (rank() > 0) && ((__map_.extents().extent(_Idxs) == index_type(0)) || ... || false);
-    }(make_index_sequence<rank()>());
+    }(std::make_index_sequence<rank()>());
   }
 
   _LIBCPP_HIDE_FROM_ABI friend constexpr void swap(mdspan& __x, mdspan& __y) noexcept {

@@ -31,6 +31,7 @@
 #include <__execution/sender_adaptor_closure.h>
 #include <__execution/stop_when.h>
 #include <__functional/bind_back.h>
+#include <__memory/addressof.h>
 #include <__memory/allocator.h>
 #include <__memory/allocator_traits.h>
 #include <__memory/unique_ptr.h>
@@ -87,7 +88,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI __scope_association(__scope_association&& __other) noexcept
       : __scope_(std::exchange(__other.__scope_, nullptr)) {}
   _LIBCPP_HIDE_FROM_ABI __scope_association& operator=(__scope_association&& __other) noexcept {
-    if (this != &__other) {
+    if (this != std::addressof(__other)) {
       auto* __old = std::exchange(__scope_, std::exchange(__other.__scope_, nullptr));
       if (__old)
         __old->__disassociate();

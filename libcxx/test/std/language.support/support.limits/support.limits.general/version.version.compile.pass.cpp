@@ -8366,7 +8366,7 @@
 #    error "__cpp_lib_erase_if should have the value 202002L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_HAS_NO_EXCEPTIONS) && __has_builtin(__builtin_constexpr_exception_capture) && __has_builtin(__builtin_constexpr_exception_retain) && __has_builtin(__builtin_constexpr_exception_release) && __has_builtin(__builtin_constexpr_exception_rethrow)
+#  if _LIBCPP_HAS_EXCEPTIONS && __has_builtin(__builtin_constexpr_exception_capture) && __has_builtin(__builtin_constexpr_exception_retain) && __has_builtin(__builtin_constexpr_exception_release) && __has_builtin(__builtin_constexpr_exception_rethrow)
 #    ifndef __cpp_lib_exception_ptr_cast
 #      error "__cpp_lib_exception_ptr_cast should be defined in c++26"
 #    endif
@@ -8375,7 +8375,7 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_exception_ptr_cast
-#      error "__cpp_lib_exception_ptr_cast should not be defined when the requirement '!defined(_LIBCPP_HAS_NO_EXCEPTIONS) && __has_builtin(__builtin_constexpr_exception_capture) && __has_builtin(__builtin_constexpr_exception_retain) && __has_builtin(__builtin_constexpr_exception_release) && __has_builtin(__builtin_constexpr_exception_rethrow)' is not met!"
+#      error "__cpp_lib_exception_ptr_cast should not be defined when the requirement '_LIBCPP_HAS_EXCEPTIONS && __has_builtin(__builtin_constexpr_exception_capture) && __has_builtin(__builtin_constexpr_exception_retain) && __has_builtin(__builtin_constexpr_exception_release) && __has_builtin(__builtin_constexpr_exception_rethrow)' is not met!"
 #    endif
 #  endif
 

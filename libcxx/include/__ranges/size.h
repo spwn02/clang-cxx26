@@ -181,7 +181,7 @@ struct __fn {
 
 inline namespace __cpo {
 inline constexpr auto reserve_hint = __reserve_hint::__fn{};
-}
+} // namespace __cpo
 
 } // namespace ranges
 #endif // _LIBCPP_STD_VER >= 26

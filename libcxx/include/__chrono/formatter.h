@@ -269,7 +269,7 @@ _LIBCPP_HIDE_FROM_ABI void __format_locale_specific(
     const string_view __narrow_bytes = __locale_output.view();
     if (!__narrow_bytes.empty()) {
       wstring __wide(__narrow_bytes.size(), L'\0');
-      const auto& __cvt = use_facet<codecvt<wchar_t, char, mbstate_t>>(__sstr.getloc());
+      const auto& __cvt = std::use_facet<codecvt<wchar_t, char, mbstate_t>>(__sstr.getloc());
       mbstate_t __state{};
       const char* __from_next;
       wchar_t* __to_next;

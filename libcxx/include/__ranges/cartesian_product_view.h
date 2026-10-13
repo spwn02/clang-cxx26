@@ -239,7 +239,12 @@ struct __fn {
     return cartesian_product_view<all_t<_Ranges>...>(std::forward<_Ranges>(__ranges)...);
   }
 };
-} inline namespace __cpo { inline constexpr auto cartesian_product = __cartesian_product::__fn{}; } }
+} // namespace __cartesian_product
+
+inline namespace __cpo {
+inline constexpr auto cartesian_product = __cartesian_product::__fn{};
+} // namespace __cpo
+} // namespace views
 
 } // namespace ranges
 #endif

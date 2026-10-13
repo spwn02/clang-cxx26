@@ -510,7 +510,7 @@ rethrow_exception(exception_ptr __p) {
     __builtin_constexpr_exception_rethrow(__p.__ptr1_);
 #  endif
   } else {
-    __rethrow_exception_runtime(std::move(__p));
+    std::__rethrow_exception_runtime(std::move(__p));
   }
   __builtin_unreachable();
 }

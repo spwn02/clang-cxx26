@@ -57,7 +57,7 @@ struct __function_ref_deduce {};
 #  define _LIBCPP_FUNCTION_REF_DEDUCE_MEMFN(_CV, _REF, _NOEX)                                                          \
     template <class _Rp, class _Gp, class... _Ap, class _Tp>                                                           \
     struct __function_ref_deduce<_Rp (_Gp::*)(_Ap...) _CV _REF noexcept(_NOEX), _Tp> {                                \
-      using type = _Rp(_Ap...) noexcept(_NOEX);                                                                        \
+      using type _LIBCPP_NODEBUG = _Rp(_Ap...) noexcept(_NOEX);                                                                        \
     };
 #  define _LIBCPP_FUNCTION_REF_DEDUCE_MEMFN_NOEX(_CV, _REF)                                                            \
     _LIBCPP_FUNCTION_REF_DEDUCE_MEMFN(_CV, _REF, false)                                                                \

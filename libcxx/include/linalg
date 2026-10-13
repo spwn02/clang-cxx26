@@ -4820,14 +4820,14 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto vector_abs_sum(_ExecutionPolicy&&, _InVec _
 
 template <__detail::__in_vector _InVec>
 _LIBCPP_HIDE_FROM_ABI constexpr typename _InVec::size_type vector_idx_abs_max(_InVec __v) {
-  return __vector_idx_abs_max_impl(__v);
+  return linalg::__vector_idx_abs_max_impl(__v);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec>
 _LIBCPP_HIDE_FROM_ABI constexpr typename _InVec::size_type vector_idx_abs_max(_ExecutionPolicy&&, _InVec __v)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __vector_idx_abs_max_impl(__v);
+  return linalg::__vector_idx_abs_max_impl(__v);
 }
 
 template <__detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>

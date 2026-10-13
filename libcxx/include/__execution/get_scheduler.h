@@ -14,6 +14,7 @@
 #include <__execution/forwarding_query.h>
 #include <__execution/queryable.h>
 #include <__execution/scheduler.h>
+#include <__memory/addressof.h>
 #include <__type_traits/decay.h>
 #include <__type_traits/is_same.h>
 #include <__type_traits/remove_cvref.h>
@@ -63,7 +64,7 @@ struct __hide_sched {
 
 template <class _Env>
 _LIBCPP_HIDE_FROM_ABI constexpr auto __hide_sched_fn(const _Env& __env) noexcept {
-  return __hide_sched<_Env>{&__env};
+  return __hide_sched<_Env>{std::addressof(__env)};
 }
 
 // [exec.queries.expos]: TRY-QUERY(q, tag, args...). Split into two separately-constrained

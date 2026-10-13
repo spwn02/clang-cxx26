@@ -620,7 +620,7 @@ feature_test_macros = [
             # constexpr (i.e. P3748R0's constexpr requirement is baked into the value,
             # even though GCC's own version.def comment doesn't cite P3748R0 by number).
             "libcxx_guard": " && ".join(
-                ["!defined(_LIBCPP_HAS_NO_EXCEPTIONS)"]
+                ["_LIBCPP_HAS_EXCEPTIONS"]
                 + [
                     "__has_builtin(%s)" % builtin
                     for builtin in (
@@ -632,7 +632,7 @@ feature_test_macros = [
                 ]
             ),
             "test_suite_guard": " && ".join(
-                ["!defined(_LIBCPP_HAS_NO_EXCEPTIONS)"]
+                ["_LIBCPP_HAS_EXCEPTIONS"]
                 + [
                     "__has_builtin(%s)" % builtin
                     for builtin in (

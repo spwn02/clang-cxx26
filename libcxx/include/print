@@ -222,7 +222,7 @@ _LIBCPP_HIDE_FROM_ABI inline void
 __vprint_nonunicode(FILE* __stream, string_view __fmt, format_args __args, bool __write_nl) {
   _LIBCPP_ASSERT_NON_NULL(__stream, "__stream must be a valid pointer to an output C stream");
   auto __flush = [__stream](const char* __data, size_t __size) {
-    size_t __written = fwrite(__data, 1, __size, __stream);
+    size_t __written = std::fwrite(__data, 1, __size, __stream);
     if (__written < __size) {
       if (std::feof(__stream))
         std::__throw_system_error(EIO, "EOF while writing the formatted output");
@@ -243,7 +243,7 @@ __vprint_nonunicode_buffered(FILE* __stream, string_view __fmt, format_args __ar
   string __result_end = std::vformat(__fmt, __args);
   if (__write_nl)
     __result_end.push_back('\n');
-  size_t __written = fwrite(__result_end.data(), 1, __result_end.size(), __stream);
+  size_t __written = std::fwrite(__result_end.data(), 1, __result_end.size(), __stream);
   if (__written < __result_end.size()) {
     if (std::feof(__stream))
       std::__throw_system_error(EIO, "EOF while writing the formatted output");
