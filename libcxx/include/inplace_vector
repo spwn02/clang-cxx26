@@ -12,9 +12,9 @@
 #if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 #  include <__cxx03/__config>
 #else
-#  include <__config>
-#include <__assert>
+#  include <__assert>
 #include <__compare/synth_three_way.h>
+#include <__config>
 #include <__iterator/distance.h>
 #include <__memory/construct_at.h>
 #include <__memory/start_lifetime.h>
@@ -976,8 +976,8 @@ constexpr auto erase(inplace_vector<_Tp, _Capacity>& __c, const _Up& __value) ->
   return __r;
 }
 
-template <class _Tp, size_t _Capacity, class Predicate>
-constexpr auto erase_if(inplace_vector<_Tp, _Capacity>& __c, Predicate __pred) ->
+template <class _Tp, size_t _Capacity, class _Predicate>
+constexpr auto erase_if(inplace_vector<_Tp, _Capacity>& __c, _Predicate __pred) ->
     typename inplace_vector<_Tp, _Capacity>::size_type {
   auto __it = std::remove_if(__c.begin(), __c.end(), __pred);
   auto __r  = static_cast<typename inplace_vector<_Tp, _Capacity>::size_type>(__c.end() - __it);

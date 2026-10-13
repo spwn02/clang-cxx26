@@ -40,8 +40,8 @@ namespace std {
 #else
 #  include <__assert>
 #  include <__concepts/same_as.h>
-#  include <__format/print_buffer.h>
 #  include <__config>
+#  include <__format/print_buffer.h>
 #  include <__system_error/throw_system_error.h>
 #  include <__utility/forward.h>
 #  include <__utility/observable_checkpoint.h>

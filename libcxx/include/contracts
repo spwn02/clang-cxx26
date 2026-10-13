@@ -5,10 +5,10 @@
 #  include <__cxx03/__config>
 #else
 #  include <__config>
-#include <source_location>
-#include <version>
 #include <__new/nothrow_t.h>
 #include <__utility/unreachable.h>
+#include <source_location>
+#include <version>
 
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -20,11 +20,11 @@
 namespace std::contracts {
 
 enum class assertion_kind : int { pre = 1, post = 2, assert = 3, manual = 1000, cassert = 1001 };
-using _AssertKind = assertion_kind;
+using _AssertKind _LIBCPP_NODEBUG = assertion_kind;
 enum class evaluation_semantic : int { ignore = 1, observe = 2, enforce = 3, quick_enforce = 4 };
-using _EvaluationSemantic = evaluation_semantic;
+using _EvaluationSemantic _LIBCPP_NODEBUG = evaluation_semantic;
 enum class detection_mode : int { predicate_false = 1, evaluation_exception = 2, unspecified = 1000 };
-using _DetectionMode = detection_mode;
+using _DetectionMode _LIBCPP_NODEBUG = detection_mode;
 
 struct _ContractViolationImpl;
 
@@ -45,7 +45,7 @@ public:
   _LIBCPP_EXPORTED_FROM_ABI evaluation_semantic semantic() const noexcept;
 
 private:
-  explicit contract_violation(const _ContractViolationImpl* impl) noexcept : __pimpl_(impl) {}
+  explicit contract_violation(const _ContractViolationImpl* __impl) noexcept : __pimpl_(__impl) {}
 
   const _ContractViolationImpl* __pimpl_;
 };

@@ -32,7 +32,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 namespace simd {
 
 template <class _Tp, size_t>
-using __ignore_index_t = _Tp;
+using __ignore_index_t _LIBCPP_NODEBUG = _Tp;
 
 // [simd.creation]/1-3: chunk<T>(x) where T is the chunk type. When x.size() is not a multiple of
 // T::size(), the Constraints require resize_t<x.size() % T::size(), T> to be valid, and the return

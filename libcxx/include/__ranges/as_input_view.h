@@ -7,8 +7,6 @@
 #define _LIBCPP___RANGES_AS_INPUT_VIEW_H
 
 #include <__config>
-#include <concepts>
-#include <iterator>
 #include <__iterator/concepts.h>
 #include <__iterator/iter_move.h>
 #include <__iterator/iter_swap.h>
@@ -18,6 +16,8 @@
 #include <__ranges/view_interface.h>
 #include <__type_traits/maybe_const.h>
 #include <__utility/forward.h>
+#include <concepts>
+#include <iterator>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header

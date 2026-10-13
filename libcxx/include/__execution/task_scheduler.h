@@ -17,12 +17,10 @@
 #include <__execution/domain.h>
 #include <__execution/env.h>
 #include <__execution/get_forward_progress_guarantee.h>
-#include <__execution/inline_scheduler.h>
 #include <__execution/get_scheduler.h>
 #include <__execution/get_stop_token.h>
 #include <__execution/infallible_scheduler.h>
-#include <__stop_token/stoppable_token.h>
-#include <__type_traits/is_nothrow_constructible.h>
+#include <__execution/inline_scheduler.h>
 #include <__execution/operation_state.h>
 #include <__execution/parallel_scheduler.h>
 #include <__execution/receiver.h>
@@ -32,14 +30,16 @@
 #include <__execution/system_context_replaceability.h>
 #include <__memory/allocator.h>
 #include <__memory/allocator_traits.h>
+#include <__stop_token/stoppable_token.h>
+#include <__type_traits/is_nothrow_constructible.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
 #include <cstddef>
 #include <exception>
 #include <memory>
-#include <typeinfo>
 #include <span>
+#include <typeinfo>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -83,10 +83,10 @@ using __task_scheduler_sigs = completion_signatures<set_value_t(), set_error_t(e
 // below), so the destructor must be both public (default_delete<Base> deletes through the
 // base pointer) and virtual (so the owning model's own members/base are actually torn down).
 struct __task_scheduler_rcvr_base {
-  _LIBCPP_HIDE_FROM_ABI virtual ~__task_scheduler_rcvr_base()                 = default;
-  _LIBCPP_HIDE_FROM_ABI virtual void __complete_value() noexcept             = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual void __complete_error(exception_ptr) noexcept = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual void __complete_stopped() noexcept           = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual ~__task_scheduler_rcvr_base()                 = default;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete_value() noexcept             = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete_error(exception_ptr) noexcept = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete_stopped() noexcept           = 0;
 };
 
 template <class _Rcvr>
@@ -95,12 +95,12 @@ struct __task_scheduler_rcvr_model final : __task_scheduler_rcvr_base {
 
   _LIBCPP_HIDE_FROM_ABI explicit __task_scheduler_rcvr_model(_Rcvr&& __rcvr) : __rcvr_(std::move(__rcvr)) {}
 
-  _LIBCPP_HIDE_FROM_ABI void __complete_value() noexcept override { execution::set_value(std::move(__rcvr_)); }
-  _LIBCPP_HIDE_FROM_ABI void __complete_error(exception_ptr __ep) noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __complete_value() noexcept override { execution::set_value(std::move(__rcvr_)); }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __complete_error(exception_ptr __ep) noexcept override {
     (void)__ep;
     std::terminate();
   }
-  _LIBCPP_HIDE_FROM_ABI void __complete_stopped() noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __complete_stopped() noexcept override {
     if constexpr (requires { execution::set_stopped(std::move(__rcvr_)); })
       execution::set_stopped(std::move(__rcvr_));
     else
@@ -135,8 +135,8 @@ struct __task_scheduler_bridge_rcvr {
 struct __task_scheduler_opstate_base {
   using operation_state_concept = operation_state_tag;
 
-  _LIBCPP_HIDE_FROM_ABI virtual ~__task_scheduler_opstate_base() = default;
-  _LIBCPP_HIDE_FROM_ABI virtual void __start() noexcept          = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual ~__task_scheduler_opstate_base() = default;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __start() noexcept          = 0;
   _LIBCPP_HIDE_FROM_ABI void start() & noexcept { __start(); }
 };
 
@@ -146,7 +146,7 @@ struct __task_scheduler_opstate_model final : __task_scheduler_opstate_base {
 
   template <class _Factory>
   _LIBCPP_HIDE_FROM_ABI explicit __task_scheduler_opstate_model(_Factory __make) : __op_(__make()) {}
-  _LIBCPP_HIDE_FROM_ABI void __start() noexcept override { execution::start(__op_); }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __start() noexcept override { execution::start(__op_); }
 };
 
 class __task_scheduler_opstate {
@@ -163,12 +163,12 @@ private:
 };
 
 struct __task_scheduler_concept {
-  _LIBCPP_HIDE_FROM_ABI virtual ~__task_scheduler_concept()                                    = default;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual ~__task_scheduler_concept()                                    = default;
   _LIBCPP_HIDE_FROM_ABI virtual unique_ptr<__task_scheduler_opstate_base>
   __connect(unique_ptr<__task_scheduler_rcvr_base>) const                                      = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual bool __equals(const __task_scheduler_concept&) const noexcept   = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual forward_progress_guarantee __fwd_progress() const noexcept      = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual bool __equals(const __task_scheduler_concept&) const noexcept   = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual forward_progress_guarantee __fwd_progress() const noexcept      = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
   __bulk_backend() const = 0;
 };
 
@@ -208,16 +208,16 @@ struct __task_scheduler_model final : __task_scheduler_concept {
         [&] { return execution::connect(execution::schedule(__sch_), __task_scheduler_bridge_rcvr{std::move(__rcvr)}); });
   }
 
-  _LIBCPP_HIDE_FROM_ABI bool __equals(const __task_scheduler_concept& __other) const noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL bool __equals(const __task_scheduler_concept& __other) const noexcept override {
     auto* __p = dynamic_cast<const __task_scheduler_model*>(&__other);
     return __p != nullptr && __sch_ == __p->__sch_;
   }
 
-  _LIBCPP_HIDE_FROM_ABI forward_progress_guarantee __fwd_progress() const noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL forward_progress_guarantee __fwd_progress() const noexcept override {
     return execution::get_forward_progress_guarantee(__sch_);
   }
 
-  _LIBCPP_HIDE_FROM_ABI shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
   __bulk_backend() const override {
     if constexpr (same_as<_Sch, parallel_scheduler>)
       return __sch_.__get_backend();

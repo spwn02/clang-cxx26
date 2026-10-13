@@ -22,12 +22,12 @@
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
 #include <__execution/sender.h>
+#include <__memory/addressof.h>
 #include <__type_traits/conditional.h>
 #include <__type_traits/is_reference.h>
 #include <__type_traits/is_void.h>
-#include <__type_traits/remove_reference.h>
 #include <__type_traits/remove_cvref.h>
-#include <__memory/addressof.h>
+#include <__type_traits/remove_reference.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
 #include <exception>

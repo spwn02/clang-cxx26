@@ -60,7 +60,7 @@ public:
   using reference       = value_type&;
 
 private:
-  using __storage_type = vector<value_type, _Allocator>;
+  using __storage_type _LIBCPP_NODEBUG = vector<value_type, _Allocator>;
 
 public:
   using const_iterator         = typename __storage_type::const_iterator;

@@ -267,8 +267,8 @@ template<class T> complex<T> tanh (const complex<T>&);
 #  include <__tuple/tuple_size.h>
 #  include <__type_traits/conditional.h>
 #  include <__type_traits/is_same.h>
-#  include <__utility/move.h>
 #  include <__utility/declval.h>
+#  include <__utility/move.h>
 #  include <cmath>
 #  include <limits>
 #  include <version>

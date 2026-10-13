@@ -48,7 +48,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 template <class _Tp, class _Allocator = allocator<_Tp>>
 class polymorphic {
-  using _AllocTraits = allocator_traits<_Allocator>;
+  using _AllocTraits _LIBCPP_NODEBUG = allocator_traits<_Allocator>;
 
   static_assert(is_same_v<typename _AllocTraits::value_type, _Tp>,
                 "allocator_traits<Allocator>::value_type must be the same type as T");
@@ -60,15 +60,15 @@ class polymorphic {
   struct __control_block {
     _LIBCPP_HIDE_FROM_ABI __control_block()                                          = default;
     _LIBCPP_HIDE_FROM_ABI __control_block(const __control_block&)                    = delete;
-    _LIBCPP_HIDE_FROM_ABI virtual ~__control_block()                                 = default;
-    _LIBCPP_HIDE_FROM_ABI virtual _Tp* __get() noexcept                              = 0;
-    _LIBCPP_HIDE_FROM_ABI virtual __control_block* __clone(_Allocator&) const        = 0;
+    _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual ~__control_block()                                 = default;
+    _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual _Tp* __get() noexcept                              = 0;
+    _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual __control_block* __clone(_Allocator&) const        = 0;
     // Constructs a new control block whose owned object is move-constructed from
     // this one's, without destroying or otherwise invalidating this one -- used
     // where the standard specifies "constructs ... considering the owned object
     // in other as an rvalue" without also requiring other to become valueless.
-    _LIBCPP_HIDE_FROM_ABI virtual __control_block* __move_clone(_Allocator&)         = 0;
-    _LIBCPP_HIDE_FROM_ABI virtual void __destroy(_Allocator&)                        = 0;
+    _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual __control_block* __move_clone(_Allocator&)         = 0;
+    _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __destroy(_Allocator&)                        = 0;
   };
 
   template <class _Up>

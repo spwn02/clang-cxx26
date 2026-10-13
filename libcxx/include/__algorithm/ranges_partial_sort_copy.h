@@ -14,9 +14,6 @@
 #include <__algorithm/make_projected.h>
 #include <__algorithm/partial_sort_copy.h>
 #include <__algorithm/pstl.h>
-#include <__pstl/dispatch.h>
-#include <__pstl/handle_exception.h>
-#include <__pstl/ranges_bounded.h>
 #include <__config>
 #include <__functional/identity.h>
 #include <__functional/invoke.h>
@@ -25,13 +22,16 @@
 #include <__iterator/iterator_traits.h>
 #include <__iterator/projected.h>
 #include <__iterator/sortable.h>
+#include <__pstl/dispatch.h>
+#include <__pstl/handle_exception.h>
+#include <__pstl/ranges_bounded.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
-#include <__utility/move.h>
-#include <__utility/pair.h>
 #include <__type_traits/is_execution_policy.h>
 #include <__type_traits/remove_cvref.h>
+#include <__utility/move.h>
+#include <__utility/pair.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header

@@ -152,7 +152,7 @@ struct __when_all_single_value {
 
 template <class _Acc, class _Fn>
 struct __when_all_shape_step {
-  using type = _Acc; // non-set_value_t signature: accumulator unchanged.
+  using type _LIBCPP_NODEBUG = _Acc; // non-set_value_t signature: accumulator unchanged.
 };
 template <class _Acc, class... _Args>
 struct __when_all_shape_step<_Acc, set_value_t(_Args...)> {
@@ -163,7 +163,7 @@ struct __when_all_shape_step<_Acc, set_value_t(_Args...)> {
 
 template <class _Acc, class... _Fns>
 struct __when_all_fold_shape {
-  using type = _Acc;
+  using type _LIBCPP_NODEBUG = _Acc;
 };
 template <class _Acc, class _Fn, class... _Rest>
 struct __when_all_fold_shape<_Acc, _Fn, _Rest...>
@@ -173,7 +173,7 @@ template <class _Completions>
 struct __when_all_shape_from_sigs;
 template <class... _Fns>
 struct __when_all_shape_from_sigs<completion_signatures<_Fns...>> {
-  using type = typename __when_all_fold_shape<__when_all_no_single_value, _Fns...>::type;
+  using type _LIBCPP_NODEBUG = typename __when_all_fold_shape<__when_all_no_single_value, _Fns...>::type;
 };
 
 template <class _Sndr, class _Env>
@@ -202,14 +202,14 @@ inline constexpr bool __when_all_all_single_value =
 // tuple<optional<Tuple_1>, ..., optional<Tuple_N>> (one slot per child, in order).
 template <bool _AllSingle, class _Env, class... _Sndrs>
 struct __when_all_values_tuple_impl {
-  using type = tuple<>;
+  using type _LIBCPP_NODEBUG = tuple<>;
 };
 template <class _Env, class... _Sndrs>
 struct __when_all_values_tuple_impl<true, _Env, _Sndrs...> {
   using type = tuple<optional<typename __when_all_child_shape_t<_Sndrs, _Env>::__tuple>...>;
 };
 template <class _Env, class... _Sndrs>
-using __when_all_values_tuple =
+using __when_all_values_tuple _LIBCPP_NODEBUG =
     typename __when_all_values_tuple_impl<__when_all_all_single_value<_Env, _Sndrs...>, _Env, _Sndrs...>::type;
 
 // The value completion signature: set_value_t() if values_tuple is tuple<>, otherwise
@@ -218,12 +218,12 @@ template <class _Tuple>
 struct __when_all_tuple_to_list;
 template <class... _Args>
 struct __when_all_tuple_to_list<tuple<_Args...>> {
-  using type = __exec_type_list<_Args...>;
+  using type _LIBCPP_NODEBUG = __exec_type_list<_Args...>;
 };
 
 template <bool _AllSingle, class _Env, class... _Sndrs>
 struct __when_all_value_sig_impl {
-  using type = set_value_t();
+  using type _LIBCPP_NODEBUG = set_value_t();
 };
 template <class _Env, class... _Sndrs>
 struct __when_all_value_sig_impl<true, _Env, _Sndrs...> {
@@ -234,13 +234,13 @@ struct __when_all_value_sig_impl<true, _Env, _Sndrs...> {
   struct __to_sig;
   template <class... _Args>
   struct __to_sig<__exec_type_list<_Args...>> {
-    using type = set_value_t(_Args...);
+    using type _LIBCPP_NODEBUG = set_value_t(_Args...);
   };
 
   using type = typename __to_sig<__combined>::type;
 };
 template <class _Env, class... _Sndrs>
-using __when_all_value_sig =
+using __when_all_value_sig _LIBCPP_NODEBUG =
     typename __when_all_value_sig_impl<__when_all_all_single_value<_Env, _Sndrs...>, _Env, _Sndrs...>::type;
 
 // ---------------------------------------------------------------------------------------------
@@ -289,7 +289,7 @@ struct __when_all_dedup_errors<__exec_type_list<_Ts...>> {
   struct __to_variant;
   template <class... _Us>
   struct __to_variant<__exec_type_list<_Us...>> {
-    using type = variant<_Us...>;
+    using type _LIBCPP_NODEBUG = variant<_Us...>;
   };
   using type = typename __to_variant<__dedup_type_list_t<_Ts...>>::type;
 };
@@ -309,31 +309,31 @@ template <class _ErrorsVariant>
 struct __when_all_error_sigs_from_variant;
 template <class... _Es>
 struct __when_all_error_sigs_from_variant<variant<__when_all_none_such, _Es...>> {
-  using type = completion_signatures<set_error_t(_Es)...>;
+  using type _LIBCPP_NODEBUG = completion_signatures<set_error_t(_Es)...>;
 };
 
 template <class _Sigs>
 struct __when_all_sigs_to_list;
 template <class... _Fns>
 struct __when_all_sigs_to_list<completion_signatures<_Fns...>> {
-  using type = __exec_type_list<_Fns...>;
+  using type _LIBCPP_NODEBUG = __exec_type_list<_Fns...>;
 };
 
 template <class _List>
 struct __when_all_list_to_sigs;
 template <class... _Fns>
 struct __when_all_list_to_sigs<__exec_type_list<_Fns...>> {
-  using type = completion_signatures<_Fns...>;
+  using type _LIBCPP_NODEBUG = completion_signatures<_Fns...>;
 };
 
 template <bool _SendsStopped, class _ValueSig, class _ErrorSigs>
 struct __when_all_final_sigs_impl {
-  using type = typename __when_all_list_to_sigs<
+  using type _LIBCPP_NODEBUG = typename __when_all_list_to_sigs<
       typename __concat_type_lists<__exec_type_list<_ValueSig>, typename __when_all_sigs_to_list<_ErrorSigs>::type>::type>::type;
 };
 template <class _ValueSig, class _ErrorSigs>
 struct __when_all_final_sigs_impl<true, _ValueSig, _ErrorSigs> {
-  using type = typename __when_all_list_to_sigs<typename __concat_type_lists<
+  using type _LIBCPP_NODEBUG = typename __when_all_list_to_sigs<typename __concat_type_lists<
       __exec_type_list<_ValueSig>, typename __when_all_sigs_to_list<_ErrorSigs>::type, __exec_type_list<set_stopped_t()>>::type>::type;
 };
 
@@ -631,7 +631,7 @@ class __when_all_attrs {
     static constexpr bool __ok =
         (__when_all_child_domain<_Cpo, _Env, _Sndrs, __child_has<_Cpo, _Env, _Sndrs>>::__ok && ...) &&
         (__when_all_child_domain<set_value_t, _Env, _Sndrs, __exception_from_value<_Cpo, _Env, _Sndrs>()>::__ok && ...);
-    using __all = typename __concat_type_lists<
+    using __all _LIBCPP_NODEBUG = typename __concat_type_lists<
         typename __when_all_child_domain<_Cpo, _Env, _Sndrs, __child_has<_Cpo, _Env, _Sndrs>>::type...,
         typename __when_all_child_domain<set_value_t, _Env, _Sndrs, __exception_from_value<_Cpo, _Env, _Sndrs>()>::type...>::type;
 

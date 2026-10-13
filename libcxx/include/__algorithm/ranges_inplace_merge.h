@@ -10,9 +10,9 @@
 #define _LIBCPP___ALGORITHM_RANGES_INPLACE_MERGE_H
 
 #include <__algorithm/inplace_merge.h>
-#include <__algorithm/pstl.h>
 #include <__algorithm/iterator_operations.h>
 #include <__algorithm/make_projected.h>
+#include <__algorithm/pstl.h>
 #include <__config>
 #include <__functional/identity.h>
 #include <__functional/invoke.h>
@@ -25,10 +25,10 @@
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
-#include <__utility/forward.h>
-#include <__utility/move.h>
 #include <__type_traits/is_execution_policy.h>
 #include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
+#include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header

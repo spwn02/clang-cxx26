@@ -26,22 +26,22 @@
 // TRAP: __simd/simd.h (the old monolithic prototype) and these headers both declare
 // simd::basic_vec with different default template arguments -- never include both in one TU. That
 // file has been retired; this is the only <simd> implementation now.
-#include <__simd/vectorizable.h>
 #include <__simd/abi.h>
-#include <__simd/concepts.h>
-#include <__simd/traits.h>
-#include <__simd/flags.h>
-#include <__simd/iterator.h>
+#include <__simd/algorithms.h>
 #include <__simd/basic_mask.h>
 #include <__simd/basic_vec.h>
-#include <__simd/math.h>
 #include <__simd/bit.h>
-#include <__simd/algorithms.h>
-#include <__simd/reductions.h>
-#include <__simd/creation.h>
-#include <__simd/permute.h>
-#include <__simd/loadstore.h>
 #include <__simd/complex.h>
+#include <__simd/concepts.h>
+#include <__simd/creation.h>
+#include <__simd/flags.h>
+#include <__simd/iterator.h>
+#include <__simd/loadstore.h>
+#include <__simd/math.h>
+#include <__simd/permute.h>
+#include <__simd/reductions.h>
+#include <__simd/traits.h>
+#include <__simd/vectorizable.h>
 
 _LIBCPP_PUSH_MACROS
 #include <__undef_macros>

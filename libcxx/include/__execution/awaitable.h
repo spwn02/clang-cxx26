@@ -146,7 +146,7 @@ concept __is_awaitable = requires(_Cp (*__fc)() noexcept, _Promise&... __p) {
 // defaulted) template parameter. Selects between __get_awaiter's one- and two-argument
 // overloads based on whether the Promise pack is empty, exactly like __is_awaitable.
 template <class _Cp, class... _Promise>
-using __await_result_type =
+using __await_result_type _LIBCPP_NODEBUG =
     decltype(execution::__get_awaiter(std::declval<_Cp>(), std::declval<_Promise&>()...).await_resume());
 
 // [exec.awaitable]p5: with-await-transform.

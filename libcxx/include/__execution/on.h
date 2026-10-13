@@ -10,15 +10,15 @@
 #define _LIBCPP___EXECUTION_ON_H
 
 #include <__config>
-#include <__execution/continues_on.h>
-#include <__execution/schedule.h>
 #include <__execution/completion_signatures.h>
+#include <__execution/continues_on.h>
 #include <__execution/domain.h>
 #include <__execution/env.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
 #include <__execution/get_scheduler.h>
+#include <__execution/schedule.h>
 #include <__execution/scheduler.h>
 #include <__execution/sender.h>
 #include <__execution/sender_adaptor_closure.h>

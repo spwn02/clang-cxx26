@@ -112,12 +112,12 @@ struct __let_args_variant_impl {
   struct __to_variant;
   template <class... _Us>
   struct __to_variant<__exec_type_list<_Us...>> {
-    using type = variant<monostate, _Us...>;
+    using type _LIBCPP_NODEBUG = variant<monostate, _Us...>;
   };
   using type = typename __to_variant<__dedup_type_list_t<_Ts...>>::type;
 };
 template <class... _Ts>
-using __let_args_variant = typename __let_args_variant_impl<_Ts...>::type;
+using __let_args_variant _LIBCPP_NODEBUG = typename __let_args_variant_impl<_Ts...>::type;
 
 // [exec.snd.expos] SCHED-ENV(sch): an environment whose get_start_scheduler is sch and whose get_domain is the one of sch.
 template <class _Sch>
@@ -162,11 +162,11 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __let_env(const _Sndr& __sndr, const _Env& 
 }
 
 template <class _SetCpo, class _Sndr, class _Env>
-using __let_env_t = decltype(execution::__let_env<_SetCpo>(std::declval<const _Sndr&>(), std::declval<const _Env&>()));
+using __let_env_t _LIBCPP_NODEBUG = decltype(execution::__let_env<_SetCpo>(std::declval<const _Sndr&>(), std::declval<const _Env&>()));
 
 // [exec.let]p5 receiver2's environment: JOIN-ENV(let-env, FWD-ENV(get_env(rcvr))), that is let-env first.
 template <class _LetEnv, class _Env>
-using __let_joined_env_t = decltype(execution::env(std::declval<const _LetEnv&>(), std::declval<__fwd_env<_Env>>()));
+using __let_joined_env_t _LIBCPP_NODEBUG = decltype(execution::env(std::declval<const _LetEnv&>(), std::declval<__fwd_env<_Env>>()));
 
 // A receiver of the environment `_Env` that accepts every completion, standing in for the receiver of
 // get_completion_signatures<Sndr, Env> ([exec.snd.expos]: "the type of a receiver whose environment has type E").
@@ -197,7 +197,7 @@ public:
   // The environment the continuation sender is connected through, for a receiver with the environment _Env.
   using __let_env_type = __let_env_t<_SetCpo, _Child, _Env>;
   using __cont_env     = __let_joined_env_t<__let_env_type, _Env>;
-  using __probe_rcvr   = __let_probe_rcvr<_Env>;
+  using __probe_rcvr _LIBCPP_NODEBUG   = __let_probe_rcvr<_Env>;
 
   // [exec.let]p5 let-state::impl: no exception completion if decay-copying the datums, invoking the function and
   // connecting the continuation sender are all noexcept. The runtime path (__let_opstate::__intercept) uses the same
@@ -211,14 +211,14 @@ public:
 
   template <class _Sig>
   struct __one {
-    using type = __exec_type_list<_Sig>;
+    using type _LIBCPP_NODEBUG = __exec_type_list<_Sig>;
   };
 
   template <class _Sigs>
   struct __sigs_to_list;
   template <class... _Ss>
   struct __sigs_to_list<completion_signatures<_Ss...>> {
-    using type = __exec_type_list<_Ss...>;
+    using type _LIBCPP_NODEBUG = __exec_type_list<_Ss...>;
   };
 
   template <class... _Args>
@@ -242,15 +242,15 @@ public:
   struct __to_completion_signatures;
   template <class... _Sigs>
   struct __to_completion_signatures<__exec_type_list<_Sigs...>> {
-    using type = completion_signatures<_Sigs...>;
+    using type _LIBCPP_NODEBUG = completion_signatures<_Sigs...>;
   };
 
   template <class _Completions>
   struct __impl;
   template <class... _Fns>
   struct __impl<completion_signatures<_Fns...>> {
-    using __gathered = typename __concat_type_lists<typename __one<_Fns>::type...>::type;
-    using type        = typename __to_completion_signatures<typename __dedup<__gathered>::type>::type;
+    using __gathered _LIBCPP_NODEBUG = typename __concat_type_lists<typename __one<_Fns>::type...>::type;
+    using type _LIBCPP_NODEBUG        = typename __to_completion_signatures<typename __dedup<__gathered>::type>::type;
   };
 };
 
@@ -360,7 +360,7 @@ private:
 template <class _Tag, class _Fn, class _Sndr, class _Rcvr>
 class __let_opstate {
   using __set_cpo      = __let_set_cpo_t<_Tag>;
-  using __child_rcvr_t = __let_child_rcvr<__let_opstate, _Rcvr>;
+  using __child_rcvr_t _LIBCPP_NODEBUG = __let_child_rcvr<__let_opstate, _Rcvr>;
   using __let_env_type = __let_env_t<__set_cpo, _Sndr, env_of_t<_Rcvr>>;
   using __cont_rcvr_t  = __let_cont_rcvr<_Rcvr, __let_env_type>;
   using __child_op_t   = connect_result_t<_Sndr, __child_rcvr_t>;
@@ -395,7 +395,7 @@ class __let_opstate {
     struct __to_variant;
     template <class... _Us>
     struct __to_variant<__exec_type_list<_Us...>> {
-      using type = variant<_Us...>;
+      using type _LIBCPP_NODEBUG = variant<_Us...>;
     };
     using type = typename __to_variant<__dedup_type_list_t<monostate, __child_op_t, _Ts...>>::type;
   };
@@ -598,7 +598,7 @@ class __let_attrs {
       execution::get_completion_domain<_Tg>(__attrs, __env);
     };
     template <class _Tg>
-    using __child_domain_t = decltype(execution::get_completion_domain<_Tg>(
+    using __child_domain_t _LIBCPP_NODEBUG = decltype(execution::get_completion_domain<_Tg>(
         std::declval<const _ChildAttrs&>(), std::declval<const __fwd_env<_Env>&>()));
 
     // the forwarded completions of the child
@@ -631,13 +631,13 @@ class __let_attrs {
 
     template <bool _Use, class _Tg>
     struct __child_list {
-      using type = __exec_type_list<>;
+      using type _LIBCPP_NODEBUG = __exec_type_list<>;
     };
     template <class _Tg>
     struct __child_list<true, _Tg> {
       using type = __exec_type_list<__child_domain_t<_Tg>>;
     };
-    using __forward_list   = typename __child_list<__forward && __child_domain_ok<_Cpo>, _Cpo>::type;
+    using __forward_list _LIBCPP_NODEBUG   = typename __child_list<__forward && __child_domain_ok<_Cpo>, _Cpo>::type;
     using __exception_list = typename __child_list<__exception && __child_domain_ok<__set_cpo>, __set_cpo>::type;
     using __all =
         typename __concat_type_lists<typename __cont::type, __forward_list, __exception_list>::type;

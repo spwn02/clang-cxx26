@@ -159,7 +159,7 @@ private:
 
 template <class _EF>
 class scope_exit : public __scope_guard<_EF, __scope_guard_kind::__exit> {
-  using __base = __scope_guard<_EF, __scope_guard_kind::__exit>;
+  using __base _LIBCPP_NODEBUG = __scope_guard<_EF, __scope_guard_kind::__exit>;
 
 public:
   using __base::__base;
@@ -169,7 +169,7 @@ scope_exit(_EF) -> scope_exit<_EF>;
 
 template <class _EF>
 class scope_fail : public __scope_guard<_EF, __scope_guard_kind::__fail> {
-  using __base = __scope_guard<_EF, __scope_guard_kind::__fail>;
+  using __base _LIBCPP_NODEBUG = __scope_guard<_EF, __scope_guard_kind::__fail>;
 
 public:
   using __base::__base;
@@ -179,7 +179,7 @@ scope_fail(_EF) -> scope_fail<_EF>;
 
 template <class _EF>
 class scope_success : public __scope_guard<_EF, __scope_guard_kind::__success> {
-  using __base = __scope_guard<_EF, __scope_guard_kind::__success>;
+  using __base _LIBCPP_NODEBUG = __scope_guard<_EF, __scope_guard_kind::__success>;
 
 public:
   using __base::__base;

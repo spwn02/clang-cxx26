@@ -12,12 +12,12 @@
 #  include <__cxx03/__config>
 #else
 #  include <__config>
+#include <__hazard_pointer/hazard_pointer.h>
 #include <atomic>
 #include <cstddef>
 #include <memory>
 #include <mutex>
 #include <utility>
-#include <__hazard_pointer/hazard_pointer.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header

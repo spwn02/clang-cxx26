@@ -33,18 +33,18 @@
 #include <__execution/sender.h>
 #include <__execution/task_scheduler.h>
 #include <__execution/with_awaitable_senders.h>
+#include <__functional/reference_wrapper.h>
 #include <__memory/allocator.h>
 #include <__memory/allocator_arg_t.h>
 #include <__memory/allocator_traits.h>
 #include <__stop_token/inplace_stop_source.h>
 #include <__stop_token/inplace_stop_token.h>
 #include <__type_traits/conditional.h>
-#include <__type_traits/is_void.h>
-#include <__type_traits/is_class.h>
-#include <__type_traits/is_reference.h>
-#include <__type_traits/is_object.h>
 #include <__type_traits/is_array.h>
-#include <__functional/reference_wrapper.h>
+#include <__type_traits/is_class.h>
+#include <__type_traits/is_object.h>
+#include <__type_traits/is_reference.h>
+#include <__type_traits/is_void.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/exchange.h>
 #include <__utility/forward.h>
@@ -83,11 +83,11 @@ with_error(_Err) -> with_error<_Err>;
 // stop_source_type are genuinely customizable, matching [exec.task.type]; error_types is
 // deliberately NOT detected here -- see this file's top comment.
 template <class...>
-using __task_void_t = void;
+using __task_void_t _LIBCPP_NODEBUG = void;
 
 template <class _Environment, class = void>
 struct __task_allocator_type {
-  using type = allocator<byte>;
+  using type _LIBCPP_NODEBUG = allocator<byte>;
 };
 template <class _Environment>
 struct __task_allocator_type<_Environment, __task_void_t<typename _Environment::allocator_type>> {
@@ -98,7 +98,7 @@ using __task_allocator_type_t = typename __task_allocator_type<_Environment>::ty
 
 template <class _Environment, class = void>
 struct __task_scheduler_type_detect {
-  using type = task_scheduler;
+  using type _LIBCPP_NODEBUG = task_scheduler;
 };
 template <class _Environment>
 struct __task_scheduler_type_detect<_Environment, __task_void_t<typename _Environment::start_scheduler_type>> {
@@ -109,7 +109,7 @@ using __task_scheduler_type_t = typename __task_scheduler_type_detect<_Environme
 
 template <class _Environment, class = void>
 struct __task_stop_source_type_detect {
-  using type = inplace_stop_source;
+  using type _LIBCPP_NODEBUG = inplace_stop_source;
 };
 template <class _Environment>
 struct __task_stop_source_type_detect<_Environment, __task_void_t<typename _Environment::stop_source_type>> {
@@ -133,10 +133,10 @@ struct __task_errors { static constexpr bool __valid = false; };
 template <class... _Sigs>
 struct __task_errors<completion_signatures<_Sigs...>> {
   static constexpr bool __valid = (__task_error_sig<_Sigs>::__valid && ...);
-  using __types = tuple<typename __task_error_sig<_Sigs>::type...>;
+  using __types _LIBCPP_NODEBUG = tuple<typename __task_error_sig<_Sigs>::type...>;
   static constexpr bool __has_exception = (same_as<_Sigs, set_error_t(exception_ptr)> || ...);
   template <class _Value>
-  using __completions = completion_signatures<_Value, _Sigs..., set_stopped_t()>;
+  using __completions _LIBCPP_NODEBUG = completion_signatures<_Value, _Sigs..., set_stopped_t()>;
   template <class _Error>
   static constexpr size_t __conversion_count = (size_t(0) + ... + size_t(is_convertible_v<_Error, typename __task_error_sig<_Sigs>::type>));
   template <class _Error>
@@ -179,16 +179,16 @@ template <class _Tp, class _Environment>
 struct __task_result_sink {
   using __arg_t = conditional_t<is_void_v<_Tp>, __task_unit, _Tp>;
 
-  _LIBCPP_HIDE_FROM_ABI virtual _Environment& __environment() noexcept = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual __task_scheduler_type_t<_Environment> __start_scheduler() = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual __task_allocator_type_t<_Environment> __sink_allocator() = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual _Environment& __environment() noexcept = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual __task_scheduler_type_t<_Environment> __start_scheduler() = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual __task_allocator_type_t<_Environment> __sink_allocator() = 0;
   using __token_t = decltype(std::declval<__task_stop_source_type_t<_Environment>&>().get_token());
-  _LIBCPP_HIDE_FROM_ABI virtual __token_t __stop_token() = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual __task_result_t<_Tp>* __result_storage() noexcept = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual void __complete_value(__arg_t&&) noexcept    = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual void __complete_error(exception_ptr) noexcept = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual void __complete_custom(size_t, void*) noexcept = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual void __complete_stopped() noexcept          = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual __token_t __stop_token() = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual __task_result_t<_Tp>* __result_storage() noexcept = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete_value(__arg_t&&) noexcept    = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete_error(exception_ptr) noexcept = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete_custom(size_t, void*) noexcept = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete_stopped() noexcept          = 0;
 
 protected:
   _LIBCPP_HIDE_FROM_ABI ~__task_result_sink() = default;
@@ -238,14 +238,14 @@ struct __task_own_env<_Environment, _RcvrEnv,
 
 template <class _PromiseType, class _Tp, class _Environment, class _Rcvr>
 class __task_opstate final : public __task_result_sink<_Tp, _Environment> {
-  using __arg_t = typename __task_result_sink<_Tp, _Environment>::__arg_t;
+  using __arg_t _LIBCPP_NODEBUG = typename __task_result_sink<_Tp, _Environment>::__arg_t;
 
 public:
   using operation_state_concept = operation_state_tag;
 
   using __own_env_t = typename __task_own_env<_Environment, env_of_t<_Rcvr>>::type;
   using __source_t = __task_stop_source_type_t<_Environment>;
-  using __token_t = typename __task_result_sink<_Tp, _Environment>::__token_t;
+  using __token_t _LIBCPP_NODEBUG = typename __task_result_sink<_Tp, _Environment>::__token_t;
   template <class _Type, class _Arg>
   _LIBCPP_HIDE_FROM_ABI static _Type __make_env(_Arg&& __arg) {
     if constexpr (is_constructible_v<_Type, _Arg>)

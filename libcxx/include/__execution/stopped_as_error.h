@@ -11,8 +11,8 @@
 
 #include <__concepts/constructible.h>
 #include <__config>
-#include <__execution/completion_functions.h>
 #include <__execution/completion_attrs.h>
+#include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_completion_signatures.h>

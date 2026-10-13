@@ -12,13 +12,13 @@
 #include <__assert>
 #include <__condition_variable/condition_variable.h>
 #include <__config>
+#include <__exception/terminate.h>
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
+#include <__execution/domain.h>
 #include <__execution/get_env.h>
 #include <__execution/get_forward_progress_guarantee.h>
 #include <__execution/get_scheduler.h>
-#include <__exception/terminate.h>
-#include <__execution/domain.h>
 #include <__execution/get_stop_token.h>
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
@@ -222,7 +222,7 @@ private:
 // Dispatch through the bound backend, keeping it alive through operation completion.
 template <class _Rcvr>
 class __parallel_opstate final : public execution::parallel_scheduler_replacement::receiver_proxy {
-  using _StopToken = decltype(std::get_stop_token(execution::get_env(std::declval<_Rcvr&>())));
+  using _StopToken _LIBCPP_NODEBUG = decltype(std::get_stop_token(execution::get_env(std::declval<_Rcvr&>())));
 
 public:
   using operation_state_concept = operation_state_tag;
@@ -248,17 +248,17 @@ public:
   }
 
 private:
-  _LIBCPP_HIDE_FROM_ABI void set_value() noexcept override { execution::set_value(std::move(__rcvr_)); }
-  _LIBCPP_HIDE_FROM_ABI void set_stopped() noexcept override { execution::set_stopped(std::move(__rcvr_)); }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void set_value() noexcept override { execution::set_value(std::move(__rcvr_)); }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void set_stopped() noexcept override { execution::set_stopped(std::move(__rcvr_)); }
   // [exec.par.scheduler]: "r.set_error(e) has effects equivalent to set_error(std::move(rcvr), std::move(e))", but the
   // draft gives the schedule sender no error completion (task_scheduler needs an infallible-scheduler; LWG candidate
   // on #263, #270): the library advertises none, so a receiver cannot be assumed to handle one (the forwarding
   // receivers of the adaptors would fail to compile for a receiver that does not). A backend that reports a scheduling
   // error is therefore a contract violation of the advertised signatures: terminate deterministically (before, the
   // receiver was never completed unless hardening was enabled).
-  [[noreturn]] _LIBCPP_HIDE_FROM_ABI void set_error(std::exception_ptr) noexcept override { std::terminate(); }
+  [[noreturn]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL void set_error(std::exception_ptr) noexcept override { std::terminate(); }
 
-  _LIBCPP_HIDE_FROM_ABI bool
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL bool
   __query_env(const type_info& __query_type, const type_info& __result_type, const void*, void* __result_storage)
       const noexcept override {
     if (__query_type == typeid(get_stop_token_t) && __result_type == typeid(_StopToken)) {

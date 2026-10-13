@@ -21,8 +21,8 @@
 #include <__type_traits/common_type.h>
 #include <__type_traits/conditional.h>
 #include <__type_traits/decay.h>
-#include <__type_traits/is_void.h>
 #include <__type_traits/is_same.h>
+#include <__type_traits/is_void.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/as_const.h>
 #include <__utility/declval.h>
@@ -113,7 +113,7 @@ template <class _Domains, class... _Ts>
 struct __unique_domains;
 template <class... _Us>
 struct __unique_domains<indeterminate_domain<_Us...>> {
-  using type = indeterminate_domain<_Us...>;
+  using type _LIBCPP_NODEBUG = indeterminate_domain<_Us...>;
 };
 template <class... _Us, class _Tp, class... _Ts>
 struct __unique_domains<indeterminate_domain<_Us...>, _Tp, _Ts...>
@@ -126,7 +126,7 @@ struct __unique_domains<indeterminate_domain<_Us...>, _Tp, _Ts...>
 // [exec.domain.indeterminate]p4: the common type of an indeterminate_domain with another domain.
 template <class... _Ds, class... _Us>
 struct common_type<execution::indeterminate_domain<_Ds...>, execution::indeterminate_domain<_Us...>> {
-  using type = typename execution::__unique_domains<execution::indeterminate_domain<>, _Ds..., _Us...>::type;
+  using type _LIBCPP_NODEBUG = typename execution::__unique_domains<execution::indeterminate_domain<>, _Ds..., _Us...>::type;
 };
 
 template <class... _Domains, class _Dom>
@@ -298,14 +298,14 @@ __transformed_sndr(_Dom, _Tag __tag, _Sndr&& __sndr, const _Env& __env) noexcept
 // transformed sender otherwise.
 template <class _Tag, class _Sndr, class _Env>
 struct __next_domain {
-  using type = decltype(execution::__completion_domain(std::declval<_Sndr>(), std::declval<const _Env&>()));
+  using type _LIBCPP_NODEBUG = decltype(execution::__completion_domain(std::declval<_Sndr>(), std::declval<const _Env&>()));
 };
 template <class _Sndr, class _Env>
 struct __next_domain<start_t, _Sndr, _Env> {
-  using type = decltype(execution::__start_domain(std::declval<const _Env&>()));
+  using type _LIBCPP_NODEBUG = decltype(execution::__start_domain(std::declval<const _Env&>()));
 };
 template <class _Tag, class _Sndr, class _Env>
-using __next_domain_t = typename __next_domain<_Tag, _Sndr, _Env>::type;
+using __next_domain_t _LIBCPP_NODEBUG = typename __next_domain<_Tag, _Sndr, _Env>::type;
 
 template <class _Dom, class _Tag, class _Sndr, class _Env>
 _LIBCPP_HIDE_FROM_ABI constexpr bool __transform_recurse_nothrow() noexcept {
@@ -347,7 +347,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __transform_recurse(_Dom __dom, _
 }
 
 template <class _Sndr, class _Env>
-using __tmp_sndr_t = decltype(execution::__transform_recurse(
+using __tmp_sndr_t _LIBCPP_NODEBUG = decltype(execution::__transform_recurse(
     execution::__completion_domain(std::declval<_Sndr>(), std::declval<const _Env&>()),
     set_value_t{},
     std::declval<_Sndr>(),

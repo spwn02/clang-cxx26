@@ -7,9 +7,6 @@
 #define _LIBCPP___RANGES_CACHE_LATEST_VIEW_H
 
 #include <__config>
-#include <concepts>
-#include <iterator>
-#include <type_traits>
 #include <__memory/addressof.h>
 #include <__ranges/all.h>
 #include <__ranges/concepts.h>
@@ -19,6 +16,9 @@
 #include <__type_traits/conditional.h>
 #include <__utility/as_lvalue.h>
 #include <__utility/forward.h>
+#include <concepts>
+#include <iterator>
+#include <type_traits>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header

@@ -10,12 +10,12 @@
 #ifndef _LIBCPP___ITERATOR_CONST_ITERATOR_H
 #define _LIBCPP___ITERATOR_CONST_ITERATOR_H
 
-#include <__config>
 #include <__compare/three_way_comparable.h>
 #include <__concepts/common_with.h>
 #include <__concepts/convertible_to.h>
 #include <__concepts/same_as.h>
 #include <__concepts/semiregular.h>
+#include <__config>
 #include <__iterator/concepts.h>
 #include <__iterator/iter_move.h>
 #include <__iterator/iterator_traits.h>
@@ -64,19 +64,19 @@ template <class _Tp>
 concept __not_a_const_iterator = !__is_basic_const_iterator<remove_cvref_t<_Tp>>;
 
 template <indirectly_readable _It>
-using __iter_const_rvalue_reference_t = common_reference_t<const iter_value_t<_It>&&, iter_rvalue_reference_t<_It>>;
+using __iter_const_rvalue_reference_t _LIBCPP_NODEBUG = common_reference_t<const iter_value_t<_It>&&, iter_rvalue_reference_t<_It>>;
 
 template <input_iterator _It>
 using const_iterator = conditional_t<__constant_iterator<_It>, _It, basic_const_iterator<_It>>;
 
 template <class _Sent>
 struct __const_sentinel {
-  using type = _Sent;
+  using type _LIBCPP_NODEBUG = _Sent;
 };
 
 template <input_iterator _Sent>
 struct __const_sentinel<_Sent> {
-  using type = const_iterator<_Sent>;
+  using type _LIBCPP_NODEBUG = const_iterator<_Sent>;
 };
 
 template <semiregular _Sent>
@@ -85,8 +85,8 @@ using const_sentinel = typename __const_sentinel<_Sent>::type;
 template <input_iterator _It>
 class basic_const_iterator : public __const_iterator_category<_It> {
   _It __current_ = _It();
-  using __reference       = iter_const_reference_t<_It>;
-  using __rvalue_reference = __iter_const_rvalue_reference_t<_It>;
+  using __reference _LIBCPP_NODEBUG       = iter_const_reference_t<_It>;
+  using __rvalue_reference _LIBCPP_NODEBUG = __iter_const_rvalue_reference_t<_It>;
 
   static auto __iterator_concept() {
     if constexpr (contiguous_iterator<_It>)
@@ -271,17 +271,17 @@ public:
 template <class _Tp, common_with<_Tp> _Up>
   requires input_iterator<common_type_t<_Tp, _Up>>
 struct common_type<basic_const_iterator<_Tp>, _Up> {
-  using type = basic_const_iterator<common_type_t<_Tp, _Up>>;
+  using type _LIBCPP_NODEBUG = basic_const_iterator<common_type_t<_Tp, _Up>>;
 };
 template <class _Tp, common_with<_Tp> _Up>
   requires input_iterator<common_type_t<_Tp, _Up>>
 struct common_type<_Up, basic_const_iterator<_Tp>> {
-  using type = basic_const_iterator<common_type_t<_Tp, _Up>>;
+  using type _LIBCPP_NODEBUG = basic_const_iterator<common_type_t<_Tp, _Up>>;
 };
 template <class _Tp, common_with<_Tp> _Up>
   requires input_iterator<common_type_t<_Tp, _Up>>
 struct common_type<basic_const_iterator<_Tp>, basic_const_iterator<_Up>> {
-  using type = basic_const_iterator<common_type_t<_Tp, _Up>>;
+  using type _LIBCPP_NODEBUG = basic_const_iterator<common_type_t<_Tp, _Up>>;
 };
 
 template <input_iterator _It>

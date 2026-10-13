@@ -17,8 +17,8 @@
 #include <__execution/env.h>
 #include <__execution/queryable.h>
 #include <__execution/sender.h>
-#include <__type_traits/integral_constant.h>
 #include <__type_traits/decay.h>
+#include <__type_traits/integral_constant.h>
 #include <__type_traits/is_same.h>
 #include <__type_traits/remove_reference.h>
 #include <__type_traits/type_identity.h>
@@ -61,14 +61,14 @@ concept __has_member_get_completion_signatures =
 // branch would ultimately be selected.
 template <class _Tp>
 struct __set_value_sig {
-  using type = set_value_t(_Tp);
+  using type _LIBCPP_NODEBUG = set_value_t(_Tp);
 };
 template <>
 struct __set_value_sig<void> {
-  using type = set_value_t();
+  using type _LIBCPP_NODEBUG = set_value_t();
 };
 template <class _Tp>
-using __set_value_sig_t = typename __set_value_sig<_Tp>::type;
+using __set_value_sig_t _LIBCPP_NODEBUG = typename __set_value_sig<_Tp>::type;
 
 // [exec.getcomplsigs]: NewSndr is Sndr if sizeof...(Env) == 0; otherwise
 // decltype(transform_sender(declval<Sndr>(), declval<Env>()...)).
@@ -79,7 +79,7 @@ _LIBCPP_HIDE_FROM_ABI auto __get_compl_sigs_new_sndr()
     -> decltype(execution::transform_sender(std::declval<_Sndr>(), std::declval<_Env>()));
 
 template <class _Sndr, class... _Env>
-using __get_compl_sigs_new_sndr_t = decltype(execution::__get_compl_sigs_new_sndr<_Sndr, _Env...>());
+using __get_compl_sigs_new_sndr_t _LIBCPP_NODEBUG = decltype(execution::__get_compl_sigs_new_sndr<_Sndr, _Env...>());
 
 // [exec.getcomplsigs] (3.3): the awaitable fallback, reached only when neither member
 // get_completion_signatures overload above is viable -- this disjunct is therefore only
@@ -178,24 +178,24 @@ struct __empty_variant {
 
 template <class _List, class _Tp>
 struct __type_list_append_unique {
-  using type = _List;
+  using type _LIBCPP_NODEBUG = _List;
 };
 template <class... _Ts, class _Tp>
   requires(!(is_same_v<_Ts, _Tp> || ...))
 struct __type_list_append_unique<__exec_type_list<_Ts...>, _Tp> {
-  using type = __exec_type_list<_Ts..., _Tp>;
+  using type _LIBCPP_NODEBUG = __exec_type_list<_Ts..., _Tp>;
 };
 
 template <class _List, class... _Ts>
 struct __type_list_dedup {
-  using type = _List;
+  using type _LIBCPP_NODEBUG = _List;
 };
 template <class _List, class _Tp, class... _Rest>
 struct __type_list_dedup<_List, _Tp, _Rest...>
     : __type_list_dedup<typename __type_list_append_unique<_List, _Tp>::type, _Rest...> {};
 
 template <class... _Ts>
-using __dedup_type_list_t = typename __type_list_dedup<__exec_type_list<>, _Ts...>::type;
+using __dedup_type_list_t _LIBCPP_NODEBUG = typename __type_list_dedup<__exec_type_list<>, _Ts...>::type;
 
 template <class... _Ts>
 struct __variant_or_empty_impl {
@@ -203,17 +203,17 @@ struct __variant_or_empty_impl {
   struct __to_variant;
   template <class... _Us>
   struct __to_variant<__exec_type_list<_Us...>> {
-    using type = variant<_Us...>;
+    using type _LIBCPP_NODEBUG = variant<_Us...>;
   };
   using type = typename __to_variant<__dedup_type_list_t<decay_t<_Ts>...>>::type;
 };
 template <>
 struct __variant_or_empty_impl<> {
-  using type = __empty_variant;
+  using type _LIBCPP_NODEBUG = __empty_variant;
 };
 
 template <class... _Ts>
-using __variant_or_empty = typename __variant_or_empty_impl<_Ts...>::type;
+using __variant_or_empty _LIBCPP_NODEBUG = typename __variant_or_empty_impl<_Ts...>::type;
 
 template <class _Sndr,
           class _Env                                = env<>,
@@ -255,22 +255,22 @@ struct __single_sender_value_type_impl {}; // more than one set_value shape: ill
 
 template <>
 struct __single_sender_value_type_impl<__exec_type_list<>> {
-  using type = void; // no set_value completion at all: (2.2)'s variant<> case.
+  using type _LIBCPP_NODEBUG = void; // no set_value completion at all: (2.2)'s variant<> case.
 };
 
 template <class... _Args>
 struct __single_sender_value_type_impl<__exec_type_list<tuple<_Args...>>> {
-  using type = tuple<_Args...>; // (2.3): the single completion's decayed-tuple shape.
+  using type _LIBCPP_NODEBUG = tuple<_Args...>; // (2.3): the single completion's decayed-tuple shape.
 };
 
 template <>
 struct __single_sender_value_type_impl<__exec_type_list<tuple<>>> {
-  using type = void; // (2.2)'s variant<tuple<>> case: the single completion has zero datums.
+  using type _LIBCPP_NODEBUG = void; // (2.2)'s variant<tuple<>> case: the single completion has zero datums.
 };
 
 template <class _Arg>
 struct __single_sender_value_type_impl<__exec_type_list<tuple<_Arg>>> {
-  using type = _Arg; // (2.1): the single completion's single datum, unwrapped.
+  using type _LIBCPP_NODEBUG = _Arg; // (2.1): the single completion's single datum, unwrapped.
 };
 
 template <class _Sndr, class _Env = env<>>

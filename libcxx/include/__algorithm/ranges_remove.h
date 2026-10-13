@@ -8,8 +8,8 @@
 
 #ifndef _LIBCPP___ALGORITHM_RANGES_REMOVE_H
 #define _LIBCPP___ALGORITHM_RANGES_REMOVE_H
-#include <__config>
 #include <__algorithm/pstl.h>
+#include <__config>
 #include <__functional/invoke.h>
 #include <__type_traits/is_execution_policy.h>
 #include <__type_traits/remove_cvref.h>

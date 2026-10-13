@@ -16,10 +16,10 @@
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
+#include <__execution/domain.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_allocator.h>
 #include <__execution/get_completion_signatures.h>
-#include <__execution/domain.h>
 #include <__execution/get_env.h>
 #include <__execution/get_scheduler.h>
 #include <__execution/movable_value.h>
@@ -82,7 +82,7 @@ public:
   // Non-intercepted completion signatures pass through unchanged.
   template <class _Sig>
   struct __one {
-    using type = __exec_type_list<_Sig>;
+    using type _LIBCPP_NODEBUG = __exec_type_list<_Sig>;
   };
 
   // A `void` specialization is required here, rather than picking between `set_value_t()`
@@ -95,11 +95,11 @@ public:
   // `set_value_t(_ResultT)` is simply never instantiated for `_ResultT = void`.
   template <class _ResultT>
   struct __then_value_sig {
-    using type = set_value_t(_ResultT);
+    using type _LIBCPP_NODEBUG = set_value_t(_ResultT);
   };
   template <>
   struct __then_value_sig<void> {
-    using type = set_value_t();
+    using type _LIBCPP_NODEBUG = set_value_t();
   };
 
   // [exec.then]p4's TRY-SET-VALUE(rcvr, invoke(fn, args...)): the intercepted completion
@@ -124,15 +124,15 @@ public:
   struct __to_completion_signatures;
   template <class... _Sigs>
   struct __to_completion_signatures<__exec_type_list<_Sigs...>> {
-    using type = completion_signatures<_Sigs...>;
+    using type _LIBCPP_NODEBUG = completion_signatures<_Sigs...>;
   };
 
   template <class _Completions>
   struct __impl;
   template <class... _Fns>
   struct __impl<completion_signatures<_Fns...>> {
-    using __gathered = typename __concat_type_lists<typename __one<_Fns>::type...>::type;
-    using type        = typename __to_completion_signatures<typename __dedup<__gathered>::type>::type;
+    using __gathered _LIBCPP_NODEBUG = typename __concat_type_lists<typename __one<_Fns>::type...>::type;
+    using type _LIBCPP_NODEBUG        = typename __to_completion_signatures<typename __dedup<__gathered>::type>::type;
   };
 };
 
@@ -238,7 +238,7 @@ struct __then_contrib {
 };
 
 template <class _Tag, class _Fn, class _Child, class _ChildAttrs>
-using __then_attrs = __completion_attrs<__then_contrib<_Tag, _Fn>, _Child, _ChildAttrs>;
+using __then_attrs _LIBCPP_NODEBUG = __completion_attrs<__then_contrib<_Tag, _Fn>, _Child, _ChildAttrs>;
 
 // An aggregate with public `tag`/`data`/`child` members, matching the (tag, data,
 // ...children) shape tag_of_t (<__execution/sender.h>) decomposes via structured bindings.

@@ -834,7 +834,7 @@ struct formatter<float128_t, _CharT> : public __formatter_floating_point<_CharT>
 #    if defined(__STDCPP_FLOAT16_T__)
 template <__fmt_char_type _CharT>
 struct formatter<float16_t, _CharT> : public __formatter_floating_point<_CharT> {
-  using __base = __formatter_floating_point<_CharT>;
+  using __base _LIBCPP_NODEBUG = __formatter_floating_point<_CharT>;
   using __base::parse;
   template <class _FormatContext>
   _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(float16_t __value, _FormatContext& __ctx) const {
@@ -846,7 +846,7 @@ struct formatter<float16_t, _CharT> : public __formatter_floating_point<_CharT> 
 #    if defined(__STDCPP_FLOAT32_T__)
 template <__fmt_char_type _CharT>
 struct formatter<float32_t, _CharT> : public __formatter_floating_point<_CharT> {
-  using __base = __formatter_floating_point<_CharT>;
+  using __base _LIBCPP_NODEBUG = __formatter_floating_point<_CharT>;
   using __base::parse;
   template <class _FormatContext>
   _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(float32_t __value, _FormatContext& __ctx) const {
@@ -857,7 +857,7 @@ struct formatter<float32_t, _CharT> : public __formatter_floating_point<_CharT> 
 #    if defined(__STDCPP_FLOAT64_T__)
 template <__fmt_char_type _CharT>
 struct formatter<float64_t, _CharT> : public __formatter_floating_point<_CharT> {
-  using __base = __formatter_floating_point<_CharT>;
+  using __base _LIBCPP_NODEBUG = __formatter_floating_point<_CharT>;
   using __base::parse;
   template <class _FormatContext>
   _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(float64_t __value, _FormatContext& __ctx) const {
@@ -868,7 +868,7 @@ struct formatter<float64_t, _CharT> : public __formatter_floating_point<_CharT> 
 #    if defined(__STDCPP_BFLOAT16_T__)
 template <__fmt_char_type _CharT>
 struct formatter<bfloat16_t, _CharT> : public __formatter_floating_point<_CharT> {
-  using __base = __formatter_floating_point<_CharT>;
+  using __base _LIBCPP_NODEBUG = __formatter_floating_point<_CharT>;
   using __base::parse;
   template <class _FormatContext>
   _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(bfloat16_t __value, _FormatContext& __ctx) const {

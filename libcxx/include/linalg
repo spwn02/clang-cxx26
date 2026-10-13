@@ -64,7 +64,7 @@ struct __real_type {
 };
 template <class _Tp>
 struct __real_type<complex<_Tp>> {
-  using type = _Tp;
+  using type _LIBCPP_NODEBUG = _Tp;
 };
 template <class _Tp>
 using __real_type_t = typename __real_type<remove_cv_t<_Tp>>::type;
@@ -348,9 +348,9 @@ public:
                   "layout_transpose::mapping template argument must be a specialization of extents");
     static_assert(_Extents::rank() == 2, "layout_transpose::mapping requires rank-two extents");
 
-    using __nested_extents =
+    using __nested_extents _LIBCPP_NODEBUG =
         extents<typename _Extents::index_type, _Extents::static_extent(1), _Extents::static_extent(0)>;
-    using __nested_mapping = typename _Layout::template mapping<__nested_extents>;
+    using __nested_mapping _LIBCPP_NODEBUG = typename _Layout::template mapping<__nested_extents>;
 
   public:
     using extents_type        = _Extents;
@@ -358,7 +358,7 @@ public:
     using size_type           = typename extents_type::size_type;
     using rank_type           = typename extents_type::rank_type;
     using layout_type         = layout_transpose;
-    using __nested_mapping_type = __nested_mapping;
+    using __nested_mapping_type _LIBCPP_NODEBUG = __nested_mapping;
 
     _LIBCPP_HIDE_FROM_ABI constexpr explicit mapping(const __nested_mapping_type& __mapping)
         : __nested_mapping_(__mapping), __extents_(__mapping.extents().extent(1), __mapping.extents().extent(0)) {}
@@ -423,7 +423,7 @@ template <class _Layout>
 struct __is_layout_transpose : false_type {};
 template <class _NestedLayout>
 struct __is_layout_transpose<layout_transpose<_NestedLayout>> : true_type {
-  using type = _NestedLayout;
+  using type _LIBCPP_NODEBUG = _NestedLayout;
 };
 template <class _Layout>
 inline constexpr bool __is_layout_transpose_v = __is_layout_transpose<_Layout>::value;
@@ -436,7 +436,7 @@ template <size_t _Padding> struct __is_layout_right_padded<layout_right_padded<_
 template <class _Layout> inline constexpr bool __is_layout_right_padded_v = __is_layout_right_padded<_Layout>::value;
 
 template <class _Extents>
-using __transpose_extents_t =
+using __transpose_extents_t _LIBCPP_NODEBUG =
     extents<typename _Extents::index_type, _Extents::static_extent(1), _Extents::static_extent(0)>;
 
 // [linalg.helpers.concepts], linear algebra argument concepts. These are checked via trailing
@@ -593,7 +593,7 @@ private:
 namespace __detail {
 template <class _Accessor>
 struct __conjugated_accessor_or_self {
-  using type = conjugated_accessor<_Accessor>;
+  using type _LIBCPP_NODEBUG = conjugated_accessor<_Accessor>;
 };
 
 template <class _Accessor>
@@ -601,7 +601,7 @@ inline constexpr bool __is_conjugated_accessor_v = false;
 
 template <class _NestedAccessor>
 struct __conjugated_accessor_or_self<conjugated_accessor<_NestedAccessor>> {
-  using type = _NestedAccessor;
+  using type _LIBCPP_NODEBUG = _NestedAccessor;
 };
 
 template <class _NestedAccessor>
@@ -791,444 +791,444 @@ constexpr typename _InVec::size_type vector_idx_abs_max(_ExecutionPolicy&&, _InV
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_frob_norm(_InMat __A, _Scalar __init);
+constexpr _Scalar matrix_frob_norm(_InMat __a, _Scalar __init);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_frob_norm(_ExecutionPolicy&&, _InMat __A, _Scalar __init)
+constexpr _Scalar matrix_frob_norm(_ExecutionPolicy&&, _InMat __a, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat>
-constexpr auto matrix_frob_norm(_InMat __A);
+constexpr auto matrix_frob_norm(_InMat __a);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat>
-constexpr auto matrix_frob_norm(_ExecutionPolicy&&, _InMat __A)
+constexpr auto matrix_frob_norm(_ExecutionPolicy&&, _InMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_one_norm(_InMat __A, _Scalar __init);
+constexpr _Scalar matrix_one_norm(_InMat __a, _Scalar __init);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_one_norm(_ExecutionPolicy&&, _InMat __A, _Scalar __init)
+constexpr _Scalar matrix_one_norm(_ExecutionPolicy&&, _InMat __a, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat>
-constexpr auto matrix_one_norm(_InMat __A);
+constexpr auto matrix_one_norm(_InMat __a);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat>
-constexpr auto matrix_one_norm(_ExecutionPolicy&&, _InMat __A)
+constexpr auto matrix_one_norm(_ExecutionPolicy&&, _InMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_inf_norm(_InMat __A, _Scalar __init);
+constexpr _Scalar matrix_inf_norm(_InMat __a, _Scalar __init);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_inf_norm(_ExecutionPolicy&&, _InMat __A, _Scalar __init)
+constexpr _Scalar matrix_inf_norm(_ExecutionPolicy&&, _InMat __a, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat>
-constexpr auto matrix_inf_norm(_InMat __A);
+constexpr auto matrix_inf_norm(_InMat __a);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat>
-constexpr auto matrix_inf_norm(_ExecutionPolicy&&, _InMat __A)
+constexpr auto matrix_inf_norm(_ExecutionPolicy&&, _InMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void matrix_vector_product(_InMat __A, _InVec __x, _OutVec __y);
+constexpr void matrix_vector_product(_InMat __a, _InVec __x, _OutVec __y);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _InVec __x, _OutVec __y)
+constexpr void matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void matrix_vector_product(_InMat __A, _InVec1 __x, _InVec2 __y, _OutVec __z);
+constexpr void matrix_vector_product(_InMat __a, _InVec1 __x, _InVec2 __y, _OutVec __z);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void symmetric_matrix_vector_product(_InMat __A, _Triangle __t, _InVec __x, _OutVec __y);
+constexpr void symmetric_matrix_vector_product(_InMat __a, _Triangle __t, _InVec __x, _OutVec __y);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void symmetric_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _InVec __x, _OutVec __y)
+constexpr void symmetric_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void symmetric_matrix_vector_product(_InMat __A, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z);
+constexpr void symmetric_matrix_vector_product(_InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void symmetric_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void symmetric_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void hermitian_matrix_vector_product(_InMat __A, _Triangle __t, _InVec __x, _OutVec __y);
+constexpr void hermitian_matrix_vector_product(_InMat __a, _Triangle __t, _InVec __x, _OutVec __y);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void hermitian_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _InVec __x, _OutVec __y)
+constexpr void hermitian_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void hermitian_matrix_vector_product(_InMat __A, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z);
+constexpr void hermitian_matrix_vector_product(_InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void hermitian_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void hermitian_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_product(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __x, _OutVec __y);
+constexpr void triangular_matrix_vector_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __x, _OutVec __y);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __x, _OutVec __y)
+constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec>
-constexpr void triangular_matrix_vector_product(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __y);
+constexpr void triangular_matrix_vector_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __y);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec>
-constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __y)
+constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_product(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec1 __x, _InVec2 __y, _OutVec __z);
+constexpr void triangular_matrix_vector_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec1 __x, _InVec2 __y, _OutVec __z);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec, class _BinaryDivideOp>
-constexpr void triangular_matrix_vector_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x, _BinaryDivideOp __divide);
+constexpr void triangular_matrix_vector_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x, _BinaryDivideOp __divide);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec, class _BinaryDivideOp>
-constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x);
+constexpr void triangular_matrix_vector_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x)
+constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec, class _BinaryDivideOp>
-constexpr void triangular_matrix_vector_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __b, _BinaryDivideOp __divide);
+constexpr void triangular_matrix_vector_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b, _BinaryDivideOp __divide);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec, class _BinaryDivideOp>
-constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __b, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec>
-constexpr void triangular_matrix_vector_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __b);
+constexpr void triangular_matrix_vector_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec>
-constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __b)
+constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update(_InVec1 __x, _InVec2 __y, _OutMat __A);
+constexpr void matrix_rank_1_update(_InVec1 __x, _InVec2 __y, _OutMat __a);
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __A)
+constexpr void matrix_rank_1_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update_c(_InVec1 __x, _InVec2 __y, _OutMat __A);
+constexpr void matrix_rank_1_update_c(_InVec1 __x, _InVec2 __y, _OutMat __a);
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update_c(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __A)
+constexpr void matrix_rank_1_update_c(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update(_InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A);
+constexpr void matrix_rank_1_update(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a);
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A)
+constexpr void matrix_rank_1_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update_c(_InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A);
+constexpr void matrix_rank_1_update_c(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a);
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update_c(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A)
+constexpr void matrix_rank_1_update_c(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _OutMat __A, _Triangle __t);
+constexpr void symmetric_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _OutMat __A, _Triangle __t);
+constexpr void hermitian_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _InMat __E, _OutMat __A, _Triangle __t);
+constexpr void symmetric_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _InMat __E, _OutMat __A, _Triangle __t);
+constexpr void hermitian_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _OutMat __A, _Triangle __t);
+constexpr void symmetric_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _OutMat __A, _Triangle __t);
+constexpr void hermitian_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A, _Triangle __t);
+constexpr void symmetric_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A, _Triangle __t);
+constexpr void hermitian_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void matrix_product(_InMat1 __A, _InMat2 __B, _OutMat __C);
+constexpr void matrix_product(_InMat1 __a, _InMat2 __b, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _OutMat __C)
+constexpr void matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void matrix_product(_InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C);
+constexpr void matrix_product(_InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_InMat1 __A, _Triangle __t, _InMat2 __B, _OutMat __C);
+constexpr void symmetric_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _InMat2 __B, _OutMat __C)
+constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_InMat1 __A, _Triangle __t, _InMat2 __B, _OutMat __C);
+constexpr void hermitian_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _InMat2 __B, _OutMat __C)
+constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __C);
+constexpr void triangular_matrix_product(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __C)
+constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _OutMat __C);
+constexpr void symmetric_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _OutMat __C)
+constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _OutMat __C);
+constexpr void hermitian_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _OutMat __C)
+constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, class _DiagonalStorage, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _DiagonalStorage __d, _OutMat __C);
+constexpr void triangular_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, class _DiagonalStorage, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _DiagonalStorage __d, _OutMat __C)
+constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_InMat1 __A, _Triangle __t, _InMat2 __B, _InMat3 __E, _OutMat __C);
+constexpr void symmetric_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_InMat1 __A, _Triangle __t, _InMat2 __B, _InMat3 __E, _OutMat __C);
+constexpr void hermitian_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _InMat3 __E, _OutMat __C);
+constexpr void triangular_matrix_product(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _InMat3 __e, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _InMat3 __E, _OutMat __C);
+constexpr void symmetric_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _InMat3 __E, _OutMat __C)
+constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _InMat3 __E, _OutMat __C);
+constexpr void hermitian_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _InMat3 __E, _OutMat __C)
+constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _DiagonalStorage __d, _InMat3 __E, _OutMat __C);
+constexpr void triangular_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _InMat3 __e, _OutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _DiagonalStorage __d, _InMat3 __E, _OutMat __C)
+constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_left_product(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __C);
+constexpr void triangular_matrix_left_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_left_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __C)
+constexpr void triangular_matrix_left_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_right_product(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __C);
+constexpr void triangular_matrix_right_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_right_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __C)
+constexpr void triangular_matrix_right_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_k_update(_Scalar __alpha, _InMat __A, _OutMat __C, _Triangle __t);
+constexpr void symmetric_matrix_rank_k_update(_Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat __A, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_k_update(_Scalar __alpha, _InMat __A, _OutMat __C, _Triangle __t);
+constexpr void hermitian_matrix_rank_k_update(_Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat __A, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_k_update(_Scalar __alpha, _InMat1 __A, _InMat2 __E, _OutMat __C, _Triangle __t);
+constexpr void symmetric_matrix_rank_k_update(_Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat1 __A, _InMat2 __E, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_k_update(_Scalar __alpha, _InMat1 __A, _InMat2 __E, _OutMat __C, _Triangle __t);
+constexpr void hermitian_matrix_rank_k_update(_Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat1 __A, _InMat2 __E, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2k_update(_InMat1 __A, _InMat2 __B, _OutMat __C, _Triangle __t);
+constexpr void symmetric_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2k_update(_InMat1 __A, _InMat2 __B, _OutMat __C, _Triangle __t);
+constexpr void hermitian_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2k_update(_InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C, _Triangle __t);
+constexpr void symmetric_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2k_update(_InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C, _Triangle __t);
+constexpr void hermitian_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_left_solve(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X, _BinaryDivideOp __divide);
+constexpr void triangular_matrix_matrix_left_solve(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x, _BinaryDivideOp __divide);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_matrix_left_solve(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X);
+constexpr void triangular_matrix_matrix_left_solve(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X)
+constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_right_solve(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X, _BinaryDivideOp __divide);
+constexpr void triangular_matrix_matrix_right_solve(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x, _BinaryDivideOp __divide);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_matrix_right_solve(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X);
+constexpr void triangular_matrix_matrix_right_solve(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X)
+constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_left_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B, _BinaryDivideOp __divide);
+constexpr void triangular_matrix_matrix_left_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_matrix_left_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B);
+constexpr void triangular_matrix_matrix_left_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B)
+constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_right_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B, _BinaryDivideOp __divide);
+constexpr void triangular_matrix_matrix_right_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_matrix_right_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B);
+constexpr void triangular_matrix_matrix_right_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b);
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B)
+constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 
@@ -4261,822 +4261,822 @@ constexpr typename _InVec::size_type vector_idx_abs_max(_ExecutionPolicy&&, _InV
 }
 
 template <__detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_frob_norm(_InMat __A, _Scalar __init)
+constexpr _Scalar matrix_frob_norm(_InMat __a, _Scalar __init)
 {
-  return __matrix_frob_norm_impl(__A, __init);
+  return __matrix_frob_norm_impl(__a, __init);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_frob_norm(_ExecutionPolicy&&, _InMat __A, _Scalar __init)
+constexpr _Scalar matrix_frob_norm(_ExecutionPolicy&&, _InMat __a, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_frob_norm_impl(__A, __init);
+  return __matrix_frob_norm_impl(__a, __init);
 }
 
 template <__detail::__in_matrix _InMat>
-constexpr auto matrix_frob_norm(_InMat __A)
+constexpr auto matrix_frob_norm(_InMat __a)
 {
-  return __matrix_frob_norm_impl(__A);
+  return __matrix_frob_norm_impl(__a);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat>
-constexpr auto matrix_frob_norm(_ExecutionPolicy&&, _InMat __A)
+constexpr auto matrix_frob_norm(_ExecutionPolicy&&, _InMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_frob_norm_impl(__A);
+  return __matrix_frob_norm_impl(__a);
 }
 
 template <__detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_one_norm(_InMat __A, _Scalar __init)
+constexpr _Scalar matrix_one_norm(_InMat __a, _Scalar __init)
 {
-  return __matrix_one_norm_impl(__A, __init);
+  return __matrix_one_norm_impl(__a, __init);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_one_norm(_ExecutionPolicy&&, _InMat __A, _Scalar __init)
+constexpr _Scalar matrix_one_norm(_ExecutionPolicy&&, _InMat __a, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_one_norm_impl(__A, __init);
+  return __matrix_one_norm_impl(__a, __init);
 }
 
 template <__detail::__in_matrix _InMat>
-constexpr auto matrix_one_norm(_InMat __A)
+constexpr auto matrix_one_norm(_InMat __a)
 {
-  return __matrix_one_norm_impl(__A);
+  return __matrix_one_norm_impl(__a);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat>
-constexpr auto matrix_one_norm(_ExecutionPolicy&&, _InMat __A)
+constexpr auto matrix_one_norm(_ExecutionPolicy&&, _InMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_one_norm_impl(__A);
+  return __matrix_one_norm_impl(__a);
 }
 
 template <__detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_inf_norm(_InMat __A, _Scalar __init)
+constexpr _Scalar matrix_inf_norm(_InMat __a, _Scalar __init)
 {
-  return __matrix_inf_norm_impl(__A, __init);
+  return __matrix_inf_norm_impl(__a, __init);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
-constexpr _Scalar matrix_inf_norm(_ExecutionPolicy&&, _InMat __A, _Scalar __init)
+constexpr _Scalar matrix_inf_norm(_ExecutionPolicy&&, _InMat __a, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_inf_norm_impl(__A, __init);
+  return __matrix_inf_norm_impl(__a, __init);
 }
 
 template <__detail::__in_matrix _InMat>
-constexpr auto matrix_inf_norm(_InMat __A)
+constexpr auto matrix_inf_norm(_InMat __a)
 {
-  return __matrix_inf_norm_impl(__A);
+  return __matrix_inf_norm_impl(__a);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat>
-constexpr auto matrix_inf_norm(_ExecutionPolicy&&, _InMat __A)
+constexpr auto matrix_inf_norm(_ExecutionPolicy&&, _InMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_inf_norm_impl(__A);
+  return __matrix_inf_norm_impl(__a);
 }
 
 template <__detail::__in_matrix _InMat, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void matrix_vector_product(_InMat __A, _InVec __x, _OutVec __y)
+constexpr void matrix_vector_product(_InMat __a, _InVec __x, _OutVec __y)
 {
-  __matrix_vector_product_impl(__A, __x, __y);
+  __matrix_vector_product_impl(__a, __x, __y);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _InVec __x, _OutVec __y)
+constexpr void matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_vector_product_impl(__A, __x, __y);
+  __matrix_vector_product_impl(__a, __x, __y);
 }
 
 template <__detail::__in_matrix _InMat, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void matrix_vector_product(_InMat __A, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void matrix_vector_product(_InMat __a, _InVec1 __x, _InVec2 __y, _OutVec __z)
 {
-  __matrix_vector_product_impl(__A, __x, __y, __z);
+  __matrix_vector_product_impl(__a, __x, __y, __z);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_vector_product_impl(__A, __x, __y, __z);
+  __matrix_vector_product_impl(__a, __x, __y, __z);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void symmetric_matrix_vector_product(_InMat __A, _Triangle __t, _InVec __x, _OutVec __y)
+constexpr void symmetric_matrix_vector_product(_InMat __a, _Triangle __t, _InVec __x, _OutVec __y)
 {
-  __symmetric_matrix_vector_product_impl(__A, __t, __x, __y);
+  __symmetric_matrix_vector_product_impl(__a, __t, __x, __y);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void symmetric_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _InVec __x, _OutVec __y)
+constexpr void symmetric_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_vector_product_impl(__A, __t, __x, __y);
+  __symmetric_matrix_vector_product_impl(__a, __t, __x, __y);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void symmetric_matrix_vector_product(_InMat __A, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void symmetric_matrix_vector_product(_InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
 {
-  __symmetric_matrix_vector_product_impl(__A, __t, __x, __y, __z);
+  __symmetric_matrix_vector_product_impl(__a, __t, __x, __y, __z);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void symmetric_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void symmetric_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_vector_product_impl(__A, __t, __x, __y, __z);
+  __symmetric_matrix_vector_product_impl(__a, __t, __x, __y, __z);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void hermitian_matrix_vector_product(_InMat __A, _Triangle __t, _InVec __x, _OutVec __y)
+constexpr void hermitian_matrix_vector_product(_InMat __a, _Triangle __t, _InVec __x, _OutVec __y)
 {
-  __hermitian_matrix_vector_product_impl(__A, __t, __x, __y);
+  __hermitian_matrix_vector_product_impl(__a, __t, __x, __y);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void hermitian_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _InVec __x, _OutVec __y)
+constexpr void hermitian_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_vector_product_impl(__A, __t, __x, __y);
+  __hermitian_matrix_vector_product_impl(__a, __t, __x, __y);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void hermitian_matrix_vector_product(_InMat __A, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void hermitian_matrix_vector_product(_InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
 {
-  __hermitian_matrix_vector_product_impl(__A, __t, __x, __y, __z);
+  __hermitian_matrix_vector_product_impl(__a, __t, __x, __y, __z);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void hermitian_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void hermitian_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_vector_product_impl(__A, __t, __x, __y, __z);
+  __hermitian_matrix_vector_product_impl(__a, __t, __x, __y, __z);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_product(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __x, _OutVec __y)
+constexpr void triangular_matrix_vector_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __x, _OutVec __y)
 {
-  __triangular_matrix_vector_product_impl(__A, __t, __d, __x, __y);
+  __triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __x, _OutVec __y)
+constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_product_impl(__A, __t, __d, __x, __y);
+  __triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec>
-constexpr void triangular_matrix_vector_product(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __y)
+constexpr void triangular_matrix_vector_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __y)
 {
-  __triangular_matrix_vector_product_impl(__A, __t, __d, __y);
+  __triangular_matrix_vector_product_impl(__a, __t, __d, __y);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec>
-constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __y)
+constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_product_impl(__A, __t, __d, __y);
+  __triangular_matrix_vector_product_impl(__a, __t, __d, __y);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_product(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void triangular_matrix_vector_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec1 __x, _InVec2 __y, _OutVec __z)
 {
-  __triangular_matrix_vector_product_impl(__A, __t, __d, __x, __y, __z);
+  __triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y, __z);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec1 __x, _InVec2 __y, _OutVec __z)
+constexpr void triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_product_impl(__A, __t, __d, __x, __y, __z);
+  __triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y, __z);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec, class _BinaryDivideOp>
-constexpr void triangular_matrix_vector_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_vector_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x, _BinaryDivideOp __divide)
 {
-  __triangular_matrix_vector_solve_impl(__A, __t, __d, __b, __x, __divide);
+  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec, class _BinaryDivideOp>
-constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_solve_impl(__A, __t, __d, __b, __x, __divide);
+  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x)
+constexpr void triangular_matrix_vector_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x)
 {
-  __triangular_matrix_vector_solve_impl(__A, __t, __d, __b, __x);
+  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
-constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x)
+constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_solve_impl(__A, __t, __d, __b, __x);
+  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec, class _BinaryDivideOp>
-constexpr void triangular_matrix_vector_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __b, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_vector_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b, _BinaryDivideOp __divide)
 {
-  __triangular_matrix_vector_solve_impl(__A, __t, __d, __b, __divide);
+  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec, class _BinaryDivideOp>
-constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __b, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_solve_impl(__A, __t, __d, __b, __divide);
+  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec>
-constexpr void triangular_matrix_vector_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __b)
+constexpr void triangular_matrix_vector_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b)
 {
-  __triangular_matrix_vector_solve_impl(__A, __t, __d, __b);
+  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec>
-constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutVec __b)
+constexpr void triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_solve_impl(__A, __t, __d, __b);
+  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update(_InVec1 __x, _InVec2 __y, _OutMat __A)
+constexpr void matrix_rank_1_update(_InVec1 __x, _InVec2 __y, _OutMat __a)
 {
-  __matrix_rank_1_update_impl(__x, __y, __A);
+  __matrix_rank_1_update_impl(__x, __y, __a);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __A)
+constexpr void matrix_rank_1_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_rank_1_update_impl(__x, __y, __A);
+  __matrix_rank_1_update_impl(__x, __y, __a);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update_c(_InVec1 __x, _InVec2 __y, _OutMat __A)
+constexpr void matrix_rank_1_update_c(_InVec1 __x, _InVec2 __y, _OutMat __a)
 {
-  __matrix_rank_1_update_c_impl(__x, __y, __A);
+  __matrix_rank_1_update_c_impl(__x, __y, __a);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update_c(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __A)
+constexpr void matrix_rank_1_update_c(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_rank_1_update_c_impl(__x, __y, __A);
+  __matrix_rank_1_update_c_impl(__x, __y, __a);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update(_InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A)
+constexpr void matrix_rank_1_update(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a)
 {
-  __matrix_rank_1_update_impl(__x, __y, __E, __A);
+  __matrix_rank_1_update_impl(__x, __y, __e, __a);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A)
+constexpr void matrix_rank_1_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_rank_1_update_impl(__x, __y, __E, __A);
+  __matrix_rank_1_update_impl(__x, __y, __e, __a);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update_c(_InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A)
+constexpr void matrix_rank_1_update_c(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a)
 {
-  __matrix_rank_1_update_c_impl(__x, __y, __E, __A);
+  __matrix_rank_1_update_c_impl(__x, __y, __e, __a);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__out_matrix _OutMat>
-constexpr void matrix_rank_1_update_c(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A)
+constexpr void matrix_rank_1_update_c(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_rank_1_update_c_impl(__x, __y, __E, __A);
+  __matrix_rank_1_update_c_impl(__x, __y, __e, __a);
 }
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t)
 {
-  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __A, __t);
+  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __A, __t);
+  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t)
 {
-  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __A, __t);
+  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __A, __t);
+  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t)
 {
-  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __E, __A, __t);
+  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __E, __A, __t);
+  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t)
 {
-  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __E, __A, __t);
+  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_vector _InVec, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __E, __A, __t);
+  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t)
 {
-  __symmetric_matrix_rank_2_update_impl(__x, __y, __A, __t);
+  __symmetric_matrix_rank_2_update_impl(__x, __y, __a, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_2_update_impl(__x, __y, __A, __t);
+  __symmetric_matrix_rank_2_update_impl(__x, __y, __a, __t);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t)
 {
-  __hermitian_matrix_rank_2_update_impl(__x, __y, __A, __t);
+  __hermitian_matrix_rank_2_update_impl(__x, __y, __a, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_2_update_impl(__x, __y, __A, __t);
+  __hermitian_matrix_rank_2_update_impl(__x, __y, __a, __t);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t)
 {
-  __symmetric_matrix_rank_2_update_impl(__x, __y, __E, __A, __t);
+  __symmetric_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void symmetric_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_2_update_impl(__x, __y, __E, __A, __t);
+  __symmetric_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t)
 {
-  __hermitian_matrix_rank_2_update_impl(__x, __y, __E, __A, __t);
+  __hermitian_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __E, _OutMat __A, _Triangle __t)
+constexpr void hermitian_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_2_update_impl(__x, __y, __E, __A, __t);
+  __hermitian_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void matrix_product(_InMat1 __A, _InMat2 __B, _OutMat __C)
+constexpr void matrix_product(_InMat1 __a, _InMat2 __b, _OutMat __c)
 {
-  __matrix_product_impl(__A, __B, __C);
+  __matrix_product_impl(__a, __b, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _OutMat __C)
+constexpr void matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_product_impl(__A, __B, __C);
+  __matrix_product_impl(__a, __b, __c);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void matrix_product(_InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void matrix_product(_InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c)
 {
-  __matrix_product_impl(__A, __B, __E, __C);
+  __matrix_product_impl(__a, __b, __e, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_product_impl(__A, __B, __E, __C);
+  __matrix_product_impl(__a, __b, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_InMat1 __A, _Triangle __t, _InMat2 __B, _OutMat __C)
+constexpr void symmetric_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c)
 {
-  __symmetric_matrix_product_impl(__A, __t, __B, __C);
+  __symmetric_matrix_product_impl(__a, __t, __b, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _InMat2 __B, _OutMat __C)
+constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_product_impl(__A, __t, __B, __C);
+  __symmetric_matrix_product_impl(__a, __t, __b, __c);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_InMat1 __A, _Triangle __t, _InMat2 __B, _OutMat __C)
+constexpr void hermitian_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c)
 {
-  __hermitian_matrix_product_impl(__A, __t, __B, __C);
+  __hermitian_matrix_product_impl(__a, __t, __b, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _InMat2 __B, _OutMat __C)
+constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_product_impl(__A, __t, __B, __C);
+  __hermitian_matrix_product_impl(__a, __t, __b, __c);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __C)
+constexpr void triangular_matrix_product(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __c)
 {
-  __triangular_matrix_product_impl(__A, __t, __d, __B, __C);
+  __triangular_matrix_product_impl(__a, __t, __d, __b, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __C)
+constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_product_impl(__A, __t, __d, __B, __C);
+  __triangular_matrix_product_impl(__a, __t, __d, __b, __c);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _OutMat __C)
+constexpr void symmetric_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c)
 {
-  __symmetric_matrix_product_impl(__A, __B, __t, __C);
+  __symmetric_matrix_product_impl(__a, __b, __t, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _OutMat __C)
+constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_product_impl(__A, __B, __t, __C);
+  __symmetric_matrix_product_impl(__a, __b, __t, __c);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _OutMat __C)
+constexpr void hermitian_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c)
 {
-  __hermitian_matrix_product_impl(__A, __B, __t, __C);
+  __hermitian_matrix_product_impl(__a, __b, __t, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _OutMat __C)
+constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_product_impl(__A, __B, __t, __C);
+  __hermitian_matrix_product_impl(__a, __b, __t, __c);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, class _DiagonalStorage, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _DiagonalStorage __d, _OutMat __C)
+constexpr void triangular_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _OutMat __c)
 {
-  __triangular_matrix_product_impl(__A, __B, __t, __d, __C);
+  __triangular_matrix_product_impl(__a, __b, __t, __d, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, class _DiagonalStorage, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _DiagonalStorage __d, _OutMat __C)
+constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_product_impl(__A, __B, __t, __d, __C);
+  __triangular_matrix_product_impl(__a, __b, __t, __d, __c);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_InMat1 __A, _Triangle __t, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void symmetric_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c)
 {
-  __symmetric_matrix_product_impl(__A, __t, __B, __E, __C);
+  __symmetric_matrix_product_impl(__a, __t, __b, __e, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_product_impl(__A, __t, __B, __E, __C);
+  __symmetric_matrix_product_impl(__a, __t, __b, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_InMat1 __A, _Triangle __t, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void hermitian_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c)
 {
-  __hermitian_matrix_product_impl(__A, __t, __B, __E, __C);
+  __hermitian_matrix_product_impl(__a, __t, __b, __e, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_product_impl(__A, __t, __B, __E, __C);
+  __hermitian_matrix_product_impl(__a, __t, __b, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void triangular_matrix_product(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _InMat3 __e, _OutMat __c)
 {
-  __triangular_matrix_product_impl(__A, __t, __d, __B, __E, __C);
+  __triangular_matrix_product_impl(__a, __t, __d, __b, __e, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _InMat3 __E, _OutMat __C)
+constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_product_impl(__A, __t, __d, __B, __E, __C);
+  __triangular_matrix_product_impl(__a, __t, __d, __b, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _InMat3 __E, _OutMat __C)
+constexpr void symmetric_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c)
 {
-  __symmetric_matrix_product_impl(__A, __B, __t, __E, __C);
+  __symmetric_matrix_product_impl(__a, __b, __t, __e, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _InMat3 __E, _OutMat __C)
+constexpr void symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_product_impl(__A, __B, __t, __E, __C);
+  __symmetric_matrix_product_impl(__a, __b, __t, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _InMat3 __E, _OutMat __C)
+constexpr void hermitian_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c)
 {
-  __hermitian_matrix_product_impl(__A, __B, __t, __E, __C);
+  __hermitian_matrix_product_impl(__a, __b, __t, __e, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _InMat3 __E, _OutMat __C)
+constexpr void hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_product_impl(__A, __B, __t, __E, __C);
+  __hermitian_matrix_product_impl(__a, __b, __t, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_InMat1 __A, _InMat2 __B, _Triangle __t, _DiagonalStorage __d, _InMat3 __E, _OutMat __C)
+constexpr void triangular_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _InMat3 __e, _OutMat __c)
 {
-  __triangular_matrix_product_impl(__A, __B, __t, __d, __E, __C);
+  __triangular_matrix_product_impl(__a, __b, __t, __d, __e, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat3, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _Triangle __t, _DiagonalStorage __d, _InMat3 __E, _OutMat __C)
+constexpr void triangular_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_product_impl(__A, __B, __t, __d, __E, __C);
+  __triangular_matrix_product_impl(__a, __b, __t, __d, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_left_product(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __C)
+constexpr void triangular_matrix_left_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c)
 {
-  __triangular_matrix_left_product_impl(__A, __t, __d, __C);
+  __triangular_matrix_left_product_impl(__a, __t, __d, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_left_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __C)
+constexpr void triangular_matrix_left_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_left_product_impl(__A, __t, __d, __C);
+  __triangular_matrix_left_product_impl(__a, __t, __d, __c);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_right_product(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __C)
+constexpr void triangular_matrix_right_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c)
 {
-  __triangular_matrix_right_product_impl(__A, __t, __d, __C);
+  __triangular_matrix_right_product_impl(__a, __t, __d, __c);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_right_product(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __C)
+constexpr void triangular_matrix_right_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_right_product_impl(__A, __t, __d, __C);
+  __triangular_matrix_right_product_impl(__a, __t, __d, __c);
 }
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_k_update(_Scalar __alpha, _InMat __A, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_k_update(_Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t)
 {
-  __symmetric_matrix_rank_k_update_impl(__alpha, __A, __C, __t);
+  __symmetric_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat __A, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_k_update_impl(__alpha, __A, __C, __t);
+  __symmetric_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_k_update(_Scalar __alpha, _InMat __A, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_k_update(_Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t)
 {
-  __hermitian_matrix_rank_k_update_impl(__alpha, __A, __C, __t);
+  __hermitian_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat __A, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_k_update_impl(__alpha, __A, __C, __t);
+  __hermitian_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_k_update(_Scalar __alpha, _InMat1 __A, _InMat2 __E, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_k_update(_Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t)
 {
-  __symmetric_matrix_rank_k_update_impl(__alpha, __A, __E, __C, __t);
+  __symmetric_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat1 __A, _InMat2 __E, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_k_update_impl(__alpha, __A, __E, __C, __t);
+  __symmetric_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_k_update(_Scalar __alpha, _InMat1 __A, _InMat2 __E, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_k_update(_Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t)
 {
-  __hermitian_matrix_rank_k_update_impl(__alpha, __A, __E, __C, __t);
+  __hermitian_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat1 __A, _InMat2 __E, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_k_update_impl(__alpha, __A, __E, __C, __t);
+  __hermitian_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2k_update(_InMat1 __A, _InMat2 __B, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t)
 {
-  __symmetric_matrix_rank_2k_update_impl(__A, __B, __C, __t);
+  __symmetric_matrix_rank_2k_update_impl(__a, __b, __c, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_2k_update_impl(__A, __B, __C, __t);
+  __symmetric_matrix_rank_2k_update_impl(__a, __b, __c, __t);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2k_update(_InMat1 __A, _InMat2 __B, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t)
 {
-  __hermitian_matrix_rank_2k_update_impl(__A, __B, __C, __t);
+  __hermitian_matrix_rank_2k_update_impl(__a, __b, __c, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_2k_update_impl(__A, __B, __C, __t);
+  __hermitian_matrix_rank_2k_update_impl(__a, __b, __c, __t);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2k_update(_InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t)
 {
-  __symmetric_matrix_rank_2k_update_impl(__A, __B, __E, __C, __t);
+  __symmetric_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void symmetric_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C, _Triangle __t)
+constexpr void symmetric_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_2k_update_impl(__A, __B, __E, __C, __t);
+  __symmetric_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2k_update(_InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t)
 {
-  __hermitian_matrix_rank_2k_update_impl(__A, __B, __E, __C, __t);
+  __hermitian_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__in_matrix _InMat3, __detail::__possibly_packed_out_matrix _OutMat, class _Triangle>
-constexpr void hermitian_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __A, _InMat2 __B, _InMat3 __E, _OutMat __C, _Triangle __t)
+constexpr void hermitian_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_2k_update_impl(__A, __B, __E, __C, __t);
+  __hermitian_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_left_solve(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_left_solve(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x, _BinaryDivideOp __divide)
 {
-  __triangular_matrix_matrix_left_solve_impl(__A, __t, __d, __B, __X, __divide);
+  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_left_solve_impl(__A, __t, __d, __B, __X, __divide);
+  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_matrix_left_solve(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X)
+constexpr void triangular_matrix_matrix_left_solve(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x)
 {
-  __triangular_matrix_matrix_left_solve_impl(__A, __t, __d, __B, __X);
+  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X)
+constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_left_solve_impl(__A, __t, __d, __B, __X);
+  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_right_solve(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_right_solve(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x, _BinaryDivideOp __divide)
 {
-  __triangular_matrix_matrix_right_solve_impl(__A, __t, __d, __B, __X, __divide);
+  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_right_solve_impl(__A, __t, __d, __B, __X, __divide);
+  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_matrix_right_solve(_InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X)
+constexpr void triangular_matrix_matrix_right_solve(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x)
 {
-  __triangular_matrix_matrix_right_solve_impl(__A, __t, __d, __B, __X);
+  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat1, class _Triangle, class _DiagonalStorage, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
-constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat1 __A, _Triangle __t, _DiagonalStorage __d, _InMat2 __B, _OutMat __X)
+constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_right_solve_impl(__A, __t, __d, __B, __X);
+  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_left_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_left_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide)
 {
-  __triangular_matrix_matrix_left_solve_impl(__A, __t, __d, __B, __divide);
+  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_left_solve_impl(__A, __t, __d, __B, __divide);
+  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_matrix_left_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B)
+constexpr void triangular_matrix_matrix_left_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b)
 {
-  __triangular_matrix_matrix_left_solve_impl(__A, __t, __d, __B);
+  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B)
+constexpr void triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_left_solve_impl(__A, __t, __d, __B);
+  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_right_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_right_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide)
 {
-  __triangular_matrix_matrix_right_solve_impl(__A, __t, __d, __B, __divide);
+  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat, class _BinaryDivideOp>
-constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B, _BinaryDivideOp __divide)
+constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_right_solve_impl(__A, __t, __d, __B, __divide);
+  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_matrix_right_solve(_InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B)
+constexpr void triangular_matrix_matrix_right_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b)
 {
-  __triangular_matrix_matrix_right_solve_impl(__A, __t, __d, __B);
+  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
-constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat __A, _Triangle __t, _DiagonalStorage __d, _InOutMat __B)
+constexpr void triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_right_solve_impl(__A, __t, __d, __B);
+  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b);
 }
 
 #  undef _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING

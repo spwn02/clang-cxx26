@@ -9,11 +9,8 @@
 #ifndef _LIBCPP___ALGORITHM_RANGES_REVERSE_H
 #define _LIBCPP___ALGORITHM_RANGES_REVERSE_H
 
-#include <__config>
 #include <__algorithm/pstl.h>
-#include <__type_traits/is_execution_policy.h>
-#include <__type_traits/remove_cvref.h>
-#include <__utility/forward.h>
+#include <__config>
 #include <__iterator/concepts.h>
 #include <__iterator/iter_swap.h>
 #include <__iterator/next.h>
@@ -21,6 +18,9 @@
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header

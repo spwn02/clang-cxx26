@@ -12,9 +12,9 @@
 #include <__config>
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
+#include <__execution/continues_on.h>
 #include <__execution/domain.h>
 #include <__execution/env.h>
-#include <__execution/continues_on.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
@@ -80,7 +80,7 @@ struct starts_on_t {
 template <class _Sch, class _Child, class _ChildAttrs>
 class __starts_on_attrs {
   template <class _Env>
-  using __joined_env_t = decltype(execution::env(std::declval<const __sched_env<_Sch>&>(), execution::__fwd_env_fn(std::declval<const _Env&>())));
+  using __joined_env_t _LIBCPP_NODEBUG = decltype(execution::env(std::declval<const __sched_env<_Sch>&>(), execution::__fwd_env_fn(std::declval<const _Env&>())));
 
   template <class _Env>
   _LIBCPP_HIDE_FROM_ABI constexpr auto __joined(const _Env& __env) const noexcept(is_nothrow_copy_constructible_v<_Sch>) {

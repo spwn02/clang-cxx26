@@ -454,7 +454,6 @@ constexpr long double lerp(long double a, long double b, long double t) noexcept
 #  include <__cxx03/cmath>
 #else
 #  include <__config>
-#  include <__math/stdfloat.h>
 #  include <__math/abs.h>
 #  include <__math/copysign.h>
 #  include <__math/hypot.h>
@@ -462,6 +461,7 @@ constexpr long double lerp(long double a, long double b, long double t) noexcept
 #  include <__math/modulo.h>
 #  include <__math/remainder.h>
 #  include <__math/rounding_functions.h>
+#  include <__math/stdfloat.h>
 #  include <__type_traits/enable_if.h>
 #  include <__type_traits/is_arithmetic.h>
 #  include <__type_traits/is_constant_evaluated.h>

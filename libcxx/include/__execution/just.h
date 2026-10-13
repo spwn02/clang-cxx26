@@ -9,8 +9,8 @@
 #ifndef _LIBCPP___EXECUTION_JUST_H
 #define _LIBCPP___EXECUTION_JUST_H
 
-#include <__concepts/same_as.h>
 #include <__concepts/constructible.h>
+#include <__concepts/same_as.h>
 #include <__config>
 #include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>

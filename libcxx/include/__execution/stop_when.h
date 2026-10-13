@@ -95,8 +95,8 @@ class __stop_when_opstate;
 // connect(write_env(sndr, prop(get_stop_token, token)), r) directly, no combined source needed.
 template <class _Token, class _Sndr, class _Rcvr>
 class __stop_when_opstate<false, _Token, _Sndr, _Rcvr> {
-  using __env_t      = decltype(execution::prop(std::get_stop_token, std::declval<_Token>()));
-  using __wrapped_t  = decltype(execution::write_env(std::declval<_Sndr>(), std::declval<__env_t>()));
+  using __env_t _LIBCPP_NODEBUG      = decltype(execution::prop(std::get_stop_token, std::declval<_Token>()));
+  using __wrapped_t _LIBCPP_NODEBUG  = decltype(execution::write_env(std::declval<_Sndr>(), std::declval<__env_t>()));
   using __child_op_t = connect_result_t<__wrapped_t, _Rcvr>;
 
 public:

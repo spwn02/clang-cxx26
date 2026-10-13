@@ -27,9 +27,9 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 namespace __f128 {
 
 
-using __u32 = unsigned int;
-using __u64 = unsigned long long;
-using __u128 = unsigned __int128;
+using __u32 _LIBCPP_NODEBUG = unsigned int;
+using __u64 _LIBCPP_NODEBUG = unsigned long long;
+using __u128 _LIBCPP_NODEBUG = unsigned __int128;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Fixed capacity unsigned big integer (little endian 32-bit limbs).
@@ -685,11 +685,11 @@ _LIBCPP_HIDE_FROM_ABI inline __to_chars_out __format_fixed(char* __first, char* 
 
 // General notation with a precision (the %g behaviour: trailing zeros are removed).
 _LIBCPP_HIDE_FROM_ABI inline __to_chars_out __format_general(char* __first, char* __last, const __decomposed& __d, long __precision) {
-  long __P = __precision == 0 ? 1 : __precision;
-  int __x  = __scientific_exponent(__d, __P);
-  if (__P > __x && __x >= -4)
-    return __format_fixed(__first, __last, __d, __P - 1 - __x, true);
-  return __format_scientific(__first, __last, __d, __P - 1, true);
+  long __p = __precision == 0 ? 1 : __precision;
+  int __x  = __scientific_exponent(__d, __p);
+  if (__p > __x && __x >= -4)
+    return __format_fixed(__first, __last, __d, __p - 1 - __x, true);
+  return __format_scientific(__first, __last, __d, __p - 1, true);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

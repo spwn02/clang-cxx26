@@ -76,21 +76,21 @@ concept __valid_completion_signatures = __valid_completion_signatures_v<_Sigs>;
 template <bool>
 struct __indirect_meta_apply {
   template <template <class...> class _Tp, class... _As>
-  using __meta_apply = _Tp<_As...>;
+  using __meta_apply _LIBCPP_NODEBUG = _Tp<_As...>;
 };
 
 template <class...>
 concept __always_true = true;
 
 template <template <class...> class _Tp, class... _As>
-using __meta_apply = typename __indirect_meta_apply<__always_true<_As...>>::template __meta_apply<_Tp, _As...>;
+using __meta_apply _LIBCPP_NODEBUG = typename __indirect_meta_apply<__always_true<_As...>>::template __meta_apply<_Tp, _As...>;
 
 // Per-signature step of gather-signatures: if `_Fn`'s return type is `_Tag`, wrap its
 // argument list (via META-APPLY, so `_Tuple` need not be variadic) in a one-element
 // `__exec_type_list`; otherwise contribute nothing.
 template <class _Tag, class _Fn, template <class...> class _Tuple>
 struct __gather_one {
-  using type = __exec_type_list<>;
+  using type _LIBCPP_NODEBUG = __exec_type_list<>;
 };
 template <class _Tag, class... _Args, template <class...> class _Tuple>
 struct __gather_one<_Tag, _Tag(_Args...), _Tuple> {
@@ -99,11 +99,11 @@ struct __gather_one<_Tag, _Tag(_Args...), _Tuple> {
 
 template <class... _Ls>
 struct __concat_type_lists {
-  using type = __exec_type_list<>;
+  using type _LIBCPP_NODEBUG = __exec_type_list<>;
 };
 template <class... _Ts>
 struct __concat_type_lists<__exec_type_list<_Ts...>> {
-  using type = __exec_type_list<_Ts...>;
+  using type _LIBCPP_NODEBUG = __exec_type_list<_Ts...>;
 };
 template <class... _Ts, class... _Us, class... _Rest>
 struct __concat_type_lists<__exec_type_list<_Ts...>, __exec_type_list<_Us...>, _Rest...>

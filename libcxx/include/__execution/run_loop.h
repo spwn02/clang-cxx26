@@ -26,8 +26,8 @@
 #include <__mutex/mutex.h>
 #include <__mutex/unique_lock.h>
 #include <__stop_token/stoppable_token.h>
-#include <__type_traits/is_same.h>
 #include <__type_traits/is_nothrow_constructible.h>
+#include <__type_traits/is_same.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
@@ -192,7 +192,7 @@ private:
   // (the wording is unchanged from P2300R10 and looks like a leftover of the pre-R5 design where
   // receivers were queryable themselves). A stop token that is only exposed through
   // get_env(rcvr) is therefore not consulted; likely a draft defect, kept literal on purpose.
-  _LIBCPP_HIDE_FROM_ABI void __execute() noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __execute() noexcept override {
     if (std::get_stop_token(__rcvr_).stop_requested()) {
       execution::set_stopped(std::move(__rcvr_));
     } else {

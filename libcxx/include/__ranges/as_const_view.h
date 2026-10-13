@@ -11,12 +11,12 @@
 #include <__ranges/empty_view.h>
 #include <__ranges/enable_borrowed_range.h>
 #include <__ranges/range_adaptor.h>
-#include <span>
 #include <__ranges/size.h>
 #include <__ranges/view_interface.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
 #include <optional>
+#include <span>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -82,7 +82,7 @@ template <class _Tp>
 struct __as_const_empty_view_type;
 template <class _Tp>
 struct __as_const_empty_view_type<empty_view<_Tp>> {
-  using type = _Tp;
+  using type _LIBCPP_NODEBUG = _Tp;
 };
 
 template <class _Tp>
@@ -92,7 +92,7 @@ template <class _Tp>
 struct __as_const_span_type;
 template <class _Tp, size_t _Extent>
 struct __as_const_span_type<span<_Tp, _Extent>> {
-    using type = span<const _Tp, _Extent>;
+    using type _LIBCPP_NODEBUG = span<const _Tp, _Extent>;
 };
 
 template <class _Tp>

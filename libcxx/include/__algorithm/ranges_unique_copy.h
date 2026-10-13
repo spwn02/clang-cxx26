@@ -10,10 +10,9 @@
 #define _LIBCPP___ALGORITHM_RANGES_UNIQUE_COPY_H
 
 #include <__algorithm/in_out_result.h>
-#include <__algorithm/pstl.h>
-#include <__pstl/ranges_bounded.h>
 #include <__algorithm/iterator_operations.h>
 #include <__algorithm/make_projected.h>
+#include <__algorithm/pstl.h>
 #include <__algorithm/unique_copy.h>
 #include <__concepts/same_as.h>
 #include <__config>
@@ -23,6 +22,7 @@
 #include <__iterator/concepts.h>
 #include <__iterator/iterator_traits.h>
 #include <__iterator/projected.h>
+#include <__pstl/ranges_bounded.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>

@@ -9,9 +9,9 @@
 #ifndef _LIBCPP___ALGORITHM_RANGES_GENERATE_H
 #define _LIBCPP___ALGORITHM_RANGES_GENERATE_H
 
+#include <__algorithm/pstl.h>
 #include <__concepts/constructible.h>
 #include <__concepts/invocable.h>
-#include <__algorithm/pstl.h>
 #include <__config>
 #include <__iterator/concepts.h>
 #include <__iterator/iterator_traits.h>

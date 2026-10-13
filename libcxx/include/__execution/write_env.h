@@ -12,10 +12,10 @@
 #include <__config>
 #include <__execution/completion_functions.h>
 #include <__execution/connect.h>
+#include <__execution/domain.h>
 #include <__execution/env.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_completion_signatures.h>
-#include <__execution/domain.h>
 #include <__execution/get_env.h>
 #include <__execution/get_scheduler.h>
 #include <__execution/operation_state.h>

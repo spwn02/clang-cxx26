@@ -11,14 +11,11 @@
 
 #include <__algorithm/iterator_operations.h>
 #include <__algorithm/make_projected.h>
+#include <__algorithm/pstl.h>
 #include <__algorithm/unique.h>
 #include <__config>
-#include <__algorithm/pstl.h>
-#include <__functional/invoke.h>
-#include <__type_traits/is_execution_policy.h>
-#include <__type_traits/remove_cvref.h>
-#include <__utility/forward.h>
 #include <__functional/identity.h>
+#include <__functional/invoke.h>
 #include <__functional/invoke.h>
 #include <__functional/ranges_operations.h>
 #include <__iterator/concepts.h>
@@ -29,6 +26,9 @@
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
 #include <__ranges/subrange.h>
+#include <__type_traits/is_execution_policy.h>
+#include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
 #include <__utility/pair.h>

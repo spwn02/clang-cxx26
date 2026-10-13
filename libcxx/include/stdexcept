@@ -180,8 +180,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 explicit logic_error(const char* __msg) : __imp_(__msg) {}
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 logic_error(const logic_error&) _NOEXCEPT = default;
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 logic_error& operator=(const logic_error&) _NOEXCEPT = default;
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 ~logic_error() _NOEXCEPT override {}
-  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 const char* what() const _NOEXCEPT override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 ~logic_error() _NOEXCEPT override {}
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 const char* what() const _NOEXCEPT override {
     return __imp_.c_str();
   }
 #  endif
@@ -219,8 +219,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 explicit runtime_error(const char* __msg) : __imp_(__msg) {}
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 runtime_error(const runtime_error&) _NOEXCEPT = default;
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 runtime_error& operator=(const runtime_error&) _NOEXCEPT = default;
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 ~runtime_error() _NOEXCEPT override {}
-  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 const char* what() const _NOEXCEPT override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 ~runtime_error() _NOEXCEPT override {}
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 const char* what() const _NOEXCEPT override {
     return __imp_.c_str();
   }
 #  endif
@@ -247,7 +247,7 @@ public:
 #    if defined(_LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS)
   ~domain_error() _NOEXCEPT override;
 #    else
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 ~domain_error() _NOEXCEPT override {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 ~domain_error() _NOEXCEPT override {}
 #    endif
 #  endif
 };
@@ -267,7 +267,7 @@ public:
 #    if defined(_LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS)
   ~invalid_argument() _NOEXCEPT override;
 #    else
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 ~invalid_argument() _NOEXCEPT override {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 ~invalid_argument() _NOEXCEPT override {}
 #    endif
 #  endif
 };
@@ -286,7 +286,7 @@ public:
 #    if defined(_LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS)
   ~length_error() _NOEXCEPT override;
 #    else
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 ~length_error() _NOEXCEPT override {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 ~length_error() _NOEXCEPT override {}
 #    endif
 #  endif
 };
@@ -306,7 +306,7 @@ public:
 #    if defined(_LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS)
   ~out_of_range() _NOEXCEPT override;
 #    else
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 ~out_of_range() _NOEXCEPT override {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 ~out_of_range() _NOEXCEPT override {}
 #    endif
 #  endif
 };
@@ -326,7 +326,7 @@ public:
 #    if defined(_LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS)
   ~range_error() _NOEXCEPT override;
 #    else
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 ~range_error() _NOEXCEPT override {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 ~range_error() _NOEXCEPT override {}
 #    endif
 #  endif
 };
@@ -346,7 +346,7 @@ public:
 #    if defined(_LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS)
   ~overflow_error() _NOEXCEPT override;
 #    else
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 ~overflow_error() _NOEXCEPT override {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 ~overflow_error() _NOEXCEPT override {}
 #    endif
 #  endif
 };
@@ -366,7 +366,7 @@ public:
 #    if defined(_LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS)
   ~underflow_error() _NOEXCEPT override;
 #    else
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 ~underflow_error() _NOEXCEPT override {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 ~underflow_error() _NOEXCEPT override {}
 #    endif
 #  endif
 };

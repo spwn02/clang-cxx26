@@ -12,9 +12,9 @@
 #include <__concepts/same_as.h>
 #include <__config>
 #include <__execution/completion_functions.h>
-#include <__execution/domain.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
+#include <__execution/domain.h>
 #include <__execution/fwd_env.h>
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
@@ -95,7 +95,7 @@ template <class _List>
 struct __continues_on_to_sigs;
 template <class... _Sigs>
 struct __continues_on_to_sigs<__exec_type_list<_Sigs...>> {
-  using type = completion_signatures<_Sigs...>;
+  using type _LIBCPP_NODEBUG = completion_signatures<_Sigs...>;
 };
 
 // [exec.continues.on]p9's variant_t: variant<monostate, as-tuple<Sigs>..., error-completion...> (deduped),
@@ -108,7 +108,7 @@ template <class _Completions>
 struct __continues_on_variant_impl;
 template <class... _Sigs>
 struct __continues_on_variant_impl<completion_signatures<_Sigs...>> {
-  using __tuples                    = __exec_type_list<typename __continues_on_as_tuple<_Sigs>::type...>;
+  using __tuples _LIBCPP_NODEBUG                    = __exec_type_list<typename __continues_on_as_tuple<_Sigs>::type...>;
   static constexpr bool __all_nothrow = (__continues_on_nothrow_sig<_Sigs> && ...);
   using __err_list  = __conditional_t<__all_nothrow, __exec_type_list<>, __exec_type_list<tuple<set_error_t, exception_ptr>>>;
   using __gathered  = typename __concat_type_lists<__tuples, __err_list>::type;
@@ -118,13 +118,13 @@ struct __continues_on_variant_impl<completion_signatures<_Sigs...>> {
   struct __to_variant;
   template <class... _Ts>
   struct __to_variant<__exec_type_list<_Ts...>> {
-    using type = variant<monostate, _Ts...>;
+    using type _LIBCPP_NODEBUG = variant<monostate, _Ts...>;
   };
   using type = typename __to_variant<__deduped>::type;
 };
 
 template <class _Completions>
-using __continues_on_variant_t = typename __continues_on_variant_impl<_Completions>::type;
+using __continues_on_variant_t _LIBCPP_NODEBUG = typename __continues_on_variant_impl<_Completions>::type;
 
 // The *observable* completion signatures continues_on's own sender advertises, contributed by the input
 // sender: each of its signatures Tag(Args...) is replayed (after decay-copy-then-redispatch) as
@@ -135,7 +135,7 @@ template <class _Sig>
 struct __continues_on_child_one;
 template <class _Tag, class... _Args>
 struct __continues_on_child_one<_Tag(_Args...)> {
-  using __value_sig = _Tag(decay_t<_Args>...);
+  using __value_sig _LIBCPP_NODEBUG = _Tag(decay_t<_Args>...);
   using type = __conditional_t<__continues_on_nothrow_sig<_Tag(_Args...)>, __exec_type_list<__value_sig>,
                                 __exec_type_list<__value_sig, set_error_t(exception_ptr)>>;
 };
@@ -144,29 +144,29 @@ struct __continues_on_child_one<_Tag(_Args...)> {
 // redispatch); its set_error_t/set_stopped_t completions (a scheduling failure) propagate directly.
 template <class _Sig>
 struct __continues_on_sched_one {
-  using type = __exec_type_list<_Sig>;
+  using type _LIBCPP_NODEBUG = __exec_type_list<_Sig>;
 };
 template <class... _Args>
 struct __continues_on_sched_one<set_value_t(_Args...)> {
-  using type = __exec_type_list<>;
+  using type _LIBCPP_NODEBUG = __exec_type_list<>;
 };
 
 template <class _Completions>
 struct __continues_on_child_gather;
 template <class... _Sigs>
 struct __continues_on_child_gather<completion_signatures<_Sigs...>> {
-  using type = typename __concat_type_lists<typename __continues_on_child_one<_Sigs>::type...>::type;
+  using type _LIBCPP_NODEBUG = typename __concat_type_lists<typename __continues_on_child_one<_Sigs>::type...>::type;
 };
 
 template <class _Completions>
 struct __continues_on_sched_gather;
 template <class... _Sigs>
 struct __continues_on_sched_gather<completion_signatures<_Sigs...>> {
-  using type = typename __concat_type_lists<typename __continues_on_sched_one<_Sigs>::type...>::type;
+  using type _LIBCPP_NODEBUG = typename __concat_type_lists<typename __continues_on_sched_one<_Sigs>::type...>::type;
 };
 
 template <class _ChildCompletions, class _SchedCompletions>
-using __continues_on_signatures_t = typename __continues_on_to_sigs<typename __continues_on_dedup<
+using __continues_on_signatures_t _LIBCPP_NODEBUG = typename __continues_on_to_sigs<typename __continues_on_dedup<
     typename __concat_type_lists<typename __continues_on_child_gather<_ChildCompletions>::type,
                                   typename __continues_on_sched_gather<_SchedCompletions>::type>::type>::type>::type;
 
@@ -244,8 +244,8 @@ private:
 
 template <class _Sch, class _Sndr, class _Rcvr>
 class __continues_on_opstate {
-  using __sched_rcvr_t  = __continues_on_sched_rcvr<_Sch, _Sndr, _Rcvr>;
-  using __child_rcvr_t  = __continues_on_child_rcvr<_Sch, _Sndr, _Rcvr>;
+  using __sched_rcvr_t _LIBCPP_NODEBUG  = __continues_on_sched_rcvr<_Sch, _Sndr, _Rcvr>;
+  using __child_rcvr_t _LIBCPP_NODEBUG  = __continues_on_child_rcvr<_Sch, _Sndr, _Rcvr>;
   using __sched_sndr_t  = schedule_result_t<_Sch>;
   using __sched_op_t    = connect_result_t<__sched_sndr_t, __sched_rcvr_t>;
   using __child_op_t    = connect_result_t<_Sndr, __child_rcvr_t>;

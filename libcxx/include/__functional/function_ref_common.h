@@ -81,7 +81,7 @@ struct __function_ref_deduce<_Mp _Gp::*, _Tp> {
 
 template <class _Rp, class _Gp, class... _Ap, bool _Ex, class _Tp>
 struct __function_ref_deduce<_Rp (*)(_Gp, _Ap...) noexcept(_Ex), _Tp> {
-  using type = _Rp(_Ap...) noexcept(_Ex);
+  using type _LIBCPP_NODEBUG = _Rp(_Ap...) noexcept(_Ex);
 };
 
 // Exposition-only `bound-entity`: a trivially copyable object capable of

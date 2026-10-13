@@ -13,8 +13,8 @@
 #include <__concepts/constructible.h>
 #include <__concepts/same_as.h>
 #include <__config>
-#include <__execution/completion_functions.h>
 #include <__execution/completion_attrs.h>
+#include <__execution/completion_functions.h>
 #include <__execution/completion_signatures.h>
 #include <__execution/connect.h>
 #include <__execution/env.h>
@@ -26,11 +26,11 @@
 #include <__execution/operation_state.h>
 #include <__execution/parallel_scheduler.h>
 #include <__execution/policies.h>
-#include <__execution/system_context_replaceability.h>
-#include <__execution/task_scheduler.h>
 #include <__execution/receiver.h>
 #include <__execution/sender.h>
 #include <__execution/sender_adaptor_closure.h>
+#include <__execution/system_context_replaceability.h>
+#include <__execution/task_scheduler.h>
 #include <__functional/bind_back.h>
 #include <__functional/invoke.h>
 #include <__mutex/lock_guard.h>
@@ -206,7 +206,7 @@ template <bool _Chunked, class _Func, class _Shape>
 struct __bulk_sig_transform {
   template <class _Sig>
   struct __one {
-    using type = __exec_type_list<_Sig>;
+    using type _LIBCPP_NODEBUG = __exec_type_list<_Sig>;
   };
 
   template <class... _Args>
@@ -227,20 +227,20 @@ struct __bulk_sig_transform {
   struct __to_completion_signatures;
   template <class... _Sigs>
   struct __to_completion_signatures<__exec_type_list<_Sigs...>> {
-    using type = completion_signatures<_Sigs...>;
+    using type _LIBCPP_NODEBUG = completion_signatures<_Sigs...>;
   };
 
   template <class _Completions>
   struct __impl;
   template <class... _Fns>
   struct __impl<completion_signatures<_Fns...>> {
-    using __gathered = typename __concat_type_lists<typename __one<_Fns>::type...>::type;
-    using type        = typename __to_completion_signatures<typename __dedup<__gathered>::type>::type;
+    using __gathered _LIBCPP_NODEBUG = typename __concat_type_lists<typename __one<_Fns>::type...>::type;
+    using type _LIBCPP_NODEBUG        = typename __to_completion_signatures<typename __dedup<__gathered>::type>::type;
   };
 };
 
 template <bool _Chunked, class _Func, class _Shape, class _Completions>
-using __bulk_signatures_t = typename __bulk_sig_transform<_Chunked, _Func, _Shape>::template __impl<_Completions>::type;
+using __bulk_signatures_t _LIBCPP_NODEBUG = typename __bulk_sig_transform<_Chunked, _Func, _Shape>::template __impl<_Completions>::type;
 
 // [exec.bulk]p5/p7's `complete` lambda. On a set_value completion, invokes f -- once with
 // (Shape(0), shape, args...) for bulk_chunked (the "invoke exactly one chunk covering the
@@ -313,7 +313,7 @@ private:
 // items when p, for a single item otherwise; that single execute call then runs the whole range sequentially.
 template <bool _Chunked, bool _Par, class _Shape, class _Func, class _Rcvr, class... _Args>
 class __bulk_backend_job final : public parallel_scheduler_replacement::bulk_item_receiver_proxy {
-  using _StopToken = decltype(std::get_stop_token(execution::get_env(std::declval<_Rcvr&>())));
+  using _StopToken _LIBCPP_NODEBUG = decltype(std::get_stop_token(execution::get_env(std::declval<_Rcvr&>())));
 
 public:
   template <class... _UArgs>
@@ -332,7 +332,7 @@ public:
   }
 
 private:
-  _LIBCPP_HIDE_FROM_ABI void execute(size_t __begin, size_t __end) noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void execute(size_t __begin, size_t __end) noexcept override {
     try {
       if constexpr (_Chunked) {
         // r.execute(i, j) is f(i, j, args...) if p, and f(0, shape, args...) otherwise.
@@ -361,7 +361,7 @@ private:
     }
   }
 
-  _LIBCPP_HIDE_FROM_ABI void set_value() noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void set_value() noexcept override {
     if (__first_err_)
       execution::set_error(std::move(__rcvr_), std::move(__first_err_));
     else
@@ -369,17 +369,17 @@ private:
     delete this;
   }
 
-  _LIBCPP_HIDE_FROM_ABI void set_error(exception_ptr __err) noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void set_error(exception_ptr __err) noexcept override {
     execution::set_error(std::move(__rcvr_), std::move(__err));
     delete this;
   }
 
-  _LIBCPP_HIDE_FROM_ABI void set_stopped() noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void set_stopped() noexcept override {
     execution::set_stopped(std::move(__rcvr_));
     delete this;
   }
 
-  _LIBCPP_HIDE_FROM_ABI bool
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL bool
   __query_env(const type_info& __query_type, const type_info& __result_type, const void*, void* __result_storage)
       const noexcept override {
     if (__query_type == typeid(get_stop_token_t) && __result_type == typeid(_StopToken)) {
@@ -703,15 +703,15 @@ class __task_scheduler_backend final : public parallel_scheduler_replacement::pa
 
     _LIBCPP_HIDE_FROM_ABI __state(_Sndr&& __sndr, parallel_scheduler_replacement::receiver_proxy& __r)
         : __op_(execution::connect(std::move(__sndr), __task_backend_receiver{this})), __rcvr_(&__r) {}
-    _LIBCPP_HIDE_FROM_ABI void __value() noexcept override {
+    _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __value() noexcept override {
       __rcvr_->set_value();
       delete this;
     }
-    _LIBCPP_HIDE_FROM_ABI void __error(exception_ptr __err) noexcept override {
+    _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __error(exception_ptr __err) noexcept override {
       __rcvr_->set_error(std::move(__err));
       delete this;
     }
-    _LIBCPP_HIDE_FROM_ABI void __stopped() noexcept override {
+    _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __stopped() noexcept override {
       __rcvr_->set_stopped();
       delete this;
     }

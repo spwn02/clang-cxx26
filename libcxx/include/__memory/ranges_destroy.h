@@ -11,6 +11,18 @@
 #define _LIBCPP___MEMORY_RANGES_DESTROY_H
 
 #include <__algorithm/min.h>
+#include <__concepts/constructible.h>
+#include <__concepts/destructible.h>
+#include <__config>
+#include <__iterator/concepts.h>
+#include <__iterator/incrementable_traits.h>
+#include <__iterator/iter_move.h>
+#include <__iterator/iterator_traits.h>
+#include <__memory/concepts.h>
+#include <__memory/destroy.h>
+#include <__ranges/access.h>
+#include <__ranges/concepts.h>
+#include <__ranges/dangling.h>
 #include <__type_traits/common_type.h>
 #include <__type_traits/enable_if.h>
 #include <__type_traits/is_execution_policy.h>
@@ -18,18 +30,6 @@
 #include <__type_traits/remove_reference.h>
 #include <__type_traits/type_identity.h>
 #include <__utility/forward.h>
-#include <__iterator/iter_move.h>
-#include <__concepts/constructible.h>
-#include <__iterator/concepts.h>
-#include <__concepts/destructible.h>
-#include <__config>
-#include <__iterator/incrementable_traits.h>
-#include <__iterator/iterator_traits.h>
-#include <__memory/concepts.h>
-#include <__memory/destroy.h>
-#include <__ranges/access.h>
-#include <__ranges/concepts.h>
-#include <__ranges/dangling.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)

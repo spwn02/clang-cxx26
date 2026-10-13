@@ -61,11 +61,11 @@ inline constexpr bool __is_completion_query_v<get_completion_domain_t<_Tag>> = t
 // completion signatures are computed for is the first type in the list `Env..., env<>`.
 template <class _Default, class... _Env>
 struct __first_env_or {
-  using type = _Default;
+  using type _LIBCPP_NODEBUG = _Default;
 };
 template <class _Default, class _First, class... _Rest>
 struct __first_env_or<_Default, _First, _Rest...> {
-  using type = _First;
+  using type _LIBCPP_NODEBUG = _First;
 };
 
 template <class _Env>

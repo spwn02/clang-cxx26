@@ -112,7 +112,7 @@ struct __parsed_fields {
 template <class _CharT, class _Traits>
 class __reader {
 public:
-  using __int_type = typename _Traits::int_type;
+  using __int_type _LIBCPP_NODEBUG = typename _Traits::int_type;
 
   _LIBCPP_HIDE_FROM_ABI __reader(basic_istream<_CharT, _Traits>& __is)
       : __is_(__is),

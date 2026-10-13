@@ -10,25 +10,25 @@
 #define _LIBCPP___ALGORITHM_RANGES_SET_SYMMETRIC_DIFFERENCE_H
 
 #include <__algorithm/in_in_out_result.h>
-#include <__algorithm/pstl.h>
-#include <__pstl/ranges_bounded.h>
-#include <__pstl/handle_exception.h>
 #include <__algorithm/make_projected.h>
+#include <__algorithm/pstl.h>
 #include <__algorithm/set_symmetric_difference.h>
 #include <__config>
-#include <__pstl/dispatch.h>
 #include <__functional/identity.h>
 #include <__functional/invoke.h>
 #include <__functional/ranges_operations.h>
 #include <__iterator/concepts.h>
 #include <__iterator/mergeable.h>
+#include <__pstl/dispatch.h>
+#include <__pstl/handle_exception.h>
+#include <__pstl/ranges_bounded.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
-#include <__utility/move.h>
-#include <__utility/forward.h>
 #include <__type_traits/is_execution_policy.h>
 #include <__type_traits/remove_cvref.h>
+#include <__utility/forward.h>
+#include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header

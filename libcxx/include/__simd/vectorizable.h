@@ -30,7 +30,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 namespace simd {
 
 // [simd.expos.defn]/1: simd-size-type is an alias for a signed integer type.
-using __simd_size_type = ptrdiff_t;
+using __simd_size_type _LIBCPP_NODEBUG = ptrdiff_t;
 
 // [simd.general]/2: the set of vectorizable types comprises
 //   - all standard integer types, character types, and the types float and double,
@@ -132,7 +132,7 @@ struct __integer_from_impl<8> {
 };
 
 template <size_t _Bytes>
-using __integer_from = typename __integer_from_impl<_Bytes>::type;
+using __integer_from _LIBCPP_NODEBUG = typename __integer_from_impl<_Bytes>::type;
 
 template <size_t _Bytes>
 inline constexpr bool __has_integer_from = requires { typename __integer_from_impl<_Bytes>::type; };

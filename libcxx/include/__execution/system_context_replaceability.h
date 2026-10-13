@@ -52,7 +52,7 @@ public:
   receiver_proxy(const receiver_proxy&)                           = delete;
   receiver_proxy& operator=(const receiver_proxy&)                = delete;
   receiver_proxy& operator=(receiver_proxy&&)                     = delete;
-  _LIBCPP_HIDE_FROM_ABI virtual ~receiver_proxy()                 = default;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual ~receiver_proxy()                 = default;
 
   virtual void set_value() noexcept                   = 0;
   virtual void set_error(std::exception_ptr) noexcept = 0;
@@ -81,7 +81,7 @@ public:
 protected:
   // Exposition-only "_query-env_" in the paper. __query is a pointer to a live _Query object
   // (as passed to try_query); on a match, placement-construct a _ResultTp into __result_storage and return true.
-  _LIBCPP_HIDE_FROM_ABI virtual bool
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual bool
   __query_env(const type_info& __query_type,
               const type_info& __result_type,
               const void* __query,
@@ -110,7 +110,7 @@ public:
   parallel_scheduler_backend(parallel_scheduler_backend&&)                 = delete;
   parallel_scheduler_backend& operator=(const parallel_scheduler_backend&) = delete;
   parallel_scheduler_backend& operator=(parallel_scheduler_backend&&)      = delete;
-  _LIBCPP_HIDE_FROM_ABI virtual ~parallel_scheduler_backend()              = default;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual ~parallel_scheduler_backend()              = default;
 
   virtual void schedule(receiver_proxy&, span<byte>) noexcept                                  = 0;
   virtual void schedule_bulk_chunked(size_t, bulk_item_receiver_proxy&, span<byte>) noexcept   = 0;

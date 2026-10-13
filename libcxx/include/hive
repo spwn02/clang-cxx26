@@ -110,7 +110,7 @@ struct hive_limits {
 
 template <class _Tp, class _Allocator>
 struct __hive_group {
-  using __link_type = unsigned;
+  using __link_type _LIBCPP_NODEBUG = unsigned;
   static constexpr __link_type __sentinel = static_cast<__link_type>(-1);
 
   _Tp* __elements_          = nullptr;
@@ -179,8 +179,8 @@ public:
   using reference          = conditional_t<_IsConst, const _Tp&, _Tp&>;
 
 private:
-  using __group_type = __hive_group<_Tp, _Allocator>;
-  using __link_type   = typename __group_type::__link_type;
+  using __group_type _LIBCPP_NODEBUG = __hive_group<_Tp, _Allocator>;
+  using __link_type _LIBCPP_NODEBUG   = typename __group_type::__link_type;
 
   __group_type* __group_ = nullptr;
   _Tp* __ptr_             = nullptr;
@@ -294,11 +294,11 @@ public:
 
 template <class _Tp, class _Allocator = allocator<_Tp>>
 class hive {
-  using _AllocTraits = allocator_traits<_Allocator>;
-  using __group_type  = __hive_group<_Tp, _Allocator>;
-  using __link_type    = typename __group_type::__link_type;
-  using __group_alloc  = typename _AllocTraits::template rebind_alloc<__group_type>;
-  using __link_alloc   = typename _AllocTraits::template rebind_alloc<__link_type>;
+  using _AllocTraits _LIBCPP_NODEBUG = allocator_traits<_Allocator>;
+  using __group_type _LIBCPP_NODEBUG  = __hive_group<_Tp, _Allocator>;
+  using __link_type _LIBCPP_NODEBUG    = typename __group_type::__link_type;
+  using __group_alloc _LIBCPP_NODEBUG  = typename _AllocTraits::template rebind_alloc<__group_type>;
+  using __link_alloc _LIBCPP_NODEBUG   = typename _AllocTraits::template rebind_alloc<__link_type>;
 
   static_assert(is_same_v<typename _AllocTraits::value_type, _Tp>,
                 "allocator_traits<Allocator>::value_type must be the same type as T");

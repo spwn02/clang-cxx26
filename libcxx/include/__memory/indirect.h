@@ -42,7 +42,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 template <class _Tp, class _Allocator = allocator<_Tp>>
 class indirect {
-  using _AllocTraits = allocator_traits<_Allocator>;
+  using _AllocTraits _LIBCPP_NODEBUG = allocator_traits<_Allocator>;
 
   static_assert(is_same_v<typename _AllocTraits::value_type, _Tp>,
                 "allocator_traits<Allocator>::value_type must be the same type as T");

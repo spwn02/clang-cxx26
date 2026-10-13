@@ -167,7 +167,7 @@ private:
 
   struct __join_sink_base {
     __join_sink_base* __next_                                = nullptr;
-    _LIBCPP_HIDE_FROM_ABI virtual void __complete() noexcept = 0;
+    _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete() noexcept = 0;
 
   protected:
     _LIBCPP_HIDE_FROM_ABI ~__join_sink_base() = default;
@@ -241,7 +241,7 @@ class simple_counting_scope::__join_opstate final : public simple_counting_scope
     void set_stopped() && noexcept { execution::set_stopped(std::move(__rcvr_)); }
     decltype(auto) get_env() const noexcept { return execution::get_env(__rcvr_); }
   };
-  using __scheduled_t = decltype(execution::schedule(__scheduler(std::declval<const _Rcvr&>())));
+  using __scheduled_t _LIBCPP_NODEBUG = decltype(execution::schedule(__scheduler(std::declval<const _Rcvr&>())));
 
 public:
   using operation_state_concept = operation_state_tag;
@@ -257,7 +257,7 @@ public:
   }
 
 private:
-  _LIBCPP_HIDE_FROM_ABI void __complete() noexcept override { execution::start(__op_); }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __complete() noexcept override { execution::start(__op_); }
   simple_counting_scope* __scope_;
   _Rcvr __rcvr_;
   connect_result_t<__scheduled_t, __receiver> __op_;
@@ -410,7 +410,7 @@ template <class>
 struct __associate_sigs;
 template <class... _Sigs>
 struct __associate_sigs<completion_signatures<_Sigs...>> {
-  using type = completion_signatures<_Sigs..., set_stopped_t()>;
+  using type _LIBCPP_NODEBUG = completion_signatures<_Sigs..., set_stopped_t()>;
 };
 
 template <class _Tag, class _Assoc, class _Sndr>
@@ -465,7 +465,7 @@ inline constexpr associate_t associate{};
 // child operation state, deallocate its storage, *then* disassociate -- in that order, since
 // the allocator used to free the storage must still be valid when it does so.
 struct __spawn_op_base {
-  _LIBCPP_HIDE_FROM_ABI virtual void __on_complete() noexcept = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __on_complete() noexcept = 0;
 
 protected:
   _LIBCPP_HIDE_FROM_ABI ~__spawn_op_base() = default;
@@ -497,7 +497,7 @@ private:
 
 template <class _Sndr, class _Token, class _Alloc>
 class __spawn_op final : public __spawn_op_base {
-  using __rcvr_t = __spawn_inner_rcvr;
+  using __rcvr_t _LIBCPP_NODEBUG = __spawn_inner_rcvr;
 
 public:
   _LIBCPP_HIDE_FROM_ABI __spawn_op(_Sndr&& __sndr, _Token __token, _Alloc __alloc)
@@ -513,7 +513,7 @@ public:
   }
 
 private:
-  _LIBCPP_HIDE_FROM_ABI void __on_complete() noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __on_complete() noexcept override {
     auto __assoc      = std::move(__assoc_);
     using __rebound_t = typename allocator_traits<_Alloc>::template rebind_alloc<__spawn_op>;
     __rebound_t __a(__alloc_);
@@ -611,14 +611,14 @@ template <class _List>
 struct __spawn_future_to_variant;
 template <class... _Ts>
 struct __spawn_future_to_variant<__exec_type_list<_Ts...>> {
-  using type = variant<_Ts...>;
+  using type _LIBCPP_NODEBUG = variant<_Ts...>;
 };
 
 template <class _List>
 struct __spawn_future_to_sigs;
 template <class... _Sigs>
 struct __spawn_future_to_sigs<__exec_type_list<_Sigs...>> {
-  using type = completion_signatures<_Sigs...>;
+  using type _LIBCPP_NODEBUG = completion_signatures<_Sigs...>;
 };
 
 // [exec.spawn.future]p3-4: the result variant this state's receiver stores into. monostate
@@ -642,7 +642,7 @@ struct __spawn_future_variant_for<completion_signatures<_Sigs...>> {
                                                               typename __spawn_future_as_tuple<_Sigs>::type...>>::type>;
 };
 template <class _Completions>
-using __spawn_future_variant_t = typename __spawn_future_variant_for<_Completions>::type;
+using __spawn_future_variant_t _LIBCPP_NODEBUG = typename __spawn_future_variant_for<_Completions>::type;
 
 // The *outer* sender's own advertised completions: sigs-t widened with set_stopped_t() (always
 // reachable, independent of the child: the try_associate()-failed path in the constructor) and,
@@ -662,11 +662,11 @@ struct __spawn_future_outer_sigs_for<completion_signatures<_Sigs...>> {
                            __dedup_type_list_t<_Sigs..., set_stopped_t(), set_error_t(exception_ptr)>>::type>;
 };
 template <class _Completions>
-using __spawn_future_outer_sigs_t = typename __spawn_future_outer_sigs_for<_Completions>::type;
+using __spawn_future_outer_sigs_t _LIBCPP_NODEBUG = typename __spawn_future_outer_sigs_for<_Completions>::type;
 
 // [exec.spawn.future]p2: try-cancelable.
 struct __try_cancelable {
-  _LIBCPP_HIDE_FROM_ABI virtual void __try_cancel() noexcept = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __try_cancel() noexcept = 0;
 
 protected:
   _LIBCPP_HIDE_FROM_ABI ~__try_cancelable() = default;
@@ -678,7 +678,7 @@ protected:
 template <class _Completions>
 struct __spawn_future_state_base : __try_cancelable {
   __spawn_future_variant_t<_Completions> __result;
-  _LIBCPP_HIDE_FROM_ABI virtual void __complete() noexcept = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete() noexcept = 0;
 
 protected:
   _LIBCPP_HIDE_FROM_ABI ~__spawn_future_state_base() = default;
@@ -689,8 +689,8 @@ protected:
 // this. Both operations first deregister the stop callback of the receiver, then complete it.
 template <class _Completions>
 struct __spawn_future_consume_sink {
-  _LIBCPP_HIDE_FROM_ABI virtual void __on_complete() noexcept = 0;
-  _LIBCPP_HIDE_FROM_ABI virtual void __on_stopped() noexcept  = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __on_complete() noexcept = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __on_stopped() noexcept  = 0;
 
 protected:
   _LIBCPP_HIDE_FROM_ABI ~__spawn_future_consume_sink() = default;
@@ -756,7 +756,7 @@ class __spawn_future_state final
 public:
   using __sigs_t  = completion_signatures_of_t<__wrapped_t, env<>>;
   using __rcvr_t  = __spawn_future_receiver<__sigs_t>;
-  using __alloc_t = typename allocator_traits<_Alloc>::template rebind_alloc<__spawn_future_state>;
+  using __alloc_t _LIBCPP_NODEBUG = typename allocator_traits<_Alloc>::template rebind_alloc<__spawn_future_state>;
 
   _LIBCPP_HIDE_FROM_ABI __spawn_future_state(_Alloc __alloc, _Sndr&& __sndr, _Token __token, _Env __env)
       : __alloc_(std::move(__alloc)),

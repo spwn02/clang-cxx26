@@ -15,14 +15,14 @@
 #include <__functional/function_ref_common.h>
 #include <__functional/invoke.h>
 #include <__memory/addressof.h>
+#include <__type_traits/invoke.h>
+#include <__type_traits/is_const.h>
 #include <__type_traits/is_convertible.h>
 #include <__type_traits/is_function.h>
 #include <__type_traits/is_member_pointer.h>
 #include <__type_traits/is_pointer.h>
-#include <__type_traits/is_const.h>
 #include <__type_traits/is_reference.h>
 #include <__type_traits/is_same.h>
-#include <__type_traits/invoke.h>
 #include <__type_traits/remove_cv.h>
 #include <__type_traits/remove_cvref.h>
 #include <__type_traits/remove_pointer.h>
@@ -78,8 +78,8 @@ public:
   template <class _Fp>
     requires(is_function_v<_Fp> && __is_invocable_using<_Fp&>)
   _LIBCPP_HIDE_FROM_ABI function_ref(_Fp* __f) noexcept
-      : __bound_(__f), __thunk_([](__function_ref_bound_entity __bound_entity_, _ArgTypes&&... __args) noexcept(_Np) -> _Rp {
-          return std::invoke_r<_Rp>(*__bound_entity_.template __get_function<_Fp>(), std::forward<_ArgTypes>(__args)...);
+      : __bound_(__f), __thunk_([](__function_ref_bound_entity __bound_entity, _ArgTypes&&... __args) noexcept(_Np) -> _Rp {
+          return std::invoke_r<_Rp>(*__bound_entity.template __get_function<_Fp>(), std::forward<_ArgTypes>(__args)...);
         }) {
     _LIBCPP_ASSERT_NON_NULL(__f != nullptr, "function_ref cannot be constructed from a null function pointer");
   }

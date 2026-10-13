@@ -60,7 +60,7 @@ template <class _Vp>
 concept __simd_integral = __simd_vec_type<_Vp> && integral<typename _Vp::value_type>;
 
 template <class _Vp>
-using __simd_complex_value_type = typename _Vp::value_type::value_type;
+using __simd_complex_value_type _LIBCPP_NODEBUG = typename _Vp::value_type::value_type;
 
 template <class _Vp>
 concept __simd_complex =
@@ -76,7 +76,7 @@ concept __simd_complex =
 // admitted through basic_vec's implicit broadcast constructor. That is why the broadcast
 // constructor must stay implicit, and why its value-preserving constraint is load-bearing.
 template <class _Tp>
-using __deduced_vec_t = decltype(std::declval<const _Tp&>() + std::declval<const _Tp&>());
+using __deduced_vec_t _LIBCPP_NODEBUG = decltype(std::declval<const _Tp&>() + std::declval<const _Tp&>());
 
 template <class _Tp>
 concept __math_floating_point = requires { typename __deduced_vec_t<_Tp>; } && __simd_floating_point<__deduced_vec_t<_Tp>>;
