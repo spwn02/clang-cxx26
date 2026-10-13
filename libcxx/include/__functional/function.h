@@ -218,7 +218,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI __value_func(const __value_func& __f) {
     if (__f.__f_ == nullptr)
       __f_ = nullptr;
-    else if ((void*)__f.__f_ == &__f.__buf_) {
+    else if ((void*)__f.__f_ == std::addressof(__f.__buf_)) {
       __f_ = __as_base(&__buf_);
       __f.__f_->__clone(__f_);
     } else
@@ -228,7 +228,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI __value_func(__value_func&& __f) _NOEXCEPT {
     if (__f.__f_ == nullptr)
       __f_ = nullptr;
-    else if ((void*)__f.__f_ == &__f.__buf_) {
+    else if ((void*)__f.__f_ == std::addressof(__f.__buf_)) {
       __f_ = __as_base(&__buf_);
       __f.__f_->__clone(__f_);
     } else {
@@ -248,7 +248,7 @@ public:
     *this = nullptr;
     if (__f.__f_ == nullptr)
       __f_ = nullptr;
-    else if ((void*)__f.__f_ == &__f.__buf_) {
+    else if ((void*)__f.__f_ == std::addressof(__f.__buf_)) {
       __f_ = __as_base(&__buf_);
       __f.__f_->__clone(__f_);
     } else {
@@ -281,7 +281,7 @@ public:
       _LIBCPP_SUPPRESS_DEPRECATED_PUSH
       typename aligned_storage<sizeof(__buf_)>::type __tempbuf;
       _LIBCPP_SUPPRESS_DEPRECATED_POP
-      __func* __t = __as_base(&__tempbuf);
+      __func* __t = __as_base(std::addressof(__tempbuf));
       __f_->__clone(__t);
       __f_->destroy();
       __f_ = nullptr;
@@ -289,15 +289,15 @@ public:
       __f.__f_->destroy();
       __f.__f_ = nullptr;
       __f_     = __as_base(&__buf_);
-      __t->__clone(__as_base(&__f.__buf_));
+      __t->__clone(__as_base(std::addressof(__f.__buf_)));
       __t->destroy();
-      __f.__f_ = __as_base(&__f.__buf_);
+      __f.__f_ = __as_base(std::addressof(__f.__buf_));
     } else if ((void*)__f_ == &__buf_) {
-      __f_->__clone(__as_base(&__f.__buf_));
+      __f_->__clone(__as_base(std::addressof(__f.__buf_)));
       __f_->destroy();
       __f_     = __f.__f_;
-      __f.__f_ = __as_base(&__f.__buf_);
-    } else if ((void*)__f.__f_ == &__f.__buf_) {
+      __f.__f_ = __as_base(std::addressof(__f.__buf_));
+    } else if ((void*)__f.__f_ == std::addressof(__f.__buf_)) {
       __f.__f_->__clone(__as_base(&__buf_));
       __f.__f_->destroy();
       __f.__f_ = __f_;

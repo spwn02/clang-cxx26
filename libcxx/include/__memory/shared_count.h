@@ -52,8 +52,8 @@ inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp __libcpp_atomic_r
 }
 
 class _LIBCPP_EXPORTED_FROM_ABI __shared_count {
-  __shared_count(const __shared_count&);
-  __shared_count& operator=(const __shared_count&);
+  __shared_count(const __shared_count&) = delete;
+  __shared_count& operator=(const __shared_count&) = delete;
 
 protected:
   long __shared_owners_;
