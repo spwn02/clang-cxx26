@@ -52,6 +52,35 @@ constexpr int rvalue_reference_to_non_const() {
   return r.value;
 }
 
+// A mutable member is never usable in a constant expression.
+struct M { mutable int v; constexpr M(int x) : v(x) {} };
+constexpr int mutable_member() {
+  const M &r = M{1};
+  static_assert(r.v == 1); // cxx20-error {{static assertion expression is not an integral constant expression}} cxx23-error {{static assertion expression is not an integral constant expression}} cxx26-error {{static assertion expression is not an integral constant expression}}
+  return r.v;
+}
+
+// An initializer that is a call, a nested block, two reads of the same reference.
+constexpr int four() { return 4; }
+constexpr int call_initializer() {
+  const int &r = four();
+  static_assert(r == 4); // cxx20-error {{static assertion expression is not an integral constant expression}} cxx23-error {{static assertion expression is not an integral constant expression}}
+  return r;
+}
+constexpr int nested_block() {
+  {
+    const int &r = 9;
+    static_assert(r == 9); // cxx20-error {{static assertion expression is not an integral constant expression}} cxx23-error {{static assertion expression is not an integral constant expression}}
+  }
+  return 1;
+}
+constexpr int two_reads() {
+  const int &r = 9;
+  static_assert(r == 9); // cxx20-error {{static assertion expression is not an integral constant expression}} cxx23-error {{static assertion expression is not an integral constant expression}}
+  static_assert(r + 1 == 10); // cxx20-error {{static assertion expression is not an integral constant expression}} cxx23-error {{static assertion expression is not an integral constant expression}}
+  return r;
+}
+
 // The functions themselves are fine to evaluate in every mode.
 static_assert(scalar_temp() == 9);
 static_assert(class_temp() == 9);
