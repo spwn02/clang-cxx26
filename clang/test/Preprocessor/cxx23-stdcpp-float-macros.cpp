@@ -7,7 +7,7 @@
 // RUN: %clang -target x86_64-unknown-linux-gnu -stdlib=libc++ -std=c++26 -x c++ -E -dM %s | FileCheck --check-prefix=LIBCXX %s
 // RUN: %clang -target x86_64-unknown-linux-gnu -stdlib=libstdc++ -std=c++23 -x c++ -E -dM %s | FileCheck --check-prefix=LIBSTDCXX %s
 // RUN: %clang -target x86_64-unknown-linux-gnu -stdlib=libc++ -std=c++20 -x c++ -E -dM %s | FileCheck --check-prefix=OLDER %s
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++23 -stdlib=libc++ -E -dM %s | FileCheck --check-prefix=LIBCXX %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++23 -fstdcpp-float-macros -E -dM %s | FileCheck --check-prefix=LIBCXX %s
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++23 -E -dM %s | FileCheck --check-prefix=LIBSTDCXX %s
 
 // LIBCXX-DAG: #define __STDCPP_BFLOAT16_T__ 1

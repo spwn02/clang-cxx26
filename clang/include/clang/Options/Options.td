@@ -1733,6 +1733,11 @@ defm coro_aligned_allocation : BoolFOption<"coro-aligned-allocation",
           "Prefer aligned allocation for C++ Coroutines">,
   NegFlag<SetFalse>>;
 
+def fstdcpp_float_macros : Flag<["-"], "fstdcpp-float-macros">,
+  Visibility<[CC1Option]>,
+  HelpText<"Predefine __STDCPP_FLOAT<N>_T__ and __STDCPP_BFLOAT16_T__ ([cpp.predefined]); the driver passes it for libc++">,
+  MarshallingInfoFlag<LangOpts<"StdCppFloatMacros">>;
+
 defm experimental_library : BoolFOption<"experimental-library",
   LangOpts<"ExperimentalLibrary">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option, CLOption],

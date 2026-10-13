@@ -21,7 +21,6 @@
 #include "clang/Frontend/FrontendOptions.h"
 #include "clang/Frontend/Utils.h"
 #include "clang/Lex/HeaderSearch.h"
-#include "clang/Lex/HeaderSearchOptions.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Serialization/ASTReader.h"
@@ -853,7 +852,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
                                        const FrontendOptions &FEOpts,
                                        const PreprocessorOptions &PPOpts,
                                        const CodeGenOptions &CGOpts,
-                                       bool UseLibcxx, MacroBuilder &Builder) {
+                                       MacroBuilder &Builder) {
   // Compiler version introspection macros.
   Builder.defineMacro("__llvm__");  // LLVM Backend
   Builder.defineMacro("__clang__"); // Clang Frontend
@@ -1005,14 +1004,14 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // C++23 (P1467R9): the extended floating-point types this target supports.
   // [cpp.predefined] makes the standard __STDCPP_FLOAT<N>_T__ macros predefined,
   // but libstdc++ takes them to mean that GCC's _Float<N> types exist, so they
-  // are predefined only when the driver selected libc++ (-stdlib=libc++, passed
-  // on to the frontend); the private spellings are always defined and libc++'s
+  // are predefined only when the driver selected libc++ (it passes
+  // -fstdcpp-float-macros); the private spellings are always defined and libc++'s
   // <__config> derives the standard ones from them when the driver could not
   // tell (e.g. -nostdinc++ with libc++ headers added by -I).
   if (LangOpts.CPlusPlus23) {
     auto DefineFloatType = [&](StringRef Name) {
       Builder.defineMacro(("__CLANG_STDCPP_" + Name + "_T__").str(), "1");
-      if (UseLibcxx)
+      if (LangOpts.StdCppFloatMacros)
         Builder.defineMacro(("__STDCPP_" + Name + "_T__").str(), "1");
     };
     if (TI.hasFloat16Type())
@@ -1605,16 +1604,14 @@ void clang::InitializePreprocessor(Preprocessor &PP,
   if (InitOpts.UsePredefines) {
     // FIXME: This will create multiple definitions for most of the predefined
     // macros. This is not the right way to handle this.
-    bool UseLibcxx =
-        PP.getHeaderSearchInfo().getHeaderSearchOpts().UseLibcxx;
     if ((LangOpts.CUDA || LangOpts.isTargetDevice()) && PP.getAuxTargetInfo())
       InitializePredefinedMacros(*PP.getAuxTargetInfo(), LangOpts, FEOpts,
                                  PP.getPreprocessorOpts(), CodeGenOpts,
-                                 UseLibcxx, Builder);
+                                 Builder);
 
     InitializePredefinedMacros(PP.getTargetInfo(), LangOpts, FEOpts,
                                PP.getPreprocessorOpts(), CodeGenOpts,
-                               UseLibcxx, Builder);
+                               Builder);
 
     // Install definitions to make Objective-C++ ARC work well with various
     // C++ Standard Library implementations.
