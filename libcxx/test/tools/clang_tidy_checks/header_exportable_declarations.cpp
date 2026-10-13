@@ -94,6 +94,10 @@ void header_exportable_declarations::registerMatchers(clang::ast_matchers::Match
   // no need to check the strict rules.
   using namespace clang::ast_matchers;
 
+  // An empty regex is rejected by clang-tidy builds with assertions enabled
+  // (the module cases do not set extra_header_): use one that matches nothing.
+  const std::string extra_header_regex = extra_header_.empty() ? std::string("$^") : extra_header_.str();
+
   switch (file_type_) {
   case FileType::Header:
     finder->addMatcher(
@@ -105,7 +109,7 @@ void header_exportable_declarations::registerMatchers(clang::ast_matchers::Match
             // * __fwd/header.h
             anyOf(isExpansionInFileMatching(("v1/__" + filename_ + "/").str()),
                   isExpansionInFileMatching(("v1/__" + filename_ + "_dir/").str()),
-                  isExpansionInFileMatching(extra_header_),
+                  isExpansionInFileMatching(extra_header_regex),
                   isExpansionInFileMatching(("v1/__fwd/" + filename_ + "\\.h$").str()),
                   isExpansionInFileMatching(("v1/" + filename_ + "$").str())),
             unless(hasAncestor(friendDecl())))
@@ -124,7 +128,7 @@ void header_exportable_declarations::registerMatchers(clang::ast_matchers::Match
     [[fallthrough]];
   case FileType::ModulePartition:
   case FileType::CompatModulePartition:
-    finder->addMatcher(namedDecl(anyOf(isExpansionInFileMatching(filename_), isExpansionInFileMatching(extra_header_)))
+    finder->addMatcher(namedDecl(anyOf(isExpansionInFileMatching(filename_), isExpansionInFileMatching(extra_header_regex)))
                            .bind("header_exportable_declarations"),
                        this);
     break;
