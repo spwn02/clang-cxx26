@@ -6,8 +6,9 @@
 # matching Clang development package, which this fork's build-nyx tree is not as far
 # as CMake is concerned (it found a system-installed LLVM instead). This script builds
 # the plugin by hand against build-nyx's headers with the exact flags clang-tidy was
-# built with, installs it where the lit configuration looks for it and runs the two
-# tests. It changes nothing in the source tree or in build-libcxx's CMake cache.
+# built with, installs it where the lit configuration looks for it for the duration of the
+# run and removes it afterwards. It changes nothing in the source tree or in build-libcxx's
+# CMake cache.
 #
 # Usage:
 #   cxx26/dev/check-module-exports.sh
@@ -23,7 +24,10 @@ libcxx_build="$repo_root/build-libcxx"
 checks="$repo_root/libcxx/test/tools/clang_tidy_checks"
 plugin_dir="$libcxx_build/libcxx/test/tools/clang_tidy_checks"
 scratch="$(mktemp -d)"
-trap 'rm -rf "$scratch"' EXIT
+# The plugin must not stay installed: lit enables every clang-tidy test as soon as the file
+# exists, and a plain libcxx-lit run would then pair it with whatever clang-tidy is on PATH
+# (an ABI mismatch with a system LLVM) and fail.
+trap 'rm -rf "$scratch" "$plugin_dir/libcxx-tidy.plugin"' EXIT
 
 echo "==> refreshing clang and clang-tidy (their embedded revisions must match)"
 ninja -C "$nyx" -j"${JOBS:-12}" clang clang-tidy >/dev/null
