@@ -12,6 +12,8 @@
 #
 # Usage:
 #   cxx26/dev/check-module-exports.sh
+#   EXTRA_TESTS="libcxx/test/libcxx/clang_tidy.gen.py" cxx26/dev/check-module-exports.sh
+#     (also runs those tests while the plugin is installed; they need it)
 # Prerequisites: build-nyx (clang, clang-tidy) and build-libcxx are built and current.
 # Afterwards remove the lit output directories (they are large).
 set -euo pipefail
@@ -58,7 +60,7 @@ echo "==> running the detectors"
 status=0
 libcxx/utils/libcxx-lit "$libcxx_build" -sv -j"${JOBS:-12}" \
   --param clang-tidy-executable="$nyx/bin/clang-tidy" \
-  libcxx/test/libcxx/module_std.gen.py libcxx/test/libcxx/module_std_compat.gen.py || status=$?
+  libcxx/test/libcxx/module_std.gen.py libcxx/test/libcxx/module_std_compat.gen.py ${EXTRA_TESTS:-} || status=$?
 
 find "$libcxx_build/libcxx/test" -type d -name Output -prune -exec rm -rf {} + 2>/dev/null || true
 exit "$status"

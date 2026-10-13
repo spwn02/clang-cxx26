@@ -28,8 +28,24 @@ concept can_hypot = requires(Args... args) { simd::hypot(args...); };
 template <class... Args>
 concept can_fma = requires(Args... args) { simd::fma(args...); };
 
-// A scalar of another floating-point type does not convert implicitly to the vector type, and an operand list
-// without a vector is not a call of this overload set.
+// Operands other than the vector convert to it implicitly, so a scalar or vector of a type that converts
+// without narrowing is accepted and a narrowing one is not; an operand list without a vector is not a call of
+// this overload set.
+using D4 = simd::vec<double, 4>;
+struct ConvertsToFloat {
+  operator float() const { return 1.0f; }
+};
+static_assert(can_hypot<D, float>);
+static_assert(can_hypot<D, int>);
+static_assert(can_hypot<V, short>);
+static_assert(can_hypot<V, D4>);
+static_assert(can_hypot<D4, V>);
+static_assert(can_hypot<V, ConvertsToFloat>);
+static_assert(can_fma<V, float, D4>);
+static_assert(std::is_same_v<decltype(simd::hypot(V(), D4())), D4>);
+static_assert(std::is_same_v<decltype(simd::hypot(D4(), V())), D4>);
+static_assert(std::is_same_v<decltype(simd::fma(V(), 1.0f, D4())), D4>);
+static_assert(std::is_same_v<decltype(simd::hypot(D(), 1)), D>);
 static_assert(can_hypot<V, float>);
 static_assert(can_hypot<float, V>);
 static_assert(!can_hypot<V, double>);
