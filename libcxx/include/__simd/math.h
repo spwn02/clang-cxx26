@@ -138,6 +138,73 @@ _LIBCPP_SIMD_MATH_BINARY(fdim)
 _LIBCPP_SIMD_MATH_BINARY(fmax)
 _LIBCPP_SIMD_MATH_BINARY(fmin)
 
+// --- special mathematical functions: non-constexpr per [simd.math] (21) ---
+#  define _LIBCPP_SIMD_MATH_SPECIAL_UNARY(_Name)                                                                     \
+    template <__math_floating_point _Vp>                                                                             \
+    _LIBCPP_HIDE_FROM_ABI __math_result_t<_Vp> _Name(const _Vp& __x) {                                               \
+      using _Rp = __math_result_t<_Vp>;                                                                              \
+      return _Rp([&](auto __i) { return std::_Name(__x[__i]); });                                                   \
+    }
+
+#  define _LIBCPP_SIMD_MATH_SPECIAL_BINARY(_Name)                                                                    \
+    template <__math_floating_point _Vp>                                                                             \
+    _LIBCPP_HIDE_FROM_ABI __math_result_t<_Vp> _Name(const _Vp& __x, const _Vp& __y) {                               \
+      using _Rp = __math_result_t<_Vp>;                                                                              \
+      return _Rp([&](auto __i) { return std::_Name(__x[__i], __y[__i]); });                                         \
+    }
+
+#  define _LIBCPP_SIMD_MATH_SPECIAL_TERNARY(_Name)                                                                   \
+    template <__math_floating_point _Vp>                                                                             \
+    _LIBCPP_HIDE_FROM_ABI __math_result_t<_Vp> _Name(const _Vp& __x, const _Vp& __y, const _Vp& __z) {               \
+      using _Rp = __math_result_t<_Vp>;                                                                              \
+      return _Rp([&](auto __i) { return std::_Name(__x[__i], __y[__i], __z[__i]); });                                \
+    }
+
+#  define _LIBCPP_SIMD_MATH_SPECIAL_INDEX_UNARY(_Name)                                                               \
+    template <__math_floating_point _Vp>                                                                             \
+    _LIBCPP_HIDE_FROM_ABI __math_result_t<_Vp> _Name(const rebind_t<unsigned, __math_result_t<_Vp>>& __n,            \
+                                                       const _Vp& __x) {                                             \
+      using _Rp = __math_result_t<_Vp>;                                                                              \
+      return _Rp([&](auto __i) { return std::_Name(__n[__i], __x[__i]); });                                         \
+    }
+
+#  define _LIBCPP_SIMD_MATH_SPECIAL_INDEX_BINARY(_Name)                                                              \
+    template <__math_floating_point _Vp>                                                                             \
+    _LIBCPP_HIDE_FROM_ABI __math_result_t<_Vp> _Name(const rebind_t<unsigned, __math_result_t<_Vp>>& __n,            \
+                                                       const rebind_t<unsigned, __math_result_t<_Vp>>& __m,          \
+                                                       const _Vp& __x) {                                             \
+      using _Rp = __math_result_t<_Vp>;                                                                              \
+      return _Rp([&](auto __i) { return std::_Name(__n[__i], __m[__i], __x[__i]); });                               \
+    }
+
+_LIBCPP_SIMD_MATH_SPECIAL_INDEX_BINARY(assoc_laguerre)
+_LIBCPP_SIMD_MATH_SPECIAL_INDEX_BINARY(assoc_legendre)
+_LIBCPP_SIMD_MATH_SPECIAL_BINARY(beta)
+_LIBCPP_SIMD_MATH_SPECIAL_UNARY(comp_ellint_1)
+_LIBCPP_SIMD_MATH_SPECIAL_UNARY(comp_ellint_2)
+_LIBCPP_SIMD_MATH_SPECIAL_BINARY(comp_ellint_3)
+_LIBCPP_SIMD_MATH_SPECIAL_BINARY(cyl_bessel_i)
+_LIBCPP_SIMD_MATH_SPECIAL_BINARY(cyl_bessel_j)
+_LIBCPP_SIMD_MATH_SPECIAL_BINARY(cyl_bessel_k)
+_LIBCPP_SIMD_MATH_SPECIAL_BINARY(cyl_neumann)
+_LIBCPP_SIMD_MATH_SPECIAL_BINARY(ellint_1)
+_LIBCPP_SIMD_MATH_SPECIAL_BINARY(ellint_2)
+_LIBCPP_SIMD_MATH_SPECIAL_TERNARY(ellint_3)
+_LIBCPP_SIMD_MATH_SPECIAL_UNARY(expint)
+_LIBCPP_SIMD_MATH_SPECIAL_INDEX_UNARY(hermite)
+_LIBCPP_SIMD_MATH_SPECIAL_INDEX_UNARY(laguerre)
+_LIBCPP_SIMD_MATH_SPECIAL_INDEX_UNARY(legendre)
+_LIBCPP_SIMD_MATH_SPECIAL_UNARY(riemann_zeta)
+_LIBCPP_SIMD_MATH_SPECIAL_INDEX_UNARY(sph_bessel)
+_LIBCPP_SIMD_MATH_SPECIAL_INDEX_BINARY(sph_legendre)
+_LIBCPP_SIMD_MATH_SPECIAL_INDEX_UNARY(sph_neumann)
+
+#  undef _LIBCPP_SIMD_MATH_SPECIAL_UNARY
+#  undef _LIBCPP_SIMD_MATH_SPECIAL_BINARY
+#  undef _LIBCPP_SIMD_MATH_SPECIAL_TERNARY
+#  undef _LIBCPP_SIMD_MATH_SPECIAL_INDEX_UNARY
+#  undef _LIBCPP_SIMD_MATH_SPECIAL_INDEX_BINARY
+
 // --- classification, unary -> mask (5) ---
 _LIBCPP_SIMD_MATH_UNARY_MASK(isfinite)
 _LIBCPP_SIMD_MATH_UNARY_MASK(isinf)
