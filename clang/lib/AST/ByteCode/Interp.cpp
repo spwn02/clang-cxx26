@@ -227,6 +227,14 @@ static bool CheckTemporary(InterpState &S, CodePtr OpPC, const Block *B,
     if (!MTE)
       return true;
 
+    // The const-qualified temporary of an automatic object kept in a global
+    // only to outlive the initializer of a declaration evaluated on its own
+    // (C++26, P2686R5): it is not a static temporary. A temporary that is not
+    // const-qualified (bound to an rvalue reference) stays unreadable.
+    if (MTE->getStorageDuration() == SD_Automatic &&
+        MTE->getType().isConstQualified())
+      return true;
+
     // FIXME(perf): Since we do this check on every Load from a static
     // temporary, it might make sense to cache the value of the
     // isUsableInConstantExpressions call.

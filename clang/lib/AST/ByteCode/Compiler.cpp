@@ -7269,6 +7269,20 @@ bool Compiler<Emitter>::visitDeclRef(const ValueDecl *D, const Expr *E) {
     if (VD->evaluateValue())
       return revisit(VD);
 
+    // P2686R5 (C++26): a reference may be used in a constant expression
+    // evaluated within the function whose automatic object it refers to. Visit
+    // its declaration with the variable as the one being initialized, so that
+    // the lifetime-extended temporaries of the initializer are preserved
+    // (PreserveAutomaticTemporary in VisitMaterializeTemporaryExpr) instead of
+    // being destroyed with the scope of the initializer.
+    if (IsReference && Ctx.getLangOpts().CPlusPlus26) {
+      const ValueDecl *OldInitializingDecl = InitializingDecl;
+      InitializingDecl = VD;
+      bool Result = revisit(VD);
+      InitializingDecl = OldInitializingDecl;
+      return Result;
+    }
+
     // P2280R4 (C++23): a reference of unknown value can be used as long as the
     // object it refers to is not read; the dummy pointer diagnoses a read.
     if (!IsReference || Ctx.getLangOpts().CPlusPlus23)
