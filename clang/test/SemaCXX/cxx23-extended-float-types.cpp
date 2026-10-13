@@ -9,7 +9,7 @@
     !defined(__CLANG_STDCPP_BFLOAT16_T__)
 #error "missing predefined macro"
 #endif
-// The standard macros are left to the C++ library (libstdc++ misreads them).
+// Without -stdlib=libc++ the standard macros are left to the C++ library (libstdc++ misreads them).
 #if defined(__STDCPP_FLOAT32_T__)
 #error "unexpected"
 #endif

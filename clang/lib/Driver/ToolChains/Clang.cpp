@@ -6485,6 +6485,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddLastArg(CmdArgs, options::OPT_fexperimental_library);
 
+  // The frontend predefines the [cpp.predefined] __STDCPP_FLOAT<N>_T__ macros
+  // only for libc++ (libstdc++ reads them as "GCC's _Float<N> types exist").
+  if (types::isCXX(Input.getType()) &&
+      getToolChain().GetCXXStdlibType(Args) == ToolChain::CST_Libcxx)
+    CmdArgs.push_back("-stdlib=libc++");
+
   if (Args.hasArg(options::OPT_fexperimental_new_constant_interpreter))
     CmdArgs.push_back("-fexperimental-new-constant-interpreter");
 
