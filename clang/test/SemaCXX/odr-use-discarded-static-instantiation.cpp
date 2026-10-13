@@ -54,3 +54,19 @@ void volatile_local() {
   auto l = [] { x; }; // expected-error {{variable 'x' cannot be implicitly captured in a lambda with no capture-default specified}} expected-note@-1 {{'x' declared here}} expected-note {{lambda expression begins here}} expected-note {{capture 'x' by value}} expected-note {{capture 'x' by reference}} expected-note {{default capture by value}} expected-note {{default capture by reference}}
   (void)l;
 }
+
+// A const-qualified variable that is not constexpr is not needed for constant
+// evaluation either: a discarded use does not instantiate it.
+template <class T> struct ConstNotConstexpr { static const double v; };
+template <class T> const double ConstNotConstexpr<T>::v = T::nope;
+void const_double() { ConstNotConstexpr<int>::v; (void)ConstNotConstexpr<int>::v; }
+
+// Inside templates: instantiating the function does not instantiate the variable.
+template <class T> struct InTemplate { static int q; };
+template <class T> int InTemplate<T>::q = T::nope;
+template <class T> void discarded_in_template() { InTemplate<T>::q; (void)InTemplate<T>::q; }
+template void discarded_in_template<int>();
+void generic_lambda() {
+  auto l = [](auto) { InTemplate<int>::q; (void)InTemplate<int>::q; };
+  l(1);
+}

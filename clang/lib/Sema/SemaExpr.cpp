@@ -21463,6 +21463,20 @@ static bool isDeclaredInExpansionStmtDecl(const Decl *D) {
   return false;
 }
 
+/// Whether \p Var, or any declaration of the template it is instantiated from,
+/// is declared constexpr (the specifier may appear on the out-of-line definition
+/// of a static data member only).
+static bool isConstexprByAnyDeclaration(const VarDecl *Var) {
+  if (Var->isConstexpr())
+    return true;
+  const VarDecl *Pattern = Var->getTemplateInstantiationPattern();
+  if (!Pattern)
+    Pattern = Var;
+  return llvm::any_of(Pattern->redecls(), [](const VarDecl *R) {
+    return R->isConstexpr();
+  });
+}
+
 /// Request the implicit instantiation of the definition of the variable (template
 /// specialization or static data member of a class template) \p Var named by
 /// \p E at \p Loc. Shared by DoMarkVarDeclReferenced and the delayed requests of
@@ -21589,12 +21603,13 @@ static void DoMarkVarDeclReferenced(
   // a discarded-value expression is not odr-used, so its definition need not be
   // instantiated. Delay the request for such candidates (see
   // MaybeODRUseVarInstantiations); everything else is requested right away. A
-  // const-qualified variable may be a constexpr variable by its out-of-line
-  // definition, which makes it needed for constant evaluation: not delayed.
+  // variable that is constexpr by any declaration of its pattern (an out-of-line
+  // definition of a static data member can add the specifier) is needed for
+  // constant evaluation: not delayed.
   bool DelayInstantiation =
       E && OdrUse == OdrUseContext::Used && TSK == TSK_ImplicitInstantiation &&
-      !UsableInConstantExpr && !Var->isConstexpr() &&
-      !Var->getType().isConstQualified() && !Var->getType()->isReferenceType() &&
+      !UsableInConstantExpr && !isConstexprByAnyDeclaration(Var) &&
+      !Var->getType()->isReferenceType() &&
       !Var->getType()->isUndeducedType() && !SemaRef.isSynthesizingExpansionStmt() &&
       !Var->isLocalVarDeclOrParm();
 
@@ -21610,15 +21625,12 @@ static void DoMarkVarDeclReferenced(
   // instantiations of variable templates, except for those that could be used
   // in a constant expression.
   if (NeedDefinition && isTemplateInstantiation(TSK)) {
-    if (DelayInstantiation) {
-      // The variable is not usable in constant expressions: whether its
-      // definition is needed depends on whether this expression is an odr-use
-      // (it is not for a discarded-value expression), which is only known
-      // when the full-expression is complete.
-      SemaRef.MaybeODRUseVarInstantiations[E] = {Var, Loc};
-    } else {
+    // When the request is delayed it is recorded below, together with the
+    // expression, in the case that waits for the full-expression: whether the
+    // definition is needed depends on whether the expression is an odr-use (it
+    // is not for a discarded-value expression).
+    if (!DelayInstantiation)
       RequestImplicitVarDefinition(SemaRef, Loc, Var, E);
-    }
   }
 
   // C++2a [basic.def.odr]p4:
@@ -21680,8 +21692,11 @@ static void DoMarkVarDeclReferenced(
           PotentialCaptureLSI->ImpCaptureStyle ==
               CapturingScopeInfo::ImpCap_None &&
           !PotentialCaptureLSI->isCaptured(Var))) &&
-        !SemaRef.isSynthesizingExpansionStmt())
+        !SemaRef.isSynthesizingExpansionStmt()) {
       SemaRef.MaybeODRUseExprs.insert(E);
+      if (DelayInstantiation && NeedDefinition && isTemplateInstantiation(TSK))
+        SemaRef.MaybeODRUseVarInstantiations[E] = {Var, Loc};
+    }
     else if (SemaRef.isSynthesizingExpansionStmt() &&
              isDeclaredInExpansionStmtDecl(Var))
       Var->markUsed(SemaRef.Context);
