@@ -30,5 +30,8 @@ export namespace std {
 
   // [stacktrace.basic.hash], hash support
   using std::hash;
+
+  // [stacktrace.format], formatting support
+  using std::formatter;
 #endif
 } // namespace std

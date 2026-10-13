@@ -195,6 +195,8 @@ export namespace std {
   // [const.iterators.iterator], class template basic_const_iterator
   using std::basic_const_iterator;
 
+  using std::common_type;
+
   using std::make_const_iterator;
   using std::make_const_sentinel;
 

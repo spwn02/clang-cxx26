@@ -63,6 +63,9 @@ export namespace std {
   using std::tan;
   using std::tanh;
 
+#if _LIBCPP_STD_VER < 26
+  // Removed by P3016R6.
   using std::begin;
   using std::end;
+#endif // _LIBCPP_STD_VER < 26
 } // namespace std

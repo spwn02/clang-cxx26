@@ -18,6 +18,7 @@ export namespace std {
   using std::get_terminate;
   using std::make_exception_ptr;
   using std::nested_exception;
+  using std::operator==;
   using std::rethrow_exception;
   using std::rethrow_if_nested;
   using std::set_terminate;

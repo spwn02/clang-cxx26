@@ -108,8 +108,12 @@ export namespace std::filesystem {
   using std::filesystem::u8path;
 } // namespace std::filesystem
 
+// [fs.path.fmtr], formatting support
 // [fs.path.hash], hash support
 export namespace std {
+#if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_FILESYSTEM
+  using std::formatter;
+#endif
   using std::hash;
 }
 

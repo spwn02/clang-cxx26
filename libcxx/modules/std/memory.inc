@@ -24,7 +24,6 @@ export namespace std {
 #if _LIBCPP_STD_VER >= 26
   // [indirect], class template indirect
   using std::indirect;
-  using std::hash;
 
   // [polymorphic], class template polymorphic
   using std::polymorphic;
@@ -196,7 +195,7 @@ export namespace std {
   using std::hash;
 
   // [util.smartptr.atomic], atomic smart pointers
-  // using std::atomic;
+  using std::atomic;
 
 #if _LIBCPP_STD_VER >= 23
   // [out.ptr.t], class template out_ptr_t
@@ -212,8 +211,8 @@ export namespace std {
   using std::inout_ptr;
 #endif // _LIBCPP_STD_VER >= 23
 
-#if _LIBCPP_HAS_THREADS
-  // [depr.util.smartptr.shared.atomic]
+#if _LIBCPP_HAS_THREADS && (_LIBCPP_STD_VER < 26 || defined(_LIBCPP_ENABLE_CXX26_REMOVED_SHARED_PTR_ATOMICS))
+  // [depr.util.smartptr.shared.atomic] (removed in C++26 by P2869R4)
   using std::atomic_is_lock_free;
 
   using std::atomic_load;
@@ -229,5 +228,5 @@ export namespace std {
   using std::atomic_compare_exchange_strong_explicit;
   using std::atomic_compare_exchange_weak;
   using std::atomic_compare_exchange_weak_explicit;
-#endif // _LIBCPP_HAS_THREADS
+#endif // _LIBCPP_HAS_THREADS && (_LIBCPP_STD_VER < 26 || ...)
 } // namespace std

@@ -20,11 +20,9 @@ export namespace std {
   using std::ends;
   using std::flush;
 
-#  if 0
   using std::emit_on_flush;
   using std::flush_emit;
   using std::noemit_on_flush;
-#  endif
   using std::operator<<;
 
 #  if _LIBCPP_STD_VER >= 23

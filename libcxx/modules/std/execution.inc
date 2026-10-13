@@ -34,6 +34,9 @@ export namespace std::execution {
 } // namespace std::execution
 #if _LIBCPP_STD_VER >= 26
 export namespace std {
+  // [exec.domain.indeterminate], common_type specializations
+  using std::common_type;
+
   // [exec.queryable]
   // `queryable` is exposition-only, not exported.
 

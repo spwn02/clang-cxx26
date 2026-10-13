@@ -38,7 +38,9 @@ export namespace std {
 
   using std::swap;
 
+#if _LIBCPP_STD_VER < 26
   using std::uses_allocator;
+#endif // _LIBCPP_STD_VER < 26 (removed by P3503R3)
 
   // [futures.unique.future], class template future
   using std::future;

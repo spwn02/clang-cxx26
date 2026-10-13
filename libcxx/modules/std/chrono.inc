@@ -136,9 +136,9 @@ export namespace std {
     using std::chrono::local_time_format;
 
     // [time.clock.cast], time_point conversions
-    // using std::chrono::clock_time_conversion;
+    using std::chrono::clock_time_conversion;
 
-    // using std::chrono::clock_cast;
+    using std::chrono::clock_cast;
 
     // [time.cal.last], class last_spec
     using std::chrono::last_spec;
