@@ -689,7 +689,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto transposed(mdspan<_ElementType, _Extents, _
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>
 _LIBCPP_HIDE_FROM_ABI constexpr auto conjugate_transposed(mdspan<_ElementType, _Extents, _Layout, _Accessor> __view) {
-  return conjugated(transposed(__view));
+  return linalg::conjugated(linalg::transposed(__view));
 }
 
 // [linalg.syn]: the algorithms are declared here with the template-parameter lists of the synopsis and defined at
@@ -1936,7 +1936,7 @@ __dotc_impl(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __lef
            __detail::__in_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>> &&
            __detail::__linalg_scalar<decltype(__init)>)
 {
-  return dot(conjugated(__left), __right, __init);
+  return linalg::dot(linalg::conjugated(__left), __right, __init);
 }
 
 template <class _LeftElement,
@@ -2114,7 +2114,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __vector_abs_sum_impl(mdspan<_ElementType, 
   requires __detail::__in_vector<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
 {
   using _Result = decltype(__detail::__blas_abs(__vector[0]));
-  return vector_abs_sum(__vector, _Result{});
+  return linalg::vector_abs_sum(__vector, _Result{});
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>
@@ -2200,7 +2200,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __matrix_one_norm_impl(mdspan<_ElementType,
   requires __detail::__in_matrix<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
 {
   using _Result = decltype(__detail::__abs_if_needed(__matrix[0, 0]));
-  return matrix_one_norm(__matrix, _Result{});
+  return linalg::matrix_one_norm(__matrix, _Result{});
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor, class _Scalar>
@@ -2226,7 +2226,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __matrix_inf_norm_impl(mdspan<_ElementType,
   requires __detail::__in_matrix<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
 {
   using _Result = decltype(__detail::__abs_if_needed(__matrix[0, 0]));
-  return matrix_inf_norm(__matrix, _Result{});
+  return linalg::matrix_inf_norm(__matrix, _Result{});
 }
 
 template <class _MatrixElement,
@@ -4288,7 +4288,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void __triangular_matrix_matrix_left_solve_impl(
   requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
            __detail::__inout_matrix<mdspan<_InOutElement, _InOutExtents, _InOutLayout, _InOutAccessor>>)
 {
-  triangular_matrix_matrix_left_solve(__matrix, __triangle, __diagonal, __io_span, __io_span, __divide);
+  linalg::triangular_matrix_matrix_left_solve(__matrix, __triangle, __diagonal, __io_span, __io_span, __divide);
 }
 
 template <class _MatrixElement,
@@ -4369,7 +4369,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void __triangular_matrix_matrix_right_solve_impl
   requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
            __detail::__inout_matrix<mdspan<_InOutElement, _InOutExtents, _InOutLayout, _InOutAccessor>>)
 {
-  triangular_matrix_matrix_right_solve(__matrix, __triangle, __diagonal, __io_span, __io_span, __divide);
+  linalg::triangular_matrix_matrix_right_solve(__matrix, __triangle, __diagonal, __io_span, __io_span, __divide);
 }
 
 template <class _MatrixElement,
@@ -4634,13 +4634,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr void __triangular_matrix_vector_solve_impl(
   requires(__detail::__in_matrix<mdspan<_MatrixElement, _MatrixExtents, _MatrixLayout, _MatrixAccessor>> &&
            __detail::__inout_vector<mdspan<_VectorElement, _VectorExtents, _VectorLayout, _VectorAccessor>>)
 {
-  triangular_matrix_vector_solve(__matrix, __triangle, __diagonal, __io_span, __io_span, __divide);
+  linalg::triangular_matrix_vector_solve(__matrix, __triangle, __diagonal, __io_span, __io_span, __divide);
 }
 
 // [linalg.syn]: the public algorithms.
 template <__detail::__inout_vector _InOutVec1, __detail::__inout_vector _InOutVec2, class _Real>
 _LIBCPP_HIDE_FROM_ABI constexpr void apply_givens_rotation(_InOutVec1 __x, _InOutVec2 __y, _Real __c, _Real __s) {
-  __apply_givens_rotation_impl(__x, __y, __c, __s);
+  linalg::__apply_givens_rotation_impl(__x, __y, __c, __s);
 }
 
 template <class _ExecutionPolicy, __detail::__inout_vector _InOutVec1, __detail::__inout_vector _InOutVec2, class _Real>
@@ -4648,13 +4648,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 apply_givens_rotation(_ExecutionPolicy&&, _InOutVec1 __x, _InOutVec2 __y, _Real __c, _Real __s)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __apply_givens_rotation_impl(__x, __y, __c, __s);
+  linalg::__apply_givens_rotation_impl(__x, __y, __c, __s);
 }
 
 template <__detail::__inout_vector _InOutVec1, __detail::__inout_vector _InOutVec2, class _Real>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 apply_givens_rotation(_InOutVec1 __x, _InOutVec2 __y, _Real __c, complex<_Real> __s) {
-  __apply_givens_rotation_impl(__x, __y, __c, __s);
+  linalg::__apply_givens_rotation_impl(__x, __y, __c, __s);
 }
 
 template <class _ExecutionPolicy, __detail::__inout_vector _InOutVec1, __detail::__inout_vector _InOutVec2, class _Real>
@@ -4662,48 +4662,48 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 apply_givens_rotation(_ExecutionPolicy&&, _InOutVec1 __x, _InOutVec2 __y, _Real __c, complex<_Real> __s)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __apply_givens_rotation_impl(__x, __y, __c, __s);
+  linalg::__apply_givens_rotation_impl(__x, __y, __c, __s);
 }
 
 template <__detail::__inout_object _InOutObj1, __detail::__inout_object _InOutObj2>
 _LIBCPP_HIDE_FROM_ABI constexpr void swap_elements(_InOutObj1 __x, _InOutObj2 __y) {
-  __swap_elements_impl(__x, __y);
+  linalg::__swap_elements_impl(__x, __y);
 }
 
 template <class _ExecutionPolicy, __detail::__inout_object _InOutObj1, __detail::__inout_object _InOutObj2>
 _LIBCPP_HIDE_FROM_ABI constexpr void swap_elements(_ExecutionPolicy&&, _InOutObj1 __x, _InOutObj2 __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __swap_elements_impl(__x, __y);
+  linalg::__swap_elements_impl(__x, __y);
 }
 
 template <__detail::__linalg_scalar _Scalar, __detail::__inout_object _InOutObj>
 _LIBCPP_HIDE_FROM_ABI constexpr void scale(_Scalar __alpha, _InOutObj __x) {
-  __scale_impl(__alpha, __x);
+  linalg::__scale_impl(__alpha, __x);
 }
 
 template <class _ExecutionPolicy, __detail::__linalg_scalar _Scalar, __detail::__inout_object _InOutObj>
 _LIBCPP_HIDE_FROM_ABI constexpr void scale(_ExecutionPolicy&&, _Scalar __alpha, _InOutObj __x)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __scale_impl(__alpha, __x);
+  linalg::__scale_impl(__alpha, __x);
 }
 
 template <__detail::__in_object _InObj, __detail::__out_object _OutObj>
 _LIBCPP_HIDE_FROM_ABI constexpr void copy(_InObj __x, _OutObj __y) {
-  __copy_impl(__x, __y);
+  linalg::__copy_impl(__x, __y);
 }
 
 template <class _ExecutionPolicy, __detail::__in_object _InObj, __detail::__out_object _OutObj>
 _LIBCPP_HIDE_FROM_ABI constexpr void copy(_ExecutionPolicy&&, _InObj __x, _OutObj __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __copy_impl(__x, __y);
+  linalg::__copy_impl(__x, __y);
 }
 
 template <__detail::__in_object _InObj1, __detail::__in_object _InObj2, __detail::__out_object _OutObj>
 _LIBCPP_HIDE_FROM_ABI constexpr void add(_InObj1 __x, _InObj2 __y, _OutObj __z) {
-  __add_impl(__x, __y, __z);
+  linalg::__add_impl(__x, __y, __z);
 }
 
 template <class _ExecutionPolicy,
@@ -4713,12 +4713,12 @@ template <class _ExecutionPolicy,
 _LIBCPP_HIDE_FROM_ABI constexpr void add(_ExecutionPolicy&&, _InObj1 __x, _InObj2 __y, _OutObj __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __add_impl(__x, __y, __z);
+  linalg::__add_impl(__x, __y, __z);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar dot(_InVec1 __v1, _InVec2 __v2, _Scalar __init) {
-  return __dot_impl(__v1, __v2, __init);
+  return linalg::__dot_impl(__v1, __v2, __init);
 }
 
 template <class _ExecutionPolicy,
@@ -4728,24 +4728,24 @@ template <class _ExecutionPolicy,
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar dot(_ExecutionPolicy&&, _InVec1 __v1, _InVec2 __v2, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __dot_impl(__v1, __v2, __init);
+  return linalg::__dot_impl(__v1, __v2, __init);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2>
 _LIBCPP_HIDE_FROM_ABI constexpr auto dot(_InVec1 __v1, _InVec2 __v2) {
-  return __dot_impl(__v1, __v2);
+  return linalg::__dot_impl(__v1, __v2);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2>
 _LIBCPP_HIDE_FROM_ABI constexpr auto dot(_ExecutionPolicy&&, _InVec1 __v1, _InVec2 __v2)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __dot_impl(__v1, __v2);
+  return linalg::__dot_impl(__v1, __v2);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar dotc(_InVec1 __v1, _InVec2 __v2, _Scalar __init) {
-  return __dotc_impl(__v1, __v2, __init);
+  return linalg::__dotc_impl(__v1, __v2, __init);
 }
 
 template <class _ExecutionPolicy,
@@ -4755,67 +4755,67 @@ template <class _ExecutionPolicy,
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar dotc(_ExecutionPolicy&&, _InVec1 __v1, _InVec2 __v2, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __dotc_impl(__v1, __v2, __init);
+  return linalg::__dotc_impl(__v1, __v2, __init);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2>
 _LIBCPP_HIDE_FROM_ABI constexpr auto dotc(_InVec1 __v1, _InVec2 __v2) {
-  return __dotc_impl(__v1, __v2);
+  return linalg::__dotc_impl(__v1, __v2);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec1, __detail::__in_vector _InVec2>
 _LIBCPP_HIDE_FROM_ABI constexpr auto dotc(_ExecutionPolicy&&, _InVec1 __v1, _InVec2 __v2)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __dotc_impl(__v1, __v2);
+  return linalg::__dotc_impl(__v1, __v2);
 }
 
 template <__detail::__in_vector _InVec, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar vector_two_norm(_InVec __v, _Scalar __init) {
-  return __vector_two_norm_impl(__v, __init);
+  return linalg::__vector_two_norm_impl(__v, __init);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar vector_two_norm(_ExecutionPolicy&&, _InVec __v, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __vector_two_norm_impl(__v, __init);
+  return linalg::__vector_two_norm_impl(__v, __init);
 }
 
 template <__detail::__in_vector _InVec>
 _LIBCPP_HIDE_FROM_ABI constexpr auto vector_two_norm(_InVec __v) {
-  return __vector_two_norm_impl(__v);
+  return linalg::__vector_two_norm_impl(__v);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec>
 _LIBCPP_HIDE_FROM_ABI constexpr auto vector_two_norm(_ExecutionPolicy&&, _InVec __v)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __vector_two_norm_impl(__v);
+  return linalg::__vector_two_norm_impl(__v);
 }
 
 template <__detail::__in_vector _InVec, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar vector_abs_sum(_InVec __v, _Scalar __init) {
-  return __vector_abs_sum_impl(__v, __init);
+  return linalg::__vector_abs_sum_impl(__v, __init);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar vector_abs_sum(_ExecutionPolicy&&, _InVec __v, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __vector_abs_sum_impl(__v, __init);
+  return linalg::__vector_abs_sum_impl(__v, __init);
 }
 
 template <__detail::__in_vector _InVec>
 _LIBCPP_HIDE_FROM_ABI constexpr auto vector_abs_sum(_InVec __v) {
-  return __vector_abs_sum_impl(__v);
+  return linalg::__vector_abs_sum_impl(__v);
 }
 
 template <class _ExecutionPolicy, __detail::__in_vector _InVec>
 _LIBCPP_HIDE_FROM_ABI constexpr auto vector_abs_sum(_ExecutionPolicy&&, _InVec __v)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __vector_abs_sum_impl(__v);
+  return linalg::__vector_abs_sum_impl(__v);
 }
 
 template <__detail::__in_vector _InVec>
@@ -4832,79 +4832,79 @@ _LIBCPP_HIDE_FROM_ABI constexpr typename _InVec::size_type vector_idx_abs_max(_E
 
 template <__detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar matrix_frob_norm(_InMat __a, _Scalar __init) {
-  return __matrix_frob_norm_impl(__a, __init);
+  return linalg::__matrix_frob_norm_impl(__a, __init);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar matrix_frob_norm(_ExecutionPolicy&&, _InMat __a, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_frob_norm_impl(__a, __init);
+  return linalg::__matrix_frob_norm_impl(__a, __init);
 }
 
 template <__detail::__in_matrix _InMat>
 _LIBCPP_HIDE_FROM_ABI constexpr auto matrix_frob_norm(_InMat __a) {
-  return __matrix_frob_norm_impl(__a);
+  return linalg::__matrix_frob_norm_impl(__a);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat>
 _LIBCPP_HIDE_FROM_ABI constexpr auto matrix_frob_norm(_ExecutionPolicy&&, _InMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_frob_norm_impl(__a);
+  return linalg::__matrix_frob_norm_impl(__a);
 }
 
 template <__detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar matrix_one_norm(_InMat __a, _Scalar __init) {
-  return __matrix_one_norm_impl(__a, __init);
+  return linalg::__matrix_one_norm_impl(__a, __init);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar matrix_one_norm(_ExecutionPolicy&&, _InMat __a, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_one_norm_impl(__a, __init);
+  return linalg::__matrix_one_norm_impl(__a, __init);
 }
 
 template <__detail::__in_matrix _InMat>
 _LIBCPP_HIDE_FROM_ABI constexpr auto matrix_one_norm(_InMat __a) {
-  return __matrix_one_norm_impl(__a);
+  return linalg::__matrix_one_norm_impl(__a);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat>
 _LIBCPP_HIDE_FROM_ABI constexpr auto matrix_one_norm(_ExecutionPolicy&&, _InMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_one_norm_impl(__a);
+  return linalg::__matrix_one_norm_impl(__a);
 }
 
 template <__detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar matrix_inf_norm(_InMat __a, _Scalar __init) {
-  return __matrix_inf_norm_impl(__a, __init);
+  return linalg::__matrix_inf_norm_impl(__a, __init);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar matrix_inf_norm(_ExecutionPolicy&&, _InMat __a, _Scalar __init)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_inf_norm_impl(__a, __init);
+  return linalg::__matrix_inf_norm_impl(__a, __init);
 }
 
 template <__detail::__in_matrix _InMat>
 _LIBCPP_HIDE_FROM_ABI constexpr auto matrix_inf_norm(_InMat __a) {
-  return __matrix_inf_norm_impl(__a);
+  return linalg::__matrix_inf_norm_impl(__a);
 }
 
 template <class _ExecutionPolicy, __detail::__in_matrix _InMat>
 _LIBCPP_HIDE_FROM_ABI constexpr auto matrix_inf_norm(_ExecutionPolicy&&, _InMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  return __matrix_inf_norm_impl(__a);
+  return linalg::__matrix_inf_norm_impl(__a);
 }
 
 template <__detail::__in_matrix _InMat, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_vector_product(_InMat __a, _InVec __x, _OutVec __y) {
-  __matrix_vector_product_impl(__a, __x, __y);
+  linalg::__matrix_vector_product_impl(__a, __x, __y);
 }
 
 template <class _ExecutionPolicy,
@@ -4914,7 +4914,7 @@ template <class _ExecutionPolicy,
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_vector_product_impl(__a, __x, __y);
+  linalg::__matrix_vector_product_impl(__a, __x, __y);
 }
 
 template <__detail::__in_matrix _InMat,
@@ -4922,7 +4922,7 @@ template <__detail::__in_matrix _InMat,
           __detail::__in_vector _InVec2,
           __detail::__out_vector _OutVec>
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_vector_product(_InMat __a, _InVec1 __x, _InVec2 __y, _OutVec __z) {
-  __matrix_vector_product_impl(__a, __x, __y, __z);
+  linalg::__matrix_vector_product_impl(__a, __x, __y, __z);
 }
 
 template <class _ExecutionPolicy,
@@ -4934,13 +4934,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_vector_product_impl(__a, __x, __y, __z);
+  linalg::__matrix_vector_product_impl(__a, __x, __y, __z);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_vector_product(_InMat __a, _Triangle __t, _InVec __x, _OutVec __y) {
-  __symmetric_matrix_vector_product_impl(__a, __t, __x, __y);
+  linalg::__symmetric_matrix_vector_product_impl(__a, __t, __x, __y);
 }
 
 template <class _ExecutionPolicy,
@@ -4952,7 +4952,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_vector_product_impl(__a, __t, __x, __y);
+  linalg::__symmetric_matrix_vector_product_impl(__a, __t, __x, __y);
 }
 
 template <__detail::__in_matrix _InMat,
@@ -4962,7 +4962,7 @@ template <__detail::__in_matrix _InMat,
           __detail::__out_vector _OutVec>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_vector_product(_InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z) {
-  __symmetric_matrix_vector_product_impl(__a, __t, __x, __y, __z);
+  linalg::__symmetric_matrix_vector_product_impl(__a, __t, __x, __y, __z);
 }
 
 template <class _ExecutionPolicy,
@@ -4975,13 +4975,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_vector_product_impl(__a, __t, __x, __y, __z);
+  linalg::__symmetric_matrix_vector_product_impl(__a, __t, __x, __y, __z);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, __detail::__in_vector _InVec, __detail::__out_vector _OutVec>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_vector_product(_InMat __a, _Triangle __t, _InVec __x, _OutVec __y) {
-  __hermitian_matrix_vector_product_impl(__a, __t, __x, __y);
+  linalg::__hermitian_matrix_vector_product_impl(__a, __t, __x, __y);
 }
 
 template <class _ExecutionPolicy,
@@ -4993,7 +4993,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_vector_product_impl(__a, __t, __x, __y);
+  linalg::__hermitian_matrix_vector_product_impl(__a, __t, __x, __y);
 }
 
 template <__detail::__in_matrix _InMat,
@@ -5003,7 +5003,7 @@ template <__detail::__in_matrix _InMat,
           __detail::__out_vector _OutVec>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_vector_product(_InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z) {
-  __hermitian_matrix_vector_product_impl(__a, __t, __x, __y, __z);
+  linalg::__hermitian_matrix_vector_product_impl(__a, __t, __x, __y, __z);
 }
 
 template <class _ExecutionPolicy,
@@ -5016,7 +5016,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_vector_product_impl(__a, __t, __x, __y, __z);
+  linalg::__hermitian_matrix_vector_product_impl(__a, __t, __x, __y, __z);
 }
 
 template <__detail::__in_matrix _InMat,
@@ -5026,7 +5026,7 @@ template <__detail::__in_matrix _InMat,
           __detail::__out_vector _OutVec>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_vector_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __x, _OutVec __y) {
-  __triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y);
+  linalg::__triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y);
 }
 
 template <class _ExecutionPolicy,
@@ -5039,13 +5039,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_vector_product(
     _ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __x, _OutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y);
+  linalg::__triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_vector_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __y) {
-  __triangular_matrix_vector_product_impl(__a, __t, __d, __y);
+  linalg::__triangular_matrix_vector_product_impl(__a, __t, __d, __y);
 }
 
 template <class _ExecutionPolicy,
@@ -5057,7 +5057,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_vector_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __y)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_product_impl(__a, __t, __d, __y);
+  linalg::__triangular_matrix_vector_product_impl(__a, __t, __d, __y);
 }
 
 template <__detail::__in_matrix _InMat,
@@ -5068,7 +5068,7 @@ template <__detail::__in_matrix _InMat,
           __detail::__out_vector _OutVec>
 _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_vector_product(
     _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec1 __x, _InVec2 __y, _OutVec __z) {
-  __triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y, __z);
+  linalg::__triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y, __z);
 }
 
 template <class _ExecutionPolicy,
@@ -5082,7 +5082,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_vector_product(
     _ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec1 __x, _InVec2 __y, _OutVec __z)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y, __z);
+  linalg::__triangular_matrix_vector_product_impl(__a, __t, __d, __x, __y, __z);
 }
 
 template <__detail::__in_matrix _InMat,
@@ -5093,7 +5093,7 @@ template <__detail::__in_matrix _InMat,
           class _BinaryDivideOp>
 _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_vector_solve(
     _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x, _BinaryDivideOp __divide) {
-  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x, __divide);
+  linalg::__triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <class _ExecutionPolicy,
@@ -5113,7 +5113,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_vector_solve(
     _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x, __divide);
+  linalg::__triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <__detail::__in_matrix _InMat,
@@ -5123,7 +5123,7 @@ template <__detail::__in_matrix _InMat,
           __detail::__out_vector _OutVec>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_vector_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x) {
-  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x);
+  linalg::__triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <class _ExecutionPolicy,
@@ -5136,7 +5136,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_vector_solve(
     _ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InVec __b, _OutVec __x)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x);
+  linalg::__triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <__detail::__in_matrix _InMat,
@@ -5146,7 +5146,7 @@ template <__detail::__in_matrix _InMat,
           class _BinaryDivideOp>
 _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_vector_solve(
     _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b, _BinaryDivideOp __divide) {
-  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __divide);
+  linalg::__triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <class _ExecutionPolicy,
@@ -5159,13 +5159,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_vector_solve(
     _ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __divide);
+  linalg::__triangular_matrix_vector_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_vector _InOutVec>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_vector_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b) {
-  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b);
+  linalg::__triangular_matrix_vector_solve_impl(__a, __t, __d, __b);
 }
 
 template <class _ExecutionPolicy,
@@ -5177,12 +5177,12 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_vector_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutVec __b)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_vector_solve_impl(__a, __t, __d, __b);
+  linalg::__triangular_matrix_vector_solve_impl(__a, __t, __d, __b);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_rank_1_update(_InVec1 __x, _InVec2 __y, _OutMat __a) {
-  __matrix_rank_1_update_impl(__x, __y, __a);
+  linalg::__matrix_rank_1_update_impl(__x, __y, __a);
 }
 
 template <class _ExecutionPolicy,
@@ -5192,12 +5192,12 @@ template <class _ExecutionPolicy,
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_rank_1_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_rank_1_update_impl(__x, __y, __a);
+  linalg::__matrix_rank_1_update_impl(__x, __y, __a);
 }
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_rank_1_update_c(_InVec1 __x, _InVec2 __y, _OutMat __a) {
-  __matrix_rank_1_update_c_impl(__x, __y, __a);
+  linalg::__matrix_rank_1_update_c_impl(__x, __y, __a);
 }
 
 template <class _ExecutionPolicy,
@@ -5207,7 +5207,7 @@ template <class _ExecutionPolicy,
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_rank_1_update_c(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_rank_1_update_c_impl(__x, __y, __a);
+  linalg::__matrix_rank_1_update_c_impl(__x, __y, __a);
 }
 
 template <__detail::__in_vector _InVec1,
@@ -5215,7 +5215,7 @@ template <__detail::__in_vector _InVec1,
           __detail::__in_matrix _InMat,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_rank_1_update(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a) {
-  __matrix_rank_1_update_impl(__x, __y, __e, __a);
+  linalg::__matrix_rank_1_update_impl(__x, __y, __e, __a);
 }
 
 template <class _ExecutionPolicy,
@@ -5227,7 +5227,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 matrix_rank_1_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_rank_1_update_impl(__x, __y, __e, __a);
+  linalg::__matrix_rank_1_update_impl(__x, __y, __e, __a);
 }
 
 template <__detail::__in_vector _InVec1,
@@ -5235,7 +5235,7 @@ template <__detail::__in_vector _InVec1,
           __detail::__in_matrix _InMat,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_rank_1_update_c(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a) {
-  __matrix_rank_1_update_c_impl(__x, __y, __e, __a);
+  linalg::__matrix_rank_1_update_c_impl(__x, __y, __e, __a);
 }
 
 template <class _ExecutionPolicy,
@@ -5247,7 +5247,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 matrix_rank_1_update_c(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_rank_1_update_c_impl(__x, __y, __e, __a);
+  linalg::__matrix_rank_1_update_c_impl(__x, __y, __e, __a);
 }
 
 template <__detail::__linalg_scalar _Scalar,
@@ -5256,7 +5256,7 @@ template <__detail::__linalg_scalar _Scalar,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t) {
-  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
+  linalg::__symmetric_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5268,7 +5268,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
+  linalg::__symmetric_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar,
@@ -5277,7 +5277,7 @@ template <__detail::__linalg_scalar _Scalar,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t) {
-  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
+  linalg::__hermitian_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5289,7 +5289,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
+  linalg::__hermitian_matrix_rank_1_update_impl(__alpha, __x, __a, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar,
@@ -5299,7 +5299,7 @@ template <__detail::__linalg_scalar _Scalar,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t) {
-  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
+  linalg::__symmetric_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5312,7 +5312,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
+  linalg::__symmetric_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar,
@@ -5322,7 +5322,7 @@ template <__detail::__linalg_scalar _Scalar,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_1_update(_Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t) {
-  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
+  linalg::__hermitian_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5335,7 +5335,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_1_update(_ExecutionPolicy&&, _Scalar __alpha, _InVec __x, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
+  linalg::__hermitian_matrix_rank_1_update_impl(__alpha, __x, __e, __a, __t);
 }
 
 template <__detail::__in_vector _InVec1,
@@ -5344,7 +5344,7 @@ template <__detail::__in_vector _InVec1,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t) {
-  __symmetric_matrix_rank_2_update_impl(__x, __y, __a, __t);
+  linalg::__symmetric_matrix_rank_2_update_impl(__x, __y, __a, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5356,7 +5356,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_2_update_impl(__x, __y, __a, __t);
+  linalg::__symmetric_matrix_rank_2_update_impl(__x, __y, __a, __t);
 }
 
 template <__detail::__in_vector _InVec1,
@@ -5365,7 +5365,7 @@ template <__detail::__in_vector _InVec1,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t) {
-  __hermitian_matrix_rank_2_update_impl(__x, __y, __a, __t);
+  linalg::__hermitian_matrix_rank_2_update_impl(__x, __y, __a, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5377,7 +5377,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_2_update_impl(__x, __y, __a, __t);
+  linalg::__hermitian_matrix_rank_2_update_impl(__x, __y, __a, __t);
 }
 
 template <__detail::__in_vector _InVec1,
@@ -5387,7 +5387,7 @@ template <__detail::__in_vector _InVec1,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t) {
-  __symmetric_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
+  linalg::__symmetric_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5400,7 +5400,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
+  linalg::__symmetric_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
 }
 
 template <__detail::__in_vector _InVec1,
@@ -5410,7 +5410,7 @@ template <__detail::__in_vector _InVec1,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_2_update(_InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t) {
-  __hermitian_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
+  linalg::__hermitian_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5423,12 +5423,12 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_2_update(_ExecutionPolicy&&, _InVec1 __x, _InVec2 __y, _InMat __e, _OutMat __a, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
+  linalg::__hermitian_matrix_rank_2_update_impl(__x, __y, __e, __a, __t);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_product(_InMat1 __a, _InMat2 __b, _OutMat __c) {
-  __matrix_product_impl(__a, __b, __c);
+  linalg::__matrix_product_impl(__a, __b, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5438,7 +5438,7 @@ template <class _ExecutionPolicy,
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_product_impl(__a, __b, __c);
+  linalg::__matrix_product_impl(__a, __b, __c);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5446,7 +5446,7 @@ template <__detail::__in_matrix _InMat1,
           __detail::__in_matrix _InMat3,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void matrix_product(_InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c) {
-  __matrix_product_impl(__a, __b, __e, __c);
+  linalg::__matrix_product_impl(__a, __b, __e, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5458,12 +5458,12 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __matrix_product_impl(__a, __b, __e, __c);
+  linalg::__matrix_product_impl(__a, __b, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void symmetric_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c) {
-  __symmetric_matrix_product_impl(__a, __t, __b, __c);
+  linalg::__symmetric_matrix_product_impl(__a, __t, __b, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5475,12 +5475,12 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_product_impl(__a, __t, __b, __c);
+  linalg::__symmetric_matrix_product_impl(__a, __t, __b, __c);
 }
 
 template <__detail::__in_matrix _InMat1, class _Triangle, __detail::__in_matrix _InMat2, __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void hermitian_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c) {
-  __hermitian_matrix_product_impl(__a, __t, __b, __c);
+  linalg::__hermitian_matrix_product_impl(__a, __t, __b, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5492,7 +5492,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_product_impl(__a, __t, __b, __c);
+  linalg::__hermitian_matrix_product_impl(__a, __t, __b, __c);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5502,7 +5502,7 @@ template <__detail::__in_matrix _InMat1,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_product(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __c) {
-  __triangular_matrix_product_impl(__a, __t, __d, __b, __c);
+  linalg::__triangular_matrix_product_impl(__a, __t, __d, __b, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5515,12 +5515,12 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_product(
     _ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_product_impl(__a, __t, __d, __b, __c);
+  linalg::__triangular_matrix_product_impl(__a, __t, __d, __b, __c);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void symmetric_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c) {
-  __symmetric_matrix_product_impl(__a, __b, __t, __c);
+  linalg::__symmetric_matrix_product_impl(__a, __b, __t, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5532,12 +5532,12 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_product_impl(__a, __b, __t, __c);
+  linalg::__symmetric_matrix_product_impl(__a, __b, __t, __c);
 }
 
 template <__detail::__in_matrix _InMat1, __detail::__in_matrix _InMat2, class _Triangle, __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void hermitian_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c) {
-  __hermitian_matrix_product_impl(__a, __b, __t, __c);
+  linalg::__hermitian_matrix_product_impl(__a, __b, __t, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5549,7 +5549,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_product_impl(__a, __b, __t, __c);
+  linalg::__hermitian_matrix_product_impl(__a, __b, __t, __c);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5559,7 +5559,7 @@ template <__detail::__in_matrix _InMat1,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _OutMat __c) {
-  __triangular_matrix_product_impl(__a, __b, __t, __d, __c);
+  linalg::__triangular_matrix_product_impl(__a, __b, __t, __d, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5572,7 +5572,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_product(
     _ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_product_impl(__a, __b, __t, __d, __c);
+  linalg::__triangular_matrix_product_impl(__a, __b, __t, __d, __c);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5582,7 +5582,7 @@ template <__detail::__in_matrix _InMat1,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c) {
-  __symmetric_matrix_product_impl(__a, __t, __b, __e, __c);
+  linalg::__symmetric_matrix_product_impl(__a, __t, __b, __e, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5595,7 +5595,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_product_impl(__a, __t, __b, __e, __c);
+  linalg::__symmetric_matrix_product_impl(__a, __t, __b, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5605,7 +5605,7 @@ template <__detail::__in_matrix _InMat1,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_product(_InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c) {
-  __hermitian_matrix_product_impl(__a, __t, __b, __e, __c);
+  linalg::__hermitian_matrix_product_impl(__a, __t, __b, __e, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5618,7 +5618,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_product_impl(__a, __t, __b, __e, __c);
+  linalg::__hermitian_matrix_product_impl(__a, __t, __b, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5629,7 +5629,7 @@ template <__detail::__in_matrix _InMat1,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_product(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _InMat3 __e, _OutMat __c) {
-  __triangular_matrix_product_impl(__a, __t, __d, __b, __e, __c);
+  linalg::__triangular_matrix_product_impl(__a, __t, __d, __b, __e, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5643,7 +5643,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_product(
     _ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_product_impl(__a, __t, __d, __b, __e, __c);
+  linalg::__triangular_matrix_product_impl(__a, __t, __d, __b, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5653,7 +5653,7 @@ template <__detail::__in_matrix _InMat1,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c) {
-  __symmetric_matrix_product_impl(__a, __b, __t, __e, __c);
+  linalg::__symmetric_matrix_product_impl(__a, __b, __t, __e, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5666,7 +5666,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_product_impl(__a, __b, __t, __e, __c);
+  linalg::__symmetric_matrix_product_impl(__a, __b, __t, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5676,7 +5676,7 @@ template <__detail::__in_matrix _InMat1,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c) {
-  __hermitian_matrix_product_impl(__a, __b, __t, __e, __c);
+  linalg::__hermitian_matrix_product_impl(__a, __b, __t, __e, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5689,7 +5689,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_product(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_product_impl(__a, __b, __t, __e, __c);
+  linalg::__hermitian_matrix_product_impl(__a, __b, __t, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5700,7 +5700,7 @@ template <__detail::__in_matrix _InMat1,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_product(_InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _InMat3 __e, _OutMat __c) {
-  __triangular_matrix_product_impl(__a, __b, __t, __d, __e, __c);
+  linalg::__triangular_matrix_product_impl(__a, __b, __t, __d, __e, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5714,13 +5714,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_product(
     _ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _Triangle __t, _DiagonalStorage __d, _InMat3 __e, _OutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_product_impl(__a, __b, __t, __d, __e, __c);
+  linalg::__triangular_matrix_product_impl(__a, __b, __t, __d, __e, __c);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_left_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c) {
-  __triangular_matrix_left_product_impl(__a, __t, __d, __c);
+  linalg::__triangular_matrix_left_product_impl(__a, __t, __d, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5732,13 +5732,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_left_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_left_product_impl(__a, __t, __d, __c);
+  linalg::__triangular_matrix_left_product_impl(__a, __t, __d, __c);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_right_product(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c) {
-  __triangular_matrix_right_product_impl(__a, __t, __d, __c);
+  linalg::__triangular_matrix_right_product_impl(__a, __t, __d, __c);
 }
 
 template <class _ExecutionPolicy,
@@ -5750,7 +5750,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_right_product(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __c)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_right_product_impl(__a, __t, __d, __c);
+  linalg::__triangular_matrix_right_product_impl(__a, __t, __d, __c);
 }
 
 template <__detail::__linalg_scalar _Scalar,
@@ -5759,7 +5759,7 @@ template <__detail::__linalg_scalar _Scalar,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_k_update(_Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t) {
-  __symmetric_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
+  linalg::__symmetric_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5771,7 +5771,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
+  linalg::__symmetric_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar,
@@ -5780,7 +5780,7 @@ template <__detail::__linalg_scalar _Scalar,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_k_update(_Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t) {
-  __hermitian_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
+  linalg::__hermitian_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5792,7 +5792,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_k_update(_ExecutionPolicy&&, _Scalar __alpha, _InMat __a, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
+  linalg::__hermitian_matrix_rank_k_update_impl(__alpha, __a, __c, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar,
@@ -5802,7 +5802,7 @@ template <__detail::__linalg_scalar _Scalar,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_k_update(_Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t) {
-  __symmetric_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
+  linalg::__symmetric_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5815,7 +5815,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void symmetric_matrix_rank_k_update(
     _ExecutionPolicy&&, _Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
+  linalg::__symmetric_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
 }
 
 template <__detail::__linalg_scalar _Scalar,
@@ -5825,7 +5825,7 @@ template <__detail::__linalg_scalar _Scalar,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_k_update(_Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t) {
-  __hermitian_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
+  linalg::__hermitian_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5838,7 +5838,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void hermitian_matrix_rank_k_update(
     _ExecutionPolicy&&, _Scalar __alpha, _InMat1 __a, _InMat2 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
+  linalg::__hermitian_matrix_rank_k_update_impl(__alpha, __a, __e, __c, __t);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5847,7 +5847,7 @@ template <__detail::__in_matrix _InMat1,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t) {
-  __symmetric_matrix_rank_2k_update_impl(__a, __b, __c, __t);
+  linalg::__symmetric_matrix_rank_2k_update_impl(__a, __b, __c, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5859,7 +5859,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_2k_update_impl(__a, __b, __c, __t);
+  linalg::__symmetric_matrix_rank_2k_update_impl(__a, __b, __c, __t);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5868,7 +5868,7 @@ template <__detail::__in_matrix _InMat1,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t) {
-  __hermitian_matrix_rank_2k_update_impl(__a, __b, __c, __t);
+  linalg::__hermitian_matrix_rank_2k_update_impl(__a, __b, __c, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5880,7 +5880,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_2k_update_impl(__a, __b, __c, __t);
+  linalg::__hermitian_matrix_rank_2k_update_impl(__a, __b, __c, __t);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5890,7 +5890,7 @@ template <__detail::__in_matrix _InMat1,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t) {
-  __symmetric_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
+  linalg::__symmetric_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5903,7 +5903,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 symmetric_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __symmetric_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
+  linalg::__symmetric_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5913,7 +5913,7 @@ template <__detail::__in_matrix _InMat1,
           class _Triangle>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_2k_update(_InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t) {
-  __hermitian_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
+  linalg::__hermitian_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
 }
 
 template <class _ExecutionPolicy,
@@ -5926,7 +5926,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 hermitian_matrix_rank_2k_update(_ExecutionPolicy&&, _InMat1 __a, _InMat2 __b, _InMat3 __e, _OutMat __c, _Triangle __t)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __hermitian_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
+  linalg::__hermitian_matrix_rank_2k_update_impl(__a, __b, __e, __c, __t);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5937,7 +5937,7 @@ template <__detail::__in_matrix _InMat1,
           class _BinaryDivideOp>
 _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_matrix_left_solve(
     _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x, _BinaryDivideOp __divide) {
-  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x, __divide);
+  linalg::__triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <class _ExecutionPolicy,
@@ -5957,7 +5957,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_matrix_left_solve(
     _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x, __divide);
+  linalg::__triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5967,7 +5967,7 @@ template <__detail::__in_matrix _InMat1,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_matrix_left_solve(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x) {
-  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x);
+  linalg::__triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <class _ExecutionPolicy,
@@ -5980,7 +5980,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_matrix_left_solve(
     _ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x);
+  linalg::__triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -5991,7 +5991,7 @@ template <__detail::__in_matrix _InMat1,
           class _BinaryDivideOp>
 _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_matrix_right_solve(
     _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x, _BinaryDivideOp __divide) {
-  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x, __divide);
+  linalg::__triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <class _ExecutionPolicy,
@@ -6011,7 +6011,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_matrix_right_solve(
     _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x, __divide);
+  linalg::__triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x, __divide);
 }
 
 template <__detail::__in_matrix _InMat1,
@@ -6021,7 +6021,7 @@ template <__detail::__in_matrix _InMat1,
           __detail::__out_matrix _OutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_matrix_right_solve(_InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x) {
-  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x);
+  linalg::__triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <class _ExecutionPolicy,
@@ -6034,7 +6034,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_matrix_right_solve(
     _ExecutionPolicy&&, _InMat1 __a, _Triangle __t, _DiagonalStorage __d, _InMat2 __b, _OutMat __x)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x);
+  linalg::__triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __x);
 }
 
 template <__detail::__in_matrix _InMat,
@@ -6044,7 +6044,7 @@ template <__detail::__in_matrix _InMat,
           class _BinaryDivideOp>
 _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_matrix_left_solve(
     _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide) {
-  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __divide);
+  linalg::__triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <class _ExecutionPolicy,
@@ -6057,13 +6057,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_matrix_left_solve(
     _ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __divide);
+  linalg::__triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_matrix_left_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b) {
-  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b);
+  linalg::__triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b);
 }
 
 template <class _ExecutionPolicy,
@@ -6075,7 +6075,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_matrix_left_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b);
+  linalg::__triangular_matrix_matrix_left_solve_impl(__a, __t, __d, __b);
 }
 
 template <__detail::__in_matrix _InMat,
@@ -6085,7 +6085,7 @@ template <__detail::__in_matrix _InMat,
           class _BinaryDivideOp>
 _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_matrix_right_solve(
     _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide) {
-  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __divide);
+  linalg::__triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <class _ExecutionPolicy,
@@ -6098,13 +6098,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr void triangular_matrix_matrix_right_solve(
     _ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b, _BinaryDivideOp __divide)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __divide);
+  linalg::__triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b, __divide);
 }
 
 template <__detail::__in_matrix _InMat, class _Triangle, class _DiagonalStorage, __detail::__inout_matrix _InOutMat>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_matrix_right_solve(_InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b) {
-  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b);
+  linalg::__triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b);
 }
 
 template <class _ExecutionPolicy,
@@ -6116,7 +6116,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr void
 triangular_matrix_matrix_right_solve(_ExecutionPolicy&&, _InMat __a, _Triangle __t, _DiagonalStorage __d, _InOutMat __b)
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
 {
-  __triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b);
+  linalg::__triangular_matrix_matrix_right_solve_impl(__a, __t, __d, __b);
 }
 
 #  undef _LIBCPP_LINALG_REQUIRE_UNIQUE_MAPPING

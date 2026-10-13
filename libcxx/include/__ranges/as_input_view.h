@@ -118,7 +118,7 @@ struct __as_input_fn : range_adaptor_closure<__as_input_fn> {
     if constexpr (input_range<_Range> && !common_range<_Range> && !forward_range<_Range>)
       return views::all(std::forward<_Range>(__range));
     else
-      return as_input_view(std::forward<_Range>(__range));
+      return ranges::as_input_view(std::forward<_Range>(__range));
   }
 };
 inline constexpr __as_input_fn as_input{};

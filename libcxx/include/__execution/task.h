@@ -156,7 +156,7 @@ _LIBCPP_HIDE_FROM_ABI __task_scheduler_type_t<_Environment> __task_default_sched
   if constexpr (same_as<__task_scheduler_type_t<_Environment>, task_scheduler>) {
     return task_scheduler(inline_scheduler{});
   } else {
-    return __task_scheduler_type_t<_Environment>();
+    return execution::__task_scheduler_type_t<_Environment>();
   }
 }
 
@@ -289,7 +289,7 @@ private:
     if constexpr (requires { _Scheduler(execution::get_start_scheduler(execution::get_env(__rcvr_))); })
       return _Scheduler(execution::get_start_scheduler(execution::get_env(__rcvr_)));
     else
-      return __task_default_scheduler<_Environment>();
+      return execution::__task_default_scheduler<_Environment>();
   }
   _LIBCPP_HIDE_FROM_ABI __task_allocator_type_t<_Environment> __sink_allocator() override {
     using _Allocator = __task_allocator_type_t<_Environment>;

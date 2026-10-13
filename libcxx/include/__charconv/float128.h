@@ -607,13 +607,13 @@ _LIBCPP_HIDE_FROM_ABI inline int __scientific_exponent(const __decomposed& __d, 
   int __x             = __skip_to_first_digit(__e);
   __expansion __scratch = __e;
   __rounding __r        = __decide(__scratch, __n);
-  return __x + ((__r.__up && __r.__last_non9 == -1) ? 1 : 0);
+  return __x + (__r.__up && __r.__last_non9 == -1);
 }
 
 _LIBCPP_HIDE_FROM_ABI inline __to_chars_out __format_scientific(char* __first, char* __last, const __decomposed& __d, long __frac, bool __strip_zeros) {
   __digit_source __src;
   __src.__e.__init(__d.__mant, __d.__exp2);
-  int __x            = __skip_to_first_digit(__src.__e);
+  int __x               = __f128::__skip_to_first_digit(__src.__e);
   long __n           = __frac + 1;
   __expansion __scratch = __src.__e;
   __src.__r            = __decide(__scratch, __n);
@@ -1269,9 +1269,9 @@ __from_chars(const char* __first, const char* __last, __fmt_kind __kind, const _
   __u128 __bits;
   bool __uz;
   if constexpr (_MaxDigits == 400) {
-    if (!__decimal_to_bits<128>(__f, __neg, __digs, __count, __sticky, __e10 + __exp10, __bits, __uz))
+    if (!__f128::__decimal_to_bits<128>(__f, __neg, __digs, __count, __sticky, __e10 + __exp10, __bits, __uz))
       return {__q, __fc_status::__out_of_range, 0};
-  } else if (!__decimal_to_bits<2100>(__f, __neg, __digs, __count, __sticky, __e10 + __exp10, __bits, __uz)) {
+  } else if (!__f128::__decimal_to_bits<2100>(__f, __neg, __digs, __count, __sticky, __e10 + __exp10, __bits, __uz)) {
     return {__q, __fc_status::__out_of_range, 0};
   }
   if (__uz)

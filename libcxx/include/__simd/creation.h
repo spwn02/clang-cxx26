@@ -63,7 +63,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __chunk_impl(const _Xp& __x) noexcept {
 template <class _Tp, class _Abi>
   requires __vec_enabled<typename _Tp::value_type, _Abi> && requires { typename _Tp::value_type; }
 _LIBCPP_HIDE_FROM_ABI constexpr auto chunk(const basic_vec<typename _Tp::value_type, _Abi>& __x) noexcept {
-  return __chunk_impl<_Tp>(__x);
+  return simd::__chunk_impl<_Tp>(__x);
 }
 
 // _Tp::value_type is always bool for every basic_mask specialization, so it cannot be used to
@@ -73,7 +73,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto chunk(const basic_vec<typename _Tp::value_t
 template <class _Tp, class _Abi>
   requires __mask_enabled<__mask_element_size<_Tp>, _Abi>
 _LIBCPP_HIDE_FROM_ABI constexpr auto chunk(const basic_mask<__mask_element_size<_Tp>, _Abi>& __x) noexcept {
-  return __chunk_impl<_Tp>(__x);
+  return simd::__chunk_impl<_Tp>(__x);
 }
 
 // [simd.creation]/4-5

@@ -645,9 +645,9 @@ struct __fn {
   template <class _FirstRange, class... _TailRanges>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static constexpr auto
   operator()(_FirstRange&& __first, _TailRanges&&... __tail) noexcept(
-      noexcept(concat_view(std::forward<_FirstRange>(__first), std::forward<_TailRanges>(__tail)...)))
-      -> decltype(concat_view(std::forward<_FirstRange>(__first), std::forward<_TailRanges>(__tail)...)) {
-    return concat_view(std::forward<_FirstRange>(__first), std::forward<_TailRanges>(__tail)...);
+      noexcept(ranges::concat_view(std::forward<_FirstRange>(__first), std::forward<_TailRanges>(__tail)...)))
+      -> decltype(ranges::concat_view(std::forward<_FirstRange>(__first), std::forward<_TailRanges>(__tail)...)) {
+    return ranges::concat_view(std::forward<_FirstRange>(__first), std::forward<_TailRanges>(__tail)...);
   }
 };
 } // namespace __concat

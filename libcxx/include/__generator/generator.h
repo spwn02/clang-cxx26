@@ -47,7 +47,7 @@ public:
 
   generator(const generator&) = delete;
   _LIBCPP_HIDE_FROM_ABI generator(generator&& __other) noexcept
-      : __coroutine_(exchange(__other.__coroutine_, {})), __state_(exchange(__other.__state_, nullptr)) {}
+      : __coroutine_(std::exchange(__other.__coroutine_, {})), __state_(exchange(__other.__state_, nullptr)) {}
   _LIBCPP_HIDE_FROM_ABI ~generator() { if (__coroutine_) __coroutine_.destroy(); }
   _LIBCPP_HIDE_FROM_ABI generator& operator=(generator __other) noexcept {
     swap(__coroutine_, __other.__coroutine_); swap(__state_, __other.__state_); return *this;
@@ -76,7 +76,8 @@ public:
     _LIBCPP_HIDE_FROM_ABI __reference operator*() const noexcept { return static_cast<__reference>(*static_cast<add_pointer_t<yielded>>(__coroutine_.promise().__state_->__value_)); }
     _LIBCPP_HIDE_FROM_ABI iterator& operator++() {
       __coroutine_.promise().__state_->__top_.resume();
-      if (__coroutine_.promise().__state_->__exception_) rethrow_exception(__coroutine_.promise().__state_->__exception_);
+      if (__coroutine_.promise().__state_->__exception_)
+        std::rethrow_exception(__coroutine_.promise().__state_->__exception_);
       return *this;
     }
     _LIBCPP_HIDE_FROM_ABI void operator++(int) { ++*this; }
@@ -204,7 +205,7 @@ public:
       // create a genuine const-correctness hole: nothing ever writes
       // through this pointer, only reads it back via operator*() with the
       // original (correctly const-qualified) `yielded`/`__reference` type.
-      __state_->__value_ = const_cast<void*>(static_cast<const void*>(addressof(__value)));
+      __state_->__value_ = const_cast<void*>(static_cast<const void*>(std::addressof(__value)));
       return {};
     }
 

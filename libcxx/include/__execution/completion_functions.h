@@ -42,7 +42,7 @@ _LIBCPP_HIDE_FROM_ABI exception_ptr __as_except_ptr(_Err&& __err) {
   } else if constexpr (is_same_v<decay_t<_Err>, error_code>) {
     return make_exception_ptr(system_error(std::forward<_Err>(__err)));
   } else {
-    return make_exception_ptr(std::forward<_Err>(__err));
+    return std::make_exception_ptr(std::forward<_Err>(__err));
   }
 }
 

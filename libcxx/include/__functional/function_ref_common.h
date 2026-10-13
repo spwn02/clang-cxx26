@@ -76,7 +76,7 @@ _LIBCPP_FUNCTION_REF_DEDUCE_MEMFN_REF(const volatile)
 template <class _Mp, class _Gp, class _Tp>
   requires is_object_v<_Mp>
 struct __function_ref_deduce<_Mp _Gp::*, _Tp> {
-  using type = invoke_result_t<_Mp _Gp::*, _Tp&>() noexcept;
+  using type _LIBCPP_NODEBUG = invoke_result_t<_Mp _Gp::*, _Tp&>() noexcept;
 };
 
 template <class _Rp, class _Gp, class... _Ap, bool _Ex, class _Tp>

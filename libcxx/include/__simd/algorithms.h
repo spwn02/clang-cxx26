@@ -51,7 +51,7 @@ template <class _Tp, class _Abi>
   requires(__vec_enabled<_Tp, _Abi> && totally_ordered<_Tp>)
 _LIBCPP_HIDE_FROM_ABI constexpr pair<basic_vec<_Tp, _Abi>, basic_vec<_Tp, _Abi>>
 minmax(const basic_vec<_Tp, _Abi>& __a, const basic_vec<_Tp, _Abi>& __b) noexcept {
-  return pair{min(__a, __b), max(__a, __b)};
+  return pair{simd::min(__a, __b), simd::max(__a, __b)};
 }
 
 // [simd.alg]/6-8: Preconditions -- no element in lo is greater than the corresponding element in
@@ -63,7 +63,7 @@ clamp(const basic_vec<_Tp, _Abi>& __v, const basic_vec<_Tp, _Abi>& __lo, const b
   for (__simd_size_type __i = 0; __i != basic_vec<_Tp, _Abi>::size(); ++__i)
     _LIBCPP_ASSERT_UNCATEGORIZED(!(__hi[__i] < __lo[__i]), "simd::clamp: no element in lo may exceed the "
                                                             "corresponding element in hi");
-  return min(max(__v, __lo), __hi);
+  return simd::min(simd::max(__v, __lo), __hi);
 }
 
 // [simd.alg]/9: scalar overload.
@@ -76,7 +76,8 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto select(bool __c, const _Tp& __a, const _Up&
 // [simd.alg]/10: found via ADL on __simd_select_impl, contrary to the usual lookup rules -- the
 // hidden friends live inside basic_vec and basic_mask themselves ([simd.cond], [simd.mask.cond]).
 template <size_t _Bytes, class _Abi, class _Tp, class _Up>
-_LIBCPP_HIDE_FROM_ABI constexpr auto select(const basic_mask<_Bytes, _Abi>& __c, const _Tp& __a, const _Up& __b) noexcept
+_LIBCPP_HIDE_FROM_ABI constexpr auto
+select(const basic_mask<_Bytes, _Abi>& __c, const _Tp& __a, const _Up& __b) noexcept
     -> decltype(__simd_select_impl(__c, __a, __b)) {
   return __simd_select_impl(__c, __a, __b);
 }

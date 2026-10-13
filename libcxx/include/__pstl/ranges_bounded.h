@@ -160,7 +160,7 @@ struct __ranges_bounded_set_difference<__default_backend_tag, _ExecutionPolicy> 
     for (; __i1 != __size1; ++__i1)
       __emit(__i1);
 
-    const auto __count   = __bounded_count(__difference, __capacity);
+    const auto __count   = __pstl::__bounded_count(__difference, __capacity);
     const bool __all     = static_cast<common_type_t<_Size1, decltype(__count)>>(__count) ==
                        static_cast<common_type_t<_Size1, decltype(__count)>>(__difference);
     // The key is the min(N + 1, M)-th element of the difference (none if M == 0).

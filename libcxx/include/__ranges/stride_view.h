@@ -385,9 +385,9 @@ namespace __stride {
 struct __fn {
   template <class _Range, class _Np>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range, _Np&& __n) const
-      noexcept(noexcept(stride_view(std::forward<_Range>(__range), std::forward<_Np>(__n))))
-          -> decltype(stride_view(std::forward<_Range>(__range), std::forward<_Np>(__n))) {
-    return stride_view(std::forward<_Range>(__range), std::forward<_Np>(__n));
+      noexcept(noexcept(ranges::stride_view(std::forward<_Range>(__range), std::forward<_Np>(__n))))
+          -> decltype(ranges::stride_view(std::forward<_Range>(__range), std::forward<_Np>(__n))) {
+    return ranges::stride_view(std::forward<_Range>(__range), std::forward<_Np>(__n));
   }
 
   template <class _Np>

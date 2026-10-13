@@ -106,17 +106,17 @@ consteval bool __is_left_contiguous(const array<__slice_kind, _Rank>& __kinds, s
   for (size_t __k = 0; __k + 1 < __sub_rank; ++__k)
     if (__kinds[__k] != __slice_kind::__full_slice)
       return false;
-  return __is_unit_stride_kind(__kinds[__sub_rank - 1]);
+  return __mdspan_detail::__is_unit_stride_kind(__kinds[__sub_rank - 1]);
 }
 
 // [mdspan.sub.map.left]: returns u + 1, where u + 1 is the smallest position p > 0 of a unit-stride slice type, if
 // the conditions for a layout_left_padded result hold; __no_position otherwise (SubRank >= 1).
 template <size_t _Rank>
 consteval size_t __left_padded_position(const array<__slice_kind, _Rank>& __kinds, size_t __sub_rank) {
-  if (!__is_unit_stride_kind(__kinds[0]))
+  if (!__mdspan_detail::__is_unit_stride_kind(__kinds[0]))
     return __no_position;
   size_t __p = 1;
-  while (__p < _Rank && !__is_unit_stride_kind(__kinds[__p]))
+  while (__p < _Rank && !__mdspan_detail::__is_unit_stride_kind(__kinds[__p]))
     ++__p;
   if (__p >= _Rank)
     return __no_position;
@@ -127,7 +127,7 @@ consteval size_t __left_padded_position(const array<__slice_kind, _Rank>& __kind
   for (size_t __k = __p; __k < __last; ++__k)
     if (__kinds[__k] != __slice_kind::__full_slice)
       return __no_position;
-  return __is_unit_stride_kind(__kinds[__last]) ? __p : __no_position;
+  return __mdspan_detail::__is_unit_stride_kind(__kinds[__last]) ? __p : __no_position;
 }
 
 // [mdspan.sub.map.right]: all of the last SubRank - 1 slices are full_extent_t and slice Rank - SubRank is a
@@ -137,17 +137,17 @@ consteval bool __is_right_contiguous(const array<__slice_kind, _Rank>& __kinds, 
   for (size_t __k = _Rank - __sub_rank + 1; __k < _Rank; ++__k)
     if (__kinds[__k] != __slice_kind::__full_slice)
       return false;
-  return __is_unit_stride_kind(__kinds[_Rank - __sub_rank]);
+  return __mdspan_detail::__is_unit_stride_kind(__kinds[_Rank - __sub_rank]);
 }
 
 // [mdspan.sub.map.right]: returns p == rank_ - u - 2, the largest position p < rank_ - 1 of a unit-stride slice type,
 // if the conditions for a layout_right_padded result hold; __no_position otherwise (SubRank >= 1).
 template <size_t _Rank>
 consteval size_t __right_padded_position(const array<__slice_kind, _Rank>& __kinds, size_t __sub_rank) {
-  if (_Rank < 2 || !__is_unit_stride_kind(__kinds[_Rank - 1]))
+  if (_Rank < 2 || !__mdspan_detail::__is_unit_stride_kind(__kinds[_Rank - 1]))
     return __no_position;
   size_t __p = _Rank - 2;
-  while (!__is_unit_stride_kind(__kinds[__p])) {
+  while (!__mdspan_detail::__is_unit_stride_kind(__kinds[__p])) {
     if (__p == 0)
       return __no_position;
     --__p;
@@ -159,7 +159,7 @@ consteval size_t __right_padded_position(const array<__slice_kind, _Rank>& __kin
   for (size_t __k = __first + 1; __k <= __p; ++__k)
     if (__kinds[__k] != __slice_kind::__full_slice)
       return __no_position;
-  return __is_unit_stride_kind(__kinds[__first]) ? __p : __no_position;
+  return __mdspan_detail::__is_unit_stride_kind(__kinds[__first]) ? __p : __no_position;
 }
 
 template <class _SubExtents>
@@ -191,7 +191,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __submdspan_prepare(const _Mapping& __mappi
                                "submdspan_mapping: every slice must be a valid submdspan slice for the corresponding extent");
   using _Info = __subextents_info<_IndexType, _Extents, _Slices...>;
 
-  auto __sub_ext = __subextents_of_canonical(__mapping.extents(), __slices...);
+  auto __sub_ext = __mdspan_detail::__subextents_of_canonical(__mapping.extents(), __slices...);
   array<_IndexType, _Info::__sub_rank> __strides{};
   [&]<size_t... _Ks>(index_sequence<_Ks...>) {
     auto __set = [&]<size_t _Kdx>(const auto& __slice) {
@@ -209,7 +209,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __submdspan_prepare(const _Mapping& __mappi
   }(make_index_sequence<sizeof...(_Slices)>{});
 
   const size_t __offset = [&]<size_t... _Ks>(index_sequence<_Ks...>) -> size_t {
-    const array<_IndexType, sizeof...(_Slices)> __ls = {__lower_bound(__slices, _IndexType())...};
+    const array<_IndexType, sizeof...(_Slices)> __ls = {__mdspan_detail::__lower_bound(__slices, _IndexType())...};
     bool __at_end = false;
     ((__at_end = __at_end || __ls[_Ks] == __mapping.extents().extent(_Ks)), ...);
     if (__at_end)

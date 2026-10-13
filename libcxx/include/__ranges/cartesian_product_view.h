@@ -132,7 +132,7 @@ private:
     if (__empty)
       std::get<0>(__current) = ranges::begin(std::get<0>(__bases_));
     else
-      std::get<0>(__current) = __cartesian_product_end(std::get<0>(__bases_));
+      std::get<0>(__current) = ranges::__cartesian_product_end(std::get<0>(__bases_));
     return __iterator<_Const>(*this, std::move(__current));
   }
   template <bool _Const>
@@ -166,7 +166,7 @@ private:
       auto& __it = std::get<_Index>(__current_);
       if constexpr (_Index > 0)
         if (__it == ranges::begin(std::get<_Index>(__parent_->__bases_))) {
-          __it = __cartesian_product_end(std::get<_Index>(__parent_->__bases_));
+          __it = ranges::__cartesian_product_end(std::get<_Index>(__parent_->__bases_));
           __prev<_Index - 1>();
         }
       --__it;

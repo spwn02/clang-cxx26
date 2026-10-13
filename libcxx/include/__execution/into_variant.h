@@ -89,10 +89,12 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr void set_value(_Args&&... __args) && noexcept {
     if constexpr (is_nothrow_constructible_v<__decayed_tuple<_Args...>, _Args...> &&
                   is_nothrow_constructible_v<_VariantT, __decayed_tuple<_Args...>>) {
-      execution::set_value(std::move(__rcvr_), _VariantT(__decayed_tuple<_Args...>(std::forward<_Args>(__args)...)));
+      execution::set_value(
+          std::move(__rcvr_), _VariantT(execution::__decayed_tuple<_Args...>(std::forward<_Args>(__args)...)));
     } else {
       try {
-        execution::set_value(std::move(__rcvr_), _VariantT(__decayed_tuple<_Args...>(std::forward<_Args>(__args)...)));
+        execution::set_value(
+            std::move(__rcvr_), _VariantT(execution::__decayed_tuple<_Args...>(std::forward<_Args>(__args)...)));
       } catch (...) {
         execution::set_error(std::move(__rcvr_), std::current_exception());
       }

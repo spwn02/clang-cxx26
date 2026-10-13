@@ -123,7 +123,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr bool __is_negative(_Value __v) noexcept {
 template <class _To, class _From>
 _LIBCPP_HIDE_FROM_ABI constexpr bool __representable(_From __v) noexcept {
   const _To __r = static_cast<_To>(__v);
-  return static_cast<_From>(__r) == __v && __is_negative(__r) == __is_negative(__v);
+  return static_cast<_From>(__r) == __v && __mdspan_detail::__is_negative(__r) == __mdspan_detail::__is_negative(__v);
 }
 
 // [mdspan.sub.overview]: submdspan slice type for IndexType.
@@ -168,12 +168,12 @@ template <class _Slice, class _IndexType>
 consteval bool __is_canonical_slice_type() {
   if constexpr (is_same_v<_Slice, full_extent_t>) {
     return true;
-  } else if constexpr (__is_canonical_index_type<_Slice, _IndexType>()) {
+  } else if constexpr (__mdspan_detail::__is_canonical_index_type<_Slice, _IndexType>()) {
     return true;
   } else if constexpr (__is_extent_slice<_Slice>) {
-    if constexpr (!(__is_canonical_index_type<typename _Slice::offset_type, _IndexType>() &&
-                    __is_canonical_index_type<typename _Slice::extent_type, _IndexType>() &&
-                    __is_canonical_index_type<typename _Slice::stride_type, _IndexType>())) {
+    if constexpr (!(__mdspan_detail::__is_canonical_index_type<typename _Slice::offset_type, _IndexType>() &&
+                    __mdspan_detail::__is_canonical_index_type<typename _Slice::extent_type, _IndexType>() &&
+                    __mdspan_detail::__is_canonical_index_type<typename _Slice::stride_type, _IndexType>())) {
       return false;
     } else if constexpr (__is_constant_wrapper<typename _Slice::stride_type> &&
                          __is_constant_wrapper<typename _Slice::extent_type>) {
@@ -197,7 +197,7 @@ consteval unsigned long long __constant_value_or() {
 // [mdspan.sub.overview]: valid submdspan slice type for the kth extent of an extents whose static extent is _Static.
 template <class _Slice, class _IndexType, size_t _Static>
 consteval bool __is_valid_slice_type_for_static_extent() {
-  if constexpr (!__is_canonical_slice_type<_Slice, _IndexType>()) {
+  if constexpr (!__mdspan_detail::__is_canonical_slice_type<_Slice, _IndexType>()) {
     return false;
   } else if constexpr (_Static == dynamic_extent) {
     return true;
@@ -205,9 +205,9 @@ consteval bool __is_valid_slice_type_for_static_extent() {
     using _Offset = typename _Slice::offset_type;
     using _Extent = typename _Slice::extent_type;
     using _Stride = typename _Slice::stride_type;
-    constexpr unsigned long long __o = __constant_value_or<_Offset, 0>();
-    constexpr unsigned long long __e = __constant_value_or<_Extent, 0>();
-    constexpr unsigned long long __t = __constant_value_or<_Stride, 1>();
+    constexpr unsigned long long __o = __mdspan_detail::__constant_value_or<_Offset, 0>();
+    constexpr unsigned long long __e = __mdspan_detail::__constant_value_or<_Extent, 0>();
+    constexpr unsigned long long __t = __mdspan_detail::__constant_value_or<_Stride, 1>();
     if (__o > _Static || __e > _Static)
       return false;
     if (__e > 1 && !(__t > 0))
@@ -235,7 +235,9 @@ inline constexpr bool __are_valid_slice_types = [] {
   } else {
     return []<size_t... _Ks>(index_sequence<_Ks...>) {
       return (true && ... &&
-              __is_valid_slice_type_for_static_extent<_Slices, typename _Extents::index_type, _Extents::static_extent(_Ks)>());
+              __mdspan_detail::__is_valid_slice_type_for_static_extent<_Slices,
+                                                                       typename _Extents::index_type,
+                                                                       _Extents::static_extent(_Ks)>());
     }(make_index_sequence<sizeof...(_Slices)>{});
   }
 }();
@@ -250,7 +252,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr bool __is_valid_slice(const _Slice& __s, _IndexT
     const _IndexType __o = static_cast<_IndexType>(__s.offset);
     const _IndexType __e = static_cast<_IndexType>(__s.extent);
     const _IndexType __t = static_cast<_IndexType>(__s.stride);
-    if (__is_negative(__o) || __is_negative(__e) || (__e >= 2 && !(__t > 0)))
+    if (__mdspan_detail::__is_negative(__o) || __mdspan_detail::__is_negative(__e) || (__e >= 2 && !(__t > 0)))
       return false;
     unsigned long long __upper = static_cast<unsigned long long>(__o);
     if (__e != 0) {
@@ -262,7 +264,8 @@ _LIBCPP_HIDE_FROM_ABI constexpr bool __is_valid_slice(const _Slice& __s, _IndexT
     return __upper <= static_cast<unsigned long long>(__extent);
   } else {
     const _IndexType __i = static_cast<_IndexType>(__s);
-    return !__is_negative(__i) && static_cast<unsigned long long>(__i) < static_cast<unsigned long long>(__extent);
+    return !__mdspan_detail::__is_negative(__i) &&
+           static_cast<unsigned long long>(__i) < static_cast<unsigned long long>(__extent);
   }
 }
 
@@ -270,7 +273,7 @@ template <class _IndexType, size_t... _Extents, class... _Slices>
 _LIBCPP_HIDE_FROM_ABI constexpr bool
 __are_valid_slices(const extents<_IndexType, _Extents...>& __src, const _Slices&... __slices) noexcept {
   return [&]<size_t... _Ks>(index_sequence<_Ks...>) {
-    return (true && ... && __is_valid_slice<_IndexType>(__slices, __src.extent(_Ks)));
+    return (true && ... && __mdspan_detail::__is_valid_slice<_IndexType>(__slices, __src.extent(_Ks)));
   }(make_index_sequence<sizeof...(_Slices)>{});
 }
 
@@ -278,7 +281,7 @@ __are_valid_slices(const extents<_IndexType, _Extents...>& __src, const _Slices&
 template <class _IndexType, class _Slice>
 _LIBCPP_HIDE_FROM_ABI constexpr auto __canonical_index(_Slice __s) {
   if constexpr (__mdspan_integral_constant_like<_Slice>) {
-    static_assert(__representable<_IndexType>(_Slice::value),
+    static_assert(__mdspan_detail::__representable<_IndexType>(_Slice::value),
                   "submdspan: a constant slice index must be representable as a value of the extents' index_type");
     return constant_wrapper<_IndexType(_Slice::value)>{};
   } else {
@@ -342,26 +345,28 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __canonical_slice(_Slice __s) {
   if constexpr (is_convertible_v<_Slice, full_extent_t>) {
     return static_cast<full_extent_t>(static_cast<_Slice&&>(__s));
   } else if constexpr (is_convertible_v<_Slice, _IndexType>) {
-    return __canonical_index<_IndexType>(static_cast<_Slice&&>(__s));
+    return __mdspan_detail::__canonical_index<_IndexType>(static_cast<_Slice&&>(__s));
   } else if constexpr (__extent_slice<_Slice>) {
-    return extent_slice{__canonical_index<_IndexType>(static_cast<typename _Slice::offset_type&&>(__s.offset)),
-                        __canonical_index<_IndexType>(static_cast<typename _Slice::extent_type&&>(__s.extent)),
-                        __canonical_index<_IndexType>(static_cast<typename _Slice::stride_type&&>(__s.stride))};
+    return extent_slice{
+        __mdspan_detail::__canonical_index<_IndexType>(static_cast<typename _Slice::offset_type&&>(__s.offset)),
+        __mdspan_detail::__canonical_index<_IndexType>(static_cast<typename _Slice::extent_type&&>(__s.extent)),
+        __mdspan_detail::__canonical_index<_IndexType>(static_cast<typename _Slice::stride_type&&>(__s.stride))};
   } else if constexpr (__range_slice<_Slice>) {
-    auto __first = __canonical_index<_IndexType>(static_cast<decltype(_Slice::first)&&>(__s.first));
-    auto __last  = __canonical_index<_IndexType>(static_cast<decltype(_Slice::last)&&>(__s.last));
-    return __canonical_slice_range<_IndexType>(
+    auto __first = __mdspan_detail::__canonical_index<_IndexType>(static_cast<decltype(_Slice::first)&&>(__s.first));
+    auto __last  = __mdspan_detail::__canonical_index<_IndexType>(static_cast<decltype(_Slice::last)&&>(__s.last));
+    return __mdspan_detail::__canonical_slice_range<_IndexType>(
         __first,
-        __canonical_index<_IndexType>(__last - __first),
-        __canonical_index<_IndexType>(static_cast<decltype(_Slice::stride)&&>(__s.stride)));
+        __mdspan_detail::__canonical_index<_IndexType>(__last - __first),
+        __mdspan_detail::__canonical_index<_IndexType>(static_cast<decltype(_Slice::stride)&&>(__s.stride)));
   } else if constexpr (__two_element_slice<_Slice>) {
     auto [__s_first, __s_last] = static_cast<_Slice&&>(__s);
     static_assert(is_convertible_v<decltype(static_cast<decltype(__s_first)&&>(__s_first)), _IndexType> &&
                       is_convertible_v<decltype(static_cast<decltype(__s_last)&&>(__s_last)), _IndexType>,
                   "submdspan: the elements of a two-element slice must be convertible to the extents' index_type");
-    auto __first = __canonical_index<_IndexType>(static_cast<decltype(__s_first)&&>(__s_first));
-    auto __last  = __canonical_index<_IndexType>(static_cast<decltype(__s_last)&&>(__s_last));
-    return __canonical_slice_range<_IndexType>(__first, __canonical_index<_IndexType>(__last - __first));
+    auto __first = __mdspan_detail::__canonical_index<_IndexType>(static_cast<decltype(__s_first)&&>(__s_first));
+    auto __last  = __mdspan_detail::__canonical_index<_IndexType>(static_cast<decltype(__s_last)&&>(__s_last));
+    return __mdspan_detail::__canonical_slice_range<_IndexType>(
+        __first, __mdspan_detail::__canonical_index<_IndexType>(__last - __first));
   } else {
     // Unreachable once the Mandates hold; keeps the diagnostics above from cascading.
     return _IndexType();
@@ -396,7 +401,7 @@ consteval size_t __static_subextent() {
   if constexpr (is_same_v<_Slice, full_extent_t>) {
     return _SourceStatic;
   } else if constexpr (__is_extent_slice<_Slice>) {
-    return __constant_value_or<typename _Slice::extent_type, dynamic_extent>();
+    return __mdspan_detail::__constant_value_or<typename _Slice::extent_type, dynamic_extent>();
   } else {
     return dynamic_extent;
   }
@@ -445,10 +450,12 @@ struct __subextents_info<_IndexType, extents<_IndexType, _Extents...>, _Slices..
   static constexpr size_t __rank = sizeof...(_Slices);
 
   static constexpr array<bool, __rank> __collapsing              = {__is_collapsing_slice<_Slices>...};
-  static constexpr array<size_t, __rank> __static_values         = {__static_subextent<_Slices, _Extents>()...};
-  static constexpr size_t __sub_rank                             = __count_surviving(__collapsing);
-  static constexpr array<size_t, __rank> __map                   = __map_rank(__collapsing);
-  static constexpr array<size_t, __sub_rank> __sub_static_values = __sub_static_extents<__sub_rank>(__collapsing, __static_values);
+  static constexpr array<size_t, __rank> __static_values         = {
+      __mdspan_detail::__static_subextent<_Slices, _Extents>()...};
+  static constexpr size_t __sub_rank           = __mdspan_detail::__count_surviving(__collapsing);
+  static constexpr array<size_t, __rank> __map = __mdspan_detail::__map_rank(__collapsing);
+  static constexpr array<size_t, __sub_rank> __sub_static_values =
+      __mdspan_detail::__sub_static_extents<__sub_rank>(__collapsing, __static_values);
 
   using type = decltype(__make_subextents_type<_IndexType, __sub_static_values>(make_index_sequence<__sub_rank>{}));
 };

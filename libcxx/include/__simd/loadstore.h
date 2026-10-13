@@ -97,7 +97,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto partial_load(_Ip __first, iter_difference_t
 template <class _Vp = void, contiguous_iterator _Ip, sized_sentinel_for<_Ip> _Sp, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr auto
 partial_load(_Ip __first, _Sp __last, const auto& __mask, flags<_Flags...> __f = {}) {
-  return partial_load<_Vp>(__first, static_cast<iter_difference_t<_Ip>>(__last - __first), __mask, __f);
+  return simd::partial_load<_Vp>(__first, static_cast<iter_difference_t<_Ip>>(__last - __first), __mask, __f);
 }
 
 template <class _Vp = void, contiguous_iterator _Ip, sized_sentinel_for<_Ip> _Sp, class... _Flags>
@@ -115,35 +115,35 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto partial_load(_Ip __first, _Sp __last, flags
 template <class _Vp = void, ranges::contiguous_range _Rp, class... _Flags>
   requires ranges::sized_range<_Rp>
 _LIBCPP_HIDE_FROM_ABI constexpr auto unchecked_load(_Rp&& __r, flags<_Flags...> __f = {}) {
-  return partial_load<_Vp>(std::forward<_Rp>(__r), __f);
+  return simd::partial_load<_Vp>(std::forward<_Rp>(__r), __f);
 }
 
 template <class _Vp = void, ranges::contiguous_range _Rp, class... _Flags>
   requires ranges::sized_range<_Rp>
 _LIBCPP_HIDE_FROM_ABI constexpr auto unchecked_load(_Rp&& __r, const auto& __mask, flags<_Flags...> __f = {}) {
-  return partial_load<_Vp>(std::forward<_Rp>(__r), __mask, __f);
+  return simd::partial_load<_Vp>(std::forward<_Rp>(__r), __mask, __f);
 }
 
 template <class _Vp = void, contiguous_iterator _Ip, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr auto unchecked_load(_Ip __first, iter_difference_t<_Ip> __n, flags<_Flags...> __f = {}) {
-  return partial_load<_Vp>(__first, __n, __f);
+  return simd::partial_load<_Vp>(__first, __n, __f);
 }
 
 template <class _Vp = void, contiguous_iterator _Ip, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr auto
 unchecked_load(_Ip __first, iter_difference_t<_Ip> __n, const auto& __mask, flags<_Flags...> __f = {}) {
-  return partial_load<_Vp>(__first, __n, __mask, __f);
+  return simd::partial_load<_Vp>(__first, __n, __mask, __f);
 }
 
 template <class _Vp = void, contiguous_iterator _Ip, sized_sentinel_for<_Ip> _Sp, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr auto unchecked_load(_Ip __first, _Sp __last, flags<_Flags...> __f = {}) {
-  return partial_load<_Vp>(__first, __last, __f);
+  return simd::partial_load<_Vp>(__first, __last, __f);
 }
 
 template <class _Vp = void, contiguous_iterator _Ip, sized_sentinel_for<_Ip> _Sp, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr auto
 unchecked_load(_Ip __first, _Sp __last, const auto& __mask, flags<_Flags...> __f = {}) {
-  return partial_load<_Vp>(__first, __last, __mask, __f);
+  return simd::partial_load<_Vp>(__first, __last, __mask, __f);
 }
 
 // [simd.loadstore]: partial_store, range form.
@@ -161,7 +161,7 @@ partial_store(const basic_vec<_Tp, _Abi>& __v, _Rp&& __r, const auto& __mask, fl
 template <class _Tp, class _Abi, ranges::contiguous_range _Rp, class... _Flags>
   requires ranges::sized_range<_Rp>
 _LIBCPP_HIDE_FROM_ABI constexpr void partial_store(const basic_vec<_Tp, _Abi>& __v, _Rp&& __r, flags<_Flags...> __f = {}) {
-  partial_store(__v, std::forward<_Rp>(__r), typename basic_vec<_Tp, _Abi>::mask_type(true), __f);
+  simd::partial_store(__v, std::forward<_Rp>(__r), typename basic_vec<_Tp, _Abi>::mask_type(true), __f);
 }
 
 template <class _Tp, class _Abi, contiguous_iterator _Ip, class... _Flags>
@@ -177,58 +177,62 @@ partial_store(const basic_vec<_Tp, _Abi>& __v, _Ip __first, iter_difference_t<_I
 template <class _Tp, class _Abi, contiguous_iterator _Ip, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 partial_store(const basic_vec<_Tp, _Abi>& __v, _Ip __first, iter_difference_t<_Ip> __n, flags<_Flags...> __f = {}) {
-  partial_store(__v, __first, __n, typename basic_vec<_Tp, _Abi>::mask_type(true), __f);
+  simd::partial_store(__v, __first, __n, typename basic_vec<_Tp, _Abi>::mask_type(true), __f);
 }
 
 template <class _Tp, class _Abi, contiguous_iterator _Ip, sized_sentinel_for<_Ip> _Sp, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 partial_store(const basic_vec<_Tp, _Abi>& __v, _Ip __first, _Sp __last, const auto& __mask, flags<_Flags...> __f = {}) {
-  partial_store(__v, __first, static_cast<iter_difference_t<_Ip>>(__last - __first), __mask, __f);
+  simd::partial_store(__v, __first, static_cast<iter_difference_t<_Ip>>(__last - __first), __mask, __f);
 }
 
 template <class _Tp, class _Abi, contiguous_iterator _Ip, sized_sentinel_for<_Ip> _Sp, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 partial_store(const basic_vec<_Tp, _Abi>& __v, _Ip __first, _Sp __last, flags<_Flags...> __f = {}) {
-  partial_store(__v, __first, static_cast<iter_difference_t<_Ip>>(__last - __first),
-               typename basic_vec<_Tp, _Abi>::mask_type(true), __f);
+  simd::partial_store(
+      __v,
+      __first,
+      static_cast<iter_difference_t<_Ip>>(__last - __first),
+      typename basic_vec<_Tp, _Abi>::mask_type(true),
+      __f);
 }
 
 // [simd.loadstore]: unchecked_store -- delegates to partial_store, mirroring unchecked_load.
 template <class _Tp, class _Abi, ranges::contiguous_range _Rp, class... _Flags>
   requires ranges::sized_range<_Rp>
 _LIBCPP_HIDE_FROM_ABI constexpr void unchecked_store(const basic_vec<_Tp, _Abi>& __v, _Rp&& __r, flags<_Flags...> __f = {}) {
-  partial_store(__v, std::forward<_Rp>(__r), __f);
+  simd::partial_store(__v, std::forward<_Rp>(__r), __f);
 }
 
 template <class _Tp, class _Abi, ranges::contiguous_range _Rp, class... _Flags>
   requires ranges::sized_range<_Rp>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 unchecked_store(const basic_vec<_Tp, _Abi>& __v, _Rp&& __r, const auto& __mask, flags<_Flags...> __f = {}) {
-  partial_store(__v, std::forward<_Rp>(__r), __mask, __f);
+  simd::partial_store(__v, std::forward<_Rp>(__r), __mask, __f);
 }
 
 template <class _Tp, class _Abi, contiguous_iterator _Ip, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 unchecked_store(const basic_vec<_Tp, _Abi>& __v, _Ip __first, iter_difference_t<_Ip> __n, flags<_Flags...> __f = {}) {
-  partial_store(__v, __first, __n, __f);
+  simd::partial_store(__v, __first, __n, __f);
 }
 
 template <class _Tp, class _Abi, contiguous_iterator _Ip, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr void unchecked_store(
     const basic_vec<_Tp, _Abi>& __v, _Ip __first, iter_difference_t<_Ip> __n, const auto& __mask, flags<_Flags...> __f = {}) {
-  partial_store(__v, __first, __n, __mask, __f);
+  simd::partial_store(__v, __first, __n, __mask, __f);
 }
 
 template <class _Tp, class _Abi, contiguous_iterator _Ip, sized_sentinel_for<_Ip> _Sp, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 unchecked_store(const basic_vec<_Tp, _Abi>& __v, _Ip __first, _Sp __last, flags<_Flags...> __f = {}) {
-  partial_store(__v, __first, __last, __f);
+  simd::partial_store(__v, __first, __last, __f);
 }
 
 template <class _Tp, class _Abi, contiguous_iterator _Ip, sized_sentinel_for<_Ip> _Sp, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 unchecked_store(const basic_vec<_Tp, _Abi>& __v, _Ip __first, _Sp __last, const auto& __mask, flags<_Flags...> __f = {}) {
-  partial_store(__v, __first, __last, __mask, __f);
+  simd::partial_store(__v, __first, __last, __mask, __f);
 }
 
 } // namespace simd

@@ -387,9 +387,9 @@ namespace __slide {
 struct __fn {
   template <viewable_range _Range>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range, range_difference_t<_Range> __n) const
-      noexcept(noexcept(slide_view(std::forward<_Range>(__range), __n)))
+      noexcept(noexcept(ranges::slide_view(std::forward<_Range>(__range), __n)))
           -> decltype(slide_view(std::forward<_Range>(__range), __n)) {
-    return slide_view(std::forward<_Range>(__range), __n);
+    return ranges::slide_view(std::forward<_Range>(__range), __n);
   }
 
   template <class _Np>

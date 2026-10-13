@@ -135,7 +135,9 @@ public:
 namespace views {
 struct __cache_latest_fn : range_adaptor_closure<__cache_latest_fn> {
   template <viewable_range _Range>
-  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const { return cache_latest_view(std::forward<_Range>(__range)); }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const {
+    return ranges::cache_latest_view(std::forward<_Range>(__range));
+  }
 };
 inline constexpr __cache_latest_fn cache_latest{};
 } // namespace views

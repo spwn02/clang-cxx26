@@ -59,7 +59,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr bool any_of(const basic_mask<_Bytes, _Abi>& __k)
 
 template <size_t _Bytes, class _Abi>
 _LIBCPP_HIDE_FROM_ABI constexpr bool none_of(const basic_mask<_Bytes, _Abi>& __k) noexcept {
-  return !any_of(__k);
+  return !simd::any_of(__k);
 }
 
 template <size_t _Bytes, class _Abi>
@@ -151,9 +151,11 @@ _LIBCPP_HIDE_FROM_ABI constexpr _Tp reduce(const basic_vec<_Tp, _Abi>& __x, _Bin
 template <class _Tp, class _Abi, class _BinaryOperation = plus<>>
   requires(__reduction_binary_operation<_BinaryOperation, _Tp> && __is_known_reduction_op<_BinaryOperation>)
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp
-reduce(const basic_vec<_Tp, _Abi>& __x, const typename basic_vec<_Tp, _Abi>::mask_type& __mask,
-       _BinaryOperation __binary_op = {}, type_identity_t<_Tp> __identity_element = __reduction_identity<_BinaryOperation, _Tp>()) {
-  if (none_of(__mask))
+reduce(const basic_vec<_Tp, _Abi>& __x,
+       const typename basic_vec<_Tp, _Abi>::mask_type& __mask,
+       _BinaryOperation __binary_op            = {},
+       type_identity_t<_Tp> __identity_element = simd::__reduction_identity<_BinaryOperation, _Tp>()) {
+  if (simd::none_of(__mask))
     return __identity_element;
   _Tp __result = __identity_element;
   bool __seen  = false;
@@ -168,7 +170,7 @@ template <class _Tp, class _Abi, class _BinaryOperation>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp reduce(const basic_vec<_Tp, _Abi>& __x,
                                            const typename basic_vec<_Tp, _Abi>::mask_type& __mask,
                                            _BinaryOperation __binary_op, type_identity_t<_Tp> __identity_element) {
-  if (none_of(__mask))
+  if (simd::none_of(__mask))
     return __identity_element;
   _Tp __result = __identity_element;
   for (__simd_size_type __i = 0; __i != basic_vec<_Tp, _Abi>::size(); ++__i)
@@ -187,9 +189,11 @@ _LIBCPP_HIDE_FROM_ABI constexpr _Tp reduce(const _Tp& __x, _BinaryOperation = {}
 template <class _Tp, class _BinaryOperation = plus<>>
   requires(__vectorizable<_Tp> && __reduction_binary_operation<_BinaryOperation, _Tp> &&
            __is_known_reduction_op<_BinaryOperation>)
-_LIBCPP_HIDE_FROM_ABI constexpr _Tp reduce(const _Tp& __x, same_as<bool> auto __mask, _BinaryOperation = {},
-                                           type_identity_t<_Tp> __identity_element =
-                                               __reduction_identity<_BinaryOperation, _Tp>()) {
+_LIBCPP_HIDE_FROM_ABI constexpr _Tp
+reduce(const _Tp& __x,
+       same_as<bool> auto __mask,
+       _BinaryOperation                        = {},
+       type_identity_t<_Tp> __identity_element = simd::__reduction_identity<_BinaryOperation, _Tp>()) {
   return __mask ? __x : __identity_element;
 }
 
@@ -216,7 +220,7 @@ template <class _Tp, class _Abi>
   requires totally_ordered<_Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp reduce_min(const basic_vec<_Tp, _Abi>& __x,
                                                const typename basic_vec<_Tp, _Abi>::mask_type& __mask) noexcept {
-  if (none_of(__mask))
+  if (simd::none_of(__mask))
     return numeric_limits<_Tp>::max();
   _Tp __result{};
   bool __seen = false;
@@ -240,7 +244,7 @@ template <class _Tp, class _Abi>
   requires totally_ordered<_Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp reduce_max(const basic_vec<_Tp, _Abi>& __x,
                                                const typename basic_vec<_Tp, _Abi>::mask_type& __mask) noexcept {
-  if (none_of(__mask))
+  if (simd::none_of(__mask))
     return numeric_limits<_Tp>::lowest();
   _Tp __result{};
   bool __seen = false;

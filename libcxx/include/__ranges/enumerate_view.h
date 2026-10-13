@@ -222,9 +222,9 @@ namespace __enumerate {
 struct __fn : __range_adaptor_closure<__fn> {
   template <class _Range>
   _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range) const
-      noexcept(noexcept(enumerate_view(std::forward<_Range>(__range))))
-          -> decltype(enumerate_view(std::forward<_Range>(__range))) {
-    return enumerate_view(std::forward<_Range>(__range));
+      noexcept(noexcept(ranges::enumerate_view(std::forward<_Range>(__range))))
+          -> decltype(ranges::enumerate_view(std::forward<_Range>(__range))) {
+    return ranges::enumerate_view(std::forward<_Range>(__range));
   }
 };
 } // namespace __enumerate

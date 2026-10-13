@@ -1109,7 +1109,7 @@ _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>& from_stream(
         utc_time<_Duration> __value = utc_clock::from_sys(__sys);
         if (__leap) {
           // 23:59:60 only exists if the day ends with a leap second.
-          utc_time<_Duration> __plus = __value + duration_cast<_Duration>(seconds{1});
+          utc_time<_Duration> __plus = __value + chrono::duration_cast<_Duration>(seconds{1});
           if (!chrono::get_leap_second_info(__plus).is_leap_second)
             return false;
           __value = __plus;

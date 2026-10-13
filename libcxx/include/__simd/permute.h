@@ -80,7 +80,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Np, _Vp> permute(const _Vp& __v, _IdxM
   using _Result = resize_t<_Np, _Vp>;
   using _Tp     = typename _Vp::value_type;
   return _Result([&]<class _Ic>(_Ic) {
-    constexpr auto __src_ix = __permute_gen_fn<_IdxMap, _Vp::size()>(__idxmap, _Ic::value);
+    constexpr auto __src_ix = simd::__permute_gen_fn<_IdxMap, _Vp::size()>(__idxmap, _Ic::value);
     static_assert((__src_ix < 0 && (__src_ix == zero_element || __src_ix == uninit_element)) ||
                       (__src_ix >= 0 && __src_ix < _Vp::size()),
                   "simd::permute: index must be zero_element, uninit_element, or in range");
@@ -94,14 +94,14 @@ _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Np, _Vp> permute(const _Vp& __v, _IdxM
 
 template <__simd_vec_type _Vp, __idx_map_like _IdxMap>
 _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Vp::size(), _Vp> permute(const _Vp& __v, _IdxMap&& __idxmap) {
-  return permute<_Vp::size()>(__v, std::forward<_IdxMap>(__idxmap));
+  return simd::permute<_Vp::size()>(__v, std::forward<_IdxMap>(__idxmap));
 }
 
 template <__simd_size_type _Np, __simd_mask_type _Vp, __idx_map_like _IdxMap>
 _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Np, _Vp> permute(const _Vp& __v, _IdxMap&& __idxmap) {
   using _Result = resize_t<_Np, _Vp>;
   return _Result([&]<class _Ic>(_Ic) -> bool {
-    constexpr auto __src_ix = __permute_gen_fn<_IdxMap, _Vp::size()>(__idxmap, _Ic::value);
+    constexpr auto __src_ix = simd::__permute_gen_fn<_IdxMap, _Vp::size()>(__idxmap, _Ic::value);
     static_assert((__src_ix < 0 && (__src_ix == zero_element || __src_ix == uninit_element)) ||
                       (__src_ix >= 0 && __src_ix < _Vp::size()),
                   "simd::permute: index must be zero_element, uninit_element, or in range");
@@ -115,7 +115,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Np, _Vp> permute(const _Vp& __v, _IdxM
 
 template <__simd_mask_type _Vp, __idx_map_like _IdxMap>
 _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Vp::size(), _Vp> permute(const _Vp& __v, _IdxMap&& __idxmap) {
-  return permute<_Vp::size()>(__v, std::forward<_IdxMap>(__idxmap));
+  return simd::permute<_Vp::size()>(__v, std::forward<_IdxMap>(__idxmap));
 }
 
 // [simd.permute.dynamic]
@@ -155,30 +155,30 @@ _LIBCPP_HIDE_FROM_ABI constexpr __simd_size_type __bit_index(const _Selector& __
 
 template <__simd_vec_type _Vp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Vp compress(const _Vp& __v, const typename _Vp::mask_type& __selector) {
-  const auto __count = reduce_count(__selector);
+  const auto __count = simd::reduce_count(__selector);
   return _Vp([&](auto __i) {
-    return __i < __count ? __v[__bit_index(__selector, __i)] : typename _Vp::value_type();
+    return __i < __count ? __v[simd::__bit_index(__selector, __i)] : typename _Vp::value_type();
   });
 }
 
 template <__simd_mask_type _Vp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Vp compress(const _Vp& __v, const type_identity_t<_Vp>& __selector) {
-  const auto __count = reduce_count(__selector);
-  return _Vp([&](auto __i) -> bool { return __i < __count && __v[__bit_index(__selector, __i)]; });
+  const auto __count = simd::reduce_count(__selector);
+  return _Vp([&](auto __i) -> bool { return __i < __count && __v[simd::__bit_index(__selector, __i)]; });
 }
 
 template <__simd_vec_type _Vp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Vp
 compress(const _Vp& __v, const typename _Vp::mask_type& __selector, const typename _Vp::value_type& __fill_value) {
-  const auto __count = reduce_count(__selector);
-  return _Vp([&](auto __i) { return __i < __count ? __v[__bit_index(__selector, __i)] : __fill_value; });
+  const auto __count = simd::reduce_count(__selector);
+  return _Vp([&](auto __i) { return __i < __count ? __v[simd::__bit_index(__selector, __i)] : __fill_value; });
 }
 
 template <__simd_mask_type _Vp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Vp compress(
     const _Vp& __v, const type_identity_t<_Vp>& __selector, const typename _Vp::value_type& __fill_value) {
-  const auto __count = reduce_count(__selector);
-  return _Vp([&](auto __i) -> bool { return __i < __count ? __v[__bit_index(__selector, __i)] : __fill_value; });
+  const auto __count = simd::reduce_count(__selector);
+  return _Vp([&](auto __i) -> bool { return __i < __count ? __v[simd::__bit_index(__selector, __i)] : __fill_value; });
 }
 
 template <class _Selector>
@@ -192,15 +192,15 @@ _LIBCPP_HIDE_FROM_ABI constexpr __simd_size_type __rank_of(const _Selector& __se
 
 template <__simd_vec_type _Vp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Vp expand(const _Vp& __v, const typename _Vp::mask_type& __selector, const _Vp& __original = {}) {
-  return _Vp([&](auto __i) {
-    return __selector[__i] ? __v[__rank_of(__selector, __i)] : __original[__i];
-  });
+  return _Vp([&](auto __i) { return __selector[__i] ? __v[simd::__rank_of(__selector, __i)] : __original[__i]; });
 }
 
 template <__simd_mask_type _Vp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Vp
 expand(const _Vp& __v, const type_identity_t<_Vp>& __selector, const _Vp& __original = {}) {
-  return _Vp([&](auto __i) -> bool { return __selector[__i] ? __v[__rank_of(__selector, __i)] : __original[__i]; });
+  return _Vp([&](auto __i) -> bool {
+    return __selector[__i] ? __v[simd::__rank_of(__selector, __i)] : __original[__i];
+  });
 }
 
 // [simd.permute.memory]: gather/scatter. unchecked_* is spelled as an unconditional delegation to
@@ -265,21 +265,21 @@ template <__simd_vec_type _Vp, ranges::contiguous_range _Rp, __simd_integral _Ip
   requires ranges::sized_range<_Rp>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 partial_scatter_to(const _Vp& __v, _Rp&& __dst_range, const _Ip& __indices, flags<_Flags...> __f = {}) {
-  partial_scatter_to(__v, std::forward<_Rp>(__dst_range), typename _Ip::mask_type(true), __indices, __f);
+  simd::partial_scatter_to(__v, std::forward<_Rp>(__dst_range), typename _Ip::mask_type(true), __indices, __f);
 }
 
 template <__simd_vec_type _Vp, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
   requires ranges::sized_range<_Rp>
 _LIBCPP_HIDE_FROM_ABI constexpr void unchecked_scatter_to(
     const _Vp& __v, _Rp&& __dst_range, const typename _Ip::mask_type& __mask, const _Ip& __indices, flags<_Flags...> __f = {}) {
-  partial_scatter_to(__v, std::forward<_Rp>(__dst_range), __mask, __indices, __f);
+  simd::partial_scatter_to(__v, std::forward<_Rp>(__dst_range), __mask, __indices, __f);
 }
 
 template <__simd_vec_type _Vp, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
   requires ranges::sized_range<_Rp>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 unchecked_scatter_to(const _Vp& __v, _Rp&& __dst_range, const _Ip& __indices, flags<_Flags...> __f = {}) {
-  partial_scatter_to(__v, std::forward<_Rp>(__dst_range), typename _Ip::mask_type(true), __indices, __f);
+  simd::partial_scatter_to(__v, std::forward<_Rp>(__dst_range), typename _Ip::mask_type(true), __indices, __f);
 }
 
 } // namespace simd

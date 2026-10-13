@@ -77,7 +77,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr exception() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI constexpr exception(const exception&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI constexpr exception& operator=(const exception&) _NOEXCEPT = default;
-#  elif __cplusplus >= 201103L
+#  elif !defined(_LIBCPP_CXX03_LANG)
   _LIBCPP_HIDE_FROM_ABI constexpr exception() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI exception(const exception&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI exception& operator=(const exception&) _NOEXCEPT = default;
@@ -100,7 +100,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr bad_exception() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI constexpr bad_exception(const bad_exception&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI constexpr bad_exception& operator=(const bad_exception&) _NOEXCEPT = default;
-#  elif __cplusplus >= 201103L
+#  elif !defined(_LIBCPP_CXX03_LANG)
   _LIBCPP_HIDE_FROM_ABI bad_exception() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI bad_exception(const bad_exception&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI bad_exception& operator=(const bad_exception&) _NOEXCEPT = default;
