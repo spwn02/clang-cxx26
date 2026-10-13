@@ -16,6 +16,9 @@
 #include <__simd/basic_vec.h>
 #include <__simd/concepts.h>
 #include <__simd/traits.h>
+#include <__type_traits/conditional.h>
+#include <__type_traits/is_convertible.h>
+#include <__type_traits/is_same.h>
 #include <__type_traits/type_identity.h>
 #include <cmath>
 
@@ -39,15 +42,41 @@ namespace simd {
 //
 // This implementation's basic_vec::operator+ returns basic_vec<T, Abi> by value, exactly and always
 // -- there is no proxy type. Consequently, for any V that is actually a basic_vec specialization,
-// __deduced_vec_t<V> is *the same type* as V (decltype(x + x) for x : const V& is V itself). Under
-// that identity, the declared "combinations" are not different functions: they are the same
-// function template specialization spelled several times, which would be an outright redefinition,
-// not merely redundant. The single signature below is therefore the entire conforming surface for
-// a non-expression-template implementation, and every valid call under the full clause (including
-// scalar-vs-vec mixes, since scalars reach V via basic_vec's broadcasting constructor either way)
-// resolves identically through it.
+// __deduced_vec_t<V> is *the same type* as V. Spelling the declared combinations literally would make
+// a call with only vector operands ambiguous between the overloads that differ only in which
+// parameter is non-deduced, so the all-vector call is a single (V, V, ...) signature below.
+//
+// The calls the clause allows with a *mixed* scalar/vector argument list (where V is deduced from the
+// vector operand and the scalar is broadcast through the non-deduced deduced-vec-t<V> parameter) are
+// provided by one constrained overload per function (the _MIXED macros): exactly the operands that
+// are not vectors must be implicitly convertible to the vector type. Every valid call under the full
+// clause therefore resolves, with the same result.
 template <__math_floating_point _Vp>
 using __math_result_t = __deduced_vec_t<_Vp>;
+
+// The first operand type that is a math vector (void if there is none).
+template <class _Tp, class... _Rest>
+struct __math_first_vec {
+  using type = conditional_t<__math_floating_point<_Tp>, _Tp, typename __math_first_vec<_Rest...>::type>;
+};
+template <class _Tp>
+struct __math_first_vec<_Tp> {
+  using type = conditional_t<__math_floating_point<_Tp>, _Tp, void>;
+};
+
+template <class _Vp, class... _Ts>
+inline constexpr bool __math_mixed_operands_ok_v =
+    ((__math_floating_point<_Ts> ? is_same_v<_Ts, _Vp> : is_convertible_v<const _Ts&, _Vp>) && ...);
+
+// At least one operand is a math vector, at least one is not, the vector operands have one type and
+// the others convert to it.
+template <class... _Ts>
+concept __math_mixed_operands =
+    (__math_floating_point<_Ts> || ...) && !(__math_floating_point<_Ts> && ...) &&
+    __math_mixed_operands_ok_v<typename __math_first_vec<_Ts...>::type, _Ts...>;
+
+template <class... _Ts>
+using __math_mixed_vec_t = typename __math_first_vec<_Ts...>::type;
 
 #  define _LIBCPP_SIMD_MATH_UNARY(_Name)                                                                             \
     template <__math_floating_point _Vp>                                                                             \
@@ -68,14 +97,26 @@ using __math_result_t = __deduced_vec_t<_Vp>;
     _LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<_Vp> _Name(const _Vp& __x, const _Vp& __y) {                     \
       using _Rp = __math_result_t<_Vp>;                                                                              \
       return _Rp([&](auto __i) { return std::_Name(__x[__i], __y[__i]); });                                         \
-    }
+    }                                                                                                                   \
+template <class _A, class _B>                                                                                           \
+  requires __math_mixed_operands<_A, _B>                                                                                \
+_LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<__math_mixed_vec_t<_A, _B>> _Name(const _A& __x, const _B& __y) {       \
+  using _Vp = __math_mixed_vec_t<_A, _B>;                                                                               \
+  return simd::_Name(static_cast<_Vp>(__x), static_cast<_Vp>(__y));                                                     \
+}
 
 #  define _LIBCPP_SIMD_MATH_TERNARY(_Name)                                                                           \
     template <__math_floating_point _Vp>                                                                             \
     _LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<_Vp> _Name(const _Vp& __x, const _Vp& __y, const _Vp& __z) {     \
       using _Rp = __math_result_t<_Vp>;                                                                              \
       return _Rp([&](auto __i) { return std::_Name(__x[__i], __y[__i], __z[__i]); });                                \
-    }
+    }                                                                                                                   \
+template <class _A, class _B, class _C>                                                                                 \
+  requires __math_mixed_operands<_A, _B, _C>                                                                            \
+_LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<__math_mixed_vec_t<_A, _B, _C>> _Name(const _A& __x, const _B& __y, const _C& __z) {\
+  using _Vp = __math_mixed_vec_t<_A, _B, _C>;                                                                           \
+  return simd::_Name(static_cast<_Vp>(__x), static_cast<_Vp>(__y), static_cast<_Vp>(__z));                              \
+}
 
 // Classification functions returning a mask, [simd.math]: isfinite/isinf/.../signbit (unary),
 // isgreater/.../isunordered (binary).
@@ -91,7 +132,13 @@ using __math_result_t = __deduced_vec_t<_Vp>;
     _LIBCPP_HIDE_FROM_ABI constexpr typename __math_result_t<_Vp>::mask_type _Name(const _Vp& __x, const _Vp& __y) { \
       using _Mp = typename __math_result_t<_Vp>::mask_type;                                                         \
       return _Mp([&](auto __i) -> bool { return std::_Name(__x[__i], __y[__i]); });                                 \
-    }
+    }                                                                                                                   \
+template <class _A, class _B>                                                                                           \
+  requires __math_mixed_operands<_A, _B>                                                                                \
+_LIBCPP_HIDE_FROM_ABI constexpr typename __math_result_t<__math_mixed_vec_t<_A, _B>>::mask_type _Name(const _A& __x, const _B& __y) {\
+  using _Vp = __math_mixed_vec_t<_A, _B>;                                                                               \
+  return simd::_Name(static_cast<_Vp>(__x), static_cast<_Vp>(__y));                                                     \
+}
 
 // --- trigonometric, hyperbolic, exponential, logarithmic, rounding (27) ---
 _LIBCPP_SIMD_MATH_UNARY(acos)
@@ -151,14 +198,26 @@ _LIBCPP_SIMD_MATH_BINARY(fmin)
     _LIBCPP_HIDE_FROM_ABI __math_result_t<_Vp> _Name(const _Vp& __x, const _Vp& __y) {                               \
       using _Rp = __math_result_t<_Vp>;                                                                              \
       return _Rp([&](auto __i) { return std::_Name(__x[__i], __y[__i]); });                                         \
-    }
+    }                                                                                                                   \
+template <class _A, class _B>                                                                                           \
+  requires __math_mixed_operands<_A, _B>                                                                                \
+_LIBCPP_HIDE_FROM_ABI __math_result_t<__math_mixed_vec_t<_A, _B>> _Name(const _A& __x, const _B& __y) {                 \
+  using _Vp = __math_mixed_vec_t<_A, _B>;                                                                               \
+  return simd::_Name(static_cast<_Vp>(__x), static_cast<_Vp>(__y));                                                     \
+}
 
 #  define _LIBCPP_SIMD_MATH_SPECIAL_TERNARY(_Name)                                                                   \
     template <__math_floating_point _Vp>                                                                             \
     _LIBCPP_HIDE_FROM_ABI __math_result_t<_Vp> _Name(const _Vp& __x, const _Vp& __y, const _Vp& __z) {               \
       using _Rp = __math_result_t<_Vp>;                                                                              \
       return _Rp([&](auto __i) { return std::_Name(__x[__i], __y[__i], __z[__i]); });                                \
-    }
+    }                                                                                                                   \
+template <class _A, class _B, class _C>                                                                                 \
+  requires __math_mixed_operands<_A, _B, _C>                                                                            \
+_LIBCPP_HIDE_FROM_ABI __math_result_t<__math_mixed_vec_t<_A, _B, _C>> _Name(const _A& __x, const _B& __y, const _C& __z) {\
+  using _Vp = __math_mixed_vec_t<_A, _B, _C>;                                                                           \
+  return simd::_Name(static_cast<_Vp>(__x), static_cast<_Vp>(__y), static_cast<_Vp>(__z));                              \
+}
 
 #  define _LIBCPP_SIMD_MATH_SPECIAL_INDEX_UNARY(_Name)                                                               \
     template <__math_floating_point _Vp>                                                                             \
@@ -257,6 +316,14 @@ template <__math_floating_point _Vp>
 _LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<_Vp> lerp(const _Vp& __a, const _Vp& __b, const _Vp& __t) noexcept {
   using _Rp = __math_result_t<_Vp>;
   return _Rp([&](auto __i) { return std::lerp(__a[__i], __b[__i], __t[__i]); });
+}
+
+template <class _A, class _B, class _C>
+  requires __math_mixed_operands<_A, _B, _C>
+_LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<__math_mixed_vec_t<_A, _B, _C>>
+lerp(const _A& __a, const _B& __b, const _C& __t) noexcept {
+  using _Vp = __math_mixed_vec_t<_A, _B, _C>;
+  return simd::lerp(static_cast<_Vp>(__a), static_cast<_Vp>(__b), static_cast<_Vp>(__t));
 }
 
 #  undef _LIBCPP_SIMD_MATH_UNARY
