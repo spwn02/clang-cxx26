@@ -580,7 +580,9 @@ public:
   virtual __assoc_sub_state* __make_new_state() const;
 };
 
-inline __assoc_sub_state* __assoc_sub_state::__make_new_state() const { return new __assoc_sub_state; }
+_LIBCPP_HIDE_FROM_ABI_VIRTUAL inline __assoc_sub_state* __assoc_sub_state::__make_new_state() const {
+  return new __assoc_sub_state;
+}
 
 template <class _Rep, class _Period>
 inline future_status __assoc_sub_state::wait_for(const chrono::duration<_Rep, _Period>& __rel_time) const {

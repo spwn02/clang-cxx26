@@ -72,22 +72,25 @@ concept __constexpr_indexable = (__constexpr_param<remove_cvref_t<_Args>> && ...
 struct __constant_wrapper_operators {
   // Unary operators.
   template <__constexpr_param _Tp>
-  friend constexpr auto operator+(_Tp) noexcept -> constant_wrapper<(+_Tp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator+(_Tp) noexcept -> constant_wrapper<(+_Tp::value)> { return {}; }
   template <__constexpr_param _Tp>
-  friend constexpr auto operator-(_Tp) noexcept -> constant_wrapper<(-_Tp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator-(_Tp) noexcept -> constant_wrapper<(-_Tp::value)> { return {}; }
   template <__constexpr_param _Tp>
-  friend constexpr auto operator~(_Tp) noexcept -> constant_wrapper<(~_Tp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator~(_Tp) noexcept -> constant_wrapper<(~_Tp::value)> { return {}; }
   template <__constexpr_param _Tp>
-  friend constexpr auto operator!(_Tp) noexcept -> constant_wrapper<(!_Tp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator!(_Tp) noexcept -> constant_wrapper<(!_Tp::value)> { return {}; }
   template <__constexpr_param _Tp>
-  friend constexpr auto operator&(_Tp) noexcept -> constant_wrapper<(&_Tp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator&(_Tp) noexcept -> constant_wrapper<(&_Tp::value)> { return {}; }
   template <__constexpr_param _Tp>
-  friend constexpr auto operator*(_Tp) noexcept -> constant_wrapper<(*_Tp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator*(_Tp) noexcept -> constant_wrapper<(*_Tp::value)> { return {}; }
 
   // Binary arithmetic.
 #  define _LIBCPP_CW_BINARY_ARITHMETIC(__op) \
   template <__constexpr_param _Lp, __constexpr_param _Rp> \
-  friend constexpr auto operator __op(_Lp, _Rp) noexcept -> constant_wrapper<(_Lp::value __op _Rp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator __op(_Lp, _Rp) noexcept \
+      -> constant_wrapper<(_Lp::value __op _Rp::value)> { \
+    return {}; \
+  }
   _LIBCPP_CW_BINARY_ARITHMETIC(+)
   _LIBCPP_CW_BINARY_ARITHMETIC(-)
   _LIBCPP_CW_BINARY_ARITHMETIC(*)
@@ -98,7 +101,10 @@ struct __constant_wrapper_operators {
   // Binary bitwise operators.
 #  define _LIBCPP_CW_BINARY_BITWISE(__op) \
   template <__constexpr_param _Lp, __constexpr_param _Rp> \
-  friend constexpr auto operator __op(_Lp, _Rp) noexcept -> constant_wrapper<(_Lp::value __op _Rp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator __op(_Lp, _Rp) noexcept \
+      -> constant_wrapper<(_Lp::value __op _Rp::value)> { \
+    return {}; \
+  }
   _LIBCPP_CW_BINARY_BITWISE(<<)
   _LIBCPP_CW_BINARY_BITWISE(>>)
   _LIBCPP_CW_BINARY_BITWISE(&)
@@ -109,15 +115,20 @@ struct __constant_wrapper_operators {
   // Binary logical operators.
   template <__constexpr_param _Lp, __constexpr_param _Rp>
     requires(!is_constructible_v<bool, decltype(_Lp::value)> || !is_constructible_v<bool, decltype(_Rp::value)>)
-  friend constexpr auto operator&&(_Lp, _Rp) noexcept -> constant_wrapper<(_Lp::value && _Rp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator&&(_Lp, _Rp) noexcept
+      -> constant_wrapper<(_Lp::value && _Rp::value)> { return {}; }
   template <__constexpr_param _Lp, __constexpr_param _Rp>
     requires(!is_constructible_v<bool, decltype(_Lp::value)> || !is_constructible_v<bool, decltype(_Rp::value)>)
-  friend constexpr auto operator||(_Lp, _Rp) noexcept -> constant_wrapper<(_Lp::value || _Rp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator||(_Lp, _Rp) noexcept
+      -> constant_wrapper<(_Lp::value || _Rp::value)> { return {}; }
 
   // Comparisons.
 #  define _LIBCPP_CW_COMPARISON(__op) \
   template <__constexpr_param _Lp, __constexpr_param _Rp> \
-  friend constexpr auto operator __op(_Lp, _Rp) noexcept -> constant_wrapper<(_Lp::value __op _Rp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator __op(_Lp, _Rp) noexcept \
+      -> constant_wrapper<(_Lp::value __op _Rp::value)> { \
+    return {}; \
+  }
   _LIBCPP_CW_COMPARISON(<=>)
   _LIBCPP_CW_COMPARISON(<)
   _LIBCPP_CW_COMPARISON(<=)
@@ -129,14 +140,16 @@ struct __constant_wrapper_operators {
 
   // Pointer-to-member and comma.
   template <__constexpr_param _Lp, __constexpr_param _Rp>
-  friend constexpr auto operator->*(_Lp, _Rp) noexcept -> constant_wrapper<(_Lp::value ->* _Rp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator->*(_Lp, _Rp) noexcept
+      -> constant_wrapper<(_Lp::value ->* _Rp::value)> { return {}; }
   template <__constexpr_param _Lp, __constexpr_param _Rp>
   friend constexpr auto operator,(_Lp, _Rp) noexcept = delete;
 
   // Pseudo-mutators.
 #  define _LIBCPP_CW_COMPOUND_ASSIGN(__op) \
   template <__constexpr_param _Tp, __constexpr_param _Rp> \
-  constexpr auto operator __op(this _Tp, _Rp) noexcept -> constant_wrapper<(_Tp::value __op _Rp::value)> { \
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator __op(this _Tp, _Rp) noexcept \
+      -> constant_wrapper<(_Tp::value __op _Rp::value)> { \
     return {}; \
   }
   _LIBCPP_CW_COMPOUND_ASSIGN(+=)
@@ -152,13 +165,15 @@ struct __constant_wrapper_operators {
 #  undef _LIBCPP_CW_COMPOUND_ASSIGN
 
   template <__constexpr_param _Tp>
-  constexpr auto operator++(this _Tp) noexcept -> constant_wrapper<(++_Tp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator++(this _Tp) noexcept -> constant_wrapper<(++_Tp::value)> { return {}; }
   template <__constexpr_param _Tp>
-  constexpr auto operator++(this _Tp, int) noexcept -> constant_wrapper<(_Tp::value++)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator++(this _Tp, int) noexcept
+      -> constant_wrapper<(_Tp::value++)> { return {}; }
   template <__constexpr_param _Tp>
-  constexpr auto operator--(this _Tp) noexcept -> constant_wrapper<(--_Tp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator--(this _Tp) noexcept -> constant_wrapper<(--_Tp::value)> { return {}; }
   template <__constexpr_param _Tp>
-  constexpr auto operator--(this _Tp, int) noexcept -> constant_wrapper<(_Tp::value--)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator--(this _Tp, int) noexcept
+      -> constant_wrapper<(_Tp::value--)> { return {}; }
 
 };
 
@@ -170,10 +185,11 @@ struct constant_wrapper : __constant_wrapper_operators {
 
   static_assert(is_same_v<_Tp, value_type>);
 
-  constexpr operator decltype(value)() const noexcept { return value; }
+  _LIBCPP_HIDE_FROM_ABI constexpr operator decltype(value)() const noexcept { return value; }
 
   template <__constexpr_param _Rp>
-  constexpr auto operator=(_Rp) const noexcept -> constant_wrapper<(value = _Rp::value)> { return {}; }
+  _LIBCPP_HIDE_FROM_ABI constexpr auto operator=(_Rp) const noexcept
+      -> constant_wrapper<(value = _Rp::value)> { return {}; }
 
   template <class... _Args>
     requires __constexpr_callable<value, _Args...>

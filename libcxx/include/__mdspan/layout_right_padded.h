@@ -72,7 +72,7 @@ private:
   }();
 
   // Mandates helpers.
-  static constexpr bool __static_index_space_representable() {
+  _LIBCPP_HIDE_FROM_ABI static constexpr bool __static_index_space_representable() {
     size_t __prod = 1;
     for (size_t __r = 0; __r < __rank_; ++__r)
       if (__builtin_mul_overflow(__prod, static_cast<size_t>(extents_type::static_extent(__r)), &__prod))
@@ -80,7 +80,7 @@ private:
     return __mdspan_detail::__is_representable_as<index_type>(__prod);
   }
 
-  static constexpr bool __static_padded_last_representable() {
+  _LIBCPP_HIDE_FROM_ABI static constexpr bool __static_padded_last_representable() {
     if constexpr (__rank_ > 1 && _PaddingValue != dynamic_extent && __last_static_extent_ != dynamic_extent) {
       size_t __padded = 0;
       return __mdspan_detail::__least_multiple_at_least_checked(_PaddingValue, __last_static_extent_, __padded) &&
@@ -89,7 +89,7 @@ private:
     return true;
   }
 
-  static constexpr bool __static_padded_product_representable() {
+  _LIBCPP_HIDE_FROM_ABI static constexpr bool __static_padded_product_representable() {
     if constexpr (__rank_ > 1 && _PaddingValue != dynamic_extent) {
       for (size_t __r = 0; __r < __rank_; ++__r)
         if (extents_type::static_extent(__r) == dynamic_extent)

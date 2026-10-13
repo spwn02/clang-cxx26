@@ -84,8 +84,10 @@ public:
 #  endif
 
 #  if _LIBCPP_STD_VER >= 26
-  virtual constexpr ~exception() _NOEXCEPT {}
-  [[__nodiscard__]] virtual constexpr const char* what() const _NOEXCEPT { return "std::exception"; }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual constexpr ~exception() _NOEXCEPT {}
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual constexpr const char* what() const _NOEXCEPT {
+    return "std::exception";
+  }
 #  else
   virtual ~exception() _NOEXCEPT;
   [[__nodiscard__]] virtual const char* what() const _NOEXCEPT;
@@ -104,8 +106,10 @@ public:
   _LIBCPP_HIDE_FROM_ABI bad_exception& operator=(const bad_exception&) _NOEXCEPT = default;
 #  endif
 #  if _LIBCPP_STD_VER >= 26
-  constexpr ~bad_exception() _NOEXCEPT override {}
-  [[__nodiscard__]] constexpr const char* what() const _NOEXCEPT override { return "std::bad_exception"; }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr ~bad_exception() _NOEXCEPT override {}
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr const char* what() const _NOEXCEPT override {
+    return "std::bad_exception";
+  }
 #  else
   ~bad_exception() _NOEXCEPT override;
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;

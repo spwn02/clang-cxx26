@@ -1415,7 +1415,8 @@ __hash_table<_Tp, _Hash, _Equal, _Alloc>::__detach() _NOEXCEPT {
 }
 
 template <class _Tp, class _Hash, class _Equal, class _Alloc>
-_LIBCPP_CONSTEXPR_SINCE_CXX26 void __hash_table<_Tp, _Hash, _Equal, _Alloc>::__move_assign(__hash_table& __u, true_type)
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
+__hash_table<_Tp, _Hash, _Equal, _Alloc>::__move_assign(__hash_table& __u, true_type)
     _NOEXCEPT_(is_nothrow_move_assignable<__node_allocator>::value&& is_nothrow_move_assignable<hasher>::value&&
                    is_nothrow_move_assignable<key_equal>::value) {
   clear();
@@ -1668,7 +1669,8 @@ __hash_table<_Tp, _Hash, _Equal, _Alloc>::__node_insert_multi_prepare(size_t __c
 // all we need to do is update the bucket and size(). Assumes that __cp->__hash
 // is up-to-date.
 template <class _Tp, class _Hash, class _Equal, class _Alloc>
-_LIBCPP_CONSTEXPR_SINCE_CXX26 void __hash_table<_Tp, _Hash, _Equal, _Alloc>::__node_insert_multi_perform(
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
+__hash_table<_Tp, _Hash, _Equal, _Alloc>::__node_insert_multi_perform(
     __node_pointer __cp, __next_pointer __pn) _NOEXCEPT {
   size_type __bc = bucket_count();
   size_t __chash = std::__constrain_hash(__cp->__hash_, __bc);

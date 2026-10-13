@@ -32,8 +32,10 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr bad_alloc() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI constexpr bad_alloc(const bad_alloc&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI constexpr bad_alloc& operator=(const bad_alloc&) _NOEXCEPT = default;
-  constexpr ~bad_alloc() _NOEXCEPT override {}
-  [[__nodiscard__]] constexpr const char* what() const _NOEXCEPT override { return "std::bad_alloc"; }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr ~bad_alloc() _NOEXCEPT override {}
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr const char* what() const _NOEXCEPT override {
+    return "std::bad_alloc";
+  }
 #  else
   bad_alloc() _NOEXCEPT;
   _LIBCPP_HIDE_FROM_ABI bad_alloc(const bad_alloc&) _NOEXCEPT            = default;
@@ -49,8 +51,10 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr bad_array_new_length() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI constexpr bad_array_new_length(const bad_array_new_length&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI constexpr bad_array_new_length& operator=(const bad_array_new_length&) _NOEXCEPT = default;
-  constexpr ~bad_array_new_length() _NOEXCEPT override {}
-  [[__nodiscard__]] constexpr const char* what() const _NOEXCEPT override { return "bad_array_new_length"; }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr ~bad_array_new_length() _NOEXCEPT override {}
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr const char* what() const _NOEXCEPT override {
+    return "bad_array_new_length";
+  }
 #  else
   bad_array_new_length() _NOEXCEPT;
   _LIBCPP_HIDE_FROM_ABI bad_array_new_length(const bad_array_new_length&) _NOEXCEPT            = default;

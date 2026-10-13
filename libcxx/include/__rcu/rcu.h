@@ -42,9 +42,9 @@ struct __retired_node {
 } // namespace __rcu
 
 class rcu_domain;
-rcu_domain& rcu_default_domain() noexcept;
+_LIBCPP_HIDE_FROM_ABI rcu_domain& rcu_default_domain() noexcept;
 template <class _Tp, class _Dp = default_delete<_Tp>>
-void rcu_retire(_Tp*, _Dp = _Dp(), rcu_domain& = rcu_default_domain());
+_LIBCPP_HIDE_FROM_ABI void rcu_retire(_Tp*, _Dp = _Dp(), rcu_domain& = rcu_default_domain());
 
 class rcu_domain {
   mutex __mutex_;
@@ -53,41 +53,41 @@ class rcu_domain {
   bool __synchronizing_ = false;
   __rcu::__retired_node* __retired_ = nullptr;
 
-  __rcu::__retired_node* __take_retired() noexcept {
+  _LIBCPP_HIDE_FROM_ABI __rcu::__retired_node* __take_retired() noexcept {
     lock_guard<mutex> __lock(__mutex_);
     return std::exchange(__retired_, nullptr);
   }
 
-  void __retire(__rcu::__retired_node* __node) noexcept {
+  _LIBCPP_HIDE_FROM_ABI void __retire(__rcu::__retired_node* __node) noexcept {
     lock_guard<mutex> __lock(__mutex_);
     __node->__next_ = __retired_;
     __retired_ = __node;
   }
 
-  friend void rcu_synchronize(rcu_domain&) noexcept;
-  friend void rcu_barrier(rcu_domain&) noexcept;
+  _LIBCPP_HIDE_FROM_ABI friend void rcu_synchronize(rcu_domain&) noexcept;
+  _LIBCPP_HIDE_FROM_ABI friend void rcu_barrier(rcu_domain&) noexcept;
   template <class _Tp, class _Dp>
   friend void rcu_retire(_Tp*, _Dp, rcu_domain&);
   template <class _Tp, class _Dp>
   friend class rcu_obj_base;
 
 public:
-  rcu_domain() = default;
+  _LIBCPP_HIDE_FROM_ABI rcu_domain()       = default;
   rcu_domain(const rcu_domain&) = delete;
   rcu_domain& operator=(const rcu_domain&) = delete;
 
-  void lock() noexcept {
+  _LIBCPP_HIDE_FROM_ABI void lock() noexcept {
     unique_lock<mutex> __lock(__mutex_);
     __cv_.wait(__lock, [this] { return !__synchronizing_; });
     ++__readers_;
   }
 
-  bool try_lock() noexcept {
+  _LIBCPP_HIDE_FROM_ABI bool try_lock() noexcept {
     lock();
     return true;
   }
 
-  void unlock() noexcept {
+  _LIBCPP_HIDE_FROM_ABI void unlock() noexcept {
     lock_guard<mutex> __lock(__mutex_);
     --__readers_;
     if (__readers_ == 0)
@@ -95,12 +95,12 @@ public:
   }
 };
 
-inline rcu_domain& rcu_default_domain() noexcept {
+_LIBCPP_HIDE_FROM_ABI inline rcu_domain& rcu_default_domain() noexcept {
   static rcu_domain __domain;
   return __domain;
 }
 
-inline void rcu_synchronize(rcu_domain& __dom = rcu_default_domain()) noexcept {
+_LIBCPP_HIDE_FROM_ABI inline void rcu_synchronize(rcu_domain& __dom = rcu_default_domain()) noexcept {
   unique_lock<mutex> __lock(__dom.__mutex_);
   __dom.__synchronizing_ = true;
   __dom.__cv_.wait(__lock, [&__dom] { return __dom.__readers_ == 0; });
@@ -109,7 +109,7 @@ inline void rcu_synchronize(rcu_domain& __dom = rcu_default_domain()) noexcept {
   __dom.__cv_.notify_all();
 }
 
-inline void rcu_barrier(rcu_domain& __dom = rcu_default_domain()) noexcept {
+_LIBCPP_HIDE_FROM_ABI inline void rcu_barrier(rcu_domain& __dom = rcu_default_domain()) noexcept {
   rcu_synchronize(__dom);
   while (__rcu::__retired_node* __node = __dom.__take_retired()) {
     while (__node != nullptr) {
@@ -124,13 +124,13 @@ template <class _Tp, class _Dp = default_delete<_Tp>>
 class rcu_obj_base : private __rcu::__retired_node {
   _Dp __deleter_;
 
-  static void __evaluate(__rcu::__retired_node* __node) noexcept {
+  _LIBCPP_HIDE_FROM_ABI static void __evaluate(__rcu::__retired_node* __node) noexcept {
     auto* __base = static_cast<rcu_obj_base*>(__node);
     __base->__deleter_(static_cast<_Tp*>(__base->__object_));
   }
 
 public:
-  void retire(_Dp __deleter = _Dp(), rcu_domain& __dom = rcu_default_domain()) noexcept {
+  _LIBCPP_HIDE_FROM_ABI void retire(_Dp __deleter = _Dp(), rcu_domain& __dom = rcu_default_domain()) noexcept {
     __deleter_ = std::move(__deleter);
     this->__object_ = static_cast<_Tp*>(this);
     this->__evaluate_ = &rcu_obj_base::__evaluate;
@@ -138,12 +138,12 @@ public:
   }
 
 protected:
-  rcu_obj_base() = default;
-  rcu_obj_base(const rcu_obj_base&) = default;
-  rcu_obj_base(rcu_obj_base&&) = default;
-  rcu_obj_base& operator=(const rcu_obj_base&) = default;
-  rcu_obj_base& operator=(rcu_obj_base&&) = default;
-  ~rcu_obj_base() = default;
+  _LIBCPP_HIDE_FROM_ABI rcu_obj_base()                               = default;
+  _LIBCPP_HIDE_FROM_ABI rcu_obj_base(const rcu_obj_base&)            = default;
+  _LIBCPP_HIDE_FROM_ABI rcu_obj_base(rcu_obj_base&&)                 = default;
+  _LIBCPP_HIDE_FROM_ABI rcu_obj_base& operator=(const rcu_obj_base&) = default;
+  _LIBCPP_HIDE_FROM_ABI rcu_obj_base& operator=(rcu_obj_base&&)      = default;
+  _LIBCPP_HIDE_FROM_ABI ~rcu_obj_base()                              = default;
 };
 
 template <class _Tp, class _Dp>
@@ -151,12 +151,13 @@ struct __rcu_retired_node : __rcu::__retired_node {
   _Tp* __ptr_;
   _Dp __deleter_;
 
-  __rcu_retired_node(_Tp* __ptr, _Dp&& __deleter) : __ptr_(__ptr), __deleter_(std::move(__deleter)) {
+  _LIBCPP_HIDE_FROM_ABI __rcu_retired_node(_Tp* __ptr, _Dp&& __deleter)
+      : __ptr_(__ptr), __deleter_(std::move(__deleter)) {
     this->__object_ = __ptr;
     this->__evaluate_ = &__rcu_retired_node::__evaluate;
   }
 
-  static void __evaluate(__rcu::__retired_node* __node) noexcept {
+  _LIBCPP_HIDE_FROM_ABI static void __evaluate(__rcu::__retired_node* __node) noexcept {
     auto* __self = static_cast<__rcu_retired_node*>(__node);
     __self->__deleter_(__self->__ptr_);
     delete __self;
@@ -164,7 +165,7 @@ struct __rcu_retired_node : __rcu::__retired_node {
 };
 
 template <class _Tp, class _Dp>
-void rcu_retire(_Tp* __ptr, _Dp __deleter, rcu_domain& __dom) {
+_LIBCPP_HIDE_FROM_ABI void rcu_retire(_Tp* __ptr, _Dp __deleter, rcu_domain& __dom) {
   __dom.__retire(new __rcu_retired_node<_Tp, _Dp>(__ptr, std::move(__deleter)));
 }
 

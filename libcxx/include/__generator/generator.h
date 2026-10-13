@@ -64,12 +64,12 @@ public:
 
   class iterator {
     coroutine_handle<promise_type> __coroutine_ = nullptr;
-    explicit iterator(coroutine_handle<promise_type> __c) : __coroutine_(__c) {}
+    _LIBCPP_HIDE_FROM_ABI explicit iterator(coroutine_handle<promise_type> __c) : __coroutine_(__c) {}
     friend class generator;
   public:
     using value_type = __value;
     using difference_type = ptrdiff_t;
-    iterator() = default;
+    _LIBCPP_HIDE_FROM_ABI iterator()                               = default;
     iterator(const iterator&) = delete;
     _LIBCPP_HIDE_FROM_ABI iterator(iterator&&) noexcept = default;
     _LIBCPP_HIDE_FROM_ABI iterator& operator=(iterator&&) noexcept = default;
@@ -157,21 +157,21 @@ public:
     __generator_state* __state_ = nullptr;
     friend class generator;
     struct __final_awaiter {
-      bool await_ready() noexcept { return false; }
-      coroutine_handle<> await_suspend(coroutine_handle<promise_type> __h) noexcept {
+      _LIBCPP_HIDE_FROM_ABI bool await_ready() noexcept { return false; }
+      _LIBCPP_HIDE_FROM_ABI coroutine_handle<> await_suspend(coroutine_handle<promise_type> __h) noexcept {
         __generator_state* __s = __h.promise().__state_;
         if (__s && __s->__parent_) { __s->__top_ = __s->__parent_; return __s->__parent_; }
         return noop_coroutine();
       }
-      void await_resume() noexcept {}
+      _LIBCPP_HIDE_FROM_ABI void await_resume() noexcept {}
     };
     template <class _NestedGenerator>
     struct __recursive_awaiter {
       _NestedGenerator __nested_;
       __generator_state* __state_ = nullptr;
       coroutine_handle<> __previous_parent_ = nullptr;
-      bool await_ready() noexcept { return false; }
-      coroutine_handle<> await_suspend(coroutine_handle<promise_type> __parent) noexcept {
+      _LIBCPP_HIDE_FROM_ABI bool await_ready() noexcept { return false; }
+      _LIBCPP_HIDE_FROM_ABI coroutine_handle<> await_suspend(coroutine_handle<promise_type> __parent) noexcept {
         __generator_state* __s = __parent.promise().__state_;
         auto __child = __nested_.__coroutine_;
         __state_ = __s;
@@ -181,7 +181,7 @@ public:
         __s->__top_ = __child;
         return __child;
       }
-      void await_resume() {
+      _LIBCPP_HIDE_FROM_ABI void await_resume() {
         exception_ptr __exception = exchange(__state_->__exception_, {});
         __state_->__parent_ = __previous_parent_;
         if (__exception)
@@ -292,7 +292,7 @@ public:
   };
 
 private:
-  explicit generator(coroutine_handle<promise_type> __c) noexcept
+  _LIBCPP_HIDE_FROM_ABI explicit generator(coroutine_handle<promise_type> __c) noexcept
       : __coroutine_(__c), __state_(make_unique<__generator_state>()) {}
   coroutine_handle<promise_type> __coroutine_ = nullptr;
   unique_ptr<__generator_state> __state_;

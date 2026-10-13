@@ -518,7 +518,7 @@ struct __digit_source {
   __expansion __e;
   __rounding __r;
   long __i = 0;
-  bool __all_nines_up() const { return __r.__up && __r.__last_non9 == -1; }
+  _LIBCPP_HIDE_FROM_ABI bool __all_nines_up() const { return __r.__up && __r.__last_non9 == -1; }
   _LIBCPP_HIDE_FROM_ABI inline char __next() {
     int __d = __e.__next();
     int __c;

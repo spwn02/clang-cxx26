@@ -64,7 +64,7 @@ struct __run_loop_opstate_base {
   __run_loop_opstate_base* __next;
 
 protected:
-  ~__run_loop_opstate_base() = default;
+  _LIBCPP_HIDE_FROM_ABI ~__run_loop_opstate_base() = default;
 };
 
 template <class _Rcvr>

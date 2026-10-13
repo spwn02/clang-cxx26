@@ -42,7 +42,9 @@ class cache_latest_view : public view_interface<cache_latest_view<_View>> {
   class __sentinel;
 
 public:
-  cache_latest_view() requires default_initializable<_View> = default;
+  _LIBCPP_HIDE_FROM_ABI cache_latest_view()
+    requires default_initializable<_View>
+  = default;
   _LIBCPP_HIDE_FROM_ABI constexpr explicit cache_latest_view(_View __base) : __base_(std::move(__base)) {}
   _LIBCPP_HIDE_FROM_ABI constexpr _View base() const& requires copy_constructible<_View> { return __base_; }
   _LIBCPP_HIDE_FROM_ABI constexpr _View base() && { return std::move(__base_); }
@@ -87,8 +89,8 @@ public:
   using difference_type = range_difference_t<_View>;
   using value_type = range_value_t<_View>;
   using iterator_concept = input_iterator_tag;
-  __iterator(__iterator&&) = default;
-  __iterator& operator=(__iterator&&) = default;
+  _LIBCPP_HIDE_FROM_ABI __iterator(__iterator&&)            = default;
+  _LIBCPP_HIDE_FROM_ABI __iterator& operator=(__iterator&&) = default;
   _LIBCPP_HIDE_FROM_ABI constexpr iterator_t<_View> base() && { return std::move(__current_); }
   _LIBCPP_HIDE_FROM_ABI constexpr const iterator_t<_View>& base() const& noexcept { return __current_; }
   _LIBCPP_HIDE_FROM_ABI constexpr range_reference_t<_View>& operator*() const {
@@ -119,7 +121,7 @@ class cache_latest_view<_View>::__sentinel {
       : __end_(ranges::end(__parent.__base_)) {}
   friend class cache_latest_view;
 public:
-  __sentinel() = default;
+  _LIBCPP_HIDE_FROM_ABI __sentinel() = default;
   _LIBCPP_HIDE_FROM_ABI constexpr sentinel_t<_View> base() const { return __end_; }
   friend _LIBCPP_HIDE_FROM_ABI constexpr bool operator==(const __iterator& __it, const __sentinel& __sent) {
     return __it.__current_ == __sent.__end_;

@@ -32,7 +32,9 @@ class as_const_view : public view_interface<as_const_view<_View>> {
   _View __base_ = _View();
 
 public:
-  as_const_view() requires default_initializable<_View> = default;
+  _LIBCPP_HIDE_FROM_ABI as_const_view()
+    requires default_initializable<_View>
+  = default;
   _LIBCPP_HIDE_FROM_ABI constexpr explicit as_const_view(_View __base)
       noexcept(is_nothrow_move_constructible_v<_View>) : __base_(std::forward<_View>(__base)) {}
 

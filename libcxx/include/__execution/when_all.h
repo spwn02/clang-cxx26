@@ -636,7 +636,7 @@ class __when_all_attrs {
         typename __when_all_child_domain<set_value_t, _Env, _Sndrs, __exception_from_value<_Cpo, _Env, _Sndrs>()>::type...>::type;
 
     template <class... _Ds>
-    static constexpr auto __common(__exec_type_list<_Ds...>*) noexcept {
+    _LIBCPP_HIDE_FROM_ABI static constexpr auto __common(__exec_type_list<_Ds...>*) noexcept {
       return execution::__common_domain(_Ds()...);
     }
   };

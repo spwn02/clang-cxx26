@@ -1359,7 +1359,8 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 deque<_Tp, _Allocator>::deque(const deque& __c)
 }
 
 template <class _Tp, class _Allocator>
-_LIBCPP_CONSTEXPR_SINCE_CXX26 deque<_Tp, _Allocator>::deque(const deque& __c, const __type_identity_t<allocator_type>& __a)
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26
+deque<_Tp, _Allocator>::deque(const deque& __c, const __type_identity_t<allocator_type>& __a)
     : __map_(__pointer_allocator(__a)), __start_(0), __size_(0), __alloc_(__a) {
   __annotate_new(0);
   __append(__c.begin(), __c.end());
@@ -1400,7 +1401,8 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 inline deque<_Tp, _Allocator>::deque(deque&& __c) 
 }
 
 template <class _Tp, class _Allocator>
-_LIBCPP_CONSTEXPR_SINCE_CXX26 inline deque<_Tp, _Allocator>::deque(deque&& __c, const __type_identity_t<allocator_type>& __a)
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline deque<_Tp, _Allocator>::deque(
+    deque&& __c, const __type_identity_t<allocator_type>& __a)
     : __map_(std::move(__c.__map_), __pointer_allocator(__a)),
       __start_(std::move(__c.__start_)),
       __size_(std::move(__c.__size_)),
@@ -1427,7 +1429,7 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 inline deque<_Tp, _Allocator>& deque<_Tp, _Allocat
 }
 
 template <class _Tp, class _Allocator>
-_LIBCPP_CONSTEXPR_SINCE_CXX26 void deque<_Tp, _Allocator>::__move_assign(deque& __c, false_type) {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void deque<_Tp, _Allocator>::__move_assign(deque& __c, false_type) {
   if (__alloc() != __c.__alloc()) {
     typedef move_iterator<iterator> _Ip;
     assign(_Ip(__c.begin()), _Ip(__c.end()));
@@ -1681,7 +1683,8 @@ deque<_Tp, _Allocator>::emplace_front(_Args&&... __args) {
 
 template <class _Tp, class _Allocator>
 template <class... _Args>
-_LIBCPP_CONSTEXPR_SINCE_CXX26 typename deque<_Tp, _Allocator>::iterator deque<_Tp, _Allocator>::__emplace(const_iterator __p, _Args&&... __args) {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26
+    typename deque<_Tp, _Allocator>::iterator deque<_Tp, _Allocator>::__emplace(const_iterator __p, _Args&&... __args) {
   size_type __pos     = __p - begin();
   size_type __to_end  = size() - __pos;
   allocator_type& __a = __alloc();
@@ -1816,7 +1819,8 @@ deque<_Tp, _Allocator>::__insert_with_size(const_iterator __p, _Iterator __f, si
 
 template <class _Tp, class _Allocator>
 template <class _BiIter, __enable_if_t<__has_bidirectional_iterator_category<_BiIter>::value, int> >
-_LIBCPP_CONSTEXPR_SINCE_CXX26 typename deque<_Tp, _Allocator>::iterator deque<_Tp, _Allocator>::insert(const_iterator __p, _BiIter __f, _BiIter __l) {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 typename deque<_Tp, _Allocator>::iterator
+deque<_Tp, _Allocator>::insert(const_iterator __p, _BiIter __f, _BiIter __l) {
   return __insert_bidirectional(__p, __f, __l, std::distance(__f, __l));
 }
 
@@ -2269,7 +2273,8 @@ deque<_Tp, _Allocator>::__move_backward_and_check(iterator __f, iterator __l, it
 // move construct [__f, __l) to [__r, __r + (__l-__f)).
 // If __vt points into [__f, __l), then add (__r - __f) to __vt.
 template <class _Tp, class _Allocator>
-_LIBCPP_CONSTEXPR_SINCE_CXX26 void deque<_Tp, _Allocator>::__move_construct_and_check(iterator __f, iterator __l, iterator __r, const_pointer& __vt) {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
+deque<_Tp, _Allocator>::__move_construct_and_check(iterator __f, iterator __l, iterator __r, const_pointer& __vt) {
   allocator_type& __a = __alloc();
   // as if
   //   for (; __f != __l; ++__r, ++__f, ++__size())
@@ -2295,7 +2300,7 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 void deque<_Tp, _Allocator>::__move_construct_and_
 // move construct [__f, __l) to [__r - (__l-__f), __r) backwards.
 // If __vt points into [__f, __l), then subtract (__l - __r) from __vt.
 template <class _Tp, class _Allocator>
-_LIBCPP_CONSTEXPR_SINCE_CXX26 void deque<_Tp, _Allocator>::__move_construct_backward_and_check(
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void deque<_Tp, _Allocator>::__move_construct_backward_and_check(
     iterator __f, iterator __l, iterator __r, const_pointer& __vt) {
   allocator_type& __a = __alloc();
   // as if
@@ -2328,7 +2333,8 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 void deque<_Tp, _Allocator>::__move_construct_back
 }
 
 template <class _Tp, class _Allocator>
-_LIBCPP_CONSTEXPR_SINCE_CXX26 typename deque<_Tp, _Allocator>::iterator deque<_Tp, _Allocator>::erase(const_iterator __f) {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 typename deque<_Tp, _Allocator>::iterator
+deque<_Tp, _Allocator>::erase(const_iterator __f) {
   _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
       __f != end(), "deque::erase(iterator) called with a non-dereferenceable iterator");
   size_type __old_sz    = size();
@@ -2355,7 +2361,8 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 typename deque<_Tp, _Allocator>::iterator deque<_T
 }
 
 template <class _Tp, class _Allocator>
-_LIBCPP_CONSTEXPR_SINCE_CXX26 typename deque<_Tp, _Allocator>::iterator deque<_Tp, _Allocator>::erase(const_iterator __f, const_iterator __l) {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 typename deque<_Tp, _Allocator>::iterator
+deque<_Tp, _Allocator>::erase(const_iterator __f, const_iterator __l) {
   _LIBCPP_ASSERT_VALID_INPUT_RANGE(__f <= __l, "deque::erase(first, last) called with an invalid range");
   size_type __old_sz    = size();
   size_type __old_start = __start_;
@@ -2388,7 +2395,7 @@ _LIBCPP_CONSTEXPR_SINCE_CXX26 typename deque<_Tp, _Allocator>::iterator deque<_T
 }
 
 template <class _Tp, class _Allocator>
-_LIBCPP_CONSTEXPR_SINCE_CXX26 void deque<_Tp, _Allocator>::__erase_to_end(const_iterator __f) {
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void deque<_Tp, _Allocator>::__erase_to_end(const_iterator __f) {
   size_type __old_sz    = size();
   size_type __old_start = __start_;
   iterator __e          = end();

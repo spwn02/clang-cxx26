@@ -144,38 +144,70 @@ public:
   using pointer           = _Difference*;
   using reference         = _Difference;
 
-  constexpr __pstl_counting_iterator() : __value_(0) {}
-  constexpr explicit __pstl_counting_iterator(_Difference __value) : __value_(__value) {}
-  constexpr reference operator*() const { return __value_; }
-  constexpr reference operator[](difference_type __n) const { return __value_ + __n; }
-  constexpr __pstl_counting_iterator operator++(int) { auto __copy = *this; ++*this; return __copy; }
-  constexpr __pstl_counting_iterator operator--(int) { auto __copy = *this; --*this; return __copy; }
-  constexpr __pstl_counting_iterator& operator++() { ++__value_; return *this; }
-  constexpr __pstl_counting_iterator& operator--() { --__value_; return *this; }
-  constexpr __pstl_counting_iterator& operator+=(difference_type __n) { __value_ += __n; return *this; }
-  constexpr __pstl_counting_iterator& operator-=(difference_type __n) { __value_ -= __n; return *this; }
-  constexpr friend __pstl_counting_iterator operator+(__pstl_counting_iterator __it, difference_type __n) {
+  _LIBCPP_HIDE_FROM_ABI constexpr __pstl_counting_iterator() : __value_(0) {}
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __pstl_counting_iterator(_Difference __value) : __value_(__value) {}
+  _LIBCPP_HIDE_FROM_ABI constexpr reference operator*() const { return __value_; }
+  _LIBCPP_HIDE_FROM_ABI constexpr reference operator[](difference_type __n) const { return __value_ + __n; }
+  _LIBCPP_HIDE_FROM_ABI constexpr __pstl_counting_iterator operator++(int) {
+    auto __copy = *this;
+    ++*this;
+    return __copy;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __pstl_counting_iterator operator--(int) {
+    auto __copy = *this;
+    --*this;
+    return __copy;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __pstl_counting_iterator& operator++() {
+    ++__value_;
+    return *this;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __pstl_counting_iterator& operator--() {
+    --__value_;
+    return *this;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __pstl_counting_iterator& operator+=(difference_type __n) {
+    __value_ += __n;
+    return *this;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __pstl_counting_iterator& operator-=(difference_type __n) {
+    __value_ -= __n;
+    return *this;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr friend __pstl_counting_iterator
+  operator+(__pstl_counting_iterator __it, difference_type __n) {
     return __it += __n;
   }
-  constexpr friend __pstl_counting_iterator operator+(difference_type __n, __pstl_counting_iterator __it) {
+  _LIBCPP_HIDE_FROM_ABI constexpr friend __pstl_counting_iterator
+  operator+(difference_type __n, __pstl_counting_iterator __it) {
     return __it += __n;
   }
-  constexpr friend __pstl_counting_iterator operator-(__pstl_counting_iterator __it, difference_type __n) {
+  _LIBCPP_HIDE_FROM_ABI constexpr friend __pstl_counting_iterator
+  operator-(__pstl_counting_iterator __it, difference_type __n) {
     return __it -= __n;
   }
-  constexpr friend difference_type operator-(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
+  _LIBCPP_HIDE_FROM_ABI constexpr friend difference_type
+  operator-(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
     return __x.__value_ - __y.__value_;
   }
-  constexpr friend bool operator==(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
+  _LIBCPP_HIDE_FROM_ABI constexpr friend bool operator==(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
     return __x.__value_ == __y.__value_;
   }
-  constexpr friend bool operator!=(__pstl_counting_iterator __x, __pstl_counting_iterator __y) { return !(__x == __y); }
-  constexpr friend bool operator<(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
+  _LIBCPP_HIDE_FROM_ABI constexpr friend bool operator!=(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
+    return !(__x == __y);
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr friend bool operator<(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
     return __x.__value_ < __y.__value_;
   }
-  constexpr friend bool operator>(__pstl_counting_iterator __x, __pstl_counting_iterator __y) { return __y < __x; }
-  constexpr friend bool operator<=(__pstl_counting_iterator __x, __pstl_counting_iterator __y) { return !(__y < __x); }
-  constexpr friend bool operator>=(__pstl_counting_iterator __x, __pstl_counting_iterator __y) { return !(__x < __y); }
+  _LIBCPP_HIDE_FROM_ABI constexpr friend bool operator>(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
+    return __y < __x;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr friend bool operator<=(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
+    return !(__y < __x);
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr friend bool operator>=(__pstl_counting_iterator __x, __pstl_counting_iterator __y) {
+    return !(__x < __y);
+  }
 
 private:
   _Difference __value_;

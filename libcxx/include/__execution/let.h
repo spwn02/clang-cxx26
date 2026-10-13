@@ -625,7 +625,7 @@ class __let_attrs {
     }
 
     template <class... _Ds>
-    static constexpr auto __common(__exec_type_list<_Ds...>*) noexcept {
+    _LIBCPP_HIDE_FROM_ABI static constexpr auto __common(__exec_type_list<_Ds...>*) noexcept {
       return execution::__common_domain(_Ds()...);
     }
 

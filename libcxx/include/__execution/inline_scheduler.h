@@ -67,7 +67,7 @@ class inline_scheduler {
 public:
   using scheduler_concept = scheduler_tag;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr inline_scheduler() noexcept = default;
+  constexpr inline_scheduler() noexcept = default;
 
   _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const inline_scheduler&, const inline_scheduler&) noexcept =
       default;

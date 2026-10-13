@@ -229,17 +229,19 @@ private:
 
 template <class _Rcvr>
 class simple_counting_scope::__join_opstate final : public simple_counting_scope::__join_sink_base {
-  static auto __scheduler(const _Rcvr& __rcvr) { return execution::get_start_scheduler(execution::get_env(__rcvr)); }
+  _LIBCPP_HIDE_FROM_ABI static auto __scheduler(const _Rcvr& __rcvr) {
+    return execution::get_start_scheduler(execution::get_env(__rcvr));
+  }
   struct __receiver {
     using receiver_concept = receiver_tag;
     _Rcvr& __rcvr_;
-    void set_value() && noexcept { execution::set_value(std::move(__rcvr_)); }
+    _LIBCPP_HIDE_FROM_ABI void set_value() && noexcept { execution::set_value(std::move(__rcvr_)); }
     template <class _Error>
-    void set_error(_Error&& __error) && noexcept {
+    _LIBCPP_HIDE_FROM_ABI void set_error(_Error&& __error) && noexcept {
       execution::set_error(std::move(__rcvr_), std::forward<_Error>(__error));
     }
-    void set_stopped() && noexcept { execution::set_stopped(std::move(__rcvr_)); }
-    decltype(auto) get_env() const noexcept { return execution::get_env(__rcvr_); }
+    _LIBCPP_HIDE_FROM_ABI void set_stopped() && noexcept { execution::set_stopped(std::move(__rcvr_)); }
+    _LIBCPP_HIDE_FROM_ABI decltype(auto) get_env() const noexcept { return execution::get_env(__rcvr_); }
   };
   using __scheduled_t _LIBCPP_NODEBUG = decltype(execution::schedule(__scheduler(std::declval<const _Rcvr&>())));
 
@@ -339,8 +341,8 @@ private:
   friend class token;
   template <class>
   friend class __scope_association;
-  bool __try_associate() noexcept { return __scope_.__try_associate(); }
-  void __disassociate() noexcept { __scope_.__disassociate(); }
+  _LIBCPP_HIDE_FROM_ABI bool __try_associate() noexcept { return __scope_.__try_associate(); }
+  _LIBCPP_HIDE_FROM_ABI void __disassociate() noexcept { __scope_.__disassociate(); }
   simple_counting_scope __scope_;
   inplace_stop_source __source_;
 };
@@ -351,25 +353,25 @@ struct __associate_data {
   optional<_Sndr> __sender_;
   _Assoc __assoc_;
   template <class _Token, class _Input>
-  __associate_data(_Token __token, _Input&& __in_sndr)
+  _LIBCPP_HIDE_FROM_ABI __associate_data(_Token __token, _Input&& __in_sndr)
       : __sender_(in_place, __token.wrap(std::forward<_Input>(__in_sndr))), __assoc_(__token.try_associate()) {
     if (!__assoc_)
       __sender_.reset();
   }
-  __associate_data(const __associate_data& __other)
+  _LIBCPP_HIDE_FROM_ABI __associate_data(const __associate_data& __other)
     requires copy_constructible<_Sndr>
       : __assoc_(__other.__assoc_.try_associate()) {
     if (__assoc_)
       __sender_.emplace(*__other.__sender_);
   }
-  __associate_data(__associate_data&& __other) noexcept(is_nothrow_move_constructible_v<_Sndr>)
+  _LIBCPP_HIDE_FROM_ABI __associate_data(__associate_data&& __other) noexcept(is_nothrow_move_constructible_v<_Sndr>)
       : __assoc_(std::move(__other.__assoc_)) {
     if (__assoc_) {
       __sender_.emplace(std::move(*__other.__sender_));
       __other.__sender_.reset();
     }
   }
-  ~__associate_data() { __sender_.reset(); }
+  _LIBCPP_HIDE_FROM_ABI ~__associate_data() { __sender_.reset(); }
 };
 
 template <class _Sndr, class _Assoc, class _Rcvr>
@@ -378,7 +380,7 @@ class __associate_opstate {
 
 public:
   using operation_state_concept = operation_state_tag;
-  __associate_opstate(__associate_data<_Sndr, _Assoc>&& __data, _Rcvr&& __rcvr)
+  _LIBCPP_HIDE_FROM_ABI __associate_opstate(__associate_data<_Sndr, _Assoc>&& __data, _Rcvr&& __rcvr)
       : __assoc_(std::move(__data.__assoc_)), __rcvr_(std::move(__rcvr)) {
     if (__assoc_) {
       ::new (static_cast<void*>(std::addressof(__child_)))
@@ -387,11 +389,11 @@ public:
     }
   }
   __associate_opstate(const __associate_opstate&) = delete;
-  ~__associate_opstate() {
+  _LIBCPP_HIDE_FROM_ABI ~__associate_opstate() {
     if (__assoc_)
       __child_.~__child_op_t();
   }
-  void start() & noexcept {
+  _LIBCPP_HIDE_FROM_ABI void start() & noexcept {
     if (__assoc_)
       execution::start(__child_);
     else
@@ -420,16 +422,16 @@ public:
   _LIBCPP_NO_UNIQUE_ADDRESS _Tag tag;
   __associate_data<_Sndr, _Assoc> data;
   template <class _Rcvr>
-  auto connect(_Rcvr&& __rcvr) && {
+  _LIBCPP_HIDE_FROM_ABI auto connect(_Rcvr&& __rcvr) && {
     return __associate_opstate<_Sndr, _Assoc, remove_cvref_t<_Rcvr>>(std::move(data), std::forward<_Rcvr>(__rcvr));
   }
   template <class _Rcvr>
     requires copy_constructible<_Sndr>
-  auto connect(_Rcvr&& __rcvr) const& {
+  _LIBCPP_HIDE_FROM_ABI auto connect(_Rcvr&& __rcvr) const& {
     return __associate_opstate<_Sndr, _Assoc, remove_cvref_t<_Rcvr>>(
         __associate_data<_Sndr, _Assoc>(data), std::forward<_Rcvr>(__rcvr));
   }
-  auto get_env() const noexcept { return env<>{}; }
+  _LIBCPP_HIDE_FROM_ABI auto get_env() const noexcept { return env<>{}; }
   // [exec.associate] check-types: the wrapped sender's signatures against FWD-ENV-T(Env)...; the completions are those of
   // the child connected to the receiver (environment: the first of Env..., env<>) plus set_stopped_t() (no association).
   template <class _Self, class... _Env>
@@ -443,7 +445,7 @@ public:
 
 struct associate_t {
   template <sender _Sndr, scope_token _Token>
-  auto operator()(_Sndr&& __sndr, _Token __token) const {
+  _LIBCPP_HIDE_FROM_ABI auto operator()(_Sndr&& __sndr, _Token __token) const {
     using __wrapped_t = remove_cvref_t<decltype(__token.wrap(std::forward<_Sndr>(__sndr)))>;
     using __assoc_t   = decltype(__token.try_associate());
     return __associate_sndr<associate_t, __assoc_t, __wrapped_t>{
@@ -452,7 +454,7 @@ struct associate_t {
 
   // [exec.adapt.obj]: the partial application associate(token) is a pipeable sender adaptor closure.
   template <scope_token _Token>
-  auto operator()(_Token __token) const {
+  _LIBCPP_HIDE_FROM_ABI auto operator()(_Token __token) const {
     return execution::__pipeable(std::__bind_back(*this, std::move(__token)));
   }
 };

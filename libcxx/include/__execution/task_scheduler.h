@@ -175,7 +175,7 @@ struct __task_scheduler_concept {
 // A completion receiver keeps the wrapped scheduler's operation alive until it
 // finishes. The backend callback may be asynchronous, including for user schedulers.
 struct __task_backend_completion {
-  virtual ~__task_backend_completion() = default;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual ~__task_backend_completion() = default;
   virtual void __value() noexcept = 0;
   virtual void __error(exception_ptr) noexcept = 0;
   virtual void __stopped() noexcept = 0;

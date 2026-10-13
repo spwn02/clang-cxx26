@@ -59,7 +59,7 @@ struct __intercept_contributors {
   static constexpr unsigned __bit = same_as<_Tg, set_value_t> ? 1u : same_as<_Tg, set_error_t> ? 2u : 4u;
 
   template <class _Out>
-  static constexpr unsigned __mask() {
+  _LIBCPP_HIDE_FROM_ABI static constexpr unsigned __mask() {
     unsigned __m = 0;
     if constexpr (!same_as<_Out, _SetCpo>) {
       if constexpr (__has<_Out>)

@@ -39,7 +39,9 @@ class as_input_view : public view_interface<as_input_view<_View>> {
   class __iterator;
 
 public:
-  as_input_view() requires default_initializable<_View> = default;
+  _LIBCPP_HIDE_FROM_ABI as_input_view()
+    requires default_initializable<_View>
+  = default;
   _LIBCPP_HIDE_FROM_ABI constexpr explicit as_input_view(_View __base) : __base_(std::move(__base)) {}
 
   _LIBCPP_HIDE_FROM_ABI constexpr _View base() const& requires copy_constructible<_View> { return __base_; }
@@ -85,8 +87,8 @@ public:
   using value_type = range_value_t<_Base>;
   using iterator_concept = input_iterator_tag;
   __iterator() requires default_initializable<iterator_t<_Base>> = default;
-  __iterator(__iterator&&) = default;
-  __iterator& operator=(__iterator&&) = default;
+  _LIBCPP_HIDE_FROM_ABI __iterator(__iterator&&)                 = default;
+  _LIBCPP_HIDE_FROM_ABI __iterator& operator=(__iterator&&)      = default;
   _LIBCPP_HIDE_FROM_ABI constexpr __iterator(__iterator<!_Const> __other)
       requires _Const && convertible_to<iterator_t<_View>, iterator_t<_Base>>
       : __current_(std::move(__other.__current_)) {}

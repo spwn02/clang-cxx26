@@ -57,7 +57,7 @@ class _LIBCPP_EXPORTED_FROM_ABI __shared_count {
 
 protected:
   long __shared_owners_;
-  _LIBCPP_CONSTEXPR_SINCE_CXX26 virtual ~__shared_count() {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 virtual ~__shared_count() {}
 
 private:
   _LIBCPP_CONSTEXPR_SINCE_CXX26 virtual void __on_zero_shared() _NOEXCEPT = 0;
@@ -104,7 +104,7 @@ public:
         __shared_weak_owners_(__refs) {}
 
 protected:
-  _LIBCPP_CONSTEXPR_SINCE_CXX26 ~__shared_weak_count() override {}
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 ~__shared_weak_count() override {}
 
 public:
 #if defined(_LIBCPP_SHARED_PTR_DEFINE_LEGACY_INLINE_FUNCTIONS)

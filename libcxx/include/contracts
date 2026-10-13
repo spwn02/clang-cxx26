@@ -33,7 +33,7 @@ class contract_violation {
   friend struct _ContractViolationImpl;
 
 public:
-  ~contract_violation()                                    = default;
+  _LIBCPP_HIDE_FROM_ABI ~contract_violation()              = default;
   contract_violation(const contract_violation&)            = delete;
   contract_violation& operator=(const contract_violation&) = delete;
 
@@ -45,7 +45,7 @@ public:
   _LIBCPP_EXPORTED_FROM_ABI evaluation_semantic semantic() const noexcept;
 
 private:
-  explicit contract_violation(const _ContractViolationImpl* __impl) noexcept : __pimpl_(__impl) {}
+  _LIBCPP_HIDE_FROM_ABI explicit contract_violation(const _ContractViolationImpl* __impl) noexcept : __pimpl_(__impl) {}
 
   const _ContractViolationImpl* __pimpl_;
 };

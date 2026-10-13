@@ -81,7 +81,7 @@ struct __parallel_task_base {
   __parallel_task_base* __next      = nullptr;
 
 protected:
-  ~__parallel_task_base() = default;
+  _LIBCPP_HIDE_FROM_ABI ~__parallel_task_base() = default;
 };
 
 // [exec.parallel.scheduler]: the process-wide worker pool backing every parallel_scheduler

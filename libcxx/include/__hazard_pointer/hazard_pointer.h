@@ -51,7 +51,7 @@ class __domain {
   __record* __records_ = nullptr;
   __retired_node* __retired_ = nullptr;
 
-  __retired_node* __collect_locked() noexcept {
+  _LIBCPP_HIDE_FROM_ABI __retired_node* __collect_locked() noexcept {
     __retired_node* __reclaim = nullptr;
     __retired_node** __current = &__retired_;
     while (*__current != nullptr) {
@@ -75,7 +75,7 @@ class __domain {
   }
 
 public:
-  __record* __acquire_record() {
+  _LIBCPP_HIDE_FROM_ABI __record* __acquire_record() {
     lock_guard<mutex> __lock(__mutex_);
     for (__record* __record = __records_; __record != nullptr; __record = __record->__next_) {
       if (!__record->__in_use_) {
@@ -90,13 +90,13 @@ public:
     return __new_record;
   }
 
-  void __release_record(__record* __record) noexcept {
+  _LIBCPP_HIDE_FROM_ABI void __release_record(__record* __record) noexcept {
     __record->__protected_.store(nullptr, memory_order_release);
     lock_guard<mutex> __lock(__mutex_);
     __record->__in_use_ = false;
   }
 
-  void __retire(__retired_node* __node) noexcept {
+  _LIBCPP_HIDE_FROM_ABI void __retire(__retired_node* __node) noexcept {
     __retired_node* __reclaim;
     {
       lock_guard<mutex> __lock(__mutex_);
@@ -112,7 +112,7 @@ public:
   }
 };
 
-inline __domain& __get_domain() {
+_LIBCPP_HIDE_FROM_ABI inline __domain& __get_domain() {
   static __domain __domain;
   return __domain;
 }
@@ -123,13 +123,13 @@ template <class _Tp, class _Dp = default_delete<_Tp>>
 class hazard_pointer_obj_base : private __hazard_pointer::__retired_node {
   _Dp __deleter_;
 
-  static void __reclaim(__hazard_pointer::__retired_node* __node) noexcept {
+  _LIBCPP_HIDE_FROM_ABI static void __reclaim(__hazard_pointer::__retired_node* __node) noexcept {
     auto* __base = static_cast<hazard_pointer_obj_base*>(__node);
     __base->__deleter_(static_cast<_Tp*>(__base));
   }
 
 public:
-  void retire(_Dp __deleter = _Dp()) noexcept {
+  _LIBCPP_HIDE_FROM_ABI void retire(_Dp __deleter = _Dp()) noexcept {
     __deleter_ = std::move(__deleter);
     this->__object_  = static_cast<_Tp*>(this);
     this->__reclaim_ = &hazard_pointer_obj_base::__reclaim;
@@ -137,24 +137,25 @@ public:
   }
 
 protected:
-  hazard_pointer_obj_base() = default;
-  hazard_pointer_obj_base(const hazard_pointer_obj_base&) = default;
-  hazard_pointer_obj_base(hazard_pointer_obj_base&&) = default;
-  hazard_pointer_obj_base& operator=(const hazard_pointer_obj_base&) = default;
-  hazard_pointer_obj_base& operator=(hazard_pointer_obj_base&&) = default;
-  ~hazard_pointer_obj_base() = default;
+  _LIBCPP_HIDE_FROM_ABI hazard_pointer_obj_base()                                          = default;
+  _LIBCPP_HIDE_FROM_ABI hazard_pointer_obj_base(const hazard_pointer_obj_base&)            = default;
+  _LIBCPP_HIDE_FROM_ABI hazard_pointer_obj_base(hazard_pointer_obj_base&&)                 = default;
+  _LIBCPP_HIDE_FROM_ABI hazard_pointer_obj_base& operator=(const hazard_pointer_obj_base&) = default;
+  _LIBCPP_HIDE_FROM_ABI hazard_pointer_obj_base& operator=(hazard_pointer_obj_base&&)      = default;
+  _LIBCPP_HIDE_FROM_ABI ~hazard_pointer_obj_base()                                         = default;
 };
 
 class hazard_pointer {
   __hazard_pointer::__record* __record_ = nullptr;
 
-  explicit hazard_pointer(__hazard_pointer::__record* __record) noexcept : __record_(__record) {}
-  friend hazard_pointer make_hazard_pointer();
+  _LIBCPP_HIDE_FROM_ABI explicit hazard_pointer(__hazard_pointer::__record* __record) noexcept : __record_(__record) {}
+  _LIBCPP_HIDE_FROM_ABI friend hazard_pointer make_hazard_pointer();
 
 public:
-  hazard_pointer() noexcept = default;
-  hazard_pointer(hazard_pointer&& __other) noexcept : __record_(std::exchange(__other.__record_, nullptr)) {}
-  hazard_pointer& operator=(hazard_pointer&& __other) noexcept {
+  _LIBCPP_HIDE_FROM_ABI hazard_pointer() noexcept = default;
+  _LIBCPP_HIDE_FROM_ABI hazard_pointer(hazard_pointer&& __other) noexcept
+      : __record_(std::exchange(__other.__record_, nullptr)) {}
+  _LIBCPP_HIDE_FROM_ABI hazard_pointer& operator=(hazard_pointer&& __other) noexcept {
     if (this != std::addressof(__other)) {
       if (__record_ != nullptr)
         __hazard_pointer::__get_domain().__release_record(__record_);
@@ -162,22 +163,22 @@ public:
     }
     return *this;
   }
-  ~hazard_pointer() {
+  _LIBCPP_HIDE_FROM_ABI ~hazard_pointer() {
     if (__record_ != nullptr)
       __hazard_pointer::__get_domain().__release_record(__record_);
   }
 
-  [[nodiscard]] bool empty() const noexcept { return __record_ == nullptr; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool empty() const noexcept { return __record_ == nullptr; }
 
   template <class _Tp>
-  _Tp* protect(const atomic<_Tp*>& __src) noexcept {
+  _LIBCPP_HIDE_FROM_ABI _Tp* protect(const atomic<_Tp*>& __src) noexcept {
     _Tp* __ptr = __src.load(memory_order_relaxed);
     while (!try_protect(__ptr, __src)) {}
     return __ptr;
   }
 
   template <class _Tp>
-  bool try_protect(_Tp*& __ptr, const atomic<_Tp*>& __src) noexcept {
+  _LIBCPP_HIDE_FROM_ABI bool try_protect(_Tp*& __ptr, const atomic<_Tp*>& __src) noexcept {
     _Tp* __old = __ptr;
     reset_protection(__old);
     __ptr = __src.load(memory_order_acquire);
@@ -187,21 +188,25 @@ public:
   }
 
   template <class _Tp>
-  void reset_protection(const _Tp* __ptr) noexcept {
+  _LIBCPP_HIDE_FROM_ABI void reset_protection(const _Tp* __ptr) noexcept {
     if (__ptr == nullptr)
       reset_protection();
     else
       __record_->__protected_.store(__ptr, memory_order_release);
   }
 
-  void reset_protection(nullptr_t = nullptr) noexcept { __record_->__protected_.store(nullptr, memory_order_release); }
+  _LIBCPP_HIDE_FROM_ABI void reset_protection(nullptr_t = nullptr) noexcept {
+    __record_->__protected_.store(nullptr, memory_order_release);
+  }
 
-  void swap(hazard_pointer& __other) noexcept { std::swap(__record_, __other.__record_); }
+  _LIBCPP_HIDE_FROM_ABI void swap(hazard_pointer& __other) noexcept { std::swap(__record_, __other.__record_); }
 };
 
-inline hazard_pointer make_hazard_pointer() { return hazard_pointer(__hazard_pointer::__get_domain().__acquire_record()); }
+_LIBCPP_HIDE_FROM_ABI inline hazard_pointer make_hazard_pointer() {
+  return hazard_pointer(__hazard_pointer::__get_domain().__acquire_record());
+}
 
-inline void swap(hazard_pointer& __a, hazard_pointer& __b) noexcept { __a.swap(__b); }
+_LIBCPP_HIDE_FROM_ABI inline void swap(hazard_pointer& __a, hazard_pointer& __b) noexcept { __a.swap(__b); }
 
 #endif // _LIBCPP_STD_VER >= 26
 
