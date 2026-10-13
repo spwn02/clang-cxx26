@@ -23,7 +23,7 @@ if(NOT TARGET clangTidy)
   return()
 endif()
 
-message(STATUS "Found system-installed LLVM ${LLVM_PACKAGE_VERSION} with headers in ${LLVM_INCLUDE_DIRS}")
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION} with headers in ${LLVM_INCLUDE_DIRS}")
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -35,6 +35,18 @@ target_include_directories(clangTidy INTERFACE
                            ${CLANG_INCLUDE_DIRS}
                            ${LLVM_INCLUDE_DIRS}
                           )
+
+# When Clang_DIR/LLVM_DIR point at the build tree of the compiler that is being tested (this fork's
+# build-nyx, instead of an installed development package) the clang-tidy headers are not installed:
+# LIBCXX_CLANG_TIDY_EXTRA_INCLUDE_DIRS lists the directories they are found in (the clang-tools-extra
+# source directory and the build directory of clang-tidy). The plugin is then built like clang-tidy itself,
+# with assertions (the classes of the Clang libraries differ in layout otherwise).
+set(LIBCXX_CLANG_TIDY_EXTRA_INCLUDE_DIRS "" CACHE STRING
+    "Additional include directories of the clang-tidy headers (needed with a Clang build tree).")
+if (LIBCXX_CLANG_TIDY_EXTRA_INCLUDE_DIRS)
+  target_include_directories(clangTidy INTERFACE ${LIBCXX_CLANG_TIDY_EXTRA_INCLUDE_DIRS})
+  target_compile_options(clangTidy INTERFACE -UNDEBUG -D_DEBUG -w)
+endif()
 target_compile_options(clangTidy INTERFACE
                        -fno-rtti
                        -fno-sanitize=address,hwaddress,undefined,thread,leak # ignore any sanitizers

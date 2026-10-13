@@ -7,6 +7,7 @@
 # ===----------------------------------------------------------------------===##
 import sys
 import re
+import os
 import shlex
 from pathlib import Path
 
@@ -143,9 +144,20 @@ def getSuitableClangTidy(cfg):
     version = "{__clang_major__}.{__clang_minor__}.{__clang_patchlevel__}".format(
         **compilerMacros(cfg)
     )
-    exe = testClangTidy(
-        cfg, version, "clang-tidy-{__clang_major__}".format(**compilerMacros(cfg))
-    )
+    # The clang-tidy next to the compiler under test comes first: the plugin is built against the Clang
+    # libraries of that compiler (a build tree is not installed, so no versioned name is on the PATH), and a
+    # system clang-tidy of the same version still has a different ABI.
+    exe = None
+    cxx = [value for key, value in cfg.substitutions if key == "%{cxx}"]
+    if cxx:
+        sibling = os.path.join(os.path.dirname(shlex.split(cxx[0])[0]), "clang-tidy")
+        if os.path.exists(sibling):
+            exe = testClangTidy(cfg, version, shlex.quote(sibling))
+
+    if not exe:
+        exe = testClangTidy(
+            cfg, version, "clang-tidy-{__clang_major__}".format(**compilerMacros(cfg))
+        )
 
     if not exe:
         exe = testClangTidy(cfg, version, "clang-tidy")
