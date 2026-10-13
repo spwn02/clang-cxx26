@@ -7157,9 +7157,13 @@ bool Compiler<Emitter>::visitDeclRef(const ValueDecl *D, const Expr *E) {
   // outside of an invocation, so the pointer cached for the declaration would
   // dangle.
   if (IsReference && !Ctx.getLangOpts().CPlusPlus26) {
+    // A reference that is not constexpr is merely of unknown value (C++23,
+    // P2280R4), which is handled below; it is a constexpr one whose cached
+    // pointer would be used for the value.
     if (const auto *RefVD = dyn_cast<VarDecl>(D);
         RefVD && RefVD->isLocalVarDecl() && !RefVD->isStaticLocal() &&
-        RefVD->getInit() && !RefVD->getInit()->isValueDependent()) {
+        RefVD->isConstexpr() && RefVD->getInit() &&
+        !RefVD->getInit()->isValueDependent()) {
       const Expr *Init = RefVD->getInit();
       if (const auto *EWC = dyn_cast<ExprWithCleanups>(Init))
         Init = EWC->getSubExpr();
@@ -7265,7 +7269,9 @@ bool Compiler<Emitter>::visitDeclRef(const ValueDecl *D, const Expr *E) {
     if (VD->evaluateValue())
       return revisit(VD);
 
-    if (!IsReference)
+    // P2280R4 (C++23): a reference of unknown value can be used as long as the
+    // object it refers to is not read; the dummy pointer diagnoses a read.
+    if (!IsReference || Ctx.getLangOpts().CPlusPlus23)
       return this->emitDummyPtr(D, E);
 
     return this->emitInvalidDeclRef(cast<DeclRefExpr>(E),
