@@ -88,9 +88,13 @@ ExprResult Parser::ParseAssignmentExpression(
   if (Tok.is(tok::kw_co_yield))
     return ParseCoyieldExpression();
 
-  ExprResult LHS =
-      ParseCastExpression(CastParseKind::AnyCastExpr,
-                          /*isAddressOfOperand=*/false, CorrectionBehavior);
+  // Every nested bracket or call argument recurses through here: keep deeply
+  // nested input (up to -fbracket-depth) from overflowing the stack.
+  ExprResult LHS;
+  Actions.runWithSufficientStackSpace(Tok.getLocation(), [&] {
+    LHS = ParseCastExpression(CastParseKind::AnyCastExpr,
+                              /*isAddressOfOperand=*/false, CorrectionBehavior);
+  });
   return ParseRHSOfBinaryExpression(LHS, prec::Assignment);
 }
 
