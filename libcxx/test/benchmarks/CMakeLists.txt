@@ -28,8 +28,13 @@ if (NOT LIBCXX_ENABLE_SHARED)
   list(APPEND BENCHMARK_CXX_LIBRARIES c++abi)
 endif()
 
+# Re-run the (incremental) inner build every time: nothing else tells the
+# external project that libc++'s headers changed, and a libbenchmark.a built
+# against an older libc++ produces benchmark binaries that run but print
+# nothing.
 ExternalProject_Add(google-benchmark
         EXCLUDE_FROM_ALL ON
+        BUILD_ALWAYS ON
         DEPENDS cxx cxx-headers
         PREFIX google-benchmark
         SOURCE_DIR ${LLVM_THIRD_PARTY_DIR}/benchmark
