@@ -437,6 +437,14 @@ remquo(const _Vp& __x, const _Vp& __y, rebind_t<int, __math_result_t<_Vp>>* __qu
   return _Rp([&](auto __i) { return __result[__i]; });
 }
 
+template <class _Xp, class _Yp>
+  requires __math_mixed_operands<_Xp, _Yp>
+_LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<__math_mixed_vec_t<_Xp, _Yp>>
+remquo(const _Xp& __x, const _Yp& __y, rebind_t<int, __math_result_t<__math_mixed_vec_t<_Xp, _Yp>>>* __quo) {
+  using _Vp = __math_result_t<__math_mixed_vec_t<_Xp, _Yp>>;
+  return simd::remquo(static_cast<_Vp>(__x), static_cast<_Vp>(__y), __quo);
+}
+
 } // namespace simd
 
 #endif // _LIBCPP_STD_VER >= 26

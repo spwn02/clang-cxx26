@@ -106,6 +106,16 @@ int main(int, char**) {
   assert(simd::ellint_3(k, 0.5f, phi)[0] == std::ellint_3(0.3f, 0.5f, 0.4f));
   assert(simd::comp_ellint_3(k, 0.5f)[0] == std::comp_ellint_3(0.3f, 0.5f));
 
+  // remquo takes the quotient through a pointer; both operand placements.
+  {
+    simd::rebind_t<int, V> q1(0), q2(0);
+    V r1 = simd::remquo(v, 0.7f, &q1);
+    V r2 = simd::remquo(5.5f, w, &q2);
+    int e1 = 0, e2 = 0;
+    assert(r1[0] == std::remquo(1.5f, 0.7f, &e1) && q1[0] == e1);
+    assert(r2[0] == std::remquo(5.5f, 2.0f, &e2) && q2[0] == e2);
+  }
+
   // Vector-only calls are unchanged (and not ambiguous).
   assert(simd::hypot(v, w)[0] == std::hypot(1.5f, 2.0f));
   assert(simd::fma(v, w, v)[0] == std::fma(1.5f, 2.0f, 1.5f));
