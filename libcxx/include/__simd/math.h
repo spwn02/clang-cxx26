@@ -62,6 +62,14 @@ using __math_result_t _LIBCPP_NODEBUG = __deduced_vec_t<_Vp>;
 template <class... _Ts>
 struct __math_pack {};
 
+// Every operand converts implicitly to deduced-vec-t<_Candidate> (a vector operand of the exact type
+// _Candidate included); false for a candidate that is not a math vector, without evaluating deduced-vec-t on it.
+template <class _Candidate, class... _Ts>
+inline constexpr bool __math_all_convert_v = false;
+template <__math_floating_point _Candidate, class... _Ts>
+inline constexpr bool __math_all_convert_v<_Candidate, _Ts...> =
+    (is_convertible_v<const _Ts&, __deduced_vec_t<_Candidate>> && ...);
+
 template <class _Pack, class... _Candidates>
 struct __math_pick_vec {
   using type _LIBCPP_NODEBUG = void;
@@ -69,7 +77,7 @@ struct __math_pick_vec {
 template <class... _Ts, class _Candidate, class... _Rest>
 struct __math_pick_vec<__math_pack<_Ts...>, _Candidate, _Rest...> {
   using type _LIBCPP_NODEBUG =
-      conditional_t<__math_floating_point<_Candidate> && (is_convertible_v<const _Ts&, _Candidate> && ...),
+      conditional_t<__math_all_convert_v<_Candidate, _Ts...>,
                     _Candidate,
                     typename __math_pick_vec<__math_pack<_Ts...>, _Rest...>::type>;
 };
@@ -108,7 +116,7 @@ concept __math_mixed_operands = !__math_all_same_v<_Tp, _Ts...> && !is_void_v<__
 template <class _Xp, class _Yp>                                                                                           \
   requires __math_mixed_operands<_Xp, _Yp>                                                                                \
 _LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<__math_mixed_vec_t<_Xp, _Yp>> _Name(const _Xp& __x, const _Yp& __y) {       \
-  using _Vp = __math_mixed_vec_t<_Xp, _Yp>;                                                                               \
+  using _Vp = __math_result_t<__math_mixed_vec_t<_Xp, _Yp>>;                                                                               \
   return simd::_Name(static_cast<_Vp>(__x), static_cast<_Vp>(__y));                                                     \
 }
 
@@ -121,7 +129,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<__math_mixed_vec_t<_Xp, _Yp>> _N
 template <class _Xp, class _Yp, class _Zp>                                                                                 \
   requires __math_mixed_operands<_Xp, _Yp, _Zp>                                                                            \
 _LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<__math_mixed_vec_t<_Xp, _Yp, _Zp>> _Name(const _Xp& __x, const _Yp& __y, const _Zp& __z) {\
-  using _Vp = __math_mixed_vec_t<_Xp, _Yp, _Zp>;                                                                           \
+  using _Vp = __math_result_t<__math_mixed_vec_t<_Xp, _Yp, _Zp>>;                                                                           \
   return simd::_Name(static_cast<_Vp>(__x), static_cast<_Vp>(__y), static_cast<_Vp>(__z));                              \
 }
 
@@ -143,7 +151,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<__math_mixed_vec_t<_Xp, _Yp, _Zp
 template <class _Xp, class _Yp>                                                                                           \
   requires __math_mixed_operands<_Xp, _Yp>                                                                                \
 _LIBCPP_HIDE_FROM_ABI constexpr typename __math_result_t<__math_mixed_vec_t<_Xp, _Yp>>::mask_type _Name(const _Xp& __x, const _Yp& __y) {\
-  using _Vp = __math_mixed_vec_t<_Xp, _Yp>;                                                                               \
+  using _Vp = __math_result_t<__math_mixed_vec_t<_Xp, _Yp>>;                                                                               \
   return simd::_Name(static_cast<_Vp>(__x), static_cast<_Vp>(__y));                                                     \
 }
 
@@ -209,7 +217,7 @@ _LIBCPP_SIMD_MATH_BINARY(fmin)
 template <class _Xp, class _Yp>                                                                                           \
   requires __math_mixed_operands<_Xp, _Yp>                                                                                \
 _LIBCPP_HIDE_FROM_ABI __math_result_t<__math_mixed_vec_t<_Xp, _Yp>> _Name(const _Xp& __x, const _Yp& __y) {                 \
-  using _Vp = __math_mixed_vec_t<_Xp, _Yp>;                                                                               \
+  using _Vp = __math_result_t<__math_mixed_vec_t<_Xp, _Yp>>;                                                                               \
   return simd::_Name(static_cast<_Vp>(__x), static_cast<_Vp>(__y));                                                     \
 }
 
@@ -222,7 +230,7 @@ _LIBCPP_HIDE_FROM_ABI __math_result_t<__math_mixed_vec_t<_Xp, _Yp>> _Name(const 
 template <class _Xp, class _Yp, class _Zp>                                                                                 \
   requires __math_mixed_operands<_Xp, _Yp, _Zp>                                                                            \
 _LIBCPP_HIDE_FROM_ABI __math_result_t<__math_mixed_vec_t<_Xp, _Yp, _Zp>> _Name(const _Xp& __x, const _Yp& __y, const _Zp& __z) {\
-  using _Vp = __math_mixed_vec_t<_Xp, _Yp, _Zp>;                                                                           \
+  using _Vp = __math_result_t<__math_mixed_vec_t<_Xp, _Yp, _Zp>>;                                                                           \
   return simd::_Name(static_cast<_Vp>(__x), static_cast<_Vp>(__y), static_cast<_Vp>(__z));                              \
 }
 
@@ -329,7 +337,7 @@ template <class _Xp, class _Yp, class _Zp>
   requires __math_mixed_operands<_Xp, _Yp, _Zp>
 _LIBCPP_HIDE_FROM_ABI constexpr __math_result_t<__math_mixed_vec_t<_Xp, _Yp, _Zp>>
 lerp(const _Xp& __a, const _Yp& __b, const _Zp& __t) noexcept {
-  using _Vp = __math_mixed_vec_t<_Xp, _Yp, _Zp>;
+  using _Vp = __math_result_t<__math_mixed_vec_t<_Xp, _Yp, _Zp>>;
   return simd::lerp(static_cast<_Vp>(__a), static_cast<_Vp>(__b), static_cast<_Vp>(__t));
 }
 

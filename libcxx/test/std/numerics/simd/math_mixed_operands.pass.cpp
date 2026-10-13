@@ -35,6 +35,16 @@ using D4 = simd::vec<double, 4>;
 struct ConvertsToFloat {
   operator float() const { return 1.0f; }
 };
+// Classes derived from a vector: V is the class itself, the other operands convert to deduced-vec-t<V>.
+struct DerivedNoCtors : V {};
+struct DerivedWithCtors : V {
+  using V::V;
+  DerivedWithCtors() = default;
+};
+static_assert(can_hypot<DerivedNoCtors, float>);
+static_assert(can_hypot<float, DerivedNoCtors>);
+static_assert(can_hypot<DerivedWithCtors, float>);
+static_assert(std::is_same_v<decltype(simd::hypot(DerivedNoCtors(), 1.0f)), V>);
 static_assert(can_hypot<D, float>);
 static_assert(can_hypot<D, int>);
 static_assert(can_hypot<V, short>);
