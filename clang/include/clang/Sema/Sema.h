@@ -16501,6 +16501,13 @@ public:
                                              ArrayRef<Token> Tokens);
 
   ExprResult ActOnTokenSequenceInterpolation(Expr *E);
+  /// '\(e1, e2, ...; sep)' in a token sequence: each element (a pack
+  /// expansion, possibly) and the separator are converted as an interpolation
+  /// is.
+  ExprResult BuildTokenInterpolationList(SourceLocation BeginLoc,
+                                         ArrayRef<Expr *> Elements,
+                                         Expr *Separator,
+                                         SourceLocation EndLoc);
 
   // Expression macros: '__macro' declarations invoked as 'name!(args)'.
   static bool IsExpressionMacro(const NamedDecl *D);

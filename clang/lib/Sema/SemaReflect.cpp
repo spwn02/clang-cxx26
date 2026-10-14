@@ -1210,6 +1210,8 @@ static Expr *TryConvertToTokenSequenceOrMetaInfo(Sema &S, Expr *E) {
 }
 
 ExprResult Sema::ActOnTokenSequenceInterpolation(Expr *E) {
+  if (isa<CXXTokenInterpolationListExpr>(E))
+    return E;
   // Don't evaluate here — the expression may reference consteval function
   // parameters that aren't constant expressions at parse time but will have
   // concrete values when the token sequence is evaluated during consteval
@@ -1220,6 +1222,37 @@ ExprResult Sema::ActOnTokenSequenceInterpolation(Expr *E) {
   // std::meta::info, insert that conversion. token_sequence is preferred so
   // a list_builder or similar wrapper can be expanded as raw tokens.
   return TryConvertToTokenSequenceOrMetaInfo(*this, E);
+}
+
+ExprResult Sema::BuildTokenInterpolationList(SourceLocation BeginLoc,
+                                             ArrayRef<Expr *> Elements,
+                                             Expr *Separator,
+                                             SourceLocation EndLoc) {
+  // A pack expansion is kept as written; each element it expands to is
+  // converted when the list is rebuilt at instantiation.
+  SmallVector<Expr *, 4> Converted;
+  for (Expr *E : Elements) {
+    if (isa<PackExpansionExpr>(E)) {
+      Converted.push_back(E);
+      continue;
+    }
+    if (DiagnoseUnexpandedParameterPack(E))
+      return ExprError();
+    ExprResult C = ActOnTokenSequenceInterpolation(E);
+    if (C.isInvalid())
+      return ExprError();
+    Converted.push_back(C.get());
+  }
+  if (Separator) {
+    if (DiagnoseUnexpandedParameterPack(Separator))
+      return ExprError();
+    ExprResult C = ActOnTokenSequenceInterpolation(Separator);
+    if (C.isInvalid())
+      return ExprError();
+    Separator = C.get();
+  }
+  return CXXTokenInterpolationListExpr::Create(
+      Context, Context.TokenSequenceTy, Converted, Separator, BeginLoc, EndLoc);
 }
 
 ExprResult Sema::ActOnCXXBuiltinInject(SourceLocation KwLoc,
