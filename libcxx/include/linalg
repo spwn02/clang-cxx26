@@ -1984,8 +1984,7 @@ __vector_two_norm_impl(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vect
     const auto __value = __detail::__promote_to_scalar_precision<_Scalar>(__detail::__abs_if_needed(__vector[__i]));
     __sum += __value * __value;
   }
-  using std::sqrt;
-  return static_cast<_Scalar>(sqrt(__sum));
+  return static_cast<_Scalar>(std::sqrt(__sum));
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>
@@ -2015,8 +2014,7 @@ struct setup_givens_rotation_result<complex<_Real>> {
 template <class _Real>
   requires(!__detail::__is_std_complex_v<_Real>)
 _LIBCPP_HIDE_FROM_ABI auto setup_givens_rotation(_Real __a, _Real __b) noexcept {
-  using std::sqrt;
-  const _Real __r = sqrt(__a * __a + __b * __b);
+  const _Real __r = std::sqrt(__a * __a + __b * __b);
   if (__r == _Real{})
     return setup_givens_rotation_result<_Real>{_Real(1), _Real{}, _Real{}};
   return setup_givens_rotation_result<_Real>{__a / __r, __b / __r, __r};
@@ -2025,8 +2023,7 @@ _LIBCPP_HIDE_FROM_ABI auto setup_givens_rotation(_Real __a, _Real __b) noexcept 
 template <class _Real>
 _LIBCPP_HIDE_FROM_ABI auto setup_givens_rotation(complex<_Real> __a, complex<_Real> __b) noexcept {
   using std::abs;
-  using std::sqrt;
-  const _Real __norm = sqrt(abs(__a) * abs(__a) + abs(__b) * abs(__b));
+  const _Real __norm = std::sqrt(abs(__a) * abs(__a) + abs(__b) * abs(__b));
   if (__norm == _Real{})
     return setup_givens_rotation_result<complex<_Real>>{_Real(1), complex<_Real>{}, complex<_Real>{}};
   if (abs(__a) == _Real{})
@@ -2165,8 +2162,7 @@ __matrix_frob_norm_impl(mdspan<_ElementType, _Extents, _Layout, _Accessor> __mat
       const auto __value = __detail::__promote_to_scalar_precision<_Scalar>(__detail::__abs_if_needed(__matrix[__i, __j]));
       __sum += __value * __value;
     }
-  using std::sqrt;
-  return static_cast<_Scalar>(sqrt(__sum));
+  return static_cast<_Scalar>(std::sqrt(__sum));
 }
 
 template <class _ElementType, class _Extents, class _Layout, class _Accessor>

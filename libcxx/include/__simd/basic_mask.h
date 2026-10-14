@@ -45,6 +45,11 @@ inline constexpr bool __mask_generator_ok = []<size_t... _Is>(index_sequence<_Is
   } && ...);
 }(make_index_sequence<static_cast<size_t>(_Np < 0 ? 0 : _Np)>{});
 
+// [simd.permute.dynamic]: declared here, defined in <__simd/permute.h>, so that operator[] can name
+// it with a qualified call instead of relying on argument-dependent lookup at instantiation.
+template <__simd_mask_type _Vp, __simd_integral _Ip>
+_LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Ip::size(), _Vp> permute(const _Vp& __v, const _Ip& __indices);
+
 // [simd.mask.overview]/1: a disabled basic_mask is a complete type with deleted default
 // constructor, destructor, copy constructor and copy assignment, exposing only value_type and
 // abi_type. It is emphatically not a hard error -- SFINAE probes depend on being able to name it.
@@ -143,7 +148,7 @@ public:
   template <class _Ip>
     requires __simd_integral<_Ip>
   _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Ip::size(), basic_mask> operator[](const _Ip& __indices) const {
-    return permute(*this, __indices);
+    return simd::permute(*this, __indices);
   }
 
   // [simd.mask.unary]

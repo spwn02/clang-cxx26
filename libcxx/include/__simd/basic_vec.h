@@ -137,6 +137,11 @@ struct __real_type_of<_Tp, _Abi> {
   using type _LIBCPP_NODEBUG = basic_vec<typename _Tp::value_type, _Abi>;
 };
 
+// [simd.permute.dynamic]: declared here, defined in <__simd/permute.h>, so that operator[] can name
+// it with a qualified call instead of relying on argument-dependent lookup at instantiation.
+template <__simd_vec_type _Vp, __simd_integral _Ip>
+_LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Ip::size(), _Vp> permute(const _Vp& __v, const _Ip& __indices);
+
 // [simd.overview]/1: a disabled basic_vec is a complete type with deleted default constructor,
 // destructor, copy constructor and copy assignment, exposing only value_type, abi_type and
 // mask_type. Making this a static_assert instead would break every SFINAE probe.
@@ -279,7 +284,7 @@ public:
   template <class _Ip>
     requires __simd_integral<_Ip>
   _LIBCPP_HIDE_FROM_ABI constexpr resize_t<_Ip::size(), basic_vec> operator[](const _Ip& __indices) const {
-    return permute(*this, __indices);
+    return simd::permute(*this, __indices);
   }
 
   // [simd.complex.access]

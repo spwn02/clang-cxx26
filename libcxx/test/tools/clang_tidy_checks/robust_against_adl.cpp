@@ -34,12 +34,10 @@ AST_MATCHER(clang::UnresolvedLookupExpr, isCustomizationPoint) {
           "conj",        // [linalg.helpers.conj]
           "real",        // [linalg.helpers.real]
           "imag",        // [linalg.helpers.imag]
-          "sqrt",        // linalg: lets user-defined number types supply sqrt (the wording only says "square root")
           "from_stream", // [time.parse]
           "submdspan_mapping",  // [mdspan.sub.map]
           "reserve_hint",       // [range.prim.size.hint]
           "__simd_select_impl", // [simd.alg]: found only by ADL (hidden friend)
-          "permute", // [simd.permute]: used by basic_vec/basic_mask members before the declaration, found by ADL at instantiation
           "operator co_await"}, // [expr.await]
       [&](const char* func) { return Node.getName().getAsString() == func; });
 }
