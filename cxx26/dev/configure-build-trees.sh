@@ -51,11 +51,18 @@ configure_libcxx() {
   if [[ -n "$CCACHE_BIN" ]]; then
     launcher_args=(-DCMAKE_C_COMPILER_LAUNCHER="$CCACHE_BIN" -DCMAKE_CXX_COMPILER_LAUNCHER="$CCACHE_BIN")
   fi
+  # Clang_DIR/LLVM_DIR/LIBCXX_CLANG_TIDY_EXTRA_INCLUDE_DIRS make libc++'s CMake build the libcxx-tidy plugin
+  # against build-nyx, so the clang-tidy based tests (module_std*.gen.py, clang_tidy.gen.py) run instead of
+  # reporting UNSUPPORTED; CMAKE_EXPORT_COMPILE_COMMANDS gives libcxx/test/libcxx/clang_tidy.sh.py its database.
   cmake -S runtimes -B build-libcxx -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind" \
     -DCMAKE_C_COMPILER="$repo_root/build-nyx/bin/clang" \
     -DCMAKE_CXX_COMPILER="$repo_root/build-nyx/bin/clang++" \
+    -DClang_DIR="$repo_root/build-nyx/lib/cmake/clang" \
+    -DLLVM_DIR="$repo_root/build-nyx/lib/cmake/llvm" \
+    -DLIBCXX_CLANG_TIDY_EXTRA_INCLUDE_DIRS="$repo_root/clang-tools-extra;$repo_root/clang-tools-extra/clang-tidy" \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
     "${launcher_args[@]}"
 }
 
