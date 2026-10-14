@@ -2532,7 +2532,12 @@ static bool isStaticCastConstant(InterpState &S, const Pointer &Ptr,
       P = P.getBase();
     }
     const CXXRecordDecl *TargetRD = Target->getAsCXXRecordDecl();
-    const CXXRecordDecl *ObjectRD = P.getType()->getAsCXXRecordDecl();
+    // The base class subobject of an array element reports the array type.
+    QualType ObjectTy = P.getType();
+    if (P.isArrayElement())
+      if (const ArrayType *AT = ObjectTy->getAsArrayTypeUnsafe())
+        ObjectTy = AT->getElementType();
+    const CXXRecordDecl *ObjectRD = ObjectTy->getAsCXXRecordDecl();
     return TargetRD && ObjectRD && TargetRD->getCanonicalDecl() ==
                                        ObjectRD->getCanonicalDecl();
   }

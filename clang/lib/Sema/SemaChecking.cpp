@@ -1955,7 +1955,9 @@ static ExprResult BuiltinLaunder(Sema &S, CallExpr *TheCall) {
 /// __builtin_is_within_lifetime(p, static_cast<const volatile U*>(p)) that
 /// std::is_within_lifetime<U>(p) is built on: the second argument is never
 /// evaluated as a value, the constant evaluators only ask whether evaluating
-/// it would be a constant subexpression ([meta.const.eval] Returns).
+/// it would be a constant subexpression ([meta.const.eval] Returns). The
+/// two-argument form exists for the library: the second argument has to be a
+/// cast of the first one, the bytecode interpreter reads only its cast kind.
 static ExprResult BuiltinIsWithinLifetime(Sema &S, CallExpr *TheCall) {
   if (S.checkArgCountRange(TheCall, 1, 2))
     return ExprError();

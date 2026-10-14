@@ -135,6 +135,25 @@ consteval bool test_cast_not_constant() {
 }
 static_assert(test_cast_not_constant());
 
+struct Leaf : Derived {
+  int l = 5;
+};
+
+consteval bool test_cast_three_levels() {
+  Leaf leaf;
+  Derived derived;
+  Derived array[2];
+  Leaf leaf_array[2];
+  const Base* pleaf          = &leaf;
+  const Base* pderived       = &derived;
+  const Base* parray         = &array[1];
+  const Base* pleaf_array    = &leaf_array[1];
+  return std::is_within_lifetime<Derived>(pleaf) && std::is_within_lifetime<Leaf>(pleaf) &&
+         !std::is_within_lifetime<Leaf>(pderived) && std::is_within_lifetime<Derived>(parray) &&
+         !std::is_within_lifetime<Leaf>(parray) && std::is_within_lifetime<Leaf>(pleaf_array);
+}
+static_assert(test_cast_three_levels());
+
 // A pointer to a subobject that is within its lifetime but is not a Derived: still false.
 consteval bool test_cast_through_member() {
   struct Holder {

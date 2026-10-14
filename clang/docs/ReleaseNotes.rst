@@ -265,6 +265,12 @@ Resolutions to C++ Defect Reports
   the same values of the enumeration ([dcl.enum]: all values of a fixed
   underlying type, otherwise the range of the minimal integer type that
   represents the enumerators). This also affects common initial sequences.
+
+- Implemented the constant-subexpression condition of P3450R1 for
+  ``std::is_within_lifetime<U>(p)``: ``__builtin_is_within_lifetime`` takes the
+  optional second argument ``static_cast<const volatile U*>(p)``, which is never
+  evaluated as a value; the result is false when evaluating it would not be a
+  constant subexpression.
 C Language Changes
 ------------------
 
