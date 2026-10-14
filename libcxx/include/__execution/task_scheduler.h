@@ -77,17 +77,21 @@ struct bulk_unchunked_t;
 // environment the outer receiver connected through task_scheduler carried (allocator/stop
 // token/etc.) -- acceptable today because inline_scheduler's schedule() doesn't consult its
 // receiver's environment at all; revisit once a real scheduler that does exists.
-using __task_scheduler_sigs = completion_signatures<set_value_t(), set_error_t(exception_ptr), set_stopped_t()>;
+using __task_scheduler_sigs _LIBCPP_NODEBUG =
+    completion_signatures<set_value_t(), set_error_t(exception_ptr), set_stopped_t()>;
 
 // Owned only through unique_ptr<__task_scheduler_rcvr_base> (see __task_scheduler_bridge_rcvr
 // below), so the destructor must be both public (default_delete<Base> deletes through the
 // base pointer) and virtual (so the owning model's own members/base are actually torn down).
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 struct __task_scheduler_rcvr_base {
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual ~__task_scheduler_rcvr_base()                 = default;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete_value() noexcept             = 0;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete_error(exception_ptr) noexcept = 0;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete_stopped() noexcept           = 0;
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 template <class _Rcvr>
 struct __task_scheduler_rcvr_model final : __task_scheduler_rcvr_base {
@@ -132,6 +136,8 @@ struct __task_scheduler_bridge_rcvr {
 
 // Owned only through unique_ptr<__task_scheduler_opstate_base> (see __task_scheduler_opstate
 // below) -- same public+virtual destructor reasoning as __task_scheduler_rcvr_base above.
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 struct __task_scheduler_opstate_base {
   using operation_state_concept = operation_state_tag;
 
@@ -139,6 +145,7 @@ struct __task_scheduler_opstate_base {
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __start() noexcept          = 0;
   _LIBCPP_HIDE_FROM_ABI void start() & noexcept { __start(); }
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 template <class _RealOp>
 struct __task_scheduler_opstate_model final : __task_scheduler_opstate_base {
@@ -164,8 +171,8 @@ private:
 
 struct __task_scheduler_concept {
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual ~__task_scheduler_concept()                                    = default;
-  _LIBCPP_HIDE_FROM_ABI virtual unique_ptr<__task_scheduler_opstate_base>
-  __connect(unique_ptr<__task_scheduler_rcvr_base>) const                                      = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual unique_ptr<__task_scheduler_opstate_base>
+      __connect(unique_ptr<__task_scheduler_rcvr_base>) const                                           = 0;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual bool __equals(const __task_scheduler_concept&) const noexcept   = 0;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual forward_progress_guarantee __fwd_progress() const noexcept      = 0;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
@@ -201,7 +208,7 @@ struct __task_scheduler_model final : __task_scheduler_concept {
 
   _LIBCPP_HIDE_FROM_ABI explicit __task_scheduler_model(_Sch __sch) : __sch_(std::move(__sch)) {}
 
-  _LIBCPP_HIDE_FROM_ABI unique_ptr<__task_scheduler_opstate_base>
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL unique_ptr<__task_scheduler_opstate_base>
   __connect(unique_ptr<__task_scheduler_rcvr_base> __rcvr) const override {
     using __real_op_t = connect_result_t<schedule_result_t<const _Sch&>, __task_scheduler_bridge_rcvr>;
     return std::make_unique<__task_scheduler_opstate_model<__real_op_t>>(

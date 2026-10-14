@@ -55,6 +55,8 @@ class __run_loop_sender;
 // Not an aggregate (unlike the exposition text's bare-struct sketch): a class with a pure
 // virtual member function cannot be one, so a small constructor takes its place -- an
 // implementation detail invisible to anything outside this header.
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 struct __run_loop_opstate_base {
   _LIBCPP_HIDE_FROM_ABI constexpr explicit __run_loop_opstate_base(run_loop* __loop) noexcept
       : __loop(__loop), __next(nullptr) {}
@@ -66,6 +68,7 @@ struct __run_loop_opstate_base {
 protected:
   _LIBCPP_HIDE_FROM_ABI ~__run_loop_opstate_base() = default;
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 template <class _Rcvr>
 class __run_loop_opstate;

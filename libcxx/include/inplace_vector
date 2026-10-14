@@ -185,7 +185,7 @@ struct __inplace_vector_copy_base : __inplace_vector_destruct_base<_Tp, _Cap> {}
 
 template <class _Tp, size_t _Cap>
 struct __inplace_vector_copy_base<_Tp, _Cap, false> : __inplace_vector_destruct_base<_Tp, _Cap> {
-  using __base = __inplace_vector_destruct_base<_Tp, _Cap>;
+  using __base _LIBCPP_NODEBUG = __inplace_vector_destruct_base<_Tp, _Cap>;
 
   _LIBCPP_HIDE_FROM_ABI constexpr __inplace_vector_copy_base() = default;
 
@@ -295,11 +295,11 @@ struct __inplace_vector_move_assign_base<_Tp, _Cap, false> : __inplace_vector_co
 };
 
 template <class _Tp, size_t _Cap>
-using __inplace_vector_base = __inplace_vector_move_assign_base<_Tp, _Cap>;
+using __inplace_vector_base _LIBCPP_NODEBUG = __inplace_vector_move_assign_base<_Tp, _Cap>;
 
 template <class _Tp, size_t _Capacity>
 class inplace_vector : private __inplace_vector_base<_Tp, _Capacity> {
-  using __base = __inplace_vector_base<_Tp, _Capacity>;
+  using __base _LIBCPP_NODEBUG = __inplace_vector_base<_Tp, _Capacity>;
 
 public:
   using value_type             = _Tp;

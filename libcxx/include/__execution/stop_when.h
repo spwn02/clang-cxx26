@@ -97,7 +97,7 @@ template <class _Token, class _Sndr, class _Rcvr>
 class __stop_when_opstate<false, _Token, _Sndr, _Rcvr> {
   using __env_t _LIBCPP_NODEBUG      = decltype(execution::prop(std::get_stop_token, std::declval<_Token>()));
   using __wrapped_t _LIBCPP_NODEBUG  = decltype(execution::write_env(std::declval<_Sndr>(), std::declval<__env_t>()));
-  using __child_op_t = connect_result_t<__wrapped_t, _Rcvr>;
+  using __child_op_t _LIBCPP_NODEBUG = connect_result_t<__wrapped_t, _Rcvr>;
 
 public:
   using operation_state_concept = operation_state_tag;
@@ -127,10 +127,10 @@ private:
 // directly, without needing a bespoke combinator token type.
 template <class _Token, class _Sndr, class _Rcvr>
 class __stop_when_opstate<true, _Token, _Sndr, _Rcvr> {
-  using __rtoken_t   = stop_token_of_t<decltype(execution::get_env(std::declval<_Rcvr&>()))>;
-  using __env_t      = decltype(execution::prop(std::get_stop_token, std::declval<inplace_stop_token>()));
-  using __wrapped_t  = decltype(execution::write_env(std::declval<_Sndr>(), std::declval<__env_t>()));
-  using __child_op_t = connect_result_t<__wrapped_t, _Rcvr>;
+  using __rtoken_t _LIBCPP_NODEBUG = stop_token_of_t<decltype(execution::get_env(std::declval<_Rcvr&>()))>;
+  using __env_t _LIBCPP_NODEBUG    = decltype(execution::prop(std::get_stop_token, std::declval<inplace_stop_token>()));
+  using __wrapped_t _LIBCPP_NODEBUG  = decltype(execution::write_env(std::declval<_Sndr>(), std::declval<__env_t>()));
+  using __child_op_t _LIBCPP_NODEBUG = connect_result_t<__wrapped_t, _Rcvr>;
 
 public:
   using operation_state_concept = operation_state_tag;

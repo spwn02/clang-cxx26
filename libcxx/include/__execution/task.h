@@ -34,6 +34,7 @@
 #include <__execution/task_scheduler.h>
 #include <__execution/with_awaitable_senders.h>
 #include <__functional/reference_wrapper.h>
+#include <__memory/addressof.h>
 #include <__memory/allocator.h>
 #include <__memory/allocator_arg_t.h>
 #include <__memory/allocator_traits.h>
@@ -91,10 +92,10 @@ struct __task_allocator_type {
 };
 template <class _Environment>
 struct __task_allocator_type<_Environment, __task_void_t<typename _Environment::allocator_type>> {
-  using type = typename _Environment::allocator_type;
+  using type _LIBCPP_NODEBUG = typename _Environment::allocator_type;
 };
 template <class _Environment>
-using __task_allocator_type_t = typename __task_allocator_type<_Environment>::type;
+using __task_allocator_type_t _LIBCPP_NODEBUG = typename __task_allocator_type<_Environment>::type;
 
 template <class _Environment, class = void>
 struct __task_scheduler_type_detect {
@@ -102,10 +103,10 @@ struct __task_scheduler_type_detect {
 };
 template <class _Environment>
 struct __task_scheduler_type_detect<_Environment, __task_void_t<typename _Environment::start_scheduler_type>> {
-  using type = typename _Environment::start_scheduler_type;
+  using type _LIBCPP_NODEBUG = typename _Environment::start_scheduler_type;
 };
 template <class _Environment>
-using __task_scheduler_type_t = typename __task_scheduler_type_detect<_Environment>::type;
+using __task_scheduler_type_t _LIBCPP_NODEBUG = typename __task_scheduler_type_detect<_Environment>::type;
 
 template <class _Environment, class = void>
 struct __task_stop_source_type_detect {
@@ -113,16 +114,18 @@ struct __task_stop_source_type_detect {
 };
 template <class _Environment>
 struct __task_stop_source_type_detect<_Environment, __task_void_t<typename _Environment::stop_source_type>> {
-  using type = typename _Environment::stop_source_type;
+  using type _LIBCPP_NODEBUG = typename _Environment::stop_source_type;
 };
 template <class _Environment>
-using __task_stop_source_type_t = typename __task_stop_source_type_detect<_Environment>::type;
+using __task_stop_source_type_t _LIBCPP_NODEBUG = typename __task_stop_source_type_detect<_Environment>::type;
 
 template <class _Environment, class = void>
-struct __task_error_types_detect { using type = completion_signatures<set_error_t(exception_ptr)>; };
+struct __task_error_types_detect {
+  using type _LIBCPP_NODEBUG = completion_signatures<set_error_t(exception_ptr)>;
+};
 template <class _Environment>
 struct __task_error_types_detect<_Environment, __task_void_t<typename _Environment::error_types>> {
-  using type = typename _Environment::error_types;
+  using type _LIBCPP_NODEBUG = typename _Environment::error_types;
 };
 template <class _Sig>
 struct __task_error_sig { static constexpr bool __valid = false; using type = monostate; };
@@ -165,11 +168,12 @@ _LIBCPP_HIDE_FROM_ABI __task_scheduler_type_t<_Environment> __task_default_sched
 // own __unit for exactly the same reason.
 struct __task_unit {};
 template <class _Tp>
-using __task_stored_t = conditional_t<is_void_v<_Tp>, __task_unit,
-    conditional_t<is_reference_v<_Tp>, reference_wrapper<remove_reference_t<_Tp>>, _Tp>>;
+using __task_stored_t _LIBCPP_NODEBUG =
+    conditional_t<is_void_v<_Tp>,
+                  __task_unit,
+                  conditional_t<is_reference_v<_Tp>, reference_wrapper<remove_reference_t<_Tp>>, _Tp>>;
 template <class _Tp>
-using __task_result_t = variant<monostate, __task_stored_t<_Tp>, exception_ptr>;
-
+using __task_result_t _LIBCPP_NODEBUG = variant<monostate, __task_stored_t<_Tp>, exception_ptr>;
 
 // The type-erased interface promise_type delivers its final result through: task::connect's
 // opstate (below) implements this, forwarding to whatever concrete receiver it was connected
@@ -177,12 +181,12 @@ using __task_result_t = variant<monostate, __task_stored_t<_Tp>, exception_ptr>;
 // needing a separate specialization of this interface per T.
 template <class _Tp, class _Environment>
 struct __task_result_sink {
-  using __arg_t = conditional_t<is_void_v<_Tp>, __task_unit, _Tp>;
+  using __arg_t _LIBCPP_NODEBUG = conditional_t<is_void_v<_Tp>, __task_unit, _Tp>;
 
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual _Environment& __environment() noexcept = 0;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual __task_scheduler_type_t<_Environment> __start_scheduler() = 0;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual __task_allocator_type_t<_Environment> __sink_allocator() = 0;
-  using __token_t = decltype(std::declval<__task_stop_source_type_t<_Environment>&>().get_token());
+  using __token_t _LIBCPP_NODEBUG = decltype(std::declval<__task_stop_source_type_t<_Environment>&>().get_token());
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual __token_t __stop_token() = 0;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual __task_result_t<_Tp>* __result_storage() noexcept = 0;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __complete_value(__arg_t&&) noexcept    = 0;
@@ -205,7 +209,7 @@ protected:
 // does not exist for a given T, not merely a constrained-away overload of it.
 template <class _Tp>
 struct __task_promise_result {
-  using __result_variant_t = __task_result_t<_Tp>;
+  using __result_variant_t _LIBCPP_NODEBUG = __task_result_t<_Tp>;
   __result_variant_t* __result_ = nullptr;
 
   template <class _Vp>
@@ -219,7 +223,7 @@ struct __task_promise_result {
 
 template <>
 struct __task_promise_result<void> {
-  using __result_variant_t = __task_result_t<void>;
+  using __result_variant_t _LIBCPP_NODEBUG = __task_result_t<void>;
   __result_variant_t* __result_ = nullptr;
 
   _LIBCPP_HIDE_FROM_ABI void return_void() noexcept { __result_->template emplace<1>(__task_unit{}); }
@@ -229,11 +233,13 @@ template <class _Tp = void, class _Environment = env<>>
 class task;
 
 template <class _Environment, class _RcvrEnv, class = void>
-struct __task_own_env { using type = env<>; };
+struct __task_own_env {
+  using type _LIBCPP_NODEBUG = env<>;
+};
 template <class _Environment, class _RcvrEnv>
 struct __task_own_env<_Environment, _RcvrEnv,
     __task_void_t<typename _Environment::template env_type<_RcvrEnv>>> {
-  using type = typename _Environment::template env_type<_RcvrEnv>;
+  using type _LIBCPP_NODEBUG = typename _Environment::template env_type<_RcvrEnv>;
 };
 
 template <class _PromiseType, class _Tp, class _Environment, class _Rcvr>
@@ -243,8 +249,8 @@ class __task_opstate final : public __task_result_sink<_Tp, _Environment> {
 public:
   using operation_state_concept = operation_state_tag;
 
-  using __own_env_t = typename __task_own_env<_Environment, env_of_t<_Rcvr>>::type;
-  using __source_t = __task_stop_source_type_t<_Environment>;
+  using __own_env_t _LIBCPP_NODEBUG = typename __task_own_env<_Environment, env_of_t<_Rcvr>>::type;
+  using __source_t _LIBCPP_NODEBUG  = __task_stop_source_type_t<_Environment>;
   using __token_t _LIBCPP_NODEBUG = typename __task_result_sink<_Tp, _Environment>::__token_t;
   template <class _Type, class _Arg>
   _LIBCPP_HIDE_FROM_ABI static _Type __make_env(_Arg&& __arg) {
@@ -307,7 +313,7 @@ private:
       return __source_.get_token();
     }
   }
-  _LIBCPP_HIDE_FROM_ABI __task_result_t<_Tp>* __result_storage() noexcept override { return &__result_; }
+  _LIBCPP_HIDE_FROM_ABI __task_result_t<_Tp>* __result_storage() noexcept override { return std::addressof(__result_); }
   _LIBCPP_HIDE_FROM_ABI void __destroy_frame() noexcept { std::exchange(__coro_, {}).destroy(); }
   _LIBCPP_HIDE_FROM_ABI void __complete_value(__arg_t&& __v) noexcept override {
     __destroy_frame();
@@ -438,7 +444,7 @@ class task<_Tp, _Environment>::promise_type : public with_awaitable_senders<prom
     _LIBCPP_HIDE_FROM_ABI auto get_env() const noexcept { return env<>{}; }
   };
 
-  using __sched_op_t = connect_result_t<schedule_result_t<scheduler_type&>, __resume_rcvr>;
+  using __sched_op_t _LIBCPP_NODEBUG = connect_result_t<schedule_result_t<scheduler_type&>, __resume_rcvr>;
 
 public:
   _LIBCPP_HIDE_FROM_ABI promise_type() = default;
@@ -632,7 +638,7 @@ private:
     byte* __block = reinterpret_cast<byte*>(allocator_traits<_ByteAlloc>::allocate(__a, __total));
     ::new (static_cast<void*>(__block)) _ByteAlloc(__a);
     auto* __hdr = ::new (static_cast<void*>(__block + __block_offset))
-        __frame_header{&__dealloc_thunk<_ByteAlloc>, __total, __block_offset};
+        __frame_header{__dealloc_thunk<_ByteAlloc>, __total, __block_offset};
     return reinterpret_cast<byte*>(__hdr) + sizeof(__frame_header);
   }
 
@@ -647,7 +653,7 @@ private:
     }
   }
 
-  scheduler_type __scheduler_ = __task_default_scheduler<_Environment>();
+  scheduler_type __scheduler_ = execution::__task_default_scheduler<_Environment>();
   stop_source_type __stop_source_{};
   __task_result_sink<_Tp, _Environment>* __sink_ = nullptr;
   optional<__sched_op_t> __sched_op_{};

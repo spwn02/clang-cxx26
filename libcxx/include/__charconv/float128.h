@@ -1087,7 +1087,8 @@ struct __exponent_parse {
 
 // [e|p][+|-]digits; the marker is matched case-insensitively. Huge values saturate.
 _LIBCPP_HIDE_FROM_ABI inline __exponent_parse __parse_exponent(const char* __p, const char* __last, char __marker) {
-  if (__p + 1 < __last && __ascii_lower(*__p) == __marker && !(*(__p + 1) == ' ' || (*(__p + 1) >= '\t' && *(__p + 1) <= '\r'))) {
+  if (__p + 1 < __last && __ascii_lower(*__p) == __marker && *(__p + 1) != ' ' &&
+      (*(__p + 1) < '\t' || *(__p + 1) > '\r')) {
     const char* __q = __p + 1;
     bool __neg      = false;
     if (__q < __last && (*__q == '+' || *__q == '-')) {

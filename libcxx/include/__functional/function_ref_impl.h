@@ -89,13 +89,15 @@ public:
              __is_invocable_using<_LIBCPP_FUNCTION_REF_CV remove_reference_t<_Fp>&>)
   _LIBCPP_HIDE_FROM_ABI constexpr function_ref(_Fp&& __f) noexcept
       : __bound_(std::addressof(__f)),
-        __thunk_([](__function_ref_bound_entity __bound_entity_, _ArgTypes&&... __args) noexcept(_Np) -> _Rp {
+        __thunk_([](__function_ref_bound_entity __bound_entity, _ArgTypes&&... __args) noexcept(_Np) -> _Rp {
           using _Tp _LIBCPP_NODEBUG = remove_reference_t<_Fp>;
           if constexpr (is_function_v<_Tp>) {
-            return std::invoke_r<_Rp>(*__bound_entity_.template __get_function<_Tp>(), std::forward<_ArgTypes>(__args)...);
+            return std::invoke_r<_Rp>(
+                *__bound_entity.template __get_function<_Tp>(), std::forward<_ArgTypes>(__args)...);
           } else {
-            return std::invoke_r<_Rp>(static_cast<_LIBCPP_FUNCTION_REF_CV _Tp&>(*__bound_entity_.template __get_object<_Tp>()),
-                                       std::forward<_ArgTypes>(__args)...);
+            return std::invoke_r<_Rp>(
+                static_cast<_LIBCPP_FUNCTION_REF_CV _Tp&>(*__bound_entity.template __get_object<_Tp>()),
+                std::forward<_ArgTypes>(__args)...);
           }
         }) {
     // P3961R1: a function_ref that converts to this one is copied rather than referenced (no double indirection).
@@ -125,15 +127,16 @@ public:
   }
 
   template <auto _Cp, class _Fp, class _Up>
-    requires(!is_rvalue_reference_v<_Up&&> &&
+    requires(!is_rvalue_reference_v<_Up &&> &&
              __is_invocable_using<const _Fp&, _LIBCPP_FUNCTION_REF_CV remove_reference_t<_Up>&>)
   _LIBCPP_HIDE_FROM_ABI constexpr function_ref(constant_wrapper<_Cp, _Fp>, _Up&& __obj) noexcept
       : __bound_(std::addressof(__obj)),
-        __thunk_([](__function_ref_bound_entity __bound_entity_, _ArgTypes&&... __args) noexcept(_Np) -> _Rp {
+        __thunk_([](__function_ref_bound_entity __bound_entity, _ArgTypes&&... __args) noexcept(_Np) -> _Rp {
           using _Tp _LIBCPP_NODEBUG = remove_reference_t<_Up>;
-          return std::invoke_r<_Rp>(constant_wrapper<_Cp, _Fp>::value,
-                                     static_cast<_LIBCPP_FUNCTION_REF_CV _Tp&>(*__bound_entity_.template __get_object<_Tp>()),
-                                     std::forward<_ArgTypes>(__args)...);
+          return std::invoke_r<_Rp>(
+              constant_wrapper<_Cp, _Fp>::value,
+              static_cast<_LIBCPP_FUNCTION_REF_CV _Tp&>(*__bound_entity.template __get_object<_Tp>()),
+              std::forward<_ArgTypes>(__args)...);
         }) {
     if constexpr (is_pointer_v<_Fp> || is_member_pointer_v<_Fp>) {
       static_assert(constant_wrapper<_Cp, _Fp>::value != nullptr, "function_ref cannot be constructed from a null function pointer");
@@ -144,10 +147,11 @@ public:
     requires __is_invocable_using<const _Fp&, _LIBCPP_FUNCTION_REF_CV _Tp*>
   _LIBCPP_HIDE_FROM_ABI constexpr function_ref(constant_wrapper<_Cp, _Fp>, _LIBCPP_FUNCTION_REF_CV _Tp* __obj) noexcept
       : __bound_(__obj),
-        __thunk_([](__function_ref_bound_entity __bound_entity_, _ArgTypes&&... __args) noexcept(_Np) -> _Rp {
-          return std::invoke_r<_Rp>(constant_wrapper<_Cp, _Fp>::value,
-                                     __bound_entity_.template __get_object<_LIBCPP_FUNCTION_REF_CV _Tp>(),
-                                     std::forward<_ArgTypes>(__args)...);
+        __thunk_([](__function_ref_bound_entity __bound_entity, _ArgTypes&&... __args) noexcept(_Np) -> _Rp {
+          return std::invoke_r<_Rp>(
+              constant_wrapper<_Cp, _Fp>::value,
+              __bound_entity.template __get_object<_LIBCPP_FUNCTION_REF_CV _Tp>(),
+              std::forward<_ArgTypes>(__args)...);
         }) {
     if constexpr (is_member_pointer_v<_Fp>) {
       _LIBCPP_ASSERT_NON_NULL(

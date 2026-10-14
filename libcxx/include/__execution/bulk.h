@@ -90,7 +90,7 @@ struct bulk_unchunked_t;
 // simplifying to "always by reference" as a fork-specific shortcut.
 template <class _Policy, class _Shape, class _Func>
 struct __bulk_data {
-  using __policy_storage_t = __conditional_t<copy_constructible<_Policy>, _Policy, const _Policy&>;
+  using __policy_storage_t _LIBCPP_NODEBUG = __conditional_t<copy_constructible<_Policy>, _Policy, const _Policy&>;
 
   _LIBCPP_NO_UNIQUE_ADDRESS __policy_storage_t policy;
   _Shape shape;
@@ -221,7 +221,7 @@ struct __bulk_sig_transform {
   struct __dedup;
   template <class... _Ts>
   struct __dedup<__exec_type_list<_Ts...>> {
-    using type = __dedup_type_list_t<_Ts...>;
+    using type _LIBCPP_NODEBUG = __dedup_type_list_t<_Ts...>;
   };
 
   template <class _List>
@@ -698,7 +698,7 @@ class __task_scheduler_backend final : public parallel_scheduler_replacement::pa
 
   template <class _Sndr>
   struct __state final : __task_backend_completion {
-    using __op_t = connect_result_t<_Sndr, __task_backend_receiver>;
+    using __op_t _LIBCPP_NODEBUG = connect_result_t<_Sndr, __task_backend_receiver>;
     __op_t __op_;
     parallel_scheduler_replacement::receiver_proxy* __rcvr_;
 
@@ -726,10 +726,11 @@ class __task_scheduler_backend final : public parallel_scheduler_replacement::pa
 
 public:
   _LIBCPP_HIDE_FROM_ABI explicit __task_scheduler_backend(_Sch __sch) : __sch_(std::move(__sch)) {}
-  _LIBCPP_HIDE_FROM_ABI void schedule(parallel_scheduler_replacement::receiver_proxy& __r, span<byte>) noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void
+  schedule(parallel_scheduler_replacement::receiver_proxy& __r, span<byte>) noexcept override {
     __launch(execution::schedule(__sch_), __r);
   }
-  _LIBCPP_HIDE_FROM_ABI void schedule_bulk_chunked(
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void schedule_bulk_chunked(
       size_t __shape, parallel_scheduler_replacement::bulk_item_receiver_proxy& __r, span<byte>) noexcept override {
     auto __fn = [&__r](size_t __begin, size_t __end) { __r.execute(__begin, __end); };
     __launch(
@@ -737,7 +738,7 @@ public:
             execution::bulk_chunked(__just_sender{std::addressof(__sch_)}, execution::par, __shape, __fn), env<>{}),
         __r);
   }
-  _LIBCPP_HIDE_FROM_ABI void schedule_bulk_unchunked(
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void schedule_bulk_unchunked(
       size_t __shape, parallel_scheduler_replacement::bulk_item_receiver_proxy& __r, span<byte>) noexcept override {
     auto __fn = [&__r](size_t __i) { __r.execute(__i, __i + 1); };
     __launch(

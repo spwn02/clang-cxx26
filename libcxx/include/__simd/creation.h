@@ -79,12 +79,12 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto chunk(const basic_mask<__mask_element_size<
 // [simd.creation]/4-5
 template <__simd_size_type _Np, class _Tp, class _Abi>
 _LIBCPP_HIDE_FROM_ABI constexpr auto chunk(const basic_vec<_Tp, _Abi>& __x) noexcept {
-  return chunk<resize_t<_Np, basic_vec<_Tp, _Abi>>>(__x);
+  return simd::chunk<resize_t<_Np, basic_vec<_Tp, _Abi>>>(__x);
 }
 
 template <__simd_size_type _Np, size_t _Bytes, class _Abi>
 _LIBCPP_HIDE_FROM_ABI constexpr auto chunk(const basic_mask<_Bytes, _Abi>& __x) noexcept {
-  return chunk<resize_t<_Np, basic_mask<_Bytes, _Abi>>>(__x);
+  return simd::chunk<resize_t<_Np, basic_mask<_Bytes, _Abi>>>(__x);
 }
 
 // [simd.creation]/6: cat.

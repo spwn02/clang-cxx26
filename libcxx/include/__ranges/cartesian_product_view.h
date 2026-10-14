@@ -85,7 +85,7 @@ class cartesian_product_view : public view_interface<cartesian_product_view<_Fir
   template <bool> class __iterator;
 
   template <bool _Const>
-  using __base = __maybe_const<_Const, cartesian_product_view>;
+  using __base _LIBCPP_NODEBUG = __maybe_const<_Const, cartesian_product_view>;
 
 public:
   _LIBCPP_HIDE_FROM_ABI cartesian_product_view() = default;
@@ -142,8 +142,8 @@ private:
 
   template <bool _Const>
   class __iterator {
-    using _Parent = __maybe_const<_Const, cartesian_product_view>;
-    using _Bases = tuple<__maybe_const<_Const, _First>, __maybe_const<_Const, _Vs>...>;
+    using _Parent _LIBCPP_NODEBUG = __maybe_const<_Const, cartesian_product_view>;
+    using _Bases _LIBCPP_NODEBUG  = tuple<__maybe_const<_Const, _First>, __maybe_const<_Const, _Vs>...>;
     _Parent* __parent_ = nullptr;
     tuple<iterator_t<__maybe_const<_Const, _First>>, iterator_t<__maybe_const<_Const, _Vs>>...> __current_;
     friend class cartesian_product_view;

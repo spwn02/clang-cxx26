@@ -15,6 +15,7 @@
 #include <__concepts/same_as.h>
 #include <__config>
 #include <__cstddef/size_t.h>
+#include <__iterator/default_sentinel.h>
 #include <__simd/abi.h>
 #include <__simd/concepts.h>
 #include <__simd/iterator.h>

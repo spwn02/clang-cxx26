@@ -43,14 +43,14 @@ inline constexpr bool __is_stdfloat_math_v =
 #  if defined(__STDCPP_FLOAT64_T__)
     is_same<_Float, __float64>::value ||
 #  endif
-    false;
+    false; // NOLINT(readability-simplify-boolean-expr): the terms above are preprocessor-conditional
 
 template <class _Float>
 inline constexpr bool __is_stdfloat64_v =
 #  if defined(__STDCPP_FLOAT64_T__)
     is_same<_Float, __float64>::value;
 #  else
-    false;
+    false; // NOLINT(readability-simplify-boolean-expr): the terms above are preprocessor-conditional
 #  endif
 
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>

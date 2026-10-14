@@ -40,6 +40,8 @@ namespace execution {
 namespace parallel_scheduler_replacement {
 
 // [exec.parschedrepl.recvproxy]: type-erased receiver completion and environment queries.
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class receiver_proxy {
 public:
   // A user-declared destructor (even defaulted) suppresses the implicit copy constructor and
@@ -87,15 +89,19 @@ protected:
               const void* __query,
               void* __result_storage) const noexcept = 0;
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 // [exec.sysctx.replaceability]: bulk_item_receiver_proxy additionally lets the backend invoke
 // one bulk work-item range at a time, [begin, end), exactly once per range, covering the whole
 // requested [0, count) with no overlaps and no gaps across all execute() calls for one
 // scheduling operation.
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class bulk_item_receiver_proxy : public receiver_proxy {
 public:
   virtual void execute(size_t __begin, size_t __end) noexcept = 0;
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 // [exec.sysctx.replaceability]: parallel_scheduler_backend is the ABI a replacement backend
 // implements. Every member is passed a span<byte> the backend may use as scratch storage for

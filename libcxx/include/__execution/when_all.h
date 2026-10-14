@@ -23,6 +23,7 @@
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
 #include <__execution/sender.h>
+#include <__memory/addressof.h>
 #include <__stop_token/inplace_stop_callback.h>
 #include <__stop_token/inplace_stop_source.h>
 #include <__stop_token/inplace_stop_token.h>
@@ -146,7 +147,7 @@ struct __when_all_multiple_value {};  // 2+ set_value_t signatures.
 
 template <class... _Args>
 struct __when_all_single_value {
-  using __tuple                   = __decayed_tuple<_Args...>;
+  using __tuple _LIBCPP_NODEBUG   = __decayed_tuple<_Args...>;
   static constexpr bool __nothrow = is_nothrow_constructible_v<__tuple, _Args...>;
 };
 
@@ -156,9 +157,10 @@ struct __when_all_shape_step {
 };
 template <class _Acc, class... _Args>
 struct __when_all_shape_step<_Acc, set_value_t(_Args...)> {
-  using type = __conditional_t<is_same_v<_Acc, __when_all_no_single_value>,
-                                __when_all_single_value<_Args...>,
-                                __when_all_multiple_value>;
+  using type _LIBCPP_NODEBUG =
+      __conditional_t<is_same_v<_Acc, __when_all_no_single_value>,
+                      __when_all_single_value<_Args...>,
+                      __when_all_multiple_value>;
 };
 
 template <class _Acc, class... _Fns>
@@ -177,7 +179,8 @@ struct __when_all_shape_from_sigs<completion_signatures<_Fns...>> {
 };
 
 template <class _Sndr, class _Env>
-using __when_all_child_shape_t = typename __when_all_shape_from_sigs<completion_signatures_of_t<_Sndr, _Env>>::type;
+using __when_all_child_shape_t _LIBCPP_NODEBUG =
+    typename __when_all_shape_from_sigs<completion_signatures_of_t<_Sndr, _Env>>::type;
 
 template <class _Tp>
 inline constexpr bool __when_all_is_single_value_v = false;
@@ -206,7 +209,7 @@ struct __when_all_values_tuple_impl {
 };
 template <class _Env, class... _Sndrs>
 struct __when_all_values_tuple_impl<true, _Env, _Sndrs...> {
-  using type = tuple<optional<typename __when_all_child_shape_t<_Sndrs, _Env>::__tuple>...>;
+  using type _LIBCPP_NODEBUG = tuple<optional<typename __when_all_child_shape_t<_Sndrs, _Env>::__tuple>...>;
 };
 template <class _Env, class... _Sndrs>
 using __when_all_values_tuple _LIBCPP_NODEBUG =
@@ -227,7 +230,7 @@ struct __when_all_value_sig_impl {
 };
 template <class _Env, class... _Sndrs>
 struct __when_all_value_sig_impl<true, _Env, _Sndrs...> {
-  using __combined = typename __concat_type_lists<
+  using __combined _LIBCPP_NODEBUG = typename __concat_type_lists<
       typename __when_all_tuple_to_list<typename __when_all_child_shape_t<_Sndrs, _Env>::__tuple>::type...>::type;
 
   template <class _List>
@@ -270,16 +273,16 @@ inline constexpr bool __when_all_all_children_nothrow_copy =
     (__when_all_all_nothrow_copy<completion_signatures_of_t<_Sndrs, _Env>>::value && ...);
 
 template <class _Env, class... _Sndrs>
-using __when_all_copy_fail_t =
+using __when_all_copy_fail_t _LIBCPP_NODEBUG =
     __conditional_t<__when_all_all_children_nothrow_copy<_Env, _Sndrs...>, __when_all_none_such, exception_ptr>;
 
 // errors_variant: variant<none-such, copy-fail, Es...>, deduped, where Es is every child's own
 // decayed error types (via the existing error_types_of_t alias, gathered as a __exec_type_list so it
 // concatenates with <__execution/completion_signatures.h>'s __concat_type_lists directly).
 template <class _Env, class... _Sndrs>
-using __when_all_errors_concat_t = typename __concat_type_lists<
-    __exec_type_list<__when_all_none_such, __when_all_copy_fail_t<_Env, _Sndrs...>>,
-    error_types_of_t<_Sndrs, _Env, __exec_type_list>...>::type;
+using __when_all_errors_concat_t _LIBCPP_NODEBUG =
+    typename __concat_type_lists< __exec_type_list<__when_all_none_such, __when_all_copy_fail_t<_Env, _Sndrs...>>,
+                                  error_types_of_t<_Sndrs, _Env, __exec_type_list>...>::type;
 
 template <class _List>
 struct __when_all_dedup_errors;
@@ -295,7 +298,8 @@ struct __when_all_dedup_errors<__exec_type_list<_Ts...>> {
 };
 
 template <class _Env, class... _Sndrs>
-using __when_all_errors_variant = typename __when_all_dedup_errors<__when_all_errors_concat_t<_Env, _Sndrs...>>::type;
+using __when_all_errors_variant _LIBCPP_NODEBUG =
+    typename __when_all_dedup_errors<__when_all_errors_concat_t<_Env, _Sndrs...>>::type;
 
 // [exec.when.all]p15.3: sends-stopped is true iff some child's own completion signatures
 // include set_stopped_t().
@@ -338,7 +342,7 @@ struct __when_all_final_sigs_impl<true, _ValueSig, _ErrorSigs> {
 };
 
 template <class _Env, class... _Sndrs>
-using __when_all_completion_signatures = typename __when_all_final_sigs_impl<
+using __when_all_completion_signatures _LIBCPP_NODEBUG = typename __when_all_final_sigs_impl<
     __when_all_sends_stopped<_Env, _Sndrs...>,
     __when_all_value_sig<_Env, _Sndrs...>,
     typename __when_all_error_sigs_from_variant<__when_all_errors_variant<_Env, _Sndrs...>>::type>::type;
@@ -352,9 +356,9 @@ using __when_all_completion_signatures = typename __when_all_final_sigs_impl<
 // separate template parameter for the outer receiver's own stop-token type.
 template <class _Env, class... _Sndrs>
 struct __when_all_state {
-  using __values_tuple_t   = __when_all_values_tuple<_Env, _Sndrs...>;
-  using __errors_variant_t = __when_all_errors_variant<_Env, _Sndrs...>;
-  using __stop_callback_t  = stop_callback_for_t<stop_token_of_t<_Env>, __when_all_on_stop_request>;
+  using __values_tuple_t _LIBCPP_NODEBUG   = __when_all_values_tuple<_Env, _Sndrs...>;
+  using __errors_variant_t _LIBCPP_NODEBUG = __when_all_errors_variant<_Env, _Sndrs...>;
+  using __stop_callback_t _LIBCPP_NODEBUG  = stop_callback_for_t<stop_token_of_t<_Env>, __when_all_on_stop_request>;
 
   static constexpr bool __sends_stopped = __when_all_sends_stopped<_Env, _Sndrs...>;
 
@@ -512,7 +516,7 @@ private:
 template <class _Fn>
 struct __when_all_emplace_from {
   _Fn __fn_;
-  using __result_t = invoke_result_t<_Fn&>;
+  using __result_t _LIBCPP_NODEBUG = invoke_result_t<_Fn&>;
   _LIBCPP_HIDE_FROM_ABI constexpr operator __result_t() && { return std::move(__fn_)(); }
 };
 template <class _Fn>
@@ -535,10 +539,10 @@ public:
 
   template <class _URcvr>
   _LIBCPP_HIDE_FROM_ABI constexpr __when_all_opstate(tuple<_Sndrs...>&& __children, _URcvr&& __rcvr)
-      : __rcvr_(std::forward<_URcvr>(__rcvr)),
-        __ops_(__when_all_emplace_from{[this, &__children] {
-          return execution::connect(std::get<_Is>(std::move(__children)),
-                                     __when_all_rcvr<_Is, __state_t, _Rcvr>(&__state_, &__rcvr_));
+      : __rcvr_(std::forward<_URcvr>(__rcvr)), __ops_(__when_all_emplace_from{[this, &__children] {
+          return execution::connect(
+              std::get<_Is>(std::move(__children)),
+              __when_all_rcvr<_Is, __state_t, _Rcvr>(std::addressof(__state_), std::addressof(__rcvr_)));
         }}...) {}
 
   _LIBCPP_HIDE_FROM_ABI constexpr void start() & noexcept {
@@ -548,8 +552,8 @@ public:
   }
 
 private:
-  using __env_t   = __fwd_env<env_of_t<_Rcvr>>;
-  using __state_t = __when_all_state<__env_t, _Sndrs...>;
+  using __env_t _LIBCPP_NODEBUG   = __fwd_env<env_of_t<_Rcvr>>;
+  using __state_t _LIBCPP_NODEBUG = __when_all_state<__env_t, _Sndrs...>;
 
   __state_t __state_{};
   _Rcvr __rcvr_;

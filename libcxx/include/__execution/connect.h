@@ -109,12 +109,13 @@ private:
 // [exec.connect]p5: V and Sigs, needed both by connect-awaitable's own requires-clause and
 // by its body.
 template <class _DS, class _DR>
-using __connect_awaitable_value_t = __await_result_type<_DS, __connect_awaitable_promise<_DS, _DR>>;
+using __connect_awaitable_value_t _LIBCPP_NODEBUG = __await_result_type<_DS, __connect_awaitable_promise<_DS, _DR>>;
 
 template <class _DS, class _DR>
-using __connect_awaitable_sigs =
-    completion_signatures<__set_value_sig_t<__connect_awaitable_value_t<_DS, _DR>>, set_error_t(exception_ptr),
-                           set_stopped_t()>;
+using __connect_awaitable_sigs _LIBCPP_NODEBUG =
+    completion_signatures<__set_value_sig_t<__connect_awaitable_value_t<_DS, _DR>>,
+                          set_error_t(exception_ptr),
+                          set_stopped_t()>;
 
 // [exec.connect]p5: suspend-complete(fun, as...). The lambda's explicit `__fun` capture
 // (redundant with the by-reference default) matches the standard's own `[&, fun]` --

@@ -42,11 +42,17 @@ namespace execution {
 // completion signatures depend on the environment, when asked without one) or an unspecified exception derived from
 // `exception` (for any other unusable sender), evaluated in constant evaluation. `sender_in` asks whether the call is a
 // constant expression, and an exception that escapes constant evaluation makes it one that is not.
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 struct dependent_sender_error : exception {};
+_LIBCPP_DIAGNOSTIC_POP
 
 // [exec.snd.general]: the exception object of the other cases: a handler of type exception matches, a handler of type
 // dependent_sender_error does not.
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 struct __unspecified_exception : exception {};
+_LIBCPP_DIAGNOSTIC_POP
 
 // [exec.getcomplsigs]: get-complsigs<Sndr, Env...>() is `remove_reference_t<Sndr>::template
 // get_completion_signatures<Sndr, Env...>()`; whether that is well-formed does not depend on the type it returns.
@@ -170,7 +176,7 @@ _LIBCPP_HIDE_FROM_ABI consteval auto __lowered_signatures_without_env() {
 
 // [exec.cmplsig]: decayed-tuple and variant-or-empty.
 template <class... _Ts>
-using __decayed_tuple = tuple<decay_t<_Ts>...>;
+using __decayed_tuple _LIBCPP_NODEBUG = tuple<decay_t<_Ts>...>;
 
 struct __empty_variant {
   __empty_variant() = delete;
@@ -275,7 +281,7 @@ struct __single_sender_value_type_impl<__exec_type_list<tuple<_Arg>>> {
 
 template <class _Sndr, class _Env = env<>>
   requires sender_in<_Sndr, _Env>
-using __single_sender_value_type =
+using __single_sender_value_type _LIBCPP_NODEBUG =
     typename __single_sender_value_type_impl<value_types_of_t<_Sndr, _Env, __decayed_tuple, __exec_type_list>>::type;
 
 // [exec.snd.expos]: the exposition-only single-sender concept.

@@ -60,14 +60,14 @@ inline constexpr bool __is_floating_point_or_complex_v = is_floating_point_v<rem
 
 template <class _Tp>
 struct __real_type {
-  using type = remove_cv_t<_Tp>;
+  using type _LIBCPP_NODEBUG = remove_cv_t<_Tp>;
 };
 template <class _Tp>
 struct __real_type<complex<_Tp>> {
   using type _LIBCPP_NODEBUG = _Tp;
 };
 template <class _Tp>
-using __real_type_t = typename __real_type<remove_cv_t<_Tp>>::type;
+using __real_type_t _LIBCPP_NODEBUG = typename __real_type<remove_cv_t<_Tp>>::type;
 
 // [linalg.algs.blas1.dot], [linalg.algs.blas1.nrm2], [linalg.algs.blas1.matfrobnorm] Remarks: when Scalar has higher
 // precision than the value type, the intermediate terms use Scalar's precision.
@@ -173,9 +173,10 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __abs_if_needed(_Tp&& __value) {
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr auto __blas_abs(_Tp&& __value) {
   if constexpr (__has_adl_real<_Tp> || __has_adl_imag<_Tp>) {
-    return __abs_if_needed(__real_if_needed(__value)) + __abs_if_needed(__imag_if_needed(__value));
+    return __detail::__abs_if_needed(__detail::__real_if_needed(__value)) +
+           __detail::__abs_if_needed(__detail::__imag_if_needed(__value));
   } else {
-    return __abs_if_needed(std::forward<_Tp>(__value));
+    return __detail::__abs_if_needed(std::forward<_Tp>(__value));
   }
 }
 
@@ -501,8 +502,8 @@ template <class _ScalingFactor, class _NestedAccessor>
 class scaled_accessor {
 public:
   using offset_policy = scaled_accessor<_ScalingFactor, typename _NestedAccessor::offset_policy>;
-  using element_type =
-      const remove_cvref_t<decltype(declval<_ScalingFactor>() * declval<typename _NestedAccessor::element_type>())>;
+  using element_type  = const remove_cvref_t<
+      decltype(std::declval<_ScalingFactor>() * std::declval<typename _NestedAccessor::element_type>())>;
   // [linalg.scaled.scaledaccessor]: reference is the non-const element type;
   // access() returns a prvalue, so the const would be observable in decltype.
   using reference        = remove_const_t<element_type>;
@@ -559,8 +560,8 @@ template <class _NestedAccessor>
 class conjugated_accessor {
 public:
   using offset_policy = conjugated_accessor<typename _NestedAccessor::offset_policy>;
-  using element_type =
-      const remove_cvref_t<decltype(__detail::__conj_if_needed(declval<typename _NestedAccessor::element_type>()))>;
+  using element_type  = const remove_cvref_t<decltype(__detail::__conj_if_needed(
+      std::declval<typename _NestedAccessor::element_type>()))>;
   // [linalg.conj.conjugatedaccessor]: as for scaled_accessor, reference drops
   // the const.
   using reference        = remove_const_t<element_type>;
@@ -1916,8 +1917,8 @@ __dot_impl(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __left
   requires(__detail::__in_vector<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
            __detail::__in_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>>)
 {
-  using _Result = decltype(declval<remove_cv_t<_LeftElement>>() * declval<remove_cv_t<_RightElement>>());
-  return dot(__left, __right, _Result{});
+  using _Result = decltype(std::declval<remove_cv_t<_LeftElement>>() * std::declval<remove_cv_t<_RightElement>>());
+  return linalg::dot(__left, __right, _Result{});
 }
 
 template <class _LeftElement,
@@ -1953,9 +1954,9 @@ __dotc_impl(mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor> __lef
   requires(__detail::__in_vector<mdspan<_LeftElement, _LeftExtents, _LeftLayout, _LeftAccessor>> &&
            __detail::__in_vector<mdspan<_RightElement, _RightExtents, _RightLayout, _RightAccessor>>)
 {
-  using _Result = decltype(__detail::__conj_if_needed(declval<remove_cv_t<_LeftElement>>()) *
-                           declval<remove_cv_t<_RightElement>>());
-  return dotc(__left, __right, _Result{});
+  using _Result = decltype(__detail::__conj_if_needed(std::declval<remove_cv_t<_LeftElement>>()) *
+                           std::declval<remove_cv_t<_RightElement>>());
+  return linalg::dotc(__left, __right, _Result{});
 }
 
 // [linalg.algs.blas1.nrm2] specifies the return type as Scalar, the type of
@@ -1972,9 +1973,10 @@ __vector_two_norm_impl(mdspan<_ElementType, _Extents, _Layout, _Accessor> __vect
                     __detail::__is_floating_point_or_complex_v<_Scalar>,
                 "linalg::vector_two_norm requires a floating-point or complex value_type and Scalar");
   static_assert(
-      is_convertible_v<decltype(__detail::__abs_if_needed(declval<_Scalar>()) * __detail::__abs_if_needed(declval<_Scalar>()) +
-                                __detail::__abs_if_needed(declval<remove_cv_t<_ElementType>>()) *
-                                    __detail::__abs_if_needed(declval<remove_cv_t<_ElementType>>())),
+      is_convertible_v<decltype(__detail::__abs_if_needed(std::declval<_Scalar>()) *
+                                    __detail::__abs_if_needed(std::declval<_Scalar>()) +
+                                __detail::__abs_if_needed(std::declval<remove_cv_t<_ElementType>>()) *
+                                    __detail::__abs_if_needed(std::declval<remove_cv_t<_ElementType>>())),
                        _Scalar>,
       "linalg::vector_two_norm: the sum of squares must be convertible to Scalar");
   auto __sum = __detail::__abs_if_needed(__init) * __detail::__abs_if_needed(__init);
@@ -1991,8 +1993,9 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __vector_two_norm_impl(mdspan<_ElementType,
   requires __detail::__in_vector<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
 {
   using _Value  = remove_cv_t<_ElementType>;
-  using _Result = decltype(__detail::__abs_if_needed(declval<_Value>()) * __detail::__abs_if_needed(declval<_Value>()));
-  return vector_two_norm(__vector, _Result{});
+  using _Result =
+      decltype(__detail::__abs_if_needed(std::declval<_Value>()) * __detail::__abs_if_needed(std::declval<_Value>()));
+  return linalg::vector_two_norm(__vector, _Result{});
 }
 
 template <class _Real>
@@ -2150,9 +2153,10 @@ __matrix_frob_norm_impl(mdspan<_ElementType, _Extents, _Layout, _Accessor> __mat
                     __detail::__is_floating_point_or_complex_v<_Scalar>,
                 "linalg::matrix_frob_norm requires a floating-point or complex value_type and Scalar");
   static_assert(
-      is_convertible_v<decltype(__detail::__abs_if_needed(declval<_Scalar>()) * __detail::__abs_if_needed(declval<_Scalar>()) +
-                                __detail::__abs_if_needed(declval<remove_cv_t<_ElementType>>()) *
-                                    __detail::__abs_if_needed(declval<remove_cv_t<_ElementType>>())),
+      is_convertible_v<decltype(__detail::__abs_if_needed(std::declval<_Scalar>()) *
+                                    __detail::__abs_if_needed(std::declval<_Scalar>()) +
+                                __detail::__abs_if_needed(std::declval<remove_cv_t<_ElementType>>()) *
+                                    __detail::__abs_if_needed(std::declval<remove_cv_t<_ElementType>>())),
                        _Scalar>,
       "linalg::matrix_frob_norm: the sum of squares must be convertible to Scalar");
   auto __sum = __detail::__abs_if_needed(__init) * __detail::__abs_if_needed(__init);
@@ -2171,8 +2175,9 @@ __matrix_frob_norm_impl(mdspan<_ElementType, _Extents, _Layout, _Accessor> __mat
   requires __detail::__in_matrix<mdspan<_ElementType, _Extents, _Layout, _Accessor>>
 {
   using _Value  = remove_cv_t<_ElementType>;
-  using _Result = decltype(__detail::__abs_if_needed(declval<_Value>()) * __detail::__abs_if_needed(declval<_Value>()));
-  return matrix_frob_norm(__matrix, _Result{});
+  using _Result =
+      decltype(__detail::__abs_if_needed(std::declval<_Value>()) * __detail::__abs_if_needed(std::declval<_Value>()));
+  return linalg::matrix_frob_norm(__matrix, _Result{});
 }
 
 // Returns Scalar exactly; `__init + __maximum` would integer-promote for

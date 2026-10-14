@@ -131,10 +131,10 @@ struct common_type<execution::indeterminate_domain<_Ds...>, execution::indetermi
 
 template <class... _Domains, class _Dom>
 struct common_type<execution::indeterminate_domain<_Domains...>, _Dom> {
-  using type =
-      conditional_t<sizeof...(_Domains) == 0, _Dom,
-                    typename common_type<execution::indeterminate_domain<_Domains...>,
-                                         execution::indeterminate_domain<_Dom>>::type>;
+  using type _LIBCPP_NODEBUG = conditional_t<
+      sizeof...(_Domains) == 0,
+      _Dom,
+      typename common_type<execution::indeterminate_domain<_Domains...>, execution::indeterminate_domain<_Dom>>::type>;
 };
 
 template <class _Dom, class... _Domains>

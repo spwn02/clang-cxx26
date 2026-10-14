@@ -94,7 +94,7 @@ struct __gather_one {
 };
 template <class _Tag, class... _Args, template <class...> class _Tuple>
 struct __gather_one<_Tag, _Tag(_Args...), _Tuple> {
-  using type = __exec_type_list<__meta_apply<_Tuple, _Args...>>;
+  using type _LIBCPP_NODEBUG = __exec_type_list<__meta_apply<_Tuple, _Args...>>;
 };
 
 template <class... _Ls>
@@ -115,13 +115,14 @@ struct __gather_signatures_impl;
 template <class _Tag, template <class...> class _Tuple, template <class...> class _Variant, class... _Fns>
 struct __gather_signatures_impl<_Tag, completion_signatures<_Fns...>, _Tuple, _Variant> {
 private:
-  using __gathered = typename __concat_type_lists<typename __gather_one<_Tag, _Fns, _Tuple>::type...>::type;
+  using __gathered _LIBCPP_NODEBUG =
+      typename __concat_type_lists<typename __gather_one<_Tag, _Fns, _Tuple>::type...>::type;
 
   template <class>
   struct __apply_variant;
   template <class... _Ts>
   struct __apply_variant<__exec_type_list<_Ts...>> {
-    using type = __meta_apply<_Variant, _Ts...>;
+    using type _LIBCPP_NODEBUG = __meta_apply<_Variant, _Ts...>;
   };
 
 public:
@@ -133,7 +134,8 @@ template <class _Tag,
           __valid_completion_signatures _Completions,
           template <class...> class _Tuple,
           template <class...> class _Variant>
-using __gather_signatures = typename __gather_signatures_impl<_Tag, _Completions, _Tuple, _Variant>::type;
+using __gather_signatures _LIBCPP_NODEBUG =
+    typename __gather_signatures_impl<_Tag, _Completions, _Tuple, _Variant>::type;
 
 // The conditions the check-types of the adaptors ([exec.snd.expos], [exec.then], [exec.bulk], ...) test, expressed as
 // constraints of get_completion_signatures: an adaptor whose child does not satisfy them has no completion signatures.

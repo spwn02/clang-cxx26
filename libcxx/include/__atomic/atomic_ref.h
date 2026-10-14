@@ -369,7 +369,7 @@ public:
 
 #  if _LIBCPP_STD_VER >= 26
   // P3936R1: address() returns COPYCV(T, void)*
-  using __address_return_type = __copy_cv_t<_Tp, void>*;
+  using __address_return_type _LIBCPP_NODEBUG = __copy_cv_t<_Tp, void>*;
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr __address_return_type address() const noexcept { return __ptr_; }
 #  endif // _LIBCPP_STD_VER >= 26
 

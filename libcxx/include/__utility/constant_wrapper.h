@@ -193,31 +193,31 @@ struct constant_wrapper : __constant_wrapper_operators {
 
   template <class... _Args>
     requires __constexpr_callable<value, _Args...>
-  static constexpr auto operator()(_Args&&...) noexcept
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto operator()(_Args&&...) noexcept
       -> constant_wrapper<auto(std::invoke(value, remove_cvref_t<_Args>::value...))> {
     return {};
   }
 
   template <class... _Args>
-    requires(!__constexpr_callable<value, _Args...> && is_invocable_v<const value_type&, _Args&&...>)
-  static constexpr decltype(auto) operator()(_Args&&... __args)
-      noexcept(noexcept(std::invoke(value, std::forward<_Args>(__args)...))) {
+    requires(!__constexpr_callable<value, _Args...> && is_invocable_v<const value_type&, _Args && ...>)
+  _LIBCPP_HIDE_FROM_ABI static constexpr decltype(auto)
+  operator()(_Args&&... __args) noexcept(noexcept(std::invoke(value, std::forward<_Args>(__args)...))) {
     return std::invoke(value, std::forward<_Args>(__args)...);
   }
 
   template <class... _Args>
     requires __constexpr_indexable<value, _Args...>
-  static constexpr auto operator[](_Args&&...) noexcept
+  _LIBCPP_HIDE_FROM_ABI static constexpr auto operator[](_Args&&...) noexcept
       -> constant_wrapper<auto(value[remove_cvref_t<_Args>::value...])> {
     return {};
   }
 
   template <class... _Args>
-    requires(!__constexpr_indexable<value, _Args...> && requires { value[declval<_Args>()...]; })
-  static constexpr decltype(auto) operator[](_Args&&... __args) noexcept(noexcept(value[std::forward<_Args>(__args)...])) {
+    requires(!__constexpr_indexable<value, _Args...> && requires { value[std::declval<_Args>()...]; })
+  _LIBCPP_HIDE_FROM_ABI static constexpr decltype(auto)
+  operator[](_Args&&... __args) noexcept(noexcept(value[std::forward<_Args>(__args)...])) {
     return value[std::forward<_Args>(__args)...];
   }
-
 };
 
 template <__cw_fixed_value _Xp>

@@ -34,6 +34,19 @@
 #include <exception>
 #include <new>
 _LIBCPP_BEGIN_UNVERSIONED_NAMESPACE_STD
+
+// The header declares these only for client translation units (not while building the library).
+_LIBCPP_EXPORTED_FROM_ABI void __exception_ptr_copy_runtime(exception_ptr*, const exception_ptr&) noexcept;
+_LIBCPP_EXPORTED_FROM_ABI void __exception_ptr_assign_runtime(exception_ptr*, const exception_ptr&) noexcept;
+_LIBCPP_EXPORTED_FROM_ABI void __exception_ptr_destroy_runtime(exception_ptr*) noexcept;
+_LIBCPP_EXPORTED_FROM_ABI void __exception_ptr_default_runtime(exception_ptr*) noexcept;
+_LIBCPP_EXPORTED_FROM_ABI void __exception_ptr_assign_null_runtime(exception_ptr*) noexcept;
+_LIBCPP_EXPORTED_FROM_ABI bool __exception_ptr_to_bool_runtime(const exception_ptr*) noexcept;
+_LIBCPP_EXPORTED_FROM_ABI bool __exception_ptr_equal_runtime(const exception_ptr*, const exception_ptr*) noexcept;
+_LIBCPP_EXPORTED_FROM_ABI void __exception_ptr_swap_runtime(exception_ptr*, exception_ptr*) noexcept;
+_LIBCPP_EXPORTED_FROM_ABI exception_ptr __current_exception_runtime() noexcept;
+[[noreturn]] _LIBCPP_EXPORTED_FROM_ABI void __rethrow_exception_runtime(exception_ptr);
+
 _LIBCPP_EXPORTED_FROM_ABI void __exception_ptr_copy_runtime(
     exception_ptr* __to, const exception_ptr& __from) noexcept {
 #if defined(_LIBCPP_ABI_MICROSOFT)

@@ -52,8 +52,8 @@ namespace execution {
 template <class _Sndr, class _Promise>
 class __sender_awaitable {
   struct __unit {};
-  using __value_type  = __single_sender_value_type<_Sndr, env_of_t<_Promise>>;
-  using __result_type = conditional_t<is_void_v<__value_type>, __unit, __value_type>;
+  using __value_type _LIBCPP_NODEBUG  = __single_sender_value_type<_Sndr, env_of_t<_Promise>>;
+  using __result_type _LIBCPP_NODEBUG = conditional_t<is_void_v<__value_type>, __unit, __value_type>;
 
   struct __awaitable_receiver {
     using receiver_concept = receiver_tag;

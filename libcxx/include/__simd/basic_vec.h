@@ -17,6 +17,7 @@
 #include <__concepts/same_as.h>
 #include <__config>
 #include <__cstddef/size_t.h>
+#include <__iterator/default_sentinel.h>
 #include <__ranges/concepts.h>
 #include <__ranges/data.h>
 #include <__ranges/size.h>
@@ -194,7 +195,7 @@ public:
              (is_arithmetic_v<remove_cvref_t<_Up>> && __value_preserving_conversion<remove_cvref_t<_Up>, _Tp>) ||
              (__constexpr_wrapper_like<remove_cvref_t<_Up>> &&
               is_arithmetic_v<remove_cvref_t<decltype(remove_cvref_t<_Up>::value)>> &&
-              __representable_by<_Tp>(remove_cvref_t<_Up>::value)))
+              simd::__representable_by<_Tp>(remove_cvref_t<_Up>::value)))
   _LIBCPP_HIDE_FROM_ABI constexpr basic_vec(_Up&& __value) noexcept {
     const auto __converted = static_cast<_Tp>(__value);
     for (__simd_size_type __i = 0; __i != __size_; ++__i)

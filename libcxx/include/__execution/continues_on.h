@@ -81,14 +81,14 @@ template <class _Sig>
 struct __continues_on_as_tuple;
 template <class _Tag, class... _Args>
 struct __continues_on_as_tuple<_Tag(_Args...)> {
-  using type = tuple<_Tag, decay_t<_Args>...>;
+  using type _LIBCPP_NODEBUG = tuple<_Tag, decay_t<_Args>...>;
 };
 
 template <class _List>
 struct __continues_on_dedup;
 template <class... _Ts>
 struct __continues_on_dedup<__exec_type_list<_Ts...>> {
-  using type = __dedup_type_list_t<_Ts...>;
+  using type _LIBCPP_NODEBUG = __dedup_type_list_t<_Ts...>;
 };
 
 template <class _List>
@@ -110,9 +110,10 @@ template <class... _Sigs>
 struct __continues_on_variant_impl<completion_signatures<_Sigs...>> {
   using __tuples _LIBCPP_NODEBUG                    = __exec_type_list<typename __continues_on_as_tuple<_Sigs>::type...>;
   static constexpr bool __all_nothrow = (__continues_on_nothrow_sig<_Sigs> && ...);
-  using __err_list  = __conditional_t<__all_nothrow, __exec_type_list<>, __exec_type_list<tuple<set_error_t, exception_ptr>>>;
-  using __gathered  = typename __concat_type_lists<__tuples, __err_list>::type;
-  using __deduped   = typename __continues_on_dedup<__gathered>::type;
+  using __err_list _LIBCPP_NODEBUG =
+      __conditional_t<__all_nothrow, __exec_type_list<>, __exec_type_list<tuple<set_error_t, exception_ptr>>>;
+  using __gathered _LIBCPP_NODEBUG = typename __concat_type_lists<__tuples, __err_list>::type;
+  using __deduped _LIBCPP_NODEBUG  = typename __continues_on_dedup<__gathered>::type;
 
   template <class>
   struct __to_variant;
@@ -136,8 +137,10 @@ struct __continues_on_child_one;
 template <class _Tag, class... _Args>
 struct __continues_on_child_one<_Tag(_Args...)> {
   using __value_sig _LIBCPP_NODEBUG = _Tag(decay_t<_Args>...);
-  using type = __conditional_t<__continues_on_nothrow_sig<_Tag(_Args...)>, __exec_type_list<__value_sig>,
-                                __exec_type_list<__value_sig, set_error_t(exception_ptr)>>;
+  using type _LIBCPP_NODEBUG =
+      __conditional_t<__continues_on_nothrow_sig<_Tag(_Args...)>,
+                      __exec_type_list<__value_sig>,
+                      __exec_type_list<__value_sig, set_error_t(exception_ptr)>>;
 };
 
 // schedule(sch)'s own set_value_t() completion never propagates as-is (it only triggers the captured-result
@@ -246,11 +249,11 @@ template <class _Sch, class _Sndr, class _Rcvr>
 class __continues_on_opstate {
   using __sched_rcvr_t _LIBCPP_NODEBUG  = __continues_on_sched_rcvr<_Sch, _Sndr, _Rcvr>;
   using __child_rcvr_t _LIBCPP_NODEBUG  = __continues_on_child_rcvr<_Sch, _Sndr, _Rcvr>;
-  using __sched_sndr_t  = schedule_result_t<_Sch>;
-  using __sched_op_t    = connect_result_t<__sched_sndr_t, __sched_rcvr_t>;
-  using __child_op_t    = connect_result_t<_Sndr, __child_rcvr_t>;
-  using __child_sigs    = completion_signatures_of_t<_Sndr, __fwd_env<env_of_t<_Rcvr>>>;
-  using __async_result_t = __continues_on_variant_t<__child_sigs>;
+  using __sched_sndr_t _LIBCPP_NODEBUG   = schedule_result_t<_Sch>;
+  using __sched_op_t _LIBCPP_NODEBUG     = connect_result_t<__sched_sndr_t, __sched_rcvr_t>;
+  using __child_op_t _LIBCPP_NODEBUG     = connect_result_t<_Sndr, __child_rcvr_t>;
+  using __child_sigs _LIBCPP_NODEBUG     = completion_signatures_of_t<_Sndr, __fwd_env<env_of_t<_Rcvr>>>;
+  using __async_result_t _LIBCPP_NODEBUG = __continues_on_variant_t<__child_sigs>;
 
   _Rcvr __rcvr_;
   __async_result_t __async_result_;

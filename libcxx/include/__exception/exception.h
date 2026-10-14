@@ -71,6 +71,8 @@ public:
 // On all other platforms, we define our own std::exception and std::bad_exception types
 // regardless of whether exceptions are turned on as a language feature.
 
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class _LIBCPP_EXPORTED_FROM_ABI exception {
 public:
 #  if _LIBCPP_STD_VER >= 26
@@ -93,7 +95,10 @@ public:
   [[__nodiscard__]] virtual const char* what() const _NOEXCEPT;
 #  endif
 };
+_LIBCPP_DIAGNOSTIC_POP
 
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class _LIBCPP_EXPORTED_FROM_ABI bad_exception : public exception {
 public:
 #  if _LIBCPP_STD_VER >= 26
@@ -115,6 +120,7 @@ public:
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
 #  endif
 };
+_LIBCPP_DIAGNOSTIC_POP
 #endif // !_LIBCPP_ABI_VCRUNTIME
 
 _LIBCPP_END_UNVERSIONED_NAMESPACE_STD

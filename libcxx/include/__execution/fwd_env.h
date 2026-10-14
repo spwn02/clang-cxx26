@@ -102,7 +102,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __fwd_env_fn(_Env&& __env) noexcept(
 // FWD-ENV-T(E) for the environment E of the receiver completion signatures are computed for: the first type of
 // `Env..., env<>` ([exec.snd.expos] basic-sender::get_completion_signatures), forwarded.
 template <class... _Env>
-using __fwd_env_of_first_t = __fwd_env<typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type>;
+using __fwd_env_of_first_t _LIBCPP_NODEBUG = __fwd_env<typename __first_env_or<env<>, remove_cvref_t<_Env>...>::type>;
 
 } // namespace execution
 

@@ -76,7 +76,7 @@ template <input_range _View>
   requires view<_View>
 template <bool _Const>
 class as_input_view<_View>::__iterator {
-  using _Base = __maybe_const<_Const, _View>;
+  using _Base _LIBCPP_NODEBUG  = __maybe_const<_Const, _View>;
   iterator_t<_Base> __current_ = iterator_t<_Base>();
   _LIBCPP_HIDE_FROM_ABI constexpr explicit __iterator(iterator_t<_Base> __current) : __current_(std::move(__current)) {}
   friend class as_input_view;
@@ -86,7 +86,9 @@ public:
   using difference_type = range_difference_t<_Base>;
   using value_type = range_value_t<_Base>;
   using iterator_concept = input_iterator_tag;
-  __iterator() requires default_initializable<iterator_t<_Base>> = default;
+  _LIBCPP_HIDE_FROM_ABI __iterator()
+    requires default_initializable<iterator_t<_Base>>
+  = default;
   _LIBCPP_HIDE_FROM_ABI __iterator(__iterator&&)                 = default;
   _LIBCPP_HIDE_FROM_ABI __iterator& operator=(__iterator&&)      = default;
   _LIBCPP_HIDE_FROM_ABI constexpr __iterator(__iterator<!_Const> __other)

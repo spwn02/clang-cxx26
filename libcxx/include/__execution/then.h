@@ -71,10 +71,10 @@ class __then_sndr;
 // [exec.then]p4's `set-cpo`: which completion-function tag (set_value_t/set_error_t/
 // set_stopped_t) `_Tag` (then_t/upon_error_t/upon_stopped_t) intercepts.
 template <class _Tag>
-using __then_set_cpo_t =
+using __then_set_cpo_t _LIBCPP_NODEBUG =
     __conditional_t<same_as<_Tag, then_t>,
-                     set_value_t,
-                     __conditional_t<same_as<_Tag, upon_error_t>, set_error_t, set_stopped_t>>;
+                    set_value_t,
+                    __conditional_t<same_as<_Tag, upon_error_t>, set_error_t, set_stopped_t>>;
 
 template <class _SetCpo, class _Fn>
 class __then_sig_transform {
@@ -107,17 +107,18 @@ public:
   // exception_ptr error completion unless the invocation is known not to throw.
   template <class... _Args>
   struct __one<_SetCpo(_Args...)> {
-    using __value_sig = typename __then_value_sig<invoke_result_t<_Fn, _Args...>>::type;
-    using type =
-        __conditional_t<is_nothrow_invocable_v<_Fn, _Args...>, __exec_type_list<__value_sig>,
-                         __exec_type_list<__value_sig, set_error_t(exception_ptr)>>;
+    using __value_sig _LIBCPP_NODEBUG = typename __then_value_sig<invoke_result_t<_Fn, _Args...>>::type;
+    using type _LIBCPP_NODEBUG =
+        __conditional_t<is_nothrow_invocable_v<_Fn, _Args...>,
+                        __exec_type_list<__value_sig>,
+                        __exec_type_list<__value_sig, set_error_t(exception_ptr)>>;
   };
 
   template <class _List>
   struct __dedup;
   template <class... _Ts>
   struct __dedup<__exec_type_list<_Ts...>> {
-    using type = __dedup_type_list_t<_Ts...>;
+    using type _LIBCPP_NODEBUG = __dedup_type_list_t<_Ts...>;
   };
 
   template <class _List>
@@ -137,7 +138,7 @@ public:
 };
 
 template <class _Tag, class _Fn, class _Completions>
-using __then_signatures_t =
+using __then_signatures_t _LIBCPP_NODEBUG =
     typename __then_sig_transform<__then_set_cpo_t<_Tag>, _Fn>::template __impl<_Completions>::type;
 
 // [exec.then]p4: the receiver that intercepts `_Tag`'s completion tag, invoking `fn` and
@@ -214,7 +215,7 @@ private:
 // if the invocation can throw the exception is an error completion in the same place.
 template <class _Tag, class _Fn>
 struct __then_contrib {
-  using __set_cpo = __then_set_cpo_t<_Tag>;
+  using __set_cpo _LIBCPP_NODEBUG = __then_set_cpo_t<_Tag>;
 
   template <class _Lists>
   struct __throws;

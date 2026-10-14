@@ -26,6 +26,8 @@
 _LIBCPP_BEGIN_UNVERSIONED_NAMESPACE_STD
 #if !defined(_LIBCPP_ABI_VCRUNTIME)
 
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class _LIBCPP_EXPORTED_FROM_ABI bad_alloc : public exception {
 public:
 #  if _LIBCPP_STD_VER >= 26
@@ -44,7 +46,10 @@ public:
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
 #  endif
 };
+_LIBCPP_DIAGNOSTIC_POP
 
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class _LIBCPP_EXPORTED_FROM_ABI bad_array_new_length : public bad_alloc {
 public:
 #  if _LIBCPP_STD_VER >= 26
@@ -63,6 +68,7 @@ public:
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
 #  endif
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 #elif defined(_HAS_EXCEPTIONS) && _HAS_EXCEPTIONS == 0 // !_LIBCPP_ABI_VCRUNTIME
 

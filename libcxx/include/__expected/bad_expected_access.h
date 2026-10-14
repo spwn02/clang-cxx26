@@ -32,7 +32,8 @@ _LIBCPP_DIAGNOSTIC_PUSH
 _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 #  endif
 template <>
-class _LIBCPP_EXPORTED_FROM_ABI bad_expected_access<void> : public exception {
+_LIBCPP_DIAGNOSTIC_PUSH _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables") class _LIBCPP_EXPORTED_FROM_ABI
+bad_expected_access<void> : public exception {
 protected:
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bad_expected_access() noexcept                          = default;
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bad_expected_access(const bad_expected_access&) noexcept = default;
@@ -56,6 +57,7 @@ public:
   }
 #  endif
 };
+_LIBCPP_DIAGNOSTIC_POP
 _LIBCPP_DIAGNOSTIC_POP
 
 template <class _Err>

@@ -198,7 +198,7 @@ make_unique_resource_checked(_Rp&& __resource, const _Sp& __invalid, _Dp&& __d) 
 
 template <class _Rp, class _Dp>
 class unique_resource {
-  using __r1 = conditional_t<is_reference_v<_Rp>, reference_wrapper<remove_reference_t<_Rp>>, _Rp>;
+  using __r1 _LIBCPP_NODEBUG = conditional_t<is_reference_v<_Rp>, reference_wrapper<remove_reference_t<_Rp>>, _Rp>;
 
   __r1 __resource_;
   _Dp __deleter_;
@@ -426,8 +426,11 @@ template <class _Rp, class _Dp, class _Sp>
 _LIBCPP_HIDE_FROM_ABI unique_resource<decay_t<_Rp>, decay_t<_Dp>>
 make_unique_resource_checked(_Rp&& __resource, const _Sp& __invalid, _Dp&& __d) noexcept(
     is_nothrow_constructible_v<decay_t<_Rp>, _Rp> && is_nothrow_constructible_v<decay_t<_Dp>, _Dp>) {
-  static_assert(requires { (__resource == __invalid ? true : false); },
-                "the expression (resource == invalid ? true : false) must be well-formed");
+  static_assert(
+      requires {
+        (__resource == __invalid ? true : false); // NOLINT(readability-simplify-boolean-expr): as worded
+      },
+      "the expression (resource == invalid ? true : false) must be well-formed");
   const bool __execute = !bool(__resource == __invalid);
   return unique_resource<decay_t<_Rp>, decay_t<_Dp>>(
       typename unique_resource<decay_t<_Rp>, decay_t<_Dp>>::__tag{},

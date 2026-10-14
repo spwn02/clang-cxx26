@@ -157,7 +157,8 @@ consteval bool __is_canonical_index_type() {
   if constexpr (is_same_v<_Slice, _IndexType>) {
     return true;
   } else if constexpr (__is_constant_wrapper<_Slice>) {
-    return is_same_v<remove_cvref_t<decltype(_Slice::value)>, _IndexType> && !__is_negative(_Slice::value);
+    return is_same_v<remove_cvref_t<decltype(_Slice::value)>, _IndexType> &&
+           !__mdspan_detail::__is_negative(_Slice::value);
   } else {
     return false;
   }
@@ -296,13 +297,14 @@ template <class _IndexType, class _SpanType, class... _StrideTypes>
 struct __range_stride;
 template <class _IndexType, class _SpanType>
 struct __range_stride<_IndexType, _SpanType> {
-  using type = constant_wrapper<_IndexType(1)>;
+  using type _LIBCPP_NODEBUG = constant_wrapper<_IndexType(1)>;
 };
 template <class _IndexType, class _SpanType, class _StrideType>
 struct __range_stride<_IndexType, _SpanType, _StrideType> {
-  using type = conditional_t<is_same_v<_SpanType, constant_wrapper<_IndexType(0)>>,
-                             constant_wrapper<_IndexType(1)>,
-                             _StrideType>;
+  using type _LIBCPP_NODEBUG =
+      conditional_t<is_same_v<_SpanType, constant_wrapper<_IndexType(0)>>,
+                    constant_wrapper<_IndexType(1)>,
+                    _StrideType>;
 };
 
 template <class _IndexType, class _OffsetType, class _SpanType, class... _StrideTypes>
@@ -457,7 +459,8 @@ struct __subextents_info<_IndexType, extents<_IndexType, _Extents...>, _Slices..
   static constexpr array<size_t, __sub_rank> __sub_static_values =
       __mdspan_detail::__sub_static_extents<__sub_rank>(__collapsing, __static_values);
 
-  using type = decltype(__make_subextents_type<_IndexType, __sub_static_values>(make_index_sequence<__sub_rank>{}));
+  using type = decltype(__mdspan_detail::__make_subextents_type<_IndexType, __sub_static_values>(
+      make_index_sequence<__sub_rank>{}));
 };
 
 template <class _IndexType, size_t... _Extents, class... _Slices>

@@ -23,7 +23,7 @@ nodebug_on_aliases::nodebug_on_aliases(llvm::StringRef name, clang::tidy::ClangT
 void nodebug_on_aliases::registerMatchers(clang::ast_matchers::MatchFinder* finder) {
   using namespace clang::ast_matchers;
   finder->addMatcher(
-      typeAliasDecl(unless(anyOf(isPretty(), hasAttr(clang::attr::NoDebug), hasAncestor(functionDecl()))))
+      typeAliasDecl(unless(anyOf(isPretty(), hasAttr(clang::attr::NoDebug), isImplicit(), hasAncestor(functionDecl()))))
           .bind("nodebug_on_internal_aliases"),
       this);
 

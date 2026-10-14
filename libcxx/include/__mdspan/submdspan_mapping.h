@@ -58,8 +58,8 @@ consteval bool __is_sliceable_mapping(index_sequence<_Is...>) {
 }
 
 template <class _LayoutMapping>
-concept __sliceable_mapping =
-    __is_sliceable_mapping<_LayoutMapping>(make_index_sequence<_LayoutMapping::extents_type::rank()>{});
+concept __sliceable_mapping = __mdspan_detail::__is_sliceable_mapping<_LayoutMapping>(
+    make_index_sequence<_LayoutMapping::extents_type::rank()>{});
 
 // Classification of a canonical slice type.
 enum class __slice_kind { __collapsing, __full_slice, __unit_stride, __strided };

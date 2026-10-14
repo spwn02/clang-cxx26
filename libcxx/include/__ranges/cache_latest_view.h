@@ -35,8 +35,8 @@ template <input_range _View>
   requires view<_View>
 class cache_latest_view : public view_interface<cache_latest_view<_View>> {
   _View __base_ = _View();
-  using __cache_t = _If<is_reference_v<range_reference_t<_View>>,
-                        add_pointer_t<range_reference_t<_View>>, range_reference_t<_View>>;
+  using __cache_t _LIBCPP_NODEBUG =
+      _If<is_reference_v<range_reference_t<_View>>, add_pointer_t<range_reference_t<_View>>, range_reference_t<_View>>;
   mutable __non_propagating_cache<__cache_t> __cache_;
   class __iterator;
   class __sentinel;

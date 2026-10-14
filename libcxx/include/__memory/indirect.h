@@ -61,41 +61,41 @@ public:
     requires is_default_constructible_v<_Allocator>
   {
     static_assert(is_default_constructible_v<_Tp>, "T must be default-constructible");
-    __ptr_ = __make(alloc_);
+    __ptr_ = __make(__alloc_);
   }
 
-  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(allocator_arg_t, const _Allocator& __a) : alloc_(__a) {
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(allocator_arg_t, const _Allocator& __a) : __alloc_(__a) {
     static_assert(is_default_constructible_v<_Tp>, "T must be default-constructible");
-    __ptr_ = __make(alloc_);
+    __ptr_ = __make(__alloc_);
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr indirect(const indirect& __other)
-      : alloc_(_AllocTraits::select_on_container_copy_construction(__other.alloc_)) {
+      : __alloc_(_AllocTraits::select_on_container_copy_construction(__other.__alloc_)) {
     static_assert(is_copy_constructible_v<_Tp>, "T must be copy-constructible");
-    __ptr_ = __other.valueless_after_move() ? nullptr : __make(alloc_, *__other);
+    __ptr_ = __other.valueless_after_move() ? nullptr : __make(__alloc_, *__other);
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr indirect(allocator_arg_t, const _Allocator& __a, const indirect& __other)
-      : alloc_(__a) {
+      : __alloc_(__a) {
     static_assert(is_copy_constructible_v<_Tp>, "T must be copy-constructible");
-    __ptr_ = __other.valueless_after_move() ? nullptr : __make(alloc_, *__other);
+    __ptr_ = __other.valueless_after_move() ? nullptr : __make(__alloc_, *__other);
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr indirect(indirect&& __other) noexcept
-      : alloc_(std::move(__other.alloc_)), __ptr_(__other.__ptr_) {
+      : __alloc_(std::move(__other.__alloc_)), __ptr_(__other.__ptr_) {
     __other.__ptr_ = nullptr;
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr indirect(allocator_arg_t, const _Allocator& __a, indirect&& __other) noexcept(
       _AllocTraits::is_always_equal::value)
-      : alloc_(__a) {
+      : __alloc_(__a) {
     if (__other.valueless_after_move()) {
       __ptr_ = nullptr;
-    } else if (alloc_ == __other.alloc_) {
+    } else if (__alloc_ == __other.__alloc_) {
       __ptr_         = __other.__ptr_;
       __other.__ptr_ = nullptr;
     } else {
-      __ptr_ = __make(alloc_, std::move(*__other));
+      __ptr_ = __make(__alloc_, std::move(*__other));
       __other.__reset();
     }
   }
@@ -104,41 +104,41 @@ public:
     requires(!is_same_v<remove_cvref_t<_Up>, indirect> && !is_same_v<remove_cvref_t<_Up>, in_place_t> &&
              is_constructible_v<_Tp, _Up> && is_default_constructible_v<_Allocator>)
   _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(_Up&& __u) {
-    __ptr_ = __make(alloc_, std::forward<_Up>(__u));
+    __ptr_ = __make(__alloc_, std::forward<_Up>(__u));
   }
 
   template <class _Up = _Tp>
     requires(!is_same_v<remove_cvref_t<_Up>, indirect> && !is_same_v<remove_cvref_t<_Up>, in_place_t> &&
              is_constructible_v<_Tp, _Up>)
-  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(allocator_arg_t, const _Allocator& __a, _Up&& __u) : alloc_(__a) {
-    __ptr_ = __make(alloc_, std::forward<_Up>(__u));
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(allocator_arg_t, const _Allocator& __a, _Up&& __u) : __alloc_(__a) {
+    __ptr_ = __make(__alloc_, std::forward<_Up>(__u));
   }
 
   template <class... _Us>
     requires(is_constructible_v<_Tp, _Us...> && is_default_constructible_v<_Allocator>)
   _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(in_place_t, _Us&&... __us) {
-    __ptr_ = __make(alloc_, std::forward<_Us>(__us)...);
+    __ptr_ = __make(__alloc_, std::forward<_Us>(__us)...);
   }
 
   template <class... _Us>
     requires is_constructible_v<_Tp, _Us...>
   _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(allocator_arg_t, const _Allocator& __a, in_place_t, _Us&&... __us)
-      : alloc_(__a) {
-    __ptr_ = __make(alloc_, std::forward<_Us>(__us)...);
+      : __alloc_(__a) {
+    __ptr_ = __make(__alloc_, std::forward<_Us>(__us)...);
   }
 
   template <class _Ip, class... _Us>
     requires(is_constructible_v<_Tp, initializer_list<_Ip>&, _Us...> && is_default_constructible_v<_Allocator>)
   _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(in_place_t, initializer_list<_Ip> __il, _Us&&... __us) {
-    __ptr_ = __make(alloc_, __il, std::forward<_Us>(__us)...);
+    __ptr_ = __make(__alloc_, __il, std::forward<_Us>(__us)...);
   }
 
   template <class _Ip, class... _Us>
     requires is_constructible_v<_Tp, initializer_list<_Ip>&, _Us...>
   _LIBCPP_HIDE_FROM_ABI explicit constexpr indirect(
       allocator_arg_t, const _Allocator& __a, in_place_t, initializer_list<_Ip> __il, _Us&&... __us)
-      : alloc_(__a) {
-    __ptr_ = __make(alloc_, __il, std::forward<_Us>(__us)...);
+      : __alloc_(__a) {
+    __ptr_ = __make(__alloc_, __il, std::forward<_Us>(__us)...);
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr ~indirect() { __reset(); }
@@ -151,16 +151,16 @@ public:
     const bool __needs_updating = _AllocTraits::propagate_on_container_copy_assignment::value;
     if (__other.valueless_after_move()) {
       __reset();
-    } else if (alloc_ == __other.alloc_ && !valueless_after_move()) {
+    } else if (__alloc_ == __other.__alloc_ && !valueless_after_move()) {
       **this = *__other;
     } else {
-      _Allocator& __src_alloc = __needs_updating ? const_cast<_Allocator&>(__other.alloc_) : alloc_;
+      _Allocator& __src_alloc  = __needs_updating ? const_cast<_Allocator&>(__other.__alloc_) : __alloc_;
       pointer __new_ptr        = __make(__src_alloc, *__other);
       __reset();
       __ptr_ = __new_ptr;
     }
     if (__needs_updating)
-      alloc_ = __other.alloc_;
+      __alloc_ = __other.__alloc_;
     return *this;
   }
 
@@ -178,19 +178,19 @@ public:
     const bool __needs_updating = _AllocTraits::propagate_on_container_move_assignment::value;
     if (__other.valueless_after_move()) {
       __reset();
-    } else if (alloc_ == __other.alloc_) {
+    } else if (__alloc_ == __other.__alloc_) {
       using std::swap;
       swap(__ptr_, __other.__ptr_);
       __other.__reset();
     } else {
-      _Allocator& __src_alloc = __needs_updating ? __other.alloc_ : alloc_;
+      _Allocator& __src_alloc  = __needs_updating ? __other.__alloc_ : __alloc_;
       pointer __new_ptr        = __make(__src_alloc, std::move(*__other));
       __reset();
       __ptr_ = __new_ptr;
       __other.__reset();
     }
     if (__needs_updating)
-      alloc_ = std::move(__other.alloc_);
+      __alloc_ = std::move(__other.__alloc_);
     return *this;
   }
 
@@ -198,7 +198,7 @@ public:
     requires(!is_same_v<remove_cvref_t<_Up>, indirect> && is_constructible_v<_Tp, _Up> && is_assignable_v<_Tp&, _Up>)
   _LIBCPP_HIDE_FROM_ABI constexpr indirect& operator=(_Up&& __u) {
     if (valueless_after_move())
-      __ptr_ = __make(alloc_, std::forward<_Up>(__u));
+      __ptr_ = __make(__alloc_, std::forward<_Up>(__u));
     else
       **this = std::forward<_Up>(__u);
     return *this;
@@ -214,13 +214,13 @@ public:
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool valueless_after_move() const noexcept { return __ptr_ == nullptr; }
 
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr allocator_type get_allocator() const noexcept { return alloc_; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr allocator_type get_allocator() const noexcept { return __alloc_; }
 
   _LIBCPP_HIDE_FROM_ABI constexpr void swap(indirect& __other) noexcept(
       _AllocTraits::propagate_on_container_swap::value || _AllocTraits::is_always_equal::value) {
     using std::swap;
     if constexpr (_AllocTraits::propagate_on_container_swap::value)
-      swap(alloc_, __other.alloc_);
+      swap(__alloc_, __other.__alloc_);
     swap(__ptr_, __other.__ptr_);
   }
 
@@ -269,13 +269,13 @@ private:
 
   _LIBCPP_HIDE_FROM_ABI constexpr void __reset() {
     if (__ptr_ != nullptr) {
-      _AllocTraits::destroy(alloc_, std::addressof(*__ptr_));
-      _AllocTraits::deallocate(alloc_, __ptr_, 1);
+      _AllocTraits::destroy(__alloc_, std::addressof(*__ptr_));
+      _AllocTraits::deallocate(__alloc_, __ptr_, 1);
       __ptr_ = nullptr;
     }
   }
 
-  [[no_unique_address]] _Allocator alloc_{};
+  [[no_unique_address]] _Allocator __alloc_{};
   pointer __ptr_ = nullptr;
 };
 

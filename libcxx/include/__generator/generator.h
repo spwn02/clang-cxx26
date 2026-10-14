@@ -9,6 +9,7 @@
 #define _LIBCPP___GENERATOR_GENERATOR_H
 
 #include <__config>
+#include <__memory/addressof.h>
 #include <coroutine>
 #include <exception>
 #include <memory>
@@ -36,8 +37,8 @@ template <class _Ref, class _Val = void, class _Allocator = void>
 class generator : public ranges::view_interface<generator<_Ref, _Val, _Allocator> > {
   template <class, class, class>
   friend class generator;
-  using __value     = conditional_t<is_void_v<_Val>, remove_cvref_t<_Ref>, _Val>;
-  using __reference = conditional_t<is_void_v<_Val>, _Ref&&, _Ref>;
+  using __value _LIBCPP_NODEBUG     = conditional_t<is_void_v<_Val>, remove_cvref_t<_Ref>, _Val>;
+  using __reference _LIBCPP_NODEBUG = conditional_t<is_void_v<_Val>, _Ref&&, _Ref>;
 
 public:
   using yielded = conditional_t<is_reference_v<__reference>, __reference, const __reference&>;
@@ -151,7 +152,7 @@ public:
       }
 #  endif
       ::new (static_cast<void*>(reinterpret_cast<unsigned char*>(__pointer) + __header_pos))
-          __allocation_header{__count, __allocator_pos, &__deallocate_storage<__allocator_type>};
+          __allocation_header{__count, __allocator_pos, __deallocate_storage<__allocator_type>};
       return __pointer;
     }
 
@@ -220,7 +221,7 @@ public:
       remove_cvref_t<yielded> __val_;
       _LIBCPP_HIDE_FROM_ABI static constexpr bool await_ready() noexcept { return false; }
       _LIBCPP_HIDE_FROM_ABI bool await_suspend(coroutine_handle<promise_type> __h) noexcept {
-        __h.promise().__state_->__value_ = addressof(__val_);
+        __h.promise().__state_->__value_ = std::addressof(__val_);
         return true;
       }
       _LIBCPP_HIDE_FROM_ABI void await_resume() const noexcept {}
@@ -261,7 +262,7 @@ public:
       return yield_value(ranges::elements_of(
           __nested(allocator_arg, __r.allocator, ranges::begin(__r.range), ranges::end(__r.range))));
     }
-    void return_void() const noexcept {}
+    _LIBCPP_HIDE_FROM_ABI void return_void() const noexcept {}
     void await_transform() = delete;
     _LIBCPP_HIDE_FROM_ABI void unhandled_exception() { __state_->__exception_ = current_exception(); }
 

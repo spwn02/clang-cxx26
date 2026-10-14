@@ -176,7 +176,8 @@ public:
 
 private:
   template <class _Rcvr>
-  using __rcvr_for = __into_variant_rcvr<value_types_of_t<_Sndr, __fwd_env<env_of_t<remove_cvref_t<_Rcvr>>>>, remove_cvref_t<_Rcvr>>;
+  using __rcvr_for _LIBCPP_NODEBUG =
+      __into_variant_rcvr<value_types_of_t<_Sndr, __fwd_env<env_of_t<remove_cvref_t<_Rcvr>>>>, remove_cvref_t<_Rcvr>>;
 
   template <class _Self, class _Rcvr>
   _LIBCPP_HIDE_FROM_ABI static constexpr auto __connect_with(_Self&& __self, _Rcvr&& __rcvr) noexcept(

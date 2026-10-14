@@ -230,7 +230,7 @@ public:
 
   // Delegates to the locale's time_get facet for the specifiers that depend on the locale.
   _LIBCPP_HIDE_FROM_ABI bool __time_get(char __spec, tm& __t) {
-    const time_get<_CharT>& __tg = use_facet<time_get<_CharT>>(__is_.getloc());
+    const time_get<_CharT>& __tg = std::use_facet<time_get<_CharT>>(__is_.getloc());
     istreambuf_iterator<_CharT, _Traits> __b(__sb_), __e;
     ios_base::iostate __err = ios_base::goodbit;
     _CharT __fmt[2]         = {__widen('%'), __widen(__spec)};
@@ -241,7 +241,7 @@ public:
   }
 
   _LIBCPP_HIDE_FROM_ABI bool __weekday_name(int& __result) {
-    const time_get<_CharT>& __tg = use_facet<time_get<_CharT>>(__is_.getloc());
+    const time_get<_CharT>& __tg = std::use_facet<time_get<_CharT>>(__is_.getloc());
     istreambuf_iterator<_CharT, _Traits> __b(__sb_), __e;
     ios_base::iostate __err = ios_base::goodbit;
     tm __t{};
@@ -255,7 +255,7 @@ public:
   }
 
   _LIBCPP_HIDE_FROM_ABI bool __month_name(int& __result) {
-    const time_get<_CharT>& __tg = use_facet<time_get<_CharT>>(__is_.getloc());
+    const time_get<_CharT>& __tg = std::use_facet<time_get<_CharT>>(__is_.getloc());
     istreambuf_iterator<_CharT, _Traits> __b(__sb_), __e;
     ios_base::iostate __err = ios_base::goodbit;
     tm __t{};
@@ -278,6 +278,8 @@ public:
 // Parses the format string. __frac_width is the number of fractional-second digits of the destination type. Returns
 // false when the input does not match; the caller then sets failbit.
 template <class _CharT, class _Traits, class _Alloc>
+// One case per conversion specifier, hence the size and complexity.
+// NOLINTNEXTLINE(readability-function-size,readability-function-cognitive-complexity)
 _LIBCPP_HIDE_FROM_ABI bool __parse_format(
     __reader<_CharT, _Traits>& __r,
     const _CharT* __fmt,
@@ -607,9 +609,7 @@ _LIBCPP_HIDE_FROM_ABI inline bool __combine_year(const __parsed_fields& __f, int
   }
   if (__f.__has_year_) {
     __year = __f.__year_;
-    if (__f.__has_century_ && __f.__century_ != (__year >= 0 ? __year / 100 : -((-__year) / 100)))
-      return false;
-    return true;
+    return !__f.__has_century_ || __f.__century_ == (__year >= 0 ? __year / 100 : -((-__year) / 100));
   }
   return false;
 }
@@ -1014,7 +1014,7 @@ __to_sys_time(const __parsed_fields& __f, bool __apply_offset, bool __allow_leap
   _Duration __tod;
   if (!__from_stream_detail::__seconds_to_duration(__seconds, __tod))
     return false;
-  __result = sys_time<_Duration>{duration_cast<_Duration>(sys_days{__ymd}.time_since_epoch()) + __tod};
+  __result = sys_time<_Duration>{chrono::duration_cast<_Duration>(sys_days{__ymd}.time_since_epoch()) + __tod};
   return true;
 }
 

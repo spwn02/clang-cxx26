@@ -62,7 +62,7 @@ struct __sync_wait_env {
 
 // [exec.sync.wait]p3: sync-wait-result-type.
 template <execution::sender_in<__sync_wait_env> _Sndr>
-using __sync_wait_result_type =
+using __sync_wait_result_type _LIBCPP_NODEBUG =
     optional<execution::value_types_of_t<_Sndr, __sync_wait_env, execution::__decayed_tuple, type_identity_t>>;
 
 template <class _Sndr>
@@ -122,11 +122,12 @@ struct sync_wait_t {
   template <class _Sndr>
   _LIBCPP_HIDE_FROM_ABI auto apply_sender(_Sndr&& __sndr) const -> __sync_wait_result_type<remove_cvref_t<_Sndr>> {
     __sync_wait_state<remove_cvref_t<_Sndr>> __state;
-    auto __op = execution::connect(std::forward<_Sndr>(__sndr), __sync_wait_receiver<remove_cvref_t<_Sndr>>(&__state));
+    auto __op = execution::connect(
+        std::forward<_Sndr>(__sndr), __sync_wait_receiver<remove_cvref_t<_Sndr>>(std::addressof(__state)));
     execution::start(__op);
     __state.__loop.run();
     if (__state.__error) {
-      rethrow_exception(std::move(__state.__error));
+      std::rethrow_exception(std::move(__state.__error));
     }
     return std::move(__state.__result);
   }

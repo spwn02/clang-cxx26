@@ -62,14 +62,14 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto
 partial_load(_Rp&& __r, const typename conditional_t<is_void_v<_Vp>, __load_default_vec<_Rp, void>, _Vp>::mask_type& __mask,
              flags<_Flags...> __f = {}) {
   using _Result = conditional_t<is_void_v<_Vp>, __load_default_vec<_Rp, void>, _Vp>;
-  return __partial_load_impl<_Result>(std::forward<_Rp>(__r), __mask, __f);
+  return simd::__partial_load_impl<_Result>(std::forward<_Rp>(__r), __mask, __f);
 }
 
 template <class _Vp = void, ranges::contiguous_range _Rp, class... _Flags>
   requires ranges::sized_range<_Rp>
 _LIBCPP_HIDE_FROM_ABI constexpr auto partial_load(_Rp&& __r, flags<_Flags...> __f = {}) {
   using _Result = conditional_t<is_void_v<_Vp>, __load_default_vec<_Rp, void>, _Vp>;
-  return __partial_load_impl<_Result>(std::forward<_Rp>(__r), typename _Result::mask_type(true), __f);
+  return simd::__partial_load_impl<_Result>(std::forward<_Rp>(__r), typename _Result::mask_type(true), __f);
 }
 
 template <class _Result, contiguous_iterator _Ip, class... _Flags>
@@ -85,13 +85,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto
 partial_load(_Ip __first, iter_difference_t<_Ip> __n, const typename conditional_t<is_void_v<_Vp>, __load_default_vec_iter<_Ip>, _Vp>::mask_type& __mask,
              flags<_Flags...> __f = {}) {
   using _Result = conditional_t<is_void_v<_Vp>, __load_default_vec_iter<_Ip>, _Vp>;
-  return __partial_load_impl<_Result>(__first, __n, __mask, __f);
+  return simd::__partial_load_impl<_Result>(__first, __n, __mask, __f);
 }
 
 template <class _Vp = void, contiguous_iterator _Ip, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr auto partial_load(_Ip __first, iter_difference_t<_Ip> __n, flags<_Flags...> __f = {}) {
   using _Result = conditional_t<is_void_v<_Vp>, __load_default_vec_iter<_Ip>, _Vp>;
-  return partial_load<_Result>(__first, __n, typename _Result::mask_type(true), __f);
+  return simd::partial_load<_Result>(__first, __n, typename _Result::mask_type(true), __f);
 }
 
 template <class _Vp = void, contiguous_iterator _Ip, sized_sentinel_for<_Ip> _Sp, class... _Flags>
@@ -103,8 +103,8 @@ partial_load(_Ip __first, _Sp __last, const auto& __mask, flags<_Flags...> __f =
 template <class _Vp = void, contiguous_iterator _Ip, sized_sentinel_for<_Ip> _Sp, class... _Flags>
 _LIBCPP_HIDE_FROM_ABI constexpr auto partial_load(_Ip __first, _Sp __last, flags<_Flags...> __f = {}) {
   using _Result = conditional_t<is_void_v<_Vp>, __load_default_vec_iter<_Ip>, _Vp>;
-  return partial_load<_Result>(__first, static_cast<iter_difference_t<_Ip>>(__last - __first),
-                               typename _Result::mask_type(true), __f);
+  return simd::partial_load<_Result>(
+      __first, static_cast<iter_difference_t<_Ip>>(__last - __first), typename _Result::mask_type(true), __f);
 }
 
 // [simd.loadstore]/1-5: unchecked_load -- Effects: Equivalent to partial_load<V>(r, mask, f), with

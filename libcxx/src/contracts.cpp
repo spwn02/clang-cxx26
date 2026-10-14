@@ -151,6 +151,9 @@ assertion_kind contract_violation::kind() const noexcept { return __pimpl_->kind
 evaluation_semantic contract_violation::semantic() const noexcept { return __pimpl_->semantic; }
 
 extern "C" _LIBCPP_EXPORTED_FROM_ABI void
+__handle_contract_violation_v3(_EvaluationSemantic __semantic, _DetectionMode __mode, void* dataptr);
+
+extern "C" _LIBCPP_EXPORTED_FROM_ABI void
 __handle_contract_violation_v3(_EvaluationSemantic __semantic, _DetectionMode __mode, void* dataptr) {
   using namespace std::contracts;
   _ContractViolationImpl impl  = create_impl(dataptr, &__semantic, &__mode);

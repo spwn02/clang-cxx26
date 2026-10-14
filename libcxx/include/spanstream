@@ -186,7 +186,7 @@ protected:
 
     // Would base + off overflow, be negative, or move past the end of the buffer?
     off_type __newoff;
-    if (__builtin_add_overflow(__base, __off, &__newoff) || __newoff < 0 ||
+    if (__builtin_add_overflow(__base, __off, std::addressof(__newoff)) || __newoff < 0 ||
         static_cast<size_t>(__newoff) > __buf_.size())
       return pos_type(off_type(-1));
 

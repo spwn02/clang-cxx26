@@ -1105,11 +1105,6 @@ _LIBCPP_HIDE_FROM_ABI void swap(hive<_Tp, _Allocator>& __x, hive<_Tp, _Allocator
   __x.swap(__y);
 }
 
-template <class _Tp, class _Allocator, class _Up = _Tp>
-_LIBCPP_HIDE_FROM_ABI typename hive<_Tp, _Allocator>::size_type erase(hive<_Tp, _Allocator>& __c, const _Up& __value) {
-  return std::erase_if(__c, [&__value](const _Tp& __v) { return __v == __value; });
-}
-
 template <class _Tp, class _Allocator, class _Predicate>
 _LIBCPP_HIDE_FROM_ABI typename hive<_Tp, _Allocator>::size_type erase_if(hive<_Tp, _Allocator>& __c, _Predicate __pred) {
   typename hive<_Tp, _Allocator>::size_type __r = 0;
@@ -1122,6 +1117,11 @@ _LIBCPP_HIDE_FROM_ABI typename hive<_Tp, _Allocator>::size_type erase_if(hive<_T
     }
   }
   return __r;
+}
+
+template <class _Tp, class _Allocator, class _Up = _Tp>
+_LIBCPP_HIDE_FROM_ABI typename hive<_Tp, _Allocator>::size_type erase(hive<_Tp, _Allocator>& __c, const _Up& __value) {
+  return std::erase_if(__c, [&__value](const _Tp& __v) { return __v == __value; });
 }
 
 #endif // _LIBCPP_STD_VER >= 26

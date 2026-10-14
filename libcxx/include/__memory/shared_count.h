@@ -51,8 +51,11 @@ inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp __libcpp_atomic_r
 #endif
 }
 
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class _LIBCPP_EXPORTED_FROM_ABI __shared_count {
-  __shared_count(const __shared_count&) = delete;
+public:
+  __shared_count(const __shared_count&)            = delete;
   __shared_count& operator=(const __shared_count&) = delete;
 
 protected:
@@ -94,6 +97,7 @@ public:
 #endif
   }
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 class _LIBCPP_EXPORTED_FROM_ABI __shared_weak_count : private __shared_count {
   long __shared_weak_owners_;

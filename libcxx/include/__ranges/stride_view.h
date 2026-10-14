@@ -177,8 +177,8 @@ template <input_range _View>
   requires view<_View>
 template <bool _Const>
 class stride_view<_View>::__iterator : public __stride_view_iterator_category<__maybe_const<_Const, _View>> {
-  using _Parent = __maybe_const<_Const, stride_view>;
-  using _Base   = __maybe_const<_Const, _View>;
+  using _Parent _LIBCPP_NODEBUG = __maybe_const<_Const, stride_view>;
+  using _Base _LIBCPP_NODEBUG   = __maybe_const<_Const, _View>;
 
   _Parent* __parent_                    = nullptr;
   iterator_t<_Base> __current_          = iterator_t<_Base>();

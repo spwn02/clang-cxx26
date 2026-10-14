@@ -118,8 +118,7 @@ private:
   _ChildAttrs __attrs_;
 
   template <class... _Envs>
-  using __child_sigs_t =
-      completion_signatures_of_t<_Child, __fwd_env<remove_cvref_t<_Envs>>...>;
+  using __child_sigs_t _LIBCPP_NODEBUG = completion_signatures_of_t<_Child, __fwd_env<remove_cvref_t<_Envs>>...>;
 
   // The completion tags (as a bit set) whose agents the completions with tag _Cpo happen on, empty if that cannot be
   // determined (the signatures of the child need an environment, or the environment has no such query).

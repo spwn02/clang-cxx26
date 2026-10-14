@@ -377,7 +377,7 @@ struct __associate_data {
 
 template <class _Sndr, class _Assoc, class _Rcvr>
 class __associate_opstate {
-  using __child_op_t = connect_result_t<_Sndr, _Rcvr>;
+  using __child_op_t _LIBCPP_NODEBUG = connect_result_t<_Sndr, _Rcvr>;
 
 public:
   using operation_state_concept = operation_state_tag;
@@ -607,7 +607,7 @@ template <class _Sig>
 struct __spawn_future_as_tuple;
 template <class _Tag, class... _Args>
 struct __spawn_future_as_tuple<_Tag(_Args...)> {
-  using type = __decayed_tuple<_Tag, _Args...>;
+  using type _LIBCPP_NODEBUG = __decayed_tuple<_Tag, _Args...>;
 };
 
 template <class _List>
@@ -753,12 +753,12 @@ class __spawn_future_state final
           decltype(execution::write_env(
               execution::__stop_when(std::declval<_Sndr>(), std::declval<inplace_stop_token>()), std::declval<_Env>())),
           env<>>> {
-  using __wrapped_t = decltype(execution::write_env(
+  using __wrapped_t _LIBCPP_NODEBUG = decltype(execution::write_env(
       execution::__stop_when(std::declval<_Sndr>(), std::declval<inplace_stop_token>()), std::declval<_Env>()));
 
 public:
-  using __sigs_t  = completion_signatures_of_t<__wrapped_t, env<>>;
-  using __rcvr_t  = __spawn_future_receiver<__sigs_t>;
+  using __sigs_t _LIBCPP_NODEBUG  = completion_signatures_of_t<__wrapped_t, env<>>;
+  using __rcvr_t _LIBCPP_NODEBUG  = __spawn_future_receiver<__sigs_t>;
   using __alloc_t _LIBCPP_NODEBUG = typename allocator_traits<_Alloc>::template rebind_alloc<__spawn_future_state>;
 
   _LIBCPP_HIDE_FROM_ABI __spawn_future_state(_Alloc __alloc, _Sndr&& __sndr, _Token __token, _Env __env)
@@ -944,8 +944,8 @@ class __spawn_future_opstate final : public __spawn_future_consume_sink<typename
     __try_cancelable* __state_;
     _LIBCPP_HIDE_FROM_ABI void operator()() noexcept { __state_->__try_cancel(); }
   };
-  using __stop_token_t    = stop_token_of_t<env_of_t<_Rcvr>>;
-  using __stop_callback_t = stop_callback_for_t<__stop_token_t, __callback>;
+  using __stop_token_t _LIBCPP_NODEBUG    = stop_token_of_t<env_of_t<_Rcvr>>;
+  using __stop_callback_t _LIBCPP_NODEBUG = stop_callback_for_t<__stop_token_t, __callback>;
 
 public:
   using operation_state_concept = operation_state_tag;

@@ -55,7 +55,7 @@ public:
 
 private:
   static constexpr size_t __array_size = __n / 2;
-  using __constants_type               = __philox_constants<_UIntType, __n, __consts...>;
+  using __constants_type _LIBCPP_NODEBUG = __philox_constants<_UIntType, __n, __consts...>;
   array<result_type, __array_size> __key_;
   array<result_type, __n> __counter_;
   array<result_type, __n> __output_;

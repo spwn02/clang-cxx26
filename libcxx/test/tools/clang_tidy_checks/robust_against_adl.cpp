@@ -20,7 +20,27 @@ AST_MATCHER(clang::CallExpr, isOperator) { return llvm::isa<clang::CXXOperatorCa
 
 AST_MATCHER(clang::UnresolvedLookupExpr, isCustomizationPoint) {
   return std::ranges::any_of(
-      std::array{"swap", "make_error_code", "make_error_condition", "begin", "end", "size", "rend", "rbegin"},
+      std::array{
+          "swap",
+          "make_error_code",
+          "make_error_condition",
+          "begin",
+          "end",
+          "size",
+          "rend",
+          "rbegin",
+          // Names the standard resolves through argument-dependent lookup (C++26):
+          "abs",         // [linalg.helpers.abs]
+          "conj",        // [linalg.helpers.conj]
+          "real",        // [linalg.helpers.real]
+          "imag",        // [linalg.helpers.imag]
+          "sqrt",        // linalg: lets user-defined number types supply sqrt (the wording only says "square root")
+          "from_stream", // [time.parse]
+          "submdspan_mapping",  // [mdspan.sub.map]
+          "reserve_hint",       // [range.prim.size.hint]
+          "__simd_select_impl", // [simd.alg]: found only by ADL (hidden friend)
+          "permute", // [simd.permute]: used by basic_vec/basic_mask members before the declaration, found by ADL at instantiation
+          "operator co_await"}, // [expr.await]
       [&](const char* func) { return Node.getName().getAsString() == func; });
 }
 

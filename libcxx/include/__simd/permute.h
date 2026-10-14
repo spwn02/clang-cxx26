@@ -230,7 +230,8 @@ template <class _Vp = void, ranges::contiguous_range _Rp, __simd_integral _Ip, c
   requires ranges::sized_range<_Rp>
 _LIBCPP_HIDE_FROM_ABI constexpr auto partial_gather_from(_Rp&& __src_range, const _Ip& __indices, flags<_Flags...> __f = {}) {
   using _Result = conditional_t<is_void_v<_Vp>, __gather_default_vec<_Rp, _Ip>, _Vp>;
-  return partial_gather_from<_Result>(std::forward<_Rp>(__src_range), typename _Result::mask_type(true), __indices, __f);
+  return simd::partial_gather_from<_Result>(
+      std::forward<_Rp>(__src_range), typename _Result::mask_type(true), __indices, __f);
 }
 
 template <class _Vp = void, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
@@ -238,14 +239,15 @@ template <class _Vp = void, ranges::contiguous_range _Rp, __simd_integral _Ip, c
 _LIBCPP_HIDE_FROM_ABI constexpr auto unchecked_gather_from(_Rp&& __src_range, const typename _Ip::mask_type& __mask,
                                                             const _Ip& __indices, flags<_Flags...> __f = {}) {
   using _Result = conditional_t<is_void_v<_Vp>, __gather_default_vec<_Rp, _Ip>, _Vp>;
-  return partial_gather_from<_Result>(std::forward<_Rp>(__src_range), __mask, __indices, __f);
+  return simd::partial_gather_from<_Result>(std::forward<_Rp>(__src_range), __mask, __indices, __f);
 }
 
 template <class _Vp = void, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
   requires ranges::sized_range<_Rp>
 _LIBCPP_HIDE_FROM_ABI constexpr auto unchecked_gather_from(_Rp&& __src_range, const _Ip& __indices, flags<_Flags...> __f = {}) {
   using _Result = conditional_t<is_void_v<_Vp>, __gather_default_vec<_Rp, _Ip>, _Vp>;
-  return partial_gather_from<_Result>(std::forward<_Rp>(__src_range), typename _Result::mask_type(true), __indices, __f);
+  return simd::partial_gather_from<_Result>(
+      std::forward<_Rp>(__src_range), typename _Result::mask_type(true), __indices, __f);
 }
 
 template <__simd_vec_type _Vp, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>

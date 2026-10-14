@@ -111,7 +111,7 @@ class polymorphic {
   _LIBCPP_HIDE_FROM_ABI __control_block* __make_cb(_Args&&... __args) {
     using _Rebound = typename _AllocTraits::template rebind_alloc<__control_block_impl<_Up>>;
     using _RTraits  = allocator_traits<_Rebound>;
-    _Rebound __ra(alloc_);
+    _Rebound __ra(__alloc_);
     auto* __mem = _RTraits::allocate(__ra, 1);
     _RTraits::construct(__ra, __mem, std::forward<_Args>(__args)...);
     return __mem;
@@ -119,7 +119,7 @@ class polymorphic {
 
   _LIBCPP_HIDE_FROM_ABI void __reset() {
     if (__cb_ != nullptr) {
-      __cb_->__destroy(alloc_);
+      __cb_->__destroy(__alloc_);
       __cb_ = nullptr;
     }
   }
@@ -136,37 +136,37 @@ public:
     __cb_ = __make_cb<_Tp>();
   }
 
-  _LIBCPP_HIDE_FROM_ABI explicit constexpr polymorphic(allocator_arg_t, const _Allocator& __a) : alloc_(__a) {
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr polymorphic(allocator_arg_t, const _Allocator& __a) : __alloc_(__a) {
     static_assert(is_default_constructible_v<_Tp> && is_copy_constructible_v<_Tp>,
                   "T must be default-constructible and copy-constructible");
     __cb_ = __make_cb<_Tp>();
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr polymorphic(const polymorphic& __other)
-      : alloc_(_AllocTraits::select_on_container_copy_construction(__other.alloc_)) {
-    __cb_ = __other.valueless_after_move() ? nullptr : __other.__cb_->__clone(alloc_);
+      : __alloc_(_AllocTraits::select_on_container_copy_construction(__other.__alloc_)) {
+    __cb_ = __other.valueless_after_move() ? nullptr : __other.__cb_->__clone(__alloc_);
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr polymorphic(allocator_arg_t, const _Allocator& __a, const polymorphic& __other)
-      : alloc_(__a) {
-    __cb_ = __other.valueless_after_move() ? nullptr : __other.__cb_->__clone(alloc_);
+      : __alloc_(__a) {
+    __cb_ = __other.valueless_after_move() ? nullptr : __other.__cb_->__clone(__alloc_);
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr polymorphic(polymorphic&& __other) noexcept
-      : alloc_(std::move(__other.alloc_)), __cb_(__other.__cb_) {
+      : __alloc_(std::move(__other.__alloc_)), __cb_(__other.__cb_) {
     __other.__cb_ = nullptr;
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr polymorphic(allocator_arg_t, const _Allocator& __a, polymorphic&& __other) noexcept(
       _AllocTraits::is_always_equal::value)
-      : alloc_(__a) {
+      : __alloc_(__a) {
     if (__other.valueless_after_move()) {
       __cb_ = nullptr;
-    } else if (alloc_ == __other.alloc_) {
+    } else if (__alloc_ == __other.__alloc_) {
       __cb_         = __other.__cb_;
       __other.__cb_ = nullptr;
     } else {
-      __cb_ = __other.__cb_->__move_clone(alloc_);
+      __cb_ = __other.__cb_->__move_clone(__alloc_);
     }
   }
 
@@ -182,7 +182,8 @@ public:
     requires(!is_same_v<remove_cvref_t<_Up>, polymorphic> && derived_from<remove_cvref_t<_Up>, _Tp> &&
              is_constructible_v<remove_cvref_t<_Up>, _Up> && is_copy_constructible_v<remove_cvref_t<_Up>> &&
              !__is_inplace_type<remove_cvref_t<_Up>>::value)
-  _LIBCPP_HIDE_FROM_ABI explicit constexpr polymorphic(allocator_arg_t, const _Allocator& __a, _Up&& __u) : alloc_(__a) {
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr polymorphic(allocator_arg_t, const _Allocator& __a, _Up&& __u)
+      : __alloc_(__a) {
     __cb_ = __make_cb<remove_cvref_t<_Up>>(std::forward<_Up>(__u));
   }
 
@@ -196,8 +197,9 @@ public:
   template <class _Up, class... _Ts>
     requires(is_same_v<remove_cvref_t<_Up>, _Up> && derived_from<_Up, _Tp> && is_constructible_v<_Up, _Ts...> &&
              is_copy_constructible_v<_Up>)
-  _LIBCPP_HIDE_FROM_ABI explicit constexpr polymorphic(allocator_arg_t, const _Allocator& __a, in_place_type_t<_Up>, _Ts&&... __ts)
-      : alloc_(__a) {
+  _LIBCPP_HIDE_FROM_ABI explicit constexpr polymorphic(
+      allocator_arg_t, const _Allocator& __a, in_place_type_t<_Up>, _Ts&&... __ts)
+      : __alloc_(__a) {
     __cb_ = __make_cb<_Up>(std::forward<_Ts>(__ts)...);
   }
 
@@ -214,7 +216,7 @@ public:
              is_constructible_v<_Up, initializer_list<_Ip>&, _Us...> && is_copy_constructible_v<_Up>)
   _LIBCPP_HIDE_FROM_ABI explicit constexpr polymorphic(
       allocator_arg_t, const _Allocator& __a, in_place_type_t<_Up>, initializer_list<_Ip> __il, _Us&&... __us)
-      : alloc_(__a) {
+      : __alloc_(__a) {
     __cb_ = __make_cb<_Up>(__il, std::forward<_Us>(__us)...);
   }
 
@@ -227,11 +229,11 @@ public:
     __control_block* __new_cb =
         __other.valueless_after_move()
             ? nullptr
-            : __other.__cb_->__clone(__needs_updating ? const_cast<_Allocator&>(__other.alloc_) : alloc_);
+            : __other.__cb_->__clone(__needs_updating ? const_cast<_Allocator&>(__other.__alloc_) : __alloc_);
     __reset();
     __cb_ = __new_cb;
     if (__needs_updating)
-      alloc_ = __other.alloc_;
+      __alloc_ = __other.__alloc_;
     return *this;
   }
 
@@ -240,19 +242,21 @@ public:
     if (std::addressof(__other) == this)
       return *this;
     const bool __needs_updating = _AllocTraits::propagate_on_container_move_assignment::value;
-    if (alloc_ == __other.alloc_) {
+    if (__alloc_ == __other.__alloc_) {
       using std::swap;
       swap(__cb_, __other.__cb_);
       __other.__reset();
     } else {
       __control_block* __new_cb =
-          __other.valueless_after_move() ? nullptr : __other.__cb_->__clone(__needs_updating ? __other.alloc_ : alloc_);
+          __other.valueless_after_move()
+              ? nullptr
+              : __other.__cb_->__clone(__needs_updating ? __other.__alloc_ : __alloc_);
       __reset();
       __cb_ = __new_cb;
       __other.__reset();
     }
     if (__needs_updating)
-      alloc_ = std::move(__other.alloc_);
+      __alloc_ = std::move(__other.__alloc_);
     return *this;
   }
 
@@ -264,13 +268,13 @@ public:
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool valueless_after_move() const noexcept { return __cb_ == nullptr; }
 
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr allocator_type get_allocator() const noexcept { return alloc_; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr allocator_type get_allocator() const noexcept { return __alloc_; }
 
   _LIBCPP_HIDE_FROM_ABI constexpr void swap(polymorphic& __other) noexcept(
       _AllocTraits::propagate_on_container_swap::value || _AllocTraits::is_always_equal::value) {
     using std::swap;
     if constexpr (_AllocTraits::propagate_on_container_swap::value)
-      swap(alloc_, __other.alloc_);
+      swap(__alloc_, __other.__alloc_);
     swap(__cb_, __other.__cb_);
   }
 
@@ -279,7 +283,7 @@ public:
   }
 
 private:
-  [[no_unique_address]] _Allocator alloc_{};
+  [[no_unique_address]] _Allocator __alloc_{};
   __control_block* __cb_ = nullptr;
 };
 
