@@ -7673,8 +7673,9 @@ static bool isLayoutCompatible(const ASTContext &C, const EnumDecl *ED1,
   if (!ED1->isComplete() || !ED2->isComplete() ||
       !C.hasSameType(ED1->getIntegerType(), ED2->getIntegerType()))
     return false;
-  // HLSL's scalarized layout compatibility only looks at the underlying types.
-  if (C.getLangOpts().HLSL)
+  // HLSL's scalarized layout compatibility only looks at the underlying types,
+  // and so does C (CWG3046 is a C++ rule).
+  if (C.getLangOpts().HLSL || !C.getLangOpts().CPlusPlus)
     return true;
 
   llvm::APInt Min1, Max1, Min2, Max2;
