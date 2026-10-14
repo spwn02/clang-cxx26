@@ -53,7 +53,7 @@
 #error "wrong value for __cpp_constexpr_virtual_inheritance"
 #endif
 
-#if check(trivial_union, 0, 0, 0, 0, 0, 0, 202502)
+#if check(trivial_union, 0, 0, 0, 0, 0, 0, 202603)
 #error "wrong value for __cpp_trivial_union"
 #endif
 

@@ -604,6 +604,10 @@ void Pointer::activate() const {
   };
 
   Pointer B = *this;
+  // An element of a primitive array activates the array: the array is the
+  // member of the union, and the walk below compares against the field pointer.
+  if (B.getFieldDesc()->isPrimitiveArray() && !B.isArrayRoot())
+    B = B.getArray();
   while (!B.isRoot() && B.inUnion()) {
     activate(B);
 

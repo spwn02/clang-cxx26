@@ -271,6 +271,15 @@ Resolutions to C++ Defect Reports
   optional second argument ``static_cast<const volatile U*>(p)``, which is never
   evaluated as a value; the result is false when evaluating it would not be a
   constant subexpression.
+
+- Implemented the language part of
+  `P3726R2 <https://wg21.link/P3726R2>`_: the trivial default constructor of a
+  union no longer begins the lifetime of its first variant member (this removes
+  the rule P3074R7 added), the elements of an array that is a member of a union
+  and are not within their lifetimes have no constituent values, and
+  ``__cpp_trivial_union`` is ``202603L``. The bytecode interpreter now
+  implements ``__builtin_start_lifetime``.
+
 C Language Changes
 ------------------
 

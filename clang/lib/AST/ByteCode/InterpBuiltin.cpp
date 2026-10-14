@@ -2509,6 +2509,32 @@ static bool interp__builtin_object_size(InterpState &S, CodePtr OpPC,
   return true;
 }
 
+/// [obj.lifetime] std::start_lifetime: begins the lifetime of the object the
+/// pointer designates and makes it the active member of its union; if it is
+/// already within its lifetime nothing happens. No initialization is performed
+/// and no subobject begins its lifetime.
+static bool interp__builtin_start_lifetime(InterpState &S, CodePtr OpPC,
+                                           const CallExpr *Call) {
+  const Pointer &Ptr = S.Stk.pop<Pointer>();
+  if (Ptr.isZero()) {
+    S.FFDiag(S.Current->getSource(OpPC), diag::note_constexpr_access_null)
+        << AK_Construct;
+    return false;
+  }
+  if (!Ptr.isBlockPointer())
+    return false;
+  if (!CheckDummy(S, OpPC, Ptr.block(), AK_Construct))
+    return false;
+  if (!Ptr.block()->isAccessible() && !CheckExtern(S, OpPC, Ptr))
+    return false;
+
+  if (Ptr.inUnion() && Ptr.getBase().getRecord()->isUnion())
+    Ptr.activate();
+  if (Ptr.getLifetime() != Lifetime::Started)
+    Ptr.startLifetime();
+  return true;
+}
+
 /// C++2c [meta.const.eval]: is the cast CastArg, applied to the object Ptr
 /// designates, a constant subexpression? Only the conversions that can fail
 /// matter: a static_cast to a derived class needs Ptr to be the base class
@@ -4927,6 +4953,9 @@ bool InterpretBuiltin(InterpState &S, CodePtr OpPC, const CallExpr *Call,
 
   case Builtin::BI__builtin_is_within_lifetime:
     return interp__builtin_is_within_lifetime(S, OpPC, Call);
+
+  case Builtin::BI__builtin_start_lifetime:
+    return interp__builtin_start_lifetime(S, OpPC, Call);
 
   case Builtin::BI__builtin_elementwise_add_sat:
     return interp__builtin_elementwise_int_binop(

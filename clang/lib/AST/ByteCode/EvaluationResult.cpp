@@ -29,9 +29,14 @@ static void DiagnoseUninitializedSubobject(InterpState &S, SourceLocation Loc,
 static bool CheckFieldsInitialized(InterpState &S, SourceLocation Loc,
                                    const Pointer &BasePtr, const Record *R);
 
+/// \p IsUnionElemental is true for an array that is a direct member of a union
+/// or an element of such an array: the elements of it that are not within their
+/// lifetimes are inactive union elemental subobjects and have no constituent
+/// values (C++2c [basic.memobj]).
 static bool CheckArrayInitialized(InterpState &S, SourceLocation Loc,
                                   const Pointer &BasePtr,
-                                  const ConstantArrayType *CAT) {
+                                  const ConstantArrayType *CAT,
+                                  bool IsUnionElemental = false) {
   size_t NumElems = CAT->getZExtSize();
 
   if (NumElems == 0)
@@ -44,15 +49,20 @@ static bool CheckArrayInitialized(InterpState &S, SourceLocation Loc,
     const Record *R = BasePtr.getElemRecord();
     for (size_t I = 0; I != NumElems; ++I) {
       Pointer ElemPtr = BasePtr.atIndex(I).narrow();
+      if (IsUnionElemental && !ElemPtr.isInitialized())
+        continue;
       Result &= CheckFieldsInitialized(S, Loc, ElemPtr, R);
     }
   } else if (const auto *ElemCAT = dyn_cast<ConstantArrayType>(ElemType)) {
     for (size_t I = 0; I != NumElems; ++I) {
       Pointer ElemPtr = BasePtr.atIndex(I).narrow();
-      Result &= CheckArrayInitialized(S, Loc, ElemPtr, ElemCAT);
+      Result &=
+          CheckArrayInitialized(S, Loc, ElemPtr, ElemCAT, IsUnionElemental);
     }
   } else {
     // Primitive arrays.
+    if (IsUnionElemental)
+      return true;
     if (S.getContext().canClassify(ElemType)) {
       if (BasePtr.allElementsInitialized()) {
         return true;
@@ -95,7 +105,7 @@ static bool CheckFieldsInitialized(InterpState &S, SourceLocation Loc,
     } else if (FieldType->isArrayType()) {
       const auto *CAT =
           cast<ConstantArrayType>(FieldType->getAsArrayTypeUnsafe());
-      Result &= CheckArrayInitialized(S, Loc, FieldPtr, CAT);
+      Result &= CheckArrayInitialized(S, Loc, FieldPtr, CAT, R->isUnion());
     } else if (!FieldPtr.isInitialized()) {
       DiagnoseUninitializedSubobject(S, Loc, F.Decl);
       Result = false;

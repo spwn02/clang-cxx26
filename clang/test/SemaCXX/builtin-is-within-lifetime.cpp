@@ -35,10 +35,9 @@ consteval bool is_within_lifetime(const T* p) noexcept { // #std-definition
 #endif
 }
 
-// C++26 [class.default.ctor]p4 (P3074R7): the trivial default constructor of a
-// union begins the lifetime of its first variant member if that has
-// implicit-lifetime type.
-constexpr bool first_member_starts_lifetime = __cplusplus > 202302L;
+// The default constructor of a union begins the lifetime of none of its members
+// (P3726R2 removed the first variant member rule of P3074R7).
+constexpr bool first_member_starts_lifetime = false;
 
 consteval bool test_union(int& i, char& c) {
   if (__builtin_is_within_lifetime(&i) != first_member_starts_lifetime ||

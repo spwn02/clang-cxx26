@@ -7,7 +7,7 @@
 // initializer that has a non-trivial destructor), whatever the variant members.
 
 #if __cplusplus > 202302L
-#  if __cpp_trivial_union != 202502L
+#  if __cpp_trivial_union != 202603L
 #    error "wrong value for __cpp_trivial_union"
 #  endif
 #else

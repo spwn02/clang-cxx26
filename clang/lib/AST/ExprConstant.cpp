@@ -2494,7 +2494,8 @@ static bool CheckEvaluationResult(CheckEvaluationResultKind CERK,
                                   QualType Type, const APValue &Value,
                                   ConstantExprKind Kind,
                                   const FieldDecl *SubobjectDecl,
-                                  CheckedTemporaries &CheckedTemps);
+                                  CheckedTemporaries &CheckedTemps,
+                                  bool IsUnionElemental = false);
 
 /// The innermost function parameter scope enclosing \p DC. Block scopes and
 /// requirement-parameter-list scopes are skipped ([expr.const.defns]); a
@@ -2817,7 +2818,8 @@ static bool CheckEvaluationResult(CheckEvaluationResultKind CERK,
                                   QualType Type, const APValue &Value,
                                   ConstantExprKind Kind,
                                   const FieldDecl *SubobjectDecl,
-                                  CheckedTemporaries &CheckedTemps) {
+                                  CheckedTemporaries &CheckedTemps,
+                                  bool IsUnionElemental) {
   if (!Value.hasValue()) {
     if (SubobjectDecl) {
       Info.FFDiag(DiagLoc, diag::note_constexpr_uninitialized)
@@ -2839,24 +2841,35 @@ static bool CheckEvaluationResult(CheckEvaluationResultKind CERK,
   // Core issue 1454: For a literal constant expression of array or class type,
   // each subobject of its value shall have been initialized by a constant
   // expression.
+  //
+  // C++2c [basic.memobj]: the constituent values leave out the inactive union
+  // elemental subobjects, the direct members of a union and the elements of an
+  // array that is a union elemental subobject that are not within their
+  // lifetimes.
   if (Value.isArray()) {
     QualType EltTy = Type->castAsArrayTypeUnsafe()->getElementType();
     for (unsigned I = 0, N = Value.getArrayInitializedElts(); I != N; ++I) {
-      if (!CheckEvaluationResult(CERK, Info, DiagLoc, EltTy,
-                                 Value.getArrayInitializedElt(I), Kind,
-                                 SubobjectDecl, CheckedTemps))
+      const APValue &Elt = Value.getArrayInitializedElt(I);
+      if (IsUnionElemental && !Elt.hasValue())
+        continue;
+      if (!CheckEvaluationResult(CERK, Info, DiagLoc, EltTy, Elt, Kind,
+                                 SubobjectDecl, CheckedTemps,
+                                 IsUnionElemental))
         return false;
     }
     if (!Value.hasArrayFiller())
       return true;
+    if (IsUnionElemental && !Value.getArrayFiller().hasValue())
+      return true;
     return CheckEvaluationResult(CERK, Info, DiagLoc, EltTy,
                                  Value.getArrayFiller(), Kind, SubobjectDecl,
-                                 CheckedTemps);
+                                 CheckedTemps, IsUnionElemental);
   }
   if (Value.isUnion() && Value.getUnionField()) {
     return CheckEvaluationResult(
         CERK, Info, DiagLoc, Value.getUnionField()->getType(),
-        Value.getUnionValue(), Kind, Value.getUnionField(), CheckedTemps);
+        Value.getUnionValue(), Kind, Value.getUnionField(), CheckedTemps,
+        /*IsUnionElemental=*/true);
   }
   if (Value.isStruct()) {
     auto *RD = Type->castAsRecordDecl();
@@ -6150,11 +6163,9 @@ static bool isImplicitLifetimeType(QualType T) {
 }
 
 /// Set \p Result to the value of an object of type \p T after (trivial)
-/// default-initialization. \p BeginUnionLifetime is false for an anonymous
-/// union member of a class whose own constructor initializes its members:
-/// [class.base.init]p9 performs no initialization for it.
-static bool handleDefaultInitValue(QualType T, APValue &Result,
-                                   bool BeginUnionLifetime = true) {
+/// default-initialization. The default constructor of a union begins the
+/// lifetime of none of its members.
+static bool handleDefaultInitValue(QualType T, APValue &Result) {
   bool Success = true;
 
   // If there is already a value present don't overwrite it.
@@ -6167,24 +6178,6 @@ static bool handleDefaultInitValue(QualType T, APValue &Result,
       return false;
     }
     if (RD->isUnion()) {
-      // C++26 [class.default.ctor]p4 (P3074R7): the trivial default
-      // constructor of a union begins the lifetime of its first variant
-      // member if that has implicit-lifetime type, making it the active
-      // member.
-      if (BeginUnionLifetime && RD->getASTContext().getLangOpts().CPlusPlus26 &&
-          !RD->hasInClassInitializer()) {
-        auto First = llvm::find_if(RD->fields(), [](const FieldDecl *F) {
-          return !F->isUnnamedBitField();
-        });
-        if (First != RD->field_end() && !First->isAnonymousStructOrUnion() &&
-            isImplicitLifetimeType(First->getType())) {
-          Result = APValue(*First);
-          // The member is created implicitly, not default-initialized.
-          return handleDefaultInitValue(First->getType(),
-                                        Result.getUnionValue(),
-                                        /*BeginUnionLifetime=*/false);
-        }
-      }
       Result = APValue((const FieldDecl *)nullptr);
       return true;
     }
@@ -6197,15 +6190,14 @@ static bool handleDefaultInitValue(QualType T, APValue &Result,
                                                   End = RD->bases_end();
          I != End; ++I, ++Index)
       if (!I->isVirtual())
-        Success &= handleDefaultInitValue(
-            I->getType(), Result.getStructBase(Index), BeginUnionLifetime);
+        Success &= handleDefaultInitValue(I->getType(),
+                                          Result.getStructBase(Index));
 
     for (const auto *I : RD->fields()) {
       if (I->isUnnamedBitField())
         continue;
       Success &= handleDefaultInitValue(
-          I->getType(), Result.getStructField(I->getFieldIndex()),
-          BeginUnionLifetime);
+          I->getType(), Result.getStructField(I->getFieldIndex()));
     }
     return Success;
   }
@@ -6215,8 +6207,7 @@ static bool handleDefaultInitValue(QualType T, APValue &Result,
     Result = APValue(APValue::UninitArray(), 0, AT->getZExtSize());
     if (Result.hasArrayFiller())
       Success &= handleDefaultInitValue(AT->getElementType(),
-                                        Result.getArrayFiller(),
-                                        BeginUnionLifetime);
+                                        Result.getArrayFiller());
 
     return Success;
   }
@@ -8334,8 +8325,7 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
       if (!FieldIt->isUnnamedBitField())
         Success &= handleDefaultInitValue(
             FieldIt->getType(),
-            Result.getStructField(FieldIt->getFieldIndex()),
-            !FieldIt->isAnonymousStructOrUnion());
+            Result.getStructField(FieldIt->getFieldIndex()));
     }
     ++FieldIt;
   };
@@ -8459,8 +8449,7 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
       if (!FieldIt->isUnnamedBitField())
         Success &= handleDefaultInitValue(
             FieldIt->getType(),
-            Result.getStructField(FieldIt->getFieldIndex()),
-            !FieldIt->isAnonymousStructOrUnion());
+            Result.getStructField(FieldIt->getFieldIndex()));
     }
   }
 
