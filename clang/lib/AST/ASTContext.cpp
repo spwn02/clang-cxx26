@@ -7634,11 +7634,42 @@ static bool hasSameOverloadableAttrs(const FunctionDecl *A,
 
 static bool isLayoutCompatible(const ASTContext &C, QualType T1, QualType T2);
 
+/// The values of an enumeration ([dcl.enum]): all values of the underlying type
+/// if it is fixed, otherwise the values of the hypothetical integer type of
+/// minimal width M that can represent all enumerators.
+static void getEnumerationValues(const ASTContext &C, const EnumDecl *ED,
+                                 llvm::APInt &Min, llvm::APInt &Max) {
+  QualType UT = ED->getIntegerType();
+  unsigned Width = C.getIntWidth(UT) + 2; // Wide enough to avoid overflow.
+  bool Signed;
+  unsigned Bits;
+  if (ED->isFixed()) {
+    Signed = UT->isSignedIntegerType();
+    Bits = C.getIntWidth(UT);
+  } else if (ED->getNumNegativeBits()) {
+    Signed = true;
+    Bits = std::max(ED->getNumNegativeBits(), ED->getNumPositiveBits() + 1);
+  } else {
+    Signed = false;
+    Bits = ED->getNumPositiveBits();
+  }
+  llvm::APInt One(Width, 1);
+  if (Signed) {
+    Max = (One << (Bits - 1)) - 1;
+    Min = -(One << (Bits - 1));
+  } else {
+    Max = (One << Bits) - 1;
+    Min = llvm::APInt::getZero(Width);
+  }
+}
+
 /// Check if two enumeration types are layout-compatible.
 static bool isLayoutCompatible(const ASTContext &C, const EnumDecl *ED1,
                                const EnumDecl *ED2) {
-  // CWG3046 [dcl.enum]: the underlying types and sets of enumerator values
-  // must both match. Repeated values and declaration order do not matter.
+  // CWG3046 [dcl.enum]: the underlying types and the values of the enumeration
+  // (a defined term: all values of a fixed underlying type, otherwise the range
+  // of the hypothetical minimal integer type) must both match; the set of
+  // enumerators does not matter.
   if (!ED1->isComplete() || !ED2->isComplete() ||
       !C.hasSameType(ED1->getIntegerType(), ED2->getIntegerType()))
     return false;
@@ -7646,16 +7677,10 @@ static bool isLayoutCompatible(const ASTContext &C, const EnumDecl *ED1,
   if (C.getLangOpts().HLSL)
     return true;
 
-  auto HasSameValues = [](const EnumDecl *A, const EnumDecl *B) {
-    return llvm::all_of(A->enumerators(), [B](const EnumConstantDecl *EA) {
-      return llvm::any_of(B->enumerators(),
-                          [EA](const EnumConstantDecl *EB) {
-                            return llvm::APSInt::isSameValue(EA->getInitVal(),
-                                                              EB->getInitVal());
-                          });
-    });
-  };
-  return HasSameValues(ED1, ED2) && HasSameValues(ED2, ED1);
+  llvm::APInt Min1, Max1, Min2, Max2;
+  getEnumerationValues(C, ED1, Min1, Max1);
+  getEnumerationValues(C, ED2, Min2, Max2);
+  return Min1 == Min2 && Max1 == Max2;
 }
 
 /// Check if two fields are layout-compatible.

@@ -262,7 +262,9 @@ Resolutions to C++ Defect Reports
 
 - Implemented `CWG3046 <https://cplusplus.github.io/CWG/issues/3046.html>`_:
   layout-compatible enumeration types must have the same underlying type and
-  the same enumerator values. This also affects common initial sequences.
+  the same values of the enumeration ([dcl.enum]: all values of a fixed
+  underlying type, otherwise the range of the minimal integer type that
+  represents the enumerators). This also affects common initial sequences.
 C Language Changes
 ------------------
 
