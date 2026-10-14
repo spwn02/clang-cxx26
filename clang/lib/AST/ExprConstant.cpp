@@ -2850,7 +2850,7 @@ static bool CheckEvaluationResult(CheckEvaluationResultKind CERK,
     QualType EltTy = Type->castAsArrayTypeUnsafe()->getElementType();
     for (unsigned I = 0, N = Value.getArrayInitializedElts(); I != N; ++I) {
       const APValue &Elt = Value.getArrayInitializedElt(I);
-      if (IsUnionElemental && !Elt.hasValue())
+      if (IsUnionElemental && Elt.isAbsent())
         continue;
       if (!CheckEvaluationResult(CERK, Info, DiagLoc, EltTy, Elt, Kind,
                                  SubobjectDecl, CheckedTemps,
@@ -2859,7 +2859,7 @@ static bool CheckEvaluationResult(CheckEvaluationResultKind CERK,
     }
     if (!Value.hasArrayFiller())
       return true;
-    if (IsUnionElemental && !Value.getArrayFiller().hasValue())
+    if (IsUnionElemental && Value.getArrayFiller().isAbsent())
       return true;
     return CheckEvaluationResult(CERK, Info, DiagLoc, EltTy,
                                  Value.getArrayFiller(), Kind, SubobjectDecl,

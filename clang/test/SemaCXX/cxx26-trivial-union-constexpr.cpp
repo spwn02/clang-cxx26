@@ -129,3 +129,15 @@ constexpr Arr v4 = []{ // expected-error {{must be initialized by a constant exp
             // expected-note {{in call to 'Arr(a)'}} \
             // expected-note@#v4-decl {{subobject declared here}}
 }();
+
+// An element that is within its lifetime holds a constituent value even when it is erroneous: only the elements that
+// are not within their lifetimes are left out. Assigning to a member of a default-initialized union creates the whole
+// array.
+union Ind { int arr[4]; int x; }; // #ind-decl
+constexpr Ind ind = []{ // expected-error {{must be initialized by a constant expression}} \
+                        // expected-note {{subobject 'arr' is not initialized}} \
+                        // expected-note@#ind-decl {{subobject declared here}}
+  Ind u;
+  u.arr[1] = 3;
+  return u;
+}();
