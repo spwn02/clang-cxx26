@@ -1,0 +1,13 @@
+# Note for tracker spwn02/clang-cxx26#265 (not an LWG issue as such)
+
+**Wording is relative to:** N5050 (draft of 2026-06-01, commit 8ab1a9b), [exec.awaitable] p2 and [expr.await].
+
+[exec.awaitable] specifies `GET-AWAITER(c, p)` as "expression-equivalent to the series of transformations and conversions applied to `c` as the operand of an *await-expression* in a coroutine, resulting in lvalue `e` as described by [expr.await], where `p` is an lvalue referring to the coroutine's promise", and an *awaitable* as "an expression that would be well-formed as the operand of a `co_await` expression within a given context". That is a definition in terms of a core-language construct. A library cannot invoke that construct on an operand outside a coroutine, so every implementation has to approximate it. The three approximations in the fork are implementation limits, not defects of the wording:
+
+1. **Member and non-member `operator co_await` both viable** are treated as ambiguous; the real overload resolution may prefer one (for example a `&&`-qualified member against a non-member taking `const X&` for an rvalue operand). Needs the compiler's overload resolution for `operator co_await`, which the library cannot ask for outside a coroutine.
+2. **A `final` promise type** is treated as having no `await_transform` (the probe that looks for the member derives from the promise).
+3. **Non-member `operator co_await` candidates** are found from namespace `std::execution` plus ADL, not from the scope of the coroutine containing the await-expression.
+
+So there is no wording to change for 1 and 2. For 3 there is a small question about the specification: "within a given context" does not say which context determines the lookup of non-member `operator co_await` (the scope of the use of the awaitable, which does not exist for a library concept like `awaitable-sender`, or the scope where `connect` is used). If the working group wants the lookup to be well-defined, [exec.awaitable] should say it is performed as if in a context in which only names declared before the point of use of the library facility and found by ADL are visible. That is a clarification request, not a defect report; submit only if LWG wants to hear it.
+
+**Status for the fork:** the three limits stay documented in `exec.awaitable/awaitable.get_awaiter.pass.cpp` (the final-promise case is asserted as the documented behavior). Whether a compiler builtin that performs the await-expression lookup outside a coroutine (a `__builtin_get_awaiter`-style intrinsic) should exist is an owner decision; nothing in the standard asks for it.
