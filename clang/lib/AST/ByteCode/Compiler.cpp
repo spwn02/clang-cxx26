@@ -5186,6 +5186,11 @@ bool Compiler<Emitter>::VisitBuiltinCallExpr(const CallExpr *E,
       return false;
 
   } break;
+  case Builtin::BI__builtin_is_within_lifetime:
+    // The optional second argument is only inspected, never evaluated.
+    if (!this->visit(E->getArg(0)))
+      return false;
+    break;
   default:
     if (!Context::isUnevaluatedBuiltin(BuiltinID)) {
       // Put arguments on the stack.

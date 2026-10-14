@@ -1951,9 +1951,22 @@ static ExprResult BuiltinLaunder(Sema &S, CallExpr *TheCall) {
   return TheCall;
 }
 
+/// __builtin_is_within_lifetime(p) and the two-argument form
+/// __builtin_is_within_lifetime(p, static_cast<const volatile U*>(p)) that
+/// std::is_within_lifetime<U>(p) is built on: the second argument is never
+/// evaluated as a value, the constant evaluators only ask whether evaluating
+/// it would be a constant subexpression ([meta.const.eval] Returns).
 static ExprResult BuiltinIsWithinLifetime(Sema &S, CallExpr *TheCall) {
-  if (S.checkArgCount(TheCall, 1))
+  if (S.checkArgCountRange(TheCall, 1, 2))
     return ExprError();
+
+  if (TheCall->getNumArgs() == 2 &&
+      !TheCall->getArg(1)->getType()->isPointerType()) {
+    S.Diag(TheCall->getArg(1)->getExprLoc(),
+           diag::err_builtin_is_within_lifetime_invalid_arg)
+        << 0;
+    return ExprError();
+  }
 
   ExprResult Arg = S.DefaultFunctionArrayLvalueConversion(TheCall->getArg(0));
   if (Arg.isInvalid())

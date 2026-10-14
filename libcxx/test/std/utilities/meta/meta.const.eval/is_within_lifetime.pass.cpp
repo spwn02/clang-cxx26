@@ -105,6 +105,46 @@ consteval bool test_explicit_u() {
 }
 static_assert(test_explicit_u());
 
+// P3450R1: false when static_cast<const volatile U*>(p) is not a constant subexpression, i.e. when the cast to a derived
+// class names a type the object is not a base class subobject of, or when a void* designates an object of another type.
+struct Other : Base {
+  int o = 3;
+};
+struct Unrelated2 {
+  int u = 4;
+};
+struct MultiDerived : Unrelated2, Base {};
+
+consteval bool test_cast_not_constant() {
+  Base base;
+  Derived derived;
+  Other other;
+  MultiDerived multi;
+  const Base* pbase        = &base;
+  const Base* pderived     = &derived;
+  const Base* pother       = &other;
+  const Unrelated2* pun2   = &multi;
+  const Base* pmulti_base  = &multi;
+  int i                    = 0;
+  const void* pv           = &i;
+  return !std::is_within_lifetime<Derived>(pbase) && std::is_within_lifetime<Derived>(pderived) &&
+         !std::is_within_lifetime<Derived>(pother) && std::is_within_lifetime<Other>(pother) &&
+         std::is_within_lifetime<MultiDerived>(pun2) && std::is_within_lifetime<MultiDerived>(pmulti_base) &&
+         !std::is_within_lifetime<Derived>(pmulti_base) && std::is_within_lifetime<int>(pv) &&
+         !std::is_within_lifetime<char>(pv) && std::is_within_lifetime<void>(pv);
+}
+static_assert(test_cast_not_constant());
+
+// A pointer to a subobject that is within its lifetime but is not a Derived: still false.
+consteval bool test_cast_through_member() {
+  struct Holder {
+    Base b;
+    Derived d;
+  } holder;
+  return !std::is_within_lifetime<Derived>(&holder.b) && std::is_within_lifetime<Derived>(static_cast<const Base*>(&holder.d));
+}
+static_assert(test_cast_through_member());
+
 // U is the first template parameter, T is deduced
 static_assert(std::is_same_v<decltype(std::is_within_lifetime<void>((const int*)nullptr)), bool>);
 

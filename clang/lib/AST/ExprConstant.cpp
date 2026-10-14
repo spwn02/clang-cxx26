@@ -24807,7 +24807,20 @@ std::optional<bool> EvaluateBuiltinIsWithinLifetime(IntExprEvaluator &IEE,
   if (!CO)
     return false;
   IsWithinLifetimeHandler handler{Info};
-  return findSubobject(Info, E, CO, Val.getLValueDesignator(), handler);
+  std::optional<bool> Within =
+      findSubobject(Info, E, CO, Val.getLValueDesignator(), handler);
+  if (!Within || !*Within || E->getNumArgs() < 2)
+    return Within;
+
+  // C++2c [meta.const.eval]p3: the answer is also false if
+  // static_cast<const volatile U*>(p) is not a constant subexpression. The
+  // library passes that cast as the second argument; evaluate it on the side
+  // and ask whether it was one.
+  SmallVector<PartialDiagnosticAt, 4> Notes;
+  SpeculativeEvaluationRAII Speculate(Info, &Notes);
+  LValue Cast;
+  bool CastOK = EvaluatePointer(E->getArg(1), Cast, Info);
+  return CastOK && Notes.empty();
 }
 } // namespace
 

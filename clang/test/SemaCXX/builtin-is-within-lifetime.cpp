@@ -213,12 +213,10 @@ void invalid_args() {
   __builtin_is_within_lifetime();
   // expected-error@-1 {{too few arguments to function call, expected 1, have 0}}
   // expected-error@-2 {{cannot take address of consteval function '__builtin_is_within_lifetime' outside of an immediate invocation}}
-  __builtin_is_within_lifetime(1, 2);
-  // expected-error@-1 {{too many arguments to function call, expected 1, have 2}}
+  __builtin_is_within_lifetime(&external, &external, &external);
+  // expected-error@-1 {{too many arguments to function call, expected at most 2, have 3}}
   // expected-error@-2 {{cannot take address of consteval function '__builtin_is_within_lifetime' outside of an immediate invocation}}
-  __builtin_is_within_lifetime(&external, &external);
-  // expected-error@-1 {{too many arguments to function call, expected 1, have 2}}
-  // expected-error@-2 {{cannot take address of consteval function '__builtin_is_within_lifetime' outside of an immediate invocation}}
+  __builtin_is_within_lifetime(&external, &external); // the two-argument form is std::is_within_lifetime<U>'s
 }
 
 constexpr struct {

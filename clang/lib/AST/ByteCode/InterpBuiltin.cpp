@@ -2509,6 +2509,43 @@ static bool interp__builtin_object_size(InterpState &S, CodePtr OpPC,
   return true;
 }
 
+/// C++2c [meta.const.eval]: is the cast CastArg, applied to the object Ptr
+/// designates, a constant subexpression? Only the conversions that can fail
+/// matter: a static_cast to a derived class needs Ptr to be the base class
+/// subobject of an object of that class, and a conversion from void* needs the
+/// object to have a type similar to the target type.
+static bool isStaticCastConstant(InterpState &S, const Pointer &Ptr,
+                                 const Expr *CastArg) {
+  const auto *CE = dyn_cast<CastExpr>(CastArg->IgnoreParens());
+  while (CE && CE->getCastKind() == CK_NoOp)
+    CE = dyn_cast<CastExpr>(CE->getSubExpr()->IgnoreParens());
+  if (!CE)
+    return true;
+
+  QualType Target = CE->getType()->getPointeeType();
+  switch (CE->getCastKind()) {
+  case CK_BaseToDerived: {
+    Pointer P = Ptr;
+    for (unsigned I = 0, N = CE->path_size(); I != N; ++I) {
+      if (!P.isBaseClass())
+        return false;
+      P = P.getBase();
+    }
+    const CXXRecordDecl *TargetRD = Target->getAsCXXRecordDecl();
+    const CXXRecordDecl *ObjectRD = P.getType()->getAsCXXRecordDecl();
+    return TargetRD && ObjectRD && TargetRD->getCanonicalDecl() ==
+                                       ObjectRD->getCanonicalDecl();
+  }
+  case CK_BitCast:
+    if (CE->getSubExpr()->getType()->getPointeeType()->isVoidType() &&
+        !Target->isVoidType())
+      return S.getASTContext().hasSimilarType(Ptr.getType(), Target);
+    return true;
+  default:
+    return true;
+  }
+}
+
 static bool interp__builtin_is_within_lifetime(InterpState &S, CodePtr OpPC,
                                                const CallExpr *Call) {
 
@@ -2556,6 +2593,9 @@ static bool interp__builtin_is_within_lifetime(InterpState &S, CodePtr OpPC,
     return Error(2);
   if (S.EvaluatingDecl && Ptr.getDeclDesc()->asVarDecl() == S.EvaluatingDecl)
     return Error(2);
+
+  if (Result && Call->getNumArgs() == 2)
+    Result = isStaticCastConstant(S, Ptr, Call->getArg(1));
 
   pushInteger(S, Result, Call->getType());
   return true;

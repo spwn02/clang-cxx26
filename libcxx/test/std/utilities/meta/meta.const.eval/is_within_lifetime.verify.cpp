@@ -27,7 +27,8 @@ void test() {
   int i = 0;
   // U has to be related to the pointee: the Mandates element
   // expected-error@*:* {{is_within_lifetime requires static_cast<const volatile U*>(p) to be well-formed}}
-  (void)std::is_within_lifetime<Unrelated>(&i); // expected-error {{call to consteval function 'std::is_within_lifetime<Unrelated, int>' is not a constant expression}}
+  // expected-error@*:* {{static_cast from 'const int *' to 'const volatile Unrelated *' is not allowed}}
+  (void)std::is_within_lifetime<Unrelated>(&i);
 }
 
 // [expr.const]: an immediate function pointer makes its containing object
