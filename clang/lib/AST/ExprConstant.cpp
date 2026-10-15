@@ -8053,15 +8053,16 @@ static bool EvaluatePostContracts(EvalInfo &Info, const FunctionDecl *Callee,
   const ResultNameDecl *CanonicalResultName =
       Contracts->getCanonicalResultName();
 
-  bool NeedsResultSlot =
-      (!ResultSlot || !ResultSlot->getLValueBase()) && CanonicalResultName;
+  // [dcl.contract.res]: a result binding denotes the object or reference
+  // returned. For a reference return type the result is the lvalue itself, so no
+  // object has to be made to stand for it.
+  bool NeedsResultSlot = (!ResultSlot || !ResultSlot->getLValueBase()) &&
+                         CanonicalResultName &&
+                         !CanonicalResultName->getType()->isReferenceType();
 
   APValue *LastValue = nullptr;
   LValue LV;
   if (NeedsResultSlot) {
-    auto *RND = CanonicalResultName;
-    assert(RND->getType().isTriviallyCopyableType(Info.Ctx));
-
     APValue &V = Info.CurrentCall->createTemporary(
         CanonicalResultName, CanonicalResultName->getType(), ScopeKind::Block,
         LV);
@@ -11060,6 +11061,12 @@ bool LValueExprEvaluator::VisitResultNameDecl(const DeclRefExpr *E,
     return false;
 
   assert(Frame);
+  if (VD->getType()->isReferenceType()) {
+    // The binding denotes the referenced object.
+    if (!Frame->ResultValue)
+      return false;
+    return Success(*Frame->ResultValue, E);
+  }
   if (Frame->ResultSlot) {
     return Success(Frame->ResultSlot->getLValueBase());
 
