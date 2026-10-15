@@ -8488,14 +8488,16 @@ static bool isCompleteObjectLValue(const LValue &LV) {
   return D.Invalid || D.Entries.size() <= D.MostDerivedPathLength;
 }
 
-/// [basic.life]/1: the lifetime of an object ends when its destructor call
-/// starts if it is of a class type with a non-trivial destructor, and when its
-/// storage is released otherwise. So a member of such a class type is gone once
-/// the destructor of the enclosing object has finished its body, while any
-/// other member is still within its lifetime until the enclosing object is gone.
+/// [basic.life]/1: the lifetime of an object of a class type ends when the
+/// call of its destructor starts (a trivial destructor is called too), and
+/// that of any other object when it is destroyed. The destructor of a class
+/// calls the destructors of its direct non-variant members other than
+/// anonymous unions ([class.dtor]), so a member of a class type is gone once
+/// the body of the destructor has finished, while a member of any other type
+/// has no destructor call and stays until the enclosing object is gone.
 static bool EndsWhenMemberIsDestroyed(const ASTContext &Ctx, QualType T) {
   const CXXRecordDecl *RD = Ctx.getBaseElementType(T)->getAsCXXRecordDecl();
-  return RD && !RD->hasTrivialDestructor();
+  return RD && !(RD->isAnonymousStructOrUnion() && RD->isUnion());
 }
 
 static bool HandleDestructionImpl(EvalInfo &Info, SourceRange CallRange,

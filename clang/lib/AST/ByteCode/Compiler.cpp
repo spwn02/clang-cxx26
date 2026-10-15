@@ -6532,16 +6532,28 @@ bool Compiler<Emitter>::compileDestructor(const CXXDestructorDecl *Dtor) {
     // First, destroy all fields.
     for (const Record::Field &Field : llvm::reverse(R->fields())) {
       const Descriptor *D = Field.Desc;
-      if (D->hasTrivialDtor())
+      // [basic.life]: the lifetime of a member of a class type ends when its
+      // destructor call starts (a trivial destructor is called too), so it is
+      // over by the time the destructors of the base classes run. A member of
+      // any other type has no destructor call and stays until the object is
+      // gone. Anonymous unions are not destroyed by the enclosing destructor.
+      const CXXRecordDecl *MemberRD = Ctx.getASTContext()
+                                          .getBaseElementType(Field.Decl->getType())
+                                          ->getAsCXXRecordDecl();
+      if (!MemberRD ||
+          (MemberRD->isAnonymousStructOrUnion() && MemberRD->isUnion()))
         continue;
       if (!this->emitGetPtrField(Field.Offset, SourceInfo{}))
         return false;
+      if (D->hasTrivialDtor()) {
+        if (!this->emitEndLifetimePop(SourceInfo{}))
+          return false;
+        continue;
+      }
       if (!this->emitDupPtr(SourceInfo{}))
         return false;
       if (!this->emitDestructionPop(D, SourceInfo{}))
         return false;
-      // The lifetime of a member ends when its destructor call starts: it is
-      // over by the time the destructors of the base classes run.
       if (!this->emitEndLifetimePop(SourceInfo{}))
         return false;
     }
