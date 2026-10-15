@@ -49,7 +49,8 @@ static bool CheckArrayInitialized(InterpState &S, SourceLocation Loc,
     const Record *R = BasePtr.getElemRecord();
     for (size_t I = 0; I != NumElems; ++I) {
       Pointer ElemPtr = BasePtr.atIndex(I).narrow();
-      if (IsUnionElemental && !ElemPtr.isInitialized())
+      if (IsUnionElemental && (!ElemPtr.isInitialized() ||
+                               ElemPtr.getLifetime() == Lifetime::Ended))
         continue;
       Result &= CheckFieldsInitialized(S, Loc, ElemPtr, R);
     }
@@ -105,7 +106,11 @@ static bool CheckFieldsInitialized(InterpState &S, SourceLocation Loc,
     } else if (FieldType->isArrayType()) {
       const auto *CAT =
           cast<ConstantArrayType>(FieldType->getAsArrayTypeUnsafe());
-      Result &= CheckArrayInitialized(S, Loc, FieldPtr, CAT, R->isUnion());
+      // Only the elements of an array that start_lifetime made alive without
+      // starting its elements may be left out; the others of an array
+      // member of a union are alive with an erroneous value.
+      Result &= CheckArrayInitialized(
+          S, Loc, FieldPtr, CAT, R->isUnion() && FieldPtr.elementsNotStarted());
     } else if (!FieldPtr.isInitialized()) {
       DiagnoseUninitializedSubobject(S, Loc, F.Decl);
       Result = false;

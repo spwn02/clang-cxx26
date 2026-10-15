@@ -617,9 +617,15 @@ void Pointer::activate() const {
     Pointer Cur = B;
     B = B.getBase();
     if (const Record *BR = B.getRecord(); BR && BR->isUnion()) {
+      // A union with an active member is an initialized object (an anonymous
+      // union member has no initializer that would mark it).
+      if (!B.isRoot() && B.BS.Base >= sizeof(InlineDescriptor))
+        B.getInlineDesc()->IsInitialized = true;
       for (const Record::Field &F : BR->fields()) {
         Pointer FieldPtr = B.atField(F.Offset);
-        if (FieldPtr != Cur)
+        // Compare the subobjects by offset: an array member and the array
+        // pointer reached from one of its elements differ as pointers.
+        if (FieldPtr.getByteOffset() != Cur.getByteOffset())
           deactivate(FieldPtr);
       }
     }

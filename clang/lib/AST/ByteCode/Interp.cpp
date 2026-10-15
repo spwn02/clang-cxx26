@@ -2144,8 +2144,13 @@ bool CheckNewTypeMismatch(InterpState &S, CodePtr OpPC, const Expr *E,
                           std::optional<uint64_t> ArraySize) {
   const Pointer &Ptr = S.Stk.peek<Pointer>();
 
-  if (Ptr.inUnion() && Ptr.getBase().getRecord()->isUnion())
-    Ptr.activate();
+  // Constructing a union member, or an element of an array that is one, makes
+  // it the active member.
+  if (Ptr.inUnion()) {
+    const Record *BaseRecord = Ptr.getBase().getRecord();
+    if ((BaseRecord && BaseRecord->isUnion()) || Ptr.isArrayElement())
+      Ptr.activate();
+  }
 
   if (Ptr.isZero()) {
     S.FFDiag(S.Current->getSource(OpPC), diag::note_constexpr_access_null)

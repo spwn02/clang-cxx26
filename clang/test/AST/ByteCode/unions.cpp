@@ -390,11 +390,11 @@ namespace CopyCtor {
 
 namespace UnionInBase {
   struct Base {
-    int y; // both-note {{subobject declared here}}
+    int y; // ref-note {{subobject declared here}}
   };
   struct A : Base {
     int x;
-    int arr[3];
+    int arr[3]; // expected-note {{subobject declared here}}
     union { int p, q; };
   };
   union B {
@@ -430,8 +430,10 @@ namespace UnionInBase {
     b.a.x = 2;
     return b;
   }
+  // The classic evaluator checks the bases first, the bytecode interpreter the fields.
   constexpr B uninit = return_uninit(); // both-error {{constant expression}} \
-                                        // both-note {{subobject 'y' is not initialized}}
+                                        // ref-note {{subobject 'y' is not initialized}} \
+                                        // expected-note {{subobject 'arr' is not initialized}}
   static_assert(return_uninit().a.x == 2);
 }
 

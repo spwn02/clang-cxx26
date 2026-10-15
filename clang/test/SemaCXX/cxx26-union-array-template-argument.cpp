@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify -fexperimental-new-constant-interpreter %s
 // expected-no-diagnostics
 
 // P3726R2 [temp.param]: template arguments of array type are equivalent if their corresponding elements are

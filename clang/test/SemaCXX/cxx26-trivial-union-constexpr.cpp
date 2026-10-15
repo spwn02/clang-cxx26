@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected,ref %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected,both -fexperimental-new-constant-interpreter %s
 
 // P3074R7, P3726R2: constant evaluation with trivial unions. The default
 // constructor of a union begins the lifetime of none of its members; the
@@ -121,12 +122,13 @@ constexpr Ctor c1 = []{
   return u;
 }();
 constexpr Arr v4 = []{ // expected-error {{must be initialized by a constant expression}} \
-                       // expected-note {{in call to}}
+                       // ref-note {{in call to}} \
+                       // both-note {{subobject 'j' is not initialized}}
   Arr a;
   a.y.x1.i = 1;
   a.y.x2.j = 2;
-  return a; // expected-note {{subobject 'j' is not initialized}} \
-            // expected-note {{in call to 'Arr(a)'}} \
+  return a; // ref-note {{subobject 'j' is not initialized}} \
+            // ref-note {{in call to 'Arr(a)'}} \
             // expected-note@#v4-decl {{subobject declared here}}
 }();
 

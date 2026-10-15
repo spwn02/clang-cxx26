@@ -2535,9 +2535,15 @@ static bool interp__builtin_start_lifetime(InterpState &S, CodePtr OpPC,
     Ptr.startLifetime();
   // The elements of an array member that was not yet within its lifetime are
   // not within their lifetimes either.
-  if (!WasActive && Ptr.inUnion() && Ptr.getFieldDesc()->isPrimitiveArray() &&
-      Ptr.isArrayRoot())
+  if (!WasActive && Ptr.inUnion() && Ptr.getFieldDesc()->isArray() &&
+      Ptr.isArrayRoot()) {
     Ptr.setElementsNotStarted(true);
+    // Elements that are objects of class or array type have a lifetime of
+    // their own: none has begun.
+    if (Ptr.getFieldDesc()->isCompositeArray())
+      for (unsigned I = 0, N = Ptr.getFieldDesc()->getNumElems(); I != N; ++I)
+        Ptr.atIndex(I).narrow().endLifetime();
+  }
   return true;
 }
 
@@ -6297,7 +6303,12 @@ static bool copyRecord(InterpState &S, CodePtr OpPC, const Pointer &Src,
       return true;
     }
     // Composite field.
-    return copyComposite(S, OpPC, Src.atField(F.Offset), DestField, Activate);
+    if (!copyComposite(S, OpPC, Src.atField(F.Offset), DestField, Activate))
+      return false;
+    // The active member of a union stays the active member in the copy.
+    if (Activate)
+      DestField.activate();
+    return true;
   };
 
   assert(SrcDesc->isRecord());
@@ -6347,11 +6358,17 @@ static bool copyComposite(InterpState &S, CodePtr OpPC, const Pointer &Src,
     PrimType ET = DestDesc->getPrimType();
     for (unsigned I = 0, N = DestDesc->getNumElems(); I != N; ++I) {
       Pointer DestElem = Dest.atIndex(I);
+      // Elements that are not initialized in the source (not within their
+      // lifetimes, or alive with an erroneous value) stay that way.
+      if (!Src.isElementInitialized(I))
+        continue;
       TYPE_SWITCH(ET, {
         DestElem.deref<T>() = Src.elem<T>(I);
         DestElem.initialize();
       });
     }
+    if (Src.elementsNotStarted())
+      Dest.setElementsNotStarted(true);
     return true;
   }
 
@@ -6361,9 +6378,15 @@ static bool copyComposite(InterpState &S, CodePtr OpPC, const Pointer &Src,
     for (unsigned I = 0, N = DestDesc->getNumElems(); I != N; ++I) {
       const Pointer &SrcElem = Src.atIndex(I).narrow();
       Pointer DestElem = Dest.atIndex(I).narrow();
+      if (Src.elementsNotStarted() && SrcElem.getLifetime() == Lifetime::Ended) {
+        DestElem.endLifetime();
+        continue;
+      }
       if (!copyComposite(S, OpPC, SrcElem, DestElem, Activate))
         return false;
     }
+    if (Src.elementsNotStarted())
+      Dest.setElementsNotStarted(true);
     return true;
   }
 
