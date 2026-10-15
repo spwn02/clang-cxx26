@@ -1,8 +1,6 @@
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify -fexperimental-new-constant-interpreter %s
 
-// Notes: the call chains and the reason (a pointer to an object whose lifetime has not yet begun).
-// expected-note@* 0+ {{}}
 
 // [class.base.init]: the initialization of an object is complete when a non-delegating constructor returns, so the
 // lifetime of the object has begun in the body of a delegating constructor whose target constructor returned, and
@@ -30,30 +28,38 @@ static_assert(chain());
 // The target constructor itself runs before the object's initialization is complete.
 struct Target {
   bool ok = true;
-  constexpr Target() : Target(1) {}
-  constexpr Target(int) { if consteval { ok = __builtin_is_within_lifetime(this); } }
+  constexpr Target() : Target(1) {} // #tgt1
+  constexpr Target(int) { if consteval { ok = __builtin_is_within_lifetime(this); } } // expected-note {{pointer to an object whose lifetime has not yet begun}}
 };
-constexpr bool target() { Target t; return t.ok; }
-constexpr bool tv = target(); // expected-error {{must be initialized by a constant expression}}
+constexpr bool target() { Target t; return t.ok; } // #tgt2
+constexpr bool tv = target(); // expected-error {{must be initialized by a constant expression}} \
+                              // expected-note {{in call to 'target()'}} \
+                              // expected-note@#tgt2 {{in call to 'Target()'}} \
+                              // expected-note@#tgt1 {{in call to 'Target(1)'}}
 
 struct T {
   bool ok = false;
-  constexpr T() { if consteval { ok = __builtin_is_within_lifetime(this); } }
+  constexpr T() { if consteval { ok = __builtin_is_within_lifetime(this); } } // expected-note {{pointer to an object whose lifetime has not yet begun}}
 };
-constexpr bool g() { T t; return t.ok; }
-constexpr bool b = g(); // expected-error {{must be initialized by a constant expression}}
+constexpr bool g() { T t; return t.ok; } // #g1
+constexpr bool b = g(); // expected-error {{must be initialized by a constant expression}} \
+                        // expected-note {{in call to 'g()'}} \
+                        // expected-note@#g1 {{in call to 'T()'}}
 
 // A member subobject: the complete object is still being initialized.
 struct M {
   bool ok = false;
-  constexpr M() { if consteval { ok = __builtin_is_within_lifetime(this); } }
+  constexpr M() { if consteval { ok = __builtin_is_within_lifetime(this); } } // expected-note {{pointer to an object whose lifetime has not yet begun}}
 };
 struct P {
   M m;
-  constexpr P() {}
+  constexpr P() {} // #p1
 };
-constexpr bool h() { P p; return p.m.ok; }
-constexpr bool hb = h(); // expected-error {{must be initialized by a constant expression}}
+constexpr bool h() { P p; return p.m.ok; } // #h1
+constexpr bool hb = h(); // expected-error {{must be initialized by a constant expression}} \
+                         // expected-note {{in call to 'h()'}} \
+                         // expected-note@#h1 {{in call to 'P()'}} \
+                         // expected-note@#p1 {{in call to 'M()'}}
 
 // After the constructor returned the object is within its lifetime.
 struct After { constexpr After() {} };

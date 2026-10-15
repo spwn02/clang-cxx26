@@ -592,6 +592,7 @@ void Pointer::activate() const {
   std::function<void(Pointer &)> deactivate;
   deactivate = [&deactivate](Pointer &P) -> void {
     P.getInlineDesc()->IsActive = false;
+    P.getInlineDesc()->ElementsNotStarted = false;
 
     if (const Record *R = P.getRecord()) {
       for (const Record::Field &F : R->fields()) {

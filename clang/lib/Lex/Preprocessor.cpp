@@ -886,6 +886,8 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
       CurLexerCallback != CLK_CachingLexer) {
     ModuleImportLoc = Identifier.getLocation();
     NamedModuleImportPath.clear();
+    ImportStartsLogicalLine =
+        Identifier.isAtStartOfLine() && !Identifier.hasLeadingEmptyMacro();
     IsAtImport = true;
     ModuleImportExpectsIdentifier = true;
     CurLexerCallback = CLK_LexAfterModuleImport;

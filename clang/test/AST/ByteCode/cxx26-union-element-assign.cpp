@@ -44,5 +44,15 @@ constexpr int assign_initialized() {
 }
 static_assert(assign_initialized() == 9);
 
+// Another member ends the lifetime of the array; assigning to an element creates the array again.
+constexpr int switch_members() {
+  U u;
+  __builtin_start_lifetime(&u.arr);
+  u.x = 1;
+  u.arr[2] = 5;
+  return u.arr[2];
+}
+static_assert(switch_members() == 5);
+
 struct A { union { int i; int arr[4]; }; };
 constexpr A v1; // expected-error {{default initialization of an object of const type 'const A' without a user-provided default constructor}}
