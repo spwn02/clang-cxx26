@@ -552,11 +552,15 @@ void ASTStmtReader::VisitCXXDependentMemberSpliceExpr(
 }
 
 void ASTStmtReader::VisitStackLocationExpr(StackLocationExpr *E) {
-  llvm_unreachable("unimplemented");
+  VisitExpr(E);
+  E->setRange(readSourceRange());
+  E->setFrameOffset(Record.readInt());
 }
 
 void ASTStmtReader::VisitExtractLValueExpr(ExtractLValueExpr *E) {
-  llvm_unreachable("unimplemented");
+  VisitExpr(E);
+  E->setRange(readSourceRange());
+  E->setValueDecl(readDeclAs<ValueDecl>());
 }
 
 void ASTStmtReader::VisitExplDependentCallExpr(ExplDependentCallExpr *E) {
@@ -4767,6 +4771,14 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     }
     case EXPR_DEPENDENT_MEMBER_SPLICE: {
       S = CXXDependentMemberSpliceExpr::CreateEmpty(Context);
+      break;
+    }
+    case EXPR_STACK_LOCATION: {
+      S = StackLocationExpr::CreateEmpty(Context);
+      break;
+    }
+    case EXPR_EXTRACT_LVALUE: {
+      S = ExtractLValueExpr::CreateEmpty(Context);
       break;
     }
     case EXPR_EXPL_DEPENDENT_CALL: {

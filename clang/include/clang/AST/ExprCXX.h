@@ -5754,6 +5754,10 @@ class StackLocationExpr : public Expr {
 public:
   static StackLocationExpr *Create(ASTContext &C, SourceRange Range,
                                    int FrameOffset);
+  static StackLocationExpr *CreateEmpty(ASTContext &C);
+
+  void setRange(SourceRange R) { Range = R; }
+  void setFrameOffset(int Offset) { FrameOffset = Offset; }
 
   int getFrameOffset() const {
     return FrameOffset;
@@ -5792,6 +5796,10 @@ class ExtractLValueExpr : public Expr {
 public:
   static ExtractLValueExpr *Create(ASTContext &C, SourceRange Range,
                                    QualType ResultTy, ValueDecl *VD);
+  static ExtractLValueExpr *CreateEmpty(ASTContext &C);
+
+  void setRange(SourceRange R) { Range = R; }
+  void setValueDecl(ValueDecl *VD) { Decl = VD; }
 
   ValueDecl *getValueDecl() const {
     return Decl;
@@ -5814,7 +5822,7 @@ public:
   }
 
   static bool classof(const Stmt *T) {
-    return T->getStmtClass() == StackLocationExprClass;
+    return T->getStmtClass() == ExtractLValueExprClass;
   }
 };
 

@@ -535,13 +535,15 @@ void ASTStmtWriter::VisitCXXDependentMemberSpliceExpr(
 
 void ASTStmtWriter::VisitStackLocationExpr(StackLocationExpr *E) {
   VisitExpr(E);
-  // TODO(CXX26): Implement this.
+  Record.AddSourceRange(SourceRange(E->getBeginLoc(), E->getEndLoc()));
+  Record.push_back(E->getFrameOffset());
   Code = serialization::EXPR_STACK_LOCATION;
 }
 
 void ASTStmtWriter::VisitExtractLValueExpr(ExtractLValueExpr *E) {
   VisitExpr(E);
-  // TODO(CXX26): Implement this.
+  Record.AddSourceRange(SourceRange(E->getBeginLoc(), E->getEndLoc()));
+  Record.AddDeclRef(E->getValueDecl());
   Code = serialization::EXPR_EXTRACT_LVALUE;
 }
 
