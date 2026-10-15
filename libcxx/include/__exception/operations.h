@@ -35,7 +35,7 @@ _LIBCPP_EXPORTED_FROM_ABI terminate_handler set_terminate(terminate_handler) _NO
 
 class _LIBCPP_EXPORTED_FROM_ABI exception_ptr;
 
-#if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_BUILDING_LIBRARY) && \
+#if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_BUILDING_LIBRARY) && _LIBCPP_HAS_EXCEPTIONS && \
     __has_builtin(__builtin_constexpr_exception_capture) && \
     __has_builtin(__builtin_constexpr_exception_retain) && \
     __has_builtin(__builtin_constexpr_exception_release) && \
