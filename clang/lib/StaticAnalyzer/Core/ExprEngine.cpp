@@ -1994,14 +1994,42 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPIteratorExprClass:
     case Stmt::SYCLUniqueStableNameExprClass:
     case Stmt::OpenACCAsteriskSizeExprClass:
-    case Stmt::TypeTraitExprClass:
-    // A contract assertion does not change the state the analyzer models: the
-    // path continues (as under the ignore semantic).
-    case Stmt::ContractStmtClass: {
+    case Stmt::TypeTraitExprClass: {
       Bldr.takeNodes(Pred);
       ExplodedNodeSet preVisit;
       getCheckerManager().runCheckersForPreStmt(preVisit, Pred, S, *this);
       getCheckerManager().runCheckersForPostStmt(Dst, preVisit, S, *this);
+      Bldr.addNodes(Dst);
+      break;
+    }
+
+    case Stmt::ContractStmtClass: {
+      // Under the enforce and quick_enforce semantics a violated assertion does
+      // not continue, so the path continues only where the predicate holds; with
+      // the observe and ignore semantics it continues unconstrained.
+      const auto *CS = cast<ContractStmt>(S);
+      Bldr.takeNodes(Pred);
+      ExplodedNodeSet PreVisit;
+      getCheckerManager().runCheckersForPreStmt(PreVisit, Pred, S, *this);
+      ExplodedNodeSet Assumed;
+      StmtNodeBuilder AssumeBldr(PreVisit, Assumed, *currBldrCtx);
+      // The builder starts with the source nodes as its frontier; only the
+      // nodes where the predicate can hold are carried on.
+      AssumeBldr.takeNodes(PreVisit);
+      ContractEvaluationSemantic Semantic = CS->getSemantic(getContext());
+      for (ExplodedNode *N : PreVisit) {
+        ProgramStateRef State = N->getState();
+        if (Semantic == ContractEvaluationSemantic::Enforce ||
+            Semantic == ContractEvaluationSemantic::QuickEnforce) {
+          SVal Cond = State->getSVal(CS->getCond(), N->getLocationContext());
+          if (auto DefCond = Cond.getAs<DefinedOrUnknownSVal>())
+            State = State->assume(*DefCond, true);
+          if (!State)
+            continue;
+        }
+        AssumeBldr.generateNode(S, N, State);
+      }
+      getCheckerManager().runCheckersForPostStmt(Dst, Assumed, S, *this);
       Bldr.addNodes(Dst);
       break;
     }
