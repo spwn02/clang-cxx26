@@ -644,21 +644,19 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result,
     case tok::kw_module:
       goto module_decl;
 
-    // Note: no need to handle kw_import here. We only form kw_import under
-    // the Standard C++ Modules, and in that case 'export import' is parsed as
-    // an export-declaration containing an import-declaration.
+    // 'export import' is an import directive ([cpp.import]): the preprocessor
+    // produced the import-keyword.
+    case tok::kw_import:
+      goto import_decl;
 
     // Recognize context-sensitive C++20 'export module' and 'export import'
     // declarations.
     case tok::identifier: {
+      // An 'import' that is not an import-keyword (the preprocessor produces
+      // it from an import directive) is an ordinary identifier.
       IdentifierInfo *II = NextToken().getIdentifierInfo();
-      if ((II == Ident_module || II == Ident_import) &&
-          GetLookAheadToken(2).isNot(tok::coloncolon)) {
-        if (II == Ident_module)
-          goto module_decl;
-        else
-          goto import_decl;
-      }
+      if (II == Ident_module && GetLookAheadToken(2).isNot(tok::coloncolon))
+        goto module_decl;
       break;
     }
 
@@ -735,14 +733,9 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result,
     //   A token sequence beginning with 'export[opt] module' or
     //   'export[opt] import' and not immediately followed by '::'
     //   is never interpreted as the declaration of a top-level-declaration.
-    if ((Tok.getIdentifierInfo() == Ident_module ||
-         Tok.getIdentifierInfo() == Ident_import) &&
-        NextToken().isNot(tok::coloncolon)) {
-      if (Tok.getIdentifierInfo() == Ident_module)
-        goto module_decl;
-      else
-        goto import_decl;
-    }
+    if (Tok.getIdentifierInfo() == Ident_module &&
+        NextToken().isNot(tok::coloncolon))
+      goto module_decl;
     break;
 
   default:
@@ -936,10 +929,11 @@ Parser::ParseExternalDeclaration(ParsedAttributes &Attrs,
     return nullptr;
   case tok::kw_import: {
     Sema::ModuleImportState IS = Sema::ModuleImportState::NotACXX20Module;
-    if (getLangOpts().CPlusPlusModules) {
-      llvm_unreachable("not expecting a c++20 import here");
+    // Under the Standard C++ Modules an import directive ([cpp.import]) does
+    // not depend on the brackets around it; Sema diagnoses one that is not at
+    // the top level.
+    if (getLangOpts().CPlusPlusModules)
       ProhibitAttributes(Attrs);
-    }
     SingleDecl = ParseModuleImport(SourceLocation(), IS);
   } break;
   case tok::kw_export:

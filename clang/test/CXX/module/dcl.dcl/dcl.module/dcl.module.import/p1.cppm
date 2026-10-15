@@ -45,7 +45,8 @@ import x [[blarg::noreturn]]; // expected-warning-re {{unknown attribute 'blarg:
 
 import x.y;
 import x.; // expected-error {{expected a module name after 'import'}}
-import .x; // expected-error {{expected a module name after 'import'}}
+import .x; // expected-error {{unknown type name 'import'}} \
+           // expected-error {{cannot use dot operator on a type}}
 
 import blarg; // expected-error {{module 'blarg' not found}}
 
@@ -63,7 +64,8 @@ import x [[blarg::noreturn]]; // expected-warning-re {{unknown attribute 'blarg:
 
 import x.y;
 import x.; // expected-error {{expected a module name after 'import'}}
-import .x; // expected-error {{expected a module name after 'import'}}
+import .x; // expected-error {{unknown type name 'import'}} \
+           // expected-error {{cannot use dot operator on a type}}
 
 import blarg; // expected-error {{module 'blarg' not found}}
 

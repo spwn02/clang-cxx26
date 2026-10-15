@@ -4,6 +4,8 @@
 // RUN: %clang_cc1 -std=c++20 -verify %t/M.cpp
 // RUN: %clang_cc1 -std=c++20 -verify %t/ImportError1.cpp
 // RUN: %clang_cc1 -std=c++20 -verify %t/ImportError2.cpp
+// RUN: %clang_cc1 -std=c++20 -verify %t/ImportInNamespace.cpp
+// RUN: %clang_cc1 -std=c++20 -verify %t/ImportSameLine.cpp
 
 //--- M.cpp
 module;
@@ -24,7 +26,7 @@ module::inner yi = {};
 
 namespace N {
   module a;
-  import b;
+  // import b; is an import directive (it starts its line, [cpp.pre]): see ImportInNamespace.cpp
 }
 
 extern "C++" module cxxm;
@@ -68,3 +70,16 @@ template<> struct import<n> {
 // not a pp-import and no header-name is formed.
 struct X {} import<n>::y;
 
+
+//--- ImportInNamespace.cpp
+// An import that starts its logical line introduces an import directive wherever it is, not only at the top level.
+struct import { struct inner {}; };
+namespace N {
+import b; // expected-error {{module 'b' not found}}
+}
+
+//--- ImportSameLine.cpp
+// expected-no-diagnostics
+// 'import' is not the first token of its logical line: not a directive, so an ordinary identifier.
+struct import {};
+int a; import x;

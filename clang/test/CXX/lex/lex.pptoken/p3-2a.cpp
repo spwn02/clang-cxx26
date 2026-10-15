@@ -46,7 +46,8 @@ export export import <foo  bar>;
 import <foo  bar>;
 
 UNBALANCED_PAREN
-// CHECK: import <foo bar>;
+// The brackets do not matter: import starts its logical line ([cpp.pre]).
+// CHECK: import <foo  bar>;
 import <foo  bar>;
 )
 

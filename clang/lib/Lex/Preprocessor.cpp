@@ -948,8 +948,6 @@ void Preprocessor::Lex(Token &Result) {
       StdCXXImportSeqState.handleHeaderName();
       break;
     case tok::kw_export:
-      LastExportStartedLine =
-          Result.isAtStartOfLine() && !Result.hasLeadingEmptyMacro();
       if (hasSeenNoTrivialPPDirective())
         Result.setFlag(Token::HasSeenNoTrivialPPDirective);
       TrackGMFState.handleExport();
@@ -965,26 +963,38 @@ void Preprocessor::Lex(Token &Result) {
     case tok::eod:
       break;
     case tok::identifier:
-      // Check "import" and "module" when there is no open bracket. The two
-      // identifiers are not meaningful with open brackets.
-      if (StdCXXImportSeqState.atTopLevel()) {
-        if (Result.getIdentifierInfo()->isModulesImport()) {
-          TrackGMFState.handleImport(StdCXXImportSeqState.afterTopLevelSeq());
-          bool AfterExport = StdCXXImportSeqState.afterExport();
-          StdCXXImportSeqState.handleImport();
-          if (StdCXXImportSeqState.afterImportSeq()) {
-            ImportStartsLogicalLine =
-                !Result.hasLeadingEmptyMacro() &&
-                (Result.isAtStartOfLine() ||
-                 (AfterExport && LastExportStartedLine));
-            ModuleImportLoc = Result.getLocation();
-            NamedModuleImportPath.clear();
-            IsAtImport = false;
-            ModuleImportExpectsIdentifier = true;
-            CurLexerCallback = CLK_LexAfterModuleImport;
+      // [cpp.pre]: an import is a preprocessing directive (pp-import) when it,
+      // or the export before it, is the first token of a logical source line
+      // and it is followed on that line by a header-name, '<', an identifier
+      // or ':'. This does not depend on the brackets around it.
+      if (Result.getIdentifierInfo()->isModulesImport()) {
+        if (IsPPImportDirective(Result, PrevTokenWasLineStartExport)) {
+          if (StdCXXImportSeqState.atTopLevel()) {
+            TrackGMFState.handleImport(StdCXXImportSeqState.afterTopLevelSeq());
+            StdCXXImportSeqState.handleImport();
           }
+          ImportStartsLogicalLine = true;
+          // The import-keyword is produced by processing the directive
+          // ([lex.pptoken]); an 'import' that does not introduce a directive
+          // remains an identifier.
+          Result.setKind(tok::kw_import);
+          ModuleImportLoc = Result.getLocation();
+          NamedModuleImportPath.clear();
+          IsAtImport = false;
+          ModuleImportExpectsIdentifier = true;
+          CurLexerCallback = CLK_LexAfterModuleImport;
           break;
-        } else if (Result.getIdentifierInfo() == getIdentifierInfo("module")) {
+        }
+        if (StdCXXImportSeqState.atTopLevel()) {
+          TrackGMFState.handleImport(StdCXXImportSeqState.afterTopLevelSeq());
+          StdCXXImportSeqState.handleImport();
+          break;
+        }
+      }
+      // Check "module" when there is no open bracket. The identifier is not
+      // meaningful with open brackets.
+      if (StdCXXImportSeqState.atTopLevel()) {
+        if (Result.getIdentifierInfo() == getIdentifierInfo("module")) {
           if (hasSeenNoTrivialPPDirective())
             Result.setFlag(Token::HasSeenNoTrivialPPDirective);
           TrackGMFState.handleModule(StdCXXImportSeqState.afterTopLevelSeq());
@@ -1003,6 +1013,12 @@ void Preprocessor::Lex(Token &Result) {
       break;
     }
   }
+
+  if (getLangOpts().CPlusPlusModules && LexLevel == 1 &&
+      !Result.getFlag(Token::IsReinjected))
+    PrevTokenWasLineStartExport =
+        Result.is(tok::kw_export) && Result.isAtStartOfLine() &&
+        !Result.hasLeadingEmptyMacro() && !Result.getLocation().isMacroID();
 
   if (CurLexer && ++CheckPointCounter == CheckPointStepSize) {
     CheckPoints[CurLexer->getFileID()].push_back(CurLexer->BufferPtr);
@@ -1187,18 +1203,22 @@ void Preprocessor::CollectPpImportSuffix(SmallVectorImpl<Token> &Toks) {
 ///           module-name-qualifier[opt] identifier .
 ///
 /// We respond to a pp-import by importing macros from the named module.
-bool Preprocessor::NextTokenIsOnImportLine() const {
-  if (ModuleImportLoc.isInvalid() || ModuleImportLoc.isMacroID())
-    return false;
-  SourceLocation End =
-      Lexer::getLocForEndOfToken(ModuleImportLoc, 0, SourceMgr, LangOpts);
+/// Returns the first character of the token that follows \p Loc on the same
+/// logical source line, or null if there is none or the location is not in a
+/// file.
+static const char *peekNextTokenOnLine(const SourceManager &SM,
+                                       const LangOptions &LangOpts,
+                                       SourceLocation Loc) {
+  if (Loc.isInvalid() || Loc.isMacroID())
+    return nullptr;
+  SourceLocation End = Lexer::getLocForEndOfToken(Loc, 0, SM, LangOpts);
   if (End.isInvalid())
-    return false;
+    return nullptr;
   bool Invalid = false;
-  StringRef Buffer = SourceMgr.getBufferData(SourceMgr.getFileID(End), &Invalid);
+  StringRef Buffer = SM.getBufferData(SM.getFileID(End), &Invalid);
   if (Invalid)
-    return false;
-  const char *P = Buffer.data() + SourceMgr.getFileOffset(End);
+    return nullptr;
+  const char *P = Buffer.data() + SM.getFileOffset(End);
   const char *E = Buffer.end();
   // Skip what phases 2 and 3 turn into white space within the line: spaces,
   // line splices and block comments. A new-line or a line comment ends the
@@ -1209,17 +1229,60 @@ bool Preprocessor::NextTokenIsOnImportLine() const {
     } else if (*P == '\\' && P + 1 != E && (P[1] == '\n' || P[1] == '\r')) {
       P += (P[1] == '\r' && P + 2 != E && P[2] == '\n') ? 3 : 2;
     } else if (*P == '/' && P + 1 != E && P[1] == '*') {
-      const char *Close = StringRef(P + 2, E - (P + 2)).find("*/") == StringRef::npos
-                              ? nullptr
-                              : P + 2 + StringRef(P + 2, E - (P + 2)).find("*/");
-      if (!Close)
-        return false;
-      P = Close + 2;
+      size_t Close = StringRef(P + 2, E - (P + 2)).find("*/");
+      if (Close == StringRef::npos)
+        return nullptr;
+      P += 2 + Close + 2;
     } else {
-      return *P != '\n' && *P != '\r' && !(*P == '/' && P + 1 != E && P[1] == '/');
+      if (*P == '\n' || *P == '\r' || (*P == '/' && P + 1 != E && P[1] == '/'))
+        return nullptr;
+      return P;
     }
   }
-  return false;
+  return nullptr;
+}
+
+bool Preprocessor::NextTokenIsOnImportLine() const {
+  return peekNextTokenOnLine(SourceMgr, LangOpts, ModuleImportLoc) != nullptr;
+}
+
+bool Preprocessor::IsPPImportDirective(const Token &Import,
+                                       bool AfterLineStartExport) const {
+  // The directive-introducing token is the first token of the logical line at
+  // the start of phase 4 ([cpp.pre]): not preceded by an empty macro
+  // expansion, not produced by a macro and read from the file being lexed.
+  if (InMacroArgs || Import.hasLeadingEmptyMacro() ||
+      Import.getLocation().isMacroID() || !CurLexer ||
+      CurLexerCallback == CLK_CachingLexer)
+    return false;
+  if (!Import.isAtStartOfLine() && !AfterLineStartExport) {
+    // The lexer does not flag the first token after a directive that was
+    // replaced by an annotation token (#include of an importable header), so
+    // look at the text before the token.
+    bool Invalid = false;
+    StringRef Buffer =
+        SourceMgr.getBufferData(SourceMgr.getFileID(Import.getLocation()), &Invalid);
+    if (Invalid)
+      return false;
+    const char *Begin = Buffer.data();
+    const char *P = Begin + SourceMgr.getFileOffset(Import.getLocation());
+    while (P != Begin && (P[-1] == ' ' || P[-1] == '\t'))
+      --P;
+    if (P != Begin && P[-1] != '\n' && P[-1] != '\r')
+      return false;
+  }
+  const char *Next =
+      peekNextTokenOnLine(SourceMgr, LangOpts, Import.getLocation());
+  if (!Next)
+    return false;
+  // header-name, '<', identifier or ':' (but neither '::' nor ':>').
+  unsigned char C = *Next;
+  if (C == '<' || C == '"')
+    return true;
+  if (C == ':')
+    return Next[1] != ':' && Next[1] != '>';
+  return isAsciiIdentifierStart(C, /*AllowDollar=*/true) || C == '\\' ||
+         C >= 0x80;
 }
 
 bool Preprocessor::LexAfterModuleImport(Token &Result) {
