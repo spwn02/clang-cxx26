@@ -21,3 +21,19 @@ struct B4 { int *out; const int *ip; constexpr ~B4() { *out = *ip; } };
 struct D4 : B4 { int i; constexpr D4(int *o) : B4{o, &i}, i(5) {} };
 constexpr int h() { int r = 0; { D4 d(&r); } return r; }
 static_assert(h() == 5);
+
+// An array of a class type is destroyed element by element, so its elements are gone too.
+struct B5 { int *out; const T *tp; constexpr ~B5() { *out = tp->v; } };
+struct D5 : B5 { T t[2]; constexpr D5(int *o) : B5{o, &t[1]}, t{1, 2} {} };
+constexpr int k() { int r = 0; { D5 d(&r); } return r; }
+constexpr int r5 = k(); // expected-error {{must be initialized by a constant expression}}
+
+// An anonymous union is not destroyed by the destructor of the enclosing class ([class.dtor]), so its members are
+// still readable in the destructor of a base class.
+struct B6 { int *out; const int *ip; constexpr ~B6() { *out = *ip; } };
+struct D6 : B6 {
+  union { int u; };
+  constexpr D6(int *o) : B6{o, &u}, u(6) {}
+};
+constexpr int m() { int r = 0; { D6 d(&r); } return r; }
+static_assert(m() == 6);
