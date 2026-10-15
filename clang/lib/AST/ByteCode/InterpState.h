@@ -192,6 +192,19 @@ public:
   /// List of blocks we're currently running either constructors or destructors
   /// for.
   llvm::SmallVector<const Block *> InitializingBlocks;
+  /// Indices into InitializingBlocks of the delegating constructors whose
+  /// target constructor has returned.
+  llvm::SmallVector<unsigned> DelegatedEntries;
+
+  /// Whether a constructor or destructor of the complete object in \p B is
+  /// running and the object's lifetime has therefore not begun: every entry
+  /// for the block is that of a constructor that did not delegate yet.
+  bool isLifetimeNotBegun(const Block *B) const {
+    for (unsigned I = 0, N = InitializingBlocks.size(); I != N; ++I)
+      if (InitializingBlocks[I] == B && !llvm::is_contained(DelegatedEntries, I))
+        return true;
+    return false;
+  }
 
   mutable std::optional<llvm::BumpPtrAllocator> Allocator;
 };

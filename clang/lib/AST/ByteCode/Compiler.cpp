@@ -6492,6 +6492,8 @@ bool Compiler<Emitter>::compileConstructor(const CXXConstructorDecl *Ctor) {
         return false;
       if (!this->emitPopPtr(InitExpr))
         return false;
+      if (!this->emitFinishDelegation(InitExpr))
+        return false;
     }
 
     if (!Scope.destroyLocals())

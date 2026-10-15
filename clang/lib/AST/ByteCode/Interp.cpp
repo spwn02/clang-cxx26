@@ -1853,8 +1853,12 @@ bool Call(InterpState &S, CodePtr OpPC, const Function *Func,
   // have a caller set.
   bool Success = Interpret(S);
   // Remove initializing  block again.
-  if (Func->isConstructor() || Func->isDestructor())
+  if (Func->isConstructor() || Func->isDestructor()) {
+    if (!S.DelegatedEntries.empty() &&
+        S.DelegatedEntries.back() == S.InitializingBlocks.size() - 1)
+      S.DelegatedEntries.pop_back();
     S.InitializingBlocks.pop_back();
+  }
 
   if (!Success) {
     // Interpreting the function failed somehow. Reset to

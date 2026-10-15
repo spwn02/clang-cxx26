@@ -822,6 +822,9 @@ namespace {
     Bases,
     AfterBases,
     AfterFields,
+    /// A delegating constructor's target constructor has returned: the
+    /// object's initialization is complete ([class.base.init]).
+    Delegated,
     Destroying,
     DestroyingBases
   };
@@ -1033,6 +1036,9 @@ namespace {
       }
       void finishedConstructingFields() {
         EI.ObjectsUnderConstruction[Object] = ConstructionPhase::AfterFields;
+      }
+      void finishedDelegating() {
+        EI.ObjectsUnderConstruction[Object] = ConstructionPhase::Delegated;
       }
       ~EvaluatingConstructorRAII() {
         if (DidInsert) EI.ObjectsUnderConstruction.erase(Object);
@@ -7502,6 +7508,7 @@ static std::optional<DynamicType> ComputeDynamicType(EvalInfo &Info,
     case ConstructionPhase::None:
     case ConstructionPhase::AfterBases:
     case ConstructionPhase::AfterFields:
+    case ConstructionPhase::Delegated:
     case ConstructionPhase::Destroying:
       // We've finished constructing the base classes and not yet started
       // destroying them again, so this is the dynamic type.
@@ -8272,6 +8279,7 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
           !InitScope.destroy())
         return false;
     }
+    EvalObj.finishedDelegating();
     return EvaluateStmt(Ret, Info, Definition->getBody()) != ESR_Failed;
   }
 
@@ -24792,6 +24800,17 @@ std::optional<bool> EvaluateBuiltinIsWithinLifetime(IntExprEvaluator &IEE,
   // initializer ([basic.life]p(1.2))
   if (Info.EvaluatingDeclValue && CO.Value == Info.EvaluatingDeclValue)
     return Error(2);
+  // Likewise while a constructor of the complete object runs: the object's
+  // initialization is complete when a non-delegating constructor returns
+  // ([class.base.init]).
+  switch (Info.isEvaluatingCtorDtor(Val.getLValueBase(), {})) {
+  case ConstructionPhase::Bases:
+  case ConstructionPhase::AfterBases:
+  case ConstructionPhase::AfterFields:
+    return Error(2);
+  default:
+    break;
+  }
 
   if (!CO)
     return false;

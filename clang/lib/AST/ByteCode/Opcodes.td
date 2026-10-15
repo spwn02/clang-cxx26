@@ -927,5 +927,9 @@ def DiagTypeid : Opcode;
 
 def CheckDestruction : Opcode;
 
+// The target constructor of a delegating constructor has returned: the
+// initialization of the object is complete ([class.base.init]).
+def FinishDelegation : Opcode;
+
 def PushCC : Opcode { let Args = [ArgBool]; }
 def PopCC : Opcode;

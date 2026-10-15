@@ -2036,6 +2036,24 @@ bool StorePop(InterpState &S, CodePtr OpPC) {
   return true;
 }
 
+/// The target constructor of the delegating constructor that is running has
+/// returned: the object's initialization is complete as far as its lifetime is
+/// concerned ([class.base.init]). The entry in InitializingBlocks stays, since
+/// the object is still being constructed for everything else, and is only
+/// recorded as delegated.
+static inline bool FinishDelegation(InterpState &S, CodePtr OpPC) {
+  if (!S.Current->hasThisPointer())
+    return true;
+  const Block *B = S.Current->getThis().block();
+  for (unsigned I = S.InitializingBlocks.size(); I != 0; --I) {
+    if (S.InitializingBlocks[I - 1] == B) {
+      S.DelegatedEntries.push_back(I - 1);
+      break;
+    }
+  }
+  return true;
+}
+
 static inline bool Activate(InterpState &S, CodePtr OpPC) {
   const Pointer &Ptr = S.Stk.peek<Pointer>();
   if (Ptr.canBeInitialized())
