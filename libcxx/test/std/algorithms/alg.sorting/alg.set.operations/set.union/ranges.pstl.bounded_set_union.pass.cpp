@@ -33,6 +33,26 @@ void test(Policy&& policy) {
   assert(short_result.out == short_output.end());
   assert((short_output == std::array<int, 2>{1, 2}));
 
+  // [alg.set.union]: with equivalent elements, the first range's copies are counted first and an equal number of
+  // elements of the second range are skipped; a truncated output reports the copied-or-skipped positions.
+  {
+    std::array<int, 3> l{1, 1, 1};
+    std::array<int, 2> r{1, 2};
+    std::array<int, 2> o{};
+    auto res = std::ranges::set_union(policy, l, r, o);
+    assert(res.in1 == l.begin() + 2 && res.in2 == r.begin() + 1 && res.out == o.end());
+    assert((o == std::array<int, 2>{1, 1}));
+  }
+  {
+    std::array<int, 2> l{1, 2};
+    std::array<int, 3> r{2, 2, 2};
+    std::array<int, 3> o{};
+    auto res = std::ranges::set_union(policy, l, r, o);
+    // The union is 1 2 2 2: one 2 from the first range, then the last two 2s of the second range.
+    assert(res.in1 == l.end() && res.in2 == r.begin() + 2 && res.out == o.end());
+    assert((o == std::array<int, 3>{1, 2, 2}));
+  }
+
   std::array<Value, 2> projected_left{{{3, 1}, {1, 1}}};
   std::array<Value, 2> projected_right{{{3, 2}, {2, 2}}};
   std::array<Value, 3> projected_output{};
