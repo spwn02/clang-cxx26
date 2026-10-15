@@ -22,6 +22,9 @@
 // RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %t/ModuleSemiNextLine.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/ImportSemiNextLine.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/SemiSameLogicalLine.cpp
+// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %t/DirectiveContinued.cpp
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/ImportContinued.cpp
+// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %t/PrivateContinued.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/AfterPragma.cpp
 
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/AfterPragmaOperator.cpp
@@ -219,3 +222,18 @@ import foo \
 ;
 import foo /* a
 b */ ;
+
+//--- DirectiveContinued.cpp
+// The directive ends at the first new-line wherever the ';' stands: an attribute on a later line does not move it.
+export module M
+[[]]; // expected-error {{the ';' that ends a module or import directive must be on the same logical source line as the directive}}
+
+//--- ImportContinued.cpp
+export module M;
+import foo
+[[]]; // expected-error {{the ';' that ends a module or import directive must be on the same logical source line as the directive}}
+
+//--- PrivateContinued.cpp
+export module M;
+module :private
+; // expected-error {{the ';' that ends a module or import directive must be on the same logical source line as the directive}}

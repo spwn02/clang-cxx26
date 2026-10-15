@@ -671,6 +671,9 @@ public:
   /// source line (white space, comments and line splices between them do not
   /// end the line; a new-line does). True when it cannot be told.
   bool isOnSameLogicalLine(const Token &Prev, const Token &Next) const;
+  /// Whether no new-line (after phases 2 and 3: line splices and comments are
+  /// white space) lies between the two locations of one file.
+  bool noNewLineBetween(SourceLocation From, SourceLocation To) const;
   /// Same, for a previous token that starts at \p PrevStart.
   bool isOnSameLogicalLine(SourceLocation PrevStart, const Token &Next) const;
 

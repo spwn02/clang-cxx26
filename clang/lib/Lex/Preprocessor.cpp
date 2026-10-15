@@ -1326,6 +1326,32 @@ bool Preprocessor::isOnSameLogicalLine(SourceLocation PrevStart,
   return P && P == skipLeadingSplices(SourceMgr.getCharacterData(Next.getLocation()));
 }
 
+bool Preprocessor::noNewLineBetween(SourceLocation From,
+                                    SourceLocation To) const {
+  if (From.isInvalid() || To.isInvalid() || From.isMacroID() ||
+      To.isMacroID() || SourceMgr.getFileID(From) != SourceMgr.getFileID(To))
+    return true;
+  const char *P = SourceMgr.getCharacterData(From);
+  const char *E = SourceMgr.getCharacterData(To);
+  // Phases 2 and 3: a line splice and a comment are white space; a new-line
+  // (also the one that ends a line comment) ends the logical line.
+  while (P < E) {
+    if (P[0] == '\\' && (P[1] == '\n' || P[1] == '\r')) {
+      P += (P[1] == '\r' && P[2] == '\n') ? 3 : 2;
+    } else if (P[0] == '/' && P[1] == '*') {
+      const char *Close = strstr(P + 2, "*/");
+      if (!Close)
+        return true;
+      P = Close + 2;
+    } else if (P[0] == '\n' || P[0] == '\r' || (P[0] == '/' && P[1] == '/')) {
+      return false;
+    } else {
+      ++P;
+    }
+  }
+  return true;
+}
+
 bool Preprocessor::NextTokenIsOnImportLine() const {
   return peekNextTokenOnLine(SourceMgr, LangOpts, ModuleImportLoc) != nullptr;
 }

@@ -2442,6 +2442,9 @@ Parser::ParseModuleDecl(Sema::ModuleImportState &ImportState) {
     ConsumeToken();
     SourceLocation PrivateLoc = ConsumeToken();
     DiagnoseAndSkipCXX11Attributes();
+    if (getLangOpts().CPlusPlusModules && Tok.is(tok::semi) &&
+        !PP.noNewLineBetween(ModuleLoc, Tok.getLocation()))
+      Diag(Tok, diag::err_directive_semi_not_on_line);
     ExpectAndConsumeSemi(diag::err_private_module_fragment_expected_semi);
     ImportState = ImportState == Sema::ModuleImportState::ImportAllowed
                       ? Sema::ModuleImportState::PrivateFragmentImportAllowed
@@ -2474,7 +2477,7 @@ Parser::ParseModuleDecl(Sema::ModuleImportState &ImportState) {
                           /*WarnOnUnknownAttrs=*/true);
 
   if (getLangOpts().CPlusPlusModules && Tok.is(tok::semi) &&
-      !PP.isOnSameLogicalLine(PrevTokLocation, Tok))
+      !PP.noNewLineBetween(ModuleLoc, Tok.getLocation()))
     Diag(Tok, diag::err_directive_semi_not_on_line);
   ExpectAndConsumeSemi(diag::err_module_expected_semi);
 
@@ -2584,7 +2587,7 @@ Decl *Parser::ParseModuleImport(SourceLocation AtLoc,
     break;
   }
   if (getLangOpts().CPlusPlusModules && AtLoc.isInvalid() && !IsHeaderImport &&
-      Tok.is(tok::semi) && !PP.isOnSameLogicalLine(PrevTokLocation, Tok))
+      Tok.is(tok::semi) && !PP.noNewLineBetween(ImportLoc, Tok.getLocation()))
     Diag(Tok, diag::err_directive_semi_not_on_line);
   ExpectAndConsumeSemi(diag::err_module_expected_semi);
   TryConsumeToken(tok::eod);
