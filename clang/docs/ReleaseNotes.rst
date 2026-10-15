@@ -43,6 +43,10 @@ Potentially Breaking Changes
   identifier, ``import`` at the start of a line inside a namespace or other brackets is an import directive, and
   ``import .x;`` is no longer a directive (it is diagnosed as an unknown type name instead of
   "expected a module name"). An ``export`` on a line before ``import`` does not export it and is diagnosed.
+  The same rule applies to ``module``: a mid-line ``module`` is an ordinary identifier, ``module x;`` or
+  ``module;`` at the start of a line is a directive wherever it is (diagnosed inside a namespace), and
+  ``module;export module M;`` on one line is no longer accepted. An empty macro expansion on an earlier
+  line does not prevent a directive; one before the token on the same line does.
 
 - Clang will now emit a warning if the auto-detected GCC installation
   directory (i.e. the one with the largest version number) does not
