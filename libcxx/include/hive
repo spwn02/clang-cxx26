@@ -537,10 +537,17 @@ public:
   }
 
   _LIBCPP_HIDE_FROM_ABI void trim_capacity(size_type __n) noexcept {
-    while (__reserved_ != nullptr && capacity() > __n) {
-      __group_type* __g = __reserved_;
-      __reserved_        = __g->__next_;
-      __deallocate_group(__g);
+    // [hive.capacity]: if n >= capacity() there are no effects; otherwise capacity() is reduced to no less than n, so
+    // only a reserved block whose removal leaves at least n elements of capacity may be deallocated.
+    __group_type** __link = std::addressof(__reserved_);
+    while (*__link != nullptr) {
+      __group_type* __g = *__link;
+      if (capacity() >= __n && capacity() - __g->__capacity_ >= __n) {
+        *__link = __g->__next_;
+        __deallocate_group(__g);
+      } else {
+        __link = std::addressof(__g->__next_);
+      }
     }
   }
 

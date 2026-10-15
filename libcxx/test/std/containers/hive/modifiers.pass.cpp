@@ -22,6 +22,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "test_macros.h"
+
 template <class T, class Alloc>
 std::vector<T> sorted_contents(const std::hive<T, Alloc>& h) {
   std::vector<T> v(h.begin(), h.end());
@@ -276,6 +278,32 @@ int main(int, char**) {
     assert(h.size() == 6);
     assert(result == h.end());
   }
+
+#ifndef TEST_HAS_NO_EXCEPTIONS
+  {
+    // [hive.operations]: if splice throws (the block capacity limits are incompatible), there are no effects.
+    std::hive<int> a(std::hive_limits(2, 4));
+    std::hive<int> b(std::hive_limits(10, 20));
+    for (int i = 0; i < 3; ++i)
+      a.insert(i);
+    for (int i = 0; i < 12; ++i)
+      b.insert(100 + i);
+    bool threw = false;
+    try {
+      a.splice(b);
+    } catch (const std::length_error&) {
+      threw = true;
+    }
+    assert(threw);
+    assert(a.size() == 3 && b.size() == 12);
+    int sum_a = 0, sum_b = 0;
+    for (int x : a)
+      sum_a += x;
+    for (int x : b)
+      sum_b += x;
+    assert(sum_a == 3 && sum_b == 12 * 100 + 66);
+  }
+#endif
 
   return 0;
 }

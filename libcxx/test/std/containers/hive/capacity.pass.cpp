@@ -135,6 +135,26 @@ int main(int, char**) {
     h.reserve(200);
     h.trim_capacity(50);
     assert(h.capacity() <= 200);
+    assert(h.capacity() >= 50);
+  }
+
+  {
+    // [hive.capacity]: no effects if n >= capacity(); otherwise capacity() is reduced to no less than n.
+    std::hive<int> h;
+    h.reserve(100);
+    std::size_t c = h.capacity();
+    h.trim_capacity(c);
+    assert(h.capacity() == c);
+    h.trim_capacity(c + 100);
+    assert(h.capacity() == c);
+    h.trim_capacity(c / 2 + 1);
+    assert(h.capacity() <= c);
+    assert(h.capacity() >= c / 2 + 1);
+    std::size_t reduced = h.capacity();
+    h.trim_capacity(reduced);
+    assert(h.capacity() == reduced);
+    h.trim_capacity(0);
+    assert(h.capacity() == 0);
   }
 
   {
