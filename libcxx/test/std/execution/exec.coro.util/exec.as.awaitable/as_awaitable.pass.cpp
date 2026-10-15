@@ -58,6 +58,22 @@ struct Task {
 
 Task<int> uses_plain_awaiter() { co_return co_await PlainAwaiter{}; }
 
+// [exec.as.awaitable]: as_awaitable(expr, p) is ill-formed if p is not an lvalue, including a const rvalue.
+struct Prom {
+  template <class V>
+  decltype(auto) await_transform(V&& v) {
+    return v;
+  }
+};
+template <class P>
+concept can_as_awaitable_lvalue = requires(PlainAwaiter a, P&& p) { as_awaitable(a, p); };
+template <class P>
+concept can_as_awaitable_forward = requires(PlainAwaiter a, P&& p) { as_awaitable(a, std::forward<P>(p)); };
+static_assert(can_as_awaitable_lvalue<Prom>);
+static_assert(can_as_awaitable_forward<Prom&>);
+static_assert(!can_as_awaitable_forward<Prom>);
+static_assert(!can_as_awaitable_forward<const Prom>);
+
 Task<int> uses_sender() { co_return co_await just(42); }
 
 Task<int> uses_sender_chain() { co_return co_await (just(10) | then([](int x) { return x * 2; })); }

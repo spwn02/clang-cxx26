@@ -151,6 +151,11 @@ concept __has_adapted_as_awaitable = sender_in<_Expr, env_of_t<_Promise>> &&
                                       };
 
 struct as_awaitable_t {
+  // [exec.as.awaitable]: as_awaitable(expr, p) is ill-formed if p is not an lvalue (this also catches a const rvalue,
+  // which the lvalue-reference parameter below would bind).
+  template <class _Expr, class _Promise>
+  void operator()(_Expr&&, const _Promise&&) const = delete;
+
   template <class _Expr, class _Promise>
   _LIBCPP_HIDE_FROM_ABI auto operator()(_Expr&& __expr, _Promise& __p) const -> decltype(auto) {
     if constexpr (requires { std::forward<_Expr>(__expr).as_awaitable(__p); }) {
