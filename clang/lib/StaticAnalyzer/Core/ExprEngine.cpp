@@ -1864,7 +1864,6 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OpenACCAtomicConstructClass:
     case Stmt::OMPUnrollDirectiveClass:
     case Stmt::OMPMetaDirectiveClass:
-    case Stmt::ContractStmtClass: // FIXME(EricWF): Do something here
     case Stmt::HLSLOutArgExprClass: {
       const ExplodedNode *node = Bldr.generateSink(S, Pred, Pred->getState());
       Engine.addAbortedBlock(node, currBldrCtx->getBlock());
@@ -1995,7 +1994,10 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPIteratorExprClass:
     case Stmt::SYCLUniqueStableNameExprClass:
     case Stmt::OpenACCAsteriskSizeExprClass:
-    case Stmt::TypeTraitExprClass: {
+    case Stmt::TypeTraitExprClass:
+    // A contract assertion does not change the state the analyzer models: the
+    // path continues (as under the ignore semantic).
+    case Stmt::ContractStmtClass: {
       Bldr.takeNodes(Pred);
       ExplodedNodeSet preVisit;
       getCheckerManager().runCheckersForPreStmt(preVisit, Pred, S, *this);
