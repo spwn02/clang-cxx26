@@ -1825,6 +1825,12 @@ bool Call(InterpState &S, CodePtr OpPC, const Function *Func,
 
     if (Func->isConstructor() || Func->isDestructor())
       S.InitializingBlocks.push_back(ThisPtr.block());
+    if (Func->isDestructor()) {
+      // The object is not being initialized, it is being destroyed.
+      S.DelegatedEntries.push_back(S.InitializingBlocks.size() - 1);
+      S.DestroyingObjects.push_back(
+          {ThisPtr.block(), ThisPtr.getByteOffset(), ThisPtr.getFieldDesc()});
+    }
   }
 
   if (!Func->isFullyCompiled())
@@ -1853,6 +1859,9 @@ bool Call(InterpState &S, CodePtr OpPC, const Function *Func,
   // have a caller set.
   bool Success = Interpret(S);
   // Remove initializing  block again.
+  if (Func->isDestructor() && Func->hasThisPointer() &&
+      !S.DestroyingObjects.empty())
+    S.DestroyingObjects.pop_back();
   if (Func->isConstructor() || Func->isDestructor()) {
     if (!S.DelegatedEntries.empty() &&
         S.DelegatedEntries.back() == S.InitializingBlocks.size() - 1)

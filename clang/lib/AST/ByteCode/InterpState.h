@@ -196,6 +196,15 @@ public:
   /// target constructor has returned.
   llvm::SmallVector<unsigned> DelegatedEntries;
 
+  /// The objects whose destructor call has started (block, offset, type
+  /// descriptor): their lifetime has ended ([basic.life]).
+  struct DestroyingObject {
+    const Block *B;
+    uint64_t Offset;
+    const Descriptor *Desc;
+  };
+  llvm::SmallVector<DestroyingObject> DestroyingObjects;
+
   /// Whether a constructor or destructor of the complete object in \p B is
   /// running and the object's lifetime has therefore not begun: every entry
   /// for the block is that of a constructor that did not delegate yet.

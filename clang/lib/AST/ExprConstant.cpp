@@ -24811,6 +24811,24 @@ std::optional<bool> EvaluateBuiltinIsWithinLifetime(IntExprEvaluator &IEE,
   default:
     break;
   }
+  // The lifetime of an object ends when the call of its destructor starts
+  // ([basic.life]): the call is well-formed and the answer is false for that
+  // object. Its members are destroyed after the body, so they are within their
+  // lifetimes in the body but no longer once the bases are being destroyed.
+  {
+    ArrayRef<APValue::LValuePathEntry> Path = Val.getLValueDesignator().Entries;
+    for (unsigned Len = 0; Len <= Path.size(); ++Len) {
+      ConstructionPhase Phase =
+          Info.isEvaluatingCtorDtor(Val.getLValueBase(), Path.slice(0, Len));
+      if (Len == Path.size()
+              ? (Phase == ConstructionPhase::Destroying ||
+                 Phase == ConstructionPhase::DestroyingBases)
+              : (Phase == ConstructionPhase::DestroyingBases &&
+                 !isa<CXXRecordDecl>(
+                     Path[Len].getAsBaseOrMember().getPointer())))
+        return false;
+    }
+  }
 
   if (!CO)
     return false;

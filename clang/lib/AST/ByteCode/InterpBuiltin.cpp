@@ -2634,6 +2634,11 @@ static bool interp__builtin_is_within_lifetime(InterpState &S, CodePtr OpPC,
   // Check if we're currently running an initializer.
   if (S.isLifetimeNotBegun(Ptr.block()))
     return Error(2);
+  // The destructor call of the object has started: its lifetime has ended.
+  for (const auto &D : S.DestroyingObjects)
+    if (D.B == Ptr.block() && D.Offset == Ptr.getByteOffset() &&
+        D.Desc == Ptr.getFieldDesc())
+      Result = false;
   if (S.EvaluatingDecl && Ptr.getDeclDesc()->asVarDecl() == S.EvaluatingDecl)
     return Error(2);
 
