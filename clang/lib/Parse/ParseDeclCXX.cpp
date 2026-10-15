@@ -383,6 +383,7 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, DeclaratorContext Context) {
   T.consumeOpen();
 
   unsigned NestedModules = 0;
+  NestedBlockParsed = true;
   while (true) {
     switch (Tok.getKind()) {
     case tok::annot_module_begin:
@@ -414,7 +415,8 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, DeclaratorContext Context) {
       while (MaybeParseCXX11Attributes(DeclAttrs) ||
              MaybeParseGNUAttributes(DeclSpecAttrs))
         ;
-      ParseExternalDeclaration(DeclAttrs, DeclSpecAttrs);
+      noteNestedExternalDeclParsed(
+          (bool)ParseExternalDeclaration(DeclAttrs, DeclSpecAttrs));
       continue;
     }
 
@@ -457,13 +459,15 @@ Decl *Parser::ParseExportDeclaration() {
 
   BalancedDelimiterTracker T(*this, tok::l_brace);
   T.consumeOpen();
+  NestedBlockParsed = true;
 
   while (!tryParseMisplacedModuleImport() && Tok.isNot(tok::r_brace) &&
          Tok.isNot(tok::eof)) {
     ParsedAttributes DeclAttrs(AttrFactory);
     MaybeParseCXX11Attributes(DeclAttrs);
     ParsedAttributes EmptyDeclSpecAttrs(AttrFactory);
-    ParseExternalDeclaration(DeclAttrs, EmptyDeclSpecAttrs);
+    noteNestedExternalDeclParsed(
+        (bool)ParseExternalDeclaration(DeclAttrs, EmptyDeclSpecAttrs));
   }
 
   T.consumeClose();

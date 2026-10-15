@@ -10,7 +10,14 @@
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/InNamespace.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/InClass.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/InFunction.cpp
+// RUN: %clang_cc1 -std=c++20 -emit-module-interface %t/P.cppm -o %t/M-P.pcm
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/InExportBlock.cpp
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/InExportBlockLate.cpp
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/InExternBlockLate.cpp
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=M:P=%t/M-P.pcm -fsyntax-only -verify %t/PartitionInExportBlock.cpp
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/ImportsInBlocksThenImport.cpp
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/AfterPragma.cpp
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/AfterPragmaOperator.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodules -fmodules-cache-path=%t/cache -fmodule-map-file=%t/module.modulemap \
 // RUN:   -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/AfterInclude.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodules -fmodules-cache-path=%t/cache -fmodule-map-file=%t/module.modulemap \
@@ -107,9 +114,14 @@ void g() {
 import foo; // expected-error {{expected expression}}
 }
 
+//--- P.cppm
+export module M:P;
+export int p;
+
 //--- InExportBlock.cpp
 // expected-no-diagnostics
-// [module.import]: a module-import-declaration inhabits the global namespace scope; an export block does not change that.
+// [dcl.pre]: module-import-declaration is a name-declaration, so an export-declaration block may contain it
+// ([module.import]: it inhabits the global namespace scope; the block does not change that).
 export module M;
 export {
 import foo;
@@ -118,3 +130,48 @@ import foo;
 //--- ExportSameLine.cpp
 struct import {};
 export import w; // expected-error {{module 'w' not found}}
+
+//--- InExportBlockLate.cpp
+export module M;
+int x;
+export {
+import foo; // expected-error {{imports must immediately follow the module declaration}}
+}
+
+//--- InExternBlockLate.cpp
+export module M;
+int x;
+extern "C++" {
+import foo; // expected-error {{imports must immediately follow the module declaration}}
+}
+
+//--- PartitionInExportBlock.cpp
+// expected-no-diagnostics
+export module M;
+export {
+import :P;
+}
+
+//--- ImportsInBlocksThenImport.cpp
+// expected-no-diagnostics
+// Imports in a block do not end the imports that may follow the module declaration.
+export module M;
+export {
+import foo;
+}
+import foo;
+
+//--- AfterPragma.cpp
+// expected-no-diagnostics
+// The line after a #pragma directive begins a line.
+export module M;
+#pragma pack(push, 1)
+import foo;
+#pragma pack(pop)
+int g = f;
+
+//--- AfterPragmaOperator.cpp
+// A _Pragma operator does not end the line: 'import' is not its first token.
+export module M;
+_Pragma("pack(push, 1)") import foo; // expected-error {{unknown type name 'import'}}
+// expected-warning@3 {{unterminated '#pragma pack (push, ...)' at end of file}}

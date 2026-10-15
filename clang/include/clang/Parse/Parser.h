@@ -256,6 +256,20 @@ public:
   /// \endverbatim
   bool ParseTopLevelDecl(DeclGroupPtrTy &Result,
                          Sema::ModuleImportState &ImportState);
+
+  /// The import state of the top-level declaration being parsed, so that an
+  /// import directive inside an export-declaration or linkage-specification
+  /// block ([module.import]) is checked against it.
+  Sema::ModuleImportState *TopLevelImportState = nullptr;
+  /// Whether the last declaration parsed by ParseExternalDeclaration was an
+  /// import.
+  bool LastExternalDeclWasImport = false;
+  /// Whether an export or linkage-specification block was parsed, whose
+  /// declarations updated the import state one by one.
+  bool NestedBlockParsed = false;
+  /// A declaration inside a block of the top-level declaration was parsed:
+  /// unless it is an import, no further import is allowed.
+  void noteNestedExternalDeclParsed(bool Parsed);
   bool ParseTopLevelDecl() {
     DeclGroupPtrTy Result;
     Sema::ModuleImportState IS = Sema::ModuleImportState::NotACXX20Module;

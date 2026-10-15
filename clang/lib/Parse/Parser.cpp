@@ -27,6 +27,7 @@
 #include "clang/Sema/SemaCodeCompletion.h"
 #include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/TimeProfiler.h"
 using namespace clang;
 
@@ -629,9 +630,25 @@ bool Parser::ParseFirstTopLevelDecl(DeclGroupPtrTy &Result,
   return NoTopLevelDecls;
 }
 
+void Parser::noteNestedExternalDeclParsed(bool Parsed) {
+  bool WasImport = LastExternalDeclWasImport;
+  LastExternalDeclWasImport = false;
+  if (!Parsed || WasImport || !TopLevelImportState)
+    return;
+  Sema::ModuleImportState &ImportState = *TopLevelImportState;
+  if (ImportState == Sema::ModuleImportState::FirstDecl)
+    ImportState = Sema::ModuleImportState::NotACXX20Module;
+  else if (ImportState == Sema::ModuleImportState::ImportAllowed)
+    ImportState = Sema::ModuleImportState::ImportFinished;
+  else if (ImportState == Sema::ModuleImportState::PrivateFragmentImportAllowed)
+    ImportState = Sema::ModuleImportState::PrivateFragmentImportFinished;
+}
+
 bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result,
                                Sema::ModuleImportState &ImportState) {
   DestroyTemplateIdAnnotationsRAIIObj CleanupRAII(*this);
+  llvm::SaveAndRestore<Sema::ModuleImportState *> SaveImportState(
+      TopLevelImportState, &ImportState);
 
   Result = nullptr;
   switch (Tok.getKind()) {
@@ -758,10 +775,16 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result,
          MaybeParseGNUAttributes(DeclSpecAttrs))
     ;
 
+  NestedBlockParsed = false;
+  LastExternalDeclWasImport = false;
   Result = ParseExternalDeclaration(DeclAttrs, DeclSpecAttrs);
+  bool UpdatedByBlock = NestedBlockParsed || LastExternalDeclWasImport;
+  NestedBlockParsed = false;
+  LastExternalDeclWasImport = false;
   // An empty Result might mean a line with ';' or some parsing error, ignore
-  // it.
-  if (Result) {
+  // it. The declarations of an export or linkage-specification block have
+  // updated the state themselves.
+  if (Result && !UpdatedByBlock) {
     if (ImportState == Sema::ModuleImportState::FirstDecl)
       // First decl was not modular.
       ImportState = Sema::ModuleImportState::NotACXX20Module;
@@ -938,8 +961,15 @@ Parser::ParseExternalDeclaration(ParsedAttributes &Attrs,
     // Under the Standard C++ Modules an import directive ([cpp.import]) does
     // not depend on the brackets around it; Sema diagnoses one that is not at
     // the top level.
-    if (getLangOpts().CPlusPlusModules)
+    if (getLangOpts().CPlusPlusModules) {
       ProhibitAttributes(Attrs);
+      if (TopLevelImportState)
+        SingleDecl = ParseModuleImport(SourceLocation(), *TopLevelImportState);
+      else
+        SingleDecl = ParseModuleImport(SourceLocation(), IS);
+      LastExternalDeclWasImport = true;
+      break;
+    }
     SingleDecl = ParseModuleImport(SourceLocation(), IS);
   } break;
   case tok::kw_export:

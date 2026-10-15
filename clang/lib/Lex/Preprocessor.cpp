@@ -895,6 +895,10 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
   return true;
 }
 
+static const char *peekNextTokenOnLine(const SourceManager &SM,
+                                       const LangOptions &LangOpts,
+                                       SourceLocation Loc);
+
 void Preprocessor::Lex(Token &Result) {
   ++LexLevel;
 
@@ -1026,6 +1030,24 @@ void Preprocessor::Lex(Token &Result) {
       PrevTokenStartsNextLine =
           Result.isOneOf(tok::annot_module_include, tok::annot_module_begin,
                          tok::annot_module_end);
+      // The annotation token of a #pragma directive ends the directive's line;
+      // one from _Pragma() may be followed by more tokens on the line.
+      switch (Result.getKind()) {
+#define PRAGMA_ANNOTATION(X) case tok::annot_##X:
+#include "clang/Basic/TokenKinds.def"
+#undef PRAGMA_ANNOTATION
+        {
+          // A location in the scratch buffer (from _Pragma) is not a line.
+          SourceLocation End = Result.getAnnotationEndLoc();
+          PrevTokenStartsNextLine =
+              End.isFileID() && SourceMgr.isWrittenInMainFile(End) == SourceMgr.isWrittenInMainFile(End) &&
+              !SourceMgr.isWrittenInScratchSpace(End) &&
+              !peekNextTokenOnLine(SourceMgr, LangOpts, End);
+        }
+        break;
+      default:
+        break;
+      }
     }
 
   if (CurLexer && ++CheckPointCounter == CheckPointStepSize) {
