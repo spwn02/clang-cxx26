@@ -15,6 +15,9 @@
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/InExportBlockLate.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/InExternBlockLate.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=M:P=%t/M-P.pcm -fsyntax-only -verify %t/PartitionInExportBlock.cpp
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=M:P=%t/M-P.pcm -fsyntax-only -verify %t/PartitionInExternBlock.cpp
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=M:P=%t/M-P.pcm -emit-module-interface %t/PartitionInExternBlock.cpp -o %t/M.pcm
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=M=%t/M.pcm -fmodule-file=M:P=%t/M-P.pcm -fsyntax-only -verify %t/PartitionInExternBlockImpl.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/ImportsInBlocksThenImport.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/AfterPragma.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/AfterPragmaOperator.cpp
@@ -175,3 +178,21 @@ int g = f;
 export module M;
 _Pragma("pack(push, 1)") import foo; // expected-error {{unknown type name 'import'}}
 // expected-warning@3 {{unterminated '#pragma pack (push, ...)' at end of file}}
+
+//--- PartitionInExternBlock.cpp
+// expected-no-diagnostics
+// The partition belongs to the module the module-declaration names, also inside a linkage-specification, where the
+// innermost scope is the implicit global module (#309).
+export module M;
+extern "C++" {
+import :P;
+}
+int g = p;
+
+//--- PartitionInExternBlockImpl.cpp
+// expected-no-diagnostics
+module M;
+extern "C++" {
+import :P;
+}
+int g2 = p;

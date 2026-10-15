@@ -593,6 +593,15 @@ DeclResult Sema::ActOnModuleImport(SourceLocation StartLoc,
     // We already checked that we are in a module purview in the parser.
     assert(!ModuleScopes.empty() && "in a module purview, but no module?");
     Module *NamedMod = ModuleScopes.back().Module;
+    // The innermost scope can be the implicit global module (inside a
+    // linkage-specification); the partition belongs to the module the
+    // module-declaration named.
+    for (auto It = ModuleScopes.rbegin(); It != ModuleScopes.rend(); ++It) {
+      if (It->Module && !It->Module->isGlobalModule()) {
+        NamedMod = It->Module;
+        break;
+      }
+    }
     // If we are importing into a partition, find the owning named module,
     // otherwise, the name of the importing named module.
     ModuleName = NamedMod->getPrimaryModuleInterfaceName().str();
