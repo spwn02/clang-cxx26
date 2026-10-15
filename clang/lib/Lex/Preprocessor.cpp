@@ -71,6 +71,8 @@
 
 using namespace clang;
 
+static bool onlyBlanksBeforeOnLine(const SourceManager &SM, const Token &Tok);
+
 /// Minimum distance between two check points, in tokens.
 static constexpr unsigned CheckPointStepSize = 1024;
 
@@ -887,7 +889,8 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
     ModuleImportLoc = Identifier.getLocation();
     NamedModuleImportPath.clear();
     ImportStartsLogicalLine =
-        Identifier.isAtStartOfLine() && !Identifier.hasLeadingEmptyMacro();
+        Identifier.isAtStartOfLine() &&
+        onlyBlanksBeforeOnLine(SourceMgr, Identifier);
     IsAtImport = true;
     ModuleImportExpectsIdentifier = true;
     CurLexerCallback = CLK_LexAfterModuleImport;
@@ -898,6 +901,7 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
 static const char *peekNextTokenOnLine(const SourceManager &SM,
                                        const LangOptions &LangOpts,
                                        SourceLocation Loc);
+static bool onlyBlanksBeforeOnLine(const SourceManager &SM, const Token &Tok);
 
 void Preprocessor::Lex(Token &Result) {
   ++LexLevel;
@@ -995,16 +999,21 @@ void Preprocessor::Lex(Token &Result) {
           break;
         }
       }
-      // Check "module" when there is no open bracket. The identifier is not
-      // meaningful with open brackets.
-      if (StdCXXImportSeqState.atTopLevel()) {
-        if (Result.getIdentifierInfo() == getIdentifierInfo("module")) {
-          if (hasSeenNoTrivialPPDirective())
-            Result.setFlag(Token::HasSeenNoTrivialPPDirective);
+      // [cpp.pre]: a module declaration is a directive (pp-module) when module,
+      // or the export before it, begins a logical source line and is followed
+      // on it by an identifier, ':' or ';'. The preprocessor produces the
+      // module-keyword; any other 'module' is an identifier.
+      if (Result.getIdentifierInfo() == getIdentifierInfo("module") &&
+          IsPPImportDirective(Result, PrevTokenWasLineStartExport,
+                              /*ForModule=*/true)) {
+        Result.setKind(tok::kw_module);
+        if (hasSeenNoTrivialPPDirective())
+          Result.setFlag(Token::HasSeenNoTrivialPPDirective);
+        if (StdCXXImportSeqState.atTopLevel()) {
           TrackGMFState.handleModule(StdCXXImportSeqState.afterTopLevelSeq());
           ModuleDeclState.handleModule();
-          break;
         }
+        break;
       }
       ModuleDeclState.handleIdentifier(Result.getIdentifierInfo());
       if (ModuleDeclState.isModuleCandidate())
@@ -1024,7 +1033,8 @@ void Preprocessor::Lex(Token &Result) {
       bool StartsLine = Result.isAtStartOfLine() || PrevTokenStartsNextLine;
       PrevTokenWasLineStartExport =
           Result.is(tok::kw_export) && StartsLine &&
-          !Result.hasLeadingEmptyMacro() && !Result.getLocation().isMacroID();
+          !Result.getLocation().isMacroID() &&
+          onlyBlanksBeforeOnLine(SourceMgr, Result);
       // These annotation tokens replace a directive or end an included file:
       // the next token begins a line.
       PrevTokenStartsNextLine =
@@ -1276,13 +1286,56 @@ bool Preprocessor::NextTokenIsOnImportLine() const {
   return peekNextTokenOnLine(SourceMgr, LangOpts, ModuleImportLoc) != nullptr;
 }
 
+/// Whether only white space or a comment precedes \p Tok on its physical line
+/// (an empty macro expansion before it is not white space).
+static bool onlyBlanksBeforeOnLine(const SourceManager &SM, const Token &Tok) {
+  SourceLocation Loc = Tok.getLocation();
+  if (Loc.isInvalid() || Loc.isMacroID())
+    return false;
+  bool Invalid = false;
+  StringRef Buffer = SM.getBufferData(SM.getFileID(Loc), &Invalid);
+  if (Invalid)
+    return false;
+  const char *Begin = Buffer.data();
+  const char *P = Begin + SM.getFileOffset(Loc);
+  while (P != Begin && (P[-1] == ' ' || P[-1] == '\t'))
+    --P;
+  // A comment before the token on the line is white space.
+  return P == Begin || P[-1] == '\n' || P[-1] == '\r' ||
+         (P - Begin >= 2 && P[-1] == '/' && P[-2] == '*');
+}
+
+/// Whether the text right before \p Tok (blanks aside) is the word export, with
+/// no empty macro expansion in between.
+static bool directlyAfterExportText(const SourceManager &SM, const Token &Tok) {
+  SourceLocation Loc = Tok.getLocation();
+  if (Loc.isInvalid() || Loc.isMacroID())
+    return false;
+  bool Invalid = false;
+  StringRef Buffer = SM.getBufferData(SM.getFileID(Loc), &Invalid);
+  if (Invalid)
+    return false;
+  const char *Begin = Buffer.data();
+  const char *P = Begin + SM.getFileOffset(Loc);
+  while (P != Begin && (P[-1] == ' ' || P[-1] == '\t'))
+    --P;
+  if (P - Begin < 6 || StringRef(P - 6, 6) != "export")
+    return false;
+  return P - Begin == 6 || !isAsciiIdentifierContinue(P[-7]);
+}
+
 bool Preprocessor::IsPPImportDirective(const Token &Import,
-                                       bool AfterLineStartExport) const {
+                                       bool AfterLineStartExport,
+                                       bool ForModule) const {
   // The directive-introducing token is the first token of the logical line at
   // the start of phase 4 ([cpp.pre]): not preceded by an empty macro
   // expansion, not produced by a macro and read from the file being lexed.
-  if (InMacroArgs || Import.hasLeadingEmptyMacro() ||
-      Import.getLocation().isMacroID() || !CurLexer)
+  if (InMacroArgs || Import.getLocation().isMacroID() || !CurLexer)
+    return false;
+  // Either it follows an export that begins the line, or it begins the line
+  // itself with nothing but blanks before it (an empty macro expansion is not).
+  if (!(AfterLineStartExport && directlyAfterExportText(SourceMgr, Import)) &&
+      !onlyBlanksBeforeOnLine(SourceMgr, Import))
     return false;
   // The lexer does not flag the first token after a directive that was
   // replaced by an annotation token (#include of an importable header) as the
@@ -1294,9 +1347,12 @@ bool Preprocessor::IsPPImportDirective(const Token &Import,
       peekNextTokenOnLine(SourceMgr, LangOpts, Import.getLocation());
   if (!Next)
     return false;
-  // header-name, '<', identifier or ':' (but neither '::' nor ':>').
+  // import: header-name, '<', identifier or ':'; module: identifier, ':' or
+  // ';' (':' but neither '::' nor ':>').
   unsigned char C = *Next;
-  if (C == '<' || C == '"')
+  if (ForModule && C == ';')
+    return true;
+  if (!ForModule && (C == '<' || C == '"'))
     return true;
   if (C == ':')
     return Next[1] != ':' && Next[1] != '>';

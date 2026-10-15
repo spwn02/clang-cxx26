@@ -672,17 +672,6 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result,
       goto import_decl;
     }
 
-    // Recognize context-sensitive C++20 'export module' and 'export import'
-    // declarations.
-    case tok::identifier: {
-      // An 'import' that is not an import-keyword (the preprocessor produces
-      // it from an import directive) is an ordinary identifier.
-      IdentifierInfo *II = NextToken().getIdentifierInfo();
-      if (II == Ident_module && GetLookAheadToken(2).isNot(tok::coloncolon))
-        goto module_decl;
-      break;
-    }
-
     default:
       break;
     }
@@ -756,9 +745,8 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result,
     //   A token sequence beginning with 'export[opt] module' or
     //   'export[opt] import' and not immediately followed by '::'
     //   is never interpreted as the declaration of a top-level-declaration.
-    if (Tok.getIdentifierInfo() == Ident_module &&
-        NextToken().isNot(tok::coloncolon))
-      goto module_decl;
+    // A 'module' that is not a module-keyword (the preprocessor produces it
+    // from a module directive) is an ordinary identifier.
     break;
 
   default:
@@ -2419,9 +2407,7 @@ Parser::ParseModuleDecl(Sema::ModuleImportState &ImportState) {
                                  : Sema::ModuleDeclKind::Implementation;
 
   assert(
-      (Tok.is(tok::kw_module) ||
-       (Tok.is(tok::identifier) && Tok.getIdentifierInfo() == Ident_module)) &&
-      "not a module declaration");
+      Tok.is(tok::kw_module) && "not a module declaration");
   SourceLocation ModuleLoc = ConsumeToken();
 
   // Attributes appear after the module name, not before.

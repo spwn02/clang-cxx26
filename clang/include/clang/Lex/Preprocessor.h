@@ -658,8 +658,8 @@ private:
   /// Whether \p Import is the directive-introducing token of a pp-import
   /// ([cpp.pre]); \p AfterLineStartExport is whether the previous token was an
   /// `export` that began its logical line.
-  bool IsPPImportDirective(const Token &Import,
-                           bool AfterLineStartExport) const;
+  bool IsPPImportDirective(const Token &Import, bool AfterLineStartExport,
+                           bool ForModule = false) const;
   /// Whether the next token after the `import` token at ModuleImportLoc is on
   /// the same logical source line (no new-line between them).
   bool NextTokenIsOnImportLine() const;

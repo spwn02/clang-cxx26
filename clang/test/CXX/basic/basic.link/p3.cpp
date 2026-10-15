@@ -3,6 +3,7 @@
 
 // RUN: %clang_cc1 -std=c++20 -verify %t/M.cpp
 // RUN: %clang_cc1 -std=c++20 -verify %t/ImportError1.cpp
+// RUN: %clang_cc1 -std=c++20 -verify %t/ModuleInNamespace.cpp
 // RUN: %clang_cc1 -std=c++20 -verify %t/ImportError2.cpp
 // RUN: %clang_cc1 -std=c++20 -verify %t/ImportInNamespace.cpp
 // RUN: %clang_cc1 -std=c++20 -verify %t/ImportSameLine.cpp
@@ -25,7 +26,7 @@ import::inner xi = {};
 module::inner yi = {};
 
 namespace N {
-  module a;
+  // module a; at the start of a line is a module directive: see ModuleInNamespace.cpp
   // import b; is an import directive (it starts its line, [cpp.pre]): see ImportInNamespace.cpp
 }
 
@@ -83,3 +84,10 @@ import b; // expected-error {{module 'b' not found}}
 // 'import' is not the first token of its logical line: not a directive, so an ordinary identifier.
 struct import {};
 int a; import x;
+
+//--- ModuleInNamespace.cpp
+// A module declaration that starts its logical line is a directive wherever it is (and ill-formed here).
+export module m;
+namespace N {
+module a; // expected-error {{module declaration can only appear at the top level}}
+}

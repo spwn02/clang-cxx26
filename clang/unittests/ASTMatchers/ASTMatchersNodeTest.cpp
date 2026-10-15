@@ -193,7 +193,8 @@ TEST_P(ASTMatchersTest, ExportDecl) {
   if (!GetParam().isCXX20OrLater()) {
     return;
   }
-  const std::string moduleHeader = "module;export module ast_matcher_test;";
+  // Each module directive starts its own logical line ([cpp.pre]).
+  const std::string moduleHeader = "module;\nexport module ast_matcher_test;\n";
   EXPECT_TRUE(matches(moduleHeader + "export void foo();",
                       exportDecl(has(functionDecl()))));
   EXPECT_TRUE(matches(moduleHeader + "export { void foo(); int v; }",
