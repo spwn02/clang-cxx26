@@ -1037,6 +1037,19 @@ bool CheckStore(InterpState &S, CodePtr OpPC, const Pointer &Ptr,
     return false;
   if (!CheckActive(S, OpPC, Ptr, AK_Assign, WillBeActivated))
     return false;
+  // [class.union.general]: start_lifetime begins the lifetime of an array
+  // member of a union but not of its elements; an element that has not been
+  // constructed cannot be assigned to.
+  if (Ptr.getFieldDesc()->isPrimitiveArray() && !Ptr.isArrayRoot()) {
+    Pointer Arr = Ptr.getArray();
+    if (Arr.elementsNotStarted() &&
+        !Ptr.isElementInitialized(Ptr.getIndex())) {
+      S.FFDiag(S.Current->getSource(OpPC), diag::note_constexpr_lifetime_ended,
+               1)
+          << AK_Assign << /*object, not temporary*/ 1;
+      return false;
+    }
+  }
   if (!CheckGlobal(S, OpPC, Ptr))
     return false;
   if (!CheckConst(S, OpPC, Ptr))

@@ -101,6 +101,11 @@ struct InlineDescriptor {
   unsigned IsArrayElement : 1;
   LLVM_PREFERRED_TYPE(bool)
   unsigned IsVolatile : 1;
+  /// Flag indicating that this array, a member of a union, had its lifetime
+  /// begun by start_lifetime: the array is within its lifetime, but its
+  /// elements are not until they are constructed.
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned ElementsNotStarted : 1;
 
   Lifetime LifeState;
 
@@ -109,7 +114,8 @@ struct InlineDescriptor {
   InlineDescriptor(const Descriptor *D)
       : Offset(sizeof(InlineDescriptor)), IsConst(false), IsInitialized(false),
         IsBase(false), IsActive(false), IsFieldMutable(false),
-        IsArrayElement(false), IsVolatile(false), LifeState(Lifetime::Started),
+        IsArrayElement(false), IsVolatile(false), ElementsNotStarted(false),
+        LifeState(Lifetime::Started),
         Desc(D) {}
 
   void dump() const { dump(llvm::errs()); }

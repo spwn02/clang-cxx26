@@ -405,6 +405,16 @@ public:
       return getFieldDesc()->IsArray;
     return false;
   }
+  /// Whether this array, a member of a union, is within its lifetime while its
+  /// elements are not (start_lifetime).
+  bool elementsNotStarted() const {
+    return isBlockPointer() && BS.Base >= sizeof(InlineDescriptor) &&
+           getInlineDesc()->ElementsNotStarted;
+  }
+  void setElementsNotStarted(bool V) const {
+    if (isBlockPointer() && BS.Base >= sizeof(InlineDescriptor))
+      getInlineDesc()->ElementsNotStarted = V;
+  }
   bool inUnion() const {
     if (isBlockPointer() && BS.Base >= sizeof(InlineDescriptor))
       return getInlineDesc()->InUnion;

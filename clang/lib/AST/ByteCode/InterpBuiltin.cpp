@@ -2528,10 +2528,16 @@ static bool interp__builtin_start_lifetime(InterpState &S, CodePtr OpPC,
   if (!Ptr.block()->isAccessible() && !CheckExtern(S, OpPC, Ptr))
     return false;
 
+  bool WasActive = Ptr.isActive();
   if (Ptr.inUnion() && Ptr.getBase().getRecord()->isUnion())
     Ptr.activate();
   if (Ptr.getLifetime() != Lifetime::Started)
     Ptr.startLifetime();
+  // The elements of an array member that was not yet within its lifetime are
+  // not within their lifetimes either.
+  if (!WasActive && Ptr.inUnion() && Ptr.getFieldDesc()->isPrimitiveArray() &&
+      Ptr.isArrayRoot())
+    Ptr.setElementsNotStarted(true);
   return true;
 }
 
