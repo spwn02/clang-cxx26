@@ -8488,6 +8488,16 @@ static bool isCompleteObjectLValue(const LValue &LV) {
   return D.Invalid || D.Entries.size() <= D.MostDerivedPathLength;
 }
 
+/// [basic.life]/1: the lifetime of an object ends when its destructor call
+/// starts if it is of a class type with a non-trivial destructor, and when its
+/// storage is released otherwise. So a member of such a class type is gone once
+/// the destructor of the enclosing object has finished its body, while any
+/// other member is still within its lifetime until the enclosing object is gone.
+static bool EndsWhenMemberIsDestroyed(const ASTContext &Ctx, QualType T) {
+  const CXXRecordDecl *RD = Ctx.getBaseElementType(T)->getAsCXXRecordDecl();
+  return RD && !RD->hasTrivialDestructor();
+}
+
 static bool HandleDestructionImpl(EvalInfo &Info, SourceRange CallRange,
                                   const LValue &This, APValue &Value,
                                   QualType T, bool IsCompleteObject = true) {
@@ -8632,6 +8642,11 @@ static bool HandleDestructionImpl(EvalInfo &Info, SourceRange CallRange,
     LValue Subobject = This;
     if (!HandleLValueMember(Info, &LocE, Subobject, FD, &Layout))
       return false;
+
+    // Only the members whose lifetime ends with the destructor call of the
+    // member are ended here; the others stay until the object is gone.
+    if (!EndsWhenMemberIsDestroyed(Info.Ctx, FD->getType()))
+      continue;
 
     APValue *SubobjectValue = &Value.getStructField(FD->getFieldIndex());
     if (!HandleDestructionImpl(Info, CallRange, Subobject, *SubobjectValue,
@@ -24817,6 +24832,11 @@ std::optional<bool> EvaluateBuiltinIsWithinLifetime(IntExprEvaluator &IEE,
   // lifetimes in the body but no longer once the bases are being destroyed.
   {
     ArrayRef<APValue::LValuePathEntry> Path = Val.getLValueDesignator().Entries;
+    auto isDestroyedMember = [&](APValue::LValuePathEntry Entry) {
+      const auto *FD = dyn_cast_or_null<FieldDecl>(
+          Entry.getAsBaseOrMember().getPointer());
+      return FD && EndsWhenMemberIsDestroyed(Info.Ctx, FD->getType());
+    };
     for (unsigned Len = 0; Len <= Path.size(); ++Len) {
       ConstructionPhase Phase =
           Info.isEvaluatingCtorDtor(Val.getLValueBase(), Path.slice(0, Len));
@@ -24824,8 +24844,7 @@ std::optional<bool> EvaluateBuiltinIsWithinLifetime(IntExprEvaluator &IEE,
               ? (Phase == ConstructionPhase::Destroying ||
                  Phase == ConstructionPhase::DestroyingBases)
               : (Phase == ConstructionPhase::DestroyingBases &&
-                 !isa<CXXRecordDecl>(
-                     Path[Len].getAsBaseOrMember().getPointer())))
+                 isDestroyedMember(Path[Len])))
         return false;
     }
   }

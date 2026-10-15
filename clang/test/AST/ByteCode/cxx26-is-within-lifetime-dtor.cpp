@@ -61,3 +61,32 @@ struct D2 : B2 {
 };
 constexpr bool d4() { bool r = true; { D2 d(&r); } return r; }
 static_assert(!d4());
+
+// A member that is not of a class type with a non-trivial destructor stays within its lifetime until the object is
+// gone, so it can still be read in the body of a base class destructor (#312).
+struct T { int a; };
+struct B3 {
+  bool *r1, *r2;
+  int *o;
+  const int *ip;
+  const T *tp;
+  constexpr ~B3() {
+    if consteval {
+      *r1 = __builtin_is_within_lifetime(ip);
+      *r2 = __builtin_is_within_lifetime(tp);
+      *o = *ip + tp->a;
+    }
+  }
+};
+struct D3 : B3 {
+  int i;
+  T t;
+  constexpr D3(bool *a, bool *b, int *o) : B3{a, b, o, &i, &t}, i(3), t{4} {}
+};
+constexpr int d5() {
+  bool a = false, b = false;
+  int o = 0;
+  { D3 d(&a, &b, &o); }
+  return (a && b) ? o : -1;
+}
+static_assert(d5() == 7);
