@@ -253,7 +253,6 @@ __cpp_lib_nonmember_container_access                    201411L <array> <deque> 
                                                                 <unordered_map> <unordered_set> <vector>
 __cpp_lib_not_fn                                        202306L <functional>
                                                         201603L // C++17
-__cpp_lib_nothrow_convertible                           201806L <type_traits>
 __cpp_lib_null_iterators                                201304L <iterator>
 __cpp_lib_observable_checkpoint                         202506L <utility>
 __cpp_lib_optional                                      202506L <optional>
@@ -552,7 +551,6 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_list_remove_return_type              201806L
 # define __cpp_lib_math_constants                       201907L
 # define __cpp_lib_move_iterator_concept                202207L
-# define __cpp_lib_nothrow_convertible                  201806L
 # undef  __cpp_lib_optional
 # define __cpp_lib_optional                             202106L
 # if _LIBCPP_AVAILABILITY_HAS_PMR

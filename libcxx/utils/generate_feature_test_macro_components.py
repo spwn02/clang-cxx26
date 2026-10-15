@@ -1344,11 +1344,6 @@ feature_test_macros = [
             "headers": ["functional"],
         },
         {
-            "name": "__cpp_lib_nothrow_convertible",
-            "values": {"c++20": 201806},
-            "headers": ["type_traits"],
-        },
-        {
             "name": "__cpp_lib_null_iterators",
             "values": {"c++14": 201304},
             "headers": ["iterator"],

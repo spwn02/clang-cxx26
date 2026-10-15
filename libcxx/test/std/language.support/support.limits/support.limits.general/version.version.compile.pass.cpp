@@ -832,10 +832,6 @@
 #    error "__cpp_lib_not_fn should not be defined before c++17"
 #  endif
 
-#  ifdef __cpp_lib_nothrow_convertible
-#    error "__cpp_lib_nothrow_convertible should not be defined before c++20"
-#  endif
-
 #  ifdef __cpp_lib_null_iterators
 #    error "__cpp_lib_null_iterators should not be defined before c++14"
 #  endif
@@ -2094,10 +2090,6 @@
 
 #  ifdef __cpp_lib_not_fn
 #    error "__cpp_lib_not_fn should not be defined before c++17"
-#  endif
-
-#  ifdef __cpp_lib_nothrow_convertible
-#    error "__cpp_lib_nothrow_convertible should not be defined before c++20"
 #  endif
 
 #  ifndef __cpp_lib_null_iterators
@@ -3517,10 +3509,6 @@
 #  endif
 #  if __cpp_lib_not_fn != 201603L
 #    error "__cpp_lib_not_fn should have the value 201603L in c++17"
-#  endif
-
-#  ifdef __cpp_lib_nothrow_convertible
-#    error "__cpp_lib_nothrow_convertible should not be defined before c++20"
 #  endif
 
 #  ifndef __cpp_lib_null_iterators
@@ -5183,13 +5171,6 @@
 #  endif
 #  if __cpp_lib_not_fn != 201603L
 #    error "__cpp_lib_not_fn should have the value 201603L in c++20"
-#  endif
-
-#  ifndef __cpp_lib_nothrow_convertible
-#    error "__cpp_lib_nothrow_convertible should be defined in c++20"
-#  endif
-#  if __cpp_lib_nothrow_convertible != 201806L
-#    error "__cpp_lib_nothrow_convertible should have the value 201806L in c++20"
 #  endif
 
 #  ifndef __cpp_lib_null_iterators
@@ -7011,13 +6992,6 @@
 #  endif
 #  if __cpp_lib_not_fn != 201603L
 #    error "__cpp_lib_not_fn should have the value 201603L in c++23"
-#  endif
-
-#  ifndef __cpp_lib_nothrow_convertible
-#    error "__cpp_lib_nothrow_convertible should be defined in c++23"
-#  endif
-#  if __cpp_lib_nothrow_convertible != 201806L
-#    error "__cpp_lib_nothrow_convertible should have the value 201806L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_null_iterators
@@ -9355,13 +9329,6 @@
 #  endif
 #  if __cpp_lib_not_fn != 202306L
 #    error "__cpp_lib_not_fn should have the value 202306L in c++26"
-#  endif
-
-#  ifndef __cpp_lib_nothrow_convertible
-#    error "__cpp_lib_nothrow_convertible should be defined in c++26"
-#  endif
-#  if __cpp_lib_nothrow_convertible != 201806L
-#    error "__cpp_lib_nothrow_convertible should have the value 201806L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_null_iterators
