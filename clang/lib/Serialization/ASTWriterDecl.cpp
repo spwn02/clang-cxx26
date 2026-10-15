@@ -1915,8 +1915,9 @@ void ASTDeclWriter::VisitConceptDecl(ConceptDecl *D) {
 }
 
 void ASTDeclWriter::VisitResultNameDecl(ResultNameDecl *D) {
-  VisitNamedDecl(D);
+  VisitValueDecl(D);
   Record.push_back(D->getFunctionScopeDepth());
+  Record.push_back(D->hasInventedPlaceholderType());
   Record.push_back(D->isCanonicalResultName());
   if (!D->isCanonicalResultName()) {
     Record.AddDeclRef(D->getCanonicalResultName());

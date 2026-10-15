@@ -897,8 +897,9 @@ void ASTDeclReader::VisitValueDecl(ValueDecl *VD) {
 }
 
 void ASTDeclReader::VisitResultNameDecl(ResultNameDecl *VD) {
-  VisitNamedDecl(VD);
+  VisitValueDecl(VD);
   VD->setFunctionScopeDepth(Record.readInt());
+  VD->HasInventedPlaceholderType = Record.readInt();
   bool IsCanonical = Record.readInt();
   if (!IsCanonical) {
     VD->setCanonicalResultName(readDeclAs<ResultNameDecl>());
