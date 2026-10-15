@@ -650,9 +650,7 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result,
       // The export-keyword is produced together with the import-keyword from
       // an 'export import' directive on one logical source line; an 'export'
       // on an earlier line is an ordinary token.
-      SourceManager &SM = PP.getSourceManager();
-      if (SM.getPresumedLineNumber(Tok.getLocation()) !=
-          SM.getPresumedLineNumber(NextToken().getLocation()))
+      if (NextToken().isAtStartOfLine())
         Diag(Tok, diag::err_export_import_not_same_line);
       goto import_decl;
     }
