@@ -53,6 +53,14 @@
 #error "wrong value for __cpp_constexpr_virtual_inheritance"
 #endif
 
+#if check(constexpr_exceptions, 0, 0, 0, 0, 0, 0, 202411)
+#error "wrong value for __cpp_constexpr_exceptions"
+#endif
+
+#if check(pp_embed, 0, 0, 0, 0, 0, 0, 202502)
+#error "wrong value for __cpp_pp_embed"
+#endif
+
 #if check(trivial_union, 0, 0, 0, 0, 0, 0, 202603)
 #error "wrong value for __cpp_trivial_union"
 #endif

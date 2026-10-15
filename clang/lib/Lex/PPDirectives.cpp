@@ -3991,7 +3991,7 @@ void Preprocessor::HandleEmbedDirective(SourceLocation HashLoc, Token &EmbedTok,
   // Give the usual extension/compatibility warnings.
   if (LangOpts.C23)
     Diag(EmbedTok, diag::warn_compat_pp_embed_directive);
-  else
+  else if (!LangOpts.CPlusPlus26) // #embed is part of C++26 (P1967R14)
     Diag(EmbedTok, diag::ext_pp_embed_directive)
         << (LangOpts.CPlusPlus ? /*Clang*/ 1 : /*C23*/ 0);
 
