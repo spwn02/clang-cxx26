@@ -15,7 +15,8 @@ import <foo  bar>;
 // CHECK: import <foo  bar>;
 import <foo  bar>;
 
-// CHECK: foo; import <foo  bar>;
+// import is not at the start of its logical line (CWG3177): no header-name.
+// CHECK: foo; import <foo bar>;
 foo; import <foo  bar>;
 
 // CHECK: foo import <foo bar>;
@@ -64,7 +65,10 @@ foo
 >;
 
 // CHECK: import{{$}}
-// CHECK: {{^}}<foo bar>;
+// CHECK: {{^}}<{{$}}
+// CHECK: {{^}}foo{{$}}
+// CHECK: {{^}}  bar{{$}}
+// CHECK: {{^}}>;
 import
 <
 foo
@@ -72,7 +76,7 @@ foo
 >;
 
 // CHECK: import{{$}}
-// CHECK: {{^}}<foo  bar>;
+// CHECK: {{^}}<foo bar>;
 import
 <foo  bar>;
 

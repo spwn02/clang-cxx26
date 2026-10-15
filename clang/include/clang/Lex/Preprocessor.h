@@ -426,6 +426,7 @@ private:
     bool atTopLevel() { return S <= 0; }
     bool afterImportSeq() { return S == AfterImportSeq; }
     bool afterTopLevelSeq() { return S == AfterTopLevelTokenSeq; }
+    bool afterExport() { return S == AfterExport; }
 
   private:
     State S;
@@ -642,6 +643,17 @@ private:
   /// Whether the module import expects an identifier next. Otherwise,
   /// it expects a '.' or ';'.
   bool ModuleImportExpectsIdentifier = false;
+
+  /// Whether the C++ `import` token being processed begins a logical source
+  /// line (possibly after `export`), as a pp-import must ([cpp.import]); a
+  /// header-name is only formed immediately after such an `import` on the same
+  /// logical line ([lex.pptoken]).
+  bool ImportStartsLogicalLine = false;
+  /// Whether the last `export` token began a logical source line.
+  bool LastExportStartedLine = false;
+  /// Whether the next token after the `import` token at ModuleImportLoc is on
+  /// the same logical source line (no new-line between them).
+  bool NextTokenIsOnImportLine() const;
 
   /// The identifier and source location of the currently-active
   /// \#pragma clang arc_cf_code_audited begin.

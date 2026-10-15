@@ -49,6 +49,7 @@ import x = {}; // expected-error {{expected ';' after module name}}
                // expected-error@-1 {{module 'x' not found}}
 
 //--- ImportError2.cpp
+// expected-no-diagnostics
 module;
 
 struct module { struct inner {}; };
@@ -63,7 +64,7 @@ template<> struct import<n> {
   static X y;
 };
 
-// This is not valid because the 'import <n>' is a pp-import, even though it
-// grammatically can't possibly be an import declaration.
-struct X {} import<n>::y; // expected-error {{'n' file not found}}
+// The 'import' is not at the start of a logical source line, so (CWG3177) this is
+// not a pp-import and no header-name is formed.
+struct X {} import<n>::y;
 

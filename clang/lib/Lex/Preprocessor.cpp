@@ -946,6 +946,8 @@ void Preprocessor::Lex(Token &Result) {
       StdCXXImportSeqState.handleHeaderName();
       break;
     case tok::kw_export:
+      LastExportStartedLine =
+          Result.isAtStartOfLine() && !Result.hasLeadingEmptyMacro();
       if (hasSeenNoTrivialPPDirective())
         Result.setFlag(Token::HasSeenNoTrivialPPDirective);
       TrackGMFState.handleExport();
@@ -966,8 +968,13 @@ void Preprocessor::Lex(Token &Result) {
       if (StdCXXImportSeqState.atTopLevel()) {
         if (Result.getIdentifierInfo()->isModulesImport()) {
           TrackGMFState.handleImport(StdCXXImportSeqState.afterTopLevelSeq());
+          bool AfterExport = StdCXXImportSeqState.afterExport();
           StdCXXImportSeqState.handleImport();
           if (StdCXXImportSeqState.afterImportSeq()) {
+            ImportStartsLogicalLine =
+                !Result.hasLeadingEmptyMacro() &&
+                (Result.isAtStartOfLine() ||
+                 (AfterExport && LastExportStartedLine));
             ModuleImportLoc = Result.getLocation();
             NamedModuleImportPath.clear();
             IsAtImport = false;
@@ -1178,6 +1185,41 @@ void Preprocessor::CollectPpImportSuffix(SmallVectorImpl<Token> &Toks) {
 ///           module-name-qualifier[opt] identifier .
 ///
 /// We respond to a pp-import by importing macros from the named module.
+bool Preprocessor::NextTokenIsOnImportLine() const {
+  if (ModuleImportLoc.isInvalid() || ModuleImportLoc.isMacroID())
+    return false;
+  SourceLocation End =
+      Lexer::getLocForEndOfToken(ModuleImportLoc, 0, SourceMgr, LangOpts);
+  if (End.isInvalid())
+    return false;
+  bool Invalid = false;
+  StringRef Buffer = SourceMgr.getBufferData(SourceMgr.getFileID(End), &Invalid);
+  if (Invalid)
+    return false;
+  const char *P = Buffer.data() + SourceMgr.getFileOffset(End);
+  const char *E = Buffer.end();
+  // Skip what phases 2 and 3 turn into white space within the line: spaces,
+  // line splices and block comments. A new-line or a line comment ends the
+  // logical line.
+  while (P != E) {
+    if (*P == ' ' || *P == '\t' || *P == '\f' || *P == '\v') {
+      ++P;
+    } else if (*P == '\\' && P + 1 != E && (P[1] == '\n' || P[1] == '\r')) {
+      P += (P[1] == '\r' && P + 2 != E && P[2] == '\n') ? 3 : 2;
+    } else if (*P == '/' && P + 1 != E && P[1] == '*') {
+      const char *Close = StringRef(P + 2, E - (P + 2)).find("*/") == StringRef::npos
+                              ? nullptr
+                              : P + 2 + StringRef(P + 2, E - (P + 2)).find("*/");
+      if (!Close)
+        return false;
+      P = Close + 2;
+    } else {
+      return *P != '\n' && *P != '\r' && !(*P == '/' && P + 1 != E && P[1] == '/');
+    }
+  }
+  return false;
+}
+
 bool Preprocessor::LexAfterModuleImport(Token &Result) {
   // Figure out what kind of lexer we actually have.
   recomputeCurLexerKind();
@@ -1188,7 +1230,8 @@ bool Preprocessor::LexAfterModuleImport(Token &Result) {
   // For now, we only support header-name imports in C++20 mode.
   // FIXME: Should we allow this in all language modes that support an import
   // declaration as an extension?
-  if (NamedModuleImportPath.empty() && getLangOpts().CPlusPlusModules) {
+  if (NamedModuleImportPath.empty() && getLangOpts().CPlusPlusModules &&
+      ImportStartsLogicalLine && NextTokenIsOnImportLine()) {
     if (LexHeaderName(Result))
       return true;
 
