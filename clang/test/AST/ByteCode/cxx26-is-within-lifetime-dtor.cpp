@@ -46,3 +46,18 @@ constexpr bool d3() {
   return !b && !d;
 }
 static_assert(d3());
+
+// A member is destroyed before the destructors of the bases run (#310): it is not within its lifetime in the body of a
+// base class destructor.
+struct M2 { int v; constexpr ~M2() {} };
+struct B2 {
+  bool *r;
+  const M2 *mp;
+  constexpr ~B2() { if consteval { *r = __builtin_is_within_lifetime(mp); } }
+};
+struct D2 : B2 {
+  M2 m;
+  constexpr D2(bool *r) : B2{r, &m}, m{1} {}
+};
+constexpr bool d4() { bool r = true; { D2 d(&r); } return r; }
+static_assert(!d4());

@@ -6536,7 +6536,13 @@ bool Compiler<Emitter>::compileDestructor(const CXXDestructorDecl *Dtor) {
         continue;
       if (!this->emitGetPtrField(Field.Offset, SourceInfo{}))
         return false;
+      if (!this->emitDupPtr(SourceInfo{}))
+        return false;
       if (!this->emitDestructionPop(D, SourceInfo{}))
+        return false;
+      // The lifetime of a member ends when its destructor call starts: it is
+      // over by the time the destructors of the base classes run.
+      if (!this->emitEndLifetimePop(SourceInfo{}))
         return false;
     }
   }
