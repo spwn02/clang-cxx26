@@ -47,3 +47,8 @@ constexpr int d1() {
 constexpr int rd1 = d1(); // expected-error {{must be initialized by a constant expression}}
 constexpr U d2() { U a; __builtin_start_lifetime(&a.arr); U b; b.arr[0] = 1; a = b; return a; }
 constexpr U rd2 = d2(); // expected-error {{must be initialized by a constant expression}}
+
+// The copy of an array member of a class that is not a union keeps its uninitialized elements.
+struct NU { int a[3]; };
+constexpr NU nu() { NU s; s.a[0] = 1; return s; }
+constexpr NU rnu = nu(); // expected-error {{must be initialized by a constant expression}}
