@@ -1813,6 +1813,8 @@ def err_import_in_wrong_fragment : Error<
   "module%select{| partition}0 imports cannot be in the %select{global|private}1 module fragment">;
 
 def err_export_empty : Error<"export declaration cannot be empty">;
+def err_export_import_not_same_line : Error<
+  "'export' is not the export-keyword of this import directive; it must be on the same logical source line">;
 }
 
 let CategoryName = "Reflection Issue" in {

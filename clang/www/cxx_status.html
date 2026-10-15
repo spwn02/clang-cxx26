@@ -941,7 +941,10 @@ C++23, informally referred to as C++26.</p>
             <summary>Clang 21 (Partial)</summary>
             The restriction that "[a] module directive may only appear
             as the first preprocessing tokens in a file" is enforced
-            starting in Clang 21.
+            starting in Clang 21. An <code>import</code> directive is
+            recognized by the rules of [cpp.pre] (start of a logical
+            line and the following token) in this fork; the same rule
+            for <code>module</code> directives is not yet implemented.
           </details>
         </td>
       </tr>

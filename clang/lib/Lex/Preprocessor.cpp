@@ -1016,9 +1016,17 @@ void Preprocessor::Lex(Token &Result) {
 
   if (getLangOpts().CPlusPlusModules && LexLevel == 1 &&
       !Result.getFlag(Token::IsReinjected))
-    PrevTokenWasLineStartExport =
-        Result.is(tok::kw_export) && Result.isAtStartOfLine() &&
-        !Result.hasLeadingEmptyMacro() && !Result.getLocation().isMacroID();
+    {
+      bool StartsLine = Result.isAtStartOfLine() || PrevTokenStartsNextLine;
+      PrevTokenWasLineStartExport =
+          Result.is(tok::kw_export) && StartsLine &&
+          !Result.hasLeadingEmptyMacro() && !Result.getLocation().isMacroID();
+      // These annotation tokens replace a directive or end an included file:
+      // the next token begins a line.
+      PrevTokenStartsNextLine =
+          Result.isOneOf(tok::annot_module_include, tok::annot_module_begin,
+                         tok::annot_module_end);
+    }
 
   if (CurLexer && ++CheckPointCounter == CheckPointStepSize) {
     CheckPoints[CurLexer->getFileID()].push_back(CurLexer->BufferPtr);
@@ -1252,25 +1260,14 @@ bool Preprocessor::IsPPImportDirective(const Token &Import,
   // the start of phase 4 ([cpp.pre]): not preceded by an empty macro
   // expansion, not produced by a macro and read from the file being lexed.
   if (InMacroArgs || Import.hasLeadingEmptyMacro() ||
-      Import.getLocation().isMacroID() || !CurLexer ||
-      CurLexerCallback == CLK_CachingLexer)
+      Import.getLocation().isMacroID() || !CurLexer)
     return false;
-  if (!Import.isAtStartOfLine() && !AfterLineStartExport) {
-    // The lexer does not flag the first token after a directive that was
-    // replaced by an annotation token (#include of an importable header), so
-    // look at the text before the token.
-    bool Invalid = false;
-    StringRef Buffer =
-        SourceMgr.getBufferData(SourceMgr.getFileID(Import.getLocation()), &Invalid);
-    if (Invalid)
-      return false;
-    const char *Begin = Buffer.data();
-    const char *P = Begin + SourceMgr.getFileOffset(Import.getLocation());
-    while (P != Begin && (P[-1] == ' ' || P[-1] == '\t'))
-      --P;
-    if (P != Begin && P[-1] != '\n' && P[-1] != '\r')
-      return false;
-  }
+  // The lexer does not flag the first token after a directive that was
+  // replaced by an annotation token (#include of an importable header) as the
+  // start of a line, so that case is tracked by the previous token.
+  if (!Import.isAtStartOfLine() && !AfterLineStartExport &&
+      !PrevTokenStartsNextLine)
+    return false;
   const char *Next =
       peekNextTokenOnLine(SourceMgr, LangOpts, Import.getLocation());
   if (!Next)

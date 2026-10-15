@@ -652,6 +652,9 @@ private:
   /// Whether the previous token was an `export` that began a logical source
   /// line.
   bool PrevTokenWasLineStartExport = false;
+  /// Whether the previous token was an annotation token that replaces a
+  /// directive or ends an included file, so the next token begins a line.
+  bool PrevTokenStartsNextLine = false;
   /// Whether \p Import is the directive-introducing token of a pp-import
   /// ([cpp.pre]); \p AfterLineStartExport is whether the previous token was an
   /// `export` that began its logical line.

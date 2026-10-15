@@ -37,6 +37,13 @@ latest release, please see the `Clang Web Site <https://clang.llvm.org>`_ or the
 Potentially Breaking Changes
 ============================
 
+- An ``import`` preprocessing token now begins an import directive only when it (or the ``export`` before it) is the
+  first token of a logical source line and is followed on that line by a header-name, ``<``, an identifier or ``:``
+  ([cpp.pre], CWG3177), whatever brackets surround it. A mid-line ``import`` (``int a; import x;``) is an ordinary
+  identifier, ``import`` at the start of a line inside a namespace or other brackets is an import directive, and
+  ``import .x;`` is no longer a directive (it is diagnosed as an unknown type name instead of
+  "expected a module name"). An ``export`` on a line before ``import`` does not export it and is diagnosed.
+
 - Clang will now emit a warning if the auto-detected GCC installation
   directory (i.e. the one with the largest version number) does not
   contain libstdc++ include directories although a "complete" GCC

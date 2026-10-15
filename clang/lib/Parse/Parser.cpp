@@ -646,8 +646,16 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result,
 
     // 'export import' is an import directive ([cpp.import]): the preprocessor
     // produced the import-keyword.
-    case tok::kw_import:
+    case tok::kw_import: {
+      // The export-keyword is produced together with the import-keyword from
+      // an 'export import' directive on one logical source line; an 'export'
+      // on an earlier line is an ordinary token.
+      SourceManager &SM = PP.getSourceManager();
+      if (SM.getPresumedLineNumber(Tok.getLocation()) !=
+          SM.getPresumedLineNumber(NextToken().getLocation()))
+        Diag(Tok, diag::err_export_import_not_same_line);
       goto import_decl;
+    }
 
     // Recognize context-sensitive C++20 'export module' and 'export import'
     // declarations.
