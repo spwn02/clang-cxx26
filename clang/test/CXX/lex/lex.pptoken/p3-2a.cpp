@@ -59,7 +59,12 @@ import <foo  bar>;
 // CHECK: import <foo bar>;
 import HEADER;
 
-// CHECK: import <foo bar>;
+// The directive ends at the first new-line, so the header-name-tokens cannot continue on the next line: an error
+// (the tokens after the failed '<' stay).
+// CHECK: import{{$}}
+// CHECK: {{^}}foo{{$}}
+// CHECK: {{^}}  bar{{$}}
+// CHECK: {{^}}>;
 import <
 foo
   bar

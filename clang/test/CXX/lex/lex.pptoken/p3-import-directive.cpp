@@ -19,7 +19,11 @@
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=M:P=%t/M-P.pcm -emit-module-interface %t/PartitionInExternBlock.cpp -o %t/M.pcm
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=M=%t/M.pcm -fmodule-file=M:P=%t/M-P.pcm -fsyntax-only -verify %t/PartitionInExternBlockImpl.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/ImportsInBlocksThenImport.cpp
+// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %t/ModuleSemiNextLine.cpp
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/ImportSemiNextLine.cpp
+// RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/SemiSameLogicalLine.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/AfterPragma.cpp
+
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/AfterPragmaOperator.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodules -fmodules-cache-path=%t/cache -fmodule-map-file=%t/module.modulemap \
 // RUN:   -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/AfterInclude.cpp
@@ -196,3 +200,22 @@ extern "C++" {
 import :P;
 }
 int g2 = p;
+
+//--- ModuleSemiNextLine.cpp
+// The directive ends at the first new-line: the ';' of a module declaration is on its line (#311).
+export module M
+; // expected-error {{the ';' that ends a module or import directive must be on the same logical source line as the directive}}
+
+//--- ImportSemiNextLine.cpp
+export module M;
+import foo
+; // expected-error {{the ';' that ends a module or import directive must be on the same logical source line as the directive}}
+
+//--- SemiSameLogicalLine.cpp
+// expected-no-diagnostics
+// A line splice and a comment that contains a new-line do not end the logical line.
+export module M;
+import foo \
+;
+import foo /* a
+b */ ;

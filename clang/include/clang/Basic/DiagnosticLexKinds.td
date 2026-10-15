@@ -998,6 +998,9 @@ def warn_module_conflict : Warning<
   InGroup<ModuleConflict>;
 
 // C++20 modules
+def err_directive_semi_not_on_line : Error<
+  "the ';' that ends a module or import directive must be on the same logical "
+  "source line as the directive">;
 def err_header_import_semi_in_macro : Error<
   "semicolon terminating header import declaration cannot be produced "
   "by a macro">;

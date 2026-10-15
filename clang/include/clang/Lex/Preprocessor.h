@@ -663,6 +663,18 @@ private:
   /// Whether the next token after the `import` token at ModuleImportLoc is on
   /// the same logical source line (no new-line between them).
   bool NextTokenIsOnImportLine() const;
+  /// Set while the header-name of an import directive is lexed.
+  bool InImportHeaderNameTokens = false;
+
+public:
+  /// Whether \p Next is the first token after \p Prev on the same logical
+  /// source line (white space, comments and line splices between them do not
+  /// end the line; a new-line does). True when it cannot be told.
+  bool isOnSameLogicalLine(const Token &Prev, const Token &Next) const;
+  /// Same, for a previous token that starts at \p PrevStart.
+  bool isOnSameLogicalLine(SourceLocation PrevStart, const Token &Next) const;
+
+private:
 
   /// The identifier and source location of the currently-active
   /// \#pragma clang arc_cf_code_audited begin.

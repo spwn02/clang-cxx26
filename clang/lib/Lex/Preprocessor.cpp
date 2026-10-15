@@ -1124,8 +1124,18 @@ bool Preprocessor::LexHeaderName(Token &FilenameTok, bool AllowMacroExpansion) {
     // FIXME: A header-name could be formed starting or ending with an
     // alternative token. It's not clear whether that's ill-formed in all
     // cases.
+    Token PrevTok = FilenameTok;
     while (FilenameTok.isNot(tok::greater)) {
+      PrevTok = FilenameTok;
       Lex(FilenameTok);
+      // [cpp.pre]: the header-name-tokens of an import directive are on the
+      // line of the directive; a new-line ends the directive.
+      if (InImportHeaderNameTokens && FilenameTok.isNot(tok::eof) &&
+          !isOnSameLogicalLine(PrevTok, FilenameTok)) {
+        Diag(FilenameTok.getLocation(), diag::err_expected) << tok::greater;
+        Diag(Start, diag::note_matching) << tok::less;
+        return true;
+      }
       if (FilenameTok.isOneOf(tok::eod, tok::eof)) {
         Diag(FilenameTok.getLocation(), diag::err_expected) << tok::greater;
         Diag(Start, diag::note_matching) << tok::less;
@@ -1246,13 +1256,21 @@ void Preprocessor::CollectPpImportSuffix(SmallVectorImpl<Token> &Toks) {
 /// Returns the first character of the token that follows \p Loc on the same
 /// logical source line, or null if there is none or the location is not in a
 /// file.
+static const char *peekNextTokenOnLineAfter(const SourceManager &SM,
+                                            SourceLocation End);
+
 static const char *peekNextTokenOnLine(const SourceManager &SM,
                                        const LangOptions &LangOpts,
                                        SourceLocation Loc) {
   if (Loc.isInvalid() || Loc.isMacroID())
     return nullptr;
   SourceLocation End = Lexer::getLocForEndOfToken(Loc, 0, SM, LangOpts);
-  if (End.isInvalid())
+  return peekNextTokenOnLineAfter(SM, End);
+}
+
+static const char *peekNextTokenOnLineAfter(const SourceManager &SM,
+                                            SourceLocation End) {
+  if (End.isInvalid() || End.isMacroID())
     return nullptr;
   bool Invalid = false;
   StringRef Buffer = SM.getBufferData(SM.getFileID(End), &Invalid);
@@ -1280,6 +1298,32 @@ static const char *peekNextTokenOnLine(const SourceManager &SM,
     }
   }
   return nullptr;
+}
+
+/// A token that starts with a line splice is located at the splice.
+static const char *skipLeadingSplices(const char *P) {
+  while (P[0] == '\\' && (P[1] == '\n' || P[1] == '\r'))
+    P += (P[1] == '\r' && P[2] == '\n') ? 3 : 2;
+  return P;
+}
+
+bool Preprocessor::isOnSameLogicalLine(const Token &Prev,
+                                       const Token &Next) const {
+  // Locations that are not in a file (macro expansions) cannot be checked.
+  if (Prev.getLocation().isMacroID() || Next.getLocation().isMacroID() ||
+      Prev.getLocation().isInvalid() || Next.getLocation().isInvalid())
+    return true;
+  const char *P = peekNextTokenOnLineAfter(SourceMgr, Prev.getEndLoc());
+  return P && P == skipLeadingSplices(SourceMgr.getCharacterData(Next.getLocation()));
+}
+
+bool Preprocessor::isOnSameLogicalLine(SourceLocation PrevStart,
+                                       const Token &Next) const {
+  if (PrevStart.isMacroID() || Next.getLocation().isMacroID() ||
+      PrevStart.isInvalid() || Next.getLocation().isInvalid())
+    return true;
+  const char *P = peekNextTokenOnLine(SourceMgr, LangOpts, PrevStart);
+  return P && P == skipLeadingSplices(SourceMgr.getCharacterData(Next.getLocation()));
 }
 
 bool Preprocessor::NextTokenIsOnImportLine() const {
@@ -1372,7 +1416,10 @@ bool Preprocessor::LexAfterModuleImport(Token &Result) {
   // declaration as an extension?
   if (NamedModuleImportPath.empty() && getLangOpts().CPlusPlusModules &&
       ImportStartsLogicalLine && NextTokenIsOnImportLine()) {
-    if (LexHeaderName(Result))
+    InImportHeaderNameTokens = true;
+    bool Failed = LexHeaderName(Result);
+    InImportHeaderNameTokens = false;
+    if (Failed)
       return true;
 
     if (Result.is(tok::colon) && ModuleDeclState.isNamedModule()) {
@@ -1420,6 +1467,13 @@ bool Preprocessor::LexAfterModuleImport(Token &Result) {
     SourceLocation SemiLoc = Suffix.back().getLocation();
     if (SemiLoc.isMacroID())
       Diag(SemiLoc, diag::err_header_import_semi_in_macro);
+    // The directive ends at the first new-line ([cpp.pre]).
+    for (size_t I = 1; I < Suffix.size(); ++I) {
+          if (!isOnSameLogicalLine(Suffix[I - 1], Suffix[I])) {
+        Diag(Suffix[I].getLocation(), diag::err_directive_semi_not_on_line);
+        break;
+      }
+    }
 
     // Reconstitute the import token.
     Token ImportTok;

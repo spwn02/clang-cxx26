@@ -17,6 +17,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
 #include "clang/AST/DeclTemplate.h"
+#include "clang/Basic/DiagnosticLex.h"
 #include "clang/Basic/DiagnosticParse.h"
 #include "clang/Basic/StackExhaustionHandler.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
@@ -2472,6 +2473,9 @@ Parser::ParseModuleDecl(Sema::ModuleImportState &ImportState) {
                           /*DiagnoseEmptyAttrs=*/false,
                           /*WarnOnUnknownAttrs=*/true);
 
+  if (getLangOpts().CPlusPlusModules && Tok.is(tok::semi) &&
+      !PP.isOnSameLogicalLine(PrevTokLocation, Tok))
+    Diag(Tok, diag::err_directive_semi_not_on_line);
   ExpectAndConsumeSemi(diag::err_module_expected_semi);
 
   return Actions.ActOnModuleDecl(StartLoc, ModuleLoc, MDK, Path, Partition,
@@ -2496,6 +2500,9 @@ Decl *Parser::ParseModuleImport(SourceLocation AtLoc,
   SmallVector<IdentifierLoc, 2> Path;
   bool IsPartition = false;
   Module *HeaderUnit = nullptr;
+  // The preprocessor checked the end of a header import (its tokens are not
+  // relexable here).
+  bool IsHeaderImport = Tok.isOneOf(tok::header_name, tok::annot_header_unit);
   if (Tok.is(tok::header_name)) {
     // This is a header import that the preprocessor decided we should skip
     // because it was malformed in some way. Parse and ignore it; it's already
@@ -2576,6 +2583,9 @@ Decl *Parser::ParseModuleImport(SourceLocation AtLoc,
       SeenError = false;
     break;
   }
+  if (getLangOpts().CPlusPlusModules && AtLoc.isInvalid() && !IsHeaderImport &&
+      Tok.is(tok::semi) && !PP.isOnSameLogicalLine(PrevTokLocation, Tok))
+    Diag(Tok, diag::err_directive_semi_not_on_line);
   ExpectAndConsumeSemi(diag::err_module_expected_semi);
   TryConsumeToken(tok::eod);
 

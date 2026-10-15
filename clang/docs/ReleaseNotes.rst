@@ -47,6 +47,8 @@ Potentially Breaking Changes
   ``module;`` at the start of a line is a directive wherever it is (diagnosed inside a namespace), and
   ``module;export module M;`` on one line is no longer accepted. An empty macro expansion on an earlier
   line does not prevent a directive; one before the token on the same line does.
+  A module or import directive ends at the first new-line: the ``;`` on a later line is now diagnosed, and the
+  tokens of ``import <`` ... ``>;`` must be on the line of the directive.
 
 - Clang will now emit a warning if the auto-detected GCC installation
   directory (i.e. the one with the largest version number) does not
