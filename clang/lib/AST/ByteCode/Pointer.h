@@ -727,6 +727,8 @@ public:
   /// used in situations where we *know* we have initialized *all* elements
   /// of a primtive array.
   void initializeAllElements() const;
+  /// Marks all elements of a primitive array as not initialized.
+  void uninitializeAllElements() const;
   /// Checks if an object was initialized.
   bool isInitialized() const;
   /// Like isInitialized(), but for primitive arrays.
@@ -743,6 +745,21 @@ public:
     if (BS.Base < sizeof(InlineDescriptor))
       return Lifetime::Started;
     return getInlineDesc()->LifeState;
+  }
+
+  /// The lifetime of the pointee including its enclosing objects: the elements
+  /// of a union array member that start_lifetime left unstarted have ended
+  /// lifetimes, and so does everything inside them.
+  Lifetime getEffectiveLifetime() const {
+    Lifetime L = getLifetime();
+    if (L == Lifetime::Ended || !isBlockPointer() || !inUnion())
+      return L;
+    for (Pointer P = *this; !P.isRoot();) {
+      P = P.getBase();
+      if (P.getLifetime() == Lifetime::Ended)
+        return Lifetime::Ended;
+    }
+    return L;
   }
 
   void endLifetime() const {

@@ -970,7 +970,7 @@ bool CheckLoad(InterpState &S, CodePtr OpPC, const Pointer &Ptr,
     return false;
   if (!CheckActive(S, OpPC, Ptr, AK))
     return false;
-  if (!CheckLifetime(S, OpPC, Ptr.getLifetime(), AK))
+  if (!CheckLifetime(S, OpPC, Ptr.getEffectiveLifetime(), AK))
     return false;
   if (!Ptr.isInitialized())
     return DiagnoseUninitialized(S, OpPC, Ptr, AK);
@@ -1031,7 +1031,7 @@ bool CheckStore(InterpState &S, CodePtr OpPC, const Pointer &Ptr,
       return false;
     return CheckDummy(S, OpPC, Ptr.block(), AK_Assign);
   }
-  if (!CheckLifetime(S, OpPC, Ptr.getLifetime(), AK_Assign))
+  if (!CheckLifetime(S, OpPC, Ptr.getEffectiveLifetime(), AK_Assign))
     return false;
   if (!CheckRange(S, OpPC, Ptr, AK_Assign))
     return false;
@@ -2147,9 +2147,21 @@ bool CheckNewTypeMismatch(InterpState &S, CodePtr OpPC, const Expr *E,
   // Constructing a union member, or an element of an array that is one, makes
   // it the active member.
   if (Ptr.inUnion()) {
-    const Record *BaseRecord = Ptr.getBase().getRecord();
-    if ((BaseRecord && BaseRecord->isUnion()) || Ptr.isArrayElement())
+    // The union member itself, or an element of an array that is one.
+    Pointer Owner = Ptr;
+    if (Ptr.isArrayElement())
+      Owner = Ptr.getFieldDesc()->isPrimitiveArray() ? Ptr.getArray()
+                                                     : Ptr.getBase();
+    const Record *OwnerRecord = Owner.getBase().getRecord();
+    if (OwnerRecord && OwnerRecord->isUnion())
       Ptr.activate();
+    // Constructing the array itself creates its elements: they are alive.
+    if (Ptr.isArrayRoot() && Ptr.elementsNotStarted()) {
+      Ptr.setElementsNotStarted(false);
+      if (Ptr.getFieldDesc()->isCompositeArray())
+        for (unsigned I = 0, N = Ptr.getFieldDesc()->getNumElems(); I != N; ++I)
+          Ptr.atIndex(I).narrow().startLifetime();
+    }
   }
 
   if (Ptr.isZero()) {

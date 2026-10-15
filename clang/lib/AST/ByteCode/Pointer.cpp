@@ -550,6 +550,16 @@ void Pointer::initializeAllElements() const {
   getInitMap().noteAllInitialized();
 }
 
+void Pointer::uninitializeAllElements() const {
+  assert(getFieldDesc()->isPrimitiveArray());
+  assert(isArrayRoot());
+  if (isStatic() && BS.Base == 0)
+    return;
+  InitMapPtr &IM = getInitMap();
+  IM.deleteInitMap();
+  IM.V = InitMapPtr::NoInitMapValue;
+}
+
 bool Pointer::allElementsInitialized() const {
   assert(getFieldDesc()->isPrimitiveArray());
   assert(isArrayRoot());
@@ -592,7 +602,14 @@ void Pointer::activate() const {
   std::function<void(Pointer &)> deactivate;
   deactivate = [&deactivate](Pointer &P) -> void {
     P.getInlineDesc()->IsActive = false;
-    P.getInlineDesc()->ElementsNotStarted = false;
+    // The array is created again when it becomes active; its elements are
+    // then alive (with an erroneous value) rather than unstarted.
+    if (P.getInlineDesc()->ElementsNotStarted) {
+      P.getInlineDesc()->ElementsNotStarted = false;
+      if (P.getFieldDesc()->isCompositeArray())
+        for (unsigned I = 0, N = P.getFieldDesc()->getNumElems(); I != N; ++I)
+          P.atIndex(I).narrow().startLifetime();
+    }
 
     if (const Record *R = P.getRecord()) {
       for (const Record::Field &F : R->fields()) {
@@ -623,9 +640,7 @@ void Pointer::activate() const {
         B.getInlineDesc()->IsInitialized = true;
       for (const Record::Field &F : BR->fields()) {
         Pointer FieldPtr = B.atField(F.Offset);
-        // Compare the subobjects by offset: an array member and the array
-        // pointer reached from one of its elements differ as pointers.
-        if (FieldPtr.getByteOffset() != Cur.getByteOffset())
+        if (FieldPtr != Cur)
           deactivate(FieldPtr);
       }
     }

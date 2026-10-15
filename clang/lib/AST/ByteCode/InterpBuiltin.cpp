@@ -6356,6 +6356,9 @@ static bool copyComposite(InterpState &S, CodePtr OpPC, const Pointer &Src,
     assert(SrcDesc->isPrimitiveArray());
     assert(SrcDesc->getNumElems() == DestDesc->getNumElems());
     PrimType ET = DestDesc->getPrimType();
+    // The destination has the initialization state of the source.
+    if (Dest.isArrayRoot() && !Src.allElementsInitialized())
+      Dest.uninitializeAllElements();
     for (unsigned I = 0, N = DestDesc->getNumElems(); I != N; ++I) {
       Pointer DestElem = Dest.atIndex(I);
       // Elements that are not initialized in the source (not within their
@@ -6367,8 +6370,7 @@ static bool copyComposite(InterpState &S, CodePtr OpPC, const Pointer &Src,
         DestElem.initialize();
       });
     }
-    if (Src.elementsNotStarted())
-      Dest.setElementsNotStarted(true);
+    Dest.setElementsNotStarted(Src.elementsNotStarted());
     return true;
   }
 
@@ -6382,11 +6384,11 @@ static bool copyComposite(InterpState &S, CodePtr OpPC, const Pointer &Src,
         DestElem.endLifetime();
         continue;
       }
+      DestElem.startLifetime();
       if (!copyComposite(S, OpPC, SrcElem, DestElem, Activate))
         return false;
     }
-    if (Src.elementsNotStarted())
-      Dest.setElementsNotStarted(true);
+    Dest.setElementsNotStarted(Src.elementsNotStarted());
     return true;
   }
 
