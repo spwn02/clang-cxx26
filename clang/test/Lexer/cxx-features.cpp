@@ -8,6 +8,7 @@
 
 //
 // RUN: %clang_cc1 -std=c++17 -fcxx-exceptions -DCONCEPTS_TS=1 -verify %s
+// RUN: %clang_cc1 -std=c++2c -fno-rtti -fno-threadsafe-statics -verify %s -DNO_EXCEPTIONS -DNO_RTTI -DNO_THREADSAFE_STATICS
 // RUN: %clang_cc1 -std=c++14 -fno-rtti -fno-threadsafe-statics -verify %s -DNO_EXCEPTIONS -DNO_RTTI -DNO_THREADSAFE_STATICS
 // RUN: %clang_cc1 -std=c++14 -fchar8_t -DNO_EXCEPTIONS -DCHAR8_T -verify %s
 // RUN: %clang_cc1 -std=c++2a -fno-char8_t -DNO_EXCEPTIONS -DNO_CHAR8_T -verify %s
@@ -53,8 +54,12 @@
 #error "wrong value for __cpp_constexpr_virtual_inheritance"
 #endif
 
+#ifndef NO_EXCEPTIONS
 #if check(constexpr_exceptions, 0, 0, 0, 0, 0, 0, 202411)
 #error "wrong value for __cpp_constexpr_exceptions"
+#endif
+#elif defined(__cpp_constexpr_exceptions)
+#error "__cpp_constexpr_exceptions needs exceptions"
 #endif
 
 #if check(pp_embed, 0, 0, 0, 0, 0, 0, 202502)

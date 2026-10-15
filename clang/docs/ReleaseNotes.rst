@@ -241,6 +241,10 @@ C++2c Feature Support
   Concept and variable template template parameters are now modeled with a dedicated
   ``DependentTemplateIdExpr`` AST node, and ``__cpp_template_parameters`` is defined in C++2c mode.
 
+- The C++26 feature-test macros ``__cpp_constexpr_exceptions`` (202411L, with exceptions enabled) and
+  ``__cpp_pp_embed`` (202502L) are defined, and ``#embed`` no longer warns that it is an extension in C++26 mode.
+  ``__cpp_contracts`` is 202502L as in the C++26 standard (it was 202606L, a value of a later paper).
+
 C++23 Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 

@@ -753,7 +753,8 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_template_parameters", "202502L");
     Builder.defineMacro("__cpp_trivial_union", "202603L");
     Builder.defineMacro("__cpp_constexpr_virtual_inheritance", "202506L");
-    Builder.defineMacro("__cpp_constexpr_exceptions", "202411L");
+    if (LangOpts.CXXExceptions)
+      Builder.defineMacro("__cpp_constexpr_exceptions", "202411L");
     Builder.defineMacro("__cpp_pp_embed", "202502L");
   }
 
