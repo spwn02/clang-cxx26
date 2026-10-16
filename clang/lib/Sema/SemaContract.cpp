@@ -182,7 +182,8 @@ StmtResult Sema::ActOnContractAssert(ContractKind CK, SourceLocation KeywordLoc,
     StmtResult NewDeclStmt = ActOnDeclStmt(
         ConvertDeclToDeclGroup(RND), RND->getLocation(), RND->getLocation());
 
-    // FIXME(EricWF): Can this happen?
+    // Declaring the result name cannot fail for a valid declaration; this only
+    // guards against an already invalid one.
     if (NewDeclStmt.isInvalid())
       return StmtError();
     RNDStmt = NewDeclStmt.getAs<DeclStmt>();
@@ -1261,43 +1262,6 @@ bool Sema::isUsageAcrossContract(const ValueDecl *VD) {
 
   assert(VD);
   return getInterveningContractEntry(*this, VD) != nullptr;
-  ;
-#if 0
-  if (!ContractScopes.empty())
-    return true;
-
-  // We're going to walk up from the DeclContext we captured when we entered the contract
-  // scope to try and find the declaration context of the specified decl. If we do,
-  // then the decl is used across a contract.
-
-  // FIXME(EricWF): Why is this here?
-  if (isa<VarDecl>(VD))
-    VD = cast<VarDecl>(VD)->getCanonicalDecl();
-
-  const DeclContext *DC = VD->getDeclContext();
-  if (!DC->isFunctionOrMethod()) {
-    return false;
-  }
-
-
-
-  assert(getCurrentContractEntry());
-
-
-  // FIXME(EricWF): This seems expensive?
-  // Make sure the ValueDecl has a DeclContext that is the same as or a parent
-  // of the most recent contract entry
-  auto *StartContext = getCurrentContractEntry()->ContextAtPush;
-
-  while (StartContext) {
-    if (StartContext->isFileContext())
-      break;
-    if (StartContext->Equals(VD->getDeclContext()))
-      return true;
-    StartContext = StartContext->getParent();
-  }
-  return false;
-#endif
 }
 
 /// [basic.contract.general]
@@ -1567,7 +1531,7 @@ public:
     // outside of a contract. This assumes that the inner lambda has a valid usage of the capture.
     // If it doesn't, we'll diagnose that separately.
     for (auto C : LE->captures()) {
-      // FIXME(EricWF): Figure out how to deal with VLA captures here
+      // A capture of a VLA type names no variable, so there is no use to observe.
       if (C.capturesVLAType())
         continue;
 

@@ -2471,11 +2471,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
       if (Tok.is(tok::kw_requires))
         ParseTrailingRequiresClause(D);
 
-      // FIXME(EricWF): Is this the correct place?
-      // Yes: Though parsing here means we need to reenter the correct scope
-      // and context ourselves, it means we hve the function return type.
-      // ParseContractSpecifierSequence(D, /*EnterScope=*/true);
-
       Decl *ThisDecl = ParseDeclarationAfterDeclarator(D, TemplateInfo);
 
 

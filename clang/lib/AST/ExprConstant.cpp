@@ -5235,8 +5235,9 @@ static CompleteObject findCompleteObject(EvalInfo &Info, const Expr *E,
     BaseVal = Info.EvaluatingDeclValue;
   } else if (const ValueDecl *D = LVal.Base.dyn_cast<const ValueDecl *>()) {
 
-    // Allow reading the result of a function call inside a post contract.
-    // FIXME(EricWF): There's more validation that needs to be done here.
+    // Allow reading the result of a function call inside a post contract
+    // (scalar, reference and class results are probed in
+    // Contracts/constexpr-evaluators.cpp).
     if (auto *RND = dyn_cast<ResultNameDecl>(D); RND) {
       assert(RND == RND->getCanonicalResultName());
 

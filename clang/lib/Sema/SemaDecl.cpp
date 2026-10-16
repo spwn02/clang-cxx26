@@ -15188,8 +15188,9 @@ void Sema::CheckCompleteVariableDeclaration(VarDecl *var) {
         // We need to clear the notes, as we will re-diagnose the contract
         // failure.
         SourceLocation DiagLoc = var->getLocation();
-        // FIXME(EricWF): This diagnostic is bad. What do we say here? Normally
-        // this error would have been eaten.
+        // The initializer is constant with the ignore semantic but a contract
+        // fails with the selected one ([expr.const]): the notes of the failed
+        // evaluation follow.
         Diag(DiagLoc,
              diag::err_initialization_of_constant_initialized_variable_failed)
             << var;

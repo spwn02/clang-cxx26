@@ -301,8 +301,10 @@ StmtResult Parser::ParseFunctionContractSpecifierImpl(
       Actions, Sema::ExpressionEvaluationContext::PotentiallyEvaluated);
 
   ResultNameDecl *RND = nullptr;
-  // FIXME(EricWF): We allow parsing the result name declarator in `pre` so we
-  // can diagnose it but we don't do the same for contract assert... Should we?
+  // [dcl.contract.res]: only a postcondition-specifier can have a
+  // result-name-introducer. It is parsed in a precondition-specifier so that it
+  // can be diagnosed there; an assertion-statement has no such grammar, so
+  // 'contract_assert(r: x)' is an ordinary syntax error.
   if ((CK != ContractKind::Assert) && Tok.is(tok::identifier) &&
       (NextToken().is(tok::colon) ||
        (NextToken().is(tok::l_square) &&

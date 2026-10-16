@@ -924,7 +924,9 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
       // tag types, so we include them in the tag namespace.
       return IDNS_Ordinary | IDNS_Tag;
 
-    // FIXME(EricWF): IDK if this is correct
+    // A result name is an ordinary name; like the other names that redeclaration
+    // lookup finds in the tag namespace, it does not hide a class or enumeration
+    // of the same name in an elaborated-type-specifier (probed).
     case ResultName:
       return IDNS_Ordinary | IDNS_Tag;
 
