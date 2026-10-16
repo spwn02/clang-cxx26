@@ -8,7 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -22,6 +21,7 @@
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -61,6 +61,7 @@ int main(int, char**) {
                                                               env<>>,
                                   completion_signatures<set_value_t(int)>>);
   }
+#ifndef TEST_HAS_NO_EXCEPTIONS
   // A throwing fn completes with the exception via sync_wait's error path.
   {
     bool caught = false;
@@ -72,6 +73,7 @@ int main(int, char**) {
     }
     assert(caught);
   }
+#endif
   // upon_stopped's completion signatures: a nothrow fn adds no error completion; a
   // potentially-throwing fn adds set_error_t(exception_ptr).
   {

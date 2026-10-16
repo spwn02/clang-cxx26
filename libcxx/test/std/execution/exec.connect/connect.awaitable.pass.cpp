@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -23,6 +22,7 @@
 #include <execution>
 #include <stdexcept>
 #include <utility>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -42,11 +42,13 @@ struct VoidAwaitable {
   void await_resume() noexcept {}
 };
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
 struct ThrowingAwaitable {
   bool await_ready() noexcept { return false; }
   void await_suspend(std::coroutine_handle<> h) noexcept { h.resume(); }
   int await_resume() { throw std::runtime_error("boom"); }
 };
+#endif
 
 // Routes through connect-awaitable-promise::unhandled_stopped() -- the third, otherwise
 // untouched, channel of connect-awaitable's completion surface (value/error are exercised
@@ -116,6 +118,7 @@ int main(int, char**) {
     assert(!r.has_error);
     assert(!r.stopped);
   }
+#ifndef TEST_HAS_NO_EXCEPTIONS
   // An exception thrown out of await_resume is caught by connect-awaitable's try/catch and
   // delivered via suspend-complete(set_error, ..., exception_ptr) -- and only that: the
   // set_value awaiter's await_resume is unreachable, so set_value must never also fire.
@@ -127,6 +130,7 @@ int main(int, char**) {
     assert(r.has_error);
     assert(!r.stopped);
   }
+#endif
   // unhandled_stopped(): set_stopped(rcvr) fires and the coroutine is destroyed cleanly by
   // the operation state's destructor without ever reaching final_suspend's terminate().
   {

@@ -9,7 +9,6 @@
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: no-threads
 // UNSUPPORTED: libcpp-has-no-incomplete-pstl
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 //
@@ -27,6 +26,7 @@
 #include <set>
 #include <thread>
 #include <vector>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -104,6 +104,7 @@ int main(int, char**) {
   // TRY-EVAL semantics: a throwing chunk still completes the whole operation via set_error,
   // not std::terminate (unlike the parallel *range algorithms*' [algorithms.parallel.exceptions]
   // rule -- [exec.bulk] uses ordinary TRY-EVAL).
+#ifndef TEST_HAS_NO_EXCEPTIONS
   {
     constexpr int kShape = 64;
     bool caught          = false;
@@ -116,6 +117,7 @@ int main(int, char**) {
     }
     assert(caught);
   }
+#endif
 
   // Non-parallel_scheduler completion schedulers are unaffected: bulk_chunked still falls back
   // to its existing single-threaded behavior (verified against the same shape the exec.bulk
@@ -171,6 +173,7 @@ int main(int, char**) {
 
   // TRY-EVAL semantics apply to bulk_unchunked_t's parallel dispatch identically to
   // bulk_chunked_t's: a throwing index still completes the whole operation via set_error.
+#ifndef TEST_HAS_NO_EXCEPTIONS
   {
     constexpr int kShape = 64;
     bool caught          = false;
@@ -183,6 +186,7 @@ int main(int, char**) {
     }
     assert(caught);
   }
+#endif
 
   // Non-parallel_scheduler completion schedulers are unaffected for bulk_unchunked_t either:
   // still falls back to invoking f once per index, in order, on the calling thread.

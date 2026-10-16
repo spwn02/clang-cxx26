@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -16,6 +15,7 @@
 #include <cassert>
 #include <memory>
 #include <type_traits>
+#include "test_macros.h"
 namespace ex = std::execution;
 
 // [execution.syn]: "using type = remove_cvref_t<E>; type error;"
@@ -67,7 +67,11 @@ ex::task<int, environment> value(std::allocator_arg_t, allocator<std::byte>, ex:
   co_await ex::schedule(loop.get_scheduler()); co_return 42;
 }
 ex::task<int, environment> error(std::allocator_arg_t, allocator<std::byte>, ex::run_loop& loop) {
-  co_await ex::schedule(loop.get_scheduler()); throw 42; co_return 0;
+  co_await ex::schedule(loop.get_scheduler());
+#ifndef TEST_HAS_NO_EXCEPTIONS
+  throw 42;
+#endif
+  co_return 0;
 }
 ex::task<int, environment> stopped(std::allocator_arg_t, allocator<std::byte>, ex::run_loop& loop) {
   co_await ex::schedule(loop.get_scheduler()); co_await ex::just_stopped(); co_return 0;
@@ -124,7 +128,12 @@ int main(int, char**) {
       assert(c.deallocations == 1);
     };
     if (kind == 0) { run(value(std::allocator_arg, allocator<std::byte>(&c), loop)); assert(result == 42); }
+#ifndef TEST_HAS_NO_EXCEPTIONS
     if (kind == 1) { run(error(std::allocator_arg, allocator<std::byte>(&c), loop)); assert(result == -1); }
+#else
+    if (kind == 1)
+      continue; // the error completion by a throw needs exceptions
+#endif
     if (kind == 2) { run(stopped(std::allocator_arg, allocator<std::byte>(&c), loop)); assert(result == -2); }
     // [task.promise]: "std::move(err.error) is convertible to exactly one of the set_error_t argument types of error_types."
     if (kind == 3) { run(custom_error(std::allocator_arg, allocator<std::byte>(&c), loop)); assert(result == -42); }

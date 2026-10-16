@@ -8,7 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -33,6 +32,7 @@
 #include <stdexcept>
 #include <stop_token>
 #include <utility>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -322,6 +322,7 @@ void test_spawn_future_closed_scope_is_stopped() {
   assert(!error);
 }
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
 struct spawn_future_test_error : std::runtime_error {
   spawn_future_test_error() : std::runtime_error("spawn_future_test_error") {}
 };
@@ -368,6 +369,7 @@ void test_spawn_future_error() {
   } catch (const spawn_future_test_error&) {
   }
 }
+#endif
 
 // The genuine abandonment case: the returned future sender is destroyed before ever being
 // connected/started, while the underlying (scheduled-but-not-yet-run) operation is still
@@ -464,7 +466,9 @@ int main(int, char**) {
 
   test_spawn_future_value_synchronous();
   test_spawn_future_closed_scope_is_stopped();
+#ifndef TEST_HAS_NO_EXCEPTIONS
   test_spawn_future_error();
+#endif
   test_spawn_future_abandon_requests_stop();
   test_spawn_future_abandon_after_synchronous_completion();
   test_spawn_future_consume_then_complete_deferred();

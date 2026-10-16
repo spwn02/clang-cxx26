@@ -8,7 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -24,6 +23,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -72,6 +72,7 @@ int main(int, char**) {
     assert(r.has_value());
     assert(std::get<0>(*r) == 2);
   }
+#ifndef TEST_HAS_NO_EXCEPTIONS
   // The continuation's own completion (error, not value) reaches the outer receiver --
   // confirms this is genuinely "connect and start a new operation", not "invoke and
   // synchronously complete" the way then/upon_error/upon_stopped work.
@@ -85,6 +86,7 @@ int main(int, char**) {
     }
     assert(caught);
   }
+#endif
   // Absent completion: a sender with no value completion (only reachable through
   // let_error/let_stopped's own tests below, since a childless just_error/just_stopped can't
   // itself be sync_wait'd) is exercised via let_error/let_stopped instead. Here: the
@@ -103,6 +105,7 @@ int main(int, char**) {
         std::is_same_v<completion_signatures_of_t<decltype(let_error(just(1), [](int&) { return just(2); })), env<>>,
                         completion_signatures<set_value_t(int)>>);
   }
+#ifndef TEST_HAS_NO_EXCEPTIONS
   // A throwing fn completes with the exception via sync_wait's error path (args-construction/
   // fn-invocation nothrow check drives whether set_error_t(exception_ptr) is advertised; here
   // fn can throw, so it must be).
@@ -117,6 +120,7 @@ int main(int, char**) {
     }
     assert(caught);
   }
+#endif
   // let_value's completion signatures: the continuation's own signatures replace the
   // intercepted set_value_t(...), plus set_error_t(exception_ptr) since the fn here can
   // throw (its return type isn't noexcept-invocable).

@@ -9,7 +9,6 @@
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: no-threads
 // UNSUPPORTED: libcpp-has-no-incomplete-pstl
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 //
@@ -25,6 +24,7 @@
 #include <span>
 #include <thread>
 #include <vector>
+#include "test_macros.h"
 
 namespace ex  = std::execution;
 namespace scr = std::execution::parallel_scheduler_replacement;
@@ -136,6 +136,7 @@ int main(int, char**) {
   }
 
   // Errors thrown by the bulk function pass through the operation as set_error.
+#ifndef TEST_HAS_NO_EXCEPTIONS
   {
     bool caught = false;
     try {
@@ -146,8 +147,15 @@ int main(int, char**) {
     assert(caught);
     assert(backend->chunked_calls == 3);
   }
+#else
+  {
+    (void)std::this_thread::sync_wait(ex::schedule(sch) | ex::bulk_chunked(ex::par, 1, [](int, int) {}));
+    assert(backend->chunked_calls == 3);
+  }
+#endif
 
   // The backend's own error and stop completions must reach the receiver.
+#ifndef TEST_HAS_NO_EXCEPTIONS
   {
     backend->result = completion::error;
     bool caught = false;
@@ -159,6 +167,12 @@ int main(int, char**) {
     assert(caught);
     assert(backend->unchunked_calls == 3);
   }
+#else
+  {
+    (void)std::this_thread::sync_wait(ex::schedule(sch) | ex::bulk_unchunked(ex::par, 1, [](int) {}));
+    assert(backend->unchunked_calls == 3);
+  }
+#endif
   {
     backend->result = completion::stopped;
     auto result = std::this_thread::sync_wait(ex::schedule(sch) | ex::bulk_chunked(ex::par, 1, [](int, int) { assert(false); }));

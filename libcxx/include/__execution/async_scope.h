@@ -562,12 +562,18 @@ struct spawn_t {
     using __rebound_t = typename allocator_traits<__alloc_t>::template rebind_alloc<__op_t>;
     __rebound_t __a(__alloc);
     __op_t* __op = allocator_traits<__rebound_t>::allocate(__a, 1);
+#if _LIBCPP_HAS_EXCEPTIONS
     try {
       ::new (static_cast<void*>(__op)) __op_t(std::move(__in_sndr), __token, __alloc);
     } catch (...) {
       allocator_traits<__rebound_t>::deallocate(__a, __op, 1);
       throw;
     }
+#else
+    {
+      ::new (static_cast<void*>(__op)) __op_t(std::move(__in_sndr), __token, __alloc);
+    }
+#endif
     __op->__start();
   }
 };
@@ -722,7 +728,8 @@ public:
 private:
   template <class _Cpo, class... _Args>
   _LIBCPP_HIDE_FROM_ABI void __set_complete(_Args&&... __args) noexcept {
-    constexpr bool __nothrow = (is_nothrow_constructible_v<decay_t<_Args>, _Args> && ...);
+    [[maybe_unused]] constexpr bool __nothrow = (is_nothrow_constructible_v<decay_t<_Args>, _Args> && ...);
+#if _LIBCPP_HAS_EXCEPTIONS
     try {
       __state->__result.template emplace<__decayed_tuple<_Cpo, _Args...>>(_Cpo{}, std::forward<_Args>(__args)...);
     } catch (...) {
@@ -731,6 +738,11 @@ private:
         __state->__result.template emplace<__tuple_t>(set_error_t{}, std::current_exception());
       }
     }
+#else
+    {
+      __state->__result.template emplace<__decayed_tuple<_Cpo, _Args...>>(_Cpo{}, std::forward<_Args>(__args)...);
+    }
+#endif
     __state->__complete();
   }
 };
@@ -958,7 +970,8 @@ public:
   __spawn_future_opstate& operator=(const __spawn_future_opstate&) = delete;
 
   _LIBCPP_HIDE_FROM_ABI void start() & noexcept {
-    constexpr bool __nothrow = is_nothrow_constructible_v<__stop_callback_t, __stop_token_t, __callback>;
+    [[maybe_unused]] constexpr bool __nothrow = is_nothrow_constructible_v<__stop_callback_t, __stop_token_t, __callback>;
+#if _LIBCPP_HAS_EXCEPTIONS
     try {
       // The draft writes get_stop_token(rcvr) here, which is ill-formed against its own stop-token-t =
       // stop_token_of_t<env_of_t<Rcvr>> for a stoppable token; the environment's token is meant (unlike
@@ -972,6 +985,16 @@ public:
         return;
       }
     }
+#else
+    {
+      // The draft writes get_stop_token(rcvr) here, which is ill-formed against its own stop-token-t =
+      // stop_token_of_t<env_of_t<Rcvr>> for a stoppable token; the environment's token is meant (unlike
+      // run_loop's literal get_stop_token(REC(o)), which compiles and is kept as written). Like the draft, a throwing
+      // callback construction completes with set_error(exception_ptr) even though the signatures only advertise it
+      // for throwing datums (dead code for the standard stop tokens).
+      __stop_cb_.emplace(std::get_stop_token(execution::get_env(__rcvr_)), __callback{__raw_});
+    }
+#endif
     __state_.release()->__consume(this);
   }
 
@@ -1022,12 +1045,18 @@ struct spawn_future_t {
 
     __rebound_t __a(__alloc);
     __state_t* __raw = allocator_traits<__rebound_t>::allocate(__a, 1);
+#if _LIBCPP_HAS_EXCEPTIONS
     try {
       ::new (static_cast<void*>(__raw)) __state_t(__alloc, std::move(__new_sender), __token, std::move(__env));
     } catch (...) {
       allocator_traits<__rebound_t>::deallocate(__a, __raw, 1);
       throw;
     }
+#else
+    {
+      ::new (static_cast<void*>(__raw)) __state_t(__alloc, std::move(__new_sender), __token, std::move(__env));
+    }
+#endif
     return __spawn_future_sndr<__state_t>{{}, unique_ptr<__state_t, __spawn_future_deleter<__state_t>>(__raw)};
   }
 };

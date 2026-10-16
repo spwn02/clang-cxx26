@@ -8,7 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -24,6 +23,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -57,6 +57,7 @@ int main(int, char**) {
         std::is_same_v<completion_signatures_of_t<decltype(let_error(just(1), [](int&) { return just(2); })), env<>>,
                         completion_signatures<set_value_t(int)>>);
   }
+#ifndef TEST_HAS_NO_EXCEPTIONS
   // A throwing fn completes with the exception via sync_wait's error path.
   {
     bool caught = false;
@@ -69,6 +70,7 @@ int main(int, char**) {
     }
     assert(caught);
   }
+#endif
   // let_error's completion signatures: the continuation's own signatures replace the
   // intercepted set_error_t(int), plus set_error_t(exception_ptr) since fn can throw.
   {

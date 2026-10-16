@@ -334,6 +334,7 @@ public:
 
 private:
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL void execute(size_t __begin, size_t __end) noexcept override {
+#if _LIBCPP_HAS_EXCEPTIONS
     try {
       if constexpr (_Chunked) {
         // r.execute(i, j) is f(i, j, args...) if p, and f(0, shape, args...) otherwise.
@@ -360,6 +361,30 @@ private:
       if (!__first_err_)
         __first_err_ = std::current_exception();
     }
+#else
+    {
+      if constexpr (_Chunked) {
+        // r.execute(i, j) is f(i, j, args...) if p, and f(0, shape, args...) otherwise.
+        std::apply([&](_Args&... __a) {
+          if constexpr (_Par)
+            std::invoke(__f_, static_cast<_Shape>(__begin), static_cast<_Shape>(__end), __a...);
+          else
+            std::invoke(__f_, _Shape(0), __shape_, __a...);
+        }, __args_);
+      } else {
+        // r.execute(i, i + 1) is f(i, args...) if p, and the loop over [0, shape) otherwise.
+        std::apply([&](_Args&... __a) {
+          if constexpr (_Par) {
+            for (size_t __i = __begin; __i != __end; ++__i)
+              std::invoke(__f_, static_cast<_Shape>(__i), __a...);
+          } else {
+            for (_Shape __i = 0; __i < __shape_; ++__i)
+              std::invoke(__f_, __i, __a...);
+          }
+        }, __args_);
+      }
+    }
+#endif
   }
 
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL void set_value() noexcept override {

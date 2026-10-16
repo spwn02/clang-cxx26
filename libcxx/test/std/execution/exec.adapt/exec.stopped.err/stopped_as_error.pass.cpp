@@ -8,7 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -23,6 +22,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -69,6 +69,7 @@ int main(int, char**) {
     assert(r.has_value());
     assert(std::get<0>(*r) == 42);
   }
+#ifndef TEST_HAS_NO_EXCEPTIONS
   // Stopped path: the child's stopped completion becomes an error completion via sync_wait's
   // AS-EXCEPT-PTR path -- matching exec.adapt/exec.let/let_stopped.pass.cpp's own
   // throwing-continuation test for the same rethrow mechanism.
@@ -92,6 +93,7 @@ int main(int, char**) {
     }
     assert(caught);
   }
+#endif
   // Completion signatures: just_stopped()'s only completion (set_stopped_t()) is replaced by
   // the continuation's own (set_error_t(string)) -- no added set_error_t(exception_ptr), since
   // the closure's move-construction of a std::string is statically nothrow.

@@ -8,7 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -32,6 +31,7 @@
 #include <memory>
 #include <stdexcept>
 #include <utility>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -42,7 +42,9 @@ task<void> awaits_inner_sender() {
   co_return;
 }
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
 task<int> throws_exception() { throw std::runtime_error("boom"); }
+#endif
 
 task<int> yields_error() {
   co_yield with_error{std::make_exception_ptr(std::runtime_error("yielded"))};
@@ -80,6 +82,7 @@ int main(int, char**) {
     assert(result.has_value());
   }
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
   // An uncaught exception propagates as a set_error(exception_ptr) completion.
   {
     bool caught = false;
@@ -101,6 +104,7 @@ int main(int, char**) {
     }
     assert(caught);
   }
+#endif
 
   // A co_await-ed sender that completes with set_stopped short-circuits the rest of the body
   // and delivers set_stopped directly to whatever the task is connected to.

@@ -177,17 +177,11 @@
 
 #elif TEST_STD_VER > 23
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXCEPTIONS
-#    ifndef __cpp_lib_counting_scope
-#      error "__cpp_lib_counting_scope should be defined in c++26"
-#    endif
-#    if __cpp_lib_counting_scope != 202506L
-#      error "__cpp_lib_counting_scope should have the value 202506L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_counting_scope
-#      error "__cpp_lib_counting_scope should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXCEPTIONS' is not met!"
-#    endif
+#  ifndef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should be defined in c++26"
+#  endif
+#  if __cpp_lib_counting_scope != 202506L
+#    error "__cpp_lib_counting_scope should have the value 202506L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
@@ -210,7 +204,7 @@
 #    error "__cpp_lib_freestanding_execution should have the value 202502L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || (_LIBCPP_HAS_THREADS && _LIBCPP_HAS_EXCEPTIONS)
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
 #    ifndef __cpp_lib_parallel_scheduler
 #      error "__cpp_lib_parallel_scheduler should be defined in c++26"
 #    endif
@@ -219,34 +213,22 @@
 #    endif
 #  else
 #    ifdef __cpp_lib_parallel_scheduler
-#      error "__cpp_lib_parallel_scheduler should not be defined when the requirement '!defined(_LIBCPP_VERSION) || (_LIBCPP_HAS_THREADS && _LIBCPP_HAS_EXCEPTIONS)' is not met!"
+#      error "__cpp_lib_parallel_scheduler should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS' is not met!"
 #    endif
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXCEPTIONS
-#    ifndef __cpp_lib_senders
-#      error "__cpp_lib_senders should be defined in c++26"
-#    endif
-#    if __cpp_lib_senders != 202506L
-#      error "__cpp_lib_senders should have the value 202506L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_senders
-#      error "__cpp_lib_senders should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXCEPTIONS' is not met!"
-#    endif
+#  ifndef __cpp_lib_senders
+#    error "__cpp_lib_senders should be defined in c++26"
+#  endif
+#  if __cpp_lib_senders != 202506L
+#    error "__cpp_lib_senders should have the value 202506L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXCEPTIONS
-#    ifndef __cpp_lib_task
-#      error "__cpp_lib_task should be defined in c++26"
-#    endif
-#    if __cpp_lib_task != 202506L
-#      error "__cpp_lib_task should have the value 202506L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_task
-#      error "__cpp_lib_task should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXCEPTIONS' is not met!"
-#    endif
+#  ifndef __cpp_lib_task
+#    error "__cpp_lib_task should be defined in c++26"
+#  endif
+#  if __cpp_lib_task != 202506L
+#    error "__cpp_lib_task should have the value 202506L in c++26"
 #  endif
 
 #endif // TEST_STD_VER > 23

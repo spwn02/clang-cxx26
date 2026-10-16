@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -19,6 +18,7 @@
 #include <exception>
 #include <execution>
 #include <utility>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -55,6 +55,7 @@ struct Task {
 
 Task value_task() { co_return co_await just(42); }
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
 Task error_task() {
   try {
     co_await just_error(std::runtime_error("boom"));
@@ -63,6 +64,7 @@ Task error_task() {
     co_return -1;
   }
 }
+#endif
 
 Task stopped_task() {
   co_await just_stopped();
@@ -104,6 +106,7 @@ int main(int, char**) {
     assert(t.h.done());
     assert(t.h.promise().result == 42);
   }
+#ifndef TEST_HAS_NO_EXCEPTIONS
   // Error propagation: sender-awaitable rethrows from await_resume, observable as a thrown
   // exception at the co_await expression.
   {
@@ -112,6 +115,7 @@ int main(int, char**) {
     assert(t.h.done());
     assert(t.h.promise().result == -1);
   }
+#endif
   // Stopped propagation without set_continuation: unhandled_stopped() falls back to the
   // default handler. Not exercised here (it terminates), only its override below is.
 

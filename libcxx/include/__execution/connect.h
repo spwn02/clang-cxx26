@@ -144,6 +144,7 @@ template <class _DS, class _DR>
 _LIBCPP_HIDE_FROM_ABI __operation_state_task<_DS, _DR> __connect_awaitable(_DS __sndr, _DR __rcvr) {
   using _Vp = __connect_awaitable_value_t<_DS, _DR>;
   exception_ptr __ep;
+#if _LIBCPP_HAS_EXCEPTIONS
   try {
     if constexpr (is_void_v<_Vp>) {
       co_await std::move(__sndr);
@@ -154,6 +155,16 @@ _LIBCPP_HIDE_FROM_ABI __operation_state_task<_DS, _DR> __connect_awaitable(_DS _
   } catch (...) {
     __ep = std::current_exception();
   }
+#else
+  {
+    if constexpr (is_void_v<_Vp>) {
+      co_await std::move(__sndr);
+      co_await execution::__suspend_complete(execution::set_value, std::move(__rcvr));
+    } else {
+      co_await execution::__suspend_complete(execution::set_value, std::move(__rcvr), co_await std::move(__sndr));
+    }
+  }
+#endif
   co_await execution::__suspend_complete(execution::set_error, std::move(__rcvr), std::move(__ep));
 }
 

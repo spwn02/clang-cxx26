@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -19,6 +18,7 @@
 #include <exception>
 #include <execution>
 #include <utility>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -79,6 +79,7 @@ Task<int> uses_sender() { co_return co_await just(42); }
 
 Task<int> uses_sender_chain() { co_return co_await (just(10) | then([](int x) { return x * 2; })); }
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
 Task<int> propagates_error() {
   try {
     co_await just_error(std::runtime_error("boom"));
@@ -87,6 +88,7 @@ Task<int> propagates_error() {
     co_return -1;
   }
 }
+#endif
 
 int main(int, char**) {
   // (7.3): PlainAwaiter is already an awaiter -- passed straight through.
@@ -109,6 +111,7 @@ int main(int, char**) {
     assert(t.h.done());
     assert(t.h.promise().result == 20);
   }
+#ifndef TEST_HAS_NO_EXCEPTIONS
   // sender-awaitable's set_error path: the error is rethrown from await_resume, observable
   // as a thrown exception at the co_await expression.
   {
@@ -117,5 +120,6 @@ int main(int, char**) {
     assert(t.h.done());
     assert(t.h.promise().result == -1);
   }
+#endif
   return 0;
 }

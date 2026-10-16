@@ -63,21 +63,33 @@ class __sender_awaitable {
 
     template <class... _Args>
     _LIBCPP_HIDE_FROM_ABI void set_value(_Args&&... __args) && noexcept {
+#if _LIBCPP_HAS_EXCEPTIONS
       try {
         __result_->template emplace<1>(std::forward<_Args>(__args)...);
       } catch (...) {
         __result_->template emplace<2>(std::current_exception());
       }
+#else
+      {
+        __result_->template emplace<1>(std::forward<_Args>(__args)...);
+      }
+#endif
       __continuation_.resume();
     }
 
     template <class _Err>
     _LIBCPP_HIDE_FROM_ABI void set_error(_Err&& __err) && noexcept {
+#if _LIBCPP_HAS_EXCEPTIONS
       try {
         __result_->template emplace<2>(execution::__as_except_ptr(std::forward<_Err>(__err)));
       } catch (...) {
         __result_->template emplace<2>(std::current_exception());
       }
+#else
+      {
+        __result_->template emplace<2>(execution::__as_except_ptr(std::forward<_Err>(__err)));
+      }
+#endif
       __continuation_.resume();
     }
 

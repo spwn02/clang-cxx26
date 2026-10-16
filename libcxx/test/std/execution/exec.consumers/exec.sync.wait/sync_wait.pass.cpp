@@ -8,7 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -20,6 +19,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -87,6 +87,7 @@ int main(int, char**) {
     auto r = std::this_thread::sync_wait(just());
     assert(r.has_value());
   }
+#ifndef TEST_HAS_NO_EXCEPTIONS
   // Error completion: rethrows.
   {
     bool caught = false;
@@ -98,6 +99,7 @@ int main(int, char**) {
     }
     assert(caught);
   }
+#endif
   // Stopped completion: disengaged optional.
   {
     auto r = std::this_thread::sync_wait(maybe_stops_sndr{});

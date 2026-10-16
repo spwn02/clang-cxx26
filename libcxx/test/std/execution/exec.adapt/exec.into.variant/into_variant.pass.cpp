@@ -8,7 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -22,6 +21,7 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -88,6 +88,7 @@ int main(int, char**) {
     assert(v.index() == 1);
     assert(std::get<1>(v) == std::tuple(3.5, 'x'));
   }
+#ifndef TEST_HAS_NO_EXCEPTIONS
   // Error completions pass through unchanged -- not folded into the variant.
   {
     bool caught = false;
@@ -99,6 +100,7 @@ int main(int, char**) {
     }
     assert(caught);
   }
+#endif
   // Stopped completions pass through unchanged -- the overall sender never synthesizes a value
   // out of a stopped completion the way stopped_as_optional does.
   {

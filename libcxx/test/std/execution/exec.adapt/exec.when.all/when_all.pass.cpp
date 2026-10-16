@@ -8,7 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: no-exceptions
 
 // <execution>
 
@@ -21,6 +20,7 @@
 #include <execution>
 #include <type_traits>
 #include <utility>
+#include "test_macros.h"
 
 using namespace std::execution;
 
@@ -116,6 +116,7 @@ int main(int, char**) {
   // inplace_stop_source before stop_check_sndr's own start() runs -- confirming when-all-env's
   // get_stop_token interception actually threads the shared stop source through to every
   // child's receiver environment, not just the one that errored.
+#ifndef TEST_HAS_NO_EXCEPTIONS
   {
     bool observed = false;
     bool caught   = false;
@@ -128,5 +129,6 @@ int main(int, char**) {
     assert(caught);
     assert(observed);
   }
+#endif
   return 0;
 }
