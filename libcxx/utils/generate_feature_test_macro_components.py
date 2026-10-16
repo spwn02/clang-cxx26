@@ -566,6 +566,8 @@ feature_test_macros = [
             "name": "__cpp_lib_counting_scope",
             "values": {"c++26": 202506},  # P3149R11 async_scope: simple_counting_scope and counting_scope
             "headers": ["execution"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXCEPTIONS",
+            "libcxx_guard": "_LIBCPP_HAS_EXCEPTIONS",
         },
         {
             "name": "__cpp_lib_debugging",
@@ -1394,8 +1396,8 @@ feature_test_macros = [
             "name": "__cpp_lib_parallel_scheduler",
             "values": {"c++26": 202506},  # P2079R10 parallel_scheduler
             "headers": ["execution"],
-            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS",
-            "libcxx_guard": "_LIBCPP_HAS_THREADS",
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || (_LIBCPP_HAS_THREADS && _LIBCPP_HAS_EXCEPTIONS)",
+            "libcxx_guard": "_LIBCPP_HAS_THREADS && _LIBCPP_HAS_EXCEPTIONS",
         },
         {
             "name": "__cpp_lib_philox_engine",
@@ -1648,6 +1650,8 @@ feature_test_macros = [
             "name": "__cpp_lib_senders",
             "values": {"c++26": 202506},  # P2300R10 std::execution, P3570R2 optional variants in sender/receiver (get_await_completion_adaptor)
             "headers": ["execution"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXCEPTIONS",
+            "libcxx_guard": "_LIBCPP_HAS_EXCEPTIONS",
         },
         {
             "name": "__cpp_lib_shared_mutex",
@@ -1823,6 +1827,8 @@ feature_test_macros = [
             "name": "__cpp_lib_task",
             "values": {"c++26": 202506},  # P3552R3 std::execution::task
             "headers": ["execution"],
+            "test_suite_guard": "!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXCEPTIONS",
+            "libcxx_guard": "_LIBCPP_HAS_EXCEPTIONS",
         },
         {
             "name": "__cpp_lib_text_encoding",

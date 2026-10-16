@@ -32,7 +32,7 @@ export namespace std::execution {
   using std::execution::seq;
   using std::execution::unseq;
 } // namespace std::execution
-#if _LIBCPP_STD_VER >= 26
+#if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXCEPTIONS
 export namespace std {
   // [exec.domain.indeterminate], common_type specializations
   using std::common_type;
@@ -310,4 +310,4 @@ export namespace std::this_thread {
   using std::this_thread::sync_wait_with_variant_t;
 } // namespace std::this_thread
 #endif // _LIBCPP_HAS_THREADS
-#endif // _LIBCPP_STD_VER >= 26
+#endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXCEPTIONS

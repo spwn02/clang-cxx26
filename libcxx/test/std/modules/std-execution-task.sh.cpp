@@ -9,6 +9,7 @@
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
 // UNSUPPORTED: clang-modules-build
 // UNSUPPORTED: gcc
+// UNSUPPORTED: no-exceptions
 
 // XFAIL: has-no-cxx-module-support
 
