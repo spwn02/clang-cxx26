@@ -1,0 +1,11 @@
+# Diagnostics of run-clang-tidy over libcxx/src that are known and not caused by this repository's changes
+# (all of them are in code identical to the LLVM base revision ca7933e47d3a). One per line:
+#   <file name> | <check> | <message> | x<number of places that produce it>
+# The test (clang_tidy.sh.py) fails on any diagnostic that is not listed and on any listed one that is gone.
+cxxabi.h | llvm-namespace-comment | namespace 'std' not terminated with a closing comment | x1
+sstream | bugprone-use-after-move | '__rhs' used after it was moved | x3
+str_to_float.h | readability-redundant-control-flow | redundant return statement at the end of a function with a void return type | x1
+to_chars_floating_point.h | llvm-namespace-comment | namespace '__itoa' ends with an unrecognized comment | x1
+types.h | llvm-namespace-comment | namespace 'fputil' not terminated with a closing comment | x1
+unique_ptr.h | misc-uniqueptr-reset-release | prefer 'unique_ptr<>' assignment over 'release' and 'reset' | x2
+variant | bugprone-use-after-move | '__vs' used after it was forwarded | x1
