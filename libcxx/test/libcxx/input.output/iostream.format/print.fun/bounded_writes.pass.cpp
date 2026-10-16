@@ -18,6 +18,8 @@
 #include <tuple>
 #include <vector>
 
+#include "test_macros.h"
+
 struct fallback_type {
   int value;
 };
@@ -62,6 +64,7 @@ int main(int, char**) {
   __buf.output.clear();
   __buf.writes.clear();
   __buf.fail_after = 1;
+#ifndef TEST_HAS_NO_EXCEPTIONS
   __os.exceptions(std::ios_base::badbit | std::ios_base::failbit);
   bool __threw = false;
   try {
@@ -72,6 +75,7 @@ int main(int, char**) {
   assert(__threw);
   assert(__buf.writes.size() >= 2);
   assert(__buf.output.size() < expected.size());
+#endif // TEST_HAS_NO_EXCEPTIONS
 
   __buf.output.clear();
   __buf.writes.clear();
