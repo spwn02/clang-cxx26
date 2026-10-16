@@ -83,14 +83,16 @@ Pointer Program::getPtrGlobal(unsigned Idx) const {
   return Pointer(Globals[Idx]->block());
 }
 
-void Program::forgetGlobal(const ValueDecl *VD) {
+void Program::resetGlobal(const ValueDecl *VD) {
   UnsignedOrNone Index = getGlobal(VD);
   if (!Index)
     return;
-  const unsigned Old = *Index;
-  for (auto It = GlobalIndices.begin(); It != GlobalIndices.end(); ++It)
-    if (It->second == Old)
-      GlobalIndices.erase(It);
+  Block *B = getGlobal(*Index);
+  B->setEvalID(Ctx.getEvalID());
+  B->invokeDtor();
+  B->invokeCtor();
+  auto *GD = new (B->rawData()) GlobalInlineDescriptor();
+  GD->InitState = GlobalInitState::NoInitializer;
 }
 
 UnsignedOrNone Program::getGlobal(const ValueDecl *VD) {

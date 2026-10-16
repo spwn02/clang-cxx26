@@ -80,3 +80,45 @@ constexpr bool bad5 = (mkBad(), true);                    // checked-error {{mus
 // An initializer that is constant with the ignore semantic but violates a contract with the checked one is ill-formed
 // ([expr.const]); the contracts are evaluated again (the first evaluation ignores them).
 const int viaRecheck = preBad(0); // checked-error {{initialization of constant-initialized variable failed}} checked-note {{initializer is constant when evaluated with 'ignore' contract evaluation semantic}} checked-note {{in call to 'preBad(0)'}}
+
+
+// A variable whose address is taken before its definition keeps its identity when the initializer is evaluated again
+// with the contracts enabled.
+extern const int declared;
+struct Holder {
+  const int *p;
+};
+constexpr Holder holder{&declared};
+const int declared = 1;
+static_assert(holder.p == &declared);
+
+struct Agg {
+  int v;
+};
+extern const Agg declaredAgg;
+constexpr const Agg *aggPtr = &declaredAgg;
+const Agg declaredAgg{1};
+static_assert(aggPtr == &declaredAgg);
+
+// Variables of class type (and closures) are initialized again too.
+Agg agg = Agg();
+auto closure = [] { return 1; };
+struct WithDefault {
+  int a = 2;
+};
+WithDefault withDefault;
+
+// The contract specifiers may be on the first declaration only.
+constexpr int firstDecl(int x) pre(x > 0); // enforce-error {{contract failed during execution of constexpr function}} observe-warning {{contract failed during execution of constexpr function}}
+constexpr int firstDecl(int x) { return x; }
+constexpr int bad6 = firstDecl(0);           // checked-error {{must be initialized by a constant expression}} checked-note {{in call to 'firstDecl(0)'}}
+
+// Constructors: the preconditions are checked before the member initializers, the postconditions after the body.
+struct Ctor {
+  int v;
+  constexpr Ctor(int x) pre(x > 0) : v(x) {}                                  // enforce-error {{contract failed during execution of constexpr function}} observe-warning {{contract failed during execution of constexpr function}}
+  constexpr Ctor(const int x, int) post(v == x) : v(x + 1) {}                  // enforce-error {{contract failed during execution of constexpr function}} observe-warning {{contract failed during execution of constexpr function}}
+};
+static_assert(Ctor(1).v == 1);
+constexpr int bad7 = Ctor(0).v;    // checked-error {{must be initialized by a constant expression}} checked-note {{in call to 'Ctor(0)'}}
+constexpr int bad8 = Ctor(1, 0).v; // checked-error {{must be initialized by a constant expression}} checked-note {{in call to 'Ctor(1, 0)'}}

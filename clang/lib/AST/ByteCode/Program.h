@@ -77,10 +77,10 @@ public:
     return getPtrGlobal(Index).isInitialized();
   }
 
-  /// Forgets the global of a variable (and of its redeclarations): the next
-  /// evaluation of its initializer creates it again. The old object stays
-  /// alive for the pointers that refer to it.
-  void forgetGlobal(const ValueDecl *VD);
+  /// Brings the global of a variable (if it has one) back to the state before
+  /// its initializer ran, keeping the object (pointers that refer to it stay
+  /// valid): the next evaluation of the initializer initializes it again.
+  void resetGlobal(const ValueDecl *VD);
 
   /// Finds a global's index.
   UnsignedOrNone getGlobal(const ValueDecl *VD);

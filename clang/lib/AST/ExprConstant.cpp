@@ -8268,6 +8268,16 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
   APValue RetVal;
   StmtResult Ret = {RetVal, nullptr};
 
+  // The preconditions are checked before the member initializers run.
+  if (Definition->getContracts() && !EvaluatePreContracts(Info, Definition, &Frame))
+    return false;
+
+  // The postconditions are checked when the constructor has completed.
+  auto EvaluateCtorPostContracts = [&] {
+    return !Definition->getContracts() ||
+           EvaluatePostContracts(Info, Definition, RetVal, nullptr);
+  };
+
   // If it's a delegating constructor, delegate.
   if (Definition->isDelegatingConstructor()) {
     CXXConstructorDecl::init_const_iterator I = Definition->init_begin();
@@ -8281,7 +8291,8 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
         return false;
     }
     EvalObj.finishedDelegating();
-    return EvaluateStmt(Ret, Info, Definition->getBody()) != ESR_Failed;
+    return EvaluateStmt(Ret, Info, Definition->getBody()) != ESR_Failed &&
+           EvaluateCtorPostContracts();
   }
 
   // For a trivial copy or move constructor, perform an APValue copy. This is
@@ -8466,7 +8477,7 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
 
   return Success &&
          EvaluateStmt(Ret, Info, Definition->getBody()) != ESR_Failed &&
-         LifetimeExtendedScope.destroy();
+         EvaluateCtorPostContracts() && LifetimeExtendedScope.destroy();
 }
 
 static bool HandleConstructorCall(const Expr *E, const LValue &This,

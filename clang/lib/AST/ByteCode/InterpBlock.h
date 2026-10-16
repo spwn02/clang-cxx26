@@ -92,6 +92,8 @@ public:
   bool isInitialized() const { return IsInitialized; }
   /// The Evaluation ID this block was created in.
   unsigned getEvalID() const { return EvalID; }
+  /// The block is (re)created for the evaluation with this ID.
+  void setEvalID(unsigned ID) { EvalID = ID; }
   /// Move all pointers from this block to \param B.
   void movePointersTo(Block *B);
 
@@ -192,7 +194,7 @@ private:
   Pointer *Pointers = nullptr;
   /// Unique identifier of the declaration.
   UnsignedOrNone DeclID = std::nullopt;
-  const unsigned EvalID = ~0u;
+  unsigned EvalID = ~0u;
   /// Flag indicating if the block has static storage duration.
   bool IsStatic = false;
   /// Flag indicating if the block contents have been initialized

@@ -135,9 +135,9 @@ bool Context::evaluateAsInitializer(State &Parent, const VarDecl *VD,
   size_t StackSizeBefore = Stk.size();
   // The initializer of a variable is evaluated again when the contract
   // assertions are enabled (the first evaluation ignored them, [expr.const]):
-  // the object the previous evaluation created cannot stand for the result.
+  // the object that evaluation initialized does not hold the new result.
   if (!Recursing && Parent.EvaluateContracts && getLangOpts().Contracts)
-    P->forgetGlobal(VD);
+    P->resetGlobal(VD);
   Compiler<EvalEmitter> C(*this, *P, Parent, Stk);
 
   bool CheckGlobalInitialized =
