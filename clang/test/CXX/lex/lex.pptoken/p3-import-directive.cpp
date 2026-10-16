@@ -23,6 +23,8 @@
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/ImportSemiNextLine.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/SemiSameLogicalLine.cpp
 // RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %t/DirectiveContinued.cpp
+// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %t/DottedModuleNameContinued.cpp
+// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %t/DottedImportNameContinued.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/ImportContinued.cpp
 // RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %t/PrivateContinued.cpp
 // RUN: %clang_cc1 -std=c++20 -fmodule-file=foo=%t/foo.pcm -fsyntax-only -verify %t/AfterPragma.cpp
@@ -237,3 +239,14 @@ import foo
 export module M;
 module :private
 ; // expected-error {{the ';' that ends a module or import directive must be on the same logical source line as the directive}}
+
+//--- DottedModuleNameContinued.cpp
+// A module-name continued on a later line does not move the end of the directive (#311).
+export module M.
+sub; // expected-error {{the ';' that ends a module or import directive must be on the same logical source line as the directive}}
+
+//--- DottedImportNameContinued.cpp
+export module M;
+import a.
+b; // expected-error {{the ';' that ends a module or import directive must be on the same logical source line as the directive}}
+// expected-error@-2 {{module 'a.b' not found}}
