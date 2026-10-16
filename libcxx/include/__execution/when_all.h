@@ -446,11 +446,17 @@ private:
     if constexpr (is_nothrow_constructible_v<decay_t<_Err>, _Err>) {
       __state_->__errors_.template emplace<decay_t<_Err>>(std::forward<_Err>(__err));
     } else {
+#if _LIBCPP_HAS_EXCEPTIONS
       try {
         __state_->__errors_.template emplace<decay_t<_Err>>(std::forward<_Err>(__err));
       } catch (...) {
         __state_->__errors_.template emplace<exception_ptr>(std::current_exception());
       }
+#else
+      {
+        __state_->__errors_.template emplace<decay_t<_Err>>(std::forward<_Err>(__err));
+      }
+#endif
     }
   }
 
@@ -466,12 +472,18 @@ private:
       __opt.emplace(std::forward<_Args>(__args)...);
       return false;
     } else {
+#if _LIBCPP_HAS_EXCEPTIONS
       try {
         __opt.emplace(std::forward<_Args>(__args)...);
       } catch (...) {
         __complete(set_error_t{}, std::current_exception());
         return true;
       }
+#else
+      {
+        __opt.emplace(std::forward<_Args>(__args)...);
+      }
+#endif
       return false;
     }
   }

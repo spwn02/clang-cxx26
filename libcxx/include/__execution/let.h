@@ -413,11 +413,17 @@ class __let_opstate {
     if constexpr (__nothrow) {
       __start_continuation(std::forward<_Args>(__args)...);
     } else {
+#if _LIBCPP_HAS_EXCEPTIONS
       try {
         __start_continuation(std::forward<_Args>(__args)...);
       } catch (...) {
         execution::set_error(std::move(__rcvr_), std::current_exception());
       }
+#else
+      {
+        __start_continuation(std::forward<_Args>(__args)...);
+      }
+#endif
     }
   }
 

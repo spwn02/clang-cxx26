@@ -92,12 +92,19 @@ public:
       execution::set_value(
           std::move(__rcvr_), _VariantT(execution::__decayed_tuple<_Args...>(std::forward<_Args>(__args)...)));
     } else {
+#if _LIBCPP_HAS_EXCEPTIONS
       try {
         execution::set_value(
             std::move(__rcvr_), _VariantT(execution::__decayed_tuple<_Args...>(std::forward<_Args>(__args)...)));
       } catch (...) {
         execution::set_error(std::move(__rcvr_), std::current_exception());
       }
+#else
+      {
+        execution::set_value(
+            std::move(__rcvr_), _VariantT(execution::__decayed_tuple<_Args...>(std::forward<_Args>(__args)...)));
+      }
+#endif
     }
   }
 

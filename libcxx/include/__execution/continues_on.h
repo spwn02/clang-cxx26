@@ -305,11 +305,17 @@ public:
       if constexpr (__continues_on_nothrow_sig<_Tag(_Args...)>) {
         __async_result_.template emplace<__result_t>(__tag, std::forward<_Args>(__args)...);
       } else {
+#if _LIBCPP_HAS_EXCEPTIONS
         try {
           __async_result_.template emplace<__result_t>(__tag, std::forward<_Args>(__args)...);
         } catch (...) {
           __async_result_.template emplace<tuple<set_error_t, exception_ptr>>(set_error_t{}, std::current_exception());
         }
+#else
+        {
+          __async_result_.template emplace<__result_t>(__tag, std::forward<_Args>(__args)...);
+        }
+#endif
       }
       execution::start(__sched_op_);
     } else {

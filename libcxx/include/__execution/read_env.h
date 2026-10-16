@@ -71,11 +71,17 @@ public:
     if constexpr (noexcept(__query_(execution::get_env(__rcvr_)))) {
       execution::set_value(std::move(__rcvr_), __query_(execution::get_env(__rcvr_)));
     } else {
+#if _LIBCPP_HAS_EXCEPTIONS
       try {
         execution::set_value(std::move(__rcvr_), __query_(execution::get_env(__rcvr_)));
       } catch (...) {
         execution::set_error(std::move(__rcvr_), std::current_exception());
       }
+#else
+      {
+        execution::set_value(std::move(__rcvr_), __query_(execution::get_env(__rcvr_)));
+      }
+#endif
     }
   }
 

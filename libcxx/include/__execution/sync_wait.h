@@ -83,11 +83,17 @@ public:
 
   template <class... _Args>
   _LIBCPP_HIDE_FROM_ABI constexpr void set_value(_Args&&... __args) && noexcept {
+#if _LIBCPP_HAS_EXCEPTIONS
     try {
       __state_->__result.emplace(std::forward<_Args>(__args)...);
     } catch (...) {
       __state_->__error = current_exception();
     }
+#else
+    {
+      __state_->__result.emplace(std::forward<_Args>(__args)...);
+    }
+#endif
     __state_->__loop.finish();
   }
 

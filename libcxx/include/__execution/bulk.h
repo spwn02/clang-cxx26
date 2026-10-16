@@ -266,11 +266,17 @@ public:
     if constexpr (__nothrow) {
       __invoke_and_set_value(std::forward<_Args>(__args)...);
     } else {
+#if _LIBCPP_HAS_EXCEPTIONS
       try {
         __invoke_and_set_value(std::forward<_Args>(__args)...);
       } catch (...) {
         execution::set_error(std::move(__rcvr_), std::current_exception());
       }
+#else
+      {
+        __invoke_and_set_value(std::forward<_Args>(__args)...);
+      }
+#endif
     }
   }
 
