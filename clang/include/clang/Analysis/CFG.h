@@ -1247,6 +1247,9 @@ public:
     bool MarkElidedCXXConstructors = false;
     bool AddVirtualBaseBranches = false;
     bool OmitImplicitValueInitializers = false;
+    /// A contract assertion evaluated with the ignore semantic has no effect
+    /// ([basic.contract.eval]): do not add it and its predicate to the CFG.
+    bool OmitIgnoredContractPredicates = false;
     bool AssumeReachableDefaultInSwitchStatements = false;
 
     BuildOptions() = default;

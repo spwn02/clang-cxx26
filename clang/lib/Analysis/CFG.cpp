@@ -2308,6 +2308,13 @@ CFGBlock *CFGBuilder::Visit(Stmt * S, AddStmtChoice asc,
     case Stmt::InitListExprClass:
       return VisitInitListExpr(cast<InitListExpr>(S), asc);
 
+    case Stmt::ContractStmtClass:
+      if (BuildOpts.OmitIgnoredContractPredicates &&
+          cast<ContractStmt>(S)->getSemantic(*Context) ==
+              ContractEvaluationSemantic::Ignore)
+        return Block;
+      return VisitStmt(S, asc);
+
     case Stmt::AttributedStmtClass:
       return VisitAttributedStmt(cast<AttributedStmt>(S), asc);
 

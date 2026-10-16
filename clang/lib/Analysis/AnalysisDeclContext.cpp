@@ -84,6 +84,9 @@ AnalysisDeclContextManager::AnalysisDeclContextManager(
   cfgBuildOptions.AddRichCXXConstructors = addRichCXXConstructors;
   cfgBuildOptions.MarkElidedCXXConstructors = markElidedCXXConstructors;
   cfgBuildOptions.AddVirtualBaseBranches = addVirtualBaseBranches;
+  // The static analyzer models what is evaluated: not the predicate of a
+  // contract assertion that is ignored.
+  cfgBuildOptions.OmitIgnoredContractPredicates = true;
 }
 
 void AnalysisDeclContextManager::clear() { Contexts.clear(); }
