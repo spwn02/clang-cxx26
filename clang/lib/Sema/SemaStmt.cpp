@@ -4513,6 +4513,20 @@ void Sema::DiagnoseExceptionUse(SourceLocation Loc, bool IsTry) {
     // Delay error emission for the OpenMP device code.
     return;
 
+  // A throw-expression and a try-block are part of constant evaluation in C++26 ([expr.const], P3068R6): a constexpr
+  // or consteval function uses them to report an error to its caller at compile time, with or without runtime
+  // exception handling, so -fno-exceptions does not apply there. At run time such a throw does not unwind.
+  // A lambda is implicitly constexpr, which is not known while its body is parsed, so it takes the enclosing function.
+  if (getLangOpts().CPlusPlus26) {
+    for (const auto *FD = getCurFunctionDecl(/*AllowLambda=*/true); FD;) {
+      if (FD->isConstexpr() || FD->isImmediateFunction())
+        return;
+      if (!isLambdaCallOperator(FD))
+        break;
+      FD = dyn_cast<FunctionDecl>(Decl::castFromDeclContext(FD->getDeclContext())->getDeclContext());
+    }
+  }
+
   if (!getLangOpts().CXXExceptions &&
       !getSourceManager().isInSystemHeader(Loc) &&
       !CurContext->isDependentContext())
