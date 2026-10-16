@@ -235,6 +235,12 @@ public:
   bool visitCompoundStmt(const CompoundStmt *S);
   bool visitDeclStmt(const DeclStmt *DS, bool EvaluateConditionDecl = false);
   bool visitReturnStmt(const ReturnStmt *RS);
+  bool visitContractStmt(const ContractStmt *CS);
+  /// Evaluates the precondition and postcondition assertions of the function
+  /// being compiled. The postconditions run where the function returns, after
+  /// its local variables are destroyed.
+  bool emitPreconditions(const FunctionDecl *F);
+  bool emitPostconditions(const FunctionDecl *F);
   bool visitIfStmt(const IfStmt *IS);
   bool visitWhileStmt(const WhileStmt *S);
   bool visitDoStmt(const DoStmt *S);
@@ -430,6 +436,13 @@ private:
 protected:
   /// Variable to storage mapping.
   llvm::DenseMap<const ValueDecl *, Scope::Local> Locals;
+  /// The local that holds the returned value for the result name of the
+  /// postconditions of the function being compiled, if it has one.
+  std::optional<unsigned> ResultNameLocal;
+  /// The scope of that local: it is not cleaned up when the function returns
+  /// (the postconditions run after the local variables are destroyed and read
+  /// the result).
+  VariableScope<Emitter> *ResultNameScope = nullptr;
 
   /// OpaqueValueExpr to location mapping.
   llvm::DenseMap<const OpaqueValueExpr *, unsigned> OpaqueExprs;

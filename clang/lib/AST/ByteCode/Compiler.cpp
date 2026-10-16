@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Compiler.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "ByteCodeEmitter.h"
 #include "Context.h"
 #include "FixedPoint.h"
@@ -5587,6 +5588,8 @@ template <class Emitter> bool Compiler<Emitter>::visitStmt(const Stmt *S) {
     return visitAttributedStmt(cast<AttributedStmt>(S));
   case Stmt::CXXTryStmtClass:
     return visitCXXTryStmt(cast<CXXTryStmt>(S));
+  case Stmt::ContractStmtClass:
+    return visitContractStmt(cast<ContractStmt>(S));
   case Stmt::NullStmtClass:
     return true;
   // Always invalid statements.
@@ -5705,7 +5708,16 @@ bool Compiler<Emitter>::visitReturnStmt(const ReturnStmt *RS) {
       // Primitive types are simply returned.
       if (!this->visit(RE))
         return false;
+      // The result name of the postconditions denotes the returned value.
+      if (ResultNameLocal) {
+        if (!this->emitSetLocal(*ReturnType, *ResultNameLocal, RS))
+          return false;
+        if (!this->emitGetLocal(*ReturnType, *ResultNameLocal, RS))
+          return false;
+      }
       this->emitCleanup();
+      if (!this->emitPostconditions(CompilingFunction))
+        return false;
       return this->emitRet(*ReturnType, RS);
     }
 
@@ -5723,13 +5735,71 @@ bool Compiler<Emitter>::visitReturnStmt(const ReturnStmt *RS) {
         return false;
 
       this->emitCleanup();
+      if (!this->emitPostconditions(CompilingFunction))
+        return false;
       return this->emitRetVoid(RS);
     }
   }
 
   // Void return.
   this->emitCleanup();
+  if (!this->emitPostconditions(CompilingFunction))
+    return false;
   return this->emitRetVoid(RS);
+}
+
+template <class Emitter>
+bool Compiler<Emitter>::visitContractStmt(const ContractStmt *CS) {
+  const ContractEvaluationSemantic Semantic =
+      CS->getSemantic(Ctx.getASTContext());
+  // An assertion with the ignore semantic has no effect.
+  if (Semantic == ContractEvaluationSemantic::Ignore)
+    return true;
+
+  // Whether the contracts are evaluated is a property of the evaluation (the
+  // initialization of a variable is first checked with all contracts ignored,
+  // [expr.const]), not of the compiled function.
+  LabelTy LabelEnd = this->getLabel();
+  if (!this->emitContractsEvaluated(CS))
+    return false;
+  if (!this->jumpFalse(LabelEnd))
+    return false;
+  {
+    LocalScope<Emitter> CondScope(this, ScopeKind::FullExpression);
+    if (!this->visitBool(CS->getCond()))
+      return false;
+    if (!CondScope.destroyLocals())
+      return false;
+  }
+  if (!this->jumpTrue(LabelEnd))
+    return false;
+  if (!this->emitContractViolation(
+          Semantic == ContractEvaluationSemantic::Observe, CS->getCond()))
+    return false;
+  this->emitLabel(LabelEnd);
+  return true;
+}
+
+template <class Emitter>
+bool Compiler<Emitter>::emitPreconditions(const FunctionDecl *F) {
+  const ContractSpecifierDecl *Contracts = F ? F->getContracts() : nullptr;
+  if (!Contracts)
+    return true;
+  for (const ContractStmt *CS : Contracts->preconditions())
+    if (!this->visitContractStmt(CS))
+      return false;
+  return true;
+}
+
+template <class Emitter>
+bool Compiler<Emitter>::emitPostconditions(const FunctionDecl *F) {
+  const ContractSpecifierDecl *Contracts = F ? F->getContracts() : nullptr;
+  if (!Contracts)
+    return true;
+  for (const ContractStmt *CS : Contracts->postconditions())
+    if (!this->visitContractStmt(CS))
+      return false;
+  return true;
 }
 
 template <class Emitter> bool Compiler<Emitter>::visitIfStmt(const IfStmt *IS) {
@@ -6403,6 +6473,9 @@ bool Compiler<Emitter>::compileConstructor(const CXXConstructorDecl *Ctor) {
            this->emitRetVoid(Ctor);
   }
 
+  if (!this->emitPreconditions(Ctor))
+    return false;
+
   InitLinkScope<Emitter> InitScope(this, InitLink::This());
   for (const auto *Init : Ctor->inits()) {
     // Scope needed for the initializers.
@@ -6504,6 +6577,8 @@ bool Compiler<Emitter>::compileConstructor(const CXXConstructorDecl *Ctor) {
     if (!visitStmt(Body))
       return false;
 
+  if (!this->emitPostconditions(Ctor))
+    return false;
   return this->emitRetVoid(SourceInfo{});
 }
 
@@ -6593,6 +6668,10 @@ bool Compiler<Emitter>::visitFunc(const FunctionDecl *F) {
   ReturnType = this->classify(F->getReturnType());
 
   this->CompilingFunction = F;
+  auto ResetResultName = llvm::make_scope_exit([&] {
+    ResultNameScope = nullptr;
+    ResultNameLocal.reset();
+  });
 
   if (const auto *Ctor = dyn_cast<CXXConstructorDecl>(F))
     return this->compileConstructor(Ctor);
@@ -6611,14 +6690,38 @@ bool Compiler<Emitter>::visitFunc(const FunctionDecl *F) {
       return this->emitLambdaStaticInvokerBody(MD);
   }
 
+  // The result name of the postconditions denotes the object or reference
+  // returned: a primitive result is kept in a local that is not part of any
+  // scope (it stays alive until the function returns); a class object is the
+  // return location itself.
+  ResultNameLocal.reset();
+  ResultNameScope = nullptr;
+  std::optional<LocalScope<Emitter>> ResultScope;
+  if (const ContractSpecifierDecl *Contracts = F->getContracts()) {
+    if (const ResultNameDecl *RND = Contracts->getCanonicalResultName();
+        RND && ReturnType) {
+      ResultScope.emplace(this);
+      ResultNameScope = &*ResultScope;
+      ResultNameLocal = this->allocateLocalPrimitive(
+          RND, *ReturnType, /*IsConst=*/true, /*IsVolatile=*/false);
+    }
+  }
+
+  if (!this->emitPreconditions(F))
+    return false;
+
   // Regular functions.
   if (const auto *Body = F->getBody())
     if (!visitStmt(Body))
       return false;
 
   // Emit a guard return to protect against a code path missing one.
-  if (F->getReturnType()->isVoidType())
+  if (F->getReturnType()->isVoidType()) {
+    if (!this->emitPostconditions(F))
+      return false;
     return this->emitRetVoid(SourceInfo{});
+  }
+  ResultNameScope = nullptr;
   return this->emitNoRet(SourceInfo{});
 }
 
@@ -7135,6 +7238,20 @@ bool Compiler<Emitter>::visitDeclRef(const ValueDecl *D, const Expr *E) {
     return false;
   }
 
+  // The result name of a postcondition: all result names of a function stand
+  // for the canonical one. A class object is the return location.
+  if (const auto *RND = dyn_cast<ResultNameDecl>(D)) {
+    D = RND->getCanonicalResultName();
+    if (!Locals.contains(D)) {
+      // Outside of the evaluation of a call of the function (the predicate
+      // evaluated on its own) there is no result.
+      if (CompilingFunction && !ReturnType &&
+          !CompilingFunction->getReturnType()->isVoidType())
+        return this->emitRVOPtr(E);
+      return this->emitInvalid(E);
+    }
+  }
+
   // References are implemented via pointers, so when we see a DeclRefExpr
   // pointing to a reference, we need to get its value directly (i.e. the
   // pointer to the actual value) instead of a pointer to the pointer to the
@@ -7327,7 +7444,8 @@ bool Compiler<Emitter>::VisitDeclRefExpr(const DeclRefExpr *E) {
 }
 
 template <class Emitter> bool Compiler<Emitter>::emitCleanup() {
-  for (VariableScope<Emitter> *C = VarScope; C; C = C->getParent()) {
+  for (VariableScope<Emitter> *C = VarScope; C && C != ResultNameScope;
+       C = C->getParent()) {
     if (!C->destroyLocals())
       return false;
   }

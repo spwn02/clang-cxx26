@@ -26,6 +26,7 @@ InterpState::InterpState(State &Parent, Program &P, InterpStack &Stk,
       Parent.CheckingPotentialConstantExpression;
   CheckingForUndefinedBehavior = Parent.CheckingForUndefinedBehavior;
   EvalMode = Parent.EvalMode;
+  EvaluateContracts = Parent.EvaluateContracts;
 }
 
 InterpState::InterpState(State &Parent, Program &P, InterpStack &Stk,
@@ -38,6 +39,7 @@ InterpState::InterpState(State &Parent, Program &P, InterpStack &Stk,
       Parent.CheckingPotentialConstantExpression;
   CheckingForUndefinedBehavior = Parent.CheckingForUndefinedBehavior;
   EvalMode = Parent.EvalMode;
+  EvaluateContracts = Parent.EvaluateContracts;
 }
 
 bool InterpState::inConstantContext() const {

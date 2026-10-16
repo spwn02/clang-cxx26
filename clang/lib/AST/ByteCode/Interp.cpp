@@ -2594,5 +2594,15 @@ bool Interpret(InterpState &S) {
 #pragma optimize("", on)
 #endif
 
+bool ContractViolation(InterpState &S, CodePtr OpPC, bool IsObserve) {
+  const SourceInfo &Loc = S.Current->getSource(OpPC);
+  if (IsObserve) {
+    S.CCEDiag(Loc, diag::warn_constexpr_contract_failure);
+    return true;
+  }
+  S.FFDiag(Loc, diag::err_constexpr_contract_failure);
+  return false;
+}
+
 } // namespace interp
 } // namespace clang

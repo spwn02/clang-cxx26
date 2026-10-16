@@ -3714,6 +3714,14 @@ static inline bool IsConstantContext(InterpState &S, CodePtr OpPC) {
   return true;
 }
 
+static inline bool ContractsEvaluated(InterpState &S, CodePtr OpPC) {
+  S.Stk.push<Boolean>(Boolean::from(S.EvaluateContracts));
+  return true;
+}
+
+/// The predicate of a contract assertion was false.
+bool ContractViolation(InterpState &S, CodePtr OpPC, bool IsObserve);
+
 static inline bool CheckAllocations(InterpState &S, CodePtr OpPC) {
   return S.maybeDiagnoseDanglingAllocations();
 }

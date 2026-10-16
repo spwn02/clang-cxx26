@@ -905,6 +905,12 @@ def CheckNewTypeMismatchArray : Opcode {
 def InvalidNewDeleteExpr : Opcode { let Args = [ArgExpr]; }
 
 def IsConstantContext: Opcode;
+
+// Contract assertions: pushes whether the contracts of this evaluation are
+// evaluated, and reports the violation of a contract predicate (a warning that
+// does not stop the evaluation with the observe semantic).
+def ContractsEvaluated : Opcode;
+def ContractViolation : Opcode { let Args = [ArgBool]; }
 def CheckAllocations : Opcode;
 def CheckNull : Opcode;
 

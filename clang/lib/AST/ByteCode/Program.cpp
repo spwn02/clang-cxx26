@@ -83,6 +83,16 @@ Pointer Program::getPtrGlobal(unsigned Idx) const {
   return Pointer(Globals[Idx]->block());
 }
 
+void Program::forgetGlobal(const ValueDecl *VD) {
+  UnsignedOrNone Index = getGlobal(VD);
+  if (!Index)
+    return;
+  const unsigned Old = *Index;
+  for (auto It = GlobalIndices.begin(); It != GlobalIndices.end(); ++It)
+    if (It->second == Old)
+      GlobalIndices.erase(It);
+}
+
 UnsignedOrNone Program::getGlobal(const ValueDecl *VD) {
   if (auto It = GlobalIndices.find(VD); It != GlobalIndices.end())
     return It->second;
