@@ -24,7 +24,10 @@ import re
 import subprocess
 import sys
 
-DIAGNOSTIC = re.compile(r"^(?P<file>\S+?):(?P<line>\d+):(?P<col>\d+): (?P<kind>warning|error): (?P<msg>.*) \[(?P<check>[^\],]+)(?:,[^\]]*)?\]$")
+# Lines that show that clang-tidy did not finish its job on a translation unit.
+FAILURE = re.compile(r"Error while processing|Stack dump|PLEASE submit a bug report|^clang-tidy: |^Error: ")
+
+DIAGNOSTIC = re.compile(r"^(?P<file>\S+?):(?P<line>\d+):(?P<col>\d+): (?P<kind>warning|error|fatal error): (?P<msg>.*) \[(?P<check>[^\],]+)(?:,[^\]]*)?\]$")
 
 
 def key(file, check, msg):
@@ -59,6 +62,10 @@ def main():
     seen = {k: len(v) for k, v in places.items()}
 
     failed = False
+    for line in output.splitlines():
+        if FAILURE.search(line):
+            print(f"clang-tidy did not finish: {line}")
+            failed = True
     for k in sorted(seen):
         if seen[k] > expected.get(k, 0):
             where = ", ".join(f"{f}:{l}" for f, l in sorted(places[k]))

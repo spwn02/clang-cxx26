@@ -1,5 +1,6 @@
-# Diagnostics of run-clang-tidy over libcxx/src that are known and not caused by this repository's changes
-# (all of them are in code identical to the LLVM base revision ca7933e47d3a). One per line:
+# Diagnostics of run-clang-tidy over libcxx/src that are known and not caused by this repository's changes (they are
+# at lines that are unchanged from the LLVM base revision ca7933e47d3a, in files that may carry other fork edits).
+# A place reported from several translation units counts once. One per line:
 #   <file name> | <check> | <message> | x<number of places that produce it>
 # The test (clang_tidy.sh.py) fails on any diagnostic that is not listed and on any listed one that is gone.
 cxxabi.h | llvm-namespace-comment | namespace 'std' not terminated with a closing comment | x1
