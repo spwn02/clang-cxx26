@@ -230,8 +230,13 @@ public:
              (is_nothrow_constructible_v<index_type, _OtherIndexTypes> && ...) &&
              (sizeof...(_OtherIndexTypes) == rank()))
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr reference at(_OtherIndexTypes... __indices) const {
-    if (!__mdspan_detail::__is_multidimensional_index_in(extents(), __indices...))
+    if (!__mdspan_detail::__is_multidimensional_index_in(extents(), __indices...)) {
+#  if _LIBCPP_HAS_EXCEPTIONS
       throw out_of_range("mdspan::at: index out of bounds");
+#  else
+      _LIBCPP_VERBOSE_ABORT("out_of_range was thrown in -fno-exceptions mode with message \"mdspan::at: index out of bounds\"");
+#  endif
+    }
     return __acc_.access(__ptr_, __map_(static_cast<index_type>(std::move(__indices))...));
   }
 

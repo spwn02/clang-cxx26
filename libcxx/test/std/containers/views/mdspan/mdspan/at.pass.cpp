@@ -2,13 +2,17 @@
 #include <cassert>
 #include <mdspan>
 #include <stdexcept>
+
+#include "test_macros.h"
 int main() {
   int data[6]{};
   std::mdspan<int, std::extents<int, 2, 3>> m(data);
   m.at(1, 2) = 42;
   assert(data[5] == 42);
+#ifndef TEST_HAS_NO_EXCEPTIONS
   bool threw = false;
   try { (void)m.at(2, 0); } catch (const std::out_of_range&) { threw = true; }
   assert(threw);
+#endif
   assert(m.at(std::array<int, 2>{1, 2}) == 42);
 }

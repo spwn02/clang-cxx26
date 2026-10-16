@@ -52,6 +52,7 @@ int main(int, char**) {
     ASSERT_SAME_TYPE(decltype(cm.at(std::string_view("world"))), const int&);
     assert(cm.at(std::string_view("world")) == 3);
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
     bool threw = false;
     try {
       (void)m.at(std::string_view("nope"));
@@ -59,6 +60,7 @@ int main(int, char**) {
       threw = true;
     }
     assert(threw);
+#endif // TEST_HAS_NO_EXCEPTIONS
   }
 
   return 0;

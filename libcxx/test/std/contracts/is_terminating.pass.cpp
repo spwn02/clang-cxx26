@@ -1,3 +1,4 @@
+// UNSUPPORTED: no-exceptions
 // ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontracts -fcontract-evaluation-semantic=enforce -fcontract-group-evaluation-semantic=observe=observe,enforce=enforce
 
 // contract_violation::is_terminating() (P3227R1): true iff the violation's

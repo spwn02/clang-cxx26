@@ -54,6 +54,7 @@ static std::generator<int> nested() {
   co_yield 200;
 }
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
 struct MyException {};
 
 static std::generator<int> throws() {
@@ -61,6 +62,7 @@ static std::generator<int> throws() {
   throw MyException();
   co_yield 2; // never reached
 }
+#endif // TEST_HAS_NO_EXCEPTIONS
 
 static void test_basic_by_value() {
   std::vector<int> v;
@@ -93,6 +95,7 @@ static void test_nested_elements_of() {
   assert((v == std::vector<int>{100, 0, 1, 2, 200}));
 }
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
 static void test_exception_propagation() {
   auto g  = throws();
   auto it = g.begin();
@@ -105,6 +108,7 @@ static void test_exception_propagation() {
   }
   assert(caught);
 }
+#endif // TEST_HAS_NO_EXCEPTIONS
 
 static void test_move_only() {
   static_assert(!std::is_copy_constructible_v<std::generator<int>>);
@@ -128,7 +132,9 @@ int main(int, char**) {
   test_reference_yield();
   test_owned_by_value_strings();
   test_nested_elements_of();
+#ifndef TEST_HAS_NO_EXCEPTIONS
   test_exception_propagation();
+#endif
   test_move_only();
   test_input_range();
 

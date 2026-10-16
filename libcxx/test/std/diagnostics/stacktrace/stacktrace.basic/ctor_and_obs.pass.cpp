@@ -20,6 +20,8 @@
 #include <stacktrace>
 #include <stdexcept>
 
+#include "test_macros.h"
+
 int main(int, char**) {
   // Default construction is an empty stacktrace, not a captured one --
   // current() is the only way to get a populated basic_stacktrace.
@@ -57,6 +59,7 @@ int main(int, char**) {
   // operator[] and at() agree; at() range-checks.
   for (std::stacktrace::size_type i = 0; i < st.size(); ++i)
     assert(st[i] == st.at(i));
+#ifndef TEST_HAS_NO_EXCEPTIONS
   bool threw = false;
   try {
     (void)st.at(st.size());
@@ -64,6 +67,7 @@ int main(int, char**) {
     threw = true;
   }
   assert(threw);
+#endif // TEST_HAS_NO_EXCEPTIONS
 
   // Move assignment/construction.
   std::stacktrace move_target;

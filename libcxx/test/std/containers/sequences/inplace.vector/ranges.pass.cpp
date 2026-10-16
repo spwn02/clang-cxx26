@@ -41,6 +41,7 @@ int main(int, char**) {
     v.append_range(std::array<int, 2>{3, 4});
     assert(v.size() == 4 && v[3] == 4);
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
     bool threw = false;
     try {
       v.append_range(std::array<int, 1>{5}); // capacity overflow -> bad_alloc
@@ -48,6 +49,7 @@ int main(int, char**) {
       threw = true;
     }
     assert(threw);
+#endif // TEST_HAS_NO_EXCEPTIONS
     assert(v.size() == 4); // no effect on overflow
   }
 
@@ -71,6 +73,7 @@ int main(int, char**) {
     assert(v.data() == nullptr);
     assert(!v.try_push_back(1).has_value());
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
     bool threw = false;
     try {
       v.push_back(1);
@@ -78,9 +81,11 @@ int main(int, char**) {
       threw = true;
     }
     assert(threw);
+#endif // TEST_HAS_NO_EXCEPTIONS
 
     // at() is specified to throw, not a precondition violation, so it's
     // safe to actually call for every index.
+#ifndef TEST_HAS_NO_EXCEPTIONS
     threw = false;
     try {
       (void)v.at(0);
@@ -88,6 +93,7 @@ int main(int, char**) {
       threw = true;
     }
     assert(threw);
+#endif // TEST_HAS_NO_EXCEPTIONS
 
     // operator[]/front()/back()/unchecked_push_back()/unchecked_emplace_back()
     // all have unsatisfiable preconditions for N == 0 (no valid index or

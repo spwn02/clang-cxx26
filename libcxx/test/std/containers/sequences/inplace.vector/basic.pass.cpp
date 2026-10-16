@@ -53,6 +53,7 @@ int main(int, char**) {
     // capacity overflow.
     assert(!v.try_push_back(5).has_value());
 
+#ifndef TEST_HAS_NO_EXCEPTIONS
     bool threw = false;
     try {
       v.push_back(6);
@@ -60,6 +61,7 @@ int main(int, char**) {
       threw = true;
     }
     assert(threw);
+#endif // TEST_HAS_NO_EXCEPTIONS
 
     assert(v[0] == 1 && v[3] == 4);
     v.pop_back();

@@ -125,6 +125,7 @@ int main(int, char**) {
     std::hive<int> a(std::hive_limits(4, 4));
     std::hive<int> b(std::hive_limits(64, 64));
     b.insert(1);
+#ifndef TEST_HAS_NO_EXCEPTIONS
     bool threw = false;
     try {
       a.splice(b);
@@ -132,6 +133,7 @@ int main(int, char**) {
       threw = true;
     }
     assert(threw);
+#endif // TEST_HAS_NO_EXCEPTIONS
   }
 
   // splice: success path -- elements actually move, capacity accounting on

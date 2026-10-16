@@ -29,7 +29,7 @@ struct TStr {
 
   constexpr void copy(const char* obuff, size_t osize) {
     if (osize >= MAX_SIZE)
-      throw "Size is greater than max size";
+      __builtin_abort(); // the size is greater than the maximum
     __builtin_memcpy(buff, obuff, osize);
     for (auto* b = buff + osize; b < buff + 128; ++b)
       *b = '\0';
