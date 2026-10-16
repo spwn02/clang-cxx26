@@ -243,9 +243,13 @@ C++2c Feature Support
   Concept and variable template template parameters are now modeled with a dedicated
   ``DependentTemplateIdExpr`` AST node, and ``__cpp_template_parameters`` is defined in C++2c mode.
 
-- The C++26 feature-test macros ``__cpp_constexpr_exceptions`` (202411L, with exceptions enabled) and
+- The C++26 feature-test macros ``__cpp_constexpr_exceptions`` (202411L) and
   ``__cpp_pp_embed`` (202502L) are defined, and ``#embed`` no longer warns that it is an extension in C++26 mode.
   ``__cpp_contracts`` is 202502L as in the C++26 standard (it was 202606L, a value of a later paper).
+
+- In C++26 mode a throw-expression and a try-block in a constexpr or consteval function (and in a lambda in one) are
+  accepted with ``-fno-exceptions``: constant evaluation uses them. A constexpr function that reaches a throw-expression
+  when it is called at run time with ``-fno-exceptions`` terminates; a handler of a try-block is never entered.
 
 C++23 Feature Support
 ^^^^^^^^^^^^^^^^^^^^^

@@ -4518,6 +4518,10 @@ void Sema::DiagnoseExceptionUse(SourceLocation Loc, bool IsTry) {
   // exception handling, so -fno-exceptions does not apply there. At run time such a throw does not unwind.
   // A lambda is implicitly constexpr, which is not known while its body is parsed, so it takes the enclosing function.
   if (getLangOpts().CPlusPlus26) {
+    // The initializer of a constexpr variable and a manifestly constant-evaluated expression are evaluated at compile
+    // time as well.
+    if (isConstantEvaluatedContext() || isImmediateFunctionContext())
+      return;
     for (const auto *FD = getCurFunctionDecl(/*AllowLambda=*/true); FD;) {
       if (FD->isConstexpr() || FD->isImmediateFunction())
         return;

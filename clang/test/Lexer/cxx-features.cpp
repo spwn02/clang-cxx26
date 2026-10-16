@@ -54,12 +54,9 @@
 #error "wrong value for __cpp_constexpr_virtual_inheritance"
 #endif
 
-#ifndef NO_EXCEPTIONS
+// A throw-expression is part of constant evaluation with or without the exception handling of the run time.
 #if check(constexpr_exceptions, 0, 0, 0, 0, 0, 0, 202411)
 #error "wrong value for __cpp_constexpr_exceptions"
-#endif
-#elif defined(__cpp_constexpr_exceptions)
-#error "__cpp_constexpr_exceptions needs exceptions"
 #endif
 
 #if check(pp_embed, 0, 0, 0, 0, 0, 0, 202502)

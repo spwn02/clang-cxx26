@@ -6,11 +6,9 @@
 // (P3068R6): they are accepted when the exception handling of the run time is disabled. Elsewhere they are still
 // rejected.
 
-struct E { int v; };
-
-#if __cplusplus >= 202400L
 // cxx26-no-diagnostics
-#endif
+
+struct E { int v; };
 
 consteval int f(int x) {
   if (x < 0)
@@ -44,8 +42,33 @@ constexpr int k(int x) {
   return l();
 }
 
+#ifndef NO_EVAL // the bytecode interpreter does not evaluate throw
+// A lambda in the initializer of a constexpr variable is evaluated at compile time.
+consteval void thrower() { throw E{1}; } // cxx23-error {{cannot use 'throw' with exceptions disabled}}
+constexpr bool in_variable = [] {
+  try { // cxx23-error {{cannot use 'try' with exceptions disabled}}
+    thrower();
+  } catch (E &) {
+    return true;
+  }
+  return false;
+}();
+#endif
+
+template <class T> constexpr int tf(T x) {
+  try { // a dependent context is not diagnosed before an instantiation
+    if (x < 0)
+      throw E{};
+    return x;
+  } catch (E &) {
+    return -1;
+  }
+}
+
 #if __cplusplus >= 202400L && !defined(NO_EVAL) // the bytecode interpreter does not evaluate throw
 static_assert(g(-1) == -7);
 static_assert(g(3) == 3);
 static_assert(k(-2) == -1);
+static_assert(in_variable);
+static_assert(tf(-3) == -1);
 #endif
