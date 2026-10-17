@@ -858,12 +858,19 @@ ExprResult Sema::BuildGetAwaiterExpr(SourceLocation Loc, Expr *Operand,
   }
 
   // The member and the non-member operator co_await are the candidates of one
-  // overload resolution; with none, the awaiter is the operand itself.
-  ExprResult Lookup = BuildOperatorCoawaitLookupExpr(getCurScope(), Loc);
-  if (Lookup.isInvalid())
-    return ExprError();
-  return BuildOperatorCoawaitCall(Loc, Transformed,
-                                  cast<UnresolvedLookupExpr>(Lookup.get()));
+  // overload resolution; with none, the awaiter is the operand itself. There
+  // is no coroutine whose scope could be searched for the non-member
+  // candidates and the scope of the parser at an instantiation is arbitrary,
+  // so the non-member candidates are those of argument-dependent lookup.
+  UnresolvedSet<1> NoFunctions;
+  DeclarationName OpName =
+      Context.DeclarationNames.getCXXOperatorName(OO_Coawait);
+  auto *Lookup = UnresolvedLookupExpr::Create(
+      Context, /*NamingClass*/ nullptr, NestedNameSpecifierLoc(),
+      DeclarationNameInfo(OpName, Loc), /*RequiresADL*/ true,
+      NoFunctions.begin(), NoFunctions.end(), /*KnownDependent=*/false,
+      /*KnownInstantiationDependent=*/false);
+  return BuildOperatorCoawaitCall(Loc, Transformed, Lookup);
 }
 
 ExprResult Sema::BuildOperatorCoawaitLookupExpr(Scope *S, SourceLocation Loc) {

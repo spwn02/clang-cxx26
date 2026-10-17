@@ -71,6 +71,22 @@ static_assert(!HasAwaiterFor<None, B1>);
 struct Incomplete;
 static_assert(!HasAwaiterFor<None, Incomplete>);
 
+// the non-member candidates are found by argument-dependent lookup, not from where the call is instantiated: a
+// declaration that is only visible at the use does not make the result depend on where the template is first used
+namespace NS { struct X {}; Awaiter operator co_await(X); }
+namespace NS2 { struct GlobalOnly {}; }
+using NS2::GlobalOnly;
+Other operator co_await(GlobalOnly); // global namespace: not an associated namespace of NS2::GlobalOnly
+template <class C> using Adl_t = decltype(__builtin_get_awaiter(std::declval<C>()));
+static_assert(std::is_same_v<Adl_t<NS::X>, Awaiter>);
+namespace Hide {
+struct Y {};
+void operator co_await(Y);
+static_assert(std::is_same_v<Adl_t<NS::X>, Awaiter>);
+static_assert(std::is_same_v<Adl_t<GlobalOnly>, GlobalOnly &&>); // not visible by ADL: the operand itself
+} // namespace Hide
+static_assert(std::is_same_v<Adl_t<GlobalOnly>, GlobalOnly &&>);
+
 // a dependent use
 template <class C, class P> using Awaiter_t = decltype(__builtin_get_awaiter(std::declval<C>(), std::declval<P &>()));
 static_assert(std::is_same_v<Awaiter_t<int, P1>, Other>);

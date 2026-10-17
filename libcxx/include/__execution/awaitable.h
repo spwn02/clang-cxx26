@@ -12,8 +12,8 @@
 #include <__config>
 #include <__coroutine/coroutine_handle.h>
 #include <__type_traits/is_same.h>
-#include <__type_traits/remove_reference.h>
 #include <__type_traits/is_void.h>
+#include <__type_traits/remove_reference.h>
 #include <__utility/declval.h>
 #include <__utility/forward.h>
 
