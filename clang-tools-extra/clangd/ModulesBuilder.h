@@ -97,6 +97,18 @@ public:
   std::unique_ptr<PrerequisiteModules>
   buildPrerequisiteModulesFor(PathRef File, const ThreadsafeFS &TFS);
 
+  /// The modules that an import declaration in \param File can name: the ones
+  /// the build system gives the compile command of the file, the ones found in
+  /// the project so far (no global scan is started) and the ones of the
+  /// standard library. Both sets of names include the partitions
+  /// ("Module:Partition").
+  struct KnownModules {
+    std::vector<std::string> Names;
+    /// The module that \param File itself is a unit of, if it is one.
+    std::string OwnModule;
+  };
+  KnownModules getKnownModules(PathRef File, const ThreadsafeFS &TFS);
+
 private:
   class ModulesBuilderImpl;
   std::unique_ptr<ModulesBuilderImpl> Impl;

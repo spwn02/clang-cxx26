@@ -476,6 +476,8 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
     if (!IP->Contents.ends_with("\n"))
       ParseInput.Contents.append("\n");
     ParseInput.Index = Index;
+    // The names of the modules in an import declaration.
+    ParseInput.ModulesManager = ModulesManager;
 
     CodeCompleteOpts.MainFileSignals = IP->Signals;
     CodeCompleteOpts.AllScopes = Config::current().Completion.AllScopes;

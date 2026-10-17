@@ -1,0 +1,128 @@
+# Module names are completed in an import declaration, and the characters that
+# end a part of a name (`.`, `:`, a space after `import`) trigger completion.
+#
+# Windows have different escaping modes.
+# UNSUPPORTED: system-windows
+#
+# RUN: rm -fr %t
+# RUN: mkdir -p %t
+# RUN: split-file %s %t
+#
+# RUN: sed -e "s|DIR|%/t|g" %t/compile_commands.json.tmpl > %t/compile_commands.json.tmp
+# RUN: sed -e "s|CLANG_CC|%clang|g" %t/compile_commands.json.tmp > %t/compile_commands.json
+# RUN: sed -e "s|DIR|%/t|g" %t/complete.jsonrpc.tmpl > %t/complete.jsonrpc
+#
+# RUN: clangd -experimental-modules-support -lit-test < %t/complete.jsonrpc \
+# RUN:      | FileCheck -strict-whitespace %t/complete.jsonrpc
+
+#--- Miracle.cppm
+export module Miracle;
+export import Miracle.Meta;
+
+#--- Meta.cppm
+export module Miracle.Meta;
+
+#--- Access.cppm
+export module Miracle:Access;
+
+#--- Unit.cppm
+export module Miracle;
+export import :
+
+#--- Use.cpp
+import Miracle.
+import Mira
+import 
+int x; import Mira
+
+#--- compile_commands.json.tmpl
+[
+    {
+      "directory": "DIR",
+      "command": "CLANG_CC -std=c++20 -o DIR/Use.cpp.o -c DIR/Use.cpp",
+      "file": "DIR/Use.cpp"
+    },
+    {
+      "directory": "DIR",
+      "command": "CLANG_CC -std=c++20 DIR/Miracle.cppm --precompile -o DIR/Miracle.pcm",
+      "file": "DIR/Miracle.cppm"
+    },
+    {
+      "directory": "DIR",
+      "command": "CLANG_CC -std=c++20 DIR/Meta.cppm --precompile -o DIR/Meta.pcm",
+      "file": "DIR/Meta.cppm"
+    },
+    {
+      "directory": "DIR",
+      "command": "CLANG_CC -std=c++20 DIR/Access.cppm --precompile -o DIR/Access.pcm",
+      "file": "DIR/Access.cppm"
+    },
+    {
+      "directory": "DIR",
+      "command": "CLANG_CC -std=c++20 DIR/Unit.cppm --precompile -o DIR/Unit.pcm",
+      "file": "DIR/Unit.cppm"
+    }
+]
+
+#--- complete.jsonrpc.tmpl
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":123,"rootPath":"clangd","capabilities":{},"trace":"off"}}
+---
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://DIR/Use.cpp","languageId":"cpp","version":1,"text":"import Miracle.\nimport Mira\nimport \nint x; import Mira\n"}}}
+---
+# A `.` in a module name triggers completion; the edit replaces everything typed.
+{"jsonrpc":"2.0","id":1,"method":"textDocument/completion","params":{"textDocument":{"uri":"file://DIR/Use.cpp"},"position":{"line":0,"character":15},"context":{"triggerKind":2,"triggerCharacter":"."}}}
+#      CHECK:  "id": 1,
+# CHECK-NEXT:  "jsonrpc": "2.0",
+# CHECK-NEXT:  "result": {
+# CHECK-NEXT:    "isIncomplete": false,
+# CHECK-NEXT:    "items": [
+# CHECK-NEXT:      {
+# CHECK-NEXT:        "filterText": "Miracle.Meta",
+# CHECK-NEXT:        "insertText": "Miracle.Meta",
+# CHECK-NEXT:        "insertTextFormat": 1,
+# CHECK-NEXT:        "kind": 9,
+# CHECK-NEXT:        "label": " Miracle.Meta",
+# CHECK-NEXT:        "score": {{.*}},
+# CHECK-NEXT:        "sortText": "{{.*}}Miracle.Meta",
+# CHECK-NEXT:        "textEdit": {
+# CHECK-NEXT:          "newText": "Miracle.Meta",
+# CHECK-NEXT:          "range": {
+# CHECK-NEXT:            "end": {
+# CHECK-NEXT:              "character": 15,
+# CHECK-NEXT:              "line": 0
+# CHECK-NEXT:            },
+# CHECK-NEXT:            "start": {
+# CHECK-NEXT:              "character": 7,
+# CHECK-NEXT:              "line": 0
+# CHECK-NEXT:            }
+# CHECK-NEXT:          }
+# CHECK-NEXT:        }
+# CHECK-NEXT:      }
+# CHECK-NEXT:    ]
+# CHECK-NEXT:  }
+---
+# The end of an identifier in an import triggers completion as it does anywhere.
+{"jsonrpc":"2.0","id":2,"method":"textDocument/completion","params":{"textDocument":{"uri":"file://DIR/Use.cpp"},"position":{"line":1,"character":11},"context":{"triggerKind":1}}}
+#      CHECK:  "id": 2,
+#      CHECK:  "label": " Miracle"
+#      CHECK:  "label": " Miracle.Meta"
+---
+# After `import ` the whole list is offered when the client asks for it, but an
+# implicit trigger (a space) does not open a popup anywhere else, and mid-line
+# `import` is not a module-name context.
+{"jsonrpc":"2.0","id":3,"method":"textDocument/completion","params":{"textDocument":{"uri":"file://DIR/Use.cpp"},"position":{"line":3,"character":18},"context":{"triggerKind":1}}}
+#      CHECK:  "id": 3,
+# CHECK-NOT:  "label": " Miracle"
+---
+# After `import :` in a unit of Miracle the partitions of Miracle are offered,
+# triggered by the colon.
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://DIR/Unit.cppm","languageId":"cpp","version":1,"text":"export module Miracle;\nexport import :\n"}}}
+---
+{"jsonrpc":"2.0","id":4,"method":"textDocument/completion","params":{"textDocument":{"uri":"file://DIR/Unit.cppm"},"position":{"line":1,"character":15},"context":{"triggerKind":2,"triggerCharacter":":"}}}
+#      CHECK:  "id": 4,
+#      CHECK:  "label": " Access"
+#      CHECK:    "newText": "Access"
+---
+{"jsonrpc":"2.0","id":5,"method":"shutdown"}
+---
+{"jsonrpc":"2.0","method":"exit"}

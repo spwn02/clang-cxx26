@@ -29,6 +29,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <chrono>
+#include <set>
 #include <thread>
 
 namespace clang::clangd {
@@ -55,6 +56,11 @@ public:
   std::optional<tooling::CompileCommand>
   getCompileCommandForSource(PathRef File) override {
     return Underlying->getCompileCommandForSource(File);
+  }
+
+  std::vector<std::string> getKnownModuleNames(PathRef ImportingFile,
+                                               bool ScanProject) override {
+    return Underlying->getKnownModuleNames(ImportingFile, ScanProject);
   }
 
   std::string getSourceForModuleName(llvm::StringRef ModuleName,
@@ -221,6 +227,33 @@ public:
       Inputs.Contents = Contents->get()->getBuffer().str();
 
     return Inputs;
+  }
+
+  // What completing at the ^ of \param Contents (the contents of \param File)
+  // offers in the project of \param CDB, with the modules manager \param
+  // Builder (none: modules support is off).
+  std::vector<CodeCompletion> completeAt(MockDirectoryCompilationDatabase &CDB,
+                                         ModulesBuilder *Builder,
+                                         llvm::StringRef File,
+                                         llvm::StringRef Contents,
+                                         Range *TokenRange = nullptr) {
+    Annotations Test(Contents);
+    CDB.addFile(File, Test.code());
+    ParseInputs Inputs = getInputs(File, CDB);
+    Inputs.ModulesManager = Builder;
+    auto Result = codeComplete(getFullPath(File), Test.point(),
+                               /*Preamble=*/nullptr, Inputs, {});
+    if (TokenRange && !Result.Completions.empty())
+      *TokenRange = Result.Completions.front().CompletionTokenRange;
+    return Result.Completions;
+  }
+
+  static std::set<std::string> moduleNames(const std::vector<CodeCompletion> &Cs) {
+    std::set<std::string> Names;
+    for (const CodeCompletion &C : Cs)
+      if (C.Kind == CompletionItemKind::Module)
+        Names.insert(C.Name);
+    return Names;
   }
 
   SmallString<256> TestDir;
@@ -554,6 +587,84 @@ TEST_F(PrerequisiteModulesTests, StandardLibraryModulesOfImportersWithDifferentF
     for (const auto &D : AST->getDiagnostics())
       EXPECT_NE(D.Severity, DiagnosticsEngine::Error) << Name.str() << ": " << D.Message;
   }
+}
+
+TEST_F(PrerequisiteModulesTests, CompleteTheNameOfAModuleInAnImport) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("Miracle.cppm", "export module Miracle;\n");
+  CDB.addFile("Meta.cppm", "export module Miracle.Meta;\nexport import :Access;\n");
+  CDB.addFile("Alpha.cppm", "export module Alpha;\n");
+  CDB.addUnlistedFile("Fresh.cppm", "export module Fresh;\n");
+  ModulesBuilder Builder(CDB);
+
+  using Names = std::set<std::string>;
+  // The prefix: modules that match it, the unlisted unit included.
+  EXPECT_EQ(moduleNames(completeAt(CDB, &Builder, "A.cpp", "import Mir^;\n")),
+            (Names{"Miracle", "Miracle.Meta"}));
+  EXPECT_EQ(moduleNames(completeAt(CDB, &Builder, "B.cpp", "import Fre^\n")),
+            (Names{"Fresh"}));
+  // Nothing typed yet, after `export`, and indented: every module.
+  EXPECT_EQ(moduleNames(completeAt(CDB, &Builder, "C.cpp", "import ^\n")),
+            (Names{"Alpha", "Fresh", "Miracle", "Miracle.Meta"}));
+  EXPECT_EQ(moduleNames(completeAt(CDB, &Builder, "D.cpp", "export import Alp^\n")),
+            (Names{"Alpha"}));
+  EXPECT_EQ(moduleNames(completeAt(CDB, &Builder, "E.cpp", "  \t import Alp^\n")),
+            (Names{"Alpha"}));
+  // A dotted name replaces everything typed, from the first character of the name.
+  Range Token;
+  auto Dotted = completeAt(CDB, &Builder, "F.cpp", "import Miracle.Me^\n", &Token);
+  EXPECT_EQ(moduleNames(Dotted), (Names{"Miracle.Meta"}));
+  EXPECT_EQ(Token.start.line, 0);
+  EXPECT_EQ(Token.start.character, 7);
+  EXPECT_EQ(Token.end.character, 17);
+  // On the second line, after other code.
+  EXPECT_EQ(moduleNames(completeAt(CDB, &Builder, "G.cpp", "import Alpha;\nimport Mi^\n")),
+            (Names{"Miracle", "Miracle.Meta"}));
+}
+
+TEST_F(PrerequisiteModulesTests, CompleteTheNameOfAPartitionInAnImport) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("Part.cppm", "export module Miracle:Access;\n");
+  CDB.addFile("Part2.cppm", "export module Miracle:Alloc;\n");
+  CDB.addFile("Other.cppm", "export module Other:Thing;\n");
+  ModulesBuilder Builder(CDB);
+
+  using Names = std::set<std::string>;
+  // In a unit of Miracle: the partitions of Miracle, without the module name,
+  // replacing what comes after the colon.
+  Range Token;
+  auto In = completeAt(CDB, &Builder, "Unit.cppm",
+                       "export module Miracle;\nexport import :Al^;\n", &Token);
+  EXPECT_EQ(moduleNames(In), (Names{"Alloc"}));
+  EXPECT_EQ(Token.start.line, 1);
+  EXPECT_EQ(Token.start.character, 15); // after the colon
+  EXPECT_EQ(moduleNames(completeAt(CDB, &Builder, "Unit2.cppm",
+                                   "export module Miracle;\nimport :^;\n")),
+            (Names{"Access", "Alloc"}));
+  // The partitions are not offered as modules, and the unit does not import itself.
+  EXPECT_TRUE(moduleNames(completeAt(CDB, &Builder, "Unit3.cppm",
+                                     "export module Miracle;\nimport ^;\n")).empty());
+  // Outside a module unit there is no module to name partitions of.
+  EXPECT_TRUE(moduleNames(completeAt(CDB, &Builder, "Plain.cpp", "import :^\n")).empty());
+}
+
+TEST_F(PrerequisiteModulesTests, NoModuleNamesOutsideAnImportName) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("Miracle.cppm", "export module Miracle;\n");
+  ModulesBuilder Builder(CDB);
+
+  // A header unit, a mid-line import, a comment, an identifier that only starts
+  // like the keyword, the cursor in the keyword: not the name of a module.
+  for (llvm::StringRef Contents :
+       {"import <Mir^>\n", "import \"Mir^\"\n", "int x; import Mir^\n", "// import Mir^\n",
+        "importer Mir^\n", "impor^\n", "import^\n", "int importMir^\n",
+        "module Mir^;\n", "int y = import Mir^\n"})
+    EXPECT_TRUE(moduleNames(completeAt(CDB, &Builder, "H.cpp", Contents)).empty())
+        << Contents.str();
+  // A line that continues the previous one is not a directive.
+  EXPECT_TRUE(moduleNames(completeAt(CDB, &Builder, "I.cpp", "#define X \\\nimport Mir^\n")).empty());
+  // Without the modules manager there is nothing to offer.
+  EXPECT_TRUE(moduleNames(completeAt(CDB, nullptr, "J.cpp", "import Mir^\n")).empty());
 }
 
 TEST_F(PrerequisiteModulesTests, ModuleUnitsThatTheDatabaseDoesNotList) {

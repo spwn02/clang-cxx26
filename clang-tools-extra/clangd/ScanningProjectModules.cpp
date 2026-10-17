@@ -206,6 +206,12 @@ public:
   /// <module-unit-source> map. See the comments of globalScan.
   void discoverUnlistedModules(const ProjectModules::CommandMangler &Mangler);
 
+  /// The module names that are known without a global scan (see
+  /// ProjectModules::getKnownModuleNames).
+  std::vector<std::string>
+  getKnownModuleNames(PathRef ImportingFile, bool ScanProject,
+                      const ProjectModules::CommandMangler &Mangler);
+
   /// Scanning every source file in the current project to get the
   /// <module-name> to <module-unit-source> map.
   /// TODO: We should find an efficient method to get the <module-name>
@@ -565,6 +571,35 @@ std::string ModuleDependencyScanner::getSourceForModuleName(
   return {};
 }
 
+std::vector<std::string> ModuleDependencyScanner::getKnownModuleNames(
+    PathRef ImportingFile, bool ScanProject,
+    const ProjectModules::CommandMangler &Mangler) {
+  if (ScanProject)
+    globalScan(Mangler);
+  // A module unit that the build system has not seen yet is found by the
+  // search for unlisted units (throttled, and bounded by its limits).
+  discoverUnlistedModules(Mangler);
+
+  std::set<std::string> Names;
+  {
+    std::lock_guard<std::mutex> Lock(Cache->Mu);
+    for (const auto &Entry : Cache->ModuleNameToSource)
+      Names.insert(Entry.getKey().str());
+  }
+  auto Candidates = CDB->getCompileCommands(ImportingFile);
+  if (!Candidates.empty()) {
+    tooling::CompileCommand Importer = std::move(Candidates.front());
+    if (Mangler)
+      Mangler(Importer, ImportingFile);
+    for (llvm::StringRef Std : {"std", "std.compat"}) {
+      std::string Source;
+      if (resolveStandardLibraryModule(Std, Importer, Source))
+        Names.insert(Std.str());
+    }
+  }
+  return std::vector<std::string>(Names.begin(), Names.end());
+}
+
 std::optional<tooling::CompileCommand>
 ModuleDependencyScanner::getCompileCommandForSource(PathRef File) const {
   std::lock_guard<std::mutex> Lock(Cache->Mu);
@@ -618,6 +653,11 @@ public:
   std::optional<tooling::CompileCommand>
   getCompileCommandForSource(PathRef File) override {
     return Scanner.getCompileCommandForSource(File);
+  }
+
+  std::vector<std::string> getKnownModuleNames(PathRef ImportingFile,
+                                               bool ScanProject) override {
+    return Scanner.getKnownModuleNames(ImportingFile, ScanProject, Mangler);
   }
 
   std::string getModuleNameForSource(PathRef File) override {

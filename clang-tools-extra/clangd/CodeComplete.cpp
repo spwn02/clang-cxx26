@@ -28,6 +28,7 @@
 #include "FuzzyMatch.h"
 #include "Headers.h"
 #include "Hover.h"
+#include "ModulesBuilder.h"
 #include "Preamble.h"
 #include "Protocol.h"
 #include "Quality.h"
@@ -2236,6 +2237,120 @@ CompletionPrefix guessCompletionPrefix(llvm::StringRef Content,
 // Code complete the argument name on "/*" inside function call.
 // Offset should be pointing to the start of the comment, i.e.:
 // foo(^/*, rather than foo(/*^) where the cursor probably is.
+// The name that is being typed in a module import declaration, if the cursor
+// (the end of Content, the text of the file up to it) is in one:
+//   import Mira^          export import Miracle.Me^          import :Ty^
+// An import declaration starts a logical line (so not `x; import `), has a
+// space after the keyword and only name characters up to the cursor (so not
+// `import <` or `import "`, header units, which are completed as includes).
+struct ImportNameContext {
+  unsigned PrefixStart; // offset of the first character of the name typed so far
+  llvm::StringRef Prefix; // the name typed so far, possibly starting with ':'
+};
+
+std::optional<ImportNameContext> importNameContext(llvm::StringRef Content) {
+  size_t LineStart = Content.rfind('\n');
+  LineStart = LineStart == llvm::StringRef::npos ? 0 : LineStart + 1;
+  // The line continues a spliced line: it does not start a directive.
+  if (LineStart >= 2 && Content[LineStart - 2] == '\\')
+    return std::nullopt;
+  llvm::StringRef Rest = Content.substr(LineStart).ltrim(" \t");
+  auto SkipKeyword = [&Rest](llvm::StringRef Keyword) {
+    if (!Rest.consume_front(Keyword))
+      return false;
+    if (Rest.empty() || (Rest.front() != ' ' && Rest.front() != '\t'))
+      return false; // the cursor is still in the keyword, or it continues
+    Rest = Rest.ltrim(" \t");
+    return true;
+  };
+  llvm::StringRef Saved = Rest;
+  if (!SkipKeyword("export"))
+    Rest = Saved; // `export` is optional
+  if (!SkipKeyword("import"))
+    return std::nullopt;
+  for (char C : Rest)
+    if (!isAsciiIdentifierContinue(C) && C != '.' && C != ':')
+      return std::nullopt;
+  return ImportNameContext{static_cast<unsigned>(Content.size() - Rest.size()),
+                           Rest};
+}
+
+// Completes the name in an import declaration with the modules of the project
+// and of the standard library. Without the parser: the names come from the
+// build system's module files, what the project scan found and the module units
+// that were added after the build system ran.
+std::optional<CodeCompleteResult>
+codeCompleteModuleName(PathRef FileName, unsigned Offset,
+                       const ParseInputs &ParseInput,
+                       const CodeCompleteOptions &Opts) {
+  if (!ParseInput.ModulesManager || !ParseInput.TFS)
+    return std::nullopt;
+  auto Context = importNameContext(
+      llvm::StringRef(ParseInput.Contents).take_front(Offset));
+  if (!Context)
+    return std::nullopt;
+
+  ModulesBuilder::KnownModules Known =
+      ParseInput.ModulesManager->getKnownModules(FileName, *ParseInput.TFS);
+
+  llvm::StringRef Prefix = Context->Prefix;
+  unsigned Start = Context->PrefixStart;
+  // `import :Part`: a partition of the module that this file is a unit of; the
+  // text before the colon is the primary module name.
+  llvm::StringRef Primary = llvm::StringRef(Known.OwnModule).split(':').first;
+  const bool InPartitionName = Prefix.starts_with(":");
+  if (InPartitionName) {
+    Prefix = Prefix.drop_front();
+    ++Start;
+  }
+
+  CodeCompleteResult Result;
+  Result.RanParser = false;
+  Result.Context = CodeCompletionContext::CCC_Other;
+  Range TokenRange;
+  TokenRange.start = offsetToPosition(ParseInput.Contents, Start);
+  TokenRange.end = offsetToPosition(ParseInput.Contents, Offset);
+  Result.CompletionRange = TokenRange;
+
+  FuzzyMatcher Filter(Prefix);
+  std::vector<std::pair<float, std::string>> Scored;
+  for (const std::string &Name : Known.Names) {
+    llvm::StringRef Candidate = Name;
+    if (InPartitionName) {
+      auto [Module, Partition] = Candidate.split(':');
+      if (Partition.empty() || Primary.empty() || Module != Primary)
+        continue;
+      Candidate = Partition;
+    } else {
+      if (Candidate.contains(':') || Candidate == Primary)
+        continue; // a partition is imported as `:Name`; a unit cannot import itself
+    }
+    if (auto Score = Filter.match(Candidate))
+      Scored.emplace_back(*Score, Candidate.str());
+  }
+  std::stable_sort(Scored.begin(), Scored.end(), [](const auto &A, const auto &B) {
+    if (A.first != B.first)
+      return A.first > B.first;
+    return A.second < B.second;
+  });
+  if (Opts.Limit && Scored.size() > Opts.Limit) {
+    Scored.resize(Opts.Limit);
+    Result.HasMore = true;
+  }
+  for (const auto &[Score, Name] : Scored) {
+    CodeCompletion Item;
+    Item.Name = Name;
+    Item.FilterText = Name;
+    Item.Kind = CompletionItemKind::Module;
+    Item.CompletionTokenRange = TokenRange;
+    Item.Origin = SymbolOrigin::AST;
+    Item.Score.Total = Score;
+    Item.Score.ExcludingName = 1.f;
+    Result.Completions.push_back(std::move(Item));
+  }
+  return Result;
+}
+
 CodeCompleteResult codeCompleteComment(PathRef FileName, unsigned Offset,
                                        llvm::StringRef Prefix,
                                        const PreambleData *Preamble,
@@ -2306,6 +2421,9 @@ CodeCompleteResult codeComplete(PathRef FileName, Position Pos,
     elog("Code completion position was invalid {0}", Offset.takeError());
     return CodeCompleteResult();
   }
+
+  if (auto Names = codeCompleteModuleName(FileName, *Offset, ParseInput, Opts))
+    return *Names;
 
   auto Content = llvm::StringRef(ParseInput.Contents).take_front(*Offset);
   if (auto OffsetBeforeComment = maybeFunctionArgumentCommentStart(Content)) {
@@ -2503,6 +2621,11 @@ bool allowImplicitCompletion(llvm::StringRef Content, unsigned Offset) {
   auto Pos = Content.rfind('\n');
   if (Pos != llvm::StringRef::npos)
     Content = Content.substr(Pos + 1);
+
+  // Complete the name of a module in an import declaration, after any
+  // character of it (`import Miracle.`, `import :`, `import `).
+  if (importNameContext(Content))
+    return true;
 
   // Complete after scope operators.
   if (Content.ends_with(".") || Content.ends_with("->") ||

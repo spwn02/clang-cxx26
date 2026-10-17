@@ -56,6 +56,18 @@ public:
     return std::nullopt;
   }
 
+  /// The names of the modules that an import declaration in \param
+  /// ImportingFile can name: the modules found so far, the module units that
+  /// the compilation database does not list (searched for, at most once a
+  /// second) and the modules of the standard library of the toolchain that the
+  /// file is built with. With \param ScanProject the units of the database are
+  /// scanned too (once; the result is kept), otherwise the caller knows them
+  /// already (a build system that names every module file).
+  virtual std::vector<std::string> getKnownModuleNames(PathRef ImportingFile,
+                                                       bool ScanProject) {
+    return {};
+  }
+
   virtual void setCommandMangler(CommandMangler Mangler) {}
 
   virtual ~ProjectModules() = default;

@@ -18,6 +18,7 @@
 #include "llvm/Support/xxhash.h"
 
 #include <queue>
+#include <set>
 
 namespace clang {
 namespace clangd {
@@ -947,6 +948,35 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
   if (!AllBuilt)
     return std::make_unique<PartialPrerequisiteModules>(*RequiredModules);
   return std::move(RequiredModules);
+}
+
+ModulesBuilder::KnownModules
+ModulesBuilder::getKnownModules(PathRef File, const ThreadsafeFS &TFS) {
+  KnownModules Result;
+  std::set<std::string> Names;
+
+  // What the build system gives the compile command (CMake lists every module
+  // of the targets as -fmodule-file=<name>=<path>).
+  if (auto Cmd = Impl->getCDB().getCompileCommand(File)) {
+    ParseInputs Inputs;
+    Inputs.TFS = &TFS;
+    Inputs.CompileCommand = std::move(*Cmd);
+    IgnoreDiagnostics IgnoreDiags;
+    if (auto CI = buildCompilerInvocation(Inputs, IgnoreDiags))
+      for (const auto &[Name, Path] : CI->getHeaderSearchOpts().PrebuiltModuleFiles)
+        Names.insert(Name);
+  }
+
+  if (std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File)) {
+    Result.OwnModule = MDB->getModuleNameForSource(File);
+    // The units of the database are scanned only if the build system did not
+    // name its modules: a project of many files is not scanned for a
+    // completion that the names of the build system answer.
+    for (std::string &Name : MDB->getKnownModuleNames(File, Names.empty()))
+      Names.insert(std::move(Name));
+  }
+  Result.Names.assign(Names.begin(), Names.end());
+  return Result;
 }
 
 ModulesBuilder::ModulesBuilder(const GlobalCompilationDatabase &CDB) {
