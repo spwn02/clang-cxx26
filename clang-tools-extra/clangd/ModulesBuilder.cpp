@@ -300,6 +300,23 @@ public:
                 llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS)
       const override;
 
+  const std::vector<ModuleFileRef> &getModuleFiles() const { return ModuleFiles; }
+
+  /// Whether every module in \param Names has a module file here. False if a
+  /// module file has no name (-fmodule-file=<path>): what it provides is not
+  /// known, so nothing is claimed missing and the caller keeps what the
+  /// build system gave.
+  bool providesAllOf(llvm::ArrayRef<std::string> Names) const {
+    if (llvm::any_of(ModuleFiles,
+                     [](const ModuleFileRef &MF) { return MF.Name.empty(); }))
+      return true;
+    return llvm::all_of(Names, [&](const std::string &Name) {
+      return llvm::any_of(ModuleFiles, [&](const ModuleFileRef &MF) {
+        return MF.Name == Name;
+      });
+    });
+  }
+
 private:
   std::vector<ModuleFileRef> ModuleFiles;
 };
@@ -872,18 +889,21 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
   // written by another version of the compiler or is older than its sources
   // sends us down the scanning path below.
   std::vector<std::string> StaleModuleNames;
+  std::unique_ptr<BuildSystemPrerequisiteModules> Provided;
   if (auto Cmd = Impl->getCDB().getCompileCommand(File)) {
     if (llvm::any_of(Cmd->CommandLine, [](llvm::StringRef Arg) {
           return Arg.starts_with("-fmodule-file=");
         })) {
-      if (auto Provided = getUsableBuildSystemModules(*Cmd, TFS))
-        return Provided;
-      StaleModuleNames = getUnusableBuildSystemModuleNames(*Cmd, TFS);
+      Provided = getUsableBuildSystemModules(*Cmd, TFS);
+      if (!Provided)
+        StaleModuleNames = getUnusableBuildSystemModuleNames(*Cmd, TFS);
     }
   }
 
   std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File);
   if (!MDB) {
+    if (Provided)
+      return Provided;
     elog("Failed to get Project Modules information for {0}", File);
     return std::make_unique<FailedPrerequisiteModules>();
   }
@@ -892,6 +912,13 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
 
   std::vector<std::string> RequiredModuleNames =
       CachedMDB.getRequiredModules(File);
+  // The module files of the build system are used for the modules it knows.
+  // A file that imports a module it does not provide (a module unit that was
+  // created or renamed after the build system last ran) gets that module from
+  // the project's sources, which are looked up here: the shortcut above does
+  // not see an import that the build system never heard of.
+  if (Provided && Provided->providesAllOf(RequiredModuleNames))
+    return Provided;
   if (RequiredModuleNames.empty()) {
     auto None = std::make_unique<ReusablePrerequisiteModules>();
     None->setStaleModuleNames(std::move(StaleModuleNames));
@@ -900,6 +927,10 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
 
   auto RequiredModules = std::make_unique<ReusablePrerequisiteModules>();
   RequiredModules->setStaleModuleNames(std::move(StaleModuleNames));
+  if (Provided)
+    for (const auto &MF : Provided->getModuleFiles())
+      if (!MF.Name.empty())
+        RequiredModules->addModuleFile(PrebuiltModuleFile::make(MF.Name, MF.Path));
   bool AllBuilt = true;
   for (llvm::StringRef RequiredModuleName : RequiredModuleNames) {
     // A module that cannot be built does not stop the others: the file still

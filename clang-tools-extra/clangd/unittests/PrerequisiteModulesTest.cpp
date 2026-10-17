@@ -28,6 +28,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include <chrono>
+#include <thread>
 
 namespace clang::clangd {
 namespace {
@@ -303,6 +305,42 @@ TEST_F(PrerequisiteModulesTests, BuildSystemProvidedModules) {
   auto Invocation =
       buildCompilerInvocation(getInputs("Use.cpp", CDB), DiagConsumer);
   EXPECT_TRUE(Info->canReuse(*Invocation, FS.view(TestDir)));
+}
+
+TEST_F(PrerequisiteModulesTests, BuildSystemModulesAndAModuleUnitThatItDoesNotKnow) {
+  BuiltModuleForM Built(*this, FS);
+  ASSERT_FALSE(Built.Path.empty());
+
+  // The build system gives a usable module file of M, and the file imports M
+  // and a module unit that was created after the build system ran: the module
+  // file of M is used as it is, and Fresh is built from its source.
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.ExtraClangFlags.push_back("-fmodule-file=M=" + Built.Path);
+  CDB.addFile("M.cppm", "export module M;\n");
+  CDB.addFile("Use.cpp", "import M;\nimport Fresh;\n");
+  CDB.addUnlistedFile("Fresh.cppm", "export module Fresh;\nexport int fresh() { return 7; }\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Info);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_EQ(HSOpts.PrebuiltModuleFiles["M"], Built.Path);
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("Fresh"));
+
+  // A module unit that is renamed afterwards: the old name is gone, the new one
+  // is found (the search for module units the database does not list is not
+  // repeated within a second).
+  std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+  CDB.addUnlistedFile("Fresh.cppm", "export module Fresh2;\nexport int fresh() { return 8; }\n");
+  CDB.addFile("Use.cpp", "import M;\nimport Fresh2;\n");
+  auto Info2 = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Info2);
+  HeaderSearchOptions HSOpts2(TestDir);
+  Info2->adjustHeaderSearchOptions(HSOpts2);
+  EXPECT_EQ(HSOpts2.PrebuiltModuleFiles["M"], Built.Path);
+  EXPECT_TRUE(HSOpts2.PrebuiltModuleFiles.count("Fresh2"));
+  EXPECT_FALSE(HSOpts2.PrebuiltModuleFiles.count("Fresh"));
 }
 
 TEST_F(PrerequisiteModulesTests, BuildSystemModulesThatAreMissingAreNotUsed) {
