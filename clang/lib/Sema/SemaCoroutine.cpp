@@ -827,6 +827,45 @@ ExprResult Sema::ActOnCoawaitExpr(Scope *S, SourceLocation Loc, Expr *E) {
                                    cast<UnresolvedLookupExpr>(Lookup.get()));
 }
 
+ExprResult Sema::BuildGetAwaiterExpr(SourceLocation Loc, Expr *Operand,
+                                     Expr *Promise) {
+  for (Expr **E : {&Operand, &Promise}) {
+    if (!*E || !(*E)->hasPlaceholderType())
+      continue;
+    ExprResult R = CheckPlaceholderExpr(*E);
+    if (R.isInvalid())
+      return ExprError();
+    *E = R.get();
+  }
+
+  // [expr.await]: if the promise type has an await_transform member (a member
+  // lookup that finds at least one declaration), the operand is
+  // p.await_transform(c) and the expression is ill-formed if that is not
+  // valid; there is no fallback to c.
+  Expr *Transformed = Operand;
+  if (Promise) {
+    QualType PromiseTy = Promise->getType().getNonReferenceType();
+    if (RequireCompleteType(Loc, PromiseTy, diag::err_incomplete_type))
+      return ExprError();
+    if (auto *RD = PromiseTy->getAsCXXRecordDecl();
+        RD && lookupMember(*this, "await_transform", RD, Loc)) {
+      ExprResult R = buildMemberCall(*this, Promise, Loc, "await_transform",
+                                     Operand);
+      if (R.isInvalid())
+        return ExprError();
+      Transformed = R.get();
+    }
+  }
+
+  // The member and the non-member operator co_await are the candidates of one
+  // overload resolution; with none, the awaiter is the operand itself.
+  ExprResult Lookup = BuildOperatorCoawaitLookupExpr(getCurScope(), Loc);
+  if (Lookup.isInvalid())
+    return ExprError();
+  return BuildOperatorCoawaitCall(Loc, Transformed,
+                                  cast<UnresolvedLookupExpr>(Lookup.get()));
+}
+
 ExprResult Sema::BuildOperatorCoawaitLookupExpr(Scope *S, SourceLocation Loc) {
   DeclarationName OpName =
       Context.DeclarationNames.getCXXOperatorName(OO_Coawait);

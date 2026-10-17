@@ -3160,6 +3160,13 @@ public:
   StmtResult ActOnCoreturnStmt(Scope *S, SourceLocation KwLoc, Expr *E);
 
   ExprResult BuildOperatorCoawaitLookupExpr(Scope *S, SourceLocation Loc);
+  /// The expression \c __builtin_get_awaiter(c[, p]) is replaced by: the
+  /// awaiter that the operand \c c of an await-expression has in a coroutine
+  /// whose promise object is \c p ([expr.await]); without \c p the promise has
+  /// no await_transform.
+  ExprResult BuildGetAwaiterExpr(SourceLocation Loc, Expr *Operand,
+                                 Expr *Promise);
+
   ExprResult BuildOperatorCoawaitCall(SourceLocation Loc, Expr *E,
                                       UnresolvedLookupExpr *Lookup);
   ExprResult BuildResolvedCoawaitExpr(SourceLocation KwLoc, Expr *Operand,

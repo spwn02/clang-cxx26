@@ -1002,6 +1002,12 @@ def IsWithinLifetime : LangBuiltin<"CXX_LANG"> {
   let Prototype = "bool(void*)";
 }
 
+def GetAwaiter : LangBuiltin<"CXX_LANG"> {
+  let Spellings = ["__builtin_get_awaiter"];
+  let Attributes = [CustomTypeChecking];
+  let Prototype = "void(...)";
+}
+
 def StartLifetime : LangBuiltin<"CXX_LANG"> {
   let Spellings = ["__builtin_start_lifetime"];
   let Attributes = [NoThrow, CustomTypeChecking, Constexpr, CXX26Only];

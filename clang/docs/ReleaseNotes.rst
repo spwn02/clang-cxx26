@@ -287,6 +287,15 @@ Resolutions to C++ Defect Reports
   underlying type, otherwise the range of the minimal integer type that
   represents the enumerators). This also affects common initial sequences.
 
+- Added ``__builtin_get_awaiter(c)`` and ``__builtin_get_awaiter(c, p)``, the
+  expression that GET-AWAITER ([exec.awaitable]) names: the operand ``c`` of an
+  await-expression after ``p.await_transform(c)`` (when the promise type's
+  search for ``await_transform`` finds a declaration) and the ``operator
+  co_await`` chosen by overload resolution among the member and non-member
+  candidates ([expr.await]). ``std::execution`` is built on it, so a ``final``
+  promise type, a ``&&``-qualified member against a non-member and the awaiter
+  being an lvalue are handled as in an await-expression.
+
 - Implemented the constant-subexpression condition of P3450R1 for
   ``std::is_within_lifetime<U>(p)``: ``__builtin_is_within_lifetime`` takes the
   optional second argument ``static_cast<const volatile U*>(p)``, which is never

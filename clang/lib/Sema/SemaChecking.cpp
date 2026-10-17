@@ -2005,6 +2005,21 @@ static ExprResult BuiltinIsWithinLifetime(Sema &S, CallExpr *TheCall) {
 
 /// __builtin_start_lifetime(p): begins the lifetime of the object p points to (the library's std::start_lifetime).
 /// The argument has to be a pointer to a complete object type.
+/// __builtin_get_awaiter(c) and __builtin_get_awaiter(c, p): the expression
+/// that the operand c of an await-expression has once the promise's
+/// await_transform and the operator co_await have been applied ([expr.await]),
+/// for a coroutine whose promise object is the lvalue p. Overload resolution,
+/// the lookup of await_transform and its diagnostics are those of the
+/// await-expression, so the library does not approximate them
+/// ([exec.awaitable] GET-AWAITER). The call is replaced by that expression.
+static ExprResult BuiltinGetAwaiter(Sema &S, CallExpr *TheCall) {
+  if (S.checkArgCountRange(TheCall, 1, 2))
+    return ExprError();
+  return S.BuildGetAwaiterExpr(
+      TheCall->getBeginLoc(), TheCall->getArg(0),
+      TheCall->getNumArgs() == 2 ? TheCall->getArg(1) : nullptr);
+}
+
 static ExprResult BuiltinStartLifetime(Sema &S, CallExpr *TheCall) {
   if (S.checkArgCount(TheCall, 1))
     return ExprError();
@@ -2993,6 +3008,8 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     return BuiltinLaunder(*this, TheCall);
   case Builtin::BI__builtin_is_within_lifetime:
     return BuiltinIsWithinLifetime(*this, TheCall);
+  case Builtin::BI__builtin_get_awaiter:
+    return BuiltinGetAwaiter(*this, TheCall);
   case Builtin::BI__builtin_start_lifetime:
     return BuiltinStartLifetime(*this, TheCall);
   case Builtin::BI__builtin_is_corresponding_member:
