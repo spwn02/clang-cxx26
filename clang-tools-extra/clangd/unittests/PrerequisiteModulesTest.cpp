@@ -23,7 +23,10 @@
 #include "support/Path.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "gmock/gmock.h"
@@ -53,6 +56,10 @@ public:
     Underlying->setCommandMangler(std::move(Mangler));
   }
 
+  void setFileSystem(const ThreadsafeFS &TFS) override {
+    Underlying->setFileSystem(TFS);
+  }
+
   std::optional<tooling::CompileCommand>
   getCompileCommandForSource(PathRef File) override {
     return Underlying->getCompileCommandForSource(File);
@@ -72,6 +79,31 @@ public:
 private:
   std::unique_ptr<ProjectModules> Underlying;
   std::atomic<unsigned> &Count;
+};
+
+// The files of the real file system, with the unsaved text of some of them on
+// top: what clangd reads for a file that is open in an editor.
+class FileSystemWithDrafts : public ThreadsafeFS {
+public:
+  FileSystemWithDrafts(const ThreadsafeFS &Base) : Base(Base) {}
+  void setDraft(llvm::StringRef Path, llvm::StringRef Contents) {
+    Drafts[Path] = Contents.str();
+  }
+
+private:
+  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
+    auto OFS = llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
+        Base.view(std::nullopt));
+    auto Mem = llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
+    for (const auto &Draft : Drafts)
+      Mem->addFile(Draft.getKey(), 0,
+                   llvm::MemoryBuffer::getMemBufferCopy(Draft.getValue()));
+    OFS->pushOverlay(Mem);
+    return OFS;
+  }
+
+  const ThreadsafeFS &Base;
+  llvm::StringMap<std::string> Drafts;
 };
 
 class MockDirectoryCompilationDatabase : public MockCompilationDatabase {
@@ -374,6 +406,44 @@ TEST_F(PrerequisiteModulesTests, BuildSystemModulesAndAModuleUnitThatItDoesNotKn
   EXPECT_EQ(HSOpts2.PrebuiltModuleFiles["M"], Built.Path);
   EXPECT_TRUE(HSOpts2.PrebuiltModuleFiles.count("Fresh2"));
   EXPECT_FALSE(HSOpts2.PrebuiltModuleFiles.count("Fresh"));
+}
+
+TEST_F(PrerequisiteModulesTests, AModuleUnitThatIsOpenInTheEditorAndNotSaved) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("Use.cpp", "import Fresh;\n");
+  // The file on disk does not declare the module yet: the declaration was typed
+  // in the editor and not saved.
+  CDB.addUnlistedFile("Fresh.cppm", "");
+
+  FileSystemWithDrafts Dirty(FS);
+  Dirty.setDraft(getFullPath("Fresh.cppm"),
+                 "export module Fresh;\nexport int fresh() { return 7; }\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), Dirty);
+  ASSERT_TRUE(Info);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("Fresh"));
+}
+
+TEST_F(PrerequisiteModulesTests, AModuleUnitThatExistsOnlyInTheEditor) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("Use.cpp", "import Fresh;\n");
+
+  // A new file that was not saved yet: it is not on disk at all.
+  FileSystemWithDrafts Dirty(FS);
+  SmallString<256> Fresh(TestDir);
+  llvm::sys::path::append(Fresh, "Fresh.cppm");
+  Dirty.setDraft(Fresh,
+                 "export module Fresh;\nexport int fresh() { return 7; }\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), Dirty);
+  ASSERT_TRUE(Info);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("Fresh"));
 }
 
 TEST_F(PrerequisiteModulesTests, BuildSystemModulesThatAreMissingAreNotUsed) {

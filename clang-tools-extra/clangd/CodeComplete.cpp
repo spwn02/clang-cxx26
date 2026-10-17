@@ -2291,7 +2291,8 @@ codeCompleteModuleName(PathRef FileName, unsigned Offset,
     return std::nullopt;
 
   ModulesBuilder::KnownModules Known =
-      ParseInput.ModulesManager->getKnownModules(FileName, *ParseInput.TFS);
+      ParseInput.ModulesManager->getKnownModules(FileName, ParseInput.ModulesTFS ? *ParseInput.ModulesTFS
+                                                      : *ParseInput.TFS);
 
   llvm::StringRef Prefix = Context->Prefix;
   unsigned Start = Context->PrefixStart;

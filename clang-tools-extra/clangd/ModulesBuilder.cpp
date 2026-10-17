@@ -908,6 +908,7 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
     elog("Failed to get Project Modules information for {0}", File);
     return std::make_unique<FailedPrerequisiteModules>();
   }
+  MDB->setFileSystem(TFS);
   CachingProjectModules CachedMDB(std::move(MDB),
                                   Impl->getProjectModulesCache());
 
@@ -968,6 +969,7 @@ ModulesBuilder::getKnownModules(PathRef File, const ThreadsafeFS &TFS) {
   }
 
   if (std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File)) {
+    MDB->setFileSystem(TFS);
     Result.OwnModule = MDB->getModuleNameForSource(File);
     // The units of the database are scanned only if the build system did not
     // name its modules: a project of many files is not scanned for a

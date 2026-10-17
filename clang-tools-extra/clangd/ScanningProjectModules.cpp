@@ -184,7 +184,7 @@ public:
   ModuleDependencyScanner(
       std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
       const ThreadsafeFS &TFS, std::shared_ptr<ModuleScanCache> Cache)
-      : CDB(CDB), TFS(TFS), Cache(std::move(Cache)),
+      : CDB(CDB), TFS(&TFS), Cache(std::move(Cache)),
         Service(dependencies::ScanningMode::CanonicalPreprocessing,
                 dependencies::ScanningOutputFormat::P1689) {}
 
@@ -195,6 +195,10 @@ public:
     /// A list of names for the modules that the file directly depends.
     std::vector<std::string> RequiredModules;
   };
+
+  /// The files are read through \param FS from now on (the editor's unsaved
+  /// buffers are part of it).
+  void setFileSystem(const ThreadsafeFS &FS) { TFS = &FS; }
 
   /// Scanning the single file specified by \param FilePath.
   std::optional<ModuleDependencyInfo>
@@ -245,7 +249,7 @@ public:
 
 private:
   std::shared_ptr<const clang::tooling::CompilationDatabase> CDB;
-  const ThreadsafeFS &TFS;
+  const ThreadsafeFS *TFS;
 
   // Whether the scanner has scanned the project globally.
   bool GlobalScanned = false;
@@ -301,7 +305,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
   Key.CommandHash = llvm::hash_combine(Key.CommandHash, Cmd.Directory);
   bool CanCache = false;
   if (llvm::sys::path::is_absolute(FilePath))
-    if (auto Status = TFS.view(std::nullopt)->status(FilePath)) {
+    if (auto Status = TFS->view(std::nullopt)->status(FilePath)) {
       Key.ModificationTime = Status->getLastModificationTime();
       Key.Size = Status->getSize();
       CanCache = true;
@@ -323,7 +327,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
 
   llvm::SmallString<128> FilePathDir(FilePath);
   llvm::sys::path::remove_filename(FilePathDir);
-  DependencyScanningTool ScanningTool(Service, TFS.view(FilePathDir));
+  DependencyScanningTool ScanningTool(Service, TFS->view(FilePathDir));
 
   std::string S;
   llvm::raw_string_ostream OS(S);
@@ -444,7 +448,7 @@ void ModuleDependencyScanner::discoverUnlistedModules(
       Outer.push_back(Root);
   }
 
-  auto FS = TFS.view(std::nullopt);
+  auto FS = TFS->view(std::nullopt);
   // The unit of a module declaration in a file that does not have one of the
   // extensions of module units: "export module X;" or "module X;".
   llvm::Regex ModuleDeclaration(
@@ -640,6 +644,10 @@ public:
 
   void setCommandMangler(CommandMangler Mangler) override {
     this->Mangler = std::move(Mangler);
+  }
+
+  void setFileSystem(const ThreadsafeFS &FS) override {
+    Scanner.setFileSystem(FS);
   }
 
   /// RequiredSourceFile is not used intentionally. See the comments of

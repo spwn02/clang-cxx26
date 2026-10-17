@@ -70,6 +70,10 @@ public:
 
   virtual void setCommandMangler(CommandMangler Mangler) {}
 
+  /// The file system that the sources are read through. A module unit that is
+  /// open in the editor, and not saved, is known by its unsaved text.
+  virtual void setFileSystem(const ThreadsafeFS &TFS) {}
+
   virtual ~ProjectModules() = default;
 };
 

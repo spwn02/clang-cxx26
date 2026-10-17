@@ -478,6 +478,8 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
     ParseInput.Index = Index;
     // The names of the modules in an import declaration.
     ParseInput.ModulesManager = ModulesManager;
+    if (ModulesManager)
+      ParseInput.ModulesTFS = DirtyFS.get();
 
     CodeCompleteOpts.MainFileSignals = IP->Signals;
     CodeCompleteOpts.AllScopes = Config::current().Completion.AllScopes;
