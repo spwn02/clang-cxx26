@@ -518,6 +518,33 @@ std::string ModuleDependencyScanner::getSourceForModuleName(
     llvm::StringRef ModuleName, PathRef ImportingFile,
     const ProjectModules::CommandMangler &Mangler) {
   globalScan(Mangler);
+
+  // A module of the standard library is built with the flags of the unit that
+  // imports it: a build system may list several commands for the same
+  // std.cppm (one per target, differing in -fexperimental-library for
+  // instance), and a BMI built with other flags is rejected as a configuration
+  // mismatch by every unit that imports it.
+  const bool IsStdModule = ModuleName == "std" || ModuleName == "std.compat";
+  auto SourceFromImporter = [&]() -> std::string {
+    auto Candidates = CDB->getCompileCommands(ImportingFile);
+    if (Candidates.empty())
+      return {};
+    tooling::CompileCommand Importer = std::move(Candidates.front());
+    if (Mangler)
+      Mangler(Importer, ImportingFile);
+    std::string Source;
+    auto Cmd = resolveStandardLibraryModule(ModuleName, Importer, Source);
+    if (!Cmd)
+      return {};
+    std::lock_guard<std::mutex> Lock(Cache->Mu);
+    Cache->ModuleNameToSource[ModuleName] = Source;
+    Cache->ExtraCommands[Source] = std::move(*Cmd);
+    return Source;
+  };
+  if (IsStdModule)
+    if (std::string Source = SourceFromImporter(); !Source.empty())
+      return Source;
+
   if (auto Source = validatedSourceForModuleName(ModuleName, Mangler))
     return *Source;
 
@@ -535,24 +562,7 @@ std::string ModuleDependencyScanner::getSourceForModuleName(
   if (auto Source = validatedSourceForModuleName(ModuleName, Mangler))
     return *Source;
 
-  if (ModuleName != "std" && ModuleName != "std.compat")
-    return {};
-  auto Candidates = CDB->getCompileCommands(ImportingFile);
-  if (Candidates.empty())
-    return {};
-  tooling::CompileCommand Importer = std::move(Candidates.front());
-  if (Mangler)
-    Mangler(Importer, ImportingFile);
-  std::string Source;
-  auto Cmd = resolveStandardLibraryModule(ModuleName, Importer, Source);
-  if (!Cmd)
-    return {};
-  {
-    std::lock_guard<std::mutex> Lock(Cache->Mu);
-    Cache->ModuleNameToSource[ModuleName] = Source;
-    Cache->ExtraCommands[Source] = std::move(*Cmd);
-  }
-  return Source;
+  return {};
 }
 
 std::optional<tooling::CompileCommand>

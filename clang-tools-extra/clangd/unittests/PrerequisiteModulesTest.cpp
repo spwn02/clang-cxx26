@@ -85,6 +85,10 @@ public:
   // The program name in the compile commands, if not "clang".
   std::string FakeCompiler;
 
+  // Flags that only the commands of the files with this suffix carry (the
+  // commands of the targets of a build system differ in such flags).
+  llvm::StringMap<std::string> FlagOfFileSuffix;
+
   std::optional<tooling::CompileCommand>
   getCompileCommand(PathRef File) const override {
     // The real database requires a real file name (it asserts on a relative one).
@@ -100,6 +104,9 @@ public:
                           File.drop_front(Cmd->Directory.size())).str();
     if (!FakeCompiler.empty())
       Cmd->CommandLine.front() = FakeCompiler;
+    for (const auto &Entry : FlagOfFileSuffix)
+      if (File.ends_with(Entry.getKey()))
+        Cmd->CommandLine.insert(Cmd->CommandLine.begin() + 1, Entry.getValue());
     return Cmd;
   }
 
@@ -397,6 +404,56 @@ TEST_F(PrerequisiteModulesTests, StandardLibraryModulesFromTheManifest) {
   Info->adjustHeaderSearchOptions(HSOpts);
   EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("std"));
   EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("std.compat"));
+
+  auto Inputs = getInputs("Use.cpp", CDB);
+  auto Invocation = buildCompilerInvocation(Inputs, DiagConsumer);
+  EXPECT_TRUE(Info->canReuse(*Invocation, FS.view(TestDir)));
+}
+
+TEST_F(PrerequisiteModulesTests, StandardLibraryModulesAreBuiltWithTheFlagsOfTheImporter) {
+  // The module unit of std is listed by the project's own build system with
+  // other flags than the unit that imports it (a build system keeps one
+  // command per target; the one of the importer has -DFLAVOR): the BMI of std
+  // must be built with the flags of the importer, or it is rejected there.
+  SmallString<256> ToolchainDir;
+  ASSERT_FALSE(llvm::sys::fs::createUniqueDirectory("modules-toolchain", ToolchainDir));
+  auto Cleanup = llvm::make_scope_exit(
+      [&] { llvm::sys::fs::remove_directories(ToolchainDir); });
+  auto Write = [&](llvm::StringRef Rel, llvm::StringRef Contents) {
+    SmallString<256> Abs(ToolchainDir);
+    llvm::sys::path::append(Abs, Rel);
+    ASSERT_FALSE(llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Abs)));
+    std::error_code EC;
+    llvm::raw_fd_ostream OS(Abs, EC);
+    ASSERT_FALSE(EC);
+    OS << Contents;
+  };
+  Write("tc/lib/libc++.modules.json", R"json({
+  "version": 1, "revision": 1,
+  "modules": [
+    {"logical-name": "std", "source-path": "../share/std.cppm", "is-std-library": true}
+  ]
+})json");
+  // Only a build with the flag of the importer declares the module with the
+  // function the importer calls.
+  Write("tc/share/std.cppm",
+        "export module std;\n#ifdef FLAVOR\nexport namespace std { inline int one() { return 1; } }\n#endif\n");
+
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  SmallString<256> Compiler(ToolchainDir);
+  llvm::sys::path::append(Compiler, "tc", "bin", "clang++");
+  CDB.FakeCompiler = std::string(Compiler);
+  // The database lists std.cppm of the toolchain too, without the flag.
+  CDB.addFile("tc/share/std.cppm", "export module std;\n");
+  CDB.FlagOfFileSuffix["Use.cpp"] = "-DFLAVOR";
+  CDB.addFile("Use.cpp", "import std;\nint f() { return std::one(); }\n");
+
+  ModulesBuilder Builder(CDB);
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Info);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("std"));
 
   auto Inputs = getInputs("Use.cpp", CDB);
   auto Invocation = buildCompilerInvocation(Inputs, DiagConsumer);
