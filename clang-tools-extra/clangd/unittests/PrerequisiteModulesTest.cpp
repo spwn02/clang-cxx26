@@ -460,6 +460,64 @@ TEST_F(PrerequisiteModulesTests, StandardLibraryModulesAreBuiltWithTheFlagsOfThe
   EXPECT_TRUE(Info->canReuse(*Invocation, FS.view(TestDir)));
 }
 
+TEST_F(PrerequisiteModulesTests, StandardLibraryModulesOfImportersWithDifferentFlags) {
+  // Two units that import std with different flags (two targets of a project)
+  // share one ModulesBuilder: each one must get a BMI of std that its own
+  // invocation can use, whatever order they are asked in.
+  SmallString<256> ToolchainDir;
+  ASSERT_FALSE(llvm::sys::fs::createUniqueDirectory("modules-toolchain", ToolchainDir));
+  auto Cleanup = llvm::make_scope_exit(
+      [&] { llvm::sys::fs::remove_directories(ToolchainDir); });
+  auto Write = [&](llvm::StringRef Rel, llvm::StringRef Contents) {
+    SmallString<256> Abs(ToolchainDir);
+    llvm::sys::path::append(Abs, Rel);
+    ASSERT_FALSE(llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Abs)));
+    std::error_code EC;
+    llvm::raw_fd_ostream OS(Abs, EC);
+    ASSERT_FALSE(EC);
+    OS << Contents;
+  };
+  Write("tc/lib/libc++.modules.json", R"json({
+  "version": 1, "revision": 1,
+  "modules": [
+    {"logical-name": "std", "source-path": "../share/std.cppm", "is-std-library": true}
+  ]
+})json");
+  Write("tc/share/std.cppm",
+        "export module std;\n#ifdef FLAVOR\nexport namespace std { inline int one() { return 1; } }\n"
+        "#else\nexport namespace std { inline int two() { return 2; } }\n#endif\n");
+
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  SmallString<256> Compiler(ToolchainDir);
+  llvm::sys::path::append(Compiler, "tc", "bin", "clang++");
+  CDB.FakeCompiler = std::string(Compiler);
+  CDB.FlagOfFileSuffix["UseA.cpp"] = "-DFLAVOR";
+  CDB.addFile("UseA.cpp", "import std;\nint f() { return std::one(); }\n");
+  CDB.addFile("UseB.cpp", "import std;\nint g() { return std::two(); }\n");
+
+  ModulesBuilder Builder(CDB);
+  for (llvm::StringRef Name : {"UseA.cpp", "UseB.cpp", "UseA.cpp", "UseB.cpp"}) {
+    ParseInputs Inputs = getInputs(Name, CDB);
+    Inputs.ModulesManager = &Builder;
+    std::unique_ptr<CompilerInvocation> CI =
+        buildCompilerInvocation(Inputs, DiagConsumer);
+    ASSERT_TRUE(CI) << Name.str();
+    auto Preamble = buildPreamble(getFullPath(Name), *CI, Inputs,
+                                  /*InMemory=*/true, /*Callback=*/nullptr);
+    ASSERT_TRUE(Preamble) << Name.str();
+    ASSERT_TRUE(Preamble->RequiredModules) << Name.str();
+    auto AST = ParsedAST::build(getFullPath(Name), Inputs, std::move(CI), {}, Preamble);
+    ASSERT_TRUE(AST) << Name.str();
+    // The importer sees the function that its own flags select in std, and
+    // its file has no error (a BMI built with the other flags would reject
+    // the import, or lack the function).
+    const bool IsA = Name == "UseA.cpp";
+    EXPECT_TRUE(findDecl(*AST, IsA ? "std::one" : "std::two").isFromASTFile()) << Name.str();
+    for (const auto &D : AST->getDiagnostics())
+      EXPECT_NE(D.Severity, DiagnosticsEngine::Error) << Name.str() << ": " << D.Message;
+  }
+}
+
 TEST_F(PrerequisiteModulesTests, ModuleUnitsThatTheDatabaseDoesNotList) {
   MockDirectoryCompilationDatabase CDB(TestDir, FS);
 

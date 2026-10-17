@@ -15,6 +15,7 @@
 #include "clang/Serialization/ModuleCache.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/xxhash.h"
 
 #include <queue>
 
@@ -656,6 +657,12 @@ public:
 
   std::string getSourceForModuleName(llvm::StringRef ModuleName,
                                      PathRef RequiredSrcFile) override {
+    // The command to build a module of the standard library comes from the
+    // unit that imports it (see ProjectModules): another importer, another
+    // command, so the answer of an earlier request is not reused.
+    if (ModuleName == "std" || ModuleName == "std.compat")
+      return MDB->getSourceForModuleName(ModuleName, RequiredSrcFile);
+
     std::string CachedResult = Cache.getSourceForModuleName(ModuleName);
 
     // Verify Cached Result by seeing if the source declaring the same module
@@ -800,7 +807,28 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
     if (BuiltModuleFiles.isModuleUnitBuilt(ReqModuleName))
       continue;
 
-    if (auto Cached = Cache.getModule(ReqModuleName)) {
+    // A module of the standard library is built with the flags of the unit
+    // that imports it, so the BMI of one importer is not the one of another
+    // with other flags (two targets of a project): its cache entry is named by
+    // the configuration it was built for.
+    const bool IsStdModule = ReqModuleName == "std" || ReqModuleName == "std.compat";
+    std::string ReqFileName;
+    std::optional<tooling::CompileCommand> ReqCmd;
+    std::string CacheKey = ReqModuleName.str();
+    if (IsStdModule) {
+      ReqFileName = MDB.getSourceForModuleName(ReqModuleName, RequiredSource);
+      if (!ReqFileName.empty()) {
+        ReqCmd = MDB.getCompileCommandForSource(ReqFileName);
+        if (ReqCmd) {
+          std::string Joined;
+          for (const std::string &Arg : ReqCmd->CommandLine)
+            Joined += Arg + '\n';
+          CacheKey += llvm::formatv("@{0:x}", llvm::xxh3_64bits(Joined)).str();
+        }
+      }
+    }
+
+    if (auto Cached = Cache.getModule(CacheKey)) {
       if (IsModuleFileUpToDate(Cached->getModuleFilePath(), BuiltModuleFiles,
                                TFS.view(std::nullopt))) {
         log("Reusing module {0} from {1}", ReqModuleName,
@@ -808,11 +836,11 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
         BuiltModuleFiles.addModuleFile(std::move(Cached));
         continue;
       }
-      Cache.remove(ReqModuleName);
+      Cache.remove(CacheKey);
     }
 
-    std::string ReqFileName =
-        MDB.getSourceForModuleName(ReqModuleName, RequiredSource);
+    if (!IsStdModule)
+      ReqFileName = MDB.getSourceForModuleName(ReqModuleName, RequiredSource);
     // A required module whose unit cannot be found (a third-party module such
     // as std when its interface is not in the database or its toolchain was
     // removed) cannot be built; there is no source to ask a command for.
@@ -821,12 +849,13 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
           "Don't get the module unit for module {0}", ReqModuleName));
     llvm::Expected<std::shared_ptr<BuiltModuleFile>> MF = buildModuleFile(
         ReqModuleName, ReqFileName, getCDB(), TFS, BuiltModuleFiles,
-        MDB.getCompileCommandForSource(ReqFileName));
+        IsStdModule ? std::move(ReqCmd)
+                    : MDB.getCompileCommandForSource(ReqFileName));
     if (llvm::Error Err = MF.takeError())
       return Err;
 
     log("Built module {0} to {1}", ReqModuleName, (*MF)->getModuleFilePath());
-    Cache.add(ReqModuleName, *MF);
+    Cache.add(CacheKey, *MF);
     BuiltModuleFiles.addModuleFile(std::move(*MF));
   }
 
