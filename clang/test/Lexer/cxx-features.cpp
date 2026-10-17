@@ -71,8 +71,9 @@
 #error "wrong value for __cpp_placeholder_variables"
 #endif
 
-#if check(trivial_relocatability, 202502, 202502, 202502, 202502, 202502, 202502, 202502)
-#error "wrong value for __cpp_trivial_relocatability"
+// P2786 (trivial relocatability) is not part of C++26 (N5050): no feature-test macro (#283).
+#ifdef __cpp_trivial_relocatability
+#error "__cpp_trivial_relocatability must not be defined"
 #endif
 
 // --- C++23 features ---
