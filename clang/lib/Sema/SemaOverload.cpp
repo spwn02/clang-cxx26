@@ -15273,6 +15273,10 @@ ExprResult
 Sema::CreateOverloadedUnaryOp(SourceLocation OpLoc, UnaryOperatorKind Opc,
                               const UnresolvedSetImpl &Fns,
                               Expr *Input, bool PerformADL) {
+  // Only the operator co_await of __builtin_get_awaiter skips the two-phase
+  // diagnosis; the operators of the templates instantiated meanwhile do not.
+  bool SkipTwoPhaseDiagnosis =
+      std::exchange(IsBuildingGetAwaiterBuiltin, false);
   OverloadedOperatorKind Op = UnaryOperator::getOverloadedOperator(Opc);
   assert(Op != OO_None && "Invalid opcode for overloaded unary operator");
   DeclarationName OpName = Context.DeclarationNames.getCXXOperatorName(Op);
@@ -15423,7 +15427,7 @@ Sema::CreateOverloadedUnaryOp(SourceLocation OpLoc, UnaryOperatorKind Opc,
     // This is an erroneous use of an operator which can be overloaded by
     // a non-member function. Check for non-member operators which were
     // defined too late to be candidates.
-    if (!IsBuildingGetAwaiterBuiltin &&
+    if (!SkipTwoPhaseDiagnosis &&
         DiagnoseTwoPhaseOperatorLookup(*this, Op, OpLoc, ArgsArray))
       // FIXME: Recover by calling the found function.
       return ExprError();

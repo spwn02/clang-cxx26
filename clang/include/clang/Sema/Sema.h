@@ -3171,6 +3171,8 @@ public:
   /// is no coroutine whose scope could have declared a candidate later than
   /// the template definition, so a failed overload resolution is not
   /// re-examined with the unqualified lookup of the parser's current scope.
+  /// CreateOverloadedUnaryOp consumes (resets) it on entry, so it applies to
+  /// that one call only.
   bool IsBuildingGetAwaiterBuiltin = false;
 
   ExprResult BuildOperatorCoawaitCall(SourceLocation Loc, Expr *E,
