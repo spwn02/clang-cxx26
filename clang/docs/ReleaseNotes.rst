@@ -287,6 +287,16 @@ Resolutions to C++ Defect Reports
   underlying type, otherwise the range of the minimal integer type that
   represents the enumerators). This also affects common initial sequences.
 
+- ``__cpp_trivial_relocatability`` is no longer predefined: P2786 is not part of
+  C++26 (the builtins ``__builtin_is_cpp_trivially_relocatable`` and
+  ``__builtin_trivially_relocate`` are unchanged).
+
+- libc++: ``std::execution`` and ``<meta>`` are provided with ``-fno-exceptions``
+  as well. The sender algorithms compile their run-time ``try``/``catch`` only
+  when exceptions are enabled (without exceptions the body runs and a handler
+  is absent); ``std::make_exception_ptr`` and the exception-only parts of the
+  library still abort without exceptions.
+
 - Added ``__builtin_get_awaiter(c)`` and ``__builtin_get_awaiter(c, p)``, the
   expression that GET-AWAITER ([exec.awaitable]) names: the operand ``c`` of an
   await-expression after ``p.await_transform(c)`` (when the promise type's
