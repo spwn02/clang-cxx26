@@ -408,6 +408,25 @@ TEST_F(PrerequisiteModulesTests, BuildSystemModulesAndAModuleUnitThatItDoesNotKn
   EXPECT_FALSE(HSOpts2.PrebuiltModuleFiles.count("Fresh"));
 }
 
+TEST_F(PrerequisiteModulesTests, AModuleUnitRenamedRightAfterTheLastSearch) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("Use.cpp", "import Fresh;\n");
+  CDB.addUnlistedFile("Fresh.cppm", "export module Fresh;\n");
+
+  ModulesBuilder Builder(CDB);
+  ASSERT_TRUE(Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS));
+
+  // No pause: the search for unlisted units ran a moment ago, and nothing asks
+  // for the file again, so the lookup waits for the next search.
+  CDB.addUnlistedFile("Fresh.cppm", "export module Fresh2;\n");
+  CDB.addFile("Use.cpp", "import Fresh2;\n");
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Info);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("Fresh2"));
+}
+
 TEST_F(PrerequisiteModulesTests, AModuleUnitThatIsOpenInTheEditorAndNotSaved) {
   MockDirectoryCompilationDatabase CDB(TestDir, FS);
   CDB.addFile("Use.cpp", "import Fresh;\n");

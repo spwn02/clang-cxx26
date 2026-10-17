@@ -17,6 +17,7 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Regex.h"
 #include <chrono>
+#include <thread>
 #include <mutex>
 #include <set>
 
@@ -208,7 +209,8 @@ public:
   /// file the build system has not seen yet) in the directories that contain
   /// the files it does list, and add them to the <module-name> to
   /// <module-unit-source> map. See the comments of globalScan.
-  void discoverUnlistedModules(const ProjectModules::CommandMangler &Mangler);
+  void discoverUnlistedModules(const ProjectModules::CommandMangler &Mangler,
+                               bool WaitForInterval);
 
   /// The module names that are known without a global scan (see
   /// ProjectModules::getKnownModuleNames).
@@ -401,17 +403,27 @@ bool hasSourceExtension(llvm::StringRef Path) {
 } // namespace
 
 void ModuleDependencyScanner::discoverUnlistedModules(
-    const ProjectModules::CommandMangler &Mangler) {
+    const ProjectModules::CommandMangler &Mangler, bool WaitForInterval) {
   // The search is not repeated for every lookup of a module that does not
-  // exist; what it found stays in the cache.
+  // exist; what it found stays in the cache. A lookup that found nothing waits
+  // for the end of the interval instead of giving up: the unit it looks for may
+  // have been created or renamed just after the last search (nothing asks the
+  // file again later).
   constexpr auto MinInterval = std::chrono::seconds(1);
+  std::chrono::steady_clock::time_point Start;
   {
     std::lock_guard<std::mutex> Lock(Cache->Mu);
     auto Now = std::chrono::steady_clock::now();
-    if (Cache->LastDiscovery && Now - *Cache->LastDiscovery < MinInterval)
-      return;
-    Cache->LastDiscovery = Now;
+    Start = Now;
+    if (Cache->LastDiscovery && Now - *Cache->LastDiscovery < MinInterval) {
+      if (!WaitForInterval)
+        return;
+      Start = *Cache->LastDiscovery + MinInterval;
+    }
+    Cache->LastDiscovery = Start;
   }
+  if (WaitForInterval)
+    std::this_thread::sleep_until(Start);
 
   constexpr unsigned MaxDepth = 8;
   constexpr unsigned MaxDirectories = 4000;
@@ -568,7 +580,7 @@ std::string ModuleDependencyScanner::getSourceForModuleName(
   }
 
   // A module unit that the database does not know about yet.
-  discoverUnlistedModules(Mangler);
+  discoverUnlistedModules(Mangler, /*WaitForInterval=*/true);
   if (auto Source = validatedSourceForModuleName(ModuleName, Mangler))
     return *Source;
 
@@ -582,7 +594,7 @@ std::vector<std::string> ModuleDependencyScanner::getKnownModuleNames(
     globalScan(Mangler);
   // A module unit that the build system has not seen yet is found by the
   // search for unlisted units (throttled, and bounded by its limits).
-  discoverUnlistedModules(Mangler);
+  discoverUnlistedModules(Mangler, /*WaitForInterval=*/false);
 
   std::set<std::string> Names;
   {
