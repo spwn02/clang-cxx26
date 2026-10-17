@@ -92,10 +92,12 @@ jobs:
               for path in \
                 llvm \
                 clang \
+                clang-tools-extra \
                 lld \
                 libcxx \
                 libcxxabi \
                 libunwind \
+                compiler-rt \
                 runtimes \
                 cmake \
                 third-party \
