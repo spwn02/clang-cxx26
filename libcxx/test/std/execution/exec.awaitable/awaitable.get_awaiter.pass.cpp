@@ -42,7 +42,7 @@ Awaiter operator co_await(FreeCoAwait) { return {}; }
 static_assert(ex::__is_awaitable<MemberCoAwait>);
 static_assert(ex::__is_awaitable<FreeCoAwait>);
 
-// both: overload resolution is ambiguous, the expression is ill-formed (so it is not a sender either)
+// both, equally good: overload resolution is ambiguous, the expression is ill-formed (so it is not a sender either)
 struct BothCoAwait : Awaiter {
   Awaiter operator co_await() { return {}; }
 };
@@ -51,9 +51,30 @@ static_assert(!ex::__is_awaitable<BothCoAwait>);
 static_assert(!ex::sender<BothCoAwait>);
 static_assert(!ex::sender_in<BothCoAwait>);
 static_assert(!ex::sender_in<BothCoAwait, ex::env<>>);
+// both, one better: overload resolution picks it (a &&-qualified member beats a non-member taking const&, for an rvalue)
+struct RefQualifiedBoth {
+  Awaiter operator co_await() && { return {}; }
+};
+int operator co_await(const RefQualifiedBoth&); // not an awaiter
+static_assert(ex::__is_awaitable<RefQualifiedBoth>);                      // fc() is an rvalue: the member
+static_assert(!ex::__is_awaitable<RefQualifiedBoth&>);                    // an lvalue: the non-member
 // without the ambiguity it is an awaitable sender through its own await_* members
 struct JustAwaiter : Awaiter {};
 static_assert(ex::sender_in<JustAwaiter>);
+
+// [expr.await]: the awaiter e is an lvalue, a prvalue operand is materialized
+struct LvalueResume {
+  bool await_ready() noexcept { return true; }
+  void await_suspend(std::coroutine_handle<>) noexcept {}
+  int await_resume() & { return 1; }
+};
+static_assert(ex::__is_awaitable<LvalueResume>);
+static_assert(std::same_as<ex::__await_result_type<LvalueResume>, int>);
+static_assert(std::same_as<ex::__await_result_type<LvalueResume&&>, int>);
+struct MemberToLvalueResume {
+  LvalueResume operator co_await() { return {}; }
+};
+static_assert(std::same_as<ex::__await_result_type<MemberToLvalueResume>, int>);
 
 // not an awaiter
 struct NotAwaiter {};
@@ -105,9 +126,18 @@ struct ToMember {
 static_assert(ex::__is_awaitable<Awaiter, ToMember>);
 static_assert(std::same_as<ex::__await_result_type<Awaiter, ToMember>, int>);
 
-// a promise that cannot be derived from (final) is treated as having no await_transform
+// a final promise type: its await_transform is found like any other
 struct FinalPromise final {};
 static_assert(ex::__is_awaitable<Awaiter, FinalPromise>);
+struct FinalAcceptsInt final {
+  void await_transform(int);
+};
+static_assert(!ex::__is_awaitable<Awaiter, FinalAcceptsInt>);
+struct FinalToAwaiter final {
+  Awaiter await_transform(int) { return {}; }
+};
+static_assert(ex::__is_awaitable<int, FinalToAwaiter>);
+static_assert(!ex::__is_awaitable<Awaiter, FinalToAwaiter>);
 
 // the environment promise of the sender concepts has an await_transform (from with-await-transform)
 static_assert(ex::__is_awaitable<Awaiter, ex::__env_promise<ex::env<>>>);
