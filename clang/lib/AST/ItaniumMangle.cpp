@@ -5203,11 +5203,17 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
       mangleNumber(FuncRedeclIndex);
       Out << '_';
     } else {
-      if (const auto *RD = dyn_cast<CXXRecordDecl>(Owner)) {
+      if (const auto *TD = dyn_cast<TagDecl>(Owner)) {
+        // A class, union or enumeration: the type name identifies it (mangle()
+        // has no encoding for an enumeration declaration).
         Out << 'd';
         Context.mangleCanonicalTypeName(
-            getASTContext().getCanonicalTagType(RD->getCanonicalDecl()), Out,
+            getASTContext().getCanonicalTagType(TD->getCanonicalDecl()), Out,
             false);
+      } else if (const auto *TND = dyn_cast<TypedefNameDecl>(Owner)) {
+        // A typedef or alias declaration (also without an encoding in mangle()).
+        Out << 'y';
+        mangleNameWithAbiTags(TND, nullptr);
       } else if (isa<NamespaceDecl>(Owner)) {
         mangleReflection(APValue(
             ReflectionKind::Namespace,
