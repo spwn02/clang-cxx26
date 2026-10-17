@@ -1004,6 +1004,35 @@ TEST(DiagnosticsTest, IgnoreVerify) {
   EXPECT_THAT(TU.build().getDiagnostics(), IsEmpty());
 }
 
+TEST(DiagnosticTest, TheFixThatMovesAttributesInsertsThem) {
+  // `[[x]] struct S;` misplaces the attributes; the fix moves them to after
+  // `struct`: it removes them where they are and inserts the same text there
+  // (a fix-it hint that inserts the text of another range). Annotations and
+  // standard attributes alike.
+  for (llvm::StringRef Attribute : {"[[deprecated]]", "[[= 42]]"}) {
+    TestTU TU = TestTU::withCode((Attribute + " struct S; /*error-ok*/\n").str());
+    TU.ExtraArgs = {"-std=c++26", "-freflection"};
+    auto AST = TU.build();
+    bool Found = false;
+    for (const auto &D : AST.getDiagnostics()) {
+      if (!llvm::StringRef(D.Message).contains("misplaced attributes"))
+        continue;
+      Found = true;
+      ASSERT_EQ(D.Fixes.size(), 1u);
+      bool Inserted = false, Removed = false;
+      for (const TextEdit &E : D.Fixes.front().Edits) {
+        if (E.newText == Attribute)
+          Inserted = true;
+        if (E.newText.empty() && E.range.start != E.range.end)
+          Removed = true;
+      }
+      EXPECT_TRUE(Inserted) << Attribute.str();
+      EXPECT_TRUE(Removed) << Attribute.str();
+    }
+    EXPECT_TRUE(Found) << Attribute.str();
+  }
+}
+
 TEST(DiagnosticTest, IgnoreBEFilelistOptions) {
   auto TU = TestTU::withCode("");
   TU.ExtraArgs.push_back("-Xclang");

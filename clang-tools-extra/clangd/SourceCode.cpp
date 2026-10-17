@@ -558,7 +558,12 @@ TextEdit toTextEdit(const FixItHint &FixIt, const SourceManager &M,
   TextEdit Result;
   Result.range =
       halfOpenToRange(M, Lexer::makeFileCharRange(FixIt.RemoveRange, M, L));
-  Result.newText = FixIt.CodeToInsert;
+  // A fix-it that moves code (the attributes of `[[x]] struct S;` to after
+  // `struct`) inserts the text of another range: what that range holds is the
+  // text to insert, followed by any code of the hint itself.
+  if (FixIt.InsertFromRange.isValid())
+    Result.newText = Lexer::getSourceText(FixIt.InsertFromRange, M, L).str();
+  Result.newText += FixIt.CodeToInsert;
   return Result;
 }
 
