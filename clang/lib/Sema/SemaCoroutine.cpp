@@ -25,6 +25,7 @@
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Overload.h"
 #include "clang/Sema/ScopeInfo.h"
+#include "llvm/Support/SaveAndRestore.h"
 
 using namespace clang;
 using namespace sema;
@@ -870,6 +871,7 @@ ExprResult Sema::BuildGetAwaiterExpr(SourceLocation Loc, Expr *Operand,
       DeclarationNameInfo(OpName, Loc), /*RequiresADL*/ true,
       NoFunctions.begin(), NoFunctions.end(), /*KnownDependent=*/false,
       /*KnownInstantiationDependent=*/false);
+  llvm::SaveAndRestore<bool> InBuiltin(IsBuildingGetAwaiterBuiltin, true);
   return BuildOperatorCoawaitCall(Loc, Transformed, Lookup);
 }
 

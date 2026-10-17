@@ -3167,6 +3167,12 @@ public:
   ExprResult BuildGetAwaiterExpr(SourceLocation Loc, Expr *Operand,
                                  Expr *Promise);
 
+  /// Set while __builtin_get_awaiter builds the operator co_await call: there
+  /// is no coroutine whose scope could have declared a candidate later than
+  /// the template definition, so a failed overload resolution is not
+  /// re-examined with the unqualified lookup of the parser's current scope.
+  bool IsBuildingGetAwaiterBuiltin = false;
+
   ExprResult BuildOperatorCoawaitCall(SourceLocation Loc, Expr *E,
                                       UnresolvedLookupExpr *Lookup);
   ExprResult BuildResolvedCoawaitExpr(SourceLocation KwLoc, Expr *Operand,

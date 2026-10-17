@@ -87,6 +87,18 @@ static_assert(std::is_same_v<Adl_t<GlobalOnly>, GlobalOnly &&>); // not visible 
 } // namespace Hide
 static_assert(std::is_same_v<Adl_t<GlobalOnly>, GlobalOnly &&>);
 
+// a global operator co_await that ADL does not reach does not make the call ill-formed (no search of the scope of the
+// instantiation for a candidate "declared too late"), wherever the concept is first satisfied
+namespace Base2 { struct B {}; }
+namespace N2 { struct D : Base2::B {}; }
+int operator co_await(N2::D);
+static_assert(HasAwaiter<N2::D>);
+namespace Hide2 {
+struct Y {};
+void operator co_await(Y);
+static_assert(HasAwaiter<N2::D>);
+} // namespace Hide2
+
 // a dependent use
 template <class C, class P> using Awaiter_t = decltype(__builtin_get_awaiter(std::declval<C>(), std::declval<P &>()));
 static_assert(std::is_same_v<Awaiter_t<int, P1>, Other>);

@@ -15423,7 +15423,8 @@ Sema::CreateOverloadedUnaryOp(SourceLocation OpLoc, UnaryOperatorKind Opc,
     // This is an erroneous use of an operator which can be overloaded by
     // a non-member function. Check for non-member operators which were
     // defined too late to be candidates.
-    if (DiagnoseTwoPhaseOperatorLookup(*this, Op, OpLoc, ArgsArray))
+    if (!IsBuildingGetAwaiterBuiltin &&
+        DiagnoseTwoPhaseOperatorLookup(*this, Op, OpLoc, ArgsArray))
       // FIXME: Recover by calling the found function.
       return ExprError();
 

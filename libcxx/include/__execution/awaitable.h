@@ -43,7 +43,9 @@ concept __await_suspend_result = is_void_v<_Tp> || is_same_v<_Tp, bool> || __is_
 // await-expression in a coroutine whose promise `p` has type Promise, "resulting in lvalue e as described by
 // [expr.await]": p.await_transform(c) if the promise type has an await_transform member (the expression is ill-formed
 // if that is not valid for `c`; there is no fallback to `c`), then the operator co_await chosen by overload resolution
-// among the member and the non-member candidates, if any, with the temporary materialization of a prvalue; `e` is an
+// among the member and the non-member candidates (found by argument-dependent lookup: [exec.awaitable] names no
+// context to search for them, and nothing in `std` declares one), if any, with the temporary materialization of a
+// prvalue; `e` is an
 // lvalue referring to the result. The compiler performs that for __builtin_get_awaiter, so none of it is approximated
 // here. Like the await-expression, only the type of `e` matters: these functions are used in unevaluated operands.
 template <class _Cp, class _Promise>
