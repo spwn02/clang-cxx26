@@ -1162,6 +1162,14 @@ bool Decl::AccessDeclContextCheck() const {
       isa<CXXRecordDecl>(this) || isa<LifetimeExtendedTemporaryDecl>(this))
     return true;
 
+  // The definition of a member outside of its class takes its access from the
+  // first declaration, which can be a declaration of another module whose
+  // definition was merged ('inline constexpr partial_ordering
+  // partial_ordering::equivalent' of <compare> after a module that imports
+  // std): it has none of its own.
+  if (!getLexicalDeclContext()->Equals(getDeclContext()))
+    return true;
+
   assert(Access != AS_none &&
          "Access specifier is AS_none inside a record decl");
 #endif
