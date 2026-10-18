@@ -623,6 +623,13 @@ bool Sema::BuildCXXNestedNameSpecifier(Scope *S, NestedNameSpecInfo &IdInfo,
         diagnoseTypo(Corrected, PDiag(diag::err_no_member_suggest)
                                   << Name << LookupCtx << DroppedSpecifier
                                   << SS.getRange());
+        // A correction that replaces the specifier and names none (a namespace
+        // of the enclosing scopes for a name looked up in a class, 'std' for
+        // 'std::S::utd::') is not a member of the scope that the specifier
+        // names: the nested-name-specifier goes on without it.
+        if (Corrected.WillReplaceSpecifier() &&
+            !Corrected.getCorrectionSpecifier())
+          SS.clear();
       } else
         diagnoseTypo(Corrected, PDiag(diag::err_undeclared_var_use_suggest)
                                   << Name);
