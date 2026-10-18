@@ -1043,7 +1043,11 @@ public:
       // Get either previous decl or latest decl.
       Decl *Next = Current->getNextRedeclarationImpl();
       assert(Next && "Should return next redeclaration or itself, never null!");
-      Current = (Next != Starter) ? Next : nullptr;
+      // A chain whose most recent declaration is not known to its first one
+      // (its link still names the first declaration, when the iteration did not
+      // start there) leads back to the declaration it came from: the iteration
+      // ends there instead of going round that declaration for ever.
+      Current = (Next != Starter && Next != Current) ? Next : nullptr;
       return *this;
     }
 
