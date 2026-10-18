@@ -1273,6 +1273,12 @@ void Parser::AnnotateExistingDecltypeSpecifier(const DeclSpec &DS,
   } else
     PP.EnterToken(Tok, /*IsReinject*/ true);
 
+  // The annotation replaces the tokens up to the last one that was consumed.
+  // The specifier is malformed when its parse stopped before a token that was
+  // not consumed (the end of the file in 'int decltype(').
+  if (DS.getTypeSpecType() == TST_error)
+    EndLoc = PrevTokLocation;
+
   Tok.setKind(tok::annot_decltype);
   setExprAnnotation(Tok,
                     DS.getTypeSpecType() == TST_decltype ? DS.getRepAsExpr()
