@@ -1369,6 +1369,10 @@ void Parser::AnnotateExistingIndexedTypeNamePack(ParsedType T,
   } else
     PP.EnterToken(Tok, /*IsReinject*/ true);
 
+  // The annotation replaces the tokens up to the last one that was consumed
+  // (that is the ']' unless it is missing: 'Ts...[0' at the end of the file).
+  EndLoc = PrevTokLocation;
+
   Tok.setKind(tok::annot_pack_indexing_type);
   setTypeAnnotation(Tok, T);
   Tok.setAnnotationEndLoc(EndLoc);
