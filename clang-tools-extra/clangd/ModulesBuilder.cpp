@@ -139,9 +139,18 @@ public:
 
   StringRef getModuleFilePath() const { return ModuleFilePath; }
 
+  /// The module files that this one was built against: the modules that its
+  /// unit imports and the files of them that were used. A module file refers
+  /// to the declarations of the ones it imports by their position in them, so
+  /// it can only be read with those same files: when one of them was built
+  /// again, this one is built again too.
+  using ImportList = std::vector<std::pair<std::string, std::string>>;
+  const ImportList &getImports() const { return Imports; }
+
 protected:
   std::string ModuleName;
   std::string ModuleFilePath;
+  ImportList Imports;
 };
 
 /// Represents a prebuilt module file which is not owned by us.
@@ -178,6 +187,8 @@ public:
     return std::make_shared<BuiltModuleFile>(ModuleName, ModuleFilePath,
                                              CtorTag{});
   }
+
+  void setImports(ImportList List) { Imports = std::move(List); }
 
   virtual ~BuiltModuleFile() {
     if (!ModuleFilePath.empty() && !DebugModulesBuilder)
@@ -230,6 +241,25 @@ public:
 
   bool isModuleUnitBuilt(llvm::StringRef ModuleName) const {
     return BuiltModuleNames.contains(ModuleName);
+  }
+
+  /// The module file used for \param ModuleName, if there is one.
+  std::optional<std::string> getModuleFilePath(llvm::StringRef ModuleName) const {
+    for (const auto &MF : RequiredModules)
+      if (MF->getModuleName() == ModuleName)
+        return MF->getModuleFilePath().str();
+    return std::nullopt;
+  }
+
+  /// Whether the module files that \param MF was built against are the ones
+  /// in use.
+  bool importsUnchanged(const ModuleFile &MF) const {
+    for (const auto &[Name, Path] : MF.getImports()) {
+      auto Current = getModuleFilePath(Name);
+      if (Current && *Current != Path)
+        return false;
+    }
+    return true;
   }
 
   void addModuleFile(std::shared_ptr<const ModuleFile> MF) {
@@ -847,7 +877,8 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
     }
 
     if (auto Cached = Cache.getModule(CacheKey)) {
-      if (IsModuleFileUpToDate(Cached->getModuleFilePath(), BuiltModuleFiles,
+      if (BuiltModuleFiles.importsUnchanged(*Cached) &&
+          IsModuleFileUpToDate(Cached->getModuleFilePath(), BuiltModuleFiles,
                                TFS.view(std::nullopt))) {
         log("Reusing module {0} from {1}", ReqModuleName,
             Cached->getModuleFilePath());
@@ -871,6 +902,15 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
                     : MDB.getCompileCommandForSource(ReqFileName));
     if (llvm::Error Err = MF.takeError())
       return Err;
+
+    {
+      // The module files it was built against (see ModuleFile::getImports).
+      ModuleFile::ImportList Imports;
+      for (llvm::StringRef Imported : MDB.getRequiredModules(ReqFileName))
+        if (auto Path = BuiltModuleFiles.getModuleFilePath(Imported))
+          Imports.emplace_back(Imported.str(), std::move(*Path));
+      (*MF)->setImports(std::move(Imports));
+    }
 
     log("Built module {0} to {1}", ReqModuleName, (*MF)->getModuleFilePath());
     Cache.add(CacheKey, *MF);
