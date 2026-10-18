@@ -24,7 +24,18 @@ using ::testing::IsEmpty;
 std::vector<std::string> names(llvm::StringRef Code) {
   std::vector<std::string> Result;
   for (const ModuleNameSpelling &S : moduleNameSpellings(Code))
-    Result.push_back((S.IsModuleDeclaration ? "module " : "import ") + S.Name);
+    if (!S.Name.empty())
+      Result.push_back((S.IsModuleDeclaration ? "module " : "import ") + S.Name);
+  return Result;
+}
+
+// "module A:P", "import :Q": the partitions that the declarations spell.
+std::vector<std::string> partitions(llvm::StringRef Code) {
+  std::vector<std::string> Result;
+  for (const ModuleNameSpelling &S : moduleNameSpellings(Code))
+    if (!S.Partition.empty())
+      Result.push_back((S.IsModuleDeclaration ? "module " : "import ") +
+                       S.Name + ":" + S.Partition);
   return Result;
 }
 
@@ -39,6 +50,7 @@ TEST(ModuleRenameTest, SpellingsOfDeclarations) {
   auto Spellings = moduleNameSpellings("module A.B:P.Q;\nimport A.B:R;\n");
   ASSERT_EQ(Spellings.size(), 2u);
   EXPECT_EQ(Spellings[0].Name, "A.B");
+  EXPECT_EQ(Spellings[0].Partition, "P.Q");
   EXPECT_NE(Spellings[0].PartitionBegin, 0u);
   EXPECT_EQ(Spellings[1].Name, "A.B");
   // Attributes may follow.
@@ -46,8 +58,21 @@ TEST(ModuleRenameTest, SpellingsOfDeclarations) {
               ElementsAre("module A", "import B"));
 }
 
+TEST(ModuleRenameTest, Partitions) {
+  EXPECT_THAT(partitions("export module A.B:P.Q;\nmodule C:R;\n"
+                         "export import :S;\nimport :T.U;\nimport D;\n"),
+              ElementsAre("module A.B:P.Q", "module C:R", "import :S",
+                          "import :T.U"));
+  // The private module fragment is not a partition, and nor are header units.
+  EXPECT_THAT(partitions("module A;\nmodule :private;\nimport <v>;\n"),
+              IsEmpty());
+  EXPECT_EQ(moduleOfUnit("module;\n#include <x>\nexport module A.B:P;\n"),
+            "A.B");
+  EXPECT_EQ(moduleOfUnit("import :P;\nint x;\n"), std::nullopt);
+}
+
 TEST(ModuleRenameTest, WhatIsNotAName) {
-  // import :P; module; module :private; header units: not names.
+  // module; module :private; header units: not names.
   EXPECT_THAT(names("module;\n#include <x>\nexport module A:P;\n"
                     "import :Q;\nimport <vector>;\nimport \"h.h\";\n"
                     "module :private;\n"),
@@ -75,7 +100,19 @@ TEST(ModuleRenameTest, SpellingAt) {
   EXPECT_TRUE(moduleNameSpellingAt(Code, 26));
   auto OnPartition = moduleNameSpellingAt(Code, 29);
   ASSERT_TRUE(OnPartition);
-  EXPECT_LE(OnPartition->PartitionBegin, 29u);
+  EXPECT_TRUE(OnPartition->isInPartition(29));
+  EXPECT_EQ(OnPartition->Partition, "Access");
+  // The colon belongs to the name in front of it; what follows it, to the
+  // partition.
+  EXPECT_FALSE(moduleNameSpellingAt(Code, 26)->isInPartition(26));
+  EXPECT_TRUE(moduleNameSpellingAt(Code, 27)->isInPartition(27));
+  // `import :P;` has a partition and no name.
+  const std::string Imp = "module M;\nimport :Part.Deep;\n";
+  auto OnImport = moduleNameSpellingAt(Imp, 17);
+  ASSERT_TRUE(OnImport);
+  EXPECT_EQ(OnImport->Name, "");
+  EXPECT_EQ(OnImport->Partition, "Part.Deep");
+  EXPECT_TRUE(OnImport->isInPartition(17));
   // Elsewhere there is none.
   EXPECT_FALSE(moduleNameSpellingAt(Code, 3));
   EXPECT_FALSE(moduleNameSpellingAt(Code, Code.size()));
@@ -106,6 +143,20 @@ TEST(ModuleRenameTest, ValidNames) {
   // std followed by something else is not reserved by this rule.
   EXPECT_FALSE(bool(validateModuleName("stdx")));
   EXPECT_FALSE(bool(validateModuleName("a.std")));
+}
+
+TEST(ModuleRenameTest, ValidPartitionNames) {
+  EXPECT_FALSE(bool(validatePartitionName("Part")));
+  EXPECT_FALSE(bool(validatePartitionName("Part.Deep")));
+  // The rule about `std` is for the names of modules ([module.unit]).
+  EXPECT_FALSE(bool(validatePartitionName("std")));
+  EXPECT_FALSE(bool(validatePartitionName("std23")));
+  for (llvm::StringRef Bad : {"", "a b", "a:b", "a..b", "1a", "module",
+                              "a.import", "__x", "_X", "a__b"}) {
+    llvm::Error Err = validatePartitionName(Bad);
+    EXPECT_TRUE(bool(Err)) << Bad;
+    llvm::consumeError(std::move(Err));
+  }
 }
 
 std::string applied(const Edit &E) {
@@ -201,6 +252,76 @@ TEST_F(ModuleRenameFilesTest, FilesThatCanImport) {
   EXPECT_THAT(llvm::toString(Cut.takeError()),
               testing::HasSubstr("nothing is renamed"));
   (void)Build; (void)Hidden; (void)Other;
+}
+
+TEST_F(ModuleRenameFilesTest, ModuleAlreadyDeclared) {
+  std::string A = write("A.cppm", "export module A;\n");
+  std::string B = write("B.cppm", "export module B:Part;\n");
+  std::string U = write("U.cpp", "import A;\n");
+  // B has only a partition declared: the name is taken all the same.
+  auto Edits = renameModuleInFiles("A", "B", {A, B, U}, FS);
+  ASSERT_FALSE(bool(Edits));
+  EXPECT_THAT(llvm::toString(Edits.takeError()),
+              testing::HasSubstr("already names a module"));
+}
+
+TEST_F(ModuleRenameFilesTest, Partition) {
+  // A:P is renamed in its declaration and in the imports of the units of A;
+  // B:P is another partition and C imports another module's P.
+  std::string AI = write("AI.cppm", "export module A;\nexport import :P;\nimport :Q;\n");
+  std::string AP = write("AP.cppm", "export module A:P;\nimport :Q;\n");
+  std::string AQ = write("AQ.cppm", "module A:Q;\n");
+  std::string AImpl = write("AImpl.cpp", "module A;\nimport :P;\n");
+  std::string BP = write("BP.cppm", "export module B:P;\n");
+  std::string BI = write("BI.cppm", "export module B;\nexport import :P;\n");
+  std::string U = write("U.cpp", "import A;\nimport B;\n");
+  auto Edits = renamePartitionInFiles("A", "P", "Part", {AI, AP, AQ, AImpl, BP, BI, U}, FS);
+  ASSERT_TRUE(bool(Edits)) << llvm::toString(Edits.takeError());
+  EXPECT_EQ(Edits->size(), 3u);
+  EXPECT_EQ(applied((*Edits)[AI]),
+            "export module A;\nexport import :Part;\nimport :Q;\n");
+  EXPECT_EQ(applied((*Edits)[AP]), "export module A:Part;\nimport :Q;\n");
+  EXPECT_EQ(applied((*Edits)[AImpl]), "module A;\nimport :Part;\n");
+  EXPECT_FALSE(Edits->count(BP));
+  EXPECT_FALSE(Edits->count(BI));
+  // A dotted partition is renamed whole.
+  std::string D = write("D.cppm", "export module D:a.b;\nimport :a.bc;\nimport :a.b;\n");
+  auto Dotted = renamePartitionInFiles("D", "a.b", "x", {D}, FS);
+  ASSERT_TRUE(bool(Dotted)) << llvm::toString(Dotted.takeError());
+  EXPECT_EQ(applied((*Dotted)[D]),
+            "export module D:x;\nimport :a.bc;\nimport :x;\n");
+}
+
+TEST_F(ModuleRenameFilesTest, PartitionRefusals) {
+  std::string AI = write("AI.cppm", "export module A;\nexport import :P;\n");
+  std::string AP = write("AP.cppm", "export module A:P;\n");
+  std::string AQ = write("AQ.cppm", "module A:Q;\n");
+  // The module has a partition of the new name already.
+  auto Taken = renamePartitionInFiles("A", "P", "Q", {AI, AP, AQ}, FS);
+  ASSERT_FALSE(bool(Taken));
+  EXPECT_THAT(llvm::toString(Taken.takeError()),
+              testing::HasSubstr("already has a partition 'Q'"));
+  // Another module's partition of that name is no obstacle.
+  std::string BQ = write("BQ.cppm", "export module B:Z;\n");
+  auto Other = renamePartitionInFiles("A", "P", "Z", {AI, AP, BQ}, FS);
+  ASSERT_TRUE(bool(Other)) << llvm::toString(Other.takeError());
+  EXPECT_EQ(Other->size(), 2u);
+}
+
+TEST_F(ModuleRenameFilesTest, PartitionImportInAHeader) {
+  std::string AP = write("AP.cppm", "export module A:P;\n");
+  std::string Header = write("inc.hpp", "import :P;\n");
+  auto Edits = renamePartitionInFiles("A", "P", "R", {AP, Header}, FS);
+  ASSERT_TRUE(bool(Edits)) << llvm::toString(Edits.takeError());
+  // No other module has a partition P: the header can only be for A.
+  EXPECT_EQ(Edits->size(), 2u);
+  EXPECT_EQ(applied((*Edits)[Header]), "import :R;\n");
+  // With B:P too the header can be for either: refused.
+  std::string BP = write("BP.cppm", "export module B:P;\n");
+  auto Ambiguous = renamePartitionInFiles("A", "P", "R", {AP, Header, BP}, FS);
+  ASSERT_FALSE(bool(Ambiguous));
+  EXPECT_THAT(llvm::toString(Ambiguous.takeError()),
+              testing::HasSubstr("can be for the module"));
 }
 
 } // namespace

@@ -464,10 +464,6 @@ public:
   /// isn't being tracked.
   std::shared_ptr<const std::string> getDraft(PathRef File) const;
 
-  /// See ClangdServer.cpp.
-  std::optional<llvm::Expected<RenameResult>>
-  moduleNameAtPosition(PathRef File, Position Pos) const;
-
   // Blocks the main thread until the server is idle. Only for use in tests.
   // Returns false if the timeout expires.
   // FIXME: various subcomponents each get the full timeout, so it's more of
@@ -479,6 +475,16 @@ public:
   void profile(MemoryTree &MT) const;
 
 private:
+  /// What a rename at a position in the name of a module, or the name of a
+  /// partition, renames (see ClangdServer.cpp). Empty \c Partition: the module.
+  struct ModuleRenameTarget {
+    RenameResult Result;
+    std::string Module;
+    std::string Partition;
+  };
+  std::optional<llvm::Expected<ModuleRenameTarget>>
+  moduleRenameTargetAt(PathRef File, Position Pos) const;
+
   FeatureModuleSet *FeatureModules;
   const GlobalCompilationDatabase &CDB;
   const ThreadsafeFS &getHeaderFS() const {

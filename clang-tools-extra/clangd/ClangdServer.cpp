@@ -616,11 +616,11 @@ void ClangdServer::formatOnType(PathRef File, Position Pos,
   WorkScheduler->runQuick("FormatOnType", File, std::move(Action));
 }
 
-// The name of the module that is spelled at \param Pos in the text of \param
-// File, if the position is in the name of a module in a module declaration or
-// an import declaration. The target is the whole dotted name.
-std::optional<llvm::Expected<RenameResult>>
-ClangdServer::moduleNameAtPosition(PathRef File, Position Pos) const {
+// What a rename renames at \param Pos in the text of \param File: the module
+// whose name is spelled there (the whole dotted name) or, in the partition
+// after the colon, the partition of a module.
+std::optional<llvm::Expected<ClangdServer::ModuleRenameTarget>>
+ClangdServer::moduleRenameTargetAt(PathRef File, Position Pos) const {
   if (!ModulesManager)
     return std::nullopt;
   auto Draft = getDraft(File);
@@ -632,28 +632,47 @@ ClangdServer::moduleNameAtPosition(PathRef File, Position Pos) const {
   auto Spelling = moduleNameSpellingAt(*Draft, *Offset);
   if (!Spelling)
     return std::nullopt;
-  if (Spelling->PartitionBegin && *Offset >= Spelling->PartitionBegin)
-    return llvm::Expected<RenameResult>(
-        error("cannot rename a partition: only the name of a module can be "
-              "renamed"));
-  RenameResult Result;
-  Result.Target = Range{offsetToPosition(*Draft, Spelling->Begin),
-                        offsetToPosition(*Draft, Spelling->End)};
-  Result.Placeholder = Spelling->Name;
-  return llvm::Expected<RenameResult>(std::move(Result));
+  ModuleRenameTarget Target;
+  unsigned Begin, End;
+  if (Spelling->isInPartition(*Offset)) {
+    Target.Partition = Spelling->Partition;
+    Target.Module = Spelling->Name;
+    if (Target.Module.empty()) {
+      // `import :P;` names a partition of the module of its own unit.
+      auto Own = moduleOfUnit(*Draft);
+      if (!Own)
+        return llvm::Expected<ModuleRenameTarget>(
+            error("cannot rename the partition: this file is not a unit of a "
+                  "module"));
+      Target.Module = *Own;
+    }
+    Begin = Spelling->PartitionBegin;
+    End = Spelling->PartitionEnd;
+  } else {
+    Target.Module = Spelling->Name;
+    Begin = Spelling->Begin;
+    End = Spelling->End;
+  }
+  Target.Result.Target = Range{offsetToPosition(*Draft, Begin),
+                               offsetToPosition(*Draft, End)};
+  Target.Result.Placeholder =
+      Target.Partition.empty() ? Target.Module : Target.Partition;
+  return llvm::Expected<ModuleRenameTarget>(std::move(Target));
 }
 
 void ClangdServer::prepareRename(PathRef File, Position Pos,
                                  std::optional<std::string> NewName,
                                  const RenameOptions &RenameOpts,
                                  Callback<RenameResult> CB) {
-  if (auto Module = moduleNameAtPosition(File, Pos)) {
+  if (auto Module = moduleRenameTargetAt(File, Pos)) {
     if (!*Module)
       return CB(Module->takeError());
     if (NewName)
-      if (llvm::Error Err = validateModuleName(*NewName))
+      if (llvm::Error Err = (*Module)->Partition.empty()
+                                ? validateModuleName(*NewName)
+                                : validatePartitionName(*NewName))
         return CB(std::move(Err));
-    return CB(std::move(**Module));
+    return CB(std::move((*Module)->Result));
   }
   auto Action = [Pos, File = File.str(), CB = std::move(CB),
                  NewName = std::move(NewName),
@@ -680,21 +699,27 @@ void ClangdServer::prepareRename(PathRef File, Position Pos,
 void ClangdServer::rename(PathRef File, Position Pos, llvm::StringRef NewName,
                           const RenameOptions &Opts,
                           Callback<RenameResult> CB) {
-  if (auto Module = moduleNameAtPosition(File, Pos)) {
+  if (auto Module = moduleRenameTargetAt(File, Pos)) {
     if (!*Module)
       return CB(Module->takeError());
-    // The name of a module: not a symbol of the AST.
+    // The name of a module or of a partition: not a symbol of the AST.
     auto Action = [this, File = File.str(), NewName = NewName.str(),
                    Target = std::move(**Module),
                    CB = std::move(CB)]() mutable {
-      if (llvm::Error Err = validateModuleName(NewName))
+      const bool IsPartition = !Target.Partition.empty();
+      if (llvm::Error Err = IsPartition ? validatePartitionName(NewName)
+                                        : validateModuleName(NewName))
         return CB(std::move(Err));
-      if (NewName == Target.Placeholder)
-        return CB(error("the module is already named '{0}'", NewName));
-      ModulesBuilder::KnownModules Known =
-          ModulesManager->getKnownModules(File, *DirtyFS);
-      if (llvm::is_contained(Known.Names, NewName) || Known.OwnModule == NewName)
-        return CB(error("'{0}' already names a module", NewName));
+      if (NewName == Target.Result.Placeholder)
+        return CB(error("the {0} is already named '{1}'",
+                        IsPartition ? "partition" : "module", NewName));
+      if (!IsPartition) {
+        ModulesBuilder::KnownModules Known =
+            ModulesManager->getKnownModules(File, *DirtyFS);
+        if (llvm::is_contained(Known.Names, NewName) ||
+            Known.OwnModule == NewName)
+          return CB(error("'{0}' already names a module", NewName));
+      }
       // The files of the project and the files that are open in the editor,
       // read with the text of the editor.
       std::vector<std::string> Files;
@@ -714,12 +739,15 @@ void ClangdServer::rename(PathRef File, Position Pos, llvm::StringRef NewName,
       if (!Found)
         return CB(Found.takeError());
       Files.insert(Files.end(), Found->begin(), Found->end());
-      auto Edits =
-          renameModuleInFiles(Target.Placeholder, NewName, Files, *DirtyFS);
+      auto Edits = IsPartition
+                       ? renamePartitionInFiles(Target.Module, Target.Partition,
+                                                NewName, Files, *DirtyFS)
+                       : renameModuleInFiles(Target.Module, NewName, Files,
+                                             *DirtyFS);
       if (!Edits)
         return CB(Edits.takeError());
-      Target.GlobalChanges = std::move(*Edits);
-      CB(std::move(Target));
+      Target.Result.GlobalChanges = std::move(*Edits);
+      CB(std::move(Target.Result));
     };
     return WorkScheduler->runQuick("RenameModule", File, std::move(Action));
   }

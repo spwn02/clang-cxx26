@@ -67,6 +67,27 @@ std::vector<ModuleNameSpelling> moduleNameSpellings(llvm::StringRef Code) {
   std::vector<ModuleNameSpelling> Result;
   std::vector<Tok> Toks = lexTokens(Code);
 
+  // identifier ('.' identifier)* from \param K; the end is the index after it.
+  auto Chain = [&](size_t K, std::string &Name, unsigned &Begin,
+                   unsigned &End) -> size_t {
+    Name = Toks[K].Text;
+    Begin = Toks[K].Begin;
+    End = Toks[K].End;
+    ++K;
+    while (K + 1 < Toks.size() && Toks[K].Kind == tok::period &&
+           isIdentifierText(Toks[K + 1].Text)) {
+      Name += "." + Toks[K + 1].Text;
+      End = Toks[K + 1].End;
+      K += 2;
+    }
+    return K;
+  };
+  auto IsName = [&](size_t K) {
+    return K < Toks.size() && isIdentifierText(Toks[K].Text) &&
+           Toks[K].Text != "module" && Toks[K].Text != "import" &&
+           Toks[K].Text != "private";
+  };
+
   for (size_t I = 0; I < Toks.size(); ++I) {
     size_t J = I;
     if (!Toks[J].BeginsLine)
@@ -76,40 +97,34 @@ std::vector<ModuleNameSpelling> moduleNameSpellings(llvm::StringRef Code) {
     const llvm::StringRef Keyword = Toks[J].Text;
     if ((Keyword != "module" && Keyword != "import") || J + 1 >= Toks.size())
       continue;
-    // The tokens after the keyword: identifier ('.' identifier)*.
-    size_t K = J + 1;
-    if (!isIdentifierText(Toks[K].Text) || Toks[K].Text == "module" ||
-        Toks[K].Text == "import")
-      continue;
     ModuleNameSpelling Spelling;
     Spelling.IsModuleDeclaration = Keyword == "module";
-    Spelling.Begin = Toks[K].Begin;
-    Spelling.End = Toks[K].End;
-    Spelling.Name = Toks[K].Text;
-    ++K;
-    while (K + 1 < Toks.size() && Toks[K].Kind == tok::period &&
-           isIdentifierText(Toks[K + 1].Text)) {
-      Spelling.Name += "." + Toks[K + 1].Text;
-      Spelling.End = Toks[K + 1].End;
-      K += 2;
+    // The tokens after the keyword: [identifier ('.' identifier)*] [':'
+    // identifier ('.' identifier)*]. The name ends where a partition, an
+    // attribute or the semicolon begins.
+    size_t K = J + 1;
+    if (IsName(K))
+      K = Chain(K, Spelling.Name, Spelling.Begin, Spelling.End);
+    if (K + 1 < Toks.size() && Toks[K].Kind == tok::colon && IsName(K + 1) &&
+        // `module :P;` is not a declaration: a partition follows a name.
+        (!Spelling.Name.empty() || Keyword == "import")) {
+      Spelling.PartitionColon = Toks[K].Begin;
+      K = Chain(K + 1, Spelling.Partition, Spelling.PartitionBegin,
+                Spelling.PartitionEnd);
     }
-    // The name ends where a partition, an attribute or the semicolon begins.
-    if (K < Toks.size() && Toks[K].Kind == tok::colon && K + 1 < Toks.size() &&
-        isIdentifierText(Toks[K + 1].Text)) {
-      Spelling.PartitionBegin = Toks[K].Begin;
-      size_t P = K + 1;
-      Spelling.PartitionEnd = Toks[P].End;
-      ++P;
-      while (P + 1 < Toks.size() && Toks[P].Kind == tok::period &&
-             isIdentifierText(Toks[P + 1].Text)) {
-        Spelling.PartitionEnd = Toks[P + 1].End;
-        P += 2;
-      }
-    }
+    if (Spelling.Name.empty() && Spelling.Partition.empty())
+      continue;
     Result.push_back(std::move(Spelling));
-    I = K ? K - 1 : I;
+    I = K - 1;
   }
   return Result;
+}
+
+std::optional<std::string> moduleOfUnit(llvm::StringRef Code) {
+  for (const ModuleNameSpelling &S : moduleNameSpellings(Code))
+    if (S.IsModuleDeclaration)
+      return S.Name;
+  return std::nullopt;
 }
 
 std::vector<std::string> moduleDeclarationSpellings(llvm::StringRef Code) {
@@ -166,25 +181,29 @@ std::vector<std::string> moduleDeclarationSpellings(llvm::StringRef Code) {
 std::optional<ModuleNameSpelling> moduleNameSpellingAt(llvm::StringRef Code,
                                                        unsigned Offset) {
   for (ModuleNameSpelling &S : moduleNameSpellings(Code)) {
+    unsigned Begin = S.Name.empty() ? S.PartitionColon : S.Begin;
     unsigned End = S.PartitionEnd ? S.PartitionEnd : S.End;
-    if (Offset >= S.Begin && Offset <= End)
+    if (Offset >= Begin && Offset <= End)
       return std::move(S);
   }
   return std::nullopt;
 }
 
-llvm::Error validateModuleName(llvm::StringRef Name) {
+namespace {
+// The identifiers of \param Name (separated by '.') are identifiers that are not
+// `module` or `import` and not reserved ([module.unit], [lex.name]).
+llvm::Error validateIdentifiers(llvm::StringRef Name, llvm::StringRef What,
+                                llvm::SmallVectorImpl<llvm::StringRef> &Parts) {
   if (Name.empty())
-    return error("the name of a module cannot be empty");
-  llvm::SmallVector<llvm::StringRef, 4> Parts;
+    return error("the name of a {0} cannot be empty", What);
   Name.split(Parts, '.');
   for (llvm::StringRef Part : Parts) {
     if (!isIdentifierText(Part))
-      return error("'{0}' is not a module name: '{1}' is not an identifier",
-                   Name, Part);
+      return error("'{0}' is not a {1} name: '{2}' is not an identifier", Name,
+                   What, Part);
     if (Part == "module" || Part == "import")
-      return error("'{0}' is not a module name: '{1}' cannot be part of it",
-                   Name, Part);
+      return error("'{0}' is not a {1} name: '{2}' cannot be part of it", Name,
+                   What, Part);
     // A reserved identifier ([lex.name]): a double underscore, or an underscore
     // and an uppercase letter.
     if (Part.contains("__") ||
@@ -192,6 +211,14 @@ llvm::Error validateModuleName(llvm::StringRef Name) {
       return error("'{0}' is reserved: '{1}' is a reserved identifier", Name,
                    Part);
   }
+  return llvm::Error::success();
+}
+} // namespace
+
+llvm::Error validateModuleName(llvm::StringRef Name) {
+  llvm::SmallVector<llvm::StringRef, 4> Parts;
+  if (llvm::Error Err = validateIdentifiers(Name, "module", Parts))
+    return Err;
   llvm::StringRef First = Parts.front();
   if (First.starts_with("std") &&
       llvm::all_of(First.drop_front(3), [](char C) { return isDigit(C); }))
@@ -199,6 +226,11 @@ llvm::Error validateModuleName(llvm::StringRef Name) {
                  "followed by digits are reserved",
                  Name);
   return llvm::Error::success();
+}
+
+llvm::Error validatePartitionName(llvm::StringRef Name) {
+  llvm::SmallVector<llvm::StringRef, 4> Parts;
+  return validateIdentifiers(Name, "partition", Parts);
 }
 
 llvm::Expected<std::vector<std::string>>
@@ -246,10 +278,22 @@ findFilesThatCanImport(llvm::ArrayRef<std::string> Roots,
   return std::vector<std::string>(Result.begin(), Result.end());
 }
 
-llvm::Expected<FileEdits>
-renameModuleInFiles(llvm::StringRef Name, llvm::StringRef NewName,
-                    llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS) {
-  FileEdits Result;
+namespace {
+
+struct SpelledFile {
+  std::string Path;
+  std::string Code;
+  std::vector<ModuleNameSpelling> Spellings;
+  /// The module that the file is a unit of, if it is one.
+  std::optional<std::string> Module;
+};
+
+// The files of \param Files that spell one of the \param Needles (the last
+// parts of the names that matter), read once with their declarations.
+std::vector<SpelledFile> spelledFiles(llvm::ArrayRef<std::string> Files,
+                                      const ThreadsafeFS &FS,
+                                      llvm::ArrayRef<llvm::StringRef> Needles) {
+  std::vector<SpelledFile> Result;
   auto View = FS.view(std::nullopt);
   std::set<std::string> Seen;
   for (const std::string &File : Files) {
@@ -264,23 +308,111 @@ renameModuleInFiles(llvm::StringRef Name, llvm::StringRef NewName,
     if (!Buffer)
       continue; // A file that is gone, or cannot be read, names no module.
     // The text is copied: the file system view does not outlive this call.
-    std::string Code = (*Buffer)->getBuffer().str();
-    if (!llvm::StringRef(Code).contains(Name.rsplit('.').second))
+    SpelledFile Spelled;
+    Spelled.Path = File;
+    Spelled.Code = (*Buffer)->getBuffer().str();
+    if (!llvm::any_of(Needles, [&](llvm::StringRef Needle) {
+          return llvm::StringRef(Spelled.Code).contains(Needle);
+        }))
       continue;
-    std::vector<SymbolRange> Occurrences;
-    for (const ModuleNameSpelling &S : moduleNameSpellings(Code))
-      if (S.Name == Name)
-        Occurrences.emplace_back(
-            Range{offsetToPosition(Code, S.Begin), offsetToPosition(Code, S.End)});
-    if (Occurrences.empty())
-      continue;
-    llvm::StringRef New = NewName;
-    auto Edit = buildRenameEdit(File, Code, std::move(Occurrences), New);
-    if (!Edit)
-      return error("failed to rename in file {0}: {1}", File, Edit.takeError());
-    Result.insert({File, std::move(*Edit)});
+    Spelled.Spellings = moduleNameSpellings(Spelled.Code);
+    for (const ModuleNameSpelling &S : Spelled.Spellings)
+      if (S.IsModuleDeclaration) {
+        Spelled.Module = S.Name;
+        break;
+      }
+    Result.push_back(std::move(Spelled));
   }
   return Result;
+}
+
+llvm::Expected<FileEdits> editsOf(llvm::ArrayRef<SpelledFile> Files,
+                                  std::vector<std::vector<Range>> &Ranges,
+                                  llvm::StringRef NewName) {
+  FileEdits Result;
+  for (size_t I = 0; I < Files.size(); ++I) {
+    if (Ranges[I].empty())
+      continue;
+    std::vector<SymbolRange> Occurrences;
+    for (const Range &R : Ranges[I])
+      Occurrences.emplace_back(R);
+    auto Edit = buildRenameEdit(Files[I].Path, Files[I].Code,
+                                std::move(Occurrences), NewName);
+    if (!Edit)
+      return error("failed to rename in file {0}: {1}", Files[I].Path,
+                   Edit.takeError());
+    Result.insert({Files[I].Path, std::move(*Edit)});
+  }
+  return Result;
+}
+
+llvm::StringRef lastPart(llvm::StringRef Name) {
+  return Name.rsplit('.').second;
+}
+
+} // namespace
+
+llvm::Expected<FileEdits>
+renameModuleInFiles(llvm::StringRef Name, llvm::StringRef NewName,
+                    llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS) {
+  std::vector<SpelledFile> Spelled =
+      spelledFiles(Files, FS, {lastPart(Name), lastPart(NewName)});
+  std::vector<std::vector<Range>> Ranges(Spelled.size());
+  for (size_t I = 0; I < Spelled.size(); ++I)
+    for (const ModuleNameSpelling &S : Spelled[I].Spellings) {
+      if (S.IsModuleDeclaration && S.Name == NewName)
+        return error("'{0}' already names a module (declared in {1})", NewName,
+                     Spelled[I].Path);
+      if (S.Name == Name)
+        Ranges[I].push_back(Range{offsetToPosition(Spelled[I].Code, S.Begin),
+                                  offsetToPosition(Spelled[I].Code, S.End)});
+    }
+  return editsOf(Spelled, Ranges, NewName);
+}
+
+llvm::Expected<FileEdits>
+renamePartitionInFiles(llvm::StringRef Module, llvm::StringRef Partition,
+                       llvm::StringRef NewPartition,
+                       llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS) {
+  std::vector<SpelledFile> Spelled = spelledFiles(
+      Files, FS, {lastPart(Partition), lastPart(NewPartition)});
+  // The modules other than \param Module that have a partition of this name:
+  // an `import :P;` of a header can be for any of them.
+  std::set<std::string> OtherOwners;
+  for (const SpelledFile &F : Spelled)
+    for (const ModuleNameSpelling &S : F.Spellings)
+      if (S.IsModuleDeclaration && S.Partition == Partition && S.Name != Module)
+        OtherOwners.insert(S.Name);
+  std::vector<std::vector<Range>> Ranges(Spelled.size());
+  for (size_t I = 0; I < Spelled.size(); ++I) {
+    const SpelledFile &F = Spelled[I];
+    for (const ModuleNameSpelling &S : F.Spellings) {
+      if (S.Partition.empty())
+        continue;
+      if (S.IsModuleDeclaration && S.Name == Module &&
+          S.Partition == NewPartition)
+        return error("the module '{0}' already has a partition '{1}' "
+                     "(declared in {2})",
+                     Module, NewPartition, F.Path);
+      if (S.Partition != Partition)
+        continue;
+      // The partitions of a module are imported by its own units only
+      // ([module.unit]); the module of a header is that of the unit that
+      // includes it.
+      bool Ours = S.IsModuleDeclaration ? S.Name == Module
+                  : F.Module            ? *F.Module == Module
+                                        : true;
+      if (!Ours)
+        continue;
+      if (!S.IsModuleDeclaration && !F.Module && !OtherOwners.empty())
+        return error("'import :{0};' in {1} can be for the module '{2}' or "
+                     "for '{3}': it is not renamed, nothing is renamed",
+                     Partition, F.Path, Module, *OtherOwners.begin());
+      Ranges[I].push_back(Range{offsetToPosition(F.Code, S.PartitionBegin),
+                                offsetToPosition(F.Code, S.PartitionEnd)});
+    }
+  }
+  return editsOf(Spelled, Ranges, NewPartition);
 }
 
 } // namespace clangd

@@ -29,26 +29,42 @@
 namespace clang {
 namespace clangd {
 
-/// The primary module name of a module declaration or an import declaration,
-/// as spelled in a file.
+/// The names of a module declaration or an import declaration, as spelled in a
+/// file: the primary module name and the partition.
 struct ModuleNameSpelling {
-  /// The whole dotted name ("A.B"), without the partition.
+  /// The whole dotted name ("A.B"), without the partition. Empty in
+  /// `import :P;`, which names a partition of the module of its own unit.
   std::string Name;
-  /// Where the dotted name is spelled (offsets in the code).
+  /// Where the dotted name is spelled (offsets in the code); zero when there
+  /// is no name.
   unsigned Begin = 0, End = 0;
   /// The declaration is a module-declaration (not an import-declaration).
   bool IsModuleDeclaration = false;
-  /// The partition of the declaration ("module A:P;"), spelled after the name.
-  /// Zero when there is none.
-  unsigned PartitionBegin = 0, PartitionEnd = 0;
+  /// The partition of the declaration ("module A:P;", "import :P;"): the whole
+  /// dotted name after the colon ("P", "a.b"). Empty when there is none.
+  std::string Partition;
+  /// Where the colon is, and where the partition name is spelled. Zero when
+  /// there is no partition.
+  unsigned PartitionColon = 0, PartitionBegin = 0, PartitionEnd = 0;
+
+  /// Whether \param Offset is in the partition (the colon belongs to the
+  /// name in front of it, what follows the colon to the partition).
+  bool isInPartition(unsigned Offset) const {
+    return PartitionEnd && (Name.empty() ? Offset >= PartitionColon
+                                         : Offset > PartitionColon);
+  }
 };
 
-/// The module names that the declarations of \param Code spell, in order. A
+/// The names that the declarations of \param Code spell, in order. A
 /// declaration begins its line ([cpp.module], [cpp.import]): `[export] module
-/// N [:P] ... ;` and `[export] import N [:P] ... ;`. `import :P;`, `module;`,
-/// `module :private;`, header units, text of comments and literals and
-/// declarations that do not begin their line are not names.
+/// N [:P] ... ;` and `[export] import N ... ;` or `[export] import :P ... ;`.
+/// `module;`, `module :private;`, header units, text of comments and literals
+/// and declarations that do not begin their line are not names.
 std::vector<ModuleNameSpelling> moduleNameSpellings(llvm::StringRef Code);
+
+/// The name of the module that the unit \param Code is a unit of (the name of
+/// its module-declaration), if it is one.
+std::optional<std::string> moduleOfUnit(llvm::StringRef Code);
 
 /// The module-declaration and the import-declarations of \param Code, as
 /// spelled ("module A.B:P", "import C", "import :P"), in order. What a unit
@@ -66,6 +82,10 @@ std::optional<ModuleNameSpelling> moduleNameSpellingAt(llvm::StringRef Code,
 /// Returns the reason when not.
 llvm::Error validateModuleName(llvm::StringRef Name);
 
+/// Whether \param Name can be the name of a partition: the same, except that
+/// the rule about `std` is for the names of modules.
+llvm::Error validatePartitionName(llvm::StringRef Name);
+
 /// The files under \param Roots (read through \param FS) that can spell the
 /// name of a module: sources, module units and headers, found by their
 /// extension; not the directories of build products. A header may import a
@@ -81,9 +101,24 @@ findFilesThatCanImport(llvm::ArrayRef<std::string> Roots, const ThreadsafeFS &FS
 /// files). The number of files is not limited: the rename of a module changes
 /// every file that imports it, and a rename that stops half way leaves the
 /// project broken.
+///
+/// The rename is refused when a module declaration in \param Files already
+/// names \param NewName.
 llvm::Expected<FileEdits>
 renameModuleInFiles(llvm::StringRef Name, llvm::StringRef NewName,
                     llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS);
+
+/// The edits that rename the partition \param Partition of the module \param
+/// Module to \param NewPartition: the module declarations `Module:Partition`
+/// and the imports `import :Partition;` of the units of \param Module. A file
+/// without a module declaration (a header) that spells `import :Partition;`
+/// is edited when it can belong to \param Module only: no other module has a
+/// partition of that name. The rename is refused when \param Module already
+/// has a partition \param NewPartition.
+llvm::Expected<FileEdits>
+renamePartitionInFiles(llvm::StringRef Module, llvm::StringRef Partition,
+                       llvm::StringRef NewPartition,
+                       llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS);
 
 } // namespace clangd
 } // namespace clang
