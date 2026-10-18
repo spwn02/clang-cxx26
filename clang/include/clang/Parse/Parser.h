@@ -1145,6 +1145,8 @@ private:
   void CodeCompletePreprocessorExpression() override;
   void CodeCompleteMacroArgument(IdentifierInfo *Macro, MacroInfo *MacroInfo,
                                  unsigned ArgumentIndex) override;
+  void CodeCompleteEmbedParameter(llvm::StringRef Scope,
+                                  llvm::ArrayRef<llvm::StringRef> Present) override;
   void CodeCompleteIncludedFile(llvm::StringRef Dir, bool IsAngled) override;
   void CodeCompleteNaturalLanguage() override;
 

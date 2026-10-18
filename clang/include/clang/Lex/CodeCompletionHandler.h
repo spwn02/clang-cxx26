@@ -13,6 +13,7 @@
 #ifndef LLVM_CLANG_LEX_CODECOMPLETIONHANDLER_H
 #define LLVM_CLANG_LEX_CODECOMPLETIONHANDLER_H
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace clang {
@@ -60,6 +61,16 @@ public:
   virtual void CodeCompleteMacroArgument(IdentifierInfo *Macro,
                                          MacroInfo *MacroInfo,
                                          unsigned ArgumentIndex) { }
+
+  /// Callback invoked when performing code completion where the name of an
+  /// embed parameter is expected, after the resource of an \#embed directive or
+  /// of a __has_embed expression.
+  ///
+  /// \param Scope The prefix of a prefixed parameter that was typed ("clang"
+  /// in `clang::`), empty for the name of a standard parameter.
+  /// \param Present The parameters that are given already (normalized).
+  virtual void CodeCompleteEmbedParameter(llvm::StringRef Scope,
+                                          llvm::ArrayRef<llvm::StringRef> Present) {}
 
   /// Callback invoked when performing code completion inside the filename
   /// part of an #include directive. (Also #import, #include_next, etc).

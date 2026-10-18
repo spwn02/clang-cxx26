@@ -3374,6 +3374,36 @@ TEST(CompletionTest, IncludedCompletionKinds) {
                     has("bar.h\"", CompletionItemKind::File)));
 }
 
+TEST(CompletionTest, EmbedParameters) {
+  // [cpp.embed.param]: after the resource of #embed and in __has_embed.
+  auto Names = [](const CodeCompleteResult &R) {
+    std::vector<std::string> Result;
+    for (const auto &C : R.Completions)
+      Result.push_back(C.Name);
+    return Result;
+  };
+  auto Complete = [&](llvm::StringRef Code) {
+    Annotations Test(Code);
+    auto TU = TestTU::withCode(Test.code());
+    TU.AdditionalFiles["data.bin"] = "x";
+    TU.ExtraArgs = {"-std=c++26"};
+    return Names(completions(TU, Test.point()));
+  };
+  EXPECT_THAT(Complete("unsigned char a[] = {\n#embed \"data.bin\" ^\n};"),
+              testing::IsSupersetOf({"limit", "prefix", "suffix", "if_empty",
+                                     "clang::offset"}));
+  // One that is given is not offered again; the prefix filters.
+  EXPECT_THAT(Complete("unsigned char a[] = {\n#embed \"data.bin\" "
+                       "limit(1) pre^\n};"),
+              testing::AllOf(testing::Contains("prefix"),
+                             testing::Not(testing::Contains("limit")),
+                             testing::Not(testing::Contains("suffix"))));
+  EXPECT_THAT(Complete("unsigned char a[] = {\n#embed \"data.bin\" clang::^\n};"),
+              testing::Contains("offset"));
+  EXPECT_THAT(Complete("#if __has_embed(\"data.bin\" ^)\n#endif"),
+              testing::Contains("limit"));
+}
+
 TEST(CompletionTest, NoCrashAtNonAlphaIncludeHeader) {
   completions(
       R"cpp(

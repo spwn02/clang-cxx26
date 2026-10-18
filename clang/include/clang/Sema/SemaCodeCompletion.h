@@ -234,6 +234,8 @@ public:
   void CodeCompletePreprocessorMacroArgument(Scope *S, IdentifierInfo *Macro,
                                              MacroInfo *MacroInfo,
                                              unsigned Argument);
+  void CodeCompleteEmbedParameter(llvm::StringRef Scope,
+                                  llvm::ArrayRef<llvm::StringRef> Present);
   void CodeCompleteIncludedFile(llvm::StringRef Dir, bool IsAngled);
   void CodeCompleteNaturalLanguage();
   void CodeCompleteAvailabilityPlatformName();

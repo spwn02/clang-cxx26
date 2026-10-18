@@ -69,6 +69,7 @@ bool CodeCompletionContext::wantConstructorResults() const {
   case CCC_MacroNameUse:
   case CCC_PreprocessorExpression:
   case CCC_PreprocessorDirective:
+  case CCC_PreprocessorEmbedParameter:
   case CCC_NaturalLanguage:
   case CCC_SelectorName:
   case CCC_TypeQualifiers:
@@ -142,6 +143,8 @@ StringRef clang::getCompletionKindString(CodeCompletionContext::Kind Kind) {
     return "PreprocessorExpression";
   case CCKind::CCC_PreprocessorDirective:
     return "PreprocessorDirective";
+  case CCKind::CCC_PreprocessorEmbedParameter:
+    return "PreprocessorEmbedParameter";
   case CCKind::CCC_NaturalLanguage:
     return "NaturalLanguage";
   case CCKind::CCC_SelectorName:

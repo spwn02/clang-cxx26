@@ -2288,6 +2288,11 @@ void Parser::CodeCompleteMacroArgument(IdentifierInfo *Macro,
       getCurScope(), Macro, MacroInfo, ArgumentIndex);
 }
 
+void Parser::CodeCompleteEmbedParameter(
+    llvm::StringRef Scope, llvm::ArrayRef<llvm::StringRef> Present) {
+  Actions.CodeCompletion().CodeCompleteEmbedParameter(Scope, Present);
+}
+
 void Parser::CodeCompleteIncludedFile(llvm::StringRef Dir, bool IsAngled) {
   Actions.CodeCompletion().CodeCompleteIncludedFile(Dir, IsAngled);
 }

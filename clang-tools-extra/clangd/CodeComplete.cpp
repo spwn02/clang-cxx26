@@ -862,6 +862,7 @@ bool contextAllowsIndex(enum CodeCompletionContext::Kind K) {
   case CodeCompletionContext::CCC_MacroNameUse:
   case CodeCompletionContext::CCC_PreprocessorExpression:
   case CodeCompletionContext::CCC_PreprocessorDirective:
+  case CodeCompletionContext::CCC_PreprocessorEmbedParameter:
   case CodeCompletionContext::CCC_SelectorName:
   case CodeCompletionContext::CCC_TypeQualifiers:
   case CodeCompletionContext::CCC_ObjCInstanceMessage:

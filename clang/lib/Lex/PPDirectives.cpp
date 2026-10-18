@@ -3690,6 +3690,27 @@ Preprocessor::LexEmbedParameters(Token &CurTok, bool ForHasEmbed) {
           DiscardUntilEndOfDirective(CurTok);
       };
 
+  // Code completion where the name of a parameter is expected.
+  auto CompleteParameterName = [&](StringRef Scope) {
+    if (CodeComplete) {
+      SmallVector<StringRef, 5> Present;
+      if (Result.MaybeLimitParam)
+        Present.push_back("limit");
+      if (Result.MaybeOffsetParam)
+        Present.push_back("clang::offset");
+      if (Result.MaybePrefixParam)
+        Present.push_back("prefix");
+      if (Result.MaybeSuffixParam)
+        Present.push_back("suffix");
+      if (Result.MaybeIfEmptyParam)
+        Present.push_back("if_empty");
+      CodeComplete->CodeCompleteEmbedParameter(Scope, Present);
+    }
+    setCodeCompletionReached();
+    if (CurTok.isNot(tok::eod))
+      DiscardUntilEndOfDirective(CurTok);
+  };
+
   auto ExpectOrDiagAndSkipToEOD = [&](tok::TokenKind Kind) {
     if (CurTok.isNot(Kind)) {
       Diag(CurTok, diag::err_expected) << Kind;
@@ -3711,6 +3732,11 @@ Preprocessor::LexEmbedParameters(Token &CurTok, bool ForHasEmbed) {
   // pp-prefixed-parameter:
   //   identifier :: identifier
   auto LexPPParameterName = [&]() -> std::optional<std::string> {
+    if (CurTok.is(tok::code_completion)) {
+      CompleteParameterName("");
+      return std::nullopt;
+    }
+
     // We expect the current token to be an identifier; if it's not, things
     // have gone wrong.
     if (!ExpectOrDiagAndSkipToEOD(tok::identifier))
@@ -3724,6 +3750,10 @@ Preprocessor::LexEmbedParameters(Token &CurTok, bool ForHasEmbed) {
     if (CurTok.is(tok::coloncolon)) {
       // We found a ::, so lex another identifier token.
       LexNonComment(CurTok);
+      if (CurTok.is(tok::code_completion)) {
+        CompleteParameterName(Prefix->getName());
+        return std::nullopt;
+      }
       if (!ExpectOrDiagAndSkipToEOD(tok::identifier))
         return std::nullopt;
 

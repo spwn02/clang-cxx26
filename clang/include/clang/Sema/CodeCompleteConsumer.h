@@ -295,6 +295,11 @@ public:
     /// expected.
     CCC_PreprocessorDirective,
 
+    /// Code completion occurred where the name of an embed parameter is
+    /// expected: after the resource of a \#embed directive or a
+    /// __has_embed expression.
+    CCC_PreprocessorEmbedParameter,
+
     /// Code completion occurred in a context where natural language is
     /// expected, e.g., a comment or string literal.
     ///

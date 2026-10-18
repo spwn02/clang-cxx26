@@ -10424,6 +10424,52 @@ void SemaCodeCompletion::CodeCompletePreprocessorMacroArgument(
   // for the expanded tokens.
 }
 
+// The names of the embed parameters ([cpp.embed.param]) that follow the
+// resource of a #embed directive or a __has_embed expression, with the
+// argument in parentheses as a placeholder. C++26 specifies limit, prefix,
+// suffix and if_empty (without the underscored spellings of C23);
+// clang::offset is the one that the compiler accepts besides.
+void SemaCodeCompletion::CodeCompleteEmbedParameter(
+    llvm::StringRef Scope, llvm::ArrayRef<llvm::StringRef> Present) {
+  ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
+                        CodeCompleter->getCodeCompletionTUInfo(),
+                        CodeCompletionContext::CCC_PreprocessorEmbedParameter);
+  Results.EnterNewScope();
+  auto Add = [&](llvm::StringRef Parameter, llvm::StringRef Typed,
+                 llvm::StringRef Argument) {
+    // Each parameter appears at most once.
+    if (llvm::is_contained(Present, Parameter))
+      return;
+    CodeCompletionBuilder Builder(Results.getAllocator(),
+                                  Results.getCodeCompletionTUInfo());
+    Builder.AddTypedTextChunk(Results.getAllocator().CopyString(Typed));
+    Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+    Builder.AddPlaceholderChunk(Results.getAllocator().CopyString(Argument));
+    Builder.AddChunk(CodeCompletionString::CK_RightParen);
+    Results.AddResult(CodeCompletionResult(Builder.TakeString(), CCP_CodePattern));
+  };
+  if (Scope.empty()) {
+    const bool Underscored = getLangOpts().C23; // C23 6.10p5.
+    static const std::pair<llvm::StringRef, llvm::StringRef> Standard[] = {
+        {"limit", "count"},
+        {"prefix", "tokens"},
+        {"suffix", "tokens"},
+        {"if_empty", "tokens"}};
+    for (auto [Name, Argument] : Standard) {
+      Add(Name, Name, Argument);
+      if (Underscored)
+        Add(Name, ("__" + Name + "__").str(), Argument);
+    }
+    Add("clang::offset", "clang::offset", "count");
+  } else if (Scope == "clang") {
+    Add("clang::offset", "offset", "count");
+  }
+  Results.ExitScope();
+  HandleCodeCompleteResults(&SemaRef, CodeCompleter,
+                            Results.getCompletionContext(), Results.data(),
+                            Results.size());
+}
+
 // This handles completion inside an #include filename, e.g. #include <foo/ba
 // We look for the directory "foo" under each directory on the include path,
 // list its files, and reassemble the appropriate #include.
