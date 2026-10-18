@@ -5,6 +5,7 @@
 // RUN: rm -rf %t && split-file %s %t
 // RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %t/gmf.cpp
 // RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %t/missing-semi.cpp
+// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %t/twice.cpp
 
 //--- gmf.cpp
 module;
@@ -21,3 +22,9 @@ module :private
 export module d
 // expected-error@* {{expected ';' after module name}}
 // expected-error@* {{module 'e' not found}}
+//--- twice.cpp
+export module d;
+export namespace d {}
+module :private;
+export module d; // expected-error {{translation unit contains multiple module declarations}}
+// expected-note@-2 {{previous module declaration is here}}
