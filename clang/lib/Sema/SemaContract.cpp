@@ -590,7 +590,12 @@ bool Sema::CheckEquivalentContractSequence(FunctionDecl *OldDecl,
     OrigDecl = OldDecl->getCanonicalDecl();
   }
 
-  assert(!NewDecl->getContracts()->isInvalidDecl());
+  // The contracts of the new declaration were malformed (diagnosed when they
+  // were parsed): there is nothing to compare them with.
+  if (NewDecl->getContracts()->isInvalidDecl()) {
+    NewDecl->setInvalidDecl(true);
+    return true;
+  }
   if (OrigDecl->hasContracts() && OrigDecl->getContracts()->isInvalidDecl()) {
     NewDecl->getContracts()->setInvalidDecl(true);
     NewDecl->setInvalidDecl(true);
