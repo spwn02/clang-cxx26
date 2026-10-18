@@ -6385,7 +6385,8 @@ bool Sema::diagnoseQualifiedDeclaration(CXXScopeSpec &SS, DeclContext *DC,
   }
 
   DeclContext *Cur = CurContext;
-  while (isa<LinkageSpecDecl>(Cur) || isa<CapturedDecl>(Cur))
+  while (isa<LinkageSpecDecl>(Cur) || isa<CapturedDecl>(Cur) ||
+         isa<ExpansionStmtDecl>(Cur))
     Cur = Cur->getParent();
 
   // If the user provided a superfluous scope specifier that refers back to the
@@ -7553,6 +7554,10 @@ static bool shouldConsiderLinkage(const FunctionDecl *FD) {
       isa<OMPDeclareReductionDecl>(DC) || isa<OMPDeclareMapperDecl>(DC))
     return true;
   if (DC->isRecord())
+    return false;
+  // The heading of an expansion statement (a function declared there is an
+  // error that is diagnosed later).
+  if (isa<ExpansionStmtDecl>(DC))
     return false;
   llvm_unreachable("Unexpected context");
 }

@@ -22,3 +22,16 @@ void c() {
 void d() {
   template for (constexpr auto x : {1, 2}) { static_assert(x > 0); } // fine
 }
+
+// A declarator in the heading that is a function or has a qualifier: the
+// context of the heading is the expansion statement, not a function body.
+namespace ns {}
+void e() {
+  template for (int f(int) : {1, 2}) { } // expected-error {{for range declaration must declare a variable}}
+}
+void g() {
+  template for (int ns::b : {1, 2}) { } // expected-error {{definition or redeclaration of 'b' not allowed inside a function}} expected-error {{no member named 'b' in namespace 'ns'}}
+}
+void h() {
+  template for (int ns::b(int) : {1, 2}) { } // expected-error {{definition or redeclaration of 'b' not allowed inside a function}} expected-error {{for range declaration must declare a variable}}
+}
