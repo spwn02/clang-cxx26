@@ -2050,7 +2050,10 @@ static QualType typeForNode(const ASTContext &Ctx, const HeuristicResolver *H,
       }
       // Look inside templates.
       QualType VisitTemplateDecl(const TemplateDecl *D) {
-        return Visit(D->getTemplatedDecl());
+        // A concept has no templated declaration (and no type).
+        if (const NamedDecl *Templated = D->getTemplatedDecl())
+          return Visit(Templated);
+        return QualType();
       }
     } V(Ctx);
     return V.Visit(D);

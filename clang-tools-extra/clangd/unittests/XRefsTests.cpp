@@ -2063,6 +2063,22 @@ TEST(FindType, Definition) {
               ElementsAre(sym("X", A.range("decl"), A.range("def"))));
 }
 
+TEST(FindType, Concept) {
+  // A concept has no templated declaration and no type: nothing is found (the
+  // request used to crash).
+  for (const llvm::StringRef Case : {
+           "template <class T> concept ^Addable = true;",
+           "template <class T> con^cept Addable = requires(T a) { a + a; };",
+           "template <class T> concept Addable = true; template <Add^able T> void f(T);",
+       }) {
+    Annotations A(Case);
+    auto TU = TestTU::withCode(A.code().str());
+    TU.ExtraArgs = {"-std=c++20"};
+    ParsedAST AST = TU.build();
+    EXPECT_THAT(findType(AST, A.point(), nullptr), IsEmpty()) << Case;
+  }
+}
+
 TEST(FindType, Index) {
   Annotations Def(R"cpp(
     // This definition is only available through the index.
