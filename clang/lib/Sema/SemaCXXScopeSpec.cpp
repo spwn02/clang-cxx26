@@ -1036,6 +1036,12 @@ bool Sema::ShouldEnterDeclaratorScope(Scope *S, const CXXScopeSpec &SS) {
   if (isa<ObjCContainerDecl>(CurContext) || isa<ObjCMethodDecl>(CurContext))
     return false;
 
+  // A parameter is never qualified ('[](auto ::x' at the start of a lambda
+  // asserted in EnterDeclaratorContext): its scope is not that of a class or a
+  // namespace.
+  if (S->isFunctionPrototypeScope())
+    return false;
+
   // There are only two places a well-formed program may qualify a
   // declarator: first, when defining a namespace or class member
   // out-of-line, and second, when naming an explicitly-qualified
