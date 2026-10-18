@@ -96,7 +96,7 @@ private:
         Base.view(std::nullopt));
     auto Mem = llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
     for (const auto &Draft : Drafts)
-      Mem->addFile(Draft.getKey(), 0,
+      Mem->addFile(Draft.getKey(), time_t(Drafts.size() + Draft.getValue().size()),
                    llvm::MemoryBuffer::getMemBufferCopy(Draft.getValue()));
     OFS->pushOverlay(Mem);
     return OFS;
@@ -444,6 +444,28 @@ TEST_F(PrerequisiteModulesTests, AModuleUnitThatIsOpenInTheEditorAndNotSaved) {
   HeaderSearchOptions HSOpts(TestDir);
   Info->adjustHeaderSearchOptions(HSOpts);
   EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("Fresh"));
+}
+
+TEST_F(PrerequisiteModulesTests, AModuleUnitThatIsEditedRepeatedlyInTheEditor) {
+  // The text of an open file lives in a file system that is gone after each
+  // request, and the scanner keeps what it read: a later scan of the same file
+  // must read its new text, not the text of the earlier one (it crashed with
+  // "Buffer is not null terminated").
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("Use.cpp", "import Fresh;\n");
+  SmallString<256> Fresh(TestDir);
+  llvm::sys::path::append(Fresh, "Fresh.cppm");
+
+  FileSystemWithDrafts Dirty(FS);
+  auto MDB = CDB.getProjectModules(getFullPath("Use.cpp"));
+  ASSERT_TRUE(MDB);
+  MDB->setFileSystem(Dirty);
+  for (unsigned I = 0; I < 12; ++I) {
+    std::string Name = "Fresh" + std::to_string(I);
+    Dirty.setDraft(Fresh, "export module " + Name + ";\n" +
+                              std::string(I * 37, '\n') + "export int f();\n");
+    EXPECT_EQ(MDB->getModuleNameForSource(Fresh), Name);
+  }
 }
 
 TEST_F(PrerequisiteModulesTests, AModuleUnitThatExistsOnlyInTheEditor) {

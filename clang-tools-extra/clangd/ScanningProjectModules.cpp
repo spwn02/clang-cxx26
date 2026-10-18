@@ -16,9 +16,11 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Regex.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include <chrono>
 #include <thread>
 #include <mutex>
+#include <optional>
 #include <set>
 
 namespace clang::clangd {
@@ -51,6 +53,52 @@ public:
 std::shared_ptr<ModuleScanCache> createModuleScanCache() {
   return std::make_shared<ModuleScanCache>();
 }
+
+namespace {
+/// A file system whose files hand out buffers that own their text. The buffer
+/// of a file of an in-memory file system (the unsaved text of the editor) is a
+/// view into that file system, and the scanner keeps what it read for longer
+/// than the file system lives.
+class OwningBufferFS : public llvm::vfs::ProxyFileSystem {
+  class File : public llvm::vfs::File {
+  public:
+    File(std::unique_ptr<llvm::vfs::File> Underlying)
+        : Underlying(std::move(Underlying)) {}
+    llvm::ErrorOr<llvm::vfs::Status> status() override {
+      return Underlying->status();
+    }
+    llvm::ErrorOr<std::string> getName() override {
+      return Underlying->getName();
+    }
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>>
+    getBuffer(const llvm::Twine &Name, int64_t FileSize,
+              bool RequiresNullTerminator, bool IsVolatile) override {
+      auto Buffer = Underlying->getBuffer(Name, FileSize, RequiresNullTerminator,
+                                          IsVolatile);
+      if (!Buffer)
+        return Buffer;
+      return llvm::MemoryBuffer::getMemBufferCopy(
+          (*Buffer)->getBuffer(), (*Buffer)->getBufferIdentifier());
+    }
+    std::error_code close() override { return Underlying->close(); }
+
+  private:
+    std::unique_ptr<llvm::vfs::File> Underlying;
+  };
+
+public:
+  explicit OwningBufferFS(llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS)
+      : ProxyFileSystem(std::move(FS)) {}
+
+  llvm::ErrorOr<std::unique_ptr<llvm::vfs::File>>
+  openFileForRead(const llvm::Twine &Path) override {
+    auto Opened = ProxyFileSystem::openFileForRead(Path);
+    if (!Opened)
+      return Opened;
+    return std::unique_ptr<llvm::vfs::File>(new File(std::move(*Opened)));
+  }
+};
+} // namespace
 
 namespace {
 
@@ -318,6 +366,10 @@ ModuleDependencyScanner::scan(PathRef FilePath,
       return std::nullopt;
     return ModuleDependencyInfo{Scan.ModuleName, Scan.RequiredModules};
   };
+  // A file that is scanned again changed since (or its command did): what the
+  // scanner's service kept of it is out of date, so it is scanned with a
+  // service of its own.
+  bool Rescan = false;
   if (CanCache) {
     std::lock_guard<std::mutex> Lock(Cache->Mu);
     auto It = Cache->Files.find(FilePath);
@@ -325,11 +377,18 @@ ModuleDependencyScanner::scan(PathRef FilePath,
         It->second.ModificationTime == Key.ModificationTime &&
         It->second.Size == Key.Size && It->second.CommandHash == Key.CommandHash)
       return ToInfo(It->second);
+    Rescan = It != Cache->Files.end();
   }
 
   llvm::SmallString<128> FilePathDir(FilePath);
   llvm::sys::path::remove_filename(FilePathDir);
-  DependencyScanningTool ScanningTool(Service, TFS->view(FilePathDir));
+  std::optional<dependencies::DependencyScanningService> OwnService;
+  if (Rescan)
+    OwnService.emplace(dependencies::ScanningMode::CanonicalPreprocessing,
+                       dependencies::ScanningOutputFormat::P1689);
+  DependencyScanningTool ScanningTool(
+      Rescan ? *OwnService : Service,
+      llvm::makeIntrusiveRefCnt<OwningBufferFS>(TFS->view(FilePathDir)));
 
   std::string S;
   llvm::raw_string_ostream OS(S);
