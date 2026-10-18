@@ -7,7 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "ModuleRename.h"
+#include "support/Logger.h"
 #include "support/ThreadsafeFS.h"
+#include <map>
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
@@ -322,6 +324,121 @@ TEST_F(ModuleRenameFilesTest, PartitionImportInAHeader) {
   ASSERT_FALSE(bool(Ambiguous));
   EXPECT_THAT(llvm::toString(Ambiguous.takeError()),
               testing::HasSubstr("can be for the module"));
+}
+
+// The preprocessor of the compile command of a unit that is a source of the
+// project (not a header), with extra flags by file.
+RenameEnvironment environmentOf(llvm::StringRef Dir, const ThreadsafeFS &FS,
+                                std::map<std::string, std::vector<std::string>>
+                                    Flags = {}) {
+  RenameEnvironment Env;
+  for (auto &[File, Fs] : Flags)
+    for (llvm::StringRef F : Fs)
+      if (F.starts_with("-D"))
+        Env.CommandLineMacros.insert(F.drop_front(2).split('=').first.str());
+  Env.ResolveImports = [Dir = Dir.str(), &FS, Flags](llvm::StringRef File)
+      -> llvm::Expected<std::vector<ResolvedImport>> {
+    if (!File.ends_with(".cpp"))
+      return error("{0} is not a source of the project", File);
+    tooling::CompileCommand Cmd;
+    Cmd.Directory = Dir;
+    Cmd.Filename = File.str();
+    Cmd.CommandLine = {"clang++", "-std=c++20", "-fsyntax-only"};
+    auto It = Flags.find(File.str());
+    if (It != Flags.end())
+      Cmd.CommandLine.insert(Cmd.CommandLine.end(), It->second.begin(),
+                             It->second.end());
+    Cmd.CommandLine.push_back(File.str());
+    return resolveImports(File, Cmd, FS);
+  };
+  return Env;
+}
+
+TEST_F(ModuleRenameFilesTest, ImportNamedByAMacro) {
+  // [cpp.import]: the tokens after `import` are macro replaced, so `import MOD;`
+  // imports Foo; the declaration `module Foo;` is never macro replaced.
+  std::string M = write("M.cppm", "export module Foo;\n");
+  std::string Cfg = write("cfg.h", "#define MOD Foo\n");
+  std::string U = write("U.cpp", "#include \"cfg.h\"\nimport MOD;\nimport Foo;\n");
+  auto Edits = renameModuleInFiles("Foo", "Bar", {M, Cfg, U}, FS,
+                                   environmentOf(Dir, FS));
+  ASSERT_TRUE(bool(Edits)) << llvm::toString(Edits.takeError());
+  EXPECT_EQ(Edits->size(), 3u);
+  // The name is spelled in the macro: that is where it changes.
+  EXPECT_EQ(applied((*Edits)[Cfg]), "#define MOD Bar\n");
+  EXPECT_EQ(applied((*Edits)[U]),
+            "#include \"cfg.h\"\nimport MOD;\nimport Bar;\n");
+  EXPECT_EQ(applied((*Edits)[M]), "export module Bar;\n");
+}
+
+TEST_F(ModuleRenameFilesTest, ImportThatSpellsAModuleNameButIsAMacro) {
+  // `import Baz;` with `#define Baz Other` imports Other, not Baz.
+  std::string B = write("B.cppm", "export module Baz;\n");
+  std::string O = write("O.cppm", "export module Other;\n");
+  std::string V = write("V.cpp", "#define Baz Other\nimport Baz;\n");
+  auto Edits = renameModuleInFiles("Baz", "Qux", {B, O, V}, FS,
+                                   environmentOf(Dir, FS));
+  ASSERT_TRUE(bool(Edits)) << llvm::toString(Edits.takeError());
+  EXPECT_EQ(Edits->size(), 1u);
+  EXPECT_TRUE(Edits->count(B));
+  // Renaming Other changes the macro, which is where the import spells it.
+  auto Other = renameModuleInFiles("Other", "Elsewhere", {B, O, V}, FS,
+                                   environmentOf(Dir, FS));
+  ASSERT_TRUE(bool(Other)) << llvm::toString(Other.takeError());
+  EXPECT_EQ(applied((*Other)[V]), "#define Baz Elsewhere\nimport Baz;\n");
+}
+
+TEST_F(ModuleRenameFilesTest, NameSpelledInPieces) {
+  std::string M = write("M.cppm", "export module Foo.Meta;\n");
+  std::string Cfg = write("cfg.h", "#define P Foo\n");
+  std::string U = write("U.cpp", "#include \"cfg.h\"\nimport P.Meta;\n");
+  // As many identifiers as before: each one is replaced where it is spelled.
+  auto Same = renameModuleInFiles("Foo.Meta", "X.Y", {M, Cfg, U}, FS,
+                                  environmentOf(Dir, FS));
+  ASSERT_TRUE(bool(Same)) << llvm::toString(Same.takeError());
+  EXPECT_EQ(applied((*Same)[Cfg]), "#define P X\n");
+  EXPECT_EQ(applied((*Same)[U]), "#include \"cfg.h\"\nimport P.Y;\n");
+  // Another number: the pieces are not one name to replace.
+  auto Other = renameModuleInFiles("Foo.Meta", "Z", {M, Cfg, U}, FS,
+                                   environmentOf(Dir, FS));
+  ASSERT_FALSE(bool(Other));
+  EXPECT_THAT(llvm::toString(Other.takeError()),
+              testing::HasSubstr("spells the name in pieces"));
+}
+
+TEST_F(ModuleRenameFilesTest, MacroImportsThatCannotBeRenamed) {
+  std::string M = write("M.cppm", "export module Foo;\n");
+  // A function-like macro.
+  std::string F = write("F.cpp", "#define NAME(x) x\nimport NAME(Foo);\n");
+  auto Fn = renameModuleInFiles("Foo", "Bar", {M, F}, FS, environmentOf(Dir, FS));
+  ASSERT_FALSE(bool(Fn));
+  EXPECT_THAT(llvm::toString(Fn.takeError()),
+              testing::HasSubstr("cannot be followed"));
+  // A header that no unit reads: not told.
+  std::string H = write("H.hpp", "#define MOD Foo\nimport MOD;\n");
+  auto Hdr = renameModuleInFiles("Foo", "Bar", {M, H}, FS, environmentOf(Dir, FS));
+  ASSERT_FALSE(bool(Hdr));
+  EXPECT_THAT(llvm::toString(Hdr.takeError()),
+              testing::HasSubstr("not read by the preprocessor"));
+  // The name comes from the command line.
+  std::string C = write("C.cpp", "import MODN;\n");
+  auto Cmd = renameModuleInFiles(
+      "Foo", "Bar", {M, C}, FS,
+      environmentOf(Dir, FS, {{C, {"-DMODN=Foo"}}}));
+  ASSERT_FALSE(bool(Cmd));
+  EXPECT_THAT(llvm::toString(Cmd.takeError()),
+              testing::HasSubstr("macro of the command line"));
+}
+
+TEST_F(ModuleRenameFilesTest, PartitionImportNamedByAMacro) {
+  std::string P = write("P.cppm", "export module A:Part;\n");
+  std::string Cfg = write("cfg.h", "#define PART Part\n");
+  std::string I = write("I.cpp", "module A;\n#include \"cfg.h\"\nimport :PART;\n");
+  auto Edits = renamePartitionInFiles("A", "Part", "Piece", {P, Cfg, I}, FS,
+                                      environmentOf(Dir, FS));
+  ASSERT_TRUE(bool(Edits)) << llvm::toString(Edits.takeError());
+  EXPECT_EQ(applied((*Edits)[Cfg]), "#define PART Piece\n");
+  EXPECT_EQ(applied((*Edits)[P]), "export module A:Piece;\n");
 }
 
 } // namespace

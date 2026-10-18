@@ -739,11 +739,33 @@ void ClangdServer::rename(PathRef File, Position Pos, llvm::StringRef NewName,
       if (!Found)
         return CB(Found.takeError());
       Files.insert(Files.end(), Found->begin(), Found->end());
+      // The tokens after `import` are macro replaced ([cpp.import]): the
+      // macros of the command lines are known here, the others by the files,
+      // and what the macros make of an import by the preprocessor of the unit
+      // that has it.
+      RenameEnvironment Env;
+      for (const std::string &Source : Files)
+        if (auto Cmd = CDB.getCompileCommand(Source))
+          for (size_t I = 0; I < Cmd->CommandLine.size(); ++I) {
+            llvm::StringRef Arg = Cmd->CommandLine[I];
+            if (Arg == "-D" && I + 1 < Cmd->CommandLine.size())
+              Arg = llvm::StringRef(Cmd->CommandLine[++I]);
+            else if (!Arg.consume_front("-D"))
+              continue;
+            Env.CommandLineMacros.insert(Arg.split('=').first.str());
+          }
+      Env.ResolveImports = [this](llvm::StringRef Source)
+          -> llvm::Expected<std::vector<ResolvedImport>> {
+        auto Cmd = CDB.getCompileCommand(Source);
+        if (!Cmd)
+          return error("no compile command");
+        return resolveImports(Source, *Cmd, *DirtyFS);
+      };
       auto Edits = IsPartition
                        ? renamePartitionInFiles(Target.Module, Target.Partition,
-                                                NewName, Files, *DirtyFS)
+                                                NewName, Files, *DirtyFS, Env)
                        : renameModuleInFiles(Target.Module, NewName, Files,
-                                             *DirtyFS);
+                                             *DirtyFS, Env);
       if (!Edits)
         return CB(Edits.takeError());
       Target.Result.GlobalChanges = std::move(*Edits);

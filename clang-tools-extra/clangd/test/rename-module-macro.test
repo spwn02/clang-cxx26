@@ -1,0 +1,50 @@
+# The tokens after `import` are processed as normal text ([cpp.import]): with
+# `#define MOD Foo`, `import MOD;` imports Foo, and the rename of Foo changes
+# the macro, where the name is spelled. A module declaration is never macro
+# replaced ([cpp.module]).
+#
+# Windows have different escaping modes.
+# UNSUPPORTED: system-windows
+#
+# RUN: rm -fr %t
+# RUN: mkdir -p %t
+# RUN: split-file %s %t
+#
+# RUN: sed -e "s|DIR|%/t|g" %t/compile_commands.json.tmpl > %t/compile_commands.json.tmp
+# RUN: sed -e "s|CLANG_CC|%clang|g" %t/compile_commands.json.tmp > %t/compile_commands.json
+# RUN: sed -e "s|DIR|%/t|g" %t/rename.jsonrpc.tmpl > %t/rename.jsonrpc
+#
+# RUN: clangd -experimental-modules-support -lit-test < %t/rename.jsonrpc \
+# RUN:      | FileCheck -strict-whitespace %t/rename.jsonrpc
+
+#--- Foo.cppm
+export module Foo;
+
+#--- cfg.h
+#define MOD Foo
+
+#--- Use.cpp
+#include "cfg.h"
+import MOD;
+
+#--- compile_commands.json.tmpl
+[
+    { "directory": "DIR", "command": "CLANG_CC -std=c++20 -c DIR/Use.cpp", "file": "DIR/Use.cpp" },
+    { "directory": "DIR", "command": "CLANG_CC -std=c++20 DIR/Foo.cppm --precompile -o DIR/Foo.pcm", "file": "DIR/Foo.cppm" }
+]
+
+#--- rename.jsonrpc.tmpl
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":123,"rootPath":"DIR","capabilities":{},"trace":"off"}}
+---
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://DIR/Foo.cppm","languageId":"cpp","version":1,"text":"export module Foo;\n"}}}
+---
+{"jsonrpc":"2.0","id":1,"method":"textDocument/rename","params":{"textDocument":{"uri":"file://DIR/Foo.cppm"},"position":{"line":0,"character":15},"newName":"Bar"}}
+#      CHECK:  "id": 1,
+#      CHECK:  "changes": {
+#  CHECK-DAG:    "file://{{.*}}/Foo.cppm": [
+#  CHECK-DAG:    "file://{{.*}}/cfg.h": [
+# CHECK-NOT:     Use.cpp
+---
+{"jsonrpc":"2.0","id":2,"method":"shutdown"}
+---
+{"jsonrpc":"2.0","method":"exit"}

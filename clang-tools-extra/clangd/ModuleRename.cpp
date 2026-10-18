@@ -17,6 +17,7 @@
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Path.h"
+#include <map>
 #include <set>
 
 namespace clang {
@@ -99,6 +100,7 @@ std::vector<ModuleNameSpelling> moduleNameSpellings(llvm::StringRef Code) {
       continue;
     ModuleNameSpelling Spelling;
     Spelling.IsModuleDeclaration = Keyword == "module";
+    Spelling.Keyword = Toks[J].Begin;
     // The tokens after the keyword: [identifier ('.' identifier)*] [':'
     // identifier ('.' identifier)*]. The name ends where a partition, an
     // attribute or the semicolon begins.
@@ -282,17 +284,49 @@ namespace {
 
 struct SpelledFile {
   std::string Path;
+  std::string Real;
   std::string Code;
   std::vector<ModuleNameSpelling> Spellings;
   /// The module that the file is a unit of, if it is one.
   std::optional<std::string> Module;
 };
 
+struct Replace {
+  unsigned Begin, End;
+  std::string Text;
+  bool operator<(const Replace &O) const {
+    return std::tie(Begin, End, Text) < std::tie(O.Begin, O.End, O.Text);
+  }
+};
+
+// The names of the macros that \param Code defines.
+void collectMacroNames(llvm::StringRef Code, std::set<std::string> &Names) {
+  for (llvm::StringRef Line : llvm::split(Code, '\n')) {
+    Line = Line.ltrim(" \t");
+    if (!Line.consume_front("#"))
+      continue;
+    Line = Line.ltrim(" \t");
+    if (!Line.consume_front("define") && !Line.consume_front("undef"))
+      continue;
+    if (Line.empty() || (Line[0] != ' ' && Line[0] != '\t'))
+      continue;
+    Line = Line.ltrim(" \t");
+    size_t N = 0;
+    while (N < Line.size() && isAsciiIdentifierContinue(Line[N]))
+      ++N;
+    if (N)
+      Names.insert(Line.take_front(N).str());
+  }
+}
+
 // The files of \param Files that spell one of the \param Needles (the last
-// parts of the names that matter), read once with their declarations.
+// parts of the names that matter) or an import declaration (a macro may stand
+// for the name), read once with their declarations. \param Macros receives the
+// names of the macros that the files define.
 std::vector<SpelledFile> spelledFiles(llvm::ArrayRef<std::string> Files,
                                       const ThreadsafeFS &FS,
-                                      llvm::ArrayRef<llvm::StringRef> Needles) {
+                                      llvm::ArrayRef<llvm::StringRef> Needles,
+                                      std::set<std::string> &Macros) {
   std::vector<SpelledFile> Result;
   auto View = FS.view(std::nullopt);
   std::set<std::string> Seen;
@@ -310,10 +344,13 @@ std::vector<SpelledFile> spelledFiles(llvm::ArrayRef<std::string> Files,
     // The text is copied: the file system view does not outlive this call.
     SpelledFile Spelled;
     Spelled.Path = File;
+    Spelled.Real = std::string(Real);
     Spelled.Code = (*Buffer)->getBuffer().str();
-    if (!llvm::any_of(Needles, [&](llvm::StringRef Needle) {
-          return llvm::StringRef(Spelled.Code).contains(Needle);
-        }))
+    llvm::StringRef Code = Spelled.Code;
+    if (Code.contains("define") || Code.contains("undef"))
+      collectMacroNames(Code, Macros);
+    if (!Code.contains("import") &&
+        !llvm::any_of(Needles, [&](llvm::StringRef N) { return Code.contains(N); }))
       continue;
     Spelled.Spellings = moduleNameSpellings(Spelled.Code);
     for (const ModuleNameSpelling &S : Spelled.Spellings)
@@ -326,93 +363,247 @@ std::vector<SpelledFile> spelledFiles(llvm::ArrayRef<std::string> Files,
   return Result;
 }
 
-llvm::Expected<FileEdits> editsOf(llvm::ArrayRef<SpelledFile> Files,
-                                  std::vector<std::vector<Range>> &Ranges,
-                                  llvm::StringRef NewName) {
-  FileEdits Result;
-  for (size_t I = 0; I < Files.size(); ++I) {
-    if (Ranges[I].empty())
-      continue;
-    std::vector<SymbolRange> Occurrences;
-    for (const Range &R : Ranges[I])
-      Occurrences.emplace_back(R);
-    auto Edit = buildRenameEdit(Files[I].Path, Files[I].Code,
-                                std::move(Occurrences), NewName);
-    if (!Edit)
-      return error("failed to rename in file {0}: {1}", Files[I].Path,
-                   Edit.takeError());
-    Result.insert({Files[I].Path, std::move(*Edit)});
+// Whether a name of the import declaration \param S can stand for something
+// else than it spells: one of its identifiers is a macro.
+bool namedByMacro(const ModuleNameSpelling &S,
+                  const std::set<std::string> &Macros) {
+  if (S.IsModuleDeclaration)
+    return false; // No macro replacement in a module declaration.
+  for (llvm::StringRef Name : {llvm::StringRef(S.Name), llvm::StringRef(S.Partition)}) {
+    llvm::SmallVector<llvm::StringRef, 4> Parts;
+    Name.split(Parts, '.', -1, /*KeepEmpty=*/false);
+    for (llvm::StringRef Part : Parts)
+      if (Macros.count(Part.str()))
+        return true;
   }
-  return Result;
+  return false;
 }
 
-llvm::StringRef lastPart(llvm::StringRef Name) {
-  return Name.rsplit('.').second;
+// The edits that make the identifiers \param Ids (the places where a name is
+// spelled, perhaps in a macro) say \param NewName.
+llvm::Error identifierEdits(llvm::ArrayRef<SpelledIdentifier> Ids,
+                            llvm::StringRef NewName, llvm::StringRef Importer,
+                            std::vector<std::pair<std::string, Replace>> &Out,
+                            const std::function<llvm::StringRef(llvm::StringRef)> &TextOf) {
+  llvm::SmallVector<llvm::StringRef, 4> Parts;
+  NewName.split(Parts, '.');
+  for (const SpelledIdentifier &Id : Ids)
+    if (Id.Path.empty())
+      return error("the import in {0} gets its name from a macro of the "
+                   "command line: it cannot be renamed, nothing is renamed",
+                   Importer);
+  if (Ids.size() == Parts.size()) {
+    for (size_t I = 0; I < Ids.size(); ++I)
+      Out.push_back({Ids[I].Path, {Ids[I].Begin, Ids[I].End, Parts[I].str()}});
+    return llvm::Error::success();
+  }
+  // Another number of identifiers: only a name that is spelled in one piece
+  // (only dots and white space between its identifiers) can be replaced.
+  bool Contiguous = true;
+  for (size_t I = 1; I < Ids.size(); ++I) {
+    llvm::StringRef Text = TextOf(Ids[0].Path);
+    if (Ids[I].Path != Ids[0].Path || Ids[I].Begin < Ids[I - 1].End ||
+        Ids[I].End > Text.size() ||
+        !llvm::all_of(Text.slice(Ids[I - 1].End, Ids[I].Begin),
+                      [](char C) { return C == '.' || isWhitespace(C); }))
+      Contiguous = false;
+  }
+  if (!Contiguous)
+    return error("the import in {0} spells the name in pieces (through "
+                 "macros) that the new name does not fit, nothing is renamed",
+                 Importer);
+  Out.push_back({Ids[0].Path, {Ids[0].Begin, Ids.back().End, NewName.str()}});
+  return llvm::Error::success();
 }
 
-} // namespace
+// The edits that rename \param Target: \c matches selects what an import
+// declaration or a module declaration spells that is renamed. Partition edits
+// when \param Partition is not empty.
+struct RenameTarget {
+  std::string Module;
+  std::string Partition; // Empty: the module itself.
+  std::string NewName;
+  // The name that \c ResolvedImport::Name has when it is the target.
+  std::string resolvedName() const {
+    return Partition.empty() ? Module : Module + ":" + Partition;
+  }
+};
 
-llvm::Expected<FileEdits>
-renameModuleInFiles(llvm::StringRef Name, llvm::StringRef NewName,
-                    llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS) {
-  std::vector<SpelledFile> Spelled =
-      spelledFiles(Files, FS, {lastPart(Name), lastPart(NewName)});
-  std::vector<std::vector<Range>> Ranges(Spelled.size());
-  for (size_t I = 0; I < Spelled.size(); ++I)
-    for (const ModuleNameSpelling &S : Spelled[I].Spellings) {
-      if (S.IsModuleDeclaration && S.Name == NewName)
-        return error("'{0}' already names a module (declared in {1})", NewName,
-                     Spelled[I].Path);
-      if (S.Name == Name)
-        Ranges[I].push_back(Range{offsetToPosition(Spelled[I].Code, S.Begin),
-                                  offsetToPosition(Spelled[I].Code, S.End)});
-    }
-  return editsOf(Spelled, Ranges, NewName);
-}
+llvm::Expected<FileEdits> renameInFiles(const RenameTarget &T,
+                                        llvm::ArrayRef<std::string> Files,
+                                        const ThreadsafeFS &FS,
+                                        const RenameEnvironment &Env) {
+  const bool IsPartition = !T.Partition.empty();
+  std::set<std::string> Macros = Env.CommandLineMacros;
+  // Any identifier of the names can be spelled alone, by a macro.
+  std::vector<std::string> NeedleStorage;
+  for (llvm::StringRef Name : {llvm::StringRef(IsPartition ? T.Partition : T.Module),
+                               llvm::StringRef(T.NewName)}) {
+    llvm::SmallVector<llvm::StringRef, 4> Parts;
+    Name.split(Parts, '.');
+    for (llvm::StringRef Part : Parts)
+      NeedleStorage.push_back(Part.str());
+  }
+  std::vector<llvm::StringRef> Needles(NeedleStorage.begin(), NeedleStorage.end());
+  std::vector<SpelledFile> Spelled = spelledFiles(Files, FS, Needles, Macros);
 
-llvm::Expected<FileEdits>
-renamePartitionInFiles(llvm::StringRef Module, llvm::StringRef Partition,
-                       llvm::StringRef NewPartition,
-                       llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS) {
-  std::vector<SpelledFile> Spelled = spelledFiles(
-      Files, FS, {lastPart(Partition), lastPart(NewPartition)});
-  // The modules other than \param Module that have a partition of this name:
-  // an `import :P;` of a header can be for any of them.
+  // The modules other than the target that have a partition of this name: an
+  // `import :P;` of a header can be for any of them.
   std::set<std::string> OtherOwners;
+  if (IsPartition)
+    for (const SpelledFile &F : Spelled)
+      for (const ModuleNameSpelling &S : F.Spellings)
+        if (S.IsModuleDeclaration && S.Partition == T.Partition &&
+            S.Name != T.Module)
+          OtherOwners.insert(S.Name);
+
+  // The import declarations that macros may change are read by the
+  // preprocessor of the translation unit that has them (or includes them).
+  std::map<std::pair<std::string, unsigned>, ResolvedImport> Resolved;
+  std::set<std::string> Preprocessed;
+  std::map<std::string, std::string> NotAUnit;
+  for (const SpelledFile &F : Spelled) {
+    if (!llvm::any_of(F.Spellings, [&](const ModuleNameSpelling &S) {
+          return namedByMacro(S, Macros);
+        }))
+      continue;
+    if (!Env.ResolveImports) {
+      NotAUnit[F.Real] = "the preprocessor was not available";
+      continue;
+    }
+    auto Imports = Env.ResolveImports(F.Path);
+    if (!Imports) {
+      NotAUnit[F.Real] = llvm::toString(Imports.takeError());
+      continue;
+    }
+    Preprocessed.insert(F.Real);
+    for (ResolvedImport &R : *Imports)
+      Resolved.insert({{R.Path, R.Offset}, std::move(R)});
+  }
+
+  std::map<std::string, std::vector<Replace>> Replaces;
+  std::vector<std::pair<std::string, Replace>> Pending;
+  std::map<std::string, std::string> Texts; // By path, for identifierEdits.
   for (const SpelledFile &F : Spelled)
-    for (const ModuleNameSpelling &S : F.Spellings)
-      if (S.IsModuleDeclaration && S.Partition == Partition && S.Name != Module)
-        OtherOwners.insert(S.Name);
-  std::vector<std::vector<Range>> Ranges(Spelled.size());
-  for (size_t I = 0; I < Spelled.size(); ++I) {
-    const SpelledFile &F = Spelled[I];
+    Texts[F.Real] = F.Code;
+  auto TextOf = [&](llvm::StringRef Path) -> llvm::StringRef {
+    auto It = Texts.find(Path.str());
+    return It == Texts.end() ? llvm::StringRef() : llvm::StringRef(It->second);
+  };
+
+  for (const SpelledFile &F : Spelled) {
     for (const ModuleNameSpelling &S : F.Spellings) {
-      if (S.Partition.empty())
-        continue;
-      if (S.IsModuleDeclaration && S.Name == Module &&
-          S.Partition == NewPartition)
+      if (!IsPartition) {
+        if (S.IsModuleDeclaration && S.Name == T.NewName)
+          return error("'{0}' already names a module (declared in {1})",
+                       T.NewName, F.Path);
+      } else if (S.IsModuleDeclaration && S.Name == T.Module &&
+                 S.Partition == T.NewName) {
         return error("the module '{0}' already has a partition '{1}' "
                      "(declared in {2})",
-                     Module, NewPartition, F.Path);
-      if (S.Partition != Partition)
+                     T.Module, T.NewName, F.Path);
+      }
+
+      if (namedByMacro(S, Macros)) {
+        // What the declaration imports is known by the preprocessor.
+        auto It = Resolved.find({F.Real, S.Keyword});
+        if (It == Resolved.end()) {
+          if (Preprocessed.count(F.Real))
+            continue; // Not read: a branch that the configuration skips.
+          auto Why = NotAUnit.find(F.Real);
+          return error("the import in {0} may name the module through a "
+                       "macro, and the file is not read by the preprocessor "
+                       "of a source of the project ({1}): nothing is renamed",
+                       F.Path,
+                       Why == NotAUnit.end() ? std::string("unknown")
+                                             : Why->second);
+        }
+        const ResolvedImport &R = It->second;
+        if (!R.Unresolved.empty())
+          return error("the import in {0} names a module through a macro that "
+                       "cannot be followed ({1}): nothing is renamed",
+                       F.Path, R.Unresolved);
+        const bool NameMatches =
+            IsPartition ? R.Name == T.resolvedName()
+                        : llvm::StringRef(R.Name).split(':').first == T.Module &&
+                              !R.NameIdentifiers.empty();
+        if (!NameMatches)
+          continue;
+        if (auto Err = identifierEdits(
+                IsPartition ? R.PartitionIdentifiers : R.NameIdentifiers,
+                T.NewName, F.Path, Pending, TextOf))
+          return std::move(Err);
+        continue;
+      }
+
+      if (S.Partition.empty() && IsPartition)
+        continue;
+      if (!IsPartition) {
+        if (S.Name == T.Module && !S.Name.empty())
+          Pending.push_back({F.Real, {S.Begin, S.End, T.NewName}});
+        continue;
+      }
+      if (S.Partition != T.Partition)
         continue;
       // The partitions of a module are imported by its own units only
       // ([module.unit]); the module of a header is that of the unit that
       // includes it.
-      bool Ours = S.IsModuleDeclaration ? S.Name == Module
-                  : F.Module            ? *F.Module == Module
+      bool Ours = S.IsModuleDeclaration ? S.Name == T.Module
+                  : F.Module            ? *F.Module == T.Module
                                         : true;
       if (!Ours)
         continue;
       if (!S.IsModuleDeclaration && !F.Module && !OtherOwners.empty())
         return error("'import :{0};' in {1} can be for the module '{2}' or "
                      "for '{3}': it is not renamed, nothing is renamed",
-                     Partition, F.Path, Module, *OtherOwners.begin());
-      Ranges[I].push_back(Range{offsetToPosition(F.Code, S.PartitionBegin),
-                                offsetToPosition(F.Code, S.PartitionEnd)});
+                     T.Partition, F.Path, T.Module, *OtherOwners.begin());
+      Pending.push_back({F.Real, {S.PartitionBegin, S.PartitionEnd, T.NewName}});
     }
   }
-  return editsOf(Spelled, Ranges, NewPartition);
+
+  // The edits, by the files as they were given.
+  std::map<std::string, std::set<Replace>> ByFile;
+  for (auto &[Path, R] : Pending)
+    ByFile[Path].insert(std::move(R));
+  FileEdits Result;
+  for (const SpelledFile &F : Spelled) {
+    auto It = ByFile.find(F.Real);
+    if (It == ByFile.end())
+      continue;
+    tooling::Replacements Reps;
+    for (const Replace &R : It->second)
+      if (auto Err = Reps.add(tooling::Replacement(F.Path, R.Begin,
+                                                   R.End - R.Begin, R.Text)))
+        return error("failed to rename in file {0}: {1}", F.Path,
+                     std::move(Err));
+    Result.insert({F.Path, Edit(F.Code, std::move(Reps))});
+    ByFile.erase(It);
+  }
+  // A name spelled in a file that was not searched (a macro in a header the
+  // project does not list): the rename cannot reach it.
+  if (!ByFile.empty())
+    return error("the name is spelled in {0}, which is not a file of the "
+                 "project: nothing is renamed",
+                 ByFile.begin()->first);
+  return Result;
+}
+
+} // namespace
+
+llvm::Expected<FileEdits>
+renameModuleInFiles(llvm::StringRef Name, llvm::StringRef NewName,
+                    llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS,
+                    const RenameEnvironment &Env) {
+  return renameInFiles({Name.str(), "", NewName.str()}, Files, FS, Env);
+}
+
+llvm::Expected<FileEdits>
+renamePartitionInFiles(llvm::StringRef Module, llvm::StringRef Partition,
+                       llvm::StringRef NewPartition,
+                       llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS,
+                       const RenameEnvironment &Env) {
+  return renameInFiles({Module.str(), Partition.str(), NewPartition.str()},
+                       Files, FS, Env);
 }
 
 } // namespace clangd

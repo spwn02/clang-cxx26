@@ -16,13 +16,16 @@
 #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULERENAME_H
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULERENAME_H
 
+#include "ModuleImports.h"
 #include "SourceCode.h"
 #include "support/Path.h"
 #include "support/ThreadsafeFS.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Error.h"
+#include <functional>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -46,6 +49,8 @@ struct ModuleNameSpelling {
   /// Where the colon is, and where the partition name is spelled. Zero when
   /// there is no partition.
   unsigned PartitionColon = 0, PartitionBegin = 0, PartitionEnd = 0;
+  /// Where the `module` or `import` of the declaration is.
+  unsigned Keyword = 0;
 
   /// Whether \param Offset is in the partition (the colon belongs to the
   /// name in front of it, what follows the colon to the partition).
@@ -96,6 +101,17 @@ llvm::Expected<std::vector<std::string>>
 findFilesThatCanImport(llvm::ArrayRef<std::string> Roots, const ThreadsafeFS &FS,
                        unsigned MaxDirectories = 50000);
 
+/// What the rename needs to know when an import declaration names a module
+/// through a macro ([cpp.import] processes its tokens as normal text).
+struct RenameEnvironment {
+  /// The names of the macros that the compile commands define (-DNAME).
+  std::set<std::string> CommandLineMacros;
+  /// The import declarations of a translation unit of the project, as its
+  /// preprocessor reads them. Fails for a file that is not one.
+  std::function<llvm::Expected<std::vector<ResolvedImport>>(llvm::StringRef)>
+      ResolveImports;
+};
+
 /// The edits that rename the module \param Name to \param NewName in \param
 /// Files (read through \param FS, which has the unsaved text of the open
 /// files). The number of files is not limited: the rename of a module changes
@@ -106,7 +122,8 @@ findFilesThatCanImport(llvm::ArrayRef<std::string> Roots, const ThreadsafeFS &FS
 /// names \param NewName.
 llvm::Expected<FileEdits>
 renameModuleInFiles(llvm::StringRef Name, llvm::StringRef NewName,
-                    llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS);
+                    llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS,
+                    const RenameEnvironment &Env = RenameEnvironment());
 
 /// The edits that rename the partition \param Partition of the module \param
 /// Module to \param NewPartition: the module declarations `Module:Partition`
@@ -118,7 +135,8 @@ renameModuleInFiles(llvm::StringRef Name, llvm::StringRef NewName,
 llvm::Expected<FileEdits>
 renamePartitionInFiles(llvm::StringRef Module, llvm::StringRef Partition,
                        llvm::StringRef NewPartition,
-                       llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS);
+                       llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS,
+                       const RenameEnvironment &Env = RenameEnvironment());
 
 } // namespace clangd
 } // namespace clang
