@@ -1,0 +1,93 @@
+# A module is renamed from its name in a module declaration or an import
+# declaration: the declaration and every import in the project change.
+#
+# Windows have different escaping modes.
+# UNSUPPORTED: system-windows
+#
+# RUN: rm -fr %t
+# RUN: mkdir -p %t
+# RUN: split-file %s %t
+#
+# RUN: sed -e "s|DIR|%/t|g" %t/compile_commands.json.tmpl > %t/compile_commands.json.tmp
+# RUN: sed -e "s|CLANG_CC|%clang|g" %t/compile_commands.json.tmp > %t/compile_commands.json
+# RUN: sed -e "s|DIR|%/t|g" %t/rename.jsonrpc.tmpl > %t/rename.jsonrpc
+#
+# RUN: clangd -experimental-modules-support -lit-test < %t/rename.jsonrpc \
+# RUN:      | FileCheck -strict-whitespace %t/rename.jsonrpc
+
+#--- Foo.cppm
+export module Foo;
+export import :Part;
+import Foo.Meta;
+
+#--- Part.cppm
+export module Foo:Part;
+
+#--- Meta.cppm
+export module Foo.Meta;
+
+#--- Other.cppm
+export module Other;
+
+#--- Use.cpp
+import Foo;
+import Foo.Meta;
+int x;
+
+#--- compile_commands.json.tmpl
+[
+    { "directory": "DIR", "command": "CLANG_CC -std=c++20 -c DIR/Use.cpp", "file": "DIR/Use.cpp" },
+    { "directory": "DIR", "command": "CLANG_CC -std=c++20 DIR/Foo.cppm --precompile -o DIR/Foo.pcm", "file": "DIR/Foo.cppm" },
+    { "directory": "DIR", "command": "CLANG_CC -std=c++20 DIR/Part.cppm --precompile -o DIR/Part.pcm", "file": "DIR/Part.cppm" },
+    { "directory": "DIR", "command": "CLANG_CC -std=c++20 DIR/Meta.cppm --precompile -o DIR/Meta.pcm", "file": "DIR/Meta.cppm" },
+    { "directory": "DIR", "command": "CLANG_CC -std=c++20 DIR/Other.cppm --precompile -o DIR/Other.pcm", "file": "DIR/Other.cppm" }
+]
+
+#--- rename.jsonrpc.tmpl
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":123,"rootPath":"clangd","capabilities":{},"trace":"off"}}
+---
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://DIR/Use.cpp","languageId":"cpp","version":1,"text":"import Foo;\nimport Foo.Meta;\nint x;\n"}}}
+---
+# On the dotted part of Foo.Meta the whole name is the target.
+{"jsonrpc":"2.0","id":1,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":"file://DIR/Use.cpp"},"position":{"line":1,"character":13}}}
+#      CHECK:  "id": 1,
+# CHECK-NEXT:  "jsonrpc": "2.0",
+# CHECK-NEXT:  "result": {
+# CHECK-NEXT:    "placeholder": "Foo.Meta",
+# CHECK-NEXT:    "range": {
+# CHECK-NEXT:      "end": {
+# CHECK-NEXT:        "character": 15,
+# CHECK-NEXT:        "line": 1
+# CHECK-NEXT:      },
+# CHECK-NEXT:      "start": {
+# CHECK-NEXT:        "character": 7,
+# CHECK-NEXT:        "line": 1
+# CHECK-NEXT:      }
+# CHECK-NEXT:    }
+# CHECK-NEXT:  }
+---
+# Foo is renamed: Foo.Meta is another module and stays.
+{"jsonrpc":"2.0","id":2,"method":"textDocument/rename","params":{"textDocument":{"uri":"file://DIR/Use.cpp"},"position":{"line":0,"character":8},"newName":"Hello"}}
+#      CHECK:  "id": 2,
+#      CHECK:  "changes": {
+#  CHECK-DAG:    "file://{{.*}}/Foo.cppm": [
+#  CHECK-DAG:    "file://{{.*}}/Part.cppm": [
+#  CHECK-DAG:    "file://{{.*}}/Use.cpp": [
+# CHECK-NOT:     Meta.cppm
+# CHECK-NOT:     Other.cppm
+---
+# A name that already is a module, a reserved name, a partition.
+{"jsonrpc":"2.0","id":3,"method":"textDocument/rename","params":{"textDocument":{"uri":"file://DIR/Use.cpp"},"position":{"line":0,"character":8},"newName":"Other"}}
+#      CHECK:  "message": "'Other' already names a module"
+---
+{"jsonrpc":"2.0","id":4,"method":"textDocument/rename","params":{"textDocument":{"uri":"file://DIR/Use.cpp"},"position":{"line":0,"character":8},"newName":"std.x"}}
+#      CHECK:  "message": "'std.x' is reserved
+---
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://DIR/Part.cppm","languageId":"cpp","version":1,"text":"export module Foo:Part;\n"}}}
+---
+{"jsonrpc":"2.0","id":5,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":"file://DIR/Part.cppm"},"position":{"line":0,"character":20}}}
+#      CHECK:  "message": "cannot rename a partition: only the name of a module can be renamed"
+---
+{"jsonrpc":"2.0","id":6,"method":"shutdown"}
+---
+{"jsonrpc":"2.0","method":"exit"}

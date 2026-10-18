@@ -96,6 +96,7 @@ add_clang_library(clangDaemon STATIC
   IncludeFixer.cpp
   InlayHints.cpp
   JSONTransport.cpp
+  ModuleRename.cpp
   ModulesBuilder.cpp
   PathMapping.cpp
   Protocol.cpp

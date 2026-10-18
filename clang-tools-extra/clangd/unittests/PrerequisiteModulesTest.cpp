@@ -60,6 +60,10 @@ public:
     Underlying->setFileSystem(TFS);
   }
 
+  std::vector<std::string> getSourceFiles() override {
+    return Underlying->getSourceFiles();
+  }
+
   std::optional<tooling::CompileCommand>
   getCompileCommandForSource(PathRef File) override {
     return Underlying->getCompileCommandForSource(File);

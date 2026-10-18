@@ -464,6 +464,10 @@ public:
   /// isn't being tracked.
   std::shared_ptr<const std::string> getDraft(PathRef File) const;
 
+  /// See ClangdServer.cpp.
+  std::optional<llvm::Expected<RenameResult>>
+  moduleNameAtPosition(PathRef File, Position Pos) const;
+
   // Blocks the main thread until the server is idle. Only for use in tests.
   // Returns false if the timeout expires.
   // FIXME: various subcomponents each get the full timeout, so it's more of

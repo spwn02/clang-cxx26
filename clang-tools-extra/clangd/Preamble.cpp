@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Preamble.h"
+#include "ModuleRename.h"
 #include "AST.h"
 #include "CollectMacros.h"
 #include "Compiler.h"
@@ -676,6 +677,7 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
         CapturedInfo.takePragmaIncludes());
 
     if (Inputs.ModulesManager) {
+      Result->ModuleDeclarations = moduleDeclarationSpellings(Inputs.Contents);
       WallTimer PrerequisiteModuleTimer;
       PrerequisiteModuleTimer.startTimer();
       Result->RequiredModules =
@@ -732,6 +734,9 @@ bool isPreambleCompatible(const PreambleData &Preamble,
   return compileCommandsAreEqual(Inputs.CompileCommand,
                                  Preamble.CompileCommand) &&
          Preamble.Preamble.CanReuse(CI, *ContentsBuffer, Bounds, *VFS) &&
+         (!Inputs.ModulesManager ||
+          Preamble.ModuleDeclarations ==
+              moduleDeclarationSpellings(Inputs.Contents)) &&
          (!Preamble.RequiredModules ||
           Preamble.RequiredModules->canReuse(
               CI, Inputs.ModulesTFS

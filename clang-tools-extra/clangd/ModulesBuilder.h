@@ -109,6 +109,11 @@ public:
   };
   KnownModules getKnownModules(PathRef File, const ThreadsafeFS &TFS);
 
+  /// The source files of the project of \param File (the files of the
+  /// compilation database and the module units that it does not list).
+  std::vector<std::string> getProjectSourceFiles(PathRef File,
+                                                 const ThreadsafeFS &TFS);
+
 private:
   class ModulesBuilderImpl;
   std::unique_ptr<ModulesBuilderImpl> Impl;

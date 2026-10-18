@@ -1,0 +1,56 @@
+# A module unit that is typed from nothing: `import Dep` is not an import until
+# its semicolon is typed, and the modules that the unit needs are required again
+# when it is (the preamble of a module unit does not cover the imports, so it
+# was reused and the unit stayed without `Dep`).
+#
+# Windows have different escaping modes.
+# UNSUPPORTED: system-windows
+#
+# RUN: rm -fr %t
+# RUN: mkdir -p %t
+# RUN: split-file %s %t
+#
+# RUN: sed -e "s|DIR|%/t|g" %t/compile_commands.json.tmpl > %t/compile_commands.json.tmp
+# RUN: sed -e "s|CLANG_CC|%clang|g" %t/compile_commands.json.tmp > %t/compile_commands.json
+# RUN: sed -e "s|DIR|%/t|g" %t/typed.jsonrpc.tmpl > %t/typed.jsonrpc
+#
+# RUN: clangd -experimental-modules-support -lit-test < %t/typed.jsonrpc \
+# RUN:      | FileCheck -strict-whitespace %t/typed.jsonrpc
+
+#--- Dep.cppm
+export module Dep;
+export int dep();
+
+#--- Use.cpp
+int x;
+
+#--- compile_commands.json.tmpl
+[
+    {
+      "directory": "DIR",
+      "command": "CLANG_CC -std=c++20 -o DIR/Use.cpp.o -c DIR/Use.cpp",
+      "file": "DIR/Use.cpp"
+    }
+]
+
+#--- typed.jsonrpc.tmpl
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":123,"rootPath":"clangd","capabilities":{},"trace":"off"}}
+---
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://DIR/Typed.cppm","languageId":"cpp","version":1,"text":"export module Typed;\n"}}}
+---
+{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"file://DIR/Typed.cppm","version":2},"contentChanges":[{"text":"export module Typed;\nimport Dep\n"}]}}
+---
+{"jsonrpc":"2.0","id":1,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"file://DIR/Typed.cppm"}}}
+# CHECK: "id": 1,
+---
+{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"file://DIR/Typed.cppm","version":3},"contentChanges":[{"text":"export module Typed;\nimport Dep;\nexport int use() { return dep(); }\n"}]}}
+---
+{"jsonrpc":"2.0","id":2,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"file://DIR/Typed.cppm"}}}
+# The semicolon was typed: the unit has Dep now (before it, `Dep` was not found).
+# CHECK-NOT: Module 'Dep' not found
+# CHECK-NOT: undeclared identifier
+#      CHECK: "id": 2,
+---
+{"jsonrpc":"2.0","id":2,"method":"shutdown"}
+---
+{"jsonrpc":"2.0","method":"exit"}

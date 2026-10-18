@@ -989,3 +989,16 @@ ModulesBuilder::~ModulesBuilder() {}
 
 } // namespace clangd
 } // namespace clang
+
+namespace clang {
+namespace clangd {
+std::vector<std::string>
+ModulesBuilder::getProjectSourceFiles(PathRef File, const ThreadsafeFS &TFS) {
+  if (std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File)) {
+    MDB->setFileSystem(TFS);
+    return MDB->getSourceFiles();
+  }
+  return {};
+}
+} // namespace clangd
+} // namespace clang

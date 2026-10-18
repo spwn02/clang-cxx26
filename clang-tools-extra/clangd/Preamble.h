@@ -113,6 +113,10 @@ struct PreambleData {
   std::shared_ptr<const include_cleaner::PragmaIncludes> Pragmas;
   // Information about required module files for this preamble.
   std::unique_ptr<PrerequisiteModules> RequiredModules;
+  // The module-declaration and the import-declarations of the main file the
+  // required modules were built for (the preamble does not cover them): when
+  // they change the modules are required again.
+  std::vector<std::string> ModuleDeclarations;
   // Macros defined in the preamble section of the main file.
   // Users care about headers vs main-file, not preamble vs non-preamble.
   // These should be treated as main-file entities e.g. for code completion.

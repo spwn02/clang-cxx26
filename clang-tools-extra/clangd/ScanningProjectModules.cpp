@@ -48,6 +48,9 @@ public:
   // When the directories of the project were last searched for module units
   // that the database does not list.
   std::optional<std::chrono::steady_clock::time_point> LastDiscovery;
+  // The module units that the last search found, which the database does not
+  // list.
+  std::vector<std::string> UnlistedFiles;
 };
 
 std::shared_ptr<ModuleScanCache> createModuleScanCache() {
@@ -260,6 +263,14 @@ public:
   void discoverUnlistedModules(const ProjectModules::CommandMangler &Mangler,
                                bool WaitForInterval);
 
+  void listedFilesAndDirectories(std::set<std::string> &Listed,
+                                 std::set<std::string> &Roots) const;
+
+  /// The files of the database and the module units that it does not list
+  /// (searched for first).
+  std::vector<std::string>
+  getSourceFiles(const ProjectModules::CommandMangler &Mangler);
+
   /// The module names that are known without a global scan (see
   /// ProjectModules::getKnownModuleNames).
   std::vector<std::string>
@@ -461,6 +472,37 @@ bool hasSourceExtension(llvm::StringRef Path) {
 }
 } // namespace
 
+void ModuleDependencyScanner::listedFilesAndDirectories(
+    std::set<std::string> &Listed, std::set<std::string> &Roots) const {
+  for (const std::string &File : CDB->getAllFiles()) {
+    llvm::SmallString<256> Abs(File);
+    if (!llvm::sys::path::is_absolute(Abs)) {
+      // The database lists the file relative to the directory of its command.
+      auto Cmds = CDB->getCompileCommands(File);
+      if (Cmds.empty())
+        continue;
+      llvm::sys::path::make_absolute(Cmds.front().Directory, Abs);
+    }
+    llvm::sys::path::remove_dots(Abs, /*remove_dot_dot=*/true);
+    Listed.insert(std::string(Abs));
+    llvm::StringRef Dir = llvm::sys::path::parent_path(Abs);
+    if (!Dir.empty())
+      Roots.insert(Dir.str());
+  }
+}
+
+std::vector<std::string> ModuleDependencyScanner::getSourceFiles(
+    const ProjectModules::CommandMangler &Mangler) {
+  discoverUnlistedModules(Mangler, /*WaitForInterval=*/true);
+  std::set<std::string> Listed, Roots;
+  listedFilesAndDirectories(Listed, Roots);
+  std::vector<std::string> Result(Listed.begin(), Listed.end());
+  std::lock_guard<std::mutex> Lock(Cache->Mu);
+  Result.insert(Result.end(), Cache->UnlistedFiles.begin(),
+                Cache->UnlistedFiles.end());
+  return Result;
+}
+
 void ModuleDependencyScanner::discoverUnlistedModules(
     const ProjectModules::CommandMangler &Mangler, bool WaitForInterval) {
   // The search is not repeated for every lookup of a module that does not
@@ -488,23 +530,8 @@ void ModuleDependencyScanner::discoverUnlistedModules(
   constexpr unsigned MaxDirectories = 4000;
   constexpr unsigned MaxContentProbes = 2000;
 
-  std::set<std::string> Listed;
-  std::set<std::string> Roots;
-  for (const std::string &File : CDB->getAllFiles()) {
-    llvm::SmallString<256> Abs(File);
-    if (!llvm::sys::path::is_absolute(Abs)) {
-      // The database lists the file relative to the directory of its command.
-      auto Cmds = CDB->getCompileCommands(File);
-      if (Cmds.empty())
-        continue;
-      llvm::sys::path::make_absolute(Cmds.front().Directory, Abs);
-    }
-    llvm::sys::path::remove_dots(Abs, /*remove_dot_dot=*/true);
-    Listed.insert(std::string(Abs));
-    llvm::StringRef Dir = llvm::sys::path::parent_path(Abs);
-    if (!Dir.empty())
-      Roots.insert(Dir.str());
-  }
+  std::set<std::string> Listed, Roots;
+  listedFilesAndDirectories(Listed, Roots);
   // Keep the outermost directories only: they are walked recursively.
   std::vector<std::string> Outer;
   for (const std::string &Root : Roots) {
@@ -559,6 +586,10 @@ void ModuleDependencyScanner::discoverUnlistedModules(
     Walk(Walk, Root, 0);
 
   std::sort(Found.begin(), Found.end());
+  {
+    std::lock_guard<std::mutex> Lock(Cache->Mu);
+    Cache->UnlistedFiles = Found;
+  }
   for (const std::string &File : Found)
     scan(File, Mangler);
 }
@@ -737,6 +768,10 @@ public:
   std::vector<std::string> getKnownModuleNames(PathRef ImportingFile,
                                                bool ScanProject) override {
     return Scanner.getKnownModuleNames(ImportingFile, ScanProject, Mangler);
+  }
+
+  std::vector<std::string> getSourceFiles() override {
+    return Scanner.getSourceFiles(Mangler);
   }
 
   std::string getModuleNameForSource(PathRef File) override {

@@ -27,6 +27,7 @@
 #include "index/FileIndex.h"
 #include "index/Merge.h"
 #include "index/StdLib.h"
+#include "ModuleRename.h"
 #include "refactor/Rename.h"
 #include "refactor/Tweak.h"
 #include "support/Cancellation.h"
@@ -615,10 +616,45 @@ void ClangdServer::formatOnType(PathRef File, Position Pos,
   WorkScheduler->runQuick("FormatOnType", File, std::move(Action));
 }
 
+// The name of the module that is spelled at \param Pos in the text of \param
+// File, if the position is in the name of a module in a module declaration or
+// an import declaration. The target is the whole dotted name.
+std::optional<llvm::Expected<RenameResult>>
+ClangdServer::moduleNameAtPosition(PathRef File, Position Pos) const {
+  if (!ModulesManager)
+    return std::nullopt;
+  auto Draft = getDraft(File);
+  if (!Draft)
+    return std::nullopt;
+  auto Offset = positionToOffset(*Draft, Pos);
+  if (!Offset)
+    return std::nullopt;
+  auto Spelling = moduleNameSpellingAt(*Draft, *Offset);
+  if (!Spelling)
+    return std::nullopt;
+  if (Spelling->PartitionBegin && *Offset >= Spelling->PartitionBegin)
+    return llvm::Expected<RenameResult>(
+        error("cannot rename a partition: only the name of a module can be "
+              "renamed"));
+  RenameResult Result;
+  Result.Target = Range{offsetToPosition(*Draft, Spelling->Begin),
+                        offsetToPosition(*Draft, Spelling->End)};
+  Result.Placeholder = Spelling->Name;
+  return llvm::Expected<RenameResult>(std::move(Result));
+}
+
 void ClangdServer::prepareRename(PathRef File, Position Pos,
                                  std::optional<std::string> NewName,
                                  const RenameOptions &RenameOpts,
                                  Callback<RenameResult> CB) {
+  if (auto Module = moduleNameAtPosition(File, Pos)) {
+    if (!*Module)
+      return CB(Module->takeError());
+    if (NewName)
+      if (llvm::Error Err = validateModuleName(*NewName))
+        return CB(std::move(Err));
+    return CB(std::move(**Module));
+  }
   auto Action = [Pos, File = File.str(), CB = std::move(CB),
                  NewName = std::move(NewName),
                  RenameOpts](llvm::Expected<InputsAndAST> InpAST) mutable {
@@ -644,6 +680,36 @@ void ClangdServer::prepareRename(PathRef File, Position Pos,
 void ClangdServer::rename(PathRef File, Position Pos, llvm::StringRef NewName,
                           const RenameOptions &Opts,
                           Callback<RenameResult> CB) {
+  if (auto Module = moduleNameAtPosition(File, Pos)) {
+    if (!*Module)
+      return CB(Module->takeError());
+    // The name of a module: not a symbol of the AST.
+    auto Action = [this, File = File.str(), NewName = NewName.str(),
+                   Target = std::move(**Module), Opts,
+                   CB = std::move(CB)]() mutable {
+      if (llvm::Error Err = validateModuleName(NewName))
+        return CB(std::move(Err));
+      if (NewName == Target.Placeholder)
+        return CB(error("the module is already named '{0}'", NewName));
+      ModulesBuilder::KnownModules Known =
+          ModulesManager->getKnownModules(File, *DirtyFS);
+      if (llvm::is_contained(Known.Names, NewName) || Known.OwnModule == NewName)
+        return CB(error("'{0}' already names a module", NewName));
+      // The files of the project and the files that are open in the editor,
+      // read with the text of the editor.
+      std::vector<std::string> Files =
+          ModulesManager->getProjectSourceFiles(File, *DirtyFS);
+      for (Path &Open : DraftMgr.getActiveFiles())
+        Files.push_back(std::move(Open));
+      auto Edits = renameModuleInFiles(Target.Placeholder, NewName, Files,
+                                       *DirtyFS, Opts.LimitFiles);
+      if (!Edits)
+        return CB(Edits.takeError());
+      Target.GlobalChanges = std::move(*Edits);
+      CB(std::move(Target));
+    };
+    return WorkScheduler->runQuick("RenameModule", File, std::move(Action));
+  }
   auto Action = [File = File.str(), NewName = NewName.str(), Pos, Opts,
                  CB = std::move(CB),
                  this](llvm::Expected<InputsAndAST> InpAST) mutable {

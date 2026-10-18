@@ -68,6 +68,10 @@ public:
     return {};
   }
 
+  /// The source files of the project: the files of the compilation database
+  /// and the module units that it does not list.
+  virtual std::vector<std::string> getSourceFiles() { return {}; }
+
   virtual void setCommandMangler(CommandMangler Mangler) {}
 
   /// The file system that the sources are read through. A module unit that is
