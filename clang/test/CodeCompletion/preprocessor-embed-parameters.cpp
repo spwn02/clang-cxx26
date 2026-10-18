@@ -25,7 +25,8 @@ unsigned char a[] = {
 #endif
 
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -DCASE_ALL -code-completion-at=%s:6:44 %s | FileCheck -check-prefix=CHECK-ALL %s
-// CHECK-ALL: COMPLETION: Pattern : clang::offset(<#count#>)
+// offset is C++29 (P3540R3), not offered.
+// CHECK-ALL-NOT: offset
 // CHECK-ALL: COMPLETION: Pattern : if_empty(<#tokens#>)
 // CHECK-ALL: COMPLETION: Pattern : limit(<#count#>)
 // CHECK-ALL: COMPLETION: Pattern : prefix(<#tokens#>)
@@ -35,9 +36,8 @@ unsigned char a[] = {
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -DCASE_GIVEN -code-completion-at=%s:11:53 %s | FileCheck -check-prefix=CHECK-GIVEN %s
 // CHECK-GIVEN-NOT: limit
 // CHECK-GIVEN: COMPLETION: Pattern : prefix(<#tokens#>)
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -DCASE_CLANG -code-completion-at=%s:16:51 %s | FileCheck -check-prefix=CHECK-CLANG %s
-// CHECK-CLANG: COMPLETION: Pattern : offset(<#count#>)
-// CHECK-CLANG-NOT: limit
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -DCASE_CLANG -code-completion-at=%s:16:51 %s | count 0
+// Nothing is offered after clang:: (clang::offset is not offered).
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -DCASE_PRE -code-completion-at=%s:21:47 %s | FileCheck -check-prefix=CHECK-PRE %s
 // CHECK-PRE: COMPLETION: Pattern : prefix(<#tokens#>)
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -DCASE_HAS -code-completion-at=%s:24:84 %s | FileCheck -check-prefix=CHECK-HAS %s

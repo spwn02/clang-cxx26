@@ -3389,17 +3389,18 @@ TEST(CompletionTest, EmbedParameters) {
     TU.ExtraArgs = {"-std=c++26"};
     return Names(completions(TU, Test.point()));
   };
+  // offset is C++29 (P3540R3), not offered.
   EXPECT_THAT(Complete("unsigned char a[] = {\n#embed \"data.bin\" ^\n};"),
-              testing::IsSupersetOf({"limit", "prefix", "suffix", "if_empty",
-                                     "clang::offset"}));
+              testing::AllOf(testing::IsSupersetOf(
+                                 {"limit", "prefix", "suffix", "if_empty"}),
+                             testing::Not(testing::Contains("offset")),
+                             testing::Not(testing::Contains("clang::offset"))));
   // One that is given is not offered again; the prefix filters.
   EXPECT_THAT(Complete("unsigned char a[] = {\n#embed \"data.bin\" "
                        "limit(1) pre^\n};"),
               testing::AllOf(testing::Contains("prefix"),
                              testing::Not(testing::Contains("limit")),
                              testing::Not(testing::Contains("suffix"))));
-  EXPECT_THAT(Complete("unsigned char a[] = {\n#embed \"data.bin\" clang::^\n};"),
-              testing::Contains("offset"));
   EXPECT_THAT(Complete("#if __has_embed(\"data.bin\" ^)\n#endif"),
               testing::Contains("limit"));
 }
