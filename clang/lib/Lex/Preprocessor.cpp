@@ -910,8 +910,12 @@ void Preprocessor::Lex(Token &Result) {
   while (!CurLexerCallback(*this, Result))
     ;
 
-  if (Result.is(tok::unknown) && TheModuleLoader.HadFatalFailure)
+  if (Result.is(tok::unknown) && TheModuleLoader.HadFatalFailure) {
+    // The parser goes on peeking at the tokens after a module that failed to
+    // load (a fatal error): the level of the lexer is not left raised.
+    --LexLevel;
     return;
+  }
 
   if (Result.is(tok::code_completion) && Result.getIdentifierInfo()) {
     // Remember the identifier before code completion token.
