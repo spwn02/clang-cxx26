@@ -282,7 +282,13 @@ Retry:
         StmtResult SR = ParseForStatement(TrailingElseLoc, PrecedingLabel);
         if (SR.isInvalid())
           return SR;
-        Expansion = cast<CXXExpansionStmt>(SR.get());
+        // A malformed heading ('template for (constexpr auto x(1))') is
+        // recovered from as another statement.
+        Expansion = dyn_cast_or_null<CXXExpansionStmt>(SR.get());
+        if (!Expansion) {
+          ExpansionDecl->setInvalidDecl();
+          return StmtError();
+        }
         ExpansionDecl->setStmt(Expansion);
         if (Diags.getNumErrors() != Errors)
           ExpansionDecl->setInvalidDecl();
@@ -2014,6 +2020,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
   FullExprArg ThirdPart(Actions);
 
   ForRangeInfo.ExpansionStmt = TemplateKWLoc.isValid();
+  const unsigned ErrorsAtForStart = Diags.getNumErrors();
 
   if (Tok.is(tok::code_completion)) {
     cutOffParsing();
@@ -2254,6 +2261,13 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
   // Match the ')'.
   T.consumeClose();
 
+  // [stmt.expand]: the heading of an expansion statement is a
+  // for-range-declaration and an expansion-initializer, not a loop.
+  bool InvalidExpansionHeading =
+      ForRangeInfo.ExpansionStmt && !ForRangeInfo.ParsedForRangeDecl();
+  if (InvalidExpansionHeading && Diags.getNumErrors() == ErrorsAtForStart)
+    Diag(T.getCloseLocation(), diag::err_expected) << tok::colon;
+
   // C++ Coroutines [stmt.iter]:
   //   'co_await' can only be used for a range-based for statement.
   if (CoawaitLoc.isValid() && !ForRangeInfo.ParsedForRangeDecl()) {
@@ -2348,7 +2362,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
   // Leave the for-scope.
   ForScope.Exit();
 
-  if (Body.isInvalid())
+  if (Body.isInvalid() || InvalidExpansionHeading)
     return StmtError();
 
   if (ForEach)
