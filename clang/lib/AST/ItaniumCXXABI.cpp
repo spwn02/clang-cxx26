@@ -142,6 +142,14 @@ public:
     const CXXRecordDecl *Lambda = CallOperator->getParent();
     assert(Lambda->isLambda());
 
+    // A parameter of malformed type (a class that is declared in the call
+    // operator itself, '[](enum y)') has a type that mangles the call operator
+    // for ever: the lambdas of such a call operator are numbered together.
+    if (CallOperator->isInvalidDecl() ||
+        llvm::any_of(CallOperator->parameters(),
+                     [](const ParmVarDecl *P) { return P->isInvalidDecl(); }))
+      return ++LambdaManglingNumbers[llvm::SmallString<128>("invalid")];
+
     // Computation of the <lambda-sig> is non-trivial and subtle. Rather than
     // duplicating it here, just mangle the <lambda-sig> directly.
     llvm::SmallString<128> LambdaSig;
