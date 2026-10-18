@@ -1000,5 +1000,15 @@ ModulesBuilder::getProjectSourceFiles(PathRef File, const ThreadsafeFS &TFS) {
   }
   return {};
 }
+
+std::vector<std::string>
+ModulesBuilder::getProjectSourceDirectories(PathRef File,
+                                            const ThreadsafeFS &TFS) {
+  if (std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File)) {
+    MDB->setFileSystem(TFS);
+    return MDB->getSourceDirectories();
+  }
+  return {};
+}
 } // namespace clangd
 } // namespace clang

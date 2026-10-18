@@ -270,6 +270,7 @@ public:
   /// (searched for first).
   std::vector<std::string>
   getSourceFiles(const ProjectModules::CommandMangler &Mangler);
+  std::vector<std::string> getSourceDirectories() const;
 
   /// The module names that are known without a global scan (see
   /// ProjectModules::getKnownModuleNames).
@@ -452,15 +453,6 @@ ModuleDependencyScanner::scan(PathRef FilePath,
 }
 
 namespace {
-// Directories that hold build products or third-party code rather than the
-// project's own sources.
-bool isIgnoredDirectory(llvm::StringRef Name) {
-  return Name.starts_with(".") || Name.starts_with("build") ||
-         Name.starts_with("cmake-build") || Name == "CMakeFiles" ||
-         Name == "node_modules" || Name == "vcpkg_installed" || Name == "_deps" ||
-         Name == "out";
-}
-
 bool hasModuleUnitExtension(llvm::StringRef Path) {
   llvm::StringRef Ext = llvm::sys::path::extension(Path);
   return Ext == ".ixx" || Ext == ".cppm" || Ext == ".cxxm" || Ext == ".c++m";
@@ -469,6 +461,25 @@ bool hasModuleUnitExtension(llvm::StringRef Path) {
 bool hasSourceExtension(llvm::StringRef Path) {
   llvm::StringRef Ext = llvm::sys::path::extension(Path);
   return Ext == ".cpp" || Ext == ".cc" || Ext == ".cxx" || Ext == ".c++";
+}
+} // namespace
+
+namespace {
+// Keep the outermost directories only: they are walked recursively.
+std::vector<std::string> outermostDirectories(const std::set<std::string> &Roots) {
+  std::vector<std::string> Outer;
+  for (const std::string &Root : Roots) {
+    bool Covered = false;
+    for (llvm::StringRef Parent = llvm::sys::path::parent_path(Root);
+         !Parent.empty(); Parent = llvm::sys::path::parent_path(Parent))
+      if (Roots.count(Parent.str())) {
+        Covered = true;
+        break;
+      }
+    if (!Covered)
+      Outer.push_back(Root);
+  }
+  return Outer;
 }
 } // namespace
 
@@ -489,6 +500,12 @@ void ModuleDependencyScanner::listedFilesAndDirectories(
     if (!Dir.empty())
       Roots.insert(Dir.str());
   }
+}
+
+std::vector<std::string> ModuleDependencyScanner::getSourceDirectories() const {
+  std::set<std::string> Listed, Roots;
+  listedFilesAndDirectories(Listed, Roots);
+  return outermostDirectories(Roots);
 }
 
 std::vector<std::string> ModuleDependencyScanner::getSourceFiles(
@@ -532,19 +549,7 @@ void ModuleDependencyScanner::discoverUnlistedModules(
 
   std::set<std::string> Listed, Roots;
   listedFilesAndDirectories(Listed, Roots);
-  // Keep the outermost directories only: they are walked recursively.
-  std::vector<std::string> Outer;
-  for (const std::string &Root : Roots) {
-    bool Covered = false;
-    for (llvm::StringRef Parent = llvm::sys::path::parent_path(Root);
-         !Parent.empty(); Parent = llvm::sys::path::parent_path(Parent))
-      if (Roots.count(Parent.str())) {
-        Covered = true;
-        break;
-      }
-    if (!Covered)
-      Outer.push_back(Root);
-  }
+  std::vector<std::string> Outer = outermostDirectories(Roots);
 
   auto FS = TFS->view(std::nullopt);
   // The unit of a module declaration in a file that does not have one of the
@@ -564,7 +569,7 @@ void ModuleDependencyScanner::discoverUnlistedModules(
       llvm::StringRef Path = It->path();
       llvm::StringRef Name = llvm::sys::path::filename(Path);
       if (It->type() == llvm::sys::fs::file_type::directory_file) {
-        if (!isIgnoredDirectory(Name))
+        if (!isIgnoredProjectDirectory(Name))
           Self(Self, Path, Depth + 1);
         continue;
       }
@@ -774,6 +779,10 @@ public:
     return Scanner.getSourceFiles(Mangler);
   }
 
+  std::vector<std::string> getSourceDirectories() override {
+    return Scanner.getSourceDirectories();
+  }
+
   std::string getModuleNameForSource(PathRef File) override {
     auto ScanningResult = Scanner.scan(File, Mangler);
     if (!ScanningResult || !ScanningResult->ModuleName)
@@ -793,6 +802,15 @@ std::unique_ptr<ProjectModules> scanningProjectModules(
   if (!Cache)
     Cache = createModuleScanCache();
   return std::make_unique<ScanningAllProjectModules>(CDB, TFS, std::move(Cache));
+}
+
+// Directories that hold build products or third-party code rather than the
+// project's own sources.
+bool isIgnoredProjectDirectory(llvm::StringRef Name) {
+  return Name.starts_with(".") || Name.starts_with("build") ||
+         Name.starts_with("cmake-build") || Name == "CMakeFiles" ||
+         Name == "node_modules" || Name == "vcpkg_installed" || Name == "_deps" ||
+         Name == "out";
 }
 
 } // namespace clang::clangd

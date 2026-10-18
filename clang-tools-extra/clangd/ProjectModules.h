@@ -72,6 +72,11 @@ public:
   /// and the module units that it does not list.
   virtual std::vector<std::string> getSourceFiles() { return {}; }
 
+  /// The outermost directories that hold the files of the compilation
+  /// database. Files that the database does not list (a unit that only imports
+  /// a module, a header) are in them, or in the workspace.
+  virtual std::vector<std::string> getSourceDirectories() { return {}; }
+
   virtual void setCommandMangler(CommandMangler Mangler) {}
 
   /// The file system that the sources are read through. A module unit that is
@@ -80,6 +85,10 @@ public:
 
   virtual ~ProjectModules() = default;
 };
+
+/// Whether a directory of this name holds build products or third-party code
+/// that is fetched, rather than the sources of the project.
+bool isIgnoredProjectDirectory(llvm::StringRef Name);
 
 } // namespace clangd
 } // namespace clang

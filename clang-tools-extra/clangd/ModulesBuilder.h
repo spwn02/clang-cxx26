@@ -114,6 +114,10 @@ public:
   std::vector<std::string> getProjectSourceFiles(PathRef File,
                                                  const ThreadsafeFS &TFS);
 
+  /// The outermost directories of the files of the compilation database.
+  std::vector<std::string> getProjectSourceDirectories(PathRef File,
+                                                       const ThreadsafeFS &TFS);
+
 private:
   class ModulesBuilderImpl;
   std::unique_ptr<ModulesBuilderImpl> Impl;

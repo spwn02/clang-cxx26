@@ -144,7 +144,7 @@ TEST_F(ModuleRenameFilesTest, WholeNamesOnly) {
   std::string C = write("C.cppm", "export module Miracle.Meta;\n");
   std::string U = write("U.cpp", "import Miracle;\nimport Miracle.Meta;\n"
                                  "// import Miracle;\nconst char *s = \"import Miracle;\";\n");
-  auto Edits = renameModuleInFiles("Miracle", "Hello", {A, B, C, U}, FS, 50);
+  auto Edits = renameModuleInFiles("Miracle", "Hello", {A, B, C, U}, FS);
   ASSERT_TRUE(bool(Edits)) << llvm::toString(Edits.takeError());
   // C names only Miracle.Meta: untouched.
   EXPECT_EQ(Edits->size(), 3u);
@@ -158,23 +158,49 @@ TEST_F(ModuleRenameFilesTest, WholeNamesOnly) {
             "import Hello;\nimport Miracle.Meta;\n// import Miracle;\n"
             "const char *s = \"import Miracle;\";\n");
 
-  auto Meta = renameModuleInFiles("Miracle.Meta", "Hello.World", {A, B, C, U}, FS, 50);
+  auto Meta = renameModuleInFiles("Miracle.Meta", "Hello.World", {A, B, C, U}, FS);
   ASSERT_TRUE(bool(Meta)) << llvm::toString(Meta.takeError());
   EXPECT_EQ(Meta->size(), 3u);
   EXPECT_FALSE(Meta->count(A));
   EXPECT_EQ(applied((*Meta)[C]), "export module Hello.World;\n");
 }
 
-TEST_F(ModuleRenameFilesTest, LimitAndMissingFiles) {
+TEST_F(ModuleRenameFilesTest, MissingFilesAndManyFiles) {
   std::string A = write("A.cppm", "export module M;\n");
   std::string B = write("B.cpp", "import M;\n");
-  auto Refused = renameModuleInFiles("M", "N", {A, B, Dir.str().str() + "/gone.cpp"}, FS, 1);
-  ASSERT_FALSE(bool(Refused));
-  EXPECT_THAT(llvm::toString(Refused.takeError()),
-              testing::HasSubstr("--rename-file-limit"));
-  auto Fine = renameModuleInFiles("M", "N", {A, B, Dir.str().str() + "/gone.cpp"}, FS, 2);
-  ASSERT_TRUE(bool(Fine));
-  EXPECT_EQ(Fine->size(), 2u);
+  std::vector<std::string> Files = {A, B, Dir.str().str() + "/gone.cpp"};
+  // A rename is not limited by a number of files (the limit of the rename of
+  // a symbol is for the cost of parsing them): all of them change, or none.
+  for (int I = 0; I < 120; ++I)
+    Files.push_back(write("U" + std::to_string(I) + ".cpp", "import M;\n"));
+  auto Edits = renameModuleInFiles("M", "N", Files, FS);
+  ASSERT_TRUE(bool(Edits)) << llvm::toString(Edits.takeError());
+  EXPECT_EQ(Edits->size(), 122u);
+}
+
+TEST_F(ModuleRenameFilesTest, FilesThatCanImport) {
+  auto In = [&](llvm::StringRef Sub, llvm::StringRef Name) {
+    llvm::SmallString<256> D(Dir);
+    llvm::sys::path::append(D, Sub);
+    EXPECT_FALSE(llvm::sys::fs::create_directories(D));
+    return write((Sub + "/" + Name).str(), "import M;\n");
+  };
+  std::string Src = In("src", "a.cpp");
+  std::string Consumer = In("tests/consumer", "main.cxx"); // not in a database
+  std::string Header = In("include/deep/er", "all.hpp");
+  std::string Unit = In("src", "m.ixx");
+  std::string Build = In("build/tests", "gen.cpp");
+  std::string Hidden = In(".cache", "x.cpp");
+  std::string Other = In("src", "notes.txt");
+  auto Found = findFilesThatCanImport({Dir.str().str()}, FS);
+  ASSERT_TRUE(bool(Found)) << llvm::toString(Found.takeError());
+  EXPECT_THAT(*Found, testing::UnorderedElementsAre(Src, Consumer, Header, Unit));
+  // A search that is cut off is an error, not a part of the files.
+  auto Cut = findFilesThatCanImport({Dir.str().str()}, FS, 2);
+  ASSERT_FALSE(bool(Cut));
+  EXPECT_THAT(llvm::toString(Cut.takeError()),
+              testing::HasSubstr("nothing is renamed"));
+  (void)Build; (void)Hidden; (void)Other;
 }
 
 } // namespace

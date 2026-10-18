@@ -685,7 +685,7 @@ void ClangdServer::rename(PathRef File, Position Pos, llvm::StringRef NewName,
       return CB(Module->takeError());
     // The name of a module: not a symbol of the AST.
     auto Action = [this, File = File.str(), NewName = NewName.str(),
-                   Target = std::move(**Module), Opts,
+                   Target = std::move(**Module),
                    CB = std::move(CB)]() mutable {
       if (llvm::Error Err = validateModuleName(NewName))
         return CB(std::move(Err));
@@ -697,12 +697,25 @@ void ClangdServer::rename(PathRef File, Position Pos, llvm::StringRef NewName,
         return CB(error("'{0}' already names a module", NewName));
       // The files of the project and the files that are open in the editor,
       // read with the text of the editor.
-      std::vector<std::string> Files =
-          ModulesManager->getProjectSourceFiles(File, *DirtyFS);
+      std::vector<std::string> Files;
       for (Path &Open : DraftMgr.getActiveFiles())
         Files.push_back(std::move(Open));
-      auto Edits = renameModuleInFiles(Target.Placeholder, NewName, Files,
-                                       *DirtyFS, Opts.LimitFiles);
+      for (std::string &Listed :
+           ModulesManager->getProjectSourceFiles(File, *DirtyFS))
+        Files.push_back(std::move(Listed));
+      // A unit that only imports the module, and the headers, are not listed
+      // by the compilation database: they are found in the workspace and in
+      // the directories of the listed files.
+      std::vector<std::string> Roots =
+          ModulesManager->getProjectSourceDirectories(File, *DirtyFS);
+      if (WorkspaceRoot)
+        Roots.push_back(*WorkspaceRoot);
+      auto Found = findFilesThatCanImport(Roots, *DirtyFS);
+      if (!Found)
+        return CB(Found.takeError());
+      Files.insert(Files.end(), Found->begin(), Found->end());
+      auto Edits =
+          renameModuleInFiles(Target.Placeholder, NewName, Files, *DirtyFS);
       if (!Edits)
         return CB(Edits.takeError());
       Target.GlobalChanges = std::move(*Edits);

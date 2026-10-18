@@ -66,14 +66,24 @@ std::optional<ModuleNameSpelling> moduleNameSpellingAt(llvm::StringRef Code,
 /// Returns the reason when not.
 llvm::Error validateModuleName(llvm::StringRef Name);
 
+/// The files under \param Roots (read through \param FS) that can spell the
+/// name of a module: sources, module units and headers, found by their
+/// extension; not the directories of build products. A header may import a
+/// module, a unit that only imports one is not listed by the compilation
+/// database. Fails when the search is cut off, instead of returning a part of
+/// the files: a rename that misses a file breaks the project.
+llvm::Expected<std::vector<std::string>>
+findFilesThatCanImport(llvm::ArrayRef<std::string> Roots, const ThreadsafeFS &FS,
+                       unsigned MaxDirectories = 50000);
+
 /// The edits that rename the module \param Name to \param NewName in \param
 /// Files (read through \param FS, which has the unsaved text of the open
-/// files). With more than \param LimitFiles files to edit the rename is
-/// refused.
+/// files). The number of files is not limited: the rename of a module changes
+/// every file that imports it, and a rename that stops half way leaves the
+/// project broken.
 llvm::Expected<FileEdits>
 renameModuleInFiles(llvm::StringRef Name, llvm::StringRef NewName,
-                    llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS,
-                    size_t LimitFiles);
+                    llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS);
 
 } // namespace clangd
 } // namespace clang

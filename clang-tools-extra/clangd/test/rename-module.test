@@ -29,6 +29,13 @@ export module Foo.Meta;
 #--- Other.cppm
 export module Other;
 
+#--- sub/Unlisted.cxx
+import Foo;
+
+#--- inc/Common.hpp
+import Foo;
+import Foo.Meta;
+
 #--- Use.cpp
 import Foo;
 import Foo.Meta;
@@ -44,7 +51,7 @@ int x;
 ]
 
 #--- rename.jsonrpc.tmpl
-{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":123,"rootPath":"clangd","capabilities":{},"trace":"off"}}
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":123,"rootPath":"DIR","capabilities":{},"trace":"off"}}
 ---
 {"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://DIR/Use.cpp","languageId":"cpp","version":1,"text":"import Foo;\nimport Foo.Meta;\nint x;\n"}}}
 ---
@@ -73,6 +80,9 @@ int x;
 #  CHECK-DAG:    "file://{{.*}}/Foo.cppm": [
 #  CHECK-DAG:    "file://{{.*}}/Part.cppm": [
 #  CHECK-DAG:    "file://{{.*}}/Use.cpp": [
+# The files that the database does not list: a unit and a header.
+#  CHECK-DAG:    "file://{{.*}}/sub/Unlisted.cxx": [
+#  CHECK-DAG:    "file://{{.*}}/inc/Common.hpp": [
 # CHECK-NOT:     Meta.cppm
 # CHECK-NOT:     Other.cppm
 ---

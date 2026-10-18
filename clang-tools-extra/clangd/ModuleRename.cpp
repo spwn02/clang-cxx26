@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "ModuleRename.h"
+#include "ProjectModules.h"
 #include "refactor/Rename.h"
 #include "support/Logger.h"
 #include "clang/Basic/CharInfo.h"
@@ -15,6 +16,7 @@
 #include "clang/Tooling/Syntax/Tokens.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/Path.h"
 #include <set>
 
 namespace clang {
@@ -199,15 +201,64 @@ llvm::Error validateModuleName(llvm::StringRef Name) {
   return llvm::Error::success();
 }
 
+llvm::Expected<std::vector<std::string>>
+findFilesThatCanImport(llvm::ArrayRef<std::string> Roots,
+                       const ThreadsafeFS &FS, unsigned MaxDirectories) {
+  // The search is bounded so that a workspace root that is a home directory
+  // does not hang the editor; when the bound is reached the rename is refused.
+  static const llvm::StringSet<> Extensions = {
+      ".cpp", ".cc",  ".cxx", ".c++", ".cp",  ".C",   ".cppm", ".ixx", ".cxxm",
+      ".c++m", ".mpp", ".h",   ".hpp", ".hh",  ".hxx", ".h++",  ".H",   ".hp",
+      ".inc", ".inl", ".ipp", ".tpp", ".tcc", ".ii",  ".ccm"};
+  auto View = FS.view(std::nullopt);
+  std::set<std::string> Result;
+  std::set<std::string> VisitedRoots;
+  unsigned Directories = 0;
+  bool CutOff = false;
+  auto Walk = [&](auto &&Self, llvm::StringRef Dir) -> void {
+    if (CutOff)
+      return;
+    if (++Directories > MaxDirectories) {
+      CutOff = true;
+      return;
+    }
+    std::error_code EC;
+    for (llvm::vfs::directory_iterator It = View->dir_begin(Dir, EC), End;
+         !EC && It != End; It.increment(EC)) {
+      llvm::StringRef Path = It->path();
+      if (It->type() == llvm::sys::fs::file_type::directory_file) {
+        if (!isIgnoredProjectDirectory(llvm::sys::path::filename(Path)))
+          Self(Self, Path);
+      } else if (It->type() == llvm::sys::fs::file_type::regular_file &&
+                 Extensions.contains(llvm::sys::path::extension(Path))) {
+        Result.insert(Path.str());
+      }
+    }
+  };
+  for (const std::string &Root : Roots)
+    if (VisitedRoots.insert(Root).second)
+      Walk(Walk, Root);
+  if (CutOff)
+    return error("the project has more than {0} directories under the "
+                 "workspace: the files that import the module cannot all be "
+                 "found, nothing is renamed",
+                 MaxDirectories);
+  return std::vector<std::string>(Result.begin(), Result.end());
+}
+
 llvm::Expected<FileEdits>
 renameModuleInFiles(llvm::StringRef Name, llvm::StringRef NewName,
-                    llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS,
-                    size_t LimitFiles) {
+                    llvm::ArrayRef<std::string> Files, const ThreadsafeFS &FS) {
   FileEdits Result;
   auto View = FS.view(std::nullopt);
   std::set<std::string> Seen;
   for (const std::string &File : Files) {
-    if (!Seen.insert(File).second)
+    // One file may be given by two spellings (a symbolic link, "a/../b"): it
+    // is edited once, under the spelling that came first.
+    llvm::SmallString<256> Real;
+    if (View->getRealPath(File, Real))
+      Real = File;
+    if (!Seen.insert(std::string(Real)).second)
       continue;
     auto Buffer = View->getBufferForFile(File);
     if (!Buffer)
@@ -227,10 +278,6 @@ renameModuleInFiles(llvm::StringRef Name, llvm::StringRef NewName,
     auto Edit = buildRenameEdit(File, Code, std::move(Occurrences), New);
     if (!Edit)
       return error("failed to rename in file {0}: {1}", File, Edit.takeError());
-    if (Result.size() >= LimitFiles)
-      return error("The number of affected files exceeds the max limit {0} "
-                   "(--rename-file-limit)",
-                   LimitFiles);
     Result.insert({File, std::move(*Edit)});
   }
   return Result;
