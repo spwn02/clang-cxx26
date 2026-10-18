@@ -63,6 +63,11 @@ GlobalCompilationDatabase::getFallbackCommand(PathRef File) const {
   auto FileExtension = llvm::sys::path::extension(File);
   if (FileExtension.empty() || FileExtension == ".h")
     Argv.push_back("-xobjective-c++-header");
+  // C++ is parsed as the newest standard: 'module' and 'import' are keywords
+  // only from C++20 on, and a directory of sources without a build system
+  // should still have working modules.
+  if (FileExtension != ".c" && FileExtension != ".m")
+    Argv.push_back("-std=c++26");
   Argv.push_back(std::string(File));
   tooling::CompileCommand Cmd(FallbackWorkingDirectory
                                   ? *FallbackWorkingDirectory
@@ -761,6 +766,34 @@ DirectoryBasedGlobalCompilationDatabase::getProjectInfo(PathRef File) const {
   return Res->PI;
 }
 
+namespace {
+// The directory that holds the sources of a file that no compilation database
+// covers: the workspace if the file is in it, else the closest directory above
+// that looks like the root of a project, else the directory of the file.
+std::string projectRootWithoutDatabase(
+    PathRef File, const std::optional<std::string> &Workspace) {
+  if (Workspace && !Workspace->empty() &&
+      llvm::sys::path::is_absolute(*Workspace)) {
+    llvm::StringRef W = *Workspace;
+    if (File.starts_with(W) && File.size() > W.size() &&
+        (llvm::sys::path::is_separator(File[W.size()]) ||
+         llvm::sys::path::is_separator(W.back())))
+      return W.str();
+  }
+  llvm::StringRef Dir = llvm::sys::path::parent_path(File);
+  for (llvm::StringRef D = Dir; !D.empty();
+       D = llvm::sys::path::parent_path(D)) {
+    for (const char *Marker : {".clangd", ".git", ".hg", ".svn"}) {
+      llvm::SmallString<256> M(D);
+      llvm::sys::path::append(M, Marker);
+      if (llvm::sys::fs::exists(M))
+        return D.str();
+    }
+  }
+  return Dir.str();
+}
+} // namespace
+
 std::unique_ptr<ProjectModules>
 DirectoryBasedGlobalCompilationDatabase::getProjectModules(PathRef File) const {
   CDBLookupRequest Req;
@@ -772,20 +805,40 @@ DirectoryBasedGlobalCompilationDatabase::getProjectModules(PathRef File) const {
   Req.FreshTime = Now - Opts.RevalidateAfter;
   Req.FreshTimeMissing = Now - Opts.RevalidateMissingAfter;
   auto Res = lookupCDB(Req);
-  if (!Res)
-    return {};
+
+  // Modules do not depend on a build system: without a database (or with one
+  // that lists no files, as compile_flags.txt does) the sources are searched
+  // below the root of the project and get the fallback command.
+  std::shared_ptr<const tooling::CompilationDatabase> CDB;
+  std::string CacheKey;
+  std::optional<ProjectTree> Tree;
+  if (Res) {
+    CDB = Res->CDB;
+    CacheKey = Res->PI.SourceRoot;
+    if (CDB->getAllFiles().empty())
+      Tree = ProjectTree{Res->PI.SourceRoot, nullptr};
+  } else {
+    CacheKey = projectRootWithoutDatabase(File, Opts.WorkspaceRoot);
+    Tree = ProjectTree{CacheKey, nullptr};
+  }
+  if (Tree) {
+    vlog("Modules of {0}: no source list in a database, searching {1}", File,
+         Tree->Root);
+    Tree->FallbackCommand = [this](PathRef F) { return getFallbackCommand(F); };
+  }
 
   std::shared_ptr<ModuleScanCache> Cache;
   {
     std::lock_guard<std::mutex> Lock(ModuleScanCachesMutex);
-    ModuleScanCacheEntry &Entry = ModuleScanCaches[Res->PI.SourceRoot];
-    if (Entry.CDB.lock() != Res->CDB || !Entry.Cache) {
-      Entry.CDB = Res->CDB;
+    ModuleScanCacheEntry &Entry = ModuleScanCaches[CacheKey];
+    if (Entry.CDB.lock() != CDB || !Entry.Cache) {
+      Entry.CDB = CDB;
       Entry.Cache = createModuleScanCache();
     }
     Cache = Entry.Cache;
   }
-  return scanningProjectModules(Res->CDB, Opts.TFS, std::move(Cache));
+  return scanningProjectModules(std::move(CDB), Opts.TFS, std::move(Cache),
+                                std::move(Tree));
 }
 
 OverlayCDB::OverlayCDB(const GlobalCompilationDatabase *Base,

@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "ProjectModules.h"
+#include "ScanningProjectModules.h"
 #include "support/Logger.h"
 #include "clang/DependencyScanning/DependencyScanningService.h"
 #include "clang/Tooling/DependencyScanningTool.h"
@@ -185,6 +186,8 @@ resolveStandardLibraryModule(llvm::StringRef ModuleName,
             ++I; // the language of the importer is not the one of the module unit
             continue;
           }
+          if (Arg.size() > 2 && Arg.starts_with("-x"))
+            continue; // the same, in one argument (-xobjective-c++-header)
           if (Arg.starts_with("-fmodule-output") ||
               Arg.starts_with("-fmodule-file=std=") ||
               Arg.starts_with("-fmodule-file=std.compat="))
@@ -193,6 +196,35 @@ resolveStandardLibraryModule(llvm::StringRef ModuleName,
               llvm::sys::path::filename(Arg) == ImporterFile)
             continue;
           Out.CommandLine.push_back(Importer.CommandLine[I]);
+        }
+        // A file without a command in a database (the fallback command names
+        // no toolchain) is built with the libc++ that clangd belongs to, with
+        // the headers next to the library of the manifest.
+        if (Importer.Heuristic == "clangd fallback") {
+          llvm::SmallString<256> Include(BinDir);
+          llvm::sys::path::append(Include, "..", "include");
+          llvm::sys::path::remove_dots(Include, /*remove_dot_dot=*/true);
+          llvm::SmallVector<std::string, 4> Dirs;
+          std::error_code IncludeEC;
+          for (llvm::sys::fs::directory_iterator It(Include, IncludeEC), End;
+               !IncludeEC && It != End; It.increment(IncludeEC)) {
+            llvm::SmallString<256> Triple(It->path());
+            llvm::sys::path::append(Triple, "c++", "v1");
+            if (llvm::sys::fs::exists(Triple))
+              Dirs.push_back(std::string(Triple)); // has __config_site
+          }
+          llvm::SmallString<256> Generic(Include);
+          llvm::sys::path::append(Generic, "c++", "v1");
+          if (llvm::sys::fs::exists(Generic))
+            Dirs.push_back(std::string(Generic));
+          if (!Dirs.empty()) {
+            Out.CommandLine.push_back("-stdlib=libc++");
+            Out.CommandLine.push_back("-nostdinc++");
+            for (const std::string &D : Dirs) {
+              Out.CommandLine.push_back("-isystem");
+              Out.CommandLine.push_back(D);
+            }
+          }
         }
         if (const llvm::json::Object *Local = Obj->getObject("local-arguments"))
           if (const llvm::json::Array *Dirs =
@@ -213,6 +245,39 @@ resolveStandardLibraryModule(llvm::StringRef ModuleName,
   }
   return std::nullopt;
 }
+
+/// The database of a project that has none (or none that lists files): the
+/// commands of the database if it has them, the fallback command otherwise.
+class TreeCompilationDatabase : public tooling::CompilationDatabase {
+public:
+  TreeCompilationDatabase(
+      std::shared_ptr<const tooling::CompilationDatabase> Base,
+      ProjectTree Tree)
+      : Base(std::move(Base)), Tree(std::move(Tree)) {}
+
+  std::vector<tooling::CompileCommand>
+  getCompileCommands(StringRef FilePath) const override {
+    if (Base) {
+      auto Cmds = Base->getCompileCommands(FilePath);
+      if (!Cmds.empty())
+        return Cmds;
+    }
+    if (!Tree.FallbackCommand)
+      return {};
+    return {Tree.FallbackCommand(FilePath)};
+  }
+  std::vector<std::string> getAllFiles() const override {
+    return Base ? Base->getAllFiles() : std::vector<std::string>();
+  }
+  std::vector<tooling::CompileCommand> getAllCompileCommands() const override {
+    return Base ? Base->getAllCompileCommands()
+                : std::vector<tooling::CompileCommand>();
+  }
+
+private:
+  std::shared_ptr<const tooling::CompilationDatabase> Base;
+  ProjectTree Tree;
+};
 
 /// A scanner to query the dependency information for C++20 Modules.
 ///
@@ -235,8 +300,9 @@ class ModuleDependencyScanner {
 public:
   ModuleDependencyScanner(
       std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
-      const ThreadsafeFS &TFS, std::shared_ptr<ModuleScanCache> Cache)
-      : CDB(CDB), TFS(&TFS), Cache(std::move(Cache)),
+      const ThreadsafeFS &TFS, std::shared_ptr<ModuleScanCache> Cache,
+      std::string TreeRoot = {})
+      : CDB(CDB), TFS(&TFS), TreeRoot(std::move(TreeRoot)), Cache(std::move(Cache)),
         Service(dependencies::ScanningMode::CanonicalPreprocessing,
                 dependencies::ScanningOutputFormat::P1689) {}
 
@@ -301,7 +367,8 @@ public:
   /// The command registered for a source that is not in the project's
   /// compilation database (see getSourceForModuleName).
   std::optional<tooling::CompileCommand>
-  getCompileCommandForSource(PathRef File) const;
+  getCompileCommandForSource(PathRef File,
+                             const ProjectModules::CommandMangler &Mangler) const;
 
   /// Return the direct required modules. Indirect required modules are not
   /// included.
@@ -312,6 +379,10 @@ public:
 private:
   std::shared_ptr<const clang::tooling::CompilationDatabase> CDB;
   const ThreadsafeFS *TFS;
+
+  // The directory to search for the sources of a project whose database lists
+  // none.
+  std::string TreeRoot;
 
   // Whether the scanner has scanned the project globally.
   bool GlobalScanned = false;
@@ -500,6 +571,8 @@ void ModuleDependencyScanner::listedFilesAndDirectories(
     if (!Dir.empty())
       Roots.insert(Dir.str());
   }
+  if (Listed.empty() && !TreeRoot.empty())
+    Roots.insert(TreeRoot);
 }
 
 std::vector<std::string> ModuleDependencyScanner::getSourceDirectories() const {
@@ -591,6 +664,8 @@ void ModuleDependencyScanner::discoverUnlistedModules(
     Walk(Walk, Root, 0);
 
   std::sort(Found.begin(), Found.end());
+  vlog("Module discovery: {0} directories, {1} units found", Directories,
+       Found.size());
   {
     std::lock_guard<std::mutex> Lock(Cache->Mu);
     Cache->UnlistedFiles = Found;
@@ -712,10 +787,24 @@ std::vector<std::string> ModuleDependencyScanner::getKnownModuleNames(
 }
 
 std::optional<tooling::CompileCommand>
-ModuleDependencyScanner::getCompileCommandForSource(PathRef File) const {
-  std::lock_guard<std::mutex> Lock(Cache->Mu);
-  if (auto It = Cache->ExtraCommands.find(File); It != Cache->ExtraCommands.end())
-    return It->second;
+ModuleDependencyScanner::getCompileCommandForSource(
+    PathRef File, const ProjectModules::CommandMangler &Mangler) const {
+  {
+    std::lock_guard<std::mutex> Lock(Cache->Mu);
+    if (auto It = Cache->ExtraCommands.find(File);
+        It != Cache->ExtraCommands.end())
+      return It->second;
+  }
+  // A project without a database has the fallback command for every source.
+  if (!TreeRoot.empty()) {
+    auto Cmds = CDB->getCompileCommands(File);
+    if (!Cmds.empty()) {
+      tooling::CompileCommand Cmd = std::move(Cmds.front());
+      if (Mangler)
+        Mangler(Cmd, File);
+      return Cmd;
+    }
+  }
   return std::nullopt;
 }
 
@@ -740,8 +829,9 @@ class ScanningAllProjectModules : public ProjectModules {
 public:
   ScanningAllProjectModules(
       std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
-      const ThreadsafeFS &TFS, std::shared_ptr<ModuleScanCache> Cache)
-      : Scanner(CDB, TFS, std::move(Cache)) {}
+      const ThreadsafeFS &TFS, std::shared_ptr<ModuleScanCache> Cache,
+      std::string TreeRoot = {})
+      : Scanner(CDB, TFS, std::move(Cache), std::move(TreeRoot)) {}
 
   ~ScanningAllProjectModules() override = default;
 
@@ -767,7 +857,7 @@ public:
 
   std::optional<tooling::CompileCommand>
   getCompileCommandForSource(PathRef File) override {
-    return Scanner.getCompileCommandForSource(File);
+    return Scanner.getCompileCommandForSource(File, Mangler);
   }
 
   std::vector<std::string> getKnownModuleNames(PathRef ImportingFile,
@@ -798,10 +888,18 @@ private:
 
 std::unique_ptr<ProjectModules> scanningProjectModules(
     std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
-    const ThreadsafeFS &TFS, std::shared_ptr<ModuleScanCache> Cache) {
+    const ThreadsafeFS &TFS, std::shared_ptr<ModuleScanCache> Cache,
+    std::optional<ProjectTree> Tree) {
   if (!Cache)
     Cache = createModuleScanCache();
-  return std::make_unique<ScanningAllProjectModules>(CDB, TFS, std::move(Cache));
+  std::string TreeRoot;
+  if (Tree) {
+    TreeRoot = Tree->Root;
+    CDB = std::make_shared<TreeCompilationDatabase>(std::move(CDB),
+                                                    std::move(*Tree));
+  }
+  return std::make_unique<ScanningAllProjectModules>(
+      CDB, TFS, std::move(Cache), std::move(TreeRoot));
 }
 
 // Directories that hold build products or third-party code rather than the

@@ -43,16 +43,18 @@ TEST(GlobalCompilationDatabaseTest, FallbackCommand) {
   DirectoryBasedGlobalCompilationDatabase DB(TFS);
   auto Cmd = DB.getFallbackCommand(testPath("foo/bar.cc"));
   EXPECT_EQ(Cmd.Directory, testPath("foo"));
-  EXPECT_THAT(Cmd.CommandLine, ElementsAre("clang", testPath("foo/bar.cc")));
+  EXPECT_THAT(Cmd.CommandLine, ElementsAre("clang", "-std=c++26", testPath("foo/bar.cc")));
   EXPECT_EQ(Cmd.Output, "");
 
+  // C++ is parsed as the newest standard (module declarations and imports are
+  // keywords only from C++20 on: a project without a build system has modules).
   // .h files have unknown language, so they are parsed liberally as obj-c++.
   Cmd = DB.getFallbackCommand(testPath("foo/bar.h"));
   EXPECT_THAT(Cmd.CommandLine, ElementsAre("clang", "-xobjective-c++-header",
-                                           testPath("foo/bar.h")));
+                                           "-std=c++26", testPath("foo/bar.h")));
   Cmd = DB.getFallbackCommand(testPath("foo/bar"));
   EXPECT_THAT(Cmd.CommandLine, ElementsAre("clang", "-xobjective-c++-header",
-                                           testPath("foo/bar")));
+                                           "-std=c++26", testPath("foo/bar")));
 }
 
 TEST(GlobalCompilationDatabaseTest, FallbackWorkingDirectory) {
@@ -65,7 +67,7 @@ TEST(GlobalCompilationDatabaseTest, FallbackWorkingDirectory) {
   auto Cmd = DB.getFallbackCommand(testPath("foo/src/bar.cc"));
   EXPECT_EQ(Cmd.Directory, testPath("foo"));
   EXPECT_THAT(Cmd.CommandLine,
-              ElementsAre("clang", testPath("foo/src/bar.cc")));
+              ElementsAre("clang", "-std=c++26", testPath("foo/src/bar.cc")));
   EXPECT_EQ(Cmd.Output, "");
 }
 
@@ -132,7 +134,7 @@ TEST_F(OverlayCDBTest, NoBase) {
               Contains("-DA=5"));
 
   EXPECT_THAT(CDB.getFallbackCommand(testPath("foo.cc")).CommandLine,
-              ElementsAre("clang", testPath("foo.cc"), "-DA=6"));
+              ElementsAre("clang", "-std=c++26", testPath("foo.cc"), "-DA=6"));
 }
 
 TEST_F(OverlayCDBTest, Watch) {

@@ -974,6 +974,47 @@ TEST_F(PrerequisiteModulesTests, UnsavedEditsOfAModuleUnitReachItsOpenImporters)
   EXPECT_THAT(Recorder.errors(UsePath), ::testing::IsEmpty());
 }
 
+// A directory with module units and no compilation database at all (a scratch
+// project, an example): the units are found below the workspace and parsed
+// with the fallback command.
+TEST_F(PrerequisiteModulesTests, ModulesOfAProjectWithoutACompilationDatabase) {
+  auto Write = [&](llvm::StringRef Path, llvm::StringRef Contents) {
+    SmallString<256> AbsPath(TestDir);
+    llvm::sys::path::append(AbsPath, Path);
+    ASSERT_FALSE(llvm::sys::fs::create_directories(
+        llvm::sys::path::parent_path(AbsPath)));
+    std::error_code EC;
+    llvm::raw_fd_ostream OS(AbsPath, EC);
+    ASSERT_FALSE(EC);
+    OS << Contents;
+  };
+  Write("lib/M.cppm", "export module M;\nexport import :P;\n");
+  Write("lib/MP.cppm", "export module M:P;\nexport int g();\n");
+  Write("app/Use.cpp", "import M;\nint f() { return g(); }\n");
+
+  DirectoryBasedGlobalCompilationDatabase::Options CDBOpts(FS);
+  CDBOpts.WorkspaceRoot = TestDir.str().str();
+  DirectoryBasedGlobalCompilationDatabase CDB(CDBOpts);
+  ModulesBuilder Builder(CDB);
+
+  std::string UsePath = getFullPath("app/Use.cpp");
+  auto Known = Builder.getKnownModules(UsePath, FS);
+  EXPECT_THAT(Known.Names, ::testing::IsSupersetOf({"M", "M:P"}));
+  EXPECT_THAT(Builder.getProjectSourceDirectories(UsePath, FS),
+              ::testing::Contains(std::string(TestDir)));
+  EXPECT_THAT(Builder.getProjectSourceFiles(UsePath, FS),
+              ::testing::IsSupersetOf({getFullPath("lib/M.cppm"),
+                                       getFullPath("lib/MP.cppm")}));
+
+  // The file imports M: its module file is built with the fallback command.
+  auto Info = Builder.buildPrerequisiteModulesFor(UsePath, FS);
+  ASSERT_TRUE(Info);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("M"));
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("M:P"));
+}
+
 TEST_F(PrerequisiteModulesTests, UnusableBuildSystemModulesAreDroppedFromTheInvocation) {
   MockDirectoryCompilationDatabase CDB(TestDir, FS);
   // A module file that is not usable and a module that clangd cannot build.

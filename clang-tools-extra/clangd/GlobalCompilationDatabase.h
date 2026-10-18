@@ -129,6 +129,9 @@ public:
     // Working directory for fallback commands
     // If unset, parent directory of file should be used
     std::optional<std::string> FallbackWorkingDirectory;
+    // The workspace of the client: where the sources of a project are looked
+    // for when no compilation database tells.
+    std::optional<std::string> WorkspaceRoot;
 
     void applyFallbackWorkingDirectory(
         std::optional<std::string> FallbackWorkingDirectory);

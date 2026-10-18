@@ -554,6 +554,7 @@ void ClangdLSPServer::onInitialize(const InitializeParams &Params,
     if (const auto &Dir = Params.initializationOptions.compilationDatabasePath)
       CDBOpts.CompileCommandsDir = Dir;
     CDBOpts.ContextProvider = Opts.ContextProvider;
+    CDBOpts.WorkspaceRoot = Opts.WorkspaceRoot;
     if (Opts.StrongWorkspaceMode)
       CDBOpts.applyFallbackWorkingDirectory(Opts.WorkspaceRoot);
     BaseCDB =
