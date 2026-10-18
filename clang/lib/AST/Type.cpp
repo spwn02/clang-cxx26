@@ -162,6 +162,10 @@ QualType::isNonConstantStorage(const ASTContext &Ctx, bool ExcludeCtor,
           Ctx.getBaseElementType(*this)->getAsCXXRecordDecl()) {
     if (!ExcludeCtor)
       return NonConstantStorageReason::NonTrivialCtor;
+    // A class that is not defined (the type of a malformed declaration) has no
+    // properties to ask for.
+    if (!Record->hasDefinition())
+      return std::nullopt;
     if (Record->hasMutableFields())
       return NonConstantStorageReason::MutableField;
     if (!Record->hasTrivialDestructor() && !ExcludeDtor)
