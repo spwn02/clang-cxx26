@@ -319,7 +319,12 @@ Sema::ActOnModuleDecl(SourceLocation StartLoc, SourceLocation ModuleLoc,
     return nullptr;
   }
 
-  assert(ModuleScopes.size() <= 1 && "expected to be at global module scope");
+  // After a malformed module declaration or private module fragment ('module e'
+  // without ';', 'module :private;' before the module declaration) the state
+  // of the parser and the scopes of the modules are not the ones of a valid
+  // file: that was diagnosed already.
+  assert((ModuleScopes.size() <= 1 || Diags.hasErrorOccurred()) &&
+         "expected to be at global module scope");
 
   // FIXME: Most of this work should be done by the preprocessor rather than
   // here, in order to support macro import.
@@ -332,7 +337,7 @@ Sema::ActOnModuleDecl(SourceLocation StartLoc, SourceLocation ModuleLoc,
     return nullptr;
   }
 
-  assert((!getLangOpts().CPlusPlusModules ||
+  assert((!getLangOpts().CPlusPlusModules || Diags.hasErrorOccurred() ||
           SeenGMF == (bool)this->TheGlobalModuleFragment) &&
          "mismatched global module state");
 
