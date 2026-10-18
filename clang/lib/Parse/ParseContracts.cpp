@@ -177,6 +177,11 @@ void Parser::ParseContractSpecifierSequence(Declarator &DeclarationInfo,
   if (!isFunctionContractKeyword(Tok))
     return;
 
+  // A function-contract-specifier follows the declarator of a function; after
+  // anything else ('int (x) post', 'int x pre(1);') the token is not one.
+  if (!DeclarationInfo.isFunctionDeclarator())
+    return;
+
   std::optional<QualType> CachedType;
   auto ReturnTypeResolver = [&]() {
     if (!CachedType) {
