@@ -722,6 +722,10 @@ StmtResult Sema::FinishCXXExpansionStmt(Stmt *Heading, Stmt *Body) {
     LocalInstantiationScope LIScope(*this, /*CombineWithOuterScope=*/true);
     InstantiatingTemplate Inst(*this, Body->getBeginLoc(), Expansion, TArgs,
                                Body->getSourceRange());
+    // No instantiation context was entered: a fatal error was diagnosed
+    // already (the limit of the errors), and nothing can be instantiated.
+    if (Inst.isInvalid())
+      return StmtError();
 
     StmtResult Instantiation = SubstStmt(CombinedBody, MTArgList);
 
