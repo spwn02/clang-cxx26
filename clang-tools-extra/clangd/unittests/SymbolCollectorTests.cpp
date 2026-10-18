@@ -483,6 +483,22 @@ TEST_F(SymbolCollectorTest, FileLocal) {
                   AllOf(qName("ForwardDecl"), Not(visibleOutsideFile()))));
 }
 
+TEST_F(SymbolCollectorTest, ExportedDeclarations) {
+  // The declarations of a module interface that are exported one by one, or in
+  // a group, are symbols of the project like the ones in a namespace.
+  const std::string Main = R"(
+    export module M;
+    export struct S {};
+    export int f();
+    export { int h(); struct R {}; }
+    export namespace n { int g(); }
+  )";
+  runSymbolCollector(/*Header=*/"", Main, {"-std=c++20"});
+  EXPECT_THAT(Symbols, ::testing::IsSupersetOf(
+                           {qName("S"), qName("f"), qName("h"), qName("R"),
+                            qName("n"), qName("n::g")}));
+}
+
 TEST_F(SymbolCollectorTest, Template) {
   Annotations Header(R"(
     // Primary template and explicit specialization are indexed, instantiation
