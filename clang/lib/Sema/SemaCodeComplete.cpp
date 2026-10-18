@@ -10324,7 +10324,8 @@ void SemaCodeCompletion::CodeCompletePreprocessorDirective(bool InConditional) {
   Builder.AddPlaceholderChunk("message");
   Results.AddResult(Builder.TakeString());
 
-  if (getLangOpts().C23) {
+  // #embed is a directive of C23 and of C++26.
+  if (getLangOpts().C23 || getLangOpts().CPlusPlus26) {
     // #embed "file"
     Builder.AddTypedTextChunk("embed");
     Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
