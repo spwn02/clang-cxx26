@@ -2232,8 +2232,11 @@ void ASTDeclMerger::MergeDefinitionData(
     }
   }
 
-  // We don't want to check ODR for decls in the global module fragment.
-  if (shouldSkipCheckingODR(MergeDD.Definition) || shouldSkipCheckingODR(D))
+  // We don't want to check ODR for decls in the global module fragment, either
+  // the one that is read or the one that it is merged into (a precompiled
+  // header that is read after the module).
+  if (shouldSkipCheckingODR(MergeDD.Definition) || shouldSkipCheckingODR(D) ||
+      shouldSkipCheckingODR(DD.Definition))
     return;
 
   if (D->getODRHash() != MergeDD.ODRHash) {
