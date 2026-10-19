@@ -152,6 +152,14 @@ class ASTDeclReader : public DeclVisitor<ASTDeclReader, void> {
   using RecordData = ASTReader::RecordData;
 
   TypeID DeferredTypeID = 0;
+
+  /// The attributes of a tag declaration are read after the declaration was
+  /// merged (see Visit()): an attribute can name a type that is a
+  /// specialization of the declaration itself (libc++'s preferred_name
+  /// attribute of basic_string_view names 'string_view'), and the canonical
+  /// type that is created for the declaration while it is read is not the one
+  /// of the declaration it is merged into.
+  bool HasDeferredAttrs = false;
   unsigned AnonymousDeclNumber = 0;
   GlobalDeclID NamedDeclForTagDecl = GlobalDeclID();
   IdentifierInfo *TypedefNameForLinkage = nullptr;
@@ -532,6 +540,13 @@ void ASTDeclReader::ReadFunctionDefinition(FunctionDecl *FD) {
 void ASTDeclReader::Visit(Decl *D) {
   DeclVisitor<ASTDeclReader, void>::Visit(D);
 
+  if (HasDeferredAttrs) {
+    AttrVec Attrs;
+    Record.readAttributes(Attrs);
+    D->setAttrsImpl(Attrs, Reader.getContext());
+    HasDeferredAttrs = false;
+  }
+
   // At this point we have deserialized and merged the decl and it is safe to
   // update its canonical decl to signal that the entire entity is used.
   D->getCanonicalDecl()->Used |= IsDeclMarkedUsed;
@@ -624,11 +639,15 @@ void ASTDeclReader::VisitDecl(Decl *D) {
   D->setLocation(ThisDeclLoc);
 
   if (HasAttrs) {
-    AttrVec Attrs;
-    Record.readAttributes(Attrs);
-    // Avoid calling setAttrs() directly because it uses Decl::getASTContext()
-    // internally which is unsafe during derialization.
-    D->setAttrsImpl(Attrs, Reader.getContext());
+    if (isa<TagDecl>(D)) {
+      HasDeferredAttrs = true;
+    } else {
+      AttrVec Attrs;
+      Record.readAttributes(Attrs);
+      // Avoid calling setAttrs() directly because it uses
+      // Decl::getASTContext() internally which is unsafe during derialization.
+      D->setAttrsImpl(Attrs, Reader.getContext());
+    }
   }
 
   // Determine whether this declaration is part of a (sub)module. If so, it

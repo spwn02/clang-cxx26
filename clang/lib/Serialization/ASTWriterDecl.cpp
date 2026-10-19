@@ -464,6 +464,9 @@ bool clang::CanElideDeclDef(const Decl *D) {
 void ASTDeclWriter::Visit(Decl *D) {
   DeclVisitor<ASTDeclWriter>::Visit(D);
 
+  if (D->hasAttrs() && isa<TagDecl>(D))
+    Record.AddAttributes(D->getAttrs());
+
   // Source locations require array (variable-length) abbreviations.  The
   // abbreviation infrastructure requires that arrays are encoded last, so
   // we handle it here in the case of those classes derived from DeclaratorDecl
@@ -546,7 +549,9 @@ void ASTDeclWriter::VisitDecl(Decl *D) {
   if (D->getDeclContext() != D->getLexicalDeclContext())
     Record.AddDeclRef(cast_or_null<Decl>(D->getLexicalDeclContext()));
 
-  if (D->hasAttrs())
+  // The attributes of a tag declaration are written last (see
+  // ASTDeclReader::HasDeferredAttrs).
+  if (D->hasAttrs() && !isa<TagDecl>(D))
     Record.AddAttributes(D->getAttrs());
 
   Record.push_back(Writer.getSubmoduleID(D->getOwningModule()));

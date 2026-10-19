@@ -6436,11 +6436,16 @@ void Sema::BuildVariableInstantiation(
     // We need the type to complete the declaration of the variable.
     InstantiateVariableInitializer(NewVar, OldVar, TemplateArgs);
   } else if (InstantiatingSpecFromTemplate ||
-             (OldVar->isInline() && OldVar->isThisDeclarationADefinition() &&
+             (OldVar->isInline() &&
+              (OldVar->isThisDeclarationADefinition() ||
+               OldVar->isThisDeclarationADemotedDefinition()) &&
               !NewVar->isThisDeclarationADefinition())) {
     // Delay instantiation of the initializer for variable template
     // specializations or inline static data members until a definition of the
-    // variable is needed.
+    // variable is needed. The in-class definition of an inline static data
+    // member of a class that was defined in more than one AST file (a header
+    // included before a module that includes it) is demoted to a declaration
+    // when the file that has it is not the first to be read.
   } else {
     InstantiateVariableInitializer(NewVar, OldVar, TemplateArgs);
   }
