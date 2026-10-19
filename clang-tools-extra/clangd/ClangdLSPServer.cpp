@@ -565,6 +565,7 @@ void ClangdLSPServer::onInitialize(const InitializeParams &Params,
     CDBOpts.ContextProvider = Opts.ContextProvider;
     CDBOpts.WorkspaceRoot = Opts.WorkspaceRoot;
     CDBOpts.Activity = ModulesProgressSource;
+    CDBOpts.FallbackDriver = fallbackToolchainDriver(Opts.QueryDriverGlobs);
     if (Opts.StrongWorkspaceMode)
       CDBOpts.applyFallbackWorkingDirectory(Opts.WorkspaceRoot);
     BaseCDB =

@@ -56,7 +56,13 @@ void actOnAllParentDirectories(PathRef FileName,
 
 tooling::CompileCommand
 GlobalCompilationDatabase::getFallbackCommand(PathRef File) const {
-  std::vector<std::string> Argv = {"clang"};
+  return makeFallbackCommand(File, /*Driver=*/"");
+}
+
+tooling::CompileCommand
+GlobalCompilationDatabase::makeFallbackCommand(PathRef File,
+                                               llvm::StringRef Driver) const {
+  std::vector<std::string> Argv = {Driver.empty() ? "clang" : Driver.str()};
   // Clang treats .h files as C by default and files without extension as linker
   // input, resulting in unhelpful diagnostics.
   // Parsing as Objective C++ is friendly to more cases.
@@ -71,7 +77,10 @@ GlobalCompilationDatabase::getFallbackCommand(PathRef File) const {
     // The libc++ of the toolchain of clangd, when it has one, for the includes
     // as for 'import std;' (which is built from it): not the headers of the
     // system, which the module of the library would conflict with.
-    for (std::string &Flag : ownLibcxxFlags())
+    for (std::string &Flag : Driver.empty()
+                                 ? ownLibcxxFlags()
+                                 : libcxxFlagsOfToolchain(
+                                       llvm::sys::path::parent_path(Driver)))
       Argv.push_back(std::move(Flag));
   }
   Argv.push_back(std::string(File));
@@ -800,6 +809,12 @@ std::string projectRootWithoutDatabase(
 }
 } // namespace
 
+tooling::CompileCommand
+DirectoryBasedGlobalCompilationDatabase::getFallbackCommand(
+    PathRef File) const {
+  return makeFallbackCommand(File, Opts.FallbackDriver);
+}
+
 std::unique_ptr<ProjectModules>
 DirectoryBasedGlobalCompilationDatabase::getProjectModules(PathRef File) const {
   CDBLookupRequest Req;
@@ -839,7 +854,7 @@ DirectoryBasedGlobalCompilationDatabase::getProjectModules(PathRef File) const {
     ModuleScanCacheEntry &Entry = ModuleScanCaches[CacheKey];
     if (Entry.CDB.lock() != CDB || !Entry.Cache) {
       Entry.CDB = CDB;
-      Entry.Cache = createModuleScanCache(Opts.Activity);
+      Entry.Cache = createModuleScanCache(Opts.Activity, Opts.FallbackDriver);
     }
     Cache = Entry.Cache;
   }

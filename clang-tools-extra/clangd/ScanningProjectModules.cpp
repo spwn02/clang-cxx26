@@ -20,6 +20,7 @@
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include <chrono>
+#include <deque>
 #include <thread>
 #include <mutex>
 #include <optional>
@@ -53,14 +54,22 @@ public:
   // The module units that the last search found, which the database does not
   // list.
   std::vector<std::string> UnlistedFiles;
+  // The directories of the files that asked for a module: searched first.
+  std::set<std::string> ImporterDirectories;
   // Told about the scans that take time (see ModulesActivity).
   std::shared_ptr<ModulesActivity> Activity;
+  // The driver of the toolchain to look for the modules of libc++ in after the
+  // toolchain of the command and the one of clangd (see
+  // fallbackToolchainDriver()).
+  std::string FallbackDriver;
 };
 
 std::shared_ptr<ModuleScanCache>
-createModuleScanCache(std::shared_ptr<ModulesActivity> Activity) {
+createModuleScanCache(std::shared_ptr<ModulesActivity> Activity,
+                      std::string FallbackDriver) {
   auto Cache = std::make_shared<ModuleScanCache>();
   Cache->Activity = std::move(Activity);
+  Cache->FallbackDriver = std::move(FallbackDriver);
   return Cache;
 }
 
@@ -110,8 +119,6 @@ public:
 };
 } // namespace
 
-namespace {
-
 /// The flags that select the libc++ that is installed below \param BinDir's
 /// parent ("<BinDir>/../include/<triple>/c++/v1" with its __config_site, and
 /// "<BinDir>/../include/c++/v1"); none if there is no libc++.
@@ -144,8 +151,6 @@ std::vector<std::string> libcxxFlagsOfToolchain(llvm::StringRef BinDir) {
   return Flags;
 }
 
-} // namespace
-
 std::vector<std::string> ownLibcxxFlags() {
   static const std::vector<std::string> Flags = [] {
     std::string Self = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
@@ -154,6 +159,45 @@ std::vector<std::string> ownLibcxxFlags() {
     return libcxxFlagsOfToolchain(llvm::sys::path::parent_path(Self));
   }();
   return Flags;
+}
+
+namespace {
+/// Whether the toolchain whose driver is in \param BinDir has the manifest of
+/// the modules of libc++ (lib/libc++.modules.json or lib/<triple>/...).
+bool hasLibcxxModules(llvm::StringRef BinDir) {
+  llvm::SmallString<256> LibDir(BinDir);
+  llvm::sys::path::append(LibDir, "..", "lib");
+  llvm::sys::path::remove_dots(LibDir, /*remove_dot_dot=*/true);
+  llvm::SmallString<256> Direct(LibDir);
+  llvm::sys::path::append(Direct, "libc++.modules.json");
+  if (llvm::sys::fs::exists(Direct))
+    return true;
+  std::error_code EC;
+  for (llvm::sys::fs::directory_iterator It(LibDir, EC), End; !EC && It != End;
+       It.increment(EC)) {
+    llvm::SmallString<256> InTriple(It->path());
+    llvm::sys::path::append(InTriple, "libc++.modules.json");
+    if (llvm::sys::fs::exists(InTriple))
+      return true;
+  }
+  return false;
+}
+} // namespace
+
+std::string fallbackToolchainDriver(llvm::ArrayRef<std::string> QueryDrivers) {
+  std::string Self = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
+  if (!Self.empty() && hasLibcxxModules(llvm::sys::path::parent_path(Self)))
+    return {};
+  for (const std::string &Driver : QueryDrivers) {
+    // A glob names no single toolchain.
+    if (Driver.find_first_of("*?[{") != std::string::npos ||
+        !llvm::sys::path::is_absolute(Driver) ||
+        !llvm::sys::fs::can_execute(Driver))
+      continue;
+    if (hasLibcxxModules(llvm::sys::path::parent_path(Driver)))
+      return Driver;
+  }
+  return {};
 }
 
 namespace {
@@ -169,7 +213,8 @@ namespace {
 std::optional<tooling::CompileCommand>
 resolveStandardLibraryModule(llvm::StringRef ModuleName,
                              const tooling::CompileCommand &Importer,
-                             std::string &SourcePath) {
+                             std::string &SourcePath,
+                             llvm::StringRef FallbackDriver) {
   llvm::SmallVector<std::string, 2> BinDirs;
   if (!Importer.CommandLine.empty()) {
     llvm::StringRef Compiler = Importer.CommandLine.front();
@@ -179,6 +224,10 @@ resolveStandardLibraryModule(llvm::StringRef ModuleName,
   std::string Self = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
   if (!Self.empty())
     BinDirs.push_back(llvm::sys::path::parent_path(Self).str());
+  // The toolchain that the user told clangd to trust: a clangd of a build tree
+  // has no libc++ next to it, and a command that names "clang" no toolchain.
+  if (!FallbackDriver.empty())
+    BinDirs.push_back(llvm::sys::path::parent_path(FallbackDriver).str());
 
   for (const std::string &BinDir : BinDirs) {
     llvm::SmallString<256> LibDir(BinDir);
@@ -358,8 +407,12 @@ public:
   /// file the build system has not seen yet) in the directories that contain
   /// the files it does list, and add them to the <module-name> to
   /// <module-unit-source> map. See the comments of globalScan.
+  /// The directories of the files that import modules are searched first
+  /// (\param ImportingFile is one of them, if given): the neighbours of a file
+  /// are the modules it is most likely to name, and the search is bounded.
   void discoverUnlistedModules(const ProjectModules::CommandMangler &Mangler,
-                               bool WaitForInterval);
+                               bool WaitForInterval,
+                               PathRef ImportingFile = {});
 
   void listedFilesAndDirectories(std::set<std::string> &Listed,
                                  std::set<std::string> &Roots) const;
@@ -630,7 +683,8 @@ std::vector<std::string> ModuleDependencyScanner::getSourceFiles(
 }
 
 void ModuleDependencyScanner::discoverUnlistedModules(
-    const ProjectModules::CommandMangler &Mangler, bool WaitForInterval) {
+    const ProjectModules::CommandMangler &Mangler, bool WaitForInterval,
+    PathRef ImportingFile) {
   // The search is not repeated for every lookup of a module that does not
   // exist; what it found stays in the cache. A lookup that found nothing waits
   // for the end of the interval instead of giving up: the unit it looks for may
@@ -640,6 +694,9 @@ void ModuleDependencyScanner::discoverUnlistedModules(
   std::chrono::steady_clock::time_point Start;
   {
     std::lock_guard<std::mutex> Lock(Cache->Mu);
+    if (llvm::sys::path::is_absolute(ImportingFile))
+      Cache->ImporterDirectories.insert(
+          llvm::sys::path::parent_path(ImportingFile).str());
     auto Now = std::chrono::steady_clock::now();
     Start = Now;
     if (Cache->LastDiscovery && Now - *Cache->LastDiscovery < MinInterval) {
@@ -669,17 +726,36 @@ void ModuleDependencyScanner::discoverUnlistedModules(
 
   std::vector<std::string> Found;
   unsigned Directories = 0, Probes = 0;
-  auto Walk = [&](auto &&Self, llvm::StringRef Dir, unsigned Depth) -> void {
+  // The directories are searched level by level (a bounded search must reach
+  // the shallow directories of the whole tree before the deep ones of the
+  // first), the directories of the importing files before the roots.
+  std::deque<std::pair<std::string, unsigned>> Queue;
+  std::set<std::string> Visited;
+  auto Enqueue = [&](llvm::StringRef Dir) {
+    if (Visited.insert(Dir.str()).second)
+      Queue.emplace_back(Dir.str(), 0);
+  };
+  {
+    std::lock_guard<std::mutex> Lock(Cache->Mu);
+    for (const std::string &Dir : Cache->ImporterDirectories)
+      Enqueue(Dir);
+  }
+  for (const std::string &Root : Outer)
+    Enqueue(Root);
+  while (!Queue.empty()) {
+    auto [Dir, Depth] = std::move(Queue.front());
+    Queue.pop_front();
     if (Depth > MaxDepth || ++Directories > MaxDirectories)
-      return;
+      continue;
     std::error_code EC;
     for (llvm::vfs::directory_iterator It = FS->dir_begin(Dir, EC), End;
          !EC && It != End; It.increment(EC)) {
       llvm::StringRef Path = It->path();
       llvm::StringRef Name = llvm::sys::path::filename(Path);
       if (It->type() == llvm::sys::fs::file_type::directory_file) {
-        if (!isIgnoredProjectDirectory(Name))
-          Self(Self, Path, Depth + 1);
+        if (!isIgnoredProjectDirectory(Name) &&
+            Visited.insert(Path.str()).second)
+          Queue.emplace_back(Path.str(), Depth + 1);
         continue;
       }
       if (It->type() != llvm::sys::fs::file_type::regular_file)
@@ -695,9 +771,7 @@ void ModuleDependencyScanner::discoverUnlistedModules(
           Found.push_back(Path.str());
       }
     }
-  };
-  for (const std::string &Root : Outer)
-    Walk(Walk, Root, 0);
+  }
 
   std::sort(Found.begin(), Found.end());
   vlog("Module discovery: {0} directories, {1} units found", Directories,
@@ -772,7 +846,8 @@ std::string ModuleDependencyScanner::getSourceForModuleName(
     if (Mangler)
       Mangler(Importer, ImportingFile);
     std::string Source;
-    auto Cmd = resolveStandardLibraryModule(ModuleName, Importer, Source);
+    auto Cmd = resolveStandardLibraryModule(ModuleName, Importer, Source,
+                                              Cache->FallbackDriver);
     if (!Cmd)
       return {};
     std::lock_guard<std::mutex> Lock(Cache->Mu);
@@ -797,7 +872,7 @@ std::string ModuleDependencyScanner::getSourceForModuleName(
   }
 
   // A module unit that the database does not know about yet.
-  discoverUnlistedModules(Mangler, /*WaitForInterval=*/true);
+  discoverUnlistedModules(Mangler, /*WaitForInterval=*/true, ImportingFile);
   if (auto Source = validatedSourceForModuleName(ModuleName, Mangler))
     return *Source;
 
@@ -811,7 +886,7 @@ std::vector<std::string> ModuleDependencyScanner::getKnownModuleNames(
     globalScan(Mangler);
   // A module unit that the build system has not seen yet is found by the
   // search for unlisted units (throttled, and bounded by its limits).
-  discoverUnlistedModules(Mangler, /*WaitForInterval=*/false);
+  discoverUnlistedModules(Mangler, /*WaitForInterval=*/false, ImportingFile);
 
   std::set<std::string> Names;
   {
@@ -826,7 +901,8 @@ std::vector<std::string> ModuleDependencyScanner::getKnownModuleNames(
       Mangler(Importer, ImportingFile);
     for (llvm::StringRef Std : {"std", "std.compat"}) {
       std::string Source;
-      if (resolveStandardLibraryModule(Std, Importer, Source))
+      if (resolveStandardLibraryModule(Std, Importer, Source,
+                                       Cache->FallbackDriver))
         Names.insert(Std.str());
     }
   }

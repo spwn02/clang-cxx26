@@ -38,6 +38,7 @@
 #include "Diagnostics.h"
 #include "Feature.h"
 #include "GlobalCompilationDatabase.h"
+#include "ScanningProjectModules.h"
 #include "Hover.h"
 #include "InlayHints.h"
 #include "ParsedAST.h"
@@ -172,6 +173,7 @@ public:
       CDBOpts.applyFallbackWorkingDirectory(Opts.WorkspaceRoot);
     CDBOpts.CompileCommandsDir =
         Config::current().CompileFlags.CDBSearch.FixedCDBPath;
+    CDBOpts.FallbackDriver = fallbackToolchainDriver(Opts.QueryDriverGlobs);
     BaseCDB =
         std::make_unique<DirectoryBasedGlobalCompilationDatabase>(CDBOpts);
     auto Mangler = CommandMangler::detect();

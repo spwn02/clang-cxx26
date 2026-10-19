@@ -1064,6 +1064,84 @@ TEST_F(PrerequisiteModulesTests, ModulesOfAProjectWithoutACompilationDatabase) {
   EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("M:P"));
 }
 
+// The search for module units that the database does not list is bounded: the
+// neighbours of the importing file are found even when the workspace is a tree
+// of more directories than the search visits.
+TEST_F(PrerequisiteModulesTests, NeighboursAreFoundInAHugeWorkspace) {
+  auto Write = [&](llvm::StringRef Path, llvm::StringRef Contents) {
+    SmallString<256> AbsPath(TestDir);
+    llvm::sys::path::append(AbsPath, Path);
+    ASSERT_FALSE(llvm::sys::fs::create_directories(
+        llvm::sys::path::parent_path(AbsPath)));
+    std::error_code EC;
+    llvm::raw_fd_ostream OS(AbsPath, EC);
+    ASSERT_FALSE(EC);
+    OS << Contents;
+  };
+  // More directories at the first level than the search visits: the level of
+  // the importing file (the second) is never reached by a search from the root.
+  for (unsigned I = 0; I != 4100; ++I) {
+    SmallString<256> Dir(TestDir);
+    llvm::sys::path::append(Dir, llvm::formatv("d{0:4}", I).str());
+    ASSERT_FALSE(llvm::sys::fs::create_directory(Dir));
+  }
+  Write("zz/sub/Near.cppm", "export module Near;\nexport int near();\n");
+  Write("zz/sub/Use.cpp", "import Near;\nint f() { return near(); }\n");
+
+  DirectoryBasedGlobalCompilationDatabase::Options CDBOpts(FS);
+  CDBOpts.WorkspaceRoot = TestDir.str().str();
+  DirectoryBasedGlobalCompilationDatabase CDB(CDBOpts);
+  ModulesBuilder Builder(CDB);
+
+  auto Info = Builder.buildPrerequisiteModulesFor(getFullPath("zz/sub/Use.cpp"), FS);
+  ASSERT_TRUE(Info);
+  HeaderSearchOptions HSOpts(TestDir);
+  Info->adjustHeaderSearchOptions(HSOpts);
+  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("Near"));
+}
+
+// A clangd of a build tree has no libc++ next to it: the toolchain the user
+// told it to trust (--query-driver) is the one of a file without a compilation
+// database, for its includes as for `import std;`.
+TEST_F(PrerequisiteModulesTests, FallbackToolchainIsTheTrustedDriverWithLibcxx) {
+  auto Touch = [&](llvm::StringRef Path, bool Executable) {
+    SmallString<256> AbsPath(TestDir);
+    llvm::sys::path::append(AbsPath, Path);
+    ASSERT_FALSE(llvm::sys::fs::create_directories(
+        llvm::sys::path::parent_path(AbsPath)));
+    std::error_code EC;
+    llvm::raw_fd_ostream OS(AbsPath, EC);
+    ASSERT_FALSE(EC);
+    OS << "{}\n";
+    OS.close();
+    if (Executable)
+      ASSERT_FALSE(llvm::sys::fs::setPermissions(
+          AbsPath, llvm::sys::fs::perms::all_all));
+  };
+  // A toolchain with libc++ and its modules, and one without.
+  Touch("with/bin/clang++", true);
+  Touch("with/lib/libc++.modules.json", false);
+  Touch("with/include/c++/v1/vector", false);
+  Touch("without/bin/clang++", true);
+  std::string With = getFullPath("with/bin/clang++");
+  std::string Without = getFullPath("without/bin/clang++");
+
+  EXPECT_EQ(fallbackToolchainDriver({"/usr/bin/**/clang-*", Without, With}),
+            With);
+  EXPECT_EQ(fallbackToolchainDriver({"/usr/bin/**/clang-*", Without}), "");
+  EXPECT_EQ(fallbackToolchainDriver({}), "");
+
+  DirectoryBasedGlobalCompilationDatabase::Options CDBOpts(FS);
+  CDBOpts.FallbackDriver = With;
+  DirectoryBasedGlobalCompilationDatabase CDB(CDBOpts);
+  tooling::CompileCommand Cmd = CDB.getFallbackCommand((TestDir + "/a.cpp").str());
+  ASSERT_FALSE(Cmd.CommandLine.empty());
+  EXPECT_EQ(Cmd.CommandLine.front(), With);
+  EXPECT_THAT(Cmd.CommandLine, ::testing::Contains("-stdlib=libc++"));
+  EXPECT_THAT(Cmd.CommandLine,
+              ::testing::Contains(getFullPath("with/include/c++/v1")));
+}
+
 TEST_F(PrerequisiteModulesTests, UnusableBuildSystemModulesAreDroppedFromTheInvocation) {
   MockDirectoryCompilationDatabase CDB(TestDir, FS);
   // A module file that is not usable and a module that clangd cannot build.

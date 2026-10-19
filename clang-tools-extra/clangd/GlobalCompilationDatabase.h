@@ -62,6 +62,13 @@ public:
   /// Clangd should treat the results as unreliable.
   virtual tooling::CompileCommand getFallbackCommand(PathRef File) const;
 
+protected:
+  /// getFallbackCommand() with the driver \p Driver (empty: "clang").
+  tooling::CompileCommand makeFallbackCommand(PathRef File,
+                                              llvm::StringRef Driver) const;
+
+public:
+
   /// If the CDB does any asynchronous work, wait for it to complete.
   /// For use in tests.
   virtual bool blockUntilIdle(Deadline D) const { return true; }
@@ -133,6 +140,9 @@ public:
     // The workspace of the client: where the sources of a project are looked
     // for when no compilation database tells.
     std::optional<std::string> WorkspaceRoot;
+    // The driver that the command of a file without a compilation database
+    // names (see fallbackToolchainDriver()); empty: "clang".
+    std::string FallbackDriver;
     // Told about the scans of the module units that take time (may be null).
     std::shared_ptr<ModulesActivity> Activity;
 
@@ -155,6 +165,8 @@ public:
 
   std::unique_ptr<ProjectModules>
   getProjectModules(PathRef File) const override;
+
+  tooling::CompileCommand getFallbackCommand(PathRef File) const override;
 
   bool blockUntilIdle(Deadline Timeout) const override;
 
