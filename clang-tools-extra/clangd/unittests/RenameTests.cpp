@@ -680,6 +680,16 @@ TEST(RenameTest, WithinFileRename) {
         }
       )cpp",
 
+      // Namespace: every declaration, qualifier, using-directive and alias.
+      R"cpp(
+        namespace [[n^s]] { void foo(); }
+        namespace [[ns]] { int bar; }
+        namespace [[n^s]]::inner { void baz(); }
+        namespace alias = [[ns]]::inner;
+        using namespace [[ns]];
+        void f() { [[ns]]::foo(); [[n^s]]::inner::baz(); alias::baz(); }
+      )cpp",
+
       // Namespace alias.
       R"cpp(
         namespace a { namespace b { void foo(); } }
@@ -1077,11 +1087,6 @@ TEST(RenameTest, Renameable) {
         }
       )cpp",
        "not eligible for indexing", HeaderFile},
-
-      {R"cpp(// disallow -- namespace symbol isn't supported
-        namespace n^s {}
-      )cpp",
-       "not a supported kind", HeaderFile},
 
       {R"cpp(// disallow - category rename.
         @interface Foo
@@ -1496,6 +1501,7 @@ TEST(RenameTest, NoRenameOnSymbolsFromSystemHeaders) {
         #include <system>
 
         SystemSym^bol abc;
+        syst^emns::Value value;
 
         void foo() { at^oi("9000"); }
         )cpp";
@@ -1504,6 +1510,7 @@ TEST(RenameTest, NoRenameOnSymbolsFromSystemHeaders) {
   auto TU = TestTU::withCode(Code.code());
   TU.AdditionalFiles["system"] = R"cpp(
     class SystemSymbol {};
+    namespace systemns { struct Value {}; }
     )cpp";
   TU.AdditionalFiles["cstdlib"] = R"cpp(
     int atoi(const char *str);
@@ -1965,6 +1972,23 @@ TEST(CrossFileRenameTests, WithUpToDateIndex) {
           FOO y;
           FooFoo z;
         }
+      )cpp",
+      },
+      {
+          // namespaces: reopened in both files, qualified, nested and used.
+          R"cpp(
+        namespace [[ap^i]] { void f(); }
+        namespace [[api]]::detail { void g(); }
+      )cpp",
+          R"cpp(
+        #include "foo.h"
+        namespace [[api]] { void h(); }
+        void func() {
+          [[api]]::f();
+          [[api]]::detail::g();
+        }
+        using namespace [[api]];
+        namespace shortcut = [[api]]::detail;
       )cpp",
       },
       {

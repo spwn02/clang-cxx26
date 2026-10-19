@@ -229,8 +229,6 @@ std::optional<ReasonToReject> renameable(const NamedDecl &RenameDecl,
   if (!ID && !isa<ObjCMethodDecl>(&RenameDecl))
     return ReasonToReject::UnsupportedSymbol;
   // Filter out symbols that are unsupported in both rename modes.
-  if (llvm::isa<NamespaceDecl>(&RenameDecl))
-    return ReasonToReject::UnsupportedSymbol;
   if (const auto *FD = llvm::dyn_cast<FunctionDecl>(&RenameDecl)) {
     if (FD->isOverloadedOperator())
       return ReasonToReject::UnsupportedSymbol;
@@ -272,7 +270,7 @@ llvm::Error makeError(ReasonToReject Reason) {
     case ReasonToReject::NonIndexable:
       return "symbol may be used in other files (not eligible for indexing)";
     case ReasonToReject::UnsupportedSymbol:
-      return "symbol is not a supported kind (e.g. namespace, macro)";
+      return "symbol is not a supported kind (e.g. macro)";
     case ReasonToReject::AmbiguousSymbol:
       return "there are multiple symbols at the given location";
     case ReasonToReject::SameName:

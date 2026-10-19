@@ -892,7 +892,7 @@ TEST_F(SymbolCollectorTest, Refs) {
   class Bar;
   void func();
 
-  namespace NS {} // namespace ref is ignored
+  namespace NS { void inNS(); }
   )");
   Annotations Main(R"(
   class $bar[[Bar]] {};
@@ -906,6 +906,7 @@ TEST_F(SymbolCollectorTest, Refs) {
     int abc = 0;
     $foo[[Foo]] foo2 = abc;
     abc = $macro[[MACRO]](1);
+    $ns[[NS]]::inNS();
   }
   )");
   Annotations SymbolsOnlyInMainCode(R"(
@@ -925,7 +926,9 @@ TEST_F(SymbolCollectorTest, Refs) {
                                   haveRanges(Main.ranges("bar")))));
   EXPECT_THAT(Refs, Contains(Pair(findSymbol(Symbols, "func").ID,
                                   haveRanges(Main.ranges("func")))));
-  EXPECT_THAT(Refs, Not(Contains(Pair(findSymbol(Symbols, "NS").ID, _))));
+  // A namespace is renamed by its references.
+  EXPECT_THAT(Refs, Contains(Pair(findSymbol(Symbols, "NS").ID,
+                                  haveRanges(Main.ranges("ns")))));
   EXPECT_THAT(Refs, Contains(Pair(findSymbol(Symbols, "MACRO").ID,
                                   haveRanges(Main.ranges("macro")))));
   // - (a, b) externally visible and should have refs.
