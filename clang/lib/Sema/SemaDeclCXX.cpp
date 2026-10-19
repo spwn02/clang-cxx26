@@ -18087,6 +18087,13 @@ Decl *Sema::BuildStaticAssertDeclaration(SourceLocation StaticAssertLoc,
     else
       AssertExpr = FullAssertExpr.get();
 
+    // A typo that was corrected while the full expression was finished can
+    // leave an expression that is a recovery of an error ('static_assert(v<>)'
+    // with 'v' corrected to a member of a class that is not in scope): it is
+    // value-dependent and there is nothing to evaluate.
+    if (!Failed && (AssertExpr->isValueDependent() || AssertExpr->containsErrors()))
+      Failed = true;
+
     llvm::APSInt Cond;
     Expr *BaseExpr = AssertExpr;
     AllowFoldKind FoldKind = AllowFoldKind::No;
