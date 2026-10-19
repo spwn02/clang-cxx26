@@ -12196,8 +12196,11 @@ QualType Sema::CheckComparisonCategoryType(ComparisonCategoryType Kind,
   // Use an elaborated type for diagnostics which has a name containing the
   // prepended 'std' namespace but not any inline namespace names.
   auto TyForDiags = [&](ComparisonCategoryInfo *Info) {
-    NestedNameSpecifier Qualifier(Context, getStdNamespace(),
-                                  /*Prefix=*/std::nullopt);
+    // A namespace std that was only merged from an AST file (-ast-merge) is
+    // not known to Sema: the type is not qualified then.
+    NestedNameSpecifier Qualifier = std::nullopt;
+    if (NamespaceDecl *Std = getStdNamespace())
+      Qualifier = NestedNameSpecifier(Context, Std, /*Prefix=*/std::nullopt);
     return Context.getTagType(ElaboratedTypeKeyword::None, Qualifier,
                               Info->Record,
                               /*OwnsTag=*/false);
