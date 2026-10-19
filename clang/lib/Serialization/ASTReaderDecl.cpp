@@ -4593,8 +4593,39 @@ void ASTReader::loadPendingDeclChain(Decl *FirstLocal, uint64_t LocalOffset) {
         CanonDecl);
   }
 
+  // The chains of the declarations of one entity are loaded in the order that
+  // their first local declarations were read, which is not always the order of
+  // the chain: the first local declaration of a using-shadow declaration of
+  // the module purview that was read before its first declaration of the
+  // global module fragment (both of one module file, the second is the
+  // canonical one) has its chain attached to the canonical declaration first.
+  // The local chain of the canonical declaration (it has none, or one of the
+  // declarations that follow it in its module file) then precedes the chains
+  // that are attached already: the most recent declaration stays the one that
+  // is known.
+  auto AttachLocalChain = [&](Decl *Last) {
+    if (Last == CanonDecl) {
+      Decl *Known = ASTDeclReader::getMostRecentDecl(CanonDecl);
+      if (Known && Known != CanonDecl)
+        return;
+    } else if (Decl *Known = ASTDeclReader::getMostRecentDecl(CanonDecl);
+               Known && Known != CanonDecl && Known != Last &&
+               FirstLocal == CanonDecl) {
+      // Put the chain between the canonical declaration and the first of the
+      // declarations that were attached to it.
+      Decl *First = Known;
+      while (First->getPreviousDecl() && First->getPreviousDecl() != CanonDecl)
+        First = First->getPreviousDecl();
+      if (First->getPreviousDecl() == CanonDecl) {
+        ASTDeclReader::attachPreviousDecl(*this, First, Last, CanonDecl);
+        return;
+      }
+    }
+    ASTDeclReader::attachLatestDecl(CanonDecl, Last);
+  };
+
   if (!LocalOffset) {
-    ASTDeclReader::attachLatestDecl(CanonDecl, FirstLocal);
+    AttachLocalChain(FirstLocal);
     return;
   }
 
@@ -4633,7 +4664,7 @@ void ASTReader::loadPendingDeclChain(Decl *FirstLocal, uint64_t LocalOffset) {
     ASTDeclReader::attachPreviousDecl(*this, D, MostRecent, CanonDecl);
     MostRecent = D;
   }
-  ASTDeclReader::attachLatestDecl(CanonDecl, MostRecent);
+  AttachLocalChain(MostRecent);
 }
 
 namespace {
