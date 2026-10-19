@@ -2142,9 +2142,11 @@ __builtin_type_order (C++)
 --------------------------
 
 ``__builtin_type_order(T, U)`` accepts two (possibly incomplete) types and
-returns an ``int`` constant expression: -1 if ``T`` precedes ``U``, 0 if they
-are identical types, and 1 otherwise. Dependent arguments are evaluated at
-template instantiation. The builtin is available independently of reflection
+returns a ``std::strong_ordering`` constant expression, as the builtin of GCC
+does (libstdc++'s ``std::type_order`` initializes a ``std::strong_ordering``
+with it): ``less`` if ``T`` precedes ``U``, ``equal`` if they are identical
+types, and ``greater`` otherwise. ``<compare>`` has to be included, as for the
+operator ``<=>``. Dependent arguments are evaluated at template instantiation. The builtin is available independently of reflection
 and can be detected with ``__has_builtin(__builtin_type_order)``.
 
 The implementation-defined ordering is lexicographical on the full canonical

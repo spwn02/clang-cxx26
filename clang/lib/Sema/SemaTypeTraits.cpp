@@ -1549,7 +1549,19 @@ ExprResult Sema::ActOnTypeTrait(TypeTrait Kind, SourceLocation KWLoc,
     ConvertedArgs.push_back(TInfo);
   }
 
-  return BuildTypeTrait(Kind, KWLoc, ConvertedArgs, RParenLoc);
+  ExprResult Result = BuildTypeTrait(Kind, KWLoc, ConvertedArgs, RParenLoc);
+  if (Kind != BTT_TypeOrder || Result.isInvalid())
+    return Result;
+
+  // '__builtin_type_order(T, U)' is 'std::strong_ordering', as it is of GCC
+  // (libstdc++'s std::type_order initializes a strong_ordering with it), and
+  // needs <compare> as the operator <=> does. The expression built by
+  // BuildTypeTrait is the int that is compared with 0: it is the one that a
+  // template instantiation builds again, the comparison is transformed beside it.
+  ExprResult Zero = ActOnIntegerConstant(KWLoc, 0);
+  if (Zero.isInvalid())
+    return ExprError();
+  return BuildBinOp(/*S=*/nullptr, KWLoc, BO_Cmp, Result.get(), Zero.get());
 }
 
 bool Sema::BuiltinIsBaseOf(SourceLocation RhsTLoc, QualType LhsT,
