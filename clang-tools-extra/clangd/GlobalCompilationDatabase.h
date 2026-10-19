@@ -9,6 +9,7 @@
 #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_GLOBALCOMPILATIONDATABASE_H
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_GLOBALCOMPILATIONDATABASE_H
 
+#include "ModulesActivity.h"
 #include "ProjectModules.h"
 #include "ScanningProjectModules.h"
 #include "support/Function.h"
@@ -132,6 +133,8 @@ public:
     // The workspace of the client: where the sources of a project are looked
     // for when no compilation database tells.
     std::optional<std::string> WorkspaceRoot;
+    // Told about the scans of the module units that take time (may be null).
+    std::shared_ptr<ModulesActivity> Activity;
 
     void applyFallbackWorkingDirectory(
         std::optional<std::string> FallbackWorkingDirectory);

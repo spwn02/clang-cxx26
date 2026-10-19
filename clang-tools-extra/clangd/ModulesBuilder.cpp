@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "ModulesActivity.h"
 #include "ModulesBuilder.h"
 #include "Compiler.h"
 #include "support/Logger.h"
@@ -764,7 +765,9 @@ llvm::SmallVector<std::string> getAllRequiredModules(PathRef RequiredSource,
 
 class ModulesBuilder::ModulesBuilderImpl {
 public:
-  ModulesBuilderImpl(const GlobalCompilationDatabase &CDB) : Cache(CDB) {}
+  ModulesBuilderImpl(const GlobalCompilationDatabase &CDB,
+                     std::shared_ptr<ModulesActivity> Activity)
+      : Cache(CDB), Activity(std::move(Activity)) {}
 
   ModuleNameToSourceCache &getProjectModulesCache() {
     return ProjectModulesCache;
@@ -784,6 +787,7 @@ private:
 
   ModuleFileCache Cache;
   ModuleNameToSourceCache ProjectModulesCache;
+  std::shared_ptr<ModulesActivity> Activity;
 };
 
 void ModulesBuilder::ModulesBuilderImpl::getPrebuiltModuleFile(
@@ -851,6 +855,13 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
 
   // Get Required modules in topological order.
   auto ReqModuleNames = getAllRequiredModules(RequiredSource, MDB, ModuleName);
+  // The modules that are reused are completed at once; the progress shows the
+  // ones that are built (what a user waits for).
+  ModulesActivity::Batch Progress(
+      Activity.get(), ModulesActivity::Phase::Building,
+      llvm::count_if(ReqModuleNames, [&](llvm::StringRef Name) {
+        return !BuiltModuleFiles.isModuleUnitBuilt(Name);
+      }));
   for (llvm::StringRef ReqModuleName : ReqModuleNames) {
     if (BuiltModuleFiles.isModuleUnitBuilt(ReqModuleName))
       continue;
@@ -883,6 +894,7 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
         log("Reusing module {0} from {1}", ReqModuleName,
             Cached->getModuleFilePath());
         BuiltModuleFiles.addModuleFile(std::move(Cached));
+        Progress.done();
         continue;
       }
       Cache.remove(CacheKey);
@@ -896,6 +908,7 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
     if (ReqFileName.empty())
       return llvm::createStringError(llvm::formatv(
           "Don't get the module unit for module {0}", ReqModuleName));
+    Progress.begin(ReqModuleName);
     llvm::Expected<std::shared_ptr<BuiltModuleFile>> MF = buildModuleFile(
         ReqModuleName, ReqFileName, getCDB(), TFS, BuiltModuleFiles,
         IsStdModule ? std::move(ReqCmd)
@@ -915,6 +928,7 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
     log("Built module {0} to {1}", ReqModuleName, (*MF)->getModuleFilePath());
     Cache.add(CacheKey, *MF);
     BuiltModuleFiles.addModuleFile(std::move(*MF));
+    Progress.done();
   }
 
   return llvm::Error::success();
@@ -1021,8 +1035,9 @@ ModulesBuilder::getKnownModules(PathRef File, const ThreadsafeFS &TFS) {
   return Result;
 }
 
-ModulesBuilder::ModulesBuilder(const GlobalCompilationDatabase &CDB) {
-  Impl = std::make_unique<ModulesBuilderImpl>(CDB);
+ModulesBuilder::ModulesBuilder(const GlobalCompilationDatabase &CDB,
+                               std::shared_ptr<ModulesActivity> Activity) {
+  Impl = std::make_unique<ModulesBuilderImpl>(CDB, std::move(Activity));
 }
 
 ModulesBuilder::~ModulesBuilder() {}

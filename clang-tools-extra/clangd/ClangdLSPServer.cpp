@@ -546,6 +546,15 @@ void ClangdLSPServer::onInitialize(const InitializeParams &Params,
   if (Params.capabilities.WorkDoneProgress)
     BackgroundIndexProgressState = BackgroundIndexProgress::Empty;
   BackgroundIndexSkipCreate = Params.capabilities.ImplicitProgressCreation;
+  if (Params.capabilities.WorkDoneProgress) {
+    ModulesProgressSource = std::make_shared<ModulesActivity>();
+    for (ModulesProgressBar &Bar : ModulesProgress)
+      Bar.Status = ModulesProgressBar::Status::Empty;
+    ModulesProgressSource->setListener(
+        [this](ModulesActivity::Phase Phase, const ModulesActivity::State &S) {
+          onModulesActivity(Phase, S);
+        });
+  }
   Opts.ImplicitCancellation = !Params.capabilities.CancelsStaleRequests;
   Opts.PublishInactiveRegions = Params.capabilities.InactiveRegions;
 
@@ -555,6 +564,7 @@ void ClangdLSPServer::onInitialize(const InitializeParams &Params,
       CDBOpts.CompileCommandsDir = Dir;
     CDBOpts.ContextProvider = Opts.ContextProvider;
     CDBOpts.WorkspaceRoot = Opts.WorkspaceRoot;
+    CDBOpts.Activity = ModulesProgressSource;
     if (Opts.StrongWorkspaceMode)
       CDBOpts.applyFallbackWorkingDirectory(Opts.WorkspaceRoot);
     BaseCDB =
@@ -569,7 +579,7 @@ void ClangdLSPServer::onInitialize(const InitializeParams &Params,
               std::move(Mangler));
 
   if (Opts.EnableExperimentalModulesSupport) {
-    ModulesManager.emplace(*CDB);
+    ModulesManager.emplace(*CDB, ModulesProgressSource);
     Opts.ModulesManager = &*ModulesManager;
   }
 
@@ -1940,6 +1950,78 @@ void ClangdLSPServer::onBackgroundIndexProgress(
   case BackgroundIndexProgress::Live:
     NotifyProgress(Stats);
     break;
+  }
+}
+
+void ClangdLSPServer::onModulesActivity(ModulesActivity::Phase Phase,
+                                        const ModulesActivity::State &State) {
+  static const char *const Tokens[] = {"modulesScanProgress",
+                                       "modulesBuildProgress"};
+  static const char *const Titles[] = {"Scanning modules", "Building modules"};
+  const unsigned Index = static_cast<unsigned>(Phase);
+  const char *Token = Tokens[Index];
+
+  std::lock_guard<std::mutex> Lock(ModulesProgressMutex);
+  ModulesProgressBar &Bar = ModulesProgress[Index];
+
+  auto NotifyProgress = [this, Token, Index](const ModulesActivity::State &S) {
+    ModulesProgressBar &Bar = ModulesProgress[Index];
+    if (Bar.Status != ModulesProgressBar::Status::Live) {
+      WorkDoneProgressBegin Begin;
+      Begin.percentage = true;
+      Begin.title = Titles[Index];
+      BeginWorkDoneProgress({Token, std::move(Begin)});
+      Bar.Status = ModulesProgressBar::Status::Live;
+    }
+    if (!S.idle()) {
+      WorkDoneProgressReport Report;
+      Report.percentage = 100 * S.Completed / S.Enqueued;
+      // "16/214 (std)"
+      Report.message = llvm::formatv("{0}/{1}", S.Completed, S.Enqueued);
+      if (!S.Current.empty())
+        *Report.message += llvm::formatv(" ({0})", S.Current).str();
+      ReportWorkDoneProgress({Token, std::move(Report)});
+    } else {
+      EndWorkDoneProgress({Token, WorkDoneProgressEnd()});
+      Bar.Status = ModulesProgressBar::Status::Empty;
+    }
+  };
+
+  switch (Bar.Status) {
+  case ModulesProgressBar::Status::Unsupported:
+    return;
+  case ModulesProgressBar::Status::Creating:
+    // Cache this update for when the progress is available.
+    Bar.Pending = State;
+    return;
+  case ModulesProgressBar::Status::Empty: {
+    if (BackgroundIndexSkipCreate) {
+      NotifyProgress(State);
+      return;
+    }
+    Bar.Pending = State;
+    Bar.Status = ModulesProgressBar::Status::Creating;
+    WorkDoneProgressCreateParams CreateRequest;
+    CreateRequest.token = Token;
+    CreateWorkDoneProgress(
+        CreateRequest,
+        [this, NotifyProgress, Index](llvm::Expected<std::nullptr_t> E) {
+          std::lock_guard<std::mutex> Lock(ModulesProgressMutex);
+          if (E) {
+            NotifyProgress(ModulesProgress[Index].Pending);
+          } else {
+            elog("Failed to create the progress of the module support: {0}",
+                 E.takeError());
+            // give up forever rather than thrashing about
+            ModulesProgress[Index].Status =
+                ModulesProgressBar::Status::Unsupported;
+          }
+        });
+    return;
+  }
+  case ModulesProgressBar::Status::Live:
+    NotifyProgress(State);
+    return;
   }
 }
 

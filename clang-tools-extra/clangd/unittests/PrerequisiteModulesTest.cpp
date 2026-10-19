@@ -15,6 +15,7 @@
 #include "CodeComplete.h"
 #include "Compiler.h"
 #include "ClangdServer.h"
+#include "ModulesActivity.h"
 #include "ModulesBuilder.h"
 #include "ScanningProjectModules.h"
 #include "SyncAPI.h"
@@ -32,6 +33,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <chrono>
+#include <mutex>
 #include <set>
 #include <thread>
 
@@ -852,6 +854,53 @@ TEST_F(PrerequisiteModulesTests, ScansOfUnchangedFilesAreKeptBetweenRequests) {
     Info->adjustHeaderSearchOptions(HSOpts);
     EXPECT_FALSE(HSOpts.PrebuiltModuleFiles.count("Late"));
   }
+}
+
+// The module files that take time to build are reported (to be shown as the
+// progress of the language server); the ones that are reused are not.
+TEST_F(PrerequisiteModulesTests, BuildingModuleFilesIsReported) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.addFile("M.cppm", "export module M;\n");
+  CDB.addFile("N.cppm", "export module N;\nimport M;\n");
+  CDB.addFile("Use.cpp", "import N;\n");
+
+  auto Activity = std::make_shared<ModulesActivity>();
+  std::mutex Mu;
+  std::vector<std::pair<ModulesActivity::Phase, ModulesActivity::State>> Events;
+  Activity->setListener(
+      [&](ModulesActivity::Phase P, const ModulesActivity::State &S) {
+        std::lock_guard<std::mutex> Lock(Mu);
+        Events.emplace_back(P, S);
+      });
+
+  ModulesBuilder Builder(CDB, Activity);
+  // The module files live as long as their users hold them.
+  auto Held = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
+  ASSERT_TRUE(Held);
+  {
+    std::lock_guard<std::mutex> Lock(Mu);
+    // One report when a module starts to build, one when it is built: M, then N.
+    ASSERT_EQ(Events.size(), 4u);
+    std::set<std::string> Built;
+    for (const auto &[P, S] : Events) {
+      EXPECT_EQ(P, ModulesActivity::Phase::Building);
+      EXPECT_EQ(S.Enqueued, 2u);
+      Built.insert(S.Current);
+    }
+    EXPECT_EQ(Built, (std::set<std::string>{"M", "N"}));
+    EXPECT_EQ(Events[0].second.Completed, 0u);
+    EXPECT_EQ(Events[0].second.Current, "M");
+    EXPECT_FALSE(Events[0].second.idle());
+    // The last one ends the progress.
+    EXPECT_TRUE(Events.back().second.idle());
+    EXPECT_EQ(Events.back().second.Completed, 2u);
+    Events.clear();
+  }
+
+  // Nothing is built again, so nothing is reported.
+  ASSERT_TRUE(Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS));
+  std::lock_guard<std::mutex> Lock(Mu);
+  EXPECT_TRUE(Events.empty());
 }
 
 // Records the errors of the last diagnostics of each file.

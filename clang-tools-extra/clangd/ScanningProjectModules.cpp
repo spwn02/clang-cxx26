@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "ModulesActivity.h"
 #include "ProjectModules.h"
 #include "ScanningProjectModules.h"
 #include "support/Logger.h"
@@ -52,10 +53,15 @@ public:
   // The module units that the last search found, which the database does not
   // list.
   std::vector<std::string> UnlistedFiles;
+  // Told about the scans that take time (see ModulesActivity).
+  std::shared_ptr<ModulesActivity> Activity;
 };
 
-std::shared_ptr<ModuleScanCache> createModuleScanCache() {
-  return std::make_shared<ModuleScanCache>();
+std::shared_ptr<ModuleScanCache>
+createModuleScanCache(std::shared_ptr<ModulesActivity> Activity) {
+  auto Cache = std::make_shared<ModuleScanCache>();
+  Cache->Activity = std::move(Activity);
+  return Cache;
 }
 
 namespace {
@@ -103,6 +109,52 @@ public:
   }
 };
 } // namespace
+
+namespace {
+
+/// The flags that select the libc++ that is installed below \param BinDir's
+/// parent ("<BinDir>/../include/<triple>/c++/v1" with its __config_site, and
+/// "<BinDir>/../include/c++/v1"); none if there is no libc++.
+std::vector<std::string> libcxxFlagsOfToolchain(llvm::StringRef BinDir) {
+  llvm::SmallString<256> Include(BinDir);
+  llvm::sys::path::append(Include, "..", "include");
+  llvm::sys::path::remove_dots(Include, /*remove_dot_dot=*/true);
+  llvm::SmallVector<std::string, 4> Dirs;
+  std::error_code IncludeEC;
+  for (llvm::sys::fs::directory_iterator It(Include, IncludeEC), End;
+       !IncludeEC && It != End; It.increment(IncludeEC)) {
+    llvm::SmallString<256> Triple(It->path());
+    llvm::sys::path::append(Triple, "c++", "v1");
+    if (llvm::sys::fs::exists(Triple))
+      Dirs.push_back(std::string(Triple)); // has __config_site
+  }
+  llvm::SmallString<256> Generic(Include);
+  llvm::sys::path::append(Generic, "c++", "v1");
+  if (llvm::sys::fs::exists(Generic))
+    Dirs.push_back(std::string(Generic));
+  std::vector<std::string> Flags;
+  if (!Dirs.empty()) {
+    Flags.push_back("-stdlib=libc++");
+    Flags.push_back("-nostdinc++");
+    for (const std::string &D : Dirs) {
+      Flags.push_back("-isystem");
+      Flags.push_back(D);
+    }
+  }
+  return Flags;
+}
+
+} // namespace
+
+std::vector<std::string> ownLibcxxFlags() {
+  static const std::vector<std::string> Flags = [] {
+    std::string Self = llvm::sys::fs::getMainExecutable(nullptr, nullptr);
+    if (Self.empty())
+      return std::vector<std::string>();
+    return libcxxFlagsOfToolchain(llvm::sys::path::parent_path(Self));
+  }();
+  return Flags;
+}
 
 namespace {
 
@@ -200,32 +252,10 @@ resolveStandardLibraryModule(llvm::StringRef ModuleName,
         // A file without a command in a database (the fallback command names
         // no toolchain) is built with the libc++ that clangd belongs to, with
         // the headers next to the library of the manifest.
-        if (Importer.Heuristic == "clangd fallback") {
-          llvm::SmallString<256> Include(BinDir);
-          llvm::sys::path::append(Include, "..", "include");
-          llvm::sys::path::remove_dots(Include, /*remove_dot_dot=*/true);
-          llvm::SmallVector<std::string, 4> Dirs;
-          std::error_code IncludeEC;
-          for (llvm::sys::fs::directory_iterator It(Include, IncludeEC), End;
-               !IncludeEC && It != End; It.increment(IncludeEC)) {
-            llvm::SmallString<256> Triple(It->path());
-            llvm::sys::path::append(Triple, "c++", "v1");
-            if (llvm::sys::fs::exists(Triple))
-              Dirs.push_back(std::string(Triple)); // has __config_site
-          }
-          llvm::SmallString<256> Generic(Include);
-          llvm::sys::path::append(Generic, "c++", "v1");
-          if (llvm::sys::fs::exists(Generic))
-            Dirs.push_back(std::string(Generic));
-          if (!Dirs.empty()) {
-            Out.CommandLine.push_back("-stdlib=libc++");
-            Out.CommandLine.push_back("-nostdinc++");
-            for (const std::string &D : Dirs) {
-              Out.CommandLine.push_back("-isystem");
-              Out.CommandLine.push_back(D);
-            }
-          }
-        }
+        if (Importer.Heuristic == "clangd fallback" &&
+            !llvm::is_contained(Out.CommandLine, "-nostdinc++"))
+          for (std::string &Flag : libcxxFlagsOfToolchain(BinDir))
+            Out.CommandLine.push_back(std::move(Flag));
         if (const llvm::json::Object *Local = Obj->getObject("local-arguments"))
           if (const llvm::json::Array *Dirs =
                   Local->getArray("system-include-directories"))
@@ -319,8 +349,10 @@ public:
   void setFileSystem(const ThreadsafeFS &FS) { TFS = &FS; }
 
   /// Scanning the single file specified by \param FilePath.
+  /// A scan that is not served by the cache is reported to \param Progress.
   std::optional<ModuleDependencyInfo>
-  scan(PathRef FilePath, const ProjectModules::CommandMangler &Mangler);
+  scan(PathRef FilePath, const ProjectModules::CommandMangler &Mangler,
+       ModulesActivity::Batch *Progress = nullptr);
 
   /// Look for module units that the compilation database does not list (a
   /// file the build system has not seen yet) in the directories that contain
@@ -403,7 +435,8 @@ private:
 
 std::optional<ModuleDependencyScanner::ModuleDependencyInfo>
 ModuleDependencyScanner::scan(PathRef FilePath,
-                              const ProjectModules::CommandMangler &Mangler) {
+                              const ProjectModules::CommandMangler &Mangler,
+                              ModulesActivity::Batch *Progress) {
   // No file (the source of a module that no unit declares): nothing to scan.
   if (FilePath.empty())
     return std::nullopt;
@@ -462,6 +495,9 @@ ModuleDependencyScanner::scan(PathRef FilePath,
       return ToInfo(It->second);
     Rescan = It != Cache->Files.end();
   }
+
+  if (Progress)
+    Progress->begin(llvm::sys::path::filename(FilePath));
 
   llvm::SmallString<128> FilePathDir(FilePath);
   llvm::sys::path::remove_filename(FilePathDir);
@@ -670,8 +706,13 @@ void ModuleDependencyScanner::discoverUnlistedModules(
     std::lock_guard<std::mutex> Lock(Cache->Mu);
     Cache->UnlistedFiles = Found;
   }
-  for (const std::string &File : Found)
-    scan(File, Mangler);
+  ModulesActivity::Batch Progress(Cache->Activity.get(),
+                                  ModulesActivity::Phase::Scanning,
+                                  Found.size());
+  for (const std::string &File : Found) {
+    scan(File, Mangler, &Progress);
+    Progress.done();
+  }
 }
 
 void ModuleDependencyScanner::globalScan(
@@ -679,8 +720,14 @@ void ModuleDependencyScanner::globalScan(
   if (GlobalScanned)
     return;
 
-  for (auto &File : CDB->getAllFiles())
-    scan(File, Mangler);
+  std::vector<std::string> Files = CDB->getAllFiles();
+  ModulesActivity::Batch Progress(Cache->Activity.get(),
+                                  ModulesActivity::Phase::Scanning,
+                                  Files.size());
+  for (auto &File : Files) {
+    scan(File, Mangler, &Progress);
+    Progress.done();
+  }
 
   GlobalScanned = true;
 }

@@ -66,8 +66,14 @@ GlobalCompilationDatabase::getFallbackCommand(PathRef File) const {
   // C++ is parsed as the newest standard: 'module' and 'import' are keywords
   // only from C++20 on, and a directory of sources without a build system
   // should still have working modules.
-  if (FileExtension != ".c" && FileExtension != ".m")
+  if (FileExtension != ".c" && FileExtension != ".m") {
     Argv.push_back("-std=c++26");
+    // The libc++ of the toolchain of clangd, when it has one, for the includes
+    // as for 'import std;' (which is built from it): not the headers of the
+    // system, which the module of the library would conflict with.
+    for (std::string &Flag : ownLibcxxFlags())
+      Argv.push_back(std::move(Flag));
+  }
   Argv.push_back(std::string(File));
   tooling::CompileCommand Cmd(FallbackWorkingDirectory
                                   ? *FallbackWorkingDirectory
@@ -833,7 +839,7 @@ DirectoryBasedGlobalCompilationDatabase::getProjectModules(PathRef File) const {
     ModuleScanCacheEntry &Entry = ModuleScanCaches[CacheKey];
     if (Entry.CDB.lock() != CDB || !Entry.Cache) {
       Entry.CDB = CDB;
-      Entry.Cache = createModuleScanCache();
+      Entry.Cache = createModuleScanCache(Opts.Activity);
     }
     Cache = Entry.Cache;
   }

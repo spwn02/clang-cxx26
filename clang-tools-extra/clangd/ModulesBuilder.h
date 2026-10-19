@@ -21,6 +21,7 @@
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULES_BUILDER_H
 
 #include "GlobalCompilationDatabase.h"
+#include "ModulesActivity.h"
 #include "ProjectModules.h"
 #include "support/Path.h"
 #include "support/ThreadsafeFS.h"
@@ -85,7 +86,10 @@ public:
 /// different versions and different source files.
 class ModulesBuilder {
 public:
-  ModulesBuilder(const GlobalCompilationDatabase &CDB);
+  /// \param Activity is told about the module files that take time to build
+  /// (may be null).
+  ModulesBuilder(const GlobalCompilationDatabase &CDB,
+                 std::shared_ptr<ModulesActivity> Activity = nullptr);
   ~ModulesBuilder();
 
   ModulesBuilder(const ModulesBuilder &) = delete;

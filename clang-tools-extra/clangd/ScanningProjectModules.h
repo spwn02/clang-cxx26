@@ -21,7 +21,16 @@ namespace clangd {
 /// ProjectModules of the same database to avoid scanning files again that did
 /// not change.
 class ModuleScanCache;
-std::shared_ptr<ModuleScanCache> createModuleScanCache();
+class ModulesActivity;
+/// \param Activity is told about the scans that take time (may be null).
+std::shared_ptr<ModuleScanCache>
+createModuleScanCache(std::shared_ptr<ModulesActivity> Activity = nullptr);
+
+/// The flags that select the libc++ that clangd itself belongs to (the headers
+/// installed next to its binary), or none if there is none. The command of a
+/// file without a compilation database gets them: its `#include <vector>` and
+/// the `import std;` that is built from the same libc++ then agree.
+std::vector<std::string> ownLibcxxFlags();
 
 /// A project without a compilation database to read the sources from (or with
 /// one that lists no files, such as compile_flags.txt): the tree below Root is

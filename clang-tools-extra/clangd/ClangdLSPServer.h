@@ -12,6 +12,7 @@
 #include "ClangdServer.h"
 #include "Diagnostics.h"
 #include "GlobalCompilationDatabase.h"
+#include "ModulesActivity.h"
 #include "LSPBinder.h"
 #include "Protocol.h"
 #include "Transport.h"
@@ -330,6 +331,21 @@ private:
   BackgroundQueue::Stats PendingBackgroundIndexProgress;
   /// LSP extension: skip WorkDoneProgressCreate, just send progress streams.
   bool BackgroundIndexSkipCreate = false;
+
+  /// The work of the module support that takes time (scanning the units of a
+  /// project, building module files) is shown as the progress of the client:
+  /// one progress per phase, as the stages of other language servers.
+  void onModulesActivity(ModulesActivity::Phase Phase,
+                         const ModulesActivity::State &State);
+  std::shared_ptr<ModulesActivity> ModulesProgressSource;
+  std::mutex ModulesProgressMutex;
+  struct ModulesProgressBar {
+    // As BackgroundIndexProgress.
+    enum class Status { Unsupported, Empty, Creating, Live } Status =
+        Status::Unsupported;
+    // The state to send when the progress is created (only valid in Creating).
+    ModulesActivity::State Pending;
+  } ModulesProgress[ModulesActivity::NumPhases];
 
   Options Opts;
   // The CDB is created by the "initialize" LSP method.
