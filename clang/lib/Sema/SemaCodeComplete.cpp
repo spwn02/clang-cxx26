@@ -954,6 +954,9 @@ QualType clang::getDeclUsageType(ASTContext &C, NestedNameSpecifier Qualifier,
     return C.getTypeDeclType(ElaboratedTypeKeyword::None, Qualifier, Type);
   if (const auto *Iface = dyn_cast<ObjCInterfaceDecl>(ND))
     return C.getObjCInterfaceType(Iface);
+  // A concept-id is a prvalue of type bool ([expr.prim.id]).
+  if (isa<ConceptDecl>(ND))
+    return C.BoolTy;
 
   QualType T;
   if (const FunctionDecl *Function = ND->getAsFunction())
@@ -968,6 +971,8 @@ QualType clang::getDeclUsageType(ASTContext &C, NestedNameSpecifier Qualifier,
     T = Property->getType();
   else if (const auto *Value = dyn_cast<ValueDecl>(ND))
     T = Value->getType();
+  else if (const auto *VarTemplate = dyn_cast<VarTemplateDecl>(ND))
+    T = VarTemplate->getTemplatedDecl()->getType();
 
   if (T.isNull())
     return QualType();
@@ -1066,11 +1071,21 @@ void ResultBuilder::AdjustResultPriorityForDecl(Result &R) {
   // matching or nearly-matching types.
   if (!PreferredType.isNull()) {
     QualType T = getDeclUsageType(SemaRef.Context, R.Qualifier, R.Declaration);
+    // A call is not a primary expression of a constraint, so a function does
+    // not match the bool that a constraint is.
+    if (SemaRef.CodeCompletion().InConstraintPrimary &&
+        R.Declaration->getUnderlyingDecl()->getAsFunction())
+      T = QualType();
     if (!T.isNull()) {
       CanQualType TC = SemaRef.Context.getCanonicalType(T);
       // Check for exactly-matching types (modulo qualifiers).
-      if (SemaRef.Context.hasSameUnqualifiedType(PreferredType, TC))
+      if (SemaRef.Context.hasSameUnqualifiedType(PreferredType, TC)) {
         R.Priority /= CCF_ExactTypeMatch;
+        // The concept is the idiomatic atomic constraint.
+        if (SemaRef.CodeCompletion().InConstraintPrimary &&
+            isa<ConceptDecl>(R.Declaration->getUnderlyingDecl()))
+          R.Priority /= CCF_ExactTypeMatch;
+      }
       // Check for nearly-matching types, based on classification of each.
       else if ((getSimplifiedTypeClass(PreferredType) ==
                 getSimplifiedTypeClass(TC)) &&

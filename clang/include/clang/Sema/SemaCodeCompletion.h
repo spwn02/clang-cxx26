@@ -46,6 +46,11 @@ public:
   CodeCompleteConsumer *CodeCompleter;
   HeuristicResolver Resolver;
 
+  /// True while the primary of a constraint-logical-and-expression of a
+  /// requires-clause is parsed: concepts and trait variables are what is
+  /// written there, a call of a function is not a primary expression.
+  bool InConstraintPrimary = false;
+
   /// Describes the context in which code completion occurs.
   enum ParserCompletionContext {
     /// Code completion occurs at top-level or namespace context.

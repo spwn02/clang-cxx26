@@ -40,8 +40,12 @@ static const Type *toEquivClass(ASTContext &Ctx, QualType T) {
   return T.getTypePtr();
 }
 
-static std::optional<QualType> typeOfCompletion(const CodeCompletionResult &R) {
+static std::optional<QualType> typeOfCompletion(ASTContext &Ctx,
+                                                const CodeCompletionResult &R) {
   const NamedDecl *D = R.Declaration;
+  // A concept-id is a prvalue of type bool.
+  if (isa_and_nonnull<ConceptDecl>(D))
+    return Ctx.BoolTy;
   // Templates do not have a type on their own, look at the templated decl.
   if (auto *Template = dyn_cast_or_null<TemplateDecl>(D))
     D = Template->getTemplatedDecl();
@@ -83,7 +87,7 @@ std::optional<OpaqueType> OpaqueType::fromType(ASTContext &Ctx, QualType Type) {
 std::optional<OpaqueType>
 OpaqueType::fromCompletionResult(ASTContext &Ctx,
                                  const CodeCompletionResult &R) {
-  auto T = typeOfCompletion(R);
+  auto T = typeOfCompletion(Ctx, R);
   if (!T)
     return std::nullopt;
   return encode(Ctx, *T);

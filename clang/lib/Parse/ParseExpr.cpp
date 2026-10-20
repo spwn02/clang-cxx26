@@ -42,6 +42,7 @@
 #include "clang/Sema/SemaSYCL.h"
 #include "clang/Sema/TypoCorrection.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/SaveAndRestore.h"
 #include <optional>
 using namespace clang;
 
@@ -208,6 +209,8 @@ Parser::ParseConstraintLogicalAndExpression(bool IsTrailingRequiresClause) {
     // An atomic constraint is a bool (a concept, a trait variable, a
     // requires-expression), so code completion prefers entities of that type.
     PreferredType.enterCondition(Actions, Tok.getLocation());
+    llvm::SaveAndRestore InConstraintPrimary(
+        Actions.CodeCompletion().InConstraintPrimary, true);
     ExprResult E = ParseCastExpression(
         CastParseKind::PrimaryExprOnly,
         /*isAddressOfOperand=*/false, TypoCorrectionTypeBehavior::AllowNonTypes,

@@ -27,9 +27,12 @@ using ::testing::UnorderedElementsAreArray;
 
 class ExpectedTypeConversionTest : public ::testing::Test {
 protected:
-  void build(llvm::StringRef Code) {
+  void build(llvm::StringRef Code,
+             llvm::ArrayRef<const char *> ExtraArgs = {}) {
     assert(!AST && "AST built twice");
-    AST = TestTU::withCode(Code).build();
+    TestTU TU = TestTU::withCode(Code);
+    TU.ExtraArgs.assign(ExtraArgs.begin(), ExtraArgs.end());
+    AST = TU.build();
   }
 
   const NamedDecl *decl(llvm::StringRef Name) { return &findDecl(*AST, Name); }
@@ -168,6 +171,23 @@ int* int_ptr_;
 
   EXPECT_EQ(fromCompletionResult(decl("var_not_dependent")), IntPtrTy);
   EXPECT_EQ(fromCompletionResult(decl("var_dependent")), std::nullopt);
+}
+
+TEST_F(ExpectedTypeConversionTest, Concepts) {
+  build(R"cpp(
+template <class T>
+concept Small = sizeof(T) < 8;
+
+bool bool_ = false;
+int int_ = 0;
+  )cpp",
+        {"-std=c++20"});
+
+  // A concept-id is a prvalue of type bool.
+  auto BoolTy = *OpaqueType::fromType(astCtx(), typeOf("bool_"));
+  EXPECT_EQ(fromCompletionResult(decl("Small")), BoolTy);
+  auto IntTy = *OpaqueType::fromType(astCtx(), typeOf("int_"));
+  EXPECT_NE(fromCompletionResult(decl("Small")), IntTy);
 }
 
 } // namespace
