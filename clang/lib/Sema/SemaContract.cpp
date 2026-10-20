@@ -959,7 +959,9 @@ void Sema::ActOnContractsOnFinishFunctionDecl(FunctionDecl *D,
     // case, since we can't have a placeholder return type on a declaration that
     // isn't a definition.
 
-    // TODO: I don't think we should be rebuilding for
+    // A redeclaration without contract specifiers takes the ones of the first
+    // declaration, rebuilt for this declaration (its parameters are other
+    // declarations). This is not done for template specializations.
     assert(FD->getTemplatedKind() != FunctionDecl::TK_FunctionTemplateSpecialization);
     assert(FD->getTemplatedKind() != FunctionDecl::TK_MemberSpecialization);
 
