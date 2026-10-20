@@ -1074,11 +1074,11 @@ static bool getParameterName(ParmVarDecl *PVD, std::string &Out) {
 
   unsigned ParamIdx = PVD->getFunctionScopeIndex();
 
-  // A reflected parameter (RV.getReflectedParameter()) only comes from
-  // parameters_of, so its DeclContext is the function. ^^p written in the
-  // trailing requires-clause names the parameter as a variable, whose
-  // DeclContext is the translation unit; that is another reflection kind and
-  // does not reach here.
+  // The DeclContext of a parameter named in a trailing requires-clause is the
+  // translation unit while the clause is parsed, but only a templated function
+  // has one and its constraint is evaluated at the satisfaction check, when
+  // the parameter belongs to the function (identifier_of, has_identifier and
+  // has_default_argument of ^^p were probed there with assertions on).
   FunctionDecl *FD = cast<FunctionDecl>(PVD->getDeclContext());
 
   // For an instantiated member, instantiating the out-of-line definition
@@ -1128,11 +1128,11 @@ static bool getParameterName(ParmVarDecl *PVD, std::string &Out) {
 }
 
 static ParmVarDecl *getMostRecentParmVarDecl(ParmVarDecl *PVD) {
-  // A reflected parameter (RV.getReflectedParameter()) only comes from
-  // parameters_of, so its DeclContext is the function. ^^p written in the
-  // trailing requires-clause names the parameter as a variable, whose
-  // DeclContext is the translation unit; that is another reflection kind and
-  // does not reach here.
+  // The DeclContext of a parameter named in a trailing requires-clause is the
+  // translation unit while the clause is parsed, but only a templated function
+  // has one and its constraint is evaluated at the satisfaction check, when
+  // the parameter belongs to the function (identifier_of, has_identifier and
+  // has_default_argument of ^^p were probed there with assertions on).
   FunctionDecl *FD = cast<FunctionDecl>(PVD->getDeclContext());
   FD = FD->getMostRecentDecl();
   return FD->getParamDecl(PVD->getFunctionScopeIndex());
