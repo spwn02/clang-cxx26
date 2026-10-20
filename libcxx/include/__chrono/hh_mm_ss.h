@@ -52,12 +52,18 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI constexpr hh_mm_ss() noexcept : hh_mm_ss{_Duration::zero()} {}
 
+  // [time.hms.members]: ABS_D is -d if is-neg and d otherwise (chrono::abs is not usable: it requires a signed
+  // representation and the constructor has to accept unsigned durations, LWG4274).
+  _LIBCPP_HIDE_FROM_ABI static constexpr _Duration __abs_d(_Duration __d) noexcept {
+    return __d < _Duration(0) ? _Duration(-__d) : __d;
+  }
+
   _LIBCPP_HIDE_FROM_ABI constexpr explicit hh_mm_ss(_Duration __d) noexcept
       : __is_neg_(__d < _Duration(0)),
-        __h_(chrono::duration_cast<chrono::hours>(chrono::abs(__d))),
-        __m_(chrono::duration_cast<chrono::minutes>(chrono::abs(__d) - hours())),
-        __s_(chrono::duration_cast<chrono::seconds>(chrono::abs(__d) - hours() - minutes())),
-        __f_(chrono::duration_cast<precision>(chrono::abs(__d) - hours() - minutes() - seconds())) {}
+        __h_(chrono::duration_cast<chrono::hours>(__abs_d(__d))),
+        __m_(chrono::duration_cast<chrono::minutes>(__abs_d(__d) - hours())),
+        __s_(chrono::duration_cast<chrono::seconds>(__abs_d(__d) - hours() - minutes())),
+        __f_(chrono::duration_cast<precision>(__abs_d(__d) - hours() - minutes() - seconds())) {}
 
   _LIBCPP_HIDE_FROM_ABI constexpr bool is_negative() const noexcept { return __is_neg_; }
   _LIBCPP_HIDE_FROM_ABI constexpr chrono::hours hours() const noexcept { return __h_; }
