@@ -81,7 +81,6 @@ export namespace std::simd {
   using std::simd::hypot;
   using std::simd::ilogb;
   using std::simd::imag;
-  using std::simd::iota;
   using std::simd::isfinite;
   using std::simd::isgreater;
   using std::simd::isgreaterequal;
