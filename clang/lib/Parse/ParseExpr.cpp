@@ -209,8 +209,11 @@ Parser::ParseConstraintLogicalAndExpression(bool IsTrailingRequiresClause) {
     // An atomic constraint is a bool (a concept, a trait variable, a
     // requires-expression), so code completion prefers entities of that type.
     PreferredType.enterCondition(Actions, Tok.getLocation());
+    // A parenthesized primary or a requires-expression holds an ordinary
+    // expression, where a call of a function is fine.
     llvm::SaveAndRestore InConstraintPrimary(
-        Actions.CodeCompletion().InConstraintPrimary, true);
+        Actions.CodeCompletion().InConstraintPrimary,
+        !Tok.isOneOf(tok::l_paren, tok::kw_requires));
     ExprResult E = ParseCastExpression(
         CastParseKind::PrimaryExprOnly,
         /*isAddressOfOperand=*/false, TypoCorrectionTypeBehavior::AllowNonTypes,
