@@ -171,10 +171,8 @@ public:
 
     /// The scope introduced by a pre, post, or contract_assert.
     //
-    // FIXME(Ericwf): This scope in unlike others, where it doesn't applied
-    // to the entire scope, but only to the statement that introduced it.
-    // This is a bit of a hack, but it's the simplest way to get the
-    // functionality we need.
+    // Unlike the other flags, this one does not apply to the entire scope
+    // but only to the statement that introduced it.
     ContractAssertScope = 0x100000000,
 
     /// The scope of an expansion statement.

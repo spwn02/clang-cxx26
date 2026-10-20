@@ -178,7 +178,8 @@ public:
   bool CheckingForUndefinedBehavior = false;
 
 
-  // FIXME(EricWF): Use EvalMode instead of EvaluateContracts?
+  // Contract assertions are enabled by EvaluateContracts, independently of the
+  // evaluation mode.
   EvaluationMode EvalMode;
 
 private:

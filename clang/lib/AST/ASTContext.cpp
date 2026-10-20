@@ -15137,7 +15137,8 @@ static QualType getCommonSugarTypeNode(const ASTContext &Ctx, const Type *X,
     return Ctx.getTypeOfType(Ctx.getQualifiedType(Underlying), Kind);
   }
   case Type::ReflectionSplice:
-    // TODO(CXX26): Revisit this.
+    // The types are canonically identical here; a reflection splice type has no
+    // common sugar, so the caller falls back to the underlying type.
     return QualType();
   case Type::TypeOfExpr:
     return QualType();

@@ -149,7 +149,7 @@ void CodeGenFunction::EmitDecl(const Decl &D, bool EvaluateConditionDecl) {
     EmitStmt(cast<ExpansionStmtDecl>(D).getStmt());
     return;
 
-  case Decl::ResultName: // FIXME(EricWF): This should be removed.
+  case Decl::ResultName: // only declared in contract specifiers
     llvm_unreachable("result name in function");
 
   case Decl::NamespaceAlias:

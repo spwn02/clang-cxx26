@@ -430,8 +430,8 @@ public:
     if (SuppressDiagnostics)
       NoDiagnostics.emplace(S);
 
-    // TODO(CXX26): Calling 'substitute' should substitute without
-    // instantiation. Should a lighter weight call be used?
+    // [meta.reflection.substitute]: whether the template-id is valid is decided
+    // by forming it, which instantiates what it needs.
     TemplateName TName(TD);
     return S.CheckTemplateIdType(ElaboratedTypeKeyword::None, TName,
                                  InstantiateLoc, TAListInfo,
@@ -452,8 +452,8 @@ public:
       if (SuppressDiagnostics)
         NoDiagnostics.emplace(S);
 
-      // TODO(CXX26): Calling 'substitute' should substitute without
-      // instantiation. Should a lighter weight call be used?
+      // [meta.reflection.substitute]: whether the template-id is valid is decided
+      // by forming it, which instantiates what it needs.
       Spec = S.InstantiateFunctionDeclaration(TD, TArgsCopy, InstantiateLoc);
 
       if (!Spec)
@@ -850,7 +850,6 @@ public:
       Decl *ProblemScope = isa<TranslationUnitDecl>(ExprCone) ? NewDeclCone
                                                               : ExprCone;
 
-      // TODO(CXX26): Implement diagnostic printing of 'ConstevalBlockDecl's.
       if (isa<ConstevalBlockDecl>(ContainingDecl)) {
         std::string Repr;
         llvm::raw_string_ostream ReprOut(Repr);
@@ -1258,7 +1257,7 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
   return CXXReflectExpr::Create(Context, OperatorLoc, OperandLoc, RV);
 }
 
-// TODO(CXX26): Capture whole SourceRange of declaration naming.
+// The operand range is the name itself, without its nested-name-specifier.
 ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
                                      SourceLocation OperandLoc, Decl *D) {
   // This case can happen after transforming a dependent reflection naming a
@@ -1289,7 +1288,7 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
                                 SourceRange(OperandLoc, OperandLoc), RV);
 }
 
-// TODO(CXX26): Capture whole SourceRange of declaration naming.
+// The operand range is the name itself, without its nested-name-specifier.
 ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
                                      SourceLocation OperandLoc,
                                      const TemplateName Template) {
@@ -1828,7 +1827,8 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
         ScopeSpec.Make(Context, TSI->getTypeLoc(), Splice->getBeginLoc());
       }
 
-      // TODO(CXX26): Would be nice not to have to copy these here.
+      // The checking functions take a TemplateArgumentListInfo, so the arguments
+      // of the splice are copied into one.
       TemplateArgumentListInfo TAListInfo;
       if (Splice->isSpecialization()) {
         TAListInfo.setLAngleLoc(Splice->getLAngleLoc());

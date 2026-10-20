@@ -877,8 +877,9 @@ APValue APValue::Lift(QualType ResultType) const {
   assert(ReflectionDepth <
          std::numeric_limits<decltype(ReflectionDepth)>::max());
 
-  // TODO: Special case for lvalues referring to functions?
-  //       Should be "promoted" to a reflection of the function declaration.
+  // An lvalue that refers to a function is promoted to a reflection of the
+  // function declaration where the reflection is created (reflect_result and
+  // the reflective invocation in ExprConstantMeta.cpp), before it is lifted.
 
   APValue Result(*this);
   ++Result.ReflectionDepth;

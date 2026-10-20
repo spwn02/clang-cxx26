@@ -4622,10 +4622,9 @@ class ResultNameDecl : public ValueDecl {
   /// changes to the return value in the post conditions must be visible to
   /// subsequent post conditions.
   ///
-  // FIXME(EricWF): Remove this? I think we can dig the canonical result name
-  // out of the decl context? But I think that will be rather bug prone. Maybe
-  // we could make the ContractSpecifierDecl a DeclContext and dig it up from
-  // there?
+  // The result name is kept here instead of being looked up through the
+  // declaration context, which is more error prone (the contract specifier
+  // would have to be a DeclContext).
   ResultNameDecl *CanonicalResultName = nullptr;
 
   /// Whether this result name is using a dummy placeholder type to represent

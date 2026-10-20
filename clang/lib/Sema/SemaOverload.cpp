@@ -6217,9 +6217,8 @@ ExprResult Sema::PerformImplicitObjectArgumentInitialization(
         Diag(Method->getLocation(), diag::note_previous_decl)
           << Method->getDeclName();
 
-        // FIXME(EricWF): We might be here because we've made the 'this' type
-        // const because we're  in a contract statement. But I don't know how do
-        // reliably check that here.
+        // We might be here because the 'this' type was made const for a
+        // contract statement; the contract entry records that.
         if (getCurrentContractEntry() &&
             getCurrentContractEntry()->AddedConstToCXXThis) {
           // If we're in a contract assertion context, we can't modify the

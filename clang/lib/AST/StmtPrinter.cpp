@@ -2990,9 +2990,8 @@ void StmtPrinter::VisitContractStmt(ContractStmt *Node) {
   // Print the contract keyword...
   OS << Keyword;
 
-  // Then any attributes...
-  // FIXME: We assume any attributes appear in this position rather than at the
-  // start of the statement.
+  // Then any attributes: [stmt.contract.assert] puts the attribute-specifier-seq
+  // after contract_assert.
   llvm::ArrayRef<const Attr *> Attrs = Node->getAttrs();
   for (const auto *Attr : Attrs) {
     OS << " ";

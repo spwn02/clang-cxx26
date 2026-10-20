@@ -335,8 +335,9 @@ void CodeGenFunction::EmitContractStmt(const ContractStmt &S) {
   assert(!CurContract() || CurContract()->Contract == &S);
 
   if (!CurContract()) {
-    // FIXME(EricWF): Remove this. It's a hack to prevent crashing.
-
+    // A contract statement that is not emitted through the checkpoints of its
+    // function (for example a contract_assert in a body) is emitted as a full
+    // statement.
     EmitContractStmtAsFullStmt(S);
 
   } else if (CurContract()->Checkpoint == EmittingTryBody) {
@@ -348,7 +349,8 @@ void CodeGenFunction::EmitContractStmt(const ContractStmt &S) {
   }
 }
 
-// FIXME(EricWF): Do I really need this?
+// Emits the predicate into the try body of the checked evaluation; the result is
+// read after the try statement.
 void CodeGenFunction::EmitContractStmtAsTryBody(const ContractStmt &S) {
   assert(CurContract() && CurContract()->Contract == &S &&
          CurContract()->Checkpoint == EmittingTryBody);
@@ -385,13 +387,10 @@ static CXXTryStmt *BuildTryCatch(const ContractStmt &S, CodeGenFunction &CGF) {
   llvm::SmallVector<Stmt *> BodyStmts;
   BodyStmts.push_back(const_cast<ContractStmt *>(&S));
 
-  // FIXME(EricWF): THIS IS A TERRIBLE HACK.
-  //   In order to emit the contract assertion violation in the catch block
-  //   we add the current statement to a dummy handler, and then detect
-  //   when we're inside that dummy handler to only emit the violation
-  //
-  // This should have some other representation, but I don't want to eagerly
-  // build all these nodes in the AST.
+  // In order to emit the contract assertion violation in the catch block we add
+  // the current statement to a dummy handler, and then detect when we're inside
+  // that dummy handler to only emit the violation. This avoids building these
+  // nodes eagerly in the AST.
 
   auto *CatchStmt =
       CompoundStmt::Create(Ctx, BodyStmts, FPOptionsOverride(), Loc, Loc);
@@ -404,7 +403,7 @@ static CXXTryStmt *BuildTryCatch(const ContractStmt &S, CodeGenFunction &CGF) {
 
 void CodeGenFunction::EmitContractStmtAsFullStmt(const ContractStmt &S) {
   assert(CurContract() == nullptr);
-  // FIXME(EricWF): We recursively call EmitContractStmt to build the catch
+  // We recursively call EmitContractStmt to build the catch
   // block that reports contract violations that have thrown. In order to do
   // this without building additional AST nodes, use this Stmt as the body
   // of the catch block, detecting when we're inside the catch block to only
@@ -412,7 +411,6 @@ void CodeGenFunction::EmitContractStmtAsFullStmt(const ContractStmt &S) {
 
   ContractEvaluationSemantic Semantic = S.getSemantic(getContext());
 
-  // FIXME(EricWF): I think there's a lot more to do that simply this.
   if (Semantic == Ignore)
     return;
 

@@ -1564,7 +1564,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
-  // FIXME(EricWF): I don't think this should go here.
+  // The preconditions are evaluated first, before the body.
   for (ContractStmt *S : FD->preconditions())
     EmitStmt(S);
 
@@ -1664,9 +1664,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
       Builder.ClearInsertionPoint();
     }
   }
-  // FIXME(EricWF): I don't think this should go here.
-  // Also we'll need to figure out how to reference the return value
-  // Post Contracts are emitted in ReturnValueCheck
+  // The postconditions are emitted in ReturnValueCheck.
 
   // Emit the standard function epilogue.
   FinishFunction(BodyRange.getEnd());

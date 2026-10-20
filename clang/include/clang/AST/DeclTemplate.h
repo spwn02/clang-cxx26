@@ -3360,7 +3360,7 @@ public:
 /// without also providing a 'Decl' - but it seems as if this would be novel,
 /// and I'm not sure if existing code assumes that a 'DeclContext' is a 'Decl'.
 ///
-/// TODO(CXX26): This could probably be a 'TemplateDecl'.
+/// It could be a 'TemplateDecl'; it is a plain 'Decl' for now.
 class ExpansionStmtDecl : public Decl, public DeclContext {
   CXXExpansionStmt *Expansion;
   TemplateParameterList *TParams;

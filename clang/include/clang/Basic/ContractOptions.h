@@ -135,8 +135,8 @@ enum ContractScopeOffset {
 /// will enable 'std.hardening.baz', but disable 'std.hardening.foo.bar' and
 /// 'std.baz'.
 ///
-/// TODO(EricWF): Should we match in the same manner as clang-tidy checks?
-///    Specifically, allow the use of '*' and drop all notion of groups?
+/// The groups are matched by name; the glob syntax of the clang-tidy checks is
+/// not used.
 class ContractOptions {
 public:
   ContractOptions() = default;

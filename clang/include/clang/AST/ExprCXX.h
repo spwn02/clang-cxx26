@@ -5698,7 +5698,6 @@ public:
   QualType getResultType() const { return ResultType; }
   void setResultType(QualType QT) { ResultType = QT; }
 
-  // TODO(CXX26): Consider implementing this with trailing objects.
   unsigned getNumArgs() const { return NumArgs; }
 
   Expr *getArg(unsigned I) const {

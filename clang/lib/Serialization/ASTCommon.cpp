@@ -409,7 +409,7 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
   case Decl::Empty:
     return true;
 
-  // FIXME(EricWF): Is this correct? I think so?
+  // A contract specifier is redeclared with its function.
   case Decl::ContractSpecifier:
     return true;
 
