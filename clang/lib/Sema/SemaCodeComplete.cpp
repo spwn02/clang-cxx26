@@ -4830,6 +4830,8 @@ void SemaCodeCompletion::CodeCompleteDeclSpec(Scope *S, DeclSpec &DS,
     // CodeCompleteFunctionQualifiers, so mirror what that function offers.
     if (IsTrailingReturnType && getLangOpts().CPlusPlus11) {
       Results.AddResult(Result("noexcept"));
+      if (getLangOpts().CPlusPlus20)
+        Results.AddResult(Result("requires"));
       CodeCompletionBuilder Builder(Results.getAllocator(),
                                     Results.getCodeCompletionTUInfo());
       AddContractSpecifierResults(Builder, Results, getLangOpts());
@@ -6211,6 +6213,27 @@ void SemaCodeCompletion::CodeCompleteTypeQualifiers(DeclSpec &DS) {
                             Results.size());
 }
 
+void SemaCodeCompletion::CodeCompleteTrailingReturnTypeQualifiers(
+    DeclSpec &DS) {
+  ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
+                        CodeCompleter->getCodeCompletionTUInfo(),
+                        CodeCompletionContext::CCC_TypeQualifiers);
+  Results.EnterNewScope();
+  AddTypeQualifierResults(DS, Results, getLangOpts());
+  if (getLangOpts().CPlusPlus11) {
+    Results.AddResult("noexcept");
+    if (getLangOpts().CPlusPlus20)
+      Results.AddResult("requires");
+    CodeCompletionBuilder Builder(Results.getAllocator(),
+                                  Results.getCodeCompletionTUInfo());
+    AddContractSpecifierResults(Builder, Results, getLangOpts());
+  }
+  Results.ExitScope();
+  HandleCodeCompleteResults(&SemaRef, CodeCompleter,
+                            Results.getCompletionContext(), Results.data(),
+                            Results.size());
+}
+
 void SemaCodeCompletion::CodeCompleteFunctionQualifiers(
     DeclSpec &DS, Declarator &D, const VirtSpecifiers *VS) {
   ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
@@ -6220,6 +6243,8 @@ void SemaCodeCompletion::CodeCompleteFunctionQualifiers(
   AddTypeQualifierResults(DS, Results, getLangOpts());
   if (getLangOpts().CPlusPlus11) {
     Results.AddResult("noexcept");
+    if (getLangOpts().CPlusPlus20)
+      Results.AddResult("requires");
     if (D.getContext() == DeclaratorContext::Member && !D.isCtorOrDtor() &&
         !D.isStaticMember()) {
       if (!VS || !VS->isFinalSpecified())

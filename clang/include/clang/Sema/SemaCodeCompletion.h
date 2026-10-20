@@ -117,6 +117,11 @@ public:
                                      QualType PreferredType);
   void CodeCompleteTag(Scope *S, unsigned TagSpec);
   void CodeCompleteTypeQualifiers(DeclSpec &DS);
+  /// Complete after a pointer or reference operator that ends a trailing
+  /// return type (`auto f() -> const T & <cursor>`): what follows is the rest
+  /// of the function declarator, as for CodeCompleteDeclSpec with
+  /// IsTrailingReturnType.
+  void CodeCompleteTrailingReturnTypeQualifiers(DeclSpec &DS);
   void CodeCompleteFunctionQualifiers(DeclSpec &DS, Declarator &D,
                                       const VirtSpecifiers *VS = nullptr);
   /// Complete a `pre`/`post` function-contract-specifier. Reached from the

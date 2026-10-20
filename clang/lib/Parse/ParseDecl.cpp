@@ -6611,8 +6611,18 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
                     ((D.getContext() != DeclaratorContext::CXXNew)
                          ? AR_GNUAttributesParsed
                          : AR_GNUAttributesParsedAndRejected);
+    // After the operator of a trailing return type the rest of the function
+    // declarator (noexcept, requires, pre, post) can follow the qualifiers.
+    auto CompleteTrailing = [&] {
+      Actions.CodeCompletion().CodeCompleteTrailingReturnTypeQualifiers(DS);
+    };
+    llvm::function_ref<void()> CompleteQualifiers;
+    if (D.getContext() == DeclaratorContext::TrailingReturn ||
+        D.getContext() == DeclaratorContext::TrailingReturnVar)
+      CompleteQualifiers = CompleteTrailing;
     ParseTypeQualifierListOpt(DS, Reqs, /*AtomicOrPtrauthAllowed=*/true,
-                              !D.mayOmitIdentifier());
+                              !D.mayOmitIdentifier(),
+                              CompleteQualifiers);
     D.ExtendWithDeclSpec(DS);
 
     // Recursively parse the declarator.
@@ -6641,8 +6651,20 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
            diag::warn_cxx98_compat_rvalue_reference :
            diag::ext_rvalue_reference);
 
+    // After the operator of a trailing return type the rest of the function
+    // declarator (noexcept, requires, pre, post) can follow the qualifiers.
+    auto CompleteTrailing = [&] {
+      Actions.CodeCompletion().CodeCompleteTrailingReturnTypeQualifiers(DS);
+    };
+    llvm::function_ref<void()> CompleteQualifiers;
+    if (D.getContext() == DeclaratorContext::TrailingReturn ||
+        D.getContext() == DeclaratorContext::TrailingReturnVar)
+      CompleteQualifiers = CompleteTrailing;
     // GNU-style and C++11 attributes are allowed here, as is restrict.
-    ParseTypeQualifierListOpt(DS);
+    ParseTypeQualifierListOpt(DS, AR_AllAttributesParsed,
+                              /*AtomicOrPtrauthAllowed=*/true,
+                              /*IdentifierRequired=*/false,
+                              CompleteQualifiers);
     D.ExtendWithDeclSpec(DS);
 
     // C++ 8.3.2p1: cv-qualified references are ill-formed except when the
