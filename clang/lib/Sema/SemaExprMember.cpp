@@ -2127,6 +2127,21 @@ Sema::BuildImplicitMemberExpr(const CXXScopeSpec &SS,
     }
   }
 
+  // [expr.prim.id.general]: the transformation of the id-expression into a
+  // class member access using (*this) is ill-formed in the predicate of a
+  // precondition assertion of a constructor or of a postcondition assertion
+  // of a destructor (an explicit 'this->' is fine).
+  if (const ContractScopeRecord *CS = getCurrentContractEntry();
+      CS && !isUnevaluatedContext() && CS->getFunctionContext() == CurContext) {
+    bool InCtorPre = CS->Kind == ContractKind::Pre && isa<CXXConstructorDecl>(CurContext);
+    bool InDtorPost = CS->Kind == ContractKind::Post && isa<CXXDestructorDecl>(CurContext);
+    if (InCtorPre || InDtorPost) {
+      Diag(loc, diag::err_implicit_member_access_in_ctor_pre_or_dtor_post)
+          << R.getLookupName() << InDtorPost;
+      return ExprError();
+    }
+  }
+
   // If this is known to be an instance access, go ahead and build an
   // implicit 'this' expression now.
   QualType ThisTy = getCurrentThisType();

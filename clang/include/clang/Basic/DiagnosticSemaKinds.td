@@ -12884,9 +12884,13 @@ def select_contract_kind : TextSubstitution<
   "%select{pre|post|contract_assert}0">;
 
 let CategoryName = "Contract Issue" in {
+def err_implicit_member_access_in_ctor_pre_or_dtor_post : Error<
+  "use of non-static member %0 without an explicit object expression is not "
+  "allowed in the %select{precondition of a constructor|postcondition of a "
+  "destructor}1">;
 def err_contract_on_deleted_or_defaulted_function : Error<
-  "a %select{deleted function|function defaulted on its first declaration}0 "
-  "cannot have a function-contract-specifier-seq">;
+  "a %select{deleted function|function defaulted on its first declaration|"
+  "virtual function}0 cannot have a function-contract-specifier-seq">;
 def err_result_name_conflicts_capture : Error<
   "declaration of result name %0 conflicts with lambda capture">;
 def err_result_name_shadows_param : Error<

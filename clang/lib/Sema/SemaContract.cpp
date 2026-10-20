@@ -763,12 +763,18 @@ static void diagnoseParamTypes(Sema &S, FunctionDecl *FD,
 void Sema::CheckFunctionContracts(FunctionDecl *FD, bool IsDefinition, bool IsInstantiation) {
   assert(FD && FD->hasContracts());
 
+  // [dcl.contract.func]: a virtual function, a deleted function or a function
+  // defaulted on its first declaration shall not have a
+  // function-contract-specifier-seq (the prohibition of virtual functions is
+  // removed by P3097R3 for C++29).
+  const auto *Method = dyn_cast<CXXMethodDecl>(FD);
+  bool IsVirtual = Method && Method->isVirtual();
   if (!FD->isInvalidDecl() &&
       (FD->isDeletedAsWritten() ||
-       (FD->isExplicitlyDefaulted() && !FD->getPreviousDecl()))) {
+       (FD->isExplicitlyDefaulted() && !FD->getPreviousDecl()) || IsVirtual)) {
     Diag(FD->getContracts()->getLocation(),
          diag::err_contract_on_deleted_or_defaulted_function)
-        << unsigned(!FD->isDeletedAsWritten());
+        << (FD->isDeletedAsWritten() ? 0u : IsVirtual ? 2u : 1u);
     FD->setInvalidDecl();
     return;
   }

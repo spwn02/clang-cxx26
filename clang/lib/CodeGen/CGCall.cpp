@@ -4253,6 +4253,18 @@ void CodeGenFunction::EmitPostContracts(llvm::Value *RV) {
   if (!FD || !FD->hasContracts())
     return;
 
+  // The function cannot return normally (its body ends in a throw, an
+  // infinite loop or __builtin_unreachable), so there is no insertion point
+  // and no postcondition is evaluated ([dcl.contract.func]: a postcondition
+  // assertion is associated with exiting a function normally). Emitting the
+  // assertions here would start a block that the return value, created
+  // without an insertion point, does not dominate.
+  // (As EmitReturnValueCheck: an unused return block is deleted at the end of
+  // FinishFunction, with what was emitted into it.)
+  if (!HaveInsertPoint() ||
+      (ReturnBlock.isValid() && ReturnBlock.getBlock()->use_empty()))
+    return;
+
   // The result name `r` in a postcondition is resolved directly out of the
   // `ReturnValue` alloca by EmitDeclRefLValue's ResultNameDecl case, not
   // through any binding constructed here -- see EmitFunctionEpilog's
