@@ -3269,13 +3269,6 @@ def err_splice_base_not_member : Error<
   "base class subobject splice must be the second operand of a member access">;
 def err_splice_base_unrelated : Error<
   "class %0 is not derived from splice class %1">;
-def err_splice_virtual_base : Error<
-  "cannot splice a reflection of a virtual base class subobject">;
-def err_splice_array_element : Error<
-  "cannot splice a base class subobject through an array element">;
-def err_unsupported_splice_kind : Error<
-  "splicing %0 %select{as template arguments is|is}1 %select{not|not yet}2 "
-  "%select{supported|implemented}2">;
 def err_using_dependent_namespace : Error<
   "dependent namespaces cannot appear in a using directive">;
 def err_dependent_splice_implicit_member_reference : Error<
@@ -12900,8 +12893,6 @@ def err_result_name_shadows_param : Error<
   "declaration of result name %0 shadows parameter">;
 def err_void_result_name : Error<
   "result name %0 cannot be used with a void return type">;
-def err_deduced_auto_result_name_without_body : Error<
-  "result name on function with deduced return type requires a body">;
 def err_result_name_not_allowed : Error<
   "result name %0 not allowed outside of post condition specifier">;
 
@@ -12917,16 +12908,6 @@ def err_contract_group_attribute_invalid_group : Error<
     "}0">;
 
 
-
-def err_contract_violation : Error<"contract %select{precondition|postcondition|assertion}0 failed%select{: %2|}1">;
-def warn_contract_violation : Warning<"contract %select{precondition|postcondition|assertion}0 failed%select{: %2|}1">,
-    InGroup<ContractViolation>;
-
-def err_contract_requirement_failed : Error<
-  "%select{precondition|postcondition|contract assertion}0 failed due to requirement '%1'%select{: %3|}2">;
-def warn_contract_requirement_failed : Warning<
-  "%select{precondition|postcondition|contract assertion}0 failed due to requirement '%1'%select{: %3|}2">,
-  InGroup<ContractViolation>;
 
 def err_constexpr_contract_failure : Error<
   "contract failed during execution of constexpr function">;
@@ -12944,8 +12925,6 @@ def err_function_different_contract_seq : Error<
   "%select{function|method}0 %select{redeclaration|out-of-line definition}0 differs in contract specifier sequence">;
 def note_contract_spec_seq_arity_mismatch : Note<
   "previously declared %select{with additional|with fewer|without}0 contracts here%select{ (%1 vs %2)| (%1 vs %2)|}0">;
-def note_previous_contract_spec_seq : Note<
-  "previously declared %select{without|with %1}0 contracts here">;
 
 def note_mismatched_contract : Note<
   "in contract specified here">;
@@ -12957,28 +12936,14 @@ def note_previous_contracts : Note<
   "|%select{without|with}2 result name"
   "|with a non-equivalent condition}0">;
 
-def err_contract_attr_bool_arg_not_constant : Error<
-  "argument to %0 attribute must be a boolean constant expression">;
-
-def warn_contract_always_evaluates_to : Warning<
-  "contract condition always evaluates to %select{false|true}0">,
-  InGroup<ContractViolation>;
-
 def err_contract_postcondition_parameter_type_invalid : Error<
     "parameter %0 referenced in contract postcondition %select{cannot have an array type|cannot have a function type|must be declared const|cannot be odr-used in a coroutine postcondition}1">;
-def note_parameter_with_name : Note<
-  "parameter %0 is declared here">;
-def note_parameter_with_name_and_type : Note<
-  "parameter %0 declared with type %1 here">;
 
 def err_lambda_implicit_capture_in_contracts_only : Error<
          "implicit capture of %select{local entity %1|'this'}0 is not allowed when used exclusively in contract assertions">;
 
-def  note_lambda_implicit_capture_in_contract_usage : Note<"capture of %select{local entity %1|'this'}0 is "
-  "required here">;
-
-def note_lambda_implicit_capture_in_contracts_only : Note<
-  "use explicit capture list to capture %select{%1|'this'}0">;
+def note_lambda_implicit_capture_in_contract_usage : Note<
+  "capture of %select{local entity %1|'this'}0 is required here">;
 
 def err_auto_result_name_on_non_def_decl : Error<
    "postcondition with result name %0 cannot appear on a function declaration with deduced return type unless it is a definition">;

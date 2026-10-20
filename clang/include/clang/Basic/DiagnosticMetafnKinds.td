@@ -24,7 +24,6 @@ def metafn_cannot_query_property : Note<"cannot query the "
 def metafn_cannot_introspect_type : Note<
   "cannot introspect the %select{bases|members|parameters|alignment|size}0 of "
   "%select{an|a|a}1 %select{incomplete|non-class|non-function}1 type">;
-def metafn_members_of_enum : Note<"did you mean to use 'enumerators_of'?">;
 
 // Names.
 def metafn_name_is_not_identifier : Note<

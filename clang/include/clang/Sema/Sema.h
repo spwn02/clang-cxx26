@@ -3277,7 +3277,6 @@ public:
   std::optional<unsigned>
   getFunctionScopeIndexForDeclaration(const ValueDecl *VD);
   const DeclContext *getDeclContextForFunctionScopeIndex(unsigned ScopeIndex);
-  void WalkUpContractScopesTest() const;
   ///@}
 
   //
