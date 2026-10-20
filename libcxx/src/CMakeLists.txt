@@ -188,6 +188,10 @@ if (LIBCXX_ENABLE_THREADS)
   set_source_files_properties(system_context_replaceability.cpp PROPERTIES COMPILE_OPTIONS "-std=c++26")
 endif()
 
+# contracts.cpp implements <contracts> (std::contracts), which is C++26 only; like the file above
+# it needs the C++26 mode, otherwise the header declares nothing and the translation unit does not compile.
+set_source_files_properties(contracts.cpp PROPERTIES COMPILE_OPTIONS "-std=c++26")
+
 # Build the shared library.
 add_library(cxx_shared SHARED ${LIBCXX_SOURCES} ${LIBCXX_HEADERS})
 target_include_directories(cxx_shared PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

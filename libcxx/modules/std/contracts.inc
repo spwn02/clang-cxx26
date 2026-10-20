@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if _LIBCPP_STD_VER >= 26
 export namespace std::contracts {
   using std::contracts::contract_violation;
   using std::contracts::invoke_default_contract_violation_handler;
@@ -14,3 +15,4 @@ export namespace std::contracts {
   using std::contracts::assertion_kind;
   using std::contracts::detection_mode;
 } // namespace std::contracts
+#endif
