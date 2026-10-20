@@ -582,6 +582,7 @@ _LIBCPP_HIDE_FROM_ABI inline basic_ostream<_CharT, _Traits>& flush(basic_ostream
   return __os;
 }
 
+#if _LIBCPP_STD_VER >= 20
 template <class _CharT, class _Traits>
 _LIBCPP_HIDE_FROM_ABI inline basic_ostream<_CharT, _Traits>& emit_on_flush(basic_ostream<_CharT, _Traits>& __os) {
   __os.rdbuf()->__set_emit_on_sync(true);
@@ -602,6 +603,7 @@ _LIBCPP_HIDE_FROM_ABI inline basic_ostream<_CharT, _Traits>& flush_emit(basic_os
     __os.setstate(ios_base::badbit);
   return __os;
 }
+#endif // _LIBCPP_STD_VER >= 20
 
 template <class _Stream, class _Tp, class = void>
 struct __is_ostreamable : false_type {};
