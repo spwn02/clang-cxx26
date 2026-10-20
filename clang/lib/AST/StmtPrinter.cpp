@@ -2803,8 +2803,31 @@ void StmtPrinter::VisitCoyieldExpr(CoyieldExpr *S) {
 }
 
 void StmtPrinter::VisitCXXReflectExpr(CXXReflectExpr *S) {
-  // FIXME: Make this better.
-  OS << "^^(...)";
+  OS << "^^";
+  if (S->hasDependentSubExpr()) {
+    PrintExpr(S->getDependentSubExpr());
+    return;
+  }
+
+  // The operand is printed qualified, so that the output names the same entity
+  // when it is parsed outside of the scope the operand was written in.
+  APValue R = S->getReflection();
+  if (R.isReflectedType()) {
+    R.getReflectedType().print(OS, Policy);
+  } else if (R.isReflectedDecl()) {
+    R.getReflectedDecl()->printQualifiedName(OS, Policy);
+  } else if (R.isReflectedTemplate()) {
+    TemplateName TN = R.getReflectedTemplate();
+    if (TemplateDecl *TD = TN.getAsTemplateDecl())
+      TD->printQualifiedName(OS, Policy);
+    else
+      TN.print(OS, Policy);
+  } else if (R.isReflectedNamespace()) {
+    if (auto *ND = dyn_cast<NamedDecl>(R.getReflectedNamespace()))
+      ND->printQualifiedName(OS, Policy);
+    else
+      OS << "::";
+  }
 }
 
 void StmtPrinter::VisitCXXMetafunctionExpr(CXXMetafunctionExpr *S) {

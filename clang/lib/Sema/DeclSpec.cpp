@@ -17,6 +17,7 @@
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/LocInfoType.h"
+#include "clang/AST/SpliceSpecifier.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/SourceManager.h"
@@ -383,8 +384,16 @@ bool Declarator::isDeclarationOfFunction() const {
       return false;
 
     case TST_type_splice:
-      // TODO(CXX26): This is wrong; a splice of a function type (or a
-      // non-dependent splice-specialization-specifier declares a function.
+      // A dependent splice can designate a function type after substitution.
+      if (DS.getRepAsSpliceSpecifier()->getDependence() !=
+          SpliceSpecifierDependence::None)
+        return true;
+      if (auto *R = dyn_cast<CXXReflectExpr>(
+              DS.getRepAsSpliceSpecifier()->getOperand());
+          R && !R->hasDependentSubExpr()) {
+        APValue V = R->getReflection();
+        return V.isReflectedType() && V.getReflectedType()->isFunctionType();
+      }
       return false;
 
 #define TRANSFORM_TYPE_TRAIT_DEF(_, Trait) case TST_##Trait:
