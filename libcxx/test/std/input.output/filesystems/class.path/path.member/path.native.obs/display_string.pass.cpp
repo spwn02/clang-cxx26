@@ -13,9 +13,9 @@
 // class path
 
 // std::string display_string() const;
-// std::string system_encoded_string() const;
+// std::string native_encoded_string() const;
 // std::string generic_display_string() const;
-// std::string generic_system_encoded_string() const;
+// std::string generic_native_encoded_string() const;
 
 #include <filesystem>
 #include <format>
@@ -31,14 +31,14 @@ int main(int, char**) {
   const fs::path p("abc/def");
 
   ASSERT_SAME_TYPE(decltype(p.display_string()), std::string);
-  ASSERT_SAME_TYPE(decltype(p.system_encoded_string()), std::string);
+  ASSERT_SAME_TYPE(decltype(p.native_encoded_string()), std::string);
   ASSERT_SAME_TYPE(decltype(p.generic_display_string()), std::string);
-  ASSERT_SAME_TYPE(decltype(p.generic_system_encoded_string()), std::string);
+  ASSERT_SAME_TYPE(decltype(p.generic_native_encoded_string()), std::string);
 
-  // [fs.path.observers]: system_encoded_string() has the contract string()
+  // [fs.path.observers]: native_encoded_string() has the contract string()
   // has always had; string() is now specified in terms of it.
-  assert(p.system_encoded_string() == p.string());
-  assert(p.generic_system_encoded_string() == p.generic_string());
+  assert(p.native_encoded_string() == p.string());
+  assert(p.generic_native_encoded_string() == p.generic_string());
 
   // display_string() is Returns: format("{}", *this), which for the
   // non-debug, non-generic case is exactly string<char>(); likewise

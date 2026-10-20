@@ -696,10 +696,10 @@ public:
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string string() const { return string<char>(); }
 #    if _LIBCPP_STD_VER >= 26
-  // [fs.path.observers]: system_encoded_string() has the same contract string()
+  // [fs.path.observers]: native_encoded_string() has the same contract string()
   // has always implemented (native() transcoded per [fs.path.cvt]); string()
   // is now specified in terms of it, not the other way around.
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string system_encoded_string() const { return string(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string native_encoded_string() const { return string(); }
   // display_string() is Returns: format("{}", *this); the non-debug, non-generic
   // formatter<path> specialization computes exactly string<char>(), so this is
   // that computation without going through <format> (which itself depends on
@@ -732,7 +732,7 @@ public:
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string generic_string() const { return generic_string<char>(); }
 #    if _LIBCPP_STD_VER >= 26
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string generic_system_encoded_string() const { return generic_string(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string generic_native_encoded_string() const { return generic_string(); }
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string generic_display_string() const { return generic_string(); }
 #    endif
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::u16string generic_u16string() const { return generic_string<char16_t>(); }
@@ -751,7 +751,7 @@ public:
   // wide<->narrow transcoding step, so there is no separate "lossless display"
   // representation distinct from the OS-dependent-encoded one: both reduce to
   // the same stored bytes as string().
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string system_encoded_string() const { return __pn_; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string native_encoded_string() const { return __pn_; }
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string display_string() const { return __pn_; }
 #    endif
 #    if _LIBCPP_HAS_CHAR8_T
@@ -784,7 +784,7 @@ public:
   // generic format observers
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string generic_string() const { return __pn_; }
 #    if _LIBCPP_STD_VER >= 26
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string generic_system_encoded_string() const { return __pn_; }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string generic_native_encoded_string() const { return __pn_; }
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI std::string generic_display_string() const { return __pn_; }
 #    endif
 #    if _LIBCPP_HAS_CHAR8_T
