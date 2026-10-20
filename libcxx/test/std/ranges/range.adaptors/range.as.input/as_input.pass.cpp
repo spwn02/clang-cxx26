@@ -117,9 +117,12 @@ int main(int, char**) {
   testPipeAndSize();
   static_assert(testPipeAndSize());
 
-  // Not a borrowed_range, even when the underlying view is.
-  static_assert(!std::ranges::enable_borrowed_range<std::ranges::as_input_view<std::ranges::ref_view<std::vector<int>>>>);
-  static_assert(!std::ranges::borrowed_range<std::ranges::as_input_view<std::ranges::ref_view<std::vector<int>>>>);
+  using Borrowed = std::ranges::as_input_view<std::ranges::ref_view<std::vector<int>>>;
+  using Owning = std::ranges::as_input_view<std::ranges::owning_view<std::vector<int>>>;
+  static_assert(std::ranges::enable_borrowed_range<Borrowed>);
+  static_assert(std::ranges::borrowed_range<Borrowed>);
+  static_assert(!std::ranges::enable_borrowed_range<Owning>);
+  static_assert(!std::ranges::borrowed_range<Owning>);
 
   return 0;
 }

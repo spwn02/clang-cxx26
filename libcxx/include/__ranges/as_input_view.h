@@ -69,6 +69,9 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto size() const requires sized_range<const _View> { return ranges::size(__base_); }
 };
 
+template <class _View>
+inline constexpr bool enable_borrowed_range<as_input_view<_View>> = enable_borrowed_range<_View>;
+
 template <class _Range>
 as_input_view(_Range&&) -> as_input_view<views::all_t<_Range>>;
 
