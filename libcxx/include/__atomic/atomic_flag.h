@@ -32,20 +32,20 @@ struct atomic_flag {
   _LIBCPP_HIDE_FROM_ABI bool test(memory_order __m = memory_order_seq_cst) const volatile _NOEXCEPT {
     return _LIBCPP_ATOMIC_FLAG_TYPE(true) == __cxx_atomic_load(&__a_, __m);
   }
-  _LIBCPP_HIDE_FROM_ABI bool test(memory_order __m = memory_order_seq_cst) const _NOEXCEPT {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool test(memory_order __m = memory_order_seq_cst) const _NOEXCEPT {
     return _LIBCPP_ATOMIC_FLAG_TYPE(true) == __cxx_atomic_load(&__a_, __m);
   }
 
   _LIBCPP_HIDE_FROM_ABI bool test_and_set(memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT {
     return __cxx_atomic_exchange(&__a_, _LIBCPP_ATOMIC_FLAG_TYPE(true), __m);
   }
-  _LIBCPP_HIDE_FROM_ABI bool test_and_set(memory_order __m = memory_order_seq_cst) _NOEXCEPT {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool test_and_set(memory_order __m = memory_order_seq_cst) _NOEXCEPT {
     return __cxx_atomic_exchange(&__a_, _LIBCPP_ATOMIC_FLAG_TYPE(true), __m);
   }
   _LIBCPP_HIDE_FROM_ABI void clear(memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT {
     __cxx_atomic_store(&__a_, _LIBCPP_ATOMIC_FLAG_TYPE(false), __m);
   }
-  _LIBCPP_HIDE_FROM_ABI void clear(memory_order __m = memory_order_seq_cst) _NOEXCEPT {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void clear(memory_order __m = memory_order_seq_cst) _NOEXCEPT {
     __cxx_atomic_store(&__a_, _LIBCPP_ATOMIC_FLAG_TYPE(false), __m);
   }
 
@@ -53,13 +53,38 @@ struct atomic_flag {
   _LIBCPP_HIDE_FROM_ABI void wait(bool __v, memory_order __m = memory_order_seq_cst) const volatile _NOEXCEPT {
     std::__atomic_wait(*this, _LIBCPP_ATOMIC_FLAG_TYPE(__v), __m);
   }
-  _LIBCPP_HIDE_FROM_ABI void wait(bool __v, memory_order __m = memory_order_seq_cst) const _NOEXCEPT {
+  // Constant evaluation is single-threaded: wait() returns at once when the value differs, and
+  // otherwise it would block forever (a constant-evaluation failure, as for atomic<T>::wait);
+  // notify_*() have nothing to wake up. The branch calls test() directly instead of going through
+  // std::__atomic_wait, which stays non-constexpr (see atomic.h).
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void wait(bool __v, memory_order __m = memory_order_seq_cst) const _NOEXCEPT {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      while (this->test(__m) == __v) {
+      }
+      return;
+    }
+#  endif
     std::__atomic_wait(*this, _LIBCPP_ATOMIC_FLAG_TYPE(__v), __m);
   }
   _LIBCPP_HIDE_FROM_ABI void notify_one() volatile _NOEXCEPT { std::__atomic_notify_one(*this); }
-  _LIBCPP_HIDE_FROM_ABI void notify_one() _NOEXCEPT { std::__atomic_notify_one(*this); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_one() _NOEXCEPT {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      return;
+    }
+#  endif
+    std::__atomic_notify_one(*this);
+  }
   _LIBCPP_HIDE_FROM_ABI void notify_all() volatile _NOEXCEPT { std::__atomic_notify_all(*this); }
-  _LIBCPP_HIDE_FROM_ABI void notify_all() _NOEXCEPT { std::__atomic_notify_all(*this); }
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void notify_all() _NOEXCEPT {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      return;
+    }
+#  endif
+    std::__atomic_notify_all(*this);
+  }
 #endif
 
 #if _LIBCPP_STD_VER >= 20
