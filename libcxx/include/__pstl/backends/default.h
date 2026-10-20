@@ -443,16 +443,17 @@ struct __find_end<__default_backend_tag, _ExecutionPolicy> {
 template <class _ExecutionPolicy>
 struct __for_each_n<__default_backend_tag, _ExecutionPolicy> {
   template <class _Policy, class _ForwardIterator, class _Size, class _Function>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<__empty>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
   operator()(_Policy&& __policy, _ForwardIterator __first, _Size __size, _Function __func) const noexcept {
     if constexpr (__has_random_access_iterator_category_or_concept<_ForwardIterator>::value) {
       using _ForEach          = __dispatch<__for_each, __current_configuration, _ExecutionPolicy>;
       _ForwardIterator __last = __first + __size;
-      return _ForEach()(__policy, std::move(__first), std::move(__last), std::move(__func));
+      if (_ForEach()(__policy, std::move(__first), __last, std::move(__func)) == nullopt)
+        return nullopt;
+      return optional<_ForwardIterator>{std::move(__last)};
     } else {
       // Otherwise, use the serial algorithm to avoid doing two passes over the input
-      std::for_each_n(std::move(__first), __size, std::move(__func));
-      return __empty{};
+      return optional<_ForwardIterator>{std::for_each_n(std::move(__first), __size, std::move(__func))};
     }
   }
 };
@@ -528,7 +529,7 @@ struct __generate<__default_backend_tag, _ExecutionPolicy> {
 template <class _ExecutionPolicy>
 struct __generate_n<__default_backend_tag, _ExecutionPolicy> {
   template <class _Policy, class _ForwardIterator, class _Size, class _Generator>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<__empty>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
   operator()(_Policy&& __policy, _ForwardIterator __first, _Size __n, _Generator&& __gen) const noexcept {
     using _ForEachN = __dispatch<__for_each_n, __current_configuration, _ExecutionPolicy>;
     using _Ref      = __iterator_reference<_ForwardIterator>;

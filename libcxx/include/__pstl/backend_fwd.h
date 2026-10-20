@@ -250,7 +250,7 @@ struct __for_each;
 template <class _Backend, class _ExecutionPolicy>
 struct __for_each_n;
 // template <class _Policy, class _ForwardIterator, class _Size, class _Function>
-// optional<__empty>
+// optional<_ForwardIterator>
 // operator()(_Policy&&, _ForwardIterator __first, _Size __size, _Function __func) const noexcept;
 
 template <class _Backend, class _ExecutionPolicy>
@@ -288,7 +288,7 @@ struct __generate;
 template <class _Backend, class _ExecutionPolicy>
 struct __generate_n;
 // template <class _Policy, class _ForwardIterator, class _Size, class _Generator>
-// optional<__empty>
+// optional<_ForwardIterator>
 // operator()(_Policy&&, _ForwardIterator __first, _Size __n, _Generator __gen) const noexcept;
 
 template <class _Backend, class _ExecutionPolicy>
