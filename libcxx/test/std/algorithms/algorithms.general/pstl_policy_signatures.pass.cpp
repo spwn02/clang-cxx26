@@ -22,6 +22,8 @@
 #include <concepts>
 #include <execution>
 #include <functional>
+#include <ranges>
+#include <span>
 
 void test() {
   {
@@ -78,7 +80,26 @@ void test() {
   }
 }
 
+// [alg.partitions]: the ranges overloads of stable_partition with a policy are constrained by
+// indirect_unary_predicate (a pointer is not a predicate, so the call is not viable and the
+// iterator-sentinel overload is not an ambiguous choice).
+template <class... Args>
+concept can_stable_partition = requires(Args&&... args) { std::ranges::stable_partition(std::execution::seq, args...); };
+
+void test_constraints() {
+  int a[4]{1, 2, 3, 4};
+  auto is_even = [](int x) { return x % 2 == 0; };
+  static_assert(can_stable_partition<int*, int*, decltype(is_even)>);
+  static_assert(can_stable_partition<std::span<int>, decltype(is_even)>);
+  static_assert(!can_stable_partition<int*, int*, int*>);
+  static_assert(!can_stable_partition<std::span<int>, int*>);
+  auto sub = std::ranges::stable_partition(std::execution::seq, a, is_even);
+  assert(sub.begin() == a + 2);
+  assert(a[0] == 2 && a[1] == 4 && a[2] == 1 && a[3] == 3);
+}
+
 int main(int, char**) {
   test();
+  test_constraints();
   return 0;
 }

@@ -83,7 +83,7 @@ struct __stable_partition {
             class _Proj                                        = identity,
             class _RawPolicy                                   = __remove_cvref_t<_Ep>,
             enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-    requires permutable<_Iter>
+    requires permutable<_Iter> && indirect_unary_predicate<_Pred, projected<_Iter, _Proj>>
   _LIBCPP_HIDE_FROM_ABI subrange<_Iter>
   operator()(_Ep&& __exec, _Iter __first, _Sent __last, _Pred __pred, _Proj __proj = {}) const {
     _Iter __end = __first + (__last - __first);
@@ -99,7 +99,8 @@ struct __stable_partition {
             class _Proj                                        = identity,
             class _RawPolicy                                   = __remove_cvref_t<_Ep>,
             enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
-    requires sized_range<_Range> && permutable<iterator_t<_Range>>
+    requires sized_range<_Range> && permutable<iterator_t<_Range>> &&
+             indirect_unary_predicate<_Pred, projected<iterator_t<_Range>, _Proj>>
   _LIBCPP_HIDE_FROM_ABI borrowed_subrange_t<_Range>
   operator()(_Ep&& __exec, _Range&& __r, _Pred __pred, _Proj __proj = {}) const {
     return (*this)(std::forward<_Ep>(__exec), ranges::begin(__r), ranges::end(__r), std::move(__pred), std::move(__proj));
