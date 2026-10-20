@@ -471,16 +471,17 @@ struct __fill<__default_backend_tag, _ExecutionPolicy> {
 template <class _ExecutionPolicy>
 struct __fill_n<__default_backend_tag, _ExecutionPolicy> {
   template <class _Policy, class _ForwardIterator, class _Size, class _Tp>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<__empty>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardIterator>
   operator()(_Policy&& __policy, _ForwardIterator __first, _Size __n, _Tp const& __value) const noexcept {
     if constexpr (__has_random_access_iterator_category_or_concept<_ForwardIterator>::value) {
       using _Fill             = __dispatch<__fill, __current_configuration, _ExecutionPolicy>;
       _ForwardIterator __last = __first + __n;
-      return _Fill()(__policy, std::move(__first), std::move(__last), __value);
+      if (_Fill()(__policy, std::move(__first), __last, __value) == nullopt)
+        return nullopt;
+      return optional<_ForwardIterator>{std::move(__last)};
     } else {
       // Otherwise, use the serial algorithm to avoid doing two passes over the input
-      std::fill_n(std::move(__first), __n, __value);
-      return optional<__empty>{__empty{}};
+      return optional<_ForwardIterator>{std::fill_n(std::move(__first), __n, __value)};
     }
   }
 };
@@ -877,7 +878,7 @@ struct __reduce<__default_backend_tag, _ExecutionPolicy> {
 template <class _ExecutionPolicy>
 struct __replace_copy_if<__default_backend_tag, _ExecutionPolicy> {
   template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Pred, class _Tp>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<__empty>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
   operator()(_Policy&& __policy,
              _ForwardIterator __first,
              _ForwardIterator __last,
@@ -886,20 +887,16 @@ struct __replace_copy_if<__default_backend_tag, _ExecutionPolicy> {
              _Tp const& __new_value) const noexcept {
     using _Transform = __dispatch<__transform, __current_configuration, _ExecutionPolicy>;
     using _Ref       = __iterator_reference<_ForwardIterator>;
-    auto __res =
-        _Transform()(__policy, std::move(__first), std::move(__last), std::move(__out_it), [&](_Ref __element) {
-          return __pred(__element) ? __new_value : __element;
-        });
-    if (__res == nullopt)
-      return nullopt;
-    return __empty{};
+    return _Transform()(__policy, std::move(__first), std::move(__last), std::move(__out_it), [&](_Ref __element) {
+      return __pred(__element) ? __new_value : __element;
+    });
   }
 };
 
 template <class _ExecutionPolicy>
 struct __replace_copy<__default_backend_tag, _ExecutionPolicy> {
   template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Tp>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<__empty>
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI optional<_ForwardOutIterator>
   operator()(_Policy&& __policy,
              _ForwardIterator __first,
              _ForwardIterator __last,

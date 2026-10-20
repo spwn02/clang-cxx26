@@ -262,7 +262,7 @@ struct __fill;
 template <class _Backend, class _ExecutionPolicy>
 struct __fill_n;
 // template <class _Policy, class _ForwardIterator, class _Size, class _Tp>
-// optional<__empty>
+// optional<_ForwardIterator>
 // operator()(_Policy&&, _ForwardIterator __first, _Size __n, _Tp const& __value) const noexcept;
 
 template <class _Backend, class _ExecutionPolicy>
@@ -363,7 +363,7 @@ struct __includes;
 template <class _Backend, class _ExecutionPolicy>
 struct __replace_copy_if;
 // template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Predicate, class _Tp>
-// optional<__empty>
+// optional<_ForwardOutIterator>
 // operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last,
 //                       _ForwardOutIterator __out_it,
 //                       _Predicate __pred,
@@ -372,7 +372,7 @@ struct __replace_copy_if;
 template <class _Backend, class _ExecutionPolicy>
 struct __replace_copy;
 // template <class _Policy, class _ForwardIterator, class _ForwardOutIterator, class _Tp>
-// optional<__empty>
+// optional<_ForwardOutIterator>
 // operator()(_Policy&&, _ForwardIterator __first, _ForwardIterator __last,
 //                       _ForwardOutIterator __out_it,
 //                       _Tp const& __old_value,

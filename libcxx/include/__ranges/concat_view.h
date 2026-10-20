@@ -208,11 +208,13 @@ private:
   constexpr static bool __derive_pack_random_iterator =
       (derived_from<typename iterator_traits<iterator_t<__maybe_const<_Const, _Views>>>::iterator_category,
                     random_access_iterator_tag> &&
-       ...);
+       ...) &&
+      __concat_is_random_access<_Const, _Views...>;
   constexpr static bool __derive_pack_bidirectional_iterator =
       (derived_from<typename iterator_traits<iterator_t<__maybe_const<_Const, _Views>>>::iterator_category,
                     bidirectional_iterator_tag> &&
-       ...);
+       ...) &&
+      __concat_is_bidirectional<_Const, _Views...>;
   constexpr static bool __derive_pack_forward_iterator =
       (derived_from<typename iterator_traits< iterator_t<__maybe_const<_Const, _Views>>>::iterator_category,
                     forward_iterator_tag> &&

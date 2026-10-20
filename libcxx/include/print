@@ -217,10 +217,36 @@ _LIBCPP_HIDE_FROM_ABI inline bool __is_terminal([[maybe_unused]] FILE* __stream)
 #    endif
 }
 
+// [print.fun] vprint_unicode and vprint_nonunicode hold the lock of the stream
+// for the whole call; the lock of a C stream is recursive, so the functions
+// that call each other can all take it.
+class __file_lock {
+  FILE* __stream_;
+
+public:
+  _LIBCPP_HIDE_FROM_ABI explicit __file_lock(FILE* __stream) : __stream_(__stream) {
+#    if defined(_LIBCPP_WIN32API)
+    ::_lock_file(__stream_);
+#    elif __has_include(<unistd.h>)
+    ::flockfile(__stream_);
+#    endif
+  }
+  __file_lock(const __file_lock&)            = delete;
+  __file_lock& operator=(const __file_lock&) = delete;
+  _LIBCPP_HIDE_FROM_ABI ~__file_lock() {
+#    if defined(_LIBCPP_WIN32API)
+    ::_unlock_file(__stream_);
+#    elif __has_include(<unistd.h>)
+    ::funlockfile(__stream_);
+#    endif
+  }
+};
+
 template <class = void> // TODO PRINT template or availability markup fires too eagerly (http://llvm.org/PR61563).
 _LIBCPP_HIDE_FROM_ABI inline void
 __vprint_nonunicode(FILE* __stream, string_view __fmt, format_args __args, bool __write_nl) {
   _LIBCPP_ASSERT_NON_NULL(__stream, "__stream must be a valid pointer to an output C stream");
+  __file_lock __lock(__stream);
   auto __flush = [__stream](const char* __data, size_t __size) {
     size_t __written = std::fwrite(__data, 1, __size, __stream);
     if (__written < __size) {
@@ -315,6 +341,7 @@ __vprint_unicode([[maybe_unused]] FILE* __stream,
                  [[maybe_unused]] format_args __args,
                  [[maybe_unused]] bool __write_nl) {
   _LIBCPP_ASSERT_NON_NULL(__stream, "__stream must be a valid pointer to an output C stream");
+  __file_lock __lock(__stream);
 
   // [print.fun]
   //   7 - Effects: If stream refers to a terminal capable of displaying
