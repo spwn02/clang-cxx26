@@ -24,6 +24,15 @@
 // the instantiation of the class, as the definition in the module was demoted
 // to a declaration.
 //
+// The test is run a second time with what a language server also does: the
+// precompiled header is built without the bodies of the functions (the preamble
+// of clangd), so its definition of std::basic_istream has no body for
+// __inc_gcount and differs from the one of the module, which was read first and
+// is in the global module fragment. -fskip-odr-check-in-gmf has to skip the
+// check when the definition that is merged into is the one of the global module
+// fragment, otherwise 'std::basic_istream has different definitions in
+// different modules' is reported for std::cout (#327).
+//
 // This is a hand-rolled module build for the reason given in
 // std-reflection-bare-freflection.sh.cpp.
 
@@ -38,4 +47,12 @@
 // RUN:     -fmodule-file=std=%t/std.pcm -x c++-header -o %t/pre.pch %t/pre.h
 // RUN: %{cxx} %{compile_flags} -std=c++26 -freflection-latest \
 // RUN:     -fmodule-file=std=%t/std.pcm -include-pch %t/pre.pch \
+// RUN:     -fsyntax-only %t/use.cpp
+
+// RUN: mkdir %t/nobodies
+// RUN: %{cxx} %{compile_flags} -std=c++26 -freflection-latest -Xclang -fskip-odr-check-in-gmf \
+// RUN:     -fmodule-file=std=%t/std.pcm -x c++-header -Xclang -skip-function-bodies \
+// RUN:     -o %t/nobodies/pre.pch %t/pre.h
+// RUN: %{cxx} %{compile_flags} -std=c++26 -freflection-latest -Xclang -fskip-odr-check-in-gmf \
+// RUN:     -fmodule-file=std=%t/std.pcm -include-pch %t/nobodies/pre.pch \
 // RUN:     -fsyntax-only %t/use.cpp
