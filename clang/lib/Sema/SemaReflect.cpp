@@ -660,9 +660,21 @@ public:
                                      SourceLocation());
             break;
           }
-          // TODO(CXX26): Handle other kinds of TemplateArgument.
-          default:
-            llvm_unreachable("unimplemented");
+          case TemplateArgument::NullPtr: {
+            Expr *E = new (S.Context)
+                CXXNullPtrLiteralExpr(TArg.getNullPtrType(), DefinitionLoc);
+            ParsedTArgs.emplace_back(ParsedTemplateArgument::NonType, E,
+                                     SourceLocation());
+            break;
+          }
+          // The arguments of a complete specialization are neither null,
+          // dependent expressions, pack expansions nor invalid, and packs
+          // were flattened above.
+          case TemplateArgument::Null:
+          case TemplateArgument::Expression:
+          case TemplateArgument::TemplateExpansion:
+          case TemplateArgument::Pack:
+            llvm_unreachable("unexpected kind of template argument");
           }
         }
 
