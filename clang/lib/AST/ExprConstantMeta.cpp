@@ -1074,9 +1074,11 @@ static bool getParameterName(ParmVarDecl *PVD, std::string &Out) {
 
   unsigned ParamIdx = PVD->getFunctionScopeIndex();
 
-  // TODO(CXX26): This will crash if we're in the trailing requires-clause of
-  // a function declaration, since the DeclContext is not the function but the
-  // TranslationUnitDecl.
+  // A reflected parameter (RV.getReflectedParameter()) only comes from
+  // parameters_of, so its DeclContext is the function. ^^p written in the
+  // trailing requires-clause names the parameter as a variable, whose
+  // DeclContext is the translation unit; that is another reflection kind and
+  // does not reach here.
   FunctionDecl *FD = cast<FunctionDecl>(PVD->getDeclContext());
 
   // For an instantiated member, instantiating the out-of-line definition
@@ -1126,9 +1128,11 @@ static bool getParameterName(ParmVarDecl *PVD, std::string &Out) {
 }
 
 static ParmVarDecl *getMostRecentParmVarDecl(ParmVarDecl *PVD) {
-  // TODO(CXX26): This will crash if we're in the trailing requires-clause of
-  // a function declaration, since the DeclContext is not the function but the
-  // TranslationUnitDecl.
+  // A reflected parameter (RV.getReflectedParameter()) only comes from
+  // parameters_of, so its DeclContext is the function. ^^p written in the
+  // trailing requires-clause names the parameter as a variable, whose
+  // DeclContext is the translation unit; that is another reflection kind and
+  // does not reach here.
   FunctionDecl *FD = cast<FunctionDecl>(PVD->getDeclContext());
   FD = FD->getMostRecentDecl();
   return FD->getParamDecl(PVD->getFunctionScopeIndex());
