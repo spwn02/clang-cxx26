@@ -43,10 +43,12 @@ namespace ranges {
 template <class _InIter, class _OutIter>
 using reverse_copy_result = in_out_result<_InIter, _OutIter>;
 
+#  if _LIBCPP_STD_VER >= 26
 // [algorithm.syn]: the execution-policy overloads return in_in_out_result<I, I, O>: where the input was consumed up to,
 // where the reversed/rotated part starts, and the end of the written output.
 template <class _InIter, class _OutIter>
 using reverse_copy_truncated_result = in_in_out_result<_InIter, _InIter, _OutIter>;
+#  endif
 
 struct __reverse_copy {
   template <bidirectional_iterator _InIter, sentinel_for<_InIter> _Sent, weakly_incrementable _OutIter>

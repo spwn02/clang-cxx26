@@ -49,9 +49,11 @@ namespace ranges {
 template <class _InIter, class _OutIter>
 using set_difference_result = in_out_result<_InIter, _OutIter>;
 
+#  if _LIBCPP_STD_VER >= 26
 // [algorithm.syn]: the execution-policy overloads report the positions reached in both input ranges.
 template <class _InIter1, class _InIter2, class _OutIter>
 using set_difference_truncated_result = in_in_out_result<_InIter1, _InIter2, _OutIter>;
+#  endif
 
 struct __set_difference {
   template <input_iterator _InIter1,

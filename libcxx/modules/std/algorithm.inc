@@ -320,7 +320,9 @@ export namespace std {
   namespace ranges {
     using std::ranges::reverse_copy;
     using std::ranges::reverse_copy_result;
+#if _LIBCPP_STD_VER >= 26
     using std::ranges::reverse_copy_truncated_result;
+#endif
   } // namespace ranges
 
   // [alg.rotate], rotate
@@ -335,7 +337,9 @@ export namespace std {
   namespace ranges {
     using std::ranges::rotate_copy;
     using std::ranges::rotate_copy_result;
+#if _LIBCPP_STD_VER >= 26
     using std::ranges::rotate_copy_truncated_result;
+#endif
   } // namespace ranges
 
   // [alg.random.sample], sample
@@ -507,7 +511,9 @@ export namespace std {
   namespace ranges {
     using std::ranges::set_difference;
     using std::ranges::set_difference_result;
+#if _LIBCPP_STD_VER >= 26
     using std::ranges::set_difference_truncated_result;
+#endif
   } // namespace ranges
 
   using std::set_symmetric_difference;
