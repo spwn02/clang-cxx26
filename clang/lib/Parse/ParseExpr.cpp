@@ -205,6 +205,9 @@ Parser::ParseConstraintLogicalAndExpression(bool IsTrailingRequiresClause) {
       Actions, Sema::ExpressionEvaluationContext::Unevaluated);
   bool NotPrimaryExpression = false;
   auto ParsePrimary = [&]() {
+    // An atomic constraint is a bool (a concept, a trait variable, a
+    // requires-expression), so code completion prefers entities of that type.
+    PreferredType.enterCondition(Actions, Tok.getLocation());
     ExprResult E = ParseCastExpression(
         CastParseKind::PrimaryExprOnly,
         /*isAddressOfOperand=*/false, TypoCorrectionTypeBehavior::AllowNonTypes,
