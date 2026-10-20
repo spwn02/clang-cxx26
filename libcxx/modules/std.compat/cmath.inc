@@ -228,12 +228,14 @@ export {
   using ::nexttowardf _LIBCPP_USING_IF_EXISTS;
   using ::nexttowardl _LIBCPP_USING_IF_EXISTS;
 
+#if _LIBCPP_STD_VER >= 26
   using ::nextup _LIBCPP_USING_IF_EXISTS;
   using ::nextupf _LIBCPP_USING_IF_EXISTS;
   using ::nextupl _LIBCPP_USING_IF_EXISTS;
   using ::nextdown _LIBCPP_USING_IF_EXISTS;
   using ::nextdownf _LIBCPP_USING_IF_EXISTS;
   using ::nextdownl _LIBCPP_USING_IF_EXISTS;
+#endif
 
   using ::fdim _LIBCPP_USING_IF_EXISTS;
   using ::fdimf _LIBCPP_USING_IF_EXISTS;
@@ -247,10 +249,12 @@ export {
   using ::fminf _LIBCPP_USING_IF_EXISTS;
   using ::fminl _LIBCPP_USING_IF_EXISTS;
 
+#if _LIBCPP_STD_VER >= 26
   using ::fmaximum _LIBCPP_USING_IF_EXISTS;
   using ::fmaximum_num _LIBCPP_USING_IF_EXISTS;
   using ::fminimum _LIBCPP_USING_IF_EXISTS;
   using ::fminimum_num _LIBCPP_USING_IF_EXISTS;
+#endif
 
   using ::fma _LIBCPP_USING_IF_EXISTS;
   using ::fmaf _LIBCPP_USING_IF_EXISTS;

@@ -25,8 +25,10 @@ export {
   using ::strftime _LIBCPP_USING_IF_EXISTS;
   using ::time _LIBCPP_USING_IF_EXISTS;
   using ::timespec_get _LIBCPP_USING_IF_EXISTS;
+#if _LIBCPP_STD_VER >= 26
   using ::timespec_getres _LIBCPP_USING_IF_EXISTS;
   using ::gmtime_r _LIBCPP_USING_IF_EXISTS;
   using ::localtime_r _LIBCPP_USING_IF_EXISTS;
   using ::timegm _LIBCPP_USING_IF_EXISTS;
+#endif
 } // export

@@ -55,6 +55,7 @@ inline constexpr bool __is_mapping_of = requires {
   requires is_same_v<typename _Layout::template mapping<typename _Mapping::extents_type>, _Mapping>;
 };
 
+#  if _LIBCPP_STD_VER >= 26
 template <class _Layout>
 inline constexpr bool __is_layout_left_padded_policy = false;
 template <size_t _PaddingValue>
@@ -97,6 +98,7 @@ inline constexpr size_t __padded_static_stride = [] {
       return __mdspan_detail::__least_multiple_at_least(_PaddedMapping::padding_value, __static_extent);
   }
 }();
+#  endif // _LIBCPP_STD_VER >= 26
 
 } // namespace __mdspan_detail
 

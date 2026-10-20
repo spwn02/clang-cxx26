@@ -50,6 +50,7 @@ struct layout_stride {
   class mapping;
 };
 
+#  if _LIBCPP_STD_VER >= 26
 template <size_t _PaddingValue = dynamic_extent>
 struct layout_left_padded {
   template <class _Extents>
@@ -61,6 +62,7 @@ struct layout_right_padded {
   template <class _Extents>
   class mapping;
 };
+#  endif // _LIBCPP_STD_VER >= 26
 
 #endif // _LIBCPP_STD_VER >= 23
 

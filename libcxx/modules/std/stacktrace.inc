@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 export namespace std {
-#if _LIBCPP_STD_VER >= 26
+#if _LIBCPP_STD_VER >= 23
   // [stacktrace.entry], class stacktrace_entry
   using std::stacktrace_entry;
 

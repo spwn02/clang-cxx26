@@ -25,8 +25,10 @@ export namespace std {
   using std::strftime _LIBCPP_USING_IF_EXISTS;
   using std::time _LIBCPP_USING_IF_EXISTS;
   using std::timespec_get _LIBCPP_USING_IF_EXISTS;
+#if _LIBCPP_STD_VER >= 26
   using std::timespec_getres _LIBCPP_USING_IF_EXISTS;
   using std::gmtime_r _LIBCPP_USING_IF_EXISTS;
   using std::localtime_r _LIBCPP_USING_IF_EXISTS;
   using std::timegm _LIBCPP_USING_IF_EXISTS;
+#endif
 } // namespace std

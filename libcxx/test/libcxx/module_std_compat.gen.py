@@ -16,6 +16,7 @@
 # to be one monolitic test. Since the test doesn't take very long it's
 # not a huge issue.
 
+# UNSUPPORTED: c++03, c++11, c++14, c++17, c++20
 # RUN: %{python} %s %{libcxx-dir}/utils
 
 import sys
