@@ -510,7 +510,12 @@ void Parser::ParseLexedMethodDeclaration(LateParsedMethodDeclaration &LM) {
     // };
     // Setup the CurScope to match the function DeclContext - we have such
     // assumption in IsInFnTryBlockHandler().
-    ParseScope FnScope(this, Scope::FnScope);
+    //
+    // A function scope holds declarations like the one of a function body does
+    // (DeclScope): the recovery of an error in the expression can still declare
+    // a label there ('noexcept(undeclared::a<T> and undeclared::b<T>)' parses
+    // '&& undeclared' as the GNU address of a label).
+    ParseScope FnScope(this, Scope::FnScope | Scope::DeclScope);
     Sema::ContextRAII FnContext(Actions, FunctionToPush,
                                 /*NewThisContext=*/false);
     Sema::FunctionScopeRAII PopFnContext(Actions);

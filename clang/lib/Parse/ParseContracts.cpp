@@ -415,7 +415,9 @@ bool Parser::ParseLexedFunctionContracts(
   std::optional<Sema::ContextRAII> FnContext;
   std::optional<Sema::FunctionScopeRAII> PopFnContext;
   if (ScopesToEnter & ContractEnterScopeKind::CES_Function) {
-    FnScope.emplace(this, Scope::FnScope);
+    // DeclScope as for a function body: an error in the predicate can still
+    // declare a label there (see ParseLexedMethodDeclaration).
+    FnScope.emplace(this, Scope::FnScope | Scope::DeclScope);
     FnContext.emplace(Actions, FunctionToPush, /*NewThisContext=*/true);
     PopFnContext.emplace(Actions);
     Actions.PushFunctionScope();
