@@ -17,6 +17,10 @@
 #include <__memory/unique_ptr.h>
 #include <__mutex/lock_guard.h>
 #include <__mutex/mutex.h>
+#include <__type_traits/integral_constant.h>
+#include <__type_traits/is_class.h>
+#include <__type_traits/is_base_of.h>
+#include <__utility/declval.h>
 #include <__utility/exchange.h>
 #include <__utility/move.h>
 #include <__utility/swap.h>
@@ -119,6 +123,31 @@ _LIBCPP_HIDE_FROM_ABI inline __domain& __get_domain() {
 
 } // namespace __hazard_pointer
 
+template <class _Tp, class _Dp>
+class hazard_pointer_obj_base;
+
+// [saferecl.hp.general]: a class type T is hazard-protectable if it has exactly one base class of type
+// hazard_pointer_obj_base<T, D> for some D, that base is public and non-virtual, and it has no base classes of
+// type hazard_pointer_obj_base<T2, D2> for any other combination T2, D2.
+template <class _Tp, class _Dp>
+_Dp __hazard_pointer_deleter_of(const hazard_pointer_obj_base<_Tp, _Dp>*);
+
+template <class _Tp, class _Dp>
+void __hazard_pointer_other_base(const hazard_pointer_obj_base<_Tp, _Dp>*);
+
+template <class _Tp>
+struct __is_hazard_protectable : false_type {};
+
+template <class _Tp>
+  requires requires(_Tp* __p) { __hazard_pointer_deleter_of<_Tp>(__p); }
+struct __is_hazard_protectable<_Tp> {
+  using __deleter _LIBCPP_NODEBUG = decltype(__hazard_pointer_deleter_of<_Tp>(std::declval<_Tp*>()));
+  // deducing the deleter from the argument fails for two bases of the form hazard_pointer_obj_base<_Tp, _D>;
+  // the base has to be public (the conversion is checked) and non-virtual.
+  static constexpr bool value =
+      is_class_v<_Tp> && !is_virtual_base_of_v<hazard_pointer_obj_base<_Tp, __deleter>, _Tp>;
+};
+
 template <class _Tp, class _Dp = default_delete<_Tp>>
 class hazard_pointer_obj_base : private __hazard_pointer::__retired_node {
   _Dp __deleter_;
@@ -130,6 +159,7 @@ class hazard_pointer_obj_base : private __hazard_pointer::__retired_node {
 
 public:
   _LIBCPP_HIDE_FROM_ABI void retire(_Dp __deleter = _Dp()) noexcept {
+    static_assert(__is_hazard_protectable<_Tp>::value, "T must be a hazard-protectable type");
     __deleter_ = std::move(__deleter);
     this->__object_  = static_cast<_Tp*>(this);
     this->__reclaim_ = &hazard_pointer_obj_base::__reclaim;
@@ -179,6 +209,7 @@ public:
 
   template <class _Tp>
   _LIBCPP_HIDE_FROM_ABI bool try_protect(_Tp*& __ptr, const atomic<_Tp*>& __src) noexcept {
+    static_assert(__is_hazard_protectable<_Tp>::value, "T must be a hazard-protectable type");
     _Tp* __old = __ptr;
     reset_protection(__old);
     __ptr = __src.load(memory_order_acquire);
@@ -189,6 +220,7 @@ public:
 
   template <class _Tp>
   _LIBCPP_HIDE_FROM_ABI void reset_protection(const _Tp* __ptr) noexcept {
+    static_assert(__is_hazard_protectable<_Tp>::value, "T must be a hazard-protectable type");
     if (__ptr == nullptr)
       reset_protection();
     else

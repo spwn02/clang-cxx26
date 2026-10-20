@@ -18,6 +18,9 @@
 #include <__mutex/mutex.h>
 #include <__mutex/unique_lock.h>
 #include <__utility/exchange.h>
+#include <__utility/pair.h>
+#include <__vector/vector.h>
+#include <cstdint>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -37,7 +40,17 @@ struct __retired_node {
   __retired_node* __next_ = nullptr;
   void* __object_ = nullptr;
   void (*__evaluate_)(__retired_node*) noexcept = nullptr;
+  // The epoch of the domain when the evaluation was scheduled: the regions of RCU protection that started before
+  // it (their epoch is not greater) have to end before the evaluation, the ones that started after it do not.
+  uint64_t __epoch_ = 0;
 };
+
+// The epochs of the regions of RCU protection a thread holds, innermost last (an unlock closes the innermost
+// region of its thread, [saferecl.rcu.domain.mem]).
+inline _LIBCPP_HIDE_FROM_ABI vector<pair<const void*, uint64_t>>& __thread_regions() noexcept {
+  static thread_local vector<pair<const void*, uint64_t>> __regions;
+  return __regions;
+}
 
 } // namespace __rcu
 
@@ -52,14 +65,17 @@ class rcu_domain {
   size_t __readers_ = 0;
   bool __synchronizing_ = false;
   __rcu::__retired_node* __retired_ = nullptr;
+  uint64_t __epoch_ = 0;
+  // (epoch, number of open regions that started in it), by increasing epoch
+  vector<pair<uint64_t, size_t>> __active_;
 
-  _LIBCPP_HIDE_FROM_ABI __rcu::__retired_node* __take_retired() noexcept {
-    lock_guard<mutex> __lock(__mutex_);
-    return std::exchange(__retired_, nullptr);
+  _LIBCPP_HIDE_FROM_ABI bool __regions_ended_up_to(uint64_t __epoch) const noexcept {
+    return __active_.empty() || __active_.front().first > __epoch;
   }
 
   _LIBCPP_HIDE_FROM_ABI void __retire(__rcu::__retired_node* __node) noexcept {
     lock_guard<mutex> __lock(__mutex_);
+    __node->__epoch_ = __epoch_++;
     __node->__next_ = __retired_;
     __retired_ = __node;
   }
@@ -80,6 +96,11 @@ public:
     unique_lock<mutex> __lock(__mutex_);
     __cv_.wait(__lock, [this] { return !__synchronizing_; });
     ++__readers_;
+    if (!__active_.empty() && __active_.back().first == __epoch_)
+      ++__active_.back().second;
+    else
+      __active_.emplace_back(__epoch_, 1);
+    __rcu::__thread_regions().emplace_back(this, __epoch_);
   }
 
   _LIBCPP_HIDE_FROM_ABI bool try_lock() noexcept {
@@ -89,9 +110,25 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI void unlock() noexcept {
     lock_guard<mutex> __lock(__mutex_);
+    // close the innermost region of this thread on this domain
+    uint64_t __epoch = __epoch_;
+    auto& __regions  = __rcu::__thread_regions();
+    for (size_t __i = __regions.size(); __i != 0; --__i) {
+      if (__regions[__i - 1].first == this) {
+        __epoch = __regions[__i - 1].second;
+        __regions.erase(__regions.begin() + (__i - 1));
+        break;
+      }
+    }
+    for (auto __it = __active_.begin(); __it != __active_.end(); ++__it) {
+      if (__it->first == __epoch) {
+        if (--__it->second == 0)
+          __active_.erase(__it);
+        break;
+      }
+    }
     --__readers_;
-    if (__readers_ == 0)
-      __cv_.notify_all();
+    __cv_.notify_all();
   }
 };
 
@@ -109,14 +146,25 @@ _LIBCPP_HIDE_FROM_ABI inline void rcu_synchronize(rcu_domain& __dom = rcu_defaul
   __dom.__cv_.notify_all();
 }
 
+// [saferecl.rcu.domain.func]: evaluates the evaluations scheduled before the call. An evaluation waits for the end of
+// the regions of RCU protection that started before it was scheduled (not for the ones that started later: the
+// calling thread may hold one), and rcu_barrier does not imply rcu_synchronize.
 _LIBCPP_HIDE_FROM_ABI inline void rcu_barrier(rcu_domain& __dom = rcu_default_domain()) noexcept {
-  rcu_synchronize(__dom);
-  while (__rcu::__retired_node* __node = __dom.__take_retired()) {
-    while (__node != nullptr) {
-      __rcu::__retired_node* __next = __node->__next_;
-      __node->__evaluate_(__node);
-      __node = __next;
-    }
+  __rcu::__retired_node* __node;
+  uint64_t __last_epoch = 0;
+  {
+    unique_lock<mutex> __lock(__dom.__mutex_);
+    __node = std::exchange(__dom.__retired_, nullptr);
+    for (auto* __n = __node; __n != nullptr; __n = __n->__next_)
+      if (__n->__epoch_ > __last_epoch)
+        __last_epoch = __n->__epoch_;
+    if (__node != nullptr)
+      __dom.__cv_.wait(__lock, [&] { return __dom.__regions_ended_up_to(__last_epoch); });
+  }
+  while (__node != nullptr) {
+    __rcu::__retired_node* __next = __node->__next_;
+    __node->__evaluate_(__node);
+    __node = __next;
   }
 }
 
