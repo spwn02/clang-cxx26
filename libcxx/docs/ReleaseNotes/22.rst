@@ -121,8 +121,8 @@ Potentially breaking changes
     ``reflect_value``, ``reflect_result``, ``value_of``, ``test_type``/``test_types``/``test_trait``, ``define_class``,
     ``define_unscoped_enum``, ``has_complete_definition``, ``has_ellipsis_parameter``, ``is_access_specified``,
     ``is_trivial_type`` and the one-argument ``members_of``/``bases_of``/``static_data_members_of``/
-    ``nonstatic_data_members_of`` were removed. ``define_enum`` and ``enumerator_spec`` (P4033, not adopted) need
-    ``-freflection-latest``. ``std::meta::detail`` and ``std::meta::reflection_v2`` now have reserved spellings.
+    ``nonstatic_data_members_of`` were removed. ``std::meta::detail`` and ``std::meta::reflection_v2`` now have
+    reserved spellings.
   - ``execution::change_coroutine_scheduler``, ``contracts::handle_observed_contract_violation``,
     ``contracts::handle_enforced_contract_violation`` and the ``atomic_store_fmaximum``/``atomic_store_fminimum``
     free functions were removed.

@@ -15,8 +15,8 @@
 // fold_left_with_iter, find/count/search_n/replace/replace_if/
 // replace_copy/replace_copy_if/fill/fill_n/remove/remove_copy/
 // lower_bound/upper_bound/equal_range/binary_search/contains/find_last).
-// ranges::fold_right is unimplementable here (a separate, pre-existing
-// gap from P2322R6, not this paper) and ranges::find_last_if/
+// ranges::fold_right has its own default-value-type test;
+// ranges::find_last_if/
 // find_last_if_not take a predicate rather than a value, so neither
 // needed the treatment.
 //
@@ -139,8 +139,6 @@ constexpr bool test() {
   }
 
   // ranges::fold_left / ranges::fold_left_with_iter (iterator-pair and range overloads).
-  // ranges::fold_right isn't implemented in this fork at all (a separate, pre-existing gap
-  // unrelated to this paper), so it's not exercised here.
   {
     std::vector<Point> v{{1, 2}, {3, 4}};
 

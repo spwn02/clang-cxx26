@@ -66,27 +66,14 @@ template <size_t _Np>
   requires(std::has_single_bit(_Np))
 inline constexpr flags<__overaligned_flag<_Np>> flag_overaligned{};
 
-// Query helpers used by the load/store and constructor machinery. These are what turn the flags
-// from an inert tag pack into the Mandates and Preconditions of [simd.loadstore].
 template <class... _Flags>
 inline constexpr bool __flags_have_convert = (is_same_v<_Flags, __convert_flag> || ...);
-
-template <class... _Flags>
-inline constexpr bool __flags_have_aligned = (is_same_v<_Flags, __aligned_flag> || ...);
 
 template <class _Tp>
 inline constexpr size_t __overaligned_value = 0;
 
 template <size_t _Np>
 inline constexpr size_t __overaligned_value<__overaligned_flag<_Np>> = _Np;
-
-// The strongest overalignment requested, or 0 when none is.
-template <class... _Flags>
-inline constexpr size_t __flags_overalignment = [] consteval {
-  size_t __result = 0;
-  ((__result = __overaligned_value<_Flags> > __result ? __overaligned_value<_Flags> : __result), ...);
-  return __result;
-}();
 
 } // namespace simd
 

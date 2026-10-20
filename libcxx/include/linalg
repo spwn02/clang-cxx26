@@ -180,13 +180,6 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __blas_abs(_Tp&& __value) {
   }
 }
 
-// Execution policies permit an implementation to fall back to serial execution.
-// Keep element accesses in a noexcept boundary, as required for policy algorithms.
-template <class _Function>
-_LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) __serial_execution(_Function&& __function) noexcept {
-  return std::forward<_Function>(__function)();
-}
-
 } // namespace __detail
 
 struct upper_triangle_t {

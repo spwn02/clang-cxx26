@@ -102,9 +102,6 @@ public:
   }
 };
 
-template <class _Fp, class _Tp, class _Ip, class _Up>
-concept __indirectly_binary_right_foldable_impl = __indirectly_binary_left_foldable_impl<__flipped<_Fp>, _Tp, _Ip, _Up>;
-
 template <class _Fp, class _Tp, class _Ip>
 concept __indirectly_binary_right_foldable = __indirectly_binary_left_foldable<__flipped<_Fp>, _Tp, _Ip>;
 
