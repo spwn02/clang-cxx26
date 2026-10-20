@@ -6230,6 +6230,11 @@ public:
   //
 
   /// Validate and build an annotation, including after substitution.
+  /// An annotation of a decl-specifier-seq is one annotation for every
+  /// declarator it applies to ([dcl.attr.annotation]: `[[=1]] int x, y;`);
+  /// keyed by the (unconverted) argument expression of the parsed attribute.
+  llvm::DenseMap<const Expr *, CXX26AnnotationAttr *> SharedAnnotations;
+
   CXX26AnnotationAttr *BuildCXX26Annotation(Expr *Arg,
                                             const AttributeCommonInfo &Info,
                                             SourceLocation EqLoc,

@@ -2320,8 +2320,15 @@ static void handleCXX2CAnnotation(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
-  if (auto *Annot = S.BuildCXX26Annotation(AL.getArgAsExpr(0), AL, AL.getLoc()))
+  Expr *Arg = AL.getArgAsExpr(0);
+  if (CXX26AnnotationAttr *Shared = S.SharedAnnotations.lookup(Arg)) {
+    D->addAttr(Shared);
+    return;
+  }
+  if (auto *Annot = S.BuildCXX26Annotation(Arg, AL, AL.getLoc())) {
+    S.SharedAnnotations[Arg] = Annot;
     D->addAttr(Annot);
+  }
 }
 
 CXX26AnnotationAttr *Sema::BuildCXX26Annotation(Expr *CE,
