@@ -15130,9 +15130,9 @@ void Sema::CheckCompleteVariableDeclaration(VarDecl *var) {
     //     semantics. If it fails, we need to diagnose the failure instead
     //     of falling back to dynamic initializer.
     //
-    // FIXME(EricWF): Technically we're required to do this check for constexpr
-    // variables too, since the initializer may be non-constant only when
-    // contracts are enabled.
+    // A constexpr variable needs a constant initializer with the contract
+    // semantics in effect as well, and is diagnosed (err_constexpr_var_requires_const_init)
+    // when the first evaluation already fails.
     bool ConstantInitializerIsRequired =
         var->isConstexpr() || (GlobalStorage && var->hasAttr<ConstInitAttr>());
 

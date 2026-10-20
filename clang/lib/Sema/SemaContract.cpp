@@ -1137,11 +1137,6 @@ DeclResult Sema::RebuildContractsWithPlaceholderReturnType(FunctionDecl *FD) {
   return NewCSD;
 }
 
-struct ContractCapturePair {
-  SmallVector<const Capture *> InContract;
-  SmallVector<const Capture *> OutOfContract;
-};
-
 // ActOnContractsOnFinishFunctionBody
 //
 // This function ensures there is a usable version of the
@@ -1188,29 +1183,6 @@ void Sema::ActOnContractsOnFinishFunctionBody(FunctionDecl *Def) {
   if (Def->hasContracts() && getCurFunction()->isCoroutine() &&
       !Def->getContracts()->isInvalidDecl())
     diagnoseParamTypes(*this, Def, Def->getContracts());
-
-  if (const LambdaScopeInfo *LSI =
-          dyn_cast<LambdaScopeInfo>(getCurFunction())) {
-    llvm::DenseMap<const ValueDecl *, ContractCapturePair> CheckedCaptures;
-    for (auto &KV : LSI->ContractCaptureMap) {
-      assert(false);
-      if (LSI->CaptureMap.contains(KV.first))
-        continue;
-      const Capture &C = LSI->ContractCaptures[KV.second - 1];
-      assert(C.isVariableCapture());
-
-      const ValueDecl *VD = C.getVariable();
-      assert(VD && isa<NamedDecl>(VD));
-      auto *ND = cast<NamedDecl>(KV.first);
-      Diag(C.getLocation(), diag::err_lambda_implicit_capture_in_contracts_only)
-          << ND;
-      Diag(LSI->CaptureDefaultLoc,
-           diag::note_lambda_implicit_capture_in_contracts_only)
-          << ND;
-      Diag(C.getContractLoc(), diag::note_contract_context);
-      Def->isInvalidDecl();
-    }
-  }
 }
 
 bool Sema::isUsageAcrossContract(const ValueDecl *VD) {
@@ -1437,7 +1409,7 @@ struct CaptureUsage {
 
 /// TODO(EricWF): Remove this and do it inline instead. We currently
 /// do this as a RecursiveASTVisitor because the changes to do it during
-/// the initial parsing pass are too invasive to do dur
+/// the initial parsing pass are too invasive.
 struct LambdaCaptureChecker : RecursiveASTVisitor<LambdaCaptureChecker> {
   typedef RecursiveASTVisitor<LambdaCaptureChecker> super;
 

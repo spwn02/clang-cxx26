@@ -2285,14 +2285,6 @@ ExprResult Sema::BuildLambdaExpr(SourceLocation StartLoc,
     SourceLocation ImplicitCaptureLoc =
         IsImplicit ? CaptureDefaultLoc : SourceLocation();
 
-    if (IsImplicit && From.isVariableCapture() &&
-        From.isCapturedAcrossContract() &&
-        LSI->ContractCaptureMap.count(From.getVariable()) != 0) {
-      ((void)From);
-      assert(false);
-      // FIXME(EricWF)
-    }
-
     // Use source ranges of explicit captures for fixits where available.
     SourceRange CaptureRange = LSI->ExplicitCaptureRanges[I];
 
