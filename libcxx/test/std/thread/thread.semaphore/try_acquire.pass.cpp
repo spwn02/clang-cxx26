@@ -14,9 +14,12 @@
 #include <cassert>
 #include <semaphore>
 #include <thread>
+#include <utility>
 
 #include "make_test_thread.h"
 #include "test_macros.h"
+
+static_assert(noexcept(std::declval<std::counting_semaphore<>&>().try_acquire()));
 
 int main(int, char**)
 {

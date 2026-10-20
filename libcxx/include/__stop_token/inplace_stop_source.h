@@ -29,11 +29,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 // that address must stay stable for as long as any such reference is outstanding.
 class _LIBCPP_AVAILABILITY_NEW_SYNC inplace_stop_source {
 public:
-  // Deviates from the synopsis (`constexpr inplace_stop_source() noexcept;`): not `constexpr`
-  // here, since incrementing `__stop_state`'s atomic counter (needed so `__add_callback` on
-  // `__state_` doesn't immediately give up, treating this as a source-less state) is a runtime
-  // atomic operation, not a core constant expression.
-  _LIBCPP_HIDE_FROM_ABI inplace_stop_source() noexcept { __state_.__increment_stop_source_counter(); }
+  _LIBCPP_HIDE_FROM_ABI constexpr inplace_stop_source() noexcept : __state_(__stop_state::__initial_source_state) {}
 
   inplace_stop_source(const inplace_stop_source&)            = delete;
   inplace_stop_source(inplace_stop_source&&)                 = delete;
@@ -41,7 +37,7 @@ public:
   inplace_stop_source& operator=(inplace_stop_source&&)      = delete;
   _LIBCPP_HIDE_FROM_ABI ~inplace_stop_source()                = default;
 
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inplace_stop_token get_token() const noexcept {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr inplace_stop_token get_token() const noexcept {
     return inplace_stop_token(this);
   }
 

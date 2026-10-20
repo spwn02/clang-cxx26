@@ -66,7 +66,10 @@ class __stop_state {
   __thread_id __requesting_thread_;
 
 public:
+  static constexpr uint32_t __initial_source_state = 1 << __stop_source_counter_shift;
+
   _LIBCPP_HIDE_FROM_ABI __stop_state() noexcept = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit __stop_state(uint32_t __initial_state) noexcept : __state_(__initial_state) {}
 
   _LIBCPP_HIDE_FROM_ABI void __increment_stop_source_counter() noexcept {
     _LIBCPP_ASSERT_UNCATEGORIZED(

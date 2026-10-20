@@ -110,13 +110,13 @@ public:
     return std::__atomic_wait_unless_with_timeout(
         __a_, memory_order_relaxed, [this](ptrdiff_t& __old) { return __try_acquire_impl(__old); }, __rel_time);
   }
-  _LIBCPP_HIDE_FROM_ABI bool try_acquire() {
+  _LIBCPP_HIDE_FROM_ABI bool try_acquire() noexcept {
     auto __old = __a_.load(memory_order_relaxed);
     return __try_acquire_impl(__old);
   }
 
 private:
-  _LIBCPP_HIDE_FROM_ABI bool __try_acquire_impl(ptrdiff_t& __old) {
+  _LIBCPP_HIDE_FROM_ABI bool __try_acquire_impl(ptrdiff_t& __old) noexcept {
     while (true) {
       if (__old == 0)
         return false;
@@ -159,7 +159,7 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool try_acquire_for(chrono::duration<_Rep, _Period> const& __rel_time) {
     return __semaphore_.try_acquire_for(chrono::duration_cast<chrono::nanoseconds>(__rel_time));
   }
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool try_acquire() { return __semaphore_.try_acquire(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool try_acquire() noexcept { return __semaphore_.try_acquire(); }
   template <class _Clock, class _Duration>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool try_acquire_until(chrono::time_point<_Clock, _Duration> const& __abs_time) {
     auto const __current = _Clock::now();

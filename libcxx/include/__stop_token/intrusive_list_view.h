@@ -32,7 +32,7 @@ struct __intrusive_node_base {
 // operations on the linked list.
 template <class _Node>
 struct __intrusive_list_view {
-  _LIBCPP_HIDE_FROM_ABI __intrusive_list_view()                                        = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr __intrusive_list_view()                              = default;
   _LIBCPP_HIDE_FROM_ABI __intrusive_list_view(__intrusive_list_view const&)            = default;
   _LIBCPP_HIDE_FROM_ABI __intrusive_list_view(__intrusive_list_view&&)                 = default;
   _LIBCPP_HIDE_FROM_ABI __intrusive_list_view& operator=(__intrusive_list_view const&) = default;

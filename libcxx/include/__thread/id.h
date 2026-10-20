@@ -50,7 +50,7 @@ class __thread_id {
   }
 
 public:
-  _LIBCPP_HIDE_FROM_ABI __thread_id() _NOEXCEPT : __id_(0) {}
+  _LIBCPP_HIDE_FROM_ABI constexpr __thread_id() _NOEXCEPT : __id_(0) {}
 
   _LIBCPP_HIDE_FROM_ABI void __reset() { __id_ = 0; }
 

@@ -23,6 +23,8 @@ static_assert(!std::is_copy_constructible_v<std::inplace_stop_source>);
 static_assert(!std::is_move_constructible_v<std::inplace_stop_source>);
 static_assert(!std::is_copy_assignable_v<std::inplace_stop_source>);
 static_assert(!std::is_move_assignable_v<std::inplace_stop_source>);
+constexpr std::inplace_stop_source constexpr_source;
+static_assert(constexpr_source.get_token().stop_possible());
 
 int main(int, char**) {
   using std::inplace_stop_source;
