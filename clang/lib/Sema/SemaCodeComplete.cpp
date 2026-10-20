@@ -5974,8 +5974,11 @@ void SemaCodeCompletion::CodeCompleteMemberReferenceExpr(
   if (IsArrow) {
     contextKind = CodeCompletionContext::CCC_ArrowMemberAccess;
   } else {
-    if (ConvertedBaseType->isObjCObjectPointerType() ||
-        ConvertedBaseType->isObjCObjectOrInterfaceType()) {
+    // The approximate type is null when the base cannot be resolved; there is
+    // no ObjC type to look at then.
+    if (!ConvertedBaseType.isNull() &&
+        (ConvertedBaseType->isObjCObjectPointerType() ||
+        ConvertedBaseType->isObjCObjectOrInterfaceType())) {
       contextKind = CodeCompletionContext::CCC_ObjCPropertyAccess;
     } else {
       contextKind = CodeCompletionContext::CCC_DotMemberAccess;
