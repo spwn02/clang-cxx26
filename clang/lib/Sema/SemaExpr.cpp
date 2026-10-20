@@ -7014,6 +7014,20 @@ ExprResult Sema::BuildCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
     return CallExpr::Create(Context, Fn, ArgExprs, Context.DependentTy,
                             VK_PRValue, RParenLoc, CurFPFeatureOverrides());
   }
+  if (auto *CalleeFD = dyn_cast_or_null<FunctionDecl>(NDecl);
+      CalleeFD && isa<DeclRefExpr>(NakedFn)) {
+    bool IsSplice = isa<CXXSpliceExpr>(Fn->IgnoreParenImpCasts());
+    // A splice-expression names every reachable declaration of the function;
+    // the default arguments of all of them apply ([over.match.viable]).
+    if (IsSplice)
+      NDecl = CalleeFD = CalleeFD->getMostRecentDecl();
+    NamedDecl *Found = cast<DeclRefExpr>(NakedFn)->getFoundDecl();
+    if (CheckDefaultArgumentScopes(CalleeFD, ArgExprs.size(),
+                                   IsSplice ? ArrayRef<NamedDecl *>()
+                                            : ArrayRef<NamedDecl *>(Found),
+                                   IsSplice, Fn->getExprLoc()))
+      return ExprError();
+  }
   return BuildResolvedCallExpr(Fn, NDecl, LParenLoc, ArgExprs, RParenLoc,
                                ExecConfig, IsExecConfig);
 }

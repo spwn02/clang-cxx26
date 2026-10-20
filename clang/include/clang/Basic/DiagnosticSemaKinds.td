@@ -5082,6 +5082,12 @@ def ext_param_not_declared : ExtWarn<
   "support implicit int">, InGroup<ImplicitInt>, DefaultError;
 def err_param_default_argument : Error<
   "C does not support default arguments">;
+def err_default_arg_from_multiple_scopes : Error<
+  "default argument for %ordinal0 parameter of %1 is provided by declarations "
+  "from more than one scope">;
+def err_default_arg_splice_block_scope : Error<
+  "default arguments of %0 used through a splice-expression are provided by a "
+  "declaration whose host scope is a block scope">;
 def err_param_default_argument_redefinition : Error<
   "redefinition of default argument">;
 def ext_param_default_argument_redefinition : ExtWarn<

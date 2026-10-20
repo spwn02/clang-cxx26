@@ -14973,6 +14973,61 @@ static QualType chooseRecoveryType(OverloadCandidateSet &CS,
   return Value;
 }
 
+bool Sema::CheckDefaultArgumentScopes(FunctionDecl *C, unsigned NumArgs,
+                                      ArrayRef<NamedDecl *> Considered,
+                                      bool IsSplice, SourceLocation Loc) {
+  if (!getLangOpts().CPlusPlus || C->isInvalidDecl() ||
+      NumArgs >= C->getNumParams() || C->getTemplatedKind() != FunctionDecl::TK_NonTemplate ||
+      C->isDependentContext() || C->isTemplateInstantiation())
+    return false;
+
+  auto HostOf = [](const FunctionDecl *D) -> const DeclContext * {
+    const DeclContext *Lexical = D->getLexicalDeclContext();
+    if (Lexical->isFunctionOrMethod())
+      return Lexical;
+    return D->getDeclContext()->getRedeclContext()->getPrimaryContext();
+  };
+  auto IsBlockScope = [](const DeclContext *DC) { return DC->isFunctionOrMethod(); };
+  auto SuppliesDefault = [](const FunctionDecl *D, unsigned K) {
+    const ParmVarDecl *P = D->getParamDecl(K);
+    return P->hasDefaultArg() && !P->hasInheritedDefaultArg();
+  };
+
+  llvm::SmallPtrSet<const FunctionDecl *, 4> Decls;
+  if (Considered.empty()) {
+    for (const FunctionDecl *R : C->redecls())
+      Decls.insert(R);
+  } else {
+    for (NamedDecl *N : Considered)
+      if (const auto *FD = dyn_cast<FunctionDecl>(N->getUnderlyingDecl()))
+        if (FD->getCanonicalDecl() == C->getCanonicalDecl())
+          Decls.insert(FD);
+  }
+
+  llvm::SmallPtrSet<const DeclContext *, 4> G;
+  for (const FunctionDecl *D : Decls) {
+    const DeclContext *X = HostOf(D);
+    bool All = true;
+    for (unsigned K = NumArgs, E = C->getNumParams(); K != E && All; ++K) {
+      All = llvm::any_of(C->redecls(), [&](const FunctionDecl *R) {
+        return HostOf(R) == X && SuppliesDefault(R, K);
+      });
+    }
+    if (All)
+      G.insert(X);
+  }
+
+  if (G.size() > 1) {
+    Diag(Loc, diag::err_default_arg_from_multiple_scopes) << (NumArgs + 1) << C;
+    return true;
+  }
+  if (IsSplice && G.size() == 1 && IsBlockScope(*G.begin())) {
+    Diag(Loc, diag::err_default_arg_splice_block_scope) << C;
+    return true;
+  }
+  return false;
+}
+
 /// FinishOverloadedCallExpr - given an OverloadCandidateSet, builds and returns
 /// the completed call expression. If overload resolution fails, emits
 /// diagnostics and returns ExprError()
@@ -14996,6 +15051,13 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
         SemaRef.FixOverloadedFunctionReference(Fn, (*Best)->FoundDecl, FDecl);
     if (Res.isInvalid())
       return ExprError();
+    {
+      SmallVector<NamedDecl *, 4> Found(ULE->decls_begin(), ULE->decls_end());
+      if (SemaRef.CheckDefaultArgumentScopes(FDecl, Args.size(), Found,
+                                             /*IsSplice=*/false,
+                                             ULE->getNameLoc()))
+        return ExprError();
+    }
     return SemaRef.BuildResolvedCallExpr(
         Res.get(), FDecl, LParenLoc, Args, RParenLoc, ExecConfig,
         /*IsExecConfig=*/false,

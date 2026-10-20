@@ -7768,6 +7768,17 @@ public:
                         Expr *Config = nullptr, bool IsExecConfig = false,
                         ADLCallKind UsesADL = ADLCallKind::NotADL);
 
+  /// [over.match.viable]: when the call of \p C supplies \p NumArgs arguments
+  /// and uses default arguments, the set G of scopes whose reachable
+  /// declarations supply them shall contain exactly one scope, which shall not
+  /// be a block scope if the callee is denoted by a splice-expression.
+  /// \p Considered are the declarations found by lookup; empty (with
+  /// \p IsSplice) means every reachable declaration of \p C.
+  /// \returns true if a diagnostic was emitted.
+  bool CheckDefaultArgumentScopes(FunctionDecl *C, unsigned NumArgs,
+                                  ArrayRef<NamedDecl *> Considered,
+                                  bool IsSplice, SourceLocation Loc);
+
   ExprResult ActOnCastExpr(Scope *S, SourceLocation LParenLoc, Declarator &D,
                            ParsedType &Ty, SourceLocation RParenLoc,
                            Expr *CastExpr);
