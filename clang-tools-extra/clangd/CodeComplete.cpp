@@ -2131,7 +2131,16 @@ private:
         FromIndex = true;
         if (!Candidate.IndexResult->Type.empty())
           Relevance.HadSymbolType |= true;
-        if (PreferredType &&
+        // A call is not a primary expression of a constraint, a bool function
+        // is not what is wanted after 'requires'.
+        bool IsCallInConstraint =
+            Recorder && Recorder->CCContext.isConstraintPrimary() &&
+            (Candidate.IndexResult->SymInfo.Kind == index::SymbolKind::Function ||
+             Candidate.IndexResult->SymInfo.Kind ==
+                 index::SymbolKind::InstanceMethod ||
+             Candidate.IndexResult->SymInfo.Kind ==
+                 index::SymbolKind::StaticMethod);
+        if (PreferredType && !IsCallInConstraint &&
             PreferredType->raw() == Candidate.IndexResult->Type) {
           Relevance.TypeMatchesPreferred = true;
         }
@@ -2139,11 +2148,20 @@ private:
       if (Candidate.SemaResult) {
         Quality.merge(*Candidate.SemaResult);
         Relevance.merge(*Candidate.SemaResult);
+        const NamedDecl *SemaDecl =
+            Candidate.SemaResult->Kind == CodeCompletionResult::RK_Declaration
+                ? Candidate.SemaResult->getDeclaration()
+                : nullptr;
+        if (SemaDecl)
+          SemaDecl = SemaDecl->getUnderlyingDecl();
+        bool IsCallInConstraint =
+            Recorder->CCContext.isConstraintPrimary() && SemaDecl &&
+            SemaDecl->getAsFunction();
         if (PreferredType) {
           if (auto CompletionType = OpaqueType::fromCompletionResult(
                   Recorder->CCSema->getASTContext(), *Candidate.SemaResult)) {
             Relevance.HadSymbolType |= true;
-            if (PreferredType == CompletionType)
+            if (PreferredType == CompletionType && !IsCallInConstraint)
               Relevance.TypeMatchesPreferred = true;
           }
         }

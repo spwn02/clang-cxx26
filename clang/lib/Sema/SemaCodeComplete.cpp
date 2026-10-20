@@ -223,6 +223,8 @@ public:
         Filter(Filter), AllowNestedNameSpecifiers(false),
         HasObjectTypeQualifiers(false), IsExplicitObjectMemberFunction(false),
         CompletionContext(CompletionContext), ObjCImplementation(nullptr) {
+    this->CompletionContext.setIsConstraintPrimary(
+        SemaRef.CodeCompletion().InConstraintPrimary);
     // If this is an Objective-C instance method definition, dig out the
     // corresponding implementation.
     switch (CompletionContext.getKind()) {

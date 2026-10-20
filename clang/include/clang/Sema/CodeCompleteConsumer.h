@@ -360,6 +360,11 @@ private:
   ///     using a::^;
   bool IsUsingDeclaration;
 
+  /// Indicates whether we are completing the primary of a constraint of a
+  /// requires-clause: a call is not a primary expression there, so a function
+  /// is not an entity of the preferred type.
+  bool IsConstraintPrimary = false;
+
   /// The type that would prefer to see at this point (e.g., the type
   /// of an initializer or function parameter).
   QualType PreferredType;
@@ -397,6 +402,9 @@ public:
 
   bool isUsingDeclaration() const { return IsUsingDeclaration; }
   void setIsUsingDeclaration(bool V) { IsUsingDeclaration = V; }
+
+  bool isConstraintPrimary() const { return IsConstraintPrimary; }
+  void setIsConstraintPrimary(bool V) { IsConstraintPrimary = V; }
 
   /// Retrieve the kind of code-completion context.
   Kind getKind() const { return CCKind; }

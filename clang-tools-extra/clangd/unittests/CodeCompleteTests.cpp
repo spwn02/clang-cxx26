@@ -4446,6 +4446,38 @@ TEST(CompletionTest, Concepts) {
   }
 }
 
+TEST(CompletionTest, ConceptsRankFirstInRequiresClause) {
+  // The atomic constraint of a requires-clause is a bool and is not a call:
+  // a concept ranks before a bool function, which the type match of the
+  // expected type (bool) put first.
+  Annotations Code(R"cpp(
+    namespace N {
+    constexpr bool a_ok();
+    template <class T> concept Z_Okay = true;
+    }
+    template <class T>
+    void f(T) requires N::$trailing^;
+    template <class T> requires N::$header^
+    void g(T);
+  )cpp");
+  TestTU TU;
+  TU.Code = Code.code().str();
+  TU.ExtraArgs = {"-std=c++20"};
+  for (llvm::StringRef Point : {"trailing", "header"}) {
+    auto Results = completions(TU, Code.point(Point)).Completions;
+    int Concept = -1, Function = -1;
+    for (size_t I = 0; I != Results.size(); ++I) {
+      if (Results[I].Name == "Z_Okay")
+        Concept = I;
+      if (Results[I].Name == "a_ok")
+        Function = I;
+    }
+    ASSERT_GE(Concept, 0) << Point;
+    ASSERT_GE(Function, 0) << Point;
+    EXPECT_LT(Concept, Function) << Point;
+  }
+}
+
 TEST(SignatureHelp, DocFormat) {
   Annotations Code(R"cpp(
     // Comment `with` markup.
