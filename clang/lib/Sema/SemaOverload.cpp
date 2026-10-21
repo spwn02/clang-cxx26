@@ -7491,6 +7491,24 @@ void Sema::AddOverloadCandidate(
   // parameter list is truncated on the right, so that there are
   // exactly m parameters.
   unsigned MinRequiredArgs = Function->getMinRequiredArguments();
+  // [over.match.viable]: the declarations of one function in different
+  // scopes supply default arguments per scope; the call is viable
+  // when some scope supplies enough of them. Which scope is used, and whether
+  // it is unique, is checked once the function is the best viable function.
+  if (Args.size() < MinRequiredArgs) {
+    llvm::SmallDenseMap<const DeclContext *, unsigned, 4> PerScope;
+    for (const FunctionDecl *R : Function->redecls()) {
+      const DeclContext *X = getDefaultArgumentHostScope(R);
+      unsigned K = R->getNumParams();
+      while (K > 0 && R->getParamDecl(K - 1)->hasDefaultArg())
+        --K;
+      unsigned &Req = PerScope.try_emplace(X, R->getNumParams()).first->second;
+      Req = std::min(Req, K);
+    }
+    if (PerScope.size() > 1)
+      for (auto &P : PerScope)
+        MinRequiredArgs = std::min(MinRequiredArgs, P.second);
+  }
   if (!AggregateCandidateDeduction && Args.size() < MinRequiredArgs &&
       !PartialOverloading) {
     // Not enough arguments.
@@ -15040,21 +15058,24 @@ static QualType chooseRecoveryType(OverloadCandidateSet &CS,
   return Value;
 }
 
+const DeclContext *Sema::getDefaultArgumentHostScope(const FunctionDecl *D) {
+  const DeclContext *Lexical = D->getLexicalDeclContext();
+  if (Lexical->isFunctionOrMethod())
+    return Lexical;
+  return D->getDeclContext()->getRedeclContext()->getPrimaryContext();
+}
+
 bool Sema::CheckDefaultArgumentScopes(FunctionDecl *C, unsigned NumArgs,
                                       ArrayRef<NamedDecl *> Considered,
                                       bool IsSplice, SourceLocation Loc,
-                                      FunctionDecl **ChosenDecl) {
+                                      FunctionDecl **ChosenDecl,
+                                      bool Unqualified) {
   if (!getLangOpts().CPlusPlus || C->isInvalidDecl() ||
       NumArgs >= C->getNumParams() || C->getTemplatedKind() != FunctionDecl::TK_NonTemplate ||
       C->isDependentContext() || C->isTemplateInstantiation())
     return false;
 
-  auto HostOf = [](const FunctionDecl *D) -> const DeclContext * {
-    const DeclContext *Lexical = D->getLexicalDeclContext();
-    if (Lexical->isFunctionOrMethod())
-      return Lexical;
-    return D->getDeclContext()->getRedeclContext()->getPrimaryContext();
-  };
+  auto HostOf = [](const FunctionDecl *D) { return getDefaultArgumentHostScope(D); };
   auto IsBlockScope = [](const DeclContext *DC) { return DC->isFunctionOrMethod(); };
   auto SuppliesDefault = [](const FunctionDecl *D, unsigned K) {
     const ParmVarDecl *P = D->getParamDecl(K);
@@ -15070,6 +15091,23 @@ bool Sema::CheckDefaultArgumentScopes(FunctionDecl *C, unsigned NumArgs,
       if (const auto *FD = dyn_cast<FunctionDecl>(N->getUnderlyingDecl()))
         if (FD->getCanonicalDecl() == C->getCanonicalDecl())
           Decls.insert(FD);
+    // Name lookup keeps one result for one function; when the function's
+    // declarations supply default arguments in more than one scope, look the
+    // name up again keeping every declaration that is visible.
+    if (Unqualified && !IsSplice && getCurScope() && C->getDeclName()) {
+      llvm::SmallPtrSet<const DeclContext *, 4> Hosts;
+      for (const FunctionDecl *R : C->redecls())
+        Hosts.insert(HostOf(R));
+      if (Hosts.size() > 1) {
+        LookupResult Relookup(*this, C->getDeclName(), Loc, LookupOrdinaryName);
+        Relookup.setKeepSameEntityFunctions(true);
+        LookupName(Relookup, getCurScope());
+        for (NamedDecl *N : Relookup)
+          if (const auto *FD = dyn_cast<FunctionDecl>(N->getUnderlyingDecl()))
+            if (FD->getCanonicalDecl() == C->getCanonicalDecl())
+              Decls.insert(FD);
+      }
+    }
   }
 
   llvm::SmallPtrSet<const DeclContext *, 4> G;
@@ -15130,9 +15168,10 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
     {
       SmallVector<NamedDecl *, 4> Found(ULE->decls_begin(), ULE->decls_end());
       FunctionDecl *Chosen = nullptr;
-      if (SemaRef.CheckDefaultArgumentScopes(FDecl, Args.size(), Found,
-                                             /*IsSplice=*/false,
-                                             ULE->getNameLoc(), &Chosen))
+      if (SemaRef.CheckDefaultArgumentScopes(
+              FDecl, Args.size(), Found,
+              /*IsSplice=*/false, ULE->getNameLoc(), &Chosen,
+              /*Unqualified=*/!ULE->getQualifier()))
         return ExprError();
       if (Chosen)
         FDecl = Chosen;

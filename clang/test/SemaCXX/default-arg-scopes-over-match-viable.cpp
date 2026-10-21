@@ -21,6 +21,19 @@ void use() {
   [:^^g:](); // expected-error {{default arguments of 'g' used through a splice-expression are provided by a declaration whose host scope is a block scope}}
 }
 
+void use_using() {
+  using A::f;
+  using B::f;
+  f(3, 4); // OK, default argument was not used for viability
+  f(3);    // expected-error {{default argument for 2nd parameter of 'f' is provided by declarations from more than one scope}}
+  f();     // OK, default arguments provided by declarations in the scope of A
+  void (*p)(int, int) = f;
+}
+void use_using_one_scope() {
+  using B::f;
+  f(1); // OK, only B is considered
+}
+
 void h(int = 7);
 constexpr auto r = ^^h;
 void poison() {

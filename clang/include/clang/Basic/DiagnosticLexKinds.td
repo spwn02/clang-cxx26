@@ -418,6 +418,13 @@ def note_pp_ambiguous_macro_chosen : Note<
   "expanding this definition of %0">;
 def note_pp_ambiguous_macro_other : Note<
   "other definition of %0">;
+def ext_pp_special_name_macro : Extension<
+  "%select{defining|undefining}1 the macro %0, an identifier with special "
+  "meaning or an attribute name, is ill-formed">, InGroup<KeywordAsMacro>;
+def ext_pp_non_basic_char_in_macro : Extension<
+  "character not in the basic character set forms a preprocessing token that "
+  "is not a valid token; the program is ill-formed ([lex.pptoken])">,
+  InGroup<DiagGroup<"non-basic-character-in-macro">>;
 def warn_pp_macro_hides_keyword : Extension<
   "keyword is hidden by macro definition">, InGroup<KeywordAsMacro>;
 def warn_pp_macro_is_reserved_id : Warning<

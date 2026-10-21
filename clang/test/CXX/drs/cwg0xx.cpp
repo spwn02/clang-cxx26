@@ -17,15 +17,15 @@ namespace cwg1 { // cwg1: no
   using X::cwg1_f; using Y::cwg1_f;
   void g() {
     cwg1_f(0);
-    // FIXME: This should be rejected, due to the ambiguous default argument.
     cwg1_f();
+    // expected-error@-1 {{default argument for 1st parameter of 'cwg1_f' is provided by declarations from more than one scope}}
   }
   namespace X {
     using Y::cwg1_f;
     void h() {
       cwg1_f(0);
-      // FIXME: This should be rejected, due to the ambiguous default argument.
       cwg1_f();
+      // expected-error@-1 {{default argument for 1st parameter of 'cwg1_f' is provided by declarations from more than one scope}}
     }
   }
 
@@ -44,15 +44,15 @@ namespace cwg1 { // cwg1: no
     void i(int = 1);
     using cwg1::i;
     i(0);
-    // FIXME: This should be rejected, due to the ambiguous default argument.
     i();
+    // expected-error@-1 {{default argument for 1st parameter of 'i' is provided by declarations from more than one scope}}
   }
   void k() {
     using cwg1::i;
     void i(int = 1);
     i(0);
-    // FIXME: This should be rejected, due to the ambiguous default argument.
     i();
+    // expected-error@-1 {{default argument for 1st parameter of 'i' is provided by declarations from more than one scope}}
   }
 } // namespace cwg1
 

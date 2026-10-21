@@ -418,7 +418,7 @@ using B::f;
 
 void use() {
   f(3);
-  f(); // FIXME: this should fail
+  f(); // expected-error {{default argument for 1st parameter of 'f' is provided by declarations from more than one scope}}
 }
 } // namespace example3
 } // namespace cwg418

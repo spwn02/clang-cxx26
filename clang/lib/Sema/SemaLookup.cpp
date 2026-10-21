@@ -498,6 +498,27 @@ static bool canHideTag(const NamedDecl *D) {
 }
 
 /// Resolves the result kind of this lookup.
+/// [over.match.viable]: the default arguments used by a call come from the
+/// declarations of one scope among those considered by overload resolution, so
+/// two lookup results naming the same function from different scopes (through
+/// using-declarations, or a block-scope redeclaration) are both kept when its
+/// declarations supply default arguments.
+static bool foundInDifferentScopesWithDefaultArguments(NamedDecl *A,
+                                                       NamedDecl *B) {
+  const auto *FA = dyn_cast<FunctionDecl>(A->getUnderlyingDecl());
+  const auto *FB = dyn_cast<FunctionDecl>(B->getUnderlyingDecl());
+  if (!FA || !FB || FA->getTemplatedKind() != FunctionDecl::TK_NonTemplate)
+    return false;
+  if (Sema::getDefaultArgumentHostScope(FA) ==
+      Sema::getDefaultArgumentHostScope(FB))
+    return false;
+  for (const FunctionDecl *R : FA->redecls())
+    for (const ParmVarDecl *P : R->parameters())
+      if (P->hasDefaultArg() && !P->hasInheritedDefaultArg())
+        return true;
+  return false;
+}
+
 void LookupResult::resolveKind() {
   unsigned N = Decls.size();
 
@@ -603,11 +624,14 @@ void LookupResult::resolveKind() {
         // target scope ([expr.reflect]), so aliases declared in different
         // scopes stay separate results.
         unsigned Previous = UniqueResult.first->second;
-        if (getLookupKind() != Sema::LookupReflectOperandName ||
-            (!isa<NamespaceAliasDecl>(Decls[I].getDecl()) &&
-             !isa<NamespaceAliasDecl>(Decls[Previous].getDecl())) ||
-            getContextForScopeMatching(Decls[I])->Equals(
-                getContextForScopeMatching(Decls[Previous])))
+        if ((getLookupKind() != Sema::LookupReflectOperandName ||
+             (!isa<NamespaceAliasDecl>(Decls[I].getDecl()) &&
+              !isa<NamespaceAliasDecl>(Decls[Previous].getDecl())) ||
+             getContextForScopeMatching(Decls[I])->Equals(
+                 getContextForScopeMatching(Decls[Previous]))) &&
+            !(KeepSameEntityFunctions &&
+              foundInDifferentScopesWithDefaultArguments(Decls[I],
+                                                         Decls[Previous])))
           ExistingI = Previous;
       }
     }

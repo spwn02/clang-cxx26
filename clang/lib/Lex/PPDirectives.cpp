@@ -3189,6 +3189,17 @@ MacroInfo *Preprocessor::ReadOptionalMacroParameterListAndBody(
   }
   MI->setDefinitionEndLoc(LastTok.getLocation());
 
+  // [lex.pptoken]: a character that is not in the basic character set and
+  // matches the last category of preprocessing-token makes the program
+  // ill-formed; it is diagnosed here even when the macro is never expanded.
+  if (getLangOpts().CPlusPlus)
+    for (const Token &T : Tokens)
+      if (T.is(tok::unknown) && T.getLength() > 0 &&
+          (static_cast<unsigned char>(
+               *SourceMgr.getCharacterData(T.getLocation())) &
+           0x80))
+        Diag(T, diag::ext_pp_non_basic_char_in_macro);
+
   MI->setTokens(Tokens, BP);
   return MI;
 }
@@ -3200,6 +3211,20 @@ static bool isObjCProtectedMacro(const IdentifierInfo *II) {
 
 /// HandleDefineDirective - Implements \#define.  This consumes the entire macro
 /// line then lets the caller lex the next real token.
+/// [cpp.replace.general]: a translation unit shall not #define or #undef a
+/// name lexically identical to an identifier with special meaning
+/// ([lex.name.special]; 'final' and 'override' are diagnosed as keywords
+/// hidden by a macro) or to an attribute-token ([dcl.attr]); 'likely' and
+/// 'unlikely' may be defined as function-like macros and may be undefined.
+static bool isSpecialNameForMacro(StringRef Name) {
+  static const char *const Names[] = {
+      "import",     "module",      "post",         "pre",
+      "assume",     "deprecated",  "fallthrough",  "indeterminate",
+      "likely",     "maybe_unused", "nodiscard",   "noreturn",
+      "no_unique_address", "unlikely"};
+  return llvm::is_contained(Names, Name);
+}
+
 void Preprocessor::HandleDefineDirective(
     Token &DefineTok, const bool ImmediatelyAfterHeaderGuard) {
   ++NumDefined;
@@ -3226,6 +3251,12 @@ void Preprocessor::HandleDefineDirective(
       MacroNameTok, ImmediatelyAfterHeaderGuard);
 
   if (!MI) return;
+
+  if (getLangOpts().CPlusPlus && isSpecialNameForMacro(II->getName()) &&
+      !((II->getName() == "likely" || II->getName() == "unlikely") &&
+        MI->isFunctionLike()))
+    Diag(MacroNameTok, diag::ext_pp_special_name_macro)
+        << II << /*defining*/ 0;
 
   if (MacroShadowsKeyword &&
       !isConfigurationPattern(MacroNameTok, MI, getLangOpts())) {
@@ -3352,6 +3383,11 @@ void Preprocessor::HandleUndefDirective() {
 
   if (II->isFinal())
     emitFinalMacroWarning(MacroNameTok, /*IsUndef=*/true);
+
+  if (getLangOpts().CPlusPlus && isSpecialNameForMacro(II->getName()) &&
+      II->getName() != "likely" && II->getName() != "unlikely")
+    Diag(MacroNameTok, diag::ext_pp_special_name_macro)
+        << II << /*undefining*/ 1;
 
   // If the macro is not defined, this is a noop undef.
   if (const MacroInfo *MI = MD.getMacroInfo()) {

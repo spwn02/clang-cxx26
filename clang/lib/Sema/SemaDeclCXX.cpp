@@ -13195,6 +13195,24 @@ UsingShadowDecl *Sema::BuildUsingShadowDecl(Scope *S, BaseUsingDecl *BUD,
   if (Orig->isInvalidDecl() || BUD->isInvalidDecl())
     Shadow->setInvalidDecl();
 
+  // [over.match.viable]: two using-declarations naming declarations of one
+  // function in different scopes that supply default arguments both
+  // stay visible: the default arguments used by a call come from the
+  // declarations of one scope among those considered.
+  if (PrevDecl && S) {
+    const auto *PrevFD = dyn_cast<FunctionDecl>(PrevDecl->getTargetDecl());
+    const auto *NewFD = dyn_cast<FunctionDecl>(NonTemplateTarget);
+    if (PrevFD && NewFD &&
+        getDefaultArgumentHostScope(PrevFD) !=
+            getDefaultArgumentHostScope(NewFD) &&
+        llvm::any_of(NewFD->redecls(), [](const FunctionDecl *R) {
+          return llvm::any_of(R->parameters(), [](const ParmVarDecl *P) {
+            return P->hasDefaultArg() && !P->hasInheritedDefaultArg();
+          });
+        }))
+      PrevDecl = nullptr;
+  }
+
   Shadow->setPreviousDecl(PrevDecl);
 
   if (S)

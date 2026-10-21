@@ -234,6 +234,7 @@ public:
     Redecl = std::move(Other.Redecl);
     ExternalRedecl = std::move(Other.ExternalRedecl);
     HideTags = std::move(Other.HideTags);
+    KeepSameEntityFunctions = std::move(Other.KeepSameEntityFunctions);
     DiagnoseAccess = std::move(Other.DiagnoseAccess);
     DiagnoseAmbiguous = std::move(Other.DiagnoseAmbiguous);
     AllowHidden = std::move(Other.AllowHidden);
@@ -310,6 +311,10 @@ public:
 
   /// Sets whether tag declarations should be hidden by non-tag
   /// declarations during resolution.  The default is true.
+  /// Keep the lookup results that name one function from different scopes
+  /// when its declarations supply default arguments ([over.match.viable]).
+  void setKeepSameEntityFunctions(bool Keep) { KeepSameEntityFunctions = Keep; }
+
   void setHideTags(bool Hide) {
     HideTags = Hide;
   }
@@ -816,6 +821,7 @@ private:
   /// True if tag declarations should be hidden if non-tags
   ///   are present
   bool HideTags = true;
+  bool KeepSameEntityFunctions = false;
 
   bool DiagnoseAccess = false;
   bool DiagnoseAmbiguous = false;

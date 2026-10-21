@@ -7026,7 +7026,9 @@ ExprResult Sema::BuildCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
     if (CheckDefaultArgumentScopes(CalleeFD, ArgExprs.size(),
                                    IsSplice ? ArrayRef<NamedDecl *>()
                                             : ArrayRef<NamedDecl *>(Found),
-                                   IsSplice, Fn->getExprLoc(), &Chosen))
+                                   IsSplice, Fn->getExprLoc(), &Chosen,
+                                   /*Unqualified=*/
+                                   !cast<DeclRefExpr>(NakedFn)->hasQualifier()))
       return ExprError();
     if (Chosen)
       NDecl = Chosen;

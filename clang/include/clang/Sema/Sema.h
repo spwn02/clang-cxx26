@@ -7780,10 +7780,16 @@ public:
   /// \p Considered are the declarations found by lookup; empty (with
   /// \p IsSplice) means every reachable declaration of \p C.
   /// \returns true if a diagnostic was emitted.
+  /// The host scope of a function declaration for [over.match.viable]: the
+  /// lexically enclosing function for a block-scope declaration, otherwise the
+  /// redeclaration context.
+  static const DeclContext *getDefaultArgumentHostScope(const FunctionDecl *D);
+
   bool CheckDefaultArgumentScopes(FunctionDecl *C, unsigned NumArgs,
                                   ArrayRef<NamedDecl *> Considered,
                                   bool IsSplice, SourceLocation Loc,
-                                  FunctionDecl **ChosenDecl = nullptr);
+                                  FunctionDecl **ChosenDecl = nullptr,
+                                  bool Unqualified = false);
 
   ExprResult ActOnCastExpr(Scope *S, SourceLocation LParenLoc, Declarator &D,
                            ParsedType &Ty, SourceLocation RParenLoc,
