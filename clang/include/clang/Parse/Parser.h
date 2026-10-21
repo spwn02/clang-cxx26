@@ -3203,9 +3203,7 @@ private:
   bool isCXX11FinalKeyword() const;
 
   /// isClassCompatibleKeyword - Determine whether the next token is a C++11
-  /// 'final', a C++26 'trivially_relocatable_if_eligible',
-  /// or Microsoft 'sealed' or 'abstract' contextual
-  /// keyword.
+  /// 'final' or Microsoft 'sealed' or 'abstract' contextual keyword.
   bool isClassCompatibleKeyword() const;
 
   bool MaybeParseTypeTransformTypeSpecifier(DeclSpec &DS);
@@ -3675,9 +3673,7 @@ private:
   /// \endverbatim
   AccessSpecifier getAccessSpecifierIfPresent() const;
 
-  /// 'final', a C++26 'trivially_relocatable_if_eligible',
-  /// or Microsoft 'sealed' or 'abstract' contextual
-  /// keyword.
+  /// 'final' or Microsoft 'sealed' or 'abstract' contextual keyword.
   bool isClassCompatibleKeyword(Token Tok) const;
 
   void ParseHLSLRootSignatureAttributeArgs(ParsedAttributes &Attrs);
