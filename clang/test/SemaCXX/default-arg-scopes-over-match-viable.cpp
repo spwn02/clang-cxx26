@@ -53,3 +53,30 @@ void ok() { s(); s(1); [:^^s:](); }
 struct S { void m(int, int = 1); static void n(int = 1); };
 void S::m(int = 2, int) {}
 void ok2(S x) { x.m(); S::n(); [:^^S::n:](); }
+
+// The default arguments of a declaration that overload resolution does not
+// consider do not make a candidate viable.
+namespace considered_scopes {
+void f(int);
+void f(...);
+void a() { void f(int = 1); }
+void b() { f(); } // OK: calls f(...), the block-scope declaration in a() is not considered
+
+namespace CA { extern "C" void g(int = 1); }
+namespace CB {
+extern "C" void g(int);
+void g(...);
+}
+void c() {
+  using CB::g;
+  g(); // OK: only CB's declarations are considered, calls g(...)
+}
+} // namespace considered_scopes
+
+// Instantiation: the call is checked like any other.
+template <class T> void tmpl() {
+  using A::f;
+  using B::f;
+  f();
+}
+template void tmpl<int>();

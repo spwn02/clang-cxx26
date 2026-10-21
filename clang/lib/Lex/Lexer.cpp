@@ -1570,7 +1570,10 @@ static bool isMathematicalExtensionID(uint32_t C, const LangOptions &LangOpts,
       MathematicalNotationProfileIDContinueRanges);
   if (MathStartChars.contains(C) ||
       (!IsStart && MathContinueChars.contains(C))) {
-    IsExtension = true;
+    // P4271R0 (a defect report against C++26): the characters with the Unicode
+    // properties ID_Compat_Math_Start and ID_Compat_Math_Continue are allowed
+    // in identifiers ([lex.name]).
+    IsExtension = !LangOpts.CPlusPlus26;
     return true;
   }
   return false;

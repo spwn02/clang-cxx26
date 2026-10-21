@@ -1275,6 +1275,7 @@ class Sema;
   private:
     SmallVector<OverloadCandidate, 16> Candidates;
     llvm::SmallPtrSet<uintptr_t, 16> Functions;
+    llvm::SmallDenseMap<const FunctionDecl *, unsigned, 2> MinRequiredArgsOverride;
 
     DeferredOverloadCandidate *FirstDeferredCandidate = nullptr;
     unsigned DeferredCandidatesCount : 8 * sizeof(unsigned) - 3;
@@ -1382,6 +1383,19 @@ class Sema;
       uintptr_t Key = reinterpret_cast<uintptr_t>(F->getCanonicalDecl());
       Key |= static_cast<uintptr_t>(PO);
       return Functions.insert(Key).second;
+    }
+
+    /// [over.match.viable]: the minimum number of arguments of a function whose
+    /// declarations supply default arguments in more than one scope, computed
+    /// from the declarations considered by this overload resolution.
+    void setMinRequiredArgs(const FunctionDecl *F, unsigned N) {
+      MinRequiredArgsOverride[F->getCanonicalDecl()] = N;
+    }
+    std::optional<unsigned> getMinRequiredArgsOverride(const FunctionDecl *F) const {
+      auto It = MinRequiredArgsOverride.find(F->getCanonicalDecl());
+      if (It == MinRequiredArgsOverride.end())
+        return std::nullopt;
+      return It->second;
     }
 
     /// Exclude a function from being considered by overload resolution.

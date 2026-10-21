@@ -6,7 +6,7 @@
 # Steps (select with STEPS="build clang clangd libcxx-<std>... modules audit"; default: all):
 #   build        ninja: clang clang-tidy clang-query clang-scan-deps clangd clang-extdef-mapping c-index-test
 #                (build-nyx) and cxx-tidy, cxx-test-depends (build-libcxx); both must exit 0
-#   clang        check-clang (the whole clang test suite)
+#   clang        check-clang (the whole clang test suite) and check-clang-tools (clang-tidy and the other tools)
 #   clangd       check-clangd (lit) and the ClangdTests unit binary
 #   libcxx-<std> the libc++ suite at that -std, one lit run per test directory
 #                (cxx26/dev/sweep-libcxx-std.sh), tallied by sweep-summary.py. <std> is each of
@@ -70,7 +70,10 @@ step_build() {
   run build-nyx "$out/build-nyx.log" ninja -C "$nyx" -j"$jobs" clang clang-tidy clang-query clang-scan-deps clangd clang-extdef-mapping c-index-test
   run build-libcxx "$out/build-libcxx.log" ninja -C "$lcx" -j"$jobs" cxx-tidy cxx-test-depends
 }
-step_clang() { run check-clang "$out/check-clang.log" ninja -C "$nyx" -j"$jobs" check-clang; }
+step_clang() {
+  run check-clang "$out/check-clang.log" ninja -C "$nyx" -j"$jobs" check-clang
+  run check-clang-tools "$out/check-clang-tools.log" ninja -C "$nyx" -j"$jobs" check-clang-tools
+}
 step_clangd() {
   run check-clangd "$out/check-clangd.log" ninja -C "$nyx" -j"$jobs" check-clangd
   run ClangdTests "$out/ClangdTests.log" "$nyx/tools/clang/tools/extra/clangd/unittests/ClangdTests"

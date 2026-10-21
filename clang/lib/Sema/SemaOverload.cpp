@@ -7491,24 +7491,11 @@ void Sema::AddOverloadCandidate(
   // parameter list is truncated on the right, so that there are
   // exactly m parameters.
   unsigned MinRequiredArgs = Function->getMinRequiredArguments();
-  // [over.match.viable]: the declarations of one function in different
-  // scopes supply default arguments per scope; the call is viable
-  // when some scope supplies enough of them. Which scope is used, and whether
-  // it is unique, is checked once the function is the best viable function.
-  if (Args.size() < MinRequiredArgs) {
-    llvm::SmallDenseMap<const DeclContext *, unsigned, 4> PerScope;
-    for (const FunctionDecl *R : Function->redecls()) {
-      const DeclContext *X = getDefaultArgumentHostScope(R);
-      unsigned K = R->getNumParams();
-      while (K > 0 && R->getParamDecl(K - 1)->hasDefaultArg())
-        --K;
-      unsigned &Req = PerScope.try_emplace(X, R->getNumParams()).first->second;
-      Req = std::min(Req, K);
-    }
-    if (PerScope.size() > 1)
-      for (auto &P : PerScope)
-        MinRequiredArgs = std::min(MinRequiredArgs, P.second);
-  }
+  // [over.match.viable]: for a function whose declarations supply default
+  // arguments in several scopes, the declarations considered by this overload
+  // resolution decide ([over.match.viable], computed by the caller).
+  if (auto Override = CandidateSet.getMinRequiredArgsOverride(Function))
+    MinRequiredArgs = *Override;
   if (!AggregateCandidateDeduction && Args.size() < MinRequiredArgs &&
       !PartialOverloading) {
     // Not enough arguments.
@@ -14952,6 +14939,52 @@ BuildRecoveryCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
                                RParenLoc);
 }
 
+/// [over.match.viable]: when the declarations of a function found by an
+/// unqualified name supply default arguments in more than one scope, look the
+/// name up again keeping every visible declaration and record the minimum
+/// number of arguments the considered declarations allow.
+static void computeConsideredMinRequiredArgs(Sema &S, UnresolvedLookupExpr *ULE,
+                                             OverloadCandidateSet &CS) {
+  if (ULE->getQualifier() || !S.getCurScope() || !ULE->getName())
+    return;
+  bool NeedRelookup = false;
+  for (NamedDecl *N : ULE->decls())
+    if (const auto *FD = dyn_cast<FunctionDecl>(N->getUnderlyingDecl())) {
+      if (FD->getTemplatedKind() != FunctionDecl::TK_NonTemplate)
+        continue;
+      llvm::SmallPtrSet<const DeclContext *, 4> Hosts;
+      for (const FunctionDecl *R : FD->redecls())
+        Hosts.insert(Sema::getDefaultArgumentHostScope(R));
+      if (Hosts.size() > 1)
+        NeedRelookup = true;
+    }
+  if (!NeedRelookup)
+    return;
+  LookupResult Re(S, ULE->getName(), ULE->getNameLoc(), Sema::LookupOrdinaryName);
+  Re.setKeepSameEntityFunctions(true);
+  S.LookupName(Re, S.getCurScope());
+  llvm::SmallDenseMap<const FunctionDecl *, llvm::SmallPtrSet<const DeclContext *, 4>, 4> Considered;
+  for (NamedDecl *N : Re)
+    if (const auto *FD = dyn_cast<FunctionDecl>(N->getUnderlyingDecl()))
+      if (FD->getTemplatedKind() == FunctionDecl::TK_NonTemplate)
+        Considered[FD->getCanonicalDecl()].insert(Sema::getDefaultArgumentHostScope(FD));
+  for (auto &Entry : Considered) {
+    const FunctionDecl *F = Entry.first;
+    unsigned N = F->getNumParams(), Best = N;
+    for (const DeclContext *X : Entry.second) {
+      unsigned K = N;
+      while (K > 0 && llvm::any_of(F->redecls(), [&](const FunctionDecl *R) {
+               const ParmVarDecl *P = R->getParamDecl(K - 1);
+               return Sema::getDefaultArgumentHostScope(R) == X &&
+                      P->hasDefaultArg() && !P->hasInheritedDefaultArg();
+             }))
+        --K;
+      Best = std::min(Best, K);
+    }
+    CS.setMinRequiredArgs(F, Best);
+  }
+}
+
 bool Sema::buildOverloadedCallSet(Scope *S, Expr *Fn,
                                   UnresolvedLookupExpr *ULE,
                                   MultiExprArg Args,
@@ -14985,6 +15018,7 @@ bool Sema::buildOverloadedCallSet(Scope *S, Expr *Fn,
 
   // Add the functions denoted by the callee to the set of candidate
   // functions, including those from argument-dependent lookup.
+  computeConsideredMinRequiredArgs(*this, ULE, *CandidateSet);
   AddOverloadedCallCandidates(ULE, Args, *CandidateSet);
 
   if (getLangOpts().MSVCCompat &&
