@@ -23,7 +23,7 @@ configure_nyx() {
     launcher_args=(-DCMAKE_C_COMPILER_LAUNCHER="$CCACHE_BIN" -DCMAKE_CXX_COMPILER_LAUNCHER="$CCACHE_BIN")
   fi
   # LLVM_ENABLE_ASSERTIONS=ON and LLVM_ENABLE_RUNTIMES=compiler-rt since the
-  # 2026-09 Contracts hardening epic (docs/CONTRACTS_HARDENING.md M1) --
+  # 2026-09 Contracts hardening epic (Contracts hardening epic, 2026-09) --
   # assertions catch the ICE/segfault class during development, and
   # compiler-rt is a hard prerequisite for any -fsanitize=* use against this
   # tree. Neither applies to the packaged release toolchain, which pins its

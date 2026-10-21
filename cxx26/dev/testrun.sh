@@ -23,7 +23,7 @@
 set -euo pipefail
 
 # Disable core dumps for this test run. An assertions-enabled build-nyx
-# (docs/CONTRACTS_HARDENING.md M1) turns every ICE into a SIGABRT, and a full
+# (Contracts hardening epic, 2026-09) turns every ICE into a SIGABRT, and a full
 # check-clang/check-cxx run can crash dozens of test processes; each one was
 # writing a full systemd-coredump core file, which filled the disk and took
 # the whole desktop down with it (2026-09-05, mid-epic). lit's own crash

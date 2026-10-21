@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Anti-regression gate for the test-coverage shape that let the Contracts
-Hardening epic's headline bug ship (docs/CONTRACTS_HARDENING.md M4): a test
+Hardening epic's headline bug ship (Contracts hardening epic, 2026-09): a test
 file that *looks* like it executes a binary and checks a real value, but
 either never actually runs anything, or never got past a stub. Flags three
 patterns, all confirmed true of clang/test/Contracts/Runnable/
