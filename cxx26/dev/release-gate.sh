@@ -12,6 +12,8 @@
 #                (cxx26/dev/sweep-libcxx-std.sh), tallied by sweep-summary.py. <std> is each of
 #                STDS (default: c++26 c++23 c++20 c++17 c++14 c++11 c++03)
 #   modules      the std / std.compat module export drift tests at c++23 and c++26
+#   audit-modes  vocabulary audit at c++23..c++11 against each draft, compared with upstream libc++
+#                (cxx26/dev/audit-older-modes.sh); restores DRAFT_DIR to DRAFT_TAG
 #   audit        vocabulary audit (#283) against the draft tag in DRAFT_DIR, with and without
 #                -fexperimental-library; run last on purpose
 #
@@ -37,7 +39,7 @@ lcx="$repo_root/build-libcxx"
 
 default_steps="build clang clangd"
 for s in $stds; do default_steps="$default_steps libcxx-$s"; done
-default_steps="$default_steps modules audit"
+default_steps="$default_steps modules audit-modes audit"
 steps="${STEPS:-$default_steps}"
 
 if [[ "${1:-}" == "--list" ]]; then
@@ -88,6 +90,10 @@ step_modules() {
       libcxx/test/libcxx/module_std.gen.py libcxx/test/libcxx/module_std_compat.gen.py libcxx/test/std/modules
   done
 }
+step_audit_modes() {
+  if [[ -z "$draft_dir" || ! -d "$draft_dir/source" ]]; then record audit-modes FAIL "DRAFT_DIR is not a cplusplus/draft checkout"; return; fi
+  run audit-modes "$out/audit-modes.log" bash cxx26/dev/audit-older-modes.sh "$draft_dir" "$out/audit-modes"
+}
 step_audit() {
   if [[ -z "$draft_dir" || ! -d "$draft_dir/source" ]]; then record audit FAIL "DRAFT_DIR is not a cplusplus/draft checkout"; return; fi
   if [[ "$(git -C "$draft_dir" rev-parse HEAD 2>/dev/null)" != "$(git -C "$draft_dir" rev-parse "$draft_tag^{commit}" 2>/dev/null)" ]]; then
@@ -111,6 +117,7 @@ for s in $steps; do
     clangd) step_clangd ;;
     libcxx-*) step_libcxx "${s#libcxx-}" ;;
     modules) step_modules ;;
+    audit-modes) step_audit_modes ;;
     audit) step_audit ;;
     *) record "$s" FAIL "unknown step" ;;
   esac
