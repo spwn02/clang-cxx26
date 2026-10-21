@@ -7782,7 +7782,8 @@ public:
   /// \returns true if a diagnostic was emitted.
   bool CheckDefaultArgumentScopes(FunctionDecl *C, unsigned NumArgs,
                                   ArrayRef<NamedDecl *> Considered,
-                                  bool IsSplice, SourceLocation Loc);
+                                  bool IsSplice, SourceLocation Loc,
+                                  FunctionDecl **ChosenDecl = nullptr);
 
   ExprResult ActOnCastExpr(Scope *S, SourceLocation LParenLoc, Declarator &D,
                            ParsedType &Ty, SourceLocation RParenLoc,

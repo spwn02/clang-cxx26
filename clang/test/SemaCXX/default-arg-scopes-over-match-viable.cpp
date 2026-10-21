@@ -13,6 +13,7 @@ extern "C" void f(int, int = 7);
 
 void use() {
   [:^^A::f:](3, 4);
+  [:^^A::f:](); // OK, default arguments provided by declarations in the scope of A
   [:^^A::f:](3); // expected-error {{default argument for 2nd parameter of 'f' is provided by declarations from more than one scope}}
 
   void g(int = 8);

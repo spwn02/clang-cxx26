@@ -15042,7 +15042,8 @@ static QualType chooseRecoveryType(OverloadCandidateSet &CS,
 
 bool Sema::CheckDefaultArgumentScopes(FunctionDecl *C, unsigned NumArgs,
                                       ArrayRef<NamedDecl *> Considered,
-                                      bool IsSplice, SourceLocation Loc) {
+                                      bool IsSplice, SourceLocation Loc,
+                                      FunctionDecl **ChosenDecl) {
   if (!getLangOpts().CPlusPlus || C->isInvalidDecl() ||
       NumArgs >= C->getNumParams() || C->getTemplatedKind() != FunctionDecl::TK_NonTemplate ||
       C->isDependentContext() || C->isTemplateInstantiation())
@@ -15092,6 +15093,14 @@ bool Sema::CheckDefaultArgumentScopes(FunctionDecl *C, unsigned NumArgs,
     Diag(Loc, diag::err_default_arg_splice_block_scope) << C;
     return true;
   }
+  // The default arguments used are those of the reachable declarations whose
+  // host scope is S: the most recent declaration in S carries all of them.
+  if (G.size() == 1 && ChosenDecl && !IsBlockScope(*G.begin()))
+    for (FunctionDecl *R : C->redecls())
+      if (HostOf(R) == *G.begin() &&
+          (!*ChosenDecl ||
+           R->getMinRequiredArguments() < (*ChosenDecl)->getMinRequiredArguments()))
+        *ChosenDecl = R;
   return false;
 }
 
@@ -15120,10 +15129,13 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
       return ExprError();
     {
       SmallVector<NamedDecl *, 4> Found(ULE->decls_begin(), ULE->decls_end());
+      FunctionDecl *Chosen = nullptr;
       if (SemaRef.CheckDefaultArgumentScopes(FDecl, Args.size(), Found,
                                              /*IsSplice=*/false,
-                                             ULE->getNameLoc()))
+                                             ULE->getNameLoc(), &Chosen))
         return ExprError();
+      if (Chosen)
+        FDecl = Chosen;
     }
     return SemaRef.BuildResolvedCallExpr(
         Res.get(), FDecl, LParenLoc, Args, RParenLoc, ExecConfig,

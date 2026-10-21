@@ -7022,11 +7022,14 @@ ExprResult Sema::BuildCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
     if (IsSplice)
       NDecl = CalleeFD = CalleeFD->getMostRecentDecl();
     NamedDecl *Found = cast<DeclRefExpr>(NakedFn)->getFoundDecl();
+    FunctionDecl *Chosen = nullptr;
     if (CheckDefaultArgumentScopes(CalleeFD, ArgExprs.size(),
                                    IsSplice ? ArrayRef<NamedDecl *>()
                                             : ArrayRef<NamedDecl *>(Found),
-                                   IsSplice, Fn->getExprLoc()))
+                                   IsSplice, Fn->getExprLoc(), &Chosen))
       return ExprError();
+    if (Chosen)
+      NDecl = Chosen;
   }
   return BuildResolvedCallExpr(Fn, NDecl, LParenLoc, ArgExprs, RParenLoc,
                                ExecConfig, IsExecConfig);
