@@ -5167,7 +5167,10 @@ BuildImplicitMemberInitializer(Sema &SemaRef, CXXConstructorDecl *Constructor,
       return true;
     }
 
-    if (FieldBaseElementType.isConstQualified()) {
+    if (FieldBaseElementType.isConstQualified() &&
+        !FieldBaseElementType->isReflectionType() &&
+        !(SemaRef.getLangOpts().CPlusPlus26 &&
+          FieldBaseElementType->isNullPtrType())) {
       SemaRef.Diag(Constructor->getLocation(),
                    diag::err_uninitialized_member_in_ctor)
           << (int)Constructor->isImplicit()
@@ -9849,7 +9852,8 @@ bool SpecialMemberDeletionInfo::shouldDeleteForField(FieldDecl *FD) {
     // data member of const-qualified type (or array thereof) with no
     // brace-or-equal-initializer is not const-default-constructible.
     if (!inUnion() && FieldType.isConstQualified() &&
-        !FD->hasInClassInitializer() &&
+        !FD->hasInClassInitializer() && !FieldType->isReflectionType() &&
+        !(S.getLangOpts().CPlusPlus26 && FieldType->isNullPtrType()) &&
         (!FieldRecord || !FieldRecord->allowConstDefaultInit())) {
       if (Diagnose)
         S.Diag(FD->getLocation(), diag::note_deleted_default_ctor_uninit_field)
@@ -11868,6 +11872,32 @@ bool Sema::CheckDeductionGuideDeclarator(Declarator &D, QualType &R,
           << D.getSourceRange();
       break;
     }
+    // [temp.deduct.guide]: a generic parameter type placeholder shall not
+    // appear in the parameter-declaration-clause of a deduction guide.
+    for (const DeclaratorChunk::ParamInfo &PI :
+         llvm::ArrayRef(Chunk.Fun.Params, Chunk.Fun.NumParams)) {
+      auto *PVD = dyn_cast_or_null<ParmVarDecl>(PI.Param);
+      if (!PVD)
+        continue;
+      QualType PT = PVD->getType().getNonReferenceType();
+      while (true) {
+        if (PT->isPointerType())
+          PT = PT->getPointeeType();
+        else if (const auto *AT = Context.getAsArrayType(PT))
+          PT = AT->getElementType();
+        else if (const auto *PE = PT->getAs<PackExpansionType>())
+          PT = PE->getPattern();
+        else if (PT->isReferenceType())
+          PT = PT.getNonReferenceType();
+        else
+          break;
+      }
+      if (const auto *TTP = PT->getAs<TemplateTypeParmType>();
+          TTP && TTP->getDecl() && TTP->getDecl()->isImplicit()) {
+        Diag(PVD->getLocation(), diag::err_deduction_guide_generic_param);
+        return true;
+      }
+    }
     if (!Chunk.Fun.hasTrailingReturnType())
       return Diag(D.getName().getBeginLoc(),
                   diag::err_deduction_guide_no_trailing_return_type);
@@ -13023,8 +13053,25 @@ bool Sema::CheckUsingShadowDecl(BaseUsingDecl *BUD, NamedDecl *Orig,
     }
 
     if (IsEquivalentForUsingDecl(Context, D, Target)) {
-      if (UsingShadowDecl *Shadow = dyn_cast<UsingShadowDecl>(Element))
+      if (UsingShadowDecl *Shadow = dyn_cast<UsingShadowDecl>(Element)) {
+        // [namespace.udecl]: if a declaration is named by two
+        // using-declarators that inhabit the same class scope, the program is
+        // ill-formed.
+        // Not diagnosed in instantiations: the cwg2881 lambda-overload
+        // idiom (using A<T>::operator(); using B<T>::operator();) names one
+        // call operator through two bases.
+        if (getLangOpts().CPlusPlus26 && CurContext->isRecord() &&
+            !isTemplateInstantiation(cast<CXXRecordDecl>(CurContext)->getTemplateSpecializationKind()) &&
+            !isa<CXXConstructorDecl>(Target) &&
+            Shadow->getIntroducer() != BUD &&
+            Shadow->getIntroducer()->getDeclContext() == CurContext &&
+            declaresSameEntity(Shadow->getTargetDecl(), Target)) {
+          Diag(BUD->getLocation(), diag::err_using_decl_redeclaration);
+          Diag(Shadow->getIntroducer()->getLocation(), diag::note_using_decl)
+              << 1;
+        }
         PrevShadow = Shadow;
+      }
       FoundEquivalentDecl = true;
     } else if (isEquivalentInternalLinkageDeclaration(D, Target)) {
       // We don't conflict with an existing using shadow decl of an equivalent

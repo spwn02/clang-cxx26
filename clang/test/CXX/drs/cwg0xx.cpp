@@ -4,7 +4,7 @@
 // RUN: %clang_cc1 -std=c++17 %s -verify=expected,since-cxx11,since-cxx17 -fexceptions -fcxx-exceptions -pedantic-errors -triple %itanium_abi_triple
 // RUN: %clang_cc1 -std=c++20 %s -verify=expected,since-cxx11,since-cxx17 -fexceptions -fcxx-exceptions -pedantic-errors -triple %itanium_abi_triple
 // RUN: %clang_cc1 -std=c++23 %s -verify=expected,since-cxx11,since-cxx17 -fexceptions -fcxx-exceptions -pedantic-errors -triple %itanium_abi_triple
-// RUN: %clang_cc1 -std=c++2c %s -verify=expected,since-cxx11,since-cxx17 -fexceptions -fcxx-exceptions -pedantic-errors -triple %itanium_abi_triple
+// RUN: %clang_cc1 -std=c++2c %s -verify=expected,since-cxx11,since-cxx17,since-cxx26 -fexceptions -fcxx-exceptions -pedantic-errors -triple %itanium_abi_triple
 
 #if __cplusplus == 199711L
 #define static_assert(...) __extension__ _Static_assert(__VA_ARGS__)
@@ -554,6 +554,8 @@ namespace example2 {
     //   expected-note@#cwg36-ex2-B-i-first {{previous using declaration}}
 
     using C::i; // #cwg36-ex2-C-i-first
+    // since-cxx26-error@-1 {{redeclaration of using declaration}}
+    //   since-cxx26-note@#cwg36-ex2-B-i-first {{previous using declaration}}
     using C::i;
     // expected-error@-1 {{redeclaration of using declaration}}
     //   expected-note@#cwg36-ex2-C-i-first {{previous using declaration}}
@@ -564,6 +566,8 @@ namespace example2 {
     //   expected-note@#cwg36-ex2-B-j-first {{previous using declaration}}
 
     using C::j; // #cwg36-ex2-C-j-first
+    // since-cxx26-error@-1 {{redeclaration of using declaration}}
+    //   since-cxx26-note@#cwg36-ex2-B-j-first {{previous using declaration}}
     using C::j;
     // expected-error@-1 {{redeclaration of using declaration}}
     //   expected-note@#cwg36-ex2-C-j-first {{previous using declaration}}

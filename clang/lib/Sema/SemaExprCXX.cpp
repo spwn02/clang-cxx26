@@ -927,10 +927,26 @@ ExprResult Sema::BuildCXXThrow(SourceLocation OpLoc, Expr *Ex,
 
     InitializedEntity Entity =
         InitializedEntity::InitializeException(OpLoc, ExceptionObjectTy);
+    unsigned ErrorsBefore = Diags.getNumErrors();
     ExprResult Res = PerformMoveOrCopyInitialization(Entity, NRInfo, Ex);
     if (Res.isInvalid())
       return ExprError();
     Ex = Res.get();
+
+    // [except.throw]: copy-initialization of an object of type T from an lvalue
+    // of type const T in a context unrelated to T shall be well-formed.
+    if (getLangOpts().CPlusPlus26 && Diags.getNumErrors() == ErrorsBefore &&
+        ExceptionObjectTy->isRecordType() &&
+        !ExceptionObjectTy->isDependentType()) {
+      auto *Source = new (Context) OpaqueValueExpr(
+          OpLoc, ExceptionObjectTy.withConst(), VK_LValue);
+      InitializationKind Kind =
+          InitializationKind::CreateCopy(OpLoc, SourceLocation());
+      Expr *SourceArg[] = {Source};
+      InitializationSequence Seq(*this, Entity, Kind, SourceArg);
+      if (Seq.Perform(*this, Entity, Kind, SourceArg).isInvalid())
+        return ExprError();
+    }
   }
 
   // PPC MMA non-pointer types are not allowed as throw expr types.

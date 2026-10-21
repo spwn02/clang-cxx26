@@ -442,7 +442,7 @@ namespace cwg534 { // cwg534: 2.9
 namespace cwg535 { // cwg535: 3.1
   class X { private: X(const X&); };
   struct A {
-    X x;
+    X x; // #cwg535-A-x
     template<typename T> A(T&);
   };
   struct B : A {
@@ -457,6 +457,8 @@ namespace cwg535 { // cwg535: 3.1
   B b2(b1); // ok, uses converting constructor
 
   void f() { throw a1; }
+  // since-cxx26-error@-1 {{call to implicitly-deleted copy constructor of 'A'}}
+  //   since-cxx26-note@#cwg535-A-x {{copy constructor of 'A' is implicitly deleted because field 'x' has an inaccessible copy constructor}}
 
 #if __cplusplus >= 201103L
   struct C {

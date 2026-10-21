@@ -2764,6 +2764,9 @@ def err_deduction_guide_bad_trailing_return_type : Error<
 def err_deduction_guide_with_complex_decl : Error<
   "cannot specify any part of a return type in the "
   "declaration of a deduction guide">;
+def err_deduction_guide_generic_param : Error<
+  "a generic parameter type placeholder cannot appear in the "
+  "parameter-declaration-clause of a deduction guide">;
 def err_deduction_guide_invalid_specifier : Error<
   "deduction guide cannot be declared '%0'">;
 def err_deduction_guide_name_not_class_template : Error<

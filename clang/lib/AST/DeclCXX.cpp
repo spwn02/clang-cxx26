@@ -1179,7 +1179,10 @@ void CXXRecordDecl::addedMember(Decl *D) {
       if (CXXRecordDecl *FieldType = T->getAsCXXRecordDecl()) {
         if (FieldType->hasDefinition() && !FieldType->allowConstDefaultInit())
           data().HasUninitializedFields = true;
-      } else {
+      } else if (!T->isReflectionType() &&
+                 !(Context.getLangOpts().CPlusPlus26 && T->isNullPtrType())) {
+        // std::meta::info and (C++26) std::nullptr_t are
+        // const-default-constructible ([dcl.init.general]).
         data().HasUninitializedFields = true;
       }
     }

@@ -5909,7 +5909,11 @@ static void TryDefaultInitialization(Sema &S,
     return;
   }
 
-  if (DestType->isReflectionType()) {
+  // [dcl.init.general]: std::meta::info and std::nullptr_t are
+  // const-default-constructible.
+  if (DestType->isReflectionType() ||
+      (S.getLangOpts().CPlusPlus26 && DestType->isNullPtrType() &&
+       DestType.isConstQualified())) {
     Sequence.AddZeroInitializationStep(Entity.getType());
     return;
   }
