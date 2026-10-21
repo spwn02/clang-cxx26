@@ -11195,9 +11195,21 @@ bool clang::isBetterOverloadCandidate(
     if (Result != ImplicitConversionSequence::Indistinguishable)
       return Result == ImplicitConversionSequence::Better;
 
-    // FIXME: Compare kind of reference binding if conversion functions
-    // convert to a reference type used in direct reference binding, per
-    // C++14 [over.match.best]p1 section 2 bullet 3.
+    // [over.match.best.general]/2.4: for direct binding of a reference to
+    // function type, prefer the function whose return type is the same kind
+    // of reference (lvalue or rvalue) as the reference being initialized.
+    const StandardConversionSequence &F1 = Cand1.FinalConversion;
+    const StandardConversionSequence &F2 = Cand2.FinalConversion;
+    if (F1.ReferenceBinding && F2.ReferenceBinding &&
+        F1.BindsToFunctionLvalue && F2.BindsToFunctionLvalue &&
+        F1.IsLvalueReference == F2.IsLvalueReference) {
+      bool Same1 = Cand1.Function->getReturnType()->isLValueReferenceType() ==
+                   F1.IsLvalueReference;
+      bool Same2 = Cand2.Function->getReturnType()->isLValueReferenceType() ==
+                   F2.IsLvalueReference;
+      if (Same1 != Same2)
+        return Same1;
+    }
   }
 
   // FIXME: Work around a defect in the C++17 guaranteed copy elision wording,
@@ -14945,10 +14957,11 @@ BuildRecoveryCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
 /// number of arguments the considered declarations allow.
 static void computeConsideredMinRequiredArgs(Sema &S, UnresolvedLookupExpr *ULE,
                                              OverloadCandidateSet &CS) {
-  // The current scope is not the scope of the name during an instantiation.
-  if (ULE->getQualifier() || !S.getCurScope() || S.inTemplateInstantiation() ||
-      !ULE->getName())
+  if (ULE->getQualifier() || !ULE->getName())
     return;
+  // The current scope is not the scope of the name during an instantiation:
+  // the declarations the lookup kept at the definition are the ones considered.
+  bool UseULEDecls = !S.getCurScope() || S.inTemplateInstantiation();
   bool NeedRelookup = false;
   for (NamedDecl *N : ULE->decls())
     if (const auto *FD = dyn_cast<FunctionDecl>(N->getUnderlyingDecl())) {
@@ -14963,10 +14976,17 @@ static void computeConsideredMinRequiredArgs(Sema &S, UnresolvedLookupExpr *ULE,
   if (!NeedRelookup)
     return;
   LookupResult Re(S, ULE->getName(), ULE->getNameLoc(), Sema::LookupOrdinaryName);
-  Re.setKeepSameEntityFunctions(true);
-  S.LookupName(Re, S.getCurScope());
+  if (!UseULEDecls) {
+    Re.setKeepSameEntityFunctions(true);
+    S.LookupName(Re, S.getCurScope());
+  }
+  llvm::SmallVector<NamedDecl *, 4> Found;
+  if (UseULEDecls)
+    Found.append(ULE->decls_begin(), ULE->decls_end());
+  else
+    Found.append(Re.begin(), Re.end());
   llvm::SmallDenseMap<const FunctionDecl *, llvm::SmallPtrSet<const DeclContext *, 4>, 4> Considered;
-  for (NamedDecl *N : Re)
+  for (NamedDecl *N : Found)
     if (const auto *FD = dyn_cast<FunctionDecl>(N->getUnderlyingDecl()))
       if (FD->getTemplatedKind() == FunctionDecl::TK_NonTemplate)
         Considered[FD->getCanonicalDecl()].insert(Sema::getDefaultArgumentHostScope(FD));

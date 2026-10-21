@@ -2864,6 +2864,12 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
                                         IsAddressOfOperand, TemplateArgs);
   } else {
     bool IvarLookupFollowUp = II && !SS.isSet() && getCurMethodDecl();
+    // A call in a template is checked again at instantiation, where the scope
+    // of the name is gone: keep every declaration of a function whose
+    // declarations supply default arguments in several scopes
+    // ([over.match.viable]).
+    if (HasTrailingLParen && !SS.isSet() && CurContext->isDependentContext())
+      R.setKeepSameEntityFunctions(true);
     LookupParsedName(R, S, &SS, /*ObjectType=*/QualType(),
                      /*AllowBuiltinCreation=*/!IvarLookupFollowUp);
 

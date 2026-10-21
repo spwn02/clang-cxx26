@@ -920,6 +920,10 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
   }
 
   LookupResult Result(*this, Name, NameLoc, LookupOrdinaryName);
+  // See ActOnIdExpression: a call in a template is checked at instantiation.
+  if (NextToken.is(tok::l_paren) && !SS.isSet() &&
+      CurContext->isDependentContext())
+    Result.setKeepSameEntityFunctions(true);
   LookupParsedName(Result, S, &SS, /*ObjectType=*/QualType(),
                    /*AllowBuiltinCreation=*/!CurMethod);
 

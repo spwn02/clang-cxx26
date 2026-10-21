@@ -15679,6 +15679,8 @@ bool TreeTransform<Derived>::TransformOverloadExprDecls(OverloadExpr *Old,
 
   // Resolve a kind, but don't do any further analysis.  If it's
   // ambiguous, the callee needs to deal with it.
+  if (RequiresADL)
+    R.setKeepSameEntityFunctions(true);
   R.resolveKind();
 
   if (Old->hasTemplateKeyword() && !R.empty()) {
