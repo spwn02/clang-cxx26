@@ -14945,7 +14945,9 @@ BuildRecoveryCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
 /// number of arguments the considered declarations allow.
 static void computeConsideredMinRequiredArgs(Sema &S, UnresolvedLookupExpr *ULE,
                                              OverloadCandidateSet &CS) {
-  if (ULE->getQualifier() || !S.getCurScope() || !ULE->getName())
+  // The current scope is not the scope of the name during an instantiation.
+  if (ULE->getQualifier() || !S.getCurScope() || S.inTemplateInstantiation() ||
+      !ULE->getName())
     return;
   bool NeedRelookup = false;
   for (NamedDecl *N : ULE->decls())
@@ -15128,7 +15130,8 @@ bool Sema::CheckDefaultArgumentScopes(FunctionDecl *C, unsigned NumArgs,
     // Name lookup keeps one result for one function; when the function's
     // declarations supply default arguments in more than one scope, look the
     // name up again keeping every declaration that is visible.
-    if (Unqualified && !IsSplice && getCurScope() && C->getDeclName()) {
+    if (Unqualified && !IsSplice && getCurScope() && !inTemplateInstantiation() &&
+        C->getDeclName()) {
       llvm::SmallPtrSet<const DeclContext *, 4> Hosts;
       for (const FunctionDecl *R : C->redecls())
         Hosts.insert(HostOf(R));

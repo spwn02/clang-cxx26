@@ -80,3 +80,16 @@ template <class T> void tmpl() {
   f();
 }
 template void tmpl<int>();
+
+// The scope of an instantiation is not the scope of the name: only the
+// declarations found where the template names the function are considered.
+namespace UA { extern "C" int uf(int, int = 5); }
+namespace UB { extern "C" int uf(int, int = 7); }
+using namespace UA;
+using namespace UB;
+template <class T> int instantiated(T t) {
+  using UA::uf;
+  return uf(t);
+}
+template int instantiated<int>(int);
+int instantiated_implicitly = instantiated(1L);
