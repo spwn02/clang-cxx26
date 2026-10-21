@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcxx-exceptions -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fcxx-exceptions -Wdeprecated-copy-with-user-provided-dtor -fsyntax-only -verify %s
 
 // [except.throw]: copy-initialization of an object of type T from an lvalue of
 // type const T in a context unrelated to T shall be well-formed.
@@ -28,3 +28,8 @@ void h() { throw Ok{}; }
 void i() { throw 1; throw "s"; throw nullptr; }
 template <class T> void t() { throw T{}; }
 void inst() { t<Ok>(); }
+
+// The check does not odr-use the copy constructor: no deprecated-copy warning
+// for an exception class with a user-provided destructor (std::bad_variant_access).
+struct WithDtor { WithDtor(); ~WithDtor(); };
+void k() { throw WithDtor(); }

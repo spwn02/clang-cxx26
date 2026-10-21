@@ -942,6 +942,9 @@ ExprResult Sema::BuildCXXThrow(SourceLocation OpLoc, Expr *Ex,
           OpLoc, ExceptionObjectTy.withConst(), VK_LValue);
       InitializationKind Kind =
           InitializationKind::CreateCopy(OpLoc, SourceLocation());
+      // Only well-formedness is required; do not odr-use the constructor.
+      EnterExpressionEvaluationContext Unevaluated(
+          *this, ExpressionEvaluationContext::Unevaluated);
       Expr *SourceArg[] = {Source};
       InitializationSequence Seq(*this, Entity, Kind, SourceArg);
       if (Seq.Perform(*this, Entity, Kind, SourceArg).isInvalid())
