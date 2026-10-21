@@ -18,10 +18,10 @@
 #include <__mutex/mutex.h>
 #include <__mutex/unique_lock.h>
 #include <__utility/exchange.h>
+#include <__utility/move.h>
 #include <__utility/pair.h>
 #include <__vector/vector.h>
 #include <cstdint>
-#include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header

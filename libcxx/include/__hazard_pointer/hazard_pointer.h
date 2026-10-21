@@ -18,8 +18,8 @@
 #include <__mutex/lock_guard.h>
 #include <__mutex/mutex.h>
 #include <__type_traits/integral_constant.h>
-#include <__type_traits/is_class.h>
 #include <__type_traits/is_base_of.h>
+#include <__type_traits/is_class.h>
 #include <__utility/declval.h>
 #include <__utility/exchange.h>
 #include <__utility/move.h>
@@ -139,9 +139,9 @@ template <class _Tp>
 struct __is_hazard_protectable : false_type {};
 
 template <class _Tp>
-  requires requires(_Tp* __p) { __hazard_pointer_deleter_of<_Tp>(__p); }
+  requires requires(_Tp* __p) { std::__hazard_pointer_deleter_of<_Tp>(__p); }
 struct __is_hazard_protectable<_Tp> {
-  using __deleter _LIBCPP_NODEBUG = decltype(__hazard_pointer_deleter_of<_Tp>(std::declval<_Tp*>()));
+  using __deleter _LIBCPP_NODEBUG = decltype(std::__hazard_pointer_deleter_of<_Tp>(std::declval<_Tp*>()));
   // deducing the deleter from the argument fails for two bases of the form hazard_pointer_obj_base<_Tp, _D>;
   // the base has to be public (the conversion is checked) and non-virtual.
   static constexpr bool value =
