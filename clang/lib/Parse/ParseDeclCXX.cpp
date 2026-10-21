@@ -4819,6 +4819,11 @@ void Parser::ParseCXX11AttributeSpecifierInternal(ParsedAttributes &Attrs,
     if (!TryConsumeToken(tok::colon) && !Tok.is(tok::r_splice) &&
         CommonScopeName)
       Diag(Tok.getLocation(), diag::err_expected) << tok::colon;
+    // [diff.cpp23.dcl.dcl]: ':]' is a single token, so an attribute-using-prefix
+    // with no attributes and no whitespace before ']]' is ill-formed.
+    else if (Tok.is(tok::r_splice) && CommonScopeName)
+      Diag(Tok.getLocation(), diag::err_attribute_using_prefix_splice_closer)
+          << CommonScopeName->getName();
   }
 
   bool AttrParsed = false;

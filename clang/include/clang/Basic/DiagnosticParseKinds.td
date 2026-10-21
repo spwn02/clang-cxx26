@@ -797,6 +797,9 @@ def err_attribute_requires_arguments : Error<
   "parentheses must be omitted if %0 attribute's argument list is empty">;
 def err_cxx11_attribute_forbids_ellipsis : Error<
   "attribute %0 cannot be used as an attribute pack">;
+def err_attribute_using_prefix_splice_closer : Error<
+  "'[[using %0:]]' without whitespace before ']' is ill-formed: ':]' is a "
+  "single token in C++26; write '[[using %0: ]]'">;
 def warn_cxx14_compat_using_attribute_ns : Warning<
   "default scope specifier for attributes is incompatible with C++ standards "
   "before C++17">, InGroup<CXXPre17Compat>, DefaultIgnore;
