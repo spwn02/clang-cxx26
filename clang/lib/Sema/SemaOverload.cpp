@@ -4765,6 +4765,18 @@ CompareStandardConversionSequences(Sema &S, SourceLocation Loc,
       return ImplicitConversionSequence::Worse;
   }
 
+  if (SCS1.ReferenceBinding && SCS2.ReferenceBinding &&
+      SCS1.BindsToFunctionLvalue && SCS2.BindsToFunctionLvalue) {
+    // [over.ics.ref]: a reference to a function binds with a function pointer
+    // conversion (noexcept dropped) when the types differ; a binding without
+    // that conversion is an exact match and ranks better (CWG2815).
+    bool Conv1 = !S.Context.hasSameType(SCS1.getFromType(), SCS1.getToType(2));
+    bool Conv2 = !S.Context.hasSameType(SCS2.getFromType(), SCS2.getToType(2));
+    if (Conv1 != Conv2)
+      return Conv2 ? ImplicitConversionSequence::Better
+                   : ImplicitConversionSequence::Worse;
+  }
+
   // Compare based on qualification conversions (C++ 13.3.3.2p3,
   // bullet 3).
   if (ImplicitConversionSequence::CompareKind QualCK
@@ -4805,6 +4817,49 @@ CompareStandardConversionSequences(Sema &S, SourceLocation Loc,
         return ImplicitConversionSequence::Better;
       if (T1.isMoreQualifiedThan(T2, S.getASTContext()))
         return ImplicitConversionSequence::Worse;
+    }
+    if (T1 == T2 && !SCS1.getFromType().isNull() &&
+        !SCS2.getFromType().isNull()) {
+      // [over.ics.rank]: S1 and S2 bind the same reference type "reference to
+      // T" and have source types V1 and V2, where the standard conversion
+      // sequence from V1* to T* is better than the one from V2* to T* (CWG233).
+      QualType V1 = S.Context.getCanonicalType(SCS1.getFromType());
+      QualType V2 = S.Context.getCanonicalType(SCS2.getFromType());
+      if (V1->isReferenceType()) V1 = V1->getPointeeType();
+      if (V2->isReferenceType()) V2 = V2->getPointeeType();
+      if (!V1.isNull() && !V2.isNull() && V1 != V2 && !V1->isFunctionType() &&
+          !V2->isFunctionType() &&
+          S.Context.hasSameUnqualifiedType(V1, V2)) {
+        bool ObjCLifetimeConversion;
+        QualType P1 = S.Context.getPointerType(V1);
+        QualType P2 = S.Context.getPointerType(V2);
+        // The source that needs less qualification adjustment to reach T is
+        // the better one: it is the more cv-qualified of the two.
+        bool V2ToV1 = S.IsQualificationConversion(P2, P1, false, ObjCLifetimeConversion);
+        bool V1ToV2 = S.IsQualificationConversion(P1, P2, false, ObjCLifetimeConversion);
+        if (V2ToV1 && !V1ToV2)
+          return ImplicitConversionSequence::Better;
+        if (V1ToV2 && !V2ToV1)
+          return ImplicitConversionSequence::Worse;
+      }
+    }
+    if (UnqualT1 != UnqualT2) {
+      // [over.ics.rank]: S1 and S2 bind "reference to T1" and "reference to
+      // T2", T1 and T2 are not the same type, and T2 is reference-compatible
+      // with T1 (a pointer to T1 converts to a pointer to T2 by a
+      // qualification conversion, which includes an array of known bound to
+      // an array of unknown bound).
+      bool ObjCLifetimeConversion;
+      QualType PtrT1 = S.Context.getPointerType(T1);
+      QualType PtrT2 = S.Context.getPointerType(T2);
+      if (T1->isArrayType() && T2->isArrayType()) {
+        if (S.IsQualificationConversion(PtrT1, PtrT2, false,
+                                        ObjCLifetimeConversion))
+          return ImplicitConversionSequence::Better;
+        if (S.IsQualificationConversion(PtrT2, PtrT1, false,
+                                        ObjCLifetimeConversion))
+          return ImplicitConversionSequence::Worse;
+      }
     }
   }
 
@@ -4899,7 +4954,21 @@ CompareQualificationConversions(Sema &S,
   //     deprecated string literal array-to-pointer conversion (4.2).
   // [C++2a]
   //     [...] where T1 can be converted to T2 by a qualification conversion.
-  if (SCS1.First != SCS2.First || SCS1.Second != SCS2.Second ||
+  // Lvalue transformations are excluded when sequences are compared
+  // ([over.ics.scs]): a by-value sequence starting with lvalue-to-rvalue and a
+  // reference binding of the same value differ only in their qualification
+  // conversion (CWG2803).
+  auto SameFirst = [&]() {
+    if (SCS1.First == SCS2.First)
+      return true;
+    if (SCS1.ReferenceBinding == SCS2.ReferenceBinding)
+      return false;
+    auto IsLvalueStep = [](ImplicitConversionKind K) {
+      return K == ICK_Identity || K == ICK_Lvalue_To_Rvalue;
+    };
+    return IsLvalueStep(SCS1.First) && IsLvalueStep(SCS2.First);
+  };
+  if (!SameFirst() || SCS1.Second != SCS2.Second ||
       SCS1.Third != SCS2.Third || SCS1.Third != ICK_Qualification)
     return ImplicitConversionSequence::Indistinguishable;
 
@@ -5413,8 +5482,6 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
   auto SetAsReferenceBinding = [&](bool BindsDirectly) {
     ICS.setStandard();
     ICS.Standard.First = ICK_Identity;
-    // FIXME: A reference binding can be a function conversion too. We should
-    // consider that when ordering reference-to-function bindings.
     ICS.Standard.Second = (RefConv & Sema::ReferenceConversions::DerivedToBase)
                               ? ICK_Derived_To_Base
                               : (RefConv & Sema::ReferenceConversions::ObjC)
