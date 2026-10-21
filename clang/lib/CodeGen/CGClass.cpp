@@ -2328,6 +2328,19 @@ void CodeGenFunction::EmitCXXConstructorCall(const CXXConstructorDecl *D,
     return;
   }
 
+  // [class.inhctor.init]: the invocation of an inherited constructor,
+  // including the evaluation of its arguments, is omitted if the virtual base
+  // subobject is not to be initialized as part of this object. The base
+  // variant of such an inheriting constructor takes no parameters.
+  if (Type == Ctor_Base && D->getInheritedConstructor() &&
+      !CGM.getTypes().inheritingCtorHasParams(D->getInheritedConstructor(),
+                                              Type)) {
+    EmitCXXConstructorCall(D, Type, ForVirtualBase, Delegating, This, Args,
+                           ThisAVS.mayOverlap(), E->getExprLoc(),
+                           ThisAVS.isSanitizerChecked());
+    return;
+  }
+
   // Add the rest of the user-supplied arguments.
   const FunctionProtoType *FPT = D->getType()->castAs<FunctionProtoType>();
   EvaluationOrder Order = E->isListInitialization()
