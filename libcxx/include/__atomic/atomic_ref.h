@@ -865,6 +865,12 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
     }
     return __old;
   }
+
+  // [atomics.ref.pointer]: store_add, store_sub, store_max and store_min.
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_add(ptrdiff_t __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_add(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_sub(ptrdiff_t __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_sub(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_max(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_max(__arg, __order); }
+  _LIBCPP_HIDE_FROM_ABI constexpr void store_min(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept requires(!is_const_v<_Tp>) { (void)fetch_min(__arg, __order); }
 #  endif // _LIBCPP_STD_VER >= 26
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 value_type operator++(int) const noexcept
