@@ -50,3 +50,6 @@ void test() {
   // expected-error@*:* {{static assertion failed due to requirement 'is_move_constructible_v<CopyOnly>'}}
   // expected-error@*:* {{call to deleted constructor of 'CopyOnly'}}
 }
+
+// [except.throw] (C++26): the exception object is copy-initialized from an lvalue of const T, which is ill-formed for bad_expected_access<MoveOnly>
+// expected-error@*:* 0-1 {{call to implicitly-deleted copy constructor of 'bad_expected_access<MoveOnly>'}}

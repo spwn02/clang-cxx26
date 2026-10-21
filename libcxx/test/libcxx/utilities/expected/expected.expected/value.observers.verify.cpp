@@ -132,4 +132,7 @@ void test() {
 // instantiation failed is not found by the later calls with the same error type.
 // expected-error@*:* 0-4{{no matching function for call to '__throw_bad_expected_access'}}
 }
+
+// [except.throw] (C++26): the exception object is copy-initialized from an lvalue of const T, which is ill-formed for bad_expected_access<MoveOnly>
+// expected-error@*:* 0-1 {{call to implicitly-deleted copy constructor of 'bad_expected_access<MoveOnly>'}}
 // clang-format on
