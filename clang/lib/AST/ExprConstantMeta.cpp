@@ -1415,6 +1415,21 @@ static bool ensureDeclared(ASTContext &C, QualType QT, SourceLocation SpecLoc) {
   return true;
 }
 
+/// The declaration through which an entity is a member ([meta.reflection.member.queries]:
+/// a friend declaration is not members-of-eligible): the canonical declaration, or
+/// the earliest declaration that is not a friend declaration when the first
+/// declaration of the entity is a friend declaration ('friend class thread;').
+static const Decl *membersOfDeclaration(const Decl *D) {
+  const Decl *Canonical = D->getCanonicalDecl();
+  if (Canonical->getFriendObjectKind() == Decl::FOK_None)
+    return Canonical;
+  const Decl *Earliest = nullptr;
+  for (const Decl *I = D->getMostRecentDecl(); I; I = I->getPreviousDecl())
+    if (I->getFriendObjectKind() == Decl::FOK_None)
+      Earliest = I;
+  return Earliest ? Earliest : Canonical;
+}
+
 static bool isReflectableDecl(MetaActions &Meta, ASTContext &C, Decl *D) {
   assert(D && "null declaration");
 
@@ -1422,7 +1437,7 @@ static bool isReflectableDecl(MetaActions &Meta, ASTContext &C, Decl *D) {
       isa<CXXRecordDecl>(D->getDeclContext()))
     return false;
 
-  if (D != D->getCanonicalDecl()) {
+  if (D != membersOfDeclaration(D)) {
     Decl *First = nullptr;
     for (Decl *I = D->getMostRecentDecl(); I; I = I->getPreviousDecl())
       if (I->getLexicalDeclContext() == D->getLexicalDeclContext())
@@ -1467,7 +1482,18 @@ static bool isReflectableDecl(MetaActions &Meta, ASTContext &C, Decl *D) {
   if (isa<ClassTemplateSpecializationDecl, VarTemplateSpecializationDecl>(D))
     return false;
 
-  return D->getCanonicalDecl() == D;
+  return membersOfDeclaration(D) == D;
+}
+
+/// The first declaration lexically in a block of a namespace whose semantic
+/// context is that block: a declaration written in the block that belongs to
+/// another context (e.g., a specialization declared in 'std' for a template of
+/// an inline namespace) is reached through the semantic context instead.
+static Decl *firstDeclInOwnContext(DeclContext *DC) {
+  Decl *D = DC->decls_empty() ? nullptr : *DC->decls_begin();
+  while (D && D->getDeclContext() != DC)
+    D = D->getNextDeclInContext();
+  return D;
 }
 
 /// Filter non-reflectable members.
@@ -1511,7 +1537,7 @@ static Decl *findIterableMember(MetaActions &Meta, ASTContext &C, Decl *D,
       if (auto *NSDecl = dyn_cast<NamespaceDecl>(DC)) {
         while (!D && NSDecl) {
           NSDecl = NSDecl->getPreviousDecl();
-          D = NSDecl ? *NSDecl->decls_begin() : nullptr;
+          D = NSDecl ? firstDeclInOwnContext(NSDecl) : nullptr;
         }
 
         if (!D) {
@@ -2063,7 +2089,19 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
 
     DeclContext *DC = cast<DeclContext>(NS->getMostRecentDecl());
 
-    Decl *beginMember = findIterableMember(Meta, C, *DC->decls_begin(), true);
+    // The blocks of the namespace are walked backwards by findIterableMember;
+    // start at the first member declared in the most recent block, or hop back.
+    Decl *First = firstDeclInOwnContext(DC);
+    if (!First)
+      if (auto *NSDecl = dyn_cast<NamespaceDecl>(DC))
+        while (!First && NSDecl->getPreviousDecl()) {
+          NSDecl = NSDecl->getPreviousDecl();
+          First  = firstDeclInOwnContext(NSDecl);
+        }
+    if (!First)
+      First = cast<NamespaceDecl>(DC->getPrimaryContext())
+                  ->getLastMultDCSemaDecl();
+    Decl *beginMember = findIterableMember(Meta, C, First, true);
     if (!beginMember)
       return SetAndSucceed(Result, Sentinel);
     return SetAndSucceed(Result,
