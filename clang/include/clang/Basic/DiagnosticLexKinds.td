@@ -425,6 +425,9 @@ def ext_pp_non_basic_char_in_macro : Extension<
   "character not in the basic character set forms a preprocessing token that "
   "is not a valid token; the program is ill-formed ([lex.pptoken])">,
   InGroup<DiagGroup<"non-basic-character-in-macro">>;
+def ext_pp_undef_keyword : Extension<
+  "undefining the macro %0, a keyword, is ill-formed">,
+  InGroup<KeywordAsMacro>;
 def warn_pp_macro_hides_keyword : Extension<
   "keyword is hidden by macro definition">, InGroup<KeywordAsMacro>;
 def warn_pp_macro_is_reserved_id : Warning<

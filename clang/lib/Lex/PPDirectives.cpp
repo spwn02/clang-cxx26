@@ -3389,6 +3389,11 @@ void Preprocessor::HandleUndefDirective() {
     Diag(MacroNameTok, diag::ext_pp_special_name_macro)
         << II << /*undefining*/ 1;
 
+  if (getLangOpts().CPlusPlus26 &&
+      (II->isKeyword(getLangOpts()) || II->getName() == "final" ||
+       II->getName() == "override"))
+    Diag(MacroNameTok, diag::ext_pp_undef_keyword) << II;
+
   // If the macro is not defined, this is a noop undef.
   if (const MacroInfo *MI = MD.getMacroInfo()) {
     if (!MI->isUsed() && MI->isWarnIfUnused())
