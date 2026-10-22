@@ -1963,7 +1963,7 @@ def err_deleted_override : Error<
 def err_non_deleted_override : Error<
   "non-deleted function %0 cannot override a deleted function">;
 def err_consteval_override : Error<
-  "consteval function %0 cannot override a non-consteval function">;
+  "consteval function %0 cannot override a non-consteval function unless its class has consteval-only type">;
 def err_non_consteval_override : Error<
   "non-consteval function %0 cannot override a consteval function">;
 
@@ -10605,6 +10605,10 @@ def err_defaulted_comparison_cannot_deduce_undeduced_auto : Error<
   "has a deduced return type and is not yet defined">;
 def note_defaulted_comparison_cannot_deduce_undeduced_auto : Note<
   "%select{|member|base class}0 %1 declared here">;
+def note_defaulted_comparison_cannot_convert_result : Note<
+  "defaulted %0 is implicitly deleted because the result of the three-way "
+  "comparison of %select{|member |base class }1%2 has type %3, which cannot "
+  "be explicitly converted to the return type %4">;
 def note_defaulted_comparison_cannot_deduce_callee : Note<
   "selected 'operator<=>' for %select{|member|base class}0 %1 declared here">;
 def err_defaulted_comparison_constexpr_mismatch : Error<

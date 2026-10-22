@@ -8765,6 +8765,10 @@ public:
   /// When non-NULL, the C++ 'this' expression is allowed despite the
   /// current context not being a non-static member function. In such cases,
   /// this provides the type used for 'this'.
+  /// Whether a member designated by a splice-expression is being accessed:
+  /// the additional [class.protected] check does not apply to it.
+  bool IsAccessingSplicedMember = false;
+
   QualType CXXThisTypeOverride;
 
   /// Whether the current CXXThisTypeOverride has `const` added to it by a

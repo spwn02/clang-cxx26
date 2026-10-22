@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -std=c++2a -verify %s -fcxx-exceptions
 
 namespace std {
-  struct strong_ordering { // expected-note 6{{candidate}}
+  struct strong_ordering {
     int n;
     constexpr operator int() const { return n; }
     static const strong_ordering less, equal, greater;
@@ -85,7 +85,7 @@ namespace Deletedness {
   // expected-note@#base {{deleted comparison function for base class 'E'}}
   // expected-note@#base {{implied comparison for base class 'F' is ambiguous}}
   template<typename T> struct Cmp : T { // #base
-    std::strong_ordering operator<=>(const Cmp&) const = default; // #cmp expected-note 5{{here}}
+    std::strong_ordering operator<=>(const Cmp&) const = default; // #cmp expected-note 6{{here}}
   };
 
   void use(...);
@@ -103,8 +103,7 @@ namespace Deletedness {
       Cmp<G1>() <=> Cmp<G1>(), // expected-note-re {{in defaulted three-way comparison operator for '{{.*}}Cmp<{{.*}}G1>' first required here}}j
       // expected-error@#cmp {{value of type 'void' is not contextually convertible to 'bool'}}
       Cmp<G2>() <=> Cmp<G2>(), // expected-note-re {{in defaulted three-way comparison operator for '{{.*}}Cmp<{{.*}}G2>' first required here}}j
-      // expected-error@#cmp {{no matching conversion for static_cast from 'void' to 'std::strong_ordering'}}
-      Cmp<H>() <=> Cmp<H>(), // expected-note-re {{in defaulted three-way comparison operator for '{{.*}}Cmp<{{.*}}H>' first required here}}j
+      Cmp<H>() <=> Cmp<H>(), // expected-error {{deleted}}
       0
     );
   }
@@ -118,7 +117,7 @@ namespace Deletedness {
   // expected-note@#arr {{implied comparison for member 'arr' is ambiguous}}
   template<typename T> struct CmpArray {
     T arr[3]; // #arr
-    std::strong_ordering operator<=>(const CmpArray&) const = default; // #cmparray expected-note 5{{here}}
+    std::strong_ordering operator<=>(const CmpArray&) const = default; // #cmparray expected-note 6{{here}}
   };
   void g() {
     use(
@@ -134,8 +133,7 @@ namespace Deletedness {
       CmpArray<G1>() <=> CmpArray<G1>(), // expected-note-re {{in defaulted three-way comparison operator for '{{.*}}CmpArray<{{.*}}G1>' first required here}}j
       // expected-error@#cmparray {{value of type 'void' is not contextually convertible to 'bool'}}
       CmpArray<G2>() <=> CmpArray<G2>(), // expected-note-re {{in defaulted three-way comparison operator for '{{.*}}CmpArray<{{.*}}G2>' first required here}}j
-      // expected-error@#cmparray {{no matching conversion for static_cast from 'void' to 'std::strong_ordering'}}
-      CmpArray<H>() <=> CmpArray<H>(), // expected-note-re {{in defaulted three-way comparison operator for '{{.*}}CmpArray<{{.*}}H>' first required here}}j
+      CmpArray<H>() <=> CmpArray<H>(), // expected-error {{deleted}}
       0
     );
   }
@@ -214,9 +212,9 @@ namespace Synthesis {
 
 namespace Preference {
   struct A {
-    A(const A&) = delete; // expected-note {{deleted}}
+    A(const A&) = delete;
     // "usable" candidate that can't actually be called
-    friend void operator<=>(A, A); // expected-note {{passing}}
+    friend void operator<=>(A, A);
     // Callable candidates for synthesis not considered.
     friend bool operator==(A, A);
     friend bool operator<(A, A);
@@ -225,7 +223,9 @@ namespace Preference {
   struct B {
     B();
     A a;
-    std::strong_ordering operator<=>(const B&) const = default; // expected-error {{call to deleted constructor of 'A'}}
+    std::strong_ordering operator<=>(const B&) const = default; // expected-warning {{implicitly deleted}}
   };
-  bool x = B() < B(); // expected-note {{in defaulted three-way comparison operator for 'B' first required here}}
+  bool x = B() < B(); // expected-error {{implicitly deleted}}
+  // expected-note@226 {{replace 'default' with 'delete'}}
+  // expected-note@226 {{explicitly defaulted function was implicitly deleted here}}
 }

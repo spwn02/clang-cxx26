@@ -272,6 +272,13 @@ Sema::createLambdaClosureType(SourceRange IntroducerRange, TypeSourceInfo *Info,
            DC->isRequiresExprBody() || isa<ExpansionStmtDecl>(DC)))
     DC = DC->getParent();
 
+  // [class.union.anon]: nested types, including closure types, cannot be
+  // declared within an anonymous union.
+  if (const auto *RD = dyn_cast<CXXRecordDecl>(DC);
+      RD && RD->isAnonymousStructOrUnion() && RD->isUnion())
+    Diag(IntroducerRange.getBegin(), diag::err_anonymous_record_with_type)
+        << /*union*/ 1;
+
   bool IsGenericLambda =
       Info && getGenericLambdaTemplateParameterList(getCurLambda(), *this);
   // Start constructing the lambda class.

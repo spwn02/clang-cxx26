@@ -2625,6 +2625,18 @@ bool Sema::CheckImmediateEscalatingFunctionDefinition(
     return true;
   FD->setBodyContainsImmediateEscalatingExpressions(
       FSI->FoundImmediateEscalatingConstruct);
+  // [class.virtual]: an immediate virtual function (here: one that was
+  // escalated) that overrides a non-immediate virtual function needs a class
+  // of consteval-only type.
+  if (FSI->FoundImmediateEscalatingConstruct && !FD->isConsteval())
+    if (const auto *MD = dyn_cast<CXXMethodDecl>(FD);
+        MD && MD->isVirtual() && !MD->getParent()->isConstevalOnly())
+      for (const CXXMethodDecl *V : MD->overridden_methods())
+        if (!V->isImmediateFunction()) {
+          Diag(MD->getLocation(), diag::err_consteval_override) << MD;
+          Diag(V->getLocation(), diag::note_overridden_virtual_function);
+          return false;
+        }
   if (FSI->FoundImmediateEscalatingConstruct) {
     auto it = UndefinedButUsed.find(FD->getCanonicalDecl());
     if (it != UndefinedButUsed.end()) {
@@ -7147,13 +7159,17 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
       return;
     }
 
-    // A consteval function cannot override a non-consteval function and vice
-    // versa.
+    // [class.virtual]: a class with a consteval virtual function that
+    // overrides a non-consteval virtual function has consteval-only type; a
+    // consteval virtual function is not overridden by a non-consteval one.
     if (ReportOverrides(*this,
                         MD->isConsteval() ? diag::err_consteval_override
                                           : diag::err_non_consteval_override,
                         MD, [&](const CXXMethodDecl *V) {
-                          return MD->isConsteval() != V->isConsteval();
+                          if (MD->isConsteval() == V->isConsteval())
+                            return false;
+                          return !MD->isConsteval() ||
+                                 !MD->getParent()->isConstevalOnly();
                         })) {
       if (MD->isDefaulted() && MD->isDeleted())
         // Explain why this defaulted function was deleted.
@@ -8460,6 +8476,46 @@ private:
               getComparisonCategoryForBuiltinCmp(T);
           assert(Cat && "no category for builtin comparison?");
           R.Category = *Cat;
+        }
+      }
+
+      // [class.spaceship]: with a declared return type R, a usable
+      // 'a <=> b' that cannot be explicitly converted to R (static_cast)
+      // makes the synthesized three-way comparison of type R not defined, and
+      // the defaulted operator function is defined as deleted.
+      if (!NeedsDeducing && OO == OO_Spaceship &&
+          FD->getOverloadedOperator() == OO_Spaceship &&
+          !FD->getReturnType()->isDependentType()) {
+        QualType Res;
+        if (FunctionDecl *BestFD = Best->Function) {
+          Res = BestFD->getCallResultType();
+        } else if (std::optional<ComparisonCategoryType> Cat =
+                       getComparisonCategoryForBuiltinCmp(
+                           Best->BuiltinParamTypes[0])) {
+          Sema::SFINAETrap Trap(S);
+          Res = S.CheckComparisonCategoryType(
+              *Cat, Subobj.Loc, Sema::ComparisonCategoryUsage::DefaultedOperator);
+          if (Trap.hasErrorOccurred())
+            Res = QualType();
+        }
+        QualType R = FD->getReturnType();
+        if (!Res.isNull() && !Res->isDependentType() &&
+            !S.Context.hasSameUnqualifiedType(Res, R)) {
+          Sema::SFINAETrap Trap(S);
+          OpaqueValueExpr Opaque(Subobj.Loc, Res.getNonReferenceType(),
+                                 VK_PRValue);
+          ExprResult Cast = S.BuildCXXNamedCast(
+              Subobj.Loc, tok::kw_static_cast,
+              S.Context.getTrivialTypeSourceInfo(R, Subobj.Loc), &Opaque,
+              SourceRange(Subobj.Loc, Subobj.Loc),
+              SourceRange(Subobj.Loc, Subobj.Loc));
+          if (Cast.isInvalid() || Trap.hasErrorOccurred()) {
+            if (Diagnose == ExplainDeleted)
+              S.Diag(Subobj.Loc,
+                     diag::note_defaulted_comparison_cannot_convert_result)
+                  << FD << Subobj.Kind << Subobj.Decl << Res << R;
+            return Result::deleted();
+          }
         }
       }
 
@@ -17142,7 +17198,13 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
         return Diag(FnDecl->getLocation(), diag::err_operator_overload_static)
                << FnDecl;
     }
-  } else {
+  }
+  // [over.oper]: an operator function has at least one function parameter or
+  // implicit object parameter of class or enumeration type; a member function
+  // with an explicit object parameter has no implicit object parameter, so it
+  // is checked like a non-member function.
+  if (!isa<CXXMethodDecl>(FnDecl) ||
+      cast<CXXMethodDecl>(FnDecl)->isExplicitObjectMemberFunction()) {
     bool ClassOrEnumParam = false;
     for (auto *Param : FnDecl->parameters()) {
       QualType ParamType = Param->getType().getNonReferenceType();

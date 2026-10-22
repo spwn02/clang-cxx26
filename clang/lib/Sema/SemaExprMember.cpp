@@ -24,6 +24,7 @@
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaObjC.h"
 #include "clang/Sema/SemaOpenMP.h"
+#include "llvm/Support/SaveAndRestore.h"
 
 using namespace clang;
 using namespace sema;
@@ -1396,10 +1397,14 @@ Sema::BuildMemberReferenceExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
       }
   }
 
-  ExprResult Res = BuildMemberReferenceExpr(
-      Base, Base->getType(), OpLoc, IsArrow, SS, RHS->getTemplateKWLoc(),
-      nullptr, LR, TemplateArgs.size() > 0 ? &TemplateArgs : 0, S, false,
-      nullptr);
+  ExprResult Res;
+  {
+    llvm::SaveAndRestore<bool> SplicedAccess(IsAccessingSplicedMember, true);
+    Res = BuildMemberReferenceExpr(
+        Base, Base->getType(), OpLoc, IsArrow, SS, RHS->getTemplateKWLoc(),
+        nullptr, LR, TemplateArgs.size() > 0 ? &TemplateArgs : 0, S, false,
+        nullptr);
+  }
 
   if (!Res.isInvalid() && isa<MemberExpr>(Res.get()))
     CheckMemberAccessOfNoDeref(cast<MemberExpr>(Res.get()));

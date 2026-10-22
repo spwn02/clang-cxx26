@@ -776,6 +776,11 @@ static AccessResult HasAccess(Sema &S,
       case AR_dependent: OnFailure = AR_dependent; continue;
       }
 
+      // [class.protected], CWG3109: the additional access check does not
+      // apply to a member designated by a splice-expression.
+      if (S.IsAccessingSplicedMember)
+        return AR_accessible;
+
       // C++ [class.protected]p1:
       //   An additional access check beyond those described earlier in
       //   [class.access] is applied when a non-static data member or

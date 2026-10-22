@@ -1303,8 +1303,10 @@ struct S2 {
 struct S3 {
     S3& operator++(this X); // #S3-inc-cand
     S3& operator++(this int); // #S3-inc-cand
+    // expected-error@-1 {{overloaded 'operator++' must have at least one parameter of class or enumeration type}}
     int operator[](this X); // #S3-sub-cand
     int operator[](this int); // #S3-sub-cand2
+    // expected-error@-1 {{overloaded 'operator[]' must have at least one parameter of class or enumeration type}}
     void f(this X); // #S3-f-cand
     void f(this int); // #S3-f-cand2
 };
@@ -1339,7 +1341,6 @@ int main() {
     s3[];
     // expected-error@-1{{no viable overloaded operator[] for type 'S3'}}
     // expected-note@#S3-sub-cand {{candidate function not viable: no known conversion from 'S3' to 'X' for object argument}}
-    // expected-note@#S3-sub-cand2 {{candidate function not viable: no known conversion from 'S3' to 'int' for object argument}}
 
     s3.f();
     // expected-error@-1{{no matching member function for call to 'f'}}
