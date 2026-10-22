@@ -55,7 +55,6 @@ public:
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI friend bool operator==(const stop_token&, const stop_token&) noexcept = default;
 
-  _LIBCPP_HIDE_FROM_ABI friend void swap(stop_token& __lhs, stop_token& __rhs) noexcept { __lhs.swap(__rhs); }
 
 private:
   __intrusive_shared_ptr<__stop_state> __state_;

@@ -185,7 +185,7 @@ shared_future<void>::~shared_future() {
     __state_->__release_shared();
 }
 
-shared_future<void>& shared_future<void>::operator=(const shared_future& __rhs) {
+shared_future<void>& shared_future<void>::operator=(const shared_future& __rhs) _NOEXCEPT {
   if (__rhs.__state_)
     __rhs.__state_->__add_shared();
   if (__state_)

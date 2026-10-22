@@ -110,9 +110,9 @@ step_audit() {
       --clang "$nyx/bin/clang++" --include "$inc" ${extra[@]+"${extra[@]}"} "--flags=$flags"
   done
   # Overload sets: no function, member function or constructor accepts a number of arguments that no declaration
-  # of the draft with that name does.
+  # of the draft with that name does, and no declaration the draft specifies unconditionally noexcept lacks noexcept.
   run "audit overloads" "$out/audit-overloads.log" python3 -I libcxx/utils/overload_audit.py \
-    --draft "$draft_dir" --clang "$nyx/bin/clang++" --include "$inc" --allow libcxx/utils/overload_allowlist.txt
+    --draft "$draft_dir" --clang "$nyx/bin/clang++" --include "$inc" --allow libcxx/utils/overload_allowlist.txt --noexcept
 }
 
 echo "release gate at $head_rev, steps: $steps"

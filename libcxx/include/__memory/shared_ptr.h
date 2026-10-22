@@ -598,7 +598,7 @@ public:
   }
 
   template <class _Yp, __enable_if_t<__compatible_with<_Yp, _Tp>::value, int> = 0>
-  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 shared_ptr<_Tp>& operator=(shared_ptr<_Yp>&& __r) {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 shared_ptr<_Tp>& operator=(shared_ptr<_Yp>&& __r) _NOEXCEPT {
     shared_ptr(std::move(__r)).swap(*this);
     return *this;
   }

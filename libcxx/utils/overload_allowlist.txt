@@ -1,2 +1,5 @@
 # overload audit allow-list: <Class::name or name> <number of arguments>  # reason (clause or opt-in macro)
 basic_ostream 0  # protected; [iostream.cons] initializes only the basic_istream base of basic_iostream, so the basic_ostream base must be default-constructible by the derived class (not callable by programs except from derived classes)
+dangling::dangling noexcept  # --noexcept: defaulted constructor, implicitly noexcept
+id::id noexcept  # --noexcept: locale::id's constructor is not noexcept in the draft (the name is pooled with thread::id)
+mdspan::is_exhaustive noexcept  # --noexcept: the draft's mdspan::is_exhaustive has no noexcept; the synopsis markup hides the class from the parser

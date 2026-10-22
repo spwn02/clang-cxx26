@@ -61,13 +61,29 @@ def split_params(text):
     return [p.strip() for p in parts if p.strip()]
 
 
-def _decl_arities(text):
+_QUALIFIERS = {'const', 'volatile', 'typename', 'struct', 'class', 'unsigned', 'signed'}
+
+
+def _base_type(param, from_draft):
+    """First type name of a parameter, '*' for template parameters (the draft and the library name them differently)."""
+    param = param.split('=')[0]
+    param = re.sub(r'<[^<>]*(<[^<>]*>[^<>]*)*>', '', param)
+    ids = [i for i in re.findall(r'[A-Za-z_][A-Za-z_0-9]*', param) if i not in _QUALIFIERS]
+    if not ids:
+        return '*'
+    t = ids[0]
+    if t.startswith('_') or (from_draft and (re.fullmatch(r'[A-Z][A-Za-z]{0,2}[0-9]?', t) or t in ('Allocator', 'Alloc', 'charT', 'traits', 'Args', 'Types', 'UTypes'))):
+        return '*'
+    return t + ('&&' if '&&' in param else '&' if '&' in param else '')
+
+
+def _decl_arities(text, nx=None):
     """Yields (enclosing class or '', name, set of argument counts) for the declarations of a synopsis."""
     text = re.sub(r'@\\[a-z]+\{([^{}]*)\}@', r'\1', text)
     text = re.sub(r'//[^\n]*', '', text)
     stack = []  # ('class', name) | ('ns', '') | ('other', '')
     last = 0
-    ident = re.compile(r'(~?[A-Za-z_][A-Za-z_0-9]*)\s*\(')
+    ident = re.compile(r'(~?[A-Za-z_][A-Za-z_0-9]*|operator\s*(?:\(\)|\[\]|[^\s(\[A-Za-z_]+))\s*\(' if nx is not None else r'(~?[A-Za-z_][A-Za-z_0-9]*)\s*\(')
     i = 0
     n = len(text)
     while i < n:
@@ -93,7 +109,7 @@ def _decl_arities(text):
         else:
             m = ident.match(text, i) if (c.isalpha() or c in '_~') and (i == 0 or not (text[i - 1].isalnum() or text[i - 1] == '_')) else None
             if m:
-                name = m.group(1).lstrip('~')
+                name = re.sub(r'\s+', '', m.group(1).lstrip('~'))
                 j, depth = m.end(), 1
                 while j < n and depth:
                     if text[j] == '(':
@@ -113,18 +129,23 @@ def _decl_arities(text):
                     else:
                         total = len([p for p in params if p != 'void'])
                         required = len([p for p in params if '=' not in p and p != 'void'])
+                        if nx is not None:
+                            end = min([k for k in (text.find(';', j), text.find('{', j)) if k >= 0] or [n])
+                            tail = text[j:end]
+                            unconditional = bool(re.search(r'\bnoexcept\b(?!\s*\()', tail) or 'noexcept(true)' in tail)
+                            nx.append((cls, name, tuple(_base_type(p, True) for p in params if p != 'void'), unconditional))
                         yield cls, name, set(range(required, total + 1))
                 i = m.end() - 1
         i += 1
 
 
-def draft_arities(draft):
+def draft_arities(draft, nx=None):
     """(class or '', name) -> set of argument counts that some declaration of the draft accepts."""
     out = collections.defaultdict(set)
     for f in glob.glob(os.path.join(draft, 'source', '*.tex')):
         txt = open(f, errors='replace').read()
         for m in re.finditer(r'\\begin\{codeblock\}(.*?)\\end\{codeblock\}', txt, re.S):
-            for cls, name, ar in _decl_arities(m.group(1)):
+            for cls, name, ar in _decl_arities(m.group(1), nx):
                 out[(cls, name)].update(ar)
                 out[('', name)].update(ar)  # a free function, or any class: the coarse fallback
                 if not cls:
@@ -134,14 +155,14 @@ def draft_arities(draft):
             classes = set(re.findall(r'\\indexlibrarymember\{[^}]*\}\{([^}]*)\}', m.group(1)))
             classes |= set(re.findall(r'\\indexlibrary(?:ctor|dtor)\{([^}]*)\}', m.group(1)))
             classes = {c.replace('\\_', '_') for c in classes}
-            for cls, name, ar in _decl_arities(m.group(2)):
+            for cls, name, ar in _decl_arities(m.group(2), nx):
                 for c in classes or {''}:
                     out[(c, name)].update(ar)
                 out[('', name)].update(ar)
     return out
 
 
-def impl_arities(clang, include, std, headers):
+def impl_arities(clang, include, std, headers, with_ops=False):
     """(name, location) -> set of argument counts, parsed from the AST dump of the headers."""
     with tempfile.NamedTemporaryFile('w', suffix='.cpp', delete=False) as tu:
         for h in headers:
@@ -182,11 +203,12 @@ def impl_arities(clang, include, std, headers):
         required = len([p for p in params[:total] if p == 'req'])
         e = out[(cls, name)]
         e['args'].update(range(required, total + 1))
+        e.setdefault('nx', []).append((tuple(_base_type(p, False) for p in split_params(inner) if p != 'void'), 'noexcept' in sig, loc))
         for a in range(required, total + 1):
             e['loc'].setdefault(a, loc)
 
     marker = re.compile(r'^([| ]*)[|`]-')
-    decl = re.compile(r'^([A-Za-z]+) 0x[0-9a-f]+ (?:prev 0x[0-9a-f]+ )?<[^>]*>(?: [^ ]*)? ?(.*)$')
+    decl = re.compile(r'^([A-Za-z]+) 0x[0-9a-f]+ (?:parent 0x[0-9a-f]+ )?(?:prev 0x[0-9a-f]+ )?<[^>]*>(?: [^ ]*)? ?(.*)$')
     for line in proc.stdout:
         m = marker.match(line)
         if not m:
@@ -225,6 +247,8 @@ def impl_arities(clang, include, std, headers):
                 continue
             if kind == 'CXXConversionDecl' or 'implicit' in rest.split():
                 continue
+            if kind in ('CXXMethodDecl', 'CXXConstructorDecl') and not any(sc[1] == 'class' for sc in scope):
+                continue  # an out-of-line member definition: its in-class declaration was audited with its access
             if any(sc[1] == 'class' and sc[3] != 'public' for sc in scope):
                 continue
             t = rest.split(' ')
@@ -237,7 +261,7 @@ def impl_arities(clang, include, std, headers):
             if idx is None or idx == 0:
                 continue
             name = qual[idx - 1]
-            if name.startswith('_') or name.startswith('operator') or not re.fullmatch(r'[A-Za-z][A-Za-z_0-9]*', name):
+            if name.startswith('_') or (name.startswith('operator') and not with_ops) or not (re.fullmatch(r'[A-Za-z][A-Za-z_0-9]*', name) or (with_ops and re.fullmatch(r'operator[^A-Za-z_\s]+', name))):
                 continue
             sig = next((x for x in re.findall(r"'([^']*)'", body)), '')
             cls = next((sc[2] for sc in reversed(scope) if sc[1] == 'class'), '')
@@ -265,6 +289,7 @@ def main():
     ap.add_argument('--std', default='c++26')
     ap.add_argument('--allow')
     ap.add_argument('--headers')
+    ap.add_argument('--noexcept', action='store_true', help='also report declarations the draft specifies unconditionally noexcept that the library does not')
     ap.add_argument('--missing', action='store_true', help='also report draft overloads the library lacks')
     args = ap.parse_args()
 
@@ -282,11 +307,14 @@ def main():
             if l:
                 allow.add(tuple(l.split()))
 
-    ref = draft_arities(args.draft)
-    impl = impl_arities(args.clang, args.include, args.std, headers)
+    nx = [] if args.noexcept else None
+    ref = draft_arities(args.draft, nx)
+    impl = impl_arities(args.clang, args.include, args.std, headers, args.noexcept)
     bad = 0
     for key in sorted(impl):
         cls, name = key
+        if name.startswith('operator'):
+            continue  # operators take part in the --noexcept check only
         want = ref.get((cls, name)) or ref.get(('', name))
         if want is None or -1 in want:
             continue  # unknown names are vocabulary_audit's business; variadic draft entries accept anything
@@ -294,6 +322,28 @@ def main():
             if a not in want and (name, str(a)) not in allow and (cls + '::' + name, str(a)) not in allow:
                 print('%s::%s %d  # %s' % (cls, name, a, impl[key]['loc'].get(a, '')))
                 bad += 1
+    if args.noexcept:
+        # A library declaration without noexcept that matches draft declarations which are all unconditionally noexcept
+        # (same class, name and parameter type names; template parameters match anything).
+        by_name = collections.defaultdict(list)
+        for c, nm, types, unconditional in nx:
+            by_name[(c, nm)].append((types, unconditional))
+        def match(a, b):
+            return len(a) == len(b) and all(x == y or x == '*' or y == '*' for x, y in zip(a, b))
+        for (cls, name), have in sorted(impl.items()):
+            if cls:
+                cands_all = by_name.get((cls, name)) or by_name.get(('', name)) or []
+            else:  # a friend defined in a class is a namespace-scope function in the AST
+                cands_all = [e for (c, nm), es in by_name.items() if nm == name for e in es]
+            if cls.startswith('0x'):
+                continue  # an implicit instantiation
+            for types, has_nx, loc in have.get('nx', []):
+                if has_nx:
+                    continue
+                cands = [u for t, u in cands_all if match(t, types)]
+                if cands and all(cands) and (cls + '::' + name, 'noexcept') not in allow and (name, 'noexcept') not in allow:
+                    print('NOEXCEPT %s::%s(%s)  # %s' % (cls, name, ', '.join(types), loc))
+                    bad += 1
     if args.missing:
         # The other direction: a member function the library declares with fewer overloads than the draft's class
         # synopsis (only classes and names both sides declare are compared).
