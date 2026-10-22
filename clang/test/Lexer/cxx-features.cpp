@@ -171,8 +171,7 @@
 
 // init_captures checked below
 
-#if check(modules, 0, 0, 0, 0, 1, 1, 1)
-// FIXME: 201907 in C++20
+#if check(modules, 0, 0, 0, 0, 201907, 201907, 201907)
 #error "wrong value for __cpp_modules"
 #endif
 
@@ -216,8 +215,7 @@
 #error "wrong value for __cpp_if_constexpr"
 #endif
 
-#if check(deduction_guides, 0, 0, 0, 201703, 201703, 201703, 201703)
-// FIXME: 201907 in C++20
+#if check(deduction_guides, 0, 0, 0, 201703, 201907, 202207, 202207)
 #error "wrong value for __cpp_deduction_guides"
 #endif
 
@@ -260,8 +258,7 @@
 #error "wrong value for __cpp_structured_bindings"
 #endif
 
-#if check(nontype_template_args, 0, 0, 0, 201411, 201411, 201411, 201411)
-// FIXME: 201911 in C++20
+#if check(nontype_template_args, 0, 0, 0, 201411, 201911, 201911, 201911)
 #error "wrong value for __cpp_nontype_template_args"
 #endif
 

@@ -686,7 +686,10 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_noexcept_function_type", "201510L");
     Builder.defineMacro("__cpp_capture_star_this", "201603L");
     Builder.defineMacro("__cpp_if_constexpr", "201606L");
-    Builder.defineMacro("__cpp_deduction_guides", "201703L"); // (not latest)
+    // [cpp.predefined]: 201703L (C++17), 201907L (C++20, P1814R0, P1816R0, P2082R1), 202207L (C++23, P2582R1).
+    Builder.defineMacro("__cpp_deduction_guides", LangOpts.CPlusPlus23   ? "202207L"
+                                                  : LangOpts.CPlusPlus20 ? "201907L"
+                                                                         : "201703L");
     Builder.defineMacro("__cpp_template_auto", "201606L"); // (old name)
     Builder.defineMacro("__cpp_namespace_attributes", "201411L");
     Builder.defineMacro("__cpp_enumerator_attributes", "201411L");
@@ -694,8 +697,8 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_variadic_using", "201611L");
     Builder.defineMacro("__cpp_aggregate_bases", "201603L");
     Builder.defineMacro("__cpp_structured_bindings", "202411L");
-    Builder.defineMacro("__cpp_nontype_template_args",
-                        "201411L"); // (not latest)
+    // 201911L: structural types as non-type template parameters (P1907R1).
+    Builder.defineMacro("__cpp_nontype_template_args", LangOpts.CPlusPlus20 ? "201911L" : "201411L");
     Builder.defineMacro("__cpp_fold_expressions", "201603L");
     Builder.defineMacro("__cpp_guaranteed_copy_elision", "201606L");
     Builder.defineMacro("__cpp_nontype_template_parameter_auto", "201606L");
@@ -718,10 +721,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
                         LangOpts.CPlusPlus26 ? "202606L" : "201902L");
     Builder.defineMacro("__cpp_designated_initializers", "201707L");
     Builder.defineMacro("__cpp_impl_three_way_comparison", "201907L");
-    // Intentionally to set __cpp_modules to 1.
-    // See https://github.com/llvm/llvm-project/issues/71364 for details.
-    // Builder.defineMacro("__cpp_modules", "201907L");
-    Builder.defineMacro("__cpp_modules", "1");
+    Builder.defineMacro("__cpp_modules", "201907L");
     Builder.defineMacro("__cpp_using_enum", "201907L");
   }
   // C++23 features.

@@ -10,10 +10,14 @@
 
 // <initializer_list>
 
-// template<class E> constexpr const E* begin(initializer_list<E> il) noexcept; // constexpr since C++14
-// template<class E> constexpr const E* end(initializer_list<E> il) noexcept;   // constexpr since C++14
+// template<class E> constexpr const E* begin(initializer_list<E> il) noexcept; // constexpr since C++14; removed in C++26
+// template<class E> constexpr const E* end(initializer_list<E> il) noexcept;   // constexpr since C++14; removed in C++26
+//
+// In C++26 (P3016R6) begin and end of an initializer_list are the generic std::begin(const C&) and
+// std::end(const C&) of <iterator>, which call the members.
 
 #include <initializer_list>
+#include <iterator>
 #include <cassert>
 #include <cstddef>
 
