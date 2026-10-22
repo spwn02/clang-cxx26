@@ -50,7 +50,16 @@
 #include <tuple>
 #include <cassert>
 #include <cstdlib>
+#include "test_macros.h"
 #include "test_std_memory_resource.h"
+
+// Before C++20 construct takes the tuples by value (one extra copy); the C++20 overload of [mem.poly.allocator.mem]
+// (P0591R4) forwards them to uses-allocator construction, which copies each element once.
+#if TEST_STD_VER >= 20
+constexpr int ExpectedCopies = 1;
+#else
+constexpr int ExpectedCopies = 2;
+#endif
 
 template <class T>
 struct TestHarness {
@@ -114,8 +123,8 @@ int main(int, char**) {
     TestHarness<P> h;
     h.construct(std::piecewise_construct, t1, t2);
     P const& p = *h.ptr;
-    assert(p.first.count == 2);
-    assert(p.second.count == 2);
+    assert(p.first.count == ExpectedCopies);
+    assert(p.second.count == ExpectedCopies);
     assert(p.second.alloc == h.M);
   }
   {
@@ -129,9 +138,9 @@ int main(int, char**) {
     TestHarness<P> h;
     h.construct(std::piecewise_construct, std::move(t1), std::move(t2));
     P const& p = *h.ptr;
-    assert(p.first.count == 2);
+    assert(p.first.count == ExpectedCopies);
     assert(p.first.alloc == h.M);
-    assert(p.second.count == 2);
+    assert(p.second.count == ExpectedCopies);
     assert(p.second.alloc == h.M);
   }
   {
@@ -145,9 +154,9 @@ int main(int, char**) {
     TestHarness<P> h;
     h.construct(std::piecewise_construct, std::move(t1), std::move(t2));
     P const& p = *h.ptr;
-    assert(p.first.count == 2);
+    assert(p.first.count == ExpectedCopies);
     assert(p.first.alloc == h.M);
-    assert(p.second.count == 2);
+    assert(p.second.count == ExpectedCopies);
     assert(p.second.alloc == h.M);
   }
   {
@@ -161,9 +170,9 @@ int main(int, char**) {
     TestHarness<P> h;
     h.construct(std::piecewise_construct, t1, t2);
     P const& p = *h.ptr;
-    assert(p.first.count == 2);
+    assert(p.first.count == ExpectedCopies);
     assert(p.first.alloc == h.M);
-    assert(p.second.count == 2);
+    assert(p.second.count == ExpectedCopies);
   }
 
   return 0;
