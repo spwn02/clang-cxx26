@@ -13,4 +13,3 @@
 
 // RUN: llvm-readobj --coff-directives "%{lib-dir}/libc++.a" | not grep -i "export:" > /dev/null
 
-// RUN: llvm-readobj --coff-directives "%{lib-dir}/libc++experimental.a" | not grep -i "export:" > /dev/null

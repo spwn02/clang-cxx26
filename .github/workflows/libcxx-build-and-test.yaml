@@ -134,7 +134,6 @@ jobs:
           'generic-merged',
           'generic-modules-cxx17-lsv',
           'generic-no-exceptions',
-          'generic-no-experimental',
           'generic-no-filesystem',
           'generic-no-localization',
           'generic-no-terminal',

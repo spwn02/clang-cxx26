@@ -65,7 +65,6 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const sys_days& __dp) {
 }
 
 #    if _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM
-#      if _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 template <class _CharT, class _Traits, class _Duration>
 _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
@@ -85,7 +84,6 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const gps_time<_Duration>& __tp
   return __os << std::format(__os.getloc(), _LIBCPP_STATICALLY_WIDEN(_CharT, "{:L%F %T}"), __tp);
 }
 
-#      endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
 #    endif   // _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM
 
 template <class _CharT, class _Traits, class _Duration>
@@ -296,7 +294,6 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const hh_mm_ss<_Duration> __hms
   return __os << std::format(__os.getloc(), _LIBCPP_STATICALLY_WIDEN(_CharT, "{:L%T}"), __hms);
 }
 
-#    if _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 template <class _CharT, class _Traits>
 _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
@@ -341,7 +338,6 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const zoned_time<_Duration, _Ti
   return __os << std::format(__os.getloc(), _LIBCPP_STATICALLY_WIDEN(_CharT, "{:L%F %T %Z}"), __tp);
 }
 #      endif
-#    endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 } // namespace chrono
 

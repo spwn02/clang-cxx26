@@ -148,6 +148,25 @@ if (LIBCXX_ENABLE_NEW_DELETE_DEFINITIONS)
     )
 endif()
 
+if (LIBCXX_PSTL_BACKEND STREQUAL "libdispatch")
+  list(APPEND LIBCXX_SOURCES
+    pstl/libdispatch.cpp
+    )
+endif()
+
+if (LIBCXX_ENABLE_LOCALIZATION AND LIBCXX_ENABLE_FILESYSTEM AND LIBCXX_ENABLE_TIME_ZONE_DATABASE)
+  list(APPEND LIBCXX_SOURCES
+    include/tzdb/time_zone_private.h
+    include/tzdb/types_private.h
+    include/tzdb/tzdb_list_private.h
+    include/tzdb/tzdb_private.h
+    chrono_exception.cpp
+    time_zone.cpp
+    tzdb.cpp
+    tzdb_list.cpp
+    )
+endif()
+
 if (APPLE AND LLVM_USE_SANITIZER)
   if (("${LLVM_USE_SANITIZER}" STREQUAL "Address") OR
       ("${LLVM_USE_SANITIZER}" STREQUAL "Address;Undefined") OR
@@ -316,56 +335,8 @@ if (LIBCXX_STATICALLY_LINK_ABI_IN_STATIC_LIBRARY)
   target_link_libraries(cxx_static PRIVATE libcxx-abi-static-objects)
 endif()
 
-# Build the experimental static library
-set(LIBCXX_EXPERIMENTAL_SOURCES
-  experimental/keep.cpp
-  )
-
-if (LIBCXX_PSTL_BACKEND STREQUAL "libdispatch")
-  list(APPEND LIBCXX_EXPERIMENTAL_SOURCES
-    pstl/libdispatch.cpp
-    )
-endif()
-
-if (LIBCXX_ENABLE_LOCALIZATION AND LIBCXX_ENABLE_FILESYSTEM AND LIBCXX_ENABLE_TIME_ZONE_DATABASE)
-  list(APPEND LIBCXX_EXPERIMENTAL_SOURCES
-    experimental/include/tzdb/time_zone_private.h
-    experimental/include/tzdb/types_private.h
-    experimental/include/tzdb/tzdb_list_private.h
-    experimental/include/tzdb/tzdb_private.h
-    # TODO TZDB The exception could be moved in chrono once the TZDB library
-    # is no longer experimental.
-    experimental/chrono_exception.cpp
-    experimental/time_zone.cpp
-    experimental/tzdb.cpp
-    experimental/tzdb_list.cpp
-    )
-endif()
-
-add_library(cxx_experimental STATIC ${LIBCXX_EXPERIMENTAL_SOURCES})
-target_link_libraries(cxx_experimental PUBLIC cxx-headers)
-if (LIBCXX_ENABLE_SHARED)
-  target_link_libraries(cxx_experimental PRIVATE cxx_shared)
-else()
-  target_link_libraries(cxx_experimental PRIVATE cxx_static)
-endif()
-
-if (LIBCXX_HERMETIC_STATIC_LIBRARY)
-  # _LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS can be defined in __config_site
-  # too. Define it in the same way here, to avoid redefinition conflicts.
-  target_compile_definitions(cxx_experimental PRIVATE _LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS=)
-endif()
-
-set_target_properties(cxx_experimental
-  PROPERTIES
-    COMPILE_FLAGS "${LIBCXX_COMPILE_FLAGS}"
-    OUTPUT_NAME   "c++experimental"
-)
-cxx_add_common_build_flags(cxx_experimental)
-target_compile_options(cxx_experimental PUBLIC -D_LIBCPP_ENABLE_EXPERIMENTAL)
-
-# Add a meta-target for both libraries and the experimental library.
-add_custom_target(cxx DEPENDS cxx_experimental)
+# Add a meta-target for both libraries.
+add_custom_target(cxx)
 if (LIBCXX_ENABLE_SHARED)
   add_dependencies(cxx cxx_shared)
 endif()
@@ -384,13 +355,6 @@ if (LIBCXX_INSTALL_STATIC_LIBRARY)
   install(TARGETS cxx_static
     ARCHIVE DESTINATION ${LIBCXX_INSTALL_LIBRARY_DIR} COMPONENT cxx
     LIBRARY DESTINATION ${LIBCXX_INSTALL_LIBRARY_DIR} COMPONENT cxx
-    RUNTIME DESTINATION ${LIBCXX_INSTALL_RUNTIME_DIR} COMPONENT cxx)
-endif()
-
-if (LIBCXX_INSTALL_LIBRARY)
-  install(TARGETS cxx_experimental
-    LIBRARY DESTINATION ${LIBCXX_INSTALL_LIBRARY_DIR} COMPONENT cxx
-    ARCHIVE DESTINATION ${LIBCXX_INSTALL_LIBRARY_DIR} COMPONENT cxx
     RUNTIME DESTINATION ${LIBCXX_INSTALL_RUNTIME_DIR} COMPONENT cxx)
 endif()
 

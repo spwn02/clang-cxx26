@@ -8,7 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14
 
-// UNSUPPORTED: libcpp-has-no-incomplete-pstl
 
 // Make sure that the predicate is called exactly N times in is_partitioned
 

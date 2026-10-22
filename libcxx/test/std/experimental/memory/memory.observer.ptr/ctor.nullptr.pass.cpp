@@ -8,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14
-// REQUIRES: c++experimental
 
 // <experimental/memory>
 

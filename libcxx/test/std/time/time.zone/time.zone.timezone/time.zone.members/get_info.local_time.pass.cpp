@@ -10,7 +10,6 @@
 // UNSUPPORTED: no-filesystem, no-localization, no-tzdb
 // REQUIRES: long_tests
 
-// XFAIL: libcpp-has-no-experimental-tzdb
 // XFAIL: availability-tzdb-missing
 
 // TODO TZDB Investigate why this fails.

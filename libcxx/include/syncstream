@@ -149,7 +149,7 @@ _LIBCPP_PUSH_MACROS
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-#    if _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM
+#    if _LIBCPP_STD_VER >= 20
 
 // [syncstream.syncbuf.overview]/1
 //   Class template basic_syncbuf stores character data written to it,
@@ -516,7 +516,7 @@ using std::osyncstream;
 using std::wosyncstream;
 #      endif
 
-#    endif // _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM
+#    endif // _LIBCPP_STD_VER >= 20
 
 _LIBCPP_END_NAMESPACE_STD
 

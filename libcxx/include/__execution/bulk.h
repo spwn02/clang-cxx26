@@ -83,7 +83,7 @@ struct bulk_unchunked_t;
 // [exec.bulk]p3: bulk-algo(sndr, policy, shape, f) stores {policy, shape, f} together as one
 // `data` bundle (matching [exec.bulk]p3's own product-type<Policy-or-const-ref, Shape, Func>).
 // Policy is stored *by value* only if it models copy_constructible; every concrete policy this
-// fork ships (execution::seq/par/par_unseq/unseq, all under _LIBCPP_HAS_EXPERIMENTAL_PSTL in
+// fork ships (execution::seq/par/par_unseq/unseq, all in
 // <execution>) explicitly deletes its copy constructor, so in practice this always takes the
 // const Policy& branch -- storing a reference to the caller's (typically `inline constexpr`,
 // static-duration) policy object, matching the standard's own rule literally rather than

@@ -20,7 +20,6 @@
 #include <__configuration/abi.h>
 #include <__configuration/availability.h>
 #include <__configuration/compiler.h>
-#include <__configuration/experimental.h>
 #include <__configuration/hardening.h>
 #include <__configuration/language.h>
 #include <__configuration/platform.h>

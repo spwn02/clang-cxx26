@@ -1707,16 +1707,6 @@ def fstdcpp_float_macros : Flag<["-"], "fstdcpp-float-macros">,
   HelpText<"Predefine __STDCPP_FLOAT<N>_T__ and __STDCPP_BFLOAT16_T__ ([cpp.predefined]); the driver passes it for libc++">,
   MarshallingInfoFlag<LangOpts<"StdCppFloatMacros">>;
 
-defm experimental_library : BoolFOption<"experimental-library",
-  LangOpts<"ExperimentalLibrary">, DefaultFalse,
-  PosFlag<SetTrue, [], [ClangOption, CC1Option, CLOption],
-          "Control whether unstable and experimental library features are enabled. "
-          "This option enables various library features that are either experimental (also known as TSes), or have been "
-          "but are not stable yet in the selected Standard Library implementation. It is not recommended to use this option "
-          "in production code, since neither ABI nor API stability are guaranteed. This is intended to provide a preview "
-          "of features that will ship in the future for experimentation purposes">,
-  NegFlag<SetFalse>>;
-
 def fembed_offload_object_EQ : Joined<["-"], "fembed-offload-object=">,
   Group<f_Group>, Flags<[NoXarchOption]>,
   Visibility<[ClangOption, CC1Option, FC1Option]>,

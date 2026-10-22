@@ -162,17 +162,11 @@
 #    error "__cpp_lib_freestanding_algorithm should not be defined before c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should be defined in c++17"
-#    endif
-#    if __cpp_lib_parallel_algorithm != 201603L
-#      error "__cpp_lib_parallel_algorithm should have the value 201603L in c++17"
-#    endif
-#  else
-#    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_parallel_algorithm
+#    error "__cpp_lib_parallel_algorithm should be defined in c++17"
+#  endif
+#  if __cpp_lib_parallel_algorithm != 201603L
+#    error "__cpp_lib_parallel_algorithm should have the value 201603L in c++17"
 #  endif
 
 #  ifdef __cpp_lib_ranges
@@ -241,17 +235,11 @@
 #    error "__cpp_lib_freestanding_algorithm should not be defined before c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should be defined in c++20"
-#    endif
-#    if __cpp_lib_parallel_algorithm != 201603L
-#      error "__cpp_lib_parallel_algorithm should have the value 201603L in c++20"
-#    endif
-#  else
-#    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_parallel_algorithm
+#    error "__cpp_lib_parallel_algorithm should be defined in c++20"
+#  endif
+#  if __cpp_lib_parallel_algorithm != 201603L
+#    error "__cpp_lib_parallel_algorithm should have the value 201603L in c++20"
 #  endif
 
 #  ifndef __cpp_lib_ranges
@@ -329,17 +317,11 @@
 #    error "__cpp_lib_freestanding_algorithm should not be defined before c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should be defined in c++23"
-#    endif
-#    if __cpp_lib_parallel_algorithm != 201603L
-#      error "__cpp_lib_parallel_algorithm should have the value 201603L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_parallel_algorithm
+#    error "__cpp_lib_parallel_algorithm should be defined in c++23"
+#  endif
+#  if __cpp_lib_parallel_algorithm != 201603L
+#    error "__cpp_lib_parallel_algorithm should have the value 201603L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_ranges
@@ -435,17 +417,11 @@
 #    error "__cpp_lib_freestanding_algorithm should have the value 202502L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should be defined in c++26"
-#    endif
-#    if __cpp_lib_parallel_algorithm != 202506L
-#      error "__cpp_lib_parallel_algorithm should have the value 202506L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_parallel_algorithm
+#    error "__cpp_lib_parallel_algorithm should be defined in c++26"
+#  endif
+#  if __cpp_lib_parallel_algorithm != 202506L
+#    error "__cpp_lib_parallel_algorithm should have the value 202506L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_ranges

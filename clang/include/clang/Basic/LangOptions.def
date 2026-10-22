@@ -116,7 +116,6 @@ LANGOPT(Coroutines        , 1, 0, NotCompatible, "C++20 coroutines")
 LANGOPT(CoroAlignedAllocation, 1, 0, NotCompatible, "prefer Aligned Allocation according to P2014 Option 2")
 LANGOPT(Contracts         , 1, 1, NotCompatible, "C++2c contracts")
 LANGOPT(DllExportInlines  , 1, 1, NotCompatible, "dllexported classes dllexport inline methods")
-LANGOPT(ExperimentalLibrary, 1, 0, NotCompatible, "enable unstable and experimental library features")
 LANGOPT(StdCppFloatMacros, 1, 0, Benign, "predefine the standard __STDCPP_FLOAT<N>_T__ macros of [cpp.predefined] (set for libc++)")
 
 LANGOPT(PointerAuthIntrinsics, 1, 0, NotCompatible, "pointer authentication intrinsics")

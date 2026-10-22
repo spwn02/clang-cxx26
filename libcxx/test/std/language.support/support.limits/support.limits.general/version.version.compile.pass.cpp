@@ -2960,17 +2960,11 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++17"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_execution
-#      error "__cpp_lib_execution should be defined in c++17"
-#    endif
-#    if __cpp_lib_execution != 201603L
-#      error "__cpp_lib_execution should have the value 201603L in c++17"
-#    endif
-#  else
-#    ifdef __cpp_lib_execution
-#      error "__cpp_lib_execution should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_execution
+#    error "__cpp_lib_execution should be defined in c++17"
+#  endif
+#  if __cpp_lib_execution != 201603L
+#    error "__cpp_lib_execution should have the value 201603L in c++17"
 #  endif
 
 #  ifdef __cpp_lib_expected
@@ -3537,17 +3531,11 @@
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should be defined in c++17"
-#    endif
-#    if __cpp_lib_parallel_algorithm != 201603L
-#      error "__cpp_lib_parallel_algorithm should have the value 201603L in c++17"
-#    endif
-#  else
-#    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_parallel_algorithm
+#    error "__cpp_lib_parallel_algorithm should be defined in c++17"
+#  endif
+#  if __cpp_lib_parallel_algorithm != 201603L
+#    error "__cpp_lib_parallel_algorithm should have the value 201603L in c++17"
 #  endif
 
 #  ifdef __cpp_lib_parallel_scheduler
@@ -4559,17 +4547,11 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++20"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_execution
-#      error "__cpp_lib_execution should be defined in c++20"
-#    endif
-#    if __cpp_lib_execution != 201902L
-#      error "__cpp_lib_execution should have the value 201902L in c++20"
-#    endif
-#  else
-#    ifdef __cpp_lib_execution
-#      error "__cpp_lib_execution should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_execution
+#    error "__cpp_lib_execution should be defined in c++20"
+#  endif
+#  if __cpp_lib_execution != 201902L
+#    error "__cpp_lib_execution should have the value 201902L in c++20"
 #  endif
 
 #  ifdef __cpp_lib_expected
@@ -5199,17 +5181,11 @@
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should be defined in c++20"
-#    endif
-#    if __cpp_lib_parallel_algorithm != 201603L
-#      error "__cpp_lib_parallel_algorithm should have the value 201603L in c++20"
-#    endif
-#  else
-#    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_parallel_algorithm
+#    error "__cpp_lib_parallel_algorithm should be defined in c++20"
+#  endif
+#  if __cpp_lib_parallel_algorithm != 201603L
+#    error "__cpp_lib_parallel_algorithm should have the value 201603L in c++20"
 #  endif
 
 #  ifdef __cpp_lib_parallel_scheduler
@@ -5610,17 +5586,11 @@
 #    error "__cpp_lib_submdspan should not be defined before c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM
-#    ifndef __cpp_lib_syncbuf
-#      error "__cpp_lib_syncbuf should be defined in c++20"
-#    endif
-#    if __cpp_lib_syncbuf != 201803L
-#      error "__cpp_lib_syncbuf should have the value 201803L in c++20"
-#    endif
-#  else
-#    ifdef __cpp_lib_syncbuf
-#      error "__cpp_lib_syncbuf should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM' is not met!"
-#    endif
+#  ifndef __cpp_lib_syncbuf
+#    error "__cpp_lib_syncbuf should be defined in c++20"
+#  endif
+#  if __cpp_lib_syncbuf != 201803L
+#    error "__cpp_lib_syncbuf should have the value 201803L in c++20"
 #  endif
 
 #  ifdef __cpp_lib_task
@@ -6326,17 +6296,11 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_execution
-#      error "__cpp_lib_execution should be defined in c++23"
-#    endif
-#    if __cpp_lib_execution != 201902L
-#      error "__cpp_lib_execution should have the value 201902L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_execution
-#      error "__cpp_lib_execution should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_execution
+#    error "__cpp_lib_execution should be defined in c++23"
+#  endif
+#  if __cpp_lib_execution != 201902L
+#    error "__cpp_lib_execution should have the value 201902L in c++23"
 #  endif
 
 #  ifndef __cpp_lib_expected
@@ -7023,17 +6987,11 @@
 #    error "__cpp_lib_out_ptr should have the value 202106L in c++23"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should be defined in c++23"
-#    endif
-#    if __cpp_lib_parallel_algorithm != 201603L
-#      error "__cpp_lib_parallel_algorithm should have the value 201603L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_parallel_algorithm
+#    error "__cpp_lib_parallel_algorithm should be defined in c++23"
+#  endif
+#  if __cpp_lib_parallel_algorithm != 201603L
+#    error "__cpp_lib_parallel_algorithm should have the value 201603L in c++23"
 #  endif
 
 #  ifdef __cpp_lib_parallel_scheduler
@@ -7521,17 +7479,11 @@
 #    error "__cpp_lib_submdspan should not be defined before c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM
-#    ifndef __cpp_lib_syncbuf
-#      error "__cpp_lib_syncbuf should be defined in c++23"
-#    endif
-#    if __cpp_lib_syncbuf != 201803L
-#      error "__cpp_lib_syncbuf should have the value 201803L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_syncbuf
-#      error "__cpp_lib_syncbuf should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM' is not met!"
-#    endif
+#  ifndef __cpp_lib_syncbuf
+#    error "__cpp_lib_syncbuf should be defined in c++23"
+#  endif
+#  if __cpp_lib_syncbuf != 201803L
+#    error "__cpp_lib_syncbuf should have the value 201803L in c++23"
 #  endif
 
 #  ifdef __cpp_lib_task
@@ -8360,17 +8312,11 @@
 #    error "__cpp_lib_exchange_function should have the value 201304L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_execution
-#      error "__cpp_lib_execution should be defined in c++26"
-#    endif
-#    if __cpp_lib_execution != 201902L
-#      error "__cpp_lib_execution should have the value 201902L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_execution
-#      error "__cpp_lib_execution should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_execution
+#    error "__cpp_lib_execution should be defined in c++26"
+#  endif
+#  if __cpp_lib_execution != 201902L
+#    error "__cpp_lib_execution should have the value 201902L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_expected
@@ -9358,17 +9304,11 @@
 #    error "__cpp_lib_optional should have the value 202506L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_OPTIONAL_ITERATOR
-#    ifndef __cpp_lib_optional_range_support
-#      error "__cpp_lib_optional_range_support should be defined in c++26"
-#    endif
-#    if __cpp_lib_optional_range_support != 202406L
-#      error "__cpp_lib_optional_range_support should have the value 202406L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_optional_range_support
-#      error "__cpp_lib_optional_range_support should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_OPTIONAL_ITERATOR' is not met!"
-#    endif
+#  ifndef __cpp_lib_optional_range_support
+#    error "__cpp_lib_optional_range_support should be defined in c++26"
+#  endif
+#  if __cpp_lib_optional_range_support != 202406L
+#    error "__cpp_lib_optional_range_support should have the value 202406L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_out_ptr
@@ -9378,17 +9318,11 @@
 #    error "__cpp_lib_out_ptr should have the value 202311L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL
-#    ifndef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should be defined in c++26"
-#    endif
-#    if __cpp_lib_parallel_algorithm != 202506L
-#      error "__cpp_lib_parallel_algorithm should have the value 202506L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_parallel_algorithm
-#      error "__cpp_lib_parallel_algorithm should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_PSTL' is not met!"
-#    endif
+#  ifndef __cpp_lib_parallel_algorithm
+#    error "__cpp_lib_parallel_algorithm should be defined in c++26"
+#  endif
+#  if __cpp_lib_parallel_algorithm != 202506L
+#    error "__cpp_lib_parallel_algorithm should have the value 202506L in c++26"
 #  endif
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
@@ -9969,17 +9903,11 @@
 #    error "__cpp_lib_submdspan should have the value 202603L in c++26"
 #  endif
 
-#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM
-#    ifndef __cpp_lib_syncbuf
-#      error "__cpp_lib_syncbuf should be defined in c++26"
-#    endif
-#    if __cpp_lib_syncbuf != 201803L
-#      error "__cpp_lib_syncbuf should have the value 201803L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_syncbuf
-#      error "__cpp_lib_syncbuf should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM' is not met!"
-#    endif
+#  ifndef __cpp_lib_syncbuf
+#    error "__cpp_lib_syncbuf should be defined in c++26"
+#  endif
+#  if __cpp_lib_syncbuf != 201803L
+#    error "__cpp_lib_syncbuf should have the value 201803L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_task

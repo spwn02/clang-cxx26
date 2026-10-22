@@ -14,7 +14,6 @@
 
 #include <version>
 // Enable the contents of the header only when libc++ was built with experimental features enabled.
-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 #  include <__chrono/time_zone.h>
 #  include <__chrono/tzdb.h>
@@ -103,6 +102,5 @@ _LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI const tzdb& reload_tzdb();
 
 _LIBCPP_END_NAMESPACE_STD
 
-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 #endif // _LIBCPP___CHRONO_TZDB_LIST_H

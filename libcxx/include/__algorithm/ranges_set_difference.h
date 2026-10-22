@@ -103,7 +103,7 @@ struct __set_difference {
     return {std::move(__ret.first), std::move(__ret.second)};
   }
 
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _InIter1,
             sized_sentinel_for<_InIter1> _Sent1,

@@ -18,15 +18,12 @@ export namespace std {
   using std::u8streampos;
 #endif
 
-#if _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM
   using std::basic_osyncstream;
   using std::basic_syncbuf;
-#endif
 
   using std::istreambuf_iterator;
   using std::ostreambuf_iterator;
 
-#if _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM
   using std::osyncstream;
   using std::syncbuf;
 
@@ -34,7 +31,6 @@ export namespace std {
   using std::wosyncstream;
   using std::wsyncbuf;
 #  endif
-#endif // _LIBCPP_HAS_EXPERIMENTAL_SYNCSTREAM
 
   using std::fpos;
 } // namespace std

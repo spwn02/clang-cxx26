@@ -8,7 +8,6 @@
 
 // REQUIRES: std-at-least-c++17
 
-// UNSUPPORTED: libcpp-has-no-incomplete-pstl
 
 // Check that PSTL algorithms are marked [[nodiscard]]
 

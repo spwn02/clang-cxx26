@@ -51,40 +51,18 @@ This flag is not required on systems where libc++ is the default standard librar
 such as macOS and FreeBSD.
 
 
-Enabling experimental C++ Library features
-==========================================
+Technical Specifications
+========================
 
-Libc++ provides implementations of some experimental features. Experimental features
-are either Technical Specifications (TSes) or official features that were voted to
-the C++ standard but whose implementation is not complete or stable yet in libc++.
-Those are disabled by default because they are neither API nor ABI stable. However,
-users can enable the ``-fexperimental-library`` compiler flag to turn those features on.
+Libc++ provides implementations of some Technical Specifications (TSes) in the
+``<experimental/...>`` headers. They are not part of the C++ standard and are
+disabled by default; defining the ``_LIBCPP_ENABLE_EXPERIMENTAL`` macro enables
+them. No guarantees of API or ABI stability are provided for them.
 
-On compilers that do not support the ``-fexperimental-library`` flag (such as GCC),
-users can define the ``_LIBCPP_ENABLE_EXPERIMENTAL`` macro and manually link against
-the appropriate static library (usually shipped as ``libc++experimental.a``) to get
-access to experimental library features.
-
-The following features are currently considered experimental and are only provided
-when ``-fexperimental-library`` is passed:
-
-* The parallel algorithms library (``<execution>`` and the associated algorithms)
-* ``std::chrono::tzdb`` and related time zone functionality
-* ``<syncstream>``
-
-Additionally, assertion semantics are an experimental feature that can be used
-to customize the behavior of Hardening (see :ref:`here <assertion-semantics>`).
-Assertion semantics mirror the evaluation semantics of C++26 Contracts but are
-not a standard feature.
-
-.. note::
-  Experimental libraries are experimental.
-    * The contents of the ``<experimental/...>`` headers and the associated static
-      library may not remain compatible between versions.
-    * No guarantees of API or ABI stability are provided.
-    * When the standardized version of an experimental feature is implemented,
-      the experimental feature is removed two releases after the non-experimental
-      version has shipped. The full policy is explained :ref:`here <experimental features>`.
+Every feature that was voted into the C++ standard (including the parallel
+algorithms library with ``<execution>``, ``std::chrono::tzdb`` and the related time
+zone functionality, and ``<syncstream>``) is part of the library in the language
+modes that include it, without any flag.
 
 
 .. _libcxx-configuration-macros:
@@ -114,10 +92,7 @@ enable or disable extended libc++ behavior.
   building statically for inclusion into another library.
 
 **_LIBCPP_ENABLE_EXPERIMENTAL**:
-  This macro enables experimental features. This can be used on compilers that do
-  not support the ``-fexperimental-library`` flag. When used, users also need to
-  ensure that the appropriate experimental library (usually ``libc++experimental.a``)
-  is linked into their program.
+  This macro enables the Technical Specification headers (``<experimental/...>``).
 
 **_LIBCPP_HARDENING_MODE**:
   This macro is used to choose the :ref:`hardening mode <using-hardening-modes>`.

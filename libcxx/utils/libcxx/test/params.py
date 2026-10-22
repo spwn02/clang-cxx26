@@ -355,30 +355,6 @@ DEFAULT_PARAMETERS = [
             ]
         )
     ),
-    Parameter(
-        name="enable_experimental",
-        choices=[True, False],
-        type=bool,
-        default=True,
-        help="Whether to enable tests for experimental C++ Library features.",
-        actions=lambda experimental: [
-            # When linking in MSVC mode via the Clang driver, a -l<foo>
-            # maps to <foo>.lib, so we need to use -llibc++experimental here
-            # to make it link against the static libc++experimental.lib.
-            # We can't check for the feature 'msvc' in available_features
-            # as those features are added after processing parameters.
-            AddFeature("c++experimental"),
-            PrependLinkFlag(lambda cfg: "-llibc++experimental" if _isMSVC(cfg) else "-lc++experimental"),
-            AddCompileFlag("-D_LIBCPP_ENABLE_EXPERIMENTAL"),
-        ]
-        if experimental
-        else [
-            AddFeature("libcpp-has-no-incomplete-pstl"),
-            AddFeature("libcpp-has-no-experimental-optional-iterator"),
-            AddFeature("libcpp-has-no-experimental-tzdb"),
-            AddFeature("libcpp-has-no-experimental-syncstream"),
-        ],
-    ),
     # TODO: This can be improved once we use a version of GoogleBenchmark that supports the dry-run mode.
     #       See https://github.com/google/benchmark/issues/1827.
     Parameter(

@@ -103,7 +103,6 @@ _LIBCPP_HIDE_FROM_ABI _Tm __convert_to_tm(const chrono::sys_time<_Duration> __tp
 }
 
 #  if _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
-#    if _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 template <class _Tm, class _Duration>
 _LIBCPP_HIDE_FROM_ABI _Tm __convert_to_tm(chrono::utc_time<_Duration> __tp) {
@@ -130,7 +129,6 @@ _LIBCPP_HIDE_FROM_ABI _Tm __convert_to_tm(chrono::gps_time<_Duration> __tp) {
   return std::__convert_to_tm<_Tm>(chrono::utc_clock::to_sys(chrono::gps_clock::to_utc(__tp)));
 }
 
-#    endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
 #  endif   // _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
 
 // Convert a chrono (calendar) time point, or dururation to the given _Tm type,
@@ -212,7 +210,6 @@ _LIBCPP_HIDE_FROM_ABI _Tm __convert_to_tm(const _ChronoT& __value) {
       if (__value.hours().count() > std::numeric_limits<decltype(__result.tm_hour)>::max())
         std::__throw_format_error("Formatting hh_mm_ss, encountered an hour overflow");
     __result.tm_hour = __value.hours().count();
-#  if _LIBCPP_HAS_EXPERIMENTAL_TZDB
   } else if constexpr (same_as<_ChronoT, chrono::sys_info>) {
     // Has no time information.
   } else if constexpr (same_as<_ChronoT, chrono::local_info>) {
@@ -222,7 +219,6 @@ _LIBCPP_HIDE_FROM_ABI _Tm __convert_to_tm(const _ChronoT& __value) {
     return std::__convert_to_tm<_Tm>(
         chrono::sys_time<typename _ChronoT::duration>{__value.get_local_time().time_since_epoch()});
 #    endif
-#  endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
   } else
     static_assert(sizeof(_ChronoT) == 0, "Add the missing type specialization");
 

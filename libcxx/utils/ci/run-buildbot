@@ -501,12 +501,6 @@ generic-no-tzdb)
     generate-cmake -C "${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-no-tzdb.cmake"
     check-runtimes
 ;;
-generic-no-experimental)
-    clean
-    generate-cmake -C "${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-no-experimental.cmake"
-    check-runtimes
-    check-abi-list
-;;
 generic-no-exceptions)
     clean
     generate-cmake -C "${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-no-exceptions.cmake"
@@ -646,13 +640,7 @@ armv7m-picolibc-no-exceptions)
 ;;
 clang-cl-dll)
     clean
-    # TODO: Currently, building with the experimental library breaks running
-    # tests (the test linking look for the c++experimental library with the
-    # wrong name, and the statically linked c++experimental can't be linked
-    # correctly when libc++ visibility attributes indicate dllimport linkage
-    # anyway), thus just disable the experimental library. Remove this
-    # setting when cmake and the test driver does the right thing automatically.
-    generate-cmake-libcxx-win -DLIBCXX_TEST_PARAMS="enable_experimental=False"
+    generate-cmake-libcxx-win
     step "Running the libc++ tests"
     ninja -vC "${BUILD_DIR}" check-cxx
 ;;
@@ -668,14 +656,14 @@ clang-cl-no-vcruntime)
     # tests with -D_HAS_EXCEPTIONS=0, which users might set in certain
     # translation units while using libc++, even if libc++ is built with
     # exceptions enabled.
-    generate-cmake-libcxx-win -DLIBCXX_TEST_PARAMS="enable_experimental=False" \
+    generate-cmake-libcxx-win \
                               -DLIBCXX_TEST_CONFIG="llvm-libc++-shared-no-vcruntime-clangcl.cfg.in"
     step "Running the libc++ tests"
     ninja -vC "${BUILD_DIR}" check-cxx
 ;;
 clang-cl-debug)
     clean
-    generate-cmake-libcxx-win -DLIBCXX_TEST_PARAMS="enable_experimental=False" \
+    generate-cmake-libcxx-win \
                               -DCMAKE_BUILD_TYPE=Debug
     step "Running the libc++ tests"
     ninja -vC "${BUILD_DIR}" check-cxx

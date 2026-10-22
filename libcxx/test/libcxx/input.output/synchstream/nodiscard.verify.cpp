@@ -8,7 +8,6 @@
 
 // REQUIRES: std-at-least-c++20
 // UNSUPPORTED: no-localization
-// UNSUPPORTED: libcpp-has-no-experimental-syncstream
 
 // <synchstream>
 

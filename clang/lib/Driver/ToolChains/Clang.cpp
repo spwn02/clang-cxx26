@@ -6489,8 +6489,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_fconstexpr_depth_EQ);
   Args.AddLastArg(CmdArgs, options::OPT_fconstexpr_steps_EQ);
 
-  Args.AddLastArg(CmdArgs, options::OPT_fexperimental_library);
-
   // The frontend predefines the [cpp.predefined] __STDCPP_FLOAT<N>_T__ macros
   // only for libc++ (libstdc++ reads them as "GCC's _Float<N> types exist").
   if (types::isCXX(Input.getType()) &&

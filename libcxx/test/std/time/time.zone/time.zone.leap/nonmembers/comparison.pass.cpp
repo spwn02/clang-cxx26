@@ -12,7 +12,6 @@
 // TODO TZDB investigate why this fails with GCC
 // UNSUPPORTED: gcc-14
 
-// XFAIL: libcpp-has-no-experimental-tzdb
 // XFAIL: availability-tzdb-missing
 
 // <chrono>

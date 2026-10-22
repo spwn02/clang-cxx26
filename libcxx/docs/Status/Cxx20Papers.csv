@@ -105,7 +105,7 @@
 "`P0553R4 <https://wg21.link/P0553R4>`__","Bit operations","2019-07 (Cologne)","|Complete|","9","`#104151 <https://github.com/llvm/llvm-project/issues/104151>`__",""
 "`P0631R8 <https://wg21.link/P0631R8>`__","Math Constants","2019-07 (Cologne)","|Complete|","11","`#104152 <https://github.com/llvm/llvm-project/issues/104152>`__",""
 "`P0645R10 <https://wg21.link/P0645R10>`__","Text Formatting","2019-07 (Cologne)","|Complete|","14","`#104153 <https://github.com/llvm/llvm-project/issues/104153>`__","The implementation was complete since LLVM 14, but the feature-test macro was not set until LLVM 19"
-"`P0660R10 <https://wg21.link/P0660R10>`__","Stop Token and Joining Thread, Rev 10.","2019-07 (Cologne)","|Complete|","20","`#104154 <https://github.com/llvm/llvm-project/issues/104154>`__","The feature was implemented since LLVM 18 but was guarded behind ``-fexperimental-library``."
+"`P0660R10 <https://wg21.link/P0660R10>`__","Stop Token and Joining Thread, Rev 10.","2019-07 (Cologne)","|Complete|","20","`#104154 <https://github.com/llvm/llvm-project/issues/104154>`__","Implemented since LLVM 18; no flag is needed."
 "`P0784R7 <https://wg21.link/P0784R7>`__","More constexpr containers","2019-07 (Cologne)","|Complete|","12","`#104156 <https://github.com/llvm/llvm-project/issues/104156>`__",""
 "`P0980R1 <https://wg21.link/P0980R1>`__","Making std::string constexpr","2019-07 (Cologne)","|Complete|","15","`#104157 <https://github.com/llvm/llvm-project/issues/104157>`__",""
 "`P1004R2 <https://wg21.link/P1004R2>`__","Making std::vector constexpr","2019-07 (Cologne)","|Complete|","15","`#104158 <https://github.com/llvm/llvm-project/issues/104158>`__",""

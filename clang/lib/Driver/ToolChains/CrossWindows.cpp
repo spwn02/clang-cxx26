@@ -277,8 +277,6 @@ AddCXXStdlibLibArgs(const llvm::opt::ArgList &Args,
                     llvm::opt::ArgStringList &CmdArgs) const {
   if (GetCXXStdlibType(Args) == ToolChain::CST_Libcxx) {
     CmdArgs.push_back("-lc++");
-    if (Args.hasArg(options::OPT_fexperimental_library))
-      CmdArgs.push_back("-lc++experimental");
   }
 }
 

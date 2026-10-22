@@ -10,7 +10,6 @@
 // UNSUPPORTED: no-filesystem, no-localization, no-tzdb, has-no-zdump
 // REQUIRES: long_tests
 
-// XFAIL: libcpp-has-no-experimental-tzdb
 // XFAIL: availability-tzdb-missing
 
 #include <chrono>

@@ -13,7 +13,6 @@
 // REQUIRES: libcpp-hardening-mode={{extensive|debug}}
 // XFAIL: libcpp-hardening-mode=debug && availability-verbose_abort-missing
 
-// XFAIL: libcpp-has-no-experimental-tzdb
 // XFAIL: availability-tzdb-missing
 
 // <chrono>

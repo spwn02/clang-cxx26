@@ -11,7 +11,6 @@
 // `check_assertion.h` requires Unix headers and regex support.
 // REQUIRES: has-unix-headers
 // UNSUPPORTED: no-localization
-// UNSUPPORTED: libcpp-has-no-incomplete-pstl
 
 // [algorithms.parallel.exceptions]: an exception thrown by the construction of an element in an algorithm with an execution
 // policy calls std::terminate; the elements constructed so far are destroyed before.

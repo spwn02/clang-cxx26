@@ -109,8 +109,6 @@ void MipsLLVMToolChain::AddCXXStdlibLibArgs(const ArgList &Args,
          "Only -lc++ (aka libxx) is supported in this toolchain.");
 
   CmdArgs.push_back("-lc++");
-  if (Args.hasArg(options::OPT_fexperimental_library))
-    CmdArgs.push_back("-lc++experimental");
   CmdArgs.push_back("-lc++abi");
   CmdArgs.push_back("-lunwind");
 }

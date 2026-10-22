@@ -15,8 +15,7 @@ Steps, in order: `build` (all clang tools in build-nyx, `cxx-tidy` and `cxx-test
 (check-clang), `clangd` (check-clangd and ClangdTests), `libcxx-<std>` for c++26, 23, 20, 17, 14, 11, 03 (one lit
 run per test directory, `sweep-libcxx-std.sh`, tallied by `sweep-summary.py`, which parses both spellings of the
 lit totals), `modules` (the std / std.compat export drift tests at c++23 and c++26) and `audit` (the vocabulary audit
-of #283, `libcxx/utils/vocabulary_audit.py`, against the draft at tag n5050, with and without
-`-fexperimental-library`; it runs last on purpose). The script refuses to run on a dirty tree or with less than
+of #283, `libcxx/utils/vocabulary_audit.py`, against the draft at tag n5050; it runs last on purpose). The script refuses to run on a dirty tree or with less than
 3 GB free, never run it while another build or lit run uses the build trees, and do not edit the sources while it
 runs (the lit runs reinstall the headers from the working tree).
 

@@ -77,7 +77,7 @@ struct __remove_copy_if {
     return ranges::__remove_copy_if_impl(
         ranges::begin(__range), ranges::end(__range), std::move(__result), __pred, __proj);
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _InIter,
             sized_sentinel_for<_InIter> _Sent,

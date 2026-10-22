@@ -12,7 +12,6 @@
 
 #include <version>
 // Enable the contents of the header only when libc++ was built with experimental features enabled.
-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 #  include <__assert>
 #  include <__chrono/duration.h>
@@ -85,6 +84,5 @@ _LIBCPP_END_NAMESPACE_STD
 
 _LIBCPP_POP_MACROS
 
-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 #endif // _LIBCPP___CHRONO_GPS_CLOCK_H

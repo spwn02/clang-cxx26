@@ -9,7 +9,6 @@
 // UNSUPPORTED: c++03, c++11, c++14, c++17
 // UNSUPPORTED: no-localization
 // UNSUPPORTED: no-threads
-// UNSUPPORTED: libcpp-has-no-experimental-syncstream
 
 // <syncstream>
 

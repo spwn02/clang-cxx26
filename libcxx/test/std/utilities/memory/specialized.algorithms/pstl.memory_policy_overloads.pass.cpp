@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14
-// UNSUPPORTED: libcpp-has-no-incomplete-pstl
 
 // [memory.syn], [specialized.algorithms]: the overloads of uninitialized_default_construct(_n), uninitialized_value_construct(_n),
 // uninitialized_copy(_n), uninitialized_move(_n), uninitialized_fill(_n), destroy(_n) taking an execution policy, in namespace std

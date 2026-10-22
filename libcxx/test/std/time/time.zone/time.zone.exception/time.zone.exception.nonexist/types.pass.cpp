@@ -11,7 +11,6 @@
 // ADDITIONAL_COMPILE_FLAGS(clang): -Wno-deprecated
 // ADDITIONAL_COMPILE_FLAGS(gcc): -Wno-deprecated-copy-dtor
 
-// XFAIL: libcpp-has-no-experimental-tzdb
 // XFAIL: availability-tzdb-missing
 
 // <chrono>

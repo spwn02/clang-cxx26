@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
-// UNSUPPORTED: libcpp-has-no-incomplete-pstl
 
 // [algorithms.parallel.overloads], transform: the execution-policy overloads of ranges::transform have a bounded output
 // (iterator and sentinel, or output range) and process min(input size, output size) elements.

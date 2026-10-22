@@ -19,7 +19,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace chrono {
 
-void __init_tzdb(tzdb& __tzdb, __tz::__rules_storage_type& __rules);
+// Exported for the white-box test of the rules parser (test/libcxx/time/time.zone/time.zone.db/rules.pass.cpp).
+_LIBCPP_EXPORTED_FROM_ABI void __init_tzdb(tzdb& __tzdb, __tz::__rules_storage_type& __rules);
 
 } // namespace chrono
 

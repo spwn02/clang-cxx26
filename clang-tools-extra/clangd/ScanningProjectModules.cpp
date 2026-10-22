@@ -834,7 +834,7 @@ std::string ModuleDependencyScanner::getSourceForModuleName(
 
   // A module of the standard library is built with the flags of the unit that
   // imports it: a build system may list several commands for the same
-  // std.cppm (one per target, differing in -fexperimental-library for
+  // std.cppm (one per target, differing in -std= for
   // instance), and a BMI built with other flags is rejected as a configuration
   // mismatch by every unit that imports it.
   const bool IsStdModule = ModuleName == "std" || ModuleName == "std.compat";

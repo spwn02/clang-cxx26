@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
-// UNSUPPORTED: libcpp-has-no-incomplete-pstl
 
 // P3179R9: the Returns of the execution-policy overloads of ranges::set_union, set_symmetric_difference,
 // unique_copy and partial_sort_copy, checked against a literal transcription of the draft definitions

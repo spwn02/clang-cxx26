@@ -14,8 +14,7 @@
 #   modules      the std / std.compat module export drift tests at c++23 and c++26
 #   audit-modes  vocabulary audit at c++23..c++11 against each draft, compared with upstream libc++
 #                (cxx26/dev/audit-older-modes.sh); restores DRAFT_DIR to DRAFT_TAG
-#   audit        vocabulary audit (#283) against the draft tag in DRAFT_DIR, with and without
-#                -fexperimental-library; run last on purpose
+#   audit        vocabulary audit (#283) against the draft tag in DRAFT_DIR; run last on purpose
 #
 # Env: JOBS (default nproc), STDS, STEPS, OUT (default $HOME/.local/share/cxx26-release-gate/<HEAD>),
 #      DRAFT_DIR (a cplusplus/draft checkout that has the tag DRAFT_TAG, default n5050).
@@ -105,7 +104,7 @@ step_audit() {
   local inc="$lcx/libcxx/test-suite-install/include/c++/v1" extra=()
   for d in "$lcx"/libcxx/test-suite-install/include/*/c++/v1; do [[ -d "$d" ]] && extra+=(--extra-include "$d"); done
   local flags
-  for flags in "" "-fexperimental-library"; do
+  for flags in ""; do
     run "audit [${flags:-default}]" "$out/audit-${flags:-default}.log" python3 -I libcxx/utils/vocabulary_audit.py \
       --draft "$draft_dir" --sd6 libcxx/utils/sd6_lib_macros.txt --allow libcxx/utils/vocabulary_allowlist.txt \
       --clang "$nyx/bin/clang++" --include "$inc" ${extra[@]+"${extra[@]}"} "--flags=$flags"

@@ -125,10 +125,8 @@ extra_includes=()
 for dir in "${install_prefix}"/include/*/c++/v1; do
   [[ -d "${dir}" ]] && extra_includes+=(--extra-include "${dir}")
 done
-# Twice: with the default C++26 feature set and with the experimental library on (-fexperimental-library
-# exposes more of the headers). The audit fails closed: it exits 2 when its own setup cannot compile
-# <vector>, <algorithm> and <string>.
-for audit_flags in "" "-fexperimental-library"; do
+# The audit fails closed: it exits 2 when its own setup cannot compile <vector>, <algorithm> and <string>.
+for audit_flags in ""; do
   python3 -I "${repo_root}/libcxx/utils/vocabulary_audit.py" \
     --draft "${draft_dir}" \
     --sd6 "${repo_root}/libcxx/utils/sd6_lib_macros.txt" \

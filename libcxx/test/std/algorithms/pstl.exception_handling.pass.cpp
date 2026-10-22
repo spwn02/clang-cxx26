@@ -12,7 +12,6 @@
 // REQUIRES: has-unix-headers
 // UNSUPPORTED: no-localization
 
-// UNSUPPORTED: libcpp-has-no-incomplete-pstl
 
 // <algorithm>
 // <numeric>

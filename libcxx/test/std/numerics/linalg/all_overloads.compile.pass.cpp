@@ -6,8 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
-// UNSUPPORTED: libcpp-has-no-incomplete-pstl
-// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_ENABLE_EXPERIMENTAL
 
 // <linalg>
 

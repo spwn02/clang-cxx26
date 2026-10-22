@@ -339,7 +339,6 @@ set(files
   __configuration/abi.h
   __configuration/availability.h
   __configuration/compiler.h
-  __configuration/experimental.h
   __configuration/hardening.h
   __configuration/language.h
   __configuration/platform.h

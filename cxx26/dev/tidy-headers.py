@@ -17,7 +17,7 @@ INCLUDE = pathlib.Path(os.environ.get("TIDY_HEADERS_INCLUDE", str(root / "libcxx
 FLAGS = ["-Wweak-vtables", "-pthread", "--target=x86_64-unknown-linux-gnu", "-nostdinc++",
          "-I", str(INCLUDE), "-I", str(root / "libcxx/test/support"), "-std=c++26", "-Wall", "-Wextra", "-Wshadow", "-Wundef",
          "-Wno-unused-command-line-argument", "-Wno-nullability-completeness", "-Wno-pessimizing-move", "-Wno-noexcept-type", "-Wno-atomic-alignment", "-Wno-reserved-module-identifier", "-Wno-tautological-compare", "-Wno-local-type-template-args", "-Wno-c++11-extensions", "-Wno-unknown-pragmas", "-Wno-pass-failed", "-Wno-mismatched-new-delete", "-Wno-redundant-move", "-Wno-self-move", "-Wno-attributes", "-Wno-user-defined-literals",
-         "-D_LIBCPP_ENABLE_EXPERIMENTAL", "-D_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER", "-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_NONE",
+         "-D_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER", "-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_NONE",
          "-Wuser-defined-warnings", "-fno-modules", "-flax-vector-conversions=none"]
 DIAG = re.compile(r"^(?P<path>/[^:\n]+):(?P<line>\d+):(?P<col>\d+): (?:error|warning): (?P<msg>.*) \[(?P<check>[A-Za-z0-9,.\-]+)\]$")
 

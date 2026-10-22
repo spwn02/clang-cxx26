@@ -41,7 +41,7 @@
 #  include <locale>
 #  include <string>
 
-#  if _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_EXPERIMENTAL_TZDB
+#  if _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM
 #    include <__chrono/gps_clock.h>
 #    include <__chrono/tai_clock.h>
 #    include <__chrono/utc_clock.h>
@@ -1085,7 +1085,7 @@ _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>& from_stream(
   return __is;
 }
 
-#    if _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_EXPERIMENTAL_TZDB
+#    if _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM
 
 // utc_time: a seconds field of 60 is accepted when the parsed instant is a leap second.
 template <class _CharT, class _Traits, class _Duration, class _Alloc = allocator<_CharT>>
@@ -1150,7 +1150,7 @@ _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>& from_stream(
   return __is;
 }
 
-#    endif // _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_EXPERIMENTAL_TZDB
+#    endif // _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM
 
 // [time.parse], the parse manipulators.
 

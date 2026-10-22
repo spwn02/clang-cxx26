@@ -24,7 +24,7 @@ _LIBCPP_PUSH_MACROS
 // several ranges_*.h algorithm headers (e.g. ranges_adjacent_find.h) #include this file directly and
 // unconditionally, bypassing any freestanding gate at their own call site, so gating each caller
 // individually would be both more error-prone and incomplete.
-#if _LIBCPP_HAS_EXPERIMENTAL_PSTL && _LIBCPP_STD_VER >= 17 && !defined(_LIBCPP_FREESTANDING)
+#if _LIBCPP_STD_VER >= 17 && !defined(_LIBCPP_FREESTANDING)
 
 #  include <__functional/operations.h>
 #  include <__iterator/cpp17_iterator_concepts.h>
@@ -1498,7 +1498,7 @@ includes(_ExecutionPolicy&& __policy, _ForwardIterator1 __first1, _ForwardIterat
 
 _LIBCPP_END_NAMESPACE_STD
 
-#endif // _LIBCPP_HAS_EXPERIMENTAL_PSTL && _LIBCPP_STD_VER >= 17
+#endif // _LIBCPP_STD_VER >= 17
 
 _LIBCPP_POP_MACROS
 

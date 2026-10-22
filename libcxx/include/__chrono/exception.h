@@ -14,7 +14,6 @@
 
 #include <version>
 // Enable the contents of the header only when libc++ was built with experimental features enabled.
-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 #  include <__chrono/calendar.h>
 #  include <__chrono/local_info.h>
@@ -130,6 +129,5 @@ template <class _Duration>
 
 _LIBCPP_END_NAMESPACE_STD
 
-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
 
 #endif // _LIBCPP___CHRONO_EXCEPTION_H

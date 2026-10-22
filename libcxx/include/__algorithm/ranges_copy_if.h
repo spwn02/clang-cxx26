@@ -64,7 +64,7 @@ struct __copy_if {
     auto __res = std::__copy_if(ranges::begin(__r), ranges::end(__r), std::move(__result), __pred, __proj);
     return {std::move(__res.first), std::move(__res.second)};
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _InIter,
             sized_sentinel_for<_InIter> _Sent,

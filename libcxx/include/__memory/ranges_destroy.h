@@ -38,7 +38,7 @@
 
 _LIBCPP_PUSH_MACROS
 #include <__undef_macros>
-#if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 #  include <__pstl/backend_fwd.h>
 #  include <__pstl/dispatch.h>
 #  include <__pstl/handle_exception.h>
@@ -64,7 +64,7 @@ struct __destroy {
   _LIBCPP_HIDE_FROM_ABI constexpr borrowed_iterator_t<_InputRange> operator()(_InputRange&& __range) const noexcept {
     return (*this)(ranges::begin(__range), ranges::end(__range));
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             __nothrow_random_access_iterator _Iter,
             __nothrow_sized_sentinel_for<_Iter> _Sent,
@@ -85,7 +85,7 @@ struct __destroy {
   _LIBCPP_HIDE_FROM_ABI borrowed_iterator_t<_Range> operator()(_Ep&& __exec, _Range&& __range) const {
     return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::begin(__range) + static_cast<range_difference_t<_Range>>(ranges::size(__range)));
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -101,7 +101,7 @@ struct __destroy_n {
   operator()(_InputIterator __first, iter_difference_t<_InputIterator> __n) const noexcept {
     return std::destroy_n(std::move(__first), __n);
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             __nothrow_random_access_iterator _Iter,
             class _RawPolicy = __remove_cvref_t<_Ep>,
@@ -111,7 +111,7 @@ struct __destroy_n {
     using _Implementation = __pstl::__dispatch<__pstl::__memory_destroy_n, __pstl::__current_configuration, _RawPolicy>;
     return __pstl::__handle_exception<_Implementation>(std::forward<_Ep>(__exec), std::move(__first), __n);
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {

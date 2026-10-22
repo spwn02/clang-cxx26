@@ -9,7 +9,7 @@ missing no-predicate and forward-iterator forms, the missing defaults and constr
     python3 gen_ranges_policy_overloads.py <draft checkout> probe.cpp   # ranges:: overloads with Ep&&
     python3 gen_memory_ranges_policy_overloads.py <draft checkout> probe.cpp
     clang++ -std=c++26 -fsyntax-only -nostdinc++ -isystem <libc++ include> -I libcxx/test/support \
-        -fexperimental-library -ferror-limit=0 probe.cpp
+        -ferror-limit=0 probe.cpp
 
 The committed tests libcxx/test/std/algorithms/algorithms.general/pstl_policy_overloads.compile.pass.cpp and
 pstl_ranges_policy_overloads.compile.pass.cpp are the output of these scripts. A parameter the script cannot map is

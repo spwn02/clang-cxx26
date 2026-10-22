@@ -40,7 +40,7 @@
 
 _LIBCPP_PUSH_MACROS
 #include <__undef_macros>
-#if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 #  include <__pstl/backend_fwd.h>
 #  include <__pstl/dispatch.h>
 #  include <__pstl/handle_exception.h>
@@ -70,7 +70,7 @@ struct __uninitialized_default_construct {
   operator()(_ForwardRange&& __range) const {
     return (*this)(ranges::begin(__range), ranges::end(__range));
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             __nothrow_random_access_iterator _Iter,
             __nothrow_sized_sentinel_for<_Iter> _Sent,
@@ -95,7 +95,7 @@ struct __uninitialized_default_construct {
   _LIBCPP_HIDE_FROM_ABI borrowed_iterator_t<_Range> operator()(_Ep&& __exec, _Range&& __range) const {
     return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::begin(__range) + static_cast<range_difference_t<_Range>>(ranges::size(__range)));
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -112,7 +112,7 @@ struct __uninitialized_default_construct_n {
     using _ValueType = remove_reference_t<iter_reference_t<_ForwardIterator>>;
     return std::__uninitialized_default_construct_n<_ValueType>(std::move(__first), __n);
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             __nothrow_random_access_iterator _Iter,
             class _RawPolicy = __remove_cvref_t<_Ep>,
@@ -126,7 +126,7 @@ struct __uninitialized_default_construct_n {
         __n,
         __type_identity<remove_reference_t<iter_reference_t<_Iter>>>());
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -150,7 +150,7 @@ struct __uninitialized_value_construct {
   operator()(_ForwardRange&& __range) const {
     return (*this)(ranges::begin(__range), ranges::end(__range));
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             __nothrow_random_access_iterator _Iter,
             __nothrow_sized_sentinel_for<_Iter> _Sent,
@@ -175,7 +175,7 @@ struct __uninitialized_value_construct {
   _LIBCPP_HIDE_FROM_ABI borrowed_iterator_t<_Range> operator()(_Ep&& __exec, _Range&& __range) const {
     return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::begin(__range) + static_cast<range_difference_t<_Range>>(ranges::size(__range)));
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -192,7 +192,7 @@ struct __uninitialized_value_construct_n {
     using _ValueType = remove_reference_t<iter_reference_t<_ForwardIterator>>;
     return std::__uninitialized_value_construct_n<_ValueType>(std::move(__first), __n);
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             __nothrow_random_access_iterator _Iter,
             class _RawPolicy = __remove_cvref_t<_Ep>,
@@ -206,7 +206,7 @@ struct __uninitialized_value_construct_n {
         __n,
         __type_identity<remove_reference_t<iter_reference_t<_Iter>>>());
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -241,7 +241,7 @@ struct __uninitialized_fill {
   operator()(_ForwardRange&& __range, const _Tp& __x) const {
     return (*this)(ranges::begin(__range), ranges::end(__range), __x);
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             __nothrow_random_access_iterator _Iter,
             __nothrow_sized_sentinel_for<_Iter> _Sent,
@@ -269,7 +269,7 @@ struct __uninitialized_fill {
   _LIBCPP_HIDE_FROM_ABI borrowed_iterator_t<_Range> operator()(_Ep&& __exec, _Range&& __range, const _Tp& __x) const {
     return (*this)(std::forward<_Ep>(__exec), ranges::begin(__range), ranges::begin(__range) + static_cast<range_difference_t<_Range>>(ranges::size(__range)), __x);
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -291,7 +291,7 @@ struct __uninitialized_fill_n {
     using _ValueType = remove_reference_t<iter_reference_t<_ForwardIterator>>;
     return std::__uninitialized_fill_n<_ValueType>(std::move(__first), __n, __x);
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             __nothrow_random_access_iterator _Iter,
             class _Tp = iter_value_t<_Iter>,
@@ -308,7 +308,7 @@ struct __uninitialized_fill_n {
         __x,
         __type_identity<remove_reference_t<iter_reference_t<_Iter>>>());
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -344,7 +344,7 @@ struct __uninitialized_copy {
     return (*this)(
         ranges::begin(__in_range), ranges::end(__in_range), ranges::begin(__out_range), ranges::end(__out_range));
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _InIter,
             sized_sentinel_for<_InIter> _InSent,
@@ -384,7 +384,7 @@ struct __uninitialized_copy {
         ranges::begin(__out_range),
         ranges::begin(__out_range) + static_cast<range_difference_t<_OutRange>>(ranges::size(__out_range)));
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -412,7 +412,7 @@ struct __uninitialized_copy_n {
         std::__uninitialized_copy_n<_ValueType>(std::move(__ifirst), __n, std::move(__ofirst), __stop_copying);
     return {std::move(__result.first), std::move(__result.second)};
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _InIter,
             __nothrow_random_access_iterator _OutIter,
@@ -433,7 +433,7 @@ struct __uninitialized_copy_n {
         __type_identity<remove_reference_t<iter_reference_t<_OutIter>>>());
     return {std::move(__r.first), std::move(__r.second)};
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -469,7 +469,7 @@ struct __uninitialized_move {
     return (*this)(
         ranges::begin(__in_range), ranges::end(__in_range), ranges::begin(__out_range), ranges::end(__out_range));
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _InIter,
             sized_sentinel_for<_InIter> _InSent,
@@ -509,7 +509,7 @@ struct __uninitialized_move {
         ranges::begin(__out_range),
         ranges::begin(__out_range) + static_cast<range_difference_t<_OutRange>>(ranges::size(__out_range)));
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {
@@ -538,7 +538,7 @@ struct __uninitialized_move_n {
         std::move(__ifirst), __n, std::move(__ofirst), __stop_moving, __iter_move);
     return {std::move(__result.first), std::move(__result.second)};
   }
-#  if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
   template <class _Ep,
             random_access_iterator _InIter,
             __nothrow_random_access_iterator _OutIter,
@@ -560,7 +560,7 @@ struct __uninitialized_move_n {
         [](auto&& __iter) -> decltype(auto) { return ranges::iter_move(__iter); });
     return {std::move(__r.first), std::move(__r.second)};
   }
-#  endif // _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#  endif // _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_FREESTANDING)
 };
 
 inline namespace __cpo {

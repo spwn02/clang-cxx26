@@ -10,7 +10,6 @@
 #define _LIBCPP___CONFIGURATION_HARDENING_H
 
 #include <__config_site>
-#include <__configuration/experimental.h>
 #include <__configuration/language.h>
 
 #ifndef _LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER

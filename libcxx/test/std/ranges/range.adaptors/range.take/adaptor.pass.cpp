@@ -10,7 +10,6 @@
 
 // std::views::take
 
-// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
 
 #include <ranges>
 

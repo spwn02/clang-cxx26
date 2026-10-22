@@ -8,7 +8,6 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20
 
-// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
 
 #include <ranges>
 

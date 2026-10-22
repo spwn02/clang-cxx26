@@ -38,9 +38,7 @@
 #include <string>
 #include <vector>
 
-#if _LIBCPP_HAS_EXPERIMENTAL_PSTL
 #  include <execution>
-#endif
 
 #include "test_macros.h"
 
@@ -293,7 +291,6 @@ void test_runtime_only() {
   assert(std::erase(s, 'o') == 2);
 }
 
-#if _LIBCPP_HAS_EXPERIMENTAL_PSTL
 // The ExecutionPolicy overloads of count/fill/fill_n/find/replace/replace_if/replace_copy_if
 // get the same defaulted value-type parameter as their sequential counterparts (replace_copy
 // is deliberately excluded by the paper, same as the sequential overload). Not constexpr, so
@@ -326,7 +323,6 @@ void test_pstl() {
       std::execution::seq, src.begin(), src.end(), dst.begin(), [](const Point& p) { return p.x == 1; }, {8, 8});
   assert((dst == std::vector<Point>{{8, 8}, {3, 4}}));
 }
-#endif // _LIBCPP_HAS_EXPERIMENTAL_PSTL
 
 int main(int, char**) {
   test();
@@ -334,9 +330,7 @@ int main(int, char**) {
 
   test_runtime_only();
 
-#if _LIBCPP_HAS_EXPERIMENTAL_PSTL
   test_pstl();
-#endif
 
   return 0;
 }

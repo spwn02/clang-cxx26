@@ -213,12 +213,6 @@ _LIBCPP_HARDENING_MODE_DEBUG
 #    define _LIBCPP_ABI_VCRUNTIME
 #  endif
 
-#  if __has_feature(experimental_library)
-#    ifndef _LIBCPP_ENABLE_EXPERIMENTAL
-#      define _LIBCPP_ENABLE_EXPERIMENTAL
-#    endif
-#  endif
-
 #  if defined(__MVS__)
 #    include <features.h> // for __NATIVE_ASCII_F
 #  endif

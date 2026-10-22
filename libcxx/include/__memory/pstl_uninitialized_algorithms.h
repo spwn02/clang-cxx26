@@ -22,7 +22,7 @@ _LIBCPP_PUSH_MACROS
 // [memory.syn], [specialized.algorithms]: the overloads with an execution policy. Like the other parallel algorithms
 // they are available with the experimental library; their semantics are those of the overloads without the policy
 // ([algorithms.parallel.overloads]).
-#if _LIBCPP_STD_VER >= 17 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#if _LIBCPP_STD_VER >= 17 && !defined(_LIBCPP_FREESTANDING)
 #  include <__iterator/distance.h>
 #  include <__iterator/iterator_traits.h>
 #  include <__memory/destroy.h>
@@ -242,7 +242,7 @@ destroy_n(_ExecutionPolicy&& __exec, _NoThrowForwardIterator __first, _Size __n)
 
 _LIBCPP_END_NAMESPACE_STD
 
-#endif // _LIBCPP_STD_VER >= 17 && _LIBCPP_HAS_EXPERIMENTAL_PSTL && !defined(_LIBCPP_FREESTANDING)
+#endif // _LIBCPP_STD_VER >= 17 && !defined(_LIBCPP_FREESTANDING)
 
 _LIBCPP_POP_MACROS
 

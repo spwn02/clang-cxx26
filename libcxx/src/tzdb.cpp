@@ -51,9 +51,9 @@ namespace chrono {
 
 _LIBCPP_DIAGNOSTIC_PUSH
 _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wmissing-prototypes")
-// This function is weak so it can be overriden in the tests. The
+// This function is weak and exported so the tests can override it (the interposition needs a default-visibility symbol). The
 // declaration is in the test header test/support/test_tzdb.h
-_LIBCPP_WEAK string_view __libcpp_tzdb_directory() {
+_LIBCPP_OVERRIDABLE_FUNC_VIS _LIBCPP_WEAK string_view __libcpp_tzdb_directory() {
 #if defined(__linux__)
   return "/usr/share/zoneinfo/";
 #else
@@ -687,7 +687,7 @@ static void __parse_leap_seconds(vector<leap_second>& __leap_seconds, istream&& 
   });
 }
 
-void __init_tzdb(tzdb& __tzdb, __tz::__rules_storage_type& __rules) {
+_LIBCPP_EXPORTED_FROM_ABI void __init_tzdb(tzdb& __tzdb, __tz::__rules_storage_type& __rules) {
   filesystem::path __root = chrono::__libcpp_tzdb_directory();
   ifstream __tzdata{__root / "tzdata.zi"};
 
