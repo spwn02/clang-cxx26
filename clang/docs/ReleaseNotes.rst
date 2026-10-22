@@ -346,6 +346,13 @@ Resolutions to C++ Defect Reports
   ``__cpp_trivial_union`` is ``202603L``. The bytecode interpreter now
   implements ``__builtin_start_lifetime``.
 
+- ``va_start`` accepts a single argument in C++26 and discards the second and subsequent arguments
+  (`[cstdarg.syn] <https://wg21.link/cstdarg.syn>`_, LWG4388). ``#undef`` of a macro name lexically identical to a
+  keyword is diagnosed in C++26 (``-pedantic``, ``-Wkeyword-macro``) like the corresponding ``#define``
+  (`P2843R3 <https://wg21.link/P2843R3>`_). ``__atomic_thread_fence``, ``__atomic_signal_fence`` and the C11 and
+  scoped variants are usable in constant expressions (they have no effect there), so that ``atomic_thread_fence`` and
+  ``atomic_signal_fence`` are ``constexpr`` (`P3309R3 <https://wg21.link/P3309R3>`_).
+
 C Language Changes
 ------------------
 

@@ -129,6 +129,18 @@ Potentially breaking changes
     free functions were removed.
   - The feature-test macros ``__cpp_lib_smart_ptr_default_init``, ``__cpp_lib_stdfloat``,
     ``__cpp_lib_freestanding_atomic`` and ``__cpp_lib_span_at`` are no longer defined.
+  - The hidden-friend ``swap`` of ``stop_token``, ``stop_source`` and ``inplace_stop_token`` was removed (the draft only
+    declares the member ``swap``; ``std::swap`` still works), and
+    ``lazy_split_view::outer-iterator::value_type`` has no default constructor and no public constructor from an
+    ``outer-iterator`` any more.
+  - ``atomic<T>::atomic()`` is constrained on ``is_default_constructible_v<T>`` (LWG4169), ``as_bytes`` and
+    ``as_writable_bytes`` do not accept ``span<volatile T>`` (LWG4243), and the copy constructor of ``variant`` and the
+    assignment operators listed in ``libcxx/utils/overload_audit.py --noexcept`` are ``noexcept`` as specified
+    (LWG2991, LWG4245).
+  - ``atomic_thread_fence``, ``atomic_signal_fence``, ``kill_dependency``, the ``arg`` and ``proj`` overloads for
+    arithmetic arguments, the converting assignment of ``common_iterator`` and the ``frexp``, ``modf``, ``remquo`` and
+    ``nexttoward`` overloads for the extended floating-point types are ``constexpr`` (``overload_audit.py
+    --constexpr`` compares every constexpr declaration of the draft with the library).
 
 - The algorithm for ``multi{map,set}::find`` has been modified such that it doesn't necessarily return an iterator to
   the first equal element in the container. This was never guaranteed by the Standard, but libc++ previously happened to
