@@ -156,7 +156,11 @@ def impl_arities(clang, include, std, headers):
         # or move constructor is a special member function, not an overload.
         sig = loc.split(' :: ', 1)[1] if ' :: ' in loc else ''
         inner = sig[sig.find('(') + 1:sig.rfind(')')] if '(' in sig else ''
-        if re.search(r'\b__', inner) or re.fullmatch(r'(const )?[A-Za-z_][A-Za-z_0-9:]*(<.*>)? ?&&?', inner.strip()):
+        special = False
+        m = re.fullmatch(r'(?:const )?([A-Za-z_][A-Za-z_0-9:]*)(?:<.*>)? ?&&?', inner.strip())
+        if m and name == cls and m.group(1).split('::')[-1] == cls:
+            special = True  # copy or move constructor
+        if re.search(r'\b__', inner) or special:
             return
         total = len(params)
         required = len([p for p in params if p == 'req'])
@@ -241,6 +245,7 @@ def main():
     ap.add_argument('--std', default='c++26')
     ap.add_argument('--allow')
     ap.add_argument('--headers')
+    ap.add_argument('--missing', action='store_true', help='also report draft overloads the library lacks')
     args = ap.parse_args()
 
     if args.headers:
@@ -268,6 +273,22 @@ def main():
         for a in sorted(impl[key]['args']):
             if a not in want and (name, str(a)) not in allow and (cls + '::' + name, str(a)) not in allow:
                 print('%s::%s %d  # %s' % (cls, name, a, impl[key]['loc'].get(a, '')))
+                bad += 1
+    if args.missing:
+        # The other direction: a member function the library declares with fewer overloads than the draft's class
+        # synopsis (only classes and names both sides declare are compared).
+        for (cls, name), want in sorted(ref.items()):
+            if not cls or -1 in want:
+                continue
+            have = impl.get((cls, name))
+            if have is None:
+                continue
+            for a in sorted(want - have['args']):
+                if (cls + '::' + name, 'missing-%d' % a) in allow:
+                    continue
+                if (name == cls and a == 1) or (name == 'swap' and a == 2):
+                    continue  # copy and move constructors, and the non-member swap listed in the synopsis
+                print('MISSING %s::%s %d' % (cls, name, a))
                 bad += 1
     print('overload audit: %d unexplained entries' % bad, file=sys.stderr)
     return 1 if bad else 0
