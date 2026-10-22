@@ -80,6 +80,9 @@ class rcu_domain {
     __retired_ = __node;
   }
 
+  // [saferecl.rcu.domain]: there is no default constructor; the default domain is made here.
+  _LIBCPP_HIDE_FROM_ABI rcu_domain() = default;
+  _LIBCPP_HIDE_FROM_ABI friend rcu_domain& rcu_default_domain() noexcept;
   _LIBCPP_HIDE_FROM_ABI friend void rcu_synchronize(rcu_domain&) noexcept;
   _LIBCPP_HIDE_FROM_ABI friend void rcu_barrier(rcu_domain&) noexcept;
   template <class _Tp, class _Dp>
@@ -88,7 +91,6 @@ class rcu_domain {
   friend class rcu_obj_base;
 
 public:
-  _LIBCPP_HIDE_FROM_ABI rcu_domain()       = default;
   rcu_domain(const rcu_domain&) = delete;
   rcu_domain& operator=(const rcu_domain&) = delete;
 

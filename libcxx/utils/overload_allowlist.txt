@@ -1,0 +1,1 @@
+# overload audit allow-list: <Class::name or name> <number of arguments>  # reason (clause or opt-in macro)

@@ -14,7 +14,7 @@
 #   modules      the std / std.compat module export drift tests at c++23 and c++26
 #   audit-modes  vocabulary audit at c++23..c++11 against each draft, compared with upstream libc++
 #                (cxx26/dev/audit-older-modes.sh); restores DRAFT_DIR to DRAFT_TAG
-#   audit        vocabulary audit (#283) against the draft tag in DRAFT_DIR; run last on purpose
+#   audit        vocabulary audit and overload audit (#283) against the draft tag in DRAFT_DIR; run last on purpose
 #
 # Env: JOBS (default nproc), STDS, STEPS, OUT (default $HOME/.local/share/cxx26-release-gate/<HEAD>),
 #      DRAFT_DIR (a cplusplus/draft checkout that has the tag DRAFT_TAG, default n5050).
@@ -109,6 +109,10 @@ step_audit() {
       --draft "$draft_dir" --sd6 libcxx/utils/sd6_lib_macros.txt --allow libcxx/utils/vocabulary_allowlist.txt \
       --clang "$nyx/bin/clang++" --include "$inc" ${extra[@]+"${extra[@]}"} "--flags=$flags"
   done
+  # Overload sets: no function, member function or constructor accepts a number of arguments that no declaration
+  # of the draft with that name does.
+  run "audit overloads" "$out/audit-overloads.log" python3 -I libcxx/utils/overload_audit.py \
+    --draft "$draft_dir" --clang "$nyx/bin/clang++" --include "$inc" --allow libcxx/utils/overload_allowlist.txt
 }
 
 echo "release gate at $head_rev, steps: $steps"
