@@ -31,7 +31,7 @@ struct node : std::rcu_obj_base<node> {
 int main(int, char**) {
   {
     // scheduled before the region: rcu_barrier in the region does not wait for the region
-    std::rcu_domain domain;
+    std::rcu_domain& domain = std::rcu_default_domain();
     (new node)->retire({}, domain);
     domain.lock();
     std::rcu_barrier(domain);
@@ -41,7 +41,7 @@ int main(int, char**) {
 
   {
     // nested regions of one thread are closed innermost first
-    std::rcu_domain domain;
+    std::rcu_domain& domain = std::rcu_default_domain();
     domain.lock();
     domain.lock();
     domain.unlock();
@@ -51,7 +51,7 @@ int main(int, char**) {
 
   {
     // a region that started before the scheduling is waited for
-    std::rcu_domain domain;
+    std::rcu_domain& domain = std::rcu_default_domain();
     std::atomic<bool> in_region{false};
     std::atomic<bool> release{false};
     std::thread reader([&] {

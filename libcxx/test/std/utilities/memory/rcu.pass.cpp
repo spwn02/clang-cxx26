@@ -24,7 +24,7 @@ struct node : prefix, std::rcu_obj_base<node> {
 };
 
 int main(int, char**) {
-  std::rcu_domain domain;
+  std::rcu_domain& domain = std::rcu_default_domain();
   {
     std::scoped_lock read_lock(domain);
     (new node)->retire({}, domain);
