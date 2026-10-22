@@ -433,7 +433,9 @@ struct atomic : public __atomic_base<typename __check_atomic_mandates<_Tp>::type
   using __base _LIBCPP_NODEBUG = __atomic_base<_Tp>;
 
 #if _LIBCPP_STD_VER >= 20
-  _LIBCPP_HIDE_FROM_ABI atomic() = default;
+  _LIBCPP_HIDE_FROM_ABI atomic()
+    requires is_default_constructible_v<_Tp>
+  = default;
 #else
   _LIBCPP_HIDE_FROM_ABI atomic() _NOEXCEPT = default;
 #endif
