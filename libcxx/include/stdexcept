@@ -405,7 +405,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 // in the dylib
 [[__noreturn__]] _LIBCPP_EXPORTED_FROM_ABI void __throw_runtime_error(const char*);
 
-[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI void __throw_logic_error(const char* __msg) {
+[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_logic_error(const char* __msg) {
 #  if _LIBCPP_HAS_EXCEPTIONS
   throw logic_error(__msg);
 #  else
@@ -413,7 +413,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #  endif
 }
 
-[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI void __throw_domain_error(const char* __msg) {
+[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_domain_error(const char* __msg) {
 #  if _LIBCPP_HAS_EXCEPTIONS
   throw domain_error(__msg);
 #  else
@@ -421,7 +421,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #  endif
 }
 
-[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI void __throw_invalid_argument(const char* __msg) {
+[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_invalid_argument(const char* __msg) {
 #  if _LIBCPP_HAS_EXCEPTIONS
   throw invalid_argument(__msg);
 #  else
@@ -429,7 +429,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #  endif
 }
 
-[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI void __throw_length_error(const char* __msg) {
+[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_length_error(const char* __msg) {
 #  if _LIBCPP_HAS_EXCEPTIONS
   throw length_error(__msg);
 #  else
@@ -437,7 +437,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #  endif
 }
 
-[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI void __throw_out_of_range(const char* __msg) {
+[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_out_of_range(const char* __msg) {
 #  if _LIBCPP_HAS_EXCEPTIONS
   throw out_of_range(__msg);
 #  else
@@ -445,7 +445,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #  endif
 }
 
-[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI void __throw_range_error(const char* __msg) {
+[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_range_error(const char* __msg) {
 #  if _LIBCPP_HAS_EXCEPTIONS
   throw range_error(__msg);
 #  else
@@ -453,7 +453,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #  endif
 }
 
-[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI void __throw_overflow_error(const char* __msg) {
+[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_overflow_error(const char* __msg) {
 #  if _LIBCPP_HAS_EXCEPTIONS
   throw overflow_error(__msg);
 #  else
@@ -461,7 +461,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #  endif
 }
 
-[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI void __throw_underflow_error(const char* __msg) {
+[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_underflow_error(const char* __msg) {
 #  if _LIBCPP_HAS_EXCEPTIONS
   throw underflow_error(__msg);
 #  else

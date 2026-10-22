@@ -9862,7 +9862,8 @@ public:
       return Error(E);
 
     case BO_Comma:
-      VisitIgnoredValue(E->getLHS());
+      if (!VisitIgnoredValue(E->getLHS()))
+        return false;
       return StmtVisitorTy::Visit(E->getRHS());
 
     case BO_PtrMemD:
@@ -10525,9 +10526,12 @@ public:
     return StmtVisitorTy::Visit(E->getSelectedExpr());
   }
 
-  /// Visit a value which is evaluated, but whose value is ignored.
-  void VisitIgnoredValue(const Expr *E) {
+  /// Visit a value which is evaluated, but whose value is ignored. Returns
+  /// false when the evaluation threw (P3068R6): the exception unwinds through
+  /// the enclosing expression, whose remaining operands are not evaluated.
+  bool VisitIgnoredValue(const Expr *E) {
     EvaluateIgnoredValue(Info, E);
+    return !Info.PendingException;
   }
 
   /// Potentially visit a MemberExpr's base expression.
@@ -10536,7 +10540,7 @@ public:
     // presence of side-effecting behavior.
     if (Info.getLangOpts().MSVCCompat && !E->HasSideEffects(Info.Ctx))
       return;
-    VisitIgnoredValue(E);
+    (void)VisitIgnoredValue(E);
   }
 
   /// Visit a metafunction evaluation (CXX26).
@@ -11814,7 +11818,8 @@ bool PointerExprEvaluator::VisitCastExpr(const CastExpr *E) {
     return HandleDynamicCast(Info, cast<ExplicitCastExpr>(E), Result);
 
   case CK_NullToPointer:
-    VisitIgnoredValue(E->getSubExpr());
+    if (!VisitIgnoredValue(E->getSubExpr()))
+      return false;
     return ZeroInitialization(E);
 
   case CK_IntegralToPointer: {
@@ -12754,7 +12759,8 @@ bool MemberPointerExprEvaluator::VisitCastExpr(const CastExpr *E) {
     return ExprEvaluatorBaseTy::VisitCastExpr(E);
 
   case CK_NullToMemberPointer:
-    VisitIgnoredValue(E->getSubExpr());
+    if (!VisitIgnoredValue(E->getSubExpr()))
+      return false;
     return ZeroInitialization(E);
 
   case CK_BaseToDerivedMemberPointer: {
@@ -13607,7 +13613,8 @@ VectorExprEvaluator::ZeroInitialization(const Expr *E) {
 }
 
 bool VectorExprEvaluator::VisitUnaryImag(const UnaryOperator *E) {
-  VisitIgnoredValue(E->getSubExpr());
+  if (!VisitIgnoredValue(E->getSubExpr()))
+    return false;
   return ZeroInitialization(E);
 }
 
@@ -20889,7 +20896,8 @@ bool IntExprEvaluator::VisitUnaryImag(const UnaryOperator *E) {
     return Success(LV.getComplexIntImag(), E);
   }
 
-  VisitIgnoredValue(E->getSubExpr());
+  if (!VisitIgnoredValue(E->getSubExpr()))
+    return false;
   return Success(0, E);
 }
 
@@ -22146,7 +22154,8 @@ bool FloatExprEvaluator::VisitUnaryImag(const UnaryOperator *E) {
     return true;
   }
 
-  VisitIgnoredValue(E->getSubExpr());
+  if (!VisitIgnoredValue(E->getSubExpr()))
+    return false;
   const llvm::fltSemantics &Sem = Info.Ctx.getFloatTypeSemantics(E->getType());
   Result = llvm::APFloat::getZero(Sem);
   return true;
@@ -23104,7 +23113,8 @@ public:
     default:
       return ExprEvaluatorBaseTy::VisitCastExpr(E);
     case CK_NullToPointer:
-      VisitIgnoredValue(E->getSubExpr());
+      if (!VisitIgnoredValue(E->getSubExpr()))
+        return false;
       return ZeroInitialization(E);
     case CK_NonAtomicToAtomic:
       return This ? EvaluateInPlace(Result, Info, *This, E->getSubExpr())

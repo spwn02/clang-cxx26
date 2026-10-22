@@ -33,64 +33,64 @@ extern wchar_t* wout;
 
 void f() {
   std::format_to(out, "{"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(out, "}"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(out, "{}"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(out, "{0}"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(out, "{:-}", "Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(out, "{:#}", "Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(out, "{:L}", "Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(out, "{0:{0}}", "Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(out, "{:.42d}", "Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(out, "{:d}", "Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
 #ifndef TEST_HAS_NO_WIDE_CHARACTERS
   std::format_to(wout, L"{"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(wout, L"}"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(wout, L"{}"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(wout, L"{0}"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(wout, L"{:-}", L"Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(wout, L"{:#}", L"Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(wout, L"{:L}", L"Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(wout, L"{0:{0}}", L"Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(wout, L"{:.42d}", L"Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 
   std::format_to(wout, L"{:d}", L"Forty-two"); // expected-error-re{{call to consteval function '{{.*}}' is not a constant expression}}
-  // expected-note@*:* {{non-constexpr function '__throw_format_error' cannot be used in a constant expression}}
+  // expected-note-re@*:* {{{{(non-constexpr function '__throw_format_error' cannot be used in a constant expression|exception thrown here was not caught within the constant expression)}}}}
 #endif
 }

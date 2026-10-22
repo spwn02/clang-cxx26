@@ -58,7 +58,7 @@ __throw_invalid_option_format_error(const char* __id, const char* __option) {
       (string("The format specifier for ") + __id + " does not allow the " + __option + " option").c_str());
 }
 
-[[noreturn]] _LIBCPP_HIDE_FROM_ABI inline void __throw_invalid_type_format_error(const char* __id) {
+[[noreturn]] _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_invalid_type_format_error(const char* __id) {
   std::__throw_format_error(
       (string("The type option contains an invalid value for ") + __id + " formatting argument").c_str());
 }

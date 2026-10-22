@@ -2560,11 +2560,11 @@ private:
     return std::__is_pointer_in_range(data(), data() + size() + 1, std::addressof(__v));
   }
 
-  [[__noreturn__]] _LIBCPP_HIDE_FROM_ABI static void __throw_length_error() {
+  [[__noreturn__]] _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_length_error() {
     std::__throw_length_error("basic_string");
   }
 
-  [[__noreturn__]] _LIBCPP_HIDE_FROM_ABI static void __throw_out_of_range() {
+  [[__noreturn__]] _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_out_of_range() {
     std::__throw_out_of_range("basic_string");
   }
 
