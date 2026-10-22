@@ -886,6 +886,13 @@ def err_mmap_module_id : Error<
   "expected a module name or '*'">;
 def err_mmap_expected_library_name : Error<
   "expected %select{library|framework}0 name as a string">;
+def err_pp_module_name_is_macro : Error<
+  "the identifier %0 in a module name cannot be defined as a macro name or "
+  "be followed by '('">;
+
+def err_pp_module_name_followed_by_bad_token : Error<
+  "the preprocessing token after a module name must be ';' or '['">;
+
 def err_mmap_config_macro_submodule : Error<
   "configuration macros are only allowed in top-level modules">;
 def err_mmap_use_decl_submodule : Error<

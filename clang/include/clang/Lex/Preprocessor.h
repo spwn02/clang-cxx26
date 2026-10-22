@@ -561,26 +561,41 @@ private:
         State = ImplementationCandidate;
       else if (!isNamedModule())
         reset();
+      NameDone = false;
+      ExpectIdentifier = true;
     }
 
     void handleIdentifier(IdentifierInfo *Identifier) {
-      if (isModuleCandidate() && Identifier)
-        Name += Identifier->getName().str();
-      else if (!isNamedModule())
+      if (isModuleCandidate() && Identifier) {
+        // [cpp.module]: an identifier that follows the module-name and the
+        // optional partition belongs to the pp-tokens (an attribute).
+        if (!NameDone && ExpectIdentifier) {
+          Name += Identifier->getName().str();
+          ExpectIdentifier = false;
+        } else {
+          NameDone = true;
+        }
+      } else if (!isNamedModule())
         reset();
     }
 
     void handleColon() {
-      if (isModuleCandidate())
-        Name += ":";
-      else if (!isNamedModule())
+      if (isModuleCandidate()) {
+        if (!NameDone) {
+          Name += ":";
+          ExpectIdentifier = true;
+        }
+      } else if (!isNamedModule())
         reset();
     }
 
     void handlePeriod() {
-      if (isModuleCandidate())
-        Name += ".";
-      else if (!isNamedModule())
+      if (isModuleCandidate()) {
+        if (!NameDone) {
+          Name += ".";
+          ExpectIdentifier = true;
+        }
+      } else if (!isNamedModule())
         reset();
     }
 
@@ -597,8 +612,35 @@ private:
     }
 
     void handleMisc() {
-      if (!isNamedModule())
+      // The pp-tokens that follow the module-name are not part of it.
+      if (isModuleCandidate() && !Name.empty())
+        NameDone = true;
+      else if (!isNamedModule())
         reset();
+    }
+
+    /// The pp-tokens after the module-name began (a macro was expanded).
+    void endModuleName() {
+      if (isModuleCandidate()) {
+        NameDone = true;
+        if (!Name.empty())
+          ExpectSemiOrBracket = true;
+      }
+    }
+
+    /// The first token after a module-name whose end was a macro expansion
+    /// must be ';' or '[' ([cpp.module]).
+    bool takeExpectSemiOrBracket() {
+      bool R = ExpectSemiOrBracket && isModuleCandidate();
+      ExpectSemiOrBracket = false;
+      return R;
+    }
+
+    /// Whether the next identifier is part of the module-name or partition of
+    /// the module declaration being lexed: it is never macro-expanded
+    /// ([cpp.module], P3034R1).
+    bool isInModuleName() const {
+      return isModuleCandidate() && !NameDone && ExpectIdentifier;
     }
 
     bool isModuleCandidate() const {
@@ -631,11 +673,17 @@ private:
     void reset() {
       Name.clear();
       State = NotAModuleDecl;
+      NameDone = false;
+      ExpectIdentifier = false;
+      ExpectSemiOrBracket = false;
     }
 
   private:
     ModuleDeclState State = NotAModuleDecl;
     std::string Name;
+    bool NameDone = false;
+    bool ExpectIdentifier = false;
+    bool ExpectSemiOrBracket = false;
   };
 
   ModuleDeclSeq ModuleDeclState;

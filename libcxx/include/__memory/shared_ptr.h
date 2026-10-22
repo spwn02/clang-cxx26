@@ -100,7 +100,7 @@ public:
 };
 _LIBCPP_DIAGNOSTIC_POP
 
-[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI void __throw_bad_weak_ptr() {
+[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_bad_weak_ptr() {
 #if _LIBCPP_HAS_EXCEPTIONS
   throw bad_weak_ptr();
 #else

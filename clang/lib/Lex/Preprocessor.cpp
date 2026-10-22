@@ -832,12 +832,22 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
     // P3034R1: module names in a module declaration are not macro names.
     // ModuleDeclState is advanced when the preceding `module` token is
     // returned, so this also covers qualified names and partitions.
-    if (!DisableMacroExpansion && !ModuleDeclState.isModuleCandidate()) {
+    if (!DisableMacroExpansion && ModuleDeclState.isInModuleName()) {
+      // [cpp.module]: no identifier of a pp-module-name or pp-module-partition
+      // shall currently be defined as an object-like macro or be followed by
+      // '(' as the next preprocessing token.
+      if (MI->isObjectLike() || isNextPPTokenOneOf(tok::l_paren))
+        Diag(Identifier, diag::err_pp_module_name_is_macro) << &II;
+    } else if (!DisableMacroExpansion) {
       if (!Identifier.isExpandDisabled() && MI->isEnabled()) {
         // C99 6.10.3p10: If the preprocessing token immediately after the
         // macro name isn't a '(', this macro should not be expanded.
-        if (!MI->isFunctionLike() || isNextPPTokenOneOf(tok::l_paren))
+        if (!MI->isFunctionLike() || isNextPPTokenOneOf(tok::l_paren)) {
+          // [cpp.module]: what follows the module-name is not part of it, even
+          // when the expansion starts with '.' or ':'.
+          ModuleDeclState.endModuleName();
           return HandleMacroExpandedIdentifier(Identifier, MD);
+        }
       } else {
         // C99 6.10.3.4p2 says that a disabled macro may never again be
         // expanded, even if it's in a context where it could be expanded in the
@@ -925,6 +935,12 @@ void Preprocessor::Lex(Token &Result) {
     // identifiers and completion tokens.
     Result.setIdentifierInfo(nullptr);
   }
+
+  // [cpp.module]: after the expansion of a macro that follows the module-name,
+  // the next preprocessing token must be ';' or '['.
+  if (LexLevel == 1 && ModuleDeclState.takeExpectSemiOrBracket() &&
+      !Result.isOneOf(tok::semi, tok::l_square, tok::eod, tok::eof))
+    Diag(Result, diag::err_pp_module_name_followed_by_bad_token);
 
   // Update StdCXXImportSeqState to track our position within a C++20 import-seq
   // if this token is being produced as a result of phase 4 of translation.

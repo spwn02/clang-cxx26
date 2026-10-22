@@ -93,7 +93,17 @@ public:
 
 [[__noreturn__]] _LIBCPP_EXPORTED_FROM_ABI void __throw_bad_alloc(); // not in C++ spec
 
-[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI void __throw_bad_array_new_length() {
+// P3068R6: the Throws: bad_alloc of a function that is constexpr in C++26 is thrown in constant evaluation, where the
+// out-of-line function above cannot be called.
+[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_bad_alloc_constexpr() {
+#if _LIBCPP_HAS_EXCEPTIONS
+  throw bad_alloc();
+#else
+  _LIBCPP_VERBOSE_ABORT("bad_alloc was thrown in -fno-exceptions mode");
+#endif
+}
+
+[[__noreturn__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void __throw_bad_array_new_length() {
 #if _LIBCPP_HAS_EXCEPTIONS
   throw bad_array_new_length();
 #else

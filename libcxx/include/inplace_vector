@@ -450,7 +450,7 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI constexpr void resize(size_type __sz) {
     if (__sz > _Capacity)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     if (__sz < size()) {
       while (size() > __sz)
         pop_back();
@@ -461,7 +461,7 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI constexpr void resize(size_type __sz, const _Tp& __value) {
     if (__sz > _Capacity)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     if (__sz < size()) {
       while (size() > __sz)
         pop_back();
@@ -474,7 +474,7 @@ public:
   // to request or release beyond the fixed _Capacity itself.
   _LIBCPP_HIDE_FROM_ABI static constexpr void reserve(size_type __n) {
     if (__n > _Capacity)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
 
   _LIBCPP_HIDE_FROM_ABI static constexpr void shrink_to_fit() noexcept {}
@@ -514,7 +514,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto push_back(const _Tp& __value) -> reference {
     auto __r = try_push_back(__value);
     if (!__r)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     reference __ref = *__r;
     return __ref;
   }
@@ -522,7 +522,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto push_back(_Tp&& __value) -> reference {
     auto __r = try_push_back(std::move(__value));
     if (!__r)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     reference __ref = *__r;
     return __ref;
   }
@@ -531,7 +531,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto emplace_back(_Args&&... __args) -> reference {
     auto __r = try_emplace_back(std::forward<_Args>(__args)...);
     if (!__r)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     reference __ref = *__r;
     return __ref;
   }
@@ -540,7 +540,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr void append_range(_Range&& __rg) {
     for (auto&& __v : __rg) {
       if (size() >= _Capacity)
-        std::__throw_bad_alloc();
+        std::__throw_bad_alloc_constexpr();
       unchecked_push_back(std::forward<decltype(__v)>(__v));
     }
   }
@@ -583,7 +583,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto insert(const_iterator __pos, size_type __n, const _Tp& __value) -> iterator {
     size_type __idx = static_cast<size_type>(__pos - cbegin());
     if (size() + __n > _Capacity)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     for (size_type __i = 0; __i < __n; ++__i)
       unchecked_push_back(__value);
     std::rotate(data() + __idx, data() + size() - __n, data() + size());
@@ -621,7 +621,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI constexpr auto emplace(const_iterator __pos, _Args&&... __args) -> iterator {
     size_type __idx = static_cast<size_type>(__pos - cbegin());
     if (size() >= _Capacity)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     if (__idx == size()) {
       unchecked_emplace_back(std::forward<_Args>(__args)...);
       return data() + __idx;
@@ -718,14 +718,14 @@ public:
 private:
   _LIBCPP_HIDE_FROM_ABI constexpr void __append_default(size_type __n) {
     if (size() + __n > _Capacity)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     for (size_type __i = 0; __i < __n; ++__i)
       unchecked_emplace_back();
   }
 
   _LIBCPP_HIDE_FROM_ABI constexpr void __append_fill(size_type __n, const _Tp& __value) {
     if (size() + __n > _Capacity)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     for (size_type __i = 0; __i < __n; ++__i)
       unchecked_push_back(__value);
   }
@@ -763,29 +763,29 @@ public:
 
   constexpr explicit inplace_vector(size_type __n) {
     if (__n > 0)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
 
   constexpr inplace_vector(size_type __n, const _Tp&) {
     if (__n > 0)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
 
   template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
   _LIBCPP_HIDE_FROM_ABI constexpr inplace_vector(_InputIt __first, _InputIt __last) {
     if (__first != __last)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
 
   template <_ContainerCompatibleRange<_Tp> _Range>
   _LIBCPP_HIDE_FROM_ABI constexpr inplace_vector(from_range_t, _Range&& __rg) {
     if (ranges::begin(__rg) != ranges::end(__rg))
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
 
   constexpr inplace_vector(std::initializer_list<_Tp> __il) {
     if (__il.size() > 0)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
 
   constexpr auto operator=(std::initializer_list<_Tp> __il) -> inplace_vector& {
@@ -796,23 +796,23 @@ public:
   template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
   _LIBCPP_HIDE_FROM_ABI constexpr void assign(_InputIt __first, _InputIt __last) {
     if (__first != __last)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
 
   template <_ContainerCompatibleRange<_Tp> _Range>
   _LIBCPP_HIDE_FROM_ABI constexpr void assign_range(_Range&& __rg) {
     if (ranges::begin(__rg) != ranges::end(__rg))
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
 
   constexpr void assign(size_type __n, const _Tp&) {
     if (__n > 0)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
 
   constexpr void assign(std::initializer_list<_Tp> __il) {
     if (__il.size() > 0)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
 
   // element access
@@ -881,15 +881,15 @@ public:
 
   constexpr void resize(size_type __sz) {
     if (__sz > 0)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
   constexpr void resize(size_type __sz, const _Tp&) {
     if (__sz > 0)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
   static constexpr void reserve(size_type __n) {
     if (__n > 0)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
   static constexpr void shrink_to_fit() noexcept {}
 
@@ -901,19 +901,19 @@ public:
   }
 
   constexpr auto push_back(const _Tp&) -> reference {
-    std::__throw_bad_alloc();
+    std::__throw_bad_alloc_constexpr();
   }
   constexpr auto push_back(_Tp&&) -> reference {
-    std::__throw_bad_alloc();
+    std::__throw_bad_alloc_constexpr();
   }
   template <class... _Args>
   _LIBCPP_HIDE_FROM_ABI constexpr auto emplace_back(_Args&&...) -> reference {
-    std::__throw_bad_alloc();
+    std::__throw_bad_alloc_constexpr();
   }
   template <_ContainerCompatibleRange<_Tp> _Range>
   _LIBCPP_HIDE_FROM_ABI constexpr void append_range(_Range&& __rg) {
     if (ranges::begin(__rg) != ranges::end(__rg))
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
   }
 
   // Preconditions: size() < capacity(), never satisfiable; UB to call.
@@ -936,33 +936,33 @@ public:
         false, "cannot call inplace_vector<T, 0>::pop_back() on a zero-sized inplace_vector");
   }
 
-  constexpr auto insert(const_iterator, const _Tp&) -> iterator { std::__throw_bad_alloc(); }
-  constexpr auto insert(const_iterator, _Tp&&) -> iterator { std::__throw_bad_alloc(); }
+  constexpr auto insert(const_iterator, const _Tp&) -> iterator { std::__throw_bad_alloc_constexpr(); }
+  constexpr auto insert(const_iterator, _Tp&&) -> iterator { std::__throw_bad_alloc_constexpr(); }
   constexpr auto insert(const_iterator, size_type __n, const _Tp&) -> iterator {
     if (__n > 0)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     return end();
   }
   template <class _InputIt, class = decltype(*std::declval<_InputIt&>(), void())>
   _LIBCPP_HIDE_FROM_ABI constexpr auto insert(const_iterator, _InputIt __first, _InputIt __last) -> iterator {
     if (__first != __last)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     return end();
   }
   template <_ContainerCompatibleRange<_Tp> _Range>
   _LIBCPP_HIDE_FROM_ABI constexpr auto insert_range(const_iterator, _Range&& __rg) -> iterator {
     if (ranges::begin(__rg) != ranges::end(__rg))
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     return end();
   }
   constexpr auto insert(const_iterator, std::initializer_list<_Tp> __il) -> iterator {
     if (__il.size() > 0)
-      std::__throw_bad_alloc();
+      std::__throw_bad_alloc_constexpr();
     return end();
   }
   template <class... _Args>
   _LIBCPP_HIDE_FROM_ABI constexpr auto emplace(const_iterator, _Args&&...) -> iterator {
-    std::__throw_bad_alloc();
+    std::__throw_bad_alloc_constexpr();
   }
 
   // Preconditions require __pos (resp. [__first, __last)) to be within

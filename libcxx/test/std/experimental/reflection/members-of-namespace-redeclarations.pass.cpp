@@ -47,6 +47,17 @@ struct C {};
 } // namespace I
 } // namespace N
 
+// A friend declaration is not members-of-eligible: neither a class that is only declared as a friend nor a hidden
+// friend function is a member of the namespace.
+namespace N {
+inline namespace I {
+struct Owner2 {
+  friend class OnlyFriend;
+  friend void hidden_friend(Owner2) {}
+};
+} // namespace I
+} // namespace N
+
 consteval bool has(std::meta::info ns, std::string_view name) {
   for (auto m : std::meta::members_of(ns, std::meta::access_context::unchecked()))
     if (std::meta::has_identifier(m) && std::meta::identifier_of(m) == name)
@@ -59,6 +70,10 @@ static_assert(has(^^N::I, "B"));
 static_assert(has(^^N::I, "C"));
 static_assert(has(^^N::I, "Owner"));
 static_assert(has(^^N::I, "Friended"));
+
+static_assert(has(^^N::I, "Owner2"));
+static_assert(!has(^^N::I, "OnlyFriend"));
+static_assert(!has(^^N::I, "hidden_friend"));
 
 consteval int count(std::meta::info ns, std::string_view name) {
   int n = 0;
