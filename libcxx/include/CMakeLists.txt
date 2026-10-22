@@ -1147,22 +1147,6 @@ set(files
   exception
   execution
   expected
-  experimental/__simd/aligned_tag.h
-  experimental/__simd/declaration.h
-  experimental/__simd/reference.h
-  experimental/__simd/scalar.h
-  experimental/__simd/simd.h
-  experimental/__simd/simd_mask.h
-  experimental/__simd/traits.h
-  experimental/__simd/utility.h
-  experimental/__simd/vec_ext.h
-  experimental/iterator
-  experimental/memory
-  experimental/propagate_const
-  experimental/scope
-  experimental/simd
-  experimental/type_traits
-  experimental/utility
   ext/__hash
   ext/hash_map
   ext/hash_set
@@ -1775,8 +1759,6 @@ set(files
   __cxx03/cwctype
   __cxx03/deque
   __cxx03/exception
-  __cxx03/experimental/__config
-  __cxx03/experimental/utility
   __cxx03/ext/__hash
   __cxx03/ext/hash_map
   __cxx03/ext/hash_set

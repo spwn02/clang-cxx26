@@ -81,20 +81,15 @@ class Header:
             "cwctype",
         ]
 
-    def is_experimental(self) -> bool:
-        """Returns whether the header is a public experimental header."""
-        return self.is_public() and self._name.startswith("experimental/")
-
     def has_cxx20_module(self) -> bool:
         """
         Returns whether the header is in the std and std.compat C++20 modules.
 
-        These headers are all C++23-and-later headers, excluding C compatibility headers and
-        experimental headers.
+        These headers are all C++23-and-later headers, excluding C compatibility headers.
         """
         # These headers have been removed in C++20 so are never part of a module.
         removed_in_20 = ["ccomplex", "ciso646", "cstdalign", "cstdbool", "ctgmath"]
-        return self.is_public() and not self.is_experimental() and not self.is_C_compatibility() and not self._name in removed_in_20
+        return self.is_public() and not self.is_C_compatibility() and not self._name in removed_in_20
 
     def is_cxx03_frozen_header(self) -> bool:
         """Returns whether the header is a frozen C++03 support header."""
@@ -181,10 +176,6 @@ lit_header_restrictions = {
     "coroutine": "// UNSUPPORTED: c++03, c++11, c++14, c++17",
     "cwchar": "// UNSUPPORTED: no-wide-characters",
     "cwctype": "// UNSUPPORTED: no-wide-characters",
-    "experimental/iterator": "// UNSUPPORTED: c++03",
-    "experimental/propagate_const": "// UNSUPPORTED: c++03",
-    "experimental/simd": "// UNSUPPORTED: c++03",
-    "experimental/type_traits": "// UNSUPPORTED: c++03",
     "experimental/utility": "// UNSUPPORTED: c++03",
     "filesystem": "// UNSUPPORTED: no-filesystem, c++03, c++11, c++14",
     "future": "// UNSUPPORTED: no-threads, c++03",

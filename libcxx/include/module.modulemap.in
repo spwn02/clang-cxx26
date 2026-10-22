@@ -4629,47 +4629,6 @@ module std [system] {
     export std.algorithm.simd_utils // This is a workaround for https://llvm.org/PR120108.
   }
 
-  // Experimental C++ Standard Library interfaces
-  module experimental {
-    module iterator {
-      header "experimental/iterator"
-      export *
-    }
-    module memory {
-      header "experimental/memory"
-      export *
-    }
-    module propagate_const {
-      header "experimental/propagate_const"
-      export *
-    }
-    module scope {
-      header "experimental/scope"
-      export *
-    }
-    module type_traits {
-      header "experimental/type_traits"
-      export *
-    }
-    module utility {
-      header "experimental/utility"
-      export *
-    }
-    module simd {
-      private header "experimental/__simd/aligned_tag.h"
-      private header "experimental/__simd/declaration.h"
-      private header "experimental/__simd/reference.h"
-      private header "experimental/__simd/scalar.h"
-      private header "experimental/__simd/simd_mask.h"
-      private header "experimental/__simd/simd.h"
-      private header "experimental/__simd/traits.h"
-      private header "experimental/__simd/utility.h"
-      private header "experimental/__simd/vec_ext.h"
-      header "experimental/simd"
-      export *
-    }
-  }
-
   // Implementation detail headers that are private to libc++. These modules
   // must not be directly imported.
   module debug_utils {

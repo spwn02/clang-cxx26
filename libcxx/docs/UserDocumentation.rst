@@ -51,13 +51,8 @@ This flag is not required on systems where libc++ is the default standard librar
 such as macOS and FreeBSD.
 
 
-Technical Specifications
-========================
-
-Libc++ provides implementations of some Technical Specifications (TSes) in the
-``<experimental/...>`` headers. They are not part of the C++ standard and are
-disabled by default; defining the ``_LIBCPP_ENABLE_EXPERIMENTAL`` macro enables
-them. No guarantees of API or ABI stability are provided for them.
+Standard Library Features
+=========================
 
 Every feature that was voted into the C++ standard (including the parallel
 algorithms library with ``<execution>``, ``std::chrono::tzdb`` and the related time
@@ -90,9 +85,6 @@ enable or disable extended libc++ behavior.
   Defining this macro and then building libc++ with hidden visibility gives a
   build of libc++ which does not export any symbols, which can be useful when
   building statically for inclusion into another library.
-
-**_LIBCPP_ENABLE_EXPERIMENTAL**:
-  This macro enables the Technical Specification headers (``<experimental/...>``).
 
 **_LIBCPP_HARDENING_MODE**:
   This macro is used to choose the :ref:`hardening mode <using-hardening-modes>`.

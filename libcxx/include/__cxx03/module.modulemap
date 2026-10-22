@@ -515,48 +515,6 @@ module cxx03_std_wctype_h [system] {
   export *
 }
 
-// Experimental C++ standard library interfaces
-module cxx03_std_experimental [system] {
-  module iterator {
-    header "experimental/iterator"
-    export *
-  }
-  module memory {
-    header "experimental/memory"
-    export *
-  }
-  module propagate_const {
-    header "experimental/propagate_const"
-    export *
-  }
-  module simd {
-    module aligned_tag          { private header "experimental/__simd/aligned_tag.h" }
-    module declaration          { private header "experimental/__simd/declaration.h" }
-    module reference            { private header "experimental/__simd/reference.h" }
-    module scalar               { private header "experimental/__simd/scalar.h" }
-    module simd                 { private header "experimental/__simd/simd.h" }
-    module simd_mask            { private header "experimental/__simd/simd_mask.h" }
-    module traits               { private header "experimental/__simd/traits.h" }
-    module utility              { private header "experimental/__simd/utility.h" }
-    module vec_ext              { private header "experimental/__simd/vec_ext.h" }
-
-    header "experimental/simd"
-    export *
-  }
-  module type_traits {
-    header "experimental/type_traits"
-    export *
-  }
-  module utility {
-    header "experimental/utility"
-    export *
-  }
-  module __config {
-    textual header "experimental/__config"
-    export *
-  }
-}
-
 // Convenience method to get all of the above modules in a single import statement.
 // Importing only the needed modules is likely to be more performant.
 module cxx03_std [system] {
