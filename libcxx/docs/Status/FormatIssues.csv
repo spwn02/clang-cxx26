@@ -13,17 +13,17 @@ Number,Name,Standard,Assignee,Status,First released version
 "`P2713R1 <https://wg21.link/P2713R1>`__","Escaping improvements in ``std::format``","C++23","Mark de Wever","|Complete|",19
 "`P2675R1 <https://wg21.link/P2675R1>`__","``format``'s width estimation is too approximate and not forward compatible","C++23","Mark de Wever","|Complete|",17
 "`P2572R1 <https://wg21.link/P2572R1>`__","``std::format`` fill character allowances","C++23","Mark de Wever","|Complete|",17
-"`P2693R1 <https://wg21.link/P2693R1>`__","Formatting ``thread::id`` and ``stacktrace``","C++23","Mark de Wever","|In Progress|"
+"`P2693R1 <https://wg21.link/P2693R1>`__","Formatting ``thread::id`` and ``stacktrace``","C++23","Mark de Wever","|Complete|"
 "`P2510R3 <https://wg21.link/P2510R3>`__","Formatting pointers","C++26","Mark de Wever","|Complete|",17
-"`P2757R3 <https://wg21.link/P2757R3>`__","Type-checking format args","C++26","","",
+"`P2757R3 <https://wg21.link/P2757R3>`__","Type-checking format args","C++26","","|Complete|",
 "`P2637R3 <https://wg21.link/P2637R3>`__","Member ``visit``","C++26","Hristo Hristov","|Complete|",19
 "`P2905R2 <https://wg21.link/P2905R2>`__","Runtime format strings","C++26 DR","Mark de Wever","|Complete|",18
 "`P2918R2 <https://wg21.link/P2918R2>`__","Runtime format strings II","C++26","Mark de Wever","|Complete|",18
 "`P2909R4 <https://wg21.link/P2909R4>`__","Fix formatting of code units as integers (Dude, where’s my ``char``?)","C++26 DR","Mark de Wever","|Complete|",18
-"`P3107R5 <https://wg21.link/P3107R5>`__","Permit an efficient implementation of ``std::print``","C++26 DR","Mark de Wever","|In Progress|",""
+"`P3107R5 <https://wg21.link/P3107R5>`__","Permit an efficient implementation of ``std::print``","C++26 DR","Mark de Wever","|Complete|",""
 "`P3142R0 <https://wg21.link/P3142R0>`__","Printing Blank Lines with ``println``","C++26 DR","Hristo Hristov","|Complete|",19
-"`P2845R8 <https://wg21.link/P2845R8>`__","Formatting of ``std::filesystem::path``","C++26","Mark de Wever","",""
+"`P2845R8 <https://wg21.link/P2845R8>`__","Formatting of ``std::filesystem::path``","C++26","Mark de Wever","|Complete|",""
 
-`P1361 <https://wg21.link/P1361>`_,"Integration of chrono with text formatting","C++20",Mark de Wever,|In Progress|,
-`P2372 <https://wg21.link/P2372>`__,"Fixing locale handling in chrono formatters","C++20",Mark de Wever,|In Progress|,
-"`P2419R2 <https://wg21.link/P2419R2>`__","Clarify handling of encodings in localized formatting of chrono types","C++23",
+`P1361 <https://wg21.link/P1361>`_,"Integration of chrono with text formatting","C++20",Mark de Wever,|Complete|,
+`P2372 <https://wg21.link/P2372>`__,"Fixing locale handling in chrono formatters","C++20",Mark de Wever,|Complete|,
+"`P2419R2 <https://wg21.link/P2419R2>`__","Clarify handling of encodings in localized formatting of chrono types","C++23","","|Complete|",

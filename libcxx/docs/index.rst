@@ -50,7 +50,6 @@ Getting Started with libc++
    Status/Cxx23
    Status/Cxx2c
    Status/Format
-   Status/Parallelism
    Status/PSTL
 
 
@@ -218,7 +217,6 @@ Design Documents
    DesignDocs/ABIVersioning
    DesignDocs/AtomicDesign
    DesignDocs/CapturingConfigInfo
-   DesignDocs/ExperimentalFeatures
    DesignDocs/ExtendedCXX03Support
    DesignDocs/FeatureTestMacros
    DesignDocs/FileTimeType

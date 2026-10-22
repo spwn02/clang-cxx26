@@ -30,4 +30,4 @@ Section,Description,Dependencies,Assignee,Status,First released version
 
 "`P2693R1 <https://wg21.link/P2693R1>`__","Formatting ``thread::id`` and ``stacktrace``"
 `[thread.thread.id] <https://wg21.link/thread.thread.id>`_,"Formatting ``thread::id``",,Mark de Wever,|Complete|,17
-`[stacktrace.format] <https://wg21.link/stacktrace.format>`_,"Formatting ``stacktrace``",A ``<stacktrace>`` implementation,Mark de Wever,,
+`[stacktrace.format] <https://wg21.link/stacktrace.format>`_,"Formatting ``stacktrace``",A ``<stacktrace>`` implementation,Mark de Wever,|Complete|,
