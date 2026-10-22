@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23
-// ADDITIONAL_COMPILE_FLAGS: -freflection-latest
+// ADDITIONAL_COMPILE_FLAGS:
 
 // [expr.ref] member access naming a direct base class relationship (P3293R3,
 // #178): diamond bases, private/protected bases, ->, this->, dependent splices,

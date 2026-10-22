@@ -1,6 +1,6 @@
-// RUN: %clangxx -std=c++26 -fcontracts -fcontract-evaluation-semantic=quick_enforce %s -o %t
+// RUN: %clangxx -std=c++26 -fcontract-evaluation-semantic=quick_enforce %s -o %t
 // RUN: %t
-// RUN: %clangxx -std=c++26 -fcontracts -fcontract-evaluation-semantic=quick_enforce -O2 %s -o %t
+// RUN: %clangxx -std=c++26 -fcontract-evaluation-semantic=quick_enforce -O2 %s -o %t
 // RUN: %t
 
 // [expr.prim.lambda.capture]: a capture-default is permitted if the lambda

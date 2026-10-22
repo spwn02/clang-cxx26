@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// RUN: %clang_cc1 %s -std=c++23 -freflection -verify
+// RUN: %clang_cc1 %s -std=c++26 -verify
 //
 // [dcl.type.simple]p3 / [temp.dep.splice]: a dependent splice-specifier used
 // without an explicit 'typename' keyword cannot stand for a placeholder for

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected %s -fcontracts
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected %s
 
 namespace parsing_basic_test {
   int f(const int x)

@@ -7,4 +7,4 @@
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23
 
 // The standard query does not require parameter reflection.
-// RUN: %{cxx} %{flags} %{compile_flags} -std=c++26 -freflection -fsyntax-only %S/is-vararg-function.pass.cpp
+// RUN: %{cxx} %{flags} %{compile_flags} -std=c++26 -fsyntax-only %S/is-vararg-function.pass.cpp

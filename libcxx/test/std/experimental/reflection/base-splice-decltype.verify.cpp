@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23
-// ADDITIONAL_COMPILE_FLAGS: -freflection-latest
+// ADDITIONAL_COMPILE_FLAGS:
 
 // [dcl.type.decltype]: decltype of an unparenthesized class member access is the
 // type of the entity named by it and is ill-formed if there is no such entity. A

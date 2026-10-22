@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 
 // [dcl.contract.res]: a result binding denotes the object or reference returned and has the return type, so for a
 // function returning a reference it denotes the referenced object (#314).

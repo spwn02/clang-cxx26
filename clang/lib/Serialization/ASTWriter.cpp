@@ -1675,19 +1675,6 @@ void ASTWriter::WriteControlBlock(Preprocessor &PP, StringRef isysroot) {
   // code generated from this file (e.g. a module interface compiled to an
   // object file) must honour the flags it was precompiled with.
   Record.push_back(static_cast<unsigned>(LangOpts.ContractOpts.DefaultSemantic));
-  {
-    SmallVector<StringRef, 4> Groups;
-    for (const auto &KV : LangOpts.ContractOpts.SemanticsByGroup)
-      Groups.push_back(KV.getKey());
-    llvm::sort(Groups);
-    Record.push_back(Groups.size());
-    for (StringRef Group : Groups) {
-      AddString(Group, Record);
-      Record.push_back(static_cast<unsigned>(
-          LangOpts.ContractOpts.SemanticsByGroup.find(Group)->second));
-    }
-  }
-
   Stream.EmitRecord(LANGUAGE_OPTIONS, Record);
 
   // Codegen options.

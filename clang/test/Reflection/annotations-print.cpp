@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fannotation-attributes -verify
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fannotation-attributes -ast-print | FileCheck %s
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fannotation-attributes -ast-dump | FileCheck %s --check-prefix=DUMP
+// RUN: %clang_cc1 %s -std=c++26 -verify
+// RUN: %clang_cc1 %s -std=c++26 -ast-print | FileCheck %s
+// RUN: %clang_cc1 %s -std=c++26 -ast-dump | FileCheck %s --check-prefix=DUMP
 // expected-no-diagnostics
 struct [[=1,=2]] S { [[=3]] int m; };
 [[=4]] void f([[=5]] int x);

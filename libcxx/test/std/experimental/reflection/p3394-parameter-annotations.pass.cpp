@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// ADDITIONAL_COMPILE_FLAGS: -freflection-latest -fparameter-reflection
+// ADDITIONAL_COMPILE_FLAGS:
 
 #include <meta>
 

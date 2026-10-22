@@ -5,8 +5,8 @@ CXX26 Clang is an experimental fork of
 C++26 language and standard-library implementation, together with compatible
 support for earlier C++ standards, including static reflection
 ([P2996](https://wg21.link/p2996) and its companion papers). Enable it with
-`-std=c++26 -freflection` (see `AGENTS.md`'s "Experimental reflection flags"
-section for the full set of feature flags).
+`-std=c++26`; reflection, expansion statements, annotations and contracts
+are part of that mode (see `AGENTS.md`).
 
 This fork preserves upstream LLVM history and the history of its Bloomberg-originated
 reflection implementation. That provenance does not imply Bloomberg endorsement

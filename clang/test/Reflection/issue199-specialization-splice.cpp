@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 using T = [:^^int:]<int>; // expected-error {{reflection not usable in a template splice}}
 using U = typename [:^^int:]<int>; // expected-error {{reflection not usable in a template splice}}
 template<class> struct TT {};

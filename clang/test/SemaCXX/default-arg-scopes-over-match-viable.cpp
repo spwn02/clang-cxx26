@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -freflection-latest -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 
 // [over.match.viable]: the default arguments used by a call come from the
 // declarations of exactly one scope; through a splice-expression that scope is

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts %s -verify
+// RUN: %clang_cc1 -std=c++26 %s -verify
 
 // expected-no-diagnostics
 

@@ -1,6 +1,6 @@
 // RUN: clang-tidy %s -checks='-*,readability-identifier-naming' \
 // RUN:   -config="{CheckOptions: {readability-identifier-naming.VariableCase: camelBack}}" \
-// RUN:   -- -std=c++26 -fexpansion-statements 2>&1 | count 0
+// RUN:   -- -std=c++26 2>&1 | count 0
 
 // Regression test for the Contracts Hardening epic's M5
 // (docs/CONTRACTS_HARDENING.md): `template for`'s synthesized `__range`

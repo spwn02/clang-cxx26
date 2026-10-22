@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -freflection -fexpansion-statements -emit-llvm -O2 -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -emit-llvm -O2 -o - %s | FileCheck %s
 
 // Expansion statements are equivalent to compound statements [stmt.expand].
 // Their DeclContexts must not introduce a lambda capture boundary.

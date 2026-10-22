@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
-// ADDITIONAL_COMPILE_FLAGS: -freflection-latest
+// ADDITIONAL_COMPILE_FLAGS:
 
 // A reflection of an annotation used as a template argument (or stored in an
 // instantiated template) was written to a PCH/module without its payload and
@@ -16,9 +16,9 @@
 // (clang-tidy's ParentMap) crashed in RecursiveASTVisitor::TraverseCXXReflectExpr.
 // Spwn02/clang-cxx26#121.
 
-// RUN: %{cxx} %{flags} %{compile_flags} -std=c++26 -freflection-latest \
+// RUN: %{cxx} %{flags} %{compile_flags} -std=c++26 \
 // RUN:     -x c++-header %s -o %t.pch
-// RUN: %{cxx} %{flags} %{compile_flags} -std=c++26 -freflection-latest \
+// RUN: %{cxx} %{flags} %{compile_flags} -std=c++26 \
 // RUN:     -include-pch %t.pch -fsyntax-only %s -DUSE
 
 // expected-no-diagnostics

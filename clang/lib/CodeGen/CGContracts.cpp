@@ -462,7 +462,7 @@ void CodeGenFunction::EmitContractStmtAsFullStmt(const ContractStmt &S) {
                                        .ViolationInfoGV = ViolationInfo});
 
   llvm::Value *BranchOn;
-  if (getLangOpts().Exceptions && getLangOpts().ContractExceptions && StmtCanThrow(S.getCond())) {
+  if (getLangOpts().Exceptions && StmtCanThrow(S.getCond())) {
 
     CurContract()->EHPredicateStore = CreateTempAlloca(
         Builder.getInt1Ty(), CharUnits::One(), "contract.pred.value");

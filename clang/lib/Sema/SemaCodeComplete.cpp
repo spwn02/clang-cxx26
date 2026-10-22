@@ -4841,7 +4841,7 @@ void SemaCodeCompletion::CodeCompleteDeclSpec(Scope *S, DeclSpec &DS,
 
     // A trailing return type's decl-specifier-seq is immediately followed by
     // the rest of the function declarator -- cv-qualifiers, noexcept, and
-    // (with -fcontracts) pre/post contract specifiers -- e.g.
+    // (in C++26) pre/post contract specifiers -- e.g.
     // `auto f() -> int <#cursor#>`. This position is reached through
     // ParseTypeName/ParseSpecifierQualifierList rather than through
     // CodeCompleteFunctionQualifiers, so mirror what that function offers.

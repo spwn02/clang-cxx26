@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -dump-tokens %s 2>&1 | FileCheck %s --check-prefix=REFLECTION
-// RUN: %clang_cc1 -std=c++26 -dump-tokens %s 2>&1 | FileCheck %s --check-prefix=DISABLED
+// RUN: %clang_cc1 -std=c++26 -dump-tokens %s 2>&1 | FileCheck %s --check-prefix=REFLECTION
+// RUN: %clang_cc1 -std=c++23 -dump-tokens %s 2>&1 | FileCheck %s --check-prefix=DISABLED
 
 [:x:] ^^ __metafunction
 

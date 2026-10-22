@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 // expected-no-diagnostics
 
 namespace std::meta { using info = decltype(^^int); }

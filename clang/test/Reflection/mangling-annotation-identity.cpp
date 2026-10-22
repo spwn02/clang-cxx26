@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -freflection -fannotation-attributes -fparameter-reflection -emit-llvm -o %t.direct.ll %s
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -freflection -fannotation-attributes -fparameter-reflection -x c++-header -emit-pch -o %t.pch %S/Inputs/mangling-annotation-identity.h
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -freflection -fannotation-attributes -fparameter-reflection -include-pch %t.pch -emit-llvm -o %t.pch.ll %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -emit-llvm -o %t.direct.ll %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -x c++-header -emit-pch -o %t.pch %S/Inputs/mangling-annotation-identity.h
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -include-pch %t.pch -emit-llvm -o %t.pch.ll %s
 // RUN: FileCheck %s < %t.direct.ll
 // RUN: FileCheck %s < %t.pch.ll
 // RUN: FileCheck %s --check-prefix=SYM < %t.direct.ll

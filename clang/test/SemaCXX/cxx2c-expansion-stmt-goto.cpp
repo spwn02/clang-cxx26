@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fexpansion-statements -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 
 int forward() {
   template for (auto x : {1, 2}) { if (x == 2) goto done; }

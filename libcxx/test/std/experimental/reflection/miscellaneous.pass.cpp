@@ -16,7 +16,7 @@
 // REQUIRES: has-fblocks && darwin
 // ADDITIONAL_COMPILE_FLAGS: -fblocks
 // ADDITIONAL_COMPILE_FLAGS: -Wno-expansion-stmt-non-compound-body
-// ADDITIONAL_COMPILE_FLAGS: -freflection-latest
+// ADDITIONAL_COMPILE_FLAGS:
 
 // <experimental/reflection>
 //

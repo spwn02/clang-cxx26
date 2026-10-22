@@ -17,8 +17,8 @@
 //
 // RUN: %clang_cc1 -x c++ -fgnuc-version=4.2.1 -std=c++26 -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix CXX26 %s
 // RUN: %clang_cc1 -x c++ -fgnuc-version=4.2.1 -std=c++2c -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix CXX26 %s
-// RUN: %clang_cc1 -x c++ -std=c++26 -freflection -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix REFLECTION %s
-// RUN: %clang_cc1 -x c++ -std=c++26 -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix NO-REFLECTION %s
+// RUN: %clang_cc1 -x c++ -std=c++26 -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix REFLECTION %s
+// RUN: %clang_cc1 -x c++ -std=c++23 -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix NO-REFLECTION %s
 //
 // CXX26:#define __GNUG__ 4
 // CXX26:#define __GXX_EXPERIMENTAL_CXX0X__ 1

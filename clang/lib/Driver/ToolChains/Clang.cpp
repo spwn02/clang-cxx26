@@ -66,6 +66,15 @@ using namespace clang::driver::tools;
 using namespace clang;
 using namespace llvm::opt;
 
+/// Whether the last -std= selects C++26 (reflection, expansion statements,
+/// annotations and contracts are part of that mode).
+static bool isCXX26Std(const ArgList &Args) {
+  if (const Arg *StdArg = Args.getLastArg(options::OPT_std_EQ))
+    return llvm::is_contained({"c++26", "c++2c", "gnu++26", "gnu++2c"},
+                              StringRef(StdArg->getValue()));
+  return false;
+}
+
 static void CheckPreprocessingOptions(const Driver &D, const ArgList &Args) {
   if (Arg *A = Args.getLastArg(options::OPT_C, options::OPT_CC,
                                options::OPT_fminimize_whitespace,
@@ -3626,9 +3635,6 @@ static void RenderTrivialAutoVarInitOptions(const Driver &D,
                                             ArgStringList &CmdArgs) {
   auto DefaultTrivialAutoVarInit = TC.GetDefaultTrivialAutoVarInit();
   StringRef TrivialAutoVarInit = "";
-  bool ErroneousInit = Args.hasFlag(options::OPT_ferroneous_initialization,
-                                    options::OPT_fno_erroneous_initialization,
-                                    true);
 
   for (const Arg *A : Args) {
     switch (A->getOption().getID()) {
@@ -3655,7 +3661,7 @@ static void RenderTrivialAutoVarInitOptions(const Driver &D,
       // MemorySanitizer is there to report such reads, such variables hold
       // a fixed pattern.
       if (Arg *Std = Args.getLastArg(options::OPT_std_EQ);
-          Std && ErroneousInit && !TC.getSanitizerArgs(Args).needsMsanRt()) {
+          Std && !TC.getSanitizerArgs(Args).needsMsanRt()) {
         LangStandard::Kind K = LangStandard::getLangKind(Std->getValue());
         if (K != LangStandard::lang_unspecified) {
           const LangStandard &LS = LangStandard::getLangStandardForKind(K);
@@ -7092,17 +7098,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_swift_version_independent_apinotes, false))
     CmdArgs.push_back("-fswift-version-independent-apinotes");
 
-  if (Args.hasFlag(options::OPT_freflection_latest,
-                   options::OPT_fno_reflection_latest, false)) {
-    CmdArgs.push_back("-freflection");
-    CmdArgs.push_back("-fparameter-reflection");
-    CmdArgs.push_back("-fannotation-attributes");
-    CmdArgs.push_back("-fexpansion-statements");
-  }
-
   // -fblocks=0 is default.
-  bool BlocksDefault = TC.IsBlocksDefault() &&
-                       !Args.hasArg(options::OPT_freflection);
+  bool BlocksDefault = TC.IsBlocksDefault() && !isCXX26Std(Args);
   if (Args.hasFlag(options::OPT_fblocks, options::OPT_fno_blocks,
                    BlocksDefault) ||
       (Args.hasArg(options::OPT_fgnu_runtime) &&
@@ -7434,17 +7431,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.addOptOutFlag(CmdArgs, options::OPT_fassume_unique_vtables,
                      options::OPT_fno_assume_unique_vtables);
 
-  Args.addOptInFlag(CmdArgs, options::OPT_freflection,
-                    options::OPT_fno_reflection);
-  Args.addOptInFlag(CmdArgs, options::OPT_fparameter_reflection,
-                    options::OPT_fno_parameter_reflection);
-  Args.addOptInFlag(CmdArgs, options::OPT_fexpansion_statements,
-                    options::OPT_fno_expansion_statements);
-  Args.addOptInFlag(CmdArgs, options::OPT_fannotation_attributes,
-                    options::OPT_fno_annotation_attributes);
-  Args.addOptInFlag(CmdArgs, options::OPT_freflection_latest,
-                    options::OPT_fno_reflection_latest);
-
   // -fsized-deallocation is on by default in C++14 onwards and otherwise off
   // by default.
   Args.addLastArg(CmdArgs, options::OPT_fsized_deallocation,
@@ -7461,29 +7447,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-faligned-allocation");
   }
 
-  if (Arg *A = Args.getLastArg(options::OPT_fcontracts, options::OPT_fno_contracts)) {
+  // Contracts are part of C++26.
+  if (isCXX26Std(Args) && types::isCXX(InputType)) {
+    Arg *A = nullptr;
     [&]() {
-      if (A->getOption().matches(options::OPT_fno_contracts)) {
-        CmdArgs.push_back("-fno-contracts");
-        return;
-      }
-      CmdArgs.push_back("-fcontracts");
       if ((A = Args.getLastArg(options::OPT_fcontract_evaluation_semantic_EQ))) {
         CmdArgs.push_back(Args.MakeArgString(
             Twine("-fcontract-evaluation-semantic=") + A->getValue()));
       }
-      std::vector<std::string> ContractGroups =
-          Args.getAllArgValues(options::OPT_fcontract_group_evaluation_semantic_EQ);
-      CmdArgs.push_back(Args.MakeArgString(Twine("-fcontract-group-evaluation-semantic=") +
-                                           llvm::join(ContractGroups, ",")));
-
-      Args.addOptOutFlag(CmdArgs, options::OPT_fcontract_exceptions,
-                         options::OPT_fno_contract_exceptions);
-
-      Args.addOptOutFlag(CmdArgs, options::OPT_fcontract_constification,
-                         options::OPT_fno_contract_constification);
-      Args.addOptOutFlag(CmdArgs, options::OPT_fcontract_lambda_capture_restrictions,
-                         options::OPT_fno_contract_lambda_capture_restrictions);
     }();
   }
 

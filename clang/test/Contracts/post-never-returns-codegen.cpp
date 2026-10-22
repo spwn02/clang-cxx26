@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -std=c++26 -fcxx-exceptions -fexceptions -fcontracts -fcontract-evaluation-semantic=observe -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -std=c++26 -fcxx-exceptions -fexceptions -fcontracts -fcontract-evaluation-semantic=enforce -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -std=c++26 -fcxx-exceptions -fexceptions -fcontracts -fcontract-evaluation-semantic=quick_enforce -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -std=c++26 -fcxx-exceptions -fexceptions -fcontracts -fcontract-evaluation-semantic=ignore -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -fcxx-exceptions -fexceptions -fcontract-evaluation-semantic=observe -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -fcxx-exceptions -fexceptions -fcontract-evaluation-semantic=enforce -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -fcxx-exceptions -fexceptions -fcontract-evaluation-semantic=quick_enforce -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -fcxx-exceptions -fexceptions -fcontract-evaluation-semantic=ignore -emit-llvm -o - %s | FileCheck %s
 
 // A function with a postcondition that cannot return normally (its body ends in a throw, an
 // infinite loop or __builtin_unreachable) exits through no postcondition assertion

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fsyntax-only -Wunused-local-typedef -Wunused-variable -Wunused-parameter -Wunused-function -Wno-unneeded-internal-declaration -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -Wunused-local-typedef -Wunused-variable -Wunused-parameter -Wunused-function -Wno-unneeded-internal-declaration -verify %s
 
 // A local alias, variable, parameter or function named only as a reflection
 // operand is referenced, so the -Wunused-* warnings must not fire for it.

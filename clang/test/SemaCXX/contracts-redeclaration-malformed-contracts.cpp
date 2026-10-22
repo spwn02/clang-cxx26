@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 
 // The contracts of a redeclaration that were malformed (already diagnosed) are
 // not compared with the ones of the first declaration: this asserted

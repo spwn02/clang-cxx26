@@ -6,7 +6,7 @@
 
 auto freeFunctionTypedPrefix() -> int p
 
-// RUN: %clang_cc1 -fsyntax-only -fcontracts -code-completion-patterns -code-completion-at=%s:7:40 -std=c++26 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:7:40 -std=c++26 %s -o - | FileCheck %s
 // CHECK-DAG: COMPLETION: Pattern : post(<#expression#>)
 // CHECK-DAG: COMPLETION: Pattern : pre(<#expression#>)
 // CHECK-NOT: COMPLETION: const

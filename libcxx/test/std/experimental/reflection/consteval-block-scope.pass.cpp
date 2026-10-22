@@ -1,5 +1,5 @@
 // UNSUPPORTED: no-reflection, c++03, c++11, c++14, c++17, c++20, c++23
-// ADDITIONAL_COMPILE_FLAGS: -freflection-latest
+// ADDITIONAL_COMPILE_FLAGS:
 
 #include <meta>
 

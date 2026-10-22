@@ -1,5 +1,5 @@
 // UNSUPPORTED: no-exceptions
-// ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontracts -fcontract-evaluation-semantic=enforce -fcontract-group-evaluation-semantic=observe=observe,enforce=enforce
+// ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontract-evaluation-semantic=enforce
 
 
 #include <contracts>
@@ -11,10 +11,10 @@
 #include <stdexcept>
 
 namespace exception_handling {
-#define OBSERVE [[clang::contract_group("observe")]]
+#define OBSERVE [[clang::contract_semantic("observe")]]
 void foo() {
 
-  contract_assert [[clang::contract_group("observe")]] ((true) ? throw 42 : true);
+  contract_assert [[clang::contract_semantic("observe")]] ((true) ? throw 42 : true);
 
 
 }

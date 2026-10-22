@@ -1,5 +1,5 @@
 // UNSUPPORTED: no-exceptions
-// ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontracts -fcontract-evaluation-semantic=enforce -fcontract-group-evaluation-semantic=observe=observe,enforce=enforce
+// ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontract-evaluation-semantic=enforce
 
 // contract_violation::is_terminating() (P3227R1): true iff the violation's
 // evaluation semantic is a terminating one (enforce), false otherwise
@@ -23,7 +23,7 @@ REGISTER_TEST(observe_is_not_terminating) {
     assert(violation.semantic() == std::contracts::evaluation_semantic::observe);
     assert(!violation.is_terminating());
   });
-  contract_assert [[clang::contract_group("observe")]] (false);
+  contract_assert [[clang::contract_semantic("observe")]] (false);
   assert(ran);
 };
 
@@ -40,7 +40,7 @@ REGISTER_TEST(enforce_is_terminating) {
     throw 42;
   });
   try {
-    contract_assert [[clang::contract_group("enforce")]] (false);
+    contract_assert [[clang::contract_semantic("enforce")]] (false);
     assert(false);
   } catch (int v) {
     assert(v == 42);

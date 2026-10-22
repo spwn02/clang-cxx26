@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -freflection-latest -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 
 // [diff.cpp23.dcl.dcl]: ':]' is a single token in C++26, so an
 // attribute-using-prefix with no attributes and no whitespace is ill-formed.

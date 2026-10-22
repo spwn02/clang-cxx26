@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -freflection -fparameter-reflection -fannotation-attributes -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -emit-llvm -o - %s | FileCheck %s
 
 // The annotation reflection of an enumeration, a typedef or an alias declaration is mangled (the mangler had no
 // encoding for the declaration of an owner that is none of a class, a namespace, a function or a variable, and

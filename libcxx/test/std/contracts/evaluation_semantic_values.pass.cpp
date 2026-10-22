@@ -1,4 +1,4 @@
-// ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontracts
+// ADDITIONAL_COMPILE_FLAGS: -std=c++26
 
 // [contracts.syn]: std::contracts::evaluation_semantic has the enumerators
 // ignore = 1, observe = 2, enforce = 3 and quick_enforce = 4.

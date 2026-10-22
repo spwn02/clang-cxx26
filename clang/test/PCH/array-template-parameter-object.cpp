@@ -1,7 +1,7 @@
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-// RUN: %clang_cc1 -std=c++26 -freflection -emit-pch -o %t.pch %s
-// RUN: %clang_cc1 -std=c++26 -freflection -include-pch %t.pch -verify %s
+// RUN: %clang_cc1 -std=c++26 -emit-pch -o %t.pch %s
+// RUN: %clang_cc1 -std=c++26 -include-pch %t.pch -verify %s
 // expected-no-diagnostics
 #ifndef ARRAY_TPO_PCH
 #define ARRAY_TPO_PCH

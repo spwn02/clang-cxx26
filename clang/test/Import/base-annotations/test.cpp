@@ -2,7 +2,7 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-// RUN: clang-import-test -Xcc=-x -Xcc=c++ -Xcc=-std=c++26 -Xcc=-freflection -Xcc=-fannotation-attributes -dump-ast -import %S/Inputs/Base.cpp -expression %s | FileCheck %s
+// RUN: clang-import-test -Xcc=-x -Xcc=c++ -Xcc=-std=c++26 -dump-ast -import %S/Inputs/Base.cpp -expression %s | FileCheck %s
 
 using info = decltype(^^int);
 struct sentinel {};

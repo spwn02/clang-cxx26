@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 // [expr.prim.id.qual] example.
 template<int V> struct TCls { static constexpr int s = V; using type = int; };
 int v1 = [:^^TCls<1>:]::s;

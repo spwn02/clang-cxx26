@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fcontract-evaluation-semantic=observe -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=observe -emit-llvm -o - %s | FileCheck %s
 
 // This file is distributed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.

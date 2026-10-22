@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 
 // 'pre' and 'post' after the declarator of anything but a function are not
 // contract specifiers (the parser asserted that the declarator was a function).

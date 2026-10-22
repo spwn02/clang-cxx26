@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -std=c++26 -fexpansion-statements -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -std=c++26 -fexpansion-statements -triple x86_64-unknown-linux-gnu -emit-llvm -o - -O1 -disable-llvm-passes %s | FileCheck %s
-// RUN: %clang_cc1 -std=c++26 -fexpansion-statements -ast-print %s | FileCheck %s --check-prefix=PRINT
+// RUN: %clang_cc1 -std=c++26 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -triple x86_64-unknown-linux-gnu -emit-llvm -o - -O1 -disable-llvm-passes %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -ast-print %s | FileCheck %s --check-prefix=PRINT
 
 // An expansion statement over a braced list whose elements create temporaries with a non-trivial destructor wraps
 // the range in ExprWithCleanups; it used to be diagnosed ("variable has incomplete type 'const void'") and, in a

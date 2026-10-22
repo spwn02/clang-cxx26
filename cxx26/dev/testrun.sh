@@ -8,7 +8,7 @@
 #     check-clang         ninja target: full check-clang
 #     check-cxx            ninja target: full check-cxx
 #     contracts             clang/test/Contracts + clang/test/Parser contract tests
-#     contracts-lib          libcxx contracts suite (--param use-contracts=True)
+#     contracts-lib          libcxx contracts suite 
 #     contracts-lib-asan      same, against build-libcxx-asan (ASan+UBSan)
 #     reflection             clang/test/Reflection
 #     reflection-lib          libcxx reflection suite
@@ -166,11 +166,11 @@ case "$suite" in
     ;;
   contracts-lib)
     run_with_diskguard libcxx/utils/libcxx-lit build-libcxx -q -o "$out_json" --time-tests \
-      --param use-contracts=True libcxx/test/std/contracts "${extra_args[@]}"
+      libcxx/test/std/contracts "${extra_args[@]}"
     ;;
   contracts-lib-asan)
     run_with_diskguard libcxx/utils/libcxx-lit build-libcxx-asan -q -o "$out_json" --time-tests \
-      --param use-contracts=True libcxx/test/std/contracts "${extra_args[@]}"
+      libcxx/test/std/contracts "${extra_args[@]}"
     ;;
   reflection)
     run_lit "clang/test/Reflection" clang/test/Reflection

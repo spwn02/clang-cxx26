@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fsyntax-only -verify=expected %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected %s
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected %s
 
 void test() {

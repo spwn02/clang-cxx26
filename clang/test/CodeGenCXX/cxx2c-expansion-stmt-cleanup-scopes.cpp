@@ -2,10 +2,10 @@
 // 'return'. With lifetime markers (optimizations, -fsanitize-address-use-after-scope) the range variable has a
 // cleanup, which used to be popped after the exit block was emitted and crashed code generation.
 
-// RUN: %clang_cc1 -std=c++26 -fexpansion-statements -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s -O1 -disable-llvm-passes | FileCheck %s
-// RUN: %clang_cc1 -std=c++26 -fexpansion-statements -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s -O1 | FileCheck %s
-// RUN: %clang_cc1 -std=c++26 -fexpansion-statements -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s -fsanitize=address -fsanitize-address-use-after-scope | FileCheck %s
-// RUN: %clang_cc1 -std=c++26 -fexpansion-statements -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s -O1 -disable-llvm-passes | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s -O1 | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s -fsanitize=address -fsanitize-address-use-after-scope | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
 
 struct D {
   D();

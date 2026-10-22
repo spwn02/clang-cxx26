@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fsyntax-only -code-completion-at=%s:15:26 %s -o - | FileCheck -check-prefix=CHECK-PREFIX %s
-// RUN: %clang_cc1 -std=c++26 -freflection -fsyntax-only -code-completion-at=%s:16:24 %s -o - | FileCheck -check-prefix=CHECK-EMPTY %s
-// RUN: %clang_cc1 -std=c++26 -freflection -fsyntax-only -code-completion-at=%s:17:42 %s -o - | FileCheck -check-prefix=CHECK-QUALIFIED %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -code-completion-at=%s:15:26 %s -o - | FileCheck -check-prefix=CHECK-PREFIX %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -code-completion-at=%s:16:24 %s -o - | FileCheck -check-prefix=CHECK-EMPTY %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -code-completion-at=%s:17:42 %s -o - | FileCheck -check-prefix=CHECK-QUALIFIED %s
 
 namespace evaluation_ns {
 struct evaluator {};

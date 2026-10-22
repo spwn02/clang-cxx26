@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // RUN: split-file %s %t
-// RUN: %clang_cc1 -std=c++26 -freflection -I%S/../PCH/Inputs -emit-module-interface %t/Splice.cppm -o %t/Splice.pcm
-// RUN: %clang_cc1 -std=c++26 -freflection -fmodule-file=Splice=%t/Splice.pcm -verify %t/Use.cpp
-// RUN: %clang_cc1 -std=c++26 -freflection -fmodule-file=Splice=%t/Splice.pcm -verify -emit-llvm %t/Use.cpp -o %t/Use.ll
+// RUN: %clang_cc1 -std=c++26 -I%S/../PCH/Inputs -emit-module-interface %t/Splice.cppm -o %t/Splice.pcm
+// RUN: %clang_cc1 -std=c++26 -fmodule-file=Splice=%t/Splice.pcm -verify %t/Use.cpp
+// RUN: %clang_cc1 -std=c++26 -fmodule-file=Splice=%t/Splice.pcm -verify -emit-llvm %t/Use.cpp -o %t/Use.ll
 // RUN: FileCheck %s --check-prefix=IR < %t/Use.ll
 
-// RUN: %clang_cc1 -std=c++26 -freflection -fmodule-file=Splice=%t/Splice.pcm -ast-dump-all -ast-dump-filter alias_target %t/Use.cpp | FileCheck %s --check-prefix=ALIAS
+// RUN: %clang_cc1 -std=c++26 -fmodule-file=Splice=%t/Splice.pcm -ast-dump-all -ast-dump-filter alias_target %t/Use.cpp | FileCheck %s --check-prefix=ALIAS
 
 // IR: define {{.*}}i32 @_Z4emitv()
 // IR: define linkonce_odr {{.*}}5names

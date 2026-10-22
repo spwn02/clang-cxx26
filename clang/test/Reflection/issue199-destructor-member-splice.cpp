@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 struct S { ~S(); };
 void f(S* p) {
   p->[:^^S::~S:](); // expected-error {{reflection not usable in a splice expression}}

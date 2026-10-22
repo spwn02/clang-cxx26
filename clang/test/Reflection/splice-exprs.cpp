@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// RUN: %clang_cc1 %s -std=c++26 -freflection -verify
+// RUN: %clang_cc1 %s -std=c++26 -verify
 
 using info = decltype(^^int);
 

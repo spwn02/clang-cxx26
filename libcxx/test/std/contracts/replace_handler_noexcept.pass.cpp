@@ -1,4 +1,4 @@
-// ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontracts -fcontract-evaluation-semantic=observe
+// ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontract-evaluation-semantic=observe
 
 // [basic.contract.handler]: no standard header declares the default
 // contract-violation handler, so a program may replace it with a handler that

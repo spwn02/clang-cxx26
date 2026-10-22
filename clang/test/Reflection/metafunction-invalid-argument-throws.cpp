@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fcxx-exceptions -fexceptions -Wall -Wextra -Werror -verify
+// RUN: %clang_cc1 %s -std=c++26 -fcxx-exceptions -fexceptions -Wall -Wextra -Werror -verify
 // expected-no-diagnostics
 
 using info = decltype(^^int);

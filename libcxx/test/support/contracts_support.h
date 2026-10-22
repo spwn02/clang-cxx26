@@ -87,10 +87,10 @@ constexpr std::string_view enum_to_string(DetectionKind D) {
 
 struct ContractLoc;
 
-#define OBSERVE [[clang::contract_group("observe")]]
-#define ENFORCE [[clang::contract_group("enforce")]]
-#define QUICK_ENFORCE [[clang::contract_group("quick_enforce")]]
-#define IGNORE [[clang::contract_group("ignore")]]
+#define OBSERVE [[clang::contract_semantic("observe")]]
+#define ENFORCE [[clang::contract_semantic("enforce")]]
+#define QUICK_ENFORCE [[clang::contract_semantic("quick_enforce")]]
+#define IGNORE [[clang::contract_semantic("ignore")]]
 
 
 std::string to_string(std::source_location loc, bool add_newline = true) {

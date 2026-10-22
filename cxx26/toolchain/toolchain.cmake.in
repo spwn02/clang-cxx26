@@ -34,8 +34,7 @@ endif()
 # A reference snapshot models the fork's complete C++26 mode. Keep the
 # language mode explicit at the toolchain boundary so CMake's synthetic
 # standard-library module target is compiled with the same mode as consumers.
-# Linux Clang otherwise defaults to libstdc++, and the current cxx26 fork still
-# gates the complete reflection implementation behind -freflection-latest.
+# Linux Clang otherwise defaults to libstdc++.
 #
 # -Wno-reserved-module-identifier belongs here too, not on the
 # std.cppm/std.compat.cppm sources directly: CMake's synthetic import-std
@@ -56,7 +55,7 @@ endif()
 # CMake may evaluate a toolchain file more than once while enabling languages.
 # Append each flag only when it is not already present so repeated evaluation
 # cannot duplicate the reference-mode command line.
-foreach(_cxx26_cxx_flag IN ITEMS -std=c++26 -stdlib=libc++ -freflection-latest -fcontracts -Wno-reserved-module-identifier)
+foreach(_cxx26_cxx_flag IN ITEMS -std=c++26 -stdlib=libc++ -Wno-reserved-module-identifier)
   string(FIND " ${CMAKE_CXX_FLAGS_INIT} " " ${_cxx26_cxx_flag} "
               _cxx26_flag_index)
   if(_cxx26_flag_index EQUAL -1)
@@ -64,7 +63,7 @@ foreach(_cxx26_cxx_flag IN ITEMS -std=c++26 -stdlib=libc++ -freflection-latest -
   endif()
 endforeach()
 
-# Contracts (P2900R14) are enabled by default (-fcontracts above), but their
+# Contracts (P2900R14) are part of -std=c++26, but their
 # evaluation semantic is deliberately per-config: `enforce` where a developer
 # is debugging (violations abort, same posture as assert()/NDEBUG), `ignore`
 # in Release/MinSizeRel so the reference toolchain has zero contract-checking
@@ -89,7 +88,7 @@ endforeach()
 
 # CMake's Ninja/Makefiles generators reuse CMAKE_CXX_FLAGS(_<CONFIG>) verbatim
 # as part of the final link command, since clang++ drives both compiling and
-# linking -- so every compile-only flag added above (-fcontracts,
+# linking -- so every compile-only flag added above (-std=c++26,
 # -fcontract-evaluation-semantic=, etc.) legitimately, harmlessly, and
 # unavoidably triggers -Wunused-command-line-argument at link time. This is
 # not a bug in those flags or in this file; suppress the resulting noise here

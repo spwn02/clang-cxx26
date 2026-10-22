@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 // expected-no-diagnostics
 struct S { int m; };
 static_assert(sizeof([:^^S::m:]) == sizeof(int));

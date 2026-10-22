@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fannotation-attributes -verify
-// RUN: %clang %s -std=c++26 -freflection-latest -fsyntax-only -Xclang -verify
+// RUN: %clang_cc1 %s -std=c++26 -verify
+// RUN: %clang %s -std=c++26 -fsyntax-only -Xclang -verify
 
 // Template parameters are not annotation targets, including in dependent
 // declarations that are never instantiated.

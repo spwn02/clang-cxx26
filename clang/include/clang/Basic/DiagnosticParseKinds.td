@@ -1825,7 +1825,7 @@ let CategoryName = "Reflection Issue" in {
 def err_cannot_reflect_operand : Error<
   "cannot reflect the provided operand">;
 def err_expansion_statements_disabled : Error<
-  "'template for' statements are not enabled; use '-fexpansion-statements'">;
+  "'template for' statements are only available in C++26">;
 def err_annotation_with_using : Error<
   "annotations are not permitted following an attribute-using-prefix">;
 def err_annotation_used_on : Error<

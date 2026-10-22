@@ -2,13 +2,13 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-// RUN: %clang_cc1 -std=c++26 -freflection -emit-pch -x c++-header %S/Inputs/cxx26-dependent-splice.h -o %t.pch
-// RUN: %clang_cc1 -std=c++26 -freflection -include %S/Inputs/cxx26-dependent-splice.h -verify %s
-// RUN: %clang_cc1 -std=c++26 -freflection -include-pch %t.pch -verify %s
-// RUN: %clang_cc1 -std=c++26 -freflection -include-pch %t.pch -verify -emit-llvm %s -o %t.ll
+// RUN: %clang_cc1 -std=c++26 -emit-pch -x c++-header %S/Inputs/cxx26-dependent-splice.h -o %t.pch
+// RUN: %clang_cc1 -std=c++26 -include %S/Inputs/cxx26-dependent-splice.h -verify %s
+// RUN: %clang_cc1 -std=c++26 -include-pch %t.pch -verify %s
+// RUN: %clang_cc1 -std=c++26 -include-pch %t.pch -verify -emit-llvm %s -o %t.ll
 // RUN: FileCheck %s --check-prefix=IR < %t.ll
 
-// RUN: %clang_cc1 -std=c++26 -freflection -include-pch %t.pch -ast-dump-all -ast-dump-filter alias_target %s | FileCheck %s --check-prefix=ALIAS
+// RUN: %clang_cc1 -std=c++26 -include-pch %t.pch -ast-dump-all -ast-dump-filter alias_target %s | FileCheck %s --check-prefix=ALIAS
 
 // IR: define {{.*}}i32 @_Z4emitv()
 // IR: define linkonce_odr {{.*}}5names

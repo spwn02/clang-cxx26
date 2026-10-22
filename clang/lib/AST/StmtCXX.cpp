@@ -357,7 +357,7 @@ StringRef ContractStmt::SemanticAsString(ContractEvaluationSemantic Sem) {
 
 ContractEvaluationSemantic
 ContractStmt::getSemantic(const ASTContext &Ctx) const {
-  if (auto *A = getAttrAs<ContractGroupAttr>(); A)
-    return Ctx.getLangOpts().ContractOpts.getSemanticForGroup(A->getGroup());
+  if (const auto *A = getAttrAs<ContractSemanticAttr>())
+    return A->getSemantic();
   return Ctx.getLangOpts().ContractOpts.DefaultSemantic;
 }

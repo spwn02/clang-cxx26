@@ -2,8 +2,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-// RUN: %clang_cc1 -std=c++26 -freflection -fsyntax-only -verify -verify-ignore-unexpected=note %s
-// RUN: %clang_cc1 -std=c++26 -freflection -ast-print -DPRINT %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -std=c++26 -ast-print -DPRINT %s | FileCheck %s
 
 using info = decltype(^^int);
 using size_t = __SIZE_TYPE__;

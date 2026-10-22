@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
-// ADDITIONAL_COMPILE_FLAGS: -freflection
-// ADDITIONAL_COMPILE_FLAGS: -fannotation-attributes
+// ADDITIONAL_COMPILE_FLAGS:
+// ADDITIONAL_COMPILE_FLAGS:
 
 // [meta.reflection.annotation] example: an annotation of a decl-specifier-seq is
 // one annotation for every declarator, each written annotation is a new one.

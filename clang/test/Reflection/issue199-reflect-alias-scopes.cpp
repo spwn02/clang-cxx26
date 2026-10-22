@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 // [expr.reflect] example: equal types do not merge alias target scopes.
 namespace A { using T = int; } // expected-note {{candidate found by name lookup}}
 namespace B { using T = int; } // expected-note {{candidate found by name lookup}}

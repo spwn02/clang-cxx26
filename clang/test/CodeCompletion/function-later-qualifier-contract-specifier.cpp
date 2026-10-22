@@ -8,6 +8,6 @@ void cv() const vo
 
 #elif defined(CONTRACT)
 void contract() pre(true) po
-// RUN: %clang_cc1 -DCONTRACT -fsyntax-only -fcontracts -code-completion-patterns -code-completion-at=%s:10:29 -std=c++26 %s -o - | FileCheck %s --check-prefix=CONTRACT
+// RUN: %clang_cc1 -DCONTRACT -fsyntax-only -code-completion-patterns -code-completion-at=%s:10:29 -std=c++26 %s -o - | FileCheck %s --check-prefix=CONTRACT
 // CONTRACT: COMPLETION: Pattern : post(<#expression#>)
 #endif

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fannotation-attributes -verify
+// RUN: %clang_cc1 %s -std=c++26 -verify
 namespace N { extern int v; void fn(); void fp(int); }
 [[=1]] int N::v = 0; // OK: a qualified definition inhabits and targets the same scope
 void N::fn [[=2]] () {} // OK

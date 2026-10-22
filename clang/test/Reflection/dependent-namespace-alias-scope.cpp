@@ -9,7 +9,7 @@
 // A namespace alias to a dependent splice, used as a nested-name-specifier in
 // a template (GitHub #197), must not crash and must work after instantiation.
 //
-// RUN: %clang_cc1 %s -std=c++23 -freflection -verify -emit-llvm -o /dev/null
+// RUN: %clang_cc1 %s -std=c++26 -verify -emit-llvm -o /dev/null
 
 // expected-no-diagnostics
 

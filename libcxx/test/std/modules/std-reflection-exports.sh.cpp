@@ -19,15 +19,13 @@
 //
 // std.pcm is built without any warning suppression.
 //
-// This is a hand-rolled module build for the reason given in
-// std-reflection-bare-freflection.sh.cpp: the module-dependency directive does
-// not pass the reflection flags on to the std.pcm build.
+// This is a hand-rolled module build.
 
 // RUN: mkdir %t
-// RUN: %{cxx} %{compile_flags} -std=c++26 -freflection-latest \
+// RUN: %{cxx} %{compile_flags} -std=c++26 \
 // RUN:     -Wno-reserved-module-identifier -Wno-reserved-user-defined-literal \
 // RUN:     --precompile -o %t/std.pcm -c %{module-dir}/std.cppm
-// RUN: %{cxx} %{compile_flags} %{link_flags} -std=c++26 -freflection-latest \
+// RUN: %{cxx} %{compile_flags} %{link_flags} -std=c++26 \
 // RUN:     -Wno-deprecated-declarations \
 // RUN:     -fmodule-file=std=%t/std.pcm %t/std.pcm \
 // RUN:     %s -o %t/std-reflection-exports.sh.cpp.tsk

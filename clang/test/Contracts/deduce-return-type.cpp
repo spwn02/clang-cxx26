@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fsyntax-only -xc++ %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -xc++ %s
 
 auto foo(int x) -> int post(r : r != 42) { return x; } // OK
 template <class T> auto bar(T x) -> T post(r : r != 42) { return x; }

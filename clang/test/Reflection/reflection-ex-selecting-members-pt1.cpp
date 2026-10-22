@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// RUN: %clangxx %s -std=c++23 -freflection -o %t
+// RUN: %clangxx %s -std=c++26 -o %t
 // RUN: %t
 
 struct S { unsigned i:2, j:6; };

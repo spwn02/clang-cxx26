@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fexpansion-statements -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
 
 // The scope of an evaluation point inside an expansion statement is the enclosing
 // function: the body of the statement is a declaration context, not an entity.

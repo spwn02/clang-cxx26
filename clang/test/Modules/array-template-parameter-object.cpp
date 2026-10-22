@@ -1,8 +1,8 @@
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 // RUN: split-file %s %t
-// RUN: %clang_cc1 -std=c++26 -freflection -I %S/../CodeGenCXX/Inputs -emit-module-interface %t/array.cppm -o %t/array.pcm
-// RUN: %clang_cc1 -std=c++26 -freflection -I %S/../CodeGenCXX/Inputs -fmodule-file=ArrayTPO=%t/array.pcm -verify %t/use.cpp
+// RUN: %clang_cc1 -std=c++26 -I %S/../CodeGenCXX/Inputs -emit-module-interface %t/array.cppm -o %t/array.pcm
+// RUN: %clang_cc1 -std=c++26 -I %S/../CodeGenCXX/Inputs -fmodule-file=ArrayTPO=%t/array.pcm -verify %t/use.cpp
 
 //--- array.cppm
 module;

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fexpansion-statements -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 
 // Expansion statements are equivalent to compound statements [stmt.expand].
 // Their DeclContexts must not introduce a lambda capture boundary.

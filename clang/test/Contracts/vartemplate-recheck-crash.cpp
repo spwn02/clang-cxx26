@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 
 // Regression test for a crash found by the Contracts Hardening epic
-// (docs/CONTRACTS_HARDENING.md M1/M2, 2026-09-05): with -fcontracts enabled,
+// (docs/CONTRACTS_HARDENING.md M1/M2, 2026-09-05): in C++26,
 // Sema::CheckCompleteVariableDeclaration unconditionally calls
 // VarDecl::recheckForConstantInitialization to satisfy [intro.compliance]p2's
 // requirement to diagnose a contract violation during constant
@@ -19,7 +19,7 @@
 //
 // libc++'s <utility> hits this via __type_traits/is_referenceable.h's
 // `template <class _Tp, class = void> inline const bool __is_referenceable_v
-// = false;`, so before the fix this crashed on nearly any -fcontracts
+// = false;`, so before the fix this crashed on nearly any
 // translation unit that includes so much as <utility>.
 
 // The crash fires on parsing the pattern's own declaration -- no

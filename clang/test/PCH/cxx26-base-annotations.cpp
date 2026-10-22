@@ -2,10 +2,10 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-// RUN: %clang_cc1 -std=c++26 -freflection -fannotation-attributes -emit-pch -x c++-header %S/Inputs/cxx26-base-annotations.h -o %t.pch
-// RUN: %clang_cc1 -std=c++26 -freflection -fannotation-attributes -include-pch %t.pch -verify %s
-// RUN: %clang_cc1 -std=c++26 -freflection -fannotation-attributes -include-pch %t.pch -ast-dump-all -ast-dump-filter D1 %s | FileCheck %s --check-prefix=DUMP
-// RUN: %clang_cc1 -std=c++26 -freflection -fannotation-attributes -ast-print -x c++ %S/Inputs/cxx26-base-annotations.h | FileCheck %s --check-prefix=PRINT
+// RUN: %clang_cc1 -std=c++26 -emit-pch -x c++-header %S/Inputs/cxx26-base-annotations.h -o %t.pch
+// RUN: %clang_cc1 -std=c++26 -include-pch %t.pch -verify %s
+// RUN: %clang_cc1 -std=c++26 -include-pch %t.pch -ast-dump-all -ast-dump-filter D1 %s | FileCheck %s --check-prefix=DUMP
+// RUN: %clang_cc1 -std=c++26 -ast-print -x c++ %S/Inputs/cxx26-base-annotations.h | FileCheck %s --check-prefix=PRINT
 // expected-no-diagnostics
 
 static_assert(value(base(^^D1), 0) == 13);

@@ -30,10 +30,10 @@
 // this combination.
 
 // RUN: mkdir %t
-// RUN: %{cxx} %{compile_flags} -std=c++26 -freflection \
+// RUN: %{cxx} %{compile_flags} -std=c++26 \
 // RUN:     -Wno-reserved-module-identifier -Wno-reserved-user-defined-literal \
 // RUN:     --precompile -o %t/std.pcm -c %{module-dir}/std.cppm
-// RUN: %{cxx} %{compile_flags} %{link_flags} -std=c++26 -freflection \
+// RUN: %{cxx} %{compile_flags} %{link_flags} -std=c++26 \
 // RUN:     -fmodule-file=std=%t/std.pcm %t/std.pcm \
 // RUN:     %s -o %t/std-reflection-bare-freflection.sh.cpp.tsk
 // RUN: %{exec} %t/std-reflection-bare-freflection.sh.cpp.tsk

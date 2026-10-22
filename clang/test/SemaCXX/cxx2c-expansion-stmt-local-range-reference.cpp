@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify -freflection-latest -fexpansion-statements %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 // expected-no-diagnostics
 // P2686R5 / #188: a constexpr expansion variable binds the original range lvalue when it is
 // constexpr-referenceable (an automatic object of the same function), instead of a copy.

@@ -4,14 +4,14 @@
 // complete correctly in the same position. Fixed by adding a `template for
 // (<#range-declaration#> : <#range-expression#>) { <#statements#> }` code
 // pattern to PCC_Statement's completion results, alongside the existing
-// range-based `for` pattern it mirrors, gated on -fexpansion-statements
+// range-based `for` pattern it mirrors, gated on
 // exactly like the parser's own `getLangOpts().ExpansionStatements` check
 // (see ParseStmt.cpp's `case tok::kw_template:`).
 
 void f() {  }
 void g() { te }
 
-// RUN: %clang_cc1 -fsyntax-only -fexpansion-statements -code-completion-patterns -code-completion-at=%s:11:11 -std=c++26 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:11:11 -std=c++26 %s -o - | FileCheck %s
 // CHECK-DAG: COMPLETION: Pattern : for (<#init-statement#>; <#condition#>; <#inc-expression#>) {
 // CHECK-DAG: COMPLETION: Pattern : template for (<#range-declaration#> : <#range-expression#>) {
 
@@ -21,6 +21,6 @@ void g() { te }
 
 // A two-character prefix must filter down to exactly this pattern, proving
 // this isn't just a fallback/unfiltered listing.
-// RUN: %clang_cc1 -fsyntax-only -fexpansion-statements -code-completion-patterns -code-completion-at=%s:12:14 -std=c++26 %s -o - | FileCheck --check-prefix=PREFIX %s
+// RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:12:14 -std=c++26 %s -o - | FileCheck --check-prefix=PREFIX %s
 // PREFIX: COMPLETION: Pattern : template for (<#range-declaration#> : <#range-expression#>) {
 // PREFIX-NOT: COMPLETION:

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fexpansion-statements -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 
 // The heading of an expansion statement is a for-range-declaration and an
 // expansion-initializer ([stmt.expand]). A heading that is not one is diagnosed

@@ -201,7 +201,6 @@ def main() -> int:
             "compiler": {
                 "name": "clang-cxx26",
                 "version": clang_version,
-                "reflectionMode": "-freflection-latest",
             },
             "standardLibrary": {
                 "name": "libc++",

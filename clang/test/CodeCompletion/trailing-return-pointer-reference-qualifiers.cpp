@@ -15,10 +15,10 @@ template <class T> struct S {
 };
 auto plain() -> int * 
 
-// RUN: %clang_cc1 -fsyntax-only -fcontracts -code-completion-patterns -code-completion-at=%s:9:33 -std=c++26 %s -o - | FileCheck %s
-// RUN: %clang_cc1 -fsyntax-only -fcontracts -code-completion-patterns -code-completion-at=%s:11:21 -std=c++26 %s -o - | FileCheck %s
-// RUN: %clang_cc1 -fsyntax-only -fcontracts -code-completion-patterns -code-completion-at=%s:13:23 -std=c++26 %s -o - | FileCheck %s
-// RUN: %clang_cc1 -fsyntax-only -fcontracts -code-completion-patterns -code-completion-at=%s:16:23 -std=c++26 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:9:33 -std=c++26 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:11:21 -std=c++26 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:13:23 -std=c++26 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:16:23 -std=c++26 %s -o - | FileCheck %s
 // CHECK-DAG: COMPLETION: const
 // CHECK-DAG: COMPLETION: noexcept
 // CHECK-DAG: COMPLETION: Pattern : post(<#expression#>)
@@ -26,7 +26,7 @@ auto plain() -> int *
 // CHECK-DAG: COMPLETION: requires
 // CHECK-DAG: COMPLETION: volatile
 
-// Without -fcontracts, and before C++20.
+// Before C++26, and before C++20.
 // RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:9:33 -std=c++26 %s -o - | FileCheck --check-prefix=NOCONTRACTS %s
 // NOCONTRACTS-NOT: pre(<#expression#>)
 // NOCONTRACTS-DAG: COMPLETION: noexcept

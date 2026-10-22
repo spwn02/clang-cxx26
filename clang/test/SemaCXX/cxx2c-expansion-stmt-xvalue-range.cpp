@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify -freflection -fexpansion-statements %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 // expected-no-diagnostics
 // [stmt.expand]: the range variable is `decltype(auto) range = (expansion-initializer)`: an lvalue gives T&,
 // an xvalue gives T&& (both denote the original object), a prvalue is materialized by value.

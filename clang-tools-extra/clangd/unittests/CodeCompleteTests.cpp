@@ -163,7 +163,7 @@ TEST(CompletionTest, ReflectionOperatorOperand) {
     }
   )cpp");
   auto TU = TestTU::withCode(Test.code());
-  TU.ExtraArgs = {"-std=c++26", "-freflection"};
+  TU.ExtraArgs = {"-std=c++26"};
   auto Results = completions(TU, Test.point("p"));
   EXPECT_THAT(Results.Completions,
               AllOf(Contains(named("eval_local")), Contains(named("Evaluator")),

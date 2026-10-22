@@ -32,17 +32,6 @@ constexpr ContractTag IsAContract = ContractTag::Yes;
 constexpr ContractTag InContract = ContractTag::Yes;
 constexpr ContractTag NotInContract = ContractTag::No;
 
-enum class ContractGroupDiagnostic {
-  // The remaining values map to %select values in diagnostics in both
-  // DiagnosticSemaKinds.td and DiagnosticDriverKinds.td.
-  InvalidFirstChar,
-  InvalidChar,
-  InvalidLastChar,
-  EmptySubGroup,
-  Empty,
-  InvalidSemantic,
-};
-
 /// The kind of contract.
 ///
 /// NOTE: These enumerations _do not_ match the values in
@@ -122,51 +111,14 @@ enum ContractScopeOffset {
   CSO_FunctionContext
 };
 
-/// Represents the set of contract groups that have been enabled or disabled
-/// on the command line using '-fclang-contract-groups='.
-///
-/// A contract group is a string consisting of identifiers join by '.'. For
-/// example, "a.b.c" is a contract group with three subgroups.
-///
-/// When determining if a particular contract check is enabled, we check if
-/// the user has enabled/disabled the group/subgroup that the check belongs to,
-/// in order of specificity. For example, passing
-///   '-fclang-contract-groups=-std,+std.hardening,-std.hardening.foo'
-/// will enable 'std.hardening.baz', but disable 'std.hardening.foo.bar' and
-/// 'std.baz'.
-///
-/// The groups are matched by name; the glob syntax of the clang-tidy checks is
-/// not used.
 class ContractOptions {
 public:
   ContractOptions() = default;
 
 public:
-  using DiagnoseGroupFunc =
-      std::function<void(ContractGroupDiagnostic, StringRef, StringRef)>;
-
-  static bool validateContractGroup(llvm::StringRef GroupAndValue,
-                                    const DiagnoseGroupFunc &Diagnoser);
-
-  std::vector<std::string> serializeContractGroupArgs() const;
-
-  void parseContractGroups(const std::vector<std::string> &Groups,
-                           const DiagnoseGroupFunc &Diagnoser);
-
-  void addUnparsedContractGroup(StringRef GroupAndValue,
-                                const DiagnoseGroupFunc &Diagnoser);
-
-  ContractEvaluationSemantic getSemanticForGroup(llvm::StringRef Group) const;
-  void setGroupSemantic(llvm::StringRef Group,
-                        ContractEvaluationSemantic Semantic);
-
-public:
   /// The default semantics for contracts.
   ContractEvaluationSemantic DefaultSemantic =
       ContractEvaluationSemantic::Enforce;
-
-  /// The semantics for each contract group, if specified.
-  llvm::StringMap<ContractEvaluationSemantic> SemanticsByGroup;
 
   ContractEmissionStyle DefaultEmission = ContractEmissionStyle::InDefinition;
 };

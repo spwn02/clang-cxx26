@@ -65,7 +65,7 @@ libc++ standard-module sources and libc++.modules.json
 
 The compiler and runtimes are built from the same source revision. libc++, libc++abi, and libunwind are configured through `LLVM_ENABLE_RUNTIMES`, so they are built by the just-built compiler rather than by an unrelated host compiler.
 
-The installed Clang defaults to libc++ and lld on Linux. The packaged CMake toolchain file also makes those choices explicit and enables `-freflection-latest`, which is the current fork-specific switch for the complete reflection implementation used by the reference C++26 mode, and `-fcontracts` (P2900R14), with a per-config evaluation semantic: `enforce` in Debug and RelWithDebInfo (violations abort, matching `assert()`/NDEBUG's usual posture), `ignore` in Release and MinSizeRel (zero contract-checking cost in an optimized build unless a consumer opts back in). A consumer project can override the semantic by setting `-fcontract-evaluation-semantic=` itself before this toolchain file runs.
+The installed Clang defaults to libc++ and lld on Linux. The packaged CMake toolchain file also makes those choices explicit and sets `-std=c++26` (which includes reflection, expansion statements, annotations and contracts, P2900R14), with a per-config evaluation semantic: `enforce` in Debug and RelWithDebInfo (violations abort, matching `assert()`/NDEBUG's usual posture), `ignore` in Release and MinSizeRel (zero contract-checking cost in an optimized build unless a consumer opts back in). A consumer project can override the semantic by setting `-fcontract-evaluation-semantic=` itself before this toolchain file runs.
 
 ## Build locally
 
@@ -139,7 +139,7 @@ cmake \
 
 The toolchain file is relocatable and derives all paths from its own installed location.
 
-It also enables the current reference-fork reflection mode automatically. Consumer CMake projects should target standardized C++26 source semantics rather than repeat `-freflection-latest` themselves merely to select the reference implementation.
+Consumer CMake projects should target standardized C++26 source semantics (`-std=c++26`); there are no separate reflection or contracts flags.
 
 ## Using the bundled `clangd` with modules
 
@@ -149,7 +149,7 @@ It also enables the current reference-fork reflection mode automatically. Consum
 
    ```yaml
    CompileFlags:
-     Add: [-std=c++26, -stdlib=libc++, -freflection-latest, -Wno-reserved-module-identifier]
+     Add: [-std=c++26, -stdlib=libc++, -Wno-reserved-module-identifier]
    ```
 
    (CMake with the toolchain file above already passes these for compiled targets; the problem shows up for files the database does not contain, such as module partitions that are not listed.)
@@ -157,7 +157,7 @@ It also enables the current reference-fork reflection mode automatically. Consum
 2. **`import std;` needs a `std` binary module interface (BMI).** Without one, `clangd` reports `module 'std' not found`. Build one with the same compiler and point `clangd` at it:
 
    ```bash
-   "$CXX" -std=c++26 -stdlib=libc++ -freflection-latest -Wno-reserved-module-identifier \
+   "$CXX" -std=c++26 -stdlib=libc++ -Wno-reserved-module-identifier \
      --precompile -o std.pcm "$CXX26_TOOLCHAIN_ROOT/share/libc++/v1/std.cppm"
    ```
 

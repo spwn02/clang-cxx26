@@ -1,4 +1,4 @@
-// RUN: %clang -fcontracts -std=c++20 -fcontract-evaluation-semantic=observe %s -o %t
+// RUN: %clang -std=c++26 -fcontract-evaluation-semantic=observe %s -o %t
 // RUN: %t
 
 #include "contracts.h"

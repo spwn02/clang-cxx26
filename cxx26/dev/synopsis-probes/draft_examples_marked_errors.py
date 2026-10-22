@@ -36,7 +36,7 @@ def run(c):
     PRE='#include <meta>\n#include <contracts>\n#include <vector>\n#include <string>\n#include <initializer_list>\n#include <cstddef>\n#include <new>\n#include <typeinfo>\n#include <compare>\n#include <utility>\n#include <type_traits>\n#include <concepts>\n#include <array>\n#include <tuple>\n#include <functional>\n#include <ranges>\n#include <optional>\n#include <memory>\n#include <exception>\n'
     NPRE=PRE.count('\n')
     open(path,'w').write(PRE+code+'\n')
-    r=subprocess.run([CLANG,'-std=c++26','-freflection-latest','-fcontracts','-fsyntax-only','-nostdinc++','-isystem','/home/spawn/dev/toolchains/clang-p2996/build-libcxx/libcxx/test-suite-install/include/c++/v1','-ferror-limit=0','-fno-diagnostics-color',path],capture_output=True,text=True)
+    r=subprocess.run([CLANG,'-std=c++26','-fsyntax-only','-nostdinc++','-isystem','/home/spawn/dev/toolchains/clang-p2996/build-libcxx/libcxx/test-suite-install/include/c++/v1','-ferror-limit=0','-fno-diagnostics-color',path],capture_output=True,text=True)
     diag=set(int(m.group(1))-NPRE for m in re.finditer(re.escape(path)+r':(\d+):\d+: (?:error|fatal error|warning)',r.stderr))
     missing=[l for l in marked if l not in diag]
     return f,n,path,marked,missing,len(diag)

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fexpansion-statements -ast-dump %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -ast-dump %s | FileCheck %s
 void enumerating() {
   template for (auto x : {1, 2}) { (void)x; }
 }

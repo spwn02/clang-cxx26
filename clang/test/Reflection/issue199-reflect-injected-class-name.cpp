@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 // expected-no-diagnostics
 template<class T> struct S {
   static constexpr auto r = ^^S::template S;

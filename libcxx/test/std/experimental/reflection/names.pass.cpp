@@ -9,8 +9,8 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
-// ADDITIONAL_COMPILE_FLAGS: -freflection
-// ADDITIONAL_COMPILE_FLAGS: -fparameter-reflection
+// ADDITIONAL_COMPILE_FLAGS:
+// ADDITIONAL_COMPILE_FLAGS:
 
 // <experimental/reflection>
 //

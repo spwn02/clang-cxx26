@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fexpansion-statements -fsyntax-only -verify=err %s
-// RUN: %clang_cc1 -std=c++26 -freflection -fexpansion-statements -fsyntax-only -Wno-error=expansion-stmt-non-compound-body -verify=warn %s
-// RUN: %clang_cc1 -std=c++26 -freflection -fexpansion-statements -fsyntax-only -Wno-expansion-stmt-non-compound-body -verify=none %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=err %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -Wno-error=expansion-stmt-non-compound-body -verify=warn %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -Wno-expansion-stmt-non-compound-body -verify=none %s
 // none-no-diagnostics
 
 // P1306R5 [stmt.expand]: the body is a compound-statement. Other statements are

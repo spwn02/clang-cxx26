@@ -1,5 +1,5 @@
 // UNSUPPORTED: no-reflection
-// ADDITIONAL_COMPILE_FLAGS: -freflection
+// ADDITIONAL_COMPILE_FLAGS:
 
 #include <meta>
 

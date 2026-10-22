@@ -42,8 +42,8 @@ grep CMAKE_BUILD_TYPE build-nyx/CMakeCache.txt build-libcxx/CMakeCache.txt
   explicitly: `cmake -S llvm -B build-nyx -DLLVM_INCLUDE_TESTS=ON -DCLANG_INCLUDE_TESTS=ON`.
 - A bare `-DCMAKE_CXX_FLAGS=...` on an already-configured cache **replaces**
   a toolchain file's `_INIT` flags rather than appending to them (e.g.
-  re-injecting `-fcontracts` alone silently drops the toolchain's
-  `-std=c++26 -stdlib=libc++ -freflection-latest`) — replicate the full
+  re-injecting `-fcontract-evaluation-semantic=enforce` alone silently drops the toolchain's
+  `-std=c++26 -stdlib=libc++`) — replicate the full
   flag set explicitly, don't assume append semantics.
 
 ## Building
@@ -149,15 +149,9 @@ fingerprint, and `clang --version`. Before any full `check-cxx`,
 a lit-output directory that has been observed to grow past 19G over
 repeated runs.
 
-## Experimental reflection flags
+## Reflection, contracts and expansion statements
 
-Enable reflection with `-std=c++26 -freflection`. The C++26 features beyond the core require additional flags (nothing that is not in the C++ draft is available; the vocabulary audit of the release build enforces it, issue #283):
-
-- `-freflection-latest`: all the C++26 reflection features (recommended for testing); the driver expands it to `-freflection -fparameter-reflection -fannotation-attributes -fexpansion-statements`
-- `-fparameter-reflection`: P3096 parameter reflection in metafunctions (gates only the libc++ surface)
-- `-fexpansion-statements`: P1306 expansion statements (`template for`: enumerating, iterable and destructuring forms)
-- `-fannotation-attributes`: P3394 annotations (`[[=expr]]`)
-- P3385 attribute reflection, entity proxies and P4033 `define_enum` are not in the C++26 draft: their flags and library interfaces were removed (issue #283; the dead compiler code is tracked by #284)
+Reflection (P2996 and companions), parameter reflection, annotations, expansion statements (`template for`) and contracts (P2900) are part of `-std=c++26`; there are no feature flags and nothing that is not in the C++ draft is available (the vocabulary audit of the release build enforces it, issue #283). The only contract option is `-fcontract-evaluation-semantic=` (ignore, observe, enforce, quick_enforce), the way the draft requires an implementation to select the evaluation semantic. P3385 attribute reflection, entity proxies and P4033 `define_enum` are not in the C++26 draft: their flags and library interfaces were removed (issue #283; the dead compiler code is tracked by #284).
 
 ## Code Organization
 

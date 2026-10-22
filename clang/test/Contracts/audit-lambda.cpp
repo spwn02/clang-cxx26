@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 
 // [expr.prim.lambda.capture]: a capture-default is permitted if the lambda
 // "appears within a contract assertion and its innermost enclosing scope is

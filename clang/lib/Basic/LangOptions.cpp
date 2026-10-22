@@ -123,6 +123,11 @@ void LangOptions::setLangDefaults(LangOptions &Opts, Language Lang,
   Opts.CPlusPlus20 = Std.isCPlusPlus20();
   Opts.CPlusPlus23 = Std.isCPlusPlus23();
   Opts.CPlusPlus26 = Std.isCPlusPlus26();
+  // The C++26 features that were once behind -f flags are part of the standard
+  // mode: reflection, parameter reflection, annotations, expansion statements
+  // and contracts.
+  Opts.Reflection = Opts.ParameterReflection = Opts.AnnotationAttributes =
+      Opts.ExpansionStatements = Opts.Contracts = Std.isCPlusPlus26();
   Opts.GNUMode = Std.isGNUMode();
   Opts.GNUCVersion = 0;
   Opts.HexFloats = Std.hasHexFloats();

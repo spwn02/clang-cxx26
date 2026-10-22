@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// ADDITIONAL_COMPILE_FLAGS: -freflection-latest -fparameter-reflection -Wno-unused-parameter -Wno-deprecated-declarations
+// ADDITIONAL_COMPILE_FLAGS: -Wno-unused-parameter -Wno-deprecated-declarations
 
 // <meta>
 

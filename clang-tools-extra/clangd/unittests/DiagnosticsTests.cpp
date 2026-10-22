@@ -1011,7 +1011,7 @@ TEST(DiagnosticTest, TheFixThatMovesAttributesInsertsThem) {
   // standard attributes alike.
   for (llvm::StringRef Attribute : {"[[deprecated]]", "[[= 42]]"}) {
     TestTU TU = TestTU::withCode((Attribute + " struct S; /*error-ok*/\n").str());
-    TU.ExtraArgs = {"-std=c++26", "-freflection"};
+    TU.ExtraArgs = {"-std=c++26"};
     auto AST = TU.build();
     bool Found = false;
     for (const auto &D : AST.getDiagnostics()) {

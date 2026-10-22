@@ -72,7 +72,7 @@ def lib_members(cls):
     inc=''.join(f'#include <{h}>\n' for h in HEADERS)
     with tempfile.NamedTemporaryFile('w',suffix='.cpp',delete=False,dir='/tmp/claude-1000/sweep/tmp') as f:
         f.write(inc); path=f.name
-    r=subprocess.run(['/home/spawn/dev/toolchains/clang-p2996/build-nyx/bin/clang++','-std=c++26','-fsyntax-only','-nostdinc++','-isystem',INC,'-fexperimental-library','-freflection-latest','-fcontracts','-Xclang','-ast-dump=json','-Xclang','-ast-dump-filter='+cls,path],capture_output=True,text=True)
+    r=subprocess.run(['/home/spawn/dev/toolchains/clang-p2996/build-nyx/bin/clang++','-std=c++26','-fsyntax-only','-nostdinc++','-isystem',INC,'-fexperimental-library','-Xclang','-ast-dump=json','-Xclang','-ast-dump-filter='+cls,path],capture_output=True,text=True)
     os.unlink(path)
     dec=json.JSONDecoder(); s=r.stdout; i=0; out=[]
     while i<len(s):

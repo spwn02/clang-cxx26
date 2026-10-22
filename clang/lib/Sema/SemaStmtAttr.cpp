@@ -311,17 +311,6 @@ static Attr *handleNoInlineAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   return ::new (S.Context) NoInlineAttr(S.Context, A);
 }
 
-static bool isContractAttrIncompatible(const Attr *A1, const Attr *A2) {
-  switch (A1->getKind()) {
-  case attr::ContractGroup:
-    return isa<ContractSemanticAttr>(A2);
-  case attr::ContractSemantic:
-    return isa<ContractGroupAttr>(A2);
-  default:
-    return false;
-  }
-}
-
 static void
 CheckForDuplicateAndIncompatibleContractAttrs(Sema &S,
                                               ArrayRef<const Attr *> Attrs) {
@@ -348,40 +337,6 @@ CheckForDuplicateAndIncompatibleContractAttrs(Sema &S,
     }
     assert(!A2 || A2->getKind() != A1->getKind());
   }
-
-  for (unsigned I = 0; I < Attrs.size(); ++I) {
-    for (unsigned J = I + 1; J < Attrs.size(); ++J) {
-      if (isContractAttrIncompatible(Attrs[I], Attrs[J])) {
-        S.Diag(Attrs[J]->getLocation(),
-               diag::err_disallow_incompatible_attribute)
-            << 1 << Attrs[J] << Attrs[I];
-        S.Diag(Attrs[I]->getLocation(), diag::note_previous_attribute);
-      }
-    }
-  }
-}
-
-static Attr *handleContractGroupAttr(Sema &S, Stmt *st, const ParsedAttr &A,
-                                     SourceRange Range) {
-
-  assert(A.getNumArgs() == 1);
-
-  StringRef GroupName;
-  assert(A.getArgAsExpr(0));
-  if (!S.checkStringLiteralArgumentAttr(A, 0, GroupName, nullptr))
-    return nullptr;
-
-  auto EmitDiag = [&](ContractGroupDiagnostic CDK, StringRef Group,
-                      StringRef InvalidRange = "") {
-    S.Diag(Range.getBegin(), diag::err_contract_group_attribute_invalid_group)
-        << (int)CDK << Group << InvalidRange
-        << A.getArgAsExpr(0)->getSourceRange();
-  };
-
-  if (!ContractOptions::validateContractGroup(GroupName, EmitDiag))
-    return nullptr;
-
-  return ::new (S.Context) ContractGroupAttr(S.Context, A, GroupName);
 }
 
 static std::optional<bool> checkBoolArg(Sema &S, const ParsedAttr &AL,
@@ -877,8 +832,6 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleCodeAlignAttr(S, St, A);
   case ParsedAttr::AT_MSConstexpr:
     return handleMSConstexprAttr(S, St, A, Range);
-  case ParsedAttr::AT_ContractGroup:
-    return handleContractGroupAttr(S, St, A, Range);
   case ParsedAttr::AT_ContractSemantic:
     return handleContractSemanticAttr(S, St, A, Range);
   case ParsedAttr::AT_ContractMessage:

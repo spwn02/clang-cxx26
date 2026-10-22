@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
-// ADDITIONAL_COMPILE_FLAGS: -freflection-latest
+// ADDITIONAL_COMPILE_FLAGS:
 
 // M5 checklist row 2996-48 (P2996R13): a splice of a constructor reflection
 // is ill-formed. (Destructor splices are already correctly rejected.)

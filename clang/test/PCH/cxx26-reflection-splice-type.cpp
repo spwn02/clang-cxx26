@@ -13,8 +13,8 @@
 // generated AbstractTypeReader (fixed during the LLVM 22 sync, Milestone 5;
 // see git history around 2026-08-28 for the root cause).
 //
-// RUN: %clang_cc1 -std=c++23 -freflection -emit-pch %s -o %t
-// RUN: %clang_cc1 -std=c++23 -freflection -include-pch %t -verify %s
+// RUN: %clang_cc1 -std=c++26 -emit-pch %s -o %t
+// RUN: %clang_cc1 -std=c++26 -include-pch %t -verify %s
 
 // expected-no-diagnostics
 

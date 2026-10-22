@@ -1,10 +1,10 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fsyntax-only -verify=expected,enforce,checked %s
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fsyntax-only -verify=expected,enforce,checked -fexperimental-new-constant-interpreter %s
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fcontract-evaluation-semantic=quick_enforce -fsyntax-only -verify=expected,enforce,checked -fexperimental-new-constant-interpreter %s
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fcontract-evaluation-semantic=observe -fsyntax-only -verify=expected,observe,checked %s
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fcontract-evaluation-semantic=observe -fsyntax-only -verify=expected,observe,checked -fexperimental-new-constant-interpreter %s
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fcontract-evaluation-semantic=ignore -fsyntax-only -verify=ignore %s
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fcontract-evaluation-semantic=ignore -fsyntax-only -verify=ignore -fexperimental-new-constant-interpreter %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected,enforce,checked %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected,enforce,checked -fexperimental-new-constant-interpreter %s
+// RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=quick_enforce -fsyntax-only -verify=expected,enforce,checked -fexperimental-new-constant-interpreter %s
+// RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=observe -fsyntax-only -verify=expected,observe,checked %s
+// RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=observe -fsyntax-only -verify=expected,observe,checked -fexperimental-new-constant-interpreter %s
+// RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=ignore -fsyntax-only -verify=ignore %s
+// RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=ignore -fsyntax-only -verify=ignore -fexperimental-new-constant-interpreter %s
 
 // Contract assertions in constant evaluation are checked by both constant evaluators (#315): preconditions,
 // postconditions (with the result name), and contract_assert. A violation with the observe semantic is a warning that

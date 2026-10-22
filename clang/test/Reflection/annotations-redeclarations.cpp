@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fannotation-attributes -fparameter-reflection -verify
+// RUN: %clang_cc1 %s -std=c++26 -verify
 // expected-no-diagnostics
 
 using info = decltype(^^int);

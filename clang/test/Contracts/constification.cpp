@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected %s -fcontracts
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected %s
 
 constexpr int f(int x) post(r : r != 0) { // expected-error {{contract failed}}
   return x;

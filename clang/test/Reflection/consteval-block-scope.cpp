@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -verify %s
-// RUN: %clang_cc1 -std=c++26 -freflection -emit-pch -o %t.pch %s
-// RUN: %clang_cc1 -std=c++26 -freflection -include-pch %t.pch -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
+// RUN: %clang_cc1 -std=c++26 -emit-pch -o %t.pch %s
+// RUN: %clang_cc1 -std=c++26 -include-pch %t.pch -verify %s
 // expected-no-diagnostics
 
 #ifndef HEADER

@@ -953,8 +953,7 @@ Sema::RebuildContractSpecifierForDecl(FunctionDecl *First, FunctionDecl *Def) {
   std::optional<Sema::CXXThisScopeRAII> ThisScope;
   if (auto *CXXMethod = dyn_cast<CXXMethodDecl>(Def)) {
     Qualifiers MethodQuals = CXXMethod->getMethodQualifiers();
-    if (LangOpts.ContractConstification)
-      MethodQuals.addConst();
+    MethodQuals.addConst();
     ThisScope.emplace(*this, CXXMethod->getParent(),
                       MethodQuals,
                       /*IsLambda*/ false);
@@ -1168,8 +1167,6 @@ bool Sema::isUsageAcrossContract(const ValueDecl *VD) {
 /// variables declared outside the assertion are const ([expr.prim.id.unqual]).
 ContractConstification Sema::getContractConstification(const ValueDecl *VD) {
   auto &S = *this;
-  if (!S.LangOpts.ContractConstification)
-    return CC_None;
 
   assert(VD);
   const ContractScopeRecord *CSR = S.getCurrentContractEntry();
@@ -1271,7 +1268,7 @@ static const DeclContext* walkUpDeclContextToFunction(const DeclContext *DC, boo
 }
 
 QualType Sema::adjustCXXThisTypeForContracts(QualType QT) {
-  if (!getCurrentContractEntry() || !LangOpts.ContractConstification)
+  if (!getCurrentContractEntry())
     return QT;
 
   // 'this' is constified any time the `this` object that is captured by a lambda which exists fully
@@ -1455,8 +1452,6 @@ public:
 
 public:
   static void Check(Sema &Actions, LambdaExpr *LE) {
-    if (!Actions.LangOpts.ContractLambdaCaptureRestrictions)
-      return;
     LambdaCaptureChecker Checker(Actions, LE);
     Checker.Run();
   }
@@ -1678,7 +1673,7 @@ void Sema::PushContractScope(ContractKind Kind, ContractScopeOffset ScopeOffset,
     if (!CXXThisTypeOverride.isNull()) {
       assert(CXXThisTypeOverride->isPointerType());
       QualType ClassType = CXXThisTypeOverride->getPointeeType();
-      if ((not ClassType.isConstQualified()) && LangOpts.ContractConstification) {
+      if (!ClassType.isConstQualified()) {
         // If the 'this' object is const-qualified, we need to remove the
         // const-qualification for the contract check.
         ClassType.addConst();

@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fsyntax-only -verify %s
-// RUN: %clang_cc1 -std=c++26 -fcontracts -ast-print -verify %s
-// RUN: %clang_cc1 -std=c++26 -fcontracts -ast-dump -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -ast-print -verify %s
+// RUN: %clang_cc1 -std=c++26 -ast-dump -verify %s
 
 // [dcl.contract.func]: "pre attribute-specifier-seq(opt) ( conditional-expression )".
 int malformed() pre(r: true); // expected-error {{result name 'r' not allowed outside of post condition specifier}}

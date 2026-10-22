@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fexpansion-statements -fsyntax-only -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify -verify-ignore-unexpected=note %s
 
 // [stmt.expand]: an iterating expansion statement is 'constexpr decltype(auto)
 // range = (expansion-initializer)'. For an lvalue range the constexpr reference

@@ -1,4 +1,4 @@
-// ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontracts -fcontract-evaluation-semantic=enforce -fcontract-group-evaluation-semantic=observe=observe,enforce=enforce -g
+// ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontract-evaluation-semantic=enforce -g
 
 #include "nttp_string.h"
 #include "contracts_support.h"

@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// ADDITIONAL_COMPILE_FLAGS: -freflection-latest -fconstexpr-steps=268435456
+// ADDITIONAL_COMPILE_FLAGS: -fconstexpr-steps=268435456
 
 #include <meta>
 #include <cstring>

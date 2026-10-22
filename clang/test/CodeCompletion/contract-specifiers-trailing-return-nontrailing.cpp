@@ -8,7 +8,7 @@
 struct T;
 struct T 
 
-// RUN: %clang_cc1 -fsyntax-only -fcontracts -code-completion-patterns -code-completion-at=%s:9:10 -std=c++26 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:9:10 -std=c++26 %s -o - | FileCheck %s
 // CHECK-DAG: COMPLETION: final
 // CHECK-NOT: COMPLETION: noexcept
 // CHECK-NOT: pre(<#expression#>)

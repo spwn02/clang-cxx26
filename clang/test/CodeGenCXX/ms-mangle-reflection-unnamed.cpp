@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -freflection -emit-llvm -o %t.ll %s
-// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -freflection -x c++-header -emit-pch -o %t.pch %S/Inputs/ms-mangle-reflection-unnamed.h
-// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -freflection -include-pch %t.pch -emit-llvm -o %t.pch.ll %s
+// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -emit-llvm -o %t.ll %s
+// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -x c++-header -emit-pch -o %t.pch %S/Inputs/ms-mangle-reflection-unnamed.h
+// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -include-pch %t.pch -emit-llvm -o %t.pch.ll %s
 // RUN: FileCheck %s < %t.ll
 // RUN: FileCheck %s < %t.pch.ll
 // RUN: FileCheck %s --check-prefix=SYM < %t.ll

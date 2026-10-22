@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 // [enum.udecl]/1 requires a non-dependent type.
 enum class E { a };
 template<auto R> void f() {

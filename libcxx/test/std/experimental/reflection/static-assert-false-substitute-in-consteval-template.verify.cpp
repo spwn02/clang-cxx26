@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
-// ADDITIONAL_COMPILE_FLAGS: -freflection
+// ADDITIONAL_COMPILE_FLAGS:
 
 // A static_assert(false) of a function template that is instantiated by substitute() from a consteval member function
 // template (bloomberg/clang-p2996#180, #152) must be diagnosed.

@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -std=c++26 -fexpansion-statements -emit-pch -o %t.pch %s
-// RUN: %clang_cc1 -std=c++26 -fexpansion-statements -include-pch %t.pch -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -emit-pch -o %t.pch %s
+// RUN: %clang_cc1 -std=c++26 -include-pch %t.pch -emit-llvm -o - %s | FileCheck %s
 
 // The element list of an expansion over a braced list is read back from a PCH: whether it contains a pack is not
 // serialized and has to be recomputed, otherwise the statement looks like it has a dependent size in CodeGen.

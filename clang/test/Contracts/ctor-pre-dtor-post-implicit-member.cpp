@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 
 // [expr.prim.id.general]: the implicit transformation of an id-expression naming a
 // non-static member into a member access through (*this) is ill-formed in the predicate

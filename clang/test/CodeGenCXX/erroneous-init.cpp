@@ -1,8 +1,6 @@
 // RUN: %clang --target=x86_64-linux-gnu -std=c++26 -S -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,PATTERN
 // RUN: %clang --target=x86_64-linux-gnu -std=c++2c -S -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,PATTERN
 // RUN: %clang --target=x86_64-linux-gnu -std=c++23 -S -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,NONE
-// RUN: %clang --target=x86_64-linux-gnu -std=c++26 -fno-erroneous-initialization -S -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,NONE
-// RUN: %clang --target=x86_64-linux-gnu -std=c++26 -fno-erroneous-initialization -ferroneous-initialization -S -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,PATTERN
 // RUN: %clang --target=x86_64-linux-gnu -std=c++26 -ftrivial-auto-var-init=uninitialized -S -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,NONE
 // RUN: %clang --target=x86_64-linux-gnu -std=c++26 -ftrivial-auto-var-init=zero -S -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,ZERO
 // RUN: %clang --target=x86_64-linux-gnu -std=c++26 -fsanitize=memory -S -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,MSAN

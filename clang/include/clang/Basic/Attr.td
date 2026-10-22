@@ -3743,13 +3743,6 @@ def Unavailable : InheritableAttr {
   let MeaningfulToClassTemplateDefinition = 1;
 }
 
-def ContractGroup : StmtAttr {
-  let Spellings = [CXX11<"clang", "contract_group">];
-  let Args = [ StringArgument<"Group"> ];
-  let Subjects = SubjectList<[ContractStmt], ErrorDiag, "contract_assert">;
-  let Documentation = [Undocumented];
-}
-
 def ContractSemantic : StmtAttr {
   let Spellings = [CXX11<"clang", "contract_semantic">];
   let Args = [

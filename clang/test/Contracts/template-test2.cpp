@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fcolor-diagnostics -verify %s
+// RUN: %clang_cc1 -std=c++26 -fcolor-diagnostics -verify %s
 
 namespace BasicTest {
 template<class T>

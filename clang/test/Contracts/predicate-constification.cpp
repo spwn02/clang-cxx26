@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -freflection -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 
 // [expr.prim.id.unqual]: "a variable declared outside of C of object type T"
 // ... "then the type of the expression is const T".

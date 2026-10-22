@@ -3,7 +3,7 @@
 // alone does not make declarations visible to importers of std.
 //
 // <meta>'s __reflection_v2 namespace and define_static_array/string are
-// themselves guarded by `#if __has_feature(reflection)` (i.e. -freflection);
+// themselves guarded by `#if __has_feature(reflection)` (i.e. -std=c++26);
 // mirror that guard here so this partition's export list matches what <meta>
 // actually declares when reflection is not enabled, instead of failing to
 // find these names at all.

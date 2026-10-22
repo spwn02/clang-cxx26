@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -freflection -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 // expected-no-diagnostics
 
 // [expr.prim.id.unqual]: only entities "declared outside of C" are const in the

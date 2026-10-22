@@ -115,9 +115,6 @@ LANGOPT(GNUAsm            , 1, 1, NotCompatible, "GNU-style inline assembly")
 LANGOPT(Coroutines        , 1, 0, NotCompatible, "C++20 coroutines")
 LANGOPT(CoroAlignedAllocation, 1, 0, NotCompatible, "prefer Aligned Allocation according to P2014 Option 2")
 LANGOPT(Contracts         , 1, 1, NotCompatible, "C++2c contracts")
-LANGOPT(ContractExceptions, 1, 1, NotCompatible, "Contracts report a violation on exception")
-LANGOPT(ContractConstification, 1, 1, NotCompatible, "Enable or Disable Contract Constification")
-LANGOPT(ContractLambdaCaptureRestrictions, 1, 1, NotCompatible, "Enable or disable Lambda capture restrictions for contracts")
 LANGOPT(DllExportInlines  , 1, 1, NotCompatible, "dllexported classes dllexport inline methods")
 LANGOPT(ExperimentalLibrary, 1, 0, NotCompatible, "enable unstable and experimental library features")
 LANGOPT(StdCppFloatMacros, 1, 0, Benign, "predefine the standard __STDCPP_FLOAT<N>_T__ macros of [cpp.predefined] (set for libc++)")
@@ -278,15 +275,13 @@ LANGOPT(HIPStdParInterposeAlloc, 1, 0, NotCompatible, "Replace allocations / dea
 LANGOPT(OpenACC           , 1, 0, NotCompatible, "OpenACC Enabled")
 
 LANGOPT(Reflection          , 1, 0, NotCompatible,
-        "Experimental C++26 static reflection")
+        "C++26 static reflection")
 LANGOPT(ParameterReflection , 1, 0, NotCompatible,
         "C++26 function parameter reflection")
 LANGOPT(ExpansionStatements , 1, 0, NotCompatible,
         "C++26 expansion statements")
 LANGOPT(AnnotationAttributes, 1, 0, NotCompatible,
         "C++26 annotation attributes")
-LANGOPT(ReflectionLatest    , 1, 0, NotCompatible,
-        "all experimental CXX26 Clang reflection features")
 
 LANGOPT(MSVCEnableStdcMacro , 1, 0, NotCompatible, "Define __STDC__ with '-fms-compatibility'")
 LANGOPT(SizedDeallocation , 1, 0, NotCompatible, "sized deallocation")

@@ -1,8 +1,8 @@
 // FILE_DEPENDENCIES: annotation-module-serialization.cppm
 //
-// RUN: %{cxx} %{compile_flags} -std=c++26 -freflection-latest \
+// RUN: %{cxx} %{compile_flags} -std=c++26 \
 // RUN:     --precompile annotation-module-serialization.cppm -o %t.pcm
-// RUN: %{cxx} %{compile_flags} -std=c++26 -freflection-latest \
+// RUN: %{cxx} %{compile_flags} -std=c++26 \
 // RUN:     -fmodule-file=AnnotationSerialization=%t.pcm -fsyntax-only %s
 
 // expected-no-diagnostics

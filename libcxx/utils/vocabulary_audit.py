@@ -100,7 +100,7 @@ def main():
     ap.add_argument('--std', default='c++26')
     ap.add_argument('--allow')
     ap.add_argument('--sd6', help='saved copy of the SD-6 feature-test table; its __cpp_lib_* names are accepted too')
-    ap.add_argument('--flags', default='-freflection')
+    ap.add_argument('--flags', default='')
     args = ap.parse_args()
 
     allow = set()

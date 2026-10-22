@@ -1,9 +1,9 @@
-// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -freflection -fparameter-reflection -fannotation-attributes -emit-llvm -o %t.ms.ll %s
+// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -emit-llvm -o %t.ms.ll %s
 // RUN: FileCheck %s --check-prefix=MS < %t.ms.ll
-// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -freflection -fparameter-reflection -fannotation-attributes -x c++-header -emit-pch -o %t.pch %S/Inputs/ms-mangle-reflection.h
-// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -freflection -fparameter-reflection -fannotation-attributes -include-pch %t.pch -emit-llvm -o %t.pch.ll %s
+// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -x c++-header -emit-pch -o %t.pch %S/Inputs/ms-mangle-reflection.h
+// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -fms-compatibility -fms-extensions -std=c++2c -include-pch %t.pch -emit-llvm -o %t.pch.ll %s
 // RUN: FileCheck %s --check-prefix=MS < %t.pch.ll
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -freflection -fparameter-reflection -fannotation-attributes -emit-llvm -o %t.itanium.ll %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++26 -emit-llvm -o %t.itanium.ll %s
 // RUN: FileCheck %s --check-prefix=ITANIUM < %t.itanium.ll
 
 #include "Inputs/ms-mangle-reflection.h"

@@ -2,8 +2,8 @@
 // RUN: split-file %s %t
 // RUN: cd %t
 //
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fcontract-evaluation-semantic=enforce %t/M.cppm -emit-module-interface -o %t/M.pcm
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fcontract-evaluation-semantic=enforce -fprebuilt-module-path=%t %t/Use.cpp -emit-llvm -o %t/Use.ll
+// RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=enforce %t/M.cppm -emit-module-interface -o %t/M.pcm
+// RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=enforce -fprebuilt-module-path=%t %t/Use.cpp -emit-llvm -o %t/Use.ll
 
 // A DeclRefExpr referring to a contract-clause parameter (e.g. `count` in
 // `pre(count > 0)`) sets DeclRefExpr::isInContractContext(), a bit this fork

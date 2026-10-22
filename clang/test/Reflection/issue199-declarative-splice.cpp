@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 struct S { void f(); struct In; static int sm; };
 void [:^^S:]::f() {} // expected-error {{splice specifier cannot be used in a declarative nested name specifier}}
 struct [:^^S:]::In {}; // expected-error {{splice specifier cannot be used in a declarative nested name specifier}}

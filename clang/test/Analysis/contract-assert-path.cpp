@@ -1,7 +1,7 @@
-// RUN: %clang_analyze_cc1 -std=c++26 -fcontracts -analyzer-checker=core -verify=expected,enforce %s
-// RUN: %clang_analyze_cc1 -std=c++26 -fcontracts -fcontract-evaluation-semantic=quick_enforce -analyzer-checker=core -verify=expected,enforce %s
-// RUN: %clang_analyze_cc1 -std=c++26 -fcontracts -fcontract-evaluation-semantic=observe -analyzer-checker=core -verify=expected,observe %s
-// RUN: %clang_analyze_cc1 -std=c++26 -fcontracts -fcontract-evaluation-semantic=ignore -analyzer-checker=core -verify=expected,ignore %s
+// RUN: %clang_analyze_cc1 -std=c++26 -analyzer-checker=core -verify=expected,enforce %s
+// RUN: %clang_analyze_cc1 -std=c++26 -fcontract-evaluation-semantic=quick_enforce -analyzer-checker=core -verify=expected,enforce %s
+// RUN: %clang_analyze_cc1 -std=c++26 -fcontract-evaluation-semantic=observe -analyzer-checker=core -verify=expected,observe %s
+// RUN: %clang_analyze_cc1 -std=c++26 -fcontract-evaluation-semantic=ignore -analyzer-checker=core -verify=expected,ignore %s
 
 // A contract assertion does not end the analyzed path (#316). With the enforce and quick_enforce semantics the path
 // continues only where the predicate holds; with observe it continues unconstrained; with ignore the predicate is not

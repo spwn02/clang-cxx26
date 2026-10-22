@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fexpansion-statements -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 // expected-no-diagnostics
 
 // P1306R5 [stmt.expand]: with a constexpr expansion variable the range is a

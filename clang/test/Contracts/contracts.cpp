@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected -verify-ignore-unexpected=warning %s -fcontracts
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected -verify-ignore-unexpected=warning %s
 
 
 void test_pre_parse(int x) pre(x != 0);
@@ -47,7 +47,7 @@ struct NoBool {
 };
 
 void test_attributes(int x) {
-  contract_assert [[clang::contract_group("bar")]] (x != 0);
+  contract_assert [[clang::contract_semantic("observe")]] (x != 0);
 }
 
 namespace TestConv {

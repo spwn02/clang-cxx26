@@ -9,12 +9,12 @@
 // ParseContractSpecifierSequence are ever reached. Before this fix,
 // SemaCodeCompletion::CodeCompleteDeclSpec (the handler for that switch
 // case) offered only const/volatile, with no awareness that a function
-// declarator -- cv-qualifiers, noexcept, and (with -fcontracts) pre/post --
+// declarator -- cv-qualifiers, noexcept, and (with) pre/post --
 // still follows.
 
 auto freeFunction() -> int 
 
-// RUN: %clang_cc1 -fsyntax-only -fcontracts -code-completion-patterns -code-completion-at=%s:15:28 -std=c++26 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:15:28 -std=c++26 %s -o - | FileCheck %s
 // CHECK-DAG: COMPLETION: const
 // CHECK-DAG: COMPLETION: noexcept
 // CHECK-DAG: COMPLETION: Pattern : post(<#expression#>)

@@ -105,8 +105,8 @@ step_audit() {
   local inc="$lcx/libcxx/test-suite-install/include/c++/v1" extra=()
   for d in "$lcx"/libcxx/test-suite-install/include/*/c++/v1; do [[ -d "$d" ]] && extra+=(--extra-include "$d"); done
   local flags
-  for flags in "-freflection-latest" "-freflection-latest -fexperimental-library"; do
-    run "audit [$flags]" "$out/audit-${flags// /_}.log" python3 -I libcxx/utils/vocabulary_audit.py \
+  for flags in "" "-fexperimental-library"; do
+    run "audit [${flags:-default}]" "$out/audit-${flags:-default}.log" python3 -I libcxx/utils/vocabulary_audit.py \
       --draft "$draft_dir" --sd6 libcxx/utils/sd6_lib_macros.txt --allow libcxx/utils/vocabulary_allowlist.txt \
       --clang "$nyx/bin/clang++" --include "$inc" ${extra[@]+"${extra[@]}"} "--flags=$flags"
   done

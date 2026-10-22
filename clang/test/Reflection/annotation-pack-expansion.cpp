@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fannotation-attributes -verify %s
-// RUN: %clang_cc1 -std=c++26 -freflection -fannotation-attributes -emit-pch -o %t %s
-// RUN: %clang_cc1 -std=c++26 -freflection -fannotation-attributes -include-pch %t -DRESTORE -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
+// RUN: %clang_cc1 -std=c++26 -emit-pch -o %t %s
+// RUN: %clang_cc1 -std=c++26 -include-pch %t -DRESTORE -verify %s
 // expected-no-diagnostics
 
 #ifndef RESTORE

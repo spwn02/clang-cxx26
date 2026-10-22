@@ -1,5 +1,5 @@
 // RUN: %check_clang_tidy %s bugprone-reserved-identifier %t -std=c++26 -- \
-// RUN:   -fexpansion-statements
+// RUN:
 
 // Regression test for the Contracts Hardening epic's M5
 // (docs/CONTRACTS_HARDENING.md): `template for`'s synthesized `__range`

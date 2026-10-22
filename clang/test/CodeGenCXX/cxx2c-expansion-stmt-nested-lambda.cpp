@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fexpansion-statements -O2 -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -O2 -emit-llvm -o - %s | FileCheck %s
 
 // CHECK-LABEL: define {{.*}} i32 @_Z7genericv()
 // CHECK: ret i32 4

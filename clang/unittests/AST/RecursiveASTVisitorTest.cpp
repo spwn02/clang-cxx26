@@ -195,7 +195,7 @@ TEST(RecursiveASTVisitorTest, ReflectExprOfMutuallyReferencingFunctions) {
   )cpp";
 
   CollectInterestingEvents Visitor;
-  std::vector<std::string> Args = {"-std=c++26", "-freflection-latest"};
+  std::vector<std::string> Args = {"-std=c++26"};
   bool Ran = clang::tooling::runToolOnCodeWithArgs(
       std::make_unique<ProcessASTAction>(
           [&](clang::ASTContext &Ctx) { Visitor.TraverseAST(Ctx); }),

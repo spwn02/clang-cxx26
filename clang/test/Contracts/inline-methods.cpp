@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected %s -fcontracts
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected %s
 
 struct Foo {
   int f(int x) pre(xy != 0) { // expected-error {{use of undeclared identifier 'xy'}}

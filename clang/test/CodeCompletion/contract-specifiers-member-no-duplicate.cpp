@@ -13,7 +13,7 @@
 
 struct A { void f() };
 
-// RUN: %clang_cc1 -fsyntax-only -fcontracts -code-completion-patterns -code-completion-at=%s:14:21 -std=c++26 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:14:21 -std=c++26 %s -o - | FileCheck %s
 // CHECK-DAG: COMPLETION: const
 // CHECK-DAG: COMPLETION: final
 // CHECK-DAG: COMPLETION: noexcept

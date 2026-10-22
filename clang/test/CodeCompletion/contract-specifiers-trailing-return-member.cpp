@@ -11,7 +11,7 @@ struct S {
   auto member() -> int 
 };
 
-// RUN: %clang_cc1 -fsyntax-only -fcontracts -code-completion-patterns -code-completion-at=%s:11:24 -std=c++26 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fsyntax-only -code-completion-patterns -code-completion-at=%s:11:24 -std=c++26 %s -o - | FileCheck %s
 // CHECK-DAG: COMPLETION: const
 // CHECK-DAG: COMPLETION: noexcept
 // CHECK-DAG: COMPLETION: Pattern : post(<#expression#>)

@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // RUN: split-file %s %t
-// RUN: %clang_cc1 -std=c++26 -freflection -fannotation-attributes -I%S/../PCH/Inputs -emit-module-interface %t/BaseAnnotations.cppm -o %t/BaseAnnotations.pcm
-// RUN: %clang_cc1 -std=c++26 -freflection -fannotation-attributes -fmodule-file=BaseAnnotations=%t/BaseAnnotations.pcm -verify %t/Use.cpp
+// RUN: %clang_cc1 -std=c++26 -I%S/../PCH/Inputs -emit-module-interface %t/BaseAnnotations.cppm -o %t/BaseAnnotations.pcm
+// RUN: %clang_cc1 -std=c++26 -fmodule-file=BaseAnnotations=%t/BaseAnnotations.pcm -verify %t/Use.cpp
 
 //--- BaseAnnotations.cppm
 export module BaseAnnotations;

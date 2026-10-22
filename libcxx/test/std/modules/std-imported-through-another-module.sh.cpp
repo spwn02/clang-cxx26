@@ -21,20 +21,19 @@
 // first declaration of the chain that it attached second, and the correction of
 // the typo of `std::lrint` went round that declaration for ever.
 //
-// This is a hand-rolled module build for the reason given in
-// std-reflection-bare-freflection.sh.cpp.
+// This is a hand-rolled module build.
 
 // RUN: mkdir %t
 // RUN: echo "export module Mod;" > %t/Mod.cppm
 // RUN: echo "import std;" >> %t/Mod.cppm
 // RUN: echo "import Mod;" > %t/use.cpp
 // RUN: echo "int main() { return (int)std::lrint(1.0); }" >> %t/use.cpp
-// RUN: %{cxx} %{compile_flags} -std=c++26 -freflection-latest \
+// RUN: %{cxx} %{compile_flags} -std=c++26 \
 // RUN:     -Wno-reserved-module-identifier -Wno-reserved-user-defined-literal \
 // RUN:     --precompile -o %t/std.pcm -c %{module-dir}/std.cppm
-// RUN: %{cxx} %{compile_flags} -std=c++26 -freflection-latest \
+// RUN: %{cxx} %{compile_flags} -std=c++26 \
 // RUN:     -fmodule-file=std=%t/std.pcm --precompile -o %t/Mod.pcm %t/Mod.cppm
-// RUN: not %{cxx} %{compile_flags} -std=c++26 -freflection-latest \
+// RUN: not %{cxx} %{compile_flags} -std=c++26 \
 // RUN:     -fmodule-file=std=%t/std.pcm -fmodule-file=Mod=%t/Mod.pcm \
 // RUN:     -fsyntax-only %t/use.cpp > %t/out.txt 2>&1
 // RUN: grep "lrint" %t/out.txt

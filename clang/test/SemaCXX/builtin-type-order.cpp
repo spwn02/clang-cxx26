@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 -std=c++26 -Wno-vla-cxx-extension -fsyntax-only -verify %s
 // RUN: %clang_cc1 -std=c++26 -fexperimental-new-constant-interpreter -Wno-vla-cxx-extension -fsyntax-only -verify %s
-// RUN: %clang_cc1 -std=c++26 -freflection -Wno-vla-cxx-extension -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -Wno-vla-cxx-extension -fsyntax-only -verify %s
 // RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -std=c++26 -Wno-vla-cxx-extension -fsyntax-only -verify %s
 
 #include "Inputs/std-compare.h"

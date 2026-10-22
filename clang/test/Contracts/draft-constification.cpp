@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
 // [expr.prim.id.unqual], verbatim Y example: "then the type of the
 // expression is const T" for outside object variables, reference variables
 // or template parameters, and structured bindings. Each error/OK below is

@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// RUN: %clang_cc1 -std=c++26 -freflection -verify %s
+// RUN: %clang_cc1 -std=c++26 -verify %s
 //
 // Regression test for upstream bloomberg/clang-p2996 issue #150: an explicit
 // destructor call naming its class type via a splice could not be spelled at

@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// RUN: %clang_cc1 %s -std=c++23 -freflection
+// RUN: %clang_cc1 %s -std=c++26
 // NO-EXEC: compile-only splice-typename smoke test, nothing to execute or
 // assert on -- main() is intentionally empty.
 

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -fexpansion-statements -ast-print %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -ast-print %s | FileCheck %s
 // CHECK-LABEL: void iterable() {
 // CHECK-NEXT:     template for (auto x : items) {
 // CHECK-LABEL: void destructurable() {

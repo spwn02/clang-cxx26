@@ -1,5 +1,5 @@
-// RUN: %clang -fcontracts -std=c++20 -nostdlib++ -fcontract-evaluation-semantic=observe \
-// RUN:    -fcontract-group-evaluation-semantic=observe=observe,enforce=enforce,ignore=ignore,quick_enforce=quick_enforce %s -o %t  -g
+// RUN: %clang -std=c++26 -nostdlib++ -fcontract-evaluation-semantic=observe \
+// RUN: %s -o %t  -g
 // RUN:  %t 0
 // RUN: %t 1
 
@@ -95,7 +95,7 @@ void test_contract_assert() {
   expected_semantic = evaluation_semantic::observe;
   expect_location(+1);
   contract_assert
-      [[clang::contract_group("observe")]]
+      [[clang::contract_semantic("observe")]]
   (check_evaluated(false));
   assert(evaluated_count == 1);
   assert(handler_called == 1);
@@ -103,14 +103,14 @@ void test_contract_assert() {
 
   int was_evaluated = 0;
   contract_assert
-    [[clang::contract_group("enforce")]]
+    [[clang::contract_semantic("enforce")]]
   (check_evaluated(true));
   assert(handler_called == 0);
   assert(evaluated_count == 1);
   reset_counters();
 
   contract_assert
-    [[clang::contract_group("ignore")]]
+    [[clang::contract_semantic("ignore")]]
   (check_evaluated(false));
   assert(handler_called == 0);
   assert(evaluated_count == 0);
@@ -118,7 +118,7 @@ void test_contract_assert() {
   expected_semantic = evaluation_semantic::enforce;
   expect_location(+1);
   contract_assert
-    [[clang::contract_group("enforce")]]
+    [[clang::contract_semantic("enforce")]]
   (check_evaluated(false));
   __builtin_abort();
 }
@@ -130,18 +130,18 @@ enum Semantic {
 };
 
 void has_pre_ignore(bool x)
-  pre [[clang::contract_group("ignore")]] (check_evaluated(x)) {
+  pre [[clang::contract_semantic("ignore")]] (check_evaluated(x)) {
   expect_location(-1);
 }
 
 
 void has_pre_observe(bool x)
-  pre [[clang::contract_group("observe")]] (check_evaluated(x)) {
+  pre [[clang::contract_semantic("observe")]] (check_evaluated(x)) {
   expect_location(-1);
 }
 
 void has_pre_enforce(bool x)
-  pre [[clang::contract_group("enforce")]] (check_evaluated(x)) {
+  pre [[clang::contract_semantic("enforce")]] (check_evaluated(x)) {
   expect_location(-1);
 }
 

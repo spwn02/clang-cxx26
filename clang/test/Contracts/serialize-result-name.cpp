@@ -5,10 +5,10 @@
 // placeholder state: a function template with a postcondition result name
 // instantiated from a precompiled header (it used to assert on the null type of
 // the deserialized result name), and the same through a module interface.
-// RUN: %clang_cc1 -std=c++26 -fcontracts -x c++-header %t/h.h -emit-pch -o %t/h.pch
-// RUN: %clang_cc1 -std=c++26 -fcontracts -include-pch %t/h.pch %t/use.cpp -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -std=c++26 -fcontracts %t/M.cppm -emit-module-interface -o %t/M.pcm
-// RUN: %clang_cc1 -std=c++26 -fcontracts -fmodule-file=M=%t/M.pcm %t/use-module.cpp -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -x c++-header %t/h.h -emit-pch -o %t/h.pch
+// RUN: %clang_cc1 -std=c++26 -include-pch %t/h.pch %t/use.cpp -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 %t/M.cppm -emit-module-interface -o %t/M.pcm
+// RUN: %clang_cc1 -std=c++26 -fmodule-file=M=%t/M.pcm %t/use-module.cpp -emit-llvm -o - | FileCheck %s
 
 // CHECK-DAG: define {{.*}} @{{.*}}1gIiE
 // CHECK-DAG: define {{.*}} @{{.*}}1hv

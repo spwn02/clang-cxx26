@@ -2736,7 +2736,7 @@ bool VarDecl::recheckForConstantInitialization(
   // recheck, whose assert below then fires on a never-populated Eval for
   // every variable-template pattern with an initializer -- which includes
   // ordinary libc++ traits like __is_referenceable_v, so this crashed on
-  // nearly any -fcontracts translation unit that includes <utility>.
+  // nearly any C++26 translation unit that includes <utility>.
   if (getDescribedVarTemplate())
     return true;
 
