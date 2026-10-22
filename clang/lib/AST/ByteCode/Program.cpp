@@ -84,12 +84,20 @@ Pointer Program::getPtrGlobal(unsigned Idx) const {
 }
 
 void Program::resetGlobal(const ValueDecl *VD) {
-  UnsignedOrNone Index = getGlobal(VD);
+  // getGlobal() maps a declaration to the global of a previous declaration as
+  // a side effect, which would make the definition reuse that global instead
+  // of getting its own: only look.
+  UnsignedOrNone Index = std::nullopt;
+  for (const Decl *P = VD; P && !Index; P = P->getPreviousDecl())
+    if (auto It = GlobalIndices.find(P); It != GlobalIndices.end())
+      Index = It->second;
   if (!Index)
     return;
   Block *B = getGlobal(*Index);
   B->setEvalID(Ctx.getEvalID());
-  B->invokeDtor();
+  // A failed evaluation already destroyed the object.
+  if (B->isInitialized())
+    B->invokeDtor();
   B->invokeCtor();
   auto *GD = new (B->rawData()) GlobalInlineDescriptor();
   GD->InitState = GlobalInitState::NoInitializer;
