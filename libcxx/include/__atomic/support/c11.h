@@ -27,14 +27,10 @@
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-// P3309R3 support: none of the `__c11_atomic_*` builtins are usable in a constant
-// expression (only `__c11_atomic_is_lock_free` is), so constant evaluation instead
-// reads/writes `__a_value` directly, bypassing the builtins entirely. That direct
-// access only type-checks for scalar element types -- `_Atomic(T)` for a class type
-// `T` has no implicit conversion back to `T` -- so these branches are gated on
-// `is_scalar_v<_Tp>` and fall through to the (non-constexpr) builtins otherwise.
-// Memory order is meaningless without concurrency, so it's ignored in this branch,
-// matching the paper's stated rationale.
+// P3309R3 support: the compiler constant-evaluates `__c11_atomic_init`, `_load`, `_store`,
+// `_exchange` and `_compare_exchange_*` for any element type (the memory order is meaningless
+// without concurrency); the arithmetic read-modify-write builtins are not constant evaluated,
+// so the `fetch_*` functions below read and write `__a_value` directly for scalar types.
 template <typename _Tp>
 struct __cxx_atomic_base_impl {
   _LIBCPP_HIDE_FROM_ABI
@@ -75,14 +71,6 @@ __cxx_atomic_store(__cxx_atomic_base_impl<_Tp> volatile* __a, _Tp __val, memory_
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
 __cxx_atomic_store(__cxx_atomic_base_impl<_Tp>* __a, _Tp __val, memory_order __order) _NOEXCEPT {
-#if _LIBCPP_STD_VER >= 26
-  if constexpr (is_scalar_v<_Tp>) {
-    if consteval {
-      __a->__a_value = __val;
-      return;
-    }
-  }
-#endif
   __c11_atomic_store(std::addressof(__a->__a_value), __val, static_cast<__memory_order_underlying_t>(__order));
 }
 
@@ -96,13 +84,6 @@ __cxx_atomic_load(__cxx_atomic_base_impl<_Tp> const volatile* __a, memory_order 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
 __cxx_atomic_load(__cxx_atomic_base_impl<_Tp> const* __a, memory_order __order) _NOEXCEPT {
-#if _LIBCPP_STD_VER >= 26
-  if constexpr (is_scalar_v<_Tp>) {
-    if consteval {
-      return __a->__a_value;
-    }
-  }
-#endif
   using __ptr_type = __remove_const_t<decltype(__a->__a_value)>*;
   return __c11_atomic_load(
       const_cast<__ptr_type>(std::addressof(__a->__a_value)), static_cast<__memory_order_underlying_t>(__order));
@@ -118,14 +99,6 @@ __cxx_atomic_load_inplace(__cxx_atomic_base_impl<_Tp> const volatile* __a, _Tp* 
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
 __cxx_atomic_load_inplace(__cxx_atomic_base_impl<_Tp> const* __a, _Tp* __dst, memory_order __order) _NOEXCEPT {
-#if _LIBCPP_STD_VER >= 26
-  if constexpr (is_scalar_v<_Tp>) {
-    if consteval {
-      *__dst = __a->__a_value;
-      return;
-    }
-  }
-#endif
   using __ptr_type = __remove_const_t<decltype(__a->__a_value)>*;
   *__dst           = __c11_atomic_load(
       const_cast<__ptr_type>(std::addressof(__a->__a_value)), static_cast<__memory_order_underlying_t>(__order));
@@ -140,15 +113,6 @@ __cxx_atomic_exchange(__cxx_atomic_base_impl<_Tp> volatile* __a, _Tp __value, me
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _Tp
 __cxx_atomic_exchange(__cxx_atomic_base_impl<_Tp>* __a, _Tp __value, memory_order __order) _NOEXCEPT {
-#if _LIBCPP_STD_VER >= 26
-  if constexpr (is_scalar_v<_Tp>) {
-    if consteval {
-      _Tp __old      = __a->__a_value;
-      __a->__a_value = __value;
-      return __old;
-    }
-  }
-#endif
   return __c11_atomic_exchange(
       std::addressof(__a->__a_value), __value, static_cast<__memory_order_underlying_t>(__order));
 }
@@ -178,18 +142,6 @@ template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool __cxx_atomic_compare_exchange_strong(
     __cxx_atomic_base_impl<_Tp>* __a, _Tp* __expected, _Tp __value, memory_order __success, memory_order __failure)
     _NOEXCEPT {
-#if _LIBCPP_STD_VER >= 26
-  if constexpr (is_scalar_v<_Tp>) {
-    if consteval {
-      if (__a->__a_value == *__expected) {
-        __a->__a_value = __value;
-        return true;
-      }
-      *__expected = __a->__a_value;
-      return false;
-    }
-  }
-#endif
   return __c11_atomic_compare_exchange_strong(
       std::addressof(__a->__a_value),
       __expected,
@@ -216,20 +168,6 @@ template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool __cxx_atomic_compare_exchange_weak(
     __cxx_atomic_base_impl<_Tp>* __a, _Tp* __expected, _Tp __value, memory_order __success, memory_order __failure)
     _NOEXCEPT {
-#if _LIBCPP_STD_VER >= 26
-  if constexpr (is_scalar_v<_Tp>) {
-    if consteval {
-      // Constant evaluation is single-threaded, so a weak CAS never needs to
-      // spuriously fail (permitted, not required, by [atomics.types.operations]).
-      if (__a->__a_value == *__expected) {
-        __a->__a_value = __value;
-        return true;
-      }
-      *__expected = __a->__a_value;
-      return false;
-    }
-  }
-#endif
   return __c11_atomic_compare_exchange_weak(
       std::addressof(__a->__a_value),
       __expected,

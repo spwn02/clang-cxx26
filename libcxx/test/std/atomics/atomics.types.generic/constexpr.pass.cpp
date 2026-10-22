@@ -23,11 +23,9 @@
 // constexpr void notify_one() noexcept;
 // constexpr void notify_all() noexcept;
 //
-// This fork's compiler has no constexpr support for any of the underlying
-// `__c11_atomic_*`/`__atomic_*` builtins, so libc++'s implementation reads/writes
-// the underlying storage directly during constant evaluation, bypassing them --
-// which only type-checks for scalar element types (see support/c11.h). Scoped
-// accordingly: exercised here only for scalar T (int, bool, pointer, float).
+// The compiler constant-evaluates the underlying load/store/exchange/compare-exchange builtins
+// for every element type (a trivially copyable class too, see the end of this file); the
+// arithmetic operations are scalar only.
 
 #include <atomic>
 #include <cassert>
@@ -277,26 +275,49 @@ constexpr bool test_fetch_max_min_nan() {
 }
 static_assert(test_fetch_max_min_nan());
 
-// A regression check, not a constexpr test: atomic<T> for a non-scalar trivially copyable class
-// type T stays non-constexpr (a real compiler gap, not a libc++ choice -- see support/c11.h's
-// comment), but adding the `if constexpr (is_scalar_v<_Tp>)` consteval branches must not break
-// ordinary *runtime* compilation/use of atomic<T> for such T.
+// atomic<T> for a trivially copyable class type is constexpr too; the comparison of
+// compare_exchange_* and wait() is on the value representation.
 struct TrivialPoint {
   int x;
   int y;
 };
 
-void test_class_type_still_compiles() {
+struct Padded {
+  char c;
+  int i;
+};
+
+constexpr bool test_class_type() {
   std::atomic<TrivialPoint> a(TrivialPoint{1, 2});
   TrivialPoint v = a.load();
-  assert(v.x == 1 && v.y == 2);
+  if (v.x != 1 || v.y != 2)
+    return false;
   a.store(TrivialPoint{3, 4});
   TrivialPoint old = a.exchange(TrivialPoint{5, 6});
-  assert(old.x == 3 && old.y == 4);
-  assert(a.load().x == 5 && a.load().y == 6);
+  if (old.x != 3 || old.y != 4 || a.load().x != 5 || a.load().y != 6)
+    return false;
+  TrivialPoint expected{5, 6};
+  if (!a.compare_exchange_strong(expected, TrivialPoint{7, 8}) || a.load().x != 7)
+    return false;
+  TrivialPoint wrong{0, 0};
+  if (a.compare_exchange_weak(wrong, TrivialPoint{9, 9}) || wrong.x != 7 || wrong.y != 8)
+    return false;
+  a.wait(TrivialPoint{0, 0});
+  a.notify_one();
+
+  std::atomic<Padded> p(Padded{1, 2});
+  Padded pe{1, 2};
+  if (!p.compare_exchange_strong(pe, Padded{3, 4}) || p.load().i != 4)
+    return false;
+
+  // Equal by operator== but not by value representation.
+  std::atomic<float> f(-0.0f);
+  float zero = 0.0f;
+  return !f.compare_exchange_strong(zero, 1.0f);
 }
+static_assert(test_class_type());
 
 int main(int, char**) {
-  test_class_type_still_compiles();
+  assert(test_class_type());
   return 0;
 }

@@ -89,6 +89,13 @@ private:
       bool __is_weak,
       memory_order __success,
       memory_order __failure) _NOEXCEPT {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      // The compiler compares the value representations; padding bits are not part of a constant-evaluated object.
+      return __is_weak ? std::__cxx_atomic_compare_exchange_weak(__atomic, __expected, __desired, __success, __failure)
+                       : std::__cxx_atomic_compare_exchange_strong(__atomic, __expected, __desired, __success, __failure);
+    }
+#  endif
     _LIBCPP_ATOMIC_IF_CONSTEXPR (
 #  if __has_builtin(__builtin_clear_padding)
         __has_unique_object_representations(_Tp) || is_floating_point<_Tp>::value
@@ -212,16 +219,19 @@ public:
   _LIBCPP_AVAILABILITY_NEW_SYNC _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 void
   wait(_Tp __v, memory_order __m = memory_order_seq_cst) const _NOEXCEPT {
 #  if _LIBCPP_STD_VER >= 26
-    if constexpr (is_scalar_v<_Tp>) {
-      if consteval {
-        // Constant evaluation is single-threaded: nothing else can change the value, and nothing
-        // could ever notify a spin here, so looping while equal to __v either returns immediately
-        // or never terminates -- surfacing as a constant-evaluation-step-limit failure, matching
-        // the paper's "wait-ing for a different value will be a deadlock which should result in
-        // constant evaluation failure".
-        while (this->load(__m) == __v) {
-        }
-        return;
+    if consteval {
+      // Constant evaluation is single-threaded: nothing else can change the value, and nothing
+      // could ever notify a spin here, so looping while the value representation is equal to __v
+      // either returns immediately or never terminates -- surfacing as a constant-evaluation-step-limit
+      // failure, matching the paper's "wait-ing for a different value will be a deadlock which should
+      // result in constant evaluation failure".
+      while (true) {
+        _Tp __current = this->load(__m);
+        _Tp __expected = __v;
+        _Tp __desired  = __v;
+        if (!__atomic_compare_exchange(
+                std::addressof(__current), std::addressof(__expected), std::addressof(__desired), false, 5, 5))
+          return;
       }
     }
 #  endif

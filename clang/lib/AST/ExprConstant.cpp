@@ -10547,7 +10547,20 @@ public:
   }
 
   bool VisitStackLocationExpr(const StackLocationExpr *E);
+
+  bool VisitAtomicExpr(const AtomicExpr *E);
 };
+
+static bool EvaluateAtomicBuiltin(EvalInfo &Info, const AtomicExpr *E,
+                                  APValue &Result);
+
+template <typename Derived>
+bool ExprEvaluatorBase<Derived>::VisitAtomicExpr(const AtomicExpr *E) {
+  APValue Result;
+  if (!EvaluateAtomicBuiltin(this->Info, E, Result))
+    return false;
+  return DerivedSuccess(Result, E);
+}
 
 /// EvaluateAsRValue - Try to evaluate this expression, performing an implicit
 /// lvalue-to-rvalue cast if it is an lvalue.
@@ -22903,6 +22916,160 @@ bool ComplexExprEvaluator::VisitCallExpr(const CallExpr *E) {
     return false;
   }
 }
+
+//===----------------------------------------------------------------------===//
+// Atomic builtins (P3309R3): without concurrency during constant evaluation an
+// atomic operation on a constant-evaluated object is an ordinary read and/or
+// write; the memory order is evaluated and ignored.
+//===----------------------------------------------------------------------===//
+
+namespace {
+/// Whether two values of the same type have the same value representation.
+static bool atomicValuesEqual(const APValue &A, const APValue &B) {
+  llvm::FoldingSetNodeID IA, IB;
+  A.Profile(IA);
+  B.Profile(IB);
+  return IA == IB;
+}
+
+static bool EvaluateAtomicBuiltin(EvalInfo &Info, const AtomicExpr *E,
+                                  APValue &Result) {
+  const AtomicExpr::AtomicOp Op = E->getOp();
+
+  // The operations of the C11 and GNU load/store/exchange/compare-exchange
+  // families; the arithmetic read-modify-write operations are not constant
+  // evaluated.
+  enum Kind { Init, Load, Store, Exchange, CmpXchg } K;
+  bool ByPointer = false; // GNU form whose values are passed by pointer
+  switch (Op) {
+  case AtomicExpr::AO__c11_atomic_init:
+    K = Init;
+    break;
+  case AtomicExpr::AO__c11_atomic_load:
+  case AtomicExpr::AO__atomic_load_n:
+    K = Load;
+    break;
+  case AtomicExpr::AO__atomic_load:
+    K = Load;
+    ByPointer = true;
+    break;
+  case AtomicExpr::AO__c11_atomic_store:
+  case AtomicExpr::AO__atomic_store_n:
+    K = Store;
+    break;
+  case AtomicExpr::AO__atomic_store:
+    K = Store;
+    ByPointer = true;
+    break;
+  case AtomicExpr::AO__c11_atomic_exchange:
+  case AtomicExpr::AO__atomic_exchange_n:
+    K = Exchange;
+    break;
+  case AtomicExpr::AO__atomic_exchange:
+    K = Exchange;
+    ByPointer = true;
+    break;
+  case AtomicExpr::AO__c11_atomic_compare_exchange_strong:
+  case AtomicExpr::AO__c11_atomic_compare_exchange_weak:
+  case AtomicExpr::AO__atomic_compare_exchange_n:
+    K = CmpXchg;
+    break;
+  case AtomicExpr::AO__atomic_compare_exchange:
+    K = CmpXchg;
+    ByPointer = true;
+    break;
+  default:
+    Info.FFDiag(E, diag::note_invalid_subexpr_in_const_expr);
+    return false;
+  }
+
+  // The memory orders and the weak flag only have to be evaluable.
+  auto EvaluateIgnoredInt = [&](const Expr *Arg) {
+    APSInt Ignored;
+    return EvaluateInteger(Arg, Ignored, Info);
+  };
+  if (K != Init && !EvaluateIgnoredInt(E->getOrder()))
+    return false;
+  if (K == CmpXchg) {
+    if (!EvaluateIgnoredInt(E->getOrderFail()))
+      return false;
+    if (Op == AtomicExpr::AO__atomic_compare_exchange || Op == AtomicExpr::AO__atomic_compare_exchange_n)
+      if (!EvaluateIgnoredInt(E->getWeak()))
+        return false;
+  }
+
+  const QualType ValueTy = E->getValueType();
+  const QualType ObjTy = E->getPtr()->getType()->getPointeeType();
+  LValue Obj;
+  if (!EvaluatePointer(E->getPtr(), Obj, Info))
+    return false;
+
+  // A value operand is a prvalue, or a pointer to the value in the GNU forms.
+  auto GetValue = [&](const Expr *Arg, APValue &V) {
+    if (!ByPointer)
+      return Evaluate(V, Info, Arg);
+    LValue Ptr;
+    return EvaluatePointer(Arg, Ptr, Info) &&
+           handleLValueToRValueConversion(Info, E, ValueTy, Ptr, V);
+  };
+  auto StoreThrough = [&](const Expr *PtrArg, APValue &V) {
+    LValue Ptr;
+    return EvaluatePointer(PtrArg, Ptr, Info) &&
+           handleAssignment(Info, E, Ptr, ValueTy, V);
+  };
+  auto ReadObject = [&](APValue &V) {
+    return handleLValueToRValueConversion(Info, E, ObjTy, Obj, V);
+  };
+  auto WriteObject = [&](APValue &V) {
+    return handleAssignment(Info, E, Obj, ObjTy, V);
+  };
+  auto GiveResult = [&](APValue &V, const Expr *OutPtr) {
+    if (ByPointer)
+      return StoreThrough(OutPtr, V);
+    Result = V;
+    return true;
+  };
+
+  switch (K) {
+  case Init: {
+    APValue V;
+    return Evaluate(V, Info, E->getVal1()) && WriteObject(V);
+  }
+  case Load: {
+    APValue V;
+    return ReadObject(V) && GiveResult(V, ByPointer ? E->getVal1() : nullptr);
+  }
+  case Store: {
+    APValue V;
+    return GetValue(E->getVal1(), V) && WriteObject(V);
+  }
+  case Exchange: {
+    APValue Desired, Old;
+    if (!GetValue(E->getVal1(), Desired) || !ReadObject(Old))
+      return false;
+    return WriteObject(Desired) &&
+           GiveResult(Old, ByPointer ? E->getVal2() : nullptr);
+  }
+  case CmpXchg: {
+    // The expected value is always passed by pointer.
+    LValue ExpectedPtr;
+    APValue Expected, Current, Desired;
+    if (!EvaluatePointer(E->getVal1(), ExpectedPtr, Info) ||
+        !handleLValueToRValueConversion(Info, E, ValueTy, ExpectedPtr, Expected))
+      return false;
+    if (!GetValue(E->getVal2(), Desired) || !ReadObject(Current))
+      return false;
+    bool Equal = atomicValuesEqual(Current, Expected);
+    if (Equal ? !WriteObject(Desired)
+              : !handleAssignment(Info, E, ExpectedPtr, ValueTy, Current))
+      return false;
+    Result = APValue(Info.Ctx.MakeIntValue(Equal, E->getType()));
+    return true;
+  }
+  }
+  llvm_unreachable("unknown atomic operation kind");
+}
+} // end anonymous namespace
 
 //===----------------------------------------------------------------------===//
 // Atomic expression evaluation, essentially just handling the NonAtomicToAtomic

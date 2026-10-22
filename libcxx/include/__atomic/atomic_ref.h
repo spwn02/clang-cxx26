@@ -87,13 +87,19 @@ private:
     return __ptr;
   }
 
-  _LIBCPP_HIDE_FROM_ABI static bool __compare_exchange(
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 static bool __compare_exchange(
       _Tp* __ptr,
       value_type* __expected,
       value_type* __desired,
       bool __is_weak,
       int __success,
       int __failure) noexcept {
+#  if _LIBCPP_STD_VER >= 26
+    if consteval {
+      // The compiler compares the value representations; padding bits are not part of a constant-evaluated object.
+      return __atomic_compare_exchange(__ptr, __expected, __desired, __is_weak, __success, __failure);
+    }
+#  endif
     if constexpr (
 #  if __has_builtin(__builtin_clear_padding)
         has_unique_object_representations_v<value_type> || floating_point<value_type>
@@ -212,26 +218,10 @@ public:
     return *__ret;
   }
 
-  // The consteval branches below are gated on is_scalar_v<_Tp>: they compare via `==`, which
-  // -- unlike __compare_exchange's bytewise __atomic_compare_exchange/__clear_padding/memcmp
-  // machinery below (none of which is usable in a constant expression) -- requires an equality
-  // comparison to exist, so this doesn't extend to arbitrary trivially copyable class types.
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 bool compare_exchange_weak(
       value_type& __expected, value_type __desired, memory_order __success, memory_order __failure) const noexcept
     requires(!is_const_v<_Tp>)
   _LIBCPP_CHECK_EXCHANGE_MEMORY_ORDER(__success, __failure) {
-#  if _LIBCPP_STD_VER >= 26
-    if constexpr (is_scalar_v<_Tp>) {
-      if consteval {
-        if (*__ptr_ == __expected) {
-          *__ptr_ = __desired;
-          return true;
-        }
-        __expected = *__ptr_;
-        return false;
-      }
-    }
-#  endif
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
         __failure == memory_order::relaxed || __failure == static_cast<memory_order>(__mo_consume) ||
             __failure == memory_order::acquire || __failure == memory_order::seq_cst,
@@ -248,18 +238,6 @@ public:
       value_type& __expected, value_type __desired, memory_order __success, memory_order __failure) const noexcept
     requires(!is_const_v<_Tp>)
   _LIBCPP_CHECK_EXCHANGE_MEMORY_ORDER(__success, __failure) {
-#  if _LIBCPP_STD_VER >= 26
-    if constexpr (is_scalar_v<_Tp>) {
-      if consteval {
-        if (*__ptr_ == __expected) {
-          *__ptr_ = __desired;
-          return true;
-        }
-        __expected = *__ptr_;
-        return false;
-      }
-    }
-#  endif
     _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
         __failure == memory_order::relaxed || __failure == static_cast<memory_order>(__mo_consume) ||
             __failure == memory_order::acquire || __failure == memory_order::seq_cst,
@@ -277,18 +255,6 @@ public:
       value_type& __expected, value_type __desired, memory_order __order = memory_order::seq_cst) const noexcept
     requires(!is_const_v<_Tp>)
   {
-#  if _LIBCPP_STD_VER >= 26
-    if constexpr (is_scalar_v<_Tp>) {
-      if consteval {
-        if (*__ptr_ == __expected) {
-          *__ptr_ = __desired;
-          return true;
-        }
-        __expected = *__ptr_;
-        return false;
-      }
-    }
-#  endif
     return __compare_exchange(
         __ptr_,
         std::addressof(__expected),
@@ -301,18 +267,6 @@ public:
       value_type& __expected, value_type __desired, memory_order __order = memory_order::seq_cst) const noexcept
     requires(!is_const_v<_Tp>)
   {
-#  if _LIBCPP_STD_VER >= 26
-    if constexpr (is_scalar_v<_Tp>) {
-      if consteval {
-        if (*__ptr_ == __expected) {
-          *__ptr_ = __desired;
-          return true;
-        }
-        __expected = *__ptr_;
-        return false;
-      }
-    }
-#  endif
     return __compare_exchange(
         __ptr_,
         std::addressof(__expected),
@@ -330,11 +284,14 @@ public:
   wait(value_type __old, memory_order __order = memory_order::seq_cst) const noexcept
       _LIBCPP_CHECK_WAIT_MEMORY_ORDER(__order) {
 #  if _LIBCPP_STD_VER >= 26
-    if constexpr (is_scalar_v<_Tp>) {
-      if consteval {
-        while (this->load(__order) == __old) {
-        }
-        return;
+    if consteval {
+      while (true) {
+        value_type __current  = this->load(__order);
+        value_type __expected = __old;
+        value_type __desired  = __old;
+        if (!__atomic_compare_exchange(
+                std::addressof(__current), std::addressof(__expected), std::addressof(__desired), false, 5, 5))
+          return;
       }
     }
 #  endif

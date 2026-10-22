@@ -10,14 +10,8 @@
 
 // P3309R3: constexpr atomic_ref<T>.
 //
-// store/load/exchange/operator= are constexpr for any trivially copyable T
-// (atomic_ref stores a plain T*, with no _Atomic-qualification to bypass, so
-// this doesn't need the scalar-only carve-out that atomic<T> does -- see
-// support/c11.h's comment for that one). compare_exchange_weak/strong and
-// wait compare via `==`, which -- unlike the bytewise
-// __atomic_compare_exchange/__clear_padding/memcmp machinery normally used
-// for arbitrary trivially-copyable T -- requires an equality comparison to
-// exist, so those two stay scalar-only.
+// store/load/exchange/operator=/compare_exchange_*/wait are constexpr for any
+// trivially copyable T; the comparison is on the value representation.
 
 #include <atomic>
 
@@ -109,8 +103,8 @@ constexpr bool test_pointer() {
 }
 static_assert(test_pointer());
 
-// The store/load/exchange/operator= path (but not compare_exchange_*/wait, which
-// need a scalar `==`) is constexpr for an arbitrary trivially copyable class type.
+// The store/load/exchange/operator=/compare_exchange_*/wait path is constexpr for an
+// arbitrary trivially copyable class type.
 constexpr bool test_class_type() {
   TrivialPoint obj{1, 2};
   std::atomic_ref<TrivialPoint> a(obj);
@@ -128,6 +122,14 @@ constexpr bool test_class_type() {
   a = TrivialPoint{7, 8};
   if (a.load().x != 7 || a.load().y != 8)
     return false;
+
+  TrivialPoint expected{7, 8};
+  if (!a.compare_exchange_strong(expected, TrivialPoint{9, 10}) || obj.x != 9)
+    return false;
+  TrivialPoint wrong{0, 0};
+  if (a.compare_exchange_weak(wrong, TrivialPoint{1, 1}) || wrong.x != 9 || wrong.y != 10)
+    return false;
+  a.wait(TrivialPoint{0, 0});
 
   return true;
 }
