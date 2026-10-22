@@ -8,23 +8,19 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
 
-// explicit outer-iterator::value_type::value_type(outer-iterator i)
+// outer-iterator::value_type is obtained from outer-iterator::operator*; its constructor is exposition-only
 
 #include <ranges>
 
 #include <cassert>
 #include "../types.h"
 
-// Verify that the constructor is `explicit`.
-static_assert(!std::is_convertible_v<OuterIterForward, ValueTypeForward>);
-static_assert(!std::is_convertible_v<OuterIterInput, ValueTypeInput>);
-
 constexpr bool test() {
   // `View` is a forward range.
   {
     CopyableView input = "a";
     SplitViewCopyable v(input, "b");
-    ValueTypeCopyable val(v.begin());
+    ValueTypeCopyable val = *v.begin();
     assert(val.begin().base() == input.begin());
   }
 
@@ -32,7 +28,7 @@ constexpr bool test() {
   {
     InputView input = "a";
     SplitViewInput v(input, 'b');
-    ValueTypeInput val(v.begin());
+    ValueTypeInput val = *v.begin();
     assert(*val.begin().base() == *input.begin());
   }
 
