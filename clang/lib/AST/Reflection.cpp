@@ -8,13 +8,26 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/APValue.h"
 #include "clang/AST/Reflection.h"
+#include "llvm/ADT/FoldingSet.h"
 
 namespace clang {
 
 bool TagDataMemberSpec::operator==(const TagDataMemberSpec &Rhs) const {
-  return Ty == Rhs.Ty && Alignment == Rhs.Alignment &&
-         BitWidth == Rhs.BitWidth && Name == Rhs.Name;
+  if (!(Ty == Rhs.Ty && Alignment == Rhs.Alignment &&
+        BitWidth == Rhs.BitWidth && Name == Rhs.Name &&
+        NoUniqueAddress == Rhs.NoUniqueAddress &&
+        Annotations.size() == Rhs.Annotations.size()))
+    return false;
+  for (size_t I = 0; I != Annotations.size(); ++I) {
+    llvm::FoldingSetNodeID L, R;
+    Annotations[I]->Profile(L);
+    Rhs.Annotations[I]->Profile(R);
+    if (L != R)
+      return false;
+  }
+  return true;
 }
 
 bool TagDataMemberSpec::operator!=(const TagDataMemberSpec &Rhs) const {
