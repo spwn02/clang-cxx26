@@ -95,7 +95,9 @@ constexpr bool test_all() {
   test<std::string>();
   test<const std::string>();
 
-  // Regression test for https://llvm.org/PR104496
+#if TEST_STD_VER < 26
+  // Regression test for https://llvm.org/PR104496. [span.overview] mandates a complete element type, and since
+  // C++26 span has a const_iterator, so an incomplete element type is not accepted any more.
   {
     struct Incomplete;
     std::span<Incomplete> x;
@@ -103,6 +105,7 @@ constexpr bool test_all() {
     assert(copy.data() == x.data());
     assert(copy.size() == x.size());
   }
+#endif
 
   return true;
 }

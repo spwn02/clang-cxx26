@@ -156,6 +156,7 @@ template<class R>
 #  include <__fwd/span.h>
 #  include <__iterator/bounded_iter.h>
 #  include <__iterator/concepts.h>
+#  include <__iterator/const_iterator.h>
 #  include <__iterator/iterator_traits.h>
 #  include <__iterator/reverse_iterator.h>
 #  include <__iterator/wrap_iter.h>
@@ -244,6 +245,10 @@ public:
   using iterator = __wrap_iter<pointer>;
 #    endif
   using reverse_iterator = std::reverse_iterator<iterator>;
+#    if _LIBCPP_STD_VER >= 26
+  using const_iterator         = std::const_iterator<iterator>;
+  using const_reverse_iterator = std::const_iterator<reverse_iterator>;
+#    endif
 
   static constexpr size_type extent = _Extent;
 
@@ -395,6 +400,12 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr reverse_iterator rend() const noexcept {
     return reverse_iterator(begin());
   }
+#    if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const_iterator cbegin() const noexcept { return begin(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const_iterator cend() const noexcept { return end(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const_reverse_iterator crbegin() const noexcept { return rbegin(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const_reverse_iterator crend() const noexcept { return rend(); }
+#    endif
 
   _LIBCPP_HIDE_FROM_ABI span<const byte, _Extent * sizeof(element_type)> __as_bytes() const noexcept {
     return span<const byte, _Extent * sizeof(element_type)>{reinterpret_cast<const byte*>(data()), size_bytes()};
@@ -426,6 +437,10 @@ public:
   using iterator = __wrap_iter<pointer>;
 #    endif
   using reverse_iterator = std::reverse_iterator<iterator>;
+#    if _LIBCPP_STD_VER >= 26
+  using const_iterator         = std::const_iterator<iterator>;
+  using const_reverse_iterator = std::const_iterator<reverse_iterator>;
+#    endif
 
   static constexpr size_type extent = dynamic_extent;
 
@@ -562,6 +577,12 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr reverse_iterator rend() const noexcept {
     return reverse_iterator(begin());
   }
+#    if _LIBCPP_STD_VER >= 26
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const_iterator cbegin() const noexcept { return begin(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const_iterator cend() const noexcept { return end(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const_reverse_iterator crbegin() const noexcept { return rbegin(); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr const_reverse_iterator crend() const noexcept { return rend(); }
+#    endif
 
   _LIBCPP_HIDE_FROM_ABI span<const byte, dynamic_extent> __as_bytes() const noexcept {
     return {reinterpret_cast<const byte*>(data()), size_bytes()};

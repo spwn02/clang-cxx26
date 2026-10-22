@@ -7,6 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14
+// In C++20 and later construct uses uses-allocator construction with a const allocator ([allocator.uses.construction]),
+// so an allocator type that cannot be built from a const polymorphic_allocator is not supported.
+// UNSUPPORTED: c++20, c++23, c++26
 // TODO: Change to XFAIL once https://llvm.org/PR40995 is fixed
 // UNSUPPORTED: availability-pmr-missing
 

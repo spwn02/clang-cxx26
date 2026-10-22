@@ -68,13 +68,27 @@ template <typename T>
 void test() {
   testSpan<std::span< T>, T, std::dynamic_extent>();
   testSpan<std::span<const T>, const T, std::dynamic_extent>();
-  testSpan<std::span< volatile T>, volatile T, std::dynamic_extent>();
-  testSpan<std::span<const volatile T>, const volatile T, std::dynamic_extent>();
+#if TEST_STD_VER >= 26
+  // [span.overview]: const_iterator is std::const_iterator<iterator>, which needs an input_iterator, so a
+  // volatile class type (not indirectly_readable) is not a valid element type.
+  if constexpr (std::is_arithmetic_v<T>) {
+#else
+  {
+#endif
+    testSpan<std::span< volatile T>, volatile T, std::dynamic_extent>();
+    testSpan<std::span<const volatile T>, const volatile T, std::dynamic_extent>();
+  }
 
   testSpan<std::span< T, 5>, T, 5>();
   testSpan<std::span<const T, 5>, const T, 5>();
-  testSpan<std::span< volatile T, 5>, volatile T, 5>();
-  testSpan<std::span<const volatile T, 5>, const volatile T, 5>();
+#if TEST_STD_VER >= 26
+  if constexpr (std::is_arithmetic_v<T>) {
+#else
+  {
+#endif
+    testSpan<std::span< volatile T, 5>, volatile T, 5>();
+    testSpan<std::span<const volatile T, 5>, const volatile T, 5>();
+  }
 }
 
 struct A {};

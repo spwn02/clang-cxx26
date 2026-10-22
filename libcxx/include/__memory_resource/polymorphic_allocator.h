@@ -14,6 +14,7 @@
 #include <__cstddef/byte.h>
 #include <__cstddef/max_align_t.h>
 #include <__fwd/pair.h>
+#include <__memory/uses_allocator_construction.h>
 #include <__memory_resource/memory_resource.h>
 #include <__new/exceptions.h>
 #include <__new/placement_new_delete.h>
@@ -120,6 +121,13 @@ public:
 
 #  endif // _LIBCPP_STD_VER >= 20
 
+#  if _LIBCPP_STD_VER >= 20
+  // [mem.poly.allocator.mem] (P0591R4): uses-allocator construction of _Tp with allocator *this.
+  template <class _Tp, class... _Ts>
+  _LIBCPP_HIDE_FROM_ABI void construct(_Tp* __p, _Ts&&... __args) {
+    std::uninitialized_construct_using_allocator(__p, *this, std::forward<_Ts>(__args)...);
+  }
+#  else
   template <class _Tp, class... _Ts>
   _LIBCPP_HIDE_FROM_ABI void construct(_Tp* __p, _Ts&&... __args) {
     std::__user_alloc_construct_impl(
@@ -167,6 +175,7 @@ public:
               std::forward_as_tuple(std::forward<_U1>(__pr.first)),
               std::forward_as_tuple(std::forward<_U2>(__pr.second)));
   }
+#  endif // _LIBCPP_STD_VER >= 20
 
   template <class _Tp>
   _LIBCPP_HIDE_FROM_ABI void destroy(_Tp* __p) {

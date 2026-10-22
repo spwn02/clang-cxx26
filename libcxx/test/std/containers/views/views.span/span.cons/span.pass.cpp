@@ -93,13 +93,19 @@ TEST_CONSTEXPR_CXX20 void check_cvs() {
   check<T const, T>();
   check<T const, T const>();
 
-  check<T volatile, T>();
-  check<T volatile, T volatile>();
+#if TEST_STD_VER >= 26
+  // span<volatile class-type> is ill-formed in C++26: const_iterator needs an input_iterator ([span.overview]).
+  if constexpr (std::is_arithmetic_v<T>)
+#endif
+  {
+    check<T volatile, T>();
+    check<T volatile, T volatile>();
 
-  check<T const volatile, T>();
-  check<T const volatile, T const>();
-  check<T const volatile, T volatile>();
-  check<T const volatile, T const volatile>();
+    check<T const volatile, T>();
+    check<T const volatile, T const>();
+    check<T const volatile, T volatile>();
+    check<T const volatile, T const volatile>();
+  }
 }
 
 struct A {};
