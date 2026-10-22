@@ -221,6 +221,31 @@ C++ Language Changes
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
+- Reflection (P2996R13 and the companion papers), parameter reflection, annotations, expansion statements and
+  contracts (P2900) are part of ``-std=c++26``: ``-freflection``, ``-freflection-latest``, ``-fcontracts``,
+  ``-fcontract-group-*``, ``-fcontract-*`` (except ``-fcontract-evaluation-semantic=``, the implementation-defined way
+  to select the evaluation semantic), ``-fexperimental-library`` and ``-f[no-]erroneous-initialization`` were removed,
+  and so were the ``__has_feature`` names ``reflection``, ``parameter_reflection``, ``expansion_statements``,
+  ``annotation_attributes`` and ``experimental_library``; use ``__cpp_impl_reflection`` and ``__cplusplus``.
+  Erroneous behavior for uninitialized reads (P2795R5) is the default in C++26.
+
+- The contract extensions that the draft does not have were removed (``[[clang::contract_semantic]]``,
+  ``[[clang::contract_message]]``, ``[[clang::contract_emission]]``).
+
+- Exceptions thrown in constant evaluation (P3068R6) propagate through the left operand of a comma expression, and
+  the atomic builtins ``__c11_atomic_{init,load,store,exchange,compare_exchange_*}`` and
+  ``__atomic_{load,store,exchange,compare_exchange}[_n]`` are constant evaluated (P3309R3).
+
+- ``std::meta::members_of`` of a namespace returns the members of every block of the namespace and a member whose
+  first declaration is a friend declaration; data member descriptions compare equal only when ``no_unique_address``
+  and the annotations are equal (P3795R2).
+
+- Defect reports implemented: CWG2703 (a defaulted ``<=>`` whose subobject result cannot be explicitly converted to
+  the declared return type is deleted), CWG2931 (an operator with an explicit object parameter needs a class or
+  enumeration parameter), CWG3035 (a closure type cannot be declared in an anonymous union), CWG3109 (the extra
+  object-expression check does not apply to a protected member designated by a splice) and CWG3117/CWG3155 (a
+  consteval virtual function overriding a non-consteval one in a class of consteval-only type).
+
 - Implemented the defect reports `P3950R1 <https://wg21.link/P3950R1>`_ (``return_value`` and
   ``return_void`` can both be declared by a coroutine promise) and `P3733R1
   <https://wg21.link/P3733R1>`_ (named universal character escapes accept all Unicode character name aliases).

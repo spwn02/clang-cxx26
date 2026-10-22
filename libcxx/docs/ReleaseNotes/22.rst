@@ -114,9 +114,10 @@ Potentially breaking changes
 - Public names that are not in the C++ working draft (N5050) were removed so that ``std`` exposes the standard's
   vocabulary only (``libcxx/utils/vocabulary_audit.py`` checks this):
 
-  - ``<scope>`` and ``std::scope_exit``/``scope_fail``/``scope_success`` are gone. The scope guards and
-    ``unique_resource`` of the Library Fundamentals TS v3 are provided by ``<experimental/scope>`` in
-    ``std::experimental`` (C++20 and later). They are not exported by ``import std``.
+  - ``<scope>`` and ``std::scope_exit``/``scope_fail``/``scope_success`` are gone, and so are all the Technical
+    Specification headers (``<experimental/simd>``, ``<experimental/memory>``, ``<experimental/iterator>``,
+    ``<experimental/propagate_const>``, ``<experimental/scope>``, ``<experimental/type_traits>`` and
+    ``<experimental/utility>``) together with ``_LIBCPP_ENABLE_EXPERIMENTAL``: they are not part of C++26.
   - ``<meta>``: ``annotate``, the two-argument ``annotations_of``, ``annotation_of_type``, ``reflect_invoke``,
     ``reflect_value``, ``reflect_result``, ``value_of``, ``test_type``/``test_types``/``test_trait``, ``define_class``,
     ``define_unscoped_enum``, ``has_complete_definition``, ``has_ellipsis_parameter``, ``is_access_specified``,
@@ -145,6 +146,33 @@ Potentially breaking changes
 - The ABI flag ``_LIBCPP_ABI_NO_REVERSE_ITERATOR_SECOND_MEMBER`` has been split off from
   ``_LIBCPP_ABI_NO_ITERATOR_BASES``. If you are using this flag and care about ABI stability, you should set
   ``_LIBCPP_ABI_NO_REVERSE_ITERATOR_SECOND_MEMBER`` as well.
+
+- ``-fexperimental-library`` and ``libc++experimental.a`` are gone. The C++17 parallel algorithms and execution
+  policies, the C++20 time zone database (``chrono::tzdb``, ``zoned_time``, leap seconds, formatting and parsing),
+  ``<syncstream>`` and ``optional``'s range support are standard features: they are part of the library in the
+  language modes that have them, without any flag, and the time zone sources are part of ``libc++``.
+
+- Hardening: the assertion semantics ``ignore`` and ``observe`` (and ``__log_hardening_failure``) are removed; a
+  hardened implementation must use a terminating semantic. In C++26 a violated hardened precondition under the
+  ``enforce`` semantic is a contract violation ([intro.compliance.general]): the replaceable contract-violation
+  handler runs, then the program terminates; ``quick-enforce`` still traps.
+
+- The contract extensions that the draft does not have were removed: ``[[clang::contract_semantic]]``,
+  ``[[clang::contract_message]]``, ``[[clang::contract_emission]]``, ``assertion_kind::manual`` and ``cassert``,
+  ``detection_mode::unspecified``. The only contract option is ``-fcontract-evaluation-semantic=``.
+
+- Library behavior changes that follow the C++26 wording: ``from_chars`` leaves ``value`` unmodified when the result
+  is out of range (it stored ``±HUGE_VAL`` or zero); ``span<volatile T>`` is ill-formed for a class type ``T``
+  because ``span::const_iterator`` is ``std::const_iterator<iterator>``; ``polymorphic_allocator::construct`` uses
+  uses-allocator construction with ``*this`` as a const allocator (C++20 and later); ``std::rcu_domain`` has no
+  default constructor (use ``rcu_default_domain()``); ``std::div``, ``ldiv`` and ``lldiv`` are constexpr in C++23
+  and ``__cpp_lib_constexpr_cmath`` is defined.
+
+New in this release (conformance): ``span::cbegin``/``cend``, ``from_chars`` for ``long double`` matching the
+specified pattern in the C locale, constexpr ``atomic<T>`` and ``atomic_ref<T>`` for trivially copyable class types
+(the atomic load, store, exchange and compare-exchange builtins are constant evaluated), constexpr throwing of the
+``Throws:`` exceptions of the library (P3068R6), the remaining C23 functions of ``<cstring>`` and ``<cstdlib>``,
+``philox_engine`` and the hosted-only stream operators of ``<random>`` in freestanding mode.
 
 Announcements About Future Releases
 -----------------------------------
