@@ -297,6 +297,10 @@ struct __inplace_vector_move_assign_base<_Tp, _Cap, false> : __inplace_vector_co
 template <class _Tp, size_t _Cap>
 using __inplace_vector_base _LIBCPP_NODEBUG = __inplace_vector_move_assign_base<_Tp, _Cap>;
 
+// Soft test for "ranges::size(rg) is a constant expression": a non-constant argument is a substitution failure.
+template <auto>
+struct __size_constant_probe {};
+
 template <class _Tp, size_t _Capacity>
 class inplace_vector : private __inplace_vector_base<_Tp, _Capacity> {
   using __base _LIBCPP_NODEBUG = __inplace_vector_base<_Tp, _Capacity>;
@@ -331,7 +335,7 @@ public:
     // LWG 4396: if ranges::size(rg) is usable in a constant expression, a
     // range too large for our fixed capacity must be a compile error, not a
     // runtime bad_alloc.
-    if constexpr (requires { requires ranges::size(__rg) >= 0; }) {
+    if constexpr (requires { typename __size_constant_probe<ranges::size(__rg)>; }) {
       static_assert(ranges::size(__rg) <= _Capacity, "inplace_vector(from_range_t, R&&): range too large for capacity");
     }
     __append_range(std::forward<_Range>(__rg));
