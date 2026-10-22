@@ -184,6 +184,19 @@ namespace cwg1315 { // cwg1315: partial
   // expected-error@-1 {{type of specialized non-type template argument depends on a template parameter of the partial specialization}}
 } // namespace cwg1315
 
+#if __cplusplus >= 201103L
+namespace cwg1328 { // cwg1328: 22 c++11
+template <class T> struct A {
+  operator T&();   // #1
+  operator T&&();  // #2
+};
+typedef int Fn();
+A<Fn> a;
+Fn& lf = a;   // #1
+Fn&& rf = a;  // #2
+} // namespace cwg1328
+#endif
+
 namespace cwg1330 { // cwg1330: 4 c++11
   // exception-specifications are parsed in a context where the class is complete.
   struct A {

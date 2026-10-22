@@ -15,3 +15,18 @@ template void t<int>();
 // One scope only: valid.
 template<class T> void v(T x) { using A::f; f(x); }
 template void v<int>(int);
+
+// A non-dependent call is diagnosed once.
+template<class T> void w() { using A::f; using B::f; f(3); } // expected-error {{default argument for 2nd parameter of 'f' is provided by declarations from more than one scope}}
+template void w<int>(); // expected-note {{in instantiation of function template specialization 'w<int>' requested here}}
+
+// A dependent call in a generic lambda.
+auto lam = [](auto x) { using A::f; using B::f; f(x); }; // expected-error {{default argument for 2nd parameter of 'f' is provided by declarations from more than one scope}}
+void call() { lam(1); } // expected-note {{in instantiation of function template specialization}}
+
+// Block-scope redeclarations in other blocks are not considered.
+void bf(int);
+void bg() {
+  { void bf(int = 1); }
+  { void bf(int); bf(); } // expected-error {{too few arguments to function call, expected 1, have 0}} expected-note {{'bf' declared here}}
+}

@@ -124,6 +124,12 @@ for s in $steps; do
     audit) step_audit ;;
     *) record "$s" FAIL "unknown step" ;;
   esac
+  # Stop at the first failing step (GATE_KEEP_GOING=1 runs the rest): investigate before spending more time.
+  if [[ "${GATE_KEEP_GOING:-0}" != 1 ]]; then
+    for r in "${results[@]}"; do
+      if [[ "$r" != PASS ]]; then echo "stopping after the first failure"; break 2; fi
+    done
+  fi
 done
 
 echo
