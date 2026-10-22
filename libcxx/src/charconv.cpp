@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <__locale>
 #include <charconv>
 #include <errno.h>
 #include <limits>
@@ -279,36 +280,109 @@ to_chars_result __to_chars_long_double(
 
 } // namespace
 
+namespace {
+
+inline bool __is_digit_in(char __c, bool __hex) {
+  return (__c >= '0' && __c <= '9') || (__hex && ((__c >= 'a' && __c <= 'f') || (__c >= 'A' && __c <= 'F')));
+}
+
+inline char __lower(char __c) { return (__c >= 'A' && __c <= 'Z') ? static_cast<char>(__c - 'A' + 'a') : __c; }
+
+// Whether [__p, __last) starts with the (case-insensitive) lower case word __w.
+inline bool __starts_with_nocase(const char* __p, const char* __last, const char* __w) {
+  for (; *__w != '\0'; ++__w, ++__p)
+    if (__p == __last || __lower(*__p) != *__w)
+      return false;
+  return true;
+}
+
+} // namespace
+
+// [charconv.from.chars]: the subject sequence is matched here with the grammar of strtold in the "C" locale (no
+// leading white space, no '+', no 0x prefix for hex, the exponent as required by the format) and only the matched
+// characters are converted, with strtold in the "C" locale.
 _LIBCPP_EXPORTED_FROM_ABI __from_chars_result<long double> __from_chars_long_double(
     _LIBCPP_NOESCAPE const char* __first, _LIBCPP_NOESCAPE const char* __last, chars_format __fmt) {
-  if (__first == __last || *__first == '+')
-    return {0.0L, 0, errc::invalid_argument};
+  const char* __p = __first;
+  const bool __negative = __p != __last && *__p == '-';
+  if (__negative)
+    ++__p;
 
-  // strtold requires a null-terminated string, while from_chars accepts a
-  // bounded character range. Keep the temporary local to this ABI boundary.
-  string __input(__first, __last);
-  string __parse_input = __input;
-  ptrdiff_t __prefix_position = 0;
-  ptrdiff_t __inserted = 0;
-  if (__fmt == chars_format::hex && __input.find("0x") == string::npos &&
-      __input.find("0X") == string::npos) {
-    __prefix_position = __input[0] == '-' ? 1 : 0;
-    __parse_input.insert(static_cast<size_t>(__prefix_position), "0x");
-    __inserted = 2;
+  auto __invalid = [] { return __from_chars_result<long double>{0.0L, 0, errc::invalid_argument}; };
+  if (__p == __last)
+    return __invalid();
+
+  const long double __sign = __negative ? -1.0L : 1.0L;
+
+  // inf, infinity, nan, nan(n-char-sequence)
+  if (__starts_with_nocase(__p, __last, "inf")) {
+    __p += 3;
+    if (__starts_with_nocase(__p, __last, "inity"))
+      __p += 5;
+    return {__sign * __builtin_infl(), __p - __first, errc{}};
   }
-  char* __end = nullptr;
-  errno = 0;
-  long double __value = ::strtold(__parse_input.c_str(), &__end);
-  if (__end == __parse_input.c_str())
-    return {0.0L, 0, errc::invalid_argument};
+  if (__starts_with_nocase(__p, __last, "nan")) {
+    __p += 3;
+    if (__p != __last && *__p == '(') {
+      const char* __q = __p + 1;
+      while (__q != __last && (__is_digit_in(*__q, false) || (__lower(*__q) >= 'a' && __lower(*__q) <= 'z') || *__q == '_'))
+        ++__q;
+      if (__q != __last && *__q == ')')
+        __p = __q + 1;
+    }
+    return {__negative ? -__builtin_nanl("") : __builtin_nanl(""), __p - __first, errc{}};
+  }
 
-  const ptrdiff_t __n = __end - __parse_input.c_str() - __inserted;
-  if (__fmt == chars_format::scientific &&
-      __input.find_first_of("eE", 0) == string::npos)
-    return {0.0L, 0, errc::invalid_argument};
-  if (errno == ERANGE)
-    return {__value, __n, errc::result_out_of_range};
-  return {__value, __n, errc{}};
+  const bool __hex = __fmt == chars_format::hex;
+  const char* __digits_begin = __p;
+  bool __nonzero_digit = false;
+  size_t __count = 0;
+  for (; __p != __last && __is_digit_in(*__p, __hex); ++__p, ++__count)
+    __nonzero_digit |= *__p != '0';
+  if (__p != __last && *__p == '.') {
+    ++__p;
+    for (; __p != __last && __is_digit_in(*__p, __hex); ++__p, ++__count)
+      __nonzero_digit |= *__p != '0';
+  }
+  if (__count == 0)
+    return __invalid();
+  const char* __mantissa_end = __p;
+
+  // The exponent: 'e' for decimal formats, 'p' for hex. It is not part of the fixed format, and it is required
+  // by the scientific format.
+  bool __has_exponent = false;
+  if (__fmt != chars_format::fixed && __p != __last && __lower(*__p) == (__hex ? 'p' : 'e')) {
+    const char* __q = __p + 1;
+    if (__q != __last && (*__q == '+' || *__q == '-'))
+      ++__q;
+    const char* __exp_digits = __q;
+    while (__q != __last && __is_digit_in(*__q, false))
+      ++__q;
+    if (__q != __exp_digits) {
+      __p            = __q;
+      __has_exponent = true;
+    }
+  }
+  if (__fmt == chars_format::scientific && !__has_exponent)
+    return __invalid();
+  (void)__mantissa_end;
+
+  string __text;
+  if (__negative)
+    __text += '-';
+  if (__hex)
+    __text += "0x";
+  __text.append(__digits_begin, __p);
+
+  static const __locale::__locale_t __c_locale = __locale::__newlocale(_LIBCPP_ALL_MASK, "C", nullptr);
+  char* __end         = nullptr;
+  long double __value = __locale::__strtold(__text.c_str(), &__end, __c_locale);
+
+  // Only an overflow, or an underflow to zero of a non-zero number, is out of range; a subnormal result is a
+  // representable value.
+  if (__builtin_isinf(__value) || (__value == 0.0L && __nonzero_digit))
+    return {__value, __p - __first, errc::result_out_of_range};
+  return {__value, __p - __first, errc{}};
 }
 
 #if _LIBCPP_AVAILABILITY_MINIMUM_HEADER_VERSION < 15

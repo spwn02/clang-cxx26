@@ -839,37 +839,41 @@ struct test_scientific {
       assert(r.ptr == s + std::strlen(s));
       assert(x == F(-0.25));
     }
-    { // value is too big -> +inf
+    { // value is too big
       const char* s = "1e9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x, std::chars_format::scientific);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == std::numeric_limits<F>::infinity());
+      assert(x == F(111));
     }
-    { // negative value is too big -> -inf
+    { // negative value is too big
       const char* s = "-1e9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x, std::chars_format::scientific);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == -std::numeric_limits<F>::infinity());
+      assert(x == F(111));
     }
-    { // value is too small -> 0
+    { // value is too small
       const char* s = "1e-9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x, std::chars_format::scientific);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == F(0.0));
+      assert(x == F(111));
     }
-    { // negative value is too small -> -0
+    { // negative value is too small
       const char* s = "-1e-9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x, std::chars_format::scientific);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == F(-0.0));
+      assert(x == F(111));
     }
   }
 };
@@ -1159,37 +1163,41 @@ struct test_general {
       assert(r.ptr == s + std::strlen(s));
       assert(x == F(-0.25));
     }
-    { // value is too big -> +inf
+    { // value is too big
       const char* s = "1e9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == std::numeric_limits<F>::infinity());
+      assert(x == F(111));
     }
-    { // negative value is too big -> -inf
+    { // negative value is too big
       const char* s = "-1e9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == -std::numeric_limits<F>::infinity());
+      assert(x == F(111));
     }
-    { // value is too small -> 0
+    { // value is too small
       const char* s = "1e-9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == F(0.0));
+      assert(x == F(111));
     }
-    { // negative value is too small -> -0
+    { // negative value is too small
       const char* s = "-1e-9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == F(-0.0));
+      assert(x == F(111));
     }
   }
 };
@@ -1479,37 +1487,41 @@ struct test_hex {
       assert(r.ptr == s + std::strlen(s));
       assert(x == F(-0x0.25p0));
     }
-    { // value is too big -> +inf
+    { // value is too big
       const char* s = "1p9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x, std::chars_format::hex);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == std::numeric_limits<F>::infinity());
+      assert(x == F(111));
     }
-    { // negative value is too big -> -inf
+    { // negative value is too big
       const char* s = "-1p9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x, std::chars_format::hex);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == -std::numeric_limits<F>::infinity());
+      assert(x == F(111));
     }
-    { // value is too small -> 0
+    { // value is too small
       const char* s = "1p-9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x, std::chars_format::hex);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == F(0.0));
+      assert(x == F(111));
     }
-    { // negative value is too small -> -0
+    { // negative value is too small
       const char* s = "-1p-9999999999999999999999999999999999999999";
 
+      x = F(111); // value is unmodified when out of range
       r = std::from_chars(s, s + std::strlen(s), x, std::chars_format::hex);
       assert(r.ec == std::errc::result_out_of_range);
       assert(r.ptr == s + strlen(s));
-      assert(x == F(-0.0));
+      assert(x == F(111));
     }
   }
 };

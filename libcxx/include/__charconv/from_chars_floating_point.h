@@ -57,7 +57,8 @@ template <class _Fp>
 _LIBCPP_HIDE_FROM_ABI from_chars_result
 __from_chars(const char* __first, const char* __last, _Fp& __value, chars_format __fmt) {
   __from_chars_result<_Fp> __r = std::__from_chars_floating_point<_Fp>(__first, __last, __fmt);
-  if (__r.__ec != errc::invalid_argument)
+  // [charconv.from.chars]: value is unmodified unless the conversion succeeds.
+  if (__r.__ec == errc{})
     __value = __r.__value;
   return {__first + __r.__n, __r.__ec};
 }
@@ -75,7 +76,7 @@ from_chars(const char* __first, const char* __last, double& __value, chars_forma
 _LIBCPP_AVAILABILITY_FROM_CHARS_FLOATING_POINT _LIBCPP_HIDE_FROM_ABI inline from_chars_result
 from_chars(const char* __first, const char* __last, long double& __value, chars_format __fmt = chars_format::general) {
   __from_chars_result<long double> __r = std::__from_chars_long_double(__first, __last, __fmt);
-  if (__r.__ec != errc::invalid_argument)
+  if (__r.__ec == errc{})
     __value = __r.__value;
   return {__first + __r.__n, __r.__ec};
 }

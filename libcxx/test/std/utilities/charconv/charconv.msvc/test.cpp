@@ -400,7 +400,8 @@ void test_from_chars(const string_view input, const BaseOrFmt base_or_fmt, const
     assert(result.ptr == input.data() + correct_idx);
     assert(result.ec == correct_ec);
 
-    if (correct_ec == errc{} || (is_floating_point_v<T> && correct_ec == errc::result_out_of_range)) {
+    // [charconv.from.chars]: value is unmodified when the result is out of range.
+    if (correct_ec == errc{}) {
         if constexpr (is_floating_point_v<T>) {
             if (mode == TestFromCharsMode::Normal) {
                 using Uint = conditional_t<is_same_v<T, float>, std::uint32_t, std::uint64_t>;
@@ -416,7 +417,8 @@ void test_from_chars(const string_view input, const BaseOrFmt base_or_fmt, const
             assert(dest == opt_correct.value());
         }
     } else {
-        assert(!opt_correct.has_value());
+        // opt_correct holds the value a library that stores it on overflow/underflow would produce.
+        assert(correct_ec == errc::result_out_of_range || !opt_correct.has_value());
         assert(dest == unmodified);
     }
 }
