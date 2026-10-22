@@ -79,7 +79,8 @@ def _decl_arities(text):
             if m and '(' not in head[m.end():] and not re.search(r'\b(enum)\b', head):
                 stack.append(('class', m.group(2)))
             elif re.search(r'\bnamespace\b', head):
-                stack.append(('ns', ''))
+                nm = re.search(r'\bnamespace\s+([A-Za-z_][A-Za-z_0-9:]*)', head)
+                stack.append(('ns', nm.group(1) if nm else ''))
             else:
                 stack.append(('other', ''))
             last = i + 1
@@ -103,6 +104,8 @@ def _decl_arities(text):
                 if name not in KEYWORDS and (not stack or stack[-1][0] in ('class', 'ns')):
                     params = split_params(text[m.end():j - 1])
                     cls = stack[-1][1] if stack and stack[-1][0] == 'class' else ''
+                    if not cls and stack and stack[-1][0] == 'ns' and stack[-1][1] != 'std':
+                        cls = '<ns:' + stack[-1][1] + '>'
                     if any('...' in p for p in params):
                         yield cls, name, {-1}
                     else:
@@ -122,6 +125,8 @@ def draft_arities(draft):
             for cls, name, ar in _decl_arities(m.group(1)):
                 out[(cls, name)].update(ar)
                 out[('', name)].update(ar)  # a free function, or any class: the coarse fallback
+                if not cls:
+                    out[('<free>', name)].update(ar)
         # item declarations: the class comes from the index entries that precede them.
         for m in re.finditer(r'((?:\\indexlibrary[a-z]*\{[^}]*\}(?:\{[^}]*\})?%?\s*)+)\\begin\{itemdecl\}(.*?)\\end\{itemdecl\}', txt, re.S):
             classes = set(re.findall(r'\\indexlibrarymember\{[^}]*\}\{([^}]*)\}', m.group(1)))
@@ -225,6 +230,8 @@ def impl_arities(clang, include, std, headers):
                 continue
             sig = next((x for x in re.findall(r"'([^']*)'", body)), '')
             cls = next((sc[2] for sc in reversed(scope) if sc[1] == 'class'), '')
+            if not cls and names != ['std']:
+                cls = '<ns:' + names[-1] + '>'
             cur = (depth, name, ' '.join(names + [name]) + ' :: ' + sig, [], cls)
         elif kind == 'ParmVarDecl' and cur is not None and depth == cur[0] + 1:
             req = 'cinit' not in body.split("'")[-1] and 'cinit' not in body
@@ -280,7 +287,7 @@ def main():
         for (cls, name), want in sorted(ref.items()):
             if not cls or -1 in want:
                 continue
-            have = impl.get((cls, name))
+            have = impl.get(('' if cls == '<free>' else cls, name))
             if have is None:
                 continue
             for a in sorted(want - have['args']):
