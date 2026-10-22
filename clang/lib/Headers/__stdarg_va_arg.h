@@ -12,6 +12,9 @@
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
 /* C23 uses a special builtin. */
 #define va_start(...) __builtin_c23_va_start(__VA_ARGS__)
+#elif defined(__cplusplus) && __cplusplus > 202302L
+/* C++26 [cstdarg.syn]: the second and subsequent arguments are discarded. */
+#define va_start(ap, ...) __builtin_va_start(ap, 0)
 #else
 /* Versions before C23 do require the second parameter. */
 #define va_start(ap, param) __builtin_va_start(ap, param)
