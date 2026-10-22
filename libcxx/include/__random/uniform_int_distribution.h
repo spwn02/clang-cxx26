@@ -229,6 +229,7 @@ typename uniform_int_distribution<_IntType>::result_type uniform_int_distributio
   return static_cast<result_type>(__u + __p.a());
 }
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _IT>
 _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
 operator<<(basic_ostream<_CharT, _Traits>& __os, const uniform_int_distribution<_IT>& __x) {
@@ -239,7 +240,9 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const uniform_int_distribution<
   __os.fill(__sp);
   return __os << __x.a() << __sp << __x.b();
 }
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _IT>
 _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>&
 operator>>(basic_istream<_CharT, _Traits>& __is, uniform_int_distribution<_IT>& __x) {
@@ -256,6 +259,7 @@ operator>>(basic_istream<_CharT, _Traits>& __is, uniform_int_distribution<_IT>& 
     __x.param(param_type(__a, __b));
   return __is;
 }
+#endif // !_LIBCPP_FREESTANDING
 
 _LIBCPP_END_NAMESPACE_STD
 

@@ -101,13 +101,17 @@ public:
   friend bool
   operator!=(const discard_block_engine<_Eng, _Pp, _Rp>& __x, const discard_block_engine<_Eng, _Pp, _Rp>& __y);
 
+#if !defined(_LIBCPP_FREESTANDING)
   template <class _CharT, class _Traits, class _Eng, size_t _Pp, size_t _Rp>
   friend basic_ostream<_CharT, _Traits>&
   operator<<(basic_ostream<_CharT, _Traits>& __os, const discard_block_engine<_Eng, _Pp, _Rp>& __x);
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
   template <class _CharT, class _Traits, class _Eng, size_t _Pp, size_t _Rp>
   friend basic_istream<_CharT, _Traits>&
   operator>>(basic_istream<_CharT, _Traits>& __is, discard_block_engine<_Eng, _Pp, _Rp>& __x);
+#endif // !_LIBCPP_FREESTANDING
 };
 
 template <class _Engine, size_t __p, size_t __r>
@@ -132,6 +136,7 @@ operator!=(const discard_block_engine<_Eng, _Pp, _Rp>& __x, const discard_block_
   return !(__x == __y);
 }
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _Eng, size_t _Pp, size_t _Rp>
 _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
 operator<<(basic_ostream<_CharT, _Traits>& __os, const discard_block_engine<_Eng, _Pp, _Rp>& __x) {
@@ -142,7 +147,9 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const discard_block_engine<_Eng
   __os.fill(__sp);
   return __os << __x.__e_ << __sp << __x.__n_;
 }
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _Eng, size_t _Pp, size_t _Rp>
 _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>&
 operator>>(basic_istream<_CharT, _Traits>& __is, discard_block_engine<_Eng, _Pp, _Rp>& __x) {
@@ -158,6 +165,7 @@ operator>>(basic_istream<_CharT, _Traits>& __is, discard_block_engine<_Eng, _Pp,
   }
   return __is;
 }
+#endif // !_LIBCPP_FREESTANDING
 
 _LIBCPP_END_NAMESPACE_STD
 

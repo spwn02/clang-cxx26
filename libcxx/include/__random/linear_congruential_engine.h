@@ -222,13 +222,17 @@ struct __lce_ta<__a, __c, __m, (unsigned short)(-1), __mode> {
 template <class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
 class linear_congruential_engine;
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _Up, _Up _Ap, _Up _Cp, _Up _Np>
 _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
 operator<<(basic_ostream<_CharT, _Traits>& __os, const linear_congruential_engine<_Up, _Ap, _Cp, _Np>&);
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _Up, _Up _Ap, _Up _Cp, _Up _Np>
 _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>&
 operator>>(basic_istream<_CharT, _Traits>& __is, linear_congruential_engine<_Up, _Ap, _Cp, _Np>& __x);
+#endif // !_LIBCPP_FREESTANDING
 
 template <class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
 class linear_congruential_engine {
@@ -309,13 +313,17 @@ private:
   template <class _Sseq>
   _LIBCPP_HIDE_FROM_ABI void __seed(_Sseq& __q, integral_constant<unsigned, 2>);
 
+#if !defined(_LIBCPP_FREESTANDING)
   template <class _CharT, class _Traits, class _Up, _Up _Ap, _Up _Cp, _Up _Np>
   friend basic_ostream<_CharT, _Traits>&
   operator<<(basic_ostream<_CharT, _Traits>& __os, const linear_congruential_engine<_Up, _Ap, _Cp, _Np>&);
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
   template <class _CharT, class _Traits, class _Up, _Up _Ap, _Up _Cp, _Up _Np>
   friend basic_istream<_CharT, _Traits>&
   operator>>(basic_istream<_CharT, _Traits>& __is, linear_congruential_engine<_Up, _Ap, _Cp, _Np>& __x);
+#endif // !_LIBCPP_FREESTANDING
 };
 
 template <class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
@@ -338,6 +346,7 @@ void linear_congruential_engine<_UIntType, __a, __c, __m>::__seed(_Sseq& __q, in
   __x_            = __c == 0 && __s == 0 ? result_type(1) : __s;
 }
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
 inline _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
 operator<<(basic_ostream<_CharT, _Traits>& __os, const linear_congruential_engine<_UIntType, __a, __c, __m>& __x) {
@@ -347,7 +356,9 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const linear_congruential_engin
   __os.fill(__os.widen(' '));
   return __os << __x.__x_;
 }
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
 _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>&
 operator>>(basic_istream<_CharT, _Traits>& __is, linear_congruential_engine<_UIntType, __a, __c, __m>& __x) {
@@ -360,6 +371,7 @@ operator>>(basic_istream<_CharT, _Traits>& __is, linear_congruential_engine<_UIn
     __x.__x_ = __t;
   return __is;
 }
+#endif // !_LIBCPP_FREESTANDING
 
 typedef linear_congruential_engine<uint_fast32_t, 16807, 0, 2147483647> minstd_rand0;
 typedef linear_congruential_engine<uint_fast32_t, 48271, 0, 2147483647> minstd_rand;

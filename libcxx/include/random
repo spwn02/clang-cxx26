@@ -1717,6 +1717,7 @@ class piecewise_linear_distribution
 #    include <__random/independent_bits_engine.h>
 #    include <__random/linear_congruential_engine.h>
 #    include <__random/mersenne_twister_engine.h>
+#    include <__random/philox_engine.h>
 #    include <__random/ranlux.h>
 #    include <__random/subtract_with_carry_engine.h>
 #    include <__random/uniform_int_distribution.h>

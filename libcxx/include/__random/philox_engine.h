@@ -41,12 +41,16 @@ struct __philox_constants<_UInt, 4, _M0, _C0, _M1, _C1> {
 
 template <class _UIntType, size_t __w, size_t __n, size_t __r, _UIntType... __consts>
 class philox_engine;
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _UIntType, size_t __w, size_t __n, size_t __r, _UIntType... __consts>
 _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
 operator<<(basic_ostream<_CharT, _Traits>&, const philox_engine<_UIntType, __w, __n, __r, __consts...>&);
+#endif // !_LIBCPP_FREESTANDING
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _UIntType, size_t __w, size_t __n, size_t __r, _UIntType... __consts>
 _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>&
 operator>>(basic_istream<_CharT, _Traits>&, philox_engine<_UIntType, __w, __n, __r, __consts...>&);
+#endif // !_LIBCPP_FREESTANDING
 
 template <class _UIntType, size_t __w, size_t __n, size_t __r, _UIntType... __consts>
 class philox_engine {
@@ -213,12 +217,16 @@ public:
   template <class _UInt, size_t _Wp, size_t _Np, size_t _Rp, _UInt... _Cp>
   friend bool
   operator==(const philox_engine<_UInt, _Wp, _Np, _Rp, _Cp...>&, const philox_engine<_UInt, _Wp, _Np, _Rp, _Cp...>&);
+#if !defined(_LIBCPP_FREESTANDING)
   template <class _CharT, class _Traits, class _UInt, size_t _Wp, size_t _Np, size_t _Rp, _UInt... _Cp>
   friend basic_ostream<_CharT, _Traits>&
   operator<<(basic_ostream<_CharT, _Traits>&, const philox_engine<_UInt, _Wp, _Np, _Rp, _Cp...>&);
+#endif // !_LIBCPP_FREESTANDING
+#if !defined(_LIBCPP_FREESTANDING)
   template <class _CharT, class _Traits, class _UInt, size_t _Wp, size_t _Np, size_t _Rp, _UInt... _Cp>
   friend basic_istream<_CharT, _Traits>&
   operator>>(basic_istream<_CharT, _Traits>&, philox_engine<_UInt, _Wp, _Np, _Rp, _Cp...>&);
+#endif // !_LIBCPP_FREESTANDING
 };
 template <class _UIntType, size_t __w, size_t __n, size_t __r, _UIntType... __consts>
 _LIBCPP_HIDE_FROM_ABI bool operator==(const philox_engine<_UIntType, __w, __n, __r, __consts...>& __x,
@@ -230,6 +238,7 @@ _LIBCPP_HIDE_FROM_ABI bool operator!=(const philox_engine<_UIntType, __w, __n, _
                                       const philox_engine<_UIntType, __w, __n, __r, __consts...>& __y) {
   return !(__x == __y);
 }
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _UIntType, size_t __w, size_t __n, size_t __r, _UIntType... __consts>
 _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
 operator<<(basic_ostream<_CharT, _Traits>& __os, const philox_engine<_UIntType, __w, __n, __r, __consts...>& __x) {
@@ -244,6 +253,8 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const philox_engine<_UIntType, 
     __os << __x.__counter_[__j] << __space;
   return __os << __x.__index_;
 }
+#endif // !_LIBCPP_FREESTANDING
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _UIntType, size_t __w, size_t __n, size_t __r, _UIntType... __consts>
 _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>&
 operator>>(basic_istream<_CharT, _Traits>& __is, philox_engine<_UIntType, __w, __n, __r, __consts...>& __x) {
@@ -266,6 +277,7 @@ operator>>(basic_istream<_CharT, _Traits>& __is, philox_engine<_UIntType, __w, _
   }
   return __is;
 }
+#endif // !_LIBCPP_FREESTANDING
 using philox4x32 = philox_engine<uint_fast32_t, 32, 4, 10, 0xCD9E8D57, 0x9E3779B9, 0xD2511F53, 0xBB67AE85>;
 using philox4x64 =
     philox_engine<uint_fast64_t,

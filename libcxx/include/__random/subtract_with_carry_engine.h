@@ -40,13 +40,17 @@ template <class _UInt, size_t _Wp, size_t _Sp, size_t _Rp>
 _LIBCPP_HIDE_FROM_ABI bool operator!=(const subtract_with_carry_engine<_UInt, _Wp, _Sp, _Rp>& __x,
                                       const subtract_with_carry_engine<_UInt, _Wp, _Sp, _Rp>& __y);
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _UInt, size_t _Wp, size_t _Sp, size_t _Rp>
 _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
 operator<<(basic_ostream<_CharT, _Traits>& __os, const subtract_with_carry_engine<_UInt, _Wp, _Sp, _Rp>& __x);
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _UInt, size_t _Wp, size_t _Sp, size_t _Rp>
 _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>&
 operator>>(basic_istream<_CharT, _Traits>& __is, subtract_with_carry_engine<_UInt, _Wp, _Sp, _Rp>& __x);
+#endif // !_LIBCPP_FREESTANDING
 
 template <class _UIntType, size_t __w, size_t __s, size_t __r>
 class subtract_with_carry_engine {
@@ -113,13 +117,17 @@ public:
   friend bool operator!=(const subtract_with_carry_engine<_UInt, _Wp, _Sp, _Rp>& __x,
                          const subtract_with_carry_engine<_UInt, _Wp, _Sp, _Rp>& __y);
 
+#if !defined(_LIBCPP_FREESTANDING)
   template <class _CharT, class _Traits, class _UInt, size_t _Wp, size_t _Sp, size_t _Rp>
   friend basic_ostream<_CharT, _Traits>&
   operator<<(basic_ostream<_CharT, _Traits>& __os, const subtract_with_carry_engine<_UInt, _Wp, _Sp, _Rp>& __x);
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
   template <class _CharT, class _Traits, class _UInt, size_t _Wp, size_t _Sp, size_t _Rp>
   friend basic_istream<_CharT, _Traits>&
   operator>>(basic_istream<_CharT, _Traits>& __is, subtract_with_carry_engine<_UInt, _Wp, _Sp, _Rp>& __x);
+#endif // !_LIBCPP_FREESTANDING
 
 private:
   _LIBCPP_HIDE_FROM_ABI void seed(result_type __sd, integral_constant<unsigned, 1>);
@@ -222,6 +230,7 @@ inline _LIBCPP_HIDE_FROM_ABI bool operator!=(const subtract_with_carry_engine<_U
   return !(__x == __y);
 }
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _UInt, size_t _Wp, size_t _Sp, size_t _Rp>
 _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
 operator<<(basic_ostream<_CharT, _Traits>& __os, const subtract_with_carry_engine<_UInt, _Wp, _Sp, _Rp>& __x) {
@@ -238,7 +247,9 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const subtract_with_carry_engin
   __os << __sp << __x.__c_;
   return __os;
 }
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT, class _Traits, class _UInt, size_t _Wp, size_t _Sp, size_t _Rp>
 _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>&
 operator>>(basic_istream<_CharT, _Traits>& __is, subtract_with_carry_engine<_UInt, _Wp, _Sp, _Rp>& __x) {
@@ -256,6 +267,7 @@ operator>>(basic_istream<_CharT, _Traits>& __is, subtract_with_carry_engine<_UIn
   }
   return __is;
 }
+#endif // !_LIBCPP_FREESTANDING
 
 _LIBCPP_END_NAMESPACE_STD
 

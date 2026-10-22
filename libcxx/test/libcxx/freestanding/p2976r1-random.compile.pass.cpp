@@ -30,6 +30,8 @@ void test_freestanding_random_surface() {
   std::subtract_with_carry_engine<unsigned, 24, 10, 24> eleventh;
   std::discard_block_engine<std::minstd_rand, 4, 2> twelfth;
   std::independent_bits_engine<std::minstd_rand, 16, unsigned> thirteenth;
+  std::philox4x32 fourteenth;
+  std::philox4x64 fifteenth;
   std::uniform_int_distribution<int> distribution;
 
   (void)first();
@@ -45,6 +47,8 @@ void test_freestanding_random_surface() {
   (void)eleventh();
   (void)twelfth();
   (void)thirteenth();
+  (void)fourteenth();
+  (void)fifteenth();
   (void)distribution(second);
   static_assert(std::uniform_random_bit_generator<std::mt19937>);
 }

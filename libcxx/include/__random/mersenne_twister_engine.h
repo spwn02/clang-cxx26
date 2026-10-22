@@ -62,6 +62,7 @@ _LIBCPP_HIDE_FROM_ABI bool
 operator==(const mersenne_twister_engine<_UInt, _Wp, _Np, _Mp, _Rp, _Ap, _Up, _Dp, _Sp, _Bp, _Tp, _Cp, _Lp, _Fp>& __x,
            const mersenne_twister_engine<_UInt, _Wp, _Np, _Mp, _Rp, _Ap, _Up, _Dp, _Sp, _Bp, _Tp, _Cp, _Lp, _Fp>& __y);
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT,
           class _Traits,
           class _UInt,
@@ -81,7 +82,9 @@ template <class _CharT,
 _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&
 operator<<(basic_ostream<_CharT, _Traits>& __os,
            const mersenne_twister_engine<_UInt, _Wp, _Np, _Mp, _Rp, _Ap, _Up, _Dp, _Sp, _Bp, _Tp, _Cp, _Lp, _Fp>& __x);
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT,
           class _Traits,
           class _UInt,
@@ -101,6 +104,7 @@ template <class _CharT,
 _LIBCPP_HIDE_FROM_ABI basic_istream<_CharT, _Traits>&
 operator>>(basic_istream<_CharT, _Traits>& __is,
            mersenne_twister_engine<_UInt, _Wp, _Np, _Mp, _Rp, _Ap, _Up, _Dp, _Sp, _Bp, _Tp, _Cp, _Lp, _Fp>& __x);
+#endif // !_LIBCPP_FREESTANDING
 
 template <class _UIntType,
           size_t __w,
@@ -224,6 +228,7 @@ public:
       const mersenne_twister_engine<_UInt, _Wp, _Np, _Mp, _Rp, _Ap, _Up, _Dp, _Sp, _Bp, _Tp, _Cp, _Lp, _Fp>& __x,
       const mersenne_twister_engine<_UInt, _Wp, _Np, _Mp, _Rp, _Ap, _Up, _Dp, _Sp, _Bp, _Tp, _Cp, _Lp, _Fp>& __y);
 
+#if !defined(_LIBCPP_FREESTANDING)
   template <class _CharT,
             class _Traits,
             class _UInt,
@@ -243,7 +248,9 @@ public:
   friend basic_ostream<_CharT, _Traits>& operator<<(
       basic_ostream<_CharT, _Traits>& __os,
       const mersenne_twister_engine<_UInt, _Wp, _Np, _Mp, _Rp, _Ap, _Up, _Dp, _Sp, _Bp, _Tp, _Cp, _Lp, _Fp>& __x);
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
   template <class _CharT,
             class _Traits,
             class _UInt,
@@ -263,6 +270,7 @@ public:
   friend basic_istream<_CharT, _Traits>&
   operator>>(basic_istream<_CharT, _Traits>& __is,
              mersenne_twister_engine<_UInt, _Wp, _Np, _Mp, _Rp, _Ap, _Up, _Dp, _Sp, _Bp, _Tp, _Cp, _Lp, _Fp>& __x);
+#endif // !_LIBCPP_FREESTANDING
 
 private:
   template <class _Sseq>
@@ -383,6 +391,7 @@ operator!=(const mersenne_twister_engine<_UInt, _Wp, _Np, _Mp, _Rp, _Ap, _Up, _D
   return !(__x == __y);
 }
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT,
           class _Traits,
           class _UInt,
@@ -414,7 +423,9 @@ operator<<(basic_ostream<_CharT, _Traits>& __os,
     __os << __sp << __x.__x_[__j];
   return __os;
 }
+#endif // !_LIBCPP_FREESTANDING
 
+#if !defined(_LIBCPP_FREESTANDING)
 template <class _CharT,
           class _Traits,
           class _UInt,
@@ -447,6 +458,7 @@ operator>>(basic_istream<_CharT, _Traits>& __is,
   }
   return __is;
 }
+#endif // !_LIBCPP_FREESTANDING
 
 typedef mersenne_twister_engine<
     uint_fast32_t,
