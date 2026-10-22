@@ -1,5 +1,7 @@
 #include "../include/contracts"
 #include <__config>
+#include <__hardened_violation>
+#include <__verbose_abort>
 #include <exception>
 #include <iostream>
 
@@ -118,3 +120,33 @@ __handle_contract_violation_v3(_EvaluationSemantic __semantic, _DetectionMode __
 }
 
 
+
+// [intro.compliance.general]: violating a hardened precondition is a contract violation.
+[[noreturn]] void std::__handle_hardened_violation(
+    const char* __message, const char* __file, const char* __function, unsigned __line) {
+  using namespace std::contracts;
+  // The layout std::source_location uses (see <source_location>); the object has to outlive the handler call.
+  struct _Location {
+    const char* __file_name;
+    const char* __function_name;
+    unsigned __line;
+    unsigned __column;
+  };
+  static thread_local _Location __location;
+  __location = {__file, __function, __line, 0};
+
+  _ContractViolationImpl impl{
+      .kind     = _AssertKind::pre,
+      .semantic = _EvaluationSemantic::enforce,
+      .mode     = _DetectionMode::predicate_false,
+      .comment  = __message,
+      .location = std::source_location::__create_from_pointer(&__location)};
+  contract_violation violation = impl.__create_violation();
+
+  if (::handle_contract_violation)
+    ::handle_contract_violation(violation);
+  else
+    invoke_default_contract_violation_handler(violation);
+
+  _LIBCPP_VERBOSE_ABORT("%s", __message);
+}

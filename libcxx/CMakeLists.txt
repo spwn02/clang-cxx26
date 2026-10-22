@@ -66,7 +66,7 @@ if (NOT "${LIBCXX_HARDENING_MODE}" IN_LIST LIBCXX_SUPPORTED_HARDENING_MODES)
   message(FATAL_ERROR
     "Unsupported hardening mode: '${LIBCXX_HARDENING_MODE}'. Supported values are ${LIBCXX_SUPPORTED_HARDENING_MODES}.")
 endif()
-set(LIBCXX_SUPPORTED_ASSERTION_SEMANTICS hardening_dependent ignore observe quick_enforce enforce)
+set(LIBCXX_SUPPORTED_ASSERTION_SEMANTICS hardening_dependent quick_enforce enforce)
 set(LIBCXX_ASSERTION_SEMANTIC "hardening_dependent" CACHE STRING
   "Specify the default assertion semantic to use. This semantic will be used
   inside the compiled library and will be the default when compiling user code.
@@ -806,10 +806,6 @@ elseif (LIBCXX_HARDENING_MODE STREQUAL "debug")
 endif()
 if (LIBCXX_ASSERTION_SEMANTIC STREQUAL "hardening_dependent")
   config_define(2 _LIBCPP_ASSERTION_SEMANTIC_DEFAULT)
-elseif (LIBCXX_ASSERTION_SEMANTIC STREQUAL "ignore")
-  config_define(4 _LIBCPP_ASSERTION_SEMANTIC_DEFAULT)
-elseif (LIBCXX_ASSERTION_SEMANTIC STREQUAL "observe")
-  config_define(8 _LIBCPP_ASSERTION_SEMANTIC_DEFAULT)
 elseif (LIBCXX_ASSERTION_SEMANTIC STREQUAL "quick_enforce")
   config_define(16 _LIBCPP_ASSERTION_SEMANTIC_DEFAULT)
 elseif (LIBCXX_ASSERTION_SEMANTIC STREQUAL "enforce")

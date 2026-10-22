@@ -4805,8 +4805,8 @@ module std [system] {
     header "__std_mbstate_t.h"
     export *
   }
-  module log_hardening_failure {
-    header "__log_hardening_failure"
+  module hardened_violation {
+    header "__hardened_violation"
     export *
   }
   module verbose_abort {

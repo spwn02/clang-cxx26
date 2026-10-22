@@ -285,29 +285,6 @@ public:
     return DeathTestResult(Outcome::Success, cause);
   }
 
-  // When non-terminating assertion semantics are used, the program will invoke UB which might or might not crash the
-  // process; we make sure that the execution produces the expected error message but otherwise consider the test run
-  // successful whether the child process dies or not.
-  template <class Func>
-  DeathTestResult RunWithoutGuaranteedDeath(Func&& func, const Matcher& matcher) {
-    std::signal(SIGABRT, [](int) { StopChildProcess(DeathCause::StdAbort); });
-    std::set_terminate([] { StopChildProcess(DeathCause::StdTerminate); });
-
-    DeathCause cause = Run(func);
-
-    if (IsTestSetupErrorCause(cause)) {
-      return DeathTestResult(Outcome::InvalidCause, cause, ToString(cause));
-    }
-
-    MatchResult match_result = matcher(GetChildStdErr());
-    if (!match_result.first) {
-      auto failure_description = std::string("Child produced a different error message\n") + match_result.second;
-      return DeathTestResult(Outcome::UnexpectedErrorMessage, cause, failure_description);
-    }
-
-    return DeathTestResult(Outcome::Success, cause);
-  }
-
   void PrintFailureDetails(std::string_view invocation,
                            std::string_view failure_description,
                            std::string_view stmt,
@@ -473,22 +450,6 @@ bool ExpectDeath(DeathCause expected_cause, const char* stmt, Func&& func) {
   return ExpectDeath(std::array<DeathCause, 1>{expected_cause}, stmt, func, MakeAnyMatcher());
 }
 
-template <class Func>
-bool ExpectLog(const char* stmt, Func&& func, const Matcher& matcher) {
-  DeathTest test_case;
-  DeathTestResult test_result = test_case.RunWithoutGuaranteedDeath(func, matcher);
-  if (!test_result.success()) {
-    test_case.PrintFailureDetails("EXPECT_LOG", test_result.failure_description(), stmt, test_result.cause());
-  }
-
-  return test_result.success();
-}
-
-template <class Func>
-bool ExpectLog(const char* stmt, Func&& func) {
-  return ExpectLog(stmt, func, MakeAnyMatcher());
-}
-
 // clang-format off
 
 /// Assert that the specified expression aborts with the expected cause and, optionally, error message.
@@ -511,12 +472,6 @@ bool ExpectLog(const char* stmt, Func&& func) {
 #elif _LIBCPP_ASSERTION_SEMANTIC == _LIBCPP_ASSERTION_SEMANTIC_QUICK_ENFORCE
 #define TEST_LIBCPP_ASSERT_FAILURE(expr, message) \
     assert(( ExpectDeath(DeathCause::Trap,         #expr, [&]() { (void)(expr); }) ))
-#elif _LIBCPP_ASSERTION_SEMANTIC == _LIBCPP_ASSERTION_SEMANTIC_OBSERVE
-#define TEST_LIBCPP_ASSERT_FAILURE(expr, message) \
-    assert(( ExpectLog(#expr, [&]() { (void)(expr); }, MakeAssertionMessageMatcher(message, /*use_marker=*/false)) ))
-#elif _LIBCPP_ASSERTION_SEMANTIC == _LIBCPP_ASSERTION_SEMANTIC_IGNORE
-#define TEST_LIBCPP_ASSERT_FAILURE(expr, message) \
-    assert(( ExpectLog(#expr, [&]() { (void)(expr); }) ))
 #else
 #error "Unknown value for _LIBCPP_ASSERTION_SEMANTIC"
 #endif // _LIBCPP_ASSERTION_SEMANTIC == _LIBCPP_ASSERTION_SEMANTIC_ENFORCE

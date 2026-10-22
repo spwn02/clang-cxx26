@@ -11,7 +11,7 @@
 
 // Modules build produces a different error ("Could not build module 'std'").
 // UNSUPPORTED: clang-modules-build
-// UNSUPPORTED: c++03, libcpp-has-no-experimental-hardening-observe-semantic
+// UNSUPPORTED: c++03
 // REQUIRES: verify-support
 
 // RUN: %{verify} -U_LIBCPP_ASSERTION_SEMANTIC -D_LIBCPP_ASSERTION_SEMANTIC=42
@@ -26,4 +26,4 @@
 
 #include <cassert>
 
-// expected-error@*:* {{_LIBCPP_ASSERTION_SEMANTIC must be set to one of the following values: _LIBCPP_ASSERTION_SEMANTIC_IGNORE, _LIBCPP_ASSERTION_SEMANTIC_OBSERVE, _LIBCPP_ASSERTION_SEMANTIC_QUICK_ENFORCE, _LIBCPP_ASSERTION_SEMANTIC_ENFORCE}}
+// expected-error@*:* {{_LIBCPP_ASSERTION_SEMANTIC must be set to one of the following values: _LIBCPP_ASSERTION_SEMANTIC_QUICK_ENFORCE, _LIBCPP_ASSERTION_SEMANTIC_ENFORCE}}

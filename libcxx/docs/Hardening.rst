@@ -276,40 +276,23 @@ providing a :ref:`custom assertion failure handler
 Assertion semantics
 -------------------
 
-.. warning::
-
-  Assertion semantics are currently an experimental feature.
-
 .. note::
 
   Assertion semantics are not available in the C++03 mode.
 
 What happens when an assertion fails depends on the assertion semantic being
-used. Four assertion semantics are available, based on C++26 Contracts
-evaluation semantics:
+used. Two assertion semantics are available; they are the terminating ones of
+the C++26 Contracts evaluation semantics, which is what the C++26 wording for
+Library Hardening requires when evaluating hardened preconditions:
 
-- ``ignore`` evaluates the assertion but has no effect if it fails (note that it
-  differs from the Contracts ``ignore`` semantic which would not evaluate
-  the assertion at all);
-- ``observe`` logs an error (indicating, if possible on the platform, that the
-  error is fatal) but continues execution;
 - ``quick-enforce`` terminates the program as fast as possible via a trap
   instruction. It is the default semantic for the production modes (``fast`` and
   ``extensive``);
-- ``enforce`` logs an error and then terminates the program. It is the default
-  semantic for the ``debug`` mode.
-
-Notes:
-
-- Continuing execution after a hardening check fails results in undefined
-  behavior; the ``observe`` semantic is meant to make adopting hardening easier
-  but should not be used outside of the adoption period;
-- C++26 wording for Library Hardening precludes a conforming Hardened
-  implementation from using the Contracts ``ignore`` semantic when evaluating
-  hardened preconditions in the Library. Libc++ allows using this semantic for
-  hardened preconditions, but please be aware that using ``ignore`` does not
-  produce a conforming "Hardened" implementation, unlike the other semantics
-  above.
+- ``enforce`` terminates the program after reporting the failure: in C++26 mode
+  the failure is a contract violation of kind ``pre`` ([intro.compliance.general]),
+  so the (replaceable) contract-violation handler runs first and the program is
+  terminated when it returns; in the earlier modes an error is logged. It is
+  the default semantic for the ``debug`` mode.
 
 The default assertion semantics are as follows:
 
@@ -320,8 +303,6 @@ The default assertion semantics are as follows:
 The default assertion semantics can be overridden by passing **one** of the
 following options to the compiler:
 
-- ``-D_LIBCPP_ASSERTION_SEMANTIC=_LIBCPP_ASSERTION_SEMANTIC_IGNORE``
-- ``-D_LIBCPP_ASSERTION_SEMANTIC=_LIBCPP_ASSERTION_SEMANTIC_OBSERVE``
 - ``-D_LIBCPP_ASSERTION_SEMANTIC=_LIBCPP_ASSERTION_SEMANTIC_QUICK_ENFORCE``
 - ``-D_LIBCPP_ASSERTION_SEMANTIC=_LIBCPP_ASSERTION_SEMANTIC_ENFORCE``
 
@@ -333,8 +314,7 @@ Notes for vendors
 
 Similarly to hardening modes, vendors can set the default assertion semantic by
 providing ``LIBCXX_ASSERTION_SEMANTIC`` as a configuration option, with the
-possible values of ``hardening_dependent``, ``ignore``, ``observe``,
-``quick_enforce`` and ``enforce``. The default value is ``hardening_dependent``
+possible values of ``hardening_dependent``, ``quick_enforce`` and ``enforce``. The default value is ``hardening_dependent``
 which is a special value that instructs the library to select the semantic based
 on the hardening mode in effect (the mapping is described in
 :ref:`the main section on assertion semantics <assertion-semantics>`).

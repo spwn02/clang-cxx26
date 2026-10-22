@@ -545,6 +545,7 @@ set(files
   __fwd/variant.h
   __fwd/vector.h
   __generator/generator.h
+  __hardened_violation
   __hash_table
   __hazard_pointer/hazard_pointer.h
   __ios/fpos.h
@@ -621,7 +622,6 @@ set(files
   __locale_dir/time.h
   __locale_dir/wbuffer_convert.h
   __locale_dir/wstring_convert.h
-  __log_hardening_failure
   __math/abs.h
   __math/copysign.h
   __math/error_functions.h

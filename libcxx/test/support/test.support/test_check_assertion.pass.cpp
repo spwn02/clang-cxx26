@@ -89,22 +89,16 @@ int main(int, char**) {
     // Success -- trapping.
     TEST_DEATH_TEST(Outcome::Success, DeathCause::Trap, __builtin_trap());
 
-    // `_LIBCPP_ASSERT` does not terminate the program if the `observe` semantic is used, so these tests would fail with
-    // `DidNotDie` cause.
-#if _LIBCPP_ASSERTION_SEMANTIC != _LIBCPP_ASSERTION_SEMANTIC_OBSERVE
-
     // Success -- assertion failure with any matcher.
     TEST_DEATH_TEST_MATCHES(Outcome::Success, assertion_death_cause, MakeAnyMatcher(), fail_assert());
 
     // Success -- assertion failure with a specific matcher.
     TEST_DEATH_TEST_MATCHES(Outcome::Success, assertion_death_cause, good_matcher, fail_assert());
 
-#  if _LIBCPP_ASSERTION_SEMANTIC == _LIBCPP_ASSERTION_SEMANTIC_ENFORCE
+#if _LIBCPP_ASSERTION_SEMANTIC == _LIBCPP_ASSERTION_SEMANTIC_ENFORCE
     // Failure -- error message doesn't match.
     TEST_DEATH_TEST_MATCHES(Outcome::UnexpectedErrorMessage, assertion_death_cause, bad_matcher, fail_assert());
-#  endif
-
-#endif // _LIBCPP_ASSERTION_SEMANTIC != _LIBCPP_ASSERTION_SEMANTIC_OBSERVE
+#endif
 
     // Invalid cause -- child did not die.
     TEST_DEATH_TEST(Outcome::InvalidCause, DeathCause::DidNotDie, ((void)0));
@@ -131,9 +125,7 @@ int main(int, char**) {
     EXPECT_DEATH_MATCHES(simple_matcher, invoke_verbose_abort());
     EXPECT_STD_ABORT(invoke_abort());
     EXPECT_STD_TERMINATE([] { std::terminate(); });
-#if _LIBCPP_ASSERTION_SEMANTIC != _LIBCPP_ASSERTION_SEMANTIC_OBSERVE
     TEST_LIBCPP_ASSERT_FAILURE(fail_assert(), "Some message");
-#endif
   }
 
   return 0;
