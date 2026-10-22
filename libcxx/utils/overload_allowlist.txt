@@ -1,1 +1,2 @@
 # overload audit allow-list: <Class::name or name> <number of arguments>  # reason (clause or opt-in macro)
+basic_ostream 0  # protected; [iostream.cons] initializes only the basic_istream base of basic_iostream, so the basic_ostream base must be default-constructible by the derived class (not callable by programs except from derived classes)

@@ -101,7 +101,9 @@ def _decl_arities(text):
                     elif text[j] == ')':
                         depth -= 1
                     j += 1
-                if name not in KEYWORDS and (not stack or stack[-1][0] in ('class', 'ns')):
+                if m.group(1).startswith('~'):
+                    pass  # destructors are special members, not overloads
+                elif name not in KEYWORDS and (not stack or stack[-1][0] in ('class', 'ns')):
                     params = split_params(text[m.end():j - 1])
                     cls = stack[-1][1] if stack and stack[-1][0] == 'class' else ''
                     if not cls and stack and stack[-1][0] == 'ns' and stack[-1][1] != 'std':
@@ -154,7 +156,7 @@ def impl_arities(clang, include, std, headers):
     def finish(c):
         if c is None:
             return
-        _, name, loc, params, cls = c
+        _, name, loc, params, cls, rsv = c
         if any(p == 'pack' for p in params):
             return
         # A declaration whose parameter types spell a reserved name cannot be called by a program, and a copy
@@ -165,10 +167,19 @@ def impl_arities(clang, include, std, headers):
         m = re.fullmatch(r'(?:const )?([A-Za-z_][A-Za-z_0-9:]*)(?:<.*>)? ?&&?', inner.strip())
         if m and name == cls and m.group(1).split('::')[-1] == cls:
             special = True  # copy or move constructor
-        if re.search(r'\b__', inner) or special:
+        if special:
             return
         total = len(params)
-        required = len([p for p in params if p == 'req'])
+        if rsv:
+            # A parameter whose type spells a reserved name cannot be passed by a program, but the defaulted
+            # trailing ones can be left out: only the arities before the first of them are callable.
+            first = rsv[0]
+            if any(p == 'req' for p in params[first:]):
+                return
+            total = first
+        elif re.search(r'\b__', inner):
+            return
+        required = len([p for p in params[:total] if p == 'req'])
         e = out[(cls, name)]
         e['args'].update(range(required, total + 1))
         for a in range(required, total + 1):
@@ -232,10 +243,12 @@ def impl_arities(clang, include, std, headers):
             cls = next((sc[2] for sc in reversed(scope) if sc[1] == 'class'), '')
             if not cls and names != ['std']:
                 cls = '<ns:' + names[-1] + '>'
-            cur = (depth, name, ' '.join(names + [name]) + ' :: ' + sig, [], cls)
+            cur = (depth, name, ' '.join(names + [name]) + ' :: ' + sig, [], cls, [])
         elif kind == 'ParmVarDecl' and cur is not None and depth == cur[0] + 1:
             req = 'cinit' not in body.split("'")[-1] and 'cinit' not in body
             cur[3].append('req' if req else 'opt')
+            if re.search(r'\b__', ' '.join(re.findall(r"'([^']*)'", body)[:1])):
+                cur[5].append(len(cur[3]) - 1)
             if '...' in body or 'ParmVarDecl' in body and ' pack' in body:
                 cur[3][-1] = 'pack'
     finish(cur)
