@@ -107,6 +107,14 @@ using ::memset _LIBCPP_USING_IF_EXISTS;
 using ::strerror _LIBCPP_USING_IF_EXISTS;
 #  endif
 using ::strlen _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 26
+using ::memccpy _LIBCPP_USING_IF_EXISTS;
+using ::memset_explicit _LIBCPP_USING_IF_EXISTS;
+#    if !defined(_LIBCPP_FREESTANDING)
+using ::strdup _LIBCPP_USING_IF_EXISTS;
+using ::strndup _LIBCPP_USING_IF_EXISTS;
+#    endif
+#  endif
 
 _LIBCPP_END_NAMESPACE_STD
 

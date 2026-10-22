@@ -23,6 +23,10 @@ export {
   using ::strcspn _LIBCPP_USING_IF_EXISTS;
   using ::strerror _LIBCPP_USING_IF_EXISTS;
   using ::strlen _LIBCPP_USING_IF_EXISTS;
+  using ::memccpy _LIBCPP_USING_IF_EXISTS;
+  using ::memset_explicit _LIBCPP_USING_IF_EXISTS;
+  using ::strdup _LIBCPP_USING_IF_EXISTS;
+  using ::strndup _LIBCPP_USING_IF_EXISTS;
   using ::strncat _LIBCPP_USING_IF_EXISTS;
   using ::strncmp _LIBCPP_USING_IF_EXISTS;
   using ::strncpy _LIBCPP_USING_IF_EXISTS;

@@ -23,6 +23,10 @@ export namespace std {
   using std::strcspn _LIBCPP_USING_IF_EXISTS;
   using std::strerror _LIBCPP_USING_IF_EXISTS;
   using std::strlen _LIBCPP_USING_IF_EXISTS;
+  using std::memccpy _LIBCPP_USING_IF_EXISTS;
+  using std::memset_explicit _LIBCPP_USING_IF_EXISTS;
+  using std::strdup _LIBCPP_USING_IF_EXISTS;
+  using std::strndup _LIBCPP_USING_IF_EXISTS;
   using std::strncat _LIBCPP_USING_IF_EXISTS;
   using std::strncmp _LIBCPP_USING_IF_EXISTS;
   using std::strncpy _LIBCPP_USING_IF_EXISTS;

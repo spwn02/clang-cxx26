@@ -30,6 +30,12 @@ export {
   using ::free _LIBCPP_USING_IF_EXISTS;
   using ::malloc _LIBCPP_USING_IF_EXISTS;
   using ::realloc _LIBCPP_USING_IF_EXISTS;
+  using ::free_aligned_sized _LIBCPP_USING_IF_EXISTS;
+  using ::free_sized _LIBCPP_USING_IF_EXISTS;
+  using ::memalignment _LIBCPP_USING_IF_EXISTS;
+  using ::strfromd _LIBCPP_USING_IF_EXISTS;
+  using ::strfromf _LIBCPP_USING_IF_EXISTS;
+  using ::strfroml _LIBCPP_USING_IF_EXISTS;
 
   using ::atof _LIBCPP_USING_IF_EXISTS;
   using ::atoi _LIBCPP_USING_IF_EXISTS;

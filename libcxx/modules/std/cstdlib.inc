@@ -30,6 +30,12 @@ export namespace std {
   using std::free _LIBCPP_USING_IF_EXISTS;
   using std::malloc _LIBCPP_USING_IF_EXISTS;
   using std::realloc _LIBCPP_USING_IF_EXISTS;
+  using std::free_aligned_sized _LIBCPP_USING_IF_EXISTS;
+  using std::free_sized _LIBCPP_USING_IF_EXISTS;
+  using std::memalignment _LIBCPP_USING_IF_EXISTS;
+  using std::strfromd _LIBCPP_USING_IF_EXISTS;
+  using std::strfromf _LIBCPP_USING_IF_EXISTS;
+  using std::strfroml _LIBCPP_USING_IF_EXISTS;
 
   using std::atof _LIBCPP_USING_IF_EXISTS;
   using std::atoi _LIBCPP_USING_IF_EXISTS;
