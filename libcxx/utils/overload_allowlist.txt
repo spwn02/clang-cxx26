@@ -3,3 +3,5 @@ basic_ostream 0  # protected; [iostream.cons] initializes only the basic_istream
 dangling::dangling noexcept  # --noexcept: defaulted constructor, implicitly noexcept
 id::id noexcept  # --noexcept: locale::id's constructor is not noexcept in the draft (the name is pooled with thread::id)
 mdspan::is_exhaustive noexcept  # --noexcept: the draft's mdspan::is_exhaustive has no noexcept; the synopsis markup hides the class from the parser
+formatter::format constexpr  # --constexpr: only the formatters the draft marks constexpr are (float16_t.. and stacktrace formatters are not); the pooled name matches them all
+basic_string_view::operator= constexpr  # --constexpr: defaulted copy assignment, implicitly constexpr

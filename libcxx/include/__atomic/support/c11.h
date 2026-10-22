@@ -46,11 +46,11 @@ struct __cxx_atomic_base_impl {
 
 #define __cxx_atomic_is_lock_free(__s) __c11_atomic_is_lock_free(__s)
 
-_LIBCPP_HIDE_FROM_ABI inline void __cxx_atomic_thread_fence(memory_order __order) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 void __cxx_atomic_thread_fence(memory_order __order) _NOEXCEPT {
   __c11_atomic_thread_fence(static_cast<__memory_order_underlying_t>(__order));
 }
 
-_LIBCPP_HIDE_FROM_ABI inline void __cxx_atomic_signal_fence(memory_order __order) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 void __cxx_atomic_signal_fence(memory_order __order) _NOEXCEPT {
   __c11_atomic_signal_fence(static_cast<__memory_order_underlying_t>(__order));
 }
 

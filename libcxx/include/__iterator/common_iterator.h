@@ -89,7 +89,7 @@ public:
   template <class _I2, class _S2>
     requires convertible_to<const _I2&, _Iter> && convertible_to<const _S2&, _Sent> &&
              assignable_from<_Iter&, const _I2&> && assignable_from<_Sent&, const _S2&>
-  _LIBCPP_HIDE_FROM_ABI common_iterator& operator=(const common_iterator<_I2, _S2>& __other) {
+  _LIBCPP_HIDE_FROM_ABI constexpr common_iterator& operator=(const common_iterator<_I2, _S2>& __other) {
     _LIBCPP_ASSERT_VALID_ELEMENT_ACCESS(
         !__other.__hold_.valueless_by_exception(), "Attempted to assign from a valueless common_iterator");
 

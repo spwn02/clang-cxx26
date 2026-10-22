@@ -66,11 +66,11 @@ _LIBCPP_HIDE_FROM_ABI void __cxx_atomic_init(__cxx_atomic_base_impl<_Tp>* __a, _
   __a->__a_value = __val;
 }
 
-_LIBCPP_HIDE_FROM_ABI inline void __cxx_atomic_thread_fence(memory_order __order) {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 void __cxx_atomic_thread_fence(memory_order __order) {
   __atomic_thread_fence(__to_gcc_order(__order));
 }
 
-_LIBCPP_HIDE_FROM_ABI inline void __cxx_atomic_signal_fence(memory_order __order) {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 void __cxx_atomic_signal_fence(memory_order __order) {
   __atomic_signal_fence(__to_gcc_order(__order));
 }
 

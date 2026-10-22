@@ -502,14 +502,14 @@ _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float scalbln(_Float
     return static_cast<_Float>(__builtin_scalblnf(static_cast<float>(__value), __exponent));
 }
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _Float frexp(_Float __value, int* __exponent) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _Float frexp(_Float __value, int* __exponent) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>)
     return static_cast<_Float>(__builtin_frexp(static_cast<double>(__value), __exponent));
   else
     return static_cast<_Float>(__builtin_frexpf(static_cast<float>(__value), __exponent));
 }
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _Float modf(_Float __value, _Float* __integral) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _Float modf(_Float __value, _Float* __integral) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>) {
     double __int_part;
     double __result = __builtin_modf(static_cast<double>(__value), &__int_part);
@@ -523,7 +523,7 @@ _LIBCPP_HIDE_FROM_ABI inline _Float modf(_Float __value, _Float* __integral) _NO
   }
 }
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _Float remquo(_Float __left, _Float __right, int* __quotient) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _Float remquo(_Float __left, _Float __right, int* __quotient) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>)
     return static_cast<_Float>(__builtin_remquo(static_cast<double>(__left), static_cast<double>(__right), __quotient));
   else
@@ -541,7 +541,7 @@ fma(_Float __left, _Float __right, _Float __addend) _NOEXCEPT {
 }
 
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _Float nexttoward(_Float __left, long double __right) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _Float nexttoward(_Float __left, long double __right) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>)
     return static_cast<_Float>(__builtin_nexttoward(static_cast<double>(__left), __right));
   else

@@ -133,7 +133,9 @@ def _decl_arities(text, nx=None):
                             end = min([k for k in (text.find(';', j), text.find('{', j)) if k >= 0] or [n])
                             tail = text[j:end]
                             unconditional = bool(re.search(r'\bnoexcept\b(?!\s*\()', tail) or 'noexcept(true)' in tail)
-                            nx.append((cls, name, tuple(_base_type(p, True) for p in params if p != 'void'), unconditional))
+                            head = text[last:m.start()]
+                            is_constexpr = bool(re.search(r'\b(constexpr|consteval)\b', head))
+                            nx.append((cls, name, tuple(_base_type(p, True) for p in params if p != 'void'), unconditional, is_constexpr))
                         yield cls, name, set(range(required, total + 1))
                 i = m.end() - 1
         i += 1
@@ -177,7 +179,7 @@ def impl_arities(clang, include, std, headers, with_ops=False):
     def finish(c):
         if c is None:
             return
-        _, name, loc, params, cls, rsv = c
+        _, name, loc, params, cls, rsv, is_constexpr, src = c
         if any(p == 'pack' for p in params):
             return
         # A declaration whose parameter types spell a reserved name cannot be called by a program, and a copy
@@ -203,7 +205,7 @@ def impl_arities(clang, include, std, headers, with_ops=False):
         required = len([p for p in params[:total] if p == 'req'])
         e = out[(cls, name)]
         e['args'].update(range(required, total + 1))
-        e.setdefault('nx', []).append((tuple(_base_type(p, False) for p in split_params(inner) if p != 'void'), 'noexcept' in sig, loc))
+        e.setdefault('nx', []).append((tuple(_base_type(p, False) for p in split_params(inner) if p != 'void'), 'noexcept' in sig, loc, is_constexpr, src))
         for a in range(required, total + 1):
             e['loc'].setdefault(a, loc)
 
@@ -267,7 +269,7 @@ def impl_arities(clang, include, std, headers, with_ops=False):
             cls = next((sc[2] for sc in reversed(scope) if sc[1] == 'class'), '')
             if not cls and names != ['std']:
                 cls = '<ns:' + names[-1] + '>'
-            cur = (depth, name, ' '.join(names + [name]) + ' :: ' + sig, [], cls, [])
+            cur = (depth, name, ' '.join(names + [name]) + ' :: ' + sig, [], cls, [], bool({'constexpr', 'consteval'} & set(t)), (re.search(r'<([^:>]+):\d+', body) or [None, ''])[1])
         elif kind == 'ParmVarDecl' and cur is not None and depth == cur[0] + 1:
             req = 'cinit' not in body.split("'")[-1] and 'cinit' not in body
             cur[3].append('req' if req else 'opt')
@@ -290,6 +292,7 @@ def main():
     ap.add_argument('--allow')
     ap.add_argument('--headers')
     ap.add_argument('--noexcept', action='store_true', help='also report declarations the draft specifies unconditionally noexcept that the library does not')
+    ap.add_argument('--constexpr', action='store_true', help='also report declarations the draft specifies constexpr that the library does not')
     ap.add_argument('--missing', action='store_true', help='also report draft overloads the library lacks')
     args = ap.parse_args()
 
@@ -307,9 +310,9 @@ def main():
             if l:
                 allow.add(tuple(l.split()))
 
-    nx = [] if args.noexcept else None
+    nx = [] if (args.noexcept or args.constexpr) else None
     ref = draft_arities(args.draft, nx)
-    impl = impl_arities(args.clang, args.include, args.std, headers, args.noexcept)
+    impl = impl_arities(args.clang, args.include, args.std, headers, args.noexcept or args.constexpr)
     bad = 0
     for key in sorted(impl):
         cls, name = key
@@ -326,7 +329,7 @@ def main():
         # A library declaration without noexcept that matches draft declarations which are all unconditionally noexcept
         # (same class, name and parameter type names; template parameters match anything).
         by_name = collections.defaultdict(list)
-        for c, nm, types, unconditional in nx:
+        for c, nm, types, unconditional, _cx in nx:
             by_name[(c, nm)].append((types, unconditional))
         def match(a, b):
             return len(a) == len(b) and all(x == y or x == '*' or y == '*' for x, y in zip(a, b))
@@ -337,12 +340,32 @@ def main():
                 cands_all = [e for (c, nm), es in by_name.items() if nm == name for e in es]
             if cls.startswith('0x'):
                 continue  # an implicit instantiation
-            for types, has_nx, loc in have.get('nx', []):
+            for types, has_nx, loc, _cx, _src in have.get('nx', []):
                 if has_nx:
                     continue
                 cands = [u for t, u in cands_all if match(t, types)]
                 if cands and all(cands) and (cls + '::' + name, 'noexcept') not in allow and (name, 'noexcept') not in allow:
                     print('NOEXCEPT %s::%s(%s)  # %s' % (cls, name, ', '.join(types), loc))
+                    bad += 1
+    if args.constexpr:
+        by_name_cx = collections.defaultdict(list)
+        for c, nm, types, _u, cx in nx:
+            by_name_cx[(c, nm)].append((types, cx))
+        def match_cx(a, b):
+            return len(a) == len(b) and all(x == y or x == '*' or y == '*' for x, y in zip(a, b))
+        for (cls, name), have in sorted(impl.items()):
+            if cls.startswith('0x'):
+                continue
+            if cls:
+                cands_all = by_name_cx.get((cls, name)) or by_name_cx.get(('', name)) or []
+            else:
+                cands_all = [e for (c, nm), es in by_name_cx.items() if nm == name for e in es]
+            for types, _nx, loc, cx, src in have.get('nx', []):
+                if cx or (src and not os.path.abspath(src).startswith(os.path.abspath(args.include))):
+                    continue  # a C library declaration: constexpr through the compiler's builtin, probed per function
+                cands = [u for t, u in cands_all if match_cx(t, types)]
+                if cands and all(cands) and (cls + '::' + name, 'constexpr') not in allow and (name, 'constexpr') not in allow:
+                    print('CONSTEXPR %s::%s(%s)  # %s' % (cls, name, ', '.join(types), loc))
                     bad += 1
     if args.missing:
         # The other direction: a member function the library declares with fewer overloads than the draft's class

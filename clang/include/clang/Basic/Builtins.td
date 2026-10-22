@@ -2022,13 +2022,13 @@ def C11AtomicFetchMin : AtomicBuiltin {
 
 def C11AtomicThreadFence : Builtin {
   let Spellings = ["__c11_atomic_thread_fence"];
-  let Attributes = [NoThrow];
+  let Attributes = [NoThrow, Constexpr];
   let Prototype = "void(int)";
 }
 
 def C11AtomicSignalFence : Builtin {
   let Spellings = ["__c11_atomic_signal_fence"];
-  let Attributes = [NoThrow];
+  let Attributes = [NoThrow, Constexpr];
   let Prototype = "void(int)";
 }
 
@@ -2185,19 +2185,19 @@ def AtomicClear : AtomicBuiltin {
 
 def AtomicThreadFence : Builtin {
   let Spellings = ["__atomic_thread_fence"];
-  let Attributes = [NoThrow];
+  let Attributes = [NoThrow, Constexpr];
   let Prototype = "void(int)";
 }
 
 def ScopedAtomicThreadFence : Builtin {
   let Spellings = ["__scoped_atomic_thread_fence"];
-  let Attributes = [NoThrow];
+  let Attributes = [NoThrow, Constexpr];
   let Prototype = "void(int, int)";
 }
 
 def AtomicSignalFence : Builtin {
   let Spellings = ["__atomic_signal_fence"];
-  let Attributes = [NoThrow];
+  let Attributes = [NoThrow, Constexpr];
   let Prototype = "void(int)";
 }
 

@@ -1377,17 +1377,17 @@ template <class _Tp>
 }
 
 template <class _Tp, __enable_if_t<is_same<_Tp, long double>::value, int> = 0>
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI long double arg(_Tp __re) {
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 long double arg(_Tp __re) {
   return std::atan2l(0.L, __re);
 }
 
 template <class _Tp, __enable_if_t<is_integral<_Tp>::value || is_same<_Tp, double>::value, int> = 0>
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI double arg(_Tp __re) {
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 double arg(_Tp __re) {
   return std::atan2(0., __re);
 }
 
 template <class _Tp, __enable_if_t<is_same<_Tp, float>::value, int> = 0>
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI float arg(_Tp __re) {
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 float arg(_Tp __re) {
   return std::atan2f(0.F, __re);
 }
 
@@ -1445,7 +1445,7 @@ proj(_Tp __re) {
 }
 
 template <class _Tp, __enable_if_t<is_integral<_Tp>::value, int> = 0>
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI typename __libcpp_complex_overload_traits<_Tp>::_ComplexType
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 typename __libcpp_complex_overload_traits<_Tp>::_ComplexType
 proj(_Tp __re) {
   typedef typename __libcpp_complex_overload_traits<_Tp>::_ComplexType _ComplexType;
   return _ComplexType(__re);

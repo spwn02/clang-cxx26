@@ -23166,6 +23166,17 @@ public:
       // The argument is not evaluated!
       return true;
 
+    case Builtin::BI__c11_atomic_thread_fence:
+    case Builtin::BI__c11_atomic_signal_fence:
+    case Builtin::BI__atomic_thread_fence:
+    case Builtin::BI__atomic_signal_fence:
+    case Builtin::BI__scoped_atomic_thread_fence:
+      // [atomics.fences] (P3309R3): a fence has no effect during constant evaluation; the arguments are evaluated.
+      for (const Expr *Arg : E->arguments())
+        if (!EvaluateIgnoredValue(Info, Arg))
+          return false;
+      return true;
+
     case Builtin::BI__builtin_operator_delete:
       return HandleOperatorDeleteCall(Info, E);
 
