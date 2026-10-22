@@ -19,11 +19,11 @@
 
 namespace std::contracts {
 
-enum class assertion_kind : int { pre = 1, post = 2, assert = 3, manual = 1000, cassert = 1001 };
+enum class assertion_kind : int { pre = 1, post = 2, assert = 3 };
 using _AssertKind _LIBCPP_NODEBUG = assertion_kind;
 enum class evaluation_semantic : int { ignore = 1, observe = 2, enforce = 3, quick_enforce = 4 };
 using _EvaluationSemantic _LIBCPP_NODEBUG = evaluation_semantic;
-enum class detection_mode : int { predicate_false = 1, evaluation_exception = 2, unspecified = 1000 };
+enum class detection_mode : int { predicate_false = 1, evaluation_exception = 2 };
 using _DetectionMode _LIBCPP_NODEBUG = detection_mode;
 
 struct _ContractViolationImpl;
@@ -51,15 +51,6 @@ private:
 };
 
 _LIBCPP_EXPORTED_FROM_ABI void invoke_default_contract_violation_handler(const contract_violation&) noexcept;
-
-_LIBCPP_EXPORTED_FROM_ABI void __handle_manual_contract_violation(
-  assertion_kind __kind,
-  evaluation_semantic __semantic,
-  detection_mode __mode,
-  const char* __comment,
-  std::source_location __loc,
-  bool __can_throw
-);
 
 } // namespace std::contracts
 

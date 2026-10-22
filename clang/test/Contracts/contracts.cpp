@@ -47,7 +47,7 @@ struct NoBool {
 };
 
 void test_attributes(int x) {
-  contract_assert [[clang::contract_semantic("observe")]] (x != 0);
+  contract_assert(x != 0);
 }
 
 namespace TestConv {

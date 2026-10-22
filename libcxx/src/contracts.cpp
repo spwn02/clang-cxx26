@@ -34,10 +34,6 @@ static void __default_violation_handler(const contract_violation& violation) {
       return {"post(", ")"};
     case _AssertKind::assert:
       return {"contract_assert(", ")"};
-    case _AssertKind::cassert:
-      return {"assert(", ")"};
-    case _AssertKind::manual:
-      return {"", ""};
     }
     return {"", ""};
   }();
@@ -53,37 +49,6 @@ template <int N>
 struct _BuiltinContractStruct;
 
 template <>
-struct _BuiltinContractStruct<0> {
-  enum { VERSION = 1 };
-  int version;
-};
-
-template <>
-struct _BuiltinContractStruct<1> {
-  enum { VERSION = 1 };
-  unsigned version; // the version of the struct
-  const char* comment;
-  const char* file;
-  const char* function;
-  unsigned lineno = 0;
-  unsigned contract_kind;
-  unsigned eval_semantic;
-  unsigned detection_mode;
-};
-
-template <>
-struct _BuiltinContractStruct<2> {
-  enum { VERSION = 2 };
-  unsigned version; // the version of the struct
-  const char* comment;
-  const char* file;
-  const char* function;
-  unsigned lineno = 0;
-  unsigned contract_kind;
-  unsigned eval_semantic;
-};
-
-template <>
 struct _BuiltinContractStruct<3> {
   enum { VERSION = 3 };
   unsigned version; // the version of the struct
@@ -96,29 +61,12 @@ struct _BuiltinContractStruct<3> {
 };
 
 union _BuiltinContractStructUnion {
-  _BuiltinContractStruct<0> v0;
-  _BuiltinContractStruct<1> v1;
-  _BuiltinContractStruct<2> v2;
   _BuiltinContractStruct<3> v3;
 };
 
 _ContractViolationImpl create_impl(void* data, _EvaluationSemantic* sem = nullptr, _DetectionMode* mode = nullptr) {
   _BuiltinContractStructUnion* data_union = static_cast<_BuiltinContractStructUnion*>(data);
-  switch (data_union->v0.version) {
-  case 1:
-    return _ContractViolationImpl{
-        .kind     = static_cast<_AssertKind>(data_union->v1.contract_kind),
-        .semantic = static_cast<_EvaluationSemantic>(data_union->v1.eval_semantic),
-        .mode     = static_cast<_DetectionMode>(data_union->v1.detection_mode),
-        .comment  = data_union->v1.comment,
-        .location = std::source_location::current()};
-  case 2:
-    return _ContractViolationImpl{
-        .kind     = static_cast<_AssertKind>(data_union->v2.contract_kind),
-        .semantic = static_cast<_EvaluationSemantic>(data_union->v2.eval_semantic),
-        .mode     = mode ? *mode : _DetectionMode::predicate_false,
-        .comment  = data_union->v2.comment,
-        .location = std::source_location::current()};
+  switch (data_union->v3.version) {
   case 3:
     return _ContractViolationImpl{
         .kind     = static_cast<_AssertKind>(data_union->v3.contract_kind),
@@ -169,51 +117,4 @@ __handle_contract_violation_v3(_EvaluationSemantic __semantic, _DetectionMode __
   }
 }
 
-namespace {
 
-void __run_violation_handler(const std::contracts::contract_violation& violation) {
-  if (::handle_contract_violation)
-    ::handle_contract_violation(violation);
-  else
-    invoke_default_contract_violation_handler(violation);
-
-  if (violation.semantic() == evaluation_semantic::enforce)
-    std::terminate();
-}
-
-void __run_nothrow_violation_handler(const std::contracts::contract_violation& violation) noexcept {
-#if _LIBCPP_HAS_EXCEPTIONS
-try {
-#endif
-  __run_violation_handler(violation);
-#if _LIBCPP_HAS_EXCEPTIONS
-  } catch (...) {
-    std::terminate();
-  }
-#endif
-}
-
-} // end namespace
-
-void std::contracts::__handle_manual_contract_violation(
-  assertion_kind __kind,
-  evaluation_semantic __semantic,
-  detection_mode __mode,
-  const char* __comment,
-  std::source_location __loc,
-  bool __can_throw
-) {
-  _ContractViolationImpl __impl{
-      .kind     = __kind,
-      .semantic = __semantic,
-      .mode     = __mode,
-      .comment  = __comment ? __comment : "<unknown contract violation>",
-      .location = __loc};
-
-  auto violation = __impl.__create_violation();
-  if (!__can_throw)
-    __run_nothrow_violation_handler(violation);
-  else
-    __run_violation_handler(violation);
-
-}

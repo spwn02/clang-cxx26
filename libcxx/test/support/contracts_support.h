@@ -54,10 +54,6 @@ constexpr std::string_view enum_to_string(AssertKind K) {
     return "post";
   case AssertKind::assert:
     return "contract_assert";
-  case AssertKind::manual:
-    return "manual";
-  case AssertKind::cassert:
-  return "assert";
   }
   return "<unknown>";
 }
@@ -80,17 +76,11 @@ constexpr std::string_view enum_to_string(DetectionKind D) {
     return "failed";
   case exception:
     return "exception";
-  case DetectionKind::unspecified:
-    return "unspecified";
   }
 }
 
 struct ContractLoc;
 
-#define OBSERVE [[clang::contract_semantic("observe")]]
-#define ENFORCE [[clang::contract_semantic("enforce")]]
-#define QUICK_ENFORCE [[clang::contract_semantic("quick_enforce")]]
-#define IGNORE [[clang::contract_semantic("ignore")]]
 
 
 std::string to_string(std::source_location loc, bool add_newline = true) {

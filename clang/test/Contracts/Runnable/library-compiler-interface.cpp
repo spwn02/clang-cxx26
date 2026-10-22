@@ -1,11 +1,17 @@
-// RUN: %clang -std=c++26 -nostdlib++ -fcontract-evaluation-semantic=observe \
-// RUN: %s -o %t  -g
-// RUN:  %t 0
-// RUN: %t 1
-
-
-
-#define CONTRACT_GROUP(x)
+// The compiler-library callback: the violation handler gets the evaluation
+// semantic of the translation unit (-fcontract-evaluation-semantic=), the
+// source location of the assertion and the detection mode; observe and ignore
+// are distinguished by whether the predicate is evaluated and the handler runs.
+//
+// RUN: %clang -std=c++26 -nostdlib++ -fcontract-evaluation-semantic=observe -DSEM_OBSERVE %s -o %t.observe -g
+// RUN: %t.observe 0
+// RUN: %t.observe 1
+// RUN: %clang -std=c++26 -nostdlib++ -fcontract-evaluation-semantic=enforce -DSEM_ENFORCE %s -o %t.enforce -g
+// RUN: %t.enforce 0
+// RUN: %t.enforce 1
+// RUN: %clang -std=c++26 -nostdlib++ -fcontract-evaluation-semantic=ignore -DSEM_IGNORE %s -o %t.ignore -g
+// RUN: %t.ignore 0
+// RUN: %t.ignore 1
 
 #include "contracts.h"
 #include "my_assert.h"
@@ -91,88 +97,45 @@ evaluated_count = 0;
 handler_called = 0;
 }
 
-void test_contract_assert() {
-  expected_semantic = evaluation_semantic::observe;
+#if defined(SEM_OBSERVE)
+constexpr evaluation_semantic kSemantic = evaluation_semantic::observe;
+#elif defined(SEM_ENFORCE)
+constexpr evaluation_semantic kSemantic = evaluation_semantic::enforce;
+#else
+constexpr evaluation_semantic kSemantic = evaluation_semantic::ignore;
+#endif
+
+// The assertion sets the expected location (relative to its own line) when it
+// is evaluated or skipped; for enforce a failing assertion ends the program in
+// the handler (exit(0)).
+void has_assert(bool x) {
   expect_location(+1);
-  contract_assert
-      [[clang::contract_semantic("observe")]]
-  (check_evaluated(false));
-  assert(evaluated_count == 1);
-  assert(handler_called == 1);
-  reset_counters();
-
-  int was_evaluated = 0;
-  contract_assert
-    [[clang::contract_semantic("enforce")]]
-  (check_evaluated(true));
-  assert(handler_called == 0);
-  assert(evaluated_count == 1);
-  reset_counters();
-
-  contract_assert
-    [[clang::contract_semantic("ignore")]]
-  (check_evaluated(false));
-  assert(handler_called == 0);
-  assert(evaluated_count == 0);
-
-  expected_semantic = evaluation_semantic::enforce;
-  expect_location(+1);
-  contract_assert
-    [[clang::contract_semantic("enforce")]]
-  (check_evaluated(false));
-  __builtin_abort();
+  contract_assert(check_evaluated(x));
 }
 
-enum Semantic {
-  S_Ignore,
-  S_Enforce,
-  S_Observe
-};
-
-void has_pre_ignore(bool x)
-  pre [[clang::contract_semantic("ignore")]] (check_evaluated(x)) {
+void has_pre(bool x)
+  pre(check_evaluated(x)) {
   expect_location(-1);
 }
 
-
-void has_pre_observe(bool x)
-  pre [[clang::contract_semantic("observe")]] (check_evaluated(x)) {
-  expect_location(-1);
-}
-
-void has_pre_enforce(bool x)
-  pre [[clang::contract_semantic("enforce")]] (check_evaluated(x)) {
-  expect_location(-1);
-}
-
-void test_pre_condition() {
-  expected_semantic = evaluation_semantic::observe;
-  has_pre_observe(true); // this sets the expected location
-  assert(evaluated_count == 1);
+void check(void (*fn)(bool)) {
+  expected_semantic = kSemantic;
+  fn(true); // sets the expected location
   assert(handler_called == 0);
+  assert(evaluated_count == (kSemantic == evaluation_semantic::ignore ? 0u : 1u));
   reset_counters();
 
-  expected_semantic = evaluation_semantic::observe;
-
-  has_pre_observe(false);
-  assert(handler_called == 1);
-  assert(evaluated_count == 1);
+  fn(false);
+  // Only reached by observe and ignore: enforce exits in the handler.
+  assert(kSemantic != evaluation_semantic::enforce);
+  assert(handler_called == (kSemantic == evaluation_semantic::observe ? 1u : 0u));
+  assert(evaluated_count == (kSemantic == evaluation_semantic::ignore ? 0u : 1u));
   reset_counters();
-
-  has_pre_enforce(true);
-  assert(handler_called == 0);
-  assert(evaluated_count == 1);
-  reset_counters();
-
-  has_pre_ignore(false);
-  assert(handler_called == 0);
-  assert(evaluated_count == 0);
-
-  expected_semantic = evaluation_semantic::enforce;
-  has_pre_enforce(true);
-  has_pre_enforce(false);
-  __builtin_abort();
 }
+
+void test_contract_assert() { check(has_assert); }
+
+void test_pre_condition() { check(has_pre); }
 
 int main(int argc, char **argv) {
   assert(argc == 2);
@@ -186,8 +149,7 @@ int main(int argc, char **argv) {
     test_pre_condition();
     break;
   default:
-  assert(false && "Not a valid test case");
+    assert(false && "Not a valid test case");
   }
-
-
+  return 0;
 }

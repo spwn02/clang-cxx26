@@ -53,13 +53,7 @@ enum class ContractAssertionKind {
 
   Post = 2,
 
-  Assert = 3,
-
-  // Fork extensions: [support.contract.enum] says implementation-defined
-  // enumerators should have a minimum value of 1000.
-  Manual = 1000,
-
-  CAssert = 1001
+  Assert = 3
 };
 
 /// Contract evaluation mode. Determines whether to check contracts, and
@@ -89,18 +83,7 @@ enum class ContractEvaluationSemantic {
 /// std::contracts::detection_mode.
 enum class ContractDetectionMode {
   PredicateFailed = 1,
-  ExceptionRaised = 2,
-  // Fork extension (see ContractAssertionKind).
-  Unspecified = 1000
-};
-
-/// The code generation style for the contract. Inline
-enum class ContractEmissionStyle {
-  /// Emit the contract at every call site, in the caller.
-  InCaller,
-
-  /// Emit the contract with the function definition.
-  InDefinition,
+  ExceptionRaised = 2
 };
 
 
@@ -119,8 +102,6 @@ public:
   /// The default semantics for contracts.
   ContractEvaluationSemantic DefaultSemantic =
       ContractEvaluationSemantic::Enforce;
-
-  ContractEmissionStyle DefaultEmission = ContractEmissionStyle::InDefinition;
 };
 
 } // namespace clang

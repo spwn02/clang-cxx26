@@ -307,13 +307,6 @@ ResultNameDecl *ContractStmt::getResultName() const {
 }
 
 std::string ContractStmt::getMessage(const clang::ASTContext &Ctx) const {
-  if (auto *A = getAttrAs<ContractMessageAttr>()) {
-    if (A->getIncludeSourceText()) {
-      return llvm::join_items("", getSourceText(Ctx), ": \"", A->getMessage(),
-                              '"');
-    }
-    return llvm::join_items("", '"', A->getMessage(), '"');
-  }
   return getSourceText(Ctx);
 }
 
@@ -357,7 +350,5 @@ StringRef ContractStmt::SemanticAsString(ContractEvaluationSemantic Sem) {
 
 ContractEvaluationSemantic
 ContractStmt::getSemantic(const ASTContext &Ctx) const {
-  if (const auto *A = getAttrAs<ContractSemanticAttr>())
-    return A->getSemantic();
   return Ctx.getLangOpts().ContractOpts.DefaultSemantic;
 }

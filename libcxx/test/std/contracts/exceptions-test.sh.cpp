@@ -1,6 +1,9 @@
 // UNSUPPORTED: no-exceptions
-// ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontract-evaluation-semantic=enforce
 
+// RUN: %{build} -std=c++26 -fcontract-evaluation-semantic=observe -DSEM_OBSERVE -o %t.observe.exe
+// RUN: %{exec} %t.observe.exe
+// RUN: %{build} -std=c++26 -fcontract-evaluation-semantic=enforce -DSEM_ENFORCE -o %t.enforce.exe
+// RUN: %{exec} %t.enforce.exe
 
 #include <contracts>
 #include "nttp_string.h"
@@ -11,25 +14,28 @@
 #include <stdexcept>
 
 namespace exception_handling {
-#define OBSERVE [[clang::contract_semantic("observe")]]
+
+#ifdef SEM_OBSERVE
 void foo() {
-
-  contract_assert [[clang::contract_semantic("observe")]] ((true) ? throw 42 : true);
-
-
+  contract_assert((true) ? throw 42 : true);
 }
 
-REGISTER_TEST(test_ex_handling) {
+REGISTER_TEST(test_ex_handling_observe) {
   ContractHandlerInstaller CHI;
   int called = 0;
   CHI.install([&]() {
     ++called;
     assert(std::current_exception());
   });
-  contract_assert OBSERVE ((true) ? throw 42 : true);
+  contract_assert((true) ? throw 42 : true);
   assert(called);
-  called = 0;
+};
+#endif // SEM_OBSERVE
 
+#ifdef SEM_ENFORCE
+REGISTER_TEST(test_ex_handling_enforce) {
+  ContractHandlerInstaller CHI;
+  int called = 0;
   CHI.install([&]() {
     ++called;
     assert(!std::current_exception());
@@ -56,5 +62,6 @@ REGISTER_TEST(test_ex_handling) {
   assert(NC<"InCatch">.consume() == 1);
 
 };
+#endif // SEM_ENFORCE
 
 } // namespace exception_handling

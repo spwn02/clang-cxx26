@@ -311,118 +311,6 @@ static Attr *handleNoInlineAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   return ::new (S.Context) NoInlineAttr(S.Context, A);
 }
 
-static void
-CheckForDuplicateAndIncompatibleContractAttrs(Sema &S,
-                                              ArrayRef<const Attr *> Attrs) {
-  if (Attrs.size() <= 1)
-    return;
-
-  SmallVector<const Attr *, 4> ContractAttrs(Attrs.begin(), Attrs.end());
-
-  // The attributes are sorted by kind so that the duplicates are adjacent; the
-  // diagnostics of the duplicates follow that order, not the source order.
-  std::stable_sort(
-      ContractAttrs.begin(), ContractAttrs.end(),
-      [](const Attr *A, const Attr *B) { return A->getKind() < B->getKind(); });
-
-  for (unsigned I = 0; I + 1 < ContractAttrs.size(); ++I) {
-    const auto *A1 = ContractAttrs[I];
-    const Attr *A2 = ContractAttrs[I + 1];
-    while (A2 && A2->getKind() == A1->getKind()) {
-      S.Diag(A2->getLocation(), diag::err_disallowed_duplicate_attribute)
-          << A2 << 1;
-      S.Diag(A1->getLocation(), diag::note_previous_attribute);
-      ++I;
-      A2 = I + 1 < ContractAttrs.size() ? ContractAttrs[I + 1] : nullptr;
-    }
-    assert(!A2 || A2->getKind() != A1->getKind());
-  }
-}
-
-static std::optional<bool> checkBoolArg(Sema &S, const ParsedAttr &AL,
-                                        Expr *&Cond) {
-  ExprResult Converted =
-      S.CheckBooleanCondition(Cond->getBeginLoc(), Cond, /*IsConstexpr=*/true);
-  if (Converted.isInvalid())
-    return std::nullopt;
-  Cond = Converted.get();
-
-  std::optional<llvm::APSInt> ArgVal = Cond->getIntegerConstantExpr(S.Context);
-  if (!ArgVal) {
-    S.Diag(Cond->getExprLoc(), diag::err_attribute_argument_type)
-        << AL << AANT_ArgumentIntegerConstant << Cond->getSourceRange();
-    return std::nullopt;
-  }
-  return ArgVal->getBoolValue();
-}
-
-static Attr *handleContractSemanticAttr(Sema &S, Stmt *st, const ParsedAttr &A,
-                                        SourceRange Range) {
-
-  assert(A.getNumArgs() == 1 || A.getNumArgs() == 2);
-  // Check that the argument is a string literal.
-  StringRef SemStr;
-  SourceLocation LiteralLoc;
-  if (!S.checkStringLiteralArgumentAttr(A, 0, SemStr, &LiteralLoc))
-    return nullptr;
-
-  ContractEvaluationSemantic Sem;
-  if (!ContractSemanticAttr::ConvertStrToContractEvaluationSemantic(SemStr,
-                                                                    Sem)) {
-    S.Diag(LiteralLoc, diag::warn_attribute_type_not_supported) << A << SemStr;
-    return nullptr;
-  }
-
-  Expr *Cond = A.getNumArgs() == 2 ? A.getArgAsExpr(1) : nullptr;
-  std::optional<bool> CondValue = true;
-  if (Cond)
-    CondValue = checkBoolArg(S, A, Cond);
-  if (!CondValue)
-    return nullptr;
-  return ::new (S.Context) ContractSemanticAttr(S.Context, A, Sem, *CondValue);
-}
-
-static Attr *handleContractEmissionAttr(Sema &S, Stmt *st, const ParsedAttr &A,
-                                        SourceRange Range) {
-
-  assert(A.getNumArgs() == 1 || A.getNumArgs() == 2);
-  // Check that the argument is a string literal.
-  StringRef EmissionStr;
-  SourceLocation LiteralLoc;
-  if (!S.checkStringLiteralArgumentAttr(A, 0, EmissionStr, &LiteralLoc))
-    return nullptr;
-
-  ContractEmissionStyle Emission;
-  if (!ContractEmissionAttr::ConvertStrToContractEmissionStyle(EmissionStr,
-                                                               Emission)) {
-    S.Diag(LiteralLoc, diag::warn_attribute_type_not_supported)
-        << A << EmissionStr;
-    return nullptr;
-  }
-
-  return ::new (S.Context) ContractEmissionAttr(S.Context, A, Emission);
-}
-
-static Attr *handleContractMessageAttr(Sema &S, Stmt *st, const ParsedAttr &A,
-                                       SourceRange Range) {
-
-  assert(A.getNumArgs() == 1 || A.getNumArgs() == 2);
-  // Check that the argument is a string literal.
-  StringRef MessageStr;
-  SourceLocation LiteralLoc;
-  if (!S.checkStringLiteralArgumentAttr(A, 0, MessageStr, &LiteralLoc))
-    return nullptr;
-
-  Expr *Cond = A.getNumArgs() == 2 ? A.getArgAsExpr(1) : nullptr;
-  std::optional<bool> CondValue = true;
-  if (Cond)
-    CondValue = checkBoolArg(S, A, Cond);
-  if (!CondValue)
-    return nullptr;
-  return ::new (S.Context)
-      ContractMessageAttr(S.Context, A, MessageStr, *CondValue);
-}
-
 static Attr *handleAlwaysInlineAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                                     SourceRange Range) {
   AlwaysInlineAttr AIA(S.Context, A);
@@ -832,12 +720,6 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleCodeAlignAttr(S, St, A);
   case ParsedAttr::AT_MSConstexpr:
     return handleMSConstexprAttr(S, St, A, Range);
-  case ParsedAttr::AT_ContractSemantic:
-    return handleContractSemanticAttr(S, St, A, Range);
-  case ParsedAttr::AT_ContractMessage:
-    return handleContractMessageAttr(S, St, A, Range);
-  case ParsedAttr::AT_ContractEmission:
-    return handleContractEmissionAttr(S, St, A, Range);
   case ParsedAttr::AT_NoConvergent:
     return handleNoConvergentAttr(S, St, A, Range);
   case ParsedAttr::AT_Annotate:
@@ -867,8 +749,6 @@ void Sema::ProcessStmtAttributes(Stmt *S, const ParsedAttributes &InAttrs,
 
   CheckForIncompatibleAttributes(*this, OutAttrs);
   CheckForDuplicateLoopAttrs<CodeAlignAttr>(*this, OutAttrs);
-  if (isa<ContractStmt>(S))
-    CheckForDuplicateAndIncompatibleContractAttrs(*this, OutAttrs);
 }
 
 bool Sema::CheckRebuiltStmtAttributes(ArrayRef<const Attr *> Attrs) {

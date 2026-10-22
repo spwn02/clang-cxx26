@@ -7,7 +7,7 @@ int foo(int x) pre(x != 0) {
 
 template <class T>
 void foo2(T v) {
-    contract_assert [[clang::contract_semantic("ignore")]] (v + 1 != 0) ;
+    contract_assert(v + 1 != 0);
 }
 
 int main() {

@@ -234,8 +234,6 @@ static std::string GetMangledContractViolationHandler(
       return "_pf";
     case ExceptionRaised:
       return "_pe";
-    case ContractDetectionMode::Unspecified:
-      llvm_unreachable("Here");
     }
     llvm_unreachable("cases should all be handled");
   }();

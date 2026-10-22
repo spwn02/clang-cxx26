@@ -1,5 +1,9 @@
 // UNSUPPORTED: no-exceptions
-// ADDITIONAL_COMPILE_FLAGS: -std=c++26 -fcontract-evaluation-semantic=enforce
+
+// RUN: %{build} -std=c++26 -fcontract-evaluation-semantic=observe -DSEM_OBSERVE -o %t.observe.exe
+// RUN: %{exec} %t.observe.exe
+// RUN: %{build} -std=c++26 -fcontract-evaluation-semantic=enforce -DSEM_ENFORCE -o %t.enforce.exe
+// RUN: %{exec} %t.enforce.exe
 
 // contract_violation::is_terminating() (P3227R1): true iff the violation's
 // evaluation semantic is a terminating one (enforce), false otherwise
@@ -15,6 +19,7 @@
 
 namespace is_terminating_test {
 
+#ifdef SEM_OBSERVE
 REGISTER_TEST(observe_is_not_terminating) {
   ContractHandlerInstaller CHI;
   bool ran = false;
@@ -23,10 +28,12 @@ REGISTER_TEST(observe_is_not_terminating) {
     assert(violation.semantic() == std::contracts::evaluation_semantic::observe);
     assert(!violation.is_terminating());
   });
-  contract_assert [[clang::contract_semantic("observe")]] (false);
+  contract_assert(false);
   assert(ran);
 };
+#endif // SEM_OBSERVE
 
+#ifdef SEM_ENFORCE
 REGISTER_TEST(enforce_is_terminating) {
   ContractHandlerInstaller CHI;
   bool ran = false;
@@ -40,12 +47,13 @@ REGISTER_TEST(enforce_is_terminating) {
     throw 42;
   });
   try {
-    contract_assert [[clang::contract_semantic("enforce")]] (false);
+    contract_assert(false);
     assert(false);
   } catch (int v) {
     assert(v == 42);
   }
   assert(ran);
 };
+#endif // SEM_ENFORCE
 
 } // namespace is_terminating_test
