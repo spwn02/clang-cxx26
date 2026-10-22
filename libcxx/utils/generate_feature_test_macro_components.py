@@ -380,9 +380,8 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_constexpr_cmath",
-            "values": {"c++23": 202202},
+            "values": {"c++23": 202202, "c++26": 202306},
             "headers": ["cmath", "cstdlib"],
-            "unimplemented": True,
         },
         {
             "name": "__cpp_lib_constexpr_complex",

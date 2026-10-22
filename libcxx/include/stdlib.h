@@ -121,6 +121,12 @@ using std::__math::abs;
 #        undef lldiv
 #      endif
 
+#      if _LIBCPP_STD_VER >= 23
+#        include <__math/div.h>
+using std::__math::div;
+using std::__math::ldiv;
+using std::__math::lldiv;
+#      else
 // MSVCRT already has the correct prototype in <stdlib.h> if __cplusplus is defined
 #      if !defined(_LIBCPP_MSVCRT)
 inline _LIBCPP_HIDE_FROM_ABI ldiv_t div(long __x, long __y) _NOEXCEPT { return ::ldiv(__x, __y); }
@@ -128,6 +134,7 @@ inline _LIBCPP_HIDE_FROM_ABI ldiv_t div(long __x, long __y) _NOEXCEPT { return :
 inline _LIBCPP_HIDE_FROM_ABI lldiv_t div(long long __x, long long __y) _NOEXCEPT { return ::lldiv(__x, __y); }
 #        endif
 #      endif // _LIBCPP_MSVCRT
+#      endif // _LIBCPP_STD_VER >= 23
 } // extern "C++"
 #    endif   // __cplusplus
 #  endif     // _LIBCPP_STDLIB_H

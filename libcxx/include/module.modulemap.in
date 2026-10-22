@@ -74,6 +74,10 @@ module std_core [system] {
       header "__math/abs.h"
       export *
     }
+    module div {
+      header "__math/div.h"
+      export *
+    }
     module copysign {
       header "__math/copysign.h"
       export *

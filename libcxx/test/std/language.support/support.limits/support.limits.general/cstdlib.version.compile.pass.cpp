@@ -60,17 +60,11 @@
 
 #elif TEST_STD_VER == 23
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_constexpr_cmath
-#      error "__cpp_lib_constexpr_cmath should be defined in c++23"
-#    endif
-#    if __cpp_lib_constexpr_cmath != 202202L
-#      error "__cpp_lib_constexpr_cmath should have the value 202202L in c++23"
-#    endif
-#  else
-#    ifdef __cpp_lib_constexpr_cmath
-#      error "__cpp_lib_constexpr_cmath should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_constexpr_cmath
+#    error "__cpp_lib_constexpr_cmath should be defined in c++23"
+#  endif
+#  if __cpp_lib_constexpr_cmath != 202202L
+#    error "__cpp_lib_constexpr_cmath should have the value 202202L in c++23"
 #  endif
 
 #  ifdef __cpp_lib_freestanding_cstdlib
@@ -79,17 +73,11 @@
 
 #elif TEST_STD_VER > 23
 
-#  if !defined(_LIBCPP_VERSION)
-#    ifndef __cpp_lib_constexpr_cmath
-#      error "__cpp_lib_constexpr_cmath should be defined in c++26"
-#    endif
-#    if __cpp_lib_constexpr_cmath != 202202L
-#      error "__cpp_lib_constexpr_cmath should have the value 202202L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_constexpr_cmath
-#      error "__cpp_lib_constexpr_cmath should not be defined because it is unimplemented in libc++!"
-#    endif
+#  ifndef __cpp_lib_constexpr_cmath
+#    error "__cpp_lib_constexpr_cmath should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_cmath != 202306L
+#    error "__cpp_lib_constexpr_cmath should have the value 202306L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_freestanding_cstdlib

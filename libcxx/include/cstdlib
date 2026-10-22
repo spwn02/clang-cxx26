@@ -87,6 +87,7 @@ void *aligned_alloc(size_t alignment, size_t size);                       // C11
 #  include <__config>
 #  include <__cstddef/size_t.h>
 #  include <__math/abs.h>
+#  include <__math/div.h>
 
 #  include <stdlib.h>
 
@@ -153,9 +154,15 @@ using ::abs _LIBCPP_USING_IF_EXISTS;
 #  endif
 using ::labs _LIBCPP_USING_IF_EXISTS;
 using ::llabs _LIBCPP_USING_IF_EXISTS;
+#  if _LIBCPP_STD_VER >= 23
+using __math::div;
+using __math::ldiv;
+using __math::lldiv;
+#  else
 using ::div _LIBCPP_USING_IF_EXISTS;
 using ::ldiv _LIBCPP_USING_IF_EXISTS;
 using ::lldiv _LIBCPP_USING_IF_EXISTS;
+#  endif
 using ::mblen _LIBCPP_USING_IF_EXISTS;
 #  if _LIBCPP_HAS_WIDE_CHARACTERS
 using ::mbtowc _LIBCPP_USING_IF_EXISTS;

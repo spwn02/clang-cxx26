@@ -622,6 +622,7 @@ set(files
   __locale_dir/wbuffer_convert.h
   __locale_dir/wstring_convert.h
   __math/abs.h
+  __math/div.h
   __math/copysign.h
   __math/error_functions.h
   __math/exponential_functions.h
