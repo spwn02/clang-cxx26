@@ -8245,17 +8245,11 @@
 #    error "__cpp_lib_debugging should have the value 202403L in c++26"
 #  endif
 
-#  if __has_feature(reflection)
-#    ifndef __cpp_lib_define_static
-#      error "__cpp_lib_define_static should be defined in c++26"
-#    endif
-#    if __cpp_lib_define_static != 202506L
-#      error "__cpp_lib_define_static should have the value 202506L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_define_static
-#      error "__cpp_lib_define_static should not be defined when the requirement '__has_feature(reflection)' is not met!"
-#    endif
+#  ifndef __cpp_lib_define_static
+#    error "__cpp_lib_define_static should be defined in c++26"
+#  endif
+#  if __cpp_lib_define_static != 202506L
+#    error "__cpp_lib_define_static should have the value 202506L in c++26"
 #  endif
 
 #  if TEST_STD_VER > 17 && defined(__cpp_impl_destroying_delete) && __cpp_impl_destroying_delete >= 201806L
@@ -9601,17 +9595,11 @@
 #    error "__cpp_lib_reference_wrapper should have the value 202403L in c++26"
 #  endif
 
-#  if __has_feature(reflection)
-#    ifndef __cpp_lib_reflection
-#      error "__cpp_lib_reflection should be defined in c++26"
-#    endif
-#    if __cpp_lib_reflection != 202603L
-#      error "__cpp_lib_reflection should have the value 202603L in c++26"
-#    endif
-#  else
-#    ifdef __cpp_lib_reflection
-#      error "__cpp_lib_reflection should not be defined when the requirement '__has_feature(reflection)' is not met!"
-#    endif
+#  ifndef __cpp_lib_reflection
+#    error "__cpp_lib_reflection should be defined in c++26"
+#  endif
+#  if __cpp_lib_reflection != 202603L
+#    error "__cpp_lib_reflection should have the value 202603L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_remove_cvref

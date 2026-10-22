@@ -3,11 +3,11 @@
 // alone does not make declarations visible to importers of std.
 //
 // <meta>'s __reflection_v2 namespace and define_static_array/string are
-// themselves guarded by `#if __has_feature(reflection)` (i.e. -std=c++26);
+// themselves guarded by `#if _LIBCPP_STD_VER >= 26`;
 // mirror that guard here so this partition's export list matches what <meta>
 // actually declares when reflection is not enabled, instead of failing to
 // find these names at all.
-#if __has_feature(reflection)
+#if _LIBCPP_STD_VER >= 26
 export namespace std {
   using std::define_static_array;
   using std::define_static_object;
@@ -233,19 +233,15 @@ export namespace std {
       using std::meta::__reflection_v2::variant_size;
       using std::meta::__reflection_v2::variant_alternative;
       using std::meta::__reflection_v2::is_vararg_function;
-#if __has_feature(parameter_reflection)
       using std::meta::__reflection_v2::parameters_of;
       using std::meta::__reflection_v2::has_default_argument;
       using std::meta::__reflection_v2::is_explicit_object_parameter;
       using std::meta::__reflection_v2::is_function_parameter;
       using std::meta::__reflection_v2::return_type_of;
       using std::meta::__reflection_v2::variable_of;
-#endif // __has_feature(parameter_reflection)
-#if __has_feature(annotation_attributes)
       using std::meta::__reflection_v2::annotations_of;
       using std::meta::__reflection_v2::annotations_of_with_type;
       using std::meta::__reflection_v2::is_annotation;
-#endif // __has_feature(annotation_attributes)
       using std::meta::__reflection_v2::access_context;
       using std::meta::__reflection_v2::is_accessible;
       using std::meta::__reflection_v2::has_inaccessible_nonstatic_data_members;
@@ -280,4 +276,4 @@ export namespace std {
     }
   }
 }
-#endif // __has_feature(reflection)
+#endif // _LIBCPP_STD_VER >= 26

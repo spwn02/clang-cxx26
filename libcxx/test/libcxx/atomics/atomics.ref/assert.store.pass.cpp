@@ -10,7 +10,7 @@
 // UNSUPPORTED: c++03, c++11, c++14, c++17
 // UNSUPPORTED: libcpp-hardening-mode=none || libcpp-hardening-mode=fast
 // XFAIL: libcpp-hardening-mode=debug && availability-verbose_abort-missing
-// ADDITIONAL_COMPILE_FLAGS: -Wno-user-defined-warnings
+// ADDITIONAL_COMPILE_FLAGS: -Wno-user-defined-warnings -Wno-deprecated-declarations
 
 // <atomic>
 

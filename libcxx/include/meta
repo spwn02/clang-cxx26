@@ -425,7 +425,7 @@ consteval auto has_inaccessible_bases(
 #  pragma GCC system_header
 #endif
 
-#if __has_feature(reflection)
+#if _LIBCPP_STD_VER >= 26
 
 #define __cpp_lib_define_static 202506L
 
@@ -851,7 +851,6 @@ constexpr struct front_enumerator_of_fn {
   }
 } front_enumerator;
 
-#if __has_feature(parameter_reflection)
 
 struct next_parameter_of_fn {
   consteval info operator()(auto /* currItrInfo */, info __reflected_entity,
@@ -868,7 +867,6 @@ struct front_parameter_of_fn {
   }
 };
 
-#endif  // __has_feature(parameter_reflection)
 
 // Annotations are part of C++26 reflection ([meta.reflection.annotation]), so there is no separate feature to
 // guard on.
@@ -2695,7 +2693,6 @@ consteval auto is_vararg_function(info __r) -> bool {
   return __metafunction(__detail::__metafn_is_vararg_function, __r);
 }
 
-#if __has_feature(parameter_reflection)
 
 consteval auto parameters_of(info __r) -> vector<info> {
   using iterator =
@@ -2727,9 +2724,7 @@ consteval auto variable_of(info __r) -> info {
   return __metafunction(__detail::__metafn_variable_of, __r, ^^variable_of);
 }
 
-#endif  // __has_feature(parameter_reflection)
 
-#if __has_feature(annotation_attributes)
 
 consteval auto __annotations_of(info __r, info __from) -> vector<info> {
   using iterator =
@@ -2764,7 +2759,6 @@ consteval auto is_annotation(info __r) -> bool {
   return __metafunction(__detail::__metafn_is_annotation, __r);
 }
 
-#endif  // __has_feature(annotation_attributes)
 
 
 consteval auto __any_inaccessible(vector<info> const& __r, access_context __ctx) -> bool {
@@ -3600,11 +3594,7 @@ consteval auto pretty_printer<_CharT>::tprint_impl::render() -> __string_t {
       return __result + operator_symbol_helper(__op);
     }
   } else if constexpr (is_conversion_function(_Rp)) {
-#if __has_feature(parameter_reflection)
     return string_constant("operator ") + render<return_type_of(_Rp)>();
-#else
-    return string_constant("conversion-function");
-#endif
   } else if constexpr (is_literal_operator(_Rp)) {
     return string_constant(R"(operator"")") + __string_t {identifier_helper(_Rp) };
   }
@@ -3716,7 +3706,6 @@ template <info _Rp>  // Function pointers.
               is_function_type(remove_pointer(_Rp)))
 consteval auto pretty_printer<_CharT>::tprint_impl::render() -> __string_t {
 
-#if __has_feature(parameter_reflection)
   constexpr auto __fn_ty = remove_pointer(_Rp);
   __string_t __result = render<return_type_of(__fn_ty)>() + string_constant("(*)(");
   size_t __idx = 0;
@@ -3728,9 +3717,6 @@ consteval auto pretty_printer<_CharT>::tprint_impl::render() -> __string_t {
 
   if (is_noexcept(__fn_ty))
     __result += string_constant(" noexcept");
-#else
-  __string_t result = string_constant("(function-pointer-type)");
-#endif
 
   return __result;
 }
@@ -3739,7 +3725,6 @@ template <typename _CharT>
 template <info _Rp>  // Function types.
     requires (is_type(_Rp) && is_function_type(_Rp))
 consteval auto pretty_printer<_CharT>::tprint_impl::render() -> __string_t {
-#if __has_feature(parameter_reflection)
   __string_t __result = render<return_type_of(_Rp)>() + string_constant("(");
   size_t __idx = 0;
   [:expand(parameters_of(_Rp)):] >> [&]<auto _Param> {
@@ -3760,9 +3745,6 @@ consteval auto pretty_printer<_CharT>::tprint_impl::render() -> __string_t {
 
   if (is_noexcept(_Rp))
     __result += string_constant(" noexcept");
-#else
-  __string_t result = string_constant("(function-type)");
-#endif
 
   return __result;
 }
@@ -3786,7 +3768,6 @@ template <info _Rp>  // Pointer to member function types.
 consteval auto pretty_printer<_CharT>::tprint_impl::render() -> __string_t {
   constexpr auto __fn_ty = type_of_member_from_memptr<_Rp>();
 
-#if __has_feature(parameter_reflection)
   __string_t __result = render<meta::return_type_of(__fn_ty)>() + string_constant("(");
   __result += render<type_of_object_from_memptr<_Rp>()>() +
             string_constant("::*)(");
@@ -3810,9 +3791,6 @@ consteval auto pretty_printer<_CharT>::tprint_impl::render() -> __string_t {
 
   if (meta::is_noexcept(__fn_ty))
     __result += string_constant(" noexcept");
-#else
-  __string_t result = string_constant("(member-function-pointer-type)");
-#endif
 
   return __result;
 }
@@ -3852,7 +3830,7 @@ consteval auto u8display_string_of(info __r) -> u8string_view {
 
 _LIBCPP_END_NAMESPACE_REFLECTION_V2
 
-#endif  // __has_feature(reflection)
+#endif  // _LIBCPP_STD_VER >= 26
 
 #endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 

@@ -20,7 +20,7 @@
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-#if _LIBCPP_STD_VER >= 26 && __has_feature(reflection)
+#if _LIBCPP_STD_VER >= 26
 
 template <class _Tp>
 struct _LIBCPP_NO_SPECIALIZATIONS is_reflection
@@ -29,7 +29,7 @@ struct _LIBCPP_NO_SPECIALIZATIONS is_reflection
 template <class _Tp>
 _LIBCPP_NO_SPECIALIZATIONS inline constexpr bool is_reflection_v = is_reflection<_Tp>::value;
 
-#endif // _LIBCPP_STD_VER >= 26 && __has_feature(reflection)
+#endif // _LIBCPP_STD_VER >= 26
 
 _LIBCPP_END_NAMESPACE_STD
 

@@ -48,7 +48,5 @@ static_assert(!is_vararg_function(^^variable));
 static_assert(!is_vararg_function(reflect_object(variable)));
 static_assert(!is_vararg_function(^^S::data));
 static_assert(!is_vararg_function(reflect_constant(42)));
-#if __has_feature(parameter_reflection)
 static_assert(!is_vararg_function(parameters_of(^^v)[0]));
-#endif
 int main() {}

@@ -578,8 +578,6 @@ feature_test_macros = [
             "name": "__cpp_lib_define_static",
             "values": {"c++26": 202506},
             "headers": ["meta"],
-            "test_suite_guard": "__has_feature(reflection)",
-            "libcxx_guard": "__has_feature(reflection)",
         },
         {
             "name": "__cpp_lib_destroying_delete",
@@ -1591,8 +1589,6 @@ feature_test_macros = [
             "name": "__cpp_lib_reflection",
             "values": {"c++26": 202603},
             "headers": ["meta"],
-            "test_suite_guard": "__has_feature(reflection)",
-            "libcxx_guard": "__has_feature(reflection)",
         },
         {
             "name": "__cpp_lib_remove_cvref",

@@ -21,7 +21,7 @@ export namespace std {
   using std::is_enum;
   using std::is_floating_point;
   using std::is_function;
-#if _LIBCPP_STD_VER >= 26 && __has_feature(reflection)
+#if _LIBCPP_STD_VER >= 26
   using std::is_reflection;
 #endif
   using std::is_integral;
@@ -230,7 +230,7 @@ export namespace std {
   using std::is_enum_v;
   using std::is_floating_point_v;
   using std::is_function_v;
-#if _LIBCPP_STD_VER >= 26 && __has_feature(reflection)
+#if _LIBCPP_STD_VER >= 26
   using std::is_reflection_v;
 #endif
   using std::is_integral_v;
