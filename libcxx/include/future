@@ -1667,13 +1667,19 @@ public:
   _LIBCPP_HIDE_FROM_ABI packaged_task() _NOEXCEPT : __p_(nullptr) {}
 
   template <class _Fp, __enable_if_t<!is_same<__remove_cvref_t<_Fp>, packaged_task>::value, int> = 0>
-  _LIBCPP_HIDE_FROM_ABI explicit packaged_task(_Fp&& __f) : __f_(std::forward<_Fp>(__f)) {}
+  _LIBCPP_HIDE_FROM_ABI explicit packaged_task(_Fp&& __f) : __f_(std::forward<_Fp>(__f)) {
+    static_assert(__is_invocable_r_v<_Rp, __decay_t<_Fp>&, _ArgTypes...>,
+                  "the callable must be invocable as an lvalue with the arguments of the signature");
+  }
 
   // Removed in C++17 (LWG2921-adjacent cleanup); re-added by P3503R3 for C++26.
 #    if _LIBCPP_STD_VER <= 14 || _LIBCPP_STD_VER >= 26
   template <class _Fp, class _Allocator, __enable_if_t<!is_same<__remove_cvref_t<_Fp>, packaged_task>::value, int> = 0>
   _LIBCPP_HIDE_FROM_ABI packaged_task(allocator_arg_t, const _Allocator& __a, _Fp&& __f)
-      : __f_(allocator_arg_t(), __a, std::forward<_Fp>(__f)), __p_(allocator_arg_t(), __a) {}
+      : __f_(allocator_arg_t(), __a, std::forward<_Fp>(__f)), __p_(allocator_arg_t(), __a) {
+    static_assert(__is_invocable_r_v<_Rp, __decay_t<_Fp>&, _ArgTypes...>,
+                  "the callable must be invocable as an lvalue with the arguments of the signature");
+  }
 #    endif
   // ~packaged_task() = default;
 
