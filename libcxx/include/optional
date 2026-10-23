@@ -1333,12 +1333,19 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto transform(_Func&& __f) & {
     using _Up = remove_cv_t<invoke_result_t<_Func, _Tp&>>;
     static_assert(!is_array_v<_Up>, "Result of f(value()) should not be an Array");
-    static_assert(!is_same_v<_Up, in_place_t>, "Result of f(value()) should not be std::in_place_t");
-    static_assert(!is_same_v<_Up, nullopt_t>, "Result of f(value()) should not be std::nullopt_t");
-    static_assert(is_object_v<_Up>, "Result of f(value()) should be an object type");
-    if (*this)
-      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), this->__get());
-    return optional<_Up>();
+    static_assert(!is_same_v<remove_cvref_t<_Up>, in_place_t>, "Result of f(value()) should not be std::in_place_t");
+    static_assert(!is_same_v<remove_cvref_t<_Up>, nullopt_t>, "Result of f(value()) should not be std::nullopt_t");
+    static_assert(is_object_v<_Up> || (_LIBCPP_STD_VER >= 26 && is_lvalue_reference_v<_Up>),
+                  "Result of f(value()) should be a valid contained type");
+    if constexpr (_LIBCPP_STD_VER >= 26 && is_lvalue_reference_v<_Up>) {
+      if (*this)
+        return optional<_Up>(std::invoke(std::forward<_Func>(__f), this->__get()));
+      return optional<_Up>();
+    } else {
+      if (*this)
+        return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), this->__get());
+      return optional<_Up>();
+    }
   }
 
   template <class _Func>
@@ -1348,12 +1355,19 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto transform(_Func&& __f) const& {
     using _Up = remove_cv_t<invoke_result_t<_Func, const _Tp&>>;
     static_assert(!is_array_v<_Up>, "Result of f(value()) should not be an Array");
-    static_assert(!is_same_v<_Up, in_place_t>, "Result of f(value()) should not be std::in_place_t");
-    static_assert(!is_same_v<_Up, nullopt_t>, "Result of f(value()) should not be std::nullopt_t");
-    static_assert(is_object_v<_Up>, "Result of f(value()) should be an object type");
-    if (*this)
-      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), this->__get());
-    return optional<_Up>();
+    static_assert(!is_same_v<remove_cvref_t<_Up>, in_place_t>, "Result of f(value()) should not be std::in_place_t");
+    static_assert(!is_same_v<remove_cvref_t<_Up>, nullopt_t>, "Result of f(value()) should not be std::nullopt_t");
+    static_assert(is_object_v<_Up> || (_LIBCPP_STD_VER >= 26 && is_lvalue_reference_v<_Up>),
+                  "Result of f(value()) should be a valid contained type");
+    if constexpr (_LIBCPP_STD_VER >= 26 && is_lvalue_reference_v<_Up>) {
+      if (*this)
+        return optional<_Up>(std::invoke(std::forward<_Func>(__f), this->__get()));
+      return optional<_Up>();
+    } else {
+      if (*this)
+        return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), this->__get());
+      return optional<_Up>();
+    }
   }
 
   template <class _Func>
@@ -1363,12 +1377,22 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto transform(_Func&& __f) && {
     using _Up = remove_cv_t<invoke_result_t<_Func, _Tp&&>>;
     static_assert(!is_array_v<_Up>, "Result of f(std::move(value())) should not be an Array");
-    static_assert(!is_same_v<_Up, in_place_t>, "Result of f(std::move(value())) should not be std::in_place_t");
-    static_assert(!is_same_v<_Up, nullopt_t>, "Result of f(std::move(value())) should not be std::nullopt_t");
-    static_assert(is_object_v<_Up>, "Result of f(std::move(value())) should be an object type");
-    if (*this)
-      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), std::move(this->__get()));
-    return optional<_Up>();
+    static_assert(
+        !is_same_v<remove_cvref_t<_Up>, in_place_t>, "Result of f(std::move(value())) should not be std::in_place_t");
+    static_assert(
+        !is_same_v<remove_cvref_t<_Up>, nullopt_t>, "Result of f(std::move(value())) should not be std::nullopt_t");
+    static_assert(is_object_v<_Up> || (_LIBCPP_STD_VER >= 26 && is_lvalue_reference_v<_Up>),
+                  "Result of f(std::move(value())) should be a valid contained type");
+    if constexpr (_LIBCPP_STD_VER >= 26 && is_lvalue_reference_v<_Up>) {
+      if (*this)
+        return optional<_Up>(std::invoke(std::forward<_Func>(__f), std::move(this->__get())));
+      return optional<_Up>();
+    } else {
+      if (*this)
+        return optional<_Up>(
+            __optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), std::move(this->__get()));
+      return optional<_Up>();
+    }
   }
 
   template <class _Func>
@@ -1378,12 +1402,22 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto transform(_Func&& __f) const&& {
     using _Up = remove_cv_t<invoke_result_t<_Func, const _Tp&&>>;
     static_assert(!is_array_v<_Up>, "Result of f(std::move(value())) should not be an Array");
-    static_assert(!is_same_v<_Up, in_place_t>, "Result of f(std::move(value())) should not be std::in_place_t");
-    static_assert(!is_same_v<_Up, nullopt_t>, "Result of f(std::move(value())) should not be std::nullopt_t");
-    static_assert(is_object_v<_Up>, "Result of f(std::move(value())) should be an object type");
-    if (*this)
-      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), std::move(this->__get()));
-    return optional<_Up>();
+    static_assert(
+        !is_same_v<remove_cvref_t<_Up>, in_place_t>, "Result of f(std::move(value())) should not be std::in_place_t");
+    static_assert(
+        !is_same_v<remove_cvref_t<_Up>, nullopt_t>, "Result of f(std::move(value())) should not be std::nullopt_t");
+    static_assert(is_object_v<_Up> || (_LIBCPP_STD_VER >= 26 && is_lvalue_reference_v<_Up>),
+                  "Result of f(std::move(value())) should be a valid contained type");
+    if constexpr (_LIBCPP_STD_VER >= 26 && is_lvalue_reference_v<_Up>) {
+      if (*this)
+        return optional<_Up>(std::invoke(std::forward<_Func>(__f), std::move(this->__get())));
+      return optional<_Up>();
+    } else {
+      if (*this)
+        return optional<_Up>(
+            __optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), std::move(this->__get()));
+      return optional<_Up>();
+    }
   }
 
   template <invocable _Func>
@@ -1470,14 +1504,20 @@ public:
     requires(is_lvalue_reference_v<_Tp>)
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr optional<remove_cv_t<invoke_result_t<_Func, _Tp&>>>
   transform(_Func&& __f) const {
-    using _Up = remove_cvref_t<invoke_result_t<_Func, _Tp&>>;
+    using _Result = invoke_result_t<_Func, _Tp&>;
+    using _Up     = remove_cvref_t<_Result>;
     static_assert(!is_array_v<_Up>, "Result of f(value()) should not be an Array");
     static_assert(!is_same_v<_Up, in_place_t>, "Result of f(value()) should not be std::in_place_t");
     static_assert(!is_same_v<_Up, nullopt_t>, "Result of f(value()) should not be std::nullopt_t");
-    static_assert(is_object_v<_Up>, "Result of f(value()) should be an object type");
-    if (*this)
-      return optional<_Up>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), this->__get());
-    return optional<_Up>();
+    static_assert(is_object_v<_Up> || is_lvalue_reference_v<_Result>,
+                  "Result of f(value()) should be an object type or lvalue reference");
+    if (*this) {
+      if constexpr (is_lvalue_reference_v<_Result>)
+        return optional<_Result>(std::invoke(std::forward<_Func>(__f), this->__get()));
+      else
+        return optional<_Result>(__optional_construct_from_invoke_tag{}, std::forward<_Func>(__f), this->__get());
+    }
+    return optional<_Result>();
   }
 
   template <invocable _Func>

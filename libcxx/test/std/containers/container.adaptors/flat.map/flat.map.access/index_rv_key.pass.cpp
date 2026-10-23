@@ -24,12 +24,16 @@
 #include "MoveOnly.h"
 #include "min_allocator.h"
 
-// Constraints: is_constructible_v<mapped_type> is true.
+// The key_type overload has no Constraints paragraph since C++26.
 template <class M, class Input>
 concept CanIndex = requires(M m, Input k) { m[k]; };
 
 static_assert(CanIndex<std::flat_map<int, double>, int&&>);
+#if TEST_STD_VER >= 26
+static_assert(CanIndex<std::flat_map<int, NoDefaultCtr>, int&&>);
+#else
 static_assert(!CanIndex<std::flat_map<int, NoDefaultCtr>, int&&>);
+#endif
 
 template <class KeyContainer, class ValueContainer>
 constexpr void test() {

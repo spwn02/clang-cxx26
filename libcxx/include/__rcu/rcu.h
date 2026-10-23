@@ -17,6 +17,9 @@
 #include <__mutex/lock_guard.h>
 #include <__mutex/mutex.h>
 #include <__mutex/unique_lock.h>
+#include <__type_traits/is_base_of.h>
+#include <__type_traits/is_class.h>
+#include <__utility/declval.h>
 #include <__utility/exchange.h>
 #include <__utility/move.h>
 #include <__utility/pair.h>
@@ -58,6 +61,27 @@ class rcu_domain;
 _LIBCPP_HIDE_FROM_ABI rcu_domain& rcu_default_domain() noexcept;
 template <class _Tp, class _Dp = default_delete<_Tp>>
 _LIBCPP_HIDE_FROM_ABI void rcu_retire(_Tp*, _Dp = _Dp(), rcu_domain& = rcu_default_domain());
+
+template <class _Tp, class _Dp>
+class rcu_obj_base;
+
+template <class _Tp, class _Dp>
+_Dp __rcu_deleter_of(const rcu_obj_base<_Tp, _Dp>*);
+
+namespace __rcu {
+template <class _Tp>
+struct __is_rcu_protectable : false_type {};
+
+template <class _Tp>
+  requires requires(_Tp* __p) { std::__rcu_deleter_of<_Tp>(__p); }
+struct __is_rcu_protectable<_Tp> {
+  using __deleter _LIBCPP_NODEBUG = decltype(std::__rcu_deleter_of<_Tp>(std::declval<_Tp*>()));
+  static constexpr bool value = is_class_v<_Tp> &&
+                                !is_virtual_base_of_v<rcu_obj_base<_Tp, __deleter>, _Tp> &&
+                                // NOLINTNEXTLINE(libcpp-robust-against-adl) intentional: hidden-friend probe
+                                requires(_Tp* __p) { __rcu_base_probe(__p); };
+};
+} // namespace __rcu
 
 class rcu_domain {
   mutex __mutex_;
@@ -172,6 +196,10 @@ _LIBCPP_HIDE_FROM_ABI inline void rcu_barrier(rcu_domain& __dom = rcu_default_do
 
 template <class _Tp, class _Dp = default_delete<_Tp>>
 class rcu_obj_base : private __rcu::__retired_node {
+  friend void __rcu_base_probe(const rcu_obj_base*);
+  template <class>
+  friend struct __rcu::__is_rcu_protectable;
+
   _Dp __deleter_;
 
   _LIBCPP_HIDE_FROM_ABI static void __evaluate(__rcu::__retired_node* __node) noexcept {
@@ -181,6 +209,7 @@ class rcu_obj_base : private __rcu::__retired_node {
 
 public:
   _LIBCPP_HIDE_FROM_ABI void retire(_Dp __deleter = _Dp(), rcu_domain& __dom = rcu_default_domain()) noexcept {
+    static_assert(__rcu::__is_rcu_protectable<_Tp>::value, "T must be an rcu-protectable type");
     __deleter_ = std::move(__deleter);
     this->__object_ = static_cast<_Tp*>(this);
     this->__evaluate_ = &rcu_obj_base::__evaluate;

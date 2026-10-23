@@ -26,6 +26,8 @@
 #  include <__type_traits/conjunction.h>
 #  include <__type_traits/enable_if.h>
 #  include <__type_traits/is_base_of.h>
+#  include <__type_traits/is_convertible.h>
+#  include <__type_traits/remove_reference.h>
 #  include <__type_traits/void_t.h>
 #  include <__utility/declval.h>
 #  include <bitset>
@@ -613,7 +615,10 @@ struct __is_ostreamable<_Stream, _Tp, decltype(std::declval<_Stream>() << std::d
 
 template <class _Stream,
           class _Tp,
-          __enable_if_t<_And<is_base_of<ios_base, _Stream>, __is_ostreamable<_Stream&, const _Tp&> >::value, int> = 0>
+          __enable_if_t<_And<is_base_of<ios_base, _Stream>,
+                           is_convertible<typename remove_reference<_Stream>::type*, const volatile ios_base*>,
+                           __is_ostreamable<_Stream&, const _Tp&>>::value,
+                        int> = 0>
 _LIBCPP_HIDE_FROM_ABI _Stream&& operator<<(_Stream&& __os, const _Tp& __x) {
   __os << __x;
   return std::move(__os);

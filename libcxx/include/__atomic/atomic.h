@@ -28,6 +28,7 @@
 #include <__type_traits/is_function.h>
 #include <__type_traits/is_integral.h>
 #include <__type_traits/is_nothrow_constructible.h>
+#include <__type_traits/is_object.h>
 #include <__type_traits/is_same.h>
 #include <__type_traits/is_scalar.h>
 #include <__type_traits/is_trivially_copyable.h>
@@ -35,6 +36,7 @@
 #include <__type_traits/remove_cv.h>
 #include <__type_traits/remove_pointer.h>
 #include <__type_traits/remove_volatile.h>
+#include <__type_traits/void_t.h>
 #include <__utility/forward.h>
 #include <cstring>
 
@@ -57,6 +59,12 @@
 #endif
 
 _LIBCPP_BEGIN_NAMESPACE_STD
+
+template <class _Tp, class = void>
+struct __atomic_is_complete : false_type {};
+
+template <class _Tp>
+struct __atomic_is_complete<_Tp, __void_t<decltype(sizeof(_Tp))>> : true_type {};
 
 template <class _Tp, bool = is_integral<_Tp>::value && !is_same<_Tp, bool>::value>
 struct __atomic_base // false
@@ -511,6 +519,8 @@ struct atomic<_Tp*> : public __atomic_base<_Tp*> {
   // operator<, not a NaN-aware comparison -- so a CAS loop with std::max/std::min's own tie-breaking
   // (returns the first argument on equality) suffices.
   _LIBCPP_HIDE_FROM_ABI _Tp* fetch_max(_Tp* __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT _LIBCPP_ATOMIC_VOLATILE_REQUIRES(__base::is_always_lock_free) {
+    static_assert(is_object<_Tp>::value && __atomic_is_complete<_Tp>::value,
+                  "Mandates: atomic pointer arithmetic requires a complete object type");
     _Tp* __old = this->load(memory_order_relaxed);
     _Tp* __new = __old < __op ? __op : __old;
     while (!this->compare_exchange_weak(__old, __new, __m, memory_order_relaxed)) {
@@ -519,6 +529,8 @@ struct atomic<_Tp*> : public __atomic_base<_Tp*> {
     return __old;
   }
   _LIBCPP_HIDE_FROM_ABI constexpr _Tp* fetch_max(_Tp* __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT {
+    static_assert(is_object<_Tp>::value && __atomic_is_complete<_Tp>::value,
+                  "Mandates: atomic pointer arithmetic requires a complete object type");
     _Tp* __old = this->load(memory_order_relaxed);
     _Tp* __new = __old < __op ? __op : __old;
     while (!this->compare_exchange_weak(__old, __new, __m, memory_order_relaxed)) {
@@ -527,6 +539,8 @@ struct atomic<_Tp*> : public __atomic_base<_Tp*> {
     return __old;
   }
   _LIBCPP_HIDE_FROM_ABI _Tp* fetch_min(_Tp* __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT _LIBCPP_ATOMIC_VOLATILE_REQUIRES(__base::is_always_lock_free) {
+    static_assert(is_object<_Tp>::value && __atomic_is_complete<_Tp>::value,
+                  "Mandates: atomic pointer arithmetic requires a complete object type");
     _Tp* __old = this->load(memory_order_relaxed);
     _Tp* __new = __op < __old ? __op : __old;
     while (!this->compare_exchange_weak(__old, __new, __m, memory_order_relaxed)) {
@@ -535,6 +549,8 @@ struct atomic<_Tp*> : public __atomic_base<_Tp*> {
     return __old;
   }
   _LIBCPP_HIDE_FROM_ABI constexpr _Tp* fetch_min(_Tp* __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT {
+    static_assert(is_object<_Tp>::value && __atomic_is_complete<_Tp>::value,
+                  "Mandates: atomic pointer arithmetic requires a complete object type");
     _Tp* __old = this->load(memory_order_relaxed);
     _Tp* __new = __op < __old ? __op : __old;
     while (!this->compare_exchange_weak(__old, __new, __m, memory_order_relaxed)) {

@@ -251,62 +251,63 @@ TEST_CONSTEXPR_CXX20 void test_swap_same_alternative() {
   }
 }
 
-void test_swap_same_alternative_throws(){
+void test_swap_same_alternative_throws() {
 #ifndef TEST_HAS_NO_EXCEPTIONS
-    {using V = std::variant<NothrowTypeWithThrowingSwap, int>;
-int move_called        = 0;
-int move_assign_called = 0;
-int swap_called        = 0;
-V v1(std::in_place_index<0>, 42, &move_called, &move_assign_called, &swap_called);
-V v2(std::in_place_index<0>, 100, &move_called, &move_assign_called, &swap_called);
-try {
-  v1.swap(v2);
-  assert(false);
-} catch (int) {
-}
-assert(swap_called == 1);
-assert(move_called == 0);
-assert(move_assign_called == 0);
-assert(std::get<0>(v1).value == 42);
-assert(std::get<0>(v2).value == 100);
-}
+  {
+    using V                = std::variant<NothrowTypeWithThrowingSwap, int>;
+    int move_called        = 0;
+    int move_assign_called = 0;
+    int swap_called        = 0;
+    V v1(std::in_place_index<0>, 42, &move_called, &move_assign_called, &swap_called);
+    V v2(std::in_place_index<0>, 100, &move_called, &move_assign_called, &swap_called);
+    try {
+      v1.swap(v2);
+      assert(false);
+    } catch (int) {
+    }
+    assert(swap_called == 1);
+    assert(move_called == 0);
+    assert(move_assign_called == 0);
+    assert(std::get<0>(v1).value == 42);
+    assert(std::get<0>(v2).value == 100);
+  }
 
-{
-  using V                = std::variant<ThrowingMoveCtor, int>;
-  int move_called        = 0;
-  int move_assign_called = 0;
-  int swap_called        = 0;
-  V v1(std::in_place_index<0>, 42, &move_called, &move_assign_called, &swap_called);
-  V v2(std::in_place_index<0>, 100, &move_called, &move_assign_called, &swap_called);
-  try {
-    v1.swap(v2);
-    assert(false);
-  } catch (int) {
+  {
+    using V                = std::variant<ThrowingMoveCtor, int>;
+    int move_called        = 0;
+    int move_assign_called = 0;
+    int swap_called        = 0;
+    V v1(std::in_place_index<0>, 42, &move_called, &move_assign_called, &swap_called);
+    V v2(std::in_place_index<0>, 100, &move_called, &move_assign_called, &swap_called);
+    try {
+      v1.swap(v2);
+      assert(false);
+    } catch (int) {
+    }
+    assert(move_called == 1); // call threw
+    assert(move_assign_called == 0);
+    assert(swap_called == 0);
+    assert(std::get<0>(v1).value == 42); // throw happened before v1 was moved from
+    assert(std::get<0>(v2).value == 100);
   }
-  assert(move_called == 1); // call threw
-  assert(move_assign_called == 0);
-  assert(swap_called == 0);
-  assert(std::get<0>(v1).value == 42); // throw happened before v1 was moved from
-  assert(std::get<0>(v2).value == 100);
-}
-{
-  using V                = std::variant<ThrowingMoveAssignNothrowMoveCtor, int>;
-  int move_called        = 0;
-  int move_assign_called = 0;
-  int swap_called        = 0;
-  V v1(std::in_place_index<0>, 42, &move_called, &move_assign_called, &swap_called);
-  V v2(std::in_place_index<0>, 100, &move_called, &move_assign_called, &swap_called);
-  try {
-    v1.swap(v2);
-    assert(false);
-  } catch (int) {
+  {
+    using V                = std::variant<ThrowingMoveAssignNothrowMoveCtor, int>;
+    int move_called        = 0;
+    int move_assign_called = 0;
+    int swap_called        = 0;
+    V v1(std::in_place_index<0>, 42, &move_called, &move_assign_called, &swap_called);
+    V v2(std::in_place_index<0>, 100, &move_called, &move_assign_called, &swap_called);
+    try {
+      v1.swap(v2);
+      assert(false);
+    } catch (int) {
+    }
+    assert(move_called == 1);
+    assert(move_assign_called == 1); // call threw and didn't complete
+    assert(swap_called == 0);
+    assert(std::get<0>(v1).value == -1); // v1 was moved from
+    assert(std::get<0>(v2).value == 100);
   }
-  assert(move_called == 1);
-  assert(move_assign_called == 1); // call threw and didn't complete
-  assert(swap_called == 0);
-  assert(std::get<0>(v1).value == -1); // v1 was moved from
-  assert(std::get<0>(v2).value == 100);
-}
 #endif
 }
 
@@ -491,6 +492,7 @@ constexpr bool has_swap_member() {
 }
 
 constexpr void test_swap_sfinae() {
+#if _LIBCPP_STD_VER < 26
   {
     // This variant type does not provide either a member or non-member swap
     // but is still swappable via the generic swap algorithm, since the
@@ -514,6 +516,7 @@ constexpr void test_swap_sfinae() {
     LIBCPP_STATIC_ASSERT(!has_swap_member<V>(), "");
     static_assert(!std::is_swappable_v<V>, "");
   }
+#endif
 }
 
 TEST_CONSTEXPR_CXX20 void test_swap_noexcept() {
@@ -572,6 +575,7 @@ TEST_CONSTEXPR_CXX20 void test_swap_noexcept() {
     swap(v1, v2);
   }
   {
+#if _LIBCPP_STD_VER < 26
     // This variant type does not provide either a member or non-member swap
     // but is still swappable via the generic swap algorithm, since the
     // variant is move constructible and move assignable.
@@ -581,10 +585,11 @@ TEST_CONSTEXPR_CXX20 void test_swap_noexcept() {
     static_assert(std::is_nothrow_swappable_v<V>, "");
     V v1, v2;
     swap(v1, v2);
+#endif
   }
 }
 
-#ifdef _LIBCPP_VERSION
+#if defined(_LIBCPP_VERSION) && _LIBCPP_STD_VER < 26
 // This is why variant should SFINAE member swap. :-)
 template class std::variant<int, NotSwappable>;
 #endif

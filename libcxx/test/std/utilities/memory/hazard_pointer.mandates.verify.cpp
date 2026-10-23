@@ -19,10 +19,15 @@
 #include <atomic>
 #include <hazard_pointer>
 
+// expected-note@*:* 0+ {{in instantiation of}}
+
 struct Good : std::hazard_pointer_obj_base<Good> {};
 struct WithDeleter : std::hazard_pointer_obj_base<WithDeleter, void (*)(WithDeleter*)> {};
 struct PrivateBase : private std::hazard_pointer_obj_base<PrivateBase> {};
-struct TwoBases : std::hazard_pointer_obj_base<TwoBases>, std::hazard_pointer_obj_base<TwoBases, void (*)(TwoBases*)> {};
+struct TwoBases : std::hazard_pointer_obj_base<TwoBases>,
+                  std::hazard_pointer_obj_base<TwoBases, void (*)(TwoBases*)> {};
+struct Other;
+struct DifferentBaseTypes : std::hazard_pointer_obj_base<DifferentBaseTypes>, std::hazard_pointer_obj_base<Other> {};
 struct Unrelated {};
 
 void test() {
@@ -41,9 +46,9 @@ void test() {
   (void)h.try_protect(wp, wsrc);
 
   int value = 1;
-  int* ip = &value;
+  int* ip   = &value;
   std::atomic<int*> isrc{ip};
-  h.reset_protection(ip); // expected-error@*:* {{T must be a hazard-protectable type}}
+  h.reset_protection(ip);        // expected-error@*:* {{T must be a hazard-protectable type}}
   (void)h.try_protect(ip, isrc); // expected-error@*:* {{T must be a hazard-protectable type}}
 
   Unrelated u;
@@ -57,4 +62,12 @@ void test() {
   TwoBases tb;
   TwoBases* tbp = &tb;
   h.reset_protection(tbp); // expected-error@*:* {{T must be a hazard-protectable type}}
+
+  DifferentBaseTypes db;
+  DifferentBaseTypes* dbp = &db;
+  h.reset_protection(dbp); // expected-error@*:* {{T must be a hazard-protectable type}}
+  std::atomic<DifferentBaseTypes*> dbsrc{dbp};
+  (void)h.try_protect(dbp, dbsrc); // expected-error@*:* {{T must be a hazard-protectable type}}
+  static_cast<std::hazard_pointer_obj_base<DifferentBaseTypes>&>(db)
+      .retire(); // expected-error@*:* {{T must be a hazard-protectable type}}
 }

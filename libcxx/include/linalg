@@ -504,7 +504,7 @@ public:
 
   static_assert(semiregular<_ScalingFactor>, "scaled_accessor requires a semiregular scaling factor");
   static_assert(!is_reference_v<element_type>, "scaled_accessor element_type must not be a reference");
-  static_assert(copy_constructible<reference>, "scaled_accessor reference must be copy constructible");
+  static_assert(is_copy_constructible_v<reference>, "scaled_accessor reference must be copy constructible");
 
   _LIBCPP_HIDE_FROM_ABI constexpr scaled_accessor()
     requires default_initializable<_ScalingFactor> && default_initializable<_NestedAccessor>
@@ -561,7 +561,7 @@ public:
   using data_handle_type = typename _NestedAccessor::data_handle_type;
 
   static_assert(!is_reference_v<element_type>, "conjugated_accessor element_type must not be a reference");
-  static_assert(copy_constructible<reference>, "conjugated_accessor reference must be copy constructible");
+  static_assert(is_copy_constructible_v<reference>, "conjugated_accessor reference must be copy constructible");
 
   _LIBCPP_HIDE_FROM_ABI constexpr conjugated_accessor()
     requires default_initializable<_NestedAccessor>

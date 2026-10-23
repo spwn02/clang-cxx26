@@ -11,6 +11,8 @@
 #define _LIBCPP___NUMERIC_IOTA_H
 
 #include <__config>
+#include <__iterator/iterator_traits.h>
+#include <__type_traits/is_convertible.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -21,6 +23,10 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 template <class _ForwardIterator, class _Tp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 void
 iota(_ForwardIterator __first, _ForwardIterator __last, _Tp __value) {
+#if _LIBCPP_STD_VER >= 20
+  static_assert(is_convertible<_Tp, typename iterator_traits<_ForwardIterator>::value_type>::value,
+                "Mandates: T is convertible to ForwardIterator's value type");
+#endif
   for (; __first != __last; ++__first, (void)++__value)
     *__first = __value;
 }

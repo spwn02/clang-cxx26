@@ -35,6 +35,7 @@
 #include <__type_traits/is_const.h>
 #include <__type_traits/is_constant_evaluated.h>
 #include <__type_traits/is_convertible.h>
+#include <__type_traits/is_object.h>
 #include <__type_traits/is_pointer.h>
 #include <__type_traits/is_scalar.h>
 #include <__type_traits/is_similar.h>
@@ -42,6 +43,7 @@
 #include <__type_traits/is_volatile.h>
 #include <__type_traits/remove_cv.h>
 #include <__type_traits/remove_pointer.h>
+#include <__type_traits/void_t.h>
 #include <cstdint>
 #include <cstring>
 
@@ -55,6 +57,12 @@ _LIBCPP_PUSH_MACROS
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 20
+
+template <class _Tp, class = void>
+struct __atomic_ref_is_complete : false_type {};
+
+template <class _Tp>
+struct __atomic_ref_is_complete<_Tp, __void_t<decltype(sizeof(_Tp))>> : true_type {};
 
 // These types are required to make __atomic_is_always_lock_free work across GCC and Clang.
 // The purpose of this trick is to make sure that we provide an object with the correct alignment
@@ -804,6 +812,8 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
   fetch_max(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept
     requires(!is_const_v<_Tp>)
   {
+    static_assert(is_object<__pointee>::value && __atomic_ref_is_complete<__pointee>::value,
+                  "Mandates: atomic_ref pointer arithmetic requires a complete object type");
     value_type __old = this->load(memory_order_relaxed);
     value_type __new = __old < __arg ? __arg : __old;
     while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {
@@ -815,6 +825,8 @@ struct atomic_ref<_Tp> : public __atomic_ref_base<_Tp> {
   fetch_min(value_type __arg, memory_order __order = memory_order_seq_cst) const noexcept
     requires(!is_const_v<_Tp>)
   {
+    static_assert(is_object<__pointee>::value && __atomic_ref_is_complete<__pointee>::value,
+                  "Mandates: atomic_ref pointer arithmetic requires a complete object type");
     value_type __old = this->load(memory_order_relaxed);
     value_type __new = __arg < __old ? __arg : __old;
     while (!this->compare_exchange_weak(__old, __new, __order, memory_order_relaxed)) {

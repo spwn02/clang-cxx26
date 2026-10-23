@@ -25,9 +25,7 @@
 
 // Constraints:
 // The qualified-id Compare::is_transparent is valid and denotes a type.
-// is_constructible_v<key_type, K> is true.
-// is_constructible_v<mapped_type, Args...> is true.
-// is_convertible_v<K&&, const_iterator> and is_convertible_v<K&&, iterator> are both false
+// Before C++26, key and mapped constructibility and iterator-conversion exclusions also apply.
 template <class M, class Input>
 concept CanIndex                      = requires(M m, Input k) { m[k]; };
 using TransparentMap                  = std::flat_map<int, double, TransparentComparator>;
@@ -40,14 +38,27 @@ static_assert(!CanIndex<const TransparentMap, ConvertibleTransparent<int>>);
 static_assert(!CanIndex<NonTransparentMap, NonConvertibleTransparent<int>>);
 static_assert(!CanIndex<const NonTransparentMap, NonConvertibleTransparent<int>>);
 
+#if TEST_STD_VER >= 26
+static_assert(CanIndex<TransparentMap, NonConvertibleTransparent<int>>);
+#else
 static_assert(!CanIndex<TransparentMap, NonConvertibleTransparent<int>>);
+#endif
 static_assert(!CanIndex<const TransparentMap, NonConvertibleTransparent<int>>);
 
+#if TEST_STD_VER >= 26
+static_assert(CanIndex<TransparentNoDefaultCtrValueMap, ConvertibleTransparent<int>>);
+#else
 static_assert(!CanIndex<TransparentNoDefaultCtrValueMap, ConvertibleTransparent<int>>);
+#endif
 static_assert(!CanIndex<const TransparentNoDefaultCtrValueMap, ConvertibleTransparent<int>>);
 
+#if TEST_STD_VER >= 26
+static_assert(CanIndex<TransparentMap, TransparentMap::iterator>);
+static_assert(CanIndex<TransparentMap, TransparentMap::const_iterator>);
+#else
 static_assert(!CanIndex<TransparentMap, TransparentMap::iterator>);
 static_assert(!CanIndex<TransparentMap, TransparentMap::const_iterator>);
+#endif
 
 template <class KeyContainer, class ValueContainer>
 constexpr void test() {

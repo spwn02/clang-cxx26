@@ -368,7 +368,9 @@ template <class T> unspecified2 end(const valarray<T>& v);     // removed in C++
 #  include <__memory/allocator.h>
 #  include <__memory/uninitialized_algorithms.h>
 #  include <__type_traits/decay.h>
+#  include <__type_traits/is_convertible.h>
 #  include <__type_traits/remove_reference.h>
+#  include <__utility/declval.h>
 #  include <__utility/exception_guard.h>
 #  include <__utility/move.h>
 #  include <__utility/swap.h>
@@ -514,6 +516,24 @@ struct __bit_not {
   _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return ~__x; }
 };
 
+#  if _LIBCPP_STD_VER >= 20
+template <class _Tp>
+inline constexpr bool __valarray_unary_plus_mandate =
+    requires(const _Tp& __x) { requires is_convertible_v<decltype(+__x), _Tp>; };
+
+template <class _Tp>
+inline constexpr bool __valarray_unary_minus_mandate =
+    requires(const _Tp& __x) { requires is_convertible_v<decltype(-__x), _Tp>; };
+
+template <class _Tp>
+inline constexpr bool __valarray_unary_complement_mandate =
+    requires(const _Tp& __x) { requires is_convertible_v<decltype(~__x), _Tp>; };
+
+template <class _Tp>
+inline constexpr bool __valarray_unary_not_mandate =
+    requires(const _Tp& __x) { requires is_convertible_v<decltype(!__x), bool>; };
+#  endif
+
 template <class _Tp>
 struct __bit_shift_left {
   typedef _Tp __result_type;
@@ -539,101 +559,151 @@ public:
   _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return __f_(__x); }
 };
 
+// NOLINTBEGIN(libcpp-robust-against-adl) intentional: [valarray.transcend] uses unqualified calls
 template <class _Tp>
 struct __abs_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::abs(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::abs;
+    return abs(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __acos_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::acos(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::acos;
+    return acos(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __asin_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::asin(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::asin;
+    return asin(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __atan_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::atan(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::atan;
+    return atan(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __atan2_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x, const _Tp& __y) const { return std::atan2(__x, __y); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x, _Tp __y) const {
+    using std::atan2;
+    return atan2(std::move(__x), std::move(__y));
+  }
 };
 
 template <class _Tp>
 struct __cos_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::cos(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::cos;
+    return cos(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __cosh_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::cosh(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::cosh;
+    return cosh(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __exp_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::exp(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::exp;
+    return exp(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __log_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::log(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::log;
+    return log(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __log10_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::log10(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::log10;
+    return log10(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __pow_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x, const _Tp& __y) const { return std::pow(__x, __y); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x, _Tp __y) const {
+    using std::pow;
+    return pow(std::move(__x), std::move(__y));
+  }
 };
 
 template <class _Tp>
 struct __sin_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::sin(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::sin;
+    return sin(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __sinh_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::sinh(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::sinh;
+    return sinh(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __sqrt_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::sqrt(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::sqrt;
+    return sqrt(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __tan_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::tan(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::tan;
+    return tan(std::move(__x));
+  }
 };
 
 template <class _Tp>
 struct __tanh_expr {
   typedef _Tp __result_type;
-  _LIBCPP_HIDE_FROM_ABI _Tp operator()(const _Tp& __x) const { return std::tanh(__x); }
+  _LIBCPP_HIDE_FROM_ABI _Tp operator()(_Tp __x) const {
+    using std::tanh;
+    return tanh(std::move(__x));
+  }
 };
+// NOLINTEND(libcpp-robust-against-adl)
 
 template <class _ValExpr>
 class __slice_expr {
@@ -1937,21 +2007,37 @@ public:
   }
 
   _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__unary_plus<value_type>, _ValExpr> > operator+() const {
+#  if _LIBCPP_STD_VER >= 20
+    static_assert(__valarray_unary_plus_mandate<value_type>,
+                  "Mandates: unary + must return a value convertible to valarray's value type");
+#  endif
     typedef _UnaryOp<__unary_plus<value_type>, _ValExpr> _NewExpr;
     return __val_expr<_NewExpr>(_NewExpr(__unary_plus<value_type>(), __expr_));
   }
 
   _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<negate<value_type>, _ValExpr> > operator-() const {
+#  if _LIBCPP_STD_VER >= 20
+    static_assert(__valarray_unary_minus_mandate<value_type>,
+                  "Mandates: unary - must return a value convertible to valarray's value type");
+#  endif
     typedef _UnaryOp<negate<value_type>, _ValExpr> _NewExpr;
     return __val_expr<_NewExpr>(_NewExpr(negate<value_type>(), __expr_));
   }
 
   _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__bit_not<value_type>, _ValExpr> > operator~() const {
+#  if _LIBCPP_STD_VER >= 20
+    static_assert(__valarray_unary_complement_mandate<value_type>,
+                  "Mandates: unary ~ must return a value convertible to valarray's value type");
+#  endif
     typedef _UnaryOp<__bit_not<value_type>, _ValExpr> _NewExpr;
     return __val_expr<_NewExpr>(_NewExpr(__bit_not<value_type>(), __expr_));
   }
 
   _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<logical_not<value_type>, _ValExpr> > operator!() const {
+#  if _LIBCPP_STD_VER >= 20
+    static_assert(
+        __valarray_unary_not_mandate<value_type>, "Mandates: unary ! must return a value convertible to bool");
+#  endif
     typedef _UnaryOp<logical_not<value_type>, _ValExpr> _NewExpr;
     return __val_expr<_NewExpr>(_NewExpr(logical_not<value_type>(), __expr_));
   }
@@ -2329,24 +2415,39 @@ inline indirect_array<_Tp> valarray<_Tp>::operator[](valarray<size_t>&& __vs) {
 
 template <class _Tp>
 inline __val_expr<_UnaryOp<__unary_plus<_Tp>, const valarray<_Tp>&> > valarray<_Tp>::operator+() const {
+#  if _LIBCPP_STD_VER >= 20
+  static_assert(
+      __valarray_unary_plus_mandate<_Tp>, "Mandates: unary + must return a value convertible to valarray's value type");
+#  endif
   using _Op = _UnaryOp<__unary_plus<_Tp>, const valarray<_Tp>&>;
   return __val_expr<_Op>(_Op(__unary_plus<_Tp>(), *this));
 }
 
 template <class _Tp>
 inline __val_expr<_UnaryOp<negate<_Tp>, const valarray<_Tp>&> > valarray<_Tp>::operator-() const {
+#  if _LIBCPP_STD_VER >= 20
+  static_assert(__valarray_unary_minus_mandate<_Tp>,
+                "Mandates: unary - must return a value convertible to valarray's value type");
+#  endif
   using _Op = _UnaryOp<negate<_Tp>, const valarray<_Tp>&>;
   return __val_expr<_Op>(_Op(negate<_Tp>(), *this));
 }
 
 template <class _Tp>
 inline __val_expr<_UnaryOp<__bit_not<_Tp>, const valarray<_Tp>&> > valarray<_Tp>::operator~() const {
+#  if _LIBCPP_STD_VER >= 20
+  static_assert(__valarray_unary_complement_mandate<_Tp>,
+                "Mandates: unary ~ must return a value convertible to valarray's value type");
+#  endif
   using _Op = _UnaryOp<__bit_not<_Tp>, const valarray<_Tp>&>;
   return __val_expr<_Op>(_Op(__bit_not<_Tp>(), *this));
 }
 
 template <class _Tp>
 inline __val_expr<_UnaryOp<logical_not<_Tp>, const valarray<_Tp>&> > valarray<_Tp>::operator!() const {
+#  if _LIBCPP_STD_VER >= 20
+  static_assert(__valarray_unary_not_mandate<_Tp>, "Mandates: unary ! must return a value convertible to bool");
+#  endif
   using _Op = _UnaryOp<logical_not<_Tp>, const valarray<_Tp>&>;
   return __val_expr<_Op>(_Op(logical_not<_Tp>(), *this));
 }
@@ -2639,12 +2740,22 @@ inline _LIBCPP_HIDE_FROM_ABI void swap(valarray<_Tp>& __x, valarray<_Tp>& __y) _
   __x.swap(__y);
 }
 
+#  if _LIBCPP_STD_VER >= 20
+#    define _LIBCPP_VALARRAY_CHECK_BINARY(_Tp, _Op, _Result)                                                           \
+      static_assert(                                                                                                   \
+          requires(const _Tp& __vlhs, const _Tp& __vrhs) { requires is_convertible_v<decltype(__vlhs _Op __vrhs), _Result>; }, \
+          "Mandates: the indicated valarray binary operator must be applicable and return the required type")
+#  else
+#    define _LIBCPP_VALARRAY_CHECK_BINARY(_Tp, _Op, _Result)
+#  endif
+
 template <class _Expr1,
           class _Expr2,
           __enable_if_t<__is_val_expr<_Expr1>::value && __is_val_expr<_Expr2>::value, int> = 0>
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<multiplies<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator*(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, *, value_type);
   typedef _BinaryOp<multiplies<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(multiplies<value_type>(), __x, __y));
 }
@@ -2654,6 +2765,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<multiplies<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator*(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, *, value_type);
   typedef _BinaryOp<multiplies<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(multiplies<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2663,6 +2775,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<multiplies<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator*(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, *, value_type);
   typedef _BinaryOp<multiplies<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(multiplies<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2673,6 +2786,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<divides<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator/(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, /, value_type);
   typedef _BinaryOp<divides<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(divides<value_type>(), __x, __y));
 }
@@ -2682,6 +2796,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<divides<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator/(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, /, value_type);
   typedef _BinaryOp<divides<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(divides<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2691,6 +2806,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<divides<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator/(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, /, value_type);
   typedef _BinaryOp<divides<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(divides<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2701,6 +2817,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<modulus<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator%(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, %, value_type);
   typedef _BinaryOp<modulus<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(modulus<value_type>(), __x, __y));
 }
@@ -2710,6 +2827,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<modulus<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator%(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, %, value_type);
   typedef _BinaryOp<modulus<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(modulus<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2719,6 +2837,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<modulus<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator%(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, %, value_type);
   typedef _BinaryOp<modulus<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(modulus<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2729,6 +2848,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<plus<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator+(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, +, value_type);
   typedef _BinaryOp<plus<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(plus<value_type>(), __x, __y));
 }
@@ -2738,6 +2858,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<plus<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator+(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, +, value_type);
   typedef _BinaryOp<plus<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(plus<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2747,6 +2868,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<plus<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator+(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, +, value_type);
   typedef _BinaryOp<plus<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(plus<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2757,6 +2879,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<minus<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator-(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, -, value_type);
   typedef _BinaryOp<minus<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(minus<value_type>(), __x, __y));
 }
@@ -2766,6 +2889,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<minus<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator-(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, -, value_type);
   typedef _BinaryOp<minus<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(minus<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2775,6 +2899,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<minus<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator-(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, -, value_type);
   typedef _BinaryOp<minus<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(minus<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2785,6 +2910,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<bit_xor<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator^(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, ^, value_type);
   typedef _BinaryOp<bit_xor<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(bit_xor<value_type>(), __x, __y));
 }
@@ -2794,6 +2920,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<bit_xor<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator^(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, ^, value_type);
   typedef _BinaryOp<bit_xor<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(bit_xor<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2803,6 +2930,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<bit_xor<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator^(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, ^, value_type);
   typedef _BinaryOp<bit_xor<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(bit_xor<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2813,6 +2941,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<bit_and<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator&(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, &, value_type);
   typedef _BinaryOp<bit_and<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(bit_and<value_type>(), __x, __y));
 }
@@ -2822,6 +2951,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<bit_and<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator&(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, &, value_type);
   typedef _BinaryOp<bit_and<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(bit_and<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2831,6 +2961,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<bit_and<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator&(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, &, value_type);
   typedef _BinaryOp<bit_and<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(bit_and<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2841,6 +2972,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<bit_or<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator|(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, |, value_type);
   typedef _BinaryOp<bit_or<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(bit_or<value_type>(), __x, __y));
 }
@@ -2850,6 +2982,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<bit_or<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator|(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, |, value_type);
   typedef _BinaryOp<bit_or<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(bit_or<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2859,6 +2992,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<bit_or<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator|(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, |, value_type);
   typedef _BinaryOp<bit_or<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(bit_or<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2869,6 +3003,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<__bit_shift_left<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator<<(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, <<, value_type);
   typedef _BinaryOp<__bit_shift_left<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(__bit_shift_left<value_type>(), __x, __y));
 }
@@ -2878,6 +3013,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr< _BinaryOp<__bit_shift_left<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator<<(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, <<, value_type);
   typedef _BinaryOp<__bit_shift_left<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(__bit_shift_left<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2887,6 +3023,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr< _BinaryOp<__bit_shift_left<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator<<(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, <<, value_type);
   typedef _BinaryOp<__bit_shift_left<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__bit_shift_left<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2897,6 +3034,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<__bit_shift_right<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator>>(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, >>, value_type);
   typedef _BinaryOp<__bit_shift_right<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(__bit_shift_right<value_type>(), __x, __y));
 }
@@ -2906,6 +3044,7 @@ inline _LIBCPP_HIDE_FROM_ABI __val_expr<
     _BinaryOp<__bit_shift_right<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator>>(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, >>, value_type);
   typedef _BinaryOp<__bit_shift_right<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(__bit_shift_right<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2915,6 +3054,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr< _BinaryOp<__bit_shift_right<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator>>(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, >>, value_type);
   typedef _BinaryOp<__bit_shift_right<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__bit_shift_right<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2925,6 +3065,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<logical_and<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator&&(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, &&, bool);
   typedef _BinaryOp<logical_and<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(logical_and<value_type>(), __x, __y));
 }
@@ -2934,6 +3075,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<logical_and<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator&&(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, &&, bool);
   typedef _BinaryOp<logical_and<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(logical_and<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2943,6 +3085,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<logical_and<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator&&(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, &&, bool);
   typedef _BinaryOp<logical_and<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(logical_and<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2953,6 +3096,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<logical_or<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator||(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, ||, bool);
   typedef _BinaryOp<logical_or<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(logical_or<value_type>(), __x, __y));
 }
@@ -2962,6 +3106,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<logical_or<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator||(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, ||, bool);
   typedef _BinaryOp<logical_or<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(logical_or<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2971,6 +3116,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<logical_or<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator||(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, ||, bool);
   typedef _BinaryOp<logical_or<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(logical_or<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -2981,6 +3127,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<equal_to<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator==(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, ==, bool);
   typedef _BinaryOp<equal_to<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(equal_to<value_type>(), __x, __y));
 }
@@ -2990,6 +3137,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<equal_to<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator==(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, ==, bool);
   typedef _BinaryOp<equal_to<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(equal_to<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -2999,6 +3147,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<equal_to<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator==(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, ==, bool);
   typedef _BinaryOp<equal_to<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(equal_to<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -3009,6 +3158,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<not_equal_to<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator!=(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, !=, bool);
   typedef _BinaryOp<not_equal_to<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(not_equal_to<value_type>(), __x, __y));
 }
@@ -3018,6 +3168,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<not_equal_to<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator!=(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, !=, bool);
   typedef _BinaryOp<not_equal_to<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(not_equal_to<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -3027,6 +3178,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<not_equal_to<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator!=(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, !=, bool);
   typedef _BinaryOp<not_equal_to<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(not_equal_to<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -3037,6 +3189,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<less<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator<(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, <, bool);
   typedef _BinaryOp<less<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(less<value_type>(), __x, __y));
 }
@@ -3046,6 +3199,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<less<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator<(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, <, bool);
   typedef _BinaryOp<less<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(less<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -3055,6 +3209,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<less<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator<(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, <, bool);
   typedef _BinaryOp<less<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(less<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -3065,6 +3220,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<greater<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator>(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, >, bool);
   typedef _BinaryOp<greater<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(greater<value_type>(), __x, __y));
 }
@@ -3074,6 +3230,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<greater<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator>(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, >, bool);
   typedef _BinaryOp<greater<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(greater<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -3083,6 +3240,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<greater<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator>(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, >, bool);
   typedef _BinaryOp<greater<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(greater<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -3093,6 +3251,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<less_equal<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator<=(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, <=, bool);
   typedef _BinaryOp<less_equal<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(less_equal<value_type>(), __x, __y));
 }
@@ -3102,6 +3261,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<less_equal<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator<=(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, <=, bool);
   typedef _BinaryOp<less_equal<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(less_equal<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -3111,6 +3271,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<less_equal<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator<=(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, <=, bool);
   typedef _BinaryOp<less_equal<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(less_equal<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -3121,6 +3282,7 @@ template <class _Expr1,
 inline _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<greater_equal<typename _Expr1::value_type>, _Expr1, _Expr2> >
 operator>=(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, >=, bool);
   typedef _BinaryOp<greater_equal<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(greater_equal<value_type>(), __x, __y));
 }
@@ -3130,6 +3292,7 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<greater_equal<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 operator>=(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, >=, bool);
   typedef _BinaryOp<greater_equal<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(greater_equal<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -3139,14 +3302,33 @@ inline _LIBCPP_HIDE_FROM_ABI
 __val_expr<_BinaryOp<greater_equal<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 operator>=(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_BINARY(value_type, >=, bool);
   typedef _BinaryOp<greater_equal<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(greater_equal<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
 
+#  undef _LIBCPP_VALARRAY_CHECK_BINARY
+
+#  if _LIBCPP_STD_VER >= 20
+#    define _LIBCPP_VALARRAY_CHECK_TRANSCEND(_Name, _Tp)                                                               \
+      static_assert(                                                                                                   \
+          requires { requires is_convertible_v<decltype(_Name(std::declval<_Tp>())), _Tp>; },                          \
+          "Mandates: the indicated valarray function must be applicable and return the required type")
+#    define _LIBCPP_VALARRAY_CHECK_TRANSCEND_BINARY(_Name, _Tp)                                                        \
+      static_assert(                                                                                                   \
+          requires { requires is_convertible_v<decltype(_Name(std::declval<_Tp>(), std::declval<_Tp>())), _Tp>; },     \
+          "Mandates: the indicated valarray function must be applicable and return the required type")
+#  else
+#    define _LIBCPP_VALARRAY_CHECK_TRANSCEND(_Name, _Tp)
+#    define _LIBCPP_VALARRAY_CHECK_TRANSCEND_BINARY(_Name, _Tp)
+#  endif
+
+// NOLINTBEGIN(libcpp-robust-against-adl) intentional: [valarray.transcend] uses unqualified calls
 template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__abs_expr<typename _Expr::value_type>, _Expr> >
-abs(const _Expr& __x) {
+[[__nodiscard__]] inline
+    _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__abs_expr<typename _Expr::value_type>, _Expr> > abs(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(abs, value_type);
   typedef _UnaryOp<__abs_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__abs_expr<value_type>(), __x));
 }
@@ -3155,6 +3337,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__acos_expr<typename _Expr::value_type>, _Expr> >
 acos(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(acos, value_type);
   typedef _UnaryOp<__acos_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__acos_expr<value_type>(), __x));
 }
@@ -3163,6 +3346,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__asin_expr<typename _Expr::value_type>, _Expr> >
 asin(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(asin, value_type);
   typedef _UnaryOp<__asin_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__asin_expr<value_type>(), __x));
 }
@@ -3171,6 +3355,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__atan_expr<typename _Expr::value_type>, _Expr> >
 atan(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(atan, value_type);
   typedef _UnaryOp<__atan_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__atan_expr<value_type>(), __x));
 }
@@ -3182,6 +3367,7 @@ template <class _Expr1,
     _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<__atan2_expr<typename _Expr1::value_type>, _Expr1, _Expr2> >
     atan2(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND_BINARY(atan2, value_type);
   typedef _BinaryOp<__atan2_expr<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(__atan2_expr<value_type>(), __x, __y));
 }
@@ -3191,6 +3377,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 __val_expr<_BinaryOp<__atan2_expr<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 atan2(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND_BINARY(atan2, value_type);
   typedef _BinaryOp<__atan2_expr<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(__atan2_expr<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -3200,6 +3387,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 __val_expr<_BinaryOp<__atan2_expr<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 atan2(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND_BINARY(atan2, value_type);
   typedef _BinaryOp<__atan2_expr<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__atan2_expr<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -3208,6 +3396,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__cos_expr<typename _Expr::value_type>, _Expr> >
 cos(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(cos, value_type);
   typedef _UnaryOp<__cos_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__cos_expr<value_type>(), __x));
 }
@@ -3216,6 +3405,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__cosh_expr<typename _Expr::value_type>, _Expr> >
 cosh(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(cosh, value_type);
   typedef _UnaryOp<__cosh_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__cosh_expr<value_type>(), __x));
 }
@@ -3224,6 +3414,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__exp_expr<typename _Expr::value_type>, _Expr> >
 exp(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(exp, value_type);
   typedef _UnaryOp<__exp_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__exp_expr<value_type>(), __x));
 }
@@ -3232,6 +3423,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__log_expr<typename _Expr::value_type>, _Expr> >
 log(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(log, value_type);
   typedef _UnaryOp<__log_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__log_expr<value_type>(), __x));
 }
@@ -3240,6 +3432,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__log10_expr<typename _Expr::value_type>, _Expr> >
 log10(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(log10, value_type);
   typedef _UnaryOp<__log10_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__log10_expr<value_type>(), __x));
 }
@@ -3251,6 +3444,7 @@ template <class _Expr1,
     _LIBCPP_HIDE_FROM_ABI __val_expr<_BinaryOp<__pow_expr<typename _Expr1::value_type>, _Expr1, _Expr2> >
     pow(const _Expr1& __x, const _Expr2& __y) {
   typedef typename _Expr1::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND_BINARY(pow, value_type);
   typedef _BinaryOp<__pow_expr<value_type>, _Expr1, _Expr2> _Op;
   return __val_expr<_Op>(_Op(__pow_expr<value_type>(), __x, __y));
 }
@@ -3260,6 +3454,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 __val_expr<_BinaryOp<__pow_expr<typename _Expr::value_type>, _Expr, __scalar_expr<typename _Expr::value_type> > >
 pow(const _Expr& __x, const typename _Expr::value_type& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND_BINARY(pow, value_type);
   typedef _BinaryOp<__pow_expr<value_type>, _Expr, __scalar_expr<value_type> > _Op;
   return __val_expr<_Op>(_Op(__pow_expr<value_type>(), __x, __scalar_expr<value_type>(__y, __x.size())));
 }
@@ -3269,6 +3464,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 __val_expr<_BinaryOp<__pow_expr<typename _Expr::value_type>, __scalar_expr<typename _Expr::value_type>, _Expr> >
 pow(const typename _Expr::value_type& __x, const _Expr& __y) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND_BINARY(pow, value_type);
   typedef _BinaryOp<__pow_expr<value_type>, __scalar_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__pow_expr<value_type>(), __scalar_expr<value_type>(__x, __y.size()), __y));
 }
@@ -3277,6 +3473,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__sin_expr<typename _Expr::value_type>, _Expr> >
 sin(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(sin, value_type);
   typedef _UnaryOp<__sin_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__sin_expr<value_type>(), __x));
 }
@@ -3285,6 +3482,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__sinh_expr<typename _Expr::value_type>, _Expr> >
 sinh(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(sinh, value_type);
   typedef _UnaryOp<__sinh_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__sinh_expr<value_type>(), __x));
 }
@@ -3293,6 +3491,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__sqrt_expr<typename _Expr::value_type>, _Expr> >
 sqrt(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(sqrt, value_type);
   typedef _UnaryOp<__sqrt_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__sqrt_expr<value_type>(), __x));
 }
@@ -3301,6 +3500,7 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__tan_expr<typename _Expr::value_type>, _Expr> >
 tan(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(tan, value_type);
   typedef _UnaryOp<__tan_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__tan_expr<value_type>(), __x));
 }
@@ -3309,9 +3509,14 @@ template <class _Expr, __enable_if_t<__is_val_expr<_Expr>::value, int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI __val_expr<_UnaryOp<__tanh_expr<typename _Expr::value_type>, _Expr> >
 tanh(const _Expr& __x) {
   typedef typename _Expr::value_type value_type;
+  _LIBCPP_VALARRAY_CHECK_TRANSCEND(tanh, value_type);
   typedef _UnaryOp<__tanh_expr<value_type>, _Expr> _Op;
   return __val_expr<_Op>(_Op(__tanh_expr<value_type>(), __x));
 }
+// NOLINTEND(libcpp-robust-against-adl)
+
+#  undef _LIBCPP_VALARRAY_CHECK_TRANSCEND_BINARY
+#  undef _LIBCPP_VALARRAY_CHECK_TRANSCEND
 
 #  if _LIBCPP_STD_VER < 26
 template <class _Tp>

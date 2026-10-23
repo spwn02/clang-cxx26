@@ -114,6 +114,28 @@ constexpr bool test() {
 // `element_type`, not `element_type` itself.
 namespace accessor_conformance {
 
+struct CopyOnly {
+  CopyOnly()                = default;
+  CopyOnly(const CopyOnly&) = default;
+  CopyOnly(CopyOnly&&)      = delete;
+};
+
+struct Factor {
+  friend CopyOnly operator*(Factor, int) { return {}; }
+};
+
+struct Conjugatable {
+  friend CopyOnly conj(const Conjugatable&) { return {}; }
+};
+
+using scaled_copy_only     = std::linalg::scaled_accessor<Factor, std::default_accessor<int>>;
+using conjugated_copy_only = std::linalg::conjugated_accessor<std::default_accessor<Conjugatable>>;
+
+static_assert(std::is_copy_constructible_v<scaled_copy_only::reference>);
+static_assert(!std::copy_constructible<scaled_copy_only::reference>);
+static_assert(std::is_copy_constructible_v<conjugated_copy_only::reference>);
+static_assert(!std::copy_constructible<conjugated_copy_only::reference>);
+
 using nested   = std::default_accessor<double>;
 using scaled_a = std::linalg::scaled_accessor<double, nested>;
 

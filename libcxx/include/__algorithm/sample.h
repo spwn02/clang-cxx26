@@ -17,6 +17,7 @@
 #include <__iterator/iterator_traits.h>
 #include <__random/uniform_int_distribution.h>
 #include <__type_traits/common_type.h>
+#include <__type_traits/integer_traits.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -107,6 +108,9 @@ sample(_PopulationIterator __first,
        _SampleIterator __output_iter,
        _Distance __n,
        _UniformRandomNumberGenerator&& __g) {
+#  if _LIBCPP_STD_VER >= 20
+  static_assert(__signed_or_unsigned_integer<_Distance>, "Mandates: Distance is an integer type");
+#  endif
   static_assert(__has_forward_iterator_category<_PopulationIterator>::value ||
                     __has_random_access_iterator_category<_SampleIterator>::value,
                 "SampleIterator must meet the requirements of RandomAccessIterator");

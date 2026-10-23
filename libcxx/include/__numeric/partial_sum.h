@@ -12,6 +12,8 @@
 
 #include <__config>
 #include <__iterator/iterator_traits.h>
+#include <__type_traits/is_convertible.h>
+#include <__utility/declval.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -26,6 +28,12 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 template <class _InputIterator, class _OutputIterator>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _OutputIterator
 partial_sum(_InputIterator __first, _InputIterator __last, _OutputIterator __result) {
+#if _LIBCPP_STD_VER >= 20
+  using _ValueType = typename iterator_traits<_InputIterator>::value_type;
+  static_assert(
+      is_convertible<decltype(std::declval<_ValueType&&>() + *std::declval<_InputIterator&>()), _ValueType>::value,
+      "Mandates: the result of the addition is implicitly convertible to InputIterator's value type");
+#endif
   if (__first != __last) {
     typename iterator_traits<_InputIterator>::value_type __t(*__first);
     *__result = __t;
@@ -44,6 +52,12 @@ partial_sum(_InputIterator __first, _InputIterator __last, _OutputIterator __res
 template <class _InputIterator, class _OutputIterator, class _BinaryOperation>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _OutputIterator
 partial_sum(_InputIterator __first, _InputIterator __last, _OutputIterator __result, _BinaryOperation __binary_op) {
+#if _LIBCPP_STD_VER >= 20
+  using _ValueType = typename iterator_traits<_InputIterator>::value_type;
+  static_assert(is_convertible<decltype(__binary_op(std::declval<_ValueType&&>(), *std::declval<_InputIterator&>())),
+                               _ValueType>::value,
+                "Mandates: the result of binary_op is implicitly convertible to InputIterator's value type");
+#endif
   if (__first != __last) {
     typename iterator_traits<_InputIterator>::value_type __t(*__first);
     *__result = __t;

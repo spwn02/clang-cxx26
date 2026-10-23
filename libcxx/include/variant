@@ -1292,6 +1292,12 @@ public:
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr size_t index() const noexcept { return __impl_.index(); }
 
+#    if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 void swap(variant& __that) noexcept(
+      __all<(is_nothrow_move_constructible_v<_Types> && is_nothrow_swappable_v<_Types>)...>::value) {
+    __impl_.__swap(__that.__impl_);
+  }
+#    else
   template < bool _Dummy       = true,
              enable_if_t< __all<(__dependent_type<is_move_constructible<_Types>, _Dummy>::value &&
                                  __dependent_type<is_swappable<_Types>, _Dummy>::value)...>::value,
@@ -1300,6 +1306,7 @@ public:
       __all<(is_nothrow_move_constructible_v<_Types> && is_nothrow_swappable_v<_Types>)...>::value) {
     __impl_.__swap(__that.__impl_);
   }
+#    endif
 
 #    if _LIBCPP_STD_VER >= 26
   // Helper class to implement [variant.visit]/10

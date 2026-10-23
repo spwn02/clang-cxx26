@@ -26,6 +26,10 @@ struct Incomplete;
 Incomplete* ip = nullptr;
 void* vp       = nullptr;
 
+// Completeness is a Mandate, not a constraint: the overload still participates
+// in unevaluated contexts for an incomplete object type.
+static_assert(requires(Incomplete* p) { std::midpoint(p, p); });
+
 void test() {
   // expected-error@+1 {{no matching function for call to 'midpoint'}}
   (void)std::midpoint(false, true);
@@ -39,6 +43,6 @@ void test() {
   //  A couple of odd pointer types that should fail
   (void)std::midpoint(nullptr, nullptr); // expected-error {{no matching function for call to 'midpoint'}}
   (void)std::midpoint(func1, func2);     // expected-error {{no matching function for call to 'midpoint'}}
-  (void)std::midpoint(ip, ip);           // expected-error {{no matching function for call to 'midpoint'}}
+  (void)std::midpoint(ip, ip);           // expected-error@*:* {{Mandates: T is a complete type}}
   (void)std::midpoint(vp, vp);           // expected-error {{no matching function for call to 'midpoint'}}
 }

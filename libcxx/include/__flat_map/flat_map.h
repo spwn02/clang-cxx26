@@ -469,20 +469,22 @@ public:
 
   // [flat.map.access], element access
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 mapped_type& operator[](const key_type& __x)
-    requires is_constructible_v<mapped_type>
+    requires(_LIBCPP_STD_VER >= 26 || is_constructible_v<mapped_type>)
   {
     return try_emplace(__x).first->second;
   }
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 mapped_type& operator[](key_type&& __x)
-    requires is_constructible_v<mapped_type>
+    requires(_LIBCPP_STD_VER >= 26 || is_constructible_v<mapped_type>)
   {
     return try_emplace(std::move(__x)).first->second;
   }
 
   template <class _Kp>
-    requires(__is_compare_transparent && is_constructible_v<key_type, _Kp> && is_constructible_v<mapped_type> &&
-             !is_convertible_v<_Kp &&, const_iterator> && !is_convertible_v<_Kp &&, iterator>)
+    requires(__is_compare_transparent &&
+             (_LIBCPP_STD_VER >= 26 ||
+              (is_constructible_v<key_type, _Kp> && is_constructible_v<mapped_type> &&
+               !is_convertible_v<_Kp &&, const_iterator> && !is_convertible_v<_Kp &&, iterator>)))
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 mapped_type& operator[](_Kp&& __x) {
     return try_emplace(std::forward<_Kp>(__x)).first->second;
   }

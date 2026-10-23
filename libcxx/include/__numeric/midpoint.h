@@ -47,9 +47,13 @@ _LIBCPP_HIDE_FROM_ABI constexpr _Tp midpoint(_Tp __a, _Tp __b) noexcept _LIBCPP_
 }
 
 template <class _Tp>
-  requires(is_object_v<_Tp> && (sizeof(_Tp) > 0))
+  requires(is_object_v<_Tp>)
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp* midpoint(_Tp* __a, _Tp* __b) noexcept {
-  return __a + std::midpoint(ptrdiff_t(0), __b - __a);
+  static_assert(requires { sizeof(_Tp); }, "Mandates: T is a complete type");
+  if constexpr (requires { sizeof(_Tp); })
+    return __a + std::midpoint(ptrdiff_t(0), __b - __a);
+  else
+    return nullptr;
 }
 
 template <typename _Fp>

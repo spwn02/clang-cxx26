@@ -23,6 +23,7 @@
 #include <__ranges/from_range.h>
 #include <algorithm>
 #include <compare>
+#include <concepts>
 #include <cstddef>
 #include <initializer_list>
 #include <iterator>
@@ -364,6 +365,11 @@ public:
 
   template <_ContainerCompatibleRange<_Tp> _Range>
   _LIBCPP_HIDE_FROM_ABI constexpr void assign_range(_Range&& __rg) {
+    static_assert(assignable_from<_Tp&, ranges::range_reference_t<_Range>>,
+                  "inplace_vector::assign_range requires assignable elements");
+    if constexpr (requires { typename __size_constant_probe<ranges::size(__rg)>; }) {
+      static_assert(ranges::size(__rg) <= _Capacity, "inplace_vector::assign_range: range too large for capacity");
+    }
     clear();
     __append_range(std::forward<_Range>(__rg));
   }
@@ -783,6 +789,9 @@ public:
 
   template <_ContainerCompatibleRange<_Tp> _Range>
   _LIBCPP_HIDE_FROM_ABI constexpr inplace_vector(from_range_t, _Range&& __rg) {
+    if constexpr (requires { typename __size_constant_probe<ranges::size(__rg)>; }) {
+      static_assert(ranges::size(__rg) == 0, "inplace_vector(from_range_t, R&&): range too large for capacity");
+    }
     if (ranges::begin(__rg) != ranges::end(__rg))
       std::__throw_bad_alloc_constexpr();
   }
@@ -805,6 +814,11 @@ public:
 
   template <_ContainerCompatibleRange<_Tp> _Range>
   _LIBCPP_HIDE_FROM_ABI constexpr void assign_range(_Range&& __rg) {
+    static_assert(assignable_from<_Tp&, ranges::range_reference_t<_Range>>,
+                  "inplace_vector::assign_range requires assignable elements");
+    if constexpr (requires { typename __size_constant_probe<ranges::size(__rg)>; }) {
+      static_assert(ranges::size(__rg) == 0, "inplace_vector::assign_range: range too large for capacity");
+    }
     if (ranges::begin(__rg) != ranges::end(__rg))
       std::__throw_bad_alloc_constexpr();
   }

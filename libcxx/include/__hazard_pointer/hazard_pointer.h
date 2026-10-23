@@ -132,9 +132,6 @@ class hazard_pointer_obj_base;
 template <class _Tp, class _Dp>
 _Dp __hazard_pointer_deleter_of(const hazard_pointer_obj_base<_Tp, _Dp>*);
 
-template <class _Tp, class _Dp>
-void __hazard_pointer_other_base(const hazard_pointer_obj_base<_Tp, _Dp>*);
-
 template <class _Tp>
 struct __is_hazard_protectable : false_type {};
 
@@ -142,14 +139,21 @@ template <class _Tp>
   requires requires(_Tp* __p) { std::__hazard_pointer_deleter_of<_Tp>(__p); }
 struct __is_hazard_protectable<_Tp> {
   using __deleter _LIBCPP_NODEBUG = decltype(std::__hazard_pointer_deleter_of<_Tp>(std::declval<_Tp*>()));
-  // deducing the deleter from the argument fails for two bases of the form hazard_pointer_obj_base<_Tp, _D>;
-  // the base has to be public (the conversion is checked) and non-virtual.
+  // Deducing the deleter requires the base to be public; the base must also be non-virtual.
+  // The hidden-friend probe rejects multiple hazard_pointer_obj_base bases, including ones for other T.
   static constexpr bool value =
-      is_class_v<_Tp> && !is_virtual_base_of_v<hazard_pointer_obj_base<_Tp, __deleter>, _Tp>;
+      is_class_v<_Tp> && !is_virtual_base_of_v<hazard_pointer_obj_base<_Tp, __deleter>, _Tp> &&
+      // NOLINTNEXTLINE(libcpp-robust-against-adl) intentional: hidden-friend probe
+      requires(_Tp* __p) { __hazard_pointer_base_probe(__p); };
 };
 
 template <class _Tp, class _Dp = default_delete<_Tp>>
 class hazard_pointer_obj_base : private __hazard_pointer::__retired_node {
+  friend void __hazard_pointer_base_probe(const hazard_pointer_obj_base*);
+
+  template <class>
+  friend struct __is_hazard_protectable;
+
   _Dp __deleter_;
 
   _LIBCPP_HIDE_FROM_ABI static void __reclaim(__hazard_pointer::__retired_node* __node) noexcept {
