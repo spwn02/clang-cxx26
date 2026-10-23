@@ -4989,12 +4989,10 @@ TemplateDeductionResult Sema::DeduceTemplateArguments(
   //     - The deduced A can be another pointer or pointer to member
   //       type that can be converted to A via a qualification
   //       conversion.
-  //
-  // (C++0x [temp.deduct.conv]p6 clarifies that this only happens when
-  // both P and A are pointers or member pointers. In this case, we
-  // just ignore cv-qualifiers completely).
-  if ((P->isPointerType() && A->isPointerType()) ||
-      (P->isMemberPointerType() && A->isMemberPointerType()))
+  bool CanIgnoreQualifiers =
+      (P->isPointerType() && A->isPointerType()) ||
+      (P->isMemberPointerType() && A->isMemberPointerType());
+  if (CanIgnoreQualifiers)
     TDF |= TDF_IgnoreQualifiers;
 
   SmallVector<Sema::OriginalCallArg, 1> OriginalCallArgs;
@@ -5010,18 +5008,83 @@ TemplateDeductionResult Sema::DeduceTemplateArguments(
       return Result;
   }
 
-  if (TemplateDeductionResult Result = DeduceTemplateArgumentsByTypeMatch(
-          *this, TemplateParams, P, A, Info, Deduced, TDF,
-          PartialOrderingKind::None, /*DeducedFromArrayBound=*/false,
-          /*HasDeducedAnyParam=*/nullptr);
-      Result != TemplateDeductionResult::Success)
+  SmallVector<DeducedTemplateArgument, 4> InitialDeduced = Deduced;
+  bool StrictDeductionFailed = false;
+  if (CanIgnoreQualifiers) {
+    SmallVector<DeducedTemplateArgument, 4> StrictDeduced = InitialDeduced;
+    TemplateDeductionInfo StrictInfo(Info.getLocation());
+    StrictDeductionFailed =
+        DeduceTemplateArgumentsByTypeMatch(
+            *this, TemplateParams, P, A, StrictInfo, StrictDeduced,
+            TDF & ~TDF_IgnoreQualifiers, PartialOrderingKind::None,
+            /*DeducedFromArrayBound=*/false,
+            /*HasDeducedAnyParam=*/nullptr) != TemplateDeductionResult::Success;
+  }
+  TemplateDeductionResult Result = DeduceTemplateArgumentsByTypeMatch(
+      *this, TemplateParams, P, A, Info, Deduced, TDF,
+      PartialOrderingKind::None, /*DeducedFromArrayBound=*/false,
+      /*HasDeducedAnyParam=*/nullptr);
+  if (Result != TemplateDeductionResult::Success)
     return Result;
+
+  if (CanIgnoreQualifiers && StrictDeductionFailed) {
+    // Ignoring qualification can produce more than one deduced type. Check
+    // the candidate obtained by removing all cv-qualifiers from A as well;
+    // if it differs from the candidate above, deduction is ambiguous.
+    auto RemoveCVFromPointerChain = [&](auto &&Self, QualType Ty) -> QualType {
+      Ty = Ty.getLocalUnqualifiedType();
+      if (const auto *Pointer = Ty->getAs<PointerType>())
+        return Context.getPointerType(
+            Self(Self, Pointer->getPointeeType()));
+      return Ty;
+    };
+    QualType UnqualifiedA = RemoveCVFromPointerChain(
+        RemoveCVFromPointerChain, A);
+    SmallVector<DeducedTemplateArgument, 4> UnqualifiedDeduced = InitialDeduced;
+    TemplateDeductionInfo UnqualifiedInfo(Info.getLocation());
+    TemplateDeductionResult UnqualifiedResult =
+        DeduceTemplateArgumentsByTypeMatch(
+            *this, TemplateParams, P, UnqualifiedA, UnqualifiedInfo,
+            UnqualifiedDeduced, TDF | TDF_IgnoreQualifiers,
+            PartialOrderingKind::None, /*DeducedFromArrayBound=*/false,
+            /*HasDeducedAnyParam=*/nullptr);
+    if (UnqualifiedResult == TemplateDeductionResult::Success) {
+      FunctionDecl *UnqualifiedSpecialization = nullptr;
+      {
+        LocalInstantiationScope UnqualifiedInstScope(*this);
+        UnqualifiedResult = FinishTemplateArgumentDeduction(
+            ConversionTemplate, UnqualifiedDeduced, 0,
+            UnqualifiedSpecialization, UnqualifiedInfo, &OriginalCallArgs,
+            /*PartialOverloading=*/false, /*PartialOrdering=*/false,
+            /*ForOverloadSetAddressResolution=*/false);
+      }
+
+      bool ObjCLifetimeConversion = false;
+      if (UnqualifiedResult == TemplateDeductionResult::Success &&
+          UnqualifiedSpecialization &&
+          IsQualificationConversion(
+              cast<CXXConversionDecl>(UnqualifiedSpecialization)
+                  ->getConversionType(),
+              A, /*CStyle=*/false, ObjCLifetimeConversion)) {
+        for (unsigned I = 0; I != Deduced.size(); ++I) {
+          if (Deduced[I].isNull() ==
+                  UnqualifiedDeduced[I].isNull() &&
+              (Deduced[I].isNull() ||
+               Deduced[I].structurallyEquals(UnqualifiedDeduced[I])))
+            continue;
+          Info.Param = makeTemplateParameter(TemplateParams->getParam(I));
+          Info.FirstArg = Deduced[I];
+          Info.SecondArg = UnqualifiedDeduced[I];
+          return TemplateDeductionResult::Inconsistent;
+        }
+      }
+    }
+  }
 
   // Create an Instantiation Scope for finalizing the operator.
   LocalInstantiationScope InstScope(*this);
   // Finish template argument deduction.
   FunctionDecl *ConversionSpecialized = nullptr;
-  TemplateDeductionResult Result;
   runWithSufficientStackSpace(Info.getLocation(), [&] {
     Result = FinishTemplateArgumentDeduction(
         ConversionTemplate, Deduced, 0, ConversionSpecialized, Info,

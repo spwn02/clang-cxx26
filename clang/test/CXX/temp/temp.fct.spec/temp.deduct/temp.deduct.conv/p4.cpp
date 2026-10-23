@@ -14,8 +14,8 @@ void test_cvqual_ref(AnyT any) {
 struct AnyThreeLevelPtr {
   template<typename T>
   operator T***() const {
-    T x = 0; // expected-note 2{{declared const here}}
-    x = 0; // expected-error 2{{const-qualified type}}
+    T x = 0; // expected-note {{declared const here}}
+    x = 0; // expected-error {{const-qualified type}}
     T ***p;
     return p;
   }
@@ -25,8 +25,8 @@ struct X { };
 
 void test_deduce_with_qual(AnyThreeLevelPtr a3) {
   int * const * const * const ip1 = a3;
-  // FIXME: This is wrong; we are supposed to deduce 'T = int' here.
-  const int * const * const * const ip2 = a3; // expected-note {{instantiation of}}
+  const int * const * const * const ip2 = a3; // expected-error {{no viable conversion}}
+  // expected-note@-13 {{deduced conflicting types for parameter 'T' ('const int' vs. 'int')}}
   // This one is correct, though.
   const double * * * ip3 = a3; // expected-note {{instantiation of}}
 }

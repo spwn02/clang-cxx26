@@ -213,6 +213,10 @@ What's New in Clang |release|?
 C++ Language Changes
 --------------------
 
+- Derived-to-base pointer conversions now require the derived class type to be complete, as specified by
+  CWG2310.
+- Conversion function template deduction now rejects ambiguous deduced types when qualification conversions
+  could restore different cv-qualifiers, as specified by CWG349.
 - A new family of builtins ``__builtin_*_synthesizes_from_spaceship`` has been added. These can be queried to know
   whether the ``<`` (``lt``), ``>`` (``gt``), ``<=`` (``le``), or ``>=`` (``ge``) operators are synthesized from a
   ``<=>``. This makes it possible to optimize certain facilities by using the ``<=>`` operation directly instead of

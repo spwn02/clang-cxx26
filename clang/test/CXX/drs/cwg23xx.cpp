@@ -68,21 +68,19 @@ void fn1(Q &data_vectors) {
 }
 } // namespace cwg2304
 
-namespace cwg2310 { // cwg2310: partial
+namespace cwg2310 { // cwg2310: 22
 #if __cplusplus >= 201103L
 template<typename A, typename B>
 struct check_derived_from {
   static A a;
-  // FIXME: all 3 examples should be rejected in all language modes.
-  // FIXME: we should test this in 98 mode.
-  // FIXME: we accept this when MSVC triple is used
   static constexpr B *p = &a;
-#if !defined(_WIN32) || defined(__MINGW32__)
-  // cxx11-14-error@-2 {{cannot initialize a variable of type 'cwg2310::X *const' with an rvalue of type 'cwg2310::Z *'}}
-  //   cxx11-14-note@#cwg2310-X {{in instantiation of template class 'cwg2310::check_derived_from<cwg2310::Z, cwg2310::X>' requested here}}
-  // cxx11-14-error@-4 {{cannot initialize a variable of type 'cwg2310::Y *const' with an rvalue of type 'cwg2310::Z *'}}
-  //   cxx11-14-note@#cwg2310-Y {{in instantiation of template class 'cwg2310::check_derived_from<cwg2310::Z, cwg2310::Y>' requested here}}
-#endif
+  typedef char force[p ? 1 : 1];
+  // since-cxx17-note@-1 {{in instantiation of static data member 'cwg2310::check_derived_from<cwg2310::Z, cwg2310::X>::p' requested here}}
+  // since-cxx17-note@-2 {{in instantiation of static data member 'cwg2310::check_derived_from<cwg2310::Z, cwg2310::Y>::p' requested here}}
+  // since-cxx17-note@-3 {{in instantiation of static data member 'cwg2310::check_derived_from<cwg2310::Z, cwg2310::W>::p' requested here}}
+  // expected-error@-5 {{cannot initialize a variable of type 'cwg2310::X *const' with an rvalue of type 'cwg2310::Z *'}}
+  // expected-error@-6 {{cannot initialize a variable of type 'cwg2310::Y *const' with an rvalue of type 'cwg2310::Z *'}}
+  // expected-error@-7 {{incomplete type 'cwg2310::Z' where a complete type is required}}
 };
 
 struct W {};
@@ -91,15 +89,38 @@ struct Y {};
 struct Z : W,
   X, check_derived_from<Z, X>, // #cwg2310-X
   check_derived_from<Z, Y>, Y  // #cwg2310-Y
+  // expected-note@#cwg2310-X {{in instantiation of template class 'cwg2310::check_derived_from<cwg2310::Z, cwg2310::X>' requested here}}
+  // expected-note@#cwg2310-Y {{in instantiation of template class 'cwg2310::check_derived_from<cwg2310::Z, cwg2310::Y>' requested here}}
 {
-  // FIXME: It was properly rejected before, but we're crashing since Clang 11 in C++11 and C++14 modes.
-  //        See https://github.com/llvm/llvm-project/issues/59920
-#if __cplusplus >= 201703L
   check_derived_from<Z, W> cdf;
-#endif
+  // expected-note@-1 {{in instantiation of template class 'cwg2310::check_derived_from<cwg2310::Z, cwg2310::W>' requested here}}
 };
 #endif
 } // namespace cwg2310
+
+namespace cwg2310_incomplete_pointer_conversion { // cwg2310: 22
+#if __cplusplus < 201103L
+struct Base98 {};
+void convert(Base98 *);
+struct Derived98 : Base98 {
+  typedef char implicit[sizeof(convert(static_cast<Derived98 *>(0)))];
+  // expected-error@-1 {{incomplete type 'Derived98' where a complete type is required}}
+  typedef char explicit_cast[
+      sizeof(static_cast<Base98 *>(static_cast<Derived98 *>(0)))];
+  // expected-error@-1 {{incomplete type 'Derived98' where a complete type is required}}
+};
+#else
+struct Base {};
+struct Derived : Base {
+  static constexpr Base *implicit = static_cast<Derived *>(nullptr);
+  // expected-error@-1 {{incomplete type 'Derived' where a complete type is required}}
+  static constexpr Base *explicit_cast = static_cast<Base *>(static_cast<Derived *>(nullptr));
+  // expected-error@-1 {{incomplete type 'Derived' where a complete type is required}}
+  // cxx11-14-error@-2 {{declaration of constexpr static data member 'explicit_cast' requires an initializer}}
+  // since-cxx17-error@-3 {{constexpr variable 'explicit_cast' must be initialized by a constant expression}}
+};
+#endif
+} // namespace cwg2310_incomplete_pointer_conversion
 
 // cwg2331: na
 // cwg2335 is in cwg2335.cxx

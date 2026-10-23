@@ -774,31 +774,22 @@ namespace cwg347 { // cwg347: 2.7
 
 // cwg348: na
 
-namespace cwg349 { // cwg349: no
+namespace cwg349 { // cwg349: 22
   struct A {
-    template <class T> operator T ***() {
-      int ***p = 0;
-      return p;
-      // cxx98-20-error@-1 {{cannot initialize return object of type 'const int ***' with an lvalue of type 'int ***'}}
-      // since-cxx23-error@-2 {{cannot initialize return object of type 'const int ***' with an rvalue of type 'int ***'}}
-      //   expected-note@#cwg349-p1 {{in instantiation of function template specialization 'cwg349::A::operator const int ***<const int>' requested here}}
-    }
+    template <class T> operator T ***();
   };
 
-  // FIXME: This is valid.
   A a;
-  const int *const *const *p1 = a; // #cwg349-p1
+  int *const *const *p1 = a;
 
   struct B {
-    template <class T> operator T ***() {
-      const int ***p = 0;
-      return p;
-    }
+    template <class T> operator T ***(); // #cwg349-conv
   };
 
-  // FIXME: This is invalid.
   B b;
   const int *const *const *p2 = b;
+  // expected-error@-1 {{no viable conversion from 'B' to 'const int *const *const *'}}
+  // expected-note@#cwg349-conv {{candidate template ignored: deduced conflicting types for parameter 'T' ('const int' vs. 'int')}}
 } // namespace cwg349
 
 // cwg351: na

@@ -3596,6 +3596,18 @@ bool Sema::CheckPointerConversion(Expr *From, QualType ToType,
 
       if (FromPointeeType->isRecordType() && ToPointeeType->isRecordType() &&
           !Context.hasSameUnqualifiedType(FromPointeeType, ToPointeeType)) {
+        // C++ [conv.ptr]: the source class type in a derived-to-base
+        // conversion must be complete.
+        if (getLangOpts().CPlusPlus) {
+          auto *Derived = FromPointeeType->getAsCXXRecordDecl();
+          if (Derived && !Derived->isCompleteDefinition()) {
+            if (Diagnose)
+              Diag(From->getExprLoc(), diag::err_incomplete_type)
+                  << FromPointeeType << From->getSourceRange();
+            return true;
+          }
+        }
+
         // We must have a derived-to-base conversion. Check an
         // ambiguous or inaccessible conversion.
         unsigned InaccessibleID = 0;
