@@ -4,6 +4,7 @@
 #include <memory>
 #include <ranges>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 template <class T>
@@ -52,6 +53,6 @@ int main() {
   auto first = std::ranges::cbegin(transformed);
   static_assert(!assignable_through<decltype(first)>);
   static_assert(std::same_as<decltype(std::ranges::cend(transformed)),
-                             std::basic_const_iterator<decltype(std::ranges::end(transformed))>>);
+                             std::basic_const_iterator<decltype(std::ranges::end(std::as_const(transformed)))>>);
   static_assert(!assignable_through<decltype(std::views::as_const(values).begin())>);
 }

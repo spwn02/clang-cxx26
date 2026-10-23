@@ -73,14 +73,8 @@ constexpr bool testReturnTypes() {
       sentinel_wrapper<short*>& end() const;
     } x;
     ASSERT_SAME_TYPE(decltype(std::ranges::end(x)), sentinel_wrapper<char*>);
-#if TEST_STD_VER >= 23
-    // Different's const overloads still yield a mutable short*, so const Different
-    // doesn't model constant_range; cend falls back to the non-const overloads.
-    // sentinel_wrapper isn't an iterator, so const_sentinel doesn't wrap it either.
-    ASSERT_SAME_TYPE(decltype(std::ranges::cend(x)), sentinel_wrapper<char*>);
-#else
+    // LWG4027: possibly-const-range prefers the const range whenever it is an input_range.
     ASSERT_SAME_TYPE(decltype(std::ranges::cend(x)), sentinel_wrapper<short*>);
-#endif
   }
   return true;
 }

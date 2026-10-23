@@ -144,7 +144,7 @@ struct InputValueIter {
     return *this;
   }
 
-  constexpr T* operator->() { return ptr_; }
+  constexpr T* operator->() const { return ptr_; }
 
   constexpr friend bool operator==(const InputValueIter&, const InputValueIter&) = default;
 };

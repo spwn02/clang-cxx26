@@ -98,18 +98,6 @@ namespace ranges {
 template <class _Tp>
 using iterator_t = decltype(ranges::begin(std::declval<_Tp&>()));
 
-#  if _LIBCPP_STD_VER >= 23
-template <class _Tp>
-concept __constant_range = requires { typename iterator_t<_Tp>; } && __constant_iterator<iterator_t<_Tp>>;
-
-template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI constexpr auto& __possibly_const_range(_Tp& __t) noexcept {
-  if constexpr (__constant_range<const _Tp> && !__constant_range<_Tp>)
-    return const_cast<const _Tp&>(__t);
-  else
-    return __t;
-}
-#  endif // _LIBCPP_STD_VER >= 23
 } // namespace ranges
 
 // [range.access.end]
@@ -160,6 +148,26 @@ struct __fn {
 inline namespace __cpo {
 inline constexpr auto end = __end::__fn{};
 } // namespace __cpo
+} // namespace ranges
+
+namespace ranges {
+#  if _LIBCPP_STD_VER >= 23
+// possibly-const-range: [ranges.syn], as modified by LWG4027 (prefer the const range whenever it is an input_range).
+template <class _Tp>
+concept __const_input_range =
+    requires(const _Tp& __t) {
+      ranges::begin(__t);
+      ranges::end(__t);
+    } && input_iterator<iterator_t<const _Tp>>;
+
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI constexpr auto& __possibly_const_range(_Tp& __t) noexcept {
+  if constexpr (__const_input_range<_Tp>)
+    return const_cast<const _Tp&>(__t);
+  else
+    return __t;
+}
+#  endif // _LIBCPP_STD_VER >= 23
 } // namespace ranges
 
 // [range.access.cbegin]
