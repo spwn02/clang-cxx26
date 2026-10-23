@@ -243,21 +243,15 @@ public:
     _LIBCPP_HIDE_FROM_ABI auto yield_value(ranges::elements_of<generator<_R2, _V2, _A2>&, _Unused> __r) noexcept {
       return __recursive_awaiter<generator<_R2, _V2, _A2>>{std::forward<decltype(__r.range)>(__r.range)};
     }
-    // LWG 4418: the published convertible_to constraint rejects the motivating
-    // generator<int>/vector<int> case.  Constrain this exactly as the loop body
-    // is used: an element must be accepted by one of the ordinary yield_value
-    // overloads above.
     template <ranges::input_range _Range, class _Alloc>
-      requires requires(promise_type& __promise, ranges::iterator_t<_Range>& __iterator) {
-        __promise.yield_value(*__iterator);
-      }
+      requires convertible_to<ranges::range_reference_t<_Range>, yielded>
     _LIBCPP_HIDE_FROM_ABI auto yield_value(ranges::elements_of<_Range, _Alloc> __r) {
       auto __nested = [](allocator_arg_t,
                          _Alloc,
                          ranges::iterator_t<_Range> __first,
                          ranges::sentinel_t<_Range> __last) -> generator<yielded, void, _Alloc> {
         for (; __first != __last; ++__first)
-          co_yield *__first;
+          co_yield static_cast<yielded>(*__first);
       };
       return yield_value(ranges::elements_of(
           __nested(allocator_arg, __r.allocator, ranges::begin(__r.range), ranges::end(__r.range))));

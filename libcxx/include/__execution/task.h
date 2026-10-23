@@ -212,7 +212,7 @@ struct __task_promise_result {
   using __result_variant_t _LIBCPP_NODEBUG = __task_result_t<_Tp>;
   __result_variant_t* __result_ = nullptr;
 
-  template <class _Vp>
+  template <class _Vp = _Tp>
   _LIBCPP_HIDE_FROM_ABI void return_value(_Vp&& __v) {
     if constexpr (is_reference_v<_Tp>)
       __result_->template emplace<1>(__v);

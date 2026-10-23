@@ -114,7 +114,7 @@ public:
 
   template <class _Clock, class _Duration>
   _LIBCPP_HIDE_FROM_ABI cv_status
-  wait_until(unique_lock<mutex>& __lk, const chrono::time_point<_Clock, _Duration>& __t) {
+  wait_until(unique_lock<mutex>& __lk, chrono::time_point<_Clock, _Duration> __t) {
     using namespace chrono;
     using __clock_tp_ns = time_point<_Clock, nanoseconds>;
 
@@ -130,7 +130,7 @@ public:
 
   template <class _Clock, class _Duration, class _Predicate>
   _LIBCPP_HIDE_FROM_ABI bool
-  wait_until(unique_lock<mutex>& __lk, const chrono::time_point<_Clock, _Duration>& __t, _Predicate __pred) {
+  wait_until(unique_lock<mutex>& __lk, chrono::time_point<_Clock, _Duration> __t, _Predicate __pred) {
     while (!__pred()) {
       if (wait_until(__lk, __t) == cv_status::timeout)
         return __pred();
@@ -139,7 +139,7 @@ public:
   }
 
   template <class _Rep, class _Period>
-  _LIBCPP_HIDE_FROM_ABI cv_status wait_for(unique_lock<mutex>& __lk, const chrono::duration<_Rep, _Period>& __d) {
+  _LIBCPP_HIDE_FROM_ABI cv_status wait_for(unique_lock<mutex>& __lk, chrono::duration<_Rep, _Period> __d) {
     using namespace chrono;
     if (__d <= __d.zero())
       return cv_status::timeout;
@@ -167,7 +167,7 @@ public:
 
   template <class _Rep, class _Period, class _Predicate>
   bool _LIBCPP_HIDE_FROM_ABI
-  wait_for(unique_lock<mutex>& __lk, const chrono::duration<_Rep, _Period>& __d, _Predicate __pred);
+  wait_for(unique_lock<mutex>& __lk, chrono::duration<_Rep, _Period> __d, _Predicate __pred);
 
   typedef __libcpp_condvar_t* native_handle_type;
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI native_handle_type native_handle() { return &__cv_; }
@@ -189,7 +189,7 @@ private:
 
 template <class _Rep, class _Period, class _Predicate>
 inline bool
-condition_variable::wait_for(unique_lock<mutex>& __lk, const chrono::duration<_Rep, _Period>& __d, _Predicate __pred) {
+condition_variable::wait_for(unique_lock<mutex>& __lk, chrono::duration<_Rep, _Period> __d, _Predicate __pred) {
   return wait_until(__lk, chrono::steady_clock::now() + __d, std::move(__pred));
 }
 

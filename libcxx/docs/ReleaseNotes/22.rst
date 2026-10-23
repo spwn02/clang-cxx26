@@ -137,6 +137,15 @@ Potentially breaking changes
     ``as_writable_bytes`` do not accept ``span<volatile T>`` (LWG4243), and the copy constructor of ``variant`` and the
     assignment operators listed in ``libcxx/utils/overload_audit.py --noexcept`` are ``noexcept`` as specified
     (LWG2991, LWG4245).
+  - ``generator::promise_type::yield_value(elements_of<R, Alloc>)`` is constrained on
+    ``convertible_to<range_reference_t<R>, yielded>`` as in the draft (a ``generator<int>`` can no longer yield
+    ``elements_of`` of a ``vector<int>``; use ``generator<const int&>``), ``enumerate_view::end()`` returns an iterator
+    only for forward ranges (LWG3919), ``has-arrow`` needs a ``const`` ``operator->`` (LWG4112),
+    ``possibly-const-range`` prefers the ``const`` range (LWG4027), the ``condition_variable`` and
+    ``condition_variable_any`` timed waits take the time point or duration by value (LWG4301), the
+    ``packaged_task`` constructors have the invocability *Mandates* (LWG4154), ``ranges::replace`` and
+    ``ranges::replace_if`` have the draft default template arguments (LWG4444), and
+    ``task::promise_type::return_value`` has the default template argument ``V = T`` (LWG4345).
   - ``atomic_thread_fence``, ``atomic_signal_fence``, ``kill_dependency``, the ``arg`` and ``proj`` overloads for
     arithmetic arguments, the converting assignment of ``common_iterator`` and the ``frexp``, ``modf``, ``remquo`` and
     ``nexttoward`` overloads for the extended floating-point types are ``constexpr`` (``overload_audit.py

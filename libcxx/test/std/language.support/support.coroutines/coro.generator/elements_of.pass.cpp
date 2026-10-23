@@ -40,17 +40,17 @@ private:
   bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override { return this == &other; }
 };
 
-static std::generator<int> vector_elements() {
+static std::generator<const int&> vector_elements() {
   std::vector<int> values = {1, 2, 3};
   co_yield std::ranges::elements_of(values);
 }
 
-static std::generator<int> array_elements() {
+static std::generator<const int&> array_elements() {
   std::array<int, 4> values = {4, 5, 6, 7};
   co_yield std::ranges::elements_of(values);
 }
 
-static std::generator<int> mixed_elements() {
+static std::generator<const int&> mixed_elements() {
   co_yield 0;
 
   std::vector<int> middle = {1, 2, 3};
@@ -64,7 +64,7 @@ static std::generator<int> mixed_elements() {
   co_yield 7;
 }
 
-static std::generator<int> nested_range_elements() {
+static std::generator<const int&> nested_range_elements() {
   co_yield 10;
 
   std::vector<int> middle = {11, 12};
@@ -76,13 +76,13 @@ static std::generator<int> nested_range_elements() {
   co_yield 15;
 }
 
-static std::generator<int> recursive_range_elements() {
+static std::generator<const int&> recursive_range_elements() {
   co_yield 9;
   co_yield std::ranges::elements_of(nested_range_elements());
   co_yield 16;
 }
 
-static std::generator<int> allocator_range_elements(tracking_resource& resource) {
+static std::generator<const int&> allocator_range_elements(tracking_resource& resource) {
   std::array<int, 3> values = {20, 21, 22};
   co_yield std::ranges::elements_of(values, std::pmr::polymorphic_allocator<>(&resource));
 }
