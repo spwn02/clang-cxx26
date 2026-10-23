@@ -18,7 +18,6 @@
 #include <functional>
 
 #include "test_macros.h"
-#include "is_permutation_of_ints.h"
 #include "test_iterators.h"
 #include "MoveOnly.h"
 
@@ -32,7 +31,7 @@ TEST_CONSTEXPR_CXX20 bool test()
         std::pop_heap(Iter(work), Iter(work+i), std::greater<T>());
         assert(std::is_heap(work, work+i-1, std::greater<T>()));
         assert(std::min_element(work, work+i-1) == work);
-        assert(is_permutation_of_ints(work, work+15, orig));
+        assert(std::is_permutation(work, work+15, orig));
     }
     assert(std::is_sorted(work, work+15, std::greater<T>()));
 

@@ -15,9 +15,9 @@
 
 // std::is_permutation requires both ranges to have the same value type
 // ([alg.is.permutation] Mandates). The sorting tests compare a range of some
-// element type T against an array of int, so count occurrences instead.
-template <class Iter>
-TEST_CONSTEXPR_CXX14 bool is_permutation_of_ints(Iter first, Iter last, const int* orig) {
+// element type T against an array of int, so count occurrences instead (any element type comparable with the first range).
+template <class Iter, class Orig>
+TEST_CONSTEXPR_CXX14 bool is_permutation_of_ints(Iter first, Iter last, const Orig* orig) {
   const int n = static_cast<int>(std::distance(first, last));
   for (Iter i = first; i != last; ++i) {
     int in_work = 0;
