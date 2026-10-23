@@ -1155,8 +1155,6 @@ template <class _A1, class _A2, class _A3>
   requires(is_arithmetic_v<_A1> && is_arithmetic_v<_A2> && is_arithmetic_v<_A3>)
 _LIBCPP_HIDE_FROM_ABI inline constexpr __promote_t<_A1, _A2, _A3> lerp(_A1 __a, _A2 __b, _A3 __t) noexcept {
   using __result_type = __promote_t<_A1, _A2, _A3>;
-  static_assert(!(
-      _IsSame<_A1, __result_type>::value && _IsSame<_A2, __result_type>::value && _IsSame<_A3, __result_type>::value));
   return std::__lerp((__result_type)__a, (__result_type)__b, (__result_type)__t);
 }
 #  endif // _LIBCPP_STD_VER >= 20

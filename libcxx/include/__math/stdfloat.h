@@ -605,6 +605,12 @@ __float128 frexpf128(__float128, int*) noexcept;
 __float128 modff128(__float128, __float128*) noexcept;
 __float128 ldexpf128(__float128, int) noexcept;
 __float128 scalbnf128(__float128, int) noexcept;
+__float128 scalblnf128(__float128, long) noexcept;
+int ilogbf128(__float128) noexcept;
+long lrintf128(__float128) noexcept;
+long long llrintf128(__float128) noexcept;
+long lroundf128(__float128) noexcept;
+long long llroundf128(__float128) noexcept;
 }
 
 #    define _LIBCPP_F128_UNARY(__name) \
@@ -660,6 +666,14 @@ _LIBCPP_HIDE_FROM_ABI inline __float128 modf(__float128 __value, __float128* __i
 _LIBCPP_HIDE_FROM_ABI inline __float128 ldexp(__float128 __value, int __exponent) noexcept { return ldexpf128(__value, __exponent); }
 _LIBCPP_HIDE_FROM_ABI inline __float128 scalbn(__float128 __value, int __exponent) noexcept { return scalbnf128(__value, __exponent); }
 _LIBCPP_HIDE_FROM_ABI inline __float128 remquo(__float128 __value, __float128 __denominator, int* __quotient) noexcept { return remquof128(__value, __denominator, __quotient); }
+_LIBCPP_HIDE_FROM_ABI inline __float128 scalbln(__float128 __value, long __exponent) noexcept { return scalblnf128(__value, __exponent); }
+_LIBCPP_HIDE_FROM_ABI inline int ilogb(__float128 __value) noexcept { return ilogbf128(__value); }
+_LIBCPP_HIDE_FROM_ABI inline long lrint(__float128 __value) noexcept { return lrintf128(__value); }
+_LIBCPP_HIDE_FROM_ABI inline long long llrint(__float128 __value) noexcept { return llrintf128(__value); }
+_LIBCPP_HIDE_FROM_ABI inline long lround(__float128 __value) noexcept { return lroundf128(__value); }
+_LIBCPP_HIDE_FROM_ABI inline long long llround(__float128 __value) noexcept { return llroundf128(__value); }
+// [c.math.syn]: nexttoward(x, y) with a long double y; every long double value is representable as a float128_t.
+_LIBCPP_HIDE_FROM_ABI inline __float128 nexttoward(__float128 __left, long double __right) noexcept { return nextafterf128(__left, static_cast<__float128>(__right)); }
 #  endif
 } // namespace __math
 _LIBCPP_END_NAMESPACE_STD

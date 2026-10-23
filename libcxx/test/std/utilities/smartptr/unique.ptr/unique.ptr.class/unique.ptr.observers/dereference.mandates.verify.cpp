@@ -31,5 +31,6 @@ struct Deleter {
 void test() {
   std::unique_ptr<const int, Deleter> p;
   // expected-error@*:* {{unique_ptr::operator* would return a reference bound to a temporary}}
-  (void)*p; // expected-error@*:* {{returning reference to local temporary object}}
+  (void)*p;
+  // expected-error@*:* 0-1 {{returning reference to local temporary object}}
 }

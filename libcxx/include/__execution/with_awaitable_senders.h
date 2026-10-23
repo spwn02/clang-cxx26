@@ -14,6 +14,7 @@
 #include <__coroutine/coroutine_handle.h>
 #include <__execution/as_awaitable.h>
 #include <__execution/movable_value.h>
+#include <__utility/declval.h>
 #include <__utility/forward.h>
 #include <exception>
 

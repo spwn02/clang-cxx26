@@ -109,5 +109,5 @@
 "`P0618R0 <https://wg21.link/P0618R0>`__","Deprecating <codecvt>","2017-02 (Kona)","|Complete|","15","`#103697 <https://github.com/llvm/llvm-project/issues/103697>`__",""
 "`P0623R0 <https://wg21.link/P0623R0>`__","Final C++17 Parallel Algorithms Fixes","2017-02 (Kona)","|Nothing To Do|","","`#103698 <https://github.com/llvm/llvm-project/issues/103698>`__",""
 "","","","","","",""
-"`P0682R1 <https://wg21.link/P0682R1>`__","Repairing elementary string conversions","2017-07 (Toronto)","","","`#99952 <https://github.com/llvm/llvm-project/issues/99952>`__",""
+"`P0682R1 <https://wg21.link/P0682R1>`__","Repairing elementary string conversions","2017-07 (Toronto)","|Complete|","","`#99952 <https://github.com/llvm/llvm-project/issues/99952>`__",""
 "`P0739R0 <https://wg21.link/P0739R0>`__","Some improvements to class template argument deduction integration into the standard library","2017-07 (Toronto)","|Complete|","5","`#103699 <https://github.com/llvm/llvm-project/issues/103699>`__",""

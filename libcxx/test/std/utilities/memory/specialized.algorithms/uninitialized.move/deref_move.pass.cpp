@@ -23,6 +23,7 @@ struct It {
   Imm operator*() const { return Imm(i); }
   It& operator++() { ++i; return *this; } It operator++(int) { auto t = *this; ++i; return t; }
   friend bool operator==(const It& a, const It& b) { return a.i == b.i; }
+  friend bool operator!=(const It& a, const It& b) { return a.i != b.i; }
 };
 int main(int, char**) {
   alignas(Imm) unsigned char buf[3*sizeof(Imm)];

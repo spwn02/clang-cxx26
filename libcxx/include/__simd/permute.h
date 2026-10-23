@@ -14,6 +14,7 @@
 #include <__concepts/arithmetic.h>
 #include <__config>
 #include <__cstddef/size_t.h>
+#include <__iterator/concepts.h>
 #include <__ranges/concepts.h>
 #include <__ranges/data.h>
 #include <__ranges/size.h>
@@ -22,8 +23,10 @@
 #include <__simd/basic_vec.h>
 #include <__simd/concepts.h>
 #include <__simd/flags.h>
+#include <__simd/loadstore.h>
 #include <__simd/reductions.h>
 #include <__simd/traits.h>
+#include <__simd/vectorizable.h>
 #include <__type_traits/conditional.h>
 #include <__type_traits/is_void.h>
 #include <__type_traits/type_identity.h>
@@ -210,12 +213,37 @@ expand(const _Vp& __v, const type_identity_t<_Vp>& __selector, const _Vp& __orig
 template <class _Rp, class _Ip>
 using __gather_default_vec _LIBCPP_NODEBUG = basic_vec<ranges::range_value_t<_Rp>, __deduce_abi_t<ranges::range_value_t<_Rp>, _Ip::size()>>;
 
+// The vector type of a gather: V, or its default when V is not given. A class template, so that only the chosen
+// alternative is instantiated.
+template <class _Vp, class _Rp, class _Ip>
+struct __gather_result {
+  using type _LIBCPP_NODEBUG = _Vp;
+};
+template <class _Rp, class _Ip>
+struct __gather_result<void, _Rp, _Ip> {
+  using type _LIBCPP_NODEBUG = __gather_default_vec<_Rp, _Ip>;
+};
+
+// [simd.permute.memory] Constraints of partial_gather_from and unchecked_gather_from.
+template <class _Vp, class _Rp, class _Ip>
+concept __simd_gather_constraints =
+    __vectorizable<ranges::range_value_t<_Rp>> &&
+    __explicitly_convertible_to<ranges::range_value_t<_Rp>, typename __gather_result<_Vp, _Rp, _Ip>::type::value_type>;
+
+// [simd.permute.memory] Constraints of partial_scatter_to and unchecked_scatter_to.
+template <class _Vp, class _Rp, class _Ip>
+concept __simd_scatter_constraints =
+    _Vp::size() == _Ip::size() && indirectly_writable<ranges::iterator_t<_Rp>, ranges::range_value_t<_Rp>> &&
+    __explicitly_convertible_to<typename _Vp::value_type, ranges::range_value_t<_Rp>>;
+
 template <class _Vp = void, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
-  requires ranges::sized_range<_Rp>
+  requires ranges::sized_range<_Rp> && __simd_gather_constraints<_Vp, _Rp, _Ip>
 _LIBCPP_HIDE_FROM_ABI constexpr auto partial_gather_from(_Rp&& __src_range, const typename _Ip::mask_type& __mask,
                                                          const _Ip& __indices, flags<_Flags...> = {}) {
-  using _Result = conditional_t<is_void_v<_Vp>, __gather_default_vec<_Rp, _Ip>, _Vp>;
+  using _Result = typename __gather_result<_Vp, _Rp, _Ip>::type;
   using _Tp     = typename _Result::value_type;
+  simd::__check_load_mandates<_Result, ranges::range_value_t<_Rp>, _Flags...>();
+  static_assert(_Result::size() == _Ip::size(), "V::size() must be equal to I::size()");
   auto* __p                  = ranges::data(__src_range);
   const auto __in_size       = ranges::size(__src_range);
   return _Result([&](auto __i) {
@@ -227,58 +255,59 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto partial_gather_from(_Rp&& __src_range, cons
 }
 
 template <class _Vp = void, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
-  requires ranges::sized_range<_Rp>
+  requires ranges::sized_range<_Rp> && __simd_gather_constraints<_Vp, _Rp, _Ip>
 _LIBCPP_HIDE_FROM_ABI constexpr auto partial_gather_from(_Rp&& __src_range, const _Ip& __indices, flags<_Flags...> __f = {}) {
-  using _Result = conditional_t<is_void_v<_Vp>, __gather_default_vec<_Rp, _Ip>, _Vp>;
+  using _Result = typename __gather_result<_Vp, _Rp, _Ip>::type;
   return simd::partial_gather_from<_Result>(
       std::forward<_Rp>(__src_range), typename _Result::mask_type(true), __indices, __f);
 }
 
 template <class _Vp = void, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
-  requires ranges::sized_range<_Rp>
+  requires ranges::sized_range<_Rp> && __simd_gather_constraints<_Vp, _Rp, _Ip>
 _LIBCPP_HIDE_FROM_ABI constexpr auto unchecked_gather_from(_Rp&& __src_range, const typename _Ip::mask_type& __mask,
                                                             const _Ip& __indices, flags<_Flags...> __f = {}) {
-  using _Result = conditional_t<is_void_v<_Vp>, __gather_default_vec<_Rp, _Ip>, _Vp>;
+  using _Result = typename __gather_result<_Vp, _Rp, _Ip>::type;
   return simd::partial_gather_from<_Result>(std::forward<_Rp>(__src_range), __mask, __indices, __f);
 }
 
 template <class _Vp = void, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
-  requires ranges::sized_range<_Rp>
+  requires ranges::sized_range<_Rp> && __simd_gather_constraints<_Vp, _Rp, _Ip>
 _LIBCPP_HIDE_FROM_ABI constexpr auto unchecked_gather_from(_Rp&& __src_range, const _Ip& __indices, flags<_Flags...> __f = {}) {
-  using _Result = conditional_t<is_void_v<_Vp>, __gather_default_vec<_Rp, _Ip>, _Vp>;
+  using _Result = typename __gather_result<_Vp, _Rp, _Ip>::type;
   return simd::partial_gather_from<_Result>(
       std::forward<_Rp>(__src_range), typename _Result::mask_type(true), __indices, __f);
 }
 
 template <__simd_vec_type _Vp, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
-  requires ranges::sized_range<_Rp>
+  requires ranges::sized_range<_Rp> && __simd_scatter_constraints<_Vp, _Rp, _Ip>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 partial_scatter_to(const _Vp& __v, _Rp&& __dst_range, const typename _Ip::mask_type& __mask, const _Ip& __indices, flags<_Flags...> = {}) {
+  simd::__check_store_mandates<typename _Vp::value_type, ranges::range_value_t<_Rp>, _Flags...>();
   auto* __p            = ranges::data(__dst_range);
   const auto __out_size = ranges::size(__dst_range);
   for (__simd_size_type __i = 0; __i != _Vp::size(); ++__i) {
     const auto __ix = __indices[__i];
     if (__mask[__i] && __ix >= 0 && static_cast<decltype(__out_size)>(__ix) < __out_size)
-      __p[__ix] = __v[__i];
+      __p[__ix] = static_cast<ranges::range_value_t<_Rp>>(__v[__i]);
   }
 }
 
 template <__simd_vec_type _Vp, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
-  requires ranges::sized_range<_Rp>
+  requires ranges::sized_range<_Rp> && __simd_scatter_constraints<_Vp, _Rp, _Ip>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 partial_scatter_to(const _Vp& __v, _Rp&& __dst_range, const _Ip& __indices, flags<_Flags...> __f = {}) {
   simd::partial_scatter_to(__v, std::forward<_Rp>(__dst_range), typename _Ip::mask_type(true), __indices, __f);
 }
 
 template <__simd_vec_type _Vp, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
-  requires ranges::sized_range<_Rp>
+  requires ranges::sized_range<_Rp> && __simd_scatter_constraints<_Vp, _Rp, _Ip>
 _LIBCPP_HIDE_FROM_ABI constexpr void unchecked_scatter_to(
     const _Vp& __v, _Rp&& __dst_range, const typename _Ip::mask_type& __mask, const _Ip& __indices, flags<_Flags...> __f = {}) {
   simd::partial_scatter_to(__v, std::forward<_Rp>(__dst_range), __mask, __indices, __f);
 }
 
 template <__simd_vec_type _Vp, ranges::contiguous_range _Rp, __simd_integral _Ip, class... _Flags>
-  requires ranges::sized_range<_Rp>
+  requires ranges::sized_range<_Rp> && __simd_scatter_constraints<_Vp, _Rp, _Ip>
 _LIBCPP_HIDE_FROM_ABI constexpr void
 unchecked_scatter_to(const _Vp& __v, _Rp&& __dst_range, const _Ip& __indices, flags<_Flags...> __f = {}) {
   simd::partial_scatter_to(__v, std::forward<_Rp>(__dst_range), typename _Ip::mask_type(true), __indices, __f);

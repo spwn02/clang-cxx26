@@ -275,15 +275,19 @@ class task_scheduler {
 public:
   using scheduler_concept = scheduler_tag;
 
-  template <class _Sch, class _Allocator = allocator<byte>>
+  template <class _Sch, class _Allocator = allocator<void>>
     requires(!same_as<task_scheduler, remove_cvref_t<_Sch>>) && scheduler<remove_cvref_t<_Sch>>
-  _LIBCPP_HIDE_FROM_ABI explicit task_scheduler(_Sch&& __sch, const _Allocator& __alloc = {})
+  _LIBCPP_HIDE_FROM_ABI explicit task_scheduler(_Sch&& __sch, _Allocator __alloc = {})
       : __holder_(std::allocate_shared<__task_scheduler_model<remove_cvref_t<_Sch>>>(
             __alloc, std::forward<_Sch>(__sch))) {
     // [exec.task.scheduler]: Mandates: Sch satisfies infallible-scheduler<env<>>.
     static_assert(__infallible_scheduler<remove_cvref_t<_Sch>, env<>>,
                   "Mandates: Sch satisfies infallible-scheduler<env<>>.");
   }
+
+  // The copy operations are declared, so there are no move operations: a moved-from task_scheduler is a copy.
+  _LIBCPP_HIDE_FROM_ABI task_scheduler(const task_scheduler&)            = default;
+  _LIBCPP_HIDE_FROM_ABI task_scheduler& operator=(const task_scheduler&) = default;
 
   _LIBCPP_HIDE_FROM_ABI friend bool operator==(const task_scheduler& __x, const task_scheduler& __y) noexcept {
     return __x.__holder_ == __y.__holder_ || __x.__holder_->__equals(*__y.__holder_);

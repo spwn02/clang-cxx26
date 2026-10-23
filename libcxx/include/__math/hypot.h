@@ -104,8 +104,6 @@ template <class _A1,
           std::enable_if_t< is_arithmetic_v<_A1> && is_arithmetic_v<_A2> && is_arithmetic_v<_A3>, int> = 0 >
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 __promote_t<_A1, _A2, _A3> hypot(_A1 __x, _A2 __y, _A3 __z) _NOEXCEPT {
   using __result_type = __promote_t<_A1, _A2, _A3>;
-  static_assert(!(
-      std::is_same_v<_A1, __result_type> && std::is_same_v<_A2, __result_type> && std::is_same_v<_A3, __result_type>));
   return __math::__hypot(
       static_cast<__result_type>(__x), static_cast<__result_type>(__y), static_cast<__result_type>(__z));
 }

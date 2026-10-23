@@ -146,6 +146,13 @@ Potentially breaking changes
     ``packaged_task`` constructors have the invocability *Mandates* (LWG4154), ``ranges::replace`` and
     ``ranges::replace_if`` have the draft default template arguments (LWG4444), and
     ``task::promise_type::return_value`` has the default template argument ``V = T`` (LWG4345).
+  - The ``<simd>`` load, store, gather and scatter functions have the Constraints and Mandates of [simd.loadstore]
+    and [simd.permute.memory] (LWG4420), ``task_scheduler`` has no move operations (a moved-from ``task_scheduler``
+    is a copy; LWG4445), ``unique_ptr::operator*`` has the Constraints and Mandates of LWG4148,
+    ``uninitialized_move`` and ``uninitialized_move_n`` use *deref-move* (LWG3918), and the ``<cmath>`` functions
+    ``fmaximum``, ``fminimum``, ``fmaximum_num``, ``fminimum_num``, ``hypot`` and ``lerp`` accept every extended
+    floating-point type (``float128_t`` also for ``ilogb``, ``lrint``, ``llrint``, ``lround``, ``llround``,
+    ``scalbln`` and ``nexttoward``).
   - ``atomic_thread_fence``, ``atomic_signal_fence``, ``kill_dependency``, the ``arg`` and ``proj`` overloads for
     arithmetic arguments, the converting assignment of ``common_iterator`` and the ``frexp``, ``modf``, ``remquo`` and
     ``nexttoward`` overloads for the extended floating-point types are ``constexpr`` (``overload_audit.py
