@@ -43,7 +43,7 @@ namespace __mdspan_detail {
 template <class _Tp>
 concept __mdspan_integral_constant_like =
     is_integral_v<remove_cvref_t<decltype(_Tp::value)>> && !is_same_v<bool, remove_cvref_t<decltype(_Tp::value)>> &&
-    convertible_to<_Tp, const decltype(_Tp::value)&> && equality_comparable_with<_Tp, decltype(_Tp::value)> &&
+    convertible_to<_Tp, decltype(_Tp::value)> && equality_comparable_with<_Tp, decltype(_Tp::value)> &&
     bool_constant<_Tp() == _Tp::value>::value &&
     bool_constant<static_cast<decltype(_Tp::value)>(_Tp()) == _Tp::value>::value;
 

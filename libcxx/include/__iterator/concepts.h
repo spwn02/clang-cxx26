@@ -230,7 +230,7 @@ concept contiguous_iterator =
     };
 
 template <class _Ip>
-concept __has_arrow = input_iterator<_Ip> && (is_pointer_v<_Ip> || requires(_Ip __i) { __i.operator->(); });
+concept __has_arrow = input_iterator<_Ip> && (is_pointer_v<_Ip> || requires(const _Ip __i) { __i.operator->(); });
 
 // [indirectcallable.indirectinvocable]
 template <class _Fp, class _It>

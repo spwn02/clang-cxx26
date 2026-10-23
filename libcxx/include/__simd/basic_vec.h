@@ -52,7 +52,7 @@ namespace simd {
 // consumer in libc++ so far. It is what lets basic_vec(integral_constant<int, 3>{}) work.
 template <class _Tp>
 concept __constexpr_wrapper_like =
-    convertible_to<_Tp, const decltype(_Tp::value)&> && equality_comparable_with<_Tp, decltype(_Tp::value)> &&
+    convertible_to<_Tp, decltype(_Tp::value)> && equality_comparable_with<_Tp, decltype(_Tp::value)> &&
     bool_constant<_Tp() == _Tp::value>::value &&
     bool_constant<static_cast<decltype(_Tp::value)>(_Tp()) == _Tp::value>::value;
 

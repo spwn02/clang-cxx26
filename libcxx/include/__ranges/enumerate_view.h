@@ -71,13 +71,13 @@ public:
     return __iterator<true>(ranges::begin(__base_), 0);
   }
   _LIBCPP_HIDE_FROM_ABI constexpr auto end() requires(!__simple_view<_View>) {
-    if constexpr (common_range<_View> && sized_range<_View>)
+    if constexpr (forward_range<_View> && common_range<_View> && sized_range<_View>)
       return __iterator<false>(ranges::end(__base_), ranges::distance(__base_));
     else
       return __sentinel<false>(ranges::end(__base_));
   }
   _LIBCPP_HIDE_FROM_ABI constexpr auto end() const requires __range_with_movable_references<const _View> {
-    if constexpr (common_range<const _View> && sized_range<const _View>)
+    if constexpr (forward_range<const _View> && common_range<const _View> && sized_range<const _View>)
       return __iterator<true>(ranges::end(__base_), ranges::distance(__base_));
     else
       return __sentinel<true>(ranges::end(__base_));
