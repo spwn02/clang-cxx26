@@ -60,7 +60,8 @@ struct with_awaitable_senders {
   }
 
   template <class _Value>
-  _LIBCPP_HIDE_FROM_ABI decltype(auto) await_transform(_Value&& __value) {
+  _LIBCPP_HIDE_FROM_ABI auto await_transform(_Value&& __value)
+      -> decltype(execution::as_awaitable(std::declval<_Value>(), std::declval<_Promise&>())) {
     return execution::as_awaitable(std::forward<_Value>(__value), static_cast<_Promise&>(*this));
   }
 

@@ -42,6 +42,7 @@
 #include <__type_traits/is_swappable.h>
 #include <__type_traits/is_trivially_relocatable.h>
 #include <__type_traits/is_void.h>
+#include <__type_traits/reference_converts_from_temporary.h>
 #include <__type_traits/remove_extent.h>
 #include <__type_traits/type_identity.h>
 #include <__utility/declval.h>
@@ -259,7 +260,15 @@ public:
   }
 
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 __add_lvalue_reference_t<_Tp> operator*() const
-      _NOEXCEPT_(_NOEXCEPT_(*std::declval<pointer>())) {
+      _NOEXCEPT_(_NOEXCEPT_(*std::declval<pointer>()))
+#if _LIBCPP_STD_VER >= 20
+    requires requires { *std::declval<pointer>(); }
+#endif
+  {
+#if _LIBCPP_STD_VER >= 23
+    static_assert(!reference_converts_from_temporary_v<__add_lvalue_reference_t<_Tp>, decltype(*std::declval<pointer>())>,
+                  "unique_ptr::operator* would return a reference bound to a temporary");
+#endif
     return *__ptr_;
   }
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 pointer operator->() const _NOEXCEPT { return __ptr_; }
