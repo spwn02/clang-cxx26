@@ -624,7 +624,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bitset() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR bitset(unsigned long long __v) _NOEXCEPT
       : __base(sizeof(unsigned long long) * CHAR_BIT <= _Size ? __v : __v & ((1ULL << _Size) - 1)) {}
-  template <class _CharT, __enable_if_t<_IsCharLikeType<_CharT>::value, int> = 0>
+  // LWG4294: is_array_v<charT> is false, charT is trivially copyable, standard-layout and trivially default constructible.
+  template <class _CharT, __enable_if_t<_IsCharLikeType<_CharT>::value && !is_array<_CharT>::value, int> = 0>
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 explicit bitset(
       const _CharT* __str,
       size_t __n    = basic_string<_CharT>::npos,
