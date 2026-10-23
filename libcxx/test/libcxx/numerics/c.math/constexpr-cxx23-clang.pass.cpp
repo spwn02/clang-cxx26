@@ -49,11 +49,11 @@ int main(int, char**) {
   ASSERT_CONSTEXPR_CXX23(std::labs(-1L) == 1L);
   ASSERT_CONSTEXPR_CXX23(std::llabs(-1LL) == 1LL);
 
-  ASSERT_NOT_CONSTEXPR_CXX23(std::div(13, 5).rem == 3);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::div(13L, 5L).rem == 3L);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::div(13LL, 5LL).rem == 3LL);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::ldiv(13L, 5L).rem == 3L);
-  ASSERT_NOT_CONSTEXPR_CXX23(std::lldiv(13LL, 5LL).rem == 3LL);
+  ASSERT_CONSTEXPR_CXX23(std::div(13, 5).rem == 3);
+  ASSERT_CONSTEXPR_CXX23(std::div(13L, 5L).rem == 3L);
+  ASSERT_CONSTEXPR_CXX23(std::div(13LL, 5LL).rem == 3LL);
+  ASSERT_CONSTEXPR_CXX23(std::ldiv(13L, 5L).rem == 3L);
+  ASSERT_CONSTEXPR_CXX23(std::lldiv(13LL, 5LL).rem == 3LL);
 
   ASSERT_CONSTEXPR_CXX23(([] { int Out = 0; return std::frexp(0.0f, &Out) == 0.0f; }()));
   ASSERT_CONSTEXPR_CXX23(([] { int Out = 0; return std::frexp(0.0, &Out) == 0.0; }()));
