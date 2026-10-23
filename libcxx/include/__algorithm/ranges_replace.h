@@ -15,8 +15,10 @@
 #include <__functional/identity.h>
 #include <__functional/ranges_operations.h>
 #include <__iterator/concepts.h>
+#include <__iterator/iterator_traits.h>
 #include <__iterator/projected.h>
 #include <__ranges/access.h>
+#include <__ranges/concepts.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
 #include <__type_traits/is_execution_policy.h>
@@ -47,7 +49,7 @@ struct __replace {
             ,
             class _Type2
 #  if _LIBCPP_STD_VER >= 26
-            = _Type1
+            = iter_value_t<_Iter>
 #  endif
             >
     requires indirectly_writable<_Iter, const _Type2&> &&
@@ -67,7 +69,7 @@ struct __replace {
             ,
             class _Type2
 #  if _LIBCPP_STD_VER >= 26
-            = _Type1
+            = range_value_t<_Range>
 #  endif
             >
     requires indirectly_writable<iterator_t<_Range>, const _Type2&> &&
@@ -86,7 +88,7 @@ struct __replace {
 #  endif
            , class _Type2
 #  if _LIBCPP_STD_VER >= 26
-            = _Type1
+            = iter_value_t<_Iter>
 #  endif
            , class _RawPolicy = __remove_cvref_t<_Ep>,
             enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
@@ -110,7 +112,7 @@ struct __replace {
 #  endif
            , class _Type2
 #  if _LIBCPP_STD_VER >= 26
-            = _Type1
+            = range_value_t<_Range>
 #  endif
            ,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>

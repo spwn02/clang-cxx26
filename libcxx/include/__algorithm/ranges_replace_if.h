@@ -14,8 +14,10 @@
 #include <__functional/identity.h>
 #include <__functional/invoke.h>
 #include <__iterator/concepts.h>
+#include <__iterator/iterator_traits.h>
 #include <__iterator/projected.h>
 #include <__ranges/access.h>
+#include <__ranges/concepts.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
 #include <__type_traits/is_execution_policy.h>
@@ -52,7 +54,7 @@ struct __replace_if {
             class _Proj = identity,
             class _Type
 #  if _LIBCPP_STD_VER >= 26
-            = projected_value_t<_Iter, _Proj>
+            = iter_value_t<_Iter>
 #  endif
             ,
             indirect_unary_predicate<projected<_Iter, _Proj>> _Pred>
@@ -66,7 +68,7 @@ struct __replace_if {
             class _Proj = identity,
             class _Type
 #  if _LIBCPP_STD_VER >= 26
-            = projected_value_t<iterator_t<_Range>, _Proj>
+            = range_value_t<_Range>
 #  endif
             ,
             indirect_unary_predicate<projected<iterator_t<_Range>, _Proj>> _Pred>
@@ -80,7 +82,7 @@ struct __replace_if {
   template <class _Ep, random_access_iterator _Iter, sized_sentinel_for<_Iter> _Sent, class _Proj = identity,
             class _Type
 #  if _LIBCPP_STD_VER >= 26
-            = projected_value_t<_Iter, _Proj>
+            = iter_value_t<_Iter>
 #  endif
            , indirect_unary_predicate<projected<_Iter, _Proj>> _Pred,
             class _RawPolicy = __remove_cvref_t<_Ep>, enable_if_t<is_execution_policy_v<_RawPolicy>, int> = 0>
@@ -98,7 +100,7 @@ struct __replace_if {
   template <class _Ep, random_access_range _Range, class _Proj = identity,
             class _Type
 #  if _LIBCPP_STD_VER >= 26
-            = projected_value_t<iterator_t<_Range>, _Proj>
+            = range_value_t<_Range>
 #  endif
            ,
             indirect_unary_predicate<projected<iterator_t<_Range>, _Proj>> _Pred,
