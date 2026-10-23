@@ -4317,6 +4317,16 @@ bool InterpretBuiltin(InterpState &S, CodePtr OpPC, const CallExpr *Call,
   case Builtin::BI__assume:
     return interp__builtin_assume(S, OpPC, Frame, Call);
 
+  case Builtin::BI__c11_atomic_thread_fence:
+  case Builtin::BI__c11_atomic_signal_fence:
+  case Builtin::BI__atomic_thread_fence:
+  case Builtin::BI__atomic_signal_fence:
+  case Builtin::BI__scoped_atomic_thread_fence:
+    // [atomics.fences]: a fence has no effect during constant evaluation.
+    for (unsigned I = 0, N = Call->getNumArgs(); I != N; ++I)
+      discard(S.Stk, *S.getContext().classify(Call->getArg(N - 1 - I)));
+    return true;
+
   case Builtin::BI__builtin_strcmp:
   case Builtin::BIstrcmp:
   case Builtin::BI__builtin_strncmp:

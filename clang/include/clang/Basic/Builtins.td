@@ -966,7 +966,7 @@ def Launder : Builtin {
 
 def IsConstantEvaluated : LangBuiltin<"CXX_LANG"> {
   let Spellings = ["__builtin_is_constant_evaluated"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "bool()";
 }
 
@@ -2022,19 +2022,19 @@ def C11AtomicFetchMin : AtomicBuiltin {
 
 def C11AtomicThreadFence : Builtin {
   let Spellings = ["__c11_atomic_thread_fence"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "void(int)";
 }
 
 def C11AtomicSignalFence : Builtin {
   let Spellings = ["__c11_atomic_signal_fence"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "void(int)";
 }
 
 def C11AtomicIsLockFree : Builtin {
   let Spellings = ["__c11_atomic_is_lock_free"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "bool(size_t)";
 }
 
@@ -2185,31 +2185,31 @@ def AtomicClear : AtomicBuiltin {
 
 def AtomicThreadFence : Builtin {
   let Spellings = ["__atomic_thread_fence"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "void(int)";
 }
 
 def ScopedAtomicThreadFence : Builtin {
   let Spellings = ["__scoped_atomic_thread_fence"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "void(int, int)";
 }
 
 def AtomicSignalFence : Builtin {
   let Spellings = ["__atomic_signal_fence"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "void(int)";
 }
 
 def AtomicAlwaysLockFree : Builtin {
   let Spellings = ["__atomic_always_lock_free"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "bool(size_t, void const volatile*)";
 }
 
 def AtomicIsLockFree : Builtin {
   let Spellings = ["__atomic_is_lock_free"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "bool(size_t, void const volatile*)";
 }
 
@@ -2601,7 +2601,7 @@ def MSAnnotation : MSLangBuiltin {
 
 def MSAssume : MSLangBuiltin {
   let Spellings = ["__assume"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "void(bool)";
 }
 
@@ -2838,7 +2838,7 @@ def IsoVolatileStore : MSLangBuiltin, Int8_16_32_64Template {
 
 def Noop : MSLangBuiltin {
   let Spellings = ["__noop"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "int(...)";
 }
 
@@ -2862,61 +2862,61 @@ def MSReturnAddress : MSLangBuiltin {
 
 def Rotl8 : MSLangBuiltin {
   let Spellings = ["_rotl8"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "unsigned char(unsigned char, unsigned char)";
 }
 
 def Rotl16 : MSLangBuiltin {
   let Spellings = ["_rotl16"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "unsigned short(unsigned short, unsigned char)";
 }
 
 def Rotl : MSLangBuiltin {
   let Spellings = ["_rotl"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "unsigned int(unsigned int, int)";
 }
 
 def Lrotl : MSLangBuiltin {
   let Spellings = ["_lrotl"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "unsigned long int(unsigned long int, int)";
 }
 
 def Rotl64 : MSLangBuiltin {
   let Spellings = ["_rotl64"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "uint64_t(uint64_t, int)";
 }
 
 def Rotr8 : MSLangBuiltin {
   let Spellings = ["_rotr8"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "unsigned char(unsigned char, unsigned char)";
 }
 
 def Rotr16 : MSLangBuiltin {
   let Spellings = ["_rotr16"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "unsigned short(unsigned short, unsigned char)";
 }
 
 def Rotr : MSLangBuiltin {
   let Spellings = ["_rotr"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "unsigned int(unsigned int, int)";
 }
 
 def Lrotr : MSLangBuiltin {
   let Spellings = ["_lrotr"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "unsigned long int(unsigned long int, int)";
 }
 
 def Rotr64 : MSLangBuiltin {
   let Spellings = ["_rotr64"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "uint64_t(uint64_t, int)";
 }
 
@@ -3049,7 +3049,7 @@ def AlignedAlloc : LibBuiltin<"stdlib.h"> {
 // C99 string.h
 def MemCpy : LibBuiltin<"string.h"> {
   let Spellings = ["memcpy"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "void*(void*, void const*, size_t)";
   let AddBuiltinPrefixedAlias = 1;
 }
@@ -3068,7 +3068,7 @@ def MemCmp : LibBuiltin<"string.h"> {
 
 def MemMove : LibBuiltin<"string.h"> {
   let Spellings = ["memmove"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "void*(void*, void const*, size_t)";
   let AddBuiltinPrefixedAlias = 1;
 }
@@ -3095,14 +3095,14 @@ def StrNCpy : LibBuiltin<"string.h"> {
 
 def StrCmp : LibBuiltin<"string.h"> {
   let Spellings = ["strcmp"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "int(char const*, char const*)";
   let AddBuiltinPrefixedAlias = 1;
 }
 
 def StrNCmp : LibBuiltin<"string.h"> {
   let Spellings = ["strncmp"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "int(char const*, char const*, size_t)";
   let AddBuiltinPrefixedAlias = 1;
 }
@@ -3128,14 +3128,14 @@ def StrxFrm : LibBuiltin<"string.h"> {
 
 def MemChr : LibBuiltin<"string.h"> {
   let Spellings = ["memchr"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "void*(void const*, int, size_t)";
   let AddBuiltinPrefixedAlias = 1;
 }
 
 def StrChr : LibBuiltin<"string.h"> {
   let Spellings = ["strchr"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "char*(char const*, int)";
   let AddBuiltinPrefixedAlias = 1;
 }
@@ -3192,7 +3192,7 @@ def StrError : LibBuiltin<"string.h"> {
 
 def StrLen : LibBuiltin<"string.h"> {
   let Spellings = ["strlen"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "size_t(char const*)";
   let AddBuiltinPrefixedAlias = 1;
 }
@@ -3482,28 +3482,28 @@ def WcsnCmp : LibBuiltin<"wchar.h"> {
 
 def WMemChr : LibBuiltin<"wchar.h"> {
   let Spellings = ["wmemchr"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "wchar_t*(wchar_t const*, wchar_t, size_t)";
   let AddBuiltinPrefixedAlias = 1;
 }
 
 def WMemCmp : LibBuiltin<"wchar.h"> {
   let Spellings = ["wmemcmp"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "int(wchar_t const*, wchar_t const*, size_t)";
   let AddBuiltinPrefixedAlias = 1;
 }
 
 def WMemCpy : LibBuiltin<"wchar.h"> {
   let Spellings = ["wmemcpy"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "wchar_t*(wchar_t*, wchar_t const*, size_t)";
   let AddBuiltinPrefixedAlias = 1;
 }
 
 def WMemMove : LibBuiltin<"wchar.h"> {
   let Spellings = ["wmemmove"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "wchar_t*(wchar_t*, wchar_t const*, size_t)";
   let AddBuiltinPrefixedAlias = 1;
 }
@@ -3876,7 +3876,7 @@ def Fmod : FPMathTemplate, LibBuiltin<"math.h"> {
 
 def Frexp : FPMathTemplate, LibBuiltin<"math.h"> {
   let Spellings = ["frexp"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "T(T, int*)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
@@ -3907,7 +3907,7 @@ def Ldexp : FPMathTemplate, LibBuiltin<"math.h"> {
 
 def Modf : FPMathTemplate, LibBuiltin<"math.h"> {
   let Spellings = ["modf"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "T(T, T*)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
@@ -4295,7 +4295,7 @@ def Remainder : FPMathTemplate, LibBuiltin<"math.h"> {
 
 def Remquo : FPMathTemplate, LibBuiltin<"math.h"> {
   let Spellings = ["remquo"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "T(T, T, int*)";
   let AddBuiltinPrefixedAlias = 1;
   let OnlyBuiltinPrefixedAliasIsConstexpr = 1;
@@ -4665,13 +4665,13 @@ def Annotation : Builtin {
 // Invariants
 def Assume : Builtin {
   let Spellings = ["__builtin_assume"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "void(bool)";
 }
 
 def AssumeSeparateStorage : Builtin {
   let Spellings = ["__builtin_assume_separate_storage"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "void(void const volatile*, void const volatile*)";
 }
 
@@ -4685,14 +4685,14 @@ class MPATemplate : Template<
 
 def Addc : Builtin, MPATemplate {
   let Spellings = ["__builtin_addc"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   // FIXME: Why are these argumentes marked const?
   let Prototype = "T(T const, T const, T const, T*)";
 }
 
 def Subc : Builtin, MPATemplate {
   let Spellings = ["__builtin_subc"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   // FIXME: Why are these argumentes marked const?
   let Prototype = "T(T const, T const, T const, T*)";
 }
@@ -4722,19 +4722,19 @@ class UOverflowTemplate :
 
 def UaddOverflow : Builtin, UOverflowTemplate {
   let Spellings = ["__builtin_uadd"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "bool(T const, T const, T*)";
 }
 
 def UsubOverflow : Builtin, UOverflowTemplate {
   let Spellings = ["__builtin_usub"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "bool(T const, T const, T*)";
 }
 
 def UmulOverflow : Builtin, UOverflowTemplate {
   let Spellings = ["__builtin_umul"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "bool(T const, T const, T*)";
 }
 
@@ -4744,19 +4744,19 @@ class SOverflowTemplate :
 
 def SaddOverflow : Builtin, SOverflowTemplate {
   let Spellings = ["__builtin_sadd"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "bool(T const, T const, T*)";
 }
 
 def SsubOverflow : Builtin, SOverflowTemplate {
   let Spellings = ["__builtin_ssub"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "bool(T const, T const, T*)";
 }
 
 def SmulOverflow : Builtin, SOverflowTemplate {
   let Spellings = ["__builtin_smul"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "bool(T const, T const, T*)";
 }
 
@@ -4787,7 +4787,7 @@ def BuiltinOperatorDelete : Builtin {
 
 def BuiltinCharMemchr : Builtin {
   let Spellings = ["__builtin_char_memchr"];
-  let Attributes = [NoThrow, Constexpr];
+  let Attributes = [NoThrow, CXX26Constexpr];
   let Prototype = "char*(char const*, int, size_t)";
 }
 
