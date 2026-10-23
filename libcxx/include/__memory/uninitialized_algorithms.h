@@ -28,6 +28,7 @@
 #include <__type_traits/extent.h>
 #include <__type_traits/is_array.h>
 #include <__type_traits/is_constant_evaluated.h>
+#include <__type_traits/is_reference.h>
 #include <__type_traits/is_same.h>
 #include <__type_traits/is_trivially_assignable.h>
 #include <__type_traits/is_trivially_constructible.h>
@@ -267,7 +268,13 @@ template <class _InputIterator, class _ForwardIterator>
 inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 _ForwardIterator
 uninitialized_move(_InputIterator __ifirst, _InputIterator __ilast, _ForwardIterator __ofirst) {
   using _ValueType = typename iterator_traits<_ForwardIterator>::value_type;
-  auto __iter_move = [](auto&& __iter) -> decltype(auto) { return std::move(*__iter); };
+  auto __iter_move = [](auto&& __iter) -> decltype(auto) {
+    // deref-move: a prvalue is returned as is, so that a type without move operations is constructed in place.
+    if constexpr (is_lvalue_reference_v<decltype(*__iter)>)
+      return std::move(*__iter);
+    else
+      return *__iter;
+  };
 
   auto __result = std::__uninitialized_move<_ValueType>(
       std::move(__ifirst), std::move(__ilast), std::move(__ofirst), __always_false(), __iter_move);
@@ -298,7 +305,13 @@ template <class _InputIterator, class _Size, class _ForwardIterator>
 inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 pair<_InputIterator, _ForwardIterator>
 uninitialized_move_n(_InputIterator __ifirst, _Size __n, _ForwardIterator __ofirst) {
   using _ValueType = typename iterator_traits<_ForwardIterator>::value_type;
-  auto __iter_move = [](auto&& __iter) -> decltype(auto) { return std::move(*__iter); };
+  auto __iter_move = [](auto&& __iter) -> decltype(auto) {
+    // deref-move: a prvalue is returned as is, so that a type without move operations is constructed in place.
+    if constexpr (is_lvalue_reference_v<decltype(*__iter)>)
+      return std::move(*__iter);
+    else
+      return *__iter;
+  };
 
   return std::__uninitialized_move_n<_ValueType>(
       std::move(__ifirst), __n, std::move(__ofirst), __always_false(), __iter_move);

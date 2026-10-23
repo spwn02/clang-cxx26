@@ -11,6 +11,7 @@
 #define _LIBCPP___MEMORY_PSTL_UNINITIALIZED_ALGORITHMS_H
 
 #include <__config>
+#include <__type_traits/is_reference.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -155,7 +156,13 @@ _LIBCPP_HIDE_FROM_ABI _NoThrowForwardIterator uninitialized_move(
              __n,
              std::move(__result),
              __type_identity<_ValueType>(),
-             [](auto&& __iter) -> decltype(auto) { return std::move(*__iter); })
+             [](auto&& __iter) -> decltype(auto) {
+    // deref-move: a prvalue is returned as is, so that a type without move operations is constructed in place.
+    if constexpr (is_lvalue_reference_v<decltype(*__iter)>)
+      return std::move(*__iter);
+    else
+      return *__iter;
+  })
       .second;
 }
 
@@ -175,7 +182,13 @@ uninitialized_move_n(_ExecutionPolicy&& __exec, _ForwardIterator __first, _Size 
       __n,
       std::move(__result),
       __type_identity<_ValueType>(),
-      [](auto&& __iter) -> decltype(auto) { return std::move(*__iter); });
+      [](auto&& __iter) -> decltype(auto) {
+    // deref-move: a prvalue is returned as is, so that a type without move operations is constructed in place.
+    if constexpr (is_lvalue_reference_v<decltype(*__iter)>)
+      return std::move(*__iter);
+    else
+      return *__iter;
+  });
 }
 
 // uninitialized_fill
