@@ -19,6 +19,7 @@
 #include <functional>
 
 #include "test_macros.h"
+#include "is_permutation_of_ints.h"
 #include "test_iterators.h"
 #include "MoveOnly.h"
 
@@ -37,7 +38,7 @@ TEST_CONSTEXPR_CXX20 bool test()
     std::copy(orig, orig+N, work);
     std::sort(Iter(work), Iter(work+N), std::greater<T>());
     assert(std::is_sorted(work, work+N, std::greater<T>()));
-    assert(std::is_permutation(work, work+N, orig));
+    assert(is_permutation_of_ints(work, work+N, orig));
 
     return true;
 }
@@ -55,7 +56,7 @@ TEST_CONSTEXPR_CXX20 bool test_pointers()
     std::copy(orig, orig+N, work);
     std::sort(Iter(work), Iter(work+N), std::greater<T*>());
     assert(std::is_sorted(work, work+N, std::greater<T*>()));
-    assert(std::is_permutation(work, work+N, orig));
+    assert(is_permutation_of_ints(work, work+N, orig));
 
     return true;
 }

@@ -17,6 +17,7 @@
 #include <cassert>
 
 #include "test_macros.h"
+#include "is_permutation_of_ints.h"
 #include "test_iterators.h"
 #include "MoveOnly.h"
 
@@ -28,7 +29,7 @@ TEST_CONSTEXPR_CXX20 bool test()
     for (int n = 0; n < 15; ++n) {
         for (int m = 0; m < n; ++m) {
             std::nth_element(Iter(work), Iter(work+m), Iter(work+n));
-            assert(std::is_permutation(work, work+n, orig));
+            assert(is_permutation_of_ints(work, work+n, orig));
             // No element to m's left is greater than m.
             for (int i = 0; i < m; ++i) {
                 assert(!(work[i] > work[m]));

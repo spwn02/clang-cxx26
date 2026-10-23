@@ -20,6 +20,7 @@
 #include <cassert>
 
 #include "test_macros.h"
+#include "is_permutation_of_ints.h"
 #include "test_iterators.h"
 #include "MoveOnly.h"
 
@@ -33,7 +34,7 @@ TEST_CONSTEXPR_CXX20 bool test()
             OutIter it = std::partial_sort_copy(Iter(orig), Iter(orig+n), OutIter(work), OutIter(work+m));
             if (n <= m) {
                 assert(it == OutIter(work+n));
-                assert(std::is_permutation(OutIter(work), it, orig));
+                assert(is_permutation_of_ints(OutIter(work), it, orig));
             } else {
                 assert(it == OutIter(work+m));
             }

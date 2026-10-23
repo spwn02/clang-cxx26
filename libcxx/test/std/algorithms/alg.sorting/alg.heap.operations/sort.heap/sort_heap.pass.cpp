@@ -17,6 +17,7 @@
 #include <cassert>
 
 #include "test_macros.h"
+#include "is_permutation_of_ints.h"
 #include "test_iterators.h"
 
 #include "test_macros.h"
@@ -32,7 +33,7 @@ TEST_CONSTEXPR_CXX20 bool test()
         std::make_heap(work, work+n);
         std::sort_heap(Iter(work), Iter(work+n));
         assert(std::is_sorted(work, work+n));
-        assert(std::is_permutation(work, work+n, orig));
+        assert(is_permutation_of_ints(work, work+n, orig));
         std::copy(orig, orig+n, work);
     }
 

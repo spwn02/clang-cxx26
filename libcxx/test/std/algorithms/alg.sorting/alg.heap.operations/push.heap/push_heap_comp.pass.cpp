@@ -18,6 +18,7 @@
 #include <functional>
 
 #include "test_macros.h"
+#include "is_permutation_of_ints.h"
 #include "test_iterators.h"
 #include "MoveOnly.h"
 
@@ -28,7 +29,7 @@ TEST_CONSTEXPR_CXX20 bool test()
     T work[15] = {3,1,4,1,5, 9,2,6,5,3, 5,8,9,7,9};
     for (int i = 1; i < 15; ++i) {
         std::push_heap(Iter(work), Iter(work+i), std::greater<T>());
-        assert(std::is_permutation(work, work+i, orig));
+        assert(is_permutation_of_ints(work, work+i, orig));
         assert(std::is_heap(work, work+i, std::greater<T>()));
     }
 

@@ -19,6 +19,7 @@
 #include <functional>
 
 #include "test_macros.h"
+#include "is_permutation_of_ints.h"
 #include "test_iterators.h"
 #include "MoveOnly.h"
 
@@ -31,7 +32,7 @@ TEST_CONSTEXPR_CXX20 bool test()
         for (int m = 0; m <= n; ++m) {
             std::partial_sort(Iter(work), Iter(work+m), Iter(work+n), std::greater<T>());
             assert(std::is_sorted(work, work+m, std::greater<T>()));
-            assert(std::is_permutation(work, work+n, orig));
+            assert(is_permutation_of_ints(work, work+n, orig));
             // No element in the unsorted portion is greater than any element in the sorted portion.
             for (int i = m; i < n; ++i) {
                 assert(m == 0 || !(work[i] > work[m-1]));
