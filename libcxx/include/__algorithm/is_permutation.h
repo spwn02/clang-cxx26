@@ -250,6 +250,9 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 bool __is_permutation(
 template <class _ForwardIterator1, class _ForwardIterator2, class _BinaryPredicate>
 [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 bool is_permutation(
     _ForwardIterator1 __first1, _ForwardIterator1 __last1, _ForwardIterator2 __first2, _BinaryPredicate __pred) {
+  static_assert(is_same<typename iterator_traits<_ForwardIterator1>::value_type,
+                        typename iterator_traits<_ForwardIterator2>::value_type>::value,
+                "ForwardIterator1 and ForwardIterator2 must have the same value type");
   static_assert(__is_callable<_BinaryPredicate&, decltype(*__first1), decltype(*__first2)>::value,
                 "The comparator has to be callable");
 
@@ -260,6 +263,9 @@ template <class _ForwardIterator1, class _ForwardIterator2, class _BinaryPredica
 template <class _ForwardIterator1, class _ForwardIterator2>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 bool
 is_permutation(_ForwardIterator1 __first1, _ForwardIterator1 __last1, _ForwardIterator2 __first2) {
+  static_assert(is_same<typename iterator_traits<_ForwardIterator1>::value_type,
+                        typename iterator_traits<_ForwardIterator2>::value_type>::value,
+                "ForwardIterator1 and ForwardIterator2 must have the same value type");
   return std::is_permutation(__first1, __last1, __first2, __equal_to());
 }
 
@@ -269,6 +275,9 @@ is_permutation(_ForwardIterator1 __first1, _ForwardIterator1 __last1, _ForwardIt
 template <class _ForwardIterator1, class _ForwardIterator2>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 bool is_permutation(
     _ForwardIterator1 __first1, _ForwardIterator1 __last1, _ForwardIterator2 __first2, _ForwardIterator2 __last2) {
+  static_assert(is_same<typename iterator_traits<_ForwardIterator1>::value_type,
+                        typename iterator_traits<_ForwardIterator2>::value_type>::value,
+                "ForwardIterator1 and ForwardIterator2 must have the same value type");
   return std::__is_permutation<_ClassicAlgPolicy>(
       std::move(__first1),
       std::move(__last1),
@@ -287,6 +296,9 @@ template <class _ForwardIterator1, class _ForwardIterator2, class _BinaryPredica
     _ForwardIterator2 __first2,
     _ForwardIterator2 __last2,
     _BinaryPredicate __pred) {
+  static_assert(is_same<typename iterator_traits<_ForwardIterator1>::value_type,
+                        typename iterator_traits<_ForwardIterator2>::value_type>::value,
+                "ForwardIterator1 and ForwardIterator2 must have the same value type");
   static_assert(__is_callable<_BinaryPredicate&, decltype(*__first1), decltype(*__first2)>::value,
                 "The comparator has to be callable");
 

@@ -7,6 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+// UNSUPPORTED: c++03, c++11, c++14, c++17, c++20
+
+// The [cpp.predefined] __STDCPP_FLOAT<N>_T__ macros are defined by the frontend only for libc++ users.
+// ADDITIONAL_COMPILE_FLAGS: -Xclang -fstdcpp-float-macros
+
 // <charconv>
 
 // Extended floating-point overloads from P1467R9.

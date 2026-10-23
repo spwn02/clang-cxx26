@@ -84,7 +84,7 @@ public:
 private:
   friend class path;
 
-  inline _LIBCPP_HIDE_FROM_ABI friend bool operator==(const iterator&, const iterator&);
+  _LIBCPP_HIDE_FROM_ABI friend bool operator==(const iterator&, const iterator&);
 
   iterator& __increment();
   iterator& __decrement();
