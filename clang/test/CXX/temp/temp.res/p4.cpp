@@ -157,8 +157,8 @@ template int Test<X>;
 
 template<typename T> struct A {
   enum E : T::type {}; // expected-error{{missing 'typename'}}
-  operator T::type() {} // expected-error{{missing 'typename'}}
-  void f() { this->operator T::type(); } // expected-error{{missing 'typename'}}
+  operator T::type() {} // OK: conversion-type-id is a type-only context (CWG2413)
+  void f() { this->operator T::type(); } // OK
 };
 
 template<typename T>

@@ -6,7 +6,7 @@ struct X0 : T::template apply<U> {
 };
 
 template<typename T, typename U>
-struct X1 : T::apply<U> { }; // expected-error{{use 'template' keyword to treat 'apply' as a dependent template name}}
+struct X1 : T::apply<U> { }; // the 'template' keyword is optional in a base-specifier (CWG1710)
 
 template<typename T>
 struct X2 : vector<T> { }; // expected-error{{no template named 'vector'}}

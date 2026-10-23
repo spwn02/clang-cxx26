@@ -1756,13 +1756,13 @@ private:
     case DeclSpecContext::DSC_alias_declaration:
     case DeclSpecContext::DSC_template_param:
     case DeclSpecContext::DSC_new:
+    case DeclSpecContext::DSC_conv_operator: // CWG2413
       return ImplicitTypenameContext::Yes;
 
     case DeclSpecContext::DSC_normal:
     case DeclSpecContext::DSC_objc_method_result:
     case DeclSpecContext::DSC_condition:
     case DeclSpecContext::DSC_template_arg:
-    case DeclSpecContext::DSC_conv_operator:
     case DeclSpecContext::DSC_association:
     case DeclSpecContext::DSC_reflect_operator:
       return ImplicitTypenameContext::No;
@@ -4642,7 +4642,8 @@ private:
       bool IsTypename = false, const IdentifierInfo **LastII = nullptr,
       bool OnlyNamespace = false, bool InUsingDeclaration = false,
       bool Disambiguation = false,
-      SourceLocation TypenameKWLoc = SourceLocation());
+      SourceLocation TypenameKWLoc = SourceLocation(),
+      bool IsTypeOnlyContext = false);
 
   //===--------------------------------------------------------------------===//
   // C++11 5.1.2: Lambda expressions

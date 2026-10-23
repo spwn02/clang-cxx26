@@ -4884,6 +4884,26 @@ ResolveOverloadedFunctionForReferenceBinding(Sema &S,
   return false;
 }
 
+// True if T1 and T2 differ at most in cv-qualification at every level, that is, they
+// have the same address space, ObjC lifetime and other non-cv qualifiers everywhere.
+// Used by the CWG2801 rejection of binding reference-related types through a
+// temporary, which must not affect the extension qualifiers.
+static bool DiffersOnlyInCVRQualifiers(ASTContext &Ctx, QualType T1, QualType T2) {
+  auto SameNonCVR = [](QualType A, QualType B) {
+    Qualifiers QA = A.getQualifiers(), QB = B.getQualifiers();
+    QA.removeCVRQualifiers();
+    QB.removeCVRQualifiers();
+    return QA == QB;
+  };
+  if (!SameNonCVR(T1, T2))
+    return false;
+  while (Ctx.UnwrapSimilarTypes(T1, T2)) {
+    if (!SameNonCVR(T1, T2))
+      return false;
+  }
+  return true;
+}
+
 static void TryReferenceInitializationCore(Sema &S,
                                            const InitializedEntity &Entity,
                                            const InitializationKind &Kind,
@@ -5784,6 +5804,15 @@ static void TryReferenceInitializationCore(Sema &S,
       InitCategory.isLValue()) {
     Sequence.SetFailed(
                     InitializationSequence::FK_RValueReferenceBindingToLValue);
+    return;
+  }
+
+  // [dcl.init.ref]p5.4 (CWG2801): otherwise, T1 shall not be reference-related to
+  // T2. Reference-related types that are not reference-compatible (such as
+  // 'const int *' and 'int *') cannot be bound through a temporary either.
+  if (RefRelationship == Sema::Ref_Related &&
+      DiffersOnlyInCVRQualifiers(S.Context, T1, T2)) {
+    Sequence.SetFailed(InitializationSequence::FK_ReferenceInitDropsQualifiers);
     return;
   }
 

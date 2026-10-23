@@ -29,12 +29,10 @@ namespace nested_sizeof {
 template <typename T>
 struct Foo {
   enum {
-    // expected-warning@+2 {{use 'template' keyword to treat 'InnerTemplate' as a dependent template name}}
     // expected-warning@+1 {{missing 'typename' prior to dependent type name 'nested_sizeof::Bar::InnerType'}}
     x1 = sizeof(typename T::/*template*/ InnerTemplate<sizeof(/*typename*/ T::InnerType)>),
     // expected-warning@+1 {{missing 'typename' prior to dependent type name 'nested_sizeof::Bar::InnerType'}}
     x2 = sizeof(typename T::template InnerTemplate<sizeof(/*typename*/ T::InnerType)>),
-    // expected-warning@+1 {{use 'template' keyword to treat 'InnerTemplate' as a dependent template name}}
     y1 = sizeof(typename T::/*template*/ InnerTemplate<sizeof(T::InnerVar)>),
     y2 = sizeof(typename T::template InnerTemplate<sizeof(T::InnerVar)>),
     z = sizeof(T::template InnerTemplate<sizeof(T::InnerVar)>::x),

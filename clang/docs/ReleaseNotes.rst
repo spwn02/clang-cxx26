@@ -353,6 +353,22 @@ Resolutions to C++ Defect Reports
   scoped variants are usable in constant expressions (they have no effect there), so that ``atomic_thread_fence`` and
   ``atomic_signal_fence`` are ``constexpr`` (`P3309R3 <https://wg21.link/P3309R3>`_).
 
+- Core issues resolved in this release (see ``cxx_dr_status.html``):
+
+  - CWG343, CWG314, CWG1710, CWG1812: the ``template`` keyword is not required before the terminal name of a
+    *typename-specifier*, a *base-specifier* or a *mem-initializer-id* (``typename T::X<int>``, ``struct D : T::B<int>``);
+    it is still required for a name that is a component of a *nested-name-specifier*.
+  - CWG2413: ``typename`` is not required in a *conversion-type-id* (``operator T::X();``).
+  - CWG2460: a ``requires``-clause on a friend function removes C language linkage from it.
+  - CWG2851: floating-point promotions and conversions are allowed in converted constant expressions when the value
+    is represented exactly (``A<1.0>`` for a ``float`` template parameter).
+  - CWG2815: binding a reference to a function that differs only in ``noexcept`` is a function pointer conversion, so
+    ``g(void (*)() noexcept)`` is preferred over ``g(void (&)())`` for a ``noexcept`` function.
+  - Source-incompatible: CWG2768 makes ``x = {v}`` copy-list-initialization of the invented temporary, so
+    ``e = {0}`` is ill-formed for an enumeration with a fixed underlying type (it used to be accepted and, with
+    assertions enabled, crashed); CWG2801 rejects binding ``const int *&&`` to an ``int *`` xvalue (reference-related
+    types are never bound through a temporary).
+
 C Language Changes
 ------------------
 

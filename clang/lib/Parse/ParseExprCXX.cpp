@@ -111,7 +111,8 @@ bool Parser::ParseOptionalCXXScopeSpecifier(
     CXXScopeSpec &SS, ParsedType ObjectType, bool ObjectHadErrors,
     bool EnteringContext, bool *MayBePseudoDestructor, bool IsTypename,
     const IdentifierInfo **LastII, bool OnlyNamespace, bool InUsingDeclaration,
-    bool Disambiguation, SourceLocation TypenameKWLoc) {
+    bool Disambiguation, SourceLocation TypenameKWLoc,
+    bool IsTypeOnlyContext) {
   assert(getLangOpts().CPlusPlus &&
          "Call sites of this function should be guarded by checking for C++");
 
@@ -136,6 +137,14 @@ bool Parser::ParseOptionalCXXScopeSpecifier(
     *LastII = nullptr;
 
   bool HasScopeSpecifier = false;
+
+  // [temp.names]p3 (CWG343, CWG1812): in a type-only context, a '<' after the terminal name
+  // of a typename-specifier starts a template-argument-list even if 'template' is missing.
+  // The 'template' keyword is still required if that template-id turns out to be a
+  // component of a nested-name-specifier, so the diagnostic is deferred until then.
+  SourceLocation PendingMissingTemplateKWLoc;
+  const IdentifierInfo *PendingMissingTemplateKWName = nullptr;
+  unsigned PendingMissingTemplateKWDiagID = 0;
 
   if (Tok.is(tok::coloncolon)) {
     // ::new and ::delete aren't nested-name-specifiers.
@@ -433,6 +442,17 @@ bool Parser::ParseOptionalCXXScopeSpecifier(
         return false;
       }
 
+      // The template-id is a component of a nested-name-specifier, where the
+      // 'template' keyword is required (see PendingMissingTemplateKWLoc above).
+      if (PendingMissingTemplateKWLoc.isValid() &&
+          TemplateId->TemplateNameLoc == PendingMissingTemplateKWLoc) {
+        Diag(PendingMissingTemplateKWLoc, PendingMissingTemplateKWDiagID)
+            << PendingMissingTemplateKWName->getName()
+            << FixItHint::CreateInsertion(PendingMissingTemplateKWLoc,
+                                          "template ");
+        PendingMissingTemplateKWLoc = SourceLocation();
+      }
+
       if (LastII)
         *LastII = TemplateId->Name;
 
@@ -627,9 +647,15 @@ bool Parser::ParseOptionalCXXScopeSpecifier(
           if (getLangOpts().MicrosoftExt)
             DiagID = diag::warn_missing_dependent_template_keyword;
 
-          Diag(Tok.getLocation(), DiagID)
-              << II.getName()
-              << FixItHint::CreateInsertion(Tok.getLocation(), "template ");
+          if (IsTypename || IsTypeOnlyContext) {
+            PendingMissingTemplateKWLoc = Tok.getLocation();
+            PendingMissingTemplateKWName = &II;
+            PendingMissingTemplateKWDiagID = DiagID;
+          } else {
+            Diag(Tok.getLocation(), DiagID)
+                << II.getName()
+                << FixItHint::CreateInsertion(Tok.getLocation(), "template ");
+          }
         }
         ConsumeToken();
 

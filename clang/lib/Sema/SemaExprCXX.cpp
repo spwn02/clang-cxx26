@@ -5378,7 +5378,12 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
     if (CheckExceptionSpecCompatibility(From, ToType))
       return ExprError();
 
-    From = ImpCastExprToType(From, ToType, CK_NoOp, VK_PRValue,
+    // A reference binding to a function that differs only by noexcept
+    // (CWG2815) keeps the value category of the function lvalue.
+    From = ImpCastExprToType(From, ToType.getNonLValueExprType(Context),
+                             CK_NoOp,
+                             ToType->isReferenceType() ? From->getValueKind()
+                                                       : VK_PRValue,
                              /*BasePath=*/nullptr, CCK)
                .get();
     break;

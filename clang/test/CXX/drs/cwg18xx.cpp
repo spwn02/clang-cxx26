@@ -166,12 +166,11 @@ void A<double, U>::C<V>::f4() {
 
 // cwg1807 is in cwg1807.cpp
 
-namespace cwg1812 { // cwg1812: no
+namespace cwg1812 { // cwg1812: 22
                    // NB: dup 1710
 #if __cplusplus >= 201103L
 template <typename T> struct A {
   using B = typename T::C<int>;
-  // since-cxx11-error@-1 {{use 'template' keyword to treat 'C' as a dependent template name}}
 };
 #endif
 } // namespace cwg1812

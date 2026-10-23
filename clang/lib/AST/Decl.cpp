@@ -2210,6 +2210,16 @@ SourceRange VarDecl::getSourceRange() const {
   return DeclaratorDecl::getSourceRange();
 }
 
+// C++ [dcl.link]p5 (CWG2460): a C language linkage is ignored in determining the
+// language linkage of friend functions with a trailing requires-clause.
+static bool hasLanguageLinkageIgnoredByDeclaration(const FunctionDecl &D) {
+  return D.getFriendObjectKind() != Decl::FOK_None &&
+         D.getTrailingRequiresClause();
+}
+static bool hasLanguageLinkageIgnoredByDeclaration(const VarDecl &) {
+  return false;
+}
+
 template<typename T>
 static LanguageLinkage getDeclLanguageLinkage(const T &D) {
   // C++ [dcl.link]p1: All function types, function names with external linkage,
@@ -2226,7 +2236,7 @@ static LanguageLinkage getDeclLanguageLinkage(const T &D) {
   // language linkage of the names of class members and the function type of
   // class member functions.
   const DeclContext *DC = D.getDeclContext();
-  if (DC->isRecord())
+  if (DC->isRecord() || hasLanguageLinkageIgnoredByDeclaration(D))
     return CXXLanguageLinkage;
 
   // If the first decl is in an extern "C" context, any other redeclaration

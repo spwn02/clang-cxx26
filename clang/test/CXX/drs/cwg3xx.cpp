@@ -259,7 +259,7 @@ namespace cwg313 { // cwg313: dup 299 c++11
   // cxx98-error@-1 {{implicit conversion from array size expression of type 'A' to integral type 'int' is a C++11 extension}}
 } // namespace cwg313
 
-namespace cwg314 { // cwg314: no
+namespace cwg314 { // cwg314: 22
                   // NB: dup 1710
 template <typename T> struct A {
   template <typename U> struct B {};
@@ -268,9 +268,7 @@ template <typename T> struct C : public A<T>::template B<T> {
   C() : A<T>::template B<T>() {}
 };
 template <typename T> struct C2 : public A<T>::B<T> {
-  // expected-error@-1 {{use 'template' keyword to treat 'B' as a dependent template name}}
   C2() : A<T>::B<T>() {}
-  // expected-error@-1 {{use 'template' keyword to treat 'B' as a dependent template name}}
 };
 } // namespace cwg314
 
@@ -716,16 +714,14 @@ namespace cwg341 {
 
 // cwg342: na
 
-namespace cwg343 { // cwg343: no
-  // FIXME: dup 1710
+namespace cwg343 { // cwg343: 22
+  // NB: dup 1710
   template<typename T> struct A {
     template<typename U> struct B {};
   };
-  // FIXME: In these contexts, the 'template' keyword is optional.
+  // In a class-or-decltype (including a mem-initializer-id) the 'template' keyword is optional.
   template<typename T> struct C : public A<T>::B<T> {
-  // expected-error@-1 {{use 'template' keyword to treat 'B' as a dependent template name}}
     C() : A<T>::B<T>() {}
-    // expected-error@-1 {{use 'template' keyword to treat 'B' as a dependent template name}}
   };
 } // namespace cwg343
 

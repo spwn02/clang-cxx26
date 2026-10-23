@@ -141,7 +141,7 @@ namespace templ_spec {
     A<typename T::template X<int>> t1;
     // expected-error@-1 {{'A<typename T::template X<int>>' (aka 'void')}}
 
-    A<typename T::X<int>> t2; // expected-error {{use 'template' keyword}}
+    A<typename T::X<int>> t2; // OK: the template keyword is optional (CWG343, CWG1812)
     // expected-error@-1 {{'A<typename T::X<int>>' (aka 'void')}}
 
     // FIXME: Why error recovery for the non-typename case is so bad?

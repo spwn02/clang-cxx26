@@ -192,12 +192,12 @@ public:
 
 template<class T>
 class C2  {
-  typename C1<T>:: /*template*/  Iterator<0> Mypos; // expected-warning {{use 'template' keyword to treat 'Iterator' as a dependent template name}}
+  typename C1<T>:: /*template*/  Iterator<0> Mypos;
 };
 
 template <class T>
 void missing_template_keyword(){
-  typename C1<T>:: /*template*/ Iterator<0> Mypos; // expected-warning {{use 'template' keyword to treat 'Iterator' as a dependent template name}}
+  typename C1<T>:: /*template*/ Iterator<0> Mypos;
 }
 
 

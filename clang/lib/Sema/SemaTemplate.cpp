@@ -369,7 +369,8 @@ bool Sema::DiagnoseUnknownTemplateName(const IdentifierInfo &II,
                                        Scope *S,
                                        const CXXScopeSpec *SS,
                                        TemplateTy &SuggestedTemplate,
-                                       TemplateNameKind &SuggestedKind) {
+                                       TemplateNameKind &SuggestedKind,
+                                       bool InTypeOnlyContext) {
   // We can't recover unless there's a dependent scope specifier preceding the
   // template name.
   // FIXME: Typo correction?
@@ -381,9 +382,10 @@ bool Sema::DiagnoseUnknownTemplateName(const IdentifierInfo &II,
   // name.
   SuggestedTemplate = TemplateTy::make(Context.getDependentTemplateName(
       {SS->getScopeRep(), &II, /*HasTemplateKeyword=*/false}));
-  Diag(IILoc, diag::err_template_kw_missing)
-      << SuggestedTemplate.get()
-      << FixItHint::CreateInsertion(IILoc, "template ");
+  if (!InTypeOnlyContext)
+    Diag(IILoc, diag::err_template_kw_missing)
+        << SuggestedTemplate.get()
+        << FixItHint::CreateInsertion(IILoc, "template ");
   SuggestedKind = TNK_Dependent_template_name;
   return true;
 }

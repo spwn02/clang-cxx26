@@ -1436,9 +1436,13 @@ TypeResult Parser::ParseBaseTypeSpecifier(SourceLocation &BaseLoc,
 
   // Parse optional nested-name-specifier
   CXXScopeSpec SS;
-  if (ParseOptionalCXXScopeSpecifier(SS, /*ObjectType=*/nullptr,
-                                     /*ObjectHasErrors=*/false,
-                                     /*EnteringContext=*/false))
+  // A base-specifier is a type-only context (CWG1710, CWG314).
+  if (ParseOptionalCXXScopeSpecifier(
+          SS, /*ObjectType=*/nullptr, /*ObjectHasErrors=*/false,
+          /*EnteringContext=*/false, /*MayBePseudoDestructor=*/nullptr,
+          /*IsTypename=*/false, /*LastII=*/nullptr, /*OnlyNamespace=*/false,
+          /*InUsingDeclaration=*/false, /*Disambiguation=*/false,
+          /*TypenameKWLoc=*/SourceLocation(), /*IsTypeOnlyContext=*/true))
     return true;
 
   BaseLoc = Tok.getLocation();
@@ -1506,8 +1510,11 @@ TypeResult Parser::ParseBaseTypeSpecifier(SourceLocation &BaseLoc,
     // required nor permitted" mode, and do this there.
     TemplateNameKind TNK = TNK_Non_template;
     TemplateTy Template;
-    if (!Actions.DiagnoseUnknownTemplateName(*Id, IdLoc, getCurScope(), &SS,
-                                             Template, TNK)) {
+    // A class-or-decltype is a type-only context: the 'template' keyword is not
+    // required there (CWG1710, CWG314).
+    if (!Actions.DiagnoseUnknownTemplateName(
+            *Id, IdLoc, getCurScope(), &SS, Template, TNK,
+            /*InTypeOnlyContext=*/true)) {
       Diag(IdLoc, diag::err_unknown_template_name) << Id;
     }
 
@@ -4005,10 +4012,14 @@ void Parser::ParseConstructorInitializer(Decl *ConstructorDecl) {
 
 MemInitResult Parser::ParseMemInitializer(Decl *ConstructorDecl) {
   // parse '::'[opt] nested-name-specifier[opt]
+  // A mem-initializer-id is a class-or-decltype, a type-only context (CWG343).
   CXXScopeSpec SS;
-  if (ParseOptionalCXXScopeSpecifier(SS, /*ObjectType=*/nullptr,
-                                     /*ObjectHasErrors=*/false,
-                                     /*EnteringContext=*/false))
+  if (ParseOptionalCXXScopeSpecifier(
+          SS, /*ObjectType=*/nullptr, /*ObjectHasErrors=*/false,
+          /*EnteringContext=*/false, /*MayBePseudoDestructor=*/nullptr,
+          /*IsTypename=*/false, /*LastII=*/nullptr, /*OnlyNamespace=*/false,
+          /*InUsingDeclaration=*/false, /*Disambiguation=*/false,
+          /*TypenameKWLoc=*/SourceLocation(), /*IsTypeOnlyContext=*/true))
     return true;
 
   // : identifier

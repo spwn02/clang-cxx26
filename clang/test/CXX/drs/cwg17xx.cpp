@@ -6,16 +6,15 @@
 // RUN: %clang_cc1 -std=c++23 %s -verify=expected,since-cxx11 -fexceptions -fcxx-exceptions -pedantic-errors
 // RUN: %clang_cc1 -std=c++2c %s -verify=expected,since-cxx11 -fexceptions -fcxx-exceptions -pedantic-errors
 
-namespace cwg1710 { // cwg1710: no
-// FIXME: all of the following is well-formed
+namespace cwg1710 { // cwg1710: 22
+// The 'template' keyword is optional for the terminal name of a class-or-decltype; it is still required
+// for a name that is a component of a nested-name-specifier.
 template <typename T> struct D1 : T::template B<int>::template C<int> {};
 template <typename T> struct D2 : T::B<int>::template C<int> {};
 // expected-error@-1 {{use 'template' keyword to treat 'B' as a dependent template name}}
 template <typename T> struct D3 : T::template B<int>::C<int> {};
-// expected-error@-1 {{use 'template' keyword to treat 'C' as a dependent template name}}
 template <typename T> struct D4 : T::B<int>::C<int> {};
 // expected-error@-1 {{use 'template' keyword to treat 'B' as a dependent template name}}
-// expected-error@-2 {{use 'template' keyword to treat 'C' as a dependent template name}}
 } // namespace cwg1710
 
 namespace cwg1715 { // cwg1715: 3.9

@@ -5447,6 +5447,26 @@ FindConversionForRefInit(Sema &S, ImplicitConversionSequence &ICS,
 
 /// Compute an implicit conversion sequence for reference
 /// initialization.
+// True if T1 and T2 differ at most in cv-qualification at every level, that is, they
+// have the same address space, ObjC lifetime and other non-cv qualifiers everywhere.
+// Used by the CWG2801 rejection of binding reference-related types through a
+// temporary, which must not affect the extension qualifiers.
+static bool DiffersOnlyInCVRQualifiers(ASTContext &Ctx, QualType T1, QualType T2) {
+  auto SameNonCVR = [](QualType A, QualType B) {
+    Qualifiers QA = A.getQualifiers(), QB = B.getQualifiers();
+    QA.removeCVRQualifiers();
+    QB.removeCVRQualifiers();
+    return QA == QB;
+  };
+  if (!SameNonCVR(T1, T2))
+    return false;
+  while (Ctx.UnwrapSimilarTypes(T1, T2)) {
+    if (!SameNonCVR(T1, T2))
+      return false;
+  }
+  return true;
+}
+
 static ImplicitConversionSequence
 TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
                  SourceLocation DeclLoc,
@@ -5495,6 +5515,13 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
                               Sema::ReferenceConversions::NestedQualification)
                              ? ICK_Qualification
                              : ICK_Identity;
+    // C++ [over.ics.ref]p1 (CWG2815): when T is a function type, the type of the
+    // argument can differ only by the presence of noexcept, and then the
+    // conversion sequence is a function pointer conversion, not an identity
+    // conversion.
+    if (ICS.Standard.Third == ICK_Identity && T1->isFunctionType() &&
+        T2->isFunctionType() && !S.Context.hasSameType(T1, T2))
+      ICS.Standard.Third = ICK_Function_Conversion;
     ICS.Standard.setFromType(T2);
     ICS.Standard.setToType(0, T2);
     ICS.Standard.setToType(1, T1);
@@ -5658,6 +5685,12 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
     ICS.setBad(BadConversionSequence::rvalue_ref_to_lvalue, Init, DeclType);
     return ICS;
   }
+
+  // [dcl.init.ref]p5.4 (CWG2801): T1 shall not be reference-related to T2 when the
+  // reference cannot bind directly.
+  if (RefRelationship == Sema::Ref_Related &&
+      DiffersOnlyInCVRQualifiers(S.Context, T1, T2))
+    return ICS;
 
   // C++ [over.ics.ref]p2:
   //   When a parameter of reference type is not bound directly to
@@ -6418,8 +6451,14 @@ static bool CheckConvertedConstantConversions(Sema &S,
     return SCS.getFromType()->isNullPtrType();
 
   case ICK_Floating_Promotion:
-  case ICK_Complex_Promotion:
   case ICK_Floating_Conversion:
+    // C++26 [expr.const]p10 (CWG2851): floating-point promotions and
+    // floating-point conversions are allowed when the source value can be
+    // represented exactly in the destination type; that is checked by the
+    // caller once the value is known.
+    return true;
+
+  case ICK_Complex_Promotion:
   case ICK_Complex_Conversion:
   case ICK_Floating_Integral:
   case ICK_Compatible_Conversion:
@@ -6561,6 +6600,24 @@ static ExprResult BuildConvertedConstantExpression(Sema &S, Expr *From,
                                  IsTemplateArgument);
   if (Result.isInvalid())
     return Result;
+
+  // C++26 [expr.const]p10 (CWG2851): a floating-point conversion is only allowed
+  // if the source value can be represented exactly in the destination type.
+  if (SCS->Second == ICK_Floating_Conversion && !From->isValueDependent() &&
+      From->getType()->isRealFloatingType() && T->isRealFloatingType()) {
+    Expr::EvalResult FloatResult;
+    if (From->EvaluateAsRValue(FloatResult, S.Context) &&
+        FloatResult.Val.isFloat()) {
+      llvm::APFloat Converted = FloatResult.Val.getFloat();
+      bool LosesInfo = false;
+      Converted.convert(S.Context.getFloatTypeSemantics(T),
+                        llvm::APFloat::rmNearestTiesToEven, &LosesInfo);
+      if (LosesInfo && !Converted.isNaN())
+        return S.Diag(From->getBeginLoc(),
+                      diag::err_typecheck_converted_constant_expression_disallowed)
+               << From->getType() << From->getSourceRange() << T;
+    }
+  }
 
   // Check for a narrowing implicit conversion.
   bool ReturnPreNarrowingValue = false;

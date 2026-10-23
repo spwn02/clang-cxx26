@@ -15510,11 +15510,13 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
     // The syntax only allows initializer lists on the RHS of assignment,
     // so we don't need to worry about accepting invalid code for
     // non-assignment operators.
-    // C++11 5.17p9:
-    //   The meaning of x = {v} [...] is that of x = T(v) [...]. The meaning
-    //   of x = {} is x = T().
-    InitializationKind Kind = InitializationKind::CreateDirectList(
-        RHSExpr->getBeginLoc(), RHSExpr->getBeginLoc(), RHSExpr->getEndLoc());
+    // C++11 5.17p9, as amended by CWG2768:
+    //   The meaning of x = {v} is x = t, where t is an invented temporary
+    //   variable declared and initialized as T t = {v}.
+    // That is copy-list-initialization, so e = {0} is ill-formed for an
+    // enumeration with a fixed underlying type.
+    InitializationKind Kind = InitializationKind::CreateCopy(
+        RHSExpr->getBeginLoc(), RHSExpr->getBeginLoc());
     InitializedEntity Entity =
         InitializedEntity::InitializeTemporary(LHSExpr->getType());
     InitializationSequence InitSeq(*this, Entity, Kind, RHSExpr);

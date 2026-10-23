@@ -351,7 +351,7 @@ void showInt(int v1, int &&v2);
 void showPointer(const char *&&s);
 void showPointer2(const char *const &&s);
 void showTriviallyCopyable(TriviallyCopyable &&obj);
-void showTriviallyCopyablePointer(const TriviallyCopyable *&&obj);
+void showTriviallyCopyablePointer(TriviallyCopyable *const &&obj);
 void testFunctions() {
   int a = 10;
   showInt(std::move(a));
@@ -374,14 +374,14 @@ void testFunctions() {
   // CHECK-MESSAGES: :[[@LINE-21]]:48: note: consider changing the 1st parameter of 'showTriviallyCopyable' from 'TriviallyCopyable &&' to 'const TriviallyCopyable &'
   showTriviallyCopyablePointer(std::move(obj));
   // CHECK-MESSAGES: :[[@LINE-1]]:32: warning: std::move of the variable 'obj' of the trivially-copyable type 'TriviallyCopyable *' has no effect [performance-move-const-arg]
-  // CHECK-MESSAGES: :[[@LINE-23]]:62: note: consider changing the 1st parameter of 'showTriviallyCopyablePointer' from 'const TriviallyCopyable *&&' to 'const TriviallyCopyable *'
+  // CHECK-MESSAGES: :[[@LINE-23]]:62: note: consider changing the 1st parameter of 'showTriviallyCopyablePointer' from 'TriviallyCopyable *const &&' to 'TriviallyCopyable *const'
   TrivialAlias* obj2 = new TrivialAlias();
   showTriviallyCopyable(std::move(*obj));
   // CHECK-MESSAGES: :[[@LINE-1]]:25: warning: std::move of the expression of the trivially-copyable type 'TriviallyCopyable' has no effect [performance-move-const-arg]
   // CHECK-MESSAGES: :[[@LINE-28]]:48: note: consider changing the 1st parameter of 'showTriviallyCopyable' from 'TriviallyCopyable &&' to 'const TriviallyCopyable &'
   showTriviallyCopyablePointer(std::move(obj));
   // CHECK-MESSAGES: :[[@LINE-1]]:32: warning: std::move of the variable 'obj' of the trivially-copyable type 'TriviallyCopyable *' has no effect [performance-move-const-arg]
-  // CHECK-MESSAGES: :[[@LINE-30]]:62: note: consider changing the 1st parameter of 'showTriviallyCopyablePointer' from 'const TriviallyCopyable *&&' to 'const TriviallyCopyable *'
+  // CHECK-MESSAGES: :[[@LINE-30]]:62: note: consider changing the 1st parameter of 'showTriviallyCopyablePointer' from 'TriviallyCopyable *const &&' to 'TriviallyCopyable *const'
 }
 template <class T>
 void forwardToShowInt(T && t) {
@@ -399,7 +399,7 @@ struct Tmp {
   Tmp(int v1, int &&a);
   Tmp(const char *&&s);
   Tmp(TriviallyCopyable&& obj);
-  Tmp(const TriviallyCopyable *&&obj);
+  Tmp(TriviallyCopyable *const &&obj);
   void showTmp(TriviallyCopyable&& t);
   static void showTmpStatic(TriviallyCopyable&& t);
 };
@@ -424,7 +424,7 @@ void testMethods() {
   // CHECK-MESSAGES: :[[@LINE-23]]:27: note: consider changing the 1st parameter of 'Tmp' from 'TriviallyCopyable &&' to 'const TriviallyCopyable &'
   Tmp t5(std::move(obj));
   // CHECK-MESSAGES: :[[@LINE-1]]:10: warning: std::move of the variable 'obj' of the trivially-copyable type 'TriviallyCopyable *' has no effect [performance-move-const-arg]
-  // CHECK-MESSAGES: :[[@LINE-25]]:34: note: consider changing the 1st parameter of 'Tmp' from 'const TriviallyCopyable *&&' to 'const TriviallyCopyable *'
+  // CHECK-MESSAGES: :[[@LINE-25]]:34: note: consider changing the 1st parameter of 'Tmp' from 'TriviallyCopyable *const &&' to 'TriviallyCopyable *const'
   t.showTmp(std::move(*obj));
   // CHECK-MESSAGES: :[[@LINE-1]]:13: warning: std::move of the expression of the trivially-copyable type 'TriviallyCopyable' has no effect [performance-move-const-arg]
   // CHECK-MESSAGES: :[[@LINE-27]]:36: note: consider changing the 1st parameter of 'showTmp' from 'TriviallyCopyable &&' to 'const TriviallyCopyable &'
@@ -452,7 +452,7 @@ void testMethodsAlias() {
   // CHECK-MESSAGES: :[[@LINE-51]]:27: note: consider changing the 1st parameter of 'Tmp' from 'TriviallyCopyable &&' to 'const TriviallyCopyable &'
   TmpAlias t5(std::move(obj));
   // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: std::move of the variable 'obj' of the trivially-copyable type 'TrivialAlias *' (aka 'TriviallyCopyable *') has no effect [performance-move-const-arg]
-  // CHECK-MESSAGES: :[[@LINE-53]]:34: note: consider changing the 1st parameter of 'Tmp' from 'const TriviallyCopyable *&&' to 'const TriviallyCopyable *'
+  // CHECK-MESSAGES: :[[@LINE-53]]:34: note: consider changing the 1st parameter of 'Tmp' from 'TriviallyCopyable *const &&' to 'TriviallyCopyable *const'
   t.showTmp(std::move(*obj));
   // CHECK-MESSAGES: :[[@LINE-1]]:13: warning: std::move of the expression of the trivially-copyable type 'TrivialAlias' (aka 'TriviallyCopyable') has no effect [performance-move-const-arg]
   // CHECK-MESSAGES: :[[@LINE-55]]:36: note: consider changing the 1st parameter of 'showTmp' from 'TriviallyCopyable &&' to 'const TriviallyCopyable &'

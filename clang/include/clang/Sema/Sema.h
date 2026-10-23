@@ -11796,11 +11796,15 @@ public:
                             SourceLocation NameLoc, CXXScopeSpec &SS,
                             ParsedTemplateTy *Template = nullptr);
 
+  /// \param InTypeOnlyContext the name is the terminal name in a type-only
+  /// context ([temp.names]p3, CWG1710), where the 'template' keyword is
+  /// not required, so a missing keyword is not diagnosed.
   bool DiagnoseUnknownTemplateName(const IdentifierInfo &II,
                                    SourceLocation IILoc, Scope *S,
                                    const CXXScopeSpec *SS,
                                    TemplateTy &SuggestedTemplate,
-                                   TemplateNameKind &SuggestedKind);
+                                   TemplateNameKind &SuggestedKind,
+                                   bool InTypeOnlyContext = false);
 
   /// Determine whether we would be unable to instantiate this template (because
   /// it either has no definition, or is in the process of being instantiated).
