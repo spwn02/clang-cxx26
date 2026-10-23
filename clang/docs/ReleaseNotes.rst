@@ -551,6 +551,8 @@ Attribute Changes in Clang
 
 Improvements to Clang's diagnostics
 -----------------------------------
+- Clang diagnoses friend function declarations that use ``inline`` without defining the
+  function or a prior inline declaration, as required by CWG 281.
 - Diagnostics messages now refer to ``structured binding`` instead of ``decomposition``,
   to align with `P0615R0 <https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0615r0.html>`_ changing the term. (#GH157880)
 - Clang now suppresses runtime behavior warnings for unreachable code in file-scope

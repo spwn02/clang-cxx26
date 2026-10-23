@@ -256,8 +256,7 @@ namespace ExplicitLambdaInstancePointer {
   };
   void foo() {
       constexpr auto b = [](this C) { return 1; }; // all20-error {{explicit object parameters are incompatible with C++ standards before C++2b}}
-      constexpr int (*fp)(C) = b;
-      static_assert(fp(1) == 1, "");
+      constexpr int (*fp)(C) = b; // all-error {{no viable conversion from 'const (lambda at}}
   }
 
   /// Failure case. The instance pointer is of type int.
@@ -266,8 +265,8 @@ namespace ExplicitLambdaInstancePointer {
   };
   constexpr auto b = [](this K) { return 1; }; // all20-error {{explicit object parameters are incompatible with C++ standards before C++2b}} \
                                                // all-error {{unknown type name 'K'}}
-  constexpr int (*fp)(K) = b; // all-error {{unknown type name 'K'}}
-  static_assert(fp(1) == 1, ""); // expected-error {{not an integral constant expression}}
+  constexpr int (*fp)(K) = b; // all-error {{unknown type name 'K'}} \
+                              // all-error {{no viable conversion from 'const ExplicitLambdaInstancePointer::(lambda at}}
 }
 
 namespace TwosComplementShifts {

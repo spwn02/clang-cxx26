@@ -1246,20 +1246,14 @@ namespace cwg280 { // cwg280: 2.9
   }
 } // namespace cwg280
 
-namespace cwg281 { // cwg281: no
-  void a();
-  inline void b();
-
-  void d();
-  inline void e();
-
+namespace cwg281 { // cwg281: 7
+  struct A {
+    void a();
+    inline void b();
+  };
   struct S {
-    friend inline void a(); // FIXME: ill-formed
-    friend inline void b();
-    friend inline void c(); // FIXME: ill-formed
-    friend inline void d() {}
-    friend inline void e() {}
-    friend inline void f() {}
+    friend inline void A::a(); // expected-error {{friend declaration of 'a' with 'inline' specifier must be a definition unless previously declared inline}}
+    friend inline void A::b();
   };
 } // namespace cwg281
 

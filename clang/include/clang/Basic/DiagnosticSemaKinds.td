@@ -6526,6 +6526,8 @@ def err_redefinition_variably_modified_typedef : Error<
 
 def err_inline_decl_follows_def : Error<
   "inline declaration of %0 follows non-inline definition">;
+def err_friend_inline_not_definition : Error<
+  "friend declaration of %0 with 'inline' specifier must be a definition unless previously declared inline">;
 def err_inline_declaration_block_scope : Error<
   "inline declaration of %0 not allowed in block scope">;
 def err_static_non_static : Error<

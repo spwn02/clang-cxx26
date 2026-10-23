@@ -5811,7 +5811,7 @@ static void TryReferenceInitializationCore(Sema &S,
   // T2. Reference-related types that are not reference-compatible (such as
   // 'const int *' and 'int *') cannot be bound through a temporary either.
   if (RefRelationship == Sema::Ref_Related &&
-      DiffersOnlyInCVRQualifiers(S.Context, T1, T2)) {
+      DiffersOnlyInCVRQualifiers(S.Context, cv1T1, cv2T2)) {
     Sequence.SetFailed(InitializationSequence::FK_ReferenceInitDropsQualifiers);
     return;
   }

@@ -183,17 +183,15 @@ struct D3 : B {
 #endif
 } // namespace cwg2554
 
-namespace cwg2561 { // cwg2561: no
+namespace cwg2561 { // cwg2561: 22
 #if __cplusplus >= 202302L
 struct C {
     constexpr C(auto) { }
 };
 void foo() {
     constexpr auto b = [](this C) { return 1; };
-    // FIXME: closure type shouldn't have a conversion function to function
-    //        pointer, because explicit object parameter is present. 
     constexpr int (*fp)(C) = b;
-    static_assert(fp(1) == 1);
+    // expected-error@-1 {{no viable conversion from 'const (lambda at}}
     static_assert((&decltype(b)::operator())(1) == 1);
 }
 #endif

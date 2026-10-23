@@ -12400,6 +12400,18 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
     }
   }
 
+  // C++26 [dcl.inline]: An inline specifier in a friend function declaration
+  // requires a definition unless the function was previously declared inline.
+  // Check this here, where DeclIsDefn reflects whether the declarator has a
+  // function body; CheckFunctionRedeclaration runs before the body is parsed.
+  if (!DeclIsDefn && NewFD->isInlineSpecified() &&
+      NewFD->getFriendObjectKind() != Decl::FOK_None &&
+      isa_and_nonnull<CXXMethodDecl>(OldDecl) &&
+      !cast<CXXMethodDecl>(OldDecl)->getMostRecentDecl()->isInlined()) {
+    Diag(NewFD->getLocation(), diag::err_friend_inline_not_definition) << NewFD;
+    NewFD->setInvalidDecl();
+  }
+
   if (CheckMultiVersionFunction(*this, NewFD, Redeclaration, OldDecl, Previous))
     return Redeclaration;
 
