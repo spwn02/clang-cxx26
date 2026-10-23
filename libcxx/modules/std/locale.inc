@@ -44,6 +44,11 @@ export namespace std {
   using std::numpunct;
   using std::numpunct_byname;
 
+#  if _LIBCPP_STD_VER >= 26
+  // [locale], class locale
+  using std::text_encoding;
+#  endif
+
   // [category.collate], collation
   using std::collate;
   using std::collate_byname;

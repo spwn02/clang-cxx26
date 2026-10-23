@@ -13,6 +13,7 @@
 #include <__config>
 #include <__functional/operations.h>
 #include <__iterator/iterator_traits.h>
+#include <__type_traits/invoke.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -28,6 +29,14 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 template <class _InputIterator, class _Tp, class _BinaryOp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _Tp
 reduce(_InputIterator __first, _InputIterator __last, _Tp __init, _BinaryOp __b) {
+#if _LIBCPP_STD_VER >= 20
+  using _InputReference = decltype(*__first);
+  static_assert(is_invocable_r_v<_Tp, _BinaryOp&, _Tp&, _InputReference> &&
+                    is_invocable_r_v<_Tp, _BinaryOp&, _InputReference, _Tp&> &&
+                    is_invocable_r_v<_Tp, _BinaryOp&, _Tp&, _Tp&> &&
+                    is_invocable_r_v<_Tp, _BinaryOp&, _InputReference, _InputReference>,
+                "reduce requires all four binary_op argument combinations to produce T");
+#endif
   for (; __first != __last; ++__first)
     __init = __b(std::move(__init), *__first);
   return __init;

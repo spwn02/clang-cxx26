@@ -11,6 +11,7 @@
 #define _LIBCPP___NUMERIC_TRANSFORM_EXCLUSIVE_SCAN_H
 
 #include <__config>
+#include <__type_traits/invoke.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -23,6 +24,13 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 template <class _InputIterator, class _OutputIterator, class _Tp, class _BinaryOp, class _UnaryOp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _OutputIterator transform_exclusive_scan(
     _InputIterator __first, _InputIterator __last, _OutputIterator __result, _Tp __init, _BinaryOp __b, _UnaryOp __u) {
+#if _LIBCPP_STD_VER >= 20
+  using _TransformResult = __invoke_result_t<_UnaryOp&, decltype(*__first)>;
+  static_assert(is_invocable_r_v<_Tp, _BinaryOp&, _Tp&, _Tp&> &&
+                    is_invocable_r_v<_Tp, _BinaryOp&, _Tp&, _TransformResult> &&
+                    is_invocable_r_v<_Tp, _BinaryOp&, _TransformResult, _TransformResult>,
+                "transform_exclusive_scan requires all three binary_op argument combinations to produce T");
+#endif
   if (__first != __last) {
     _Tp __saved = __init;
     do {

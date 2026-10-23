@@ -42,7 +42,7 @@ struct Test {
           Iter1(std::data(a)),
           Iter1(std::data(a) + std::size(a)),
           ValueT(34),
-          [check = std::string("Banane")](ValueT i, ValueT j) {
+          [check = std::string("Banane")](const ValueT& i, const ValueT& j) {
             assert(check == "Banane"); // ensure that no double-moves happen
             return i + j;
           },

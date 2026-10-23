@@ -146,7 +146,12 @@ template <class _ToDuration, class _Rep, class _Period, enable_if_t<__is_duratio
   return __t;
 }
 
-template <class _ToDuration, class _Rep, class _Period, enable_if_t<__is_duration_v<_ToDuration>, int> = 0>
+template <class _ToDuration,
+          class _Rep,
+          class _Period,
+          enable_if_t<__is_duration_v<_ToDuration> &&
+                          !treat_as_floating_point<typename _ToDuration::rep>::value,
+                      int> = 0>
 [[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _ToDuration round(const duration<_Rep, _Period>& __d) {
   _ToDuration __lower = chrono::floor<_ToDuration>(__d);
   _ToDuration __upper = __lower + _ToDuration{1};
@@ -218,7 +223,8 @@ public:
   // conversions
   template <class _Rep2,
             class _Period2,
-            __enable_if_t<__no_overflow<_Period2, period>::value && (treat_as_floating_point<rep>::value ||
+            __enable_if_t<__no_overflow<_Period2, period>::value && is_convertible<const _Rep2&, rep>::value &&
+                              (treat_as_floating_point<rep>::value ||
                                                                      (__no_overflow<_Period2, period>::type::den == 1 &&
                                                                       !treat_as_floating_point<_Rep2>::value)),
                           int> = 0>

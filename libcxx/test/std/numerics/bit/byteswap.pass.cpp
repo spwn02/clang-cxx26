@@ -72,8 +72,7 @@ constexpr bool test() {
   test_num<__int128_t>(in, expected);
 #endif
 
-  test_num<bool>(true, true);
-  test_num<bool>(false, false);
+  // bool has padding bits and therefore does not satisfy byteswap's Mandates.
   test_num<char>(static_cast<char>(0xCD), static_cast<char>(0xCD));
   test_num<unsigned char>(0xEF, 0xEF);
   test_num<signed char>(0x45, 0x45);

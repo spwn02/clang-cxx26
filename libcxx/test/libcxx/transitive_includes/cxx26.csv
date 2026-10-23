@@ -131,6 +131,7 @@ chrono stdfloat
 chrono streambuf
 chrono string
 chrono string_view
+chrono text_encoding
 chrono tuple
 chrono typeinfo
 chrono version
@@ -331,11 +332,14 @@ filesystem iomanip
 filesystem ios
 filesystem iosfwd
 filesystem limits
+filesystem locale
 filesystem optional
 filesystem ratio
 filesystem stdexcept
+filesystem streambuf
 filesystem string
 filesystem string_view
+filesystem text_encoding
 filesystem tuple
 filesystem typeinfo
 filesystem version
@@ -425,12 +429,14 @@ fstream ios
 fstream iosfwd
 fstream istream
 fstream limits
+fstream locale
 fstream ratio
 fstream stdexcept
 fstream stdfloat
 fstream streambuf
 fstream string
 fstream string_view
+fstream text_encoding
 fstream tuple
 fstream typeinfo
 fstream version
@@ -789,6 +795,7 @@ locale stdexcept
 locale streambuf
 locale string
 locale string_view
+locale text_encoding
 locale tuple
 locale typeinfo
 locale version

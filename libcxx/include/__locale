@@ -44,6 +44,9 @@
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 class _LIBCPP_EXPORTED_FROM_ABI locale;
+#  if _LIBCPP_STD_VER >= 26
+struct text_encoding;
+#  endif
 
 template <class _CharT>
 class collate;
@@ -97,6 +100,9 @@ public:
 
   // locale operations:
   string name() const;
+#  if _LIBCPP_STD_VER >= 26
+  _LIBCPP_HIDE_FROM_ABI text_encoding encoding() const;
+#  endif
   bool operator==(const locale&) const;
 #  if _LIBCPP_STD_VER <= 17
   _LIBCPP_HIDE_FROM_ABI bool operator!=(const locale& __y) const { return !(*this == __y); }

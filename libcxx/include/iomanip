@@ -53,6 +53,8 @@ template <class charT, class traits, class Allocator>
 #    include <__locale_dir/money.h>
 #    include <__locale_dir/time.h>
 #    include <__ostream/put_character_sequence.h>
+#    include <__type_traits/is_same.h>
+#    include <__type_traits/is_specialization.h>
 #    include <ios>
 #    include <iosfwd>
 #    include <version>
@@ -264,6 +266,10 @@ operator>>(basic_istream<_CharT, _Traits>& __is, const __iom_t7<_MoneyT>& __x) {
 
 template <class _MoneyT>
 inline _LIBCPP_HIDE_FROM_ABI __iom_t7<_MoneyT> get_money(_MoneyT& __mon, bool __intl = false) {
+#    if _LIBCPP_STD_VER >= 20
+  static_assert(is_same_v<_MoneyT, long double> || __is_specialization_v<_MoneyT, basic_string>,
+                "moneyT must be long double or a specialization of basic_string");
+#    endif
   return __iom_t7<_MoneyT>(__mon, __intl);
 }
 
@@ -312,6 +318,10 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const __iom_t8<_MoneyT>& __x) {
 
 template <class _MoneyT>
 inline _LIBCPP_HIDE_FROM_ABI __iom_t8<_MoneyT> put_money(const _MoneyT& __mon, bool __intl = false) {
+#    if _LIBCPP_STD_VER >= 20
+  static_assert(is_same_v<_MoneyT, long double> || __is_specialization_v<_MoneyT, basic_string>,
+                "moneyT must be long double or a specialization of basic_string");
+#    endif
   return __iom_t8<_MoneyT>(__mon, __intl);
 }
 

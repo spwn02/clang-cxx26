@@ -12,7 +12,9 @@
 
 #include <__concepts/arithmetic.h>
 #include <__config>
+#include <__type_traits/is_signed.h>
 #include <cstdint>
+#include <limits>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -24,6 +26,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 template <integral _Tp>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp byteswap(_Tp __val) noexcept {
+  static_assert(numeric_limits<_Tp>::digits + is_signed_v<_Tp> == sizeof(_Tp) * __CHAR_BIT__,
+                "byteswap requires an integer type without padding bits");
   if constexpr (sizeof(_Tp) == 1) {
     return __val;
   } else if constexpr (sizeof(_Tp) == 2) {

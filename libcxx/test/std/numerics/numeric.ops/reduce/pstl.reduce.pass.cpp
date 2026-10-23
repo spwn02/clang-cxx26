@@ -40,13 +40,15 @@ struct Test {
 
       {
         decltype(auto) ret = std::reduce(
-            policy, Iter(std::data(a)), Iter(std::data(a) + std::size(a)), ValueT(34), [](ValueT i, ValueT j) {
+            policy, Iter(std::data(a)), Iter(std::data(a) + std::size(a)), ValueT(34), [](const ValueT& i, const ValueT& j) {
               return i + j + 2;
             });
         static_assert(std::is_same_v<decltype(ret), ValueT>);
         assert(ret == ValueT(expected));
       }
-      {
+      // [reduce] Mandates: binary_op(*first, init) must be well-formed, which
+      // std::plus<> cannot do for `int + MoveOnly`.
+      if constexpr (std::is_same_v<ValueT, int>) {
         decltype(auto) ret = std::reduce(policy, Iter(std::data(a)), Iter(std::data(a) + std::size(a)), ValueT(34));
         static_assert(std::is_same_v<decltype(ret), ValueT>);
         assert(ret == expected - 2 * size);

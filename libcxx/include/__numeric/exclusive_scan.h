@@ -12,6 +12,7 @@
 
 #include <__config>
 #include <__functional/operations.h>
+#include <__type_traits/invoke.h>
 #include <__utility/move.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -28,6 +29,13 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 template <class _InputIterator, class _OutputIterator, class _Tp, class _BinaryOp>
 _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _OutputIterator
 exclusive_scan(_InputIterator __first, _InputIterator __last, _OutputIterator __result, _Tp __init, _BinaryOp __b) {
+#if _LIBCPP_STD_VER >= 20
+  using _InputReference = decltype(*__first);
+  static_assert(is_invocable_r_v<_Tp, _BinaryOp&, _Tp&, _Tp&> &&
+                    is_invocable_r_v<_Tp, _BinaryOp&, _Tp&, _InputReference> &&
+                    is_invocable_r_v<_Tp, _BinaryOp&, _InputReference, _InputReference>,
+                "exclusive_scan requires all three binary_op argument combinations to produce T");
+#endif
   if (__first != __last) {
     _Tp __tmp(__b(__init, *__first));
     while (true) {

@@ -30,8 +30,10 @@ template <typename _Tp, typename _Ip>
 concept __comparison_can_promote_to =
     sizeof(_Tp) < sizeof(_Ip) || (sizeof(_Tp) == sizeof(_Ip) && __signed_integer<_Tp>);
 
-template <__signed_or_unsigned_integer _Tp, __signed_or_unsigned_integer _Up>
+template <class _Tp, class _Up>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool cmp_equal(_Tp __t, _Up __u) noexcept {
+  static_assert(__signed_or_unsigned_integer<_Tp> && __signed_or_unsigned_integer<_Up>,
+                "cmp_equal requires signed or unsigned integer types");
   if constexpr (is_signed_v<_Tp> == is_signed_v<_Up>)
     return __t == __u;
   else if constexpr (__comparison_can_promote_to<_Tp, int> && __comparison_can_promote_to<_Up, int>)
@@ -44,13 +46,15 @@ template <__signed_or_unsigned_integer _Tp, __signed_or_unsigned_integer _Up>
     return __u < 0 ? false : __t == make_unsigned_t<_Up>(__u);
 }
 
-template <__signed_or_unsigned_integer _Tp, __signed_or_unsigned_integer _Up>
+template <class _Tp, class _Up>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool cmp_not_equal(_Tp __t, _Up __u) noexcept {
   return !std::cmp_equal(__t, __u);
 }
 
-template <__signed_or_unsigned_integer _Tp, __signed_or_unsigned_integer _Up>
+template <class _Tp, class _Up>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool cmp_less(_Tp __t, _Up __u) noexcept {
+  static_assert(__signed_or_unsigned_integer<_Tp> && __signed_or_unsigned_integer<_Up>,
+                "cmp_less requires signed or unsigned integer types");
   if constexpr (is_signed_v<_Tp> == is_signed_v<_Up>)
     return __t < __u;
   else if constexpr (__comparison_can_promote_to<_Tp, int> && __comparison_can_promote_to<_Up, int>)
@@ -63,25 +67,30 @@ template <__signed_or_unsigned_integer _Tp, __signed_or_unsigned_integer _Up>
     return __u < 0 ? false : __t < make_unsigned_t<_Up>(__u);
 }
 
-template <__signed_or_unsigned_integer _Tp, __signed_or_unsigned_integer _Up>
+template <class _Tp, class _Up>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool cmp_greater(_Tp __t, _Up __u) noexcept {
   return std::cmp_less(__u, __t);
 }
 
-template <__signed_or_unsigned_integer _Tp, __signed_or_unsigned_integer _Up>
+template <class _Tp, class _Up>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool cmp_less_equal(_Tp __t, _Up __u) noexcept {
   return !std::cmp_greater(__t, __u);
 }
 
-template <__signed_or_unsigned_integer _Tp, __signed_or_unsigned_integer _Up>
+template <class _Tp, class _Up>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool cmp_greater_equal(_Tp __t, _Up __u) noexcept {
   return !std::cmp_less(__t, __u);
 }
 
-template <__signed_or_unsigned_integer _Tp, __signed_or_unsigned_integer _Up>
+template <class _Tp, class _Up>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr bool in_range(_Up __u) noexcept {
-  return std::cmp_less_equal(__u, numeric_limits<_Tp>::max()) &&
-         std::cmp_greater_equal(__u, numeric_limits<_Tp>::min());
+  static_assert(__signed_or_unsigned_integer<_Tp> && __signed_or_unsigned_integer<_Up>,
+                "in_range requires signed or unsigned integer types");
+  if constexpr (__signed_or_unsigned_integer<_Tp> && __signed_or_unsigned_integer<_Up>)
+    return std::cmp_less_equal(__u, numeric_limits<_Tp>::max()) &&
+           std::cmp_greater_equal(__u, numeric_limits<_Tp>::min());
+  else
+    return false;
 }
 
 #endif // _LIBCPP_STD_VER >= 20

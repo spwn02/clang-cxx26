@@ -147,7 +147,7 @@
 "`P1719R2 <https://wg21.link/P1719R2>`__","Mandating the Standard Library: Clause 26 - Numerics library","2019-11 (Belfast)","","","`#100023 <https://github.com/llvm/llvm-project/issues/100023>`__",""
 "`P1720R2 <https://wg21.link/P1720R2>`__","Mandating the Standard Library: Clause 28 - Localization library","2019-11 (Belfast)","","","`#100025 <https://github.com/llvm/llvm-project/issues/100025>`__",""
 "`P1721R2 <https://wg21.link/P1721R2>`__","Mandating the Standard Library: Clause 29 - Input/Output library","2019-11 (Belfast)","","","`#100026 <https://github.com/llvm/llvm-project/issues/100026>`__",""
-"`P1722R2 <https://wg21.link/P1722R2>`__","Mandating the Standard Library: Clause 30 - Regular Expression library","2019-11 (Belfast)","","","`#100027 <https://github.com/llvm/llvm-project/issues/100027>`__",""
+"`P1722R2 <https://wg21.link/P1722R2>`__","Mandating the Standard Library: Clause 30 - Regular Expression library","2019-11 (Belfast)","|Nothing To Do|","","`#100027 <https://github.com/llvm/llvm-project/issues/100027>`__",""
 "`P1723R2 <https://wg21.link/P1723R2>`__","Mandating the Standard Library: Clause 31 - Atomics library","2019-11 (Belfast)","","","`#100029 <https://github.com/llvm/llvm-project/issues/100029>`__",""
 "`P1855R0 <https://wg21.link/P1855R0>`__","Make ``<compare>``\  freestanding","2019-11 (Belfast)","|Complete|","","`#100030 <https://github.com/llvm/llvm-project/issues/100030>`__",""
 "`P1862R1 <https://wg21.link/P1862R1>`__","Ranges adaptors for non-copyable iterators","2019-11 (Belfast)","|Complete|","16","`#104187 <https://github.com/llvm/llvm-project/issues/104187>`__",""

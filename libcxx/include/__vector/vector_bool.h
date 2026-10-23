@@ -43,6 +43,7 @@
 #include <__type_traits/is_constant_evaluated.h>
 #include <__type_traits/is_nothrow_assignable.h>
 #include <__type_traits/is_nothrow_constructible.h>
+#include <__type_traits/is_same.h>
 #include <__type_traits/type_identity.h>
 #include <__utility/exception_guard.h>
 #include <__utility/forward.h>
@@ -82,6 +83,10 @@ public:
   using value_type                     = bool;
   using allocator_type                 = _Allocator;
   using __alloc_traits _LIBCPP_NODEBUG = allocator_traits<allocator_type>;
+#if _LIBCPP_STD_VER >= 20
+  static_assert(is_same<typename allocator_type::value_type, value_type>::value,
+                "Allocator::value_type must be same type as value_type");
+#endif
   using size_type                      = typename __alloc_traits::size_type;
   using difference_type                = typename __alloc_traits::difference_type;
   using __storage_type _LIBCPP_NODEBUG = size_type;

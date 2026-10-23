@@ -29,6 +29,8 @@
 
 #if _LIBCPP_HAS_LOCALIZATION
 #  include <iomanip> // for quoted
+#  include <locale>
+#  include <stdexcept>
 #endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -420,16 +422,21 @@ public:
     _PathCVT<_ItVal>::__append_range(__pn_, __first, __last);
   }
 
-  /*
   #if _LIBCPP_HAS_LOCALIZATION
-    // TODO Implement locale conversions.
-    template <class _Source, class = _EnableIfPathable<_Source, void> >
-    path(const _Source& __src, const locale& __loc, format = format::auto_format);
-    template <class _InputIt>
-    path(_InputIt __first, _InputIt _last, const locale& __loc,
-         format = format::auto_format);
-  #endif
-  */
+  template <class _Source, class = _EnableIfPathable<_Source, void> >
+  _LIBCPP_HIDE_FROM_ABI path(const _Source& __src, const locale& __loc, format = format::auto_format) {
+    static_assert(is_same<_SourceChar<_Source>, char>::value, "path source with a locale must have char value type");
+    using _Traits = __is_pathable<_Source>;
+    __append_locale_range(_Traits::__range_begin(__src), _Traits::__range_end(__src), __loc);
+  }
+
+  template <class _InputIt>
+  _LIBCPP_HIDE_FROM_ABI path(_InputIt __first, _InputIt __last, const locale& __loc, format = format::auto_format) {
+    static_assert(is_same<typename iterator_traits<_InputIt>::value_type, char>::value,
+                  "path input iterator with a locale must have char value type");
+    __append_locale_range(__first, __last, __loc);
+  }
+#endif
 
   _LIBCPP_HIDE_FROM_ABI ~path() = default;
 
@@ -932,6 +939,36 @@ public:
 #  endif // _LIBCPP_HAS_LOCALIZATION
 
 private:
+#  if _LIBCPP_HAS_LOCALIZATION
+  template <class _InputIt>
+  _LIBCPP_HIDE_FROM_ABI void __append_locale_range(_InputIt __first, _InputIt __last, const locale& __loc) {
+    std::string __bytes(__first, __last);
+    if (__bytes.empty())
+      return;
+
+    std::wstring __wide(__bytes.size(), wchar_t{});
+    mbstate_t __state{};
+    const char* __from_next = nullptr;
+    wchar_t* __to_next      = nullptr;
+    const codecvt<wchar_t, char, mbstate_t>& __facet = use_facet<codecvt<wchar_t, char, mbstate_t> >(__loc);
+    codecvt_base::result __result = __facet.in(__state,
+                                                __bytes.data(),
+                                                __bytes.data() + __bytes.size(),
+                                                __from_next,
+                                                &__wide[0],
+                                                &__wide[0] + __wide.size(),
+                                                __to_next);
+    if (__result == codecvt_base::noconv) {
+      for (char __c : __bytes)
+        __pn_.push_back(static_cast<value_type>(__c));
+      return;
+    }
+    if (__result != codecvt_base::ok || __from_next != __bytes.data() + __bytes.size())
+      std::__throw_runtime_error("filesystem::path: locale conversion failed");
+    const wchar_t* __begin = __wide.data();
+    _PathCVT<wchar_t>::__append_range(__pn_, __begin, __begin + (__to_next - &__wide[0]));
+  }
+#  endif
   inline _LIBCPP_HIDE_FROM_ABI path& __assign_view(__string_view const& __s) {
     __pn_ = string_type(__s);
     return *this;

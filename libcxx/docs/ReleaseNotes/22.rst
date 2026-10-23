@@ -146,6 +146,13 @@ Potentially breaking changes
     ``packaged_task`` constructors have the invocability *Mandates* (LWG4154), ``ranges::replace`` and
     ``ranges::replace_if`` have the draft default template arguments (LWG4444), and
     ``task::promise_type::return_value`` has the default template argument ``V = T`` (LWG4345).
+  - Mandates of the "Mandating the Standard Library" papers are checked with ``static_assert`` (P1460R1 to P1723R2),
+    for example: ``reduce`` and ``transform_reduce`` need all four ``binary_op`` argument combinations to produce ``T``,
+    ``cmp_equal`` and the other integer comparison functions and ``in_range`` need signed or unsigned integer types,
+    ``vector<bool, Allocator>`` needs ``Allocator::value_type`` to be ``bool``, ``get_money`` and ``put_money`` need
+    ``long double`` or a ``basic_string``, and ``is_permutation`` needs both ranges to have the same value type. Code
+    that violated them (for instance ``is_permutation`` over a ``MoveOnly`` range and an ``int`` array) is now
+    ill-formed. In C++26 ``locale::encoding()`` returns ``text_encoding``, so ``<locale>`` includes ``<text_encoding>``.
   - The ``<simd>`` load, store, gather and scatter functions have the Constraints and Mandates of [simd.loadstore]
     and [simd.permute.memory] (LWG4420), ``task_scheduler`` has no move operations (a moved-from ``task_scheduler``
     is a copy; LWG4445), ``unique_ptr::operator*`` has the Constraints and Mandates of LWG4148,

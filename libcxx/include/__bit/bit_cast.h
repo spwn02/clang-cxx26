@@ -34,6 +34,10 @@ template <class _ToType, class _FromType>
   requires(sizeof(_ToType) == sizeof(_FromType) && is_trivially_copyable_v<_ToType> &&
            is_trivially_copyable_v<_FromType>)
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _ToType bit_cast(const _FromType& __from) noexcept {
+#  if _LIBCPP_STD_VER >= 26 && __has_builtin(__is_consteval_only)
+  static_assert(!__is_consteval_only(_ToType) && !__is_consteval_only(_FromType),
+                "bit_cast requires types that are not consteval-only");
+#  endif
   return __builtin_bit_cast(_ToType, __from);
 }
 

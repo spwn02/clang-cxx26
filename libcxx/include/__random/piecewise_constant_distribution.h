@@ -90,7 +90,11 @@ public:
   template <class _InputIteratorB, class _InputIteratorW>
   _LIBCPP_HIDE_FROM_ABI
   piecewise_constant_distribution(_InputIteratorB __f_b, _InputIteratorB __l_b, _InputIteratorW __f_w)
-      : __p_(__f_b, __l_b, __f_w) {}
+      : __p_(__f_b, __l_b, __f_w) {
+    static_assert(is_convertible<typename iterator_traits<_InputIteratorB>::value_type, double>::value &&
+                      is_convertible<typename iterator_traits<_InputIteratorW>::value_type, double>::value,
+                  "Mandates: iterator value types are convertible to double");
+  }
 
 #ifndef _LIBCPP_CXX03_LANG
   template <class _UnaryOperation>

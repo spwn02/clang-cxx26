@@ -28,6 +28,7 @@ _LIBCPP_PUSH_MACROS
 #  include <__pstl/dispatch.h>
 #  include <__pstl/handle_exception.h>
 #  include <__type_traits/enable_if.h>
+#  include <__type_traits/invoke.h>
 #  include <__type_traits/is_execution_policy.h>
 #  include <__type_traits/remove_cvref.h>
 #  include <__utility/forward.h>
@@ -44,6 +45,14 @@ template <class _ExecutionPolicy,
 _LIBCPP_HIDE_FROM_ABI _Tp reduce(
     _ExecutionPolicy&& __policy, _ForwardIterator __first, _ForwardIterator __last, _Tp __init, _BinaryOperation __op) {
   _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator, "reduce requires ForwardIterators");
+#  if _LIBCPP_STD_VER >= 20
+  using _InputReference = decltype(*__first);
+  static_assert(is_invocable_r_v<_Tp, _BinaryOperation&, _Tp&, _InputReference> &&
+                    is_invocable_r_v<_Tp, _BinaryOperation&, _InputReference, _Tp&> &&
+                    is_invocable_r_v<_Tp, _BinaryOperation&, _Tp&, _Tp&> &&
+                    is_invocable_r_v<_Tp, _BinaryOperation&, _InputReference, _InputReference>,
+                "reduce requires all four binary_op argument combinations to produce T");
+#  endif
   using _Implementation = __pstl::__dispatch<__pstl::__reduce, __pstl::__current_configuration, _RawPolicy>;
   return __pstl::__handle_exception<_Implementation>(
       std::forward<_ExecutionPolicy>(__policy),
@@ -100,6 +109,14 @@ _LIBCPP_HIDE_FROM_ABI _Tp transform_reduce(
     _BinaryOperation2 __transform) {
   _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator1, "transform_reduce requires ForwardIterators");
   _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator2, "transform_reduce requires ForwardIterators");
+#  if _LIBCPP_STD_VER >= 20
+  using _TransformResult = __invoke_result_t<_BinaryOperation2&, decltype(*__first1), decltype(*__first2)>;
+  static_assert(is_invocable_r_v<_Tp, _BinaryOperation1&, _Tp&, _Tp&> &&
+                    is_invocable_r_v<_Tp, _BinaryOperation1&, _Tp&, _TransformResult> &&
+                    is_invocable_r_v<_Tp, _BinaryOperation1&, _TransformResult, _Tp&> &&
+                    is_invocable_r_v<_Tp, _BinaryOperation1&, _TransformResult, _TransformResult>,
+                "transform_reduce requires all four binary_op1 argument combinations to produce T");
+#  endif
   using _Implementation =
       __pstl::__dispatch<__pstl::__transform_reduce_binary, __pstl::__current_configuration, _RawPolicy>;
   return __pstl::__handle_exception<_Implementation>(
@@ -155,6 +172,14 @@ _LIBCPP_HIDE_FROM_ABI _Tp transform_reduce(
     _BinaryOperation __reduce,
     _UnaryOperation __transform) {
   _LIBCPP_REQUIRE_CPP17_FORWARD_ITERATOR(_ForwardIterator, "transform_reduce requires ForwardIterators");
+#  if _LIBCPP_STD_VER >= 20
+  using _TransformResult = __invoke_result_t<_UnaryOperation&, decltype(*__first)>;
+  static_assert(is_invocable_r_v<_Tp, _BinaryOperation&, _Tp&, _Tp&> &&
+                    is_invocable_r_v<_Tp, _BinaryOperation&, _Tp&, _TransformResult> &&
+                    is_invocable_r_v<_Tp, _BinaryOperation&, _TransformResult, _Tp&> &&
+                    is_invocable_r_v<_Tp, _BinaryOperation&, _TransformResult, _TransformResult>,
+                "transform_reduce requires all four binary_op argument combinations to produce T");
+#  endif
   using _Implementation = __pstl::__dispatch<__pstl::__transform_reduce, __pstl::__current_configuration, _RawPolicy>;
   return __pstl::__handle_exception<_Implementation>(
       std::forward<_ExecutionPolicy>(__policy),

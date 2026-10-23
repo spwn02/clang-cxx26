@@ -80,7 +80,10 @@ public:
   // constructor and reset functions
   _LIBCPP_HIDE_FROM_ABI discrete_distribution() {}
   template <class _InputIterator>
-  _LIBCPP_HIDE_FROM_ABI discrete_distribution(_InputIterator __f, _InputIterator __l) : __p_(__f, __l) {}
+  _LIBCPP_HIDE_FROM_ABI discrete_distribution(_InputIterator __f, _InputIterator __l) : __p_(__f, __l) {
+    static_assert(is_convertible<typename iterator_traits<_InputIterator>::value_type, double>::value,
+                  "Mandates: iterator_traits<InputIterator>::value_type is convertible to double");
+  }
 #ifndef _LIBCPP_CXX03_LANG
   _LIBCPP_HIDE_FROM_ABI discrete_distribution(initializer_list<double> __wl) : __p_(__wl) {}
 #endif // _LIBCPP_CXX03_LANG

@@ -122,7 +122,12 @@ ceil(const time_point<_Clock, _Duration>& __t) {
   return time_point<_Clock, _ToDuration>{chrono::ceil<_ToDuration>(__t.time_since_epoch())};
 }
 
-template <class _ToDuration, class _Clock, class _Duration, enable_if_t<__is_duration_v<_ToDuration>, int> = 0>
+template <class _ToDuration,
+          class _Clock,
+          class _Duration,
+          enable_if_t<__is_duration_v<_ToDuration> &&
+                          !treat_as_floating_point<typename _ToDuration::rep>::value,
+                      int> = 0>
 [[nodiscard]] inline _LIBCPP_HIDE_FROM_ABI constexpr time_point<_Clock, _ToDuration>
 round(const time_point<_Clock, _Duration>& __t) {
   return time_point<_Clock, _ToDuration>{chrono::round<_ToDuration>(__t.time_since_epoch())};
