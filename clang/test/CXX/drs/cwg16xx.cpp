@@ -588,3 +588,6 @@ namespace cwg1696 { // cwg1696: 7
 // cwg1685: na
 // cwg1688: na
 // cwg1695: na
+// cwg1697: na
+// cwg1656: na
+// cwg1698: na

@@ -1539,3 +1539,5 @@ namespace cwg499 { // cwg499: 2.7
 // cwg455: na
 // cwg459: na
 // cwg473: na
+// cwg454: na
+// cwg475: na

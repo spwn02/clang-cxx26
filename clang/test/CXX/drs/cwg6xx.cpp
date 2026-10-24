@@ -1411,3 +1411,8 @@ namespace cwg696 { // cwg696: 3.1
 // cwg622: na
 // cwg640: na
 // cwg687: na
+// cwg690: na
+// cwg678: na
+// cwg689: na
+// cwg636: na
+// cwg668: na

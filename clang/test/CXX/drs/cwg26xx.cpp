@@ -404,3 +404,7 @@ void A::test() {
 // cwg2678: na
 // cwg2695: na
 // cwg2696: na
+// cwg2620: na
+// cwg2622: na
+// cwg2667: na
+// cwg2699: na

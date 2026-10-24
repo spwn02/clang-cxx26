@@ -577,3 +577,7 @@ namespace cwg2397 { // cwg2397: 17
 // cwg2388: na
 // cwg2391: na
 // cwg2393: na
+// cwg2371: na
+// cwg2300: na
+// cwg2380: na
+// cwg2323: na

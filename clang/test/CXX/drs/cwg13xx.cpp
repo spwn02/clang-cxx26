@@ -790,3 +790,8 @@ namespace cwg1399 { // cwg1399: dup 1388
 // cwg1384: na
 // cwg1386: na
 // cwg1389: na
+// cwg1329: na
+// cwg1343: na
+// cwg1338: na
+// cwg1332: na
+// cwg1335: na

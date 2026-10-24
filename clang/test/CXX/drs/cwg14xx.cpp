@@ -770,3 +770,11 @@ static_assert(__is_trivial(A), "");
 // cwg1483: na
 // cwg1497: na
 // cwg1498: na
+// cwg1441: na
+// cwg1466: na
+// cwg1476: na
+// cwg1475: na
+// cwg1438: na
+// cwg1428: na
+// cwg1403: na
+// cwg1409: na

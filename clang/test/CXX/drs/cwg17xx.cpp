@@ -256,3 +256,14 @@ using Bind = Instantiate<Internal<Template>::template Bind, Argument>;
 // cwg1785: na
 // cwg1792: na
 // cwg1798: na
+// cwg1741: na
+// cwg1797: na
+// cwg1751: na
+// cwg1776: na
+// cwg1752: na
+// cwg1759: na
+// cwg1774: na
+// cwg1775: na
+// cwg1784: na
+// cwg1787: na
+// cwg1796: na

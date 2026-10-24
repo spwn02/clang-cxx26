@@ -270,3 +270,5 @@ static_assert(false, f().s);
 // cwg2791: na
 // cwg2792: na
 // cwg2795: na
+// cwg2732: na
+// cwg2746: na

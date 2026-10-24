@@ -1844,3 +1844,4 @@ namespace cwg399 { // cwg399: 11
     template void g(N::S<int>::Inner *);
   }
 } // namespace cwg399
+// cwg388: na

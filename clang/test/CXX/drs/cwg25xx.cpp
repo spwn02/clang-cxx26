@@ -410,3 +410,6 @@ static_assert(!__is_literal(U), "");
 // cwg2579: na
 // cwg2580: na
 // cwg2599: na
+// cwg2556: sup P3950R1
+// cwg2570: na
+// cwg2571: na

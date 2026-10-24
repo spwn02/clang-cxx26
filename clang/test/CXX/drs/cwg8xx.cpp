@@ -45,3 +45,12 @@ int main() = delete;
 // cwg839: na
 // cwg885: na
 // cwg893: na
+// cwg831: na
+// cwg816: na
+// cwg853: na
+// cwg883: na
+// cwg828: na
+// cwg830: na
+// cwg832: na
+// cwg834: na
+// cwg872: na

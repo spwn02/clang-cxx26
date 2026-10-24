@@ -132,3 +132,11 @@ namespace cwg1070 { // cwg1070: 3.5
 // cwg1084: na
 // cwg1085: na
 // cwg1097: na
+// cwg1063: na
+// cwg1065: na
+// cwg1090: na
+// cwg1076: na
+// cwg1003: na
+// cwg1059: na
+// cwg1013: na
+// cwg1024: na
