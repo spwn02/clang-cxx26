@@ -2899,6 +2899,12 @@ bool Parser::ParseUnqualifiedId(CXXScopeSpec &SS, ParsedType ObjectType,
         return false;
       }
 
+      // [class.ctor.general]p1 (CWG2237): in C++20 the declarator-id of a
+      // constructor is the injected-class-name, not a simple-template-id.
+      if (getLangOpts().CPlusPlus20)
+        Diag(TemplateId->TemplateNameLoc,
+             diag::ext_template_id_constructor_declarator)
+            << SourceRange(TemplateId->LAngleLoc, TemplateId->RAngleLoc);
       Result.setConstructorTemplateId(TemplateId);
       ConsumeAnnotationToken();
       return false;
@@ -3567,7 +3573,8 @@ ExprResult Parser::ParseRequiresExpression() {
                         SkipUntilFlags::StopBeforeMatch);
               break;
             }
-          } else if (TryAnnotateOptionalCXXScopeToken()) {
+          } else if (TryAnnotateOptionalCXXScopeToken(
+                         /*EnteringContext=*/false, /*IsTypeOnlyContext=*/true)) {
             TPA.Commit();
             SkipUntil(tok::semi, tok::r_brace, SkipUntilFlags::StopBeforeMatch);
             break;

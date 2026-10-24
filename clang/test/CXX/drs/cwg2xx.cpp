@@ -1462,3 +1462,5 @@ namespace cwg299 { // cwg299: 2.8 c++11
   //  since-cxx14-note@#cwg299-int {{candidate function}}
   //  since-cxx14-note@#cwg299-ushort {{candidate function}}
 } // namespace cwg299
+// cwg278: na
+// cwg297: na

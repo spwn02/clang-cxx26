@@ -460,3 +460,16 @@ namespace cwg2094 { // cwg2094: 5
 } // namespace cwg2094
 
 // cwg2096: dup 2598
+// cwg2005: na
+// cwg2014: na
+// cwg2018: na
+// cwg2021: na
+// cwg2025: na
+// cwg2029: na
+// cwg2030: na
+// cwg2034: na
+// cwg2036: na
+// cwg2050: na
+// cwg2060: na
+// cwg2078: na
+// cwg2087: na

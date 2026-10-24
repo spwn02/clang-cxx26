@@ -148,9 +148,9 @@ namespace clang {
       pop(nullptr);
     }
 
-    void complete(Decl *D) {
+    void complete(Decl *D, DeclContext *AccessContext = nullptr) {
       assert(!Popped && "ParsingDeclaration has already been popped!");
-      pop(D);
+      pop(D, AccessContext);
     }
 
     /// Unregister this object from Sema, but remember all the
@@ -165,9 +165,9 @@ namespace clang {
       Popped = false;
     }
 
-    void pop(Decl *D) {
+    void pop(Decl *D, DeclContext *AccessContext = nullptr) {
       if (!Popped) {
-        Actions.PopParsingDeclaration(State, D);
+        Actions.PopParsingDeclaration(State, D, AccessContext);
         Popped = true;
       }
     }

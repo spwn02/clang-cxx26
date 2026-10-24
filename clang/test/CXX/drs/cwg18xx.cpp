@@ -728,3 +728,14 @@ template <typename... Ts, typename U>
 void m2(Ts..., U) {}
 #endif
 } // namespace cwg1898
+// cwg1826: na
+// cwg1831: na
+// cwg1833: na
+// cwg1853: na
+// cwg1855: na
+// cwg1864: na
+// cwg1867: na
+// cwg1869: na
+// cwg1871: na
+// cwg1876: na
+// cwg1879: na

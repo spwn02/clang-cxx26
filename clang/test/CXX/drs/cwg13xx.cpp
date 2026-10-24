@@ -771,3 +771,22 @@ namespace cwg1399 { // cwg1399: dup 1388
     //   expected-note@#cwg1399-f {{candidate template ignored: deduced packs of different lengths for parameter 'T' (<> vs. <int, int>)}}
   }
 } // namespace cwg1399
+// cwg1300: na
+// cwg1303: na
+// cwg1314: na
+// cwg1316: na
+// cwg1317: na
+// cwg1319: na
+// cwg1323: na
+// cwg1325: na
+// cwg1326: na
+// cwg1337: na
+// cwg1339: na
+// cwg1349: na
+// cwg1371: na
+// cwg1373: na
+// cwg1377: na
+// cwg1379: na
+// cwg1384: na
+// cwg1386: na
+// cwg1389: na

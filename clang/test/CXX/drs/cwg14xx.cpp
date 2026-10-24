@@ -751,3 +751,22 @@ struct A {
 static_assert(__is_trivial(A), "");
 #endif
 } // namespace cwg1496
+// cwg1400: na
+// cwg1407: na
+// cwg1419: na
+// cwg1420: na
+// cwg1421: na
+// cwg1422: na
+// cwg1427: na
+// cwg1429: na
+// cwg1433: na
+// cwg1434: na
+// cwg1445: na
+// cwg1448: na
+// cwg1452: na
+// cwg1461: na
+// cwg1470: na
+// cwg1474: na
+// cwg1483: na
+// cwg1497: na
+// cwg1498: na

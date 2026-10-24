@@ -314,3 +314,24 @@ namespace cwg1991 { // cwg1991: 3.9
 } // namespace cwg1991
 
 // cwg1994: dup 529
+// cwg1904: na
+// cwg1905: na
+// cwg1906: na
+// cwg1917: na
+// cwg1921: na
+// cwg1923: na
+// cwg1927: na
+// cwg1928: na
+// cwg1933: na
+// cwg1934: na
+// cwg1950: na
+// cwg1957: na
+// cwg1964: na
+// cwg1970: na
+// cwg1974: na
+// cwg1976: na
+// cwg1982: na
+// cwg1984: na
+// cwg1985: na
+// cwg1987: na
+// cwg1998: na

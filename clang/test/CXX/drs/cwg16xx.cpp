@@ -568,3 +568,23 @@ namespace cwg1696 { // cwg1696: 7
   };
 #endif
 } // namespace cwg1696
+// cwg1624: na
+// cwg1626: na
+// cwg1627: na
+// cwg1637: na
+// cwg1641: na
+// cwg1643: na
+// cwg1644: na
+// cwg1650: na
+// cwg1651: na
+// cwg1654: na
+// cwg1661: na
+// cwg1663: na
+// cwg1667: na
+// cwg1671: na
+// cwg1675: na
+// cwg1678: na
+// cwg1679: na
+// cwg1685: na
+// cwg1688: na
+// cwg1695: na

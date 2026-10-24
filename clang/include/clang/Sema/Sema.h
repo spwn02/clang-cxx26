@@ -1789,7 +1789,8 @@ public:
   void HandleDependentAccessCheck(
       const DependentDiagnostic &DD,
       const MultiLevelTemplateArgumentList &TemplateArgs);
-  void HandleDelayedAccessCheck(sema::DelayedDiagnostic &DD, Decl *Ctx);
+  void HandleDelayedAccessCheck(sema::DelayedDiagnostic &DD, Decl *Ctx,
+                                DeclContext *AccessContext = nullptr);
 
   ///@}
 
@@ -5216,7 +5217,8 @@ public:
   // Decl attributes - this routine is the top level dispatcher.
   void ProcessDeclAttributes(Scope *S, Decl *D, const Declarator &PD);
 
-  void PopParsingDeclaration(ParsingDeclState state, Decl *decl);
+  void PopParsingDeclaration(ParsingDeclState state, Decl *decl,
+                             DeclContext *AccessContext = nullptr);
 
   /// Given a set of delayed diagnostics, re-emit them as if they had
   /// been delayed in the current context instead of in the given pool.

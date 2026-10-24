@@ -344,3 +344,20 @@ namespace H {
   struct S s;
 }
 } // namespace cwg2199
+// cwg2111: na
+// cwg2117: na
+// cwg2119: na
+// cwg2125: na
+// cwg2132: na
+// cwg2134: na
+// cwg2135: na
+// cwg2136: na
+// cwg2138: na
+// cwg2139: na
+// cwg2142: na
+// cwg2152: na
+// cwg2159: na
+// cwg2161: na
+// cwg2178: na
+// cwg2183: na
+// cwg2193: na

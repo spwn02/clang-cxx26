@@ -1507,22 +1507,25 @@ static Sema::AccessResult CheckAccess(Sema &S, SourceLocation Loc,
   llvm_unreachable("invalid access result");
 }
 
-void Sema::HandleDelayedAccessCheck(DelayedDiagnostic &DD, Decl *D) {
+void Sema::HandleDelayedAccessCheck(DelayedDiagnostic &DD, Decl *D,
+                                    DeclContext *AccessContext) {
   // Access control for names used in the declarations of functions
   // and function templates should normally be evaluated in the context
   // of the declaration, just in case it's a friend of something.
   // However, this does not apply to local extern declarations.
 
-  DeclContext *DC = D->getDeclContext();
-  if (D->isLocalExternDecl()) {
-    DC = D->getLexicalDeclContext();
-  } else if (FunctionDecl *FN = dyn_cast<FunctionDecl>(D)) {
-    DC = FN;
-  } else if (TemplateDecl *TD = dyn_cast<TemplateDecl>(D)) {
-    if (auto *D = dyn_cast_if_present<DeclContext>(TD->getTemplatedDecl()))
-      DC = D;
-  } else if (auto *RD = dyn_cast<RequiresExprBodyDecl>(D)) {
-    DC = RD;
+  DeclContext *DC = AccessContext ? AccessContext : D->getDeclContext();
+  if (!AccessContext) {
+    if (D->isLocalExternDecl()) {
+      DC = D->getLexicalDeclContext();
+    } else if (FunctionDecl *FN = dyn_cast<FunctionDecl>(D)) {
+      DC = FN;
+    } else if (TemplateDecl *TD = dyn_cast<TemplateDecl>(D)) {
+      if (auto *D = dyn_cast_if_present<DeclContext>(TD->getTemplatedDecl()))
+        DC = D;
+    } else if (auto *RD = dyn_cast<RequiresExprBodyDecl>(D)) {
+      DC = RD;
+    }
   }
 
   EffectiveContext EC(DC);

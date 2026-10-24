@@ -559,3 +559,21 @@ namespace cwg2397 { // cwg2397: 17
   }
 #endif
 } // namespace cwg2397
+// cwg2302: na
+// cwg2306: na
+// cwg2308: na
+// cwg2314: na
+// cwg2326: na
+// cwg2344: na
+// cwg2348: na
+// cwg2349: na
+// cwg2350: na
+// cwg2357: na
+// cwg2364: na
+// cwg2367: na
+// cwg2375: na
+// cwg2377: na
+// cwg2383: na
+// cwg2388: na
+// cwg2391: na
+// cwg2393: na

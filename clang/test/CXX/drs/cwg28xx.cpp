@@ -390,3 +390,22 @@ struct C {
 static_assert(noexcept(C()), "");
 #endif
 } // namespace cwg2886
+
+// cwg2809: na
+// cwg2810: na
+// cwg2818: na
+// cwg2822: na
+// cwg2843: na
+// cwg2849: na
+// cwg2850: na
+// cwg2853: na
+// cwg2854: na
+// cwg2855: na
+// cwg2860: na
+// cwg2861: na
+// cwg2884: na
+// cwg2887: na
+// cwg2891: na
+// cwg2892: na
+// cwg2893: na
+// cwg2899: na

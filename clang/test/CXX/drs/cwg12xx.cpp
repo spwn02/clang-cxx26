@@ -172,3 +172,20 @@ namespace cwg1295 { // cwg1295: 4
   using T = unsigned;
 #endif
 } // namespace cwg1295
+// cwg1203: na
+// cwg1205: na
+// cwg1217: na
+// cwg1222: na
+// cwg1228: na
+// cwg1230: na
+// cwg1254: na
+// cwg1259: na
+// cwg1263: na
+// cwg1272: na
+// cwg1273: na
+// cwg1276: na
+// cwg1277: na
+// cwg1280: na
+// cwg1281: na
+// cwg1285: na
+// cwg1289: na

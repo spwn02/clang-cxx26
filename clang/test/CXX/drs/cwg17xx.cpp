@@ -238,3 +238,21 @@ template <template <typename> class Template, typename Argument>
 using Bind = Instantiate<Internal<Template>::template Bind, Argument>;
 #endif
 } // namespace cwg1794
+// cwg1700: na
+// cwg1703: na
+// cwg1713: na
+// cwg1714: na
+// cwg1720: na
+// cwg1725: na
+// cwg1727: na
+// cwg1731: na
+// cwg1743: na
+// cwg1745: na
+// cwg1749: na
+// cwg1754: na
+// cwg1761: na
+// cwg1768: na
+// cwg1783: na
+// cwg1785: na
+// cwg1792: na
+// cwg1798: na

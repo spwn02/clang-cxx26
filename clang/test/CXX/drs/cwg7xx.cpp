@@ -350,3 +350,10 @@ struct Y : X {};
 B Y::*pm = &X::d;
 // expected-error@-1 {{cannot initialize a variable of type 'B Y::*' with an rvalue of type 'D X::*': different classes ('Y' vs 'X')}}
 } // namespace cwg794
+// cwg706: na
+// cwg718: na
+// cwg728: na
+// cwg733: na
+// cwg736: na
+// cwg747: na
+// cwg795: na

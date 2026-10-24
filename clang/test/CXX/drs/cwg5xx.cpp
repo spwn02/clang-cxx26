@@ -1317,3 +1317,6 @@ namespace cwg599 { // cwg599: partial
     delete v;
   }
 } // namespace cwg599
+// cwg504: na
+// cwg511: na
+// cwg596: na

@@ -393,7 +393,8 @@ public:
   /// Note that this routine emits an error if you call it with ::new or
   /// ::delete as the current tokens, so only call it in contexts where these
   /// are invalid.
-  bool TryAnnotateCXXScopeToken(bool EnteringContext = false);
+  bool TryAnnotateCXXScopeToken(bool EnteringContext = false,
+                                bool IsTypeOnlyContext = false);
 
   bool MightBeCXXScopeToken() {
     return getLangOpts().CPlusPlus &&
@@ -404,8 +405,10 @@ public:
             Tok.isOneOf(tok::l_splice, tok::annot_splice, tok::kw_template));
 
   }
-  bool TryAnnotateOptionalCXXScopeToken(bool EnteringContext = false) {
-    return MightBeCXXScopeToken() && TryAnnotateCXXScopeToken(EnteringContext);
+  bool TryAnnotateOptionalCXXScopeToken(bool EnteringContext = false,
+                                        bool IsTypeOnlyContext = false) {
+    return MightBeCXXScopeToken() &&
+           TryAnnotateCXXScopeToken(EnteringContext, IsTypeOnlyContext);
   }
 
   //===--------------------------------------------------------------------===//

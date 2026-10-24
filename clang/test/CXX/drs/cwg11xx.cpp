@@ -131,3 +131,12 @@ namespace cwg1113 { // cwg1113: partial
 } // namespace cwg1113
 
 // cwg1150: na
+// cwg1108: na
+// cwg1118: na
+// cwg1124: na
+// cwg1132: na
+// cwg1141: na
+// cwg1143: na
+// cwg1162: na
+// cwg1163: na
+// cwg1179: na

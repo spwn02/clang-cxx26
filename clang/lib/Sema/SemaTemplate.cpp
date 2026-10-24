@@ -9547,7 +9547,8 @@ bool Sema::CheckFunctionTemplateSpecialization(
       // Only consider templates found within the same semantic lookup scope as
       // FD.
       if (!FDLookupContext->InEnclosingNamespaceSetOf(
-                                Ovl->getDeclContext()->getRedeclContext()))
+              Ovl->getDeclContext()->getRedeclContext()) &&
+          !(FD->getFriendObjectKind() && isa<UsingShadowDecl>(*I)))
         continue;
 
       QualType FT = FD->getType();
@@ -9651,6 +9652,23 @@ bool Sema::CheckFunctionTemplateSpecialization(
 
   // Ignore access information;  it doesn't figure into redeclaration checking.
   FunctionDecl *Specialization = cast<FunctionDecl>(*Result);
+
+  // A friend template-id can find a template through a using-declaration.
+  // Its target scope is then the scope of the selected template, even if that
+  // is a sibling of the namespace containing the friend.
+  if (FD->getFriendObjectKind()) {
+    for (NamedDecl *Found : Previous) {
+      auto *Shadow = dyn_cast<UsingShadowDecl>(Found);
+      if (Shadow && Shadow->getTargetDecl()->getCanonicalDecl() ==
+                        Specialization->getPrimaryTemplate()->getCanonicalDecl()) {
+        DeclContext *LexDC = FD->getLexicalDeclContext();
+        FD->setDeclContext(
+            Specialization->getPrimaryTemplate()->getDeclContext());
+        FD->setLexicalDeclContext(LexDC);
+        break;
+      }
+    }
+  }
 
   if (const auto *PT = Specialization->getPrimaryTemplate();
       const auto *DSA = PT->getAttr<NoSpecializationsAttr>()) {

@@ -171,3 +171,15 @@ constexpr U _ = nondeterministic(true);
 //   since-cxx26-note@-3 {{in call to 'nondeterministic(true)'}}
 #endif
 } // namespace cwg2922
+
+// cwg2901: na
+// cwg2911: na
+// cwg2924: na
+// cwg2925: na
+// cwg2927: na
+// cwg2930: na
+// cwg2933: na
+// cwg2937: na
+// cwg2954: na
+// cwg2970: na
+// cwg2987: na

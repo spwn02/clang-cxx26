@@ -3682,7 +3682,9 @@ void Parser::ParseDeclarationSpecifiers(
     case tok::coloncolon: // ::foo::bar
       // C++ scope specifier.  Annotate and loop, or bail out on error.
       if (getLangOpts().CPlusPlus &&
-          TryAnnotateCXXScopeToken(EnteringContext)) {
+          TryAnnotateCXXScopeToken(EnteringContext,
+                                   AllowImplicitTypename ==
+                                       ImplicitTypenameContext::Yes)) {
         if (!DS.hasTypeSpecifier())
           DS.SetTypeSpecError();
         goto DoneWithDeclSpec;
@@ -3930,7 +3932,9 @@ void Parser::ParseDeclarationSpecifiers(
         // - `return type`.
         SuppressAccessChecks SAC(*this, IsTemplateSpecOrInst);
 
-        const bool Success = TryAnnotateCXXScopeToken(EnteringContext);
+        const bool Success = TryAnnotateCXXScopeToken(
+            EnteringContext,
+            AllowImplicitTypename == ImplicitTypenameContext::Yes);
 
         if (IsTemplateSpecOrInst)
           SAC.done();

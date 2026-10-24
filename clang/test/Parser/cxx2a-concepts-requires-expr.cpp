@@ -77,8 +77,7 @@ bool r22 = requires { typename s::~s; };
 // expected-error@-1 {{expected an identifier or template-id after '::'}}
 
 template<typename T>
-bool r23 = requires { typename identity<T>::temp<T>; };
-// expected-error@-1 {{use 'template' keyword to treat 'temp' as a dependent template name}}
+bool r23 = requires { typename identity<T>::temp<T>; }; // type-only context: no 'template' needed
 
 template<typename T>
 bool r24 = requires {

@@ -30,29 +30,29 @@ public:
   static constexpr int publicStaticInt = 42;
 
 protected:
-  // expected-note@+1 8{{declared protected here}}
+  // expected-note@+1 3{{declared protected here}}
   class ProtectedClass {};
   template <class T> class TemplateProtectedClass {};
 
-  // expected-note@+1 2{{declared protected here}}
+  // expected-note@+1 {{declared protected here}}
   using AliasProtectedClass = const char;
 
-  // expected-note@+1 3{{declared protected here}}
+  // expected-note@+1 {{declared protected here}}
   void protectedFunc();
   void protectedFuncOverloaded();
   void protectedFuncOverloaded(int);
 
-  // expected-note@+1 2{{declared protected here}}
+  // expected-note@+1 {{declared protected here}}
   static void protectedStaticFunc();
-  // expected-note@+1 2{{declared protected here}}
+  // expected-note@+1 {{declared protected here}}
   static void protectedStaticFuncOverloaded();
   static void protectedStaticFuncOverloaded(int);
 
-  // expected-note@+1 2{{declared protected here}}
+  // expected-note@+1 {{declared protected here}}
   static constexpr int protectedStaticInt = 43;
 
 private:
-  // expected-note@+1 10{{declared private here}}
+  // expected-note@+1 9{{declared private here}}
   class PrivateClass {};
   // expected-note@+1 {{declared private here}}
   template <class T> class TemplatePrivateClass {};
@@ -430,7 +430,6 @@ template <typename T1, typename T2> class PCTT6 {
 template <typename T> class PCTT1<T, TestClass::PublicClass> : P1 {};
 template <typename T> struct PCTT1<T, TestClass::TemplatePublicClass<T>> final : PCTT2<T, TestClass::PublicClass, TestClass::PublicClass> {}; // not full but let it be here
 template <typename T> class PCTT1<T, TestClass::TemplatePublicClass<int>> : PCTT1<T, TestClass::AliasPublicClass> {};
-// expected-error@+1 {{is a protected member of}}
 template <typename T> class PCTT1<T, TestClass::TemplatePublicClass<TestClass::TemplateProtectedClass<T>>> final : PCTT1<T, TestClass::ProtectedClass> {};
 template <typename T> struct PCTT1<T, TestClass::AliasProtectedClass> : PCTT2<T, TestClass::PublicClass, int> {};
 template <typename T> class PCTT2<T, TestClass::ProtectedClass, TestClass::PublicClass> final : PCTT3<T, TestClass::publicStaticInt> {};
@@ -439,36 +438,25 @@ template <typename T> struct PCTT4<T, &TestClass::protectedFunc> final : PCTT5<T
 template <typename T> class PCTT4<T, &TestClass::publicFuncOverloaded> : PCTT5<T, &TestClass::publicStaticFuncOverloaded> {};
 template <typename T> class PCTT5<T, &TestClass::protectedStaticFunc> final : PCTT5<T, &TestClass::publicStaticFuncOverloaded> {};
 template <typename T> class PCTT5<T, &TestClass::protectedStaticFuncOverloaded> : PCTT6<T, TestClass::PublicClass>::template NCT1<TestClass::PublicClass> {};
-// expected-error@+1 {{is a protected member of}}
 template <typename T> class PCTT5<T, &globalFunction> : PCTT6<T, TestClass::ProtectedClass>::template NCT1<int> {};
-// expected-error@+1 {{is a protected member of}}
 template <typename T1, typename T2> template <typename T3> class PCTT6<T1, T2>::NCT2 final : PCTT4<T1, &TestClass::protectedFunc> {}; // declaration
 template <typename T1, typename T2> template <typename T3> class PCTT6<T1, T2>::NCT2<T3 *> : P1 {};
-// expected-error@+2 {{cannot specialize a dependent template}}
-// expected-error@+1 {{is a protected member of}}
+// expected-error@+1 {{cannot specialize a dependent template}}
 template <typename T> template <typename NT> class PCTT6<T, TestClass::ProtectedClass>::template NCT1<NT *> : PCTT6<T, TestClass::ProtectedClass>::template NCT2<int> {};
 
 // protected + private
 template <typename T> class PCTT1<T, TestClass::PrivateClass> : P1 {};
-// expected-error@+2 {{is a protected member of}}
 // expected-error@+1 {{is a private member of}}
 template <typename T> struct PCTT1<T, TestClass::TemplatePrivateClass<T>> final : PCTT2<T, TestClass::PrivateClass, TestClass::ProtectedClass> {}; // not full but let it be here
-// expected-error@+1 {{is a protected member of}}
 template <typename T> class PCTT1<T, TestClass::TemplatePrivateClass<int>> : PCTT1<T, TestClass::AliasProtectedClass> {};
-// expected-error@+2 {{is a protected member of}}
 // expected-error@+1 {{is a private member of}}
 template <typename T> struct PCTT1<T, TestClass::AliasPrivateClass> final : PCTT2<T, TestClass::ProtectedClass, TestClass::PrivateClass> {};
-// expected-error@+1 {{is a protected member of}}
 template <typename T> class PCTT2<T, TestClass::PrivateClass, TestClass::TemplatePrivateClass<T>> : PCTT3<T, TestClass::protectedStaticInt> {};
-// expected-error@+1 {{is a protected member of}}
 template <typename T> class PCTT3<T, TestClass::privateStaticInt> final : PCTT4<T, &TestClass::protectedFunc> {};
-// expected-error@+1 {{is a protected member of}}
 template <typename T> struct PCTT4<T, &TestClass::privateFunc> : PCTT5<T, &TestClass::protectedStaticFunc> {};
-// expected-error@+1 {{is a protected member of}}
 template <typename T> class PCTT4<T, &TestClass::privateFuncOverloaded> final : PCTT5<T, &TestClass::protectedStaticFuncOverloaded> {};
 template <typename T> class PCTT5<T, &TestClass::privateStaticFunc> : P1 {};
-// expected-error@+2 {{cannot specialize a dependent template}}
-// expected-error@+1 {{is a private member of}}
+// expected-error@+1 {{cannot specialize a dependent template}}
 template <typename T> class PCTT6<T, TestClass::PrivateClass>::template PCTT1<TestClass::PrivateClass> : PCTT6<T, TestClass::PrivateClass>::template NCT2<int> {};
 // expected-error@+1 {{is a private member of}}
 template <typename T> class PCTT5<T, &TestClass::privateStaticFuncOverloaded> final : PCTT6<T, T>::template NCT1<TestClass::PrivateClass> {};

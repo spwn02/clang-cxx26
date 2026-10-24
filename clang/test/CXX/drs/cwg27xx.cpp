@@ -249,3 +249,24 @@ static_assert(false, f().s);
 // since-cxx26-error@-1 {{static assertion failed: Hello}}
 #endif
 } // namespace cwg2798
+
+// cwg2700: na
+// cwg2709: na
+// cwg2715: na
+// cwg2716: na
+// cwg2719: na
+// cwg2720: na
+// cwg2721: na
+// cwg2723: na
+// cwg2729: na
+// cwg2747: na
+// cwg2751: na
+// cwg2753: na
+// cwg2755: na
+// cwg2758: na
+// cwg2762: na
+// cwg2764: na
+// cwg2772: na
+// cwg2791: na
+// cwg2792: na
+// cwg2795: na

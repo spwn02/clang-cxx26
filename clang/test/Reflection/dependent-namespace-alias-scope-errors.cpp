@@ -21,7 +21,7 @@ struct P { using t = int; };
 // (not a crash).
 template <info R> void f() {
   namespace A = [:R:];
-  using T = A::TT<int>; // expected-error {{use 'template' keyword to treat 'TT' as a dependent template name}}
+  using T = A::TT<int>;
 }
 
 // Errors are diagnosed at instantiation time.

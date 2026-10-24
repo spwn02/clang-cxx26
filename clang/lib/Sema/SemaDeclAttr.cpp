@@ -8582,7 +8582,8 @@ static void handleDelayedForbiddenType(Sema &S, DelayedDiagnostic &DD,
   DD.Triggered = true;
 }
 
-void Sema::PopParsingDeclaration(ParsingDeclState state, Decl *decl) {
+void Sema::PopParsingDeclaration(ParsingDeclState state, Decl *decl,
+                                 DeclContext *AccessContext) {
   assert(DelayedDiagnostics.getCurrentPool());
   DelayedDiagnosticPool &poppedPool = *DelayedDiagnostics.getCurrentPool();
   DelayedDiagnostics.popWithoutEmitting(state);
@@ -8623,7 +8624,7 @@ void Sema::PopParsingDeclaration(ParsingDeclState state, Decl *decl) {
         // inaccessible one at a time.
         if (AnyAccessFailures && isa<DecompositionDecl>(decl))
           continue;
-        HandleDelayedAccessCheck(diag, decl);
+        HandleDelayedAccessCheck(diag, decl, AccessContext);
         if (diag.Triggered)
           AnyAccessFailures = true;
         break;

@@ -320,8 +320,7 @@ namespace cwg121 { // cwg121: 2.7
   template<typename T> struct Z {
     X::Y<T> x;
     T::Y<T> y;
-    // expected-error@-1 {{use 'template' keyword to treat 'Y' as a dependent template name}}
-    // cxx98-17-error@-2 {{missing 'typename' prior to dependent type name 'T::Y' is a C++20 extension}}
+    // cxx98-17-error@-1 {{missing 'typename' prior to dependent type name 'T::Y' is a C++20 extension}}
   };
   Z<X> z;
 } // namespace cwg121

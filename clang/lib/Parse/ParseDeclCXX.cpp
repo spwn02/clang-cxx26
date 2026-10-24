@@ -1865,9 +1865,16 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
       Spec.setTemplateParamLists(*TemplateInfo.TemplateParams);
 
     bool HasValidSpec = true;
-    if (ParseOptionalCXXScopeSpecifier(Spec, /*ObjectType=*/nullptr,
-                                       /*ObjectHasErrors=*/false,
-                                       EnteringContext)) {
+    // The terminal name of an elaborated-type-specifier is in a type-only
+    // context ([temp.res.general]).
+    if (ParseOptionalCXXScopeSpecifier(
+            Spec, /*ObjectType=*/nullptr,
+            /*ObjectHasErrors=*/false, EnteringContext,
+            /*MayBePseudoDestructor=*/nullptr, /*IsTypename=*/false,
+            /*LastII=*/nullptr, /*OnlyNamespace=*/false,
+            /*InUsingDeclaration=*/false, /*Disambiguation=*/false,
+            /*TypenameKWLoc=*/SourceLocation(),
+            /*IsTypeOnlyContext=*/true)) {
       DS.SetTypeSpecError();
       HasValidSpec = false;
     }
@@ -2415,6 +2422,12 @@ void Parser::ParseBaseClause(Decl *ClassDecl) {
   assert(Tok.is(tok::colon) && "Not a base clause");
   ConsumeToken();
 
+  // [class.access.general] defers access checks in base-specifiers until the
+  // entire base-specifier-list has been seen. A later base can grant access
+  // to a protected name used by an earlier one.
+  ParsingDeclRAIIObject BaseDiagnostics(*this,
+                                        ParsingDeclRAIIObject::NoParent);
+
   // Build up an array of parsed base specifiers.
   SmallVector<CXXBaseSpecifier *, 8> BaseInfo;
 
@@ -2438,6 +2451,11 @@ void Parser::ParseBaseClause(Decl *ClassDecl) {
 
   // Attach the base specifiers
   Actions.ActOnBaseSpecifiers(ClassDecl, BaseInfo);
+  auto *Record = dyn_cast_or_null<CXXRecordDecl>(ClassDecl);
+  if (!Record)
+    if (auto *Template = dyn_cast_or_null<ClassTemplateDecl>(ClassDecl))
+      Record = Template->getTemplatedDecl();
+  BaseDiagnostics.complete(ClassDecl, Record);
 }
 
 BaseResult Parser::ParseBaseSpecifier(Decl *ClassDecl) {
@@ -2859,7 +2877,8 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclaration(
   bool MalformedTypeSpec = false;
   if (TemplateInfo.Kind == ParsedTemplateKind::NonTemplate &&
       Tok.isOneOf(tok::identifier, tok::coloncolon, tok::kw___super)) {
-    if (TryAnnotateCXXScopeToken())
+    if (TryAnnotateCXXScopeToken(/*EnteringContext=*/false,
+                                 /*IsTypeOnlyContext=*/true))
       MalformedTypeSpec = true;
 
     bool isAccessDecl;

@@ -246,3 +246,24 @@ struct T : S {
 };
 #endif
 }
+
+// cwg2407: na
+// cwg2408: na
+// cwg2415: na
+// cwg2420: na
+// cwg2423: na
+// cwg2427: na
+// cwg2433: na
+// cwg2439: na
+// cwg2448: na
+// cwg2453: na
+// cwg2454: na
+// cwg2470: na
+// cwg2472: na
+// cwg2489: na
+// cwg2493: na
+// cwg2494: na
+// cwg2499: na
+// cwg2404: na
+// cwg2429: na
+// cwg2431: na

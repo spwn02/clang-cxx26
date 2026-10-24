@@ -962,6 +962,9 @@ def warn_static_inline_explicit_inst_ignored : Warning<
 // Constructor template diagnostics.
 def err_out_of_line_constructor_template_id : Error<
   "out-of-line constructor for %0 cannot have template arguments">;
+def ext_template_id_constructor_declarator : ExtWarn<
+  "ISO C++20 considers use of template-id as the declarator name of a "
+  "constructor to be ill-formed">, InGroup<TemplateIdCDtor>;
 
 def err_expected_qualified_after_typename : Error<
   "expected a qualified name after 'typename'">;

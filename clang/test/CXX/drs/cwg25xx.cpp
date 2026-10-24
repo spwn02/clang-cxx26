@@ -390,3 +390,23 @@ static_assert(!__is_literal(U), "");
 #endif
 #endif
 } // namespace cwg2598
+
+// cwg2510: na
+// cwg2519: na
+// cwg2520: na
+// cwg2524: na
+// cwg2527: na
+// cwg2530: na
+// cwg2533: na
+// cwg2534: na
+// cwg2535: na
+// cwg2538: na
+// cwg2543: na
+// cwg2548: na
+// cwg2567: na
+// cwg2573: na
+// cwg2574: na
+// cwg2578: na
+// cwg2579: na
+// cwg2580: na
+// cwg2599: na

@@ -1143,7 +1143,7 @@ namespace cwg368 { // cwg368: 3.6
 
 // cwg370: na
 
-namespace cwg372 { // cwg372: no
+namespace cwg372 { // cwg372: yes
   namespace example1 {
     template<typename T> struct X {
     protected:
@@ -1151,24 +1151,16 @@ namespace cwg372 { // cwg372: no
     };
     template<typename T> struct Y {};
 
-    // FIXME: These two are valid; deriving from T1<T> gives Z1 access to
-    // the protected member T1<T>::Type.
     template<typename T,
              template<typename> class T1,
              template<typename> class T2> struct Z1 :
       T1<T>,
       T2<typename T1<T>::Type> {};
-      // expected-error@-1 {{'Type' is a protected member of 'cwg372::example1::X<int>'}}
-      //   expected-note@#cwg372-z1 {{in instantiation of template class 'cwg372::example1::Z1<int, cwg372::example1::X, cwg372::example1::Y>' requested here}}
-      //   expected-note@#cwg372-ex1-Type {{declared protected here}}
 
     template<typename T,
              template<typename> class T1,
              template<typename> class T2> struct Z2 :
       T2<typename T1<T>::Type>,
-      // expected-error@-1 {{'Type' is a protected member of 'cwg372::example1::X<int>'}}
-      //   expected-note@#cwg372-z2 {{in instantiation of template class 'cwg372::example1::Z2<int, cwg372::example1::X, cwg372::example1::Y>' requested here}}
-      //   expected-note@#cwg372-ex1-Type {{declared protected here}}
       T1<T> {};
 
     Z1<int, X, Y> z1; // #cwg372-z1
@@ -1197,13 +1189,7 @@ namespace cwg372 { // cwg372: no
 
     template<typename T> struct B {};
     template<typename U> struct C : U, B<typename U::N> {};
-    // expected-error@-1 {{'N' is a protected member of 'cwg372::example3::A'}}
-    //   expected-note@#cwg372-x {{in instantiation of template class 'cwg372::example3::C<cwg372::example3::A>' requested here}}
-    //   expected-note@#cwg372-N {{declared protected here}}
     template<typename U> struct D : B<typename U::N>, U {};
-    // expected-error@-1 {{'N' is a protected member of 'cwg372::example3::A'}}
-    //   expected-note@#cwg372-y {{in instantiation of template class 'cwg372::example3::D<cwg372::example3::A>' requested here}}
-    //   expected-note@#cwg372-N {{declared protected here}}
 
     C<A> x; // #cwg372-x
     D<A> y; // #cwg372-y
@@ -1223,18 +1209,14 @@ namespace cwg372 { // cwg372: no
     };
   }
 
-  // FIXME: This is valid: deriving from A gives D access to A::B
   namespace std_example {
     class A {
     protected:
       struct B {}; // #cwg372-B-std
     };
     struct D : A::B, A {};
-    // expected-error@-1 {{'B' is a protected member of 'cwg372::std_example::A'}}
-    //   expected-note@#cwg372-B-std {{declared protected here}}
   }
 
-  // FIXME: This is valid: deriving from A::B gives access to A::B!
   namespace badwolf {
     class A {
     protected:
@@ -1242,8 +1224,6 @@ namespace cwg372 { // cwg372: no
     };
     struct A::B : A {};
     struct C : A::B {};
-    // expected-error@-1 {{'B' is a protected member of 'cwg372::badwolf::A'}}
-    //   expected-note@#cwg372-B {{declared protected here}}
   }
 } // namespace cwg372
 
@@ -1373,7 +1353,7 @@ namespace cwg385 { // cwg385: 2.8
   //   expected-note@#cwg385-n {{member is declared here}}
 } // namespace cwg385
 
-namespace cwg386 { // cwg386: no
+namespace cwg386 { // cwg386: 22
 namespace example1 {
 namespace N1 {
 // Binds name 'f' in N1. Target scope is N1.
@@ -1410,9 +1390,7 @@ class Test {
   // This friend declaration correspond to the result of the lookup.
   // All lookup results target the same scope, which is N1,
   // so target scope of this friend declaration is also N1.
-  // FIXME: This is well-formed.
   friend void f<>( Test* x );
-  // expected-error@-1 {{no function template matches function template specialization 'f'}}
 };
 }
 } // namespace example1
@@ -1420,13 +1398,13 @@ class Test {
 namespace example2 {
 namespace N1 {
 // Binds name 'f' in N1. Target scope is N1.
-void f(); // #cwg386-ex2-N1-f
+void f();
 }
 
 namespace N2 {
 // Bind name 'f' in N2. When a single search finds this declaration,
 // it's replaced with N1::f declaration.
-using N1::f; // #cwg386-ex2-using
+using N1::f;
 class A {
   // According to _N4988_.[dcl.meaning]/2.2:
   // `N2::f` is a qualified-id, so its terminal name 'f' undergoes (qualified) lookup.
@@ -1435,11 +1413,7 @@ class A {
   // This friend declaration corresponds to the result of the lookup.
   // All lookup results target the same scope, which is N1,
   // so target scope of this friend declaration is also N1.
-  // FIXME: This is well-formed.
   friend void N2::f();
-  // expected-error@-1 {{cannot befriend target of using declaration}}
-  //   expected-note@#cwg386-ex2-N1-f {{target of using declaration}}
-  //   expected-note@#cwg386-ex2-using {{using declaration}}
 };
 }
 } // namespace example2

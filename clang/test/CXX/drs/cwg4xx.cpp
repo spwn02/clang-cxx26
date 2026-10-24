@@ -1535,3 +1535,7 @@ namespace cwg499 { // cwg499: 2.7
   extern char str[];
   void f() { throw str; }
 } // namespace cwg499
+// cwg440: na
+// cwg455: na
+// cwg459: na
+// cwg473: na

@@ -29,6 +29,7 @@
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Sema/DeclSpec.h"
+#include "clang/Sema/DelayedDiagnostic.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Sema.h"
@@ -3485,6 +3486,10 @@ Sema::SubstBaseSpecifiers(CXXRecordDecl *Instantiation,
                           CXXRecordDecl *Pattern,
                           const MultiLevelTemplateArgumentList &TemplateArgs) {
   bool Invalid = false;
+  // Check protected access only after every substituted base has been
+  // attached; a base later in the list can grant access to an earlier one.
+  DelayedDiagnosticPool BaseDiagnostics(nullptr);
+  ParsingDeclState BaseDiagnosticsState = PushParsingDeclaration(BaseDiagnostics);
   SmallVector<CXXBaseSpecifier*, 4> InstantiatedBases;
   for (const auto &Base : Pattern->bases()) {
     if (!Base.getType()->isDependentType() && !Base.isPackExpansion()) {
@@ -3571,6 +3576,9 @@ Sema::SubstBaseSpecifiers(CXXRecordDecl *Instantiation,
 
   if (!Invalid && AttachBaseSpecifiers(Instantiation, InstantiatedBases))
     Invalid = true;
+
+  PopParsingDeclaration(BaseDiagnosticsState, Invalid ? nullptr : Instantiation,
+                        Instantiation);
 
   return Invalid;
 }

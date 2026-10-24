@@ -110,3 +110,25 @@ namespace cwg1070 { // cwg1070: 3.5
   C c = {};
 #endif
 } // namespace cwg1070
+// cwg1002: na
+// cwg1005: na
+// cwg1007: na
+// cwg1008: na
+// cwg1014: na
+// cwg1019: na
+// cwg1023: na
+// cwg1026: na
+// cwg1039: na
+// cwg1040: na
+// cwg1041: na
+// cwg1045: na
+// cwg1050: na
+// cwg1052: na
+// cwg1053: na
+// cwg1058: na
+// cwg1067: na
+// cwg1077: na
+// cwg1078: na
+// cwg1084: na
+// cwg1085: na
+// cwg1097: na

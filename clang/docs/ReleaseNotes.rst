@@ -217,6 +217,14 @@ C++ Language Changes
   CWG2310.
 - Conversion function template deduction now rejects ambiguous deduced types when qualification conversions
   could restore different cv-qualifiers, as specified by CWG349.
+- A name followed by ``<`` starts a template argument list without the ``template`` keyword in every type-only
+  context of [temp.res.general] (a type-requirement, an elaborated-type-specifier, a new-type-id, a
+  trailing-return-type, a ``static_cast`` type-id, an alias-declaration, the decl-specifier-seq of a member or
+  namespace-scope declaration, the parameters of a member function or of an out-of-line member function, the default
+  argument of a type-parameter, and a friend declaration), as specified by CWG2806 and [temp.names]. A
+  nested-name-specifier still needs ``template``.
+- A template-id as the declarator-id of a constructor is diagnosed in C++20 and later (``-Wtemplate-id-cdtor``),
+  as specified by CWG2237.
 - A new family of builtins ``__builtin_*_synthesizes_from_spaceship`` has been added. These can be queried to know
   whether the ``<`` (``lt``), ``>`` (``gt``), ``<=`` (``le``), or ``>=`` (``ge``) operators are synthesized from a
   ``<=>``. This makes it possible to optimize certain facilities by using the ``<=>`` operation directly instead of

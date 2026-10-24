@@ -380,3 +380,27 @@ void A::test() {
 }
 #endif
 } // namespace cwg2692
+
+// cwg2601: na
+// cwg2603: na
+// cwg2605: na
+// cwg2612: na
+// cwg2613: na
+// cwg2614: na
+// cwg2624: na
+// cwg2625: na
+// cwg2626: na
+// cwg2638: na
+// cwg2639: na
+// cwg2641: na
+// cwg2643: na
+// cwg2645: na
+// cwg2647: na
+// cwg2649: na
+// cwg2655: na
+// cwg2662: na
+// cwg2663: na
+// cwg2665: na
+// cwg2678: na
+// cwg2695: na
+// cwg2696: na

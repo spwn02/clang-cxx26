@@ -2065,9 +2065,18 @@ bool Parser::TryAnnotateTypeOrScopeToken(
 
   CXXScopeSpec SS;
   if (getLangOpts().CPlusPlus)
-    if (ParseOptionalCXXScopeSpecifier(SS, /*ObjectType=*/nullptr,
-                                       /*ObjectHasErrors=*/false,
-                                       /*EnteringContext*/ false))
+    // [temp.names]p3: the contexts in which a typename is optional are type-only
+    // contexts, so a '<' after the terminal name starts a template-argument-list
+    // there without the 'template' keyword.
+    if (ParseOptionalCXXScopeSpecifier(
+            SS, /*ObjectType=*/nullptr,
+            /*ObjectHasErrors=*/false,
+            /*EnteringContext*/ false, /*MayBePseudoDestructor=*/nullptr,
+            /*IsTypename=*/false, /*LastII=*/nullptr, /*OnlyNamespace=*/false,
+            /*InUsingDeclaration=*/false, /*Disambiguation=*/false,
+            /*TypenameKWLoc=*/SourceLocation(),
+            /*IsTypeOnlyContext=*/AllowImplicitTypename ==
+                ImplicitTypenameContext::Yes))
       return true;
 
   return TryAnnotateTypeOrScopeTokenAfterScopeSpec(SS, !WasScopeAnnotation,
@@ -2191,15 +2200,20 @@ bool Parser::TryAnnotateTypeOrScopeTokenAfterScopeSpec(
   return false;
 }
 
-bool Parser::TryAnnotateCXXScopeToken(bool EnteringContext) {
+bool Parser::TryAnnotateCXXScopeToken(bool EnteringContext,
+                                      bool IsTypeOnlyContext) {
   assert(getLangOpts().CPlusPlus &&
          "Call sites of this function should be guarded by checking for C++");
   assert(MightBeCXXScopeToken() && "Cannot be a type or scope token!");
 
   CXXScopeSpec SS;
-  if (ParseOptionalCXXScopeSpecifier(SS, /*ObjectType=*/nullptr,
-                                     /*ObjectHasErrors=*/false,
-                                     EnteringContext))
+  if (ParseOptionalCXXScopeSpecifier(
+          SS, /*ObjectType=*/nullptr,
+          /*ObjectHasErrors=*/false, EnteringContext,
+          /*MayBePseudoDestructor=*/nullptr, /*IsTypename=*/false,
+          /*LastII=*/nullptr, /*OnlyNamespace=*/false,
+          /*InUsingDeclaration=*/false, /*Disambiguation=*/false,
+          /*TypenameKWLoc=*/SourceLocation(), IsTypeOnlyContext))
     return true;
   if (SS.isEmpty())
     return false;

@@ -209,7 +209,8 @@ Parser::TPResult Parser::TryConsumeDeclarationSpecifier() {
     if (!TrySkipAttributes())
       return TPResult::Error;
 
-    if (TryAnnotateOptionalCXXScopeToken())
+    if (TryAnnotateOptionalCXXScopeToken(
+            /*EnteringContext=*/false, /*IsTypeOnlyContext=*/true))
       return TPResult::Error;
     if (Tok.is(tok::annot_cxxscope))
       ConsumeAnnotationToken();
@@ -1391,6 +1392,23 @@ Parser::isCXXDeclarationSpecifier(ImplicitTypenameContext AllowImplicitTypename,
         }
         if (IsPlaceholderSpecifier(TemplateId, /*Lookahead=*/1))
           return TPResult::True;
+      }
+      // A dependent template-id after a scope specifier names a type where
+      // 'typename' is implied ([temp.res.general]).
+      if (AllowImplicitTypename == ImplicitTypenameContext::Yes &&
+          Tok.is(tok::annot_cxxscope) &&
+          NextToken().is(tok::annot_template_id) &&
+          static_cast<TemplateIdAnnotation *>(
+              NextToken().getAnnotationValue())->Kind ==
+              TNK_Dependent_template_name) {
+        CXXScopeSpec SS;
+        Actions.RestoreNestedNameSpecifierAnnotation(Tok.getAnnotationValue(),
+                                                     Tok.getAnnotationRange(),
+                                                     SS);
+        ConsumeAnnotationToken();
+        AnnotateTemplateIdTokenAsType(SS, AllowImplicitTypename);
+        assert(Tok.is(tok::annot_typename));
+        goto case_typename;
       }
       // If the next token is an identifier or a type qualifier, then this
       // can't possibly be a valid expression either.

@@ -36,3 +36,12 @@ void g(int i) {
 int main() = delete;
 // since-cxx11-error@-1 {{'main' is not allowed to be deleted}}
 #endif
+// cwg800: na
+// cwg807: na
+// cwg819: na
+// cwg822: na
+// cwg829: na
+// cwg836: na
+// cwg839: na
+// cwg885: na
+// cwg893: na

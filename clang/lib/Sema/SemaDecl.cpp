@@ -3724,7 +3724,13 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
     if (UsingShadowDecl *Shadow = dyn_cast<UsingShadowDecl>(OldD)) {
       // We don't need to check the using friend pattern from other module unit
       // since we should have diagnosed such cases in its unit already.
-      if (New->getFriendObjectKind() && !OldD->isInAnotherModuleUnit()) {
+      // The constructors a using-declaration inherits are not found by the
+      // lookup of the constructor name ([class.qual]), so a friend declaration
+      // cannot name one of them.
+      bool IsInheritedCtor = isa<ConstructorUsingShadowDecl>(Shadow);
+      if (New->getFriendObjectKind() &&
+          (!New->getQualifier() || IsInheritedCtor) &&
+          !OldD->isInAnotherModuleUnit()) {
         Diag(New->getLocation(), diag::err_using_decl_friend);
         Diag(Shadow->getTargetDecl()->getLocation(),
              diag::note_using_decl_target);
@@ -3733,19 +3739,42 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
         return true;
       }
 
-      // Check whether the two declarations might declare the same function or
-      // function template.
-      if (FunctionTemplateDecl *NewTemplate =
-              New->getDescribedFunctionTemplate()) {
-        if (checkUsingShadowRedecl<FunctionTemplateDecl>(*this, Shadow,
-                                                         NewTemplate))
-          return true;
-        OldD = Old = cast<FunctionTemplateDecl>(Shadow->getTargetDecl())
-                         ->getAsFunction();
+      // A qualified friend names the declaration found through the using
+      // declaration, whose target scope is the scope of that declaration.
+      FunctionDecl *FriendTarget = nullptr;
+      if (New->getFriendObjectKind() && New->getQualifier()) {
+        if (auto *FD = dyn_cast<FunctionDecl>(Shadow->getTargetDecl()))
+          FriendTarget = FD;
+        else if (auto *FTD =
+                     dyn_cast<FunctionTemplateDecl>(Shadow->getTargetDecl());
+                 FTD && New->getDescribedFunctionTemplate())
+          FriendTarget = FTD->getTemplatedDecl();
+      }
+      if (FriendTarget) {
+        OldD = Old = FriendTarget;
+        DeclContext *LexDC = New->getLexicalDeclContext();
+        New->setDeclContext(Old->getDeclContext());
+        New->setLexicalDeclContext(LexDC);
+        if (FunctionTemplateDecl *NewTemplate =
+                New->getDescribedFunctionTemplate()) {
+          NewTemplate->setDeclContext(Old->getDeclContext());
+          NewTemplate->setLexicalDeclContext(LexDC);
+        }
       } else {
-        if (checkUsingShadowRedecl<FunctionDecl>(*this, Shadow, New))
-          return true;
-        OldD = Old = cast<FunctionDecl>(Shadow->getTargetDecl());
+        // Check whether the two declarations might declare the same function
+        // or function template.
+        if (FunctionTemplateDecl *NewTemplate =
+                New->getDescribedFunctionTemplate()) {
+          if (checkUsingShadowRedecl<FunctionTemplateDecl>(*this, Shadow,
+                                                           NewTemplate))
+            return true;
+          OldD = Old = cast<FunctionTemplateDecl>(Shadow->getTargetDecl())
+                           ->getAsFunction();
+        } else {
+          if (checkUsingShadowRedecl<FunctionDecl>(*this, Shadow, New))
+            return true;
+          OldD = Old = cast<FunctionDecl>(Shadow->getTargetDecl());
+        }
       }
     } else {
       Diag(New->getLocation(), diag::err_redefinition_different_kind)
