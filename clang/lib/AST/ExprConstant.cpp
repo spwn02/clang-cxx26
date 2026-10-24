@@ -760,6 +760,9 @@ static bool HandleDestruction(EvalInfo &Info, const Expr *E,
 static bool HandleDestruction(EvalInfo &Info, SourceLocation Loc,
                               APValue::LValueBase LVBase, APValue &Value,
                               QualType T);
+static bool HandleDestructionUnwinding(EvalInfo &Info, SourceLocation Loc,
+                                       APValue::LValueBase LVBase,
+                                       APValue &Value, QualType T);
 static bool HandleConstructorCall(const Expr *E, const LValue &This,
                                   CallRef Call,
                                   const CXXConstructorDecl *Definition,
@@ -793,7 +796,8 @@ namespace {
           Loc = VD->getLocation();
         else if (const Expr *E = Base.dyn_cast<const Expr*>())
           Loc = E->getExprLoc();
-        return HandleDestruction(Info, Loc, Base, *Value.getPointer(), T);
+        return HandleDestructionUnwinding(Info, Loc, Base, *Value.getPointer(),
+                                          T);
       }
       *Value.getPointer() = APValue();
       return true;
@@ -8789,6 +8793,26 @@ static bool HandleDestruction(EvalInfo &Info, SourceLocation Loc,
   LValue LV;
   LV.set({LVBase});
   return HandleDestructionImpl(Info, Loc, LV, Value, T);
+}
+
+/// Destroy an object at the end of its scope. An exception unwinding through
+/// the scope (P3068R6) is not in flight inside the destructor: set it aside so
+/// that the evaluation of the destructor body does not mistake it for one of
+/// its own.
+static bool HandleDestructionUnwinding(EvalInfo &Info, SourceLocation Loc,
+                                       APValue::LValueBase LVBase,
+                                       APValue &Value, QualType T) {
+  std::optional<EvalInfo::PendingExceptionInfo> Unwinding =
+      std::move(Info.PendingException);
+  Info.PendingException.reset();
+  bool OK = HandleDestruction(Info, Loc, LVBase, Value, T);
+  // An exception escaping the destructor during unwinding is not a constant
+  // evaluation.
+  if (Info.PendingException)
+    OK = false;
+  if (Unwinding)
+    Info.PendingException = std::move(Unwinding);
+  return OK;
 }
 
 /// Perform a call to 'operator new' or to `__builtin_operator_new'.
