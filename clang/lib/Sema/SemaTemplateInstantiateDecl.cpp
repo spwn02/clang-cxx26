@@ -21,6 +21,7 @@
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
+#include "clang/Sema/DelayedDiagnostic.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
@@ -2115,13 +2116,20 @@ Decl *TemplateDeclInstantiator::VisitFriendDecl(FriendDecl *D) {
   // parameters into the pattern type and checking the result.
   if (TypeSourceInfo *Ty = D->getFriendType()) {
     TypeSourceInfo *InstTy;
-    // If this is an unsupported friend, don't bother substituting template
-    // arguments into it. The actual type referred to won't be used by any
-    // parts of Clang, and may not be valid for instantiating. Just use the
-    // same info for the instantiated friend.
-    if (D->isUnsupportedFriend()) {
-      InstTy = Ty;
-    } else {
+
+    // The outer template parameter lists of a friend that names a member of a
+    // dependent type are needed to match it.
+    SmallVector<TemplateParameterList *, 2> InstLists;
+    for (unsigned I = 0, N = D->getFriendTypeNumTemplateParameterLists();
+         I != N; ++I) {
+      TemplateParameterList *L =
+          SubstTemplateParams(D->getFriendTypeTemplateParameterList(I));
+      if (!L)
+        return nullptr;
+      InstLists.push_back(L);
+    }
+
+    {
       if (D->isPackExpansion()) {
         SmallVector<UnexpandedParameterPack, 2> Unexpanded;
         SemaRef.collectUnexpandedParameterPacks(Ty->getTypeLoc(), Unexpanded);
@@ -2148,9 +2156,10 @@ Decl *TemplateDeclInstantiator::VisitFriendDecl(FriendDecl *D) {
             if (!TSI)
               return nullptr;
 
-            auto FD =
-                FriendDecl::Create(SemaRef.Context, Owner, D->getLocation(),
-                                   TSI, D->getFriendLoc());
+            auto FD = FriendDecl::Create(SemaRef.Context, Owner,
+                                         D->getLocation(), TSI,
+                                         D->getFriendLoc(), SourceLocation(),
+                                         InstLists);
 
             FD->setAccess(AS_public);
             Owner->addDecl(FD);
@@ -2169,9 +2178,9 @@ Decl *TemplateDeclInstantiator::VisitFriendDecl(FriendDecl *D) {
       return nullptr;
 
     FriendDecl *FD = FriendDecl::Create(
-        SemaRef.Context, Owner, D->getLocation(), InstTy, D->getFriendLoc());
+        SemaRef.Context, Owner, D->getLocation(), InstTy, D->getFriendLoc(),
+        SourceLocation(), InstLists);
     FD->setAccess(AS_public);
-    FD->setUnsupportedFriend(D->isUnsupportedFriend());
     Owner->addDecl(FD);
     return FD;
   }
@@ -2190,7 +2199,6 @@ Decl *TemplateDeclInstantiator::VisitFriendDecl(FriendDecl *D) {
     FriendDecl::Create(SemaRef.Context, Owner, D->getLocation(),
                        cast<NamedDecl>(NewND), D->getFriendLoc());
   FD->setAccess(AS_public);
-  FD->setUnsupportedFriend(D->isUnsupportedFriend());
   Owner->addDecl(FD);
   return FD;
 }
@@ -2870,6 +2878,35 @@ static QualType adjustFunctionTypeForInstantiation(ASTContext &Context,
 ///   1) instantiating function templates
 ///   2) substituting friend and local function declarations
 ///   3) substituting deduction guide declarations for nested class templates
+namespace {
+/// Delays the access checks of the names used in the declaration of a function
+/// while it is instantiated, so that they are checked in the context of the
+/// instantiated function: a friend of a class can name its private members in
+/// its declaration.
+///
+/// Access failures during substitution (SFINAE) must stay immediate, they make
+/// deduction fail.
+class DelayAccessChecksForDecl {
+  Sema &S;
+  sema::DelayedDiagnosticPool Pool;
+  Sema::ParsingDeclState State;
+  Decl *Result = nullptr;
+  bool Delaying;
+
+public:
+  explicit DelayAccessChecksForDecl(Sema &S)
+      : S(S), Pool(/*parent=*/nullptr), Delaying(!S.isSFINAEContext()) {
+    if (Delaying)
+      State = S.PushParsingDeclaration(Pool);
+  }
+  void setResult(Decl *D) { Result = D; }
+  ~DelayAccessChecksForDecl() {
+    if (Delaying)
+      S.PopParsingDeclaration(State, Result);
+  }
+};
+} // namespace
+
 Decl *TemplateDeclInstantiator::VisitFunctionDecl(
     FunctionDecl *D, TemplateParameterList *TemplateParams,
     RewriteKind FunctionRewriteKind) {
@@ -2921,6 +2958,7 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
       return nullptr;
   }
 
+  DelayAccessChecksForDecl DelayAccess(SemaRef);
   SmallVector<ParmVarDecl *, 4> Params;
   TypeSourceInfo *TInfo = SubstFunctionType(D, Params);
   if (!TInfo)
@@ -3009,6 +3047,7 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
   if (D->isInlined())
     Function->setImplicitlyInline();
 
+  DelayAccess.setResult(Function);
   if (QualifierLoc)
     Function->setQualifierInfo(QualifierLoc);
 
@@ -3344,6 +3383,7 @@ Decl *TemplateDeclInstantiator::VisitCXXMethodDecl(
     D->setTypeSourceInfo(TSI);
   }
 
+  DelayAccessChecksForDecl DelayAccess(SemaRef);
   SmallVector<ParmVarDecl *, 4> Params;
   TypeSourceInfo *TInfo = SubstFunctionType(D, Params);
   if (!TInfo)
@@ -3448,6 +3488,7 @@ Decl *TemplateDeclInstantiator::VisitCXXMethodDecl(
         D->getEndLoc(), TrailingRequiresClause, Contracts);
   }
 
+  DelayAccess.setResult(Method);
   if (D->isInlined())
     Method->setImplicitlyInline();
 

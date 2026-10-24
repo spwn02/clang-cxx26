@@ -2471,7 +2471,6 @@ void ASTDeclReader::VisitFriendDecl(FriendDecl *D) {
   for (unsigned i = 0; i != D->NumTPLists; ++i)
     D->getTrailingObjects()[i] = Record.readTemplateParameterList();
   D->NextFriend = readDeclID().getRawValue();
-  D->UnsupportedFriend = (Record.readInt() != 0);
   D->FriendLoc = readSourceLocation();
   D->EllipsisLoc = readSourceLocation();
 }

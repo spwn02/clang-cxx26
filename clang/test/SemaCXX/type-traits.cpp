@@ -1316,7 +1316,7 @@ void is_trivial2()
   static_assert(__is_trivial(UnionAr));
   static_assert(__is_trivial(TrivialStruct));
   static_assert(__is_trivial(AllDefaulted));
-  static_assert(__is_trivial(AllDeleted));
+  static_assert(!__is_trivial(AllDeleted));
 
   static_assert(!__is_trivial(void));
   static_assert(!__is_trivial(NonTrivialStruct));
@@ -1358,7 +1358,7 @@ void is_trivially_copyable2()
   static_assert(__is_trivially_copyable(TrivialStruct));
   static_assert(__is_trivially_copyable(NonTrivialStruct));
   static_assert(__is_trivially_copyable(AllDefaulted));
-  static_assert(__is_trivially_copyable(AllDeleted));
+  static_assert(!__is_trivially_copyable(AllDeleted));
 
   static_assert(!__is_trivially_copyable(void));
   static_assert(!__is_trivially_copyable(SuperNonTrivialStruct));

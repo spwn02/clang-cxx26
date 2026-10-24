@@ -1109,7 +1109,7 @@ namespace HugeAllocation {
 namespace ZeroSizeArray {
   constexpr int foo() {
     int *A = new int[0];
-    int diff = A - (&A[0]);
+    int diff = A - A;
     delete[] A;
     return diff;
   }

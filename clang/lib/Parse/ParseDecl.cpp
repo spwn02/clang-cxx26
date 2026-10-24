@@ -33,6 +33,7 @@
 #include "clang/Sema/SemaCodeCompletion.h"
 #include "clang/Sema/SemaObjC.h"
 #include "clang/Sema/SemaOpenMP.h"
+#include "llvm/Support/SaveAndRestore.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringSwitch.h"
 #include <optional>
@@ -8112,6 +8113,9 @@ void Parser::ParseMisplacedBracketDeclarator(Declarator &D) {
 void Parser::ParseTypeofSpecifier(DeclSpec &DS) {
   assert(Tok.isOneOf(tok::kw_typeof, tok::kw_typeof_unqual) &&
          "Not a typeof specifier");
+
+  llvm::SaveAndRestore<ParsedType> NoConvIdLookup(
+      Actions.ConversionIdLookupType, ParsedType());
 
   bool IsUnqual = Tok.is(tok::kw_typeof_unqual);
   const IdentifierInfo *II = Tok.getIdentifierInfo();

@@ -283,6 +283,14 @@ ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
                              bool IsClassTemplateDeductionContext,
                              ImplicitTypenameContext AllowImplicitTypename,
                              IdentifierInfo **CorrectedII) {
+  // An unqualified component name of a conversion-type-id is looked up in the
+  // class of the object expression of the member access first.
+  bool UsedConversionIdLookup = false;
+  if (!ObjectTypePtr && ConversionIdLookupType && (!SS || SS->isEmpty())) {
+    ObjectTypePtr = ConversionIdLookupType;
+    UsedConversionIdLookup = true;
+  }
+
   bool IsImplicitTypename = !isClassName && !IsCtorOrDtorName;
   // FIXME: Consider allowing this outside C++1z mode as an extension.
   bool AllowDeducedTemplate = IsClassTemplateDeductionContext &&
@@ -501,8 +509,9 @@ ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
   TypeLocBuilder TLB;
   if (TypeDecl *TD = dyn_cast<TypeDecl>(IIDecl)) {
     checkTypeDeclType(LookupCtx,
-                      IsImplicitTypename ? DiagCtorKind::Implicit
-                                         : DiagCtorKind::None,
+                      IsImplicitTypename && !UsedConversionIdLookup
+                          ? DiagCtorKind::Implicit
+                          : DiagCtorKind::None,
                       TD, NameLoc);
     QualType T;
     if (FoundUsingShadow) {
@@ -6691,6 +6700,27 @@ NamedDecl *Sema::HandleDeclarator(Scope *S, Declarator &D,
     // matches.
 
     RemoveUsingDecls(Previous);
+
+    // [basic.scope.scope]: a declaration that inhabits a block scope is not
+    // nominable in a namespace or class.
+    {
+      auto OnlyBlockScopeDecls = [](NamedDecl *ND) {
+        if (auto *FD = dyn_cast<FunctionDecl>(ND))
+          return llvm::all_of(FD->redecls(), [](const FunctionDecl *R) {
+            return R->isLocalExternDecl();
+          });
+        if (auto *VD = dyn_cast<VarDecl>(ND))
+          return llvm::all_of(VD->redecls(), [](const VarDecl *R) {
+            return R->isLocalExternDecl();
+          });
+        return false;
+      };
+      LookupResult::Filter F = Previous.makeFilter();
+      while (F.hasNext())
+        if (OnlyBlockScopeDecls(F.next()))
+          F.erase();
+      F.done();
+    }
   }
 
   if (auto *TPD = Previous.getAsSingle<NamedDecl>();
@@ -18596,6 +18626,14 @@ Sema::ActOnTag(Scope *S, unsigned TagSpec, TagUseKind TUK, SourceLocation KWLoc,
     // redefinition if either context is within the other.
     if (auto *Shadow = dyn_cast<UsingShadowDecl>(DirectPrevDecl)) {
       auto *OldTag = dyn_cast<TagDecl>(PrevDecl);
+      // [class.pre]: the class-head-name of a class-specifier with a
+      // nested-name-specifier refers to a class declared directly in the
+      // scope it names, not one introduced there by a using-declaration.
+      if (SS.isNotEmpty() && TUK == TagUseKind::Definition) {
+        Diag(NameLoc, diag::err_tag_definition_via_using_declaration) << Name;
+        Diag(Shadow->getIntroducer()->getLocation(), diag::note_using_decl)
+            << 0;
+      }
       if (SS.isEmpty() && TUK != TagUseKind::Reference &&
           TUK != TagUseKind::Friend &&
           isDeclInScope(Shadow, SearchDC, S, isMemberSpecialization) &&

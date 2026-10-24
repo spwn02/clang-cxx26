@@ -374,7 +374,7 @@ namespace cwg1837 { // cwg1837: 3.3
 #endif
 } // namespace cwg1837
 
-namespace cwg1862 { // cwg1862: no
+namespace cwg1862 { // cwg1862: yes
 template<class T>
 struct A {
   struct B {
@@ -415,29 +415,32 @@ struct A<float*> {
 };
 
 class C {
-  int private_int;
+  int private_int; // #cwg1862-private_int
 
+  // Grants friendship to A<int>::B even though it is not a specialization of
+  // A<T>::B.
   template<class T>
   friend struct A<T>::B;
-  // expected-warning@-1 {{dependent nested name specifier 'A<T>' for friend class declaration is not supported; turning off access control for 'C'}}
 
+  // Does not grant friendship to A<int>::f() because its return type does not
+  // match.
   template<class T>
   friend void A<T>::f();
-  // expected-warning@-1 {{dependent nested name specifier 'A<T>' for friend class declaration is not supported; turning off access control for 'C'}}
 
-  // FIXME: this is ill-formed, because A<T>​::​D does not end with a simple-template-id
+  // A<T>::D does not end with a simple-template-id.
   template<class T>
   friend void A<T>::D::g();
-  // expected-warning@-1 {{dependent nested name specifier 'A<T>::D' for friend class declaration is not supported; turning off access control for 'C'}}
+  // expected-error@-1 {{nested-name-specifier 'A<T>::D' of a friend declaration naming a member of a dependent type must end with a simple-template-id that names a class template}}
 
+  // Grants friendship to A<int*>::h() and A<float*>::h().
   template<class T>
   friend int *A<T*>::h();
-  // expected-warning@-1 {{dependent nested name specifier 'A<T *>' for friend class declaration is not supported; turning off access control for 'C'}}
 
+  // Grants friendship to instantiations of A<T>::i() and to A<int>::i(), and
+  // thereby to all specializations of those function templates.
   template<class T>
   template<T U>
   friend T A<T>::i();
-  // expected-warning@-1 {{dependent nested name specifier 'A<T>' for friend class declaration is not supported; turning off access control for 'C'}}
 };
 
 C c;
@@ -449,11 +452,15 @@ void A<int>::B::e() { (void)c.private_int; }
 template<class T>
 void A<T>::f() { (void)c.private_int; }
 int A<int>::f() { (void)c.private_int; return 0; }
+// expected-error@-1 {{'private_int' is a private member of 'cwg1862::C'}}
+//   expected-note@#cwg1862-private_int {{implicitly declared private here}}
 
-// FIXME: both definition of 'D::g' are not friends, so they don't have access to 'private_int'
+// The friend declaration of 'D::g' is ill-formed, so 'D::g' is not a friend.
 template<class T>
 void A<T>::D::g() { (void)c.private_int; }
 void A<int>::D::g() { (void)c.private_int; }
+// expected-error@-1 {{'private_int' is a private member of 'cwg1862::C'}}
+//   expected-note@#cwg1862-private_int {{implicitly declared private here}}
 
 template<class T>
 T A<T>::h() { (void)c.private_int; }

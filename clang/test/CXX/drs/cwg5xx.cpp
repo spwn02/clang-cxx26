@@ -125,25 +125,32 @@ namespace cwg515 { // cwg515: sup 1017
 
 // cwg516: na
 
-namespace cwg517 { // cwg517: no
-  // This is NDR, but we should diagnose it anyway.
+namespace cwg517 { // cwg517: yes
+  // A partial specialization shall be reachable from any use of a template
+  // specialization that would make use of it (no diagnostic is required).
   template<typename T> struct S {};
   template<typename T> int v = 0;
   // cxx98-11-error@-1 {{variable templates are a C++14 extension}}
 
-  template struct S<int*>;
-  template int v<int*>;
+  template struct S<int*>; // #cwg517-S-int
+  template int v<int*>; // #cwg517-v-int
 
-  S<char&> s;
-  int k = v<char&>;
+  S<char&> s; // #cwg517-S-char
+  int k = v<char&>; // #cwg517-v-char
 
-  // FIXME: These are both ill-formed.
   template<typename T> struct S<T*> {};
+  // expected-error@-1 {{partial specialization of 'cwg517::S<T *>' after instantiation of 'cwg517::S<int *>'}}
+  //   expected-note@#cwg517-S-int {{explicit instantiation first required here}}
   template<typename T> int v<T*> = 0;
+  // expected-error@-1 {{partial specialization of 'v<T *>' after instantiation of 'v<int *>'}}
+  //   expected-note@#cwg517-v-int {{explicit instantiation first required here}}
 
-  // FIXME: These are both ill-formed.
   template<typename T> struct S<T&> {};
+  // expected-error@-1 {{partial specialization of 'cwg517::S<T &>' after instantiation of 'cwg517::S<char &>'}}
+  //   expected-note@#cwg517-S-char {{implicit instantiation first required here}}
   template<typename T> int v<T&> = 0;
+  // expected-error@-1 {{partial specialization of 'v<T &>' after instantiation of 'v<char &>'}}
+  //   expected-note@#cwg517-v-char {{implicit instantiation first required here}}
 } // namespace cwg517
 
 namespace cwg518 { // cwg518: 2.7 c++11
@@ -154,9 +161,9 @@ namespace cwg518 { // cwg518: 2.7 c++11
 // cwg519 is in cwg519.cpp
 // cwg520: na
 
-// cwg521: no
-// FIXME: The wording here is broken. It's not reasonable to expect a
-// diagnostic here. Once the relevant DR gets a number, mark this as a dup.
+// cwg521: na
+// The requirements on the exceptions an allocation function throws are
+// runtime behavior of the program, not of the implementation's diagnostics.
 
 namespace cwg522 { // cwg522: 2.7
   struct S {};
@@ -900,7 +907,7 @@ namespace cwg572 { // cwg572: 2.7
   static_assert(a + b == 3, "");
 } // namespace cwg572
 
-namespace cwg573 { // cwg573: no
+namespace cwg573 { // cwg573: yes
   void *a;
   int *b = reinterpret_cast<int*>(a);
   void (*c)() = reinterpret_cast<void(*)()>(a);
@@ -912,7 +919,8 @@ namespace cwg573 { // cwg573: no
   // since-cxx26-error@-2 {{cannot delete pointer to incomplete type 'void'}}
   int n = d - a;
   // expected-error@-1 {{arithmetic on pointers to void}}
-  // FIXME: This is ill-formed.
+  // Valid: a pointer is a structural type, so it can be the type of a constant
+  // template parameter.
   template<void*> struct S;
   template<int*> struct T;
 } // namespace cwg573
@@ -1068,14 +1076,14 @@ namespace cwg580 { // cwg580: partial
   struct C2 {
     class X {
       struct A;
-      typedef int I;
+      typedef int I; // #cwg580-C2-X-I
       friend struct A;
     };
     class Y {
-      // FIXME: We incorrectly accept this
-      // because we think C2::Y::A<...> might
-      // instantiate to C2::X::A
+      // C2::Y::A is not a friend of C2::X.
       template<X::I> struct A {};
+      // expected-error@-1 {{'I' is a private member of 'cwg580::C2::X'}}
+      //   expected-note@#cwg580-C2-X-I {{implicitly declared private here}}
     };
   };
 
@@ -1291,7 +1299,7 @@ namespace cwg598 { // cwg598: 2.7
   int &t = h(N::i);
 } // namespace cwg598
 
-namespace cwg599 { // cwg599: partial
+namespace cwg599 { // cwg599: yes
   typedef int Fn();
   struct S { operator void*(); };
   struct T { operator Fn*(); };
@@ -1305,15 +1313,15 @@ namespace cwg599 { // cwg599: partial
     // expected-error@-1 {{cannot delete expression of type 'void (*)()'}}
     delete s;
     // cxx98-23-error@-1 {{cannot delete expression with pointer-to-'void' type 'void *'}}
-    // since-cxx26-error@-2 {{cannot delete pointer to incomplete type 'void'}}
+    // since-cxx26-error@-2 {{cannot delete expression of type 'S'}}
     delete t;
     // expected-error@-1 {{cannot delete expression of type 'T'}}
-    // FIXME: This is valid, but is rejected due to a non-conforming GNU
-    // extension allowing deletion of pointers to void.
+    // Valid in C++26, where the conversion to 'void *' is not a candidate:
+    // before, a GNU extension allows deletion of pointers to void.
     delete u;
-    // expected-error@-1 {{ambiguous conversion of delete expression of type 'U' to a pointer}}
-    //   expected-note@#cwg599-U {{conversion to pointer type 'int *'}}
-    //   expected-note@#cwg599-U {{conversion to pointer type 'void *'}}
+    // cxx98-23-error@-1 {{ambiguous conversion of delete expression of type 'U' to a pointer}}
+    //   cxx98-23-note@#cwg599-U {{conversion to pointer type 'int *'}}
+    //   cxx98-23-note@#cwg599-U {{conversion to pointer type 'void *'}}
     delete v;
   }
 } // namespace cwg599

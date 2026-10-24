@@ -30,8 +30,8 @@ static_assert(__is_trivially_copyable(DefaultConstructorChecker<1>));
 static_assert(__is_trivially_copyable(DefaultConstructorChecker<2>));
 static_assert(__is_trivially_copyable(DefaultConstructorChecker<3>));
 static_assert(__is_trivial(DefaultConstructorChecker<0>));
-// FIXME: DR1496
-static_assert(__is_trivial(DefaultConstructorChecker<1>));
+// CWG1496: the only eligible default constructor is deleted.
+static_assert(!__is_trivial(DefaultConstructorChecker<1>));
 static_assert(!__is_trivial(DefaultConstructorChecker<2>));
 static_assert(!__is_trivial(DefaultConstructorChecker<3>));
 
@@ -62,8 +62,8 @@ struct MoveConstructorChecker {
 };
 
 static_assert(__is_trivially_copyable(MoveConstructorChecker<0>));
-// FIXME: DR1734
-static_assert(__is_trivially_copyable(MoveConstructorChecker<1>));
+// CWG1734: all the special member functions are deleted.
+static_assert(!__is_trivially_copyable(MoveConstructorChecker<1>));
 static_assert(!__is_trivially_copyable(MoveConstructorChecker<2>));
 static_assert(!__is_trivially_copyable(MoveConstructorChecker<3>));
 static_assert(!__is_trivial(MoveConstructorChecker<0>));
@@ -80,13 +80,12 @@ struct MoveAssignmentChecker {
 };
 
 static_assert(__is_trivially_copyable(MoveAssignmentChecker<0>));
-// FIXME: DR1734.
-static_assert(__is_trivially_copyable(MoveAssignmentChecker<1>));
+// CWG1734: all the special member functions are deleted.
+static_assert(!__is_trivially_copyable(MoveAssignmentChecker<1>));
 static_assert(!__is_trivially_copyable(MoveAssignmentChecker<2>));
 static_assert(!__is_trivially_copyable(MoveAssignmentChecker<3>));
 static_assert(__is_trivial(MoveAssignmentChecker<0>));
-// FIXME: DR1734.
-static_assert(__is_trivial(MoveAssignmentChecker<1>));
+static_assert(!__is_trivial(MoveAssignmentChecker<1>));
 static_assert(!__is_trivial(MoveAssignmentChecker<2>));
 static_assert(!__is_trivial(MoveAssignmentChecker<3>));
 
@@ -190,7 +189,7 @@ struct AC {
 static_assert(__is_trivial(ComplexConstraints<ABC>), "");
 static_assert(!__is_trivial(ComplexConstraints<AB>), "");
 static_assert(!__is_trivial(ComplexConstraints<AC>), "");
-static_assert(__is_trivial(ComplexConstraints<A>), "");
+static_assert(!__is_trivial(ComplexConstraints<A>), "");
 static_assert(!__is_trivial(ComplexConstraints<int>), "");
 
 

@@ -4090,14 +4090,23 @@ Sema::ActOnCXXDelete(SourceLocation StartLoc, bool UseGlobal,
     QualType Type = Ex.get()->getType();
 
     class DeleteConverter : public ContextualImplicitConverter {
+      // [expr.delete]: a class operand is contextually implicitly converted to
+      // a pointer to object type; deleting a pointer to void is ill-formed in
+      // C++26, so a conversion to void* is not a candidate.
+      bool ExcludeVoidPointers;
+
     public:
-      DeleteConverter() : ContextualImplicitConverter(false, true) {}
+      DeleteConverter(bool ExcludeVoidPointers)
+          : ContextualImplicitConverter(false, true),
+            ExcludeVoidPointers(ExcludeVoidPointers) {}
 
       bool match(QualType ConvType) override {
         // FIXME: If we have an operator T* and an operator void*, we must pick
-        // the operator T*.
+        // the operator T* (before C++26).
         if (const PointerType *ConvPtrType = ConvType->getAs<PointerType>())
-          if (ConvPtrType->getPointeeType()->isIncompleteOrObjectType())
+          if (ConvPtrType->getPointeeType()->isIncompleteOrObjectType() &&
+              !(ExcludeVoidPointers &&
+                ConvPtrType->getPointeeType()->isVoidType()))
             return true;
         return false;
       }
@@ -4140,7 +4149,7 @@ Sema::ActOnCXXDelete(SourceLocation StartLoc, bool UseGlobal,
                                                QualType ConvTy) override {
         llvm_unreachable("conversion functions are permitted");
       }
-    } Converter;
+    } Converter(LangOpts.CPlusPlus26 && Type->isRecordType());
 
     Ex = PerformContextualImplicitConversion(StartLoc, Ex.get(), Converter);
     if (Ex.isInvalid())
@@ -4202,10 +4211,32 @@ Sema::ActOnCXXDelete(SourceLocation StartLoc, bool UseGlobal,
       ImplicitDeallocationParameters IDP = {
           Pointee, ShouldUseTypeAwareOperatorNewOrDelete(),
           AlignedAllocationMode::No, SizedDeallocationMode::No};
-      if (!UseGlobal &&
-          FindDeallocationFunction(StartLoc, PointeeRD, DeleteName,
-                                   OperatorDelete, IDP))
-        return ExprError();
+      if (!UseGlobal) {
+        // [expr.delete]: for a single-object delete of a pointer to a class with
+        // a virtual destructor, the deallocation function is the one selected at
+        // the point of definition of the dynamic type's virtual destructor, so a
+        // deleted or inaccessible one is diagnosed there (CWG677).
+        bool VirtualDelete = false;
+        if (!ArrayForm)
+          if (CXXDestructorDecl *Dtor = LookupDestructor(PointeeRD))
+            VirtualDelete = Dtor->isVirtual();
+        if (VirtualDelete) {
+          // A destroying operator delete is called directly by the
+          // delete-expression, so it is diagnosed here.
+          if (FindDeallocationFunction(StartLoc, PointeeRD, DeleteName,
+                                       OperatorDelete, IDP,
+                                       /*Diagnose=*/false) &&
+              (!OperatorDelete || OperatorDelete->isDestroyingOperatorDelete())) {
+            OperatorDelete = nullptr;
+            if (FindDeallocationFunction(StartLoc, PointeeRD, DeleteName,
+                                         OperatorDelete, IDP))
+              return ExprError();
+          }
+        } else if (FindDeallocationFunction(StartLoc, PointeeRD, DeleteName,
+                                            OperatorDelete, IDP)) {
+          return ExprError();
+        }
+      }
 
       // If we're allocating an array of records, check whether the
       // usual operator delete[] has a size_t parameter.
@@ -4281,7 +4312,13 @@ Sema::ActOnCXXDelete(SourceLocation StartLoc, bool UseGlobal,
       }
     }
 
-    DiagnoseUseOfDecl(OperatorDelete, StartLoc);
+    // [expr.delete]: for a single-object delete of a pointer to a class with a
+    // virtual destructor, the deallocation function is the one selected at the
+    // point of definition of the dynamic type's virtual destructor, which is
+    // where a deleted or inaccessible one is diagnosed.
+    if (!(IsVirtualDelete && !ArrayForm && !UseGlobal &&
+          !OperatorDelete->isDestroyingOperatorDelete()))
+      DiagnoseUseOfDecl(OperatorDelete, StartLoc);
 
     unsigned AddressParamIdx = 0;
     if (OperatorDelete->isTypeAwareOperatorNewOrDelete()) {
@@ -7553,6 +7590,25 @@ ExprResult Sema::IgnoredValueConversions(Expr *E) {
       if (Res.isInvalid())
         return E;
       E = Res.get();
+
+      // [conv.lval]p3, [expr.context]: the lvalue-to-rvalue conversion of a
+      // glvalue of class type copy-initializes a temporary from it, which
+      // needs a copy or move constructor that accepts the volatile glvalue
+      // (CWG1054).
+      QualType T = E->getType();
+      if (E->isGLValue() && T.isVolatileQualified() && T->isRecordType() &&
+          !E->isTypeDependent() && !T->isDependentType() &&
+          !RequireCompleteType(E->getExprLoc(), T, diag::err_incomplete_type)) {
+        InitializedEntity Entity =
+            InitializedEntity::InitializeTemporary(T.getUnqualifiedType());
+        InitializationKind Kind =
+            InitializationKind::CreateCopy(E->getExprLoc(), SourceLocation());
+        InitializationSequence Seq(*this, Entity, Kind, E);
+        ExprResult Init = Seq.Perform(*this, Entity, Kind, E);
+        if (Init.isInvalid())
+          return E;
+        E = Init.get();
+      }
     } else {
       ExprResult Res = CheckDiscardedValueExpression(E);
       if (Res.isInvalid())

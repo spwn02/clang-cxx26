@@ -52,7 +52,7 @@ template void f<B{&nested[0].k}>();
 // is still incorrect in MSVC.
 #ifndef _WIN32
 // CHECK: define weak_odr void @_Z1fIXtl1BadsoKiL_Z6nestedE16_0pEEEEvv
-template void f<B{&nested[1].arr[2]}>();
+template void f<B{nested[1].arr + 2}>();
 // CHECK: define weak_odr void @_Z1fIXtl1BadsoKiL_Z7derivedE8pEEEEvv
 template void f<B{&derived.b + 1}>();
 // CHECK: define weak_odr void @_Z1fIXtl1BcvPKiplcvPcadL_Z7derivedELl16EEEEvv

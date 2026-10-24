@@ -429,5 +429,5 @@ namespace InvalidConstexprFn {
   static_assert(type(PolyDerived{}) != nullptr);
   static_assert(dyncast(PolyDerived{}) != nullptr);
   static_assert(sub(arr, arr) == 0);
-  static_assert(add(arr[0]) == &arr[3]);
+  static_assert(add(arr[0]) == arr + 3);
 }

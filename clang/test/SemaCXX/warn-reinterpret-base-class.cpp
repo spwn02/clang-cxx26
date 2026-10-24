@@ -91,11 +91,11 @@ namespace VBaseMalformed{
 void reinterpret_not_updowncast(A *pa, const A *pca, A &a, const A &ca) {
   (void)*reinterpret_cast<C *>(pa);
   (void)*reinterpret_cast<const C *>(pa);
-  (void)*reinterpret_cast<volatile C *>(pa);
-  (void)*reinterpret_cast<const volatile C *>(pa);
+  (void)reinterpret_cast<volatile C *>(pa);
+  (void)reinterpret_cast<const volatile C *>(pa);
 
   (void)*reinterpret_cast<const C *>(pca);
-  (void)*reinterpret_cast<const volatile C *>(pca);
+  (void)reinterpret_cast<const volatile C *>(pca);
 
   (void)reinterpret_cast<C &>(a);
   (void)reinterpret_cast<const C &>(a);
@@ -109,11 +109,11 @@ void reinterpret_not_updowncast(A *pa, const A *pca, A &a, const A &ca) {
 void reinterpret_pointer_downcast(A *a, const A *ca) {
   (void)*reinterpret_cast<DA *>(a);
   (void)*reinterpret_cast<const DA *>(a);
-  (void)*reinterpret_cast<volatile DA *>(a);
-  (void)*reinterpret_cast<const volatile DA *>(a);
+  (void)reinterpret_cast<volatile DA *>(a);
+  (void)reinterpret_cast<const volatile DA *>(a);
 
   (void)*reinterpret_cast<const DA *>(ca);
-  (void)*reinterpret_cast<const volatile DA *>(ca);
+  (void)reinterpret_cast<const volatile DA *>(ca);
 
   (void)*reinterpret_cast<DDA *>(a);
   (void)*reinterpret_cast<DAo *>(a);
@@ -171,11 +171,11 @@ void reinterpret_pointer_upcast(DA *da, const DA *cda, DDA *dda, DAo *dao,
                                 DAi *dai, DVA *dva, DDVA *ddva, DMA *dma) {
   (void)*reinterpret_cast<A *>(da);
   (void)*reinterpret_cast<const A *>(da);
-  (void)*reinterpret_cast<volatile A *>(da);
-  (void)*reinterpret_cast<const volatile A *>(da);
+  (void)reinterpret_cast<volatile A *>(da);
+  (void)reinterpret_cast<const volatile A *>(da);
 
   (void)*reinterpret_cast<const A *>(cda);
-  (void)*reinterpret_cast<const volatile A *>(cda);
+  (void)reinterpret_cast<const volatile A *>(cda);
 
   (void)*reinterpret_cast<A *>(dda);
   (void)*reinterpret_cast<DA *>(dda);

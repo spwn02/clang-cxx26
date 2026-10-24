@@ -1966,14 +1966,23 @@ DeclResult Sema::CheckClassTemplate(
   if (SS.isNotEmpty() && !SS.isInvalid()) {
     SemanticContext = computeDeclContext(SS, true);
     if (!SemanticContext) {
-      // FIXME: Horrible, horrible hack! We can't currently represent this
-      // in the AST, and historically we have just ignored such friend
-      // class templates, so don't complain here.
-      Diag(NameLoc, TUK == TagUseKind::Friend
-                        ? diag::warn_template_qualified_friend_ignored
-                        : diag::err_template_qualified_declarator_no_match)
+      if (TUK == TagUseKind::Friend) {
+        // A friend class template that is a member of a dependent type, such
+        // as  template<class S> template<class U> friend class A<S>::B;
+        SmallVector<TemplateParameterList *, 2> Lists(
+            OuterTemplateParamLists,
+            OuterTemplateParamLists + NumOuterTemplateParamLists);
+        Lists.push_back(TemplateParams);
+        Decl *Friend = BuildFriendOfDependentMemberType(
+            FriendLoc, Kind, KWLoc, SS, Name, NameLoc, SourceLocation(), Lists,
+            /*CheckScopeLists=*/NumOuterTemplateParamLists != 0);
+        if (!Friend)
+          return true;
+        return Friend;
+      }
+      Diag(NameLoc, diag::err_template_qualified_declarator_no_match)
           << SS.getScopeRep() << SS.getRange();
-      return TUK != TagUseKind::Friend;
+      return true;
     }
 
     if (RequireCompleteDeclContext(SS, SemanticContext))
@@ -4341,6 +4350,9 @@ void Sema::CheckDeductionGuideTemplate(FunctionTemplateDecl *TD) {
   }
 }
 
+static void DiagnoseVarPartialSpecializationAfterInstantiation(
+    Sema &S, VarTemplatePartialSpecializationDecl *Partial);
+
 DeclResult Sema::ActOnVarTemplateSpecialization(
     Scope *S, Declarator &D, TypeSourceInfo *TSI, LookupResult &Previous,
     SourceLocation TemplateKWLoc, TemplateParameterList *TemplateParams,
@@ -4482,6 +4494,8 @@ DeclResult Sema::ActOnVarTemplateSpecialization(
       PrevPartial->setMemberSpecialization();
 
     CheckTemplatePartialSpecialization(Partial);
+    if (!PrevPartial)
+      DiagnoseVarPartialSpecializationAfterInstantiation(*this, Partial);
   } else {
     // Create a new class template specialization declaration node for
     // this explicit specialization or friend declaration.
@@ -8735,6 +8749,56 @@ bool Sema::CheckTemplatePartialSpecializationArgs(
   return false;
 }
 
+/// [temp.spec.partial.general]: a partial specialization shall be reachable
+/// from any use of a template specialization that would make use of it as the
+/// result of an implicit or explicit instantiation.
+static void DiagnoseClassPartialSpecializationAfterInstantiation(
+    Sema &S, ClassTemplatePartialSpecializationDecl *Partial) {
+  ClassTemplateDecl *Template = Partial->getSpecializedTemplate();
+  for (ClassTemplateSpecializationDecl *Spec : Template->specializations()) {
+    if (isa<ClassTemplatePartialSpecializationDecl>(Spec) ||
+        Spec->getPointOfInstantiation().isInvalid())
+      continue;
+    TemplateSpecializationKind TSK = Spec->getSpecializationKind();
+    if (TSK == TSK_Undeclared || TSK == TSK_ExplicitSpecialization)
+      continue;
+    sema::TemplateDeductionInfo Info(Partial->getLocation());
+    if (S.DeduceTemplateArguments(Partial, Spec->getTemplateArgs().asArray(),
+                                  Info) != TemplateDeductionResult::Success)
+      continue;
+    S.Diag(Partial->getLocation(), diag::err_partial_spec_after_instantiation)
+        << S.Context.getCanonicalTagType(Partial)
+        << S.Context.getCanonicalTagType(Spec);
+    S.Diag(Spec->getPointOfInstantiation(),
+           diag::note_instantiation_required_here)
+        << (TSK != TSK_ImplicitInstantiation);
+    return;
+  }
+}
+
+static void DiagnoseVarPartialSpecializationAfterInstantiation(
+    Sema &S, VarTemplatePartialSpecializationDecl *Partial) {
+  VarTemplateDecl *Template = Partial->getSpecializedTemplate();
+  for (VarTemplateSpecializationDecl *Spec : Template->specializations()) {
+    if (isa<VarTemplatePartialSpecializationDecl>(Spec) ||
+        Spec->getPointOfInstantiation().isInvalid())
+      continue;
+    TemplateSpecializationKind TSK = Spec->getSpecializationKind();
+    if (TSK == TSK_Undeclared || TSK == TSK_ExplicitSpecialization)
+      continue;
+    sema::TemplateDeductionInfo Info(Partial->getLocation());
+    if (S.DeduceTemplateArguments(Partial, Spec->getTemplateArgs().asArray(),
+                                  Info) != TemplateDeductionResult::Success)
+      continue;
+    S.Diag(Partial->getLocation(), diag::err_partial_spec_after_instantiation)
+        << Partial << Spec;
+    S.Diag(Spec->getPointOfInstantiation(),
+           diag::note_instantiation_required_here)
+        << (TSK != TSK_ImplicitInstantiation);
+    return;
+  }
+}
+
 DeclResult Sema::ActOnClassTemplateSpecialization(
     Scope *S, unsigned TagSpec, TagUseKind TUK, SourceLocation KWLoc,
     SourceLocation ModulePrivateLoc, CXXScopeSpec &SS,
@@ -8931,6 +8995,19 @@ DeclResult Sema::ActOnClassTemplateSpecialization(
                                        isPartialSpecialization))
     return true;
 
+  // [class.mem.general]: a member shall not be declared twice in the
+  // member-specification; an explicit specialization declared at class scope
+  // is a member declaration.
+  if (PrevDecl && TUK == TagUseKind::Declaration && CurContext->isRecord() &&
+      PrevDecl->getLexicalDeclContext() == CurContext &&
+      (isPartialSpecialization ||
+       PrevDecl->getSpecializationKind() == TSK_ExplicitSpecialization)) {
+    Diag(TemplateNameLoc, diag::err_duplicate_member)
+        << ClassTemplate->getIdentifier();
+    Diag(PrevDecl->getLocation(), diag::note_previous_declaration);
+    return true;
+  }
+
   if (!isPartialSpecialization) {
     // Create a new class template specialization declaration node for
     // this explicit specialization or friend declaration.
@@ -8999,6 +9076,8 @@ DeclResult Sema::ActOnClassTemplateSpecialization(
       PrevPartial->setMemberSpecialization();
 
     CheckTemplatePartialSpecialization(Partial);
+    if (!PrevPartial)
+      DiagnoseClassPartialSpecializationAfterInstantiation(*this, Partial);
   }
 
   // C++ [temp.expl.spec]p6:
@@ -9737,6 +9816,17 @@ bool Sema::CheckFunctionTemplateSpecialization(
   // If this is a friend declaration, then we're not really declaring
   // an explicit specialization.
   bool isFriend = (FD->getFriendObjectKind() != Decl::FOK_None);
+
+  // [class.mem.general]: a member shall not be declared twice in the
+  // member-specification; an explicit specialization declared at class scope
+  // is a member declaration.
+  if (!isFriend && TSK == TSK_ExplicitSpecialization &&
+      CurContext->isRecord() &&
+      Specialization->getLexicalDeclContext() == CurContext) {
+    Diag(FD->getLocation(), diag::err_duplicate_member) << FD->getIdentifier();
+    Diag(Specialization->getLocation(), diag::note_previous_declaration);
+    return true;
+  }
 
   // Check the scope of this explicit specialization.
   if (!isFriend &&

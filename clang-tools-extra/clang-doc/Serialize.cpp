@@ -966,7 +966,10 @@ static void parseFriends(RecordInfo &RI, const CXXRecordDecl *D) {
     return;
 
   for (const FriendDecl *FD : D->friends()) {
-    if (FD->isUnsupportedFriend())
+    // Friends that name a member of a dependent type have no single entity.
+    if (const TypeSourceInfo *TSI = FD->getFriendType();
+        TSI && TSI->getType()->isDependentType() &&
+        FD->getFriendTypeNumTemplateParameterLists())
       continue;
 
     FriendInfo F(InfoType::IT_friend, getUSRForDecl(FD));

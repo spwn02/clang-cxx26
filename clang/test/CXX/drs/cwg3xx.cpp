@@ -126,7 +126,7 @@ namespace cwg304 { // cwg304: 2.9
   //   since-cxx11-note@#cwg304-S {{default constructor of 'S' is implicitly deleted because field 'b' of reference type 'int &' would not be initialized}}
 } // namespace cwg304
 
-namespace cwg305 { // cwg305: no
+namespace cwg305 { // cwg305: yes
   struct A {
     typedef A C;
   };
@@ -176,13 +176,13 @@ namespace cwg305 { // cwg305: no
     z->~T2<Z>();
   }
 
-  // FIXME: This is valid.
+  // The name is looked up in the class of the object expression and in the
+  // context of the postfix-expression; one of the lookups finds the type.
   namespace Q {
     template<typename A> struct R {};
   }
   template<typename A> using R = Q::R<int>;
   void qr(Q::R<int> x) { x.~R<char>(); }
-  // since-cxx11-error@-1 {{no member named '~R' in 'cwg305::Q::R<int>'}}
 #endif
 } // namespace cwg305
 
@@ -298,18 +298,16 @@ namespace cwg318 { // cwg318: sup 1310
   struct A::A a;
 } // namespace cwg318
 
-namespace cwg319 { // cwg319: no
-  // FIXME: dup cwg389
-  // FIXME: We don't have a diagnostic for a name with linkage
-  //        having a type without linkage.
+namespace cwg319 { // cwg319: sup 2059
+  // A name with linkage may have a type without linkage (CWG2059).
   typedef struct {
     int i;
   } *ps;
   extern "C" void f(ps);
-  void g(ps); // FIXME: ill-formed, type 'ps' has no linkage
+  void g(ps);
 
   static enum { e } a1;
-  enum { e2 } a2; // FIXME: ill-formed, enum type has no linkage
+  enum { e2 } a2;
 
   enum { n1 = 1u };
   typedef int (*pa)[n1];
@@ -319,12 +317,12 @@ namespace cwg319 { // cwg319: no
 
   void f() {
     struct A { int n; };
-    extern A a; // FIXME: ill-formed
+    extern A a;
     X<A> xa;
     // cxx98-error@-1 {{template argument uses local type 'A'}}
 
     typedef A B;
-    extern B b; // FIXME: ill-formed
+    extern B b;
     X<B> xb;
     // cxx98-error@-1 {{template argument uses local type 'A'}}
 
@@ -1457,7 +1455,7 @@ namespace cwg387 { // cwg387: 2.8
 
 // FIXME: cwg388 needs libc++abi test
 
-namespace cwg389 { // cwg389: no
+namespace cwg389 { // cwg389: sup 2059
   struct S {
     typedef struct {} A;
     typedef enum {} B;
@@ -1533,7 +1531,7 @@ namespace cwg389 { // cwg389: no
   extern WithLinkage9 withLinkage9;
   extern WithLinkage10 withLinkage10;
 
-  // FIXME: These are all ill-formed.
+  // OK, the notion of the linkage of a type is not used (CWG2059).
   extern WithoutLinkage1 withoutLinkage1;
   extern WithoutLinkage2 withoutLinkage2;
   extern WithoutLinkage3 withoutLinkage3;

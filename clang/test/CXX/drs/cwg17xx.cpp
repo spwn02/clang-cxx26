@@ -85,15 +85,27 @@ void f() {
 #endif
 } // namespace cwg1722
 
-namespace cwg1734 { // cwg1734: no
+namespace cwg1734 { // cwg1734: yes
 #if __cplusplus >= 201103L
 struct A {
     A(const A&) = delete;
 };
-// FIXME: 'A' should not be trivially copyable because the class lacks at least
-// one non-deleted copy constructor, move constructor, copy assignment
-// operator, or move assignment operator.
+// A is trivially copyable: the implicitly-declared copy assignment operator is
+// an eligible trivial special member function.
 static_assert(__is_trivially_copyable(A), "");
+
+struct B {
+    B(const B&) = delete;
+    B& operator=(const B&) = delete;
+};
+// B is not trivially copyable because it lacks an eligible copy constructor,
+// move constructor, copy assignment operator, and move assignment operator.
+static_assert(!__is_trivially_copyable(B), "");
+
+struct C {
+    C(C&&) = delete;
+};
+static_assert(!__is_trivially_copyable(C), "");
 #endif
 } // namespace cwg1734
 

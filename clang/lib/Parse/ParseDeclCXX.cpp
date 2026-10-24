@@ -1163,6 +1163,10 @@ SourceLocation Parser::ParseDecltypeSpecifier(DeclSpec &DS) {
   assert(Tok.isOneOf(tok::kw_decltype, tok::annot_decltype) &&
          "Not a decltype specifier");
 
+  // The operand is not a component name of a conversion-type-id.
+  llvm::SaveAndRestore<ParsedType> NoConvIdLookup(
+      Actions.ConversionIdLookupType, ParsedType());
+
   ExprResult Result;
   SourceLocation StartLoc = Tok.getLocation();
   SourceLocation EndLoc;

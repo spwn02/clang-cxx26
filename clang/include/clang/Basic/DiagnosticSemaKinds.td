@@ -712,6 +712,9 @@ def note_using_decl_conflict : Note<"conflicting declaration">;
 def err_using_decl_redeclaration : Error<"redeclaration of using declaration">;
 def err_using_decl_conflict : Error<
   "target of using declaration conflicts with declaration already in scope">;
+def err_tag_definition_via_using_declaration : Error<
+  "%0 is not declared directly in the scope named by the qualifier of its "
+  "definition; it was introduced there by a using-declaration">;
 def err_using_decl_conflict_reverse : Error<
   "declaration conflicts with target of using declaration already in scope">;
 def note_using_decl : Note<"%select{|previous }0using declaration">;
@@ -1886,23 +1889,20 @@ def err_friend_def_in_local_class : Error<
   "friend function cannot be defined in a local class">;
 def err_friend_specialization_def : Error<
   "friend function specialization cannot be defined">;
-def err_friend_specialization_specifier : Error<
+def ext_friend_specialization_specifier : ExtWarn<
   "friend declaration of a function template specialization cannot be "
   "declared %select{inline|constexpr|consteval}0">;
 def err_friend_not_first_in_declaration : Error<
   "'friend' must appear first in a non-function declaration">;
 def err_using_decl_friend : Error<
   "cannot befriend target of using declaration">;
-def warn_template_qualified_friend_unsupported
-    : Warning<
-          "dependent nested name specifier %0 for friend class declaration is "
-          "not supported; turning off access control for %1">,
-      InGroup<UnsupportedFriend>;
-def warn_template_qualified_friend_ignored
-    : Warning<"dependent nested name specifier %0 for friend template "
-              "declaration is "
-              "not supported; ignoring this friend declaration">,
-      InGroup<UnsupportedFriend>;
+def err_friend_dependent_qualifier_not_template_id : Error<
+  "nested-name-specifier %0 of a friend declaration naming a member of a "
+  "dependent type must end with a simple-template-id that names a class "
+  "template">;
+def err_friend_template_param_not_deducible : Error<
+  "template parameter %0 of a friend declaration naming a member of a "
+  "dependent type is not deducible from %1">;
 def ext_friend_tag_redecl_outside_namespace : ExtWarn<
   "unqualified friend declaration referring to type outside of the nearest "
   "enclosing namespace is a Microsoft extension; add a nested name specifier">,
@@ -5804,6 +5804,11 @@ def err_template_spec_redecl_global_scope : Error<
 def err_spec_member_not_instantiated : Error<
   "specialization of member %q0 does not specialize an instantiated member">;
 def note_specialized_decl : Note<"attempt to specialize declaration here">;
+def err_partial_spec_after_instantiation : Error<
+  "partial specialization of %0 after instantiation of %1">;
+def err_friend_template_default_arg_redeclared : Error<
+  "friend declaration specifying a default template argument must be the "
+  "only declaration">;
 def err_specialization_after_instantiation : Error<
   "explicit specialization of %0 after instantiation">;
 def note_instantiation_required_here : Note<

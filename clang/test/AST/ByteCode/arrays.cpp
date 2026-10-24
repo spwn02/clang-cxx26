@@ -27,7 +27,7 @@ static_assert(foo[2][3] == &m, "");
 static_assert(foo[2][4] == nullptr, "");
 
 constexpr int afterEnd[] = {1,2,3};
-static_assert(&afterEnd[3] == afterEnd + 3, "");
+static_assert(afterEnd + 3 == afterEnd + 3, "");
 
 constexpr int ZeroSizeArray[] = {};
 
@@ -59,7 +59,7 @@ static_assert(derefPtr(data) == 5, "");
 
 /// Make sure we can refer to the one-past-the-end element
 /// and then return back to the end of the array.
-static_assert((&data[5])[-1] == 1, "");
+static_assert((data + 5)[-1] == 1, "");
 
 constexpr int storePtr() {
   int b[] = {1,2,3,4};
@@ -624,7 +624,7 @@ namespace ArrayMemberAccess {
 namespace OnePastEndSub {
   struct A {};
   constexpr A a[3][3];
-  constexpr int diff2 = &a[1][3] - &a[1][0]; /// Used to crash.
+  constexpr int diff2 = (a[1] + 3) - &a[1][0]; /// Used to crash.
 }
 
 static int same_entity_2[3];
@@ -638,12 +638,12 @@ static_assert(get2() == same_entity_2, "failed to find previous decl");
 
 constexpr int zs[2][2][2][2] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 constexpr int fail(const int &p) {
-  return (&p)[64]; // both-note 2{{cannot refer to element 64 of array of 2 elements}} \
+  return (&p)[64]; // both-note {{cannot refer to element 64 of array of 2 elements}} \
                    // both-note {{cannot refer to element 65 of array of 2 elements}} \
                    // both-note {{cannot refer to element 66 of array of 2 elements}}
 }
 static_assert(fail(*(&(&(*(*&(&zs[2] - 1)[0] + 2 - 2))[2])[-1][2] - 2)) == 11, ""); // both-error {{not an integral constant expression}} \
-                                                                                    // both-note {{in call to}}
+                                                                                    // both-note {{read of dereferenced one-past-the-end pointer}}
 
 
 static_assert(fail( // both-error {{not an integral constant expression}} \
@@ -796,7 +796,7 @@ namespace ZeroSizeArrayRead {
   constexpr unsigned C = checksum(str); // both-error {{must be initialized by a constant expression}} \
                                         // both-note {{in call to}}
 
-  constexpr const char *p1 = &str[0];
+  constexpr const char *p1 = str;
   constexpr const char *p2 = &str[1]; // both-error {{must be initialized by a constant expression}} \
                                       // both-note {{cannot refer to element 1 of array of 0 elements in a constant expression}}
 

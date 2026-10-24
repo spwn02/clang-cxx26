@@ -368,9 +368,9 @@ void test() {
   // expected-error@-1 {{attempt to use a deleted function}}
   // expected-note@#45 {{'operator delete<SubClass1>' has been explicitly marked deleted here}}
 
+  // The deallocation function of the delete-expression is the one selected at
+  // the point of definition of the virtual destructor.
   delete O14;
-  // expected-error@-1 {{attempt to use a deleted function}}
-  // expected-note@#45 {{'operator delete<SubClass1>' has been explicitly marked deleted here}}
 
   SubClass2 *O15 = new SubClass2;
   // expected-error@-1 {{attempt to use a deleted function}}
@@ -388,8 +388,6 @@ void test() {
   // expected-note@#52 {{candidate function [with T = SubClass4] has been explicitly deleted}}
   // expected-note@#54 {{candidate function [with T = SubClass4]}}
   delete O17;
-  // expected-error@-1 {{attempt to use a deleted function}}
-  // expected-note@#53 {{'operator delete<SubClass4>' has been explicitly marked deleted here}}
 
   SubClass4_1 *O18 = new SubClass4_1;
   delete O18;

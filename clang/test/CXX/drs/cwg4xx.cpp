@@ -270,7 +270,7 @@ namespace cwg409 { // cwg409: 2.7
   };
 } // namespace cwg409
 
-namespace cwg410 { // cwg410: no
+namespace cwg410 { // cwg410: yes
   template<class T> void f(T);
   void g(int);
   namespace M {
@@ -287,9 +287,10 @@ namespace cwg410 { // cwg410: no
     };
 
     template<> void h(int) { A::z(); }
-    // FIXME: This should be ill-formed. The member A::i<> is befriended,
-    // not this function.
+    // The member A::i<> is befriended, not this function.
     template<> void i(int) { A::z(); }
+    // expected-error@-1 {{'z' is a private member of 'cwg410::M::A'}}
+    //   expected-note@#cwg410-z {{declared private here}}
   }
   template<> void f(int) { M::A::z(); }
   void g(int) { M::A::z(); }
@@ -343,7 +344,7 @@ namespace cwg416 { // cwg416: 2.7
   float &f = a + a;
 } // namespace cwg416
 
-namespace cwg417 { // cwg417: no
+namespace cwg417 { // cwg417: yes
   struct A;
   struct cwg417::A {};
   // expected-warning@-1 {{extra qualification on member 'A'}}
@@ -359,26 +360,29 @@ namespace cwg417 { // cwg417: no
     struct F;
     struct H;
   }
-  // FIXME: This is ill-formed.
-  using N::D;
+  using N::D; // #cwg417-using-D
   struct cwg417::D {};
   // expected-warning@-1 {{extra qualification on member 'D'}}
+  // expected-error@-2 {{'D' is not declared directly in the scope named by the qualifier of its definition; it was introduced there by a using-declaration}}
+  //   expected-note@#cwg417-using-D {{using declaration}}
   using namespace N;
   struct cwg417::E {};
   // expected-error@-1 {{no struct named 'E' in namespace 'cwg417'}}
   // expected-warning@-2 {{extra qualification on member 'E'}}
   struct N::F {};
   struct G;
-  using N::H;
+  using N::H; // #cwg417-using-H
   namespace M {
     struct cwg417::G {};
     // expected-error@-1 {{cannot define or redeclare 'G' here because namespace 'M' does not enclose namespace 'cwg417'}}
     struct cwg417::H {};
     // expected-error@-1 {{cannot define or redeclare 'H' here because namespace 'M' does not enclose namespace 'cwg417'}}
+    // expected-error@-2 {{'H' is not declared directly in the scope named by the qualifier of its definition; it was introduced there by a using-declaration}}
+    //   expected-note@#cwg417-using-H {{using declaration}}
   }
 } // namespace cwg417
 
-namespace cwg418 { // cwg418: no
+namespace cwg418 { // cwg418: yes
 namespace example1 {
 void f1(int, int = 0);
 void f1(int = 0, int);
@@ -398,9 +402,8 @@ void f2(int = 3);
 }
 void g2() {
   using B::f2;
+  // The default argument of the later redeclaration of A::f2 applies.
   f2();
-  // expected-error@-1 {{no matching function for call to 'f2'}}
-  //   expected-note@#cwg418-f2 {{candidate function not viable: requires 1 argument, but 0 were provided}}
 }
 } // namespace example2
 
@@ -1028,7 +1031,7 @@ namespace cwg468 { // cwg468: 2.7 c++11
   // cxx98-error@-2 {{'template' keyword outside of a template}}
 } // namespace cwg468
 
-namespace cwg469 { // cwg469: no
+namespace cwg469 { // cwg469: yes
   template<typename T> struct X; // #cwg469-X
   template<typename T> struct X<const T> {};
   X<int&> x;

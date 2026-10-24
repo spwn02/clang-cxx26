@@ -26,7 +26,7 @@ namespace cwg705 { // cwg705: 2.7
   }
 } // namespace cwg705
 
-namespace cwg712 { // cwg712: partial
+namespace cwg712 { // cwg712: yes
   void use(int);
   void f() {
     const int a = 0; // #cwg712-f-a
@@ -39,19 +39,9 @@ namespace cwg712 { // cwg712: partial
         // expected-warning@-1 {{left operand of comma operator has no effect}}
 
         (void)a;
-        // expected-error@-1 {{reference to local variable 'a' declared in enclosing function 'cwg712::f'}} FIXME
-        //   expected-note@#cwg712-f-a {{'a' declared here}}
         (void)(a);
-        // expected-error@-1 {{reference to local variable 'a' declared in enclosing function 'cwg712::f'}} FIXME
-        //   expected-note@#cwg712-f-a {{'a' declared here}}
         (void)(cond ? a : a); // #cwg712-ternary
-        // expected-error@#cwg712-ternary {{reference to local variable 'a' declared in enclosing function 'cwg712::f'}} FIXME
-        //   expected-note@#cwg712-f-a {{'a' declared here}}
-        // expected-error@#cwg712-ternary {{reference to local variable 'a' declared in enclosing function 'cwg712::f'}} FIXME
-        //   expected-note@#cwg712-f-a {{'a' declared here}}
         (void)(cond, a); // #cwg712-comma
-        // expected-error@-1 {{reference to local variable 'a' declared in enclosing function 'cwg712::f'}} FIXME
-        //   expected-note@#cwg712-f-a {{'a' declared here}}
         // expected-warning@#cwg712-comma {{left operand of comma operator has no effect}}
       }
     };
@@ -67,11 +57,7 @@ namespace cwg712 { // cwg712: partial
         use(a.*&A::n);
 
         (void)a.n;
-        // since-cxx11-error@-1 {{reference to local variable 'a' declared in enclosing function 'cwg712::g'}} FIXME
-        //   since-cxx11-note@#cwg712-g-a {{'a' declared here}}
         (void)(a.*&A::n);
-        // since-cxx11-error@-1 {{reference to local variable 'a' declared in enclosing function 'cwg712::g'}} FIXME
-        //   since-cxx11-note@#cwg712-g-a {{'a' declared here}}
       }
     };
   }
@@ -100,7 +86,7 @@ static_assert(!is_volatile<void()volatile&>::value, "");
 
 // cwg722 is in cwg722.cpp
 
-namespace cwg727 { // cwg727: partial
+namespace cwg727 { // cwg727: yes
   struct A {
     template<typename T> struct C; // #cwg727-C
     template<typename T> void f(); // #cwg727-f
@@ -284,15 +270,17 @@ namespace cwg727 { // cwg727: partial
   }
 
   template<typename T, typename U> struct Collision {
-    // FIXME: Missing diagnostic for duplicate function explicit specialization declaration.
     template<typename> int f1();
-    template<> int f1<T>();
+    template<> int f1<T>(); // #cwg727-f1-T
     template<> int f1<U>();
+    // expected-error@-1 {{duplicate member 'f1'}}
+    //   expected-note@#cwg727-f1-T {{previous declaration is here}}
 
-    // FIXME: Missing diagnostic for fucntion redefinition!
     template<typename> int f2();
-    template<> int f2<T>() {}
+    template<> int f2<T>() {} // #cwg727-f2-T
     template<> int f2<U>() {}
+    // expected-error@-1 {{duplicate member 'f2'}}
+    //   expected-note@#cwg727-f2-T {{previous declaration is here}}
 
     template<typename> static int v1;
     // cxx98-11-error@-1 {{variable templates are a C++14 extension}}

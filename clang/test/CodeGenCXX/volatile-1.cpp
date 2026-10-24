@@ -39,7 +39,11 @@ void test() {
   // CHECK11-NEXT: load volatile [[INT]], ptr @ci
   // CHECK11-NEXT: load volatile [[INT]], ptr getelementptr inbounds nuw ([[CINT]], ptr @ci, i32 0, i32 1)
 
+#if __cplusplus < 201103L
+  // In C++11 this applies the lvalue-to-rvalue conversion, which needs a copy
+  // constructor accepting a volatile object.
   (void)a;
+#endif
 
   (void)(ci=ci);
   // CHECK-NEXT: [[R:%.*]] = load volatile [[INT]], ptr @ci
@@ -262,7 +266,11 @@ void test() {
 
   // Not a use.  gcc forgets to do the assignment.
   // CHECK-NEXT: call {{.*}}void
+#if __cplusplus >= 201103L
+  (a=a);
+#else
   ((a=a),a);
+#endif
 
   // Not a use.  gcc gets this wrong, it doesn't emit the copy!  
   // CHECK-NEXT: call {{.*}}void

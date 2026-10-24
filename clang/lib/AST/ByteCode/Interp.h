@@ -1949,6 +1949,28 @@ inline bool CheckNull(InterpState &S, CodePtr OpPC) {
   return true;
 }
 
+/// [expr.unary.op], [expr.sub]: the address of *p or p[i] is taken, so p must
+/// point to an object: a null or past-the-end pointer is undefined behavior
+/// (CWG2823). A null pointer dereferenced by *p was already diagnosed.
+inline bool CheckAddrOfDeref(InterpState &S, CodePtr OpPC, bool CheckNullPtr) {
+  if (!S.getLangOpts().CPlusPlus)
+    return true;
+  const auto &Ptr = S.Stk.peek<Pointer>();
+  if (Ptr.isZero()) {
+    if (!CheckNullPtr)
+      return true;
+    S.FFDiag(S.Current->getSource(OpPC),
+             diag::note_constexpr_dereferencing_null);
+    return S.noteUndefinedBehavior();
+  }
+  if (Ptr.isOnePastEnd()) {
+    S.FFDiag(S.Current->getSource(OpPC), diag::note_constexpr_access_past_end)
+        << AK_Dereference;
+    return S.noteUndefinedBehavior();
+  }
+  return true;
+}
+
 inline bool VirtBaseHelper(InterpState &S, CodePtr OpPC, const RecordDecl *Decl,
                            const Pointer &Ptr) {
   Pointer Base = Ptr;

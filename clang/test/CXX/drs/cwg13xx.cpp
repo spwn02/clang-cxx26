@@ -161,12 +161,12 @@ namespace cwg1315 { // cwg1315: partial
 
   template <int I, int J, int K> struct B;
   template <int I, int K> struct B<I, I * 2, K> {}; // #cwg1315-B-1
-  B<1, 2, 3> b1;
+  B<2, 4, 3> b1;
 
   // Multiple declarations with the same dependent expression are equivalent
   // for partial ordering purposes.
   template <int I> struct B<I, I * 2, 2> { typedef int type; };
-  B<1, 2, 2>::type b2;
+  B<3, 6, 2>::type b2;
 
   // Multiple declarations with differing dependent expressions are unordered.
   template <int I, int K> struct B<I, I + 1, K> {}; // #cwg1315-B-2

@@ -2714,12 +2714,10 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
         Context.getCanonicalType(PathElement.Base->getType())) {
       // We found members of the given name in two subobjects of
       // different types. If the declaration sets aren't the same, this
-      // lookup is ambiguous.
-      //
-      // FIXME: The language rule says that this applies irrespective of
-      // whether the sets contain only static members.
-      if (HasOnlyStaticMembers(Path->Decls) &&
-          HasSameDeclarations(Paths.begin()->Decls, Path->Decls))
+      // lookup is ambiguous; otherwise, whether the member can be named is
+      // decided when the object expression is converted to the class of the
+      // member ([class.member.lookup]).
+      if (HasSameDeclarations(Paths.begin()->Decls, Path->Decls))
         continue;
 
       R.setAmbiguousBaseSubobjectTypes(Paths);

@@ -386,7 +386,7 @@ struct A {
 #endif
 } // namespace cwg2363
 
-namespace cwg2369 { // cwg2369: partial
+namespace cwg2369 { // cwg2369: yes
 #if __cplusplus >= 202002L
 template <class T> struct Z {
   typedef typename T::x xx;
@@ -415,16 +415,19 @@ void foo() {
 #endif
 } // namespace cwg2369
 
-namespace cwg2370 { // cwg2370: no
+namespace cwg2370 { // cwg2370: yes
 namespace N {
-typedef int type;
+typedef int type; // #cwg2370-type
 void g(type);
 void h(type);
 } // namespace N
 class C {
   typedef N::type N_type;
-  // FIXME: `type` should be searched for in N
-  // friend void N::g(type);
+  // The part of a friend declaration after the declarator-id is not in the
+  // scope of N, so 'type' is not found.
+  friend void N::g(type);
+  // expected-error@-1 {{unknown type name 'type'; did you mean 'N::type'?}}
+  //   expected-note@#cwg2370-type {{'N::type' declared here}}
   friend void N::h(N_type);
 };
 } // namespace cwg2370

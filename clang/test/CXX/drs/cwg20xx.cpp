@@ -181,7 +181,7 @@ namespace cwg2082 { // cwg2082: 11
 #endif
 } // namespace cwg2082
 
-namespace cwg2083 { // cwg2083: partial
+namespace cwg2083 { // cwg2083: yes
 #if __cplusplus >= 201103L
   void non_const_mem_ptr() {
     struct A {
@@ -313,29 +313,16 @@ namespace cwg2083 { // cwg2083: partial
     int &r = a.x; // #cwg2083-r
     struct B {
       void f() {
-        // FIXME: We emit more errors than we should be. They are explicitly
-        // marked below.
+        // These expressions do not odr-use 'a'.
         a.x;
         // expected-warning@-1 {{expression result unused}}
-        // expected-error@-2 {{reference to local variable 'a' declared in enclosing function 'cwg2083::discarded_lval'}} FIXME
-        //   expected-note@#cwg2083-a-3 {{'a' declared here}}
         a.*&A::x;
         // expected-warning@-1 {{expression result unused}}
-        // expected-error@-2 {{reference to local variable 'a' declared in enclosing function 'cwg2083::discarded_lval'}} FIXME
-        //   expected-note@#cwg2083-a-3 {{'a' declared here}}
         true ? a.x : a.y; // #cwg2083-ternary
         // expected-warning@-1 {{expression result unused}}
-        // expected-error@#cwg2083-ternary {{reference to local variable 'a' declared in enclosing function 'cwg2083::discarded_lval'}} FIXME
-        //   expected-note@#cwg2083-a-3 {{'a' declared here}}
-        // expected-error@#cwg2083-ternary {{reference to local variable 'a' declared in enclosing function 'cwg2083::discarded_lval'}} FIXME
-        //   expected-note@#cwg2083-a-3 {{'a' declared here}}
         (void)a.x;
-        // expected-error@-1 {{reference to local variable 'a' declared in enclosing function 'cwg2083::discarded_lval'}} FIXME
-        //   expected-note@#cwg2083-a-3 {{'a' declared here}}
         a.x, discarded_lval();
         // expected-warning@-1 {{left operand of comma operator has no effect}}
-        // expected-error@-2 {{reference to local variable 'a' declared in enclosing function 'cwg2083::discarded_lval'}} FIXME
-        //   expected-note@#cwg2083-a-3 {{'a' declared here}}
 
         // 'volatile' qualifier triggers an lvalue-to-rvalue conversion.
         a.z;

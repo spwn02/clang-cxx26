@@ -395,7 +395,7 @@ namespace cwg637 { // cwg637: 3.0
   }
 } // namespace cwg637
 
-namespace cwg638 { // cwg638: no
+namespace cwg638 { // cwg638: yes
   template<typename T> struct A {
     struct B;
     void f();
@@ -406,26 +406,29 @@ namespace cwg638 { // cwg638: no
   };
 
   class X {
-    typedef int type;
+    typedef int type; // #cwg638-X-type
     template<class T> friend struct A<T>::B;
-    // expected-warning@-1 {{dependent nested name specifier 'A<T>' for friend class declaration is not supported; turning off access control for 'X'}}
     template<class T> friend void A<T>::f();
-    // expected-warning@-1 {{dependent nested name specifier 'A<T>' for friend class declaration is not supported; turning off access control for 'X'}}
     template<class T> friend void A<T>::g();
-    // expected-warning@-1 {{dependent nested name specifier 'A<T>' for friend class declaration is not supported; turning off access control for 'X'}}
     template<class T> friend void A<T>::C::h();
-    // expected-warning@-1 {{dependent nested name specifier 'A<T>::C' for friend class declaration is not supported; turning off access control for 'X'}}
+    // expected-error@-1 {{nested-name-specifier 'A<T>::C' of a friend declaration naming a member of a dependent type must end with a simple-template-id that names a class template}}
   };
 
   template<> struct A<int> {
-    X::type a; // FIXME: private
+    X::type a;
+    // expected-error@-1 {{'type' is a private member of 'cwg638::X'}}
+    //   expected-note@#cwg638-X-type {{implicitly declared private here}}
     struct B {
       X::type b; // ok
     };
-    int f() { X::type c; } // FIXME: private
+    int f() { X::type c; }
+    // expected-error@-1 {{'type' is a private member of 'cwg638::X'}}
+    //   expected-note@#cwg638-X-type {{implicitly declared private here}}
     void g() { X::type d; } // ok
     struct D {
-      void h() { X::type e; } // FIXME: private
+      void h() { X::type e; }
+      // expected-error@-1 {{'type' is a private member of 'cwg638::X'}}
+      //   expected-note@#cwg638-X-type {{implicitly declared private here}}
     };
   };
 } // namespace cwg638
@@ -521,7 +524,7 @@ namespace cwg643 { // cwg643: 3.2
 #endif
 } // namespace cwg643
 
-namespace cwg644 { // cwg644: partial
+namespace cwg644 { // cwg644: yes
 #if __cplusplus >= 201103L
   struct A {
     A() = default;
@@ -543,8 +546,7 @@ namespace cwg644 { // cwg644: partial
   static_assert(!__is_literal_type(D), "");
 #endif
 
-  // FIXME: According to CWG644, E<C> is a literal type despite having virtual
-  // base classes. This appears to be a wording defect.
+  // E<C> has a virtual base class; this is only a literal type since C++26.
   template<typename T>
   struct E : T {
     constexpr E() = default;
@@ -1088,7 +1090,7 @@ namespace cwg675 { // cwg675: dup 739
 
 // cwg676: na
 
-namespace cwg677 { // cwg677: no
+namespace cwg677 { // cwg677: yes
   struct A {
     void *operator new(std::size_t);
     void operator delete(void*) = delete; // #cwg677-A-delete
@@ -1103,10 +1105,10 @@ namespace cwg677 { // cwg677: no
   void f(A *p) { delete p; }
   // expected-error@-1 {{attempt to use a deleted function}}
   //   expected-note@#cwg677-A-delete {{'operator delete' has been explicitly marked deleted here}}
-  // FIXME: This appears to be valid; we shouldn't even be looking up the 'operator delete' here.
+  // The deallocation function of a delete-expression of a pointer to a class
+  // with a virtual destructor is the one selected at the point of definition
+  // of the destructor.
   void f(B *p) { delete p; }
-  // expected-error@-1 {{attempt to use a deleted function}}
-  //   expected-note@#cwg677-B-delete {{'operator delete' has been explicitly marked deleted here}}
   B::~B() {}
   // expected-error@-1 {{attempt to use a deleted function}}
   //   expected-note@#cwg677-B-delete {{'operator delete' has been explicitly marked deleted here}}

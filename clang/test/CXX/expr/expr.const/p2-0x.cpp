@@ -219,9 +219,9 @@ namespace UndefinedBehavior {
     constexpr int k4 = c2.f(); // ok!
 
     constexpr int diff1 = &a[2] - &a[0];
-    constexpr int diff2 = &a[1][3] - &a[1][0];
+    constexpr int diff2 = (a[1] + 3) - &a[1][0];
     constexpr int diff3 = &a[2][0] - &a[1][0]; // expected-error {{constant expression}} expected-note {{subtracted pointers are not elements of the same array}}
-    static_assert(&a[2][0] == &a[1][3], "");
+    static_assert(&a[2][0] == a[1] + 3, "");
     constexpr int diff4 = (&b + 1) - &b;
     constexpr int diff5 = &a[1][2].n - &a[1][0].n; // expected-error {{constant expression}} expected-note {{subtracted pointers are not elements of the same array}}
     constexpr int diff6 = &a[1][2].n - &a[1][2].n;

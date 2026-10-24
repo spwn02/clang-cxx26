@@ -15037,8 +15037,17 @@ static void computeConsideredMinRequiredArgs(Sema &S, UnresolvedLookupExpr *ULE,
       if (FD->getTemplatedKind() != FunctionDecl::TK_NonTemplate)
         continue;
       llvm::SmallPtrSet<const DeclContext *, 4> Hosts;
-      for (const FunctionDecl *R : FD->redecls())
+      for (const FunctionDecl *R : FD->redecls()) {
         Hosts.insert(Sema::getDefaultArgumentHostScope(R));
+        // A using-declaration names the function as first declared; defaults
+        // given by a later redeclaration still apply to it.
+        if (R != FD)
+          for (unsigned I = 0, E = FD->getNumParams(); I != E; ++I)
+            if (!FD->getParamDecl(I)->hasDefaultArg() &&
+                R->getParamDecl(I)->hasDefaultArg() &&
+                !R->getParamDecl(I)->hasInheritedDefaultArg())
+              NeedRelookup = true;
+      }
       if (Hosts.size() > 1)
         NeedRelookup = true;
     }

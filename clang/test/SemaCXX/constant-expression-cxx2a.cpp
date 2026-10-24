@@ -1287,16 +1287,14 @@ namespace temp_dtor {
     constexpr ~A() { if (b) f(); }
   };
 
-  // We can't accept either of these unless we start actually registering the
-  // destructors of the A temporaries to run on shutdown. It's unclear what the
-  // intended standard behavior is so we reject this for now.
-  constexpr A &&a = A{false}; // expected-error {{constant}} expected-note {{non-trivial destruction of lifetime-extended temporary}}
+  // A temporary to which a constexpr reference is bound shall have constant
+  // destruction ([expr.const], CWG2529).
+  constexpr A &&a = A{false};
   void f() { a.b = true; }
 
-  constexpr A &&b = A{true}; // expected-error {{constant}} expected-note {{non-trivial destruction of lifetime-extended temporary}}
+  constexpr A &&b = A{true}; // expected-error {{constant}} expected-note {{destruction of lifetime-extended temporary}}
 
-  // FIXME: We could in prinicple accept this.
-  constexpr const A &c = A{false}; // expected-error {{constant}} expected-note {{non-trivial destruction of lifetime-extended temporary}}
+  constexpr const A &c = A{false};
 }
 
 namespace value_dependent_init {

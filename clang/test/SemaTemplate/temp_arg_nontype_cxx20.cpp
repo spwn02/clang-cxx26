@@ -25,7 +25,7 @@ using IPn2 = IntPtr<&n + 2>; // expected-error {{not a constant expression}} exp
 using IP2 = IntPtr<&s.n[2]>;
 using IP2 = IntPtr<s.n + 2>;
 
-using IP3 = IntPtr<&s.n[3]>;
+using IP3 = IntPtr<&s.n[3]>; // expected-error {{non-type template argument is not a constant expression}} expected-note {{read of dereferenced one-past-the-end pointer}}
 using IP3 = IntPtr<s.n + 3>;
 
 using IP5 = IntPtr<&s.n[5]>; // expected-error {{not a constant expression}} expected-note {{cannot refer to element 5 of array of 3 elements}}
@@ -210,11 +210,11 @@ namespace CTADPartialOrder {
   A<0> a;
   static_assert(X<void, int, a>::n == 1);
   static_assert(X<int*, int, a>::n == 2);
-  static_assert(X<void, void, a>::n == 3);
+  static_assert(X<void, void, a>::n == 3); // expected-note {{implicit instantiation first required here}}
   static_assert(X<int, int, a>::n == -1); // expected-error {{ambiguous}}
   static_assert(X<int*, void, a>::n == 2); // expected-error {{undefined}}
 
-  template<typename T, A<0> a> struct X<T, T, a> { static constexpr int n = 4; };
+  template<typename T, A<0> a> struct X<T, T, a> { static constexpr int n = 4; }; // expected-error {{partial specialization of 'CTADPartialOrder::X<T, T, a>' after instantiation of 'CTADPartialOrder::X<void, void, A<0>{}>'}}
   static_assert(X<float, float, a>::n == 4);
 }
 

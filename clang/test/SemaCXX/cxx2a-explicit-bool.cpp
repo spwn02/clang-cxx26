@@ -122,7 +122,7 @@ A<true> && a2 = 0;// expected-error {{could not bind}}
 A<true> && a3( 0);// expected-error {{could not bind}}
 A<true> a4{ 0};
 A<true> && a5 = { 0};// expected-error {{chosen constructor is explicit}}
-A<true> && a6{ 0};
+A<true> && a6{ 0}; // expected-error {{chosen constructor is explicit}}
 A<true> a7 = { 0}; // expected-error {{chosen constructor is explicit in copy-initialization}}
 
 a0 = 0; // expected-error {{no viable overloaded '='}}
@@ -167,7 +167,7 @@ A<true, int> && a2 = 0.0;// expected-error {{could not bind}}
 A<true, int> && a3( 0.0);// expected-error {{could not bind}}
 A<true, int> a4{ 0.0};
 A<true, int> && a5 = { 0.0};// expected-error {{chosen constructor is explicit}}
-A<true, int> && a6{ 0.0};
+A<true, int> && a6{ 0.0}; // expected-error {{chosen constructor is explicit}}
 A<true, int> a7 = { 0.0}; // expected-error {{chosen constructor is explicit in copy-initialization}}
 
 A<true, int> b0 = 0;
@@ -185,7 +185,7 @@ A<true, double> && c2 = 0;// expected-error {{could not bind}}
 A<true, double> && c3( 0);// expected-error {{could not bind}}
 A<true, double> c4{ 0};
 A<true, double> && c5 = { 0};// expected-error {{chosen constructor is explicit}}
-A<true, double> && c6{ 0};
+A<true, double> && c6{ 0}; // expected-error {{chosen constructor is explicit}}
 A<true, double> c7 = { 0}; // expected-error {{chosen constructor is explicit in copy-initialization}}
 
 }
@@ -510,14 +510,14 @@ void f1(A<false> a, B b) {
 }
 
 // Taken from 12.3.2p2
-class X { X(); };
+class X { X(); }; // expected-note 0-1 {{candidate constructor (the implicit copy constructor) not viable}} expected-note 0-1 {{candidate constructor (the implicit move constructor) not viable}} expected-note 0-1 {{candidate constructor not viable}}
 class Y { }; // expected-note+ {{candidate constructor (the implicit}}
 
 template<bool b>
 struct Z {
-  explicit(b) operator X() const;
+  explicit(b) operator X() const; // expected-note 0-1 {{not a candidate}}
   explicit(b) operator Y() const; // expected-note 2{{not a candidate}}
-  explicit(b) operator int() const; // expected-note {{not a candidate}}
+  explicit(b) operator int() const; // expected-note 2{{not a candidate}}
 };
 
 void testExplicit()
@@ -544,12 +544,12 @@ const int& y9(z);
 // conversion function is not considered.
 const Y y10{z}; // expected-error {{excess elements}}
 const Y& y11{z}; // expected-error {{excess elements}} expected-note {{in initialization of temporary}}
-const int& y12{z};
+const int& y12{z}; // expected-error {{no viable conversion}}
 
 // X is not an aggregate, so constructors are considered,
 // per 13.3.3.1/4 & DR1467.
 const X x1{z};
-const X& x2{z};
+const X& x2{z}; // expected-error {{no matching constructor for initialization of 'const X &'}}
 }
 
 struct tmp {};
@@ -642,9 +642,9 @@ int directList4{b};
 int directList5{n};
 int directList6{n};
 const bool &directList_cr1{b};
-const bool &directList_cr2{n};
-const bool &directList_cr3{n};
-const int &directList_cr4{b};
+const bool &directList_cr2{n}; // expected-error {{no viable conversion}}
+const bool &directList_cr3{n}; // expected-error {{no viable conversion}}
+const int &directList_cr4{b}; // expected-error {{no viable conversion}}
 const int &directList_cr5{n};
 const int &directList_cr6{n};
 bool copy1 = b;

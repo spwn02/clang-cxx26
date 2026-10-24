@@ -20,7 +20,7 @@ namespace Array {
   A<const char*, (&arr)[0]> e;
   A<const char*, &x> f;
   A<const char*, &(&x)[0]> g;
-  A<const char*, &(&x)[1]> h; // expected-error {{refers to subobject '&x + 1'}}
+  A<const char*, &(&x)[1]> h; // expected-error {{non-type template argument is not a constant expression}} expected-note {{read of dereferenced one-past-the-end pointer}}
   A<const char*, 0> i; // expected-error {{not allowed in a converted constant}}
   A<const char*, nullptr> j;
 

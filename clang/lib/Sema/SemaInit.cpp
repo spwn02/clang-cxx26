@@ -4552,15 +4552,18 @@ static OverloadingResult ResolveConstructorOverload(
         else
           Conv = cast<CXXConversionDecl>(D);
 
+        // Explicit conversion functions are only candidates during
+        // direct-initialization, not copy-list-initialization.
+        bool AllowExplicitConv = AllowExplicit && !CopyInitializing;
         if (ConvTemplate)
           S.AddTemplateConversionCandidate(
               ConvTemplate, I.getPair(), ActingDC, Initializer, DestType,
-              CandidateSet, AllowExplicit, AllowExplicit,
+              CandidateSet, AllowExplicitConv, AllowExplicitConv,
               /*AllowResultConversion*/ false);
         else
           S.AddConversionCandidate(Conv, I.getPair(), ActingDC, Initializer,
-                                   DestType, CandidateSet, AllowExplicit,
-                                   AllowExplicit,
+                                   DestType, CandidateSet, AllowExplicitConv,
+                                   AllowExplicitConv,
                                    /*AllowResultConversion*/ false);
       }
     }
@@ -4997,7 +5000,12 @@ static void TryReferenceListInitialization(Sema &S,
   InitializedEntity TempEntity =
       InitializedEntity::InitializeTemporary(cv1T1IgnoreAS);
 
-  TryListInitialization(S, TempEntity, Kind, InitList, Sequence,
+  // [dcl.init.list]: the prvalue initializes its result object by
+  // copy-list-initialization, whatever the kind of the reference
+  // initialization (CWG2267).
+  InitializationKind CopyListKind =
+      InitializationKind::CreateCopy(Kind.getLocation(), Kind.getLocation());
+  TryListInitialization(S, TempEntity, CopyListKind, InitList, Sequence,
                         TreatUnavailableAsInvalid);
   if (Sequence) {
     if (DestType->isRValueReferenceType() ||

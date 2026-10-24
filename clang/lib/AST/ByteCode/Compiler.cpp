@@ -6953,7 +6953,24 @@ bool Compiler<Emitter>::VisitUnaryOperator(const UnaryOperator *E) {
       return this->emitGetMemberPtr(cast<DeclRefExpr>(SubExpr)->getDecl(), E);
     }
     // We should already have a pointer when we get here.
-    return this->delegate(SubExpr);
+    if (!this->delegate(SubExpr))
+      return false;
+    // The address of *p or p[i] needs p to point to an object.
+    if (!DiscardResult && Ctx.getLangOpts().CPlusPlus &&
+        SubExpr->getType()->isObjectType() &&
+        !SubExpr->getType()->isIncompleteArrayType() &&
+        !(SubExpr->getType()->isConstantArrayType() &&
+          cast<ConstantArrayType>(SubExpr->getType())->isZeroSize())) {
+      const Expr *Inner = SubExpr->IgnoreParens();
+      bool IsSubscript = isa<ArraySubscriptExpr>(Inner);
+      bool IsDeref = false;
+      if (const auto *UO = dyn_cast<UnaryOperator>(Inner))
+        IsDeref = UO->getOpcode() == UO_Deref;
+      if ((IsSubscript || IsDeref) &&
+          !this->emitCheckAddrOfDeref(/*CheckNullPtr=*/IsSubscript, E))
+        return false;
+    }
+    return true;
   case UO_Deref: // *x
     if (DiscardResult)
       return this->discard(SubExpr);

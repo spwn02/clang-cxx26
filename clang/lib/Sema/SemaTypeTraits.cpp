@@ -619,6 +619,45 @@ static bool IsTriviallyRelocatableType(Sema &SemaRef, QualType T) {
   }
 }
 
+/// [class.prop]: a trivially copyable class has at least one eligible copy
+/// constructor, move constructor, copy assignment operator, or move assignment
+/// operator; a trivial class has an eligible default constructor.
+static bool HasEligibleCopyOrMoveOperation(const CXXRecordDecl *RD) {
+  for (const CXXConstructorDecl *C : RD->ctors())
+    if ((C->isCopyConstructor() || C->isMoveConstructor()) && !C->isDeleted() &&
+        !C->isIneligibleOrNotSelected())
+      return true;
+  for (const CXXMethodDecl *M : RD->methods())
+    if ((M->isCopyAssignmentOperator() || M->isMoveAssignmentOperator()) &&
+        !M->isDeleted() && !M->isIneligibleOrNotSelected())
+      return true;
+  return (RD->needsImplicitCopyConstructor() &&
+          !RD->defaultedCopyConstructorIsDeleted()) ||
+         RD->hasSimpleMoveConstructor() || RD->hasSimpleCopyAssignment() ||
+         RD->hasSimpleMoveAssignment();
+}
+
+static bool HasEligibleDefaultConstructor(Sema &S, CXXRecordDecl *RD) {
+  for (const CXXConstructorDecl *C : RD->ctors())
+    if (C->isDefaultConstructor() && !C->isDeleted() &&
+        !C->isIneligibleOrNotSelected())
+      return true;
+  if (RD->needsImplicitDefaultConstructor())
+    if (CXXConstructorDecl *D = S.LookupDefaultConstructor(RD))
+      return !D->isDeleted();
+  return false;
+}
+
+static bool IsTriviallyCopyableType(Sema &S, QualType T) {
+  if (!T.isTriviallyCopyableType(S.Context))
+    return false;
+  QualType Base = S.Context.getBaseElementType(T);
+  if (const CXXRecordDecl *RD = Base->getAsCXXRecordDecl())
+    if (RD->hasDefinition() && !RD->isDependentType())
+      return HasEligibleCopyOrMoveOperation(RD);
+  return true;
+}
+
 static bool EvaluateUnaryTypeTrait(Sema &Self, TypeTrait UTT,
                                    SourceLocation KeyLoc,
                                    TypeSourceInfo *TInfo) {
@@ -716,10 +755,19 @@ static bool EvaluateUnaryTypeTrait(Sema &Self, TypeTrait UTT,
     return T.isConstQualified();
   case UTT_IsVolatile:
     return T.isVolatileQualified();
-  case UTT_IsTrivial:
-    return T.isTrivialType(C);
+  case UTT_IsTrivial: {
+    if (!T.isTrivialType(C))
+      return false;
+    if (!IsTriviallyCopyableType(Self, T))
+      return false;
+    QualType Base = C.getBaseElementType(T);
+    if (CXXRecordDecl *RD = Base->getAsCXXRecordDecl())
+      if (RD->hasDefinition() && !RD->isDependentType())
+        return HasEligibleDefaultConstructor(Self, RD);
+    return true;
+  }
   case UTT_IsTriviallyCopyable:
-    return T.isTriviallyCopyableType(C);
+    return IsTriviallyCopyableType(Self, T);
   case UTT_IsStandardLayout:
     return T->isStandardLayoutType();
   case UTT_IsPOD:

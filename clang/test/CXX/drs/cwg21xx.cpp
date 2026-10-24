@@ -52,7 +52,7 @@ namespace cwg2100 { // cwg2100: 12
   template<typename T> struct B {
     static const int n = 1;
     int f() {
-      return Y<n>::declared_later;
+      return Y<n>::declared_later; // #cwg2100-Y-1
       // expected-error@-1 {{no member named 'declared_later' in 'cwg2100::Y<1>'}}
     }
     int g() {
@@ -61,7 +61,10 @@ namespace cwg2100 { // cwg2100: 12
       // expected-error@-1 {{no member named 'declared_later' in 'cwg2100::Y<2>'}}
     }
   };
+  // The use of Y<n> above is not value-dependent.
   template<int N> struct Y<N> {
+  // expected-error@-1 {{partial specialization of 'cwg2100::Y<N>' after instantiation of 'cwg2100::Y<1>'}}
+  //   expected-note@#cwg2100-Y-1 {{implicit instantiation first required here}}
     static const int declared_later = 0;
   };
 } // namespace cwg2100

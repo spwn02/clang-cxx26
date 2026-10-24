@@ -741,14 +741,25 @@ namespace cwg1495 { // cwg1495: 4
 #endif
 } // namespace cwg1495
 
-namespace cwg1496 { // cwg1496: no
+namespace cwg1496 { // cwg1496: yes
 #if __cplusplus >= 201103L
 struct A {
     A() = delete;
 };
-// FIXME: 'A' should not be trivial because the class lacks at least one
-// default constructor which is not deleted.
-static_assert(__is_trivial(A), "");
+// A is not trivial because it has no eligible default constructor.
+static_assert(!__is_trivial(A), "");
+
+struct B {
+    B() = delete;
+    B(int);
+};
+static_assert(!__is_trivial(B), "");
+
+struct C {
+    C() = default;
+    C(int);
+};
+static_assert(__is_trivial(C), "");
 #endif
 } // namespace cwg1496
 // cwg1400: na

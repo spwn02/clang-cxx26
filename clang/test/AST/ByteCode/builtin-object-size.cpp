@@ -15,7 +15,7 @@ static_assert(__builtin_object_size(&arr, 0) == (sizeof(int)*2), "");
 float arrf[2];
 static_assert(__builtin_object_size(&arrf, 0) == (sizeof(float)*2), "");
 static_assert(__builtin_object_size(&arrf[1], 0) == sizeof(float), "");
-static_assert(__builtin_object_size(&arrf[2], 0) == 0, "");
+static_assert(__builtin_object_size(arrf + 2, 0) == 0, "");
 
 constexpr struct { int a; int b; } F{};
 static_assert(__builtin_object_size(&F.a, 3) == sizeof(int));
@@ -36,7 +36,7 @@ struct A { char buf[16]; };
 struct B : A {};
 struct C { int i; B bs[1]; } c;
 static_assert(__builtin_object_size(&c.bs[0], 3) == 16);
-static_assert(__builtin_object_size(&c.bs[1], 3) == 0);
+static_assert(__builtin_object_size(c.bs + 1, 3) == 0);
 
 /// These are from test/SemaCXX/builtin-object-size-cxx14.
 /// They all don't work since they are rejected when evaluating the first

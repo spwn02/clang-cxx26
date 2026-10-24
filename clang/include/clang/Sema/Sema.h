@@ -6470,6 +6470,28 @@ public:
                                      const ParsedAttributesView &Attr,
                                      MultiTemplateParamsArg TempParamLists);
 
+  /// The type of the object expression of a class member access while its
+  /// conversion-function-id is parsed: the component names of its
+  /// conversion-type-id are looked up in that class first
+  /// ([basic.lookup.unqual]).
+  ParsedType ConversionIdLookupType;
+
+  /// [temp.friend]: check the nested-name-specifier of a template friend
+  /// declaration that names a member of a dependent type. It shall end with a
+  /// simple-template-id naming a class template, and the template parameters
+  /// of the friend declaration shall be deducible from it.
+  bool CheckFriendOfDependentMember(const CXXScopeSpec &SS,
+                                    const TemplateParameterList *Params,
+                                    SourceLocation Loc);
+
+  /// Build the friend declaration of a class that is a member of a dependent
+  /// type, such as \c template<class T> friend class A<T>::B;
+  Decl *BuildFriendOfDependentMemberType(
+      SourceLocation FriendLoc, TagTypeKind Kind, SourceLocation TagLoc,
+      CXXScopeSpec &SS, IdentifierInfo *Name, SourceLocation NameLoc,
+      SourceLocation EllipsisLoc, ArrayRef<TemplateParameterList *> Lists,
+      bool CheckScopeLists = true);
+
   MSPropertyDecl *HandleMSProperty(Scope *S, RecordDecl *TagD,
                                    SourceLocation DeclStart, Declarator &D,
                                    Expr *BitfieldWidth,

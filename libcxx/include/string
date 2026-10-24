@@ -2568,7 +2568,7 @@ private:
     std::__throw_out_of_range("basic_string");
   }
 
-  friend _LIBCPP_CONSTEXPR_SINCE_CXX20 basic_string
+  friend basic_string
   __concatenate_strings<>(const _Allocator&, __type_identity_t<__self_view>, __type_identity_t<__self_view>);
 
   template <class _CharT2, class _Traits2, class _Allocator2>

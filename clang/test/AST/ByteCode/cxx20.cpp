@@ -1284,5 +1284,5 @@ namespace PointerCmp {
   };
   constexpr A a{1,2, 3};
   static_assert((void*)(&a.i + 1) != (void*)(&a.i[1])); // expected-error {{static assertion failed}}
-  static_assert((void*)(&a.i[2] + 1) == (void*)(&a.i[3]));
+  static_assert((void*)(&a.i[2] + 1) == (void*)(a.i + 3));
 }

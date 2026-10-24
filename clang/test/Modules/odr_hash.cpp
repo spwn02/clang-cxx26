@@ -2159,7 +2159,7 @@ S25 s25;
 #if defined(FIRST)
 struct S26 {
   template <int*> void f(){};
-  template <> void f<&composite.n1[4]>(){}; // Past-the-end pointer.
+  template <> void f<composite.n1 + 4>(){}; // Past-the-end pointer.
 };
 #elif defined(SECOND)
 struct S26 {

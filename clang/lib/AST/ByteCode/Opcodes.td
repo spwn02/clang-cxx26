@@ -913,6 +913,7 @@ def ContractsEvaluated : Opcode;
 def ContractViolation : Opcode { let Args = [ArgBool]; }
 def CheckAllocations : Opcode;
 def CheckNull : Opcode;
+def CheckAddrOfDeref : Opcode { let Args = [ArgBool]; }
 
 def BitCastTypeClass : TypeClass {
   let Types = [Uint8, Sint8, Uint16, Sint16, Uint32, Sint32, Uint64, Sint64,

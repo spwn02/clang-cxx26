@@ -24,9 +24,9 @@ struct rng_t {
 };
 
 template <int... Vs>
-constexpr const int *begin(const rng_t<Vs...> &r) { return &r.vs[0]; }
+constexpr const int *begin(const rng_t<Vs...> &r) { return r.vs; }
 template <int... Vs>
-constexpr const int *end(const rng_t<Vs...> &r) { return &r.vs[sizeof...(Vs)]; }
+constexpr const int *end(const rng_t<Vs...> &r) { return r.vs + sizeof...(Vs); }
 
 namespace basic_expansions {
 

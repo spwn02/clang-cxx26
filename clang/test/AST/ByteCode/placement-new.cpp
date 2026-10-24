@@ -455,7 +455,7 @@ namespace ArrayRoot {
     new (ss) S{};
     new (ss + 1) S{};
 
-    S* ps = &ss[2];
+    S* ps = ss + 2;
     ps = ss;
     ps->~S();
 

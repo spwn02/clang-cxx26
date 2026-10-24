@@ -6,7 +6,7 @@ namespace test0 {
   };
 
   class B {
-    template <class T> friend class A<T>::Member; // expected-warning {{not supported}}
+    template <class T> friend class A<T>::Member;
     int n;
   };
 
@@ -19,7 +19,7 @@ namespace test1 {
 
   class C {
     static void foo();
-    template <class T> friend void A<T>::f(); // expected-warning {{not supported}}
+    template <class T> friend void A<T>::f();
   };
 
   template <class T> struct A {
@@ -35,13 +35,13 @@ namespace test1 {
   };
 }
 
-// FIXME: these should fail!
+// A<T>::g is not A<T>::f, so f is not a friend of C.
 namespace test2 {
   template <class T> struct A;
 
   class C {
-    static void foo();
-    template <class T> friend void A<T>::g(); // expected-warning {{not supported}}
+    static void foo(); // #test2-foo
+    template <class T> friend void A<T>::g();
   };
 
   template <class T> struct A {
@@ -54,6 +54,8 @@ namespace test2 {
 
   template <> struct A<char> {
     void f() { C::foo(); }
+    // expected-error@-1 {{'foo' is a private member of 'test2::C'}}
+    //   expected-note@#test2-foo {{declared private here}}
   };
 }
 
@@ -66,7 +68,7 @@ namespace test3 {
 
   template <class U> class C {
     int i;
-    template <class T> friend struct A<T>::Inner; // expected-warning {{not supported}}
+    template <class T> friend struct A<T>::Inner;
   };
 
   template <class T> int A<T>::Inner::foo() {
@@ -84,7 +86,7 @@ namespace test4 {
     
     template <class V>
     template <class U>
-    friend void X<V>::operator+=(U); // expected-warning {{not supported}}
+    friend void X<V>::operator+=(U);
   };
 
   void test() {   
@@ -94,7 +96,7 @@ namespace test4 {
 
 namespace test5 {
   template<template <class> class T> struct A {
-    template<template <class> class U> friend void A<U>::foo(); // expected-warning {{not supported}}
+    template<template <class> class U> friend void A<U>::foo();
   };
 
   template <class> struct B {};

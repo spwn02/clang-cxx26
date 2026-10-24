@@ -11,7 +11,7 @@
 // cxx98-error@-1 {{variadic macros are a C99 feature}}
 #endif
 
-namespace cwg1 { // cwg1: no
+namespace cwg1 { // cwg1: yes
   namespace X { extern "C" void cwg1_f(int a = 1); }
   namespace Y { extern "C" void cwg1_f(int a = 1); }
   using X::cwg1_f; using Y::cwg1_f;
@@ -635,7 +635,7 @@ namespace cwg38 { // cwg38: 2.7
   template X<int> operator+<int>(X<int>, X<int>);
 } // namespace cwg38
 
-namespace cwg39 { // cwg39: no
+namespace cwg39 { // cwg39: yes
   namespace example1 {
     struct A { int &f(int); };
     struct B : A {
@@ -671,7 +671,8 @@ namespace cwg39 { // cwg39: no
     //   expected-note@#cwg39-A-x-decl {{member found by ambiguous name lookup}}
     //   expected-note@#cwg39-using-A-x {{member found by ambiguous name lookup}}
 
-    // FIXME: This is valid, because we find the same static data member either way.
+    // The declaration sets found in A and in B differ ({A::y} and
+    // {A::y, B::y}), so the lookup is ambiguous.
     int &y = c.y(0);
     // expected-error@-1 {{member 'y' found in multiple base classes of different types}}
     //   expected-note@#cwg39-A-y-decl {{member found by ambiguous name lookup}}
@@ -685,6 +686,30 @@ namespace cwg39 { // cwg39: no
     struct C : virtual A { using A::f; };
     struct D : B, C {} d;
     int k = d.f();
+  }
+
+  namespace example3a {
+    struct A { int n; int f(); };
+    struct B : virtual A { using A::n; using A::f; };
+    struct C : virtual A { using A::n; using A::f; };
+    struct D : B, C {} d;
+    // Both lookups find the same declaration, and the virtual base class
+    // subobject A is shared.
+    int k = d.n;
+    int l = d.f();
+
+    struct B2 : A { using A::n; };
+    struct D2 : A, B2 {} d2;
+    /* expected-warning@-1
+    {{direct base 'A' is inaccessible due to ambiguity:
+    struct cwg39::example3a::D2 -> A
+    struct cwg39::example3a::D2 -> B2 -> A}} */
+    // The lookup succeeds, but the conversion to the base class A is ambiguous.
+    int m = d2.n;
+    /* expected-error@-1
+    {{ambiguous conversion from derived class 'struct D2' to base class 'cwg39::example3a::A':
+    struct cwg39::example3a::D2 -> A
+    struct cwg39::example3a::D2 -> B2 -> A}} */
   }
 
   namespace example4 {
@@ -1094,7 +1119,7 @@ namespace cwg64 { // cwg64: 2.7
 
 // cwg65: na
 
-namespace cwg66 { // cwg66: no
+namespace cwg66 { // cwg66: yes
   namespace X {
     int f(int n); // #cwg66-f-first
   }
@@ -1103,10 +1128,9 @@ namespace cwg66 { // cwg66: no
     int f(int n = 0);
     int f(int, int);
   }
-  // FIXME: The first two calls here should be accepted.
+  // The default argument of the later redeclaration applies to the function
+  // that the using-declaration names; 'f(int, int)' was declared later.
   int a = f();
-  // expected-error@-1 {{no matching function for call to 'f'}}
-  //   expected-note@#cwg66-f-first {{candidate function not viable: requires single argument 'n', but no arguments were provided}}
   int b = f(1);
   int c = f(1, 2);
   // expected-error@-1 {{no matching function for call to 'f'}}
@@ -1192,7 +1216,7 @@ namespace cwg77 { // cwg77: 2.7
   };
 } // namespace cwg77
 
-namespace cwg78 { // cwg78: sup ????
+namespace cwg78 { // cwg78: sup 253
   // Under CWG78, this is valid, because 'k' has static storage duration, so is
   // zero-initialized.
   const int k;

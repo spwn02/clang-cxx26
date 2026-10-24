@@ -42,7 +42,7 @@ template int *value<&a.a[1]>;
 template int *value<&a.a[2]>;
 // CHECK: call {{.*}} @_Z2idIPiET_S1_(ptr noundef getelementptr (i8, ptr @a, i64 12))
 // CONST: @_Z5valueIXadsoiL_Z1aE12pEEE = weak_odr {{.*}} ptr getelementptr (i8, ptr @a, i64 12),
-template int *value<&a.a[3]>;
+template int *value<a.a + 3>;
 
 union U {
   int x, y;

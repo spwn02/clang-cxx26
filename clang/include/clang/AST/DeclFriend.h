@@ -73,29 +73,21 @@ private:
   // Location of the '...', if present.
   SourceLocation EllipsisLoc;
 
-  /// True if this 'friend' declaration is unsupported.  Eventually we
-  /// will support every possible friend declaration, but for now we
-  /// silently ignore some and set this flag to authorize all access.
-  LLVM_PREFERRED_TYPE(bool)
-  unsigned UnsupportedFriend : 1;
-
   // The number of "outer" template parameter lists in non-templatic
-  // (currently unsupported) friend type declarations, such as
+  // friend type declarations of a member of a dependent type, such as
   //     template <class T> friend class A<T>::B;
-  unsigned NumTPLists : 31;
+  unsigned NumTPLists;
 
   FriendDecl(DeclContext *DC, SourceLocation L, FriendUnion Friend,
              SourceLocation FriendL, SourceLocation EllipsisLoc,
              ArrayRef<TemplateParameterList *> FriendTypeTPLists)
       : Decl(Decl::Friend, DC, L), Friend(Friend), FriendLoc(FriendL),
-        EllipsisLoc(EllipsisLoc), UnsupportedFriend(false),
-        NumTPLists(FriendTypeTPLists.size()) {
+        EllipsisLoc(EllipsisLoc), NumTPLists(FriendTypeTPLists.size()) {
     llvm::copy(FriendTypeTPLists, getTrailingObjects());
   }
 
   FriendDecl(EmptyShell Empty, unsigned NumFriendTypeTPLists)
-      : Decl(Decl::Friend, Empty), UnsupportedFriend(false),
-        NumTPLists(NumFriendTypeTPLists) {}
+      : Decl(Decl::Friend, Empty), NumTPLists(NumFriendTypeTPLists) {}
 
   FriendDecl *getNextFriend() {
     if (!NextFriend.isOffset())
@@ -177,14 +169,6 @@ public:
     }
 
     return SourceRange(getFriendLoc(), getLocation());
-  }
-
-  /// Determines if this friend kind is unsupported.
-  bool isUnsupportedFriend() const {
-    return UnsupportedFriend;
-  }
-  void setUnsupportedFriend(bool Unsupported) {
-    UnsupportedFriend = Unsupported;
   }
 
   bool isPackExpansion() const { return EllipsisLoc.isValid(); }

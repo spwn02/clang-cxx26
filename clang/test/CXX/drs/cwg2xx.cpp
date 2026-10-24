@@ -304,16 +304,13 @@ namespace cwg215 { // cwg215: 2.9
   };
 } // namespace cwg215
 
-namespace cwg216 { // cwg216: no
-  // FIXME: Should reject this: 'f' has linkage but its type does not,
-  // and 'f' is odr-used but not defined in this TU.
+namespace cwg216 { // cwg216: sup 2059
+  // OK: the notion of the linkage of a type is not used (CWG2059).
   typedef enum { e } *E;
   void f(E);
   void g(E e) { f(e); }
 
   struct S {
-    // FIXME: Should reject this: 'f' has linkage but its type does not,
-    // and 'f' is odr-used but not defined in this TU.
     typedef enum { e } *E;
     void f(E);
   };
@@ -1269,7 +1266,7 @@ namespace cwg283 { // cwg283: 2.7
   };
 } // namespace cwg283
 
-namespace cwg284 { // cwg284: no
+namespace cwg284 { // cwg284: yes
   namespace A {
     struct X;
     enum Y {};
@@ -1277,14 +1274,16 @@ namespace cwg284 { // cwg284: no
   }
   namespace B {
     struct W;
-    using A::X;
+    using A::X; // #cwg284-B-using-X
     using A::Y;
     using A::Z;
   }
   struct B::V {};
   // expected-error@-1 {{no struct named 'V' in namespace 'cwg284::B'}}
   struct B::W {};
-  struct B::X {}; // FIXME: ill-formed
+  struct B::X {};
+  // expected-error@-1 {{'X' is not declared directly in the scope named by the qualifier of its definition; it was introduced there by a using-declaration}}
+  //   expected-note@#cwg284-B-using-X {{using declaration}}
   enum B::Y e; // ok per cwg417
   class B::Z z; // ok per cwg417
 
@@ -1295,14 +1294,16 @@ namespace cwg284 { // cwg284: no
   };
   struct D : C {
     struct W;
-    using C::X;
+    using C::X; // #cwg284-D-using-X
     using C::Y;
     using C::Z;
   };
   struct D::V {};
   // expected-error@-1 {{no struct named 'V' in 'cwg284::D'}}
   struct D::W {};
-  struct D::X {}; // FIXME: ill-formed
+  struct D::X {};
+  // expected-error@-1 {{'X' is not declared directly in the scope named by the qualifier of its definition; it was introduced there by a using-declaration}}
+  //   expected-note@#cwg284-D-using-X {{using declaration}}
   enum D::Y e2; // ok per cwg417
   class D::Z z2; // ok per cwg417
 } // namespace cwg284

@@ -312,11 +312,11 @@ namespace incdec {
   static_assert(postdec(&arr[1]) == &arr[0], "");
 #if __cplusplus <= 202002L
   static_assert(++ref(&arr[0]) == &arr[1], "");
-  static_assert(++ref(&arr[9]) == &arr[10], "");
-  static_assert(++ref(&arr[10]) == &arr[11], ""); // expected-error {{constant}} expected-note {{cannot refer to element 11}}
+  static_assert(++ref(&arr[9]) == arr + 10, "");
+  static_assert(++ref(arr + 10) == arr + 11, ""); // expected-error {{constant}} expected-note {{cannot refer to element 11}}
   static_assert(ref(&arr[0])++ == &arr[0], "");
-  static_assert(ref(&arr[10])++ == &arr[10], ""); // expected-error {{constant}} expected-note {{cannot refer to element 11}}
-  static_assert(--ref(&arr[10]) == &arr[9], "");
+  static_assert(ref(arr + 10)++ == arr + 10, ""); // expected-error {{constant}} expected-note {{cannot refer to element 11}}
+  static_assert(--ref(arr + 10) == &arr[9], "");
   static_assert(--ref(&arr[1]) == &arr[0], "");
   static_assert(--ref(&arr[0]) != &arr[0], ""); // expected-error {{constant}} expected-note {{cannot refer to element -1}}
   static_assert(ref(&arr[1])-- == &arr[1], "");
@@ -477,7 +477,7 @@ namespace compound_assign {
   static_assert(test_bounds("foo", 0)[0] == 'f', "");
   static_assert(test_bounds("foo", 3)[0] == 0, "");
   static_assert(test_bounds("foo", 4)[-3] == 'o', "");
-  static_assert(test_bounds(&"foo"[4], -4)[0] == 'f', "");
+  static_assert(test_bounds(&"foo"[3] + 1, -4)[0] == 'f', "");
   static_assert(test_bounds("foo", 5) != 0, ""); // expected-error {{constant}} expected-note {{call}}
   static_assert(test_bounds("foo", -1) != 0, ""); // expected-error {{constant}} expected-note {{call}}
   static_assert(test_bounds("foo", 1000) != 0, ""); // expected-error {{constant}} expected-note {{call}}

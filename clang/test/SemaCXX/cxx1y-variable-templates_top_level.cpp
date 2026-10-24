@@ -286,8 +286,8 @@ namespace explicit_specialization {
     template<typename T1, typename T2>
     CONST int pi2 = 1;
 
-    template CONST int pi2<int,int>;
-    template<typename T> CONST int pi2<T,int> = 2;
+    template CONST int pi2<int,int>; // expected-note {{explicit instantiation first required here}}
+    template<typename T> CONST int pi2<T,int> = 2; // expected-error {{partial specialization of 'pi2<T, int>' after instantiation of 'pi2<int, int>'}}
   }
 
 #ifndef PRECXX11

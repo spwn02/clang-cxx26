@@ -2553,6 +2553,11 @@ static bool isConstexprReferenceableFromEvaluatingDecl(
 /// Check whether each constituent pointer/reference is constexpr-referenceable
 /// at the initializing declaration (or has a permitted constant-expression
 /// result value when no variable is being initialized).
+static bool EvaluateDestruction(const ASTContext &Ctx, APValue::LValueBase Base,
+                                APValue DestroyedValue, QualType Type,
+                                SourceLocation Loc, Expr::EvalStatus &EStatus,
+                                bool IsConstantDestruction);
+
 static bool CheckLValueConstantExpression(EvalInfo &Info, SourceLocation Loc,
                                           QualType Type, const LValue &LVal,
                                           ConstantExprKind Kind,
@@ -2719,10 +2724,29 @@ static bool CheckLValueConstantExpression(EvalInfo &Info, SourceLocation Loc,
     if (CheckedTemps.insert(MTE).second) {
       QualType TempType = getType(Base);
       if (TempType.isDestructedType() && !IsFrameLocal) {
-        Info.FFDiag(MTE->getExprLoc(),
-                    diag::note_constexpr_unsupported_temporary_nontrivial_dtor)
-            << TempType;
-        return false;
+        // [expr.const]: a temporary to which a constexpr reference is bound
+        // shall have constant destruction (CWG2529).
+        bool HasConstantDestruction = false;
+        if (const auto *EvalVD = dyn_cast_if_present<VarDecl>(
+                Info.EvaluatingDecl.dyn_cast<const ValueDecl *>());
+            EvalVD && EvalVD->isConstexpr() &&
+            EvalVD->getType()->isReferenceType() &&
+            MTE->getStorageDuration() == SD_Static)
+          if (APValue *TempValue = MTE->getOrCreateValue(false)) {
+            Expr::EvalStatus DestroyStatus;
+            HasConstantDestruction =
+                EvaluateDestruction(Info.Ctx, APValue::LValueBase(MTE),
+                                    *TempValue, TempType, MTE->getExprLoc(),
+                                    DestroyStatus,
+                                    /*IsConstantDestruction=*/true) &&
+                !DestroyStatus.HasSideEffects;
+          }
+        if (!HasConstantDestruction) {
+          Info.FFDiag(MTE->getExprLoc(),
+                      diag::note_constexpr_nonconstant_temporary_destruction)
+              << TempType;
+          return false;
+        }
       }
 
       APValue *V = MTE->getOrCreateValue(false);
@@ -4369,6 +4393,10 @@ static bool lifetimeStartedInEvaluation(EvalInfo &Info,
     // we will need special handling: we should be able to access only
     // subobjects of such objects that are themselves declared const.
     QualType T = getType(Base);
+    // A temporary bound to a constexpr reference ([expr.const], CWG2529).
+    if (auto *BaseE = Base.dyn_cast<const Expr *>())
+      if (isa<MaterializeTemporaryExpr>(BaseE))
+        return true;
     return T.isConstQualified() || T->isReferenceType();
   }
 
@@ -11703,7 +11731,31 @@ bool PointerExprEvaluator::VisitBinaryOperator(const BinaryOperator *E) {
 }
 
 bool PointerExprEvaluator::VisitUnaryAddrOf(const UnaryOperator *E) {
-  return evaluateLValue(E->getSubExpr(), Result);
+  if (!evaluateLValue(E->getSubExpr(), Result))
+    return false;
+
+  // [expr.unary.op], [expr.sub]: *p and e1[e2] (which is *(e1 + e2)) have
+  // undefined behavior unless the pointer points to an object, so taking the
+  // address of one through a null or a past-the-end pointer is not a constant
+  // expression (CWG2823).
+  const Expr *Sub = E->getSubExpr()->IgnoreParens();
+  bool IsSubscript = isa<ArraySubscriptExpr>(Sub);
+  bool IsDeref = false;
+  if (const auto *UO = dyn_cast<UnaryOperator>(Sub))
+    IsDeref = UO->getOpcode() == UO_Deref;
+  if (Info.getLangOpts().CPlusPlus && (IsSubscript || IsDeref) &&
+      Sub->getType()->isObjectType()) {
+    // The dereference of a null pointer is diagnosed when it is evaluated.
+    if (IsSubscript && Result.getLValueBase().isNull()) {
+      Info.FFDiag(E, diag::note_constexpr_dereferencing_null);
+      return Info.noteUndefinedBehavior();
+    }
+    if (!Result.Designator.Invalid && Result.Designator.isOnePastTheEnd()) {
+      Info.FFDiag(E, diag::note_constexpr_access_past_end) << AK_Dereference;
+      return Info.noteUndefinedBehavior();
+    }
+  }
+  return true;
 }
 
 // Is the provided decl 'std::source_location::current'?

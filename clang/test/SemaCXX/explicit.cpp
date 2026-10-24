@@ -35,7 +35,7 @@ B &&b2 = 0; // expected-error {{could not bind}}
 B &&b3(0); // expected-error {{could not bind}}
 B b4{0};
 B &&b5 = {0}; // expected-error {{chosen constructor is explicit}}
-B &&b6{0};
+B &&b6{0}; // expected-error {{chosen constructor is explicit}}
 
 struct S {
   template <bool b = true>
@@ -73,13 +73,13 @@ namespace Conversion {
   void testExplicit()
   {
     // Taken from 12.3.2p2
-    class X { X(); };
+    class X { X(); }; // expected-note 0-1 {{candidate constructor (the implicit copy constructor) not viable}} expected-note 0-1 {{candidate constructor (the implicit move constructor) not viable}} expected-note 0-1 {{candidate constructor not viable}}
     class Y { }; // expected-note+ {{candidate constructor (the implicit}}
 
     struct Z {
-      explicit operator X() const;
+      explicit operator X() const; // expected-note 0-1 {{not a candidate}}
       explicit operator Y() const; // expected-note 2{{not a candidate}}
-      explicit operator int() const; // expected-note {{not a candidate}}
+      explicit operator int() const; // expected-note 2{{not a candidate}}
     };
     
     Z z;
@@ -104,12 +104,14 @@ namespace Conversion {
     // conversion function is not considered.
     const Y y10{z}; // expected-error {{excess elements}}
     const Y& y11{z}; // expected-error {{excess elements}} expected-note {{in initialization of temporary of type 'const Y'}}
-    const int& y12{z};
+    // The temporary is copy-list-initialized, which does not use explicit
+    // conversion functions (CWG2267).
+    const int& y12{z}; // expected-error {{no viable conversion from 'Z' to 'const int'}}
 
     // X is not an aggregate, so constructors are considered,
     // per 13.3.3.1/4 & DR1467.
     const X x1{z};
-    const X& x2{z};
+    const X& x2{z}; // expected-error {{no matching constructor for initialization of 'const X &'}}
   }
   
   void testBool() {
@@ -118,7 +120,7 @@ namespace Conversion {
     };
 
     struct NotBool {
-      explicit operator bool(); // expected-note {{conversion to integral type 'bool'}} expected-note 4{{explicit conversion function is not a candidate}}
+      explicit operator bool(); // expected-note {{conversion to integral type 'bool'}} expected-note 5{{explicit conversion function is not a candidate}}
     };
     Bool    b;
     NotBool n;
@@ -180,7 +182,7 @@ namespace Conversion {
     int directList3{b};
     int directList4{n}; // expected-error {{no viable conversion}}
     const bool &directList5{b};
-    const bool &directList6{n};
+    const bool &directList6{n}; // expected-error {{no viable conversion}}
     const int &directList7{b};
     const int &directList8{n}; // expected-error {{no viable conversion}}
     bool copy1 = b;

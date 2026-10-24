@@ -58,13 +58,13 @@ namespace PR12709 {
 namespace Duplicates {
   template<typename T> struct A {
     template<typename U> void f();
-    template<> void f<int>() {}
+    template<> void f<int>() {} // #Duplicates-f-int
     template<> void f<T>() {}
+    // expected-error@-1 {{duplicate member 'f'}}
+    //   expected-note@#Duplicates-f-int {{previous declaration is here}}
   };
 
-  // FIXME: We should diagnose the duplicate explicit specialization definitions
-  // here.
-  template struct A<int>;
+  template struct A<int>; // expected-note {{in instantiation of template class 'Duplicates::A<int>' requested here}}
 }
 
 namespace PR28082 {

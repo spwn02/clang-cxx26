@@ -21377,10 +21377,31 @@ ExprResult Sema::CheckLValueToRValueConversionOperand(Expr *E) {
   return Result;
 }
 
+/// Whether the current declaration context is a member (possibly nested) of a
+/// local class, which cannot capture the local entities of the enclosing
+/// function.
+static bool inLocalClassMember(const DeclContext *DC) {
+  for (; DC; DC = DC->getParent()) {
+    if (const auto *RD = dyn_cast<CXXRecordDecl>(DC);
+        RD && !RD->isLambda() && RD->isLocalClass())
+      return true;
+    if (DC->isFileContext())
+      return false;
+  }
+  return false;
+}
+
 ExprResult Sema::CheckDiscardedValueExpression(Expr *E) {
   // Blocks and captured statements have their own capture requirements. Outside
-  // lambdas only the delayed instantiations of variable definitions need it.
-  if (!getCurLambda() && MaybeODRUseVarInstantiations.empty())
+  // lambdas only the delayed instantiations of variable definitions and the
+  // uses of a variable of an enclosing function by a local class need it.
+  if (!getCurLambda() && MaybeODRUseVarInstantiations.empty() &&
+      !inLocalClassMember(CurContext))
+    return E;
+
+  // A discarded volatile glvalue of one of these forms is read, which
+  // odr-uses the variable (this also holds before C++11).
+  if (E->isReadIfDiscardedInCPlusPlus11())
     return E;
 
   ExprResult Result =
@@ -21708,9 +21729,16 @@ static void DoMarkVarDeclReferenced(
     // immediate capture so lambda closures are properly constructed.
     LambdaScopeInfo *PotentialCaptureLSI =
         getLambdaForPotentialCapture(SemaRef, Var);
+    // A local variable of an enclosing function named by a local class cannot
+    // be captured; whether that is an odr-use is only known once the
+    // surrounding full-expression is complete.
+    bool UsedByLocalClass =
+        E && Var->hasLocalStorage() && !PotentialCaptureLSI &&
+        inLocalClassMember(SemaRef.CurContext) &&
+        Var->getDeclContext() != SemaRef.CurContext;
     if (E &&
         (Var->isUsableInConstantExpressions(SemaRef.Context) ||
-         DelayInstantiation ||
+         UsedByLocalClass || DelayInstantiation ||
          (!Var->getType()->isReferenceType() && PotentialCaptureLSI &&
           PotentialCaptureLSI == SemaRef.getCurLambda() &&
           PotentialCaptureLSI->AfterParameterList &&
@@ -22169,8 +22197,27 @@ bool Sema::DiagRuntimeBehavior(SourceLocation Loc, const Stmt *Statement,
 
 bool Sema::CheckCallReturnType(QualType ReturnType, SourceLocation Loc,
                                CallExpr *CE, FunctionDecl *FD) {
-  if (ReturnType->isVoidType() || !ReturnType->isIncompleteType())
+  if (ReturnType->isVoidType())
     return false;
+
+  if (!ReturnType->isIncompleteType()) {
+    // [basic.lval]: a prvalue shall not have an abstract class type, except
+    // as the operand of a decltype-specifier.
+    if (!getLangOpts().CPlusPlus || ReturnType->isDependentType() ||
+        !ReturnType->isRecordType())
+      return false;
+    const CXXRecordDecl *RD = ReturnType->getAsCXXRecordDecl();
+    if (!RD || !RD->hasDefinition() || !RD->isAbstract())
+      return false;
+    if (ExprEvalContexts.back().ExprContext ==
+        ExpressionEvaluationContextRecord::EK_Decltype) {
+      ExprEvalContexts.back().DelayedDecltypeCalls.push_back(CE);
+      return false;
+    }
+    return RequireNonAbstractType(Loc, ReturnType,
+                                  diag::err_abstract_type_in_decl,
+                                  AbstractReturnType);
+  }
 
   // If we're inside a decltype's expression, don't check for a valid return
   // type or construct temporaries until we know whether this is the last call.

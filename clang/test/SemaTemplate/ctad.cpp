@@ -33,10 +33,8 @@ namespace Access {
   };
   D x = {X(), {}}; // expected-error {{no viable constructor or deduction guide}}
 
-  // Once we implement proper support for dependent nested name specifiers in
-  // friends, this should still work.
   class Y {
-    template <typename T> friend D<T>::D(T, typename T::type); // expected-warning {{dependent nested name specifier}}
+    template <typename T> friend D<T>::D(T, typename T::type);
     struct type {};
   };
   D y = {Y(), {}};

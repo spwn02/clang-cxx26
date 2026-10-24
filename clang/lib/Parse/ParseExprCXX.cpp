@@ -29,6 +29,7 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/SemaCodeCompletion.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <numeric>
 
@@ -115,6 +116,11 @@ bool Parser::ParseOptionalCXXScopeSpecifier(
     bool IsTypeOnlyContext) {
   assert(getLangOpts().CPlusPlus &&
          "Call sites of this function should be guarded by checking for C++");
+
+  // A nested-name-specifier in a conversion-type-id of a member access looks
+  // its first component up in the class of the object expression first.
+  if (!ObjectType && Actions.ConversionIdLookupType)
+    ObjectType = Actions.ConversionIdLookupType;
 
   if (Tok.is(tok::annot_cxxscope)) {
     assert(!LastII && "want last identifier but have already annotated scope");
@@ -2565,11 +2571,44 @@ bool Parser::ParseUnqualifiedIdTemplateId(
   if (Type.isInvalid())
     return true;
 
-  if (Id.getKind() == UnqualifiedIdKind::IK_ConstructorName)
+  if (Id.getKind() == UnqualifiedIdKind::IK_ConstructorName) {
     Id.setConstructorName(Type.get(), NameLoc, RAngleLoc);
-  else
-    Id.setDestructorName(Id.StartLocation, Type.get(), RAngleLoc);
+    return false;
+  }
 
+  // [basic.lookup.classref]: the type-name of ~type-name is looked up in the
+  // class of the object expression and in the context of the entire
+  // postfix-expression; at least one of the lookups shall find a name that
+  // refers to the type of the object expression.
+  if (ObjectType && TNK != TNK_Non_template) {
+    ASTContext &Ctx = Actions.getASTContext();
+    QualType ObjTy = Actions.GetTypeFromParser(ObjectType);
+    QualType DtorTy = Actions.GetTypeFromParser(Type.get());
+    if (!ObjTy->isDependentType() && !DtorTy->isDependentType() &&
+        !Ctx.hasSameUnqualifiedType(ObjTy, DtorTy)) {
+      UnqualifiedId TemplateName;
+      TemplateName.setIdentifier(Name, NameLoc);
+      TemplateTy ScopeTemplate;
+      bool MemberOfUnknownSpecialization;
+      if (Actions.isTemplateName(getCurScope(), SS, TemplateKWLoc.isValid(),
+                                 TemplateName, /*ObjectType=*/nullptr,
+                                 EnteringContext, ScopeTemplate,
+                                 MemberOfUnknownSpecialization) !=
+          TNK_Non_template) {
+        TypeResult ScopeType = Actions.ActOnTemplateIdType(
+            getCurScope(), ElaboratedTypeKeyword::None,
+            /*ElaboratedKeywordLoc=*/SourceLocation(), SS, TemplateKWLoc,
+            ScopeTemplate, Name, NameLoc, LAngleLoc, TemplateArgsPtr,
+            RAngleLoc, /*IsCtorOrDtorName=*/true);
+        if (!ScopeType.isInvalid() &&
+            Ctx.hasSameUnqualifiedType(
+                ObjTy, Actions.GetTypeFromParser(ScopeType.get())))
+          Type = ScopeType;
+      }
+    }
+  }
+
+  Id.setDestructorName(Id.StartLocation, Type.get(), RAngleLoc);
   return false;
 }
 
@@ -2752,10 +2791,17 @@ bool Parser::ParseUnqualifiedIdOperator(CXXScopeSpec &SS, bool EnteringContext,
   //   conversion-declarator:
   //     ptr-operator conversion-declarator[opt]
 
+  // The component names of the conversion-type-id are looked up in the class
+  // of the object expression of a member access first.
+  // A dependent object type has no class to look in until instantiation.
+  llvm::SaveAndRestore<ParsedType> ConvIdLookup(
+      Actions.ConversionIdLookupType,
+      ObjectType && !ObjectType.get()->isDependentType() ? ObjectType
+                                                         : ParsedType());
+
   // Parse the type-specifier-seq.
   DeclSpec DS(AttrFactory);
-  if (ParseCXXTypeSpecifierSeq(
-          DS, DeclaratorContext::ConversionId)) // FIXME: ObjectType?
+  if (ParseCXXTypeSpecifierSeq(DS, DeclaratorContext::ConversionId))
     return true;
 
   // Parse the conversion-declarator, which is merely a sequence of

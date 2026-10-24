@@ -94,26 +94,28 @@ namespace cwg1909 { // cwg1909: 3.7
   };
 } // namespace cwg1909
 
-namespace cwg1918 { // cwg1918: no
+namespace cwg1918 { // cwg1918: yes
 template<typename T> struct A {
   class B {
     class C {};
   };
 };
 class X {
-  static int x;
-  // FIXME: this is ill-formed, because A<T>::B::C does not end with a simple-template-id
+  static int x; // #cwg1918-x
+  // A<T>::B does not end with a simple-template-id.
   template <typename T>
   friend class A<T>::B::C;
-  // expected-warning@-1 {{dependent nested name specifier 'A<T>::B' for friend class declaration is not supported; turning off access control for 'X'}}
+  // expected-error@-1 {{nested-name-specifier 'A<T>::B' of a friend declaration naming a member of a dependent type must end with a simple-template-id that names a class template}}
 };
 template<> struct A<int> {
   typedef struct Q B;
 };
 struct Q {
   class C {
-    // FIXME: 'f' is not a friend, so 'X::x' is not accessible
+    // 'f' is not a friend of X, so 'X::x' is not accessible
     int f() { return X::x; }
+    // expected-error@-1 {{'x' is a private member of 'cwg1918::X'}}
+    //   expected-note@#cwg1918-x {{implicitly declared private here}}
   };
 };
 } // namespace cwg1918
@@ -159,7 +161,7 @@ derived d2(42, 9);
 #endif
 } // namespace cwg1941
 
-namespace cwg1945 { // cwg1945: no
+namespace cwg1945 { // cwg1945: yes
 template<typename T> struct A {
   class B {
     class C {};
@@ -167,10 +169,10 @@ template<typename T> struct A {
 };
 class X {
   static int x;
-  // FIXME: this is ill-formed, because A<T>::B::C does not end with a simple-template-id
+  // A<T>::B does not end with a simple-template-id.
   template <typename T>
   friend class A<T>::B::C;
-  // expected-warning@-1 {{dependent nested name specifier 'A<T>::B' for friend class declaration is not supported; turning off access control for 'X'}}
+  // expected-error@-1 {{nested-name-specifier 'A<T>::B' of a friend declaration naming a member of a dependent type must end with a simple-template-id that names a class template}}
 };
 } // namespace cwg1945
 
@@ -234,7 +236,7 @@ namespace cwg1959 { // cwg1959: 3.9
 #endif
 } // namespace cwg1959
 
-namespace cwg1960 { // cwg1960: no
+namespace cwg1960 { // cwg1960: yes
 struct A {
 void f() {}
 protected:
@@ -248,8 +250,8 @@ using A::g;
 };
 
 struct C : B {
-// FIXME: both declarations are ill-formed, because A::f and A::g
-// are not accessible.
+// Valid: the names are qualified by A, whose public and protected members
+// are accessible in C; the private using-declarations in B do not matter.
 using A::f;
 using A::g;
 };
@@ -284,10 +286,11 @@ namespace cwg1966 { // cwg1966: 11
 #endif
 } // namespace cwg1966
 
-namespace cwg1968 { // cwg1968: no
+namespace cwg1968 { // cwg1968: yes
 #if __cplusplus >= 201103L
-  // FIXME: According to CWG1968, both of these should be considered
-  // non-constant.
+  // [expr.typeid] does not specify that distinct evaluations of 'typeid'
+  // yield the same object, and neither is a potentially non-unique object, so
+  // the comparison of the addresses is a constant expression.
   static_assert(&typeid(int) == &typeid(int), "");
 
   constexpr const std::type_info *f() { return &typeid(int); }

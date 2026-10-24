@@ -23,6 +23,9 @@
 #include "clang/Sema/DelayedDiagnostic.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
+#include "clang/Sema/Sema.h"
+#include "clang/Sema/Template.h"
+#include "clang/Sema/TemplateDeduction.h"
 
 using namespace clang;
 using namespace sema;
@@ -287,6 +290,10 @@ static bool MightInstantiateTo(const CXXRecordDecl *From,
   const DeclContext *ToDC = To->getDeclContext()->getPrimaryContext();
   if (FromDC == ToDC) return true;
   if (FromDC->isFileContext() || ToDC->isFileContext()) return false;
+
+  // Instantiation keeps a member of a non-dependent context where it is.
+  if (!FromDC->isDependentContext())
+    return false;
 
   // Be conservative.
   return true;
@@ -553,18 +560,176 @@ static AccessResult MatchesFriend(Sema &S,
   return OnFailure;
 }
 
+/// [temp.friend]: a template friend declaration can name a member of a
+/// dependent type. Deduce the template parameters \p Params of the friend
+/// declaration from the simple-template-id \p C, given the class template
+/// specialization \p Spec that contains the candidate member.
+static bool DeduceFriendTemplateArgs(Sema &S, const TemplateParameterList *Params,
+                                     const TemplateSpecializationType *C,
+                                     const ClassTemplateSpecializationDecl *Spec,
+                                     SmallVectorImpl<TemplateArgument> &Result) {
+  const TemplateDecl *CT = C->getTemplateName().getAsTemplateDecl();
+  if (!CT || CT->getCanonicalDecl() !=
+                 Spec->getSpecializedTemplate()->getCanonicalDecl())
+    return false;
+
+  sema::TemplateDeductionInfo Info(SourceLocation(), Params->getDepth());
+  SmallVector<DeducedTemplateArgument, 4> Deduced(Params->size());
+  Sema::SFINAETrap Trap(S);
+  if (S.DeduceTemplateArguments(const_cast<TemplateParameterList *>(Params),
+                                C->template_arguments(),
+                                Spec->getTemplateArgs().asArray(), Info,
+                                Deduced, /*NumberOfArgumentsMustMatch=*/true) !=
+      TemplateDeductionResult::Success)
+    return false;
+  for (const DeducedTemplateArgument &D : Deduced) {
+    if (D.isNull())
+      return false;
+    Result.push_back(D);
+  }
+  return true;
+}
+
+/// The simple-template-id that ends the nested-name-specifier of a friend
+/// declaration that names a member of a dependent type.
+static const TemplateSpecializationType *
+GetFriendQualifierTemplateId(NestedNameSpecifier Qualifier) {
+  if (Qualifier.getKind() != NestedNameSpecifier::Kind::Type)
+    return nullptr;
+  return Qualifier.getAsType()->getAs<TemplateSpecializationType>();
+}
+
+/// Determine whether a class \p R, a member of a class template
+/// specialization, is the class named by the friend declaration \p FriendD of
+/// a class that is a member of a dependent type.
+static AccessResult MatchesDependentMemberFriend(Sema &S,
+                                                 const EffectiveContext &EC,
+                                                 const DependentNameType *DNT,
+                                                 const TemplateParameterList *Params) {
+  const TemplateSpecializationType *C =
+      GetFriendQualifierTemplateId(DNT->getQualifier());
+  assert(C && "friend type was checked to name a member of a template-id");
+  for (const CXXRecordDecl *R : EC.Records) {
+    if (R->getIdentifier() != DNT->getIdentifier())
+      continue;
+    const auto *Spec =
+        dyn_cast<ClassTemplateSpecializationDecl>(R->getDeclContext());
+    if (!Spec || isa<ClassTemplatePartialSpecializationDecl>(Spec))
+      continue;
+    SmallVector<TemplateArgument, 4> Deduced;
+    if (DeduceFriendTemplateArgs(S, Params, C, Spec, Deduced))
+      return AR_accessible;
+  }
+  return EC.isDependent() ? AR_dependent : AR_inaccessible;
+}
+
+/// Determine whether the function \p Member is the member of a class template
+/// specialization named by the friend function declaration \p FriendFD.
+static bool MemberMatchesDependentMemberFriend(Sema &S, FunctionDecl *FriendFD,
+                                               bool FriendIsTemplate,
+                                               FunctionDecl *Member) {
+  FunctionDecl *M = Member;
+  bool MemberIsTemplate = false;
+  if (FunctionTemplateDecl *Primary = Member->getPrimaryTemplate()) {
+    M = Primary->getTemplatedDecl();
+    MemberIsTemplate = true;
+  } else if (Member->getDescribedFunctionTemplate()) {
+    MemberIsTemplate = true;
+  }
+  if (MemberIsTemplate != FriendIsTemplate)
+    return false;
+
+  const auto *Spec = dyn_cast<ClassTemplateSpecializationDecl>(M->getDeclContext());
+  if (!Spec || isa<ClassTemplatePartialSpecializationDecl>(Spec))
+    return false;
+
+  const TemplateSpecializationType *C =
+      GetFriendQualifierTemplateId(FriendFD->getQualifier());
+  const TemplateParameterList *Params = FriendFD->getTemplateParameterList(0);
+  if (!C || Params->getDepth() != 0)
+    return false;
+  SmallVector<TemplateArgument, 4> Deduced;
+  if (!DeduceFriendTemplateArgs(S, Params, C, Spec, Deduced))
+    return false;
+
+  // The substituted declaration shall correspond to the member.
+  DeclarationName FN = FriendFD->getDeclName(), MN = M->getDeclName();
+  if (FN.getNameKind() != MN.getNameKind())
+    return false;
+  switch (FN.getNameKind()) {
+  case DeclarationName::CXXConstructorName:
+  case DeclarationName::CXXDestructorName:
+  case DeclarationName::CXXConversionFunctionName:
+    break;
+  default:
+    if (FN != MN)
+      return false;
+    break;
+  }
+
+  MultiLevelTemplateArgumentList MLTAL(FriendFD, Deduced, /*Final=*/true);
+  Sema::InstantiatingTemplate Inst(S, FriendFD->getLocation(), FriendFD);
+  if (Inst.isInvalid())
+    return false;
+  Sema::SFINAETrap Trap(S);
+  // The names of the friend declaration are not access-checked here: whether
+  // the member has access is what is being decided.
+  sema::DelayedDiagnosticPool Pool(S.DelayedDiagnostics.getCurrentPool());
+  auto DelayState = S.DelayedDiagnostics.push(Pool);
+  QualType Substituted = S.SubstType(FriendFD->getType(), MLTAL,
+                                     FriendFD->getLocation(), FN);
+  S.DelayedDiagnostics.popWithoutEmitting(DelayState);
+  if (Substituted.isNull() || Trap.hasErrorOccurred())
+    return false;
+  return S.Context.hasSameFunctionTypeIgnoringExceptionSpec(Substituted,
+                                                            M->getType());
+}
+
+static AccessResult MatchesDependentMemberFriend(Sema &S,
+                                                 const EffectiveContext &EC,
+                                                 FunctionDecl *FriendFD,
+                                                 bool FriendIsTemplate) {
+  for (FunctionDecl *F : EC.Functions)
+    if (MemberMatchesDependentMemberFriend(S, FriendFD, FriendIsTemplate, F))
+      return AR_accessible;
+  return EC.isDependent() ? AR_dependent : AR_inaccessible;
+}
+
 /// Determines whether the given friend declaration matches anything
 /// in the effective context.
 static AccessResult MatchesFriend(Sema &S,
                                   const EffectiveContext &EC,
                                   FriendDecl *FriendD) {
-  // Whitelist accesses if there's an invalid or unsupported friend
-  // declaration.
-  if (FriendD->isInvalidDecl() || FriendD->isUnsupportedFriend())
+  // Whitelist accesses if there's an invalid friend declaration.
+  if (FriendD->isInvalidDecl())
     return AR_accessible;
 
-  if (TypeSourceInfo *T = FriendD->getFriendType())
+  if (TypeSourceInfo *T = FriendD->getFriendType()) {
+    // template<class T> friend class A<T>::B;
+    if (const auto *DNT = T->getType()->getAs<DependentNameType>();
+        DNT && FriendD->getFriendTypeNumTemplateParameterLists() &&
+        FriendD->getFriendTypeTemplateParameterList(0)->size() &&
+        GetFriendQualifierTemplateId(DNT->getQualifier()))
+      return MatchesDependentMemberFriend(
+          S, EC, DNT, FriendD->getFriendTypeTemplateParameterList(0));
     return MatchesFriend(S, EC, T->getType()->getCanonicalTypeUnqualified());
+  }
+
+  // template<class T> friend void A<T>::f();
+  {
+    NamedDecl *ND = FriendD->getFriendDecl();
+    bool IsTemplate = false;
+    FunctionDecl *FD = dyn_cast<FunctionDecl>(ND);
+    if (auto *FTD = dyn_cast<FunctionTemplateDecl>(ND)) {
+      FD = FTD->getTemplatedDecl();
+      IsTemplate = true;
+    }
+    if (FD && FD->getNumTemplateParameterLists() && FD->getQualifier() &&
+        FD->getQualifier().isDependent() &&
+        FD->getTemplateParameterList(0)->size() &&
+        GetFriendQualifierTemplateId(FD->getQualifier()))
+      return MatchesDependentMemberFriend(S, EC, FD, IsTemplate);
+  }
 
   NamedDecl *Friend
     = cast<NamedDecl>(FriendD->getFriendDecl()->getCanonicalDecl());

@@ -79,16 +79,27 @@ namespace cwg1048 { // cwg1048: 3.6
 #endif
 } // namespace cwg1048
 
-namespace cwg1054 { // cwg1054: no
-  // FIXME: Test is incomplete.
-  struct A {} volatile a;
+namespace cwg1054 { // cwg1054: yes
+  struct A {} volatile a; // #cwg1054-A
   void f() {
-    // FIXME: This is wrong: an lvalue-to-rvalue conversion is applied here,
-    // which copy-initializes a temporary from 'a'. Therefore this is
-    // ill-formed because A does not have a volatile copy constructor.
-    // (We might want to track this aspect under cwg1383 instead?)
-    a;
-    // expected-warning@-1 {{expression result unused; assign into a variable to force a volatile load}}
+    // An lvalue-to-rvalue conversion is applied here, which copy-initializes a
+    // temporary from 'a'. This is ill-formed because A does not have a
+    // volatile copy constructor.
+#if __cplusplus >= 201103L
+    a; // #cwg1054-use
+    // expected-error@#cwg1054-use {{no matching constructor for initialization of 'struct A'}}
+    //   expected-note@#cwg1054-A {{candidate constructor (the implicit copy constructor) not viable: 1st argument ('volatile struct A') would lose volatile qualifier}}
+    //   expected-note@#cwg1054-A {{candidate constructor (the implicit move constructor) not viable: 1st argument ('volatile struct A') would lose volatile qualifier}}
+    //   expected-note@#cwg1054-A {{candidate constructor (the implicit default constructor) not viable: requires 0 arguments, but 1 was provided}}
+    // expected-warning@#cwg1054-use {{expression result unused; assign into a variable to force a volatile load}}
+#endif
+  }
+
+  struct B { B(); B(const volatile B &); } volatile b;
+  void g() {
+#if __cplusplus >= 201103L
+    b;
+#endif
   }
 } // namespace cwg1054
 

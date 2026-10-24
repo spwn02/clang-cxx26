@@ -22,6 +22,7 @@
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
 #include "clang/Sema/ParsedTemplate.h"
 #include "clang/Sema/Scope.h"
+#include "llvm/Support/SaveAndRestore.h"
 using namespace clang;
 
 unsigned Parser::ReenterTemplateScopes(MultiParseScope &S, Decl *D) {
@@ -1436,6 +1437,10 @@ bool Parser::ParseTemplateArgumentList(TemplateArgList &TemplateArgs,
                                        SourceLocation OpenLoc) {
 
   ColonProtectionRAIIObject ColonProtection(*this, false);
+
+  // The arguments are not component names of a conversion-type-id.
+  llvm::SaveAndRestore<ParsedType> NoConvIdLookup(
+      Actions.ConversionIdLookupType, ParsedType());
 
   auto RunSignatureHelp = [&] {
     if (!Template)

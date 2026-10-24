@@ -491,10 +491,10 @@ namespace cwg131 { // cwg131: sup P1949
   const char *c_with_\u0e8e = "\u0e8e";
 } // namespace cwg131
 
-namespace cwg132 { // cwg132: no
+namespace cwg132 { // cwg132: sup 2059
   void f() {
     extern struct {} x; // ok
-    extern struct S {} y; // FIXME: This is invalid.
+    extern struct S {} y; // OK (CWG2059)
   }
   static enum { E } e;
 } // namespace cwg132
@@ -1000,15 +1000,17 @@ namespace cwg164 { // cwg164: 2.7
   int k = g(e);
 } // namespace cwg164
 
-namespace cwg165 { // cwg165: no
+namespace cwg165 { // cwg165: yes
   namespace N {
     struct A { friend struct B; };
-    void f() { void g(); }
+    void f() { void g(); } // #cwg165-g
   }
-  // FIXME: cwg1477 says this is ok, cwg165 says it's ill-formed
+  // The friend declaration of B declares a member of N that is nominable.
   struct N::B {};
-  // FIXME: cwg165 says this is ill-formed, but the argument in cwg1477 says it's ok
+  // A declaration that inhabits a block scope is not nominable in N.
   void N::g() {}
+  // expected-error@-1 {{out-of-line definition of 'g' does not match any declaration in namespace 'cwg165::N'}}
+  //   expected-note@#cwg165-g {{member declaration nearly matches}}
 } // namespace cwg165
 
 namespace cwg166 { // cwg166: 2.9

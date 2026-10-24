@@ -21,7 +21,7 @@ decltype(return_T<B<int>>())* b;
 #endif
 } // namespace cwg1110
 
-namespace cwg1111 { // cwg1111: partial
+namespace cwg1111 { // cwg1111: yes c++11
 namespace example1 {
 template <typename> struct set; // #cwg1111-struct-set
 

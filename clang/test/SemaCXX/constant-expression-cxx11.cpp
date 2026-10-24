@@ -626,20 +626,21 @@ constexpr int zs[2][2][2][2] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 
 static_assert(zs[0][0][0][0] == 1, "");
 static_assert(zs[1][1][1][1] == 16, "");
 static_assert(zs[0][0][0][2] == 3, ""); // expected-error {{constant expression}} expected-note {{read of dereferenced one-past-the-end pointer}}
-static_assert((&zs[0][0][0][2])[-1] == 2, "");
+static_assert((zs[0][0][0] + 2)[-1] == 2, "");
 static_assert(**(**(zs + 1) + 1) == 11, "");
-static_assert(*(&(&(*(*&(&zs[2] - 1)[0] + 2 - 2))[2])[-1][-1] + 1) == 11, ""); // expected-error {{constant expression}} expected-note {{cannot refer to element -1 of array of 2 elements in a constant expression}}
-static_assert(*(&(&(*(*&(&zs[2] - 1)[0] + 2 - 2))[2])[-1][2] - 2) == 11, "");
+// The address of a past-the-end element is not a constant expression.
+static_assert(*(&(&(*(*&(&zs[2] - 1)[0] + 2 - 2))[2])[-1][-1] + 1) == 11, ""); // expected-error {{constant expression}} expected-note {{read of dereferenced one-past-the-end pointer}}
+static_assert(*(&(&(*(*&(&zs[2] - 1)[0] + 2 - 2))[2])[-1][2] - 2) == 11, ""); // expected-error {{constant expression}} expected-note {{read of dereferenced one-past-the-end pointer}}
 constexpr int err_zs_1_2_0_0 = zs[1][2][0][0]; // \
 expected-error {{constant expression}} \
 expected-note {{cannot access array element of pointer past the end}}
 
 constexpr int fail(const int &p) {
-  return (&p)[64]; // expected-note {{cannot refer to element 64 of array of 2 elements}}
+  return (&p)[64];
 }
 static_assert(fail(*(&(&(*(*&(&zs[2] - 1)[0] + 2 - 2))[2])[-1][2] - 2)) == 11, ""); // \
 expected-error {{static assertion expression is not an integral constant expression}} \
-expected-note {{in call to 'fail(zs[1][0][1][0])'}}
+expected-note {{read of dereferenced one-past-the-end pointer}}
 
 constexpr int arr[40] = { 1, 2, 3, [8] = 4 };
 constexpr int SumNonzero(const int *p) {

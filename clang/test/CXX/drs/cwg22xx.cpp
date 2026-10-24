@@ -133,16 +133,18 @@ namespace CheckAfterMerging2 {
 #endif
 } // namespace cwg2233
 
-namespace cwg2267 { // cwg2267: no
+namespace cwg2267 { // cwg2267: yes
 #if __cplusplus >= 201103L
 struct A {} a;
 struct B { explicit B(const A&); }; // #cwg2267-struct-B
 
-struct D { D(); };
-struct C { explicit operator D(); } c;
+struct D { D(); }; // #cwg2267-D
+struct C { explicit operator D(); } c; // #cwg2267-C-conv
 
 B b1(a);
-const B &b2{a}; // FIXME ill-formed
+const B &b2{a};
+// since-cxx11-error@-1 {{chosen constructor is explicit in copy-initialization}}
+//   since-cxx11-note@#cwg2267-struct-B {{explicit constructor declared here}}
 const B &b3(a);
 // since-cxx11-error@-1 {{no viable conversion from 'struct A' to 'const B'}}
 //   since-cxx11-note@#cwg2267-struct-B {{candidate constructor (the implicit copy constructor) not viable: no known conversion from 'struct A' to 'const B &' for 1st argument}}
@@ -150,8 +152,16 @@ const B &b3(a);
 //   since-cxx11-note@#cwg2267-struct-B {{explicit constructor is not a candidate}}
 
 D d1(c);
-const D &d2{c}; // FIXME ill-formed
-const D &d3(c); // FIXME ill-formed
+const D &d2{c};
+// since-cxx11-error@-1 {{no matching constructor for initialization of 'const D &'}}
+//   since-cxx11-note@#cwg2267-D {{candidate constructor (the implicit copy constructor) not viable: no known conversion from 'struct C' to 'const D' for 1st argument}}
+//   since-cxx11-note@#cwg2267-D {{candidate constructor (the implicit move constructor) not viable: no known conversion from 'struct C' to 'D' for 1st argument}}
+//   since-cxx11-note@#cwg2267-D {{candidate constructor not viable: requires 0 arguments, but 1 was provided}}
+//   since-cxx17-note@#cwg2267-C-conv {{explicit conversion function is not a candidate}}
+const D &d3(c); // OK: the explicit conversion function is usable in direct-initialization
+
+struct E { explicit operator const D&(); } e;
+const D &d4(e);
 #endif
 } // namespace cwg2267
 
@@ -172,7 +182,7 @@ B b;
 #endif
 } // namespace cwg2273
 
-namespace cwg2277 { // cwg2277: partial
+namespace cwg2277 { // cwg2277: yes
 #if __cplusplus >= 201103L
 struct A {
   A(int, int = 0);

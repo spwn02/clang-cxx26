@@ -61,21 +61,26 @@ namespace cwg2819 { // cwg2819: 19 c++26
 #endif
 } // namespace cwg2819
 
-namespace cwg2823 { // cwg2823: no
+namespace cwg2823 { // cwg2823: yes
 #if __cplusplus >= 201103L
   constexpr int *p = 0;
   constexpr int *q1 = &*p;
   // expected-error@-1 {{constexpr variable 'q1' must be initialized by a constant expression}}
   //   expected-note@-2 {{dereferencing a null pointer is not allowed in a constant expression}}
-  // FIXME: invalid: dereferencing a null pointer.
   constexpr int *q2 = &p[0];
+  // expected-error@-1 {{constexpr variable 'q2' must be initialized by a constant expression}}
+  //   expected-note@-2 {{dereferencing a null pointer is not allowed in a constant expression}}
 
   int arr[32];
   constexpr int *r = arr;
-  // FIXME: invalid: dereferencing a past-the-end pointer.
   constexpr int *s1 = &*(r + 32);
-  // FIXME: invalid: dereferencing a past-the-end pointer.
+  // expected-error@-1 {{constexpr variable 's1' must be initialized by a constant expression}}
+  //   expected-note@-2 {{read of dereferenced one-past-the-end pointer is not allowed in a constant expression}}
   constexpr int *s2 = &r[32];
+  // expected-error@-1 {{constexpr variable 's2' must be initialized by a constant expression}}
+  //   expected-note@-2 {{read of dereferenced one-past-the-end pointer is not allowed in a constant expression}}
+  constexpr int *s3 = &r[31];
+  constexpr int *s4 = r + 32;
 #endif
 }
 
@@ -128,7 +133,7 @@ void B<int>::g() requires true;
 
 } // namespace cwg2847
 
-namespace cwg2857 { // cwg2857: no
+namespace cwg2857 { // cwg2857: yes
 struct A {};
 template <typename>
 struct D;
@@ -146,9 +151,12 @@ void f(A* a, D<int>* d) {
 #if __cplusplus >= 201103L
 template <typename>
 struct D : N::B {
-  // FIXME: ADL shouldn't associate it's base B and N since D is not complete here
-  decltype(adl_only((A*) nullptr, (D*) nullptr)) f;
+  // D is not complete here, so its base B and N are not associated.
+  decltype(adl_only((A*) nullptr, (D*) nullptr)) f; // #cwg2857-f
 };
+template struct D<char>;
+// since-cxx11-error@#cwg2857-f {{use of undeclared identifier 'adl_only'}}
+//   since-cxx11-note@-2 {{in instantiation of template class 'cwg2857::D<char>' requested here}}
 #endif
 } // namespace cwg2857
 
@@ -168,7 +176,6 @@ struct A {
   // FIXME: The index of the pack-index-specifier is printed as a memory address in the diagnostic.
   template<typename U>
   friend struct Ts...[0]::C;
-  // since-cxx26-warning@-1 {{dependent nested name specifier 'Ts...[0]' for friend template declaration is not supported; ignoring this friend declaration}}
 };
 
 #endif
@@ -341,7 +348,7 @@ void f(C c) {
 }
 } // namespace cwg2882
 
-namespace cwg2883 { // cwg2883: no
+namespace cwg2883 { // cwg2883: yes
 #if __cplusplus >= 201103L
 void f() {
   int x;
@@ -358,7 +365,8 @@ struct A {
 };
 void g() {
   constexpr A a;
-  // FIXME: OK, not odr-usable from a default template argument, and not odr-used
+  // 'a' is odr-used from a default template argument, where it is not
+  // odr-usable, so the program is ill-formed.
   (void)[=]<typename T, int = a> {};
   // since-cxx20-error@-1 {{call to deleted constructor of 'const A'}}
   //   since-cxx20-note@#cwg2883-A-copy-ctor {{'A' has been explicitly marked deleted here}}
