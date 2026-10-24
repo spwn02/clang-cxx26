@@ -56,6 +56,9 @@ def ext_extra_semi_cxx11 : Extension<
 def warn_extra_semi_after_mem_fn_def : Warning<
   "extra ';' after member function definition">,
   InGroup<ExtraSemi>, DefaultIgnore;
+def warn_extra_semi_in_class : Warning<
+  "extra ';' inside a %0">,
+  InGroup<ExtraSemi>, DefaultIgnore;
 def warn_null_statement : Warning<
   "empty expression statement has no effect; "
   "remove unnecessary ';' to silence this warning">,

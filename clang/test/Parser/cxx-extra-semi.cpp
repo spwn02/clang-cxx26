@@ -1,4 +1,6 @@
-// RUN: %clang_cc1 -fsyntax-only -pedantic -verify -DPEDANTIC %s
+// RUN: %clang_cc1 -fsyntax-only -std=c++98 -pedantic -verify -DPEDANTIC %s
+// RUN: %clang_cc1 -fsyntax-only -std=c++11 -pedantic -verify=pedantic11 %s
+// pedantic11-no-diagnostics
 // RUN: %clang_cc1 -fsyntax-only -Wextra-semi -verify %s
 // RUN: %clang_cc1 -fsyntax-only -Wextra-semi -verify -std=c++11 %s
 // RUN: cp %s %t

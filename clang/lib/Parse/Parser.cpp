@@ -221,6 +221,23 @@ void Parser::ConsumeExtraSemi(ExtraSemiKind Kind, DeclSpec::TST TST) {
     return;
   }
 
+  // [class.mem.general] (CWG1693): an empty-declaration is a
+  // member-declaration, so extra semicolons in a class are valid from C++11 on.
+  if (getLangOpts().CPlusPlus11) {
+    if (Kind == ExtraSemiKind::InsideStruct) {
+      Diag(StartLoc, diag::warn_extra_semi_in_class)
+          << DeclSpec::getSpecifierName(
+                 TST, Actions.getASTContext().getPrintingPolicy())
+          << FixItHint::CreateRemoval(SourceRange(StartLoc, EndLoc));
+      return;
+    }
+    if (Kind == ExtraSemiKind::AfterMemberFunctionDefinition) {
+      Diag(StartLoc, diag::warn_extra_semi_after_mem_fn_def)
+          << FixItHint::CreateRemoval(SourceRange(StartLoc, EndLoc));
+      return;
+    }
+  }
+
   if (Kind != ExtraSemiKind::AfterMemberFunctionDefinition || HadMultipleSemis)
     Diag(StartLoc, diag::ext_extra_semi)
         << Kind

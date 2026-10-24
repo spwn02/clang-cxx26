@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -std=c++14 -fsyntax-only -verify -pedantic -fcxx-exceptions %s
-// RUN: %clang_cc1 -fsyntax-only -verify -pedantic -fcxx-exceptions -std=c++98 %s
+// RUN: %clang_cc1 -fsyntax-only -verify=expected,cxx98 -pedantic -fcxx-exceptions -std=c++98 %s
 // RUN: %clang_cc1 -fsyntax-only -verify -pedantic -fcxx-exceptions -std=c++11 %s
 
 class C;
@@ -20,11 +20,11 @@ public:
   ; // ok, one extra ';' is permitted
   void m() {
     int l = 2;
-  };; // expected-warning{{extra ';' after member function definition}}
+  };; // cxx98-warning{{extra ';' after member function definition}}
 
   template<typename T> void mt(T) { }
   ;
-  ; // expected-warning{{extra ';' inside a class}}
+  ; // cxx98-warning{{extra ';' inside a class}}
 
   virtual int vf() const volatile = 0;
 

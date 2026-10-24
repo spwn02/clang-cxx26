@@ -747,3 +747,7 @@ void m2(Ts..., U) {}
 // cwg1816: na
 // cwg1866: na
 // cwg1863: na
+// cwg1806: na
+// cwg1823: na
+// cwg1860: na
+// cwg1874: na

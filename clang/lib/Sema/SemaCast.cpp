@@ -1977,8 +1977,9 @@ static TryCastResult TryConstCast(Sema &Self, ExprResult &SrcExpr,
     //       type T2 using the cast const_cast<T2&>;
     //    -- a glvalue of type T1 can be explicitly converted to an xvalue of
     //       type T2 using the cast const_cast<T2&&>; and
-    //    -- if T1 is a class type, a prvalue of type T1 can be explicitly
-    //       converted to an xvalue of type T2 using the cast const_cast<T2&&>.
+    //    -- if T1 is a class or array type, a prvalue of type T1 can be
+    //       explicitly converted to an xvalue of type T2 using the cast
+    //       const_cast<T2&&>.
 
     if (isa<LValueReferenceType>(DestTypeTmp) && !SrcExpr.get()->isLValue()) {
       // Cannot const_cast non-lvalue to lvalue reference type. But if this
@@ -1989,15 +1990,16 @@ static TryCastResult TryConstCast(Sema &Self, ExprResult &SrcExpr,
     }
 
     if (isa<RValueReferenceType>(DestTypeTmp) && SrcExpr.get()->isPRValue()) {
-      if (!SrcType->isRecordType()) {
-        // Cannot const_cast non-class prvalue to rvalue reference type. But if
+      if (!SrcType->isRecordType() && !SrcType->isArrayType()) {
+        // Cannot const_cast a prvalue that is neither of class nor of array
+        // type ([expr.const.cast]) to rvalue reference type. But if
         // this is C-style, static_cast can do this.
         msg = diag::err_bad_cxx_cast_rvalue;
         return TC_NotApplicable;
       }
 
-      // Materialize the class prvalue so that the const_cast can bind a
-      // reference to it.
+      // Materialize the class or array prvalue so that the const_cast can
+      // bind a reference to it.
       NeedToMaterializeTemporary = true;
     }
 

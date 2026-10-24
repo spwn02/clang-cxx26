@@ -35,6 +35,7 @@
 #include "clang/AST/DependenceFlags.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/ExprConcepts.h"
 #include "clang/AST/ExternalASTSource.h"
 #include "clang/AST/LocInfoType.h"
 #include "clang/AST/Mangle.h"
@@ -6658,13 +6659,24 @@ QualType ASTContext::getReferenceQualifiedType(const Expr *E) const {
 /// nodes. This would never be helpful, since each such type has its own
 /// expression, and would not give a significant memory saving, since there
 /// is an Expr tree under each such type.
+/// [temp.dep.type]: decltype(e) is dependent when e is type-dependent. A
+/// concept-id and a requires-expression are prvalues of type bool: they are
+/// never type-dependent (CWG2446), even when they are instantiation-dependent.
+static bool isDependentDecltypeOperand(const Expr *E) {
+  if (E->isTypeDependent())
+    return true;
+  if (!E->isInstantiationDependent())
+    return false;
+  return !isa<ConceptSpecializationExpr, RequiresExpr>(E->IgnoreParens());
+}
+
 QualType ASTContext::getDecltypeType(Expr *E, QualType UnderlyingType) const {
   // C++11 [temp.type]p2:
   //   If an expression e involves a template parameter, decltype(e) denotes a
   //   unique dependent type. Two such decltype-specifiers refer to the same
   //   type only if their expressions are equivalent (14.5.6.1).
   QualType CanonType;
-  if (!E->isInstantiationDependent()) {
+  if (!isDependentDecltypeOperand(E)) {
     CanonType = getCanonicalType(UnderlyingType);
   } else if (!UnderlyingType.isNull()) {
     CanonType = getDecltypeType(E, QualType());

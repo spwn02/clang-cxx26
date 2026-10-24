@@ -532,13 +532,15 @@ void X<T>::foo() requires requires { requires something_interesting<T>; } {}
 template <class T>
 void X<T>::foo() requires requires { requires is_not_same_v<T, int>; } {} // ok
 
+// CWG2446: a requires-expression is never type-dependent, so decltype of one
+// is bool and the requirements do not take part in matching the declaration.
 template <class T>
 void X<T>::bar(decltype(requires { requires something_interesting<T>; })) {}
-// expected-error@-1{{definition of 'bar' does not match any declaration}}
-// expected-note@#defined-here{{defined here}}
 
 template <class T>
 void X<T>::bar(decltype(requires { requires is_not_same_v<T, int>; })) {}
+// expected-error@-1{{redefinition of 'bar'}}
+// expected-note@-5{{previous definition is here}}
 } // namespace GH74314
 
 namespace GH56482 {

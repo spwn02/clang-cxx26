@@ -267,3 +267,5 @@ using Bind = Instantiate<Internal<Template>::template Bind, Argument>;
 // cwg1784: na
 // cwg1787: na
 // cwg1796: na
+// cwg1750: na
+// cwg1705: na

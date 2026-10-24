@@ -64,11 +64,12 @@ int decltype(f())::*ptr_mem_decltype;
 
 class ExtraSemiAfterMemFn {
   // Due to a peculiarity in the C++11 grammar, a deleted or defaulted function
-  // is permitted to be followed by either one or two semicolons.
+  // is permitted to be followed by one or two semicolons; any further semicolons
+  // are empty-declarations.
   void f() = delete // expected-error {{expected ';' after delete}}
   void g() = delete; // ok
   void h() = delete;; // ok
-  void i() = delete;;; // expected-error {{extra ';' after member function definition}}
+  void i() = delete;;; // ok, extra semicolons are empty-declarations ([class.mem.general])
 };
 
 int *const const p = 0; // expected-error {{duplicate 'const' declaration specifier}}

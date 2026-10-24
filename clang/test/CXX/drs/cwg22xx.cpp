@@ -241,3 +241,9 @@ namespace cwg2292 { // cwg2292: 9
 // cwg2201: na
 // cwg2253: na
 // cwg2257: na
+// cwg2242: na
+// cwg2249: na
+// cwg2255: na
+// cwg2266: na
+// cwg2287: na
+// cwg2293: na

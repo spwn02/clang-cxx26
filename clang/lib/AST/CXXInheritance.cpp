@@ -115,8 +115,13 @@ bool
 CXXRecordDecl::isCurrentInstantiation(const DeclContext *CurContext) const {
   assert(isDependentContext());
 
+  // [temp.dep.type]: in the definition of a templated function, the name of a
+  // local class denotes the current instantiation (CWG2936).
+  const FunctionDecl *LocalFunction = isLambda() ? nullptr : isLocalClass();
+
   for (; !CurContext->isFileContext(); CurContext = CurContext->getParent())
-    if (CurContext->Equals(this))
+    if (CurContext->Equals(this) ||
+        (LocalFunction && CurContext->Equals(LocalFunction)))
       return true;
 
   return false;

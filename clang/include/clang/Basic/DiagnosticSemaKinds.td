@@ -1886,6 +1886,9 @@ def err_friend_def_in_local_class : Error<
   "friend function cannot be defined in a local class">;
 def err_friend_specialization_def : Error<
   "friend function specialization cannot be defined">;
+def err_friend_specialization_specifier : Error<
+  "friend declaration of a function template specialization cannot be "
+  "declared %select{inline|constexpr|consteval}0">;
 def err_friend_not_first_in_declaration : Error<
   "'friend' must appear first in a non-function declaration">;
 def err_using_decl_friend : Error<

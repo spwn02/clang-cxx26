@@ -54,3 +54,17 @@ int main() = delete;
 // cwg832: na
 // cwg834: na
 // cwg872: na
+// cwg847: na
+// cwg855: na
+// cwg858: na
+
+namespace cwg891 { // cwg891: 22
+#if __cplusplus >= 201103L
+typedef int *A[3];
+typedef const int *const CA[3];
+auto &&r2 = const_cast<A &&>(CA{});
+struct S {};
+const S f();
+S &&r3 = const_cast<S &&>(f());
+#endif
+} // namespace cwg891

@@ -201,3 +201,8 @@ namespace cwg1295 { // cwg1295: 4
 // cwg1218: na
 // cwg1239: na
 // cwg1298: na
+// cwg1236: na
+// cwg1271: na
+// cwg1261: na
+// cwg1274: na
+// cwg1296: na

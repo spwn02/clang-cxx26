@@ -485,3 +485,8 @@ namespace cwg2094 { // cwg2094: 5
 // cwg2069: na
 // cwg2080: na
 // cwg2098: na
+// cwg2035: na
+// cwg2033: na
+// cwg2017: na
+// cwg2040: na
+// cwg2064: na

@@ -18619,6 +18619,21 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
 
   bool isTemplateId = D.getName().getKind() == UnqualifiedIdKind::IK_TemplateId;
 
+  // [temp.friend]: the inline, constexpr and consteval specifiers shall not be
+  // used in a friend declaration that refers to a specialization of a function
+  // template (CWG2379).
+  if (isTemplateId) {
+    const DeclSpec &DS = D.getDeclSpec();
+    if (DS.isInlineSpecified())
+      Diag(DS.getInlineSpecLoc(), diag::err_friend_specialization_specifier)
+          << 0;
+    if (DS.hasConstexprSpecifier() &&
+        DS.getConstexprSpecifier() != ConstexprSpecKind::Constinit)
+      Diag(DS.getConstexprSpecLoc(), diag::err_friend_specialization_specifier)
+          << (DS.getConstexprSpecifier() == ConstexprSpecKind::Consteval ? 2
+                                                                         : 1);
+  }
+
   // There are five cases here.
   //   - There's no scope specifier and we're in a local class. Only look
   //     for functions declared in the immediately-enclosing block scope.

@@ -26,6 +26,7 @@
 #include "clang/AST/DependenceFlags.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/ExprConcepts.h"
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/TemplateBase.h"
@@ -4191,20 +4192,31 @@ QualType TypeOfType::desugar() const {
              : QT;
 }
 
+/// [temp.dep.type]: decltype(e) is dependent when e is type-dependent. A
+/// concept-id and a requires-expression are prvalues of type bool: they are
+/// never type-dependent (CWG2446), even when they are instantiation-dependent.
+static bool isDependentDecltypeOperand(const Expr *E) {
+  if (E->isTypeDependent())
+    return true;
+  if (!E->isInstantiationDependent())
+    return false;
+  return !isa<ConceptSpecializationExpr, RequiresExpr>(E->IgnoreParens());
+}
+
 DecltypeType::DecltypeType(Expr *E, QualType underlyingType, QualType can)
     // C++11 [temp.type]p2: "If an expression e involves a template parameter,
     // decltype(e) denotes a unique dependent type." Hence a decltype type is
     // type-dependent even if its expression is only instantiation-dependent.
     : Type(Decltype, can,
            toTypeDependence(E->getDependence()) |
-               (E->isInstantiationDependent() ? TypeDependence::Dependent
+               (isDependentDecltypeOperand(E) ? TypeDependence::Dependent
                                               : TypeDependence::None) |
                (E->getType()->getDependence() &
                 TypeDependence::VariablyModified),
            E->getType()->isConstevalOnly()),
       E(E), UnderlyingType(underlyingType) {}
 
-bool DecltypeType::isSugared() const { return !E->isInstantiationDependent(); }
+bool DecltypeType::isSugared() const { return !isDependentDecltypeOperand(E); }
 
 QualType DecltypeType::desugar() const {
   if (isSugared())

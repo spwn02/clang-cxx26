@@ -591,3 +591,17 @@ namespace cwg1696 { // cwg1696: 7
 // cwg1697: na
 // cwg1656: na
 // cwg1698: na
+// cwg1600: na
+// cwg1683: na
+// cwg1642: na
+
+namespace cwg1693 { // cwg1693: 22
+#if __cplusplus >= 201103L
+// An empty-declaration is a member-declaration.
+struct A {
+  ;;;
+  void f() {};;
+  int i;;
+};
+#endif
+} // namespace cwg1693

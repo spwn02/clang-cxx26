@@ -375,3 +375,4 @@ B Y::*pm = &X::d;
 // cwg729: na
 // cwg745: na
 // cwg788: na
+// cwg720: na

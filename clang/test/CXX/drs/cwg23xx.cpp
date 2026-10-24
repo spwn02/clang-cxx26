@@ -581,3 +581,18 @@ namespace cwg2397 { // cwg2397: 17
 // cwg2300: na
 // cwg2380: na
 // cwg2323: na
+// cwg2307: na
+// cwg2330: na
+// cwg2332: na
+
+namespace cwg2379 { // cwg2379: 22
+template <class T> void f(T);
+struct S {
+#if __cplusplus >= 201103L
+  friend constexpr void f<>(int);
+  // since-cxx11-error@-1 {{friend declaration of a function template specialization cannot be declared constexpr}}
+#endif
+  friend inline void f<>(long);
+  // expected-error@-1 {{friend declaration of a function template specialization cannot be declared inline}}
+};
+} // namespace cwg2379

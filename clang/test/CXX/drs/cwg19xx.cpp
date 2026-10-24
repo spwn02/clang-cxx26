@@ -348,3 +348,8 @@ namespace cwg1991 { // cwg1991: 3.9
 // cwg1963: na
 // cwg1972: na
 // cwg1999: na
+// cwg1942: na
+// cwg1952: na
+// cwg1967: na
+// cwg1971: na
+// cwg1992: na
