@@ -9807,7 +9807,15 @@ bool Sema::CheckFunctionTemplateSpecialization(
     // FIXME: We need an update record for this AST mutation.
     // FIXME: What if there are multiple such prior declarations (for instance,
     // from different modules)?
-    Specialization->setConstexprKind(FD->getConstexprKind());
+    //
+    // A friend declaration does not declare an explicit specialization, and
+    // cannot specify constexpr (CWG2379): the specialization keeps the
+    // template's constexpr-ness.
+    if (FD->getFriendObjectKind() == Decl::FOK_None ||
+        FD->getConstexprKind() != ConstexprSpecKind::Unspecified)
+      Specialization->setConstexprKind(FD->getConstexprKind());
+    else
+      FD->setConstexprKind(Specialization->getConstexprKind());
   }
 
   // FIXME: Check if the prior specialization has a point of instantiation.

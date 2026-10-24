@@ -598,6 +598,13 @@ struct S {
   friend inline void f<>(long);
   // expected-error@-1 {{friend declaration of a function template specialization cannot be declared inline}}
 };
+
+#if __cplusplus >= 201103L
+template <class T> constexpr int g(T) { return 1; }
+template <class A> struct S2 { friend int g<>(A); };
+S2<int> s2;
+static_assert(g(1) == 1, "friend specialization keeps constexpr");
+#endif
 } // namespace cwg2379
 // cwg2365: na
 // cwg2382: na
