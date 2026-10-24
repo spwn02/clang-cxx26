@@ -1466,3 +1466,6 @@ namespace cwg299 { // cwg299: 2.8 c++11
 // cwg297: na
 // cwg208: na
 // cwg238: na
+// cwg256: dup 624
+// cwg265: dup 353
+// cwg344: dup 1435

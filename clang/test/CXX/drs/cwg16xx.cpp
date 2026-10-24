@@ -605,3 +605,4 @@ struct A {
 };
 #endif
 } // namespace cwg1693
+// cwg1694: sup P2686R5

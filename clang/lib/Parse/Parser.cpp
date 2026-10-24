@@ -907,7 +907,14 @@ Parser::ParseExternalDeclaration(ParsedAttributes &Attrs,
     return ParseExternalDeclaration(Attrs, DeclSpecAttrs);
   }
   case tok::kw_asm: {
-    ProhibitAttributes(Attrs);
+    // [dcl.asm]: an asm-declaration may be preceded by an attribute-specifier-seq
+    // (CWG2262); no attribute appertains to it.
+    for (const ParsedAttr &AL : Attrs)
+      (AL.isRegularKeywordAttribute()
+           ? Diag(AL.getRange().getBegin(), diag::err_keyword_not_allowed)
+           : Diag(AL.getRange().getBegin(), diag::warn_attribute_ignored))
+          << AL;
+    Attrs.clear();
 
     SourceLocation StartLoc = Tok.getLocation();
     SourceLocation EndLoc;

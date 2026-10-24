@@ -409,3 +409,5 @@ static_assert(noexcept(C()), "");
 // cwg2892: na
 // cwg2893: na
 // cwg2899: na
+// cwg2836: na
+// cwg2872: na

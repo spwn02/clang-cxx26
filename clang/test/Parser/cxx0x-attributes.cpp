@@ -154,7 +154,7 @@ extern "C++" [[]] { } // expected-error {{an attribute list cannot appear here}}
 [[]] template <typename T> void before_template_attr (); // expected-error {{an attribute list cannot appear here}}
 [[]] namespace ns { int i; } // expected-error {{an attribute list cannot appear here}} expected-note {{declared here}}
 [[]] static_assert(true, ""); //expected-error {{an attribute list cannot appear here}}
-[[]] asm(""); // expected-error {{an attribute list cannot appear here}}
+[[]] asm(""); // OK: an asm-declaration can be preceded by an attribute-specifier-seq (CWG2262)
 
 [[]] using ns::i;
 [[unknown]] using namespace ns; // expected-warning {{unknown attribute 'unknown' ignored}}

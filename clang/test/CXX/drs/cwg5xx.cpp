@@ -1320,3 +1320,4 @@ namespace cwg599 { // cwg599: partial
 // cwg504: na
 // cwg511: na
 // cwg596: na
+// cwg578: na

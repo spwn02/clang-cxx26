@@ -68,3 +68,9 @@ const S f();
 S &&r3 = const_cast<S &&>(f());
 #endif
 } // namespace cwg891
+// cwg805: na
+// cwg808: na
+// cwg811: na
+// cwg845: na
+
+// cwg887: sup 2775

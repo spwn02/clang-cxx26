@@ -374,3 +374,8 @@ namespace H {
 // cwg2104: na
 // cwg2143: na
 // cwg2198: na
+// cwg2150: na
+// cwg2130: na
+// cwg2176: na
+// cwg2177: na
+// cwg2196: na

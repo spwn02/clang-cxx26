@@ -8238,10 +8238,10 @@ NamedDecl *Sema::ActOnVariableDeclarator(
   case ConstexprSpecKind::Constexpr:
     NewVD->setConstexpr(true);
     // C++1z [dcl.spec.constexpr]p1:
-    //   A static data member declared with the constexpr specifier is
-    //   implicitly an inline variable.
+    //   A static data member declared with the constexpr specifier on its
+    //   first declaration is implicitly an inline variable (CWG2531).
     if (NewVD->isStaticDataMember() &&
-        (getLangOpts().CPlusPlus17 ||
+        ((getLangOpts().CPlusPlus17 && !NewVD->isOutOfLine()) ||
          Context.getTargetInfo().getCXXABI().isMicrosoft()))
       NewVD->setImplicitlyInline();
     break;

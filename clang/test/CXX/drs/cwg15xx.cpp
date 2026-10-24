@@ -759,3 +759,5 @@ namespace cwg1591 {  //cwg1591. Deducing array bound and element type from initi
 // cwg1544: na
 // cwg1551: na
 // cwg1570: na
+// cwg1595: sup P2448R2
+// cwg1599: na

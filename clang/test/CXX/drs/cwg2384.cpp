@@ -1,0 +1,23 @@
+// RUN: %clang_cc1 -std=c++98 -pedantic-errors %s -verify=expected -fexceptions -fcxx-exceptions
+// RUN: %clang_cc1 -std=c++11 -pedantic-errors %s -verify=expected -fexceptions -fcxx-exceptions
+// RUN: %clang_cc1 -std=c++14 -pedantic-errors %s -verify=expected -fexceptions -fcxx-exceptions
+// RUN: %clang_cc1 -std=c++17 -pedantic-errors %s -verify=expected -fexceptions -fcxx-exceptions
+// RUN: %clang_cc1 -std=c++20 -pedantic-errors %s -verify=expected -fexceptions -fcxx-exceptions
+// RUN: %clang_cc1 -std=c++23 -pedantic-errors %s -verify=expected -fexceptions -fcxx-exceptions
+// RUN: %clang_cc1 -std=c++2c -pedantic-errors %s -verify=expected -fexceptions -fcxx-exceptions
+// expected-note@*:* 0+ {{}}
+// expected-warning@*:* 0+ {{}}
+
+namespace cwg2384 { // cwg2384: yes
+namespace p1 {
+struct A { template <class T> operator T***(); };
+A a;
+int *const *const *p1 = a;
+}
+namespace p2 {
+struct B { template <class T> operator T***(); };
+B b;
+const int *const *const *p2 = b;
+// expected-error@-1 {{}}
+}
+} // namespace cwg2384

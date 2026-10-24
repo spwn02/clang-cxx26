@@ -376,3 +376,12 @@ B Y::*pm = &X::d;
 // cwg745: na
 // cwg788: na
 // cwg720: na
+// cwg734: na
+// cwg750: na
+// cwg751: na
+// cwg759: na
+// cwg769: na
+// cwg771: na
+// cwg774: na
+// cwg796: na
+// cwg709: na

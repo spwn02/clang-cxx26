@@ -163,3 +163,6 @@ namespace cwg1113 { // cwg1113: partial
 // cwg1175: na
 // cwg1117: na
 // cwg1122: na
+// cwg1125: na
+// cwg1178: na
+// cwg1186: na

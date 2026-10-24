@@ -183,3 +183,5 @@ constexpr U _ = nondeterministic(true);
 // cwg2954: na
 // cwg2970: na
 // cwg2987: na
+// cwg2944: na
+// cwg2921: sup 2990

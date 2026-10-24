@@ -222,3 +222,9 @@ namespace cwg990 { // cwg990: 3.5
 // cwg995: na
 // cwg970: na
 // cwg975: na
+// cwg933: na
+// cwg993: na
+// cwg951: na
+// cwg955: na
+// cwg984: na
+// cwg965: na

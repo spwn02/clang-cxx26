@@ -596,3 +596,7 @@ struct S {
   // expected-error@-1 {{friend declaration of a function template specialization cannot be declared inline}}
 };
 } // namespace cwg2379
+// cwg2365: na
+// cwg2382: na
+// cwg2322: na
+// cwg2399: na

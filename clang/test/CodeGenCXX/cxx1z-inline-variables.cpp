@@ -65,7 +65,8 @@ const int &compat_use_after_redecl3 = compat::g;
 // CHECK-DAG: @_ZN6compat1cE = weak_odr constant i32 3
 // CHECK-DAG: @_ZN6compat1dE = linkonce_odr constant i32 4
 // CHECK-DAG: @_ZN6compat1eE ={{.*}} constant i32 5
-// CHECK-DAG: @_ZN6compat1fE = weak_odr constant i32 6
+// CWG2531: constexpr on a redeclaration does not make the variable inline.
+// CHECK-DAG: @_ZN6compat1fE = constant i32 6
 // CHECK-DAG: @_ZN6compat1gE = linkonce_odr constant i32 7
 
 template<typename T> struct X {

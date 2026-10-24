@@ -268,3 +268,7 @@ struct T : S {
 // cwg2429: na
 // cwg2431: na
 // cwg2482: na
+// cwg2436: na
+// cwg2451: na
+// cwg2452: na
+// cwg2466: na
