@@ -74,3 +74,5 @@ S &&r3 = const_cast<S &&>(f());
 // cwg845: na
 
 // cwg887: sup 2775
+// cwg814: na
+// cwg869: na
