@@ -391,6 +391,15 @@ public:
       return __nested_mapping_.stride(__rank == 0 ? 1 : 0);
     }
 
+    template <class _OtherExtents>
+      requires requires(const mapping& __left, const mapping<_OtherExtents>& __right) {
+        { __left.nested_mapping() == __right.nested_mapping() } -> convertible_to<bool>;
+      }
+    _LIBCPP_HIDE_FROM_ABI friend constexpr bool
+    operator==(const mapping& __left, const mapping<_OtherExtents>& __right) {
+      return __left.nested_mapping() == __right.nested_mapping();
+    }
+
   private:
     _LIBCPP_NO_UNIQUE_ADDRESS __nested_mapping_type __nested_mapping_;
     _LIBCPP_NO_UNIQUE_ADDRESS extents_type __extents_;
@@ -706,11 +715,12 @@ apply_givens_rotation(_ExecutionPolicy&&, _InOutVec1 __x, _InOutVec2 __y, _Real 
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__inout_object _InOutObj1, __detail::__inout_object _InOutObj2>
-_LIBCPP_HIDE_FROM_ABI constexpr void swap_elements(_InOutObj1 __x, _InOutObj2 __y);
+_LIBCPP_HIDE_FROM_ABI constexpr void swap_elements(_InOutObj1 __x, _InOutObj2 __y)
+  requires(_InOutObj1::rank() == _InOutObj2::rank());
 
 template <class _ExecutionPolicy, __detail::__inout_object _InOutObj1, __detail::__inout_object _InOutObj2>
 _LIBCPP_HIDE_FROM_ABI constexpr void swap_elements(_ExecutionPolicy&&, _InOutObj1 __x, _InOutObj2 __y)
-  requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
+  requires(is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>> && _InOutObj1::rank() == _InOutObj2::rank());
 
 template <__detail::__linalg_scalar _Scalar, __detail::__inout_object _InOutObj>
 _LIBCPP_HIDE_FROM_ABI constexpr void scale(_Scalar __alpha, _InOutObj __x);
@@ -720,21 +730,24 @@ _LIBCPP_HIDE_FROM_ABI constexpr void scale(_ExecutionPolicy&&, _Scalar __alpha, 
   requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
 
 template <__detail::__in_object _InObj, __detail::__out_object _OutObj>
-_LIBCPP_HIDE_FROM_ABI constexpr void copy(_InObj __x, _OutObj __y);
+_LIBCPP_HIDE_FROM_ABI constexpr void copy(_InObj __x, _OutObj __y)
+  requires(_InObj::rank() == _OutObj::rank());
 
 template <class _ExecutionPolicy, __detail::__in_object _InObj, __detail::__out_object _OutObj>
 _LIBCPP_HIDE_FROM_ABI constexpr void copy(_ExecutionPolicy&&, _InObj __x, _OutObj __y)
-  requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
+  requires(is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>> && _InObj::rank() == _OutObj::rank());
 
 template <__detail::__in_object _InObj1, __detail::__in_object _InObj2, __detail::__out_object _OutObj>
-_LIBCPP_HIDE_FROM_ABI constexpr void add(_InObj1 __x, _InObj2 __y, _OutObj __z);
+_LIBCPP_HIDE_FROM_ABI constexpr void add(_InObj1 __x, _InObj2 __y, _OutObj __z)
+  requires(_InObj1::rank() == _InObj2::rank() && _InObj2::rank() == _OutObj::rank());
 
 template <class _ExecutionPolicy,
           __detail::__in_object _InObj1,
           __detail::__in_object _InObj2,
           __detail::__out_object _OutObj>
 _LIBCPP_HIDE_FROM_ABI constexpr void add(_ExecutionPolicy&&, _InObj1 __x, _InObj2 __y, _OutObj __z)
-  requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>;
+  requires(is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>> && _InObj1::rank() == _InObj2::rank() &&
+           _InObj2::rank() == _OutObj::rank());
 
 template <__detail::__in_vector _InVec1, __detail::__in_vector _InVec2, __detail::__linalg_scalar _Scalar>
 _LIBCPP_HIDE_FROM_ABI constexpr _Scalar dot(_InVec1 __v1, _InVec2 __v2, _Scalar __init);
@@ -4660,13 +4673,15 @@ apply_givens_rotation(_ExecutionPolicy&&, _InOutVec1 __x, _InOutVec2 __y, _Real 
 }
 
 template <__detail::__inout_object _InOutObj1, __detail::__inout_object _InOutObj2>
-_LIBCPP_HIDE_FROM_ABI constexpr void swap_elements(_InOutObj1 __x, _InOutObj2 __y) {
+_LIBCPP_HIDE_FROM_ABI constexpr void swap_elements(_InOutObj1 __x, _InOutObj2 __y)
+  requires(_InOutObj1::rank() == _InOutObj2::rank())
+{
   linalg::__swap_elements_impl(__x, __y);
 }
 
 template <class _ExecutionPolicy, __detail::__inout_object _InOutObj1, __detail::__inout_object _InOutObj2>
 _LIBCPP_HIDE_FROM_ABI constexpr void swap_elements(_ExecutionPolicy&&, _InOutObj1 __x, _InOutObj2 __y)
-  requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
+  requires(is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>> && _InOutObj1::rank() == _InOutObj2::rank())
 {
   linalg::__swap_elements_impl(__x, __y);
 }
@@ -4684,19 +4699,23 @@ _LIBCPP_HIDE_FROM_ABI constexpr void scale(_ExecutionPolicy&&, _Scalar __alpha, 
 }
 
 template <__detail::__in_object _InObj, __detail::__out_object _OutObj>
-_LIBCPP_HIDE_FROM_ABI constexpr void copy(_InObj __x, _OutObj __y) {
+_LIBCPP_HIDE_FROM_ABI constexpr void copy(_InObj __x, _OutObj __y)
+  requires(_InObj::rank() == _OutObj::rank())
+{
   linalg::__copy_impl(__x, __y);
 }
 
 template <class _ExecutionPolicy, __detail::__in_object _InObj, __detail::__out_object _OutObj>
 _LIBCPP_HIDE_FROM_ABI constexpr void copy(_ExecutionPolicy&&, _InObj __x, _OutObj __y)
-  requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
+  requires(is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>> && _InObj::rank() == _OutObj::rank())
 {
   linalg::__copy_impl(__x, __y);
 }
 
 template <__detail::__in_object _InObj1, __detail::__in_object _InObj2, __detail::__out_object _OutObj>
-_LIBCPP_HIDE_FROM_ABI constexpr void add(_InObj1 __x, _InObj2 __y, _OutObj __z) {
+_LIBCPP_HIDE_FROM_ABI constexpr void add(_InObj1 __x, _InObj2 __y, _OutObj __z)
+  requires(_InObj1::rank() == _InObj2::rank() && _InObj2::rank() == _OutObj::rank())
+{
   linalg::__add_impl(__x, __y, __z);
 }
 
@@ -4705,7 +4724,8 @@ template <class _ExecutionPolicy,
           __detail::__in_object _InObj2,
           __detail::__out_object _OutObj>
 _LIBCPP_HIDE_FROM_ABI constexpr void add(_ExecutionPolicy&&, _InObj1 __x, _InObj2 __y, _OutObj __z)
-  requires is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>>
+  requires(is_execution_policy_v<remove_cvref_t<_ExecutionPolicy>> && _InObj1::rank() == _InObj2::rank() &&
+           _InObj2::rank() == _OutObj::rank())
 {
   linalg::__add_impl(__x, __y, __z);
 }

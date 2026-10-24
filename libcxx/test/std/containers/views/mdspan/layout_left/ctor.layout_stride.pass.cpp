@@ -11,7 +11,7 @@
 // <mdspan>
 
 // template<class OtherExtents>
-//   constexpr explicit(extents_type::rank() > 0)
+//   constexpr explicit(see below)
 //     mapping(const layout_stride::mapping<OtherExtents>& other);
 //
 // Constraints: is_constructible_v<extents_type, OtherExtents> is true.
@@ -60,7 +60,8 @@ constexpr void test_conversion() {
   constexpr size_t D = std::dynamic_extent;
 
   // clang-format off
-  test_conversion<true,  std::extents<T1>>(std::extents<T2>());
+  test_conversion<TEST_STD_VER < 26 || std::is_convertible_v<std::extents<T2>, std::extents<T1>>,
+                  std::extents<T1>>(std::extents<T2>());
   test_conversion<false, std::extents<T1, D>>(std::extents<T2, D>(5));
   test_conversion<false, std::extents<T1, 5>>(std::extents<T2, D>(5));
   test_conversion<false, std::extents<T1, 5>>(std::extents<T2, 5>());

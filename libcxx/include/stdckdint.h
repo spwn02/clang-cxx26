@@ -46,21 +46,27 @@ Functions (declared at global scope):
 // Computes *result = a op b (in infinite signed precision, then converted to
 // type1) and returns true if that conversion is not value-preserving, i.e. if
 // overflow occurred.
-template <std::__signed_or_unsigned_integer _Tp1, std::__signed_or_unsigned_integer _Tp2,
-          std::__signed_or_unsigned_integer _Tp3>
+template <class _Tp1, class _Tp2, class _Tp3>
 _LIBCPP_HIDE_FROM_ABI inline bool ckd_add(_Tp1* __result, _Tp2 __a, _Tp3 __b) {
+  static_assert(std::__signed_or_unsigned_integer<_Tp1> && std::__signed_or_unsigned_integer<_Tp2> &&
+                    std::__signed_or_unsigned_integer<_Tp3>,
+                "ckd_add requires signed or unsigned integer types");
   return __builtin_add_overflow(__a, __b, __result);
 }
 
-template <std::__signed_or_unsigned_integer _Tp1, std::__signed_or_unsigned_integer _Tp2,
-          std::__signed_or_unsigned_integer _Tp3>
+template <class _Tp1, class _Tp2, class _Tp3>
 _LIBCPP_HIDE_FROM_ABI inline bool ckd_sub(_Tp1* __result, _Tp2 __a, _Tp3 __b) {
+  static_assert(std::__signed_or_unsigned_integer<_Tp1> && std::__signed_or_unsigned_integer<_Tp2> &&
+                    std::__signed_or_unsigned_integer<_Tp3>,
+                "ckd_sub requires signed or unsigned integer types");
   return __builtin_sub_overflow(__a, __b, __result);
 }
 
-template <std::__signed_or_unsigned_integer _Tp1, std::__signed_or_unsigned_integer _Tp2,
-          std::__signed_or_unsigned_integer _Tp3>
+template <class _Tp1, class _Tp2, class _Tp3>
 _LIBCPP_HIDE_FROM_ABI inline bool ckd_mul(_Tp1* __result, _Tp2 __a, _Tp3 __b) {
+  static_assert(std::__signed_or_unsigned_integer<_Tp1> && std::__signed_or_unsigned_integer<_Tp2> &&
+                    std::__signed_or_unsigned_integer<_Tp3>,
+                "ckd_mul requires signed or unsigned integer types");
   return __builtin_mul_overflow(__a, __b, __result);
 }
 

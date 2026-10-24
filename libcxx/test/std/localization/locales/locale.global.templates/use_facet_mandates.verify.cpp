@@ -7,11 +7,16 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
+// ADDITIONAL_COMPILE_FLAGS: -Xclang -verify-ignore-unexpected=note
 
 #include <locale>
 
 struct not_a_facet {};
+struct faux_facet {
+  static std::locale::id id;
+};
 
 void test() {
   (void)std::use_facet<not_a_facet>(std::locale()); // expected-error@* {{no member named 'id'}}
+  (void)std::use_facet<faux_facet>(std::locale());  // expected-error@* {{no viable conversion}}
 }

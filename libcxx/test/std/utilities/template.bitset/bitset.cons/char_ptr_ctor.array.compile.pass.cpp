@@ -26,7 +26,24 @@ struct NotChar {
   NotChar(const NotChar&) {}
 };
 
+struct NotTriviallyDefaultConstructible {
+  NotTriviallyDefaultConstructible() {}
+  char value;
+};
+
+struct NotStandardLayoutBase1 {
+  int value;
+};
+
+struct NotStandardLayoutBase2 {
+  int other;
+};
+
+struct NotStandardLayout : NotStandardLayoutBase1, NotStandardLayoutBase2 {};
+
 static_assert(can_construct<char>);
 static_assert(can_construct<wchar_t>);
 static_assert(!can_construct<int[2]>);
 static_assert(!can_construct<NotChar>);
+static_assert(!can_construct<NotTriviallyDefaultConstructible>);
+static_assert(!can_construct<NotStandardLayout>);

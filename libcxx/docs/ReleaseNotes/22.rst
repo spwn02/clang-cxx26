@@ -147,7 +147,11 @@ Potentially breaking changes
     ``ranges::replace_if`` have the draft default template arguments (LWG4444), and
     ``task::promise_type::return_value`` has the default template argument ``V = T`` (LWG4345).
   - Mandates of the "Mandating the Standard Library" papers are checked with ``static_assert`` (P1460R1 to P1723R2),
-    for example: ``reduce`` and ``transform_reduce`` need all four ``binary_op`` argument combinations to produce ``T``,
+    for example: the ``move_only_function`` and ``copyable_function`` constructors no longer use constructibility of
+    the callable as a constraint (it is a *Mandates*, so a non-constructible callable is a hard error instead of
+    being SFINAE-friendly) and their ``operator=(F&&)`` is unconstrained, ``is_sufficiently_aligned`` needs a
+    power-of-two alignment, ``ckd_add``, ``ckd_sub`` and ``ckd_mul`` need signed or unsigned integer types,
+``reduce`` and ``transform_reduce`` need all four ``binary_op`` argument combinations to produce ``T``,
     ``cmp_equal`` and the other integer comparison functions and ``in_range`` need signed or unsigned integer types,
     ``vector<bool, Allocator>`` needs ``Allocator::value_type`` to be ``bool``, ``get_money`` and ``put_money`` need
     ``long double`` or a ``basic_string``, and ``is_permutation`` needs both ranges to have the same value type. Code

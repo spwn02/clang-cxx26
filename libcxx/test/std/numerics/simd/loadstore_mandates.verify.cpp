@@ -37,6 +37,18 @@ void unchecked_range_too_small() {
   // expected-error@*:* {{ranges::size(r) must be at least V::size()}}
 }
 
+void unchecked_store_range_too_small() {
+  simd::unchecked_store(V{}, f2);
+  // expected-error@*:* {{ranges::size(r) must be at least V::size()}}
+}
+
+void range_constructor_not_value_preserving() {
+  (void)V(d4);
+  // expected-error@*:* {{the conversion from the range's value type to value_type is not value-preserving}}
+  (void)V(d4, V::mask_type(true));
+  // expected-error@*:* {{the conversion from the range's value type to value_type is not value-preserving}}
+}
+
 void accepted() {
   (void)simd::partial_load<V>(d4, simd::flag_convert);
   simd::partial_store(simd::vec<double, 4>{}, std::array<float, 4>{}, simd::flag_convert);

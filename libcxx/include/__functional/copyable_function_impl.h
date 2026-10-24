@@ -132,10 +132,12 @@ public:
 
   template <class _Func>
     requires(!is_same_v<remove_cvref_t<_Func>, copyable_function> && !__is_inplace_type<_Func>::value &&
-             is_constructible_v<decay_t<_Func>, _Func> && is_copy_constructible_v<decay_t<_Func>> &&
              __is_callable_from<_Func>)
   _LIBCPP_HIDE_FROM_ABI copyable_function(_Func&& __func) {
     using _StoredFunc = decay_t<_Func>;
+    // [func.wrap.copy.ctor] Mandates
+    static_assert(is_constructible_v<_StoredFunc, _Func>, "the target object must be constructible from the argument");
+    static_assert(is_copy_constructible_v<_StoredFunc>, "the target object must be copy constructible");
 
     if constexpr ((is_pointer_v<_StoredFunc> && is_function_v<remove_pointer_t<_StoredFunc>>) ||
                   is_member_function_pointer_v<_StoredFunc>) {
@@ -167,19 +169,20 @@ public:
   }
 
   template <class _Func, class... _Args>
-    requires is_constructible_v<decay_t<_Func>, _Args...> && is_copy_constructible_v<decay_t<_Func>> &&
-             __is_callable_from<_Func>
+    requires is_constructible_v<decay_t<_Func>, _Args...> && __is_callable_from<_Func>
   _LIBCPP_HIDE_FROM_ABI explicit copyable_function(in_place_type_t<_Func>, _Args&&... __args) {
     static_assert(is_same_v<decay_t<_Func>, _Func>);
+    static_assert(is_copy_constructible_v<decay_t<_Func>>, "the target object must be copy constructible");
     __construct<_Func>(std::forward<_Args>(__args)...);
   }
 
   template <class _Func, class _InitListType, class... _Args>
     requires is_constructible_v<decay_t<_Func>, initializer_list<_InitListType>&, _Args...> &&
-             is_copy_constructible_v<decay_t<_Func>> && __is_callable_from<_Func>
+             __is_callable_from<_Func>
   _LIBCPP_HIDE_FROM_ABI explicit copyable_function(
       in_place_type_t<_Func>, initializer_list<_InitListType> __il, _Args&&... __args) {
     static_assert(is_same_v<decay_t<_Func>, _Func>);
+    static_assert(is_copy_constructible_v<decay_t<_Func>>, "the target object must be copy constructible");
     __construct<_Func>(__il, std::forward<_Args>(__args)...);
   }
 
@@ -199,9 +202,6 @@ public:
   }
 
   template <class _Func>
-    requires(!is_same_v<remove_cvref_t<_Func>, copyable_function> && !__is_inplace_type<_Func>::value &&
-             is_constructible_v<decay_t<_Func>, _Func> && is_copy_constructible_v<decay_t<_Func>> &&
-             __is_callable_from<_Func>)
   _LIBCPP_HIDE_FROM_ABI copyable_function& operator=(_Func&& __func) {
     copyable_function(std::forward<_Func>(__func)).swap(*this);
     return *this;

@@ -42,9 +42,20 @@ struct __not_fn_t : __perfect_forward<__not_fn_op, _Fn> {
   using __perfect_forward<__not_fn_op, _Fn>::__perfect_forward;
 };
 
-template <class _Fn,
-          class = enable_if_t< is_constructible_v<decay_t<_Fn>, _Fn> && is_move_constructible_v<decay_t<_Fn>> >>
-_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 auto not_fn(_Fn&& __f) {
+template <class _Fn
+#  if _LIBCPP_STD_VER < 26
+          , class = enable_if_t<is_constructible_v<decay_t<_Fn>, _Fn> && is_move_constructible_v<decay_t<_Fn>>>
+#  endif
+          >
+_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 auto not_fn(_Fn&& __f)
+#  if _LIBCPP_STD_VER >= 26
+    -> __not_fn_t<decay_t<_Fn>>
+#  endif
+{
+#  if _LIBCPP_STD_VER >= 26
+  static_assert(is_constructible_v<decay_t<_Fn>, _Fn> && is_move_constructible_v<decay_t<_Fn>>,
+                "not_fn requires a constructible, move-constructible target");
+#  endif
   return __not_fn_t<decay_t<_Fn>>(std::forward<_Fn>(__f));
 }
 

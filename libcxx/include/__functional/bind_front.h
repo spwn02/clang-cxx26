@@ -43,9 +43,21 @@ struct __bind_front_t : __perfect_forward<__bind_front_op, _Fn, _BoundArgs...> {
 };
 
 template <class _Fn, class... _Args>
+#  if _LIBCPP_STD_VER < 26
   requires is_constructible_v<decay_t<_Fn>, _Fn> && is_move_constructible_v<decay_t<_Fn>> &&
            (is_constructible_v<decay_t<_Args>, _Args> && ...) && (is_move_constructible_v<decay_t<_Args>> && ...)
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto bind_front(_Fn&& __f, _Args&&... __args) {
+#  endif
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto bind_front(_Fn&& __f, _Args&&... __args)
+#  if _LIBCPP_STD_VER >= 26
+    -> __bind_front_t<decay_t<_Fn>, decay_t<_Args>...>
+#  endif
+{
+#  if _LIBCPP_STD_VER >= 26
+  static_assert(is_constructible_v<decay_t<_Fn>, _Fn> && is_move_constructible_v<decay_t<_Fn>>,
+                "bind_front requires a constructible, move-constructible target");
+  static_assert((is_constructible_v<decay_t<_Args>, _Args> && ...) && (is_move_constructible_v<decay_t<_Args>> && ...),
+                "bind_front requires constructible, move-constructible bound arguments");
+#  endif
   return __bind_front_t<decay_t<_Fn>, decay_t<_Args>...>(std::forward<_Fn>(__f), std::forward<_Args>(__args)...);
 }
 

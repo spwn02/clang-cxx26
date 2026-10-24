@@ -628,7 +628,7 @@ public:
   template <class _CharT, __enable_if_t<_IsCharLikeType<_CharT>::value && !is_array<_CharT>::value, int> = 0>
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 explicit bitset(
       const _CharT* __str,
-      size_t __n    = basic_string<_CharT>::npos,
+      size_t __n    = size_t(-1),
       _CharT __zero = _CharT('0'),
       _CharT __one  = _CharT('1')) {
     if (__n == basic_string<_CharT>::npos)

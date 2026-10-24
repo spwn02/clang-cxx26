@@ -50,7 +50,8 @@ int main(int, char**) {
   static_assert(__cpp_lib_copyable_function == 202306L);
   static_assert(std::is_copy_constructible_v<std::copyable_function<void()>>);
   static_assert(std::is_nothrow_move_constructible_v<std::copyable_function<void()>>);
-  static_assert(!std::is_constructible_v<std::copyable_function<int(int)>, MoveOnlyCallable>);
+  // [func.wrap.copy.ctor] is_copy_constructible_v<VT> is a Mandates, not a Constraints element.
+  static_assert(std::is_constructible_v<std::copyable_function<int(int)>, MoveOnlyCallable>);
   static_assert(!std::is_nothrow_constructible_v<std::copyable_function<int(int)>, LargeCallable>);
   static_assert(noexcept(std::declval<std::copyable_function<void() noexcept>&>()()));
 

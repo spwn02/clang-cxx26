@@ -421,6 +421,9 @@ constexpr bool test() {
     }
   }
 
+  // Before C++26 libc++ turns the Mandates of bind_front into constraints (an extension);
+  // in C++26 mode they are Mandates ([func.bind.partial]), see mandates_participation.compile.pass.cpp.
+#if TEST_STD_VER < 26
   // Make sure bind_front is SFINAE friendly
   {
     static_assert(!std::is_constructible_v<NotCopyMove, NotCopyMove&>);
@@ -439,6 +442,7 @@ constexpr bool test() {
     static_assert(!is_bind_frontable<decltype(takeAnything), NonConstCopyConstructible&>::value);
     static_assert(!is_bind_frontable<decltype(takeAnything), NonConstCopyConstructible>::value);
   }
+#endif
 
   // Make sure bind_front's unspecified type's operator() is SFINAE-friendly
   {
