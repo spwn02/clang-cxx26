@@ -145,6 +145,25 @@ inline _LIBCPP_HIDE_FROM_ABI ldiv_t div(long __x, long __y) _NOEXCEPT { return :
 inline _LIBCPP_HIDE_FROM_ABI lldiv_t div(long long __x, long long __y) _NOEXCEPT { return ::lldiv(__x, __y); }
 #      endif
 #    endif // _LIBCPP_MSVCRT
+
+// atexit, qsort and bsearch are declared both for a callback of a function type with C language linkage (by the C
+// library) and for one with C++ language linkage ([dcl.link]: the two are distinct types); these are the second kind.
+extern "C" {
+typedef void __libcpp_c_atexit_handler(void);
+typedef int __libcpp_c_compare_pred(const void*, const void*);
+}
+
+inline _LIBCPP_HIDE_FROM_ABI int atexit(void (*__func)(void)) _NOEXCEPT {
+  return ::atexit(reinterpret_cast<__libcpp_c_atexit_handler*>(__func));
+}
+inline _LIBCPP_HIDE_FROM_ABI void
+qsort(void* __base, size_t __nmemb, size_t __size, int (*__compar)(const void*, const void*)) {
+  ::qsort(__base, __nmemb, __size, reinterpret_cast<__libcpp_c_compare_pred*>(__compar));
+}
+inline _LIBCPP_HIDE_FROM_ABI void*
+bsearch(const void* __key, const void* __base, size_t __nmemb, size_t __size, int (*__compar)(const void*, const void*)) {
+  return ::bsearch(__key, __base, __nmemb, __size, reinterpret_cast<__libcpp_c_compare_pred*>(__compar));
+}
 } // extern "C++"
 #  endif   // __cplusplus
 

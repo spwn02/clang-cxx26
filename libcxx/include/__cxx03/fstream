@@ -218,6 +218,10 @@ _LIBCPP_PUSH_MACROS
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
+// fclose has C language linkage; the deleter of the unique_ptr below is a pointer to a function with C++ language
+// linkage ([dcl.link]).
+inline _LIBCPP_HIDE_FROM_ABI int __libcpp_fclose(FILE* __f) { return fclose(__f); }
+
 template <class _CharT, class _Traits>
 class _LIBCPP_TEMPLATE_VIS basic_filebuf : public basic_streambuf<_CharT, _Traits> {
 public:
@@ -675,7 +679,7 @@ basic_filebuf<_CharT, _Traits>* basic_filebuf<_CharT, _Traits>::close() {
   basic_filebuf<_CharT, _Traits>* __rt = nullptr;
   if (__file_) {
     __rt = this;
-    unique_ptr<FILE, int (*)(FILE*)> __h(__file_, [](FILE* __f) { return fclose(__f); });
+    unique_ptr<FILE, int (*)(FILE*)> __h(__file_, __libcpp_fclose);
     if (sync())
       __rt = nullptr;
     if (fclose(__h.release()))
@@ -1462,3 +1466,4 @@ _LIBCPP_POP_MACROS
 #endif
 
 #endif // _LIBCPP___CXX03_FSTREAM
+

@@ -21,6 +21,12 @@
 #  pragma GCC system_header
 #endif
 
+// The routines the C library calls have function types with C language linkage ([dcl.link]).
+extern "C" {
+typedef void __libcpp_c_once_routine(void);
+typedef void __libcpp_c_tls_destructor(void*);
+}
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 using __libcpp_timespec_t = ::timespec;
@@ -115,7 +121,7 @@ typedef ::once_flag __libcpp_exec_once_flag;
 #define _LIBCPP_EXEC_ONCE_INITIALIZER ONCE_FLAG_INIT
 
 inline _LIBCPP_HIDE_FROM_ABI int __libcpp_execute_once(__libcpp_exec_once_flag* flag, void (*init_routine)(void)) {
-  ::call_once(flag, init_routine);
+  ::call_once(flag, reinterpret_cast<__libcpp_c_once_routine*>(init_routine));
   return 0;
 }
 
@@ -177,7 +183,7 @@ inline _LIBCPP_HIDE_FROM_ABI void __libcpp_thread_sleep_for(const chrono::nanose
 typedef tss_t __libcpp_tls_key;
 
 inline _LIBCPP_HIDE_FROM_ABI int __libcpp_tls_create(__libcpp_tls_key* __key, void (*__at_exit)(void*)) {
-  return tss_create(__key, __at_exit) == thrd_success ? 0 : EINVAL;
+  return tss_create(__key, reinterpret_cast<__libcpp_c_tls_destructor*>(__at_exit)) == thrd_success ? 0 : EINVAL;
 }
 
 inline _LIBCPP_HIDE_FROM_ABI void* __libcpp_tls_get(__libcpp_tls_key __key) { return tss_get(__key); }

@@ -37,6 +37,13 @@
 #  pragma GCC system_header
 #endif
 
+// The routines the C library calls have function types with C language linkage ([dcl.link]).
+extern "C" {
+typedef void __libcpp_c_once_routine();
+typedef void* __libcpp_c_thread_routine(void*);
+typedef void __libcpp_c_tls_destructor(void*);
+}
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 using __libcpp_timespec_t = ::timespec;
@@ -138,7 +145,7 @@ typedef pthread_once_t __libcpp_exec_once_flag;
 #define _LIBCPP_EXEC_ONCE_INITIALIZER PTHREAD_ONCE_INIT
 
 inline _LIBCPP_HIDE_FROM_ABI int __libcpp_execute_once(__libcpp_exec_once_flag* __flag, void (*__init_routine)()) {
-  return pthread_once(__flag, __init_routine);
+  return pthread_once(__flag, reinterpret_cast<__libcpp_c_once_routine*>(__init_routine));
 }
 
 //
@@ -179,7 +186,7 @@ inline _LIBCPP_HIDE_FROM_ABI bool __libcpp_thread_isnull(const __libcpp_thread_t
 }
 
 inline _LIBCPP_HIDE_FROM_ABI int __libcpp_thread_create(__libcpp_thread_t* __t, void* (*__func)(void*), void* __arg) {
-  return pthread_create(__t, nullptr, __func, __arg);
+  return pthread_create(__t, nullptr, reinterpret_cast<__libcpp_c_thread_routine*>(__func), __arg);
 }
 
 inline _LIBCPP_HIDE_FROM_ABI __libcpp_thread_id __libcpp_thread_get_current_id() {
@@ -207,7 +214,7 @@ inline _LIBCPP_HIDE_FROM_ABI void __libcpp_thread_sleep_for(const chrono::nanose
 typedef pthread_key_t __libcpp_tls_key;
 
 inline _LIBCPP_HIDE_FROM_ABI int __libcpp_tls_create(__libcpp_tls_key* __key, void (*__at_exit)(void*)) {
-  return pthread_key_create(__key, __at_exit);
+  return pthread_key_create(__key, reinterpret_cast<__libcpp_c_tls_destructor*>(__at_exit));
 }
 
 inline _LIBCPP_HIDE_FROM_ABI void* __libcpp_tls_get(__libcpp_tls_key __key) { return pthread_getspecific(__key); }
