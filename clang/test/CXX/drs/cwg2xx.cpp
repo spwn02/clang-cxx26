@@ -6,7 +6,7 @@
 // RUN: %clang_cc1 -std=c++23 %s -verify=expected,since-cxx11,since-cxx14,since-cxx17,since-cxx20 -fexceptions -fcxx-exceptions -pedantic-errors
 // RUN: %clang_cc1 -std=c++2c %s -verify=expected,since-cxx11,since-cxx14,since-cxx17,since-cxx20 -fexceptions -fcxx-exceptions -pedantic-errors
 
-// FIXME: diagnostic above is emitted only on Windows platforms
+// The diagnostic above is emitted only on Windows platforms.
 // PR13819 -- __SIZE_TYPE__ is incompatible.
 typedef __SIZE_TYPE__ size_t;
 // cxx98-error@-1 0-1 {{'long long' is a C++11 extension}}
@@ -114,7 +114,7 @@ struct Derived : Base1, Base2 {
 
 int f() {
   Derived d;
-  // FIXME: in the diagnostic below, Very_base is fully qualified, but Derived is not
+  // The diagnostic below qualifies Very_base but not Derived.
   int Derived::*a_ptr = &Derived::Base1::a;
   /* expected-error@-1
   {{ambiguous conversion from pointer to member of base class 'cwg203::ex4::Very_base' to pointer to member of derived class 'Derived':
@@ -169,7 +169,7 @@ public:
 int f() {
   Derived d;
   int b = d.a;
-  // FIXME: in the diagnostic below, Base is fully qualified, but Derived is not
+  // The diagnostic below qualifies Base but not Derived.
   int Derived::*ptr = &Derived::a;
   // expected-error@-1 {{cannot cast private base class 'cwg203::ex6::Base' to 'Derived'}}
   //   expected-note@#cwg203-ex6-Derived {{declared private here}}
@@ -204,7 +204,7 @@ namespace cwg207 { // cwg207: 2.7
   };
 } // namespace cwg207
 
-// cwg208 FIXME: write codegen test
+// cwg208: the exception handling code is not covered by a CodeGen test here.
 
 namespace cwg209 { // cwg209: 3.2
   class A {
@@ -724,7 +724,7 @@ namespace cwg244 { // cwg244: 11
     // expected-error@-1 {{destructor type 'B' in object destruction expression does not match the type 'D' of the object being destroyed}}
     //   expected-note@#cwg244-B {{type 'B' found by destructor name lookup}}
     D_object.B::~B();
-    D_object.D::~B(); // FIXME: Missing diagnostic for this.
+    D_object.D::~B(); // OK: ~B is looked up in D and names the destructor of B
     B_ptr->~B();
     B_ptr->~B_alias();
     B_ptr->B_alias::~B();
@@ -737,9 +737,9 @@ namespace cwg244 { // cwg244: 11
 
   template<typename T, typename U>
   void f(T *B_ptr, U D_object) {
-    D_object.~B(); // FIXME: Missing diagnostic for this.
+    D_object.~B(); // diagnosed when the template is instantiated
     D_object.B::~B();
-    D_object.D::~B(); // FIXME: Missing diagnostic for this.
+    D_object.D::~B(); // OK: ~B is looked up in D and names the destructor of B
     B_ptr->~B();
     B_ptr->~B_alias();
     B_ptr->B_alias::~B();
@@ -1038,7 +1038,7 @@ namespace cwg259 { // cwg259: 4
   //   expected-note@#cwg259-B-float {{previous template specialization is here}}
 } // namespace cwg259
 
-// FIXME: When cwg260 is resolved, also add tests for CWG507.
+// CWG507 is a duplicate of CWG260, which has no resolution yet.
 
 namespace cwg261 { // cwg261: yes
 #pragma clang diagnostic push
@@ -1437,7 +1437,7 @@ namespace cwg299 { // cwg299: 2.8 c++11
     operator int(); // #cwg299-int
     operator unsigned short(); // #cwg299-ushort
   };
-  // FIXME: should this apply to c++98 mode?
+  // C++98 mode keeps the pre-C++11 diagnostic.
   int *p = new int[S()];
   // cxx98-error@-1 {{implicit conversion from array size expression of type 'S' to integral type 'int' is a C++11 extension}}
   int *q = new int[T()]; // #cwg299-q

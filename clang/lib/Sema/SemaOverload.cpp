@@ -1914,6 +1914,11 @@ bool Sema::TryFunctionConversion(QualType FromType, QualType ToType,
   return Changed;
 }
 
+bool Sema::ignoresFunctionTypeLanguageLinkage() const {
+  const auto *D = dyn_cast_or_null<Decl>(CurContext);
+  return D && SourceMgr.isInSystemHeader(D->getLocation());
+}
+
 bool Sema::IsFunctionConversion(QualType FromType, QualType ToType) const {
   if (Context.hasSameUnqualifiedType(FromType, ToType))
     return false;
@@ -1966,6 +1971,14 @@ bool Sema::IsFunctionConversion(QualType FromType, QualType ToType) const {
   // Drop 'noreturn' if not present in target type.
   if (FromEInfo.getNoReturn() && !ToEInfo.getNoReturn()) {
     FromFn = Context.adjustFunctionType(FromFn, FromEInfo.withNoReturn(false));
+    FromEInfo = FromFn->getExtInfo();
+    Changed = true;
+  }
+
+  if (FromEInfo.getCLanguageLinkage() != ToEInfo.getCLanguageLinkage() &&
+      ignoresFunctionTypeLanguageLinkage()) {
+    FromFn = Context.adjustFunctionType(
+        FromFn, FromEInfo.withCLanguageLinkage(ToEInfo.getCLanguageLinkage()));
     Changed = true;
   }
 

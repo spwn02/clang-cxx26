@@ -28,7 +28,8 @@ void f1(t1<f0> a0) {}
 namespace test3 {
 // CHECK: void @test3_f0
 extern "C" void test3_f0(float) {}
-template<void (&)(float)> struct t1 {};
+extern "C" typedef void CFloatFn(float);
+template<CFloatFn&> struct t1 {};
 // CHECK: void @_ZN5test32f1ENS_2t1IL_Z8test3_f0EEE(
 void f1(t1<test3_f0> a0) {}
 }
@@ -36,7 +37,8 @@ void f1(t1<test3_f0> a0) {}
 namespace test4 {
 // CHECK: void @test4_f0
 extern "C" void test4_f0(float) {}
-template<void (*)(float)> struct t1 {};
+extern "C" typedef void CFloatFn(float);
+template<CFloatFn*> struct t1 {};
 // CHECK: void @_ZN5test42f1ENS_2t1IXadL_Z8test4_f0EEEE(
 void f1(t1<test4_f0> a0) {}
 }
@@ -46,7 +48,8 @@ extern "C" void test5_f0(float) {}
 int main(int) {}
 
 namespace test5 {
-template<void (&)(float)> struct t1 {};
+extern "C" typedef void CFloatFn(float);
+template<CFloatFn&> struct t1 {};
 // CHECK: void @_ZN5test52f1ENS_2t1IL_Z8test5_f0EEE(
 void f1(t1<test5_f0> a0) {}
 

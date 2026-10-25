@@ -941,6 +941,9 @@ FunctionProtoType::printExceptionSpecification(raw_ostream &OS,
 
 void TypePrinter::printFunctionProtoBefore(const FunctionProtoType *T,
                                            raw_ostream &OS) {
+  if (Policy.PrintFunctionTypeLanguageLinkage &&
+      T->getExtInfo().getCLanguageLinkage())
+    OS << "extern \"C\" ";
   if (T->hasTrailingReturn()) {
     OS << "auto ";
     if (!HasEmptyPlaceHolder)
@@ -1202,6 +1205,9 @@ void TypePrinter::printFunctionAfter(const FunctionType::ExtInfo &Info,
 
 void TypePrinter::printFunctionNoProtoBefore(const FunctionNoProtoType *T,
                                              raw_ostream &OS) {
+  if (Policy.PrintFunctionTypeLanguageLinkage &&
+      T->getExtInfo().getCLanguageLinkage())
+    OS << "extern \"C\" ";
   // If needed for precedence reasons, wrap the inner part in grouping parens.
   SaveAndRestore PrevPHIsEmpty(HasEmptyPlaceHolder, false);
   printBefore(T->getReturnType(), OS);

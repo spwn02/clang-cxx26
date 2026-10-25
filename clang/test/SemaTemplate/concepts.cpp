@@ -850,6 +850,7 @@ template<typename T> auto L = []<C<T> U>() {};
 
 struct Q {
   template<C<int> U> friend constexpr auto decltype(L<int>)::operator()() const;
+  // expected-error@-1 {{a 'decltype' specifier cannot be used in a declarative nested name specifier}}
 };
 
 template <class T>

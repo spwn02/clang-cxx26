@@ -16,5 +16,5 @@ public:
 void foo( void ) {
   kernel_thread_start(&_IOConfigThread::main);
   kernel_thread_start((thread_continue_t)&_IOConfigThread::main);
-  kernel_thread_start(&pure_c);
+  kernel_thread_start((thread_continue_t)&pure_c);
 }

@@ -48,11 +48,13 @@ void f() {
   t5(C()); // expected-error {{allocating an object of abstract class type 'C'}}
 }
 
-C e1[2]; // expected-error {{array of abstract class type 'C'}}
-C (*e2)[2]; // expected-error {{array of abstract class type 'C'}}
-C (**e3)[2]; // expected-error {{array of abstract class type 'C'}}
+// An array of an abstract class type is a valid type; only defining an object
+// of that type is an error ([basic.def], CWG1640).
+C e1[2]; // expected-error {{variable type 'C' is an abstract class}}
+C (*e2)[2];
+C (**e3)[2];
 
-void t6(C c[2]); // expected-error {{array of abstract class type 'C'}}
+void t6(C c[2]);
 
 void t7(void (*)(C));
 

@@ -36,6 +36,14 @@ typedef HostReturnTy CurrentReturnTy;
 // {host,device} compilation.
 typedef CurrentReturnTy (*CurrentFnPtr)();
 
+// The types of the pointers to extern "C" functions: the function types have C
+// language linkage ([dcl.link]).
+extern "C" {
+typedef HostReturnTy (*CHostFnPtr)();
+typedef DeviceReturnTy (*CDeviceFnPtr)();
+typedef CurrentReturnTy (*CCurrentFnPtr)();
+}
+
 // Host and unattributed functions can't be overloaded.
 __host__ void hh() {} // expected-note {{previous definition is here}}
 void hh() {} // expected-error {{redefinition of 'hh'}}
@@ -107,17 +115,17 @@ extern "C" __host__ HostReturnTy ch() { return HostReturnTy(); }
 __host__ void hostf() {
   DeviceFnPtr fp_d = d;         // host-error {{reference to __device__ function 'd' in __host__ function}}
   DeviceReturnTy ret_d = d();   // hostdefer-error {{no matching function for call to 'd'}}
-  DeviceFnPtr fp_cd = cd;       // host-error {{reference to __device__ function 'cd' in __host__ function}}
+  CDeviceFnPtr fp_cd = cd;       // host-error {{reference to __device__ function 'cd' in __host__ function}}
   DeviceReturnTy ret_cd = cd(); // hostdefer-error {{no matching function for call to 'cd'}}
 
   HostFnPtr fp_h = h;
   HostReturnTy ret_h = h();
-  HostFnPtr fp_ch = ch;
+  CHostFnPtr fp_ch = ch;
   HostReturnTy ret_ch = ch();
 
   HostFnPtr fp_dh = dh;
   HostReturnTy ret_dh = dh();
-  HostFnPtr fp_cdh = cdh;
+  CHostFnPtr fp_cdh = cdh;
   HostReturnTy ret_cdh = cdh();
 
   GlobalFnPtr fp_g = g;
@@ -128,17 +136,17 @@ __host__ void hostf() {
 __device__ void devicef() {
   DeviceFnPtr fp_d = d;
   DeviceReturnTy ret_d = d();
-  DeviceFnPtr fp_cd = cd;
+  CDeviceFnPtr fp_cd = cd;
   DeviceReturnTy ret_cd = cd();
 
   HostFnPtr fp_h = h;         // dev-error {{reference to __host__ function 'h' in __device__ function}}
   HostReturnTy ret_h = h();   // devdefer-error {{no matching function for call to 'h'}}
-  HostFnPtr fp_ch = ch;       // dev-error {{reference to __host__ function 'ch' in __device__ function}}
+  CHostFnPtr fp_ch = ch;       // dev-error {{reference to __host__ function 'ch' in __device__ function}}
   HostReturnTy ret_ch = ch(); // devdefer-error {{no matching function for call to 'ch'}}
 
   DeviceFnPtr fp_dh = dh;
   DeviceReturnTy ret_dh = dh();
-  DeviceFnPtr fp_cdh = cdh;
+  CDeviceFnPtr fp_cdh = cdh;
   DeviceReturnTy ret_cdh = cdh();
 
   GlobalFnPtr fp_g = g;
@@ -149,17 +157,17 @@ __device__ void devicef() {
 __global__ void globalf() {
   DeviceFnPtr fp_d = d;
   DeviceReturnTy ret_d = d();
-  DeviceFnPtr fp_cd = cd;
+  CDeviceFnPtr fp_cd = cd;
   DeviceReturnTy ret_cd = cd();
 
   HostFnPtr fp_h = h;         // dev-error {{reference to __host__ function 'h' in __global__ function}}
   HostReturnTy ret_h = h();   // devdefer-error {{no matching function for call to 'h'}}
-  HostFnPtr fp_ch = ch;       // dev-error {{reference to __host__ function 'ch' in __global__ function}}
+  CHostFnPtr fp_ch = ch;       // dev-error {{reference to __host__ function 'ch' in __global__ function}}
   HostReturnTy ret_ch = ch(); // devdefer-error {{no matching function for call to 'ch'}}
 
   DeviceFnPtr fp_dh = dh;
   DeviceReturnTy ret_dh = dh();
-  DeviceFnPtr fp_cdh = cdh;
+  CDeviceFnPtr fp_cdh = cdh;
   DeviceReturnTy ret_cdh = cdh();
 
   GlobalFnPtr fp_g = g;
@@ -170,7 +178,7 @@ __global__ void globalf() {
 __host__ __device__ void hostdevicef() {
   DeviceFnPtr fp_d = d;
   DeviceReturnTy ret_d = d();
-  DeviceFnPtr fp_cd = cd;
+  CDeviceFnPtr fp_cd = cd;
   DeviceReturnTy ret_cd = cd();
 #if !defined(__CUDA_ARCH__)
   // expected-error@-5 {{reference to __device__ function 'd' in __host__ __device__ function}}
@@ -181,7 +189,7 @@ __host__ __device__ void hostdevicef() {
 
   HostFnPtr fp_h = h;
   HostReturnTy ret_h = h();
-  HostFnPtr fp_ch = ch;
+  CHostFnPtr fp_ch = ch;
   HostReturnTy ret_ch = ch();
 #if defined(__CUDA_ARCH__)
   // expected-error@-5 {{reference to __host__ function 'h' in __host__ __device__ function}}
@@ -192,7 +200,7 @@ __host__ __device__ void hostdevicef() {
 
   CurrentFnPtr fp_dh = dh;
   CurrentReturnTy ret_dh = dh();
-  CurrentFnPtr fp_cdh = cdh;
+  CCurrentFnPtr fp_cdh = cdh;
   CurrentReturnTy ret_cdh = cdh();
 
   GlobalFnPtr fp_g = g;
@@ -208,7 +216,7 @@ __host__ __device__ void hostdevicef() {
 
 // Test for address of overloaded function resolution in the global context.
 HostFnPtr fp_h = h;
-HostFnPtr fp_ch = ch;
+CHostFnPtr fp_ch = ch;
 #if defined (__CUDA_ARCH__)
 __device__
 #endif
@@ -216,7 +224,7 @@ CurrentFnPtr fp_dh = dh;
 #if defined (__CUDA_ARCH__)
 __device__
 #endif
-CurrentFnPtr fp_cdh = cdh;
+CCurrentFnPtr fp_cdh = cdh;
 GlobalFnPtr fp_g = g;
 
 

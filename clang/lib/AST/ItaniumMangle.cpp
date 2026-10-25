@@ -3759,8 +3759,9 @@ void CXXNameMangler::mangleType(const FunctionProtoType *T) {
 
   Out << 'F';
 
-  // FIXME: We don't have enough information in the AST to produce the 'Y'
-  // encoding for extern "C" function types.
+  // The 'Y' encoding for function types with C language linkage.
+  if (T->getExtInfo().getCLanguageLinkage())
+    Out << 'Y';
   mangleBareFunctionType(T, /*MangleReturnType=*/true);
 
   // Mangle the ref-qualifier, if present.

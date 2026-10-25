@@ -40,12 +40,18 @@ void instantiate_bad_scope_tmpl() {
 
 #if __cplusplus < 201103L
 template <typename T, T FN()>
-T func_template() {
-  return FN(); // expected-error 2{{builtin functions must be directly called}}
+T func_template() { // #func_template
+  return FN();
 }
 void inject_builtins() {
-  func_template<void *, __exception_info>(); // expected-note {{instantiation of}}
-  func_template<unsigned long, __exception_code>(); // expected-note {{instantiation of}}
+  // The builtins have C language linkage, so their types are not the C++
+  // function type of the template parameter ([dcl.link]).
+  func_template<void *, __exception_info>();
+  // expected-error@-1 {{no matching function for call to 'func_template'}}
+  // expected-note@#func_template {{candidate template ignored: invalid explicitly-specified argument for template parameter 'FN'}}
+  func_template<unsigned long, __exception_code>();
+  // expected-error@-1 {{no matching function for call to 'func_template'}}
+  // expected-note@#func_template {{candidate template ignored: invalid explicitly-specified argument for template parameter 'FN'}}
 }
 #endif
 

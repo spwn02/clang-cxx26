@@ -188,7 +188,7 @@ unsigned x = 0x'01;
 
 #if __cplusplus >= 201103L
 // cwg1948: 3.5
-// FIXME: This diagnostic could be improved.
+// The diagnostic does not name the replaceable allocation function.
 void *operator new(__SIZE_TYPE__) noexcept { return nullptr; }
 // since-cxx11-error@-1 {{exception specification in declaration does not match previous declaration}}
 #endif
@@ -210,9 +210,9 @@ namespace cwg1959 { // cwg1959: 3.9
   };
 
   a x;
-  // FIXME: As a resolution to an open DR against P0136R0, we disallow
-  // use of inherited constructors to construct from a single argument
-  // where the base class is reference-related to the argument type.
+  // An inherited constructor is not a candidate when constructing from a
+  // single argument that is reference-related to the base class
+  // ([over.match.funcs.general]).
   b y = x;
   // since-cxx11-error@-1 {{no viable conversion from 'a' to 'b'}}
   //   since-cxx11-note@#cwg1959-move-ctor {{candidate inherited constructor not viable: no known conversion from 'a' to 'c &&' for 1st argument}}
@@ -229,9 +229,9 @@ namespace cwg1959 { // cwg1959: 3.9
     using a::a;
     c(const c &);
   };
-  // FIXME: As a resolution to an open DR against P0136R0, we disallow
-  // use of inherited constructors to construct from a single argument
-  // where the base class is reference-related to the argument type.
+  // An inherited constructor is not a candidate when constructing from a
+  // single argument that is reference-related to the base class
+  // ([over.match.funcs.general]).
   c q(static_cast<c&&>(q));
 #endif
 } // namespace cwg1959
@@ -277,7 +277,7 @@ namespace cwg1966 { // cwg1966: 11
   enum X : enum Y : int {} {};
   // since-cxx11-error@-1 {{'cwg1966::Y' cannot be defined in a type specifier}}
   struct Q {
-    // FIXME: can we emit something nicer than that?
+    // The diagnostics are recovery noise for an ill-formed declaration.
     enum X : enum Y : int {} {};
     // since-cxx11-error@-1 {{non-defining declaration of enumeration with a fixed underlying type is only permitted as a standalone declaration; missing list of enumerators?}}
     // since-cxx11-error@-2 {{non-integral type 'enum Y' is an invalid underlying type}}
@@ -309,9 +309,8 @@ namespace cwg1991 { // cwg1991: 3.9
     B(int, int, int = 0);
   };
 
-  // FIXME: As a resolution to an open DR against P0136R1, we treat derived
-  // class constructors as better than base class constructors in the presence
-  // of ambiguity.
+  // A derived class constructor is better than an inherited one with the same
+  // parameter types ([over.match.best.general]).
   B b(0, 0); // ok, calls B constructor
 #endif
 } // namespace cwg1991

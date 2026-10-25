@@ -2083,8 +2083,10 @@ QualType Sema::BuildArrayType(QualType T, ArraySizeModifier ASM,
   if (getLangOpts().CPlusPlus) {
     // C++ [dcl.array]p1:
     //   T is called the array element type; this type shall not be a reference
-    //   type, the (possibly cv-qualified) type void, a function type or an
-    //   abstract class type.
+    //   type, the (possibly cv-qualified) type void or a function type.
+    //
+    // An array of an abstract class type is a valid type (CWG1640); defining
+    // an object of such a type is diagnosed where the object is created.
     //
     // C++ [dcl.array]p3:
     //   When several "array of" specifications are adjacent, [...] only the
@@ -2102,10 +2104,6 @@ QualType Sema::BuildArrayType(QualType T, ArraySizeModifier ASM,
       Diag(Loc, diag::err_array_incomplete_or_sizeless_type) << 0 << T;
       return QualType();
     }
-
-    if (RequireNonAbstractType(Brackets.getBegin(), T,
-                               diag::err_array_of_abstract_type))
-      return QualType();
 
     // Mentioning a member pointer type for an array type causes us to lock in
     // an inheritance model, even if it's inside an unused typedef.
@@ -3753,6 +3751,45 @@ static void warnAboutRedundantParens(Sema &S, Declarator &D, QualType T) {
       << FixItHint::CreateRemoval(Paren.EndLoc);
 }
 
+/// [dcl.link]p6: in a linkage-specification, the specified language linkage
+/// applies to the function types of all function declarators; a C language
+/// linkage is ignored for the function type of non-static class member
+/// functions and of friend functions with a trailing requires-clause.
+static bool functionDeclaratorHasCLanguageLinkage(Sema &S, Declarator &D,
+                                                  unsigned ChunkIndex) {
+  if (!S.getLangOpts().CPlusPlus || !S.CurContext->isExternCContext())
+    return false;
+  // The call operator of a closure type is a class member.
+  if (D.getContext() == DeclaratorContext::LambdaExpr ||
+      D.getContext() == DeclaratorContext::BlockLiteral)
+    return false;
+  // The function type of a block is not a function type with a language
+  // linkage of its own.
+  {
+    unsigned Outer = ChunkIndex;
+    while (Outer > 0 &&
+           D.getTypeObject(Outer - 1).Kind == DeclaratorChunk::Paren)
+      --Outer;
+    if (Outer > 0 &&
+        D.getTypeObject(Outer - 1).Kind == DeclaratorChunk::BlockPointer)
+      return false;
+  }
+  unsigned DeclaringChunk;
+  if (D.isFunctionDeclarator(DeclaringChunk) && DeclaringChunk == ChunkIndex) {
+    bool IsMember = D.getContext() == DeclaratorContext::Member &&
+                    !D.getDeclSpec().isFriendSpecified();
+    if (!IsMember && D.getCXXScopeSpec().isSet())
+      IsMember = isa_and_nonnull<CXXRecordDecl>(
+          S.computeDeclContext(D.getCXXScopeSpec()));
+    if (IsMember &&
+        D.getDeclSpec().getStorageClassSpec() != DeclSpec::SCS_static)
+      return false;
+    if (D.getDeclSpec().isFriendSpecified() && D.getTrailingRequiresClause())
+      return false;
+  }
+  return true;
+}
+
 /// Helper for figuring out the default CC for a function declarator type.  If
 /// this is the outermost chunk, then we can determine the CC from the
 /// declarator context.  If not, then this could be either a member function
@@ -5194,6 +5231,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
 
       FunctionType::ExtInfo EI(
           getCCForDeclaratorChunk(S, D, DeclType.getAttrs(), FTI, chunkIndex));
+      if (functionDeclaratorHasCLanguageLinkage(S, D, chunkIndex))
+        EI = EI.withCLanguageLinkage(true);
 
       // OpenCL disallows functions without a prototype, but it doesn't enforce
       // strict prototypes as in C23 because it allows a function definition to

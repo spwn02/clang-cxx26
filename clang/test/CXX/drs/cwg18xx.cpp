@@ -559,7 +559,8 @@ namespace cwg1881 { // cwg1881: 7
 // cwg1884 is in cwg1884.cpp
 
 namespace cwg1890 { // cwg1890: no drafting 2018-06-04
-// FIXME: current consensus for CWG2335 is that the examples are well-formed.
+// The examples are ill-formed by the wording of [class.mem]: the bodies of
+// member functions are a complete-class context of the outermost class only.
 namespace ex1 {
 #if __cplusplus >= 201402L
 struct A {

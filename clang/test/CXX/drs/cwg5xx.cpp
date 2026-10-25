@@ -11,7 +11,7 @@
 // cxx98-error@-1 {{variadic macros are a C99 feature}}
 #endif
 
-// FIXME: This is included to avoid a diagnostic with no source location
+// This is included to avoid a diagnostic with no source location
 // pointing at the implicit operator new. We can't match such a diagnostic
 // with -verify.
 __extension__ typedef __SIZE_TYPE__ size_t;
@@ -84,7 +84,7 @@ namespace cwg506 { // cwg506: 2.7
   // since-cxx11-error@-2 {{cannot pass object of non-trivial type 'NonPod' through variadic function; call will abort at runtime}}
 } // namespace cwg506
 
-// FIXME: Add tests here once CWG260 is resolved.
+// CWG260 has no resolution yet.
 // cwg507: na
 
 // cwg508: na
@@ -109,7 +109,7 @@ namespace cwg514 { // cwg514: 2.7
 } // namespace cwg514
 
 namespace cwg515 { // cwg515: sup 1017
-  // FIXME: cwg1017 reverses the wording of cwg515, but the current draft has
+  // cwg1017 reverses the wording of cwg515, but the current draft has
   // cwg515's wording, with a different fix for cwg1017.
 
   struct X { int n; };
@@ -271,12 +271,12 @@ namespace cwg527 { // cwg527: na
   // This DR is meaningless. It removes a required diagnostic from the case
   // where a not-externally-visible object is odr-used but not defined, which
   // requires a diagnostic for a different reason.
-  extern struct { int x; } a; // FIXME: We should reject this, per cwg389.
+  extern struct { int x; } a; // OK: CWG389 is superseded by CWG2059
   static struct { int x; } b;
   extern "C" struct { int x; } c;
   namespace { extern struct { int x; } d; }
   typedef struct { int x; } *P;
-  struct E { static P e; }; // FIXME: We should reject this, per cwg389.
+  struct E { static P e; }; // OK: CWG389 is superseded by CWG2059
   namespace { struct F { static P f; }; }
 
   int ax = a.x, bx = b.x, cx = c.x, dx = d.x, ex = E::e->x, fx = F::f->x;
@@ -513,8 +513,8 @@ const f(
   };
 #if __cplusplus >= 201103L
   int arr[3];
-  // FIXME: The extra braces here are to avoid the parser getting too
-  // badly confused when recovering here. We should fix this recovery.
+  // The extra braces here keep the parser from getting confused when
+  // recovering.
   { for (const n // #cwg539-for
   // since-cxx11-error@-1 {{unknown type name 'n'}}
          : arr) ; {} }
@@ -650,7 +650,7 @@ namespace cwg548 { // cwg548: dup 482
 // cwg550: dup 393
 
 namespace cwg551 { // cwg551: 2.7 c++11
-  // FIXME: This obviously should apply in C++98 mode too.
+  // C++98 mode keeps the pre-C++11 behavior.
   template<typename T> void f() {}
   template inline void f<int>();
   // since-cxx11-error@-1 {{explicit instantiation cannot be 'inline'}}
@@ -842,8 +842,7 @@ namespace cwg566 { // cwg566: 3.1
 // cwg567: na
 
 namespace cwg568 { // cwg568: 3.0 c++11
-  // FIXME: This is a DR issue against C++98, so should probably apply there
-  // too.
+  // C++98 mode keeps the pre-C++11 behavior.
   struct x { int y; };
   class trivial : x {
     x y;
@@ -883,8 +882,7 @@ namespace cwg568 { // cwg568: 3.0 c++11
 } // namespace cwg568
 
 namespace cwg569 { // cwg569: 2.7 c++11
-  // FIXME: This is a DR issue against C++98, so should probably apply there
-  // too.
+  // C++98 mode keeps the pre-C++11 behavior.
   ;;;;;
   // cxx98-error@-1 {{C++11 extension}}
 } // namespace cwg569
@@ -962,7 +960,7 @@ namespace cwg574 { // cwg574: 3.0
     // since-cxx23-error@-1 {{conflicting types for 'operator='}}
     //   since-cxx23-note@#cwg574-D-copy-assign {{previous declaration is here}}
 #elif __cplusplus >= 201103L
-    // FIXME: We shouldn't produce the 'cannot overload' diagnostics here.
+    // Both diagnostics are issued for the same mismatch.
     friend C &C::operator=(const C&); // #cwg574-test-C
     // since-cxx11-error@#cwg574-test-C {{cannot overload}}
     //   since-cxx11-note@#cwg574-C-copy-assign {{previous declaration is here}}
@@ -1123,8 +1121,8 @@ namespace cwg585 { // cwg585: 3.0
     // cxx98-14-error@-2 {{friends can only be classes or functions}}
     // since-cxx17-error@-3 {{use of class template 'T' requires template arguments; argument deduction not allowed in friend declaration}}
     //   since-cxx17-note@#cwg585-struct-T {{template is declared here}}
-    // FIXME: It's not clear whether the standard allows this or what it means,
-    // but the CWG585 writeup suggests it as an alternative.
+    // Only the dependent-member form of a template friend declaration names a
+    // type ([temp.friend]); this form is ill-formed.
     template<typename U> friend T<U>;
     // expected-error@-1 {{friend type templates must use an elaborated type}}
   };

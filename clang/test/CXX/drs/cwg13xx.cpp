@@ -58,7 +58,8 @@ namespace cwg1310 { // cwg1310: 5
   struct U::U w;
 
   struct V : T::T {
-    // FIXME: This is technically ill-formed, but we consider that to be a defect.
+    // Well-formed: a base-specifier looks up types only, so T::T names the
+    // injected-class-name ([class.qual]).
     V() : T::T() {}
   };
   template<typename T> struct VT : T::T {
@@ -242,7 +243,7 @@ namespace cwg1330 { // cwg1330: 4 c++11
     static const int value = true;
   };
 
-  // FIXME: We only delay instantiation in C++11 onwards. In C++98, something
+  // Instantiation is delayed in C++11 onwards. In C++98, something
   // weird happens: instantiation of B<P> fails because it references T before
   // it's instantiated, but the diagnostic is suppressed in
   // Sema::FindInstantiatedDecl because we've already hit an error. This is

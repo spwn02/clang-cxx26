@@ -27,8 +27,8 @@ extern S3 *q3; // #cwg279-q3
 //--- cwg279.cpp
 import cwg279_A;
 
-// FIXME: We should use markers instead. They are less fragile,
-//        but -verify doesn't support them across modules yet.
+// Line numbers are used instead of markers: -verify does not support markers
+// across modules.
 // The unnamed class gets the name S for linkage purposes, so this declaration
 // of S corresponds to the one in the module but is attached to the global
 // module instead: ill-formed ([basic.link]).

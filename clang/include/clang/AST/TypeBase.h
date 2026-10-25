@@ -1999,7 +1999,7 @@ protected:
     /// Extra information which affects how the function is called, like
     /// regparm and the calling convention.
     LLVM_PREFERRED_TYPE(CallingConv)
-    unsigned ExtInfo : 14;
+    unsigned ExtInfo : 15;
 
     /// The number of parameters this function has, not counting '...'.
     /// According to [implimits] 8 bits should be enough here but this is
@@ -4604,8 +4604,8 @@ public:
     // adjust the Bits field below, and if you add bits, you'll need to adjust
     // Type::FunctionTypeBitfields::ExtInfo as well.
 
-    // |  CC  |noreturn|produces|nocallersavedregs|regparm|nocfcheck|cmsenscall|
-    // |0 .. 5|   6    |    7   |       8         |9 .. 11|    12   |    13    |
+    // |  CC  |noreturn|produces|nocallersavedregs|regparm|nocfcheck|cmsenscall|c language linkage|
+    // |0 .. 5|   6    |    7   |       8         |9 .. 11|    12   |    13    |        14         |
     //
     // regparm is either 0 (no regparm attribute) or the regparm value+1.
     enum { CallConvMask = 0x3F };
@@ -4615,6 +4615,7 @@ public:
     enum { RegParmMask = 0xe00, RegParmOffset = 9 };
     enum { NoCfCheckMask = 0x1000 };
     enum { CmseNSCallMask = 0x2000 };
+    enum { CLanguageLinkageMask = 0x4000 };
     uint16_t Bits = CC_C;
 
     ExtInfo(unsigned Bits) : Bits(static_cast<uint16_t>(Bits)) {}
@@ -4624,14 +4625,15 @@ public:
     // have all the elements (when reading an AST file for example).
     ExtInfo(bool noReturn, bool hasRegParm, unsigned regParm, CallingConv cc,
             bool producesResult, bool noCallerSavedRegs, bool NoCfCheck,
-            bool cmseNSCall) {
+            bool cmseNSCall, bool cLanguageLinkage = false) {
       assert((!hasRegParm || regParm < 7) && "Invalid regparm value");
       Bits = ((unsigned)cc) | (noReturn ? NoReturnMask : 0) |
              (producesResult ? ProducesResultMask : 0) |
              (noCallerSavedRegs ? NoCallerSavedRegsMask : 0) |
              (hasRegParm ? ((regParm + 1) << RegParmOffset) : 0) |
              (NoCfCheck ? NoCfCheckMask : 0) |
-             (cmseNSCall ? CmseNSCallMask : 0);
+             (cmseNSCall ? CmseNSCallMask : 0) |
+             (cLanguageLinkage ? CLanguageLinkageMask : 0);
     }
 
     // Constructor with all defaults. Use when for example creating a
@@ -4647,6 +4649,11 @@ public:
     bool getCmseNSCall() const { return Bits & CmseNSCallMask; }
     bool getNoCallerSavedRegs() const { return Bits & NoCallerSavedRegsMask; }
     bool getNoCfCheck() const { return Bits & NoCfCheckMask; }
+
+    /// Whether this is the type of a function declarator in a C++
+    /// linkage-specification with C language linkage ([dcl.link]p1): two
+    /// function types with different language linkages are distinct types.
+    bool getCLanguageLinkage() const { return Bits & CLanguageLinkageMask; }
     bool getHasRegParm() const { return ((Bits & RegParmMask) >> RegParmOffset) != 0; }
 
     unsigned getRegParm() const {
@@ -4701,6 +4708,13 @@ public:
         return ExtInfo(Bits | NoCfCheckMask);
       else
         return ExtInfo(Bits & ~NoCfCheckMask);
+    }
+
+    ExtInfo withCLanguageLinkage(bool cLanguageLinkage) const {
+      if (cLanguageLinkage)
+        return ExtInfo(Bits | CLanguageLinkageMask);
+      else
+        return ExtInfo(Bits & ~CLanguageLinkageMask);
     }
 
     ExtInfo withRegParm(unsigned RegParm) const {

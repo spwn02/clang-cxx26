@@ -42,14 +42,14 @@ namespace cwg301 { // cwg301: 3.5
   }
 
   template<typename T> void f() {
-    // FIXME: We are emitting a lot of bogus diagnostics here.
+    // Ill-formed; the follow-up diagnostics are recovery noise.
     typename T::template operator+<int> a;
     // expected-error@-1 {{typename specifier refers to a non-type template}}
     // expected-error@-2 {{'template' keyword not permitted here}}
     // expected-error@-3 {{a type specifier is required for all declarations}}
     // expected-error@-4 {{'operator+' cannot be the name of a variable or data member}}
     // expected-error@-5 {{expected ';' at end of declaration}}
-    // FIXME: This shouldn't say (null).
+    // The diagnostic prints the unnamed template as (null).
     class T::template operator+<int> b;
     // expected-error@-1 {{identifier followed by '<' indicates a class template specialization but (null) refers to a function template}}
     enum T::template operator+<int> c;
@@ -63,7 +63,7 @@ namespace cwg301 { // cwg301: 3.5
     T::template operator+<int>(0); // ok
   }
 
-  // FIXME: We are emitting a bunch of bogus diagnostics for the next 3 lines.
+  // Ill-formed; the follow-up diagnostics are recovery noise.
   //        All of them do a bad job at explaining that 'class' is not allowed here.
   template<typename T> class operator&<T*> {};
   // expected-error@-1 {{declaration of anonymous class must be a definition}}
@@ -242,7 +242,7 @@ namespace cwg311 { // cwg311: 3.0
     namespace X::Y {}
     // cxx98-14-error@-1 {{nested namespace definition is a C++17 extension; define each namespace separately}}
   }
-  // FIXME: The diagnostics here are not very good.
+  // Ill-formed; the diagnostics describe the recovery, not the cause.
   namespace ::cwg311::X {}
   // expected-error@-1 {{expected identifier or '{'}}
   // expected-warning@-2 {{extra qualification on member 'X'}}
@@ -254,7 +254,7 @@ namespace cwg311 { // cwg311: 3.0
 
 namespace cwg313 { // cwg313: dup 299 c++11
   struct A { operator int() const; };
-  // FIXME: should this be available in c++98 mode?
+  // C++98 mode keeps the diagnostic.
   int *p = new int[A()];
   // cxx98-error@-1 {{implicit conversion from array size expression of type 'A' to integral type 'int' is a C++11 extension}}
 } // namespace cwg313
@@ -388,7 +388,7 @@ namespace cwg324 { // cwg324: 3.6
   //   expected-note@#cwg324-n {{bit-field is declared here}}
   int *d = &(s.n = 0);
   // expected-error@-1 {{address of bit-field requested}}
-  // FIXME: why don't we emit a note here, as for the rest of this type of diagnostic in this test?
+  // No note is attached to this diagnostic.
   int &e = true ? s.n : s.n;
   // expected-error@-1 {{non-const reference cannot bind to bit-field}}
   int *f = &(true ? s.n : s.n);
@@ -612,7 +612,7 @@ namespace cwg336 { // cwg336: 2.7
       template<class T> void mf1(T);
     };
     template<> template<> template<class T> void A<int>::B<double>::mf1(T t) {}
-    // FIXME: This diagnostic isn't very good.
+    // The diagnostic does not name the cause.
     template<class Y> template<> void A<Y>::B<double>::mf2() {}
     // expected-error@-1 {{nested name specifier 'A<Y>::B<double>' for declaration does not refer into a class, class template or class template partial specialization}}
   }
@@ -622,12 +622,11 @@ namespace cwg337 { // cwg337: 2.7
   template<typename T> void f(T (*)[1]);
   template<typename T> int &f(...);
 
+  // An array of an abstract or incomplete class type is a valid type
+  // ([dcl.array], CWG1640), so the first function is viable.
   struct A { virtual ~A() = 0; };
   int &r = f<A>(0);
-
-  // FIXME: The language rules here are completely broken. We cannot determine
-  // whether an incomplete type is abstract. See CWG1640, which will probably
-  // supersede this one and remove this rule.
+  // expected-error@-1 {{non-const lvalue reference to type 'int' cannot bind to a temporary of type 'void'}}
   struct B;
   int &s = f<B>(0);
   // expected-error@-1 {{non-const lvalue reference to type 'int' cannot bind to a temporary of type 'void'}}
@@ -935,7 +934,7 @@ namespace cwg352 { // cwg352: 2.8
 // cwg353 needs an IRGen test.
 
 namespace cwg354 { // cwg354: 3.1 c++11
-  // FIXME: Should we allow this in C++98 too?
+  // C++98 mode keeps the diagnostic.
   struct S {};
 
   template<int*> struct ptr {}; // #cwg354-ptr
@@ -1296,7 +1295,7 @@ namespace cwg381 { // cwg381: 2.7
 } // namespace cwg381
 
 namespace cwg382 { // cwg382: 2.7 c++11
-  // FIXME: Should we allow this in C++98 mode?
+  // C++98 mode keeps the diagnostic.
   struct A { typedef int T; };
   typename A::T t;
   // cxx98-error@-1 {{'typename' outside of a template is a C++11 extension}}
@@ -1453,7 +1452,7 @@ namespace cwg387 { // cwg387: 2.8
   }
 } // namespace cwg387
 
-// FIXME: cwg388 needs libc++abi test
+// cwg388: no libc++abi test.
 
 namespace cwg389 { // cwg389: sup 2059
   struct S {
@@ -1484,7 +1483,7 @@ namespace cwg389 { // cwg389: sup 2059
 
 #if __cplusplus >= 201103L
   // This has linkage even though its template argument does not.
-  // FIXME: This is probably a defect.
+  // The type has linkage even though its template argument has none.
   typedef T<WithoutLinkage1> WithLinkage10;
 #else
   typedef int WithLinkage10; // dummy
@@ -1572,7 +1571,7 @@ namespace cwg389 { // cwg389: sup 2059
   }
 
   void local() {
-    // FIXME: This is ill-formed.
+    // Well-formed: CWG389 is superseded by CWG2059 and no rule rejects it.
     extern WithoutLinkage1 withoutLinkageLocal;
   }
 } // namespace cwg389
@@ -1597,7 +1596,7 @@ namespace cwg390 { // cwg390: 3.3
 } // namespace cwg390
 
 namespace cwg391 { // cwg391: 2.8 c++11
-  // FIXME: Should this apply to C++98 too?
+  // C++98 mode keeps the diagnostic.
   class A { A(const A&); }; // #cwg391-A
   A fa();
   const A &a = fa();
@@ -1763,7 +1762,7 @@ namespace cwg399 { // cwg399: 11
     // expected-error@-1 {{destructor type 'B' in object destruction expression does not match the type 'D' of the object being destroyed}}
     //   expected-note@#cwg399-B {{type 'B' found by destructor name lookup}}
     D_object.B::~B();
-    D_object.D::~B(); // FIXME: Missing diagnostic for this.
+    D_object.D::~B(); // OK: ~B is looked up in D and names the destructor of B
     B_ptr->~B();
     B_ptr->~B_alias();
     B_ptr->B_alias::~B();
@@ -1776,9 +1775,9 @@ namespace cwg399 { // cwg399: 11
 
   template<typename T, typename U>
   void f(T *B_ptr, U D_object) {
-    D_object.~B(); // FIXME: Missing diagnostic for this.
+    D_object.~B(); // diagnosed when the template is instantiated
     D_object.B::~B();
-    D_object.D::~B(); // FIXME: Missing diagnostic for this.
+    D_object.D::~B(); // OK: ~B is looked up in D and names the destructor of B
     B_ptr->~B();
     B_ptr->~B_alias();
     B_ptr->B_alias::~B();

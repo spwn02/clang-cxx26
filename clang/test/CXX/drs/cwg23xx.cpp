@@ -282,18 +282,19 @@ namespace cwg2352 { // cwg2352: 10
   const int *const *&f5() { return p; }
   // expected-error@-1 {{binding reference of type 'const int *const *' to value of type 'int **' not permitted due to incompatible qualifiers}}
 
-  // FIXME: We permit this as a speculative defect resolution, allowing
-  // qualification conversions when forming a glvalue conditional expression.
+  // A glvalue conditional expression: the reference binds directly after a
+  // qualification conversion ([expr.cond], [dcl.init.ref]).
   const int * const * const q = 0;
   __typeof(&(true ? p : q)) x = &(true ? p : q);
 
-  // FIXME: Should we compute the composite pointer type here and produce an
-  // lvalue of type 'const int *const * const'?
+  // No conversion binds directly, so the result is a prvalue of the composite
+  // pointer type ([expr.cond]).
   const int * const * r;
   void *y = &(true ? p : r);
   // expected-error@-1 {{rvalue of type 'const int *const *'}}
 
-  // FIXME: We order these as a speculative defect resolution.
+  // The binding with the smaller qualification conversion is better
+  // ([over.ics.rank]).
   void f(const int * const * const &r);
 #if __cplusplus >= 201103L
   constexpr
@@ -536,20 +537,46 @@ B b;
 
 } // namespace cwg2394
 
-namespace cwg2396 { // cwg2396: no
+namespace cwg2396 { // cwg2396: yes c++11
   struct A {
     struct B;
     operator B B::*();
   };
   struct B;
 
-  // FIXME: per P1787 "Calling a conversion function" example, all of the
-  // examples below are well-formed, with B resolving to A::B, but currently
-  // it's been resolved to cwg2396::B.
+  // The component names of a conversion-type-id are looked up in the class of
+  // the object expression first, then in the enclosing scopes
+  // ([basic.lookup.unqual], P1787R6), also when the object expression is
+  // dependent. C++98 keeps the ambiguity of 'B' (CWG1111).
+#if __cplusplus >= 201103L
+  void f(A a) { a.operator B B::*(); }
+  template <class Y> void f2(Y a) { a.operator B B::*(); }
+  template void f2<A>(A);
+#endif
 
-  // void f(A a) { a.operator B B::*(); }
-  // void g(A a) { a.operator decltype(B()) B::*(); }
-  // void g2(A a) { a.operator B decltype(B())::*(); }
+  struct T1 { struct U { int i; }; };
+  struct T2 {};
+  struct U1 {};
+  struct U2 {};
+#if __cplusplus >= 201103L
+  struct X {
+    using T = T1;
+    using U = U1;
+    operator U1 T1::*();
+    operator U1 T2::*();
+    operator U2 T1::*();
+    operator U2 T2::*();
+  };
+  template <class Obj, class T>
+  void g() {
+    using U = U2;
+    // #1 searches for U and T in the class of the object first
+    static_assert(__is_same(decltype(Obj().operator U T::*()), U1 T1::*), "");
+    // #2: the operand of decltype is an expression
+    static_assert(__is_same(decltype(Obj().operator U decltype(T())::*()), U1 T2::*), "");
+  }
+  template void g<X, T2>();
+#endif
 } // namespace cwg2396
 
 namespace cwg2397 { // cwg2397: 17

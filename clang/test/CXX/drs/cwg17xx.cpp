@@ -139,7 +139,9 @@ struct B : A {
   using A::A;
 };
 
-// FIXME: this is well-formed since P0136R1
+// P0136R1: the inherited constructor template is not a declaration of B, so
+// the declarator does not correspond to a declaration nominable in B
+// ([dcl.meaning.general]) and the explicit instantiation is ill-formed.
 template B::B(int, double);
 // since-cxx11-error@-1 {{explicit instantiation of 'B' does not refer to a function template, variable template, member function, member class, or static data member}}
 #endif

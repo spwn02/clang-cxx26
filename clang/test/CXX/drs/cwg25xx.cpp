@@ -302,8 +302,7 @@ struct X {
   X& operator=(this X&, const X&) = default;
   X& operator=(this X&, X&) = default;
   X& operator=(this X&&, X&&) = default;
-  // FIXME: The notes could be clearer on *how* the type differs
-  // e.g., "if an explicit object parameter is used it must be of type reference to 'X'"
+  // The notes do not say how the type differs.
   X& operator=(this int, const X&) = default;
   // since-cxx23-warning@-1 {{explicitly defaulted copy assignment operator is implicitly deleted}}
   //   since-cxx23-note@-2 {{function is implicitly deleted because its declared type does not match the type of an implicit copy assignment operator}}

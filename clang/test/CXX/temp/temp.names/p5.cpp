@@ -196,9 +196,11 @@ struct F {
   // expected-error@-1{{use 'template' keyword to treat 'f' as a dependent template name}}
   // expected-error@-2{{no candidate function template was found for}}
 
-  // FIXME: We should diagnose the presence of 'template' here
+  // The 'template' keyword cannot follow a declarative nested-name-specifier.
   friend void T::template f<int>(); // expected-error{{no candidate function template was found for}}
+  // expected-error@-1 {{'template' cannot be used after a declarative nested name specifier}}
   friend void T::template U<int>::f();
+  // expected-error@-1 {{'template' cannot be used after a declarative nested name specifier}}
 
   // These should be allowed
   friend class T::template U<int>;

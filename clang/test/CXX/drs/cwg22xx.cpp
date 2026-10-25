@@ -95,13 +95,9 @@ namespace MultilevelSpecialization {
   template<> template<>
     void A<int, int>::f<1, 1>(int i, int (&arr1a)[1], int (&arr2a)[1]) {}
 
-  // FIXME: I believe this example is valid, at least up to the first explicit
-  // specialization, but Clang can't cope with explicit specializations that
-  // expand packs into a sequence of parameters. If we ever start accepting
-  // that, we'll need to decide whether it's OK for arr1a to be missing its
-  // default argument -- how far back do we look when determining whether a
-  // parameter was expanded from a pack?
-  //   -- zygoloid 2020-06-02
+  // The explicit specialization of A<int, int>::f<1, 1> is well-formed. B's
+  // declaration below is ill-formed: B<int, int> is an implicit instantiation,
+  // so a member template cannot be defined by 'template<> template<...>'.
   template<typename ...T> struct B { // #cwg2233-B
     template <T... V> void f(int i = 0, int (&... arr)[V]);
   };
@@ -198,7 +194,7 @@ struct B : A {
 
 void g() {
   B b{0};
-  b.f(0); // FIXME: this is well-formed for the same reason as initialization of 'b' above
+  b.f(0); // ambiguous: the tie-breaker for inherited constructors applies to constructors only
   // since-cxx11-error@-1 {{call to member function 'f' is ambiguous}}
   //   since-cxx11-note@#cwg2277-A-f {{candidate function}}
   //   since-cxx11-note@#cwg2277-B-f {{candidate function}}

@@ -37,6 +37,29 @@ latest release, please see the `Clang Web Site <https://clang.llvm.org>`_ or the
 Potentially Breaking Changes
 ============================
 
+- Function types with C language linkage are distinct from function types with C++ language linkage
+  ([dcl.link], CWG13, CWG168), as the C++ standard requires. The function type of every function declarator in a
+  linkage-specification ``extern "C"`` (including the declarators of its function bodies and the static member
+  functions of its classes, but not non-static member functions, lambdas, blocks or friend functions with a
+  trailing requires-clause) has C language linkage, the library functions Clang knows about do, and a redeclaration
+  without a linkage-specification keeps the linkage of the first declaration. A function with C++ language linkage
+  can no longer be passed where a pointer to a function with C language linkage is expected and vice versa
+  (``atexit``, ``qsort``, ``bsearch``, ``signal``, ``pthread_create`` with a C++ function; an ``extern "C"``
+  function as a non-type template argument of a C++ function pointer type); write an ``extern "C" typedef`` for the
+  type, or convert with ``reinterpret_cast``. The mangling of such a type is ``Y`` ahead of the function type, as the
+  Itanium C++ ABI specifies. Diagnostics print the language linkage of function types as ``extern "C"``.
+  libc++ declares the ``extern "C"`` and ``extern "C++"`` overloads of ``atexit``, ``at_quick_exit``, ``qsort`` and
+  ``bsearch`` the standard requires.
+
+- An array of an abstract class type is a valid type ([dcl.array], CWG1640): ``A (*p)[2]`` and ``void f(A a[2])``
+  are well-formed, only defining an object of the array type is an error. The name of a non-static data member found
+  in more than one base class subobject of the same type is no longer ambiguous in itself ([class.member.lookup]):
+  ``sizeof(D::n)`` is valid, and the ambiguity is diagnosed where an object is converted to the base class
+  ("ambiguous conversion from derived class").
+
+- The nested-name-specifier of a friend function declarator is declarative ([expr.prim.id.qual]): a
+  ``decltype`` or pack-indexing specifier in it is diagnosed, as is a ``template`` keyword after it.
+
 - An ``import`` preprocessing token now begins an import directive only when it (or the ``export`` before it) is the
   first token of a logical source line and is followed on that line by a header-name, ``<``, an identifier or ``:``
   ([cpp.pre], P1857R3; the header-name formation is CWG3177), whatever brackets surround it. A mid-line ``import`` (``int a; import x;``) is an ordinary
@@ -308,6 +331,23 @@ C++17 Feature Support
 Resolutions to C++ Defect Reports
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- Implemented CWG13 and CWG168 (language linkage of function types, see "Potentially Breaking Changes"),
+  CWG1771 and CWG1111 (the template-name of a template-id before ``::`` and the component names of a
+  conversion-type-id are looked up as [basic.lookup.qual] says), CWG2396 (the component names of a
+  conversion-type-id are looked up in the class of the object expression first, also when the expression is
+  dependent), CWG2588 (a friend function first declared by a friend declaration that is not a definition is not
+  exported with its class and has module linkage), CWG2052 (an operator function template whose specialization has
+  no class or enumeration parameter is a deduction failure), CWG2226 and CWG1895 (conversions that make an lvalue in a
+  conditional expression), CWG2336 (a virtual destructor considers virtual bases in its exception specification),
+  CWG2597 (a replaceable global allocation function in a module purview is attached to the global module),
+  CWG1113 and CWG4 (an unnamed namespace has internal linkage in a linkage-specification), CWG261 (constructors and
+  destructors odr-use the allocation and deallocation functions of their class), and CWG2858 (a friend function
+  declarator's nested-name-specifier is declarative).
+- The declarators of explicit specializations and explicit instantiations are looked up among the declarations
+  nominable in the scope and no longer need an enclosing namespace ([temp.explicit], P1787R6); ``export`` cannot
+  name an explicit specialization, explicit instantiation or partial specialization; ``-Wfriend-specialization-specifier``
+  diagnoses an ``inline``, ``constexpr`` or ``consteval`` specifier on a friend declaration of a function template
+  specialization (CWG2379).
 - Implemented LWG 4125, 4182, 4218, 4249, and 4531.
   ``move_iterator`` now has a constrained defaulted constructor, C++ ``NULL``
   expands to the integer literal ``0``, reverse comparisons with

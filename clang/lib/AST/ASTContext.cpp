@@ -11951,6 +11951,9 @@ QualType ASTContext::mergeFunctionTypes(QualType lhs, QualType rhs,
   FunctionType::ExtInfo rbaseInfo = rbase->getExtInfo();
 
   // Compatible functions must have compatible calling conventions
+  if (lbaseInfo.getCLanguageLinkage() != rbaseInfo.getCLanguageLinkage())
+    return {};
+
   if (lbaseInfo.getCC() != rbaseInfo.getCC())
     return {};
 
@@ -13296,6 +13299,10 @@ QualType ASTContext::GetBuiltinType(unsigned Id,
   FunctionType::ExtInfo EI(Target->getDefaultCallingConv());
   if (BuiltinInfo.isNoReturn(Id))
     EI = EI.withNoReturn(true);
+  // The library functions have C language linkage, and so do their types
+  // ([dcl.link]); the ones in namespace std are C++ functions.
+  if (getLangOpts().CPlusPlus && !BuiltinInfo.isInStdNamespace(Id))
+    EI = EI.withCLanguageLinkage(true);
 
   // We really shouldn't be making a no-proto type here.
   if (ArgTypes.empty() && Variadic && !getLangOpts().requiresStrictPrototypes())

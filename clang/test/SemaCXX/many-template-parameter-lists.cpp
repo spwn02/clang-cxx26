@@ -29,6 +29,7 @@ struct X {
   template <class Y>
   template <class Z>
   friend void A<U>::template B<V>::template C<W>::template D<X>::template E<Y>::operator+=(Z); // expected-error {{template parameter 'U' of a friend declaration naming a member of a dependent type is not deducible from}}
+  // expected-warning@-1 {{'template' cannot be used after a declarative nested name specifier}}
 };
 
 void test() {

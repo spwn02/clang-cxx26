@@ -48,9 +48,9 @@ void f(D[1]){} // expected-error {{abstract class}}
 A &f(N<0>);
 A *f(N<1>);
 A f(N<2>){} // expected-error {{abstract class}}
-A (&f(N<3>))[2]; // expected-error {{abstract class}}
+A (&f(N<3>))[2];
 B f(N<4>){} // expected-error {{abstract class}}
-B (&f(N<5>))[2]; // expected-error {{abstract class}}
+B (&f(N<5>))[2];
 C f(N<6>);
 C (&f(N<7>))[2];
 

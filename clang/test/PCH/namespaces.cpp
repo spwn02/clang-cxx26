@@ -32,7 +32,8 @@ namespace N3 {
 
 N3::C *cp2;
 
-void(*funp2)() = ext;
+extern "C" typedef void (*ExtFnPtr)();
+ExtFnPtr funp2 = ext;
 
 using N1::used_func;
 void (*pused)() = used_func;

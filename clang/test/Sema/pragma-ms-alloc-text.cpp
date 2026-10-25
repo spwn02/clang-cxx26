@@ -48,9 +48,9 @@ static void foo7();
 #pragma alloc_text(c, foo7) // no-warning
 void foo7() {}
 
-static void foo8();
+static void foo8(); // expected-note {{previous declaration is here}}
 extern "C" {
-static void foo8();
+static void foo8(); // expected-error {{conflicting types for 'foo8'}}
 }
 #pragma alloc_text(c, foo8) // expected-error {{'#pragma alloc_text' is applicable only to functions with C linkage}}
 void foo8() {}

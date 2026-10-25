@@ -3994,6 +3994,13 @@ public:
                                     TemplateIdAnnotation *TemplateId,
                                     bool IsMemberSpecialization);
 
+  /// Diagnose the constructs a declarative nested-name-specifier cannot
+  /// contain ([expr.prim.id.qual], [temp.names]): a 'template' keyword after
+  /// it, an alias template and a computed-type-specifier.
+  void diagnoseDeclarativeNestedNameSpecifier(CXXScopeSpec &SS,
+                                              SourceLocation Loc,
+                                              TemplateIdAnnotation *TemplateId);
+
   bool checkPointerAuthEnabled(SourceLocation Loc, SourceRange Range);
 
   bool checkConstantPointerAuthKey(Expr *keyExpr, unsigned &key);
@@ -10624,6 +10631,13 @@ public:
   /// type information in legal manner (e.g. by strictly stripping "noreturn"
   /// or "noexcept", or by stripping "noescape" for arguments).
   bool IsFunctionConversion(QualType FromType, QualType ToType) const;
+
+  /// Whether a difference in the language linkage of function types is ignored
+  /// where the current declaration context is. Function types with different
+  /// language linkages are distinct types ([dcl.link]p1), but the declarations
+  /// of the system headers of an implementation are written for compilers that
+  /// do not tell them apart, so a use in a system header does not.
+  bool ignoresFunctionTypeLanguageLinkage() const;
 
   /// Same as `IsFunctionConversion`, but if this would return true, it sets
   /// `ResultTy` to `ToType`.

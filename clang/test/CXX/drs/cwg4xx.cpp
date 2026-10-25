@@ -11,7 +11,7 @@
 // cxx98-error@-1 {{variadic macros are a C99 feature}}
 #endif
 
-// FIXME: __SIZE_TYPE__ expands to 'long long' on some targets.
+// __SIZE_TYPE__ expands to 'long long' on some targets.
 __extension__ typedef __SIZE_TYPE__ size_t;
 
 namespace std { struct type_info; }
@@ -22,7 +22,7 @@ namespace cwg400 { // cwg400: 2.7
   struct C : A, B { using A::a; struct a b; };
   struct D : A, B {
     using A::a;
-    // FIXME: we should issue a single diagnostic
+    // Both diagnostics are issued for the same conflict.
     using B::a; // #cwg400-using-B-a
     // expected-error@#cwg400-using-B-a {{target of using declaration conflicts with declaration already in scope}}
     //   expected-note@#cwg400-B {{target of using declaration}}
@@ -85,8 +85,7 @@ namespace cwg401 { // cwg401: 2.8
   };
   E::A<F> eaf; // ok, default argument is in befriended context
 
-  // FIXME: Why do we get different diagnostics in C++11 onwards here? We seem
-  // to not treat the default template argument as a SFINAE context in C++98.
+  // C++98 does not treat the default template argument as a SFINAE context.
   template<class T, class U = typename T::type> void f(T) {} // #cwg402-f
   // cxx98-error@-1 {{default template arguments for a function template are a C++11 extension}}
   // cxx98-error@-2 {{'type' is a protected member of 'cwg401::B'}}
@@ -592,7 +591,7 @@ namespace cwg428 { // cwg428: 2.7
 } // namespace cwg428
 
 namespace cwg429 { // cwg429: 2.8 c++11
-  // FIXME: This rule is obviously intended to apply to C++98 as well.
+  // C++98 mode keeps the pre-C++11 rule.
   struct A {
     static void *operator new(size_t, size_t);
     static void operator delete(void*, size_t); // #cwg429-delete
@@ -608,7 +607,7 @@ namespace cwg429 { // cwg429: 2.8 c++11
 
 namespace cwg430 { // cwg430: 2.7 c++11
   // resolved by n2239
-  // FIXME: This should apply in C++98 too.
+  // C++98 mode keeps the pre-C++11 warning.
   void f(int n) {
     int a[] = { n++, n++, n++ };
     // cxx98-warning@-1 {{multiple unsequenced modifications to 'n'}}
@@ -798,7 +797,7 @@ namespace cwg447 { // cwg447: 2.8
     g(__builtin_offsetof(T, n)).h<int>();
     // value dependent if first argument is a dependent type
     U<__builtin_offsetof(A, n)>::type a;
-    // FIXME: instead of ";", we should be suggesting "typename"
+    // The diagnostic suggests ";" instead of "typename".
     U<__builtin_offsetof(T, n)>::type b;
     // expected-error@-1 {{expected ';' after expression}}
     // expected-error@-2 {{use of undeclared identifier 'b'}}
@@ -806,7 +805,7 @@ namespace cwg447 { // cwg447: 2.8
     g(__builtin_offsetof(A, a[0])).h<int>();
     g(__builtin_offsetof(A, a[N])).h<int>();
     U<__builtin_offsetof(A, a[0])>::type c;
-    // FIXME: instead of ";", we should be suggesting "typename"
+    // The diagnostic suggests ";" instead of "typename".
     U<__builtin_offsetof(A, a[N])>::type d;
     // expected-error@-1 {{expected ';' after expression}}
     // expected-error@-2 {{use of undeclared identifier 'd'}}
@@ -874,7 +873,7 @@ namespace cwg452 { // cwg452: 2.7
   };
 } // namespace cwg452
 
-// cwg454 FIXME write a codegen test
+// cwg454: not covered by a CodeGen test here.
 
 namespace cwg456 { // cwg456: 3.4
   // sup 903 c++11
@@ -1020,7 +1019,7 @@ namespace cwg467 { // cwg467: 2.7
 } // namespace cwg467
 
 namespace cwg468 { // cwg468: 2.7 c++11
-  // FIXME: Should we allow this in C++98 too?
+  // C++98 mode keeps the diagnostic.
   template<typename> struct A {
     template<typename> struct B {
       static int C;
@@ -1108,7 +1107,7 @@ namespace cwg474 { // cwg474: 3.4
   }
 } // namespace cwg474
 
-// cwg475 FIXME write a libc++abi test
+// cwg475: no libc++abi test.
 
 namespace cwg477 { // cwg477: 3.5
   struct A {
@@ -1130,9 +1129,7 @@ namespace cwg477 { // cwg477: 3.5
 namespace cwg478 { // cwg478: 2.7
   struct A { virtual void f() = 0; }; // #cwg478-f
   void f(A *a);
-  void f(A a[10]);
-  // expected-error@-1 {{array of abstract class type 'A'}}
-  //   expected-note@#cwg478-f {{unimplemented pure virtual method 'f' in 'A'}}
+  void f(A a[10]); // redeclares f(A *): an array of an abstract class is a valid type
 } // namespace cwg478
 
 namespace cwg479 { // cwg479: 2.8
@@ -1275,8 +1272,9 @@ namespace cwg482 { // cwg482: 3.5
   void cwg482::g();
   // expected-warning@-1 {{extra qualification on member 'g'}}
 
-  // FIXME: The following are valid in CWG482's wording, but these are bugs in
-  // the wording which we deliberately don't implement.
+  // Ill-formed: a typedef declarator-id is an identifier ([dcl.pre]) and a
+  // class-head-name with a nested-name-specifier cannot inhabit a class scope
+  // ([class.pre]).
   namespace N { typedef int type; }
   typedef int N::type;
   // expected-error@-1 {{typedef declarator cannot be qualified}}
@@ -1393,10 +1391,7 @@ namespace cwg488 { // cwg488: 2.9 c++11
   template <typename T> void f(T);
   void f(int);
   void g() {
-    // FIXME: It seems CWG thought this should be a SFINAE failure prior to
-    // allowing local types as template arguments. In C++98, we should either
-    // allow local types as template arguments or treat this as a SFINAE
-    // failure.
+    // C++98 rejects local types as template arguments.
     enum E { e };
     f(e);
     // cxx98-error@-1 {{template argument uses local type 'E'}}
@@ -1431,8 +1426,8 @@ namespace cwg490 { // cwg490: 2.8
     friend int A::g(U);
     friend int A::h(X<T>);
 
-    // FIXME: Per this DR, these two are valid! That is another defect
-    // (no number yet...) which will eventually supersede this one.
+    // Ill-formed: names before the declarator-id are looked up in B, not A
+    // ([basic.lookup.unqual]).
     friend int X<T>::*A::i();
     // expected-error@-1 {{return type of out-of-line definition of 'cwg490::A::i' differs from that in the declaration}}
     //   expected-note@#cwg490-i {{previous declaration is here}}

@@ -2050,6 +2050,13 @@ static TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
           FPP->isVariadic() != FPA->isVariadic())
         return TemplateDeductionResult::NonDeducedMismatch;
 
+      // Function types with different language linkages are distinct types
+      // ([dcl.link]p1).
+      if (FPP->getExtInfo().getCLanguageLinkage() !=
+              FPA->getExtInfo().getCLanguageLinkage() &&
+          !S.ignoresFunctionTypeLanguageLinkage())
+        return TemplateDeductionResult::NonDeducedMismatch;
+
       // Check return types.
       if (auto Result = DeduceTemplateArgumentsByTypeMatch(
               S, TemplateParams, FPP->getReturnType(), FPA->getReturnType(),
@@ -4780,6 +4787,15 @@ QualType Sema::adjustCCAndNoReturn(QualType ArgFunctionType,
   bool NoReturn = FunctionTypeP->getNoReturnAttr();
   if (EPI.ExtInfo.getNoReturn() != NoReturn) {
     EPI.ExtInfo = EPI.ExtInfo.withNoReturn(NoReturn);
+    Rebuild = true;
+  }
+
+  // A declaration matched with the function template ([temp.deduct.decl]) is
+  // a redeclaration of the entity, which has its type's language linkage
+  // ([dcl.link]).
+  bool CLinkage = FunctionTypeP->getExtInfo().getCLanguageLinkage();
+  if (EPI.ExtInfo.getCLanguageLinkage() != CLinkage) {
+    EPI.ExtInfo = EPI.ExtInfo.withCLanguageLinkage(CLinkage);
     Rebuild = true;
   }
 

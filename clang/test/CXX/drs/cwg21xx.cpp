@@ -246,7 +246,7 @@ namespace cwg2170 { // cwg2170: 9
     struct S {
       int get(int n) { return arr[n]; }
       const int &get_ref(int n) { return arr[n]; }
-      // since-cxx11-warning@-1 {{reference to stack memory associated with local variable 'arr' returned}} FIXME
+      // since-cxx11-warning@-1 {{reference to stack memory associated with local variable 'arr' returned}} (follow-on of the error below)
       // since-cxx11-error@-2 {{reference to local variable 'arr' declared in enclosing function 'cwg2170::f'}}
       //   since-cxx11-note@#cwg2170-arr {{'arr' declared here}}
     };

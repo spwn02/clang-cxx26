@@ -82,7 +82,8 @@ struct PrintingPolicy {
         PrintAsCanonical(false), PrintInjectedClassNameWithArguments(true),
         UsePreferredNames(true), AlwaysIncludeTypeForTemplateArgument(false),
         CleanUglifiedParameters(false), EntireContentsOfLargeArray(true),
-        UseEnumerators(true), UseHLSLTypes(LO.HLSL) {}
+        UseEnumerators(true), UseHLSLTypes(LO.HLSL),
+        PrintFunctionTypeLanguageLinkage(false) {}
 
   /// Adjust this printing policy for cases where it's known that we're
   /// printing C++ code (for instance, if AST dumping reaches a C++-only
@@ -357,6 +358,12 @@ struct PrintingPolicy {
   /// sugared types when possible.
   LLVM_PREFERRED_TYPE(bool)
   unsigned UseHLSLTypes : 1;
+
+  /// Whether the function types with C language linkage are marked with
+  /// 'extern "C"' ([dcl.link]); intended for diagnostics, as the marked type
+  /// is not a valid declaration when printed back.
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned PrintFunctionTypeLanguageLinkage : 1;
 
   /// Callbacks to use to allow the behavior of printing to be customized.
   const PrintingCallbacks *Callbacks = nullptr;

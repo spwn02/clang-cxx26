@@ -181,7 +181,7 @@ template void test_builtin_complex(int, double); // expected-note {{instantiatio
 #ifdef __x86_64__
 // This previously would cause an assertion when emitting the note diagnostic.
 static void __builtin_cpu_init(); // expected-error {{static declaration of '__builtin_cpu_init' follows non-static declaration}} \
-                                     expected-note {{'__builtin_cpu_init' is a builtin with type 'void () noexcept'}}
+                                     expected-note {{'__builtin_cpu_init' is a builtin with type 'extern "C" void () noexcept'}}
 #endif
 
 #ifdef _MSC_VER

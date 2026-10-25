@@ -184,18 +184,24 @@ namespace cwg12 { // cwg12: sup 239
   }
 } // namespace cwg12
 
-namespace cwg13 { // cwg13: no
+namespace cwg13 { // cwg13: yes
   extern "C" void f(int);
   void g(char);
 
-  template<typename T> struct A {
-    A(void (*fp)(T));
+  template<typename T> struct A { // #cwg13-A-copy
+    A(void (*fp)(T)); // #cwg13-A-ctor
   };
-  template<typename T> int h(void (T));
+  template<typename T> int h(void (T)); // #cwg13-h
 
-  A<int> a1(f); // FIXME: We should reject this.
+  A<int> a1(f); // #cwg13-a1
+  // expected-error@#cwg13-a1 {{no matching constructor for initialization of 'A<int>'}}
+  //   expected-note@#cwg13-A-copy {{candidate constructor (the implicit copy constructor) not viable: no known conversion from 'extern "C" void (int)' to 'const A<int>' for 1st argument}}
+  //   since-cxx11-note@#cwg13-A-copy {{candidate constructor (the implicit move constructor) not viable: no known conversion from 'extern "C" void (int)' to 'A<int>' for 1st argument}}
+  //   expected-note@#cwg13-A-ctor {{candidate constructor not viable: no known conversion from 'extern "C" void (int)' to 'void (*)(int)' for 1st argument}}
   A<char> a2(g);
-  int a3 = h(f); // FIXME: We should reject this.
+  int a3 = h(f); // #cwg13-a3
+  // expected-error@#cwg13-a3 {{no matching function for call to 'h'}}
+  //   expected-note@#cwg13-h {{candidate template ignored: could not match 'void (T)' against 'extern "C" void (int)'}}
   int a4 = h(g);
 } // namespace cwg13
 
@@ -364,7 +370,7 @@ namespace cwg26 { // cwg26: 2.7
   // expected-error@-1 {{copy constructor must pass its first argument by reference}}
   struct B {
     B();
-    // FIXME: In C++98, we diagnose this twice.
+    // In C++98, this is diagnosed twice.
     B(const B &, B = B());
     // cxx98-14-error@-1 {{recursive evaluation of default argument}}
     //   cxx98-14-note@-2 {{default argument used here}}
@@ -449,7 +455,7 @@ namespace cwg30 { // cwg30: sup 468 c++11
   struct A {
     template<int> static int f();
   } a, *p = &a;
-  // FIXME: It's not clear whether CWG468 applies to C++98 too.
+  // CWG468 applies from C++11 on; C++98 keeps the diagnostic.
   int x = A::template f<0>();
   // cxx98-error@-1 {{'template' keyword outside of a template}}
   int y = a.template f<0>();
@@ -718,33 +724,23 @@ namespace cwg39 { // cwg39: yes
     struct C : A {};
     struct D : B, C { int f() { return n; } };
     /* expected-error@-1
-    {{non-static member 'n' found in multiple base-class subobjects of type 'A':
+    {{ambiguous conversion from derived class 'cwg39::example4::D' to base class 'cwg39::example4::A':
     struct cwg39::example4::D -> B -> A
     struct cwg39::example4::D -> C -> A}} */
-    //   expected-note@#cwg39-ex4-A-n {{member found by ambiguous name lookup}}
   }
 
   namespace PR5916 {
-    // FIXME: This is valid.
+    // The lookup of D::n finds the one declaration A::n, and an unevaluated
+    // operand names it without converting an object, so this is valid from
+    // C++11 on.
     struct A { int n; }; // #cwg39-A-n
     struct B : A {};
     struct C : A {};
     struct D : B, C {};
-    int k = sizeof(D::n); // #cwg39-sizeof
-    /* expected-error@#cwg39-sizeof
-    {{non-static member 'n' found in multiple base-class subobjects of type 'A':
-    struct cwg39::PR5916::D -> B -> A
-    struct cwg39::PR5916::D -> C -> A}} */
-    //   expected-note@#cwg39-A-n {{member found by ambiguous name lookup}}
-
-    // expected-error@#cwg39-sizeof {{unknown type name}}
+    int k = sizeof(D::n);
+    // cxx98-error@-1 {{invalid use of non-static data member 'n'}}
 #if __cplusplus >= 201103L
     decltype(D::n) n;
-    /* since-cxx11-error@-1
-    {{non-static member 'n' found in multiple base-class subobjects of type 'A':
-    struct cwg39::PR5916::D -> B -> A
-    struct cwg39::PR5916::D -> C -> A}} */
-    //   since-cxx11-note@#cwg39-A-n {{member found by ambiguous name lookup}}
 #endif
   }
 } // namespace cwg39
@@ -806,8 +802,8 @@ namespace cwg48 { // cwg48: 2.7
     };
   }
   int a = S::m;
-  // FIXME: We should produce a 'has internal linkage but is not defined'
-  // diagnostic for 'S::n'.
+  // 'S::n' is odr-used, has internal linkage and is not defined: no
+  // diagnostic is required ([basic.def.odr]).
   const int &b = S::n;
   const int S::o;
   const int &c = S::o;
@@ -865,7 +861,8 @@ namespace cwg52 { // cwg52: 2.8
   struct A { int n; }; // #cwg52-A
   struct B : private A {} b; // #cwg52-B
   int k = b.A::n; // #cwg52-k
-  // FIXME: This first diagnostic is very strangely worded, and seems to be bogus.
+  // Ill-formed: the member is inaccessible through the private base; the
+  // wording of the diagnostics is not specified.
   // expected-error@#cwg52-k {{'A' is a private member of 'cwg52::A'}}
   //   expected-note@#cwg52-B {{constrained by private inheritance here}}
   //   expected-note@#cwg52-A {{member is declared here}}
@@ -954,7 +951,7 @@ namespace cwg56 { // cwg56: 2.7
 } // namespace cwg56
 
 namespace cwg58 { // cwg58: 3.1
-  // FIXME: Ideally, we should have a CodeGen test for this.
+  // Only the front end is tested here.
 #if __cplusplus >= 201103L
   enum E1 { E1_0 = 0, E1_1 = 1 };
   enum E2 { E2_0 = 0, E2_m1 = -1 };
@@ -1160,7 +1157,7 @@ namespace cwg68 { // cwg68: 2.8
 
 namespace cwg69 { // cwg69: 9
   template<typename T> static void f() {} // #cwg69-f
-  // FIXME: Should we warn here?
+  // No diagnostic is required here.
   inline void g() { f<int>(); }
   extern template void f<char>();
   // cxx98-error@-1 {{extern templates are a C++11 extension}}
@@ -1450,9 +1447,8 @@ namespace cwg96 { // cwg96: sup P1787
   template<typename T>
   void test() {
     int k1 = a.template f<int>(0);
-    // FIXME: This is ill-formed, because 'f' is not a template-id and does not
-    // name a class template.
-    // FIXME: What about alias templates?
+    // Ill-formed, because 'f' is not a template-id and does not name a class
+    // template ([temp.names]).
     int k2 = a.template f(1);
     // expected-error@-1 {{a template argument list is expected after a name prefixed by the template keyword}}
     A::template S<int> s;

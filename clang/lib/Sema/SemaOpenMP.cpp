@@ -7596,6 +7596,17 @@ SemaOpenMP::checkOpenMPDeclareVariantFunction(SemaOpenMP::DeclGroupPtrTy DG,
   // resolve possible conflicts.
   ExprResult VariantRefCast = VariantRef;
   if (getLangOpts().CPlusPlus) {
+    // The language linkage of the function types does not take part in the
+    // compatibility of the variant and the base function.
+    if (const auto *VariantFT = VariantRef->getType()->getAs<FunctionType>())
+      if (const auto *BaseFT = AdjustedFnType->getAs<FunctionType>())
+        if (BaseFT->getExtInfo().getCLanguageLinkage() !=
+            VariantFT->getExtInfo().getCLanguageLinkage())
+          AdjustedFnType = QualType(
+              Context.adjustFunctionType(
+                  BaseFT, BaseFT->getExtInfo().withCLanguageLinkage(
+                              VariantFT->getExtInfo().getCLanguageLinkage())),
+              0);
     QualType FnPtrType;
     auto *Method = dyn_cast<CXXMethodDecl>(FD);
     if (Method && !Method->isStatic()) {

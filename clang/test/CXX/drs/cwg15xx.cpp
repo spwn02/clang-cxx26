@@ -104,22 +104,22 @@ namespace cwg1512 { // cwg1512: 4
     composite_pointer_type_is_ord<int (*)(), int (*)() noexcept, int (*)()>(); // #cwg1512-noexcept-2nd
     composite_pointer_type_is_unord<int (A::*)() noexcept, int (A::*)(), int (A::*)()>();
     composite_pointer_type_is_unord<int (A::*)(), int (A::*)() noexcept, int (A::*)()>();
-    // FIXME: This looks like a standard defect; these should probably all have type 'int (B::*)()'.
+    // The composite pointer type is a pointer to member of the derived class
+    // ([expr.type]).
     composite_pointer_type_is_unord<int (B::*)(), int (A::*)() noexcept, int (B::*)()>();
     composite_pointer_type_is_unord<int (A::*)() noexcept, int (B::*)(), int (B::*)()>();
     composite_pointer_type_is_unord<int (B::*)() noexcept, int (A::*)(), int (B::*)()>();
     composite_pointer_type_is_unord<int (A::*)(), int (B::*)() noexcept, int (B::*)()>();
 
-    // FIXME: It would be reasonable to permit these, with a common type of 'int (*const *)()'.
+    // No composite pointer type: the types are not similar ([expr.type]).
     no_composite_pointer_type<int (**)() noexcept, int (**)()>();
     no_composite_pointer_type<int (**)(), int (**)() noexcept>();
 
-    // FIXME: It would be reasonable to permit these, with a common type of 'int (A::*)()'.
+    // No composite pointer type: the types are not similar ([expr.type]).
     no_composite_pointer_type<int (A::*)() const, int (A::*)()>();
     no_composite_pointer_type<int (A::*)(), int (A::*)() const>();
 
-    // FIXME: It would be reasonable to permit these, with a common type of
-    // 'int (A::*)() &' and 'int (A::*)() &&', respectively.
+    // No composite pointer type: the types are not similar ([expr.type]).
     no_composite_pointer_type<int (A::*)() &, int (A::*)()>();
     no_composite_pointer_type<int (A::*)(), int (A::*)() &>();
     no_composite_pointer_type<int (A::*)() &&, int (A::*)()>();
@@ -420,8 +420,8 @@ namespace cwg1573 { // cwg1573: 3.9
   // since-cxx11-error@-1 {{constexpr variable cannot have non-literal type 'const E'}}
   //   since-cxx11-note@#cwg1573-E {{'E' is not literal because it has data member 'a' of non-literal type 'A'}}
 
-  // FIXME: This diagnostic is pretty bad; we should explain that the problem
-  // is that F::c would be initialized by a non-constexpr constructor.
+  // The diagnostic does not say that F::c would be initialized by a
+  // non-constexpr constructor.
   struct F : C { using C::C; C c; }; // #cwg1573-F
   constexpr F f = F(0);
   // since-cxx11-error@-1 {{constexpr variable 'f' must be initialized by a constant expression}}

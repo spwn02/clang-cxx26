@@ -30,7 +30,7 @@ struct X {
 };
 void foo() {
   X x;
-  // FIXME: should we backport C++11 behavior?
+  // C++98 keeps the ambiguity diagnostic; the lookup rule is from C++11.
   x.set<double>(3.2);
   // cxx98-error@-1 {{lookup of 'set' in member access expression is ambiguous; using member of 'X'}}
   //   cxx98-note@#cwg1111-func-set {{lookup in the object type 'X' refers here}}

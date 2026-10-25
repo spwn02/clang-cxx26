@@ -6210,7 +6210,11 @@ struct CheckAbstractUsage {
   }
 
   void Check(ArrayTypeLoc TL, Sema::AbstractDiagSelID Sel) {
-    Visit(TL.getElementLoc(), Sema::AbstractArrayType);
+    // An array of an abstract class type is only an error where an object of
+    // that type is defined, not in a permissive context.
+    Visit(TL.getElementLoc(), Sel == Sema::AbstractNone
+                                  ? Sema::AbstractNone
+                                  : Sema::AbstractArrayType);
   }
 
   void Check(TemplateSpecializationTypeLoc TL, Sema::AbstractDiagSelID Sel) {
@@ -18737,6 +18741,14 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
       DiagnoseUnexpandedParameterPack(NameInfo, UPPC_FriendDeclaration) ||
       DiagnoseUnexpandedParameterPack(SS, UPPC_FriendDeclaration))
     return nullptr;
+
+  // The nested-name-specifier of a friend function declarator is declarative.
+  if (SS.isSet() && !SS.isInvalid())
+    diagnoseDeclarativeNestedNameSpecifier(
+        SS, Loc,
+        D.getName().getKind() == UnqualifiedIdKind::IK_TemplateId
+            ? D.getName().TemplateId
+            : nullptr);
 
   // The context we found the declaration in, or in which we should
   // create the declaration.

@@ -257,7 +257,7 @@ namespace cwg621 { // cwg621: 2.7
 } // namespace cwg621
 
 // cwg623: na
-// FIXME: Add documentation saying we allow invalid pointer values.
+// Using an invalid pointer value is implementation-defined; it is allowed.
 
 // cwg624 needs a libc++abi test.
 
@@ -281,7 +281,7 @@ namespace cwg626 { // cwg626: 2.7
 
 namespace cwg627 { // cwg627: 2.7
   void f() {
-    // FIXME: emitted diagnostic have a room for improvement
+    // The diagnostics describe the recovery, not the cause.
     true a = 0;
     // expected-error@-1 {{expected ';' after expression}}
     // expected-error@-2 {{use of undeclared identifier 'a'}}
@@ -376,7 +376,7 @@ namespace cwg635 { // cwg635: 2.7
   template<> C::C<int>() {}
   // expected-error@-1 {{qualified reference to 'C' is a constructor name rather than a type in this context}}
   // expected-error@-2 {{expected unqualified-id}}
-  /*FIXME: needed for error recovery:*/;
+  /* needed for error recovery: */;
 
   template<typename T> struct D { template<typename U> D(); D(); };
   template<typename T> D<T>::D() {} // #cwg635-D
@@ -615,9 +615,8 @@ namespace cwg647 { // cwg647: 3.1
     int n;
     D d;
 
-    // FIXME: We should diagnose this, as the conversion function is not
-    // constexpr. However, that part of this issue is supreseded by cwg1364 and
-    // others; no diagnostic is required for this any more.
+    // No diagnostic is required: that part of this issue is superseded by
+    // cwg1364 and others.
     constexpr E()
         : n(D(0)),
           d(0) {}
@@ -1071,7 +1070,7 @@ namespace cwg674 { // cwg674: 8
   //   expected-note@#cwg674-Z-n {{implicitly declared private here}}
   template<typename T> int Y::h(T) { return Z().n; }
 
-  // FIXME: Should the <> be required here?
+  // The <> is not required ([temp.explicit]).
   template int Y::f<>(int);
   template int Y::g<>(int); // #cwg674-Y-g-int
   template int Y::h<>(int);
@@ -1115,7 +1114,7 @@ namespace cwg677 { // cwg677: yes
   //   expected-note@#cwg677-B-delete {{'operator delete' has been explicitly marked deleted here}}
 } // namespace cwg677
 
-// cwg678 FIXME: check that the modules ODR check catches this
+// cwg678: the modules ODR check is not tested here.
 
 namespace cwg679 { // cwg679: 2.7
   struct X {};
@@ -1133,7 +1132,7 @@ namespace cwg681 { // cwg681: yes
   auto *a() -> int;
   // since-cxx11-error@-1 {{function with trailing return type must specify return type 'auto', not 'auto *'}}
   auto (*b)() -> int;
-  // FIXME: The errors here aren't great.
+  // The diagnostics describe the recovery, not the cause.
   auto (*c()) -> int;
   // since-cxx11-error@-1 {{expected function body after function declarator}}
   auto ((*d)()) -> int;

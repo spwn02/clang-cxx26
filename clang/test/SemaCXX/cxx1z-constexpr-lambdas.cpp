@@ -55,10 +55,12 @@ auto never_constant_2 = [] () -> int { // expected-note {{here}}
 struct test_never_constant {
   #if __cplusplus >= 201703L
   // expected-error@+3 {{non-constexpr declaration of 'operator()' follows constexpr declaration}}
-  // expected-error@+3 {{non-constexpr declaration of 'operator()' follows constexpr declaration}}
+  // expected-error@+4 {{non-constexpr declaration of 'operator()' follows constexpr declaration}}
   #endif
   friend auto decltype(never_constant_1)::operator()() const;
+  // expected-error@-1 {{a 'decltype' specifier cannot be used in a declarative nested name specifier}}
   friend int decltype(never_constant_2)::operator()() const;
+  // expected-error@-1 {{a 'decltype' specifier cannot be used in a declarative nested name specifier}}
 };
 
 } // end ns test_constexpr_checking

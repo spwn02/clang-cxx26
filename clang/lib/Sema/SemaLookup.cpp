@@ -2607,23 +2607,11 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
 
   R.setNamingClass(LookupRec);
 
-  // C++ [class.member.lookup]p2:
-  //   [...] If the resulting set of declarations are not all from
-  //   sub-objects of the same type, or the set has a nonstatic member
-  //   and includes members from distinct sub-objects, there is an
-  //   ambiguity and the program is ill-formed. Otherwise that set is
-  //   the result of the lookup.
+  // C++ [basic.lookup.general]: if the declaration sets found in two base
+  // class subobjects differ, the lookup is ambiguous; otherwise the merged
+  // set is the result.
   QualType SubobjectType;
-  int SubobjectNumber = 0;
   AccessSpecifier SubobjectAccess = AS_none;
-
-  // Check whether the given lookup result contains only static members.
-  auto HasOnlyStaticMembers = [&](DeclContext::lookup_iterator Result) {
-    for (DeclContext::lookup_iterator I = Result, E = I.end(); I != E; ++I)
-      if ((*I)->isInIdentifierNamespace(IDNS) && (*I)->isCXXInstanceMember())
-        return false;
-    return true;
-  };
 
   bool TemplateNameLookup = R.isTemplateNameLookup();
 
@@ -2710,7 +2698,6 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
     if (SubobjectType.isNull()) {
       // This is the first subobject we've looked at. Record its type.
       SubobjectType = Context.getCanonicalType(PathElement.Base->getType());
-      SubobjectNumber = PathElement.SubobjectNumber;
       continue;
     }
 
@@ -2728,24 +2715,11 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
       return true;
     }
 
-    // FIXME: This language rule no longer exists. Checking for ambiguous base
-    // subobjects should be done as part of formation of a class member access
-    // expression (when converting the object parameter to the member's type).
-    if (SubobjectNumber != PathElement.SubobjectNumber) {
-      // We have a different subobject of the same type.
-
-      // C++ [class.member.lookup]p5:
-      //   A static member, a nested type or an enumerator defined in
-      //   a base class T can unambiguously be found even if an object
-      //   has more than one base class subobject of type T.
-      if (HasOnlyStaticMembers(Path->Decls))
-        continue;
-
-      // We have found a nonstatic member name in multiple, distinct
-      // subobjects. Name lookup is ambiguous.
-      R.setAmbiguousBaseSubobjects(Paths);
-      return true;
-    }
+    // Different subobjects of the same type contribute the same declarations:
+    // whether the member can be named is decided when the object expression
+    // is converted to the class of the member ([class.member.lookup]), so a
+    // non-static member found in more than one such subobject is not
+    // ambiguous by itself ('sizeof(D::n)' is valid).
   }
 
   // Lookup in a base class succeeded; return these results.

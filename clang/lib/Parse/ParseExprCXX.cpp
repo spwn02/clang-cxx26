@@ -2802,8 +2802,9 @@ bool Parser::ParseUnqualifiedIdOperator(CXXScopeSpec &SS, bool EnteringContext,
   if (SS.isNotEmpty()) {
     if (auto *RD = dyn_cast_or_null<CXXRecordDecl>(
             Actions.computeDeclContext(SS, EnteringContext)))
-      ConvIdLookupType = ParsedType::make(
-          Actions.Context.getCanonicalTagType(RD));
+      if (!Actions.RequireCompleteDeclContext(SS, RD))
+        ConvIdLookupType = ParsedType::make(
+            Actions.Context.getCanonicalTagType(RD));
   } else if (ObjectType && !ObjectType.get()->isDependentType()) {
     ConvIdLookupType = ObjectType;
   }

@@ -10,7 +10,7 @@
 // lwg404: yes
 // lwg2340: yes
 
-// FIXME: __SIZE_TYPE__ expands to 'long long' on some targets.
+// __SIZE_TYPE__ expands to 'long long' on some targets.
 __extension__ typedef __SIZE_TYPE__ size_t;
 namespace std { struct bad_alloc {}; }
 

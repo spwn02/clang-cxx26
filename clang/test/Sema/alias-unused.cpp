@@ -32,8 +32,8 @@ static int f2(int) { return 42; } // cxx-warning{{unused function 'f2'}}
 static int f2() { return 42; }
 int g2() __attribute__((alias("_ZL2f2v")));
 
-static int (*resolver1())() { return f; } // cxx-warning{{unused function 'resolver1'}}
-static int (*resolver1(int))() { return f; }
+static int (*resolver1())() { return reinterpret_cast<int (*)()>(f); } // cxx-warning{{unused function 'resolver1'}}
+static int (*resolver1(int))() { return reinterpret_cast<int (*)()>(f); }
 int ifunc1() __attribute__((ifunc("_ZL9resolver1i")));
 
 /// TODO: We should report "unused function" for f3(int).

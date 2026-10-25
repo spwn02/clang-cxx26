@@ -396,7 +396,8 @@ void TypedefNewDelete::operator delete[](void *) { }
 void __vectorcall vector_func() { }
 // CHECK-DAG: @"?vector_func@@YQXXZ"
 
-template <void (*)(void)>
+extern "C" typedef void (*CVoidFnPtr)(void);
+template <CVoidFnPtr>
 void fn_tmpl() {}
 
 template void fn_tmpl<extern_c_func>();

@@ -300,7 +300,8 @@ namespace cwg727 { // cwg727: yes
     // expected-error@-2 {{duplicate member 'v2'}}
     //   expected-note@#cwg727-v2-T {{previous declaration is here}}
 
-    // FIXME: Missing diagnostic for duplicate class explicit specialization.
+    // Redeclaring an explicit specialization of a class is allowed; only a
+    // second definition is an error.
     template<typename> struct S1;
     template<> struct S1<T>;
     template<> struct S1<U>;

@@ -3,6 +3,7 @@
 // [over.match.viable]: the default arguments used by a call come from the
 // declarations of exactly one scope; through a splice-expression that scope is
 // not a block scope (n5050 overloading.tex example).
+extern "C" typedef void FnC(int, int);
 namespace A {
 extern "C" void f(int, int = 5);
 extern "C" void f(int = 6, int);
@@ -27,7 +28,7 @@ void use_using() {
   f(3, 4); // OK, default argument was not used for viability
   f(3);    // expected-error {{default argument for 2nd parameter of 'f' is provided by declarations from more than one scope}}
   f();     // OK, default arguments provided by declarations in the scope of A
-  void (*p)(int, int) = f;
+  FnC *p = f;
 }
 void use_using_one_scope() {
   using B::f;

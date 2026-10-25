@@ -8,7 +8,7 @@
 
 // cwg1748: 3.7
 
-// FIXME: __SIZE_TYPE__ expands to 'long long' on some targets.
+// __SIZE_TYPE__ expands to 'long long' on some targets.
 __extension__ typedef __SIZE_TYPE__ size_t;
 
 void *operator new(size_t, void *);

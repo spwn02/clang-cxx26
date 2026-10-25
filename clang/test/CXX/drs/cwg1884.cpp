@@ -294,7 +294,7 @@ concept b10 = true;
 // since-cxx20-error@-1 {{redefinition of 'b10' as different kind of symbol}}
 //   since-cxx20-note@cwg1884_A.cppm:62 {{previous definition is here}}
 // For functions, type has to match as well.
-// FIXME: we should be loud and clear here about type mismatch, like we do in `a11` case.
+// The diagnostic only says that the declaration follows one in the module.
 int b11();
 // since-cxx20-error@-1 {{declaration of 'b11' in the global module follows declaration in module cwg1884_A}}
 //   since-cxx20-note@cwg1884_A.cppm:63 {{previous declaration is here}}
@@ -423,8 +423,8 @@ template <typename>
 concept e10 = true;
 // since-cxx20-error@-1 {{redefinition of 'e10' as different kind of symbol}}
 //   since-cxx20-note@cwg1884_A.cppm:95 {{previous definition is here}}
-// FIXME: the following forward declaration is well-formed.
-//        Agreement on 'struct' vs 'class' is not required per [dcl.type.elab]/7.
+// Agreement on 'struct' vs 'class' is not required ([dcl.type.elab]), but the
+// declaration still declares the entity of the module in the global module.
 class e11;
 // since-cxx20-error@-1 {{declaration of 'e11' in the global module follows declaration in module cwg1884_A}}
 //   since-cxx20-note@cwg1884_A.cppm:96 {{previous declaration is here}}

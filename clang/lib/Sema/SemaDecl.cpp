@@ -3725,6 +3725,29 @@ static void adjustDeclContextForDeclaratorDecl(DeclaratorDecl *NewD,
     FixSemaDC(VD->getDescribedVarTemplate());
 }
 
+/// [dcl.link]p7: a redeclaration of a function without a linkage-specification
+/// inherits the language linkage of the entity and of its type.
+static void inheritFunctionTypeLanguageLinkage(Sema &S, FunctionDecl *New,
+                                               const FunctionDecl *Old) {
+  // An out-of-line definition of a member has no linkage-specification of
+  // its own that applies.
+  if (!S.getLangOpts().CPlusPlus ||
+      (isa<LinkageSpecDecl>(New->getLexicalDeclContext()) &&
+       !isa<CXXMethodDecl>(New)))
+    return;
+  const auto *NewFT = New->getType()->getAs<FunctionType>();
+  const auto *OldFT = Old->getType()->getAs<FunctionType>();
+  if (!NewFT || !OldFT)
+    return;
+  bool OldIsC = OldFT->getExtInfo().getCLanguageLinkage();
+  if (NewFT->getExtInfo().getCLanguageLinkage() == OldIsC)
+    return;
+  New->setType(QualType(
+      S.Context.adjustFunctionType(
+          NewFT, NewFT->getExtInfo().withCLanguageLinkage(OldIsC)),
+      0));
+}
+
 bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
                              bool MergeTypeWithOld, bool NewDeclIsDefn) {
   // Verify the old decl was also a function.
@@ -3796,6 +3819,8 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
   // If the old declaration was found in an inline namespace and the new
   // declaration was qualified, update the DeclContext to match.
   adjustDeclContextForDeclaratorDecl(New, Old);
+
+  inheritFunctionTypeLanguageLinkage(*this, New, Old);
 
   // If the old declaration is invalid, just give up here.
   if (Old->isInvalidDecl())
@@ -6404,6 +6429,57 @@ bool Sema::DiagnoseClassNameShadow(DeclContext *DC,
   return false;
 }
 
+void Sema::diagnoseDeclarativeNestedNameSpecifier(
+    CXXScopeSpec &SS, SourceLocation Loc, TemplateIdAnnotation *TemplateId) {
+  // C++23 [temp.names]p5:
+  //   The keyword template shall not appear immediately after a declarative
+  //   nested-name-specifier.
+  //
+  // First check the template-id (if any), and then check each component of the
+  // nested-name-specifier in reverse order.
+  if (TemplateId && TemplateId->TemplateKWLoc.isValid())
+    Diag(Loc, diag::ext_template_after_declarative_nns)
+        << FixItHint::CreateRemoval(TemplateId->TemplateKWLoc);
+
+  NestedNameSpecifierLoc SpecLoc(SS.getScopeRep(), SS.location_data());
+  for (TypeLoc TL = SpecLoc.getAsTypeLoc(), NextTL; TL;
+       TL = std::exchange(NextTL, TypeLoc())) {
+    SourceLocation TemplateKeywordLoc;
+    switch (TL.getTypeLocClass()) {
+    case TypeLoc::TemplateSpecialization: {
+      auto TST = TL.castAs<TemplateSpecializationTypeLoc>();
+      TemplateKeywordLoc = TST.getTemplateKeywordLoc();
+      if (auto *T = TST.getTypePtr(); T->isDependentType() && T->isTypeAlias())
+        Diag(Loc, diag::ext_alias_template_in_declarative_nns)
+            << TST.getLocalSourceRange();
+      break;
+    }
+    case TypeLoc::Decltype:
+    case TypeLoc::PackIndexing: {
+      const Type *T = TL.getTypePtr();
+      // C++23 [expr.prim.id.qual]p2:
+      //   [...] A declarative nested-name-specifier shall not have a
+      //   computed-type-specifier.
+      //
+      // CWG2858 changed this from 'decltype-specifier' to
+      // 'computed-type-specifier'.
+      Diag(Loc, diag::err_computed_type_in_declarative_nns)
+          << T->isDecltypeType() << TL.getSourceRange();
+      break;
+    }
+    case TypeLoc::DependentName:
+      NextTL =
+          TL.castAs<DependentNameTypeLoc>().getQualifierLoc().getAsTypeLoc();
+      break;
+    default:
+      break;
+    }
+    if (TemplateKeywordLoc.isValid())
+      Diag(Loc, diag::ext_template_after_declarative_nns)
+          << FixItHint::CreateRemoval(TemplateKeywordLoc);
+  }
+}
+
 bool Sema::diagnoseQualifiedDeclaration(CXXScopeSpec &SS, DeclContext *DC,
                                         DeclarationName Name,
                                         SourceLocation Loc,
@@ -6502,56 +6578,7 @@ bool Sema::diagnoseQualifiedDeclaration(CXXScopeSpec &SS, DeclContext *DC,
     return false;
   }
 
-  // C++23 [temp.names]p5:
-  //   The keyword template shall not appear immediately after a declarative
-  //   nested-name-specifier.
-  //
-  // First check the template-id (if any), and then check each component of the
-  // nested-name-specifier in reverse order.
-  //
-  // FIXME: nested-name-specifiers in friend declarations are declarative,
-  // but we don't call diagnoseQualifiedDeclaration for them. We should.
-  if (TemplateId && TemplateId->TemplateKWLoc.isValid())
-    Diag(Loc, diag::ext_template_after_declarative_nns)
-        << FixItHint::CreateRemoval(TemplateId->TemplateKWLoc);
-
-  NestedNameSpecifierLoc SpecLoc(SS.getScopeRep(), SS.location_data());
-  for (TypeLoc TL = SpecLoc.getAsTypeLoc(), NextTL; TL;
-       TL = std::exchange(NextTL, TypeLoc())) {
-    SourceLocation TemplateKeywordLoc;
-    switch (TL.getTypeLocClass()) {
-    case TypeLoc::TemplateSpecialization: {
-      auto TST = TL.castAs<TemplateSpecializationTypeLoc>();
-      TemplateKeywordLoc = TST.getTemplateKeywordLoc();
-      if (auto *T = TST.getTypePtr(); T->isDependentType() && T->isTypeAlias())
-        Diag(Loc, diag::ext_alias_template_in_declarative_nns)
-            << TST.getLocalSourceRange();
-      break;
-    }
-    case TypeLoc::Decltype:
-    case TypeLoc::PackIndexing: {
-      const Type *T = TL.getTypePtr();
-      // C++23 [expr.prim.id.qual]p2:
-      //   [...] A declarative nested-name-specifier shall not have a
-      //   computed-type-specifier.
-      //
-      // CWG2858 changed this from 'decltype-specifier' to
-      // 'computed-type-specifier'.
-      Diag(Loc, diag::err_computed_type_in_declarative_nns)
-          << T->isDecltypeType() << TL.getSourceRange();
-      break;
-    }
-    case TypeLoc::DependentName:
-      NextTL =
-          TL.castAs<DependentNameTypeLoc>().getQualifierLoc().getAsTypeLoc();
-      break;
-    default:
-      break;
-    }
-    if (TemplateKeywordLoc.isValid())
-      Diag(Loc, diag::ext_template_after_declarative_nns)
-          << FixItHint::CreateRemoval(TemplateKeywordLoc);
-  }
+  diagnoseDeclarativeNestedNameSpecifier(SS, Loc, TemplateId);
 
   return false;
 }
@@ -12402,6 +12429,22 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
   bool MayNeedOverloadableChecks = false;
 
   inferLifetimeCaptureByAttribute(NewFD);
+
+  // The function type of a non-static class member function has C++ language
+  // linkage even when it is spelled through a typedef of a function type with
+  // C language linkage ([dcl.link]p6).
+  if (getLangOpts().CPlusPlus) {
+    if (const auto *MD = dyn_cast<CXXMethodDecl>(NewFD);
+        MD && MD->isInstance()) {
+      if (const auto *FT = MD->getType()->getAs<FunctionType>();
+          FT && FT->getExtInfo().getCLanguageLinkage())
+        NewFD->setType(QualType(
+            Context.adjustFunctionType(
+                FT, FT->getExtInfo().withCLanguageLinkage(false)),
+            0));
+    }
+  }
+
   // A function template with C language linkage is not a function with C
   // language linkage that is identified by name ([dcl.link]): it overloads
   // the non-template functions of the same name instead of redeclaring them.

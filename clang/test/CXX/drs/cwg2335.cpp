@@ -9,7 +9,8 @@
 // cxx98-11-no-diagnostics
 
 namespace cwg2335 { // cwg2335: no drafting 2018-06
-// FIXME: current consensus is that the examples are well-formed.
+// The examples are ill-formed by the wording of [class.mem]: the bodies of
+// member functions are a complete-class context of the outermost class only.
 #if __cplusplus >= 201402L
 namespace ex1 {
 template <class...> struct partition_indices {

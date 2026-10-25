@@ -5,7 +5,6 @@
 // RUN: %clang_cc1 -std=c++20 -pedantic-errors %s -verify=expected -fexceptions -fcxx-exceptions
 // RUN: %clang_cc1 -std=c++23 -pedantic-errors %s -verify=expected -fexceptions -fcxx-exceptions
 // RUN: %clang_cc1 -std=c++2c -pedantic-errors %s -verify=expected -fexceptions -fcxx-exceptions
-// expected-no-diagnostics
 
 namespace cwg2483 { // cwg2483: yes
 extern "C" {
@@ -14,5 +13,10 @@ struct T {
   void g();
 };
 }
-void (*p)() = &T::f;
+// The function type of a static member function has C language linkage here
+// ([dcl.link]); that of a non-static member function does not.
+extern "C" void (*p)() = &T::f;
+void (*q)() = &T::f;
+// expected-error@-1 {{cannot initialize a variable of type 'void (*)()' with an rvalue of type 'extern "C" void (*)()'}}
+void (T::*r)() = &T::g;
 } // namespace cwg2483

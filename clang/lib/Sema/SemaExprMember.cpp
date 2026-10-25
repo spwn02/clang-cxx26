@@ -710,6 +710,79 @@ bool Sema::CheckQualifiedMemberReference(Expr *BaseExpr,
   return true;
 }
 
+/// Look the unqualified component names of a conversion-type-id up in \p RD
+/// first ([basic.lookup.general]); a name \p RD does not declare keeps the
+/// meaning the enclosing scopes gave it. When the object expression is
+/// dependent the names were resolved before \p RD was known (CWG2396).
+static QualType relookConversionTypeInClass(Sema &S, QualType T,
+                                            CXXRecordDecl *RD,
+                                            SourceLocation Loc) {
+  ASTContext &Ctx = S.Context;
+  SplitQualType Split = T.split();
+  auto Requalify = [&](QualType New) {
+    return Ctx.getQualifiedType(New, Split.Quals);
+  };
+
+  const Type *Ty = Split.Ty;
+  if (auto *PT = dyn_cast<PointerType>(Ty)) {
+    QualType New = relookConversionTypeInClass(S, PT->getPointeeType(), RD, Loc);
+    return New == PT->getPointeeType()
+               ? T
+               : Requalify(Ctx.getPointerType(New));
+  }
+  if (auto *RT = dyn_cast<ReferenceType>(Ty)) {
+    QualType Pointee = RT->getPointeeTypeAsWritten();
+    QualType New = relookConversionTypeInClass(S, Pointee, RD, Loc);
+    if (New == Pointee)
+      return T;
+    return Requalify(isa<LValueReferenceType>(RT)
+                         ? Ctx.getLValueReferenceType(New)
+                         : Ctx.getRValueReferenceType(New));
+  }
+  if (auto *MPT = dyn_cast<MemberPointerType>(Ty)) {
+    QualType Pointee = relookConversionTypeInClass(S, MPT->getPointeeType(), RD,
+                                                   Loc);
+    NestedNameSpecifier Qualifier = MPT->getQualifier();
+    QualType Class;
+    if (Qualifier.getKind() == NestedNameSpecifier::Kind::Type)
+      Class = relookConversionTypeInClass(
+          S, QualType(Qualifier.getAsType(), 0), RD, Loc);
+    if (Pointee == MPT->getPointeeType() &&
+        (Class.isNull() || Class.getTypePtr() == Qualifier.getAsType()))
+      return T;
+    if (!Class.isNull())
+      Qualifier = NestedNameSpecifier(Class.getTypePtr());
+    const CXXRecordDecl *Cls = Qualifier.getAsRecordDecl();
+    return Requalify(Ctx.getMemberPointerType(Pointee, Qualifier, Cls));
+  }
+
+  // The leaves: a type named without a qualifier.
+  IdentifierInfo *Name = nullptr;
+  if (auto *TT = dyn_cast<TypedefType>(Ty)) {
+    if (!TT->getQualifier())
+      Name = TT->getDecl()->getIdentifier();
+  } else if (auto *TT = dyn_cast<TagType>(Ty)) {
+    if (!TT->getQualifier())
+      Name = TT->getDecl()->getIdentifier();
+  } else if (auto *UT = dyn_cast<UsingType>(Ty)) {
+    if (!UT->getQualifier())
+      Name = UT->getDecl()->getIdentifier();
+  } else if (auto *ST = dyn_cast<SubstTemplateTypeParmType>(Ty)) {
+    Name = ST->getReplacedParameter()->getIdentifier();
+  }
+  if (!Name)
+    return T;
+
+  LookupResult Found(S, Name, Loc, Sema::LookupOrdinaryName);
+  Found.suppressDiagnostics();
+  S.LookupQualifiedName(Found, RD);
+  auto *TD = Found.getAsSingle<TypeDecl>();
+  if (!TD)
+    return T;
+  QualType New = Ctx.getTypeDeclType(TD);
+  return Ctx.hasSameType(New, T) ? T : Requalify(New);
+}
+
 static bool LookupMemberExprInRecord(Sema &SemaRef, LookupResult &R,
                                      Expr *BaseExpr, QualType RTy,
                                      SourceLocation OpLoc, bool IsArrow,
@@ -729,6 +802,29 @@ static bool LookupMemberExprInRecord(Sema &SemaRef, LookupResult &R,
     return SemaRef.LookupTemplateName(R,
                                       /*S=*/nullptr, SS, ObjectType,
                                       /*EnteringContext=*/false, TemplateKWLoc);
+
+  // The component names of a conversion-type-id are looked up in the class of
+  // the object expression first; when that expression was dependent they were
+  // resolved without it (CWG2396).
+  if (R.getLookupName().getNameKind() == DeclarationName::CXXConversionFunctionName &&
+      !RTy->isDependentType()) {
+    CXXRecordDecl *RD = nullptr;
+    if (SS.isSet())
+      RD = dyn_cast_or_null<CXXRecordDecl>(
+          SemaRef.computeDeclContext(SS, /*EnteringContext=*/false));
+    else
+      RD = RTy->getAsCXXRecordDecl();
+    TypeSourceInfo *TSI = R.getLookupNameInfo().getNamedTypeInfo();
+    if (RD && !RD->isDependentContext() && TSI) {
+      QualType Written = TSI->getType();
+      QualType New = relookConversionTypeInClass(SemaRef, Written, RD,
+                                                 R.getNameLoc());
+      if (New != Written)
+        R.setLookupName(SemaRef.Context.DeclarationNames
+                            .getCXXConversionFunctionName(
+                                SemaRef.Context.getCanonicalType(New)));
+    }
+  }
 
   SemaRef.LookupParsedName(R, /*S=*/nullptr, &SS, ObjectType);
   return false;

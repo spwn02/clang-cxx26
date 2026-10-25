@@ -111,7 +111,7 @@ namespace cwg109 { // cwg109: 2.8
     using T::template f<int>;
     // expected-error@-1 {{'template' keyword not permitted here}}
     // expected-error@-2 {{using declaration cannot refer to a template specialization}}
-    // FIXME: We shouldn't suggest using the 'template' keyword in a location where it's not valid.
+    // The 'template' hint is not valid in a using-declaration; the error stands.
     using T::f<int>;
     // expected-error@-1 {{use 'template' keyword to treat 'f' as a dependent template name}}
     // expected-error@-2 {{using declaration cannot refer to a template specialization}}
@@ -153,7 +153,7 @@ namespace cwg112 { // cwg112: 3.1
   const Arr a3 = {}; // #cwg112-a3
   volatile Arr a4 = {};
   template<const volatile T*> struct X {};
-  // FIXME: Test this somehow in C++11 and on.
+  // C++11 and later accept these (no diagnostic is expected).
   X<a1> x1;
   // cxx98-error@-1 {{non-type template argument referring to object 'a1' with internal linkage is a C++11 extension}}
   //   cxx98-note@#cwg112-a1 {{non-type template argument refers to object here}}
@@ -701,7 +701,8 @@ namespace cwg141 { // cwg141: 3.1
     //   cxx98-note@#cwg141-A-S {{lookup in the object type 'struct A' refers here}}
     //   cxx98-note@#cwg141-S {{lookup from the current scope refers here}}
     // expected-error@#cwg141-a {{no member named 'n' in 'cwg141::A::S<int>'}}
-    // FIXME: we issue a useful diagnostic first, then some bogus ones.
+    // The first diagnostic is the useful one; the follow-up errors are
+    // recovery noise.
     b.f<int>();
     // expected-error@-1 {{no member named 'f' in 'cwg141::B'}}
     // expected-error@-2 +{{}}
@@ -1046,13 +1047,14 @@ namespace cwg166 { // cwg166: 2.9
 
 // cwg167: sup 1012
 
-namespace cwg168 { // cwg168: no
+namespace cwg168 { // cwg168: yes
   extern "C" typedef int (*p)();
   extern "C++" typedef int (*q)();
   struct S {
     static int f();
   };
-  p a = &S::f; // FIXME: this should fail.
+  p a = &S::f;
+  // expected-error@-1 {{cannot initialize a variable of type 'p' (aka 'extern "C" int (*)()') with an rvalue of type 'int (*)()'}}
   q b = &S::f;
 } // namespace cwg168
 

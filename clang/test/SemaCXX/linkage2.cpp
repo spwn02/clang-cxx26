@@ -93,20 +93,19 @@ extern "C" {
 extern "C" { typedef int test7_F(); static test7_F test7_f; }
 extern "C++" { extern test7_F test7_f; }
 
-// FIXME: This should be invalid. The function has no language linkage, but
-// the function type has, so this is redeclaring the function with a different
-// type.
+// The function has no language linkage, but the function type has, so this
+// redeclares the function with a different type ([dcl.link]).
 extern "C++" {
-  static void test8_f();
+  static void test8_f(); // expected-note {{previous declaration is here}}
 }
 extern "C" {
-  extern void test8_f();
+  extern void test8_f(); // expected-error {{conflicting types for 'test8_f'}}
 }
 extern "C" {
-  static void test8_g();
+  static void test8_g(); // expected-note {{previous declaration is here}}
 }
 extern "C++" {
-  extern void test8_g();
+  extern void test8_g(); // expected-error {{conflicting types for 'test8_g'}}
 }
 
 extern "C" {

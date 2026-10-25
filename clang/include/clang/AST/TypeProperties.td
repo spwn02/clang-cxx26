@@ -298,6 +298,9 @@ let Class = FunctionType in {
   def : Property<"cmseNSCall", Bool> {
     let Read = [{ node->getExtInfo().getCmseNSCall() }];
   }
+  def : Property<"cLanguageLinkage", Bool> {
+    let Read = [{ node->getExtInfo().getCLanguageLinkage() }];
+  }
 }
 
 let Class = FunctionNoProtoType in {
@@ -305,7 +308,7 @@ let Class = FunctionNoProtoType in {
     auto extInfo = FunctionType::ExtInfo(noReturn, hasRegParm, regParm,
                                          callingConvention, producesResult,
                                          noCallerSavedRegs, noCfCheck,
-                                         cmseNSCall);
+                                         cmseNSCall, cLanguageLinkage);
     return ctx.getFunctionNoProtoType(returnType, extInfo);
   }]>;
 }
@@ -351,7 +354,7 @@ let Class = FunctionProtoType in {
     auto extInfo = FunctionType::ExtInfo(noReturn, hasRegParm, regParm,
                                          callingConvention, producesResult,
                                          noCallerSavedRegs, noCfCheck,
-                                         cmseNSCall);
+                                         cmseNSCall, cLanguageLinkage);
     FunctionProtoType::ExtProtoInfo epi;
     epi.ExtInfo = extInfo;
     epi.Variadic = variadic;
