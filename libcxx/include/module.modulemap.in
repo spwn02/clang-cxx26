@@ -40,6 +40,13 @@ module std_core [system] {
     }
   }
 
+  module cstdlib {
+    module callbacks {
+      header "__cstdlib/callbacks.h"
+      export *
+    }
+  }
+
   module cstdint {
     header "cstdint"
     export *
