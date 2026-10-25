@@ -6,38 +6,23 @@
 // RUN: %clang_cc1 -x c++ %t -DFIXING
 
 template<typename T> void f(T) { }
-#if __cplusplus >= 201103L
-  // expected-note@-2 {{explicit instantiation refers here}}
-#endif
 
 template<typename T> void g(T) { }
-#if __cplusplus >= 201103L
-  // expected-note@-2 {{explicit instantiation refers here}}
-#endif
 
 template<typename T> struct x { };
-#if __cplusplus >= 201103L
-  // expected-note@-2 {{explicit instantiation refers here}}
-#endif
 
 template<typename T> struct y { };  // expected-note {{declared here}}
 
-namespace good { // Only good in C++98/03
+namespace good {
 #ifndef FIXING
+  // Unqualified lookup only finds declarations nominable in this namespace.
   template void f<int>(int);
-#if __cplusplus >= 201103L
-  // expected-error@-2 {{explicit instantiation of 'f' must occur at global scope}}
-#endif
+  // expected-error@-1 {{explicit instantiation of 'f' does not refer to a function template, variable template, member function, member class, or static data member}}
 
   template void g(int);
-#if __cplusplus >= 201103L
-  // expected-error@-2 {{explicit instantiation of 'g' must occur at global scope}}
-#endif
+  // expected-error@-1 {{explicit instantiation of 'g' does not refer to a function template, variable template, member function, member class, or static data member}}
 
   template struct x<int>;
-#if __cplusplus >= 201103L
-  // expected-error@-2 {{explicit instantiation of 'x' must occur at global scope}}
-#endif
 #endif
 }
 

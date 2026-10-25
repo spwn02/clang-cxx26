@@ -10253,6 +10253,17 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   // context will be different from the semantic context.
   NewFD->setLexicalDeclContext(CurContext);
 
+  // [module.unit]p7.2: a replaceable global allocation or deallocation
+  // function is attached to the global module (CWG2597).
+  if (getLangOpts().CPlusPlusModules && getCurrentModule() &&
+      isCurrentModulePurview() &&
+      !getCurrentModule()->isImplicitGlobalModule() &&
+      NewFD->hasOwningModule() && NewFD->isReplaceableGlobalAllocationFunction()) {
+    Module *GlobalModule = PushImplicitGlobalModuleFragment(D.getBeginLoc());
+    NewFD->setLocalOwningModule(GlobalModule);
+    PopImplicitGlobalModuleFragment();
+  }
+
   if (IsLocalExternDecl)
     NewFD->setLocalExternDecl();
 
@@ -16985,11 +16996,20 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body, bool IsInstantiation,
                                                FD->getReturnType(), FD);
 
         // If this is a structor, we need a vtable.
-        if (CXXConstructorDecl *Constructor = dyn_cast<CXXConstructorDecl>(FD))
+        if (CXXConstructorDecl *Constructor = dyn_cast<CXXConstructorDecl>(FD)) {
           MarkVTableUsed(FD->getLocation(), Constructor->getParent());
-        else if (CXXDestructorDecl *Destructor =
-                     dyn_cast<CXXDestructorDecl>(FD))
+          if (!FD->isDependentContext())
+            MarkClassAllocationFunctionsReferenced(
+                Constructor->getParent(), FD->getLocation(),
+                /*Allocation=*/true);
+        } else if (CXXDestructorDecl *Destructor =
+                       dyn_cast<CXXDestructorDecl>(FD)) {
           MarkVTableUsed(FD->getLocation(), Destructor->getParent());
+          if (!FD->isDependentContext())
+            MarkClassAllocationFunctionsReferenced(
+                Destructor->getParent(), FD->getLocation(),
+                /*Allocation=*/false);
+        }
 
         // Try to apply the named return value optimization. We have to check
         // if we can do this here because lambdas keep return statements around
@@ -20855,6 +20875,11 @@ Decl *Sema::ActOnEnumConstant(Scope *S, Decl *theEnumDecl, Decl *lastEnumConst,
                  RedeclarationKind::ForVisibleRedeclaration);
   LookupName(R, S);
   NamedDecl *PrevDecl = R.getAsSingle<NamedDecl>();
+  // A function template (or an overload set) cannot coexist with an
+  // enumerator of the same name in the same scope.
+  if (!PrevDecl && getLangOpts().CPlusPlus &&
+      R.getResultKind() == LookupResultKind::FoundOverloaded)
+    PrevDecl = R.getRepresentativeDecl();
 
   if (PrevDecl && PrevDecl->isTemplateParameter()) {
     // Maybe we will complain about the shadowed template parameter.

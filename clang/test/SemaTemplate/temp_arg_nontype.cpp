@@ -444,10 +444,10 @@ namespace dependent_nested_partial_specialization {
 
   template<template<typename> class X> struct C {
     template<typename T, int N, int M> struct D; // expected-note {{here}}
-    template<typename T, X<T> N> struct D<T*, N, N + 1> {}; // expected-error {{type of specialized non-type template argument depends on}}
+    template<typename T, X<T> N> struct D<T*, N, N + 1> {};
   };
   C<X>::D<int*, 0, 1> cx;
-  C<Y>::D<int*, 0, 1> cy; // expected-error {{undefined}} expected-note {{instantiation of}}
+  C<Y>::D<int*, 0, 1> cy; // expected-error {{undefined}}
 
   template<typename T> struct E {
     template<typename U, U V> struct F; // expected-note {{template}}

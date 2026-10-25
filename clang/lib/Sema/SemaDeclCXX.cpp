@@ -11309,6 +11309,58 @@ void Sema::CheckConstructor(CXXConstructorDecl *Constructor) {
   }
 }
 
+/// [basic.def.odr]: a non-placement allocation or deallocation function for a
+/// class is odr-used by the definition of a constructor of that class, and a
+/// non-placement deallocation function by the definition of its destructor.
+void Sema::MarkClassAllocationFunctionsReferenced(CXXRecordDecl *RD,
+                                                  SourceLocation Loc,
+                                                  bool Allocation) {
+  // Looking the name up through a LookupResult would implicitly declare the
+  // global allocation functions, so walk the class and its bases directly.
+  auto FindMembers = [&](auto &&Self, CXXRecordDecl *C,
+                         DeclarationName Name) -> DeclContext::lookup_result {
+    DeclContext::lookup_result Found = C->lookup(Name);
+    if (!Found.empty() || !C->hasDefinition())
+      return Found;
+    for (const CXXBaseSpecifier &B : C->bases())
+      if (CXXRecordDecl *Base = B.getType()->getAsCXXRecordDecl()) {
+        DeclContext::lookup_result Sub = Self(Self, Base, Name);
+        if (!Sub.empty())
+          return Sub;
+      }
+    return DeclContext::lookup_result();
+  };
+  CXXDestructorDecl *Dtor = Allocation ? nullptr : RD->getDestructor();
+  bool VirtualDestructor = Dtor && Dtor->isVirtual();
+  auto MarkUsual = [&](OverloadedOperatorKind Op) {
+    for (NamedDecl *D :
+         FindMembers(FindMembers, RD,
+                     Context.DeclarationNames.getCXXOperatorName(Op))) {
+      auto *FD = dyn_cast<FunctionDecl>(D->getUnderlyingDecl());
+      if (!FD || FD->getNumParams() == 0 || FD->isTypeAwareOperatorNewOrDelete())
+        continue;
+      // A usual (non-placement) function only has size and alignment
+      // parameters after the first.
+      bool Usual = true;
+      for (unsigned I = 1, N = FD->getNumParams(); I != N && Usual; ++I) {
+        QualType T = FD->getParamDecl(I)->getType();
+        Usual = Context.hasSameUnqualifiedType(T, Context.getSizeType()) ||
+                (T->isEnumeralType() && T->getAsTagDecl()->getIdentifier() &&
+                 T->getAsTagDecl()->getName() == "align_val_t");
+      }
+      if (Usual) {
+        // The deallocation function of a virtual destructor is diagnosed where
+        // the destructor is defined.
+        if (VirtualDestructor || !DiagnoseUseOfDecl(FD, Loc))
+          MarkFunctionReferenced(Loc, FD);
+      }
+    }
+  };
+  if (Allocation)
+    MarkUsual(OO_New);
+  MarkUsual(OO_Delete);
+}
+
 bool Sema::CheckDestructor(CXXDestructorDecl *Destructor) {
   CXXRecordDecl *RD = Destructor->getParent();
 
@@ -12117,8 +12169,13 @@ Decl *Sema::ActOnStartNamespaceDef(Scope *NamespcScope,
     LookupResult R(*this, II, IdentLoc, LookupOrdinaryName,
                    RedeclarationKind::ForExternalRedeclaration);
     LookupQualifiedName(R, CurContext->getRedeclContext());
+    // A function template (or an overload set) conflicts with a namespace of
+    // the same name.
     NamedDecl *PrevDecl =
-        R.isSingleResult() ? R.getRepresentativeDecl() : nullptr;
+        R.isSingleResult() ||
+                R.getResultKind() == LookupResultKind::FoundOverloaded
+            ? R.getRepresentativeDecl()
+            : nullptr;
     PrevNS = dyn_cast_or_null<NamespaceDecl>(PrevDecl);
 
     if (PrevNS) {
@@ -14460,15 +14517,13 @@ ComputeDefaultedSpecialMemberExceptionSpec(
   //   destructor without a noexcept-specifier, is potentially-throwing if and
   //   only if any of the destructors for any of its potentially constructed
   //   subojects is potentially throwing.
-  // FIXME: We respect the first rule but ignore the "potentially constructed"
-  // in the second rule to resolve a core issue (no number yet) that would have
-  // us reject:
-  //   struct A { virtual void f() = 0; virtual ~A() noexcept(false) = 0; };
-  //   struct B : A {};
-  //   struct C : B { void f(); };
-  // ... due to giving B::~B() a non-throwing exception specification.
-  Info.visit(Info.IsConstructor ? Info.VisitPotentiallyConstructedBases
-                                : Info.VisitAllBases);
+  // [except.spec]p8 (CWG2336): a virtual destructor additionally considers the
+  // destructors of all virtual base classes, even when the class is abstract
+  // and its virtual bases are not potentially constructed.
+  bool NonVirtualDestructor = isa<CXXDestructorDecl>(MD) && !MD->isVirtual();
+  Info.visit(Info.IsConstructor || NonVirtualDestructor
+                 ? Info.VisitPotentiallyConstructedBases
+                 : Info.VisitAllBases);
 
   return Info.ExceptSpec;
 }

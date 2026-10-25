@@ -76,7 +76,7 @@ public:
     virtual ~Template();
 };
 
-export template<>
+template<>
 class Template<char> {
 public:
     virtual ~Template();
@@ -84,7 +84,7 @@ public:
 
 // CHECK: @_ZTIW3Mod8TemplateIcE = {{.*}}constant
 
-export template class Template<unsigned>;
+template class Template<unsigned>;
 
 // CHECK: @_ZTIW3Mod8TemplateIjE = {{.*}}weak_odr
 

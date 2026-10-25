@@ -4002,6 +4002,34 @@ TemplateDeductionResult Sema::FinishTemplateArgumentDeduction(
   MultiLevelTemplateArgumentList SubstArgs(
       FunctionTemplate, CanonicalDeducedArgumentList->asArray(),
       /*Final=*/false);
+  // CWG2052: a specialization of an operator function template that would
+  // have no parameter of class or enumeration type is not a candidate
+  // ([over.oper]); the check of the declaration of the specialization is not a
+  // substitution failure, so it is made on the substituted parameter types.
+  if (FD->isOverloadedOperator() && !isa<CXXMethodDecl>(FD)) {
+    switch (FD->getOverloadedOperator()) {
+    case OO_New:
+    case OO_Delete:
+    case OO_Array_New:
+    case OO_Array_Delete:
+      break;
+    default: {
+      bool ClassOrEnumParam = false;
+      for (ParmVarDecl *Param : FD->parameters()) {
+        QualType PT = SubstType(Param->getType(), SubstArgs, Param->getLocation(),
+                                Param->getDeclName());
+        if (PT.isNull())
+          return TemplateDeductionResult::SubstitutionFailure;
+        PT = PT.getNonReferenceType();
+        if (PT->isRecordType() || PT->isEnumeralType())
+          ClassOrEnumParam = true;
+      }
+      if (!ClassOrEnumParam)
+        return TemplateDeductionResult::SubstitutionFailure;
+    }
+    }
+  }
+
   Specialization = cast_or_null<FunctionDecl>(
       SubstDecl(FD, Owner, SubstArgs));
   if (!Specialization || Specialization->isInvalidDecl())

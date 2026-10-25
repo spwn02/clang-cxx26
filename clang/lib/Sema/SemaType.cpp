@@ -4936,8 +4936,11 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       if (!D.isInvalidType()) {
         // trailing-return-type is only required if we're declaring a function,
         // and not, for instance, a pointer to a function.
+        // The placeholder may already have been replaced by the trailing
+        // return type of an outer function declarator (CWG681).
         if (D.getDeclSpec().hasAutoTypeSpec() &&
-            !FTI.hasTrailingReturnType() && chunkIndex == 0) {
+            !FTI.hasTrailingReturnType() && chunkIndex == 0 &&
+            T->getContainedDeducedType()) {
           if (!S.getLangOpts().CPlusPlus14) {
             S.Diag(D.getDeclSpec().getTypeSpecTypeLoc(),
                    D.getDeclSpec().getTypeSpecType() == DeclSpec::TST_auto

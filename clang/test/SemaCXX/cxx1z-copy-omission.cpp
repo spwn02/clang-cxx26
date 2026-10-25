@@ -120,19 +120,19 @@ void test_expressions(bool b) {
   using J = decltype(make_incomplete());
 
   Noncopyable cond1 = b ? Noncopyable() : make();
-  Noncopyable cond2 = b ? Noncopyable() : Derived(); // expected-error {{incompatible}}
-  Noncopyable cond3 = b ? Derived() : Noncopyable(); // expected-error {{incompatible}}
+  Noncopyable cond2 = b ? Noncopyable() : Derived(); // expected-error {{deleted}}
+  Noncopyable cond3 = b ? Derived() : Noncopyable(); // expected-error {{deleted}}
   Noncopyable cond4 = b ? Noncopyable() : nc1; // expected-error {{deleted}}
   Noncopyable cond5 = b ? nc1 : Noncopyable(); // expected-error {{deleted}}
   // Could convert both to an xvalue of type Noncopyable here, but we're not
   // permitted to consider that.
-  Noncopyable &&cond6 = b ? Noncopyable() : Derived(); // expected-error {{incompatible}}
-  Noncopyable &&cond7 = b ? Derived() : Noncopyable(); // expected-error {{incompatible}}
+  Noncopyable &&cond6 = b ? Noncopyable() : Derived(); // expected-error {{deleted}}
+  Noncopyable &&cond7 = b ? Derived() : Noncopyable(); // expected-error {{deleted}}
   // Could convert both to a const lvalue of type Noncopyable here, but we're
   // not permitted to consider that, either.
   const Noncopyable cnc;
-  const Noncopyable &cond8 = b ? cnc : Derived(); // expected-error {{incompatible}}
-  const Noncopyable &cond9 = b ? Derived() : cnc; // expected-error {{incompatible}}
+  const Noncopyable &cond8 = b ? cnc : Derived(); // expected-error {{deleted}}
+  const Noncopyable &cond9 = b ? Derived() : cnc; // expected-error {{deleted}}
 
   extern const volatile Noncopyable make_cv();
   Noncopyable cv_difference1 = make_cv();

@@ -675,17 +675,19 @@ LinkageComputer::getLVForNamespaceScopeDecl(const NamedDecl *D,
   // FIXME: This gives internal linkage to names that should have no linkage
   // (those not covered by [basic.link]p6).
   if (D->isInAnonymousNamespace()) {
+    // C++ [basic.link]p4 (CWG1113, CWG4): an unnamed namespace has internal
+    // linkage, including for declarations in a linkage-specification, which
+    // then have no language linkage ([dcl.link]). A block-scope declaration
+    // of a function or variable that has no matching prior declaration in the
+    // namespace has external linkage ([basic.link]p6), which a
+    // linkage-specification around it does not change.
     const auto *Var = dyn_cast<VarDecl>(D);
     const auto *Func = dyn_cast<FunctionDecl>(D);
-    // FIXME: The check for extern "C" here is not justified by the standard
-    // wording, but we retain it from the pre-DR1113 model to avoid breaking
-    // code.
-    //
-    // C++11 [basic.link]p4:
-    //   An unnamed namespace or a namespace declared directly or indirectly
-    //   within an unnamed namespace has internal linkage.
-    if ((!Var || !isFirstInExternCContext(Var)) &&
-        (!Func || !isFirstInExternCContext(Func)))
+    bool FirstLocalExternInExternC =
+        D->isLocalExternDecl() &&
+        ((Var && Var->isFirstDecl() && Var->isInExternCContext()) ||
+         (Func && Func->isFirstDecl() && Func->isInExternCContext()));
+    if (!FirstLocalExternInExternC)
       return LinkageInfo::internal();
   }
 

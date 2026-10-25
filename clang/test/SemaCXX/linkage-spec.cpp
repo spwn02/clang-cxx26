@@ -134,13 +134,18 @@ enum T_7927 {
   E_7927
 };
 
-extern "C" void f_pr7927(int);
+// The function in the unnamed namespace has internal linkage and so no
+// language linkage ([basic.link]p4, CWG1113): it is a different entity.
+extern "C" void f_pr7927(int); // #f_pr7927-global
 
 namespace {
-  extern "C" void f_pr7927(int);
+  extern "C" void f_pr7927(int); // #f_pr7927-unnamed
 
   void foo_pr7927() {
-    f_pr7927(E_7927);
+    f_pr7927(E_7927); // ADL also finds the global function
+    // expected-error@-1 {{call to 'f_pr7927' is ambiguous}}
+    //   expected-note@#f_pr7927-global {{candidate function}}
+    //   expected-note@#f_pr7927-unnamed {{candidate function}}
     f_pr7927(0);
     ::f_pr7927(E_7927);
     ::f_pr7927(0);
@@ -149,7 +154,13 @@ namespace {
 
 void bar_pr7927() {
   f_pr7927(E_7927);
+  // expected-error@-1 {{call to 'f_pr7927' is ambiguous}}
+  //   expected-note@#f_pr7927-global {{candidate function}}
+  //   expected-note@#f_pr7927-unnamed {{candidate function}}
   f_pr7927(0);
+  // expected-error@-1 {{call to 'f_pr7927' is ambiguous}}
+  //   expected-note@#f_pr7927-global {{candidate function}}
+  //   expected-note@#f_pr7927-unnamed {{candidate function}}
   ::f_pr7927(E_7927);
   ::f_pr7927(0);
 }

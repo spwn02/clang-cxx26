@@ -52,13 +52,14 @@ struct Derived : Base { using Base::f; };
 constexpr auto using_decl = ^^Derived::f;
 // expected-error@-1 {{cannot take the reflection of a using-declarator}}
 
-// P3687-03: two using-declarators naming the same entity make the proxy
-// reflection ambiguous.
+// P3687-03: two using-declarators naming the same entity find the same
+// declaration set, which is still a declaration that replaced a
+// using-declarator.
 struct ProxyBase { void g(); };
 struct Left : ProxyBase { using ProxyBase::g; };
 struct Right : ProxyBase { using ProxyBase::g; };
 struct Ambiguous : Left, Right {};
 constexpr auto ambiguous_proxy = ^^Ambiguous::g;
-// expected-error@-1 {{member 'g' found in multiple base classes of different types}}
+// expected-error@-1 {{cannot take the reflection of a using-declarator}}
 
 int main() {}

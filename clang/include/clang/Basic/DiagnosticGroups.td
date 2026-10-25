@@ -1338,6 +1338,7 @@ def All : DiagGroup<"all", [Most, Parentheses, Switch, SwitchBool,
 def : DiagGroup<"CL4", [All, Extra]>;
 
 // Warnings enabled by -pedantic.  This is magically filled in by TableGen.
+def FriendSpecializationSpecifier : DiagGroup<"friend-specialization-specifier">;
 def Pedantic : DiagGroup<"pedantic">;
 
 // Aliases.

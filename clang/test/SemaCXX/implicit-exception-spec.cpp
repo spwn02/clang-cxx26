@@ -133,7 +133,7 @@ namespace PotentiallyConstructed {
   template void check<A<true >, 1, 1, 1, 1, 1, 1>();
   template void check<B<false>, 0, 0, 0, 0, 0, 0>();
   template void check<B<true >, 1, 1, 1, 1, 1, 1>();
-  template void check<C<false>, 1, 1, 1, 0, 0, 0>(); // expected-note {{instantiation}}
+  template void check<C<false>, 1, 1, 1, 0, 0, 1>(); // expected-note {{instantiation}}
   template void check<C<true >, 1, 1, 1, 1, 1, 1>(); // expected-note {{instantiation}}
   template void check<D<false>, 0, 0, 0, 0, 0, 0>();
   template void check<D<true >, 1, 1, 1, 1, 1, 1>();

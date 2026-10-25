@@ -451,6 +451,19 @@ Decl *Parser::ParseExportDeclaration() {
     // FIXME: Factor out a ParseExternalDeclarationWithAttrs.
     ParsedAttributes DeclAttrs(AttrFactory);
     MaybeParseCXX11Attributes(DeclAttrs);
+    // [module.interface]: the declaration of an export-declaration is a
+    // name-declaration, which is neither an explicit specialization nor an
+    // explicit instantiation.
+    if (Tok.is(tok::kw_template)) {
+      if (NextToken().isNot(tok::less))
+        Diag(Tok.getLocation(),
+             diag::err_export_explicit_specialization_or_instantiation)
+            << 1;
+      else if (GetLookAheadToken(2).is(tok::greater))
+        Diag(Tok.getLocation(),
+             diag::err_export_explicit_specialization_or_instantiation)
+            << 0;
+    }
     ParsedAttributes EmptyDeclSpecAttrs(AttrFactory);
     ParseExternalDeclaration(DeclAttrs, EmptyDeclSpecAttrs);
     return Actions.ActOnFinishExportDecl(getCurScope(), ExportDecl,

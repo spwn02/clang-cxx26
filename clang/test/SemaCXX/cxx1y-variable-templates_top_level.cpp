@@ -369,6 +369,7 @@ namespace nested {
   int i0a = pi0a<int>;
 
   template float pi0a<float>;
+  // expected-error@-1 {{explicit instantiation of 'pi0a' does not refer to a function template, variable template, member function, member class, or static data member}}
   float f0a = pi0a<float>;
 
   template<> double pi0a<double> = 5.2;
@@ -390,15 +391,9 @@ namespace nested {
   namespace n1 {
     template<typename T>
     T pi1a = T(3.1415926535897932385); // expected-note {{explicitly specialized declaration is here}}
-#ifndef PRECXX11
-// expected-note@-2 {{explicit instantiation refers here}}
-#endif
 
     template<typename T>
     T pi1b = T(3.1415926535897932385); // expected-note {{explicitly specialized declaration is here}}
-#ifndef PRECXX11
-// expected-note@-2 {{explicit instantiation refers here}}
-#endif
   }
 
   namespace use_n1a {
@@ -406,9 +401,7 @@ namespace nested {
     int i1 = pi1a<int>;
 
     template float pi1a<float>;
-#ifndef PRECXX11
-// expected-error@-2 {{explicit instantiation of 'pi1a<float>' not in a namespace enclosing 'n1'}}
-#endif
+    // expected-error@-1 {{explicit instantiation of 'pi1a' does not refer to a function template, variable template, member function, member class, or static data member}}
     float f1 = pi1a<float>;
 
     template<> double pi1a<double> = 5.2; // expected-error {{not in a namespace enclosing 'n1'}}
@@ -419,9 +412,6 @@ namespace nested {
     int i1 = n1::pi1b<int>;
 
     template float n1::pi1b<float>;
-#ifndef PRECXX11
-// expected-error@-2 {{explicit instantiation of 'pi1b<float>' not in a namespace enclosing 'n1'}}
-#endif
     float f1 = n1::pi1b<float>;
 
     template<> double n1::pi1b<double> = 5.2;  // expected-error {{not in a namespace enclosing 'n1'}}

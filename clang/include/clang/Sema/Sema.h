@@ -6165,6 +6165,9 @@ public:
   /// CheckDestructor - Checks a fully-formed destructor definition for
   /// well-formedness, issuing any diagnostics required.  Returns true
   /// on error.
+  void MarkClassAllocationFunctionsReferenced(CXXRecordDecl *RD,
+                                              SourceLocation Loc,
+                                              bool Allocation);
   bool CheckDestructor(CXXDestructorDecl *Destructor);
 
   /// CheckConversionDeclarator - Called by ActOnDeclarator to check the

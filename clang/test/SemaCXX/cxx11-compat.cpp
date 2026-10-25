@@ -4,18 +4,18 @@
 #if __cplusplus < 201103L
 
 namespace N {
-  template<typename T> void f(T) {} // expected-note 2{{here}}
+  template<typename T> void f(T) {}
   namespace M {
-    template void ::N::f<int>(int); // expected-warning {{explicit instantiation of 'f' not in a namespace enclosing 'N'}}
+    template void ::N::f<int>(int);
   }
 }
 using namespace N;
-template void f<char>(char); // expected-warning {{explicit instantiation of 'N::f' must occur in namespace 'N'}}
+template void f<char>(char); // expected-error {{explicit instantiation of 'f' does not refer to a function template, variable template, member function, member class, or static data member}}
 
-template<typename T> void g(T) {} // expected-note 2{{here}}
+template<typename T> void g(T) {}
 namespace M {
-  template void g<int>(int); // expected-warning {{explicit instantiation of 'g' must occur at global scope}}
-  template void ::g<char>(char); // expected-warning {{explicit instantiation of 'g' must occur at global scope}}
+  template void g<int>(int); // expected-error {{explicit instantiation of 'g' does not refer to a function template, variable template, member function, member class, or static data member}}
+  template void ::g<char>(char);
 }
 
 template inline void g<double>(double); // expected-warning {{explicit instantiation cannot be 'inline'}}

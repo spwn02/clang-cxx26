@@ -142,10 +142,10 @@ namespace test6 {
     virtual ~A() {}
   };
 
+  class B : A<int> { B(); };
 #ifndef MSABI
     // expected-note@+2 {{in instantiation of member function 'test6::A<int>::operator delete' requested here}}
 #endif
-  class B : A<int> { B(); };
   B::B() {}
 }
 

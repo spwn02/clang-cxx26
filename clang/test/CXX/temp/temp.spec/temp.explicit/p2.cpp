@@ -33,24 +33,17 @@ template int XInt::value; // expected-warning{{template-id}}
 
 namespace N {
   template<typename T>
-  struct X1 { // expected-note{{explicit instantiation refers here}}
+  struct X1 {
   };
   
   template<typename T>
-  void f1(T) {} // expected-note{{explicit instantiation refers here}}
+  void f1(T) {}
 }
 using namespace N;
 
 template struct X1<int>;
-#if __cplusplus <= 199711L
-// expected-warning@-2 {{explicit instantiation of 'N::X1' must occur in namespace 'N'}}
-#else
-// expected-error@-4 {{explicit instantiation of 'N::X1' must occur in namespace 'N'}}
-#endif
 
+// The declarator-id of a function template specialization is not looked up
+// through a using-directive.
 template void f1(int);
-#if __cplusplus <= 199711L
-// expected-warning@-2 {{explicit instantiation of 'N::f1' must occur in namespace 'N'}}
-#else
-// expected-error@-4 {{explicit instantiation of 'N::f1' must occur in namespace 'N'}}
-#endif
+// expected-error@-1 {{explicit instantiation of 'f1' does not refer to a function template, variable template, member function, member class, or static data member}}

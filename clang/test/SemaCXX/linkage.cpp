@@ -67,9 +67,12 @@ namespace test3 {
 }
 
 namespace {
-  // CHECK: define{{.*}} void @test4(
+  // An extern "C" function in an unnamed namespace has internal linkage and
+  // no language linkage (CWG1113).
+  // CHECK: define internal void @_ZN12_GLOBAL__N_15test4Ev(
   extern "C" void test4(void) {}
 }
+void force4() { test4(); }
 
 // PR9316: Ensure that even non-namespace-scope function declarations in
 // a C declaration context respect that over the anonymous namespace.

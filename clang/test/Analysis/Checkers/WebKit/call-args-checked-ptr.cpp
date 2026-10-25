@@ -269,7 +269,7 @@ namespace param_forwarding_method {
   }
 }
 
-namespace downcast {
+namespace downcast_function {
   void consume_ref_countable(CheckedObj*) {}
   CheckedObj* downcast(CheckedObj*) { return nullptr; }
 

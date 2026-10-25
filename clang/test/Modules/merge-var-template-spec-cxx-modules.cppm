@@ -37,8 +37,8 @@ export template <class T> constexpr T zero = 0;
 export struct Int {
     int value;
 };
-export template <> constexpr Int zero<Int> = {0};
-export template <class T> constexpr T* zero<T*> = nullptr;
+template <> constexpr Int zero<Int> = {0};
+template <class T> constexpr T* zero<T*> = nullptr;
 
 //--- reexport1.cppm
 export module reexport1;

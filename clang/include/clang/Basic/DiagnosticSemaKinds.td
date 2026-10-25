@@ -1891,7 +1891,8 @@ def err_friend_specialization_def : Error<
   "friend function specialization cannot be defined">;
 def ext_friend_specialization_specifier : ExtWarn<
   "friend declaration of a function template specialization cannot be "
-  "declared %select{inline|constexpr|consteval}0">;
+  "declared %select{inline|constexpr|consteval}0">,
+  InGroup<FriendSpecializationSpecifier>;
 def err_friend_not_first_in_declaration : Error<
   "'friend' must appear first in a non-function declaration">;
 def err_using_decl_friend : Error<
@@ -5866,11 +5867,6 @@ def err_specialize_member_of_template : Error<
 // C++ Class Template Partial Specialization
 def err_default_arg_in_partial_spec : Error<
     "default template argument in a class template partial specialization">;
-def err_dependent_non_type_arg_in_partial_spec : Error<
-    "type of specialized non-type template argument depends on a template "
-    "parameter of the partial specialization">;
-def note_dependent_non_type_default_arg_in_partial_spec : Note<
-    "template parameter is used in default argument declared here">;
 def err_dependent_typed_non_type_arg_in_partial_spec : Error<
     "non-type template argument specializes a template parameter with "
     "dependent type %0">;
@@ -6071,17 +6067,6 @@ def note_nontemplate_decl_here : Note<
     "non-templated declaration is here">;
 def err_explicit_instantiation_in_class : Error<
   "explicit instantiation of %0 in class scope">;
-def err_explicit_instantiation_out_of_scope : Error<
-  "explicit instantiation of %0 not in a namespace enclosing %1">;
-def err_explicit_instantiation_must_be_global : Error<
-  "explicit instantiation of %0 must occur at global scope">;
-def warn_explicit_instantiation_out_of_scope_0x : Warning<
-  "explicit instantiation of %0 not in a namespace enclosing %1">,
-  InGroup<CXX11Compat>, DefaultIgnore;
-def warn_explicit_instantiation_must_be_global_0x : Warning<
-  "explicit instantiation of %0 must occur at global scope">,
-  InGroup<CXX11Compat>, DefaultIgnore;
-
 def err_explicit_instantiation_requires_name : Error<
   "explicit instantiation declaration requires a name">;
 def err_explicit_instantiation_of_typedef : Error<
@@ -6119,11 +6104,6 @@ def ext_explicit_instantiation_without_qualified_id : Extension<
   "(a typedef is not permitted)">;
 def err_explicit_instantiation_without_template_id : Error<
   "explicit instantiation of %q0 must specify a template argument list">;
-def err_explicit_instantiation_unqualified_wrong_namespace : Error<
-  "explicit instantiation of %q0 must occur in namespace %1">;
-def warn_explicit_instantiation_unqualified_wrong_namespace_0x : Warning<
-  "explicit instantiation of %q0 must occur in namespace %1">,
-  InGroup<CXX11Compat>, DefaultIgnore;
 def err_explicit_instantiation_undefined_member : Error<
   "explicit instantiation of undefined %select{member class|member function|"
   "static data member}0 %1 of class template %2">;
@@ -12740,6 +12720,8 @@ def err_export_within_anonymous_namespace : Error<
   "export declaration appears within anonymous namespace">;
 def note_anonymous_namespace : Note<"anonymous namespace begins here">;
 def note_export : Note<"export block begins here">;
+def err_export_partial_specialization : Error<
+  "an export declaration cannot declare a partial specialization">;
 def err_export_within_export : Error<
   "export declaration appears within another export declaration">;
 def err_export_anon_ns_internal : Error<

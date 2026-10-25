@@ -2126,8 +2126,10 @@ const CXXRecordDecl *CXXRecordDecl::getTemplateInstantiationPattern() const {
   if (auto *TD = dyn_cast<ClassTemplateSpecializationDecl>(this)) {
     auto From = TD->getInstantiatedFrom();
     if (auto *CTD = dyn_cast_if_present<ClassTemplateDecl *>(From)) {
+      // An explicit specialization of a member class template is its own
+      // pattern (CWG531).
       while (auto *NewCTD = CTD->getInstantiatedFromMemberTemplate()) {
-        if (NewCTD->isMemberSpecialization())
+        if (CTD->isMemberSpecialization())
           break;
         CTD = NewCTD;
       }

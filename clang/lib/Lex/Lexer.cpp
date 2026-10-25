@@ -2028,8 +2028,12 @@ bool Lexer::LexIdentifierContinue(Token &Result, const char *CurPtr) {
 
   // Finally, now that we know we have an identifier, pass this off to the
   // preprocessor, which may macro expand it or something.
-  if (II->isHandleIdentifierCase())
+  if (II->isHandleIdentifierCase()) {
+    // [cpp.include]: a header-name is only formed immediately after the
+    // directive name; tokens that follow a macro are ordinary tokens (CWG3015).
+    ParsingFilename = false;
     return PP->HandleIdentifier(Result);
+  }
 
   return true;
 }

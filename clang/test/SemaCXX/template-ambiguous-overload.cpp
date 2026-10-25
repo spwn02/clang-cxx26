@@ -1,8 +1,9 @@
 // RUN: %clang_cc1 -fsyntax-only -verify %s
+// expected-no-diagnostics
 
 namespace n {
 template <int>
-void f(); // expected-note{{explicit instantiation candidate function 'n::f<0>' template here [with $0 = 0]}}
+void f();
 
 extern template void f<0>();
 }
@@ -10,7 +11,8 @@ extern template void f<0>();
 using namespace n;
 
 template <int>
-void f() {} // expected-note{{explicit instantiation candidate function 'f<0>' template here [with $0 = 0]}}
+void f() {}
 
-template void f<0>(); // expected-error{{partial ordering for explicit instantiation of 'f' is ambiguous}}
+// Only the template nominable in this namespace is considered, not n::f.
+template void f<0>();
 

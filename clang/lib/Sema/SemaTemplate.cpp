@@ -4474,6 +4474,11 @@ DeclResult Sema::ActOnVarTemplateSpecialization(
     Specialization->setLocation(TemplateNameLoc);
     PrevDecl = nullptr;
   } else if (IsPartialSpecialization) {
+    // [module.interface]: the name-declaration of an export-declaration shall
+    // not declare a partial specialization.
+    if (auto *ED = dyn_cast<ExportDecl>(CurContext); ED && !ED->hasBraces())
+      Diag(TemplateNameLoc, diag::err_export_partial_specialization);
+
     // Create a new class template partial specialization declaration node.
     VarTemplatePartialSpecializationDecl *PrevPartial =
         cast_or_null<VarTemplatePartialSpecializationDecl>(PrevDecl);
@@ -8610,16 +8615,6 @@ static bool CheckTemplateSpecializationScope(Sema &S,
   return false;
 }
 
-static SourceRange findTemplateParameterInType(unsigned Depth, Expr *E) {
-  if (!E->isTypeDependent())
-    return SourceLocation();
-  DependencyChecker Checker(Depth, /*IgnoreNonTypeDependent*/true);
-  Checker.TraverseStmt(E);
-  if (Checker.MatchLoc.isInvalid())
-    return E->getSourceRange();
-  return Checker.MatchLoc;
-}
-
 static SourceRange findTemplateParameter(unsigned Depth, TypeLoc TL) {
   if (!TL.getType()->isDependentType())
     return SourceLocation();
@@ -8678,39 +8673,13 @@ static bool CheckNonTypeTemplatePartialSpecializationArgs(
     if (isa<DependentTemplateIdExpr>(ArgExpr))
       continue;
 
-    // C++ [temp.class.spec]p9:
-    //   Within the argument list of a class template partial
-    //   specialization, the following restrictions apply:
-    //     -- A partially specialized non-type argument expression
-    //        shall not involve a template parameter of the partial
-    //        specialization except when the argument expression is a
-    //        simple identifier.
-    //     -- The type of a template parameter corresponding to a
-    //        specialized non-type argument shall not be dependent on a
-    //        parameter of the specialization.
-    // DR1315 removes the first bullet, leaving an incoherent set of rules.
-    // We implement a compromise between the original rules and DR1315:
-    //     --  A specialized non-type template argument shall not be
-    //         type-dependent and the corresponding template parameter
-    //         shall have a non-dependent type.
-    SourceRange ParamUseRange =
-        findTemplateParameterInType(Param->getDepth(), ArgExpr);
-    if (ParamUseRange.isValid()) {
-      if (IsDefaultArgument) {
-        S.Diag(TemplateNameLoc,
-               diag::err_dependent_non_type_arg_in_partial_spec);
-        S.Diag(ParamUseRange.getBegin(),
-               diag::note_dependent_non_type_default_arg_in_partial_spec)
-          << ParamUseRange;
-      } else {
-        S.Diag(ParamUseRange.getBegin(),
-               diag::err_dependent_non_type_arg_in_partial_spec)
-          << ParamUseRange;
-      }
-      return true;
-    }
-
-    ParamUseRange = findTemplateParameter(
+    // [temp.spec.partial.general]:
+    //   Within the argument list of a partial specialization, the type of a
+    //   template parameter corresponding to a specialized constant template
+    //   argument shall not be dependent on a parameter of the partial
+    //   specialization (CWG1315 removed the restriction on the argument
+    //   expression itself).
+    SourceRange ParamUseRange = findTemplateParameter(
         Param->getDepth(), Param->getTypeSourceInfo()->getTypeLoc());
     if (ParamUseRange.isValid()) {
       S.Diag(IsDefaultArgument ? TemplateNameLoc : ArgExpr->getBeginLoc(),
@@ -9051,6 +9020,11 @@ DeclResult Sema::ActOnClassTemplateSpecialization(
           /*FriendLoc*/ SourceLocation(), TemplateParameterLists.size() - 1,
           TemplateParameterLists.data());
     }
+
+    // [module.interface]: the name-declaration of an export-declaration shall
+    // not declare a partial specialization.
+    if (auto *ED = dyn_cast<ExportDecl>(CurContext); ED && !ED->hasBraces())
+      Diag(TemplateNameLoc, diag::err_export_partial_specialization);
 
     // Create a new class template partial specialization declaration node.
     ClassTemplatePartialSpecializationDecl *PrevPartial =
@@ -10176,51 +10150,17 @@ void Sema::CompleteMemberSpecialization(NamedDecl *Member,
 static bool CheckExplicitInstantiationScope(Sema &S, NamedDecl *D,
                                             SourceLocation InstLoc,
                                             bool WasQualifiedName) {
-  DeclContext *OrigContext= D->getDeclContext()->getEnclosingNamespaceContext();
   DeclContext *CurContext = S.CurContext->getRedeclContext();
 
+  // [temp.explicit] no longer requires the explicit instantiation to appear in
+  // an enclosing namespace of its template (P1787R6); the declarator-id rules
+  // of [dcl.meaning.general] identify the specialization.
   if (CurContext->isRecord()) {
     S.Diag(InstLoc, diag::err_explicit_instantiation_in_class)
       << D;
     return true;
   }
 
-  // C++11 [temp.explicit]p3:
-  //   An explicit instantiation shall appear in an enclosing namespace of its
-  //   template. If the name declared in the explicit instantiation is an
-  //   unqualified name, the explicit instantiation shall appear in the
-  //   namespace where its template is declared or, if that namespace is inline
-  //   (7.3.1), any namespace from its enclosing namespace set.
-  //
-  // This is DR275, which we do not retroactively apply to C++98/03.
-  if (WasQualifiedName) {
-    if (CurContext->Encloses(OrigContext))
-      return false;
-  } else {
-    if (CurContext->InEnclosingNamespaceSetOf(OrigContext))
-      return false;
-  }
-
-  if (NamespaceDecl *NS = dyn_cast<NamespaceDecl>(OrigContext)) {
-    if (WasQualifiedName)
-      S.Diag(InstLoc,
-             S.getLangOpts().CPlusPlus11?
-               diag::err_explicit_instantiation_out_of_scope :
-               diag::warn_explicit_instantiation_out_of_scope_0x)
-        << D << NS;
-    else
-      S.Diag(InstLoc,
-             S.getLangOpts().CPlusPlus11?
-               diag::err_explicit_instantiation_unqualified_wrong_namespace :
-               diag::warn_explicit_instantiation_unqualified_wrong_namespace_0x)
-        << D << NS;
-  } else
-    S.Diag(InstLoc,
-           S.getLangOpts().CPlusPlus11?
-             diag::err_explicit_instantiation_must_be_global :
-             diag::warn_explicit_instantiation_must_be_global_0x)
-      << D;
-  S.Diag(D->getLocation(), diag::note_explicit_instantiation_here);
   return false;
 }
 
@@ -10796,6 +10736,30 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
   LookupResult Previous(*this, NameInfo, LookupOrdinaryName);
   LookupParsedName(Previous, S, &D.getCXXScopeSpec(),
                    /*ObjectType=*/QualType());
+
+  // [dcl.meaning.general]: only those lookup results that are nominable in the
+  // scope inhabited by the declarator, or designated by its qualifier, are
+  // considered when identifying the specialization being declared.
+  {
+    DeclContext *NominableIn =
+        D.getCXXScopeSpec().isSet()
+            ? computeDeclContext(D.getCXXScopeSpec())
+            : CurContext;
+    if (NominableIn)
+      NominableIn = NominableIn->getRedeclContext();
+    if (NominableIn && NominableIn->isFileContext() && !Previous.isAmbiguous()) {
+      LookupResult::Filter F = Previous.makeFilter();
+      while (F.hasNext()) {
+        NamedDecl *Found = F.next();
+        if (isa<UsingShadowDecl>(Found) ||
+            Found->getLexicalDeclContext()->isFunctionOrMethod() ||
+            !NominableIn->InEnclosingNamespaceSetOf(
+                Found->getDeclContext()->getRedeclContext()))
+          F.erase();
+      }
+      F.done();
+    }
+  }
 
   if (!R->isFunctionType()) {
     // C++ [temp.explicit]p1:

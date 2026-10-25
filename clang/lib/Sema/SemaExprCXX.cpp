@@ -5660,6 +5660,21 @@ QualType Sema::CheckPointerToMemberOperands(ExprResult &LHS, ExprResult &RHS,
 /// converted to each other. This function does the conversion in one direction.
 /// It returns true if the program is ill-formed and has already been diagnosed
 /// as such.
+/// A conversion that overload resolution selects but that is deleted exists
+/// for the purposes of the conditional operator; using it is ill-formed
+/// (CWG1895).
+static bool IsDeletedConversion(const InitializationSequence &InitSeq) {
+  if (!InitSeq.Failed())
+    return false;
+  switch (InitSeq.getFailureKind()) {
+  case InitializationSequence::FK_ConstructorOverloadFailed:
+  case InitializationSequence::FK_UserConversionOverloadFailed:
+    return InitSeq.getFailedOverloadResult() == OR_Deleted;
+  default:
+    return false;
+  }
+}
+
 static bool TryClassUnification(Sema &Self, Expr *From, Expr *To,
                                 SourceLocation QuestionLoc,
                                 bool &HaveConversion,
@@ -5685,7 +5700,7 @@ static bool TryClassUnification(Sema &Self, Expr *From, Expr *To,
     InitializedEntity Entity = InitializedEntity::InitializeTemporary(T);
 
     InitializationSequence InitSeq(Self, Entity, Kind, From);
-    if (InitSeq.isDirectReferenceBinding()) {
+    if (InitSeq.isDirectReferenceBinding() || IsDeletedConversion(InitSeq)) {
       ToType = T;
       HaveConversion = true;
       return false;
@@ -5713,7 +5728,7 @@ static bool TryClassUnification(Sema &Self, Expr *From, Expr *To,
       if (TTy.isAtLeastAsQualifiedAs(FTy, Self.getASTContext())) {
         InitializedEntity Entity = InitializedEntity::InitializeTemporary(TTy);
         InitializationSequence InitSeq(Self, Entity, Kind, From);
-        if (InitSeq) {
+        if (InitSeq || IsDeletedConversion(InitSeq)) {
           HaveConversion = true;
           return false;
         }
@@ -5737,7 +5752,7 @@ static bool TryClassUnification(Sema &Self, Expr *From, Expr *To,
 
   InitializedEntity Entity = InitializedEntity::InitializeTemporary(TTy);
   InitializationSequence InitSeq(Self, Entity, Kind, From);
-  HaveConversion = !InitSeq.Failed();
+  HaveConversion = !InitSeq.Failed() || IsDeletedConversion(InitSeq);
   ToType = TTy;
   if (InitSeq.isAmbiguous())
     return InitSeq.Diagnose(Self, Entity, Kind, From);
@@ -5818,6 +5833,14 @@ static bool ConvertForConditional(Sema &Self, ExprResult &E, QualType T) {
   ExprResult Result = InitSeq.Perform(Self, Entity, Kind, Arg);
   if (Result.isInvalid())
     return true;
+
+  // [expr.cond]: an operand converted to "lvalue reference to T" that binds
+  // directly to a glvalue (an xvalue included) is an lvalue (CWG2226).
+  if (T->isLValueReferenceType() && Result.get()->isXValue())
+    // ImpCastExprToType would drop a cast that changes only the value kind.
+    Result = ImplicitCastExpr::Create(Self.Context, Result.get()->getType(),
+                                      CK_NoOp, Result.get(), nullptr, VK_LValue,
+                                      FPOptionsOverride());
 
   E = Result;
   return false;

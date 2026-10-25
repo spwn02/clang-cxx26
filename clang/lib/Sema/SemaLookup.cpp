@@ -2111,8 +2111,12 @@ bool Sema::shouldLinkPossiblyHiddenDecl(LookupResult &R, const NamedDecl *New) {
   for (auto *D : R) {
     if (isVisible(D))
       return true;
-    assert(D->isExternallyDeclarable() &&
-           "should not have hidden, non-externally-declarable result here");
+    // A hidden declaration is normally only found if it is externally
+    // declarable, but the previous declaration of an explicit specialization of
+    // a variable template is looked up in the template's specializations, and
+    // a specialization that is not exported (it cannot be: [module.interface])
+    // is hidden outside its module. It then redeclares nothing visible, which
+    // the linkage computation below accounts for.
   }
 
   // This function is called once "New" is essentially complete, but before a
