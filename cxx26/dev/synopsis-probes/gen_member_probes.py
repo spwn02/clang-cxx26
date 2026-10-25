@@ -86,6 +86,12 @@ for cname,(cls,cfg) in CLASSES.items():
         b=re.sub(r'\{[^{}]*\}',';',body)
         for st in b.split(';'):
             st=' '.join(st.split())
+            # nested types: `using X = ...` and `typedef ... X` of the synopsis must exist as `Class::X`
+            mu=re.match(r'using\s+(\w+)\s*=',st) or re.match(r'typedef\s+.*?\b(\w+)$',st)
+            if mu and mu.group(1) not in seen:
+                seen.add(mu.group(1))
+                out.append(f'static_assert(requires {{ typename {cls}::{mu.group(1)}; }}, "nested type {cname}::{mu.group(1)}");')
+                n+=1
             if '(' not in st or st.startswith(('using','typedef','friend','static_assert')): continue
             tp={}
             mt=re.match(r'template<((?:[^<>]|<[^<>]*>)*)>\s*(.*)',st)

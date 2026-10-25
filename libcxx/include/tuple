@@ -109,11 +109,12 @@ public:
     void swap(tuple&) noexcept(AND(swap(declval<T&>(), declval<T&>())...));               // constexpr in C++20
     constexpr void swap(const tuple&) const noexcept(see-below);                          // C++23
 
-    template<tuple-like UTuple>
-        friend constexpr bool operator==(const tuple& t, const UTuple& u);                // C++23
-    template<tuple-like UTuple>
-        friend constexpr auto operator<=>(const tuple& t, const UTuple& u);               // C++23
 };
+
+template<class... T, tuple-like UTuple>
+    constexpr bool operator==(const tuple<T...>& t, const UTuple& u);                     // C++23
+template<class... T, tuple-like UTuple>
+    constexpr auto operator<=>(const tuple<T...>& t, const UTuple& u);                    // C++23
 
 
 template<class... TTypes, class... UTypes, template<class> class TQual, template<class> class UQual> // since C++23
@@ -1282,22 +1283,6 @@ public:
     __base_.swap(__t.__base_);
   }
 
-  template <__tuple_like_no_tuple _UTuple>
-#      if _LIBCPP_STD_VER >= 26
-    requires __can_tuple_compare_equal<tuple, _UTuple> && (sizeof...(_Tp) == tuple_size_v<_UTuple>)
-#      endif // _LIBCPP_STD_VER >= 26
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const tuple& __x, const _UTuple& __y) {
-    static_assert(sizeof...(_Tp) == tuple_size_v<_UTuple>, "Can't compare tuple-like values of different sizes");
-    return std::__tuple_compare_equal<sizeof...(_Tp)>(__x, __y);
-  }
-
-  template <__tuple_like_no_tuple _UTuple>
-    requires(sizeof...(_Tp) == tuple_size_v<_UTuple>)
-  _LIBCPP_HIDE_FROM_ABI friend constexpr __tuple_common_comparison_category<tuple, _UTuple>
-  operator<=>(const tuple& __x, const _UTuple& __y) {
-    return std::__tuple_compare_three_way<__tuple_common_comparison_category<tuple, _UTuple>>(
-        __x, __y, index_sequence_for<_Tp...>{});
-  }
 #    endif   // _LIBCPP_STD_VER >= 23
 };
 
@@ -1321,23 +1306,29 @@ public:
 #    if _LIBCPP_STD_VER >= 23
   _LIBCPP_HIDE_FROM_ABI constexpr void swap(const tuple&) const noexcept {}
 
-  template <__tuple_like_no_tuple _UTuple>
-#      if _LIBCPP_STD_VER >= 26
-    requires(tuple_size_v<_UTuple> == 0)
-#      endif // _LIBCPP_STD_VER >= 26
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const tuple&, const _UTuple&) {
-    static_assert(tuple_size_v<_UTuple> == 0, "Can't compare tuple-like values of different sizes");
-    return true;
-  }
-
-  template <__tuple_like_no_tuple _UTuple>
-    requires(tuple_size_v<_UTuple> == 0)
-  _LIBCPP_HIDE_FROM_ABI friend constexpr strong_ordering operator<=>(const tuple&, const _UTuple&) {
-    return strong_ordering::equal;
-  }
 #    endif
 };
 _LIBCPP_DIAGNOSTIC_POP
+
+#    if _LIBCPP_STD_VER >= 23
+// [tuple.rel]: the comparison of a tuple with a tuple-like object is declared at namespace scope
+template <class... _Tp, __tuple_like_no_tuple _UTuple>
+#      if _LIBCPP_STD_VER >= 26
+  requires __can_tuple_compare_equal<tuple<_Tp...>, _UTuple> && (sizeof...(_Tp) == tuple_size_v<_UTuple>)
+#      endif // _LIBCPP_STD_VER >= 26
+_LIBCPP_HIDE_FROM_ABI constexpr bool operator==(const tuple<_Tp...>& __x, const _UTuple& __y) {
+  static_assert(sizeof...(_Tp) == tuple_size_v<_UTuple>, "Can't compare tuple-like values of different sizes");
+  return std::__tuple_compare_equal<sizeof...(_Tp)>(__x, __y);
+}
+
+template <class... _Tp, __tuple_like_no_tuple _UTuple>
+  requires(sizeof...(_Tp) == tuple_size_v<_UTuple>)
+_LIBCPP_HIDE_FROM_ABI constexpr __tuple_common_comparison_category<tuple<_Tp...>, _UTuple>
+operator<=>(const tuple<_Tp...>& __x, const _UTuple& __y) {
+  return std::__tuple_compare_three_way<__tuple_common_comparison_category<tuple<_Tp...>, _UTuple>>(
+      __x, __y, index_sequence_for<_Tp...>{});
+}
+#    endif // _LIBCPP_STD_VER >= 23
 
 #    if _LIBCPP_STD_VER >= 23
 template <class... _TTypes, class... _UTypes, template <class> class _TQual, template <class> class _UQual>

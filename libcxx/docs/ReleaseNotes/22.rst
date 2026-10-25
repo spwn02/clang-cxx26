@@ -122,6 +122,10 @@ Potentially breaking changes
 - ``assoc_legendre`` returns ``(1 - x^2)^(m/2) d^m/dx^m P_l(x)`` as [sf.cmath.assoc.legendre] defines it, without the
   Condon-Shortley phase ``(-1)^m`` it used to include; the result differs in sign for odd ``m``. ``sph_legendre``
   is unchanged (its definition carries the phase itself).
+- The comparison of a ``tuple`` with a tuple-like object and the comparison functions of ``chrono::leap_second`` are
+  declared at namespace scope as [tuple.rel] and [time.syn] specify; they used to be hidden friends (the resolutions
+  of LWG3882 and LWG4139, which are not in the draft). ``std::operator==(tuple, pair)`` and ``std::chrono::operator<``
+  can be named in a qualified call now.
 - ``std::atexit``, ``std::at_quick_exit``, ``std::qsort`` and ``std::bsearch`` are overloaded for callbacks with C and
   with C++ language linkage ([support.start.term], [alg.c.library]), and ``std::signal`` accepts only a handler with C
   language linkage; with the compiler of this release function types with different language linkages are different

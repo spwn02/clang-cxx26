@@ -51,75 +51,68 @@ public:
 private:
   sys_seconds __date_;
   seconds __value_;
-
-  // The function
-  //   template<class Duration>
-  //    requires three_way_comparable_with<sys_seconds, sys_time<Duration>>
-  //    constexpr auto operator<=>(const leap_second& x, const sys_time<Duration>& y) noexcept;
-  //
-  // Has constraints that are recursive (LWG4139). The proposed resolution is
-  // to make the funcion a hidden friend. For consistency make this change for
-  // all comparison functions.
-
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const leap_second& __x, const leap_second& __y) {
-    return __x.date() == __y.date();
-  }
-
-  _LIBCPP_HIDE_FROM_ABI friend constexpr strong_ordering operator<=>(const leap_second& __x, const leap_second& __y) {
-    return __x.date() <=> __y.date();
-  }
-
-  template <class _Duration>
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const leap_second& __x, const sys_time<_Duration>& __y) {
-    return __x.date() == __y;
-  }
-
-  template <class _Duration>
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<(const leap_second& __x, const sys_time<_Duration>& __y) {
-    return __x.date() < __y;
-  }
-
-  template <class _Duration>
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<(const sys_time<_Duration>& __x, const leap_second& __y) {
-    return __x < __y.date();
-  }
-
-  template <class _Duration>
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator>(const leap_second& __x, const sys_time<_Duration>& __y) {
-    return __y < __x;
-  }
-
-  template <class _Duration>
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator>(const sys_time<_Duration>& __x, const leap_second& __y) {
-    return __y < __x;
-  }
-
-  template <class _Duration>
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<=(const leap_second& __x, const sys_time<_Duration>& __y) {
-    return !(__y < __x);
-  }
-
-  template <class _Duration>
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<=(const sys_time<_Duration>& __x, const leap_second& __y) {
-    return !(__y < __x);
-  }
-
-  template <class _Duration>
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator>=(const leap_second& __x, const sys_time<_Duration>& __y) {
-    return !(__x < __y);
-  }
-
-  template <class _Duration>
-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator>=(const sys_time<_Duration>& __x, const leap_second& __y) {
-    return !(__x < __y);
-  }
-
-  template <class _Duration>
-    requires three_way_comparable_with<sys_seconds, sys_time<_Duration>>
-  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator<=>(const leap_second& __x, const sys_time<_Duration>& __y) {
-    return __x.date() <=> __y;
-  }
 };
+
+// [time.zone.leap.nonmembers]: the comparison functions are declared at namespace scope as [time.syn] specifies
+// (LWG4139's proposed hidden friends are not part of the draft).
+_LIBCPP_HIDE_FROM_ABI constexpr bool operator==(const leap_second& __x, const leap_second& __y) {
+  return __x.date() == __y.date();
+}
+
+_LIBCPP_HIDE_FROM_ABI constexpr strong_ordering operator<=>(const leap_second& __x, const leap_second& __y) {
+  return __x.date() <=> __y.date();
+}
+
+template <class _Duration>
+_LIBCPP_HIDE_FROM_ABI constexpr bool operator==(const leap_second& __x, const sys_time<_Duration>& __y) {
+  return __x.date() == __y;
+}
+
+template <class _Duration>
+_LIBCPP_HIDE_FROM_ABI constexpr bool operator<(const leap_second& __x, const sys_time<_Duration>& __y) {
+  return __x.date() < __y;
+}
+
+template <class _Duration>
+_LIBCPP_HIDE_FROM_ABI constexpr bool operator<(const sys_time<_Duration>& __x, const leap_second& __y) {
+  return __x < __y.date();
+}
+
+template <class _Duration>
+_LIBCPP_HIDE_FROM_ABI constexpr bool operator>(const leap_second& __x, const sys_time<_Duration>& __y) {
+  return __y < __x;
+}
+
+template <class _Duration>
+_LIBCPP_HIDE_FROM_ABI constexpr bool operator>(const sys_time<_Duration>& __x, const leap_second& __y) {
+  return __y < __x;
+}
+
+template <class _Duration>
+_LIBCPP_HIDE_FROM_ABI constexpr bool operator<=(const leap_second& __x, const sys_time<_Duration>& __y) {
+  return !(__y < __x);
+}
+
+template <class _Duration>
+_LIBCPP_HIDE_FROM_ABI constexpr bool operator<=(const sys_time<_Duration>& __x, const leap_second& __y) {
+  return !(__y < __x);
+}
+
+template <class _Duration>
+_LIBCPP_HIDE_FROM_ABI constexpr bool operator>=(const leap_second& __x, const sys_time<_Duration>& __y) {
+  return !(__x < __y);
+}
+
+template <class _Duration>
+_LIBCPP_HIDE_FROM_ABI constexpr bool operator>=(const sys_time<_Duration>& __x, const leap_second& __y) {
+  return !(__x < __y);
+}
+
+template <class _Duration>
+  requires three_way_comparable_with<sys_seconds, sys_time<_Duration>>
+_LIBCPP_HIDE_FROM_ABI constexpr auto operator<=>(const leap_second& __x, const sys_time<_Duration>& __y) {
+  return __x.date() <=> __y;
+}
 
 } // namespace chrono
 
