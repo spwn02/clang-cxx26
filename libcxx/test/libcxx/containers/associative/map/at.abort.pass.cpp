@@ -23,7 +23,7 @@
 
 #include "test_macros.h"
 
-void exit_success(int) { std::_Exit(EXIT_SUCCESS); }
+extern "C" void exit_success(int) { std::_Exit(EXIT_SUCCESS); }
 
 int main(int, char**) {
   std::signal(SIGABRT, exit_success);

@@ -13,7 +13,7 @@
 #include <csignal>
 #include <cstdlib>
 
-void signal_handler(int signal) {
+extern "C" void signal_handler(int signal) {
   if (signal == SIGABRT)
     std::_Exit(EXIT_SUCCESS);
   std::_Exit(EXIT_FAILURE);

@@ -218,6 +218,8 @@ enum class Outcome {
   InvalidCause,
 };
 
+extern "C" inline void signal_lambda_handler(int) { StopChildProcess(DeathCause::StdAbort); }
+
 std::string ToString(Outcome outcome) {
   switch (outcome) {
   case Outcome::Success:
@@ -258,7 +260,7 @@ public:
 
   template <std::size_t N, class Func>
   DeathTestResult Run(const std::array<DeathCause, N>& expected_causes, Func&& func, const Matcher& matcher) {
-    std::signal(SIGABRT, [](int) { StopChildProcess(DeathCause::StdAbort); });
+    std::signal(SIGABRT, signal_lambda_handler);
     std::set_terminate([] { StopChildProcess(DeathCause::StdTerminate); });
 
     DeathCause cause = Run(func);

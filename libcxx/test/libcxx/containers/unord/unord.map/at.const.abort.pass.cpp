@@ -24,8 +24,10 @@
 
 #include "test_macros.h"
 
+extern "C" void signal_lambda_handler(int) { std::_Exit(EXIT_SUCCESS); }
+
 int main(int, char**) {
-  std::signal(SIGABRT, [](int) { std::_Exit(EXIT_SUCCESS); });
+  std::signal(SIGABRT, signal_lambda_handler);
   std::unordered_map<int, int> const map;
   (void)map.at(1);
   return EXIT_FAILURE;

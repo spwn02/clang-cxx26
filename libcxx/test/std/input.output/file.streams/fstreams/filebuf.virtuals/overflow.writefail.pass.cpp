@@ -27,11 +27,13 @@
 
 #if __has_include(<sys/resource.h>)
 #  include <sys/resource.h>
+extern "C" void signal_lambda_handler(int) {  }
+
 void limit_file_size_to(std::size_t bytes) {
   rlimit lim = {bytes, bytes};
   assert(setrlimit(RLIMIT_FSIZE, &lim) == 0);
 
-  std::signal(SIGXFSZ, [](int) {}); // ignore SIGXFSZ to ensure std::fwrite fails
+  std::signal(SIGXFSZ, signal_lambda_handler); // ignore SIGXFSZ to ensure std::fwrite fails
 }
 #else
 #  error No known way to limit the amount of filesystem space available
