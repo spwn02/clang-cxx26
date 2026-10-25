@@ -178,7 +178,7 @@ TEST_F(FindAllSymbolsTest, ExternCSymbols) {
       })";
   static const char Main[] = R"(
       C_struct q() {
-        int(*ptr)() = C_Func;
+        auto ptr = C_Func;
         return {0};
       }
   )";
