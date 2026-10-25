@@ -15,6 +15,7 @@
 #include <__math/copysign.h>
 #include <__math/exponential_functions.h>
 #include <__math/gamma.h>
+#include <__math/inverse_trigonometric_functions.h>
 #include <__math/logarithms.h>
 #include <__math/modulo.h>
 #include <__math/roots.h>
@@ -45,6 +46,17 @@ namespace __math {
 template <class _Real>
 inline constexpr _Real __pi_v = _Real(3.141592653589793238462643383279502);
 } // namespace __math
+
+// [sf.cmath.general]: a function reports a domain error for the argument values outside the domain
+// its description specifies and for those where the mathematical function is not defined. Like the
+// C library functions the report is a NaN result and, as math_errhandling says, errno set to EDOM
+// and/or the invalid floating-point exception. A call of acos with an argument outside [-1, 1]
+// makes the C library do both; the volatile object keeps the compiler from folding the call.
+template <class _Real>
+_LIBCPP_HIDE_FROM_ABI _Real __sf_domain_error() {
+  volatile double __two = 2.0;
+  return static_cast<_Real>(__math::acos(__two));
+}
 
 template <class _Real>
 _LIBCPP_HIDE_FROM_ABI _Real __hermite(unsigned __n, _Real __x) {
@@ -121,6 +133,8 @@ _LIBCPP_HIDE_FROM_ABI _Real __legendre(unsigned __l, _Real __x) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__x))
     return __x;
+  if (__x < -1 || __x > 1)
+    return std::__sf_domain_error<_Real>();
 
   _Real __P_0{1};
   if (__l == 0)
@@ -174,24 +188,26 @@ _LIBCPP_HIDE_FROM_ABI double legendre(unsigned __l, _Integer __x) {
 
 template <class _Real>
 _LIBCPP_HIDE_FROM_ABI _Real __assoc_legendre(unsigned __l, unsigned __m, _Real __x) {
-  // The associated Legendre polynomial P_l^m(x), including the Condon-Shortley phase (-1)^m per
-  // [sf.cmath]'s definition.
+  // The associated Legendre function P_l^m(x) = (1 - x^2)^{m/2} d^m/dx^m P_l(x) of [sf.cmath.assoc.legendre],
+  // which has no Condon-Shortley phase (-1)^m (sph_legendre's definition carries it).
   // Starting values and recursion (Press, William H., et al. Numerical recipes 3rd edition: The art
   // of scientific computing. Cambridge university press, 2007, p. 294, `plgndr`):
-  //   P_m^m(x)     = (-1)^m (2m-1)!! (1-x^2)^{m/2}
+  //   P_m^m(x)     = (2m-1)!! (1-x^2)^{m/2}
   //   P_{m+1}^m(x) = x (2m+1) P_m^m(x)
   //   (l-m) P_l^m(x) = x(2l-1) P_{l-1}^m(x) - (l+m-1) P_{l-2}^m(x),  l > m+1.
 
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__x))
     return __x;
+  if (__x < -1 || __x > 1)
+    return std::__sf_domain_error<_Real>();
 
   _Real __P_mm{1};
   if (__m > 0) {
     _Real __somx2 = __math::sqrt((_Real(1) - __x) * (_Real(1) + __x));
     _Real __fact  = _Real(1);
     for (unsigned __i = 1; __i <= __m; ++__i) {
-      __P_mm *= -__fact * __somx2;
+      __P_mm *= __fact * __somx2;
       __fact += _Real(2);
     }
   }
@@ -261,6 +277,8 @@ _LIBCPP_HIDE_FROM_ABI _Real __laguerre(unsigned __n, _Real __x) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__x))
     return __x;
+  if (__x < 0)
+    return std::__sf_domain_error<_Real>();
 
   _Real __L_0{1};
   if (__n == 0)
@@ -328,6 +346,8 @@ _LIBCPP_HIDE_FROM_ABI _Real __assoc_laguerre(unsigned __n, unsigned __m, _Real _
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__x))
     return __x;
+  if (__x < 0)
+    return std::__sf_domain_error<_Real>();
 
   _Real __L_0{1};
   if (__n == 0)
@@ -399,6 +419,8 @@ _LIBCPP_HIDE_FROM_ABI _Real __beta(_Real __x, _Real __y) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__x) || __math::isnan(__y))
     return __x + __y;
+  if (!(__x > 0) || !(__y > 0))
+    return std::__sf_domain_error<_Real>();
 
   return __math::exp(__math::lgamma(__x) + __math::lgamma(__y) - __math::lgamma(__x + __y));
   // NOLINTEND(readability-identifier-naming)
@@ -434,23 +456,23 @@ _LIBCPP_HIDE_FROM_ABI __promote_t<_A1, _A2> beta(_A1 __x, _A2 __y) {
 
 template <class _Real>
 _LIBCPP_HIDE_FROM_ABI _Real __sph_legendre(unsigned __l, unsigned __m, _Real __theta) {
-  // Y_l^m(theta) = sqrt((2l+1)/(4*pi) * (l-m)!/(l+m)!) * P_l^m(cos theta), where P_l^m already
-  // includes the Condon-Shortley phase (matches std::assoc_legendre's own definition -- confirmed
-  // empirically against an independent oracle, since the standard's cross-references between
-  // assoc_legendre and sph_legendre's phase conventions are easy to misread).
+  // Y_l^m(theta, 0) = (-1)^m sqrt((2l+1)/(4*pi) * (l-m)!/(l+m)!) * P_l^m(cos theta) ([sf.cmath.sph.legendre]),
+  // where P_l^m is std::assoc_legendre's, which has no phase of its own.
   // The normalizing factor is computed in log-space via lgamma: (l-m)!/(l+m)! computed as raw
   // factorials would overflow tgamma for large l long before the (shrinking) ratio does.
 
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__theta))
     return __theta;
+  if (__m > __l)
+    return std::__sf_domain_error<_Real>();
 
   _Real __log_norm =
       (__math::log(static_cast<_Real>(2 * __l + 1)) - __math::log(_Real(4) * __math::__pi_v<_Real>) +
        __math::lgamma(static_cast<_Real>(__l - __m + 1)) - __math::lgamma(static_cast<_Real>(__l + __m + 1))) /
       2;
   _Real __norm = __math::exp(__log_norm);
-  return __norm * std::__assoc_legendre(__l, __m, __math::cos(__theta));
+  return ((__m & 1) ? -__norm : __norm) * std::__assoc_legendre(__l, __m, __math::cos(__theta));
   // NOLINTEND(readability-identifier-naming)
 }
 
@@ -607,9 +629,8 @@ _LIBCPP_HIDE_FROM_ABI _Real __carlson_rd(_Real __x, _Real __y, _Real __z) {
 template <class _Real>
 _LIBCPP_HIDE_FROM_ABI _Real __carlson_rj(_Real __x, _Real __y, _Real __z, _Real __p) {
   // R_J(x, y, z, p), the symmetric elliptic integral of the third kind. Preconditions: x, y, z >= 0,
-  // at most one zero, p != 0. Only p > 0 is needed by [sf.cmath]'s ellint_3/comp_ellint_3 (their
-  // domain keeps the R_J argument positive), so the p < 0 branch (which needs an extra root-finding
-  // step) is intentionally not implemented.
+  // at most one zero, p > 0. ellint_3 and comp_ellint_3 do not call this for p <= 0: the integral
+  // they compute has a pole there and is divergent, so they report a domain error instead.
 
   // NOLINTBEGIN(readability-identifier-naming)
   constexpr _Real __errtol = _Real(0.0015);
@@ -658,6 +679,10 @@ _LIBCPP_HIDE_FROM_ABI _Real __comp_ellint_1(_Real __k) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__k))
     return __k;
+  if (__math::fabs(__k) > 1)
+    return std::__sf_domain_error<_Real>();
+  if (__math::fabs(__k) == 1)
+    return std::numeric_limits<_Real>::infinity();
   _Real __k2 = __k * __k;
   return std::__carlson_rf(_Real(0), _Real(1) - __k2, _Real(1));
   // NOLINTEND(readability-identifier-naming)
@@ -697,6 +722,8 @@ _LIBCPP_HIDE_FROM_ABI _Real __comp_ellint_2(_Real __k) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__k))
     return __k;
+  if (__math::fabs(__k) > 1)
+    return std::__sf_domain_error<_Real>();
   _Real __k2 = __k * __k;
   if (__k2 == 1)
     return _Real(1);
@@ -739,7 +766,17 @@ _LIBCPP_HIDE_FROM_ABI _Real __comp_ellint_3(_Real __k, _Real __nu) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__k) || __math::isnan(__nu))
     return __k + __nu;
+  if (__math::fabs(__k) > 1)
+    return std::__sf_domain_error<_Real>();
+  // The integrand has a pole at pi/2 for nu >= 1: for nu == 1 the integral diverges to +infinity, for
+  // nu > 1 the pole is inside the interval and the function is not mathematically defined.
+  if (__nu > 1)
+    return std::__sf_domain_error<_Real>();
+  if (__nu == 1)
+    return std::numeric_limits<_Real>::infinity();
   _Real __k2 = __k * __k;
+  if (__k2 == 1)
+    return std::numeric_limits<_Real>::infinity();
   return std::__carlson_rf(_Real(0), _Real(1) - __k2, _Real(1)) +
          __nu / 3 * std::__carlson_rj(_Real(0), _Real(1) - __k2, _Real(1), _Real(1) - __nu);
   // NOLINTEND(readability-identifier-naming)
@@ -786,6 +823,11 @@ _LIBCPP_HIDE_FROM_ABI _Real __ellint_1(_Real __k, _Real __phi) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__k) || __math::isnan(__phi))
     return __k + __phi;
+  if (__math::fabs(__k) > 1)
+    return std::__sf_domain_error<_Real>();
+  // For |k| == 1 the integrand has a pole at pi/2.
+  if (__math::fabs(__k) == 1 && __math::fabs(__phi) >= __math::__pi_v<_Real> / 2)
+    return __math::copysign(std::numeric_limits<_Real>::infinity(), __phi);
   _Real __s   = __math::sin(__phi);
   _Real __c   = __math::cos(__phi);
   _Real __k2s2 = __k * __k * __s * __s;
@@ -834,6 +876,8 @@ _LIBCPP_HIDE_FROM_ABI _Real __ellint_2(_Real __k, _Real __phi) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__k) || __math::isnan(__phi))
     return __k + __phi;
+  if (__math::fabs(__k) > 1)
+    return std::__sf_domain_error<_Real>();
   _Real __s    = __math::sin(__phi);
   _Real __c    = __math::cos(__phi);
   _Real __k2   = __k * __k;
@@ -886,6 +930,22 @@ _LIBCPP_HIDE_FROM_ABI _Real __ellint_3(_Real __k, _Real __nu, _Real __phi) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__k) || __math::isnan(__nu) || __math::isnan(__phi))
     return __k + __nu + __phi;
+  if (__math::fabs(__k) > 1)
+    return std::__sf_domain_error<_Real>();
+  // The integrand has poles where nu sin^2(theta) == 1. For nu > 1 the first one lies at
+  // asin(1/sqrt(nu)) <= pi/2; an interval [0, phi] that contains it (or ends in it) makes the integral
+  // divergent without a limit, so the function is not mathematically defined there.
+  if (__nu > 1) {
+    _Real __sp = __math::sin(__phi);
+    if (__math::fabs(__phi) >= __math::__pi_v<_Real> / 2 || __nu * __sp * __sp >= 1)
+      return std::__sf_domain_error<_Real>();
+  }
+  // For nu == 1 the pole at pi/2 makes the integral diverge to +infinity beyond it; for |k| == 1 the
+  // pole of the square root at pi/2 does so when nu < 1.
+  if (__nu == 1 && __math::fabs(__phi) > __math::__pi_v<_Real> / 2)
+    return std::numeric_limits<_Real>::infinity();
+  if (__math::fabs(__k) == 1 && __nu < 1 && __math::fabs(__phi) >= __math::__pi_v<_Real> / 2)
+    return __math::copysign(std::numeric_limits<_Real>::infinity(), __phi);
   _Real __s    = __math::sin(__phi);
   _Real __c    = __math::cos(__phi);
   _Real __k2s2 = __k * __k * __s * __s;
@@ -1067,6 +1127,9 @@ _LIBCPP_HIDE_FROM_ABI _Real __riemann_zeta(_Real __s) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__s))
     return __s;
+  // The limit at s == 1 is -infinity from the left and +infinity from the right.
+  if (__s == 1)
+    return std::__sf_domain_error<_Real>();
   if (__s == 1)
     return std::numeric_limits<_Real>::infinity();
   // Trivial zeros: zeta(s) == 0 exactly at every negative even integer. The Euler-Maclaurin formula
@@ -1174,6 +1237,10 @@ _LIBCPP_HIDE_FROM_ABI _Real __cyl_bessel_j(_Real __nu, _Real __x) {
   // or with a non-integer nu, per its two call sites below).
 
   // NOLINTBEGIN(readability-identifier-naming)
+  if (__math::isnan(__nu) || __math::isnan(__x))
+    return __nu + __x;
+  if (__x < 0)
+    return std::__sf_domain_error<_Real>();
   if (__x == 0)
     return __nu == 0 ? _Real(1) : _Real(0);
   _Real __halfx  = __x / 2;
@@ -1196,6 +1263,10 @@ _LIBCPP_HIDE_FROM_ABI _Real __cyl_bessel_i(_Real __nu, _Real __x) {
   // the domain restriction on nu.
 
   // NOLINTBEGIN(readability-identifier-naming)
+  if (__math::isnan(__nu) || __math::isnan(__x))
+    return __nu + __x;
+  if (__x < 0)
+    return std::__sf_domain_error<_Real>();
   if (__x == 0)
     return __nu == 0 ? _Real(1) : _Real(0);
   _Real __halfx  = __x / 2;
@@ -1341,6 +1412,8 @@ _LIBCPP_HIDE_FROM_ABI _Real __cyl_neumann(_Real __nu, _Real __x) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__nu) || __math::isnan(__x))
     return __nu + __x;
+  if (__x < 0)
+    return std::__sf_domain_error<_Real>();
   _Real __n = __math::round(__nu);
   if (__math::fabs(__nu - __n) < std::numeric_limits<_Real>::epsilon() * 1000) {
     // At large x, __cyl_neumann_raw's reflection formula subtracts two quantities of comparable
@@ -1366,6 +1439,8 @@ _LIBCPP_HIDE_FROM_ABI _Real __cyl_bessel_k(_Real __nu, _Real __x) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__nu) || __math::isnan(__x))
     return __nu + __x;
+  if (__x < 0)
+    return std::__sf_domain_error<_Real>();
 
   // I_nu(x) grows like e^x, so __cyl_bessel_k_raw's I_{-nu}(x) - I_nu(x) reflection formula suffers
   // catastrophic cancellation once x is more than moderately large -- verified against an independent
@@ -1554,6 +1629,8 @@ _LIBCPP_HIDE_FROM_ABI _Real __sph_bessel(unsigned __n, _Real __x) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__x))
     return __x;
+  if (__x < 0)
+    return std::__sf_domain_error<_Real>();
   if (__x == 0)
     return __n == 0 ? _Real(1) : _Real(0);
 
@@ -1584,6 +1661,8 @@ _LIBCPP_HIDE_FROM_ABI _Real __sph_neumann(unsigned __n, _Real __x) {
   // NOLINTBEGIN(readability-identifier-naming)
   if (__math::isnan(__x))
     return __x;
+  if (__x < 0)
+    return std::__sf_domain_error<_Real>();
   _Real __y0 = -__math::cos(__x) / __x;
   if (__n == 0)
     return __y0;

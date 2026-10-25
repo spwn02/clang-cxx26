@@ -16,6 +16,8 @@
 
 #include <array>
 #include <cassert>
+#include <cerrno>
+#include <cfenv>
 #include <cmath>
 #include <limits>
 
@@ -62,9 +64,15 @@ void test() {
       assert(std::isnan(std::riemann_zeta(NaN)));
   }
 
-  { // zeta(1) is a pole: +infinity.
-    if constexpr (std::numeric_limits<Real>::has_infinity)
-      assert(std::isinf(std::riemann_zeta(Real(1))) && std::riemann_zeta(Real(1)) > 0);
+  { // zeta(1) is a pole whose limit is -infinity from the left and +infinity from the right, so the
+    // function is not mathematically defined there and the call reports a domain error ([sf.cmath.general]).
+    errno = 0;
+    std::feclearexcept(FE_ALL_EXCEPT);
+    assert(std::isnan(std::riemann_zeta(Real(1))));
+    if (math_errhandling & MATH_ERRNO)
+      assert(errno == EDOM);
+    if (math_errhandling & MATH_ERREXCEPT)
+      assert(std::fetestexcept(FE_INVALID));
   }
 
   { // Trivial zeros: zeta(s) == 0 exactly at every negative even integer.

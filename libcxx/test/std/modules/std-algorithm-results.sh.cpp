@@ -41,7 +41,8 @@ int main(int, char**) {
                              std::ranges::in_in_out_result<int*, int*, long*>>);
   static_assert(std::same_as<std::ranges::set_difference_truncated_result<int*, long*, char*>,
                              std::ranges::in_in_out_result<int*, long*, char*>>);
-  static_assert(std::same_as<decltype(std::bsearch(nullptr, static_cast<const void*>(nullptr), 0, 0, nullptr)),
+  static_assert(std::same_as<decltype(std::bsearch(nullptr, static_cast<const void*>(nullptr), 0, 0,
+                                                 static_cast<int (*)(const void*, const void*)>(nullptr))),
                              const void*>);
   return 0;
 }

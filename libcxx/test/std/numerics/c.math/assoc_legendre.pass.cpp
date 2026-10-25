@@ -73,29 +73,28 @@ void test() {
         assert(compare(std::assoc_legendre(l, 0, x), std::legendre(l, x)));
   }
 
-  { // Closed forms with the Condon-Shortley phase, per [sf.cmath]'s definition of P_l^m.
+  { // Closed forms of (1 - x^2)^{m/2} d^m/dx^m P_l(x), the definition of [sf.cmath.assoc.legendre]: no
+    // Condon-Shortley phase.
     const CompareFloatingValues<Real> compare;
     for (Real x : sample_points<Real>()) {
       Real s = std::sqrt(Real(1) - x * x);
-      assert(compare(std::assoc_legendre(1, 1, x), -s));
-      assert(compare(std::assoc_legendre(2, 1, x), -3 * x * s));
+      assert(compare(std::assoc_legendre(1, 1, x), s));
+      assert(compare(std::assoc_legendre(2, 1, x), 3 * x * s));
       assert(compare(std::assoc_legendre(2, 2, x), 3 * (1 - x * x)));
-      assert(compare(std::assoc_legendre(3, 1, x), Real(-1.5) * (5 * x * x - 1) * s));
+      assert(compare(std::assoc_legendre(3, 1, x), Real(1.5) * (5 * x * x - 1) * s));
       assert(compare(std::assoc_legendre(3, 2, x), 15 * x * (1 - x * x)));
-      assert(compare(std::assoc_legendre(3, 3, x), -15 * std::pow(1 - x * x, Real(1.5))));
+      assert(compare(std::assoc_legendre(3, 3, x), 15 * std::pow(1 - x * x, Real(1.5))));
     }
   }
 
-  { // l == m: P_m^m(x) must alternate sign with m at a fixed x inside (0, 1) (from the (-1)^m factor
-    // in the closed form) -- exercised at a fixed x for m = 0..10, distinct from the individual
-    // closed-form spot checks above.
+  { // l == m: P_m^m(x) = (2m-1)!! (1 - x^2)^{m/2} is positive for every m at x inside (0, 1) and
+    // changes magnitude with m (no stuck recursion).
     Real x = Real(0.5);
     Real prev_abs = std::abs(std::assoc_legendre(0, 0, x));
     for (unsigned m = 1; m <= 10; ++m) {
       Real v = std::assoc_legendre(m, m, x);
-      bool expect_negative = (m & 1) != 0;
-      assert((v < 0) == expect_negative);
-      assert(std::abs(v) != prev_abs); // strictly changes magnitude, not a stuck recursion
+      assert(v > 0);
+      assert(std::abs(v) != prev_abs);
       prev_abs = std::abs(v);
     }
   }

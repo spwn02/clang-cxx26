@@ -111,6 +111,22 @@ Deprecations and Removals
 Potentially breaking changes
 ----------------------------
 
+- The mathematical special functions of ``<cmath>`` now report a domain error ([sf.cmath.general]) for every argument
+  outside the domain their description specifies and wherever the function is not mathematically defined: the result
+  is a quiet NaN, ``errno`` is set to ``EDOM`` and ``FE_INVALID`` is raised as ``math_errhandling`` says. Before,
+  ``ellint_1``, ``ellint_2``, ``ellint_3``, ``legendre``, ``laguerre``, ``assoc_laguerre``, ``cyl_bessel_i``,
+  ``cyl_bessel_j``, ``sph_bessel`` and ``sph_neumann`` returned a number for arguments outside their domain, ``beta``
+  and ``sph_legendre`` reported ``ERANGE`` or no error, and ``riemann_zeta(1)``, ``comp_ellint_3(k, nu)`` with
+  ``nu > 1`` and ``ellint_3`` across a pole of its integrand returned a finite or infinite number. ``comp_ellint_1(1)``
+  and ``comp_ellint_3(k, 1)`` now return positive infinity instead of NaN.
+- ``assoc_legendre`` returns ``(1 - x^2)^(m/2) d^m/dx^m P_l(x)`` as [sf.cmath.assoc.legendre] defines it, without the
+  Condon-Shortley phase ``(-1)^m`` it used to include; the result differs in sign for odd ``m``. ``sph_legendre``
+  is unchanged (its definition carries the phase itself).
+- ``std::atexit``, ``std::at_quick_exit``, ``std::qsort`` and ``std::bsearch`` are overloaded for callbacks with C and
+  with C++ language linkage ([support.start.term], [alg.c.library]), and ``std::signal`` accepts only a handler with C
+  language linkage; with the compiler of this release function types with different language linkages are different
+  types ([dcl.link]), so a handler passed to a C function such as ``signal``, ``pthread_create`` or ``sigaction`` has to
+  be declared ``extern "C"``.
 - Public names that are not in the C++ working draft (N5050) were removed so that ``std`` exposes the standard's
   vocabulary only (``libcxx/utils/vocabulary_audit.py`` checks this):
 

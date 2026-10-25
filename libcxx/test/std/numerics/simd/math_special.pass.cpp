@@ -11,9 +11,16 @@
 
 #include <cassert>
 #include <cmath>
+#include <cmath>
 #include <concepts>
 #include <simd>
 #include <type_traits>
+
+// Equal lanes, or NaN in both: a lane outside the domain of the scalar function is a NaN (a domain error).
+template <class T>
+bool same_lane(T a, T b) {
+  return a == b || (std::isnan(a) && std::isnan(b));
+}
 
 // Compare each lane to the scalar function. These SIMD operations intentionally call that
 // function directly, so exact equality also checks the element-wise mapping.
@@ -40,31 +47,31 @@ void check_special_functions() {
   do {                                                                                                               \
     V result = std::simd::_Name(_X);                                                                                 \
     for (std::size_t i = 0; i < N; ++i)                                                                             \
-      assert(result[i] == std::_Name(_X[i]));                                                                        \
+      assert(same_lane(result[i], std::_Name(_X[i])));                                                                        \
   } while (false)
 #define CHECK_BINARY(_Name, _X, _Y)                                                                                  \
   do {                                                                                                               \
     V result = std::simd::_Name(_X, _Y);                                                                             \
     for (std::size_t i = 0; i < N; ++i)                                                                             \
-      assert(result[i] == std::_Name(_X[i], _Y[i]));                                                                 \
+      assert(same_lane(result[i], std::_Name(_X[i], _Y[i])));                                                                 \
   } while (false)
 #define CHECK_TERNARY(_Name, _X, _Y, _Z)                                                                             \
   do {                                                                                                               \
     V result = std::simd::_Name(_X, _Y, _Z);                                                                         \
     for (std::size_t i = 0; i < N; ++i)                                                                             \
-      assert(result[i] == std::_Name(_X[i], _Y[i], _Z[i]));                                                          \
+      assert(same_lane(result[i], std::_Name(_X[i], _Y[i], _Z[i])));                                                          \
   } while (false)
 #define CHECK_INDEX_UNARY(_Name, _N, _X)                                                                             \
   do {                                                                                                               \
     V result = std::simd::_Name(_N, _X);                                                                             \
     for (std::size_t i = 0; i < N; ++i)                                                                             \
-      assert(result[i] == std::_Name(_N[i], _X[i]));                                                                 \
+      assert(same_lane(result[i], std::_Name(_N[i], _X[i])));                                                                 \
   } while (false)
 #define CHECK_INDEX_BINARY(_Name, _N, _M, _X)                                                                        \
   do {                                                                                                               \
     V result = std::simd::_Name(_N, _M, _X);                                                                         \
     for (std::size_t i = 0; i < N; ++i)                                                                             \
-      assert(result[i] == std::_Name(_N[i], _M[i], _X[i]));                                                          \
+      assert(same_lane(result[i], std::_Name(_N[i], _M[i], _X[i])));                                                          \
   } while (false)
 
   CHECK_INDEX_BINARY(assoc_laguerre, n, m, x);
