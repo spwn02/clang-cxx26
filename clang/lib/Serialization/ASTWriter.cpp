@@ -4377,6 +4377,14 @@ private:
     if (!Writer.isWritingStdCXXNamedModules())
       return LookupVisibility::GenerallyVisibile;
 
+    // Argument-dependent lookup finds the friend declarations of a class with a
+    // reachable definition ([basic.lookup.argdep]p4), also when a later
+    // declaration of the function is not exported (CWG2588).
+    if (D->getFriendObjectKind() ||
+        llvm::any_of(D->redecls(),
+                     [](Decl *R) { return R->getFriendObjectKind(); }))
+      return LookupVisibility::GenerallyVisibile;
+
     if (isModuleLocalDecl(D))
       return LookupVisibility::ModuleLocalVisible;
     if (isTULocalInNamedModules(D))

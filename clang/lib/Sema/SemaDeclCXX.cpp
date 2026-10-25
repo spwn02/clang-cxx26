@@ -19047,6 +19047,16 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
                                          FD->getLocation());
   }
 
+  // [basic.link]p4 (CWG2588): a function first declared by a friend declaration
+  // that is not a definition is not exported even if the class is defined in
+  // an export-declaration; its name has module linkage. (The friend is still
+  // found by argument-dependent lookup through the reachable class.)
+  if (getLangOpts().CPlusPlusModules && ND->getFriendObjectKind() &&
+      !D.isFunctionDefinition() &&
+      ND->getModuleOwnershipKind() ==
+          Decl::ModuleOwnershipKind::VisibleWhenImported)
+    ND->setModuleOwnershipKind(Decl::ModuleOwnershipKind::ReachableWhenImported);
+
   warnOnReservedIdentifier(ND);
 
   return ND;
