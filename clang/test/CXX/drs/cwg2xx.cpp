@@ -526,10 +526,9 @@ template<typename T> void cwg225_f(T t) { cwg225_g(t); }
 void cwg225_g(int); // #cwg225-g
 template void cwg225_f(int); // #cwg225-f
 
-namespace cwg226 { // cwg226: no
-  // FIXME: This appears to be wrong: default arguments for function templates
-  // are listed as a defect (in c++98) not an extension. EDG accepts them in
-  // strict c++98 mode.
+namespace cwg226 { // cwg226: yes
+  // Default arguments for function templates are a C++11 feature; C++98
+  // mode accepts them as an extension.
   template<typename T = void> void f() {}
   // cxx98-error@-1 {{default template arguments for a function template are a C++11 extension}}
   template<typename T> struct S {
@@ -544,24 +543,24 @@ namespace cwg226 { // cwg226: no
   template<typename T> template<typename U = void> void S<T>::h() {}
   // expected-error@-1 {{cannot add a default template argument to the definition of a member of a class template}}
 
-  template<typename> void friend_h();
+  template<typename> void friend_h(); // #cwg226-h
+  template<typename> void friend_i(); // #cwg226-i
   struct A {
-    // FIXME: This is ill-formed.
-    template<typename=void> struct friend_B;
-    // FIXME: f, h, and i are ill-formed.
-    //  f is ill-formed because it is not a definition.
-    //  h and i are ill-formed because they are not the only declarations of the
-    //  function in the translation unit.
-    template<typename=void> void friend_f();
+    template<typename=void> friend struct friend_B;
+    // expected-error@-1 {{default template argument not permitted on a friend template}}
+    template<typename=void> friend void friend_f();
+    // expected-error@-1 {{default template argument not permitted on a friend template}}
+    template<typename=void> friend void friend_g() {}
     // cxx98-error@-1 {{default template arguments for a function template are a C++11 extension}}
-    template<typename=void> void friend_g() {}
-    // cxx98-error@-1 {{default template arguments for a function template are a C++11 extension}}
-    template<typename=void> void friend_h() {}
-    // cxx98-error@-1 {{default template arguments for a function template are a C++11 extension}}
-    template<typename=void> void friend_i() {}
-    // cxx98-error@-1 {{default template arguments for a function template are a C++11 extension}}
+    template<typename=void> friend void friend_h() {}
+    // expected-error@-1 {{friend declaration specifying a default template argument must be the only declaration}}
+    //   expected-note@#cwg226-h {{previous declaration is here}}
+    // cxx98-error@-3 {{default template arguments for a function template are a C++11 extension}}
+    template<typename=void> friend void friend_i() {}
+    // expected-error@-1 {{friend declaration specifying a default template argument must be the only declaration}}
+    //   expected-note@#cwg226-i {{previous declaration is here}}
+    // cxx98-error@-3 {{default template arguments for a function template are a C++11 extension}}
   };
-  template<typename> void friend_i();
 
   template<typename=void, typename X> void foo(X) {}
   // cxx98-error@-1 {{default template arguments for a function template are a C++11 extension}}
@@ -1041,25 +1040,25 @@ namespace cwg259 { // cwg259: 4
 
 // FIXME: When cwg260 is resolved, also add tests for CWG507.
 
-namespace cwg261 { // cwg261: no
+namespace cwg261 { // cwg261: yes
 #pragma clang diagnostic push
 #pragma clang diagnostic warning "-Wused-but-marked-unused"
 
-  // FIXME: This is ill-formed, with a diagnostic required, because operator new
-  // and operator delete are inline and odr-used, but not defined in this
-  // translation unit.
-  // We're also missing the -Wused-but-marked-unused diagnostic here.
+  // The definition of a constructor odr-uses the allocation and deallocation
+  // functions of its class, and the definition of a destructor the
+  // deallocation function.
   struct A {
     inline void *operator new(size_t) __attribute__((unused));
     inline void operator delete(void*) __attribute__((unused));
     A() {}
+    // expected-warning@-1 {{'operator new' was marked unused but was used}}
+    // expected-warning@-2 {{'operator delete' was marked unused but was used}}
   };
 
-  // FIXME: This is ill-formed, with a required diagnostic, for the same
-  // reason.
   struct B {
     inline void operator delete(void*) __attribute__((unused));
     ~B() {}
+    // expected-warning@-1 {{'operator delete' was marked unused but was used}}
   };
   struct C {
     inline void operator delete(void*) __attribute__((unused));
@@ -1122,7 +1121,7 @@ namespace cwg272 { // cwg272: 2.7
 // cwg273 is in cwg273.cpp
 // cwg274: na
 
-namespace cwg275 { // cwg275: no
+namespace cwg275 { // cwg275: yes
   namespace N {
     template <class T> void f(T) {} // #cwg275-N-f
     template <class T> void g(T) {} // #cwg275-N-g
@@ -1139,14 +1138,12 @@ namespace cwg275 { // cwg275: no
     // expected-error@-1 {{cannot define or redeclare 'f' here because namespace 'M' does not enclose namespace 'N'}}
     template <class T> void g(T) {}
     template <> void g(char) {}
-    // FIXME: this should be rejected in c++98 too
+    // Unqualified lookup of the declarator-id only considers declarations
+    // nominable in M, so neither the using-directive nor N is searched.
     template void f(long);
-    // since-cxx11-error@-1 {{explicit instantiation of 'cwg275::N::f' must occur in namespace 'N'}}
-    //   since-cxx11-note@#cwg275-N-f {{explicit instantiation refers here}}
-    // FIXME: this should be rejected in c++98 too
+    // expected-error@-1 {{explicit instantiation of 'f' does not refer to a function template, variable template, member function, member class, or static data member}}
+    // A qualified name is not restricted to the enclosing namespaces.
     template void N::f(unsigned long);
-    // since-cxx11-error@-1 {{explicit instantiation of 'f' not in a namespace enclosing 'N'}}
-    //   since-cxx11-note@#cwg275-N-f {{explicit instantiation refers here}}
     template void h(long);
     // expected-error@-1 {{explicit instantiation of 'h' does not refer to a function template, variable template, member function, member class, or static data member}}
     template <> void f(double) {}
@@ -1159,25 +1156,16 @@ namespace cwg275 { // cwg275: no
   template <> void f(int) {}
   // expected-error@-1 {{no function template matches function template specialization 'f'}}
 
-  // FIXME: this should be rejected in c++98 too
   template void f(short);
-  // since-cxx11-error@-1 {{explicit instantiation of 'cwg275::N::f' must occur in namespace 'N'}}
-  //   since-cxx11-note@#cwg275-N-f {{explicit instantiation refers here}}
+  // expected-error@-1 {{explicit instantiation of 'f' does not refer to a function template, variable template, member function, member class, or static data member}}
   template void N::f(unsigned short);
 
-  // FIXME: this should probably be valid. the wording from the issue
-  // doesn't clarify this, but it follows from the usual rules.
+  // Only declarations nominable in cwg275 are considered, so this is not
+  // ambiguous with N::g.
   template void g(int);
-  // expected-error@-1 {{partial ordering for explicit instantiation of 'g' is ambiguous}}
-  //   expected-note@#cwg275-g {{explicit instantiation candidate function 'cwg275::g<int>' template here [with T = int]}}
-  //   expected-note@#cwg275-N-g {{explicit instantiation candidate function 'cwg275::N::g<int>' template here [with T = int]}}
 
-  // FIXME: likewise, this should also be valid.
   template<typename T> void f(T) {} // #cwg275-f
   template void f(short);
-  // expected-error@-1 {{partial ordering for explicit instantiation of 'f' is ambiguous}}
-  //   expected-note@#cwg275-f {{explicit instantiation candidate function 'cwg275::f<short>' template here [with T = short]}}
-  //   expected-note@#cwg275-N-f {{explicit instantiation candidate function 'cwg275::N::f<short>' template here [with T = short]}}
 } // namespace cwg275
 
 // cwg276: na
@@ -1351,22 +1339,19 @@ namespace cwg289 { // cwg289: 2.7
 // cwg291: dup 391
 // cwg292 is in cwg292.cpp
 
-namespace cwg294 { // cwg294: no
+namespace cwg294 { // cwg294: yes c++17
   void f() throw(int);
   // since-cxx17-error@-1 {{ISO C++17 does not allow dynamic exception specifications}}
   //   since-cxx17-note@-2 {{use 'noexcept(false)' instead}}
   int main() {
-    (void)static_cast<void (*)() throw()>(f); // FIXME: ill-formed in C++14 and before
-    // FIXME: since-cxx17-error@-1 {{static_cast from 'void (*)() throw(int)' to 'void (*)() throw()' is not allowed}}
-    //
-    // Irony: the above is valid in C++17 and beyond, but that's exactly when
-    // we reject it. In C++14 and before, this is ill-formed because an
-    // exception-specification is not permitted in a type-id. In C++17, this is
-    // valid because it's the inverse of a standard conversion sequence
-    // containing a function pointer conversion. (Well, it's actually not valid
-    // yet, as a static_cast is not permitted to reverse a function pointer
-    // conversion, but that is being changed by core issue).
-    (void)static_cast<void (*)() throw(int)>(f); // FIXME: ill-formed in C++14 and before
+    // In C++14 and before, this is ill-formed because an exception-specification
+    // is not permitted in a type-id. From C++17, there is no implicit conversion
+    // from 'void (*)() noexcept(false)' to 'void (*)() noexcept', and a
+    // static_cast only reverses a standard conversion sequence in the other
+    // direction.
+    (void)static_cast<void (*)() throw()>(f);
+    // since-cxx17-error@-1 {{static_cast from 'void (*)() throw(int)' to 'void (*)() throw()' is not allowed}}
+    (void)static_cast<void (*)() throw(int)>(f);
     // since-cxx17-error@-1 {{ISO C++17 does not allow dynamic exception specifications}}
     //   since-cxx17-note@-2 {{use 'noexcept(false)' instead}}
 

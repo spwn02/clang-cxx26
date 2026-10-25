@@ -1312,10 +1312,9 @@ namespace cwg85 { // cwg85: 3.4
 
 // cwg86: dup 446
 
-namespace cwg87 { // cwg87: no
-  // FIXME: Superseded by cwg1975
+namespace cwg87 { // cwg87: sup 1975
+  // Superseded by cwg1975
   template<typename T> struct X {};
-  // FIXME: This is invalid.
   X<void() throw()> x;
   // This is valid under cwg87 but not under cwg1975.
   X<void(void() throw())> y;

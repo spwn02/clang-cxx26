@@ -103,7 +103,7 @@ template <class T2> struct B : A<T2> {
 } // namespace example5
 } // namespace cwg1111
 
-namespace cwg1113 { // cwg1113: partial
+namespace cwg1113 { // cwg1113: yes
   namespace named {
     extern int a; // #cwg1113-a
     static int a;
@@ -116,18 +116,16 @@ namespace cwg1113 { // cwg1113: partial
     int b = a;
   }
 
-  // FIXME: Per CWG1113 and CWG4, this is ill-formed due to ambiguity: the second
-  // 'f' has internal linkage, and so does not have C language linkage, so is
-  // not a redeclaration of the first 'f'.
-  //
-  // To avoid a breaking change here, Clang ignores the "internal linkage" effect
-  // of anonymous namespaces on declarations declared within an 'extern "C"'
-  // linkage-specification.
-  extern "C" void f();
+  // The second 'f' has internal linkage, so it does not have C language
+  // linkage and is not a redeclaration of the first 'f'.
+  extern "C" void f(); // #cwg1113-f1
   namespace {
-    extern "C" void f();
+    extern "C" void f(); // #cwg1113-f2
   }
   void g() { f(); }
+  // expected-error@-1 {{call to 'f' is ambiguous}}
+  //   expected-note@#cwg1113-f1 {{candidate function}}
+  //   expected-note@#cwg1113-f2 {{candidate function}}
 } // namespace cwg1113
 
 // cwg1150: na
@@ -166,3 +164,21 @@ namespace cwg1113 { // cwg1113: partial
 // cwg1125: na
 // cwg1178: na
 // cwg1186: na
+
+namespace cwg1152 { // cwg1152: yes
+// A non-const lvalue reference cannot bind to an rvalue, so no conversion
+// sequence exists and the overload is not viable.
+struct A { A(); };
+int f(A &);
+#if __cplusplus >= 201103L
+long f(const A &&);
+static_assert(sizeof(f(A())) == sizeof(long), "");
+#else
+int f(const A &);
+#endif
+int g(int &);
+long g(long);
+#if __cplusplus >= 201103L
+static_assert(sizeof(g(1)) == sizeof(long), "");
+#endif
+} // namespace cwg1152

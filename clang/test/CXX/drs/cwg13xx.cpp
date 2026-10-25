@@ -152,7 +152,7 @@ namespace cwg1310 { // cwg1310: 5
   template void wt_test_good<W<int> >();
 } // namespace cwg1310
 
-namespace cwg1315 { // cwg1315: partial
+namespace cwg1315 { // cwg1315: yes
   template <int I, int J> struct A {};
   template <int I> struct A<I + 5, I * 2> {};
   // expected-error@-1 {{class template partial specialization contains a template parameter that cannot be deduced; this partial specialization will never be used}}
@@ -175,13 +175,10 @@ namespace cwg1315 { // cwg1315: partial
   //   expected-note@#cwg1315-B-1 {{partial specialization matches [with I = 1, K = 4]}}
   //   expected-note@#cwg1315-B-2 {{partial specialization matches [with I = 1, K = 4]}}
 
-  // FIXME: Under cwg1315, this is perhaps valid, but that is not clear: this
-  // fails the "more specialized than the primary template" test because the
-  // dependent type of T::value is not the same as 'int'.
-  // A core issue will be opened to decide what is supposed to happen here.
+  // The type of T::value is not required to be the type of the parameter 'I'
+  // to be dependent; this partial specialization is valid.
   template <typename T, int I> struct C;
   template <typename T> struct C<T, T::value>;
-  // expected-error@-1 {{type of specialized non-type template argument depends on a template parameter of the partial specialization}}
 } // namespace cwg1315
 
 #if __cplusplus >= 201103L
@@ -637,7 +634,7 @@ namespace cwg1388 { // cwg1388: 4
   }
 } // namespace cwg1388
 
-namespace cwg1391 { // cwg1391: partial
+namespace cwg1391 { // cwg1391: yes
   struct A {}; struct B : A {};
   template<typename T> struct C { C(int); typename T::error error; }; // #cwg1391-C
   // expected-error@#cwg1391-C {{type 'int' cannot be used prior to '::' because it has no members}}
@@ -684,7 +681,7 @@ namespace cwg1391 { // cwg1391: partial
   void b(...);
   void test_b() {
     b(0, 0); // ok, deduction fails prior to forming a conversion sequence and instantiating C<int>
-    // FIXME: The "while substituting" note should point at the overload candidate.
+    // The "while substituting" note points at the function template.
     b<int>(0, 0); // #cwg1391-b
   }
 
@@ -696,35 +693,30 @@ namespace cwg1391 { // cwg1391: partial
   }
 
   namespace partial_ordering {
-    // FIXME: Second template should be considered more specialized because non-dependent parameter is ignored.
+    // Partial ordering deduces every P/A pair, including those without
+    // template parameters, so neither template is more specialized.
     template<typename T> int a(T, short) = delete; // #cwg1391-a-short
     // cxx98-error@-1 {{deleted function definitions are a C++11 extension}}
     template<typename T> int a(T*, char); // #cwg1391-a-char
     int test_a = a((int*)0, 0);
-    // expected-error@-1 {{call to 'a' is ambiguous}} FIXME
+    // expected-error@-1 {{call to 'a' is ambiguous}}
     //   expected-note@#cwg1391-a-short {{candidate function [with T = int *] has been explicitly deleted}}
     //   expected-note@#cwg1391-a-char {{candidate function [with T = int]}}
 
-    // FIXME: Second template should be considered more specialized:
-    // deducing #1 from #2 ignores the second P/A pair, so deduction succeeds,
-    // deducing #2 from #1 fails to deduce T, so deduction fails.
+    // Neither template is more specialized: every P/A pair is deduced.
     template<typename T> int b(T, int) = delete; // #cwg1391-b-int
     // cxx98-error@-1 {{deleted function definitions are a C++11 extension}}
     template<typename T, typename U> int b(T*, U); // #cwg1391-b-U
     int test_b = b((int*)0, 0);
-    // expected-error@-1 {{call to 'b' is ambiguous}} FIXME
+    // expected-error@-1 {{call to 'b' is ambiguous}}
     //   expected-note@#cwg1391-b-int {{candidate function [with T = int *] has been explicitly deleted}}
     //   expected-note@#cwg1391-b-U {{candidate function [with T = int, U = int]}}
 
-    // Unintended consequences: because partial ordering does not consider
-    // explicit template arguments, and deduction from a non-dependent type
-    // vacuously succeeds, a non-dependent template is less specialized than
-    // anything else!
-    // According to CWG1391, this is ambiguous!
+    // Partial ordering does not consider explicit template arguments.
     template<typename T> int c(int);
     template<typename T> int c(T);
     int test_c1 = c(0); // ok
-    int test_c2 = c<int>(0); // FIXME: apparently ambiguous
+    int test_c2 = c<int>(0);
   }
 } // namespace cwg1391
 
@@ -800,3 +792,17 @@ namespace cwg1399 { // cwg1399: dup 1388
 // cwg1372: na
 // cwg1374: na
 // cwg1383: na
+
+#if __cplusplus >= 201103L
+namespace cwg1356 { // cwg1356: yes
+// The implicit copy assignment operator of a class with a virtual base has the
+// exception specification of the virtual base's assignment operator.
+template<class T> T &&declval() noexcept;
+struct V { V &operator=(const V &) noexcept(false); };
+struct A : virtual V {};
+static_assert(!noexcept(declval<A&>() = declval<const A&>()), "");
+struct W { W &operator=(const W &) noexcept; };
+struct C : virtual W {};
+static_assert(noexcept(declval<C&>() = declval<const C&>()), "");
+} // namespace cwg1356
+#endif

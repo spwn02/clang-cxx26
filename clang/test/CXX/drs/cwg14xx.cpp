@@ -795,3 +795,17 @@ static_assert(__is_trivial(C), "");
 // cwg1418: na
 // cwg1465: na
 // cwg1408: na
+
+#if __cplusplus >= 201103L
+namespace cwg1446 { // cwg1446: yes
+// A member function template without a ref-qualifier is ordered against a
+// non-member with an rvalue reference first parameter as if it had one.
+struct B { template<class T> int operator+(T) const; };
+template<class T> long operator+(B &&, T);
+void test() {
+  B b;
+  static_assert(sizeof(b + 1) == sizeof(int), "");
+  static_assert(sizeof(B() + 1) == sizeof(long), "");
+}
+} // namespace cwg1446
+#endif

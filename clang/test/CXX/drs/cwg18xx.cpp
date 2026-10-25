@@ -762,3 +762,51 @@ void m2(Ts..., U) {}
 // cwg1850: na
 // cwg1865: na
 // cwg1852: na
+
+#if __cplusplus >= 201402L
+namespace cwg1892 { // cwg1892: yes
+template<class T> struct V {};
+#if __cplusplus >= 202002L
+void f(auto (*)());
+#endif
+V<auto(*)()> v;
+// expected-error@-1 {{'auto' not allowed in template argument}}
+} // namespace cwg1892
+#endif
+
+#if __cplusplus >= 201402L
+namespace cwg1893 { // cwg1893: yes
+// A function-style cast to cv void with an empty expression list after pack
+// expansion is a prvalue that performs no initialization.
+template<class... T> void f(T... t) { void(t...); }
+template<class... T> auto g(T... t) { return void(t...); }
+void h() { f(); g(); }
+} // namespace cwg1893
+#endif
+
+namespace cwg1895 { // cwg1895: yes
+// A deleted conversion function or constructor still counts as a conversion
+// in the conditional operator; using it is ill-formed.
+#if __cplusplus >= 201103L
+struct B {};
+struct A {
+  A();
+  A(B &) = delete;
+  operator B &();
+};
+struct A2 {
+  A2();
+  A2(B &) = delete; // #cwg1895-A2-ctor
+};
+B b;
+B &c = true ? A() : b;
+// since-cxx11-error@-1 {{conditional expression is ambiguous; 'A' can be converted to 'B' and vice versa}}
+A2 d = true ? A2() : b;
+// since-cxx11-error@-1 {{conversion function from 'B' to 'A2' invokes a deleted function}}
+//   since-cxx11-note@#cwg1895-A2-ctor {{'A2' has been explicitly marked deleted here}}
+#endif
+} // namespace cwg1895
+
+// cwg1899: na
+
+// cwg1828: dup 1771

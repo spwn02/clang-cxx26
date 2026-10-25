@@ -419,3 +419,34 @@ static_assert(noexcept(C()), "");
 // cwg2899: na
 // cwg2836: na
 // cwg2872: na
+
+namespace cwg2803 { // cwg2803: yes
+int foo(int *&r);
+long foo(const int *const &r);
+int *p;
+#if __cplusplus >= 201103L
+static_assert(sizeof(foo(p)) == sizeof(int), "");
+#endif
+} // namespace cwg2803
+
+#if __cplusplus >= 201703L
+namespace std {
+template<class> struct tuple_size;
+template<unsigned long, class> struct tuple_element;
+}
+namespace cwg2867 { struct P { int n = 0; }; }
+namespace std {
+template<> struct tuple_size<cwg2867::P> { static const unsigned long value = 2; };
+template<unsigned long I> struct tuple_element<I, cwg2867::P> { using type = int; };
+}
+namespace cwg2867 { // cwg2867: yes
+// The initialization of the structured binding variables is sequenced in
+// order.
+template<unsigned long I> constexpr int get(P &&p) { return ++p.n; }
+constexpr bool t() {
+  auto [a, b] = P{};
+  return a == 1 && b == 2;
+}
+static_assert(t(), "");
+} // namespace cwg2867
+#endif

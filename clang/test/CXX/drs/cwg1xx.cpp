@@ -464,14 +464,22 @@ namespace cwg126 { // cwg126: partial
 namespace cwg127 { // cwg127: 2.9
   __extension__ typedef __decltype(sizeof(0)) size_t;
   template<typename T> struct A {
-    A() { throw 0; }
+    A() { throw 0; } // #cwg127-ctor
     void *operator new(size_t, const char * = 0);
     void operator delete(void *, const char *) { T::error; } // #cwg127-delete-const-char
     // expected-error@#cwg127-delete-const-char {{type 'void' cannot be used prior to '::' because it has no members}}
     //   expected-note@#cwg127-p {{in instantiation of member function 'cwg127::A<void>::operator delete' requested here}}
     // expected-error@#cwg127-delete-const-char {{type 'int' cannot be used prior to '::' because it has no members}}
     //   expected-note@#cwg127-q {{in instantiation of member function 'cwg127::A<int>::operator delete' requested here}}
-    void operator delete(void *) { T::error; }
+    void operator delete(void *) { T::error; } // #cwg127-delete
+    // The definition of the constructor odr-uses the usual deallocation
+    // function.
+    // expected-error@#cwg127-delete {{type 'void' cannot be used prior to '::' because it has no members}}
+    //   expected-note@#cwg127-ctor {{in instantiation of member function 'cwg127::A<void>::operator delete' requested here}}
+    //   expected-note@#cwg127-p {{in instantiation of member function 'cwg127::A<void>::A' requested here}}
+    // expected-error@#cwg127-delete {{type 'int' cannot be used prior to '::' because it has no members}}
+    //   expected-note@#cwg127-ctor {{in instantiation of member function 'cwg127::A<int>::operator delete' requested here}}
+    //   expected-note@#cwg127-q {{in instantiation of member function 'cwg127::A<int>::A' requested here}}
   };
   A<void> *p = new A<void>; // #cwg127-p
   A<int> *q = new ("") A<int>; // #cwg127-q
@@ -582,7 +590,7 @@ namespace cwg137 { // cwg137: 2.7
   const volatile int *cvqcv = static_cast<const volatile int*>(cvp);
 } // namespace cwg137
 
-namespace cwg138 { // cwg138: partial
+namespace cwg138 { // cwg138: yes
 namespace example1 {
 void foo(); // #cwg138-ex1-foo
 namespace A {
@@ -595,7 +603,8 @@ namespace A {
     // (hypothetical) A::foo instead of 'example1::foo' using declaration refers to.
     // A::foo corresponds to example1::foo named by the using declaration,
     // and since A::foo is a different entity, they potentially conflict.
-    // FIXME: This is ill-formed, but not for the reason diagnostic says.
+    // Ill-formed: the friend declaration and the using-declaration declare
+    // corresponding members of A that are different entities.
     friend void foo();
     // expected-error@-1 {{cannot befriend target of using declaration}}
     //   expected-note@#cwg138-ex1-foo {{target of using declaration}}

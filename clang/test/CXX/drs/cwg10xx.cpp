@@ -154,3 +154,119 @@ namespace cwg1070 { // cwg1070: 3.5
 // cwg1091: na
 // cwg1096: na
 // cwg1083: na
+
+namespace cwg1009 { // cwg1009: yes
+// The declarator-id of a function template can be an operator-function-id, a
+// conversion-function-id, a constructor name, or a literal-operator-id, but a
+// destructor cannot be a template.
+struct S {
+  template<class T> S(T);
+  template<class T> operator T*();
+  template<class T> S &operator+=(T);
+  template<class T> ~S();
+  // expected-error@-1 {{destructor cannot be declared as a template}}
+};
+template<class T> struct X {
+  template<class U> operator U();
+  template<class U> X &operator+=(U);
+};
+template<class T> template<class U> X<T>::operator U() { return U(); }
+template<class T> template<class U> X<T> &X<T>::operator+=(U) { return *this; }
+} // namespace cwg1009
+
+#if __cplusplus >= 201103L
+namespace cwg1018 { // cwg1018: yes
+// An attribute-declaration and a simple-declaration beginning with an
+// attribute-specifier-seq are distinguished by what follows.
+[[]];
+[[]] int a;
+[[]] int f();
+void g() {
+  [[]];
+  [[]] int b;
+}
+} // namespace cwg1018
+#endif
+
+#if __cplusplus >= 201103L
+namespace std { struct type_info { constexpr bool operator==(const type_info &o) const { return this == &o; } }; }
+namespace cwg1047 { // cwg1047: yes
+// typeid(T) with a dependent T is value-dependent: the comparison is not
+// evaluated until instantiation.
+template<class T> constexpr bool is_int() { return typeid(T) == typeid(int); }
+static_assert(is_int<int>(), "");
+} // namespace cwg1047
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg1056 { // cwg1056: yes
+// A member alias template can name the current instantiation.
+template<class T> struct B {
+  typedef int type;
+  template<class U> using X = typename B::type;
+  template<class U> using Y = typename B<T>::type;
+  X<char> a;
+  Y<char> b;
+};
+B<int> bi;
+static_assert(__is_same(B<int>::X<char>, int), "");
+static_assert(__is_same(B<int>::Y<char>, int), "");
+} // namespace cwg1056
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg1057 { // cwg1057: yes
+// decltype of a member of the current instantiation is dependent.
+template<class T> struct C {
+  typedef int I;
+  int n;
+  decltype(C::I()) x;
+  decltype(n) m;
+};
+C<int> c;
+static_assert(__is_same(decltype(c.m), int), "");
+} // namespace cwg1057
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg1079 { // cwg1079: yes
+struct A { int i; };
+int f(const A &);
+long f(A &&);
+int g(A, double);
+long g(A, int);
+static_assert(sizeof(f({1})) == sizeof(long), "");
+static_assert(sizeof(g({1}, 1)) == sizeof(long), "");
+} // namespace cwg1079
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg1080 { // cwg1080: yes
+// A member template is never instantiated to produce a copy or move
+// constructor signature.
+struct S {
+  template<typename T> S(T);
+  template<typename T> S(T&&);
+  S();
+};
+S f();
+const S g;
+void h() {
+  S a(f());
+  S b(g);
+}
+static_assert(__is_constructible(S, const S &), "");
+} // namespace cwg1080
+#endif
+
+namespace cwg1088 { // cwg1088: yes
+template<const char *> struct A {};
+template<class T> struct D {
+  static const char c[1];
+  typedef A<c> C;
+};
+template<class T> const char D<T>::c[1] = {};
+#if __cplusplus >= 201103L
+static_assert(!__is_same(D<int>::C, D<char>::C), "");
+#endif
+} // namespace cwg1088

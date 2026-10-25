@@ -481,3 +481,85 @@ namespace cwg2094 { // cwg2094: 5
 // cwg2024: na
 // cwg2047: na
 // cwg2092: na
+
+#if __cplusplus >= 201103L
+namespace cwg2022 { // cwg2022: yes
+// Copy elision is mandatory in constant expressions: b.p points to b.
+struct A {
+  constexpr A() : p(this) {}
+  A *p;
+};
+constexpr A a;
+#if __cplusplus >= 201703L
+constexpr A b = A();
+static_assert(b.p == &b, "");
+#endif
+static_assert(a.p == &a, "");
+} // namespace cwg2022
+#endif
+
+namespace cwg2045 { // cwg2045: yes
+// Equivalent function template declarations do not depend on the names of
+// the template parameters.
+template<typename T> struct S {};
+template<typename T> void f(S<T>);
+template<typename U> void f(S<U>) {}
+template<typename V> void f(S<V>);
+void g() { f(S<int>()); }
+} // namespace cwg2045
+
+// cwg2058 is in cwg2058.cpp
+
+#if __cplusplus >= 201103L
+namespace cwg2066 { // cwg2066: yes
+// Type-dependent does not imply value-dependent, but the template-id is still
+// a dependent type, so 'typename' is required.
+template<int> struct X { typedef int type; };
+template<typename T> struct Y {
+  void f() {
+    typename X<false ? this - this : 0>::type x;
+    (void)x;
+  }
+};
+} // namespace cwg2066
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg2068 { // cwg2068: yes
+// A defaulted virtual destructor is defined when it is odr-used, which a
+// virtual member function is unless it is pure.
+struct A { virtual ~A(); };
+struct B : A { ~B() = default; };
+B *make() { return new B; }
+} // namespace cwg2068
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg2088 { // cwg2088: yes
+// The late tiebreakers of partial ordering only apply when the types are
+// identical after transformation, not whenever deduction succeeds both ways.
+template <typename T> struct A {
+  struct typeA { };
+  struct typeB { };
+  using convTyA = T (*const &&)(typename A<T>::typeA);
+  using convTyB = T (*const &)(typename A<T>::typeB);
+  operator convTyA();
+  operator convTyB();
+};
+template <typename T> void foo(T (*const &&)(typename A<T>::typeA)); // #cwg2088-1
+template <typename T> int foo(T (*const &)(typename A<T>::typeB)); // #cwg2088-2
+int main() { return foo<int>(A<int>()); }
+// since-cxx11-error@-1 {{call to 'foo' is ambiguous}}
+//   since-cxx11-note@#cwg2088-1 {{candidate function [with T = int]}}
+//   since-cxx11-note@#cwg2088-2 {{candidate function [with T = int]}}
+} // namespace cwg2088
+#endif
+
+namespace cwg2052 { // cwg2052: yes
+// A specialization of an operator function template without a parameter of
+// class or enumeration type is not a candidate ([over.oper]); it is a
+// deduction failure, not an error.
+struct A { operator int(); };
+template <typename T> T operator<<(T, int);
+int f(A a) { return 1 << a; }
+} // namespace cwg2052

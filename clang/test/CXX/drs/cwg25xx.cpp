@@ -413,3 +413,50 @@ static_assert(!__is_literal(U), "");
 // cwg2556: sup P3950R1
 // cwg2570: na
 // cwg2571: na
+
+#if __cplusplus >= 202002L
+namespace std {
+struct partial_ordering { int v; static const partial_ordering less, equivalent, greater, unordered; };
+constexpr partial_ordering partial_ordering::less{-1}, partial_ordering::equivalent{0}, partial_ordering::greater{1}, partial_ordering::unordered{2};
+struct strong_ordering { int v; static const strong_ordering less, equal, equivalent, greater;
+  constexpr operator partial_ordering() const { return {v}; } };
+constexpr strong_ordering strong_ordering::less{-1}, strong_ordering::equal{0}, strong_ordering::equivalent{0}, strong_ordering::greater{1};
+}
+namespace cwg2539 { // cwg2539: yes
+// A defaulted three-way comparison whose synthesized result cannot be
+// converted to the declared return type is defined as deleted.
+struct MyType {
+  int i;
+  double d;
+  std::strong_ordering operator<=>(const MyType &) const = default; // #cwg2539-op
+  // since-cxx20-warning@-1 {{explicitly defaulted three-way comparison operator is implicitly deleted}}
+  //   since-cxx20-note@-2 {{replace 'default' with 'delete'}}
+};
+void f(MyType a, MyType b) { (void)(a <=> b); }
+// since-cxx20-error@-1 {{object of type 'MyType' cannot be compared because its 'operator<=>' is implicitly deleted}}
+//   since-cxx20-note@#cwg2539-op {{explicitly defaulted function was implicitly deleted here}}
+} // namespace cwg2539
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg2549 { // cwg2549: yes
+// The operand of a throw-expression is move-eligible even in an unevaluated
+// operand.
+struct X { X(); X(X &&) = delete; X(const X &); };
+void f() {
+  X x;
+  (void)sizeof(decltype((throw x, 0)));
+  // expected-error@-1 {{call to deleted constructor of 'X'}}
+  //   expected-note@-5 {{'X' has been explicitly marked deleted here}}
+}
+} // namespace cwg2549
+#endif
+
+#if __cplusplus >= 201402L
+namespace cwg2552 { // cwg2552: yes
+// Control flow passing through a non-defining block declaration is not
+// prohibited in a constant expression.
+constexpr int f() { extern int v; return 1; }
+static_assert(f() == 1, "");
+} // namespace cwg2552
+#endif

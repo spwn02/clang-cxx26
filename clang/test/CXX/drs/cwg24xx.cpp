@@ -272,3 +272,44 @@ struct T : S {
 // cwg2451: na
 // cwg2452: na
 // cwg2466: na
+
+// cwg2414: sup P2002R1
+
+#if __cplusplus >= 201103L
+namespace cwg2477 { // cwg2477: yes
+// The implicit copy constructor is deleted when a move constructor is
+// declared.
+struct S { S(); S(S &&); };
+S a;
+S b = a;
+// expected-error@-1 {{call to implicitly-deleted copy constructor of 'S'}}
+//   expected-note@-4 {{copy constructor is implicitly deleted because 'S' has a user-declared move constructor}}
+} // namespace cwg2477
+#endif
+
+#if __cplusplus >= 202302L
+namespace cwg2481 { // cwg2481: yes
+// The temporary bound to a reference to const int is const.
+constexpr int f() {
+  const int &r = 42;
+  const_cast<int &>(r) = 23;
+  return r;
+}
+static_assert(f() == 23, "");
+// expected-error@-1 {{static assertion expression is not an integral constant expression}}
+//   expected-note@-5 {{modification of object of const-qualified type 'const int' is not allowed in a constant expression}}
+//   expected-note@-3 {{in call to 'f()'}}
+} // namespace cwg2481
+#endif
+
+#if __cplusplus >= 202002L
+namespace cwg2490 { // cwg2490: yes
+// A destructor cannot be invoked on an object whose lifetime did not begin
+// within the evaluation.
+struct S { constexpr ~S() {} };
+constexpr S s;
+constexpr bool b = (s.~S(), true);
+// since-cxx20-error@-1 {{constexpr variable 'b' must be initialized by a constant expression}}
+//   since-cxx20-note@-2 {{a constant expression cannot modify an object that is visible outside that expression}}
+} // namespace cwg2490
+#endif

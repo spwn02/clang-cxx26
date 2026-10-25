@@ -284,3 +284,45 @@ using Bind = Instantiate<Internal<Template>::template Bind, Argument>;
 // cwg1786: na
 // cwg1724: na
 // cwg1777: na
+
+#if __cplusplus >= 201402L
+namespace cwg1729 { // cwg1729: yes
+// Declarations of a variable template match by template-head and type.
+template<typename T> extern T var0;
+template<typename T> T var0 = T();
+template<typename T> auto var1 = T();
+template<typename T> extern int var1;
+// expected-error@-1 {{redeclaration of 'var1' with a different type: 'int' vs 'auto'}}
+//   expected-note@-3 {{previous definition is here}}
+} // namespace cwg1729
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg1740 { // cwg1740: yes
+// A '(' after 'noexcept' always begins the noexcept-specifier.
+void (*fp2)() noexcept, (*fp)() noexcept (fp2 = 0);
+// since-cxx11-error@-1 {{expected ')'}}
+//   since-cxx11-note@-2 {{to match this '('}}
+// since-cxx11-error@-3 {{conversion from 'void (*)() noexcept' to 'bool' is not allowed in a converted constant expression}}
+} // namespace cwg1740
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg1771 { // cwg1771: no
+// The name before '::' (also when it is a simple-template-id) is looked up
+// considering only namespaces, types, and templates whose specializations are
+// types, so the function template L::A is ignored.
+namespace N {
+  namespace L { template<int> void A(); } // #cwg1771-L
+  namespace M { template<int> struct A { static int y; }; } // #cwg1771-M
+  using namespace L;
+  using namespace M;
+}
+template<int *> struct B {};
+// FIXME: this should be accepted; A names N::M::A.
+B<&N::A<0>::y> b;
+// expected-error@-1 {{reference to 'A' is ambiguous}}
+//   expected-note@#cwg1771-L {{candidate found by name lookup is 'cwg1771::N::L::A'}}
+//   expected-note@#cwg1771-M {{candidate found by name lookup is 'cwg1771::N::M::A'}}
+} // namespace cwg1771
+#endif

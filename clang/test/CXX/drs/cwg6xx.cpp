@@ -774,7 +774,7 @@ namespace cwg656 { // cwg656: 2.8
   }
 } // namespace cwg656
 
-namespace cwg657 { // cwg657: partial
+namespace cwg657 { // cwg657: yes
   struct Abs { virtual void x() = 0; }; // #cwg657-Abs
   struct Der : public Abs { virtual void x(); };
 
@@ -788,28 +788,29 @@ namespace cwg657 { // cwg657: partial
   template<typename T> void bar(T);
   void g(Abs *a) { bar(*a); }
 
-  // FIXME: The following examples demonstrate that we might be accepting the
-  // above cases for the wrong reason.
-
+  // An abstract class type is rejected as the parameter or return type of a
+  // function being defined or called, not in a declaration.
   struct C { C(Abs) {} };
   // expected-error@-1 {{parameter type 'Abs' is an abstract class}}
   //   expected-note@#cwg657-Abs {{unimplemented pure virtual method 'x' in 'Abs'}}
   struct Q { operator Abs() { __builtin_unreachable(); } } q;
   // expected-error@-1 {{return type 'Abs' is an abstract class}}
-#if __cplusplus >= 201703L
-  // FIXME: We should *definitely* reject this.
-  C c = Q().operator Abs();
-#endif
 
+  struct Q2 { operator Abs(); };
+  void call(Q2 q2) {
+    q2.operator Abs();
+    // expected-error@-1 {{return type 'Abs' is an abstract class}}
+  }
+
+  // Declarations of functions with abstract class parameters are fine, and
+  // overload resolution prefers the non-template reference parameter.
   template<typename F> struct Cnvt2 { Cnvt2(F); typedef int type; };
 
-  // FIXME: We should reject this.
   void baz(Abs &a);
   template<typename T> typename Cnvt2<T>::type baz(T);
   void h(Abs *a) { baz(*a); }
 
-  // FIXME: We should reject this too.
-  Cnvt2<Abs>::type err;
+  Cnvt2<Abs>::type ok;
 } // namespace cwg657
 
 // cwg658 is in cwg658.cpp
@@ -1127,7 +1128,7 @@ namespace cwg679 { // cwg679: 2.7
 
 // cwg680: na
 
-namespace cwg681 { // cwg681: partial
+namespace cwg681 { // cwg681: yes
 #if __cplusplus >= 201103L
   auto *a() -> int;
   // since-cxx11-error@-1 {{function with trailing return type must specify return type 'auto', not 'auto *'}}
@@ -1139,11 +1140,8 @@ namespace cwg681 { // cwg681: partial
   // since-cxx11-error@-1 {{declaration of variable 'd' with deduced type 'auto ((*)())' requires an initializer}}
   // since-cxx11-error@-2 {{expected ';' after top level declarator}}
 
-  // FIXME: This is definitely wrong. This should be
-  //   "function of () returning pointer to function of () returning int"
-  // not a function with a deduced return type.
+  // function of () returning pointer to function of () returning int
   auto (*e())() -> int;
-  // cxx11-error@-1 {{'auto' return without trailing return type; deduced return types are a C++14 extension}}
 
   auto f() -> int (*)();
   auto g() -> auto (*)() -> int;

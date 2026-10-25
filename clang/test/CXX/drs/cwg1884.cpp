@@ -8,8 +8,8 @@
 // RUN: %clang_cc1 -std=c++2c -pedantic-errors -fexceptions -fcxx-exceptions %t/cwg1884_A.cppm -triple x86_64-unknown-unknown -emit-module-interface -o %t/cwg1884_A.pcm
 // RUN: %clang_cc1 -std=c++2c -verify=since-cxx20 -pedantic-errors -fexceptions -fcxx-exceptions -triple x86_64-unknown-unknown %t/cwg1884.cpp -fmodule-file=cwg1884_A=%t/cwg1884_A.pcm
 
-// cwg1884: partial
-// Cases b11, e11, g3, g4 are problematic, but we handle the other 101 cases fine.
+// cwg1884: yes
+// All cases are diagnosed.
 
 // _N4993_.[basic.link]/11:
 // For any two declarations of an entity E:
@@ -207,8 +207,6 @@ concept j11 = true;
 
 //--- cwg1884.cpp
 import cwg1884_A;
-
-// FIXME: we don't diagnose several cases we should be. They are marked with MISSING prefix.
 
 // Part A: matching against `int a;`
 // ---------------------------------
@@ -491,12 +489,12 @@ void g2();
 // @-1 OK, a non-corresponding overload
 enum Eg {
   g3
-  // MISSING-since-cxx20-error@-1 {{redefinition of 'g3'}}
-  //   MISSING-since-cxx20-note@cwg1884_A.cppm:126 {{previous definition is here}}
+  // since-cxx20-error@-1 {{redefinition of 'g3'}}
+  //   since-cxx20-note@cwg1884_A.cppm:126 {{previous definition is here}}
 };
 namespace g4 {}
-// MISSING-since-cxx20-error@-1 {{redefinition of 'g4' as different kind of symbol}}
-//   MISSING-since-cxx20-note@cwg1884_A.cppm:128 {{previous definition is here}}
+// since-cxx20-error@-1 {{redefinition of 'g4' as different kind of symbol}}
+//   since-cxx20-note@cwg1884_A.cppm:128 {{previous definition is here}}
 struct g5;
 // @-1 OK, types and function templates do not correspond
 template <typename>

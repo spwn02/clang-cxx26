@@ -359,3 +359,24 @@ namespace cwg1991 { // cwg1991: 3.9
 // cwg1935: na
 // cwg1954: na
 // cwg1973: na
+
+#if __cplusplus >= 201703L
+namespace cwg1916 { // cwg1916: yes
+// Copy elision applies when the types are the same ignoring cv-qualification.
+struct T { T(); T(const T &) = delete; };
+const T a = T();
+T f() { return T(); }
+const T g() { return T(); }
+const T h = g();
+} // namespace cwg1916
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg1965 { // cwg1965: yes
+struct A { virtual ~A(); };
+A &&make_a();
+A &&a = dynamic_cast<A&&>(make_a());
+const A &b = dynamic_cast<const A&>(make_a());
+// since-cxx11-error@-1 {{dynamic_cast from rvalue to reference type 'const A &'}}
+} // namespace cwg1965
+#endif

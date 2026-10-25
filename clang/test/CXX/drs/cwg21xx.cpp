@@ -382,3 +382,71 @@ namespace H {
 // cwg2176: na
 // cwg2177: na
 // cwg2196: na
+
+#if __cplusplus >= 201103L
+namespace cwg2129 { // cwg2129: yes
+// A prvalue that is not an object (a literal, for instance) can be a constant
+// expression.
+constexpr int i = 1;
+template<int N> struct A {};
+A<1> a;
+A<(1 + 2)> b;
+} // namespace cwg2129
+#endif
+
+namespace cwg2144 { // cwg2144: yes
+// 'int f() {};' is a function definition followed by an empty declaration;
+// 'int a {};' is a variable with a braced initializer.
+int f() { return 0; };
+// cxx98-error@-1 {{extra ';' outside of a function is a C++11 extension}}
+#if __cplusplus >= 201103L
+int a {};
+#endif
+} // namespace cwg2144
+
+#if __cplusplus >= 201103L
+namespace cwg2147 { // cwg2147: yes
+template <typename... T>
+void q(std::initializer_list<std::initializer_list<T>>... tt);
+void bar() { q({{0}}, {{'\0'}}); }
+} // namespace cwg2147
+#endif
+
+#if __cplusplus >= 201402L
+namespace cwg2167 { // cwg2167: yes
+// A reference whose lifetime began within the evaluation can be used.
+constexpr int f() {
+  int x = 1;
+  int &r = x;
+  r = 2;
+  return r;
+}
+static_assert(f() == 2, "");
+} // namespace cwg2167
+#endif
+
+namespace cwg2174 { // cwg2174: yes
+template<class T, class U>
+struct Outer {
+  template<class X, class Y> struct Inner;
+  template<class Y> struct Inner<T, Y>; // #cwg2174-a
+  template<class Y> struct Inner<T, Y> { };
+  template<class Y> struct Inner<U, Y> { }; // #cwg2174-b
+  // expected-error@-1 {{class template partial specialization 'Inner<int, Y>' cannot be redeclared}}
+  //   expected-note@#cwg2174-a {{previous declaration of class template partial specialization 'cwg2174::Outer<int, int>::Inner<int, Y>' is here}}
+};
+Outer<int, int> outer;
+// expected-note@-1 {{in instantiation of template class 'cwg2174::Outer<int, int>' requested here}}
+template<typename T> struct Friendly {
+  template<typename U> friend int f(U) { return sizeof(T); } // #cwg2174-f
+  // expected-error@-1 {{redefinition of 'f'}}
+  //   expected-note@#cwg2174-f {{previous definition is here}}
+};
+Friendly<char> fc;
+Friendly<float> ff;
+// expected-note@-1 {{in instantiation of template class 'cwg2174::Friendly<float>' requested here}}
+} // namespace cwg2174
+
+// cwg2186: na
+
+// cwg2197: na

@@ -266,3 +266,70 @@ namespace cwg2292 { // cwg2292: 9
 // cwg2215: na
 // cwg2247: na
 // cwg2259: na
+
+#if __cplusplus >= 202002L
+namespace cwg2212 { // cwg2212: yes
+typedef struct { void f() { extern decltype(*this) x; void *p = &x; } } X;
+// expected-error@-1 {{anonymous non-C-compatible type given name for linkage purposes by typedef declaration after its linkage was computed; add a tag name here to establish linkage prior to definition}}
+//   expected-note@-2 {{type is not C-compatible due to this member declaration}}
+//   expected-note@-3 {{type is given name 'X' for linkage purposes by this typedef declaration}}
+} // namespace cwg2212
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg2235 { // cwg2235: yes
+// A P without template parameters participating in deduction is not used to
+// determine the ordering.
+template <class T> int f(int);
+template <class T, class U> long f(U);
+static_assert(sizeof(f<int>(1)) == sizeof(int), "");
+template <class... T> struct V {};
+template <class... Ts, class... Us> int Foo(V<Ts...>, V<Us&...>) { return 3; }
+template <class... Us> long Foo(V<>, V<Us&...>) { return 4; }
+static_assert(sizeof(Foo(V<>(), V<>())) == sizeof(long), "");
+} // namespace cwg2235
+#endif
+
+#if __cplusplus >= 201703L
+namespace cwg2276 { // cwg2276: yes
+// A function type with a value-dependent exception specification is
+// type-dependent.
+template<bool> void buz(void *);
+template <bool B> struct A {
+  void static foo() noexcept(B);
+  void bar(struct X *x) { buz<noexcept(foo)>(x); }
+};
+} // namespace cwg2276
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg2290 { // cwg2290: yes
+// A defaulted move constructor defined as deleted is excluded from the
+// candidate set, so the copy constructor is used.
+struct Z { Z(); Z(Z &&) = delete; Z(const Z &) = delete; }; // #cwg2290-Z
+struct Y {
+  Y();
+  Y(Y &&) = default;
+  // expected-warning@-1 {{explicitly defaulted move constructor is implicitly deleted}}
+  //   expected-note@#cwg2290-Z {{'Z' has been explicitly marked deleted here}}
+  //   expected-note@-3 {{replace 'default' with 'delete'}}
+  Y(const Y &);
+  Z z; // expected-note {{move constructor of 'Y' is implicitly deleted because field 'z' has a deleted move constructor}}
+};
+void f() { Y a; Y b = static_cast<Y &&>(a); }
+} // namespace cwg2290
+#endif
+
+// cwg2241: dup 2092
+
+#if __cplusplus >= 201103L
+namespace cwg2226 { // cwg2226: yes
+// An xvalue operand converted to match an lvalue operand binds directly to a
+// glvalue, so the result is an lvalue.
+struct T {};
+const T a = T();
+T b;
+static_assert(__is_same(decltype((false ? a : static_cast<T &&>(b))), const T &), "");
+static_assert(__is_same(decltype((false ? static_cast<T &&>(b) : a)), const T &), "");
+} // namespace cwg2226
+#endif

@@ -228,3 +228,19 @@ namespace cwg990 { // cwg990: 3.5
 // cwg955: na
 // cwg984: na
 // cwg965: na
+
+namespace cwg996 { // cwg996: yes
+// Partial specializations of a member class template of a class template
+// that both match are ambiguous.
+template<class T> struct A {
+  template<class U, class V> struct B {};
+  template<class U> struct B<U, int> {};
+  template<class V> struct B<int, V> {};
+};
+A<char>::B<char, int> ok1;
+A<char>::B<int, char> ok2;
+A<char>::B<int, int> ambiguous;
+// expected-error@-1 {{ambiguous partial specializations of 'B<int, int>'}}
+// expected-note@-7 {{partial specialization matches [with U = int]}}
+// expected-note@-7 {{partial specialization matches [with V = int]}}
+} // namespace cwg996

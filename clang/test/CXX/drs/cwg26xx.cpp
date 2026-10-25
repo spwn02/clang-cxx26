@@ -408,3 +408,14 @@ void A::test() {
 // cwg2622: na
 // cwg2667: na
 // cwg2699: na
+
+namespace cwg2637 { // cwg2637: yes
+// The injected-class-name is bound by the component name of the class-name,
+// also for a partial specialization written as a simple-template-id.
+template<class T> struct A { A(); };
+template<class T> struct A<T*> {
+  A();
+  A<T*> *self;
+};
+template<class T> A<T*>::A() {}
+} // namespace cwg2637

@@ -185,3 +185,39 @@ constexpr U _ = nondeterministic(true);
 // cwg2987: na
 // cwg2944: na
 // cwg2921: sup 2990
+
+#if __cplusplus >= 202002L
+namespace cwg2910 { // cwg2910: yes
+// A requires-expression with a requirement-parameter-list behaves like one
+// without with respect to odr-usability of local entities.
+bool f() {
+  constexpr int z = 42;
+  return requires { sizeof(int [*&z]); } && requires (int x) { sizeof(int [*&z]); };
+}
+} // namespace cwg2910
+#endif
+
+#if __cplusplus >= 202002L
+namespace cwg2982 { // cwg2982: yes
+// Template arguments are not deduced from a type-constraint.
+template<typename T, typename U> concept C = true;
+template<typename T> C<T> auto f() { return 0; }
+template C<int> auto f();
+// since-cxx20-error@-1 {{explicit instantiation of 'f' does not refer to a function template, variable template, member function, member class, or static data member}}
+//   since-cxx20-note@-3 {{candidate template ignored: couldn't infer template argument 'T'}}
+} // namespace cwg2982
+#endif
+
+namespace cwg2985 { // cwg2985: yes
+#if __cplusplus >= 201103L
+struct X {}; // #cwg2985-X
+struct Y : X {};
+struct Z { operator const Y() const; }; // #cwg2985-Z
+Z z;
+X &&r = z;
+// since-cxx11-error@-1 {{no viable conversion from 'Z' to 'X'}}
+//   since-cxx11-note@#cwg2985-Z {{candidate function}}
+//   since-cxx11-note@#cwg2985-X {{candidate constructor (the implicit copy constructor) not viable: no known conversion from 'Z' to 'const X &' for 1st argument}}
+//   since-cxx11-note@#cwg2985-X {{candidate constructor (the implicit move constructor) not viable: no known conversion from 'Z' to 'X &&' for 1st argument}}
+#endif
+} // namespace cwg2985

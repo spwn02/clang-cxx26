@@ -761,3 +761,31 @@ namespace cwg1591 {  //cwg1591. Deducing array bound and element type from initi
 // cwg1570: na
 // cwg1595: sup P2448R2
 // cwg1599: na
+
+namespace cwg1500 { // cwg1500: yes
+// A dependent conversion-function-id is found in the current instantiation.
+template<typename T> struct A {
+  operator int() { return 0; }
+  int f() { return operator T(); }
+};
+int test() { A<int> a; return a.f(); }
+} // namespace cwg1500
+
+#if __cplusplus >= 202302L
+namespace std { struct type_info {}; }
+namespace cwg1535 { // cwg1535: yes
+// typeid is only excluded from constant expressions when its operand is a
+// glvalue of polymorphic class type.
+struct B { virtual ~B(); };
+int i;
+constexpr const std::type_info &a = typeid(int);
+constexpr const std::type_info &b = typeid(B);
+constexpr const std::type_info &c = typeid(i);
+extern B &rb; // #cwg1535-rb
+constexpr const std::type_info &d = typeid(rb);
+// since-cxx23-error@-1 {{constexpr variable 'd' must be initialized by a constant expression}}
+//   since-cxx23-note@-2 {{typeid applied to object 'rb' whose dynamic type is not constant}}
+} // namespace cwg1535
+#endif
+
+// cwg1590: na

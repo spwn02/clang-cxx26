@@ -610,3 +610,121 @@ static_assert(g(1) == 1, "friend specialization keeps constexpr");
 // cwg2382: na
 // cwg2322: na
 // cwg2399: na
+
+#if __cplusplus >= 201703L
+namespace std {
+template<class> struct tuple_size;
+template<unsigned long, class> struct tuple_element;
+}
+namespace cwg2313 { struct Tup {}; }
+namespace std {
+template<> struct tuple_size<cwg2313::Tup> { static const unsigned long value = 1; };
+template<> struct tuple_element<0, cwg2313::Tup> { using type = int; };
+}
+namespace cwg2313 { // cwg2313: yes
+// Structured bindings are not variables that can be redeclared.
+template<unsigned long I> int &&get(Tup &&);
+Tup mk();
+auto [a] = mk();
+extern int &&a;
+// since-cxx17-error@-1 {{redefinition of 'a' as different kind of symbol}}
+//   since-cxx17-note@-3 {{previous definition is here}}
+} // namespace cwg2313
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg2315 { // cwg2315: yes
+// A union with a variant member that has a non-trivial copy constructor has a
+// deleted defaulted copy constructor.
+struct A { A(); A(const A &); };
+union B { A a; }; // #cwg2315-B
+B &mk();
+B c = mk();
+// since-cxx11-error@-1 {{call to implicitly-deleted copy constructor of 'B'}}
+//   since-cxx11-note@#cwg2315-B {{copy constructor of 'B' is implicitly deleted because variant field 'a' has a non-trivial copy constructor}}
+} // namespace cwg2315
+#endif
+
+#if __cplusplus >= 201703L
+namespace cwg2339 { struct Pair { int a, b; }; }
+namespace std {
+template<> struct tuple_size<cwg2339::Pair> { static const unsigned long value = 2; };
+template<unsigned long I> struct tuple_element<I, cwg2339::Pair> { using type = int; };
+}
+namespace cwg2339 { // cwg2339: yes
+// The index passed to get<i> is a prvalue of type std::size_t.
+template<unsigned long I> int get(const Pair &p) { return I ? p.b : p.a; }
+void f() { auto [x, y] = Pair{1, 2}; (void)x; (void)y; }
+} // namespace cwg2339
+#endif
+
+namespace cwg2342 { // cwg2342: yes
+// reinterpret_cast to a reference type refers to the pointer-interconvertible
+// object and creates no temporary.
+struct A { int n; } a;
+int *p = reinterpret_cast<int*>(&a);
+int &r = reinterpret_cast<int&>(a);
+} // namespace cwg2342
+
+#if __cplusplus >= 202002L
+namespace cwg2359 { // cwg2359: yes
+// A designated initializer with a braced initializer direct-initializes.
+struct X { explicit X(int); }; // #cwg2359-X
+struct A { X x; };
+A a{.x{3}};
+A b{.x = 3};
+// since-cxx20-error@-1 {{no viable conversion from 'int' to 'X'}}
+//   since-cxx20-note@#cwg2359-X {{explicit constructor is not a candidate}}
+//   since-cxx20-note@#cwg2359-X {{candidate constructor (the implicit copy constructor) not viable: no known conversion from 'int' to 'const X &' for 1st argument}}
+//   since-cxx20-note@#cwg2359-X {{candidate constructor (the implicit move constructor) not viable: no known conversion from 'int' to 'X &&' for 1st argument}}
+} // namespace cwg2359
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg2336 { // cwg2336: yes
+template<class T> T &declval() noexcept;
+// The virtual bases of an abstract class are not potentially constructed.
+struct V2 { ~V2() noexcept(false); };
+struct B2 : virtual V2 { virtual void f() = 0; };
+struct D2 : B2 { void f(); };
+static_assert(noexcept(declval<B2>().~B2()), "");
+static_assert(!noexcept(declval<D2>().~D2()), "");
+// A virtual destructor also considers the destructors of its virtual bases.
+class V { public: virtual ~V() noexcept(false); };
+class B : virtual V { virtual void foo() = 0; };
+class D : B { virtual void foo(); };
+static_assert(!noexcept(declval<B>().~B()), "");
+static_assert(!noexcept(declval<D>().~D()), "");
+} // namespace cwg2336
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg2373 { // cwg2373: yes
+// A static member function template is not given an implicit object
+// parameter during partial ordering.
+struct Foo {
+  template <typename T> static T *f(Foo *) { return nullptr; }
+  template <typename T, typename A1> T *f(const A1 &) { return nullptr; }
+};
+void g() { Foo x; x.f<int>(&x); }
+} // namespace cwg2373
+#endif
+
+#if __cplusplus >= 201103L
+namespace cwg2389 { // cwg2389: yes
+struct S { static int i; };
+auto S::i = 23;
+} // namespace cwg2389
+#endif
+
+#if __cplusplus >= 201402L
+namespace cwg2392 { // cwg2392: yes
+// The size of a new-expression array is only checked in potentially evaluated
+// expressions.
+template<class T = void> constexpr int f() { T t; return 1; }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunevaluated-expression"
+using _ = decltype(new int[f()]);
+#pragma clang diagnostic pop
+} // namespace cwg2392
+#endif

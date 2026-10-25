@@ -606,3 +606,30 @@ struct A {
 #endif
 } // namespace cwg1693
 // cwg1694: sup P2686R5
+
+namespace cwg1616 { // cwg1616: yes
+// Disambiguation is purely syntactic: T(a); declares a variable when T names a
+// type, including a template parameter.
+template<class T> struct X { void f() { T(a); a = T(); } };
+template<class T> void g() { T(x); x = 0; }
+void h() { X<int> x; x.f(); g<int>(); }
+} // namespace cwg1616
+
+#if __cplusplus >= 201103L
+namespace cwg1639 { // cwg1639: yes
+// The exception specification of a pointer-to-member function type applies
+// to a call through .* and ->*.
+struct A {
+  void f() noexcept(false);
+  void g() noexcept(true);
+};
+A a;
+A *pa = &a;
+void (A::*pf)() noexcept(false) = &A::f;
+void (A::*pg)() noexcept(true) = &A::g;
+static_assert(!noexcept((a.*pf)()), "");
+static_assert(noexcept((a.*pg)()), "");
+static_assert(!noexcept((pa->*(&A::f))()), "");
+static_assert(noexcept((pa->*(&A::g))()), "");
+} // namespace cwg1639
+#endif

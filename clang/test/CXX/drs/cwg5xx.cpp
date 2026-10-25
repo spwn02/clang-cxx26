@@ -303,7 +303,7 @@ namespace cwg530 { // cwg530: 2.7
   int b[T<&f>::N];
 } // namespace cwg530
 
-namespace cwg531 { // cwg531: partial
+namespace cwg531 { // cwg531: yes
   namespace good {
     template<typename T> struct A {
       void f(T) { T::error; }
@@ -407,17 +407,14 @@ namespace cwg531 { // cwg531: partial
     template<typename U> template<typename V> void A<int>::B<U>::i() {}
     // expected-error@-1 {{template parameter list matching the non-templated nested type 'cwg531::nested::A<int>' should be empty ('template<>')}}
 
-#if __cplusplus <= 201703L
-    // FIXME: All of those declarations shouldn't crash in C++20 mode.
     template<> template<> void A<int>::B<int>::f() {}
     template<> template<> template<typename V> void A<int>::B<int>::h() {}
     template<> template<> template<> void A<int>::B<int>::h<int>() {}
 
     template<> void A<int>::B<char>::f() {}
-    // cxx98-17-error@-1 {{template specialization requires 'template<>'}}
+    // expected-error@-1 {{template specialization requires 'template<>'}}
     template<> template<typename V> void A<int>::B<char>::h() {}
-    // cxx98-17-error@-1 {{template parameter list matching the non-templated nested type 'cwg531::nested::A<int>::B<char>' should be empty ('template<>')}}
-#endif
+    // expected-error@-1 {{template parameter list matching the non-templated nested type 'cwg531::nested::A<int>::B<char>' should be empty ('template<>')}}
   }
 } // namespace cwg531
 
@@ -1051,7 +1048,7 @@ namespace cwg577 { // cwg577: 3.5
   }
 } // namespace cwg577
 
-namespace cwg580 { // cwg580: partial
+namespace cwg580 { // cwg580: yes
   class C;
   struct A { static C c; };
   struct B { static C c; };
