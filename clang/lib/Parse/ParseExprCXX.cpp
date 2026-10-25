@@ -616,7 +616,8 @@ bool Parser::ParseOptionalCXXScopeSpecifier(
               getCurScope(), SS,
               /*hasTemplateKeyword=*/false, TemplateName, ObjectType,
               EnteringContext, Template, MemberOfUnknownSpecialization,
-              Disambiguation)) {
+              Disambiguation,
+              /*BeforeScopeResolution=*/isTemplateIdBeforeScopeResolution())) {
         // If lookup didn't find anything, we treat the name as a template-name
         // anyway. C++20 requires this, and in prior language modes it improves
         // error recovery. But before we commit to this, check that we actually
@@ -2791,13 +2792,23 @@ bool Parser::ParseUnqualifiedIdOperator(CXXScopeSpec &SS, bool EnteringContext,
   //   conversion-declarator:
   //     ptr-operator conversion-declarator[opt]
 
-  // The component names of the conversion-type-id are looked up in the class
-  // of the object expression of a member access first.
-  // A dependent object type has no class to look in until instantiation.
-  llvm::SaveAndRestore<ParsedType> ConvIdLookup(
-      Actions.ConversionIdLookupType,
-      ObjectType && !ObjectType.get()->isDependentType() ? ObjectType
-                                                         : ParsedType());
+  // The component names of the conversion-type-id are looked up in the way
+  // the conversion-function-id is: in the class named by its
+  // nested-name-specifier, or else in the class of the object expression of a
+  // member access ([basic.lookup.unqual]p4, CWG1111, CWG2396), then in the
+  // enclosing scopes. A dependent class has nothing to look in until
+  // instantiation.
+  ParsedType ConvIdLookupType;
+  if (SS.isNotEmpty()) {
+    if (auto *RD = dyn_cast_or_null<CXXRecordDecl>(
+            Actions.computeDeclContext(SS, EnteringContext)))
+      ConvIdLookupType = ParsedType::make(
+          Actions.Context.getCanonicalTagType(RD));
+  } else if (ObjectType && !ObjectType.get()->isDependentType()) {
+    ConvIdLookupType = ObjectType;
+  }
+  llvm::SaveAndRestore<ParsedType> ConvIdLookup(Actions.ConversionIdLookupType,
+                                                ConvIdLookupType);
 
   // Parse the type-specifier-seq.
   DeclSpec DS(AttrFactory);

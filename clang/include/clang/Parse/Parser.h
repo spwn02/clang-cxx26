@@ -8815,6 +8815,10 @@ private:
   /// never be wrong if it returns True or False.
   TPResult isTemplateArgumentList(unsigned TokensToSkip);
 
+  /// With the current token a template name and the next token a '<': whether
+  /// the matching '>' is followed by '::'.
+  bool isTemplateIdBeforeScopeResolution();
+
   /// Determine whether an '(' after an 'explicit' keyword is part of a C++20
   /// 'explicit(bool)' declaration, in earlier language modes where that is an
   /// extension.

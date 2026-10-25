@@ -316,7 +316,7 @@ namespace cwg1991 { // cwg1991: 3.9
 #endif
 } // namespace cwg1991
 
-// cwg1994: dup 529
+// cwg1994: na
 // cwg1904: na
 // cwg1905: na
 // cwg1906: na

@@ -350,20 +350,10 @@ namespace cwg125 {
   };
 } // namespace cwg125
 
-namespace cwg126 { // cwg126: partial
-  // FIXME: We do not yet generate correct code for this change:
-  // eg:
-  //   catch (void*&) should catch void* but not int*
-  //   catch (void*) and catch (void*const&) should catch both
-  // Likewise:
-  //   catch (Base *&) should catch Base* but not Derived*
-  //   catch (Base *) should catch both
-  // In each case, we emit the same code for both catches.
-  //
-  // The ABI does not let us represent the language rule in the unwind tables.
-  // So, when catching by non-const (or volatile) reference to pointer, we
-  // should compare the exception type to the caught type and only accept an
-  // exact match.
+namespace cwg126 { // cwg126: na
+  // The resolution rewrites [except.spec]p7 for dynamic exception
+  // specifications, which are not part of C++26; the cases below are kept for
+  // the C++98 to C++14 modes, which still accept 'throw(T)'.
   struct C {};
   struct D : C {};
   struct E : private C { friend class A; friend class B; };

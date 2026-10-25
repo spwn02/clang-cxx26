@@ -11805,7 +11805,8 @@ public:
                                   ParsedType ObjectType, bool EnteringContext,
                                   TemplateTy &Template,
                                   bool &MemberOfUnknownSpecialization,
-                                  bool Disambiguation = false);
+                                  bool Disambiguation = false,
+                                  bool BeforeScopeResolution = false);
 
   /// Try to resolve an undeclared template name as a type template.
   ///

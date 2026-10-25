@@ -308,21 +308,36 @@ void (*fp2)() noexcept, (*fp)() noexcept (fp2 = 0);
 #endif
 
 #if __cplusplus >= 201103L
-namespace cwg1771 { // cwg1771: no
+namespace cwg1771 { // cwg1771: yes
 // The name before '::' (also when it is a simple-template-id) is looked up
 // considering only namespaces, types, and templates whose specializations are
 // types, so the function template L::A is ignored.
 namespace N {
   namespace L { template<int> void A(); } // #cwg1771-L
-  namespace M { template<int> struct A { static int y; }; } // #cwg1771-M
+  namespace M { template<int> struct A { static int y; typedef int t; }; } // #cwg1771-M
   using namespace L;
   using namespace M;
 }
 template<int *> struct B {};
-// FIXME: this should be accepted; A names N::M::A.
 B<&N::A<0>::y> b;
+N::A<0>::t t1;
+void f() { N::A<0>::t t2; (void)t2; }
+// Without a following '::' the name is an ordinary template-name.
+void g() { N::A<0>(); }
 // expected-error@-1 {{reference to 'A' is ambiguous}}
-//   expected-note@#cwg1771-L {{candidate found by name lookup is 'cwg1771::N::L::A'}}
 //   expected-note@#cwg1771-M {{candidate found by name lookup is 'cwg1771::N::M::A'}}
+//   expected-note@#cwg1771-L {{candidate found by name lookup is 'cwg1771::N::L::A'}}
+
+// Two type templates are still ambiguous.
+namespace O {
+  namespace P { template<int> struct A { typedef int t; }; } // #cwg1771-P
+  namespace Q { template<int> struct A { typedef int t; }; } // #cwg1771-Q
+  using namespace P;
+  using namespace Q;
+}
+O::A<0>::t t3;
+// expected-error@-1 {{reference to 'A' is ambiguous}}
+//   expected-note@#cwg1771-Q {{candidate found by name lookup is 'cwg1771::O::Q::A'}}
+//   expected-note@#cwg1771-P {{candidate found by name lookup is 'cwg1771::O::P::A'}}
 } // namespace cwg1771
 #endif

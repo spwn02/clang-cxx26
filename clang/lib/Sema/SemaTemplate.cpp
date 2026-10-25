@@ -185,7 +185,8 @@ TemplateNameKind Sema::isTemplateName(Scope *S,
                                       bool EnteringContext,
                                       TemplateTy &TemplateResult,
                                       bool &MemberOfUnknownSpecialization,
-                                      bool Disambiguation) {
+                                      bool Disambiguation,
+                                      bool BeforeScopeResolution) {
   assert(getLangOpts().CPlusPlus && "No template names in C!");
 
   DeclarationName TName;
@@ -241,17 +242,29 @@ TemplateNameKind Sema::isTemplateName(Scope *S,
     // If we got an ambiguity involving a non-function template, treat this
     // as a template name, and pick an arbitrary template for error recovery.
     bool AnyFunctionTemplates = false;
+    llvm::SmallPtrSet<const Decl *, 2> TypeTemplates;
     for (NamedDecl *FoundD : R) {
       if (NamedDecl *FoundTemplate = getAsTemplateNameDecl(FoundD)) {
         if (isa<FunctionTemplateDecl>(FoundTemplate))
           AnyFunctionTemplates = true;
         else {
-          D = FoundTemplate;
-          FoundUsingShadow = dyn_cast<UsingShadowDecl>(FoundD);
-          break;
+          if (!D) {
+            D = FoundTemplate;
+            FoundUsingShadow = dyn_cast<UsingShadowDecl>(FoundD);
+          }
+          if (!BeforeScopeResolution)
+            break;
+          TypeTemplates.insert(FoundTemplate->getCanonicalDecl());
         }
       }
     }
+
+    // [basic.lookup.qual]p1 (CWG1771): the name of a template-id that precedes
+    // '::' is looked up considering only namespaces, types and templates whose
+    // specializations are types, so function templates found alongside a
+    // single type template do not make the name ambiguous.
+    if (D && BeforeScopeResolution && TypeTemplates.size() == 1)
+      R.suppressDiagnostics();
 
     // If we didn't find any templates at all, this isn't a template name.
     // Leave the ambiguity for a later lookup to diagnose.

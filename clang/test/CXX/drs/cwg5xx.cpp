@@ -85,7 +85,7 @@ namespace cwg506 { // cwg506: 2.7
 } // namespace cwg506
 
 // FIXME: Add tests here once CWG260 is resolved.
-// cwg507: dup 260
+// cwg507: na
 
 // cwg508: na
 // cwg509: na

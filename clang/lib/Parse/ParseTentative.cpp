@@ -2014,6 +2014,50 @@ Parser::TPResult Parser::TryParseBracketDeclarator() {
   return TPResult::Ambiguous;
 }
 
+bool Parser::isTemplateIdBeforeScopeResolution() {
+  RevertingTentativeParsingAction PA(*this);
+  ConsumeAnyToken(); // the template name
+  if (!TryConsumeToken(tok::less))
+    return false;
+  unsigned Depth = 1;
+  while (Depth) {
+    switch (Tok.getKind()) {
+    case tok::eof:
+    case tok::semi:
+      return false;
+    case tok::less:
+      ++Depth;
+      ConsumeToken();
+      break;
+    case tok::greater:
+      --Depth;
+      ConsumeToken();
+      break;
+    case tok::greatergreater:
+      if (Depth < 2)
+        return false;
+      Depth -= 2;
+      ConsumeToken();
+      break;
+    case tok::l_paren:
+    case tok::l_square:
+    case tok::l_brace: {
+      tok::TokenKind Close = Tok.is(tok::l_paren)    ? tok::r_paren
+                             : Tok.is(tok::l_square) ? tok::r_square
+                                                     : tok::r_brace;
+      ConsumeAnyToken();
+      if (!SkipUntil(Close, StopAtSemi))
+        return false;
+      break;
+    }
+    default:
+      ConsumeAnyToken();
+      break;
+    }
+  }
+  return Tok.is(tok::coloncolon);
+}
+
 Parser::TPResult Parser::isTemplateArgumentList(unsigned TokensToSkip) {
   if (!TokensToSkip) {
     if (Tok.isNot(tok::less))
