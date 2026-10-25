@@ -11,6 +11,7 @@
 
 #include <__config>
 #include <__locale_dir/locale_base_api.h>
+#include <stdlib.h>
 
 #if _LIBCPP_HAS_LOCALIZATION
 
@@ -32,6 +33,10 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 _LIBCPP_EXPORTED_FROM_ABI __locale::__locale_t __cloc();
 #    define __cloc_defined
 #  endif
+
+// A deleter of type 'void (*)(void*)' has C++ language linkage, so 'free', which has C
+// language linkage, cannot initialize it.
+_LIBCPP_HIDE_FROM_ABI inline void __free_buffer(void* __p) _NOEXCEPT { ::free(__p); }
 
 _LIBCPP_END_NAMESPACE_STD
 

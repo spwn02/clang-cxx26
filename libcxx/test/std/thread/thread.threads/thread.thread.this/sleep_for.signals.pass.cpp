@@ -31,7 +31,7 @@
 
 #include "test_macros.h"
 
-void sig_action(int) {}
+extern "C" void sig_action(int) {}
 
 int main(int, char**)
 {

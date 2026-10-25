@@ -675,7 +675,7 @@ basic_filebuf<_CharT, _Traits>* basic_filebuf<_CharT, _Traits>::close() {
   basic_filebuf<_CharT, _Traits>* __rt = nullptr;
   if (__file_) {
     __rt = this;
-    unique_ptr<FILE, int (*)(FILE*)> __h(__file_, fclose);
+    unique_ptr<FILE, int (*)(FILE*)> __h(__file_, [](FILE* __f) { return fclose(__f); });
     if (sync())
       __rt = nullptr;
     if (fclose(__h.release()))

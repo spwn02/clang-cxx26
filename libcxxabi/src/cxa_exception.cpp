@@ -736,6 +736,8 @@ void *__cxa_current_primary_exception() throw() {
     primary exception is decremented, destroying the primary if necessary.
     Finally the dependent exception is destroyed.
 */
+// The cleanup function of an _Unwind_Exception has C++ language linkage.
+extern "C++" {
 static
 void
 dependent_exception_cleanup(_Unwind_Reason_Code reason, _Unwind_Exception* unwind_exception)
@@ -747,6 +749,7 @@ dependent_exception_cleanup(_Unwind_Reason_Code reason, _Unwind_Exception* unwin
     __cxa_decrement_exception_refcount(dep_exception_header->primaryException);
     __cxa_free_dependent_exception(dep_exception_header);
 }
+} // extern "C++"
 
 /*
     If thrown_object is not null, allocate, initialize and throw a dependent

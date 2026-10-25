@@ -10,6 +10,7 @@
 #define _LIBCPP___LOCALE_DIR_SCAN_KEYWORD_H
 
 #include <__config>
+#include <__locale_dir/get_c_locale.h>
 #include <__memory/unique_ptr.h>
 #include <ios>
 
@@ -55,7 +56,7 @@ _LIBCPP_HIDE_FROM_ABI _ForwardIterator __scan_keyword(
   const unsigned char __does_match   = '\2';
   unsigned char __statbuf[100];
   unsigned char* __status = __statbuf;
-  unique_ptr<unsigned char, void (*)(void*)> __stat_hold(nullptr, free);
+  unique_ptr<unsigned char, void (*)(void*)> __stat_hold(nullptr, __free_buffer);
   if (__nkw > sizeof(__statbuf)) {
     __status = (unsigned char*)malloc(__nkw);
     if (__status == nullptr)

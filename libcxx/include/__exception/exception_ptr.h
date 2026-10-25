@@ -48,17 +48,16 @@ _LIBCPP_OVERRIDABLE_FUNC_VIS void* __cxa_allocate_exception(std::size_t) throw()
 _LIBCPP_OVERRIDABLE_FUNC_VIS void __cxa_free_exception(void*) throw();
 
 struct __cxa_exception;
-_LIBCPP_OVERRIDABLE_FUNC_VIS __cxa_exception* __cxa_init_primary_exception(
-    void*,
-    std::type_info*,
 #    if defined(_WIN32)
-    void(__thiscall*)(void*)) throw();
+typedef void(__thiscall* __cxa_exception_cleanup_fn)(void*);
 #    elif defined(__wasm__)
-    // In Wasm, a destructor returns its argument
-    void* (*)(void*)) throw();
+// In Wasm, a destructor returns its argument
+typedef void* (*__cxa_exception_cleanup_fn)(void*);
 #    else
-    void (*)(void*)) throw();
+typedef void (*__cxa_exception_cleanup_fn)(void*);
 #    endif
+_LIBCPP_OVERRIDABLE_FUNC_VIS __cxa_exception*
+__cxa_init_primary_exception(void*, std::type_info*, __cxa_exception_cleanup_fn) throw();
 }
 
 } // namespace __cxxabiv1
@@ -241,7 +240,10 @@ _LIBCPP_HIDE_FROM_ABI exception_ptr __make_exception_ptr_explicit(_Ep& __e) _NOE
 #      else
   auto __cleanup = [](void* __p) { std::__destroy_at(static_cast<_Ep2*>(__p)); };
 #      endif
-  (void)__cxxabiv1::__cxa_init_primary_exception(__ex, const_cast<std::type_info*>(&typeid(_Ep)), __cleanup);
+  // The function type of the parameter has C language linkage, and so cannot be the type of a
+  // template's function.
+  (void)__cxxabiv1::__cxa_init_primary_exception(
+      __ex, const_cast<std::type_info*>(&typeid(_Ep)), reinterpret_cast<__cxxabiv1::__cxa_exception_cleanup_fn>(+__cleanup));
 
   try {
     ::new (__ex) _Ep2(__e);

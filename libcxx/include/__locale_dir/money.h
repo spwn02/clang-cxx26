@@ -290,7 +290,7 @@ _LIBCPP_HIDE_FROM_ABI void __double_or_nothing(unique_ptr<_Tp, void (*)(void*)>&
     __b.release();
   else
     std::memcpy(__t, __b.get(), __cur_cap);
-  __b = unique_ptr<_Tp, void (*)(void*)>(__t, free);
+  __b = unique_ptr<_Tp, void (*)(void*)>(__t, __free_buffer);
   __new_cap /= sizeof(_Tp);
   __n = __b.get() + __n_off;
   __e = __b.get() + __new_cap;
@@ -487,7 +487,7 @@ _InputIterator money_get<_CharT, _InputIterator>::do_get(
     char __nbuf[__bz];
     char* __nc          = __nbuf;
     const char* __nc_in = __nc;
-    unique_ptr<char, void (*)(void*)> __h(nullptr, free);
+    unique_ptr<char, void (*)(void*)> __h(nullptr, __free_buffer);
     if (__wn - __wb.get() > __bz - 2) {
       __h.reset((char*)malloc(static_cast<size_t>(__wn - __wb.get() + 2)));
       if (__h.get() == nullptr)
@@ -760,8 +760,8 @@ _OutputIterator money_put<_CharT, _OutputIterator>::do_put(
   char_type __digits[__bs];
   char_type* __db = __digits;
   int __n         = snprintf(__bb, __bs, "%.0Lf", __units);
-  unique_ptr<char, void (*)(void*)> __hn(nullptr, free);
-  unique_ptr<char_type, void (*)(void*)> __hd(0, free);
+  unique_ptr<char, void (*)(void*)> __hn(nullptr, __free_buffer);
+  unique_ptr<char_type, void (*)(void*)> __hd(0, __free_buffer);
   // secure memory for digit storage
   if (static_cast<size_t>(__n) > __bs - 1) {
     __n = __locale::__asprintf(&__bb, _LIBCPP_GET_C_LOCALE, "%.0Lf", __units);
@@ -789,7 +789,7 @@ _OutputIterator money_put<_CharT, _OutputIterator>::do_put(
   // secure memory for formatting
   char_type __mbuf[__bs];
   char_type* __mb = __mbuf;
-  unique_ptr<char_type, void (*)(void*)> __hw(0, free);
+  unique_ptr<char_type, void (*)(void*)> __hw(0, __free_buffer);
   size_t __exn = __n > __fd ? (static_cast<size_t>(__n) - static_cast<size_t>(__fd)) * 2 + __sn.size() + __sym.size() +
                                   static_cast<size_t>(__fd) + 1
                             : __sn.size() + __sym.size() + static_cast<size_t>(__fd) + 2;
@@ -825,7 +825,7 @@ _OutputIterator money_put<_CharT, _OutputIterator>::do_put(
   // secure memory for formatting
   char_type __mbuf[100];
   char_type* __mb = __mbuf;
-  unique_ptr<char_type, void (*)(void*)> __h(0, free);
+  unique_ptr<char_type, void (*)(void*)> __h(0, __free_buffer);
   size_t __exn =
       static_cast<int>(__digits.size()) > __fd
           ? (__digits.size() - static_cast<size_t>(__fd)) * 2 + __sn.size() + __sym.size() + static_cast<size_t>(__fd) +

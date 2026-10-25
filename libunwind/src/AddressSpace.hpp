@@ -453,6 +453,7 @@ static bool checkForUnwindInfoSegment(const Elf_Phdr *phdr, size_t image_base,
 #endif
 }
 
+extern "C" {
 static int findUnwindSectionsByPhdr(struct dl_phdr_info *pinfo,
                                     size_t pinfo_size, void *data) {
   auto cbdata = static_cast<dl_iterate_cb_data *>(data);
@@ -499,6 +500,7 @@ static int findUnwindSectionsByPhdr(struct dl_phdr_info *pinfo,
 #endif
   return 1;
 }
+} // extern "C"
 
 #endif  // defined(_LIBUNWIND_USE_DL_ITERATE_PHDR)
 

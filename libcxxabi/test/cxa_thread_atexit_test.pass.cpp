@@ -12,11 +12,12 @@
 #include <assert.h>
 #include <cxxabi.h>
 
+extern "C" { typedef void (*Dtor_t)(void *); }
+
 static bool AtexitImplCalled = false;
 
-extern "C" int __cxa_thread_atexit_impl(void (*dtor)(void *), void *obj,
-                                        void *dso_symbol) {
-  assert(dtor == reinterpret_cast<void (*)(void *)>(1));
+extern "C" int __cxa_thread_atexit_impl(Dtor_t dtor, void *obj, void *dso_symbol) {
+  assert(dtor == reinterpret_cast<Dtor_t>(1));
   assert(obj == reinterpret_cast<void *>(2));
   assert(dso_symbol == reinterpret_cast<void *>(3));
   AtexitImplCalled = true;
@@ -25,7 +26,7 @@ extern "C" int __cxa_thread_atexit_impl(void (*dtor)(void *), void *obj,
 
 int main(int, char**) {
   int RV = __cxxabiv1::__cxa_thread_atexit(
-      reinterpret_cast<void (*)(void *)>(1), reinterpret_cast<void *>(2),
+      reinterpret_cast<Dtor_t>(1), reinterpret_cast<void *>(2),
       reinterpret_cast<void *>(3));
   assert(RV == 4);
   assert(AtexitImplCalled);

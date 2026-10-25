@@ -21,7 +21,7 @@
 #define EXPECTED_NUM_FRAMES 50
 #define NUM_FRAMES_UPPER_BOUND 100
 
-__attribute__((noinline)) _Unwind_Reason_Code callback(_Unwind_Context *context,
+extern "C" __attribute__((noinline)) _Unwind_Reason_Code callback(_Unwind_Context *context,
                                                        void *cnt) {
   (void)context;
   int *i = (int *)cnt;

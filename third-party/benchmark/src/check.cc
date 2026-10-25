@@ -3,7 +3,10 @@
 namespace benchmark {
 namespace internal {
 
-static AbortHandlerT* handler = &std::abort;
+// std::abort has C language linkage, so it is not of type AbortHandlerT.
+static void DefaultAbort() { std::abort(); }
+
+static AbortHandlerT* handler = &DefaultAbort;
 
 BENCHMARK_EXPORT AbortHandlerT*& GetAbortHandler() { return handler; }
 

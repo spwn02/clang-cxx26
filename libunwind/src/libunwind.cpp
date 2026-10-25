@@ -349,8 +349,8 @@ _LIBUNWIND_WEAK_ALIAS(__unw_save_vfp_as_X, unw_save_vfp_as_X)
 
 #if defined(_LIBUNWIND_SUPPORT_DWARF_UNWIND)
 /// SPI: walks cached DWARF entries
-_LIBUNWIND_HIDDEN void __unw_iterate_dwarf_unwind_cache(void (*func)(
-    unw_word_t ip_start, unw_word_t ip_end, unw_word_t fde, unw_word_t mh)) {
+_LIBUNWIND_HIDDEN void
+__unw_iterate_dwarf_unwind_cache(unw_cache_iterate_fn func) {
   _LIBUNWIND_TRACE_API("__unw_iterate_dwarf_unwind_cache(func=%p)",
                        reinterpret_cast<void *>(func));
   DwarfFDECache<LocalAddressSpace>::iterateCacheEntries(func);

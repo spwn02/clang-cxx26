@@ -37,7 +37,7 @@ bool exited = false;
 typedef std::chrono::milliseconds ms;
 typedef std::chrono::high_resolution_clock Clock;
 
-void* func(void*)
+extern "C" void* func(void*)
 {
     std::unique_lock<std::mutex> lk(mut);
     std::notify_all_at_thread_exit(cv, std::move(lk));

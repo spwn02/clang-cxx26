@@ -20,41 +20,41 @@
 void my_terminate () { exit ( 0 ); }
 
 //  Wrapper routines
-void *my_alloc2 ( size_t sz ) {
+extern "C" void *my_alloc2 ( size_t sz ) {
     void *p = std::malloc ( sz );
 //  std::printf ( "Allocated %ld bytes at %lx\n", sz, (unsigned long) p );
     return p;
 }
 
-void my_dealloc2 ( void *p ) {
+extern "C" void my_dealloc2 ( void *p ) {
 //  std::printf ( "Freeing %lx\n", (unsigned long) p );
     std::free ( p );
 }
 
-void my_dealloc3 ( void *p, size_t ) {
+extern "C" void my_dealloc3 ( void *p, size_t ) {
 //  std::printf ( "Freeing %lx (size %ld)\n", (unsigned long) p, sz );
     std::free ( p );
 }
 
-void my_construct ( void *) {
+extern "C" void my_construct ( void *) {
 //  std::printf ( "Constructing %lx\n", (unsigned long) p );
 }
 
-void my_destruct  ( void *) {
+extern "C" void my_destruct  ( void *) {
 //  std::printf ( "Destructing  %lx\n", (unsigned long) p );
 }
 
 int gCounter;
-void count_construct ( void * ) { ++gCounter; }
-void count_destruct  ( void * ) { --gCounter; }
+extern "C" void count_construct ( void * ) { ++gCounter; }
+extern "C" void count_destruct  ( void * ) { --gCounter; }
 
 
 int gConstructorCounter;
 int gConstructorThrowTarget;
 int gDestructorCounter;
 int gDestructorThrowTarget;
-void throw_construct ( void * ) { if ( gConstructorCounter   == gConstructorThrowTarget ) throw 1; ++gConstructorCounter; }
-void throw_destruct  ( void * ) { if ( ++gDestructorCounter  == gDestructorThrowTarget  ) throw 2; }
+extern "C" void throw_construct ( void * ) { if ( gConstructorCounter   == gConstructorThrowTarget ) throw 1; ++gConstructorCounter; }
+extern "C" void throw_destruct  ( void * ) { if ( ++gDestructorCounter  == gDestructorThrowTarget  ) throw 2; }
 
 struct vec_on_stack {
     void *storage;

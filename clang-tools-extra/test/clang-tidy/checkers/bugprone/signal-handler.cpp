@@ -4,7 +4,9 @@
 #include "stdio.h"
 
 // Functions called "signal" that are different from the system version.
+extern "C" {
 typedef void (*callback_t)(int);
+}
 void signal(int, callback_t, int);
 namespace ns {
 void signal(int, callback_t);
@@ -103,95 +105,95 @@ extern "C" void handler_cpp(int) {
   Struct S;
   // CHECK-MESSAGES: :[[@LINE-1]]:10: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:10: remark: internally, the statement is parsed as a 'CXXConstructExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   S_Global->f1();
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:3: remark: internally, the statement is parsed as a 'CXXMemberCallExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   const Struct &SRef = Struct();
   // CHECK-MESSAGES: :[[@LINE-1]]:24: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:24: remark: internally, the statement is parsed as a 'CXXBindTemporaryExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   X(3, 4.4);
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:3: remark: internally, the statement is parsed as a 'CXXTemporaryObjectExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
 
   auto L = [](int i) { printf("%d", i); };
   // CHECK-MESSAGES: :[[@LINE-1]]:12: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:12: remark: internally, the statement is parsed as a 'CXXConstructExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   L(2);
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:3: remark: internally, the statement is parsed as a 'CXXOperatorCallExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
 
   try {
     // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
     // CHECK-MESSAGES: :[[@LINE-2]]:3: remark: internally, the statement is parsed as a 'CXXTryStmt'
-    // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+    // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
     int A;
   } catch (int) {
   };
   // CHECK-MESSAGES: :[[@LINE-2]]:5: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-3]]:5: remark: internally, the statement is parsed as a 'CXXCatchStmt'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
 
   throw(12);
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:3: remark: internally, the statement is parsed as a 'CXXThrowExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
 
   for (int I : S) {
   }
   // CHECK-MESSAGES: :[[@LINE-2]]:3: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-3]]:3: remark: internally, the statement is parsed as a 'CXXForRangeStmt'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   // CHECK-MESSAGES: :[[@LINE-5]]:14: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-6]]:14: remark: internally, the statement is parsed as a 'CXXMemberCallExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
 
   int Int = *(reinterpret_cast<int *>(&S));
   // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:15: remark: internally, the statement is parsed as a 'CXXReinterpretCastExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   Int = static_cast<int>(12.34);
   // CHECK-MESSAGES: :[[@LINE-1]]:9: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:9: remark: internally, the statement is parsed as a 'CXXStaticCastExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   Derived *Der = dynamic_cast<Derived *>(S_Global);
   // CHECK-MESSAGES: :[[@LINE-1]]:18: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:18: remark: internally, the statement is parsed as a 'CXXDynamicCastExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   Struct *SPtr = const_cast<Struct *>(S_GlobalConst);
   // CHECK-MESSAGES: :[[@LINE-1]]:18: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:18: remark: internally, the statement is parsed as a 'CXXConstCastExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   Int = int(12.34);
   // CHECK-MESSAGES: :[[@LINE-1]]:9: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:9: remark: internally, the statement is parsed as a 'CXXFunctionalCastExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
 
   int *IPtr = new int[10];
   // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:15: remark: internally, the statement is parsed as a 'CXXNewExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   delete[] IPtr;
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:3: remark: internally, the statement is parsed as a 'CXXDeleteExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   IPtr = nullptr;
   // CHECK-MESSAGES: :[[@LINE-1]]:10: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:10: remark: internally, the statement is parsed as a 'CXXNullPtrLiteralExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   bool Bool = true;
   // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:15: remark: internally, the statement is parsed as a 'CXXBoolLiteralExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
   f_default_arg();
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: C++-only construct is not allowed in signal handler (until C++17) [bugprone-signal-handler]
   // CHECK-MESSAGES: :[[@LINE-2]]:3: remark: internally, the statement is parsed as a 'CXXDefaultArgExpr'
-  // CHECK-MESSAGES: :198:23: note: function 'handler_cpp' registered here as signal handler
+  // CHECK-MESSAGES: :200:23: note: function 'handler_cpp' registered here as signal handler
 }
 
 void test() {

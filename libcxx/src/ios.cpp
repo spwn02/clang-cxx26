@@ -8,6 +8,7 @@
 
 #include <__config>
 #include <__locale>
+#include <__locale_dir/get_c_locale.h>
 #include <algorithm>
 #include <ios>
 #include <limits>
@@ -245,10 +246,10 @@ void ios_base::init(void* sb) {
 void ios_base::copyfmt(const ios_base& rhs) {
   // If we can't acquire the needed resources, throw bad_alloc (can't set badbit)
   // Don't alter *this until all needed resources are acquired
-  unique_ptr<event_callback, void (*)(void*)> new_callbacks(0, free);
-  unique_ptr<int, void (*)(void*)> new_ints(0, free);
-  unique_ptr<long, void (*)(void*)> new_longs(0, free);
-  unique_ptr<void*, void (*)(void*)> new_pointers(0, free);
+  unique_ptr<event_callback, void (*)(void*)> new_callbacks(0, __free_buffer);
+  unique_ptr<int, void (*)(void*)> new_ints(0, __free_buffer);
+  unique_ptr<long, void (*)(void*)> new_longs(0, __free_buffer);
+  unique_ptr<void*, void (*)(void*)> new_pointers(0, __free_buffer);
   if (__event_cap_ < rhs.__event_size_) {
     size_t newesize = sizeof(event_callback) * rhs.__event_size_;
     new_callbacks.reset(static_cast<event_callback*>(malloc(newesize)));

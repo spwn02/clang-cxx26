@@ -29,6 +29,21 @@ namespace __cxxabiv1 {
 //
 
 namespace {
+    // The functions declared in cxxabi.h have C language linkage, and so do the
+    // function types of their parameters.
+    extern "C" {
+    typedef void (*dealloc1_f)(void *);
+    typedef void (*dealloc2_f)(void *, size_t);
+    typedef void (*destruct_f)(void *);
+    }
+
+    // The allocation functions of the C++ language linkage cannot be passed as
+    // the allocation functions of the functions declared in cxxabi.h.
+    extern "C" {
+    void *vec_alloc ( size_t size ) { return ::operator new [] ( size ); }
+    void vec_dealloc ( void *ptr ) { ::operator delete [] ( ptr ); }
+    }
+
     inline static size_t __get_element_count ( void *p ) {
         return static_cast <size_t *> (p)[-1];
         }
@@ -50,7 +65,7 @@ namespace {
 //  deallocation function (to match new2/new3 and delete2/delete3.
     class st_heap_block2 {
     public:
-        typedef void (*dealloc_f)(void *);
+        typedef dealloc1_f dealloc_f;
 
         st_heap_block2 ( dealloc_f dealloc, void *ptr )
             : dealloc_ ( dealloc ), ptr_ ( ptr ), enabled_ ( true ) {}
@@ -65,7 +80,7 @@ namespace {
 
     class st_heap_block3 {
     public:
-        typedef void (*dealloc_f)(void *, size_t);
+        typedef dealloc2_f dealloc_f;
 
         st_heap_block3 ( dealloc_f dealloc, void *ptr, size_t size )
             : dealloc_ ( dealloc ), ptr_ ( ptr ), size_ ( size ), enabled_ ( true ) {}
@@ -81,8 +96,6 @@ namespace {
 
     class st_cxa_cleanup {
     public:
-        typedef void (*destruct_f)(void *);
-
         st_cxa_cleanup ( void *ptr, size_t &idx, size_t element_size, destruct_f destructor )
             : ptr_ ( ptr ), idx_ ( idx ), element_size_ ( element_size ),
                 destructor_ ( destructor ), enabled_ ( true ) {}
@@ -171,7 +184,7 @@ _LIBCXXABI_FUNC_VIS void *
 __cxa_vec_new(size_t element_count, size_t element_size, size_t padding_size,
               void (*constructor)(void *), void (*destructor)(void *)) {
     return __cxa_vec_new2 ( element_count, element_size, padding_size,
-        constructor, destructor, &::operator new [], &::operator delete [] );
+        constructor, destructor, &vec_alloc, &vec_dealloc );
 }
 
 
@@ -373,7 +386,7 @@ _LIBCXXABI_FUNC_VIS void __cxa_vec_delete(void *array_address,
                                           size_t padding_size,
                                           void (*destructor)(void *)) {
     __cxa_vec_delete2 ( array_address, element_size, padding_size,
-               destructor, &::operator delete [] );
+               destructor, &vec_dealloc );
 }
 
 // Same as __cxa_vec_delete, except that the given function is used for

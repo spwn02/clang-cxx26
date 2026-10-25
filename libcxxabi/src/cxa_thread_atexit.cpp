@@ -19,7 +19,9 @@
 
 namespace __cxxabiv1 {
 
+  extern "C" {
   using Dtor = void(*)(void*);
+  }
 
   extern "C"
 #ifndef HAVE___CXA_THREAD_ATEXIT_IMPL

@@ -39,7 +39,7 @@
 extern char __start_main_func;
 extern char __stop_main_func;
 
-_Unwind_Reason_Code frame_handler(struct _Unwind_Context* ctx, void* arg) {
+extern "C" _Unwind_Reason_Code frame_handler(struct _Unwind_Context* ctx, void* arg) {
   (void)arg;
 
   // Unwind until the main is reached, above frames depend on the platform and
@@ -53,7 +53,7 @@ _Unwind_Reason_Code frame_handler(struct _Unwind_Context* ctx, void* arg) {
   return _URC_NO_REASON;
 }
 
-void signal_handler(int signum) {
+extern "C" void signal_handler(int signum) {
   (void)signum;
   _Unwind_Backtrace(frame_handler, NULL);
   _Exit(-1);

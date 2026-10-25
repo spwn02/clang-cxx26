@@ -37,7 +37,8 @@ struct __backtrace_state {
   size_t __skip;
 };
 
-_Unwind_Reason_Code __backtrace_callback(_Unwind_Context* __context, void* __arg) {
+// The callback of _Unwind_Backtrace has C language linkage.
+extern "C" _Unwind_Reason_Code __backtrace_callback(_Unwind_Context* __context, void* __arg) {
   auto* __state  = static_cast<__backtrace_state*>(__arg);
   uintptr_t __pc = _Unwind_GetIP(__context);
   if (__pc == 0)

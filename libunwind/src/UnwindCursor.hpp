@@ -112,6 +112,12 @@ extern "C" _Unwind_Reason_Code __libunwind_seh_personality(
 
 #endif
 
+// The callback of __unw_iterate_dwarf_unwind_cache has C language linkage.
+extern "C" {
+typedef void (*unw_cache_iterate_fn)(unw_word_t ip_start, unw_word_t ip_end,
+                                     unw_word_t fde, unw_word_t mh);
+}
+
 namespace libunwind {
 
 #if defined(_LIBUNWIND_SUPPORT_DWARF_UNWIND)
@@ -126,9 +132,7 @@ public:
 
   static void add(pint_t mh, pint_t ip_start, pint_t ip_end, pint_t fde);
   static void removeAllIn(pint_t mh);
-  static void iterateCacheEntries(void (*func)(unw_word_t ip_start,
-                                               unw_word_t ip_end,
-                                               unw_word_t fde, unw_word_t mh));
+  static void iterateCacheEntries(unw_cache_iterate_fn func);
 
 private:
 
@@ -248,8 +252,7 @@ void DwarfFDECache<A>::dyldUnloadHook(const struct mach_header *mh, intptr_t ) {
 #endif
 
 template <typename A>
-void DwarfFDECache<A>::iterateCacheEntries(void (*func)(
-    unw_word_t ip_start, unw_word_t ip_end, unw_word_t fde, unw_word_t mh)) {
+void DwarfFDECache<A>::iterateCacheEntries(unw_cache_iterate_fn func) {
   _LIBUNWIND_LOG_IF_FALSE(_lock.lock());
   for (entry *p = _buffer; p < _bufferUsed; ++p) {
     (*func)(p->ip_start, p->ip_end, p->fde, p->mh);

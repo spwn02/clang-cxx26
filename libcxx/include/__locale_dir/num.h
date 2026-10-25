@@ -949,7 +949,7 @@ _LIBCPP_HIDE_FROM_ABI inline _OutputIterator num_put<_CharT, _OutputIterator>::_
     __nc = __locale::__snprintf(__nb, __nbuf, _LIBCPP_GET_C_LOCALE, __fmt, (int)__iob.precision(), __v);
   else
     __nc = __locale::__snprintf(__nb, __nbuf, _LIBCPP_GET_C_LOCALE, __fmt, __v);
-  unique_ptr<char, void (*)(void*)> __nbh(nullptr, free);
+  unique_ptr<char, void (*)(void*)> __nbh(nullptr, __free_buffer);
   if (__nc > static_cast<int>(__nbuf - 1)) {
     if (__specify_precision)
       __nc = __locale::__asprintf(&__nb, _LIBCPP_GET_C_LOCALE, __fmt, (int)__iob.precision(), __v);
@@ -965,7 +965,7 @@ _LIBCPP_HIDE_FROM_ABI inline _OutputIterator num_put<_CharT, _OutputIterator>::_
   // Stage 2 - Widen __nar while adding thousands separators
   char_type __o[2 * (__nbuf - 1) - 1];
   char_type* __ob = __o;
-  unique_ptr<char_type, void (*)(void*)> __obh(0, free);
+  unique_ptr<char_type, void (*)(void*)> __obh(0, __free_buffer);
   if (__nb != __nar) {
     __ob = (char_type*)malloc(2 * static_cast<size_t>(__nc) * sizeof(char_type));
     if (__ob == 0)

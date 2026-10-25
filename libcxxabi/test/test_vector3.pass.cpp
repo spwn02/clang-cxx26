@@ -45,11 +45,10 @@ struct A {
 
 void my_terminate() { exit(0); }
 
-template <class T>
-void destroy(void* v)
+extern "C" void destroy_A(void* v)
 {
-  T* t = static_cast<T*>(v);
-  t->~T();
+  test1::A* t = static_cast<test1::A*>(v);
+  t->~A();
 }
 
 int main(int, char**)
@@ -58,7 +57,7 @@ int main(int, char**)
   {
   typedef test1::A Array[10];
   Array a[10]; // calls _cxa_vec_dtor
-  __cxxabiv1::__cxa_vec_dtor(a, 10, sizeof(test1::A), destroy<test1::A>);
+  __cxxabiv1::__cxa_vec_dtor(a, 10, sizeof(test1::A), destroy_A);
   assert(false);
   }
 

@@ -15,8 +15,14 @@ namespace std {
 void _sig_ign(int);
 void _sig_dfl(int);
 
+extern "C" {
 typedef void (*sighandler_t)(int);
+}
 sighandler_t signal(int, sighandler_t);
+// Handlers with C++ language linkage are not accepted by the standard function;
+// this overload lets the check see them.
+typedef void (*cxx_sighandler_t)(int);
+sighandler_t signal(int, cxx_sighandler_t);
 
 void abort();
 void _Exit(int);
@@ -32,7 +38,9 @@ struct SysStruct {
 
 namespace system_other {
 
+extern "C" {
 typedef void (*sighandler_t)(int);
+}
 sighandler_t signal(int, sighandler_t);
 
 } // namespace system_other

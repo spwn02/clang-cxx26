@@ -433,7 +433,7 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const char* __strn) {
       const int __bs = 100;
       _CharT __wbb[__bs];
       _CharT* __wb = __wbb;
-      unique_ptr<_CharT, void (*)(void*)> __h(0, free);
+      unique_ptr<_CharT, void (*)(void*)> __h(0, __free_buffer);
       if (__len > __bs) {
         __wb = (_CharT*)malloc(__len * sizeof(_CharT));
         if (__wb == 0)

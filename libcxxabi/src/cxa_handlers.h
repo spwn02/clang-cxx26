@@ -15,6 +15,7 @@
 #include "__cxxabi_config.h"
 
 #include <exception>
+#include <new>
 
 namespace std
 {
@@ -32,9 +33,11 @@ __terminate(terminate_handler func) noexcept;
 extern "C"
 {
 
-_LIBCXXABI_DATA_VIS extern void (*__cxa_terminate_handler)();
-_LIBCXXABI_DATA_VIS extern void (*__cxa_unexpected_handler)();
-_LIBCXXABI_DATA_VIS extern void (*__cxa_new_handler)();
+// The names have C language linkage; the types are the C++ handler types, which is what
+// the functions of namespace std store and return.
+_LIBCXXABI_DATA_VIS extern std::terminate_handler __cxa_terminate_handler;
+_LIBCXXABI_DATA_VIS extern std::unexpected_handler __cxa_unexpected_handler;
+_LIBCXXABI_DATA_VIS extern std::new_handler __cxa_new_handler;
 
 /*
 
