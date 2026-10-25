@@ -50,6 +50,10 @@ Potentially Breaking Changes
   Itanium C++ ABI specifies. Diagnostics print the language linkage of function types as ``extern "C"``.
   libc++ declares the ``extern "C"`` and ``extern "C++"`` overloads of ``atexit``, ``at_quick_exit``, ``qsort`` and
   ``bsearch`` the standard requires.
+  Deliberate deviation from [dcl.link]: where the declaration being compiled is in a system header, a difference in
+  the language linkage of function types is ignored by function pointer conversions and template argument
+  deduction. The headers of the host C++ library (libstdc++'s ``<string>``, ``<thread>``, ``<mutex>``) pass C
+  functions as C++ function pointers and keep compiling; code outside system headers gets the strict rule.
 
 - An array of an abstract class type is a valid type ([dcl.array], CWG1640): ``A (*p)[2]`` and ``void f(A a[2])``
   are well-formed, only defining an object of the array type is an error. The name of a non-static data member found
