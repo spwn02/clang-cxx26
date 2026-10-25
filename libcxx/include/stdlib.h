@@ -179,6 +179,12 @@ _LIBCPP_END_NAMESPACE_STD
 
 using std::atexit _LIBCPP_USING_IF_EXISTS;
 using std::qsort _LIBCPP_USING_IF_EXISTS;
+// The C library declares bsearch for a comparison function with C language linkage; [alg.c.library] also
+// requires the one with C++ language linkage in the global namespace.
+inline _LIBCPP_HIDE_FROM_ABI void* bsearch(
+    const void* __key, const void* __base, size_t __nmemb, size_t __size, int (*__compar)(const void*, const void*)) {
+  return ::bsearch(__key, __base, __nmemb, __size, reinterpret_cast<std::__libcpp_c_compare_pred*>(__compar));
+}
 
 // div
 

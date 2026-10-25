@@ -49,6 +49,7 @@
 #endif
 
 sig_atomic_t sig;
-typedef void (*func)(int);
+// signal takes a pointer to a function with C language linkage.
+extern "C" typedef void (*func)(int);
 ASSERT_SAME_TYPE(func, decltype(signal(0, (func)0)));
 ASSERT_SAME_TYPE(int,  decltype(raise(0)));
