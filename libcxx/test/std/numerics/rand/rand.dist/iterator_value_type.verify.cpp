@@ -6,6 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+// The Mandates of the distributions are checked by the headers of C++11 and later; the frozen C++03 headers do not
+// have them (and a conversion function cannot be explicit in C++03).
+// UNSUPPORTED: c++03
+
 #include <random>
 
 struct ExplicitWeight {

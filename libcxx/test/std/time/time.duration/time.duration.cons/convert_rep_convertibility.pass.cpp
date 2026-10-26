@@ -6,6 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// The Constraints are in the headers of C++11 and later; the frozen C++03 headers do not have them.
+// UNSUPPORTED: c++03
+
 // template<class Rep2, class Period2>
 //   constexpr duration(const duration<Rep2, Period2>&);
 //
