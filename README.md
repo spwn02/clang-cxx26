@@ -1,12 +1,39 @@
-# CXX26 Clang: Experimental LLVM fork
+# CXX26 Clang: a C++26 LLVM fork
 
-CXX26 Clang is an experimental fork of
-[`llvm/llvm-project`](https://github.com/llvm/llvm-project). Its goal is broad
-C++26 language and standard-library implementation, together with compatible
-support for earlier C++ standards, including static reflection
-([P2996](https://wg21.link/p2996) and its companion papers). Enable it with
-`-std=c++26`; reflection, expansion statements, annotations and contracts
-are part of that mode (see `AGENTS.md`).
+CXX26 Clang is a fork of [`llvm/llvm-project`](https://github.com/llvm/llvm-project)
+that implements C++26 as specified by the C++ working draft N5050 plus the applied
+defect reports: the language in Clang and the standard library in libc++, including
+static reflection ([P2996](https://wg21.link/p2996) and its companion papers),
+expansion statements, annotations and contracts. Enable it with `-std=c++26`; these
+features are part of that mode and have no experimental flags (see `AGENTS.md`).
+Earlier standards (`-std=c++03` through `-std=c++23`) are supported.
+
+## Release
+
+The current release is
+[`cxx26-2026.10.27`](https://github.com/spwn02/clang-cxx26/releases/tag/cxx26-2026.10.27),
+a Linux x86_64 toolchain with Clang, clangd, clang-tidy, lld, libc++, libc++abi,
+libunwind, the compiler-rt runtimes and the libc++ `import std` module sources.
+
+```bash
+gh release download cxx26-2026.10.27 --repo spwn02/clang-cxx26
+sha256sum -c clang-cxx26-2026.10.27-linux-x86_64.SHA256SUMS
+zstd -dc clang-cxx26-2026.10.27-linux-x86_64.tar.zst | tar -x
+source clang-cxx26-2026.10.27/share/clang-cxx26/activate.sh   # sets CC, CXX, PATH and the library path
+$CXX -std=c++26 hello.cpp
+```
+
+For CMake use the toolchain file named by `$CXX26_CMAKE_TOOLCHAIN_FILE`. The snapshot
+format and the release process are described in `cxx26/toolchain/README.md`.
+
+## Deviations from the standard
+
+The deviations are deliberate and documented in `clang/docs/ReleaseNotes.rst`. The one
+that affects ordinary code: function types with C and C++ language linkage are distinct
+types ([dcl.link]), as the standard requires, but converting between pointers to such
+functions is diagnosed with `-Wfunction-type-language-linkage`, an error by default that
+`-Wno-error=function-type-language-linkage` downgrades, and a use inside a system header
+does not tell the linkages apart, so the headers of the host C++ library keep compiling.
 
 This fork preserves upstream LLVM history and the history of its Bloomberg-originated
 reflection implementation. That provenance does not imply Bloomberg endorsement
