@@ -26,6 +26,9 @@ $CXX -std=c++26 hello.cpp
 For CMake use the toolchain file named by `$CXX26_CMAKE_TOOLCHAIN_FILE`. The snapshot
 format and the release process are described in `cxx26/toolchain/README.md`.
 
+Code written for earlier snapshots of this fork or for stock Clang may need changes; they are
+listed in [`cxx26/MIGRATING.md`](cxx26/MIGRATING.md).
+
 ## Deviations from the standard
 
 The deviations are deliberate and documented in `clang/docs/ReleaseNotes.rst`. The one
