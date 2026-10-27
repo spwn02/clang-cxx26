@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Progress watchdog for a background lit sweep. One stdout line per event.
 f="$1"; pidpat="$2"; total="${3:-64}"
-cd /home/spawn/dev/toolchains/clang-p2996
+cd /home/spawn/dev/toolchains/clang-cxx26
 seen=0; last_change=$(date +%s); last_hb=0; alive_tag=""
 while true; do
   now=$(date +%s)

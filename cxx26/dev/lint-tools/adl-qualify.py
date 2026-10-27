@@ -9,7 +9,7 @@ invocations, types/functional casts and anything without exactly one declaring n
 ALWAYS follow with the header sweep AND the tests: a qualified call to a function declared later only fails when instantiated
 (hive's erase called erase_if before its definition)."""
 import os, re, sys, collections
-INC = '/home/spawn/dev/toolchains/clang-p2996/libcxx/include'
+INC = '/home/spawn/dev/toolchains/clang-cxx26/libcxx/include'
 os.chdir(INC)
 EXEMPT = {'conj', 'real', 'imag', 'abs', 'sqrt', '__abs_if_needed', '__conj_if_needed', '__real_if_needed', '__imag_if_needed',
           'submdspan_mapping', 'from_stream', 'reserve_hint', '__simd_select_impl', 'operator', 'swap', 'iter_swap', 'iter_move',

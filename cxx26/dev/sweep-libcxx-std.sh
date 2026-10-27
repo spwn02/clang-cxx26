@@ -3,7 +3,7 @@
 # libcxx/test/libcxx file), deleting Output between.
 # libcxx-lit reinstalls headers from the working tree on every call: do not edit libcxx/include while a
 # sweep runs (use a worktree). The clang_tidy.gen.py tests need the plugin, see check-module-exports.sh.
-cd /home/spawn/dev/toolchains/clang-p2996
+cd /home/spawn/dev/toolchains/clang-cxx26
 export CCACHE_DIR=/tmp/cxx26-scratch/ccache
 std="$1"; out="$2"; : > "$out"
 # The main headers are not C++03-clean (upstream neither); C++03 is tested against the frozen C++03 headers.

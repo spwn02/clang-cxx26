@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-cd /home/spawn/dev/toolchains/clang-p2996
+cd /home/spawn/dev/toolchains/clang-cxx26
 I=build-libcxx/libcxx/test-suite-install/include/c++/v1
 T=$CLAUDE_JOB_DIR/tmp/hs; mkdir -p $T
 one() { std=$1; h=$2; f=$T/$h.$std.cpp; echo "#include <$h>" > $f

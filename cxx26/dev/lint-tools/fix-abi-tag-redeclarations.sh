@@ -1,4 +1,4 @@
-cd /home/spawn/dev/toolchains/clang-p2996
+cd /home/spawn/dev/toolchains/clang-cxx26
 I=build-libcxx/libcxx/test-suite-install/include/c++/v1
 for h in "$@"; do
 for i in 1 2 3 4 5; do
