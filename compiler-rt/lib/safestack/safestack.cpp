@@ -229,6 +229,11 @@ void thread_cleanup_handler(void *_iter) {
 
 void EnsureInterceptorsInitialized();
 
+}  // namespace
+
+// The interceptor has a weak alias, so it cannot be in the unnamed namespace
+// (which gives its name internal linkage).
+
 /// Intercept thread creation operation to allocate and setup the unsafe stack
 INTERCEPTOR(int, pthread_create, pthread_t *thread,
             const pthread_attr_t *attr,
@@ -276,6 +281,8 @@ INTERCEPTOR(int, pthread_create, pthread_t *thread,
 
   return REAL(pthread_create)(thread, attr, thread_start, tinfo);
 }
+
+namespace {
 
 pthread_mutex_t interceptor_init_mutex = PTHREAD_MUTEX_INITIALIZER;
 bool interceptors_inited = false;

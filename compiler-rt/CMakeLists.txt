@@ -359,6 +359,9 @@ if(NOT WIN32)
   append_list_if(COMPILER_RT_HAS_FPIC_FLAG -fPIC SANITIZER_COMMON_CFLAGS)
 endif()
 append_list_if(COMPILER_RT_HAS_FNO_BUILTIN_FLAG -fno-builtin SANITIZER_COMMON_CFLAGS)
+# The runtimes pass C++ functions to C interfaces (interceptors, pthread, dl_iterate_phdr) and vice
+# versa; fork clang diagnoses such language-linkage conversions ([dcl.link]p1).
+append_list_if(COMPILER_RT_HAS_WNO_FUNCTION_TYPE_LANGUAGE_LINKAGE_FLAG -Wno-function-type-language-linkage SANITIZER_COMMON_CFLAGS)
 append_list_if(COMPILER_RT_HAS_FNO_EXCEPTIONS_FLAG -fno-exceptions SANITIZER_COMMON_CFLAGS)
 if(NOT COMPILER_RT_DEBUG AND NOT APPLE)
   append_list_if(COMPILER_RT_HAS_FOMIT_FRAME_POINTER_FLAG -fomit-frame-pointer SANITIZER_COMMON_CFLAGS)

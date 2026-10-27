@@ -512,7 +512,10 @@ XRayPatchingStatus mprotectAndPatchFunction(int32_t FuncId, int32_t ObjId,
 using namespace __xray;
 
 // The following functions are declared `extern "C" {...}` in the header, hence
-// they're defined in the global namespace.
+// they're defined in the global namespace. They are defined in a linkage
+// specification too, so that the function types of their parameters have the
+// same language linkage as in the declarations.
+extern "C" {
 
 int __xray_set_handler(void (*entry)(int32_t,
                                      XRayEntryType)) XRAY_NEVER_INSTRUMENT {
@@ -689,3 +692,5 @@ int32_t __xray_unpack_object_id(int32_t PackedId) {
 int32_t __xray_pack_id(int32_t FuncId, int32_t ObjId) {
   return __xray::MakePackedId(FuncId, ObjId);
 }
+
+} // extern "C"

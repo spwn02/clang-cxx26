@@ -20,6 +20,7 @@ append_list_if(COMPILER_RT_HAS_FVISIBILITY_HIDDEN_FLAG -fvisibility=hidden SCUDO
 append_list_if(COMPILER_RT_HAS_FNO_EXCEPTIONS_FLAG -fno-exceptions SCUDO_CFLAGS)
 
 append_list_if(COMPILER_RT_HAS_WNO_PEDANTIC -Wno-pedantic SCUDO_CFLAGS)
+append_list_if(COMPILER_RT_HAS_WNO_FUNCTION_TYPE_LANGUAGE_LINKAGE_FLAG -Wno-function-type-language-linkage SCUDO_CFLAGS)
 
 # FIXME: find cleaner way to agree with GWPAsan flags
 append_list_if(COMPILER_RT_HAS_FNO_LTO_FLAG -fno-lto SCUDO_CFLAGS)
